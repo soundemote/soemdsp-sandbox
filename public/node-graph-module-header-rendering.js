@@ -645,7 +645,7 @@ function createNodeGraphModuleHeader(type, node, definition) {
   titleText.value = typeof nodeGraphPatchNodeTitle === "function"
     ? nodeGraphPatchNodeTitle(node)
     : (nodeGraphNodeLabels?.[type] || type);
-  titleText.title = "Triple-click to rename (alias). Multi-select renames all selected. Double-click header for Module Settings.";
+  nodeGraphApplyTooltip(titleText, "module.titleMove", {}, { title: false });
   // Single/double click: select/drag or open module settings (bubbles to row).
   // preventDefault blocks the input's native caret placement on click #1.
   // Triple-click (detail >= 3) starts an explicit rename session only.

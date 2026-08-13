@@ -58,6 +58,8 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "electroHat",
   // Flexible multi-point control grid (Modulator shelf) — placeholder.
   "flexGrid",
+  // Airwindows Density-style clipper — withdrawn; do not spawn or use.
+  "airClipper",
   // Chaosfly attractor / fly-like chaos (Chaos shelf) — placeholder.
   "chaosfly",
   // Sequence shelf: pattern drummer engine — placeholder.
@@ -383,6 +385,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "BitConverter",
     notes: ["normalize", "0..1", "-1..1", "bitmask"],
   },
+  numberGate: {
+    category: "digital",
+    description: "Decode keypad-compatible Analog and Digital into gates 0–12. A and D can each light one outlet.",
+    label: "Number Gate",
+    notes: ["decoder", "gate", "keypad", "digital", "0-12"],
+  },
   stepSequencer: {
     category: "clock",
     description: "Classic stepped values under clock—melodies, parameter automation, and rhythmic CV.",
@@ -697,9 +705,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   airClipper: {
     category: "dynamics",
-    description: "Airwindows Density-style thickness—soft saturate or anti-density for body.",
+    description: "Under construction. Not available.",
     label: "AirClipper",
-    notes: ["airwindows", "Density3", "density", "soft clip", "highpass", "dynamics"],
+    notes: ["under construction", "airwindows", "Density3", "density", "soft clip", "dynamics"],
   },
   rotate3dTo2d: {
     category: "dynamics",
@@ -1410,6 +1418,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Pitch Detector",
     notes: ["pitch tracking", "pitch detector", "mcleod", "autocorrelation", "frequency follower", "gate"],
   },
+  noiseDetector: {
+    category: "multimeter",
+    description: "Pitch-detector fidelity only: how tonal vs noisy the averaged L/M/R mix is, plus a threshold gate.",
+    label: "Noise Detector",
+    notes: ["multimeter", "fidelity", "nsdf", "mcleod", "noise", "gate", "threshold"],
+  },
   speedColorInertia: {
     category: "multimeter",
     description: "Turn signal speed into color desaturation—visual edge energy meters.",
@@ -1713,6 +1727,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "object",
     description: "Wireable title/text plate so messages can be driven by the patch.",
     notes: ["data-plane ports", "port scripts", "wired label"],
+  },
+  phoneTone: {
+    category: "object",
+    description: "DTMF phone tones from Analog 0–1 and/or Digital slot (same 12-key map as Keypad). Gate opens the tone. X = low sine, Z = high sine, M = sum. Polyphonic when both ins are used.",
+    label: "Phone Tone",
+    notes: ["dtmf", "phone", "tone", "keypad", "robin", "object"],
   },
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
   // their own catalog entry instead of it being hardcoded here -- see
@@ -2250,6 +2270,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   nextPatch: {
     source: "public/modules/nextPatch/next-patch-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/nextPatch/next-patch-worklet-evaluator.js",
+  },
+  noiseDetector: {
+    source: "public/modules/noiseDetector/noise-detector-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/noiseDetector/noise-detector-math.js",
   },
   noiseGenerator: {
     source: "public/modules/noiseGenerator/noise-generator-math.js",

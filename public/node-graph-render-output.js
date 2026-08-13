@@ -30,10 +30,7 @@ function nodeGraphClampOutputSample(value) {
   if (!Number.isFinite(Number(value))) {
     return 0;
   }
-  return Math.max(
-    -nodeGraphOutputClipLimit,
-    Math.min(nodeGraphOutputClipLimit, Number(value)),
-  );
+  return Number(value);
 }
 
 function nodeGraphOutputSampleClipped(value) {

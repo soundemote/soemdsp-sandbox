@@ -6,7 +6,7 @@ NodeLiveAudioProcessor.prototype.clipperLimiterChannel = function clipperLimiter
   maxDb,
   gainDb,
   state,
-  antialias,
+  oversample,
   channel,
 ) {
   const prep = typeof nodeGraphClipperLimiterPrep === "function"
@@ -16,14 +16,14 @@ NodeLiveAudioProcessor.prototype.clipperLimiterChannel = function clipperLimiter
     return prep.y;
   }
   const shaped = this.nativeSoftClipperSample
-    ? this.nativeSoftClipperSample(prep.excess, 0, 2 * prep.span, state, antialias, channel)
+    ? this.nativeSoftClipperSample(prep.excess, 0, 2 * prep.span, state, oversample, channel)
     : (typeof nodeGraphSoftClipperSample === "function"
       ? nodeGraphSoftClipperSample(
         prep.excess,
         0,
         2 * prep.span,
         channel === 1 ? state?.left : channel === 2 ? state?.right : state?.mono,
-        antialias,
+        oversample,
       )
       : prep.span * Math.tanh(prep.excess / prep.span));
   return typeof nodeGraphClipperLimiterFinish === "function"
@@ -39,18 +39,18 @@ NodeLiveAudioProcessor.prototype.clipperLimiterFrame = function clipperLimiterFr
   maxDb,
   gainDb,
   state = null,
-  antialias = 1,
+  oversample = 2,
 ) {
   if (state && typeof nodeGraphClipperLimiterPrep === "function") {
     const m = Number(mono) || 0;
     return {
-      Out: this.clipperLimiterChannel(m, minDb, maxDb, gainDb, state, antialias, 0),
-      Left: this.clipperLimiterChannel((Number(left) || 0) + m, minDb, maxDb, gainDb, state, antialias, 1),
-      Right: this.clipperLimiterChannel((Number(right) || 0) + m, minDb, maxDb, gainDb, state, antialias, 2),
+      Out: this.clipperLimiterChannel(m, minDb, maxDb, gainDb, state, oversample, 0),
+      Left: this.clipperLimiterChannel((Number(left) || 0) + m, minDb, maxDb, gainDb, state, oversample, 1),
+      Right: this.clipperLimiterChannel((Number(right) || 0) + m, minDb, maxDb, gainDb, state, oversample, 2),
     };
   }
   if (typeof nodeGraphClipperLimiterFrame === "function") {
-    return nodeGraphClipperLimiterFrame(mono, left, right, minDb, maxDb, gainDb, state, antialias);
+    return nodeGraphClipperLimiterFrame(mono, left, right, minDb, maxDb, gainDb, state, oversample);
   }
   const m = Number(mono) || 0;
   return {

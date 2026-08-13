@@ -691,6 +691,10 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       4,
     ),
     padding: normalizeNodeGraphTraceDisplayNumber(source.padding, defaults.padding, -Infinity, Infinity),
+    protectColor: normalizeNodeGraphTraceDisplayColor(
+      source.protectColor ?? source.protect,
+      defaults.protectColor || "#e02020",
+    ),
     // Amplitude zoom: multiplies samples before face mapping (1 = full-scale).
     scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale ?? 1, 0.01, 100),
     skipDiscontinuities: source.skipDiscontinuities !== false,
@@ -971,6 +975,21 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
         return false;
       }
       return Boolean(defaults.decimalBudget);
+    })(),
+    // Digit bins: Digits slider is the number of slots. Unused slots stay put.
+    digitBins: (() => {
+      const raw = source.digitBins ?? source.fixedDigitBins ?? source.binDigits;
+      if (raw === true || raw === "true" || raw === 1 || raw === "1") {
+        return true;
+      }
+      if (raw === false || raw === "false" || raw === 0 || raw === "0") {
+        return false;
+      }
+      // Old GROW-on patches (decimalBudget stored false) keep live resize.
+      if (source.decimalBudget === false || source.decimalBudget === "false" || source.decimalBudget === 0) {
+        return false;
+      }
+      return defaults.digitBins !== false;
     })(),
     // Live light × residual gradient composite (dropdown). LCD defaults to source-over.
     lightBlend: (() => {
@@ -1274,8 +1293,8 @@ function nodeGraphNumberReadoutDefaultsForNode(node) {
       faceStyle: "led",
       // Pitch Hz: ~4 integer + 2 decimal slots → total digit budget 6.
       digits: 6,
-      // false = GROW on (digits resize to fill). User can turn GROW off for fixed bins.
-      decimalBudget: false,
+      decimalBudget: true,
+      digitBins: true,
     };
   }
   const base = nodeGraphNumberReadoutFaceStyleForNode(node) === "lcd"

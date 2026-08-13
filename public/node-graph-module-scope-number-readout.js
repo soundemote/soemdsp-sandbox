@@ -1170,11 +1170,67 @@ function nodeGraphNumberReadoutFacePadding01(settings = null) {
  * Never bypass budget when GROW is off — even at facePadding 0 (old pad≈0
  * shortcut always returned live text and ignored GROW off).
  */
+function nodeGraphNumberReadoutUsesDigitBins(settings = null) {
+  if (!settings) {
+    return true;
+  }
+  if (Object.hasOwn(settings, "digitBins")) {
+    return Boolean(settings.digitBins);
+  }
+  return settings.digitBins !== false;
+}
+
+function nodeGraphNumberReadoutUsesFixedBudget(settings = null) {
+  if (!settings) {
+    return true;
+  }
+  return Boolean(settings.decimalBudget) || nodeGraphNumberReadoutUsesDigitBins(settings);
+}
+
+/**
+ * Right-align a formatted reading into fixed Digits+Decimals bins.
+ * Unused integer bins are spaces (ghost 8s), not zeros — like a real meter.
+ */
+function nodeGraphNumberReadoutPadValueToBins(valueText, digits, decimals, options = null) {
+  const total = nodeGraphNumberReadoutSafeDigits(digits);
+  const d = Math.min(nodeGraphNumberReadoutSafeDecimals(decimals), Math.max(0, total - 1));
+  const ints = Math.max(1, total - d);
+  const reserveSign = options?.reserveSignSpace !== false;
+  let raw = String(valueText ?? "");
+  if (/^[!.\s—–-]+$/.test(raw.trim())) {
+    const frac = d > 0 ? `.${"!".repeat(d)}` : "";
+    return `${reserveSign ? " " : ""}${"!".repeat(ints)}${frac}`;
+  }
+  const neg = raw.startsWith("-");
+  if (neg || raw.startsWith(" ")) {
+    raw = raw.slice(1);
+  }
+  const dot = raw.indexOf(".");
+  let intPart = dot >= 0 ? raw.slice(0, dot) : raw;
+  let fracPart = dot >= 0 ? raw.slice(dot + 1) : "";
+  intPart = String(intPart || "0").replace(/\D/g, "") || "0";
+  if (intPart.length > ints) {
+    intPart = intPart.slice(-ints);
+  } else {
+    intPart = intPart.padStart(ints, " ");
+  }
+  if (d > 0) {
+    const padZeros = options?.removeTrailingZeros !== true;
+    fracPart = String(fracPart || "").replace(/\D/g, "");
+    fracPart = padZeros ? fracPart.padEnd(d, "0").slice(0, d) : fracPart.slice(0, d).padEnd(d, " ");
+  } else {
+    fracPart = "";
+  }
+  const body = d > 0 ? `${intPart}.${fracPart}` : intPart;
+  if (!reserveSign) {
+    return neg ? `-${body.replace(/^ /, "")}` : body;
+  }
+  return `${neg ? "-" : " "}${body}`;
+}
+
 function nodeGraphNumberReadoutLayoutFitText(slot, valueText, decimals, settings = null) {
-  const budgetOn = settings
-    ? Boolean(settings.decimalBudget)
-    : false;
-  // GROW on / no lock: fill plate to the live reading.
+  const budgetOn = nodeGraphNumberReadoutUsesFixedBudget(settings);
+  // GROW on and Digit bins off: fill plate to the live reading.
   if (!budgetOn) {
     return valueText;
   }
@@ -1189,12 +1245,15 @@ function nodeGraphNumberReadoutLayoutFitText(slot, valueText, decimals, settings
 
 
 function nodeGraphNumberReadoutGhostPlateText(valueText) {
-  // Digits ghost as a full 8. The reserved sign cell is only the minus bar.
-  let s = String(valueText || "").replace(/[0-9!]/g, "8");
-  if (s.startsWith(" ")) {
-    s = `-${s.slice(1)}`;
+  // Digits and unused bins ghost as a full 8. Sign cell is only the minus bar.
+  let s = String(valueText || "");
+  const sign = (s.startsWith("-") || s.startsWith(" ")) ? s[0] : "";
+  const rest = sign ? s.slice(1) : s;
+  const ghostRest = rest.replace(/[0-9! ]/g, "8");
+  if (sign === " ") {
+    return `-${ghostRest}`;
   }
-  return s;
+  return `${sign}${ghostRest}`;
 }
 
 
@@ -1232,6 +1291,7 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.digits,
     settings.decimals,
     settings.decimalBudget ? 1 : 0,
+    settings.digitBins === false ? 0 : 1,
     settings.lightBlend,
     settings.facePadding,
     settings.unlitSegments,
@@ -1974,6 +2034,14 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         formatOptions,
       )
       : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
+    if (nodeGraphNumberReadoutUsesDigitBins(settings)) {
+      liveValueText = nodeGraphNumberReadoutPadValueToBins(
+        liveValueText,
+        digits,
+        decimals,
+        formatOptions,
+      );
+    }
   }
   // Hold last good reading — never paint empty "!" over a held phosphor face
   // (pause + wire connect / deselect was clearing Pitch Detector ghosts).

@@ -33,17 +33,60 @@ function nodeGraphEarProtectionIsHot() {
   return Boolean(document.body?.classList?.contains("node-ear-protection-engaged"));
 }
 
-function nodeGraphSetEarProtectionEngaged(engaged, details = {}) {
-  const on = Boolean(engaged);
-  document.body?.classList.toggle("node-ear-protection-engaged", on);
+function nodeGraphOutputProtectMuteAmount(gain) {
+  const g = Number(gain);
+  if (!Number.isFinite(g)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, 1 - g));
+}
+
+function nodeGraphOutputProtectColorForNode(nodeOrEl) {
+  const id = nodeOrEl?.dataset?.node || nodeOrEl?.id;
+  const patchNode = typeof nodeGraphPatchNode === "function" && id
+    ? nodeGraphPatchNode(id)
+    : (nodeOrEl?.type === "output" ? nodeOrEl : null);
+  const settings = patchNode?.traceDisplaySettings;
+  const color = settings?.protectColor || settings?.protect || "";
+  return /^#[0-9a-fA-F]{3,8}$/.test(String(color).trim()) ? String(color).trim() : "#e02020";
+}
+
+function nodeGraphSyncOutputProtectOverlay(muteAmount = globalThis.nodeGraphOutputProtectMute || 0, options = {}) {
+  const mute = Math.max(0, Math.min(1, Number(muteAmount) || 0));
+  const prev = Number(globalThis.nodeGraphOutputProtectMute);
+  globalThis.nodeGraphOutputProtectMute = mute;
+  const visible = mute > 0.001;
+  if (
+    !options.force
+    && Math.abs((Number.isFinite(prev) ? prev : -1) - mute) < 0.002
+    && document.body?.dataset.outputProtectReady === "1"
+  ) {
+    return mute;
+  }
+  if (document.body) {
+    document.body.dataset.outputProtectReady = "1";
+  }
   document.querySelectorAll(".dsp-node.output-node").forEach((node) => {
-    node.classList.toggle("node-ear-protection-engaged", on);
+    node.style.setProperty("--node-output-protect-alpha", String(mute));
+    node.style.setProperty("--node-output-protect-color", nodeGraphOutputProtectColorForNode(node));
+    node.classList.toggle("node-output-protect-visible", visible);
+    node.classList.toggle("node-ear-protection-engaged", visible);
   });
-  if (on) {
-    globalThis.nodeGraphEarProtectionDetails = { ...details };
+  document.body?.classList.toggle("node-ear-protection-engaged", visible);
+  return mute;
+}
+
+function nodeGraphSetEarProtectionEngaged(engaged, details = {}) {
+  const gain = Number(details.protectionGain);
+  const mute = Object.prototype.hasOwnProperty.call(details, "protectionGain")
+    ? nodeGraphOutputProtectMuteAmount(gain)
+    : (engaged ? 1 : 0);
+  if (engaged || mute > 0) {
+    globalThis.nodeGraphEarProtectionDetails = { ...details, mute };
   } else if (!details.keepDetails) {
     globalThis.nodeGraphEarProtectionDetails = null;
   }
+  nodeGraphSyncOutputProtectOverlay(mute);
   if (typeof refreshNodeGraphSpeakerProtectionBodies === "function") {
     refreshNodeGraphSpeakerProtectionBodies();
   }
@@ -78,9 +121,7 @@ function nodeGraphTripEarProtection(details = {}) {
   return true;
 }
 
-function nodeGraphClampProtectedSample(value, limit = 0.95) {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  return Math.max(-limit, Math.min(limit, value));
+function nodeGraphClampProtectedSample(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }

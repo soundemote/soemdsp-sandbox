@@ -945,6 +945,9 @@ function inferNodeGraphModuleBandId(child) {
     return tagged;
   }
   const cls = child.classList;
+  if (cls.contains("node-text-box-body")) {
+    return "face";
+  }
   if (cls.contains("dsp-node-header")) {
     return "header";
   }
@@ -1014,6 +1017,10 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
     const index = visible.findIndex((band) => band.id === id);
     if (index >= 0) {
       child.style.gridRow = String(index + 1);
+      child.hidden = false;
+    } else if (child.classList.contains("node-text-box-body")) {
+      const faceIndex = visible.findIndex((band) => band.id === "face");
+      child.style.gridRow = String(faceIndex >= 0 ? faceIndex + 1 : Math.max(2, visible.length));
       child.hidden = false;
     } else {
       child.style.gridRow = "auto";

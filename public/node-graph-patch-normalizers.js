@@ -866,6 +866,7 @@ function normalizeNodeGraphPatchView(view = {}) {
     gridVisible: flag("gridVisible", true),
     gridLightVisible: flag("gridLightVisible", true),
     wireLengthsVisible: flag("wireLengthsVisible", true),
+    wiringChromeVisible: flag("wiringChromeVisible", true),
     wiresAboveModules: flag("wiresAboveModules", false),
     moduleButtonsVisible: flag("moduleButtonsVisible", true),
     moduleOscilloscopesVisible: flag("moduleOscilloscopesVisible", true),

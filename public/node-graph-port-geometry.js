@@ -291,18 +291,49 @@ function nodeGraphCssColor(property, fallback) {
   return value || fallback;
 }
 
-// App-wide policy: white wire == bit-based signal. A continuous CV like
-// 0.1V/Oct pitch (or anything else that's just a smoothly-varying float,
-// no matter how huge its usable range) does NOT get white -- only ports
-// that actually pack their value as a bitmask do, either via this
-// sandbox's one universal bitmask-signal name (Scale, a quantizer's
-// 12-bit scale-degree mask, see pitch-quantizer-worklet-evaluator.js's
-// `& 0xFFF`) on any node, or via the node's own module definition
-// explicitly listing it in digitalInputs/digitalOutputs -- see e.g.
-// comparator's "In" and transport's pulse/trigger outputs, or
-// keyboardController's "Held Keys" bitmask, in node-graph-module-definitions.js.
+const NODE_GRAPH_FREQUENCY_VALUE_GLYPH = "\u0192"; // ƒ
+
+/**
+ * Hz-as-a-number jacks (Pitch Detector Frequency, MIDI ƒ…).
+ * Not oscillator Frequency sliders, not 0.1V/Oct pitch CV.
+ */
+function nodeGraphPortIsFrequencyValue(port) {
+  const key = String(port || "").trim();
+  if (!key) {
+    return false;
+  }
+  if (key === "Frequency" || key === "Freq" || key === NODE_GRAPH_FREQUENCY_VALUE_GLYPH) {
+    return true;
+  }
+  if (/^d?f\d+$/i.test(key)) {
+    return true;
+  }
+  if (key.charAt(0) === NODE_GRAPH_FREQUENCY_VALUE_GLYPH && /^\d+$/.test(key.slice(1))) {
+    return true;
+  }
+  return false;
+}
+
+function nodeGraphFrequencyValuePortDisplayLabel(port) {
+  const key = String(port || "").trim();
+  const numbered = key.match(/^d?f(\d+)$/i)
+    || (key.charAt(0) === NODE_GRAPH_FREQUENCY_VALUE_GLYPH ? key.slice(1).match(/^(\d+)$/) : null);
+  if (numbered) {
+    return `${NODE_GRAPH_FREQUENCY_VALUE_GLYPH}${numbered[1]}`;
+  }
+  if (key === "Frequency" || key === "Freq" || key === NODE_GRAPH_FREQUENCY_VALUE_GLYPH) {
+    return NODE_GRAPH_FREQUENCY_VALUE_GLYPH;
+  }
+  return key;
+}
+
+// App-wide policy: white wire == digital cable.
+//   • bitmasks (Scale, Held Keys, …)
+//   • ƒ real-value jacks (Hz reports: Frequency, Df1/Df2, ƒ1/ƒ2) on inlets and outlets
+//   • anything listed in digitalInputs / digitalOutputs
+// 0.1V/Oct pitch CV stays analog (not white) — it is a smoothly-varying voltage.
 function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
-  if (port === "Scale") {
+  if (port === "Scale" || nodeGraphPortIsFrequencyValue(port)) {
     return true;
   }
   const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
@@ -329,6 +360,7 @@ function nodeGraphPortWireColor(node, port, io) {
   if (nodeGraphPortIsDigitalSignal(nodeGraphPatchNodeType(node), canonicalPort, io)) {
     return "#ffffff";
   }
+  // L/M/R and X/Y/Z outlet RGB is jack chrome only — never cable color.
   if (io === "input") {
     return nodeGraphCssColor("--node-input-fill", "#7fc7d9");
   }

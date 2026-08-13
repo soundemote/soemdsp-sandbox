@@ -526,6 +526,16 @@ function toggleNodeGraphFloatingWindowLock(event) {
   if (!element) {
     return false;
   }
+  if (
+    typeof nodeGraphCommandCenterIsDocked === "function"
+    && nodeGraphCommandCenterIsDocked()
+    && typeof undockNodeGraphCommandCenterInPlace === "function"
+  ) {
+    undockNodeGraphCommandCenterInPlace();
+    event.preventDefault();
+    event.stopPropagation();
+    return true;
+  }
   setNodeGraphFloatingWindowLocked(element, !nodeGraphFloatingWindowLocked(element));
   event.preventDefault();
   event.stopPropagation();
@@ -534,6 +544,9 @@ function toggleNodeGraphFloatingWindowLock(event) {
 
 function bindNodeGraphFloatingWindowLockHandle(handle) {
   if (!handle || handle.dataset.floatingWindowLockBound === "true") {
+    return;
+  }
+  if (handle.matches && !handle.matches(nodeGraphFloatingWindowLockHandleSelector)) {
     return;
   }
   handle.dataset.floatingWindowLockBound = "true";
@@ -650,6 +663,9 @@ function beginNodeGraphFloatingWindowDrag(event, element, stateKey) {
     !element ||
     element.hidden ||
     !stateKey ||
+    element.closest?.("#nodeCommandCenterDock") ||
+    (typeof nodeGraphCommandCenterIsDocked === "function" && nodeGraphCommandCenterIsDocked()
+      && element.classList?.contains("is-embedded-dock")) ||
     (typeof nodeGraphDialogDragTargetIsInteractive === "function" &&
       nodeGraphDialogDragTargetIsInteractive(event))
   ) {

@@ -47,6 +47,27 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.traceDisplaySettings = normalizeNodeGraphNumberReadoutSettings(packed, defaults);
     return node.traceDisplaySettings;
   }
+  if (displayType === "keypadFace") {
+    node.layout = typeof normalizeNodeGraphKeypadLayout === "function"
+      ? normalizeNodeGraphKeypadLayout(settings)
+      : (settings || {});
+    if (typeof applyNodeGraphKeypadDisplaySettingsToFace === "function") {
+      applyNodeGraphKeypadDisplaySettingsToFace(node);
+    }
+    return node.layout;
+  }
+  if (displayType === "textBoxFace") {
+    const previous = typeof normalizeNodeGraphTextBoxLayout === "function"
+      ? normalizeNodeGraphTextBoxLayout(node.layout)
+      : (node.layout || {});
+    node.layout = typeof normalizeNodeGraphTextBoxLayout === "function"
+      ? normalizeNodeGraphTextBoxLayout({ ...previous, ...(settings || {}), text: previous.text })
+      : { ...previous, ...(settings || {}), text: previous.text };
+    if (typeof applyNodeGraphTextBoxDisplaySettingsToFace === "function") {
+      applyNodeGraphTextBoxDisplaySettingsToFace(node);
+    }
+    return node.layout;
+  }
   if (displayType === "knobFace") {
     const normalized = normalizeNodeGraphKnobFaceDisplaySettings(settings);
     node.traceDisplaySettings = normalized;
@@ -410,6 +431,12 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
   if (settingsSchema === "ledLamp") {
     return node.led && typeof node.led === "object" ? { ...node.led } : {};
   }
+  if (settingsSchema === "keypadFace") {
+    return node.layout && typeof node.layout === "object" ? { ...node.layout } : {};
+  }
+  if (settingsSchema === "textBoxFace") {
+    return node.layout && typeof node.layout === "object" ? { ...node.layout } : {};
+  }
   return node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
     ? { ...node.traceDisplaySettings }
     : {};
@@ -494,6 +521,9 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   if (typeof nodeGraphXyPadRedrawAll === "function") {
     nodeGraphXyPadRedrawAll();
   }
+  if (typeof nodeGraphSyncOutputProtectOverlay === "function") {
+    nodeGraphSyncOutputProtectOverlay(globalThis.nodeGraphOutputProtectMute || 0, { force: true });
+  }
   // Knob face readout decimals live in Display Settings.
   if (typeof refreshNodeGraphKnobFaces === "function") {
     refreshNodeGraphKnobFaces();
@@ -507,6 +537,16 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
       const faceNode = faceNodeId ? nodeGraphPatchNode(faceNodeId) : null;
       if (!faceNode) {
         continue;
+      }
+      if (faceNode.type === "keypad") {
+        if (typeof applyNodeGraphKeypadDisplaySettingsToFace === "function") {
+          applyNodeGraphKeypadDisplaySettingsToFace(faceNode);
+        } else if (typeof syncNodeGraphKeypadElement === "function") {
+          const el = typeof nodeGraphNodeElement === "function"
+            ? nodeGraphNodeElement(faceNodeId)
+            : null;
+          if (el) syncNodeGraphKeypadElement(el, faceNode);
+        }
       }
       if (faceNode.type === "led") {
         if (typeof scheduleNodeGraphLedFaceRefresh === "function") {
@@ -567,6 +607,9 @@ const NODE_GRAPH_DISPLAY_SETTINGS_PRESERVE_LOOK_KEYS = Object.freeze([
   "ghostColor",
   "arcFill",
   "arcTrack",
+  "buttonColor",
+  "textColor",
+  "strokeColor",
 ]);
 
 function setNodeGraphTraceDisplaySettingsDefaults() {

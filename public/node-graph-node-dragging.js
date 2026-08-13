@@ -50,7 +50,7 @@ function beginNodeGraphNodeDrag(event) {
       // Graph face owns its own pointer gestures (points / phase) — never start
       // a module move from inside .node-module-graph-display.
       // Knob face is a Bias drag surface (same as .node-slider-readout).
-      ".node-port, .node-param-port, button:not(.node-drag-handle), input:not(.node-header-title-input), textarea, select, option, [contenteditable='true'], .node-xy-pad-canvas, .node-module-graph-display, .node-knob-face",
+      ".node-port, .node-param-port, button:not(.node-drag-handle), input:not(.node-header-title-input), textarea, select, option, [contenteditable='true'], .node-xy-pad-canvas, .node-module-graph-display, .node-knob-face, .node-keypad-face, .node-keypad-grid, .node-keypad-key",
     )
   ) {
     return;
@@ -208,7 +208,6 @@ function endNodeGraphNodeDrag(event) {
     if (
       handle.classList.contains("node-header-title-row") &&
       nodeGraphModuleTitleBypassModifierActive(event) &&
-      nodeGraphModuleButtonsHiddenForNode(node) &&
       toggleNodeGraphModuleBypassFromNode(node, event)
     ) {
       return;

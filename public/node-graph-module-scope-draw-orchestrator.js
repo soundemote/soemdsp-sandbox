@@ -69,6 +69,8 @@ const nodeGraphModuleScopeCustomRenderers = {
     item?.screenElement?.syncFromParameters?.();
   },
   momentaryButtonFace: () => {},
+  keypadFace: () => {},
+  textBoxFace: () => {},
   // oscilloscopeBankBurn self-registers from
   // public/modules/oscilloscopeBank/oscilloscope-bank-display.js
   // videoscopeBurn self-registers from

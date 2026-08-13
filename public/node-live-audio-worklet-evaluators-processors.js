@@ -493,6 +493,22 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         );
       },
       // RS-MET recursive free-running sine. Math: robin-sinusoid-math.js.
+      phoneTone: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        if (!this.phoneToneStates) this.phoneToneStates = new Map();
+        const state = this.phoneToneStates.get(nodeId) || this.createPhoneToneState();
+        this.phoneToneStates.set(nodeId, state);
+        return this.phoneToneSample(state, {
+          amplitude: this.readEffectiveParameter(node, "amplitude", 0.5, frame, frames, frameValues),
+          analog: mixInput(nodeId, "Analog"),
+          digital: mixInput(nodeId, "Digital"),
+          freqOffset: this.readEffectiveParameter(node, "freqOffset", 0, frame, frames, frameValues),
+          gate: mixInput(nodeId, "Gate"),
+          hasAnalog: hasInput(nodeId, "Analog"),
+          hasDigital: hasInput(nodeId, "Digital"),
+          hasGate: hasInput(nodeId, "Gate"),
+          sampleRate: safeRate,
+        });
+      },
       robinSinusoid: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         if (!this.robinSinusoidStates) {
           this.robinSinusoidStates = new Map();
@@ -654,6 +670,21 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
             frequ: read("frequ", 10),
           },
           safeRate,
+        );
+      },
+      noiseDetector: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        const state = this.noiseDetectorStates.get(nodeId) || this.createNoiseDetectorState();
+        this.noiseDetectorStates.set(nodeId, state);
+        return this.noiseDetectorSample(
+          state,
+          mixInput(nodeId, "Left"),
+          mixInput(nodeId, "Mono"),
+          mixInput(nodeId, "Right"),
+          this.readEffectiveParameter(node, "threshold", 0.9, frame, frames, frameValues),
+          safeRate,
+          hasInput(nodeId, "Left"),
+          hasInput(nodeId, "Mono"),
+          hasInput(nodeId, "Right"),
         );
       },
       helmholtzPitch: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
@@ -1055,6 +1086,25 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           },
         );
       },
+      keypad: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        const state = this.keypadStates.get(nodeId) || this.createKeypadState();
+        this.keypadStates.set(nodeId, state);
+        return this.keypadSample(state, {
+          analog: mixInput(nodeId, "Analog"),
+          digital: mixInput(nodeId, "Digital"),
+          hasAnalog: hasInput(nodeId, "Analog"),
+          hasDigital: hasInput(nodeId, "Digital"),
+          mode: this.readEffectiveParameter(node, "mode", 0, frame, frames, frameValues),
+          offset: this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues),
+        });
+      },
+      numberGate: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
+        this.numberGateSample({
+          analog: mixInput(nodeId, "Analog"),
+          digital: mixInput(nodeId, "Digital"),
+          hasAnalog: hasInput(nodeId, "Analog"),
+          hasDigital: hasInput(nodeId, "Digital"),
+        }),
       stepGrid: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const state = this.stepGridStates.get(nodeId) || this.createStepGridState();
         this.stepGridStates.set(nodeId, state);
@@ -1104,7 +1154,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         if (!this.softClipperStates) this.softClipperStates = new Map();
         const state = this.softClipperStates.get(nodeId) || this.createSoftClipperState();
         this.softClipperStates.set(nodeId, state);
-        const softClipperAa = this.readEffectiveParameter(node, "antialias", 1, frame, frames, frameValues);
+        const softClipperOs = this.readEffectiveParameter(node, "oversample", 2, frame, frames, frameValues);
         const softClipperGainDb = this.readEffectiveParameter(node, "gainDb", 0, frame, frames, frameValues);
         const softClipperCenter = this.readEffectiveParameter(node, "center", 0, frame, frames, frameValues);
         const softClipperWidth = this.readEffectiveParameter(node, "width", 2, frame, frames, frameValues);
@@ -1113,9 +1163,9 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           : 10 ** ((Number(softClipperGainDb) || 0) / 20);
         const softClipperMono = mixInput(nodeId) * drive;
         return {
-          Out: this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth, state, softClipperAa, 0),
-          Left: this.nativeSoftClipperSample(mixInput(nodeId, "Left") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperAa, 1),
-          Right: this.nativeSoftClipperSample(mixInput(nodeId, "Right") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperAa, 2),
+          Out: this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 0),
+          Left: this.nativeSoftClipperSample(mixInput(nodeId, "Left") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 1),
+          Right: this.nativeSoftClipperSample(mixInput(nodeId, "Right") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 2),
         };
       },
       speakerProtector2: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
@@ -1147,7 +1197,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.readEffectiveParameter(node, "maxDb", 0, frame, frames, frameValues),
           this.readEffectiveParameter(node, "gainDb", 0, frame, frames, frameValues),
           state,
-          this.readEffectiveParameter(node, "antialias", 1, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "oversample", 2, frame, frames, frameValues),
         );
       },
       // Airwindows Density3. Math: air-clipper-math.js.

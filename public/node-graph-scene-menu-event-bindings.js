@@ -216,6 +216,19 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneCanvasScript", "click", openNodeGraphCanvasScriptFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneLedColor", "input", () => setNodeGraphLedColorFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneLedColor", "change", () => setNodeGraphLedColorFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadFont", "change", () => setNodeGraphKeypadLayoutFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadTextSize", "input", () => setNodeGraphKeypadLayoutFromContext({ record: false }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadTextSize", "change", () => setNodeGraphKeypadLayoutFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadTextWeight", "input", () => setNodeGraphKeypadLayoutFromContext({ record: false }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadTextWeight", "change", () => setNodeGraphKeypadLayoutFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadButtonColor", "input", () => setNodeGraphKeypadLayoutFromContext({ record: false }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadButtonColor", "change", () => setNodeGraphKeypadLayoutFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadTextColor", "input", () => setNodeGraphKeypadLayoutFromContext({ record: false }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadTextColor", "change", () => setNodeGraphKeypadLayoutFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadButtonWidth", "input", () => setNodeGraphKeypadLayoutFromContext({ record: false }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadButtonWidth", "change", () => setNodeGraphKeypadLayoutFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadButtonHeight", "input", () => setNodeGraphKeypadLayoutFromContext({ record: false }));
+  bindNodeGraphSceneElementEvent("nodeSceneKeypadButtonHeight", "change", () => setNodeGraphKeypadLayoutFromContext({ record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneBugButtonGlyph", "input", () => setNodeGraphBugButtonGlyphFromContext());
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxSingleLine", "click", () => setNodeGraphTextBoxModeFromContext("singleLine"));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxMultiline", "click", () => setNodeGraphTextBoxModeFromContext("multiline"));
@@ -269,4 +282,15 @@ function bindNodeGraphSceneMenuEvents() {
   document
     .querySelector("#nodeSceneContextMenu .scene-context-heading")
     ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "commandCenter"));
+  document
+    .querySelector("#nodeSceneContextMenu .scene-context-heading")
+    ?.addEventListener("dblclick", (event) => {
+      if (typeof undockNodeGraphCommandCenterInPlace === "function" && undockNodeGraphCommandCenterInPlace()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    });
+  if (typeof bindNodeGraphCommandCenterDockSplit === "function") {
+    bindNodeGraphCommandCenterDockSplit();
+  }
 }

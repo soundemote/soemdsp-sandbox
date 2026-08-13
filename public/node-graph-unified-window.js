@@ -700,13 +700,139 @@ function restoreNodeGraphUnifiedWindowFromDock() {
   }
   const mainRow = document.getElementById("nodeGraphMainRow");
   for (const child of [...dock.children]) {
+    if (child.id === "nodeCommandCenterDockSplit" || child.classList.contains("node-command-center-dock-split")) {
+      continue;
+    }
     home.insertBefore(child, mainRow || dock);
     child.classList.remove("is-embedded-dock");
+    nodeGraphCommandCenterClearDockInlineStyle(child);
   }
   dock.hidden = true;
 }
 
-function applyNodeGraphUnifiedWindowPresentation() {
+function nodeGraphCommandCenterClearDockInlineStyle(element) {
+  if (!element?.style) {
+    return;
+  }
+  element.style.position = "";
+  element.style.left = "";
+  element.style.top = "";
+  element.style.right = "";
+  element.style.bottom = "";
+  element.style.width = "";
+  element.style.height = "";
+  element.style.maxWidth = "";
+  element.style.maxHeight = "";
+}
+
+function nodeGraphCommandCenterIsDocked() {
+  const mode = String(nodeGraphMvp?.unifiedWindowPresentation || "");
+  if (mode === "embedLeft" || mode === "embedRight") {
+    return true;
+  }
+  const dock = document.getElementById("nodeCommandCenterDock");
+  if (!dock || dock.hidden) {
+    return false;
+  }
+  return Boolean(dock.querySelector(".node-unified-window, .node-scene-context-menu, .node-module-shop-view"));
+}
+
+function nodeGraphCommandCenterDockWidthLimits() {
+  const row = document.getElementById("nodeGraphMainRow");
+  const max = Math.max(196, Math.round((row?.clientWidth || window.innerWidth || 800) * 0.42));
+  return { min: 196, max };
+}
+
+function applyNodeGraphCommandCenterDockWidth(widthPx) {
+  const dock = document.getElementById("nodeCommandCenterDock");
+  const limits = nodeGraphCommandCenterDockWidthLimits();
+  const raw = Number(widthPx);
+  const next = Number.isFinite(raw)
+    ? Math.max(limits.min, Math.min(limits.max, Math.round(raw)))
+    : Math.round(Math.min(limits.max, 320));
+  if (nodeGraphMvp) {
+    nodeGraphMvp.commandCenterDockWidth = next;
+  }
+  dock?.style.setProperty("--node-command-center-dock-width", `${next}px`);
+  return next;
+}
+
+function beginNodeGraphCommandCenterDockResize(event) {
+  if (event.button > 0 || !nodeGraphCommandCenterIsDocked()) {
+    return false;
+  }
+  const dock = document.getElementById("nodeCommandCenterDock");
+  const handle = event.currentTarget;
+  if (!dock || !handle) {
+    return false;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  const side = String(nodeGraphMvp?.unifiedWindowPresentation || "") === "embedLeft" ? "left" : "right";
+  const startX = event.clientX;
+  const startWidth = dock.getBoundingClientRect().width;
+  handle.classList.add("is-dragging");
+  document.body.classList.add("is-resizing-command-center-dock");
+  handle.setPointerCapture?.(event.pointerId);
+  const onMove = (moveEvent) => {
+    if (moveEvent.pointerId !== undefined && event.pointerId !== undefined
+      && moveEvent.pointerId !== event.pointerId) {
+      return;
+    }
+    const dx = moveEvent.clientX - startX;
+    applyNodeGraphCommandCenterDockWidth(side === "right" ? startWidth - dx : startWidth + dx);
+  };
+  const onUp = (upEvent) => {
+    if (upEvent.pointerId !== undefined && event.pointerId !== undefined
+      && upEvent.pointerId !== event.pointerId) {
+      return;
+    }
+    handle.classList.remove("is-dragging");
+    document.body.classList.remove("is-resizing-command-center-dock");
+    handle.releasePointerCapture?.(event.pointerId);
+    handle.removeEventListener("pointermove", onMove);
+    handle.removeEventListener("pointerup", onUp);
+    handle.removeEventListener("pointercancel", onUp);
+  };
+  handle.addEventListener("pointermove", onMove);
+  handle.addEventListener("pointerup", onUp);
+  handle.addEventListener("pointercancel", onUp);
+  return true;
+}
+
+function bindNodeGraphCommandCenterDockSplit() {
+  const handle = document.getElementById("nodeCommandCenterDockSplit");
+  if (!handle || handle.dataset.dockSplitBound === "true") {
+    return;
+  }
+  handle.dataset.dockSplitBound = "true";
+  handle.addEventListener("pointerdown", beginNodeGraphCommandCenterDockResize);
+}
+
+function undockNodeGraphCommandCenterInPlace() {
+  if (!nodeGraphCommandCenterIsDocked()) {
+    return false;
+  }
+  const dock = document.getElementById("nodeCommandCenterDock");
+  const element = dock?.querySelector(".node-unified-window, .node-scene-context-menu, .node-module-shop-view")
+    || nodeGraphUnifiedWindowElement(nodeGraphUnifiedWindowActivePage() || "commandCenter")
+    || document.getElementById("nodeSceneContextMenu");
+  if (!element) {
+    return false;
+  }
+  const rect = element.getBoundingClientRect();
+  setNodeGraphCommandCenterPresentation("float", {
+    inPlace: true,
+    position: { left: rect.left, top: rect.top },
+    size: { width: rect.width, height: rect.height },
+  });
+  if (typeof setNodeGraphFloatingWindowLocked === "function") {
+    setNodeGraphFloatingWindowLocked(element, false, { persist: false });
+  }
+  return true;
+}
+
+function applyNodeGraphUnifiedWindowPresentation(options = {}) {
   const mode = String(nodeGraphMvp.unifiedWindowPresentation || "closed");
   const panel = document.getElementById("nodeWiringPanel");
   const dock = document.getElementById("nodeCommandCenterDock");
@@ -729,11 +855,38 @@ function applyNodeGraphUnifiedWindowPresentation() {
     element.style.height = "100%";
     element.style.maxWidth = "none";
     element.style.maxHeight = "none";
+    if (typeof setNodeGraphFloatingWindowLocked === "function") {
+      setNodeGraphFloatingWindowLocked(element, true, { persist: false });
+    }
+    if (typeof applyNodeGraphCommandCenterDockWidth === "function") {
+      applyNodeGraphCommandCenterDockWidth(nodeGraphMvp.commandCenterDockWidth);
+    }
+    bindNodeGraphCommandCenterDockSplit();
     return;
   }
   restoreNodeGraphUnifiedWindowFromDock();
   if ((mode === "open" || mode === "float") && element && !element.hidden) {
-    seatNodeGraphUnifiedWindow(element, pageKey);
+    if (options.inPlace && options.position) {
+      element.hidden = false;
+      if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
+        setNodeGraphFloatingWindowViewportPosition(element, options.position.left, options.position.top);
+      } else {
+        element.style.position = "fixed";
+        element.style.left = `${Math.round(options.position.left)}px`;
+        element.style.top = `${Math.round(options.position.top)}px`;
+      }
+      if (options.size?.width) {
+        element.style.width = `${Math.round(options.size.width)}px`;
+      }
+      if (options.size?.height) {
+        element.style.height = `${Math.round(options.size.height)}px`;
+      }
+    } else {
+      seatNodeGraphUnifiedWindow(element, pageKey);
+    }
+    if (typeof setNodeGraphFloatingWindowLocked === "function") {
+      setNodeGraphFloatingWindowLocked(element, false, { persist: false });
+    }
   }
 }
 
@@ -756,7 +909,7 @@ function setNodeGraphCommandCenterPresentation(mode, options = {}) {
       openNodeGraphCommandCenter(options.x, options.y);
     }
   }
-  applyNodeGraphUnifiedWindowPresentation();
+  applyNodeGraphUnifiedWindowPresentation(options);
 }
 
 function cycleNodeGraphCommandCenterPresentation(options = {}) {
@@ -886,17 +1039,20 @@ function syncNodeGraphUnifiedWindowNavBars() {
       elementId: "nodeModuleShopView",
       page: "moduleBrowser",
       prepare(element) {
-        const existing = element.querySelector("#nodeModuleShopUnifiedNavHost, .node-module-shop-column > .node-unified-window-nav-host");
+        const heading = element.querySelector(":scope > .scene-context-heading");
+        const existing = element.querySelector("#nodeModuleShopUnifiedNavHost, :scope > .node-unified-window-nav-host");
+        element.querySelectorAll(".node-module-shop-column > .node-unified-window-nav-host").forEach((orphan) => {
+          if (orphan !== existing) {
+            orphan.remove();
+          }
+        });
         if (existing) {
+          if (heading && existing.previousElementSibling !== heading) {
+            heading.after(existing);
+          }
           return existing;
         }
-        const controls = element.querySelector(".node-module-shop-controls");
-        if (controls) {
-          return ensureNodeGraphUnifiedWindowNavHost(element, { insertBefore: controls });
-        }
-        return ensureNodeGraphUnifiedWindowNavHost(element, {
-          prependTo: element.querySelector(".node-module-shop-column") || element,
-        });
+        return ensureNodeGraphUnifiedWindowNavHost(element);
       },
     },
     {

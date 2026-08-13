@@ -34,8 +34,9 @@ function nodeGraphTextBoxHostPaintFace(nodeId, text) {
     return;
   }
   const field = el?.querySelector?.(".node-text-box-input");
-  if (field && field.value !== shown) {
-    field.value = shown;
+  if (field) {
+    if (typeof textBoxWidgetWriteText === "function") textBoxWidgetWriteText(field, shown);
+    else field.textContent = shown;
   }
 }
 
@@ -87,6 +88,8 @@ function nodeGraphTextBoxHostEnsureWidget(body, nodeId, layout, { editable = tru
       horizontalAlign: layout.horizontalAlign,
       verticalAlignPercent: layout.verticalAlignPercent,
       textSizePercent: layout.textSizePercent,
+      backgroundColor: layout.backgroundColor,
+      textColor: layout.textColor,
       editable,
       ariaLabel: typeof nodeGraphNodeDisplayName === "function"
         ? `${nodeGraphNodeDisplayName(nodeId)} text`
@@ -111,6 +114,8 @@ function nodeGraphTextBoxHostSync(element, patchNode) {
   }
   const body = element.querySelector(".node-text-box-body");
   if (!body) return;
+  body.hidden = false;
+  body.removeAttribute("hidden");
   const layout = typeof normalizeNodeGraphTextBoxLayout === "function"
     ? normalizeNodeGraphTextBoxLayout(patchNode.layout)
     : (patchNode.layout || {});
@@ -133,6 +138,8 @@ function nodeGraphTextBoxHostSync(element, patchNode) {
     horizontalAlign: layout.horizontalAlign,
     verticalAlignPercent: layout.verticalAlignPercent,
     textSizePercent: layout.textSizePercent,
+    backgroundColor: layout.backgroundColor,
+    textColor: layout.textColor,
   });
   nodeGraphTextBoxHostMirrorSceneText(displayText);
 }

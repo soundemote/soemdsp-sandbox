@@ -151,6 +151,8 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
       nodeGraphModuleScopeOfflineClockBlinkBuffer(slot, capturedBuffer);
   } else if (renderer === "transportBpm") {
     buffer = nodeGraphModuleScopeTransportBpmBuffer(slot);
+  } else if (renderer === "phoneToneFace" || slot?.type === "phoneTone") {
+    buffer = { length: 1 };
   } else if (renderer === "dot") {
     buffer = nodeGraphModuleScopeDotOscilloscopeLightBuffer(capturedBuffer);
   } else if (slot?.type === "lineBurnOscilloscope") {

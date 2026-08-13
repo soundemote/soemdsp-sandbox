@@ -1,4 +1,4 @@
-const nodeGraphTooltipSourceUrl = "./public/tooltips.json?v=smooth-copy-1";
+const nodeGraphTooltipSourceUrl = "./public/tooltips.json?v=title-bypass-1";
 const sandboxNativeTitleStorageAttribute = "data-native-title-disabled";
 
 function sandboxStoreAndRemoveNativeTitle(element) {
@@ -106,13 +106,26 @@ function nodeGraphTooltipTemplate(key) {
   return typeof value === "string" ? value : "";
 }
 
+function nodeGraphIsApplePlatform() {
+  const platform = navigator.userAgentData?.platform || navigator.platform || "";
+  return /Mac|iPhone|iPad|iPod/i.test(platform);
+}
+
+function nodeGraphAltModifierLabel() {
+  return nodeGraphIsApplePlatform() ? "Option" : "Alt";
+}
+
 function nodeGraphTooltipText(key, context = {}) {
   const template = nodeGraphTooltipTemplate(key);
   if (!template) {
     return "";
   }
+  const values = {
+    alt: nodeGraphAltModifierLabel(),
+    ...context,
+  };
   return template.replace(/\{([A-Za-z0-9_]+)\}/g, (match, name) =>
-    Object.prototype.hasOwnProperty.call(context, name) ? String(context[name]) : match,
+    Object.prototype.hasOwnProperty.call(values, name) ? String(values[name]) : match,
   );
 }
 

@@ -120,6 +120,16 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/numberReadout/number-readout-register.js",
     "./public/modules/rayBouncer/ray-bouncer-register.js",
     "./public/modules/stepGrid/step-grid-register.js",
+    "./public/modules/keypad/keypad-register.js",
+    "./public/modules/keypad/keypad-math.js",
+    "./public/modules/keypad/keypad-settings.js",
+    "./public/modules/keypad/keypad-live-evaluator.js",
+    "./public/modules/phoneTone/phone-tone-math.js",
+    "./public/modules/phoneTone/phone-tone-live-evaluator.js",
+    "./public/modules/phoneTone/phone-tone-display.js",
+    "./public/modules/numberGate/number-gate-math.js",
+    "./public/modules/numberGate/number-gate-live-evaluator.js",
+    "./public/modules/numberGate/number-gate-worklet-evaluator.js",
     "./public/modules/groupInput/group-input-register.js",
     "./public/modules/groupOutput/group-output-register.js",
     "./public/node-graph-module-definitions.js",
@@ -148,6 +158,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/textBox/text-box-widget.js",
     "./public/modules/textBox/text-box-animated.js",
     "./public/modules/textBox/text-box-host.js",
+    "./public/modules/textBox/text-box-settings.js",
     "./public/node-graph-text-box-rendering.js",
     "./public/node-graph-patch-normalizers.js",
     "./public/node-graph-audio-derivation.js",
@@ -251,6 +262,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/valueLcd/value-lcd-register.js",
     "./public/modules/rayBouncer/ray-bouncer-ui.js",
     "./public/modules/stepGrid/step-grid-ui.js",
+    "./public/modules/keypad/keypad-ui.js",
     "./public/modules/groupInput/group-input-ui.js",
     "./public/modules/groupOutput/group-output-ui.js",
     "./public/node-graph-module-header-rendering.js",
@@ -273,6 +285,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-code-settings-editor.js",
     "./public/node-graph-metadata-editor.js",
     "./public/node-graph-render-settings.js",
+    "./public/modules/speakerProtector2/speaker-protector-2-math.js",
     "./public/node-graph-ear-protection.js",
     "./public/node-graph-patch-load-fault.js",
     "./public/node-graph-debug-console.js",
@@ -440,6 +453,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/pll/pll-live-evaluator.js",
     "./public/modules/helmholtzPitch/helmholtz-pitch-live-evaluator.js",
     "./public/modules/helmholtzPitch/helmholtz-pitch-ui.js",
+    "./public/modules/noiseDetector/noise-detector-math.js",
+    "./public/modules/noiseDetector/noise-detector-live-evaluator.js",
     "./public/modules/slewLimiter/slew-limiter-math.js",
     "./public/modules/slewLimiter/slew-limiter-live-evaluator.js",
     "./public/modules/midSideEncode/mid-side-encode-math.js",
@@ -562,6 +577,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/badvalMonitor/badval-monitor-ui.js",
     "./public/modules/badvalMonitor/badval-monitor-live-evaluator.js",
     "./public/modules/speakerProtection/speaker-protection-live-evaluator.js",
+    "./public/modules/speakerProtector2/speaker-protector-2-live-evaluator.js",
     "./public/modules/groupOutput/group-output-live-evaluator.js",
     "./public/modules/output/output-live-evaluator.js",
     "./public/modules/groupInput/group-input-live-evaluator.js",
@@ -1345,11 +1361,13 @@ def require_shell_contract(html: str) -> None:
             "./public/styles.css",
             "./public/modules/asciiscope/asciiscope-ui.css",
             "./public/modules/chordPad/chord-pad-ui.css",
+            "./public/modules/keypad/keypad-ui.css",
             "./public/modules/matrixDisplay/matrix-display-ui.css",
             "./public/modules/patch/patch-ui.css",
             "./public/modules/pitchQuantizer/pitch-quantizer-ui.css",
             "./public/modules/stepGrid/step-grid.css",
             "./public/modules/textStream/text-stream-ui.css",
+            "/css2",
         },
         f"shell stylesheets were {sorted(parser.stylesheets)!r}",
     )
@@ -4375,7 +4393,7 @@ def require_node_graph_mvp_contract() -> None:
     output_without_input_end = node_graph_module_definitions_source.index("function nodeGraphCanonicalInputPort", output_without_input_start)
     output_without_input_source = node_graph_module_definitions_source[output_without_input_start:output_without_input_end]
     helmholtz_definition_start = node_graph_module_definitions_source.index("  helmholtzPitch: {")
-    helmholtz_definition_end = node_graph_module_definitions_source.index("  slewLimiter: {", helmholtz_definition_start)
+    helmholtz_definition_end = node_graph_module_definitions_source.index("  noiseDetector: {", helmholtz_definition_start)
     helmholtz_definition_source = node_graph_module_definitions_source[helmholtz_definition_start:helmholtz_definition_end]
     require(
         '"helmholtzPitch"' not in passthrough_source
@@ -4434,6 +4452,123 @@ def require_node_graph_mvp_contract() -> None:
             or "Math.max(128, Math.min(4096" in node_graph_source
         ),
         "Helmholtz Pitch should output analyzer zeros on disconnected input and clamp analysis to the safe window range (128–4096)",
+    )
+    noise_detector_definition_start = node_graph_module_definitions_source.index("  noiseDetector: {")
+    noise_detector_definition_end = node_graph_module_definitions_source.index("  slewLimiter: {", noise_detector_definition_start)
+    noise_detector_definition_source = node_graph_module_definitions_source[
+        noise_detector_definition_start:noise_detector_definition_end
+    ]
+    noise_detector_math_source = (PUBLIC / "modules" / "noiseDetector" / "noise-detector-math.js").read_text(encoding="utf-8")
+    require(
+        "noiseDetector: \"Noise Detector\"" in node_graph_module_definitions_source
+        and 'inputs: ["Left", "Mono", "Right"]' in noise_detector_definition_source
+        and '"Fidelity"' in noise_detector_definition_source
+        and '"Gate"' in noise_detector_definition_source
+        and 'defaultValue: "0.9"' in noise_detector_definition_source
+        and 'mid: "0.9"' in noise_detector_definition_source
+        and "function nodeGraphNoiseDetectorNsdfPeak" in noise_detector_math_source
+        and "nodeGraphLiveModuleEvaluators.noiseDetector" in script_sources["./public/modules/noiseDetector/noise-detector-live-evaluator.js"]
+        and "noiseDetector:" in (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8"),
+        "Noise Detector should be a stereo thru analyzer with NSDF fidelity + threshold gate",
+    )
+    require(
+        'registerNodeGraphChromelessModule("keypad"' in script_sources["./public/modules/keypad/keypad-register.js"]
+        and "function nodeGraphKeypadResolveSlot" in script_sources["./public/modules/keypad/keypad-math.js"]
+        and "nodeGraphLiveModuleEvaluators.keypad" in script_sources["./public/modules/keypad/keypad-live-evaluator.js"]
+        and "chrome: \"LayoutB\"" in script_sources["./public/modules/keypad/keypad-register.js"]
+        and "solidModule: true" in script_sources["./public/modules/keypad/keypad-register.js"]
+        and 'outputs: ["Analog", "Index", "Gate", "X", "Y"]' in script_sources["./public/modules/keypad/keypad-register.js"]
+        and 'Index: "D"' in script_sources["./public/modules/keypad/keypad-register.js"]
+        and 'Gate: "G"' in script_sources["./public/modules/keypad/keypad-register.js"]
+        and 'colorRow("hoverColor", "keypadFace")' in script_sources["./public/modules/keypad/keypad-settings.js"]
+        and 'colorRow("downColor", "keypadFace")' in script_sources["./public/modules/keypad/keypad-settings.js"]
+        and 'return "Hover"' in script_sources["./public/node-graph-module-scope-settings-form-io.js"]
+        and 'return "Down"' in script_sources["./public/node-graph-module-scope-settings-form-io.js"]
+        and 'function nodeGraphKeypadSlotToXY' in script_sources["./public/modules/keypad/keypad-math.js"]
+        and 'function nodeGraphStereoJackDisplayLabel' in script_sources["./public/node-graph-module-factories.js"]
+        and 'raw === "x"' in script_sources["./public/node-graph-module-factories.js"]
+        and 'key: "mode"' in script_sources["./public/modules/keypad/keypad-register.js"]
+        and "category: \"controller\"" in script_sources["./public/modules/keypad/keypad-register.js"]
+        and 'displayType: "keypadFace"' in script_sources["./public/modules/keypad/keypad-register.js"]
+        and 'settingsSchema: "keypadFace"' in script_sources["./public/modules/keypad/keypad-register.js"]
+        and "function buildNodeGraphKeypadDisplaySettingsBodyHtml" in script_sources["./public/modules/keypad/keypad-settings.js"]
+        and 'class="node-led-settings-row"' in script_sources["./public/modules/keypad/keypad-settings.js"]
+        and 'type="range"' in script_sources["./public/modules/keypad/keypad-settings.js"]
+        and 'colorRow("backgroundColor", "keypadFace")' in script_sources["./public/modules/keypad/keypad-settings.js"]
+        and 'colorRow("buttonColor", "keypadFace")' in script_sources["./public/modules/keypad/keypad-settings.js"]
+        and 'colorRow("textColor", "keypadFace")' in script_sources["./public/modules/keypad/keypad-settings.js"]
+        and 'colorRow("strokeColor", "keypadFace")' in script_sources["./public/modules/keypad/keypad-settings.js"]
+        and 'return "Button"' in script_sources["./public/node-graph-module-scope-settings-form-io.js"]
+        and 'return "Stroke"' in script_sources["./public/node-graph-module-scope-settings-form-io.js"]
+        and "Background color" not in script_sources["./public/modules/keypad/keypad-settings.js"]
+        and 'return "poiret-one"' in script_sources["./public/modules/keypad/keypad-math.js"]
+        and "nodeSceneKeypadButtonColor" not in (PUBLIC / "index.html").read_text(encoding="utf-8")
+        and "nodeSceneKeypadTextColor" not in (PUBLIC / "index.html").read_text(encoding="utf-8"),
+        "Keypad look should be keypadFace Display Settings with Sound Color Widgets",
+    )
+    require(
+        'displayType: "textBoxFace"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'settingsSchema: "textBoxFace"' in script_sources["./public/node-graph-module-definitions.js"]
+        and "function buildNodeGraphTextBoxDisplaySettingsBodyHtml" in script_sources["./public/modules/textBox/text-box-settings.js"]
+        and 'class="node-led-settings-row"' in script_sources["./public/modules/textBox/text-box-settings.js"]
+        and 'type="range"' in script_sources["./public/modules/textBox/text-box-settings.js"]
+        and 'colorRow("backgroundColor", "textBoxFace")' in script_sources["./public/modules/textBox/text-box-settings.js"]
+        and 'colorRow("textColor", "textBoxFace")' in script_sources["./public/modules/textBox/text-box-settings.js"]
+        and "Background color" not in script_sources["./public/modules/textBox/text-box-settings.js"]
+        and 'textBoxControls.hidden = true;' in script_sources["./public/node-graph-context-menu.js"]
+        and 'textBoxHorizontalAlignControls.hidden = true;' in script_sources["./public/node-graph-context-menu.js"]
+        and 'textBoxVerticalAlignControls.hidden = true;' in script_sources["./public/node-graph-context-menu.js"]
+        and '"textBoxFace"' in script_sources["./public/node-graph-module-scope-display-mode.js"]
+        and '"textBoxFace"' in script_sources["./public/node-graph-module-scope-offline.js"],
+        "Text Box look should be textBoxFace Display Settings with Waveform sliders and Sound Color Widgets",
+    )
+    require(
+        "phoneTone:" in script_sources["./public/node-graph-module-definitions.js"]
+        and 'phoneTone: "Phone Tone"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'label: "Phone Tone"' in script_sources["./public/node-graph-module-store.js"]
+        and "drawNodeGraphPhoneToneFaceItem" in script_sources["./public/modules/phoneTone/phone-tone-display.js"]
+        and 'displayType: "phoneToneFace"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'category: "object"' in script_sources["./public/node-graph-module-store.js"]
+        and 'inputs: ["Analog", "Digital", "Gate"]' in script_sources["./public/node-graph-module-definitions.js"]
+        and "smoothingSeconds: 0.1" in script_sources["./public/node-graph-module-definitions.js"]
+        and 'outputs: ["X", "Out", "Z"]' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'outputLabels: { X: "X", Out: "M", Z: "Z" }' in script_sources["./public/node-graph-module-definitions.js"]
+        and "LayoutB" in script_sources["./public/node-graph-module-definitions.js"][
+            script_sources["./public/node-graph-module-definitions.js"].index("phoneTone: {"):
+            script_sources["./public/node-graph-module-definitions.js"].index("additiveOsc: {")
+        ]
+        and "function nodeGraphPortIsFrequencyValue" in script_sources["./public/node-graph-port-geometry.js"]
+        and "hasGate" in script_sources["./public/modules/phoneTone/phone-tone-math.js"]
+        and "function nodeGraphPhoneToneSample" in script_sources["./public/modules/phoneTone/phone-tone-math.js"]
+        and "nodeGraphRobinSinusoidSample" in script_sources["./public/modules/phoneTone/phone-tone-math.js"]
+        and "nodeGraphLiveModuleEvaluators.phoneTone" in script_sources["./public/modules/phoneTone/phone-tone-live-evaluator.js"]
+        and "697" in script_sources["./public/modules/phoneTone/phone-tone-math.js"]
+        and "1209" in script_sources["./public/modules/phoneTone/phone-tone-math.js"],
+        "Phone Tone should be an objects-category DTMF source using Robin sinusoids",
+    )
+    require(
+        "numberGate:" in script_sources["./public/node-graph-module-definitions.js"]
+        and 'numberGate: "Number Gate"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'label: "Number Gate"' in script_sources["./public/node-graph-module-store.js"]
+        and 'category: "digital"' in script_sources["./public/node-graph-module-store.js"]
+        and 'inputs: ["Analog", "Digital"]' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'outputs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]' in script_sources["./public/node-graph-module-definitions.js"]
+        and "function nodeGraphNumberGateSample" in script_sources["./public/modules/numberGate/number-gate-math.js"]
+        and "nodeGraphLiveModuleEvaluators.numberGate" in script_sources["./public/modules/numberGate/number-gate-live-evaluator.js"]
+        and "numberGate:" in (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8"),
+        "Number Gate should decode keypad A/D into digital outlets 0–12",
+    )
+    require(
+        'momentaryButton: "Momentary"' in script_sources["./public/node-graph-module-definitions.js"]
+        and "defaultWidthGu: 4" in script_sources["./public/node-graph-module-definitions.js"][
+            script_sources["./public/node-graph-module-definitions.js"].index("momentaryButton: {"):
+            script_sources["./public/node-graph-module-definitions.js"].index("pluginInput: {")
+        ]
+        and "displayHeightGu: 2" in script_sources["./public/node-graph-module-definitions.js"][
+            script_sources["./public/node-graph-module-definitions.js"].index("momentaryButton: {"):
+            script_sources["./public/node-graph-module-definitions.js"].index("pluginInput: {")
+        ],
+        "Momentary should spawn 4gu wide with a 2gu face (3gu outer with title)",
     )
     require(
         "nodeGraphModuleIsPlanSourceType(type)" in execution_plan_source[source_nodes_start:source_nodes_end]
@@ -4857,7 +4992,7 @@ def require_node_graph_mvp_contract() -> None:
             [
                 'delayEffect: "Delay"',
                 "delayEffect: {",
-                'inputs: ["In", "Left", "Right"]',
+                'inputs: ["Left", "In", "Right"]',
                 'key: "time"',
                 'key: "feedback"',
             ],
@@ -6324,6 +6459,8 @@ def require_node_graph_mvp_contract() -> None:
         "nodeVisibilityMenuClose",
         "Workspace visibility",
         "nodeGridToggleButton",
+        "nodeWiringChromeToggleButton",
+        "Wires Inlets Outlets",
         "Show Grid",
         "nodePatchTimingControls",
         "node-patch-timing-controls",
@@ -7015,7 +7152,7 @@ def require_node_graph_mvp_contract() -> None:
         '"max": "highest value this parameter can reach"',
         '"middle-drag to move the modular view freely | Touch: drag empty workspace to move the view | Ctrl+middle-drag or Alt+middle-drag slowly zooms, including over modules and controls | Ctrl+Shift+G aligns the view to the grid"',
         '"drag to move modules | click to select | Ctrl/Shift+click adds or removes from selection | Ctrl/Shift+drag adds to selection while moving"',
-        '"drag to move modules | click to select | Ctrl/Shift+click adds or removes from selection | Alt+click an empty I/O section to toggle bypass | when module buttons are hidden, Alt+click the title also toggles bypass"',
+        '"{alt} + click to bypass"',
         '"display-only text | edit content from this module\'s actions menu | text clips to box height, scales down to fit width | mouse wheel zooms the modular view"',
         '"plain drag between this output and a signal input or modulation input to create a wire"',
         '"view": "open the Patch Script utility"',
@@ -7170,7 +7307,7 @@ def require_node_graph_mvp_contract() -> None:
             [
                 'audioPlayer: "Music Player"',
                 'inputs: ["Reset", "Speed", "Phase"]',
-                'outputs: ["Mono", "Left", "Right", "Phase", "Trigger"]',
+                'outputs: ["Left", "Mono", "Right", "Phase", "Trigger"]',
                 'key: "transport"',
                 'choices: ["Off (reset)", "Stop", "Pause", "Loop", "Play"]',
                 'defaultValue: "4"',
@@ -7642,8 +7779,8 @@ def require_node_graph_mvp_contract() -> None:
         "cookbookFilter: \"Multi Stage Filter\"",
         "cookbookFilter: {",
         'layout: "filterCurve"',
-        'inputs: ["In", "Left", "Right"]',
-        'outputs: ["Out", "Left", "Right"]',
+        'inputs: ["Left", "In", "Right"]',
+        'outputs: ["Left", "Out", "Right"]',
         "choices: nodeGraphCookbookFilterModes",
         'key: "mode"',
         'key: "frequency"',
@@ -7923,8 +8060,8 @@ def require_node_graph_mvp_contract() -> None:
         "speakerProtection: \"Speaker Protection\"",
         "speakerProtection: {",
         'layout: "speakerProtection"',
-        'inputs: ["In", "Left", "Right"]',
-        'outputs: ["Out", "Left", "Right"]',
+        'inputs: ["Left", "In", "Right"]',
+        'outputs: ["Left", "Out", "Right"]',
         "label: \"Frequency\"",
         "maxDigits: 5",
         "osc: {",
@@ -7980,8 +8117,8 @@ def require_node_graph_mvp_contract() -> None:
         "nodeOscWaveform",
         "choices: [\"Saw\", \"Ramp\", \"Square\", \"Triangle\", \"Sine\", \"Noise\"]",
         "const nodeGraphOutputInputPorts",
-        'inputs: ["Mono", "Left", "Right"]',
-        'Object.freeze(["Mono", "Left", "Right"])',
+        'inputs: ["Left", "Mono", "Right"]',
+        'Object.freeze(["Left", "Mono", "Right"])',
         "const nodeGraphDefaultNodeConfigs",
         "params: nodeGraphDefaultParamsForType",
         "const nodeGraphZoomLimits",
@@ -8710,6 +8847,8 @@ def require_node_graph_mvp_contract() -> None:
         "function createNodeGraphTextBoxBody(node)",
         "function syncNodeGraphTextBoxElement(element, patchNode)",
         "function createTextBoxWidget(body, options = {})",
+        "Div, not textarea",
+        ".dsp-node > *:not(.node-module-frame)",
         "function nodeGraphTextBoxHostSync(element, patchNode)",
         "function nodeGraphTextBoxHostApplySceneText(nodeId, text, { commit = false } = {})",
         "softDom: true",
@@ -10847,6 +10986,11 @@ def require_node_graph_mvp_contract() -> None:
         'addEventListener("pointermove", dragNodeGraphWorkspacePan)',
         'addEventListener("pointerup", endNodeGraphWorkspacePan)',
         'getElementById("nodeGridToggleButton")',
+        'getElementById("nodeWiringChromeToggleButton")',
+        "function renderNodeGraphWiringChromeToggle()",
+        "function toggleNodeGraphWiringChromeVisibility()",
+        "wiring-chrome-hidden",
+        "wiringChromeVisible",
         'bindNodeGraphSceneElementEvent("nodeSceneOpenVisibility", "click", () => {',
         "button.replaceChildren()",
         'label.textContent = "Visibility"',
@@ -12638,8 +12782,8 @@ def require_node_graph_mvp_contract() -> None:
         module_definitions_source.index("rotate3dTo2d: {")
     ]
     require(
-        'inputs: ["In", "Left", "Right"]' in soft_clipper_definition
-        and 'outputs: ["Out", "Left", "Right"]' in soft_clipper_definition
+        'inputs: ["Left", "In", "Right"]' in soft_clipper_definition
+        and 'outputs: ["Left", "Out", "Right"]' in soft_clipper_definition
         and 'key: "center"' in soft_clipper_definition
         and 'key: "width"' in soft_clipper_definition
         and 'defaultValue: "2"' in soft_clipper_definition,
@@ -12668,7 +12812,7 @@ def require_node_graph_mvp_contract() -> None:
         module_definitions_source.index("slewLimiter: {")
     ]
     require(
-        'inputs: ["In", "Left", "Right"]' in reverb_definition
+        'inputs: ["Left", "In", "Right"]' in reverb_definition
         and 'outputs: ["Mono Dry", "Left Dry", "Right Dry", "Mono Mix", "Left Mix", "Right Mix"]' in reverb_definition
         and 'key: "mix"' in reverb_definition
         and 'key: "diffusionSize"' in reverb_definition
@@ -12728,6 +12872,7 @@ def require_node_graph_mvp_contract() -> None:
     require('codeblock: {' in module_store_source, "Codeblock should live in Digital")
     require('canvas: {' in module_store_source, "Canvas should live in Digital")
     require('bitConverter: {' in module_store_source and 'label: "BitConverter"' in module_store_source, "BitConverter should live in Digital")
+    require('numberGate: {' in module_store_source and 'label: "Number Gate"' in module_store_source, "Number Gate should live in Digital")
     require('traceDisplay: {' in module_store_source, "Trace Display should author as Oscilloscope before display-category normalization")
     require("dotOscilloscope: {" in module_store_source and 'label: "0D Burn"' in module_store_source, "0D Burn oscilloscope should exist")
     require("valueOscilloscope: {" in module_store_source and 'label: "0D Value"' in module_store_source, "0D Value oscilloscope should exist")
@@ -13657,7 +13802,7 @@ def require_node_graph_mvp_contract() -> None:
     )
     require('"reverbEffect"' in execution_plan_source, "execution plan should treat Sabrina Reverb as a supported passthrough processor")
     require(
-        'const inputPorts = type === "reverbEffect" ? ["In", "Left", "Right"] : ["In"]' in execution_plan_source
+        'const inputPorts = type === "reverbEffect" ? ["Left", "In", "Right"] : ["In"]' in execution_plan_source
         and "count + (graph.inputConnections.get(nodeGraphInputKey(nodeId, port)) || []).length" in execution_plan_source,
         "Sabrina Reverb schedule validation should accept stereo Left/Right inputs, not only In",
     )
@@ -15703,8 +15848,8 @@ def require_node_graph_mvp_contract() -> None:
 
     for snippet in [
         ".node-graph-workspace",
-        "scrollbar-gutter: stable both-edges",
-        "overflow-y: auto",
+        "scrollbar-gutter: auto",
+        "overflow: hidden",
         "body.node-boot-loading",
         "body.node-boot-fading",
         "body.node-boot-loading .shell",
@@ -15880,7 +16025,10 @@ def require_node_graph_mvp_contract() -> None:
         ".node-module-shop-heading",
         ".node-module-shop-drag-handle",
         ".node-module-shop-column",
+        "grid-row: 3",
+        ".node-module-shop-column > .node-module-shop-scroll-frame",
         ".node-module-department-search-placeholder",
+        '"Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace',
         ".node-module-shop-view.department-selected .node-module-shop-controls",
         "grid-template-columns: minmax(54px, 0.32fr) minmax(0, 1fr)",
         ".node-module-shop-view:not(.department-selected) .node-module-department-search-placeholder",

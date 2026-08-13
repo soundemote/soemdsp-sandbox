@@ -1,7 +1,8 @@
-// Speaker Protector 2.0 — stereo-linked VCA mute envelope.
-// Danger (same 1 kHz HP + 6 dB threshold as the old protector) → fast slew to 0
-// → hold 0.333 s (retriggers) → slow slew back to 1.
-// Shared by the patch module and the always-on Output bus.
+// Speaker Protector 2.0 — stereo-linked VCA only. Never clips or knees.
+// High load (raw |peak| ≥ 1 or 1 kHz HP ≥ +6 dB) → fast slew gain to 0
+// → hold 0.333 s → slow slew back to 1.
+// While |peak| > 1, gain is also capped at 1/peak so the waveform is scaled,
+// not flattened. Shared by the patch module and the always-on Output bus.
 
 var NODE_GRAPH_SPEAKER_PROTECTOR2_HP_HZ = 1000;
 var NODE_GRAPH_SPEAKER_PROTECTOR2_THRESHOLD = 10 ** (6 / 20);
@@ -86,12 +87,17 @@ function nodeGraphSpeakerProtector2Protect(state, left, right, sampleRate, optio
     ? riseTime
     : NODE_GRAPH_SPEAKER_PROTECTOR2_RISE_SECONDS;
 
-  const l = Number(left) || 0;
-  const r = Number(right) || 0;
+  const lIn = Number(left);
+  const rIn = Number(right);
+  const l = Number.isFinite(lIn) ? lIn : 0;
+  const r = Number.isFinite(rIn) ? rIn : 0;
+  const peak = Math.max(Math.abs(l), Math.abs(r));
   const mono = (l + r) * 0.5;
   st.hpOut = st.hpB0 * mono + st.hpB1 * st.hpIn + st.hpA1 * st.hpOut;
   st.hpIn = mono;
-  const danger = Math.abs(st.hpOut) >= NODE_GRAPH_SPEAKER_PROTECTOR2_THRESHOLD;
+  const hpDanger = Math.abs(st.hpOut) >= NODE_GRAPH_SPEAKER_PROTECTOR2_THRESHOLD;
+  const peakDanger = peak >= 1;
+  const danger = hpDanger || peakDanger || !Number.isFinite(lIn) || !Number.isFinite(rIn);
   if (danger) {
     st.mode = NODE_GRAPH_SPEAKER_PROTECTOR2_MODE_DROP;
     st.holdSamples = Math.max(1, Math.round(holdSeconds * rate));
@@ -120,7 +126,13 @@ function nodeGraphSpeakerProtector2Protect(state, left, right, sampleRate, optio
     st.mode = NODE_GRAPH_SPEAKER_PROTECTOR2_MODE_IDLE;
   }
 
-  const g = st.gain;
+  let g = st.gain;
+  if (peak > 1) {
+    const ceiling = 1 / peak;
+    if (ceiling < g) {
+      g = ceiling;
+    }
+  }
   const outL = l * g;
   const outR = r * g;
   const engaged = st.mode !== NODE_GRAPH_SPEAKER_PROTECTOR2_MODE_IDLE;

@@ -73,7 +73,7 @@ function attachNodeGraphSolidModuleShellEvents(node) {
     // Graph face owns double-click (add/remove points). Knob face owns
     // double-click type-in (Bias). Do not open Module Settings from those.
     face.addEventListener("dblclick", (event) => {
-      if (event.target?.closest?.(".node-module-graph-display, .node-knob-face")) {
+      if (event.target?.closest?.(".node-module-graph-display, .node-knob-face, .node-keypad-face")) {
         return;
       }
       openNodeModuleActionMenu(event);
@@ -220,6 +220,12 @@ function openNodeModuleDisplaySettings(event) {
   event.preventDefault();
   event.stopPropagation();
   const nodeId = event.currentTarget?.dataset?.node;
+  if (nodeId && typeof openNodeKeypadDisplaySettings === "function") {
+    const nodeEl = event.currentTarget?.closest?.(".dsp-node");
+    if (openNodeKeypadDisplaySettings(event, nodeEl)) {
+      return;
+    }
+  }
   // Shared display inspector for most faces. Music Player phosphor still owns
   // its own window; LED uses the shared Phosphor Dot (dot) schema.
   if (nodeId && typeof openNodeGraphPhosphorWaveformSettings === "function" && openNodeGraphPhosphorWaveformSettings(nodeId, event)) {
@@ -670,7 +676,7 @@ function createNodeGraphModuleElement(type, node) {
     const mountFace = typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
       : !patchNodeUi.oscilloscopeHidden;
-    const chromelessBody = mountFace
+    const chromelessBody = mountFace && typeof chromelessRegistration.createBody === "function"
       ? chromelessRegistration.createBody(node, type)
       : document.createElement("div");
     if (!mountFace && chromelessBody) {

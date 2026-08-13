@@ -37,6 +37,32 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       renderNodeGraphLedSettingsWindow();
     }
   }
+  if (type === "keypadFace") {
+    if (typeof bindNodeGraphKeypadDisplaySettingsBody === "function") {
+      bindNodeGraphKeypadDisplaySettingsBody(host);
+    }
+    if (typeof syncNodeGraphKeypadDisplaySettingsControls === "function") {
+      syncNodeGraphKeypadDisplaySettingsControls(
+        host,
+        typeof normalizeNodeGraphKeypadLayout === "function"
+          ? normalizeNodeGraphKeypadLayout(node?.layout)
+          : (node?.layout || {}),
+      );
+    }
+  }
+  if (type === "textBoxFace") {
+    if (typeof bindNodeGraphTextBoxDisplaySettingsBody === "function") {
+      bindNodeGraphTextBoxDisplaySettingsBody(host);
+    }
+    if (typeof syncNodeGraphTextBoxDisplaySettingsControls === "function") {
+      syncNodeGraphTextBoxDisplaySettingsControls(
+        host,
+        typeof normalizeNodeGraphTextBoxLayout === "function"
+          ? normalizeNodeGraphTextBoxLayout(node?.layout)
+          : (node?.layout || {}),
+      );
+    }
+  }
   // Matrix Waterfall / Matrix Display settings panels.
   if (type === "matrixFace" || type === "matrixWaterfallFace" || type === "matrixDisplayFace") {
     if (typeof bindNodeGraphMatrixFaceDisplaySettingsBody === "function") {
@@ -213,6 +239,39 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       nodeGraphKnobFaceDisplaySettingsDefaults,
     );
   }
+  if (type === "keypadFace") {
+    return typeof normalizeNodeGraphKeypadLayout === "function"
+      ? normalizeNodeGraphKeypadLayout()
+      : {
+        backgroundColor: "#f4f3f0",
+        buttonColor: "#f3f1ec",
+        downColor: "#c4bdb3",
+        hoverColor: "#ddd9d2",
+        buttonHeight: 0.94,
+        buttonSize: 1,
+        buttonWidth: 0.94,
+        font: "poiret-one",
+        kind: "keypad",
+        strokeColor: "#2d2d2d",
+        textColor: "#2d2d2d",
+        textSize: 0.55,
+        textWeight: 400,
+      };
+  }
+  if (type === "textBoxFace") {
+    return typeof normalizeNodeGraphTextBoxLayout === "function"
+      ? normalizeNodeGraphTextBoxLayout()
+      : {
+        backgroundColor: "#020407",
+        horizontalAlign: "center",
+        kind: "textBox",
+        text: "",
+        textColor: "#f3f1ec",
+        textMode: "singleLine",
+        textSizePercent: 100,
+        verticalAlignPercent: 50,
+      };
+  }
   if (type === "patchFace") {
     return normalizeNodeGraphPatchFaceDisplaySettings(
       typeof nodeGraphPatchFaceDisplaySettingsDefaults !== "undefined"
@@ -323,6 +382,16 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   }
   if (type === "knobFace") {
     return normalizeNodeGraphKnobFaceDisplaySettings(settings);
+  }
+  if (type === "keypadFace") {
+    return typeof normalizeNodeGraphKeypadLayout === "function"
+      ? normalizeNodeGraphKeypadLayout(settings)
+      : (settings || {});
+  }
+  if (type === "textBoxFace") {
+    return typeof normalizeNodeGraphTextBoxLayout === "function"
+      ? normalizeNodeGraphTextBoxLayout(settings)
+      : (settings || {});
   }
   if (type === "patchFace") {
     return normalizeNodeGraphPatchFaceDisplaySettings(settings);
@@ -444,6 +513,20 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   if (settingsSchema === "knobFace") {
     return nodeGraphKnobFaceDisplaySettingsForNode(node);
   }
+  if (settingsSchema === "keypadFace") {
+    return typeof nodeGraphKeypadDisplaySettingsForNode === "function"
+      ? nodeGraphKeypadDisplaySettingsForNode(node)
+      : (typeof normalizeNodeGraphKeypadLayout === "function"
+        ? normalizeNodeGraphKeypadLayout(node?.layout)
+        : (node?.layout || {}));
+  }
+  if (settingsSchema === "textBoxFace") {
+    return typeof nodeGraphTextBoxDisplaySettingsForNode === "function"
+      ? nodeGraphTextBoxDisplaySettingsForNode(node)
+      : (typeof normalizeNodeGraphTextBoxLayout === "function"
+        ? normalizeNodeGraphTextBoxLayout(node?.layout)
+        : (node?.layout || {}));
+  }
   if (settingsSchema === "patchFace") {
     return typeof nodeGraphPatchFaceDisplaySettingsForNode === "function"
       ? nodeGraphPatchFaceDisplaySettingsForNode(node)
@@ -550,6 +633,59 @@ function readNodeGraphTraceDisplaySettingsForm() {
           || nodeGraphMvp?.sharedGradientEditor);
       if (editor && typeof editor.getStops === "function") {
         next.gradientStops = editor.getStops();
+      }
+    }
+    return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
+  }
+  if (formType === "keypadFace") {
+    const panel = root?.querySelector?.("[data-keypad-display-settings-panel]") || root;
+    const next = { ...current };
+    for (const key of ["textSize", "textWeight", "buttonWidth", "buttonHeight", "buttonSize", "rounding", "stroke"]) {
+      const input = panel?.querySelector?.(`[data-keypad-field="${key}"]`);
+      if (input) {
+        next[key] = Number(input.value);
+      }
+    }
+    const font = panel?.querySelector?.(`[data-trace-display-choice="font"]`);
+    if (font) {
+      next.font = font.value;
+    }
+    const corner = panel?.querySelector?.("[data-keypad-corner].active, [data-keypad-corner][aria-pressed='true']");
+    if (corner) {
+      next.cornerShape = corner.getAttribute("data-keypad-corner") === "pill" ? "pill" : "squircle";
+    }
+    for (const key of ["backgroundColor", "buttonColor", "hoverColor", "downColor", "textColor", "strokeColor"]) {
+      const input = panel?.querySelector?.(`[data-trace-display-color="${key}"]`);
+      if (input) {
+        next[key] = input.value;
+      }
+    }
+    if (Array.isArray(current.keyImages)) {
+      next.keyImages = current.keyImages;
+    }
+    return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
+  }
+  if (formType === "textBoxFace") {
+    const panel = root?.querySelector?.("[data-textbox-display-settings-panel]") || root;
+    const next = { ...current };
+    for (const key of ["textSizePercent", "verticalAlignPercent"]) {
+      const input = panel?.querySelector?.(`[data-textbox-field="${key}"]`);
+      if (input) {
+        next[key] = Number(input.value);
+      }
+    }
+    const mode = panel?.querySelector?.("[data-textbox-mode].active, [data-textbox-mode][aria-pressed='true']");
+    if (mode) {
+      next.textMode = mode.getAttribute("data-textbox-mode");
+    }
+    const align = panel?.querySelector?.("[data-textbox-align].active, [data-textbox-align][aria-pressed='true']");
+    if (align) {
+      next.horizontalAlign = align.getAttribute("data-textbox-align");
+    }
+    for (const key of ["backgroundColor", "textColor"]) {
+      const input = panel?.querySelector?.(`[data-trace-display-color="${key}"]`);
+      if (input) {
+        next[key] = input.value;
       }
     }
     return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
@@ -756,6 +892,38 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
         editor.setStops(normalized.gradientStops);
       }
     }
+    return;
+  }
+  if (formType === "keypadFace") {
+    const panel = root?.querySelector?.("[data-keypad-display-settings-panel]") || root;
+    if (typeof syncNodeGraphKeypadDisplaySettingsControls === "function") {
+      syncNodeGraphKeypadDisplaySettingsControls(panel, normalized);
+    }
+    for (const key of ["backgroundColor", "buttonColor", "hoverColor", "downColor", "textColor", "strokeColor"]) {
+      const input = panel?.querySelector?.(`[data-trace-display-color="${key}"]`);
+      if (input) {
+        input.value = normalized[key] || "";
+      }
+    }
+    syncNodeGraphTraceDisplayColorWidgets(
+      document.getElementById("nodeTraceDisplaySettingsPopover"),
+    );
+    return;
+  }
+  if (formType === "textBoxFace") {
+    const panel = root?.querySelector?.("[data-textbox-display-settings-panel]") || root;
+    if (typeof syncNodeGraphTextBoxDisplaySettingsControls === "function") {
+      syncNodeGraphTextBoxDisplaySettingsControls(panel, normalized);
+    }
+    for (const key of ["backgroundColor", "textColor"]) {
+      const input = panel?.querySelector?.(`[data-trace-display-color="${key}"]`);
+      if (input) {
+        input.value = normalized[key] || "";
+      }
+    }
+    syncNodeGraphTraceDisplayColorWidgets(
+      document.getElementById("nodeTraceDisplaySettingsPopover"),
+    );
     return;
   }
   if (formType === "rgbPictureFace") {
@@ -1031,13 +1199,13 @@ function nodeGraphTraceDisplayColorWidgetModuleUrl() {
   }
   const script = document.querySelector('script[src*="node-graph-module-scopes.js"]');
   if (script?.src) {
-    return new URL("color-widget.js?v=hue-crop-reset-1", script.src).href;
+    return new URL("color-widget.js?v=color-hover-nostroke-1", script.src).href;
   }
   // Fallbacks: site root /public/, then document-relative public/
   try {
-    return new URL("/public/color-widget.js?v=hue-crop-reset-1", window.location.origin).href;
+    return new URL("/public/color-widget.js?v=color-hover-nostroke-1", window.location.origin).href;
   } catch {
-    return new URL("public/color-widget.js?v=hue-crop-reset-1", window.location.href).href;
+    return new URL("public/color-widget.js?v=color-hover-nostroke-1", window.location.href).href;
   }
 }
 
@@ -1172,18 +1340,39 @@ function destroyNodeGraphTraceDisplayColorWidgets() {
 }
 
 function nodeGraphTraceDisplayColorWidgetLabel(field) {
-  // Only non-generic titles (Background / Ghost / Left / Right). Never "Color".
+  // Title lives inside the widget (swatch). Never a side "Color" heading.
   if (field === "secondaryColor") {
     return "Right";
+  }
+  if (field === "protectColor") {
+    return "Protect";
   }
   if (field === "backgroundColor") {
     if (nodeGraphTraceDisplaySettingsFormType() === "numberReadout") {
       return "Background";
     }
-    if (nodeGraphTraceDisplaySettingsFormType() === "rgbFractalFace") {
-      return "Bg";
-    }
     return "Bg";
+  }
+  if (field === "buttonColor") {
+    return "Button";
+  }
+  if (field === "hoverColor") {
+    return "Hover";
+  }
+  if (field === "downColor") {
+    return "Down";
+  }
+  if (field === "textColor") {
+    return "Text";
+  }
+  if (field === "strokeColor") {
+    return "Stroke";
+  }
+  if (field === "arcFill") {
+    return "Fill";
+  }
+  if (field === "arcTrack") {
+    return "Track";
   }
   if (field === "ghostColor") {
     return "Ghost ink";

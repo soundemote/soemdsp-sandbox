@@ -151,6 +151,24 @@ function sineQuiet(state, n) {
   }
 }
 
+// 8. Over-unity is scaled, never flattened
+{
+  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
+  const out = ctx.nodeGraphSpeakerProtector2Protect(state, 3, -1.5, RATE);
+  const peak = Math.max(Math.abs(out.left), Math.abs(out.right));
+  const ratioIn = -1.5 / 3;
+  const ratioOut = out.right / out.left;
+  if (peak > 1 + 1e-9) {
+    fail(`over-unity should stay |y|<=1, peak=${peak}`);
+  } else if (Math.abs(ratioOut - ratioIn) > 1e-9) {
+    fail(`shape not preserved, in=${ratioIn} out=${ratioOut}`);
+  } else if (Math.abs(out.left - 1) > 1e-9 || Math.abs(out.right + 0.5) > 1e-9) {
+    fail(`expected 1 / -0.5, got ${out.left} / ${out.right}`);
+  } else {
+    ok("over-unity is scaled not clipped");
+  }
+}
+
 if (process.exitCode) {
   console.error("speaker protector 2 tests failed");
 } else {

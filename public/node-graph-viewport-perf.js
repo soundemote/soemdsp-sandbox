@@ -9,9 +9,9 @@ const nodeGraphViewportPerf = {
   wheelActiveUntil: 0,
   lastWirePlanKey: "",
   lastWirePlan: null,
-  settleMs: 140,
+  settleMs: 280,
   persistMs: 220,
-  wheelHoldMs: 160,
+  wheelHoldMs: 320,
 };
 
 function nodeGraphViewportWheelActive() {

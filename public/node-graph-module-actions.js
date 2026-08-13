@@ -82,6 +82,13 @@ function showNodeGraphModule(node, point = null, options = {}) {
   if (!Object.hasOwn(nodeGraphModuleDefinitions, type)) {
     return "";
   }
+  if (typeof nodeGraphModuleTypeIsUnderConstruction === "function"
+    && nodeGraphModuleTypeIsUnderConstruction(type)) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("This module is under construction and cannot be added.");
+    }
+    return "";
+  }
 
   if (typeof nodeGraphModuleTypeIsUniqueInPatch === "function" && nodeGraphModuleTypeIsUniqueInPatch(type)) {
     const existing = typeof nodeGraphFindExistingModuleOfType === "function"
@@ -2185,6 +2192,10 @@ function refreshNodeGraphImageFromContext() {
   commitNodeGraphPatch(patch, { record: false, status: "image refreshed" });
   refreshNodeGraphImageBodies();
   scheduleNodeGraphModuleScopeDraw();
+}
+
+function setNodeGraphKeypadLayoutFromContext() {
+  // Keypad look is Display Settings only (Sound Color Widgets + steppers).
 }
 
 function setNodeGraphLedColorFromContext({ record = true } = {}) {

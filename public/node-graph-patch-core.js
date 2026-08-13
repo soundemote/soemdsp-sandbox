@@ -289,6 +289,8 @@ function validateNodeGraphPatch(patch) {
     };
     if (nodeGraphModuleDefinitions[type].layout === "textBox") {
       normalizedNode.layout = normalizeNodeGraphTextBoxLayout(node.layout);
+    } else if (type === "keypad" && typeof normalizeNodeGraphKeypadLayout === "function") {
+      normalizedNode.layout = normalizeNodeGraphKeypadLayout(node.layout);
     } else if (nodeGraphModuleDefinitions[type].layout === "image") {
       normalizedNode.layout = normalizeNodeGraphImageLayout(node.layout);
     } else if (nodeGraphModuleDefinitions[type].layout === "led") {
@@ -971,6 +973,8 @@ function syncNodeGraphModuleParamElement(element, patchNode) {
   }
   if (nodeGraphModuleDefinitions[patchNode.type]?.layout === "textBox") {
     syncNodeGraphTextBoxElement(element, patchNode);
+  } else if (patchNode.type === "keypad" && typeof syncNodeGraphKeypadElement === "function") {
+    syncNodeGraphKeypadElement(element, patchNode);
   } else if (nodeGraphModuleDefinitions[patchNode.type]?.layout === "graph") {
     syncNodeGraphGraphElement(element, patchNode);
   } else if (
@@ -1012,6 +1016,8 @@ function applyNodeGraphModuleElementFromPatch(patchNode, options = {}) {
     syncNodeGraphModuleParamElement(element, patchNode);
   } else if (nodeGraphModuleDefinitions[patchNode.type]?.layout === "textBox") {
     syncNodeGraphTextBoxElement(element, patchNode);
+  } else if (patchNode.type === "keypad" && typeof syncNodeGraphKeypadElement === "function") {
+    syncNodeGraphKeypadElement(element, patchNode);
   }
   return element;
 }

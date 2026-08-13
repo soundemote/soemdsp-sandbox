@@ -288,6 +288,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "comparator" && !this.comparatorStates.has(id)) {
         this.comparatorStates.set(id, this.createComparatorState());
       }
+      if (node?.type === "noiseDetector" && !this.noiseDetectorStates.has(id)) {
+        this.noiseDetectorStates.set(id, this.createNoiseDetectorState());
+      }
       if (node?.type === "speedColorInertia" && !this.speedColorInertiaStates.has(id)) {
         this.speedColorInertiaStates.set(id, this.createSpeedColorInertiaState());
       }
@@ -421,6 +424,12 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       }
       if (node?.type === "bugButton" && !this.bugButtonStates.has(id)) {
         this.bugButtonStates.set(id, this.createBugButtonState());
+      }
+      if (node?.type === "keypad" && !this.keypadStates.has(id)) {
+        this.keypadStates.set(id, this.createKeypadState());
+      }
+      if (node?.type === "phoneTone" && !this.phoneToneStates.has(id)) {
+        this.phoneToneStates.set(id, this.createPhoneToneState());
       }
       if (node?.type === "polyBlep" && !this.polyBlepStates.has(id)) {
         this.polyBlepStates.set(id, this.createPolyBlepState());
@@ -874,6 +883,13 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
         this.comparatorStates.delete(id);
       }
     }
+    if (this.noiseDetectorStates) {
+      for (const id of [...this.noiseDetectorStates.keys()]) {
+        if (!ids.has(id)) {
+          this.noiseDetectorStates.delete(id);
+        }
+      }
+    }
     if (this.speedColorInertiaStates) {
       for (const id of [...this.speedColorInertiaStates.keys()]) {
         if (!ids.has(id)) {
@@ -1133,6 +1149,20 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     for (const id of [...this.bugButtonStates.keys()]) {
       if (!ids.has(id)) {
         this.bugButtonStates.delete(id);
+      }
+    }
+    if (this.keypadStates) {
+      for (const id of [...this.keypadStates.keys()]) {
+        if (!ids.has(id)) {
+          this.keypadStates.delete(id);
+        }
+      }
+    }
+    if (this.phoneToneStates) {
+      for (const id of [...this.phoneToneStates.keys()]) {
+        if (!ids.has(id)) {
+          this.phoneToneStates.delete(id);
+        }
       }
     }
     for (const id of [...this.polyBlepStates.keys()]) {

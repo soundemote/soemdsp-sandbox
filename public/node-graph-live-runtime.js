@@ -1256,6 +1256,7 @@ function renderNodeGraphLiveScriptBlock(event) {
   const blockStartFrame = Number.isFinite(runtime.absoluteFrameCursor)
     ? runtime.absoluteFrameCursor
     : 0;
+  let lastProtect = { engaged: false, gain: 1 };
   for (let frame = 0; frame < frames; frame += 1) {
     runtime.absoluteFrame = blockStartFrame + frame;
     const inputLeft = Number(runtime.externalInput.left?.[frame]) || 0;
@@ -1295,14 +1296,7 @@ function renderNodeGraphLiveScriptBlock(event) {
     if (protectedFrame.engaged || protectedFrame.muted) {
       runtime.meterProtectionMuteCount = (runtime.meterProtectionMuteCount || 0) + 1;
     }
-    const painted = Boolean(protectedFrame.engaged);
-    if (painted !== runtime.earProtectionPainted && typeof nodeGraphSetEarProtectionEngaged === "function") {
-      runtime.earProtectionPainted = painted;
-      nodeGraphSetEarProtectionEngaged(painted, {
-        source: "live",
-        protectionGain: protectedFrame.gain,
-      });
-    }
+    lastProtect = protectedFrame;
     const left = nodeGraphClampOutputSample(protectedFrame.left);
     const right = nodeGraphClampOutputSample(protectedFrame.right);
     const value = Math.max(Math.abs(left), Math.abs(right));
@@ -1314,6 +1308,12 @@ function renderNodeGraphLiveScriptBlock(event) {
     }
   }
   runtime.absoluteFrameCursor = blockStartFrame + frames;
+  if (typeof nodeGraphSetEarProtectionEngaged === "function") {
+    nodeGraphSetEarProtectionEngaged(Boolean(lastProtect.engaged), {
+      source: "live",
+      protectionGain: lastProtect.gain,
+    });
+  }
   runtime.externalInput = null;
   nodeGraphSetVisualControls(runtime.visualControls || { screenShake: 0 });
   if (nodeGraphMvp.live.lastEvidence) {
@@ -2791,30 +2791,30 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
   "./public/node-graph-parameter-smoother-filters.js?v=linear-lerp-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
-  "./public/node-graph-module-bypass.js?v=vectorscope-bypass-1",
-  "./public/node-live-audio-worklet-core.js?v=speaker-protector-2-1",
+  "./public/node-graph-module-bypass.js?v=number-gate-1",
+  "./public/node-live-audio-worklet-core.js?v=phone-tone-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
   "./public/node-live-audio-worklet-smoother.js?v=unit-mod-linear-1",
   "./public/node-live-audio-worklet-param-map.js?v=domain-mod-1",
   "./public/node-live-audio-worklet-destroy.js?v=plan-d-split-6",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
-  "./public/node-live-audio-worklet-dsp-state.js?v=speaker-protector-2-1",
+  "./public/node-live-audio-worklet-dsp-state.js?v=speaker-protector-noclip-1",
   "./public/node-live-audio-worklet-events.js?v=domain-mod-1",
   "./public/node-live-audio-worklet-visual.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-scope-io.js?v=visual-rate-meta-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-evaluators-sources.js?v=domain-mod-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=speaker-protector-2-1",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=number-gate-1",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=sample-stereo-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=soft-clipper-gain-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=speaker-protector-2-1",
-  "./public/node-live-audio-worklet-clear-plan.js?v=plan-d-split-3",
-  "./public/node-live-audio-worklet-handle-message.js?v=plan-d-split-4",
+  "./public/node-live-audio-worklet-set-plan.js?v=phone-tone-1",
+  "./public/node-live-audio-worklet-clear-plan.js?v=phone-tone-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=keypad-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=visual-rate-meta-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=output-scope-bus-1",
-  "./public/node-live-audio-worklet-process.js?v=speaker-protector-2-1",
+  "./public/node-live-audio-worklet-process.js?v=speaker-protector-noclip-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=xy-pad-dsp-path-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=uni-bi-outs-1",
@@ -2897,6 +2897,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/soemReverb/soem-reverb-worklet-evaluator.js?v=5-ping-pong",
   "./public/modules/pll/pll-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js?v=pitch-display-1",
+  "./public/modules/noiseDetector/noise-detector-math.js?v=noise-detector-1",
+  "./public/modules/noiseDetector/noise-detector-worklet-evaluator.js?v=noise-detector-1",
   "./public/modules/slewLimiter/slew-limiter-math.js?v=slew-shape-1",
   "./public/modules/slewLimiter/slew-limiter-worklet-evaluator.js?v=slew-shape-1",
   "./public/modules/midSideEncode/mid-side-encode-math.js?v=ms-quad-lim-1",
@@ -2944,6 +2946,12 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/bugButton/bug-button-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/keypad/keypad-math.js?v=keypad-layout-b-1",
+  "./public/modules/keypad/keypad-worklet-evaluator.js?v=keypad-layout-b-1",
+  "./public/modules/numberGate/number-gate-math.js?v=number-gate-1",
+  "./public/modules/numberGate/number-gate-worklet-evaluator.js?v=number-gate-1",
+  "./public/modules/phoneTone/phone-tone-math.js?v=phone-tone-layoutb-1",
+  "./public/modules/phoneTone/phone-tone-worklet-evaluator.js?v=phone-tone-layoutb-1",
   "./public/modules/xyPad/xy-pad-dsp.js?v=xy-pad-center-q-1",
   "./public/modules/xyPad/xy-pad-worklet-evaluator.js?v=xy-pad-phosphor-out-1",
   "./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js?v=native-strip-1",
@@ -2968,12 +2976,12 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/stepSequencer/step-sequencer-worklet-evaluator.js?v=step-sequencer-1",
   "./public/modules/stepGrid/step-grid-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/nextPatch/next-patch-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-aa-ends-1",
-  "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=soft-clipper-aa-ends-1",
-  "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=speaker-protector-2-1",
-  "./public/modules/speakerProtector2/speaker-protector-2-worklet-evaluator.js?v=speaker-protector-2-1",
-  "./public/modules/clipperLimiter/clipper-limiter-math.js?v=soft-clipper-gain-1",
-  "./public/modules/clipperLimiter/clipper-limiter-worklet-evaluator.js?v=soft-clipper-gain-1",
+  "./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-os-1",
+  "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=soft-clipper-os-1",
+  "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=speaker-protector-noclip-1",
+  "./public/modules/speakerProtector2/speaker-protector-2-worklet-evaluator.js?v=speaker-protector-noclip-1",
+  "./public/modules/clipperLimiter/clipper-limiter-math.js?v=soft-clipper-os-1",
+  "./public/modules/clipperLimiter/clipper-limiter-worklet-evaluator.js?v=soft-clipper-os-1",
   "./public/modules/airClipper/air-clipper-math.js?v=air-clipper-1",
   "./public/modules/airClipper/air-clipper-worklet-evaluator.js?v=air-clipper-1",
   "./public/modules/rgbaHsla/rgba-hsla-worklet-evaluator.js?v=native-strip-1",

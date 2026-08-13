@@ -1,0 +1,147 @@
+.node-keypad-face {
+  --node-keypad-font: "Poiret One", sans-serif;
+  --node-keypad-text-size: 0.55;
+  --node-keypad-text-weight: 400;
+  --node-keypad-background-color: #f4f3f0;
+  --node-keypad-button-color: #f3f1ec;
+  --node-keypad-hover-color: #ddd9d2;
+  --node-keypad-down-color: #c4bdb3;
+  --node-keypad-text-color: #2d2d2d;
+  --node-keypad-stroke-color: #2d2d2d;
+  --node-keypad-button-width: 0.94;
+  --node-keypad-button-height: 0.94;
+  --node-keypad-button-size: 1;
+  box-sizing: border-box;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  --node-keypad-rounding: 50;
+  --node-keypad-radius: 0px;
+  --node-keypad-stroke: 0px;
+  --node-keypad-corner-shape: squircle;
+  padding: calc(var(--node-grid-size, 28px) * 0.14);
+  border-radius: 0;
+  background: var(--node-keypad-background-color);
+}
+
+.node-keypad-grid {
+  container-type: size;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.node-keypad-key {
+  appearance: none;
+  display: grid;
+  place-self: center;
+  place-items: center;
+  box-sizing: border-box;
+  /* Square inscribed in the width×height envelope so neighbors never clip. */
+  --node-keypad-square: min(
+    var(--node-keypad-button-width) * 100cqw / 3,
+    var(--node-keypad-button-height) * 100cqh / 4
+  );
+  width: calc(var(--node-keypad-button-size) * var(--node-keypad-square));
+  height: calc(var(--node-keypad-button-size) * var(--node-keypad-square));
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: var(--node-keypad-stroke) solid var(--node-keypad-stroke-color);
+  border-radius: var(--node-keypad-radius);
+  corner-shape: var(--node-keypad-corner-shape);
+  background-color: var(--node-keypad-button-color);
+  box-shadow: none;
+  color: var(--node-keypad-text-color);
+  font-family: var(--node-keypad-font);
+  font-weight: var(--node-keypad-text-weight);
+  overflow: hidden;
+  letter-spacing: 0;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.node-keypad-key-label {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  line-height: 1;
+  font-size: calc(
+    var(--node-keypad-text-size)
+    * var(--node-keypad-button-size)
+    * min(
+      var(--node-keypad-button-width) * 100cqw / 3,
+      var(--node-keypad-button-height) * 100cqh / 4
+    )
+  );
+}
+
+.node-keypad-key:focus {
+  outline: none;
+}
+
+.node-keypad-key:focus-visible {
+  outline: 1px solid var(--node-keypad-text-color);
+  outline-offset: 0;
+}
+
+.node-keypad-key.has-image {
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.node-keypad-key:hover {
+  background-color: var(--node-keypad-hover-color);
+}
+
+.node-keypad-key.is-active,
+.node-keypad-key.is-down,
+.node-keypad-key:active {
+  background-color: var(--node-keypad-down-color);
+}
+
+.node-keypad-face.is-empty .node-keypad-key {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.scene-context-keypad-controls {
+  display: grid;
+  gap: 6px;
+}
+
+.scene-context-keypad-controls[hidden] {
+  display: none;
+}
+
+.scene-context-keypad-controls .scene-context-scope-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 8px;
+}
+
+.scene-context-keypad-controls .scene-context-keypad-font {
+  grid-column: 1 / -1;
+}
+
+.node-keypad-image-slots {
+  display: grid;
+  gap: 0;
+}
+
+.node-keypad-image-slot small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.72;
+}

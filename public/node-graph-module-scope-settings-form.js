@@ -254,7 +254,7 @@ function nodeGraphDisplaySettingsBuildChoiceRowHtml(key) {
 
 
 function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
-  const base = nodeGraphDisplaySettingsColorMeta[key] || {
+  let base = nodeGraphDisplaySettingsColorMeta[key] || {
     label: "",
     aria: key,
     defaultValue: "#ffffff",
@@ -277,6 +277,31 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
     aria = "Knob arc fill (value)";
   } else if (formType === "knobFace" && key === "arcTrack") {
     aria = "Knob arc track (unfilled)";
+  } else if (formType === "keypadFace" && key === "backgroundColor") {
+    aria = "Keypad background color";
+    base = { ...base, defaultValue: "#f4f3f0" };
+  } else if (formType === "keypadFace" && key === "buttonColor") {
+    aria = "Keypad button color";
+    base = { ...base, defaultValue: "#f3f1ec" };
+  } else if (formType === "keypadFace" && key === "hoverColor") {
+    aria = "Keypad mouse hover color";
+    base = { ...base, defaultValue: "#ddd9d2" };
+  } else if (formType === "keypadFace" && key === "downColor") {
+    aria = "Keypad mouse down color";
+    base = { ...base, defaultValue: "#c4bdb3" };
+  } else if (formType === "keypadFace" && key === "textColor") {
+    aria = "Keypad text color";
+  } else if (formType === "keypadFace" && key === "strokeColor") {
+    aria = "Keypad stroke color";
+  } else if (formType === "textBoxFace" && key === "backgroundColor") {
+    aria = "Text Box background color";
+    base = { ...base, defaultValue: "#020407" };
+  } else if (formType === "trace" && key === "protectColor") {
+    aria = "Speaker protection overlay; alpha follows mute 0–1";
+    base = { ...base, defaultValue: "#e02020" };
+  } else if (formType === "textBoxFace" && key === "textColor") {
+    aria = "Text Box text color";
+    base = { ...base, defaultValue: "#f3f1ec" };
   }
   return {
     ...base,
@@ -309,6 +334,12 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   if (type === "ledLamp" && typeof buildNodeGraphLedDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphLedDisplaySettingsBodyHtml();
   }
+  if (type === "keypadFace" && typeof buildNodeGraphKeypadDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphKeypadDisplaySettingsBodyHtml();
+  }
+  if (type === "textBoxFace" && typeof buildNodeGraphTextBoxDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphTextBoxDisplaySettingsBodyHtml();
+  }
   if (type === "rgbPictureFace" && typeof buildNodeGraphRgbPictureDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphRgbPictureDisplaySettingsBodyHtml();
   }
@@ -335,6 +366,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   const allowKey = (kind, key) => {
     if (type !== "trace") {
       return true;
+    }
+    if (key === "protectColor") {
+      return node?.type === "output";
     }
     if (!isStereoTraceNode) {
       if (

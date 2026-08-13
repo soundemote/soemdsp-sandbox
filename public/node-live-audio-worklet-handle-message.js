@@ -81,6 +81,10 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       this.setBugButtonInteraction(message);
       return;
     }
+    if (message.type === "keypadInteraction") {
+      this.setKeypadInteraction(message);
+      return;
+    }
     if (message.type === "inputWireBreakTrigger") {
       this.setInputWireBreakTrigger(message.nodeId, message.port);
       return;

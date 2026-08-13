@@ -1,4 +1,5 @@
-// Isolated Text Box face. Displays and edits text. No patch, no wires, no audio.
+// Isolated Text Box face. One div: type here, see glyphs here.
+// Not a textarea (CSS zoom on the workspace does not paint textarea glyphs).
 // Host may call setText / setLayout and listen for onChange / onCommit.
 
 const TextBoxWidgetFitLimits = Object.freeze({
@@ -23,9 +24,12 @@ function textBoxWidgetNormalizeAlign(value) {
 }
 
 function textBoxWidgetNormalizeVertical(value) {
+  if (typeof normalizeNodeGraphTextBoxVerticalAlignPercent === "function") {
+    return normalizeNodeGraphTextBoxVerticalAlignPercent(value);
+  }
   const numeric = Math.round(Number(value));
   if (Number.isFinite(numeric)) {
-    return Math.max(0, Math.min(100, numeric));
+    return Math.max(-50, Math.min(150, numeric));
   }
   const align = String(value || "").toLowerCase();
   if (align === "top") return 0;
@@ -33,10 +37,23 @@ function textBoxWidgetNormalizeVertical(value) {
   return 50;
 }
 
+function textBoxWidgetReadText(field) {
+  if (!field) return "";
+  const raw = String(field.innerText ?? field.textContent ?? "").replace(/\u00a0/g, " ");
+  return raw === "\n" ? "" : raw;
+}
+
+function textBoxWidgetWriteText(field, value) {
+  if (!field) return;
+  const next = String(value ?? "");
+  if (textBoxWidgetReadText(field) === next) return;
+  field.textContent = next;
+}
+
 function textBoxWidgetMeasureMaxLineWidth(field, mode) {
   if (!field) return 0;
   const style = window.getComputedStyle(field);
-  const text = String(field.value || "");
+  const text = textBoxWidgetReadText(field);
   const lines = text.split(/\r\n|\r|\n/);
   const samples = mode === "singleLine"
     ? [text || " "]
@@ -70,7 +87,7 @@ function textBoxWidgetFitScale(field, layout) {
   const paddingTop = Number.parseFloat(style.paddingTop) || 0;
   const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
   const availableHeight = Math.max(1, field.clientHeight - paddingTop - paddingBottom);
-  const text = String(field.value || "");
+  const text = textBoxWidgetReadText(field);
   const lineCount = Math.max(1, text.split(/\r\n|\r|\n/).length);
   const contentHeightAt1 = lineCount * lineHeight;
   const sHeight = contentHeightAt1 > 0 ? availableHeight / contentHeightAt1 : TextBoxWidgetFitLimits.maxFill;
@@ -88,14 +105,13 @@ function textBoxWidgetApplyAlign(field, layout) {
   const style = window.getComputedStyle(field);
   const fontSize = Number.parseFloat(style.fontSize) || 14;
   const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.2;
-  const text = String(field.value || "");
+  const text = textBoxWidgetReadText(field);
   const multiline = textBoxWidgetNormalizeMode(layout.textMode) !== "singleLine";
   const lineCount = multiline ? Math.max(1, text.split(/\r\n|\r|\n/).length) : 1;
   const contentHeight = lineCount * lineHeight;
   const box = Math.max(0, field.clientHeight);
-  // Never pad so far that a line is clipped (overflow:hidden + padding ate the text).
-  const maxOffset = Math.max(0, box - contentHeight);
-  const offset = maxOffset * textBoxWidgetNormalizeVertical(layout.verticalAlignPercent) / 100;
+  const slack = box - contentHeight;
+  const offset = slack * textBoxWidgetNormalizeVertical(layout.verticalAlignPercent) / 100;
   field.style.setProperty("--node-text-box-content-offset", `${offset.toFixed(2)}px`);
 }
 
@@ -119,6 +135,8 @@ function createTextBoxWidget(body, options = {}) {
     textSizePercent: Number.isFinite(Number(options.textSizePercent))
       ? Math.max(50, Math.min(1000, Math.round(Number(options.textSizePercent))))
       : 100,
+    backgroundColor: String(options.backgroundColor || ""),
+    textColor: String(options.textColor || ""),
   };
   let editable = options.editable !== false;
   let changeFn = typeof options.onChange === "function" ? options.onChange : null;
@@ -130,40 +148,59 @@ function createTextBoxWidget(body, options = {}) {
   let applying = false;
   let observer = null;
 
-  const field = document.createElement("textarea");
+  // Div, not textarea: CSS `zoom` on the workspace surface does not paint
+  // textarea glyphs. Face is the live editor (settings field mirrors it).
+  const field = document.createElement("div");
   field.className = "node-text-box-input";
-  field.spellcheck = false;
-  field.rows = 1;
-  field.value = layout.text;
-  field.readOnly = !editable;
-  field.tabIndex = editable ? 0 : -1;
+  field.setAttribute("role", "textbox");
+  field.setAttribute("aria-multiline", layout.textMode === "singleLine" ? "false" : "true");
   field.setAttribute("aria-label", options.ariaLabel || "Text box");
+  field.spellcheck = false;
+  textBoxWidgetWriteText(field, layout.text);
+
+  function applyEditable() {
+    field.contentEditable = editable ? "true" : "false";
+    field.setAttribute("aria-readonly", editable ? "false" : "true");
+    field.tabIndex = editable ? 0 : -1;
+  }
 
   if (typeof nodeGraphTextBoxBindFieldKeySteal === "function") {
     nodeGraphTextBoxBindFieldKeySteal(field);
-  } else {
-    const stopKeys = (event) => {
-      if (!event.ctrlKey && !event.metaKey && !event.altKey) event.stopPropagation();
-    };
-    field.addEventListener("keydown", stopKeys, true);
-    field.addEventListener("keyup", stopKeys, true);
-    field.addEventListener("keypress", stopKeys, true);
   }
+
   field.addEventListener("pointerdown", (event) => {
-    // Same as the module title: click must not focus this surface.
-    // Double-click opens the floating area field. A first-click :focus flash
-    // here is what made it look like focus arrived and immediately left.
-    event.preventDefault();
     event.stopPropagation();
   });
   field.addEventListener("click", (event) => event.stopPropagation());
   field.addEventListener("dblclick", (event) => {
-    event.preventDefault();
     event.stopPropagation();
     const nodeId = body.dataset?.node;
     if (typeof nodeGraphTextBoxOpenFloatingEditor === "function" && nodeId) {
       nodeGraphTextBoxOpenFloatingEditor(nodeId, "text", event);
     }
+  });
+  field.addEventListener("contextmenu", (event) => {
+    const nodeId = body.dataset?.node;
+    if (!nodeId || typeof openNodeGraphTraceDisplaySettings !== "function") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    openNodeGraphTraceDisplaySettings(nodeId, event);
+  });
+  field.addEventListener("keydown", (event) => {
+    if (layout.textMode === "singleLine" && event.key === "Enter") {
+      event.preventDefault();
+    }
+  });
+  field.addEventListener("paste", (event) => {
+    if (!editable) return;
+    event.preventDefault();
+    const pasted = String(event.clipboardData?.getData("text/plain") ?? "");
+    const text = layout.textMode === "singleLine"
+      ? pasted.replace(/[\r\n]+/g, " ")
+      : pasted;
+    document.execCommand("insertText", false, text);
   });
   field.addEventListener("wheel", (event) => {
     if (document.activeElement === field) {
@@ -181,6 +218,13 @@ function createTextBoxWidget(body, options = {}) {
     field.dataset.textBoxModeCss = layout.textMode === "singleLine" ? "singleLine" : "multiline";
     field.style.textAlign = layout.horizontalAlign;
     field.style.setProperty("--node-text-box-font-scale", String(layout.textSizePercent / 100));
+    if (layout.backgroundColor) {
+      field.style.setProperty("--node-text-box-bg", layout.backgroundColor);
+    }
+    if (layout.textColor) {
+      field.style.setProperty("--node-text-box-fg", layout.textColor);
+    }
+    field.setAttribute("aria-multiline", layout.textMode === "singleLine" ? "false" : "true");
     body.dataset.textHorizontalAlign = layout.horizontalAlign;
     body.dataset.textVerticalAlignPercent = String(layout.verticalAlignPercent);
   }
@@ -198,26 +242,23 @@ function createTextBoxWidget(body, options = {}) {
       window.clearTimeout(commitTimer);
       commitTimer = 0;
     }
-    commitFn?.(field.value);
+    commitFn?.(textBoxWidgetReadText(field));
   }
 
   field.addEventListener("input", () => {
     if (applying || !editable) return;
-    layout.text = field.value;
+    layout.text = textBoxWidgetReadText(field);
     scheduleVisual();
-    changeFn?.(field.value);
+    changeFn?.(layout.text);
     if (commitTimer) window.clearTimeout(commitTimer);
     commitTimer = window.setTimeout(flushCommit, 400);
-  });
-  field.addEventListener("change", () => {
-    if (applying || !editable) return;
-    flushCommit();
   });
   field.addEventListener("blur", () => {
     if (applying || !editable) return;
     flushCommit();
   });
 
+  applyEditable();
   applyLayoutAttrs();
   body.replaceChildren(field);
   if (window.ResizeObserver) {
@@ -229,13 +270,13 @@ function createTextBoxWidget(body, options = {}) {
   return {
     field,
     getText() {
-      return field.value;
+      return textBoxWidgetReadText(field);
     },
     setText(value) {
       const next = String(value ?? "");
-      if (field.value === next) return;
+      if (textBoxWidgetReadText(field) === next) return;
       applying = true;
-      field.value = next;
+      textBoxWidgetWriteText(field, next);
       layout.text = next;
       applying = false;
       scheduleVisual();
@@ -254,14 +295,15 @@ function createTextBoxWidget(body, options = {}) {
         const n = Math.round(Number(next.textSizePercent));
         if (Number.isFinite(n)) layout.textSizePercent = Math.max(50, Math.min(1000, n));
       }
+      if (next.backgroundColor != null) layout.backgroundColor = String(next.backgroundColor || "");
+      if (next.textColor != null) layout.textColor = String(next.textColor || "");
       if (next.text != null) this.setText(next.text);
       applyLayoutAttrs();
       scheduleVisual();
     },
     setEditable(on) {
       editable = on !== false;
-      field.readOnly = !editable;
-      field.tabIndex = editable ? 0 : -1;
+      applyEditable();
     },
     focus() {
       if (editable) field.focus();

@@ -125,6 +125,8 @@ function createNodeGraphPatchNode(type, options = {}) {
   }
   if (nodeGraphModuleDefinitions[resolvedType]?.layout === "textBox") {
     node.layout = normalizeNodeGraphTextBoxLayout(opts.layout);
+  } else if (resolvedType === "keypad" && typeof normalizeNodeGraphKeypadLayout === "function") {
+    node.layout = normalizeNodeGraphKeypadLayout(opts.layout);
   } else if (nodeGraphModuleDefinitions[resolvedType]?.layout === "image") {
     node.layout = normalizeNodeGraphImageLayout(opts.layout);
   } else if (nodeGraphModuleDefinitions[resolvedType]?.layout === "led") {

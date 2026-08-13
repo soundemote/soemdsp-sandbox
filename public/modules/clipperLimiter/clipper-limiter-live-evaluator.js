@@ -10,7 +10,7 @@ nodeGraphLiveModuleEvaluators.clipperLimiter = ({ runtime, node, nodeId, frame, 
       ? createNodeGraphSoftClipperState()
       : null);
   if (state) runtime.clipperLimiterStates.set(nodeId, state);
-  const antialias = readNodeGraphLiveEffectiveParam(runtime, node, "antialias", 1, frame, frames, frameValues);
+  const oversample = readNodeGraphLiveEffectiveParam(runtime, node, "oversample", 2, frame, frames, frameValues);
   const minDb = readNodeGraphLiveEffectiveParam(runtime, node, "minDb", -12, frame, frames, frameValues);
   const maxDb = readNodeGraphLiveEffectiveParam(runtime, node, "maxDb", 0, frame, frames, frameValues);
   const gainDb = readNodeGraphLiveEffectiveParam(runtime, node, "gainDb", 0, frame, frames, frameValues);
@@ -22,6 +22,6 @@ nodeGraphLiveModuleEvaluators.clipperLimiter = ({ runtime, node, nodeId, frame, 
     maxDb,
     gainDb,
     state,
-    antialias,
+    oversample,
   );
 };

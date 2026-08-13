@@ -283,6 +283,13 @@ const css = `
     width: 100%;
   }
 
+  .scw-control:hover,
+  .scw-label:hover {
+    border-color: var(--color-widget-control-border);
+    box-shadow: none;
+    outline: none;
+  }
+
   .scw-control:focus-visible {
     outline: 1px solid var(--color-widget-accent);
     outline-offset: -1px;
@@ -308,12 +315,12 @@ const css = `
     background-size: calc(100% - 2 * var(--scw-hue-pad, ${HUE_TRACK_PAD_CSS})) 100% !important;
     background-position: var(--scw-hue-pad, ${HUE_TRACK_PAD_CSS}) 0 !important;
     /* Track drag shifts spectrum origin (reference hue at left). */
-    cursor: grab;
+    cursor: default;
     overflow: hidden;
   }
   .scw-hue:active,
   button.scw-control.scw-hue:active {
-    cursor: grabbing;
+    cursor: default;
   }
 
   /*

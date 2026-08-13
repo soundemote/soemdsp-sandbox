@@ -96,8 +96,8 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       }
       this.protectionEngaged = Boolean(protectedFrame.engaged);
       this.protectionGain = Number(protectedFrame.gain);
-      const left = this.clampValue(protectedFrame.left, -0.95, 0.95);
-      const right = this.clampValue(protectedFrame.right, -0.95, 0.95);
+      const left = Number.isFinite(Number(protectedFrame.left)) ? Number(protectedFrame.left) : 0;
+      const right = Number.isFinite(Number(protectedFrame.right)) ? Number(protectedFrame.right) : 0;
       this.meterPeak = Math.max(this.meterPeak, Math.abs(left), Math.abs(right));
       this.meterSquareSum += (left * left + right * right) * 0.5;
       this.meterSamples += 1;

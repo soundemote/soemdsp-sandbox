@@ -260,6 +260,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.humanFilterStates = new Map();
     this.pulseExplosionStates = new Map();
     this.comparatorStates = new Map();
+    this.noiseDetectorStates = new Map();
     this.speedColorInertiaStates = new Map();
     this.inertialFilterStates = new Map();
     this.tiltFilterStates = new Map();
@@ -268,6 +269,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.minMaxStates = new Map();
     this.aliasSineStates = new Map();
     this.robinSinusoidStates = new Map();
+    this.phoneToneStates = new Map();
     this.ladderFilterStates = new Map();
     this.tb303FilterStates = new Map();
     this.linearEnvelopeStates = new Map();
@@ -353,6 +355,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.vactrolEnvelopeStates = new Map();
     this.impulseButtonStates = new Map();
     this.bugButtonStates = new Map();
+    this.keypadStates = new Map();
     this.visualInputBuffers = new Map();
     this.visualSinks = [];
     this.resetVisualControls();

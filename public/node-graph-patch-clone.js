@@ -90,9 +90,10 @@ function normalizeNodeGraphPatchNodeDisplayModeKey(_type, _value = "") {
 
 /**
  * Global Visibility + local override:
- * - global shown → modules follow; local *Hidden forces hide
+ * - global shown → modules follow; a global Show also clears leftover *Hidden
+ *   so H / Visibility unhide actually reveals every module
  * - global hidden → modules hide; local *ForceShow forces show
- * Never flips the global flag when toggling one module.
+ * Per-module toggle never flips the global flag.
  */
 function nodeGraphPatchNodeSectionEffectivelyHidden(localHidden, localForceShow, globalVisible) {
   if (localForceShow) {
@@ -563,6 +564,9 @@ function cloneNodeGraphPatch(patch) {
           : {}),
         ...(nodeGraphModuleDefinitions[node.type]?.layout === "textBox"
           ? { layout: normalizeNodeGraphTextBoxLayout(node.layout) }
+          : {}),
+        ...(node.type === "keypad" && typeof normalizeNodeGraphKeypadLayout === "function"
+          ? { layout: normalizeNodeGraphKeypadLayout(node.layout) }
           : {}),
         ...(nodeGraphModuleDefinitions[node.type]?.layout === "image"
           ? { layout: normalizeNodeGraphImageLayout(node.layout) }

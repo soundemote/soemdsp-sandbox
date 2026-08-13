@@ -1,3 +1,84 @@
+/** Normalize a port name/label to the RGB outlet channel, or "". */
+function nodeGraphNormalizeOutletChannelKey(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) {
+    return "";
+  }
+  const tokens = raw.split(/[\s/_-]+/).filter(Boolean);
+  const first = tokens[0] || raw;
+  const last = tokens[tokens.length - 1] || raw;
+  // X / Left / L → red. Y / Mono / M → green. Z / Right / R / Analog / A → blue.
+  if (raw === "x" || last === "x" || raw === "l" || raw === "left" || first === "left" || last === "left") {
+    return "left";
+  }
+  if (raw === "y" || last === "y" || raw === "m" || raw === "mono" || first === "mono" || last === "mono") {
+    return "mono";
+  }
+  if (
+    raw === "z"
+    || last === "z"
+    || raw === "r"
+    || raw === "right"
+    || first === "right"
+    || last === "right"
+    || raw === "a"
+    || raw === "analog"
+  ) {
+    return "right";
+  }
+  if (raw === "out" || raw === "output") {
+    return "mono";
+  }
+  return "";
+}
+
+/**
+ * Outlet channel for Mono / Left / Right jacks (stroke policy).
+ * Checks port key, outputLabels, then outputAliases (Mono → Out).
+ */
+function nodeGraphOutletChannelKind(type, port, io = "output") {
+  const key = String(port || "");
+  const fromName = nodeGraphNormalizeOutletChannelKey(key);
+  if (fromName) {
+    return fromName;
+  }
+  const def = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[type]
+    : null;
+  const labelMap = io === "input" ? def?.inputLabels : def?.outputLabels;
+  const fromLabel = nodeGraphNormalizeOutletChannelKey(labelMap?.[key]);
+  if (fromLabel) {
+    return fromLabel;
+  }
+  const aliases = io === "input" ? def?.inputAliases : def?.outputAliases;
+  if (aliases && typeof aliases === "object") {
+    for (const [alias, target] of Object.entries(aliases)) {
+      if (String(target) === key) {
+        const fromAlias = nodeGraphNormalizeOutletChannelKey(alias);
+        if (fromAlias) {
+          return fromAlias;
+        }
+      }
+    }
+  }
+  return "";
+}
+
+function nodeGraphApplyOutletChannelMark(element, type, port) {
+  if (!element) {
+    return "";
+  }
+  const channel = nodeGraphOutletChannelKind(type, port, element?.dataset?.io);
+  element.classList.remove("node-outlet-mono", "node-outlet-left", "node-outlet-right");
+  if (channel) {
+    element.dataset.outletChannel = channel;
+    element.classList.add(`node-outlet-${channel}`);
+  } else {
+    delete element.dataset.outletChannel;
+  }
+  return channel;
+}
+
 function createNodeGraphPort(node, type, port, io) {
   const button = document.createElement("button");
   button.className = `node-port ${io}`;
@@ -6,17 +87,33 @@ function createNodeGraphPort(node, type, port, io) {
   button.dataset.port = port;
   button.dataset.io = io;
   button.dataset.alias = nodeGraphLabel(node, port);
+  if (io === "output") {
+    nodeGraphApplyOutletChannelMark(button, type, port);
+  }
   const portLabel = nodeGraphPatchNodePortDisplayLabel(node, type, port, io);
   const label = `${nodeGraphNodeLabels[type]} ${io} port ${portLabel}`;
   button.setAttribute("aria-label", label);
   return button;
 }
 
+function nodeGraphStereoJackDisplayLabel(value) {
+  const raw = String(value || "").trim();
+  const key = raw.toLowerCase();
+  if (key === "left") return "L";
+  if (key === "mono") return "M";
+  if (key === "right") return "R";
+  return raw;
+}
+
 function nodeGraphPortDisplayLabel(type, port, io) {
   const labels = io === "output"
     ? nodeGraphModuleDefinitions[type]?.outputLabels
     : nodeGraphModuleDefinitions[type]?.inputLabels;
-  return labels?.[port] || port;
+  const raw = labels?.[port] || port;
+  const freq = typeof nodeGraphFrequencyValuePortDisplayLabel === "function"
+    ? nodeGraphFrequencyValuePortDisplayLabel(raw)
+    : raw;
+  return nodeGraphStereoJackDisplayLabel(freq);
 }
 
 function nodeGraphPatchNodePortDisplayLabel(node, type, port, io) {
@@ -71,13 +168,13 @@ function createNodeGraphIoColumn(node, type, ports, io) {
     row.dataset.port = port;
     row.dataset.io = io;
     row.dataset.alias = nodeGraphLabel(node, port);
+    if (io === "output") {
+      nodeGraphApplyOutletChannelMark(row, type, port);
+    }
     if (nodeGraphPortIsDigitalSignal(type, port, io)) {
-      // 0.1V/Oct pitch CV and any Scale bitmask are this sandbox's "digital
-      // signal" types, on any node; any port a module explicitly lists in
-      // digitalInputs/digitalOutputs (unsmoothed gates, triggers, etc.) is
-      // too -- give their wire and port taps solid white (colors only, no
-      // shape/animation change) so they read as visually distinct from
-      // free-form analog CV wires. See nodeGraphPortIsDigitalSignal.
+      // White digital cable: Scale bitmasks, ƒ Hz-value jacks (in and out),
+      // and anything listed in digitalInputs/digitalOutputs. 0.1V/Oct stays
+      // analog. See nodeGraphPortIsDigitalSignal.
       row.dataset.digitalSignal = io;
     }
     const portLabel = nodeGraphPatchNodePortDisplayLabel(node, type, port, io);

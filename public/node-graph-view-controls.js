@@ -32,6 +32,7 @@ function renderNodeGraphVisibilityMenuButton() {
     nodeGraphMvp.gridVisible ? 0 : 1,
     nodeGraphMvp.gridLightVisible === false ? 1 : 0,
     nodeGraphMvp.wireLengthsVisible === false ? 1 : 0,
+    nodeGraphMvp.wiringChromeVisible === false ? 1 : 0,
     nodeGraphMvp.moduleButtonsVisible === false ? 1 : 0,
     nodeGraphMvp.moduleInterfaceControlsVisible === false ? 1 : 0,
     nodeGraphMvp.moduleOscilloscopesVisible === false ? 1 : 0,
@@ -66,6 +67,7 @@ const nodeGraphVisibilityOnMarks = Object.freeze({
   grid: "🗺️",
   gridLight: "💡",
   wireLengths: "🧬",
+  wiringChrome: "🔌",
   wiresAbove: "⬆️",
   moduleButtons: "🔘",
   displays: "📺",
@@ -203,6 +205,7 @@ function persistNodeGraphPatchVisibilityView() {
   view.gridVisible = nodeGraphMvp.gridVisible !== false;
   view.gridLightVisible = nodeGraphMvp.gridLightVisible !== false;
   view.wireLengthsVisible = nodeGraphMvp.wireLengthsVisible !== false;
+  view.wiringChromeVisible = nodeGraphMvp.wiringChromeVisible !== false;
   view.wiresAboveModules = Boolean(nodeGraphMvp.wiresAboveModules);
   view.moduleButtonsVisible = nodeGraphMvp.moduleButtonsVisible !== false;
   view.moduleOscilloscopesVisible = nodeGraphMvp.moduleOscilloscopesVisible !== false;
@@ -225,6 +228,7 @@ function applyNodeGraphPatchVisibilityView() {
   if (Object.hasOwn(view, "gridVisible")) nodeGraphMvp.gridVisible = Boolean(view.gridVisible);
   if (Object.hasOwn(view, "gridLightVisible")) nodeGraphMvp.gridLightVisible = view.gridLightVisible !== false;
   if (Object.hasOwn(view, "wireLengthsVisible")) nodeGraphMvp.wireLengthsVisible = view.wireLengthsVisible !== false;
+  if (Object.hasOwn(view, "wiringChromeVisible")) nodeGraphMvp.wiringChromeVisible = view.wiringChromeVisible !== false;
   if (Object.hasOwn(view, "wiresAboveModules")) nodeGraphMvp.wiresAboveModules = Boolean(view.wiresAboveModules);
   if (Object.hasOwn(view, "moduleButtonsVisible")) nodeGraphMvp.moduleButtonsVisible = view.moduleButtonsVisible !== false;
   if (Object.hasOwn(view, "moduleOscilloscopesVisible")) nodeGraphMvp.moduleOscilloscopesVisible = view.moduleOscilloscopesVisible !== false;
@@ -233,6 +237,7 @@ function applyNodeGraphPatchVisibilityView() {
   if (Object.hasOwn(view, "sliderAmountVisible")) nodeGraphMvp.sliderAmountVisible = view.sliderAmountVisible !== false;
   if (Object.hasOwn(view, "sliderPositionVisible")) nodeGraphMvp.sliderPositionVisible = view.sliderPositionVisible !== false;
   if (typeof renderNodeGraphWireLengthsToggle === "function") renderNodeGraphWireLengthsToggle();
+  if (typeof renderNodeGraphWiringChromeToggle === "function") renderNodeGraphWiringChromeToggle();
   if (typeof renderNodeGraphWiresAboveModulesToggle === "function") renderNodeGraphWiresAboveModulesToggle();
   if (typeof renderNodeGraphGridToggle === "function") renderNodeGraphGridToggle();
   if (typeof renderNodeGraphGridLightToggle === "function") renderNodeGraphGridLightToggle();
@@ -245,6 +250,44 @@ function applyNodeGraphPatchVisibilityView() {
   }
   if (typeof renderNodeGraphSliderVisibilityToggles === "function") {
     renderNodeGraphSliderVisibilityToggles();
+  }
+}
+
+/**
+ * Wires + inlet/outlet jacks on/off. Off matches zoom: hide paint and skip
+ * cable draw so a large patch stays cheap.
+ */
+function renderNodeGraphWiringChromeToggle() {
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  const button = document.getElementById("nodeWiringChromeToggleButton");
+  const visible = nodeGraphMvp.wiringChromeVisible !== false;
+  nodeGraphMvp.wiringChromeVisible = visible;
+  workspace?.classList.toggle("wiring-chrome-hidden", !visible);
+  setNodeGraphVisibilityToggleLabel(button, visible, "Wires Inlets Outlets", {
+    onMark: nodeGraphVisibilityOnMarks.wiringChrome,
+  });
+  if (typeof drawNodeGraphWires === "function") {
+    drawNodeGraphWires();
+  }
+  renderNodeGraphVisibilityMenuButton();
+  if (typeof syncNodeUserUiSettingsViewControls === "function") {
+    syncNodeUserUiSettingsViewControls();
+  }
+}
+
+function toggleNodeGraphWiringChromeVisibility() {
+  nodeGraphMvp.wiringChromeVisible = !(nodeGraphMvp.wiringChromeVisible !== false);
+  persistNodeGraphPatchVisibilityView();
+  renderNodeGraphWiringChromeToggle();
+  if (typeof scheduleNodeGraphWorkspaceViewPersist === "function") {
+    scheduleNodeGraphWorkspaceViewPersist();
+  }
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      nodeGraphMvp.wiringChromeVisible !== false
+        ? "Wires, inlets, and outlets shown."
+        : "Wires, inlets, and outlets hidden (same as zoom).",
+    );
   }
 }
 
@@ -381,6 +424,9 @@ function renderNodeGraphModuleVisibilityToggles(options = {}) {
     element.classList.toggle("interface-controls-forced-visible", Boolean(effectiveUi.interfaceControlsForceShow));
     element.classList.toggle("sliders-hidden", effectiveUi.slidersHidden);
     element.classList.toggle("sliders-forced-visible", Boolean(effectiveUi.slidersForceShow));
+    if (typeof applyNodeGraphModuleLayout === "function") {
+      applyNodeGraphModuleLayout(element, patchNode);
+    }
     if (typeof syncNodeGraphLayoutBNoParamsClass === "function") {
       syncNodeGraphLayoutBNoParamsClass(element, patchNode.type, effectiveUi);
     }
@@ -565,44 +611,122 @@ function renderNodeGraphModuleScopeBrightnessControl() {
   syncNodeUserUiSettingsViewControls();
 }
 
-function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
-  nodeGraphMvp.moduleButtonsVisible = Boolean(visible);
+/**
+ * Global module chrome sections (Visibility menu + H for buttons).
+ * Shown = forceShow OR (!localHidden AND globalOn).
+ * Setting global ON clears local hides so unhide actually shows everything.
+ * Setting global OFF keeps force-show (e.g. Patch spawn policy).
+ */
+const NODE_GRAPH_MODULE_VISIBILITY_SECTIONS = Object.freeze({
+  buttons: {
+    force: "buttonsForceShow",
+    global: "moduleButtonsVisible",
+    hidden: "buttonsHidden",
+    helpHide: "Module buttons hidden (H).",
+    helpShow: "Module buttons shown (H).",
+    statusHide: "module buttons hidden",
+    statusShow: "module buttons shown",
+  },
+  oscilloscope: {
+    force: "oscilloscopeForceShow",
+    global: "moduleOscilloscopesVisible",
+    hidden: "oscilloscopeHidden",
+    helpHide: "Displays hidden.",
+    helpShow: "Displays shown.",
+    statusHide: "displays hidden",
+    statusShow: "displays shown",
+  },
+  interfaceControls: {
+    force: "interfaceControlsForceShow",
+    global: "moduleInterfaceControlsVisible",
+    hidden: "interfaceControlsHidden",
+    helpHide: "Module control surfaces hidden.",
+    helpShow: "Module control surfaces shown.",
+    statusHide: "control surfaces hidden",
+    statusShow: "control surfaces shown",
+  },
+  sliders: {
+    force: "slidersForceShow",
+    global: "moduleSlidersVisible",
+    hidden: "slidersHidden",
+    helpHide: "Module sliders hidden.",
+    helpShow: "Module sliders shown.",
+    statusHide: "module sliders hidden",
+    statusShow: "module sliders shown",
+  },
+});
+
+function nodeGraphClearModuleSectionOverrides(patch, spec, globalOn) {
+  let changed = false;
+  if (!patch?.nodes || !spec) {
+    return false;
+  }
+  for (const node of patch.nodes) {
+    const ui = typeof normalizeNodeGraphPatchNodeUi === "function"
+      ? normalizeNodeGraphPatchNodeUi(node.ui, node.type)
+      : { ...(node.ui || {}) };
+    let dirty = false;
+    if (globalOn) {
+      if (ui[spec.hidden]) {
+        ui[spec.hidden] = false;
+        dirty = true;
+      }
+      if (ui[spec.force]) {
+        ui[spec.force] = false;
+        dirty = true;
+      }
+    } else if (ui[spec.hidden]) {
+      ui[spec.hidden] = false;
+      dirty = true;
+    }
+    if (!dirty) {
+      continue;
+    }
+    if (typeof applyNodeGraphPatchNodeUi === "function") {
+      applyNodeGraphPatchNodeUi(node, ui);
+    } else {
+      node.ui = ui;
+    }
+    changed = true;
+  }
+  return changed;
+}
+
+function nodeGraphSetModuleSectionGlobalVisible(sectionId, visible, options = {}) {
+  const spec = NODE_GRAPH_MODULE_VISIBILITY_SECTIONS[sectionId];
+  if (!spec) {
+    return;
+  }
+  const on = Boolean(visible);
+  nodeGraphMvp[spec.global] = on;
   if (typeof persistNodeGraphPatchVisibilityView === "function") {
     persistNodeGraphPatchVisibilityView();
   }
-  // Drop overrides that match the new global default (keep opposite overrides).
-  // Global shown → clear force-show. Global hidden → clear force-hide.
   if (options.clearNodeOverrides !== false && nodeGraphMvp.patch) {
-    const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-    let changed = false;
-    for (const node of patch.nodes) {
-      const ui = normalizeNodeGraphPatchNodeUi(node.ui, node.type);
-      let dirty = false;
-      if (visible && ui.buttonsForceShow) {
-        ui.buttonsForceShow = false;
-        dirty = true;
-      }
-      if (!visible && ui.buttonsHidden) {
-        ui.buttonsHidden = false;
-        dirty = true;
-      }
-      if (!dirty) {
-        continue;
-      }
-      applyNodeGraphPatchNodeUi(node, ui);
-      changed = true;
-    }
-    if (changed) {
+    const patch = typeof cloneNodeGraphPatch === "function"
+      ? cloneNodeGraphPatch(nodeGraphMvp.patch)
+      : nodeGraphMvp.patch;
+    if (nodeGraphClearModuleSectionOverrides(patch, spec, on) && typeof commitNodeGraphPatch === "function") {
       commitNodeGraphPatch(patch, {
         markPending: false,
-        status: visible ? "module buttons shown" : "module buttons hidden",
+        status: on ? spec.statusShow : spec.statusHide,
       });
     }
   }
   renderNodeGraphModuleVisibilityToggles();
-  if (options.help !== false) {
-    setNodeInteractionHelp(nodeGraphMvp.moduleButtonsVisible ? "Module buttons shown." : "Module buttons hidden.");
+  if (sectionId === "oscilloscope" && typeof scheduleNodeGraphLivePlanSync === "function") {
+    scheduleNodeGraphLivePlanSync();
   }
+  if (sectionId === "oscilloscope" && on && typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw();
+  }
+  if (options.help !== false && typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(on ? spec.helpShow : spec.helpHide);
+  }
+}
+
+function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
+  nodeGraphSetModuleSectionGlobalVisible("buttons", visible, options);
 }
 
 /**
@@ -610,7 +734,7 @@ function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
  * ───────────────────
  *  💻 / V  — computer view: infinite canvas, no crop, no resize widget.
  *  📱 / V  — phone view: condensed frame + drag-resize widget.
- *  H       — hide/show top toolbar + bottom transport (appChromeBarsVisible).
+ *  H       — hide/show module header buttons (moduleButtonsVisible).
  *
  * Laptop and phone are mutually exclusive canvas modes.
  */
@@ -665,7 +789,7 @@ function toggleNodeGraphModularOnlyControlsVisible() {
 }
 
 /**
- * H — toggle top + bottom app bars.
+ * Top + bottom app bars (scene menu). H is module buttons, not this.
  */
 function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
   nodeGraphMvp.appChromeBarsVisible = visible !== false;
@@ -3576,34 +3700,27 @@ function toggleNodeGraphModuleButtonsVisibility() {
 }
 
 function toggleNodeGraphOscilloscopeVisibility() {
-  nodeGraphMvp.moduleOscilloscopesVisible = nodeGraphMvp.moduleOscilloscopesVisible === false;
-  persistNodeGraphPatchVisibilityView();
-  renderNodeGraphModuleVisibilityToggles();
-  if (typeof scheduleNodeGraphLivePlanSync === "function") {
-    scheduleNodeGraphLivePlanSync();
+  nodeGraphSetModuleSectionGlobalVisible(
+    "oscilloscope",
+    nodeGraphMvp.moduleOscilloscopesVisible === false,
+  );
+  if (nodeGraphMvp.moduleOscilloscopesVisible === false && typeof closeNodeScopeContextMenu === "function") {
+    closeNodeScopeContextMenu();
   }
-  if (nodeGraphMvp.moduleOscilloscopesVisible) {
-    scheduleNodeGraphModuleScopeDraw();
-  } else {
-    if (typeof closeNodeScopeContextMenu === "function") {
-      closeNodeScopeContextMenu();
-    }
-  }
-  setNodeInteractionHelp(nodeGraphMvp.moduleOscilloscopesVisible ? "Displays shown." : "Displays hidden.");
 }
 
 function toggleNodeGraphModuleSlidersVisibility() {
-  nodeGraphMvp.moduleSlidersVisible = nodeGraphMvp.moduleSlidersVisible === false;
-  persistNodeGraphPatchVisibilityView();
-  renderNodeGraphModuleVisibilityToggles();
-  setNodeInteractionHelp(nodeGraphMvp.moduleSlidersVisible ? "Module sliders shown." : "Module sliders hidden.");
+  nodeGraphSetModuleSectionGlobalVisible(
+    "sliders",
+    nodeGraphMvp.moduleSlidersVisible === false,
+  );
 }
 
 function toggleNodeGraphModuleInterfaceControlsVisibility() {
-  nodeGraphMvp.moduleInterfaceControlsVisible = nodeGraphMvp.moduleInterfaceControlsVisible === false;
-  persistNodeGraphPatchVisibilityView();
-  renderNodeGraphModuleVisibilityToggles();
-  setNodeInteractionHelp(nodeGraphMvp.moduleInterfaceControlsVisible ? "Module control surfaces shown." : "Module control surfaces hidden.");
+  nodeGraphSetModuleSectionGlobalVisible(
+    "interfaceControls",
+    nodeGraphMvp.moduleInterfaceControlsVisible === false,
+  );
 }
 
 function toggleNodeGraphKeyboardDebugVisibility() {

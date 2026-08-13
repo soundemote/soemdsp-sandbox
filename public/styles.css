@@ -45,14 +45,15 @@
 
 html {
   background: #000000;
-  overflow-y: auto;
-  scrollbar-gutter: stable both-edges;
+  overflow: hidden;
+  scrollbar-gutter: auto;
   cursor: var(--node-default-cursor);
 }
 
 body {
   margin: 0;
   min-width: 320px;
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: "Segoe UI", Arial, sans-serif;
@@ -200,21 +201,20 @@ body.node-boot-ready .node-boot-loading-screen {
   display: none;
 }
 
-.dsp-node.output-node.node-ear-protection-engaged .node-module-scope-window,
-.dsp-node.output-node.node-ear-protection-engaged .node-module-display-face,
-body.node-ear-protection-engaged .dsp-node.output-node .node-module-scope-window,
-body.node-ear-protection-engaged .dsp-node.output-node .node-module-display-face {
-  background: #e02020 !important;
-  background-color: #e02020 !important;
+.dsp-node.output-node .node-module-scope-window,
+.dsp-node.output-node .node-module-display-face {
   position: relative;
+  --node-output-protect-color: #e02020;
+  --node-output-protect-alpha: 0;
 }
 
-.dsp-node.output-node.node-ear-protection-engaged .node-module-scope-window::after,
-body.node-ear-protection-engaged .dsp-node.output-node .node-module-scope-window::after {
+.dsp-node.output-node.node-output-protect-visible .node-module-scope-window::after,
+.dsp-node.output-node.node-output-protect-visible .node-module-display-face::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(224, 32, 32, 0.72);
+  background: var(--node-output-protect-color, #e02020);
+  opacity: var(--node-output-protect-alpha, 0);
   pointer-events: none;
   z-index: 3;
 }
@@ -1100,6 +1100,14 @@ audio {
 /* The global `button:hover { border-color: var(--accent) }` lit up the only
    border these two have -- the 1px divider on their inline end -- as a bright
    stroke down one edge. Hover feedback is a background lift instead. */
+button.scw-control:hover,
+button.scw-label:hover,
+.scw-root button:hover {
+  border-color: var(--color-widget-control-border, transparent);
+  box-shadow: none;
+  outline: none;
+}
+
 .node-sample-copy-phase-button:hover,
 .node-sample-copy-phase-button:focus-visible,
 .node-sample-path-button:hover,
@@ -1428,6 +1436,7 @@ audio {
 }
 
 .node-graph-main-row {
+  position: relative;
   display: flex;
   flex-direction: row;
   align-items: stretch;
@@ -1451,11 +1460,16 @@ audio {
 
 .node-command-center-dock {
   display: none;
-  flex: 0 0 min(320px, 38vw);
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 20;
+  width: var(--node-command-center-dock-width, min(320px, 38vw));
   min-width: 196px;
   max-width: 42vw;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
+  pointer-events: auto;
 }
 
 .node-wiring-panel.command-center-embed-left .node-command-center-dock,
@@ -1463,12 +1477,20 @@ audio {
   display: block;
 }
 
-.node-wiring-panel.command-center-embed-right .node-graph-main-row {
-  flex-direction: row-reverse;
+.node-wiring-panel.command-center-embed-left .node-command-center-dock {
+  left: 0;
+  right: auto;
+}
+
+.node-wiring-panel.command-center-embed-right .node-command-center-dock {
+  right: 0;
+  left: auto;
 }
 
 .node-command-center-dock > .node-unified-window,
 .node-command-center-dock > .node-scene-context-menu {
+  display: flex !important;
+  flex-direction: column;
   position: relative !important;
   inset: auto !important;
   left: 0 !important;
@@ -1479,6 +1501,79 @@ audio {
   max-height: none !important;
   margin: 0 !important;
   border-radius: 0;
+  overflow: hidden;
+}
+
+.node-command-center-dock > .node-unified-window > .scene-context-heading,
+.node-command-center-dock > .node-unified-window > .node-unified-window-nav-host {
+  flex: 0 0 auto;
+}
+
+.node-command-center-dock > .node-unified-window > .node-unified-window-nav-host {
+  position: relative;
+  top: auto;
+}
+
+.node-command-center-dock > .node-unified-window > .node-module-shop-column {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.node-command-center-dock > .scene-context-resize-handle,
+.node-command-center-dock .scene-context-resize-handle {
+  display: none !important;
+}
+
+/* ch4os-style seam: wide hit box, thick bar centered on the division. */
+.node-command-center-dock-split {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 4;
+  width: 22px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.node-wiring-panel.command-center-embed-right .node-command-center-dock-split {
+  left: 0;
+  transform: translateX(-50%);
+}
+
+.node-wiring-panel.command-center-embed-left .node-command-center-dock-split {
+  right: 0;
+  left: auto;
+  transform: translateX(50%);
+}
+
+.node-command-center-dock-split::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 8px;
+  transform: translateX(-50%);
+  background: var(--accent-2, #e2a86d);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.node-command-center-dock-split:hover::before,
+.node-command-center-dock-split:focus-visible::before,
+.node-command-center-dock-split.is-dragging::before,
+body.is-resizing-command-center-dock .node-command-center-dock-split::before {
+  opacity: 0.92;
+}
+
+body.is-resizing-command-center-dock {
+  cursor: ew-resize;
+  user-select: none;
 }
 
 .node-wiring-panel > .node-graph-controls {
@@ -1501,6 +1596,10 @@ audio {
   margin-top: 0;
 }
 
+.node-wiring-panel.content-view-mode > .node-graph-main-row {
+  display: none;
+}
+
 .node-wiring-panel.content-view-mode > .node-settings-view:not([hidden]) {
   flex: 1 1 auto;
   min-height: 0;
@@ -1511,7 +1610,8 @@ audio {
 .node-wiring-panel.content-view-mode > .node-mapping-view:not([hidden]) {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  margin-top: 0;
+  overflow: hidden;
 }
 
 .node-wiring-panel.modular-only-view {
@@ -1523,11 +1623,6 @@ audio {
   padding: 0;
   border-color: transparent;
   position: relative;
-}
-
-.node-wiring-panel.modular-only-view.command-center-embed-left,
-.node-wiring-panel.modular-only-view.command-center-embed-right {
-  place-items: stretch;
 }
 
 /* Infinite modular view (💻 / V): hide back + resize, fill viewport edge-to-edge. */
@@ -4423,6 +4518,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   accent-color: rgba(90, 255, 150, 0.85);
 }
 
+.node-phosphor-waveform-settings-row select,
+.node-led-settings-row select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /*
  * LED panel inside Command Center Display Settings.
  * Only fight the shared inspector chrome (.metadata-popover-grid label grid,
@@ -4602,6 +4703,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 /* Defaults button keeps inspector chrome size — only LED row buttons use inherit. */
 .node-trace-display-settings-popover[data-display-settings-type="ledLamp"] .metadata-field-actions button {
   color: rgba(210, 236, 218, 0.9);
+}
+
+.node-trace-display-settings-popover[data-display-settings-type="keypadFace"] .node-led-display-settings-panel {
+  background: transparent;
+  color: inherit;
 }
 
 /* Tips window uses shared .scene-context-resize-handle (SE corner). */
@@ -5067,6 +5173,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-input-stroke: #7fc7d9;
   --node-output-fill: #e2a86d;
   --node-output-stroke: #e2a86d;
+  /* Outlet channel strokes (hardcoded until theming). Mono / Left / Right. */
+  --node-outlet-mono-stroke: #3ddc84;
+  --node-outlet-left-stroke: #f25d5d;
+  --node-outlet-right-stroke: #4d8dff;
   --node-mod-input-fill: #b184ff;
   --node-mod-input-stroke: #b184ff;
   --node-param-output-fill: #66e0a3;
@@ -5185,11 +5295,16 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 /* Hide wires + inlet/outlet jacks while zooming (wheel / pinch / smooth-zoom).
-   Restored when viewport-zooming is cleared on settle / pointer-up. */
+   Restored when viewport-zooming is cleared on settle / pointer-up.
+   Visibility → Wires Inlets Outlets off uses the same paint skip. */
 .node-graph-workspace.viewport-zooming #nodeWireSvg,
 .node-graph-workspace.viewport-zooming #nodeWireEndpointSvg,
 .node-graph-workspace.viewport-zooming .node-port,
-.node-graph-workspace.viewport-zooming .node-param-port {
+.node-graph-workspace.viewport-zooming .node-param-port,
+.node-graph-workspace.wiring-chrome-hidden #nodeWireSvg,
+.node-graph-workspace.wiring-chrome-hidden #nodeWireEndpointSvg,
+.node-graph-workspace.wiring-chrome-hidden .node-port,
+.node-graph-workspace.wiring-chrome-hidden .node-param-port {
   visibility: hidden !important;
   pointer-events: none !important;
 }
@@ -5312,7 +5427,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: grid;
   grid-template-columns: minmax(190px, 24%) minmax(0, 1fr);
   gap: 12px;
-  min-height: min(720px, calc(100vh - 190px));
+  min-height: 0;
   margin-top: 16px;
 }
 
@@ -7856,47 +7971,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 /* ── Full Patch page (former cogwheel settings) ─────────────────────────── */
-.node-patch-page-topbar {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
+.node-patch-page > .scene-context-heading {
   flex: 0 0 auto;
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(127, 199, 217, 0.16);
-  background: rgba(6, 9, 12, 0.92);
-}
-
-.node-patch-page-back {
-  width: 2.4rem;
-  min-width: 2.4rem;
-  height: 2.4rem;
-  min-height: 2.4rem;
-  padding: 0;
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
-.node-patch-page-heading {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.node-patch-page-kicker {
-  color: rgba(127, 199, 217, 0.78);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.node-patch-page-title {
-  color: rgba(243, 241, 236, 0.92);
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.15;
+  position: relative;
+  top: auto;
 }
 
 .node-patch-page-top-actions {
@@ -7904,6 +7982,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   flex-wrap: wrap;
   gap: 6px;
   justify-content: flex-end;
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.12);
 }
 
 .node-patch-page-top-actions button {
@@ -7927,7 +8008,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-patch-page-scroll {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -7935,6 +8016,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   width: 100%;
   margin: 0;
   box-sizing: border-box;
+}
+
+.node-patch-page-scroll > .node-settings-feedback-action-group,
+.node-patch-page-scroll > .node-settings-dev-action-group {
+  flex: 0 0 auto;
+  --node-settings-action-height: clamp(56px, 9cqw, 80px);
 }
 
 .node-patch-card {
@@ -8061,11 +8148,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 /* Floating browser: name + description only */
 
 @media (max-width: 640px) {
-  .node-patch-page-topbar {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
   .node-patch-page-top-actions {
-    grid-column: 1 / -1;
     justify-content: flex-start;
   }
   .node-patch-card-grid {
@@ -8086,8 +8169,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   top: 72px;
   left: 12px;
   z-index: 10050;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 0;
   box-sizing: border-box;
   width: clamp(
@@ -8143,10 +8226,25 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   white-space: nowrap;
 }
 
+.node-module-shop-view > .scene-context-heading,
+.node-module-shop-view > .node-unified-window-nav-host {
+  flex: 0 0 auto;
+}
+
+.node-module-shop-view > .node-unified-window-nav-host {
+  position: relative;
+  top: auto;
+}
+
+.node-module-shop-view > .node-module-shop-column {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .node-module-shop-column {
   display: grid;
-  /* nav, controls, category title, scroll list, saved groups */
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  /* controls, category title, scroll list, saved groups */
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   align-content: stretch;
   gap: 0;
   width: 100%;
@@ -8154,6 +8252,22 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-height: 0;
   overflow: hidden;
   padding: 0;
+}
+
+.node-module-shop-column > .node-module-shop-controls {
+  grid-row: 1;
+}
+
+.node-module-shop-column > .node-module-department-title {
+  grid-row: 2;
+}
+
+.node-module-shop-column > .node-module-shop-scroll-frame {
+  grid-row: 3;
+}
+
+.node-module-shop-column > #nodeModuleGroups {
+  grid-row: 4;
 }
 
 /*
@@ -8257,14 +8371,20 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   box-shadow: inset 0 0 0 1px rgba(127, 199, 217, 0.18);
 }
 
-/* Back + search: one row when space allows; wrap at very thin shop widths. */
+/* Back + search: one row when space allows; wrap at very thin shop widths.
+   Same flush strip as Command Center module search (no inner field box). */
 .node-module-shop-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 10px;
   align-items: stretch;
-  min-height: var(--node-floating-window-button-height);
+  box-sizing: border-box;
+  min-height: calc(var(--node-floating-window-button-height) + 20px);
   max-height: none;
+  margin: 0;
+  padding: 10px;
+  border: 0;
+  background: rgb(7, 10, 13);
   overflow: visible;
 }
 
@@ -8305,9 +8425,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-module-department-search-placeholder {
   display: grid;
-  /* ~8rem min forces wrap before search is crushed beside back. */
-  flex: 1 1 8rem;
-  min-width: min(100%, 8rem);
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
   min-height: var(--node-floating-window-button-height);
   max-height: none;
   align-self: stretch;
@@ -8326,14 +8446,17 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  height: var(--node-floating-window-button-height);
+  height: 100%;
   min-height: var(--node-floating-window-button-height);
-  max-height: var(--node-floating-window-button-height);
-  border: 1px solid rgba(127, 199, 217, 0.2);
-  border-radius: 6px;
-  background: rgba(3, 5, 7, 0.36);
-  color: rgba(243, 241, 236, 0.62);
-  font: 0.84rem/1.2 var(--mono);
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+  color: rgba(243, 241, 236, 0.86);
+  font: 0.84rem/1.2 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   letter-spacing: 0;
   /* Right pad leaves room for the native search clear (X) so text isn't clipped. */
   padding: 0 1.6rem 0 8px;
@@ -8372,13 +8495,16 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-module-department-search-placeholder input:focus,
 .node-module-department-search-placeholder input:focus-visible {
   outline: none;
-  border-color: rgba(127, 199, 217, 0.42);
-  background: rgba(3, 5, 7, 0.52);
-  color: rgba(243, 241, 236, 0.86);
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  color: rgba(243, 241, 236, 0.94);
 }
 
 .node-module-department-search-placeholder input::placeholder {
   color: rgba(174, 180, 187, 0.52);
+  font: inherit;
+  letter-spacing: inherit;
 }
 
 .node-module-department-search-placeholder input:disabled {
@@ -8523,7 +8649,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   position: relative;
   display: flex;
   flex-direction: column;
-  grid-row: 4;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -8531,6 +8656,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-module-shop-scroll-frame > .node-module-shop-section {
   flex: 1 1 auto;
+  align-content: start;
+  justify-content: start;
   min-height: 0;
 }
 
@@ -8895,6 +9022,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   position: relative;
   z-index: 0;
   min-width: 0;
+  height: 100%;
   border-radius: 0;
 }
 
@@ -9956,11 +10084,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 /* Face paint hide (LayoutB keeps a shell track for side jacks).
-   Article tracks omit the face band in applyNodeGraphModuleLayout. */
+   Article tracks omit the face band in applyNodeGraphModuleLayout.
+   Text Box body is tagged as the face band for layout, but it is not an
+   oscilloscope — do not hide it with display-off. */
 .node-graph-workspace.module-oscilloscopes-hidden
   .dsp-node:not(.oscilloscope-forced-visible)
-  .node-module-face,
-.dsp-node.oscilloscope-hidden .node-module-face {
+  .node-module-face:not(.node-text-box-body),
+.dsp-node.oscilloscope-hidden .node-module-face:not(.node-text-box-body) {
   display: none !important;
 }
 
@@ -10289,28 +10419,12 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /* Module content stacks above the frame + plate mask.
-   LayoutA faces (filter curve, envelope, Music Player waveform, …) are direct
-   children — they MUST share z-index:1 or they paint under ::after and look
-   blank (LayoutB put the face inside the shell, which already had z-index:1).
-   Music Player waveform was missing here → solid module fill hid the entire
-   phosphor face on the init patch. */
-.dsp-node > .dsp-node-header,
-.dsp-node > .dsp-node-body,
-.dsp-node > .dsp-node-io-section,
-.dsp-node > .node-solid-module-shell,
-.dsp-node > .node-module-chrome-layout-b-shell,
-.dsp-node > .node-sample-module-body,
-.dsp-node > .node-filter-curve-display,
-.dsp-node > .node-envelope-curve-display,
-.dsp-node > .node-wall-room-display,
-.dsp-node > .node-pulse-curve-display,
-.dsp-node > .node-phosphor-waveform-display,
-.dsp-node > .node-phosphillator-draw-display,
-.dsp-node > .node-module-scope-window,
-.dsp-node > .node-module-graph-display,
-.dsp-node > .node-module-filter-curve-display {
+   Do not whitelist faces here — a missing class paints under ::after and
+   looks blank (Text Box, Music Player waveform, any new LayoutA face). */
+.dsp-node > *:not(.node-module-frame) {
   position: relative;
   z-index: 1;
+  pointer-events: auto;
 }
 
 .node-module-frame-path {
@@ -13243,13 +13357,17 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   padding: 0;
 }
 
+.node-text-box-body[hidden] {
+  display: grid !important;
+}
+
 .node-text-box-input {
   --node-text-box-base-padding: 0px;
+  display: block;
   width: 100%;
   min-width: 0;
   height: 100%;
   min-height: 1.2em;
-  resize: none;
   box-sizing: border-box;
   padding:
     calc(var(--node-text-box-base-padding) + var(--node-text-box-content-offset, 0px))
@@ -13258,11 +13376,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   border: 1px solid color-mix(in srgb, var(--node-module-stroke) 24%, transparent);
   border-radius: 4px;
   outline: 0;
-  background: rgba(2, 4, 7, 0.78);
+  background: var(--node-text-box-bg, rgba(2, 4, 7, 0.78));
   color: var(--node-module-primary-text-color);
-  -webkit-text-fill-color: var(--node-module-primary-text-color);
-  caret-color: var(--node-module-primary-text-color);
-  color-scheme: dark;
+  color: var(--node-text-box-fg, var(--node-module-primary-text-color));
+  -webkit-text-fill-color: currentColor;
+  caret-color: var(--node-text-box-fg, var(--node-module-primary-text-color));
   opacity: 1;
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   font-size: calc(
@@ -13272,6 +13390,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   );
   line-height: 1.2;
   overflow: hidden;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -13862,6 +13985,25 @@ input.node-header-title:focus {
 .node-io-row[data-digital-signal="input"] {
   --node-input-fill: #ffffff;
   --node-input-stroke: #ffffff;
+}
+
+/* App-wide: L/X red, M/Y green, R/Z/A blue — outlets only. */
+.node-port.output[data-outlet-channel="mono"],
+.node-io-row.output[data-outlet-channel="mono"] .node-port.output {
+  --node-output-stroke: var(--node-outlet-mono-stroke);
+  --node-port-crescent-stroke: var(--node-outlet-mono-stroke);
+}
+
+.node-port.output[data-outlet-channel="left"],
+.node-io-row.output[data-outlet-channel="left"] .node-port.output {
+  --node-output-stroke: var(--node-outlet-left-stroke);
+  --node-port-crescent-stroke: var(--node-outlet-left-stroke);
+}
+
+.node-port.output[data-outlet-channel="right"],
+.node-io-row.output[data-outlet-channel="right"] .node-port.output {
+  --node-output-stroke: var(--node-outlet-right-stroke);
+  --node-port-crescent-stroke: var(--node-outlet-right-stroke);
 }
 
 .node-io-label {
@@ -15498,7 +15640,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-settings-popover {
   --ds-row-h: 28px;
   --ds-latch-h: 30px;
-  --ds-color-host-h: 120px;
+  --ds-color-host-h: 168px;
   --ds-label-col: minmax(52px, 0.34fr);
   --ds-hairline: color-mix(in srgb, var(--accent) 14%, transparent);
   --ds-split: color-mix(in srgb, var(--accent) 18%, transparent);
@@ -15674,7 +15816,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   background-image: none !important;
   color: var(--hts-ink, #fff) !important;
   box-shadow: none !important;
-  cursor: ew-resize;
+  cursor: default;
   font: inherit;
   font-weight: 650;
   letter-spacing: 0.02em;
@@ -15727,6 +15869,8 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   align-items: stretch;
   gap: 0;
   min-height: var(--ds-color-host-h);
+  height: auto;
+  overflow: visible;
   padding: 0;
 }
 
@@ -15746,21 +15890,23 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  height: var(--ds-color-host-h);
+  height: auto;
   min-height: var(--ds-color-host-h);
+  overflow: visible;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host.scw-mount {
   display: grid;
-  height: var(--ds-color-host-h);
+  height: auto;
   min-height: var(--ds-color-host-h);
+  overflow: visible;
   place-items: stretch;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-root {
   width: 100%;
-  height: 100%;
-  min-height: 0;
+  height: auto;
+  min-height: var(--ds-color-host-h);
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control {
@@ -15788,7 +15934,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   background-size: calc(100% - 2 * var(--scw-hue-pad, 5px)) 100% !important;
   background-position: var(--scw-hue-pad, 5px) 0 !important;
   background-repeat: no-repeat !important;
-  cursor: ew-resize;
+  cursor: default;
   overflow: hidden;
 }
 
@@ -15801,8 +15947,13 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   cursor: default !important;
 }
 
-.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:hover {
-  border-color: var(--color-widget-accent) !important;
+.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:hover,
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label:hover,
+.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:focus:not(:focus-visible),
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label:focus:not(:focus-visible) {
+  border-color: var(--color-widget-control-border) !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-plane {
@@ -15813,7 +15964,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue {
   min-height: 18px;
-  cursor: ew-resize;
+  cursor: default;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label {
@@ -17082,6 +17233,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 .scene-context-store-empty {
+  align-self: start;
   min-height: 42px;
   padding: 9px 10px;
   border: 1px dashed rgba(127, 199, 217, 0.22);
@@ -17343,9 +17495,8 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   gap: 0;
   min-width: 0;
   margin: 0;
-  padding: 4px 6px;
+  padding: 10px;
   border: 0;
-  border-bottom: 1px solid rgba(127, 199, 217, 0.12);
   background: rgb(7, 10, 13);
   box-sizing: border-box;
 }

@@ -18,6 +18,7 @@ const nodeGraphNodeLabels = Object.freeze({
   sineWavetable: "SinCos",
   aliasSine: "Alias Sine",
   robinSinusoid: "RobinSinusoid",
+  phoneTone: "Phone Tone",
   additiveOsc: "Additive Osc",
   gpuAdditiveOsc: "GPU Additive",
   ellipsoid: "RoundShape",
@@ -39,6 +40,7 @@ const nodeGraphNodeLabels = Object.freeze({
   comparator: "Comparator",
   sampleDelay: "Sample Delay",
   bitConverter: "Bit Converter",
+  numberGate: "Number Gate",
   stepSequencer: "Step Sequencer",
   spiral: "Spiral",
   fractalSpiral: "Fractal Spiral",
@@ -164,6 +166,7 @@ const nodeGraphNodeLabels = Object.freeze({
   soemReverb: "SoEmReverb",
   pll: "PLL",
   helmholtzPitch: "Pitch Detector",
+  noiseDetector: "Noise Detector",
   speedColorInertia: "Speed Color Inertia",
   slewLimiter: "Slew",
   inertialFilter: "Inertial Filter",
@@ -299,11 +302,11 @@ const nodeGraphActiveFilterDefinition = {
   planRole: "processor",
   inputAliases: { Mono: "In" },
   inputLabels: { In: "Mono" },
-  inputs: ["In", "Left", "Right"],
+  inputs: ["Left", "In", "Right"],
   layout: "filterCurve",
   outputAliases: { Mono: "Out" },
   outputLabels: { Out: "Mono" },
-  outputs: ["Out", "Left", "Right"],
+  outputs: ["Left", "Out", "Right"],
   parameters: [
     {
       choices: ["LP6", "LP12", "LP18", "LP24", "HP6", "HP12", "HP18", "HP24", "BP6", "BP12"],
@@ -928,15 +931,20 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
+        linearSmoothing: true,
         max: "1",
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
+        smoothingMode: "internal",
+        smoothingSeconds: 0.0333,
+        smoothingType: "linear",
         step: "any",
         modClamp: false
       },
       {
         defaultValue: "0",
+        hidden: true,
         key: "phase",
         kind: "phase",
         label: "Start Phase",
@@ -949,6 +957,79 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Phase used when Reset is triggered (or on first sample)."
       },
     ]
+  },
+  phoneTone: {
+    planRole: "source",
+    planFreeRun: true,
+    chrome: NodeGraphModuleChromeLayout.LayoutB,
+    layoutBPortLabels: true,
+    defaultWidthGu: 5,
+    displayType: "phoneToneFace",
+    displayHeightGu: 2,
+    displayModes: [
+      {
+        key: "phoneToneFace",
+        label: "ƒ",
+        renderer: "phoneToneFace",
+        source: { value: "Out" },
+      },
+    ],
+    displaySignals: [
+      { key: "X", kind: "scalar" },
+      { key: "Out", kind: "scalar" },
+      { key: "Z", kind: "scalar" },
+    ],
+    digitalInputs: ["Digital", "Gate"],
+    inputAliases: { A: "Analog", D: "Digital", G: "Gate" },
+    inputLabels: { Analog: "A", Digital: "D", Gate: "G" },
+    outputAliases: {
+      f1: "X",
+      "ƒ1": "X",
+      Df1: "X",
+      f2: "Z",
+      "ƒ2": "Z",
+      Df2: "Z",
+      M: "Out",
+      Mono: "Out",
+    },
+    inputs: ["Analog", "Digital", "Gate"],
+    outputs: ["X", "Out", "Z"],
+    outputLabels: { X: "X", Out: "M", Z: "Z" },
+    parameters: [
+      {
+        defaultValue: "0.5",
+        key: "amplitude",
+        label: "Amplitude",
+        linearSmoothing: true,
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        smoothingMode: "internal",
+        smoothingSeconds: 0.1,
+        smoothingType: "linear",
+        step: "any",
+        tooltip: "Peak of the summed DTMF sines (M). Split across X (f1) and Z (f2) so two keys stay inside ±Amplitude.",
+      },
+      {
+        bipolar: true,
+        defaultValue: "0",
+        key: "freqOffset",
+        kind: "frequency",
+        label: "Frequency Offset",
+        linearSmoothing: true,
+        max: "2000",
+        mid: "0",
+        min: "-2000",
+        nonlinearSlider: false,
+        smoothingMode: "internal",
+        smoothingSeconds: 0.1,
+        smoothingType: "linear",
+        step: "any",
+        unit: "Hz",
+        tooltip: "Added to both DTMF frequencies (low X / high Z) before the Robin sinusoids.",
+      },
+    ],
   },
   additiveOsc: {
     planRole: "source",
@@ -2308,7 +2389,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     inputs: ["0.1V/Oct"],
     inputLabels: { "0.1V/Oct": "0.1V" },
-    outputs: ["Mono", "Left", "Right"],
+    outputs: ["Left", "Mono", "Right"],
     parameters: [
       // "Frequency" is the pitch heard at the sandbox-wide "Pitch
       // Reference Note" (Patch Settings panel; defaults to C3), NOT the
@@ -3088,14 +3169,30 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
+  numberGate: {
+    planRole: "processor",
+    chrome: NodeGraphModuleChromeLayout.LayoutC,
+    digitalInputs: ["Digital"],
+    digitalOutputs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
+    inputAliases: { A: "Analog", D: "Digital" },
+    inputLabels: { Analog: "A", Digital: "D" },
+    inputs: ["Analog", "Digital"],
+    outputs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
+    parameters: [],
+    defaultWidthGu: 5,
+    defaultUi: {
+      buttonsHidden: true,
+      titleHidden: false,
+    },
+  },
   gain: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         defaultValue: "1",
@@ -3126,10 +3223,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         defaultValue: "1",
@@ -3194,10 +3291,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         defaultValue: "0",
@@ -3215,22 +3312,20 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
-        defaultValue: "1",
-        hidden: true,
-        key: "antialias",
-        label: "Antialias",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        tooltip: "First-order ADAA plus a tiny Softwave-style dither so hard drive does not fold as many images back below Nyquist. 0 = original clip."
+        defaultValue: "2",
+        key: "width",
+        label: "Width",
+        max: "8",
+        mid: "2",
+        min: "0.0001",
+        nonlinearSlider: true,
+        step: "any"
       },
       {
         defaultValue: "0",
@@ -3246,7 +3341,23 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Input gain into the clipper. Raise this to drive the signal into the tanh curve."
       },
       {
+        choices: ["x0", "x1", "x2"],
+        defaultValue: "2",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "oversample",
+        label: "Antialias",
+        linearSmoothing: false,
+        max: "2",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "x0 = original tanh. x1 = first-order ADAA (the audible step). x2 = extra linear 2× around the same ADAA — usually inaudible vs x1."
+      },
+      {
         defaultValue: "0",
+        hidden: true,
         key: "center",
         label: "Center",
         max: "1",
@@ -3255,38 +3366,31 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any"
       },
-      {
-        defaultValue: "2",
-        key: "width",
-        label: "Width",
-        max: "8",
-        mid: "2",
-        min: "0.0001",
-        nonlinearSlider: true,
-        step: "any"
-      },
     ]
   },
   clipperLimiter: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
-        defaultValue: "1",
-        hidden: true,
-        key: "antialias",
+        choices: ["x0", "x1", "x2"],
+        defaultValue: "2",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "oversample",
         label: "Antialias",
-        max: "1",
-        mid: "0.5",
+        linearSmoothing: false,
+        max: "2",
+        mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
-        tooltip: "Same Soft Clipper ADAA + dither on the Min→Max knee. 0 = original clip."
+        step: "1",
+        tooltip: "Same Soft Clipper modes on the Min→Max knee. x0 original, x1 ADAA, x2 extra linear 2× (usually inaudible vs x1)."
       },
       {
         defaultValue: "-12",
@@ -3335,10 +3439,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         defaultValue: "0",
@@ -3646,7 +3750,8 @@ const nodeGraphModuleDefinitions = (
   momentaryButton: {
     planRole: "source",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
-    defaultWidthGu: 3,
+    defaultWidthGu: 4,
+    // Face 2gu + title row (22/28) ceils to 3gu outer — spawn 4×3.
     displayHeightGu: 2,
     displayType: "momentaryButtonFace",
     displayModes: [
@@ -3678,7 +3783,7 @@ const nodeGraphModuleDefinitions = (
   },
   pluginInput: {
     planRole: "source",
-    outputs: ["Left", "Right", "Out"],
+    outputs: ["Left", "Out", "Right"],
     outputLabels: { Out: "Mono" },
     parameters: [
       {
@@ -3705,7 +3810,7 @@ const nodeGraphModuleDefinitions = (
       { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
-    inputs: ["Mono", "Left", "Right"],
+    inputs: ["Left", "Mono", "Right"],
     output: true,
     parameters: [
       {
@@ -3766,11 +3871,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: ["LP6", "BP6", "HP6"],
@@ -3819,10 +3924,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         defaultValue: "0",
@@ -3857,11 +3962,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: [
@@ -3957,11 +4062,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: ["LP", "HP", "BP", "BR"],
@@ -4020,11 +4125,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: ["LP", "HP", "BP", "BR"],
@@ -4081,11 +4186,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: ["LP", "HP", "BP", "BR"],
@@ -4141,11 +4246,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: ["LP", "HP", "BP", "BR"],
@@ -4213,11 +4318,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: ["LP", "HP", "BP", "BR"],
@@ -4286,11 +4391,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono", "0.1V/Oct": "0.1V" },
-    inputs: ["In", "Left", "Right", "0.1V/Oct"],
+    inputs: ["Left", "In", "Right", "0.1V/Oct"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         defaultValue: "1000",
@@ -4323,11 +4428,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono", "0.1V/Oct": "0.1V" },
-    inputs: ["In", "Left", "Right", "0.1V/Oct"],
+    inputs: ["Left", "In", "Right", "0.1V/Oct"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         defaultValue: "1000",
@@ -5013,7 +5118,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     inputs: ["Reset", "0.1V/Oct"],
     inputLabels: { "0.1V/Oct": "0.1V" },
-    outputs: ["Left", "Right", "Out"],
+    outputs: ["Left", "Out", "Right"],
     outputLabels: { Out: "Mono" },
     parameters: [
       {
@@ -5476,10 +5581,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         defaultValue: "500",
@@ -6050,11 +6155,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: nodeGraphCookbookFilterModes,
@@ -6124,10 +6229,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       { defaultValue: "0.5", key: "frequency", label: "Frequency", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
@@ -6138,10 +6243,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: ["LP18", "LP24", "HP6", "BP6"],
@@ -6166,10 +6271,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       { defaultValue: "0.5", key: "frequency", label: "Frequency", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
@@ -6742,10 +6847,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: ["Sinusoid", "Triangle", "Sawtooth"],
@@ -6770,10 +6875,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: ["BP6", "LP6", "LP12"],
@@ -6814,10 +6919,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: ["Clean", "Dirty", "Rev3", "Downsampled"],
@@ -6869,11 +6974,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: nodeGraphLadderFilterModes,
@@ -6929,11 +7034,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         choices: nodeGraphTb303FilterModes,
@@ -6993,7 +7098,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     // Mix = Mix M mono sum of Mix L/R: (L+R)*0.5 (house convention).
     // Legacy Dry/Wet/Out map to Mix so old wires keep a dry/wet blend signal.
     outputAliases: {
@@ -7094,7 +7199,7 @@ const nodeGraphModuleDefinitions = (
     stereoTracePorts: { left: "Mod L", right: "Mod R" },
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     // Audio L/R + modulator traces (scope / dual-connect friendly names).
     outputs: ["Left", "Right", "Mod L", "Mod R"],
     outputLabels: {
@@ -7314,7 +7419,7 @@ const nodeGraphModuleDefinitions = (
     displayType: "trace",
     // Dry = pure input; Mix = dry/wet blend (no wet-only jacks).
     stereoTracePorts: { left: "Mix L", right: "Mix R" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     // Legacy Wet / Left Mix / … → Mix L/R.
     outputAliases: {
       "Wet L": "Mix L",
@@ -7351,7 +7456,7 @@ const nodeGraphModuleDefinitions = (
     ],
     defaultDisplayMode: "trace",
     stereoTracePorts: { left: "Mix L", right: "Mix R" },
-    inputs: ["Mono", "Left", "Right"],
+    inputs: ["Left", "Mono", "Right"],
     // Dry = pure input; Mix = full dry/wet blend (no wet-only jacks).
     outputAliases: {
       "Wet L": "Mix L",
@@ -7571,16 +7676,49 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
+  noiseDetector: {
+    planRole: "processor",
+    planFreeRun: true,
+    monitorSink: true,
+    displayType: "trace",
+    displaySignals: [
+      { key: "Fidelity", kind: "scalar" },
+      { key: "Gate", kind: "scalar" },
+    ],
+    visualInputs: [
+      { key: "fid", label: "fid", port: "Fidelity" },
+      { key: "gate", label: "g", port: "Gate" },
+    ],
+    inputAliases: { In: "Mono", L: "Left", R: "Right", M: "Mono" },
+    inputLabels: { Left: "L", Mono: "M", Right: "R" },
+    inputs: ["Left", "Mono", "Right"],
+    outputAliases: { Out: "Mono", L: "Left", R: "Right", M: "Mono", fid: "Fidelity", g: "Gate" },
+    outputLabels: { Left: "L", Mono: "M", Right: "R", Fidelity: "fid", Gate: "g" },
+    outputs: ["Left", "Mono", "Right", "Fidelity", "Gate"],
+    parameters: [
+      {
+        defaultValue: "0.9",
+        key: "threshold",
+        label: "Threshold",
+        max: "1",
+        mid: "0.9",
+        min: "0",
+        nonlinearSlider: true,
+        step: "any",
+        tooltip: "Gate goes high when fidelity ≥ threshold. Mid of the slider sits at 0.9 (Helmholtz lock is ~0.93).",
+      },
+    ],
+  },
   // Hard rate limit: max |Δ| per sample from up/down times in seconds.
   // Shape: Lin (constant rate) / Log (fast start) / Exp (slow start) / Smooth (ease both ends).
   slewLimiter: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         defaultValue: "0.05",
@@ -7671,10 +7809,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right", "Gain"],
+    outputs: ["Left", "Out", "Right", "Gain"],
     parameters: [
       {
         defaultValue: "-1",
@@ -7763,10 +7901,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         defaultValue: "20000",
@@ -7800,10 +7938,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right", "Trigger"],
+    inputs: ["Left", "In", "Right", "Trigger"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         defaultValue: "0",
@@ -7884,7 +8022,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Trigger", "Reset", "Pitch", "Start", "End"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "M", Left: "L", Right: "R" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       { defaultValue: "0", key: "sample", label: "Sample", linearSmoothing: false, max: "4096", mid: "0", min: "0", step: "1" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
@@ -7908,7 +8046,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Gate", "Reset", "Pitch", "Start", "End", "Loop Start", "Loop End"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "M", Left: "L", Right: "R" },
-    outputs: ["Out", "Left", "Right", "Phase"],
+    outputs: ["Left", "Out", "Right", "Phase"],
     parameters: [
       { defaultValue: "0", key: "sample", label: "Sample", linearSmoothing: false, max: "4096", mid: "0", min: "0", step: "1" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
@@ -7947,7 +8085,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     layout: "phosphorWaveform",
     inputs: ["Reset", "Speed", "Phase"],
-    outputs: ["Mono", "Left", "Right", "Phase", "Trigger"],
+    outputs: ["Left", "Mono", "Right", "Phase", "Trigger"],
     parameters: [
       { defaultValue: "1", key: "amplitude", label: "Amplitude", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
       { defaultValue: "1", key: "speed", label: "Speed", linearSmoothing: false, max: "8", maxDigits: 4, mid: "1", min: "0", step: "any", unit: "x" },
@@ -9231,21 +9369,21 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     layout: "speakerProtection",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: []
   },
   speakerProtector2: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["Left", "In", "Right"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Left", "Out", "Right"],
     parameters: [
       {
         defaultValue: "0.008",
@@ -9289,12 +9427,32 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     layout: "textBox",
     layoutOnly: true,
+    displayType: "textBoxFace",
+    defaultDisplayMode: "face",
+    displayModes: [
+      {
+        key: "face",
+        label: "Text Box",
+        renderer: "textBoxFace",
+        settingsSchema: "textBoxFace",
+      },
+    ],
     parameters: []
   },
   animatedTextBox: {
     planRole: "processor",
     layout: "textBox",
     layoutOnly: true,
+    displayType: "textBoxFace",
+    defaultDisplayMode: "face",
+    displayModes: [
+      {
+        key: "face",
+        label: "Text Box",
+        renderer: "textBoxFace",
+        settingsSchema: "textBoxFace",
+      },
+    ],
     dataInputs: ["Title", "Text"],
     dataOutputs: ["Text Out"],
     parameters: []
@@ -9306,8 +9464,8 @@ const nodeGraphModuleDefinitions = (
     // worklet only stored a scalar 0 for the speaker sink and the face stayed blank.
     visualSink: true,
     visualInputs: [
-      { key: "outputMono", label: "Mono", port: "Mono" },
       { key: "outputLeft", label: "Left", port: "Left" },
+      { key: "outputMono", label: "Mono", port: "Mono" },
       { key: "outputRight", label: "Right", port: "Right" },
     ],
     // Single fixed face — no Trace/Spectrum Mode dropdown in Display Settings.
@@ -9316,7 +9474,7 @@ const nodeGraphModuleDefinitions = (
       { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
-    inputs: ["Mono", "Left", "Right"],
+    inputs: ["Left", "Mono", "Right"],
     output: true,
     parameters: [
       {
@@ -9404,7 +9562,7 @@ function nodeGraphNodeTypeHasTextBoxLayout(type) {
   return nodeGraphModuleDefinitions[type]?.layout === "textBox";
 }
 
-const nodeGraphOutputInputPorts = Object.freeze(["Mono", "Left", "Right"]);
+const nodeGraphOutputInputPorts = Object.freeze(["Left", "Mono", "Right"]);
 const nodeGraphAudioBlockSize = 512;
 const nodeGraphOutputClipLimit = 0.95;
 const nodeGraphTau = Math.PI * 2;

@@ -63,8 +63,11 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
     return 0.1;
   }
   const key = input.dataset?.traceDisplayField;
-  if (["cycles", "decimals"].includes(key)) {
+  if (["cycles", "decimals", "textSizePx"].includes(key)) {
     return 1;
+  }
+  if (key === "textWeight") {
+    return 100;
   }
   if (key === "dotBudget") {
     return 64;
@@ -132,6 +135,9 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "innerShadowOffsetY",
     "dialSize",
     "innerRadius",
+    "buttonWidth",
+    "buttonHeight",
+    "textSize",
     "capLength",
     "capPadding",
     "capSize",
@@ -146,6 +152,9 @@ function nodeGraphTraceDisplayUnitDragRange(key) {
   // Value LED/LCD padding: negative grows digits toward plate walls.
   if (key === "facePadding") {
     return { min: -0.5, max: 1 };
+  }
+  if (key === "buttonWidth" || key === "buttonHeight" || key === "textSize") {
+    return { min: 0, max: 1 };
   }
   if (key === "burnAmount") {
     const max = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.BURN_AMOUNT_MAX) || 4;
@@ -401,6 +410,21 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
     return clampNodeSliderValue(n, 1, 24000);
   },
   zoomSeconds: nodeGraphTraceDisplayClampHistorySeconds,
+  textSize: (value) => (typeof nodeGraphKeypadClampTextSize === "function"
+    ? nodeGraphKeypadClampTextSize(value)
+    : Math.max(0, Math.min(1, Number(value) || 0.55))),
+  textSizePx: (value) => (typeof nodeGraphKeypadClampTextSize === "function"
+    ? nodeGraphKeypadClampTextSize(value)
+    : Math.max(0, Math.min(1, Number(value) || 0.55))),
+  textWeight: (value) => (typeof nodeGraphKeypadClampWeight === "function"
+    ? nodeGraphKeypadClampWeight(value)
+    : Math.max(100, Math.min(900, Math.round((Number(value) || 400) / 100) * 100))),
+  buttonWidth: (value) => (typeof nodeGraphKeypadClampWidth === "function"
+    ? nodeGraphKeypadClampWidth(value)
+    : Math.max(0, Math.min(1, Number(value) || 0.94))),
+  buttonHeight: (value) => (typeof nodeGraphKeypadClampHeight === "function"
+    ? nodeGraphKeypadClampHeight(value)
+    : Math.max(0, Math.min(1, Number(value) || 0.94))),
 });
 
 // Per-formType overrides, only for the (formType, field) pairs that diverge

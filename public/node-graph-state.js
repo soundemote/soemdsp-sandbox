@@ -61,6 +61,8 @@ var nodeGraphMvp = {
   gridLightVisible: true,
   // Cable stroke paths; when false only endpoint dots (jack plugs) draw.
   wireLengthsVisible: true,
+  // Wires + inlet/outlet jacks. Off = same hide as zoom (skip draw).
+  wiringChromeVisible: true,
   // Cable strokes under modules by default; Visibility can raise them above.
   wiresAboveModules: false,
   macroControls: new Array(10).fill(0),
@@ -168,6 +170,7 @@ var nodeGraphMvp = {
   unifiedWindowSize: null,
   // closed | open | embedLeft | embedRight | float
   unifiedWindowPresentation: "closed",
+  commandCenterDockWidth: 320,
   _unifiedWindowSwitching: false,
   _unifiedWindowPendingPosition: null,
   moduleActionDragging: null,

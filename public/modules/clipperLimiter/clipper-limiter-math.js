@@ -46,14 +46,14 @@ function nodeGraphClipperLimiterFinish(prep, shaped) {
   return prep.sign * (prep.minLin + (Number(shaped) || 0));
 }
 
-function nodeGraphClipperLimiterSample(input, minDb = -12, maxDb = 0, gainDb = 0, state = null, antialias = 1) {
+function nodeGraphClipperLimiterSample(input, minDb = -12, maxDb = 0, gainDb = 0, state = null, oversample = 2) {
   const prep = nodeGraphClipperLimiterPrep(input, minDb, maxDb, gainDb);
   if (prep.dry) {
     return prep.y;
   }
   // Original: center=0, width=2*span → y = span * tanh(excess/span), asymptote span.
   const shaped = typeof nodeGraphSoftClipperSample === "function"
-    ? nodeGraphSoftClipperSample(prep.excess, 0, 2 * prep.span, state, antialias)
+    ? nodeGraphSoftClipperSample(prep.excess, 0, 2 * prep.span, state, oversample)
     : prep.span * Math.tanh(prep.excess / prep.span);
   return nodeGraphClipperLimiterFinish(prep, shaped);
 }
@@ -62,12 +62,12 @@ function nodeGraphClipperLimiterSample(input, minDb = -12, maxDb = 0, gainDb = 0
  * Mono sums into L/R before clip (same port contract as Soft Clipper / Gain).
  * @returns {{ Out: number, Left: number, Right: number }}
  */
-function nodeGraphClipperLimiterFrame(mono, left, right, minDb, maxDb, gainDb, state = null, antialias = 1) {
+function nodeGraphClipperLimiterFrame(mono, left, right, minDb, maxDb, gainDb, state = null, oversample = 2) {
   const m = Number(mono) || 0;
   const st = state || null;
   return {
-    Out: nodeGraphClipperLimiterSample(m, minDb, maxDb, gainDb, st?.mono, antialias),
-    Left: nodeGraphClipperLimiterSample((Number(left) || 0) + m, minDb, maxDb, gainDb, st?.left, antialias),
-    Right: nodeGraphClipperLimiterSample((Number(right) || 0) + m, minDb, maxDb, gainDb, st?.right, antialias),
+    Out: nodeGraphClipperLimiterSample(m, minDb, maxDb, gainDb, st?.mono, oversample),
+    Left: nodeGraphClipperLimiterSample((Number(left) || 0) + m, minDb, maxDb, gainDb, st?.left, oversample),
+    Right: nodeGraphClipperLimiterSample((Number(right) || 0) + m, minDb, maxDb, gainDb, st?.right, oversample),
   };
 }

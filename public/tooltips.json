@@ -117,7 +117,7 @@
   "module": {
     "drag": "drag to move modules | click to select | Ctrl/Shift+click adds or removes from selection | Ctrl/Shift+drag adds to selection while moving",
     "move": "drag to move modules | click to select | Ctrl/Shift+click adds or removes from selection",
-    "titleMove": "drag to move modules | click to select | Ctrl/Shift+click adds or removes from selection | Alt+click an empty I/O section to toggle bypass | when module buttons are hidden, Alt+click the title also toggles bypass",
+    "titleMove": "{alt} + click to bypass",
     "actions": "click to open module settings",
     "actionsTitle": "module settings",
     "displaySettings": "click opens this module's display settings | Alt+click shows or hides the display",

@@ -188,6 +188,10 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "macroControlsFace",
     // Knob module: macro dial colors, image layers, centered span, readout.
     "knobFace",
+    // Keypad look: fonts, weight, button size, Sound Color Widgets.
+    "keypadFace",
+    // Text Box look: mode, align, size, Sound Color Widgets.
+    "textBoxFace",
     // Patch identity plate — not Trace.
     "patchFace",
   ].includes(displayType);

@@ -798,6 +798,7 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneKnobFaceControls",
   "nodeSceneCanvasControls",
   "nodeSceneLedControls",
+  "nodeSceneKeypadControls",
   "nodeSceneBugButtonControls",
   "nodeSceneTextBoxControls",
   "nodeSceneTextBoxHorizontalAlignControls",
@@ -1096,6 +1097,14 @@ function configureNodeSceneContextMenu(mode) {
   const canvasScript = document.getElementById("nodeSceneCanvasScript");
   const ledControls = document.getElementById("nodeSceneLedControls");
   const ledColor = document.getElementById("nodeSceneLedColor");
+  const keypadControls = document.getElementById("nodeSceneKeypadControls");
+  const keypadFont = document.getElementById("nodeSceneKeypadFont");
+  const keypadTextSize = document.getElementById("nodeSceneKeypadTextSize");
+  const keypadTextWeight = document.getElementById("nodeSceneKeypadTextWeight");
+  const keypadButtonColor = document.getElementById("nodeSceneKeypadButtonColor");
+  const keypadTextColor = document.getElementById("nodeSceneKeypadTextColor");
+  const keypadButtonWidth = document.getElementById("nodeSceneKeypadButtonWidth");
+  const keypadButtonHeight = document.getElementById("nodeSceneKeypadButtonHeight");
   const bugButtonControls = document.getElementById("nodeSceneBugButtonControls");
   const bugButtonGlyph = document.getElementById("nodeSceneBugButtonGlyph");
   const textBoxControls = document.getElementById("nodeSceneTextBoxControls");
@@ -1362,10 +1371,15 @@ function configureNodeSceneContextMenu(mode) {
   canvasControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "canvas");
   // Phosphor Dot settings live in Display Settings, not the Module Settings color swatch.
   ledControls.hidden = true;
+  // Keypad look (font, weight, colors, button size) lives in Display Settings.
+  if (keypadControls) {
+    keypadControls.hidden = true;
+  }
   bugButtonControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "bugButton");
-  textBoxControls.hidden = !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight);
-  textBoxHorizontalAlignControls.hidden = !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight);
-  textBoxVerticalAlignControls.hidden = !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight);
+  // Text Box look (mode, align, size, colors) lives in Display Settings.
+  textBoxControls.hidden = true;
+  textBoxHorizontalAlignControls.hidden = true;
+  textBoxVerticalAlignControls.hidden = true;
   closeButton.hidden = false;
   if (!moduleMode) {
     resetNodeGraphModuleSettingsSizeRow(widthControls, widthDecrease, widthIncrease, widthValue);
@@ -1547,7 +1561,7 @@ function configureNodeSceneContextMenu(mode) {
       decreaseButton: textBoxTextSizeDecrease,
       increaseButton: textBoxTextSizeIncrease,
       valueElement: textBoxTextSizeValue,
-      hidden: !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight),
+      hidden: true,
       value: `${textBoxLayout.textSizePercent}%`,
       decreaseDisabled: !targetNode || !targetSupportsTextBoxHeight || textBoxLayout.textSizePercent <= nodeGraphTextBoxTextSizeLimits.minPercent,
       increaseDisabled: !targetNode || !targetSupportsTextBoxHeight || textBoxLayout.textSizePercent >= nodeGraphTextBoxTextSizeLimits.maxPercent,
@@ -1811,6 +1825,45 @@ function configureNodeSceneContextMenu(mode) {
     } else {
       ledColor.disabled = true;
       ledColor.value = nodeGraphLedDefaultColor;
+    }
+    if (targetNode?.type === "keypad" && typeof normalizeNodeGraphKeypadLayout === "function") {
+      const pad = normalizeNodeGraphKeypadLayout(targetNode.layout);
+      if (keypadFont) {
+        keypadFont.disabled = false;
+        keypadFont.value = pad.font;
+      }
+      if (keypadTextSize) {
+        keypadTextSize.disabled = false;
+        keypadTextSize.value = String(pad.textSizePx);
+      }
+      if (keypadTextWeight) {
+        keypadTextWeight.disabled = false;
+        keypadTextWeight.value = String(pad.textWeight);
+      }
+      if (keypadButtonColor) {
+        keypadButtonColor.disabled = false;
+        keypadButtonColor.value = pad.buttonColor;
+      }
+      if (keypadTextColor) {
+        keypadTextColor.disabled = false;
+        keypadTextColor.value = pad.textColor;
+      }
+      if (keypadButtonWidth) {
+        keypadButtonWidth.disabled = false;
+        keypadButtonWidth.value = String(pad.buttonWidth);
+      }
+      if (keypadButtonHeight) {
+        keypadButtonHeight.disabled = false;
+        keypadButtonHeight.value = String(pad.buttonHeight);
+      }
+    } else {
+      if (keypadFont) keypadFont.disabled = true;
+      if (keypadTextSize) keypadTextSize.disabled = true;
+      if (keypadTextWeight) keypadTextWeight.disabled = true;
+      if (keypadButtonColor) keypadButtonColor.disabled = true;
+      if (keypadTextColor) keypadTextColor.disabled = true;
+      if (keypadButtonWidth) keypadButtonWidth.disabled = true;
+      if (keypadButtonHeight) keypadButtonHeight.disabled = true;
     }
     if (targetNode?.type === "bugButton") {
       bugButtonGlyph.disabled = false;
@@ -2095,6 +2148,9 @@ function openNodeModuleActionMenu(event) {
   if (typeof openNodeKnobFaceContextMenu === "function" && openNodeKnobFaceContextMenu(event)) {
     return;
   }
+  if (typeof openNodeKeypadDisplaySettings === "function" && openNodeKeypadDisplaySettings(event)) {
+    return;
+  }
   if (typeof openNodeScopeContextMenu === "function" && openNodeScopeContextMenu(event)) {
     return;
   }
@@ -2248,6 +2304,9 @@ function openNodeSceneContextMenu(event) {
   }
 
   // Specialized faces first (display settings, LED, phosphor waveform, XY pad, …).
+  if (typeof openNodeKeypadDisplaySettings === "function" && openNodeKeypadDisplaySettings(event)) {
+    return;
+  }
   if (openNodeScopeContextMenu(event)) {
     return;
   }

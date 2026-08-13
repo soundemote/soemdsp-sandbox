@@ -496,7 +496,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   for (const nodeId of reachableNodes) {
     const type = graph.nodeMap.get(nodeId)?.type;
     if (passthroughTypes.has(type)) {
-      const inputPorts = type === "reverbEffect" ? ["In", "Left", "Right"] : ["In"];
+      const inputPorts = type === "reverbEffect" ? ["Left", "In", "Right"] : ["In"];
       const inputCount = inputPorts.reduce(
         (count, port) => count + (graph.inputConnections.get(nodeGraphInputKey(nodeId, port)) || []).length,
         0,

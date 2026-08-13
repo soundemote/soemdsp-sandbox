@@ -544,6 +544,19 @@ function drawNodeGraphWires(options = {}) {
   if (!workspace || !svg) {
     return;
   }
+  if (nodeGraphMvp?.wiringChromeVisible === false) {
+    if (options.skipHeatmap !== true && typeof updateNodeGraphGridHeatmap === "function") {
+      updateNodeGraphGridHeatmap();
+    }
+    if (svg.childNodes.length) {
+      svg.replaceChildren();
+    }
+    const capSvg = document.getElementById("nodeWireEndpointSvg");
+    if (capSvg?.childNodes.length) {
+      capSvg.replaceChildren();
+    }
+    return;
+  }
   const lite = Boolean(options.lite);
   const skipScopes = options.skipScopes === true || lite;
   const skipSelection = options.skipSelection === true || lite;

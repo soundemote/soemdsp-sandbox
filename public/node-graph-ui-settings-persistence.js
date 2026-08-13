@@ -674,6 +674,9 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const wireLengthsVisible = view.wireLengthsVisible !== undefined
     ? Boolean(view.wireLengthsVisible)
     : (nodeGraphMvp.wireLengthsVisible !== false);
+  const wiringChromeVisible = view.wiringChromeVisible !== undefined
+    ? Boolean(view.wiringChromeVisible)
+    : (nodeGraphMvp.wiringChromeVisible !== false);
   const wiresAboveModules = Boolean(view.wiresAboveModules ?? nodeGraphMvp.wiresAboveModules);
   // Debug chrome is session-only — never default on, never restore from UI settings.
   const keyboardDebugInfoVisible = false;
@@ -858,6 +861,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
       gridVisible: Boolean(gridVisible),
       gridLightVisible: Boolean(gridLightVisible),
       wireLengthsVisible: Boolean(wireLengthsVisible),
+      wiringChromeVisible: Boolean(wiringChromeVisible),
       wiresAboveModules,
       keyboardDebugInfoVisible,
       tooltipEmbedded,
@@ -953,6 +957,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       gridVisible: Boolean(nodeGraphMvp.gridVisible),
       gridLightVisible: nodeGraphMvp.gridLightVisible !== false,
       wireLengthsVisible: nodeGraphMvp.wireLengthsVisible !== false,
+      wiringChromeVisible: nodeGraphMvp.wiringChromeVisible !== false,
       wiresAboveModules: Boolean(nodeGraphMvp.wiresAboveModules),
       // Never persist "show debug" — refresh / defaults always hide diagnostics.
       keyboardDebugInfoVisible: false,
@@ -1084,6 +1089,7 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.gridVisible = Boolean(normalized.view.gridVisible);
   nodeGraphMvp.gridLightVisible = normalized.view.gridLightVisible !== false;
   nodeGraphMvp.wireLengthsVisible = normalized.view.wireLengthsVisible !== false;
+  nodeGraphMvp.wiringChromeVisible = normalized.view.wiringChromeVisible !== false;
   nodeGraphMvp.wiresAboveModules = Boolean(normalized.view.wiresAboveModules);
   // Force-hide debug on every UI-settings apply / page load (not a saved
   // preference). Same for debug and release builds — Clear Startup / Save /
@@ -1233,6 +1239,9 @@ function applyNodeUiDevSettings(settings) {
   }
   if (typeof renderNodeGraphWireLengthsToggle === "function") {
     renderNodeGraphWireLengthsToggle();
+  }
+  if (typeof renderNodeGraphWiringChromeToggle === "function") {
+    renderNodeGraphWiringChromeToggle();
   }
   if (typeof renderNodeGraphWiresAboveModulesToggle === "function") {
     renderNodeGraphWiresAboveModulesToggle();
@@ -1457,6 +1466,7 @@ function clearNodeUserStartupRuntimeState() {
   nodeGraphMvp.gridVisible = true;
   nodeGraphMvp.gridLightVisible = true;
   nodeGraphMvp.wireLengthsVisible = true;
+  nodeGraphMvp.wiringChromeVisible = true;
   nodeGraphMvp.sliderAmountVisible = true;
   nodeGraphMvp.wiresAboveModules = false;
   // Clear Startup / reset view: never bake "Show Debug" into the next load.
@@ -1477,6 +1487,9 @@ function clearNodeUserStartupRuntimeState() {
   }
   if (typeof renderNodeGraphWireLengthsToggle === "function") {
     renderNodeGraphWireLengthsToggle();
+  }
+  if (typeof renderNodeGraphWiringChromeToggle === "function") {
+    renderNodeGraphWiringChromeToggle();
   }
   if (typeof renderNodeGraphWiresAboveModulesToggle === "function") {
     renderNodeGraphWiresAboveModulesToggle();

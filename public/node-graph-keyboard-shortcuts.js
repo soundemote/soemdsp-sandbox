@@ -266,12 +266,21 @@ function resizeSelectedNodeGraphModulesOnGrid(axis, delta) {
   if (!changedCount) {
     return false;
   }
-  commitNodeGraphPatch(patch, {
-    markPending: false,
-    skipLivePlan: true,
-    status: axis === "height" ? "module height changed" : "module width changed",
-  });
-  configureNodeSceneContextMenu("module");
+  const ids = [...selectedNodeIds];
+  const status = axis === "height" ? "module height changed" : "module width changed";
+  // Chrome path: update size CSS on the live module. A full applyNodeGraphPatchToDom
+  // remounts every face/scope and drops the app below 1 fps on key repeat.
+  const commitOpts = typeof nodeGraphChromeCommitOptions === "function"
+    ? nodeGraphChromeCommitOptions(ids, { status })
+    : {
+      chromeEdit: true,
+      chromeNodeIds: ids,
+      deferUiPanels: true,
+      markPending: false,
+      skipLivePlan: true,
+      status,
+    };
+  commitNodeGraphPatch(patch, commitOpts);
   return true;
 }
 
@@ -402,7 +411,7 @@ function handleNodeGraphKeydown(event) {
     return;
   }
   // V → 💻 / 📱 computer vs phone canvas.
-  // H → hide/show top + bottom bars.
+  // H → hide/show module header buttons (must show when turning back on).
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v") {
     event.preventDefault();
     if (typeof toggleNodeGraphModularWindowedView === "function") {
@@ -412,8 +421,8 @@ function handleNodeGraphKeydown(event) {
   }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "h") {
     event.preventDefault();
-    if (typeof toggleNodeGraphAppChromeBarsVisibility === "function") {
-      toggleNodeGraphAppChromeBarsVisibility();
+    if (typeof toggleNodeGraphModuleButtonsVisibility === "function") {
+      toggleNodeGraphModuleButtonsVisibility();
     }
     return;
   }

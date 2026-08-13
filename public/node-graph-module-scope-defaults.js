@@ -131,6 +131,7 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   // Not a phosphor energy grid — still one polyline; density only sets buffer size.
   pixelDensity: 1,
   padding: 0,
+  protectColor: "#e02020",
   // Amplitude zoom for quieter signals (1 = full-scale ±1 fills the face).
   scale: 1,
   skipDiscontinuities: false,
@@ -264,13 +265,15 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   decimals: 2,
   // When true: lock digit size to fixed Digits+Decimals bins (stable width).
   // When false (GROW): resize digits to fill available space for the live value.
-  // Default OFF for Value LED/LCD; Pitch Detector defaults OFF via DefaultsForNode.
-  decimalBudget: false,
+  // Default OFF (GROW off) so Digit bins can hold a realistic meter.
+  decimalBudget: true,
+  // Digit bins: Digits slider is the slot count. Unused bins stay put (ghosts).
+  digitBins: true,
   // How live Light composites over residual gradient (canvas blend / occlude).
   // lighten: live segments brighten residual ink (default for Value LED / Pitch).
   lightBlend: "lighten",
   // Digit inset 0…1 linear vs face square min side (0 = flush fill, 1 = one pin pixel).
-  facePadding: 0,
+  facePadding: 0.1,
   // bipolar: reserve/show minus. unipolar: no sign, centered.
   polarity: "bipolar",
   removeTrailingZeros: false,
@@ -297,11 +300,12 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   // Total digit budget (whole + fractional). Default 9 ≈ 6 int + 3 decimals.
   digits: 9,
   decimals: 3,
-  // Same budget policy as Value LED (OFF by default = GROW on).
-  decimalBudget: false,
+  // Same budget policy as Value LED (GROW off / digit bins on).
+  decimalBudget: true,
+  digitBins: true,
   lightBlend: "source-over",
   // Digit inset 0…1 vs each axis half (0 = flush, 1 = pin).
-  facePadding: 0.268,
+  facePadding: 0.1,
   polarity: "bipolar",
   removeTrailingZeros: false,
   // LCD Ghost: permanent “8” skeleton amount 0…1 (soft fade from 0).
