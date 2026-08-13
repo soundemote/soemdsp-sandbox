@@ -40,6 +40,9 @@ function nodeGraphKeypadApplyLayout(face, layout) {
     ? normalizeNodeGraphKeypadLayout(layout)
     : layout || {};
   face.style.setProperty("--node-keypad-background-color", next.backgroundColor || "#f4f3f0");
+  const bgSrc = next.backgroundImage?.dataUrl || "";
+  face.style.setProperty("--node-keypad-background-image", bgSrc ? `url("${bgSrc}")` : "none");
+  face.classList.toggle("has-background-image", Boolean(bgSrc));
   face.style.setProperty("--node-keypad-button-color", next.buttonColor || "#f3f1ec");
   face.style.setProperty("--node-keypad-hover-color", next.hoverColor || "#ddd9d2");
   face.style.setProperty("--node-keypad-down-color", next.downColor || "#c4bdb3");
@@ -48,6 +51,10 @@ function nodeGraphKeypadApplyLayout(face, layout) {
   face.style.setProperty("--node-keypad-button-width", String(next.buttonWidth ?? 0.94));
   face.style.setProperty("--node-keypad-button-height", String(next.buttonHeight ?? 0.94));
   face.style.setProperty("--node-keypad-button-size", String(next.buttonSize ?? 1));
+  face.style.setProperty("--node-keypad-pad", `${Math.max(0, Number(next.padPx) || 0)}px`);
+  face.dataset.keypadPad = String(Math.max(0, Number(next.padPx) || 0));
+  face.dataset.keypadSquare = next.squareRatio === false ? "0" : "1";
+  face.classList.toggle("is-square-ratio", next.squareRatio !== false);
   face.style.setProperty(
     "--node-keypad-font",
     typeof nodeGraphKeypadFontFamily === "function"
@@ -74,8 +81,36 @@ function nodeGraphKeypadApplyLayout(face, layout) {
     || (next.buttonHeight ?? 0) <= 0
     || (next.buttonSize ?? 1) <= 0;
   face.classList.toggle("is-empty", gone);
+  nodeGraphKeypadSyncGridGeometry(face, next);
   nodeGraphKeypadSyncLookPixels(face, next);
   nodeGraphKeypadEnsureStrokeWatch(face);
+}
+
+function nodeGraphKeypadSyncGridGeometry(face, layout) {
+  if (!face) {
+    return;
+  }
+  const grid = face.querySelector(".node-keypad-grid");
+  if (!grid) {
+    return;
+  }
+  const next = layout && typeof layout === "object" ? layout : {};
+  const pad = Math.max(0, Number(next.padPx ?? face.dataset.keypadPad) || 0);
+  const square = next.squareRatio !== undefined
+    ? next.squareRatio !== false
+    : face.dataset.keypadSquare !== "0";
+  const innerW = Math.max(0, (face.clientWidth || 0) - pad * 2);
+  const innerH = Math.max(0, (face.clientHeight || 0) - pad * 2);
+  const metrics = typeof nodeGraphKeypadGridMetrics === "function"
+    ? nodeGraphKeypadGridMetrics(innerW, innerH, square)
+    : null;
+  if (square && metrics && metrics.width > 0 && metrics.height > 0) {
+    grid.style.width = `${metrics.width}px`;
+    grid.style.height = `${metrics.height}px`;
+  } else {
+    grid.style.width = "100%";
+    grid.style.height = "100%";
+  }
 }
 
 function nodeGraphKeypadSyncLookPixels(face, layout) {
@@ -103,6 +138,7 @@ function nodeGraphKeypadEnsureStrokeWatch(face) {
   face.dataset.keypadStrokeWatch = "1";
   if (typeof ResizeObserver !== "function") return;
   const ro = new ResizeObserver(() => {
+    nodeGraphKeypadSyncGridGeometry(face);
     nodeGraphKeypadSyncLookPixels(face);
   });
   ro.observe(face);
@@ -159,7 +195,30 @@ function nodeGraphKeypadNodeIsLatch(node) {
     && nodeGraphKeypadIsLatch(node?.params?.mode);
 }
 
-function setNodeGraphKeypadPointerSlot(nodeId, slot, event) {
+function nodeGraphKeypadNodeDragEnabled(node) {
+  return typeof nodeGraphKeypadDragEnabled !== "function"
+    || nodeGraphKeypadDragEnabled(node?.params?.drag);
+}
+
+function nodeGraphKeypadKeyFromPoint(face, clientX, clientY) {
+  if (!face) {
+    return null;
+  }
+  const stack = typeof document.elementsFromPoint === "function"
+    ? document.elementsFromPoint(clientX, clientY)
+    : [document.elementFromPoint(clientX, clientY)];
+  for (const el of stack || []) {
+    const key = el?.classList?.contains("node-keypad-key")
+      ? el
+      : el?.closest?.(".node-keypad-key");
+    if (key && face.contains(key)) {
+      return key;
+    }
+  }
+  return null;
+}
+
+function setNodeGraphKeypadPointerSlot(nodeId, slot, event, options = {}) {
   if (typeof nodeGraphScriptReadyForGraphAction === "function"
     && !nodeGraphScriptReadyForGraphAction("keypad")) {
     return false;
@@ -169,11 +228,16 @@ function setNodeGraphKeypadPointerSlot(nodeId, slot, event) {
   const nextSlot = typeof nodeGraphKeypadWrap === "function"
     ? nodeGraphKeypadWrap(slot)
     : Math.round(Number(slot) || 0);
+  const runtime = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.live?.runtime : null;
+  const state = runtime?.keypadStates?.get?.(nodeId);
+  const same = Number(state?.pointerSlot) === nextSlot && Number(state?.down) > 0;
   let down = 1;
-  if (nodeGraphKeypadNodeIsLatch(patchNode)) {
-    const runtime = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.live?.runtime : null;
-    const state = runtime?.keypadStates?.get?.(nodeId);
-    const same = Number(state?.pointerSlot) === nextSlot && Number(state?.down) > 0;
+  if (options.glide) {
+    if (same) {
+      return true;
+    }
+    down = 1;
+  } else if (nodeGraphKeypadNodeIsLatch(patchNode)) {
     down = same ? 0 : 1;
   }
   setNodeGraphKeypadInteraction(nodeId, { down, pointerSlot: nextSlot });
@@ -227,28 +291,50 @@ function createNodeGraphKeypadBody(node) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
-      key.setPointerCapture?.(event.pointerId);
+      const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+      if (nodeGraphKeypadNodeDragEnabled(live)) {
+        face.setPointerCapture?.(event.pointerId);
+      } else {
+        key.setPointerCapture?.(event.pointerId);
+      }
       setNodeGraphKeypadPointerSlot(nodeId, slot, event);
     });
     grid.append(key);
   });
   face.append(grid);
-  face.addEventListener("pointerup", (event) => {
-    if (event.button !== 0) return;
+  const releaseMomentary = () => {
     const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
     if (nodeGraphKeypadNodeIsLatch(live)) return;
     setNodeGraphKeypadInteraction(nodeId, { down: 0 });
     nodeGraphKeypadPaintSlot(face, null, false);
-  });
-  face.addEventListener("pointercancel", () => {
+  };
+  face.addEventListener("pointermove", (event) => {
+    if (!(event.buttons & 1)) return;
     const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-    if (nodeGraphKeypadNodeIsLatch(live)) return;
-    setNodeGraphKeypadInteraction(nodeId, { down: 0 });
+    if (!nodeGraphKeypadNodeDragEnabled(live)) return;
+    const key = nodeGraphKeypadKeyFromPoint(face, event.clientX, event.clientY);
+    if (!key) return;
+    const nextSlot = Number(key.dataset.slot);
+    if (!Number.isFinite(nextSlot)) return;
+    setNodeGraphKeypadPointerSlot(nodeId, nextSlot, event, { glide: true });
   });
+  face.addEventListener("pointerup", (event) => {
+    if (event.button !== 0) return;
+    releaseMomentary();
+  });
+  face.addEventListener("pointercancel", releaseMomentary);
+  face.addEventListener("lostpointercapture", releaseMomentary);
   face.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     event.stopPropagation();
     event.stopImmediatePropagation?.();
+    if (event.target?.closest?.(".node-keypad-key")) return;
+    const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+    if (!nodeGraphKeypadNodeDragEnabled(live)) return;
+    face.setPointerCapture?.(event.pointerId);
+    const key = nodeGraphKeypadKeyFromPoint(face, event.clientX, event.clientY);
+    if (!key) return;
+    setNodeGraphKeypadPointerSlot(nodeId, Number(key.dataset.slot), event);
   });
   nodeGraphKeypadApplyLayout(face, patchNode?.layout);
   nodeGraphKeypadPaintSlot(face, null, false);
@@ -267,6 +353,61 @@ function nodeGraphKeypadTargetNodeId() {
     if (id) return id;
   }
   return String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
+}
+
+function commitNodeGraphKeypadBackgroundImage(image) {
+  const nodeId = nodeGraphKeypadTargetNodeId();
+  const patch = typeof cloneNodeGraphPatch === "function" ? cloneNodeGraphPatch(nodeGraphMvp.patch) : null;
+  const target = patch?.nodes?.find?.((node) => node.id === nodeId);
+  if (!target || target.type !== "keypad") {
+    return false;
+  }
+  const current = typeof normalizeNodeGraphKeypadLayout === "function"
+    ? normalizeNodeGraphKeypadLayout(target.layout)
+    : (target.layout || {});
+  const nextImage = image && image.dataUrl
+    ? { dataUrl: String(image.dataUrl), fileName: String(image.fileName || "") }
+    : { dataUrl: "", fileName: "" };
+  target.layout = typeof normalizeNodeGraphKeypadLayout === "function"
+    ? normalizeNodeGraphKeypadLayout({ ...current, backgroundImage: nextImage })
+    : { ...current, backgroundImage: nextImage };
+  if (typeof commitNodeGraphPatch === "function") {
+    commitNodeGraphPatch(patch, {
+      record: true,
+      skipLivePlan: true,
+      softDom: true,
+      status: nextImage.dataUrl ? "keypad background image loaded" : "keypad background image cleared",
+    });
+  }
+  if (typeof applyNodeGraphKeypadDisplaySettingsToFace === "function") {
+    applyNodeGraphKeypadDisplaySettingsToFace(target);
+  }
+  const panel = document.querySelector("[data-keypad-display-settings-panel]");
+  if (panel && typeof syncNodeGraphKeypadDisplaySettingsControls === "function") {
+    syncNodeGraphKeypadDisplaySettingsControls(panel, target.layout);
+  }
+  return true;
+}
+
+function pickNodeGraphKeypadBackgroundImage() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.png,.jpg,.jpeg,.webp,.gif,.svg";
+  input.hidden = true;
+  input.addEventListener("change", () => {
+    const file = input.files?.[0];
+    input.remove();
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      if (!dataUrl.startsWith("data:image/")) return;
+      commitNodeGraphKeypadBackgroundImage({ dataUrl, fileName: file.name || "image" });
+    };
+    reader.readAsDataURL(file);
+  });
+  document.body.append(input);
+  input.click();
 }
 
 function commitNodeGraphKeypadKeyImage(slot, image) {

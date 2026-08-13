@@ -8,6 +8,7 @@ const NODE_GRAPH_KEYPAD_DISPLAY_SLIDER_FIELDS = Object.freeze([
   "buttonWidth",
   "buttonHeight",
   "buttonSize",
+  "padPx",
   "rounding",
   "stroke",
 ]);
@@ -57,6 +58,10 @@ function buildNodeGraphKeypadDisplaySettingsBodyHtml() {
         <input type="range" min="100" max="900" step="100" data-keypad-field="textWeight" aria-label="Font weight 100–900">
       </label>
       <label class="node-led-settings-row">
+        <span>Square ratio</span>
+        <input type="checkbox" data-keypad-check="squareRatio" aria-label="Square ratio">
+      </label>
+      <label class="node-led-settings-row">
         <span>Button width</span>
         <input type="range" min="0" max="1" step="0.01" data-keypad-field="buttonWidth" aria-label="Button width 0–1">
       </label>
@@ -66,7 +71,12 @@ function buildNodeGraphKeypadDisplaySettingsBodyHtml() {
       </label>
       <label class="node-led-settings-row">
         <span>Button size</span>
-        <input type="range" min="0" max="1" step="0.01" data-keypad-field="buttonSize" aria-label="Button size 0–1 square">
+        <input type="range" min="0" max="1" step="0.01" data-keypad-field="buttonSize" aria-label="Button size 0–1">
+      </label>
+      <label class="node-led-settings-row">
+        <span>Pad</span>
+        <input type="range" min="0" max="64" step="1" data-keypad-field="padPx" aria-label="Wall padding in pixels">
+        <span>px</span>
       </label>
       <div class="node-led-settings-row" role="group" aria-label="Button corner shape">
         <span>Corners</span>
@@ -83,6 +93,12 @@ function buildNodeGraphKeypadDisplaySettingsBodyHtml() {
         <input type="range" min="0" max="1" step="0.01" data-keypad-field="stroke" aria-label="Button stroke 0–1">
       </label>
       ${colorRow("backgroundColor", "keypadFace")}
+      <div class="node-led-settings-row node-keypad-image-slot" data-keypad-bg-image>
+        <span>Background</span>
+        <button type="button" data-keypad-bg-action="load">Load</button>
+        <button type="button" data-keypad-bg-action="clear">Clear</button>
+        <small data-keypad-bg-image-name>—</small>
+      </div>
       ${colorRow("buttonColor", "keypadFace")}
       ${colorRow("hoverColor", "keypadFace")}
       ${colorRow("downColor", "keypadFace")}
@@ -114,11 +130,22 @@ function syncNodeGraphKeypadDisplaySettingsControls(root, settings) {
   if (font) {
     font.value = String(settings.font || "poiret-one");
   }
+  const square = root.querySelector?.(`[data-keypad-check="squareRatio"]`);
+  if (square) {
+    square.checked = settings.squareRatio !== false;
+  }
   const corner = settings.cornerShape === "pill" ? "pill" : "squircle";
   for (const button of root.querySelectorAll?.("[data-keypad-corner]") || []) {
     const on = button.getAttribute("data-keypad-corner") === corner;
     button.classList.toggle("active", on);
     button.setAttribute("aria-pressed", String(on));
+  }
+  const bgName = root.querySelector?.("[data-keypad-bg-image-name]");
+  if (bgName) {
+    const file = settings.backgroundImage?.fileName
+      || (settings.backgroundImage?.dataUrl ? "image" : "");
+    bgName.textContent = file || "—";
+    bgName.title = file || "no image";
   }
   const images = Array.isArray(settings.keyImages) ? settings.keyImages : [];
   for (const nameEl of root.querySelectorAll?.("[data-keypad-image-name]") || []) {
@@ -148,11 +175,23 @@ function bindNodeGraphKeypadDisplaySettingsBody(host) {
     }
   });
   host.addEventListener("change", (event) => {
-    if (event.target?.closest?.("[data-keypad-field], [data-trace-display-choice]")) {
+    if (event.target?.closest?.("[data-keypad-field], [data-keypad-check], [data-trace-display-choice]")) {
       apply("immediate", true);
     }
   });
   host.addEventListener("click", (event) => {
+    const bgBtn = event.target?.closest?.("[data-keypad-bg-action]");
+    if (bgBtn && host.contains(bgBtn)) {
+      event.preventDefault();
+      const action = bgBtn.getAttribute("data-keypad-bg-action");
+      if (action === "clear" && typeof commitNodeGraphKeypadBackgroundImage === "function") {
+        commitNodeGraphKeypadBackgroundImage(null);
+        apply("immediate", true);
+      } else if (action === "load" && typeof pickNodeGraphKeypadBackgroundImage === "function") {
+        pickNodeGraphKeypadBackgroundImage();
+      }
+      return;
+    }
     const imageBtn = event.target?.closest?.("[data-keypad-image-action]");
     if (imageBtn && host.contains(imageBtn)) {
       event.preventDefault();

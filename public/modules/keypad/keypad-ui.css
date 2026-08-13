@@ -11,8 +11,11 @@
   --node-keypad-button-width: 0.94;
   --node-keypad-button-height: 0.94;
   --node-keypad-button-size: 1;
+  --node-keypad-pad: 0px;
+  --node-keypad-background-image: none;
   box-sizing: border-box;
   display: grid;
+  place-items: stretch;
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -20,9 +23,17 @@
   --node-keypad-radius: 0px;
   --node-keypad-stroke: 0px;
   --node-keypad-corner-shape: squircle;
-  padding: calc(var(--node-grid-size, 28px) * 0.14);
+  padding: var(--node-keypad-pad);
   border-radius: 0;
-  background: var(--node-keypad-background-color);
+  background-color: var(--node-keypad-background-color);
+  background-image: var(--node-keypad-background-image, none);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+
+.node-keypad-face.is-square-ratio {
+  place-items: center;
 }
 
 .node-keypad-grid {
@@ -33,6 +44,7 @@
   gap: 0;
   min-width: 0;
   min-height: 0;
+  width: 100%;
   height: 100%;
 }
 
@@ -42,13 +54,9 @@
   place-self: center;
   place-items: center;
   box-sizing: border-box;
-  /* Square inscribed in the width×height envelope so neighbors never clip. */
-  --node-keypad-square: min(
-    var(--node-keypad-button-width) * 100cqw / 3,
-    var(--node-keypad-button-height) * 100cqh / 4
-  );
-  width: calc(var(--node-keypad-button-size) * var(--node-keypad-square));
-  height: calc(var(--node-keypad-button-size) * var(--node-keypad-square));
+  container-type: size;
+  width: calc(var(--node-keypad-button-width) * var(--node-keypad-button-size) * 100%);
+  height: calc(var(--node-keypad-button-height) * var(--node-keypad-button-size) * 100%);
   min-width: 0;
   min-height: 0;
   margin: 0;
@@ -74,14 +82,7 @@
   max-height: 100%;
   overflow: hidden;
   line-height: 1;
-  font-size: calc(
-    var(--node-keypad-text-size)
-    * var(--node-keypad-button-size)
-    * min(
-      var(--node-keypad-button-width) * 100cqw / 3,
-      var(--node-keypad-button-height) * 100cqh / 4
-    )
-  );
+  font-size: calc(var(--node-keypad-text-size) * min(100cqw, 100cqh));
 }
 
 .node-keypad-key:focus {
@@ -144,4 +145,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0.72;
+}
+
+[data-keypad-display-settings-panel] input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0 0 0 auto;
 }

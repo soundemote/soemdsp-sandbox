@@ -50,6 +50,19 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       );
     }
   }
+  if (type === "portalFace") {
+    if (typeof bindNodeGraphPortalDisplaySettingsBody === "function") {
+      bindNodeGraphPortalDisplaySettingsBody(host);
+    }
+    if (typeof syncNodeGraphPortalDisplaySettingsControls === "function") {
+      syncNodeGraphPortalDisplaySettingsControls(
+        host,
+        typeof nodeGraphPortalDisplaySettingsForNode === "function"
+          ? nodeGraphPortalDisplaySettingsForNode(node)
+          : { channel: 0 },
+      );
+    }
+  }
   if (type === "textBoxFace") {
     if (typeof bindNodeGraphTextBoxDisplaySettingsBody === "function") {
       bindNodeGraphTextBoxDisplaySettingsBody(host);
@@ -239,6 +252,9 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       nodeGraphKnobFaceDisplaySettingsDefaults,
     );
   }
+  if (type === "portalFace") {
+    return { channel: 0 };
+  }
   if (type === "keypadFace") {
     return typeof normalizeNodeGraphKeypadLayout === "function"
       ? normalizeNodeGraphKeypadLayout()
@@ -398,6 +414,13 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   if (type === "knobFace") {
     return normalizeNodeGraphKnobFaceDisplaySettings(settings);
   }
+  if (type === "portalFace") {
+    return {
+      channel: typeof nodeGraphPortalClampChannel === "function"
+        ? nodeGraphPortalClampChannel(settings?.channel)
+        : Math.max(0, Math.round(Number(settings?.channel) || 0)),
+    };
+  }
   if (type === "keypadFace") {
     return typeof normalizeNodeGraphKeypadLayout === "function"
       ? normalizeNodeGraphKeypadLayout(settings)
@@ -543,6 +566,11 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   if (settingsSchema === "knobFace") {
     return nodeGraphKnobFaceDisplaySettingsForNode(node);
   }
+  if (settingsSchema === "portalFace") {
+    return typeof nodeGraphPortalDisplaySettingsForNode === "function"
+      ? nodeGraphPortalDisplaySettingsForNode(node)
+      : { channel: 0 };
+  }
   if (settingsSchema === "keypadFace") {
     return typeof nodeGraphKeypadDisplaySettingsForNode === "function"
       ? nodeGraphKeypadDisplaySettingsForNode(node)
@@ -667,14 +695,27 @@ function readNodeGraphTraceDisplaySettingsForm() {
     }
     return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
   }
+  if (formType === "portalFace") {
+    const panel = root?.querySelector?.("[data-portal-display-settings-panel]") || root;
+    const next = { ...current };
+    const input = panel?.querySelector?.(`[data-portal-field="channel"]`);
+    if (input) {
+      next.channel = Number(input.value);
+    }
+    return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
+  }
   if (formType === "keypadFace") {
     const panel = root?.querySelector?.("[data-keypad-display-settings-panel]") || root;
     const next = { ...current };
-    for (const key of ["textSize", "textWeight", "buttonWidth", "buttonHeight", "buttonSize", "rounding", "stroke"]) {
+    for (const key of ["textSize", "textWeight", "buttonWidth", "buttonHeight", "buttonSize", "padPx", "rounding", "stroke"]) {
       const input = panel?.querySelector?.(`[data-keypad-field="${key}"]`);
       if (input) {
         next[key] = Number(input.value);
       }
+    }
+    const square = panel?.querySelector?.(`[data-keypad-check="squareRatio"]`);
+    if (square) {
+      next.squareRatio = Boolean(square.checked);
     }
     const font = panel?.querySelector?.(`[data-trace-display-choice="font"]`);
     if (font) {
@@ -692,6 +733,9 @@ function readNodeGraphTraceDisplaySettingsForm() {
     }
     if (Array.isArray(current.keyImages)) {
       next.keyImages = current.keyImages;
+    }
+    if (current.backgroundImage && typeof current.backgroundImage === "object") {
+      next.backgroundImage = current.backgroundImage;
     }
     return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
   }
@@ -921,6 +965,13 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
       if (editor && typeof editor.setStops === "function" && normalized.gradientStops) {
         editor.setStops(normalized.gradientStops);
       }
+    }
+    return;
+  }
+  if (formType === "portalFace") {
+    const panel = root?.querySelector?.("[data-portal-display-settings-panel]") || root;
+    if (typeof syncNodeGraphPortalDisplaySettingsControls === "function") {
+      syncNodeGraphPortalDisplaySettingsControls(panel, normalized);
     }
     return;
   }

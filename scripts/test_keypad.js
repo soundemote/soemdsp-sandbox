@@ -47,6 +47,11 @@ assert(nodeGraphKeypadSlotToXY(10).X === 0.5 && nodeGraphKeypadSlotToXY(10).Y ==
 assert(nodeGraphKeypadIsLatch(1) === true, "latch 1");
 assert(nodeGraphKeypadIsLatch("Latch") === true, "latch name");
 assert(nodeGraphKeypadIsLatch(0) === false, "momentary 0");
+assert(nodeGraphKeypadDragEnabled() === true, "drag default on");
+assert(nodeGraphKeypadDragEnabled(1) === true, "drag 1");
+assert(nodeGraphKeypadDragEnabled("On") === true, "drag On");
+assert(nodeGraphKeypadDragEnabled(0) === false, "drag 0");
+assert(nodeGraphKeypadDragEnabled("off") === false, "drag off");
 assert(nodeGraphKeypadNormalizeFont("poiret-one") === "poiret-one", "font id");
 assert(nodeGraphKeypadNormalizeFont("nope") === "poiret-one", "font fallback");
 assert(nodeGraphKeypadNormalizeFont() === "poiret-one", "font default");
@@ -77,6 +82,22 @@ var defaults = normalizeNodeGraphKeypadLayout();
 assert(defaults.font === "poiret-one", "default font");
 assert(defaults.buttonWidth === 0.94, "default width");
 assert(defaults.buttonSize === 1, "default button size");
+assert(defaults.squareRatio === true, "default square ratio");
+assert(defaults.padPx === 0, "default pad 0");
+assert(defaults.backgroundImage && defaults.backgroundImage.dataUrl === "", "default no background image");
+assert(normalizeNodeGraphKeypadLayout({
+  backgroundImage: { dataUrl: "data:image/png;base64,xx", fileName: "wall.png" },
+}).backgroundImage.fileName === "wall.png", "background image kept");
+assert(normalizeNodeGraphKeypadLayout({ squareRatio: false, padPx: 12 }).squareRatio === false, "square off");
+assert(normalizeNodeGraphKeypadLayout({ padPx: 99 }).padPx === 64, "pad ceil");
+var squareBox = nodeGraphKeypadGridMetrics(300, 400, true);
+assert(squareBox.width === 300 && squareBox.height === 400 && squareBox.cell === 100, "3x4 square pack fills 3:4");
+var squareWide = nodeGraphKeypadGridMetrics(400, 400, true);
+assert(squareWide.width === 300 && squareWide.height === 400 && squareWide.cell === 100, "square on leaves leftover width");
+var stretch = nodeGraphKeypadGridMetrics(400, 400, false);
+assert(stretch.width === 400 && stretch.height === 400, "square off fills inner");
+var oneFill = 1 * 1 * 100;
+assert(oneFill === 100, "1.0 width/height fills the cell");
 assert(defaults.buttonColor === "#f3f1ec", "default button color");
 assert(normalizeNodeGraphKeypadLayout({ buttonSize: 0 }).buttonSize === 0, "button size hide");
 assert(normalizeNodeGraphKeypadLayout({ buttonSize: 2 }).buttonSize === 1, "button size ceil");

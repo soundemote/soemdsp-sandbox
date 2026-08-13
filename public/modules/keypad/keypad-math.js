@@ -97,6 +97,25 @@ function nodeGraphKeypadIsLatch(value) {
   return Number.isFinite(n) && Math.round(n) >= 1;
 }
 
+/** Drag defaults on. Off / 0 disables glide across keys. */
+function nodeGraphKeypadDragEnabled(value) {
+  if (value === undefined || value === null || value === "") {
+    return true;
+  }
+  const raw = String(value).trim().toLowerCase();
+  if (raw === "off" || raw === "false" || raw === "0") {
+    return false;
+  }
+  if (raw === "on" || raw === "true" || raw === "1") {
+    return true;
+  }
+  const n = Number(value);
+  if (Number.isFinite(n)) {
+    return Math.round(n) >= 1;
+  }
+  return true;
+}
+
 function createNodeGraphKeypadState() {
   return {
     down: 0,
@@ -149,6 +168,46 @@ function nodeGraphKeypadClampHeight(value) {
 
 function nodeGraphKeypadClampButtonSize(value) {
   return nodeGraphKeypadClampUnit(value, 1);
+}
+
+function nodeGraphKeypadNormalizeFlag(value, fallback = true) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+  if (value === false || value === 0 || value === "false" || value === "0") {
+    return false;
+  }
+  if (value === true || value === 1 || value === "true" || value === "1") {
+    return true;
+  }
+  return fallback;
+}
+
+function nodeGraphKeypadClampPadPx(value) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(64, n));
+}
+
+/** 3×4 drawing box inside the padded keypad face. Square on = largest pack of equal cells. */
+function nodeGraphKeypadGridMetrics(innerW, innerH, squareRatio) {
+  const width = Math.max(0, Number(innerW) || 0);
+  const height = Math.max(0, Number(innerH) || 0);
+  if (squareRatio && width > 0 && height > 0) {
+    const cell = Math.min(width / 3, height / 4);
+    return {
+      cell,
+      height: cell * 4,
+      width: cell * 3,
+    };
+  }
+  return {
+    cell: 0,
+    height,
+    width,
+  };
 }
 
 const NODE_GRAPH_KEYPAD_FONTS = Object.freeze([
@@ -285,6 +344,8 @@ function normalizeNodeGraphKeypadLayout(layout = {}) {
     buttonHeight: nodeGraphKeypadClampHeight(source.buttonHeight),
     buttonSize: nodeGraphKeypadClampButtonSize(source.buttonSize ?? source.buttonMultiplier),
     buttonWidth: nodeGraphKeypadClampWidth(source.buttonWidth),
+    padPx: nodeGraphKeypadClampPadPx(source.padPx ?? source.paddingPx ?? source.padding),
+    squareRatio: nodeGraphKeypadNormalizeFlag(source.squareRatio ?? source.square, true),
     cornerShape: nodeGraphKeypadNormalizeCorner(source.cornerShape),
     font: nodeGraphKeypadNormalizeFont(source.font),
     rounding: nodeGraphKeypadClampRounding(source.rounding),
@@ -292,6 +353,9 @@ function normalizeNodeGraphKeypadLayout(layout = {}) {
     strokeColor: nodeGraphKeypadNormalizeHex(
       source.strokeColor,
       nodeGraphKeypadNormalizeHex(source.textColor, "#2d2d2d"),
+    ),
+    backgroundImage: nodeGraphKeypadNormalizeKeyImage(
+      source.backgroundImage ?? source.bgImage ?? source.faceImage,
     ),
     keyImages: nodeGraphKeypadNormalizeKeyImages(source.keyImages ?? source.images),
     kind: "keypad",
