@@ -1056,6 +1056,7 @@ function nodeGraphChromeCommitOptions(nodeIds, extra = {}) {
     chromeNodeIds: Array.isArray(nodeIds) ? [...nodeIds] : [],
     markPending: false,
     skipLivePlan: extra.skipLivePlan !== false,
+    skipValidate: extra.skipValidate !== false,
     deferUiPanels: true,
     ...extra,
   };
@@ -2121,43 +2122,24 @@ function loadNodeGraphImageFromContext() {
   if (!sourceNode || sourceNode.type !== "image") {
     return;
   }
-  setNodeInteractionHelp("Native image file picker is disabled.");
-}
-
-function handleNodeGraphImageFileInputChange(event) {
-  const input = event.currentTarget;
-  const targetNodeId = input.dataset.targetNode || nodeGraphModuleActionTargetNodeId();
-  const sourceNode = nodeGraphPatchNode(targetNodeId);
-  const file = input.files?.[0];
-  if (!sourceNode || sourceNode.type !== "image" || !file) {
+  if (typeof nodeGraphPickImageFile !== "function") {
     return;
   }
-  if (!nodeGraphImageAcceptedTypes.includes(file.type)) {
-    setNodeInteractionHelp("Image type not supported.");
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => {
-    const dataUrl = normalizeNodeGraphImageDataUrl(reader.result);
-    if (!dataUrl) {
-      setNodeInteractionHelp("Image is too large or invalid.");
-      return;
-    }
+  nodeGraphPickImageFile((asset) => {
     const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
     const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
     if (!targetNode) {
       return;
     }
     targetNode.layout = normalizeNodeGraphImageLayout({
-      dataUrl,
-      fileName: file.name || "trace-image",
+      dataUrl: asset.dataUrl,
+      fileName: asset.fileName || "trace-image",
       refreshedAt: Date.now(),
     });
     commitNodeGraphPatch(patch, { status: "image loaded" });
     configureNodeSceneContextMenu("module");
     scheduleNodeGraphModuleScopeDraw();
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
 function saveNodeGraphImageFromContext() {
@@ -2166,12 +2148,9 @@ function saveNodeGraphImageFromContext() {
   if (!sourceNode || sourceNode.type !== "image" || !layout.dataUrl) {
     return;
   }
-  const link = document.createElement("a");
-  link.href = layout.dataUrl;
-  link.download = nodeGraphImageFileName(layout);
-  document.body.append(link);
-  link.click();
-  link.remove();
+  if (typeof nodeGraphSaveImageAsset === "function") {
+    nodeGraphSaveImageAsset(layout, "trace-image");
+  }
   setNodeInteractionHelp("Image saved.");
 }
 

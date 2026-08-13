@@ -1,13 +1,154 @@
 const nodeGraphImageLayoutKind = "image";
 const nodeGraphImageAcceptedTypes = Object.freeze(["image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"]);
+const nodeGraphImageAssetAccept = "image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.png,.jpg,.jpeg,.webp,.gif,.svg";
+const nodeGraphImageAssetMaxBytes = 6_000_000;
 const nodeGraphRgbaImageCache = new Map();
 
 function normalizeNodeGraphImageDataUrl(value) {
   const text = String(value || "");
-  if (!/^data:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml);base64,/i.test(text)) {
+  if (!/^data:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml)(?:;base64)?,/i.test(text)) {
     return "";
   }
-  return text.length <= 3_000_000 ? text : "";
+  return text.length <= nodeGraphImageAssetMaxBytes ? text : "";
+}
+
+function nodeGraphImageFileLooksSupported(file) {
+  if (!file) {
+    return false;
+  }
+  const type = String(file.type || "").toLowerCase();
+  if (type && nodeGraphImageAcceptedTypes.includes(type)) {
+    return true;
+  }
+  return /\.(png|jpe?g|webp|gif|svg)$/i.test(String(file.name || ""));
+}
+
+function nodeGraphNormalizeImageAsset(entry = {}, fallbackName = "") {
+  const source = entry && typeof entry === "object" ? entry : {};
+  const dataUrl = normalizeNodeGraphImageDataUrl(source.dataUrl || source.src);
+  const name = String(source.fileName || source.name || fallbackName || "").trim().slice(0, 180);
+  return {
+    dataUrl,
+    fileName: dataUrl ? name : "",
+  };
+}
+
+function nodeGraphImageAssetLabel(asset, empty = "—") {
+  const next = nodeGraphNormalizeImageAsset(asset);
+  if (!next.dataUrl) {
+    return empty;
+  }
+  return next.fileName || "image";
+}
+
+function nodeGraphReadImageFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!nodeGraphImageFileLooksSupported(file)) {
+      reject(new Error("unsupported image type"));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("image read failed"));
+    reader.onload = () => {
+      const dataUrl = normalizeNodeGraphImageDataUrl(reader.result);
+      if (!dataUrl) {
+        reject(new Error("image too large or invalid"));
+        return;
+      }
+      resolve({
+        dataUrl,
+        fileName: String(file.name || "image").slice(0, 180),
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function nodeGraphPickImageFile(onPick) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = nodeGraphImageAssetAccept;
+  input.hidden = true;
+  input.addEventListener("change", () => {
+    const file = input.files?.[0];
+    input.remove();
+    if (!file) {
+      return;
+    }
+    nodeGraphReadImageFile(file).then((asset) => {
+      onPick?.(asset);
+    }).catch((error) => {
+      if (typeof setNodeInteractionHelp === "function") {
+        setNodeInteractionHelp(error?.message === "unsupported image type"
+          ? "Image type not supported (use PNG, JPEG, WebP, GIF, or SVG)."
+          : "Image is too large or invalid.");
+      }
+    });
+  });
+  document.body.append(input);
+  input.click();
+}
+
+function nodeGraphSaveImageAsset(asset, fallbackName = "image") {
+  const next = nodeGraphNormalizeImageAsset(asset, fallbackName);
+  if (!next.dataUrl) {
+    return false;
+  }
+  const link = document.createElement("a");
+  link.href = next.dataUrl;
+  link.download = typeof nodeGraphImageFileName === "function"
+    ? nodeGraphImageFileName(next)
+    : (next.fileName || fallbackName);
+  document.body.append(link);
+  link.click();
+  link.remove();
+  return true;
+}
+
+function nodeGraphEscapeImageAssetHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/"/g, "&quot;");
+}
+
+function nodeGraphBuildImageAssetRowHtml(options = {}) {
+  const key = String(options.key || "image");
+  const label = nodeGraphEscapeImageAssetHtml(options.label || "Image");
+  const save = options.save !== false;
+  return `
+      <div class="node-led-settings-row node-image-asset-row" data-image-asset-row="${nodeGraphEscapeImageAssetHtml(key)}">
+        <span>${label}</span>
+        <button type="button" data-image-asset-action="load" data-image-asset="${nodeGraphEscapeImageAssetHtml(key)}">Load</button>
+        ${save ? `<button type="button" data-image-asset-action="save" data-image-asset="${nodeGraphEscapeImageAssetHtml(key)}">Save</button>` : ""}
+        <button type="button" data-image-asset-action="clear" data-image-asset="${nodeGraphEscapeImageAssetHtml(key)}">Clear</button>
+        <small data-image-asset-name="${nodeGraphEscapeImageAssetHtml(key)}">—</small>
+      </div>`;
+}
+
+function nodeGraphSyncImageAssetRow(root, key, asset, empty = "—") {
+  const el = root?.querySelector?.(`[data-image-asset-name="${CSS.escape(String(key || ""))}"]`);
+  if (!el) {
+    return;
+  }
+  const label = nodeGraphImageAssetLabel(asset, empty);
+  el.textContent = label;
+  el.title = label === empty ? "no image" : label;
+}
+
+function nodeGraphBindImageAssetClicks(host, onAction) {
+  if (!host || host.dataset.imageAssetBound === "true" || typeof onAction !== "function") {
+    return;
+  }
+  host.dataset.imageAssetBound = "true";
+  host.addEventListener("click", (event) => {
+    const button = event.target?.closest?.("[data-image-asset-action]");
+    if (!button || !host.contains(button)) {
+      return;
+    }
+    event.preventDefault();
+    onAction(String(button.getAttribute("data-image-asset") || ""), button.getAttribute("data-image-asset-action"));
+  });
 }
 
 function normalizeNodeGraphImageLayout(layout = {}) {

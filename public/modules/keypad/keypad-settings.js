@@ -93,25 +93,20 @@ function buildNodeGraphKeypadDisplaySettingsBodyHtml() {
         <input type="range" min="0" max="1" step="0.01" data-keypad-field="stroke" aria-label="Button stroke 0–1">
       </label>
       ${colorRow("backgroundColor", "keypadFace")}
-      <div class="node-led-settings-row node-keypad-image-slot" data-keypad-bg-image>
-        <span>Background</span>
-        <button type="button" data-keypad-bg-action="load">Load</button>
-        <button type="button" data-keypad-bg-action="clear">Clear</button>
-        <small data-keypad-bg-image-name>—</small>
-      </div>
+      ${(typeof nodeGraphBuildImageAssetRowHtml === "function"
+        ? nodeGraphBuildImageAssetRowHtml({ key: "background", label: "Background" })
+        : "")}
       ${colorRow("buttonColor", "keypadFace")}
       ${colorRow("hoverColor", "keypadFace")}
       ${colorRow("downColor", "keypadFace")}
       ${colorRow("textColor", "keypadFace")}
       ${colorRow("strokeColor", "keypadFace")}
       <div class="node-keypad-image-slots" role="group" aria-label="Key images">
-        ${((typeof NODE_GRAPH_KEYPAD_LABELS !== "undefined" ? NODE_GRAPH_KEYPAD_LABELS : ["1","2","3","4","5","6","7","8","9","*","0","#"])).map((label, slot) => `
-        <div class="node-led-settings-row node-keypad-image-slot" data-keypad-image-slot="${slot}">
-          <span>${escape(label)}</span>
-          <button type="button" data-keypad-image-action="load" data-keypad-image-slot="${slot}">Load</button>
-          <button type="button" data-keypad-image-action="clear" data-keypad-image-slot="${slot}">Clear</button>
-          <small data-keypad-image-name="${slot}">—</small>
-        </div>`).join("")}
+        ${((typeof NODE_GRAPH_KEYPAD_LABELS !== "undefined" ? NODE_GRAPH_KEYPAD_LABELS : ["1","2","3","4","5","6","7","8","9","*","0","#"])).map((label, slot) => (
+          typeof nodeGraphBuildImageAssetRowHtml === "function"
+            ? nodeGraphBuildImageAssetRowHtml({ key: `key-${slot}`, label })
+            : ""
+        )).join("")}
       </div>
     </div>`;
 }
@@ -140,19 +135,12 @@ function syncNodeGraphKeypadDisplaySettingsControls(root, settings) {
     button.classList.toggle("active", on);
     button.setAttribute("aria-pressed", String(on));
   }
-  const bgName = root.querySelector?.("[data-keypad-bg-image-name]");
-  if (bgName) {
-    const file = settings.backgroundImage?.fileName
-      || (settings.backgroundImage?.dataUrl ? "image" : "");
-    bgName.textContent = file || "—";
-    bgName.title = file || "no image";
-  }
-  const images = Array.isArray(settings.keyImages) ? settings.keyImages : [];
-  for (const nameEl of root.querySelectorAll?.("[data-keypad-image-name]") || []) {
-    const slot = Number(nameEl.getAttribute("data-keypad-image-name"));
-    const file = images[slot]?.fileName || (images[slot]?.dataUrl ? "image" : "");
-    nameEl.textContent = file || "—";
-    nameEl.title = file || "no image";
+  if (typeof nodeGraphSyncImageAssetRow === "function") {
+    nodeGraphSyncImageAssetRow(root, "background", settings.backgroundImage);
+    const images = Array.isArray(settings.keyImages) ? settings.keyImages : [];
+    for (let slot = 0; slot < images.length; slot += 1) {
+      nodeGraphSyncImageAssetRow(root, `key-${slot}`, images[slot]);
+    }
   }
 }
 
@@ -161,6 +149,45 @@ function bindNodeGraphKeypadDisplaySettingsBody(host) {
     return;
   }
   host.dataset.keypadSettingsBound = "true";
+  if (typeof nodeGraphBindImageAssetClicks === "function") {
+    nodeGraphBindImageAssetClicks(host, (key, action) => {
+      if (key === "background") {
+        if (action === "load" && typeof pickNodeGraphKeypadBackgroundImage === "function") {
+          pickNodeGraphKeypadBackgroundImage();
+        } else if (action === "save") {
+          const nodeId = typeof nodeGraphKeypadTargetNodeId === "function" ? nodeGraphKeypadTargetNodeId() : "";
+          const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+          const layout = typeof normalizeNodeGraphKeypadLayout === "function"
+            ? normalizeNodeGraphKeypadLayout(node?.layout)
+            : node?.layout;
+          if (typeof nodeGraphSaveImageAsset === "function") {
+            nodeGraphSaveImageAsset(layout?.backgroundImage, "keypad-background");
+          }
+        } else if (action === "clear" && typeof commitNodeGraphKeypadBackgroundImage === "function") {
+          commitNodeGraphKeypadBackgroundImage(null);
+        }
+        return;
+      }
+      const slot = Number(String(key || "").replace(/^key-/, ""));
+      if (!Number.isFinite(slot)) {
+        return;
+      }
+      if (action === "load" && typeof pickNodeGraphKeypadKeyImage === "function") {
+        pickNodeGraphKeypadKeyImage(slot);
+      } else if (action === "save") {
+        const nodeId = typeof nodeGraphKeypadTargetNodeId === "function" ? nodeGraphKeypadTargetNodeId() : "";
+        const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+        const layout = typeof normalizeNodeGraphKeypadLayout === "function"
+          ? normalizeNodeGraphKeypadLayout(node?.layout)
+          : node?.layout;
+        if (typeof nodeGraphSaveImageAsset === "function") {
+          nodeGraphSaveImageAsset(layout?.keyImages?.[slot], `keypad-${slot + 1}`);
+        }
+      } else if (action === "clear" && typeof commitNodeGraphKeypadKeyImage === "function") {
+        commitNodeGraphKeypadKeyImage(slot, null);
+      }
+    });
+  }
   const apply = (persist, record) => {
     if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
       markNodeGraphTraceDisplaySettingsDirty("*");
@@ -180,29 +207,8 @@ function bindNodeGraphKeypadDisplaySettingsBody(host) {
     }
   });
   host.addEventListener("click", (event) => {
-    const bgBtn = event.target?.closest?.("[data-keypad-bg-action]");
-    if (bgBtn && host.contains(bgBtn)) {
-      event.preventDefault();
-      const action = bgBtn.getAttribute("data-keypad-bg-action");
-      if (action === "clear" && typeof commitNodeGraphKeypadBackgroundImage === "function") {
-        commitNodeGraphKeypadBackgroundImage(null);
-        apply("immediate", true);
-      } else if (action === "load" && typeof pickNodeGraphKeypadBackgroundImage === "function") {
-        pickNodeGraphKeypadBackgroundImage();
-      }
-      return;
-    }
-    const imageBtn = event.target?.closest?.("[data-keypad-image-action]");
-    if (imageBtn && host.contains(imageBtn)) {
-      event.preventDefault();
-      const slot = Number(imageBtn.getAttribute("data-keypad-image-slot"));
-      const action = imageBtn.getAttribute("data-keypad-image-action");
-      if (action === "clear" && typeof commitNodeGraphKeypadKeyImage === "function") {
-        commitNodeGraphKeypadKeyImage(slot, null);
-        apply("immediate", true);
-      } else if (action === "load" && typeof pickNodeGraphKeypadKeyImage === "function") {
-        pickNodeGraphKeypadKeyImage(slot);
-      }
+    const assetBtn = event.target?.closest?.("[data-image-asset-action]");
+    if (assetBtn && host.contains(assetBtn)) {
       return;
     }
     const corner = event.target?.closest?.("[data-keypad-corner]");

@@ -252,15 +252,9 @@ const nodeGraphLedDefaultSettings = Object.freeze({
 });
 
 function normalizeNodeGraphLedImageLayer(source = {}) {
-  const raw = source && typeof source === "object" ? source : {};
-  const dataUrl = String(raw.dataUrl || raw.src || "").trim();
-  const safeUrl = dataUrl.startsWith("data:image/") && dataUrl.length <= 3_000_000
-    ? dataUrl
-    : "";
-  return {
-    dataUrl: safeUrl,
-    fileName: String(raw.fileName || raw.name || "").trim().slice(0, 96),
-  };
+  return typeof nodeGraphNormalizeImageAsset === "function"
+    ? nodeGraphNormalizeImageAsset(source)
+    : { dataUrl: "", fileName: "" };
 }
 
 // A legacy node.led.color hex becomes the equivalent hue, so patches saved

@@ -291,6 +291,9 @@ function updateNodeGraphGridHeatmap(options = {}) {
     ),
   );
   for (const node of visibleNodes) {
+    if (node.classList.contains("viewport-asleep")) {
+      continue;
+    }
     const bounds = nodeGraphNodeBounds(node);
     const centerX = (bounds.left + (bounds.right - bounds.left) / 2) * zoom + (Number(origin.x) || 0);
     const centerY = (bounds.top + (bounds.bottom - bounds.top) / 2) * zoom + (Number(origin.y) || 0);

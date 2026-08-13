@@ -144,6 +144,10 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
   const slotDebug = [];
   const items = nodeGraphVisibleModuleScopeSlots()
     .map((slot) => {
+      const host = slot?.scopeElement?.closest?.(".dsp-node");
+      if (host?.classList.contains("viewport-asleep")) {
+        return null;
+      }
       const buffer = nodeGraphModuleScopeDisplayBuffer(
         slot,
         nodeGraphModuleScopeCapturedBufferForSlot(slot),

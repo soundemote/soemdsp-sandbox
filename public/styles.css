@@ -10331,6 +10331,13 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none !important;
 }
 
+.dsp-node.viewport-asleep .node-module-face,
+.dsp-node.viewport-asleep .node-module-scope-window,
+.dsp-node.viewport-asleep .dsp-node-body,
+.dsp-node.viewport-asleep .node-solid-module-custom-ui {
+  content-visibility: hidden;
+}
+
 .dsp-node {
   --node-module-scope-height: calc(var(--node-grid-height) * var(--node-module-display-height-units, 2));
   --node-module-interface-controls-height: calc(var(--node-grid-height) * var(--node-module-interface-controls-height-units, 4));
@@ -12070,6 +12077,17 @@ body.room-dimmer-on .node-room-dimmer-canvas,
    (.dsp-node.led-layout above), just wired to a single input or output
    port instead of a light. Ports sit on the conventional edge (inputs
    left, outputs right), matching every other module's port placement. */
+.dsp-node.portal-inlet-layout > .dsp-node-header,
+.dsp-node.portal-outlet-layout > .dsp-node-header,
+.dsp-node.portal-inlet-layout > .dsp-node-io-section,
+.dsp-node.portal-outlet-layout > .dsp-node-io-section,
+.dsp-node.portal-inlet-layout > .dsp-node-body,
+.dsp-node.portal-outlet-layout > .dsp-node-body {
+  display: none;
+}
+
+.dsp-node.portal-inlet-layout,
+.dsp-node.portal-outlet-layout,
 .dsp-node.group-input-layout,
 .dsp-node.group-output-layout {
   display: block;

@@ -693,13 +693,15 @@ function createNodeGraphModuleElement(type, node) {
       if (mountFace) {
         article.append(chromelessBody);
       }
-      appendNodeGraphModuleIoSection(
-        article,
-        createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
-        node,
-        inputPorts,
-        outputPorts,
-      );
+      if (!nodeGraphChromelessModuleIsCompactTile(type)) {
+        appendNodeGraphModuleIoSection(
+          article,
+          createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+          node,
+          inputPorts,
+          outputPorts,
+        );
+      }
     }
     if (mountFace) {
       chromelessRegistration.afterMount?.(article, chromelessBody, node, type);
@@ -924,6 +926,18 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
+  } else if (type === "phoneTone") {
+    const mountFace = typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden;
+    const face = mountFace && typeof createNodeGraphPhoneToneDisplay === "function"
+      ? createNodeGraphPhoneToneDisplay(node, type)
+      : document.createElement("div");
+    if (!mountFace) {
+      face.className = "node-module-display-placeholder";
+      face.hidden = true;
+    }
+    article.append(createNodeGraphLayoutBShell(node, type, face, null, inputPorts, outputPorts));
   } else if (definition.layout === "roundShape") {
     // Cheap static sine→square orbit — hideable like every display.
     if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
@@ -1167,6 +1181,9 @@ function createNodeGraphModuleElement(type, node) {
     }
 
     for (const parameter of definition.parameters) {
+      if (parameter.hidden) {
+        continue;
+      }
       body.append(createNodeGraphParameter(node, type, parameter));
     }
     article.append(body);

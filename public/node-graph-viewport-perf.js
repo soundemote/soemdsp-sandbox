@@ -264,6 +264,132 @@ function scheduleNodeGraphWorkspaceViewPersist() {
 }
 
 /** Immediate full chrome (no gesture). Use after reset / auto-frame. */
+const nodeGraphViewportCull = {
+  observer: null,
+};
+
+function nodeGraphModuleIsViewportAsleep(nodeOrElement) {
+  const element = nodeOrElement instanceof Element
+    ? (nodeOrElement.classList.contains("dsp-node")
+      ? nodeOrElement
+      : nodeOrElement.closest?.(".dsp-node"))
+    : (typeof nodeGraphNodeElement === "function"
+      ? nodeGraphNodeElement(nodeOrElement)
+      : null);
+  return Boolean(element?.classList.contains("viewport-asleep"));
+}
+
+function nodeGraphViewportCullWakePainters(element) {
+  if (!element) {
+    return;
+  }
+  const nodeId = String(element.dataset?.node || "");
+  for (const face of element.querySelectorAll(".node-fbm-field-face")) {
+    if (typeof nodeGraphFbmFieldStartLoop === "function") {
+      nodeGraphFbmFieldStartLoop(face, nodeId || face.dataset?.node);
+    }
+  }
+  element.dispatchEvent(new CustomEvent("nodegraphviewport", {
+    bubbles: false,
+    detail: { asleep: false },
+  }));
+}
+
+function nodeGraphViewportCullSleepPainters(element) {
+  if (!element) {
+    return;
+  }
+  for (const face of element.querySelectorAll(".node-fbm-field-face")) {
+    if (typeof nodeGraphFbmFieldStopLoop === "function") {
+      nodeGraphFbmFieldStopLoop(face);
+    }
+  }
+  element.dispatchEvent(new CustomEvent("nodegraphviewport", {
+    bubbles: false,
+    detail: { asleep: true },
+  }));
+}
+
+function nodeGraphViewportCullApply(element, intersecting) {
+  if (!element?.classList?.contains("dsp-node")) {
+    return;
+  }
+  const nodeId = String(element.dataset?.node || "");
+  const selected = Boolean(
+    nodeId
+    && typeof nodeGraphSelectedNodeIds === "function"
+    && nodeGraphSelectedNodeIds().has(nodeId),
+  );
+  const awake = intersecting || selected;
+  const wasAsleep = element.classList.contains("viewport-asleep");
+  element.classList.toggle("viewport-asleep", !awake);
+  if (wasAsleep === !awake) {
+    return;
+  }
+  if (awake) {
+    nodeGraphViewportCullWakePainters(element);
+  } else {
+    nodeGraphViewportCullSleepPainters(element);
+  }
+}
+
+function ensureNodeGraphViewportModuleCull() {
+  const root = document.getElementById("nodeGraphWorkspace");
+  if (!root || typeof IntersectionObserver !== "function") {
+    return null;
+  }
+  if (nodeGraphViewportCull.observer) {
+    return nodeGraphViewportCull.observer;
+  }
+  nodeGraphViewportCull.observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      const node = entry.target?.classList?.contains("dsp-node")
+        ? entry.target
+        : entry.target?.closest?.(".dsp-node");
+      if (node) {
+        nodeGraphViewportCullApply(node, entry.isIntersecting);
+      }
+    }
+  }, {
+    root,
+    rootMargin: "160px",
+    threshold: 0,
+  });
+  return nodeGraphViewportCull.observer;
+}
+
+function nodeGraphViewportCullObserve(element) {
+  const node = element?.classList?.contains("dsp-node")
+    ? element
+    : element?.closest?.(".dsp-node");
+  if (!node) {
+    return;
+  }
+  const observer = ensureNodeGraphViewportModuleCull();
+  if (!observer) {
+    return;
+  }
+  try {
+    observer.observe(node);
+  } catch (_error) {
+    // Ignore detached / double-observe.
+  }
+}
+
+function nodeGraphViewportCullSyncSelection() {
+  const selected = typeof nodeGraphSelectedNodeIds === "function"
+    ? nodeGraphSelectedNodeIds()
+    : new Set();
+  for (const id of selected) {
+    const element = typeof nodeGraphNodeElement === "function"
+      ? nodeGraphNodeElement(id)
+      : null;
+    if (element?.classList.contains("viewport-asleep")) {
+      nodeGraphViewportCullApply(element, true);
+    }
+  }
+}
+
 function flushNodeGraphViewportImmediate(options = {}) {
   if (nodeGraphViewportPerf.heavyRaf) {
     window.cancelAnimationFrame(nodeGraphViewportPerf.heavyRaf);

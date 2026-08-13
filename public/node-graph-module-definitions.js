@@ -966,6 +966,7 @@ const nodeGraphModuleDefinitions = (
     planFreeRun: true,
     chrome: NodeGraphModuleChromeLayout.LayoutB,
     layoutBPortLabels: true,
+    customDisplayArea: true,
     defaultWidthGu: 5,
     displayType: "phoneToneFace",
     displayHeightGu: 2,

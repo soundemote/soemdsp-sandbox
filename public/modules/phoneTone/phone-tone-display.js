@@ -1,6 +1,6 @@
-// Phone Tone face: cheap split-screen ƒ1 | ƒ2 Hz readout.
-// Font + colors match Pitch Detector's 8ve/meta strip (Cascadia Mono),
-// not DSEG / LED / LCD.
+// Phone Tone face — sharp vector readout (filter-curve family).
+// Not the animated scope compositor / local-fallback canvas.
+// Cascadia Mono, ƒ1 | ƒ2 Hz, redraw only when values or layout change.
 
 const NODE_GRAPH_PHONE_TONE_FACE_FONT =
   '"Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace';
@@ -14,26 +14,6 @@ function nodeGraphPhoneToneFaceFormatHz(value) {
     return String(Math.round(n));
   }
   return n.toFixed(1);
-}
-
-function drawNodeGraphPhoneToneFacePane(ctx, cx, maxW, label, hz, labelSize, valueSize, unitSize, labelY, valueY, unitY) {
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
-  ctx.shadowBlur = Math.max(2, labelSize * 0.35);
-  ctx.shadowOffsetY = 1;
-
-  ctx.font = `700 ${labelSize}px ${NODE_GRAPH_PHONE_TONE_FACE_FONT}`;
-  ctx.fillStyle = "rgba(160, 167, 176, 0.9)";
-  ctx.fillText(label, cx, labelY, maxW);
-
-  ctx.font = `700 ${valueSize}px ${NODE_GRAPH_PHONE_TONE_FACE_FONT}`;
-  ctx.fillStyle = "rgba(160, 214, 228, 0.98)";
-  ctx.fillText(hz, cx, valueY, maxW);
-
-  ctx.font = `700 ${unitSize}px ${NODE_GRAPH_PHONE_TONE_FACE_FONT}`;
-  ctx.fillStyle = "rgba(160, 167, 176, 0.82)";
-  ctx.fillText("Hz", cx, unitY, maxW);
 }
 
 function nodeGraphPhoneToneFaceHasInput(nodeId, port) {
@@ -91,69 +71,152 @@ function nodeGraphPhoneToneFaceHzPair(nodeId) {
   return [pair[0] + freqOffset, pair[1] + freqOffset];
 }
 
-function drawNodeGraphPhoneToneFaceItem(_renderer, item, pixelRatio) {
-  const nodeId = item?.slot?.nodeId;
+function createNodeGraphPhoneToneDisplay(nodeId, type = "phoneTone") {
+  const section = document.createElement("section");
+  section.className = "node-filter-curve-display node-phone-tone-display";
+  section.dataset.node = String(nodeId || "");
+  section.dataset.nodeType = String(type || "phoneTone");
+  section.dataset.parameterVisual = "true";
+  section.dataset.lightSource = "screen";
+  section.dataset.lightStrength = "0.4";
+  section.syncFromParameters = () => {
+    section._phoneToneForceDraw = true;
+    drawNodeGraphPhoneToneFaceItem(section);
+  };
+  const canvas = document.createElement("canvas");
+  canvas.className = "node-filter-curve-canvas node-phone-tone-canvas node-module-scope-vector-trace";
+  canvas.setAttribute("aria-hidden", "true");
+  section.append(canvas);
+  if (typeof ResizeObserver === "function") {
+    const observer = new ResizeObserver(() => {
+      section._phoneToneForceDraw = true;
+      section._phoneToneLaidOut = false;
+      drawNodeGraphPhoneToneFaceItem(section);
+    });
+    observer.observe(section);
+    section._phoneToneResizeObserver = observer;
+  }
+  const tick = () => {
+    if (!section.isConnected) {
+      section._phoneToneRaf = 0;
+      return;
+    }
+    drawNodeGraphPhoneToneFaceItem(section);
+    section._phoneToneRaf = requestAnimationFrame(tick);
+  };
+  section._phoneToneRaf = requestAnimationFrame(tick);
+  return section;
+}
+
+function drawNodeGraphPhoneToneFacePane(ctx, cx, maxW, label, hz, labelSize, valueSize, unitSize, labelY, valueY, unitY) {
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `700 ${labelSize}px ${NODE_GRAPH_PHONE_TONE_FACE_FONT}`;
+  ctx.fillStyle = "rgba(160, 167, 176, 0.9)";
+  ctx.fillText(label, cx, labelY, maxW);
+  ctx.font = `700 ${valueSize}px ${NODE_GRAPH_PHONE_TONE_FACE_FONT}`;
+  ctx.fillStyle = "rgba(160, 214, 228, 0.98)";
+  ctx.fillText(hz, cx, valueY, maxW);
+  ctx.font = `700 ${unitSize}px ${NODE_GRAPH_PHONE_TONE_FACE_FONT}`;
+  ctx.fillStyle = "rgba(160, 167, 176, 0.82)";
+  ctx.fillText("Hz", cx, unitY, maxW);
+}
+
+function drawNodeGraphPhoneToneFaceItem(sectionOrRenderer, item) {
+  const section = sectionOrRenderer?.classList?.contains?.("node-phone-tone-display")
+    ? sectionOrRenderer
+    : (item?.screenElement?.closest?.(".node-phone-tone-display")
+      || item?.slot?.scopeElement
+      || null);
+  if (!section) {
+    return;
+  }
+  const nodeId = section.dataset?.node || item?.slot?.nodeId;
   if (!nodeId) {
     return;
   }
-  const canvas = typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
-    ? nodeGraphModuleScopeLocalFallbackCanvas(item?.slot)
-    : null;
-  const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  if (!canvas || typeof syncNodeGraphModuleScopeLocalFallbackCanvas !== "function") {
-    return;
-  }
-  if (!syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio)) {
-    return;
-  }
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
+  const canvas = section.querySelector?.(".node-phone-tone-canvas")
+    || section.querySelector?.("canvas");
+  if (!canvas) {
     return;
   }
   const pair = nodeGraphPhoneToneFaceHzPair(nodeId);
-  const f1 = pair[0];
-  const f2 = pair[1];
-  const left = nodeGraphPhoneToneFaceFormatHz(f1);
-  const right = nodeGraphPhoneToneFaceFormatHz(f2);
+  const left = nodeGraphPhoneToneFaceFormatHz(pair[0]);
+  const right = nodeGraphPhoneToneFaceFormatHz(pair[1]);
+  const rawW = Number(section.clientWidth || section.offsetWidth) || 0;
+  const rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+  const signature = `${left}|${right}|${Math.round(rawW)}|${Math.round(rawH)}`;
   if (
-    canvas._phoneToneFaceLeft === left
-    && canvas._phoneToneFaceRight === right
-    && canvas._phoneToneFaceW === canvas.width
-    && canvas._phoneToneFaceH === canvas.height
+    !section._phoneToneForceDraw
+    && section._phoneToneSignature === signature
+    && section._phoneToneLaidOut
   ) {
     return;
   }
-  canvas._phoneToneFaceLeft = left;
-  canvas._phoneToneFaceRight = right;
-  canvas._phoneToneFaceW = canvas.width;
-  canvas._phoneToneFaceH = canvas.height;
+  if (rawW < 8 || rawH < 8) {
+    section._phoneToneLaidOut = false;
+    section._phoneToneForceDraw = true;
+    return;
+  }
 
-  const w = canvas.width;
-  const h = canvas.height;
-  const mid = Math.round(w * 0.5);
-  const paneW = Math.max(8, mid - 8);
-  ctx.save();
+  let ctx;
+  let width;
+  let height;
+  let pixelRatio = 1;
+  if (typeof nodeGraphSizeDisplayCanvas === "function") {
+    const metrics = nodeGraphSizeDisplayCanvas(section, canvas);
+    if (!metrics) {
+      return;
+    }
+    ctx = metrics.context;
+    width = metrics.cssWidth;
+    height = metrics.cssHeight;
+    pixelRatio = metrics.pixelRatio || 1;
+  } else {
+    ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+    pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+    width = rawW;
+    height = rawH;
+    canvas.width = Math.max(1, Math.round(width * pixelRatio));
+    canvas.height = Math.max(1, Math.round(height * pixelRatio));
+  }
+  if (!ctx || !(width >= 8) || !(height >= 8)) {
+    return;
+  }
+
+  section._phoneToneSignature = signature;
+  section._phoneToneForceDraw = false;
+  section._phoneToneLaidOut = true;
+  canvas.style.imageRendering = "auto";
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  if ("imageSmoothingQuality" in ctx) {
+    ctx.imageSmoothingQuality = "high";
+  }
+  ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = "#000004";
-  ctx.fillRect(0, 0, w, h);
+  ctx.fillRect(0, 0, width, height);
+  const mid = Math.round(width * 0.5);
   ctx.fillStyle = "rgba(127, 199, 217, 0.22)";
-  ctx.fillRect(mid, Math.round(h * 0.12), 1, Math.round(h * 0.76));
+  ctx.fillRect(mid, Math.round(height * 0.12), 1, Math.round(height * 0.76));
 
-  const labelSize = Math.max(9, Math.min(h * 0.18, w * 0.07));
-  const valueSize = Math.max(12, Math.min(h * 0.36, (w * 0.5) * 0.24));
-  const unitSize = Math.max(8, Math.min(h * 0.16, w * 0.055));
-  const labelY = h * 0.2;
-  const valueY = h * 0.54;
-  const unitY = h * 0.82;
-
+  const paneW = Math.max(8, mid - 8);
+  const labelSize = Math.max(9, Math.min(height * 0.18, width * 0.07));
+  const valueSize = Math.max(12, Math.min(height * 0.36, (width * 0.5) * 0.24));
+  const unitSize = Math.max(8, Math.min(height * 0.16, width * 0.055));
   drawNodeGraphPhoneToneFacePane(
-    ctx, w * 0.25, paneW, "ƒ1", left, labelSize, valueSize, unitSize, labelY, valueY, unitY,
+    ctx, width * 0.25, paneW, "ƒ1", left, labelSize, valueSize, unitSize,
+    height * 0.2, height * 0.54, height * 0.82,
   );
   drawNodeGraphPhoneToneFacePane(
-    ctx, w * 0.75, paneW, "ƒ2", right, labelSize, valueSize, unitSize, labelY, valueY, unitY,
+    ctx, width * 0.75, paneW, "ƒ2", right, labelSize, valueSize, unitSize,
+    height * 0.2, height * 0.54, height * 0.82,
   );
-  ctx.restore();
 }
 
 if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {
-  nodeGraphModuleScopeCustomRenderers.phoneToneFace = drawNodeGraphPhoneToneFaceItem;
+  nodeGraphModuleScopeCustomRenderers.phoneToneFace = () => {};
 }

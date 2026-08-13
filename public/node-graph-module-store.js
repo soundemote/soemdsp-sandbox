@@ -32,6 +32,14 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "wallDelay",
   // Full-plate noise flow field experiment (not Julia / kaleidoscope).
   // Placeholder only until the flow-field design is ready.
+  "output",
+  "audioInput",
+  "pluginInput",
+  "pluginOutput",
+  "pluginMidiIn",
+  "pluginMidiOut",
+  "groupInput",
+  "groupOutput",
   "evolveField",
   // Classical formant bank (vowel / vocal tract) — placeholder until design lands.
   "formantFilter",
@@ -2176,6 +2184,14 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   groupInput: {
     source: "public/modules/groupInput/group-input-live-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/groupInput/group-input-live-evaluator.js",
+  },
+  portalInlet: {
+    source: "public/modules/portal/portal-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/portal/portal-live-evaluator.js",
+  },
+  portalOutlet: {
+    source: "public/modules/portal/portal-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/portal/portal-live-evaluator.js",
   },
   groupOutput: {
     source: "public/modules/groupOutput/group-output-live-evaluator.js",

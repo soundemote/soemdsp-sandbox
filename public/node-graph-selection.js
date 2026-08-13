@@ -30,6 +30,9 @@ function setNodeGraphSelection(selection) {
     nodeGraphMvp.lastModuleActionTargetNode = selectedNode;
   }
   renderNodeGraphSelection();
+  if (typeof nodeGraphViewportCullSyncSelection === "function") {
+    nodeGraphViewportCullSyncSelection();
+  }
 }
 
 function clearNodeGraphSelection() {

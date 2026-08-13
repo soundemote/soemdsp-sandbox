@@ -430,6 +430,22 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
       groupInput: (node, nodeId) => ({
         Out: Number(this.externalGroupInputs?.get(nodeId)) || 0,
       }),
+      portalInlet: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame) => {
+        const stereo = typeof nodeGraphDspExternalStereoFrame === "function"
+          ? nodeGraphDspExternalStereoFrame(this.externalInput, inputFrame ?? frame, 1)
+          : { Left: 0, Out: 0, Right: 0 };
+        const channel = typeof nodeGraphPortalChannelFromNode === "function"
+          ? nodeGraphPortalChannelFromNode(node)
+          : 0;
+        return {
+          Out: typeof nodeGraphPortalPickChannel === "function"
+            ? nodeGraphPortalPickChannel(stereo, channel)
+            : (channel === 1 ? stereo.Right : stereo.Left),
+        };
+      },
+      portalOutlet: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        In: mixInput(nodeId, "In"),
+      }),
       audioPlayer: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const readParam = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
         return this.audioPlayerSample(

@@ -188,6 +188,7 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneToggleHideUnused", "click", toggleNodeGraphModuleHideUnusedFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneToggleCollapsed", "click", toggleNodeGraphModuleCollapsedFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneToggleTitle", "click", toggleNodeGraphModuleTitleFromContext);
+  bindNodeGraphSceneElementEvent("nodeSceneImageLoad", "click", loadNodeGraphImageFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneImageSave", "click", saveNodeGraphImageFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneImageRefresh", "click", refreshNodeGraphImageFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneKnobFaceLoad1", "click", () => pickNodeGraphKnobFaceImage("image1"));

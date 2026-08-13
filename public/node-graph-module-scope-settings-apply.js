@@ -47,6 +47,16 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.traceDisplaySettings = normalizeNodeGraphNumberReadoutSettings(packed, defaults);
     return node.traceDisplaySettings;
   }
+  if (displayType === "portalFace") {
+    const channel = typeof nodeGraphPortalClampChannel === "function"
+      ? nodeGraphPortalClampChannel(settings?.channel)
+      : Math.max(0, Math.round(Number(settings?.channel) || 0));
+    node.params = { ...(node.params || {}), channel };
+    if (typeof applyNodeGraphPortalDisplaySettingsToFace === "function") {
+      applyNodeGraphPortalDisplaySettingsToFace(node);
+    }
+    return { channel };
+  }
   if (displayType === "keypadFace") {
     node.layout = typeof normalizeNodeGraphKeypadLayout === "function"
       ? normalizeNodeGraphKeypadLayout(settings)
@@ -448,6 +458,11 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
   }
   if (settingsSchema === "ledLamp") {
     return node.led && typeof node.led === "object" ? { ...node.led } : {};
+  }
+  if (settingsSchema === "portalFace") {
+    return typeof nodeGraphPortalDisplaySettingsForNode === "function"
+      ? nodeGraphPortalDisplaySettingsForNode(node)
+      : { channel: Number(node?.params?.channel) || 0 };
   }
   if (settingsSchema === "keypadFace") {
     return node.layout && typeof node.layout === "object" ? { ...node.layout } : {};

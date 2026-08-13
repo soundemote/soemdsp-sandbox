@@ -307,6 +307,9 @@ function nodeGraphKeypadNormalizeHex(value, fallback) {
 }
 
 function nodeGraphKeypadNormalizeKeyImage(entry) {
+  if (typeof nodeGraphNormalizeImageAsset === "function") {
+    return nodeGraphNormalizeImageAsset(entry);
+  }
   if (!entry || typeof entry !== "object") {
     return { dataUrl: "", fileName: "" };
   }

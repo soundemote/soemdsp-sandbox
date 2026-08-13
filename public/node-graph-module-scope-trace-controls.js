@@ -426,10 +426,16 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   keypadFace: Object.freeze({
-    fields: Object.freeze(["textSize", "textWeight", "buttonWidth", "buttonHeight", "buttonSize"]),
+    fields: Object.freeze(["textSize", "textWeight", "buttonWidth", "buttonHeight", "buttonSize", "padPx"]),
     colors: Object.freeze(["backgroundColor", "buttonColor", "hoverColor", "downColor", "textColor", "strokeColor"]),
-    toggles: Object.freeze([]),
+    toggles: Object.freeze(["squareRatio"]),
     choices: Object.freeze(["font"]),
+  }),
+  portalFace: Object.freeze({
+    fields: Object.freeze(["channel"]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
   }),
   textBoxFace: Object.freeze({
     fields: Object.freeze(["textSizePercent", "verticalAlignPercent"]),

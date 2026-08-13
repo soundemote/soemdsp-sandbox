@@ -390,24 +390,12 @@ function commitNodeGraphKeypadBackgroundImage(image) {
 }
 
 function pickNodeGraphKeypadBackgroundImage() {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.png,.jpg,.jpeg,.webp,.gif,.svg";
-  input.hidden = true;
-  input.addEventListener("change", () => {
-    const file = input.files?.[0];
-    input.remove();
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result || "");
-      if (!dataUrl.startsWith("data:image/")) return;
-      commitNodeGraphKeypadBackgroundImage({ dataUrl, fileName: file.name || "image" });
-    };
-    reader.readAsDataURL(file);
+  if (typeof nodeGraphPickImageFile !== "function") {
+    return;
+  }
+  nodeGraphPickImageFile((asset) => {
+    commitNodeGraphKeypadBackgroundImage(asset);
   });
-  document.body.append(input);
-  input.click();
 }
 
 function commitNodeGraphKeypadKeyImage(slot, image) {
@@ -449,24 +437,12 @@ function commitNodeGraphKeypadKeyImage(slot, image) {
 }
 
 function pickNodeGraphKeypadKeyImage(slot) {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.png,.jpg,.jpeg,.webp,.gif,.svg";
-  input.hidden = true;
-  input.addEventListener("change", () => {
-    const file = input.files?.[0];
-    input.remove();
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result || "");
-      if (!dataUrl.startsWith("data:image/")) return;
-      commitNodeGraphKeypadKeyImage(slot, { dataUrl, fileName: file.name || "image" });
-    };
-    reader.readAsDataURL(file);
+  if (typeof nodeGraphPickImageFile !== "function") {
+    return;
+  }
+  nodeGraphPickImageFile((asset) => {
+    commitNodeGraphKeypadKeyImage(slot, asset);
   });
-  document.body.append(input);
-  input.click();
 }
 
 registerNodeGraphChromelessModuleUi("keypad", {

@@ -190,8 +190,13 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
     : 1;
 
   const outputMono = mixInput(outputNodeId, "Mono");
-  const left = (outputMono + mixInput(outputNodeId, "Left")) * outputVolume;
-  const right = (outputMono + mixInput(outputNodeId, "Right")) * outputVolume;
+  let left = (outputMono + mixInput(outputNodeId, "Left")) * outputVolume;
+  let right = (outputMono + mixInput(outputNodeId, "Right")) * outputVolume;
+  if (typeof nodeGraphPortalMixOutlets === "function") {
+    const mixed = nodeGraphPortalMixOutlets(runtime.nodes, mixInput, left, right);
+    left = mixed.left;
+    right = mixed.right;
+  }
   // Same as worklet evaluateFrame: publish speaker bus into nodeOutputs so
   // captureNodeGraphLiveModuleScopeFrame can feed Output stereo Trace.
   runtime.nodeOutputs?.set(outputNodeId, {

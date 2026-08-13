@@ -435,7 +435,10 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   }
   // Plugin Output nodes are audio sinks; keep them reachable so upstream evaluates.
   for (const node of graph.nodes) {
-    if (node?.type === "pluginOutput" && !bypassedNodes.has(node.id)) {
+    if (
+      (node?.type === "pluginOutput" || node?.type === "portalOutlet")
+      && !bypassedNodes.has(node.id)
+    ) {
       markReachable(node.id);
     }
   }

@@ -1,0 +1,45 @@
+registerNodeGraphChromelessModule("portalInlet", {
+  label: "Inlet",
+  compactTile: true,
+  customDisplayArea: true,
+  definition: {
+    chrome: "LayoutA",
+    planRole: "source",
+    planFreeRun: true,
+    customDisplayArea: true,
+    defaultWidthGu: 1,
+    defaultUi: { titleHidden: true },
+    displayHeightGu: 1,
+    displayType: "portalFace",
+    defaultDisplayMode: "face",
+    displayModes: [
+      {
+        key: "face",
+        label: "Inlet",
+        renderer: "portalFace",
+        settingsSchema: "portalFace",
+        source: { value: "Out" },
+      },
+    ],
+    outputs: ["Out"],
+    parameters: [
+      {
+        defaultValue: "0",
+        displayChoices: false,
+        hidden: true,
+        key: "channel",
+        label: "Channel",
+        max: "31",
+        mid: "0",
+        min: "0",
+        step: "1",
+        tooltip: "Live input channel. 0 = Left, 1 = Right, 2 = Mono.",
+      },
+    ],
+  },
+  catalog: {
+    category: "portal",
+    description: "1gu inlet. Face number is the live input channel (0 Left, 1 Right). Double-click to edit.",
+    notes: ["portal", "inlet", "input", "left", "right", "channel", "compact"],
+  },
+});

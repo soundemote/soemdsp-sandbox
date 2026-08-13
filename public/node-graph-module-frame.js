@@ -598,6 +598,9 @@ function nodeGraphModuleFrameObserve(nodeElement) {
   } catch (_error) {
     // Ignore double-observe / detached.
   }
+  if (typeof nodeGraphViewportCullObserve === "function") {
+    nodeGraphViewportCullObserve(nodeElement);
+  }
   // Port rows can change size without the module box resizing (label toggle,
   // solid-shell reflow). Observe jacks so gaps recompute without a manual resize.
   for (const port of nodeElement.querySelectorAll(

@@ -1,0 +1,46 @@
+registerNodeGraphChromelessModule("portalOutlet", {
+  label: "Outlet",
+  compactTile: true,
+  customDisplayArea: true,
+  definition: {
+    chrome: "LayoutA",
+    planRole: "sink",
+    planFreeRun: true,
+    customDisplayArea: true,
+    defaultWidthGu: 1,
+    defaultUi: { titleHidden: true },
+    displayHeightGu: 1,
+    displayType: "portalFace",
+    defaultDisplayMode: "face",
+    displayModes: [
+      {
+        key: "face",
+        label: "Outlet",
+        renderer: "portalFace",
+        settingsSchema: "portalFace",
+        source: { value: "In" },
+      },
+    ],
+    inputs: ["In"],
+    outputs: [],
+    parameters: [
+      {
+        defaultValue: "0",
+        displayChoices: false,
+        hidden: true,
+        key: "channel",
+        label: "Channel",
+        max: "31",
+        mid: "0",
+        min: "0",
+        step: "1",
+        tooltip: "Speaker channel this outlet sends to. 0 = Left, 1 = Right, 2 = Mono (both).",
+      },
+    ],
+  },
+  catalog: {
+    category: "portal",
+    description: "1gu outlet. Face number is the speaker channel (0 Left, 1 Right). Double-click to edit.",
+    notes: ["portal", "outlet", "output", "left", "right", "channel", "compact"],
+  },
+});

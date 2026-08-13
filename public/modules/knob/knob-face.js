@@ -1091,37 +1091,50 @@ function pickNodeGraphKnobFaceImage(layerId = "image1") {
   if (!sourceNode || sourceNode.type !== "knob") {
     return;
   }
-  // Keep action target in sync so Module Settings paths still resolve.
   if (nodeGraphMvp) {
     nodeGraphMvp.sceneContextTargetNode = nodeId;
     nodeGraphMvp.lastModuleActionTargetNode = nodeId;
   }
   const layer = nodeGraphKnobFaceNormalizeLayerId(layerId);
-  let input = document.getElementById("nodeKnobFaceFileInput");
-  if (!input) {
-    input = document.createElement("input");
-    input.type = "file";
-    input.id = "nodeKnobFaceFileInput";
-    input.accept = "image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.png,.jpg,.jpeg,.webp,.gif,.svg";
-    input.hidden = true;
-    input.addEventListener("change", handleNodeGraphKnobFaceFileInputChange);
-    document.body.append(input);
+  const layerIndex = nodeGraphKnobFaceLayerIndex(layer);
+  if (typeof nodeGraphPickImageFile !== "function") {
+    return;
   }
-  input.value = "";
-  input.dataset.targetNode = nodeId;
-  input.dataset.layer = layer;
-  input.click();
+  nodeGraphPickImageFile((asset) => {
+    const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : sourceNode;
+    if (!live || live.type !== "knob") {
+      return;
+    }
+    const apply = (finalUrl) => {
+      const prev = nodeGraphKnobFaceForNode(live);
+      const nextLayers = prev.layers.map((entry, index) => (
+        index === layerIndex
+          ? {
+            dataUrl: finalUrl,
+            fileName: asset.fileName || `${layer}-image`,
+            rotate: Boolean(entry.rotate),
+          }
+          : { ...entry }
+      ));
+      commitNodeGraphKnobFace({
+        ...prev,
+        layers: nextLayers,
+      }, {
+        status: `value slider ${layer} image loaded`,
+      });
+    };
+    if (typeof nodeGraphKnobFaceMaybeStripSilverEdge === "function") {
+      nodeGraphKnobFaceMaybeStripSilverEdge(asset.dataUrl).then(apply);
+    } else {
+      apply(asset.dataUrl);
+    }
+  });
 }
 
 function nodeGraphKnobFaceFileLooksSupported(file) {
-  if (!file) {
-    return false;
-  }
-  if (file.type && nodeGraphKnobFaceAcceptedTypes.includes(file.type)) {
-    return true;
-  }
-  const name = String(file.name || "").toLowerCase();
-  return /\.(png|jpe?g|webp|gif|svg)$/i.test(name);
+  return typeof nodeGraphImageFileLooksSupported === "function"
+    ? nodeGraphImageFileLooksSupported(file)
+    : false;
 }
 
 /**
@@ -1220,99 +1233,6 @@ function nodeGraphKnobFaceMaybeStripSilverEdge(dataUrl) {
     img.onerror = () => resolve(dataUrl);
     img.src = dataUrl;
   });
-}
-
-function handleNodeGraphKnobFaceFileInputChange(event) {
-  const input = event.currentTarget;
-  const targetNodeId = input.dataset.targetNode || nodeGraphModuleActionTargetNodeId?.();
-  const layer = nodeGraphKnobFaceNormalizeLayerId(input.dataset.layer || "image1");
-  const layerIndex = nodeGraphKnobFaceLayerIndex(layer);
-  const sourceNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(targetNodeId) : null;
-  const file = input.files?.[0];
-  nodeGraphKnobFaceLog("INFO", "face file pick", {
-    nodeId: targetNodeId,
-    layer,
-    hasNode: Boolean(sourceNode),
-    type: sourceNode?.type,
-    fileName: file?.name || null,
-    fileType: file?.type || "(empty)",
-    fileSize: file?.size ?? null,
-  });
-  if (!sourceNode || sourceNode.type !== "knob" || !file) {
-    nodeGraphKnobFaceLog("WARN", "face file pick aborted — need knob node + file");
-    return;
-  }
-  if (!nodeGraphKnobFaceFileLooksSupported(file)) {
-    nodeGraphKnobFaceLog("FAIL", "unsupported face image type", {
-      fileType: file.type,
-      fileName: file.name,
-      layer,
-    });
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp("Image type not supported (use PNG, JPEG, WebP, GIF, or SVG).");
-    }
-    return;
-  }
-  const reader = new FileReader();
-  reader.onerror = () => {
-    nodeGraphKnobFaceLog("FAIL", "FileReader error loading face image", {
-      fileName: file.name,
-      layer,
-      error: String(reader.error || "unknown"),
-    });
-  };
-  reader.onload = () => {
-    const raw = String(reader.result || "");
-    const header = raw.slice(0, Math.min(80, raw.indexOf(",") >= 0 ? raw.indexOf(",") : 80));
-    const dataUrl = normalizeNodeGraphKnobFaceDataUrl(raw);
-    if (!dataUrl) {
-      nodeGraphKnobFaceLog("FAIL", "face data URL rejected by normalizer", {
-        fileName: file.name,
-        layer,
-        fileType: file.type,
-        resultLength: raw.length,
-        header,
-      });
-      if (typeof setNodeInteractionHelp === "function") {
-        setNodeInteractionHelp("Image is too large or invalid (check debug log).");
-      }
-      return;
-    }
-    nodeGraphKnobFaceLog("INFO", "face data URL accepted", {
-      fileName: file.name,
-      layer,
-      header: dataUrl.slice(0, dataUrl.indexOf(",") + 1),
-      length: dataUrl.length,
-    });
-    nodeGraphKnobFaceMaybeStripSilverEdge(dataUrl).then((finalUrl) => {
-      const prev = nodeGraphKnobFaceForNode(sourceNode);
-      const nextLayers = prev.layers.map((entry, index) => (
-        index === layerIndex
-          ? {
-            dataUrl: finalUrl,
-            fileName: file.name || `${layer}-image`,
-            rotate: Boolean(entry.rotate),
-          }
-          : { ...entry }
-      ));
-      const ok = commitNodeGraphKnobFace({
-        ...prev,
-        layers: nextLayers,
-      }, {
-        status: `value slider ${layer} image loaded`,
-      });
-      const after = typeof nodeGraphPatchNode === "function"
-        ? nodeGraphKnobFaceForNode(nodeGraphPatchNode(targetNodeId))
-        : null;
-      nodeGraphKnobFaceLog(ok && after?.layers?.[layerIndex]?.dataUrl ? "INFO" : "FAIL", "face commit result", {
-        commitOk: ok,
-        layer,
-        hasDataUrlAfterValidate: Boolean(after?.layers?.[layerIndex]?.dataUrl),
-        fileNameAfter: after?.layers?.[layerIndex]?.fileName || "",
-      });
-    });
-  };
-  reader.readAsDataURL(file);
 }
 
 function clearNodeGraphKnobFaceImage(layerId = "image1") {

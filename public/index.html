@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./public/styles.css?v=portal-io-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=portal-io-1">
-  <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-bg-1">
+  <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-bgi-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=module-bottom-inset-half-1">
   <link rel="stylesheet" href="./public/modules/pitchQuantizer/pitch-quantizer-ui.css?v=chord-pad-1">
@@ -2159,6 +2159,7 @@
         <div id="nodeSceneImageControls" class="scene-context-text-box-controls" hidden>
           <span>image</span>
           <div>
+            <button id="nodeSceneImageLoad" type="button">load</button>
             <button id="nodeSceneImageSave" type="button">save</button>
             <button id="nodeSceneImageRefresh" type="button">refresh</button>
           </div>
@@ -3481,7 +3482,7 @@
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
   <script src="./public/node-graph-text-box-utils.js?v=textbox-vert-neg-1"></script>
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
-  <script src="./public/node-graph-image-utils.js?v=pre-formula-restore-1"></script>
+  <script src="./public/node-graph-image-utils.js?v=keypad-bgi-1"></script>
   <script src="./public/node-graph-graph-utils.js?v=graph-settings-list-1"></script>
   <script src="./public/node-graph-samples.js?v=lr-mono-center-1"></script>
   <script src="./public/modules/audioPlayer/audio-player-playlist.js?v=music-pl-layout-2"></script>
@@ -3519,7 +3520,7 @@
   <script src="./public/node-graph-marquee-selection.js?v=snake-select-1"></script>
   <script src="./public/node-graph-node-dragging.js?v=portal-io-1"></script>
   <script src="./public/node-graph-context-menu.js?v=textbox-display-1"></script>
-  <script src="./public/node-graph-module-actions.js?v=viewport-sleep-1"></script>
+  <script src="./public/node-graph-module-actions.js?v=keypad-bgi-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
   <script src="./public/lib/phosphor/phosphor-residual.js?v=trail-0-none-1"></script>
   <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=burn-amount-1"></script>
@@ -3583,12 +3584,12 @@
   <script src="./public/node-graph-canvas-script.js?v=floating-chrome-unify-1"></script>
   <script src="./public/node-graph-module-factories.js?v=freq-value-f-1"></script>
   <script src="./public/modules/led/led-ui.js?v=phosphor-dot-1"></script>
-  <script src="./public/modules/led/led-settings.js?v=led-gradient-lut-1"></script>
+  <script src="./public/modules/led/led-settings.js?v=keypad-bgi-1"></script>
   <script src="./public/modules/led/led-display.js?v=dimmer-punch-fix-2"></script>
   <script src="./public/modules/rgbShape/rgb-shape-ui.js?v=rgb-shape-1"></script>
   <script src="./public/modules/rgbShape/rgb-shape-display.js?v=rgb-shape-1"></script>
   <script src="./public/modules/rgbPicture/rgb-picture-ui.js?v=rgb-picture-1"></script>
-  <script src="./public/modules/rgbPicture/rgb-picture-display.js?v=rgb-picture-1"></script>
+  <script src="./public/modules/rgbPicture/rgb-picture-display.js?v=keypad-bgi-1"></script>
   <script src="./public/modules/rgbFractal/rgb-fractal-gl.js?v=soft-structure-1"></script>
   <script src="./public/modules/rgbFractal/rgb-fractal-ui.js?v=outer-stop0-1"></script>
   <script src="./public/modules/rgbFractal/rgb-fractal-display.js?v=soft-structure-1"></script>
@@ -3604,9 +3605,9 @@
   <script src="./public/modules/numberReadout/number-readout-ui.js?v=value-led-lcd-1"></script>
   <script src="./public/modules/rayBouncer/ray-bouncer-ui.js?v=ray-bouncer-solid-1"></script>
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
-  <script src="./public/modules/keypad/keypad-math.js?v=keypad-bg-1"></script>
-  <script src="./public/modules/keypad/keypad-settings.js?v=keypad-bg-1"></script>
-  <script src="./public/modules/keypad/keypad-ui.js?v=keypad-bg-1"></script>
+  <script src="./public/modules/keypad/keypad-math.js?v=keypad-bgi-1"></script>
+  <script src="./public/modules/keypad/keypad-settings.js?v=keypad-bgi-1"></script>
+  <script src="./public/modules/keypad/keypad-ui.js?v=keypad-bgi-1"></script>
   <script src="./public/modules/groupInput/group-input-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/patch/patch-ui.js?v=patch-face-1"></script>
   <script src="./public/modules/groupOutput/group-output-ui.js?v=chromeless-portals-1"></script>
@@ -3618,7 +3619,7 @@
   <script src="./public/node-graph-module-frame.js?v=viewport-sleep-1"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=stop-idle-fps-1"></script>
-  <script src="./public/node-graph-patch-clone.js?v=keypad-1"></script>
+  <script src="./public/node-graph-patch-clone.js?v=keypad-bgi-1"></script>
   <script src="./public/node-graph-slider-metadata.js?v=maxdigits-1"></script>
   <script src="./public/node-graph-slider-values.js?v=io-volume-linear-0333-1"></script>
   <script src="./public/node-graph-slider-dragging.js?v=drag-reanchor-1"></script>
@@ -3626,7 +3627,7 @@
   <script src="./public/node-graph-selection.js?v=viewport-sleep-1"></script>
   <script src="./public/node-graph-port-geometry.js?v=outlet-rgb-jacks-only-1"></script>
   <script src="./public/node-graph-slider-readout.js?v=param-alias-label-1"></script>
-  <script src="./public/modules/knob/knob-face.js?v=domain-mod-1"></script>
+  <script src="./public/modules/knob/knob-face.js?v=keypad-bgi-1"></script>
   <script src="./public/modules/plugin/plugin-controls-ui.js?v=plugin-slider-bias-display"></script>
   <script src="./public/node-graph-slider-readout-controls.js?v=bug-button-settings-edit-20260723"></script>
   <script src="./public/node-graph-ghost-sliders.js?v=unbounded-speed-1"></script>
@@ -3954,7 +3955,7 @@
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>
   <script src="./public/node-graph-header-event-bindings.js?v=wiring-chrome-hide-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
-  <script src="./public/node-graph-scene-menu-event-bindings.js?v=cc-undock-1"></script>
+  <script src="./public/node-graph-scene-menu-event-bindings.js?v=keypad-bgi-1"></script>
   <script src="./public/node-graph-uidev-event-bindings.js?v=title-light-box-1"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=patch-json-highlight-1"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>

@@ -1010,6 +1010,9 @@ function applyNodeGraphModuleElementFromPatch(patchNode, options = {}) {
     if (typeof nodeGraphModuleFrameObserve === "function") {
       nodeGraphModuleFrameObserve(element);
     }
+    if (typeof nodeGraphViewportCullObserve === "function") {
+      nodeGraphViewportCullObserve(element);
+    }
   }
   syncNodeGraphModuleChromeElement(element, patchNode);
   if (options.paramSync !== false) {
@@ -1020,6 +1023,28 @@ function applyNodeGraphModuleElementFromPatch(patchNode, options = {}) {
     syncNodeGraphKeypadElement(element, patchNode);
   }
   return element;
+}
+
+let nodeGraphChromeHeavyTimer = 0;
+
+function scheduleNodeGraphChromeHeavyAfterResize() {
+  if (nodeGraphChromeHeavyTimer) {
+    window.clearTimeout(nodeGraphChromeHeavyTimer);
+  }
+  nodeGraphChromeHeavyTimer = window.setTimeout(() => {
+    nodeGraphChromeHeavyTimer = 0;
+    if (typeof updateNodeGraphGridHeatmap === "function") {
+      updateNodeGraphGridHeatmap();
+    }
+    if (typeof drawNodeGraphWires === "function") {
+      drawNodeGraphWires({
+        lite: false,
+        skipHeatmap: true,
+        skipScopes: true,
+        skipSelection: true,
+      });
+    }
+  }, 90);
 }
 
 function applyNodeGraphChromeNodesToDom(nodeIds = []) {
@@ -1037,17 +1062,19 @@ function applyNodeGraphChromeNodesToDom(nodeIds = []) {
       elements.push(element);
     }
   }
-  if (typeof updateNodeGraphGridHeatmap === "function") {
-    updateNodeGraphGridHeatmap();
-  }
-  if (typeof scheduleNodeGraphWireRedrawAfterLayout === "function") {
-    scheduleNodeGraphWireRedrawAfterLayout();
-  }
   if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
     for (const element of elements) {
       scheduleNodeGraphModuleFramesUpdate({ force: true, nodeElement: element });
     }
   }
+  if (typeof nodeGraphViewportCullObserve === "function") {
+    for (const element of elements) {
+      nodeGraphViewportCullObserve(element);
+    }
+  }
+  // Heatmap + all-wire measure used to run on every key-repeat size step and
+  // forced layout of every module (including off-screen FBM / LCD faces).
+  scheduleNodeGraphChromeHeavyAfterResize();
   return elements;
 }
 
@@ -1073,7 +1100,10 @@ function applyNodeGraphPatchToDom() {
   }
 
   for (const patchNode of nodeGraphMvp.patch.nodes) {
-    applyNodeGraphModuleElementFromPatch(patchNode, { paramSync: true });
+    const element = applyNodeGraphModuleElementFromPatch(patchNode, { paramSync: true });
+    if (element && typeof nodeGraphViewportCullObserve === "function") {
+      nodeGraphViewportCullObserve(element);
+    }
   }
   syncNodeGraphInputModuleLiveState();
   if (typeof bindNodeGraphMacroControlModuleEvents === "function") {
@@ -1163,24 +1193,34 @@ function commitNodeGraphPatch(patch, options = {}) {
   // softDom: cosmetic module face / label-only edits — keep existing module DOM
   // (avoids image reload flash on Knob readout/rotate toggles).
   const isSoftDom = Boolean(options.softDom || options.faceEdit);
-  let validated;
-  try {
-    validated = validateNodeGraphPatch(patch);
-  } catch (error) {
-    // Hard fail with source line — no soft recovery.
-    let pretty = "";
+  const skipValidate = Boolean(isChromeEdit && options.skipValidate);
+  if (skipValidate) {
+    // Size / show-hide already cloned the live patch. Re-validating every
+    // parameter of every module on key-repeat is what made Patch plate resize
+    // hitch even when it was the only module on screen.
+    nodeGraphMvp.patch = patch;
+  } else {
+    let validated;
     try {
-      pretty = JSON.stringify(patch, null, 2);
-    } catch (_error) {
-      pretty = String(error?.message || error || "invalid patch");
+      validated = validateNodeGraphPatch(patch);
+    } catch (error) {
+      // Hard fail with source line — no soft recovery.
+      let pretty = "";
+      try {
+        pretty = JSON.stringify(patch, null, 2);
+      } catch (_error) {
+        pretty = String(error?.message || error || "invalid patch");
+      }
+      nodeGraphPatchThrowLoadFailure(pretty, error);
     }
-    nodeGraphPatchThrowLoadFailure(pretty, error);
+    nodeGraphMvp.patch = cloneNodeGraphPatch(validated);
   }
-  nodeGraphMvp.patch = cloneNodeGraphPatch(validated);
   if (typeof preserveNodeGraphEditorZoomOnPatch === "function") {
     preserveNodeGraphEditorZoomOnPatch(nodeGraphMvp.patch);
   }
-  syncNodeGraphRuntimeFromPatch();
+  if (!isChromeEdit) {
+    syncNodeGraphRuntimeFromPatch();
+  }
   if (isLayoutEdit) {
     applyNodeGraphLayoutPositionsToDom(nodeGraphMvp.patch);
   } else if (isChromeEdit) {
@@ -1197,7 +1237,7 @@ function commitNodeGraphPatch(patch, options = {}) {
   if (options.markPending !== false && !isLayoutEdit && !isSoftDom && !isChromeEdit) {
     markNodeGraphRenderPending();
   }
-  if (typeof scheduleNodeGraphWireRedrawAfterLayout === "function" && !isSoftDom) {
+  if (typeof scheduleNodeGraphWireRedrawAfterLayout === "function" && !isSoftDom && !isChromeEdit) {
     scheduleNodeGraphWireRedrawAfterLayout();
   }
   if (options.patchDirtyState) {

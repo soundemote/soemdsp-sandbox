@@ -139,6 +139,7 @@
   gap: 0;
 }
 
+.node-image-asset-row small,
 .node-keypad-image-slot small {
   min-width: 0;
   overflow: hidden;

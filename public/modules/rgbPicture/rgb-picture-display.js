@@ -1,7 +1,5 @@
 // Picture face: SVG/image load (Knob–style data URL) + center-based place.
 
-const nodeGraphRgbPictureMaxDataUrlChars = 6 * 1024 * 1024;
-
 const nodeGraphRgbPictureSettingsDefaults = Object.freeze({
   background: "#000000",
   dataUrl: "",
@@ -9,15 +7,9 @@ const nodeGraphRgbPictureSettingsDefaults = Object.freeze({
 });
 
 function normalizeNodeGraphRgbPictureDataUrl(value) {
-  const text = String(value || "").trim();
-  if (!text || text.length > nodeGraphRgbPictureMaxDataUrlChars) {
-    return "";
-  }
-  if (!/^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,/i.test(text)
-    && !/^data:image\/svg\+xml[,;]/i.test(text)) {
-    return "";
-  }
-  return text;
+  return typeof normalizeNodeGraphImageDataUrl === "function"
+    ? normalizeNodeGraphImageDataUrl(value)
+    : "";
 }
 
 function normalizeNodeGraphRgbPictureSettings(settings = {}) {
@@ -55,15 +47,9 @@ function nodeGraphRgbPictureToPatch(settings) {
 }
 
 function nodeGraphRgbPictureFileLooksSupported(file) {
-  if (!file) {
-    return false;
-  }
-  const type = String(file.type || "").toLowerCase();
-  if (type.startsWith("image/")) {
-    return true;
-  }
-  const name = String(file.name || "").toLowerCase();
-  return /\.(png|jpe?g|webp|gif|svg)$/i.test(name);
+  return typeof nodeGraphImageFileLooksSupported === "function"
+    ? nodeGraphImageFileLooksSupported(file)
+    : false;
 }
 
 function nodeGraphRgbPictureCanvasForSlot(slot) {
@@ -246,54 +232,6 @@ function commitNodeGraphRgbPicture(nodeId, nextSettings, options = {}) {
   return true;
 }
 
-function handleNodeGraphRgbPictureFileInputChange(event) {
-  const input = event.currentTarget;
-  const nodeId = input.dataset.targetNode
-    || (typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
-      ? nodeGraphTraceDisplaySettingsTargetNodeId()
-      : "");
-  const file = input.files?.[0];
-  input.value = "";
-  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  if (!patchNode || patchNode.type !== "rgbPicture" || !file) {
-    return;
-  }
-  if (!nodeGraphRgbPictureFileLooksSupported(file)) {
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp("Image type not supported (use PNG, JPEG, WebP, GIF, or SVG).");
-    }
-    return;
-  }
-  const reader = new FileReader();
-  reader.onerror = () => {
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp("Could not read image file.");
-    }
-  };
-  reader.onload = () => {
-    const dataUrl = normalizeNodeGraphRgbPictureDataUrl(String(reader.result || ""));
-    if (!dataUrl) {
-      if (typeof setNodeInteractionHelp === "function") {
-        setNodeInteractionHelp("Image is too large or invalid.");
-      }
-      return;
-    }
-    const prev = nodeGraphRgbPictureSettingsForNode(patchNode);
-    commitNodeGraphRgbPicture(nodeId, {
-      ...prev,
-      dataUrl,
-      fileName: file.name || "image",
-    }, { status: `${file.name || "image"} loaded` });
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp(`Picture: loaded ${file.name || "image"}.`);
-    }
-    if (typeof syncNodeGraphRgbPictureDisplaySettingsControls === "function") {
-      syncNodeGraphRgbPictureDisplaySettingsControls();
-    }
-  };
-  reader.readAsDataURL(file);
-}
-
 function clearNodeGraphRgbPictureImage(nodeId) {
   const id = String(nodeId || "").trim()
     || (typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
@@ -315,21 +253,30 @@ function clearNodeGraphRgbPictureImage(nodeId) {
 }
 
 function pickNodeGraphRgbPictureImage() {
+  if (typeof nodeGraphPickImageFile !== "function") {
+    return;
+  }
   const nodeId = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
     ? nodeGraphTraceDisplaySettingsTargetNodeId()
     : "";
-  let input = document.getElementById("nodeRgbPictureFileInput");
-  if (!input) {
-    input = document.createElement("input");
-    input.id = "nodeRgbPictureFileInput";
-    input.type = "file";
-    input.accept = "image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.svg,.png,.jpg,.jpeg,.webp,.gif";
-    input.hidden = true;
-    input.addEventListener("change", handleNodeGraphRgbPictureFileInputChange);
-    document.body.append(input);
-  }
-  input.dataset.targetNode = nodeId;
-  input.click();
+  nodeGraphPickImageFile((asset) => {
+    const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+    if (!patchNode || patchNode.type !== "rgbPicture") {
+      return;
+    }
+    const prev = nodeGraphRgbPictureSettingsForNode(patchNode);
+    commitNodeGraphRgbPicture(nodeId, {
+      ...prev,
+      dataUrl: asset.dataUrl,
+      fileName: asset.fileName || "image",
+    }, { status: `${asset.fileName || "image"} loaded` });
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp(`Picture: loaded ${asset.fileName || "image"}.`);
+    }
+    if (typeof syncNodeGraphRgbPictureDisplaySettingsControls === "function") {
+      syncNodeGraphRgbPictureDisplaySettingsControls();
+    }
+  });
 }
 
 function buildNodeGraphRgbPictureDisplaySettingsBodyHtml() {
@@ -337,11 +284,9 @@ function buildNodeGraphRgbPictureDisplaySettingsBodyHtml() {
     <div class="node-rgb-picture-display-settings-panel" data-rgb-picture-display-settings-panel>
       <div class="metadata-field-section">
         <div class="metadata-section-title">IMAGE</div>
-        <div class="node-rgb-picture-settings-row">
-          <button type="button" data-rgb-picture-action="load">Load SVG / Image</button>
-          <button type="button" data-rgb-picture-action="clear">Clear</button>
-        </div>
-        <div class="node-rgb-picture-settings-filename" data-rgb-picture-filename>—</div>
+        ${(typeof nodeGraphBuildImageAssetRowHtml === "function"
+          ? nodeGraphBuildImageAssetRowHtml({ key: "picture", label: "Picture" })
+          : "")}
         <p class="node-rgb-picture-settings-hint">PNG, JPEG, WebP, GIF, or SVG. Place with Width / Height / X / Y (center-based).</p>
       </div>
     </div>
@@ -354,14 +299,24 @@ function bindNodeGraphRgbPictureDisplaySettingsEvents(root) {
     return;
   }
   panel.dataset.rgbPictureBound = "true";
-  panel.addEventListener("click", (event) => {
-    const action = event.target?.closest?.("[data-rgb-picture-action]")?.dataset?.rgbPictureAction;
-    if (action === "load") {
-      pickNodeGraphRgbPictureImage();
-    } else if (action === "clear") {
-      clearNodeGraphRgbPictureImage();
-    }
-  });
+  if (typeof nodeGraphBindImageAssetClicks === "function") {
+    nodeGraphBindImageAssetClicks(panel, (_key, action) => {
+      if (action === "load") {
+        pickNodeGraphRgbPictureImage();
+      } else if (action === "clear") {
+        clearNodeGraphRgbPictureImage();
+      } else if (action === "save") {
+        const nodeId = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+          ? nodeGraphTraceDisplaySettingsTargetNodeId()
+          : "";
+        const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+        const settings = nodeGraphRgbPictureSettingsForNode(node);
+        if (typeof nodeGraphSaveImageAsset === "function") {
+          nodeGraphSaveImageAsset(settings, "rgb-picture");
+        }
+      }
+    });
+  }
 }
 
 function syncNodeGraphRgbPictureDisplaySettingsControls(root) {
@@ -375,11 +330,8 @@ function syncNodeGraphRgbPictureDisplaySettingsControls(root) {
     : "";
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const settings = nodeGraphRgbPictureSettingsForNode(node);
-  const label = panel.querySelector("[data-rgb-picture-filename]");
-  if (label) {
-    label.textContent = settings.dataUrl
-      ? (settings.fileName || "image loaded")
-      : "no image";
+  if (typeof nodeGraphSyncImageAssetRow === "function") {
+    nodeGraphSyncImageAssetRow(panel, "picture", settings, "no image");
   }
 }
 

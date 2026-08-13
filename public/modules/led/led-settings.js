@@ -172,20 +172,12 @@ function buildNodeGraphLedDisplaySettingsBodyHtml() {
         <input type="range" min="0" max="100" step="1" data-led-field="rounding" aria-label="LED rounding">
         <span>%</span>
       </label>
-      <div class="node-led-settings-row node-led-image-row" data-led-image-row="bottom">
-        <span>Bottom image</span>
-        <button type="button" data-led-image-pick="bottom">Load</button>
-        <button type="button" data-led-image-clear="bottom">Clear</button>
-        <span class="node-led-image-filename" data-led-image-filename="bottom">none</span>
-        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-led-image-file="bottom" hidden>
-      </div>
-      <div class="node-led-settings-row node-led-image-row" data-led-image-row="top">
-        <span>Top image</span>
-        <button type="button" data-led-image-pick="top">Load</button>
-        <button type="button" data-led-image-clear="top">Clear</button>
-        <span class="node-led-image-filename" data-led-image-filename="top">none</span>
-        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-led-image-file="top" hidden>
-      </div>
+      ${(typeof nodeGraphBuildImageAssetRowHtml === "function"
+        ? nodeGraphBuildImageAssetRowHtml({ key: "bottom", label: "Bottom image" })
+        : "")}
+      ${(typeof nodeGraphBuildImageAssetRowHtml === "function"
+        ? nodeGraphBuildImageAssetRowHtml({ key: "top", label: "Top image" })
+        : "")}
     </div>`;
 }
 
@@ -209,14 +201,9 @@ function syncNodeGraphLedDisplaySettingsControls(root, settings) {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   }
-  for (const layer of ["bottom", "top"]) {
-    const key = layer === "bottom" ? "bottomImage" : "topImage";
-    const name = settings[key]?.fileName || (settings[key]?.dataUrl ? "image" : "none");
-    const el = root.querySelector?.(`[data-led-image-filename="${layer}"]`);
-    if (el) {
-      el.textContent = name;
-      el.title = name;
-    }
+  if (typeof nodeGraphSyncImageAssetRow === "function") {
+    nodeGraphSyncImageAssetRow(root, "bottom", settings.bottomImage, "none");
+    nodeGraphSyncImageAssetRow(root, "top", settings.topImage, "none");
   }
   const preview = root.querySelector?.("[data-led-color-preview]");
   if (preview && typeof nodeGraphLedEmittedColor === "function") {
@@ -227,11 +214,14 @@ function syncNodeGraphLedDisplaySettingsControls(root, settings) {
   }
 }
 
-function nodeGraphLedPickImageLayer(host, layer) {
-  const input = host?.querySelector?.(`[data-led-image-file="${layer}"]`);
-  if (input) {
-    input.click();
+function nodeGraphLedPickImageLayer(layer) {
+  if (typeof nodeGraphPickImageFile !== "function") {
+    return;
   }
+  const key = layer === "top" ? "topImage" : "bottomImage";
+  nodeGraphPickImageFile((asset) => {
+    updateNodeGraphLedSettings({ [key]: asset });
+  });
 }
 
 function nodeGraphLedClearImageLayer(layer) {
@@ -239,44 +229,32 @@ function nodeGraphLedClearImageLayer(layer) {
   updateNodeGraphLedSettings({ [key]: { dataUrl: "", fileName: "" } });
 }
 
-function nodeGraphLedLoadImageLayerFromFile(layer, file) {
-  if (!file) {
-    return;
-  }
-  const type = String(file.type || "").toLowerCase();
-  const ok = /image\/(png|jpe?g|webp|gif|svg\+xml)/i.test(type)
-    || /\.(png|jpe?g|webp|gif|svg)$/i.test(file.name || "");
-  if (!ok) {
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp("Image type not supported (use PNG, JPEG, WebP, GIF, or SVG).");
-    }
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => {
-    const dataUrl = String(reader.result || "");
-    if (!dataUrl.startsWith("data:image/") || dataUrl.length > 3_000_000) {
-      if (typeof setNodeInteractionHelp === "function") {
-        setNodeInteractionHelp("Image is too large or invalid.");
-      }
-      return;
-    }
-    const key = layer === "top" ? "topImage" : "bottomImage";
-    updateNodeGraphLedSettings({
-      [key]: {
-        dataUrl,
-        fileName: file.name || `${layer}-image`,
-      },
-    });
-  };
-  reader.readAsDataURL(file);
-}
-
 function bindNodeGraphLedDisplaySettingsBody(host) {
   if (!host || host.dataset.ledSettingsBound === "true") {
     return;
   }
   host.dataset.ledSettingsBound = "true";
+  if (typeof nodeGraphBindImageAssetClicks === "function") {
+    nodeGraphBindImageAssetClicks(host, (key, action) => {
+      const layer = key === "top" ? "top" : "bottom";
+      if (action === "load") {
+        nodeGraphLedPickImageLayer(layer);
+      } else if (action === "clear") {
+        nodeGraphLedClearImageLayer(layer);
+      } else if (action === "save") {
+        const nodeId = typeof nodeGraphLedSettingsTargetNodeId === "function"
+          ? nodeGraphLedSettingsTargetNodeId()
+          : "";
+        const settings = typeof nodeGraphLedSettingsForNode === "function"
+          ? nodeGraphLedSettingsForNode(nodeId)
+          : {};
+        const asset = layer === "top" ? settings.topImage : settings.bottomImage;
+        if (typeof nodeGraphSaveImageAsset === "function") {
+          nodeGraphSaveImageAsset(asset, `led-${layer}`);
+        }
+      }
+    });
+  }
   host.addEventListener("input", (event) => {
     const field = event.target?.closest?.("[data-led-field]")?.getAttribute?.("data-led-field");
     if (!field) {
@@ -288,14 +266,6 @@ function bindNodeGraphLedDisplaySettingsBody(host) {
     const field = event.target?.closest?.("[data-led-field]")?.getAttribute?.("data-led-field");
     if (field) {
       updateNodeGraphLedSettings({ [field]: Number(event.target.value) });
-      return;
-    }
-    const fileInput = event.target?.closest?.("[data-led-image-file]");
-    if (fileInput && host.contains(fileInput)) {
-      const layer = fileInput.getAttribute("data-led-image-file");
-      const file = fileInput.files?.[0];
-      fileInput.value = "";
-      nodeGraphLedLoadImageLayerFromFile(layer, file);
     }
   });
   host.addEventListener("click", (event) => {
@@ -303,18 +273,6 @@ function bindNodeGraphLedDisplaySettingsBody(host) {
     if (corner && host.contains(corner)) {
       event.preventDefault();
       setNodeGraphLedCornerShape(corner.getAttribute("data-led-corner"));
-      return;
-    }
-    const pick = event.target?.closest?.("[data-led-image-pick]");
-    if (pick && host.contains(pick)) {
-      event.preventDefault();
-      nodeGraphLedPickImageLayer(host, pick.getAttribute("data-led-image-pick"));
-      return;
-    }
-    const clear = event.target?.closest?.("[data-led-image-clear]");
-    if (clear && host.contains(clear)) {
-      event.preventDefault();
-      nodeGraphLedClearImageLayer(clear.getAttribute("data-led-image-clear"));
     }
   });
   // Ctrl/cmd-click reset + shift/ctrl step scaling (shared slider binder).

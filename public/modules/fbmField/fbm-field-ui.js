@@ -151,6 +151,10 @@ function nodeGraphFbmFieldStartLoop(face, nodeId) {
       nodeGraphFbmFieldStopLoop(face);
       return;
     }
+    if (face.closest?.(".viewport-asleep")) {
+      nodeGraphFbmFieldStopLoop(face);
+      return;
+    }
     // Engine went off mid-loop — black + halt (paint also stops the loop).
     if (typeof nodeGraphFbmFieldCircuitRunning === "function" && !nodeGraphFbmFieldCircuitRunning()) {
       if (typeof paintNodeGraphFbmFieldFaceForNode === "function") {
@@ -203,6 +207,18 @@ registerNodeGraphChromelessModuleUi("fbmField", {
     });
     article.addEventListener("change", (event) => {
       if (event.target?.dataset?.param) repaint();
+    });
+    article.addEventListener("nodegraphviewport", (event) => {
+      if (event.detail?.asleep) {
+        nodeGraphFbmFieldStopLoop(body);
+        return;
+      }
+      const circuitOn = typeof nodeGraphFbmFieldCircuitRunning === "function"
+        ? nodeGraphFbmFieldCircuitRunning()
+        : false;
+      if (circuitOn) {
+        nodeGraphFbmFieldStartLoop(body, node);
+      }
     });
     if (typeof nodeGraphFbmFieldLoadWasm === "function") {
       nodeGraphFbmFieldLoadWasm();

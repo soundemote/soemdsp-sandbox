@@ -337,6 +337,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   if (type === "keypadFace" && typeof buildNodeGraphKeypadDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphKeypadDisplaySettingsBodyHtml();
   }
+  if (type === "portalFace" && typeof buildNodeGraphPortalDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphPortalDisplaySettingsBodyHtml();
+  }
   if (type === "textBoxFace" && typeof buildNodeGraphTextBoxDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphTextBoxDisplaySettingsBodyHtml();
   }
