@@ -84,18 +84,18 @@ function textBoxWidgetFitScale(field, layout) {
 function textBoxWidgetApplyAlign(field, layout) {
   if (!field) return;
   field.style.setProperty("--node-text-box-content-offset", "0px");
+  void field.offsetHeight;
   const style = window.getComputedStyle(field);
   const fontSize = Number.parseFloat(style.fontSize) || 14;
   const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.2;
-  const paddingTop = Number.parseFloat(style.paddingTop) || 0;
-  const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
   const text = String(field.value || "");
   const multiline = textBoxWidgetNormalizeMode(layout.textMode) !== "singleLine";
   const lineCount = multiline ? Math.max(1, text.split(/\r\n|\r|\n/).length) : 1;
   const contentHeight = lineCount * lineHeight;
-  const availableHeight = Math.max(0, field.clientHeight - paddingTop - paddingBottom);
-  const remainingHeight = Math.max(0, availableHeight - contentHeight);
-  const offset = remainingHeight * textBoxWidgetNormalizeVertical(layout.verticalAlignPercent) / 100;
+  const box = Math.max(0, field.clientHeight);
+  // Never pad so far that a line is clipped (overflow:hidden + padding ate the text).
+  const maxOffset = Math.max(0, box - contentHeight);
+  const offset = maxOffset * textBoxWidgetNormalizeVertical(layout.verticalAlignPercent) / 100;
   field.style.setProperty("--node-text-box-content-offset", `${offset.toFixed(2)}px`);
 }
 

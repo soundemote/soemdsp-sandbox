@@ -200,6 +200,25 @@ body.node-boot-ready .node-boot-loading-screen {
   display: none;
 }
 
+.dsp-node.output-node.node-ear-protection-engaged .node-module-scope-window,
+.dsp-node.output-node.node-ear-protection-engaged .node-module-display-face,
+body.node-ear-protection-engaged .dsp-node.output-node .node-module-scope-window,
+body.node-ear-protection-engaged .dsp-node.output-node .node-module-display-face {
+  background: #e02020 !important;
+  background-color: #e02020 !important;
+  position: relative;
+}
+
+.dsp-node.output-node.node-ear-protection-engaged .node-module-scope-window::after,
+body.node-ear-protection-engaged .dsp-node.output-node .node-module-scope-window::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(224, 32, 32, 0.72);
+  pointer-events: none;
+  z-index: 3;
+}
+
 body.node-ear-protection-tripped {
   --node-ear-protection-color: rgba(255, 95, 81, 0.92);
 }
@@ -346,7 +365,7 @@ body.node-ear-protection-tripped .node-ear-protection-fault {
   outline: 0;
 }
 
-/* Patch load hard-fail — modal like ear protector; Copy / Initialize / Close. */
+/* Patch load hard-fail — modal like speaker protector; Copy / Initialize / Close. */
 body.node-patch-load-fault-open {
   --node-patch-load-fault-color: rgba(255, 160, 90, 0.95);
 }
@@ -13218,7 +13237,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-text-box-body {
   display: grid;
   min-width: 0;
-  min-height: 0;
+  min-height: calc(var(--node-grid-height, 28px) * 2);
+  height: 100%;
+  align-self: stretch;
   padding: 0;
 }
 
@@ -13227,7 +13248,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   width: 100%;
   min-width: 0;
   height: 100%;
-  min-height: 0;
+  min-height: 1.2em;
   resize: none;
   box-sizing: border-box;
   padding:
@@ -13239,7 +13260,10 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   outline: 0;
   background: rgba(2, 4, 7, 0.78);
   color: var(--node-module-primary-text-color);
+  -webkit-text-fill-color: var(--node-module-primary-text-color);
   caret-color: var(--node-module-primary-text-color);
+  color-scheme: dark;
+  opacity: 1;
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   font-size: calc(
     clamp(0.82rem, calc(var(--node-grid-size) * 0.45), 1.1rem)

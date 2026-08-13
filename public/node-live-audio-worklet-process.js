@@ -83,22 +83,19 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         this.outputSampleTripsEarProtection(frameOutput.left) ||
         this.outputSampleTripsEarProtection(frameOutput.right)
       ) {
-        this.meterProtectionMuteCount += 1;
         this.speakerProtectionPeak = Math.max(
           Number(this.speakerProtectionPeak) || 0,
           Number.isFinite(Number(frameOutput.left)) ? Math.abs(Number(frameOutput.left)) : Infinity,
           Number.isFinite(Number(frameOutput.right)) ? Math.abs(Number(frameOutput.right)) : Infinity,
         );
         this.speakerProtectionNodeId = "output";
-        for (let channelIndex = 0; channelIndex < output.length; channelIndex += 1) {
-          output[channelIndex][frame] = 0;
-        }
-        continue;
       }
       const protectedFrame = this.earProtector.protect(frameOutput.left, frameOutput.right);
-      if (protectedFrame.muted) {
+      if (protectedFrame.engaged || protectedFrame.muted) {
         this.meterProtectionMuteCount += 1;
       }
+      this.protectionEngaged = Boolean(protectedFrame.engaged);
+      this.protectionGain = Number(protectedFrame.gain);
       const left = this.clampValue(protectedFrame.left, -0.95, 0.95);
       const right = this.clampValue(protectedFrame.right, -0.95, 0.95);
       this.meterPeak = Math.max(this.meterPeak, Math.abs(left), Math.abs(right));
@@ -143,6 +140,8 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         protectionNodeId: this.speakerProtectionNodeId || "",
         protectionPeak: Number(this.speakerProtectionPeak) || 0,
         protectionMuteCount: this.meterProtectionMuteCount,
+        protectionEngaged: Boolean(this.protectionEngaged),
+        protectionGain: Number.isFinite(Number(this.protectionGain)) ? Number(this.protectionGain) : 1,
         sessionId: this.sessionId,
         rms: Math.sqrt(this.meterSquareSum / Math.max(1, this.meterSamples)),
         type: "meter",

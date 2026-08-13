@@ -315,7 +315,9 @@ function createNodeGraphSpeakerProtectionBody(node) {
 function renderNodeGraphSpeakerProtectionBody(body) {
   const status = body?.querySelector?.("[data-speaker-protection-status]");
   const peak = body?.querySelector?.("[data-speaker-protection-peak]");
-  const tripped = typeof nodeGraphEarProtectionIsTripped === "function" && nodeGraphEarProtectionIsTripped();
+  const tripped = typeof nodeGraphEarProtectionIsHot === "function"
+    ? nodeGraphEarProtectionIsHot()
+    : (typeof nodeGraphEarProtectionIsTripped === "function" && nodeGraphEarProtectionIsTripped());
   body?.classList.toggle("tripped", tripped);
   if (status) {
     status.textContent = tripped ? "TRIPPED" : "ARMED";

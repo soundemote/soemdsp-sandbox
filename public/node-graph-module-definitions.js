@@ -210,6 +210,7 @@ const nodeGraphNodeLabels = Object.freeze({
   scope2dTrace: "2D Trace",
   phosphorLight: "2D Phosphor",
   speakerProtection: "Speaker Protection",
+  speakerProtector2: "Speaker Protector 2.0",
   badvalMonitor: "BADVAL Monitor",
   textBox: "Text Box",
   output: "Output",
@@ -3220,6 +3221,31 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out", "Left", "Right"],
     parameters: [
       {
+        defaultValue: "1",
+        hidden: true,
+        key: "antialias",
+        label: "Antialias",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "First-order ADAA plus a tiny Softwave-style dither so hard drive does not fold as many images back below Nyquist. 0 = original clip."
+      },
+      {
+        defaultValue: "0",
+        key: "gainDb",
+        kind: "decibels",
+        label: "Gain",
+        max: "60",
+        mid: "12",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "dB",
+        tooltip: "Input gain into the clipper. Raise this to drive the signal into the tanh curve."
+      },
+      {
         defaultValue: "0",
         key: "center",
         label: "Center",
@@ -3251,6 +3277,18 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out", "Left", "Right"],
     parameters: [
       {
+        defaultValue: "1",
+        hidden: true,
+        key: "antialias",
+        label: "Antialias",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Same Soft Clipper ADAA + dither on the Min→Max knee. 0 = original clip."
+      },
+      {
         defaultValue: "-12",
         key: "minDb",
         kind: "decibels",
@@ -3265,6 +3303,7 @@ const nodeGraphModuleDefinitions = (
       },
       {
         defaultValue: "0",
+        hidden: true,
         key: "maxDb",
         kind: "decibels",
         label: "Max dB",
@@ -9198,6 +9237,53 @@ const nodeGraphModuleDefinitions = (
     outputLabels: { Out: "Mono" },
     outputs: ["Out", "Left", "Right"],
     parameters: []
+  },
+  speakerProtector2: {
+    planRole: "processor",
+    inputAliases: { Mono: "In" },
+    inputLabels: { In: "Mono" },
+    inputs: ["In", "Left", "Right"],
+    outputAliases: { Mono: "Out" },
+    outputLabels: { Out: "Mono" },
+    outputs: ["Out", "Left", "Right"],
+    parameters: [
+      {
+        defaultValue: "0.008",
+        key: "dropSeconds",
+        label: "Drop",
+        max: "0.05",
+        mid: "0.008",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "s",
+        tooltip: "How fast gain slews to mute when the high-pass detector trips."
+      },
+      {
+        defaultValue: "0.333",
+        key: "holdSeconds",
+        label: "Hold",
+        max: "2",
+        mid: "0.333",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "s",
+        tooltip: "How long to stay muted after the last danger sample."
+      },
+      {
+        defaultValue: "0.75",
+        key: "riseSeconds",
+        label: "Rise",
+        max: "4",
+        mid: "0.75",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "s",
+        tooltip: "How slowly gain slews back to 1 after hold."
+      },
+    ]
   },
   textBox: {
     planRole: "processor",

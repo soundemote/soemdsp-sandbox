@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=text-box-isolate-1">
+  <link rel="stylesheet" href="./public/styles.css?v=speaker-protector-2-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=module-bottom-inset-half-1">
   <link rel="stylesheet" href="./public/modules/pitchQuantizer/pitch-quantizer-ui.css?v=chord-pad-1">
@@ -31,40 +31,6 @@
         <span id="nodeBootSysinfo" class="node-boot-sysinfo"></span>
       </div>
       <div id="nodeBootLoadingMessages" class="node-boot-loading-messages" aria-live="polite"></div>
-    </div>
-  </div>
-  <div
-    id="nodeEarProtectionFault"
-    class="node-ear-protection-fault"
-    role="alert"
-    aria-live="assertive"
-    hidden>
-    <div class="node-ear-protection-fault-panel">
-      <strong class="node-ear-protection-fault-title">Ear Protection Tripped</strong>
-      <strong id="nodeEarProtectionFaultPaused" class="node-ear-protection-fault-paused">
-        The engine was paused.
-      </strong>
-      <span id="nodeEarProtectionFaultDetail" class="node-ear-protection-fault-detail">
-        Output muted. Close this dialog, then unpause (Play / Space) when ready.
-      </span>
-      <span class="node-ear-protection-fault-explain">
-        The protector watches the rendered or live signal with a fast high-pass danger detector.
-        If sharp high-frequency energy crosses the safety threshold, it mutes output, clamps samples,
-        and pauses the engine instead of shutting it down.
-      </span>
-      <span class="node-ear-protection-fault-contact">
-        Do you have a better ear or speaker protection algorithm? Email us:
-        <a
-          class="node-ear-protection-fault-email"
-          href="mailto:soundemote@gmail.com"
-          target="_blank"
-          rel="noopener noreferrer">soundemote@gmail.com</a>
-      </span>
-      <button
-        id="nodeEarProtectionFaultClose"
-        class="node-ear-protection-fault-close"
-        type="button"
-        onclick="globalThis.nodeGraphResetEarProtectionFault?.()">Close</button>
     </div>
   </div>
   <div
@@ -3453,11 +3419,11 @@
   <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/patch/patch-register.js?v=patch-buttons-on-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=trail-0-none-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=speaker-protector-2-1"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script src="./public/node-graph-module-controls.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
-  <script src="./public/node-graph-module-store.js?v=clipper-limiter-1"></script>
+  <script src="./public/node-graph-module-store.js?v=speaker-protector-2-1"></script>
   <script src="./public/node-graph-module-sizing.js?v=text-box-face-1"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=param-meta-ui-1"></script>
   <script src="./public/node-graph-parameter-smoother-filters.js?v=linear-lerp-1"></script>
@@ -3476,9 +3442,9 @@
   <script src="./public/node-graph-phosphillator.js?v=phasor-stdlib-1"></script>
   <script src="./public/node-graph-embed-config.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-resources.js?v=embed-config-20260701"></script>
-  <script src="./public/modules/textBox/text-box-widget.js?v=text-box-stay-focus-1"></script>
+  <script src="./public/modules/textBox/text-box-widget.js?v=text-box-paint-1"></script>
   <script src="./public/modules/textBox/text-box-animated.js?v=text-box-isolate-1"></script>
-  <script src="./public/modules/textBox/text-box-host.js?v=text-box-stay-focus-1"></script>
+  <script src="./public/modules/textBox/text-box-host.js?v=text-box-paint-1"></script>
   <script src="./public/node-graph-text-box-rendering.js?v=text-box-face-1"></script>
   <script src="./public/node-graph-patch-normalizers.js?v=patch-face-1"></script>
   <script src="./public/node-graph-audio-derivation.js?v=os-disabled-1"></script>
@@ -3561,7 +3527,7 @@
   <script src="./public/modules/transport/transport-display.js?v=transport-bpm-20260714"></script>
   <script src="./public/node-graph-room-dimmer.js?v=dimmer-punch-fix-2"></script>
   <script src="./public/node-graph-canvas-script.js?v=floating-chrome-unify-1"></script>
-  <script src="./public/node-graph-module-factories.js?v=module-stack-1"></script>
+  <script src="./public/node-graph-module-factories.js?v=speaker-protector-2-1"></script>
   <script src="./public/modules/led/led-ui.js?v=phosphor-dot-1"></script>
   <script src="./public/modules/led/led-settings.js?v=led-gradient-lut-1"></script>
   <script src="./public/modules/led/led-display.js?v=dimmer-punch-fix-2"></script>
@@ -3607,7 +3573,8 @@
   <script src="./public/node-code-settings-editor.js?v=json-highlight-1"></script>
   <script src="./public/node-graph-metadata-editor.js?v=floating-resize-ssot-1"></script>
   <script src="./public/node-graph-render-settings.js?v=cleanup-20260725-slider-unit-color-1780307400000"></script>
-  <script src="./public/node-graph-ear-protection.js?v=ear-protection-copy-1"></script>
+  <script src="./public/modules/speakerProtector2/speaker-protector-2-math.js?v=speaker-protector-2-1"></script>
+  <script src="./public/node-graph-ear-protection.js?v=speaker-protector-2-1"></script>
   <script src="./public/node-graph-patch-load-fault.js?v=patch-load-fault-1"></script>
   <script src="./public/node-graph-debug-console.js?v=debug-select-clear-2"></script>
   <script src="./public/node-graph-module-diagnostics.js?v=uc-silence-1"></script>
@@ -3622,7 +3589,7 @@
   <script src="./public/node-graph-wire-actions.js?v=xo-stereo-pair-1"></script>
   <script src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
   <script src="./public/node-graph-wire-rendering.js?v=port-center-cache-1"></script>
-  <script src="./public/node-graph-render-output.js?v=output-one-trip-1"></script>
+  <script src="./public/node-graph-render-output.js?v=speaker-protector-2-1"></script>
   <script src="./public/node-graph-debug-copy.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-execution-debug-api.js?v=noise-generator-stereo-20260630"></script>
   <script src="./public/node-graph-execution-debug-view.js?v=slider-unit-color-1780307400000"></script>
@@ -3641,13 +3608,13 @@
   <script src="./public/node-graph-live-meter-controls.js?v=audio-overrun-meter-2"></script>
   <script src="./public/node-graph-live-input-status.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-evidence.js?v=badval-face-1"></script>
-  <script src="./public/node-graph-live-control-rendering.js?v=transport-states-8"></script>
+  <script src="./public/node-graph-live-control-rendering.js?v=speaker-protector-2-1"></script>
   <script src="./public/node-graph-default-patch.js?v=patch-buttons-on-1"></script>
   <script src="./public/node-graph-state.js?v=title-light-box-1"></script>
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
   <script src="./public/node-graph-patch-migrations.js?v=sincos-no-amp-in-1"></script>
   <script src="./public/node-graph-patch-core.js?v=unique-in-patch-1"></script>
-  <script src="./public/node-graph-live-plan-runtime.js?v=delay-modstyle-1"></script>
+  <script src="./public/node-graph-live-plan-runtime.js?v=speaker-protector-2-1"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=unit-mod-linear-1"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=0150-native-core"></script>
   <script src="./public/node-graph-gpu-additive-backend.js?v=external-graph-inputs-1780816800000"></script>
@@ -3874,10 +3841,10 @@
 
   <script src="./public/modules/bias/bias-math.js?v=bias-1"></script>
   <script src="./public/modules/bias/bias-live-evaluator.js?v=bias-1"></script>
-  <script src="./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-1"></script>
-  <script src="./public/modules/softClipper/soft-clipper-live-evaluator.js?v=soft-clipper-1"></script>
-  <script src="./public/modules/clipperLimiter/clipper-limiter-math.js?v=clipper-limiter-nolimit-1"></script>
-  <script src="./public/modules/clipperLimiter/clipper-limiter-live-evaluator.js?v=clipper-limiter-gain-1"></script>
+  <script src="./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-aa-ends-1"></script>
+  <script src="./public/modules/softClipper/soft-clipper-live-evaluator.js?v=soft-clipper-gain-1"></script>
+  <script src="./public/modules/clipperLimiter/clipper-limiter-math.js?v=soft-clipper-gain-1"></script>
+  <script src="./public/modules/clipperLimiter/clipper-limiter-live-evaluator.js?v=soft-clipper-gain-1"></script>
   <script src="./public/modules/airClipper/air-clipper-math.js?v=air-clipper-1"></script>
   <script src="./public/modules/airClipper/air-clipper-live-evaluator.js?v=air-clipper-1"></script>
   <script src="./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js?v=rotate-3d-to-2d-1"></script>
@@ -3897,6 +3864,7 @@
   <script src="./public/modules/badvalMonitor/badval-monitor-live-evaluator.js?v=badval-face-1"></script>
   <script src="./public/modules/helmholtzPitch/helmholtz-pitch-ui.js?v=pitch-meta-1"></script>
   <script src="./public/modules/speakerProtection/speaker-protection-live-evaluator.js?v=per-module-dispatch-20260711"></script>
+  <script src="./public/modules/speakerProtector2/speaker-protector-2-live-evaluator.js?v=speaker-protector-2-1"></script>
   <script src="./public/modules/groupOutput/group-output-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/output/output-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/groupInput/group-input-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3911,7 +3879,7 @@
   <script src="./public/modules/graph/graph-live-evaluator.js?v=retire-graph-type-20260724"></script>
   <script src="./public/modules/polyBlep/poly-blep-live-evaluator.js?v=one-core-native-20260803"></script>
   <script src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
-  <script src="./public/node-graph-live-runtime.js?v=resonator-clip-1"></script>
+  <script src="./public/node-graph-live-runtime.js?v=speaker-protector-2-1"></script>
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=readout-no-kb-1"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>

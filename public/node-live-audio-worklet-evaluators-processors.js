@@ -1101,24 +1101,55 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues),
         ),
       softClipper: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        if (!this.softClipperStates) this.softClipperStates = new Map();
+        const state = this.softClipperStates.get(nodeId) || this.createSoftClipperState();
+        this.softClipperStates.set(nodeId, state);
+        const softClipperAa = this.readEffectiveParameter(node, "antialias", 1, frame, frames, frameValues);
+        const softClipperGainDb = this.readEffectiveParameter(node, "gainDb", 0, frame, frames, frameValues);
         const softClipperCenter = this.readEffectiveParameter(node, "center", 0, frame, frames, frameValues);
         const softClipperWidth = this.readEffectiveParameter(node, "width", 2, frame, frames, frameValues);
-        const softClipperMono = mixInput(nodeId);
+        const drive = typeof nodeGraphClipperDbToLin === "function"
+          ? nodeGraphClipperDbToLin(softClipperGainDb)
+          : 10 ** ((Number(softClipperGainDb) || 0) / 20);
+        const softClipperMono = mixInput(nodeId) * drive;
         return {
-          Out: this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth),
-          Left: this.nativeSoftClipperSample(mixInput(nodeId, "Left") + softClipperMono, softClipperCenter, softClipperWidth),
-          Right: this.nativeSoftClipperSample(mixInput(nodeId, "Right") + softClipperMono, softClipperCenter, softClipperWidth),
+          Out: this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth, state, softClipperAa, 0),
+          Left: this.nativeSoftClipperSample(mixInput(nodeId, "Left") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperAa, 1),
+          Right: this.nativeSoftClipperSample(mixInput(nodeId, "Right") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperAa, 2),
         };
       },
-      clipperLimiter: (node, nodeId, frame, frames, frameValues, mixInput) =>
-        this.clipperLimiterFrame(
+      speakerProtector2: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.speakerProtector2States) this.speakerProtector2States = new Map();
+        const state = this.speakerProtector2States.get(nodeId) || this.createSpeakerProtector2State(safeRate);
+        this.speakerProtector2States.set(nodeId, state);
+        return this.speakerProtector2Frame(
+          state,
+          mixInput(nodeId),
+          mixInput(nodeId, "Left"),
+          mixInput(nodeId, "Right"),
+          safeRate,
+          {
+            dropSeconds: this.readEffectiveParameter(node, "dropSeconds", 0.008, frame, frames, frameValues),
+            holdSeconds: this.readEffectiveParameter(node, "holdSeconds", 0.333, frame, frames, frameValues),
+            riseSeconds: this.readEffectiveParameter(node, "riseSeconds", 0.75, frame, frames, frameValues),
+          },
+        );
+      },
+      clipperLimiter: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        if (!this.clipperLimiterStates) this.clipperLimiterStates = new Map();
+        const state = this.clipperLimiterStates.get(nodeId) || this.createSoftClipperState();
+        this.clipperLimiterStates.set(nodeId, state);
+        return this.clipperLimiterFrame(
           mixInput(nodeId),
           mixInput(nodeId, "Left"),
           mixInput(nodeId, "Right"),
           this.readEffectiveParameter(node, "minDb", -12, frame, frames, frameValues),
           this.readEffectiveParameter(node, "maxDb", 0, frame, frames, frameValues),
           this.readEffectiveParameter(node, "gainDb", 0, frame, frames, frameValues),
-        ),
+          state,
+          this.readEffectiveParameter(node, "antialias", 1, frame, frames, frameValues),
+        );
+      },
       // Airwindows Density3. Math: air-clipper-math.js.
       airClipper: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         if (!this.airClipperStates) {

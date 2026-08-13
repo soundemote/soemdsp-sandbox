@@ -441,7 +441,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=resonator-clip-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=soft-clipper-aa-ends-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -944,13 +944,6 @@ function toggleNodeGraphLiveInput() {
 }
 
 async function setNodeGraphLiveOutputEnabled(enabled) {
-  if (enabled && nodeGraphEarProtectionIsTripped()) {
-    nodeGraphMvp.live.outputEnabled = false;
-    nodeGraphTripEarProtection({ source: "live" });
-    renderNodeGraphLiveControls(false);
-    renderNodeGraphExecutionPlanDebug();
-    return;
-  }
   const outputEnabled = Boolean(enabled);
 
   // Idempotent enable: re-arming while already live/starting used to bump
@@ -1020,13 +1013,6 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
  * toggles pause and the engine never comes back.
  */
 async function restartNodeGraphLiveSimulation() {
-  if (nodeGraphEarProtectionIsTripped()) {
-    nodeGraphTripEarProtection({ source: "live" });
-    renderNodeGraphLiveControls(false);
-    renderNodeGraphExecutionPlanDebug();
-    return false;
-  }
-
   // One serial for this whole restart so nothing mid-flight from a prior
   // enable/disable can "win" and leave us half-started.
   const serial = nodeGraphMvp.live.outputToggleSerial + 1;
@@ -1084,10 +1070,6 @@ async function restartNodeGraphLiveSimulation() {
  * full stop. If off, start. Pause is transport-only until we have a timeline.
  */
 function toggleNodeGraphLiveOutput() {
-  if (nodeGraphEarProtectionIsTripped()) {
-    nodeGraphTripEarProtection({ source: "live" });
-    return;
-  }
   const engineUp = Boolean(nodeGraphMvp.live.node || nodeGraphMvp.live.context);
   const outputOn = Boolean(nodeGraphMvp.live.outputEnabled);
   if (outputOn || engineUp) {
@@ -1297,32 +1279,28 @@ function renderNodeGraphLiveScriptBlock(event) {
       nodeGraphOutputSampleTripsEarProtection(frameOutput.left) ||
       nodeGraphOutputSampleTripsEarProtection(frameOutput.right)
     ) {
-      runtime.meterProtectionMuteCount = (runtime.meterProtectionMuteCount || 0) + 1;
       runtime.speakerProtectionPeak = Math.max(
         Number(runtime.speakerProtectionPeak) || 0,
         Number.isFinite(Number(frameOutput.left)) ? Math.abs(Number(frameOutput.left)) : Infinity,
         Number.isFinite(Number(frameOutput.right)) ? Math.abs(Number(frameOutput.right)) : Infinity,
       );
-      nodeGraphTripEarProtection({
-        source: "live output > 1.0",
-        protectionMuteCount: runtime.meterProtectionMuteCount,
-        protectionPeak: Number(runtime.speakerProtectionPeak) || 0,
-      });
-      for (let channel = 0; channel < output.numberOfChannels; channel += 1) {
-        output.getChannelData(channel)[frame] = 0;
-      }
-      continue;
     }
     const protectedFrame = runtime.earProtector?.protect(frameOutput.left, frameOutput.right) || {
       left: frameOutput.left,
       muted: false,
+      engaged: false,
+      gain: 1,
       right: frameOutput.right,
     };
-    if (protectedFrame.muted) {
+    if (protectedFrame.engaged || protectedFrame.muted) {
       runtime.meterProtectionMuteCount = (runtime.meterProtectionMuteCount || 0) + 1;
-      nodeGraphTripEarProtection({
+    }
+    const painted = Boolean(protectedFrame.engaged);
+    if (painted !== runtime.earProtectionPainted && typeof nodeGraphSetEarProtectionEngaged === "function") {
+      runtime.earProtectionPainted = painted;
+      nodeGraphSetEarProtectionEngaged(painted, {
         source: "live",
-        protectionMuteCount: runtime.meterProtectionMuteCount,
+        protectionGain: protectedFrame.gain,
       });
     }
     const left = nodeGraphClampOutputSample(protectedFrame.left);
@@ -1830,13 +1808,17 @@ function handleNodeGraphLiveWorkletMessage(event) {
     } else if (typeof nodeGraphClearAllTrackedModuleSilence === "function") {
       nodeGraphClearAllTrackedModuleSilence();
     }
-    if (Number(message.protectionMuteCount) > 0) {
-      nodeGraphTripEarProtection({
-        nodeId: message.protectionNodeId || "",
-        protectionPeak: Number(message.protectionPeak) || 0,
-        source: "Worklet",
-        protectionMuteCount: Number(message.protectionMuteCount) || 0,
-      });
+    if (typeof nodeGraphSetEarProtectionEngaged === "function") {
+      nodeGraphSetEarProtectionEngaged(
+        Boolean(message.protectionEngaged) || Number(message.protectionMuteCount) > 0,
+        {
+          nodeId: message.protectionNodeId || "",
+          protectionPeak: Number(message.protectionPeak) || 0,
+          protectionGain: Number(message.protectionGain),
+          source: "Worklet",
+          protectionMuteCount: Number(message.protectionMuteCount) || 0,
+        },
+      );
     }
   } else if (message.type === "nativeModuleStatus") {
     setNodeGraphLiveEvidence("native-module", message);
@@ -2810,29 +2792,29 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-graph-parameter-smoother-filters.js?v=linear-lerp-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=vectorscope-bypass-1",
-  "./public/node-live-audio-worklet-core.js?v=plan-d-split-8",
+  "./public/node-live-audio-worklet-core.js?v=speaker-protector-2-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
   "./public/node-live-audio-worklet-smoother.js?v=unit-mod-linear-1",
   "./public/node-live-audio-worklet-param-map.js?v=domain-mod-1",
   "./public/node-live-audio-worklet-destroy.js?v=plan-d-split-6",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
-  "./public/node-live-audio-worklet-dsp-state.js?v=sample-stereo-1",
+  "./public/node-live-audio-worklet-dsp-state.js?v=speaker-protector-2-1",
   "./public/node-live-audio-worklet-events.js?v=domain-mod-1",
   "./public/node-live-audio-worklet-visual.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-scope-io.js?v=visual-rate-meta-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-evaluators-sources.js?v=domain-mod-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=clipper-limiter-gain-1",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=speaker-protector-2-1",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=sample-stereo-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
-  "./public/node-live-audio-worklet-native-exports.js?v=plan-d-split-2",
-  "./public/node-live-audio-worklet-set-plan.js?v=os-disabled-1",
+  "./public/node-live-audio-worklet-native-exports.js?v=soft-clipper-gain-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=speaker-protector-2-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=plan-d-split-3",
   "./public/node-live-audio-worklet-handle-message.js?v=plan-d-split-4",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=visual-rate-meta-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=output-scope-bus-1",
-  "./public/node-live-audio-worklet-process.js?v=os-disabled-1",
+  "./public/node-live-audio-worklet-process.js?v=speaker-protector-2-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=xy-pad-dsp-path-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=uni-bi-outs-1",
@@ -2986,10 +2968,12 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/stepSequencer/step-sequencer-worklet-evaluator.js?v=step-sequencer-1",
   "./public/modules/stepGrid/step-grid-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/nextPatch/next-patch-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-1",
-  "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=soft-clipper-js-fallback-1",
-  "./public/modules/clipperLimiter/clipper-limiter-math.js?v=clipper-limiter-nolimit-1",
-  "./public/modules/clipperLimiter/clipper-limiter-worklet-evaluator.js?v=clipper-limiter-gain-1",
+  "./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-aa-ends-1",
+  "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=soft-clipper-aa-ends-1",
+  "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=speaker-protector-2-1",
+  "./public/modules/speakerProtector2/speaker-protector-2-worklet-evaluator.js?v=speaker-protector-2-1",
+  "./public/modules/clipperLimiter/clipper-limiter-math.js?v=soft-clipper-gain-1",
+  "./public/modules/clipperLimiter/clipper-limiter-worklet-evaluator.js?v=soft-clipper-gain-1",
   "./public/modules/airClipper/air-clipper-math.js?v=air-clipper-1",
   "./public/modules/airClipper/air-clipper-worklet-evaluator.js?v=air-clipper-1",
   "./public/modules/rgbaHsla/rgba-hsla-worklet-evaluator.js?v=native-strip-1",
@@ -3257,12 +3241,6 @@ async function nodeGraphLiveOutputDisposeCancelledStart(outputSerial, localConte
 }
 
 async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputToggleSerial) {
-  if (nodeGraphEarProtectionIsTripped()) {
-    nodeGraphTripEarProtection({ source: "live" });
-    renderNodeGraphLiveControls(false);
-    renderNodeGraphExecutionPlanDebug();
-    return;
-  }
   if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
     nodeGraphLiveOutputAbortStart("stopped");
     return;

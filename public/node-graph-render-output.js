@@ -192,10 +192,6 @@ function markNodeGraphRenderPending(summary = "") {
 }
 
 async function renderNodeGraphAudio() {
-  if (nodeGraphEarProtectionIsTripped()) {
-    nodeGraphTripEarProtection({ source: "render" });
-    return;
-  }
   if (!nodeGraphScriptReadyForGraphAction("render")) {
     markNodeGraphRenderScriptBlocked();
     return;
@@ -351,15 +347,13 @@ async function renderNodeGraphAudio() {
     stateReadCount,
     badNumberCount: runtime.badNumberCount || 0,
   };
-  if (protectionMuteCount > 0) {
-    nodeGraphTripEarProtection({
+  if (protectionMuteCount > 0 && typeof nodeGraphSetEarProtectionEngaged === "function") {
+    nodeGraphSetEarProtectionEngaged(false, {
       nodeId: runtime.lastSpeakerProtection?.nodeId || "",
       protectionPeak: Number(runtime.speakerProtectionPeak) || 0,
       source: "render",
       protectionMuteCount,
     });
-    nodeGraphMvp.rendered = null;
-    return;
   }
   syncNodeGraphRenderedAudioElement();
   renderStatus.textContent = "render ready";

@@ -112,9 +112,20 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         return;
       }
       if (name === "soft_clipper" || targetType === "softClipper") {
+        if (this.softClipperStates) {
+          for (const state of this.softClipperStates.values()) {
+            this.destroySoftClipperState?.(state);
+          }
+        }
+        if (this.clipperLimiterStates) {
+          for (const state of this.clipperLimiterStates.values()) {
+            this.destroySoftClipperState?.(state);
+          }
+        }
         this.nativeSoftClipper = exports;
         this.nativeSoftClipperReady = Boolean(
-          this.nativeSoftClipper?.soemdsp_soft_clipper_sample,
+          this.nativeSoftClipper?.soemdsp_soft_clipper_sample
+          || this.nativeSoftClipper?.soemdsp_soft_clipper_sample_aa,
         );
         this.port.postMessage({
           type: "nativeModuleStatus",

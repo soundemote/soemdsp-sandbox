@@ -64,9 +64,6 @@ const NODE_GRAPH_TRANSPORT_GLYPH_PAUSE = "⏸\uFE0E";
 const NODE_GRAPH_TRANSPORT_GLYPH_STOP = "⏹\uFE0E";
 
 function nodeGraphLiveOutputButtonTitle(transportState, outputEnabled) {
-  if (nodeGraphEarProtectionIsTripped()) {
-    return "Ear Protection tripped. Close the dialog to reset audio.";
-  }
   const inputActive = Boolean(nodeGraphMvp.live.inputActive);
   const inputStreaming = Boolean(nodeGraphMvp.live.inputStream);
   if (transportState === "paused") {
@@ -171,28 +168,26 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
         : nodeGraphTooltipText("audio.liveInputShow");
   }
   if (outputButton) {
-    const protectionTripped = nodeGraphEarProtectionIsTripped();
     // Engine on = live worklet up with output requested (playing or paused).
-    const engineOn = !protectionTripped && (
+    const engineOn = (
       transportState === "playing"
       || transportState === "paused"
       || transportState === "starting"
     );
     const isPaused = transportState === "paused";
     const isLive = transportState === "playing" || transportState === "starting";
-    outputButton.disabled = starting || transportState === "starting" || protectionTripped;
+    outputButton.disabled = starting || transportState === "starting";
     outputButton.classList.toggle("active", engineOn && !isPaused);
     outputButton.classList.toggle("paused", isPaused);
-    outputButton.classList.toggle("node-under-construction-control", protectionTripped);
+    outputButton.classList.remove("node-under-construction-control");
     outputButton.setAttribute("aria-pressed", engineOn ? "true" : "false");
-    outputButton.setAttribute("aria-disabled", protectionTripped ? "true" : "false");
+    outputButton.setAttribute("aria-disabled", "false");
     // Labels must match transport: Live / Paused / Off — never "Paused" when stopped.
     labelLiveToggle(
       outputButton,
       "Output",
       engineOn,
-      protectionTripped ? "Close Dialog"
-        : isPaused ? "Paused"
+      isPaused ? "Paused"
         : transportState === "starting" ? "Starting"
         : isLive ? "Live"
         : null,

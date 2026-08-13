@@ -687,13 +687,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "dynamics",
     description: "Gentle saturation/limiting when peaks need taming without hard digital clip.",
     label: "Soft Clipper",
-    notes: ["soft clipping", "tanh", "dynamics"],
+    notes: ["soft clipping", "tanh", "gain", "ADAA", "dynamics"],
   },
   clipperLimiter: {
     category: "dynamics",
-    description: "Soft-clip limiter: below Min dB is dry; Min→Max is the original tanh knee (wider span = more gradual).",
+    description: "Soft-clip limiter: below Min dB is dry; Min→Max is the shared Soft Clipper tanh knee (wider span = more gradual).",
     label: "Clipper Limiter",
-    notes: ["soft clip", "limiter", "dB", "tanh", "dynamics"],
+    notes: ["soft clip", "limiter", "dB", "tanh", "ADAA", "dynamics"],
   },
   airClipper: {
     category: "dynamics",
@@ -1698,6 +1698,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Hard trip if |sample| > 1—protect ears/speakers while debugging.",
     notes: ["speaker safety", "ear protection", "hard limit"],
   },
+  speakerProtector2: {
+    category: "debug",
+    description: "Slew mute: trip → drop to 0 → hold 0.333 s → slow rise. Same circuit as the Output bus protector.",
+    label: "Speaker Protector 2.0",
+    notes: ["speaker protection", "slew", "mute", "hold", "VCA", "safety"],
+  },
   textBox: {
     category: "object",
     description: "Static in-world label for notes, lore, and instructions on the patch.",
@@ -2452,6 +2458,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   speakerProtection: {
     source: "public/modules/speakerProtection/speaker-protection-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/speakerProtection/speaker-protection-worklet-evaluator.js",
+  },
+  speakerProtector2: {
+    source: "public/modules/speakerProtector2/speaker-protector-2-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/speakerProtector2/speaker-protector-2-math.js",
   },
   spectrogram: {
     source: "public/modules/spectrogram/spectrogram-worklet-evaluator.js",

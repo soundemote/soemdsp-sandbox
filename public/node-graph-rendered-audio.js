@@ -16,11 +16,7 @@ function clearNodeGraphRenderedAudioElement() {
 
 function syncNodeGraphRenderedAudioElement() {
   const audio = document.getElementById("audioPlayer");
-  if (nodeGraphEarProtectionIsTripped()) {
-    clearNodeGraphRenderedAudioElement();
-    labelPrimaryAudioTitle("Ear Protection tripped. Close the dialog to reset audio.", false);
-    return;
-  }
+
   if (!audio || !nodeGraphMvp.rendered?.samples?.length) {
     clearNodeGraphRenderedAudioElement();
     return;

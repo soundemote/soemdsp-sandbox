@@ -18,11 +18,33 @@ function nodeGraphTextBoxHostMirrorSceneText(text, { force = false } = {}) {
   if (field.value !== text) field.value = text;
 }
 
+function nodeGraphTextBoxHostPaintFace(nodeId, text) {
+  const shown = String(text ?? "");
+  const widget = nodeGraphTextBoxHostFindWidget(nodeId);
+  if (widget) {
+    widget.setText(shown);
+    return;
+  }
+  const el = typeof nodeGraphNodeElement === "function"
+    ? nodeGraphNodeElement(nodeId)
+    : document.querySelector(`.dsp-node[data-node="${CSS.escape(String(nodeId || ""))}"]`);
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (el && node && typeof nodeGraphTextBoxHostSync === "function") {
+    nodeGraphTextBoxHostSync(el, { ...node, layout: { ...(node.layout || {}), text: shown } });
+    return;
+  }
+  const field = el?.querySelector?.(".node-text-box-input");
+  if (field && field.value !== shown) {
+    field.value = shown;
+  }
+}
+
 function nodeGraphTextBoxHostWriteLiveText(nodeId, text) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   if (!node || typeof normalizeNodeGraphTextBoxLayout !== "function") return;
   const layout = normalizeNodeGraphTextBoxLayout(node.layout);
   node.layout = normalizeNodeGraphTextBoxLayout({ ...layout, text });
+  nodeGraphTextBoxHostPaintFace(nodeId, node.layout.text);
   nodeGraphTextBoxHostMirrorSceneText(node.layout.text);
 }
 
@@ -223,8 +245,6 @@ function nodeGraphTextBoxOpenFloatingEditor(nodeId, which = "text", event = null
 }
 
 function nodeGraphTextBoxHostApplySceneText(nodeId, text, { commit = false } = {}) {
-  const widget = nodeGraphTextBoxHostFindWidget(nodeId);
-  widget?.setText(text);
   nodeGraphTextBoxHostWriteLiveText(nodeId, text);
   if (commit) nodeGraphTextBoxHostCommitText(nodeId, text);
 }

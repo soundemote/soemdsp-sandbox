@@ -357,6 +357,10 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "slewLimiter" && !this.slewLimiterStates.has(id)) {
         this.slewLimiterStates.set(id, this.createStereoSlewLimiterState());
       }
+      if (node?.type === "speakerProtector2" && !this.speakerProtector2States.has(id)) {
+        if (!this.speakerProtector2States) this.speakerProtector2States = new Map();
+        this.speakerProtector2States.set(id, this.createSpeakerProtector2State());
+      }
       if (node?.type === "expAdsr" && !this.expAdsrStates.has(id)) {
         this.expAdsrStates.set(id, this.createExpAdsrState());
       }
@@ -1005,6 +1009,13 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (!ids.has(id)) {
         this.destroyStereoFilterNativeState(this.slewLimiterStates.get(id), (s) => this.destroySlewLimiterNativeState(s));
         this.slewLimiterStates.delete(id);
+      }
+    }
+    if (this.speakerProtector2States) {
+      for (const id of [...this.speakerProtector2States.keys()]) {
+        if (!ids.has(id)) {
+          this.speakerProtector2States.delete(id);
+        }
       }
     }
     for (const id of [...this.expAdsrStates.keys()]) {
