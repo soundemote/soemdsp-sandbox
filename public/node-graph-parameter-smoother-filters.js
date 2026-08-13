@@ -12,7 +12,15 @@
 //   none     — instant snap (legacy linearSmoothing=false; not a UI L button)
 //
 // Smoothing SOURCE (global / internal / off) still chooses the time constant.
-// SOURCE=off or seconds=0 always snaps regardless of type.
+// SOURCE=off snaps. Unset / 0 per-module time uses the shared 0.0333 s default.
+
+/** App-wide default for per-module (internal) parameter smoothing. */
+const NODE_GRAPH_MODULE_SMOOTHING_DEFAULT_SECONDS = 0.0333;
+
+function nodeGraphModuleSmoothingDefaultSeconds() {
+  const n = Number(NODE_GRAPH_MODULE_SMOOTHING_DEFAULT_SECONDS);
+  return Number.isFinite(n) && n > 0 ? n : 0.0333;
+}
 
 // One-pole / multi-pole smoothers asymptote toward the target and never quite
 // land. When |out − target| is within this absolute band (normalized 0…1

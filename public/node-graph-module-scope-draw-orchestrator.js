@@ -71,6 +71,7 @@ const nodeGraphModuleScopeCustomRenderers = {
   momentaryButtonFace: () => {},
   keypadFace: () => {},
   portalFace: () => {},
+  roundShapeFace: () => {},
   textBoxFace: () => {},
   // oscilloscopeBankBurn self-registers from
   // public/modules/oscilloscopeBank/oscilloscope-bank-display.js

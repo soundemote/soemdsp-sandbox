@@ -979,6 +979,73 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           Math.round(this.readEffectiveParameter(node, "hardReset", 1, frame, frames, frameValues)),
         );
       },
+      kickEnvelope: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.kickEnvelopeStates) this.kickEnvelopeStates = new Map();
+        let state = this.kickEnvelopeStates.get(nodeId);
+        if (!state) {
+          state = this.createKickEnvelopeState();
+          this.kickEnvelopeStates.set(nodeId, state);
+        }
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const unit = (primary, legacy, fallback) => (
+          typeof nodeGraphKickEnvelopeReadUnit === "function"
+            ? nodeGraphKickEnvelopeReadUnit(read(primary, NaN), read(legacy, NaN), fallback)
+            : Math.max(0, Math.min(1, Number(read(primary, fallback)) || fallback))
+        );
+        const sharpRaw = read("sharpness", NaN);
+        const sharpness = Number.isFinite(Number(sharpRaw))
+          ? Number(sharpRaw)
+          : unit("roundness", "shape", 0);
+        return this.kickEnvelopeSample(
+          state,
+          mixInput(nodeId, "T"),
+          unit("low", "lowFreq", 0),
+          unit("high", "highFreq", 1),
+          sharpness,
+          safeRate,
+          Math.round(Number(read("curve", 1)) || 0) !== 0 ? 1 : 0,
+          read("speed", 0.2),
+          read("amplitude", 1),
+        );
+      },
+      sineKick: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.sineKickStates) this.sineKickStates = new Map();
+        let state = this.sineKickStates.get(nodeId);
+        if (!state) {
+          state = this.createSineKickState();
+          this.sineKickStates.set(nodeId, state);
+        }
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const decayRaw = read("decay", NaN);
+        const decay = Number.isFinite(Number(decayRaw)) ? decayRaw : read("speed", 0.28);
+        const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
+        const referenceVoltage = referenceMidiNote / 120;
+        const hasPitch = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"));
+        const pitchCv = hasPitch
+          ? this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null)
+          : referenceVoltage;
+        const pitched = typeof nodeGraphParamResolveOscPitchHz === "function"
+          ? nodeGraphParamResolveOscPitchHz({
+            baseHz: read("pitch", 52),
+            hasPitchCv: hasPitch,
+            pitchCv,
+            referenceVoltage,
+          })
+          : read("pitch", 52);
+        const sharpRaw = read("sharpness", NaN);
+        const sharpness = Number.isFinite(Number(sharpRaw)) ? Number(sharpRaw) : 0;
+        return this.sineKickSample(
+          state,
+          mixInput(nodeId, "T"),
+          pitched,
+          read("punch", 1.7),
+          decay,
+          read("amplitude", 1),
+          safeRate,
+          1,
+          sharpness,
+        );
+      },
       randomWalk: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.randomWalkStates.get(nodeId) || this.createRandomWalkState();
         this.randomWalkStates.set(nodeId, state);

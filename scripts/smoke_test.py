@@ -4465,7 +4465,7 @@ def require_node_graph_mvp_contract() -> None:
     noise_detector_math_source = (PUBLIC / "modules" / "noiseDetector" / "noise-detector-math.js").read_text(encoding="utf-8")
     require(
         "noiseDetector: \"Noise Detector\"" in node_graph_module_definitions_source
-        and 'inputs: ["Left", "Mono", "Right"]' in noise_detector_definition_source
+        and 'inputs: ["Mono", "Left", "Right"]' in noise_detector_definition_source
         and '"Fidelity"' in noise_detector_definition_source
         and '"Gate"' in noise_detector_definition_source
         and 'defaultValue: "0.9"' in noise_detector_definition_source
@@ -5008,7 +5008,7 @@ def require_node_graph_mvp_contract() -> None:
             [
                 'delayEffect: "Delay"',
                 "delayEffect: {",
-                'inputs: ["Left", "In", "Right"]',
+                'inputs: ["In", "Left", "Right"]',
                 'key: "time"',
                 'key: "feedback"',
             ],
@@ -7323,7 +7323,7 @@ def require_node_graph_mvp_contract() -> None:
             [
                 'audioPlayer: "Music Player"',
                 'inputs: ["Reset", "Speed", "Phase"]',
-                'outputs: ["Left", "Mono", "Right", "Phase", "Trigger"]',
+                'outputs: ["Mono", "Left", "Right", "Phase", "Trigger"]',
                 'key: "transport"',
                 'choices: ["Off (reset)", "Stop", "Pause", "Loop", "Play"]',
                 'defaultValue: "4"',
@@ -7795,8 +7795,8 @@ def require_node_graph_mvp_contract() -> None:
         "cookbookFilter: \"Multi Stage Filter\"",
         "cookbookFilter: {",
         'layout: "filterCurve"',
-        'inputs: ["Left", "In", "Right"]',
-        'outputs: ["Left", "Out", "Right"]',
+        'inputs: ["In", "Left", "Right"]',
+        'outputs: ["Out", "Left", "Right"]',
         "choices: nodeGraphCookbookFilterModes",
         'key: "mode"',
         'key: "frequency"',
@@ -8076,8 +8076,8 @@ def require_node_graph_mvp_contract() -> None:
         "speakerProtection: \"Speaker Protection\"",
         "speakerProtection: {",
         'layout: "speakerProtection"',
-        'inputs: ["Left", "In", "Right"]',
-        'outputs: ["Left", "Out", "Right"]',
+        'inputs: ["In", "Left", "Right"]',
+        'outputs: ["Out", "Left", "Right"]',
         "label: \"Frequency\"",
         "maxDigits: 5",
         "osc: {",
@@ -8133,8 +8133,8 @@ def require_node_graph_mvp_contract() -> None:
         "nodeOscWaveform",
         "choices: [\"Saw\", \"Ramp\", \"Square\", \"Triangle\", \"Sine\", \"Noise\"]",
         "const nodeGraphOutputInputPorts",
-        'inputs: ["Left", "Mono", "Right"]',
-        'Object.freeze(["Left", "Mono", "Right"])',
+        'inputs: ["Mono", "Left", "Right"]',
+        'Object.freeze(["Mono", "Left", "Right"])',
         "const nodeGraphDefaultNodeConfigs",
         "params: nodeGraphDefaultParamsForType",
         "const nodeGraphZoomLimits",
@@ -12798,8 +12798,8 @@ def require_node_graph_mvp_contract() -> None:
         module_definitions_source.index("rotate3dTo2d: {")
     ]
     require(
-        'inputs: ["Left", "In", "Right"]' in soft_clipper_definition
-        and 'outputs: ["Left", "Out", "Right"]' in soft_clipper_definition
+        'inputs: ["In", "Left", "Right"]' in soft_clipper_definition
+        and 'outputs: ["Out", "Left", "Right"]' in soft_clipper_definition
         and 'key: "center"' in soft_clipper_definition
         and 'key: "width"' in soft_clipper_definition
         and 'defaultValue: "2"' in soft_clipper_definition,
@@ -12828,7 +12828,7 @@ def require_node_graph_mvp_contract() -> None:
         module_definitions_source.index("slewLimiter: {")
     ]
     require(
-        'inputs: ["Left", "In", "Right"]' in reverb_definition
+        'inputs: ["In", "Left", "Right"]' in reverb_definition
         and 'outputs: ["Mono Dry", "Left Dry", "Right Dry", "Mono Mix", "Left Mix", "Right Mix"]' in reverb_definition
         and 'key: "mix"' in reverb_definition
         and 'key: "diffusionSize"' in reverb_definition
@@ -13818,7 +13818,7 @@ def require_node_graph_mvp_contract() -> None:
     )
     require('"reverbEffect"' in execution_plan_source, "execution plan should treat Sabrina Reverb as a supported passthrough processor")
     require(
-        'const inputPorts = type === "reverbEffect" ? ["Left", "In", "Right"] : ["In"]' in execution_plan_source
+        'const inputPorts = type === "reverbEffect" ? ["In", "Left", "Right"] : ["In"]' in execution_plan_source
         and "count + (graph.inputConnections.get(nodeGraphInputKey(nodeId, port)) || []).length" in execution_plan_source,
         "Sabrina Reverb schedule validation should accept stereo Left/Right inputs, not only In",
     )

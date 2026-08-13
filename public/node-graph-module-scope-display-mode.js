@@ -193,6 +193,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     // Text Box look: mode, align, size, Sound Color Widgets.
     "textBoxFace",
     "portalFace",
+    "roundShapeFace",
     // Patch identity plate — not Trace.
     "patchFace",
     "vectorRgbFace",

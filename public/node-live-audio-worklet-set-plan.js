@@ -267,6 +267,14 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "sinepulse" && !this.sinepulseStates.has(id)) {
         this.sinepulseStates.set(id, this.createSinepulseState());
       }
+      if (!this.kickEnvelopeStates) this.kickEnvelopeStates = new Map();
+      if (node?.type === "kickEnvelope" && !this.kickEnvelopeStates.has(id)) {
+        this.kickEnvelopeStates.set(id, this.createKickEnvelopeState());
+      }
+      if (!this.sineKickStates) this.sineKickStates = new Map();
+      if (node?.type === "sineKick" && !this.sineKickStates.has(id)) {
+        this.sineKickStates.set(id, this.createSineKickState());
+      }
       if (node?.type === "yellowjacketFilter" && !this.yellowjacketFilterStates.has(id)) {
         this.yellowjacketFilterStates.set(id, this.createStereoFilterState(() => this.createYellowjacketFilterState()));
       }
@@ -839,6 +847,16 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     if (this.sinepulseStates) {
       for (const id of [...this.sinepulseStates.keys()]) {
         if (!ids.has(id)) this.sinepulseStates.delete(id);
+      }
+    }
+    if (this.kickEnvelopeStates) {
+      for (const id of [...this.kickEnvelopeStates.keys()]) {
+        if (!ids.has(id)) this.kickEnvelopeStates.delete(id);
+      }
+    }
+    if (this.sineKickStates) {
+      for (const id of [...this.sineKickStates.keys()]) {
+        if (!ids.has(id)) this.sineKickStates.delete(id);
       }
     }
     for (const id of [...this.yellowjacketFilterStates.keys()]) {

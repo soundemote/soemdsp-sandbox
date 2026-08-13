@@ -2,5 +2,5 @@
 
 nodeGraphLiveModuleEvaluators.bias = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput }) => {
   const biasOffset = readNodeGraphLiveEffectiveParam(runtime, node, "offset", 0, frame, frames, frameValues);
-  return nodeGraphBiasFrame(mixInput(nodeId), mixInput(nodeId, "Left"), mixInput(nodeId, "Right"), biasOffset);
+  return nodeGraphBiasFrame(mixInput(nodeId), 0, 0, biasOffset);
 };

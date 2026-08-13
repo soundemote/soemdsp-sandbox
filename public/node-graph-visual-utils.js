@@ -97,11 +97,29 @@ function nodeGraphClampUnit(value) {
 // CSS pixels with a setTransform(pixelRatio, ...), while the phosphor
 // waveform draws in raw device pixels so it can snap lines to real pixels.
 // Returns null when there is nothing to draw into.
-function nodeGraphSizeDisplayCanvas(section, canvas) {
+/**
+ * App-wide face backing policy:
+ *   pixelDensity 1.0 = CSS × devicePixelRatio (never smaller than the screen grid).
+ *   pixelDensity 2.0 = 2× that backing, then bilinear present (cheap SSAA).
+ *   <1 = intentional lo-fi (chunky upscale). 0 still yields a 1×1 store.
+ *
+ * Callers draw in CSS pixels after setTransform(pixelRatio, …) where pixelRatio
+ * is dpr × density. The compositor bilinear-filters the larger store down.
+ */
+function nodeGraphResolveDisplayPixelDensity(pixelDensity) {
+  const raw = Number(pixelDensity);
+  if (!Number.isFinite(raw)) {
+    return 1;
+  }
+  return Math.max(0, Math.min(4, raw));
+}
+
+function nodeGraphSizeDisplayCanvas(section, canvas, options = {}) {
   if (!section || !canvas) {
     return null;
   }
-  const pixelRatio = window.devicePixelRatio || 1;
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const density = nodeGraphResolveDisplayPixelDensity(options?.pixelDensity);
   // Prefer layout sizes (offset/client) so we do not force a layout reflow via
   // getBoundingClientRect on every filter-curve / face paint. Workspace zoom is
   // a CSS transform; face backing must stay on the unzoomed layout grid.
@@ -119,8 +137,11 @@ function nodeGraphSizeDisplayCanvas(section, canvas) {
   }
   cssWidth = Math.max(1, cssWidth);
   cssHeight = Math.max(1, cssHeight);
-  const width = Math.max(1, Math.round(cssWidth * pixelRatio));
-  const height = Math.max(1, Math.round(cssHeight * pixelRatio));
+  const nativeWidth = Math.max(1, Math.round(cssWidth * devicePixelRatio));
+  const nativeHeight = Math.max(1, Math.round(cssHeight * devicePixelRatio));
+  // density 1 = native (no downsample). density 2 = upsample then bilinear down.
+  const width = Math.max(1, Math.round(nativeWidth * Math.max(density, 0)));
+  const height = Math.max(1, Math.round(nativeHeight * Math.max(density, 0)));
   if (canvas.width !== width) {
     canvas.width = width;
   }
@@ -128,7 +149,68 @@ function nodeGraphSizeDisplayCanvas(section, canvas) {
     canvas.height = height;
   }
   const context = canvas.getContext("2d");
-  return context ? { context, cssHeight, cssWidth, height, pixelRatio, width } : null;
+  const pixelRatio = devicePixelRatio * Math.max(density, 1e-6);
+  return context
+    ? {
+      context,
+      cssHeight,
+      cssWidth,
+      density,
+      devicePixelRatio,
+      height,
+      pixelRatio,
+      width,
+    }
+    : null;
+}
+
+/**
+ * Cheap vector blur: redraw the current path at a diamond of CSS-px offsets
+ * (center + 4 cardinal + 4 diagonal) with a tent kernel. No extra canvas,
+ * no Gaussian convolution. Combined with pixelDensity > 1 this is a
+ * supersampled 4-tap diamond restroke.
+ */
+function nodeGraphStrokePathWithLineBlur(context, options = {}) {
+  if (!context) {
+    return;
+  }
+  const strokeStyle = options.strokeStyle || options.color || "#ffffff";
+  const lineWidth = Math.max(0.25, Number(options.lineWidth) || 1);
+  const blur = Math.max(0, Number(options.lineBlur ?? options.blur) || 0);
+  context.lineJoin = options.lineJoin || "round";
+  context.lineCap = options.lineCap || "round";
+  context.strokeStyle = strokeStyle;
+  if (!(blur > 0.02)) {
+    context.lineWidth = lineWidth;
+    context.stroke();
+    return;
+  }
+  const taps = [
+    { x: 0, y: 0, w: 1 },
+    { x: blur, y: 0, w: 0.5 },
+    { x: -blur, y: 0, w: 0.5 },
+    { x: 0, y: blur, w: 0.5 },
+    { x: 0, y: -blur, w: 0.5 },
+    { x: blur * 0.707, y: blur * 0.707, w: 0.25 },
+    { x: -blur * 0.707, y: blur * 0.707, w: 0.25 },
+    { x: blur * 0.707, y: -blur * 0.707, w: 0.25 },
+    { x: -blur * 0.707, y: -blur * 0.707, w: 0.25 },
+  ];
+  let sum = 0;
+  for (let i = 0; i < taps.length; i += 1) {
+    sum += taps[i].w;
+  }
+  context.save();
+  context.lineWidth = lineWidth;
+  for (let i = 0; i < taps.length; i += 1) {
+    const tap = taps[i];
+    context.save();
+    context.translate(tap.x, tap.y);
+    context.globalAlpha = tap.w / sum;
+    context.stroke();
+    context.restore();
+  }
+  context.restore();
 }
 
 function nodeGraphHslToHex(background = {}) {

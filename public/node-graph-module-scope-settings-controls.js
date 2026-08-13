@@ -386,6 +386,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   historySeconds: nodeGraphTraceDisplayClampHistorySeconds,
   lineLength: nodeGraphTraceDisplayClampUnit,
   lineThickness: nodeGraphTraceDisplayClampNonNegative,
+  lineBlur: (value) => clampNodeSliderValue(Number(value) || 0, 0, 8),
   pixelDensity: nodeGraphTraceDisplayClampPixelDensity,
   puckSize: (value) => clampNodeSliderValue(Number(value) || 0, 0.005, 0.25),
   scale: nodeGraphTraceDisplayClampNonNegative,
@@ -492,6 +493,11 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   }),
   scope2dTrace: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
+  }),
+  roundShapeFace: Object.freeze({
+    lineThickness: (value) => clampNodeSliderValue(Number(value) || 2, 0.25, 16),
+    lineBlur: (value) => clampNodeSliderValue(Number(value) || 0, 0, 8),
+    pixelDensity: nodeGraphTraceDisplayClampPixelDensity,
   }),
   // 1D Trace / Output: blur 0 hard … 1 soft skirt (instant, no persistence).
   trace: Object.freeze({

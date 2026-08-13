@@ -1,7 +1,10 @@
 # Module layout — overview and rebuild plan
 
-Status: implemented (apply path + CSS forest removed). Visual §7 still
-needed on Output / Gain / Sample / Music Player / curve / LayoutB / LayoutC.
+Status: implemented (apply path + CSS forest removed). §7 band-stack
+checks live in `scripts/test_module_layout_bands.js` (Output, Gain,
+Sample Player/Looper, Music Player, Kick Envelope, Active Filter,
+Smooth Graph / LayoutB, Vectorscope / LayoutC). Hide-display omits the
+face track. Human eyeball on the workspace still welcome.
 Do not land another CSS selector patch for B-036.
 Reopens **B-036** (hide display → sliders overlap the I/O / “out” section).
 The previous “fix” treated a **grid occupancy** bug as a height-math bug and
@@ -335,3 +338,36 @@ face vs outer, visibility flags). It failed by implementing them twice
 Rebuild: **one band list, one apply, omit hidden tracks.** That is the
 root fix for sliders overlapping the out section when the display is
 hidden, and the way modules start drawing the same way every time.
+
+---
+
+## 11. I/O contract — M / L / R (app-wide)
+
+**Wrong (old):** L / M / R stack (Left first).  
+**Right:** **M, then L, then R** — always. Colors stay name-locked.
+
+| Slot | Channel | Jack names | Outlet RGB |
+| --- | --- | --- | --- |
+| **1st** | **Mono** | `Mono`, `M`, `In`/`Out` labeled Mono | **Green** |
+| **2nd** | **Left** | `Left`, `L` | **Red** |
+| **3rd** | **Right** | `Right`, `R` | **Blue** |
+
+XYZ uses the **same RGB by name**, not by stack index:
+
+| Name | Color |
+| --- | --- |
+| X | Red (same as Left) |
+| Y | Green (same as Mono) |
+| Z | Blue (same as Right) |
+
+Rules:
+
+- **Order is M → L → R** in every `inputs` / `outputs` array that has those
+  channels. Extra jacks (Trigger, 0.1V/Oct, …) come after the trio.
+- Stereo-only (`Left` + `Right`, no Mono) stays Left then Right.
+- **Outlet chrome only.** Inlets are not RGB. Cables stay analog gold /
+  digital white — they must **not** inherit outlet RGB.
+- SSOT for the speaker sink order: `nodeGraphOutputInputPorts`
+  (`["Mono", "Left", "Right"]`).
+- Shared filter template: `inputs: ["In", "Left", "Right"]`,
+  `outputs: ["Out", "Left", "Right"]` (`In`/`Out` labeled Mono).

@@ -44,6 +44,8 @@ const nodeGraphModuleScopeUnipolarTypes = new Set([
   "bode",
   "stftBlur",
   "sinepulse",
+  "kickEnvelope",
+  "sineKick",
   "linearEnvelope",
   "midiNotePitch",
   "midiOut",
@@ -110,8 +112,8 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   background: "#000000",
   // Full-ish ink so Left/Right colors read as chosen (Brightness still 0…1).
   brightness: 0.95,
-  // Mono / primary stroke (Output Left).
-  color: "#ff3333",
+  // Mono / primary stroke (Output Left). Pure red so Meet (red+blue) is green.
+  color: "#ff0000",
   dot1Enabled: true,
   // ~2–3 CSS px on typical faces (size 0 still floors at 1 device px).
   dot1Size: 0.035,
@@ -120,7 +122,7 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   // Meet always auto from Left/Right (complement + soft screen lift).
   meetColor: "auto",
   secondaryBrightness: 0.95,
-  secondaryColor: "#3366ff",
+  secondaryColor: "#0000ff",
   secondaryEnabled: true,
   secondarySize: 0.035,
   secondaryLineThickness: 0,

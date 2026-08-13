@@ -148,6 +148,13 @@ NodeLiveAudioProcessor.prototype.evaluateFrame = function evaluateFrame(frame, f
         const liveModuleEvaluator = node?.type ? this.liveModuleEvaluators[node.type] : null;
         if (liveModuleEvaluator) {
           value = liveModuleEvaluator(node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue, graphOutputValue);
+          if (typeof nodeGraphApplyPostAmplitude === "function") {
+            value = nodeGraphApplyPostAmplitude(
+              node.type,
+              value,
+              this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues),
+            );
+          }
         } else if (node?.type === "audioInput") {
           // Hardware process() buffers (not externalInput map) — same stereo math as helpers.
           const input = inputs[0] || [];

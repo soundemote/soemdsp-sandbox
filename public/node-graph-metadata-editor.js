@@ -11,8 +11,16 @@ function nodeGraphMetadataSmoothingSecondsToSamples(seconds) {
 function nodeGraphMetadataSmoothingSamplesToSeconds(samples) {
   const rate = typeof nodeGraphSmoothingSampleRate === "function" ? nodeGraphSmoothingSampleRate() : 44100;
   const value = Number(samples);
-  const safeSamples = Number.isFinite(value) ? Math.max(0, value) : 0;
-  return rate > 0 ? safeSamples / rate : 0;
+  if (!Number.isFinite(value) || value <= 0) {
+    return typeof nodeGraphModuleSmoothingDefaultSeconds === "function"
+      ? nodeGraphModuleSmoothingDefaultSeconds()
+      : 0.0333;
+  }
+  // (0, 1) is already seconds (app-wide encoding). ≥ 1 is a sample count.
+  if (value > 0 && value < 1) {
+    return value;
+  }
+  return rate > 0 ? value / rate : 0;
 }
 
 function positionNodeMetadataPopover(popover, x, y, remember = false) {
@@ -2204,7 +2212,9 @@ function readNodeMetadataEditorValues(slider) {
   const smoothingSecondsInput = sanitizeMetadataNumberInput("metadataSmoothingSecondsValue");
   const smoothingSecondsFallback = nodeGraphMetadataSmoothingSamplesToSeconds(current.smoothingSeconds ?? 0);
   const smoothingSeconds = smoothingSecondsInput === ""
-    ? 0
+    ? (typeof nodeGraphModuleSmoothingDefaultSeconds === "function"
+      ? nodeGraphModuleSmoothingDefaultSeconds()
+      : 0.0333)
     : nodeGraphMetadataSmoothingSecondsToSamples(parseNodeMetadataNumber(smoothingSecondsInput, smoothingSecondsFallback));
   const smoothingType = normalizeNodeGraphMetadataSmoothingType(
     document.getElementById("metadataSmoothingTypeGroup")?.dataset.type,

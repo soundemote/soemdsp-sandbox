@@ -1,18 +1,15 @@
 // Bias — pure math (main thread + AudioWorklet).
-// Mono sums into L/R before offset (same as Gain / Gain Bias).
+// Single In → Out + Offset. No Left/Right/Mono paths.
 
 function nodeGraphBiasSample(input, offset) {
   return (Number(input) || 0) + (Number(offset) || 0);
 }
 
 /**
- * @returns {{ Out: number, Left: number, Right: number }}
+ * @returns {{ Out: number }}
  */
-function nodeGraphBiasFrame(mono, left, right, offset) {
-  const m = Number(mono) || 0;
+function nodeGraphBiasFrame(input, _left, _right, offset) {
   return {
-    Out: nodeGraphBiasSample(m, offset),
-    Left: nodeGraphBiasSample((Number(left) || 0) + m, offset),
-    Right: nodeGraphBiasSample((Number(right) || 0) + m, offset),
+    Out: nodeGraphBiasSample(input, offset),
   };
 }

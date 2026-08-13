@@ -72,6 +72,24 @@ async function bindNodeGraphUiDevSettingsEvents() {
     .getElementById("nodeUiDevPortFillInset")
     ?.addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document
+    .getElementById("nodeUiDevOutletRgbBrightness")
+    ?.addEventListener("input", syncNodeUiDevOutletRgbBrightness);
+  document
+    .getElementById("nodeUiDevOutletRgbBrightness")
+    ?.addEventListener("change", syncNodeUiDevOutletRgbBrightness);
+  document
+    .getElementById("nodeUiDevInletBlueBrightness")
+    ?.addEventListener("input", syncNodeUiDevInletBlueBrightness);
+  document
+    .getElementById("nodeUiDevInletBlueBrightness")
+    ?.addEventListener("change", syncNodeUiDevInletBlueBrightness);
+  document
+    .getElementById("nodeUiDevGridDivisionMultiply")
+    ?.addEventListener("input", syncNodeUiDevGridDivisionMultiply);
+  document
+    .getElementById("nodeUiDevGridDivisionMultiply")
+    ?.addEventListener("change", syncNodeUiDevGridDivisionMultiply);
+  document
     .getElementById("nodeUiDevModuleRoundness")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document

@@ -497,6 +497,19 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         if (!this.phoneToneStates) this.phoneToneStates = new Map();
         const state = this.phoneToneStates.get(nodeId) || this.createPhoneToneState();
         this.phoneToneStates.set(nodeId, state);
+        const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote)
+          ? this.pitchReferenceMidiNote
+          : 48;
+        const referenceVoltage = referenceMidiNote / 120;
+        const hasPitch = typeof hasInput === "function"
+          ? hasInput(nodeId, "0.1V/Oct")
+          : this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"));
+        const pitchCv = hasPitch
+          ? (this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null) ?? 0)
+          : referenceVoltage;
+        const pitchCvRatio = typeof nodeGraphPhoneTonePitchCvRatio === "function"
+          ? nodeGraphPhoneTonePitchCvRatio(hasPitch, pitchCv, referenceVoltage)
+          : 1;
         return this.phoneToneSample(state, {
           amplitude: this.readEffectiveParameter(node, "amplitude", 0.5, frame, frames, frameValues),
           analog: mixInput(nodeId, "Analog"),
@@ -506,6 +519,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           hasAnalog: hasInput(nodeId, "Analog"),
           hasDigital: hasInput(nodeId, "Digital"),
           hasGate: hasInput(nodeId, "Gate"),
+          pitchCvRatio,
+          pitchOffset: this.readEffectiveParameter(node, "pitchOffset", 0, frame, frames, frameValues),
           sampleRate: safeRate,
         });
       },
@@ -1132,28 +1147,30 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           { threshold: read("threshold", 0), steps },
         );
       },
-      gain: (node, nodeId, frame, frames, frameValues, mixInput) =>
-        this.gainFrame(
+      gain: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        const amount = this.readEffectiveParameter(node, "amount", 1, frame, frames, frameValues);
+        const gainDb = this.readEffectiveParameter(node, "gainDb", 0, frame, frames, frameValues);
+        return this.gainFrameDb(
           mixInput(nodeId),
           mixInput(nodeId, "Left"),
           mixInput(nodeId, "Right"),
-          this.readEffectiveParameter(node, "amount", 1, frame, frames, frameValues),
-          this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues),
-        ),
+          {
+            masterDb: nodeGraphGainResolveMasterDb(node?.params, amount, gainDb),
+            leftDb: this.readEffectiveParameter(node, "leftDb", 0, frame, frames, frameValues),
+            rightDb: this.readEffectiveParameter(node, "rightDb", 0, frame, frames, frameValues),
+            monoSum: this.readEffectiveParameter(node, "monoSum", 0, frame, frames, frameValues),
+            offset: this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues),
+          },
+        );
+      },
       // Legacy type id → same as gain (offset included).
       gainBias: (node, nodeId, frame, frames, frameValues, mixInput) =>
-        this.gainFrame(
-          mixInput(nodeId),
-          mixInput(nodeId, "Left"),
-          mixInput(nodeId, "Right"),
-          this.readEffectiveParameter(node, "amount", 1, frame, frames, frameValues),
-          this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues),
-        ),
+        this.liveModuleEvaluators.gain(node, nodeId, frame, frames, frameValues, mixInput),
       bias: (node, nodeId, frame, frames, frameValues, mixInput) =>
         this.biasFrame(
           mixInput(nodeId),
-          mixInput(nodeId, "Left"),
-          mixInput(nodeId, "Right"),
+          0,
+          0,
           this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues),
         ),
       softClipper: (node, nodeId, frame, frames, frameValues, mixInput) => {

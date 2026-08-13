@@ -429,7 +429,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Fix shape: Give RobinSinusoid an explicit display schema, or persist default-osc `traceDisplaySettings` the same way as `displayType: "trace"`. Verify other no-displayType oscs (same hole).
 
 ### B-036 — Hide display: sliders and I/O overlap (app-wide)
-- Status: verify (apply path landed; confirm §7 on the workspace before closing)
+- Status: verify (apply path landed; `scripts/test_module_layout_bands.js` covers §7 stacks; confirm once on the workspace before closing)
 - Severity: see
 - Source: user
 - Plan: `docs/MODULE_LAYOUT_PLAN.md` (rebuild module stacks; do not add another hide-display selector)

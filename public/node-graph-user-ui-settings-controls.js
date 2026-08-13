@@ -91,14 +91,14 @@ function createNodeUserUiSettingsMirrorControl(definition) {
   input.type = "range";
   input.min = String(definition.min);
   input.max = String(definition.max);
-  input.step = "1";
+  input.step = String(definition.step ?? 1);
   input.dataset.nodeUiDevMirror = definition.key;
   input.value = String(source.value);
   const readout = document.createElement("input");
   readout.type = "number";
   readout.min = String(definition.min);
   readout.max = String(definition.max);
-  readout.step = "1";
+  readout.step = String(definition.step ?? 1);
   readout.dataset.nodeUiDevMirrorValue = definition.key;
   readout.value = String(source.value);
   const commit = (value) => {

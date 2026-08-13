@@ -7,7 +7,8 @@ function nodeGraphNormalizeOutletChannelKey(value) {
   const tokens = raw.split(/[\s/_-]+/).filter(Boolean);
   const first = tokens[0] || raw;
   const last = tokens[tokens.length - 1] || raw;
-  // X / Left / L → red. Y / Mono / M → green. Z / Right / R / Analog / A → blue.
+  // M / L / R stack (Mono first). Outlet RGB is name-locked, not slot-locked:
+  //   Mono / M / Y / Out → green (1st). Left / L / X → red (2nd). Right / R / Z / Analog / A → blue (3rd).
   if (raw === "x" || last === "x" || raw === "l" || raw === "left" || first === "left" || last === "left") {
     return "left";
   }
@@ -96,12 +97,40 @@ function createNodeGraphPort(node, type, port, io) {
   return button;
 }
 
-function nodeGraphStereoJackDisplayLabel(value) {
+function nodeGraphModuleHasRgbColorPorts(type) {
+  const def = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[type]
+    : null;
+  const ports = new Set([
+    ...(Array.isArray(def?.inputs) ? def.inputs : []),
+    ...(Array.isArray(def?.outputs) ? def.outputs : []),
+  ]);
+  return ports.has("R") && ports.has("G") && ports.has("B");
+}
+
+/** LayoutB stays L/M/R. Everyone else spells Mono / Left / Right. Never rename RGB R. */
+function nodeGraphStereoJackDisplayLabel(value, type, port) {
   const raw = String(value || "").trim();
   const key = raw.toLowerCase();
-  if (key === "left") return "L";
-  if (key === "mono") return "M";
-  if (key === "right") return "R";
+  const portKey = String(port || "").trim().toLowerCase();
+  if (
+    (key === "r" || portKey === "r")
+    && typeof nodeGraphModuleHasRgbColorPorts === "function"
+    && nodeGraphModuleHasRgbColorPorts(type)
+  ) {
+    return raw;
+  }
+  const compact = typeof nodeGraphModuleUsesLayoutB === "function"
+    && nodeGraphModuleUsesLayoutB(type);
+  if (compact) {
+    if (key === "left") return "L";
+    if (key === "mono") return "M";
+    if (key === "right") return "R";
+    return raw;
+  }
+  if (key === "l") return "Left";
+  if (key === "m") return "Mono";
+  if (key === "r") return "Right";
   return raw;
 }
 
@@ -113,13 +142,16 @@ function nodeGraphPortDisplayLabel(type, port, io) {
   const freq = typeof nodeGraphFrequencyValuePortDisplayLabel === "function"
     ? nodeGraphFrequencyValuePortDisplayLabel(raw)
     : raw;
-  return nodeGraphStereoJackDisplayLabel(freq);
+  return nodeGraphStereoJackDisplayLabel(freq, type, port);
 }
 
 function nodeGraphPatchNodePortDisplayLabel(node, type, port, io) {
   const patchNode = typeof node === "string" ? nodeGraphPatchNode(node) : node;
   const alias = normalizeNodeGraphPatchMetadataAlias(patchNode?.portMeta?.[io]?.[port]?.alias);
-  return alias || nodeGraphPortDisplayLabel(type, port, io);
+  if (alias) {
+    return nodeGraphStereoJackDisplayLabel(alias, type, port);
+  }
+  return nodeGraphPortDisplayLabel(type, port, io);
 }
 
 /**

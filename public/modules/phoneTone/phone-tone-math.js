@@ -87,6 +87,66 @@ function nodeGraphPhoneToneVoiceParts(voice, pair, amplitude, sampleRate) {
   return { x, z };
 }
 
+/** Octave ratio from the Pitch Offset knob. 0 = 1×, 1 = +1 octave, −1 = −1 octave. */
+function nodeGraphPhoneToneOctaveRatio(pitchOffsetOctaves) {
+  const n = Number(pitchOffsetOctaves);
+  if (!Number.isFinite(n) || n === 0) {
+    return 1;
+  }
+  const ratio = 2 ** n;
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+}
+
+/**
+ * 0.1V/Oct ratio (1 when the jack is unconnected). Same law as oscillators:
+ * 2^((cv − reference) / 0.1).
+ */
+function nodeGraphPhoneTonePitchCvRatio(hasPitchCv, pitchCv, referenceVoltage) {
+  if (typeof nodeGraphParamResolveOscPitchHz === "function") {
+    const ratio = nodeGraphParamResolveOscPitchHz({
+      baseHz: 1,
+      hasPitchCv: Boolean(hasPitchCv),
+      pitchCv,
+      referenceVoltage,
+    });
+    return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+  }
+  if (!hasPitchCv) {
+    return 1;
+  }
+  const cv = Number(pitchCv);
+  const ref = Number(referenceVoltage);
+  const pitch = Number.isFinite(cv) ? cv : 0;
+  const reference = Number.isFinite(ref) ? ref : 0;
+  const ratio = 2 ** ((pitch - reference) / 0.1);
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+}
+
+function nodeGraphPhoneToneClampHz(hz) {
+  const cap = typeof nodeGraphProjectSpeedLimitHz === "function"
+    ? nodeGraphProjectSpeedLimitHz()
+    : (typeof nodeGraphSinepulseMaxHz === "function" ? nodeGraphSinepulseMaxHz() : 20000);
+  const n = Number(hz);
+  if (!Number.isFinite(n)) {
+    return 0;
+  }
+  if (n > cap) return cap;
+  if (n < -cap) return -cap;
+  return n;
+}
+
+/** Table Hz → pitched Hz: * 2^pitchOffset * 0.1V ratio, then + Frequency Offset. */
+function nodeGraphPhoneTonePitchedHz(baseHz, pitchOffsetOctaves, freqOffsetHz, pitchCvRatio = 1) {
+  const base = Number(baseHz);
+  const table = Number.isFinite(base) ? base : 0;
+  const cv = Number(pitchCvRatio);
+  const cvRatio = Number.isFinite(cv) && cv > 0 ? cv : 1;
+  const add = Number(freqOffsetHz);
+  const hz = table * nodeGraphPhoneToneOctaveRatio(pitchOffsetOctaves) * cvRatio
+    + (Number.isFinite(add) ? add : 0);
+  return nodeGraphPhoneToneClampHz(hz);
+}
+
 function nodeGraphPhoneToneSample(state, options = {}) {
   const hasAnalog = Boolean(options.hasAnalog);
   const hasDigital = Boolean(options.hasDigital);
@@ -94,9 +154,17 @@ function nodeGraphPhoneToneSample(state, options = {}) {
   const gateOpen = !hasGate || Number(options.gate) >= 0.5;
   const offset = Number(options.freqOffset);
   const freqOffset = Number.isFinite(offset) ? offset : 0;
+  const pitchOffset = Number(options.pitchOffset);
+  const pitchOff = Number.isFinite(pitchOffset) ? pitchOffset : 0;
+  const cvRatioIn = Number(options.pitchCvRatio);
+  const pitchCvRatio = Number.isFinite(cvRatioIn) && cvRatioIn > 0 ? cvRatioIn : 1;
   const amp = Number(options.amplitude);
   const amplitude = Number.isFinite(amp) ? amp : 0;
   const rate = Math.max(1, Number(options.sampleRate) || 44100);
+  const pitchPair = (pair) => [
+    nodeGraphPhoneTonePitchedHz(pair[0], pitchOff, freqOffset, pitchCvRatio),
+    nodeGraphPhoneTonePitchedHz(pair[1], pitchOff, freqOffset, pitchCvRatio),
+  ];
 
   const analogSlot = hasAnalog ? nodeGraphPhoneToneAnalogSlot(options.analog) : null;
   const digitalSlot = hasDigital ? nodeGraphPhoneToneDigitalSlot(options.digital) : null;
@@ -105,18 +173,17 @@ function nodeGraphPhoneToneSample(state, options = {}) {
   if (digitalSlot != null && digitalSlot !== analogSlot) slots.push(digitalSlot);
 
   const reportSlot = digitalSlot != null ? digitalSlot : analogSlot;
-  const report = reportSlot == null ? [0, 0] : nodeGraphPhoneTonePair(reportSlot);
-  const df1 = reportSlot == null ? 0 : report[0] + freqOffset;
-  const df2 = reportSlot == null ? 0 : report[1] + freqOffset;
+  const report = reportSlot == null ? [0, 0] : pitchPair(nodeGraphPhoneTonePair(reportSlot));
+  const df1 = reportSlot == null ? 0 : report[0];
+  const df2 = reportSlot == null ? 0 : report[1];
 
   const each = slots.length > 0 ? amplitude / (slots.length * 2) : 0;
   let low = 0;
   let high = 0;
   if (analogSlot != null && state?.analog) {
-    const pair = nodeGraphPhoneTonePair(analogSlot);
     const parts = nodeGraphPhoneToneVoiceParts(
       state.analog,
-      [pair[0] + freqOffset, pair[1] + freqOffset],
+      pitchPair(nodeGraphPhoneTonePair(analogSlot)),
       each,
       rate,
     );
@@ -124,10 +191,9 @@ function nodeGraphPhoneToneSample(state, options = {}) {
     high += parts.z;
   }
   if (digitalSlot != null && state?.digital && digitalSlot !== analogSlot) {
-    const pair = nodeGraphPhoneTonePair(digitalSlot);
     const parts = nodeGraphPhoneToneVoiceParts(
       state.digital,
-      [pair[0] + freqOffset, pair[1] + freqOffset],
+      pitchPair(nodeGraphPhoneTonePair(digitalSlot)),
       each,
       rate,
     );

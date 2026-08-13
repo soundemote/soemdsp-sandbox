@@ -18,6 +18,18 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
     label = "Size";
     title = "Dial ring size 0…1. 1 = fill available space. Only scales the arc — label and value stay put.";
   }
+  if (formType === "roundShapeFace" && key === "lineThickness") {
+    label = "Line thickness";
+    title = "Stroke width in CSS pixels (0.25–16).";
+  }
+  if (formType === "roundShapeFace" && key === "lineBlur") {
+    label = "Line blur";
+    title = "Diamond restroke blur in CSS pixels (0 = hard). Path is redrawn at 9 tent-weighted offsets — cheap, no extra canvas.";
+  }
+  if (formType === "roundShapeFace" && key === "pixelDensity") {
+    label = "Pixel density";
+    title = "1.0 = CSS × devicePixelRatio (no downsample). 2.0 = 2× backing then bilinear present (cheap SSAA). Below 1 = chunky lo-fi.";
+  }
   if (key === "innerRadius" && formType === "knobFace") {
     label = "Inner radius";
     title = "Arc hole size 0…1 (0 = solid, ~0.7 default ring, higher = thinner ring).";
@@ -253,7 +265,7 @@ function nodeGraphDisplaySettingsBuildChoiceRowHtml(key) {
 }
 
 
-function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
+function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}) {
   let base = nodeGraphDisplaySettingsColorMeta[key] || {
     label: "",
     aria: key,
@@ -293,12 +305,30 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
     aria = "Keypad text color";
   } else if (formType === "keypadFace" && key === "strokeColor") {
     aria = "Keypad stroke color";
+  } else if (formType === "roundShapeFace" && key === "backgroundColor") {
+    aria = "RoundShape background color";
+    base = { ...base, defaultValue: "#020609" };
+  } else if (formType === "roundShapeFace" && key === "strokeColor") {
+    aria = "RoundShape foreground / stroke color";
+    base = { ...base, defaultValue: "#78dcc8" };
+  } else if (formType === "roundShapeFace" && key === "dotColor") {
+    aria = "RoundShape cursor dot color";
+    base = { ...base, defaultValue: "#ffffff" };
   } else if (formType === "textBoxFace" && key === "backgroundColor") {
     aria = "Text Box background color";
     base = { ...base, defaultValue: "#020407" };
+  } else if (formType === "trace" && options.stereo && key === "dot1Color") {
+    aria = "Left";
+    base = { ...base, caption: "LEFT", defaultValue: "#ff0000" };
+  } else if (formType === "trace" && options.stereo && key === "secondaryColor") {
+    aria = "Right";
+    base = { ...base, caption: "RIGHT", defaultValue: "#0000ff" };
+  } else if (formType === "trace" && options.stereo && key === "backgroundColor") {
+    aria = "Background";
+    base = { ...base, caption: "BG" };
   } else if (formType === "trace" && key === "protectColor") {
     aria = "Speaker protection overlay; alpha follows mute 0–1";
-    base = { ...base, defaultValue: "#e02020" };
+    base = { ...base, caption: "Protect", defaultValue: "#e02020" };
   } else if (formType === "textBoxFace" && key === "textColor") {
     aria = "Text Box text color";
     base = { ...base, defaultValue: "#f3f1ec" };
@@ -312,11 +342,23 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
 }
 
 
-function nodeGraphDisplaySettingsBuildColorRowHtml(key, formType = null) {
-  const meta = nodeGraphDisplaySettingsColorRowMeta(key, formType);
+const NODE_GRAPH_TRACE_STEREO_COLOR_ORDER = Object.freeze([
+  "dot1Color",
+  "secondaryColor",
+  "backgroundColor",
+  "protectColor",
+]);
+
+function nodeGraphDisplaySettingsBuildColorRowHtml(key, formType = null, options = {}) {
+  const meta = nodeGraphDisplaySettingsColorRowMeta(key, formType, options);
   const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
+  const caption = String(meta.caption || "").trim();
+  const captionHtml = caption
+    ? `<div class="node-trace-display-color-caption">${nodeGraphDisplaySettingsEscapeHtml(caption)}</div>`
+    : "";
   return `
-    <div class="node-trace-display-color-widget-row no-side-label" data-trace-display-control-row data-trace-display-color-row="${key}">
+    <div class="node-trace-display-color-widget-row no-side-label${caption ? " has-color-caption" : ""}" data-trace-display-control-row data-trace-display-color-row="${key}">
+      ${captionHtml}
       <div
         class="node-trace-display-color-widget-host"
         data-trace-display-color-widget="${key}"
@@ -432,6 +474,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     let colorKeys = (sectionControls.colors || []).filter(
       (key) => activeColors.has(key) && allowKey("colors", key),
     );
+    if (type === "trace" && isStereoTraceNode) {
+      colorKeys = colorKeys.filter((key) => !NODE_GRAPH_TRACE_STEREO_COLOR_ORDER.includes(key));
+    }
     const toggleKeys = (sectionControls.toggles || []).filter(
       (key) => activeToggles.has(key) && allowKey("toggles", key),
     );
@@ -605,6 +650,19 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       }
     }
     parts.push(`<div class="metadata-field-section node-trace-display-${section}-section">${rows.join("")}</div>`);
+  }
+
+  if (type === "trace" && isStereoTraceNode) {
+    const stereoColors = NODE_GRAPH_TRACE_STEREO_COLOR_ORDER.filter(
+      (key) => activeColors.has(key) && allowKey("colors", key),
+    );
+    if (stereoColors.length) {
+      parts.push(
+        `<div class="metadata-field-section node-trace-display-stereo-colors-section">${
+          stereoColors.map((key) => nodeGraphDisplaySettingsBuildColorRowHtml(key, type, { stereo: true })).join("")
+        }</div>`,
+      );
+    }
   }
 
   // Knob image layers + rotate flags live only in Display Settings.

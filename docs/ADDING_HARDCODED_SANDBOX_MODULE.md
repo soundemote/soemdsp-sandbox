@@ -108,7 +108,7 @@ Use the existing modules as the template: `osc`, `noise`, `gain`, and `bias`.
    type to the `passthroughTypes` Set in that function if you want a
    friendlier `"missing X input"` message instead of the generic one, or if
    your module needs the special multi-port handling `reverbEffect` gets
-   (`["Left", "In", "Right"]`).
+   (`["In", "Left", "Right"]`).
    Before this generic fallback existed, forgetting this step didn't error
    in an obvious way: the *offline/preview* evaluator (Render Sample, and
    everything in this whole guide's step 4) never runs this check, so a

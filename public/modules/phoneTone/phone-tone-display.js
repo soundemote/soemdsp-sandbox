@@ -67,8 +67,19 @@ function nodeGraphPhoneToneFaceHzPair(nodeId) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const offset = Number(node?.params?.freqOffset);
   const freqOffset = Number.isFinite(offset) ? offset : 0;
+  const pitchOff = Number(node?.params?.pitchOffset);
+  const pitchOffset = Number.isFinite(pitchOff) ? pitchOff : 0;
   const pair = nodeGraphPhoneTonePair(slot);
-  return [pair[0] + freqOffset, pair[1] + freqOffset];
+  if (typeof nodeGraphPhoneTonePitchedHz === "function") {
+    return [
+      nodeGraphPhoneTonePitchedHz(pair[0], pitchOffset, freqOffset, 1),
+      nodeGraphPhoneTonePitchedHz(pair[1], pitchOffset, freqOffset, 1),
+    ];
+  }
+  const ratio = typeof nodeGraphPhoneToneOctaveRatio === "function"
+    ? nodeGraphPhoneToneOctaveRatio(pitchOffset)
+    : 1;
+  return [pair[0] * ratio + freqOffset, pair[1] * ratio + freqOffset];
 }
 
 function createNodeGraphPhoneToneDisplay(nodeId, type = "phoneTone") {

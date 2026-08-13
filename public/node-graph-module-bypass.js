@@ -124,6 +124,8 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   sampleLooper: "silence",
   audioPlayer: "silence",
   audioInput: "silence",
+  kickEnvelope: "silence",
+  sineKick: "silence",
   electroKick: "silence",
   electroSnare: "silence",
   electroHat: "silence",

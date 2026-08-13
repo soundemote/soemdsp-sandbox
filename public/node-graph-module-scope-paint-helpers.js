@@ -495,8 +495,9 @@ const nodeGraphScope2dBurnRendererVersion = "energy-mono-lut-soft-beam-1";
 // nodeGraphScope2dBurnCanvasForSlot → node-graph-module-scope-draw-burn.js
 /**
  * Resolve face pixel density 0–4 to an effective scale.
- * Full range: 0 → single pixel (1×1), 1 → layout×dpr, 4 → supersample AA.
- * (No lo-fi floor — user wants the whole dial.)
+ * App-wide: 1.0 = layout×dpr (no downsample). 2.0 = 2× backing then bilinear
+ * present (cheap SSAA). Vector faces add diamond restroke blur separately.
+ * 0 → single pixel (1×1). (No lo-fi floor — user wants the whole dial.)
  */
 function nodeGraphScope2dResolvePixelDensity(pixelDensity, layoutWidth = 1, layoutHeight = 1) {
   const raw = Number(pixelDensity);
@@ -1153,8 +1154,8 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     const leftPoints = buildNodeGraphTraceDisplayCanvasPoints(leftBuffer, canvas, slot, views.left);
     const rightPoints = buildNodeGraphTraceDisplayCanvasPoints(rightBuffer, canvas, slot, views.right);
     // Form stores Left as dot1Color (also mirrored to color) and Right as secondaryColor.
-    const leftColor = settings.color || settings.dot1Color || "#ff3333";
-    const rightColor = settings.secondaryColor || "#3366ff";
+    const leftColor = settings.color || settings.dot1Color || "#ff0000";
+    const rightColor = settings.secondaryColor || "#0000ff";
     const leftBright = Number.isFinite(Number(settings.brightness))
       ? Number(settings.brightness)
       : (Number(settings.dot1Brightness) || 0.95);

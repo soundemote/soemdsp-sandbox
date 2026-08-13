@@ -1425,6 +1425,15 @@ function resetNodeUiDevControlsToDeclaredDefaults() {
   if (typeof syncNodeUiDevSliderFillColorControls === "function") {
     syncNodeUiDevSliderFillColorControls();
   }
+  if (typeof syncNodeUiDevOutletRgbBrightness === "function") {
+    syncNodeUiDevOutletRgbBrightness();
+  }
+  if (typeof syncNodeUiDevInletBlueBrightness === "function") {
+    syncNodeUiDevInletBlueBrightness();
+  }
+  if (typeof syncNodeUiDevGridDivisionMultiply === "function") {
+    syncNodeUiDevGridDivisionMultiply();
+  }
   if (typeof syncNodeUiDevSettingsHeaderControls === "function") {
     syncNodeUiDevSettingsHeaderControls();
   }

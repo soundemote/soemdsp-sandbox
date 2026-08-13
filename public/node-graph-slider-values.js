@@ -235,7 +235,12 @@ function nodeGraphResolveSmoothingSecondsForMode(mode, smoothingSamples, frames,
       return internalSeconds + safeGlobal;
     case "internal":
     default:
-      return internalSeconds;
+      if (internalSeconds > 0) {
+        return internalSeconds;
+      }
+      return typeof nodeGraphModuleSmoothingDefaultSeconds === "function"
+        ? nodeGraphModuleSmoothingDefaultSeconds()
+        : 0.0333;
   }
 }
 

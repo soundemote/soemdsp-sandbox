@@ -1130,8 +1130,10 @@ function renderNodeGraphKeyboardDebugToggle() {
 function hideNodeGraphDebugChrome() {
   if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
     nodeGraphMvp.keyboardDebugInfoVisible = false;
+    nodeGraphMvp.constraintGuideVisible = false;
   }
   document.body.classList.add("keyboard-debug-hidden");
+  document.body.classList.remove("constraint-guide-visible");
   document.body.classList.add("debug-collapsed");
   if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
     renderNodeGraphKeyboardDebugToggle();
@@ -3721,6 +3723,26 @@ function toggleNodeGraphModuleInterfaceControlsVisibility() {
     "interfaceControls",
     nodeGraphMvp.moduleInterfaceControlsVisible === false,
   );
+}
+
+function renderNodeGraphConstraintGuide() {
+  const visible = nodeGraphMvp?.constraintGuideVisible === true;
+  document.body.classList.toggle("constraint-guide-visible", visible);
+}
+
+/** D: CPU / RAM / GPU checkboxes only. Session-only. Does not open Evidence. */
+function toggleNodeGraphConstraintGuideVisibility() {
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.constraintGuideVisible = !(nodeGraphMvp.constraintGuideVisible === true);
+  }
+  renderNodeGraphConstraintGuide();
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      nodeGraphMvp?.constraintGuideVisible
+        ? "CPU / RAM / GPU filters."
+        : "CPU / RAM / GPU filters hidden.",
+    );
+  }
 }
 
 function toggleNodeGraphKeyboardDebugVisibility() {

@@ -171,11 +171,76 @@ function syncNodeUiDevDimmerCutoutControls() {
   }
 }
 
+function nodeGraphGridVisualScaleFromMultiply(multiply) {
+  const n = Math.round(Number(multiply));
+  const step = Number.isFinite(n) ? Math.max(1, Math.min(8, n)) : 1;
+  return 2 ** (step - 1);
+}
+
+function syncNodeUiDevGridDivisionMultiply() {
+  const input = document.getElementById("nodeUiDevGridDivisionMultiply");
+  const raw = Math.round(Number(input?.value));
+  const multiply = Number.isFinite(raw) ? Math.max(1, Math.min(8, raw)) : 1;
+  if (input) {
+    input.value = String(multiply);
+  }
+  const scale = nodeGraphGridVisualScaleFromMultiply(multiply);
+  const output = document.getElementById("nodeUiDevGridDivisionMultiplyValue");
+  if (output) {
+    output.textContent = `${scale}×`;
+  }
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  const css = String(scale);
+  workspace?.style.setProperty("--node-grid-visual-scale", css);
+  document.documentElement.style.setProperty("--node-grid-visual-scale", css);
+}
+
+function syncNodeUiDevOutletRgbBrightness() {
+  const input = document.getElementById("nodeUiDevOutletRgbBrightness");
+  const raw = Number(input?.value);
+  const brightness = Number.isFinite(raw)
+    ? Math.max(0, Math.min(1, raw))
+    : 0.75;
+  if (input) {
+    input.value = String(brightness);
+  }
+  const output = document.getElementById("nodeUiDevOutletRgbBrightnessValue");
+  if (output) {
+    output.textContent = brightness.toFixed(2);
+  }
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  const css = String(brightness);
+  workspace?.style.setProperty("--node-outlet-rgb-brightness", css);
+  document.documentElement.style.setProperty("--node-outlet-rgb-brightness", css);
+}
+
+function syncNodeUiDevInletBlueBrightness() {
+  const input = document.getElementById("nodeUiDevInletBlueBrightness");
+  const raw = Number(input?.value);
+  const brightness = Number.isFinite(raw)
+    ? Math.max(0, Math.min(1, raw))
+    : 0.75;
+  if (input) {
+    input.value = String(brightness);
+  }
+  const output = document.getElementById("nodeUiDevInletBlueBrightnessValue");
+  if (output) {
+    output.textContent = brightness.toFixed(2);
+  }
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  const css = String(brightness);
+  workspace?.style.setProperty("--node-inlet-blue-brightness", css);
+  document.documentElement.style.setProperty("--node-inlet-blue-brightness", css);
+}
+
 function syncNodeUiDevSettingsHeaderControls() {
   // Runs before the early-return guard below so the slider fill colors apply
   // even if some unrelated control is absent from the DOM.
   syncNodeUiDevSliderFillColorControls();
   syncNodeUiDevDimmerCutoutControls();
+  syncNodeUiDevOutletRgbBrightness();
+  syncNodeUiDevInletBlueBrightness();
+  syncNodeUiDevGridDivisionMultiply();
   const settingsView = document.getElementById("nodeSettingsView");
   const mouseLightEnabledInput = document.getElementById("nodeUiDevMouseLightEnabled");
   const showOriginMarkerInput = document.getElementById("nodeUiDevShowOriginMarker");

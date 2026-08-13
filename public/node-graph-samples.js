@@ -542,7 +542,7 @@ function nodeGraphSampleNodeHasSpeakerRoute(nodeId, patch = nodeGraphMvp.patch) 
   }
   const outputPorts = new Set(typeof nodeGraphOutputInputPorts !== "undefined"
     ? nodeGraphOutputInputPorts
-    : ["Left", "Mono", "Right"]);
+    : ["Mono", "Left", "Right"]);
   const downstream = new Map();
   for (const connection of patch.connections || []) {
     const sourceNode = String(connection?.sourceNode || "").trim();

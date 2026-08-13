@@ -182,6 +182,8 @@ var nodeGraphMvp = {
   moduleCatalogVisibility: defaultNodeGraphModuleCatalogVisibility(),
   workspaceWindowStates: {},
   keyboardDebugInfoVisible: false,
+  // D hotkey: CPU / RAM / GPU chips only (not the rest of debug chrome).
+  constraintGuideVisible: false,
   // Tips rendered in-flow next to the CPU/RAM/GPU guide rather than in the
   // floating tips window. WHERE the tips are, not whether they are shown -
   // that stays the Hide/Show Tooltips toggle in both modes.

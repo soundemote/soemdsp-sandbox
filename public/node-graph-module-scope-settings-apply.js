@@ -57,6 +57,15 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     return { channel };
   }
+  if (displayType === "roundShapeFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
+      ? normalizeNodeGraphRoundShapeFaceSettings(settings)
+      : (settings || {});
+    if (typeof applyNodeGraphRoundShapeDisplaySettingsToFace === "function") {
+      applyNodeGraphRoundShapeDisplaySettingsToFace(node);
+    }
+    return node.traceDisplaySettings;
+  }
   if (displayType === "keypadFace") {
     node.layout = typeof normalizeNodeGraphKeypadLayout === "function"
       ? normalizeNodeGraphKeypadLayout(settings)
@@ -446,7 +455,7 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
   if (settingsSchema === "lineBurn" || settingsSchema === "value" || settingsSchema === "trace"
     || settingsSchema === "scope2d" || settingsSchema === "scope2dTrace"
     || settingsSchema === "numberReadout" || settingsSchema === "knobFace"
-    || settingsSchema === "phosphorLight") {
+    || settingsSchema === "phosphorLight" || settingsSchema === "roundShapeFace") {
     return node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
       ? { ...node.traceDisplaySettings }
       : {};

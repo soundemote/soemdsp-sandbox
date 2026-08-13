@@ -360,7 +360,7 @@ function nodeGraphPortWireColor(node, port, io) {
   if (nodeGraphPortIsDigitalSignal(nodeGraphPatchNodeType(node), canonicalPort, io)) {
     return "#ffffff";
   }
-  // L/M/R and X/Y/Z outlet RGB is jack chrome only — never cable color.
+  // M/L/R and X/Y/Z outlet RGB is jack chrome only — never cable color.
   if (io === "input") {
     return nodeGraphCssColor("--node-input-fill", "#7fc7d9");
   }

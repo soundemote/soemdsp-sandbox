@@ -411,7 +411,7 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
     // Legacy checkbox: false meant instant snaps, not linear ramps.
     smoothingType = "none";
   }
-  return {
+  const defined = {
     choices: normalizeNodeGraphMetadataChoices(parameter.choices || []),
     control: String(parameter.control || "").trim() === "number" ? "number" : "",
     curveAmount: normalizeNodeSliderCurveAmount(parameter.curveAmount),
@@ -454,6 +454,51 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
     unit: parameter.unit ?? "",
     wraparound: Boolean(parameter.wraparound),
   };
+  if (nodeGraphParameterNeedsDefaultModuleSmoothing(defined, parameter)) {
+    nodeGraphApplyDefaultModuleSmoothing(defined);
+  }
+  return defined;
+}
+
+/**
+ * Continuous params with no time (or 0) get the shared 0.0333 s linear default.
+ * Discrete / off / already-timed params are left alone.
+ */
+function nodeGraphParameterNeedsDefaultModuleSmoothing(meta, source = {}) {
+  if (!meta || typeof meta !== "object") {
+    return false;
+  }
+  if (normalizeNodeGraphMetadataSmoothingMode(meta.smoothingMode) === "off") {
+    return false;
+  }
+  if (normalizeNodeGraphMetadataSmoothingType(meta.smoothingType) === "none") {
+    return false;
+  }
+  if (source.linearSmoothing === false || meta.linearSmoothing === false) {
+    return false;
+  }
+  if (Array.isArray(meta.choices) && meta.choices.length > 0) {
+    return false;
+  }
+  if (String(meta.kind || "") === "seed") {
+    return false;
+  }
+  const seconds = Number(meta.smoothingSeconds);
+  return !Number.isFinite(seconds) || seconds <= 0;
+}
+
+function nodeGraphApplyDefaultModuleSmoothing(meta) {
+  if (!meta || typeof meta !== "object") {
+    return meta;
+  }
+  const seconds = typeof nodeGraphModuleSmoothingDefaultSeconds === "function"
+    ? nodeGraphModuleSmoothingDefaultSeconds()
+    : 0.0333;
+  meta.smoothingType = "linear";
+  meta.linearSmoothing = true;
+  meta.smoothingMode = "internal";
+  meta.smoothingSeconds = seconds;
+  return meta;
 }
 
 function normalizeNodeMetadataKindTemplate(template = {}, kind = "decimal") {
@@ -631,6 +676,9 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       : fallback.wraparound,
   };
   normalized.linearSmoothing = nodeGraphMetadataLinearSmoothingFromType(normalized.smoothingType);
+  if (nodeGraphParameterNeedsDefaultModuleSmoothing(normalized, source)) {
+    nodeGraphApplyDefaultModuleSmoothing(normalized);
+  }
   // XY pad mouse/phase targets are instant UI only (audio path owns Papoulis).
   if (
     type === "xyPad"
@@ -652,7 +700,9 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
   return normalized;
 }
 
-const NODE_GRAPH_IO_VOLUME_SMOOTHING_SECONDS = 0.0333;
+const NODE_GRAPH_IO_VOLUME_SMOOTHING_SECONDS = typeof nodeGraphModuleSmoothingDefaultSeconds === "function"
+  ? nodeGraphModuleSmoothingDefaultSeconds()
+  : 0.0333;
 
 function nodeGraphIsHardcodedIoVolumeParam(type, key) {
   const t = String(type || "");

@@ -35,7 +35,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "buttonWidth",
     "buttonHeight",
   ],
-  colors: ["dot1Color", "secondaryColor", "backgroundColor", "ghostColor", "protectColor", "buttonColor", "hoverColor", "downColor", "textColor", "strokeColor"],
+  colors: ["dot1Color", "secondaryColor", "backgroundColor", "ghostColor", "protectColor", "buttonColor", "hoverColor", "downColor", "textColor", "strokeColor", "dotColor"],
   // Every control key that exists in the shared popover MUST be listed here.
   // setNodeGraphTraceDisplaySettingsFormType only show/hides keys from these
   // lists — anything missing leaks onto every module (e.g. Output saw
@@ -434,6 +434,12 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   portalFace: Object.freeze({
     fields: Object.freeze(["channel"]),
     colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  roundShapeFace: Object.freeze({
+    fields: Object.freeze(["lineThickness", "lineBlur", "pixelDensity"]),
+    colors: Object.freeze(["backgroundColor", "strokeColor", "dotColor"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
@@ -847,6 +853,13 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title:
       "Edge soft 0…1 (beam smoothstep). Phosphor stamps: soft radius. 0D Value: line + cap edge AA (draw floors ~0.12 so thin strokes stay anti-aliased).",
   }),
+  lineBlur: Object.freeze({
+    label: "Line blur",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayLineBlur",
+    title:
+      "Vector restroke blur in CSS pixels (0 = hard). Diamond tent kernel: the path is redrawn at center + 4 cardinal + 4 diagonal offsets. Cheap, no extra canvas.",
+  }),
   dot1Size: Object.freeze({
     label: "Size",
     inputmode: "decimal",
@@ -1057,6 +1070,12 @@ const nodeGraphDisplaySettingsColorMeta = Object.freeze({
     defaultValue: "#2d2d2d",
     id: "nodeTraceDisplayKeypadStrokeColor",
   }),
+  dotColor: Object.freeze({
+    label: "",
+    aria: "Cursor dot color",
+    defaultValue: "#ffffff",
+    id: "nodeTraceDisplayDotColor",
+  }),
 });
 
 const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
@@ -1231,6 +1250,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   hypersawBurn: "Hypersaw",
   knobFace: "Knob",
   keypadFace: "Keypad",
+  roundShapeFace: "RoundShape",
   textBoxFace: "Text Box",
   pluginSliderFace: "Slider",
   macroControlsFace: "Macro Controls",

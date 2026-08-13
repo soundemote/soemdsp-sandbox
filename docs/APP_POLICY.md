@@ -142,6 +142,23 @@ When feature-complete (or when explicitly chosen later): introduce migrations de
 
 ---
 
+## 13. Stereo jacks: M / L / R (not L / M / R)
+
+App-wide stack order and outlet color. Names keep their color; **Mono is always first**.
+
+| Order | Channel | Outlet RGB |
+| --- | --- | --- |
+| 1st | Mono (`M`, `In`/`Out` labeled Mono) | Green |
+| 2nd | Left (`L`) | Red |
+| 3rd | Right (`R`) | Blue |
+
+XYZ is the same RGB **by name** (X red, Y green, Z blue), not by slot.
+
+- Outlet chrome only. Inlets uncolored. Cables do **not** inherit RGB (gold analog / white digital).
+- Full write-up: [MODULE_LAYOUT_PLAN.md](./MODULE_LAYOUT_PLAN.md) §11.
+
+---
+
 ## Amendments
 
 Add new rules here when the same class of mistake happens twice. Keep this file short and enforceable.

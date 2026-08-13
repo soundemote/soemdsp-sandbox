@@ -3032,10 +3032,17 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
 /* Debug info hidden -- the keyboard's held-keys bitmask row (everywhere
    a keyboardController surface renders, dock and placed nodes both)
    and the CPU/RAM/GPU constraint guide, whose vertical space this
-   reclaims. Toggled from the Visibility menu's "Hide Debug" button. */
-body.keyboard-debug-hidden .node-midi-keyboard-bitmask-row,
-body.keyboard-debug-hidden .node-constraint-color-guide {
+   reclaims. Toggled from the Visibility menu's "Hide Debug" button.
+   D (constraint-guide-visible) brings the chips back without Evidence. */
+body.keyboard-debug-hidden .node-midi-keyboard-bitmask-row {
   display: none;
+}
+body.keyboard-debug-hidden:not(.constraint-guide-visible) .node-constraint-color-guide {
+  display: none;
+}
+body.keyboard-debug-hidden.constraint-guide-visible .node-constraint-metrics,
+body.keyboard-debug-hidden.constraint-guide-visible .node-scope-resource-debug {
+  display: none !important;
 }
 
 /* The signal bar itself stays visible -- Freq/Pitch/X/Y aren't just
@@ -5060,6 +5067,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-grid-height: 28px;
   --node-grid-size: 28px;
   --node-grid-width: 28px;
+  --node-grid-visual-scale: 1;
   --node-mouse-light-amount: 0.79;
   --node-mouse-light-color-rgb: 127 199 217;
   --node-mouse-light-spread: 0.05;
@@ -5173,7 +5181,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-input-stroke: #7fc7d9;
   --node-output-fill: #e2a86d;
   --node-output-stroke: #e2a86d;
-  /* Outlet channel strokes (hardcoded until theming). Mono / Left / Right. */
+  /* Outlet channel strokes (hardcoded until theming). Mono / Left / Right.
+     Brightness 0…1 is --node-outlet-rgb-brightness (UI Settings). */
+  --node-outlet-rgb-brightness: 0.75;
+  --node-inlet-blue-brightness: 0.75;
+  --node-inlet-blue-stroke: #7fc7d9;
   --node-outlet-mono-stroke: #3ddc84;
   --node-outlet-left-stroke: #f25d5d;
   --node-outlet-right-stroke: #4d8dff;
@@ -9997,8 +10009,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     linear-gradient(90deg, rgb(var(--node-grid-color-rgb) / var(--node-min-grid-brightness-alpha)) 1px, transparent 1px);
   background-position: var(--node-graph-pan-x) var(--node-graph-pan-y);
   background-size:
-    calc(var(--node-grid-width) * var(--node-graph-zoom))
-    calc(var(--node-grid-height) * var(--node-graph-zoom));
+    calc(var(--node-grid-width) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 1))
+    calc(var(--node-grid-height) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 1));
 }
 
 .node-grid-heatmap {
@@ -10246,14 +10258,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
   --node-port-crescent-stroke: color-mix(in srgb, var(--accent) 80%, transparent);
   border-color: transparent;
-  cursor: crosshair;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-port.port-connection-selected,
 .node-param-port.port-connection-selected {
   filter: brightness(1.15);
   border-color: transparent !important;
-  cursor: crosshair;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-param-port.port-connection-selected {
@@ -14005,23 +14017,63 @@ input.node-header-title:focus {
   --node-input-stroke: #ffffff;
 }
 
-/* App-wide: L/X red, M/Y green, R/Z/A blue — outlets only. */
+/* App-wide: M green, L red, R blue — outlets only. Mix amount is UI Settings 0…1. */
 .node-port.output[data-outlet-channel="mono"],
 .node-io-row.output[data-outlet-channel="mono"] .node-port.output {
   --node-output-stroke: var(--node-outlet-mono-stroke);
-  --node-port-crescent-stroke: var(--node-outlet-mono-stroke);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-outlet-mono-stroke) calc(var(--node-outlet-rgb-brightness, 1) * 100%),
+    transparent
+  );
 }
 
 .node-port.output[data-outlet-channel="left"],
 .node-io-row.output[data-outlet-channel="left"] .node-port.output {
   --node-output-stroke: var(--node-outlet-left-stroke);
-  --node-port-crescent-stroke: var(--node-outlet-left-stroke);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-outlet-left-stroke) calc(var(--node-outlet-rgb-brightness, 1) * 100%),
+    transparent
+  );
 }
 
 .node-port.output[data-outlet-channel="right"],
 .node-io-row.output[data-outlet-channel="right"] .node-port.output {
   --node-output-stroke: var(--node-outlet-right-stroke);
-  --node-port-crescent-stroke: var(--node-outlet-right-stroke);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-outlet-right-stroke) calc(var(--node-outlet-rgb-brightness, 1) * 100%),
+    transparent
+  );
+}
+
+.node-port.output[data-outlet-channel]:hover,
+.dsp-node-io-section .node-port.output[data-outlet-channel]:not(.connected-port):hover {
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-output-stroke) calc(var(--node-outlet-rgb-brightness, 1) * 72%),
+    transparent
+  );
+}
+
+/* Analog inlet highlight — same cyan as the cable inlet end (#7fc7d9). */
+.node-port.input:not(.node-param-port),
+.node-io-row.input .node-port.input:not(.node-param-port) {
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-input-stroke, var(--node-inlet-blue-stroke)) calc(var(--node-inlet-blue-brightness, 0) * 100%),
+    color-mix(in srgb, var(--node-module-stroke) 16%, transparent)
+  );
+}
+
+.node-port.input:not(.node-param-port):hover,
+.dsp-node-io-section .node-port.input:not(.node-param-port):hover {
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-input-stroke, var(--node-inlet-blue-stroke)) calc(var(--node-inlet-blue-brightness, 0) * 72%),
+    color-mix(in srgb, var(--node-module-stroke) 16%, transparent)
+  );
 }
 
 .node-io-label {
@@ -14229,7 +14281,7 @@ input.node-header-title:focus {
   cursor: var(--node-default-cursor);
 }
 
-.dsp-node:not(.movement-locked) button:not(.node-drag-handle) {
+.dsp-node:not(.movement-locked) button:not(.node-drag-handle):not(.node-port):not(.node-param-port) {
   cursor: pointer;
 }
 
@@ -15895,6 +15947,18 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-settings-popover .node-trace-display-color-widget-row > span:first-child,
 .node-trace-display-settings-popover .node-trace-display-color-widget-row > input[type="hidden"] {
   display: none;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-row.has-color-caption {
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 4px;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-caption {
+  display: block;
+  font: 700 0.72rem/1 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--text) 72%, transparent);
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host {

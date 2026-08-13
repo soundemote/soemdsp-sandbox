@@ -255,6 +255,18 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "portalFace") {
     return { channel: 0 };
   }
+  if (type === "roundShapeFace") {
+    return typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
+      ? normalizeNodeGraphRoundShapeFaceSettings()
+      : {
+        backgroundColor: "#020609",
+        strokeColor: "rgba(120, 220, 200, 0.92)",
+        dotColor: "#ffffff",
+        lineThickness: 2,
+        lineBlur: 0,
+        pixelDensity: 1,
+      };
+  }
   if (type === "keypadFace") {
     return typeof normalizeNodeGraphKeypadLayout === "function"
       ? normalizeNodeGraphKeypadLayout()
@@ -421,6 +433,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
         : Math.max(0, Math.round(Number(settings?.channel) || 0)),
     };
   }
+  if (type === "roundShapeFace") {
+    return typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
+      ? normalizeNodeGraphRoundShapeFaceSettings(settings)
+      : (settings || {});
+  }
   if (type === "keypadFace") {
     return typeof normalizeNodeGraphKeypadLayout === "function"
       ? normalizeNodeGraphKeypadLayout(settings)
@@ -570,6 +587,13 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
     return typeof nodeGraphPortalDisplaySettingsForNode === "function"
       ? nodeGraphPortalDisplaySettingsForNode(node)
       : { channel: 0 };
+  }
+  if (settingsSchema === "roundShapeFace") {
+    return typeof nodeGraphRoundShapeFaceSettingsForNode === "function"
+      ? nodeGraphRoundShapeFaceSettingsForNode(node)
+      : (typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
+        ? normalizeNodeGraphRoundShapeFaceSettings(node?.traceDisplaySettings)
+        : (node?.traceDisplaySettings || {}));
   }
   if (settingsSchema === "keypadFace") {
     return typeof nodeGraphKeypadDisplaySettingsForNode === "function"

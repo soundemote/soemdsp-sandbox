@@ -426,6 +426,13 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "d") {
+    event.preventDefault();
+    if (typeof toggleNodeGraphConstraintGuideVisibility === "function") {
+      toggleNodeGraphConstraintGuideVisibility();
+    }
+    return;
+  }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "m") {
     event.preventDefault();
     if (typeof toggleNodeGraphModularWindowedView === "function") {

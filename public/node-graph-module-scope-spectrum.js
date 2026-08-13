@@ -223,6 +223,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["dot1Size", "Size"],
   ["puckSize", "Puck size"],
   ["lineThickness", "Blur"],
+  ["lineBlur", "Line blur"],
   ["dot1Brightness", "Bright"],
   ["secondarySize", "Secondary size"],
   ["secondaryLineThickness", "Secondary blur"],

@@ -105,6 +105,9 @@ function nodeSliderIncrementWholeDigits(whole) {
 
 function formatNodeSliderNumber(value, options = {}) {
   const number = Number(value);
+  if (options.kind === "decibels" && Number.isFinite(number) && number <= -139.5) {
+    return options.reserveSignSpace ? " −∞" : "−∞";
+  }
   const maxDigits = normalizeNodeGraphMetadataMaxDigits(options.maxDigits, options.kind);
   const text = Number.isFinite(number)
     ? limit_decimals(String(number), maxDigits, maxDigits, maxDigits, Boolean(options.removeTrailingZeros))

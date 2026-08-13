@@ -441,6 +441,15 @@ function spectrogramScrollPaintPixels(st, nPixels, lutRgb, minThresh, threshRang
     sctx.globalCompositeOperation = "source-over";
   }
 
+  // 0 brightness: scroll history, deposit nothing (black strip).
+  if (!(brightness > 0)) {
+    sctx.fillStyle = "#000000";
+    sctx.fillRect(Math.max(0, w - n), 0, Math.min(n, w), h);
+    st.pendingValid = false;
+    st.pendingMags.fill(0);
+    return;
+  }
+
   // Paint n identical right columns (large hop covering many pixels).
   for (let p = 0; p < n; p += 1) {
     const x = w - n + p;
@@ -565,7 +574,8 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
 
   const node = nodeGraphPatchNode(nodeId);
   const settings = spectrogramSettingsForNode(node);
-  const brightness = Math.max(0, Math.min(1, Number(node?.params?.brightness) || 1));
+  const brightnessRaw = Number(node?.params?.brightness);
+  const brightness = Math.max(0, Math.min(1, Number.isFinite(brightnessRaw) ? brightnessRaw : 0.2));
   const minThresh = Math.max(0, Number(node?.params?.minThreshold) || 0);
   const maxThresh = Math.max(minThresh + 0.001, Number(node?.params?.maxThreshold) || 1);
   const threshRange = maxThresh - minThresh;

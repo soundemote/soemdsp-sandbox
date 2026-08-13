@@ -70,4 +70,22 @@ var ungated = nodeGraphPhoneToneSample(state, {
 });
 assert(Number.isFinite(ungated.Out) && ungated.Out !== 0, "gate open sounds");
 assert(Number.isFinite(ungated.X) && ungated.X !== 0 && Number.isFinite(ungated.Z) && ungated.Z !== 0, "gate open X/Z");
+
+assert(nodeGraphPhoneToneOctaveRatio(0) === 1, "0 oct = 1x");
+assert(Math.abs(nodeGraphPhoneToneOctaveRatio(1) - 2) < 1e-12, "+1 oct = 2x");
+assert(Math.abs(nodeGraphPhoneToneOctaveRatio(-1) - 0.5) < 1e-12, "-1 oct = 0.5x");
+assert(Math.abs(nodeGraphPhoneTonePitchedHz(697, 1, 0, 1) - 1394) < 1e-9, "pitch offset doubles f1");
+assert(Math.abs(nodeGraphPhoneTonePitchedHz(1209, 1, 10, 1) - 2428) < 1e-9, "pitch then freq offset");
+assert(Math.abs(nodeGraphPhoneTonePitchCvRatio(false, 0.9, 0.4) - 1) < 1e-12, "unconnected 0.1V is 1x");
+assert(Math.abs(nodeGraphPhoneTonePitchCvRatio(true, 0.5, 0.4) - 2) < 1e-12, "0.1V +0.1 from ref = +1 oct");
+
+var octaved = nodeGraphPhoneToneSample(state, {
+  amplitude: 1,
+  analog: 1 / 12,
+  hasAnalog: true,
+  pitchOffset: 1,
+  sampleRate: 48000,
+});
+assert(Math.abs(octaved.Df1 - 1394) < 1e-9 && Math.abs(octaved.Df2 - 2418) < 1e-9, "sample +1 oct reports");
+
 console.log("ok phone tone");

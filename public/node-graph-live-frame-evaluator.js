@@ -168,6 +168,13 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
       const liveModuleEvaluator = node?.type ? nodeGraphLiveModuleEvaluators[node.type] : null;
       if (liveModuleEvaluator) {
         value = liveModuleEvaluator({ runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate, graphInputValue, graphOutputValue });
+        if (typeof nodeGraphApplyPostAmplitude === "function") {
+          value = nodeGraphApplyPostAmplitude(
+            node.type,
+            value,
+            readNodeGraphLiveEffectiveParam(runtime, node, "amplitude", 1, frame, frames, frameValues),
+          );
+        }
       }
     }
 

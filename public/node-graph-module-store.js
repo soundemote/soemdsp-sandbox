@@ -1082,6 +1082,36 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "mono",
     ],
   },
+  kickEnvelope: {
+    category: "drum",
+    description: "One-shot analog envelope: T trigger, A 0–1. Low/High range, Sharpness sine→square, Linear/Exponential curve.",
+    label: "Kick Envelope",
+    notes: [
+      "drum",
+      "kick",
+      "envelope",
+      "trigger",
+      "sharpness",
+      "sine",
+      "square",
+      "percussion",
+    ],
+  },
+  sineKick: {
+    category: "drum",
+    description: "Analog sine kick: T fires a decaying sine. Pitch, Punch, Decay, Sharpness (sine→square). Out is audio; A is the envelope.",
+    label: "Sine Kick",
+    notes: [
+      "drum",
+      "kick",
+      "sine",
+      "thump",
+      "trigger",
+      "punch",
+      "sharpness",
+      "percussion",
+    ],
+  },
   sinepulse: {
     category: "drum",
     description: "Sine zap/chirp drum—electro kicks, risers, and swept sine hits.",
@@ -1756,9 +1786,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   phoneTone: {
     category: "object",
-    description: "DTMF phone tones from Analog 0–1 and/or Digital slot (same 12-key map as Keypad). Gate opens the tone. X = low sine, Z = high sine, M = sum. Polyphonic when both ins are used.",
+    description: "DTMF phone tones from Analog 0–1 and/or Digital slot (same 12-key map as Keypad). Gate opens the tone. Pitch Offset + 0.1V/Oct transpose both tones. X = low sine, Z = high sine, M = sum.",
     label: "Phone Tone",
-    notes: ["dtmf", "phone", "tone", "keypad", "robin", "object"],
+    notes: ["dtmf", "phone", "tone", "keypad", "robin", "object", "pitch", "0.1v"],
   },
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
   // their own catalog entry instead of it being hardcoded here -- see
@@ -2476,6 +2506,14 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   sineWavetable: {
     source: "public/node-graph-oscillator-runtime.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/node-graph-oscillator-runtime.js",
+  },
+  kickEnvelope: {
+    source: "public/modules/kickEnvelope/kick-envelope-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/kickEnvelope/kick-envelope-math.js",
+  },
+  sineKick: {
+    source: "public/modules/sineKick/sine-kick-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sineKick/sine-kick-math.js",
   },
   sinepulse: {
     source: "public/modules/sinepulse/sinepulse-math.js",
