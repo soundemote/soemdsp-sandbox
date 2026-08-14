@@ -2591,6 +2591,18 @@ body.macro-knob-hitbox-outline .node-macro-knob i {
 }
 
 /* Title sits above the dial widget (not over the circle). */
+.node-macro-controls-panel.macro-labels-hidden .node-macro-knob-label,
+.node-macro-controls-panel.macro-labels-hidden .node-macro-knob > span:not(.node-macro-knob-dial):not(.node-macro-knob-edit-input),
+[data-macro-controls-display].macro-labels-hidden .node-macro-knob-label {
+  display: none;
+}
+
+.node-macro-controls-panel.macro-values-hidden .node-macro-knob-value,
+.node-macro-controls-panel.macro-values-hidden .node-macro-knob-dial > strong,
+[data-macro-controls-display].macro-values-hidden .node-macro-knob-value {
+  display: none;
+}
+
 .node-macro-knob-label,
 .node-macro-knob > span:not(.node-macro-knob-dial):not(.node-macro-knob-edit-input) {
   position: relative;

@@ -61,14 +61,15 @@ async function initNodeGraphMvp() {
   bindNodeGraphKeyboardControllerModuleEvents();
   bindNodeGraphMetadataPopoverEvents();
   renderNodeGraphMacroControls();
-  applyNodeGraphMacroKnobArcThickness();
-  applyNodeGraphMacroKnobArcGapBrightness();
-  applyNodeGraphMacroKnobSizeScale();
-  applyNodeGraphMacroKnobHitboxOutlineVisible();
-  applyNodeGraphMacroKnobLabelPosition();
-  applyNodeGraphMacroKnobValuePosition();
   if (typeof applyNodeGraphMacroControlsFaceSettings === "function") {
     applyNodeGraphMacroControlsFaceSettings();
+  } else {
+    applyNodeGraphMacroKnobArcThickness();
+    applyNodeGraphMacroKnobArcGapBrightness();
+    applyNodeGraphMacroKnobSizeScale();
+    applyNodeGraphMacroKnobHitboxOutlineVisible();
+    applyNodeGraphMacroKnobLabelPosition();
+    applyNodeGraphMacroKnobValuePosition();
   }
   if (typeof bindNodeGraphMacroControlsDisplayContextMenu === "function") {
     bindNodeGraphMacroControlsDisplayContextMenu();

@@ -346,9 +346,8 @@ function createNodeUserUiSettingsSection(title, controls) {
 
 // Everything in this panel is whatever UI Dev controls have their "Expose in
 // UI settings" checkbox checked, grouped by the same sections UI Dev itself
-// uses (see nodeUiDevSettingSections). Knob style used to be pinned here
-// always-on; it now lives in UI Dev with the rest of the builder-level knobs
-// (see renderNodeUiDevHelperViewControls) and is no longer user-exposed.
+// uses (see nodeUiDevSettingSections). Macro knob look lives on the Macro
+// Controls display-settings face (not UI Dev / user settings).
 function renderNodeUserUiSettingsControls() {
   const container = document.getElementById("nodeUserUiSettingsControls");
   if (!container) {
@@ -398,17 +397,6 @@ function renderNodeUiDevHelperViewControls() {
     maybe(createNodeUserUiSettingsKeyboardDebugControl),
   ].filter(Boolean);
   helperBody.append(...viewRows);
-  const knobSection = createNodeUserUiSettingsSection("knobs", [
-    maybe(createNodeUserUiSettingsMacroKnobArcThicknessControl),
-    maybe(createNodeUserUiSettingsMacroKnobArcGapBrightnessControl),
-    maybe(createNodeUserUiSettingsMacroKnobSizeControl),
-    maybe(createNodeUserUiSettingsMacroKnobHitboxOutlineControl),
-    maybe(createNodeUserUiSettingsMacroKnobLabelPositionControl),
-    maybe(createNodeUserUiSettingsMacroKnobValuePositionControl),
-  ]);
-  if (knobSection) {
-    helperBody.append(knobSection);
-  }
   helperBody.dataset.viewControlsMounted = "true";
 }
 
@@ -520,60 +508,6 @@ function syncNodeUserUiSettingsViewControls() {
       continue;
     }
     input.value = String(normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60));
-  }
-  for (const input of document.querySelectorAll("[data-node-ui-view-setting='macroKnobArcThickness']")) {
-    if (document.activeElement === input) {
-      continue;
-    }
-    input.value = String(Math.round(nodeGraphMacroKnobArcThicknessPxToPercent(nodeGraphMvp.macroKnobArcThickness ?? 7)));
-  }
-  for (const input of document.querySelectorAll("[data-node-ui-view-setting-value='macroKnobArcThickness']")) {
-    if (document.activeElement === input) {
-      continue;
-    }
-    input.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7).toFixed(1);
-  }
-  for (const input of document.querySelectorAll("[data-node-ui-view-setting='macroKnobArcGapBrightness']")) {
-    if (document.activeElement === input) {
-      continue;
-    }
-    input.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness ?? 0));
-  }
-  for (const input of document.querySelectorAll("[data-node-ui-view-setting-value='macroKnobArcGapBrightness']")) {
-    if (document.activeElement === input) {
-      continue;
-    }
-    input.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness ?? 0));
-  }
-  for (const input of document.querySelectorAll("[data-node-ui-view-setting='macroKnobSizeScale']")) {
-    if (document.activeElement === input) {
-      continue;
-    }
-    input.value = String(Math.round(normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale ?? 1) * 100));
-  }
-  for (const input of document.querySelectorAll("[data-node-ui-view-setting-value='macroKnobSizeScale']")) {
-    if (document.activeElement === input) {
-      continue;
-    }
-    input.value = String(Math.round(normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale ?? 1) * 100));
-  }
-  for (const input of document.querySelectorAll("[data-node-ui-view-setting='macroKnobHitboxOutlineVisible']")) {
-    if (document.activeElement === input) {
-      continue;
-    }
-    input.checked = Boolean(nodeGraphMvp.macroKnobHitboxOutlineVisible);
-  }
-  for (const select of document.querySelectorAll("[data-node-ui-view-setting='macroKnobLabelPosition']")) {
-    if (document.activeElement === select) {
-      continue;
-    }
-    select.value = normalizeNodeGraphMacroKnobLabelPosition(nodeGraphMvp.macroKnobLabelPosition);
-  }
-  for (const select of document.querySelectorAll("[data-node-ui-view-setting='macroKnobValuePosition']")) {
-    if (document.activeElement === select) {
-      continue;
-    }
-    select.value = normalizeNodeGraphMacroKnobValuePosition(nodeGraphMvp.macroKnobValuePosition);
   }
   for (const button of document.querySelectorAll("[data-node-ui-view-setting='sliderLayout']")) {
     const label = nodeGraphSliderLayoutLabel(nodeGraphMvp.sliderLayout);

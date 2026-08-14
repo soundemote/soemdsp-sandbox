@@ -1826,6 +1826,13 @@ function applyNodeGraphMacroKnobArcThickness() {
 }
 
 function setNodeGraphMacroKnobArcThickness(value) {
+  if (typeof setNodeGraphMacroControlsFaceSettings === "function") {
+    setNodeGraphMacroControlsFaceSettings({
+      ...nodeGraphMacroControlsFaceSettings(),
+      arcThickness: value,
+    });
+    return;
+  }
   nodeGraphMvp.macroKnobArcThickness = normalizeNodeGraphMacroKnobArcThickness(value);
   applyNodeGraphMacroKnobArcThickness();
 }
@@ -1849,6 +1856,13 @@ function applyNodeGraphMacroKnobArcGapBrightness() {
 }
 
 function setNodeGraphMacroKnobArcGapBrightness(value) {
+  if (typeof setNodeGraphMacroControlsFaceSettings === "function") {
+    setNodeGraphMacroControlsFaceSettings({
+      ...nodeGraphMacroControlsFaceSettings(),
+      arcGapBrightness: value,
+    });
+    return;
+  }
   nodeGraphMvp.macroKnobArcGapBrightness = normalizeNodeGraphMacroKnobArcGapBrightness(value);
   applyNodeGraphMacroKnobArcGapBrightness();
 }
@@ -1876,6 +1890,13 @@ function applyNodeGraphMacroKnobSizeScale() {
 }
 
 function setNodeGraphMacroKnobSizeScale(value) {
+  if (typeof setNodeGraphMacroControlsFaceSettings === "function") {
+    setNodeGraphMacroControlsFaceSettings({
+      ...nodeGraphMacroControlsFaceSettings(),
+      sizeScale: value,
+    });
+    return;
+  }
   nodeGraphMvp.macroKnobSizeScale = normalizeNodeGraphMacroKnobSizeScale(value);
   applyNodeGraphMacroKnobSizeScale();
 }
@@ -1894,6 +1915,13 @@ function applyNodeGraphMacroKnobHitboxOutlineVisible() {
 }
 
 function setNodeGraphMacroKnobHitboxOutlineVisible(visible) {
+  if (typeof setNodeGraphMacroControlsFaceSettings === "function") {
+    setNodeGraphMacroControlsFaceSettings({
+      ...nodeGraphMacroControlsFaceSettings(),
+      hitboxOutline: Boolean(visible),
+    });
+    return;
+  }
   nodeGraphMvp.macroKnobHitboxOutlineVisible = Boolean(visible);
   applyNodeGraphMacroKnobHitboxOutlineVisible();
 }
@@ -1921,6 +1949,13 @@ function applyNodeGraphMacroKnobLabelPosition() {
 }
 
 function setNodeGraphMacroKnobLabelPosition(value) {
+  if (typeof setNodeGraphMacroControlsFaceSettings === "function") {
+    setNodeGraphMacroControlsFaceSettings({
+      ...nodeGraphMacroControlsFaceSettings(),
+      labelPosition: value,
+    });
+    return;
+  }
   nodeGraphMvp.macroKnobLabelPosition = normalizeNodeGraphMacroKnobLabelPosition(value);
   applyNodeGraphMacroKnobLabelPosition();
 }
@@ -1936,6 +1971,13 @@ function applyNodeGraphMacroKnobValuePosition() {
 }
 
 function setNodeGraphMacroKnobValuePosition(value) {
+  if (typeof setNodeGraphMacroControlsFaceSettings === "function") {
+    setNodeGraphMacroControlsFaceSettings({
+      ...nodeGraphMacroControlsFaceSettings(),
+      valuePosition: value,
+    });
+    return;
+  }
   nodeGraphMvp.macroKnobValuePosition = normalizeNodeGraphMacroKnobValuePosition(value);
   applyNodeGraphMacroKnobValuePosition();
 }

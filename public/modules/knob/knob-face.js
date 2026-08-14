@@ -1,7 +1,7 @@
 // Knob face = shared macro-knob dial renderer (arc + label + value).
 // Colors / readout options live in per-node Display Settings (not the global
-// Macro Controls bank, and not UI Dev macro thickness — those stay global look
-// tools for the 8-knob bank). Drag still drives Bias via the offset slider.
+// Macro Controls bank). Bank look (thickness, span, size) is the Macro
+// Controls display-settings face. Drag still drives Bias via the offset slider.
 //
 // Legacy image-layer APIs remain for old Module Settings / patches; the live
 // face no longer paints stacked images.

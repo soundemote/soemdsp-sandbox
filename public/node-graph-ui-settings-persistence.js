@@ -727,29 +727,35 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const moduleScopeDiscontinuitySkipSamples = normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
     view.moduleScopeDiscontinuitySkipSamples ?? nodeGraphMvp.moduleScopeDiscontinuitySkipSamples ?? 1,
   );
-  const macroKnobArcThickness = normalizeNodeGraphMacroKnobArcThickness(
-    view.macroKnobArcThickness ?? nodeGraphMvp.macroKnobArcThickness ?? 7,
-  );
-  const macroKnobArcGapBrightness = normalizeNodeGraphMacroKnobArcGapBrightness(
-    view.macroKnobArcGapBrightness ?? nodeGraphMvp.macroKnobArcGapBrightness ?? 0,
-  );
-  const macroKnobSizeScale = normalizeNodeGraphMacroKnobSizeScale(
-    view.macroKnobSizeScale ?? nodeGraphMvp.macroKnobSizeScale ?? 1,
-  );
-  const macroKnobHitboxOutlineVisible = Boolean(
-    view.macroKnobHitboxOutlineVisible ?? nodeGraphMvp.macroKnobHitboxOutlineVisible,
-  );
-  const macroKnobLabelPosition = normalizeNodeGraphMacroKnobLabelPosition(
-    view.macroKnobLabelPosition ?? nodeGraphMvp.macroKnobLabelPosition ?? "top",
-  );
-  const macroKnobValuePosition = normalizeNodeGraphMacroKnobValuePosition(
-    view.macroKnobValuePosition ?? nodeGraphMvp.macroKnobValuePosition ?? "mid",
-  );
+  const macroControlsFaceRaw = {
+    ...((view.macroControlsFace && typeof view.macroControlsFace === "object")
+      ? view.macroControlsFace
+      : (nodeGraphMvp.macroControlsFace && typeof nodeGraphMvp.macroControlsFace === "object"
+        ? nodeGraphMvp.macroControlsFace
+        : {})),
+  };
+  // Legacy UIDEV view keys fold into the face SSOT.
+  if (macroControlsFaceRaw.arcThickness == null) {
+    macroControlsFaceRaw.arcThickness = view.macroKnobArcThickness ?? nodeGraphMvp.macroKnobArcThickness;
+  }
+  if (macroControlsFaceRaw.arcGapBrightness == null) {
+    macroControlsFaceRaw.arcGapBrightness = view.macroKnobArcGapBrightness ?? nodeGraphMvp.macroKnobArcGapBrightness;
+  }
+  if (macroControlsFaceRaw.sizeScale == null) {
+    macroControlsFaceRaw.sizeScale = view.macroKnobSizeScale ?? nodeGraphMvp.macroKnobSizeScale;
+  }
+  if (macroControlsFaceRaw.hitboxOutline == null) {
+    macroControlsFaceRaw.hitboxOutline = view.macroKnobHitboxOutlineVisible ?? nodeGraphMvp.macroKnobHitboxOutlineVisible;
+  }
+  if (macroControlsFaceRaw.labelPosition == null) {
+    macroControlsFaceRaw.labelPosition = view.macroKnobLabelPosition ?? nodeGraphMvp.macroKnobLabelPosition;
+  }
+  if (macroControlsFaceRaw.valuePosition == null) {
+    macroControlsFaceRaw.valuePosition = view.macroKnobValuePosition ?? nodeGraphMvp.macroKnobValuePosition;
+  }
   const macroControlsFace = typeof normalizeNodeGraphMacroControlsFaceSettings === "function"
-    ? normalizeNodeGraphMacroControlsFaceSettings(
-      view.macroControlsFace ?? nodeGraphMvp.macroControlsFace,
-    )
-    : (view.macroControlsFace ?? nodeGraphMvp.macroControlsFace ?? null);
+    ? normalizeNodeGraphMacroControlsFaceSettings(macroControlsFaceRaw)
+    : macroControlsFaceRaw;
   const traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(
       typeof migrateNodeGraphLegacyDot2Settings === "function"
@@ -879,12 +885,6 @@ function normalizeNodeUiDevSettings(settings = {}) {
       moduleScopePointBudget,
       moduleScopeLineThickness,
       moduleScopeDiscontinuitySkipSamples,
-      macroKnobArcThickness,
-      macroKnobArcGapBrightness,
-      macroKnobSizeScale,
-      macroKnobHitboxOutlineVisible,
-      macroKnobLabelPosition,
-      macroKnobValuePosition,
       macroControlsFace,
       traceSettings,
       sliderLayout,
@@ -988,12 +988,6 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       moduleScopeDiscontinuitySkipSamples: normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
         nodeGraphMvp.moduleScopeDiscontinuitySkipSamples ?? 1,
       ),
-      macroKnobArcThickness: normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7),
-      macroKnobArcGapBrightness: normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness ?? 0),
-      macroKnobSizeScale: normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale ?? 1),
-      macroKnobHitboxOutlineVisible: Boolean(nodeGraphMvp.macroKnobHitboxOutlineVisible),
-      macroKnobLabelPosition: normalizeNodeGraphMacroKnobLabelPosition(nodeGraphMvp.macroKnobLabelPosition ?? "top"),
-      macroKnobValuePosition: normalizeNodeGraphMacroKnobValuePosition(nodeGraphMvp.macroKnobValuePosition ?? "mid"),
       macroControlsFace: typeof normalizeNodeGraphMacroControlsFaceSettings === "function"
         ? normalizeNodeGraphMacroControlsFaceSettings(nodeGraphMvp.macroControlsFace)
         : nodeGraphMvp.macroControlsFace,
@@ -1150,30 +1144,6 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.moduleScopeDiscontinuitySkipSamples = normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
     normalized.view.moduleScopeDiscontinuitySkipSamples,
   );
-  nodeGraphMvp.macroKnobArcThickness = normalizeNodeGraphMacroKnobArcThickness(normalized.view.macroKnobArcThickness);
-  if (typeof applyNodeGraphMacroKnobArcThickness === "function") {
-    applyNodeGraphMacroKnobArcThickness();
-  }
-  nodeGraphMvp.macroKnobArcGapBrightness = normalizeNodeGraphMacroKnobArcGapBrightness(normalized.view.macroKnobArcGapBrightness);
-  if (typeof applyNodeGraphMacroKnobArcGapBrightness === "function") {
-    applyNodeGraphMacroKnobArcGapBrightness();
-  }
-  nodeGraphMvp.macroKnobSizeScale = normalizeNodeGraphMacroKnobSizeScale(normalized.view.macroKnobSizeScale);
-  if (typeof applyNodeGraphMacroKnobSizeScale === "function") {
-    applyNodeGraphMacroKnobSizeScale();
-  }
-  nodeGraphMvp.macroKnobHitboxOutlineVisible = Boolean(normalized.view.macroKnobHitboxOutlineVisible);
-  if (typeof applyNodeGraphMacroKnobHitboxOutlineVisible === "function") {
-    applyNodeGraphMacroKnobHitboxOutlineVisible();
-  }
-  nodeGraphMvp.macroKnobLabelPosition = normalizeNodeGraphMacroKnobLabelPosition(normalized.view.macroKnobLabelPosition);
-  if (typeof applyNodeGraphMacroKnobLabelPosition === "function") {
-    applyNodeGraphMacroKnobLabelPosition();
-  }
-  nodeGraphMvp.macroKnobValuePosition = normalizeNodeGraphMacroKnobValuePosition(normalized.view.macroKnobValuePosition);
-  if (typeof applyNodeGraphMacroKnobValuePosition === "function") {
-    applyNodeGraphMacroKnobValuePosition();
-  }
   if (typeof normalizeNodeGraphMacroControlsFaceSettings === "function") {
     nodeGraphMvp.macroControlsFace = normalizeNodeGraphMacroControlsFaceSettings(normalized.view.macroControlsFace);
     if (typeof applyNodeGraphMacroControlsFaceSettings === "function") {

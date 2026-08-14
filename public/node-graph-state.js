@@ -68,7 +68,8 @@ var nodeGraphMvp = {
   // Cable strokes under modules by default; Visibility can raise them above.
   wiresAboveModules: false,
   macroControls: new Array(10).fill(0),
-  // Face appearance (bg / arc fill / track / names) — shared by module + dock.
+  // Face appearance + look (colors, names, thickness, span, size, positions).
+  // Live macroKnob* fields below are mirrors applied from this object.
   macroControlsFace: null,
   macroKnobArcThickness: 7,
   macroKnobArcGapBrightness: 0,
