@@ -1346,6 +1346,17 @@ function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = n
   });
 }
 
+function setNodeGraphKnobTextFromContext({ record = true } = {}) {
+  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
+  if (!sourceNode || sourceNode.type !== "knob") {
+    return;
+  }
+  const input = document.getElementById("nodeSceneKnobTextInput");
+  if (typeof nodeGraphKnobFaceWriteLabelText === "function") {
+    nodeGraphKnobFaceWriteLabelText(sourceNode.id, input?.value, { record });
+  }
+}
+
 function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
   if (!sourceNode) {
@@ -1381,10 +1392,6 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
       } else {
         headerTitle.textContent = display;
       }
-    }
-    // Knob face label tracks alias live.
-    if (sourceNode.type === "knob" && typeof renderNodeGraphKnobFace === "function") {
-      renderNodeGraphKnobFace(sourceNode.id);
     }
     return;
   }

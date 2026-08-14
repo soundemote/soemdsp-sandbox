@@ -960,6 +960,13 @@ function inferNodeGraphModuleBandId(child) {
   if (cls.contains("dsp-node-io-section")) {
     return "io";
   }
+  if (
+    cls.contains("node-module-scope-window")
+    || cls.contains("node-module-trace-display-window")
+    || cls.contains("node-module-square-scope-window")
+  ) {
+    return "face";
+  }
   if (cls.contains("dsp-node-body")) {
     return "params";
   }
@@ -1029,7 +1036,9 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
     }
   }
   for (const child of article.children) {
-    const id = inferNodeGraphModuleBandId(child);
+    const id = typeof nodeGraphModuleCanonicalBandId === "function"
+      ? nodeGraphModuleCanonicalBandId(inferNodeGraphModuleBandId(child))
+      : inferNodeGraphModuleBandId(child);
     if (id && child.dataset && !child.dataset.moduleBand) {
       child.dataset.moduleBand = id;
     }
@@ -1042,7 +1051,12 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
       }
       continue;
     }
-    const index = visible.findIndex((band) => band.id === id);
+    const index = visible.findIndex((band) => {
+      const bandId = typeof nodeGraphModuleCanonicalBandId === "function"
+        ? nodeGraphModuleCanonicalBandId(band.id)
+        : band.id;
+      return bandId === id;
+    });
     if (index >= 0) {
       child.style.gridRow = String(index + 1);
       child.hidden = false;

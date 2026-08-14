@@ -227,7 +227,7 @@ function createNodeGraphPluginSliderFace(node, type) {
 
   const label = document.createElement("label");
   label.className = "node-plugin-slider-face-control";
-  label.dataset.paramLabel = "→";
+  label.dataset.paramLabel = "";
 
   const input = document.createElement("input");
   input.type = "range";
@@ -243,8 +243,6 @@ function createNodeGraphPluginSliderFace(node, type) {
   input.dataset.kind = "decimal";
   input.dataset.nonlinearSlider = "false";
   input.dataset.showSign = "true";
-  // Display-only: do not write params from this input. Face drag / body row
-  // own the control path (same split as Knob face vs offset param).
   input.tabIndex = -1;
   input.setAttribute("aria-hidden", "true");
 
@@ -272,7 +270,6 @@ function createNodeGraphPluginSliderFace(node, type) {
   row.append(label);
   face.append(row);
 
-  // Full-face drag onto the real parameter slider (control path).
   if (typeof beginNodeSliderDrag === "function") {
     face.addEventListener("pointerdown", beginNodeSliderDrag);
     face.addEventListener("mousedown", beginNodeSliderDrag);
@@ -288,6 +285,10 @@ function createNodeGraphPluginSliderFace(node, type) {
   requestAnimationFrame(() => {
     if (typeof createNodeSliderReadout === "function") {
       createNodeSliderReadout(input);
+    }
+    const readout = face.querySelector(".node-slider-readout");
+    if (readout) {
+      readout.dataset.sliderTarget = `node-${node}-value`;
     }
     paintDisplay();
   });

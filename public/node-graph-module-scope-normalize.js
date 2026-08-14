@@ -1162,6 +1162,12 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
       0,
       0.95,
     ),
+    labelText: typeof nodeGraphKnobFaceNormalizeLabelText === "function"
+      ? nodeGraphKnobFaceNormalizeLabelText(source.labelText ?? source.knobText ?? source.text)
+      : String(source.labelText ?? source.knobText ?? source.text ?? defaults.labelText ?? "Knob")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 48),
   };
 }
 

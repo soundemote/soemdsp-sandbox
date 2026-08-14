@@ -108,37 +108,78 @@ function nodeGraphWireOptionalPatchFields(wireOrOptions = {}) {
   return fields;
 }
 
-function setSelectedNodeGraphWirePixel(enabled) {
+function nodeGraphPatchWireCollection(patch, kind) {
+  if (kind === "graph") {
+    return patch.graphConnections;
+  }
+  if (kind === "modulation") {
+    return patch.modulations;
+  }
+  return patch.connections;
+}
+
+function nodeGraphSelectedWireSnapshots(selection = nodeGraphMvp.selected) {
+  const entries = typeof nodeGraphSelectedWireEntries === "function"
+    ? nodeGraphSelectedWireEntries(selection)
+    : [];
+  const out = [];
+  for (const entry of entries) {
+    const kind = entry.kind || "signal";
+    const live = kind === "graph"
+      ? nodeGraphMvp.graphConnections
+      : kind === "modulation"
+        ? nodeGraphMvp.modulations
+        : nodeGraphMvp.connections;
+    const wire = live?.[entry.index];
+    if (!wire) {
+      continue;
+    }
+    out.push({ kind, index: entry.index, wire });
+  }
+  return out;
+}
+
+function applySelectedNodeGraphWires(mutateWire, status) {
   const selection = nodeGraphMvp.selected;
-  const selectedWire = nodeGraphWireFromSelection(selection);
-  if (!selectedWire) {
-    return false;
+  const entries = typeof nodeGraphSelectedWireEntries === "function"
+    ? nodeGraphSelectedWireEntries(selection)
+    : [];
+  if (!entries.length) {
+    return 0;
   }
-
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const collection = selectedWire.kind === "graph"
-    ? patch.graphConnections
-    : selectedWire.kind === "modulation"
-      ? patch.modulations
-      : patch.connections;
-  const wire = collection[selectedWire.index];
-  if (!wire) {
-    return false;
+  let changed = 0;
+  for (const entry of entries) {
+    const collection = nodeGraphPatchWireCollection(patch, entry.kind);
+    const wire = collection[entry.index];
+    if (!wire) {
+      continue;
+    }
+    if (mutateWire(wire, entry) !== false) {
+      changed += 1;
+    }
   }
-
-  const next = Boolean(enabled);
-  if (next) {
-    wire.pixelWire = true;
-  } else {
-    delete wire.pixelWire;
+  if (!changed) {
+    return 0;
   }
-  commitNodeGraphPatch(patch, {
-    status: next ? "wire set to pixel" : "wire set to vector",
-    wireEdit: true,
-  });
+  commitNodeGraphPatch(patch, { status, wireEdit: true });
   setNodeGraphSelection(selection);
-  configureNodeSceneContextMenu("wire");
-  return true;
+  if (typeof configureNodeSceneContextMenu === "function") {
+    configureNodeSceneContextMenu("wire");
+  }
+  return changed;
+}
+
+function setSelectedNodeGraphWirePixel(enabled) {
+  const next = Boolean(enabled);
+  const changed = applySelectedNodeGraphWires((wire) => {
+    if (next) {
+      wire.pixelWire = true;
+    } else {
+      delete wire.pixelWire;
+    }
+  }, next ? "wires set to pixel" : "wires set to vector");
+  return changed > 0;
 }
 
 function nodeGraphConnectionOptionsWithSelfTrace(sourceNode, destinationNode, options = {}) {
@@ -152,34 +193,143 @@ function nodeGraphConnectionOptionsWithSelfTrace(sourceNode, destinationNode, op
 }
 
 function setSelectedNodeGraphWireType(wireType) {
-  const selection = nodeGraphMvp.selected;
-  const selectedWire = nodeGraphWireFromSelection(selection);
-  if (!selectedWire) {
-    return false;
+  const nextType = normalizeNodeGraphWireType(wireType);
+  const changed = applySelectedNodeGraphWires((wire) => {
+    if (nextType === nodeGraphWireTypes.cable) {
+      delete wire.wireType;
+      delete wire.tracePoints;
+    } else {
+      wire.wireType = nextType;
+    }
+  }, `wires set to ${nextType}`);
+  return changed > 0;
+}
+
+function nodeGraphAttenuateInsertGridPoint(patch, sourceId, destinationId, slot) {
+  const source = patch.nodes.find((node) => node.id === sourceId);
+  const destination = patch.nodes.find((node) => node.id === destinationId);
+  const sgx = Number(source?.gx) || 0;
+  const sgy = Number(source?.gy) || 0;
+  const dgx = Number(destination?.gx) || 0;
+  const dgy = Number(destination?.gy) || 0;
+  return {
+    gx: Math.round((sgx + dgx) / 2),
+    gy: Math.round((sgy + dgy) / 2) + Number(slot || 0),
+  };
+}
+
+function nodeGraphAttenuateWireIdentity(kind, wire) {
+  if (!wire) {
+    return "";
+  }
+  if (kind === "modulation") {
+    return `m:${wire.sourceNode}|${wire.sourcePort}|${wire.destinationNode}|${wire.destinationParam}`;
+  }
+  return `s:${wire.sourceNode}|${wire.sourcePort}|${wire.destinationNode}|${wire.destinationPort}`;
+}
+
+function attenuateSelectedNodeGraphWires() {
+  const snapshots = nodeGraphSelectedWireSnapshots().filter((entry) => entry.kind !== "graph");
+  if (!snapshots.length) {
+    return 0;
   }
 
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const collection = selectedWire.kind === "graph"
-    ? patch.graphConnections
-    : selectedWire.kind === "modulation"
-      ? patch.modulations
-      : patch.connections;
-  const wire = collection[selectedWire.index];
-  if (!wire) {
-    return false;
-  }
+  const drop = new Set(snapshots.map((entry) => nodeGraphAttenuateWireIdentity(entry.kind, entry.wire)));
+  patch.connections = (patch.connections || []).filter(
+    (wire) => !drop.has(nodeGraphAttenuateWireIdentity("signal", wire)),
+  );
+  patch.modulations = (patch.modulations || []).filter(
+    (wire) => !drop.has(nodeGraphAttenuateWireIdentity("modulation", wire)),
+  );
 
-  const nextType = normalizeNodeGraphWireType(wireType);
-  if (nextType === nodeGraphWireTypes.cable) {
-    delete wire.wireType;
-    delete wire.tracePoints;
-  } else {
-    wire.wireType = nextType;
+  const counts = typeof nextNodeGraphTypeCounts === "function"
+    ? nextNodeGraphTypeCounts(patch.nodes)
+    : {};
+  const pairSlots = new Map();
+  const newIds = [];
+  for (const entry of snapshots) {
+    const wire = entry.wire;
+    if (!wire?.sourceNode || !wire?.destinationNode) {
+      continue;
+    }
+    if (!patch.nodes.some((node) => node.id === wire.sourceNode)
+      || !patch.nodes.some((node) => node.id === wire.destinationNode)) {
+      continue;
+    }
+    const pairKey = `${wire.sourceNode}->${wire.destinationNode}`;
+    const slot = pairSlots.get(pairKey) || 0;
+    pairSlots.set(pairKey, slot + 1);
+    counts.attenuverter = (counts.attenuverter || 0) + 1;
+    const id = `attenuverter-${counts.attenuverter}`;
+    const point = nodeGraphAttenuateInsertGridPoint(patch, wire.sourceNode, wire.destinationNode, slot);
+    patch.nodes.push(createNodeGraphPatchNode("attenuverter", {
+      id,
+      gx: point.gx,
+      gy: point.gy,
+      ui: {
+        buttonsHidden: true,
+        oscilloscopeHidden: true,
+        ioHidden: true,
+      },
+      params: {
+        amplitude: 0.5,
+        offset: 0,
+      },
+      paramMeta: {
+        amplitude: {
+          bipolar: false,
+          def: 0.5,
+          max: 1,
+          mid: 0.5,
+          min: 0,
+          nonlinearSlider: false,
+          showSign: false,
+          sliderCurve: "linear",
+        },
+        offset: { visible: false },
+      },
+    }));
+    newIds.push(id);
+    const extras = nodeGraphWireOptionalPatchFields(wire);
+    patch.connections.push({
+      sourceNode: wire.sourceNode,
+      sourcePort: wire.sourcePort,
+      destinationNode: id,
+      destinationPort: "In",
+      ...extras,
+    });
+    if (entry.kind === "modulation") {
+      patch.modulations.push({
+        sourceNode: id,
+        sourcePort: "Out",
+        destinationNode: wire.destinationNode,
+        destinationParam: wire.destinationParam,
+        ...extras,
+      });
+    } else {
+      patch.connections.push({
+        sourceNode: id,
+        sourcePort: "Out",
+        destinationNode: wire.destinationNode,
+        destinationPort: wire.destinationPort,
+        ...extras,
+      });
+    }
   }
-  commitNodeGraphPatch(patch, { status: `wire set to ${nextType}`, wireEdit: true });
-  setNodeGraphSelection(selection);
-  configureNodeSceneContextMenu("wire");
-  return true;
+  if (!newIds.length) {
+    return 0;
+  }
+  commitNodeGraphPatch(patch, {
+    status: newIds.length === 1 ? "attenuverter inserted" : `${newIds.length} attenuverters inserted`,
+  });
+  if (typeof setNodeGraphNodeSelection === "function") {
+    setNodeGraphNodeSelection(newIds);
+  }
+  if (typeof configureNodeSceneContextMenu === "function") {
+    configureNodeSceneContextMenu("module");
+  }
+  return newIds.length;
 }
 
 function disconnectNodeGraphConnection(index, kind = "signal") {

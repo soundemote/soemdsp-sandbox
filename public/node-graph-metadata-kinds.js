@@ -88,11 +88,13 @@ function syncNodeMetadataMidVisibility() {
   if (sensitivity) {
     sensitivity.hidden = typeof nodeSliderCurveUsesSensitivity === "function"
       ? !nodeSliderCurveUsesSensitivity(curveValue)
-      : (curveValue !== "edges" && curveValue !== "custom");
+      : (curveValue !== "edges" && curveValue !== "custom" && curveValue !== "bipolarRational");
   }
   if (hint) {
     // Custom = mid-style power from sens; edge = S-curve travel balance.
-    hint.textContent = curveValue === "edges"
+    hint.textContent = curveValue === "bipolarRational"
+      ? "0:linear, +1:fine around center, -1:fine at extremes"
+      : curveValue === "edges"
       ? "0:mild, +1:fine near ends, -1:fine near center"
       : "0:linear, +1:fine near min, -1:fine near max";
   }

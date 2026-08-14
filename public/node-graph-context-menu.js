@@ -1049,6 +1049,14 @@ function configureNodeSceneContextMenu(mode) {
   const wirePixelToggle = document.getElementById("nodeSceneWirePixelToggle");
   const aliasControl = document.getElementById("nodeSceneAliasControl");
   const aliasInput = document.getElementById("nodeSceneAliasInput");
+  const knobTextControl = document.getElementById("nodeSceneKnobTextControl");
+  const knobTextInput = document.getElementById("nodeSceneKnobTextInput");
+  if (knobTextControl) {
+    knobTextControl.hidden = true;
+  }
+  if (knobTextInput) {
+    knobTextInput.disabled = true;
+  }
   const addToGroupButton = document.getElementById("nodeSceneAddToGroup");
   const widthControls = document.getElementById("nodeSceneWidthControls");
   const widthDecrease = document.getElementById("nodeSceneWidthDecrease");
@@ -1154,6 +1162,10 @@ function configureNodeSceneContextMenu(mode) {
       ? nodeGraphLibEntryForType(targetNode.type)
       : null;
   const selectedWire = wireMode ? nodeGraphWireFromSelection(nodeGraphMvp.selected) : null;
+  const selectedWireEntries = wireMode && typeof nodeGraphSelectedWireEntries === "function"
+    ? nodeGraphSelectedWireEntries(nodeGraphMvp.selected)
+    : (selectedWire ? [{ kind: selectedWire.kind, index: selectedWire.index }] : []);
+  const canAttenuateWires = selectedWireEntries.some((entry) => entry.kind !== "graph");
   const hasModuleActionTarget = Boolean(targetNode) || multiModuleMode;
   const canDelete = wireMode
     ? Boolean(selectedWire)
@@ -1207,7 +1219,12 @@ function configureNodeSceneContextMenu(mode) {
     if (moduleMode) {
       setNodeModuleSettingsWindowHeader("");
     } else {
-      setNodeModuleActionsWindowHeader("WIRE ACTIONS", wireMode ? "selected wire" : "no wire selected");
+      setNodeModuleActionsWindowHeader(
+        "WIRE ACTIONS",
+        wireMode
+          ? (selectedWireEntries.length > 1 ? `${selectedWireEntries.length} selected wires` : "selected wire")
+          : "no wire selected",
+      );
     }
     menu.setAttribute("aria-label", moduleMode ? "Module settings" : "Wire actions");
   } else {
@@ -1418,8 +1435,22 @@ function configureNodeSceneContextMenu(mode) {
     }
     aliasInput.placeholder = targetNode && !multiModuleMode
       ? nodeGraphDefaultNodeTitle(targetNode.type, targetNode.id)
-      : "display alias";
+      : "module title";
     aliasInput.title = nodeGraphTooltipText("actions.moduleAlias");
+    const knobSelected = Boolean(targetNode && targetNode.type === "knob" && !multiModuleMode);
+    if (knobTextControl) {
+      knobTextControl.hidden = !knobSelected;
+    }
+    if (knobTextInput) {
+      knobTextInput.disabled = !knobSelected;
+      if (document.activeElement !== knobTextInput) {
+        knobTextInput.value = knobSelected && typeof nodeGraphKnobFaceLabelTextForNode === "function"
+          ? nodeGraphKnobFaceLabelTextForNode(targetNode)
+          : "";
+      }
+      knobTextInput.placeholder = "knob text";
+      knobTextInput.title = "Face name on the dial. Separate from the module title.";
+    }
     if (copyButton) {
       setNodeGraphSceneContextButtonLines(copyButton, "Copy", "Module");
       copyButton.hidden = multiModuleMode;
@@ -1955,9 +1986,11 @@ function configureNodeSceneContextMenu(mode) {
     const wireLabel = selectedModule.querySelector("span");
     if (wireLabel) {
       wireLabel.hidden = false;
-      wireLabel.textContent = selectedWire?.kind === "modulation"
-        ? "selected modulation"
-        : "selected wire";
+      wireLabel.textContent = selectedWireEntries.length > 1
+        ? "selected wires"
+        : selectedWire?.kind === "modulation"
+          ? "selected modulation"
+          : "selected wire";
     }
     selectedModule.querySelector("strong").textContent = nodeGraphWireSelectionLabel(nodeGraphMvp.selected);
     const selectedWireType = normalizeNodeGraphWireType(selectedWire?.wire?.wireType);
@@ -1977,6 +2010,12 @@ function configureNodeSceneContextMenu(mode) {
     }
     if (typeof syncNodeGraphWireCurveControl === "function") {
       syncNodeGraphWireCurveControl();
+    }
+    const attenuateButton = document.getElementById("nodeSceneWireAttenuate");
+    if (attenuateButton) {
+      attenuateButton.disabled = !canAttenuateWires;
+      attenuateButton.title = nodeGraphTooltipText("actions.wireAttenuate")
+        || "Insert a slim attenuverter on each selected signal or modulation wire.";
     }
     deleteButton.disabled = !canDelete;
     deleteButton.title = canDelete
@@ -2031,6 +2070,10 @@ function configureNodeSceneContextMenu(mode) {
     if (wirePixelToggle) {
       wirePixelToggle.disabled = true;
       wirePixelToggle.setAttribute("aria-pressed", "false");
+    }
+    const idleAttenuate = document.getElementById("nodeSceneWireAttenuate");
+    if (idleAttenuate) {
+      idleAttenuate.disabled = true;
     }
     copyButton.disabled = true;
     copyButton.title = nodeGraphTooltipText("actions.copyUnavailableModule");

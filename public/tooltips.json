@@ -245,10 +245,11 @@
     "deleteWire": "delete selected wire (Delete)",
     "deleteWireMissing": "delete unavailable: selected wire no longer exists",
     "wireType": {
-      "cable": "draw this selected wire with the current curvy cable style",
-      "trace": "draw this selected wire as a crisp up/down/left/right circuit trace"
+      "cable": "draw the selected wire(s) with the current curvy cable style",
+      "trace": "draw the selected wire(s) as a crisp up/down/left/right circuit trace"
     },
-    "wirePixel": "Pixel wire (manual). Marks this cable for a future raster beam renderer — off by default, never auto.",
+    "wirePixel": "Pixel wire (manual). Marks the selected wire(s) for a future raster beam renderer — off by default, never auto.",
+    "wireAttenuate": "insert a slim attenuverter on each selected signal or modulation wire (title + amplitude 0…1, I/O hidden)",
     "copyExecutionJson": "click to copy the full compiled execution JSON",
     "copyRuntimeSketch": "click to copy the caller-owned C++ runtime sketch",
     "widthDecrease": "decrease this module width by one grid unit",

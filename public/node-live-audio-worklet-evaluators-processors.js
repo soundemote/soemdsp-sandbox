@@ -1238,6 +1238,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           0,
           this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues),
         ),
+      attenuverter: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.attenuverterFrame(
+          mixInput(nodeId),
+          this.readEffectiveParameter(node, "amplitude", 0.5, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues),
+        ),
       softClipper: (node, nodeId, frame, frames, frameValues, mixInput) => {
         if (!this.softClipperStates) this.softClipperStates = new Map();
         const state = this.softClipperStates.get(nodeId) || this.createSoftClipperState();

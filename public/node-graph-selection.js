@@ -7,7 +7,7 @@ function setNodeGraphSelection(selection) {
   if (active instanceof HTMLElement) {
     if (typeof nodeGraphTextBoxIsTypingElement === "function" && nodeGraphTextBoxIsTypingElement(active)) {
       // Title / area editors stay put — window chrome is not a focus target.
-    } else if (active.id === "nodeSceneAliasInput") {
+    } else if (active.id === "nodeSceneAliasInput" || active.id === "nodeSceneKnobTextInput") {
       try {
         active.blur();
       } catch {
@@ -480,6 +480,12 @@ function nodeGraphWireFromSelection(selection = nodeGraphMvp.selected) {
 }
 
 function nodeGraphWireSelectionLabel(selection = nodeGraphMvp.selected) {
+  const entries = typeof nodeGraphSelectedWireEntries === "function"
+    ? nodeGraphSelectedWireEntries(selection)
+    : [];
+  if (entries.length > 1) {
+    return `${entries.length} wires`;
+  }
   const selectedWire = nodeGraphWireFromSelection(selection);
   if (!selectedWire) {
     return "none";

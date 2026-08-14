@@ -96,6 +96,7 @@ const nodeGraphNodeLabels = Object.freeze({
   // Legacy id for Mix
   gainBiasMix: "Mix",
   bias: "Bias",
+  attenuverter: "Attenuverter",
   softClipper: "Soft Clipper",
   clipperLimiter: "Clipper Limiter",
   airClipper: "AirClipper",
@@ -3465,6 +3466,45 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any"
+      },
+    ]
+  },
+  attenuverter: {
+    planRole: "processor",
+    inputAliases: { Mono: "In", Left: "In", Right: "In" },
+    inputs: ["In"],
+    outputAliases: { Mono: "Out", Left: "Out", Right: "Out" },
+    outputs: ["Out"],
+    defaultUi: {
+      buttonsHidden: true,
+      oscilloscopeHidden: true,
+    },
+    parameters: [
+      {
+        curveAmount: "0.55",
+        defaultValue: "0.5",
+        key: "amplitude",
+        label: "Amplitude",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: true,
+        showSign: true,
+        sliderCurve: "bipolarRational",
+        step: "any",
+        tooltip: "Scale and invert. 0 = mute, +1 = unity, −1 = invert. Bipolar rational is finer around 0.",
+      },
+      {
+        defaultValue: "0",
+        key: "offset",
+        label: "Offset",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        showSign: true,
+        step: "any",
+        tooltip: "DC offset after scale.",
       },
     ]
   },

@@ -2862,7 +2862,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-scope-io.js?v=visual-rate-meta-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-evaluators-sources.js?v=kick-split-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=trace-xyz-1",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=attenuverter-1",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=portal-io-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=soft-clipper-gain-1",
@@ -3062,6 +3062,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/gain/gain-worklet-evaluator.js?v=gain-db-1",
   "./public/modules/bias/bias-math.js?v=bias-io-1",
   "./public/modules/bias/bias-worklet-evaluator.js?v=bias-io-1",
+  "./public/modules/attenuverter/attenuverter-math.js?v=attenuverter-1",
+  "./public/modules/attenuverter/attenuverter-worklet-evaluator.js?v=attenuverter-1",
 
   "./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js?v=rotate-3d-to-2d-1",
   "./public/modules/rotate3dTo2d/rotate-3d-to-2d-worklet-evaluator.js?v=rotate-3d-to-2d-1",

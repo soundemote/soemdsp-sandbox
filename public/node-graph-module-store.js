@@ -737,6 +737,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Nudge a signal off center—steer bipolar CV into a new range.",
     notes: ["addition", "offset", "control lane shift"],
   },
+  attenuverter: {
+    category: "dynamics",
+    description: "Scale and invert a signal, then add offset. Amplitude −1…+1 (0 mute, +1 unity, −1 invert).",
+    label: "Attenuverter",
+    notes: ["attenuverter", "scale", "invert", "offset", "utility"],
+  },
   softClipper: {
     category: "dynamics",
     description: "Gentle saturation/limiting when peaks need taming without hard digital clip.",
@@ -2062,6 +2068,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   bias: {
     source: "public/modules/bias/bias-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/bias/bias-math.js",
+  },
+  attenuverter: {
+    source: "public/modules/attenuverter/attenuverter-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/attenuverter/attenuverter-math.js",
   },
   bitConverter: {
     source: "public/modules/bitConverter/bit-converter-math.js",

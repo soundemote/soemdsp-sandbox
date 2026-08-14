@@ -343,6 +343,8 @@ const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   // Title / value vs the dial: above | mid | below.
   labelPosition: "above",
   valuePosition: "mid",
+  // Face name — independent of module alias / header title.
+  labelText: "Knob",
   // Hole size 0…1 (0 = solid disk, ~0.7 default, 1 = thin outer ring).
   innerRadius: 0.7,
 });

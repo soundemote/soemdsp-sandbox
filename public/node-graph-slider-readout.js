@@ -471,7 +471,10 @@ function nodeSliderLabelText(slider) {
   }
   const label = slider?.closest?.("label");
   if (!label) {
-    return slider?.id || "";
+    return "";
+  }
+  if (Object.hasOwn(label.dataset, "paramLabel")) {
+    return String(label.dataset.paramLabel || "").trim();
   }
   for (const node of label.childNodes) {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -481,7 +484,7 @@ function nodeSliderLabelText(slider) {
       }
     }
   }
-  return slider?.id || "";
+  return "";
 }
 
 function nodeSliderDebugPath(slider) {

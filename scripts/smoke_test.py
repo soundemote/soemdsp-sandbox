@@ -129,14 +129,13 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/phoneTone/phone-tone-display.js",
     "./public/modules/numberGate/number-gate-math.js",
     "./public/modules/numberGate/number-gate-live-evaluator.js",
-    "./public/modules/numberGate/number-gate-worklet-evaluator.js",
     "./public/modules/vectorRgb/vector-rgb-display.js",
     "./public/modules/rasterRgb/raster-rgb-math.js",
     "./public/modules/rasterRgb/raster-rgb-display.js",
     "./public/modules/rasterRgb/raster-rgb-live-evaluator.js",
-    "./public/modules/rasterRgb/raster-rgb-worklet-evaluator.js",
     "./public/modules/gradientVectorscope/gradient-vectorscope-display.js",
-    "./public/modules/rgbDisplays/rgb-display-worklet-evaluator.js",
+    "./public/modules/portal/portal-inlet-register.js",
+    "./public/modules/portal/portal-outlet-register.js",
     "./public/modules/groupInput/group-input-register.js",
     "./public/modules/groupOutput/group-output-register.js",
     "./public/node-graph-module-definitions.js",
@@ -235,7 +234,9 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-module-scope-settings.js",
     "./public/node-graph-module-scope-lifecycle.js",
     "./public/node-graph-module-scope-canvas.js",
+    "./public/lib/trace/trace-history-draw.js",
     "./public/node-graph-module-scope-paint-helpers.js",
+    "./public/modules/traceXyz/trace-xyz-display.js",
     "./public/node-graph-module-scope-draw-orchestrator.js",
     "./public/modules/patch/patch-ui.js",
     "./public/modules/phosphorLight/phosphor-light-display.js",
@@ -391,6 +392,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-stdlib/node-graph-sinc-kernel.js",
     "./public/node-graph-live-frame-evaluator.js",
     "./public/modules/spectrogram/spectrogram-live-evaluator.js",
+    "./public/modules/_shared/output-amplitude.js",
     "./public/modules/_shared/display-thru-live-evaluators.js",
     "./public/modules/logisticMap/logistic-map-math.js",
     "./public/modules/logisticMap/logistic-map-live-evaluator.js",
@@ -504,6 +506,10 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/linearEnvelope/linear-envelope-live-evaluator.js",
     "./public/modules/pluckEnvelope/pluck-envelope-live-evaluator.js",
     "./public/modules/vactrolEnvelope/vactrol-envelope-live-evaluator.js",
+    "./public/modules/kickEnvelope/kick-envelope-math.js",
+    "./public/modules/kickEnvelope/kick-envelope-live-evaluator.js",
+    "./public/modules/sineKick/sine-kick-math.js",
+    "./public/modules/sineKick/sine-kick-live-evaluator.js",
     "./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-live-evaluator.js",
     "./public/modules/spiral/spiral-live-evaluator.js",
     "./public/modules/fractalSpiral/fractal-spiral-live-evaluator.js",
@@ -542,6 +548,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/midiOut/midi-out-live-evaluator.js",
     "./public/modules/midiNotePitch/midi-note-pitch-live-evaluator.js",
     "./public/modules/keyboardController/keyboard-controller-live-evaluator.js",
+    "./public/modules/keyboardController/keyboard-layout-settings.js",
     "./public/modules/buttonEvents/button-events-live-evaluator.js",
     "./public/modules/wireEvents/wire-events-live-evaluator.js",
     "./public/modules/shootingStarExplosion/shooting-star-explosion-live-evaluator.js",
@@ -562,6 +569,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/xyPad/xy-pad-live-evaluator.js",
     "./public/modules/bias/bias-math.js",
     "./public/modules/bias/bias-live-evaluator.js",
+    "./public/modules/attenuverter/attenuverter-math.js",
+    "./public/modules/attenuverter/attenuverter-live-evaluator.js",
     "./public/modules/softClipper/soft-clipper-math.js",
     "./public/modules/softClipper/soft-clipper-live-evaluator.js",
     "./public/modules/clipperLimiter/clipper-limiter-math.js",
@@ -595,6 +604,11 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/sineWavetable/sine-wavetable-live-evaluator.js",
     "./public/modules/ellipsoid/ellipsoid-live-evaluator.js",
     "./public/modules/ellipsoid/ellipsoid-display.js",
+    "./public/modules/ellipsoid/ellipsoid-settings.js",
+    "./public/modules/portal/portal-math.js",
+    "./public/modules/portal/portal-settings.js",
+    "./public/modules/portal/portal-ui.js",
+    "./public/modules/portal/portal-live-evaluator.js",
     "./public/modules/additiveOsc/additive-osc-live-evaluator.js",
     "./public/modules/graph/graph-live-evaluator.js",
     "./public/modules/polyBlep/poly-blep-live-evaluator.js",
@@ -1374,6 +1388,7 @@ def require_shell_contract(html: str) -> None:
             "./public/modules/matrixDisplay/matrix-display-ui.css",
             "./public/modules/patch/patch-ui.css",
             "./public/modules/pitchQuantizer/pitch-quantizer-ui.css",
+            "./public/modules/portal/portal-ui.css",
             "./public/modules/stepGrid/step-grid.css",
             "./public/modules/textStream/text-stream-ui.css",
             "/css2",
@@ -6653,6 +6668,7 @@ def require_node_graph_mvp_contract() -> None:
         '<option value="linear">off</option>',
         '<option value="skew">mid skew</option>',
         '<option value="edges">edge skew</option>',
+        '<option value="bipolarRational">bipolar rational</option>',
         'data-tooltip-key="parameterSettings.skew"',
         'data-tooltip-key="parameterSettings.skewSensitivity"',
         'data-tooltip-key="parameterSettings.tooltip"',
@@ -12699,6 +12715,15 @@ def require_node_graph_mvp_contract() -> None:
         "Transport should expose 0..1, -1..1, and Trigger outputs",
     )
     require("softClipper: {" in module_store_source, "Soft Clipper should be listed in the module browser type registry")
+    require('attenuverter: "Attenuverter"' in module_definitions_source, "Attenuverter label should be registered")
+    require("attenuverter: {" in module_store_source, "Attenuverter should be listed in the module browser type registry")
+    require(
+        'sliderCurve: "bipolarRational"' in module_definitions_source
+        and 'key: "amplitude"' in module_definitions_source
+        and "nodeGraphAttenuverterSample" in "\n".join(script_sources.values())
+        and 'nodeGraphLiveModuleEvaluators.attenuverter' in "\n".join(script_sources.values()),
+        "Attenuverter should be In/Out * amplitude + offset with bipolar rational amplitude",
+    )
     require(
         "for (const type of Object.keys(nodeGraphModuleDefinitions || {}))" in patch_runtime_source
         and "softClipper: counts.softClipper" not in patch_runtime_source,
@@ -14801,6 +14826,12 @@ def require_node_graph_mvp_contract() -> None:
         'data-wire-type="trace"' in index_source
         and 'data-wire-type="wire"' not in index_source,
         "wire actions should expose Trace but not unfinished Wire",
+    )
+    require(
+        'id="nodeSceneWireAttenuate"' in index_source
+        and "function attenuateSelectedNodeGraphWires" in wire_actions_source
+        and "function applySelectedNodeGraphWires" in wire_actions_source,
+        "wire actions should insert an attenuverter on every selected signal/mod wire",
     )
     require(
         'trace: "trace",' in wire_actions_source

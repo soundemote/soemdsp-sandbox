@@ -596,9 +596,67 @@ function nodeSliderEdgeCurvePower(slider) {
   return 1 + Math.abs(nodeSliderCurveAmount(slider)) * 7;
 }
 
+/**
+ * Rational map on 0…1. Same continuous form as nodeGraphGraphRationalCurveContinuous.
+ * c < 0 stays below p (compress toward 0); c > 0 stays above p.
+ */
+function nodeSliderRationalCurveContinuous(position, contour) {
+  const p = clampNodeSliderValue(Number(position) || 0, 0, 1);
+  const c = clampNodeSliderValue(Number(contour) || 0, -1, 1);
+  if (Math.abs(c) < 0.000001) {
+    return p;
+  }
+  const cSafe = clampNodeSliderValue(c, -0.999999, 0.999999);
+  return cSafe < 0
+    ? (p * (1 + cSafe)) / (1 + cSafe * p)
+    : p / (1 - cSafe + cSafe * p);
+}
+
+function nodeSliderRationalCurveContinuousInverse(value, contour) {
+  const y = clampNodeSliderValue(Number(value) || 0, 0, 1);
+  const c = clampNodeSliderValue(Number(contour) || 0, -1, 1);
+  if (Math.abs(c) < 0.000001) {
+    return y;
+  }
+  const cSafe = clampNodeSliderValue(c, -0.999999, 0.999999);
+  if (cSafe < 0) {
+    const denom = 1 + cSafe - y * cSafe;
+    return denom === 0 ? y : clampNodeSliderValue(y / denom, 0, 1);
+  }
+  const denom = 1 - y * cSafe;
+  return denom === 0 ? y : clampNodeSliderValue(y * (1 - cSafe) / denom, 0, 1);
+}
+
+/**
+ * Symmetric around travel 0.5. Sensitivity 0 = linear;
+ * +1 = finer at center; −1 = finer at extremes.
+ */
+function nodeSliderBipolarRationalValueFromTravel(travel, amount) {
+  const t = clampNodeSliderValue(Number(travel) || 0, 0, 1);
+  const signed = (t - 0.5) * 2;
+  if (signed === 0) {
+    return 0.5;
+  }
+  const mapped = nodeSliderRationalCurveContinuous(Math.abs(signed), -Number(amount) || 0);
+  return 0.5 + 0.5 * Math.sign(signed) * mapped;
+}
+
+function nodeSliderBipolarRationalTravelFromValue(value, amount) {
+  const v = clampNodeSliderValue(Number(value) || 0, 0, 1);
+  const signed = (v - 0.5) * 2;
+  if (signed === 0) {
+    return 0.5;
+  }
+  const mapped = nodeSliderRationalCurveContinuousInverse(Math.abs(signed), -Number(amount) || 0);
+  return 0.5 + 0.5 * Math.sign(signed) * mapped;
+}
+
 function nodeSliderCurveValueFromTravel(slider, travel) {
   const normalizedTravel = normalizeNodeSliderTravel(slider, travel);
   const curve = nodeSliderCurve(slider);
+  if (curve === "bipolarRational") {
+    return nodeSliderBipolarRationalValueFromTravel(normalizedTravel, nodeSliderCurveAmount(slider));
+  }
   if (curve === "edges") {
     const amount = nodeSliderCurveAmount(slider);
     const power = nodeSliderEdgeCurvePower(slider);
@@ -620,6 +678,9 @@ function nodeSliderCurveValueFromTravel(slider, travel) {
 function nodeSliderCurveTravelFromValue(slider, normalizedValue) {
   const value = clampNodeSliderValue(normalizedValue, 0, 1);
   const curve = nodeSliderCurve(slider);
+  if (curve === "bipolarRational") {
+    return nodeSliderBipolarRationalTravelFromValue(value, nodeSliderCurveAmount(slider));
+  }
   if (curve === "edges") {
     const amount = nodeSliderCurveAmount(slider);
     const power = nodeSliderEdgeCurvePower(slider);

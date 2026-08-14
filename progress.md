@@ -26,6 +26,10 @@ graphify update . --force   # no LLM; AST re-extract
 # → graphify-out/GRAPH_REPORT.md  (gitignored)
 ```
 
+### Parked (0.5.0 RGB)
+
+- [ ] **Slider buffered modulation** — destination slider paints the real `readEffectiveParameter` buffer (occupancy + caret). Plan: `docs/SLIDER_BUFFERED_MODULATION_PLAN.md`. Do not start unless asked.
+
 ### Where we are
 - **Track 1** Code Screen peel — **complete enough**: Box, Lookup, Registry, Workspace, Render (main shell ~1.8k events + script APIs)
 - Scopes / Display Settings peels done; event-binder god-nodes stay fat

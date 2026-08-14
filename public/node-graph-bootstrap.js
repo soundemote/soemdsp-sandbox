@@ -46,7 +46,13 @@ async function initNodeGraphMvp() {
   resetNodeGraphStartupView();
   recordNodeGraphHistory();
   markNodeGraphRenderPending();
-  applyNodeGraphZoom();
+  applyNodeGraphZoom({ immediate: true, persist: false });
+  if (typeof clearNodeGraphViewportGestureClass === "function") {
+    clearNodeGraphViewportGestureClass();
+  }
+  if (typeof renderNodeGraphWiringChromeToggle === "function") {
+    renderNodeGraphWiringChromeToggle();
+  }
   renderNodeGraphGridToggle();
   if (typeof renderNodeGraphGridLightToggle === "function") {
     renderNodeGraphGridLightToggle();

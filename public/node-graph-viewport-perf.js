@@ -51,7 +51,9 @@ function markNodeGraphViewportGesture(kind = "gesture") {
   }
   // Pan / drag-zoom: lights + wires stay frozen until pointerup (no settle timer
   // mid-drag). Wheel has no mouse-up, so only wheel schedules a settle.
-  if (kind === "wheel") {
+  // Kind "zoom" (programmatic / mis-tagged) must also settle — otherwise
+  // viewport-zooming sticks and jacks never come back.
+  if (kind === "wheel" || kind === "zoom") {
     nodeGraphViewportPerf.wheelActiveUntil = (performance.now?.() || Date.now())
       + nodeGraphViewportPerf.wheelHoldMs;
     scheduleNodeGraphViewportSettle();

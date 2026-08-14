@@ -734,8 +734,8 @@ function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
 /**
  * Modular chrome SSOT
  * ───────────────────
- *  💻 / V  — computer view: infinite canvas, no crop, no resize widget.
- *  📱 / V  — phone view: condensed frame + drag-resize widget.
+ *  💻      — computer view: infinite canvas (toolbar button, not a hotkey).
+ *  📱      — phone / condensed frame (toolbar button or touch, not a hotkey).
  *  H       — hide/show top + bottom app bars (appChromeBarsVisible).
  *
  * Laptop and phone are mutually exclusive canvas modes.

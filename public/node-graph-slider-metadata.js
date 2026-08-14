@@ -250,6 +250,14 @@ function normalizeNodeSliderCurve(value, nonlinearSlider = false) {
   if (curve === "custom" || curve === "sens" || curve === "sensitivity") {
     return "custom";
   }
+  if (
+    curve === "bipolarrational"
+    || curve === "bipolar-rational"
+    || curve === "bipolar_rational"
+    || curve === "bipolar"
+  ) {
+    return "bipolarRational";
+  }
   if (curve === "skew" || curve === "mid" || curve === "nonlinear" || curve === "exponential") {
     return "skew";
   }
@@ -259,7 +267,7 @@ function normalizeNodeSliderCurve(value, nonlinearSlider = false) {
 /** True when SKEW mode uses the SENSITIVITY (−1…+1) field. */
 function nodeSliderCurveUsesSensitivity(curve) {
   const c = normalizeNodeSliderCurve(curve, false);
-  return c === "custom" || c === "edges";
+  return c === "custom" || c === "edges" || c === "bipolarRational";
 }
 
 /** True when SKEW mode uses the MID domain field for the response knee. */
@@ -451,7 +459,9 @@ function formatNodeSliderMetadataTooltip(slider) {
   ];
   if (typeof nodeSliderCurveUsesSensitivity === "function"
     ? nodeSliderCurveUsesSensitivity(metadata.sliderCurve)
-    : (metadata.sliderCurve === "edges" || metadata.sliderCurve === "custom")) {
+    : (metadata.sliderCurve === "edges"
+      || metadata.sliderCurve === "custom"
+      || metadata.sliderCurve === "bipolarRational")) {
     rows.push(`sensitivity ${formatNodeSliderCompactNumber(metadata.curveAmount)}`);
   }
   if (typeof nodeSliderCurveUsesMid === "function"

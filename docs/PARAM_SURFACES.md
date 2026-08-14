@@ -34,7 +34,7 @@ Then `nodeGraphParamApplyMod(domainBase, modSum, metadata)`:
 
 2. **Everything else**  
    Map domain → unit [0, 1] (mid skew if `sliderCurve: "skew"`, custom sensitivity
-   skew if `"custom"`; edge S-curve is UI-drag only),  
+   skew if `"custom"`; edge S-curve and bipolar rational are UI-drag only),  
    add `modSum`, map back to domain; hard min/max only per policy above.
 
 **Behavior change vs older live path:** non-frequency mod was often treated as

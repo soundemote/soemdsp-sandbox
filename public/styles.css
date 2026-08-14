@@ -5575,17 +5575,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   cursor: var(--node-dot-cursor);
 }
 
-/* Hide wires + inlet/outlet jacks while zooming (wheel / pinch / smooth-zoom).
-   Restored when viewport-zooming is cleared on settle / pointer-up.
-   Visibility → Wires Inlets Outlets off uses the same paint skip. */
+/* Hide cable strokes while zooming (wheel / pinch / smooth-zoom).
+   Jacks stay painted — hiding .node-port here stuck them invisible when
+   settle never ran (load / persist / mis-tagged zoom). */
 .node-graph-workspace.viewport-zooming #nodeWireSvg,
 .node-graph-workspace.viewport-zooming #nodeWireEndpointSvg,
-.node-graph-workspace.viewport-zooming .node-port,
-.node-graph-workspace.viewport-zooming .node-param-port,
 .node-graph-workspace.wiring-chrome-hidden #nodeWireSvg,
-.node-graph-workspace.wiring-chrome-hidden #nodeWireEndpointSvg,
-.node-graph-workspace.wiring-chrome-hidden .node-port,
-.node-graph-workspace.wiring-chrome-hidden .node-param-port {
+.node-graph-workspace.wiring-chrome-hidden #nodeWireEndpointSvg {
   visibility: hidden !important;
   pointer-events: none !important;
 }
@@ -11281,6 +11277,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   line-height: 1.05;
   max-height: none;
   font-size: calc(0.28rem + var(--knob-label-size, 0.45) * 1.55rem);
+  pointer-events: auto;
+  cursor: text;
+  user-select: text;
 }
 
 /* Per-knob title/value placement — must beat body[data-macro-knob-*] on the same classes. */
@@ -12066,7 +12065,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-height: 0;
   height: 100%;
   max-height: 100%;
-  overflow: hidden;
+  overflow: visible;
   pointer-events: auto;
 }
 
@@ -12085,7 +12084,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   max-height: 100%;
   height: 100%;
   position: relative;
-  z-index: 4;
+  z-index: 8;
+  overflow: visible;
   pointer-events: none;
 }
 
@@ -12112,10 +12112,12 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell) > .node-io-column .node-io-row {
   box-sizing: border-box;
-  /* Share face height; do not force min 1gu per jack (that inflated shell past face). */
-  height: auto;
+  /* Fill the 1fr jack band. height:auto + absolute ports collapsed the row
+     to 0px so max-height:100% on the crescent painted nothing. */
+  height: 100%;
   min-height: 0;
   max-height: none;
+  align-self: stretch;
   overflow: hidden;
   pointer-events: auto;
   border-bottom: 1px solid rgba(127, 199, 217, 0.1);
@@ -12153,7 +12155,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   position: relative;
   width: 100%;
   padding: 0 !important;
-  /* min-height 0 so N jacks fit in a 1gu face; jack diameter still capped by slot. */
   min-height: 0;
   overflow: hidden;
 }
@@ -22027,6 +22028,11 @@ code {
   border-color: hsl(30 70% 50% / 0.9);
   color: #fff6e8;
 }
+.node-plugin-slider-face {
+  pointer-events: auto;
+  touch-action: none;
+  cursor: var(--node-dot-cursor);
+}
 .node-plugin-slider-face-row,
 .node-plugin-slider-face-control {
   display: grid;
@@ -22037,17 +22043,19 @@ code {
   min-height: 0;
   margin: 0;
   padding: 0;
-  /* Display paint only — face is the drag surface (data-slider-target). */
   pointer-events: none;
 }
-.node-plugin-slider-face-input {
-  display: none;
-}
+/* Native range stays hidden (app-wide .dsp-node input[type=range]). Face
+   readout is the visible control and writes the hidden value param. */
 .node-plugin-slider-face .node-slider-readout,
 .node-plugin-slider-face .node-slider-readout-input {
+  display: flex;
   width: 100%;
   height: 100%;
   min-height: 0;
   max-height: none;
-  pointer-events: none;
+  pointer-events: auto;
+}
+.node-plugin-slider-face .node-slider-readout-label {
+  display: none;
 }

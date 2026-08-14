@@ -51,6 +51,11 @@ function bindNodeGraphSceneMenuEvents() {
   if (typeof ensureNodeGraphWireCurveControl === "function") {
     ensureNodeGraphWireCurveControl();
   }
+  bindNodeGraphSceneElementEvent("nodeSceneWireAttenuate", "click", () => {
+    if (typeof attenuateSelectedNodeGraphWires === "function") {
+      attenuateSelectedNodeGraphWires();
+    }
+  });
   bindNodeGraphSceneElementEvent("nodeSceneCopyModule", "click", copyNodeGraphModuleFromContext);
   // Wired but disabled -- module grouping itself is under construction (see
   // saveNodeGraphSelectionAsModuleGroup's early return in
@@ -180,6 +185,10 @@ function bindNodeGraphSceneMenuEvents() {
     adjustNodeGraphModuleHeightFromContext(1));
   bindNodeGraphSceneElementEvent("nodeSceneAliasInput", "input", () => setNodeGraphModuleAliasFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneAliasInput", "change", () => setNodeGraphModuleAliasFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneKnobTextInput", "input", () => setNodeGraphKnobTextFromContext({ record: false }));
+  bindNodeGraphSceneElementEvent("nodeSceneKnobTextInput", "change", () => setNodeGraphKnobTextFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneKnobTextInput", "keydown", (event) => event.stopPropagation());
+  bindNodeGraphSceneElementEvent("nodeSceneKnobTextInput", "keyup", (event) => event.stopPropagation());
   bindNodeGraphSceneElementEvent("nodeSceneToggleButtons", "click", toggleNodeGraphModuleButtonsFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneToggleModuleEnabled", "click", toggleNodeGraphModuleEnabledFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneOpenNativeCode", "click", openNodeGraphNativeModuleCodeFromContext);

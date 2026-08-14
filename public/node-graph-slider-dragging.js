@@ -640,7 +640,8 @@ function nodeGraphPointInCircularKnob(host, clientX, clientY) {
 function nodeSliderIsDragSurface(el) {
   return Boolean(
     el?.classList?.contains("node-slider-readout")
-    || el?.classList?.contains("node-knob-face"),
+    || el?.classList?.contains("node-knob-face")
+    || el?.classList?.contains("node-plugin-slider-face"),
   );
 }
 
@@ -652,7 +653,7 @@ function nodeSliderDragSurfaceFromEvent(event) {
   if (nodeSliderIsDragSurface(event?.currentTarget)) {
     return event.currentTarget;
   }
-  return event?.target?.closest?.(".node-slider-readout, .node-knob-face") || null;
+  return event?.target?.closest?.(".node-slider-readout, .node-knob-face, .node-plugin-slider-face") || null;
 }
 
 /** Type-in edit for a surface (face → linked Bias readout so we never replace the face DOM). */
@@ -660,7 +661,10 @@ function beginNodeSliderSurfaceEdit(surface) {
   if (!surface || typeof beginNodeSliderReadoutEdit !== "function") {
     return;
   }
-  if (surface.classList.contains("node-knob-face")) {
+  if (
+    surface.classList.contains("node-knob-face")
+    || surface.classList.contains("node-plugin-slider-face")
+  ) {
     const sliderId = String(surface.dataset.sliderTarget || "").trim();
     if (!sliderId) {
       return;

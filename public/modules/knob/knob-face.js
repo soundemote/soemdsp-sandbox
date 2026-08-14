@@ -15,6 +15,154 @@ const nodeGraphKnobFaceAcceptedTypes = Object.freeze([
 ]);
 
 /** Layer count / keys (image1 = back, image6 = front). Max 6 for now. */
+const NODE_GRAPH_KNOB_FACE_LABEL_TEXT_MAX = 48;
+
+function nodeGraphKnobFaceNormalizeLabelText(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, NODE_GRAPH_KNOB_FACE_LABEL_TEXT_MAX);
+}
+
+function nodeGraphKnobFaceLabelTextForNode(node) {
+  const settings = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
+    ? nodeGraphKnobFaceDisplaySettingsForNode(node)
+    : node?.traceDisplaySettings;
+  const text = nodeGraphKnobFaceNormalizeLabelText(settings?.labelText);
+  if (text) {
+    return text;
+  }
+  return String(nodeGraphNodeLabels?.knob || "Knob");
+}
+
+function nodeGraphKnobFaceApplyLabelTextToDom(nodeId, text) {
+  const shown = nodeGraphKnobFaceNormalizeLabelText(text) || String(nodeGraphNodeLabels?.knob || "Knob");
+  const face = document.querySelector(`.node-knob-face[data-node="${CSS.escape(String(nodeId || ""))}"]`);
+  const label = face?.querySelector?.("[data-knob-face-label]");
+  if (label && label.dataset.editing !== "true") {
+    label.textContent = shown;
+  }
+  const settingsInput = document.getElementById("nodeSceneKnobTextInput");
+  if (settingsInput && document.activeElement !== settingsInput) {
+    const targetId = typeof nodeGraphModuleActionTargetNodeId === "function"
+      ? nodeGraphModuleActionTargetNodeId()
+      : "";
+    if (String(targetId) === String(nodeId || "")) {
+      settingsInput.value = shown;
+    }
+  }
+}
+
+function nodeGraphKnobFaceWriteLabelText(nodeId, rawText, { record = true } = {}) {
+  const id = String(nodeId || "").trim();
+  if (!id) {
+    return;
+  }
+  const text = nodeGraphKnobFaceNormalizeLabelText(rawText);
+  const stored = text || "Knob";
+  if (!record) {
+    const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+    if (!live) {
+      return;
+    }
+    const current = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
+      ? nodeGraphKnobFaceDisplaySettingsForNode(live)
+      : {};
+    live.traceDisplaySettings = typeof normalizeNodeGraphKnobFaceDisplaySettings === "function"
+      ? normalizeNodeGraphKnobFaceDisplaySettings({ ...current, labelText: stored })
+      : { ...(live.traceDisplaySettings || {}), labelText: stored };
+    if (nodeGraphMvp) {
+      nodeGraphMvp.patchDirtyState = "edited";
+    }
+    nodeGraphKnobFaceApplyLabelTextToDom(id, stored);
+    return;
+  }
+  if (typeof cloneNodeGraphPatch !== "function" || typeof commitNodeGraphPatch !== "function") {
+    return;
+  }
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const target = patch.nodes.find((node) => node.id === id);
+  if (!target) {
+    return;
+  }
+  const current = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
+    ? nodeGraphKnobFaceDisplaySettingsForNode(target)
+    : {};
+  const next = typeof normalizeNodeGraphKnobFaceDisplaySettings === "function"
+    ? normalizeNodeGraphKnobFaceDisplaySettings({ ...current, labelText: stored })
+    : { ...(target.traceDisplaySettings || {}), labelText: stored };
+  if (nodeGraphKnobFaceNormalizeLabelText(current.labelText) === next.labelText) {
+    nodeGraphKnobFaceApplyLabelTextToDom(id, next.labelText);
+    return;
+  }
+  target.traceDisplaySettings = next;
+  commitNodeGraphPatch(patch, { status: "knob text changed" });
+}
+
+function beginNodeGraphKnobFaceLabelEdit(label, nodeId) {
+  if (!label || label.dataset.editing === "true") {
+    return;
+  }
+  label.dataset.editing = "true";
+  label.contentEditable = "true";
+  label.spellcheck = false;
+  label.focus({ preventScroll: true });
+  const selection = window.getSelection?.();
+  if (selection && document.createRange) {
+    const range = document.createRange();
+    range.selectNodeContents(label);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+  const finish = (commit) => {
+    if (label.dataset.editing !== "true") {
+      return;
+    }
+    label.dataset.editing = "false";
+    label.contentEditable = "false";
+    const next = commit ? label.textContent : nodeGraphKnobFaceLabelTextForNode(
+      typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null,
+    );
+    nodeGraphKnobFaceWriteLabelText(nodeId, next, { record: true });
+  };
+  const onKey = (event) => {
+    event.stopPropagation();
+    if (event.key === "Enter") {
+      event.preventDefault();
+      label.removeEventListener("keydown", onKey);
+      label.removeEventListener("blur", onBlur);
+      finish(true);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      label.removeEventListener("keydown", onKey);
+      label.removeEventListener("blur", onBlur);
+      finish(false);
+    }
+  };
+  const onBlur = () => {
+    label.removeEventListener("keydown", onKey);
+    label.removeEventListener("blur", onBlur);
+    finish(true);
+  };
+  label.addEventListener("keydown", onKey);
+  label.addEventListener("blur", onBlur);
+}
+
+function attachNodeGraphKnobFaceLabelEdit(label, nodeId) {
+  if (!label || label.dataset.labelEditBound === "true") {
+    return;
+  }
+  label.dataset.labelEditBound = "true";
+  label.title = "Click to edit knob text (separate from module title)";
+  const stopDrag = (event) => {
+    event.stopPropagation();
+  };
+  label.addEventListener("pointerdown", stopDrag);
+  label.addEventListener("mousedown", stopDrag);
+  label.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    beginNodeGraphKnobFaceLabelEdit(label, nodeId);
+  });
+}
+
 const nodeGraphKnobFaceLayerCount = 6;
 const nodeGraphKnobFaceLayerIds = Object.freeze(
   Array.from({ length: nodeGraphKnobFaceLayerCount }, (_, i) => `image${i + 1}`),
@@ -676,10 +824,9 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
 
   const label = face.querySelector("[data-knob-face-label]");
   if (label) {
-    const alias = typeof normalizeNodeGraphPatchNodeAlias === "function"
-      ? normalizeNodeGraphPatchNodeAlias(patchNode?.alias)
-      : String(patchNode?.alias || "").trim();
-    label.textContent = alias || (nodeGraphNodeLabels?.knob || "Knob");
+    if (label.dataset.editing !== "true") {
+      label.textContent = nodeGraphKnobFaceLabelTextForNode(patchNode);
+    }
     label.hidden = !showLabel;
     label.style.display = showLabel ? "" : "none";
   }
@@ -837,7 +984,10 @@ function createNodeGraphKnobFace(node, type) {
   label.className = "node-macro-knob-label";
   label.dataset.knobFaceLabel = "true";
   label.dataset.macroKnobLabel = "true";
-  label.textContent = nodeGraphNodeLabels?.[type || "knob"] || "Knob";
+  label.textContent = nodeGraphKnobFaceLabelTextForNode(
+    typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null,
+  );
+  attachNodeGraphKnobFaceLabelEdit(label, node);
 
   const dial = document.createElement("span");
   dial.className = "node-macro-knob-dial";

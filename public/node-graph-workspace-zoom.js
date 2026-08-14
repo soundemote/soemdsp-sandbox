@@ -35,8 +35,11 @@ function applyNodeGraphZoom(options = {}) {
   if (options.skipHeavy) {
     return;
   }
-  // Gesture path: coalesce heavy chrome to rAF + settle full fidelity.
-  if (options.gesture !== false && typeof markNodeGraphViewportGesture === "function") {
+  // Only a real gesture (wheel / pinch / explicit gestureKind) hides jacks.
+  // Bare applyNodeGraphZoom() on load/persist used to mark "zoom" and never
+  // settle, so inlets/outlets stayed visibility:hidden.
+  const inGesture = options.gesture === true || Boolean(options.gestureKind);
+  if (inGesture && typeof markNodeGraphViewportGesture === "function") {
     markNodeGraphViewportGesture(options.gestureKind || "zoom");
   } else if (typeof flushNodeGraphViewportImmediate === "function") {
     flushNodeGraphViewportImmediate({ zoom: true, pan: true, persist: options.persist !== false });

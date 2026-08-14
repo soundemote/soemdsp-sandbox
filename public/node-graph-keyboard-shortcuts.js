@@ -17,7 +17,7 @@ function nodeGraphEventTargetIsTextEditable(target) {
   if (typeof nodeGraphTextBoxIsTypingElement === "function" && nodeGraphTextBoxIsTypingElement(target)) {
     return true;
   }
-  if (target.closest?.(".node-text-box-input, #nodeSceneTextBoxTextInput, #nodeSceneAliasInput")) {
+  if (target.closest?.(".node-text-box-input, #nodeSceneTextBoxTextInput, #nodeSceneAliasInput, #nodeSceneKnobTextInput, [data-knob-face-label]")) {
     return true;
   }
   const field = target.closest?.("textarea, select, input");
@@ -354,15 +354,8 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  // V → 💻 / 📱 computer vs phone canvas.
   // H → hide/show top + bottom app bars (not per-module header buttons).
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v") {
-    event.preventDefault();
-    if (typeof toggleNodeGraphModularWindowedView === "function") {
-      toggleNodeGraphModularWindowedView();
-    }
-    return;
-  }
+  // Phone / condensed modular frame is click/touch only (no V / M hotkey).
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "h") {
     event.preventDefault();
     if (typeof toggleNodeGraphAppChromeBarsVisibility === "function") {
@@ -382,13 +375,6 @@ function handleNodeGraphKeydown(event) {
     event.preventDefault();
     if (typeof toggleNodeGraphTooltipWindow === "function") {
       toggleNodeGraphTooltipWindow();
-    }
-    return;
-  }
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "m") {
-    event.preventDefault();
-    if (typeof toggleNodeGraphModularWindowedView === "function") {
-      toggleNodeGraphModularWindowedView();
     }
     return;
   }
