@@ -61,6 +61,8 @@ var nodeGraphMvp = {
   gridLightVisible: true,
   // Cable stroke paths; when false only endpoint dots (jack plugs) draw.
   wireLengthsVisible: true,
+  // Cubic cable bow (1 = original span, 0 = straight).
+  wireCurve: 1,
   // Wires + inlet/outlet jacks. Off = same hide as zoom (skip draw).
   wiringChromeVisible: true,
   // Cable strokes under modules by default; Visibility can raise them above.
@@ -76,9 +78,8 @@ var nodeGraphMvp = {
   // Value centered in the circle; title sits above the dial widget.
   macroKnobValuePosition: "mid",
   sliderLayout: "text-inside",
-  // Amount fill on by default, and restored by Clear Startup (see
-  // clearNodeUserStartupRuntimeState).
-  sliderAmountVisible: true,
+  // Amount fill off until the user turns it on (Visibility / UI settings).
+  sliderAmountVisible: false,
   sliderPositionVisible: true,
   midiKeyboardSignal: null,
   midiKeyboardAccess: null,
@@ -184,10 +185,9 @@ var nodeGraphMvp = {
   keyboardDebugInfoVisible: false,
   // D hotkey: CPU / RAM / GPU chips only (not the rest of debug chrome).
   constraintGuideVisible: false,
-  // Tips rendered in-flow next to the CPU/RAM/GPU guide rather than in the
-  // floating tips window. WHERE the tips are, not whether they are shown -
-  // that stays the Hide/Show Tooltips toggle in both modes.
-  tooltipEmbedded: false,
+  // Docked tips band (on/off). No floating tips window.
+  filePicker: { startIn: "desktop", lastSettingsName: "useruisettings.json", lastPatchName: "" },
+  tooltipEmbedded: true,
   // Embedded tips band height (px). User-draggable between tips and modular view.
   tooltipEmbedHeight: 46,
   tooltipEmbedResizing: null,
@@ -219,18 +219,10 @@ var nodeGraphMvp = {
   moduleScopeDiscontinuitySkipSamples: 1,
   moduleScopeSettings: {},
   traceSettings: normalizeNodeGraphTraceDisplaySettings(),
-  scopeBloomEnabled: false,
-  // Room dimmer hover cutouts (UI Dev).
-  dimmerCutoutSliderEnabled: true,
-  dimmerCutoutModuleEnabled: false,
-  dimmerCutoutTitleEnabled: true,
   dimmerCutoutMouseEnabled: false,
   dimmerMouseSize: 56,
   dimmerMouseSoftness: 25,
   dimmerMouseShape: 0,
-  // Legacy mirrors (combined mouse+slider / title) for older presets.
-  hoverModuleDimmerCutoutEnabled: true,
-  hoverModuleTitleDimmerCutoutEnabled: true,
   moduleStoreDepartment: "",
   // The last category the user actually CLICKED, as opposed to whatever page
   // the browser happens to be showing (a search shows results across every

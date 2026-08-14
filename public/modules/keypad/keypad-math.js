@@ -152,25 +152,45 @@ function nodeGraphKeypadSample(state, options = {}) {
   };
 }
 
-function nodeGraphKeypadClampUnit(value, fallback = 0.94) {
+const NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS = Object.freeze({
+  backgroundColor: "#000000",
+  buttonColor: "#c4c2a6",
+  buttonHeight: 1,
+  buttonSize: 1,
+  buttonWidth: 1,
+  cornerShape: "squircle",
+  downColor: "#d9d9d9",
+  font: "thasadith",
+  hoverColor: "#89bfc2",
+  padPx: 2,
+  rounding: 48.2527147087858,
+  squareRatio: false,
+  stroke: 0.0705278719888686,
+  strokeColor: "#5c5071",
+  textColor: "#2d2d2d",
+  textSize: 0.87708066581306,
+  textWeight: 900,
+});
+
+function nodeGraphKeypadClampUnit(value, fallback = NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.buttonWidth) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.min(1, n));
 }
 
 function nodeGraphKeypadClampWidth(value) {
-  return nodeGraphKeypadClampUnit(value, 0.94);
+  return nodeGraphKeypadClampUnit(value, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.buttonWidth);
 }
 
 function nodeGraphKeypadClampHeight(value) {
-  return nodeGraphKeypadClampUnit(value, 0.94);
+  return nodeGraphKeypadClampUnit(value, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.buttonHeight);
 }
 
 function nodeGraphKeypadClampButtonSize(value) {
   return nodeGraphKeypadClampUnit(value, 1);
 }
 
-function nodeGraphKeypadNormalizeFlag(value, fallback = true) {
+function nodeGraphKeypadNormalizeFlag(value, fallback = NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.squareRatio) {
   if (value === undefined || value === null || value === "") {
     return fallback;
   }
@@ -186,7 +206,7 @@ function nodeGraphKeypadNormalizeFlag(value, fallback = true) {
 function nodeGraphKeypadClampPadPx(value) {
   const n = Math.round(Number(value));
   if (!Number.isFinite(n)) {
-    return 0;
+    return NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.padPx;
   }
   return Math.max(0, Math.min(64, n));
 }
@@ -223,31 +243,31 @@ function nodeGraphKeypadNormalizeFont(value) {
   if (NODE_GRAPH_KEYPAD_FONTS.some((font) => font.id === id)) {
     return id;
   }
-  return "poiret-one";
+  return NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.font;
 }
 
 function nodeGraphKeypadFontFamily(value) {
   const id = nodeGraphKeypadNormalizeFont(value);
   return NODE_GRAPH_KEYPAD_FONTS.find((font) => font.id === id)?.family
-    || "\"Poiret One\", sans-serif";
+    || "\"Thasadith\", sans-serif";
 }
 
 function nodeGraphKeypadClampTextSize(value, legacyPx) {
   const n = Number(value);
   if (Number.isFinite(n)) {
     if (n > 1 && n <= 64) {
-      return nodeGraphKeypadClampUnit(n / 48, 0.55);
+      return nodeGraphKeypadClampUnit(n / 48, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.textSize);
     }
-    return nodeGraphKeypadClampUnit(n, 0.55);
+    return nodeGraphKeypadClampUnit(n, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.textSize);
   }
   const px = Number(legacyPx);
   if (Number.isFinite(px)) {
     if (px > 1) {
-      return nodeGraphKeypadClampUnit(px / 48, 0.55);
+      return nodeGraphKeypadClampUnit(px / 48, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.textSize);
     }
-    return nodeGraphKeypadClampUnit(px, 0.55);
+    return nodeGraphKeypadClampUnit(px, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.textSize);
   }
-  return 0.55;
+  return NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.textSize;
 }
 
 function nodeGraphKeypadClampPixelSize(value) {
@@ -256,7 +276,7 @@ function nodeGraphKeypadClampPixelSize(value) {
 
 function nodeGraphKeypadClampWeight(value) {
   const n = Math.round(Number(value) / 100) * 100;
-  if (!Number.isFinite(n)) return 400;
+  if (!Number.isFinite(n)) return NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.textWeight;
   return Math.max(100, Math.min(900, n));
 }
 
@@ -266,7 +286,7 @@ function nodeGraphKeypadNormalizeCorner(value) {
 
 function nodeGraphKeypadClampRounding(value) {
   const n = Number(value);
-  if (!Number.isFinite(n)) return 50;
+  if (!Number.isFinite(n)) return NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.rounding;
   return Math.max(0, Math.min(100, n));
 }
 
@@ -274,18 +294,18 @@ function nodeGraphKeypadClampStroke(value, legacyPx) {
   const n = Number(value);
   if (Number.isFinite(n)) {
     if (n > 1 && n <= 16) {
-      return nodeGraphKeypadClampUnit(n / 16, 0);
+      return nodeGraphKeypadClampUnit(n / 16, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.stroke);
     }
-    return nodeGraphKeypadClampUnit(n, 0);
+    return nodeGraphKeypadClampUnit(n, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.stroke);
   }
   const px = Number(legacyPx);
   if (Number.isFinite(px)) {
     if (px > 1) {
-      return nodeGraphKeypadClampUnit(px / 16, 0);
+      return nodeGraphKeypadClampUnit(px / 16, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.stroke);
     }
-    return nodeGraphKeypadClampUnit(px, 0);
+    return nodeGraphKeypadClampUnit(px, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.stroke);
   }
-  return 0;
+  return NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.stroke;
 }
 
 function nodeGraphKeypadStrokePixels(stroke, widthPx, heightPx) {
@@ -339,30 +359,28 @@ function normalizeNodeGraphKeypadLayout(layout = {}) {
     source.textSize ?? source.pixelSize,
     source.textSizePx,
   );
+  const d = NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS;
   return {
-    backgroundColor: nodeGraphKeypadNormalizeHex(source.backgroundColor, "#f4f3f0"),
-    buttonColor: nodeGraphKeypadNormalizeHex(source.buttonColor, "#f3f1ec"),
-    downColor: nodeGraphKeypadNormalizeHex(source.downColor ?? source.mouseDownColor, "#c4bdb3"),
-    hoverColor: nodeGraphKeypadNormalizeHex(source.hoverColor ?? source.mouseHoverColor, "#ddd9d2"),
+    backgroundColor: nodeGraphKeypadNormalizeHex(source.backgroundColor, d.backgroundColor),
+    buttonColor: nodeGraphKeypadNormalizeHex(source.buttonColor, d.buttonColor),
+    downColor: nodeGraphKeypadNormalizeHex(source.downColor ?? source.mouseDownColor, d.downColor),
+    hoverColor: nodeGraphKeypadNormalizeHex(source.hoverColor ?? source.mouseHoverColor, d.hoverColor),
     buttonHeight: nodeGraphKeypadClampHeight(source.buttonHeight),
     buttonSize: nodeGraphKeypadClampButtonSize(source.buttonSize ?? source.buttonMultiplier),
     buttonWidth: nodeGraphKeypadClampWidth(source.buttonWidth),
     padPx: nodeGraphKeypadClampPadPx(source.padPx ?? source.paddingPx ?? source.padding),
-    squareRatio: nodeGraphKeypadNormalizeFlag(source.squareRatio ?? source.square, true),
-    cornerShape: nodeGraphKeypadNormalizeCorner(source.cornerShape),
-    font: nodeGraphKeypadNormalizeFont(source.font),
+    squareRatio: nodeGraphKeypadNormalizeFlag(source.squareRatio ?? source.square, d.squareRatio),
+    cornerShape: nodeGraphKeypadNormalizeCorner(source.cornerShape || d.cornerShape),
+    font: nodeGraphKeypadNormalizeFont(source.font || d.font),
     rounding: nodeGraphKeypadClampRounding(source.rounding),
     stroke: nodeGraphKeypadClampStroke(source.stroke, source.strokePx),
-    strokeColor: nodeGraphKeypadNormalizeHex(
-      source.strokeColor,
-      nodeGraphKeypadNormalizeHex(source.textColor, "#2d2d2d"),
-    ),
+    strokeColor: nodeGraphKeypadNormalizeHex(source.strokeColor, d.strokeColor),
     backgroundImage: nodeGraphKeypadNormalizeKeyImage(
       source.backgroundImage ?? source.bgImage ?? source.faceImage,
     ),
     keyImages: nodeGraphKeypadNormalizeKeyImages(source.keyImages ?? source.images),
     kind: "keypad",
-    textColor: nodeGraphKeypadNormalizeHex(source.textColor, "#2d2d2d"),
+    textColor: nodeGraphKeypadNormalizeHex(source.textColor, d.textColor),
     textSize,
     textSizePx: textSize,
     textWeight: nodeGraphKeypadClampWeight(source.textWeight ?? source.boldness),

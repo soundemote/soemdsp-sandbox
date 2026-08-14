@@ -248,12 +248,28 @@ cases.forEach(function (c) {
   }
 });
 
-// B-032: Text Box outer height cannot drop below header + 1gu text.
+// App-wide 1gu floor — one policy for every module / screen.
 var textBoxMin = sandbox.nodeGraphTextBoxMinOuterHeightGu({});
-assert(textBoxMin >= 2, "text box min outer is at least header+1gu");
+assert(textBoxMin === 1, "text box min outer is the 1gu policy");
 assert(
-  sandbox.normalizeNodeGraphTextBoxHeightUnits(1) >= textBoxMin,
-  "heightGu=1 clamps to min outer",
+  sandbox.normalizeNodeGraphTextBoxHeightUnits(1) === 1,
+  "heightGu=1 is legal",
+);
+assert(
+  sandbox.nodeGraphModuleWidthLimitsForType("keyboardController").minGu === 1,
+  "keyboard width floor is 1gu",
+);
+assert(
+  sandbox.nodeGraphModuleHeightLimitsForType("output").minGu === 1,
+  "output height floor is 1gu",
+);
+assert(
+  sandbox.nodeGraphModuleDisplayHeightLimitsForType("audioPlayer").minGu === 1,
+  "screen/face floor is 1gu",
+);
+assert(
+  sandbox.nodeGraphModuleMinOuterHeightGu("audioPlayer", {}) === 1,
+  "music player outer floor is 1gu",
 );
 var textBoxShown = contentIds("textBox", {});
 assert(textBoxShown.indexOf("header") === 0, "text box starts with header");

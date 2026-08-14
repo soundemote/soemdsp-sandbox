@@ -1,6 +1,4 @@
 const nodeSliderHandleHalfWidthPx = 8;
-const nodeSliderHandleLeftWallClearancePx = 1;
-const nodeSliderHandleRightWallClearancePx = 3;
 const nodeSliderMinSkewExponent = 0.25;
 const nodeSliderMaxSkewExponent = 4;
 const nodeGraphAutoSmoothingDefaultSeconds = 0.5;
@@ -727,15 +725,10 @@ function nodeSliderElementVisualScale(element) {
 function nodeSliderVisualLane(surface, slider) {
   const width = nodeSliderElementLayoutWidth(surface);
   const handleHalfWidth = Math.min(nodeSliderHandleHalfWidthPx, width / 2);
-  const maxClearance = Math.max(0, width / 2 - handleHalfWidth);
-  const leftClearance = nodeSliderShouldWraparound(slider)
-    ? 0
-    : Math.min(nodeSliderHandleLeftWallClearancePx, maxClearance);
-  const rightClearance = nodeSliderShouldWraparound(slider)
-    ? 0
-    : Math.min(nodeSliderHandleRightWallClearancePx, maxClearance);
-  const leftInset = nodeSliderShouldWraparound(slider) ? 0 : handleHalfWidth + leftClearance;
-  const rightInset = nodeSliderShouldWraparound(slider) ? 0 : handleHalfWidth + rightClearance;
+  // Travel is handle-center. Zero clearance: at 0 the handle left edge is
+  // the track left; at 1 the handle right edge is the track right.
+  const leftInset = nodeSliderShouldWraparound(slider) ? 0 : handleHalfWidth;
+  const rightInset = nodeSliderShouldWraparound(slider) ? 0 : handleHalfWidth;
   return {
     handleHalfWidth,
     inset: leftInset,
@@ -841,6 +834,9 @@ function setNodeSliderMetadata(slider, metadata) {
   if (slider.dataset.unboundedMin != null) delete slider.dataset.unboundedMin;
   if (slider.dataset.unboundedValue != null) delete slider.dataset.unboundedValue;
   slider.dataset.wraparound = metadata.wraparound ? "true" : "false";
+  if (Object.hasOwn(metadata, "visible")) {
+    slider.dataset.visible = metadata.visible === false ? "false" : "true";
+  }
   // Prefer existing domainValue so metadata edits do not snap the parameter to
   // a clamped HTML thumb (or leave domainValue stale relative to value).
   const domainSource = Number.isFinite(Number(slider.dataset.domainValue))

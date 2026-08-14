@@ -397,7 +397,7 @@
     s.id = "seDebugStyles";
     s.textContent = `
       #seDebugButton{width:40px;height:auto;align-self:stretch;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
-        font-size:17px;line-height:1;border:1px solid #c0392b;border-radius:7px;cursor:pointer;
+        font-size:17px;line-height:1;border:1px solid #c0392b;border-radius:7px;cursor: var(--node-dot-cursor);
         background:linear-gradient(#e74c3c,#c0392b);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);position:relative;padding:0;}
       #seDebugButton:hover{filter:brightness(1.12);}
       #seDebugButton[aria-pressed="true"]{outline:2px solid #fff3;}
@@ -412,14 +412,14 @@
       #seDebugPanel.se-open{display:flex;}
       #seDebugPanel .se-head{display:flex;align-items:center;gap:6px;padding:6px 8px;background:#171b22;border-bottom:1px solid #2a2f3a;cursor:move;user-select:none;flex:0 0 auto;}
       #seDebugPanel .se-title{font-weight:700;color:#fff;margin-right:auto;font-size:17px;}
-      #seDebugPanel button.se-bug{background:none;border:1px solid #c0392b;border-radius:7px;cursor:pointer;
+      #seDebugPanel button.se-bug{background:none;border:1px solid #c0392b;border-radius:7px;cursor: var(--node-dot-cursor);
         font-size:24px;line-height:1.15;padding:1px 5px;}
       #seDebugPanel button.se-bug:hover{background:#2a1518;filter:brightness(1.2);}
       #seDebugPanel button.se-bug:active{transform:scale(0.92);}
-      #seDebugPanel button.se-tool{background:#232936;color:#cdd6e4;border:1px solid #313a4a;border-radius:5px;padding:2px 8px;cursor:pointer;font:inherit;}
+      #seDebugPanel button.se-tool{background:#232936;color:#cdd6e4;border:1px solid #313a4a;border-radius:5px;padding:2px 8px;cursor: var(--node-dot-cursor);font:inherit;}
       #seDebugPanel button.se-tool:hover{background:#2c3444;}
       #seDebugPanel .se-filters{display:flex;gap:4px;align-items:center;padding:5px 8px;background:#141821;border-bottom:1px solid #222834;flex-wrap:wrap;flex:0 0 auto;}
-      #seDebugPanel .se-chip{cursor:pointer;padding:1px 8px;border-radius:10px;border:1px solid #2c3444;color:#9aa4b2;background:#191e28;font-size:11px;}
+      #seDebugPanel .se-chip{cursor: var(--node-dot-cursor);padding:1px 8px;border-radius:10px;border:1px solid #2c3444;color:#9aa4b2;background:#191e28;font-size:11px;}
       #seDebugPanel .se-chip.on{color:#fff;border-color:#4b6;background:#1c2a22;}
       #seDebugPanel input.se-search{flex:1;min-width:80px;background:#0d1016;border:1px solid #2c3444;color:#cdd6e4;border-radius:5px;padding:2px 7px;font:inherit;}
       /* body { user-select:none } is global — force selectable text in the log. */

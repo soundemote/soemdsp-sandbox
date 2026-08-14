@@ -48,7 +48,7 @@
   border: 1px solid rgba(127, 199, 217, 0.3);
   border-radius: 3px;
   background: rgba(9, 13, 16, 0.82);
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   padding: 0;
   transition: background 0.12s ease-out, border-color 0.12s ease-out;
 }
@@ -69,7 +69,7 @@
   border-style: dashed;
   background: transparent;
   font: 750 0.85em/1 var(--mono);
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-step-grid-square.node-step-grid-add {

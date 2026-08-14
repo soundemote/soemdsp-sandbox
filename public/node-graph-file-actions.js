@@ -512,21 +512,214 @@ function nodeGraphPatchExportPayload() {
   return { text: patchText, filename, patch: patchToSave };
 }
 
-/**
- * Fallback when File System Access API is unavailable: browser download dialog
- * (location is usually Downloads; path cannot be forced to Desktop).
- */
-function nodeGraphDownloadPatchTextFile(text, filename) {
-  const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+const nodeGraphFilePickerWellKnown = Object.freeze(["desktop", "documents", "downloads"]);
+
+function normalizeNodeGraphFilePickerState(raw = null) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const startIn = String(source.startIn || "desktop").toLowerCase();
+  return {
+    startIn: nodeGraphFilePickerWellKnown.includes(startIn) ? startIn : "desktop",
+    lastSettingsName: String(source.lastSettingsName || "useruisettings.json").slice(0, 180) || "useruisettings.json",
+    lastPatchName: String(source.lastPatchName || "").slice(0, 180),
+  };
+}
+
+function nodeGraphFilePickerState() {
+  const next = normalizeNodeGraphFilePickerState(nodeGraphMvp?.filePicker);
+  if (nodeGraphMvp) {
+    nodeGraphMvp.filePicker = next;
+  }
+  return next;
+}
+
+function rememberNodeGraphFilePickerMeta(patch = {}) {
+  const next = {
+    ...nodeGraphFilePickerState(),
+    ...(patch.lastSettingsName ? { lastSettingsName: String(patch.lastSettingsName).slice(0, 180) } : {}),
+    ...(patch.lastPatchName ? { lastPatchName: String(patch.lastPatchName).slice(0, 180) } : {}),
+    startIn: "desktop",
+  };
+  if (nodeGraphMvp) {
+    nodeGraphMvp.filePicker = next;
+  }
+  if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
+    scheduleNodeUiDevSettingsAutosave();
+  }
+  return next;
+}
+
+function nodeGraphFilePickerOpenDb() {
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open("soemdsp-sandbox-file-picker", 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("handles")) {
+        db.createObjectStore("handles");
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("file picker db failed"));
+  });
+}
+
+async function nodeGraphFilePickerGetHandle() {
+  try {
+    const db = await nodeGraphFilePickerOpenDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction("handles", "readonly");
+      const req = tx.objectStore("handles").get("last");
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function nodeGraphFilePickerPutHandle(handle) {
+  if (!handle) {
+    return;
+  }
+  try {
+    const db = await nodeGraphFilePickerOpenDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("handles", "readwrite");
+      tx.objectStore("handles").put(handle, "last");
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Handle persistence is best-effort (private mode / quota).
+  }
+}
+
+async function nodeGraphFilePickerStartIn() {
+  const handle = await nodeGraphFilePickerGetHandle();
+  if (handle && typeof handle.queryPermission === "function") {
+    try {
+      let permission = await handle.queryPermission({ mode: "readwrite" });
+      if (permission === "prompt" && typeof handle.requestPermission === "function") {
+        permission = await handle.requestPermission({ mode: "readwrite" });
+      }
+      if (permission === "granted") {
+        return handle;
+      }
+    } catch {
+      // Fall through to Desktop.
+    }
+  } else if (handle) {
+    return handle;
+  }
+  return nodeGraphFilePickerState().startIn || "desktop";
+}
+
+function nodeGraphDownloadTextFile(text, filename) {
+  const blob = new Blob([`${text}`], { type: "application/json;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = filename || "soemdsp-patch.json";
+  anchor.download = filename || "soemdsp.json";
   anchor.rel = "noopener";
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+async function nodeGraphSaveTextFileWithNativeDialog({
+  text,
+  suggestedName,
+  description = "JSON",
+  accept = { "application/json": [".json"] },
+} = {}) {
+  const name = String(suggestedName || "soemdsp.json");
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: name,
+        startIn: await nodeGraphFilePickerStartIn(),
+        types: [{ description, accept }],
+        excludeAcceptAllOption: false,
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      await nodeGraphFilePickerPutHandle(handle);
+      return { ok: true, name: handle.name || name, cancelled: false };
+    } catch (error) {
+      if (error && (error.name === "AbortError" || error.name === "NotAllowedError")) {
+        return { ok: false, cancelled: true };
+      }
+      throw error;
+    }
+  }
+  nodeGraphDownloadTextFile(text, name);
+  return { ok: true, name, cancelled: false, downloaded: true };
+}
+
+async function nodeGraphOpenTextFileWithNativeDialog({
+  description = "JSON",
+  accept = { "application/json": [".json"] },
+  fallbackInputId = "",
+} = {}) {
+  if (typeof window.showOpenFilePicker === "function") {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        multiple: false,
+        startIn: await nodeGraphFilePickerStartIn(),
+        types: [{ description, accept }],
+        excludeAcceptAllOption: false,
+      });
+      const file = await handle.getFile();
+      const text = await file.text();
+      await nodeGraphFilePickerPutHandle(handle);
+      return { ok: true, name: handle.name || file.name, text, cancelled: false };
+    } catch (error) {
+      if (error && (error.name === "AbortError" || error.name === "NotAllowedError")) {
+        return { ok: false, cancelled: true };
+      }
+      throw error;
+    }
+  }
+  const input = fallbackInputId ? document.getElementById(fallbackInputId) : null;
+  if (!input) {
+    throw new Error("file picker unavailable");
+  }
+  return new Promise((resolve) => {
+    const onChange = () => {
+      input.removeEventListener("change", onChange);
+      const [file] = input.files || [];
+      if (!file) {
+        resolve({ ok: false, cancelled: true });
+        return;
+      }
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        resolve({
+          ok: true,
+          name: file.name,
+          text: String(reader.result || ""),
+          cancelled: false,
+        });
+        input.value = "";
+      });
+      reader.addEventListener("error", () => {
+        resolve({ ok: false, cancelled: false, error: "file read failed" });
+        input.value = "";
+      });
+      reader.readAsText(file);
+    };
+    input.addEventListener("change", onChange);
+    input.click();
+  });
+}
+
+/**
+ * Fallback when File System Access API is unavailable: browser download dialog
+ * (location is usually Downloads; path cannot be forced to Desktop).
+ */
+function nodeGraphDownloadPatchTextFile(text, filename) {
+  nodeGraphDownloadTextFile(text, filename || "soemdsp-patch.json");
 }
 
 /**
@@ -541,35 +734,22 @@ async function saveNodeGraphPatchWithNativeDialog() {
   }
   const { text, filename, patch } = payload;
   try {
-    if (typeof window.showSaveFilePicker === "function") {
-      let handle;
-      try {
-        handle = await window.showSaveFilePicker({
-          suggestedName: filename,
-          // Well-known directory — Chrome/Edge open the Desktop when allowed.
-          startIn: "desktop",
-          types: [
-            {
-              description: "soemdsp patch JSON",
-              accept: { "application/json": [".json"] },
-            },
-          ],
-          excludeAcceptAllOption: false,
-        });
-      } catch (error) {
-        // User cancelled the picker.
-        if (error && (error.name === "AbortError" || error.name === "NotAllowedError")) {
-          if (typeof setNodeGraphScriptStatus === "function") {
-            setNodeGraphScriptStatus("save cancelled", true);
-          }
-          return false;
+    if (typeof nodeGraphSaveTextFileWithNativeDialog === "function") {
+      const suggested = nodeGraphFilePickerState().lastPatchName || filename;
+      const result = await nodeGraphSaveTextFileWithNativeDialog({
+        text,
+        suggestedName: suggested,
+        description: "soemdsp patch JSON",
+        accept: { "application/json": [".json"] },
+      });
+      if (result.cancelled) {
+        if (typeof setNodeGraphScriptStatus === "function") {
+          setNodeGraphScriptStatus("save cancelled", true);
         }
-        throw error;
+        return false;
       }
-      const writable = await handle.createWritable();
-      await writable.write(text);
-      await writable.close();
-      const savedName = handle.name || filename;
+      const savedName = result.name || filename;
+      rememberNodeGraphFilePickerMeta({ lastPatchName: savedName });
       if (typeof commitNodeGraphPatch === "function") {
         commitNodeGraphPatch(patch, {
           markPending: false,
@@ -677,11 +857,43 @@ async function confirmAndSaveNodeGraphScript(event) {
   }
 }
 
-function loadNodeGraphScript() {
+async function loadNodeGraphScript() {
   if (!nodeGraphScriptReadyForGraphAction("load")) {
     return;
   }
-  document.getElementById("nodePatchScriptFileInput")?.click();
+  try {
+    const result = await nodeGraphOpenTextFileWithNativeDialog({
+      description: "soemdsp patch JSON",
+      accept: { "application/json": [".json"] },
+      fallbackInputId: "nodePatchScriptFileInput",
+    });
+    if (result.cancelled) {
+      setNodeGraphScriptStatus("load cancelled", true);
+      return;
+    }
+    if (!result.ok) {
+      setNodeGraphScriptStatus(result.error || "load failed", false);
+      return;
+    }
+    rememberNodeGraphFilePickerMeta({ lastPatchName: result.name });
+    commitNodeGraphPatch(loadNodeGraphPatchFromScript(result.text), {
+      patchDirtyState: "saved",
+      status: "script loaded",
+    });
+    setNodeGraphCurrentSavedPatch(result.name || "");
+    setNodeGraphScriptStatus(`patch loaded: ${result.name || "file"}`, true);
+  } catch (error) {
+    const message = String(error?.message || error || "failed to load patch");
+    if (typeof nodeGraphShowPatchLoadFault === "function") {
+      nodeGraphShowPatchLoadFault({
+        message,
+        script: error?.patchScript || "",
+        title: "Failed to load patch file",
+      });
+    } else {
+      setNodeGraphScriptStatus(message, false);
+    }
+  }
 }
 
 async function loadSelectedNodeGraphSavedPatch() {

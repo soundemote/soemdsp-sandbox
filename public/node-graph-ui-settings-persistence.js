@@ -1,5 +1,9 @@
 const nodeUiDevDefaultSettingsUrl = "./public/presets/useruisettings.json";
 const nodeUiDevDefaultSettingsStorageKey = "soemdsp-sandbox.userUiSettings.startup.v12";
+// Until the first load/apply finishes, serialize() only sees HTML defaults.
+// Any persist in that window (window-seat remember, unload flush) would
+// overwrite the last good localStorage blob. Refuse those writes.
+let nodeUiDevSettingsHydrated = false;
 
 const nodeGraphWorkspaceWindowStateKeys = Object.freeze([
   "commandCenter",
@@ -509,9 +513,6 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
   if (key === "standaloneMidiKeyboard" && typeof applyNodeGraphStandaloneMidiKeyboardDockSize === "function") {
     applyNodeGraphStandaloneMidiKeyboardDockSize(state.size);
   }
-  if (key === "tooltipWindow" && typeof applyNodeGraphTooltipWindowSize === "function") {
-    applyNodeGraphTooltipWindowSize(state.size);
-  }
   if (key === "uiSettings" && typeof applyNodeUserUiSettingsWindowSize === "function") {
     applyNodeUserUiSettingsWindowSize(state.size);
   }
@@ -623,19 +624,6 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const controls = settings.controls && typeof settings.controls === "object"
     ? { ...settings.controls }
     : {};
-  // Migrate legacy combined hover dimmer cutout keys → split toggles.
-  if (controls.dimmerCutoutSliderEnabled === undefined
-    && typeof controls.hoverModuleDimmerCutoutEnabled === "boolean") {
-    controls.dimmerCutoutSliderEnabled = controls.hoverModuleDimmerCutoutEnabled;
-  }
-  if (controls.dimmerCutoutMouseEnabled === undefined
-    && typeof controls.hoverModuleDimmerCutoutEnabled === "boolean") {
-    controls.dimmerCutoutMouseEnabled = controls.hoverModuleDimmerCutoutEnabled;
-  }
-  if (controls.dimmerCutoutTitleEnabled === undefined
-    && typeof controls.hoverModuleTitleDimmerCutoutEnabled === "boolean") {
-    controls.dimmerCutoutTitleEnabled = controls.hoverModuleTitleDimmerCutoutEnabled;
-  }
   const exposedControls = settings.exposedControls && typeof settings.exposedControls === "object"
     ? settings.exposedControls
     : {};
@@ -674,13 +662,21 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const wireLengthsVisible = view.wireLengthsVisible !== undefined
     ? Boolean(view.wireLengthsVisible)
     : (nodeGraphMvp.wireLengthsVisible !== false);
+  const wireCurve = typeof normalizeNodeGraphWireCurve === "function"
+    ? normalizeNodeGraphWireCurve(view.wireCurve ?? nodeGraphMvp.wireCurve)
+    : (() => {
+      const n = Number(view.wireCurve ?? nodeGraphMvp.wireCurve ?? 1);
+      return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 1;
+    })();
   const wiringChromeVisible = view.wiringChromeVisible !== undefined
     ? Boolean(view.wiringChromeVisible)
     : (nodeGraphMvp.wiringChromeVisible !== false);
   const wiresAboveModules = Boolean(view.wiresAboveModules ?? nodeGraphMvp.wiresAboveModules);
   // Debug chrome is session-only — never default on, never restore from UI settings.
   const keyboardDebugInfoVisible = false;
-  const tooltipEmbedded = Boolean(view.tooltipEmbedded ?? nodeGraphMvp.tooltipEmbedded);
+  const tooltipEmbedded = view.tooltipEmbedded !== undefined
+    ? Boolean(view.tooltipEmbedded)
+    : (nodeGraphMvp.tooltipEmbedded !== false);
   const tooltipEmbedHeight = typeof normalizeNodeGraphTooltipEmbedHeight === "function"
     ? normalizeNodeGraphTooltipEmbedHeight(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight ?? 46)
     : Math.max(32, Math.min(320, Math.round(Number(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight) || 46)));
@@ -861,6 +857,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
       gridVisible: Boolean(gridVisible),
       gridLightVisible: Boolean(gridLightVisible),
       wireLengthsVisible: Boolean(wireLengthsVisible),
+      wireCurve,
       wiringChromeVisible: Boolean(wiringChromeVisible),
       wiresAboveModules,
       keyboardDebugInfoVisible,
@@ -910,6 +907,9 @@ function normalizeNodeUiDevSettings(settings = {}) {
       workingPatch,
       currentSavedPatchFilename,
       patchDirtyState,
+      filePicker: typeof normalizeNodeGraphFilePickerState === "function"
+        ? normalizeNodeGraphFilePickerState(view.filePicker ?? nodeGraphMvp?.filePicker)
+        : (view.filePicker ?? nodeGraphMvp?.filePicker ?? { startIn: "desktop" }),
     },
   };
 }
@@ -957,6 +957,9 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       gridVisible: Boolean(nodeGraphMvp.gridVisible),
       gridLightVisible: nodeGraphMvp.gridLightVisible !== false,
       wireLengthsVisible: nodeGraphMvp.wireLengthsVisible !== false,
+      wireCurve: typeof normalizeNodeGraphWireCurve === "function"
+        ? normalizeNodeGraphWireCurve(nodeGraphMvp.wireCurve)
+        : Number(nodeGraphMvp.wireCurve ?? 1),
       wiringChromeVisible: nodeGraphMvp.wiringChromeVisible !== false,
       wiresAboveModules: Boolean(nodeGraphMvp.wiresAboveModules),
       // Never persist "show debug" — refresh / defaults always hide diagnostics.
@@ -1023,6 +1026,9 @@ function readNodeUiDevSettingsFromControls(options = {}) {
         : String(nodeGraphMvp.savedPatchBankName || "").trim(),
       savedPatchFactoryPath: String(nodeGraphMvp.savedPatchFactoryPath || "").trim(),
       savedPatchUserPath: String(nodeGraphMvp.savedPatchUserPath || "").trim(),
+      filePicker: typeof normalizeNodeGraphFilePickerState === "function"
+        ? normalizeNodeGraphFilePickerState(nodeGraphMvp.filePicker)
+        : nodeGraphMvp.filePicker,
       savedPatchGridColumns: typeof normalizeNodeGraphSavedPatchGridColumns === "function"
         ? normalizeNodeGraphSavedPatchGridColumns(nodeGraphMvp.savedPatchGridColumns)
         : Math.max(1, Math.min(16, Math.round(Number(nodeGraphMvp.savedPatchGridColumns) || 3))),
@@ -1089,6 +1095,12 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.gridVisible = Boolean(normalized.view.gridVisible);
   nodeGraphMvp.gridLightVisible = normalized.view.gridLightVisible !== false;
   nodeGraphMvp.wireLengthsVisible = normalized.view.wireLengthsVisible !== false;
+  nodeGraphMvp.wireCurve = typeof normalizeNodeGraphWireCurve === "function"
+    ? normalizeNodeGraphWireCurve(normalized.view.wireCurve)
+    : Number(normalized.view.wireCurve ?? 1);
+  if (typeof syncNodeGraphWireCurveControl === "function") {
+    syncNodeGraphWireCurveControl();
+  }
   nodeGraphMvp.wiringChromeVisible = normalized.view.wiringChromeVisible !== false;
   nodeGraphMvp.wiresAboveModules = Boolean(normalized.view.wiresAboveModules);
   // Force-hide debug on every UI-settings apply / page load (not a saved
@@ -1099,11 +1111,13 @@ function applyNodeUiDevSettings(settings) {
   } else {
     nodeGraphMvp.keyboardDebugInfoVisible = false;
   }
-  nodeGraphMvp.tooltipEmbedded = Boolean(normalized.view.tooltipEmbedded);
+  nodeGraphMvp.tooltipEmbedded = normalized.view.tooltipEmbedded !== false;
   nodeGraphMvp.tooltipEmbedHeight = typeof normalizeNodeGraphTooltipEmbedHeight === "function"
     ? normalizeNodeGraphTooltipEmbedHeight(normalized.view.tooltipEmbedHeight ?? 46)
     : Math.max(32, Math.min(320, Math.round(Number(normalized.view.tooltipEmbedHeight) || 46)));
-  if (typeof applyNodeGraphTooltipEmbedHeight === "function") {
+  if (typeof applyNodeGraphTooltipEmbed === "function") {
+    applyNodeGraphTooltipEmbed({ shown: nodeGraphMvp.tooltipEmbedded });
+  } else if (typeof applyNodeGraphTooltipEmbedHeight === "function") {
     applyNodeGraphTooltipEmbedHeight(nodeGraphMvp.tooltipEmbedHeight);
   }
   nodeGraphMvp.moduleButtonsVisible = Boolean(normalized.view.moduleButtonsVisible);
@@ -1216,6 +1230,9 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.workingPatch = normalized.view.workingPatch
     ? cloneNodeGraphPatch(normalized.view.workingPatch)
     : null;
+  nodeGraphMvp.filePicker = typeof normalizeNodeGraphFilePickerState === "function"
+    ? normalizeNodeGraphFilePickerState(normalized.view.filePicker)
+    : (normalized.view.filePicker || { startIn: "desktop" });
   nodeGraphMvp.currentSavedPatchFilename = String(normalized.view.currentSavedPatchFilename || "");
   nodeGraphMvp.patchDirtyState = ["saved", "edited", "untouched"].includes(normalized.view.patchDirtyState)
     ? normalized.view.patchDirtyState
@@ -1259,6 +1276,9 @@ function applyNodeUiDevSettings(settings) {
   syncNodeUiDevSettingsHeaderControls();
   if (!document.activeElement?.dataset?.nodeUiDevMirror) {
     renderNodeUserUiSettingsControls();
+  }
+  if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
+    scheduleNodeUiDevSettingsAutosave();
   }
   setNodeUiDevSettingsStatus("ui settings applied", true);
 }
@@ -1338,8 +1358,29 @@ function loadNodeUiDevBundledDefaultSettings() {
   }
 }
 
+let nodeUiDevSettingsAutosaveTimer = 0;
+
+function scheduleNodeUiDevSettingsAutosave() {
+  if (!nodeUiDevSettingsHydrated) {
+    return;
+  }
+  if (nodeUiDevSettingsAutosaveTimer) {
+    window.clearTimeout(nodeUiDevSettingsAutosaveTimer);
+  }
+  nodeUiDevSettingsAutosaveTimer = window.setTimeout(() => {
+    nodeUiDevSettingsAutosaveTimer = 0;
+    if (typeof serializeNodeUiDevSettings === "function") {
+      saveNodeUiDevLocalDefaultSettings(serializeNodeUiDevSettings());
+    }
+  }, 250);
+}
+
 function saveNodeUiDevLocalDefaultSettings(text) {
   if (!nodeGraphLocalDefaultPresetAllowed()) {
+    return false;
+  }
+  if (!nodeUiDevSettingsHydrated) {
+    console.warn("[soemdsp] Refusing to persist UI settings before they have been loaded.");
     return false;
   }
   try {
@@ -1425,6 +1466,12 @@ function resetNodeUiDevControlsToDeclaredDefaults() {
   if (typeof syncNodeUiDevSliderFillColorControls === "function") {
     syncNodeUiDevSliderFillColorControls();
   }
+  if (typeof syncNodeUiDevModuleLightGridControls === "function") {
+    syncNodeUiDevModuleLightGridControls();
+  }
+  if (typeof syncNodeUiDevModuleIdleStroke === "function") {
+    syncNodeUiDevModuleIdleStroke();
+  }
   if (typeof syncNodeUiDevOutletRgbBrightness === "function") {
     syncNodeUiDevOutletRgbBrightness();
   }
@@ -1475,8 +1522,12 @@ function clearNodeUserStartupRuntimeState() {
   nodeGraphMvp.gridVisible = true;
   nodeGraphMvp.gridLightVisible = true;
   nodeGraphMvp.wireLengthsVisible = true;
+  nodeGraphMvp.wireCurve = 1;
+  if (typeof syncNodeGraphWireCurveControl === "function") {
+    syncNodeGraphWireCurveControl();
+  }
   nodeGraphMvp.wiringChromeVisible = true;
-  nodeGraphMvp.sliderAmountVisible = true;
+  nodeGraphMvp.sliderAmountVisible = false;
   nodeGraphMvp.wiresAboveModules = false;
   // Clear Startup / reset view: never bake "Show Debug" into the next load.
   // Force off before re-serializing settings as the new startup default.
@@ -1619,6 +1670,7 @@ async function loadNodeUiDevDefaultSettings() {
         // Controls-only fallback below.
       }
     }
+    nodeUiDevSettingsHydrated = true;
     return;
   }
   if (storedSettings) {
@@ -1630,6 +1682,7 @@ async function loadNodeUiDevDefaultSettings() {
     loadNodeGraphModuleStoreStateLocal();
     loadNodeGraphModuleScopeSettingsLocal();
     document.documentElement.dataset.nodeUiDevSettingsSource = "local";
+    nodeUiDevSettingsHydrated = true;
     return;
   }
   if (typeof fetch === "function") {
@@ -1646,6 +1699,7 @@ async function loadNodeUiDevDefaultSettings() {
       loadNodeGraphModuleStoreStateLocal();
       loadNodeGraphModuleScopeSettingsLocal();
       document.documentElement.dataset.nodeUiDevSettingsSource = "fetch";
+      nodeUiDevSettingsHydrated = true;
       return;
     } catch {
       // Fall through to the bundled preset for browser surfaces without request APIs.
@@ -1660,6 +1714,7 @@ async function loadNodeUiDevDefaultSettings() {
   }
   loadNodeGraphModuleStoreStateLocal();
   loadNodeGraphModuleScopeSettingsLocal();
+  nodeUiDevSettingsHydrated = true;
 }
 
 async function copyNodeUiDevSettingsToClipboard() {
@@ -1671,23 +1726,97 @@ async function copyNodeUiDevSettingsToClipboard() {
   }
 }
 
-function saveNodeUiDevSettingsFile() {
-  const blob = new Blob([`${serializeNodeUiDevSettings()}\n`], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "useruisettings.json";
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  setNodeUiDevSettingsStatus("ui settings saved", true);
+async function pasteNodeUiDevSettingsFromClipboard(event) {
+  const button = event?.currentTarget;
+  if (typeof confirmNodeGraphDefaultButtonClick === "function" && button) {
+    if (!confirmNodeGraphDefaultButtonClick(
+      button,
+      () => setNodeUiDevSettingsStatus("click Confirm Paste to apply clipboard UI settings", true),
+      { confirmText: "Confirm Paste" },
+    )) {
+      return;
+    }
+  }
+  let text = "";
+  try {
+    text = await navigator.clipboard.readText();
+  } catch (error) {
+    setNodeUiDevSettingsStatus("paste blocked: clipboard permission denied", false);
+    return;
+  }
+  try {
+    applyNodeUiDevSettings(loadNodeUiDevSettingsFromScript(text));
+    setNodeUiDevSettingsStatus("ui settings pasted", true);
+    if (typeof flashNodeGraphDefaultButtonSaved === "function" && button) {
+      flashNodeGraphDefaultButtonSaved(button, "Pasted");
+    }
+  } catch (error) {
+    setNodeUiDevSettingsStatus(error?.message || "paste failed: not valid UI settings", false);
+  }
 }
 
-function loadNodeUiDevSettingsFile() {
-  document.getElementById("nodeUiDevSettingsFileInput")?.click();
+async function saveNodeUiDevSettingsFile() {
+  const text = `${serializeNodeUiDevSettings()}\n`;
+  const suggested = typeof nodeGraphFilePickerState === "function"
+    ? nodeGraphFilePickerState().lastSettingsName
+    : "useruisettings.json";
+  try {
+    const result = typeof nodeGraphSaveTextFileWithNativeDialog === "function"
+      ? await nodeGraphSaveTextFileWithNativeDialog({
+        text,
+        suggestedName: suggested || "useruisettings.json",
+        description: "soemdsp UI settings JSON",
+        accept: { "application/json": [".json"] },
+      })
+      : { ok: false };
+    if (result.cancelled) {
+      setNodeUiDevSettingsStatus("file save cancelled", true);
+      return;
+    }
+    if (!result.ok) {
+      setNodeUiDevSettingsStatus("file save failed", false);
+      return;
+    }
+    if (typeof rememberNodeGraphFilePickerMeta === "function") {
+      rememberNodeGraphFilePickerMeta({ lastSettingsName: result.name || suggested });
+    }
+    setNodeUiDevSettingsStatus(
+      result.downloaded ? `ui settings file downloaded: ${result.name}` : `ui settings file written: ${result.name}`,
+      true,
+    );
+  } catch (error) {
+    setNodeUiDevSettingsStatus(`file save failed: ${error?.message || error}`, false);
+  }
+}
+
+async function loadNodeUiDevSettingsFile() {
+  try {
+    const result = typeof nodeGraphOpenTextFileWithNativeDialog === "function"
+      ? await nodeGraphOpenTextFileWithNativeDialog({
+        description: "soemdsp UI settings JSON",
+        accept: { "application/json": [".json"] },
+        fallbackInputId: "nodeUiDevSettingsFileInput",
+      })
+      : { ok: false };
+    if (result.cancelled) {
+      setNodeUiDevSettingsStatus("file load cancelled", true);
+      return;
+    }
+    if (!result.ok) {
+      setNodeUiDevSettingsStatus(result.error || "file load failed", false);
+      return;
+    }
+    applyNodeUiDevSettings(loadNodeUiDevSettingsFromScript(result.text));
+    if (typeof rememberNodeGraphFilePickerMeta === "function") {
+      rememberNodeGraphFilePickerMeta({ lastSettingsName: result.name });
+    }
+    if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
+      scheduleNodeUiDevSettingsAutosave();
+    }
+    setNodeUiDevSettingsStatus(`ui settings loaded: ${result.name || "file"}`, true);
+  } catch (error) {
+    setNodeUiDevSettingsStatus(error?.message || "file load failed", false);
+  }
 }
 
 function handleNodeUiDevSettingsFileLoad(event) {

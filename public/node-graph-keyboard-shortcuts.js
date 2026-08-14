@@ -139,73 +139,17 @@ function resizeNodeGraphCanvasModuleOnGrid(patchNode, delta) {
   return true;
 }
 
-function resizeNodeGraphTextBoxModuleHeightOnGrid(patchNode, delta) {
-  if (nodeGraphModuleSizingCapabilities(patchNode?.type).moduleHeight !== "textBox") {
-    return false;
-  }
-  const currentHeightGu = nodeGraphPatchNodeGridHeightUnits(patchNode);
-  const nextHeightGu = normalizeNodeGraphTextBoxHeightUnits(currentHeightGu + delta, patchNode.ui);
-  if (nextHeightGu === currentHeightGu) {
-    return false;
-  }
-  const defaultHeightGu = nodeGraphModuleGridHeightUnitsForUi("textBox", patchNode.ui);
-  if (nextHeightGu === defaultHeightGu) {
-    delete patchNode.heightGu;
-  } else {
-    patchNode.heightGu = nextHeightGu;
-  }
-  return true;
-}
-
-function resizeNodeGraphCustomModuleHeightOnGrid(patchNode, delta) {
-  if (nodeGraphModuleSizingCapabilities(patchNode?.type).moduleHeight !== "custom") {
-    return false;
-  }
-  const currentHeightGu = nodeGraphPatchNodeGridHeightUnits(patchNode);
-  const nextHeightGu = normalizeNodeGraphModuleHeightUnits(
-    patchNode.type,
-    currentHeightGu + delta,
-    patchNode.ui,
-  );
-  if (nextHeightGu === currentHeightGu) {
-    return false;
-  }
-  const defaultHeightGu = nodeGraphModuleGridHeightUnitsForUi(patchNode.type, patchNode.ui);
-  if (nextHeightGu === defaultHeightGu) {
-    delete patchNode.heightGu;
-  } else {
-    patchNode.heightGu = nextHeightGu;
-  }
-  return true;
-}
-
-function resizeNodeGraphDisplayModuleHeightOnGrid(patchNode, delta) {
-  if (!nodeGraphModuleSizingCapabilities(patchNode?.type).displayHeight) {
-    return false;
-  }
-  const ui = normalizeNodeGraphPatchNodeUi(patchNode.ui, patchNode.type);
-  const nextOffsetGu = normalizeNodeGraphModuleDisplayHeightOffsetUnits(
-    patchNode.type,
-    ui.displayHeightOffsetGu + delta * nodeGraphModuleDisplayHeightLimits.stepGu,
-  );
-  if (nextOffsetGu === ui.displayHeightOffsetGu) {
-    return false;
-  }
-  ui.displayHeightOffsetGu = nextOffsetGu;
-  applyNodeGraphPatchNodeUi(patchNode, ui);
-  return true;
-}
-
 function resizeNodeGraphHeightAdjustableModuleOnGrid(patchNode, delta) {
   const capabilities = nodeGraphModuleSizingCapabilities(patchNode?.type);
-  if (capabilities.moduleHeight === "textBox") {
-    return resizeNodeGraphTextBoxModuleHeightOnGrid(patchNode, delta);
+  if (capabilities.moduleHeight === "canvasScript") {
+    return false;
   }
-  if (capabilities.moduleHeight === "custom") {
-    return resizeNodeGraphCustomModuleHeightOnGrid(patchNode, delta);
-  }
-  if (capabilities.displayHeight) {
-    return resizeNodeGraphDisplayModuleHeightOnGrid(patchNode, delta);
+  if (
+    capabilities.moduleHeight === "textBox"
+    || capabilities.moduleHeight === "custom"
+    || capabilities.displayHeight
+  ) {
+    return nodeGraphApplyModuleHeightDelta(patchNode, delta);
   }
   return false;
 }
@@ -433,7 +377,7 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  // T → cycle tips: embedded → float → off → embedded.
+  // T → docked tips on/off.
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "t") {
     event.preventDefault();
     if (typeof toggleNodeGraphTooltipWindow === "function") {

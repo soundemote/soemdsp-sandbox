@@ -53,9 +53,19 @@ function attachNodeGraphNodeEvents(node) {
   ensureNodeGraphDragHandle(node);
   node.querySelector(".node-drag-handle")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   node.querySelector(".node-drag-handle")?.addEventListener("dblclick", toggleNodeGraphNodeMovementLock);
+  for (const button of node.querySelectorAll(
+    ".node-display-settings-button, .node-metaparameter-button, .node-action-button, .node-bypass-button",
+  )) {
+    button.addEventListener("pointerdown", beginNodeGraphNodeDrag);
+  }
   node.querySelector(".node-execution-order-badge")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   node.querySelector(".node-header-title-row")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   node.querySelector(".node-header-title-row")?.addEventListener("dblclick", (event) => {
+    if (event.altKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const type = node.dataset?.nodeType;
     if (
       typeof nodeGraphTextBoxOpenFloatingEditor === "function"
@@ -91,17 +101,31 @@ function attachNodeGraphNodeEvents(node) {
     .forEach((row) => row.addEventListener("pointerdown", beginNodeGraphNodeDrag));
   node.querySelector(".node-module-lip")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   node.querySelector(".node-module-lip")?.addEventListener("contextmenu", openNodeModuleActionMenu);
-  // The Music Player / sample modules have no spare chrome to grab -- the body
-  // is wall-to-wall controls -- so the phase readout doubles as a drag handle.
-  // The copy button inside it is unaffected: beginNodeGraphNodeDrag bails on
-  // any `button` target before it looks for a handle.
-  node.querySelectorAll(".node-sample-phase-readout")
-    .forEach((row) => row.addEventListener("pointerdown", beginNodeGraphNodeDrag));
-  node.querySelector(".node-bypass-button")?.addEventListener("click", toggleNodeGraphModuleBypass);
-  node.querySelector(".node-display-settings-button")?.addEventListener("click", openNodeModuleDisplaySettings);
+  node.querySelector(".node-bypass-button")?.addEventListener("click", (event) => {
+    if (typeof nodeGraphGuardModuleHeaderButtonClick === "function" && nodeGraphGuardModuleHeaderButtonClick(event)) {
+      return;
+    }
+    toggleNodeGraphModuleBypass(event);
+  });
+  node.querySelector(".node-display-settings-button")?.addEventListener("click", (event) => {
+    if (typeof nodeGraphGuardModuleHeaderButtonClick === "function" && nodeGraphGuardModuleHeaderButtonClick(event)) {
+      return;
+    }
+    openNodeModuleDisplaySettings(event);
+  });
   node.querySelector(".node-display-settings-button")?.addEventListener("contextmenu", openNodeModuleDisplaySettings);
-  node.querySelector(".node-action-button")?.addEventListener("click", openNodeModuleActionMenu);
-  node.querySelector(".node-metaparameter-button")?.addEventListener("click", openNodeModuleMetaparameters);
+  node.querySelector(".node-action-button")?.addEventListener("click", (event) => {
+    if (typeof nodeGraphGuardModuleHeaderButtonClick === "function" && nodeGraphGuardModuleHeaderButtonClick(event)) {
+      return;
+    }
+    openNodeModuleActionMenu(event);
+  });
+  node.querySelector(".node-metaparameter-button")?.addEventListener("click", (event) => {
+    if (typeof nodeGraphGuardModuleHeaderButtonClick === "function" && nodeGraphGuardModuleHeaderButtonClick(event)) {
+      return;
+    }
+    openNodeModuleMetaparameters(event);
+  });
   if (node.classList.contains("module-collapsed")) {
     node.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   }
@@ -238,15 +262,24 @@ function toggleNodeModuleDisplayVisibility(event) {
 }
 
 function firstNodeModuleSliderReadout(nodeElement) {
-  const readout = nodeElement?.querySelector?.(".node-slider-readout");
+  if (!nodeElement) {
+    return null;
+  }
+  const visibleReadout = [...nodeElement.querySelectorAll(".node-parameter-row")]
+    .find((row) => !row.hidden && !row.classList.contains("node-parameter-row-hidden"))
+    ?.querySelector(".node-slider-readout");
+  if (visibleReadout) {
+    return visibleReadout;
+  }
+  const readout = nodeElement.querySelector(".node-slider-readout");
   if (readout) {
     return readout;
   }
-  const slider = nodeElement?.querySelector?.('input[type="range"]');
+  const slider = nodeElement.querySelector('input[type="range"]');
   if (slider && typeof createNodeSliderReadout === "function") {
     createNodeSliderReadout(slider);
   }
-  return nodeElement?.querySelector?.(".node-slider-readout") || null;
+  return nodeElement.querySelector(".node-slider-readout") || null;
 }
 
 function toggleNodeModuleSlidersVisibility(event) {
@@ -492,7 +525,13 @@ function syncNodeGraphLayoutBNoParamsClass(element, type, ui = null) {
     type || element.dataset?.nodeType,
   );
   const rows = typeof nodeGraphModuleVisibleSliderRowCountForUi === "function"
-    ? nodeGraphModuleVisibleSliderRowCountForUi(type || element.dataset?.nodeType, patchUi)
+    ? nodeGraphModuleVisibleSliderRowCountForUi(
+      type || element.dataset?.nodeType,
+      patchUi,
+      typeof nodeGraphPatchNode === "function"
+        ? nodeGraphPatchNode(element.dataset?.node)
+        : null,
+    )
     : 0;
   element.classList.toggle("layout-b-no-params", rows <= 0);
 }
@@ -1143,9 +1182,6 @@ function createNodeGraphModuleElement(type, node) {
     }
 
     for (const parameter of definition.parameters) {
-      if (parameter.hidden) {
-        continue;
-      }
       body.append(createNodeGraphParameter(node, type, parameter));
     }
     article.append(body);

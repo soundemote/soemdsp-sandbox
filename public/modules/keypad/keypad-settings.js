@@ -22,12 +22,14 @@ function nodeGraphKeypadDisplaySettingsForNode(node) {
 function nodeGraphKeypadDisplaySliderDefaults() {
   return typeof normalizeNodeGraphKeypadLayout === "function"
     ? normalizeNodeGraphKeypadLayout()
-    : {
-      buttonHeight: 0.94,
-      buttonWidth: 0.94,
-      textSize: 0.55,
-      textWeight: 400,
-    };
+    : (typeof NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS !== "undefined"
+      ? { ...NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS }
+      : {
+        buttonHeight: 1,
+        buttonWidth: 1,
+        textSize: 0.87708066581306,
+        textWeight: 900,
+      });
 }
 
 function buildNodeGraphKeypadDisplaySettingsBodyHtml() {
@@ -123,7 +125,7 @@ function syncNodeGraphKeypadDisplaySettingsControls(root, settings) {
   }
   const font = root.querySelector?.(`[data-trace-display-choice="font"]`);
   if (font) {
-    font.value = String(settings.font || "poiret-one");
+    font.value = String(settings.font || NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS?.font || "thasadith");
   }
   const square = root.querySelector?.(`[data-keypad-check="squareRatio"]`);
   if (square) {

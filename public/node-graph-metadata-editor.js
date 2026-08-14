@@ -338,6 +338,7 @@ const nodeMetadataScriptSupportedKeys = new Set([
   "step",
   "tooltip",
   "unit",
+  "visible",
   "wraparound",
 ]);
 
@@ -348,6 +349,7 @@ const nodeMetadataScriptBooleanKeys = new Set([
   "linearSmoothing",
   "nonlinearSlider",
   "showSign",
+  "visible",
   "wraparound",
 ]);
 
@@ -710,6 +712,9 @@ function nodeMetadataScriptValue(value, key = "") {
   if (key === "alias") {
     return JSON.stringify(normalizeNodeGraphPatchMetadataAlias(value));
   }
+  if (key === "tooltip") {
+    return JSON.stringify(String(value ?? "").slice(0, 240));
+  }
   if (Array.isArray(value)) {
     return `[${value.map((entry) => String(entry || "").trim()).filter(Boolean).join(", ")}]`;
   }
@@ -752,6 +757,7 @@ function formatNodeMetadataScript(slider, metadata = nodeSliderMetadata(slider))
     `param.${key}.smoothingType = ${nodeMetadataScriptValue(metadata.smoothingType, "smoothingType")};`,
     `param.${key}.nonlinearSlider = ${nodeMetadataScriptValue(metadata.nonlinearSlider, "nonlinearSlider")};`,
     `param.${key}.showSign = ${nodeMetadataScriptValue(metadata.showSign, "showSign")};`,
+    `param.${key}.visible = ${nodeMetadataScriptValue(metadata.visible !== false, "visible")};`,
     `param.${key}.wraparound = ${nodeMetadataScriptValue(metadata.wraparound, "wraparound")};`,
   ];
   return rows.join("\n");
@@ -1235,7 +1241,7 @@ function parseNodeMetadataScriptValue(rawValue, key, current) {
   if (key === "choices") {
     return parseNodeMetadataScriptChoices(value);
   }
-  if (["bipolar", "displayChoices", "divideChoicesVisibly", "linearSmoothing", "nonlinearSlider", "showSign", "wraparound"].includes(key)) {
+  if (["bipolar", "displayChoices", "divideChoicesVisibly", "linearSmoothing", "nonlinearSlider", "showSign", "visible", "wraparound"].includes(key)) {
     return parseNodeMetadataScriptBoolean(value, current[key]);
   }
   if (key === "kind") {
@@ -1245,7 +1251,15 @@ function parseNodeMetadataScriptValue(rawValue, key, current) {
     return normalizeNodeSliderCurve(value.replace(/^["']|["']$/g, ""), current.nonlinearSlider);
   }
   if (key === "tooltip") {
-    return value.replace(/^["']|["']$/g, "").slice(0, 240);
+    const raw = String(value ?? "").trim();
+    if (raw.startsWith("\"") && raw.endsWith("\"")) {
+      try {
+        return String(JSON.parse(raw) ?? "").slice(0, 240);
+      } catch {
+        // Fall through to quote-strip.
+      }
+    }
+    return raw.replace(/^["']|["']$/g, "").slice(0, 240);
   }
   if (key === "unit") {
     return value.replace(/^["']|["']$/g, "");
@@ -1404,6 +1418,10 @@ function writeNodeMetadataEditorValues(metadata) {
   document.getElementById("metadataSliderCurveValue").value = normalizeNodeSliderCurve(metadata.sliderCurve, metadata.nonlinearSlider);
   document.getElementById("metadataCurveSensitivityValue").value = formatNodeSliderCompactNumber(metadata.curveAmount);
   document.getElementById("metadataShowSignValue").checked = metadata.showSign;
+  const showParameterInput = document.getElementById("metadataShowParameterValue");
+  if (showParameterInput) {
+    showParameterInput.checked = metadata.visible !== false;
+  }
   const trailEl = document.getElementById("metadataRemoveTrailingZerosValue");
   if (trailEl) {
     trailEl.checked = Boolean(metadata.removeTrailingZeros);
@@ -1470,6 +1488,7 @@ function fillNodeMetadataPopover(slider) {
   document.getElementById("metadataScriptTarget").textContent = sliderLabel;
   document.getElementById("metadataAliasValue").placeholder = sliderLabel;
   writeNodeMetadataEditorValues(metadata);
+  populateNodeMetadataParameterPicker(slider);
   setMetadataScriptSourceText(formatNodeMetadataScript(slider, metadata));
   setNodeMetadataScriptDirty(false, "script ready", false);
   setNodeMetadataAdvancedScriptVisible(false);
@@ -2254,6 +2273,7 @@ function readNodeMetadataEditorValues(slider) {
     step: Math.max(0, parseNodeMetadataNumber(stepInput, current.step)),
     showSign: document.getElementById("metadataShowSignValue").checked,
     removeTrailingZeros: Boolean(document.getElementById("metadataRemoveTrailingZerosValue")?.checked),
+    visible: document.getElementById("metadataShowParameterValue")?.checked !== false,
     wraparound: document.getElementById("metadataWraparoundValue").checked,
     unit: document.getElementById("metadataUnitValue").value.trim(),
   };
@@ -2272,6 +2292,14 @@ function applyNodeMetadataEditor(options = {}) {
   });
   syncMetadataSmoothingModeButtons(nextMetadata);
   syncMetadataSmoothingTypeButtons(nextMetadata);
+  const nodeElement = slider.closest(".dsp-node");
+  const patchNode = nodeElement
+    ? (typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeElement.dataset.node) : null)
+    : null;
+  if (nodeElement && patchNode && typeof refreshNodeGraphModuleParameterVisibility === "function") {
+    refreshNodeGraphModuleParameterVisibility(nodeElement, patchNode);
+  }
+  populateNodeMetadataParameterPicker(slider);
   markNodeGraphRenderPending();
   if (!options.keepDirty) {
     setNodeMetadataFieldsDirty(false);
@@ -2466,7 +2494,66 @@ function handleNodeMetadataKindChange() {
   document.getElementById("metadataRestoreDefaultButton").classList.add("armed");
 }
 
+function populateNodeMetadataParameterPicker(slider) {
+  const select = document.getElementById("metadataParameterPicker");
+  if (!select) {
+    return;
+  }
+  const nodeElement = slider?.closest?.(".dsp-node");
+  const nodeId = nodeElement?.dataset?.node;
+  const patchNode = nodeId && typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(nodeId)
+    : null;
+  const parameters = patchNode && typeof nodeGraphPatchNodeParameterDefinitions === "function"
+    ? nodeGraphPatchNodeParameterDefinitions(patchNode)
+    : [];
+  const currentKey = String(slider?.dataset?.param || "");
+  select.replaceChildren();
+  for (const parameter of parameters) {
+    const option = document.createElement("option");
+    option.value = parameter.key;
+    const visible = typeof nodeGraphParameterEffectiveVisible === "function"
+      ? nodeGraphParameterEffectiveVisible(parameter, patchNode?.paramMeta?.[parameter.key])
+      : parameter?.hidden !== true;
+    option.textContent = visible
+      ? (parameter.label || parameter.key)
+      : `${parameter.label || parameter.key} (hidden)`;
+    select.append(option);
+  }
+  select.hidden = parameters.length <= 0;
+  if (currentKey && [...select.options].some((option) => option.value === currentKey)) {
+    select.value = currentKey;
+  }
+}
+
+function handleNodeMetadataParameterPickerChange(event) {
+  const select = event?.target;
+  if (!select || select.id !== "metadataParameterPicker") {
+    return;
+  }
+  const current = document.getElementById(nodeGraphMvp.metadataEditorTarget);
+  const nodeElement = current?.closest?.(".dsp-node");
+  const nextKey = String(select.value || "");
+  if (!nodeElement || !nextKey) {
+    return;
+  }
+  const nextSlider = nodeElement.querySelector(`input[data-param="${CSS.escape(nextKey)}"]`);
+  if (!nextSlider || nextSlider.id === current?.id) {
+    return;
+  }
+  if (typeof confirmNodeMetadataScriptDiscard === "function" && !confirmNodeMetadataScriptDiscard()) {
+    select.value = current?.dataset?.param || "";
+    return;
+  }
+  nodeGraphMvp.metadataEditorTarget = nextSlider.id;
+  fillNodeMetadataPopover(nextSlider);
+}
+
 function handleNodeMetadataEditorInput(event) {
+  if (event?.target?.id === "metadataParameterPicker") {
+    handleNodeMetadataParameterPickerChange(event);
+    return;
+  }
   if (!nodeGraphMvp.metadataEditorTarget) {
     return;
   }

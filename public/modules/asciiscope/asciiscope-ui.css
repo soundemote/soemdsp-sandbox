@@ -113,7 +113,7 @@
   background: rgba(0, 12, 4, 0.92);
   color: #9effb8;
   font: 700 0.66rem/1 "Cascadia Mono", Consolas, monospace;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-matrix-face-tool:hover {

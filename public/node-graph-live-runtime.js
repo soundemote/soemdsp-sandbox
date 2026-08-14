@@ -1852,10 +1852,8 @@ function handleNodeGraphLiveWorkletMessage(event) {
       syncNodeGraphAudioPlayerRuntimeStatus({
         nodeId: message.audioPlayerNodeId || "",
         nodeIds: message.audioPlayerNodeIds || [],
-        peak: Number(message.audioPlayerPeak) || 0,
         phase: Number(message.audioPlayerPhase) || 0,
         reason: message.audioPlayerReason || "",
-        samples: Number(message.audioPlayerSamples) || 0,
       });
     }
     if (Number(message.badNumberCount) > 0) {

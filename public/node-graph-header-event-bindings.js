@@ -36,17 +36,7 @@ function bindNodeGraphHeaderControlEvents() {
     .getElementById("nodeStandaloneMidiKeyboardResizeHandle")
     ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "standaloneMidiKeyboard"));
   // Move/up: registry pointer bridge
-  document.getElementById("nodeTooltipWindowCloseButton")?.addEventListener("click", closeNodeGraphTooltipWindow);
-  document
-    .getElementById("nodeTooltipWindowDragHandle")
-    ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "tooltipWindow"));
-  document
-    .getElementById("nodeTooltipWindowHeading")
-    ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "tooltipWindow"));
-  document
-    .getElementById("nodeTooltipWindowResizeHandle")
-    ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "tooltipWindow"));
-  // Embedded tips height: drag strip between tips band and modular workspace.
+  // Docked tips height: drag strip between tips band and modular workspace.
   const embedResize = document.getElementById("nodeInteractionHelpEmbedResize");
   if (embedResize && typeof beginNodeGraphTooltipEmbedResize === "function") {
     embedResize.addEventListener("pointerdown", beginNodeGraphTooltipEmbedResize);
@@ -233,10 +223,13 @@ function bindNodeGraphHeaderControlEvents() {
   document.getElementById("nodeTooltipToggleButton")?.addEventListener("click", toggleNodeGraphTooltipWindow);
   document
     .getElementById("nodeUserUiSettingsSaveDefault")
-    .addEventListener("click", handleSaveNodeUserUiSettingsDefaultClick);
+    ?.addEventListener("click", handleSaveNodeUserUiSettingsDefaultClick);
   document
     .getElementById("nodeUserUiSettingsClearStartup")
-    .addEventListener("click", handleClearNodeUserStartupStateClick);
+    ?.addEventListener("click", handleClearNodeUserStartupStateClick);
+  document
+    .getElementById("clearNodeUiDevStartupButton")
+    ?.addEventListener("click", handleClearNodeUserStartupStateClick);
   // Shortcut from the user-facing panel to the full UI Dev panel, where every
   // setting lives (including the ones not exposed here).
   document

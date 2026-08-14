@@ -535,48 +535,6 @@ if (typeof window !== "undefined" && !window.__nodeGraphAudioPlayerPhaseUnloadBo
   });
 }
 
-function nodeGraphSampleNodeHasSpeakerRoute(nodeId, patch = nodeGraphMvp.patch) {
-  const sourceId = String(nodeId || "").trim();
-  if (!sourceId || !patch || !Array.isArray(patch.connections)) {
-    return false;
-  }
-  const outputPorts = new Set(typeof nodeGraphOutputInputPorts !== "undefined"
-    ? nodeGraphOutputInputPorts
-    : ["Mono", "Left", "Right"]);
-  const downstream = new Map();
-  for (const connection of patch.connections || []) {
-    const sourceNode = String(connection?.sourceNode || "").trim();
-    const destinationNode = String(connection?.destinationNode || "").trim();
-    if (!sourceNode || !destinationNode) {
-      continue;
-    }
-    const links = downstream.get(sourceNode) || [];
-    links.push({
-      nodeId: destinationNode,
-      port: String(connection?.destinationPort || "").trim(),
-    });
-    downstream.set(sourceNode, links);
-  }
-  const visited = new Set();
-  const queue = [sourceId];
-  while (queue.length) {
-    const current = queue.shift();
-    if (!current || visited.has(current)) {
-      continue;
-    }
-    visited.add(current);
-    for (const link of downstream.get(current) || []) {
-      if (link.nodeId === "output" && outputPorts.has(link.port)) {
-        return true;
-      }
-      if (!visited.has(link.nodeId)) {
-        queue.push(link.nodeId);
-      }
-    }
-  }
-  return false;
-}
-
 function nodeGraphSamplePhaseCopyTextForNode(nodeId) {
   return nodeGraphSamplePhaseForNode(nodeId).toPrecision(17);
 }
@@ -596,43 +554,22 @@ function setNodeGraphSampleStatus(nodeId, message) {
   return message;
 }
 
-function nodeGraphSampleRuntimeStatusText(nodeId) {
-  const status = nodeGraphMvp.sampleRuntimeStatus?.get?.(nodeId);
-  if (!status) {
-    return "";
-  }
-  const samples = Math.max(0, Math.round(Number(status.samples) || 0));
-  const peak = Math.max(0, Number(status.peak) || 0);
-  const reason = String(status.reason || "").trim();
-  if (samples <= 0) {
-    return reason || "engine not in live path";
-  }
-  if (peak > 0.00001) {
-    return `engine pk ${peak.toFixed(3)}`;
-  }
-  return reason || "engine silent";
-}
-
 function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
   const nodeIds = Array.isArray(message.nodeIds)
     ? message.nodeIds.map((id) => String(id || "")).filter(Boolean)
     : [];
   const primaryNodeId = String(message.nodeId || nodeIds[0] || "");
-  const peak = Number(message.peak) || 0;
   const phase = Number(message.phase) || 0;
-  const samples = Number(message.samples) || 0;
   const reason = String(message.reason || "").trim();
   const activeIds = new Set(primaryNodeId ? [primaryNodeId] : nodeIds);
   for (const nodeId of nodeIds) {
     nodeGraphMvp.sampleRuntimeStatus?.set?.(nodeId, {
-      peak: activeIds.has(nodeId) ? peak : 0,
       phase: activeIds.has(nodeId) ? phase : 0,
       reason: activeIds.has(nodeId) ? reason : "engine not in live path",
-      samples: activeIds.has(nodeId) ? samples : 0,
     });
   }
   if (primaryNodeId && !nodeGraphMvp.sampleRuntimeStatus?.has?.(primaryNodeId)) {
-    nodeGraphMvp.sampleRuntimeStatus?.set?.(primaryNodeId, { peak, phase, reason, samples });
+    nodeGraphMvp.sampleRuntimeStatus?.set?.(primaryNodeId, { phase, reason });
   }
   // Persist playhead on the active Music Player(s) for refresh restore.
   if (primaryNodeId && activeIds.has(primaryNodeId)) {
@@ -783,17 +720,7 @@ function nodeGraphSampleStatusForNode(nodeId) {
     // still reported above, because nothing else surfaces that.
     return node?.type === "audioPlayer" ? "" : "no audio loaded";
   }
-  const cached = nodeGraphMvp.sampleBuffers?.get?.(sample.id);
-  const frames = cached?.frames || sample.frames || 0;
-  const channels = cached?.channels || sample.channels || 0;
-  if (frames && channels) {
-    const runtime = nodeGraphSampleRuntimeStatusText(nodeId);
-    const route = nodeGraphSampleNodeHasSpeakerRoute(nodeId)
-      ? ""
-      : " / not routed to output";
-    return `${channels}ch ${frames} frames ready${runtime ? ` / ${runtime}` : ""}${route}`;
-  }
-  return "audio referenced; reload file if silent";
+  return "";
 }
 
 function nodeGraphSampleFileToDataUrl(file) {
@@ -1092,9 +1019,8 @@ async function loadNodeGraphSampleDataUrlForNode(nodeId, dataUrl, name = "Sample
   scheduleNodeGraphLivePlanSync("plan");
 }
 
-// Phase readout + 📋 copy button. Shared by the Music Player body and the
-// Waveform display options window so hiding the module control surface does
-// not strand phase without a copy path.
+// Phase readout + 📋 copy button. Used by the waveform display options window
+// (right-click). Not mounted on the Music Player face.
 function createNodeGraphSamplePhaseReadout(nodeId) {
   const phase = document.createElement("div");
   phase.className = "node-sample-phase-readout";
@@ -1255,33 +1181,27 @@ function createNodeGraphSampleModuleBody(nodeOrId) {
   if (typeof tagNodeGraphModuleBand === "function") {
     tagNodeGraphModuleBand(body, "controls");
   }
-  const name = document.createElement("div");
-  name.className = "node-sample-name";
-  name.dataset.sampleNameForNode = nodeId;
-  applyNodeGraphSampleTextRow(name, nodeGraphSampleNameForNode(nodeId));
   const status = document.createElement("div");
   status.className = "node-sample-status";
   status.dataset.sampleStatusForNode = nodeId;
   applyNodeGraphSampleTextRow(status, nodeGraphSampleStatusForNode(nodeId));
-  const { phase } = createNodeGraphSamplePhaseReadout(nodeId);
-  const { fileInput: input, pathShell } = createNodeGraphSamplePathLoader(nodeId);
-  const inputId = input.id;
-  const picker = document.createElement("label");
-  picker.className = "node-sample-load-button node-sample-file-picker";
-  picker.htmlFor = inputId;
-  protectNodeGraphSampleControl(picker);
-  const pickerText = document.createElement("span");
-  pickerText.textContent = "Load Sample";
-  picker.append(pickerText);
-  body.append(name, status);
   if (!isMusicPlayer) {
-    body.append(picker);
+    const { fileInput: input, pathShell } = createNodeGraphSamplePathLoader(nodeId);
+    const name = document.createElement("div");
+    name.className = "node-sample-name";
+    name.dataset.sampleNameForNode = nodeId;
+    applyNodeGraphSampleTextRow(name, nodeGraphSampleNameForNode(nodeId));
+    const picker = document.createElement("label");
+    picker.className = "node-sample-load-button node-sample-file-picker";
+    picker.htmlFor = input.id;
+    protectNodeGraphSampleControl(picker);
+    const pickerText = document.createElement("span");
+    pickerText.textContent = "Load Sample";
+    picker.append(pickerText);
+    body.append(name, status, picker, input, pathShell);
+  } else {
+    body.append(status);
   }
-  if (isMusicPlayer) {
-    body.append(phase);
-  }
-  body.append(input);
-  body.append(pathShell);
   return body;
 }
 

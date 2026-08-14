@@ -88,7 +88,7 @@ const nodeGraphNodeLabels = Object.freeze({
   noiseGenerator: "Noise Generator",
   randomWalk: "Random Walk",
   piSpigotNoise: "Pi Spigot Noise",
-  fractalBrownianNoise: "Fractal Brownian Noise",
+  fractalBrownianNoise: "Fractal Brownian Motion",
   gain: "Gain",
   // Legacy id — patches migrate to "gain" on load.
   gainBias: "Gain",
@@ -2779,6 +2779,7 @@ const nodeGraphModuleDefinitions = (
   },
   fractalBrownianNoise: {
     planRole: "source",
+    defaultAlias: "fBm",
     // Display sources reference the pre-level ("Out X Raw" etc.) signal so the
     // scope always shows the fractal noise at full volume, regardless of the
     // Level parameter -- the Level knob only affects the wired/audio output.
@@ -3796,6 +3797,7 @@ const nodeGraphModuleDefinitions = (
         // Hidden control state — face is the only UI; no param-out twin of Bias.
         // Domain range follows Max + Polarity (synced at runtime).
         hidden: true,
+        parameterOutput: false,
         key: "offset",
         label: "Offset",
         max: "1",
@@ -3860,6 +3862,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "0",
         // Hidden control state — face drag writes this; no body row / param-out.
         hidden: true,
+        parameterOutput: false,
         key: "value",
         label: "Value",
         max: "1",
@@ -10181,16 +10184,16 @@ const nodeGraphGrid = Object.freeze({
 });
 
 const nodeGraphModuleLayout = Object.freeze({
-  bodyRowGapGu: 1 / 28,
+  bodyRowGapGu: 2 / 28,
   fitCushionGu: 2 / 28,
-  headerHeightGu: 76 / 28,
-  headerTitleRowHeightGu: 22 / 28,
+  headerHeightGu: 88 / 28,
+  headerTitleRowHeightGu: 34 / 28,
   /* The io section renders with `padding: var(--node-io-section-padding-block) 0`
      and that var is 0 (styles.css) -- the old 4px here was phantom height. */
   ioPaddingYGu: 0,
   ioRowGapGu: 1 / 28,
   /* Match LayoutA .node-io-row min-height: max(1em, port-diameter).
-     Port diameter = 0.5 × grid gu at default --node-port-size-ratio 0.50.
+     Port diameter = 0.52 × grid gu.
      Use 16/28 (not 14/28) so dense strips (8-out crossover) keep a few px of
      cushion vs font metrics / subpixel — under-reserve lets HFR clip into params. */
   ioRowHeightGu: 16 / 28,

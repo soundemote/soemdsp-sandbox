@@ -62,6 +62,9 @@ function applyNodeGraphWorkspaceView() {
     applyNodeGraphPan();
   }
   scheduleNodeGraphWorkspaceOriginSync();
+  if (typeof scheduleNodeGraphSliderReadoutRelayout === "function") {
+    scheduleNodeGraphSliderReadoutRelayout();
+  }
 }
 
 function scheduleNodeGraphWorkspaceOriginSync() {
@@ -275,6 +278,14 @@ function applyNodeGraphGridVisualCellSize(workspace, heatmap, zoom) {
   );
 }
 
+function nodeGraphHeatmapWantsGrid() {
+  return nodeGraphMvp?.gridVisible === true;
+}
+
+function nodeGraphHeatmapWantsLight() {
+  return nodeGraphMvp?.gridLightVisible !== false;
+}
+
 function updateNodeGraphGridHeatmap(options = {}) {
   const heatmap = document.getElementById("nodeGridHeatmap");
   const surface = nodeGraphZoomSurface();
@@ -283,44 +294,47 @@ function updateNodeGraphGridHeatmap(options = {}) {
     return;
   }
 
-  // Visibility → Grid Light off: skip all O(modules) gradient work.
-  if (nodeGraphMvp?.gridLightVisible === false && options?.force !== true) {
+  const wantGrid = nodeGraphHeatmapWantsGrid();
+  const wantLight = nodeGraphHeatmapWantsLight();
+  if (!wantGrid && !wantLight && options?.force !== true) {
     heatmap.style.setProperty("--node-grid-heatmap", "none");
     heatmap.style.setProperty(
-      "--node-grid-heatmap-mask",
+      "--node-grid-reveal-mask",
       "linear-gradient(transparent, transparent)",
     );
     return;
   }
 
-  // Never rebuild module lights mid pan/zoom — wait for pointer-up (or force).
+  const zoom = nodeGraphZoom();
+  const origin = nodeGraphRenderedOriginOffset();
+  // Grid lines track pan/zoom every call — never freeze the grid mid-gesture.
+  heatmap.style.setProperty("--node-grid-heatmap-grid-position", `${origin.x}px ${origin.y}px`);
+  applyNodeGraphGridVisualCellSize(workspace, heatmap, zoom);
+
+  const gesturing = typeof nodeGraphViewportGestureActive === "function"
+    && nodeGraphViewportGestureActive();
+  // Pause only the O(modules) light/mask rebuild. Grid position already updated.
   if (
-    options?.force !== true
-    && options?.lite !== true
-    && typeof nodeGraphViewportGestureActive === "function"
-    && nodeGraphViewportGestureActive()
+    options?.lite === true
+    || (gesturing && options?.force !== true)
   ) {
     return;
   }
-  // lite: intentionally a no-op (grid still tracks via CSS pan/zoom vars).
-  if (options?.lite === true) {
-    return;
-  }
-
-  const zoom = nodeGraphZoom();
-  const origin = nodeGraphRenderedOriginOffset();
-  heatmap.style.setProperty("--node-grid-heatmap-grid-position", `${origin.x}px ${origin.y}px`);
-  applyNodeGraphGridVisualCellSize(workspace, heatmap, zoom);
 
   const glowLayers = [];
   const maskLayers = [];
   const visibleNodes = [...surface.querySelectorAll(".dsp-node:not(.removed):not([hidden])")];
-  const spread = Math.max(
+  const lightSpread = Math.max(
     0.4,
-    Math.min(
-      2.2,
-      (Number.parseFloat(getComputedStyle(workspace).getPropertyValue("--node-module-light-spread")) || 1),
-    ),
+    Math.min(2.2, nodeGraphWorkspaceFloatProperty(workspace, "--node-module-light-spread", 0.78)),
+  );
+  const gridSpread = Math.max(
+    0.4,
+    Math.min(2.2, nodeGraphWorkspaceFloatProperty(workspace, "--node-grid-reveal-spread", 0.78)),
+  );
+  const lightBright = Math.max(
+    0,
+    Math.min(1, nodeGraphWorkspaceFloatProperty(workspace, "--node-module-light-brightness", 1)),
   );
   for (const node of visibleNodes) {
     if (node.classList.contains("viewport-asleep")) {
@@ -329,14 +343,26 @@ function updateNodeGraphGridHeatmap(options = {}) {
     const bounds = nodeGraphNodeBounds(node);
     const centerX = (bounds.left + (bounds.right - bounds.left) / 2) * zoom + (Number(origin.x) || 0);
     const centerY = (bounds.top + (bounds.bottom - bounds.top) / 2) * zoom + (Number(origin.y) || 0);
-    const radiusX = Math.max(nodeGraphGridWidth() * 5, (bounds.right - bounds.left) * 1.18) * spread * zoom;
-    const radiusY = Math.max(nodeGraphGridHeight() * 5, (bounds.bottom - bounds.top) * 1.35) * spread * zoom;
-    glowLayers.push(
-      `radial-gradient(ellipse ${radiusX.toFixed(2)}px ${radiusY.toFixed(2)}px at ${centerX.toFixed(2)}px ${centerY.toFixed(2)}px, rgba(127, 199, 217, 0.18) 0%, rgba(127, 199, 217, 0.15) 18%, rgba(226, 168, 109, 0.1) 38%, rgba(226, 168, 109, 0.045) 62%, transparent 92%)`,
-    );
-    maskLayers.push(
-      `radial-gradient(ellipse ${radiusX.toFixed(2)}px ${radiusY.toFixed(2)}px at ${centerX.toFixed(2)}px ${centerY.toFixed(2)}px, black 0%, rgb(0 0 0 / 0.95) 22%, rgb(0 0 0 / 0.72) 48%, rgb(0 0 0 / 0.28) 74%, transparent 94%)`,
-    );
+    const baseX = Math.max(nodeGraphGridWidth() * 5, (bounds.right - bounds.left) * 1.18) * zoom;
+    const baseY = Math.max(nodeGraphGridHeight() * 5, (bounds.bottom - bounds.top) * 1.35) * zoom;
+    if (wantLight && lightBright > 0) {
+      const radiusX = baseX * lightSpread;
+      const radiusY = baseY * lightSpread;
+      const a0 = (0.18 * lightBright).toFixed(3);
+      const a1 = (0.15 * lightBright).toFixed(3);
+      const a2 = (0.10 * lightBright).toFixed(3);
+      const a3 = (0.045 * lightBright).toFixed(3);
+      glowLayers.push(
+        `radial-gradient(ellipse ${radiusX.toFixed(2)}px ${radiusY.toFixed(2)}px at ${centerX.toFixed(2)}px ${centerY.toFixed(2)}px, rgba(127, 199, 217, ${a0}) 0%, rgba(127, 199, 217, ${a1}) 18%, rgba(226, 168, 109, ${a2}) 38%, rgba(226, 168, 109, ${a3}) 62%, transparent 92%)`,
+      );
+    }
+    if (wantGrid) {
+      const maskX = baseX * gridSpread;
+      const maskY = baseY * gridSpread;
+      maskLayers.push(
+        `radial-gradient(ellipse ${maskX.toFixed(2)}px ${maskY.toFixed(2)}px at ${centerX.toFixed(2)}px ${centerY.toFixed(2)}px, black 0%, rgb(0 0 0 / 0.95) 22%, rgb(0 0 0 / 0.72) 48%, rgb(0 0 0 / 0.28) 74%, transparent 94%)`,
+      );
+    }
   }
   let mouseAmount = Math.max(0, Math.min(2, nodeGraphWorkspaceFloatProperty(workspace, "--node-mouse-light-amount")));
   const mouseSpread = Math.max(0, Math.min(2, nodeGraphWorkspaceFloatProperty(workspace, "--node-mouse-light-spread")));
@@ -358,32 +384,23 @@ function updateNodeGraphGridHeatmap(options = {}) {
     );
   }
   heatmap.style.setProperty("--node-grid-heatmap", glowLayers.length ? glowLayers.join(", ") : "none");
-  heatmap.style.setProperty(
-    "--node-grid-heatmap-mask",
-    maskLayers.length ? maskLayers.join(", ") : "linear-gradient(transparent, transparent)",
-  );
+  const mask = maskLayers.length ? maskLayers.join(", ") : "linear-gradient(transparent, transparent)";
+  heatmap.style.setProperty("--node-grid-reveal-mask", mask);
+  heatmap.style.setProperty("--node-grid-heatmap-mask", mask);
 }
 
 function scheduleNodeGraphGridHeatmapUpdate() {
   if (nodeGraphMvp.mouseLightFrame) {
     return;
   }
-  if (nodeGraphMvp?.gridLightVisible === false) {
-    return;
-  }
-  // Do not queue a lights rebuild while panning/zooming (even via rAF).
-  if (typeof nodeGraphViewportGestureActive === "function" && nodeGraphViewportGestureActive()) {
+  if (!nodeGraphHeatmapWantsGrid() && !nodeGraphHeatmapWantsLight()) {
     return;
   }
   nodeGraphMvp.mouseLightFrame = window.requestAnimationFrame(() => {
     nodeGraphMvp.mouseLightFrame = 0;
-    if (nodeGraphMvp?.gridLightVisible === false) {
-      return;
-    }
-    if (typeof nodeGraphViewportGestureActive === "function" && nodeGraphViewportGestureActive()) {
-      return;
-    }
-    updateNodeGraphGridHeatmap();
+    const gesturing = typeof nodeGraphViewportGestureActive === "function"
+      && nodeGraphViewportGestureActive();
+    updateNodeGraphGridHeatmap({ lite: gesturing });
   });
 }
 
@@ -405,15 +422,8 @@ function updateNodeGraphMouseLight(event) {
     x: event.clientX - rect.left,
     y: event.clientY - rect.top,
   };
-  // Pan / snake select / grid-light-off — skip heatmap rebuild.
-  if (
-    nodeGraphMvp.gridLightVisible === false
-    || nodeGraphMvp.workspacePanning
-    || nodeGraphMvp.marqueeSelection
-    || nodeGraphMvp.smoothZoomDragging
-    || nodeGraphMvp.workspacePinchZooming
-    || (typeof nodeGraphViewportGestureActive === "function" && nodeGraphViewportGestureActive())
-  ) {
+  if (typeof nodeGraphViewportGestureActive === "function" && nodeGraphViewportGestureActive()) {
+    updateNodeGraphGridHeatmap({ lite: true });
     return;
   }
   scheduleNodeGraphGridHeatmapUpdate();
@@ -421,7 +431,7 @@ function updateNodeGraphMouseLight(event) {
 
 function clearNodeGraphMouseLight() {
   nodeGraphMvp.mouseLightPoint = null;
-  if (nodeGraphMvp?.gridLightVisible !== false) {
+  if (nodeGraphHeatmapWantsGrid() || nodeGraphHeatmapWantsLight()) {
     updateNodeGraphGridHeatmap();
   }
 }

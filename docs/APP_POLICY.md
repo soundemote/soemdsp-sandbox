@@ -112,7 +112,7 @@ When feature-complete (or when explicitly chosen later): introduce migrations de
 
 ## 11. Naming
 
-- Prefer full, consistent product names where modules are siblings (e.g. **Fractal Brownian Field** next to **Fractal Brownian Noise**).
+- Prefer full, consistent product names where modules are siblings (e.g. **Fractal Brownian Field** next to **Fractal Brownian Motion**).
 - Internal type ids (`fbmField`) may stay short; **user-facing labels** should not be cryptic abbreviations unless established brand.
 
 ---

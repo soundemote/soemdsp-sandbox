@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=io-item-1">
+  <link rel="stylesheet" href="./public/styles.css?v=param-show-hide-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=portal-io-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-bgi-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -283,12 +283,12 @@
               <span>Visibility</span>
             </div>
             <button id="nodeVisibilityMenuClose" class="panel-close-button" type="button" aria-label="Close visibility menu">
-              <span aria-hidden="true">&times;</span>
+              <span class="panel-close-glyph" aria-hidden="true"></span>
             </button>
           </div>
           <div class="node-visibility-menu-list">
-            <button id="nodeTooltipToggleButton" type="button" role="menuitem" aria-pressed="false" data-tooltip-mode="off">
-              <span class="node-tooltip-mode-label">⬛ Tooltips off</span>
+            <button id="nodeTooltipToggleButton" type="button" role="menuitem" aria-pressed="true" data-tooltip-mode="embedded">
+              <span class="node-tooltip-mode-label">📌 Tooltips docked</span>
               <kbd>T</kbd>
             </button>
             <button id="nodeGridToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Grid</button>
@@ -313,37 +313,6 @@
       </div>
 
       <div
-        id="nodeTooltipWindow"
-        class="node-tooltip-window"
-        role="dialog"
-        aria-label="Tips"
-        hidden>
-        <div id="nodeTooltipWindowHeading" class="scene-context-heading">
-          <button
-            id="nodeTooltipWindowDragHandle"
-            class="scene-context-drag-handle"
-            type="button"
-            aria-label="Move tips">&#x2725;</button>
-          <div class="scene-context-title">
-            <span>Tips</span>
-          </div>
-          <button
-            id="nodeTooltipWindowCloseButton"
-            class="panel-close-button"
-            type="button"
-            aria-label="Close tips">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div id="nodeInteractionHelp" class="node-interaction-help" role="status" aria-live="polite"></div>
-        <button
-          id="nodeTooltipWindowResizeHandle"
-          class="scene-context-resize-handle"
-          type="button"
-          aria-label="Resize tips"></button>
-      </div>
-
-      <div
         id="nodePhosphorWaveformSettingsWindow"
         class="node-phosphor-waveform-settings-window"
         role="dialog"
@@ -364,7 +333,7 @@
             class="panel-close-button"
             type="button"
             aria-label="Close waveform display options">
-            <span aria-hidden="true">&times;</span>
+            <span class="panel-close-glyph" aria-hidden="true"></span>
           </button>
         </div>
         <div class="node-phosphor-waveform-settings-row node-phosphor-waveform-load-row" role="group" aria-label="Load sample">
@@ -377,7 +346,7 @@
         </div>
         <label class="node-phosphor-waveform-settings-row">
           <span>Time Window</span>
-          <input id="nodePhosphorWaveformTimeWindowInput" type="number" inputmode="decimal" step="0.05" min="0.05" max="60" autocomplete="off" readonly title="Double-click to edit">
+          <input id="nodePhosphorWaveformTimeWindowInput" type="number" inputmode="decimal" step="0.05" min="0" max="60" autocomplete="off" readonly title="Double-click to edit · 0 = single sample">
           <span>s</span>
         </label>
         <div class="node-phosphor-waveform-settings-row" role="group" aria-label="Scroll mode">
@@ -449,14 +418,14 @@
              back out again - there is only ever one of it, which is what lets
              setNodeInteractionHelp keep working by id regardless of mode.
              Resize handle between this tips band and the modular workspace. -->
-        <div id="nodeInteractionHelpEmbedSlot" class="node-interaction-help-embed-slot" hidden>
+        <div id="nodeInteractionHelpEmbedSlot" class="node-interaction-help-embed-slot">
+          <div id="nodeInteractionHelp" class="node-interaction-help is-embedded" role="status" aria-live="polite"></div>
           <button
             id="nodeInteractionHelpEmbedResize"
             class="node-interaction-help-embed-resize"
             type="button"
-            aria-label="Drag to resize embedded tips"
-            title="Drag to resize tips height"
-            hidden></button>
+            aria-label="drag to resize tips | T to open/close"
+            title="drag to resize tips | T to open/close"></button>
         </div>
         <div class="node-constraint-color-guide" aria-label="Resource constraint color guide">
           <span class="node-constraint-stack" data-constraint-stack="cpu">
@@ -592,7 +561,7 @@
             class="panel-close-button"
             type="button"
             aria-label="Close keyboard">
-            <span aria-hidden="true">&times;</span>
+            <span class="panel-close-glyph" aria-hidden="true"></span>
           </button>
         </div>
         <div id="nodeStandaloneMidiKeyboardBody" class="node-standalone-midi-keyboard-body"></div>
@@ -652,7 +621,7 @@
               class="panel-close-button"
               type="button"
               aria-label="Close canvas script dialog">
-              <span aria-hidden="true">&times;</span>
+              <span class="panel-close-glyph" aria-hidden="true"></span>
             </button>
           </div>
           <div class="node-canvas-script-body">
@@ -694,7 +663,7 @@
             class="panel-close-button"
             type="button"
             aria-label="Close module browser">
-            <span aria-hidden="true">&times;</span>
+            <span class="panel-close-glyph" aria-hidden="true"></span>
           </button>
         </div>
         <div id="nodeModuleShopUnifiedNavHost" class="node-unified-window-nav-host" aria-label="Floating window pages"></div>
@@ -833,25 +802,13 @@
             type="button"
             aria-label="Close patch page"
             title="Close patch page">
-            <span aria-hidden="true">&times;</span>
+            <span class="panel-close-glyph" aria-hidden="true"></span>
           </button>
         </div>
         <input id="nodePatchScriptFileInput" type="file" accept="application/json,.json" hidden>
 
         <div class="node-patch-page-scroll">
-          <section class="node-patch-card node-patch-raw-card" aria-label="Patch JSON">
-            <div class="node-patch-raw-editor">
-              <pre id="nodePatchRawHighlight" class="node-patch-raw-highlight" aria-hidden="true"></pre>
-              <textarea
-                id="nodePatchRawText"
-                class="node-patch-raw-text"
-                spellcheck="false"
-                wrap="off"
-                rows="24"
-                aria-label="Patch JSON"></textarea>
-            </div>
-          </section>
-
+          <div class="node-patch-page-toolbar" aria-label="Patch tools">
           <div class="node-settings-script-action-group" role="group" aria-label="Patch tools">
             <button
               id="updateDefaultPresetButton"
@@ -902,6 +859,19 @@
               aria-disabled="true"
               data-tooltip-key="settings.makeWidget"><span>Make Widget</span><span>(soon)</span></button>
           </div>
+          </div>
+          <section class="node-patch-card node-patch-raw-card" aria-label="Patch JSON">
+            <div class="node-patch-raw-editor">
+              <pre id="nodePatchRawHighlight" class="node-patch-raw-highlight" aria-hidden="true"></pre>
+              <textarea
+                id="nodePatchRawText"
+                class="node-patch-raw-text"
+                spellcheck="false"
+                wrap="off"
+                rows="24"
+                aria-label="Patch JSON"></textarea>
+            </div>
+          </section>
         </div>
       </div>
 
@@ -927,23 +897,34 @@
             class="panel-close-button"
             type="button"
             aria-label="Close UIDEV helper">
-            <span aria-hidden="true">&times;</span>
+            <span class="panel-close-glyph" aria-hidden="true"></span>
           </button>
         </div>
         <div class="node-ui-dev-helper-body">
-          <div class="node-ui-dev-actions" aria-label="user UI settings actions">
-            <button
-              id="copyNodeUiDevSettingsButton"
-              type="button">Copy</button>
-            <button
-              id="loadNodeUiDevSettingsButton"
-              type="button">Load</button>
-            <button
-              id="saveNodeUiDevSettingsButton"
-              type="button">Save</button>
-            <button
-              id="updateDefaultNodeUiDevSettingsButton"
-              type="button">Update Default</button>
+          <div class="node-ui-dev-actions" aria-label="UIDEV settings actions">
+            <div class="node-ui-dev-action-row">
+              <button
+                id="copyNodeUiDevSettingsButton"
+                type="button">Copy</button>
+              <button
+                id="saveNodeUiDevSettingsButton"
+                type="button">Save</button>
+              <button
+                id="pasteNodeUiDevSettingsButton"
+                type="button">Paste</button>
+            </div>
+            <div class="node-ui-dev-action-row">
+              <button
+                id="loadNodeUiDevSettingsButton"
+                type="button">Load</button>
+              <button
+                id="updateDefaultNodeUiDevSettingsButton"
+                type="button">Update Default</button>
+              <button
+                id="clearNodeUiDevStartupButton"
+                type="button"
+                title="Clear startup / local UI settings keys">Clear Startup</button>
+            </div>
             <output
               id="nodeUiDevSettingsStatus"
               class="pill"
@@ -954,43 +935,28 @@
               accept="application/json,.json"
               hidden>
           </div>
-          <label class="node-ui-dev-control">
-            <span>module browser entry height</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevModuleBrowserEntryHeight"
-                type="range"
-                min="24"
-                max="120"
-                step="1"
-                value="46">
-              <output id="nodeUiDevModuleBrowserEntryHeightValue" for="nodeUiDevModuleBrowserEntryHeight">46px</output>
-            </div>
+          <label class="node-ui-dev-color-control">
+            <span>modular background color</span>
+            <input id="nodeUiDevWorkspaceBackgroundColor" type="color" value="#1d1b1b">
+            <output id="nodeUiDevWorkspaceBackgroundColorValue" for="nodeUiDevWorkspaceBackgroundColor">#1d1b1b</output>
+          </label>
+          <label class="node-ui-dev-check">
+            <input
+              id="nodeUiDevShowOriginMarker"
+              type="checkbox">
+            <span>show world origin</span>
           </label>
           <label class="node-ui-dev-control">
-            <span>module browser entry padding</span>
+            <span>tooltip max text size</span>
             <div class="node-ui-dev-control-row">
               <input
-                id="nodeUiDevModuleBrowserEntryPadding"
+                id="nodeUiDevTooltipTextSize"
                 type="range"
-                min="0"
-                max="20"
+                min="12"
+                max="96"
                 step="1"
-                value="3">
-              <output id="nodeUiDevModuleBrowserEntryPaddingValue" for="nodeUiDevModuleBrowserEntryPadding">3px</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>module browser entry text/emoji size</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevModuleBrowserEntryTextSize"
-                type="range"
-                min="8"
-                max="28"
-                step="1"
-                value="16">
-              <output id="nodeUiDevModuleBrowserEntryTextSizeValue" for="nodeUiDevModuleBrowserEntryTextSize">16px</output>
+                value="64">
+              <output id="nodeUiDevTooltipTextSizeValue" for="nodeUiDevTooltipTextSize">64px</output>
             </div>
           </label>
           <label class="node-ui-dev-check">
@@ -999,29 +965,6 @@
               type="checkbox"
               checked>
             <span>mouse light on off</span>
-          </label>
-          <label class="node-ui-dev-check">
-            <input
-              id="nodeUiDevDimmerCutoutSlider"
-              type="checkbox"
-              checked
-              title="When room dimmer is on: full-width light strip over the hovered slider / parameter row">
-            <span>dimmer cutout for slider</span>
-          </label>
-          <label class="node-ui-dev-check">
-            <input
-              id="nodeUiDevDimmerCutoutModule"
-              type="checkbox"
-              title="When room dimmer is on: punch the entire hovered module plate">
-            <span>dimmer cutout for module</span>
-          </label>
-          <label class="node-ui-dev-check">
-            <input
-              id="nodeUiDevDimmerCutoutTitle"
-              type="checkbox"
-              checked
-              title="When room dimmer is on: punch a light box over the module title row while hovering the header/title">
-            <span>dimmer cutout for title</span>
           </label>
           <label class="node-ui-dev-check">
             <input
@@ -1072,108 +1015,17 @@
               <output id="nodeUiDevDimmerMouseShapeValue" for="nodeUiDevDimmerMouseShape">square</output>
             </div>
           </label>
-          <label class="node-ui-dev-check">
-            <input
-              id="nodeUiDevShowOriginMarker"
-              type="checkbox">
-            <span>show world origin</span>
-          </label>
-          <label class="node-ui-dev-check">
-            <input
-              id="nodeUiDevScopeBloomEnabled"
-              type="checkbox">
-            <span>display bloom glow</span>
-          </label>
           <label class="node-ui-dev-control">
-            <span>settings header text size</span>
+            <span>module light brightness</span>
             <div class="node-ui-dev-control-row">
               <input
-                id="nodeUiDevSettingsHeaderTextSize"
+                id="nodeUiDevModuleLightBrightness"
                 type="range"
                 min="0"
                 max="100"
                 step="1"
                 value="100">
-              <output id="nodeUiDevSettingsHeaderTextSizeValue" for="nodeUiDevSettingsHeaderTextSize">100%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>UIDEV button text size</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevButtonTextSize"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value="50">
-              <output id="nodeUiDevButtonTextSizeValue" for="nodeUiDevButtonTextSize">50%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>input/output text size</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevLiveToggleTextSize"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value="76">
-              <output id="nodeUiDevLiveToggleTextSizeValue" for="nodeUiDevLiveToggleTextSize">76%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>modular header button background</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevModularHeaderButtonBackground"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value="62">
-              <output id="nodeUiDevModularHeaderButtonBackgroundValue" for="nodeUiDevModularHeaderButtonBackground">62%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>tooltip max text size</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevTooltipTextSize"
-                type="range"
-                min="12"
-                max="96"
-                step="1"
-                value="64">
-              <output id="nodeUiDevTooltipTextSizeValue" for="nodeUiDevTooltipTextSize">64px</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>minimum grid brightness</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevMinimumGridBrightness"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value="0">
-              <output id="nodeUiDevMinimumGridBrightnessValue" for="nodeUiDevMinimumGridBrightness">0%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>grid division multiply</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevGridDivisionMultiply"
-                type="range"
-                min="1"
-                max="8"
-                step="1"
-                value="2"
-                title="Visual grid only. 1 = 1:1, 2 = 2× squares, 3 = 4×, 4 = 8× (2^(n−1)). Snap stays 1gu.">
-              <output id="nodeUiDevGridDivisionMultiplyValue" for="nodeUiDevGridDivisionMultiply">2×</output>
+              <output id="nodeUiDevModuleLightBrightnessValue" for="nodeUiDevModuleLightBrightness">100%</output>
             </div>
           </label>
           <label class="node-ui-dev-control">
@@ -1190,16 +1042,127 @@
             </div>
           </label>
           <label class="node-ui-dev-control">
-            <span>text glow level</span>
+            <span>grid brightness</span>
             <div class="node-ui-dev-control-row">
               <input
-                id="nodeUiDevTextGlowLevel"
+                id="nodeUiDevMinimumGridBrightness"
                 type="range"
                 min="0"
                 max="100"
                 step="1"
-                value="18">
-              <output id="nodeUiDevTextGlowLevelValue" for="nodeUiDevTextGlowLevel">18%</output>
+                value="20"
+                title="Grid line strength inside the module radius. Never paints a full-workspace grid.">
+              <output id="nodeUiDevMinimumGridBrightnessValue" for="nodeUiDevMinimumGridBrightness">20%</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>grid spread</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevGridSpread"
+                type="range"
+                min="40"
+                max="220"
+                step="1"
+                value="78"
+                title="How far around each module the grid is revealed.">
+              <output id="nodeUiDevGridSpreadValue" for="nodeUiDevGridSpread">78%</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>grid division multiply</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevGridDivisionMultiply"
+                type="range"
+                min="1"
+                max="8"
+                step="1"
+                value="2"
+                title="Visual grid only. 1 = 1:1, 2 = 2× squares, 3 = 4×, 4 = 8× (2^(n−1)). Snap stays 1gu.">
+              <output id="nodeUiDevGridDivisionMultiplyValue" for="nodeUiDevGridDivisionMultiply">2×</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-color-control">
+            <span>grid color</span>
+            <input id="nodeUiDevGridColor" type="color" value="#ffffff">
+            <output id="nodeUiDevGridColorValue" for="nodeUiDevGridColor">#ffffff</output>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>patch grid unit width (px / gu)</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevPatchGridWidthPx"
+                type="number"
+                min="8"
+                max="96"
+                step="1"
+                value="28"
+                data-patch-grid-field>
+              <output id="nodeUiDevPatchGridWidthPxValue" for="nodeUiDevPatchGridWidthPx">28px</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>patch grid unit height (px / gu)</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevPatchGridHeightPx"
+                type="number"
+                min="8"
+                max="96"
+                step="1"
+                value="28"
+                data-patch-grid-field>
+              <output id="nodeUiDevPatchGridHeightPxValue" for="nodeUiDevPatchGridHeightPx">28px</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-color-control">
+            <span>module fill color</span>
+            <input id="nodeUiDevModuleFillColor" type="color" value="#171a1f">
+            <output id="nodeUiDevModuleFillColorValue" for="nodeUiDevModuleFillColor">#171a1f</output>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>module fill alpha</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevModuleFillAlpha"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="100">
+              <output id="nodeUiDevModuleFillAlphaValue" for="nodeUiDevModuleFillAlpha">100%</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>module stroke thickness (unselected)</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevModuleStrokeThickness"
+                type="range"
+                min="0"
+                max="8"
+                step="1"
+                value="1">
+              <output id="nodeUiDevModuleStrokeThicknessValue" for="nodeUiDevModuleStrokeThickness">1px</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-color-control">
+            <span>module stroke rgba</span>
+            <input id="nodeUiDevModuleStrokeColor" type="color" value="#ffffff">
+            <output id="nodeUiDevModuleStrokeColorValue" for="nodeUiDevModuleStrokeColor">#ffffff</output>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>module stroke alpha</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevModuleStrokeAlpha"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="50">
+              <output id="nodeUiDevModuleStrokeAlphaValue" for="nodeUiDevModuleStrokeAlpha">50%</output>
             </div>
           </label>
           <label class="node-ui-dev-control">
@@ -1272,173 +1235,16 @@
             <output id="nodeUiDevJackDigitalValue" for="nodeUiDevJackDigital">#ffffff</output>
           </label>
           <label class="node-ui-dev-control">
-            <span>module roundness</span>
+            <span>trace wire thickness</span>
             <div class="node-ui-dev-control-row">
               <input
-                id="nodeUiDevModuleRoundness"
+                id="nodeUiDevTraceWireThickness"
                 type="range"
-                min="0"
-                max="100"
+                min="1"
+                max="12"
                 step="1"
-                value="10">
-              <output id="nodeUiDevModuleRoundnessValue" for="nodeUiDevModuleRoundness">10%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-color-control">
-            <span>grid color</span>
-            <input id="nodeUiDevGridColor" type="color" value="#ffffff">
-            <output id="nodeUiDevGridColorValue" for="nodeUiDevGridColor">#ffffff</output>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>patch grid unit width (px / gu)</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevPatchGridWidthPx"
-                type="number"
-                min="8"
-                max="96"
-                step="1"
-                value="28"
-                data-patch-grid-field>
-              <output id="nodeUiDevPatchGridWidthPxValue" for="nodeUiDevPatchGridWidthPx">28px</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>patch grid unit height (px / gu)</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevPatchGridHeightPx"
-                type="number"
-                min="8"
-                max="96"
-                step="1"
-                value="28"
-                data-patch-grid-field>
-              <output id="nodeUiDevPatchGridHeightPxValue" for="nodeUiDevPatchGridHeightPx">28px</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-color-control">
-            <span>modular background color</span>
-            <input id="nodeUiDevWorkspaceBackgroundColor" type="color" value="#0d0d0d">
-            <output id="nodeUiDevWorkspaceBackgroundColorValue" for="nodeUiDevWorkspaceBackgroundColor">#0d0d0d</output>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>settings header top / bottom ratio</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevSettingsHeaderTopRatio"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value="62">
-              <output id="nodeUiDevSettingsHeaderTopRatioValue" for="nodeUiDevSettingsHeaderTopRatio">62%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>settings header extra padding</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevSettingsHeaderPadding"
-                type="range"
-                min="0"
-                max="20"
-                step="1"
-                value="2">
-              <output id="nodeUiDevSettingsHeaderPaddingValue" for="nodeUiDevSettingsHeaderPadding">2px</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>floating window header height</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevFloatingWindowHeaderHeight"
-                type="range"
-                min="20"
-                max="48"
-                step="1"
-                value="30">
-              <output id="nodeUiDevFloatingWindowHeaderHeightValue" for="nodeUiDevFloatingWindowHeaderHeight">30px</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>module title font</span>
-            <div class="node-ui-dev-control-row select">
-              <select id="nodeUiDevModuleTitleFont">
-                <option value="cascadia">Cascadia</option>
-                <option value="consolas">Consolas</option>
-                <option value="courier">Courier</option>
-                <option value="segoe">Segoe</option>
-                <option value="arial">Arial</option>
-                <option value="symbols">Symbols</option>
-              </select>
-              <output id="nodeUiDevModuleTitleFontValue" for="nodeUiDevModuleTitleFont">Cascadia</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>module title height</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevModuleTitleHeight"
-                type="range"
-                min="12"
-                max="44"
-                step="1"
-                value="26">
-              <output id="nodeUiDevModuleTitleHeightValue" for="nodeUiDevModuleTitleHeight">26px</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>in/out module section height</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevModuleIoSectionHeight"
-                type="range"
-                min="12"
-                max="44"
-                step="1"
-                value="24"
-                disabled>
-              <output id="nodeUiDevModuleIoSectionHeightValue" for="nodeUiDevModuleIoSectionHeight">24px</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>module node size</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevModuleNodeSize"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value="57">
-              <output id="nodeUiDevModuleNodeSizeValue" for="nodeUiDevModuleNodeSize">57%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>slider width</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevSliderWidth"
-                type="range"
-                min="20"
-                max="100"
-                step="1"
-                value="100">
-              <output id="nodeUiDevSliderWidthValue" for="nodeUiDevSliderWidth">100%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>slider height</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevSliderHeight"
-                type="range"
-                min="8"
-                max="40"
-                step="1"
-                value="28">
-              <output id="nodeUiDevSliderHeightValue" for="nodeUiDevSliderHeight">28px</output>
+                value="1">
+              <output id="nodeUiDevTraceWireThicknessValue" for="nodeUiDevTraceWireThickness">1px</output>
             </div>
           </label>
           <label class="node-ui-dev-color-control">
@@ -1455,24 +1261,6 @@
             <span>slider unit color</span>
             <input id="nodeUiDevSliderUnitColor" type="color" value="#7fc7d9">
             <output id="nodeUiDevSliderUnitColorValue" for="nodeUiDevSliderUnitColor">#7fc7d9</output>
-          </label>
-          <label class="node-ui-dev-color-control">
-            <span>slider fill mouseover color</span>
-            <input id="nodeUiDevSliderFillHoverColor" type="color" value="#7fc7d9">
-            <output id="nodeUiDevSliderFillHoverColorValue" for="nodeUiDevSliderFillHoverColor">#7fc7d9</output>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>slider fill mouseover alpha</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevSliderFillHoverAlpha"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value="28">
-              <output id="nodeUiDevSliderFillHoverAlphaValue" for="nodeUiDevSliderFillHoverAlpha">28%</output>
-            </div>
           </label>
           <label class="node-ui-dev-control">
             <span>amount fill hue</span>
@@ -1579,58 +1367,6 @@
             </div>
           </label>
           <label class="node-ui-dev-control">
-            <span>node hover glow size</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevNodeGlowSize"
-                type="range"
-                min="0"
-                max="200"
-                step="1"
-                value="50">
-              <output id="nodeUiDevNodeGlowSizeValue" for="nodeUiDevNodeGlowSize">50%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>wire patch point size</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevWirePatchPointSize"
-                type="range"
-                min="0"
-                max="200"
-                step="1"
-                value="36">
-              <output id="nodeUiDevWirePatchPointSizeValue" for="nodeUiDevWirePatchPointSize">36%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>wire thickness</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevWireThickness"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value="19">
-              <output id="nodeUiDevWireThicknessValue" for="nodeUiDevWireThickness">19%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>trace wire thickness</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevTraceWireThickness"
-                type="range"
-                min="1"
-                max="12"
-                step="1"
-                value="1">
-              <output id="nodeUiDevTraceWireThicknessValue" for="nodeUiDevTraceWireThickness">1px</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
             <span>choice slider empty border</span>
             <div class="node-ui-dev-control-row">
               <input
@@ -1643,19 +1379,7 @@
               <output id="nodeUiDevChoiceSlideEmptyBorderValue" for="nodeUiDevChoiceSlideEmptyBorder">2px</output>
             </div>
           </label>
-          <label class="node-ui-dev-control">
-            <span>choice separator height</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevChoiceDividerHeight"
-                type="range"
-                min="0"
-                max="35"
-                step="1"
-                value="35">
-              <output id="nodeUiDevChoiceDividerHeightValue" for="nodeUiDevChoiceDividerHeight">35px</output>
-            </div>
-          </label>
+
           <label class="node-ui-dev-check">
             <input
               id="nodeUiDevChoiceSlideDebugBoxes"
@@ -1709,123 +1433,6 @@
             <input id="nodeUiDevBypassOffBackgroundColor" type="color" value="#000000">
             <output id="nodeUiDevBypassOffBackgroundColorValue" for="nodeUiDevBypassOffBackgroundColor">#000000</output>
           </label>
-          <label class="node-ui-dev-control node-ui-dev-symbol-size-control">
-            <span>move symbol size</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevMoveSymbolSize"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value="60">
-              <output id="nodeUiDevMoveSymbolSizeValue" for="nodeUiDevMoveSymbolSize">60%</output>
-              <span id="nodeUiDevMoveSymbolPreview" class="node-ui-dev-symbol-preview node-ui-dev-move-symbol-preview" aria-hidden="true">&#x2725;</span>
-            </div>
-          </label>
-          <label class="node-ui-dev-control node-ui-dev-symbol-size-control">
-            <span>close X size</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevCloseIconSize"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value="50">
-              <output id="nodeUiDevCloseIconSizeValue" for="nodeUiDevCloseIconSize">50%</output>
-              <span id="nodeUiDevCloseIconPreview" class="node-ui-dev-symbol-preview node-ui-dev-close-icon-preview panel-close-glyph" aria-hidden="true"></span>
-            </div>
-          </label>
-          <section class="node-ui-dev-color-section" aria-label="Node color controls">
-            <div class="node-ui-dev-section-title">node colors</div>
-            <label class="node-ui-dev-color-control">
-              <span>module fill</span>
-              <input id="nodeUiDevNodeFillColor" type="color" value="#171a1f" data-node-color-var="--node-module-fill">
-              <output id="nodeUiDevNodeFillColorValue" for="nodeUiDevNodeFillColor">#171a1f</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>module stroke</span>
-              <input id="nodeUiDevNodeStrokeColor" type="color" value="#f3f1ec" data-node-color-var="--node-module-stroke">
-              <output id="nodeUiDevNodeStrokeColorValue" for="nodeUiDevNodeStrokeColor">#f3f1ec</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>selected stroke</span>
-              <input id="nodeUiDevNodeSelectedStrokeColor" type="color" value="#e2a86d" data-node-color-var="--node-module-selected-stroke">
-              <output id="nodeUiDevNodeSelectedStrokeColorValue" for="nodeUiDevNodeSelectedStrokeColor">#e2a86d</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>dragging stroke</span>
-              <input id="nodeUiDevNodeDraggingStrokeColor" type="color" value="#e2a86d" data-node-color-var="--node-module-drag-stroke">
-              <output id="nodeUiDevNodeDraggingStrokeColorValue" for="nodeUiDevNodeDraggingStrokeColor">#e2a86d</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>idle node fill</span>
-              <input id="nodeUiDevPortIdleFillColor" type="color" value="#000000" data-node-color-var="--node-port-idle-fill">
-              <output id="nodeUiDevPortIdleFillColorValue" for="nodeUiDevPortIdleFillColor">#000000</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>idle node stroke</span>
-              <input id="nodeUiDevPortIdleStrokeColor" type="color" value="#f3f1ec" data-node-color-var="--node-port-idle-stroke">
-              <output id="nodeUiDevPortIdleStrokeColorValue" for="nodeUiDevPortIdleStrokeColor">#f3f1ec</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>node hover fill</span>
-              <input id="nodeUiDevPortHoverFillColor" type="color" value="#f3f1ec" data-node-color-var="--node-port-hover-fill">
-              <output id="nodeUiDevPortHoverFillColorValue" for="nodeUiDevPortHoverFillColor">#f3f1ec</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>node hover stroke</span>
-              <input id="nodeUiDevPortHoverStrokeColor" type="color" value="#f3f1ec" data-node-color-var="--node-port-hover-stroke">
-              <output id="nodeUiDevPortHoverStrokeColorValue" for="nodeUiDevPortHoverStrokeColor">#f3f1ec</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>input fill</span>
-              <input id="nodeUiDevInputFillColor" type="color" value="#7fc7d9" data-node-color-var="--node-input-fill">
-              <output id="nodeUiDevInputFillColorValue" for="nodeUiDevInputFillColor">#7fc7d9</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>input stroke</span>
-              <input id="nodeUiDevInputStrokeColor" type="color" value="#7fc7d9" data-node-color-var="--node-input-stroke">
-              <output id="nodeUiDevInputStrokeColorValue" for="nodeUiDevInputStrokeColor">#7fc7d9</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>output fill</span>
-              <input id="nodeUiDevOutputFillColor" type="color" value="#e2a86d" data-node-color-var="--node-output-fill">
-              <output id="nodeUiDevOutputFillColorValue" for="nodeUiDevOutputFillColor">#e2a86d</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>output stroke</span>
-              <input id="nodeUiDevOutputStrokeColor" type="color" value="#e2a86d" data-node-color-var="--node-output-stroke">
-              <output id="nodeUiDevOutputStrokeColorValue" for="nodeUiDevOutputStrokeColor">#e2a86d</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>mod input fill</span>
-              <input id="nodeUiDevModInputFillColor" type="color" value="#b184ff" data-node-color-var="--node-mod-input-fill">
-              <output id="nodeUiDevModInputFillColorValue" for="nodeUiDevModInputFillColor">#b184ff</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>mod input stroke</span>
-              <input id="nodeUiDevModInputStrokeColor" type="color" value="#b184ff" data-node-color-var="--node-mod-input-stroke">
-              <output id="nodeUiDevModInputStrokeColorValue" for="nodeUiDevModInputStrokeColor">#b184ff</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>slider output fill</span>
-              <input id="nodeUiDevParamOutputFillColor" type="color" value="#66e0a3" data-node-color-var="--node-param-output-fill">
-              <output id="nodeUiDevParamOutputFillColorValue" for="nodeUiDevParamOutputFillColor">#66e0a3</output>
-            </label>
-            <label class="node-ui-dev-color-control">
-              <span>slider output stroke</span>
-              <input id="nodeUiDevParamOutputStrokeColor" type="color" value="#66e0a3" data-node-color-var="--node-param-output-stroke">
-              <output id="nodeUiDevParamOutputStrokeColorValue" for="nodeUiDevParamOutputStrokeColor">#66e0a3</output>
-            </label>
-          </section>
-          <label class="node-ui-dev-check">
-              <input
-                id="nodeUiDevSettingsHeaderHighlights"
-                type="checkbox">
-            <span>show settings header layout highlights</span>
-          </label>
         </div>
         <button
           id="nodeUiDevHelperResizeHandle"
@@ -1862,14 +1469,6 @@
         <div
           class="node-user-ui-settings-actions"
           aria-label="user UI settings actions">
-          <button
-            id="nodeUserUiSettingsClearStartup"
-            type="button"
-            title="Clear startup / local UI settings keys">Clear Startup</button>
-          <button
-            id="nodeUserUiSettingsSaveDefault"
-            type="button"
-            title="Save current UI settings as default">Save</button>
           <button
             id="nodeUserUiSettingsOpenUiDev"
             type="button"
@@ -1915,7 +1514,7 @@
             type="button"
             role="menuitem"
             aria-label="Close command center">
-            <span aria-hidden="true">&times;</span>
+            <span class="panel-close-glyph" aria-hidden="true"></span>
           </button>
         </div>
         <div id="nodeCommandCenterUnifiedNavHost" class="node-unified-window-nav-host" aria-label="Floating window pages"></div>
@@ -2089,6 +1688,7 @@
               aria-pressed="false"
               title="Draw this wire as a pixel beam (manual; off by default)">Pixel</button>
           </div>
+          <div id="nodeSceneWireCurveSlot" class="scene-context-wire-curve-slot"></div>
         </div>
         <div id="nodeSceneWidthControls" class="scene-context-width-controls" hidden>
           <span id="nodeSceneWidthLabel" class="scene-context-gu-label">Width</span>
@@ -2378,7 +1978,7 @@
             class="panel-close-button"
             type="button"
             aria-label="Close defaults">
-            <span aria-hidden="true">&times;</span>
+            <span class="panel-close-glyph" aria-hidden="true"></span>
           </button>
         </div>
         <div id="nodePatchDefaultsUnifiedNavHost" class="node-unified-window-nav-host" aria-label="Floating window pages"></div>
@@ -2425,7 +2025,7 @@
             class="panel-close-button"
             type="button"
             aria-label="Close module actions">
-            <span aria-hidden="true">&times;</span>
+            <span class="panel-close-glyph" aria-hidden="true"></span>
           </button>
         </div>
         <div id="nodeModuleActionsWindowBody" class="node-module-actions-window-body"></div>
@@ -2458,7 +2058,7 @@
             class="panel-close-button"
             type="button"
             aria-label="Close code box">
-            <span aria-hidden="true">&times;</span>
+            <span class="panel-close-glyph" aria-hidden="true"></span>
           </button>
         </div>
         <div id="nodeCodeBoxBody" class="node-code-box-window-body">
@@ -2522,7 +2122,7 @@
             class="panel-close-button"
             type="button"
             aria-label="Close legacy display controls">
-            <span aria-hidden="true">&times;</span>
+            <span class="panel-close-glyph" aria-hidden="true"></span>
           </button>
         </div>
         <section class="node-scope-settings-section node-scope-global-settings" aria-label="Legacy display controls">
@@ -2786,7 +2386,7 @@
             class="panel-close-button"
             type="button"
             aria-label="Close parameter metadata editor">
-            <span aria-hidden="true">&times;</span>
+            <span class="panel-close-glyph" aria-hidden="true"></span>
           </button>
         </div>
         <div class="metadata-popover-grid">
@@ -2796,6 +2396,10 @@
             <button id="metadataSetCurrentAsDefaultButton" type="button" title="Set the parameter's current value as its new default">Set Default</button>
             <button id="metadataRestoreDefaultButton" type="button" title="Reset this parameter's metadata to the standard template for its kind">Restore Default</button>
           </div>
+          <label class="metadata-full-row" data-tooltip-key="parameterSettings.parameter">
+            <span>PARAMETER</span>
+            <select id="metadataParameterPicker" aria-label="Parameter"></select>
+          </label>
           <div class="metadata-section-title">Range</div>
           <div class="metadata-field-section metadata-range-section">
             <label>
@@ -2861,7 +2465,6 @@
           <div class="metadata-section-title">Fields</div>
           <div class="metadata-field-section metadata-identity-section">
             <label data-tooltip-key="parameterSettings.alias"><span>ALIAS</span><input id="metadataAliasValue" type="text" spellcheck="false"></label>
-            <label data-tooltip-key="parameterSettings.tooltip"><span>TOOLTIP</span><input id="metadataTooltipValue" type="text" spellcheck="false"></label>
             <label data-tooltip-key="parameterSettings.kind"><span>KIND</span><select id="metadataKindValue"></select></label>
             <label data-tooltip-key="parameterSettings.unit"><span>UNIT</span><input id="metadataUnitValue" type="text" placeholder="Hz"></label>
             <label data-tooltip-key="parameterSettings.maxDigits">
@@ -2872,7 +2475,7 @@
                 <button type="button" data-metadata-step-target="metadataMaxDigitsValue" data-metadata-step-direction="1">+</button>
               </span>
             </label>
-            <label data-tooltip-key="parameterSettings.smoothingSeconds">
+            <label class="metadata-full-row" data-tooltip-key="parameterSettings.smoothingSeconds">
               <span>SMOOTHING TIME (s)</span>
               <span class="metadata-stepper-control">
                 <button type="button" data-metadata-step-target="metadataSmoothingSecondsValue" data-metadata-step-direction="-1">-</button>
@@ -2951,6 +2554,10 @@
           </label>
           <div class="metadata-section-title">Toggles</div>
           <div class="metadata-toggle-section" aria-label="Metaparameter toggles">
+            <label class="metadata-checkbox-label" data-tooltip-key="parameterSettings.showParameter">
+              <input id="metadataShowParameterValue" type="checkbox" checked>
+              Show parameter
+            </label>
             <label class="metadata-checkbox-label" data-tooltip-key="parameterSettings.bipolar">
               <input id="metadataBipolarValue" type="checkbox">
               Bipolar fill
@@ -2976,6 +2583,14 @@
               Divide choices visibly
             </label>
           </div>
+          <label class="metadata-choices-label metadata-tooltip-label" data-tooltip-key="parameterSettings.tooltip">
+            <span>TOOLTIP</span>
+            <textarea
+              id="metadataTooltipValue"
+              rows="4"
+              spellcheck="false"
+              placeholder="Shown in docked tips when this parameter is hovered."></textarea>
+          </label>
           <button
             id="metadataAdvancedToggle"
             class="metadata-advanced-toggle"
@@ -3498,7 +3113,7 @@
   <script src="./public/node-graph-wires.js?v=io-item-1"></script>
   <script src="./public/node-graph-floating-windows.js?v=cc-undock-1"></script>
   <script src="./public/node-graph-unified-window.js?v=cc-undock-1"></script>
-  <script src="./public/node-graph-file-actions.js?v=patch-face-1"></script>
+  <script src="./public/node-graph-file-actions.js?v=file-picker-1"></script>
   <script src="./public/node-graph-default-buttons.js?v=patch-save-refresh-1"></script>
   <script src="./public/node-graph-cookbook-filter.js?v=round-shape-face-1"></script>
   <script src="./public/node-graph-papoulis-filter.js?v=mouse-smooth-1"></script>
@@ -3525,23 +3140,23 @@
   <script src="./public/modules/portal/portal-inlet-register.js?v=portal-io-1"></script>
   <script src="./public/modules/portal/portal-outlet-register.js?v=portal-io-1"></script>
   <script src="./public/modules/patch/patch-register.js?v=patch-buttons-on-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=raster-hue-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=param-show-hide-1"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script src="./public/node-graph-module-controls.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
   <script src="./public/node-graph-module-store.js?v=kick-split-1"></script>
-  <script src="./public/node-graph-module-sizing.js?v=display-owns-lip-1"></script>
+  <script src="./public/node-graph-module-sizing.js?v=param-show-hide-1"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=param-meta-ui-1"></script>
   <script src="./public/node-graph-parameter-smoother-filters.js?v=module-smooth-0333-1"></script>
-  <script src="./public/node-graph-parameter-metadata.js?v=module-smooth-0333-1"></script>
+  <script src="./public/node-graph-parameter-metadata.js?v=param-show-hide-1"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
   <script src="./public/node-graph-text-box-utils.js?v=textbox-vert-neg-1"></script>
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-image-utils.js?v=keypad-bgi-1"></script>
   <script src="./public/node-graph-graph-utils.js?v=graph-settings-list-1"></script>
   <script src="./public/node-graph-samples.js?v=mlr-1"></script>
-  <script src="./public/modules/audioPlayer/audio-player-playlist.js?v=music-pl-layout-2"></script>
-  <script src="./public/node-graph-phosphor-waveform.js?v=time-window-light-1"></script>
+  <script src="./public/modules/audioPlayer/audio-player-playlist.js?v=music-pl-layout-4"></script>
+  <script src="./public/node-graph-phosphor-waveform.js?v=music-pl-now-1"></script>
   <script src="./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1"></script>
   <script src="./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=unit-mod-linear-1"></script>
   <script src="./public/node-graph-musical-engines.js?v=musical-engines-1"></script>
@@ -3563,7 +3178,7 @@
   <script src="./public/node-graph-patch-serialization.js?v=share-link-1"></script>
   <script src="./public/node-graph-settings-fields.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-settings-view.js?v=patch-face-1"></script>
-  <script src="./public/node-graph-settings-text-fit.js?v=script-page-1"></script>
+  <script src="./public/node-graph-settings-text-fit.js?v=toolbar-fit-1"></script>
   <script src="./public/node-graph-default-preset.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-script-status.js?v=toolbar-copy-paste-1"></script>
   <script src="./public/node-graph-view-controls.js?v=debug-d-chips-1"></script>
@@ -3573,9 +3188,9 @@
   <script src="./public/node-graph-workspace-view.js?v=defaults-page-1"></script>
   <script src="./public/node-graph-camera-view.js?v=hitpoint-select-1"></script>
   <script src="./public/node-graph-marquee-selection.js?v=snake-select-1"></script>
-  <script src="./public/node-graph-node-dragging.js?v=portal-io-1"></script>
-  <script src="./public/node-graph-context-menu.js?v=textbox-b032-1"></script>
-  <script src="./public/node-graph-module-actions.js?v=textbox-b032-1"></script>
+  <script src="./public/node-graph-node-dragging.js?v=header-btn-drag-1"></script>
+  <script src="./public/node-graph-context-menu.js?v=param-show-hide-1"></script>
+  <script src="./public/node-graph-module-actions.js?v=gu-policy-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
   <script src="./public/lib/phosphor/phosphor-residual.js?v=trail-0-none-1"></script>
   <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=burn-amount-1"></script>
@@ -3591,7 +3206,7 @@
   <script src="./public/node-graph-module-scope-display-mode.js?v=kick-env-1"></script>
   <script src="./public/node-graph-module-scope-phosphor.js?v=paint-gate-1"></script>
   <script src="./public/latch-button.js?v=latch-1"></script>
-  <script src="./public/node-graph-module-scope-settings-form.js?v=protect-banner-1"></script>
+  <script src="./public/node-graph-module-scope-settings-form.js?v=output-trace-layout-1"></script>
   <script src="./public/node-graph-module-scope-settings-controls.js?v=kick-env-1"></script>
   <!-- Display Settings peel: form-io → field-edit → apply → window → thin ui anchor -->
   <script src="./public/node-graph-module-scope-settings-form-io.js?v=protect-banner-1"></script>
@@ -3638,7 +3253,7 @@
   <script src="./public/modules/gradientVectorscope/gradient-vectorscope-display.js?v=rgb-1"></script>
   <script src="./public/node-graph-room-dimmer.js?v=dimmer-punch-fix-2"></script>
   <script src="./public/node-graph-canvas-script.js?v=floating-chrome-unify-1"></script>
-  <script src="./public/node-graph-module-factories.js?v=jack-idle-stroke-1"></script>
+  <script src="./public/node-graph-module-factories.js?v=param-show-hide-1"></script>
   <script src="./public/modules/led/led-ui.js?v=phosphor-dot-1"></script>
   <script src="./public/modules/led/led-settings.js?v=keypad-bgi-1"></script>
   <script src="./public/modules/led/led-display.js?v=dimmer-punch-fix-2"></script>
@@ -3671,13 +3286,13 @@
   <script src="./public/modules/portal/portal-settings.js?v=portal-io-1"></script>
   <script src="./public/modules/portal/portal-ui.js?v=portal-io-1"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=title-bypass-1"></script>
-  <script src="./public/node-graph-module-rendering.js?v=io-item-1"></script>
+  <script src="./public/node-graph-module-rendering.js?v=param-show-hide-1"></script>
   <script src="./public/node-graph-module-frame.js?v=frame-left-pin-1"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=kick-env-1"></script>
   <script src="./public/node-graph-patch-clone.js?v=keypad-bgi-1"></script>
-  <script src="./public/node-graph-slider-metadata.js?v=db-minus-inf-1"></script>
-  <script src="./public/node-graph-slider-values.js?v=module-smooth-0333-1"></script>
+  <script src="./public/node-graph-slider-metadata.js?v=param-show-hide-1"></script>
+  <script src="./public/node-graph-slider-values.js?v=param-show-hide-1"></script>
   <script src="./public/node-graph-slider-dragging.js?v=drag-reanchor-1"></script>
   <script src="./public/node-graph-node-accessors.js?v=cleanup-20260725-smoothing-time-20260701"></script>
   <script src="./public/node-graph-selection.js?v=viewport-sleep-1"></script>
@@ -3688,7 +3303,7 @@
   <script src="./public/node-graph-slider-readout-controls.js?v=bug-button-settings-edit-20260723"></script>
   <script src="./public/node-graph-ghost-sliders.js?v=unbounded-speed-1"></script>
   <script src="./public/node-code-settings-editor.js?v=json-highlight-1"></script>
-  <script src="./public/node-graph-metadata-editor.js?v=module-smooth-0333-1"></script>
+  <script src="./public/node-graph-metadata-editor.js?v=param-show-hide-1"></script>
   <script src="./public/node-graph-render-settings.js?v=cleanup-20260725-slider-unit-color-1780307400000"></script>
   <script src="./public/modules/speakerProtector2/speaker-protector-2-math.js?v=peak-above-0db-1"></script>
   <script src="./public/node-graph-ear-protection.js?v=protect-banner-1"></script>
@@ -3713,13 +3328,13 @@
   <script src="./public/node-graph-tooltips.js?v=title-bypass-1"></script>
   <script src="./public/node-graph-interaction-help.js?v=view-cc-cycle-1"></script>
   <script src="./public/presets/useruisettings.js?v=clipper-limiter-1"></script>
-  <script src="./public/node-graph-ui-settings-definitions.js?v=io-item-1"></script>
+  <script src="./public/node-graph-ui-settings-definitions.js?v=uidev-groups-1"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
-  <script src="./public/node-graph-user-ui-settings-controls.js?v=inlet-blue-1"></script>
-  <script src="./public/node-graph-ui-settings-panels.js?v=script-page-1"></script>
-  <script src="./public/node-graph-ui-settings-persistence.js?v=grid-div-1"></script>
-  <script src="./public/node-graph-ui-settings-sync.js?v=io-item-1"></script>
-  <script src="./public/node-graph-keyboard-shortcuts.js?v=tooltip-t-1"></script>
+  <script src="./public/node-graph-user-ui-settings-controls.js?v=uidev-groups-1"></script>
+  <script src="./public/node-graph-ui-settings-panels.js?v=file-picker-1"></script>
+  <script src="./public/node-graph-ui-settings-persistence.js?v=file-picker-1"></script>
+  <script src="./public/node-graph-ui-settings-sync.js?v=file-picker-1"></script>
+  <script src="./public/node-graph-keyboard-shortcuts.js?v=header-btn-drag-1"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-meter-controls.js?v=audio-overrun-meter-2"></script>
@@ -3727,10 +3342,10 @@
   <script src="./public/node-graph-live-evidence.js?v=badval-face-1"></script>
   <script src="./public/node-graph-live-control-rendering.js?v=speaker-protector-noclip-1"></script>
   <script src="./public/node-graph-default-patch.js?v=keypad-1"></script>
-  <script src="./public/node-graph-state.js?v=debug-d-chips-1"></script>
+  <script src="./public/node-graph-state.js?v=file-picker-1"></script>
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
   <script src="./public/node-graph-patch-migrations.js?v=sincos-no-amp-in-1"></script>
-  <script src="./public/node-graph-patch-core.js?v=textbox-b032-1"></script>
+  <script src="./public/node-graph-patch-core.js?v=param-show-hide-1"></script>
   <script src="./public/node-graph-live-plan-runtime.js?v=phone-tone-1"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=unit-mod-linear-1"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=0150-native-core"></script>
@@ -4016,10 +3631,10 @@
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=readout-no-kb-1"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>
-  <script src="./public/node-graph-header-event-bindings.js?v=script-page-1"></script>
+  <script src="./public/node-graph-header-event-bindings.js?v=ui-settings-open-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
   <script src="./public/node-graph-scene-menu-event-bindings.js?v=keypad-bgi-1"></script>
-  <script src="./public/node-graph-uidev-event-bindings.js?v=io-item-1"></script>
+  <script src="./public/node-graph-uidev-event-bindings.js?v=toolbar-fit-1"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=patch-json-highlight-1"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>
   <script src="./public/node-graph-event-bindings.js?v=remove-dead-uiview-bind-20260724"></script>

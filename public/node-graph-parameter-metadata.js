@@ -337,6 +337,75 @@ function nodeGraphPatchNodeOutputPorts(node) {
   }
   return nodeGraphModuleOutputPorts(patchNode?.type);
 }
+/** Definition `hidden: true` is the default-off visibility, not a permanent skip. */
+function nodeGraphParameterDefaultVisible(parameter) {
+  return parameter?.hidden !== true;
+}
+
+/**
+ * Effective slider-row visibility. Patch `paramMeta.visible` overrides the
+ * definition default. Shown by default; already-hidden definitions stay hidden
+ * until the metaparameter Show toggle is turned on.
+ */
+function nodeGraphParameterEffectiveVisible(parameter, paramMetaEntry) {
+  if (paramMetaEntry && typeof paramMetaEntry === "object" && typeof paramMetaEntry.visible === "boolean") {
+    return paramMetaEntry.visible;
+  }
+  return nodeGraphParameterDefaultVisible(parameter);
+}
+
+function applyNodeGraphParameterRowVisibility(rowOrSlider, visible) {
+  const row = rowOrSlider?.classList?.contains?.("node-parameter-row")
+    ? rowOrSlider
+    : rowOrSlider?.closest?.(".node-parameter-row");
+  if (!row) {
+    return null;
+  }
+  const shown = visible !== false;
+  row.hidden = !shown;
+  row.classList.toggle("node-parameter-row-hidden", !shown);
+  return row;
+}
+
+let nodeGraphParameterVisibilityRefreshDepth = 0;
+
+function refreshNodeGraphModuleParameterVisibility(element, patchNode) {
+  if (!element || !patchNode || nodeGraphParameterVisibilityRefreshDepth > 0) {
+    return;
+  }
+  nodeGraphParameterVisibilityRefreshDepth += 1;
+  try {
+    refreshNodeGraphModuleParameterVisibilityBody(element, patchNode);
+  } finally {
+    nodeGraphParameterVisibilityRefreshDepth -= 1;
+  }
+}
+
+function refreshNodeGraphModuleParameterVisibilityBody(element, patchNode) {
+  const parameters = nodeGraphModuleDefinitions[patchNode.type]?.parameters || [];
+  for (const parameter of parameters) {
+    const row = element.querySelector(`.node-parameter-row[data-param="${CSS.escape(parameter.key)}"]`);
+    if (!row) {
+      continue;
+    }
+    applyNodeGraphParameterRowVisibility(
+      row,
+      nodeGraphParameterEffectiveVisible(parameter, patchNode.paramMeta?.[parameter.key]),
+    );
+  }
+  if (typeof syncNodeGraphLayoutBNoParamsClass === "function") {
+    syncNodeGraphLayoutBNoParamsClass(element, patchNode.type, patchNode.ui);
+  }
+  if (typeof syncNodeGraphModuleChromeElement === "function") {
+    syncNodeGraphModuleChromeElement(element, patchNode);
+  } else if (typeof nodeGraphApplyModuleShellHeightCssVars === "function") {
+    nodeGraphApplyModuleShellHeightCssVars(element, patchNode);
+  }
+  if (typeof markNodeGraphRenderPending === "function") {
+    markNodeGraphRenderPending();
+  }
+}
+
 function nodeGraphParameterOutputPort(typeOrNode, port) {
   const list = typeOrNode && typeof typeOrNode === "object"
     ? nodeGraphPatchNodeParameterDefinitions(typeOrNode)
@@ -345,9 +414,8 @@ function nodeGraphParameterOutputPort(typeOrNode, port) {
   if (!parameter) {
     return null;
   }
-  // Hidden / no-output control state (Slider value, Knob offset, …) is not a
-  // wireable param-out jack — the module Bias/Out is the single outlet.
-  if (parameter.hidden === true || parameter.parameterOutput === false) {
+  // Visibility is UI only. `parameterOutput: false` is the no-jack flag.
+  if (parameter.parameterOutput === false) {
     return null;
   }
   return parameter;
@@ -453,6 +521,7 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
     constraint: parameter.constraint ? String(parameter.constraint) : "",
     unit: parameter.unit ?? "",
     wraparound: Boolean(parameter.wraparound),
+    visible: nodeGraphParameterDefaultVisible(parameter),
   };
   if (nodeGraphParameterNeedsDefaultModuleSmoothing(defined, parameter)) {
     nodeGraphApplyDefaultModuleSmoothing(defined);
@@ -674,6 +743,9 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
     wraparound: fallback.wraparound && Object.hasOwn(source, "wraparound")
       ? Boolean(source.wraparound)
       : fallback.wraparound,
+    visible: Object.hasOwn(source, "visible")
+      ? Boolean(source.visible)
+      : nodeGraphParameterDefaultVisible(parameter),
   };
   normalized.linearSmoothing = nodeGraphMetadataLinearSmoothingFromType(normalized.smoothingType);
   if (nodeGraphParameterNeedsDefaultModuleSmoothing(normalized, source)) {

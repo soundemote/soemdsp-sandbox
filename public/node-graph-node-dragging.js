@@ -17,6 +17,11 @@ function nodeGraphPatchNodeMovementLocked(nodeId) {
 }
 
 function toggleNodeGraphNodeMovementLock(event) {
+  if (event?.altKey) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   const node = event.currentTarget?.closest?.(".dsp-node");
   const nodeId = node?.dataset?.node;
   if (!nodeId) {
@@ -37,26 +42,87 @@ function toggleNodeGraphNodeMovementLock(event) {
   event.stopPropagation();
 }
 
+const nodeGraphModuleHeaderButtonSelector = [
+  ".node-drag-handle",
+  ".node-display-settings-button",
+  ".node-metaparameter-button",
+  ".node-action-button",
+  ".node-bypass-button",
+].join(", ");
+
+function nodeGraphModuleHeaderButtonFrom(target) {
+  return target?.closest?.(nodeGraphModuleHeaderButtonSelector) || null;
+}
+
+function nodeGraphInvokeModuleHeaderButton(button, event) {
+  if (!button || button.classList.contains("node-drag-handle")) {
+    return false;
+  }
+  const forwarded = {
+    altKey: Boolean(event?.altKey),
+    button: event?.button,
+    ctrlKey: Boolean(event?.ctrlKey),
+    currentTarget: button,
+    detail: event?.detail,
+    metaKey: Boolean(event?.metaKey),
+    preventDefault() {
+      event?.preventDefault?.();
+    },
+    shiftKey: Boolean(event?.shiftKey),
+    stopPropagation() {
+      event?.stopPropagation?.();
+    },
+    target: button,
+  };
+  if (button.classList.contains("node-display-settings-button")) {
+    openNodeModuleDisplaySettings(forwarded);
+    return true;
+  }
+  if (button.classList.contains("node-metaparameter-button")) {
+    openNodeModuleMetaparameters(forwarded);
+    return true;
+  }
+  if (button.classList.contains("node-action-button")) {
+    openNodeModuleActionMenu(forwarded);
+    return true;
+  }
+  if (button.classList.contains("node-bypass-button")) {
+    toggleNodeGraphModuleBypass(forwarded);
+    return true;
+  }
+  return false;
+}
+
+function nodeGraphGuardModuleHeaderButtonClick(event) {
+  const button = event.currentTarget;
+  if (button?.dataset?.moduleDragMoved === "1" || button?.dataset?.moduleDragClicked === "1") {
+    delete button.dataset.moduleDragMoved;
+    delete button.dataset.moduleDragClicked;
+    event.preventDefault();
+    event.stopPropagation();
+    return true;
+  }
+  return false;
+}
+
 function beginNodeGraphNodeDrag(event) {
   if (event.button !== undefined && event.button !== 0) {
     return;
   }
+  const headerButton = nodeGraphModuleHeaderButtonFrom(event.target)
+    || nodeGraphModuleHeaderButtonFrom(event.currentTarget);
   if (
-    event.target.closest?.(
-      // Jacks / controls block drag (wire handlers own jacks). .node-io-row is
-      // intentionally NOT listed: solid-module rows are a 1gu band around each
-      // jack; geometric miss (see endpointHitboxClientRect) falls through to
-      // shell/face drag without stopping here.
-      // Graph face owns its own pointer gestures (points / phase) — never start
-      // a module move from inside .node-module-graph-display.
-      // Knob face is a Bias drag surface (same as .node-slider-readout).
-      ".node-port, .node-param-port, button:not(.node-drag-handle), input:not(.node-header-title-input), textarea, select, option, [contenteditable='true'], .node-xy-pad-canvas, .node-module-graph-display, .node-knob-face, .node-keypad-face, .node-keypad-grid, .node-keypad-key",
+    !headerButton
+    && event.target.closest?.(
+      // Jacks / controls block drag (wire handlers own jacks). Header chrome
+      // buttons are allowed (drag to move; click-up opens if the box did not move).
+      ".node-port, .node-param-port, button, input:not(.node-header-title-input), textarea, select, option, [contenteditable='true'], .node-xy-pad-canvas, .node-module-graph-display, .node-knob-face, .node-keypad-face, .node-keypad-grid, .node-keypad-key",
     )
   ) {
     return;
   }
-  const handle = event.currentTarget.closest(
-    ".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-group-input-face, .node-group-output-face, .node-portal-face, .node-solid-module-shell, .node-solid-module-custom-ui, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row, .node-sample-phase-readout, .dsp-node.module-collapsed",
+  const handle = headerButton || event.currentTarget.closest(
+    ".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-group-input-face, .node-group-output-face, .node-portal-face, .node-solid-module-shell, .node-solid-module-custom-ui, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row, .node-sample-phase-readout, .node-module-lip, .dsp-node.module-collapsed",
   );
   if (!handle) {
     return;
@@ -70,8 +136,11 @@ function beginNodeGraphNodeDrag(event) {
     return;
   }
   if (nodeGraphPatchNodeMovementLocked(node.dataset.node)) {
-    event.preventDefault();
-    event.stopPropagation();
+    // Locked: leave header buttons clickable; swallow empty-chrome drags.
+    if (!headerButton || headerButton.classList.contains("node-drag-handle")) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     return;
   }
 
@@ -107,6 +176,9 @@ function beginNodeGraphNodeDrag(event) {
   nodeGraphMvp.nodeDragging = {
     draggedNodes,
     handle,
+    headerButton: headerButton && !headerButton.classList.contains("node-drag-handle")
+      ? headerButton
+      : null,
     ioBypassClickCandidate: nodeGraphNodeIoBypassClickCandidate(event, handle),
     moved: false,
     node,
@@ -181,13 +253,12 @@ function endNodeGraphNodeDrag(event) {
 
   const {
     additiveSelection,
-    additiveDragSelection,
     draggedNodes,
     handle,
+    headerButton,
     ioBypassClickCandidate,
     moved,
     node,
-    pendingSelectionIds,
   } = nodeGraphMvp.nodeDragging;
   for (const dragged of draggedNodes) {
     dragged.element.classList.remove("dragging");
@@ -201,7 +272,18 @@ function endNodeGraphNodeDrag(event) {
     }
   }
   nodeGraphMvp.nodeDragging = null;
+  if (headerButton) {
+    headerButton.dataset.moduleDragMoved = moved ? "1" : "0";
+    headerButton.dataset.moduleDragClicked = moved ? "0" : "1";
+  }
   if (!moved) {
+    // Alt-double-click is still an alt-click. The first pointerup already
+    // ran the alt action; the extra click must not undo it or open settings.
+    if (event?.altKey && Number(event?.detail) > 1) {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      return;
+    }
     if (ioBypassClickCandidate && toggleNodeGraphModuleBypassFromNode(node, event)) {
       return;
     }
@@ -212,17 +294,14 @@ function endNodeGraphNodeDrag(event) {
     ) {
       return;
     }
+    if (headerButton && nodeGraphInvokeModuleHeaderButton(headerButton, event)) {
+      return;
+    }
     toggleNodeGraphNodeSelection(node.dataset.node, additiveSelection);
     return;
   }
-  // Micro-drag / move must leave modules selected so Shift+arrows work without
-  // a second click. Previously only additive drags updated selection — a
-  // slightly imperfect click moved the LED and left it unselected.
-  if (additiveDragSelection) {
-    setNodeGraphNodeSelection(pendingSelectionIds);
-  } else {
-    setNodeGraphNodeSelection(draggedNodes.map((dragged) => dragged.id));
-  }
+  // Moved: persist gx/gy only. Selection happens on mouse-up when the
+  // pointer never crossed the drag threshold (plain click).
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   for (const dragged of draggedNodes) {
     const x = Number.parseFloat(dragged.element.style.getPropertyValue("--node-x")) || 0;

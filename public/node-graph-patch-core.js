@@ -978,6 +978,12 @@ function syncNodeGraphModuleParamElement(element, patchNode) {
     }
     syncNodeSliderReadout(input);
   }
+  if (typeof refreshNodeGraphModuleParameterVisibility === "function") {
+    refreshNodeGraphModuleParameterVisibility(element, patchNode);
+  }
+  if (typeof scheduleNodeGraphSliderReadoutRelayout === "function") {
+    scheduleNodeGraphSliderReadoutRelayout();
+  }
   if (typeof syncNodeGraphParameterVisualsForNodeElement === "function") {
     syncNodeGraphParameterVisualsForNodeElement(element);
   } else {

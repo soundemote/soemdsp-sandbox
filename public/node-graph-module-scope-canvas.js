@@ -173,7 +173,10 @@ function nodeGraphModuleScopeFaceBackingSize(screenElement, requestedPixelRatio 
         const widthGu = Number.parseFloat(style.getPropertyValue("--node-grid-width-units") || "");
         if (Number.isFinite(widthGu) && widthGu > 0) {
           const gw = Number.parseFloat(style.getPropertyValue("--node-grid-width") || style.getPropertyValue("--node-grid-size") || "");
-          cssWidth = widthGu * (Number.isFinite(gw) && gw > 0 ? gw : gridPx);
+          const inset = Number.parseFloat(style.getPropertyValue("--node-module-grid-inset") || "");
+          const cell = Number.isFinite(gw) && gw > 0 ? gw : gridPx;
+          const pad = Number.isFinite(inset) && inset > 0 ? inset * 2 : 0;
+          cssWidth = Math.max(1, widthGu * cell - pad);
         }
       }
     } catch (_error) {

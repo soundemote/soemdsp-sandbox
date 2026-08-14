@@ -191,7 +191,7 @@ const css = `
     border: 0;
     border-radius: min(12cqh, 4px);
     color: var(--color-widget-label-ink);
-    cursor: pointer;
+    cursor: var(--node-dot-cursor);
     display: flex;
     font-family: system-ui, sans-serif;
     height: 100%;

@@ -412,6 +412,7 @@ function nodeSliderMetadata(slider) {
       ? normalizeNodeGraphMetadataSmoothingType(slider.dataset.smoothingType)
       : "onePole",
     wraparound: nodeSliderShouldWraparound(slider),
+    visible: slider.dataset.visible !== "false",
     unit: slider.dataset.unit ?? "",
     kind: slider.dataset.kind || "decimal",
     max,
@@ -446,6 +447,7 @@ function formatNodeSliderMetadataTooltip(slider) {
     `smoothing type ${metadata.smoothingType || "onePole"}`,
     `show sign ${metadata.showSign}`,
     `wraparound ${metadata.wraparound}`,
+    `visible ${metadata.visible !== false}`,
   ];
   if (typeof nodeSliderCurveUsesSensitivity === "function"
     ? nodeSliderCurveUsesSensitivity(metadata.sliderCurve)

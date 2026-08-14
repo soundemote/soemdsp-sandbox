@@ -3,18 +3,25 @@ function nodeGraphModuleBodyRowCount(type) {
   return definition?.parameters?.length || 0;
 }
 
-function nodeGraphModuleVisibleBodyRowCount(type) {
-  return (nodeGraphModuleDefinitions[type]?.parameters || [])
-    .filter((parameter) => parameter?.hidden !== true)
-    .length;
+function nodeGraphModuleVisibleBodyRowCount(type, node = null) {
+  const parameters = nodeGraphModuleDefinitions[type]?.parameters || [];
+  const paramMeta = node?.paramMeta && typeof node.paramMeta === "object"
+    ? node.paramMeta
+    : null;
+  return parameters.filter((parameter) => {
+    if (typeof nodeGraphParameterEffectiveVisible === "function") {
+      return nodeGraphParameterEffectiveVisible(parameter, paramMeta?.[parameter.key]);
+    }
+    return parameter?.hidden !== true;
+  }).length;
 }
 
-function nodeGraphModuleVisibleSliderRowCountForUi(type, ui = {}) {
+function nodeGraphModuleVisibleSliderRowCountForUi(type, ui = {}, node = null) {
   const effectiveUi = nodeGraphEffectivePatchNodeUi(ui, type);
   if (!nodeGraphModuleTypeHasHideableSliders(type) || effectiveUi.slidersHidden) {
     return 0;
   }
-  return nodeGraphModuleVisibleBodyRowCount(type);
+  return nodeGraphModuleVisibleBodyRowCount(type, node);
 }
 
 /** Definition flag: module never shows param rows (LayoutA status faces, etc.). */
@@ -34,16 +41,16 @@ function nodeGraphModuleTypeHasHideableSliders(type) {
   return definition.layout !== "led";
 }
 
-const nodeGraphModuleWidthLimits = Object.freeze({
-  maxGu: 60,
-  // App-wide floor (gu). Existing module box clips widgets as they run out of room.
+// APP-WIDE GU POLICY — single source of truth.
+// Every module is at least 1gu × 1gu. Every screen/face is at least 1gu tall.
+// Content clips inside the box. Do not raise these floors per type or layout.
+const nodeGraphModuleGuPolicy = Object.freeze({
   minGu: 1,
-});
-
-const nodeGraphModuleHeightLimits = Object.freeze({
   maxGu: 60,
-  minGu: 1,
+  stepGu: 1,
 });
+const nodeGraphModuleWidthLimits = nodeGraphModuleGuPolicy;
+const nodeGraphModuleHeightLimits = nodeGraphModuleGuPolicy;
 
 // ---------------------------------------------------------------------------
 // MODULE HEIGHT — single source of truth (ALL modules)
@@ -70,18 +77,14 @@ const nodeGraphModuleHeightLimits = Object.freeze({
 // Write path: nodeGraphApplyModuleShellHeightCssVars + --node-grid-height-units.
 // ---------------------------------------------------------------------------
 
-// App-wide face/display policy: 1…60 gu.
-const nodeGraphModuleDisplayHeightLimits = Object.freeze({
-  maxGu: 60,
-  minGu: 1,
-  stepGu: 1,
-});
+// Face / display height — same policy (1…60 gu).
+const nodeGraphModuleDisplayHeightLimits = nodeGraphModuleGuPolicy;
 
-/** LayoutB module width floor (app-wide policy: 1 gu). */
-const nodeGraphLayoutBMinGu = 1;
+/** @deprecated use nodeGraphModuleGuPolicy.minGu */
+const nodeGraphLayoutBMinGu = nodeGraphModuleGuPolicy.minGu;
 
-/** LayoutC convenience thrus (Vectorscope, …): app-wide floor is 1gu. */
-const nodeGraphLayoutCMinGu = 1;
+/** @deprecated use nodeGraphModuleGuPolicy.minGu */
+const nodeGraphLayoutCMinGu = nodeGraphModuleGuPolicy.minGu;
 
 /**
  * LayoutA min width = app-wide floor only (no per-label inflation).
@@ -91,33 +94,12 @@ function nodeGraphLayoutAMinWidthGuFromIoLabels(_type) {
   return nodeGraphModuleWidthLimits.minGu;
 }
 
-function nodeGraphModuleWidthLimitsForType(type) {
-  if (nodeGraphChromelessModuleIsCompactTile(type)) {
-    return { ...nodeGraphModuleWidthLimits, minGu: 1 };
-  }
-  if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
-    return { ...nodeGraphModuleWidthLimits, minGu: nodeGraphLayoutCMinGu };
-  }
-  if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
-    return { ...nodeGraphModuleWidthLimits, minGu: nodeGraphLayoutBMinGu };
-  }
-  // MIDI Keyboard needs real horizontal room for white keys + labels.
-  if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
-    return { ...nodeGraphModuleWidthLimits, minGu: 14 };
-  }
-  // LayoutA / generic: app-wide floor.
-  return nodeGraphModuleWidthLimits;
+function nodeGraphModuleWidthLimitsForType(_type) {
+  return nodeGraphModuleGuPolicy;
 }
 
-function nodeGraphModuleHeightLimitsForType(type) {
-  if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
-    // Floor is content (title + port rows); upper bound stays app-wide.
-    return {
-      maxGu: nodeGraphModuleHeightLimits.maxGu,
-      minGu: nodeGraphLayoutCMinContentHeightGu(type),
-    };
-  }
-  return nodeGraphModuleHeightLimits;
+function nodeGraphModuleHeightLimitsForType(_type) {
+  return nodeGraphModuleGuPolicy;
 }
 
 /**
@@ -131,23 +113,23 @@ function nodeGraphLayoutCMinContentHeightGu(type, ui = {}) {
   const ioGu = nodeGraphModuleTypeHasIoPorts(type)
     ? nodeGraphModuleIoSectionHeightGu(type)
     : 0;
-  // At least 2gu so a single port row stays clickable; dense I/O raises the floor.
-  return Math.max(nodeGraphLayoutCMinGu, Math.ceil(headerGu + ioGu));
+  return Math.max(nodeGraphModuleGuPolicy.minGu, Math.ceil(headerGu + ioGu));
 }
 
-/** LayoutC total module height (bounds = gu). */
+/** LayoutC total module height (bounds = gu). Clamp floor is the app-wide 1gu policy. */
 function nodeGraphLayoutCGridHeightUnits(type, ui = {}, heightGu = null) {
-  const minGu = nodeGraphLayoutCMinContentHeightGu(type, ui);
-  const maxGu = nodeGraphModuleHeightLimits.maxGu;
+  const limits = nodeGraphModuleGuPolicy;
   const declared = Number(nodeGraphModuleDefinitions[type]?.defaultHeightGu);
-  const fallback = Number.isFinite(declared) ? Math.round(declared) : minGu;
+  const fallback = Number.isFinite(declared)
+    ? Math.round(declared)
+    : nodeGraphLayoutCMinContentHeightGu(type, ui);
   const raw = Number.isFinite(Number(heightGu)) ? Math.round(Number(heightGu)) : fallback;
-  return Math.max(minGu, Math.min(maxGu, raw));
+  return Math.max(limits.minGu, Math.min(limits.maxGu, raw));
 }
 
 /** Shared face/display-height limits for every type (min 1gu). Do not raise per-layout. */
 function nodeGraphModuleDisplayHeightLimitsForType(_type = null) {
-  return nodeGraphModuleDisplayHeightLimits;
+  return nodeGraphModuleGuPolicy;
 }
 
 /**
@@ -223,22 +205,11 @@ function nodeGraphModuleUiWithFaceHeightGu(ui, type, faceGu) {
   };
 }
 
-const nodeGraphTextBoxHeightLimits = Object.freeze({
-  maxGu: 60,
-  // Floor when the header is hidden. Visible title uses header + 1gu text
-  // (see nodeGraphTextBoxMinOuterHeightGu) so the body cannot sit under chrome.
-  minGu: 1,
-});
+const nodeGraphTextBoxHeightLimits = nodeGraphModuleGuPolicy;
 
-/** Smallest outer height that still leaves 1gu for the text face. */
-function nodeGraphTextBoxMinOuterHeightGu(ui = {}) {
-  const headerGu = typeof nodeGraphModuleHeaderHeightUnits === "function"
-    ? nodeGraphModuleHeaderHeightUnits(ui, "textBox")
-    : (Number(nodeGraphModuleLayout?.headerHeightGu) || 1);
-  return Math.max(
-    nodeGraphTextBoxHeightLimits.minGu,
-    Math.ceil(Math.max(0, Number(headerGu) || 0) + 1),
-  );
+/** App-wide floor is 1gu. Content clips if chrome does not fit. */
+function nodeGraphTextBoxMinOuterHeightGu(_ui = {}) {
+  return nodeGraphModuleGuPolicy.minGu;
 }
 
 function nodeGraphPatchNodeLayout(node) {
@@ -527,13 +498,12 @@ function nodeGraphPatchNodeGridWidthUnits(node) {
 }
 
 function normalizeNodeGraphModuleHeightUnits(type, heightGu, ui = {}) {
-  const fallback = nodeGraphModuleGridHeightUnitsForUi(type, ui);
-  const limits = nodeGraphModuleHeightLimitsForType(type);
-  const minimum = Math.max(limits.minGu, Math.ceil(fallback));
+  const limits = nodeGraphModuleGuPolicy;
   const value = Math.round(Number(heightGu));
-  return Number.isFinite(value)
-    ? Math.max(minimum, Math.min(limits.maxGu, value))
-    : fallback;
+  if (Number.isFinite(value)) {
+    return Math.max(limits.minGu, Math.min(limits.maxGu, value));
+  }
+  return nodeGraphModuleGridHeightUnitsForUi(type, ui);
 }
 
 /**
@@ -624,14 +594,14 @@ function normalizeNodeGraphTextBoxHeightUnits(heightGu, ui = {}) {
 
 /**
  * Param stack height in gu (visible rows only).
- * Must match CSS: .dsp-node-body grid-auto-rows = --node-body-row-height
- * and gap = --node-body-row-gap (currently 0).
+ * Must match CSS: .dsp-node-body grid-auto-rows = --node-body-row-height (30px)
+ * and gap = --node-body-row-gap (2px).
  * Pass ui to honor sliders-hidden / effective UI; omit ui for raw definition rows.
  */
-function nodeGraphModuleSliderBodyHeightGu(type, ui = null) {
+function nodeGraphModuleSliderBodyHeightGu(type, ui = null, node = null) {
   const rows = ui != null
-    ? nodeGraphModuleVisibleSliderRowCountForUi(type, ui)
-    : nodeGraphModuleVisibleBodyRowCount(type);
+    ? nodeGraphModuleVisibleSliderRowCountForUi(type, ui, node)
+    : nodeGraphModuleVisibleBodyRowCount(type, node);
   if (rows <= 0) {
     return 0;
   }
@@ -814,7 +784,7 @@ function tagNodeGraphModuleBand(element, bandId) {
  * Ordered visible stack for one module. Same numbers as the widget list;
  * ids are the six chrome bands. Hidden band ⇒ omitted from apply.
  */
-function nodeGraphModuleLayoutBands(type, ui = {}) {
+function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
   if (typeof nodeGraphModuleIsCollapsedUi === "function" && nodeGraphModuleIsCollapsedUi(type, ui)) {
     return [];
   }
@@ -833,7 +803,7 @@ function nodeGraphModuleLayoutBands(type, ui = {}) {
     const shellGu = typeof nodeGraphLayoutBShellHeightGu === "function"
       ? nodeGraphLayoutBShellHeightGu(type, ui)
       : nodeGraphModuleDisplayHeightUnits(type, ui);
-    const paramsGu = nodeGraphModuleSliderBodyHeightGu(type, ui);
+    const paramsGu = nodeGraphModuleSliderBodyHeightGu(type, ui, node);
     const bands = [];
     if (headerGu > 0) {
       bands.push({ id: "header", heightGu: headerGu, visible: true, grow: false });
@@ -850,7 +820,7 @@ function nodeGraphModuleLayoutBands(type, ui = {}) {
     }
     return bands;
   }
-  const widgets = nodeGraphModuleHeightWidgetUnits(type, ui);
+  const widgets = nodeGraphModuleHeightWidgetUnits(type, ui, node);
   const byId = new Map();
   for (const widget of widgets) {
     const id = nodeGraphModuleCanonicalBandId(widget.id);
@@ -904,6 +874,9 @@ function nodeGraphModuleLayoutBands(type, ui = {}) {
       shell.grow = true;
     }
   }
+  // Leftover plate under last chrome is a lip (same fill as the article).
+  // The article box / stroke is the module area — do not grow sliders into
+  // the bottom radius (that clipped the last row).
   const wantsLip = layout !== "led"
     && layout !== "textBox"
     && !(isLayoutB && !paramsVisible)
@@ -933,7 +906,9 @@ function nodeGraphModuleBandTrackCss(band) {
       : "var(--node-module-scope-height)";
   }
   if (band.id === "controls") {
-    return "var(--node-module-interface-controls-height)";
+    // Hug the chrome. A reserved 4gu track left an empty see-through band
+    // between Music Player path/phase and the waveform (module plate is unfilled).
+    return "auto";
   }
   if (band.id === "io") {
     return band.grow
@@ -941,7 +916,9 @@ function nodeGraphModuleBandTrackCss(band) {
       : "minmax(var(--node-module-io-track-min, var(--node-io-section-min-height)), auto)";
   }
   if (band.id === "params") {
-    return "auto";
+    return band.grow
+      ? "minmax(0, 1fr)"
+      : "auto";
   }
   if (band.id === "shell") {
     return band.grow
@@ -1015,6 +992,7 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
     : nodeGraphModuleLayoutBands(
       patchNodeOrBands?.type || article.dataset?.nodeType,
       patchNodeOrBands?.ui,
+      Array.isArray(patchNodeOrBands) ? null : patchNodeOrBands,
     );
   const visible = bands.filter((band) => (
     band.visible && (band.heightGu > 0 || band.grow || band.id === "lip")
@@ -1022,6 +1000,7 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
   const stack = visible.map(nodeGraphModuleBandTrackCss).join(" ") || "minmax(0, 1fr)";
   article.classList.add("module-stack");
   article.style.setProperty("--node-module-stack-rows", stack);
+  article.style.gridTemplateColumns = "minmax(0, 1fr)";
   article.style.gridTemplateRows = stack;
   if (
     visible.some((band) => band.id === "lip")
@@ -1072,6 +1051,9 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
       child.style.gridRow = "auto";
       child.hidden = true;
     }
+  }
+  if (typeof scheduleNodeGraphSliderReadoutRelayout === "function") {
+    scheduleNodeGraphSliderReadoutRelayout();
   }
 }
 
@@ -1135,7 +1117,7 @@ function nodeGraphModuleHeaderHeightUnits(ui = {}, type = "") {
   return nodeGraphModuleLayout.headerHeightGu;
 }
 
-function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
+function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   const normalizedUi = nodeGraphEffectivePatchNodeUi(ui, type);
   const slidersVisible = nodeGraphModuleTypeHasHideableSliders(type) && !normalizedUi.slidersHidden;
   const displayVisible = nodeGraphModuleDisplayVisibleForUi(type, ui);
@@ -1157,7 +1139,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "scope", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "interfaceControls", heightGu: nodeGraphModuleInterfaceControlsHeightGu(type, ui), visible: interfaceControlsVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       // Music Player's waveform row is `minmax(scope, 1fr)` (styles.css), so it
       // swallows every spare pixel and the slider stack always ended up flush
       // with the module's bottom edge no matter how tall the module was. The
@@ -1211,7 +1193,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "trace", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
@@ -1219,7 +1201,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
   if (nodeGraphModuleDefinitions[type]?.layout === "graph") {
     // LayoutB: header + shell(face) + params. Outer via nodeGraphLayoutBGridHeightUnits.
     const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
-    const paramsGu = nodeGraphModuleSliderBodyHeightGu(type, ui);
+    const paramsGu = nodeGraphModuleSliderBodyHeightGu(type, ui, node);
     return [
       { id: "header", heightGu: headerGu, visible: headerGu > 0 },
       { id: "shell", heightGu: nodeGraphLayoutBShellHeightGu(type, ui), visible: true },
@@ -1230,7 +1212,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
   if (nodeGraphModuleDefinitions[type]?.layout === "sliderWidget") {
     // LayoutB headerless: optional title + shell + sliders (+ clearance outside).
     const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
-    const paramsGu = nodeGraphModuleSliderBodyHeightGu(type, ui);
+    const paramsGu = nodeGraphModuleSliderBodyHeightGu(type, ui, node);
     return [
       { id: "header", heightGu: headerGu, visible: headerGu > 0 },
       { id: "shell", heightGu: nodeGraphLayoutBShellHeightGu(type, ui), visible: true },
@@ -1269,7 +1251,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
@@ -1285,7 +1267,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
@@ -1295,7 +1277,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
@@ -1305,7 +1287,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
@@ -1315,7 +1297,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
@@ -1325,7 +1307,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "room", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
@@ -1335,7 +1317,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
@@ -1346,13 +1328,13 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
     { id: "interfaceControls", heightGu: nodeGraphModuleInterfaceControlsHeightGu(type, ui), visible: interfaceControlsVisible },
     { id: "io", heightGu: ioHeightGu, visible: ioVisible },
     // Pass ui so sliders-hidden / effective UI matches the outer height SSOT.
-    { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, ui), visible: slidersVisible },
+    { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, ui, node), visible: slidersVisible },
     { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
   ];
 }
 
-function nodeGraphModuleRequiredHeightUnitsForUi(type, ui = {}) {
-  return nodeGraphModuleHeightWidgetUnits(type, ui)
+function nodeGraphModuleRequiredHeightUnitsForUi(type, ui = {}, node = null) {
+  return nodeGraphModuleHeightWidgetUnits(type, ui, node)
     .filter((widget) => widget.visible !== false)
     .reduce((total, widget) => total + Math.max(0, Number(widget.heightGu) || 0), 0);
 }
@@ -1368,10 +1350,10 @@ function nodeGraphModuleGridHeightUnits(type) {
  * Shell = face (ports share face height). Never add under-face IO.
  * Param body uses the same SSOT as LayoutA (nodeGraphModuleSliderBodyHeightGu).
  */
-function nodeGraphLayoutBContentHeightGu(type, ui = {}, { compact = false } = {}) {
+function nodeGraphLayoutBContentHeightGu(type, ui = {}, { compact = false, node = null } = {}) {
   const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
   const shellGu = nodeGraphLayoutBShellHeightGu(type, ui);
-  const sliderGu = nodeGraphModuleSliderBodyHeightGu(type, ui);
+  const sliderGu = nodeGraphModuleSliderBodyHeightGu(type, ui, node);
   if (sliderGu <= 0) {
     return headerGu + shellGu;
   }
@@ -1387,9 +1369,9 @@ function nodeGraphLayoutBContentHeightGu(type, ui = {}, { compact = false } = {}
  * With params: content + bottom clearance (≥2px lip).
  * No params: ceil(header+shell); CSS gives shell 1fr of that box.
  */
-function nodeGraphLayoutBGridHeightUnits(type, ui = {}, { compact = false } = {}) {
-  const content = nodeGraphLayoutBContentHeightGu(type, ui, { compact });
-  const sliderGu = nodeGraphModuleSliderBodyHeightGu(type, ui);
+function nodeGraphLayoutBGridHeightUnits(type, ui = {}, { compact = false, node = null } = {}) {
+  const content = nodeGraphLayoutBContentHeightGu(type, ui, { compact, node });
+  const sliderGu = nodeGraphModuleSliderBodyHeightGu(type, ui, node);
   if (sliderGu <= 0) {
     return Math.max(1, Math.ceil(content));
   }
@@ -1403,7 +1385,7 @@ const nodeGraphSolidModuleGridHeightUnits = nodeGraphLayoutBGridHeightUnits;
  * OUTER module height for a type+ui (content stack + clearance).
  * This is the single auto-height path used by CSS --node-grid-height-units.
  */
-function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
+function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}, node = null) {
   if (typeof nodeGraphModuleIsCollapsedUi === "function" && nodeGraphModuleIsCollapsedUi(type, ui)) {
     return 1;
   }
@@ -1419,9 +1401,9 @@ function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
       nodeGraphChromelessModuleLayouts.has(nodeGraphModuleDefinitions[type]?.layout)
       && nodeGraphChromelessModuleIsCompactTile(type)
     ) {
-      return nodeGraphLayoutBGridHeightUnits(type, ui, { compact: true });
+      return nodeGraphLayoutBGridHeightUnits(type, ui, { compact: true, node });
     }
-    return nodeGraphLayoutBGridHeightUnits(type, ui);
+    return nodeGraphLayoutBGridHeightUnits(type, ui, { node });
   }
   if (nodeGraphChromelessModuleLayouts.has(nodeGraphModuleDefinitions[type]?.layout)) {
     if (nodeGraphChromelessModuleIsCompactTile(type)) {
@@ -1430,11 +1412,11 @@ function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
         : 1;
     }
     return nodeGraphModuleHeightWithBottomClearance(
-      nodeGraphModuleRequiredHeightUnitsForUi(type, ui),
+      nodeGraphModuleRequiredHeightUnitsForUi(type, ui, node),
     );
   }
   return nodeGraphModuleHeightWithBottomClearance(
-    nodeGraphModuleRequiredHeightUnitsForUi(type, ui),
+    nodeGraphModuleRequiredHeightUnitsForUi(type, ui, node),
   );
 }
 
@@ -1460,30 +1442,109 @@ function nodeGraphPatchNodeGridHeightUnits(node) {
   if (moduleHeightCapability === "textBox" && Number.isFinite(Number(patchNode.heightGu))) {
     return normalizeNodeGraphTextBoxHeightUnits(patchNode.heightGu, ui);
   }
-  if (moduleHeightCapability === "custom" && Number.isFinite(Number(patchNode.heightGu))) {
+  if (Number.isFinite(Number(patchNode.heightGu))) {
     return normalizeNodeGraphModuleHeightUnits(type, patchNode.heightGu, ui);
   }
-  // Face modules + auto LayoutA/B: outer height always follows content (face-driven).
-  return Math.max(1, nodeGraphModuleGridHeightUnitsForUi(type, ui));
+  if (moduleHeightCapability === "custom") {
+    return normalizeNodeGraphModuleHeightUnits(type, patchNode.heightGu, ui);
+  }
+  // Face modules: stored heightGu wins (can clip below content). Else content.
+  return Math.max(nodeGraphModuleGuPolicy.minGu, nodeGraphModuleGridHeightUnitsForUi(type, ui, patchNode));
 }
 
 /**
- * Minimum outer height: face modules use face=1gu; LayoutC uses content floor.
- * Height − is disabled at this outer size (cannot go thinner).
+ * App-wide outer floor is 1gu. Height − stays enabled until the box is 1gu.
  */
-function nodeGraphModuleMinOuterHeightGu(type, ui = {}) {
-  if (nodeGraphModuleDefinitions[type]?.layout === "textBox") {
-    return nodeGraphTextBoxMinOuterHeightGu(ui);
+function nodeGraphModuleMinOuterHeightGu(_type, _ui = {}) {
+  return nodeGraphModuleGuPolicy.minGu;
+}
+
+/**
+ * Height ± for any module: app-wide 1gu floor.
+ * Face modules shrink the screen first, then the outer box (content clips).
+ */
+function nodeGraphApplyModuleHeightDelta(patchNode, delta) {
+  if (!patchNode?.type) {
+    return false;
   }
-  if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
-    return nodeGraphLayoutCMinContentHeightGu(type, ui);
+  const type = patchNode.type;
+  const step = Math.sign(Number(delta) || 0) * (nodeGraphModuleGuPolicy.stepGu || 1);
+  if (!step) {
+    return false;
   }
-  if (nodeGraphModuleHasFace(type)) {
-    const uiMin = nodeGraphModuleUiWithFaceHeightGu(ui, type, nodeGraphModuleDisplayHeightLimits.minGu);
-    return nodeGraphModuleGridHeightUnitsForUi(type, uiMin);
+  const ui = typeof normalizeNodeGraphPatchNodeUi === "function"
+    ? normalizeNodeGraphPatchNodeUi(patchNode.ui, type)
+    : { ...(patchNode.ui || {}) };
+  const currentOuter = nodeGraphPatchNodeGridHeightUnits(patchNode);
+  const contentGu = nodeGraphModuleGridHeightUnitsForUi(type, ui, patchNode);
+  const hasFace = nodeGraphModuleHasFace(type)
+    && nodeGraphModuleSizingCapabilities(type).displayHeight;
+
+  if (hasFace) {
+    const face = nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
+    if (step < 0 && face > nodeGraphModuleGuPolicy.minGu) {
+      const nextOffset = normalizeNodeGraphModuleDisplayHeightOffsetUnits(
+        type,
+        Number(ui.displayHeightOffsetGu || 0) + step,
+      );
+      if (nextOffset === ui.displayHeightOffsetGu) {
+        return false;
+      }
+      ui.displayHeightOffsetGu = nextOffset;
+      if (typeof applyNodeGraphPatchNodeUi === "function") {
+        applyNodeGraphPatchNodeUi(patchNode, ui);
+      } else {
+        patchNode.ui = ui;
+      }
+      return true;
+    }
+    if (step < 0) {
+      const nextOuter = Math.max(nodeGraphModuleGuPolicy.minGu, currentOuter + step);
+      if (nextOuter === currentOuter) {
+        return false;
+      }
+      patchNode.heightGu = nextOuter;
+      return true;
+    }
+    if (Number.isFinite(Number(patchNode.heightGu)) && currentOuter < contentGu) {
+      const nextOuter = Math.min(nodeGraphModuleGuPolicy.maxGu, currentOuter + step);
+      if (nextOuter >= contentGu) {
+        delete patchNode.heightGu;
+      } else {
+        patchNode.heightGu = nextOuter;
+      }
+      return true;
+    }
+    const nextOffset = normalizeNodeGraphModuleDisplayHeightOffsetUnits(
+      type,
+      Number(ui.displayHeightOffsetGu || 0) + step,
+    );
+    if (nextOffset === ui.displayHeightOffsetGu) {
+      return false;
+    }
+    ui.displayHeightOffsetGu = nextOffset;
+    if (typeof applyNodeGraphPatchNodeUi === "function") {
+      applyNodeGraphPatchNodeUi(patchNode, ui);
+    } else {
+      patchNode.ui = ui;
+    }
+    return true;
   }
-  const limits = nodeGraphModuleHeightLimitsForType(type);
-  return Math.max(1, limits.minGu || 1);
+
+  const capability = nodeGraphModuleSizingCapabilities(type).moduleHeight;
+  const nextOuter = capability === "textBox"
+    ? normalizeNodeGraphTextBoxHeightUnits(currentOuter + step, ui)
+    : normalizeNodeGraphModuleHeightUnits(type, currentOuter + step, ui);
+  if (nextOuter === currentOuter) {
+    return false;
+  }
+  const defaultHeightGu = nodeGraphModuleGridHeightUnitsForUi(type, ui, patchNode);
+  if (nextOuter === defaultHeightGu) {
+    delete patchNode.heightGu;
+  } else {
+    patchNode.heightGu = nextOuter;
+  }
+  return true;
 }
 
 /** Maximum outer height when face is max (60gu), or height limits max. */

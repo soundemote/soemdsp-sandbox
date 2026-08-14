@@ -148,6 +148,9 @@ function applyNodeGraphViewportCssLight(options = {}) {
   if (typeof scheduleNodeGraphRoomDimmerDraw === "function") {
     scheduleNodeGraphRoomDimmerDraw();
   }
+  if (typeof updateNodeGraphGridHeatmap === "function") {
+    updateNodeGraphGridHeatmap({ lite: true });
+  }
 }
 
 function nodeGraphWirePlanCacheKey() {
@@ -196,15 +199,12 @@ function flushNodeGraphViewportHeavyChrome(options = {}) {
     scheduleNodeGraphRoomDimmerDraw();
   }
   const full = options.full === true || !gesturing;
-  if (!full) {
-    // Frozen mid-gesture: no lights, no wires.
-    return;
+  if (typeof updateNodeGraphGridHeatmap === "function") {
+    updateNodeGraphGridHeatmap({ lite: !full });
   }
-  if (
-    typeof updateNodeGraphGridHeatmap === "function"
-    && nodeGraphMvp?.gridLightVisible !== false
-  ) {
-    updateNodeGraphGridHeatmap();
+  if (!full) {
+    // Pause module lights / wires mid-gesture. Grid position already updated.
+    return;
   }
   if (typeof drawNodeGraphWires === "function") {
     drawNodeGraphWires({

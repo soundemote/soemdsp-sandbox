@@ -39,37 +39,40 @@ function nodeGraphKeypadApplyLayout(face, layout) {
   const next = typeof normalizeNodeGraphKeypadLayout === "function"
     ? normalizeNodeGraphKeypadLayout(layout)
     : layout || {};
-  face.style.setProperty("--node-keypad-background-color", next.backgroundColor || "#f4f3f0");
+  const d = typeof NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS !== "undefined"
+    ? NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS
+    : {};
+  face.style.setProperty("--node-keypad-background-color", next.backgroundColor || d.backgroundColor || "#000000");
   const bgSrc = next.backgroundImage?.dataUrl || "";
   face.style.setProperty("--node-keypad-background-image", bgSrc ? `url("${bgSrc}")` : "none");
   face.classList.toggle("has-background-image", Boolean(bgSrc));
-  face.style.setProperty("--node-keypad-button-color", next.buttonColor || "#f3f1ec");
-  face.style.setProperty("--node-keypad-hover-color", next.hoverColor || "#ddd9d2");
-  face.style.setProperty("--node-keypad-down-color", next.downColor || "#c4bdb3");
-  face.style.setProperty("--node-keypad-text-color", next.textColor || "#2d2d2d");
-  face.style.setProperty("--node-keypad-stroke-color", next.strokeColor || next.textColor || "#2d2d2d");
-  face.style.setProperty("--node-keypad-button-width", String(next.buttonWidth ?? 0.94));
-  face.style.setProperty("--node-keypad-button-height", String(next.buttonHeight ?? 0.94));
-  face.style.setProperty("--node-keypad-button-size", String(next.buttonSize ?? 1));
-  face.style.setProperty("--node-keypad-pad", `${Math.max(0, Number(next.padPx) || 0)}px`);
-  face.dataset.keypadPad = String(Math.max(0, Number(next.padPx) || 0));
-  face.dataset.keypadSquare = next.squareRatio === false ? "0" : "1";
-  face.classList.toggle("is-square-ratio", next.squareRatio !== false);
+  face.style.setProperty("--node-keypad-button-color", next.buttonColor || d.buttonColor || "#c4c2a6");
+  face.style.setProperty("--node-keypad-hover-color", next.hoverColor || d.hoverColor || "#89bfc2");
+  face.style.setProperty("--node-keypad-down-color", next.downColor || d.downColor || "#d9d9d9");
+  face.style.setProperty("--node-keypad-text-color", next.textColor || d.textColor || "#2d2d2d");
+  face.style.setProperty("--node-keypad-stroke-color", next.strokeColor || d.strokeColor || "#5c5071");
+  face.style.setProperty("--node-keypad-button-width", String(next.buttonWidth ?? d.buttonWidth ?? 1));
+  face.style.setProperty("--node-keypad-button-height", String(next.buttonHeight ?? d.buttonHeight ?? 1));
+  face.style.setProperty("--node-keypad-button-size", String(next.buttonSize ?? d.buttonSize ?? 1));
+  face.style.setProperty("--node-keypad-pad", `${Math.max(0, Number(next.padPx ?? d.padPx) || 0)}px`);
+  face.dataset.keypadPad = String(Math.max(0, Number(next.padPx ?? d.padPx) || 0));
+  face.dataset.keypadSquare = next.squareRatio === false ? "0" : (next.squareRatio ? "1" : "0");
+  face.classList.toggle("is-square-ratio", next.squareRatio === true);
   face.style.setProperty(
     "--node-keypad-font",
     typeof nodeGraphKeypadFontFamily === "function"
       ? nodeGraphKeypadFontFamily(next.font)
-      : (next.fontFamily || "\"Poiret One\", sans-serif"),
+      : (next.fontFamily || "\"Thasadith\", sans-serif"),
   );
-  face.style.setProperty("--node-keypad-text-size", String(next.textSize ?? 0.55));
-  face.style.setProperty("--node-keypad-text-weight", String(next.textWeight ?? 400));
-  face.style.setProperty("--node-keypad-rounding", String(next.rounding ?? 50));
+  face.style.setProperty("--node-keypad-text-size", String(next.textSize ?? d.textSize ?? 0.87708066581306));
+  face.style.setProperty("--node-keypad-text-weight", String(next.textWeight ?? d.textWeight ?? 900));
+  face.style.setProperty("--node-keypad-rounding", String(next.rounding ?? d.rounding ?? 48.2527147087858));
   face.style.setProperty(
     "--node-keypad-corner-shape",
     next.cornerShape === "pill" ? "round" : "squircle",
   );
-  face.dataset.keypadStroke = String(next.stroke ?? 0);
-  face.dataset.keypadRounding = String(next.rounding ?? 50);
+  face.dataset.keypadStroke = String(next.stroke ?? d.stroke ?? 0.0705278719888686);
+  face.dataset.keypadRounding = String(next.rounding ?? d.rounding ?? 48.2527147087858);
   const images = Array.isArray(next.keyImages) ? next.keyImages : [];
   for (const key of face.querySelectorAll(".node-keypad-key")) {
     const slot = Number(key.dataset.slot);

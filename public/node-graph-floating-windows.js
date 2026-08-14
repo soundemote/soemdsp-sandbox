@@ -336,13 +336,20 @@ function markNodeGraphFloatingWindowSurface(element) {
  * Bring a floating popup to the front of all other popups.
  * Newest interacted (or newly opened) window wins.
  */
+function nodeGraphFloatingWindowIsFrontmost(element) {
+  if (!element || element.hidden) {
+    return false;
+  }
+  const current = Number.parseInt(String(element.style.zIndex || ""), 10);
+  return Number.isFinite(current) && current >= nodeGraphFloatingWindowStackTop;
+}
+
 function raiseNodeGraphFloatingWindow(element) {
   if (!element || element.hidden) {
     return false;
   }
   markNodeGraphFloatingWindowSurface(element);
-  const current = Number.parseInt(String(element.style.zIndex || ""), 10);
-  if (Number.isFinite(current) && current >= nodeGraphFloatingWindowStackTop) {
+  if (nodeGraphFloatingWindowIsFrontmost(element)) {
     return true;
   }
   nodeGraphFloatingWindowStackTop += 1;
@@ -919,14 +926,6 @@ const nodeGraphFloatingWindowRegistryEntries = Object.freeze([
     dragStateKey: "standaloneMidiKeyboardDragging",
     resizeStateKey: "standaloneMidiKeyboardResizing",
     applySizeName: "applyNodeGraphStandaloneMidiKeyboardDockSize",
-    sizeAxes: Object.freeze({ width: true, height: true }),
-  }),
-  Object.freeze({
-    workspaceKey: "tooltipWindow",
-    elementId: "nodeTooltipWindow",
-    dragStateKey: "tooltipWindowDragging",
-    resizeStateKey: "tooltipWindowResizing",
-    applySizeName: "applyNodeGraphTooltipWindowSize",
     sizeAxes: Object.freeze({ width: true, height: true }),
   }),
   Object.freeze({

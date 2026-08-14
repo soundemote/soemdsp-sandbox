@@ -48,6 +48,9 @@ function bindNodeGraphSceneMenuEvents() {
       setSelectedNodeGraphWirePixel(next);
     }
   });
+  if (typeof ensureNodeGraphWireCurveControl === "function") {
+    ensureNodeGraphWireCurveControl();
+  }
   bindNodeGraphSceneElementEvent("nodeSceneCopyModule", "click", copyNodeGraphModuleFromContext);
   // Wired but disabled -- module grouping itself is under construction (see
   // saveNodeGraphSelectionAsModuleGroup's early return in

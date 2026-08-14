@@ -5,6 +5,7 @@ registerNodeGraphChromelessModule("fbmField", {
   customDisplayArea: true,
   definition: {
     planRole: "source",
+    defaultAlias: "fBf",
     defaultWidthGu: 5,
     displayHeightGu: 5,
     displayType: "fbmFieldFace",

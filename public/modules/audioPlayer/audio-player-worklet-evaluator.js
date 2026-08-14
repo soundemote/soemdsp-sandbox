@@ -88,12 +88,6 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     const mono = outputActive ? stereo.Mono * level : 0;
     const right = outputActive ? stereo.Right * level : 0;
     this.audioPlayerMeterPhase = boundedPhase;
-    this.audioPlayerMeterPeak = Math.max(
-      this.audioPlayerMeterPeak,
-      Math.abs(left),
-      Math.abs(mono),
-      Math.abs(right),
-    );
     this.audioPlayerMeterReason = state.playing
       ? (transportLooping ? "engine looping" : "engine playing")
       : transportPaused
@@ -103,7 +97,6 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
           : state.completed
             ? "engine complete"
             : "engine off reset";
-    this.audioPlayerMeterSamples += 1;
     let done = 0;
     if (!phaseConnected && state.playing) {
       const nextPhase = basePhase + increment;

@@ -122,13 +122,16 @@ function createNodeUserUiSettingsMirrorControl(definition) {
   return row;
 }
 
-function createNodeUserUiSettingsViewCheckbox({ key, label, getValue, setValue }) {
+function createNodeUserUiSettingsViewCheckbox({ key, label, getValue, setValue, id }) {
   const row = document.createElement("label");
   row.className = "node-user-ui-setting-control boolean";
   const title = document.createElement("span");
   title.textContent = label;
   const input = document.createElement("input");
   input.type = "checkbox";
+  if (id) {
+    input.id = id;
+  }
   input.dataset.nodeUiViewSetting = key;
   input.checked = Boolean(getValue());
   input.addEventListener("change", () => {
@@ -138,14 +141,91 @@ function createNodeUserUiSettingsViewCheckbox({ key, label, getValue, setValue }
   return row;
 }
 
+function persistAndRenderUserUiVisibility(render) {
+  if (typeof persistNodeGraphPatchVisibilityView === "function") {
+    persistNodeGraphPatchVisibilityView();
+  }
+  if (typeof render === "function") {
+    render();
+  }
+}
+
 function createNodeUserUiSettingsViewControl() {
   return createNodeUserUiSettingsViewCheckbox({
     key: "gridVisible",
+    id: "nodeUiDevViewGridVisible",
     label: "Show grid",
     getValue: () => nodeGraphMvp.gridVisible,
     setValue: (visible) => {
       nodeGraphMvp.gridVisible = visible;
-      renderNodeGraphGridToggle();
+      persistAndRenderUserUiVisibility(renderNodeGraphGridToggle);
+    },
+  });
+}
+
+function createNodeUserUiSettingsGridLightControl() {
+  return createNodeUserUiSettingsViewCheckbox({
+    key: "gridLightVisible",
+    id: "nodeUiDevViewGridLightVisible",
+    label: "Show grid light",
+    getValue: () => nodeGraphMvp.gridLightVisible !== false,
+    setValue: (visible) => {
+      nodeGraphMvp.gridLightVisible = visible;
+      persistAndRenderUserUiVisibility(renderNodeGraphGridLightToggle);
+    },
+  });
+}
+
+function createNodeUserUiSettingsWiringChromeControl() {
+  return createNodeUserUiSettingsViewCheckbox({
+    key: "wiringChromeVisible",
+    id: "nodeUiDevViewWiringChrome",
+    label: "Show wires inlets outlets",
+    getValue: () => nodeGraphMvp.wiringChromeVisible !== false,
+    setValue: (visible) => {
+      nodeGraphMvp.wiringChromeVisible = visible;
+      persistAndRenderUserUiVisibility(renderNodeGraphWiringChromeToggle);
+    },
+  });
+}
+
+function createNodeUserUiSettingsWireLengthsControl() {
+  return createNodeUserUiSettingsViewCheckbox({
+    key: "wireLengthsVisible",
+    id: "nodeUiDevViewWireLengths",
+    label: "Show wire lengths",
+    getValue: () => nodeGraphMvp.wireLengthsVisible !== false,
+    setValue: (visible) => {
+      nodeGraphMvp.wireLengthsVisible = visible;
+      persistAndRenderUserUiVisibility(renderNodeGraphWireLengthsToggle);
+    },
+  });
+}
+
+function createNodeUserUiSettingsWiresAboveControl() {
+  return createNodeUserUiSettingsViewCheckbox({
+    key: "wiresAboveModules",
+    id: "nodeUiDevViewWiresAbove",
+    label: "Wires above modules",
+    getValue: () => Boolean(nodeGraphMvp.wiresAboveModules),
+    setValue: (visible) => {
+      nodeGraphMvp.wiresAboveModules = visible;
+      persistAndRenderUserUiVisibility(renderNodeGraphWiresAboveModulesToggle);
+    },
+  });
+}
+
+function createNodeUserUiSettingsKeyboardDebugControl() {
+  return createNodeUserUiSettingsViewCheckbox({
+    key: "keyboardDebugInfoVisible",
+    id: "nodeUiDevViewKeyboardDebug",
+    label: "Show debug",
+    getValue: () => nodeGraphMvp.keyboardDebugInfoVisible === true,
+    setValue: (visible) => {
+      nodeGraphMvp.keyboardDebugInfoVisible = visible;
+      if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
+        renderNodeGraphKeyboardDebugToggle();
+      }
     },
   });
 }
@@ -153,11 +233,12 @@ function createNodeUserUiSettingsViewControl() {
 function createNodeUserUiSettingsSliderAmountControl() {
   return createNodeUserUiSettingsViewCheckbox({
     key: "sliderAmountVisible",
+    id: "nodeUiDevViewSliderAmount",
     label: "Show amount slider",
     getValue: () => nodeGraphMvp.sliderAmountVisible,
     setValue: (visible) => {
       nodeGraphMvp.sliderAmountVisible = visible;
-      renderNodeGraphSliderVisibilityToggles();
+      persistAndRenderUserUiVisibility(renderNodeGraphSliderVisibilityToggles);
     },
   });
 }
@@ -165,11 +246,12 @@ function createNodeUserUiSettingsSliderAmountControl() {
 function createNodeUserUiSettingsSliderPositionControl() {
   return createNodeUserUiSettingsViewCheckbox({
     key: "sliderPositionVisible",
+    id: "nodeUiDevViewSliderPosition",
     label: "Show position slider",
     getValue: () => nodeGraphMvp.sliderPositionVisible,
     setValue: (visible) => {
       nodeGraphMvp.sliderPositionVisible = visible;
-      renderNodeGraphSliderVisibilityToggles();
+      persistAndRenderUserUiVisibility(renderNodeGraphSliderVisibilityToggles);
     },
   });
 }
@@ -177,11 +259,12 @@ function createNodeUserUiSettingsSliderPositionControl() {
 function createNodeUserUiSettingsModuleButtonsControl() {
   return createNodeUserUiSettingsViewCheckbox({
     key: "moduleButtonsVisible",
+    id: "nodeUiDevViewModuleButtons",
     label: "Show module buttons",
     getValue: () => nodeGraphMvp.moduleButtonsVisible !== false,
     setValue: (visible) => {
       nodeGraphMvp.moduleButtonsVisible = visible;
-      renderNodeGraphModuleVisibilityToggles();
+      persistAndRenderUserUiVisibility(renderNodeGraphModuleVisibilityToggles);
     },
   });
 }
@@ -189,11 +272,12 @@ function createNodeUserUiSettingsModuleButtonsControl() {
 function createNodeUserUiSettingsModuleOscilloscopeControl() {
   return createNodeUserUiSettingsViewCheckbox({
     key: "moduleOscilloscopesVisible",
+    id: "nodeUiDevViewModuleOscilloscopes",
     label: "Show displays",
     getValue: () => nodeGraphMvp.moduleOscilloscopesVisible !== false,
     setValue: (visible) => {
       nodeGraphMvp.moduleOscilloscopesVisible = visible;
-      renderNodeGraphModuleVisibilityToggles();
+      persistAndRenderUserUiVisibility(renderNodeGraphModuleVisibilityToggles);
       if (typeof scheduleNodeGraphLivePlanSync === "function") {
         scheduleNodeGraphLivePlanSync();
       }
@@ -204,337 +288,26 @@ function createNodeUserUiSettingsModuleOscilloscopeControl() {
 function createNodeUserUiSettingsModuleInterfaceControlsControl() {
   return createNodeUserUiSettingsViewCheckbox({
     key: "moduleInterfaceControlsVisible",
+    id: "nodeUiDevViewModuleInterface",
     label: "Show control surfaces",
     getValue: () => nodeGraphMvp.moduleInterfaceControlsVisible !== false,
     setValue: (visible) => {
       nodeGraphMvp.moduleInterfaceControlsVisible = visible;
-      renderNodeGraphModuleVisibilityToggles();
+      persistAndRenderUserUiVisibility(renderNodeGraphModuleVisibilityToggles);
     },
   });
 }
 
-function createNodeUserUiSettingsModuleScopeBrightnessControl() {
-  const row = document.createElement("label");
-  row.className = "node-user-ui-setting-control number";
-  const title = document.createElement("span");
-  title.textContent = "Master display brightness";
-  const input = document.createElement("input");
-  input.type = "range";
-  input.min = "0";
-  input.max = "16";
-  input.step = "0.01";
-  input.dataset.nodeUiViewSetting = "moduleScopeBrightness";
-  input.value = normalizeNodeGraphModuleScopeBrightness(nodeGraphMvp.moduleScopeBrightness ?? 1).toFixed(2);
-  const output = document.createElement("input");
-  output.type = "number";
-  output.min = "0";
-  output.max = "16";
-  output.step = "0.01";
-  output.dataset.nodeUiViewSettingValue = "moduleScopeBrightness";
-  output.value = input.value;
-  input.addEventListener("input", () => {
-    setNodeGraphModuleScopeBrightness(input.value);
-    output.value = normalizeNodeGraphModuleScopeBrightness(nodeGraphMvp.moduleScopeBrightness).toFixed(2);
-  });
-  input.addEventListener("change", () => {
-    setNodeGraphModuleScopeBrightness(input.value);
-    output.value = normalizeNodeGraphModuleScopeBrightness(nodeGraphMvp.moduleScopeBrightness).toFixed(2);
-  });
-  output.addEventListener("input", () => {
-    setNodeGraphModuleScopeBrightness(output.value);
-    input.value = normalizeNodeGraphModuleScopeBrightness(nodeGraphMvp.moduleScopeBrightness).toFixed(2);
-  });
-  output.addEventListener("change", () => {
-    setNodeGraphModuleScopeBrightness(output.value);
-    output.value = normalizeNodeGraphModuleScopeBrightness(nodeGraphMvp.moduleScopeBrightness).toFixed(2);
-    input.value = output.value;
-  });
-  row.append(title, input, output);
-  return row;
-}
-
-function createNodeUserUiSettingsModuleScopeLineThicknessControl() {
-  const row = document.createElement("label");
-  row.className = "node-user-ui-setting-control number";
-  const title = document.createElement("span");
-  title.textContent = "Master display line thickness";
-  const input = document.createElement("input");
-  input.type = "range";
-  input.min = "0.25";
-  input.max = "4";
-  input.step = "0.01";
-  input.dataset.nodeUiViewSetting = "moduleScopeLineThickness";
-  input.value = normalizeNodeGraphModuleScopeLineThickness(nodeGraphMvp.moduleScopeLineThickness ?? 1).toFixed(2);
-  const output = document.createElement("input");
-  output.type = "number";
-  output.min = "0.25";
-  output.max = "4";
-  output.step = "0.01";
-  output.dataset.nodeUiViewSettingValue = "moduleScopeLineThickness";
-  output.value = input.value;
-  input.addEventListener("input", () => {
-    setNodeGraphModuleScopeLineThickness(input.value);
-    output.value = normalizeNodeGraphModuleScopeLineThickness(nodeGraphMvp.moduleScopeLineThickness).toFixed(2);
-  });
-  input.addEventListener("change", () => {
-    setNodeGraphModuleScopeLineThickness(input.value);
-    output.value = normalizeNodeGraphModuleScopeLineThickness(nodeGraphMvp.moduleScopeLineThickness).toFixed(2);
-  });
-  output.addEventListener("input", () => {
-    setNodeGraphModuleScopeLineThickness(output.value);
-    input.value = normalizeNodeGraphModuleScopeLineThickness(nodeGraphMvp.moduleScopeLineThickness).toFixed(2);
-  });
-  output.addEventListener("change", () => {
-    setNodeGraphModuleScopeLineThickness(output.value);
-    output.value = normalizeNodeGraphModuleScopeLineThickness(nodeGraphMvp.moduleScopeLineThickness).toFixed(2);
-    input.value = output.value;
-  });
-  row.append(title, input, output);
-  return row;
-}
-
-// The slider itself is felt as a plain 0-100% -- 0% is the 1px floor,
-// 100% is the knob's own radius (past that a "ring" is just a filled
-// disc again, see nodeGraphMacroKnobArcThicknessMaxPx). The number
-// readout still shows/accepts real pixels, converting back to the
-// matching percent so the two stay in lockstep.
-function createNodeUserUiSettingsMacroKnobArcThicknessControl() {
-  const row = document.createElement("label");
-  row.className = "node-user-ui-setting-control number";
-  const title = document.createElement("span");
-  title.textContent = "Macro knob arc thickness";
-  const input = document.createElement("input");
-  input.type = "range";
-  input.min = "0";
-  input.max = "100";
-  input.step = "1";
-  input.dataset.nodeUiViewSetting = "macroKnobArcThickness";
-  input.value = String(Math.round(nodeGraphMacroKnobArcThicknessPxToPercent(nodeGraphMvp.macroKnobArcThickness ?? 7)));
-  const output = document.createElement("input");
-  output.type = "number";
-  output.min = String(nodeGraphMacroKnobArcThicknessMinPx);
-  output.max = String(nodeGraphMacroKnobArcThicknessMaxPx);
-  output.step = "0.5";
-  output.dataset.nodeUiViewSettingValue = "macroKnobArcThickness";
-  output.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7).toFixed(1);
-  input.addEventListener("input", () => {
-    setNodeGraphMacroKnobArcThickness(nodeGraphMacroKnobArcThicknessPercentToPx(input.value));
-    output.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness).toFixed(1);
-  });
-  input.addEventListener("change", () => {
-    setNodeGraphMacroKnobArcThickness(nodeGraphMacroKnobArcThicknessPercentToPx(input.value));
-    output.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness).toFixed(1);
-  });
-  output.addEventListener("input", () => {
-    setNodeGraphMacroKnobArcThickness(output.value);
-    input.value = String(Math.round(nodeGraphMacroKnobArcThicknessPxToPercent(nodeGraphMvp.macroKnobArcThickness)));
-  });
-  output.addEventListener("change", () => {
-    setNodeGraphMacroKnobArcThickness(output.value);
-    output.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness).toFixed(1);
-    input.value = String(Math.round(nodeGraphMacroKnobArcThicknessPxToPercent(nodeGraphMvp.macroKnobArcThickness)));
-  });
-  row.append(title, input, output);
-  return row;
-}
-
-// The knob's -132..+132deg travel-limit gap is what makes it read as an
-// open arc instead of a closed loop -- 0% keeps it fully transparent (the
-// normal arc look); turning it up dims it in rather than leaving it a hard
-// invisible notch, for anyone who wants a softer or fully closed pie look.
-function createNodeUserUiSettingsMacroKnobArcGapBrightnessControl() {
-  const row = document.createElement("label");
-  row.className = "node-user-ui-setting-control number";
-  const title = document.createElement("span");
-  title.textContent = "Macro knob arc-space brightness";
-  const input = document.createElement("input");
-  input.type = "range";
-  input.min = "0";
-  input.max = "100";
-  input.step = "1";
-  input.dataset.nodeUiViewSetting = "macroKnobArcGapBrightness";
-  input.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness ?? 0));
-  const output = document.createElement("input");
-  output.type = "number";
-  output.min = "0";
-  output.max = "100";
-  output.step = "1";
-  output.dataset.nodeUiViewSettingValue = "macroKnobArcGapBrightness";
-  output.value = input.value;
-  input.addEventListener("input", () => {
-    setNodeGraphMacroKnobArcGapBrightness(input.value);
-    output.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness));
-  });
-  input.addEventListener("change", () => {
-    setNodeGraphMacroKnobArcGapBrightness(input.value);
-    output.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness));
-  });
-  output.addEventListener("input", () => {
-    setNodeGraphMacroKnobArcGapBrightness(output.value);
-    input.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness));
-  });
-  output.addEventListener("change", () => {
-    setNodeGraphMacroKnobArcGapBrightness(output.value);
-    output.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness));
-    input.value = output.value;
-  });
-  row.append(title, input, output);
-  return row;
-}
-
-// Felt/shown as a percent (100% = the knob's normal size) even though the
-// stored value is a plain scale multiplier -- matches how the rest of this
-// section (arc thickness, arc-space brightness) already reads as percent.
-function createNodeUserUiSettingsMacroKnobSizeControl() {
-  const row = document.createElement("label");
-  row.className = "node-user-ui-setting-control number";
-  const title = document.createElement("span");
-  title.textContent = "Macro knob size";
-  const minPercent = Math.round(nodeGraphMacroKnobSizeScaleMin * 100);
-  const maxPercent = Math.round(nodeGraphMacroKnobSizeScaleMax * 100);
-  const input = document.createElement("input");
-  input.type = "range";
-  input.min = String(minPercent);
-  input.max = String(maxPercent);
-  input.step = "5";
-  input.dataset.nodeUiViewSetting = "macroKnobSizeScale";
-  input.value = String(Math.round(normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale ?? 1) * 100));
-  const output = document.createElement("input");
-  output.type = "number";
-  output.min = String(minPercent);
-  output.max = String(maxPercent);
-  output.step = "5";
-  output.dataset.nodeUiViewSettingValue = "macroKnobSizeScale";
-  output.value = input.value;
-  input.addEventListener("input", () => {
-    setNodeGraphMacroKnobSizeScale(Number(input.value) / 100);
-    output.value = String(Math.round(nodeGraphMvp.macroKnobSizeScale * 100));
-  });
-  input.addEventListener("change", () => {
-    setNodeGraphMacroKnobSizeScale(Number(input.value) / 100);
-    output.value = String(Math.round(nodeGraphMvp.macroKnobSizeScale * 100));
-  });
-  output.addEventListener("input", () => {
-    setNodeGraphMacroKnobSizeScale(Number(output.value) / 100);
-    input.value = String(Math.round(nodeGraphMvp.macroKnobSizeScale * 100));
-  });
-  output.addEventListener("change", () => {
-    setNodeGraphMacroKnobSizeScale(Number(output.value) / 100);
-    output.value = String(Math.round(nodeGraphMvp.macroKnobSizeScale * 100));
-    input.value = output.value;
-  });
-  row.append(title, input, output);
-  return row;
-}
-
-function createNodeUserUiSettingsMacroKnobHitboxOutlineControl() {
-  return createNodeUserUiSettingsViewCheckbox({
-    key: "macroKnobHitboxOutlineVisible",
-    label: "Show macro knob hit-box outline",
-    getValue: () => Boolean(nodeGraphMvp.macroKnobHitboxOutlineVisible),
-    setValue: (visible) => {
-      setNodeGraphMacroKnobHitboxOutlineVisible(visible);
-    },
-  });
-}
-
-function createNodeUserUiSettingsSelect({ key, label, options, getValue, setValue }) {
-  const row = document.createElement("label");
-  row.className = "node-user-ui-setting-control select";
-  const title = document.createElement("span");
-  title.textContent = label;
-  const select = document.createElement("select");
-  select.dataset.nodeUiViewSetting = key;
-  for (const option of options) {
-    const optionElement = document.createElement("option");
-    optionElement.value = option.value;
-    optionElement.textContent = option.label;
-    select.append(optionElement);
-  }
-  select.value = getValue();
-  select.addEventListener("change", () => {
-    setValue(select.value);
-  });
-  row.append(title, select);
-  return row;
-}
-
-const nodeGraphMacroKnobPositionOptions = Object.freeze([
-  { value: "top", label: "Top" },
-  { value: "mid", label: "Mid" },
-  { value: "bottom", label: "Bottom" },
-]);
-
-// Deliberately no logic to keep label/value/dial apart -- any combination
-// (including all three on "mid") is allowed and just overlaps.
-function createNodeUserUiSettingsMacroKnobLabelPositionControl() {
-  return createNodeUserUiSettingsSelect({
-    key: "macroKnobLabelPosition",
-    label: "Macro knob label position",
-    options: nodeGraphMacroKnobPositionOptions,
-    getValue: () => normalizeNodeGraphMacroKnobLabelPosition(nodeGraphMvp.macroKnobLabelPosition),
-    setValue: (value) => setNodeGraphMacroKnobLabelPosition(value),
-  });
-}
-
-function createNodeUserUiSettingsMacroKnobValuePositionControl() {
-  return createNodeUserUiSettingsSelect({
-    key: "macroKnobValuePosition",
-    label: "Macro knob value position",
-    options: nodeGraphMacroKnobPositionOptions,
-    getValue: () => normalizeNodeGraphMacroKnobValuePosition(nodeGraphMvp.macroKnobValuePosition),
-    setValue: (value) => setNodeGraphMacroKnobValuePosition(value),
-  });
-}
-
-function createNodeUserUiSettingsModuleScopeFramesPerSecondControl() {
-  const row = document.createElement("label");
-  row.className = "node-user-ui-setting-control number";
-  const title = document.createElement("span");
-  title.textContent = "Master display FPS";
-  const input = document.createElement("input");
-  input.type = "range";
-  input.min = "0";
-  input.max = "240";
-  input.step = "1";
-  input.dataset.nodeUiViewSetting = "moduleScopeFramesPerSecond";
-  input.value = String(normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60));
-  const output = document.createElement("input");
-  output.type = "number";
-  output.min = "0";
-  output.max = "240";
-  output.step = "1";
-  output.dataset.nodeUiViewSettingValue = "moduleScopeFramesPerSecond";
-  output.value = input.value;
-  input.addEventListener("input", () => {
-    setNodeGraphModuleScopeFramesPerSecond(input.value);
-    output.value = String(normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond));
-  });
-  input.addEventListener("change", () => {
-    setNodeGraphModuleScopeFramesPerSecond(input.value);
-    output.value = String(normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond));
-  });
-  output.addEventListener("input", () => {
-    setNodeGraphModuleScopeFramesPerSecond(output.value);
-    input.value = String(normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond));
-  });
-  output.addEventListener("change", () => {
-    setNodeGraphModuleScopeFramesPerSecond(output.value);
-    output.value = String(normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond));
-    input.value = output.value;
-  });
-  row.append(title, input, output);
-  return row;
-}
 
 function createNodeUserUiSettingsModuleSlidersControl() {
   return createNodeUserUiSettingsViewCheckbox({
     key: "moduleSlidersVisible",
+    id: "nodeUiDevViewModuleSliders",
     label: "Show module sliders",
     getValue: () => nodeGraphMvp.moduleSlidersVisible !== false,
     setValue: (visible) => {
       nodeGraphMvp.moduleSlidersVisible = visible;
-      renderNodeGraphModuleVisibilityToggles();
+      persistAndRenderUserUiVisibility(renderNodeGraphModuleVisibilityToggles);
     },
   });
 }
@@ -542,6 +315,7 @@ function createNodeUserUiSettingsModuleSlidersControl() {
 function createNodeUserUiSettingsSliderLayoutControl() {
   const row = document.createElement("div");
   row.className = "node-user-ui-setting-control action";
+  row.id = "nodeUiDevViewSliderLayout";
   const title = document.createElement("span");
   title.textContent = "Slider layout";
   const button = document.createElement("button");
@@ -601,34 +375,39 @@ function renderNodeUserUiSettingsControls() {
 }
 
 // Mounts UI Dev–only view chrome (tuning + layout) into the helper.
-// Visibility on/off toggles (Grid, Grid Light, Wire Lengths, Wires Above,
-// Displays, Sliders, Buttons, Control Surfaces, Amount/Position slider, Debug)
-// live ONLY in the Visibility menu — never duplicated here.
 // Guarded by a dataset flag so repeated helper opens don't duplicate sections.
 function renderNodeUiDevHelperViewControls() {
   const helperBody = document.querySelector(".node-ui-dev-helper-body");
   if (!helperBody || helperBody.dataset.viewControlsMounted === "true") {
     return;
   }
-  const knobSection = createNodeUserUiSettingsSection("knob style", [
-    createNodeUserUiSettingsMacroKnobArcThicknessControl(),
-    createNodeUserUiSettingsMacroKnobArcGapBrightnessControl(),
-    createNodeUserUiSettingsMacroKnobSizeControl(),
-    createNodeUserUiSettingsMacroKnobHitboxOutlineControl(),
-    createNodeUserUiSettingsMacroKnobLabelPositionControl(),
-    createNodeUserUiSettingsMacroKnobValuePositionControl(),
+  const maybe = (fn) => (typeof fn === "function" ? fn() : null);
+  const viewRows = [
+    maybe(createNodeUserUiSettingsViewControl),
+    maybe(createNodeUserUiSettingsGridLightControl),
+    maybe(createNodeUserUiSettingsWiringChromeControl),
+    maybe(createNodeUserUiSettingsWireLengthsControl),
+    maybe(createNodeUserUiSettingsWiresAboveControl),
+    maybe(createNodeUserUiSettingsModuleButtonsControl),
+    maybe(createNodeUserUiSettingsModuleOscilloscopeControl),
+    maybe(createNodeUserUiSettingsModuleInterfaceControlsControl),
+    maybe(createNodeUserUiSettingsModuleSlidersControl),
+    maybe(createNodeUserUiSettingsSliderAmountControl),
+    maybe(createNodeUserUiSettingsSliderPositionControl),
+    maybe(createNodeUserUiSettingsSliderLayoutControl),
+    maybe(createNodeUserUiSettingsKeyboardDebugControl),
+  ].filter(Boolean);
+  helperBody.append(...viewRows);
+  const knobSection = createNodeUserUiSettingsSection("knobs", [
+    maybe(createNodeUserUiSettingsMacroKnobArcThicknessControl),
+    maybe(createNodeUserUiSettingsMacroKnobArcGapBrightnessControl),
+    maybe(createNodeUserUiSettingsMacroKnobSizeControl),
+    maybe(createNodeUserUiSettingsMacroKnobHitboxOutlineControl),
+    maybe(createNodeUserUiSettingsMacroKnobLabelPositionControl),
+    maybe(createNodeUserUiSettingsMacroKnobValuePositionControl),
   ]);
-  // Tuning + layout only — not the same on/off flags as Visibility.
-  const moduleSection = createNodeUserUiSettingsSection("modules and nodes view", [
-    createNodeUserUiSettingsModuleScopeBrightnessControl(),
-    createNodeUserUiSettingsModuleScopeLineThicknessControl(),
-    createNodeUserUiSettingsModuleScopeFramesPerSecondControl(),
-    createNodeUserUiSettingsSliderLayoutControl(),
-  ]);
-  for (const section of [moduleSection, knobSection]) {
-    if (section) {
-      helperBody.append(section);
-    }
+  if (knobSection) {
+    helperBody.append(knobSection);
   }
   helperBody.dataset.viewControlsMounted = "true";
 }
@@ -639,6 +418,36 @@ function syncNodeUserUiSettingsViewControls() {
       continue;
     }
     input.checked = Boolean(nodeGraphMvp.gridVisible);
+  }
+  for (const input of document.querySelectorAll("[data-node-ui-view-setting='gridLightVisible']")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    input.checked = nodeGraphMvp.gridLightVisible !== false;
+  }
+  for (const input of document.querySelectorAll("[data-node-ui-view-setting='wiringChromeVisible']")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    input.checked = nodeGraphMvp.wiringChromeVisible !== false;
+  }
+  for (const input of document.querySelectorAll("[data-node-ui-view-setting='wireLengthsVisible']")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    input.checked = nodeGraphMvp.wireLengthsVisible !== false;
+  }
+  for (const input of document.querySelectorAll("[data-node-ui-view-setting='wiresAboveModules']")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    input.checked = Boolean(nodeGraphMvp.wiresAboveModules);
+  }
+  for (const input of document.querySelectorAll("[data-node-ui-view-setting='keyboardDebugInfoVisible']")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    input.checked = nodeGraphMvp.keyboardDebugInfoVisible === true;
   }
   for (const input of document.querySelectorAll("[data-node-ui-view-setting='sliderAmountVisible']")) {
     if (document.activeElement === input) {

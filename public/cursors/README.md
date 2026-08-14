@@ -6,7 +6,7 @@ Cursor assets for the modular WebUI live here.
 
 **Default cursor is a tiny white `+`** (`--node-dot-cursor` / `--node-default-cursor` on `:root` in `styles.css`), not the OS arrow. Any surface without an explicit `cursor:` inherits that.
 
-Explicit styles still win: `pointer`, `text`, `grab` / `grabbing`, `ew-resize` / `ns-resize`, `help`, etc.
+Never use hand / finger (`pointer`) or grab-hand cursors. Allowed exceptions: `text` for typing, resize cursors, and the OS arrow for **module move** (`--node-module-move-cursor: default`).
 
 **Module move** uses the OS arrow (`--node-module-move-cursor: default`) whenever a module-move surface is hovered (drag handle, title row, solid shell, empty IO-row band, parameter chrome, etc.) and while `.dsp-node.dragging`. Jacks keep the tiny `+`; sliders / pads / graph face keep their own cursors. Floating-window drag still uses `move` (`--node-move-cursor`).
 

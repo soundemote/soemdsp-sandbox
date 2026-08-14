@@ -554,9 +554,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       // no title row
     } else if (section === "trace" && isStereoTraceNode && type === "trace") {
       parts.push(`
-        <div class="metadata-section-title">
+        <div class="metadata-section-title node-trace-display-stereo-title">
           <span>${nodeGraphDisplaySettingsEscapeHtml(titleText)}</span>
-          <button type="button" id="nodeTraceDisplaySwapStereoLook" class="node-trace-display-swap-lr">Swap L/R look</button>
+          <button type="button" id="nodeTraceDisplaySwapStereoLook" class="node-trace-display-swap-lr">Swap L/R</button>
         </div>`);
     } else if (section === "secondary") {
       const enabledToggle = isStereoTraceNode && type === "trace" && activeToggles.has("secondaryEnabled")

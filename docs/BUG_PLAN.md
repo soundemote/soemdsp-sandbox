@@ -400,7 +400,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Source: user
 - Files: `public/modules/fbmField/fbm-field-register.js` (outputs `X,Y,Z`); `public/node-graph-module-definitions.js` `fractalBrownianNoise` (outputs `Out X, Out Y, Out Z`); matching live/worklet evaluators
 - What: User: no X/Y/Z outputs on the fractal Brownian motion module. Definitions already *declare* three outs. If the face still has none, chrome / hideUnused / LayoutB port mount / evaluator not publishing is the bug — confirm which module (Field vs Noise).
-- Repro: Add Fractal Brownian Field and/or Fractal Brownian Noise. Check output jacks and whether they carry signal.
+- Repro: Add Fractal Brownian Field and/or Fractal Brownian Motion. Check output jacks and whether they carry signal.
 - Fix shape: If ports missing in chrome, mount X/Y/Z. If ports exist but silent, fix evaluator/native mapping. Do not hide XYZ behind hide-unused by default.
 
 ### B-034 — Show/hide wires not saved with the patch

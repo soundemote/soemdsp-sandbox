@@ -105,7 +105,7 @@
   background: rgba(8, 14, 24, 0.9);
   color: rgba(170, 210, 240, 0.9);
   font: 600 0.58rem/1.2 "Cascadia Mono", Consolas, monospace;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-matrix-display-tool:hover {

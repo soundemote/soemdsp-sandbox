@@ -1,17 +1,17 @@
 .node-keypad-face {
-  --node-keypad-font: "Poiret One", sans-serif;
-  --node-keypad-text-size: 0.55;
-  --node-keypad-text-weight: 400;
-  --node-keypad-background-color: #f4f3f0;
-  --node-keypad-button-color: #f3f1ec;
-  --node-keypad-hover-color: #ddd9d2;
-  --node-keypad-down-color: #c4bdb3;
+  --node-keypad-font: "Thasadith", sans-serif;
+  --node-keypad-text-size: 0.87708066581306;
+  --node-keypad-text-weight: 900;
+  --node-keypad-background-color: #000000;
+  --node-keypad-button-color: #c4c2a6;
+  --node-keypad-hover-color: #89bfc2;
+  --node-keypad-down-color: #d9d9d9;
   --node-keypad-text-color: #2d2d2d;
-  --node-keypad-stroke-color: #2d2d2d;
-  --node-keypad-button-width: 0.94;
-  --node-keypad-button-height: 0.94;
+  --node-keypad-stroke-color: #5c5071;
+  --node-keypad-button-width: 1;
+  --node-keypad-button-height: 1;
   --node-keypad-button-size: 1;
-  --node-keypad-pad: 0px;
+  --node-keypad-pad: 2px;
   --node-keypad-background-image: none;
   box-sizing: border-box;
   display: grid;
@@ -19,7 +19,7 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  --node-keypad-rounding: 50;
+  --node-keypad-rounding: 48.2527147087858;
   --node-keypad-radius: 0px;
   --node-keypad-stroke: 0px;
   --node-keypad-corner-shape: squircle;
@@ -72,7 +72,7 @@
   overflow: hidden;
   letter-spacing: 0;
   line-height: 1;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   user-select: none;
 }
 

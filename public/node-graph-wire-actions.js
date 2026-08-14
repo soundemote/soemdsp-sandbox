@@ -3,6 +3,71 @@ const nodeGraphWireTypes = Object.freeze({
   trace: "trace",
 });
 
+function normalizeNodeGraphWireCurve(value, fallback = 1) {
+  const n = Number(value);
+  const base = Number.isFinite(n) ? n : Number(fallback);
+  const safe = Number.isFinite(base) ? base : 1;
+  return Math.max(0, Math.min(1, safe));
+}
+
+function nodeGraphWireCurve() {
+  return normalizeNodeGraphWireCurve(
+    typeof nodeGraphMvp === "object" ? nodeGraphMvp?.wireCurve : undefined,
+  );
+}
+
+function ensureNodeGraphWireCurveControl() {
+  const slot = document.getElementById("nodeSceneWireCurveSlot");
+  const existing = document.getElementById("nodeSceneWireCurve");
+  if (!slot || existing) {
+    return existing;
+  }
+  if (typeof mountNodeGraphSettingsRangeRow !== "function") {
+    return null;
+  }
+  const { input } = mountNodeGraphSettingsRangeRow(slot, {
+    id: "nodeSceneWireCurve",
+    label: "Curve",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    value: nodeGraphWireCurve(),
+    ariaLabel: "Analog wire curve",
+    title: "Cubic cable bow. 1 = original, 0 = straight.",
+  });
+  input.addEventListener("input", () => setNodeGraphWireCurve(input.value, { persist: false, sync: false }));
+  input.addEventListener("change", () => setNodeGraphWireCurve(input.value, { persist: true, sync: false }));
+  return input;
+}
+
+function syncNodeGraphWireCurveControl() {
+  const input = ensureNodeGraphWireCurveControl();
+  if (!input || input.matches(":active") || document.activeElement === input) {
+    return;
+  }
+  const text = String(nodeGraphWireCurve());
+  if (input.value !== text) {
+    input.value = text;
+  }
+}
+
+function setNodeGraphWireCurve(value, options = {}) {
+  const next = normalizeNodeGraphWireCurve(value);
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.wireCurve = next;
+  }
+  if (options.sync !== false) {
+    syncNodeGraphWireCurveControl();
+  }
+  if (typeof drawNodeGraphWires === "function") {
+    drawNodeGraphWires();
+  }
+  if (options.persist !== false && typeof scheduleNodeGraphWorkspaceViewPersist === "function") {
+    scheduleNodeGraphWorkspaceViewPersist();
+  }
+  return next;
+}
+
 function normalizeNodeGraphWireType(value) {
   return Object.values(nodeGraphWireTypes).includes(value)
     ? value

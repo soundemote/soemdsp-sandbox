@@ -29,13 +29,9 @@ function nodeSettingsHeaderSpanFits(span, fontSize, context) {
 function fitNodeSettingsHeaderText() {
   nodeSettingsHeaderTextFitFrame = 0;
   const settingsView = document.getElementById("nodeSettingsView");
-  const textSizeInput = document.getElementById("nodeUiDevSettingsHeaderTextSize");
-  const uiDevTextSizeInput = document.getElementById("nodeUiDevButtonTextSize");
-  if (!settingsView || settingsView.hidden || !textSizeInput) {
+  if (!settingsView || settingsView.hidden) {
     return;
   }
-  const textScale = Math.max(0, Math.min(1, Number(textSizeInput.value) / 100 || 0));
-  const uiDevTextScale = Math.max(0, Math.min(1, Number(uiDevTextSizeInput?.value) / 100 || 0));
   const context = nodeSettingsHeaderTextMeasureContext();
   if (!context) {
     return;
@@ -44,9 +40,8 @@ function fitNodeSettingsHeaderText() {
   const headerSpans = document.querySelectorAll([
     ".node-settings-actions button > span",
     ".node-settings-actions a > span",
-    ".node-settings-script-action-group button > span",
-    ".node-settings-script-action-group a > span",
-    ".node-settings-dev-action-group button > span",
+    ".node-patch-page-toolbar button > span",
+    ".node-patch-page-toolbar a > span",
   ].join(", "));
   for (const span of headerSpans) {
     span.style.fontSize = "1px";
@@ -54,7 +49,7 @@ function fitNodeSettingsHeaderText() {
 
   for (const span of headerSpans) {
     const maxSize = Math.max(0, span.clientHeight - 1);
-    if (maxSize <= 0 || textScale <= 0) {
+    if (maxSize <= 0) {
       span.style.fontSize = "0px";
       continue;
     }
@@ -69,8 +64,7 @@ function fitNodeSettingsHeaderText() {
         high = mid;
       }
     }
-    const scale = span.closest("#nodeUiDevButton") ? uiDevTextScale : textScale;
-    span.style.fontSize = `${Math.max(0, low * scale).toFixed(3)}px`;
+    span.style.fontSize = `${Math.max(0, low).toFixed(3)}px`;
   }
 }
 
@@ -83,8 +77,7 @@ function scheduleNodeSettingsHeaderTextFit() {
 
 function fitNodeLiveToggleText() {
   nodeLiveToggleTextFitFrame = 0;
-  const textSizeInput = document.getElementById("nodeUiDevLiveToggleTextSize");
-  const textScale = Math.max(0, Math.min(1, Number(textSizeInput?.value) / 100 || 0));
+  const textScale = 0.89;
   const context = nodeSettingsHeaderTextMeasureContext();
   if (!context) {
     return;
@@ -153,4 +146,72 @@ function installNodeLiveToggleTextFitObserver() {
   for (const button of palette.querySelectorAll(".node-live-toggle")) {
     nodeLiveToggleTextResizeObserver.observe(button);
   }
+}
+
+let nodeModularToolbarTextFitFrame = 0;
+let nodeModularToolbarTextResizeObserver = null;
+
+function fitNodeModularToolbarText() {
+  nodeModularToolbarTextFitFrame = 0;
+  const toolbar = document.querySelector(".node-view-toolbar");
+  if (!toolbar) {
+    return;
+  }
+  const context = nodeSettingsHeaderTextMeasureContext();
+  if (!context) {
+    return;
+  }
+  const spans = toolbar.querySelectorAll([
+    ".node-view-tabs > .node-toolbar-stack-label > span",
+    ".node-view-tabs > .node-modular-view-icon",
+    ".node-view-tabs > button > .node-modular-view-icon",
+    ".node-history-controls > button:not(.node-room-dimmer-button) > span",
+    ".node-history-controls > #nodeUndoButton",
+    ".node-history-controls > #nodeRedoButton",
+    ".node-history-controls > #nodeVisibilityMenuButton",
+    ".node-world-position-readout > span",
+    ".node-modular-view-size-readout > span",
+    ".node-selection-count-readout > span",
+  ].join(", "));
+  for (const span of spans) {
+    span.style.fontSize = "1px";
+  }
+  for (const span of spans) {
+    const maxSize = Math.max(0, Math.min(span.clientWidth, span.clientHeight) - 1);
+    if (maxSize <= 0) {
+      span.style.fontSize = "0px";
+      continue;
+    }
+    let low = 0;
+    let high = maxSize;
+    for (let i = 0; i < 12; ++i) {
+      const mid = (low + high) * 0.5;
+      if (nodeSettingsHeaderSpanFits(span, mid, context)) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+    span.style.fontSize = `${Math.max(0, low).toFixed(3)}px`;
+  }
+}
+
+function scheduleNodeModularToolbarTextFit() {
+  if (nodeModularToolbarTextFitFrame) {
+    return;
+  }
+  nodeModularToolbarTextFitFrame = requestAnimationFrame(fitNodeModularToolbarText);
+}
+
+function installNodeModularToolbarTextFitObserver() {
+  if (nodeModularToolbarTextResizeObserver || !window.ResizeObserver) {
+    return;
+  }
+  const toolbar = document.querySelector(".node-view-toolbar");
+  if (!toolbar) {
+    return;
+  }
+  nodeModularToolbarTextResizeObserver = new ResizeObserver(scheduleNodeModularToolbarTextFit);
+  nodeModularToolbarTextResizeObserver.observe(toolbar);
+  scheduleNodeModularToolbarTextFit();
 }

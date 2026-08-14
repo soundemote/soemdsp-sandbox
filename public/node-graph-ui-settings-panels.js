@@ -86,11 +86,22 @@ function setNodeUiDevHelperVisible(visible) {
   if (!helper) {
     return;
   }
+  if (visible && !helper.hidden) {
+    if (typeof pulseNodeGraphFloatingWindowAttention === "function") {
+      pulseNodeGraphFloatingWindowAttention(helper);
+    } else if (typeof raiseNodeGraphFloatingWindow === "function") {
+      raiseNodeGraphFloatingWindow(helper);
+    }
+    return;
+  }
   helper.hidden = !visible;
   button?.classList.toggle("active", visible);
   button?.setAttribute("aria-pressed", String(visible));
   if (visible) {
     // Always re-check: closed <details> leave only section titles visible.
+    if (typeof renderNodeUiDevHelperViewControls === "function") {
+      renderNodeUiDevHelperViewControls();
+    }
     if (typeof organizeNodeUiDevSections === "function") {
       organizeNodeUiDevSections();
     }
@@ -109,6 +120,9 @@ function setNodeUiDevHelperVisible(visible) {
     if (typeof positionNodeGraphWorkspaceWindowFromState === "function") {
       positionNodeGraphWorkspaceWindowFromState("uiDev", helper);
     }
+    if (typeof raiseNodeGraphFloatingWindow === "function") {
+      raiseNodeGraphFloatingWindow(helper);
+    }
   }
   setNodeInteractionHelp(
     visible
@@ -122,7 +136,16 @@ function setNodeUiDevHelperVisible(visible) {
 
 function toggleNodeUiDevHelper() {
   const helper = document.getElementById("nodeUiDevHelper");
-  setNodeUiDevHelperVisible(Boolean(helper?.hidden));
+  if (
+    helper
+    && !helper.hidden
+    && typeof nodeGraphFloatingWindowIsFrontmost === "function"
+    && nodeGraphFloatingWindowIsFrontmost(helper)
+  ) {
+    setNodeUiDevHelperVisible(false);
+    return;
+  }
+  setNodeUiDevHelperVisible(true);
 }
 
 function setNodeUserUiSettingsVisible(visible) {
@@ -199,6 +222,9 @@ function installNodeUiDevExposeControls() {
     row.append(label);
     checkbox.addEventListener("change", () => {
       renderNodeUserUiSettingsControls();
+      if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
+        scheduleNodeUiDevSettingsAutosave();
+      }
       setNodeUiDevSettingsStatus(
         checkbox.checked ? "control exposed to ui settings" : "control hidden from ui settings",
         true,
@@ -266,7 +292,7 @@ function organizeNodeUiDevSections() {
   if (!helperBody) {
     return;
   }
-  const organizerVersion = "section-v3-flat";
+  const organizerVersion = "section-v4-grouped";
   const hasHiddenDetails = Boolean(
     helperBody.querySelector("details.node-ui-dev-section:not([open]), details:not([open])"),
   );
@@ -286,7 +312,9 @@ function organizeNodeUiDevSections() {
     if (!el || !helperBody.contains(el)) {
       return null;
     }
-    return el.closest(".node-ui-dev-control, .node-ui-dev-color-control, .node-ui-dev-check");
+    return el.closest(
+      ".node-ui-dev-control, .node-ui-dev-color-control, .node-ui-dev-check, .node-user-ui-setting-control",
+    );
   };
 
   for (const section of nodeUiDevSettingSections) {

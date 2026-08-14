@@ -29,7 +29,7 @@ function nodeGraphTraceDisplaySettingsElement() {
         class="panel-close-button"
         type="button"
         aria-label="Close Trace Display drawing settings">
-        <span aria-hidden="true">&times;</span>
+        <span class="panel-close-glyph" aria-hidden="true"></span>
       </button>
     </div>
     <div class="metadata-popover-grid node-trace-display-settings-grid">

@@ -742,7 +742,11 @@ function nodeGraphContextTargetModuleElement(nodeId = nodeGraphModuleActionTarge
 }
 
 function nodeGraphContextTargetSliderReadout(nodeId = nodeGraphModuleActionTargetNodeId()) {
-  return nodeGraphContextTargetModuleElement(nodeId)?.querySelector(".node-slider-readout") || null;
+  const element = nodeGraphContextTargetModuleElement(nodeId);
+  if (typeof firstNodeModuleSliderReadout === "function") {
+    return firstNodeModuleSliderReadout(element);
+  }
+  return element?.querySelector(".node-slider-readout") || null;
 }
 
 /**
@@ -1519,9 +1523,7 @@ function configureNodeSceneContextMenu(mode) {
       if (!nodeGraphPatchNodeHasResizableDisplayArea(node)) {
         return false;
       }
-      const face = nodeGraphModuleConfiguredDisplayHeightUnits(node.type, node.ui);
-      const minFace = nodeGraphModuleDisplayHeightLimits.minGu;
-      return face > minFace;
+      return nodeGraphPatchNodeGridHeightUnits(node) > nodeGraphModuleGuPolicy.minGu;
     });
     const multiDisplayCanIncrease = multiModuleMode && selectedNodes.some((node) => {
       if (!nodeGraphPatchNodeHasResizableDisplayArea(node)) {
@@ -1530,7 +1532,6 @@ function configureNodeSceneContextMenu(mode) {
       const face = nodeGraphModuleConfiguredDisplayHeightUnits(node.type, node.ui);
       return face < nodeGraphModuleDisplayHeightLimits.maxGu;
     });
-    const faceMin = nodeGraphModuleDisplayHeightLimits.minGu;
     const faceMax = nodeGraphModuleDisplayHeightLimits.maxGu;
     configureNodeGraphModuleSettingsSizeRow({
       controls: displayHeightControls,
@@ -1545,13 +1546,13 @@ function configureNodeSceneContextMenu(mode) {
         : `${outerHeightGu} gu`,
       decreaseDisabled: multiModuleMode
         ? !multiDisplayCanDecrease
-        : !targetNode || !targetSupportsDisplayHeight || faceHeightGu <= faceMin,
+        : !targetNode || !targetSupportsDisplayHeight || outerHeightGu <= nodeGraphModuleGuPolicy.minGu,
       increaseDisabled: multiModuleMode
         ? !multiDisplayCanIncrease
         : !targetNode || !targetSupportsDisplayHeight || faceHeightGu >= faceMax,
       decreaseTitle: multiModuleMode
-        ? "Decrease module height (shrinks face; min when face is 1gu)."
-        : "Decrease module height (grid cells). Face floor is 1gu.",
+        ? "Decrease module height (1gu min)."
+        : "Decrease module height. App-wide floor is 1gu.",
       increaseTitle: multiModuleMode
         ? "Increase module height (grows face; max face 60gu)."
         : "Increase module height (grid cells). Face max is 60gu.",
@@ -1974,6 +1975,9 @@ function configureNodeSceneContextMenu(mode) {
       wirePixelToggle.title = nodeGraphTooltipText("actions.wirePixel")
         || "Pixel wire (manual). Raster beam renderer later; flag is saved on the wire.";
     }
+    if (typeof syncNodeGraphWireCurveControl === "function") {
+      syncNodeGraphWireCurveControl();
+    }
     deleteButton.disabled = !canDelete;
     deleteButton.title = canDelete
       ? nodeGraphTooltipText("actions.deleteWire")
@@ -2082,6 +2086,11 @@ function configureNodeSceneContextMenu(mode) {
  * @returns {boolean} true if handled
  */
 function openNodeGraphModuleSettingsFromContextEvent(event, nodeElement = null) {
+  if (event?.type === "dblclick" && event.altKey) {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    return false;
+  }
   ensureNodeGraphModuleActionsWindowBody();
   const node = nodeElement
     || event?.currentTarget?.closest?.(".dsp-node")
@@ -2145,6 +2154,11 @@ function openNodeGraphModuleSettingsFromContextEvent(event, nodeElement = null) 
 }
 
 function openNodeModuleActionMenu(event) {
+  if (event?.type === "dblclick" && event.altKey) {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    return;
+  }
   // Module shell binds contextmenu on the whole .dsp-node, which runs before
   // the document-level scene menu. Specialized display faces must claim the
   // event here (and stopPropagation) or Module Settings always wins.
@@ -2271,7 +2285,9 @@ const nodeGraphWorkspaceFloatingUiSelector =
   "#nodeSceneContextMenu, #nodeParameterMetadataPopover, #nodeGlobalScopeMenu, " +
   "#nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeCanvasScriptDialog, " +
   "#nodePhosphorWaveformSettingsWindow, #nodeModuleShopView, " +
-  "#nodeTraceDisplaySettingsPopover";
+  "#nodeTraceDisplaySettingsPopover, #nodeUserUiSettingsPanel, #nodeUiDevHelper, " +
+  "#nodeVisibilityMenu, #nodePatchDefaultsPanel, #nodeStandaloneMidiKeyboardDock, " +
+  ".node-floating-window-surface";
 // Legacy alias: includes form fields for empty-canvas / marquee checks only.
 const nodeGraphWorkspaceInteractiveDialogSelector =
   "input, textarea, select, option, [contenteditable='true'], " +
@@ -2280,23 +2296,27 @@ const nodeGraphWorkspaceOccupiedElementSelector =
   ".node-wire-hit-path, .node-wire-path, .dsp-node, .node-port, .node-param-port, .node-slider-readout";
 
 // Shared by the right-click scene menu and double-click-to-spawn: true only when
-// the event lands on truly empty canvas, not the toolbar, a dialog/input, a wire,
-// a node, or a port/readout.
+// the event lands on empty modular background (inside #nodeGraphWorkspace),
+// not the top/bottom bars, a floating window, a wire, a node, or a port/readout.
 function nodeGraphEventTargetIsEmptyWorkspaceArea(event) {
-  if (event.target.closest?.(".node-view-toolbar")) {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target?.closest?.("#nodeGraphWorkspace")) {
     return false;
   }
-  if (event.target.closest?.(nodeGraphWorkspaceInteractiveDialogSelector)) {
+  if (target.closest?.(".node-view-toolbar, .node-graph-controls")) {
     return false;
   }
-  if (event.target.closest?.(nodeGraphWorkspaceOccupiedElementSelector)) {
+  if (target.closest?.(nodeGraphWorkspaceInteractiveDialogSelector)) {
+    return false;
+  }
+  if (target.closest?.(nodeGraphWorkspaceOccupiedElementSelector)) {
     return false;
   }
   return true;
 }
 
 function openNodeSceneContextMenu(event) {
-  if (event.target.closest?.(".node-view-toolbar")) {
+  if (event.target.closest?.(".node-view-toolbar, .node-graph-controls")) {
     event.preventDefault();
     event.stopPropagation();
     return;
@@ -2376,15 +2396,17 @@ function openNodeSceneContextMenu(event) {
     return;
   }
 
+  if (!nodeGraphEventTargetIsEmptyWorkspaceArea(event)) {
+    return;
+  }
   event.preventDefault();
   event.stopPropagation();
   nodeGraphMvp.sceneContextPoint = nodeGraphClientPoint(event);
   nodeGraphMvp.sceneContextTargetNode = null;
   nodeGraphMvp.sceneContextTargetWire = null;
   clearNodeGraphSelection();
-  // Right-click empty canvas opens (or refocuses) the Module Browser at the
-  // pointer so new modules spawn where you clicked. Contextual right-clicks
-  // (module / parameter / display) switch the unified window to that page.
+  // Right-click empty modular background only. Top/bottom bars and floating
+  // windows (UI Settings, UIDEV, …) never open the Module Browser.
   if (typeof openNodeGraphUnifiedWindowPage === "function") {
     openNodeGraphUnifiedWindowPage("moduleBrowser", {
       point: nodeGraphMvp.sceneContextPoint,

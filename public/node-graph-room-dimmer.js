@@ -28,7 +28,7 @@
   const PUNCH_INSET_CSS = 1.25;
 
   // Prefer painted canvases first; shells only if no canvas child.
-  // Hover cutouts (mouse / slider / title / module) are pushed in collectLights.
+  // Mouse hover cutout is pushed in collectLights.
   const LIGHT_SELECTOR = [
     "canvas.node-phosphor-waveform-canvas",
     "canvas.node-module-scope-local-fallback-canvas",
@@ -506,7 +506,6 @@ void main() {
       }
     }
 
-    // Hover scheme (UI Dev): mouse / slider / title / full module cutouts.
     const cssW = Math.max(1e-6, canvasRect.width);
     const mouseOpts = readMouseCutoutOptions(cssW, canvas.width);
 
@@ -529,15 +528,6 @@ void main() {
         mouseOpts.softUv,
         mouseOpts.roundUv,
       );
-    }
-    if (isSliderCutoutEnabled() && hoverSliderStrip) {
-      pushClientRectLight(hoverSliderStrip, canvasRect, canvas, rects, rectStr, rectSoft, rectRound, 1);
-    }
-    if (isTitleCutoutEnabled() && hoverTitleStrip) {
-      pushClientRectLight(hoverTitleStrip, canvasRect, canvas, rects, rectStr, rectSoft, rectRound, 1);
-    }
-    if (isModuleCutoutEnabled() && hoverModuleRect) {
-      pushClientRectLight(hoverModuleRect, canvasRect, canvas, rects, rectStr, rectSoft, rectRound, 1);
     }
 
     return { rects, rectStr, rectSoft, rectRound };
@@ -721,35 +711,12 @@ void main() {
     });
   }
 
-  /**
-   * UI Dev hover cutouts (independent toggles):
-   *   - mouse pointer cutout (size / softness / shape)
-   *   - full-width slider strip
-   *   - full-width title-row light box
-   *   - full module plate
-   */
-  let cutoutSliderEnabled = true;
-  let cutoutModuleEnabled = false;
-  let cutoutTitleEnabled = true;
   let cutoutMouseEnabled = false;
   let mouseSizeCss = HOVER_CURSOR_CUTOUT_CSS_DEFAULT;
   let mouseSoftness01 = 0.25;
   let mouseShape01 = 0;
   /** @type {{ x: number, y: number } | null} */
   let hoverPointer = null;
-  /** @type {{ left: number, top: number, right: number, bottom: number } | null} */
-  let hoverSliderStrip = null;
-  /** @type {{ left: number, top: number, right: number, bottom: number } | null} */
-  let hoverTitleStrip = null;
-  /** @type {{ left: number, top: number, right: number, bottom: number } | null} */
-  let hoverModuleRect = null;
-
-  function mvpBool(key, fallback) {
-    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp && typeof nodeGraphMvp[key] === "boolean") {
-      return nodeGraphMvp[key];
-    }
-    return fallback;
-  }
 
   function mvpNumber(key, fallback, min, max) {
     if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
@@ -761,52 +728,12 @@ void main() {
     return fallback;
   }
 
-  function isSliderCutoutEnabled() {
-    // Prefer split key; fall back to legacy combined hover toggle.
-    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp
-      && typeof nodeGraphMvp.dimmerCutoutSliderEnabled === "boolean") {
-      return nodeGraphMvp.dimmerCutoutSliderEnabled;
-    }
-    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp
-      && typeof nodeGraphMvp.hoverModuleDimmerCutoutEnabled === "boolean") {
-      return nodeGraphMvp.hoverModuleDimmerCutoutEnabled;
-    }
-    return cutoutSliderEnabled;
-  }
-
-  function isModuleCutoutEnabled() {
-    return mvpBool("dimmerCutoutModuleEnabled", cutoutModuleEnabled);
-  }
-
-  function isTitleCutoutEnabled() {
-    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp
-      && typeof nodeGraphMvp.dimmerCutoutTitleEnabled === "boolean") {
-      return nodeGraphMvp.dimmerCutoutTitleEnabled;
-    }
-    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp
-      && typeof nodeGraphMvp.hoverModuleTitleDimmerCutoutEnabled === "boolean") {
-      return nodeGraphMvp.hoverModuleTitleDimmerCutoutEnabled;
-    }
-    return cutoutTitleEnabled;
-  }
-
   function isMouseCutoutEnabled() {
     if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp
       && typeof nodeGraphMvp.dimmerCutoutMouseEnabled === "boolean") {
       return nodeGraphMvp.dimmerCutoutMouseEnabled;
     }
-    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp
-      && typeof nodeGraphMvp.hoverModuleDimmerCutoutEnabled === "boolean") {
-      return nodeGraphMvp.hoverModuleDimmerCutoutEnabled;
-    }
     return cutoutMouseEnabled;
-  }
-
-  function anyHoverCutoutEnabled() {
-    return isSliderCutoutEnabled()
-      || isModuleCutoutEnabled()
-      || isTitleCutoutEnabled()
-      || isMouseCutoutEnabled();
   }
 
   /**
@@ -814,7 +741,10 @@ void main() {
    * Shape 0 = square, ~0.5 = squircle, 1 = circle.
    */
   function readMouseCutoutOptions(cssW, canvasW) {
-    const sizeCss = mvpNumber("dimmerMouseSize", mouseSizeCss, 8, 240);
+    const zoom = typeof nodeGraphZoom === "function"
+      ? nodeGraphZoom()
+      : (Number(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.zoom : 1) || 1);
+    const sizeCss = mvpNumber("dimmerMouseSize", mouseSizeCss, 8, 240) * Math.max(0.05, zoom);
     const soft01 = mvpNumber("dimmerMouseSoftness", mouseSoftness01 * 100, 0, 100) / 100;
     const shape01 = mvpNumber("dimmerMouseShape", mouseShape01 * 100, 0, 100) / 100;
     // Softness: map 0…1 → ~0.5px … ~22% of cutout diameter in UV.
@@ -832,110 +762,25 @@ void main() {
 
   function clearHoverCutouts() {
     hoverPointer = null;
-    hoverSliderStrip = null;
-    hoverTitleStrip = null;
-    hoverModuleRect = null;
-  }
-
-  /**
-   * Full module width × row height strip in client px.
-   */
-  function moduleWidthStripFromRow(moduleEl, rowEl, padY = 2) {
-    if (!moduleEl || !rowEl) return null;
-    const mr = moduleEl.getBoundingClientRect();
-    const rr = rowEl.getBoundingClientRect();
-    if (!(mr.width > 1) || !(rr.height > 1)) return null;
-    return {
-      left: mr.left,
-      right: mr.right,
-      top: rr.top - padY,
-      bottom: rr.bottom + padY,
-    };
-  }
-
-  function moduleRectFromEventTarget(target) {
-    if (!(target instanceof Element)) return null;
-    const moduleEl = target.closest?.(".dsp-node");
-    if (!moduleEl) return null;
-    const r = moduleEl.getBoundingClientRect();
-    if (!(r.width > 1) || !(r.height > 1)) return null;
-    return {
-      left: r.left,
-      right: r.right,
-      top: r.top,
-      bottom: r.bottom,
-    };
-  }
-
-  /**
-   * Slider row strip: module full width × parameter-row height (client px).
-   */
-  function sliderStripFromEventTarget(target) {
-    if (!(target instanceof Element)) return null;
-    const row = target.closest?.(
-      ".node-parameter-row, .node-slider-readout, .node-parameter-control",
-    );
-    if (!row) return null;
-    // Prefer the parameter row for height; fall back to the readout itself.
-    const rowEl = row.classList?.contains("node-parameter-row")
-      ? row
-      : (row.closest?.(".node-parameter-row") || row);
-    const moduleEl = rowEl.closest?.(".dsp-node");
-    return moduleWidthStripFromRow(moduleEl, rowEl, 2);
-  }
-
-  /**
-   * Title light box: full module width × header title row height.
-   */
-  function titleStripFromEventTarget(target) {
-    if (!(target instanceof Element)) return null;
-    const hit = target.closest?.(
-      ".node-header-title-row, .node-header-title, .dsp-node-header, .node-header-actions",
-    );
-    if (!hit) return null;
-    const rowEl = hit.classList?.contains("node-header-title-row")
-      ? hit
-      : (hit.closest?.(".node-header-title-row")
-        || hit.closest?.(".dsp-node-header")
-        || hit);
-    const moduleEl = rowEl.closest?.(".dsp-node");
-    return moduleWidthStripFromRow(moduleEl, rowEl, 1);
   }
 
   function updateHoverFromEvent(event) {
-    if (!anyHoverCutoutEnabled()) {
+    if (!isMouseCutoutEnabled()) {
       clearHoverCutouts();
       return;
     }
     if (!event || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) {
       return;
     }
-    hoverPointer = isMouseCutoutEnabled()
-      ? { x: event.clientX, y: event.clientY }
-      : null;
-    hoverSliderStrip = isSliderCutoutEnabled()
-      ? sliderStripFromEventTarget(event.target)
-      : null;
-    hoverTitleStrip = isTitleCutoutEnabled()
-      ? titleStripFromEventTarget(event.target)
-      : null;
-    hoverModuleRect = isModuleCutoutEnabled()
-      ? moduleRectFromEventTarget(event.target)
-      : null;
+    hoverPointer = { x: event.clientX, y: event.clientY };
   }
 
   function bindHoverCutout() {
     const ws = document.getElementById("nodeGraphWorkspace");
     if (!ws || ws.dataset.roomDimmerHoverBound === "1") return;
     ws.dataset.roomDimmerHoverBound = "1";
-    // Pointermove drives mouse / slider / title / module cutouts while dimmer is on.
     ws.addEventListener("pointermove", (event) => {
-      if (!anyHoverCutoutEnabled()) return;
-      updateHoverFromEvent(event);
-      if (state.dim > 0.0005) scheduleDraw();
-    }, { passive: true });
-    ws.addEventListener("pointerover", (event) => {
-      if (!anyHoverCutoutEnabled()) return;
+      if (!isMouseCutoutEnabled()) return;
       updateHoverFromEvent(event);
       if (state.dim > 0.0005) scheduleDraw();
     }, { passive: true });
@@ -947,24 +792,8 @@ void main() {
 
   function applyHoverCutoutFlagsFromMvp() {
     if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp) return;
-    // New split keys.
-    if (typeof nodeGraphMvp.dimmerCutoutSliderEnabled === "boolean") {
-      cutoutSliderEnabled = nodeGraphMvp.dimmerCutoutSliderEnabled;
-    } else if (typeof nodeGraphMvp.hoverModuleDimmerCutoutEnabled === "boolean") {
-      cutoutSliderEnabled = nodeGraphMvp.hoverModuleDimmerCutoutEnabled;
-    }
     if (typeof nodeGraphMvp.dimmerCutoutMouseEnabled === "boolean") {
       cutoutMouseEnabled = nodeGraphMvp.dimmerCutoutMouseEnabled;
-    } else if (typeof nodeGraphMvp.hoverModuleDimmerCutoutEnabled === "boolean") {
-      cutoutMouseEnabled = nodeGraphMvp.hoverModuleDimmerCutoutEnabled;
-    }
-    if (typeof nodeGraphMvp.dimmerCutoutTitleEnabled === "boolean") {
-      cutoutTitleEnabled = nodeGraphMvp.dimmerCutoutTitleEnabled;
-    } else if (typeof nodeGraphMvp.hoverModuleTitleDimmerCutoutEnabled === "boolean") {
-      cutoutTitleEnabled = nodeGraphMvp.hoverModuleTitleDimmerCutoutEnabled;
-    }
-    if (typeof nodeGraphMvp.dimmerCutoutModuleEnabled === "boolean") {
-      cutoutModuleEnabled = nodeGraphMvp.dimmerCutoutModuleEnabled;
     }
     const size = Number(nodeGraphMvp.dimmerMouseSize);
     if (Number.isFinite(size)) mouseSizeCss = Math.max(8, Math.min(240, size));
@@ -974,37 +803,8 @@ void main() {
     if (Number.isFinite(shape)) mouseShape01 = Math.max(0, Math.min(100, shape)) / 100;
   }
 
-  /** @deprecated Prefer setNodeGraphDimmerCutoutOptions / split toggles. */
-  function setHoverModuleDimmerCutoutEnabled(on) {
-    const v = Boolean(on);
-    cutoutSliderEnabled = v;
-    cutoutMouseEnabled = v;
-    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
-      nodeGraphMvp.hoverModuleDimmerCutoutEnabled = v;
-      nodeGraphMvp.dimmerCutoutSliderEnabled = v;
-      nodeGraphMvp.dimmerCutoutMouseEnabled = v;
-    }
-    if (!anyHoverCutoutEnabled()) clearHoverCutouts();
-    scheduleDraw();
-  }
-
-  /** @deprecated Prefer dimmerCutoutTitleEnabled. */
-  function setHoverModuleTitleDimmerCutoutEnabled(on) {
-    cutoutTitleEnabled = Boolean(on);
-    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
-      nodeGraphMvp.hoverModuleTitleDimmerCutoutEnabled = cutoutTitleEnabled;
-      nodeGraphMvp.dimmerCutoutTitleEnabled = cutoutTitleEnabled;
-    }
-    if (!anyHoverCutoutEnabled()) clearHoverCutouts();
-    else if (!cutoutTitleEnabled) hoverTitleStrip = null;
-    scheduleDraw();
-  }
-
   function setDimmerCutoutOptions(opts = {}) {
     if (opts && typeof opts === "object") {
-      if (typeof opts.slider === "boolean") cutoutSliderEnabled = opts.slider;
-      if (typeof opts.module === "boolean") cutoutModuleEnabled = opts.module;
-      if (typeof opts.title === "boolean") cutoutTitleEnabled = opts.title;
       if (typeof opts.mouse === "boolean") cutoutMouseEnabled = opts.mouse;
       if (Number.isFinite(Number(opts.mouseSize))) {
         mouseSizeCss = Math.max(8, Math.min(240, Number(opts.mouseSize)));
@@ -1017,18 +817,12 @@ void main() {
       }
     }
     if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
-      nodeGraphMvp.dimmerCutoutSliderEnabled = cutoutSliderEnabled;
-      nodeGraphMvp.dimmerCutoutModuleEnabled = cutoutModuleEnabled;
-      nodeGraphMvp.dimmerCutoutTitleEnabled = cutoutTitleEnabled;
       nodeGraphMvp.dimmerCutoutMouseEnabled = cutoutMouseEnabled;
       nodeGraphMvp.dimmerMouseSize = mouseSizeCss;
       nodeGraphMvp.dimmerMouseSoftness = Math.round(mouseSoftness01 * 100);
       nodeGraphMvp.dimmerMouseShape = Math.round(mouseShape01 * 100);
-      // Keep legacy mirrors for older UI Dev code paths.
-      nodeGraphMvp.hoverModuleDimmerCutoutEnabled = cutoutSliderEnabled || cutoutMouseEnabled;
-      nodeGraphMvp.hoverModuleTitleDimmerCutoutEnabled = cutoutTitleEnabled;
     }
-    if (!anyHoverCutoutEnabled()) clearHoverCutouts();
+    if (!isMouseCutoutEnabled()) clearHoverCutouts();
     scheduleDraw();
     if (typeof scheduleNodeGraphGridHeatmapUpdate === "function") {
       scheduleNodeGraphGridHeatmapUpdate();
@@ -1061,8 +855,6 @@ void main() {
   window.bindNodeGraphRoomDimmer = bind;
   window.setNodeGraphLightStrength = setLightStrength;
   window.scheduleNodeGraphRoomDimmerDraw = scheduleDraw;
-  window.setNodeGraphHoverModuleDimmerCutoutEnabled = setHoverModuleDimmerCutoutEnabled;
-  window.setNodeGraphHoverModuleTitleDimmerCutoutEnabled = setHoverModuleTitleDimmerCutoutEnabled;
   window.setNodeGraphDimmerCutoutOptions = setDimmerCutoutOptions;
 
   window.setNodeGraphShaderScriptEnabled = (on) => {

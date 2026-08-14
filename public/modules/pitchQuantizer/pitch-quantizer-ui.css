@@ -48,7 +48,7 @@
   background: rgba(5, 6, 7, 0.72);
   color: var(--text);
   font: 700 0.68rem/1 "Cascadia Mono", Consolas, monospace;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-pitch-quantizer-tool:hover {
@@ -91,7 +91,7 @@
   margin: 0;
   min-width: 0;
   border: 0;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   font-family: "Cascadia Mono", Consolas, monospace;
   font-weight: 700;
   line-height: 1;

@@ -9,9 +9,8 @@
 // WebGL scope compositor used by every other module's display.
 
 const nodeGraphPhosphorWaveformViewStates = new Map();
-// Low enough that even a narrow node canvas can zoom past the per-sample
-// grid threshold below — "zoomed all the way in" should reliably reach it.
-const nodeGraphPhosphorWaveformMinWindowFrames = 6;
+// 1 = single sample (Time Window 0). Shift+wheel can zoom all the way in.
+const nodeGraphPhosphorWaveformMinWindowFrames = 1;
 
 // Right-click "waveform display options" -- time window (seconds shown at
 // once) and scroll mode (does the view auto-follow the playhead, and how).
@@ -79,8 +78,9 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
   const labelInsetPx = Number(source.labelInsetPx);
   return {
     scrollMode: source.scrollMode === "snap" ? "snap" : "smooth",
-    timeWindowSeconds: Number.isFinite(timeWindowSeconds) && timeWindowSeconds > 0
-      ? Math.max(0.05, Math.min(60, timeWindowSeconds))
+    // 0 = one sample at a time. Finite values only; NaN keeps the default.
+    timeWindowSeconds: Number.isFinite(timeWindowSeconds)
+      ? Math.max(0, Math.min(60, timeWindowSeconds))
       : nodeGraphPhosphorWaveformDefaultSettings.timeWindowSeconds,
     scrollLinePosition: Object.prototype.hasOwnProperty.call(
       nodeGraphPhosphorWaveformScrollLinePositionRatios,
@@ -166,10 +166,10 @@ function nodeGraphPhosphorWaveformSyncTimeWindowFromView(nodeId, windowFrames, s
     return;
   }
   const rate = Math.max(1, Number(sampleRate) || 44100);
-  const seconds = Math.max(
-    0.05,
-    Math.min(60, Math.max(1, Number(windowFrames) || 1) / rate),
-  );
+  const frames = Math.max(1, Number(windowFrames) || 1);
+  const seconds = frames <= 1
+    ? 0
+    : Math.max(0, Math.min(60, frames / rate));
   const current = normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings);
   if (Math.abs(current.timeWindowSeconds - seconds) >= 0.0005) {
     node.phosphorWaveformSettings = normalizeNodeGraphPhosphorWaveformSettings({
@@ -409,7 +409,7 @@ function updateNodeGraphPhosphorWaveformSettings(patch) {
 
 function handleNodeGraphPhosphorWaveformTimeWindowChange(event) {
   const value = Number(event.target.value);
-  if (!Number.isFinite(value) || value <= 0) {
+  if (!Number.isFinite(value) || value < 0) {
     return;
   }
   updateNodeGraphPhosphorWaveformSettings({ timeWindowSeconds: value });
@@ -513,12 +513,14 @@ function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, 
   const borderColor = powered
     ? `hsl(${Math.round(settings.backgroundHue)} 100% 68% / 0.16)`
     : "transparent";
-  const next = `${inset}|${radius}|${shape}|${borderColor}|${powered ? 1 : 0}`;
+  const labelInset = Math.max(0, Math.min(48, Math.round(Number(settings.labelInsetPx) || 0)));
+  const next = `${inset}|${radius}|${shape}|${borderColor}|${powered ? 1 : 0}|${labelInset}`;
   if (section.dataset.panelShape === next) {
     return;
   }
   section.dataset.panelShape = next;
   section.style.setProperty("--phosphor-waveform-inset", `${inset}px`);
+  section.style.setProperty("--phosphor-waveform-label-inset", `${labelInset}px`);
   section.style.setProperty("--phosphor-waveform-radius", `${radius}px`);
   section.style.setProperty("--phosphor-waveform-border-color", borderColor);
   // corner-shape is a progressive enhancement: where it is unsupported the
@@ -574,7 +576,7 @@ function bindNodeGraphPhosphorWaveformSettingModifiers() {
 function bindNodeGraphPhosphorWaveformTimeWindowEditing() {
   bindNodeGraphPhosphorWaveformNumberField("nodePhosphorWaveformTimeWindowInput", {
     step: 0.05,
-    min: 0.05,
+    min: 0,
     max: 60,
     // Continuous-ish: ~8px per 0.05s step.
     pixelsPerStep: 8,
@@ -999,6 +1001,9 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
   // browser page zoom.) Browsers translate Shift+wheel into horizontal scroll
   // on most platforms, so the delta can arrive on deltaX instead of deltaY.
   canvas.addEventListener("wheel", (event) => {
+    if (section.dataset.musicPlayerFace === "pl") {
+      return;
+    }
     if (!event.shiftKey) {
       return;
     }
@@ -1017,6 +1022,9 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
   // "pan" = view window, "phase" = relative phaseOffset scrub (Shift+drag).
   let dragMode = "pan";
   canvas.addEventListener("pointerdown", (event) => {
+    if (section.dataset.musicPlayerFace === "pl") {
+      return;
+    }
     if (event.button !== 0 && event.button !== undefined) {
       return;
     }
@@ -1067,6 +1075,9 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
   canvas.addEventListener("pointerup", endDrag);
   canvas.addEventListener("pointercancel", endDrag);
   canvas.addEventListener("dblclick", (event) => {
+    if (section.dataset.musicPlayerFace === "pl") {
+      return;
+    }
     event.stopPropagation();
     nodeGraphPhosphorWaveformResetZoom(section);
   });
@@ -1406,12 +1417,15 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   if (!node || !canvas) {
     return;
   }
-  // Playlist face: skip phosphor paint (list/scrubber own the display).
+  // Playlist face: keep painting the current-track canvas (docked under the
+  // list — that canvas is the back control) plus the compact row waveforms.
   if (section.dataset.musicPlayerFace === "pl") {
+    if (typeof nodeGraphAudioPlayerPlaylistPaintWaves === "function") {
+      nodeGraphAudioPlayerPlaylistPaintWaves(nodeId, { liveOnly: true });
+    }
     if (typeof nodeGraphAudioPlayerPlaylistSyncScrubber === "function") {
       nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
     }
-    return;
   }
   const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
   // Simulation off → pure black plate + no green frame. Circuit = live output
@@ -1520,7 +1534,9 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     nodeGraphPhosphorWaveformMinWindowFrames,
     Math.min(
       entry.frames,
-      Math.round(settings.timeWindowSeconds * (entry.sampleRate || 44100)),
+      settings.timeWindowSeconds <= 0
+        ? 1
+        : Math.round(settings.timeWindowSeconds * (entry.sampleRate || 44100)),
     ),
   );
   const appliedSignature = nodeGraphPhosphorWaveformSettingsSignature(settings);
@@ -1566,7 +1582,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     }
   } else {
     // First offline paint / after settings change: seed a sensible window.
-    if (settingsJustChanged || !(Math.abs(state.endFrame - state.startFrame) > 1)) {
+    if (settingsJustChanged || !(Math.abs(state.endFrame - state.startFrame) >= 1)) {
       state.startFrame = 0;
       state.endFrame = Math.min(entry.frames, settingsWindowFrames);
       nodeGraphPhosphorWaveformLastAppliedTimeWindow.set(nodeId, appliedSignature);

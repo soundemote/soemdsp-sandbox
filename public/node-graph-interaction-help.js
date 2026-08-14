@@ -151,21 +151,9 @@ function nodeInteractionMouseHint(element) {
     return nodeGraphTooltipText("view.gridHelp");
   }
   if (element.id === "nodeTooltipToggleButton") {
-    const mode =
-      typeof nodeGraphTooltipMode === "function"
-        ? nodeGraphTooltipMode()
-        : nodeGraphTooltipsShown()
-          ? nodeGraphMvp.tooltipEmbedded
-            ? "embedded"
-            : "float"
-          : "off";
-    if (mode === "embedded") {
-      return nodeGraphTooltipText("view.tipsCycleFloat");
-    }
-    if (mode === "float") {
-      return nodeGraphTooltipText("view.tipsCycleOff");
-    }
-    return nodeGraphTooltipText("view.tipsCycleEmbed");
+    return nodeGraphTooltipsShown()
+      ? (nodeGraphTooltipText("view.tipsCycleOff") || "Hide docked tips (T).")
+      : (nodeGraphTooltipText("view.tipsCycleEmbed") || "Show docked tips (T).");
   }
   if (element.id === "nodeSliderAmountToggleButton") {
     return nodeGraphTooltipText(nodeGraphMvp.sliderAmountVisible ? "view.sliderAmountHide" : "view.sliderAmountShow");

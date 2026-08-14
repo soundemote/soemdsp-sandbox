@@ -126,10 +126,8 @@ function nodeSliderSelectedChoiceDividerLines(dividerLines, selectedIndex) {
   ));
 }
 
-function nodeSliderChoiceDividerHeight(readout, layerHeight) {
-  const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
-  const heightAtOneToOne = nodeSliderReadCssNumber(readout, "--node-choice-divider-height", 35, 0, 35);
-  return Math.max(0, Math.min(layerHeight, heightAtOneToOne / zoom));
+function nodeSliderChoiceDividerInset(readout) {
+  return nodeSliderReadCssNumber(readout, "--node-choice-divider-padding", 3, 0, 16);
 }
 
 function nodeSliderSnapStrokeCoordinate(localPosition, viewportOrigin, strokeWidth = 1, visualScale = 1) {
@@ -173,8 +171,9 @@ function syncNodeSliderChoiceDebugSquares(readout, choices, enabled, selectedInd
   layer.setAttribute("viewBox", `0 0 ${layerWidth.toFixed(3)} ${layerHeight.toFixed(3)}`);
   layer.setAttribute("preserveAspectRatio", "none");
   const segmentRects = nodeSliderChoiceCellRects(layerWidth, layerHeight, choices);
-  const dividerHeight = nodeSliderChoiceDividerHeight(readout, layerHeight);
-  const dividerTop = (layerHeight - dividerHeight) * 0.5;
+  const dividerInset = nodeSliderChoiceDividerInset(readout);
+  const dividerHeight = Math.max(0, layerHeight - dividerInset * 2);
+  const dividerTop = dividerInset;
   const dividerLines = nodeSliderChoiceDividerLinesFromCells(segmentRects).map((divider, index) => ({
     ...divider,
     height: dividerHeight,
@@ -292,6 +291,21 @@ function syncNodeGraphSliderReadouts() {
   if (typeof syncNodeGraphGhostSliders === "function") {
     syncNodeGraphGhostSliders();
   }
+}
+
+function scheduleNodeGraphSliderReadoutRelayout() {
+  if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
+    return;
+  }
+  if (scheduleNodeGraphSliderReadoutRelayout._frame) {
+    return;
+  }
+  scheduleNodeGraphSliderReadoutRelayout._frame = window.requestAnimationFrame(() => {
+    scheduleNodeGraphSliderReadoutRelayout._frame = window.requestAnimationFrame(() => {
+      scheduleNodeGraphSliderReadoutRelayout._frame = 0;
+      syncNodeGraphSliderReadouts();
+    });
+  });
 }
 
 // Knob face live sync: modules/knob/knob-face.js

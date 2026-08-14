@@ -667,6 +667,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   fractalBrownianNoise: {
     category: "noise",
     description: "Layered fBm drift for natural multi-scale organic modulation.",
+    label: "Fractal Brownian Motion",
     notes: ["out x/y/z", "seeded value noise", "slow terrain motion"],
   },
   piSpigotNoise: {
@@ -2866,6 +2867,11 @@ function nodeGraphModuleStoreSearchRank(entry, query) {
   if (tokens.every((t) => labelWords.some((w) => w.startsWith(t)))) {
     return -60;
   }
+  // Token sits inside a label/type word ("pad" → Keypad)
+  if (tokens.every((t) => label.includes(t) || type.includes(t)
+    || labelWords.some((w) => w.includes(t)))) {
+    return -50;
+  }
   // Type camelCase starts (eqFilter)
   if (tokens.every((t) => type.includes(t))) {
     return -40;
@@ -3314,7 +3320,7 @@ function createNodeGraphModuleDepartmentButton(departmentId, entries) {
   const emoji = dep ? dep.emoji : "";
   const titleText = dep ? dep.label : departmentId;
   const button = document.createElement("button");
-  button.className = "scene-context-store-department-card node-module-category-row";
+  button.className = "scene-context-store-department-card";
   button.type = "button";
   button.dataset.storeDepartment = departmentId;
   button.title = `${titleText}: module department`;
@@ -3324,16 +3330,21 @@ function createNodeGraphModuleDepartmentButton(departmentId, entries) {
     setNodeGraphModuleStoreDepartment(departmentId);
   });
 
+  const symbol = document.createElement("span");
+  symbol.className = "scene-context-store-department-symbol";
+  symbol.setAttribute("aria-hidden", "true");
+  symbol.textContent = emoji || "";
+
   const title = document.createElement("strong");
   title.className = "scene-context-store-department-title";
-  title.textContent = `${emoji}${titleText}`;
+  title.textContent = titleText;
 
   const count = document.createElement("span");
   count.className = "scene-context-store-department-count";
   const workingCount = entries.filter((entry) => entry.visible && entry.implemented).length;
   count.textContent = String(workingCount);
 
-  button.append(title, count);
+  button.append(symbol, title, count);
   return button;
 }
 

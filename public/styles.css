@@ -31,10 +31,12 @@
   --node-constraint-gpu: #c083ff;
   /*
    * App-wide default cursor: tiny white + (hotspot center).
-   * Explicit cursors (pointer, text, grab, resize, move, …) still win where set.
+   * Never use hand / finger (`pointer`) or grab-hand. Resize / text / module-move
+   * arrow may still be set explicitly.
    */
   --node-dot-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 13 13'%3E%3Cpath d='M2.5 6.5h8M6.5 2.5v8' fill='none' stroke='%23ffffff' stroke-width='1' stroke-linecap='square'/%3E%3C/svg%3E") 6 6, crosshair;
   --node-default-cursor: var(--node-dot-cursor);
+  --node-slider-dot-cursor: url("./cursors/slider-drag-dot.svg") 8 8, crosshair;
   /* Module drag only — OS arrow for familiarity (not the app + / not “move”). */
   --node-module-move-cursor: default;
 }
@@ -60,6 +62,26 @@ body {
   user-select: none;
   -webkit-user-select: none;
   cursor: var(--node-default-cursor);
+}
+
+button,
+a,
+summary,
+label,
+select,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+input[type="checkbox"],
+input[type="radio"],
+input[type="file"],
+input[type="color"] {
+  cursor: var(--node-dot-cursor);
+}
+
+input[type="range"] {
+  cursor: var(--node-slider-dot-cursor);
 }
 
 :is(input, textarea, select, [contenteditable="true"], .node-text-selectable),
@@ -474,7 +496,7 @@ body.node-patch-load-fault-open .node-patch-load-fault {
   padding: 10px 14px;
   border-radius: 6px;
   font: 700 0.88rem/1 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   user-select: none;
   pointer-events: auto;
 }
@@ -815,7 +837,6 @@ button:disabled {
 }
 
 .panel-close-button {
-  container-type: size;
   display: inline-grid;
   place-items: center;
   aspect-ratio: 1 / 1;
@@ -826,7 +847,7 @@ button:disabled {
   block-size: 2em;
   min-block-size: 2em;
   max-block-size: 2em;
-  overflow: hidden;
+  overflow: visible;
   padding: 0;
   color: var(--accent);
   font-size: 0;
@@ -835,14 +856,15 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* Optical X — two bars through the button center (not a low-sitting × glyph). */
+/* Optical X — two bars through the button center (not a low-sitting × glyph).
+   Fixed px bars; do not use % + overflow:hidden (clips the rotated arms). */
 .panel-close-button > span,
 .panel-close-glyph {
   position: relative;
   display: block;
   inline-size: 100%;
   block-size: 100%;
-  overflow: hidden;
+  overflow: visible;
   color: inherit;
   font-size: 0;
   line-height: 0;
@@ -856,8 +878,9 @@ button:disabled {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: calc(var(--panel-close-glyph-size-ratio, 0.5) * 72%);
-  height: max(1.25px, 7.5%);
+  width: 14px;
+  height: 2px;
+  margin: 0;
   background: currentColor;
   transform: translate(-50%, -50%) rotate(45deg);
   pointer-events: none;
@@ -1138,14 +1161,24 @@ button.scw-label:hover,
 }
 .node-music-player-face-bar {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  /* Same band as canvas zoom %: panel inset + 1px canvas border + label pad. */
+  top: calc(
+    var(--phosphor-waveform-inset, 2px)
+    + 1px
+    + var(--phosphor-waveform-label-inset, 6px)
+  );
+  right: calc(
+    var(--phosphor-waveform-inset, 2px)
+    + 1px
+    + var(--phosphor-waveform-label-inset, 6px)
+  );
   z-index: 4;
   display: flex;
+  align-items: center;
   gap: 3px;
   pointer-events: auto;
 }
-/* Hide face-bar PL control while playlist page is open (back is enough). */
+/* Hide face-bar PL control while playlist page is open (waveform dock is back). */
 .node-phosphor-waveform-display[data-music-player-face="pl"] .node-music-player-face-bar {
   display: none;
 }
@@ -1160,8 +1193,18 @@ button.scw-label:hover,
   font: 600 0.62rem/1 "Cascadia Mono", Consolas, "DSEG7 Classic", monospace;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   text-shadow: 0 0 6px rgba(80, 180, 160, 0.35);
+}
+.node-music-player-face-bar .node-music-player-face-btn {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  height: 10px;
+  padding: 0;
+  /* Same 10px system-ui box as the canvas zoom % (textBaseline top). */
+  font: 600 10px/1 system-ui, sans-serif;
+  letter-spacing: 0.06em;
 }
 .node-music-player-face-btn:hover,
 .node-music-player-face-btn:focus-visible {
@@ -1199,44 +1242,62 @@ button.scw-label:hover,
   display: block;
 }
 .node-music-player-page-pl {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 2;
-  gap: 4px;
-  padding: 4px 6px 6px;
-  background: rgba(0, 4, 8, 0.96);
+  gap: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  box-shadow: none;
+  background: #000;
   color: rgba(190, 220, 230, 0.95);
-  font: 600 0.72rem/1.25 "Cascadia Mono", Consolas, monospace;
+  font: 600 0.56rem/1 "Cascadia Mono", Consolas, monospace;
   overflow: hidden;
 }
 .node-music-player-pl-head {
-  flex: 0 0 auto;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  z-index: 4;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 20px;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  pointer-events: none;
 }
-.node-music-player-pl-title {
-  opacity: 0.85;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-size: 0.65rem;
+.node-music-player-pl-head > * {
+  pointer-events: auto;
 }
-/* RAM / "GB" toggle — also closes the debug panel (no extra ×). */
+.node-music-player-pl-head:not(:has(> :not([hidden]))) {
+  display: none;
+}
+/* RAM / debug toggle — also closes the debug panel (no extra ×). */
 .node-music-player-pl-ram {
   justify-self: end;
-  max-width: 55%;
+  max-width: 40%;
   margin: 0;
-  padding: 1px 5px;
+  padding: 0 6px;
   border: 1px solid rgba(180, 120, 60, 0.35);
-  border-radius: 3px;
+  border-radius: 2px;
   background: rgba(20, 10, 0, 0.45);
   color: rgba(255, 200, 140, 0.92);
-  font: 600 0.62rem/1.2 "Cascadia Mono", Consolas, monospace;
+  font: 600 0.62rem/1 "Cascadia Mono", Consolas, monospace;
+  height: 22px;
+  min-height: 22px;
   opacity: 0.9;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
+}
+.node-music-player-pl-ram[hidden] {
+  display: none !important;
 }
 .node-music-player-pl-ram:hover,
 .node-music-player-pl-ram:focus-visible {
@@ -1323,78 +1384,125 @@ button.scw-label:hover,
   opacity: 0.6;
   text-align: center;
 }
-.node-music-player-pl-ram-tip {
-  margin-top: 4px;
-  opacity: 0.55;
-  font-size: 0.58rem;
-  line-height: 1.3;
-  white-space: normal;
-}
-/* List fills leftover page height; rows keep natural size; overflow scrolls. */
+
+/* List fills leftover page height; few tracks stretch, many tracks scroll. */
 .node-music-player-pl-list {
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  display: block;
-  border: 1px solid rgba(80, 120, 140, 0.35);
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  outline: none;
+  box-shadow: none;
+  border-radius: 0;
+  background: transparent;
   overscroll-behavior: contain;
 }
 .node-music-player-pl-empty {
-  padding: 10px 8px;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
   opacity: 0.65;
   text-align: center;
 }
 .node-music-player-pl-row {
   display: grid;
-  grid-template-columns: 1.6rem minmax(0, 1fr) auto;
-  gap: 6px;
+  grid-template-columns: 1.4rem minmax(0, 1fr);
+  grid-template-rows: auto minmax(20px, 1fr);
+  gap: 2px 4px;
   align-items: center;
   width: 100%;
   margin: 0;
-  padding: 4px 6px;
+  padding: 3px 4px 4px;
   border: 0;
-  border-bottom: 1px solid rgba(60, 90, 110, 0.25);
+  outline: none;
+  box-shadow: none;
   background: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
-  cursor: pointer;
-  flex: none;
+  cursor: var(--node-dot-cursor);
+  flex: 1 1 0;
   box-sizing: border-box;
+  min-height: 48px;
 }
 .node-music-player-pl-row:hover,
 .node-music-player-pl-row:focus-visible {
   background: rgba(40, 90, 110, 0.35);
+  border: 0;
   outline: none;
+  box-shadow: none;
 }
 .node-music-player-pl-row[data-active="true"] {
   background: rgba(30, 100, 80, 0.4);
   color: rgba(180, 255, 220, 0.98);
 }
 .node-music-player-pl-num {
+  grid-column: 1;
+  grid-row: 1;
   opacity: 0.55;
+  font-size: 0.62rem;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
 .node-music-player-pl-name {
+  grid-column: 2;
+  grid-row: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.72rem;
+  line-height: 1.2;
 }
-.node-music-player-pl-meta {
-  opacity: 0.55;
-  font-size: 0.62rem;
-  font-variant-numeric: tabular-nums;
+.node-music-player-pl-wave {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  box-shadow: none;
+  border-radius: 0;
+  background: #050805;
+  pointer-events: none;
+}
+.node-music-player-pl-now {
+  flex: 0 0 36%;
+  min-height: 56px;
+  max-height: 46%;
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  outline: none;
+  box-shadow: none;
+  background: #000;
+  cursor: var(--node-dot-cursor);
+}
+.node-music-player-pl-now .node-phosphor-waveform-canvas,
+.node-phosphor-waveform-display[data-music-player-face="pl"] .node-phosphor-waveform-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
 }
 .node-music-player-pl-scrub {
   flex: 0 0 auto;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) 3.4rem;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
-  min-height: 22px;
+  min-height: 16px;
 }
 .node-music-player-pl-scrub-label {
   opacity: 0.7;
@@ -1406,7 +1514,7 @@ button.scw-label:hover,
   width: 100%;
   margin: 0;
   accent-color: rgba(100, 210, 180, 0.95);
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
 }
 .node-music-player-pl-scrub-value {
   justify-self: end;
@@ -1416,9 +1524,9 @@ button.scw-label:hover,
 }
 
 .node-wiring-panel {
-  --node-toolbar-button-bg-alpha: 0.62;
+  --node-toolbar-button-bg-alpha: 1;
   --node-tooltip-text-size: 64px; /* max font for tip fit-to-box (not a fixed size) */
-  --node-min-grid-brightness-alpha: 0.045;
+  --node-min-grid-brightness-alpha: 0;
   display: flex;
   flex-direction: column;
   /* Fill remaining viewport under any page chrome so the transport footer
@@ -2463,7 +2571,7 @@ html.soemdsp-hide-ui .status-strip {
   color: var(--muted);
   font: 700 0.62rem/1 "Cascadia Mono", Consolas, monospace;
   touch-action: none;
-  cursor: grab;
+  cursor: var(--node-dot-cursor);
   user-select: none;
   transform: none;
 }
@@ -3229,7 +3337,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
  */
 .node-view-toolbar {
   --node-toolbar-row-height: 2.8rem;
-  --node-toolbar-surface: rgba(32, 37, 42, var(--node-toolbar-button-bg-alpha, 0.62));
+  --node-toolbar-surface: rgb(32, 37, 42);
   --node-toolbar-chip-bg: rgba(14, 17, 21, 0.88);
   --node-toolbar-mono: Consolas, "Courier New", monospace;
   position: relative;
@@ -3426,7 +3534,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-world-position-readout {
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-modular-view-size-readout {
@@ -3636,7 +3744,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-room-dimmer-button[aria-pressed="true"] {
   border-color: rgba(255, 220, 120, 0.55);
   background:
-    linear-gradient(180deg, rgba(255, 220, 120, 0.12), rgba(32, 37, 42, var(--node-toolbar-button-bg-alpha)));
+    linear-gradient(180deg, rgba(255, 220, 120, 0.12), rgb(32, 37, 42));
   box-shadow: 0 0 12px rgba(255, 210, 100, 0.22);
 }
 
@@ -3646,7 +3754,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-inline-size: 0;
   border-color: rgba(226, 168, 109, 0.28);
   background:
-    linear-gradient(180deg, rgba(226, 168, 109, 0.2), rgba(32, 37, 42, var(--node-toolbar-button-bg-alpha)));
+    linear-gradient(180deg, rgba(226, 168, 109, 0.2), rgb(32, 37, 42));
   color: rgba(255, 229, 190, 0.95);
   font-weight: 800;
 }
@@ -3718,8 +3826,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   place-items: center;
   width: 100%;
   height: 100%;
-  font-size: 2.35rem;
+  min-width: 0;
+  min-height: 0;
+  font-size: clamp(0.85rem, 70%, 2.35rem);
   line-height: 1;
+  overflow: hidden;
 }
 
 #nodeDonateFiveButton,
@@ -4207,7 +4318,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-user-ui-setting-control.color {
-  grid-template-columns: minmax(96px, 1fr) 36px 7.5ch;
+  font-family: var(--mono);
+  grid-template-columns: minmax(96px, 1fr) 36px 9ch;
 }
 
 .node-user-ui-setting-control.select {
@@ -4287,14 +4399,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-height: 24px;
   align-items: center;
   justify-items: end;
-  padding: 0 6px;
+  padding: 0 4px;
   border: 1px solid rgba(127, 199, 217, 0.18);
   border-radius: 4px;
   background: rgba(3, 5, 7, 0.46);
   color: var(--accent);
   font-family: var(--mono);
   font-size: 0.72rem;
-  overflow: hidden;
+  overflow: visible;
   text-overflow: clip;
 }
 
@@ -4403,6 +4515,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
+.node-settings-range-row,
 .node-phosphor-waveform-settings-row,
 .node-led-settings-row {
   display: flex;
@@ -4412,15 +4525,16 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   border-top: 1px solid rgba(226, 168, 109, 0.16);
 }
 
+.node-settings-range-row > span:first-child,
 .node-phosphor-waveform-settings-row > span:first-child,
 .node-led-settings-row > span:first-child {
   flex: 1 1 auto;
   color: var(--muted);
 }
 
-/* The Load Sample row hosts the SAME 📂 + path box widget the Music Player
-   carries on its face (createNodeGraphSamplePathLoader). Those controls size
-   themselves from --node-sample-control-height, which normally comes from
+/* Waveform settings hosts the same 📂 + path box as sample-module bodies
+   (createNodeGraphSamplePathLoader). Those controls size themselves from
+   --node-sample-control-height, which normally comes from
    .node-sample-module-body -- declared here so the widget is self-contained
    inside this window too. The row's generic `button` rule would otherwise
    repaint the folder button with padding and a border, so the loader's own
@@ -4532,11 +4646,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   border-radius: 4px;
 }
 
+.node-settings-range-row input[type="range"],
 .node-phosphor-waveform-settings-row input[type="range"],
 .node-led-settings-row input[type="range"] {
   flex: 1 1 auto;
   min-width: 0;
   accent-color: rgba(90, 255, 150, 0.85);
+  cursor: var(--node-slider-dot-cursor);
 }
 
 .node-phosphor-waveform-settings-row select,
@@ -5017,13 +5133,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-view-tabs button.active {
   border-color: var(--line);
-  background: rgba(127, 199, 217, calc(var(--node-toolbar-button-bg-alpha) * 0.13));
+  background: rgba(127, 199, 217, 0.13);
   color: var(--accent);
 }
 
 #nodeSnapGridViewButton.active {
   border-color: transparent;
-  background: rgba(127, 199, 217, calc(var(--node-toolbar-button-bg-alpha) * 0.13));
+  background: rgba(127, 199, 217, 0.13);
   color: var(--accent);
   box-shadow: none;
 }
@@ -5085,18 +5201,22 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-mouse-light-amount: 0.79;
   --node-mouse-light-color-rgb: 127 199 217;
   --node-mouse-light-spread: 0.05;
+  --node-module-light-spread: 0.78;
+  --node-module-light-brightness: 1;
+  --node-grid-reveal-spread: 0.78;
+  --node-grid-line-alpha: 0.2;
   --node-text-light-color-rgb: 243 241 236;
-  --node-text-light-level: 0.18;
-  --node-workspace-bg: hsl(210deg 0% 5%);
-  --node-body-row-gap: 0px;
-  --node-body-row-height: calc(var(--node-grid-size) * 1.0714286);
+  --node-workspace-bg: #1d1b1b;
+  --node-body-row-gap: 2px;
+  --node-body-row-height: 30px;
   --node-header-gap: 0;
-  --node-header-height: calc(var(--node-grid-size) * 2.7142857);
+  --node-header-height: calc(34px + var(--node-grid-size) * 1.9285714);
   --node-header-padding-block-end: 0;
   --node-header-padding-block-start: 0;
   --node-header-padding-inline: 0;
-  --node-header-title-row-height: calc(var(--node-grid-size) * 0.7857143);
+  --node-header-title-row-height: 34px;
   --node-module-primary-text-color: rgba(243, 241, 236, 0.76);
+  --node-header-title-font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   --node-io-column-padding: calc(var(--node-grid-size) * 0.1428571);
   /* Small air between stacked jack rows (LayoutA columns). */
   --node-io-gap: calc(var(--node-grid-size) * 0.0357143);
@@ -5111,13 +5231,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-module-grid-inset-y-total: calc(
     var(--node-module-grid-inset) + var(--node-module-grid-inset-bottom)
   );
-  /* 0 = square module *plate* (LayoutA + LayoutB). UI Dev “module roundness” drives this. */
-  --node-module-roundness-ratio: 0;
-  /* Stroke-only TOP corner radius (bottom corners stay square in the SVG path).
-     Plate fill stays square via roundness-ratio 0. */
-  --node-module-frame-radius: calc(var(--node-grid-size) * 0.35);
-  /* Selected stroke: clearer top-edge rounding (path rebuilt on select). */
-  --node-module-selected-frame-radius: calc(var(--node-grid-size) * 0.5);
+  /* Hardcoded plate radius (was UIDEV module roundness 53%). */
+  --node-module-roundness-ratio: 0.53;
+  --node-module-frame-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0.53));
   /*
    * 1 *screen* CSS pixel under workspace CSS `zoom`.
    * Path is outset 1 screen px outside the plate and gaps 1 screen px past
@@ -5131,41 +5247,43 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-scope-port-band-overlap: 0px;
   --node-port-column-gap: calc(var(--node-grid-size) * 0.2857143);
   /*
-   * IO jack geometry (hard invariant):
-   *   --node-port-area-size  = the IO cell / slot height (1gu by default)
-   *   --node-port-size-ratio  = visual jack size as a fraction of the slot
-   *   diameter is ALWAYS ≤ slot (clamped). Jacks must fit inside their row;
+   * IO jack geometry:
+   *   slot = --node-port-area-size (1gu)
+   *   visual jack = 52% of the slot
    *   .node-io-row clips overflow so paint/hit cannot bleed into neighbors.
-   * Baseline visual was ~0.57 of slot; 0.50 leaves a little air inside the cell.
    */
-  --node-port-size-ratio: 0.50;
-  /* Never allow a ratio that fills/overflows the slot (defensive clamp). */
-  --node-port-fit-ratio: min(0.92, max(0.05, var(--node-port-size-ratio)));
   --node-port-area-size: var(--node-grid-height);
-  --node-port-diameter: calc(var(--node-port-area-size) * var(--node-port-fit-ratio));
+  --node-port-diameter: calc(var(--node-port-area-size) * 0.52);
   /* One crescent ring for every inlet/outlet (I/O + param). */
   --node-port-crescent-stroke-width: 1.25px;
+  /* One paint recipe for I/O + param crescents (same box, same stroke). */
+  --node-port-crescent-paint: radial-gradient(
+    circle farthest-side at var(--node-port-crescent-at),
+    transparent 0%,
+    transparent calc(100% - var(--node-port-crescent-stroke-width) - 0.6px),
+    var(--node-port-crescent-stroke) calc(100% - var(--node-port-crescent-stroke-width) + 0.35px),
+    var(--node-port-crescent-stroke) 100%
+  );
+  /* Unused PARAM jack stroke. UIDEV must not write it. Signal I/O jacks
+     use type color mixed with outlet RGB / inlet blue brightness. */
+  --node-port-idle-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 22%, transparent);
   --node-port-radius: calc(var(--node-port-diameter) * 0.5);
   --node-port-area-radius: calc(var(--node-port-area-size) * 0.5);
   /* Column track = half-slot (half-jack width at full fill); visual jack is narrower. */
   --node-port-column-width: var(--node-port-area-radius);
   /* Shared LayoutA+B: leftover height under last content (≥2px, or +1gu from JS). */
   --node-module-bottom-gap-track: minmax(2px, 1fr);
-  /* Legacy smoke contract token: --node-wire-patch-point-size: 36%. */
-  --node-wire-patch-point-size-ratio: 0.36;
-  --node-wire-patch-point-size: calc(var(--node-port-diameter) * var(--node-wire-patch-point-size-ratio));
-  --node-wire-thickness-ratio: 0.1875;
-  --node-wire-thickness: calc(var(--node-port-diameter) * var(--node-wire-thickness-ratio));
+  --node-wire-patch-point-size: calc(var(--node-port-diameter) * 0.54);
+  --node-wire-thickness: calc(var(--node-port-diameter) * 0.25);
   --node-trace-wire-thickness: 1px;
   /* Signal jack box — must stay ≤ slot (see .node-io-row overflow + max-height). */
   --node-signal-port-height: var(--node-port-diameter);
   --node-signal-port-width: var(--node-port-radius);
   --node-slider-padding-block: calc(var(--node-grid-size) * 0.0357143);
   --node-slider-padding-inline: calc(var(--node-grid-size) * 0.25);
-  --node-slider-row-padding-block: calc(var(--node-grid-size) * 0.0357143);
-  --node-slider-readout-height: calc(var(--node-body-row-height) - (var(--node-slider-row-padding-block) * 2));
+  --node-slider-row-padding-block: 0px;
+  --node-slider-readout-height: 30px;
   --node-slider-readout-center-offset: 2px;
-  --node-slider-width-ratio: 1;
   --node-slider-unit-width: 2.5em;
   --node-slider-label-color: #cfdde5;
   --node-slider-value-color: #ffffff;
@@ -5176,15 +5294,17 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
      position sits over text (z2) — opaque amount washed out the row. */
   --node-slider-position-color: hsl(203 55% 57% / 0.42);
   --node-slider-amount-color: hsl(200 31% 15% / 0.55);
-  --node-choice-divider-height: 35px;
+  --node-choice-divider-padding: 3px;
   --node-module-fill: #171a1f;
-  /* Solid In/Out pane (was translucent gradient — stroke dimmed underneath). */
-  --node-module-io-fill: #0f1216;
+  /* I/O strip is see-through like the plate — jacks are stroke-only. */
+  --node-module-io-fill: transparent;
   --node-module-stroke: #f3f1ec;
+  --node-module-idle-stroke-width: 1px;
+  --node-module-idle-stroke: rgb(255 255 255 / 0.5);
   --node-module-selected-stroke: #e2a86d;
   --node-module-drag-stroke: #e2a86d;
-  --node-port-idle-fill: #000000;
-  --node-port-idle-stroke: #f3f1ec;
+  --node-port-idle-fill: transparent;
+  --node-port-idle-stroke: var(--node-port-idle-crescent-stroke);
   --node-port-hover-fill: #f3f1ec;
   --node-port-hover-stroke: #f3f1ec;
   /* --node-dot-cursor / --node-default-cursor live on :root (app-wide SSOT). */
@@ -5197,10 +5317,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-output-fill: #e2a86d;
   --node-output-stroke: #e2a86d;
   --node-digital-fill: #ffffff;
-  /* Outlet channel strokes (hardcoded until theming). Mono / Left / Right.
-     Brightness 0…1 is --node-outlet-rgb-brightness (UI Settings). */
-  --node-outlet-rgb-brightness: 0.75;
-  --node-inlet-blue-brightness: 0.75;
+  /* Outlet channel strokes. Brightness is a color-mix % from UIDEV 0…1. */
+  --node-outlet-rgb-brightness: 75%;
+  --node-inlet-blue-brightness: 75%;
   --node-inlet-blue-stroke: #7fc7d9;
   --node-outlet-mono-stroke: #3ddc84;
   --node-outlet-left-stroke: #f25d5d;
@@ -5233,35 +5352,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-wiring-panel {
   --node-text-light-color-rgb: 243 241 236;
-  --node-text-light-level: 0.18;
-}
-
-.node-wiring-panel :where(
-  button,
-  input,
-  output,
-  select,
-  textarea,
-  label,
-  small,
-  span,
-  strong,
-  .node-light-text,
-  [data-node-light="text"]
-):not(.node-no-light):not([data-node-light="none"]) {
-  text-shadow:
-    0 0 calc(4px + 12px * var(--node-text-light-level, 0.18))
-      rgb(var(--node-text-light-color-rgb, 243 241 236) / calc(0.22 * var(--node-text-light-level, 0.18))),
-    0 0 calc(12px + 26px * var(--node-text-light-level, 0.18))
-      rgb(var(--node-text-light-color-rgb, 243 241 236) / calc(0.14 * var(--node-text-light-level, 0.18)));
-}
-
-:where(.node-light-source, [data-node-light="source"]):not(.node-no-light):not([data-node-light="none"]) {
-  box-shadow:
-    0 0 calc(12px * var(--node-text-light-level, 0.18))
-      rgb(var(--node-text-light-color-rgb, 243 241 236) / calc(0.3 * var(--node-text-light-level, 0.18))),
-    0 0 calc(26px * var(--node-text-light-level, 0.18))
-      rgb(var(--node-text-light-color-rgb, 243 241 236) / calc(0.2 * var(--node-text-light-level, 0.18)));
 }
 
 :where(.node-no-light, [data-node-light="none"]) {
@@ -5315,11 +5405,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 /* During pan/zoom: light CSS + lite wires; full chrome resumes on settle. */
 .node-graph-workspace.viewport-gesturing {
-  cursor: grab;
+  cursor: var(--node-dot-cursor);
 }
 .node-graph-workspace.viewport-gesturing.panning,
 .node-graph-workspace.viewport-gesturing.smooth-zooming {
-  cursor: grabbing;
+  cursor: var(--node-dot-cursor);
 }
 
 /* Hide wires + inlet/outlet jacks while zooming (wheel / pinch / smooth-zoom).
@@ -7477,7 +7567,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   color: rgba(243, 241, 236, 0.95);
   font-size: 0.9rem;
   font-weight: 600;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
 }
 
@@ -7739,9 +7829,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
  * Do not invent per-window *-heading classes for this chrome.
  */
 .scene-context-heading {
-  --node-move-symbol-size: calc(
-    var(--node-floating-window-header-height) * var(--node-move-symbol-size-ratio, 0.6) * 0.72
-  );
+  /* Move glyph fills the header cell (100% of the 30px move widget). */
+  --node-move-symbol-size: var(--node-floating-window-header-height);
   display: grid;
   grid-template-columns:
     var(--node-floating-window-header-height, 30px)
@@ -7884,11 +7973,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-inline-size: var(--node-floating-window-header-height);
   max-inline-size: var(--node-floating-window-header-height);
   block-size: var(--node-floating-window-header-height);
-  min-height: 0;
-  min-block-size: 0;
+  min-height: var(--node-floating-window-header-height);
+  min-block-size: var(--node-floating-window-header-height);
   max-block-size: var(--node-floating-window-header-height);
   align-self: stretch;
   justify-self: stretch;
+  overflow: visible;
   border: 0;
   border-radius: 0;
   background: rgba(127, 199, 217, 0.08);
@@ -7983,10 +8073,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-settings-view {
   container-type: inline-size;
-  --node-settings-action-height: clamp(40px, 6cqw, 54px);
+  --node-settings-action-height: 30px;
   --node-settings-knob-text-ratio: 1;
-  --node-settings-knob-top-ratio: 0.62;
-  --node-settings-knob-extra-padding: 2px;
+  --node-settings-knob-top-ratio: 0.44;
+  --node-settings-knob-extra-padding: 3px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -8022,11 +8112,72 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   box-sizing: border-box;
 }
 
-.node-patch-page-scroll > .node-settings-script-action-group,
-.node-patch-page-scroll > .node-settings-feedback-action-group,
-.node-patch-page-scroll > .node-settings-dev-action-group {
+.node-patch-page-toolbar {
   flex: 0 0 auto;
-  --node-settings-action-height: clamp(68px, 11cqw, 96px);
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+  height: 30px;
+  min-height: 30px;
+  max-height: 30px;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  --node-settings-action-height: 30px;
+}
+
+.node-patch-page-toolbar .node-settings-script-action-group,
+.node-patch-page-toolbar .node-settings-dev-action-group {
+  flex: 1 1 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  height: 30px;
+  min-height: 30px;
+  max-height: 30px;
+  overflow: visible;
+  --node-settings-action-height: 30px;
+}
+
+/* One-line chips. Do not inherit the 44%/3px two-row knob layout (clips).
+   Glyph + label fill the inner box; 2px stroke is the only inset. */
+.node-patch-page-toolbar button,
+.node-patch-page-toolbar a {
+  container-type: normal;
+  display: inline-flex;
+  flex: 1 1 0;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  box-sizing: border-box;
+  min-width: 0;
+  height: 30px;
+  min-height: 30px;
+  max-height: 30px;
+  margin: 0;
+  padding: 0 3px;
+  border: 2px solid var(--line);
+  overflow: hidden;
+  grid-template-rows: none;
+  white-space: nowrap;
+}
+
+.node-patch-page-toolbar button > span,
+.node-patch-page-toolbar a > span,
+.node-patch-page-toolbar .node-settings-disabled-action span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: calc(var(--node-settings-action-height) - 4px);
+  max-width: none;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+  font-size: calc(var(--node-settings-action-height) - 4px);
+  line-height: 1;
 }
 
 .node-patch-card {
@@ -8354,7 +8505,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   text-overflow: clip;
   white-space: nowrap;
   overflow: hidden;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   touch-action: manipulation;
   aspect-ratio: 1 / 1;
 }
@@ -8474,7 +8625,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   background:
     linear-gradient(45deg, transparent 42%, rgba(174, 180, 187, 0.85) 42%, rgba(174, 180, 187, 0.85) 58%, transparent 58%),
     linear-gradient(-45deg, transparent 42%, rgba(174, 180, 187, 0.85) 42%, rgba(174, 180, 187, 0.85) 58%, transparent 58%);
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   opacity: 0.75;
 }
 
@@ -8641,6 +8792,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .scene-context-store-department-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: auto;
+  align-content: start;
   gap: 0;
 }
 
@@ -8725,18 +8878,26 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .scene-context-store-department-card {
   --node-module-category-stroke: rgba(127, 199, 217, 0.22);
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
-  gap: 3px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   min-width: 0;
-  min-height: var(--node-module-category-row-height, 46px);
-  padding: var(--node-module-category-row-padding, 2px 5px);
+  height: 24px;
+  min-height: 24px;
+  max-height: 24px;
+  overflow: hidden;
+  margin: 0;
+  padding: 0 6px;
   border: 0;
   border-radius: 0;
   background: rgba(17, 21, 24, 0.82);
   color: var(--text);
-  font-family: inherit;
+  font: inherit;
+  font-size: 17px;
+  line-height: 1;
   text-align: left;
   box-shadow:
     inset 1px 0 0 var(--node-module-category-stroke),
@@ -8759,33 +8920,43 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .scene-context-store-department-symbol {
+  display: grid;
+  place-items: center;
+  min-width: max-content;
+  min-height: 0;
+  overflow: hidden;
+  padding-inline-end: 0.35em;
   color: rgba(243, 241, 236, 0.94);
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  font-size: clamp(2rem, 6vw, 3.2rem);
+  font-size: 17px;
   font-weight: 650;
   line-height: 1;
-  text-shadow:
-    0 0 14px rgba(127, 199, 217, 0.22),
-    0 0 24px rgba(226, 168, 109, 0.08);
 }
 
 .scene-context-store-department-title {
-  display: block;
+  display: grid;
+  align-items: center;
+  justify-items: start;
   max-width: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
   color: rgba(243, 241, 236, 0.9);
-  font-size: var(--node-module-category-row-text-size, 1rem);
+  font-size: 17px;
   font-weight: 650;
-  line-height: 1.1;
+  line-height: 1;
   text-overflow: clip;
   white-space: nowrap;
 }
 
 .scene-context-store-department-count {
-  grid-column: 2;
+  display: grid;
+  align-items: center;
+  justify-items: end;
   min-width: 2ch;
+  min-height: 0;
+  overflow: hidden;
   color: rgba(226, 168, 109, 0.86);
-  font-size: var(--node-module-category-row-text-size, 1.05rem);
+  font-size: 17px;
   font-weight: 650;
   line-height: 1;
   text-align: right;
@@ -8794,7 +8965,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-module-store-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-auto-rows: var(--node-floating-window-button-height);
+  grid-auto-rows: 24px;
+  align-content: start;
   gap: 0;
   width: 100%;
   min-width: 0;
@@ -8803,20 +8975,24 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-module-store-list .scene-context-store-card {
   appearance: none;
+  -webkit-appearance: none;
   box-sizing: border-box;
   display: grid;
   place-items: center;
-  height: var(--node-floating-window-button-height);
-  min-height: var(--node-floating-window-button-height);
-  max-height: var(--node-floating-window-button-height);
+  height: 24px;
+  min-height: 24px;
+  max-height: 24px;
   overflow: hidden;
-  padding: 0 7px;
+  margin: 0;
+  padding: 0 6px;
   border: 1px solid var(--line);
   border-radius: 0;
   background: rgb(3, 5, 7);
   color: rgba(224, 244, 249, 0.95);
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   font: inherit;
+  font-size: 17px;
+  line-height: 1;
   text-align: center;
   user-select: none;
   -webkit-user-select: none;
@@ -8860,13 +9036,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: grid;
   place-items: center;
   width: 100%;
-  height: 100%;
   max-width: 100%;
+  min-width: 0;
   min-height: 0;
-  max-height: 100%;
   overflow: hidden;
-  font-size: 0.81rem;
-  line-height: 1.12;
+  font-size: 17px;
+  line-height: 1;
   text-align: center;
   text-overflow: clip;
   white-space: normal;
@@ -9256,6 +9431,54 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   box-shadow: none;
 }
 
+/* Patch toolbar wins over the two-row knob / link-action layout above. */
+.node-patch-page-toolbar .node-settings-script-action-group > button,
+.node-patch-page-toolbar .node-settings-script-action-group > a,
+.node-patch-page-toolbar .node-settings-dev-action-group > button,
+.node-patch-page-toolbar .node-settings-link-action,
+.node-patch-page-toolbar .node-settings-disabled-action {
+  container-type: normal;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 30px;
+  min-height: 30px;
+  max-height: 30px;
+  padding: 0 3px;
+  border-width: 2px;
+  overflow: hidden;
+  grid-template-rows: none;
+  line-height: 1;
+  transition: none;
+}
+
+.node-patch-page-toolbar .node-settings-script-action-group > * + *,
+.node-patch-page-toolbar .node-settings-dev-action-group > button + button {
+  margin-left: -2px;
+}
+
+.node-patch-page-toolbar .node-settings-script-action-group > button > span,
+.node-patch-page-toolbar .node-settings-script-action-group > a > span,
+.node-patch-page-toolbar .node-settings-dev-action-group > button > span,
+.node-patch-page-toolbar .node-settings-link-action span,
+.node-patch-page-toolbar .node-settings-disabled-action span,
+.node-patch-page-toolbar .node-settings-link-action span:first-child,
+.node-patch-page-toolbar .node-settings-link-action span:last-child,
+.node-patch-page-toolbar .node-settings-disabled-action span:first-child,
+.node-patch-page-toolbar .node-settings-disabled-action span:last-child {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: calc(var(--node-settings-action-height) - 4px);
+  max-width: none;
+  overflow: hidden;
+  font-size: calc(var(--node-settings-action-height) - 4px);
+  line-height: 1;
+}
+
 .node-ui-dev-helper {
   position: fixed;
   z-index: 60;
@@ -9363,12 +9586,18 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-ui-dev-actions {
   display: grid;
-  /* 2×2 so “Update Default” has enough width; 4 equal columns clipped it. */
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   grid-auto-rows: minmax(var(--node-floating-window-button-height), auto);
   gap: 4px;
   align-items: stretch;
   align-content: start;
+  min-width: 0;
+}
+
+.node-ui-dev-action-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
   min-width: 0;
 }
 
@@ -9538,7 +9767,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-ui-dev-color-control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 20px 7.5ch;
+  font-family: var(--mono);
+  grid-template-columns: minmax(0, 1fr) 20px 9ch;
   grid-template-rows: 20px;
   align-items: center;
   gap: 5px;
@@ -9549,7 +9779,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-ui-dev-color-control.has-expose {
-  grid-template-columns: minmax(0, 1fr) 20px 7.5ch 18px;
+  grid-template-columns: minmax(0, 1fr) 20px 9ch 18px;
 }
 
 .node-ui-dev-expose {
@@ -9620,9 +9850,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   font-family: var(--mono);
   font-size: 0.66rem;
   line-height: 1;
-  overflow: hidden;
+  overflow: visible;
   text-overflow: clip;
-  text-transform: uppercase;
+  text-transform: lowercase;
   white-space: nowrap;
 }
 
@@ -10030,53 +10260,56 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-graph-workspace.grid-visible {
   background-color: var(--node-workspace-bg);
-  background-image:
-    linear-gradient(rgb(var(--node-grid-color-rgb) / var(--node-min-grid-brightness-alpha)) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(var(--node-grid-color-rgb) / var(--node-min-grid-brightness-alpha)) 1px, transparent 1px);
-  background-position: var(--node-graph-pan-x) var(--node-graph-pan-y);
-  background-size:
-    calc(var(--node-grid-width) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 2))
-    calc(var(--node-grid-height) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 2));
+  background-image: none;
 }
 
 .node-grid-heatmap {
+  --node-grid-line-alpha: 0.2;
+  --node-grid-reveal-mask: none;
   position: absolute;
   inset: 0;
   z-index: 0;
   display: none;
   background-color: transparent;
+  background-image: var(--node-grid-heatmap, none);
+  background-position: 0 0;
+  background-size: auto;
+  pointer-events: none;
+}
+
+.node-grid-heatmap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  display: none;
+  background-color: transparent;
   background-image:
-    linear-gradient(rgb(var(--node-mouse-light-color-rgb) / 0.2) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(var(--node-mouse-light-color-rgb) / 0.2) 1px, transparent 1px),
-    var(--node-grid-heatmap, none);
+    linear-gradient(rgb(var(--node-grid-color-rgb) / var(--node-grid-line-alpha, 0.2)) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--node-grid-color-rgb) / var(--node-grid-line-alpha, 0.2)) 1px, transparent 1px);
   background-position:
     var(--node-grid-heatmap-grid-position, 0 0),
-    var(--node-grid-heatmap-grid-position, 0 0),
-    0 0;
+    var(--node-grid-heatmap-grid-position, 0 0);
   background-size:
     var(
       --node-grid-heatmap-grid-size,
       calc(var(--node-grid-width) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 2))
       calc(var(--node-grid-height) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 2))
-    ),
-    var(
-      --node-grid-heatmap-grid-size,
-      calc(var(--node-grid-width) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 2))
-      calc(var(--node-grid-height) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 2))
-    ),
-    auto;
-  -webkit-mask-image: var(--node-grid-heatmap-mask, none);
-  mask-image: var(--node-grid-heatmap-mask, none);
+    );
+  -webkit-mask-image: var(--node-grid-reveal-mask, none);
+  mask-image: var(--node-grid-reveal-mask, none);
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-size: auto;
   mask-size: auto;
-  opacity: 0.95;
   pointer-events: none;
 }
 
-/* Grid lines can be on without lights; lights need an explicit Grid Light toggle. */
+.node-graph-workspace.grid-visible .node-grid-heatmap,
 .node-graph-workspace.grid-light-visible .node-grid-heatmap {
+  display: block;
+}
+
+.node-graph-workspace.grid-visible .node-grid-heatmap::before {
   display: block;
 }
 
@@ -10288,8 +10521,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-io-row.port-connection-selected,
 .node-io-row.port-connection-selected .node-port {
   color: var(--accent);
-  --node-port-stroke-mask-color: color-mix(in srgb, var(--accent) 16%, transparent);
-  --node-port-crescent-fill: var(--node-port-stroke-mask-color);
+  --node-port-stroke-mask-color: transparent;
+  --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: color-mix(in srgb, var(--accent) 80%, transparent);
   border-color: transparent;
   cursor: var(--node-dot-cursor);
@@ -10303,7 +10536,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .node-param-port.port-connection-selected {
-  --node-port-crescent-fill: color-mix(in srgb, var(--accent) 16%, transparent);
+  --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: color-mix(in srgb, var(--accent) 80%, transparent);
 }
 
@@ -10392,6 +10625,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   top: var(--node-y);
   box-sizing: border-box;
   display: grid;
+  /* One definite column = the plate. An implicit `auto` column lets
+     width:100% children shrink-wrap (percentage is cyclic), so header / IO /
+     face / sliders keep a content-sized right edge while ::before tracks
+     the real plate. */
+  grid-template-columns: minmax(0, 1fr);
   justify-items: stretch;
   /* LayoutA: reserve I/O strip height from --node-module-io-height-units so
      multi-out modules (crossovers) never crush outlets into the param track. */
@@ -10416,60 +10654,35 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     - var(--node-module-grid-inset-y-total)
   );
   padding: 0;
-  /* Shared LayoutA + LayoutB chrome: square by default (roundness-ratio 0). */
-  border-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0));
-  /* Frame stroke is SVG .node-module-frame (gaps at jacks). No CSS outline —
-     outline cannot leave holes for ports and always paints over them. */
-  outline: none;
+  border-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0.53));
   background: var(--node-module-fill);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.26);
-  overflow: visible;
+  /* Plate = stroke box. Clip chrome to this radius; shadow is a filter so
+     overflow:hidden does not eat it. */
+  overflow: hidden;
+  box-shadow: none;
+  /* Idle stroke is outside (outline is not clipped). Selected swaps to inset gold. */
+  outline: var(--node-module-idle-stroke-width, 1px) solid var(--node-module-idle-stroke, rgb(255 255 255 / 0.5));
+  outline-offset: 0;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.26));
   pointer-events: none;
 }
 
 .dsp-node.module-stack {
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: var(--node-module-stack-rows, var(--node-header-height) auto);
 }
 
 .dsp-node > .node-module-face {
   min-width: 0;
+  max-width: 100%;
   min-height: 0;
 }
 
-/* Gapped module chrome — always under the plate mask + content.
-   Higher specificity than `.dsp-node svg { pointer-events: auto }` so the
-   outline never steals hits from faces (XY pad, scopes, etc.).
-   Pin to the plate box 1:1 (no attribute width/height). */
+/* Retired SVG frame. Stroke is CSS outline / selected ::before. */
 .dsp-node > .node-module-frame,
 .node-module-frame {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: auto;
-  bottom: auto;
-  margin: 0;
-  padding: 0;
-  overflow: visible;
+  display: none !important;
   pointer-events: none !important;
-  /* Below plate mask (::after) and content (z-index ≥ 1). */
-  z-index: 0;
-}
-
-/*
- * Opaque plate over the frame path. The stroke is outset so its outer half
- * stays visible; the inner half was covered by the header at the top but
- * painted over empty bottom gap / transparent body (stroke “in front”).
- * ::after paints after the frame in the z-index:0 layer and hides that.
- */
-.dsp-node::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  box-sizing: border-box;
-  border-radius: inherit;
-  background: var(--node-module-fill);
-  pointer-events: none;
 }
 
 /* Empty bottom plate band — same fill as the module; receives drag / right-click. */
@@ -10479,6 +10692,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   align-self: stretch;
   justify-self: stretch;
   background: transparent;
+  border-end-start-radius: inherit;
+  border-end-end-radius: inherit;
   cursor: var(--node-module-move-cursor, default);
 }
 
@@ -10488,53 +10703,16 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .dsp-node > *:not(.node-module-frame) {
   position: relative;
   z-index: 1;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  justify-self: stretch;
   pointer-events: auto;
 }
 
 .node-module-frame-path {
   fill: none;
-  stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
-  /* 1 screen px; path inset by half this width for pixel centering. */
-  stroke-width: var(--node-module-frame-stroke-width);
-  /* Round stroke only — path arcs + round joins; plate fill stays square. */
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  /* Prefer crisp axis edges; corners still use path arcs. */
-  shape-rendering: geometricPrecision;
-}
-
-.dsp-node.connected .node-module-frame-path {
-  stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
-  stroke-width: var(--node-module-frame-stroke-width);
-}
-
-.dsp-node.dragging .node-module-frame-path {
-  stroke: color-mix(in srgb, var(--node-module-drag-stroke) 62%, transparent);
-  stroke-width: var(--node-module-frame-stroke-width);
-}
-
-/* Knob / plugin shelf faces: no module-frame stroke at all (idle / selected / drag). */
-.dsp-node.slider-widget-layout.dragging {
-  --node-module-drag-stroke: transparent;
-}
-
-.dsp-node.slider-widget-layout > .node-module-frame .node-module-frame-path,
-.dsp-node.slider-widget-layout.dragging > .node-module-frame .node-module-frame-path,
-.dsp-node.slider-widget-layout.selected > .node-module-frame .node-module-frame-path,
-.dsp-node.slider-widget-layout.connected > .node-module-frame .node-module-frame-path {
-  stroke: transparent !important;
-  stroke-width: 0 !important;
-  stroke-opacity: 0 !important;
-  fill: none !important;
-}
-
-.dsp-node.selected .node-module-frame-path {
-  stroke: var(--node-module-selected-stroke);
-  stroke-width: var(--node-module-frame-stroke-width);
-  /* Rounded selection ring — path arcs use --node-module-selected-frame-radius. */
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  shape-rendering: geometricPrecision;
+  stroke: none;
 }
 
 .dsp-node-header,
@@ -10572,7 +10750,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .node-graph-workspace .dsp-node {
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.26);
+  box-shadow: none;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.26));
 }
 
 .dsp-node.placing {
@@ -10581,8 +10760,31 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .dsp-node.selected {
-  /* Drop shadow only — no solid ring (rings crossed ports). Selection edge is SVG. */
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.32);
+  outline: none;
+  box-shadow: none;
+  filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.32));
+}
+
+.dsp-node.selected::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px rgba(226, 168, 109, 0.5);
+}
+
+.dsp-node.slider-widget-layout.knob-face-has-image,
+.dsp-node.slider-widget-layout:has(.node-knob-face.has-image),
+.dsp-node.slider-widget-layout[data-hide-module-frame="1"] {
+  outline: none;
+}
+
+.dsp-node.slider-widget-layout.knob-face-has-image::before,
+.dsp-node.slider-widget-layout:has(.node-knob-face.has-image)::before,
+.dsp-node.slider-widget-layout[data-hide-module-frame="1"]::before {
+  content: none;
 }
 
 /*
@@ -10598,23 +10800,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
       transparent 8px 16px
     ),
     rgba(14, 12, 10, 0.94);
-  box-shadow:
-    0 8px 18px rgba(0, 0, 0, 0.34),
-    inset 0 0 0 2px rgba(226, 168, 109, 0.42);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
 }
 
-/* Plate mask (::after) must match bypassed fill or stripes vanish under it. */
 .dsp-node.bypassed::after {
-  background:
-    repeating-linear-gradient(
-      -45deg,
-      rgba(226, 168, 109, 0.1) 0 8px,
-      transparent 8px 16px
-    ),
-    rgba(14, 12, 10, 0.94);
+  content: none;
 }
 
-/* Full-module construction overlay over faces/chrome (cheap, no extra DOM). */
+/* Construction fill only — the inset stroke is now the selection overlay. */
 .dsp-node.bypassed::before {
   content: "OFF";
   position: absolute;
@@ -10635,9 +10828,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
       rgba(226, 168, 109, 0.28) 0 9px,
       rgba(0, 0, 0, 0.38) 9px 18px
     );
-  box-shadow:
-    inset 0 0 0 2px rgba(226, 168, 109, 0.5),
-    inset 0 0 28px rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.35);
   color: rgba(255, 214, 170, 0.82);
   font-family: var(--node-ui-font, system-ui, sans-serif);
   font-size: clamp(0.7rem, 18%, 1.15rem);
@@ -10648,6 +10839,12 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     0 1px 0 rgba(0, 0, 0, 0.85),
     0 0 12px rgba(0, 0, 0, 0.55);
   opacity: 1;
+}
+
+.dsp-node.bypassed.selected::before {
+  box-shadow:
+    inset 0 0 0 2px rgba(226, 168, 109, 0.5),
+    inset 0 0 28px rgba(0, 0, 0, 0.35);
 }
 
 /* Overlay covers the whole plate (including the title band). Title chrome
@@ -10729,13 +10926,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     )
   );
   display: grid;
-  /* Article rows from applyNodeGraphModuleLayout. */
-  /*
-   * Match LayoutA: overflow visible so the gapped SVG selection/frame stroke
-   * (outset past the plate) is not clipped. Shell + body stay overflow:hidden
-   * so face/jack content cannot blow past gu tracks.
-   */
-  overflow: visible;
+  grid-template-columns: minmax(0, 1fr);
+  /* Article box / stroke is the module area. */
+  overflow: hidden;
   /* Do not let min-content of children expand the plate past outer gu. */
   max-height: calc(
     (var(--node-grid-height) * var(--node-grid-height-units, 4))
@@ -10766,9 +10959,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .dsp-node.chrome-layout-b > .dsp-node-body,
 .dsp-node.solid-module-layout > .dsp-node-body {
   align-self: start;
+  align-content: start;
   min-height: 0;
-  /* Params size to content; outer gu already reserved them in JS. */
-  overflow: hidden;
+  overflow: visible;
 }
 
 /*
@@ -10777,8 +10970,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
  */
 .dsp-node.chrome-layout-b.layout-b-no-params,
 .dsp-node.solid-module-layout.layout-b-no-params {
-  /* Keep frame stroke visible (Value LCD / Value LED / headerless LayoutB). */
-  overflow: visible;
+  overflow: hidden;
 }
 
 .dsp-node.chrome-layout-b.layout-b-no-params > .dsp-node-body,
@@ -10793,6 +10985,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
+  border-end-start-radius: inherit;
+  border-end-end-radius: inherit;
 }
 
 /* LayoutB ports live in the shell — never a separate under-face IO strip. */
@@ -11528,7 +11722,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   white-space: nowrap;
   text-shadow: 0 0 0.35em rgba(0, 0, 0, 0.85), 0 1px 0 rgba(0, 0, 0, 0.55);
   pointer-events: auto;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   appearance: none;
 }
 
@@ -11925,7 +12119,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   padding: 0;
   border: 0;
   color: inherit;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   background: transparent;
 }
 
@@ -11998,7 +12192,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   border-radius: 6px;
   font-size: 16px;
   line-height: 1;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-rendered-player button:disabled {
@@ -12017,7 +12211,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   overflow: hidden;
   border: 1px solid rgba(127, 199, 217, 0.16);
   background: rgba(2, 5, 7, 0.9);
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   touch-action: none;
 }
 
@@ -12087,7 +12281,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   color: rgba(220, 240, 245, 0.92);
   background: rgba(8, 16, 22, 0.9);
   font: inherit;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-xy-pad-reset-canvas-button:hover {
@@ -12204,8 +12398,10 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     var(--node-header-padding-inline)
     var(--node-header-padding-block-end);
   background: rgba(7, 10, 13, 0.28);
-  /* Title strip is square-edged; module roundness clips via .dsp-node only. */
-  border-radius: 0;
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
   overflow: hidden;
 }
 
@@ -12222,21 +12418,27 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     var(--node-header-padding-inline)
     var(--node-header-padding-block-end);
   background: rgba(7, 10, 13, 0.28);
-  border-radius: 0;
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
 }
 
 .dsp-node-body {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
+  min-height: 0;
   justify-self: stretch;
+  align-self: start;
   display: grid;
   align-content: start;
-  align-self: start;
   grid-auto-rows: var(--node-body-row-height);
   gap: var(--node-body-row-gap);
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
 }
 
 /* Buttons-hidden used to rewrite article grid-template-rows. Stack is now
@@ -12406,6 +12608,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
    background is black at every corner shape. */
 .node-phosphor-waveform-display {
   --phosphor-waveform-inset: 2px;
+  --phosphor-waveform-label-inset: 6px;
   --phosphor-waveform-radius: 0px;
   --phosphor-waveform-corner-shape: round;
   /* Written per node from applyNodeGraphPhosphorWaveformPanelShape, tracking
@@ -12433,12 +12636,12 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   border-radius: var(--phosphor-waveform-radius);
   corner-shape: var(--phosphor-waveform-corner-shape);
   background: #000;
-  cursor: grab;
+  cursor: var(--node-dot-cursor);
   touch-action: none;
 }
 
 .node-phosphor-waveform-canvas.dragging {
-  cursor: grabbing;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-phosphillator-draw-display {
@@ -13185,7 +13388,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   border-radius: 2px;
   background: rgba(7, 16, 20, 0.9);
   color: rgba(222, 244, 238, 0.9);
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
 }
 
 .scene-context-graph-node-add:hover {
@@ -13767,6 +13970,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-width: 0;
   overflow: hidden;
   z-index: 3;
+  background: rgb(3, 5, 7);
 }
 
 .node-graph-workspace.module-interface-controls-hidden .sample-module-layout:not(.interface-controls-forced-visible) .node-sample-module-body,
@@ -13804,6 +14008,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .dsp-node.title-only .dsp-node-header {
   grid-template-rows: minmax(0, 1fr);
+  border-radius: inherit;
 }
 
 .dsp-node.module-collapsed {
@@ -13928,6 +14133,10 @@ input.node-header-title:focus {
 .dsp-node-io-section {
   position: relative;
   z-index: 2;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  justify-self: stretch;
   display: grid;
   /* Side tracks size to the longest port label (set as --node-io-*-label-ch on
      the section). Old hard cap of 2gu clipped names like Frequency / Fidelity
@@ -13949,8 +14158,7 @@ input.node-header-title:focus {
   min-width: 0;
   min-height: var(--node-io-section-min-height);
   padding: var(--node-io-section-padding-block) 0;
-  /* Opaque — translucent panes let the frame stroke show through dimmed. */
-  background: var(--node-module-io-fill);
+  background: transparent;
 }
 
 .dsp-node-io-section,
@@ -14086,14 +14294,24 @@ input.node-header-title:focus {
 /* Digital signal (12-bit bitmask) ports: solid white wire and port taps
    (see nodeGraphPortWireColor). Colors only -- no shape, dash, or animation
    change; dashing stays reserved for the .node-wire-path.temp drag state. */
-.node-io-row[data-digital-signal="output"] {
+.node-io-row[data-digital-signal="output"] .node-port.output {
   --node-output-fill: var(--node-digital-fill, #ffffff);
   --node-output-stroke: var(--node-digital-fill, #ffffff);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-digital-fill, #ffffff) var(--node-outlet-rgb-brightness, 100%),
+    transparent
+  );
 }
 
-.node-io-row[data-digital-signal="input"] {
+.node-io-row[data-digital-signal="input"] .node-port.input {
   --node-input-fill: var(--node-digital-fill, #ffffff);
   --node-input-stroke: var(--node-digital-fill, #ffffff);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-digital-fill, #ffffff) var(--node-inlet-blue-brightness, 100%),
+    transparent
+  );
 }
 
 .node-io-label-rgba {
@@ -14110,76 +14328,91 @@ input.node-header-title:focus {
   color: #000000;
 }
 
-/* App-wide jack stroke: idle = module chrome only. Type color (gold analog,
-   cyan analog in, RGB channel, digital white) only when .connected-port.
-   Mix amount is Outlet RGB brightness (UI Settings 0…1). Cables stay gold/white. */
-.node-port.output.connected-port[data-outlet-channel="mono"],
-.node-io-row.output[data-outlet-channel="mono"] .node-port.output.connected-port {
+/* Unused PARAM jacks stay dim chrome. Signal I/O jacks keep type color
+   (gold analog out, cyan analog in, RGB channel, digital white) at UIDEV
+   brightness whether or not a cable is attached. */
+.dsp-node .node-param-port:not(.connected-port) {
+  --node-port-crescent-fill: transparent;
+  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
+}
+
+/* Analog outlet (no RGB channel, not digital). */
+.dsp-node .node-io-row.output:not([data-digital-signal]) .node-port.output:not([data-outlet-channel]) {
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-output-stroke) var(--node-outlet-rgb-brightness, 100%),
+    transparent
+  );
+}
+
+/* App-wide jack stroke. Mix amount is Outlet RGB / Inlet blue brightness (0…1).
+   Cables stay gold analog / white digital. */
+.dsp-node .node-port.output[data-outlet-channel="mono"],
+.dsp-node .node-io-row.output[data-outlet-channel="mono"] .node-port.output {
   --node-output-stroke: var(--node-outlet-mono-stroke);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-outlet-mono-stroke) calc(var(--node-outlet-rgb-brightness, 1) * 100%),
+    var(--node-outlet-mono-stroke) var(--node-outlet-rgb-brightness, 100%),
     transparent
   );
 }
 
-.node-port.output.connected-port[data-outlet-channel="left"],
-.node-io-row.output[data-outlet-channel="left"] .node-port.output.connected-port {
+.dsp-node .node-port.output[data-outlet-channel="left"],
+.dsp-node .node-io-row.output[data-outlet-channel="left"] .node-port.output {
   --node-output-stroke: var(--node-outlet-left-stroke);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-outlet-left-stroke) calc(var(--node-outlet-rgb-brightness, 1) * 100%),
+    var(--node-outlet-left-stroke) var(--node-outlet-rgb-brightness, 100%),
     transparent
   );
 }
 
-.node-port.output.connected-port[data-outlet-channel="right"],
-.node-io-row.output[data-outlet-channel="right"] .node-port.output.connected-port {
+.dsp-node .node-port.output[data-outlet-channel="right"],
+.dsp-node .node-io-row.output[data-outlet-channel="right"] .node-port.output {
   --node-output-stroke: var(--node-outlet-right-stroke);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-outlet-right-stroke) calc(var(--node-outlet-rgb-brightness, 1) * 100%),
+    var(--node-outlet-right-stroke) var(--node-outlet-rgb-brightness, 100%),
     transparent
   );
 }
 
-/* Analog inlet highlight — same cyan as the cable inlet end (#7fc7d9).
-   Idle (unwired) stays module-stroke. Channelled RGB inlets override when wired. */
-.node-port.input.connected-port:not(.node-param-port),
-.node-io-row.input .node-port.input.connected-port:not(.node-param-port) {
+/* Analog inlet — same cyan as the cable inlet end (#7fc7d9). RGB inlets override. */
+.dsp-node .node-port.input:not(.node-param-port):not([data-outlet-channel]),
+.dsp-node .node-io-row.input:not([data-digital-signal]) .node-port.input:not(.node-param-port):not([data-outlet-channel]) {
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-input-stroke, var(--node-inlet-blue-stroke)) calc(var(--node-inlet-blue-brightness, 0) * 100%),
-    color-mix(in srgb, var(--node-module-stroke) 16%, transparent)
+    var(--node-input-stroke, var(--node-inlet-blue-stroke)) var(--node-inlet-blue-brightness, 100%),
+    transparent
   );
 }
 
-.node-port.input.connected-port[data-outlet-channel="mono"]:not(.node-param-port),
-.node-io-row.input[data-outlet-channel="mono"]:not([data-digital-signal]) .node-port.input.connected-port:not(.node-param-port) {
+.dsp-node .node-port.input[data-outlet-channel="mono"]:not(.node-param-port),
+.dsp-node .node-io-row.input[data-outlet-channel="mono"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
   --node-input-stroke: var(--node-outlet-mono-stroke);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-outlet-mono-stroke) calc(var(--node-outlet-rgb-brightness, 1) * 100%),
+    var(--node-outlet-mono-stroke) var(--node-outlet-rgb-brightness, 100%),
     transparent
   );
 }
 
-.node-port.input.connected-port[data-outlet-channel="left"]:not(.node-param-port),
-.node-io-row.input[data-outlet-channel="left"]:not([data-digital-signal]) .node-port.input.connected-port:not(.node-param-port) {
+.dsp-node .node-port.input[data-outlet-channel="left"]:not(.node-param-port),
+.dsp-node .node-io-row.input[data-outlet-channel="left"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
   --node-input-stroke: var(--node-outlet-left-stroke);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-outlet-left-stroke) calc(var(--node-outlet-rgb-brightness, 1) * 100%),
+    var(--node-outlet-left-stroke) var(--node-outlet-rgb-brightness, 100%),
     transparent
   );
 }
 
-.node-port.input.connected-port[data-outlet-channel="right"]:not(.node-param-port),
-.node-io-row.input[data-outlet-channel="right"]:not([data-digital-signal]) .node-port.input.connected-port:not(.node-param-port) {
+.dsp-node .node-port.input[data-outlet-channel="right"]:not(.node-param-port),
+.dsp-node .node-io-row.input[data-outlet-channel="right"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
   --node-input-stroke: var(--node-outlet-right-stroke);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-outlet-right-stroke) calc(var(--node-outlet-rgb-brightness, 1) * 100%),
+    var(--node-outlet-right-stroke) var(--node-outlet-rgb-brightness, 100%),
     transparent
   );
 }
@@ -14213,6 +14446,7 @@ input.node-header-title:focus {
 }
 
 .node-io-row.patch-point-hover .node-port {
+  overflow: visible;
   filter: brightness(1.08);
 }
 
@@ -14318,10 +14552,11 @@ input.node-header-title:focus {
 }
 
 .node-drag-handle {
-  font-size: calc(var(--node-header-height) * var(--node-move-symbol-size-ratio, 0.6) * 0.47);
+  /* Module header move glyph — independent of floating-window 100% size. */
+  font-size: calc(var(--node-header-height) * 0.6 * 0.47);
 }
 
-/* Floating pages share the heading chrome size — not the module header clamp. */
+/* Floating pages: move widget is 100% of the header cell. */
 .scene-context-heading > .scene-context-drag-handle,
 .scene-context-heading > .node-drag-handle {
   font-size: var(--node-move-symbol-size);
@@ -14371,8 +14606,12 @@ input.node-header-title:focus {
   cursor: var(--node-default-cursor);
 }
 
-.dsp-node:not(.movement-locked) button:not(.node-drag-handle):not(.node-port):not(.node-param-port) {
-  cursor: pointer;
+.dsp-node:not(.movement-locked) .node-header-actions > button {
+  cursor: var(--node-module-move-cursor);
+}
+
+.dsp-node:not(.movement-locked) button:not(.node-drag-handle):not(.node-display-settings-button):not(.node-metaparameter-button):not(.node-action-button):not(.node-bypass-button):not(.node-port):not(.node-param-port) {
+  cursor: var(--node-dot-cursor);
 }
 
 .dsp-node:not(.movement-locked) input:not(.node-header-title):not(.node-header-title-input):not([readonly]),
@@ -14463,13 +14702,9 @@ input.node-header-title:focus {
   color: var(--warning, #f3b75f);
 }
 
-.node-drag-handle:hover,
 .node-drag-handle:focus-visible,
-.node-action-button:hover,
 .node-action-button:focus-visible,
-.node-display-settings-button:hover,
 .node-display-settings-button:focus-visible,
-.node-metaparameter-button:hover,
 .node-metaparameter-button:focus-visible {
   color: var(--accent);
 }
@@ -14478,31 +14713,18 @@ input.node-header-title:focus {
   color: var(--accent-2);
 }
 
-.node-drag-handle:hover,
-.node-drag-handle:focus-visible,
-.node-action-button:hover,
-.node-action-button:focus-visible,
-.node-display-settings-button:hover,
-.node-display-settings-button:focus-visible,
-.node-metaparameter-button:hover,
-.node-metaparameter-button:focus-visible,
-.node-bypass-button:hover {
+/* No hover paint on module chrome — global `button:hover` accent must not apply. */
+.dsp-node .node-header-actions > button:hover,
+.dsp-node .node-drag-handle:hover,
+.dsp-node .node-action-button:hover,
+.dsp-node .node-display-settings-button:hover,
+.dsp-node .node-metaparameter-button:hover,
+.dsp-node .node-bypass-button:hover,
+.dsp-node .node-bypass-button[aria-pressed="true"]:hover,
+.dsp-node.bypassed:not(.connected) .node-bypass-button[aria-pressed="true"]:hover {
   border-color: transparent;
   box-shadow: none;
-}
-
-.node-bypass-button[aria-pressed="true"]:hover {
-  border-color: transparent;
-  background: var(--node-bypass-on-bg);
-}
-
-.dsp-node.bypassed:not(.connected) .node-bypass-button[aria-pressed="true"]:hover {
-  background: var(--node-bypass-on-bg);
-  color: transparent;
-}
-
-.dsp-node.bypassed:not(.connected) .node-bypass-button[aria-pressed="true"]:hover::before {
-  color: color-mix(in srgb, var(--node-bypass-icon-on-color) 72%, transparent);
+  filter: none;
 }
 
 .dsp-node label,
@@ -14518,12 +14740,9 @@ input.node-header-title:focus {
   grid-template-rows: var(--node-slider-readout-height);
   align-items: center;
   column-gap: 0;
-  height: max(
-    var(--node-body-row-height),
-    calc(var(--node-slider-readout-height) + (var(--node-slider-row-padding-block) * 2))
-  );
-  min-height: var(--node-body-row-height);
-  padding: var(--node-slider-row-padding-block) 0;
+  height: var(--node-slider-readout-height);
+  min-height: var(--node-slider-readout-height);
+  padding: 0;
 }
 
 .node-parameter-control {
@@ -14531,7 +14750,7 @@ input.node-header-title:focus {
   grid-row: 1;
   align-self: center;
   justify-self: center;
-  width: calc(100% * var(--node-slider-width-ratio, 1));
+  width: 100%;
   min-width: 0;
   height: var(--node-slider-readout-height);
   min-height: var(--node-slider-readout-height);
@@ -14584,8 +14803,12 @@ input.node-header-title:focus {
   overflow: hidden;
 }
 
-.node-slider-readout:not([data-control="number"]) {
-  cursor: var(--node-dot-cursor);
+.node-slider-readout:not([data-control="number"]),
+.node-slider-readout:not([data-control="number"]):hover,
+.node-slider-readout:not([data-control="number"]).value-dragging,
+body.node-slider-dragging,
+body.node-slider-dragging * {
+  cursor: var(--node-slider-dot-cursor) !important;
 }
 
 .node-slider-readout:hover,
@@ -14608,8 +14831,8 @@ input.node-header-title:focus {
 }
 
 .node-slider-readout::before {
-  left: var(--value-start, calc(0% - 4px));
-  right: calc(100% - var(--value-end, calc(0% + 4px)));
+  left: var(--value-start, 0px);
+  right: calc(100% - var(--value-end, 0px));
   border: 1px solid transparent;
   border-radius: 0;
   background: var(--node-slider-position-color);
@@ -15161,9 +15384,9 @@ input.node-header-title:focus {
 }
 
 /*
- * Metaparameters only: no height compression when the window is shortened.
+ * No height compression when the window is shortened.
  * Form rows keep fixed content size; the body scrolls instead of crushing rows
- * into each other (which caused overlap). Display Settings is left alone.
+ * into each other (which caused overlap).
  */
 #nodeParameterMetadataPopover.node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
   > .metadata-popover-grid {
@@ -15183,6 +15406,9 @@ input.node-header-title:focus {
 #nodeParameterMetadataPopover.node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
   > .metadata-popover-grid
   > .metadata-choices-label,
+#nodeParameterMetadataPopover.node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
+  > .metadata-popover-grid
+  > .metadata-tooltip-label,
 #nodeParameterMetadataPopover.node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
   > .metadata-popover-grid
   > .metadata-smoothing-mode-section,
@@ -15472,9 +15698,11 @@ input.node-header-title:focus {
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-field-actions,
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-section-title,
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-choices-label,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-tooltip-label,
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-smoothing-mode-section,
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-smoothing-type-section,
-.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-advanced-toggle {
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-advanced-toggle,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-full-row {
   grid-column: 1 / -1;
 }
 
@@ -15506,6 +15734,7 @@ input.node-header-title:focus {
 }
 
 /* Full-width rows inside the flat grid when a lone control needs the line. */
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-identity-section > .metadata-full-row,
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section > .metadata-curve-sensitivity-label {
   grid-column: 1 / -1;
   border-right: 0;
@@ -15522,13 +15751,30 @@ input.node-header-title:focus {
   overflow: visible;
 }
 
-/* Display Settings: single-column full-width body (never share param 2-col flat). */
+/* Display Settings: single-column full-width body (never share param 2-col flat).
+   Pack to content so a short window scrolls instead of stacking rows on top of each other. */
 .node-trace-display-settings-popover > .metadata-popover-grid,
 .node-trace-display-settings-popover > .node-trace-display-settings-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  align-items: start;
+  grid-auto-rows: max-content;
+  justify-content: start;
   width: 100%;
   box-sizing: border-box;
+}
+
+.node-trace-display-settings-body {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: max-content;
+  align-content: start;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  min-height: max-content;
 }
 
 .node-trace-display-settings-popover > .metadata-popover-grid > *,
@@ -15571,7 +15817,7 @@ input.node-header-title:focus {
   color: rgba(205, 214, 216, 0.82);
   font-size: 0.92rem;
   line-height: 1;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   transition: background-color 0.12s ease, color 0.12s ease;
 }
 
@@ -15658,6 +15904,15 @@ input.node-header-title:focus {
   border-right: 0;
   border-bottom: 0;
   border-left: 0;
+}
+
+.metadata-popover-grid .metadata-tooltip-label {
+  min-height: 92px;
+}
+
+.metadata-popover-grid .metadata-tooltip-label textarea {
+  min-height: 72px;
+  white-space: pre-wrap;
 }
 
 .metadata-popover-grid input[type="checkbox"] {
@@ -15832,10 +16087,38 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   padding: 0;
 }
 
+.node-trace-display-settings-popover .metadata-popover-grid label.node-trace-display-line-burn-row {
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 6px;
+  min-height: var(--ds-row-h);
+  overflow: visible;
+}
+
+.node-trace-display-settings-popover .metadata-popover-grid label.node-trace-display-line-burn-row > span:first-child {
+  overflow: visible;
+  text-overflow: unset;
+  padding: 0 6px 0 8px;
+}
+
+.node-trace-display-settings-popover .metadata-popover-grid .metadata-checkbox-label {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  min-height: var(--ds-row-h);
+  overflow: visible;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
 .node-trace-display-settings-popover .metadata-field-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: max-content;
+  align-content: start;
   align-self: start;
   grid-column: 1 / -1;
   min-height: max-content;
+  overflow: visible;
 }
 
 /* Mode dropdown removed (one face per module). */
@@ -16176,6 +16459,43 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   white-space: nowrap;
 }
 
+/* Output / stereo Trace: title + Swap L/R share one row (do not stack/clip). */
+.node-trace-display-settings-popover .metadata-section-title.node-trace-display-stereo-title {
+  grid-template-columns: minmax(0, 1fr) auto;
+  place-items: center stretch;
+  overflow: hidden;
+  padding: 0 0 0 8px;
+}
+
+.node-trace-display-settings-popover .node-trace-display-stereo-title > span {
+  justify-self: start;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-trace-display-settings-popover .node-trace-display-swap-lr {
+  appearance: none;
+  box-sizing: border-box;
+  align-self: stretch;
+  width: auto !important;
+  max-width: 100%;
+  height: var(--ds-row-h) !important;
+  min-height: 0 !important;
+  min-width: 0;
+  margin: 0;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-left: 1px solid var(--ds-split, color-mix(in srgb, var(--accent) 18%, transparent)) !important;
+  border-radius: 0 5px 5px 0 !important;
+  background: color-mix(in srgb, var(--accent) 14%, transparent) !important;
+  color: color-mix(in srgb, var(--accent) 92%, white 8%) !important;
+  box-shadow: none !important;
+  font: 650 0.62rem/1 inherit;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 .node-trace-display-settings-target {
   display: grid;
   grid-column: 1 / -1;
@@ -16215,6 +16535,22 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-settings-popover .node-trace-display-secondary-title > input {
   justify-self: center;
   margin: 0;
+  pointer-events: auto;
+}
+
+.node-trace-display-settings-popover .node-trace-display-stereo-colors-section {
+  gap: 8px;
+  padding: 6px;
+  overflow: visible;
+}
+
+.node-trace-display-settings-popover .node-trace-display-stereo-colors-section .node-trace-display-color-widget-row {
+  min-height: 0;
+}
+
+.node-trace-display-settings-popover .node-trace-display-stereo-colors-section .node-trace-display-color-widget-row.has-color-caption {
+  grid-template-rows: auto var(--ds-color-host-h);
+  gap: 4px;
 }
 
 /* Phosphor Dot: keep Ghost / Trail / Burn / Pixel density (energy residual).
@@ -16260,7 +16596,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   font-weight: 600;
   font-size: 0.72rem; /* floor; AppLatchButton.fitLabel sets size */
   line-height: 1;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
@@ -17848,6 +18184,17 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   gap: 0;
 }
 
+.scene-context-wire-type-control > .scene-context-wire-curve-slot {
+  display: block;
+}
+
+.scene-context-wire-type-control .node-settings-range-row {
+  margin-top: 2px;
+  padding: 3px 0 0;
+  border-top: 1px solid rgba(127, 199, 217, 0.14);
+  text-transform: uppercase;
+}
+
 .scene-context-wire-type-control button {
   justify-content: center;
   padding: 0 6px;
@@ -19118,21 +19465,16 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 /*
- * Half-jacks: solid fill + crescent stroke on the curved edge only.
+ * Half-jacks: crescent stroke only. Interior is empty (see-through).
  * Flat outer edge stays open to the wire gap.
- *
- * Paint: two radial layers (stroke disk under, fill disk inset). Soft stop
- * bands avoid the jagged hard-stop ring that 1px/zoom color stops produce
- * under CSS zoom / non-integer device pixels.
  */
 .node-port {
   position: relative;
   /* Above module frame (z0) and io chrome so half-jacks cover the edge stroke. */
   z-index: 6;
-  /* Solid idle plate only — no translucent color wash inside the crescent. */
-  --node-port-stroke-mask-color: var(--node-port-idle-fill);
-  --node-port-crescent-fill: var(--node-port-idle-fill);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 85%, transparent);
+  --node-port-stroke-mask-color: transparent;
+  --node-port-crescent-fill: transparent;
+  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
   --node-port-crescent-at: left center;
   display: block;
   box-sizing: border-box;
@@ -19153,19 +19495,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   cursor: var(--node-dot-cursor);
   border: 0;
   border-color: transparent;
-  /* Outer = stroke color; inner = fill, feathered so the arc AA is smooth. */
-  background:
-    radial-gradient(
-      circle farthest-side at var(--node-port-crescent-at),
-      var(--node-port-crescent-fill) 0%,
-      var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width) - 0.6px),
-      transparent calc(100% - var(--node-port-crescent-stroke-width) + 0.35px)
-    ),
-    radial-gradient(
-      circle farthest-side at var(--node-port-crescent-at),
-      var(--node-port-crescent-stroke) 0%,
-      var(--node-port-crescent-stroke) 100%
-    );
+  background: var(--node-port-crescent-paint);
   box-shadow: none;
 }
 
@@ -19183,8 +19513,8 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 100%;
   --node-port-hover-color: var(--node-output-fill);
   --node-port-crescent-at: right center;
-  /* Idle: module chrome. Gold / RGB / digital land on .connected-port. */
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 85%, transparent);
+  /* Default dim chrome; I/O type-color rules above override for signal jacks. */
+  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
   /* Flat outer edge on the right; curved inner arc on the left. */
   border-radius: 999px 0 0 999px;
 }
@@ -19202,8 +19532,8 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 0%;
   --node-port-hover-color: var(--node-input-fill);
   --node-port-crescent-at: left center;
-  /* Idle: module chrome. Cyan / RGB land on .connected-port. */
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 85%, transparent);
+  /* Default dim chrome; I/O type-color rules above override for signal jacks. */
+  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
   /* Flat outer edge on the left; curved inner arc on the right. */
   border-radius: 0 999px 999px 0;
 }
@@ -19216,9 +19546,9 @@ body.node-slider-dragging .node-param-port {
 .node-param-port {
   position: relative;
   z-index: 6;
-  --node-port-stroke-mask-color: var(--node-port-idle-fill);
-  --node-port-crescent-fill: var(--node-port-idle-fill);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 85%, transparent);
+  --node-port-stroke-mask-color: transparent;
+  --node-port-crescent-fill: transparent;
+  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
   --node-port-crescent-at: left center;
   grid-column: 1;
   grid-row: 1;
@@ -19241,29 +19571,19 @@ body.node-slider-dragging .node-param-port {
   box-shadow: none;
 }
 
-/* Visible jack: half-disk fill + crescent arc stroke (no flat-edge stroke). */
+/* Same visual box as I/O .node-port — no extra scale (that thinned the ring). */
 .node-param-port::before {
   content: "";
   position: absolute;
   top: 50%;
   box-sizing: border-box;
-  width: var(--node-port-area-radius);
-  min-width: var(--node-port-area-radius);
-  height: var(--node-port-area-size);
-  min-height: var(--node-port-area-size);
+  width: var(--node-signal-port-width);
+  min-width: var(--node-signal-port-width);
+  height: var(--node-signal-port-height);
+  min-height: 0;
+  max-height: 100%;
   border: 0;
-  background:
-    radial-gradient(
-      circle farthest-side at var(--node-port-crescent-at),
-      var(--node-port-crescent-fill) 0%,
-      var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width, 1.25px) - 0.6px),
-      transparent calc(100% - var(--node-port-crescent-stroke-width, 1.25px) + 0.35px)
-    ),
-    radial-gradient(
-      circle farthest-side at var(--node-port-crescent-at),
-      var(--node-port-crescent-stroke) 0%,
-      var(--node-port-crescent-stroke) 100%
-    );
+  background: var(--node-port-crescent-paint);
   box-shadow: none;
   pointer-events: none;
 }
@@ -19273,7 +19593,7 @@ body.node-slider-dragging .node-param-port {
   --node-param-hover-color: var(--node-mod-input-fill);
   --node-param-hover-stroke: var(--node-mod-input-stroke);
   --node-port-crescent-at: left center;
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 22%, transparent);
+  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
 }
 
 .node-param-port.graph-input {
@@ -19281,7 +19601,7 @@ body.node-slider-dragging .node-param-port {
   --node-param-hover-color: var(--node-mod-input-fill);
   --node-param-hover-stroke: var(--node-mod-input-stroke);
   --node-port-crescent-at: left center;
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 22%, transparent);
+  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
 }
 
 .node-param-port.modulation-input::before,
@@ -19289,8 +19609,7 @@ body.node-slider-dragging .node-param-port {
   left: 0;
   border-radius: 0 999px 999px 0;
   box-shadow: none;
-  /* fit-ratio is clamped ≤ 0.92 so scaled jack stays inside the param row cell. */
-  transform: translateY(-50%) scale(var(--node-port-fit-ratio));
+  transform: translateY(-50%);
   transform-origin: left center;
 }
 
@@ -19298,7 +19617,7 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 100%;
   --node-param-hover-color: var(--node-param-output-fill);
   --node-param-hover-stroke: var(--node-param-output-stroke);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 22%, transparent);
+  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
   --node-port-crescent-at: right center;
   grid-column: 3;
   grid-row: 1;
@@ -19314,19 +19633,19 @@ body.node-slider-dragging .node-param-port {
   right: 0;
   border-radius: 999px 0 0 999px;
   box-shadow: none;
-  transform: translateY(-50%) scale(var(--node-port-fit-ratio));
+  transform: translateY(-50%);
   transform-origin: right center;
 }
 
 /*
- * Wired jacks: solid idle fill (no type-color alpha wash) + type-colored stroke.
+ * Wired jacks: type-colored crescent stroke, empty interior.
  * Contact discs still live on #nodeWireEndpointSvg.
  */
 .node-port.output.connected-port {
   --node-patch-point-color: var(--node-output-fill);
   --node-patch-point-x: 100%;
-  --node-port-stroke-mask-color: var(--node-port-idle-fill);
-  --node-port-crescent-fill: var(--node-port-idle-fill);
+  --node-port-stroke-mask-color: transparent;
+  --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: color-mix(in srgb, var(--node-output-stroke) 85%, transparent);
   border-color: transparent;
 }
@@ -19336,8 +19655,8 @@ body.node-slider-dragging .node-param-port {
 .node-param-port.parameter-output.connected-port {
   --node-patch-point-color: var(--node-param-output-fill);
   --node-patch-point-x: 100%;
-  --node-port-stroke-mask-color: var(--node-port-idle-fill);
-  --node-port-crescent-fill: var(--node-port-idle-fill);
+  --node-port-stroke-mask-color: transparent;
+  --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: color-mix(in srgb, var(--node-param-output-stroke) 85%, transparent);
   border-color: transparent;
   background: transparent;
@@ -19349,8 +19668,8 @@ body.node-slider-dragging .node-param-port {
 .node-port.input.connected-port {
   --node-patch-point-color: var(--node-input-fill);
   --node-patch-point-x: 0%;
-  --node-port-stroke-mask-color: var(--node-port-idle-fill);
-  --node-port-crescent-fill: var(--node-port-idle-fill);
+  --node-port-stroke-mask-color: transparent;
+  --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: color-mix(in srgb, var(--node-input-stroke) 85%, transparent);
   border-color: transparent;
 }
@@ -19358,8 +19677,8 @@ body.node-slider-dragging .node-param-port {
 .node-param-port.modulation-input.connected-port {
   --node-patch-point-color: var(--node-mod-input-fill);
   --node-patch-point-x: 0%;
-  --node-port-stroke-mask-color: var(--node-port-idle-fill);
-  --node-port-crescent-fill: var(--node-port-idle-fill);
+  --node-port-stroke-mask-color: transparent;
+  --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: color-mix(in srgb, var(--node-mod-input-stroke) 85%, transparent);
   border-color: transparent;
   background: transparent;
@@ -19368,8 +19687,8 @@ body.node-slider-dragging .node-param-port {
 .node-param-port.graph-input.connected-port {
   --node-patch-point-color: var(--node-mod-input-fill);
   --node-patch-point-x: 0%;
-  --node-port-stroke-mask-color: var(--node-port-idle-fill);
-  --node-port-crescent-fill: var(--node-port-idle-fill);
+  --node-port-stroke-mask-color: transparent;
+  --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: color-mix(in srgb, var(--node-mod-input-stroke) 85%, transparent);
   border-color: transparent;
   background: transparent;
@@ -19381,19 +19700,7 @@ body.node-slider-dragging .node-param-port {
 .node-port.connected-port,
 .node-param-port.connected-port {
   overflow: visible;
-  /* Same dual-layer paint as idle (fill + soft stroke ring). */
-  background:
-    radial-gradient(
-      circle farthest-side at var(--node-port-crescent-at),
-      var(--node-port-crescent-fill) 0%,
-      var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width, 1.25px) - 0.6px),
-      transparent calc(100% - var(--node-port-crescent-stroke-width, 1.25px) + 0.35px)
-    ),
-    radial-gradient(
-      circle farthest-side at var(--node-port-crescent-at),
-      var(--node-port-crescent-stroke) 0%,
-      var(--node-port-crescent-stroke) 100%
-    );
+  background: var(--node-port-crescent-paint);
   box-shadow: none;
   border: 0;
 }
@@ -19405,18 +19712,7 @@ body.node-slider-dragging .node-param-port {
 
 .node-param-port.connected-port::before {
   border: 0;
-  background:
-    radial-gradient(
-      circle farthest-side at var(--node-port-crescent-at),
-      var(--node-port-crescent-fill) 0%,
-      var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width, 1.25px) - 0.6px),
-      transparent calc(100% - var(--node-port-crescent-stroke-width, 1.25px) + 0.35px)
-    ),
-    radial-gradient(
-      circle farthest-side at var(--node-port-crescent-at),
-      var(--node-port-crescent-stroke) 0%,
-      var(--node-port-crescent-stroke) 100%
-    );
+  background: var(--node-port-crescent-paint);
   box-shadow: none;
 }
 
@@ -19494,80 +19790,63 @@ body.node-slider-dragging .node-param-port {
   filter: brightness(1.08);
 }
 
-/* Hover: tinted fill + brighter crescent stroke + soft glow. Flat edge stays open. */
+/* Unused I/O: brighter crescent + soft glow on the host jack.
+   Param jacks (.node-param-port, including parameter-output which also
+   carries .node-port) paint only on ::before — do not restroke the host. */
+.node-port:not(.node-param-port):not(.connected-port):hover,
+.node-port:not(.node-param-port):not(.connected-port).patch-point-hover,
+.node-io-row.patch-point-hover .node-port:not(.node-param-port):not(.connected-port) {
+  overflow: visible;
+  --node-port-stroke-mask-color: transparent;
+  --node-port-crescent-fill: transparent;
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-port-hover-stroke, var(--node-module-stroke)) 68%,
+    transparent
+  );
+  background: var(--node-port-crescent-paint);
+  box-shadow: none;
+  filter: brightness(1.08);
+}
+
 .node-param-port:not(.connected-port):hover::before,
 .node-param-port:not(.connected-port).patch-point-hover::before {
   /* Legacy smoke contract token: color-mix(in srgb, var(--node-port-hover-fill). */
-  --node-port-stroke-mask-color: color-mix(in srgb, var(--node-param-hover-color, var(--node-port-hover-fill)) 16%, transparent);
-  --node-port-crescent-fill: var(--node-port-stroke-mask-color);
+  --node-port-stroke-mask-color: transparent;
+  --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: color-mix(in srgb, var(--node-param-hover-stroke, var(--node-port-hover-stroke)) 68%, transparent);
   border: 0;
   border-color: transparent;
-  background: radial-gradient(
-    circle farthest-side at var(--node-port-crescent-at),
-    var(--node-port-crescent-fill) calc(100% - 1px),
-    var(--node-port-crescent-stroke) calc(100% - 1px),
-    var(--node-port-crescent-stroke) 100%
-  );
-  box-shadow:
-    0 0 var(--node-hover-glow-size) var(--node-hover-glow-spread) color-mix(in srgb, var(--node-param-hover-color, var(--node-port-hover-fill)) 38%, transparent);
+  background: var(--node-port-crescent-paint);
+  box-shadow: none;
 }
 
-.node-port.connected-port:hover::after,
-.node-port.connected-port.patch-point-hover::after,
-.node-param-port.connected-port:hover::after,
-.node-param-port.connected-port.patch-point-hover::after {
-  box-shadow:
-    0 0 var(--node-hover-glow-size) var(--node-hover-glow-spread) color-mix(in srgb, var(--node-patch-point-color, var(--node-port-hover-fill)) 34%, transparent);
+.node-port:not(.node-param-port).connected-port:hover::after,
+.node-port:not(.node-param-port).connected-port.patch-point-hover::after {
+  box-shadow: none;
 }
 
 /*
- * Wired jacks: keep the crescent stroke on hover (was transparent — stroke
- * vanished whenever a connected inlet/outlet was hovered). Brighten fill +
- * type-colored arc + soft glow, same dual-layer paint as idle connected.
+ * Wired I/O jacks: keep the crescent stroke on hover (was transparent — stroke
+ * vanished whenever a connected inlet/outlet was hovered).
+ * Param jacks keep their connected crescent on ::before only.
  */
-.node-port.connected-port:hover,
-.node-port.connected-port.patch-point-hover,
-.node-io-row.patch-point-hover .node-port.connected-port {
+.node-port:not(.node-param-port).connected-port:hover,
+.node-port:not(.node-param-port).connected-port.patch-point-hover,
+.node-io-row.patch-point-hover .node-port:not(.node-param-port).connected-port {
+  overflow: visible;
   border: 0;
   border-color: transparent;
-  /* Reassert dual-layer fill + stroke so hover paint cannot collapse to fill-only. */
-  background:
-    radial-gradient(
-      circle farthest-side at var(--node-port-crescent-at),
-      var(--node-port-crescent-fill) 0%,
-      var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width, 1.25px) - 0.6px),
-      transparent calc(100% - var(--node-port-crescent-stroke-width, 1.25px) + 0.35px)
-    ),
-    radial-gradient(
-      circle farthest-side at var(--node-port-crescent-at),
-      var(--node-port-crescent-stroke) 0%,
-      var(--node-port-crescent-stroke) 100%
-    );
-  box-shadow:
-    0 0 var(--node-hover-glow-size) var(--node-hover-glow-spread)
-      color-mix(in srgb, var(--node-patch-point-color, var(--node-port-hover-fill)) 34%, transparent);
+  background: var(--node-port-crescent-paint);
+  box-shadow: none;
   filter: brightness(1.08);
 }
 
 /* Param jacks paint on ::before — keep their connected crescent on hover too. */
 .node-param-port.connected-port:hover::before,
 .node-param-port.connected-port.patch-point-hover::before {
-  background:
-    radial-gradient(
-      circle farthest-side at var(--node-port-crescent-at),
-      var(--node-port-crescent-fill) 0%,
-      var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width, 1.25px) - 0.6px),
-      transparent calc(100% - var(--node-port-crescent-stroke-width, 1.25px) + 0.35px)
-    ),
-    radial-gradient(
-      circle farthest-side at var(--node-port-crescent-at),
-      var(--node-port-crescent-stroke) 0%,
-      var(--node-port-crescent-stroke) 100%
-    );
-  box-shadow:
-    0 0 var(--node-hover-glow-size) var(--node-hover-glow-spread)
-      color-mix(in srgb, var(--node-patch-point-color, var(--node-param-hover-color, var(--node-port-hover-fill))) 34%, transparent);
+  background: var(--node-port-crescent-paint);
+  box-shadow: none;
 }
 
 /* Defeat global `button:hover { border-color: var(--accent) }` on jacks. */
@@ -19579,19 +19858,19 @@ body.node-slider-dragging .node-param-port {
 }
 
 .node-port.dragging {
-  --node-port-crescent-fill: color-mix(in srgb, var(--node-module-drag-stroke) 18%, transparent);
+  --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-drag-stroke) 70%, transparent);
   border-color: transparent;
   color: var(--node-module-drag-stroke);
   filter: brightness(1.35);
   background: radial-gradient(
     circle farthest-side at var(--node-port-crescent-at),
-    var(--node-port-crescent-fill) calc(100% - 1px),
+    transparent 0%,
+    transparent calc(100% - 1px),
     var(--node-port-crescent-stroke) calc(100% - 1px),
     var(--node-port-crescent-stroke) 100%
   );
-  box-shadow:
-    0 0 var(--node-hover-glow-size) var(--node-hover-glow-spread) color-mix(in srgb, var(--node-module-drag-stroke) 34%, transparent);
+  box-shadow: none;
 }
 
 .node-zap-particle {
@@ -19748,7 +20027,7 @@ body.node-slider-dragging .node-param-port {
   color: var(--muted);
   font: 0.62rem var(--mono);
   white-space: nowrap;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
 }
 
 /* Live levels occupy their own narrow columns instead of creating a second
@@ -19775,7 +20054,7 @@ body.node-slider-dragging .node-param-port {
   writing-mode: vertical-lr;
   direction: rtl;
   accent-color: var(--accent, #39e6a3);
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-volume-control > span,
@@ -19811,7 +20090,7 @@ body.node-slider-dragging .node-param-port {
   color: var(--muted);
   font-size: 0.75rem;
   line-height: 1;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -20074,11 +20353,11 @@ button[data-transport-action="stop"]:disabled {
   min-width: 6.2rem;
   height: 100%;
   border-radius: 0;
-  cursor: grab;
+  cursor: var(--node-dot-cursor);
 }
 
 #nodeDownloadSampleButton:active {
-  cursor: grabbing;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-sample-drag-ghost {
@@ -20173,7 +20452,7 @@ button[data-transport-action="stop"]:disabled {
    inherited family/weight. The per-line font SIZE is not set here either --
    fitNodeLiveToggleText (node-graph-settings-text-fit.js) measures these
    spans along with the live toggles and writes an inline font-size, so the
-   UI Dev "live toggle text size" setting drives both. */
+   hardcoded 89% scale in fitNodeLiveToggleText drives both. */
 .node-render-duration-control #nodeRenderButton,
 .node-render-duration-control #nodeDownloadSampleButton {
   display: grid;
@@ -21628,7 +21907,7 @@ code {
   color: #d8e6ef;
   font: 700 0.85em/1.1 ui-sans-serif, system-ui, sans-serif;
   letter-spacing: 0.06em;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
   user-select: none;
   touch-action: none;
 }

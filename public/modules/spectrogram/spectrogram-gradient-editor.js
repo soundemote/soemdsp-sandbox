@@ -395,7 +395,7 @@
         min-width: 0;
         min-height: 0 !important;
         color: inherit !important;
-        cursor: pointer;
+        cursor: var(--node-dot-cursor);
       }
       .sge-stop-swatch {
         display: block;
@@ -438,7 +438,7 @@
         padding: 5px 6px !important;
         color: #000 !important;
         font-size: 0.68rem;
-        cursor: pointer;
+        cursor: var(--node-dot-cursor);
         overflow: hidden;
       }
       .sge-root button.sge-preset:hover,

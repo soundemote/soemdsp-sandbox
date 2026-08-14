@@ -868,11 +868,11 @@ function normalizeNodeGraphPatchView(view = {}) {
     wireLengthsVisible: flag("wireLengthsVisible", true),
     wiringChromeVisible: flag("wiringChromeVisible", true),
     wiresAboveModules: flag("wiresAboveModules", false),
-    moduleButtonsVisible: flag("moduleButtonsVisible", true),
+    moduleButtonsVisible: flag("moduleButtonsVisible", false),
     moduleOscilloscopesVisible: flag("moduleOscilloscopesVisible", true),
     moduleInterfaceControlsVisible: flag("moduleInterfaceControlsVisible", true),
     moduleSlidersVisible: flag("moduleSlidersVisible", true),
-    sliderAmountVisible: flag("sliderAmountVisible", true),
+    sliderAmountVisible: flag("sliderAmountVisible", false),
     sliderPositionVisible: flag("sliderPositionVisible", true),
   };
 }

@@ -1112,17 +1112,9 @@ function adjustNodeGraphModuleDisplayHeightFromContext(delta) {
     if (!nodeGraphPatchNodeHasResizableDisplayArea(targetNode)) {
       continue;
     }
-    const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
-    const nextOffsetGu = normalizeNodeGraphModuleDisplayHeightOffsetUnits(
-      targetNode.type,
-      ui.displayHeightOffsetGu + delta * nodeGraphModuleDisplayHeightLimits.stepGu,
-    );
-    if (nextOffsetGu === ui.displayHeightOffsetGu) {
-      continue;
+    if (nodeGraphApplyModuleHeightDelta(targetNode, delta)) {
+      changedCount += 1;
     }
-    ui.displayHeightOffsetGu = nextOffsetGu;
-    applyNodeGraphPatchNodeUi(targetNode, ui);
-    changedCount += 1;
   }
   if (changedCount) {
     commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(targetNodeIds, {

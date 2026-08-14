@@ -339,7 +339,7 @@
     },
     {
       "name": "fractal_brownian_noise",
-      "label": "Fractal Brownian Noise",
+      "label": "Fractal Brownian Motion",
       "targetType": "fractalBrownianNoise",
       "kind": "noise",
       "source": "native_modules/fractal_brownian_noise/fractal_brownian_noise.cpp",

@@ -103,9 +103,13 @@
     function path(from, to) {
       const a = wireEndpointCapCenter(from, "from");
       const b = wireEndpointCapCenter(to, "to");
-      const horizontalDistance = Math.abs(b.x - a.x);
-      const verticalDistance = Math.abs(b.y - a.y);
-      const span = Math.min(96, horizontalDistance * 0.48 + verticalDistance * 0.12);
+      const curve = typeof nodeGraphWireCurve === "function"
+        ? nodeGraphWireCurve()
+        : 1;
+      const span = Math.min(
+        96,
+        (Math.abs(b.x - a.x) * 0.48 + Math.abs(b.y - a.y) * 0.12) * curve,
+      );
       return `M ${a.x} ${a.y} C ${a.x + span} ${a.y}, ${b.x - span} ${b.y}, ${b.x} ${b.y}`;
     }
 

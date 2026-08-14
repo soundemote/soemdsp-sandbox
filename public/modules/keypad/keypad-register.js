@@ -81,6 +81,6 @@ registerNodeGraphChromelessModule("keypad", {
   catalog: {
     category: "controller",
     description: "12-key phone pad. Layout B (A/D in | pad | A/D/G/X/Y out). Offset wraps. Behavior + Drag.",
-    notes: ["keypad", "controller", "analog", "digital", "offset", "gate", "LayoutB", "momentary", "latch", "drag", "xy"],
+    notes: ["keypad", "pad", "phone pad", "controller", "analog", "digital", "offset", "gate", "LayoutB", "momentary", "latch", "drag", "xy"],
   },
 });

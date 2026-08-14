@@ -892,8 +892,11 @@ function createNodeGraphParameter(node, type, parameter) {
   // Hidden params still exist in the DOM (face drag targets, pad state) but
   // must not consume vertical layout — otherwise solid modules (XY Pad)
   // under-count height vs real content and clip the face.
-  const isHidden = parameter?.hidden === true;
-  if (isHidden) {
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
+  const isVisible = typeof nodeGraphParameterEffectiveVisible === "function"
+    ? nodeGraphParameterEffectiveVisible(parameter, patchNode?.paramMeta?.[parameter.key])
+    : parameter?.hidden !== true;
+  if (!isVisible) {
     row.hidden = true;
     row.classList.add("node-parameter-row-hidden");
   }
@@ -902,11 +905,10 @@ function createNodeGraphParameter(node, type, parameter) {
   if (constraint) {
     row.dataset.nodeConstraint = constraint;
   }
-  // Module-first controls (Slider/Knob face): hidden state params keep a range
-  // input for persistence/drag targets, but no mod/param-out jacks fighting
-  // the single module Bias/Out.
-  const showModPort = !isHidden && parameter?.modulation !== false;
-  const showParamOut = !isHidden && parameter?.parameterOutput !== false;
+  // Jacks follow explicit parameterOutput / modulation flags, not visibility.
+  // Hidden rows keep their jacks in the DOM so showing a param remounts nothing.
+  const showModPort = parameter?.modulation !== false;
+  const showParamOut = parameter?.parameterOutput !== false;
   if (showModPort) {
     row.append(createNodeParameterModulationPort(node, type, parameter));
   }
@@ -955,6 +957,7 @@ function createNodeGraphParameter(node, type, parameter) {
   input.dataset.showSign = metadata?.showSign ? "true" : "false";
   input.dataset.removeTrailingZeros = metadata?.removeTrailingZeros ? "true" : "false";
   input.dataset.wraparound = metadata?.wraparound ? "true" : "false";
+  input.dataset.visible = isVisible ? "true" : "false";
   // Domain hard-clamp policy (slider-values): only constraint / hardClamp clip.
   if (metadata?.constraint || parameter.constraint) {
     input.dataset.constraint = String(metadata?.constraint || parameter.constraint || "");

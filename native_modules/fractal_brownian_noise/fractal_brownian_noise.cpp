@@ -1,5 +1,5 @@
 // soemdsp-native-module: fractal_brownian_noise
-// soemdsp-native-label: Fractal Brownian Noise
+// soemdsp-native-label: Fractal Brownian Motion
 // soemdsp-native-target: fractalBrownianNoise
 // soemdsp-native-kind: noise
 

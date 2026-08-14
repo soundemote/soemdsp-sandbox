@@ -59,7 +59,7 @@ function confirmNodeGraphDefaultButtonClick(button, statusCallback, options = {}
   nodeGraphMvp.confirmDefaultButtonTimer = window.setTimeout(() => {
     clearNodeGraphConfirmDefaultButton(button);
     button.title = button.dataset.defaultButtonLabel || "";
-  }, 4500);
+  }, 2000);
   statusCallback?.();
   return false;
 }

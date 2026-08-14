@@ -1,7 +1,8 @@
 async function bindNodeGraphUiDevSettingsEvents() {
   document.getElementById("copyNodeUiDevSettingsButton").addEventListener("click", copyNodeUiDevSettingsToClipboard);
-  document.getElementById("loadNodeUiDevSettingsButton").addEventListener("click", loadNodeUiDevSettingsFile);
   document.getElementById("saveNodeUiDevSettingsButton").addEventListener("click", saveNodeUiDevSettingsFile);
+  document.getElementById("pasteNodeUiDevSettingsButton").addEventListener("click", pasteNodeUiDevSettingsFromClipboard);
+  document.getElementById("loadNodeUiDevSettingsButton").addEventListener("click", loadNodeUiDevSettingsFile);
   document
     .getElementById("updateDefaultNodeUiDevSettingsButton")
     .addEventListener("click", handleUpdateDefaultNodeUiDevSettingsPresetClick);
@@ -17,34 +18,15 @@ async function bindNodeGraphUiDevSettingsEvents() {
     bindNodeGraphFloatingWindowResizeHandle("uiDev");
   }
   document
-    .getElementById("nodeUiDevSettingsHeaderTextSize")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevButtonTextSize")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevLiveToggleTextSize")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevModularHeaderButtonBackground")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
     .getElementById("nodeUiDevTooltipTextSize")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevMinimumGridBrightness")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
+  bindNodeUiDevModuleLightGridControls();
   document
     .getElementById("nodeUiDevMouseLightEnabled")
     .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
-  for (const id of [
-    "nodeUiDevDimmerCutoutSlider",
-    "nodeUiDevDimmerCutoutModule",
-    "nodeUiDevDimmerCutoutTitle",
-    "nodeUiDevDimmerCutoutMouse",
-  ]) {
-    document.getElementById(id)?.addEventListener("change", syncNodeUiDevSettingsHeaderControls);
-  }
+  document
+    .getElementById("nodeUiDevDimmerCutoutMouse")
+    ?.addEventListener("change", syncNodeUiDevSettingsHeaderControls);
   for (const id of [
     "nodeUiDevDimmerMouseSize",
     "nodeUiDevDimmerMouseSoftness",
@@ -56,15 +38,7 @@ async function bindNodeGraphUiDevSettingsEvents() {
   document
     .getElementById("nodeUiDevShowOriginMarker")
     .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevScopeBloomEnabled")
-    ?.addEventListener("change", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevModuleLightSpread")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevTextGlowLevel")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
+
   document
     .getElementById("nodeUiDevModuleGridInset")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
@@ -98,9 +72,6 @@ async function bindNodeGraphUiDevSettingsEvents() {
     .getElementById("nodeUiDevGridDivisionMultiply")
     ?.addEventListener("change", syncNodeUiDevGridDivisionMultiply);
   document
-    .getElementById("nodeUiDevModuleRoundness")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
     .getElementById("nodeUiDevGridColor")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document
@@ -131,42 +102,6 @@ async function bindNodeGraphUiDevSettingsEvents() {
     .getElementById("nodeUiDevWorkspaceBackgroundColor")
     .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
   document
-    .getElementById("nodeUiDevModuleBrowserEntryHeight")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevModuleBrowserEntryPadding")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevModuleBrowserEntryTextSize")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevSettingsHeaderTopRatio")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevSettingsHeaderPadding")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevModuleTitleFont")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevModuleTitleFont")
-    .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevModuleTitleHeight")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevModuleIoSectionHeight")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevModuleNodeSize")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevSliderWidth")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevSliderHeight")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
     .getElementById("nodeUiDevSliderLabelColor")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document
@@ -185,31 +120,19 @@ async function bindNodeGraphUiDevSettingsEvents() {
     .getElementById("nodeUiDevSliderUnitColor")
     .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
   document
-    .getElementById("nodeUiDevSliderFillHoverColor")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
+    .getElementById("nodeUiDevModuleFillColor")
+    ?.addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document
-    .getElementById("nodeUiDevSliderFillHoverColor")
-    .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
+    .getElementById("nodeUiDevModuleFillColor")
+    ?.addEventListener("change", syncNodeUiDevSettingsHeaderControls);
   document
-    .getElementById("nodeUiDevSliderFillHoverAlpha")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevNodeGlowSize")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevWirePatchPointSize")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevWireThickness")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
+    .getElementById("nodeUiDevModuleFillAlpha")
+    ?.addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document
     .getElementById("nodeUiDevTraceWireThickness")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document
     .getElementById("nodeUiDevChoiceSlideEmptyBorder")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevChoiceDividerHeight")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document
     .getElementById("nodeUiDevChoiceSlideDebugBoxes")
@@ -227,30 +150,31 @@ async function bindNodeGraphUiDevSettingsEvents() {
     "nodeUiDevBypassOffBackgroundColor",
   ]) {
     const colorInput = document.getElementById(colorInputId);
-    colorInput.addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-    colorInput.addEventListener("change", syncNodeUiDevSettingsHeaderControls);
-  }
-  document
-    .getElementById("nodeUiDevMoveSymbolSize")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevCloseIconSize")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevSettingsHeaderHighlights")
-    .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
-  for (const colorInput of document.querySelectorAll("[data-node-color-var]")) {
-    colorInput.addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-    colorInput.addEventListener("change", syncNodeUiDevSettingsHeaderControls);
+    colorInput?.addEventListener("input", syncNodeUiDevSettingsHeaderControls);
+    colorInput?.addEventListener("change", syncNodeUiDevSettingsHeaderControls);
   }
   bindNodeUiDevSliderFillColorControls();
+  bindNodeUiDevModuleIdleStroke();
   installNodeUiDevExposeControls();
-  organizeNodeUiDevSections();
-  renderNodeUiDevHelperViewControls();
+  // Apply saved settings before grouping. Organize/view-mount used to throw
+  // and skip apply; unload persist then wrote HTML defaults over the last
+  // good localStorage blob.
+  await loadNodeUiDevDefaultSettings();
+  try {
+    renderNodeUiDevHelperViewControls();
+    organizeNodeUiDevSections();
+  } catch (error) {
+    console.error("[soemdsp] UIDEV panel organize failed after settings load", error);
+  }
   installNodeSettingsHeaderTextFitObserver();
   installNodeLiveToggleTextFitObserver();
-  await loadNodeUiDevDefaultSettings();
+  if (typeof installNodeModularToolbarTextFitObserver === "function") {
+    installNodeModularToolbarTextFitObserver();
+  }
   syncNodeUiDevSettingsHeaderControls();
+  if (typeof syncNodeUserUiSettingsViewControls === "function") {
+    syncNodeUserUiSettingsViewControls();
+  }
   // Move/up/resize: nodeGraphFloatingWindowRegistryPointerBridge (floating-windows.js)
   if (typeof installNodeGraphFloatingWindowResizeHandles === "function") {
     installNodeGraphFloatingWindowResizeHandles();
