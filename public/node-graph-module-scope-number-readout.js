@@ -390,9 +390,8 @@ function nodeGraphNumberReadoutApplyResidualPlate(burnCtx, width, height, trailH
 /** LED (phosphor light) vs LCD (reflective ink) face style for a slot/node. */
 function nodeGraphNumberReadoutFaceStyleForSlot(slot, node = null) {
   const type = String(slot?.type || node?.type || "");
-  // Pitch Detector = phosphor LED Value readout (not LCD vector plate).
   if (type === "helmholtzPitch") {
-    return "led";
+    return "lcd";
   }
   if (type === "valueLcd") {
     return "lcd";
@@ -417,10 +416,9 @@ function nodeGraphNumberReadoutIsLcdFaceElement(el) {
   if (!el) {
     return false;
   }
-  // Pitch plate class is layout-only; paint style is LED phosphor.
   if (el.classList?.contains("node-pitch-detector-lcd")
     || el.closest?.(".node-pitch-detector-face")) {
-    return false;
+    return true;
   }
   if (el.classList?.contains("node-value-lcd-face")) {
     return true;
@@ -1299,8 +1297,54 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.innerShadowSharpness,
     settings.innerShadowOffsetX,
     settings.innerShadowOffsetY,
+    settings.centsBand,
     stopsSig,
   ].join("|");
+}
+
+/** 8ve-page cents stripes: red…blue…red. Index 4 = in tune (0–10¢). */
+const NODE_GRAPH_PITCH_CENTS_BAND_RGB = Object.freeze([
+  Object.freeze([220, 48, 40]),
+  Object.freeze([240, 140, 20]),
+  Object.freeze([236, 210, 36]),
+  Object.freeze([56, 176, 72]),
+  Object.freeze([36, 120, 230]),
+  Object.freeze([56, 176, 72]),
+  Object.freeze([236, 210, 36]),
+  Object.freeze([240, 140, 20]),
+  Object.freeze([220, 48, 40]),
+]);
+
+function nodeGraphPitchCentsBandIndex(cents) {
+  const n = Number(cents);
+  if (!Number.isFinite(n)) {
+    return -1;
+  }
+  const abs = Math.abs(n);
+  if (abs <= 10) return 4;
+  if (abs <= 20) return n < 0 ? 3 : 5;
+  if (abs <= 30) return n < 0 ? 2 : 6;
+  if (abs <= 40) return n < 0 ? 1 : 7;
+  return n < 0 ? 0 : 8;
+}
+
+function nodeGraphPitchDetectorDrawCentsBands(context, left, top, width, height, cents, brightness) {
+  const b = clampNodeSliderValue(Number(brightness) || 0, 0, 1);
+  if (!context || !(width > 0) || !(height > 0) || b <= 0.0005) {
+    return;
+  }
+  const n = NODE_GRAPH_PITCH_CENTS_BAND_RGB.length;
+  const bandW = width / n;
+  const hi = nodeGraphPitchCentsBandIndex(cents);
+  context.save();
+  for (let i = 0; i < n; i += 1) {
+    const rgb = NODE_GRAPH_PITCH_CENTS_BAND_RGB[i];
+    const alpha = i === hi ? b : b * 0.2;
+    context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+    const x = left + i * bandW;
+    context.fillRect(x, top, bandW + 0.75, height);
+  }
+  context.restore();
 }
 
 
@@ -1751,7 +1795,7 @@ function nodeGraphNumberReadoutDrawInnerShadow(context, left, top, width, height
  * Value LCD — vector DSEG (no phosphor residual hang).
  * Background + multiply unlit “8”s + solid FG digits + glass inner shadow.
  */
-function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit, slot = null) {
+function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit, slot = null, options = null) {
   if (!canvas || !context) {
     return;
   }
@@ -1836,6 +1880,14 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
   context.save();
   context.fillStyle = bg;
   context.fillRect(left, top, width, height);
+
+  // 8ve page: cents-accuracy stripes behind the note-name text.
+  const pitchMode = options && options.pitchMode;
+  const centsOff = options && options.cents;
+  const centsBand = clampNodeSliderValue(Number(settings?.centsBand) || 0, 0, 1);
+  if (slot?.type === "helmholtzPitch" && pitchMode === "name" && centsBand > 0.0005) {
+    nodeGraphPitchDetectorDrawCentsBands(context, left, top, width, height, centsOff, centsBand);
+  }
 
   // Max padding: one screen pixel of LCD “on” (no DSEG at pin size).
   if (layout.pixelPin) {
@@ -2076,7 +2128,15 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   }
   // Note names need letter glyphs (not DSEG-only).
   const pitchNameMode = slot?.type === "helmholtzPitch" && pitchMode === "name";
-  const text = `${valueText}${unit ? ` ${unit}` : ""}${pitchMode !== "hz" ? `|${pitchMode}` : ""}`;
+  const pitchHz = slot?.type === "helmholtzPitch" && hasSample
+    ? nodeGraphOscilloscopeLatestSample(item.buffer, 0)
+    : Number.NaN;
+  const pitchCents = pitchNameMode && typeof nodeGraphFrequencyToCentsOff === "function"
+    ? nodeGraphFrequencyToCentsOff(pitchHz)
+    : Number.NaN;
+  const text = `${valueText}${unit ? ` ${unit}` : ""}${pitchMode !== "hz" ? `|${pitchMode}` : ""}|¢${
+    Number.isFinite(pitchCents) ? pitchCents.toFixed(1) : ""
+  }`;
   // Value LCD: dedicated vector path (no residual hang / burn plate).
   if (isLcd) {
     const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
@@ -2098,7 +2158,10 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     if ("imageSmoothingQuality" in context) {
       context.imageSmoothingQuality = "high";
     }
-    drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit, slot);
+    drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit, slot, {
+      pitchMode,
+      cents: pitchCents,
+    });
     nodeGraphNumberReadoutRememberGoodValue(canvas, valueText);
     return;
   }

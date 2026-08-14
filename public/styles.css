@@ -7989,51 +7989,24 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   top: auto;
 }
 
-.node-patch-page-top-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
-  flex: 0 0 auto;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(127, 199, 217, 0.12);
-}
-
-.node-patch-page-top-actions button {
-  min-height: 2rem;
-  padding: 0 10px;
-  border: 1px solid rgba(127, 199, 217, 0.22);
-  border-radius: 4px;
-  background: rgba(16, 22, 26, 0.92);
-  color: rgba(230, 240, 236, 0.88);
-  font-size: 0.78rem;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.node-patch-page-top-actions button:hover,
-.node-patch-page-top-actions button:focus-visible {
-  border-color: rgba(180, 230, 220, 0.45);
-  background: rgba(24, 34, 40, 0.96);
-}
-
 .node-patch-page-scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-  padding: 12px;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
   width: 100%;
   margin: 0;
   box-sizing: border-box;
 }
 
+.node-patch-page-scroll > .node-settings-script-action-group,
 .node-patch-page-scroll > .node-settings-feedback-action-group,
 .node-patch-page-scroll > .node-settings-dev-action-group {
   flex: 0 0 auto;
-  --node-settings-action-height: clamp(56px, 9cqw, 80px);
+  --node-settings-action-height: clamp(68px, 11cqw, 96px);
 }
 
 .node-patch-card {
@@ -8160,9 +8133,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 /* Floating browser: name + description only */
 
 @media (max-width: 640px) {
-  .node-patch-page-top-actions {
-    justify-content: flex-start;
-  }
   .node-patch-card-grid {
     grid-template-columns: 1fr;
   }
@@ -9020,6 +8990,25 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.node-settings-script-action-group > button,
+.node-settings-script-action-group > a {
+  min-height: 0;
+  container-type: inline-size;
+  display: grid;
+  grid-template-rows:
+    calc(var(--node-settings-knob-top-ratio) * 100%)
+    calc((1 - var(--node-settings-knob-top-ratio)) * 100%);
+  align-items: stretch;
+  justify-items: stretch;
+  justify-content: stretch;
+  gap: 0;
+  min-width: 0;
+  height: 100%;
+  padding: var(--node-settings-knob-extra-padding);
+  font-family: inherit;
+  overflow: hidden;
+}
+
 .node-settings-view-action-group {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -9028,7 +9017,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.node-settings-script-action-group button,
+.node-settings-script-action-group > *,
 .node-settings-view-action-group button,
 .node-settings-feedback-action-group .node-settings-link-action {
   position: relative;
@@ -9038,8 +9027,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   border-radius: 0;
 }
 
-.node-settings-script-action-group button:hover,
-.node-settings-script-action-group button:focus-visible,
+.node-settings-script-action-group > *:hover,
+.node-settings-script-action-group > *:focus-visible,
 .node-settings-view-action-group button:hover,
 .node-settings-view-action-group button:focus-visible,
 .node-settings-feedback-action-group .node-settings-link-action:hover,
@@ -9047,19 +9036,19 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   z-index: 2;
 }
 
-.node-settings-script-action-group button + button,
+.node-settings-script-action-group > * + *,
 .node-settings-view-action-group button + button,
 .node-settings-feedback-action-group .node-settings-link-action + .node-settings-link-action {
   margin-left: -1px;
 }
 
-.node-settings-script-action-group button:first-child,
+.node-settings-script-action-group > :first-child,
 .node-settings-view-action-group button:first-child,
 .node-settings-feedback-action-group .node-settings-link-action:first-child {
   border-radius: 6px 0 0 6px;
 }
 
-.node-settings-script-action-group button:last-child,
+.node-settings-script-action-group > :last-child,
 .node-settings-view-action-group button:last-child,
 .node-settings-feedback-action-group .node-settings-link-action:last-child {
   border-radius: 0 6px 6px 0;
@@ -9067,7 +9056,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-settings-dev-action-group {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: stretch;
   gap: 0;
   height: var(--node-settings-action-height);
@@ -9075,27 +9064,39 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow: visible;
 }
 
-.node-settings-dev-action-group .node-settings-disabled-action {
+.node-settings-dev-action-group > button {
   position: relative;
   z-index: 0;
   border-radius: 0;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+  container-type: inline-size;
+  display: grid;
+  grid-template-rows:
+    calc(var(--node-settings-knob-top-ratio) * 100%)
+    calc((1 - var(--node-settings-knob-top-ratio)) * 100%);
+  align-items: stretch;
+  justify-items: stretch;
+  padding: var(--node-settings-knob-extra-padding);
+  font-family: inherit;
+  overflow: hidden;
 }
 
-.node-settings-dev-action-group .node-settings-disabled-action:hover,
-.node-settings-dev-action-group .node-settings-disabled-action:focus-visible {
+.node-settings-dev-action-group > button:hover,
+.node-settings-dev-action-group > button:focus-visible {
   z-index: 2;
 }
 
-.node-settings-dev-action-group .node-settings-disabled-action + .node-settings-disabled-action {
+.node-settings-dev-action-group > button + button {
   margin-left: -1px;
 }
 
-.node-settings-dev-action-group .node-settings-disabled-action:first-child {
+.node-settings-dev-action-group > button:first-child {
   border-radius: 6px 0 0 6px;
 }
 
-.node-settings-dev-action-group .node-settings-disabled-action:last-child {
+.node-settings-dev-action-group > button:last-child {
   border-radius: 0 6px 6px 0;
 }
 
@@ -9122,6 +9123,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   text-align: center;
 }
 
+.node-settings-script-action-group > button > span:first-child,
+.node-settings-script-action-group > a > span:first-child,
+.node-settings-dev-action-group > button > span:first-child,
 .node-settings-disabled-action span:first-child {
   display: grid;
   align-items: center;
@@ -9137,6 +9141,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   white-space: nowrap;
 }
 
+.node-settings-script-action-group > button > span:last-child,
+.node-settings-script-action-group > a > span:last-child,
+.node-settings-dev-action-group > button > span:last-child,
 .node-settings-disabled-action span:last-child {
   display: grid;
   align-items: center;
@@ -10028,8 +10035,16 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     var(--node-grid-heatmap-grid-position, 0 0),
     0 0;
   background-size:
-    var(--node-grid-heatmap-grid-size, var(--node-grid-width) var(--node-grid-height)),
-    var(--node-grid-heatmap-grid-size, var(--node-grid-width) var(--node-grid-height)),
+    var(
+      --node-grid-heatmap-grid-size,
+      calc(var(--node-grid-width) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 1))
+      calc(var(--node-grid-height) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 1))
+    ),
+    var(
+      --node-grid-heatmap-grid-size,
+      calc(var(--node-grid-width) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 1))
+      calc(var(--node-grid-height) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 1))
+    ),
     auto;
   -webkit-mask-image: var(--node-grid-heatmap-mask, none);
   mask-image: var(--node-grid-heatmap-mask, none);
@@ -10437,6 +10452,16 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none;
 }
 
+/* Empty bottom plate band — same fill as the module; receives drag / right-click. */
+.node-module-lip {
+  min-width: 0;
+  min-height: 0;
+  align-self: stretch;
+  justify-self: stretch;
+  background: transparent;
+  cursor: var(--node-module-move-cursor, default);
+}
+
 /* Module content stacks above the frame + plate mask.
    Do not whitelist faces here — a missing class paints under ::after and
    looks blank (Text Box, Music Player waveform, any new LayoutA face). */
@@ -10515,6 +10540,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-midi-keyboard-surface,
 .node-midi-keyboard-surface [data-midi],
 .node-midi-keyboard-wheel,
+.node-module-lip,
 .node-slider-readout,
 .node-module-graph-display,
 .node-module-filter-curve-display,
@@ -13381,9 +13407,10 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-text-box-body {
   display: grid;
   min-width: 0;
-  min-height: calc(var(--node-grid-height, 28px) * 2);
+  min-height: 0;
   height: 100%;
   align-self: stretch;
+  overflow: hidden;
   padding: 0;
 }
 
@@ -13397,7 +13424,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   width: 100%;
   min-width: 0;
   height: 100%;
-  min-height: 1.2em;
+  min-height: 0;
   box-sizing: border-box;
   padding:
     calc(var(--node-text-box-base-padding) + var(--node-text-box-content-offset, 0px))

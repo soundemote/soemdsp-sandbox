@@ -144,7 +144,7 @@ function resizeNodeGraphTextBoxModuleHeightOnGrid(patchNode, delta) {
     return false;
   }
   const currentHeightGu = nodeGraphPatchNodeGridHeightUnits(patchNode);
-  const nextHeightGu = normalizeNodeGraphTextBoxHeightUnits(currentHeightGu + delta);
+  const nextHeightGu = normalizeNodeGraphTextBoxHeightUnits(currentHeightGu + delta, patchNode.ui);
   if (nextHeightGu === currentHeightGu) {
     return false;
   }
@@ -430,6 +430,14 @@ function handleNodeGraphKeydown(event) {
     event.preventDefault();
     if (typeof toggleNodeGraphConstraintGuideVisibility === "function") {
       toggleNodeGraphConstraintGuideVisibility();
+    }
+    return;
+  }
+  // T → cycle tips: embedded → float → off → embedded.
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "t") {
+    event.preventDefault();
+    if (typeof toggleNodeGraphTooltipWindow === "function") {
+      toggleNodeGraphTooltipWindow();
     }
     return;
   }

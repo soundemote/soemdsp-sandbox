@@ -1179,7 +1179,7 @@ function adjustNodeGraphModuleHeightFromContext(delta) {
     }
     const currentHeightGu = nodeGraphPatchNodeGridHeightUnits(targetNode);
     const nextHeightGu = targetCapability === "textBox"
-      ? normalizeNodeGraphTextBoxHeightUnits(currentHeightGu + delta)
+      ? normalizeNodeGraphTextBoxHeightUnits(currentHeightGu + delta, targetNode.ui)
       : normalizeNodeGraphModuleHeightUnits(targetNode.type, currentHeightGu + delta, targetNode.ui);
     if (nextHeightGu === currentHeightGu) {
       continue;

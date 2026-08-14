@@ -83,12 +83,12 @@ function applyNodeUiDevHelperWindowSize(size = nodeGraphMvp.uiDevHelperWindowSiz
 function setNodeUiDevHelperVisible(visible) {
   const helper = document.getElementById("nodeUiDevHelper");
   const button = document.getElementById("nodeUiDevButton");
-  if (!helper || !button) {
+  if (!helper) {
     return;
   }
   helper.hidden = !visible;
-  button.classList.toggle("active", visible);
-  button.setAttribute("aria-pressed", String(visible));
+  button?.classList.toggle("active", visible);
+  button?.setAttribute("aria-pressed", String(visible));
   if (visible) {
     // Always re-check: closed <details> leave only section titles visible.
     if (typeof organizeNodeUiDevSections === "function") {

@@ -1570,7 +1570,10 @@ function configureNodeSceneContextMenu(mode) {
     });
     const moduleHeightGu = targetSupportsModuleHeight ? nodeGraphPatchNodeGridHeightUnits(targetNode) : 0;
     const moduleHeightLimits = targetSupportsTextBoxHeight
-      ? nodeGraphTextBoxHeightLimits
+      ? {
+        minGu: nodeGraphTextBoxMinOuterHeightGu(targetNode?.ui),
+        maxGu: nodeGraphTextBoxHeightLimits.maxGu,
+      }
       : nodeGraphModuleHeightLimitsForType(targetNode?.type);
     const multiModuleHeights = multiModuleMode
       ? selectedNodes
@@ -1586,7 +1589,10 @@ function configureNodeSceneContextMenu(mode) {
       }
       const current = nodeGraphPatchNodeGridHeightUnits(node);
       const limits = capability === "textBox"
-        ? nodeGraphTextBoxHeightLimits
+        ? {
+          minGu: nodeGraphTextBoxMinOuterHeightGu(node.ui),
+          maxGu: nodeGraphTextBoxHeightLimits.maxGu,
+        }
         : nodeGraphModuleHeightLimitsForType(node.type);
       return current > limits.minGu;
     });
@@ -1597,7 +1603,10 @@ function configureNodeSceneContextMenu(mode) {
       }
       const current = nodeGraphPatchNodeGridHeightUnits(node);
       const limits = capability === "textBox"
-        ? nodeGraphTextBoxHeightLimits
+        ? {
+          minGu: nodeGraphTextBoxMinOuterHeightGu(node.ui),
+          maxGu: nodeGraphTextBoxHeightLimits.maxGu,
+        }
         : nodeGraphModuleHeightLimitsForType(node.type);
       return current < limits.maxGu;
     });

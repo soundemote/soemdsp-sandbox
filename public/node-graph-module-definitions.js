@@ -318,9 +318,9 @@ const nodeGraphOutputAmplitudeParam = Object.freeze({
 
 const nodeGraphActiveFilterDefinition = {
   planRole: "processor",
-  inputAliases: { Mono: "In" },
-  inputLabels: { In: "Mono" },
-  inputs: ["In", "Left", "Right"],
+  inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+  inputLabels: { In: "Mono", f: "ƒ" },
+  inputs: ["In", "Left", "Right", "f"],
   layout: "filterCurve",
   outputAliases: { Mono: "Out" },
   outputLabels: { Out: "Mono" },
@@ -352,7 +352,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       step: "any",
       unit: "Hz",
-      tooltip: "Cutoff in Hz (scientific). 0 = frozen. Musical range via metaparameters."
+      tooltip: "Cutoff in Hz. When ƒ is wired, that Hz is the cutoff (Pitch Detector Frequency → ƒ). Unwired uses this knob. 0 = frozen."
     },
     {
       defaultValue: "0.2",
@@ -579,11 +579,10 @@ const nodeGraphModuleDefinitions = (
     ],
     displaySignals: [
       { key: "Wave Out", kind: "scalar" },
-    ],    inputs: ["Reset", "0.1V/Oct", "Increment"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V",
-      Increment: "Inc."
-    },
+    ],    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      Increment: "Inc.",
+      f: "ƒ"},
     outputAliases: {
       Out: "Wave Out",
       Noise: "Wave Out"
@@ -660,11 +659,10 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Wave Out", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct", "Increment"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V",
-      Increment: "Inc."
-    },
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      Increment: "Inc.",
+      f: "ƒ"},
     outputAliases: {
       Out: "Wave Out",
       Noise: "Wave Out"
@@ -739,11 +737,10 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Wave Out", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct", "Increment"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V",
-      Increment: "Inc."
-    },
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      Increment: "Inc.",
+      f: "ƒ"},
     outputAliases: {
       Out: "Wave Out"
     },
@@ -809,11 +806,12 @@ const nodeGraphModuleDefinitions = (
     displayType: "trace",
     // Amp is the parameter slider only (no Amplitude CV jack).
     inputs: ["0.1V/Oct", "Freq"],
-    inputAliases: {
-      "0.1V": "0.1V/Oct",
+    inputAliases: {"0.1V": "0.1V/Oct",
       "0.1v": "0.1V/Oct",
-      freq: "Freq"
-    },
+      freq: "Freq",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f"},
     inputLabels: {
       "0.1V/Oct": "0.1V"
     },
@@ -866,10 +864,9 @@ const nodeGraphModuleDefinitions = (
   archimedes: {
     planRole: "source",
     displayType: "trace",
-    inputs: ["Reset", "0.1V/Oct"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V"
-    },
+    inputs: ["Reset", "0.1V/Oct", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      f: "ƒ"},
     outputs: ["Sine", "Cosine", "Pi", "Noise Below", "Noise Above"],
     parameters: [
       {
@@ -930,8 +927,9 @@ const nodeGraphModuleDefinitions = (
   robinSinusoid: {
     planRole: "source",
     displayType: "trace",
-    inputs: ["Reset"],
-    inputLabels: { Reset: "Reset" },
+    inputs: ["Reset", "f"],
+    inputLabels: {Reset: "Reset",
+      f: "ƒ"},
     outputs: ["Out"],
     parameters: [
       {
@@ -1000,13 +998,13 @@ const nodeGraphModuleDefinitions = (
       { key: "Z", kind: "scalar" },
     ],
     digitalInputs: ["Digital", "Gate"],
-    inputAliases: {
-      A: "Analog",
+    inputAliases: {A: "Analog",
       D: "Digital",
       G: "Gate",
       "0.1V": "0.1V/Oct",
       "0.1v": "0.1V/Oct",
-    },
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f"},
     inputLabels: { Analog: "A", Digital: "D", Gate: "G", "0.1V/Oct": "0.1V" },
     outputAliases: {
       f1: "X",
@@ -1078,11 +1076,10 @@ const nodeGraphModuleDefinitions = (
   additiveOsc: {
     planRole: "source",
     graphInputs: ["Damping Graph", "Phase Graph"],
-    inputs: ["Reset", "0.1V/Oct", "Increment"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V",
-      Increment: "Inc."
-    },
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      Increment: "Inc.",
+      f: "ƒ"},
     outputs: ["Out"],
     parameters: [
       {
@@ -1134,11 +1131,10 @@ const nodeGraphModuleDefinitions = (
   gpuAdditiveOsc: {
     planRole: "source",
     graphInputs: ["Damping Graph", "Phase Graph"],
-    inputs: ["Reset", "0.1V/Oct", "Increment"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V",
-      Increment: "Inc."
-    },
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      Increment: "Inc.",
+      f: "ƒ"},
     outputs: ["Out"],
     parameters: [
       {
@@ -1197,11 +1193,10 @@ const nodeGraphModuleDefinitions = (
     displayType: "roundShapeFace",
     displayHeightGu: 4,
     spectrumCompanion: false,
-    inputs: ["Reset", "0.1V/Oct", "Increment"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V",
-      Increment: "Inc."
-    },
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      Increment: "Inc.",
+      f: "ƒ"},
     // Legacy Mono/X/Y/Out → bipolar outs.
     outputAliases: {
       Mono: "Bi X",
@@ -1260,11 +1255,10 @@ const nodeGraphModuleDefinitions = (
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
-    inputs: ["Reset", "0.1V/Oct", "Increment"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V",
-      Increment: "Inc."
-    },
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      Increment: "Inc.",
+      f: "ƒ"},
     outputAliases: {
       Out: "Mono",
       Wave: "Mono",
@@ -1423,6 +1417,9 @@ const nodeGraphModuleDefinitions = (
   },
   antisaw: {
     planRole: "source",
+    inputAliases: { Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { f: "ƒ" },
+    inputs: ["f"],
     outputs: ["Out"],
     parameters: [
       { key: "fundamental", label: "Fundamental", kind: "frequency", defaultValue: "110", min: "0", mid: "1000", max: "20000", step: "any", unit: "Hz" },
@@ -2050,8 +2047,10 @@ const nodeGraphModuleDefinitions = (
   },
   surgeOscillator: {
     planRole: "source",
-    inputs: ["0.1V/Oct", "Sync"],
-    inputLabels: { "0.1V/Oct": "0.1V" },
+    inputs: ["0.1V/Oct", "Sync", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      f: "ƒ",
+      f: "ƒ"},
     outputs: ["Out", "Saw", "Square", "Tri", "Sine", "Synced", "Internal Sync"],
     parameters: [
       {
@@ -2076,13 +2075,12 @@ const nodeGraphModuleDefinitions = (
   // Port of soemdsp DistortionOscillator — soft-shaped multi-wave (Softwave).
   softwaveOsc: {
     planRole: "source",
-    inputs: ["0.1V/Oct", "Morph", "Phase", "Amplitude"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V",
+    inputs: ["0.1V/Oct", "Morph", "Phase", "Amplitude", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
       Morph: "Morph",
       Phase: "Phase",
-      Amplitude: "Amp"
-    },
+      Amplitude: "Amp",
+      f: "ƒ"},
     outputs: ["Out"],
     parameters: [
       {
@@ -2154,13 +2152,12 @@ const nodeGraphModuleDefinitions = (
       { key: "trace", label: "Out Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out" } },
     ],
     defaultDisplayMode: "xyBurn",
-    inputs: ["0.1V/Oct", "Phase", "Amplitude", "Reset"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V",
+    inputs: ["0.1V/Oct", "Phase", "Amplitude", "Reset", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
       Phase: "Phase",
       Amplitude: "Amp",
-      Reset: "Reset"
-    },
+      Reset: "Reset",
+      f: "ƒ"},
     outputs: ["Out", "X", "Y"],
     parameters: [
       {
@@ -2277,12 +2274,11 @@ const nodeGraphModuleDefinitions = (
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
-    inputs: ["0.1V/Oct", "Amplitude", "Reset"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V",
+    inputs: ["0.1V/Oct", "Amplitude", "Reset", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
       Amplitude: "Amp",
-      Reset: "Reset"
-    },
+      Reset: "Reset",
+      f: "ƒ"},
     outputs: ["X", "Y"],
     parameters: [
       {
@@ -2366,12 +2362,11 @@ const nodeGraphModuleDefinitions = (
     // First attempt only put phase/level in parameters[] — user looking at
     // the left IO column correctly saw only 0.1V. See MODULE_PATTERN_REFERENCE
     // "Three control surfaces".
-    inputs: ["0.1V/Oct", "Phase", "Amplitude"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V",
+    inputs: ["0.1V/Oct", "Phase", "Amplitude", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
       Phase: "Phase",
-      Amplitude: "Amp"
-    },
+      Amplitude: "Amp",
+      f: "ƒ"},
     outputs: ["Out"],
     parameters: [
       {
@@ -2431,8 +2426,9 @@ const nodeGraphModuleDefinitions = (
   },
   robinSupersaw: {
     planRole: "source",
-    inputs: ["0.1V/Oct"],
-    inputLabels: { "0.1V/Oct": "0.1V" },
+    inputs: ["0.1V/Oct", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      f: "ƒ"},
     outputs: ["Mono", "Left", "Right"],
     parameters: [
       // "Frequency" is the pitch heard at the sandbox-wide "Pitch
@@ -2457,8 +2453,9 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Left", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct"],
-    inputLabels: { "0.1V/Oct": "0.1V" },
+    inputs: ["Reset", "0.1V/Oct", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      f: "ƒ"},
     outputs: ["Left", "Right"],
     dataOutputs: ["Phases", "Amplitudes", "Pans"],
     parameters: [
@@ -3218,7 +3215,19 @@ const nodeGraphModuleDefinitions = (
     chrome: NodeGraphModuleChromeLayout.LayoutC,
     digitalInputs: ["Digital"],
     digitalOutputs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
-    inputAliases: { A: "Analog", D: "Digital" },
+    inputAliases: {A: "Analog", D: "Digital",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f"},
     inputLabels: { Analog: "A", Digital: "D" },
     inputs: ["Analog", "Digital"],
     outputs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
@@ -4059,9 +4068,9 @@ const nodeGraphModuleDefinitions = (
   // First-order spectral tilt (not a 1-pole HP). Credit: Robin Schmidt / RS-MET shelf BLT.
   tiltFilter: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "f"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
     outputs: ["Out", "Left", "Right"],
@@ -4090,7 +4099,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Frequency the tilt balances around. 0 allowed; circuit floors tiny values for stability only."
+        tooltip: "Frequency the tilt balances around. When ƒ is wired, that Hz is the pivot. Unwired uses this knob. 0 allowed; circuit floors tiny values for stability only."
       },
         nodeGraphOutputAmplitudeParam,
     ]
@@ -4098,9 +4107,9 @@ const nodeGraphModuleDefinitions = (
   // ZDF SVF multi-mode EQ. Credit: Robin Schmidt / RS-MET rsStateVariableFilter.
   eqFilter: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -4146,7 +4155,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Cutoff / center in Hz. Metaparam default range 0…20000. 0 allowed (frozen). DSP only guards crash cases."
+          "Cutoff / center in Hz. When ƒ is wired, that Hz is the cutoff (Pitch Detector Frequency → ƒ). Unwired uses this knob. 0 allowed (frozen)."
       },
       {
         defaultValue: "0.707",
@@ -4177,7 +4186,9 @@ const nodeGraphModuleDefinitions = (
   },
   papoulisFilter: {
     planRole: "processor",
-    inputs: ["In"],
+    inputAliases: { Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { f: "ƒ" },
+    inputs: ["In", "f"],
     layout: "filterCurve",
     outputs: ["Out"],
     parameters: [
@@ -4192,7 +4203,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "0 allowed. DSP floors tiny values only when coefficients would blow up."
+        tooltip: "When ƒ is wired, that Hz is the cutoff. Unwired uses this knob. 0 allowed. DSP floors tiny values only when coefficients would blow up."
       },
         nodeGraphOutputAmplitudeParam,
     ]
@@ -4200,9 +4211,9 @@ const nodeGraphModuleDefinitions = (
   // Classical multipoles — shared scientific_iir cascade (native + JS).
   butterworth: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -4245,7 +4256,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Cutoff / center. 0 allowed (frozen)."
+        tooltip: "Cutoff / center. When ƒ is wired, that Hz is the cutoff. Unwired uses this knob. 0 allowed (frozen)."
       },
       {
         defaultValue: "1",
@@ -4264,9 +4275,9 @@ const nodeGraphModuleDefinitions = (
   },
   linkwitzRiley: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -4326,9 +4337,9 @@ const nodeGraphModuleDefinitions = (
   },
   bessel: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -4387,9 +4398,9 @@ const nodeGraphModuleDefinitions = (
   },
   chebyshev: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -4460,9 +4471,9 @@ const nodeGraphModuleDefinitions = (
   },
   elliptic: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -4534,9 +4545,9 @@ const nodeGraphModuleDefinitions = (
   // True resonant 2nd-order BP — reuses EQ ZDF SVF Bandpass Peak (Robin Schmidt).
   bandpass: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono", "0.1V/Oct": "0.1V" },
-    inputs: ["In", "Left", "Right", "0.1V/Oct"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", "0.1V/Oct": "0.1V", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "0.1V/Oct", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -4553,7 +4564,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Center. Tracked by 0.1V/Oct. When f is wired: Hz = f × Frequency."
+        tooltip: "Center. When ƒ is wired, that Hz is the center (absolute). Unwired uses this knob, tracked by 0.1V/Oct."
       },
       {
         defaultValue: "1",
@@ -4572,9 +4583,9 @@ const nodeGraphModuleDefinitions = (
   // True 2-pole allpass — EQ ZDF SVF Allpass (Robin Schmidt). Phase tool, not a delay line.
   allpass: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono", "0.1V/Oct": "0.1V" },
-    inputs: ["In", "Left", "Right", "0.1V/Oct"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", "0.1V/Oct": "0.1V", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "0.1V/Oct", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -4591,7 +4602,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Allpass transition frequency (phase curve center). 0.1V/Oct + f track like Bandpass."
+        tooltip: "Allpass transition frequency (phase curve center). When ƒ is wired, that Hz is the center. Unwired uses this knob, tracked by 0.1V/Oct."
       },
       {
         defaultValue: "0.707",
@@ -4613,9 +4624,9 @@ const nodeGraphModuleDefinitions = (
     layout: "filterCurve",
     chrome: "LayoutA",
     displayHeightGu: 1,
-    inputAliases: { Mono: "In", Left: "L", Right: "R" },
-    inputLabels: { In: "Mono", L: "Left", R: "Right" },
-    inputs: ["In", "L", "R"],
+    inputAliases: { Mono: "In", Left: "L", Right: "R", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", L: "Left", R: "Right", f: "ƒ" },
+    inputs: ["In", "L", "R", "f"],
     outputs: ["LFL", "LFR", "HFL", "HFR"],
 
 
@@ -4677,7 +4688,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Crossover split frequency (wide range; splits stay non-decreasing)."
+        tooltip: "Crossover split frequency. When ƒ is wired, that Hz is the split. Unwired uses this knob. Splits stay non-decreasing."
       },
         nodeGraphOutputAmplitudeParam,
     ]
@@ -5268,8 +5279,9 @@ const nodeGraphModuleDefinitions = (
   },
   softpopOscillator: {
     planRole: "source",
-    inputs: ["Reset", "0.1V/Oct"],
-    inputLabels: { "0.1V/Oct": "0.1V" },
+    inputs: ["Reset", "0.1V/Oct", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      f: "ƒ"},
     outputs: ["Out", "Left", "Right"],
     outputLabels: { Out: "Mono" },
     parameters: [
@@ -5368,11 +5380,10 @@ const nodeGraphModuleDefinitions = (
     inputLabels: {
       T: "T",
     },
-    inputAliases: {
-      Trigger: "T",
+    inputAliases: {Trigger: "T",
       Reset: "T",
       Gate: "T",
-    },
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f"},
     outputs: ["A"],
     outputLabels: {
       A: "A",
@@ -5465,18 +5476,16 @@ const nodeGraphModuleDefinitions = (
     defaultWidthGu: 5,
     displayHeightGu: 5,
     spectrumCompanion: false,
-    inputs: ["T", "0.1V/Oct"],
-    inputLabels: {
-      T: "T",
+    inputs: ["T", "0.1V/Oct", "f"],
+    inputLabels: {T: "T",
       "0.1V/Oct": "0.1V",
-    },
-    inputAliases: {
-      Trigger: "T",
+      f: "ƒ"},
+    inputAliases: {Trigger: "T",
       Reset: "T",
       Gate: "T",
       "0.1V": "0.1V/Oct",
       "0.1v": "0.1V/Oct",
-    },
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f"},
     outputs: ["Out", "A"],
     outputLabels: {
       Out: "Out",
@@ -5558,11 +5567,10 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Out", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct", "Increment"],
-    inputLabels: {
-      "0.1V/Oct": "0.1V",
-      Increment: "Inc."
-    },
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputLabels: {"0.1V/Oct": "0.1V",
+      Increment: "Inc.",
+      f: "ƒ"},
     // Out = audio; f = instant Hz; Amp/Freq = 0..1 curves for driving other modules.
     outputs: ["Out", "f", "Amp", "Freq"],
     outputLabels: {
@@ -5925,7 +5933,8 @@ const nodeGraphModuleDefinitions = (
   // Under construction
   formantFilter: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
+    inputAliases: {Mono: "In",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f"},
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
     outputAliases: { Mono: "Out" },
@@ -6500,9 +6509,9 @@ const nodeGraphModuleDefinitions = (
   },
   cookbookFilter: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -6533,7 +6542,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "0 allowed. Circuit floors tiny values for coefficient stability only."
+        tooltip: "When ƒ is wired, that Hz is the cutoff. Unwired uses this knob. 0 allowed. Circuit floors tiny values for coefficient stability only."
       },
       {
         constraint: "cpu",
@@ -6635,8 +6644,9 @@ const nodeGraphModuleDefinitions = (
   // Complex 2-pole ring: ping-stable, decay in seconds, rings at Frequency. Not the character Resonator Filter.
   modeResonator: {
     planRole: "processor",
-    inputs: ["In", "Trigger", "0.1V/Oct"],
-    inputLabels: { "0.1V/Oct": "0.1V" },
+    inputAliases: { Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputs: ["In", "Trigger", "0.1V/Oct", "f"],
+    inputLabels: { "0.1V/Oct": "0.1V", f: "ƒ" },
     outputs: ["Out"],
     parameters: [
       {
@@ -6651,7 +6661,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Rings at this frequency: complex poles at r·e^{±jω} with ω = 2πf/fs. After a ping you hear a pure tone at f (not a filter cutoff that only emphasizes audio)."
+          "Rings at this frequency: complex poles at r·e^{±jω} with ω = 2πf/fs. When ƒ is wired, that Hz is the ring (absolute). Unwired uses this knob, tracked by 0.1V/Oct."
       },
       {
         defaultValue: "1",
@@ -6699,8 +6709,9 @@ const nodeGraphModuleDefinitions = (
   // Delay+feedback comb: pitch from delay D=fs/f0. Sibling of Mode Resonator (poles vs delay loop).
   combResonator: {
     planRole: "processor",
-    inputs: ["In", "Trigger", "0.1V/Oct"],
-    inputLabels: { "0.1V/Oct": "0.1V" },
+    inputAliases: { Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputs: ["In", "Trigger", "0.1V/Oct", "f"],
+    inputLabels: { "0.1V/Oct": "0.1V", f: "ƒ" },
     outputs: ["Out"],
     parameters: [
       {
@@ -6715,7 +6726,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Pitch of the comb: delay D = fs/f (fractional). Integer delay line + 1st-order Thiran allpass for sub-sample accuracy (|H|=1, so Decay stays honest). Feedback+ peaks at k·f; Feedback− at (k+½)·f. Track with 0.1V/Oct + f."
+          "Pitch of the comb: delay D = fs/f (fractional). When ƒ is wired, that Hz is the pitch (absolute). Unwired uses this knob, tracked by 0.1V/Oct."
       },
       {
         defaultValue: "1",
@@ -7035,7 +7046,9 @@ const nodeGraphModuleDefinitions = (
   },
   phaseDisperse: {
     planRole: "processor",
-    inputs: ["In"],
+    inputAliases: { Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { f: "ƒ" },
+    inputs: ["In", "f"],
     outputs: ["Out"],
     parameters: [
       {
@@ -7050,7 +7063,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Allpass corner (group-delay focus). Default slider 0…20 kHz — not hard-clamped; widen range in parameter settings if you want."
+          "Allpass corner (group-delay focus). When ƒ is wired, that Hz is the corner. Unwired uses this knob. Default slider 0…20 kHz — not hard-clamped."
       },
       {
         // Cascade depth: each step is one 2nd-order allpass (biquad). Cost is
@@ -7328,9 +7341,9 @@ const nodeGraphModuleDefinitions = (
   },
   ladderFilter: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -7389,9 +7402,9 @@ const nodeGraphModuleDefinitions = (
   },
   tb303Filter: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
+    inputLabels: { In: "Mono", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -7422,7 +7435,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "0 allowed (frozen). No hardware 200 Hz floor — musical range is metaparameters."
+        tooltip: "When ƒ is wired, that Hz is the cutoff. Unwired uses this knob. 0 allowed (frozen). No hardware 200 Hz floor."
       },
       {
         defaultValue: "0",
@@ -8422,7 +8435,7 @@ const nodeGraphModuleDefinitions = (
   phosphillator: {
     planRole: "source",
     layout: "phosphillatorDraw",
-    inputs: ["0.1V/Oct", "Reset"],
+    inputs: ["0.1V/Oct", "Reset", "f"],
     outputs: ["X", "Y"],
     parameters: [
       { defaultValue: "2", key: "frequency", kind: "frequency", label: "Frequency", max: "2000", maxDigits: 5, mid: "2", min: "0", step: "any", unit: "Hz" },
@@ -8845,13 +8858,12 @@ const nodeGraphModuleDefinitions = (
     bufferedInputs: ["Shake", "X", "Y", "Dim", "Red", "Green", "Blue", "Scope Off", "Pause"],
     displayType: "trace",
     inputs: ["Shake", "X", "Y", "Dim", "Red", "Green", "Blue", "Scope Off", "Pause", "Trace Image"],
-    inputAliases: {
-      "Screen Shake": "Shake",
+    inputAliases: {"Screen Shake": "Shake",
       "Screen Dim": "Dim",
       "Turn Off Display Traces": "Scope Off",
       "Pause Displays": "Pause",
-      "Trace Texture": "Trace Image"
-    },
+      "Trace Texture": "Trace Image",
+      Freq: "f", Frequency: "f", F: "f", "ƒ": "f"},
     outputs: [],
     parameters: [],
     visualInputs: [
@@ -9037,7 +9049,8 @@ const nodeGraphModuleDefinitions = (
       },
     ],
     inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
+    inputLabels: {In: "Mono",
+      f: "ƒ"},
     inputs: ["In", "X", "Y"],
     layout: "visualScope",
     // Dry X/Y thrus so multi-mode Display can sit in-line on XY patches.
@@ -9786,6 +9799,61 @@ const nodeGraphModuleDefinitions = (
         step: "1",
         tooltip: "Number of lines. W×H samples fill one rolling frame at the live sample rate.",
       },
+      {
+        defaultValue: "0",
+        key: "invert",
+        label: "Invert",
+        max: "1",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "0 = normal RGB. 1 = full invert. In between crossfades.",
+      },
+      {
+        defaultValue: "1",
+        key: "contrast",
+        label: "Contrast",
+        max: "4",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "1 = unity. 0 = flat grey. Above 1 punches the raster.",
+      },
+      {
+        defaultValue: "1",
+        key: "brightness",
+        label: "Brightness",
+        max: "4",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "1 = unity. 0 = black. Above 1 lifts the face.",
+      },
+      {
+        defaultValue: "0",
+        key: "blur",
+        label: "Blur",
+        max: "1",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "GPU canvas blur of the blit. 0 = hard pixels.",
+      },
+      {
+        defaultValue: "0",
+        key: "glow",
+        label: "Glow",
+        max: "1",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Add a brighter blurred copy (lighter). Needs some Blur to show.",
+      },
     ],
     visualInputs: [
       { key: "rasterRgbR", label: "R", port: "R" },
@@ -9966,8 +10034,16 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     displayType: "trace",
     inputs: ["0.1V/Oct", "Freq", "Phase"],
-    inputAliases: { "0.1V": "0.1V/Oct", freq: "Freq", phase: "Phase" },
-    inputLabels: { "0.1V/Oct": "0.1V" },
+    inputAliases: {
+      "0.1V": "0.1V/Oct",
+      freq: "Freq",
+      phase: "Phase",
+      f: "Freq",
+      Frequency: "Freq",
+      F: "Freq",
+      "ƒ": "Freq",
+    },
+    inputLabels: { "0.1V/Oct": "0.1V", Freq: "ƒ" },
     outputs: ["Out"],
     parameters: [
       {

@@ -29,6 +29,9 @@ function nodeGraphModeResonatorLoadMainWasm() {
 function nodeGraphModeResonatorResolveFrequencyHz(
   runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput,
 ) {
+  if (typeof hasInput === "function" && hasInput(nodeId, "f")) {
+    return mixInput(nodeId, "f");
+  }
   const frequency = readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 440, frame, frames, frameValues);
   const referenceVoltage = typeof normalizeNodeGraphPatchAudio === "function" && nodeGraphMvp?.patch?.audio
     ? normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote / 120
@@ -38,11 +41,13 @@ function nodeGraphModeResonatorResolveFrequencyHz(
     ? Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0))
     : referenceVoltage;
   if (typeof nodeGraphParamResolveOscPitchHz === "function") {
-    return nodeGraphParamResolveOscPitchHz({
-      baseHz: frequency,
+    return nodeGraphParamResolveOscPitchHz({baseHz: frequency,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
+      hasInput,
+      mixInput,
+      nodeId,
     });
   }
   return frequency;

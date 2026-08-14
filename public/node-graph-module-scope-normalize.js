@@ -1025,6 +1025,12 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
       0,
       1,
     ),
+    centsBand: normalizeNodeGraphTraceDisplayNumber(
+      source.centsBand ?? source.tuneBand ?? source.octaveTune,
+      defaults.centsBand ?? 0,
+      0,
+      1,
+    ),
     // LED + LCD: linear inset/outset from plate edge (−0.5…1; not Amp / scope padding).
     // Negative = grow digits toward walls; 0 = no inset; 1 = pin pixel.
     facePadding: normalizeNodeGraphTraceDisplayNumber(
@@ -1269,12 +1275,9 @@ function nodeGraphLineBurnSettingsForNode(node) {
 
 function nodeGraphNumberReadoutFaceStyleForNode(node) {
   const type = String(node?.type || "");
-  // Pitch Detector uses phosphor Value LED readout (not reflective LCD).
-  if (type === "valueLcd") {
+  // Pitch Detector is a reflective LCD plate (DSEG + unlit ghost 8s).
+  if (type === "valueLcd" || type === "helmholtzPitch") {
     return "lcd";
-  }
-  if (type === "helmholtzPitch") {
-    return "led";
   }
   const fromSettings = String(node?.traceDisplaySettings?.faceStyle || "").toLowerCase();
   if (fromSettings === "lcd") {
@@ -1284,18 +1287,21 @@ function nodeGraphNumberReadoutFaceStyleForNode(node) {
 }
 
 function nodeGraphNumberReadoutDefaultsForNode(node) {
-  // Pitch always uses LED phosphor defaults (trail/ghost residual), never LCD pack.
   if (String(node?.type || "") === "helmholtzPitch") {
-    const led = typeof nodeGraphNumberReadoutSettingsDefaults !== "undefined"
-      ? nodeGraphNumberReadoutSettingsDefaults
+    const lcd = typeof nodeGraphValueLcdSettingsDefaults !== "undefined"
+      ? nodeGraphValueLcdSettingsDefaults
       : {};
     return {
-      ...led,
-      faceStyle: "led",
+      ...lcd,
+      faceStyle: "lcd",
       // Pitch Hz: ~4 integer + 2 decimal slots → total digit budget 6.
       digits: 6,
       decimalBudget: true,
       digitBins: true,
+      // Unlit 8-plate must be visible (0.01 is below what the LCD ghost reads as).
+      unlitSegments: 0.28,
+      // 8ve page cents-accuracy stripes (0 = off, 1 = opaque).
+      centsBand: 0.45,
     };
   }
   const base = nodeGraphNumberReadoutFaceStyleForNode(node) === "lcd"
@@ -1316,6 +1322,10 @@ function nodeGraphNumberReadoutSettingsForNode(node) {
       : {}),
     faceStyle: nodeGraphNumberReadoutFaceStyleForNode(node),
   };
+  // Old Pitch Detector LED packs stored unlitSegments 0 (no LCD ghost).
+  if (String(node.type || "") === "helmholtzPitch" && !(Number(packed.unlitSegments) > 0)) {
+    packed.unlitSegments = defaults.unlitSegments ?? 0.28;
+  }
   return normalizeNodeGraphNumberReadoutSettings(packed, defaults);
 }
 

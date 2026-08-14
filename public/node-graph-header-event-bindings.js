@@ -285,7 +285,13 @@ function bindNodeGraphHeaderControlEvents() {
     .addEventListener("click", toggleNodeUserUiSettings);
   document
     .getElementById("nodeCodeScreenViewButton")
-    .addEventListener("click", () => openNodeGraphCodeBoxWindowFromHeader());
+    ?.addEventListener("click", () => {
+      const button = document.getElementById("nodeCodeScreenViewButton");
+      if (button?.disabled || button?.getAttribute("aria-disabled") === "true") {
+        return;
+      }
+      openNodeGraphCodeBoxWindowFromHeader();
+    });
   document
     .getElementById("nodeUiViewButton")
     ?.addEventListener("click", () => setNodeGraphViewMode("ui"));

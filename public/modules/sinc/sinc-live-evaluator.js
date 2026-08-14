@@ -70,11 +70,13 @@ nodeGraphLiveModuleEvaluators.sinc = ({ runtime, node, nodeId, frame, frames, fr
     ), -1, 1)
     : referenceVoltage;
   const freq = typeof nodeGraphParamResolveOscPitchHz === "function"
-    ? nodeGraphParamResolveOscPitchHz({
-      baseHz: baseFreq,
+    ? nodeGraphParamResolveOscPitchHz({baseHz: baseFreq,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
+      hasInput,
+      mixInput,
+      nodeId,
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(baseFreq, pitchCv, referenceVoltage)

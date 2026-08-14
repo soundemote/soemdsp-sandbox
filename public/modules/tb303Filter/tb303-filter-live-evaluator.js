@@ -215,12 +215,14 @@ function nodeGraphTb303FilterSample(state, input, params, sampleRate, runtime = 
 
 // Registers the offline/render-time dispatch handler for tb303Filter into
 // nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
-nodeGraphLiveModuleEvaluators.tb303Filter = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, sampleRate }) => {
+nodeGraphLiveModuleEvaluators.tb303Filter = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate }) => {
   const state = runtime.tb303FilterStates.get(nodeId) || createNodeGraphStereoFilterState(createNodeGraphTb303FilterState);
   runtime.tb303FilterStates.set(nodeId, state);
   const read = (key, fallback) => readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
   const tb303Params = {
-    cutoff: read("cutoff", 1000),
+    cutoff: (typeof hasInput === "function" && hasInput(nodeId, "f"))
+      ? mixInput(nodeId, "f")
+      : read("cutoff", 1000),
     drive: read("drive", 0),
     mode: read("mode", 4),
     resonance: read("resonance", 0),

@@ -5,7 +5,7 @@ async function bindNodeGraphUiDevSettingsEvents() {
   document
     .getElementById("updateDefaultNodeUiDevSettingsButton")
     .addEventListener("click", handleUpdateDefaultNodeUiDevSettingsPresetClick);
-  document.getElementById("nodeUiDevButton").addEventListener("click", toggleNodeUiDevHelper);
+  document.getElementById("nodeUiDevButton")?.addEventListener("click", toggleNodeUiDevHelper);
   document.getElementById("nodeUiDevHelperClose").addEventListener("click", () => setNodeUiDevHelperVisible(false));
   document
     .getElementById("nodeUiDevHelperDragHandle")

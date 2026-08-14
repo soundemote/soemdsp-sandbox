@@ -41,7 +41,7 @@ function nodeGraphCrossoverSilentPorts(bandCount) {
   return out;
 }
 
-function nodeGraphCrossoverLiveReadFreqs(runtime, node, bandCount, frame, frames, frameValues) {
+function nodeGraphCrossoverLiveReadFreqs(runtime, node, nodeId, bandCount, frame, frames, frameValues, mixInput, hasInput) {
   const splitCount = bandCount - 1;
   const defaults = typeof nodeGraphCrossoverDefaultFreqs === "function"
     ? nodeGraphCrossoverDefaultFreqs(bandCount)
@@ -50,7 +50,13 @@ function nodeGraphCrossoverLiveReadFreqs(runtime, node, bandCount, frame, frames
   for (let i = 0; i < splitCount; i += 1) {
     const key = splitCount === 1 ? "frequency" : `frequency${i + 1}`;
     const fallback = defaults[i] ?? 1000;
-    freqs.push(readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues));
+    const knobHz = readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
+    // 2-crossover has one split: wired ƒ is that split in Hz. Multi-way stays knob-only.
+    freqs.push(
+      splitCount === 1 && typeof hasInput === "function" && hasInput(nodeId, "f")
+        ? mixInput(nodeId, "f")
+        : knobHz,
+    );
   }
   return freqs;
 }
@@ -121,10 +127,13 @@ function nodeGraphCrossoverRegisterLive(bandCount) {
     frames,
     frameValues,
     mixInput,
+    hasInput,
     sampleRate,
   }) => {
     const lrOrder = readNodeGraphLiveEffectiveParam(runtime, node, "order", 4, frame, frames, frameValues);
-    const freqs = nodeGraphCrossoverLiveReadFreqs(runtime, node, bandCount, frame, frames, frameValues);
+    const freqs = nodeGraphCrossoverLiveReadFreqs(
+      runtime, node, nodeId, bandCount, frame, frames, frameValues, mixInput, hasInput,
+    );
     const out = nodeGraphCrossoverMainSample(
       runtime,
       nodeId,

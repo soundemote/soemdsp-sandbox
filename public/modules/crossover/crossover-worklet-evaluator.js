@@ -116,6 +116,7 @@ NodeLiveAudioProcessor.prototype.crossoverEvaluator = function crossoverEvaluato
   frameValues,
   mixInput,
   safeRate,
+  hasInput,
 ) {
   const type = `crossover${bandCount}`;
   const mapName = `${type}States`;
@@ -134,7 +135,12 @@ NodeLiveAudioProcessor.prototype.crossoverEvaluator = function crossoverEvaluato
   const freqs = [];
   for (let i = 0; i < splitCount; i += 1) {
     const key = splitCount === 1 ? "frequency" : `frequency${i + 1}`;
-    freqs.push(this.readEffectiveParameter(node, key, defaults[i] ?? 1000, frame, frames, frameValues));
+    const knobHz = this.readEffectiveParameter(node, key, defaults[i] ?? 1000, frame, frames, frameValues);
+    freqs.push(
+      splitCount === 1 && typeof hasInput === "function" && hasInput(nodeId, "f")
+        ? mixInput(nodeId, "f")
+        : knobHz,
+    );
   }
   return this.crossoverSample(
     state,

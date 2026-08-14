@@ -191,11 +191,13 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
     ), -1, 1)
     : referenceVoltage;
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
-    ? nodeGraphParamResolveOscPitchHz({
-      baseHz: frequency,
+    ? nodeGraphParamResolveOscPitchHz({baseHz: frequency,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
+      hasInput,
+      mixInput,
+      nodeId,
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)

@@ -196,7 +196,7 @@ function validateNodeGraphPatch(patch) {
       && Object.hasOwn(node, "heightGu");
     const heightGu = hasCustomModuleHeight
       ? sizingCapabilities.moduleHeight === "textBox"
-        ? normalizeNodeGraphTextBoxHeightUnits(node.heightGu)
+        ? normalizeNodeGraphTextBoxHeightUnits(node.heightGu, node.ui)
         : normalizeNodeGraphModuleHeightUnits(type, node.heightGu, node.ui)
       : null;
     if (hasCustomModuleHeight && !Number.isFinite(Number(node.heightGu))) {

@@ -151,11 +151,13 @@ NodeLiveAudioProcessor.prototype.ellipsoidWorkletEvaluate = function ellipsoidWo
     ? this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null)
     : referenceVoltage;
   const pitchedFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
-    ? nodeGraphParamResolveOscPitchHz({
-      baseHz: frequency,
+    ? nodeGraphParamResolveOscPitchHz({baseHz: frequency,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
+      hasInput: typeof hasInput === "function" ? hasInput : (id, port) => this.inputConnections.has(this.inputKey(id, port)),
+      mixInput,
+      nodeId,
     })
     : (typeof nodeGraphPitchedFrequency === "function"
         ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)

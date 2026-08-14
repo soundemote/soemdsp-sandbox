@@ -8,6 +8,7 @@ nodeGraphLiveModuleEvaluators.activeFilter = ({
   frames,
   frameValues,
   mixInput,
+  hasInput,
   sampleRate,
 }) => {
   if (!runtime.activeFilterStates) {
@@ -20,7 +21,9 @@ nodeGraphLiveModuleEvaluators.activeFilter = ({
   runtime.activeFilterStates.set(nodeId, state);
   const params = {
     feedbackCircuit: readNodeGraphLiveEffectiveParam(runtime, node, "feedbackCircuit", 3, frame, frames, frameValues),
-    frequency: readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 1000, frame, frames, frameValues),
+    frequency: (typeof hasInput === "function" && hasInput(nodeId, "f"))
+      ? mixInput(nodeId, "f")
+      : readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 1000, frame, frames, frameValues),
     gainCompensation: readNodeGraphLiveEffectiveParam(runtime, node, "gainCompensation", 1, frame, frames, frameValues),
     mode: readNodeGraphLiveEffectiveParam(runtime, node, "mode", 3, frame, frames, frameValues),
     resonance: readNodeGraphLiveEffectiveParam(runtime, node, "resonance", 0.2, frame, frames, frameValues),

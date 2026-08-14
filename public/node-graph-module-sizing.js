@@ -225,8 +225,21 @@ function nodeGraphModuleUiWithFaceHeightGu(ui, type, faceGu) {
 
 const nodeGraphTextBoxHeightLimits = Object.freeze({
   maxGu: 60,
+  // Floor when the header is hidden. Visible title uses header + 1gu text
+  // (see nodeGraphTextBoxMinOuterHeightGu) so the body cannot sit under chrome.
   minGu: 1,
 });
+
+/** Smallest outer height that still leaves 1gu for the text face. */
+function nodeGraphTextBoxMinOuterHeightGu(ui = {}) {
+  const headerGu = typeof nodeGraphModuleHeaderHeightUnits === "function"
+    ? nodeGraphModuleHeaderHeightUnits(ui, "textBox")
+    : (Number(nodeGraphModuleLayout?.headerHeightGu) || 1);
+  return Math.max(
+    nodeGraphTextBoxHeightLimits.minGu,
+    Math.ceil(Math.max(0, Number(headerGu) || 0) + 1),
+  );
+}
 
 function nodeGraphPatchNodeLayout(node) {
   const patchNode = typeof node === "string" ? nodeGraphPatchNode(node) : node;
@@ -598,13 +611,13 @@ function nodeGraphModuleIsCollapsedUi(type, ui = {}) {
     && ioOff;
 }
 
-function normalizeNodeGraphTextBoxHeightUnits(heightGu) {
+function normalizeNodeGraphTextBoxHeightUnits(heightGu, ui = {}) {
   const value = Math.round(Number(heightGu));
   if (!Number.isFinite(value)) {
-    return nodeGraphModuleGridHeightUnitsForUi("textBox");
+    return nodeGraphModuleGridHeightUnitsForUi("textBox", ui);
   }
   return Math.max(
-    nodeGraphTextBoxHeightLimits.minGu,
+    nodeGraphTextBoxMinOuterHeightGu(ui),
     Math.min(nodeGraphTextBoxHeightLimits.maxGu, value),
   );
 }
@@ -715,9 +728,19 @@ function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
   }
   const type = patchNode.type;
   const ui = patchNode.ui;
-  const faceGu = typeof nodeGraphPatchNodeDisplayHeightUnits === "function"
+  let faceGu = typeof nodeGraphPatchNodeDisplayHeightUnits === "function"
     ? nodeGraphPatchNodeDisplayHeightUnits(patchNode)
     : nodeGraphModuleDisplayHeightUnits(type, ui);
+  // Text Box is not a scope face, but the body still sits in the face track.
+  // Remaining outer − header is the text plate so 1fr grow cannot under/overflow
+  // the title bar (B-032).
+  if (nodeGraphModuleDefinitions[type]?.layout === "textBox") {
+    const outerGu = typeof nodeGraphPatchNodeGridHeightUnits === "function"
+      ? nodeGraphPatchNodeGridHeightUnits(patchNode)
+      : nodeGraphModuleGridHeightUnitsForUi(type, ui);
+    const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
+    faceGu = Math.max(1, Math.round(Number(outerGu) || 0) - Math.ceil(Number(headerGu) || 0));
+  }
   // Face units drive LayoutA --node-module-scope-height.
   element.style.setProperty("--node-module-display-height-units", String(faceGu));
   const isLayoutB = typeof nodeGraphModuleUsesLayoutB === "function"
@@ -859,9 +882,12 @@ function nodeGraphModuleLayoutBands(type, ui = {}) {
     && nodeGraphModuleUsesLayoutC(type);
   const layout = nodeGraphModuleDefinitions[type]?.layout;
   const paramsVisible = Boolean(byId.get("params")?.visible);
+  const ioVisible = Boolean(byId.get("io")?.visible);
   const bands = order.map((id) => ({ ...byId.get(id) }));
-  if (type === "audioPlayer" || layout === "textBox") {
-    const face = bands.find((band) => band.id === "face");
+  const face = bands.find((band) => band.id === "face");
+  // Sliders + I/O off: leftover plate (including the lip) belongs to the face.
+  const displayOwnsPlate = Boolean(face?.visible) && !paramsVisible && !ioVisible;
+  if (type === "audioPlayer" || layout === "textBox" || displayOwnsPlate) {
     if (face?.visible) {
       face.grow = true;
     }
@@ -880,7 +906,8 @@ function nodeGraphModuleLayoutBands(type, ui = {}) {
   }
   const wantsLip = layout !== "led"
     && layout !== "textBox"
-    && !(isLayoutB && !paramsVisible);
+    && !(isLayoutB && !paramsVisible)
+    && !displayOwnsPlate;
   if (wantsLip) {
     const musicLip = type === "audioPlayer";
     bands.push({
@@ -945,6 +972,9 @@ function inferNodeGraphModuleBandId(child) {
     return tagged;
   }
   const cls = child.classList;
+  if (cls.contains("node-module-lip")) {
+    return "lip";
+  }
   if (cls.contains("node-text-box-body")) {
     return "face";
   }
@@ -993,6 +1023,22 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
   article.classList.add("module-stack");
   article.style.setProperty("--node-module-stack-rows", stack);
   article.style.gridTemplateRows = stack;
+  if (
+    visible.some((band) => band.id === "lip")
+    && !article.querySelector(":scope > .node-module-lip")
+  ) {
+    const lip = document.createElement("div");
+    lip.className = "node-module-lip";
+    lip.setAttribute("aria-hidden", "true");
+    lip.dataset.moduleBand = "lip";
+    article.append(lip);
+    if (typeof beginNodeGraphNodeDrag === "function") {
+      lip.addEventListener("pointerdown", beginNodeGraphNodeDrag);
+    }
+    if (typeof openNodeModuleActionMenu === "function") {
+      lip.addEventListener("contextmenu", openNodeModuleActionMenu);
+    }
+  }
   let lastContentIndex = -1;
   for (let index = visible.length - 1; index >= 0; index -= 1) {
     if (visible[index].id !== "lip") {
@@ -1412,7 +1458,7 @@ function nodeGraphPatchNodeGridHeightUnits(node) {
   }
   const moduleHeightCapability = nodeGraphModuleSizingCapabilities(type).moduleHeight;
   if (moduleHeightCapability === "textBox" && Number.isFinite(Number(patchNode.heightGu))) {
-    return normalizeNodeGraphTextBoxHeightUnits(patchNode.heightGu);
+    return normalizeNodeGraphTextBoxHeightUnits(patchNode.heightGu, ui);
   }
   if (moduleHeightCapability === "custom" && Number.isFinite(Number(patchNode.heightGu))) {
     return normalizeNodeGraphModuleHeightUnits(type, patchNode.heightGu, ui);
@@ -1426,6 +1472,9 @@ function nodeGraphPatchNodeGridHeightUnits(node) {
  * Height − is disabled at this outer size (cannot go thinner).
  */
 function nodeGraphModuleMinOuterHeightGu(type, ui = {}) {
+  if (nodeGraphModuleDefinitions[type]?.layout === "textBox") {
+    return nodeGraphTextBoxMinOuterHeightGu(ui);
+  }
   if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
     return nodeGraphLayoutCMinContentHeightGu(type, ui);
   }

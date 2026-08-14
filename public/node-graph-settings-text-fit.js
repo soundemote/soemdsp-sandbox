@@ -41,11 +41,18 @@ function fitNodeSettingsHeaderText() {
     return;
   }
 
-  for (const span of document.querySelectorAll(".node-settings-actions button > span, .node-settings-actions a > span")) {
+  const headerSpans = document.querySelectorAll([
+    ".node-settings-actions button > span",
+    ".node-settings-actions a > span",
+    ".node-settings-script-action-group button > span",
+    ".node-settings-script-action-group a > span",
+    ".node-settings-dev-action-group button > span",
+  ].join(", "));
+  for (const span of headerSpans) {
     span.style.fontSize = "1px";
   }
 
-  for (const span of document.querySelectorAll(".node-settings-actions button > span, .node-settings-actions a > span")) {
+  for (const span of headerSpans) {
     const maxSize = Math.max(0, span.clientHeight - 1);
     if (maxSize <= 0 || textScale <= 0) {
       span.style.fontSize = "0px";

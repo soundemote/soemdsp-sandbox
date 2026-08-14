@@ -2,13 +2,16 @@
 // Shared math: scientific-iir-math.js. Bandpass reuses EQ ZDF SVF Bandpass Peak.
 
 function nodeGraphScientificIirLiveEval(kind, typeKey, defaults) {
-  return ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, sampleRate }) => {
+  return ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate }) => {
     const mapName = `${typeKey}States`;
     if (!runtime[mapName]) runtime[mapName] = new Map();
     const state = runtime[mapName].get(nodeId) || createNodeGraphStereoScientificIirState();
     runtime[mapName].set(nodeId, state);
     const mode = readNodeGraphLiveEffectiveParam(runtime, node, "mode", defaults.mode ?? 0, frame, frames, frameValues);
-    const frequency = readNodeGraphLiveEffectiveParam(runtime, node, "frequency", defaults.frequency ?? 1000, frame, frames, frameValues);
+    const knobHz = readNodeGraphLiveEffectiveParam(runtime, node, "frequency", defaults.frequency ?? 1000, frame, frames, frameValues);
+    const frequency = (typeof hasInput === "function" && hasInput(nodeId, "f"))
+      ? mixInput(nodeId, "f")
+      : knobHz;
     const order = readNodeGraphLiveEffectiveParam(runtime, node, "order", defaults.order ?? 4, frame, frames, frameValues);
     const bandwidth = readNodeGraphLiveEffectiveParam(runtime, node, "bandwidth", defaults.bandwidth ?? 1, frame, frames, frameValues);
     const ripple = readNodeGraphLiveEffectiveParam(runtime, node, "ripple", defaults.ripple ?? 1, frame, frames, frameValues);
@@ -50,6 +53,7 @@ nodeGraphLiveModuleEvaluators.bandpass = ({
   const baseFreq = readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 1000, frame, frames, frameValues);
   const q = readNodeGraphLiveEffectiveParam(runtime, node, "q", 1, frame, frames, frameValues);
   const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const hasAbsHz = typeof hasInput === "function" && hasInput(nodeId, "f");
   const referenceVoltage = typeof normalizeNodeGraphPatchAudio === "function" && nodeGraphMvp?.patch?.audio
     ? normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote / 120
     : 0.4;
@@ -57,14 +61,18 @@ nodeGraphLiveModuleEvaluators.bandpass = ({
   const pitchCv = hasPitch
     ? Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0))
     : referenceVoltage;
-  const frequency = typeof nodeGraphParamResolveOscPitchHz === "function"
-    ? Math.max(0, nodeGraphParamResolveOscPitchHz({
-      baseHz: baseFreq,
-      hasPitchCv: hasPitch,
-      pitchCv,
-      referenceVoltage,
+  const frequency = hasAbsHz
+    ? mixInput(nodeId, "f")
+    : (typeof nodeGraphParamResolveOscPitchHz === "function"
+      ? Math.max(0, nodeGraphParamResolveOscPitchHz({baseHz: baseFreq,
+        hasPitchCv: hasPitch,
+        pitchCv,
+        referenceVoltage,
+      hasInput,
+      mixInput,
+      nodeId,
     }))
-    : Math.max(0, baseFreq);
+      : Math.max(0, baseFreq));
   const mono = mixInput(nodeId);
   const run = (ch, x) => nodeGraphEqFilterSample(ch, x, 4, frequency, q, 0, rate);
   return {
@@ -95,6 +103,7 @@ nodeGraphLiveModuleEvaluators.allpass = ({
   const baseFreq = readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 1000, frame, frames, frameValues);
   const q = readNodeGraphLiveEffectiveParam(runtime, node, "q", 0.707, frame, frames, frameValues);
   const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const hasAbsHz = typeof hasInput === "function" && hasInput(nodeId, "f");
   const referenceVoltage = typeof normalizeNodeGraphPatchAudio === "function" && nodeGraphMvp?.patch?.audio
     ? normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote / 120
     : 0.4;
@@ -102,14 +111,18 @@ nodeGraphLiveModuleEvaluators.allpass = ({
   const pitchCv = hasPitch
     ? Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0))
     : referenceVoltage;
-  const frequency = typeof nodeGraphParamResolveOscPitchHz === "function"
-    ? Math.max(0, nodeGraphParamResolveOscPitchHz({
-      baseHz: baseFreq,
-      hasPitchCv: hasPitch,
-      pitchCv,
-      referenceVoltage,
+  const frequency = hasAbsHz
+    ? mixInput(nodeId, "f")
+    : (typeof nodeGraphParamResolveOscPitchHz === "function"
+      ? Math.max(0, nodeGraphParamResolveOscPitchHz({baseHz: baseFreq,
+        hasPitchCv: hasPitch,
+        pitchCv,
+        referenceVoltage,
+      hasInput,
+      mixInput,
+      nodeId,
     }))
-    : Math.max(0, baseFreq);
+      : Math.max(0, baseFreq));
   const mono = mixInput(nodeId);
   // mode 6 = Allpass
   const run = (ch, x) => nodeGraphEqFilterSample(ch, x, 6, frequency, q, 0, rate);

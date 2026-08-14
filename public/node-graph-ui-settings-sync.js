@@ -193,6 +193,9 @@ function syncNodeUiDevGridDivisionMultiply() {
   const css = String(scale);
   workspace?.style.setProperty("--node-grid-visual-scale", css);
   document.documentElement.style.setProperty("--node-grid-visual-scale", css);
+  if (typeof applyNodeGraphGridVisualCellSize === "function") {
+    applyNodeGraphGridVisualCellSize(workspace);
+  }
 }
 
 function syncNodeUiDevOutletRgbBrightness() {

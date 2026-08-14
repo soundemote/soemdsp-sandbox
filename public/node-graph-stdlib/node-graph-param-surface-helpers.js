@@ -372,19 +372,42 @@ function nodeGraphParamSignalInAmplitude(domainLevel, ampSample, hasAmp) {
 }
 
 /**
+ * Absolute-Hz jack (ƒ / Freq) when wired. Returns null if unwired.
+ */
+function nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId) {
+  if (typeof hasInput !== "function" || typeof mixInput !== "function" || !nodeId) {
+    return null;
+  }
+  if (hasInput(nodeId, "f")) {
+    return mixInput(nodeId, "f");
+  }
+  if (hasInput(nodeId, "Freq")) {
+    return mixInput(nodeId, "Freq");
+  }
+  return null;
+}
+
+/**
  * Resolve osc pitch from domain frequency + optional 0.1V/Oct jack.
- * Domain Freq already includes parameter MOD (domain-add). f jack removed —
- * use Freq MOD with domain-unit sources (Pitch Detector, Knob, …).
+ * Wired ƒ / Freq is absolute Hz and wins over the Frequency knob + 0.1V/Oct.
  * Through-zero: signed base Hz (negative reverses phase via bipolar Freq).
  */
 function nodeGraphParamResolveOscPitchHz(options = {}) {
+  if (options.hasAbsHz === true) {
+    const abs = Number(options.fHz);
+    return Number.isFinite(abs) ? abs : 0;
+  }
+  const jackHz = nodeGraphResolveAbsHzJack(options.hasInput, options.mixInput, options.nodeId);
+  if (jackHz != null) {
+    const abs = Number(jackHz);
+    return Number.isFinite(abs) ? abs : 0;
+  }
   const rawBase = Number(options.baseHz);
   const baseHz = Number.isFinite(rawBase) ? rawBase : 0;
   const pitchCv = options.pitchCv;
   const referenceVoltage = Number(options.referenceVoltage);
   const ref = Number.isFinite(referenceVoltage) ? referenceVoltage : 0;
   const hasPitch = options.hasPitchCv === true;
-  // Legacy options.fHz ignored (absolute-Hz f jack retired).
   const cv = hasPitch ? pitchCv : ref;
   if (typeof nodeGraphPitchedFrequency === "function") {
     return nodeGraphPitchedFrequency(baseHz, cv, ref);

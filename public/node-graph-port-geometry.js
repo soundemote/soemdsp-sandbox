@@ -302,7 +302,13 @@ function nodeGraphPortIsFrequencyValue(port) {
   if (!key) {
     return false;
   }
-  if (key === "Frequency" || key === "Freq" || key === NODE_GRAPH_FREQUENCY_VALUE_GLYPH) {
+  if (
+    key === "Frequency"
+    || key === "Freq"
+    || key === "f"
+    || key === "F"
+    || key === NODE_GRAPH_FREQUENCY_VALUE_GLYPH
+  ) {
     return true;
   }
   if (/^d?f\d+$/i.test(key)) {
@@ -321,7 +327,13 @@ function nodeGraphFrequencyValuePortDisplayLabel(port) {
   if (numbered) {
     return `${NODE_GRAPH_FREQUENCY_VALUE_GLYPH}${numbered[1]}`;
   }
-  if (key === "Frequency" || key === "Freq" || key === NODE_GRAPH_FREQUENCY_VALUE_GLYPH) {
+  if (
+    key === "Frequency"
+    || key === "Freq"
+    || key === "f"
+    || key === "F"
+    || key === NODE_GRAPH_FREQUENCY_VALUE_GLYPH
+  ) {
     return NODE_GRAPH_FREQUENCY_VALUE_GLYPH;
   }
   return key;

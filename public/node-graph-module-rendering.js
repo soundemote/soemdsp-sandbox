@@ -132,6 +132,8 @@ function attachNodeGraphNodeEvents(node) {
     .forEach((section) => section.addEventListener("pointerdown", beginNodeGraphNodeDrag));
   node.querySelectorAll(".node-parameter-row")
     .forEach((row) => row.addEventListener("pointerdown", beginNodeGraphNodeDrag));
+  node.querySelector(".node-module-lip")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
+  node.querySelector(".node-module-lip")?.addEventListener("contextmenu", openNodeModuleActionMenu);
   // The Music Player / sample modules have no spare chrome to grab -- the body
   // is wall-to-wall controls -- so the phase readout doubles as a drag handle.
   // The copy button inside it is unaffected: beginNodeGraphNodeDrag bails on
@@ -1188,6 +1190,16 @@ function createNodeGraphModuleElement(type, node) {
     }
     article.append(body);
   }
+
+  // Lip is a painted plate band with no other child. Without a hit target,
+  // pointer-events:none on .dsp-node lets right-click fall through to the grid.
+  const lip = document.createElement("div");
+  lip.className = "node-module-lip";
+  lip.setAttribute("aria-hidden", "true");
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(lip, "lip");
+  }
+  article.append(lip);
 
   if (typeof applyNodeGraphModuleLayout === "function") {
     applyNodeGraphModuleLayout(article, patchNode);

@@ -151,10 +151,15 @@ function drawNodeGraphVectorRgbFaceItem(_renderer, item, pixelRatio) {
   }
   const radius = Math.max(0.6, side * settings.dot1Size * 0.5);
   const gain = settings.dot1Brightness;
-  const hasBlank = nodeGraphRgbPickPortBuffer(slot, "Blank");
+  const connectionsTo = typeof nodeGraphModuleScopeConnectionsTo === "function"
+    ? nodeGraphModuleScopeConnectionsTo
+    : () => [];
+  const blankWired = connectionsTo(slot.nodeId, "Blank").length > 0;
+  const rgbWired = ["R", "G", "B"].some((port) => connectionsTo(slot.nodeId, port).length > 0);
   ctx.globalCompositeOperation = "lighter";
   for (let i = 0; i < captured.length; i += 1) {
-    if (hasBlank && Number(captured.Blank[i]) < 0.5) {
+    // CRT blanking: high hides the beam. Unwired Blk = always draw.
+    if (blankWired && Number(captured.Blank[i]) >= 0.5) {
       continue;
     }
     const x = nodeGraphVectorRgbUnitToPx(captured.X[i], ox, side, scale);
@@ -162,9 +167,9 @@ function drawNodeGraphVectorRgbFaceItem(_renderer, item, pixelRatio) {
     if (x == null || y == null) {
       continue;
     }
-    const r = Math.max(0, Math.min(1, Number(captured.R[i]) || 0)) * gain;
-    const g = Math.max(0, Math.min(1, Number(captured.G[i]) || 0)) * gain;
-    const b = Math.max(0, Math.min(1, Number(captured.B[i]) || 0)) * gain;
+    const r = (rgbWired ? Math.max(0, Math.min(1, Number(captured.R[i]) || 0)) : 1) * gain;
+    const g = (rgbWired ? Math.max(0, Math.min(1, Number(captured.G[i]) || 0)) : 1) * gain;
+    const b = (rgbWired ? Math.max(0, Math.min(1, Number(captured.B[i]) || 0)) : 1) * gain;
     if (r + g + b <= 1e-6) {
       continue;
     }

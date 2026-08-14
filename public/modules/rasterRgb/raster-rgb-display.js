@@ -1,5 +1,7 @@
-// Raster RGB — one analog sample is one pixel. No invented resolution,
-// no bilinear. Rolling write into W×H, nearest-neighbor blit to the face.
+// Raster RGB — one analog sample is one pixel. Rolling W×H buffer,
+// nearest-neighbor blit stretched to the full face (no letterbox).
+// Grade (invert / contrast / brightness / blur / glow) is a canvas filter
+// pass — GPU-backed in Chromium, no extra WebGL program.
 
 const nodeGraphRasterRgbSettingsDefaults = Object.freeze({
   background: "#000000",
@@ -21,6 +23,38 @@ function nodeGraphRasterRgbGridSize(node) {
   const width = Math.max(8, Math.min(320, Math.round(Number(node?.params?.width) || 96)));
   const height = Math.max(8, Math.min(240, Math.round(Number(node?.params?.height) || 54)));
   return { width, height };
+}
+
+function nodeGraphRasterRgbUnit01(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return fallback;
+  }
+  return Math.max(0, Math.min(1, n));
+}
+
+function nodeGraphRasterRgbGrade(node) {
+  const params = node?.params && typeof node.params === "object" ? node.params : {};
+  const invert = nodeGraphRasterRgbUnit01(params.invert, 0);
+  const contrast = Math.max(0, Math.min(4, Number(params.contrast)));
+  const brightness = Math.max(0, Math.min(4, Number(params.brightness)));
+  const blur = nodeGraphRasterRgbUnit01(params.blur, 0);
+  const glow = nodeGraphRasterRgbUnit01(params.glow, 0);
+  return {
+    invert,
+    contrast: Number.isFinite(contrast) ? contrast : 1,
+    brightness: Number.isFinite(brightness) ? brightness : 1,
+    blur,
+    glow,
+  };
+}
+
+function nodeGraphRasterRgbCssGrade(grade) {
+  return [
+    `invert(${(grade.invert * 100).toFixed(2)}%)`,
+    `contrast(${(grade.contrast * 100).toFixed(2)}%)`,
+    `brightness(${(grade.brightness * 100).toFixed(2)}%)`,
+  ].join(" ");
 }
 
 function nodeGraphRasterRgbState(canvas, width, height) {
@@ -70,7 +104,6 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
     return;
   }
   canvas.style.imageRendering = "pixelated";
-  canvas.style.imageRendering = "pixelated";
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     return;
@@ -112,8 +145,6 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
   if (frozen && canvas._rasterRgbBlit) {
     return;
   }
-  ctx.fillStyle = settings.background;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
   const image = new ImageData(state.pixels, state.width, state.height);
   const off = canvas._rasterRgbOff || document.createElement("canvas");
   canvas._rasterRgbOff = off;
@@ -129,13 +160,30 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
   offCtx.putImageData(image, 0, 0);
   const cw = canvas.width;
   const ch = canvas.height;
-  const scale = Math.max(1, Math.floor(Math.min(cw / state.width, ch / state.height)));
-  const dw = state.width * scale;
-  const dh = state.height * scale;
-  const dx = Math.floor((cw - dw) * 0.5);
-  const dy = Math.floor((ch - dh) * 0.5);
+  const grade = nodeGraphRasterRgbGrade(node);
+  const cssGrade = nodeGraphRasterRgbCssGrade(grade);
+  const blurPx = grade.blur * Math.max(2, Math.min(cw, ch) * 0.045);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  ctx.filter = "none";
+  ctx.fillStyle = settings.background;
+  ctx.fillRect(0, 0, cw, ch);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(off, 0, 0, state.width, state.height, dx, dy, dw, dh);
+  // Sharp fill of the whole plate (anisotropic nearest-neighbor).
+  ctx.filter = blurPx > 0.05 && grade.glow <= 0.001
+    ? `${cssGrade} blur(${blurPx.toFixed(2)}px)`
+    : cssGrade;
+  ctx.drawImage(off, 0, 0, state.width, state.height, 0, 0, cw, ch);
+  if (grade.glow > 0.001 && blurPx > 0.05) {
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = grade.glow;
+    ctx.filter = `${cssGrade} blur(${(blurPx * 1.6).toFixed(2)}px)`;
+    ctx.drawImage(off, 0, 0, state.width, state.height, 0, 0, cw, ch);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+  }
+  ctx.filter = "none";
   canvas._rasterRgbBlit = true;
 }
 

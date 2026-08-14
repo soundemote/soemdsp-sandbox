@@ -128,6 +128,7 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "burn",
     "burnAmount",
     "unlitSegments",
+    "centsBand",
     "facePadding",
     "innerShadowDistance",
     "innerShadowSharpness",
@@ -361,6 +362,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   residual: nodeGraphTraceDisplayClampUnit,
   ghostBrightness: nodeGraphTraceDisplayClampBrightness,
   unlitSegments: nodeGraphTraceDisplayClampUnit,
+  centsBand: nodeGraphTraceDisplayClampUnit,
   facePadding: (value) => {
     const n = Number(value);
     return Number.isFinite(n) ? clampNodeSliderValue(n, -0.5, 1) : 0;

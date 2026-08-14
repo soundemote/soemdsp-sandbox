@@ -187,7 +187,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   rasterRgbFace: Object.freeze({
     fields: Object.freeze([]),
-    colors: Object.freeze(["backgroundColor"]),
+    colors: Object.freeze([]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
@@ -216,6 +216,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "burn",
       "burnAmount",
       "unlitSegments",
+      "centsBand",
       "innerShadowDistance",
       "innerShadowSharpness",
       "innerShadowOffsetX",
@@ -675,6 +676,13 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayUnlitSegments",
     title:
       "Value LCD Ghost: permanent dim all-8 segment plate (0 = off, 1 = strong). Soft fade near 0 — not residual hang (LED Trail/Ghost).",
+  }),
+  centsBand: Object.freeze({
+    label: "Tune",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayCentsBand",
+    title:
+      "Pitch Detector 8ve page: cents-accuracy color stripes behind the note name. 0 = off, 1 = fully opaque. Blue = 0–10¢, green 11–20, yellow 21–30, orange 31–40, red 41–50.",
   }),
   facePadding: Object.freeze({
     label: "Padding",

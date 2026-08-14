@@ -82,7 +82,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-029 | hear | open | Offline/Render JS twins ≠ live native (~60 types) |
 | B-030 | hear | fixed | dsp_floor via long long UB for huge \|x\| |
 | B-031 | see | fixed | Text Box settings: each character tanks framerate |
-| B-032 | see | open | Text Box resize / text clips into window |
+| B-032 | see | verify | Text Box resize / text clips into window |
 | B-033 | hear | open | Fractal Brownian Motion has no X Y Z outputs |
 | B-034 | load | dup of B-038 | Show/hide wires not saved with the patch |
 | B-035 | load | fixed | RobinSinusoid oscilloscope history amount not saved |
@@ -386,10 +386,10 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Fix shape: Debounce commit; do not full-graph render on each char. Update the face text locally; persist on blur / idle.
 
 ### B-032 — Text Box resize / text clips into window
-- Status: open
+- Status: verify (min outer is header+1gu text; face track = remaining height; body `min-height: 0` so 1fr can shrink)
 - Severity: see
 - Source: user
-- Files: `public/node-graph-text-box-utils.js`; `public/node-graph-module-sizing.js` (`normalizeNodeGraphTextBoxHeightUnits`, `nodeGraphModuleHeightWithBottomClearance`); `public/node-graph-text-box-rendering.js`
+- Files: `public/node-graph-module-sizing.js` (`nodeGraphTextBoxMinOuterHeightGu`, `normalizeNodeGraphTextBoxHeightUnits`); `public/styles.css` `.node-text-box-body`
 - What: Cannot resize the Text Box properly. Body text clips into the window chrome, or height/width gu is wrong. User suspects same root as B-036.
 - Repro: Resize a Text Box (and/or switch singleLine / multiline / fill). Text overlaps title bar or is clipped.
 - Fix shape: One content-height SSOT (face + chrome + bottom clearance). Resize should change outer heightGu and reflow the text face, not clip.

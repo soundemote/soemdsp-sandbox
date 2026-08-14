@@ -15,6 +15,12 @@ var sandbox = {
     moduleSlidersVisible: true,
   },
   nodeGraphChromelessModuleIsCompactTile: function () { return false; },
+  nodeGraphEffectivePatchNodeUi: function (ui) {
+    return ui || {};
+  },
+  nodeGraphNodeTypeHasTextBoxLayout: function (type) {
+    return sandbox.nodeGraphModuleDefinitions?.[type]?.layout === "textBox";
+  },
   nodeGraphModuleTypeHasCustomDisplayArea: function (type) {
     return Boolean(sandbox.nodeGraphModuleDefinitions?.[type]?.customDisplayArea);
   },
@@ -84,6 +90,14 @@ var sandbox = {
       chrome: "LayoutC",
       inputs: ["L", "R"],
       outputs: ["X", "Y"],
+      parameters: [],
+    },
+    textBox: {
+      chrome: "LayoutA",
+      layout: "textBox",
+      displayType: "textBoxFace",
+      inputs: [],
+      outputs: [],
       parameters: [],
     },
   },
@@ -222,6 +236,27 @@ cases.forEach(function (c) {
     assert(noIo.indexOf("params") >= 0, c.type + " no io: params remain " + noIo);
     assert(noIo.indexOf("params") > noIo.indexOf("header"), c.type + " no io: params under header");
   }
+
+  // Display on + sliders off + I/O off: face grows; no leftover lip track.
+  if (c.face && hasFace(c.type)) {
+    var plate = bands(c.type, { slidersHidden: true, ioHidden: true });
+    var plateFace = plate.find(function (b) { return b.id === "face" && b.visible; });
+    var plateLip = plate.find(function (b) { return b.id === "lip" && b.visible; });
+    assert(plateFace, c.type + " display-only: has face");
+    assert(plateFace.grow, c.type + " display-only: face takes leftover plate");
+    assert(!plateLip, c.type + " display-only: no lip " + ids(plate));
+  }
 });
+
+// B-032: Text Box outer height cannot drop below header + 1gu text.
+var textBoxMin = sandbox.nodeGraphTextBoxMinOuterHeightGu({});
+assert(textBoxMin >= 2, "text box min outer is at least header+1gu");
+assert(
+  sandbox.normalizeNodeGraphTextBoxHeightUnits(1) >= textBoxMin,
+  "heightGu=1 clamps to min outer",
+);
+var textBoxShown = contentIds("textBox", {});
+assert(textBoxShown.indexOf("header") === 0, "text box starts with header");
+assert(textBoxShown.indexOf("face") >= 0, "text box body is the face track " + textBoxShown);
 
 console.log("ok module layout bands §7");

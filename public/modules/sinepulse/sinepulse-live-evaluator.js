@@ -26,11 +26,13 @@ function nodeGraphSinepulseResolveRateHz(
     ? Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0))
     : referenceVoltage;
   if (typeof nodeGraphParamResolveOscPitchHz === "function") {
-    return nodeGraphParamResolveOscPitchHz({
-      baseHz: rate,
+    return nodeGraphParamResolveOscPitchHz({baseHz: rate,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
+      hasInput,
+      mixInput,
+      nodeId,
     });
   }
   return rate;

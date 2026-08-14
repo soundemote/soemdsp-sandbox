@@ -283,16 +283,15 @@ function createNodeGraphPitchDetectorBody(nodeId) {
   body.dataset.pitchDetectorFace = "true";
   body.dataset.pitchDisplayMode = "hz";
   body.dataset.lightSource = "screen";
-  body.setAttribute("aria-label", "Pitch detector frequency LED and fidelity");
+  body.setAttribute("aria-label", "Pitch detector frequency LCD and fidelity");
 
-  // Phosphor Value LED plate (layout class keeps meta strip below digits).
+  // Reflective LCD plate (DSEG + unlit ghost 8s). Layout class keeps meta strip below digits.
   const lcd = document.createElement("div");
-  lcd.className = "node-pitch-detector-lcd node-module-scope-window node-number-readout-face node-value-led-face node-light-source";
+  lcd.className = "node-pitch-detector-lcd node-module-scope-window node-number-readout-face node-value-lcd-face node-light-source";
   lcd.dataset.node = id;
   lcd.dataset.nodeType = "helmholtzPitch";
-  lcd.dataset.valueFaceStyle = "led";
+  lcd.dataset.valueFaceStyle = "lcd";
   lcd.dataset.lightSource = "screen";
-  lcd.dataset.lightStrength = "1";
   lcd.setAttribute("aria-hidden", "true");
 
   // Meta strip: mode (left) | cents (center, 8ve page) | Fid + value (right, all pages).
@@ -462,13 +461,13 @@ function mountNodeGraphPitchDetectorFace(article, body, nodeId) {
       }
     }
   }
-  // Full phosphor LED punch (not LCD less-dim).
   if (lcd.dataset) {
-    lcd.dataset.valueFaceStyle = "led";
+    lcd.dataset.valueFaceStyle = "lcd";
     lcd.dataset.lightSource = "screen";
-    lcd.dataset.lightStrength = "1";
   }
-  if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
-    nodeGraphModuleScopeMarkScreenLit(lcd, 1);
+  if (typeof nodeGraphNumberReadoutApplyLcdLightCutout === "function") {
+    nodeGraphNumberReadoutApplyLcdLightCutout(lcd);
+  } else if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+    nodeGraphModuleScopeMarkScreenLit(lcd, 2 / 3);
   }
 }

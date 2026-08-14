@@ -489,23 +489,22 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
           ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
           : null);
-      if (nrNodeType === "valueLcd") {
+      if (nrNodeType === "valueLcd" || nrNodeType === "helmholtzPitch") {
         // Value LCD (vector): Digits/Decimals + padding, Ghost plate, glass shadow — no residual hang.
         fieldKeys = [
           "digits",
           "decimals",
           "facePadding",
           "unlitSegments",
+          ...(nrNodeType === "helmholtzPitch" ? ["centsBand"] : []),
           "innerShadowDistance",
           "innerShadowSharpness",
           "innerShadowOffsetX",
           "innerShadowOffsetY",
         ].filter((key) => activeFields.has(key));
         choiceKeys = ["polarity"].filter((key) => activeChoices.has(key));
-        toggleKeys.push?.();
         colorKeys = ["dot1Color", "backgroundColor"]
           .filter((key) => activeColors.has(key));
-        choiceKeys = ["polarity"].filter((key) => activeChoices.has(key));
       } else {
         // Value LED: Digits → Decimals → Padding → Bright → Ghost → Trail → Burn → Burn ⨉.
         fieldKeys = [

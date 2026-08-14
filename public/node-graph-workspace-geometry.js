@@ -240,6 +240,41 @@ function nodeGraphWorkspaceFloatProperty(element, property, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function nodeGraphGridVisualScaleCss(workspace) {
+  const host = workspace || document.getElementById("nodeGraphWorkspace");
+  if (!host) {
+    return 1;
+  }
+  const raw = Number.parseFloat(
+    host.style.getPropertyValue("--node-grid-visual-scale")
+    || getComputedStyle(host).getPropertyValue("--node-grid-visual-scale")
+    || "",
+  );
+  if (Number.isFinite(raw) && raw > 0) {
+    return raw;
+  }
+  if (typeof nodeGraphGridVisualScaleFromMultiply === "function") {
+    return nodeGraphGridVisualScaleFromMultiply(
+      document.getElementById("nodeUiDevGridDivisionMultiply")?.value,
+    );
+  }
+  return 1;
+}
+
+function applyNodeGraphGridVisualCellSize(workspace, heatmap, zoom) {
+  const surface = heatmap || document.getElementById("nodeGridHeatmap");
+  const host = workspace || document.getElementById("nodeGraphWorkspace");
+  if (!surface || !host) {
+    return;
+  }
+  const z = Number.isFinite(Number(zoom)) ? Number(zoom) : (typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1);
+  const visualScale = nodeGraphGridVisualScaleCss(host);
+  surface.style.setProperty(
+    "--node-grid-heatmap-grid-size",
+    `${(nodeGraphGridWidth() * z * visualScale).toFixed(2)}px ${(nodeGraphGridHeight() * z * visualScale).toFixed(2)}px`,
+  );
+}
+
 function updateNodeGraphGridHeatmap(options = {}) {
   const heatmap = document.getElementById("nodeGridHeatmap");
   const surface = nodeGraphZoomSurface();
@@ -275,10 +310,7 @@ function updateNodeGraphGridHeatmap(options = {}) {
   const zoom = nodeGraphZoom();
   const origin = nodeGraphRenderedOriginOffset();
   heatmap.style.setProperty("--node-grid-heatmap-grid-position", `${origin.x}px ${origin.y}px`);
-  heatmap.style.setProperty(
-    "--node-grid-heatmap-grid-size",
-    `${(nodeGraphGridWidth() * zoom).toFixed(2)}px ${(nodeGraphGridHeight() * zoom).toFixed(2)}px`,
-  );
+  applyNodeGraphGridVisualCellSize(workspace, heatmap, zoom);
 
   const glowLayers = [];
   const maskLayers = [];

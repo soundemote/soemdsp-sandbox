@@ -19,11 +19,13 @@ nodeGraphLiveModuleEvaluators.surgeOscillator = ({ runtime, node, nodeId, frame,
     ), -1, 1)
     : referenceVoltage;
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
-    ? nodeGraphParamResolveOscPitchHz({
-      baseHz: baseFrequency,
+    ? nodeGraphParamResolveOscPitchHz({baseHz: baseFrequency,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
+      hasInput,
+      mixInput,
+      nodeId,
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)

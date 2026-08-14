@@ -56,11 +56,13 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
     : referenceVoltage;
   const baseWithFreqJack = baseFrequency + freqInput;
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
-    ? nodeGraphParamResolveOscPitchHz({
-      baseHz: baseWithFreqJack,
+    ? nodeGraphParamResolveOscPitchHz({baseHz: baseWithFreqJack,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
+      hasInput,
+      mixInput,
+      nodeId,
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(baseWithFreqJack, pitchCv, referenceVoltage)

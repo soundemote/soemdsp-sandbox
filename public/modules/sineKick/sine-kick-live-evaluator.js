@@ -30,11 +30,13 @@ nodeGraphLiveModuleEvaluators.sineKick = ({
     ? Number(mixInput(nodeId, "0.1V/Oct")) || 0
     : referenceVoltage;
   const pitched = typeof nodeGraphParamResolveOscPitchHz === "function"
-    ? nodeGraphParamResolveOscPitchHz({
-      baseHz: read("pitch", 52),
+    ? nodeGraphParamResolveOscPitchHz({baseHz: read("pitch", 52),
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
+      hasInput,
+      mixInput,
+      nodeId,
     })
     : read("pitch", 52);
   const sharpRaw = read("sharpness", NaN);
