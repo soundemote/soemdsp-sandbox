@@ -54,6 +54,10 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "wavetable3d",
   // RGB pixel-grid experiments (stroke split, bevels, etc.) — placeholder.
   "pixelGrid",
+  "chromaColor",
+  "image",
+  "rgbaHsla",
+  "screenSpaceShader",
   // Waveguide physical model — shell exists (passthrough); full engine later.
   "waveguide",
   // Classic modulation FX
@@ -148,7 +152,8 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   // Samples / Grains / Media shelves stay offline until file storage exists.
   { id: "sample",       emoji: "🎶", label: "Sample Player", symbol: "▣", title: "Sample Player", pitch: "Sample and music-file playback: one-shots, loops, and scrubbable players that turn stored audio into patch signal." },
   { id: "object",       emoji: "🧊", label: "Object",       symbol: "●",   title: "Object",    pitch: "Things you place in the world rather than wire into the signal path -- indicator lights, label plates, and other in-world props." },
-  { id: "rgb",          emoji: "🌈", label: "RGB",          symbol: "◍",   title: "RGB",       pitch: "Color sinks for the screen wash — precise RGB/HSL channels or stylized chroma drift, alpha, bloom, and glow." },
+  { id: "rgb",          emoji: "🌈", label: "RGB",          symbol: "◍",   title: "RGB",       pitch: "RGB analog picture and vector faces — Raster RGB, Vector RGB, and other color-path scopes." },
+  { id: "rgba",         emoji: "🖼️", label: "RGBA",         symbol: "▣",   title: "RGBA",      pitch: "Color-space, image, and screen-wash modules — RGBA/HSLA, chroma, stills, and screen-space shaders." },
   { id: "oscilloscope", emoji: "📺", label: "Oscilloscope", symbol: "OSC", title: "Oscilloscope", pitch: "Dedicated display testbeds for trace, line burn, 2D scope, videoscope, and canvas-style waveform inspection." },
   { id: "multimeter",   emoji: "📟", label: "Multimeter",   symbol: "0D",  title: "Multimeter", pitch: "Readouts that are not waveforms: numbers, character grids, and other value/message faces for what the signal is saying right now." },
   { id: "debug",        emoji: "🐞", label: "Debug",        symbol: "DBG", title: "Debug",     pitch: "Inspection tools, sentinels, and safety monitors for catching bad values while a patch is under test." },
@@ -220,6 +225,8 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   Plugin:            "plugin",
   plugin:            "plugin",
   RGB:               "rgb",
+  RGBA:              "rgba",
+  rgba:              "rgba",
   Sample:            "sample",
   "Sample Player":   "sample",
   Samples:           "sample",
@@ -393,11 +400,41 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "BitConverter",
     notes: ["normalize", "0..1", "-1..1", "bitmask"],
   },
-  numberGate: {
+  gate12: {
     category: "digital",
-    description: "Decode keypad-compatible Analog and Digital into gates 0–12. A and D can each light one outlet.",
-    label: "Number Gate",
-    notes: ["decoder", "gate", "keypad", "digital", "0-12"],
+    description: "Decode Analog and Digital into analog 0–1 gates 0–12. A and D can each light one outlet.",
+    label: "12Gate",
+    notes: ["decoder", "gate", "12gate", "keypad", "0-12"],
+  },
+  gate8: {
+    category: "digital",
+    description: "Decode Analog and Digital into analog 0–1 gates 0–8. A and D can each light one outlet.",
+    label: "8Gate",
+    notes: ["decoder", "gate", "8gate", "0-8"],
+  },
+  gate6: {
+    category: "digital",
+    description: "Decode Analog and Digital into analog 0–1 gates 0–6. A and D can each light one outlet.",
+    label: "6Gate",
+    notes: ["decoder", "gate", "6gate", "0-6"],
+  },
+  gate4: {
+    category: "digital",
+    description: "Decode Analog and Digital into analog 0–1 gates 0–4. A and D can each light one outlet.",
+    label: "4Gate",
+    notes: ["decoder", "gate", "4gate", "0-4"],
+  },
+  gate3: {
+    category: "digital",
+    description: "Decode Analog and Digital into analog 0–1 gates 0–3. A and D can each light one outlet.",
+    label: "3Gate",
+    notes: ["decoder", "gate", "3gate", "0-3"],
+  },
+  gate2: {
+    category: "digital",
+    description: "Decode Analog and Digital into analog 0–1 gates 0–2. A and D can each light one outlet.",
+    label: "2Gate",
+    notes: ["decoder", "gate", "2gate", "0-2"],
   },
   stepSequencer: {
     category: "clock",
@@ -1545,9 +1582,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["visual sink", "shake input", "scope pause"],
   },
   screenSpaceShader: {
-    category: "rgb",
+    category: "rgba",
     description: "Script custom screen effects from declared inputs.",
-    notes: ["scripted visual sink", "custom inputs", "screen shader controls"],
+    notes: ["under construction", "scripted visual sink", "custom inputs", "screen shader controls"],
   },
   bloomGlow: {
     category: "rgb",
@@ -1555,19 +1592,19 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["visual sink", "dim input", "bloom and glow"],
   },
   rgbaHsla: {
-    category: "rgb",
+    category: "rgba",
     description: "Precise RGB/HSL screen wash color for intentional lighting.",
-    notes: ["visual sink", "rgb channels", "hsla control"],
+    notes: ["under construction", "visual sink", "rgb channels", "hsla control"],
   },
   chromaColor: {
-    category: "rgb",
+    category: "rgba",
     description: "Stylized chroma wash with drift/spread for mood lighting.",
-    notes: ["visual sink", "chroma wash", "moving color"],
+    notes: ["under construction", "visual sink", "chroma wash", "moving color"],
   },
   image: {
-    category: "rgb",
+    category: "rgba",
     description: "Hold a patch image asset for textures (e.g. phosphor dots).",
-    notes: ["load image", "save image", "trace texture"],
+    notes: ["under construction", "load image", "save image", "trace texture"],
   },
   canvas: {
     category: "rgb",
@@ -1741,19 +1778,19 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["xy trace", "sample history", "2D oscilloscope"],
   },
   vectorRgb: {
-    category: "oscilloscope",
+    category: "rgb",
     description: "X/Y phosphor path colored by analog R/G/B — three-channel beam, no brightness LUT.",
     label: "Vector RGB",
     notes: ["xy", "rgb", "phosphor", "beam", "blank"],
   },
   rasterRgb: {
     category: "rgb",
-    description: "Rolling analog R/G/B framebuffer. One sample is one pixel; nearest-neighbor face blit.",
+    description: "Analog RGB color-corrector and rolling framebuffer. Invert, contrast, brightness, and hue land on R/G/B/📺 outs.",
     label: "Raster RGB",
-    notes: ["raster", "framebuffer", "rgb", "pixel"],
+    notes: ["raster", "framebuffer", "rgb", "hue", "color correct", "tv"],
   },
   gradientVectorscope: {
-    category: "oscilloscope",
+    category: "rgb",
     description: "2D trace with color along path length (not phosphor brightness). Optional 90° mid/side rotation.",
     label: "Gradient Vectorscope",
     notes: ["vectorscope", "gradient", "xy trace", "90"],

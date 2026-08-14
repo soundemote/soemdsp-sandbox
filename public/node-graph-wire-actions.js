@@ -263,6 +263,7 @@ function connectNodeGraphGraphInput(sourceNode, sourcePort, destinationNode, des
  * Groups:
  *   stereo-xy-lr  — X/Left/Wet L/Dry L/…  ↔  Y/Right/Wet R/Dry R/…
  *   ab            — A  ↔  B
+ *   rgb           — R/Red ↔ G/Green ↔ B/Blue (see nodeGraphAutoPairRgbConnections)
  */
 function nodeGraphPortPairMeta(port) {
   const original = String(port || "").trim();
@@ -478,8 +479,188 @@ function nodeGraphAutoPairAvailablePorts(nodeId, side = "output") {
   return [];
 }
 
+const NODE_GRAPH_RGB_COLOR_PORT_NAMES = Object.freeze({
+  red: Object.freeze(["R", "Red"]),
+  green: Object.freeze(["G", "Green"]),
+  blue: Object.freeze(["B", "Blue"]),
+});
+
+/** Color of an R/G/B or Red/Green/Blue jack. Never treats Right as red. */
+function nodeGraphRgbNamedColor(port) {
+  const key = String(port || "").trim();
+  if (key === "R" || key === "Red" || key === "red") {
+    return "red";
+  }
+  if (key === "G" || key === "Green" || key === "green") {
+    return "green";
+  }
+  if (key === "B" || key === "Blue" || key === "blue") {
+    return "blue";
+  }
+  return "";
+}
+
+function nodeGraphRgbChromeColor(type, port) {
+  if (typeof nodeGraphOutletChannelKind !== "function") {
+    return "";
+  }
+  const channel = nodeGraphOutletChannelKind(type, port, "output");
+  if (channel === "left") {
+    return "red";
+  }
+  if (channel === "mono") {
+    return "green";
+  }
+  if (channel === "right") {
+    return "blue";
+  }
+  return "";
+}
+
+function nodeGraphRgbSourcePortColor(type, port) {
+  return nodeGraphRgbNamedColor(port) || nodeGraphRgbChromeColor(type, port);
+}
+
+function nodeGraphRgbPickNamedPort(availablePorts, color) {
+  const names = NODE_GRAPH_RGB_COLOR_PORT_NAMES[color];
+  if (!names) {
+    return "";
+  }
+  const byLower = new Map();
+  for (const p of availablePorts || []) {
+    const name = String(p || "").trim();
+    if (name && !byLower.has(name.toLowerCase())) {
+      byLower.set(name.toLowerCase(), name);
+    }
+  }
+  for (const candidate of names) {
+    const hit = byLower.get(candidate.toLowerCase());
+    if (!hit) {
+      continue;
+    }
+    if (candidate.length === 1 && hit.length !== 1) {
+      continue;
+    }
+    return hit;
+  }
+  return "";
+}
+
+/** Dest RGB input map when the module has all three color inlets. */
+function nodeGraphRgbColorInputMap(availablePorts = []) {
+  const map = {
+    red: nodeGraphRgbPickNamedPort(availablePorts, "red"),
+    green: nodeGraphRgbPickNamedPort(availablePorts, "green"),
+    blue: nodeGraphRgbPickNamedPort(availablePorts, "blue"),
+  };
+  return map.red && map.green && map.blue ? map : null;
+}
+
+function nodeGraphRgbSourcePortForColor(type, availablePorts, color) {
+  const named = nodeGraphRgbPickNamedPort(availablePorts, color);
+  if (named) {
+    return named;
+  }
+  const hits = [];
+  for (const port of availablePorts || []) {
+    if (nodeGraphRgbChromeColor(type, port) === color) {
+      hits.push(port);
+    }
+  }
+  if (!hits.length) {
+    return "";
+  }
+  const axis = hits.find((port) => {
+    const token = String(port || "").trim().toLowerCase().split(/[\s/_-]+/).filter(Boolean).pop();
+    return token === "x" || token === "y" || token === "z";
+  });
+  return axis || hits[0];
+}
+
+function nodeGraphAutoPairHasConnection(patch, sourceNode, sourcePort, destinationNode, destinationPort) {
+  return (patch?.connections || []).some(
+    (connection) =>
+      connection.sourceNode === sourceNode &&
+      connection.sourcePort === sourcePort &&
+      connection.destinationNode === destinationNode &&
+      connection.destinationPort === destinationPort,
+  );
+}
+
+function nodeGraphAutoPairPushConnection(patch, sourceNode, sourcePort, destinationNode, destinationPort, wireData = {}) {
+  if (
+    !sourcePort
+    || !destinationPort
+    || nodeGraphAutoPairHasConnection(patch, sourceNode, sourcePort, destinationNode, destinationPort)
+  ) {
+    return 0;
+  }
+  patch.connections.push({
+    sourceNode,
+    sourcePort,
+    destinationNode,
+    destinationPort,
+    ...wireData,
+  });
+  return 1;
+}
+
+/**
+ * RGB multi-connect: red→red on a module with RGB inlets also wires
+ * green→green and blue→blue. Source color is the named R/G/B jack, or
+ * outlet chrome (Left/X red, Mono/Z green, Right/Y blue).
+ */
+function nodeGraphAutoPairRgbConnections(patch, sourceNode, sourcePort, destinationNode, destinationPort, wireData = {}) {
+  if (!patch) {
+    return 0;
+  }
+  const destinationPorts = nodeGraphAutoPairAvailablePorts(destinationNode, "input");
+  const destMap = nodeGraphRgbColorInputMap(destinationPorts);
+  if (!destMap) {
+    return 0;
+  }
+  const destColor = nodeGraphRgbNamedColor(destinationPort);
+  if (!destColor || !Object.values(destMap).includes(destinationPort)) {
+    return 0;
+  }
+  const source = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(sourceNode) : null;
+  const sourceType = source?.type;
+  const srcColor = nodeGraphRgbSourcePortColor(sourceType, sourcePort);
+  if (!srcColor || srcColor !== destColor) {
+    return 0;
+  }
+  const sourcePorts = nodeGraphAutoPairAvailablePorts(sourceNode, "output");
+  let added = 0;
+  for (const color of ["red", "green", "blue"]) {
+    if (color === destColor) {
+      continue;
+    }
+    const nextSourcePort = nodeGraphRgbSourcePortForColor(sourceType, sourcePorts, color);
+    const nextDestinationPort = destMap[color];
+    if (!nextSourcePort || !nextDestinationPort) {
+      continue;
+    }
+    if (nextSourcePort === sourcePort || nextDestinationPort === destinationPort) {
+      continue;
+    }
+    added += nodeGraphAutoPairPushConnection(
+      patch,
+      sourceNode,
+      nextSourcePort,
+      destinationNode,
+      nextDestinationPort,
+      wireData,
+    );
+  }
+  return added;
+}
+
 function nodeGraphAutoPairPortConnections(patch, sourceNode, sourcePort, destinationNode, destinationPort, wireData = {}) {
   if (!patch) {
+    return 0;
+  }
+  // RGB color jacks are not stereo Right/Left — handled by the RGB trio rule.
+  if (nodeGraphRgbNamedColor(sourcePort) || nodeGraphRgbNamedColor(destinationPort)) {
     return 0;
   }
   const srcMeta = nodeGraphPortPairMeta(sourcePort);
@@ -557,9 +738,9 @@ function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinat
     destinationPort,
     ...nextWireData,
   });
-  const autoConnected = options.autoPair === false
-    ? 0
-    : nodeGraphAutoPairPortConnections(
+  let autoConnected = 0;
+  if (options.autoPair !== false) {
+    autoConnected += nodeGraphAutoPairRgbConnections(
       patch,
       sourceNode,
       sourcePort,
@@ -567,6 +748,15 @@ function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinat
       destinationPort,
       nextWireData,
     );
+    autoConnected += nodeGraphAutoPairPortConnections(
+      patch,
+      sourceNode,
+      sourcePort,
+      destinationNode,
+      destinationPort,
+      nextWireData,
+    );
+  }
   commitNodeGraphPatch(patch, { status: autoConnected ? `wire connected +${autoConnected}` : "wire connected", wireEdit: true });
   if (typeof triggerNodeGraphWireConnectEvent === "function") {
     triggerNodeGraphWireConnectEvent("signal");

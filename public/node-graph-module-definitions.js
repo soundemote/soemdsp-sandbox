@@ -40,7 +40,13 @@ const nodeGraphNodeLabels = Object.freeze({
   comparator: "Comparator",
   sampleDelay: "Sample Delay",
   bitConverter: "Bit Converter",
-  numberGate: "Number Gate",
+  gate12: "12Gate",
+  gate8: "8Gate",
+  gate6: "6Gate",
+  gate4: "4Gate",
+  gate3: "3Gate",
+  gate2: "2Gate",
+  numberGate: "12Gate",
   stepSequencer: "Step Sequencer",
   spiral: "Spiral",
   fractalSpiral: "Fractal Spiral",
@@ -398,6 +404,32 @@ const nodeGraphActiveFilterDefinition = {
   ]
 };
 
+function nodeGraphNGatePorts(lastIndex) {
+  const last = Math.max(1, Math.round(Number(lastIndex) || 12));
+  return Array.from({ length: last + 1 }, (_, index) => String(index));
+}
+
+function nodeGraphNGateModuleDefinition(lastIndex) {
+  const last = Math.max(1, Math.round(Number(lastIndex) || 12));
+  const ports = nodeGraphNGatePorts(last);
+  return {
+    planRole: "processor",
+    chrome: NodeGraphModuleChromeLayout.LayoutC,
+    digitalInputs: ["Digital"],
+    inputAliases: { A: "Analog", D: "Digital" },
+    inputLabels: { Analog: "A", Digital: "D" },
+    inputs: ["Analog", "Digital"],
+    outputs: ports,
+    parameters: [],
+    defaultWidthGu: last >= 10 ? 5 : 4,
+    defaultHeightGu: last >= 12 ? 9 : last >= 8 ? 7 : last >= 6 ? 6 : last >= 4 ? 5 : 4,
+    defaultUi: {
+      buttonsHidden: true,
+      titleHidden: false,
+    },
+  };
+}
+
 const nodeGraphModuleDefinitions = (
   typeof finalizeNodeGraphModuleDefinitionsChrome === "function"
     ? finalizeNodeGraphModuleDefinitionsChrome
@@ -579,7 +611,8 @@ const nodeGraphModuleDefinitions = (
     ],
     displaySignals: [
       { key: "Wave Out", kind: "scalar" },
-    ],    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    ],
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {"0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ"},
@@ -1376,11 +1409,13 @@ const nodeGraphModuleDefinitions = (
       { key: "X", kind: "scalar" },
       { key: "Y", kind: "scalar" },
       { key: "Z", kind: "scalar" },
+      { key: "DisplayX", kind: "scalar" },
+      { key: "DisplayY", kind: "scalar" },
       { key: "X/Y", kind: "xy" },
     ],
     // Phosphor only — no Trace mode switch.
     displayModes: [
-      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "DisplayX", y: "DisplayY" } },
     ],
     defaultDisplayMode: "xyBurn",
     inputs: ["Reset"],
@@ -3210,34 +3245,12 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  numberGate: {
-    planRole: "processor",
-    chrome: NodeGraphModuleChromeLayout.LayoutC,
-    digitalInputs: ["Digital"],
-    digitalOutputs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
-    inputAliases: {A: "Analog", D: "Digital",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f"},
-    inputLabels: { Analog: "A", Digital: "D" },
-    inputs: ["Analog", "Digital"],
-    outputs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
-    parameters: [],
-    defaultWidthGu: 5,
-    defaultUi: {
-      buttonsHidden: true,
-      titleHidden: false,
-    },
-  },
+  gate12: nodeGraphNGateModuleDefinition(12),
+  gate8: nodeGraphNGateModuleDefinition(8),
+  gate6: nodeGraphNGateModuleDefinition(6),
+  gate4: nodeGraphNGateModuleDefinition(4),
+  gate3: nodeGraphNGateModuleDefinition(3),
+  gate2: nodeGraphNGateModuleDefinition(2),
   gain: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
@@ -3959,18 +3972,33 @@ const nodeGraphModuleDefinitions = (
     output: true,
     parameters: [
       {
-        defaultValue: "0.1",
+        defaultValue: "-20",
         key: "volume",
+        kind: "decibels",
         label: "Volume",
-        max: "1",
-        mid: "0.1",
-        min: "0",
-        nonlinearSlider: false,
+        max: "12",
+        mid: "-20",
+        min: "-140",
+        minusInf: true,
+        nonlinearSlider: true,
         linearSmoothing: true,
         smoothingType: "linear",
         smoothingMode: "internal",
         smoothingSeconds: 0.0333,
-        step: "any"
+        step: "any",
+        unit: "dB",
+        tooltip: "Speaker level (−∞…+12 dB). 0 dB is unity. Old patches that stored 0…1 linear Volume are converted on load."
+      },
+      {
+        defaultValue: "0",
+        key: "pan",
+        label: "Pan",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Stereo balance after Mono is summed in. 0 = unchanged. −1 = left only. +1 = right only."
       },
     ]
   },
@@ -9758,7 +9786,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   rasterRgb: {
-    planRole: "monitor",
+    planRole: "processor",
     bufferedInputs: ["R", "G", "B"],
     displayHeightGu: 5,
     displayType: "rasterRgbFace",
@@ -9774,8 +9802,8 @@ const nodeGraphModuleDefinitions = (
     inputs: ["R", "G", "B"],
     inputLabels: { R: "R", G: "G", B: "B" },
     layout: "traceDisplay",
-    outputs: ["R", "G", "B"],
-    outputLabels: { R: "R", G: "G", B: "B" },
+    outputs: ["R", "G", "B", "rgba"],
+    outputLabels: { R: "R", G: "G", B: "B", rgba: "📺" },
     parameters: [
       {
         defaultValue: "96",
@@ -9810,7 +9838,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "0 = normal RGB. 1 = full invert. In between crossfades.",
+        tooltip: "0 = normal. 1 = photographic invert of the whole screen (black plate → white). In between crossfades.",
       },
       {
         defaultValue: "1",
@@ -9833,6 +9861,20 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip: "1 = unity. 0 = black. Above 1 lifts the face.",
+      },
+      {
+        defaultValue: "0",
+        key: "hue",
+        kind: "phase",
+        label: "Hue",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "cycle",
+        wraparound: true,
+        tooltip: "Rotate processed RGB hue. 0 = unchanged. ±1 = full cycle. Applied after invert/contrast/brightness on the face and analog R/G/B/📺 outs.",
       },
       {
         defaultValue: "0",
@@ -10017,18 +10059,33 @@ const nodeGraphModuleDefinitions = (
     output: true,
     parameters: [
       {
-        defaultValue: "0.1",
+        defaultValue: "-20",
         key: "volume",
+        kind: "decibels",
         label: "Volume",
-        max: "1",
-        mid: "0.1",
-        min: "0",
-        nonlinearSlider: false,
+        max: "12",
+        mid: "-20",
+        min: "-140",
+        minusInf: true,
+        nonlinearSlider: true,
         linearSmoothing: true,
         smoothingType: "linear",
         smoothingMode: "internal",
         smoothingSeconds: 0.0333,
-        step: "any"
+        step: "any",
+        unit: "dB",
+        tooltip: "Speaker level (−∞…+12 dB). 0 dB is unity. Old patches that stored 0…1 linear Volume are converted on load. Type a dB value (or −inf)."
+      },
+      {
+        defaultValue: "0",
+        key: "pan",
+        label: "Pan",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Stereo balance after Mono is summed in. 0 = unchanged (Mono to both). −1 = left only. +1 = right only."
       },
     ]
   },

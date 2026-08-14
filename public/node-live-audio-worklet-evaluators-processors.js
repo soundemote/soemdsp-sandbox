@@ -1151,17 +1151,42 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           offset: this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues),
         });
       },
+      gate12: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
+        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
+      gate8: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
+        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
+      gate6: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
+        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
+      gate4: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
+        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
+      gate3: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
+        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
+      gate2: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
+        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
       numberGate: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
-        this.numberGateSample({
-          analog: mixInput(nodeId, "Analog"),
-          digital: mixInput(nodeId, "Digital"),
-          hasAnalog: hasInput(nodeId, "Analog"),
-          hasDigital: hasInput(nodeId, "Digital"),
-        }),
+        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
       vectorRgb: (node, nodeId, frame, frames, frameValues, mixInput) =>
         this.vectorRgbSample(mixInput, nodeId),
-      rasterRgb: (node, nodeId, frame, frames, frameValues, mixInput) =>
-        this.rasterRgbSample(mixInput, nodeId),
+      rasterRgb: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        const state = this.rasterRgbStates?.get(nodeId) || this.createRasterRgbState();
+        if (!this.rasterRgbStates) this.rasterRgbStates = new Map();
+        this.rasterRgbStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(
+          node,
+          key,
+          fallback,
+          frame,
+          frames,
+          frameValues,
+        );
+        return this.rasterRgbSample(mixInput, nodeId, {
+          brightness: read("brightness", 1),
+          contrast: read("contrast", 1),
+          hue: read("hue", 0),
+          invert: read("invert", 0),
+          state,
+        });
+      },
       gradientVectorscope: (node, nodeId, frame, frames, frameValues, mixInput) =>
         this.gradientVectorscopeSample(mixInput, nodeId),
       stepGrid: (node, nodeId, frame, frames, frameValues, mixInput) => {

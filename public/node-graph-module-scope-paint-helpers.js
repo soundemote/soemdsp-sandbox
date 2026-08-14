@@ -1023,6 +1023,60 @@ function nodeGraphTraceDisplayPrimaryLayer(settings, color) {
  * capture yet (or audio is silent). Applies --node-scope-background so color
  * changes are visible without waiting for scope samples.
  */
+const NODE_GRAPH_OUTPUT_PROTECT_BANNER = "♨️";
+
+function nodeGraphOutputProtectFaceSlot(slot) {
+  const type = String(slot?.type || "");
+  return type === "output" || type === "pluginOutput";
+}
+
+function paintNodeGraphOutputProtectBanner(context, canvas, settings = {}, options = {}) {
+  const mute = Math.max(0, Math.min(1, Number(options.mute ?? globalThis.nodeGraphOutputProtectMute) || 0));
+  if (!(mute > 0.001) || !context || !(canvas?.width > 0) || !(canvas?.height > 0)) {
+    return false;
+  }
+  void settings;
+  const text = NODE_GRAPH_OUTPUT_PROTECT_BANNER;
+  const pad = Math.max(2, Math.round(Math.min(canvas.width, canvas.height) * 0.06));
+  const maxSide = Math.max(8, Math.min(canvas.width, canvas.height) - pad * 2);
+  const fontFamily = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif';
+  const density = Number(options.density);
+  let lo = 8;
+  let hi = Math.max(lo, maxSide);
+  let best = lo;
+  context.save();
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  for (let i = 0; i < 14; i += 1) {
+    const mid = (lo + hi) * 0.5;
+    context.font = `${mid}px ${fontFamily}`;
+    const metrics = context.measureText(text);
+    const w = metrics.width;
+    const h = (Number(metrics.actualBoundingBoxAscent) || mid * 0.85)
+      + (Number(metrics.actualBoundingBoxDescent) || mid * 0.2);
+    if (w <= maxSide && h <= maxSide) {
+      best = mid;
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  context.font = `${best}px ${fontFamily}`;
+  context.imageSmoothingEnabled = !(density < 0.999);
+  context.globalCompositeOperation = "source-over";
+  context.globalAlpha = mute;
+  context.fillText(text, canvas.width * 0.5, canvas.height * 0.5);
+  context.restore();
+  return true;
+}
+
+function paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density) {
+  if (!nodeGraphOutputProtectFaceSlot(slot)) {
+    return false;
+  }
+  return paintNodeGraphOutputProtectBanner(context, canvas, settings, { density });
+}
+
 function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePixelRatio || 1, options = {}) {
   const screenElement = slot?.scopeElement;
   if (!slot || !screenElement) {
@@ -1091,6 +1145,7 @@ function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePix
   if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
     nodeGraphModuleScopeMarkScreenLit(screenElement, 1);
   }
+  paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density);
   return true;
 }
 
@@ -1246,6 +1301,7 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
       paintBackgroundUnder();
     }
     recordNodeGraphModuleScopeRenderMetrics(painted, painted);
+    paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density);
     rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);
     return true;
   }
@@ -1269,6 +1325,7 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   };
   drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, { glow: false });
   recordNodeGraphModuleScopeRenderMetrics(points.length, points.length);
+  paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density);
   rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);
   return true;
 }

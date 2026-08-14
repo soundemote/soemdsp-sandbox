@@ -131,7 +131,10 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/numberGate/number-gate-live-evaluator.js",
     "./public/modules/numberGate/number-gate-worklet-evaluator.js",
     "./public/modules/vectorRgb/vector-rgb-display.js",
+    "./public/modules/rasterRgb/raster-rgb-math.js",
     "./public/modules/rasterRgb/raster-rgb-display.js",
+    "./public/modules/rasterRgb/raster-rgb-live-evaluator.js",
+    "./public/modules/rasterRgb/raster-rgb-worklet-evaluator.js",
     "./public/modules/gradientVectorscope/gradient-vectorscope-display.js",
     "./public/modules/rgbDisplays/rgb-display-worklet-evaluator.js",
     "./public/modules/groupInput/group-input-register.js",
@@ -4551,16 +4554,20 @@ def require_node_graph_mvp_contract() -> None:
         "Phone Tone should be an objects-category DTMF source using Robin sinusoids",
     )
     require(
-        "numberGate:" in script_sources["./public/node-graph-module-definitions.js"]
-        and 'numberGate: "Number Gate"' in script_sources["./public/node-graph-module-definitions.js"]
-        and 'label: "Number Gate"' in script_sources["./public/node-graph-module-store.js"]
+        "gate12: nodeGraphNGateModuleDefinition(12)" in script_sources["./public/node-graph-module-definitions.js"]
+        and 'gate12: "12Gate"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'gate8: "8Gate"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'gate2: "2Gate"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'label: "12Gate"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "8Gate"' in script_sources["./public/node-graph-module-store.js"]
         and 'category: "digital"' in script_sources["./public/node-graph-module-store.js"]
         and 'inputs: ["Analog", "Digital"]' in script_sources["./public/node-graph-module-definitions.js"]
-        and 'outputs: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]' in script_sources["./public/node-graph-module-definitions.js"]
+        and "digitalInputs: [\"Digital\"]" in script_sources["./public/node-graph-module-definitions.js"]
         and "function nodeGraphNumberGateSample" in script_sources["./public/modules/numberGate/number-gate-math.js"]
-        and "nodeGraphLiveModuleEvaluators.numberGate" in script_sources["./public/modules/numberGate/number-gate-live-evaluator.js"]
-        and "numberGate:" in (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8"),
-        "Number Gate should decode keypad A/D into digital outlets 0–12",
+        and '["gate12", "gate8", "gate6", "gate4", "gate3", "gate2", "numberGate"]' in script_sources["./public/modules/numberGate/number-gate-live-evaluator.js"]
+        and "gate12:" in (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8")
+        and "if (t === \"numberGate\") return \"gate12\";" in script_sources["./public/node-graph-default-patch.js"],
+        "12Gate family should decode A/D into analog 0–1 gates (not digital-white outlets)",
     )
     require(
         'momentaryButton: "Momentary"' in script_sources["./public/node-graph-module-definitions.js"]
@@ -4580,6 +4587,9 @@ def require_node_graph_mvp_contract() -> None:
         and 'gradientVectorscope: "Gradient Vectorscope"' in script_sources["./public/node-graph-module-definitions.js"]
         and "drawNodeGraphVectorRgbFaceItem" in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
         and "drawNodeGraphRasterRgbFaceItem" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
+        and "function nodeGraphRasterRgbProcessSample" in script_sources["./public/modules/rasterRgb/raster-rgb-math.js"]
+        and '"rgba"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'key: "hue"' in script_sources["./public/node-graph-module-definitions.js"]
         and "drawNodeGraphGradientVectorscopeFaceItem" in script_sources["./public/modules/gradientVectorscope/gradient-vectorscope-display.js"]
         and 'label: "Vector RGB"' in script_sources["./public/node-graph-module-store.js"]
         and 'label: "Raster RGB"' in script_sources["./public/node-graph-module-store.js"]
@@ -6361,9 +6371,6 @@ def require_node_graph_mvp_contract() -> None:
         "nodeUiDevModuleTitleHeight",
         "nodeUiDevModuleTitleHeightValue",
         "nodeUiDevModuleTitleHeightValue\" for=\"nodeUiDevModuleTitleHeight\">26px",
-        "nodeUiDevModuleTitleTextFill",
-        "nodeUiDevModuleTitleTextFillValue",
-        "nodeUiDevModuleTitleTextFillValue\" for=\"nodeUiDevModuleTitleTextFill\">62%",
         "nodeUiDevModuleIoSectionHeight",
         "nodeUiDevModuleIoSectionHeightValue",
         "in/out module section height",
@@ -7687,17 +7694,15 @@ def require_node_graph_mvp_contract() -> None:
         "nodeGraphDefaultPresetPatchIsUsable(fetchedPatch)",
         "cloneNodeGraphPatch(nodeGraphDefaultPatch)",
         "function normalizeNodeGraphParamMetaForNode(type, paramMeta = {})",
-        'type === "output" && metadata.volume',
-        'kind: "decimal"',
-        "min: 0",
-        "max: 1",
+        "return cloneNodeGraphParamMeta(paramMeta);",
         "const nodeGraphAudioBlockSize = 512",
         "const nodeGraphModuleDefinitions",
         "label: \"Volume\"",
         "key: \"volume\"",
-        "defaultValue: \"0.1\"",
-        "max: \"1\"",
-        "mid: \"0.1\"",
+        "defaultValue: \"-20\"",
+        "kind: \"decibels\"",
+        "max: \"12\"",
+        "mid: \"-20\"",
         "osc: {",
         'inputs: ["Reset", "0.1V/Oct", "Increment"]',
         "outputAliases: {",
@@ -8851,7 +8856,6 @@ def require_node_graph_mvp_contract() -> None:
         "button.dataset.alias = `${nodeGraphNodeDisplayName(node)}.${parameter.key} slider`",
         "button.dataset.alias = `${nodeGraphNodeDisplayName(node)}.${parameter.key} mod`",
         "function ensureNodeGraphDragHandle(node)",
-        "function handleNodeGraphIoRowWireClick(event)",
         "function attachNodeGraphNodeEvents(node)",
         'for (const row of node.querySelectorAll(".node-io-row"))',
         'for (const port of node.querySelectorAll(".node-param-port.modulation-input"))',
@@ -12887,7 +12891,9 @@ def require_node_graph_mvp_contract() -> None:
     require('codeblock: {' in module_store_source, "Codeblock should live in Digital")
     require('canvas: {' in module_store_source, "Canvas should live in Digital")
     require('bitConverter: {' in module_store_source and 'label: "BitConverter"' in module_store_source, "BitConverter should live in Digital")
-    require('numberGate: {' in module_store_source and 'label: "Number Gate"' in module_store_source, "Number Gate should live in Digital")
+    require('gate12: {' in module_store_source and 'label: "12Gate"' in module_store_source, "12Gate should live in Digital")
+    require('gate8: {' in module_store_source and 'label: "8Gate"' in module_store_source, "8Gate should live in Digital")
+    require('gate2: {' in module_store_source and 'label: "2Gate"' in module_store_source, "2Gate should live in Digital")
     require('traceDisplay: {' in module_store_source, "Trace Display should author as Oscilloscope before display-category normalization")
     require("dotOscilloscope: {" in module_store_source and 'label: "0D Burn"' in module_store_source, "0D Burn oscilloscope should exist")
     require("valueOscilloscope: {" in module_store_source and 'label: "0D Value"' in module_store_source, "0D Value oscilloscope should exist")

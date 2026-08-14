@@ -119,9 +119,18 @@ function formatNodeSliderNumber(value, options = {}) {
 }
 
 function parseNodeSliderMathExpression(text) {
-  const source = String(text ?? "").trim();
+  let source = String(text ?? "").trim()
+    .replace(/[−–—]/g, "-")
+    .replace(/∞/g, "inf");
+  source = source.replace(/\s*(dB|db|Hz|kHz|ms|sec|s|%|deg|°)\s*$/i, "").trim();
   if (!source) {
     return NaN;
+  }
+  if (/^-inf(inity)?$/i.test(source)) {
+    return -Infinity;
+  }
+  if (/^\+?inf(inity)?$/i.test(source)) {
+    return Infinity;
   }
   if (!/^[\d.eE+\-*/()\s]+$/.test(source)) {
     return Number(source);

@@ -7,8 +7,10 @@ function nodeGraphNormalizeOutletChannelKey(value) {
   const tokens = raw.split(/[\s/_-]+/).filter(Boolean);
   const first = tokens[0] || raw;
   const last = tokens[tokens.length - 1] || raw;
-  // M / L / R stack (Mono first). Outlet RGB is name-locked, not slot-locked:
-  //   Mono / M / Y / Out → green (1st). Left / L / X → red (2nd). Right / R / Z / Analog / A → blue (3rd).
+  // M / L / R stack (Mono first). RGB is name-locked on inlets and outlets:
+  //   Mono / M / Y / Out / G / Green → green. Left / L / X / Red → red.
+  //   Right / Z / Analog / A / B / Blue → blue. Color R (RGB modules) is red, not Right.
+  // Chaos shelf XYZ is remapped in nodeGraphOutletChannelKind (X red, Y blue, Z green).
   if (raw === "x" || last === "x" || raw === "l" || raw === "left" || first === "left" || last === "left") {
     return "left";
   }
@@ -22,8 +24,6 @@ function nodeGraphNormalizeOutletChannelKey(value) {
     || raw === "right"
     || first === "right"
     || last === "right"
-    || raw === "a"
-    || raw === "analog"
   ) {
     return "right";
   }
@@ -33,23 +33,143 @@ function nodeGraphNormalizeOutletChannelKey(value) {
   return "";
 }
 
+function nodeGraphModuleUsesChaosOutletRgb(type) {
+  const category = typeof nodeGraphModuleStoreCatalog === "object"
+    ? nodeGraphModuleStoreCatalog?.[type]?.category
+    : "";
+  return String(category || "").toLowerCase() === "chaos";
+}
+
+/** Last token of a jack name/label — "Out Y" and "Y" both yield "y". */
+function nodeGraphOutletAxisToken(value) {
+  const tokens = String(value || "").trim().toLowerCase().split(/[\s/_-]+/).filter(Boolean);
+  return tokens[tokens.length - 1] || "";
+}
+
+// Chaos generators: X red, Y blue, Z green (jack chrome only). Out stays green.
+function nodeGraphChaosOutletChannelOverride(type, port, label, channel) {
+  if (!nodeGraphModuleUsesChaosOutletRgb(type)) {
+    return channel;
+  }
+  const axis = nodeGraphOutletAxisToken(port) || nodeGraphOutletAxisToken(label);
+  if (axis === "x") {
+    return "left";
+  }
+  if (axis === "y") {
+    return "right";
+  }
+  if (axis === "z") {
+    return "mono";
+  }
+  return channel;
+}
+
 /**
  * Outlet channel for Mono / Left / Right jacks (stroke policy).
  * Checks port key, outputLabels, then outputAliases (Mono → Out).
  */
+function nodeGraphPaintRgbaPortLabel(label) {
+  if (!label) {
+    return;
+  }
+  label.textContent = "📺";
+  label.classList.add("node-io-label-rgba");
+  label.setAttribute("aria-label", "TV");
+  label.title = "TV (composite luma of graded RGB)";
+}
+
+function nodeGraphRgbColorPortChannel(type, port) {
+  const key = String(port || "").trim();
+  if (!key) {
+    return "";
+  }
+  const low = key.toLowerCase();
+  if (low === "rgba" || key === "📺") {
+    return "";
+  }
+  const letter = key.length === 1 ? key.toUpperCase() : "";
+  if (letter === "R" || letter === "G" || letter === "B") {
+    if (typeof nodeGraphModuleHasRgbColorPorts === "function" && !nodeGraphModuleHasRgbColorPorts(type)) {
+      return "";
+    }
+    if (letter === "R") {
+      return "left";
+    }
+    if (letter === "G") {
+      return "mono";
+    }
+    return "right";
+  }
+  if (low === "red") {
+    return "left";
+  }
+  if (low === "green") {
+    return "mono";
+  }
+  if (low === "blue") {
+    return "right";
+  }
+  return "";
+}
+
+function nodeGraphModuleHasQuadraturePorts(type) {
+  const def = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[type]
+    : null;
+  const ports = [
+    ...(Array.isArray(def?.outputs) ? def.outputs : []),
+    ...(Array.isArray(def?.inputs) ? def.inputs : []),
+  ].map((p) => String(p || "").trim().toLowerCase());
+  const hasSin = ports.some((p) => p === "sin" || p === "sine");
+  const hasCos = ports.some((p) => p === "cos" || p === "cosine");
+  return hasSin && hasCos;
+}
+
+/** Sin/Sine → red, Cos/Cosine → blue (jack chrome only). */
+function nodeGraphQuadraturePortChannel(type, port) {
+  if (!nodeGraphModuleHasQuadraturePorts(type)) {
+    return "";
+  }
+  const key = String(port || "").trim().toLowerCase();
+  if (key === "sin" || key === "sine") {
+    return "left";
+  }
+  if (key === "cos" || key === "cosine") {
+    return "right";
+  }
+  return "";
+}
+
 function nodeGraphOutletChannelKind(type, port, io = "output") {
   const key = String(port || "");
-  const fromName = nodeGraphNormalizeOutletChannelKey(key);
-  if (fromName) {
-    return fromName;
+  const keyLow = key.trim().toLowerCase();
+  if (keyLow === "rgba" || key === "📺") {
+    return "";
+  }
+  const fromQuad = nodeGraphQuadraturePortChannel(type, key);
+  if (fromQuad) {
+    return fromQuad;
+  }
+  const fromRgb = nodeGraphRgbColorPortChannel(type, key);
+  if (fromRgb) {
+    return fromRgb;
   }
   const def = typeof nodeGraphModuleDefinitions === "object"
     ? nodeGraphModuleDefinitions[type]
     : null;
   const labelMap = io === "input" ? def?.inputLabels : def?.outputLabels;
-  const fromLabel = nodeGraphNormalizeOutletChannelKey(labelMap?.[key]);
+  const label = labelMap?.[key];
+  const fromLabelRgb = nodeGraphRgbColorPortChannel(type, label);
+  if (fromLabelRgb) {
+    return fromLabelRgb;
+  }
+  const fromName = nodeGraphNormalizeOutletChannelKey(key);
+  if (fromName) {
+    return nodeGraphChaosOutletChannelOverride(type, key, label, fromName);
+  }
+  const fromLabel = nodeGraphNormalizeOutletChannelKey(label);
   if (fromLabel) {
-    return fromLabel;
+    return nodeGraphChaosOutletChannelOverride(type, key, label, fromLabel);
   }
   const aliases = io === "input" ? def?.inputAliases : def?.outputAliases;
   if (aliases && typeof aliases === "object") {
@@ -57,12 +177,12 @@ function nodeGraphOutletChannelKind(type, port, io = "output") {
       if (String(target) === key) {
         const fromAlias = nodeGraphNormalizeOutletChannelKey(alias);
         if (fromAlias) {
-          return fromAlias;
+          return nodeGraphChaosOutletChannelOverride(type, key, alias, fromAlias);
         }
       }
     }
   }
-  return "";
+  return nodeGraphChaosOutletChannelOverride(type, key, label, "");
 }
 
 function nodeGraphApplyOutletChannelMark(element, type, port) {
@@ -88,7 +208,7 @@ function createNodeGraphPort(node, type, port, io) {
   button.dataset.port = port;
   button.dataset.io = io;
   button.dataset.alias = nodeGraphLabel(node, port);
-  if (io === "output") {
+  if (io === "output" || io === "input") {
     nodeGraphApplyOutletChannelMark(button, type, port);
   }
   const portLabel = nodeGraphPatchNodePortDisplayLabel(node, type, port, io);
@@ -105,7 +225,8 @@ function nodeGraphModuleHasRgbColorPorts(type) {
     ...(Array.isArray(def?.inputs) ? def.inputs : []),
     ...(Array.isArray(def?.outputs) ? def.outputs : []),
   ]);
-  return ports.has("R") && ports.has("G") && ports.has("B");
+  return (ports.has("R") && ports.has("G") && ports.has("B"))
+    || (ports.has("Red") && ports.has("Green") && ports.has("Blue"));
 }
 
 /** LayoutB stays L/M/R. Everyone else spells Mono / Left / Right. Never rename RGB R. */
@@ -200,7 +321,7 @@ function createNodeGraphIoColumn(node, type, ports, io) {
     row.dataset.port = port;
     row.dataset.io = io;
     row.dataset.alias = nodeGraphLabel(node, port);
-    if (io === "output") {
+    if (io === "output" || io === "input") {
       nodeGraphApplyOutletChannelMark(row, type, port);
     }
     if (nodeGraphPortIsDigitalSignal(type, port, io)) {
@@ -218,7 +339,11 @@ function createNodeGraphIoColumn(node, type, ports, io) {
     const label = document.createElement("span");
     label.className = "node-io-label";
     label.dataset.portLabel = port;
-    label.textContent = portLabel;
+    if (typeof nodeGraphPaintRgbaPortLabel === "function" && String(port) === "rgba") {
+      nodeGraphPaintRgbaPortLabel(label);
+    } else {
+      label.textContent = portLabel;
+    }
     if (io === "input") {
       row.append(createNodeGraphPort(node, type, port, io), label);
     } else {
@@ -313,7 +438,11 @@ function syncNodeGraphModulePortLabels(element, patchNode) {
     const portLabel = nodeGraphPatchNodePortDisplayLabel(patchNode, patchNode.type, port, io);
     const label = row.querySelector(".node-io-label");
     if (label) {
-      label.textContent = portLabel;
+      if (typeof nodeGraphPaintRgbaPortLabel === "function" && String(port) === "rgba") {
+        nodeGraphPaintRgbaPortLabel(label);
+      } else {
+        label.textContent = portLabel;
+      }
     }
     row.setAttribute(
       "aria-label",

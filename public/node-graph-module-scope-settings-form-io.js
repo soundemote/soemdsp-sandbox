@@ -1449,9 +1449,6 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
   if (field === "secondaryColor") {
     return "Right";
   }
-  if (field === "protectColor") {
-    return "Protect";
-  }
   if (field === "backgroundColor") {
     if (nodeGraphTraceDisplaySettingsFormType() === "numberReadout") {
       return "Background";

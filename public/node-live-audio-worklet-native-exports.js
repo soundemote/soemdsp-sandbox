@@ -1379,6 +1379,28 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+      if (name === "raster_rgb" || targetType === "rasterRgb") {
+        if (this.rasterRgbStates) {
+          for (const state of this.rasterRgbStates.values()) {
+            if (state?.nativeHandle && this.nativeRasterRgb?.soemdsp_raster_rgb_destroy) {
+              this.nativeRasterRgb.soemdsp_raster_rgb_destroy(state.nativeHandle);
+              state.nativeHandle = 0;
+            }
+          }
+        }
+        this.nativeRasterRgb = exports;
+        this.nativeRasterRgbReady = Boolean(
+          this.nativeRasterRgb?.soemdsp_raster_rgb_create
+          && this.nativeRasterRgb?.soemdsp_raster_rgb_sample
+          && this.nativeRasterRgb?.soemdsp_raster_rgb_r,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "raster_rgb",
+          status: this.nativeRasterRgbReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "sinc" || targetType === "sinc") {
         for (const state of this.sincStates.values()) {
           if (state?.nativeHandle && this.nativeSinc?.soemdsp_sinc_destroy) {

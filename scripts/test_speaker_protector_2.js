@@ -169,6 +169,26 @@ function sineQuiet(state, n) {
   }
 }
 
+// 9. Exact 0 dB (peak === 1) must not trip. Only above 0 dB.
+{
+  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
+  let last = null;
+  for (let i = 0; i < 64; i += 1) {
+    last = ctx.nodeGraphSpeakerProtector2Protect(state, 1, 1, RATE);
+  }
+  if (last.danger || last.engaged || last.mode !== "idle") {
+    fail(`0 dB peak should not trip, got danger=${last.danger} mode=${last.mode}`);
+  } else {
+    ok("0 dB does not trip");
+  }
+  last = ctx.nodeGraphSpeakerProtector2Protect(state, 1.001, -1.001, RATE);
+  if (!last.danger) {
+    fail("just above 0 dB should trip");
+  } else {
+    ok("above 0 dB trips");
+  }
+}
+
 if (process.exitCode) {
   console.error("speaker protector 2 tests failed");
 } else {

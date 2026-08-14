@@ -11,20 +11,7 @@ function cloneNodeGraphParamMeta(paramMeta = {}) {
 }
 
 function normalizeNodeGraphParamMetaForNode(type, paramMeta = {}) {
-  const metadata = cloneNodeGraphParamMeta(paramMeta);
-  if (type === "output" && metadata.volume) {
-    metadata.volume = {
-      ...metadata.volume,
-      def: 0.1,
-      kind: "decimal",
-      max: 1,
-      mid: 0.1,
-      min: 0,
-      showSign: false,
-      modClamp: true,
-    };
-  }
-  return metadata;
+  return cloneNodeGraphParamMeta(paramMeta);
 }
 
 function normalizeNodeGraphPatchPortMeta(portMeta = {}) {

@@ -9,13 +9,7 @@ NodeLiveAudioProcessor.prototype.vectorRgbSample = function vectorRgbSample(mixI
   };
 };
 
-NodeLiveAudioProcessor.prototype.rasterRgbSample = function rasterRgbSample(mixInput, nodeId) {
-  return {
-    R: Number(mixInput(nodeId, "R")) || 0,
-    G: Number(mixInput(nodeId, "G")) || 0,
-    B: Number(mixInput(nodeId, "B")) || 0,
-  };
-};
+
 
 NodeLiveAudioProcessor.prototype.gradientVectorscopeSample = function gradientVectorscopeSample(mixInput, nodeId) {
   return {

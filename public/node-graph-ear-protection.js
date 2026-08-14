@@ -1,6 +1,6 @@
 // Speaker protection host. Mute envelope is Speaker Protector 2.0 math
 // (public/modules/speakerProtector2/speaker-protector-2-math.js). This file only
-// wraps that circuit for the Output bus and paints the Output screen red.
+// wraps that circuit for the Output bus and flags the Output face banner.
 
 function createNodeGraphEarProtector(sampleRate = nodeGraphMvp?.sampleRate, options = {}) {
   const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
@@ -41,16 +41,6 @@ function nodeGraphOutputProtectMuteAmount(gain) {
   return Math.max(0, Math.min(1, 1 - g));
 }
 
-function nodeGraphOutputProtectColorForNode(nodeOrEl) {
-  const id = nodeOrEl?.dataset?.node || nodeOrEl?.id;
-  const patchNode = typeof nodeGraphPatchNode === "function" && id
-    ? nodeGraphPatchNode(id)
-    : (nodeOrEl?.type === "output" ? nodeOrEl : null);
-  const settings = patchNode?.traceDisplaySettings;
-  const color = settings?.protectColor || settings?.protect || "";
-  return /^#[0-9a-fA-F]{3,8}$/.test(String(color).trim()) ? String(color).trim() : "#e02020";
-}
-
 function nodeGraphSyncOutputProtectOverlay(muteAmount = globalThis.nodeGraphOutputProtectMute || 0, options = {}) {
   const mute = Math.max(0, Math.min(1, Number(muteAmount) || 0));
   const prev = Number(globalThis.nodeGraphOutputProtectMute);
@@ -67,12 +57,22 @@ function nodeGraphSyncOutputProtectOverlay(muteAmount = globalThis.nodeGraphOutp
     document.body.dataset.outputProtectReady = "1";
   }
   document.querySelectorAll(".dsp-node.output-node").forEach((node) => {
-    node.style.setProperty("--node-output-protect-alpha", String(mute));
-    node.style.setProperty("--node-output-protect-color", nodeGraphOutputProtectColorForNode(node));
+    node.style.removeProperty("--node-output-protect-alpha");
+    node.style.removeProperty("--node-output-protect-color");
+    node.querySelectorAll(".node-module-scope-window, .node-module-display-face").forEach((face) => {
+      face.style.removeProperty("--node-output-protect-alpha");
+      face.style.removeProperty("--node-output-protect-color");
+    });
     node.classList.toggle("node-output-protect-visible", visible);
     node.classList.toggle("node-ear-protection-engaged", visible);
   });
   document.body?.classList.toggle("node-ear-protection-engaged", visible);
+  if (typeof nodeGraphModuleScopeState?.traceDisplayDrawCache?.clear === "function") {
+    nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
+  }
+  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw({ force: true });
+  }
   return mute;
 }
 
@@ -114,7 +114,7 @@ function bindNodeGraphEarProtectionFaultUi() {
   closeNodeGraphEarProtectionFaultUi();
 }
 
-/** Output-bus trip: paint red. Does not pause, mute-latch, or write volume. */
+/** Output-bus trip: banner on the Output face. Does not pause, mute-latch, or write volume. */
 function nodeGraphTripEarProtection(details = {}) {
   globalThis.nodeGraphEarProtectionTripped = false;
   nodeGraphSetEarProtectionEngaged(true, details);

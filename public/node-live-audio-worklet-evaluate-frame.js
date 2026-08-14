@@ -174,13 +174,22 @@ NodeLiveAudioProcessor.prototype.evaluateFrame = function evaluateFrame(frame, f
 
     const outputNodeId = this.outputNode || "output";
     const outputNode = this.nodes.get(outputNodeId);
-    const outputVolume = outputNode
-      ? this.readEffectiveParameter(outputNode, "volume", 0.1, frame, frames, frameValues)
-      : 1;
+    const outputDb = outputNode
+      ? this.readEffectiveParameter(outputNode, "volume", -20, frame, frames, frameValues)
+      : 0;
+    const outputVolume = typeof nodeGraphOutputVolumeDbToLin === "function"
+      ? nodeGraphOutputVolumeDbToLin(outputDb)
+      : (!Number.isFinite(outputDb) || outputDb <= -140 ? 0 : 10 ** (outputDb / 20));
+    const outputPan = outputNode
+      ? this.readEffectiveParameter(outputNode, "pan", 0, frame, frames, frameValues)
+      : 0;
+    const outputPanGains = typeof nodeGraphOutputPanGains === "function"
+      ? nodeGraphOutputPanGains(outputPan)
+      : { left: 1, right: 1 };
 
     const outputMono = mixInput(outputNodeId, "Mono");
-    let left = (outputMono + mixInput(outputNodeId, "Left")) * outputVolume;
-    let right = (outputMono + mixInput(outputNodeId, "Right")) * outputVolume;
+    let left = (outputMono + mixInput(outputNodeId, "Left")) * outputVolume * outputPanGains.left;
+    let right = (outputMono + mixInput(outputNodeId, "Right")) * outputVolume * outputPanGains.right;
     if (typeof nodeGraphPortalMixOutlets === "function") {
       const mixed = nodeGraphPortalMixOutlets(this.nodes, mixInput, left, right);
       left = mixed.left;

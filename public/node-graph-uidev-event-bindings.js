@@ -69,9 +69,6 @@ async function bindNodeGraphUiDevSettingsEvents() {
     .getElementById("nodeUiDevModuleGridInset")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document
-    .getElementById("nodeUiDevPortFillInset")
-    ?.addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
     .getElementById("nodeUiDevOutletRgbBrightness")
     ?.addEventListener("input", syncNodeUiDevOutletRgbBrightness);
   document
@@ -83,6 +80,17 @@ async function bindNodeGraphUiDevSettingsEvents() {
   document
     .getElementById("nodeUiDevInletBlueBrightness")
     ?.addEventListener("change", syncNodeUiDevInletBlueBrightness);
+  for (const jackColorId of [
+    "nodeUiDevJackRgbRed",
+    "nodeUiDevJackRgbGreen",
+    "nodeUiDevJackRgbBlue",
+    "nodeUiDevJackAnalogIn",
+    "nodeUiDevJackAnalogOut",
+    "nodeUiDevJackDigital",
+  ]) {
+    document.getElementById(jackColorId)?.addEventListener("input", syncNodeUiDevJackColors);
+    document.getElementById(jackColorId)?.addEventListener("change", syncNodeUiDevJackColors);
+  }
   document
     .getElementById("nodeUiDevGridDivisionMultiply")
     ?.addEventListener("input", syncNodeUiDevGridDivisionMultiply);
@@ -145,9 +153,6 @@ async function bindNodeGraphUiDevSettingsEvents() {
     .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
   document
     .getElementById("nodeUiDevModuleTitleHeight")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevModuleTitleTextFill")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document
     .getElementById("nodeUiDevModuleIoSectionHeight")

@@ -47,4 +47,11 @@ var poly = nodeGraphNumberGateSample({
 });
 assert(poly["1"] === 1 && poly["7"] === 1 && poly["0"] === 0, "A and D can both be high");
 
+var two = nodeGraphNumberGateSample({ analog: 1, hasAnalog: true, lastIndex: 2 });
+assert(two["2"] === 1 && two["0"] === 0 && two["1"] === 0, "2Gate analog 1 -> out 2");
+assert(two["3"] === undefined, "2Gate has no out 3");
+
+var eight = nodeGraphNumberGateSample({ digital: 8, hasDigital: true, lastIndex: 8 });
+assert(eight["8"] === 1 && eight["0"] === 0, "8Gate digital 8 -> out 8");
+
 console.log("ok number gate");

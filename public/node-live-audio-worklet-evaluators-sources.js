@@ -1303,6 +1303,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         });
         const level = read("amplitude", 1);
         return {
+          DisplayX: lorenz.x,
+          DisplayY: lorenz.y,
           X: lorenz.x * level,
           Y: lorenz.y * level,
           Z: lorenz.z * level,

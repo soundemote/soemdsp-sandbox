@@ -937,7 +937,7 @@ function nodeGraphModuleBandTrackCss(band) {
   }
   if (band.id === "io") {
     return band.grow
-      ? "minmax(0, 1fr)"
+      ? "minmax(var(--node-module-io-track-min, var(--node-io-section-min-height)), 1fr)"
       : "minmax(var(--node-module-io-track-min, var(--node-io-section-min-height)), auto)";
   }
   if (band.id === "params") {

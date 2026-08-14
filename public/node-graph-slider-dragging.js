@@ -277,6 +277,16 @@ function syncNodeGraphParameterVisualsForNodeElement(nodeElement) {
 let nodeSliderDragAutosaveTimer = 0;
 
 function scheduleNodeGraphModuleScopeDrawIfNeeded() {
+  if (typeof paintNodeGraphRasterRgbFacesNow === "function") {
+    try {
+      paintNodeGraphRasterRgbFacesNow(window.devicePixelRatio || 1);
+    } catch (_error) {
+      // Invert / grade must update even when the live scope loop is idle.
+    }
+  }
+  if (typeof scheduleNodeGraphRasterRgbPump === "function") {
+    scheduleNodeGraphRasterRgbPump();
+  }
   // Fast-path: if a draw rAF is already pending, the loop is self-sustaining.
   if (nodeGraphModuleScopeState?.drawFrame) return;
   if (

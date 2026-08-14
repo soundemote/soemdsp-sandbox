@@ -18,6 +18,7 @@ function nodeGraphResolveModuleTypeAlias(type) {
   if (t === "gainBias") return "gain";
   // GainBiasMix renamed to Mix.
   if (t === "gainBiasMix") return "mix";
+  if (t === "numberGate") return "gate12";
   return t;
 }
 
@@ -193,7 +194,7 @@ const nodeGraphDefaultNodeConfigs = Object.freeze([
   },
   {
     ...createNodeGraphPatchNode("output", { id: "output", gx: 2, gy: -5 }),
-    params: { ...nodeGraphDefaultParamsForType("output"), volume: 0.8 },
+    params: { ...nodeGraphDefaultParamsForType("output"), volume: -2 },
   },
 ]);
 

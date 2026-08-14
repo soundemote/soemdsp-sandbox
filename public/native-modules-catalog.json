@@ -794,6 +794,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "raster_rgb",
+      "label": "Raster RGB",
+      "targetType": "rasterRgb",
+      "kind": "processor",
+      "source": "native_modules/raster_rgb/raster_rgb.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/raster_rgb/raster_rgb.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/raster_rgb/raster_rgb.wasm",
+      "wasmUrl": "native_modules/raster_rgb/raster_rgb.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "ray_bouncer",
       "label": "Ray Bouncer",
       "targetType": "rayBouncer",

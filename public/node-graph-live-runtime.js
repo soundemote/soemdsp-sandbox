@@ -153,13 +153,32 @@ function nodeGraphAudioInputModuleNode() {
   return nodeGraphPatchModuleNodeByType("audioInput", "audioInput");
 }
 
-/** Canonical live out level = Output module volume (0..1). */
+/** Canonical live out level in dB (Output module Volume). */
+function getNodeGraphOutputModuleVolumeDb() {
+  const node = nodeGraphOutputModuleNode();
+  const fallback = -20;
+  if (!node) {
+    return fallback;
+  }
+  const slider = nodeGraphModuleParamSlider(node, "volume");
+  if (slider) {
+    const domain = Number(slider.dataset?.domainValue);
+    const fromDom = Number.isFinite(domain) ? domain : Number(slider.value);
+    if (Number.isFinite(fromDom)) {
+      return fromDom;
+    }
+  }
+  const fromParams = Number(node.params?.volume);
+  return Number.isFinite(fromParams) ? fromParams : fallback;
+}
+
+/** Toolbar 0…1 position for Output Volume (1 = 0 dB). */
 function getNodeGraphOutputModuleVolume() {
-  return nodeGraphReadModuleParamLevel(
-    nodeGraphOutputModuleNode(),
-    "volume",
-    nodeGraphMvp?.live?.outputVolume ?? 0.1,
-  );
+  const db = getNodeGraphOutputModuleVolumeDb();
+  const lin = typeof nodeGraphOutputVolumeDbToLin === "function"
+    ? nodeGraphOutputVolumeDbToLin(db)
+    : (!Number.isFinite(db) || db <= -140 ? 0 : 10 ** (db / 20));
+  return Math.max(0, Math.min(1, lin));
 }
 
 /** Canonical live in level = Input module Amplitude / level (0..1). */
@@ -171,20 +190,63 @@ function getNodeGraphAudioInputModuleLevel() {
   );
 }
 
-function setNodeGraphOutputModuleVolume(value, options = {}) {
-  const level = nodeGraphWriteModuleParamLevel(
-    nodeGraphOutputModuleNode(),
-    "volume",
-    value,
-    { ...options, lockKey: "_outputVolumeMirrorLock" },
-  );
+function setNodeGraphOutputModuleVolumeDb(db, options = {}) {
+  const node = nodeGraphOutputModuleNode();
+  const value = Number.isFinite(Number(db)) ? Number(db) : -20;
+  const lockKey = "_outputVolumeMirrorLock";
+  if (node && !options.fromModuleSlider) {
+    node.params = { ...(node.params || {}), volume: value };
+    const slider = nodeGraphModuleParamSlider(node, "volume");
+    if (slider && typeof setNodeSliderValue === "function") {
+      nodeGraphMvp[lockKey] = true;
+      try {
+        setNodeSliderValue(slider, value, {
+          interaction: options.interaction || "drag",
+        });
+      } finally {
+        nodeGraphMvp[lockKey] = false;
+      }
+    } else {
+      if (slider) {
+        slider.value = String(value);
+        slider.dataset.domainValue = String(value);
+        if (typeof syncNodeSliderReadout === "function") {
+          syncNodeSliderReadout(slider);
+        }
+      }
+      if (typeof scheduleNodeGraphLiveParameterSync === "function") {
+        scheduleNodeGraphLiveParameterSync();
+      }
+    }
+  }
+  const lin = typeof nodeGraphOutputVolumeDbToLin === "function"
+    ? nodeGraphOutputVolumeDbToLin(value)
+    : (!Number.isFinite(value) || value <= -140 ? 0 : 10 ** (value / 20));
   if (nodeGraphMvp?.live) {
-    nodeGraphMvp.live.outputVolume = level;
+    nodeGraphMvp.live.outputVolume = Math.max(0, Math.min(1, lin));
   }
-  if (!options.fromToolbar && typeof syncNodeGraphVolumeSlider === "function") {
-    syncNodeGraphVolumeSlider("nodeLiveOutputVolume", "nodeLiveOutputVolumeValue", level);
+  if (!options.fromToolbar && typeof syncNodeGraphOutputVolumeSlider === "function") {
+    syncNodeGraphOutputVolumeSlider(value);
+  } else if (!options.fromToolbar && typeof syncNodeGraphVolumeSlider === "function") {
+    syncNodeGraphVolumeSlider(
+      "nodeLiveOutputVolume",
+      "nodeLiveOutputVolumeValue",
+      Math.max(0, Math.min(1, lin)),
+    );
   }
-  return level;
+  return value;
+}
+
+function setNodeGraphOutputModuleVolume(value, options = {}) {
+  if (options.fromToolbar) {
+    const db = typeof nodeGraphOutputLinToVolumeDb === "function"
+      ? nodeGraphOutputLinToVolumeDb(value)
+      : (!Number.isFinite(Number(value)) || Number(value) <= 0
+        ? -140
+        : 20 * Math.log10(Number(value)));
+    return setNodeGraphOutputModuleVolumeDb(db, options);
+  }
+  return setNodeGraphOutputModuleVolumeDb(value, options);
 }
 
 function setNodeGraphAudioInputModuleLevel(value, options = {}) {
@@ -220,11 +282,14 @@ function syncNodeGraphLiveOutputVolumeFromOutputModule() {
   if (nodeGraphMvp?._outputVolumeMirrorLock) {
     return getNodeGraphOutputModuleVolume();
   }
+  const db = getNodeGraphOutputModuleVolumeDb();
   const level = getNodeGraphOutputModuleVolume();
   if (nodeGraphMvp?.live) {
     nodeGraphMvp.live.outputVolume = level;
   }
-  if (typeof syncNodeGraphVolumeSlider === "function") {
+  if (typeof syncNodeGraphOutputVolumeSlider === "function") {
+    syncNodeGraphOutputVolumeSlider(db);
+  } else if (typeof syncNodeGraphVolumeSlider === "function") {
     syncNodeGraphVolumeSlider("nodeLiveOutputVolume", "nodeLiveOutputVolumeValue", level);
   }
   applyNodeGraphLiveOutputGain();
@@ -441,7 +506,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=soft-clipper-aa-ends-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=raster-rgb-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2792,7 +2857,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
   "./public/node-graph-parameter-smoother-filters.js?v=module-smooth-0333-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
-  "./public/node-graph-module-bypass.js?v=number-gate-1",
+  "./public/node-graph-module-bypass.js?v=n-gate-family-1",
   "./public/node-live-audio-worklet-core.js?v=kick-split-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
@@ -2954,9 +3019,11 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/bugButton/bug-button-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/keypad/keypad-math.js?v=keypad-layout-b-1",
   "./public/modules/keypad/keypad-worklet-evaluator.js?v=keypad-layout-b-1",
-  "./public/modules/numberGate/number-gate-math.js?v=number-gate-1",
-  "./public/modules/numberGate/number-gate-worklet-evaluator.js?v=number-gate-1",
-  "./public/modules/rgbDisplays/rgb-display-worklet-evaluator.js?v=rgb-1",
+  "./public/modules/numberGate/number-gate-math.js?v=n-gate-family-1",
+  "./public/modules/numberGate/number-gate-worklet-evaluator.js?v=n-gate-family-1",
+  "./public/modules/rasterRgb/raster-rgb-math.js?v=paint-2",
+  "./public/modules/rasterRgb/raster-rgb-worklet-evaluator.js?v=paint-2",
+  "./public/modules/rgbDisplays/rgb-display-worklet-evaluator.js?v=rgb-raster-3",
   "./public/modules/phoneTone/phone-tone-math.js?v=phone-tone-pitch-1",
   "./public/modules/phoneTone/phone-tone-worklet-evaluator.js?v=phone-tone-pitch-1",
   "./public/modules/xyPad/xy-pad-dsp.js?v=xy-pad-center-q-1",
@@ -2985,7 +3052,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/nextPatch/next-patch-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-os-1",
   "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=soft-clipper-os-1",
-  "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=speaker-protector-noclip-1",
+  "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=peak-above-0db-1",
   "./public/modules/speakerProtector2/speaker-protector-2-worklet-evaluator.js?v=speaker-protector-noclip-1",
   "./public/modules/clipperLimiter/clipper-limiter-math.js?v=soft-clipper-os-1",
   "./public/modules/clipperLimiter/clipper-limiter-worklet-evaluator.js?v=soft-clipper-os-1",
@@ -3000,7 +3067,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/radar/radar-worklet-evaluator.js?v=phasor-stdlib-1",
   "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=sample-stereo-1",
   "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/gain/gain-math.js?v=gain-db-1",
+  "./public/modules/gain/gain-math.js?v=output-db-1",
   "./public/modules/gain/gain-worklet-evaluator.js?v=gain-db-1",
   "./public/modules/bias/bias-math.js?v=bias-io-1",
   "./public/modules/bias/bias-worklet-evaluator.js?v=bias-io-1",

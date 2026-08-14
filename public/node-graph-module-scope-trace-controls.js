@@ -36,7 +36,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "buttonWidth",
     "buttonHeight",
   ],
-  colors: ["dot1Color", "secondaryColor", "backgroundColor", "ghostColor", "protectColor", "buttonColor", "hoverColor", "downColor", "textColor", "strokeColor", "dotColor"],
+  colors: ["dot1Color", "secondaryColor", "backgroundColor", "ghostColor", "buttonColor", "hoverColor", "downColor", "textColor", "strokeColor", "dotColor"],
   // Every control key that exists in the shared popover MUST be listed here.
   // setNodeGraphTraceDisplaySettingsFormType only show/hides keys from these
   // lists — anything missing leaks onto every module (e.g. Output saw
@@ -83,7 +83,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "secondarySize",
       "secondaryBrightness",
     ]),
-    colors: Object.freeze(["dot1Color", "secondaryColor", "backgroundColor", "protectColor"]),
+    colors: Object.freeze(["dot1Color", "secondaryColor", "backgroundColor"]),
     // sourceSync kept for legacy single-channel; Output uses syncChannel choice.
     toggles: Object.freeze(["sourceSync", "skipDiscontinuities", "secondaryEnabled"]),
     choices: Object.freeze(["syncChannel", "stereoBlend"]),
@@ -557,7 +557,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "rounding",
     ]),
     // Face plate (+ number readout ghost ink) + Knob arc colors.
-    colors: Object.freeze(["backgroundColor", "ghostColor", "protectColor", "arcFill", "arcTrack"]),
+    colors: Object.freeze(["backgroundColor", "ghostColor", "arcFill", "arcTrack"]),
     toggles: Object.freeze([
       "sourceSync",
       "skipDiscontinuities",
@@ -1024,12 +1024,6 @@ const nodeGraphDisplaySettingsColorMeta = Object.freeze({
     aria: "Background color",
     defaultValue: "#000000",
     id: "nodeTraceDisplayBackgroundColor",
-  }),
-  protectColor: Object.freeze({
-    label: "",
-    aria: "Speaker protection overlay color; alpha follows mute 0–1",
-    defaultValue: "#e02020",
-    id: "nodeTraceDisplayProtectColor",
   }),
   ghostColor: Object.freeze({
     label: "",

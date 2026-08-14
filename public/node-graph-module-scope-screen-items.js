@@ -181,6 +181,13 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
               screenElement: slot.scopeElement,
               buffer: null,
             }, 1);
+          } else if (selfPaint === "rasterRgbFace" || slot?.type === "rasterRgb") {
+            if (typeof drawNodeGraphRasterRgbFaceItem === "function") {
+              drawNodeGraphRasterRgbFaceItem(null, {
+                slot,
+                screenElement: slot.scopeElement,
+              }, pixelRatio);
+            }
           } else if (
             selfPaint === "trace"
             || selfPaint === "dot"

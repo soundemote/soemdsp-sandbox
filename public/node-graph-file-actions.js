@@ -741,7 +741,15 @@ function saveNodeGraphScriptEditor() {
   }
 }
 
-async function copyNodeGraphScriptToClipboard() {
+async function copyNodeGraphScriptToClipboard(event) {
+  const button = event?.currentTarget;
+  if (typeof confirmNodeGraphDefaultButtonClick === "function" && button) {
+    if (!confirmNodeGraphDefaultButtonClick(button, () => {
+      setNodeGraphScriptStatus("click Confirm Copy to copy this patch", true);
+    }, { confirmText: "Confirm Copy" })) {
+      return;
+    }
+  }
   if (typeof nodeGraphScriptReadyForGraphAction === "function"
     && !nodeGraphScriptReadyForGraphAction("copy")) {
     return;
@@ -752,6 +760,9 @@ async function copyNodeGraphScriptToClipboard() {
   try {
     await navigator.clipboard.writeText(text);
     setNodeGraphScriptStatus("patch copied", true);
+    if (typeof flashNodeGraphDefaultButtonSaved === "function" && button) {
+      flashNodeGraphDefaultButtonSaved(button, "Copied");
+    }
   } catch {
     setNodeGraphScriptStatus("copy blocked: clipboard permission denied", false);
   }
@@ -784,18 +795,77 @@ function nodeGraphDownloadTextFile(filename, text, type = "application/json") {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function pasteNodeGraphScriptFromClipboard() {
-  try {
-    const text = await navigator.clipboard.readText();
-    if (!text || !String(text).trim()) {
-      setNodeGraphScriptStatus("paste empty: clipboard has no text", false);
+function nodeGraphPreviewClipboardPatchText(text) {
+  const source = String(text ?? "").trim();
+  if (!source) {
+    throw new Error("paste empty: clipboard has no text");
+  }
+  if (typeof loadNodeGraphPatchFromScript === "function") {
+    return loadNodeGraphPatchFromScript(source);
+  }
+  const data = JSON.parse(source);
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("paste rejected: clipboard is not a patch object");
+  }
+  if (typeof validateNodeGraphPatch === "function") {
+    return validateNodeGraphPatch(data);
+  }
+  return data;
+}
+
+async function pasteNodeGraphScriptFromClipboard(event) {
+  const button = event?.currentTarget;
+  const confirming = Boolean(
+    button
+    && typeof nodeGraphMvp !== "undefined"
+    && nodeGraphMvp.confirmDefaultButton === button
+    && button.classList.contains("confirming-default"),
+  );
+  if (confirming) {
+    const cached = nodeGraphMvp._pendingPastePatchText;
+    if (typeof clearNodeGraphConfirmDefaultButton === "function") {
+      clearNodeGraphConfirmDefaultButton(button);
+    }
+    delete nodeGraphMvp._pendingPastePatchText;
+    if (!cached) {
+      setNodeGraphScriptStatus("paste expired: copy the patch again", false);
       return;
     }
     if (typeof commitNodeGraphScript === "function") {
-      commitNodeGraphScript(text);
+      commitNodeGraphScript(cached);
     }
+    if (typeof flashNodeGraphDefaultButtonSaved === "function" && button) {
+      flashNodeGraphDefaultButtonSaved(button, "Pasted");
+    }
+    return;
+  }
+  let text;
+  try {
+    text = await navigator.clipboard.readText();
   } catch {
     setNodeGraphScriptStatus("paste blocked: clipboard permission denied", false);
+    return;
+  }
+  try {
+    nodeGraphPreviewClipboardPatchText(text);
+  } catch (error) {
+    if (typeof nodeGraphMvp !== "undefined") {
+      delete nodeGraphMvp._pendingPastePatchText;
+    }
+    setNodeGraphScriptStatus(error?.message || "paste rejected: not a valid patch", false);
+    return;
+  }
+  if (typeof nodeGraphMvp !== "undefined") {
+    nodeGraphMvp._pendingPastePatchText = String(text);
+  }
+  if (typeof confirmNodeGraphDefaultButtonClick === "function" && button) {
+    confirmNodeGraphDefaultButtonClick(button, () => {
+      setNodeGraphScriptStatus("click Confirm Paste to replace this patch", true);
+    }, { confirmText: "Confirm Paste" });
+    return;
+  }
+  if (typeof commitNodeGraphScript === "function") {
+    commitNodeGraphScript(text);
   }
 }
 

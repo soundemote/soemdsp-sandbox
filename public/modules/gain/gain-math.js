@@ -1,6 +1,9 @@
 // Gain — pure math (main thread + AudioWorklet).
 // Master / Left / Right are dB (−∞ floor = −140 dB → 0 linear).
+// Same contract as soemdsp ParameterPrototype::DecibelsToAmplitude:
+// patch stores dB, DSP uses 10^(dB/20).
 // Out is a downmix of the processed L/R paths (mono-sum law).
+// Output Volume / Pan helpers live here so the worklet blob shares them.
 
 const NODE_GRAPH_GAIN_DB_FLOOR = -140;
 const NODE_GRAPH_GAIN_MONO_SUM = Object.freeze({
@@ -19,6 +22,27 @@ function nodeGraphGainDbToLin(db) {
     return 0;
   }
   return 10 ** (x / 20);
+}
+
+function nodeGraphOutputVolumeDbToLin(db) {
+  return nodeGraphGainDbToLin(db);
+}
+
+function nodeGraphOutputLinToVolumeDb(lin) {
+  const x = Number(lin);
+  if (!Number.isFinite(x) || x <= 0) {
+    return NODE_GRAPH_GAIN_DB_FLOOR;
+  }
+  return 20 * Math.log10(x);
+}
+
+/** Pan −1…+1. 0 keeps Mono→both at unity; edges mute the opposite side. */
+function nodeGraphOutputPanGains(pan) {
+  const p = Math.max(-1, Math.min(1, Number(pan) || 0));
+  if (p <= 0) {
+    return { left: 1, right: Math.cos(-p * Math.PI * 0.5) };
+  }
+  return { left: Math.cos(p * Math.PI * 0.5), right: 1 };
 }
 
 function nodeGraphGainLegacyAmountToDb(amount) {

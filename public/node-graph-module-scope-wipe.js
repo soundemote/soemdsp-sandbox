@@ -94,6 +94,7 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
       || canvas.classList?.contains("node-module-scope-light-canvas")
       || canvas.classList?.contains("node-room-dimmer-canvas")
       || canvas.classList?.contains("node-number-readout-canvas")
+      || canvas.classList?.contains("node-raster-rgb-canvas")
     ) {
       continue;
     }

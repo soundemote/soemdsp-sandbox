@@ -165,6 +165,9 @@ function paintNodeGraphModuleScopeColdPlatesOnly(pixelRatio = window.devicePixel
   if (typeof nodeGraphVisibleModuleScopeSlots !== "function") {
     return;
   }
+  if (typeof paintNodeGraphRasterRgbFacesNow === "function") {
+    paintNodeGraphRasterRgbFacesNow(pixelRatio);
+  }
   if (typeof paintNodeGraphTraceDisplayColdPlate !== "function") {
     return;
   }
@@ -172,6 +175,9 @@ function paintNodeGraphModuleScopeColdPlatesOnly(pixelRatio = window.devicePixel
     const renderer = typeof nodeGraphModuleDisplayRendererForSlot === "function"
       ? nodeGraphModuleDisplayRendererForSlot(slot)
       : "";
+    if (renderer === "rasterRgbFace" || slot?.type === "rasterRgb") {
+      continue;
+    }
     if (
       renderer !== "trace"
       && renderer !== "dot"
@@ -219,6 +225,13 @@ function drawNodeGraphModuleScopes(options = {}) {
   if (!enterLivePaint) {
     absorbNodeGraphModuleScopePhosphorDrawCursors();
     nodeGraphModuleScopeState.animationLastTime = (performance.now?.() || Date.now()) / 1000;
+    if (typeof paintNodeGraphRasterRgbFacesNow === "function") {
+      try {
+        paintNodeGraphRasterRgbFacesNow(window.devicePixelRatio || 1);
+      } catch (_error) {
+        // Best-effort — invert / plate must still update while paused.
+      }
+    }
     if (force) {
       paintNodeGraphModuleScopeColdPlatesOnly(undefined, { force: true });
     }
@@ -233,6 +246,13 @@ function drawNodeGraphModuleScopes(options = {}) {
     if (typeof paintNodeGraphValueFacesNow === "function") {
       try {
         paintNodeGraphValueFacesNow(window.devicePixelRatio || 1);
+      } catch (_error) {
+        // Best-effort.
+      }
+    }
+    if (typeof paintNodeGraphRasterRgbFacesNow === "function") {
+      try {
+        paintNodeGraphRasterRgbFacesNow(window.devicePixelRatio || 1);
       } catch (_error) {
         // Best-effort.
       }
@@ -275,6 +295,13 @@ function drawNodeGraphModuleScopes(options = {}) {
       clearNodeGraphModuleScopeCanvas();
     }
     nodeGraphModuleScopeState.scopeTracesOffActive = true;
+    if (typeof paintNodeGraphRasterRgbFacesNow === "function") {
+      try {
+        paintNodeGraphRasterRgbFacesNow(window.devicePixelRatio || 1);
+      } catch (_error) {
+        // Raster is a self-painted face, not a shared-canvas trace.
+      }
+    }
     markNodeGraphModuleScopeDebugSkip("traces-off");
     return;
   }
@@ -491,6 +518,15 @@ function scheduleNodeGraphModuleScopeDraw(options = {}) {
   if (typeof scopePaintShouldFullDraw === "function") {
     if (!scopePaintShouldFullDraw(force)) {
       absorbNodeGraphModuleScopePhosphorDrawCursors();
+      // Raster invert / grade live on a module slider, not Display Settings.
+      // The live RAF loop is off while paused/stopped — still paint the face.
+      if (typeof paintNodeGraphRasterRgbFacesNow === "function") {
+        try {
+          paintNodeGraphRasterRgbFacesNow(window.devicePixelRatio || 1);
+        } catch (_error) {
+          // Best-effort.
+        }
+      }
       // Never fill idle plates over a frozen face (move/resize used to wipe LCD).
       if (force) {
         paintNodeGraphModuleScopeColdPlatesOnly(undefined, { force: true });

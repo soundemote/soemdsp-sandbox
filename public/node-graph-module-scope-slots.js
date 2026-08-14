@@ -19,6 +19,9 @@ function registerNodeGraphModuleScopeSlot(moduleElement, options = {}) {
     bindNodeGraphModuleScopeWindowEvents(scopeElement);
   }
   nodeGraphModuleScopeState.slots.set(nodeId, slot);
+  if (slot.type === "rasterRgb" && typeof scheduleNodeGraphRasterRgbPump === "function") {
+    scheduleNodeGraphRasterRgbPump();
+  }
   // Patch load registers many slots; don't queue a full scope pass while
   // stopped (each schedule used to reflow every face via HasModelDisplay).
   if (typeof nodeGraphModuleScopePaused !== "function" || !nodeGraphModuleScopePaused()) {

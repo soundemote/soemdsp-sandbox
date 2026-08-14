@@ -326,9 +326,6 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}
   } else if (formType === "trace" && options.stereo && key === "backgroundColor") {
     aria = "Background";
     base = { ...base, caption: "BG" };
-  } else if (formType === "trace" && key === "protectColor") {
-    aria = "Speaker protection overlay; alpha follows mute 0–1";
-    base = { ...base, caption: "Protect", defaultValue: "#e02020" };
   } else if (formType === "textBoxFace" && key === "textColor") {
     aria = "Text Box text color";
     base = { ...base, defaultValue: "#f3f1ec" };
@@ -346,7 +343,6 @@ const NODE_GRAPH_TRACE_STEREO_COLOR_ORDER = Object.freeze([
   "dot1Color",
   "secondaryColor",
   "backgroundColor",
-  "protectColor",
 ]);
 
 function nodeGraphDisplaySettingsBuildColorRowHtml(key, formType = null, options = {}) {
@@ -411,9 +407,6 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   const allowKey = (kind, key) => {
     if (type !== "trace") {
       return true;
-    }
-    if (key === "protectColor") {
-      return node?.type === "output";
     }
     if (!isStereoTraceNode) {
       if (

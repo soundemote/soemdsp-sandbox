@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=module-lip-hit-1">
+  <link rel="stylesheet" href="./public/styles.css?v=io-item-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=portal-io-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-bgi-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -1171,9 +1171,9 @@
                 min="1"
                 max="8"
                 step="1"
-                value="1"
+                value="2"
                 title="Visual grid only. 1 = 1:1, 2 = 2× squares, 3 = 4×, 4 = 8× (2^(n−1)). Snap stays 1gu.">
-              <output id="nodeUiDevGridDivisionMultiplyValue" for="nodeUiDevGridDivisionMultiply">1×</output>
+              <output id="nodeUiDevGridDivisionMultiplyValue" for="nodeUiDevGridDivisionMultiply">2×</output>
             </div>
           </label>
           <label class="node-ui-dev-control">
@@ -1216,19 +1216,6 @@
             </div>
           </label>
           <label class="node-ui-dev-control">
-            <span>port fill inset</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevPortFillInset"
-                type="range"
-                min="0"
-                max="12"
-                step="1"
-                value="0">
-              <output id="nodeUiDevPortFillInsetValue" for="nodeUiDevPortFillInset">0px</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
             <span>outlet RGB</span>
             <div class="node-ui-dev-control-row">
               <input
@@ -1253,6 +1240,36 @@
                 value="0.75">
               <output id="nodeUiDevInletBlueBrightnessValue" for="nodeUiDevInletBlueBrightness">0.75</output>
             </div>
+          </label>
+          <label class="node-ui-dev-color-control">
+            <span>inlet/outlet RGB red</span>
+            <input id="nodeUiDevJackRgbRed" type="color" value="#f25d5d">
+            <output id="nodeUiDevJackRgbRedValue" for="nodeUiDevJackRgbRed">#f25d5d</output>
+          </label>
+          <label class="node-ui-dev-color-control">
+            <span>inlet/outlet RGB green</span>
+            <input id="nodeUiDevJackRgbGreen" type="color" value="#3ddc84">
+            <output id="nodeUiDevJackRgbGreenValue" for="nodeUiDevJackRgbGreen">#3ddc84</output>
+          </label>
+          <label class="node-ui-dev-color-control">
+            <span>inlet/outlet RGB blue</span>
+            <input id="nodeUiDevJackRgbBlue" type="color" value="#4d8dff">
+            <output id="nodeUiDevJackRgbBlueValue" for="nodeUiDevJackRgbBlue">#4d8dff</output>
+          </label>
+          <label class="node-ui-dev-color-control">
+            <span>inlet analog</span>
+            <input id="nodeUiDevJackAnalogIn" type="color" value="#7fc7d9">
+            <output id="nodeUiDevJackAnalogInValue" for="nodeUiDevJackAnalogIn">#7fc7d9</output>
+          </label>
+          <label class="node-ui-dev-color-control">
+            <span>outlet analog</span>
+            <input id="nodeUiDevJackAnalogOut" type="color" value="#e2a86d">
+            <output id="nodeUiDevJackAnalogOutValue" for="nodeUiDevJackAnalogOut">#e2a86d</output>
+          </label>
+          <label class="node-ui-dev-color-control">
+            <span>inlet/outlet digital</span>
+            <input id="nodeUiDevJackDigital" type="color" value="#ffffff">
+            <output id="nodeUiDevJackDigitalValue" for="nodeUiDevJackDigital">#ffffff</output>
           </label>
           <label class="node-ui-dev-control">
             <span>module roundness</span>
@@ -1369,19 +1386,6 @@
                 step="1"
                 value="26">
               <output id="nodeUiDevModuleTitleHeightValue" for="nodeUiDevModuleTitleHeight">26px</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>module title text area fill</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevModuleTitleTextFill"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value="62">
-              <output id="nodeUiDevModuleTitleTextFillValue" for="nodeUiDevModuleTitleTextFill">62%</output>
             </div>
           </label>
           <label class="node-ui-dev-control">
@@ -1730,7 +1734,7 @@
                 step="1"
                 value="50">
               <output id="nodeUiDevCloseIconSizeValue" for="nodeUiDevCloseIconSize">50%</output>
-              <span id="nodeUiDevCloseIconPreview" class="node-ui-dev-symbol-preview node-ui-dev-close-icon-preview" aria-hidden="true">&times;</span>
+              <span id="nodeUiDevCloseIconPreview" class="node-ui-dev-symbol-preview node-ui-dev-close-icon-preview panel-close-glyph" aria-hidden="true"></span>
             </div>
           </label>
           <section class="node-ui-dev-color-section" aria-label="Node color controls">
@@ -1852,7 +1856,7 @@
             class="panel-close-button"
             type="button"
             aria-label="Close UI settings">
-            <span aria-hidden="true">&times;</span>
+            <span class="panel-close-glyph" aria-hidden="true"></span>
           </button>
         </div>
         <div
@@ -2669,7 +2673,7 @@
               aria-label="Input module amplitude">
             <output id="nodeLiveInputVolumeValue" for="nodeLiveInputVolume">100%</output>
           </label>
-          <label class="node-volume-control node-live-output-volume" title="Output module volume (mirrored)">
+          <label class="node-volume-control node-live-output-volume" title="Output module volume in dB (mirrored)">
             <span aria-hidden="true">🔊</span>
             <input
               id="nodeLiveOutputVolume"
@@ -2677,9 +2681,9 @@
               min="0"
               max="1"
               step="0.01"
-              value="1"
-              aria-label="Output module volume">
-            <output id="nodeLiveOutputVolumeValue" for="nodeLiveOutputVolume">100%</output>
+              value="0.1"
+              aria-label="Output module volume in decibels">
+            <output id="nodeLiveOutputVolumeValue" for="nodeLiveOutputVolume">−20 dB</output>
           </label>
           <button
             id="nodeLiveOutputButton"
@@ -3491,7 +3495,7 @@
   <script src="./public/waveform-interactions.js?v=waveform-interactions-refactor-1780375200000"></script>
   <script src="./public/manifest-view.js?v=manifest-view-refactor-1780360800000"></script>
   <script src="./public/manifest-loader.js?v=manifest-loader-refactor-1780389600000"></script>
-  <script src="./public/node-graph-wires.js?v=port-label-hit-1"></script>
+  <script src="./public/node-graph-wires.js?v=io-item-1"></script>
   <script src="./public/node-graph-floating-windows.js?v=cc-undock-1"></script>
   <script src="./public/node-graph-unified-window.js?v=cc-undock-1"></script>
   <script src="./public/node-graph-file-actions.js?v=patch-face-1"></script>
@@ -3521,7 +3525,7 @@
   <script src="./public/modules/portal/portal-inlet-register.js?v=portal-io-1"></script>
   <script src="./public/modules/portal/portal-outlet-register.js?v=portal-io-1"></script>
   <script src="./public/modules/patch/patch-register.js?v=patch-buttons-on-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=raster-grade-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=raster-hue-1"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script src="./public/node-graph-module-controls.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
@@ -3582,15 +3586,15 @@
   <script src="./public/node-graph-phosphor-gaussian-drawer.js?v=gaussian-beam-continuous-1"></script>
   <script type="module" src="./public/color-widget-boot.js?v=color-hover-nostroke-1"></script>
   <script src="./public/modules/spectrogram/spectrogram-gradient-editor.js?v=fractal-noise-1"></script>
-  <script src="./public/node-graph-module-scope-defaults.js?v=output-colors-1"></script>
-  <script src="./public/node-graph-module-scope-normalize.js?v=pitch-lcd-ghost-1"></script>
+  <script src="./public/node-graph-module-scope-defaults.js?v=protect-banner-1"></script>
+  <script src="./public/node-graph-module-scope-normalize.js?v=protect-banner-1"></script>
   <script src="./public/node-graph-module-scope-display-mode.js?v=kick-env-1"></script>
   <script src="./public/node-graph-module-scope-phosphor.js?v=paint-gate-1"></script>
   <script src="./public/latch-button.js?v=latch-1"></script>
-  <script src="./public/node-graph-module-scope-settings-form.js?v=output-colors-1"></script>
+  <script src="./public/node-graph-module-scope-settings-form.js?v=protect-banner-1"></script>
   <script src="./public/node-graph-module-scope-settings-controls.js?v=kick-env-1"></script>
   <!-- Display Settings peel: form-io → field-edit → apply → window → thin ui anchor -->
-  <script src="./public/node-graph-module-scope-settings-form-io.js?v=kick-env-1"></script>
+  <script src="./public/node-graph-module-scope-settings-form-io.js?v=protect-banner-1"></script>
   <script src="./public/node-graph-module-scope-settings-field-edit.js?v=lcd-gauss-shadow-1"></script>
   <script src="./public/node-graph-module-scope-settings-apply.js?v=kick-env-1"></script>
   <script src="./public/node-graph-module-scope-settings-window.js?v=keypad-look-1"></script>
@@ -3603,7 +3607,7 @@
   <script src="./public/node-graph-module-scope-spectrum.js?v=kick-env-1"></script>
   <script src="./public/node-graph-module-scope-buffer-io.js?v=visual-rate-meta-1"></script>
   <script src="./public/node-graph-module-scope-sync.js?v=trace-time-axis-1"></script>
-  <script src="./public/node-graph-module-scope-metrics.js?v=live-trace-loop-1"></script>
+  <script src="./public/node-graph-module-scope-metrics.js?v=protect-banner-1"></script>
   <script src="./public/node-graph-module-scope-geometry.js?v=scope-paint-loop-1"></script>
   <script src="./public/node-graph-module-scope-webgl.js?v=0d-soft-edge-1"></script>
   <script src="./public/node-graph-module-scope-vertices.js?v=trace-time-axis-1"></script>
@@ -3614,26 +3618,27 @@
   <script src="./public/node-graph-module-scope-monitors.js?v=scope-monitors-1"></script>
   <script src="./public/node-graph-module-scope-scene-controls.js?v=drag-reanchor-1"></script>
   <script src="./public/node-graph-module-scope-shader-settings.js?v=scope-shader-settings-1"></script>
-  <script src="./public/node-graph-module-scope-trace-controls.js?v=raster-no-bg-1"></script>
+  <script src="./public/node-graph-module-scope-trace-controls.js?v=protect-banner-1"></script>
   <script src="./public/node-graph-module-scope-wipe.js?v=pause-move-hold-1"></script>
   <script src="./public/node-graph-module-scope-graph-query.js?v=scope-graph-query-1"></script>
   <script src="./public/node-graph-module-scope-settings.js?v=scope-sync-off-1"></script>
   <script src="./public/node-graph-module-scope-lifecycle.js?v=paint-gate-1"></script>
   <script src="./public/node-graph-module-scope-paint-gate.js?v=stop-unfreeze-1"></script>
   <script src="./public/node-graph-module-scope-canvas.js?v=paint-gate-1"></script>
-  <script src="./public/node-graph-module-scope-paint-helpers.js?v=output-colors-1"></script>
-  <script src="./public/node-graph-module-scope-draw-orchestrator.js?v=kick-env-1"></script>
+  <script src="./public/node-graph-module-scope-paint-helpers.js?v=protect-hotsprings-1"></script>
+  <script src="./public/node-graph-module-scope-draw-orchestrator.js?v=raster-paint-2"></script>
   <script src="./public/modules/phosphorLight/phosphor-light-display.js?v=alias-only-1"></script>
   <script src="./public/modules/oscilloscopeBank/oscilloscope-bank-display.js?v=burn-sticky-1"></script>
   <script src="./public/modules/videoscope/videoscope-display.js?v=burn-sticky-1"></script>
   <script src="./public/modules/spectrogram/spectrogram-display.js?v=spec-bright-02-1"></script>
   <script src="./public/modules/transport/transport-display.js?v=transport-bpm-20260714"></script>
   <script src="./public/modules/vectorRgb/vector-rgb-display.js?v=blank-1"></script>
-  <script src="./public/modules/rasterRgb/raster-rgb-display.js?v=fill-grade-1"></script>
+  <script src="./public/modules/rasterRgb/raster-rgb-math.js?v=syntax-3"></script>
+  <script src="./public/modules/rasterRgb/raster-rgb-display.js?v=hue-1"></script>
   <script src="./public/modules/gradientVectorscope/gradient-vectorscope-display.js?v=rgb-1"></script>
   <script src="./public/node-graph-room-dimmer.js?v=dimmer-punch-fix-2"></script>
   <script src="./public/node-graph-canvas-script.js?v=floating-chrome-unify-1"></script>
-  <script src="./public/node-graph-module-factories.js?v=mlr-spell-1"></script>
+  <script src="./public/node-graph-module-factories.js?v=jack-idle-stroke-1"></script>
   <script src="./public/modules/led/led-ui.js?v=phosphor-dot-1"></script>
   <script src="./public/modules/led/led-settings.js?v=keypad-bgi-1"></script>
   <script src="./public/modules/led/led-display.js?v=dimmer-punch-fix-2"></script>
@@ -3666,8 +3671,8 @@
   <script src="./public/modules/portal/portal-settings.js?v=portal-io-1"></script>
   <script src="./public/modules/portal/portal-ui.js?v=portal-io-1"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=title-bypass-1"></script>
-  <script src="./public/node-graph-module-rendering.js?v=module-lip-hit-1"></script>
-  <script src="./public/node-graph-module-frame.js?v=viewport-sleep-1"></script>
+  <script src="./public/node-graph-module-rendering.js?v=io-item-1"></script>
+  <script src="./public/node-graph-module-frame.js?v=frame-left-pin-1"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=kick-env-1"></script>
   <script src="./public/node-graph-patch-clone.js?v=keypad-bgi-1"></script>
@@ -3685,8 +3690,8 @@
   <script src="./public/node-code-settings-editor.js?v=json-highlight-1"></script>
   <script src="./public/node-graph-metadata-editor.js?v=module-smooth-0333-1"></script>
   <script src="./public/node-graph-render-settings.js?v=cleanup-20260725-slider-unit-color-1780307400000"></script>
-  <script src="./public/modules/speakerProtector2/speaker-protector-2-math.js?v=speaker-protector-noclip-1"></script>
-  <script src="./public/node-graph-ear-protection.js?v=output-protect-alpha-1"></script>
+  <script src="./public/modules/speakerProtector2/speaker-protector-2-math.js?v=peak-above-0db-1"></script>
+  <script src="./public/node-graph-ear-protection.js?v=protect-banner-1"></script>
   <script src="./public/node-graph-patch-load-fault.js?v=patch-load-fault-1"></script>
   <script src="./public/node-graph-debug-console.js?v=debug-select-clear-2"></script>
   <script src="./public/node-graph-module-diagnostics.js?v=uc-silence-1"></script>
@@ -3708,12 +3713,12 @@
   <script src="./public/node-graph-tooltips.js?v=title-bypass-1"></script>
   <script src="./public/node-graph-interaction-help.js?v=view-cc-cycle-1"></script>
   <script src="./public/presets/useruisettings.js?v=clipper-limiter-1"></script>
-  <script src="./public/node-graph-ui-settings-definitions.js?v=grid-div-1"></script>
+  <script src="./public/node-graph-ui-settings-definitions.js?v=io-item-1"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=inlet-blue-1"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=script-page-1"></script>
   <script src="./public/node-graph-ui-settings-persistence.js?v=grid-div-1"></script>
-  <script src="./public/node-graph-ui-settings-sync.js?v=grid-div-2"></script>
+  <script src="./public/node-graph-ui-settings-sync.js?v=io-item-1"></script>
   <script src="./public/node-graph-keyboard-shortcuts.js?v=tooltip-t-1"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
@@ -3786,6 +3791,7 @@
   <script src="./public/node-graph-live-frame-evaluator.js?v=output-amp-1"></script>
   <script src="./public/modules/spectrogram/spectrogram-live-evaluator.js?v=spectrogram-thru-1"></script>
   <script src="./public/modules/_shared/display-thru-live-evaluators.js?v=rgb-1"></script>
+  <script src="./public/modules/rasterRgb/raster-rgb-live-evaluator.js?v=paint-2"></script>
   <script src="./public/modules/logisticMap/logistic-map-math.js?v=logistic-map-1"></script>
   <script src="./public/modules/logisticMap/logistic-map-live-evaluator.js?v=logistic-map-1"></script>
   <script src="./public/modules/turingMachine/turing-machine-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3847,8 +3853,8 @@
   <script src="./public/modules/phoneTone/phone-tone-math.js?v=phone-tone-pitch-1"></script>
   <script src="./public/modules/phoneTone/phone-tone-live-evaluator.js?v=phone-tone-pitch-1"></script>
   <script src="./public/modules/phoneTone/phone-tone-display.js?v=phone-tone-pitch-1"></script>
-  <script src="./public/modules/numberGate/number-gate-math.js?v=number-gate-1"></script>
-  <script src="./public/modules/numberGate/number-gate-live-evaluator.js?v=number-gate-1"></script>
+  <script src="./public/modules/numberGate/number-gate-math.js?v=n-gate-family-1"></script>
+  <script src="./public/modules/numberGate/number-gate-live-evaluator.js?v=n-gate-family-1"></script>
   <script src="./public/modules/tb303Filter/tb303-filter-live-evaluator.js?v=tb303-stable-1"></script>
   <script src="./public/modules/delayEffect/delay-effect-live-evaluator.js?v=delay-mixm-1"></script>
   <script src="./public/modules/pingPongDelay/ping-pong-delay-live-evaluator.js?v=tape-lfo-1"></script>
@@ -3952,7 +3958,7 @@
   <script src="./public/modules/macroControls/macro-controls-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/macroControls/macro-controls-settings.js?v=macro-knob-layout-2"></script>
   <script src="./public/modules/pitchModWheel/pitch-mod-wheel-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/gain/gain-math.js?v=gain-db-1"></script>
+  <script src="./public/modules/gain/gain-math.js?v=output-db-1"></script>
   <script src="./public/modules/gain/gain-live-evaluator.js?v=gain-db-1"></script>
   <script src="./public/modules/sinc/sinc-live-evaluator.js?v=native-core-1"></script>
   <script src="./public/modules/led/led-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -4006,14 +4012,14 @@
   <script src="./public/modules/graph/graph-live-evaluator.js?v=retire-graph-type-20260724"></script>
   <script src="./public/modules/polyBlep/poly-blep-live-evaluator.js?v=one-core-native-20260803"></script>
   <script src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
-  <script src="./public/node-graph-live-runtime.js?v=eq-f-1"></script>
+  <script src="./public/node-graph-live-runtime.js?v=raster-protect-2"></script>
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=readout-no-kb-1"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>
   <script src="./public/node-graph-header-event-bindings.js?v=script-page-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
   <script src="./public/node-graph-scene-menu-event-bindings.js?v=keypad-bgi-1"></script>
-  <script src="./public/node-graph-uidev-event-bindings.js?v=script-page-1"></script>
+  <script src="./public/node-graph-uidev-event-bindings.js?v=io-item-1"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=patch-json-highlight-1"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>
   <script src="./public/node-graph-event-bindings.js?v=remove-dead-uiview-bind-20260724"></script>

@@ -246,13 +246,30 @@ function bindNodeGraphHeaderControlEvents() {
         setNodeUiDevHelperVisible(true);
       }
     });
-  document.getElementById("nodeUserUiSettingsClose").addEventListener("click", () => setNodeUserUiSettingsVisible(false));
+  const uiSettingsClose = document.getElementById("nodeUserUiSettingsClose");
+  uiSettingsClose?.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+  });
+  uiSettingsClose?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof closeNodeGraphUnifiedWindowPage === "function") {
+      closeNodeGraphUnifiedWindowPage("uiSettings");
+    } else if (typeof setNodeUserUiSettingsVisible === "function") {
+      setNodeUserUiSettingsVisible(false);
+    }
+  });
   document
     .getElementById("nodeUserUiSettingsDragHandle")
     ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "uiSettings"));
   document
     .getElementById("nodeUserUiSettingsHeading")
-    ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "uiSettings"));
+    ?.addEventListener("pointerdown", (event) => {
+      if (event.target?.closest?.("#nodeUserUiSettingsClose, .panel-close-button")) {
+        return;
+      }
+      beginNodeGraphRegisteredFloatingWindowDrag(event, "uiSettings");
+    });
   if (typeof bindNodeGraphFloatingWindowResizeHandle === "function") {
     bindNodeGraphFloatingWindowResizeHandle("uiSettings");
   }

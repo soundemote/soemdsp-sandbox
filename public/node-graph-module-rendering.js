@@ -17,49 +17,6 @@ function stopPropagation(event) {
   event.stopPropagation();
 }
 
-function handleNodeGraphIoRowMonitorPointerDown(event) {
-  // Only when the pointer is in the jack neighborhood — empty solid-module
-  // edge space must stay free for module drag/select.
-  if (!nodeGraphIoRowPointerInPortHitbox(event)) {
-    return;
-  }
-  if (event.target.closest(".node-port")) {
-    return;
-  }
-  toggleNodeGraphMonitorFromPortEvent(event);
-}
-
-function handleNodeGraphIoRowWireClick(event) {
-  if (!nodeGraphIoRowPointerInPortHitbox(event)) {
-    return;
-  }
-  if (event.target.closest(".node-port")) {
-    return;
-  }
-  nodeGraphWireInteractions.handlePortClick(event);
-}
-
-/** True when the event is inside the geometric jack hitbox for this io-row. */
-function nodeGraphIoRowPointerInPortHitbox(event) {
-  const row = event.currentTarget instanceof Element
-    ? event.currentTarget
-    : event.target?.closest?.(".node-io-row");
-  if (!row?.classList?.contains("node-io-row")) {
-    return false;
-  }
-  const helpers = typeof nodeGraphWireInteractions !== "undefined"
-    ? nodeGraphWireInteractions?.helpers
-    : null;
-  if (!helpers?.endpointFromElement || !helpers?.pointInEndpointHitbox) {
-    return Boolean(event.target?.closest?.(".node-port"));
-  }
-  const endpoint = helpers.endpointFromElement(row);
-  if (!endpoint) {
-    return false;
-  }
-  return helpers.pointInEndpointHitbox(endpoint, event.clientX, event.clientY, row);
-}
-
 /**
  * Shared solid-shell interaction contract (XY Pad, Number Readout, Ray Bouncer,
  * LED, Graph solid face, …):
@@ -150,6 +107,9 @@ function attachNodeGraphNodeEvents(node) {
   }
   node.addEventListener("lostpointercapture", endNodeGraphNodeDrag);
   for (const port of node.querySelectorAll(".node-port")) {
+    if (port.closest(".node-io-row")) {
+      continue;
+    }
     port.addEventListener("pointerdown", nodeGraphWireInteractions.handlePortPointerDown);
     port.addEventListener("pointerdown", toggleNodeGraphMonitorFromPortEvent, true);
     port.addEventListener("click", nodeGraphWireInteractions.handlePortClick);
@@ -165,8 +125,8 @@ function attachNodeGraphNodeEvents(node) {
   }
   for (const row of node.querySelectorAll(".node-io-row")) {
     row.addEventListener("pointerdown", nodeGraphWireInteractions.handlePortPointerDown);
-    row.addEventListener("pointerdown", handleNodeGraphIoRowMonitorPointerDown, true);
-    row.addEventListener("click", handleNodeGraphIoRowWireClick);
+    row.addEventListener("pointerdown", toggleNodeGraphMonitorFromPortEvent, true);
+    row.addEventListener("click", nodeGraphWireInteractions.handlePortClick);
   }
   for (const slider of node.querySelectorAll('input[type="range"]')) {
     createNodeSliderReadout(slider);

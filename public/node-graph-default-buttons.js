@@ -18,6 +18,9 @@ function clearNodeGraphConfirmDefaultButton(button = nodeGraphMvp.confirmDefault
   if (nodeGraphMvp.confirmDefaultButton === button) {
     nodeGraphMvp.confirmDefaultButton = null;
   }
+  if (button?.id === "nodeToolbarPastePatchButton" || button?.dataset?.pendingPasteClear === "true") {
+    delete nodeGraphMvp._pendingPastePatchText;
+  }
 }
 
 function nodeGraphDefaultButtonLabel(button) {
@@ -61,7 +64,7 @@ function confirmNodeGraphDefaultButtonClick(button, statusCallback, options = {}
   return false;
 }
 
-function flashNodeGraphDefaultButtonSaved(button) {
+function flashNodeGraphDefaultButtonSaved(button, label = "Saved") {
   if (!button) {
     return;
   }
@@ -69,10 +72,14 @@ function flashNodeGraphDefaultButtonSaved(button) {
   const originalHtml = nodeGraphDefaultButtonHtml(button);
   button.classList.remove("saved-default");
   void button.offsetWidth;
-  button.textContent = "Saved";
+  button.textContent = label;
   button.classList.add("saved-default");
   window.setTimeout(() => {
     button.classList.remove("saved-default");
     button.innerHTML = originalHtml || originalText;
+    if (button.dataset.defaultButtonLabel) {
+      button.title = button.dataset.defaultButtonLabel;
+      button.setAttribute("aria-label", button.dataset.defaultButtonLabel);
+    }
   }, 1000);
 }

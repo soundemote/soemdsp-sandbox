@@ -55,9 +55,4 @@
     B: nodeGraphSafeFilterNumber(mixInput(nodeId, "B"), runtime, nodeId, null, "vectorRgb B"),
     Blank: nodeGraphSafeFilterNumber(mixInput(nodeId, "Blank"), runtime, nodeId, null, "vectorRgb Blank"),
   });
-  nodeGraphLiveModuleEvaluators.rasterRgb = ({ runtime, nodeId, mixInput }) => ({
-    R: nodeGraphSafeFilterNumber(mixInput(nodeId, "R"), runtime, nodeId, null, "rasterRgb R"),
-    G: nodeGraphSafeFilterNumber(mixInput(nodeId, "G"), runtime, nodeId, null, "rasterRgb G"),
-    B: nodeGraphSafeFilterNumber(mixInput(nodeId, "B"), runtime, nodeId, null, "rasterRgb B"),
-  });
 })();

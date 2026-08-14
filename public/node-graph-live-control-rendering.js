@@ -363,26 +363,75 @@ function syncNodeGraphVolumeSlider(sliderId, readoutId, value) {
   }
 }
 
+function formatNodeGraphOutputVolumeReadout(db) {
+  const x = Number(db);
+  if (!Number.isFinite(x) || x <= -139.5) {
+    return "−∞ dB";
+  }
+  if (typeof formatNodeSliderNumber === "function") {
+    return `${formatNodeSliderNumber(x, {
+      kind: "decibels",
+      maxDigits: 4,
+      removeTrailingZeros: true,
+    })} dB`;
+  }
+  return `${x.toFixed(1)} dB`;
+}
+
+function nodeGraphOutputVolumeDbToToolbarLin(db) {
+  const lin = typeof nodeGraphOutputVolumeDbToLin === "function"
+    ? nodeGraphOutputVolumeDbToLin(db)
+    : (!Number.isFinite(Number(db)) || Number(db) <= -140 ? 0 : 10 ** (Number(db) / 20));
+  return Math.max(0, Math.min(1, lin));
+}
+
+function syncNodeGraphOutputVolumeSlider(db) {
+  const slider = document.getElementById("nodeLiveOutputVolume");
+  const readout = document.getElementById("nodeLiveOutputVolumeValue");
+  const level = nodeGraphOutputVolumeDbToToolbarLin(db);
+  if (slider && document.activeElement !== slider) {
+    slider.value = String(level);
+  }
+  if (readout) {
+    readout.textContent = formatNodeGraphOutputVolumeReadout(db);
+  }
+}
+
 function bindNodeGraphLiveVolumeControls() {
   // Toolbar 🔊 controls mirror module params (Output.volume, Input.level).
-  const initialOut = typeof getNodeGraphOutputModuleVolume === "function"
-    ? getNodeGraphOutputModuleVolume()
-    : (nodeGraphMvp?.live?.outputVolume ?? 1);
-  const initialIn = typeof getNodeGraphAudioInputModuleLevel === "function"
-    ? getNodeGraphAudioInputModuleLevel()
-    : (nodeGraphMvp?.live?.inputVolume ?? 1);
-  bindNodeGraphVolumeSlider(
-    "nodeLiveOutputVolume",
-    "nodeLiveOutputVolumeValue",
-    (value) => {
+  const outSlider = document.getElementById("nodeLiveOutputVolume");
+  if (outSlider && outSlider.dataset.volumeBound !== "true") {
+    outSlider.dataset.volumeBound = "true";
+    const readout = document.getElementById("nodeLiveOutputVolumeValue");
+    const handle = () => {
+      const value = Math.max(0, Math.min(1, Number(outSlider.value) || 0));
       if (typeof setNodeGraphOutputModuleVolume === "function") {
         setNodeGraphOutputModuleVolume(value, { fromToolbar: true, interaction: "drag" });
       } else if (typeof setNodeGraphLiveOutputVolume === "function") {
         setNodeGraphLiveOutputVolume(value);
       }
-    },
-    initialOut,
-  );
+      const db = typeof getNodeGraphOutputModuleVolumeDb === "function"
+        ? getNodeGraphOutputModuleVolumeDb()
+        : (typeof nodeGraphOutputLinToVolumeDb === "function"
+          ? nodeGraphOutputLinToVolumeDb(value)
+          : (value <= 0 ? -140 : 20 * Math.log10(value)));
+      if (readout) {
+        readout.textContent = formatNodeGraphOutputVolumeReadout(db);
+      }
+    };
+    outSlider.addEventListener("input", handle);
+    outSlider.addEventListener("change", handle);
+    const initialDb = typeof getNodeGraphOutputModuleVolumeDb === "function"
+      ? getNodeGraphOutputModuleVolumeDb()
+      : -20;
+    outSlider.value = String(nodeGraphOutputVolumeDbToToolbarLin(initialDb));
+    if (readout) {
+      readout.textContent = formatNodeGraphOutputVolumeReadout(initialDb);
+    }
+  }
+  const initialIn = typeof getNodeGraphAudioInputModuleLevel === "function"
+    ? getNodeGraphAudioInputModuleLevel()
+    : (nodeGraphMvp?.live?.inputVolume ?? 1);
   bindNodeGraphVolumeSlider(
     "nodeLiveInputVolume",
     "nodeLiveInputVolumeValue",

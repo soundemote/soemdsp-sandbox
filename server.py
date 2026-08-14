@@ -54,6 +54,7 @@ def _source_build_fingerprint() -> str:
                 "lib/phosphor/phosphor-drawer.js",
                 "node-graph-module-scope-draw-burn.js",
                 "node-graph-module-scope-paint-helpers.js",
+                "modules/rasterRgb/raster-rgb-display.js",
             ):
                 path = public / rel
                 if path.is_file():

@@ -133,7 +133,6 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   // Not a phosphor energy grid — still one polyline; density only sets buffer size.
   pixelDensity: 1,
   padding: 0,
-  protectColor: "#e02020",
   // Amplitude zoom for quieter signals (1 = full-scale ±1 fills the face).
   scale: 1,
   skipDiscontinuities: false,

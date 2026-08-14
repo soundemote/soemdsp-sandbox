@@ -692,10 +692,6 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       4,
     ),
     padding: normalizeNodeGraphTraceDisplayNumber(source.padding, defaults.padding, -Infinity, Infinity),
-    protectColor: normalizeNodeGraphTraceDisplayColor(
-      source.protectColor ?? source.protect,
-      defaults.protectColor || "#e02020",
-    ),
     // Amplitude zoom: multiplies samples before face mapping (1 = full-scale).
     scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale ?? 1, 0.01, 100),
     skipDiscontinuities: source.skipDiscontinuities !== false,

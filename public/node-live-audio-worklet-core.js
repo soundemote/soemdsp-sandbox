@@ -282,6 +282,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.sincStates = new Map();
     this.nativeSinc = null;
     this.nativeSincReady = false;
+    this.rasterRgbStates = new Map();
+    this.nativeRasterRgb = null;
+    this.nativeRasterRgbReady = false;
     this.nativeSoftwave = null;
     this.nativeSoftwaveReady = false;
     this.henonMapStates = new Map();

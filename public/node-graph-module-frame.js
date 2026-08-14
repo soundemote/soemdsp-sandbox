@@ -246,9 +246,9 @@ function nodeGraphModuleFrameCollectGaps(nodeElement, width, height, nodeRect) {
  * (selected and unselected).
  */
 function nodeGraphModuleFrameBuildPath(width, height, radius, leftGaps, rightGaps, outset = 0) {
-  // Integer layout box — must match the SVG viewBox exactly.
-  const w = Math.max(1, Math.round(Number(width) || 0));
-  const h = Math.max(1, Math.round(Number(height) || 0));
+  // Same units as the viewBox (live CSS box, not rounded).
+  const w = Math.max(1, Number(width) || 0);
+  const h = Math.max(1, Number(height) || 0);
   // Outset: expand path beyond the plate (negative would be inset — wrong).
   const s = Math.max(0, Number(outset) || 0);
   const left = -s;
@@ -441,8 +441,11 @@ function updateNodeGraphModuleFrame(nodeElement) {
     return;
   }
   nodeGraphModuleFrameRestoreStrokeVars(nodeElement);
-  const w = Math.max(1, Math.round(nodeElement.clientWidth || 0));
-  const h = Math.max(1, Math.round(nodeElement.clientHeight || 0));
+  // Use the live CSS box — do not round. Rounding + preserveAspectRatio
+  // "none" stretched the path so the left wall walked faster than contents
+  // (9gu lands on integers; 10gu often does not).
+  const w = Math.max(1, Number(nodeElement.clientWidth) || 0);
+  const h = Math.max(1, Number(nodeElement.clientHeight) || 0);
   if (w < 2 || h < 2) {
     return;
   }
@@ -454,8 +457,8 @@ function updateNodeGraphModuleFrame(nodeElement) {
   const breath = nodeGraphModuleFrameBreathingLayoutPx(nodeElement);
   const selected = nodeElement.classList.contains("selected") ? 1 : 0;
   const fingerprint = [
-    w,
-    h,
+    w.toFixed(2),
+    h.toFixed(2),
     radius.toFixed(2),
     breath.toFixed(4),
     selected,
@@ -482,15 +485,15 @@ function updateNodeGraphModuleFrame(nodeElement) {
   svg.style.visibility = "";
   svg.style.opacity = "";
   path.removeAttribute("stroke");
-  // CSS sizes the SVG to the plate (inset:0; width/height 100%). viewBox maps
-  // path 0…w×0…h onto that box 1:1 — do not also set width/height attributes
-  // (those fight fractional CSS boxes under zoom and walk the stroke off-edge).
+  // Pin 1:1 to the plate. Percentage 100% + a rounded viewBox used to
+  // non-uniformly scale the path (left wall walked). xMinYMin keeps any
+  // leftover px on the right/bottom, never the left edge.
   svg.removeAttribute("width");
   svg.removeAttribute("height");
-  // viewBox matches the plate; path is outset past 0…w×0…h and paints via
-  // overflow:visible (do not expand viewBox — that would scale the ring in).
+  svg.style.width = `${w}px`;
+  svg.style.height = `${h}px`;
   svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
-  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
   // 1 screen px outside the plate; side gaps open around jacks by the same.
   path.setAttribute(
     "d",

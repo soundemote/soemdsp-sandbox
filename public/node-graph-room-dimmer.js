@@ -324,6 +324,7 @@ void main() {
   function resolvePunchElement(el) {
     if (!el) return null;
     if (el.matches?.("canvas.node-phosphor-waveform-canvas")) return el;
+    if (el.matches?.("canvas.node-raster-rgb-canvas")) return el;
     if (el.matches?.("canvas.node-module-scope-local-fallback-canvas")) return el;
     if (el.matches?.("canvas.node-xy-pad-canvas")) return el;
     if (el.matches?.("canvas.node-number-readout-canvas")) return el;
@@ -334,7 +335,7 @@ void main() {
 
     // Outer shells: only if no painted canvas is already the target.
     const painted = el.querySelector?.(
-      "canvas.node-module-scope-local-fallback-canvas, canvas.node-phosphor-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, canvas.node-asciiscope-canvas, canvas.node-matrix-display-canvas, canvas.node-filter-curve-canvas, .node-led-lamp",
+      "canvas.node-raster-rgb-canvas, canvas.node-module-scope-local-fallback-canvas, canvas.node-phosphor-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, canvas.node-asciiscope-canvas, canvas.node-matrix-display-canvas, canvas.node-filter-curve-canvas, .node-led-lamp",
     );
     if (painted) return painted;
 

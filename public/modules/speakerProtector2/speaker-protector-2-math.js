@@ -1,5 +1,5 @@
 // Speaker Protector 2.0 — stereo-linked VCA only. Never clips or knees.
-// High load (raw |peak| ≥ 1 or 1 kHz HP ≥ +6 dB) → fast slew gain to 0
+// High load (raw |peak| > 1 or 1 kHz HP ≥ +6 dB) → fast slew gain to 0
 // → hold 0.333 s → slow slew back to 1.
 // While |peak| > 1, gain is also capped at 1/peak so the waveform is scaled,
 // not flattened. Shared by the patch module and the always-on Output bus.
@@ -96,7 +96,7 @@ function nodeGraphSpeakerProtector2Protect(state, left, right, sampleRate, optio
   st.hpOut = st.hpB0 * mono + st.hpB1 * st.hpIn + st.hpA1 * st.hpOut;
   st.hpIn = mono;
   const hpDanger = Math.abs(st.hpOut) >= NODE_GRAPH_SPEAKER_PROTECTOR2_THRESHOLD;
-  const peakDanger = peak >= 1;
+  const peakDanger = peak > 1;
   const danger = hpDanger || peakDanger || !Number.isFinite(lIn) || !Number.isFinite(rIn);
   if (danger) {
     st.mode = NODE_GRAPH_SPEAKER_PROTECTOR2_MODE_DROP;

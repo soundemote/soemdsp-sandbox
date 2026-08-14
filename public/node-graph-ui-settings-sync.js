@@ -173,14 +173,14 @@ function syncNodeUiDevDimmerCutoutControls() {
 
 function nodeGraphGridVisualScaleFromMultiply(multiply) {
   const n = Math.round(Number(multiply));
-  const step = Number.isFinite(n) ? Math.max(1, Math.min(8, n)) : 1;
+  const step = Number.isFinite(n) ? Math.max(1, Math.min(8, n)) : 2;
   return 2 ** (step - 1);
 }
 
 function syncNodeUiDevGridDivisionMultiply() {
   const input = document.getElementById("nodeUiDevGridDivisionMultiply");
   const raw = Math.round(Number(input?.value));
-  const multiply = Number.isFinite(raw) ? Math.max(1, Math.min(8, raw)) : 1;
+  const multiply = Number.isFinite(raw) ? Math.max(1, Math.min(8, raw)) : 2;
   if (input) {
     input.value = String(multiply);
   }
@@ -236,6 +236,83 @@ function syncNodeUiDevInletBlueBrightness() {
   document.documentElement.style.setProperty("--node-inlet-blue-brightness", css);
 }
 
+function nodeUiDevApplyJackColorVar(inputId, outputId, cssVar, fallback) {
+  const input = document.getElementById(inputId);
+  const color = typeof normalizeNodeUiDevColor === "function"
+    ? normalizeNodeUiDevColor(input?.value, fallback)
+    : (String(input?.value || fallback));
+  if (input && input.value !== color) {
+    input.value = color;
+  }
+  const output = document.getElementById(outputId);
+  if (output) {
+    output.textContent = color;
+  }
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  workspace?.style.setProperty(cssVar, color);
+  document.documentElement.style.setProperty(cssVar, color);
+  return color;
+}
+
+function syncNodeUiDevJackColors() {
+  const red = nodeUiDevApplyJackColorVar(
+    "nodeUiDevJackRgbRed",
+    "nodeUiDevJackRgbRedValue",
+    "--node-outlet-left-stroke",
+    "#f25d5d",
+  );
+  const green = nodeUiDevApplyJackColorVar(
+    "nodeUiDevJackRgbGreen",
+    "nodeUiDevJackRgbGreenValue",
+    "--node-outlet-mono-stroke",
+    "#3ddc84",
+  );
+  const blue = nodeUiDevApplyJackColorVar(
+    "nodeUiDevJackRgbBlue",
+    "nodeUiDevJackRgbBlueValue",
+    "--node-outlet-right-stroke",
+    "#4d8dff",
+  );
+  const analogIn = nodeUiDevApplyJackColorVar(
+    "nodeUiDevJackAnalogIn",
+    "nodeUiDevJackAnalogInValue",
+    "--node-input-fill",
+    "#7fc7d9",
+  );
+  const analogOut = nodeUiDevApplyJackColorVar(
+    "nodeUiDevJackAnalogOut",
+    "nodeUiDevJackAnalogOutValue",
+    "--node-output-fill",
+    "#e2a86d",
+  );
+  nodeUiDevApplyJackColorVar(
+    "nodeUiDevJackDigital",
+    "nodeUiDevJackDigitalValue",
+    "--node-digital-fill",
+    "#ffffff",
+  );
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  const root = document.documentElement;
+  const setBoth = (name, value) => {
+    workspace?.style.setProperty(name, value);
+    root.style.setProperty(name, value);
+  };
+  setBoth("--node-input-stroke", analogIn);
+  setBoth("--node-output-stroke", analogOut);
+  setBoth("--node-inlet-blue-stroke", analogIn);
+  const fillIn = document.getElementById("nodeUiDevInputFillColor");
+  const fillOut = document.getElementById("nodeUiDevOutputFillColor");
+  if (fillIn) fillIn.value = analogIn;
+  if (fillOut) fillOut.value = analogOut;
+  const strokeIn = document.getElementById("nodeUiDevInputStrokeColor");
+  const strokeOut = document.getElementById("nodeUiDevOutputStrokeColor");
+  if (strokeIn) strokeIn.value = analogIn;
+  if (strokeOut) strokeOut.value = analogOut;
+  void red;
+  void green;
+  void blue;
+}
+
 function syncNodeUiDevSettingsHeaderControls() {
   // Runs before the early-return guard below so the slider fill colors apply
   // even if some unrelated control is absent from the DOM.
@@ -243,6 +320,7 @@ function syncNodeUiDevSettingsHeaderControls() {
   syncNodeUiDevDimmerCutoutControls();
   syncNodeUiDevOutletRgbBrightness();
   syncNodeUiDevInletBlueBrightness();
+  syncNodeUiDevJackColors();
   syncNodeUiDevGridDivisionMultiply();
   const settingsView = document.getElementById("nodeSettingsView");
   const mouseLightEnabledInput = document.getElementById("nodeUiDevMouseLightEnabled");
@@ -288,8 +366,6 @@ function syncNodeUiDevSettingsHeaderControls() {
   const moduleTitleFontValue = document.getElementById("nodeUiDevModuleTitleFontValue");
   const moduleTitleHeightInput = document.getElementById("nodeUiDevModuleTitleHeight");
   const moduleTitleHeightValue = document.getElementById("nodeUiDevModuleTitleHeightValue");
-  const moduleTitleTextFillInput = document.getElementById("nodeUiDevModuleTitleTextFill");
-  const moduleTitleTextFillValue = document.getElementById("nodeUiDevModuleTitleTextFillValue");
   const moduleIoSectionHeightInput = document.getElementById("nodeUiDevModuleIoSectionHeight");
   const moduleIoSectionHeightValue = document.getElementById("nodeUiDevModuleIoSectionHeightValue");
   const moduleNodeSizeInput = document.getElementById("nodeUiDevModuleNodeSize");
@@ -386,8 +462,6 @@ function syncNodeUiDevSettingsHeaderControls() {
     !moduleTitleFontValue ||
     !moduleTitleHeightInput ||
     !moduleTitleHeightValue ||
-    !moduleTitleTextFillInput ||
-    !moduleTitleTextFillValue ||
     !moduleIoSectionHeightInput ||
     !moduleIoSectionHeightValue ||
     !moduleNodeSizeInput ||
@@ -462,10 +536,6 @@ function syncNodeUiDevSettingsHeaderControls() {
   const moduleLightSpreadPercent = Math.max(40, Math.min(220, Number(moduleLightSpreadInput.value) || 78));
   const textGlowLevelPercent = Math.max(0, Math.min(100, Number(textGlowLevelInput.value) || 0));
   const moduleGridInsetPx = Math.max(0, Math.min(20, Number(moduleGridInsetInput.value) || 0));
-  const portFillInsetPx = Math.max(
-    0,
-    Math.min(12, Number(document.getElementById("nodeUiDevPortFillInset")?.value) || 0),
-  );
   const moduleRoundnessPercent = Math.max(0, Math.min(100, Number(moduleRoundnessInput.value) || 0));
   const gridColor = normalizeNodeUiDevColor(gridColorInput.value, "#ffffff");
   const workspaceBackgroundColor = normalizeNodeUiDevColor(workspaceBackgroundColorInput.value, "#0d0d0d");
@@ -492,7 +562,6 @@ function syncNodeUiDevSettingsHeaderControls() {
     moduleTitleFontInput.value,
   );
   const moduleTitleHeightPx = Math.max(12, Math.min(44, Number(moduleTitleHeightInput.value) || 26));
-  const moduleTitleTextFillPercent = Math.max(0, Math.min(100, Number(moduleTitleTextFillInput.value) || 0));
   const moduleIoSectionHeightPx = 24;
   moduleIoSectionHeightInput.value = String(moduleIoSectionHeightPx);
   const moduleNodeSizePercent = Math.max(0, Math.min(100, Number(moduleNodeSizeInput.value) || 0));
@@ -580,9 +649,6 @@ function syncNodeUiDevSettingsHeaderControls() {
     ?.style.setProperty("--node-module-grid-inset", `${moduleGridInsetPx}px`);
   document
     .getElementById("nodeGraphWorkspace")
-    ?.style.setProperty("--node-port-fill-inset-px", `${portFillInsetPx}px`);
-  document
-    .getElementById("nodeGraphWorkspace")
     ?.style.setProperty("--node-module-roundness-ratio", String(moduleRoundnessPercent / 100));
   // Module frame SVG reads border-radius — rebuild outlines when roundness changes.
   if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
@@ -623,9 +689,6 @@ function syncNodeUiDevSettingsHeaderControls() {
   document
     .getElementById("nodeGraphWorkspace")
     ?.style.setProperty("--node-header-title-row-height", `calc(var(--node-grid-height) * ${moduleTitleHeightGu})`);
-  document
-    .getElementById("nodeGraphWorkspace")
-    ?.style.setProperty("--node-header-title-text-ratio", String(moduleTitleTextFillPercent / 100));
   document
     .getElementById("nodeGraphWorkspace")
     ?.style.setProperty("--node-io-section-min-height", `${moduleIoSectionHeightPx}px`);
@@ -696,7 +759,9 @@ function syncNodeUiDevSettingsHeaderControls() {
   document
     .getElementById("nodeGraphWorkspace")
     ?.style.setProperty("--node-bypass-off-bg", bypassOffBackgroundColor);
+  document.documentElement.style.setProperty("--node-move-symbol-size-ratio", String(moveSymbolSizePercent / 100));
   document.body.style.setProperty("--node-move-symbol-size-ratio", String(moveSymbolSizePercent / 100));
+  document.documentElement.style.setProperty("--panel-close-glyph-size-ratio", String(closeIconSizePercent / 100));
   document.body.style.setProperty("--panel-close-glyph-size-ratio", String(closeIconSizePercent / 100));
   textSizeValue.textContent = `${textPercent}%`;
   uiDevTextSizeValue.textContent = `${uiDevTextPercent}%`;
@@ -707,10 +772,6 @@ function syncNodeUiDevSettingsHeaderControls() {
   moduleLightSpreadValue.textContent = `${moduleLightSpreadPercent}%`;
   textGlowLevelValue.textContent = `${textGlowLevelPercent}%`;
   moduleGridInsetValue.textContent = `${moduleGridInsetPx}px`;
-  const portFillInsetValue = document.getElementById("nodeUiDevPortFillInsetValue");
-  if (portFillInsetValue) {
-    portFillInsetValue.textContent = `${portFillInsetPx}px`;
-  }
   moduleRoundnessValue.textContent = `${moduleRoundnessPercent}%`;
   gridColorValue.textContent = gridColor;
   workspaceBackgroundColorValue.textContent = workspaceBackgroundColor;
@@ -725,7 +786,6 @@ function syncNodeUiDevSettingsHeaderControls() {
     moduleTitleFont,
   );
   moduleTitleHeightValue.textContent = `${moduleTitleHeightPx}px`;
-  moduleTitleTextFillValue.textContent = `${moduleTitleTextFillPercent}%`;
   moduleIoSectionHeightValue.textContent = `${moduleIoSectionHeightPx}px`;
   moduleNodeSizeValue.textContent = `${moduleNodeSizePercent}%`;
   sliderWidthValue.textContent = `${sliderWidthPercent}%`;

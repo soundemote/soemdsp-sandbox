@@ -420,59 +420,23 @@
       return hitboxElement?.closest?.(".node-io-row") || null;
     }
 
-    function endpointRowIncludesLabelHit(row, jackRect) {
-      if (!row) {
-        return false;
+    function visibleIoLabel(row) {
+      const label = row?.querySelector?.(":scope > .node-io-label");
+      if (!label) {
+        return null;
       }
-      const column = row.closest?.(".node-io-column");
-      const labelsHidden = Boolean(
-        column?.classList?.contains("labels-hidden")
-        || row.closest?.(".io-hidden")
-      );
-      if (labelsHidden) {
-        return false;
+      const style = getComputedStyle(label);
+      if (style.display === "none" || style.visibility === "hidden") {
+        return null;
       }
-      const solidShell = Boolean(
-        row.closest?.(".node-solid-module-shell")
-        || row.closest?.(".node-module-chrome-layout-b-shell"),
-      );
-      const isLayoutC = Boolean(
-        row.closest?.(".chrome-layout-c")
-        || row.closest?.("[data-chrome-layout='LayoutC']"),
-      );
-      const rowRect = row.getBoundingClientRect();
-      const diameter = Math.max(jackRect.height, jackRect.width * 2, 8);
-      // Tall empty bands stay module-drag; compact / labeled / LayoutC rows
-      // share one hitbox between jack and label.
-      if (solidShell || isLayoutC) {
-        return rowRect.height > 0;
-      }
-      return rowRect.height > 0 && rowRect.height <= diameter * 2.4;
+      return label;
     }
 
-    function endpointHitboxClientRect(endpoint, hitboxElement = null) {
-      // Shared hover + click region: the jack, plus the label cell when that
-      // row is a compact/labeled IO band. Never the face or a glow pad.
-      const jack = endpointJackElement(endpoint, hitboxElement);
-      if (!jack) {
-        return null;
-      }
-      const jackRect = jack.getBoundingClientRect();
-      if (jackRect.width <= 0 || jackRect.height <= 0) {
-        return null;
-      }
-      let left = jackRect.left;
-      let right = jackRect.right;
-      let top = jackRect.top;
-      let bottom = jackRect.bottom;
-      const row = endpointIoRow(hitboxElement) || jack.closest?.(".node-io-row");
-      if (endpointRowIncludesLabelHit(row, jackRect)) {
-        const rowRect = row.getBoundingClientRect();
-        left = Math.min(left, rowRect.left);
-        right = Math.max(right, rowRect.right);
-        top = Math.min(top, rowRect.top);
-        bottom = Math.max(bottom, rowRect.bottom);
-      }
+    function unionClientRect(a, b) {
+      const left = Math.min(a.left, b.left);
+      const top = Math.min(a.top, b.top);
+      const right = Math.max(a.right, b.right);
+      const bottom = Math.max(a.bottom, b.bottom);
       return {
         bottom,
         height: Math.max(0, bottom - top),
@@ -483,42 +447,43 @@
       };
     }
 
-    function pointInJackCrescent(jack, endpoint, clientX, clientY) {
-      const rect = jack?.getBoundingClientRect?.();
-      if (!rect || rect.width <= 0 || rect.height <= 0) {
-        return false;
+    function endpointHitboxClientRect(endpoint, hitboxElement = null) {
+      // One item: jack ∪ visible label. Empty row chrome is not a wire target.
+      const jack = endpointJackElement(endpoint, hitboxElement);
+      if (!jack) {
+        return null;
       }
-      const center = typeof nodeGraphElementPatchPointClientCenter === "function"
-        ? nodeGraphElementPatchPointClientCenter(jack, endpoint?.io)
-        : {
-          x: endpoint?.io === "output"
-            ? rect.right
-            : (endpoint?.io === "input" || endpoint?.io === "modulation" || endpoint?.io === "graph"
-              ? rect.left
-              : rect.left + rect.width * 0.5),
-          y: rect.top + rect.height * 0.5,
+      const jackRect = jack.getBoundingClientRect();
+      if (jackRect.width <= 0 || jackRect.height <= 0) {
+        return null;
+      }
+      const row = endpointIoRow(hitboxElement) || jack.closest?.(".node-io-row");
+      const label = visibleIoLabel(row);
+      if (!label) {
+        return {
+          bottom: jackRect.bottom,
+          height: jackRect.height,
+          left: jackRect.left,
+          right: jackRect.right,
+          top: jackRect.top,
+          width: jackRect.width,
         };
-      const radius = Math.max(rect.height, rect.width * 2, 8) * 0.5;
-      const dx = clientX - center.x;
-      const dy = clientY - center.y;
-      if ((dx * dx) + (dy * dy) > radius * radius) {
-        return false;
       }
-      const io = String(endpoint?.io || "");
-      if (io === "output") {
-        return clientX <= center.x + 0.5;
+      const labelRect = label.getBoundingClientRect();
+      if (labelRect.width <= 0 || labelRect.height <= 0) {
+        return {
+          bottom: jackRect.bottom,
+          height: jackRect.height,
+          left: jackRect.left,
+          right: jackRect.right,
+          top: jackRect.top,
+          width: jackRect.width,
+        };
       }
-      if (io === "input" || io === "modulation" || io === "graph") {
-        return clientX >= center.x - 0.5;
-      }
-      return true;
+      return unionClientRect(jackRect, labelRect);
     }
 
     function pointInEndpointHitbox(endpoint, clientX, clientY, hitboxElement = null) {
-      const jack = endpointJackElement(endpoint, hitboxElement);
-      if (pointInJackCrescent(jack, endpoint, clientX, clientY)) {
-        return true;
-      }
       const rect = endpointHitboxClientRect(endpoint, hitboxElement);
       if (!rect) {
         return false;
@@ -530,7 +495,10 @@
     function patchPointTargetFromPoint(clientX, clientY) {
       let best = null;
       let bestDistance = Infinity;
-      for (const target of document.querySelectorAll(".node-port, .node-io-row, .node-param-port.modulation-input, .node-param-port.graph-input")) {
+      const targets = document.querySelectorAll(
+        ".node-io-row, .node-param-port.modulation-input, .node-param-port.graph-input, .node-port:not(.node-io-row .node-port)",
+      );
+      for (const target of targets) {
         const endpoint = endpointFromElement(target);
         const visualElement = visualEndpointElement(target);
         const elementRect = visualElement?.getBoundingClientRect();
@@ -721,16 +689,16 @@
     let hoveredPatchPoint = null;
 
     function setHoveredPatchPoint(target) {
-      const jack = !target
+      const item = !target
         ? null
-        : (target.classList?.contains("node-port") || target.classList?.contains("node-param-port")
+        : (target.classList?.contains("node-io-row")
           ? target
-          : (target.querySelector?.(".node-port") || target));
-      if (hoveredPatchPoint === jack) {
+          : (target.closest?.(".node-io-row") || target));
+      if (hoveredPatchPoint === item) {
         return;
       }
       hoveredPatchPoint?.classList.remove("patch-point-hover");
-      hoveredPatchPoint = jack || null;
+      hoveredPatchPoint = item || null;
       hoveredPatchPoint?.classList.add("patch-point-hover");
     }
 
@@ -1467,14 +1435,12 @@
         setHoveredPatchPoint(null);
         return;
       }
-      const directTarget = target.closest?.(".node-port, .node-io-row, .node-param-port.modulation-input, .node-param-port.graph-input");
+      const directTarget = target.closest?.(
+        ".node-io-row, .node-param-port.modulation-input, .node-param-port.graph-input, .node-port:not(.node-io-row .node-port)",
+      );
       if (directTarget) {
-        const endpoint = helpers.endpointFromElement(
-          directTarget.classList?.contains("node-io-row")
-            ? directTarget
-            : (directTarget.closest?.(".node-io-row") || directTarget),
-        );
-        const hitbox = directTarget.closest?.(".node-io-row") || directTarget;
+        const endpoint = helpers.endpointFromElement(directTarget);
+        const hitbox = directTarget;
         if (
           endpoint &&
           helpers.pointInEndpointHitbox(endpoint, event.clientX, event.clientY, hitbox)
@@ -1482,8 +1448,7 @@
           setHoveredPatchPoint(directTarget);
           return;
         }
-        // Over a stretched/empty part of an io-row but outside the jack —
-        // do not highlight.
+        // Over empty row chrome, not jack∪label — leave it for module drag.
         setHoveredPatchPoint(null);
         return;
       }

@@ -52,7 +52,8 @@ function nodeGraphRgbPickPortBuffer(slot, port) {
 function nodeGraphRgbAlignedCapture(slot, ports, historySeconds) {
   const rings = ports.map((port) => nodeGraphRgbPickPortBuffer(slot, port));
   const lengths = rings.map((ring) => (ring?.length ? ring.length : 0));
-  const available = Math.min(...lengths.filter((n) => n > 0));
+  const present = lengths.filter((n) => n > 0);
+  const available = present.length ? Math.min(...present) : 0;
   if (!(available > 0)) {
     return null;
   }

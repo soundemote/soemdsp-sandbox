@@ -119,6 +119,7 @@ function nodeGraphTraceDisplayDrawSignature(slot, item, buffer, settings) {
     settings.background || settings.backgroundColor || "",
     settings.sourceSync === false ? 0 : 1,
     settings.syncChannel || "off",
+    Math.round((Number(globalThis.nodeGraphOutputProtectMute) || 0) * 1000),
   ].join("|");
 }
 
