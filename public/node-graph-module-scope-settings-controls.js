@@ -130,6 +130,7 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "unlitSegments",
     "centsBand",
     "facePadding",
+    "screenPadding",
     "innerShadowDistance",
     "innerShadowSharpness",
     "innerShadowOffsetX",
@@ -367,6 +368,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
     const n = Number(value);
     return Number.isFinite(n) ? clampNodeSliderValue(n, -0.5, 1) : 0;
   },
+  screenPadding: nodeGraphTraceDisplayClampUnit,
   innerShadowDistance: nodeGraphTraceDisplayClampUnit,
   innerShadowSharpness: nodeGraphTraceDisplayClampUnit,
   innerShadowOffsetX: nodeGraphTraceDisplayClampBipolarUnit,

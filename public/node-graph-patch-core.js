@@ -214,6 +214,23 @@ function validateNodeGraphPatch(patch) {
         parameter.key,
         rawParamMeta[parameter.key] ?? legacyLevelMeta,
       );
+      // Raster RGB used to hard-floor Width/Height at 8 (and cap 320/240).
+      // 0 = no raster, 1 = one pixel; lift old factory mins so settings accept 1.
+      if (
+        type === "rasterRgb"
+        && (parameter.key === "width" || parameter.key === "height")
+        && metadata
+      ) {
+        if (Number(metadata.min) === 8) {
+          metadata.min = 0;
+        }
+        if (
+          (parameter.key === "width" && Number(metadata.max) === 320)
+          || (parameter.key === "height" && Number(metadata.max) === 240)
+        ) {
+          metadata.max = 512;
+        }
+      }
       paramMeta[parameter.key] = metadata;
       let value = Object.hasOwn(rawParams, parameter.key)
         ? rawParams[parameter.key]

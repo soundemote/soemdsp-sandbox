@@ -362,7 +362,7 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "rasterRgbFace") {
     return typeof normalizeNodeGraphRasterRgbSettings === "function"
       ? normalizeNodeGraphRasterRgbSettings()
-      : { background: "#000000" };
+      : { background: "#000000", squareRatio: false, screenPadding: 0, rounding: 0, screenShape: "pill" };
   }
   if (type === "gradientVectorscopeFace") {
     return typeof normalizeNodeGraphGradientVectorscopeSettings === "function"

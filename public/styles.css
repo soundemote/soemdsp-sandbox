@@ -12246,6 +12246,23 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none;
 }
 
+/* Raster RGB: padding is a plate gap; rounding / pill / squircle clip the screen. */
+.node-module-scope-window[data-raster-rgb-screen] {
+  --raster-rgb-inset: 0px;
+  --raster-rgb-radius: 0px;
+  --raster-rgb-corner-shape: round;
+  overflow: hidden;
+}
+
+.node-module-scope-window[data-raster-rgb-screen] .node-module-scope-local-fallback-canvas {
+  inset: var(--raster-rgb-inset, 0px);
+  width: auto;
+  height: auto;
+  border-radius: var(--raster-rgb-radius, 0px);
+  corner-shape: var(--raster-rgb-corner-shape, round);
+  overflow: hidden;
+}
+
 /*
  * Face canvases (phosphor + vector) paint an opaque plate + content.
  * MUST be normal blend: screen turns black/near-black into "see-through",

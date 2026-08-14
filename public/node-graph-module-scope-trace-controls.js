@@ -29,6 +29,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     ...nodeGraphTraceDisplaySettingFields.map(([key]) => key),
     "hue",
     "rounding",
+    "screenPadding",
     "textSize",
     "textSizePx",
     "textWeight",
@@ -51,6 +52,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "digitBins",
     "decimalBudget",
     "removeTrailingZeros",
+    "squareRatio",
   ],
   choices: [
     "syncChannel",
@@ -60,6 +62,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "freqOverlap",
     "freqScale",
     "cornerShape",
+    "screenShape",
     "outerPlate",
     "lightBlend",
     "polarity",
@@ -186,10 +189,10 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   rasterRgbFace: Object.freeze({
-    fields: Object.freeze([]),
+    fields: Object.freeze(["screenPadding", "rounding"]),
     colors: Object.freeze([]),
-    toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    toggles: Object.freeze(["squareRatio"]),
+    choices: Object.freeze(["screenShape"]),
   }),
   gradientVectorscopeFace: Object.freeze({
     fields: Object.freeze([
@@ -814,7 +817,13 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Rounding",
     inputmode: "decimal",
     id: "nodeTraceDisplayRounding",
-    title: "LED corner rounding percent (0 = square tile, 100 = full capsule/circle).",
+    title: "Corner rounding percent (0 = square, 100 = full capsule/circle). Pairs with Pill or Squircle.",
+  }),
+  screenPadding: Object.freeze({
+    label: "Padding",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayScreenPadding",
+    title: "Screen inset 0…1. 0 = flush to the plate; 1 = collapse to a point. Same role as Music Player edge spacing.",
   }),
   padding: Object.freeze({ label: "Amp", inputmode: "decimal", id: "nodeTraceDisplayPadding" }),
   textSize: Object.freeze({
@@ -925,6 +934,11 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     label: "90°",
     id: "nodeTraceDisplayRotate90",
     title: "Audio vectorscope rotation: (X−Y, X+Y)/√2 so mono is vertical. Off = raw X/Y.",
+  }),
+  squareRatio: Object.freeze({
+    label: "Square ratio screen",
+    id: "nodeTraceDisplaySquareRatio",
+    title: "On: keep pixels square and letterbox the raster. Off (default): stretch to fill the face.",
   }),
   dotsOnly: Object.freeze({
     label: "Dots only",
@@ -1164,6 +1178,15 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     id: "nodeTraceDisplayCornerShape",
     options: Object.freeze([
       Object.freeze({ value: "square", label: "Square" }),
+      Object.freeze({ value: "squircle", label: "Squircle" }),
+    ]),
+  }),
+  screenShape: Object.freeze({
+    label: "Corners",
+    aria: "Screen corner shape",
+    id: "nodeTraceDisplayScreenShape",
+    options: Object.freeze([
+      Object.freeze({ value: "pill", label: "Pill" }),
       Object.freeze({ value: "squircle", label: "Squircle" }),
     ]),
   }),
