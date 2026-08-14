@@ -14,9 +14,25 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
     label = "Span °";
     title = "Centered arc sweep across Bias 0…1 (degrees). Opens left and right together; gap stays opposite center.";
   }
+  if (key === "zoomSeconds" && (formType === "trace" || formType === "traceXyz")) {
+    label = "History (s)";
+    title = "Seconds of live history drawn left→right (newest at the right).";
+  }
+  if (key === "lineThickness" && (formType === "trace" || formType === "traceXyz" || formType === "gradientVectorscopeFace")) {
+    label = "Blur";
+    title = "Stroke softness 0…1. 0 = hard; 1 = soft skirt.";
+  }
   if (key === "dialSize" && formType === "knobFace") {
-    label = "Size";
+    label = "Knob size";
     title = "Dial ring size 0…1. 1 = fill available space. Only scales the arc — label and value stay put.";
+  }
+  if (key === "labelSize" && formType === "knobFace") {
+    label = "Label size";
+    title = "Title size 0…1. Independent of knob size.";
+  }
+  if (key === "valueSize" && formType === "knobFace") {
+    label = "Value size";
+    title = "Readout size 0…1. Independent of knob size.";
   }
   if (formType === "roundShapeFace" && key === "lineThickness") {
     label = "Line thickness";
@@ -394,6 +410,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   if (type === "macroControlsFace" && typeof buildNodeGraphMacroControlsFaceDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphMacroControlsFaceDisplaySettingsBodyHtml();
   }
+  if (type === "keyboardControllerFace" && typeof buildNodeGraphKeyboardControllerFaceDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphKeyboardControllerFaceDisplaySettingsBodyHtml();
+  }
   const activeFields = nodeGraphTraceDisplayActiveControlSet("fields", type);
   const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", type);
   const activeToggles = nodeGraphTraceDisplayActiveControlSet("toggles", type);
@@ -521,6 +540,13 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     // Output sync choices from active set even if not in section map.
     if (section === "trace" && type === "trace" && isStereoTraceNode) {
       for (const key of ["syncChannel", "stereoBlend"]) {
+        if (activeChoices.has(key) && !choiceKeys.includes(key)) {
+          choiceKeys.push(key);
+        }
+      }
+    }
+    if (section === "trace" && type === "traceXyz") {
+      for (const key of ["stereoBlend", "xyzLayout"]) {
         if (activeChoices.has(key) && !choiceKeys.includes(key)) {
           choiceKeys.push(key);
         }

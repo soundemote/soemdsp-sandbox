@@ -25,17 +25,9 @@ function bindNodeGraphHeaderControlEvents() {
   // Move/up: nodeGraphFloatingWindowRegistryPointerBridge (floating-windows.js)
   document.getElementById("nodeVisibilityMenuButton").addEventListener("click", toggleNodeGraphVisibilityMenu);
   document.getElementById("nodeStandaloneMidiKeyboardButton")?.addEventListener("click", toggleNodeGraphStandaloneMidiKeyboard);
-  document.getElementById("nodeStandaloneMidiKeyboardCloseButton")?.addEventListener("click", closeNodeGraphStandaloneMidiKeyboard);
-  document
-    .getElementById("nodeStandaloneMidiKeyboardDragHandle")
-    ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "standaloneMidiKeyboard"));
-  document
-    .getElementById("nodeStandaloneMidiKeyboardHeading")
-    ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "standaloneMidiKeyboard"));
-  document
-    .getElementById("nodeStandaloneMidiKeyboardResizeHandle")
-    ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "standaloneMidiKeyboard"));
-  // Move/up: registry pointer bridge
+  if (typeof bindNodeGraphControllerDockSplit === "function") {
+    bindNodeGraphControllerDockSplit();
+  }
   // Docked tips height: drag strip between tips band and modular workspace.
   const embedResize = document.getElementById("nodeInteractionHelpEmbedResize");
   if (embedResize && typeof beginNodeGraphTooltipEmbedResize === "function") {

@@ -921,14 +921,6 @@ const nodeGraphFloatingWindowRegistryEntries = Object.freeze([
     headingDragClass: true,
   }),
   Object.freeze({
-    workspaceKey: "standaloneMidiKeyboard",
-    elementId: "nodeStandaloneMidiKeyboardDock",
-    dragStateKey: "standaloneMidiKeyboardDragging",
-    resizeStateKey: "standaloneMidiKeyboardResizing",
-    applySizeName: "applyNodeGraphStandaloneMidiKeyboardDockSize",
-    sizeAxes: Object.freeze({ width: true, height: true }),
-  }),
-  Object.freeze({
     workspaceKey: "codeBox",
     elementId: "nodeCodeBoxWindow",
     dragStateKey: "codeBoxWindowDragging",

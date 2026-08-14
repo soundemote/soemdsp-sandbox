@@ -889,6 +889,9 @@ function syncNodeGraphModuleChromeElement(element, patchNode) {
     } else {
       titleText.textContent = chromeTitle;
     }
+    if (typeof scheduleNodeGraphModuleTitleTextFit === "function") {
+      scheduleNodeGraphModuleTitleTextFit();
+    }
   }
   element.classList.toggle("buttons-hidden", patchNodeUi.buttonsHidden);
   element.classList.toggle("buttons-forced-visible", Boolean(patchNodeUi.buttonsForceShow));

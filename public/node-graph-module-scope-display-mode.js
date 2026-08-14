@@ -186,6 +186,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "fbmFieldFace",
     // Macro Controls face: bg / arc colors / names (global bank).
     "macroControlsFace",
+    "keyboardControllerFace",
     // Knob module: macro dial colors, image layers, centered span, readout.
     "knobFace",
     // Keypad look: fonts, weight, button size, Sound Color Widgets.
@@ -199,6 +200,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "vectorRgbFace",
     "rasterRgbFace",
     "gradientVectorscopeFace",
+    "traceXyz",
   ].includes(displayType);
 }
 

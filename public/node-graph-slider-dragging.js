@@ -606,6 +606,36 @@ function bindNodeGraphNativeSliderModifiers(input, defaultValue) {
   });
 }
 
+/** Circular hit for a knob dial (not the rectangular parent plate). */
+function nodeGraphCircularKnobHitElement(host) {
+  if (!host) {
+    return null;
+  }
+  if (host.classList.contains("has-image")) {
+    return host.querySelector(".node-knob-face-layer:not(.is-empty)") || host;
+  }
+  return host.querySelector(
+    ".node-macro-knob-dial i, .node-macro-knob-arc, .node-macro-knob-dial",
+  ) || host;
+}
+
+function nodeGraphPointInCircularKnob(host, clientX, clientY) {
+  const el = nodeGraphCircularKnobHitElement(host);
+  if (!el) {
+    return false;
+  }
+  const rect = el.getBoundingClientRect();
+  const rx = rect.width / 2;
+  const ry = rect.height / 2;
+  if (!(rx > 0) || !(ry > 0)) {
+    return false;
+  }
+  const dx = clientX - (rect.left + rx);
+  const dy = clientY - (rect.top + ry);
+  const r = Math.min(rx, ry);
+  return (dx * dx) + (dy * dy) <= (r * r);
+}
+
 /** True if `el` is a surface that drives a range slider via data-slider-target. */
 function nodeSliderIsDragSurface(el) {
   return Boolean(
@@ -758,6 +788,12 @@ function beginNodeSliderDrag(event) {
 
   const surface = nodeSliderDragSurfaceFromEvent(event);
   if (!surface) {
+    return;
+  }
+  if (
+    surface.classList.contains("node-knob-face")
+    && !nodeGraphPointInCircularKnob(surface, event.clientX, event.clientY)
+  ) {
     return;
   }
 

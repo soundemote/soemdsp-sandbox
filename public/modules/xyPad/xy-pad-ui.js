@@ -1180,6 +1180,8 @@ function createNodeGraphXyPadBody(node, type) {
     // reconcile/mirror and nudge axes mid-commit.
     try {
       nodeGraphXyPadSetGate(pad, false);
+      const returnToCenter = nodeGraphXyPadParam(pad, "returnToCenter", 0) > 0.5;
+      const pauseOnLift = nodeGraphXyPadParam(pad, "pauseOnLift", 0) > 0.5;
       if (completedDrag.resetToDefault && !completedDrag.moved) {
         const xSlider = nodeGraphXyPadSlider(pad, "x");
         const ySlider = nodeGraphXyPadSlider(pad, "y");
@@ -1191,6 +1193,15 @@ function createNodeGraphXyPadBody(node, type) {
           Number.isFinite(defaultY) ? defaultY : 0.5,
           { interaction: "drag", commit: true, commitStatus: "XY pad reset to default" },
         );
+        drawNodeGraphXyPad(pad);
+        return;
+      }
+      if (returnToCenter && !pauseOnLift) {
+        nodeGraphXyPadWritePosition(pad, 0.5, 0.5, {
+          interaction: "drag",
+          commit: true,
+          commitStatus: "XY pad return to center",
+        });
         drawNodeGraphXyPad(pad);
         return;
       }

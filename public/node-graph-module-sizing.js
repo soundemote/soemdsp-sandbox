@@ -170,7 +170,6 @@ function nodeGraphModuleHasFace(type) {
     "image",
     "keyboardController",
     "macroControls",
-    "pitchModWheel",
     "screenSpaceShader",
     "speakerProtection",
     "textBox",
@@ -297,7 +296,7 @@ function nodeGraphModuleSizingCapabilities(type) {
           && typeof nodeGraphChromelessModuleLayouts !== "undefined"
           && nodeGraphChromelessModuleLayouts.has(layout))
           ? false
-          : (layout === "keyboardController" ? "custom" : false)
+          : false
       );
   // Face / display area height (1…60gu) — scopes, graph, XY Pad, filter curves, …
   // Graph (layout:"graph") must always expose this; no silent opt-out.
@@ -464,9 +463,8 @@ function nodeGraphDefaultModuleGridWidthUnits(type) {
   if (nodeGraphModuleDefinitions[type]?.layout === "wallRoomDisplay") {
     return 8;
   }
-  // ~15 white keys at usable width + I/O chrome; 7gu was crushing note labels.
   if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
-    return 18;
+    return Math.max(8, nodeGraphLayoutAMinWidthGuFromIoLabels(type) || 8);
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "pitchDetector") {
     return Math.max(8, nodeGraphLayoutAMinWidthGuFromIoLabels(type) || 8);
@@ -755,6 +753,7 @@ const NODE_GRAPH_MODULE_WIDGET_BAND_ID = Object.freeze({
   text: "face",
   keyboard: "face",
   wheels: "face",
+  midi: "controls",
   interfaceControls: "controls",
   io: "io",
   params: "params",
@@ -964,7 +963,11 @@ function inferNodeGraphModuleBandId(child) {
   if (cls.contains("dsp-node-body")) {
     return "params";
   }
-  if (cls.contains("node-sample-module-body") || cls.contains("node-module-interface-controls")) {
+  if (
+    cls.contains("node-sample-module-body")
+    || cls.contains("node-module-interface-controls")
+    || cls.contains("node-midi-module")
+  ) {
     return "controls";
   }
   if (cls.contains("node-solid-module-shell") || cls.contains("node-module-chrome-layout-b-shell")) {
@@ -1221,11 +1224,13 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
-    // Heading + piano surface + signal/bitmask rows need more than a scope face.
+    // LayoutA: header | Input+Channel | I/O | inset. These two fields are
+    // interface controls, not a display face — Displays-off must not hide them.
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "keyboard", heightGu: 16, visible: true },
+      { id: "interfaceControls", heightGu: 3, visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "macroControls") {
@@ -1236,13 +1241,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
     ];
   }
-  if (nodeGraphModuleDefinitions[type]?.layout === "pitchModWheel") {
-    return [
-      { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "wheels", heightGu: 5, visible: true },
-      { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-    ];
-  }
+
   // LayoutA custom display faces (BADVAL warning panel, …): same row stack as
   // a normal scope module — header / display / IO / params / inset — so Height
   // resize follows LayoutA display-height policy.

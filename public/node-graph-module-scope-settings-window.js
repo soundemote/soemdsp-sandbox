@@ -810,6 +810,11 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
       ? openNodeGraphMacroControlsDisplaySettings(event)
       : false;
   }
+  if (nodeId === "__keyboardControllerFace") {
+    return typeof openNodeGraphKeyboardControllerDisplaySettings === "function"
+      ? openNodeGraphKeyboardControllerDisplaySettings(event)
+      : false;
+  }
   const node = nodeGraphPatchNode(nodeId);
   if (!node) {
     return false;

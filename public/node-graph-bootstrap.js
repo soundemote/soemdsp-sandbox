@@ -67,7 +67,6 @@ async function initNodeGraphMvp() {
     applyNodeGraphMacroKnobArcThickness();
     applyNodeGraphMacroKnobArcGapBrightness();
     applyNodeGraphMacroKnobSizeScale();
-    applyNodeGraphMacroKnobHitboxOutlineVisible();
     applyNodeGraphMacroKnobLabelPosition();
     applyNodeGraphMacroKnobValuePosition();
   }

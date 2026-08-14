@@ -216,7 +216,6 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneKnobFaceRotationDegrees", "change", () => setNodeGraphKnobFaceRotationDegreesFromContext({ record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneKnobFaceRotationOffset", "input", () => setNodeGraphKnobFaceRotationOffsetFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneKnobFaceRotationOffset", "change", () => setNodeGraphKnobFaceRotationOffsetFromContext({ record: true }));
-  bindNodeGraphSceneElementEvent("nodeSceneKnobFaceShowReadout", "change", () => setNodeGraphKnobFaceShowReadoutFromContext({ record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneCanvasScript", "click", openNodeGraphCanvasScriptFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneLedColor", "input", () => setNodeGraphLedColorFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneLedColor", "change", () => setNodeGraphLedColorFromContext({ record: true }));

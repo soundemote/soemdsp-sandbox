@@ -17,3 +17,11 @@ NodeLiveAudioProcessor.prototype.gradientVectorscopeSample = function gradientVe
     Y: Number(mixInput(nodeId, "Y")) || 0,
   };
 };
+
+NodeLiveAudioProcessor.prototype.traceXyzSample = function traceXyzSample(mixInput, nodeId) {
+  return {
+    X: Number(mixInput(nodeId, "X")) || 0,
+    Y: Number(mixInput(nodeId, "Y")) || 0,
+    Z: Number(mixInput(nodeId, "Z")) || 0,
+  };
+};

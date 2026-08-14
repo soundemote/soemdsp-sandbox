@@ -11,6 +11,21 @@ nodeGraphLiveModuleEvaluators.xyPad = ({ runtime, node, nodeId, frame, frames, f
   const pulseSamples = Math.max(0, Number(state.pulseSamples) || 0);
   state.pulseSamples = Math.max(0, pulseSamples - 1);
 
+  const gate = read("gate", 0) > 0.5 ? 1 : 0;
+  const pauseOnLift = read("pauseOnLift", 0) > 0.5;
+  if (!(runtime.xyPadHoldStates instanceof Map)) {
+    runtime.xyPadHoldStates = new Map();
+  }
+  const held = runtime.xyPadHoldStates.get(nodeId);
+  if (pauseOnLift && gate < 1 && held && Number.isFinite(held.X) && Number.isFinite(held.Y)) {
+    return {
+      X: held.X,
+      Y: held.Y,
+      Gate: 0,
+      Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
+    };
+  }
+
   const rawMouseX = Number(read("x", read("xPhase", 0.5)));
   const rawMouseY = Number(read("y", read("yPhase", 0.5)));
   // Do not use `n || 0.5` — that maps legitimate edge 0 to center.
@@ -25,7 +40,7 @@ nodeGraphLiveModuleEvaluators.xyPad = ({ runtime, node, nodeId, frame, frames, f
   const qX = read("xQuantize", 0);
   const qY = read("yQuantize", 0);
 
-  return {
+  const out = {
     X: nodeGraphXyPadDspProcessAxis(sigX, {
       cutoff,
       order,
@@ -38,7 +53,9 @@ nodeGraphLiveModuleEvaluators.xyPad = ({ runtime, node, nodeId, frame, frames, f
       quantizeAmt: qY,
       filterSample: null,
     }),
-    Gate: read("gate", 0) > 0.5 ? 1 : 0,
+    Gate: gate,
     Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
   };
+  runtime.xyPadHoldStates.set(nodeId, { X: out.X, Y: out.Y });
+  return out;
 };

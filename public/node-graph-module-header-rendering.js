@@ -673,6 +673,9 @@ function createNodeGraphModuleHeader(type, node, definition) {
     if (typeof syncNodeGraphModuleTitleEditPeers === "function") {
       syncNodeGraphModuleTitleEditPeers(titleText);
     }
+    if (typeof scheduleNodeGraphModuleTitleTextFit === "function") {
+      scheduleNodeGraphModuleTitleTextFit();
+    }
   });
   // Commit only on blur of an active rename session (never from accidental focus).
   titleText.addEventListener("blur", () => {

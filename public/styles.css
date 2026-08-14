@@ -1529,9 +1529,13 @@ button.scw-label:hover,
   --node-min-grid-brightness-alpha: 0;
   display: flex;
   flex-direction: column;
-  /* Fill remaining viewport under any page chrome so the transport footer
-     can pin to the bottom (header toolbar + footer controls always stay). */
-  min-height: calc(100dvh - 3.5rem);
+  min-width: 0;
+  overflow: hidden;
+  /* Fixed viewport column so the keyboard dock stays on the transport bar
+     and extra piano height shrinks the workspace instead of growing the page. */
+  height: 100dvh;
+  min-height: 100dvh;
+  max-height: 100dvh;
   margin-top: 0;
   padding: 0;
   border: 0;
@@ -1542,13 +1546,17 @@ button.scw-label:hover,
 /* Header (toolbar) + main content + footer (transport / I-O) layout. */
 .node-wiring-panel > .node-view-toolbar {
   flex: 0 0 auto;
+  flex-shrink: 0;
+  order: 0;
   z-index: 5;
 }
 
 .node-wiring-panel > .node-graph-workspace,
 .node-wiring-panel > .node-graph-main-row {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  order: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .node-graph-main-row {
@@ -1694,7 +1702,9 @@ body.is-resizing-command-center-dock {
 
 .node-wiring-panel > .node-graph-controls {
   flex: 0 0 auto;
-  margin-top: auto;
+  flex-shrink: 0;
+  order: 11;
+  margin-top: 0;
   z-index: 5;
   /* Sit on the page background so content doesn't show through. */
   background: rgba(8, 10, 12, 0.96);
@@ -1712,7 +1722,8 @@ body.is-resizing-command-center-dock {
   margin-top: 0;
 }
 
-.node-wiring-panel.content-view-mode > .node-graph-main-row {
+.node-wiring-panel.content-view-mode > .node-graph-main-row,
+.node-wiring-panel.content-view-mode > .node-standalone-midi-keyboard-dock {
   display: none;
 }
 
@@ -1830,7 +1841,7 @@ html.soemdsp-hide-ui .status-strip {
   display: none;
 }
 
-.node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-graph-main-row):not(.node-view-toolbar):not(.node-floating-window-surface):not(.node-command-center-dock) {
+.node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-graph-main-row):not(.node-view-toolbar):not(.node-floating-window-surface):not(.node-command-center-dock):not(.node-standalone-midi-keyboard-dock) {
   display: none;
 }
 
@@ -2020,10 +2031,11 @@ html.soemdsp-hide-ui .status-strip {
 
 .node-performance-wheels-panel {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 6px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
   min-width: 0;
   min-height: 0;
+  height: 100%;
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -2072,10 +2084,10 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 .node-midi-keyboard-module {
-  /* heading | piano (flex) | signal bar | bitmask — four children, four tracks.
+  /* heading | piano | signal bar | bitmask — four children, four tracks.
      Old 3-track grid left signal/bitmask fighting the piano for space. */
-  grid-template-rows: auto minmax(112px, 1fr) auto auto;
-  height: 100%;
+  grid-template-rows: auto var(--midi-keyboard-piano-height, 112px) auto auto;
+  height: auto;
   min-height: 0;
   margin: 0;
   border-radius: 0;
@@ -2085,93 +2097,138 @@ html.soemdsp-hide-ui .status-strip {
   display: none;
 }
 
-/* Free-floating, draggable, resizable window -- same generic
-   drag/resize/lock/keyboard-nudge subsystem as Command Center et al
-   (node-graph-floating-windows.js), not a workspace-docked panel.
-   Position is set inline by the drag handlers; width/height come from
-   the --node-standalone-keyboard-* vars applyNodeGraphFloatingWindowSizeVars
-   writes, matching every other floating window's sizing pattern. */
+/* In-flow strip glued to the transport bar. Height grows into the workspace. */
+.node-wiring-panel > .node-standalone-midi-keyboard-dock {
+  order: 10;
+}
+
 .node-standalone-midi-keyboard-dock {
-  position: fixed;
-  z-index: 60;
+  position: relative;
+  z-index: 5;
   display: flex;
+  flex: 0 0 auto;
+  flex-shrink: 0;
   flex-direction: column;
-  /* Unlike most floating windows, this dock should be draggable all the
-     way to the true viewport edge (see viewportMargin: 0 on
-     nodeStandaloneMidiKeyboardDockDefaultSize) -- no "- 28px" margin
-     reimposed here, or the JS-side fix would be silently overridden by
-     this CSS clamp's own upper bound. */
-  width: clamp(
-    var(--node-standalone-keyboard-min-width, 420px),
-    var(--node-standalone-keyboard-width, 860px),
-    min(var(--node-standalone-keyboard-max-width, 8000px), 100vw)
-  );
-  height: var(--node-standalone-keyboard-height, auto);
-  min-height: var(--node-standalone-keyboard-min-height, 160px);
-  max-height: min(var(--node-standalone-keyboard-max-height, 640px), calc(100vh - 28px));
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: var(--node-controller-dock-height, auto);
+  min-height: 0;
+  max-height: 55vh;
+  margin: 0;
+  overflow: visible;
+  border: 0;
+  border-top: 1px solid rgba(127, 199, 217, 0.12);
+  border-radius: 0;
   background:
     linear-gradient(180deg, rgba(241, 184, 75, 0.05), transparent 48%),
     #080a0c;
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.42),
-    inset 0 0 0 1px rgba(226, 168, 109, 0.08);
+}
+
+.node-standalone-midi-keyboard-dock.has-controller-height {
+  min-height: 72px;
+}
+
+.node-controller-dock-split {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  transform: translateY(-50%);
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.node-controller-dock-split::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 8px;
+  transform: translateY(-50%);
+  background: var(--accent-2, #e2a86d);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.node-controller-dock-split:hover::before,
+.node-controller-dock-split:focus-visible::before,
+.node-controller-dock-split.is-dragging::before,
+body.is-resizing-controller-dock .node-controller-dock-split::before {
+  opacity: 0.92;
+}
+
+body.is-resizing-controller-dock {
+  cursor: ns-resize;
+  user-select: none;
 }
 
 .node-standalone-midi-keyboard-dock[hidden] {
   display: none;
 }
 
-.node-standalone-midi-keyboard-dock .scene-context-heading {
-  flex: 0 0 auto;
-}
-
-/* Standalone keyboard: shared .scene-context-resize-handle (SE corner). */
-
-/* Body flush to dock chrome — no inset “wall” for the resize grip.
-   Keys / signal values use the real window edge as the boundary.
-   Top track reserves room for the macro strip so knobs aren’t clipped
-   into the window title bar. */
+/* Body flush to dock chrome. Macro strip + keys + signal values.
+   Cluster is wheel column + piano width, centered; macros sit over the piano. */
 .node-standalone-midi-keyboard-body {
   position: relative;
   flex: 1 1 auto;
-  display: grid;
-  grid-template-rows: minmax(76px, auto) minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
   gap: 0;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
   padding: 0;
+}
+
+.node-standalone-midi-keyboard-dock.has-controller-height .node-standalone-performance-row {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
 }
 
 .node-standalone-performance-row {
   display: grid;
-  /* Was minmax(140px, 22%), sized for two wheels side by side -- now that
-     they're stacked vertically (see the wheel-bank override below), each
-     wheel only needs to be wide enough to read its label, not a fifth of
-     the dock's width. Freed width goes to the keys instead. */
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 0;
+  grid-template-columns: var(--midi-keyboard-wheel-width, 64px) minmax(0, 1fr);
+  align-items: stretch;
+  box-sizing: border-box;
+  width: min(
+    100%,
+    calc(var(--midi-keyboard-wheel-width, 64px) + var(--midi-keyboard-piano-width, 0px))
+  );
+  max-width: 100%;
   min-height: 0;
   min-width: 0;
-  height: 100%;
-  align-items: stretch;
+  height: auto;
+  gap: 0;
   overflow: hidden;
 }
 
-/* Pitch and mod wheel stacked vertically in the dock — strict 50/50 of the
-   available column height. Scoped to the dock only; the wheels inside a
-   placed pitchModWheel node are unaffected. */
+/* Pitch and mod stacked in the dock. The row is a grid so the keyboard
+   stack gives the track a definite height; 1fr/1fr then splits that
+   height. Flex-grow / % height on an auto-height flex row stayed at
+   content size and crushed the wheels. Placed pitchModWheel nodes keep
+   their own layout. */
 .node-standalone-midi-keyboard-dock .node-performance-wheels-panel {
   display: grid;
-  /* Heading is hidden in the dock; bank fills the column. */
-  grid-template-rows: minmax(0, 1fr);
-  height: 100%;
-  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   align-self: stretch;
+  height: auto;
+  min-height: 0;
   padding: 0;
-  gap: 0;
+  gap: 4px;
   border: none;
   border-radius: 0;
   background: none;
@@ -2179,19 +2236,15 @@ html.soemdsp-hide-ui .status-strip {
   overflow: hidden;
 }
 
+/* Wheels become the panel's two 1fr rows so they split the stretched
+   column without a nested height:100% / flex-grow pass. */
 .node-standalone-midi-keyboard-dock .node-midi-keyboard-wheel-bank {
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: 1fr 1fr;
-  height: 100%;
-  min-height: 0;
-  gap: 4px;
-  align-content: stretch;
+  display: contents;
 }
 
 .node-standalone-midi-keyboard-dock .node-midi-keyboard-wheel {
   min-height: 0 !important;
-  height: 100%;
+  height: auto;
   max-height: none;
 }
 
@@ -2205,10 +2258,15 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 .node-standalone-midi-keyboard-dock .node-midi-keyboard-panel {
-  height: 100%;
+  flex: 1 1 auto;
+  width: var(--midi-keyboard-piano-width, auto);
+  height: auto;
+  min-width: 0;
   min-height: 0;
-  /* heading | piano | signal values — signal stays full height of its auto track */
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  max-width: calc(100% - var(--midi-keyboard-wheel-width, 64px));
+  /* heading | piano | remaining signals | bitmask — piano grows upward */
+  grid-template-rows: auto var(--midi-keyboard-piano-height, 112px) auto auto;
+  align-content: end;
   gap: 2px;
 }
 
@@ -2230,17 +2288,26 @@ html.soemdsp-hide-ui .status-strip {
   padding: 2px 6px 4px;
 }
 
-/* Wheels column flush left against dock chrome (height/split set above). */
-.node-standalone-midi-keyboard-dock .node-performance-wheels-module {
-  height: 100%;
+/* Wheels hug the left edge of the piano and fill the keyboard column. */
+.node-standalone-midi-keyboard-dock .node-performance-wheels-module,
+.node-standalone-midi-keyboard-dock .node-performance-wheels-panel {
+  align-self: stretch;
+  width: var(--midi-keyboard-wheel-width, 64px);
+  height: auto;
+  min-width: 0;
   min-height: 0;
 }
 
-/* Macro strip under the dock title bar — keep padding so dials don’t clip. */
+/* Macro strip: same cluster width as wheels+piano, knobs only over the keys. */
 .node-standalone-midi-keyboard-dock .node-macro-controls-panel {
-  padding: 10px 8px 8px;
-  min-height: 72px;
   box-sizing: border-box;
+  width: min(
+    100%,
+    calc(var(--midi-keyboard-wheel-width, 64px) + var(--midi-keyboard-piano-width, 0px))
+  );
+  max-width: 100%;
+  padding: 10px 8px 8px var(--midi-keyboard-wheel-width, 64px);
+  min-height: 72px;
   background: var(--macro-controls-bg, #000000);
   overflow: hidden;
 }
@@ -2250,6 +2317,8 @@ html.soemdsp-hide-ui .status-strip {
   border-radius: 0;
   border-left: 0;
   border-right: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Title-only text removed from the wheel and keyboard panels, same as
@@ -2281,6 +2350,8 @@ html.soemdsp-hide-ui .status-strip {
    hidden title's now-empty track leaves the controls stranded in. */
 .node-standalone-midi-keyboard-dock.node-standalone-midi-keyboard-dock .node-midi-keyboard-heading {
   display: flex;
+  min-width: 0;
+  max-width: 100%;
   padding: 2px 6px 0;
 }
 
@@ -2290,7 +2361,7 @@ html.soemdsp-hide-ui .status-strip {
    .node-midi-keyboard-module class -- match its selector shape so this
    override actually applies. */
 .node-standalone-midi-keyboard-dock.node-standalone-midi-keyboard-dock .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: flex-start;
 }
 
@@ -2311,10 +2382,18 @@ html.soemdsp-hide-ui .status-strip {
    its own (narrower, 2-row) layout. */
 .node-standalone-midi-keyboard-dock .node-macro-controls-module .node-macro-controls-row,
 .node-standalone-midi-keyboard-dock .node-macro-controls-row {
-  grid-template-columns: repeat(8, minmax(48px, 1fr));
+  grid-template-columns: repeat(8, minmax(0, var(--macro-knob-cell, 56px)));
   grid-template-rows: minmax(56px, 1fr);
-  gap: 4px;
+  gap: var(--macro-knob-gap, 4px);
+  justify-content: center;
   align-content: center;
+  width: min(
+    100%,
+    calc(8 * var(--macro-knob-cell, 56px) + 7 * var(--macro-knob-gap, 4px))
+  );
+  max-width: 100%;
+  margin-inline: auto;
+  min-width: 0;
   height: 100%;
   min-height: 56px;
 }
@@ -2339,14 +2418,74 @@ html.soemdsp-hide-ui .status-strip {
   max-height: 100%;
 }
 
+.node-midi-module {
+  box-sizing: border-box;
+  display: grid;
+  align-content: stretch;
+  align-self: stretch;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 4px 8px 2px;
+  pointer-events: auto;
+}
+
+.node-midi-listen {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(var(--node-slider-readout-height, 30px), auto));
+  gap: 2px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.node-midi-listen-row {
+  display: grid;
+  grid-template-columns: 5.2em minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--node-slider-readout-height, 30px);
+}
+
+.node-midi-listen-row > span {
+  color: var(--muted);
+  font: 700 0.7rem/1 "Cascadia Mono", Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.node-midi-listen select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid rgba(127, 199, 217, 0.22);
+  border-radius: 4px;
+  background: rgba(3, 5, 7, 0.7);
+  color: var(--text);
+  font: 700 0.72rem/1 "Cascadia Mono", Consolas, monospace;
+}
+
+.node-midi-listen select:focus {
+  outline: none;
+  border-color: rgba(127, 199, 217, 0.58);
+}
+
+.node-midi-listen .node-midi-keyboard-octave-control {
+  justify-self: start;
+}
+
 .node-midi-keyboard-heading {
   display: flex;
   flex: 0 0 auto;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 8px 12px;
   min-width: 0;
-  /* Controls wrap rather than force the piano thinner */
   overflow: hidden;
 }
 
@@ -2370,34 +2509,42 @@ html.soemdsp-hide-ui .status-strip {
 .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls {
   display: flex;
   flex: 1 1 auto;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 4px;
   min-width: 0;
 }
 
-.node-midi-keyboard-module .node-midi-keyboard-heading {
-  display: grid;
-  grid-template-columns: minmax(0, 0.7fr) minmax(0, 2fr);
-  align-items: start;
-  gap: 6px;
-}
-
-.node-midi-keyboard-module .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls {
+.node-midi-keyboard-live-readouts {
+  display: inline-flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  row-gap: 4px;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
 }
 
-/* Compact mode/MIDI chrome on placed modules so more room goes to keys */
-.dsp-node.keyboard-controller-layout .node-midi-keyboard-title strong {
-  font-size: 0.82rem;
+.node-midi-keyboard-live-readouts > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 2px 6px;
+  border: 1px solid rgba(243, 241, 236, 0.11);
+  border-radius: 4px;
+  background: rgba(5, 6, 7, 0.58);
+  color: var(--muted);
+  font: 700 0.72rem/1 "Cascadia Mono", Consolas, monospace;
 }
 
-.dsp-node.keyboard-controller-layout .node-midi-keyboard-panel {
-  padding: 6px;
-  gap: 5px;
+.node-midi-keyboard-live-readouts strong {
+  color: var(--text);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.dsp-node.keyboard-controller-layout .node-midi-module {
+  align-self: stretch;
 }
 
 .node-midi-keyboard-midi-controls button,
@@ -2468,9 +2615,9 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 .node-midi-keyboard-midi-controls select {
-  flex: 0 1 180px;
-  min-width: 90px;
-  max-width: 180px;
+  flex: 0 1 96px;
+  min-width: 74px;
+  max-width: 110px;
   padding: 0 4px;
 }
 
@@ -2533,7 +2680,7 @@ html.soemdsp-hide-ui .status-strip {
 .node-macro-controls-row {
   display: grid;
   grid-template-columns: repeat(8, minmax(54px, 1fr));
-  gap: 6px;
+  gap: var(--macro-knob-gap, 6px);
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -2546,7 +2693,7 @@ html.soemdsp-hide-ui .status-strip {
 .node-macro-controls-module .node-macro-controls-row {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: 4px;
+  gap: var(--macro-knob-gap, 4px);
 }
 
 /* Shared macro dial (bank, keyboard dock, Knob module):
@@ -2574,12 +2721,6 @@ html.soemdsp-hide-ui .status-strip {
   cursor: var(--node-dot-cursor);
   user-select: none;
   transform: none;
-}
-
-body.macro-knob-hitbox-outline .node-macro-knob-dial,
-body.macro-knob-hitbox-outline .node-macro-knob i {
-  outline: 1px solid rgba(241, 184, 75, 0.55);
-  outline-offset: 1px;
 }
 
 .node-macro-controls-module .node-macro-knob {
@@ -2776,12 +2917,13 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
 }
 
 .node-midi-keyboard-performance {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
   gap: 0;
   min-width: 0;
   min-height: 0;
+  width: 100%;
   height: 100%;
   overflow: hidden;
 }
@@ -2789,7 +2931,10 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
 .node-midi-keyboard-wheel-bank {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
   gap: 6px;
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
 }
@@ -2800,7 +2945,7 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   grid-template-rows: auto minmax(0, 1fr) auto;
   align-items: stretch;
   min-width: 0;
-  min-height: 132px;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid rgba(243, 241, 236, 0.16);
   border-radius: 6px;
@@ -2815,7 +2960,8 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
 }
 
 .node-performance-wheels-module .node-midi-keyboard-wheel {
-  min-height: 92px;
+  min-height: 0;
+  height: auto;
 }
 
 .node-midi-keyboard-wheel span,
@@ -2883,9 +3029,12 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   /* cqi font scaling for note labels under tight module widths */
   container-type: inline-size;
   container-name: midi-keys;
-  width: 100%;
-  height: 100%;
-  min-height: 112px;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 100%;
+  height: var(--midi-keyboard-piano-height, 112px);
+  min-width: 0;
+  min-height: var(--midi-keyboard-piano-height, 112px);
   overflow: hidden;
   border: 1px solid rgba(243, 241, 236, 0.16);
   border-radius: 6px;
@@ -2895,7 +3044,7 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
 }
 
 .node-midi-keyboard-module .node-midi-keyboard-surface {
-  min-height: 112px;
+  min-height: var(--midi-keyboard-piano-height, 112px);
 }
 
 @media (max-width: 720px) {
@@ -2904,11 +3053,11 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   }
 
   .node-midi-keyboard-wheel-bank {
-    min-height: 78px;
+    min-height: 0;
   }
 
   .node-midi-keyboard-wheel {
-    min-height: 78px;
+    min-height: 0;
   }
 }
 
@@ -2993,25 +3142,24 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
 
 .node-midi-keyboard-black-row span {
   position: absolute;
-  top: 0;
-  left: var(--key-left);
+  top: auto;
+  bottom: calc(100% - var(--midi-black-key-height, 62%));
+  left: 0;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   box-sizing: border-box;
-  width: 4.2%;
-  max-width: 100%;
-  height: 64%;
+  width: var(--midi-black-key-width, 10px);
+  max-width: none;
+  height: var(--midi-black-key-height, 62%);
   padding: 0 1px 5px;
   overflow: hidden;
   border: 1px solid rgba(127, 199, 217, 0.25);
   border-radius: 0 0 4px 4px;
-  /* Black keys are too narrow for full note names at typical module widths —
-     keep the cap blank so labels never bleed onto neighboring whites. */
-  color: transparent;
+  color: rgba(243, 241, 236, 0.82);
   font-family: "Cascadia Mono", Consolas, monospace;
   font-weight: 700;
-  font-size: 0;
+  font-size: clamp(0.4rem, 3.4cqi, 0.58rem);
   line-height: 1;
   white-space: nowrap;
   background:
@@ -3020,21 +3168,11 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   pointer-events: auto;
 }
 
-/* Wide piano surfaces only: show black-key note names inside the key. */
-@container midi-keys (min-width: 520px) {
-  .node-midi-keyboard-black-row span {
-    color: rgba(243, 241, 236, 0.82);
-    font-size: clamp(0.4rem, 3.4cqi, 0.58rem);
-  }
-}
-
-/* Very narrow surfaces: drop white labels too (keys stay playable). */
-@container midi-keys (max-width: 260px) {
-  .node-midi-keyboard-white-row span {
-    color: transparent;
-    font-size: 0;
-    text-shadow: none;
-  }
+.node-midi-keyboard-surface[data-key-labels="off"] .node-midi-keyboard-white-row span,
+.node-midi-keyboard-surface[data-key-labels="off"] .node-midi-keyboard-black-row span {
+  color: transparent;
+  font-size: 0;
+  text-shadow: none;
 }
 
 .node-midi-keyboard-black-row span.active {
@@ -3557,6 +3695,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-selection-count-readout {
   flex: 0.58 1 0;
+  font-size: clamp(0.52rem, calc(var(--node-toolbar-row-height) * 0.22), 0.72rem);
 }
 
 .node-world-position-readout span,
@@ -3611,7 +3750,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: grid;
   place-items: center;
   flex: 0.9 1 0;
-  padding: 3px;
+  padding: 0;
   line-height: 1;
 }
 
@@ -3667,14 +3806,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-inline-size: 0;
 }
 
-/* Undo / Redo — grow into spare history-row width; large single-line type. */
 #nodeUndoButton,
 #nodeRedoButton {
-  flex: 1.25 1 0;
+  flex: 0.55 1 0;
   min-inline-size: 0;
-  font-size: clamp(1.05rem, calc(var(--node-toolbar-row-height) * 0.46), 1.55rem);
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
 }
 
 
@@ -3762,21 +3900,26 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 #nodeDonateFiveButton,
 #nodeDownloadFiftyButton {
-  flex: 1.15 1 0;
+  flex: 0.55 1 0;
   min-inline-size: 0;
   border-color: rgba(226, 168, 109, 0.28);
   background:
     linear-gradient(180deg, rgba(226, 168, 109, 0.2), rgb(32, 37, 42));
   color: rgba(255, 229, 190, 0.95);
-  font-weight: 800;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+#nodeDonateFiveButton > span:first-child,
+#nodeDownloadFiftyButton > span:first-child {
+  font-size: inherit;
 }
 
 #nodeVisibilityMenuButton {
-  flex: 0.95 1 0;
-  flex-direction: column;
-  gap: 2px;
+  flex: 1 1 0;
   min-inline-size: 0;
-  white-space: normal;
+  font-size: clamp(0.78rem, calc(var(--node-toolbar-row-height) * 0.30), 1rem);
+  font-weight: 700;
 }
 
 #nodePatchTimingControls {
@@ -3827,29 +3970,37 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 #nodeModuleShopButton,
-#nodeSettingsViewButton {
+#nodeSettingsViewButton,
+#nodeCommandCenterButton,
+#nodeStandaloneMidiKeyboardButton,
+#nodeModularInfiniteViewButton,
+#nodeModularWindowedViewButton {
   display: grid;
   place-items: center;
-  padding: 3px;
+  align-items: stretch;
+  justify-items: stretch;
+  padding: 0;
 }
 
 .node-modular-view-icon {
   display: grid;
   place-items: center;
+  align-self: stretch;
+  justify-self: stretch;
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
-  font-size: clamp(0.85rem, 70%, 2.35rem);
+  font-size: clamp(1rem, 70%, 2.35rem);
   line-height: 1;
   overflow: hidden;
 }
 
 #nodeDonateFiveButton,
 #nodeDownloadFiftyButton {
-  flex: 1.15 1 0;
+  flex: 0.55 1 0;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   white-space: nowrap;
   overflow-wrap: normal;
 }
@@ -3871,7 +4022,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 #nodeDownloadFiftyButton {
-  flex: 1.65 1 0;
+  flex: 0.7 1 0;
 }
 
 #nodeDownloadFiftyButton[hidden] {
@@ -3880,7 +4031,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-toolbar-subline {
   color: rgba(243, 241, 236, 0.62);
-  font-size: 0.62rem;
+  font-size: 0.52rem;
   font-weight: 700;
   line-height: 1;
   text-transform: none;
@@ -8939,7 +9090,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow: hidden;
   padding-inline-end: 0.35em;
   color: rgba(243, 241, 236, 0.94);
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 650;
   line-height: 1;
 }
@@ -8953,7 +9104,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-height: 0;
   overflow: hidden;
   color: rgba(243, 241, 236, 0.9);
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 650;
   line-height: 1;
   text-overflow: clip;
@@ -8968,7 +9119,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-height: 0;
   overflow: hidden;
   color: rgba(226, 168, 109, 0.86);
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 650;
   line-height: 1;
   text-align: right;
@@ -9056,8 +9207,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   line-height: 1;
   text-align: center;
   text-overflow: clip;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow-wrap: normal;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -9608,7 +9759,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-ui-dev-action-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
   min-width: 0;
 }
@@ -10672,7 +10823,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
      overflow:hidden does not eat it. */
   overflow: hidden;
   box-shadow: none;
-  /* Idle stroke is outside (outline is not clipped). Selected swaps to inset gold. */
+  /* Plate stroke is outside (outline is not clipped). Selected only changes color. */
   outline: var(--node-module-idle-stroke-width, 1px) solid var(--node-module-idle-stroke, rgb(255 255 255 / 0.5));
   outline-offset: 0;
   filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.26));
@@ -10690,7 +10841,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-height: 0;
 }
 
-/* Retired SVG frame. Stroke is CSS outline / selected ::before. */
+/* Retired SVG frame. Stroke is CSS outline. */
 .dsp-node > .node-module-frame,
 .node-module-frame {
   display: none !important;
@@ -10772,19 +10923,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .dsp-node.selected {
-  outline: none;
-  box-shadow: none;
+  outline-color: var(--node-module-selected-stroke);
   filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.32));
-}
-
-.dsp-node.selected::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 40;
-  pointer-events: none;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 2px rgba(226, 168, 109, 0.5);
 }
 
 .dsp-node.slider-widget-layout.knob-face-has-image,
@@ -10819,7 +10959,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   content: none;
 }
 
-/* Construction fill only — the inset stroke is now the selection overlay. */
+/* Construction fill only. Selection stays on the plate outline. */
 .dsp-node.bypassed::before {
   content: "OFF";
   position: absolute;
@@ -10851,12 +10991,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     0 1px 0 rgba(0, 0, 0, 0.85),
     0 0 12px rgba(0, 0, 0, 0.55);
   opacity: 1;
-}
-
-.dsp-node.bypassed.selected::before {
-  box-shadow:
-    inset 0 0 0 2px rgba(226, 168, 109, 0.5),
-    inset 0 0 28px rgba(0, 0, 0, 0.35);
 }
 
 /* Overlay covers the whole plate (including the title band). Title chrome
@@ -11145,7 +11279,75 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-knob-face.node-knob-module-macro .node-macro-knob-label {
   flex: 0 0 auto;
   line-height: 1.05;
-  max-height: 1.15em;
+  max-height: none;
+  font-size: calc(0.28rem + var(--knob-label-size, 0.45) * 1.55rem);
+}
+
+/* Per-knob title/value placement — must beat body[data-macro-knob-*] on the same classes. */
+.dsp-node .node-knob-face[data-knob-label-position="above"] .node-macro-knob-label,
+.dsp-node .node-knob-face[data-knob-label-position="above"] > span:not(.node-macro-knob-dial) {
+  position: relative;
+  left: auto;
+  top: auto;
+  bottom: auto;
+  transform: none;
+  order: 0;
+}
+
+.dsp-node .node-knob-face[data-knob-label-position="mid"] .node-macro-knob-label,
+.dsp-node .node-knob-face[data-knob-label-position="mid"] > span:not(.node-macro-knob-dial) {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  bottom: auto;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+}
+
+.dsp-node .node-knob-face[data-knob-label-position="below"] .node-macro-knob-label,
+.dsp-node .node-knob-face[data-knob-label-position="below"] > span:not(.node-macro-knob-dial) {
+  position: absolute;
+  left: 50%;
+  top: auto;
+  bottom: 2px;
+  z-index: 3;
+  transform: translateX(-50%);
+}
+
+.dsp-node .node-knob-face .node-macro-knob-dial > [data-knob-face-readout],
+.dsp-node .node-knob-face .node-macro-knob-dial > .node-macro-knob-value {
+  font-size: calc(0.28rem + var(--knob-value-size, 0.45) * 1.55rem);
+}
+
+.dsp-node .node-knob-face[data-knob-value-position="above"] .node-macro-knob-dial > [data-knob-face-readout],
+.dsp-node .node-knob-face[data-knob-value-position="above"] .node-macro-knob-dial > .node-macro-knob-value {
+  top: 2px;
+  bottom: auto;
+  transform: translateX(-50%);
+}
+
+.dsp-node .node-knob-face[data-knob-value-position="mid"] .node-macro-knob-dial > [data-knob-face-readout],
+.dsp-node .node-knob-face[data-knob-value-position="mid"] .node-macro-knob-dial > .node-macro-knob-value {
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+}
+
+.dsp-node .node-knob-face[data-knob-value-position="below"] .node-macro-knob-dial > [data-knob-face-readout],
+.dsp-node .node-knob-face[data-knob-value-position="below"] .node-macro-knob-dial > .node-macro-knob-value {
+  top: auto;
+  bottom: 2px;
+  transform: translateX(-50%);
+}
+
+.dsp-node .node-knob-face[data-knob-label-position="off"] .node-macro-knob-label,
+.dsp-node .node-knob-face[data-knob-label-position="off"] > span:not(.node-macro-knob-dial) {
+  display: none !important;
+}
+
+.dsp-node .node-knob-face[data-knob-value-position="off"] .node-macro-knob-dial > [data-knob-face-readout],
+.dsp-node .node-knob-face[data-knob-value-position="off"] .node-macro-knob-dial > .node-macro-knob-value {
+  display: none !important;
 }
 
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro .node-macro-knob-dial,
@@ -11273,7 +11475,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
  */
 .dsp-node.slider-widget-layout.knob-face-has-image .node-solid-module-custom-ui,
 .dsp-node.slider-widget-layout[data-hide-module-frame="1"] .node-solid-module-custom-ui {
-  /* Keep the normal 1px shell air — margin:0 was only needed for wrong hairline theory. */
   overflow: hidden;
 }
 
@@ -11380,70 +11581,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .node-knob-face.has-image .node-knob-face-label {
   display: none;
-}
-
-.node-knob-face-readout {
-  position: relative;
-  z-index: 5;
-  display: none;
-  box-sizing: border-box;
-  flex: 1 1 auto;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  /* Claim remaining face height so JS fit has a real box to fill. */
-  min-height: 0;
-  max-height: 100%;
-  padding: 0 calc(var(--node-grid-size) * 0.06);
-  overflow: hidden;
-  color: rgba(243, 241, 236, 0.94);
-  /* Generous base before JS fit; fit scales up/down to fill the plate. */
-  font-family: var(--node-mono-font);
-  font-weight: 700;
-  font-size: clamp(1rem, calc(var(--node-grid-size) * 0.85), 2.4rem);
-  line-height: 1;
-  letter-spacing: 0.01em;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-  text-overflow: clip;
-  white-space: nowrap;
-  text-shadow:
-    0 0 12px rgba(127, 199, 217, 0.28),
-    0 1px 2px rgba(0, 0, 0, 0.85);
-  pointer-events: none;
-}
-
-/* Empty plate: readout is the main content — take almost all remaining height. */
-.node-knob-face:not(.has-image).show-readout .node-knob-face-readout:not([hidden]) {
-  flex: 1 1 auto;
-  align-self: stretch;
-}
-
-/* Only show when face has .show-readout (Module Settings “show numeric readout”). */
-.node-knob-face.show-readout .node-knob-face-readout:not([hidden]) {
-  display: flex;
-}
-
-.node-knob-face-readout[hidden],
-.node-knob-face:not(.show-readout) .node-knob-face-readout {
-  display: none !important;
-}
-
-/* Same inset as image layers — value must not spill past the graphic box. */
-.node-knob-face.has-image .node-knob-face-readout {
-  position: absolute;
-  inset: var(--knob-face-image-inset, 6%);
-  flex: none;
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
-  padding: 0 2%;
-  text-shadow:
-    0 0 8px rgba(0, 0, 0, 0.9),
-    0 1px 3px rgba(0, 0, 0, 0.95);
 }
 
 /* Knob image layers: Display Settings (and legacy Module Settings markup). */
@@ -11560,31 +11697,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-width: 0;
   padding: 2px 4px;
   font: 600 0.72rem/1.2 var(--node-mono-font);
-}
-
-/* Full “readout” label — row layout, never clip to “read”. */
-.node-knob-face-controls .node-knob-face-shared-row .node-knob-face-readout-toggle {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  align-self: center;
-  gap: 5px;
-  flex: 0 0 auto;
-  margin: 0;
-  padding: 3px 6px;
-  border: 1px solid rgba(127, 199, 217, 0.22);
-  border-radius: 4px;
-  background: rgba(8, 14, 18, 0.55);
-  color: rgba(220, 234, 238, 0.92);
-  font: 600 0.7rem/1 var(--node-mono-font);
-  white-space: nowrap;
-  overflow: visible;
-}
-
-.node-knob-face-controls .node-knob-face-shared-row .node-knob-face-readout-toggle span {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: nowrap;
 }
 
 .node-patch-command-body {
@@ -11960,6 +12072,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell) > .node-io-column {
   display: grid;
+  grid-row: 1;
   /* Equal share of the face height — ports shrink when face is 1gu with many jacks. */
   grid-auto-rows: minmax(0, 1fr);
   align-self: stretch;
@@ -11976,7 +12089,15 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none;
 }
 
-/* Empty side collapses — face claims the space (custom-ui keeps 1px air each side). */
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell) > .node-io-column.input {
+  grid-column: 1;
+}
+
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell) > .node-io-column.output {
+  grid-column: 3;
+}
+
+/* Empty side collapses — face already spans the shell. */
 :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
   > .node-io-column.node-layout-b-io-empty {
   width: 0 !important;
@@ -12069,43 +12190,20 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .node-solid-module-custom-ui {
-  grid-column: 2;
+  grid-column: 1 / -1;
+  grid-row: 1;
   box-sizing: border-box;
   min-width: 0;
   min-height: 0;
-  /*
-   * 1px air between the display face and the jack bands / shell edges.
-   * Height already shrank for vertical margins; width must match — otherwise
-   * width:100% + left/right margin overflows into the outlet column (LTR).
-   */
-  margin: 1px;
-  width: calc(100% - 2px);
-  max-width: calc(100% - 2px);
-  height: calc(100% - 2px);
-  max-height: calc(100% - 2px);
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
   pointer-events: auto;
   /* Below jack columns (z-index 4) so ports remain clickable on the edge. */
   position: relative;
   z-index: 1;
-}
-
-/*
- * Value LED / Value LCD: the custom-ui node IS the plate — no 1px shell air.
- * Match on face classes (same element as custom-ui) so layout class is not required.
- * After base custom-ui rule so this always wins.
- */
-.node-solid-module-custom-ui.node-number-readout-face,
-.node-solid-module-custom-ui.node-value-lcd-face,
-.node-solid-module-custom-ui.node-value-led-face,
-.node-solid-module-custom-ui.node-led-face,
-.dsp-node.number-readout-layout .node-solid-module-custom-ui,
-.dsp-node.value-lcd-layout .node-solid-module-custom-ui,
-.dsp-node.led-layout .node-solid-module-custom-ui {
-  margin: 0 !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  height: 100% !important;
-  max-height: 100% !important;
 }
 
 .node-bug-button-face {
@@ -14069,14 +14167,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .node-graph-workspace.module-sliders-hidden .dsp-node:not(.sliders-forced-visible) .dsp-node-body,
-.dsp-node.sliders-hidden .dsp-node-body,
-.node-graph-workspace.module-sliders-hidden .dsp-node:not(.sliders-forced-visible) .node-parameter-row,
-.dsp-node.sliders-hidden .node-parameter-row {
+.dsp-node.sliders-hidden .dsp-node-body {
   display: none;
 }
 
-.node-graph-workspace.module-sliders-hidden .dsp-node.sliders-forced-visible .dsp-node-body,
-.node-graph-workspace.module-sliders-hidden .dsp-node.sliders-forced-visible .node-parameter-row {
+.node-graph-workspace.module-sliders-hidden .dsp-node.sliders-forced-visible .dsp-node-body {
   display: grid;
 }
 
@@ -14096,7 +14191,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
   font-family: var(
     --node-header-title-font-family,
     "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace
@@ -16395,23 +16490,13 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control.scw-hue {
   background-color: transparent !important;
   background-image: var(--scw-hue-spectrum) !important;
-  /* Match color-widget SSOT: spectrum inset by half drag-dot (no full-bleed). */
   background-origin: padding-box !important;
   background-clip: padding-box !important;
-  background-size: calc(100% - 2 * var(--scw-hue-pad, 5px)) 100% !important;
-  background-position: var(--scw-hue-pad, 5px) 0 !important;
+  background-size: 100% 100% !important;
+  background-position: 0 0 !important;
   background-repeat: no-repeat !important;
   cursor: default;
   overflow: hidden;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue-thumb,
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue-thumb:hover,
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue-thumb:active,
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-root[data-dragging="hue-thumb"],
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-root[data-dragging="hue-thumb"] .scw-hue,
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-root[data-dragging="hue-thumb"] button.scw-control.scw-hue {
-  cursor: default !important;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:hover,
@@ -16436,6 +16521,12 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label {
   min-height: 22px;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hex {
+  color: var(--color-widget-hex-ink) !important;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label-glyph {
@@ -21110,10 +21201,13 @@ body.keyboard-debug-hidden
 body.keyboard-debug-hidden
   .node-wiring-panel:not(.modular-only-view):not(.camera-view-visible)
   > .node-graph-main-row,
+body.keyboard-debug-hidden
+  .node-wiring-panel:not(.modular-only-view):not(.camera-view-visible)
   > #nodeGraphWorkspace:not([hidden]) {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   height: auto !important;
   min-height: 0;
+  overflow: hidden;
 }
 
 body.keyboard-debug-hidden
@@ -21933,17 +22027,27 @@ code {
   border-color: hsl(30 70% 50% / 0.9);
   color: #fff6e8;
 }
-.node-plugin-slider-face-row {
+.node-plugin-slider-face-row,
+.node-plugin-slider-face-control {
+  display: grid;
+  align-items: stretch;
   width: 100%;
-  max-width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   margin: 0;
+  padding: 0;
   /* Display paint only — face is the drag surface (data-slider-target). */
   pointer-events: none;
 }
-.node-plugin-slider-face .node-parameter-control {
-  width: 100%;
-}
 .node-plugin-slider-face-input {
+  display: none;
+}
+.node-plugin-slider-face .node-slider-readout,
+.node-plugin-slider-face .node-slider-readout-input {
   width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
   pointer-events: none;
 }

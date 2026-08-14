@@ -311,7 +311,8 @@ function nodeGraphModuleScopeVisibleSamples(buffer, settings, cycleEstimate) {
 function nodeGraphTraceDisplayVisibleSamples(buffer, settings) {
   const safeSettings = normalizeNodeGraphTraceDisplaySettings(settings);
   const sampleRate = nodeGraphScopeSampleRate(buffer);
-  const requestedSamples = safeSettings.zoomSeconds * sampleRate;
+  const windowSeconds = Number(safeSettings.historySeconds ?? safeSettings.zoomSeconds);
+  const requestedSamples = windowSeconds * sampleRate;
   if (requestedSamples === Infinity) {
     return buffer.length;
   }

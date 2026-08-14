@@ -829,11 +829,19 @@ function buildNodeGraphTraceDisplaySamples(buffer, slot, pointCount, progressFn,
   return samples;
 }
 
-function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverride = null) {
+function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverride = null, rect = null) {
   if (!buffer?.length || !canvas?.width || !canvas?.height) {
     return [];
   }
-  const width = Math.max(1, canvas.width);
+  const box = rect && Number.isFinite(Number(rect.width)) && Number.isFinite(Number(rect.height))
+    ? {
+      x: Number(rect.x) || 0,
+      y: Number(rect.y) || 0,
+      width: Math.max(1, Number(rect.width)),
+      height: Math.max(1, Number(rect.height)),
+    }
+    : { x: 0, y: 0, width: Math.max(1, canvas.width), height: Math.max(1, canvas.height) };
+  const width = box.width;
   let view = viewOverride || nodeGraphTraceDisplayBufferView(buffer, slot);
   const settings = typeof nodeGraphTraceDisplaySettingsForSlot === "function"
     ? nodeGraphTraceDisplaySettingsForSlot(slot)
@@ -846,30 +854,30 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
   if (syncChannel === "off" && typeof nodeGraphTraceDisplayPixelLockedView === "function") {
     view = nodeGraphTraceDisplayPixelLockedView(view, width);
   }
-  const halfHeight = canvas.height * nodeGraphModuleScopeTraceHalfHeightRatio(slot, buffer, { height: canvas.height });
+  const halfHeight = box.height * nodeGraphModuleScopeTraceHalfHeightRatio(slot, buffer, { height: box.height });
   if (!view || view.end <= view.start) {
     const sample = nodeGraphModuleScopeInterpolatedSample(buffer, Math.max(0, buffer.length - 1));
     const value = clampNodeSliderValue((sample * (Number(view?.gain) || 1)) + (Number(view?.offset) || 0), -1, 1);
     return [{
-      x: 0,
-      y: (canvas.height * 0.5) - value * halfHeight,
+      x: box.x,
+      y: box.y + (box.height * 0.5) - value * halfHeight,
     }, {
-      x: canvas.width,
-      y: (canvas.height * 0.5) - value * halfHeight,
+      x: box.x + box.width,
+      y: box.y + (box.height * 0.5) - value * halfHeight,
     }];
   }
-  const midY = canvas.height * 0.5;
+  const midY = box.y + box.height * 0.5;
   if (typeof TraceWaveform !== "undefined" && typeof TraceWaveform.buildPoints === "function") {
     const skipSamples = typeof nodeGraphModuleScopeDiscontinuitySkipSamplesForSlot === "function"
       ? nodeGraphModuleScopeDiscontinuitySkipSamplesForSlot(slot, buffer)
       : 0;
-    return TraceWaveform.buildPoints({
+    const built = TraceWaveform.buildPoints({
       buffer,
       start: view.start,
       end: view.end,
       width,
-      height: canvas.height,
-      midY,
+      height: box.height,
+      midY: box.height * 0.5,
       halfHeight,
       gain: view.gain,
       offset: view.offset,
@@ -878,6 +886,10 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
         ? nodeGraphModuleScopeDiscontinuityThreshold
         : 0.85,
     });
+    if (!box.x && !box.y) {
+      return built;
+    }
+    return built.map((p) => (p && Number.isFinite(p.x) ? { x: p.x + box.x, y: p.y + box.y } : p));
   }
   // Fallback: sample-accurate polyline (still no i/(n-1) remap).
   const first = Math.max(0, Math.floor(view.start));
@@ -888,7 +900,7 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
     const raw = Number(buffer[i]) || 0;
     const value = clampNodeSliderValue((raw * view.gain) + view.offset, -1, 1);
     points.push({
-      x: ((i - view.start) / span) * width,
+      x: box.x + ((i - view.start) / span) * width,
       y: midY - value * halfHeight,
     });
   }
@@ -903,37 +915,44 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
     return;
   }
   const face = Math.min(canvas.width, canvas.height);
-  if (typeof TraceStroke !== "undefined" && TraceStroke.draw) {
-    // VECTOR polyline: opaque source-over (not additive pixel glow).
-    TraceStroke.draw(context, points, {
+  const blur = Number.isFinite(Number(layer.blur)) ? Number(layer.blur) : 0;
+  const blend = typeof TraceHistoryDraw !== "undefined" && typeof TraceHistoryDraw.normalizeBlend === "function"
+    ? TraceHistoryDraw.normalizeBlend(layer.blend || options.blend, "source-over")
+    : String(layer.blend || options.blend || "source-over");
+  if (typeof TraceHistoryDraw !== "undefined" && typeof TraceHistoryDraw.strokeSolid === "function") {
+    TraceHistoryDraw.strokeSolid(context, points, {
       size: layer.size,
-      blur: 0,
-      brightness: layer.brightness,
+      blur,
       color: layer.color,
+      blend,
+      dotBudget: layer.dotBudget,
       faceMinSide: face,
-      composite: "source-over",
     });
     return;
   }
-  // Size 0 is valid (1px min) — only brightness gates draw.
-  const size = clampNodeSliderValue(layer.size, 0, 1);
-  // Bright is 0…1 from display settings — use as-is (no 0…2→half remap).
-  const brightness = Math.max(0, Math.min(1, Number(layer.brightness) || 0));
-  if (brightness <= 0) {
+  if (typeof TraceStroke !== "undefined" && TraceStroke.draw) {
+    TraceStroke.draw(context, points, {
+      size: layer.size,
+      blur,
+      brightness: 1,
+      color: layer.color,
+      faceMinSide: face,
+      composite: blend === "combine" ? "source-over" : blend,
+    });
     return;
   }
+  const size = clampNodeSliderValue(layer.size, 0, 1);
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(layer.color));
-  const gain = brightness;
   const lineWidth = typeof nodeGraphScopeSize01ToDiameterPx === "function"
     ? nodeGraphScopeSize01ToDiameterPx(face, size)
     : Math.max(1, face * size);
   context.save();
-  context.globalCompositeOperation = "source-over";
+  context.globalCompositeOperation = blend === "combine" ? "source-over" : blend;
   context.imageSmoothingEnabled = false;
   context.lineCap = "round";
   context.lineJoin = "round";
   context.lineWidth = lineWidth;
-  context.strokeStyle = `rgb(${Math.round(rgb[0] * gain)}, ${Math.round(rgb[1] * gain)}, ${Math.round(rgb[2] * gain)})`;
+  context.strokeStyle = `rgb(${Math.round(rgb[0] * 255)}, ${Math.round(rgb[1] * 255)}, ${Math.round(rgb[2] * 255)})`;
   context.shadowBlur = 0;
   context.beginPath();
   drawNodeGraphScopeCanvasSmoothPath(context, points);
@@ -1211,31 +1230,31 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     // Form stores Left as dot1Color (also mirrored to color) and Right as secondaryColor.
     const leftColor = settings.color || settings.dot1Color || "#ff0000";
     const rightColor = settings.secondaryColor || "#0000ff";
-    const leftBright = Number.isFinite(Number(settings.brightness))
-      ? Number(settings.brightness)
-      : (Number(settings.dot1Brightness) || 0.95);
-    const rightBright = Number.isFinite(Number(settings.secondaryBrightness))
-      ? Number(settings.secondaryBrightness)
-      : leftBright;
     const leftSize = Number.isFinite(Number(settings.dot1Size))
       ? Number(settings.dot1Size)
       : (Number(settings.size) || 0.035);
     const rightSize = Number.isFinite(Number(settings.secondarySize))
       ? Number(settings.secondarySize)
       : leftSize;
+    const blur = Number.isFinite(Number(settings.lineThickness))
+      ? Number(settings.lineThickness)
+      : 0;
+    const budget = Math.max(8, Math.round(Number(settings.dotBudget) || 2048));
     const leftLayer = {
       enabled: settings.dot1Enabled !== false,
       size: leftSize,
-      brightness: leftBright,
-      blur: 0,
+      brightness: 1,
+      blur,
       color: leftColor,
+      dotBudget: budget,
     };
     const rightLayer = {
       enabled: settings.secondaryEnabled !== false,
       size: rightSize,
-      brightness: rightBright,
-      blur: 0,
+      brightness: 1,
+      blur,
       color: rightColor,
+      dotBudget: budget,
     };
     context.clearRect(0, 0, canvas.width, canvas.height);
     const face = Math.min(canvas.width, canvas.height);
@@ -1245,22 +1264,43 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
       // Canvas composites: plate first, then strokes.
       fillTraceBackground();
     }
-    if (typeof TraceStroke !== "undefined" && TraceStroke.drawStereo) {
+    if (typeof TraceHistoryDraw !== "undefined" && typeof TraceHistoryDraw.strokeStereo === "function") {
+      painted = TraceHistoryDraw.strokeStereo(
+        context,
+        leftLayer.enabled === false ? [] : leftPoints,
+        rightLayer.enabled === false ? [] : rightPoints,
+        {
+          size: leftLayer.size,
+          blur,
+          color: leftColor,
+          faceMinSide: face,
+          dotBudget: budget,
+        },
+        {
+          size: rightLayer.size,
+          blur,
+          color: rightColor,
+          faceMinSide: face,
+          dotBudget: budget,
+        },
+        { blend, meetColor: "auto" },
+      );
+    } else if (typeof TraceStroke !== "undefined" && TraceStroke.drawStereo) {
       painted = TraceStroke.drawStereo(
         context,
         leftLayer.enabled === false ? [] : leftPoints,
         rightLayer.enabled === false ? [] : rightPoints,
         {
           size: leftLayer.size,
-          blur: 0,
-          brightness: leftLayer.brightness,
+          blur,
+          brightness: 1,
           color: leftColor,
           faceMinSide: face,
         },
         {
           size: rightLayer.size,
-          blur: 0,
-          brightness: rightLayer.brightness,
+          blur,
+          brightness: 1,
           color: rightColor,
           faceMinSide: face,
         },
@@ -1271,29 +1311,10 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
           meetColor: "auto",
         },
       );
-    } else if (typeof TraceStroke !== "undefined" && TraceStroke.drawStereoRedBlueGreen) {
-      painted = TraceStroke.drawStereoRedBlueGreen(
-        context,
-        leftLayer.enabled === false ? [] : leftPoints,
-        rightLayer.enabled === false ? [] : rightPoints,
-        {
-          size: leftLayer.size,
-          blur: 0,
-          brightness: leftLayer.brightness,
-          faceMinSide: face,
-        },
-        {
-          size: rightLayer.size,
-          blur: 0,
-          brightness: rightLayer.brightness,
-          faceMinSide: face,
-        },
-      );
     } else {
       fillTraceBackground();
-      // Fallback: layered RGB (overlap may look like additive mix, not meet).
-      drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, rightLayer, canvas, { glow: false });
-      drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas, { glow: false });
+      drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, rightLayer, canvas, { blend });
+      drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas, { blend });
       painted = leftPoints.length + rightPoints.length;
     }
     // Meet putImageData leaves transparent holes — plate goes underneath.
@@ -1310,20 +1331,18 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   fillTraceBackground();
   const points = buildNodeGraphTraceDisplayCanvasPoints(prepared || buffer, canvas, slot);
   const monoColor = settings.color || settings.dot1Color || "#ff3333";
-  const monoBright = Number.isFinite(Number(settings.brightness))
-    ? Number(settings.brightness)
-    : (Number(settings.dot1Brightness) || 0.95);
   const monoSize = Number.isFinite(Number(settings.dot1Size))
     ? Number(settings.dot1Size)
     : 0.035;
   const layer = {
     enabled: settings.dot1Enabled !== false,
     size: monoSize,
-    brightness: monoBright,
-    blur: 0,
+    brightness: 1,
+    blur: Number.isFinite(Number(settings.lineThickness)) ? Number(settings.lineThickness) : 0,
     color: monoColor,
+    dotBudget: Math.max(8, Math.round(Number(settings.dotBudget) || 2048)),
   };
-  drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, { glow: false });
+  drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas);
   recordNodeGraphModuleScopeRenderMetrics(points.length, points.length);
   paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density);
   rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);

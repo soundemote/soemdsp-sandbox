@@ -178,6 +178,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   vectorRgb: "pass",
   rasterRgb: "pass",
   gradientVectorscope: "pass",
+  traceXyz: "pass",
   badvalMonitor: "pass",
   comparator: "pass",
   sampleDelay: "pass",

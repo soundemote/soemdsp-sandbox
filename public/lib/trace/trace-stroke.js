@@ -6,7 +6,7 @@
 // Do not add strip-chart scroll or density knobs here — that drifts concepts.
 //
 // Not burn: no energy FBO, no decay, no bleed. Clear + redraw each frame.
-// Hard stroke by default (blur ignored on stereo; mono paths force blur 0).
+// History plot: deposit is always full (brightness 1). Blur is stroke softness.
 // Size = 0–1 of face min side: 0 → 1px, 1 → full side (exponential).
 
 (function initTraceStroke(global) {
@@ -408,17 +408,17 @@
       Math.max(1, destCtx.canvas.height),
     );
 
-    // Standard canvas blend modes: sequential hard strokes, user colors.
+    // Standard canvas blend modes: sequential strokes, user colors.
     if (blend !== "combine") {
       const leftCount = draw(destCtx, leftPoints, {
         ...leftOptions,
-        blur: 0,
+        brightness: 1,
         faceMinSide: face,
         composite: blend === "source-over" ? "source-over" : blend,
       });
       const rightCount = draw(destCtx, rightPoints, {
         ...rightOptions,
-        blur: 0,
+        brightness: 1,
         faceMinSide: face,
         composite: blend === "source-over" ? "source-over" : blend,
       });
@@ -464,7 +464,6 @@
     // plate showed through and strokes looked black / “not taking color”.
     const leftCount = draw(leftCtx, leftPoints, {
       ...leftOptions,
-      blur: 0,
       brightness: 1,
       color: "#ffffff",
       rgb: [255, 255, 255],
@@ -473,7 +472,6 @@
     });
     const rightCount = draw(rightCtx, rightPoints, {
       ...rightOptions,
-      blur: 0,
       brightness: 1,
       color: "#ffffff",
       rgb: [255, 255, 255],

@@ -916,9 +916,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   keyboardController: {
     category: "controller",
-    description: "On-screen keyboard for playable pitch, gates, and gesture X/Y.",
-    label: "MIDI Keyboard",
-    notes: ["keyboard input", "midi pitch", "gesture signals"],
+    description: "Hardware MIDI in: pick a device and listen channel. Gate, note, velocity, and pitch CV.",
+    label: "MIDI",
+    notes: ["midi input", "midi channel", "note", "gate", "velocity"],
   },
   macroControls: {
     category: "controller",
@@ -929,7 +929,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   pitchModWheel: {
     category: "controller",
     description: "Read pitch bend and mod wheel next to the keyboard for expression.",
-    label: "Pitch / Mod Wheel",
+    label: "Pitch Mod Wheel",
     notes: ["pitch wheel", "mod wheel", "performance control"],
   },
   samplePlayer: {
@@ -1795,6 +1795,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "2D trace with color along path length (not phosphor brightness). Optional 90° mid/side rotation.",
     label: "Gradient Vectorscope",
     notes: ["vectorscope", "gradient", "xy trace", "90"],
+  },
+  traceXyz: {
+    category: "oscilloscope",
+    description: "Three history traces: X red, Y blue, Z green. Stack on one plot or split the face into three bands.",
+    label: "XYZ Trace",
+    notes: ["xyz", "rgb", "trace", "history", "stack", "separate", "x red", "y blue", "z green"],
   },
   badvalMonitor: {
     category: "debug",
@@ -3571,6 +3577,11 @@ function renderNodeGraphModuleStoreCatalog() {
   renderNodeGraphModuleGroupCatalog();
   bindNodeGraphModuleStoreScrollAffordance();
   requestAnimationFrame(updateNodeGraphModuleStoreScrollAffordance);
+  if (typeof installNodeGraphModuleTitleTextFitObserver === "function") {
+    installNodeGraphModuleTitleTextFitObserver();
+  } else if (typeof scheduleNodeGraphModuleTitleTextFit === "function") {
+    scheduleNodeGraphModuleTitleTextFit();
+  }
 }
 
 function positionNodeGraphModuleShopView(x, y) {

@@ -494,6 +494,14 @@ function cloneNodeGraphTypedDisplaySettings(node) {
   if (displayType === "trace" && Object.hasOwn(node, "traceDisplaySettings")) {
     return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(migrate(node.traceDisplaySettings, isOutput)) };
   }
+  if (displayType === "traceXyz" && Object.hasOwn(node, "traceDisplaySettings")) {
+    return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(migrate(node.traceDisplaySettings, false)) };
+  }
+  if (displayType === "gradientVectorscopeFace" && typeof normalizeNodeGraphGradientVectorscopeSettings === "function") {
+    return {
+      traceDisplaySettings: normalizeNodeGraphGradientVectorscopeSettings(migrate(node.traceDisplaySettings, false)),
+    };
+  }
   // Last resort: if a face still has settings but schema is unknown/new,
   // preserve the object rather than dropping it on every validate/clone.
   if (Object.hasOwn(node, "traceDisplaySettings") && node.traceDisplaySettings) {

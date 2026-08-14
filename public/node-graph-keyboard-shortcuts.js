@@ -355,7 +355,7 @@ function handleNodeGraphKeydown(event) {
     return;
   }
   // V → 💻 / 📱 computer vs phone canvas.
-  // H → hide/show module header buttons (must show when turning back on).
+  // H → hide/show top + bottom app bars (not per-module header buttons).
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v") {
     event.preventDefault();
     if (typeof toggleNodeGraphModularWindowedView === "function") {
@@ -365,8 +365,8 @@ function handleNodeGraphKeydown(event) {
   }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "h") {
     event.preventDefault();
-    if (typeof toggleNodeGraphModuleButtonsVisibility === "function") {
-      toggleNodeGraphModuleButtonsVisibility();
+    if (typeof toggleNodeGraphAppChromeBarsVisibility === "function") {
+      toggleNodeGraphAppChromeBarsVisibility();
     }
     return;
   }

@@ -15,7 +15,7 @@ const nodeGraphMacroControlsFaceDefaults = Object.freeze({
   arcThickness: 7,
   arcGapBrightness: 0,
   sizeScale: 1,
-  hitboxOutline: false,
+  knobSpacing: 4,
   labelPosition: "top",
   valuePosition: "mid",
   rotationDegrees: 264,
@@ -74,13 +74,10 @@ function normalizeNodeGraphMacroControlsFaceSettings(raw = {}) {
         source.sizeScale ?? source.macroKnobSizeScale ?? nodeGraphMvp?.macroKnobSizeScale,
       )
       : Number(source.sizeScale) || 1,
-    hitboxOutline: Boolean(
-      Object.hasOwn(source, "hitboxOutline")
-        ? source.hitboxOutline
-        : (Object.hasOwn(source, "macroKnobHitboxOutlineVisible")
-          ? source.macroKnobHitboxOutlineVisible
-          : nodeGraphMvp?.macroKnobHitboxOutlineVisible),
-    ),
+    knobSpacing: (() => {
+      const n = Number(source.knobSpacing ?? source.spacing);
+      return Number.isFinite(n) ? Math.max(0, Math.min(32, Math.round(n))) : 4;
+    })(),
     labelPosition: typeof normalizeNodeGraphMacroKnobLabelPosition === "function"
       ? normalizeNodeGraphMacroKnobLabelPosition(
         source.labelPosition ?? source.macroKnobLabelPosition ?? nodeGraphMvp?.macroKnobLabelPosition,
@@ -128,7 +125,6 @@ function applyNodeGraphMacroControlsLook(settings) {
     nodeGraphMvp.macroKnobArcThickness = s.arcThickness;
     nodeGraphMvp.macroKnobArcGapBrightness = s.arcGapBrightness;
     nodeGraphMvp.macroKnobSizeScale = s.sizeScale;
-    nodeGraphMvp.macroKnobHitboxOutlineVisible = s.hitboxOutline;
     nodeGraphMvp.macroKnobLabelPosition = s.labelPosition;
     nodeGraphMvp.macroKnobValuePosition = s.valuePosition;
   }
@@ -141,9 +137,6 @@ function applyNodeGraphMacroControlsLook(settings) {
   if (typeof applyNodeGraphMacroKnobSizeScale === "function") {
     applyNodeGraphMacroKnobSizeScale();
   }
-  if (typeof applyNodeGraphMacroKnobHitboxOutlineVisible === "function") {
-    applyNodeGraphMacroKnobHitboxOutlineVisible();
-  }
   if (typeof applyNodeGraphMacroKnobLabelPosition === "function") {
     applyNodeGraphMacroKnobLabelPosition();
   }
@@ -155,6 +148,8 @@ function applyNodeGraphMacroControlsLook(settings) {
     const span = Number(s.rotationDegrees) || nodeGraphMacroControlsFaceDefaults.rotationDegrees;
     root.style.setProperty("--macro-arc-start-deg", `${-span * 0.5}deg`);
     root.style.setProperty("--macro-arc-span-deg", `${span}deg`);
+    const gap = Number.isFinite(Number(s.knobSpacing)) ? Math.max(0, Math.min(32, Number(s.knobSpacing))) : 4;
+    root.style.setProperty("--macro-knob-gap", `${gap}px`);
   }
   document.querySelectorAll(".node-macro-controls-panel, [data-macro-controls-display]").forEach((panel) => {
     panel.classList.toggle("macro-labels-hidden", s.showLabels === false);
@@ -244,6 +239,10 @@ function buildNodeGraphMacroControlsFaceDisplaySettingsBodyHtml() {
         <input type="range" min="0.25" max="4" step="0.05" data-macro-face-num="sizeScale" value="${s.sizeScale}" aria-label="Macro knob size">
       </label>
       <label class="node-trace-display-line-burn-row">
+        <span>Spacing</span>
+        <input type="range" min="0" max="32" step="1" data-macro-face-num="knobSpacing" value="${s.knobSpacing}" aria-label="Space between macro knobs">
+      </label>
+      <label class="node-trace-display-line-burn-row">
         <span>Label</span>
         <select data-macro-face-select="labelPosition" aria-label="Macro label position">${posOpts(s.labelPosition)}</select>
       </label>
@@ -258,10 +257,6 @@ function buildNodeGraphMacroControlsFaceDisplaySettingsBodyHtml() {
       <label class="metadata-checkbox-label">
         <input type="checkbox" data-macro-face-toggle="showValues"${s.showValues ? " checked" : ""}>
         Show values
-      </label>
-      <label class="metadata-checkbox-label">
-        <input type="checkbox" data-macro-face-toggle="hitboxOutline"${s.hitboxOutline ? " checked" : ""}>
-        Show hitbox
       </label>
       <div class="metadata-section-title" style="margin-top:0.75rem">Names</div>
       ${labelRows}

@@ -2365,19 +2365,12 @@ function sendNodeGraphLiveParameterUpdate() {
     const nodes = nodeGraphBuildLiveParameterNodes(nodeGraphMvp.live.activeNodeIds);
     const patchFingerprint = nodeGraphPatchFingerprint();
     const now = performance.now();
-    const previous = Number(nodeGraphMvp.live.lastParameterUpdateTime) || 0;
-    const measuredSeconds = previous > 0 ? (now - previous) / 1000 : nodeGraphMvp.live.autoSmoothingSeconds;
     nodeGraphMvp.live.lastParameterUpdateTime = now;
-    if (!nodeGraphMvp.live.autoSmoothingManual) {
-      nodeGraphMvp.live.autoSmoothingSeconds = clampNodeGraphAutoSmoothingSeconds(
-        (Number(nodeGraphMvp.live.autoSmoothingSeconds) || nodeGraphAutoSmoothingDefaultSeconds) * 0.82 +
-        clampNodeGraphAutoSmoothingSeconds(measuredSeconds) * 0.18,
-      );
-    } else {
-      nodeGraphMvp.live.autoSmoothingSeconds = clampNodeGraphAutoSmoothingSeconds(nodeGraphMvp.live.autoSmoothingSeconds);
-    }
-    const autoSmoothingSeconds = nodeGraphMvp.live.autoSmoothingSeconds;
-    syncNodeGraphGlobalSmoothingControl();
+    // Smooth Time is user-owned. Do not rewrite it from slider update cadence.
+    const autoSmoothingSeconds = clampNodeGraphAutoSmoothingSeconds(
+      nodeGraphMvp.live.autoSmoothingSeconds,
+    );
+    nodeGraphMvp.live.autoSmoothingSeconds = autoSmoothingSeconds;
     nodeGraphMvp.live.planSerial += 1;
     if (nodeGraphMvp.live.usesWorklet) {
       setNodeGraphLiveEvidence("params-sent", {
@@ -2869,7 +2862,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-scope-io.js?v=visual-rate-meta-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-evaluators-sources.js?v=kick-split-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=eq-f-1",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=trace-xyz-1",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=portal-io-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=soft-clipper-gain-1",
@@ -3021,7 +3014,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/numberGate/number-gate-worklet-evaluator.js?v=n-gate-family-1",
   "./public/modules/rasterRgb/raster-rgb-math.js?v=paint-2",
   "./public/modules/rasterRgb/raster-rgb-worklet-evaluator.js?v=paint-2",
-  "./public/modules/rgbDisplays/rgb-display-worklet-evaluator.js?v=rgb-raster-3",
+  "./public/modules/rgbDisplays/rgb-display-worklet-evaluator.js?v=trace-xyz-1",
   "./public/modules/phoneTone/phone-tone-math.js?v=phone-tone-pitch-1",
   "./public/modules/phoneTone/phone-tone-worklet-evaluator.js?v=phone-tone-pitch-1",
   "./public/modules/xyPad/xy-pad-dsp.js?v=xy-pad-center-q-1",

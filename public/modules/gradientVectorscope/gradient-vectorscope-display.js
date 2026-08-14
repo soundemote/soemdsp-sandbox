@@ -1,5 +1,5 @@
-// Gradient Vectorscope — 2D Trace with color along path length, not phosphor
-// brightness. Optional 90° (audio vectorscope / mid-side) rotation.
+// Gradient Vectorscope — 2D history plot with color along path length.
+// Music Player motion: clear + redraw last N seconds. Not phosphor residual.
 
 const nodeGraphGradientVectorscopeDefaultStops = Object.freeze([
   Object.freeze({ t: 0, color: "#143048" }),
@@ -8,10 +8,11 @@ const nodeGraphGradientVectorscopeDefaultStops = Object.freeze([
 
 const nodeGraphGradientVectorscopeSettingsDefaults = Object.freeze({
   background: "#000004",
-  dot1Brightness: 1,
   dot1Size: 0.06,
   gradientStops: nodeGraphGradientVectorscopeDefaultStops,
   historySeconds: 1,
+  lineThickness: 0.15,
+  dotBudget: 2048,
   pixelDensity: 1,
   rotate90: false,
   scale: 1,
@@ -37,12 +38,14 @@ function normalizeNodeGraphGradientVectorscopeSettings(settings = {}) {
   }
   const rotateRaw = source.rotate90;
   const rotate90 = rotateRaw === true || rotateRaw === 1 || rotateRaw === "true" || rotateRaw === "1";
+  const blurRaw = source.lineThickness ?? source.blur ?? source.dot1Blur;
   return {
     background,
-    dot1Brightness: Math.max(0, Math.min(1, num("dot1Brightness", d.dot1Brightness))),
     dot1Size: Math.max(0, Math.min(1, num("dot1Size", d.dot1Size))),
     gradientStops,
     historySeconds: Math.max(0.02, Math.min(8, num("historySeconds", d.historySeconds))),
+    lineThickness: Math.max(0, Math.min(1, Number.isFinite(Number(blurRaw)) ? Number(blurRaw) : d.lineThickness)),
+    dotBudget: Math.max(64, Math.min(8192, Math.round(num("dotBudget", d.dotBudget)))),
     pixelDensity: Math.max(0.125, Math.min(4, num("pixelDensity", d.pixelDensity))),
     rotate90,
     scale: Math.max(0.05, Math.min(8, num("scale", d.scale))),
@@ -129,32 +132,39 @@ function drawNodeGraphGradientVectorscopeFaceItem(_renderer, item, pixelRatio) {
     }
     points.push({ x: px, y: py });
   }
-  const widthPx = Math.max(0.75, side * settings.dot1Size * 0.45);
-  const alpha = settings.dot1Brightness;
   const sample = typeof nodeGraphSampleGradientStopsRgb === "function"
     ? (t) => nodeGraphSampleGradientStopsRgb(settings.gradientStops, t, "#d8f4ff")
     : (t) => {
       const v = Math.round(t * 255);
       return [v, v, v];
     };
+  if (typeof TraceHistoryDraw !== "undefined" && typeof TraceHistoryDraw.strokeGradient === "function") {
+    TraceHistoryDraw.strokeGradient(ctx, points.filter(Boolean), {
+      size: settings.dot1Size,
+      blur: settings.lineThickness,
+      dotBudget: settings.dotBudget,
+      faceMinSide: side,
+      sampleRgb: sample,
+      colorA: settings.gradientStops?.[0]?.color,
+      colorB: settings.gradientStops?.[settings.gradientStops.length - 1]?.color,
+    });
+    return;
+  }
+  const widthPx = Math.max(0.75, side * settings.dot1Size);
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.lineWidth = widthPx;
-  ctx.globalAlpha = alpha;
-  let started = false;
   let prev = null;
   const last = points.length - 1;
   for (let i = 0; i <= last; i += 1) {
     const p = points[i];
     if (!p) {
-      started = false;
       prev = null;
       continue;
     }
     if (!prev) {
       prev = p;
-      started = true;
       continue;
     }
     const t = last > 0 ? i / last : 1;
@@ -165,7 +175,6 @@ function drawNodeGraphGradientVectorscopeFaceItem(_renderer, item, pixelRatio) {
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
     prev = p;
-    started = true;
   }
   ctx.restore();
 }

@@ -136,6 +136,8 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "innerShadowOffsetX",
     "innerShadowOffsetY",
     "dialSize",
+    "labelSize",
+    "valueSize",
     "innerRadius",
     "buttonWidth",
     "buttonHeight",
@@ -373,8 +375,10 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   innerShadowSharpness: nodeGraphTraceDisplayClampUnit,
   innerShadowOffsetX: nodeGraphTraceDisplayClampBipolarUnit,
   innerShadowOffsetY: nodeGraphTraceDisplayClampBipolarUnit,
-  // Knob dial ring size 0…1.
+  // Knob dial / label / value size 0…1.
   dialSize: nodeGraphTraceDisplayClampUnit,
+  labelSize: nodeGraphTraceDisplayClampUnit,
+  valueSize: nodeGraphTraceDisplayClampUnit,
   dotBudget: nodeGraphTraceDisplayClampDotBudget,
   digits: (value) => {
     const n = Math.round(Number(value));

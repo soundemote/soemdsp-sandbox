@@ -157,9 +157,11 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
     renderer === "vectorRgbFace"
     || renderer === "rasterRgbFace"
     || renderer === "gradientVectorscopeFace"
+    || renderer === "traceXyz"
     || slot?.type === "vectorRgb"
     || slot?.type === "rasterRgb"
     || slot?.type === "gradientVectorscope"
+    || slot?.type === "traceXyz"
   ) {
     buffer = { length: 1 };
   } else if (renderer === "dot") {
@@ -218,7 +220,9 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["rounding", "Rounding"],
   ["innerRadius", "Inner radius"],
   ["rotationDegrees", "Span °"],
-  ["dialSize", "Size"],
+  ["dialSize", "Knob size"],
+  ["labelSize", "Label size"],
+  ["valueSize", "Value size"],
 
   ["dot1Size", "Size"],
   ["puckSize", "Puck size"],

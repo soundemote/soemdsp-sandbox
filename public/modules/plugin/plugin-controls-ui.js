@@ -219,14 +219,14 @@ function createNodeGraphPluginSliderFace(node, type) {
   face.setAttribute("role", "slider");
   face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} slider display`);
 
-  // Visual fader chrome on the face (display only — not the control surface).
+  // Visual fader chrome on the face (display only — not a params-band row).
   const row = document.createElement("div");
-  row.className = "node-parameter-row node-plugin-slider-face-row";
+  row.className = "node-plugin-slider-face-row";
   row.dataset.param = "value";
   row.dataset.pluginSliderDisplay = "true";
 
   const label = document.createElement("label");
-  label.className = "node-parameter-control";
+  label.className = "node-plugin-slider-face-control";
   label.dataset.paramLabel = "→";
 
   const input = document.createElement("input");
@@ -286,10 +286,8 @@ function createNodeGraphPluginSliderFace(node, type) {
 
   face.syncFromParameters = paintDisplay;
   requestAnimationFrame(() => {
-    if (typeof ensureNodeSliderReadout === "function") {
-      ensureNodeSliderReadout(input);
-    } else if (typeof attachNodeSliderReadout === "function") {
-      attachNodeSliderReadout(input);
+    if (typeof createNodeSliderReadout === "function") {
+      createNodeSliderReadout(input);
     }
     paintDisplay();
   });

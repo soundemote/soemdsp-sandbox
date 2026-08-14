@@ -501,8 +501,8 @@
   },
   {
     "type": "keyboardController",
-    "label": "MIDI Keyboard",
-    "description": "Mouse-playable keyboard source. Emits sustained gate, one-sample gate, key index, quantized key, MIDI pitch, normalized double, phase increment, frequency, numeric pitch, and X/Y gesture values."
+    "label": "MIDI",
+    "description": "Hardware MIDI in: pick a device and listen channel. Gate, note, velocity, and pitch CV."
   },
   {
     "type": "macroControls",
@@ -511,7 +511,7 @@
   },
   {
     "type": "pitchModWheel",
-    "label": "Pitch / Mod Wheel",
+    "label": "Pitch Mod Wheel",
     "description": "Reads the separate pitch and mod wheel controls beside the keyboard. Pitch emits -1..1, while mod emits 0..1."
   },
   {

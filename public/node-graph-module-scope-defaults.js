@@ -127,8 +127,10 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   secondarySize: 0.035,
   secondaryLineThickness: 0,
   cycles: 2,
-  // Instant Trace: hard stroke (blur ignored on canvas path).
-  lineThickness: 0,
+  // Stroke softness 0…1 (hard → soft skirt). History plot, not phosphor burn.
+  lineThickness: 0.15,
+  // Max verts before the drawer switches to sparse dots.
+  dotBudget: 2048,
   // Vector stroke into a density-scaled face buffer (lo-fi look when < 1).
   // Not a phosphor energy grid — still one polyline; density only sets buffer size.
   pixelDensity: 1,
@@ -141,6 +143,9 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   sourceSync: false,
   syncChannel: "off",
   zoomSeconds: 0.05,
+  historySeconds: 0.05,
+  // XYZ Trace: stack all three on one plot, or split the face into three bands.
+  xyzLayout: "stack",
 });
 
 
@@ -328,12 +333,16 @@ const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   background: "#000000",
   arcFill: "#f1b84b",
   arcTrack: "#3a3428",
-  showLabel: true,
-  showReadout: true,
   // Centered arc span (degrees Bias 0→1). Start is always −span/2 (no Offset).
   rotationDegrees: 270,
   // Dial ring size 0…1 (1 = fill available dial cell; label/value unchanged).
   dialSize: 1,
+  // Title / value size 0…1 (independent of knob size).
+  labelSize: 0.45,
+  valueSize: 0.45,
+  // Title / value vs the dial: above | mid | below.
+  labelPosition: "above",
+  valuePosition: "mid",
   // Hole size 0…1 (0 = solid disk, ~0.7 default, 1 = thin outer ring).
   innerRadius: 0.7,
 });

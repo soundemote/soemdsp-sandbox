@@ -1,7 +1,7 @@
 async function bindNodeGraphUiDevSettingsEvents() {
-  document.getElementById("copyNodeUiDevSettingsButton").addEventListener("click", copyNodeUiDevSettingsToClipboard);
-  document.getElementById("saveNodeUiDevSettingsButton").addEventListener("click", saveNodeUiDevSettingsFile);
-  document.getElementById("pasteNodeUiDevSettingsButton").addEventListener("click", pasteNodeUiDevSettingsFromClipboard);
+  document.getElementById("saveNodeUiDevSettingsButton")?.addEventListener("click", saveNodeUiDevSettingsFile);
+  document.getElementById("nodeUserUiSettingsCopy")?.addEventListener("click", copyNodeUiDevSettingsToClipboard);
+  document.getElementById("nodeUserUiSettingsPaste")?.addEventListener("click", pasteNodeUiDevSettingsFromClipboard);
   document.getElementById("loadNodeUiDevSettingsButton").addEventListener("click", loadNodeUiDevSettingsFile);
   document
     .getElementById("updateDefaultNodeUiDevSettingsButton")
@@ -170,6 +170,9 @@ async function bindNodeGraphUiDevSettingsEvents() {
   installNodeLiveToggleTextFitObserver();
   if (typeof installNodeModularToolbarTextFitObserver === "function") {
     installNodeModularToolbarTextFitObserver();
+  }
+  if (typeof installNodeGraphModuleTitleTextFitObserver === "function") {
+    installNodeGraphModuleTitleTextFitObserver();
   }
   syncNodeUiDevSettingsHeaderControls();
   if (typeof syncNodeUserUiSettingsViewControls === "function") {

@@ -846,7 +846,7 @@ function createNodeGraphModuleElement(type, node) {
     face?.syncFromParameters?.();
   } else if (definition.layout === "keyboardController" || definition.layout === "macroControls" || definition.layout === "pitchModWheel") {
     if (definition.layout === "keyboardController") {
-      article.append(createNodeGraphKeyboardControllerBody(node));
+      article.append(createNodeGraphMidiModuleBody(node));
     } else if (definition.layout === "macroControls") {
       article.append(createNodeGraphMacroControlsBody(node));
     } else {

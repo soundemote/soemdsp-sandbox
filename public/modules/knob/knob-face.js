@@ -30,8 +30,6 @@ const nodeGraphKnobFaceDefaults = Object.freeze({
   ),
   // Centered span (degrees). Start is always −span/2 — no separate offset.
   rotationDegrees: 270,
-  showReadout: true,
-  showLabel: true,
 });
 
 function normalizeNodeGraphKnobFaceLayer(source = {}) {
@@ -94,8 +92,6 @@ function normalizeNodeGraphKnobFace(source = {}) {
     rotationDegrees: Number.isFinite(rotationDegrees)
       ? Math.max(0, Math.min(1440, rotationDegrees))
       : nodeGraphKnobFaceDefaults.rotationDegrees,
-    showReadout: raw.showReadout !== false && raw.showReadout !== "false",
-    showLabel: raw.showLabel !== false && raw.showLabel !== "false",
   };
 }
 
@@ -113,9 +109,7 @@ function nodeGraphKnobFaceIsNonDefault(face) {
   if (f.layers.some((layer) => layer.rotate)) {
     return true;
   }
-  return !f.showReadout
-    || !f.showLabel
-    || f.rotationDegrees !== defaults.rotationDegrees;
+  return f.rotationDegrees !== defaults.rotationDegrees;
 }
 
 /**
@@ -285,8 +279,13 @@ function nodeGraphKnobFaceFitReadout(readout, face = null) {
         high = mid;
       }
     }
-    style.fontSize = `${best.toFixed(2)}px`;
   }
+  const valueScale = Number.parseFloat(
+    host.style?.getPropertyValue?.("--knob-value-size")
+    || getComputedStyle(host).getPropertyValue("--knob-value-size"),
+  );
+  const scale = Number.isFinite(valueScale) ? Math.max(0, Math.min(1, valueScale)) : 0.45;
+  style.fontSize = `${(best * scale).toFixed(2)}px`;
 
   // Very long strings only: nudge tracking after we already took the largest fit size.
   if (readout.scrollWidth > maxW + 1) {
@@ -581,6 +580,24 @@ function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
     : 1;
   face.style.setProperty("--knob-dial-size", String(dialSize));
 
+  const labelSize = Number.isFinite(Number(s.labelSize))
+    ? Math.max(0, Math.min(1, Number(s.labelSize)))
+    : 0.45;
+  const valueSize = Number.isFinite(Number(s.valueSize))
+    ? Math.max(0, Math.min(1, Number(s.valueSize)))
+    : 0.45;
+  face.style.setProperty("--knob-label-size", String(labelSize));
+  face.style.setProperty("--knob-value-size", String(valueSize));
+
+  const labelPos = typeof normalizeNodeGraphKnobFaceTextPosition === "function"
+    ? normalizeNodeGraphKnobFaceTextPosition(s.labelPosition, "above")
+    : (s.labelPosition || "above");
+  const valuePos = typeof normalizeNodeGraphKnobFaceTextPosition === "function"
+    ? normalizeNodeGraphKnobFaceTextPosition(s.valuePosition, "mid")
+    : (s.valuePosition || "mid");
+  face.dataset.knobLabelPosition = labelPos;
+  face.dataset.knobValuePosition = valuePos;
+
   // Inner radius 0…1 → hole size; thickness fraction of radius = 1 − inner.
   const inner = Number.isFinite(Number(s.innerRadius))
     ? Math.max(0, Math.min(0.95, Number(s.innerRadius)))
@@ -607,8 +624,6 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
   const display = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
     ? nodeGraphKnobFaceDisplaySettingsForNode(patchNode)
     : null;
-  const showReadout = display ? display.showReadout !== false : true;
-  const showLabel = display ? display.showLabel !== false : true;
 
   let value = null;
   if (buffer?.length) {
@@ -656,6 +671,8 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
   }
 
   nodeGraphKnobFaceApplyMacroStyle(face, display);
+  const showLabel = face.dataset.knobLabelPosition !== "off";
+  const showReadout = face.dataset.knobValuePosition !== "off";
 
   const label = face.querySelector("[data-knob-face-label]");
   if (label) {
@@ -793,6 +810,8 @@ function createNodeGraphKnobFace(node, type) {
   face.className = "node-knob-face node-module-scope-window node-knob-module-macro node-macro-knob";
   face.dataset.node = node;
   face.dataset.nodeType = type || "knob";
+  face.dataset.knobLabelPosition = "above";
+  face.dataset.knobValuePosition = "mid";
   face.dataset.sliderTarget = `node-${node}-offset`;
   face.dataset.lightStrength = "1";
   face.dataset.lightSource = "screen";
@@ -1062,8 +1081,6 @@ function nodeGraphKnobFaceToPatch(face) {
       rotate: Boolean(layer.rotate),
     })),
     rotationDegrees: f.rotationDegrees,
-    showReadout: f.showReadout,
-    showLabel: f.showLabel,
   };
 }
 
@@ -1312,21 +1329,6 @@ function setNodeGraphKnobFaceRotationDegreesFromContext({ record = true } = {}) 
 /** @deprecated Offset removed — span is always centered (−span/2 … +span/2). */
 function setNodeGraphKnobFaceRotationOffsetFromContext() {
   // no-op (kept so old bindings do not throw)
-}
-
-function setNodeGraphKnobFaceShowReadoutFromContext({ record = true } = {}) {
-  const sourceNode = typeof nodeGraphPatchNode === "function"
-    ? nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId?.())
-    : null;
-  if (!sourceNode || sourceNode.type !== "knob") {
-    return;
-  }
-  const input = document.getElementById("nodeSceneKnobFaceShowReadout");
-  const prev = nodeGraphKnobFaceForNode(sourceNode);
-  commitNodeGraphKnobFace({
-    ...prev,
-    showReadout: Boolean(input?.checked),
-  }, { record, status: "value slider readout visibility updated" });
 }
 
 /**

@@ -736,7 +736,7 @@ function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
  * ───────────────────
  *  💻 / V  — computer view: infinite canvas, no crop, no resize widget.
  *  📱 / V  — phone view: condensed frame + drag-resize widget.
- *  H       — hide/show module header buttons (moduleButtonsVisible).
+ *  H       — hide/show top + bottom app bars (appChromeBarsVisible).
  *
  * Laptop and phone are mutually exclusive canvas modes.
  */
@@ -791,7 +791,7 @@ function toggleNodeGraphModularOnlyControlsVisible() {
 }
 
 /**
- * Top + bottom app bars (scene menu). H is module buttons, not this.
+ * Top + bottom app bars (scene menu). H toggles this.
  */
 function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
   nodeGraphMvp.appChromeBarsVisible = visible !== false;
@@ -1347,15 +1347,111 @@ function resetNodeGraphStartupView() {
   }
 }
 
-// Docked (not floating/draggable) performance surface, toggled on/off,
-// sitting below the modular workspace -- second instances of the exact
-// same keyboardController/pitchModWheel/macroControls module bodies, not
-// a separate implementation. Every one of these already keeps its state
-// in shared nodeGraphMvp fields (midiKeyboardSignal, performance wheel
-// values, macroControls array) and re-renders every matching DOM surface
-// in the whole document on change, so a second instance of each mirrors
-// its node counterpart for free. Populated once at bootstrap; only
-// visibility changes after that.
+// In-flow strip above the bottom transport bar (not floating). Same
+// keyboard / wheels / macros bodies as the graph modules; shared state.
+const nodeGraphControllerDockHeightMin = 72;
+const nodeGraphControllerDockHeightMax = 620;
+
+function nodeGraphControllerDockHeightLimits() {
+  const panel = document.getElementById("nodeWiringPanel");
+  const max = Math.max(
+    nodeGraphControllerDockHeightMin,
+    Math.round((panel?.clientHeight || window.innerHeight || 800) * 0.55),
+  );
+  return {
+    min: nodeGraphControllerDockHeightMin,
+    max: Math.min(nodeGraphControllerDockHeightMax, max),
+  };
+}
+
+function normalizeNodeGraphControllerDockHeight(value) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n <= 0) {
+    return 0;
+  }
+  const limits = nodeGraphControllerDockHeightLimits();
+  return Math.max(limits.min, Math.min(limits.max, n));
+}
+
+function applyNodeGraphControllerDockHeight(height = nodeGraphMvp?.controllerDockHeight) {
+  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  const px = normalizeNodeGraphControllerDockHeight(
+    height ?? nodeGraphMvp?.controllerDockHeight ?? 0,
+  );
+  if (nodeGraphMvp) {
+    nodeGraphMvp.controllerDockHeight = px;
+  }
+  if (!dock) {
+    return px;
+  }
+  dock.classList.toggle("has-controller-height", px > 0);
+  if (px > 0) {
+    dock.style.setProperty("--node-controller-dock-height", `${px}px`);
+  } else {
+    dock.style.removeProperty("--node-controller-dock-height");
+  }
+  if (typeof applyNodeGraphMidiKeyboardLayout === "function") {
+    applyNodeGraphMidiKeyboardLayout();
+  }
+  if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
+    notifyNodeGraphChromeLayoutChanged();
+  }
+  return px;
+}
+
+function beginNodeGraphControllerDockResize(event) {
+  if (event.button > 0) {
+    return false;
+  }
+  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  const handle = event.currentTarget;
+  if (!dock || dock.hidden || !handle) {
+    return false;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  const startY = event.clientY;
+  const startHeight = dock.getBoundingClientRect().height;
+  handle.classList.add("is-dragging");
+  document.body.classList.add("is-resizing-controller-dock");
+  handle.setPointerCapture?.(event.pointerId);
+  const onMove = (moveEvent) => {
+    if (moveEvent.pointerId !== undefined && event.pointerId !== undefined
+      && moveEvent.pointerId !== event.pointerId) {
+      return;
+    }
+    applyNodeGraphControllerDockHeight(startHeight - (moveEvent.clientY - startY));
+  };
+  const onUp = (upEvent) => {
+    if (upEvent.pointerId !== undefined && event.pointerId !== undefined
+      && upEvent.pointerId !== event.pointerId) {
+      return;
+    }
+    handle.classList.remove("is-dragging");
+    document.body.classList.remove("is-resizing-controller-dock");
+    handle.releasePointerCapture?.(event.pointerId);
+    handle.removeEventListener("pointermove", onMove);
+    handle.removeEventListener("pointerup", onUp);
+    handle.removeEventListener("pointercancel", onUp);
+    if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+      saveNodeGraphWorkingPatchToUserSettings({ immediateFile: false });
+    }
+  };
+  handle.addEventListener("pointermove", onMove);
+  handle.addEventListener("pointerup", onUp);
+  handle.addEventListener("pointercancel", onUp);
+  return true;
+}
+
+function bindNodeGraphControllerDockSplit() {
+  const handle = document.getElementById("nodeControllerDockSplit");
+  if (!handle || handle.dataset.dockSplitBound === "true") {
+    return;
+  }
+  handle.dataset.dockSplitBound = "true";
+  handle.addEventListener("pointerdown", beginNodeGraphControllerDockResize);
+}
+
 function initNodeGraphStandaloneMidiKeyboard() {
   const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
   const body = document.getElementById("nodeStandaloneMidiKeyboardBody");
@@ -1369,131 +1465,8 @@ function initNodeGraphStandaloneMidiKeyboard() {
   body.append(createNodeGraphMacroControlsBody(), performanceRow);
   renderNodeGraphKeyboardControllerModules();
   bindNodeGraphMacroControlModuleEvents();
-}
-
-// Free-floating window, same generic drag/resize/lock/keyboard-nudge
-// subsystem as Command Center et al (node-graph-floating-windows.js) --
-// not a workspace-docked panel synced to #nodeGraphWorkspace's width
-// anymore. workspaceWindowStates.standaloneMidiKeyboard is the single
-// source of truth for open/closed, matching every other floating window
-// (no separate ad-hoc visibility flag).
-const nodeStandaloneMidiKeyboardDockDefaultSize = Object.freeze({
-  width: 860,
-  minWidth: 420,
-  // No real ceiling on drag-resize width -- normalizeNodeGraphFloatingWindowSize
-  // falls back to 720 if maxWidth isn't finite, so this can't just be
-  // omitted/Infinity; a large-but-finite number here means the resize is
-  // bounded only by the actual screen (viewportWidth, via viewportMargin: 0
-  // below -- this dock should be draggable all the way to the true edge,
-  // unlike most floating windows which keep the default small margin).
-  maxWidth: 8000,
-  viewportMargin: 0,
-  height: 260,
-  minHeight: 160,
-  maxHeight: 640,
-});
-
-function normalizeNodeGraphStandaloneMidiKeyboardDockSize(size = {}) {
-  return normalizeNodeGraphFloatingWindowSize(size, nodeStandaloneMidiKeyboardDockDefaultSize);
-}
-
-function applyNodeGraphStandaloneMidiKeyboardDockSize(size = nodeGraphMvp.standaloneMidiKeyboardWindowSize) {
-  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
-  const normalized = normalizeNodeGraphStandaloneMidiKeyboardDockSize(size || nodeStandaloneMidiKeyboardDockDefaultSize);
-  nodeGraphMvp.standaloneMidiKeyboardWindowSize = normalized;
-  if (!dock) {
-    return normalized;
-  }
-  applyNodeGraphFloatingWindowSizeVars(dock, "node-standalone-keyboard", nodeStandaloneMidiKeyboardDockDefaultSize, normalized);
-  return normalized;
-}
-
-function positionNodeGraphStandaloneMidiKeyboardDockAtSavedOr(x, y) {
-  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
-  if (!dock) {
-    return;
-  }
-  dock.hidden = false;
-  applyNodeGraphStandaloneMidiKeyboardDockSize();
-  const savedPosition = nodeGraphMvp.workspaceWindowStates?.standaloneMidiKeyboard?.position;
-  const hasSavedPosition =
-    Number.isFinite(Number(savedPosition?.left)) &&
-    Number.isFinite(Number(savedPosition?.top));
-  const { left, top } = nodeGraphFloatingWindowPosition(
-    dock,
-    hasSavedPosition ? savedPosition.left : x,
-    hasSavedPosition ? savedPosition.top : y,
-  );
-  setNodeGraphFloatingWindowViewportPosition(dock, left, top);
-  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState(
-      "standaloneMidiKeyboard",
-      dock,
-      { open: true, position: { left, top } },
-      { persist: false },
-    );
-  }
-}
-
-function beginNodeGraphStandaloneMidiKeyboardDrag(event) {
-  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
-  if (!dock || dock.hidden) {
-    return;
-  }
-  beginNodeGraphFloatingWindowDrag(event, dock, "standaloneMidiKeyboardDragging");
-}
-
-function dragNodeGraphStandaloneMidiKeyboard(event) {
-  dragNodeGraphFloatingWindow(
-    event,
-    "standaloneMidiKeyboardDragging",
-    document.getElementById("nodeStandaloneMidiKeyboardDock"),
-    (next) => {
-      if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-        rememberNodeGraphWorkspaceWindowState(
-          "standaloneMidiKeyboard",
-          document.getElementById("nodeStandaloneMidiKeyboardDock"),
-          { open: true, position: next },
-          { persist: false },
-        );
-      }
-    },
-  );
-}
-
-function endNodeGraphStandaloneMidiKeyboardDrag(event) {
-  endNodeGraphFloatingWindowDrag(event, "standaloneMidiKeyboardDragging", () => {
-    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-      rememberNodeGraphWorkspaceWindowState(
-        "standaloneMidiKeyboard",
-        document.getElementById("nodeStandaloneMidiKeyboardDock"),
-        { open: true },
-        { status: false },
-      );
-    }
-  });
-}
-
-function beginNodeGraphStandaloneMidiKeyboardResize(event) {
-  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
-  beginNodeGraphFloatingWindowResize(event, dock, "standaloneMidiKeyboardResizing");
-}
-
-function dragNodeGraphStandaloneMidiKeyboardResize(event) {
-  dragNodeGraphFloatingWindowResize(event, "standaloneMidiKeyboardResizing", applyNodeGraphStandaloneMidiKeyboardDockSize);
-}
-
-function endNodeGraphStandaloneMidiKeyboardResize(event) {
-  endNodeGraphFloatingWindowResize(event, "standaloneMidiKeyboardResizing", () => {
-    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-      rememberNodeGraphWorkspaceWindowState(
-        "standaloneMidiKeyboard",
-        document.getElementById("nodeStandaloneMidiKeyboardDock"),
-        { open: true, size: normalizeNodeGraphStandaloneMidiKeyboardDockSize(nodeGraphMvp.standaloneMidiKeyboardWindowSize) },
-        { status: false },
-      );
-    }
-  });
+  bindNodeGraphControllerDockSplit();
+  applyNodeGraphControllerDockHeight();
 }
 
 function renderNodeGraphStandaloneMidiKeyboardToggle() {
@@ -1514,19 +1487,11 @@ function closeNodeGraphStandaloneMidiKeyboard() {
   if (dock) {
     dock.hidden = true;
   }
-  if (nodeGraphMvp.standaloneMidiKeyboardDragging?.handle) {
-    nodeGraphMvp.standaloneMidiKeyboardDragging.handle.classList.remove("dragging");
-  }
-  if (nodeGraphMvp.standaloneMidiKeyboardResizing?.handle) {
-    nodeGraphMvp.standaloneMidiKeyboardResizing.handle.classList.remove("dragging");
-  }
-  nodeGraphMvp.standaloneMidiKeyboardDragging = null;
-  nodeGraphMvp.standaloneMidiKeyboardResizing = null;
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState("standaloneMidiKeyboard", dock, { open: false }, { status: false });
   }
   renderNodeGraphStandaloneMidiKeyboardToggle();
-  setNodeInteractionHelp("MIDI keyboard hidden.");
+  setNodeInteractionHelp("Controller hidden.");
 }
 
 function toggleNodeGraphStandaloneMidiKeyboard() {
@@ -1537,16 +1502,16 @@ function toggleNodeGraphStandaloneMidiKeyboard() {
     return;
   }
   initNodeGraphStandaloneMidiKeyboard();
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 900;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 700;
-  const defaultWidth = nodeStandaloneMidiKeyboardDockDefaultSize.width;
-  const defaultHeight = nodeStandaloneMidiKeyboardDockDefaultSize.height;
-  positionNodeGraphStandaloneMidiKeyboardDockAtSavedOr(
-    Math.max(12, (viewportWidth - defaultWidth) / 2),
-    Math.max(12, viewportHeight - defaultHeight - 24),
-  );
+  if (dock) {
+    dock.hidden = false;
+  }
+  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+    rememberNodeGraphWorkspaceWindowState("standaloneMidiKeyboard", dock, { open: true }, { persist: false });
+  }
+  bindNodeGraphControllerDockSplit();
+  applyNodeGraphControllerDockHeight();
   renderNodeGraphStandaloneMidiKeyboardToggle();
-  setNodeInteractionHelp("MIDI keyboard shown.");
+  setNodeInteractionHelp("Controller shown.");
 }
 
 function nodeGraphTooltipsShown() {
@@ -1887,6 +1852,7 @@ function normalizeNodeGraphMacroKnobSizeScale(value) {
 function applyNodeGraphMacroKnobSizeScale() {
   const scale = normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale);
   document.documentElement?.style?.setProperty("--macro-knob-size-scale", String(scale));
+  document.documentElement?.style?.setProperty("--macro-knob-cell", `${Math.round(56 * scale)}px`);
 }
 
 function setNodeGraphMacroKnobSizeScale(value) {
@@ -1901,31 +1867,8 @@ function setNodeGraphMacroKnobSizeScale(value) {
   applyNodeGraphMacroKnobSizeScale();
 }
 
-// The knob's actual interactive hit region is the whole rectangular
-// button (.node-macro-knob), not just the visible circular dial inside
-// it -- dragging/clicking works anywhere in that rectangle, including the
-// corners well outside the arc. This just makes that real hit region
-// visible with a one-pixel stroke so it stops being a surprise; it
-// doesn't change the hit region itself.
-function applyNodeGraphMacroKnobHitboxOutlineVisible() {
-  // Toggled on body rather than #nodeGraphWorkspace -- macro knobs also
-  // render inside the standalone MIDI keyboard dock, which isn't a
-  // descendant of the workspace, so this needs to reach both.
-  document.body.classList.toggle("macro-knob-hitbox-outline", Boolean(nodeGraphMvp.macroKnobHitboxOutlineVisible));
-}
-
-function setNodeGraphMacroKnobHitboxOutlineVisible(visible) {
-  if (typeof setNodeGraphMacroControlsFaceSettings === "function") {
-    setNodeGraphMacroControlsFaceSettings({
-      ...nodeGraphMacroControlsFaceSettings(),
-      hitboxOutline: Boolean(visible),
-    });
-    return;
-  }
-  nodeGraphMvp.macroKnobHitboxOutlineVisible = Boolean(visible);
-  applyNodeGraphMacroKnobHitboxOutlineVisible();
-}
-
+// Hit region is the circular dial (not the rectangular cell). Outline
+// draws on the dial so the visible stroke matches the real hit.
 // Where the label and value readout sit (top/mid/bottom). These are
 // absolutely positioned within the knob button, entirely independent of
 // the dial's own layout -- an earlier version put label/value/dial in a
@@ -2058,6 +2001,12 @@ function beginNodeGraphMacroControlDrag(event) {
     return;
   }
   const knob = event.currentTarget;
+  if (
+    typeof nodeGraphPointInCircularKnob === "function"
+    && !nodeGraphPointInCircularKnob(knob, event.clientX, event.clientY)
+  ) {
+    return;
+  }
   const index = Math.max(0, Math.min(7, Math.round(Number(knob.dataset.macroIndex) || 0)));
   event.preventDefault();
   knob.setPointerCapture?.(event.pointerId);
@@ -2228,7 +2177,7 @@ function nodeGraphMidiKeyboardKeyCount(value = nodeGraphMvp.midiKeyboardKeyCount
   const count = Math.round(Number(value));
   return Number.isFinite(count)
     ? Math.max(nodeGraphMidiKeyboardMinKeyCount, Math.min(nodeGraphMidiKeyboardMaxKeyCount, count))
-    : 25;
+    : 88;
 }
 
 // Walks startMidi..startMidi+keyCount-1, classifying each MIDI note as a
@@ -2267,7 +2216,6 @@ function nodeGraphMidiKeyboardGenerateKeys(startMidi = nodeGraphMidiKeyboardStar
 function renderNodeGraphMidiKeyboardKeys() {
   const { whiteKeys, blackKeys, totalWhite } = nodeGraphMidiKeyboardGenerateKeys();
   const octave = nodeGraphMidiKeyboardOctaveOffset();
-  const blackWidthPercent = totalWhite > 0 ? (0.63 / totalWhite) * 100 : 4.2;
   document.querySelectorAll(".node-midi-keyboard-module .node-midi-keyboard-surface").forEach((surface) => {
     const whiteRow = surface.querySelector(".node-midi-keyboard-white-row");
     const blackRow = surface.querySelector(".node-midi-keyboard-black-row");
@@ -2279,19 +2227,20 @@ function renderNodeGraphMidiKeyboardKeys() {
       const span = document.createElement("span");
       span.dataset.midi = String(key.midi);
       span.dataset.keyIndex = String(key.index);
-      span.textContent = nodeGraphMidiKeyboardPitchLabel(nodeGraphMidiKeyboardShiftMidi(key.midi, octave));
+      span.textContent = nodeGraphMidiKeyboardKeyCapText(nodeGraphMidiKeyboardShiftMidi(key.midi, octave));
       return span;
     }));
     blackRow.replaceChildren(...blackKeys.map((key) => {
       const span = document.createElement("span");
       span.dataset.midi = String(key.midi);
       span.dataset.keyIndex = String(key.index);
-      span.style.setProperty("--key-left", `${key.leftPercent}%`);
-      span.style.width = `${blackWidthPercent}%`;
-      span.textContent = nodeGraphMidiKeyboardPitchLabel(nodeGraphMidiKeyboardShiftMidi(key.midi, octave));
+      span.textContent = nodeGraphMidiKeyboardKeyCapText(nodeGraphMidiKeyboardShiftMidi(key.midi, octave));
       return span;
     }));
   });
+  if (typeof applyNodeGraphMidiKeyboardLayout === "function") {
+    applyNodeGraphMidiKeyboardLayout();
+  }
   renderNodeGraphMidiKeyboardSignal(null);
   renderNodeGraphMidiKeyboardHeldKeys();
 }
@@ -2502,7 +2451,15 @@ function changeNodeGraphMidiKeyboardKeyCount(delta) {
 const nodeGraphMidiKeyboardMinOctave = -4;
 const nodeGraphMidiKeyboardMaxOctave = 4;
 const nodeGraphMidiKeyboardNoteNames = Object.freeze(["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]);
-const nodeGraphMidiKeyboardMemoryStorageKey = "soemdsp-sandbox-midi-keyboard-memory-v1";
+const nodeGraphMidiKeyboardMemoryStorageKey = "soemdsp-sandbox-midi-keyboard-memory-v2";
+
+function nodeGraphMidiListenChannel(value = nodeGraphMvp.midiListenChannel) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n <= 0) {
+    return 0;
+  }
+  return Math.min(16, n);
+}
 
 function nodeGraphMidiKeyboardClamp01(value) {
   return clampNodeSliderValue(Number(value) || 0, 0, 1);
@@ -2553,7 +2510,11 @@ function nodeGraphMidiKeyboardMemoryPayload() {
     heldKeysLowBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(nodeGraphMvp.midiKeyboardHeldKeysLowBitmask),
     heldKeysHighBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(nodeGraphMvp.midiKeyboardHeldKeysHighBitmask),
     inputId: nodeGraphMvp.midiKeyboardInputId || "",
+    listenChannel: nodeGraphMidiListenChannel(),
     keyCount: nodeGraphMidiKeyboardKeyCount(),
+    layout: typeof nodeGraphMidiKeyboardLayoutSettings === "function"
+      ? nodeGraphMidiKeyboardLayoutSettings()
+      : (nodeGraphMvp.midiKeyboardLayout || null),
     mode: nodeGraphMidiKeyboardMode(),
     modWheel: nodeGraphPerformanceModWheelValue(),
     octave: nodeGraphMidiKeyboardOctaveOffset(),
@@ -2588,7 +2549,11 @@ function loadNodeGraphMidiKeyboardMemory() {
       heldKeysLowBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(payload.heldKeysLowBitmask),
       heldKeysHighBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(payload.heldKeysHighBitmask),
       inputId: String(payload.inputId || ""),
+      listenChannel: nodeGraphMidiListenChannel(payload.listenChannel),
       keyCount: nodeGraphMidiKeyboardKeyCount(payload.keyCount),
+      layout: typeof normalizeNodeGraphMidiKeyboardLayout === "function"
+        ? normalizeNodeGraphMidiKeyboardLayout(payload.layout)
+        : payload.layout,
       mode: nodeGraphMidiKeyboardMode(payload.mode),
       modWheel: nodeGraphPerformanceModWheelValue(payload.modWheel),
       octave: nodeGraphMidiKeyboardOctaveOffset(payload.octave),
@@ -2609,7 +2574,11 @@ function applyNodeGraphMidiKeyboardMemory() {
   nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = memory.heldKeysLowBitmask;
   nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = memory.heldKeysHighBitmask;
   nodeGraphMvp.midiKeyboardInputId = memory.inputId;
+  nodeGraphMvp.midiListenChannel = memory.listenChannel;
   nodeGraphMvp.midiKeyboardKeyCount = memory.keyCount;
+  if (memory.layout) {
+    nodeGraphMvp.midiKeyboardLayout = memory.layout;
+  }
   nodeGraphMvp.midiKeyboardMode = memory.mode;
   nodeGraphMvp.modWheelSignal = memory.modWheel;
   nodeGraphMvp.midiKeyboardOctave = memory.octave;
@@ -2727,6 +2696,20 @@ function nodeGraphMidiKeyboardPitchLabel(midi) {
   return `${note}${Math.floor(rounded / 12) - 2}`;
 }
 
+function nodeGraphMidiKeyboardKeyCapText(midi) {
+  const mode = typeof nodeGraphMidiKeyboardLayoutSettings === "function"
+    ? nodeGraphMidiKeyboardLayoutSettings().keyLabels
+    : "name";
+  if (mode === "off") {
+    return "";
+  }
+  const rounded = Math.max(0, Math.min(127, Math.round(Number(midi) || 0)));
+  if (mode === "number") {
+    return String(rounded);
+  }
+  return nodeGraphMidiKeyboardPitchLabel(rounded);
+}
+
 function nodeGraphMidiKeyboardOctaveOffset(value = nodeGraphMvp.midiKeyboardOctave) {
   return Math.max(
     nodeGraphMidiKeyboardMinOctave,
@@ -2769,8 +2752,9 @@ function renderNodeGraphMidiKeyboardKeyLabels() {
   const octave = nodeGraphMidiKeyboardOctaveOffset();
   document.querySelectorAll(".node-midi-keyboard-module [data-midi]").forEach((key) => {
     const rawMidi = Math.round(Number(key.dataset.midi) || 0);
-    key.textContent = nodeGraphMidiKeyboardPitchLabel(nodeGraphMidiKeyboardShiftMidi(rawMidi, octave));
-    key.setAttribute("aria-label", `${key.textContent} / MIDI ${nodeGraphMidiKeyboardShiftMidi(rawMidi, octave)}`);
+    const sounding = nodeGraphMidiKeyboardShiftMidi(rawMidi, octave);
+    key.textContent = nodeGraphMidiKeyboardKeyCapText(sounding);
+    key.setAttribute("aria-label", `${nodeGraphMidiKeyboardPitchLabel(sounding)} / MIDI ${sounding}`);
   });
 }
 
@@ -2816,9 +2800,12 @@ function nodeGraphMidiKeyboardFallbackSignal() {
 function nodeGraphMidiKeyboardSignalFromPointer(event, surface) {
   const rect = surface.getBoundingClientRect();
   const x = nodeGraphMidiKeyboardClamp01((event.clientX - rect.left) / Math.max(1, rect.width));
-  const y = nodeGraphMidiKeyboardClamp01(1 - (event.clientY - rect.top) / Math.max(1, rect.height));
   const target = event.target?.closest?.("[data-midi]");
-  const targetMidi = target && surface.contains(target) ? Number(target.dataset.midi) : NaN;
+  const key = target && surface.contains(target) ? target : null;
+  const keyRect = key?.getBoundingClientRect?.();
+  const yRect = keyRect && keyRect.height > 0 ? keyRect : rect;
+  const y = nodeGraphMidiKeyboardClamp01(1 - (event.clientY - yRect.top) / Math.max(1, yRect.height));
+  const targetMidi = key ? Number(key.dataset.midi) : NaN;
   const fallbackKeyIndex = Math.min(
     nodeGraphMidiKeyboardKeyCount() - 1,
     Math.max(0, Math.floor(x * nodeGraphMidiKeyboardKeyCount())),
@@ -2969,6 +2956,9 @@ function renderNodeGraphMidiKeyboardSignal(signal = null) {
     y: nextSignal
       ? nodeGraphMidiKeyboardFixedDecimal(nextSignal.y, { decimalPlaces: 3, maxDigits: 4, width: 5 })
       : nodeGraphMidiKeyboardFixedDecimal(0, { decimalPlaces: 3, maxDigits: 4, width: 5 }),
+    velocity: nextSignal
+      ? nodeGraphMidiKeyboardFixedInteger(Math.round(nodeGraphMidiKeyboardClamp01(nextSignal.y) * 127), 3, "0")
+      : nodeGraphMidiKeyboardFixedText("-", 3),
   };
   document.querySelectorAll(".node-midi-keyboard-module [data-keyboard-signal]").forEach((field) => {
     const key = field.dataset.keyboardSignal;
@@ -3119,6 +3109,9 @@ function bindNodeGraphMidiKeyboardScrubControls() {
   document.querySelectorAll("[data-midi-keyboard-key-count-value]").forEach((element) => {
     bindNodeGraphMidiKeyboardScrubControl(element, changeNodeGraphMidiKeyboardKeyCount);
   });
+  document.querySelectorAll("[data-midi-listen-channel-value]").forEach((element) => {
+    bindNodeGraphMidiKeyboardScrubControl(element, changeNodeGraphMidiListenChannel);
+  });
 }
 
 function changeNodeGraphMidiKeyboardOctave(delta) {
@@ -3245,20 +3238,37 @@ function handleNodeGraphMidiKeyboardPointerLeave() {
 
 function renderNodeGraphMidiKeyboardInputControls() {
   const inputs = Array.isArray(nodeGraphMvp.midiKeyboardInputs) ? nodeGraphMvp.midiKeyboardInputs : [];
-  document.querySelectorAll("[data-midi-keyboard-midi-button]").forEach((button) => {
-    button.textContent = nodeGraphMvp.midiKeyboardAccess ? "Refresh MIDI" : "Enable MIDI";
-  });
   document.querySelectorAll("[data-midi-keyboard-midi-input]").forEach((select) => {
     const selected = nodeGraphMvp.midiKeyboardInputId || "";
-    select.replaceChildren(new Option(inputs.length ? "all midi inputs" : "no midi input", ""));
+    select.replaceChildren(new Option("Off", ""));
     for (const input of inputs) {
-      select.append(new Option(input.name || input.id || "midi input", input.id));
+      select.append(new Option(input.name || input.id || "MIDI input", input.id));
     }
-    select.disabled = !inputs.length;
+    select.disabled = false;
     select.value = inputs.some((input) => input.id === selected) ? selected : "";
   });
+  renderNodeGraphMidiListenChannelControl();
   renderNodeGraphMidiKeyboardModeControl();
   renderNodeGraphMidiToggleButton();
+}
+
+function renderNodeGraphMidiListenChannelControl() {
+  const channel = nodeGraphMidiListenChannel();
+  document.querySelectorAll("[data-midi-listen-channel-value]").forEach((value) => {
+    value.textContent = String(channel);
+  });
+  document.querySelectorAll("[data-midi-listen-channel-down]").forEach((down) => {
+    down.disabled = channel <= 0;
+  });
+  document.querySelectorAll("[data-midi-listen-channel-up]").forEach((up) => {
+    up.disabled = channel >= 16;
+  });
+}
+
+function changeNodeGraphMidiListenChannel(delta) {
+  nodeGraphMvp.midiListenChannel = nodeGraphMidiListenChannel(nodeGraphMidiListenChannel() + delta);
+  saveNodeGraphMidiKeyboardMemory();
+  renderNodeGraphMidiListenChannelControl();
 }
 
 function refreshNodeGraphMidiKeyboardInputs() {
@@ -3362,16 +3372,23 @@ function handleNodeGraphMidiKeyboardInputChange(event) {
   nodeGraphMvp.midiKeyboardInputId = event.currentTarget.value || "";
   saveNodeGraphMidiKeyboardMemory();
   renderNodeGraphMidiKeyboardInputControls();
+  if (nodeGraphMvp.midiKeyboardInputId && !nodeGraphMvp.midiInputEnabled) {
+    toggleNodeGraphMidiInput();
+  }
 }
 
 function handleNodeGraphMidiKeyboardMessage(event) {
   const input = event.currentTarget;
-  if (nodeGraphMvp.midiKeyboardInputId && input?.id !== nodeGraphMvp.midiKeyboardInputId) {
+  if (!nodeGraphMvp.midiKeyboardInputId || input?.id !== nodeGraphMvp.midiKeyboardInputId) {
     return;
   }
   const [status = 0, data1 = 0, data2 = 0] = Array.from(event.data || []);
   const command = status & 0xf0;
   const channel = (status & 0x0f) + 1;
+  const listen = nodeGraphMidiListenChannel();
+  if (listen && channel !== listen) {
+    return;
+  }
   if (command === 0xb0 && data1 === 1) {
     const value = Math.max(0, Math.min(127, Math.round(data2))) / 127;
     setNodeGraphPerformanceWheel("modWheel", value, `ch ${channel} mod wheel ${value.toFixed(3)}`);
@@ -3431,19 +3448,26 @@ function bindNodeGraphKeyboardControllerModuleEvents() {
     wheel.addEventListener("pointerup", endNodeGraphPerformanceWheelDrag);
     wheel.addEventListener("pointercancel", endNodeGraphPerformanceWheelDrag);
   });
-  document.querySelectorAll("[data-midi-keyboard-midi-button]").forEach((button) => {
-    if (button.dataset.midiKeyboardButtonBound === "true") {
-      return;
-    }
-    button.dataset.midiKeyboardButtonBound = "true";
-    button.addEventListener("click", enableNodeGraphMidiKeyboardInput);
-  });
   document.querySelectorAll("[data-midi-keyboard-midi-input]").forEach((select) => {
     if (select.dataset.midiKeyboardInputBound === "true") {
       return;
     }
     select.dataset.midiKeyboardInputBound = "true";
     select.addEventListener("change", handleNodeGraphMidiKeyboardInputChange);
+  });
+  document.querySelectorAll("[data-midi-listen-channel-down]").forEach((button) => {
+    if (button.dataset.midiListenChannelBound === "true") {
+      return;
+    }
+    button.dataset.midiListenChannelBound = "true";
+    button.addEventListener("click", () => changeNodeGraphMidiListenChannel(-1));
+  });
+  document.querySelectorAll("[data-midi-listen-channel-up]").forEach((button) => {
+    if (button.dataset.midiListenChannelBound === "true") {
+      return;
+    }
+    button.dataset.midiListenChannelBound = "true";
+    button.addEventListener("click", () => changeNodeGraphMidiListenChannel(1));
   });
   document.querySelectorAll("[data-midi-keyboard-mode-select]").forEach((select) => {
     if (select.dataset.midiKeyboardModeBound === "true") {

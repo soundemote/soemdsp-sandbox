@@ -691,75 +691,51 @@ function createNodeGraphMacroControlsBody(node = null) {
 
 // node is optional -- see the comment on createNodeGraphKeyboardControllerBody;
 // same reuse pattern for the standalone performance dock.
+function nodeGraphPerformanceWheelSpecs() {
+  return [
+    { className: "pitch", key: "pitchWheel", label: "Pitch", max: "1", min: "-1" },
+    { className: "mod", key: "modWheel", label: "Mod", max: "1", min: "0" },
+  ];
+}
+
+function createNodeGraphPerformanceWheel(spec) {
+  const wheel = document.createElement("div");
+  wheel.className = `node-midi-keyboard-wheel ${spec.className}`;
+  wheel.dataset.performanceWheel = spec.key;
+  wheel.setAttribute("role", "slider");
+  wheel.setAttribute("aria-label", `${spec.label} wheel`);
+  wheel.setAttribute("aria-valuemin", spec.min);
+  wheel.setAttribute("aria-valuemax", spec.max);
+  wheel.setAttribute("aria-valuenow", "0");
+  wheel.tabIndex = 0;
+  const label = document.createElement("span");
+  label.textContent = spec.label;
+  const indicator = document.createElement("i");
+  const value = document.createElement("strong");
+  value.dataset.performanceWheelValue = spec.key;
+  value.textContent = "0.000";
+  wheel.append(label, indicator, value);
+  return wheel;
+}
+
 function createNodeGraphPitchModWheelBody(node = null) {
   const section = document.createElement("section");
-  section.className = "node-performance-wheels-panel node-performance-wheels-module";
+  section.className = "node-performance-wheels-panel node-performance-wheels-module node-module-face";
+  section.dataset.moduleBand = "face";
   if (node) {
     section.dataset.node = node;
   }
   section.setAttribute("aria-label", "Pitch and modulation wheels");
-  const heading = document.createElement("div");
-  heading.className = "node-performance-wheels-heading";
-  const kicker = document.createElement("span");
-  kicker.textContent = "Performance";
-  const strong = document.createElement("strong");
-  strong.textContent = "Pitch / Mod Wheels";
-  heading.append(kicker, strong);
   const bank = document.createElement("div");
   bank.className = "node-midi-keyboard-wheel-bank";
-  const specs = [
-    { className: "pitch", key: "pitchWheel", label: "Pitch", max: "1", min: "-1" },
-    { className: "mod", key: "modWheel", label: "Mod", max: "1", min: "0" },
-  ];
-  for (const spec of specs) {
-    const wheel = document.createElement("div");
-    wheel.className = `node-midi-keyboard-wheel ${spec.className}`;
-    wheel.dataset.performanceWheel = spec.key;
-    wheel.setAttribute("role", "slider");
-    wheel.setAttribute("aria-label", `${spec.label} wheel`);
-    wheel.setAttribute("aria-valuemin", spec.min);
-    wheel.setAttribute("aria-valuemax", spec.max);
-    wheel.setAttribute("aria-valuenow", "0");
-    wheel.tabIndex = 0;
-    const label = document.createElement("span");
-    label.textContent = spec.label;
-    const indicator = document.createElement("i");
-    const value = document.createElement("strong");
-    value.dataset.performanceWheelValue = spec.key;
-    value.textContent = "0.000";
-    wheel.append(label, indicator, value);
-    bank.append(wheel);
+  for (const spec of nodeGraphPerformanceWheelSpecs()) {
+    bank.append(createNodeGraphPerformanceWheel(spec));
   }
-  section.append(heading, bank);
+  section.append(bank);
   return section;
 }
 
-// node is optional -- the standalone MIDI keyboard dock (see
-// initNodeGraphStandaloneMidiKeyboard) calls this with no node at all.
-// Everything below is already generic/document-wide (renderNodeGraphMidiKeyboardSignal
-// and bindNodeGraphKeyboardControllerModuleEvents both query
-// ".node-midi-keyboard-module" across the whole document, not a specific
-// node), so a standalone instance mirrors every keyboardController node's
-// keyboard for free -- same shared nodeGraphMvp.midiKeyboardSignal, same
-// "active" key highlighting on every rendered surface.
-function createNodeGraphKeyboardControllerBody(node = null) {
-  const section = document.createElement("section");
-  section.className = "node-midi-keyboard-panel node-midi-keyboard-module";
-  if (node) {
-    section.dataset.node = node;
-  }
-  section.setAttribute("aria-label", "Mouse playable MIDI keyboard");
-  const heading = document.createElement("div");
-  heading.className = "node-midi-keyboard-heading";
-  const title = document.createElement("div");
-  title.className = "node-midi-keyboard-title";
-  const titleKicker = document.createElement("span");
-  titleKicker.textContent = "Instrument";
-  const titleStrong = document.createElement("strong");
-  titleStrong.textContent = "MIDI Keyboard";
-  title.append(titleKicker, titleStrong);
-  const controls = document.createElement("div");
-  controls.className = "node-midi-keyboard-midi-controls";
+function createNodeGraphMidiModeControl() {
   const modeLabel = document.createElement("label");
   modeLabel.className = "node-midi-keyboard-mode-control";
   const modeText = document.createElement("span");
@@ -774,60 +750,131 @@ function createNodeGraphKeyboardControllerBody(node = null) {
     modeSelect.append(option);
   }
   modeLabel.append(modeText, modeSelect);
-  const octave = document.createElement("span");
-  octave.className = "node-midi-keyboard-octave-control";
-  octave.setAttribute("aria-label", "Keyboard octave transpose");
+  return modeLabel;
+}
+
+function createNodeGraphPlusMinusControl(spec) {
+  const wrap = document.createElement("span");
+  wrap.className = "node-midi-keyboard-octave-control";
+  wrap.setAttribute("aria-label", spec.ariaLabel);
   const down = document.createElement("button");
   down.type = "button";
-  down.dataset.midiKeyboardOctaveDown = "true";
-  down.setAttribute("aria-label", "Transpose keyboard down one octave");
+  down.dataset[spec.downKey] = "true";
+  down.setAttribute("aria-label", spec.downAria);
   down.textContent = "-";
-  const octaveValue = document.createElement("strong");
-  octaveValue.dataset.midiKeyboardOctaveValue = "true";
-  octaveValue.textContent = "+0";
+  const value = document.createElement("strong");
+  value.dataset[spec.valueKey] = "true";
+  value.textContent = spec.valueText || "0";
   const up = document.createElement("button");
   up.type = "button";
-  up.dataset.midiKeyboardOctaveUp = "true";
-  up.setAttribute("aria-label", "Transpose keyboard up one octave");
+  up.dataset[spec.upKey] = "true";
+  up.setAttribute("aria-label", spec.upAria);
   up.textContent = "+";
-  octave.append(down, octaveValue, up);
-  const keyCount = document.createElement("span");
-  keyCount.className = "node-midi-keyboard-octave-control";
-  keyCount.setAttribute("aria-label", "Number of keys");
-  const keyCountDown = document.createElement("button");
-  keyCountDown.type = "button";
-  keyCountDown.dataset.midiKeyboardKeyCountDown = "true";
-  keyCountDown.setAttribute("aria-label", "Show fewer keys");
-  keyCountDown.textContent = "-";
-  const keyCountValue = document.createElement("strong");
-  keyCountValue.dataset.midiKeyboardKeyCountValue = "true";
-  keyCountValue.textContent = "25";
-  const keyCountUp = document.createElement("button");
-  keyCountUp.type = "button";
-  keyCountUp.dataset.midiKeyboardKeyCountUp = "true";
-  keyCountUp.setAttribute("aria-label", "Show more keys");
-  keyCountUp.textContent = "+";
-  keyCount.append(keyCountDown, keyCountValue, keyCountUp);
-  const midiButton = document.createElement("button");
-  midiButton.type = "button";
-  midiButton.dataset.midiKeyboardMidiButton = "true";
-  midiButton.textContent = "Enable MIDI";
-  const midiSelect = document.createElement("select");
-  midiSelect.dataset.midiKeyboardMidiInput = "true";
-  midiSelect.setAttribute("aria-label", "MIDI keyboard input");
-  midiSelect.disabled = true;
-  const emptyOption = document.createElement("option");
-  emptyOption.value = "";
-  emptyOption.textContent = "no midi input";
-  midiSelect.append(emptyOption);
-  controls.append(modeLabel, octave, keyCount, midiButton, midiSelect);
-  heading.append(title, controls);
+  wrap.append(down, value, up);
+  return wrap;
+}
+
+function createNodeGraphMidiListenControls() {
+  const host = document.createElement("div");
+  host.className = "node-midi-listen";
+  const inputRow = document.createElement("label");
+  inputRow.className = "node-midi-listen-row";
+  const inputLabel = document.createElement("span");
+  inputLabel.textContent = "Input";
+  const inputSelect = document.createElement("select");
+  inputSelect.dataset.midiKeyboardMidiInput = "true";
+  inputSelect.setAttribute("aria-label", "MIDI input");
+  inputSelect.append(new Option("Off", ""));
+  inputRow.append(inputLabel, inputSelect);
+  const channelRow = document.createElement("label");
+  channelRow.className = "node-midi-listen-row";
+  const channelLabel = document.createElement("span");
+  channelLabel.textContent = "Channel";
+  const channel = createNodeGraphPlusMinusControl({
+    ariaLabel: "MIDI listen channel",
+    downKey: "midiListenChannelDown",
+    valueKey: "midiListenChannelValue",
+    upKey: "midiListenChannelUp",
+    downAria: "MIDI channel down",
+    upAria: "MIDI channel up",
+    valueText: "0",
+  });
+  channelRow.append(channelLabel, channel);
+  host.append(inputRow, channelRow);
+  return host;
+}
+
+function createNodeGraphMidiModuleBody(node = null) {
+  const section = document.createElement("section");
+  section.className = "node-midi-module node-module-interface-controls";
+  section.dataset.moduleBand = "controls";
+  if (node) {
+    section.dataset.node = node;
+  }
+  section.setAttribute("aria-label", "MIDI");
+  section.append(createNodeGraphMidiListenControls());
+  return section;
+}
+
+// Standalone dock piano. The placed keyboardController module is the official
+// MIDI module (createNodeGraphMidiModuleBody) — this body is only the dock.
+function createNodeGraphKeyboardControllerBody(node = null) {
+  const section = document.createElement("section");
+  section.className = "node-midi-keyboard-panel node-midi-keyboard-module";
+  if (node) {
+    section.dataset.node = node;
+  }
+  section.setAttribute("aria-label", "MIDI keyboard");
+  const heading = document.createElement("div");
+  heading.className = "node-midi-keyboard-heading";
+  const controls = document.createElement("div");
+  controls.className = "node-midi-keyboard-midi-controls";
+  const modeLabel = createNodeGraphMidiModeControl();
+  const octave = createNodeGraphPlusMinusControl({
+    ariaLabel: "Keyboard octave transpose",
+    downKey: "midiKeyboardOctaveDown",
+    valueKey: "midiKeyboardOctaveValue",
+    upKey: "midiKeyboardOctaveUp",
+    downAria: "Transpose keyboard down one octave",
+    upAria: "Transpose keyboard up one octave",
+    valueText: "+0",
+  });
+  const keyCount = createNodeGraphPlusMinusControl({
+    ariaLabel: "Number of keys",
+    downKey: "midiKeyboardKeyCountDown",
+    valueKey: "midiKeyboardKeyCountValue",
+    upKey: "midiKeyboardKeyCountUp",
+    downAria: "Show fewer keys",
+    upAria: "Show more keys",
+    valueText: "88",
+  });
+  const liveReadouts = document.createElement("span");
+  liveReadouts.className = "node-midi-keyboard-live-readouts";
+  liveReadouts.setAttribute("aria-live", "polite");
+  for (const [key, labelText, valueText] of [
+    ["frequency", "freq", "-"],
+    ["pitch", "pitch", "-"],
+    ["midi", "midi", "-"],
+    ["x", "x", "0.000"],
+    ["y", "y", "0.000"],
+    ["velocity", "vel", "-"],
+  ]) {
+    const item = document.createElement("span");
+    item.append(document.createTextNode(`${labelText} `));
+    const value = document.createElement("strong");
+    value.dataset.keyboardSignal = key;
+    value.textContent = valueText;
+    item.append(value);
+    liveReadouts.append(item);
+  }
+  controls.append(modeLabel, octave, keyCount, liveReadouts);
+  heading.append(controls);
 
   const performance = document.createElement("div");
   performance.className = "node-midi-keyboard-performance";
   const surface = document.createElement("div");
   surface.className = "node-midi-keyboard-surface";
-  surface.setAttribute("aria-label", "Two octave keyboard preview");
+  surface.setAttribute("aria-label", "MIDI keyboard");
   // Left empty -- populated by renderNodeGraphMidiKeyboardKeys (called
   // from bindNodeGraphKeyboardControllerModuleEvents right after mount)
   // from the current key count, since the key set is now user-configurable
@@ -855,10 +902,6 @@ function createNodeGraphKeyboardControllerBody(node = null) {
     ["double", "double", "-"],
     ["tenthVoltPerOctave", ".1v/oct", "-"],
     ["increment", "inc", "-"],
-    ["frequency", "freq", "-"],
-    ["pitch", "pitch", "-"],
-    ["x", "x", "0.000"],
-    ["y", "y", "0.000"],
   ];
   for (const [key, labelText, valueText] of signals) {
     const item = document.createElement("span");

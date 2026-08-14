@@ -496,7 +496,7 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
   if (!element) {
     return;
   }
-  if (typeof markNodeGraphFloatingWindowSurface === "function") {
+  if (key !== "standaloneMidiKeyboard" && typeof markNodeGraphFloatingWindowSurface === "function") {
     markNodeGraphFloatingWindowSurface(element);
   }
   if (key === "oscilloscopeSettings") {
@@ -507,11 +507,8 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
     initNodeGraphStandaloneMidiKeyboard();
   }
   element.hidden = !state.open;
-  if (state.open && typeof raiseNodeGraphFloatingWindow === "function") {
+  if (key !== "standaloneMidiKeyboard" && state.open && typeof raiseNodeGraphFloatingWindow === "function") {
     raiseNodeGraphFloatingWindow(element);
-  }
-  if (key === "standaloneMidiKeyboard" && typeof applyNodeGraphStandaloneMidiKeyboardDockSize === "function") {
-    applyNodeGraphStandaloneMidiKeyboardDockSize(state.size);
   }
   if (key === "uiSettings" && typeof applyNodeUserUiSettingsWindowSize === "function") {
     applyNodeUserUiSettingsWindowSize(state.size);
@@ -680,6 +677,9 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const tooltipEmbedHeight = typeof normalizeNodeGraphTooltipEmbedHeight === "function"
     ? normalizeNodeGraphTooltipEmbedHeight(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight ?? 46)
     : Math.max(32, Math.min(320, Math.round(Number(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight) || 46)));
+  const controllerDockHeight = typeof normalizeNodeGraphControllerDockHeight === "function"
+    ? normalizeNodeGraphControllerDockHeight(view.controllerDockHeight ?? nodeGraphMvp.controllerDockHeight ?? 0)
+    : Math.max(0, Math.min(620, Math.round(Number(view.controllerDockHeight ?? nodeGraphMvp.controllerDockHeight) || 0)));
   const moduleButtonsVisible = Boolean(view.moduleButtonsVisible ?? nodeGraphMvp.moduleButtonsVisible);
   const appChromeBarsVisible = view.appChromeBarsVisible === undefined
     ? (nodeGraphMvp.appChromeBarsVisible !== false)
@@ -743,9 +743,6 @@ function normalizeNodeUiDevSettings(settings = {}) {
   }
   if (macroControlsFaceRaw.sizeScale == null) {
     macroControlsFaceRaw.sizeScale = view.macroKnobSizeScale ?? nodeGraphMvp.macroKnobSizeScale;
-  }
-  if (macroControlsFaceRaw.hitboxOutline == null) {
-    macroControlsFaceRaw.hitboxOutline = view.macroKnobHitboxOutlineVisible ?? nodeGraphMvp.macroKnobHitboxOutlineVisible;
   }
   if (macroControlsFaceRaw.labelPosition == null) {
     macroControlsFaceRaw.labelPosition = view.macroKnobLabelPosition ?? nodeGraphMvp.macroKnobLabelPosition;
@@ -869,6 +866,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
       keyboardDebugInfoVisible,
       tooltipEmbedded,
       tooltipEmbedHeight,
+      controllerDockHeight,
       moduleButtonsVisible,
       appChromeBarsVisible,
       moduleInterfaceControlsVisible,
@@ -968,6 +966,9 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       tooltipEmbedHeight: typeof normalizeNodeGraphTooltipEmbedHeight === "function"
         ? normalizeNodeGraphTooltipEmbedHeight(nodeGraphMvp.tooltipEmbedHeight ?? 46)
         : Math.max(32, Math.min(320, Math.round(Number(nodeGraphMvp.tooltipEmbedHeight) || 46))),
+      controllerDockHeight: typeof normalizeNodeGraphControllerDockHeight === "function"
+        ? normalizeNodeGraphControllerDockHeight(nodeGraphMvp.controllerDockHeight ?? 0)
+        : Math.max(0, Math.min(620, Math.round(Number(nodeGraphMvp.controllerDockHeight) || 0))),
       moduleButtonsVisible: Boolean(nodeGraphMvp.moduleButtonsVisible),
       appChromeBarsVisible: nodeGraphMvp.appChromeBarsVisible !== false,
       moduleInterfaceControlsVisible: Boolean(nodeGraphMvp.moduleInterfaceControlsVisible),
@@ -1113,6 +1114,12 @@ function applyNodeUiDevSettings(settings) {
     applyNodeGraphTooltipEmbed({ shown: nodeGraphMvp.tooltipEmbedded });
   } else if (typeof applyNodeGraphTooltipEmbedHeight === "function") {
     applyNodeGraphTooltipEmbedHeight(nodeGraphMvp.tooltipEmbedHeight);
+  }
+  nodeGraphMvp.controllerDockHeight = typeof normalizeNodeGraphControllerDockHeight === "function"
+    ? normalizeNodeGraphControllerDockHeight(normalized.view.controllerDockHeight ?? 0)
+    : Math.max(0, Math.min(620, Math.round(Number(normalized.view.controllerDockHeight) || 0)));
+  if (typeof applyNodeGraphControllerDockHeight === "function") {
+    applyNodeGraphControllerDockHeight(nodeGraphMvp.controllerDockHeight);
   }
   nodeGraphMvp.moduleButtonsVisible = Boolean(normalized.view.moduleButtonsVisible);
   nodeGraphMvp.appChromeBarsVisible = normalized.view.appChromeBarsVisible === undefined

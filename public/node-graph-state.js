@@ -74,7 +74,6 @@ var nodeGraphMvp = {
   macroKnobArcThickness: 7,
   macroKnobArcGapBrightness: 0,
   macroKnobSizeScale: 1,
-  macroKnobHitboxOutlineVisible: false,
   macroKnobLabelPosition: "top",
   // Value centered in the circle; title sits above the dial widget.
   macroKnobValuePosition: "mid",
@@ -89,7 +88,9 @@ var nodeGraphMvp = {
   midiKeyboardHeldNotes: new Map(),
   midiKeyboardInputId: "",
   midiKeyboardInputs: [],
+  midiListenChannel: 0,
   midiKeyboardMemoryLoaded: false,
+  midiKeyboardLayout: null,
   midiKeyboardMode: "press",
   midiKeyboardOctave: 0,
   midiKeyboardPointerHeldSignal: null,
@@ -140,7 +141,7 @@ var nodeGraphMvp = {
     planEvidence: null,
     activeNodeIds: new Set(),
     autoSmoothingSeconds: 0.5,
-    autoSmoothingManual: false,
+    autoSmoothingManual: true,
     lastParameterUpdateTime: 0,
     outputToggleSerial: 0,
     planSerial: 0,
@@ -173,6 +174,8 @@ var nodeGraphMvp = {
   // closed | open | embedLeft | embedRight | float
   unifiedWindowPresentation: "closed",
   commandCenterDockWidth: 320,
+  // 0 = hug controller content. After the user drags the seam, stored px.
+  controllerDockHeight: 0,
   _unifiedWindowSwitching: false,
   _unifiedWindowPendingPosition: null,
   moduleActionDragging: null,

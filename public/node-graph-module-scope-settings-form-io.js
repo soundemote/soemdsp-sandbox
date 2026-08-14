@@ -87,6 +87,11 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       bindNodeGraphMacroControlsFaceDisplaySettingsBody(host);
     }
   }
+  if (type === "keyboardControllerFace") {
+    if (typeof bindNodeGraphKeyboardControllerFaceDisplaySettingsBody === "function") {
+      bindNodeGraphKeyboardControllerFaceDisplaySettingsBody(host);
+    }
+  }
   // RGB Picture: load / clear image.
   if (type === "rgbPictureFace") {
     if (typeof bindNodeGraphRgbPictureDisplaySettingsEvents === "function") {
@@ -676,8 +681,18 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   ) {
     return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings);
   }
-  if (settingsSchema === "trace") {
+  if (settingsSchema === "trace" || settingsSchema === "traceXyz") {
     return nodeGraphTraceDisplaySettingsForNode(node);
+  }
+  if (settingsSchema === "gradientVectorscopeFace") {
+    return typeof normalizeNodeGraphGradientVectorscopeSettings === "function"
+      ? normalizeNodeGraphGradientVectorscopeSettings(node.traceDisplaySettings)
+      : (node.traceDisplaySettings || {});
+  }
+  if (settingsSchema === "vectorRgbFace") {
+    return typeof normalizeNodeGraphVectorRgbSettings === "function"
+      ? normalizeNodeGraphVectorRgbSettings(node.traceDisplaySettings)
+      : (node.traceDisplaySettings || {});
   }
   return nodeGraphGlobalTraceSettings();
 }
@@ -816,6 +831,12 @@ function readNodeGraphTraceDisplaySettingsForm() {
       next[key] = sanitizedValue;
       if (key === "dot1Brightness") {
         next.brightness = sanitizedValue;
+      }
+      if (key === "zoomSeconds") {
+        next.historySeconds = sanitizedValue;
+      }
+      if (key === "historySeconds") {
+        next.zoomSeconds = sanitizedValue;
       }
       // Value LED/LCD: app-wide Trail/Ghost map onto hang + 8-floor aliases.
       if (key === "trail") {
@@ -962,6 +983,12 @@ function nodeGraphDisplaySettingsFormValue(settings, key) {
   }
   if (key === "syncChannel") {
     return nodeGraphTraceDisplaySyncChannel(settings);
+  }
+  if (key === "zoomSeconds") {
+    return settings.zoomSeconds ?? settings.historySeconds;
+  }
+  if (key === "historySeconds") {
+    return settings.historySeconds ?? settings.zoomSeconds;
   }
   return settings[key];
 }

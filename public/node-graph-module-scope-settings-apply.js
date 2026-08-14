@@ -96,9 +96,6 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
       const nextFace = {
         ...face,
         rotationDegrees: normalized.rotationDegrees,
-        // Keep face blob in sync for image-layer rotate math (centered span).
-        showReadout: normalized.showReadout,
-        showLabel: normalized.showLabel,
       };
       node.knobFace = typeof nodeGraphKnobFaceToPatch === "function"
         ? nodeGraphKnobFaceToPatch(nextFace)

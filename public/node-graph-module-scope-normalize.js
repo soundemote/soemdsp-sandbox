@@ -683,8 +683,20 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
     ),
     secondaryLineThickness: 0,
     cycles: normalizeNodeGraphTraceDisplayNumber(source.cycles, defaults.cycles, -Infinity, Infinity),
-    // Trace is hard-stroke only (blur not meaningful for Canvas paths).
-    lineThickness: 0,
+    lineThickness: typeof nodeGraphTraceDisplayClampStampBlur === "function"
+      ? nodeGraphTraceDisplayClampStampBlur(source.lineThickness ?? source.blur ?? defaults.lineThickness)
+      : normalizeNodeGraphTraceDisplayNumber(
+        source.lineThickness ?? source.blur,
+        defaults.lineThickness ?? 0.15,
+        0,
+        1,
+      ),
+    dotBudget: Math.max(
+      64,
+      Math.min(8192, Math.round(
+        Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget || 2048,
+      )),
+    ),
     pixelDensity: normalizeNodeGraphTraceDisplayNumber(
       source.pixelDensity,
       defaults.pixelDensity,
@@ -736,7 +748,17 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       }
       return defaults.syncChannel || "off";
     })(),
-    zoomSeconds: normalizeNodeGraphTraceDisplayZoomSeconds(zoomSeconds, defaults.zoomSeconds),
+    zoomSeconds: normalizeNodeGraphTraceDisplayZoomSeconds(
+      source.historySeconds ?? zoomSeconds,
+      defaults.historySeconds ?? defaults.zoomSeconds,
+    ),
+    historySeconds: normalizeNodeGraphTraceDisplayZoomSeconds(
+      source.historySeconds ?? zoomSeconds,
+      defaults.historySeconds ?? defaults.zoomSeconds,
+    ),
+    xyzLayout: String(source.xyzLayout || defaults.xyzLayout || "stack").toLowerCase() === "separate"
+      ? "separate"
+      : "stack",
   };
 }
 
@@ -1094,8 +1116,6 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
     ),
     arcFill: parseColor(source.arcFill ?? source.dot1Color, defaults.arcFill),
     arcTrack: parseColor(source.arcTrack ?? source.secondaryColor, defaults.arcTrack),
-    showLabel: source.showLabel !== false && source.showLabel !== "false",
-    showReadout: source.showReadout !== false && source.showReadout !== "false",
     // Centered span only (offset removed — start is always −span/2).
     rotationDegrees: normalizeNodeGraphTraceDisplayNumber(
       source.rotationDegrees,
@@ -1111,6 +1131,30 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
       0,
       1,
     ),
+    labelSize: normalizeNodeGraphTraceDisplayNumber(
+      source.labelSize ?? source.titleSize,
+      defaults.labelSize ?? 0.45,
+      0,
+      1,
+    ),
+    valueSize: normalizeNodeGraphTraceDisplayNumber(
+      source.valueSize ?? source.readoutSize,
+      defaults.valueSize ?? 0.45,
+      0,
+      1,
+    ),
+    labelPosition: normalizeNodeGraphKnobFaceTextPosition(
+      source.showLabel === false || source.showLabel === "false"
+        ? "off"
+        : (source.labelPosition ?? source.titlePosition),
+      defaults.labelPosition || "above",
+    ),
+    valuePosition: normalizeNodeGraphKnobFaceTextPosition(
+      source.showReadout === false || source.showReadout === "false"
+        ? "off"
+        : (source.valuePosition ?? source.readoutPosition),
+      defaults.valuePosition || "mid",
+    ),
     // Arc ring hole 0…1 (maps to 1 − thickness of the conic mask).
     innerRadius: normalizeNodeGraphTraceDisplayNumber(
       source.innerRadius ?? source.arcInnerRadius,
@@ -1119,6 +1163,26 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
       0.95,
     ),
   };
+}
+
+const nodeGraphKnobFaceTextPositions = Object.freeze(["off", "above", "mid", "below"]);
+
+function normalizeNodeGraphKnobFaceTextPosition(value, fallback = "mid") {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "top") {
+    return "above";
+  }
+  if (raw === "middle" || raw === "center") {
+    return "mid";
+  }
+  if (raw === "bottom") {
+    return "below";
+  }
+  if (nodeGraphKnobFaceTextPositions.includes(raw)) {
+    return raw;
+  }
+  const fb = String(fallback || "mid").trim().toLowerCase();
+  return nodeGraphKnobFaceTextPositions.includes(fb) ? fb : "mid";
 }
 
 

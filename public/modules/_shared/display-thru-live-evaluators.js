@@ -47,6 +47,11 @@
   nodeGraphLiveModuleEvaluators.scope2dTrace = xyThru("scope2dTrace X", "scope2dTrace Y");
   nodeGraphLiveModuleEvaluators.visualOscilloscope = xyThru("visualOscilloscope X", "visualOscilloscope Y");
   nodeGraphLiveModuleEvaluators.gradientVectorscope = xyThru("gradientVectorscope X", "gradientVectorscope Y");
+  nodeGraphLiveModuleEvaluators.traceXyz = ({ runtime, nodeId, mixInput }) => ({
+    X: nodeGraphSafeFilterNumber(mixInput(nodeId, "X"), runtime, nodeId, null, "traceXyz X"),
+    Y: nodeGraphSafeFilterNumber(mixInput(nodeId, "Y"), runtime, nodeId, null, "traceXyz Y"),
+    Z: nodeGraphSafeFilterNumber(mixInput(nodeId, "Z"), runtime, nodeId, null, "traceXyz Z"),
+  });
   nodeGraphLiveModuleEvaluators.vectorRgb = ({ runtime, nodeId, mixInput }) => ({
     X: nodeGraphSafeFilterNumber(mixInput(nodeId, "X"), runtime, nodeId, null, "vectorRgb X"),
     Y: nodeGraphSafeFilterNumber(mixInput(nodeId, "Y"), runtime, nodeId, null, "vectorRgb Y"),
