@@ -34,6 +34,20 @@ function nodeGraphKeypadFaceFor(nodeId) {
   return document.querySelector(`.dsp-node[data-node="${CSS.escape(String(nodeId || ""))}"] .node-keypad-face`);
 }
 
+/** Room-dimmer hole: 50% like LCD plates (not a full phosphor punch). */
+const NODE_GRAPH_KEYPAD_DISPLAY_LIGHT_STRENGTH = 0.5;
+
+function nodeGraphKeypadApplyScreenLight(face) {
+  if (!face) return;
+  const s = NODE_GRAPH_KEYPAD_DISPLAY_LIGHT_STRENGTH;
+  face.classList.add("node-light-source");
+  face.dataset.lightSource = "screen";
+  face.dataset.lightStrength = String(s);
+  if (typeof setNodeGraphLightStrength === "function") {
+    setNodeGraphLightStrength(face, s);
+  }
+}
+
 function nodeGraphKeypadApplyLayout(face, layout) {
   if (!face) return;
   const next = typeof normalizeNodeGraphKeypadLayout === "function"
@@ -388,9 +402,8 @@ function createNodeGraphKeypadBody(node) {
   face.dataset.node = nodeId;
   face.dataset.nodeType = "keypad";
   face.dataset.moduleBand = "face";
-  face.dataset.lightSource = "screen";
-  face.dataset.lightStrength = "1";
   face.setAttribute("aria-label", "Keypad");
+  nodeGraphKeypadApplyScreenLight(face);
   const grid = document.createElement("div");
   grid.className = "node-keypad-grid";
   grid.setAttribute("role", "group");
@@ -504,6 +517,7 @@ function createNodeGraphKeypadBody(node) {
 function syncNodeGraphKeypadElement(element, patchNode) {
   const face = element?.querySelector?.(".node-keypad-face");
   if (!face || !patchNode) return;
+  nodeGraphKeypadApplyScreenLight(face);
   nodeGraphKeypadApplyLayout(face, patchNode.layout);
   if (nodeGraphKeypadNodeIsLatch(patchNode) && nodeGraphKeypadFaceLatchOn(face)) {
     nodeGraphKeypadPaintWithOffset(face, nodeGraphKeypadFaceLatchSlot(face), true, patchNode);

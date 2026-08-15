@@ -454,7 +454,11 @@ void main() {
     seen.add(punchEl);
     seen.add(el);
 
-    const str = lightStrength(punchEl) * (opts.strengthScale == null ? 1 : opts.strengthScale);
+    const scale = opts.strengthScale == null ? 1 : opts.strengthScale;
+    // Keypad plate = LCD-style partial hole (50%), not a full phosphor punch.
+    const str = punchEl.matches?.(".node-keypad-face")
+      ? 0.5 * scale
+      : lightStrength(punchEl) * scale;
     if (str < 0.001) return;
 
     const r = punchEl.getBoundingClientRect();
