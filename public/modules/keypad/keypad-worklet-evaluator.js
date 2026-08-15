@@ -7,9 +7,13 @@ NodeLiveAudioProcessor.prototype.setKeypadInteraction = function setKeypadIntera
   if (!nodeId) return;
   if (!(this.keypadStates instanceof Map)) this.keypadStates = new Map();
   const state = this.keypadStates.get(nodeId) || this.createKeypadState();
+  state.needsRestore = false;
   if (message.down !== undefined) state.down = message.down ? 1 : 0;
-  if (message.pointerSlot !== undefined) {
-    state.pointerSlot = nodeGraphKeypadWrap(message.pointerSlot);
+  if (message.latched !== undefined) state.latched = message.latched ? 1 : 0;
+  if (Object.prototype.hasOwnProperty.call(message, "pointerSlot")) {
+    state.pointerSlot = message.pointerSlot == null || message.pointerSlot === ""
+      ? null
+      : nodeGraphKeypadWrap(message.pointerSlot);
   }
   this.keypadStates.set(nodeId, state);
 };

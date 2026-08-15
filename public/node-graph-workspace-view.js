@@ -3,6 +3,9 @@ function applyNodeGraphPan(options = {}) {
   if (!workspace) {
     return;
   }
+  if (!nodeGraphMvp?.workspaceCameraBox && typeof rememberNodeGraphWorkspaceCameraBox === "function") {
+    rememberNodeGraphWorkspaceCameraBox(workspace);
+  }
   // Light CSS pan every sample; heavy chrome coalesced during gestures.
   if (typeof applyNodeGraphViewportCssLight === "function") {
     applyNodeGraphViewportCssLight({ zoom: false, pan: true, zoomButtons: false });

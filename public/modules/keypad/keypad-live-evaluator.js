@@ -20,5 +20,6 @@ nodeGraphLiveModuleEvaluators.keypad = ({
     hasDigital: hasInput(nodeId, "Digital"),
     mode,
     offset,
+    slot: node?.params?.slot,
   });
 };

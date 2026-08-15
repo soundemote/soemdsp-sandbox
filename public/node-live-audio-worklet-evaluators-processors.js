@@ -1150,6 +1150,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           hasDigital: hasInput(nodeId, "Digital"),
           mode: this.readEffectiveParameter(node, "mode", 0, frame, frames, frameValues),
           offset: this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues),
+          slot: node?.params?.slot,
         });
       },
       gate12: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>

@@ -139,7 +139,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   }
   if (formType === "numberReadout" && (key === "trail" || key === "residual")) {
     label = "Trail";
-    title = "How long residual hangs. 0 = no trail (wipe); 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.";
+    title = "Mix from Ghost-only toward linear, then freeze. 0 = Ghost only; 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.";
   }
   if (formType === "numberReadout" && key === "burn") {
     label = "Burn";

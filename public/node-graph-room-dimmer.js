@@ -6,9 +6,12 @@
 // At 100% the room is blacked out; painted displays stay lit (rect punches) and
 // the dimmer button stays punched/stacked above the veil so you can drag back.
 //
-// Simple light sim only:
-//   - black veil alpha = dim (true 0…1)
-//   - hard rect holes from painted light faces + the dimmer control itself
+// Two-stage dim (cheap; no extra passes):
+//   0…0.5 — current room trick: bg mixes toward black, full workspace punch,
+//            module lamps stay full. Veil never covers the graph.
+//   0.5…1 — workspace punch fades, module lamps fade, only painted screens
+//            stay open. Screen holes pick up the same soft/spread as module
+//            glow (soft square, not a hard stamp).
 // Cables stay under the veil.
 //
 // Punch geometry:
@@ -23,7 +26,7 @@
 
   const STORAGE_KEY = "soemdsp-sandbox.roomDimmer.v1";
   const MAX_RECTS = 128;
-  const SHADER_REV = 10;
+  const SHADER_REV = 13;
   // Inset punch by this many CSS px so 1px borders / AA don't open chrome.
   const PUNCH_INSET_CSS = 1.25;
 
@@ -50,6 +53,16 @@
     "[data-light-source]",
     ".node-light-source",
   ].join(", ");
+  const SCREEN_SELECTOR = [
+    "canvas.node-phosphor-waveform-canvas",
+    "canvas.node-module-scope-local-fallback-canvas",
+    "canvas.node-xy-pad-canvas",
+    "canvas.node-number-readout-canvas",
+    "canvas.node-asciiscope-canvas",
+    "canvas.node-matrix-display-canvas",
+    "canvas.node-filter-curve-canvas",
+    "canvas.node-raster-rgb-canvas",
+  ].join(", ");
   // Default mouse cutout size (CSS px); UI Dev can override.
   const HOVER_CURSOR_CUTOUT_CSS_DEFAULT = 56;
 
@@ -66,27 +79,31 @@ void main() {
 precision mediump float;
 
 uniform float uDim;
+uniform vec2 uCanvasPx;
 uniform int uRectCount;
 uniform vec4 uRect[${MAX_RECTS}];
 uniform float uRectStr[${MAX_RECTS}];
-// Soft edge width in UV (0 ≈ hard AA). Roundness 0=square … 1=circle.
+// Soft edge / corner radius in CSS pixels (isotropic). 0 ≈ 0.6px AA.
 uniform float uRectSoft[${MAX_RECTS}];
 uniform float uRectRound[${MAX_RECTS}];
 
 varying vec2 vUv;
 
-// Rounded box SDF in UV space (r = xy min, zw size; rr = corner radius 0…half-min).
-float roundedBoxSdf(vec2 p, vec4 r, float rr) {
+// Rounded box SDF in CSS-pixel space (r = xy min, zw size in UV).
+float roundedBoxSdfPx(vec2 pPx, vec4 rUv, float rrPx) {
+  vec2 scale = max(uCanvasPx, vec2(1.0));
+  vec4 r = vec4(rUv.xy * scale, rUv.zw * scale);
   vec2 c = r.xy + r.zw * 0.5;
   vec2 h = max(r.zw * 0.5, vec2(1e-4));
-  float rad = clamp(rr, 0.0, min(h.x, h.y));
-  vec2 q = abs(p - c) - h + vec2(rad);
+  float rad = clamp(rrPx, 0.0, min(h.x, h.y));
+  vec2 q = abs(pPx - c) - h + vec2(rad);
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rad;
 }
 
 void main() {
   // Dim is a true 0…1 gain: 0 = no veil, 1 = pure black outside holes.
   float veil = clamp(uDim, 0.0, 1.0);
+  vec2 pPx = vUv * max(uCanvasPx, vec2(1.0));
 
   // open = 1 → full hole (nothing of the veil over this pixel).
   float open = 0.0;
@@ -94,10 +111,21 @@ void main() {
     if (i >= uRectCount) break;
     float s = clamp(uRectStr[i], 0.0, 1.0);
     if (s < 0.001) continue;
-    float soft = max(uRectSoft[i], 0.0005);
-    float d = roundedBoxSdf(vUv, uRect[i], uRectRound[i]);
-    // soft = edge feather in UV; strength s is hole gain.
-    float inside = 1.0 - smoothstep(-soft, soft, d);
+    float d = roundedBoxSdfPx(pPx, uRect[i], uRectRound[i]);
+    float soft = uRectSoft[i];
+    float inside;
+    if (soft < 0.0) {
+      // Screen: fully open on the glass (d<=0). Smoothstep *outward* only.
+      float bloom = max(-soft, 1.0);
+      float t = clamp(max(d, 0.0) / bloom, 0.0, 1.0);
+      float s1 = t * t * (3.0 - 2.0 * t);
+      float fall = 1.0 - s1 * s1;
+      float core = 1.0 - smoothstep(-0.6, 0.6, d);
+      inside = max(core, fall);
+    } else {
+      float feather = max(soft, 0.6);
+      inside = 1.0 - smoothstep(-feather, feather, d);
+    }
     open = max(open, inside * s);
   }
   open = clamp(open, 0.0, 1.0);
@@ -130,6 +158,115 @@ void main() {
   /** Live dim is full range 0…1 (100% blacks out the UI; button stays punched). */
   function clampDim(n) {
     return clamp01(n);
+  }
+
+  /** 0 below half-dim; 1 at full black. Second-stage mix. */
+  function dimDeep(dim = state.dim) {
+    const d = clampDim(dim);
+    return d <= 0.5 ? 0 : Math.min(1, (d - 0.5) * 2);
+  }
+
+  function isScreenPunch(el) {
+    return Boolean(el?.matches?.(SCREEN_SELECTOR));
+  }
+
+  function simulationOn() {
+    if (typeof nodeGraphLiveEngineIsUp === "function") {
+      return Boolean(nodeGraphLiveEngineIsUp());
+    }
+    const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.live : null;
+    return Boolean(live && live.outputEnabled && live.node);
+  }
+
+  function moduleLightSpread() {
+    const ws = workspace();
+    if (!ws) return 0.78;
+    const raw = Number.parseFloat(
+      ws.style.getPropertyValue("--node-module-light-spread")
+      || getComputedStyle(ws).getPropertyValue("--node-module-light-spread")
+      || "",
+    );
+    return Number.isFinite(raw) ? Math.max(0.4, Math.min(2.2, raw)) : 0.78;
+  }
+
+  function layoutBoxInNode(el, node) {
+    if (!el || !node) {
+      return null;
+    }
+    let x = 0;
+    let y = 0;
+    let n = el;
+    while (n && n !== node) {
+      x += n.offsetLeft || 0;
+      y += n.offsetTop || 0;
+      const next = n.offsetParent;
+      if (!next || next === node) {
+        break;
+      }
+      if (!node.contains(next)) {
+        return null;
+      }
+      n = next;
+    }
+    const w = el.offsetWidth || 0;
+    const h = el.offsetHeight || 0;
+    if (!(w > 0) || !(h > 0)) {
+      return null;
+    }
+    return { x, y, w, h };
+  }
+
+  /**
+   * Visual client rect that tracks CSS `zoom` the same way module lamps do
+   * (graph --node-x/y * zoom + origin). getBoundingClientRect on a zoomed
+   * descendant drifts vs a fixed overlay.
+   */
+  function visualClientRect(el) {
+    const node = el?.closest?.(".dsp-node");
+    const ws = workspace();
+    if (
+      !node
+      || !ws
+      || typeof nodeGraphNodeBounds !== "function"
+      || typeof nodeGraphRenderedOriginOffset !== "function"
+    ) {
+      return el.getBoundingClientRect();
+    }
+    const local = layoutBoxInNode(el, node);
+    if (!local) {
+      return el.getBoundingClientRect();
+    }
+    const nb = nodeGraphNodeBounds(node);
+    const zoom = typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1;
+    const origin = nodeGraphRenderedOriginOffset();
+    const wr = ws.getBoundingClientRect();
+    const left = wr.left + (Number(origin.x) || 0) + (nb.left + local.x) * zoom;
+    const top = wr.top + (Number(origin.y) || 0) + (nb.top + local.y) * zoom;
+    const width = local.w * zoom;
+    const height = local.h * zoom;
+    return {
+      left,
+      top,
+      right: left + width,
+      bottom: top + height,
+      width,
+      height,
+    };
+  }
+
+  function punchCornerRadiusPx(el, boxW, boxH) {
+    if (!el) {
+      return 0;
+    }
+    const cs = getComputedStyle(el);
+    const raw = String(cs.borderTopLeftRadius || "").trim();
+    const n = Number.parseFloat(raw);
+    if (!Number.isFinite(n) || n <= 0) {
+      return 0;
+    }
+    const short = Math.max(1, Math.min(Number(boxW) || 0, Number(boxH) || 0));
+    const px = raw.endsWith("%") ? (n / 100) * short : n;
+    return Math.max(0, Math.min(short * 0.5, px));
   }
 
   // Persist at most half-dark so a refresh never restores a pure-black UI.
@@ -262,6 +399,7 @@ void main() {
     state.locs = {
       aPos: gl.getAttribLocation(prog, "aPos"),
       uDim: gl.getUniformLocation(prog, "uDim"),
+      uCanvasPx: gl.getUniformLocation(prog, "uCanvasPx"),
       uRectCount: gl.getUniformLocation(prog, "uRectCount"),
       uRect: Array.from({ length: MAX_RECTS }, (_, i) =>
         gl.getUniformLocation(prog, `uRect[${i}]`)),
@@ -361,7 +499,7 @@ void main() {
     rounds.push(Math.max(0, Number(round) || 0));
   }
 
-  function pushRectLight(el, canvasRect, canvas, seen, rects, strengths, softs, rounds) {
+  function pushRectLight(el, canvasRect, canvas, seen, rects, strengths, softs, rounds, opts = {}) {
     if (!el || seen.has(el)) return;
     if (el.offsetParent === null && el !== document.body) {
       // Zoom surface uses pointer-events:none; offsetParent can be null.
@@ -384,41 +522,55 @@ void main() {
     seen.add(punchEl);
     seen.add(el);
 
-    const str = lightStrength(punchEl);
+    const str = lightStrength(punchEl) * (opts.strengthScale == null ? 1 : opts.strengthScale);
     if (str < 0.001) return;
 
-    const r = punchEl.getBoundingClientRect();
+    const r = visualClientRect(punchEl);
     if (r.width < 1.5 || r.height < 1.5) return;
 
-    // Map in the veil canvas's client space (same box the GL buffer fills).
     const cr = canvasRect;
     const cssW = Math.max(1e-6, cr.width);
     const cssH = Math.max(1e-6, cr.height);
-    // Device-pixel snap after inset so zoom doesn't leave half-pixel leaks.
-    const dprX = canvas.width / cssW;
-    const dprY = canvas.height / cssH;
-    const insetX = Math.max(1, Math.round(PUNCH_INSET_CSS * dprX));
-    const insetY = Math.max(1, Math.round(PUNCH_INSET_CSS * dprY));
-
-    let leftPx = Math.round((r.left - cr.left) * dprX) + insetX;
-    let topPx = Math.round((r.top - cr.top) * dprY) + insetY;
-    let rightPx = Math.round((r.right - cr.left) * dprX) - insetX;
-    let bottomPx = Math.round((r.bottom - cr.top) * dprY) - insetY;
-    if (rightPx <= leftPx + 1 || bottomPx <= topPx + 1) {
-      // Face smaller than inset budget — use un-inset snapped rect.
-      leftPx = Math.round((r.left - cr.left) * dprX);
-      topPx = Math.round((r.top - cr.top) * dprY);
-      rightPx = Math.round((r.right - cr.left) * dprX);
-      bottomPx = Math.round((r.bottom - cr.top) * dprY);
+    const screenSoft = Number(opts.screenSoft) || 0;
+    const glowOn = screenSoft > 0 && simulationOn();
+    const zoom = typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1;
+    // Client → UV, no buffer-pixel snap (that drifted under CSS zoom).
+    let left = Number(r.left) - cr.left;
+    let top = Number(r.top) - cr.top;
+    let right = Number(r.right) - cr.left;
+    let bottom = Number(r.bottom) - cr.top;
+    if (screenSoft > 0) {
+      left -= 0.5;
+      top -= 0.5;
+      right += 0.5;
+      bottom += 0.5;
+    } else {
+      const inset = PUNCH_INSET_CSS;
+      left += inset;
+      top += inset;
+      right -= inset;
+      bottom -= inset;
+      if (right <= left + 1 || bottom <= top + 1) {
+        left = Number(r.left) - cr.left;
+        top = Number(r.top) - cr.top;
+        right = Number(r.right) - cr.left;
+        bottom = Number(r.bottom) - cr.top;
+      }
     }
-    if (rightPx <= leftPx || bottomPx <= topPx) return;
+    if (right <= left || bottom <= top) return;
 
-    // Shader UV: origin bottom-left of canvas buffer (matches previous convention).
-    const x = leftPx / canvas.width;
-    const y = (canvas.height - bottomPx) / canvas.height;
-    const w = (rightPx - leftPx) / canvas.width;
-    const h = (bottomPx - topPx) / canvas.height;
-    pushRectArrays(rects, strengths, softs, rounds, x, y, w, h, str, 0, 0);
+    const x = left / cssW;
+    const y = (cssH - bottom) / cssH;
+    const w = (right - left) / cssW;
+    const h = (bottom - top) / cssH;
+    const bloomCss = glowOn
+      ? Math.max(18, Math.min(96, (14 + 16 * (moduleLightSpread() - 0.4)) * Math.max(1, zoom))) * screenSoft
+      : 0;
+    const soft = glowOn ? -bloomCss : 0;
+    const layoutW = punchEl.offsetWidth || r.width / Math.max(zoom, 1e-6);
+    const layoutH = punchEl.offsetHeight || r.height / Math.max(zoom, 1e-6);
+    const round = punchCornerRadiusPx(punchEl, layoutW, layoutH) * Math.max(zoom, 1e-6);
+    pushRectArrays(rects, strengths, softs, rounds, x, y, w, h, str, soft, round);
   }
 
   /**
@@ -479,6 +631,25 @@ void main() {
     const rectStr = [];
     const rectSoft = [];
     const rectRound = [];
+    // 0…0.5: punch the whole graph (current room trick). 0.5…1: fade that
+    // hole so the veil covers plates; only painted screens stay open.
+    const deep = dimDeep();
+    const ws = workspace();
+    if (ws) {
+      const wr = ws.getBoundingClientRect();
+      pushClientRectLight(
+        wr,
+        canvasRect,
+        canvas,
+        rects,
+        rectStr,
+        rectSoft,
+        rectRound,
+        1 - deep,
+        0,
+        0,
+      );
+    }
     // Lights live in the graph; query the document so we still find them if
     // the canvas is reparented outside the workspace.
     const root = document;
@@ -486,7 +657,19 @@ void main() {
       if (rects.length >= MAX_RECTS) break;
       // Dimmer control is handled below (always full hole, even at 100% dim).
       if (el.closest?.("#nodeRoomDimmerButton, .node-room-dimmer-button")) continue;
-      pushRectLight(el, canvasRect, canvas, seen, rects, rectStr, rectSoft, rectRound);
+      const punchEl = resolvePunchElement(el);
+      const screen = isScreenPunch(el) || isScreenPunch(punchEl);
+      if (deep > 0 && screen) {
+        pushRectLight(el, canvasRect, canvas, seen, rects, rectStr, rectSoft, rectRound, {
+          screenSoft: deep,
+        });
+      } else if (deep > 0) {
+        pushRectLight(el, canvasRect, canvas, seen, rects, rectStr, rectSoft, rectRound, {
+          strengthScale: 1 - deep,
+        });
+      } else {
+        pushRectLight(el, canvasRect, canvas, seen, rects, rectStr, rectSoft, rectRound);
+      }
     }
 
     // Always punch the dimmer button so it stays visible/usable at full black.
@@ -525,8 +708,8 @@ void main() {
         rectSoft,
         rectRound,
         1,
-        mouseOpts.softUv,
-        mouseOpts.roundUv,
+        mouseOpts.softUv * cssW,
+        mouseOpts.roundUv * cssW,
       );
     }
 
@@ -578,7 +761,11 @@ void main() {
     gl.enableVertexAttribArray(locs.aPos);
     gl.vertexAttribPointer(locs.aPos, 2, gl.FLOAT, false, 0, 0);
 
+    const cr = canvas.getBoundingClientRect();
     gl.uniform1f(locs.uDim, dim);
+    if (locs.uCanvasPx) {
+      gl.uniform2f(locs.uCanvasPx, Math.max(1, cr.width || canvas.width), Math.max(1, cr.height || canvas.height));
+    }
     gl.uniform1i(locs.uRectCount, rects.length);
 
     for (let i = 0; i < MAX_RECTS; i += 1) {
@@ -618,7 +805,13 @@ void main() {
     const on = dim > 0.0005;
     const pct = Math.round(dim * 100);
     // Drives CSS crossfade: on opacity = 1−dim, off opacity = dim.
+    const deep = dimDeep(dim);
     btn.style.setProperty("--room-dim", String(dim));
+    btn.style.setProperty("--room-dim-deep", String(deep));
+    workspace()?.style.setProperty("--room-dim", String(dim));
+    workspace()?.style.setProperty("--room-dim-deep", String(deep));
+    veilHost()?.style?.setProperty?.("--room-dim", String(dim));
+    veilHost()?.style?.setProperty?.("--room-dim-deep", String(deep));
     btn.setAttribute("aria-pressed", on ? "true" : "false");
     btn.setAttribute("aria-valuenow", String(pct));
     btn.setAttribute("aria-valuemin", "0");
@@ -851,7 +1044,9 @@ void main() {
 
   window.setNodeGraphRoomDim = setDim;
   window.nodeGraphRoomDim = () => clampDim(state.dim);
+  window.nodeGraphRoomDimDeep = () => dimDeep();
   window.nodeGraphRoomDimMax = () => 1;
+  window.nodeGraphRoomDimScreenSelector = () => SCREEN_SELECTOR;
   window.bindNodeGraphRoomDimmer = bind;
   window.setNodeGraphLightStrength = setLightStrength;
   window.scheduleNodeGraphRoomDimmerDraw = scheduleDraw;

@@ -4009,7 +4009,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   align-items: stretch;
   justify-items: stretch;
   gap: 0;
-  padding: 0 6px;
+  padding: 6px 12px;
   white-space: normal;
   font-size: clamp(0.95rem, calc(var(--node-toolbar-row-height) * 0.40), 1.35rem);
   font-weight: 700;
@@ -4045,7 +4045,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 #nodeUndoButton,
 #nodeRedoButton,
-#nodeHistoryDeleteButton {
+#nodeHistoryLastAction {
   flex: 0.55 1 0;
   min-inline-size: 0;
   padding: 6px;
@@ -4054,21 +4054,60 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   letter-spacing: 0.02em;
 }
 
+#nodeHistoryLastAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  flex: 0.42 1 0;
+  box-sizing: border-box;
+  min-width: 4.4em;
+  background: #050607;
+  color: rgba(236, 240, 241, 0.92);
+  box-shadow: none;
+  font-family: inherit;
+  line-height: 1;
+  text-transform: none;
+  transition:
+    background-color 2s ease-out,
+    box-shadow 2s ease-out,
+    color 2s ease-out;
+}
+
+#nodeUndoButton,
+#nodeRedoButton,
+#nodeSceneUndoButton,
+#nodeSceneRedoButton {
+  box-shadow: none;
+  transition:
+    background-color 2s ease-out,
+    box-shadow 2s ease-out,
+    color 2s ease-out;
+}
+
 #nodeUndoButton.is-history-glow-undo,
 #nodeSceneUndoButton.is-history-glow-undo {
+  transition-duration: 0s;
+  color: #fff !important;
+  background: #c62828 !important;
+  box-shadow: 0 0 0 1px #ff8a80, 0 0 14px 3px rgba(229, 57, 53, 0.88);
+}
+
+#nodeRedoButton.is-history-glow-redo,
+#nodeSceneRedoButton.is-history-glow-redo {
+  transition-duration: 0s;
   color: #06240c !important;
   background: #2ecc71 !important;
   box-shadow: 0 0 0 1px #81f4b0, 0 0 14px 3px rgba(46, 204, 113, 0.88);
 }
 
-#nodeRedoButton.is-history-glow-redo,
-#nodeSceneRedoButton.is-history-glow-redo {
+#nodeHistoryLastAction.is-history-glow-last {
+  transition-duration: 0s;
   color: #fff !important;
   background: #1565c0 !important;
   box-shadow: 0 0 0 1px #82b1ff, 0 0 14px 3px rgba(33, 150, 243, 0.88);
 }
 
-#nodeHistoryDeleteButton.is-history-glow-delete,
 #nodeSceneHistoryDeleteButton.is-history-glow-delete,
 #nodeDeleteButton.is-history-glow-delete,
 #nodeSceneDeleteModule.is-history-glow-delete {
@@ -4243,6 +4282,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   align-items: stretch;
   justify-items: stretch;
   padding: 0;
+}
+
+#nodeCommandCenterButton,
+#nodeModuleShopButton,
+#nodeStandaloneMidiKeyboardButton,
+#nodeModularInfiniteViewButton,
+#nodeModularWindowedViewButton {
+  padding: 6px;
 }
 
 .node-modular-view-icon {
@@ -5857,7 +5904,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-module-stroke: #f3f1ec;
   --node-module-idle-stroke-width: 1px;
   --node-module-idle-stroke: rgb(255 255 255 / 0.5);
-  --node-module-selected-stroke: #e2a86d;
+  --node-module-selected-stroke: rgb(226 168 109 / 1);
   --node-module-drag-stroke: #e2a86d;
   --node-port-idle-fill: transparent;
   --node-port-idle-stroke: var(--node-port-idle-crescent-stroke);
@@ -5901,7 +5948,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 0;
-  background: var(--node-workspace-bg);
+  --room-dim: 0;
+  background: color-mix(
+    in srgb,
+    var(--node-workspace-bg) calc((1 - var(--room-dim, 0)) * 100%),
+    #000
+  );
   touch-action: none;
   user-select: none;
 }
@@ -10854,12 +10906,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-camera-frame-handle[data-camera-handle="w"] { left: -7px; top: calc(50% - 6px); }
 
 .node-graph-workspace.grid-visible {
-  background-color: var(--node-workspace-bg);
+  background-color: color-mix(
+    in srgb,
+    var(--node-workspace-bg) calc((1 - var(--room-dim, 0)) * 100%),
+    #000
+  );
   background-image: none;
 }
 
 .node-grid-heatmap {
-  --node-grid-line-alpha: 0.2;
   --node-grid-reveal-mask: none;
   position: absolute;
   inset: 0;
@@ -11258,8 +11313,15 @@ body.room-dimmer-on .node-room-dimmer-canvas,
      Face / slider bands clip themselves. */
   overflow: visible;
   box-shadow: none;
-  /* Plate stroke is outside (outline is not clipped). Selected only changes color. */
+  /* Plate stroke is outside when idle. Selected uses a negative offset (inner).
+     Room dim 0…0.75 fades this idle stroke to 0. Selected ring is ::after. */
   outline: var(--node-module-idle-stroke-width, 1px) solid var(--node-module-idle-stroke, rgb(255 255 255 / 0.5));
+  outline-color: color-mix(
+    in srgb,
+    var(--node-module-idle-stroke, rgb(255 255 255 / 0.5))
+      calc((1 - min(1, var(--room-dim, 0) / 0.75)) * 100%),
+    transparent
+  );
   outline-offset: 0;
   filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.26));
   pointer-events: none;
@@ -11373,8 +11435,20 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .dsp-node.selected {
-  outline-color: var(--node-module-selected-stroke);
+  /* Stroke is ::after so it paints over faces (outline sits under z-index kids). */
+  outline-color: transparent;
   filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.32));
+}
+
+.dsp-node.selected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  border-radius: inherit;
+  corner-shape: inherit;
+  box-shadow: inset 0 0 0 var(--node-module-idle-stroke-width, 1px) var(--node-module-selected-stroke);
 }
 
 .dsp-node.slider-widget-layout.knob-face-has-image,
@@ -11385,7 +11459,10 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .dsp-node.slider-widget-layout.knob-face-has-image::before,
 .dsp-node.slider-widget-layout:has(.node-knob-face.has-image)::before,
-.dsp-node.slider-widget-layout[data-hide-module-frame="1"]::before {
+.dsp-node.slider-widget-layout[data-hide-module-frame="1"]::before,
+.dsp-node.slider-widget-layout.knob-face-has-image::after,
+.dsp-node.slider-widget-layout:has(.node-knob-face.has-image)::after,
+.dsp-node.slider-widget-layout[data-hide-module-frame="1"]::after {
   content: none;
 }
 
@@ -11405,7 +11482,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
 }
 
-.dsp-node.bypassed::after {
+.dsp-node.bypassed:not(.selected)::after {
   content: none;
 }
 
@@ -17480,18 +17557,12 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   min-width: 0;
 }
 
-.node-trace-display-preview-side-label {
-  color: var(--muted, rgba(205, 214, 216, 0.72));
+.node-trace-display-preview-side-label,
+.node-trace-display-preview-side-label[data-preview-side-label="L"],
+.node-trace-display-preview-side-label[data-preview-side-label="R"] {
+  color: rgba(210, 214, 218, 0.78);
   font: 700 0.62rem/1 inherit;
   letter-spacing: 0.04em;
-}
-
-.node-trace-display-preview-side-label[data-preview-side-label="L"] {
-  color: #ff3333;
-}
-
-.node-trace-display-preview-side-label[data-preview-side-label="R"] {
-  color: #3366ff;
 }
 
 .node-trace-display-dot-preview {

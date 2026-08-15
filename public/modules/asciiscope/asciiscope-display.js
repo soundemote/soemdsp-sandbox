@@ -45,6 +45,7 @@ function matrixEnsureSim(nodeId, densityOrGrid) {
       bufColumns: columns,
       bufRows: rows,
       energy: new Float32Array(n),
+      tip: new Uint8Array(n),
       live: new Array(n).fill(" "),
       residual: new Array(n).fill(" "),
       heads,
@@ -120,6 +121,7 @@ function matrixRemapSimGrid(state, newCols, newRows) {
     }
   }
   state.energy = energy;
+  state.tip = new Uint8Array(n);
   state.live = live;
   state.residual = residual;
   matrixRemapHeadStreams(state, newCols, newRows, oldCols, oldRows);
@@ -131,6 +133,9 @@ function matrixRemapSimGrid(state, newCols, newRows) {
   state.stampY = 1;
   state.stamp = 1;
   state.spawnSuppress = Math.max(state.spawnSuppress || 0, 12);
+  if (state.stormHeads) {
+    state.stormHeads.length = 0;
+  }
 }
 
 /**
@@ -231,36 +236,34 @@ function matrixResidualKeep(trail) {
 }
 
 /**
- * Fade phosphor energy (all matrix modes). Frame-rate independent.
- * Trail = persistence only (not brightness). Brightness is applied at present.
+ * Fade phosphor energy (all matrix modes). Same PhosphorResidual step as
+ * energy-GL drawers — one apply per display frame. No kill floor: that
+ * erased the dim Ghost hang (long + dim). Brightness is present-only.
  */
 function matrixDecayEnergy(state, params, dtSec = 1 / 60) {
   if (params.freeze) return;
+  const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const trail = Number(params.trail);
-  const t = Number.isFinite(trail) ? Math.max(0, trail) : 0.75;
+  const t = Number.isFinite(trail) ? Math.max(0, Math.min(1, trail)) : (Residual?.DEFAULT_TRAIL ?? 0.5);
+  const ghostAmt = Math.max(0, Math.min(1, Number(params.ghost) || 0));
+  const burnAmt = Math.max(0, Math.min(1, Number(params.burn) || 0));
+  const e = state.energy;
+  if (Residual && typeof Residual.applyResidual === "function") {
+    for (let i = 0; i < e.length; i += 1) {
+      if (e[i] <= 0) continue;
+      e[i] = Residual.applyResidual(e[i], t, ghostAmt, burnAmt);
+    }
+    return;
+  }
   const baseKeep = typeof matrixPhosphorBaseKeep === "function"
     ? matrixPhosphorBaseKeep(t, dtSec)
     : 0.9;
-  const kill = typeof matrixPhosphorKillFloor === "function"
-    ? matrixPhosphorKillFloor(t)
-    : 0.015;
-  const e = state.energy;
-  const ghostAmt = Math.max(0, Math.min(1, Number(params.ghost) || 0));
-  const burnAmt = Math.max(0, Math.min(1, Number(params.burn) || 0));
-  // Lower kill when Ghost/Burn hang so dim residual isn't wiped early.
-  const killFloor = burnAmt >= 0.999
-    ? 0
-    : kill * (1 - Math.max(ghostAmt, burnAmt) * 0.85);
   const applyHang = typeof matrixPhosphorApplyGhostHang === "function"
     ? matrixPhosphorApplyGhostHang
     : (energy, keep) => energy * keep;
   for (let i = 0; i < e.length; i += 1) {
     if (e[i] <= 0) continue;
     e[i] = applyHang(e[i], baseKeep, ghostAmt, burnAmt, t);
-    if (killFloor > 0 && e[i] < killFloor && !(burnAmt > 0.001 && e[i] >= burnAmt * 0.999)) {
-      e[i] = 0;
-      if (state.residual) state.residual[i] = " ";
-    }
   }
 }
 
@@ -289,7 +292,20 @@ function matrixWriteCell(state, idx, nextGlyph, deposit = 1) {
  * Deposit rain energy + live glyph. One character per bin.
  * headEnergy is pure phosphor excitation 0..1 (not brightness).
  */
-function matrixRainDeposit(state, idx, glyph, headEnergy) {
+function matrixEnsureTipMask(state) {
+  const n = state.energy?.length || 0;
+  if (!state.tip || state.tip.length !== n) {
+    state.tip = new Uint8Array(n);
+  }
+  return state.tip;
+}
+
+function matrixClearTipMask(state) {
+  const tip = matrixEnsureTipMask(state);
+  tip.fill(0);
+}
+
+function matrixRainDeposit(state, idx, glyph, headEnergy, isTip = false) {
   const n = state.live.length;
   const i = ((idx % n) + n) % n;
   let g = glyph;
@@ -299,16 +315,20 @@ function matrixRainDeposit(state, idx, glyph, headEnergy) {
   // Keep glyph for trail; energy decays independently (CRT afterglow).
   state.residual[i] = " ";
   state.live[i] = g === " " ? (MATRIX_GLYPH_RAMP.charAt(1) || ".") : g;
-  const d = Math.max(0, Math.min(1, Number(headEnergy) || 0));
+  const d = Math.max(0, Number(headEnergy) || 0);
   state.energy[i] = Math.max(state.energy[i], d);
+  const tip = matrixEnsureTipMask(state);
+  if (isTip) {
+    tip[i] = 1;
+  }
 }
 
 /** One glyph per density cell (lc, lr). */
-function matrixStampDeposit(state, lc, lr, glyph, headEnergy) {
+function matrixStampDeposit(state, lc, lr, glyph, headEnergy, isTip = false) {
   const cols = state.columns | 0;
   const rows = state.rows | 0;
   if (lc < 0 || lr < 0 || lc >= cols || lr >= rows) return;
-  matrixRainDeposit(state, lr * cols + lc, glyph, headEnergy);
+  matrixRainDeposit(state, lr * cols + lc, glyph, headEnergy, isTip);
 }
 
 /** Plate write at density cell. */
@@ -322,13 +342,65 @@ function matrixStampWriteCell(state, lc, lr, nextGlyph, burn = 1) {
 /** Wake cells painted behind the head (must clear view before the stream dies). */
 const MATRIX_WATERFALL_WAKE_LEN = 3;
 
+function matrixStampRainHead(state, col, y, glyph, depositPeak, step, wake) {
+  const columns = state.columns | 0;
+  const rows = state.rows | 0;
+  const c = ((col % columns) + columns) % columns;
+  const r0 = Math.floor(y);
+  if (r0 < 0 || r0 >= rows) {
+    return;
+  }
+  matrixStampDeposit(state, c, r0, glyph, depositPeak, true);
+  for (let k = 1; k <= wake; k += 1) {
+    const rr = r0 - step * k;
+    if (rr < 0 || rr >= rows) {
+      break;
+    }
+    const tIdx = rr * columns + c;
+    const wakeE = depositPeak * Math.max(0.08, 0.55 / k);
+    if (wakeE > state.energy[tIdx]) {
+      if (matrixNextRng(state) < 0.28) {
+        matrixStampDeposit(state, c, rr, glyph, wakeE, false);
+      } else {
+        state.energy[tIdx] = Math.max(state.energy[tIdx], wakeE);
+      }
+    }
+  }
+}
+
+function matrixAdvanceRainGlyph(stream, prevY, charSpeed, slotMax, rngState) {
+  if (!(charSpeed > 0)) {
+    return;
+  }
+  let prevMark = stream.phase;
+  if (!Number.isFinite(prevMark) || Math.abs(prevMark) > 1e6) {
+    prevMark = Math.floor(prevY * charSpeed);
+  }
+  const nextMark = Math.floor(stream.y * charSpeed);
+  let nFlips = Math.abs(nextMark - prevMark);
+  if (nFlips > 32) {
+    nFlips = 32;
+  }
+  for (let f = 0; f < nFlips; f += 1) {
+    stream.slot = Math.floor(matrixNextRng(rngState) * slotMax);
+  }
+  stream.phase = nextMark;
+}
+
+function matrixEnsureStormHeads(state) {
+  if (!Array.isArray(state.stormHeads)) {
+    state.stormHeads = [];
+  }
+  return state.stormHeads;
+}
+
 /**
  * Column rain. Signed speed: +Fall (down), −Rise (up), 0 idle.
  *
- * streamDeath (0…1):
- *   0   = never die — streams wrap forever (no mid-stream kill, no off-plate kill)
- *   0.5 = original mid-stream death rate + normal off-plate end
- *   1   = don't spawn at all (and no mid-stream survivors)
+ * streamDeath (0…1): same mid-stream roll as the original rain, remapped.
+ *   0   = never die — streams wrap forever
+ *   0.5 = original death rate
+ *   1   = heavy die-off (short streams; still spawn)
  *
  * charSpeed = glyph flips per row of head travel (bin height = 1):
  *   0   = fixed glyph for the whole stream
@@ -340,6 +412,10 @@ const MATRIX_WATERFALL_WAKE_LEN = 3;
 function matrixStepWaterfall(state, params, glyphSlots, dtSec) {
   if (params.freeze) return;
   matrixDecayEnergy(state, params, dtSec);
+  matrixClearTipMask(state);
+  const depositPeak = typeof matrixPhosphorDepositPeak === "function"
+    ? Math.min(1, matrixPhosphorDepositPeak(params))
+    : 1;
 
   const columns = state.columns;
   const rows = state.rows;
@@ -350,25 +426,45 @@ function matrixStepWaterfall(state, params, glyphSlots, dtSec) {
   const { headCharSlot, headCharPhase } = state;
   const signedSpeed = Number(params.speed);
   const speedMag = Math.abs(Number.isFinite(signedSpeed) ? signedSpeed : 0);
-  const spawnAmt = Math.max(0, Number(params.spawn != null ? params.spawn : 0.5) || 0);
-  // Stream Death: 0 never, 0.5 original, 1 no spawn.
+  const spawnAmt = Math.max(0,
+    Number.isFinite(Number(params.spawn)) ? Number(params.spawn) : 0.5,
+  );
+  const spawn01 = Math.min(1, spawnAmt);
+  // Stream Death: original per-frame mid-stream roll. 0 none, 0.5 = orig,
+  // 1 = high (still spawn — do not kill birth).
   const deathAmt = Math.max(0, Math.min(1,
     Number(params.streamDeath != null ? params.streamDeath : 0.5) || 0,
   ));
   const immortal = deathAmt <= 1e-6;
-  const noSpawn = deathAmt >= 1 - 1e-6;
-  // Original mid-stream death rate (per speedScale unit) at deathAmt = 0.5.
-  // Scaled so 0 → none, 0.5 → ORIG, 1 → 2× ORIG (while spawn is already off).
-  const ORIG_STREAM_DEATH = 0.022;
-  const deathMult = immortal ? 0 : (deathAmt / 0.5);
   const charRate = Number(params.charSpeed);
   // 0 = locked glyph; default 1 = one change per bin.
   const charSpeed = Number.isFinite(charRate) ? Math.max(0, charRate) : 1;
   const speedScale = speedMag * Math.max(0.12, dtSec * 60);
   const spawnRefCols = 40;
-  const spawn = (0.28 + spawnAmt * 0.95) * 0.055 * speedScale * (spawnRefCols / Math.max(1, columns));
-  // Mid-stream kill probability this frame (capped).
-  const pMidDeath = Math.min(1, ORIG_STREAM_DEATH * deathMult * speedScale);
+  const colFactor = spawnRefCols / Math.max(1, columns);
+  // Column spawn: 0 = off, 0.5+ = original rain birth (one stream per column).
+  const origSpawn = 0.755 * 0.055 * speedScale * colFactor;
+  const spawn = spawn01 <= 1e-6
+    ? 0
+    : (spawn01 <= 0.5 ? origSpawn * (spawn01 / 0.5) : origSpawn);
+  // 0.5 → 1: extra overlapping streams (downpour). Ease so 0.6 is still light.
+  const stormT = spawn01 <= 0.5 ? 0 : (spawn01 - 0.5) / 0.5;
+  const stormEase = stormT * stormT;
+  // Higher spawn: keep the 0.5 floor, raise the random speed ceiling.
+  const speedSpread = (0.9 + speedMag * 0.5) * (1 + stormEase * 2.4);
+  const ORIG_STREAM_DEATH = 0.022;
+  const origP = ORIG_STREAM_DEATH * speedScale;
+  const highP = 0.32 * speedScale;
+  let pMidDeath = 0;
+  if (!immortal) {
+    if (deathAmt <= 0.5) {
+      pMidDeath = origP * (deathAmt / 0.5);
+    } else {
+      const u = (deathAmt - 0.5) / 0.5;
+      pMidDeath = origP + (highP - origP) * (u * u);
+    }
+    pMidDeath = Math.max(0, Math.min(1, pMidDeath));
+  }
   const slotMax = Math.max(1, glyphSlots.length | 0);
   const rise = signedSpeed < 0;
   const step = speedMag <= 0 ? 0 : (rise ? -1 : 1);
@@ -376,7 +472,7 @@ function matrixStepWaterfall(state, params, glyphSlots, dtSec) {
   if ((state.spawnSuppress | 0) > 0) {
     state.spawnSuppress -= 1;
   }
-  const allowSpawn = !noSpawn && step !== 0 && (state.spawnSuppress | 0) <= 0;
+  const allowSpawn = step !== 0 && (state.spawnSuppress | 0) <= 0;
 
   for (let c = 0; c < columns; c += 1) {
     if (headLife[c] <= 0) {
@@ -386,7 +482,7 @@ function matrixStepWaterfall(state, params, glyphSlots, dtSec) {
         } else {
           heads[c] = -1 - matrixNextRng(state) * 3;
         }
-        headSpeed[c] = 0.5 + matrixNextRng(state) * (0.9 + speedMag * 0.5);
+        headSpeed[c] = 0.5 + matrixNextRng(state) * speedSpread;
         headLife[c] = 1;
         headCharSlot[c] = Math.floor(matrixNextRng(state) * slotMax);
         // Seed mark so we don't instantly flip on the first motion frame.
@@ -421,25 +517,9 @@ function matrixStepWaterfall(state, params, glyphSlots, dtSec) {
       headCharPhase[c] = nextMark;
     }
 
-    const r0 = Math.floor(heads[c]);
-    if (r0 >= 0 && r0 < rows) {
-      const glyph = asciiscopeGlyphAt(glyphSlots, headCharSlot[c]);
-      const headE = 1;
-      matrixStampDeposit(state, c, r0, glyph, headE);
-      for (let k = 1; k <= wake; k += 1) {
-        const rr = r0 - step * k;
-        if (rr < 0 || rr >= rows) break;
-        const tIdx = rr * columns + c;
-        const wakeE = Math.max(0.08, 0.55 / k);
-        if (wakeE > state.energy[tIdx]) {
-          if (matrixNextRng(state) < 0.28) {
-            matrixStampDeposit(state, c, rr, glyph, wakeE);
-          } else {
-            state.energy[tIdx] = Math.max(state.energy[tIdx], wakeE);
-          }
-        }
-      }
-      // Mid-stream death (only while head is on the plate).
+    const glyph = asciiscopeGlyphAt(glyphSlots, headCharSlot[c]);
+    matrixStampRainHead(state, c, heads[c], glyph, depositPeak, step, wake);
+    if (Math.floor(heads[c]) >= 0 && Math.floor(heads[c]) < rows) {
       if (pMidDeath > 0 && matrixNextRng(state) < pMidDeath) {
         headLife[c] = 0;
         continue;
@@ -466,6 +546,51 @@ function matrixStepWaterfall(state, params, glyphSlots, dtSec) {
         }
       } else {
         headLife[c] = 0;
+      }
+    }
+  }
+
+  // Downpour extras: lowering Spawn stops births only. Live streams run out.
+  const storm = matrixEnsureStormHeads(state);
+  if (allowSpawn && stormEase > 1e-6) {
+    const maxStorm = Math.max(columns, Math.ceil(columns * rows * 0.42 * stormEase));
+    const births = Math.max(1, Math.ceil(
+      columns * (0.25 + rows * 0.055) * stormEase * Math.max(speedScale, 0.45),
+    ));
+    for (let b = 0; b < births && storm.length < maxStorm; b += 1) {
+      const y = rise
+        ? rows + matrixNextRng(state) * 3
+        : -1 - matrixNextRng(state) * 3;
+      storm.push({
+        c: Math.floor(matrixNextRng(state) * columns),
+        y,
+        speed: 0.5 + matrixNextRng(state) * speedSpread,
+        slot: Math.floor(matrixNextRng(state) * slotMax),
+        phase: charSpeed > 0 ? Math.floor(y * charSpeed) : 0,
+      });
+    }
+  }
+  for (let i = storm.length - 1; i >= 0; i -= 1) {
+    const stream = storm[i];
+    if (step !== 0) {
+      const prevY = stream.y;
+      stream.y += step * stream.speed * speedScale;
+      matrixAdvanceRainGlyph(stream, prevY, charSpeed, slotMax, state);
+    }
+    const glyph = asciiscopeGlyphAt(glyphSlots, stream.slot);
+    matrixStampRainHead(state, stream.c, stream.y, glyph, depositPeak, step, wake);
+    const r0 = Math.floor(stream.y);
+    if (r0 >= 0 && r0 < rows && pMidDeath > 0 && matrixNextRng(state) < pMidDeath) {
+      storm.splice(i, 1);
+      continue;
+    }
+    if (rise ? stream.y < -wake : stream.y > rows - 1 + wake) {
+      // Don't wrap extras after Spawn drops — that would look like new births.
+      if (immortal && stormEase > 1e-6) {
+        stream.y = rise ? rows + matrixNextRng(state) * 3 : -1 - matrixNextRng(state) * 3;
+        stream.phase = charSpeed > 0 ? Math.floor(stream.y * charSpeed) : 0;
+      } else {
+        storm.splice(i, 1);
       }
     }
   }
@@ -651,14 +776,17 @@ function matrixDrawFace2d(canvas, state, params, mode) {
       let mono = 0;
       let glyph = " ";
       if (waterfall) {
-        // Trail = energy only. Live tip full; residual/trail uses film(energy).
+        // Live tip = full Bright (drawer LED). Residual = film(energy).
         glyph = live !== " " ? live : resG;
-        if (glyph !== " " && e > 0.001) {
-          const film = typeof matrixPhosphorFilm === "function"
-            ? matrixPhosphorFilm(e)
-            : Math.min(1, e);
-          // No hardcoded tip glow — brightness is present gain only.
-          mono = film;
+        if (glyph !== " " && (e > 0.001 || state.tip?.[idx])) {
+          if (state.tip?.[idx]) {
+            mono = 1;
+          } else {
+            const film = typeof matrixPhosphorFilm === "function"
+              ? matrixPhosphorFilm(e)
+              : Math.min(1, e);
+            mono = film;
+          }
         }
       } else {
         if (e > 0.001 && resG !== " ") {
@@ -1160,8 +1288,10 @@ function matrixTickPlate(_face, canvas, node, nodeId) {
     const sample = matrixReadInputSample(nodeId);
     const valueLine = matrixFormatValue(sample);
     const grid = matrixBuildInfoGrid(params.columns, params.rows, store.message, valueLine);
-    // Residual deposit on change only (not brightness).
-    matrixApplyInfoGrid(state, grid, 1);
+    const deposit = typeof matrixPhosphorDepositPeak === "function"
+      ? Math.min(1, matrixPhosphorDepositPeak(params))
+      : 1;
+    matrixApplyInfoGrid(state, grid, deposit);
     matrixDrawFace(canvas, state, params, matrixDrawStylePlate());
   }
 }

@@ -207,16 +207,28 @@ function showNodeGraphModule(node, point = null, options = {}) {
     gy: gridPoint.gy,
     ...(defaultAlias ? { alias: defaultAlias } : {}),
   }));
-  commitNodeGraphPatch(patch, {
-    status: options.status || "module added",
-    topologyEdit: true,
-    // Ghost drag-from-shop: keep pointer responsive (no history/autosave/live plan
-    // until drop). Heavy modules like multi-out crossovers were freezing on grab.
-    record: options.record,
-    autosaveWorkingPatch: options.autosaveWorkingPatch,
-    skipLivePlan: options.skipLivePlan,
-    deferUiPanels: options.deferUiPanels !== false,
-  });
+  const commitAdd = () => {
+    commitNodeGraphPatch(patch, {
+      status: options.status || "module added",
+      topologyEdit: true,
+      // Ghost drag-from-shop: keep pointer responsive (no history/autosave/live plan
+      // until drop). Heavy modules like multi-out crossovers were freezing on grab.
+      record: options.record,
+      autosaveWorkingPatch: options.autosaveWorkingPatch,
+      skipLivePlan: options.skipLivePlan,
+      deferUiPanels: options.deferUiPanels !== false,
+    });
+  };
+  if (options.record !== false) {
+    if (typeof noteNodeGraphHeavyHistoryAction === "function") {
+      noteNodeGraphHeavyHistoryAction("add");
+    }
+    if (typeof runNodeGraphHistoryAfterGlow === "function") {
+      runNodeGraphHistoryAfterGlow("last", commitAdd);
+      return id;
+    }
+  }
+  commitAdd();
   return id;
 }
 
@@ -528,9 +540,19 @@ function finishNodeGraphModulePlacementAtCurrentPosition(status = "module placed
     patchNode.gy = gridPoint.gy;
   }
   nodeGraphMvp.modulePlacement = null;
-  // Full commit on drop: history + autosave + live plan (ghost create skipped these).
-  commitNodeGraphPatch(patch, { status });
-  clearNodeGraphSelection();
+  const commitDrop = () => {
+    // Full commit on drop: history + autosave + live plan (ghost create skipped these).
+    commitNodeGraphPatch(patch, { status });
+    clearNodeGraphSelection();
+  };
+  if (typeof noteNodeGraphHeavyHistoryAction === "function") {
+    noteNodeGraphHeavyHistoryAction("add");
+  }
+  if (typeof runNodeGraphHistoryAfterGlow === "function") {
+    runNodeGraphHistoryAfterGlow("last", commitDrop);
+    return true;
+  }
+  commitDrop();
   return true;
 }
 

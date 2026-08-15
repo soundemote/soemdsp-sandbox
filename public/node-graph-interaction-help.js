@@ -173,7 +173,7 @@ function nodeInteractionMouseHint(element) {
   if (element.id === "nodeCopyExecutionJsonButton") {
     return nodeGraphTooltipText("actions.copyExecutionJson");
   }
-  if (element.id === "nodeDeleteButton" || element.id === "nodeHistoryDeleteButton" || element.id === "nodeSceneHistoryDeleteButton") {
+  if (element.id === "nodeDeleteButton" || element.id === "nodeSceneHistoryDeleteButton") {
     return nodeGraphTooltipText("actions.deleteSelection");
   }
   if (element.matches("button")) {

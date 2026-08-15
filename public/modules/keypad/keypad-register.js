@@ -35,7 +35,7 @@ registerNodeGraphChromelessModule("keypad", {
         choices: ["□", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"],
         defaultValue: "0",
         displayChoices: true,
-        divideChoicesVisibly: true,
+        divideChoicesVisibly: false,
         key: "offset",
         label: "Index",
         linearSmoothing: false,
@@ -44,7 +44,7 @@ registerNodeGraphChromelessModule("keypad", {
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Added to Analog/Digital (and later Script) then wrapped around the 12 keys. □ is 0 — analog stays 0 until a key is chosen. 1–12 are the pad keys.",
+        tooltip: "Added to Analog/Digital, the mouse, and later Script, then wrapped around the 12 keys. □ is 0 — analog stays 0 until a key is chosen. 1–12 are the pad keys. The selected Index key uses the hover color.",
       },
       {
         choices: ["Momentary", "Latch"],
@@ -59,7 +59,7 @@ registerNodeGraphChromelessModule("keypad", {
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Momentary: G is high only while a key is held. Latch: click a key to hold G; click again (or another key) to change.",
+        tooltip: "Momentary: G is high only while a key is held. Latch: selected key stays mouse-down and Analog/Index/Gate/X/Y hold that key until you click it again or pick another.",
       },
       {
         choices: ["Off", "On"],

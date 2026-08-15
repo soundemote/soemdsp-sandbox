@@ -1117,6 +1117,9 @@ function applyNodeGraphPatchToDom(options = {}) {
     return;
   }
   const skipExistingSync = Boolean(options.skipExistingSync);
+  const paramSyncIds = Array.isArray(options.paramSyncIds)
+    ? new Set(options.paramSyncIds)
+    : (options.paramSyncIds instanceof Set ? options.paramSyncIds : null);
 
   applyNodeGraphWorkspaceView();
   const workspace = document.getElementById("nodeGraphWorkspace");
@@ -1135,9 +1138,12 @@ function applyNodeGraphPatchToDom(options = {}) {
 
   for (const patchNode of nodeGraphMvp.patch.nodes) {
     const existing = nodeGraphNodeElement(patchNode.id);
+    const syncThis = skipExistingSync
+      ? !existing
+      : (paramSyncIds ? paramSyncIds.has(patchNode.id) : true);
     const element = applyNodeGraphModuleElementFromPatch(patchNode, {
-      paramSync: skipExistingSync ? !existing : true,
-      skipExistingChrome: skipExistingSync && Boolean(existing),
+      paramSync: syncThis,
+      skipExistingChrome: Boolean(existing) && (skipExistingSync || (paramSyncIds && !syncThis)),
     });
     if (element && typeof nodeGraphViewportCullObserve === "function") {
       nodeGraphViewportCullObserve(element);
@@ -1233,7 +1239,7 @@ function commitNodeGraphPatch(patch, options = {}) {
   // softDom: cosmetic module face / label-only edits — keep existing module DOM
   // (avoids image reload flash on Knob readout/rotate toggles).
   const isSoftDom = Boolean(options.softDom || options.faceEdit);
-  const skipValidate = Boolean(isChromeEdit && options.skipValidate);
+  const skipValidate = Boolean(options.skipValidate);
   if (skipValidate) {
     // Size / show-hide already cloned the live patch. Re-validating every
     // parameter of every module on key-repeat is what made Patch plate resize
@@ -1266,7 +1272,10 @@ function commitNodeGraphPatch(patch, options = {}) {
   } else if (isChromeEdit) {
     applyNodeGraphChromeNodesToDom(options.chromeNodeIds);
   } else if (!isWireEdit && !isSoftDom) {
-    applyNodeGraphPatchToDom({ skipExistingSync: isTopologyEdit });
+    applyNodeGraphPatchToDom({
+      skipExistingSync: isTopologyEdit,
+      paramSyncIds: options.paramSyncIds,
+    });
     if (!isTopologyEdit && typeof applyNodeGraphZoom === "function") {
       applyNodeGraphZoom();
     }
@@ -1295,6 +1304,12 @@ function commitNodeGraphPatch(patch, options = {}) {
         }
       }, 0);
     });
+  } else if (options.liveParamsOnly) {
+    if (typeof scheduleNodeGraphLiveParameterSync === "function") {
+      scheduleNodeGraphLiveParameterSync();
+    } else if (typeof scheduleNodeGraphLivePlanSync === "function") {
+      scheduleNodeGraphLivePlanSync();
+    }
   } else if (!isLayoutEdit && !isSoftDom && !isChromeEdit && options.skipLivePlan !== true) {
     scheduleNodeGraphLivePlanSync();
   }
@@ -1384,8 +1399,22 @@ function deleteSelectedNodeGraphItem() {
   if (!selection) {
     return;
   }
+  const deletingModule = selection.type !== "wire"
+    && selection.type !== "wires"
+    && (typeof nodeGraphSelectedNodeIds === "function"
+      ? [...nodeGraphSelectedNodeIds(selection)].some((id) => {
+        const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+        return node
+          && typeof nodeGraphNodeCanBeDeleted === "function"
+          && nodeGraphNodeCanBeDeleted(node)
+          && !(typeof nodeGraphNodeDeleteHidesOnly === "function" && nodeGraphNodeDeleteHidesOnly(node));
+      })
+      : true);
+  if (deletingModule && typeof noteNodeGraphHeavyHistoryAction === "function") {
+    noteNodeGraphHeavyHistoryAction("delete");
+  }
   if (typeof runNodeGraphHistoryAfterGlow === "function") {
-    runNodeGraphHistoryAfterGlow("delete", () => performNodeGraphDeleteSelection(selection));
+    runNodeGraphHistoryAfterGlow(deletingModule ? "last" : "delete", () => performNodeGraphDeleteSelection(selection));
     return;
   }
   performNodeGraphDeleteSelection(selection);

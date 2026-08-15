@@ -1585,6 +1585,9 @@ function closeNodeGraphStandaloneMidiKeyboard() {
   }
   renderNodeGraphStandaloneMidiKeyboardToggle();
   setNodeInteractionHelp("Controller hidden.");
+  if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
+    notifyNodeGraphChromeLayoutChanged();
+  }
 }
 
 function toggleNodeGraphStandaloneMidiKeyboard() {

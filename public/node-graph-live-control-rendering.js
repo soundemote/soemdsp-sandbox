@@ -227,6 +227,12 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
       // Best-effort — face sync must never break transport UI.
     }
   }
+  if (typeof scheduleNodeGraphGridHeatmapUpdate === "function") {
+    scheduleNodeGraphGridHeatmapUpdate();
+  }
+  if (typeof scheduleNodeGraphRoomDimmerDraw === "function") {
+    scheduleNodeGraphRoomDimmerDraw();
+  }
 }
 
 /**

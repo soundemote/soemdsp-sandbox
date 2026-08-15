@@ -63,6 +63,9 @@ function applyNodeGraphWorkspaceView() {
   if (typeof syncNodeGraphReadyPanelChrome === "function") {
     syncNodeGraphReadyPanelChrome();
   }
+  if (typeof pinNodeGraphWorkspaceCameraToScreen === "function") {
+    pinNodeGraphWorkspaceCameraToScreen(workspace);
+  }
   if (typeof applyNodeGraphPan === "function") {
     applyNodeGraphPan();
   }
@@ -82,6 +85,9 @@ function scheduleNodeGraphWorkspaceOriginSync() {
   nodeGraphMvp.workspaceOriginSyncFrame = window.requestAnimationFrame(() => {
     nodeGraphMvp.workspaceOriginSyncFrame = window.requestAnimationFrame(() => {
       nodeGraphMvp.workspaceOriginSyncFrame = 0;
+      if (typeof pinNodeGraphWorkspaceCameraToScreen === "function") {
+        pinNodeGraphWorkspaceCameraToScreen();
+      }
       if (typeof applyNodeGraphPan === "function") {
         applyNodeGraphPan();
       }
@@ -128,15 +134,81 @@ function nodeGraphRenderedPan(pan = nodeGraphMvp.pan || { x: 0, y: 0 }, containe
   };
 }
 
+function nodeGraphWorkspaceCameraBox(container = document.getElementById("nodeGraphWorkspace")) {
+  if (!container?.getBoundingClientRect) {
+    return null;
+  }
+  const rect = container.getBoundingClientRect();
+  const center = nodeGraphWorkspaceCenterOffset(container);
+  return {
+    left: rect.left,
+    top: rect.top,
+    centerX: center.x,
+    centerY: center.y,
+  };
+}
+
+function rememberNodeGraphWorkspaceCameraBox(container = document.getElementById("nodeGraphWorkspace")) {
+  const box = nodeGraphWorkspaceCameraBox(container);
+  if (box && typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.workspaceCameraBox = box;
+  }
+  return box;
+}
+
+function nodeGraphWorkspaceChromePin() {
+  const pin = typeof nodeGraphMvp === "object" ? nodeGraphMvp?.workspaceChromePin : null;
+  return {
+    x: Number(pin?.x) || 0,
+    y: Number(pin?.y) || 0,
+  };
+}
+
+/**
+ * Chrome (tips band, controller dock) changes #nodeGraphWorkspace's box.
+ * Origin is workspace-center + pan, so a height change would slide lamps
+ * (and, if pan is reapplied, modules). Hold the graph on the same screen
+ * pixels by accumulating a chrome pin — user pan is left alone.
+ * Skip while the user is dragging the workspace frame (centered clip).
+ */
+function pinNodeGraphWorkspaceCameraToScreen(container = document.getElementById("nodeGraphWorkspace")) {
+  if (!container || typeof nodeGraphMvp !== "object" || !nodeGraphMvp) {
+    return false;
+  }
+  if (nodeGraphMvp.workspaceResizing) {
+    rememberNodeGraphWorkspaceCameraBox(container);
+    return false;
+  }
+  const next = nodeGraphWorkspaceCameraBox(container);
+  if (!next) {
+    return false;
+  }
+  const prev = nodeGraphMvp.workspaceCameraBox;
+  nodeGraphMvp.workspaceCameraBox = next;
+  if (!prev) {
+    return false;
+  }
+  const dx = (prev.left + prev.centerX) - (next.left + next.centerX);
+  const dy = (prev.top + prev.centerY) - (next.top + next.centerY);
+  if (!(Math.abs(dx) > 0.05 || Math.abs(dy) > 0.05)) {
+    return false;
+  }
+  const pin = nodeGraphWorkspaceChromePin();
+  nodeGraphMvp.workspaceChromePin = { x: pin.x + dx, y: pin.y + dy };
+  nodeGraphMvp._mouseLightWorkspaceRect = null;
+  return true;
+}
+
 function nodeGraphRenderedOriginOffset(
   pan = nodeGraphMvp.pan || { x: 0, y: 0 },
   container = document.getElementById("nodeGraphWorkspace"),
 ) {
   const center = nodeGraphWorkspaceCenterOffset(container);
   const renderedPan = nodeGraphRenderedPan(pan, container);
+  const pin = nodeGraphWorkspaceChromePin();
   return {
-    x: center.x + renderedPan.x,
-    y: center.y + renderedPan.y,
+    x: center.x + renderedPan.x + pin.x,
+    y: center.y + renderedPan.y + pin.y,
   };
 }
 
@@ -341,6 +413,14 @@ function updateNodeGraphGridHeatmap(options = {}) {
     0,
     Math.min(1, nodeGraphWorkspaceFloatProperty(workspace, "--node-module-light-brightness", 1)),
   );
+  const roomDim = typeof nodeGraphRoomDim === "function"
+    ? Math.max(0, Math.min(1, Number(nodeGraphRoomDim()) || 0))
+    : 0;
+  const deep = typeof nodeGraphRoomDimDeep === "function"
+    ? Math.max(0, Math.min(1, Number(nodeGraphRoomDimDeep()) || 0))
+    : (roomDim <= 0.5 ? 0 : Math.min(1, (roomDim - 0.5) * 2));
+  const moduleAmt = Math.max(0, 1 - deep);
+  const moduleBright = lightBright * moduleAmt;
   for (const node of visibleNodes) {
     if (node.classList.contains("viewport-asleep")) {
       continue;
@@ -350,25 +430,27 @@ function updateNodeGraphGridHeatmap(options = {}) {
     const centerY = (bounds.top + (bounds.bottom - bounds.top) / 2) * zoom + (Number(origin.y) || 0);
     const baseX = Math.max(nodeGraphGridWidth() * 5, (bounds.right - bounds.left) * 1.18) * zoom;
     const baseY = Math.max(nodeGraphGridHeight() * 5, (bounds.bottom - bounds.top) * 1.35) * zoom;
-    if (wantLight && lightBright > 0) {
+    if (wantLight && moduleBright > 0) {
       const radiusX = baseX * lightSpread;
       const radiusY = baseY * lightSpread;
-      const a0 = (0.18 * lightBright).toFixed(3);
-      const a1 = (0.15 * lightBright).toFixed(3);
-      const a2 = (0.10 * lightBright).toFixed(3);
-      const a3 = (0.045 * lightBright).toFixed(3);
+      const a0 = (0.18 * moduleBright).toFixed(3);
+      const a1 = (0.15 * moduleBright).toFixed(3);
+      const a2 = (0.10 * moduleBright).toFixed(3);
+      const a3 = (0.045 * moduleBright).toFixed(3);
       glowLayers.push(
         `radial-gradient(ellipse ${radiusX.toFixed(2)}px ${radiusY.toFixed(2)}px at ${centerX.toFixed(2)}px ${centerY.toFixed(2)}px, rgba(127, 199, 217, ${a0}) 0%, rgba(127, 199, 217, ${a1}) 18%, rgba(226, 168, 109, ${a2}) 38%, rgba(226, 168, 109, ${a3}) 62%, transparent 92%)`,
       );
     }
-    if (wantGrid) {
+    if (wantGrid && moduleAmt > 0.001) {
       const maskX = baseX * gridSpread;
       const maskY = baseY * gridSpread;
       maskLayers.push(
-        `radial-gradient(ellipse ${maskX.toFixed(2)}px ${maskY.toFixed(2)}px at ${centerX.toFixed(2)}px ${centerY.toFixed(2)}px, black 0%, rgb(0 0 0 / 0.95) 22%, rgb(0 0 0 / 0.72) 48%, rgb(0 0 0 / 0.28) 74%, transparent 94%)`,
+        `radial-gradient(ellipse ${maskX.toFixed(2)}px ${maskY.toFixed(2)}px at ${centerX.toFixed(2)}px ${centerY.toFixed(2)}px, rgb(0 0 0 / ${moduleAmt.toFixed(3)}) 0%, rgb(0 0 0 / ${(0.95 * moduleAmt).toFixed(3)}) 22%, rgb(0 0 0 / ${(0.72 * moduleAmt).toFixed(3)}) 48%, rgb(0 0 0 / ${(0.28 * moduleAmt).toFixed(3)}) 74%, transparent 94%)`,
       );
     }
   }
+  // Screen glow is the veil SDF (sharp shape, smoothstep outward). Do not
+  // stamp a CSS ellipse over the glass.
   let mouseAmount = Math.max(0, Math.min(2, nodeGraphWorkspaceFloatProperty(workspace, "--node-mouse-light-amount")));
   const mouseSpread = Math.max(0, Math.min(2, nodeGraphWorkspaceFloatProperty(workspace, "--node-mouse-light-spread")));
   const mousePoint = nodeGraphMvp.mouseLightPoint;

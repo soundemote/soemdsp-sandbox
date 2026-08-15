@@ -638,7 +638,7 @@ function renderNodeGraphSelection() {
 
   const canDelete = nodeGraphSelectionCanDelete();
   const deleteTitle = nodeGraphDeleteTitle();
-  for (const id of ["nodeDeleteButton", "nodeHistoryDeleteButton", "nodeSceneHistoryDeleteButton"]) {
+  for (const id of ["nodeDeleteButton", "nodeSceneHistoryDeleteButton"]) {
     const button = document.getElementById(id);
     if (!button) {
       continue;

@@ -299,7 +299,7 @@ function changeNodeGraphTraceDisplayMode(_event) {
   return false;
 }
 
-/** Swap Left/Right look (color, thickness, brightness) on Output / stereo Trace. */
+/** Swap Left/Right look (color, size, blur, brightness) on Output / stereo Trace. */
 function swapNodeGraphOutputTraceLook() {
   const nodeId = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
     ? nodeGraphTraceDisplaySettingsTargetNodeId()
@@ -308,31 +308,57 @@ function swapNodeGraphOutputTraceLook() {
   if (!node) {
     return;
   }
-  const s = { ...(node.traceDisplaySettings || {}) };
-  const swap = (a, b) => {
-    const tmp = s[a];
-    s[a] = s[b];
-    s[b] = tmp;
-  };
-  swap("dot1Color", "secondaryColor");
-  swap("dot1Size", "secondarySize");
-  swap("dot1Brightness", "secondaryBrightness");
-  swap("lineThickness", "secondaryLineThickness");
-  node.traceDisplaySettings = s;
-  if (typeof commitNodeGraphPatch === "function") {
-    const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-    const dest = patch.nodes.find((n) => n.id === node.id);
-    if (dest) {
-      dest.traceDisplaySettings = { ...s };
-      commitNodeGraphPatch(patch, { status: "swapped L/R look" });
+  const apply = () => {
+    const s = { ...(node.traceDisplaySettings || {}) };
+    const leftColor = s.dot1Color ?? s.color;
+    const rightColor = s.secondaryColor;
+    s.dot1Color = rightColor;
+    s.color = rightColor;
+    s.secondaryColor = leftColor;
+    const leftSize = s.dot1Size ?? s.size;
+    const rightSize = s.secondarySize;
+    s.dot1Size = rightSize;
+    if (s.size !== undefined) {
+      s.size = rightSize;
     }
+    s.secondarySize = leftSize;
+    const leftBright = s.dot1Brightness ?? s.brightness;
+    const rightBright = s.secondaryBrightness;
+    s.dot1Brightness = rightBright;
+    if (s.brightness !== undefined) {
+      s.brightness = rightBright;
+    }
+    s.secondaryBrightness = leftBright;
+    const leftBlur = s.lineThickness;
+    s.lineThickness = s.secondaryLineThickness;
+    s.secondaryLineThickness = leftBlur;
+    node.traceDisplaySettings = s;
+    if (typeof commitNodeGraphPatch === "function") {
+      const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+      const dest = patch.nodes.find((n) => n.id === node.id);
+      if (dest) {
+        dest.traceDisplaySettings = { ...s };
+        commitNodeGraphPatch(patch, {
+          status: "swapped L/R look",
+          deferUiPanels: true,
+        });
+      }
+    }
+    if (typeof writeNodeGraphTraceDisplaySettingsForm === "function") {
+      writeNodeGraphTraceDisplaySettingsForm(s);
+    }
+    if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+      scheduleNodeGraphModuleScopeDraw({ force: true });
+    }
+  };
+  if (typeof noteNodeGraphHeavyHistoryAction === "function") {
+    noteNodeGraphHeavyHistoryAction("swapLr");
   }
-  if (typeof fillNodeGraphTraceDisplaySettingsForm === "function") {
-    fillNodeGraphTraceDisplaySettingsForm();
+  if (typeof runNodeGraphHistoryAfterGlow === "function") {
+    runNodeGraphHistoryAfterGlow("last", apply);
+    return;
   }
-  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
-    scheduleNodeGraphModuleScopeDraw({ force: true });
-  }
+  apply();
 }
 
 let nodeGraphTraceDisplaySettingsPersistTimer = 0;

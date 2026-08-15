@@ -726,13 +726,13 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhost",
-    title: "Extreme analog (super-exp) residual hang — not brightness. Mixes in as Trail rises above 0. Alone at Trail 0: no hang (Trail 0 wipes).",
+    title: "Extreme analog (super-exp) residual hang — not brightness. Trail 0 = Ghost only (this is the whole hang). Mixes toward linear as Trail rises.",
   }),
   trail: Object.freeze({
     label: "Trail",
     inputmode: "decimal",
     id: "nodeTraceDisplayTrail",
-    title: "How long residual hangs. 0 = no trail (wipe); 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.",
+    title: "Mix from Ghost-only toward linear, then freeze. 0 = Ghost only; 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.",
   }),
   burn: Object.freeze({
     label: "Burn",

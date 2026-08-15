@@ -717,13 +717,26 @@ function scheduleNodeGraphWireRedrawAfterLayout() {
 
 /**
  * Chrome that sits above the modular workspace (embedded tips, resource
- * meters, etc.) changes #nodeGraphWorkspace's box. Wire SVG viewBox is derived
- * from that box; without a redraw paths stretch against fixed --node-x/y ports
- * and look broken/offset. Call after any chrome that reflows the workspace.
+ * meters, controller dock, etc.) changes #nodeGraphWorkspace's box. Wire SVG
+ * viewBox is derived from that box; without a redraw paths stretch against
+ * fixed --node-x/y ports and look broken/offset. Pin the camera first so
+ * modules and lamp glows stay on the same screen pixels.
  */
 function notifyNodeGraphChromeLayoutChanged() {
+  if (typeof pinNodeGraphWorkspaceCameraToScreen === "function") {
+    pinNodeGraphWorkspaceCameraToScreen();
+  }
+  if (typeof applyNodeGraphPan === "function") {
+    applyNodeGraphPan({ persist: false, skipHeavy: true });
+  }
   ensureNodeGraphWorkspaceWireLayoutObserver();
   scheduleNodeGraphWireRedrawAfterLayout();
+  if (typeof updateNodeGraphGridHeatmap === "function") {
+    updateNodeGraphGridHeatmap();
+  }
+  if (typeof scheduleNodeGraphRoomDimmerDraw === "function") {
+    scheduleNodeGraphRoomDimmerDraw();
+  }
 }
 
 let nodeGraphWorkspaceWireLayoutObserver = null;
@@ -755,7 +768,16 @@ function ensureNodeGraphWorkspaceWireLayoutObserver() {
       }
     }
     if (changed) {
+      if (!nodeGraphMvp?.workspaceResizing && typeof pinNodeGraphWorkspaceCameraToScreen === "function") {
+        pinNodeGraphWorkspaceCameraToScreen();
+        if (typeof applyNodeGraphPan === "function") {
+          applyNodeGraphPan({ persist: false, skipHeavy: true });
+        }
+      }
       scheduleNodeGraphWireRedrawAfterLayout();
+      if (typeof updateNodeGraphGridHeatmap === "function") {
+        updateNodeGraphGridHeatmap();
+      }
     }
   });
   const workspace = document.getElementById("nodeGraphWorkspace");

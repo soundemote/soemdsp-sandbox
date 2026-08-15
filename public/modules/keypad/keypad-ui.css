@@ -74,6 +74,8 @@
   line-height: 1;
   cursor: var(--node-dot-cursor);
   user-select: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .node-keypad-key-label {
@@ -104,9 +106,16 @@
   background-color: var(--node-keypad-hover-color);
 }
 
+.node-keypad-key.is-hover {
+  background-color: var(--node-keypad-hover-color);
+}
+
 .node-keypad-key.is-active,
 .node-keypad-key.is-down,
-.node-keypad-key:active {
+.node-keypad-key.is-down:hover,
+.node-keypad-key.is-active:hover,
+.node-keypad-key.is-down.is-hover,
+.node-keypad-key.is-active.is-hover {
   background-color: var(--node-keypad-down-color);
 }
 

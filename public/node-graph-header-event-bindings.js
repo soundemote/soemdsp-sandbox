@@ -12,7 +12,6 @@ function bindNodeGraphHeaderControlEvents() {
   bindNodeGraphCodeScreenEvents();
   renderNodeGraphPatchTimingControls();
   document.getElementById("nodeDeleteButton")?.addEventListener("click", deleteSelectedNodeGraphItem);
-  document.getElementById("nodeHistoryDeleteButton")?.addEventListener("click", deleteSelectedNodeGraphItem);
   document.getElementById("nodeUndoButton").addEventListener("click", undoNodeGraphPatch);
   document.getElementById("nodeRedoButton").addEventListener("click", redoNodeGraphPatch);
   document.getElementById("nodeFullUiButton")?.addEventListener("click", toggleNodeGraphFullUiView);

@@ -6,9 +6,9 @@
 // Axes:
 //   Bright      → live light (LED) / tip intensity 0…1
 //   Ghost       → extreme analog (super-exp) residual hang. Perfect alone when Trail=0.
-//   Trail       → how much residual hangs (0 = none, 1 = freeze):
-//     0.00 → no trail (wipe residual every frame)
-//     0.50 → 50% linear + 50% Ghost exponential
+//   Trail       → mix from Ghost-only toward linear, then freeze:
+//     0.00 → Ghost only (Ghost 0 = wipe; Ghost 1 = full analog hang)
+//     0.50 → 50% linear + 50% Ghost
 //     0.75 → 100% linear decay
 //     1.00 → freeze (never decay residual pixels)
 //   Burn        → sticky residual floor 0…1 (0 = off; 1 = freeze all residual)
@@ -49,7 +49,7 @@
 
   /**
    * Trail → blend weights.
-   *  0    wipe (no trail)
+   *  0    Ghost only (Ghost 0 wipes; Ghost 1 hangs)
    *  0.5  50% linear / 50% ghost
    *  0.75 pure linear
    *  1    freeze (no decay)
@@ -58,20 +58,19 @@
     const t = clamp01(trail, 0);
     if (t <= 0.001) {
       return {
-        ghostWeight: 0,
+        ghostWeight: 1,
         linearWeight: 0,
         freeze: 0,
-        wipe: 1,
+        wipe: 0,
       };
     }
     if (t <= 0.5) {
       const u = t / 0.5; // 0…1
-      // Ramp from wipe → 50/50. Do not start at full Ghost (that made Trail 0 infinite).
       return {
-        ghostWeight: 0.5 * u,
+        ghostWeight: 1 - 0.5 * u,
         linearWeight: 0.5 * u,
         freeze: 0,
-        wipe: 1 - u,
+        wipe: 0,
       };
     }
     if (t <= 0.75) {
@@ -128,7 +127,7 @@
 
   /**
    * Combined keep for one residual step (0…1, high = more hang).
-   * Trail 0 = wipe. Trail 1 = freeze. Ghost mixes in between.
+   * Trail 0 = Ghost only (Ghost 0 wipes). Trail 1 = freeze.
    * Burn is applied separately via applyBurnFloor (not a keep factor).
    */
   function residualKeep(trail, ghost = 0) {
@@ -250,9 +249,8 @@
     }
     const keep = residualKeep(trail, ghost);
     let faded = e * keep;
-    // Kill the last crumb whenever residual is dying (Trail 0 wipes fully).
-    const trailOn = clamp01(trail, 0) > 0.001;
-    if (trailOn && faded < 0.004 && keep < 0.999) {
+    // Kill the last crumb when residual is actually dying (keep well below hang).
+    if (faded < 0.004 && keep < 0.99) {
       faded = 0;
     }
     return applyBurnFloor(e, faded, burn);

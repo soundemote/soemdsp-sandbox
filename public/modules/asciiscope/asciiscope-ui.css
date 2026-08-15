@@ -72,13 +72,29 @@
   grid-column: 1 / -1;
 }
 
+.node-trace-display-settings-popover .node-matrix-face-settings-panel .node-matrix-face-gradient-section,
+.node-trace-display-settings-popover .node-matrix-face-settings-panel .node-trace-display-gradient-section,
 .node-trace-display-settings-popover .node-matrix-face-settings-panel .node-gradient-selector-host,
 .node-trace-display-settings-popover .node-matrix-face-settings-panel .sge-host,
-.node-trace-display-settings-popover .node-matrix-face-settings-panel .sge-root {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
+.node-trace-display-settings-popover .node-matrix-face-settings-panel .sge-root,
+.node-trace-display-settings-popover .node-matrix-face-settings-panel .sge-presets {
+  display: grid;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
   box-sizing: border-box;
+  align-self: stretch;
+  justify-self: stretch;
+}
+
+.node-trace-display-settings-popover .node-matrix-face-settings-panel .sge-presets {
+  grid-template-columns: 1fr 1fr;
+}
+
+.node-trace-display-settings-popover .node-matrix-face-settings-panel .sge-root button.sge-preset {
+  width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 0 !important;
 }
 
 .node-matrix-face-settings-hint {

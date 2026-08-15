@@ -104,7 +104,7 @@ function nodeGraphKeypadResolveSlot(options = {}) {
     if (options.pointerSlot == null || !Number.isFinite(Number(options.pointerSlot))) {
       return null;
     }
-    return nodeGraphKeypadWrap(options.pointerSlot, count);
+    return applyOffset(options.pointerSlot);
   }
   return null;
 }
@@ -135,15 +135,44 @@ function nodeGraphKeypadDragEnabled(value) {
   return true;
 }
 
+function nodeGraphKeypadStoredSlot(params) {
+  const raw = params?.slot;
+  if (raw === "" || raw == null) {
+    return null;
+  }
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) {
+    return null;
+  }
+  return nodeGraphKeypadWrap(n);
+}
+
 function createNodeGraphKeypadState() {
   return {
     down: 0,
+    latched: 0,
+    needsRestore: true,
     pointerSlot: null,
   };
 }
 
 function nodeGraphKeypadSample(state, options = {}) {
-  const down = state?.down ? 1 : 0;
+  const latch = nodeGraphKeypadIsLatch(options.mode);
+  if (state && state.needsRestore) {
+    state.needsRestore = false;
+    if (latch) {
+      const stored = nodeGraphKeypadStoredSlot({ slot: options.slot });
+      if (stored != null) {
+        state.pointerSlot = stored;
+        state.latched = 1;
+        state.down = 1;
+      }
+    }
+  }
+  const pointerLive = latch
+    ? Boolean(state?.latched && state?.pointerSlot != null)
+    : Boolean(state?.down);
+  const down = pointerLive ? 1 : 0;
   const slot = nodeGraphKeypadResolveSlot({
     analog: options.analog,
     count: NODE_GRAPH_KEYPAD_COUNT,
@@ -151,7 +180,7 @@ function nodeGraphKeypadSample(state, options = {}) {
     down,
     hasAnalog: options.hasAnalog,
     hasDigital: options.hasDigital,
-    hasPointer: down,
+    hasPointer: pointerLive,
     hasScript: options.hasScript,
     offset: options.offset,
     pointerSlot: state?.pointerSlot ?? options.pointerSlot,

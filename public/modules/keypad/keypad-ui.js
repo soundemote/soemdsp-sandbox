@@ -158,20 +158,56 @@ function nodeGraphKeypadEnsureStrokeWatch(face) {
   ro.observe(face);
 }
 
-function nodeGraphKeypadPaintSlot(face, slot, down) {
+function nodeGraphKeypadPaintSlot(face, slot, down, hoverSlot = null) {
   if (!face) return;
   const has = slot != null && Number.isFinite(Number(slot));
-  const active = has
-    ? (typeof nodeGraphKeypadWrap === "function"
-      ? nodeGraphKeypadWrap(slot)
-      : Math.max(0, Math.round(Number(slot) || 0)))
-    : -1;
+  const wrap = typeof nodeGraphKeypadWrap === "function"
+    ? nodeGraphKeypadWrap
+    : (value) => Math.max(0, Math.round(Number(value) || 0));
+  const active = has ? wrap(slot) : -1;
+  const hoverHas = hoverSlot != null && Number.isFinite(Number(hoverSlot));
+  const hover = hoverHas ? wrap(hoverSlot) : -1;
   for (const key of face.querySelectorAll(".node-keypad-key")) {
     const index = Number(key.dataset.slot);
     const on = has && index === active;
+    const lit = hoverHas && index === hover && !on;
     key.classList.toggle("is-active", on);
     key.classList.toggle("is-down", Boolean(down) && on);
+    key.classList.toggle("is-hover", lit);
     key.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+}
+
+function nodeGraphKeypadIndexSlot(patchNode) {
+  const raw = Number(patchNode?.params?.offset);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return null;
+  }
+  return typeof nodeGraphKeypadDigitalToSlot === "function"
+    ? nodeGraphKeypadDigitalToSlot(raw)
+    : Math.max(0, Math.round(raw) - 1);
+}
+
+function nodeGraphKeypadPaintWithOffset(face, downSlot, down, patchNode) {
+  if (!face) {
+    return;
+  }
+  const node = patchNode
+    || (typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(face.dataset.node) : null);
+  const indexSlot = nodeGraphKeypadNodeIsLatch(node) ? nodeGraphKeypadIndexSlot(node) : null;
+  face.classList.toggle("has-offset-hover", indexSlot != null);
+  nodeGraphKeypadPaintSlot(face, downSlot, down, indexSlot);
+}
+
+function nodeGraphKeypadApplyIndexSliderChrome(root) {
+  const article = root?.closest?.(".dsp-node") || root;
+  const slider = article?.querySelector?.('input[data-param="offset"]');
+  if (!slider) {
+    return;
+  }
+  slider.dataset.divideChoicesVisibly = "false";
+  if (typeof syncNodeSliderReadout === "function") {
+    syncNodeSliderReadout(slider);
   }
 }
 
@@ -183,19 +219,26 @@ function setNodeGraphKeypadInteraction(nodeId, update = {}) {
     const state = runtime.keypadStates.get(nodeId) || (
       typeof createNodeGraphKeypadState === "function"
         ? createNodeGraphKeypadState()
-        : { down: 0, pointerSlot: 0 }
+        : { down: 0, latched: 0, needsRestore: false, pointerSlot: null }
     );
+    state.needsRestore = false;
     if (update.down !== undefined) state.down = update.down ? 1 : 0;
-    if (update.pointerSlot !== undefined) {
-      state.pointerSlot = typeof nodeGraphKeypadWrap === "function"
-        ? nodeGraphKeypadWrap(update.pointerSlot)
-        : Math.round(Number(update.pointerSlot) || 0);
+    if (update.latched !== undefined) state.latched = update.latched ? 1 : 0;
+    if (Object.prototype.hasOwnProperty.call(update, "pointerSlot")) {
+      if (update.pointerSlot == null || update.pointerSlot === "") {
+        state.pointerSlot = null;
+      } else {
+        state.pointerSlot = typeof nodeGraphKeypadWrap === "function"
+          ? nodeGraphKeypadWrap(update.pointerSlot)
+          : Math.round(Number(update.pointerSlot) || 0);
+      }
     }
     runtime.keypadStates.set(nodeId, state);
   }
   if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp.live?.usesWorklet && nodeGraphMvp.live.node?.port) {
     nodeGraphMvp.live.node.port.postMessage({
       down: update.down,
+      latched: update.latched,
       nodeId,
       pointerSlot: update.pointerSlot,
       type: "keypadInteraction",
@@ -232,6 +275,47 @@ function nodeGraphKeypadKeyFromPoint(face, clientX, clientY) {
   return null;
 }
 
+function nodeGraphKeypadFaceLatchOn(face) {
+  return face?.dataset?.keypadLatched === "1";
+}
+
+function nodeGraphKeypadFaceLatchSlot(face) {
+  const raw = face?.dataset?.keypadSlot;
+  if (raw === "" || raw == null) {
+    return null;
+  }
+  const n = Number(raw);
+  if (!Number.isFinite(n)) {
+    return null;
+  }
+  return typeof nodeGraphKeypadWrap === "function" ? nodeGraphKeypadWrap(n) : n;
+}
+
+function nodeGraphKeypadWriteFaceLatch(face, slot, latched) {
+  if (!face) {
+    return;
+  }
+  face.dataset.keypadLatched = latched ? "1" : "0";
+  face.dataset.keypadSlot = latched && slot != null ? String(slot) : "";
+}
+
+function nodeGraphKeypadPaintLatchFromPatch(face, patchNode) {
+  if (!face) {
+    return;
+  }
+  if (!nodeGraphKeypadNodeIsLatch(patchNode)) {
+    nodeGraphKeypadWriteFaceLatch(face, null, false);
+    nodeGraphKeypadPaintWithOffset(face, null, false, patchNode);
+    return;
+  }
+  const stored = typeof nodeGraphKeypadStoredSlot === "function"
+    ? nodeGraphKeypadStoredSlot(patchNode?.params)
+    : null;
+  const on = stored != null;
+  nodeGraphKeypadWriteFaceLatch(face, stored, on);
+  nodeGraphKeypadPaintWithOffset(face, stored, on, patchNode);
+}
+
 function setNodeGraphKeypadPointerSlot(nodeId, slot, event, options = {}) {
   if (typeof nodeGraphScriptReadyForGraphAction === "function"
     && !nodeGraphScriptReadyForGraphAction("keypad")) {
@@ -242,33 +326,54 @@ function setNodeGraphKeypadPointerSlot(nodeId, slot, event, options = {}) {
   const nextSlot = typeof nodeGraphKeypadWrap === "function"
     ? nodeGraphKeypadWrap(slot)
     : Math.round(Number(slot) || 0);
+  const face = nodeGraphKeypadFaceFor(nodeId);
+  const latch = nodeGraphKeypadNodeIsLatch(patchNode);
   const runtime = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.live?.runtime : null;
   const state = runtime?.keypadStates?.get?.(nodeId);
-  const same = Number(state?.pointerSlot) === nextSlot && Number(state?.down) > 0;
+  const currentSlot = state?.pointerSlot ?? nodeGraphKeypadFaceLatchSlot(face);
+  const currentlyHeld = latch
+    ? (Number(state?.latched) > 0 || nodeGraphKeypadFaceLatchOn(face))
+    : Number(state?.down) > 0;
+  const same = Number(currentSlot) === nextSlot && currentlyHeld;
   let down = 1;
+  let latched = 0;
   if (options.glide) {
     if (same) {
       return true;
     }
     down = 1;
-  } else if (nodeGraphKeypadNodeIsLatch(patchNode)) {
+    latched = latch ? 1 : 0;
+  } else if (latch) {
     down = same ? 0 : 1;
+    latched = down;
   }
-  setNodeGraphKeypadInteraction(nodeId, { down, pointerSlot: nextSlot });
-  nodeGraphKeypadPaintSlot(nodeGraphKeypadFaceFor(nodeId), nextSlot, down > 0);
+  const pointerSlot = latch && !latched ? null : nextSlot;
+  setNodeGraphKeypadInteraction(nodeId, { down, latched, pointerSlot });
+  if (latch) {
+    nodeGraphKeypadWriteFaceLatch(face, pointerSlot, latched);
+  } else if (face) {
+    nodeGraphKeypadWriteFaceLatch(face, null, false);
+  }
+  nodeGraphKeypadPaintWithOffset(face, pointerSlot, down > 0, patchNode);
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const target = patch.nodes.find((node) => node.id === nodeId);
   if (target) {
-    target.params = {
-      ...(target.params || {}),
-      slot: nextSlot,
-    };
-    commitNodeGraphPatch(patch, {
-      record: false,
-      skipLivePlan: true,
-      softDom: true,
-      status: "keypad slot",
-    });
+    const nextParams = { ...(target.params || {}) };
+    if (latch && latched) {
+      nextParams.slot = nextSlot;
+    } else {
+      nextParams.slot = "";
+    }
+    const prevSlot = target.params?.slot ?? "";
+    if (String(nextParams.slot ?? "") !== String(prevSlot)) {
+      target.params = nextParams;
+      commitNodeGraphPatch(patch, {
+        record: false,
+        skipLivePlan: true,
+        softDom: true,
+        status: "keypad slot",
+      });
+    }
   }
   event?.preventDefault?.();
   event?.stopPropagation?.();
@@ -291,15 +396,20 @@ function createNodeGraphKeypadBody(node) {
     ? NODE_GRAPH_KEYPAD_LABELS
     : ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
   labels.forEach((label, slot) => {
-    const key = document.createElement("button");
-    key.type = "button";
+    const key = document.createElement("div");
     key.className = "node-keypad-key";
     key.dataset.slot = String(slot);
+    key.setAttribute("role", "button");
+    key.tabIndex = -1;
     const glyph = document.createElement("span");
     glyph.className = "node-keypad-key-label";
     glyph.textContent = label;
     key.append(glyph);
     key.setAttribute("aria-label", `Key ${label}`);
+    key.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
     key.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
       event.preventDefault();
@@ -319,8 +429,9 @@ function createNodeGraphKeypadBody(node) {
   const releaseMomentary = () => {
     const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
     if (nodeGraphKeypadNodeIsLatch(live)) return;
-    setNodeGraphKeypadInteraction(nodeId, { down: 0 });
-    nodeGraphKeypadPaintSlot(face, null, false);
+    setNodeGraphKeypadInteraction(nodeId, { down: 0, latched: 0 });
+    nodeGraphKeypadWriteFaceLatch(face, null, false);
+    nodeGraphKeypadPaintWithOffset(face, null, false, live);
   };
   face.addEventListener("pointermove", (event) => {
     if (!(event.buttons & 1)) return;
@@ -338,6 +449,38 @@ function createNodeGraphKeypadBody(node) {
   });
   face.addEventListener("pointercancel", releaseMomentary);
   face.addEventListener("lostpointercapture", releaseMomentary);
+  face.addEventListener("pointerover", (event) => {
+    const key = event.target?.closest?.(".node-keypad-key");
+    if (!key || !face.contains(key)) {
+      return;
+    }
+    const next = String(key.dataset.slot ?? "");
+    if (face.dataset.keypadHoverSlot === next) {
+      return;
+    }
+    face.dataset.keypadHoverSlot = next;
+    const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+    if (!nodeGraphKeypadNodeIsLatch(live)) {
+      return;
+    }
+    const downSlot = nodeGraphKeypadFaceLatchOn(face) ? nodeGraphKeypadFaceLatchSlot(face) : null;
+    nodeGraphKeypadPaintWithOffset(face, downSlot, downSlot != null, live);
+  });
+  face.addEventListener("pointerout", (event) => {
+    if (event.relatedTarget && face.contains(event.relatedTarget)) {
+      return;
+    }
+    if (face.dataset.keypadHoverSlot == null || face.dataset.keypadHoverSlot === "") {
+      return;
+    }
+    delete face.dataset.keypadHoverSlot;
+    const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+    if (!nodeGraphKeypadNodeIsLatch(live)) {
+      return;
+    }
+    const downSlot = nodeGraphKeypadFaceLatchOn(face) ? nodeGraphKeypadFaceLatchSlot(face) : null;
+    nodeGraphKeypadPaintWithOffset(face, downSlot, downSlot != null, live);
+  });
   face.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     event.stopPropagation();
@@ -351,7 +494,8 @@ function createNodeGraphKeypadBody(node) {
     setNodeGraphKeypadPointerSlot(nodeId, Number(key.dataset.slot), event);
   });
   nodeGraphKeypadApplyLayout(face, patchNode?.layout);
-  nodeGraphKeypadPaintSlot(face, null, false);
+  nodeGraphKeypadPaintLatchFromPatch(face, patchNode);
+  nodeGraphKeypadApplyIndexSliderChrome(face);
   return face;
 }
 
@@ -359,6 +503,12 @@ function syncNodeGraphKeypadElement(element, patchNode) {
   const face = element?.querySelector?.(".node-keypad-face");
   if (!face || !patchNode) return;
   nodeGraphKeypadApplyLayout(face, patchNode.layout);
+  if (nodeGraphKeypadNodeIsLatch(patchNode) && nodeGraphKeypadFaceLatchOn(face)) {
+    nodeGraphKeypadPaintWithOffset(face, nodeGraphKeypadFaceLatchSlot(face), true, patchNode);
+  } else {
+    nodeGraphKeypadPaintLatchFromPatch(face, patchNode);
+  }
+  nodeGraphKeypadApplyIndexSliderChrome(element);
 }
 
 function nodeGraphKeypadTargetNodeId() {
@@ -468,16 +618,32 @@ if (typeof addNodeGraphModuleScopeSnapshotListener === "function") {
     for (const face of document.querySelectorAll(".node-keypad-face[data-node]")) {
       const nodeId = face.dataset.node;
       const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+      if (nodeGraphKeypadNodeIsLatch(patchNode)) {
+        const stored = nodeGraphKeypadFaceLatchOn(face)
+          ? nodeGraphKeypadFaceLatchSlot(face)
+          : (typeof nodeGraphKeypadStoredSlot === "function"
+            ? nodeGraphKeypadStoredSlot(patchNode?.params)
+            : null);
+        nodeGraphKeypadPaintWithOffset(face, stored, stored != null, patchNode);
+        continue;
+      }
+      const state = nodeGraphMvp?.live?.runtime?.keypadStates?.get?.(nodeId);
+      const pointerHeld = Number(state?.down) > 0;
       const digital = typeof nodeGraphModuleScopeLatestOutputValue === "function"
         ? nodeGraphModuleScopeLatestOutputValue(nodeId, "Index", 0)
         : 0;
       const gate = typeof nodeGraphModuleScopeLatestOutputValue === "function"
         ? nodeGraphModuleScopeLatestOutputValue(nodeId, "Gate", 0)
         : 0;
-      const slot = typeof nodeGraphKeypadDigitalToSlot === "function"
-        ? nodeGraphKeypadDigitalToSlot(digital)
-        : (Number(digital) > 0 ? Number(digital) - 1 : null);
-      nodeGraphKeypadPaintSlot(face, slot, gate > 0.5);
+      const slot = pointerHeld && state?.pointerSlot != null
+        ? state.pointerSlot
+        : (typeof nodeGraphKeypadDigitalToSlot === "function"
+          ? nodeGraphKeypadDigitalToSlot(digital)
+          : (Number(digital) > 0 ? Number(digital) - 1 : null));
+      // Pointer-up wins over a lagged Gate sample so the key does not
+      // flash down/hover again after the mouse is released.
+      const showDown = pointerHeld || (gate > 0.5 && !state);
+      nodeGraphKeypadPaintWithOffset(face, slot, showDown, patchNode);
     }
   });
 }

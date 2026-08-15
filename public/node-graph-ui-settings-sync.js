@@ -88,6 +88,10 @@ function syncNodeUiDevModuleIdleStroke() {
   const colorOut = document.getElementById("nodeUiDevModuleStrokeColorValue");
   const alphaInput = document.getElementById("nodeUiDevModuleStrokeAlpha");
   const alphaOut = document.getElementById("nodeUiDevModuleStrokeAlphaValue");
+  const selectedColorInput = document.getElementById("nodeUiDevModuleSelectedStrokeColor");
+  const selectedColorOut = document.getElementById("nodeUiDevModuleSelectedStrokeColorValue");
+  const selectedAlphaInput = document.getElementById("nodeUiDevModuleSelectedStrokeAlpha");
+  const selectedAlphaOut = document.getElementById("nodeUiDevModuleSelectedStrokeAlphaValue");
   const thicknessRaw = Number(thicknessInput?.value);
   const thicknessPx = Number.isFinite(thicknessRaw)
     ? Math.max(0, Math.min(8, thicknessRaw))
@@ -97,6 +101,11 @@ function syncNodeUiDevModuleIdleStroke() {
   const alphaPercent = Number.isFinite(alphaRaw)
     ? Math.max(0, Math.min(100, alphaRaw))
     : 50;
+  const selectedColor = normalizeNodeUiDevColor(selectedColorInput?.value, "#e2a86d");
+  const selectedAlphaRaw = Number(selectedAlphaInput?.value);
+  const selectedAlphaPercent = Number.isFinite(selectedAlphaRaw)
+    ? Math.max(0, Math.min(100, selectedAlphaRaw))
+    : 100;
   if (thicknessInput && !thicknessInput.matches(":active")) {
     thicknessInput.value = String(thicknessPx);
   }
@@ -115,11 +124,27 @@ function syncNodeUiDevModuleIdleStroke() {
   if (alphaOut) {
     alphaOut.textContent = `${alphaPercent}%`;
   }
+  if (selectedColorInput) {
+    selectedColorInput.value = selectedColor;
+  }
+  if (selectedAlphaInput && !selectedAlphaInput.matches(":active")) {
+    selectedAlphaInput.value = String(selectedAlphaPercent);
+  }
+  if (selectedColorOut) {
+    selectedColorOut.textContent = selectedColor;
+  }
+  if (selectedAlphaOut) {
+    selectedAlphaOut.textContent = `${selectedAlphaPercent}%`;
+  }
   const workspace = document.getElementById("nodeGraphWorkspace");
   workspace?.style.setProperty("--node-module-idle-stroke-width", `${thicknessPx}px`);
   workspace?.style.setProperty(
     "--node-module-idle-stroke",
     `rgb(${nodeUiDevHexColorToRgbTriplet(color)} / ${alphaPercent / 100})`,
+  );
+  workspace?.style.setProperty(
+    "--node-module-selected-stroke",
+    `rgb(${nodeUiDevHexColorToRgbTriplet(selectedColor)} / ${selectedAlphaPercent / 100})`,
   );
 }
 
@@ -183,6 +208,8 @@ function bindNodeUiDevModuleIdleStroke() {
     "nodeUiDevModuleStrokeThickness",
     "nodeUiDevModuleStrokeColor",
     "nodeUiDevModuleStrokeAlpha",
+    "nodeUiDevModuleSelectedStrokeColor",
+    "nodeUiDevModuleSelectedStrokeAlpha",
   ]) {
     const input = document.getElementById(id);
     if (!input || input.dataset.moduleIdleStrokeBound === "true") {

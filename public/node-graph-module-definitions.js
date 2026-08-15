@@ -9427,27 +9427,15 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Glyph field density. Low = bigger characters (fewer cells); high = smaller (more cells). One character per cell. Changing density remaps phosphor — does not wipe trails."
       },
       {
-        key: "brightness",
-        label: "Brightness",
-        defaultValue: "1",
-        min: "0",
-        mid: "1",
-        max: "1",
-        step: "any",
-        maxDigits: 4,
-        tooltip: "Peak light / present gain 0–1 (1 = full). Does not set residual hang (use Burn) or main trail length (use Trail)."
-      },
-      {
-        bipolar: true,
         defaultValue: "1",
         key: "speed",
         label: "Speed",
         max: "1",
-        mid: "0",
-        min: "-1",
+        mid: "0.5",
+        min: "0",
         step: "any",
         maxDigits: 4,
-        tooltip: "Signed rain rate. +Fall down, −Rise up, 0 idle."
+        tooltip: "Rain rate. 0 idle, 1 full fall. Expand min below 0 to rise."
       },
       {
         key: "charSpeed",
@@ -9461,39 +9449,6 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Glyph flips per bin of travel. 0 = fixed char for the stream; 1 = change every bin; 2 = twice per bin; fractional (e.g. 1.5) free-runs vs bin edges."
       },
       {
-        key: "trail",
-        label: "Trail",
-        defaultValue: "0.82",
-        min: "0",
-        mid: "0.75",
-        max: "1",
-        step: "any",
-        maxDigits: 4,
-        tooltip: "How long residual hangs. 0 = no trail (wipe); 0.75 = full linear; 1 = freeze. Sticky floor is Burn."
-      },
-      {
-        key: "ghost",
-        label: "Ghost",
-        defaultValue: "0.35",
-        min: "0",
-        mid: "0.35",
-        max: "1",
-        step: "any",
-        maxDigits: 4,
-        tooltip: "Extreme analog (super-exp) residual hang. Not brightness — only how long deposited energy hangs. Sticky floor is Burn."
-      },
-      {
-        key: "burn",
-        label: "Burn",
-        defaultValue: "0",
-        min: "0",
-        mid: "0.5",
-        max: "1",
-        step: "any",
-        maxDigits: 4,
-        tooltip: "Sticky residual floor 0…1. 0 = none stick; 0.5 = once energy ≥ 0.5 the pixel freezes at that floor; 1 = all residual freezes. Off by default."
-      },
-      {
         key: "spawn",
         label: "Spawn",
         defaultValue: "0.5",
@@ -9503,7 +9458,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         maxDigits: 4,
         modClamp: false,
-        tooltip: "How often new rain streams appear. Independent of glyph size (Density)."
+        tooltip: "How often new rain streams appear. 0 = none. 0.5 = original rain. 1 = downpour (overlapping streams fill the plate)."
       },
       {
         key: "streamDeath",
@@ -9516,7 +9471,62 @@ const nodeGraphModuleDefinitions = (
         maxDigits: 4,
         modClamp: false,
         tooltip:
-          "Chance streams end early. 0 = never die (streams wrap forever). 0.5 = original death rate. 1 = no spawn (empty rain)."
+          "Mid-stream die-off. 0 = never die (wrap forever). 0.5 = original rain death. 1 = heavy short streams (still spawn)."
+      },
+      {
+        key: "brightness",
+        label: "Bright",
+        defaultValue: "1",
+        min: "0",
+        mid: "1",
+        max: "1",
+        step: "any",
+        maxDigits: 4,
+        tooltip: "Live tip / present gain 0–1 (1 = full). Residual deposit peak is Bright × Burn ⨉. Hang is Ghost/Trail."
+      },
+      {
+        key: "ghost",
+        label: "Ghost",
+        defaultValue: "0.45",
+        min: "0",
+        mid: "0.45",
+        max: "1",
+        step: "any",
+        maxDigits: 4,
+        tooltip: "Extreme analog (super-exp) residual hang 0…1 (not brightness). Long dim trails live here. Trail 0 = Ghost only (this control is the whole hang)."
+      },
+      {
+        key: "trail",
+        label: "Trail",
+        defaultValue: "0.5",
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "any",
+        maxDigits: 4,
+        tooltip: "Mix from Ghost-only toward linear, then freeze. 0 = Ghost only; 0.5 = half linear / half Ghost; 0.75 = full linear fade; 1 = freeze. Ghost is ignored above 0.75."
+      },
+      {
+        key: "burn",
+        label: "Burn",
+        defaultValue: "0",
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "any",
+        maxDigits: 4,
+        tooltip: "Sticky residual floor 0…1. 0 = no stick; 0.5 = once energy ≥ 0.5 the pixel freezes at that floor; 1 = freeze all residual. Off by default."
+      },
+      {
+        key: "burnAmount",
+        label: "Burn ⨉",
+        defaultValue: "1",
+        min: "0",
+        mid: "1",
+        max: "4",
+        step: "any",
+        maxDigits: 4,
+        tooltip: "Residual deposit gain vs Bright (default 1). Deposit peak = Bright × this. 0.3 = dim long hang (with Ghost); 1 = deposit at Bright. Live tip stays Bright."
       },
       {
         choices: ["Off", "On"],
@@ -9579,36 +9589,36 @@ const nodeGraphModuleDefinitions = (
       },
       {
         key: "brightness",
-        label: "Brightness",
+        label: "Bright",
         defaultValue: "1",
         min: "0",
         mid: "1",
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Peak light / present gain 0–1 (1 = full). Residual hang is Ghost/Trail; sticky floor is Burn."
-      },
-      {
-        key: "trail",
-        label: "Trail",
-        defaultValue: "0.82",
-        min: "0",
-        mid: "0.75",
-        max: "1",
-        step: "any",
-        maxDigits: 4,
-        tooltip: "Adds linear decay over Ghost, then freezes. High = longer hot afterglow. Sticky floor is Burn."
+        tooltip: "Live / present gain 0–1 (1 = full). Residual deposit peak is Bright × Burn ⨉."
       },
       {
         key: "ghost",
         label: "Ghost",
-        defaultValue: "0.35",
+        defaultValue: "0.45",
         min: "0",
-        mid: "0.35",
+        mid: "0.45",
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Extreme analog (super-exp) residual hang. Not brightness. Sticky floor is Burn."
+        tooltip: "Extreme analog (super-exp) residual hang 0…1 (not brightness). Long dim trails live here."
+      },
+      {
+        key: "trail",
+        label: "Trail",
+        defaultValue: "0.5",
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "any",
+        maxDigits: 4,
+        tooltip: "Mix from Ghost-only toward linear, then freeze. 0 = Ghost only; 0.5 = half linear / half Ghost; 0.75 = full linear fade; 1 = freeze. Ghost is ignored above 0.75."
       },
       {
         key: "burn",
@@ -9619,7 +9629,18 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Sticky residual floor 0…1. 0 = none stick; 0.5 = once energy ≥ 0.5 freezes at that floor; 1 = all residual freezes. Off by default."
+        tooltip: "Sticky residual floor 0…1. 0 = no stick; 0.5 = once energy ≥ 0.5 freezes at that floor; 1 = freeze all residual. Off by default."
+      },
+      {
+        key: "burnAmount",
+        label: "Burn ⨉",
+        defaultValue: "1",
+        min: "0",
+        mid: "1",
+        max: "4",
+        step: "any",
+        maxDigits: 4,
+        tooltip: "Residual deposit gain vs Bright (default 1). Deposit peak = Bright × this. Live plate light is unchanged."
       },
       {
         choices: ["Off", "On"],

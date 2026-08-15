@@ -111,13 +111,13 @@ void main() {
       mono = max(mono, cov * 1.0);
     }
   } else {
-    // Waterfall: one glyph; trail length from energy decay (Trail param), not brightness.
-    // No hardcoded tip glow — brightness is present gain only.
+    // Waterfall: live tip = full Bright; residual = film(energy) (drawer model).
     float gi = liveIdx > spaceIdx + 0.5 ? liveIdx : resIdx;
-    if (gi > spaceIdx + 0.5 && energy > 0.001) {
+    float tip = d.a;
+    if (gi > spaceIdx + 0.5 && (energy > 0.001 || tip > 0.5)) {
       float cov = sampleGlyph(gi, local);
-      float film = filmEnergy(energy);
-      mono = max(mono, cov * film);
+      float body = tip > 0.5 ? 1.0 : filmEnergy(energy);
+      mono = max(mono, cov * body);
     }
   }
 
@@ -508,7 +508,7 @@ function matrixGlPackCells(state, glState) {
     data[o] = glyphIndex(live[i] || " ") & 255;
     data[o + 1] = glyphIndex(residual[i] || " ") & 255;
     data[o + 2] = Math.min(255, Math.max(0, (energy[i] * 255) | 0));
-    data[o + 3] = 255;
+    data[o + 3] = state.tip?.[i] ? 255 : 0;
   }
   return data;
 }

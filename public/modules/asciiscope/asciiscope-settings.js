@@ -64,8 +64,7 @@ function buildNodeGraphMatrixWaterfallDisplaySettingsBodyHtml() {
         <button type="button" data-matrix-face-render="vector" aria-pressed="true">Sharp</button>
         <button type="button" data-matrix-face-render="pixel" aria-pressed="false">Pixel</button>
       </div>
-      <div class="metadata-section-title node-trace-display-gradient-title">Gradient</div>
-      <div class="metadata-field-section node-trace-display-gradient-section">
+      <div class="node-trace-display-gradient-section node-matrix-face-gradient-section">
         <div
           id="nodeTraceDisplayGradientSelectorHost"
           class="node-gradient-selector-host node-shared-gradient-host node-spectrogram-gradient-host"
@@ -73,15 +72,6 @@ function buildNodeGraphMatrixWaterfallDisplaySettingsBodyHtml() {
           data-shared-gradient-host
           data-spectrogram-gradient-host></div>
       </div>
-      <div class="metadata-section-title node-trace-display-glyph-title">Glyph</div>
-      <p class="node-matrix-face-settings-hint">Charset - one glyph per line.</p>
-      <textarea
-        class="node-matrix-face-glyph-table"
-        data-matrix-face-field="glyphTable"
-        spellcheck="false"
-        autocomplete="off"
-        rows="12"
-        aria-label="Matrix glyph table"></textarea>
       <div class="node-led-settings-row" role="group" aria-label="Glyph tools">
         <span>Table</span>
         <button type="button" data-matrix-face-action="default-glyphs">Default glyphs</button>
@@ -151,9 +141,9 @@ function syncNodeGraphMatrixFaceDisplaySettingsControls(root, settings) {
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-pressed", String(active));
   }
-  const glyph = root.querySelector?.('[data-matrix-face-field="glyphTable"]');
-  if (glyph && document.activeElement !== glyph && settings.glyphTable != null) {
-    glyph.value = settings.glyphTable || "";
+  const panel = root.querySelector?.("[data-matrix-face-settings-panel]") || root;
+  if (panel && settings.glyphTable != null) {
+    panel.dataset.matrixGlyphTable = String(settings.glyphTable || "");
   }
   const message = root.querySelector?.('[data-matrix-face-field="message"]');
   if (message && document.activeElement !== message && settings.message != null) {
@@ -181,7 +171,7 @@ function readNodeGraphMatrixFaceDisplaySettingsForm(root, current = null) {
     : "matrixDisplayFace";
   const base = normalizeNodeGraphMatrixFaceSettings(current, formType);
   const panel = root?.querySelector?.("[data-matrix-face-settings-panel]") || root;
-  const glyph = panel?.querySelector?.('[data-matrix-face-field="glyphTable"]');
+  const glyphTable = panel?.dataset?.matrixGlyphTable || base.glyphTable;
   const message = panel?.querySelector?.('[data-matrix-face-field="message"]');
   const activeRender = panel?.querySelector?.(
     "[data-matrix-face-render].active, [data-matrix-face-render][aria-pressed='true']",
@@ -219,7 +209,7 @@ function readNodeGraphMatrixFaceDisplaySettingsForm(root, current = null) {
 
   if (formType === "matrixWaterfallFace") {
     return normalizeNodeGraphMatrixFaceSettings({
-      glyphTable: glyph ? glyph.value : base.glyphTable,
+      glyphTable,
       renderStyle,
       gradientStops,
       screenPadding,
@@ -307,12 +297,18 @@ function bindNodeGraphMatrixFaceDisplaySettingsBody(host) {
     const panel = host.querySelector?.("[data-matrix-face-settings-panel]") || host;
 
     if (action === "default-glyphs") {
-      const glyph = panel.querySelector?.('[data-matrix-face-field="glyphTable"]');
-      if (glyph) {
-        glyph.value = typeof matrixDefaultGlyphTable === "function" ? matrixDefaultGlyphTable() : ".";
+      const table = typeof matrixDefaultGlyphTable === "function" ? matrixDefaultGlyphTable() : ".";
+      panel.dataset.matrixGlyphTable = table;
+      if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+        markNodeGraphTraceDisplaySettingsDirty(["glyphTable", "*"]);
       }
       if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
-        applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true, commit: true });
+        applyNodeGraphTraceDisplaySettingsForm({
+          persist: "immediate",
+          record: true,
+          commit: true,
+          forceAll: true,
+        });
       }
       return;
     }

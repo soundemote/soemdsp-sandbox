@@ -209,6 +209,7 @@ var nodeGraphMvp = {
   // hid every face (Output Trace + Music Player waveform) until settings
   // rehydrated, which looked like "scopes totally broken" on a fresh load.
   moduleOscilloscopesVisible: true,
+  lastHeavyAction: "",
   modulePlacement: null,
   moduleShopDragging: null,
   moduleSlidersVisible: true,
