@@ -9,9 +9,9 @@
 // Two lights only:
 //   1. Module lamps — CSS heatmap (fades 0.5…1).
 //   2. Screen glow  — veil holes on painted canvases (0.5…1, sim on).
-// 0…0.5: clip the veil off the workspace (CSS). No punched workspace rect —
-// that hole was the hard box that slid under zoom/pan.
-// 0.5…1: full veil, screen holes only. Graph darkens via heatmap fade.
+// 0…0.5: clip the veil off the workspace (CSS). Graph stays on heatmap.
+// 0.5…1: fade a CSS-pixel workspace hole (1−deep) so lamps do not pop.
+//         Same client→UV path as screens — no buffer snap (that box drifted).
 //
 // Punch geometry:
 //   Prefer the *painted* surface (scope fallback canvas, music-player panel
@@ -38,6 +38,7 @@
     "canvas.node-matrix-display-canvas",
     "canvas.node-filter-curve-canvas",
     "canvas.node-raster-rgb-canvas",
+    ".node-keypad-face",
   ].join(", ");
   // Default mouse cutout size (CSS px); UI Dev can override.
   const HOVER_CURSOR_CUTOUT_CSS_DEFAULT = 56;
@@ -399,11 +400,12 @@ void main() {
     if (el.matches?.("canvas.node-asciiscope-canvas")) return el;
     if (el.matches?.("canvas.node-matrix-display-canvas")) return el;
     if (el.matches?.("canvas.node-filter-curve-canvas")) return el;
+    if (el.matches?.(".node-keypad-face")) return el;
     if (el.matches?.(".node-led-lamp")) return el;
 
     // Outer shells: only if no painted canvas is already the target.
     const painted = el.querySelector?.(
-      "canvas.node-raster-rgb-canvas, canvas.node-module-scope-local-fallback-canvas, canvas.node-phosphor-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, canvas.node-asciiscope-canvas, canvas.node-matrix-display-canvas, canvas.node-filter-curve-canvas, .node-led-lamp",
+      "canvas.node-raster-rgb-canvas, canvas.node-module-scope-local-fallback-canvas, canvas.node-phosphor-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, canvas.node-asciiscope-canvas, canvas.node-matrix-display-canvas, canvas.node-filter-curve-canvas, .node-keypad-face, .node-led-lamp",
     );
     if (painted) return painted;
 
@@ -544,6 +546,35 @@ void main() {
     pushRectArrays(rects, strengths, softs, rounds, x, y, w, h, str, softUv, roundUv);
   }
 
+  /** Workspace open in CSS pixels (same UV as screen punches). No buffer snap. */
+  function pushWorkspaceOpen(canvasRect, canvas, rects, strengths, softs, rounds, strength) {
+    const ws = workspace();
+    const str = clamp01(strength);
+    if (!ws || !canvas || str < 0.001 || rects.length >= MAX_RECTS) return;
+    const wr = ws.getBoundingClientRect();
+    const cr = canvasRect;
+    const cssW = Math.max(1e-6, cr.width);
+    const cssH = Math.max(1e-6, cr.height);
+    const left = Number(wr.left) - cr.left;
+    const top = Number(wr.top) - cr.top;
+    const right = Number(wr.right) - cr.left;
+    const bottom = Number(wr.bottom) - cr.top;
+    if (right <= left || bottom <= top) return;
+    pushRectArrays(
+      rects,
+      strengths,
+      softs,
+      rounds,
+      left / cssW,
+      (cssH - bottom) / cssH,
+      (right - left) / cssW,
+      (bottom - top) / cssH,
+      str,
+      0,
+      0,
+    );
+  }
+
   function collectLights(canvas) {
     if (!canvas?.width || !canvas?.height) {
       return { rects: [], rectStr: [], rectSoft: [], rectRound: [] };
@@ -559,9 +590,10 @@ void main() {
     const rectSoft = [];
     const rectRound = [];
     const deep = dimDeep();
-    // No workspace-sized punch. 0…0.5 uses CSS clip (chrome only).
-    // 0.5…1: veil covers the graph; only painted screens stay open.
+    // 0…0.5: clip handles this (no shader hole). 0.5…1: fade the hole so
+    // the veil eases onto the plates with the heatmap lamps (no 0.5 pop).
     if (deep > 0) {
+      pushWorkspaceOpen(canvasRect, canvas, rects, rectStr, rectSoft, rectRound, 1 - deep);
       for (const el of document.querySelectorAll(SCREEN_SELECTOR)) {
         if (rects.length >= MAX_RECTS) break;
         if (!el.closest?.("#nodeGraphWorkspace")) continue;

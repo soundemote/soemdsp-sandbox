@@ -384,10 +384,12 @@ function createNodeGraphKeypadBody(node) {
   const nodeId = String(node || "");
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const face = document.createElement("div");
-  face.className = "node-keypad-face node-module-face";
+  face.className = "node-keypad-face node-module-face node-light-source";
   face.dataset.node = nodeId;
   face.dataset.nodeType = "keypad";
   face.dataset.moduleBand = "face";
+  face.dataset.lightSource = "screen";
+  face.dataset.lightStrength = "1";
   face.setAttribute("aria-label", "Keypad");
   const grid = document.createElement("div");
   grid.className = "node-keypad-grid";
