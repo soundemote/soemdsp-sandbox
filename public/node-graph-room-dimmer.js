@@ -9,8 +9,9 @@
 // Two lights only:
 //   1. Module lamps — CSS heatmap (fades 0.5…1).
 //   2. Screen glow  — veil holes on painted canvases (0.5…1, sim on).
-// 0…0.5: punch the whole workspace (veil stays off the graph).
-// No workspace-shaped hole after 0.5 — that was the moving hard box.
+// 0…0.5: clip the veil off the workspace (CSS). No punched workspace rect —
+// that hole was the hard box that slid under zoom/pan.
+// 0.5…1: full veil, screen holes only. Graph darkens via heatmap fade.
 //
 // Punch geometry:
 //   Prefer the *painted* surface (scope fallback canvas, music-player panel
@@ -197,6 +198,29 @@ void main() {
 
   function buttonEl() {
     return document.getElementById("nodeRoomDimmerButton");
+  }
+
+  /** 0…0.5: veil paints chrome only. Never a shader hole the size of the graph. */
+  function clipVeilOffWorkspace(canvas, offWorkspace) {
+    if (!canvas) return;
+    if (!offWorkspace) {
+      canvas.style.clipPath = "";
+      return;
+    }
+    const ws = workspace();
+    const cr = canvas.getBoundingClientRect();
+    const wr = ws?.getBoundingClientRect();
+    if (!wr || !(cr.width > 0) || !(cr.height > 0)) {
+      canvas.style.clipPath = "";
+      return;
+    }
+    const l = wr.left - cr.left;
+    const t = wr.top - cr.top;
+    const r = wr.right - cr.left;
+    const b = wr.bottom - cr.top;
+    const w = cr.width;
+    const h = cr.height;
+    canvas.style.clipPath = `polygon(evenodd, 0px 0px, ${w}px 0px, ${w}px ${h}px, 0px ${h}px, 0px 0px, ${l}px ${t}px, ${l}px ${b}px, ${r}px ${b}px, ${r}px ${t}px, ${l}px ${t}px)`;
   }
 
   function setVeilActive(on) {
@@ -535,23 +559,8 @@ void main() {
     const rectSoft = [];
     const rectRound = [];
     const deep = dimDeep();
-    const ws = workspace();
-    // 0…0.5: full workspace hole. 0.5…1: fade that hole (no pop at 0.5)
-    // so plates go under the veil gradually. Screens add their own holes.
-    if (ws && 1 - deep > 0.001) {
-      pushClientRectLight(
-        ws.getBoundingClientRect(),
-        canvasRect,
-        canvas,
-        rects,
-        rectStr,
-        rectSoft,
-        rectRound,
-        1 - deep,
-        0,
-        0,
-      );
-    }
+    // No workspace-sized punch. 0…0.5 uses CSS clip (chrome only).
+    // 0.5…1: veil covers the graph; only painted screens stay open.
     if (deep > 0) {
       for (const el of document.querySelectorAll(SCREEN_SELECTOR)) {
         if (rects.length >= MAX_RECTS) break;
@@ -614,11 +623,13 @@ void main() {
 
     if (dim <= 0.0005) {
       setVeilActive(false);
+      clipVeilOffWorkspace(canvas, false);
       clearCanvas();
       return;
     }
 
     setVeilActive(true);
+    clipVeilOffWorkspace(canvas, dimDeep(dim) <= 0);
     if (!resizeCanvas(canvas)) {
       scheduleDraw();
       return;
