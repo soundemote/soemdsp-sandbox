@@ -42,7 +42,7 @@ const nodeGraphPhosphorWaveformDefaultSettings = Object.freeze({
   // always had (hue ~140, a green), so an untouched node renders exactly
   // as before.
   hue: 140,
-  lineBrightness: 1,
+  lineBrightness: 0.5,
   // Per-sample vertical grid (visible when zoomed in). 0 = hidden; 0.5 ≈ legacy mid.
   gridBrightness: 0.5,
   backgroundHue: 140,
@@ -1696,11 +1696,8 @@ function nodeGraphPhosphorWaveformStrokeVectorPath(context, points) {
   return true;
 }
 
-// Every "line family" color (loop shading, sample grid, envelope glow/core,
-// placeholder text, zoom label) is this same hue at a different base
-// lightness -- settings.hue shifts the whole palette together, and
-// settings.lineBrightness scales every one of those base lightness values
-// by the same factor, preserving their relative contrast to each other.
+// Line family shares nodeGraphHueBrightnessCss (black → hue @ 0.5 → white).
+// settings.hue is the pigment; settings.lineBrightness is the slider.
 // Always normalize: phosphillator (and other callers) may omit settings.
 // Never read properties off a raw `settings` argument — it is often undefined.
 function applyNodeGraphPhosphorWaveformHudVars(section, settings) {
@@ -1718,7 +1715,7 @@ function applyNodeGraphPhosphorWaveformHudVars(section, settings) {
 function nodeGraphPhosphorWaveformLineColor(settings, lightness, alpha) {
   const defaults = nodeGraphPhosphorWaveformDefaultSettings || {
     hue: 140,
-    lineBrightness: 1,
+    lineBrightness: 0.5,
   };
   let s = defaults;
   try {
@@ -1736,12 +1733,16 @@ function nodeGraphPhosphorWaveformLineColor(settings, lightness, alpha) {
   const brightnessRaw = Number(s.lineBrightness);
   const brightness = Number.isFinite(brightnessRaw)
     ? brightnessRaw
-    : Number(defaults.lineBrightness) || 1;
+    : Number(defaults.lineBrightness) || 0.5;
   const hueRaw = Number(s.hue);
   const hue = Number.isFinite(hueRaw) ? hueRaw : Number(defaults.hue) || 140;
+  const a = Number(alpha);
+  if (typeof nodeGraphHueBrightnessCss === "function") {
+    return nodeGraphHueBrightnessCss(hue, brightness, Number.isFinite(a) ? a : 1);
+  }
   const light = Number(lightness);
-  const scaledLightness = Math.max(0, Math.min(100, (Number.isFinite(light) ? light : 0) * brightness));
-  return `hsla(${hue}, 90%, ${scaledLightness}%, ${Number(alpha) || 0})`;
+  const scaledLightness = Math.max(0, Math.min(100, (Number.isFinite(light) ? light : 50)));
+  return `hsla(${hue}, 90%, ${scaledLightness}%, ${Number.isFinite(a) ? a : 0})`;
 }
 
 function nodeGraphPhosphorWaveformBackgroundColor(settings) {
@@ -2015,8 +2016,10 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const gridBrightness = Math.max(0, Math.min(1, Number(settings.gridBrightness) || 0));
   const showSampleGrid = gridBrightness > 0.001 && pixelsPerFrame >= 6 * pixelRatio;
   if (showSampleGrid) {
-    const gridAlpha = Math.min(0.55, 0.28 * gridBrightness);
-    context.strokeStyle = nodeGraphPhosphorWaveformLineColor(settings, 68, gridAlpha);
+    const gridHue = Number.isFinite(Number(settings.hue)) ? Number(settings.hue) : 140;
+    context.strokeStyle = typeof nodeGraphHueBrightnessCss === "function"
+      ? nodeGraphHueBrightnessCss(gridHue, gridBrightness, 0.45)
+      : nodeGraphPhosphorWaveformLineColor(settings, 68, 0.45);
     context.lineWidth = 1;
     context.beginPath();
     const firstFrame = Math.ceil(viewStart);

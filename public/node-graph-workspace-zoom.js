@@ -14,6 +14,12 @@ function applyNodeGraphZoom(options = {}) {
     workspace.dataset.zoom = nodeGraphZoom().toFixed(2);
     workspace.classList.toggle("pixelated-canvas-zoom", nodeGraphZoom() >= 2.5);
   }
+  if (
+    typeof renderNodeGraphMarqueeSelection === "function"
+    && (nodeGraphMvp?.marqueeSelection || nodeGraphMvp?.hitTrailKeptStrokes?.length)
+  ) {
+    renderNodeGraphMarqueeSelection();
+  }
   // Workspace size CSS only when not mid-wheel (avoids layout thrash).
   if (options.layout !== false && typeof applyNodeGraphWorkspaceView === "function") {
     if (!options.gesture || options.forceLayout) {

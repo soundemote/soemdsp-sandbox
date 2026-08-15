@@ -97,6 +97,61 @@ function nodeGraphClampUnit(value) {
 // CSS pixels with a setTransform(pixelRatio, ...), while the phosphor
 // waveform draws in raw device pixels so it can snap lines to real pixels.
 // Returns null when there is nothing to draw into.
+/**
+ * Shared hue brightness (snake, Music Player line, grid).
+ * Slider 0…1: black → full hue at 0.5 → white at 1.
+ * Walks the HSV cone edge (dim hue, then tint to white) so we never slog
+ * through grey. Smoothstep + gamma 2.2 keeps the ends from sticking.
+ */
+function nodeGraphHueUnitRgb01(hueDeg) {
+  const h = ((((Number(hueDeg) || 0) % 360) + 360) % 360) / 60;
+  const x = 1 - Math.abs((h % 2) - 1);
+  if (h < 1) return [1, x, 0];
+  if (h < 2) return [x, 1, 0];
+  if (h < 3) return [0, 1, x];
+  if (h < 4) return [0, x, 1];
+  if (h < 5) return [x, 0, 1];
+  return [1, 0, x];
+}
+
+function nodeGraphHueBrightnessRgb01(hueDeg, brightness01) {
+  const t = Math.max(0, Math.min(1, Number(brightness01) || 0));
+  const [hr, hg, hb] = nodeGraphHueUnitRgb01(hueDeg);
+  const toLin = (c) => c ** 2.2;
+  const toSrgb = (c) => Math.max(0, c) ** (1 / 2.2);
+  const ease = (u) => {
+    const x = Math.max(0, Math.min(1, u));
+    return x * x * (3 - 2 * x);
+  };
+  let r;
+  let g;
+  let b;
+  if (t <= 0.5) {
+    const e = ease(t / 0.5);
+    r = toSrgb(toLin(hr) * e);
+    g = toSrgb(toLin(hg) * e);
+    b = toSrgb(toLin(hb) * e);
+  } else {
+    const e = ease((t - 0.5) / 0.5);
+    r = toSrgb(toLin(hr) * (1 - e) + e);
+    g = toSrgb(toLin(hg) * (1 - e) + e);
+    b = toSrgb(toLin(hb) * (1 - e) + e);
+  }
+  return [r, g, b];
+}
+
+function nodeGraphHueBrightnessCss(hueDeg, brightness01, alpha01 = 1) {
+  const [r, g, b] = nodeGraphHueBrightnessRgb01(hueDeg, brightness01);
+  const R = Math.round(r * 255);
+  const G = Math.round(g * 255);
+  const B = Math.round(b * 255);
+  const a = Math.max(0, Math.min(1, Number(alpha01)));
+  if (!(a < 1)) {
+    return `rgb(${R} ${G} ${B})`;
+  }
+  return `rgb(${R} ${G} ${B} / ${a})`;
+}
+
 /** Face backing 0…1. 1 = CSS × dpr; below 1 = lo-fi. */
 function nodeGraphResolveDisplayPixelDensity(pixelDensity) {
   if (typeof nodeGraphTraceDisplayClampPixelDensity === "function") {

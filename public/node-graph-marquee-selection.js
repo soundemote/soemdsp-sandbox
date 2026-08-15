@@ -87,30 +87,39 @@ function nodeGraphHitTrailKeptStrokes() {
   return nodeGraphMvp.hitTrailKeptStrokes;
 }
 
+function nodeGraphHitTrailLivePen(zoom = nodeGraphHitTrailZoom()) {
+  const z = Math.max(0.0001, Number(zoom) || 1);
+  return {
+    width: 6 / z,
+    dash: `${14 / z} ${11 / z}`,
+  };
+}
+
 function clearNodeGraphHitTrailKept() {
   nodeGraphMvp.hitTrailKeptStrokes = [];
 }
 
-function nodeGraphHitTrailPushKept(points) {
+function nodeGraphHitTrailPushKept(points, pen = null) {
   if (!points?.length) {
     return;
   }
+  const style = pen || nodeGraphHitTrailLivePen();
   const strokes = nodeGraphHitTrailKeptStrokes();
-  strokes.push(points.map((p) => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })));
-  let total = 0;
-  for (const stroke of strokes) {
-    total += stroke.length;
-  }
-  while (strokes.length > 1 && total > nodeGraphHitTrailMaxPoints * 2) {
-    total -= strokes[0].length;
+  strokes.push({
+    dash: style.dash,
+    points: points.map((p) => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })),
+    width: style.width,
+  });
+  while (strokes.length > 48) {
     strokes.shift();
   }
 }
 
 function nodeGraphHitTrailMirrorPoint(point, center) {
+  // Vertical axis through the Shift+click: left↔right only (heart, not 180° spin).
   return {
     x: (2 * center.x) - point.x,
-    y: (2 * center.y) - point.y,
+    y: point.y,
   };
 }
 
@@ -126,31 +135,51 @@ function nodeGraphHitTrailAllStrokes() {
   const drag = nodeGraphMvp.marqueeSelection;
   const live = drag?.points;
   if (live?.length) {
-    strokes.push(live);
+    const pen = nodeGraphHitTrailLivePen();
+    const liveStroke = { dash: pen.dash, live: true, points: live, width: pen.width };
+    strokes.push(liveStroke);
     if (drag.mirrorDraw && nodeGraphMvp.hitTrailMirrorCenter) {
-      strokes.push(nodeGraphHitTrailMirrorStroke(live, nodeGraphMvp.hitTrailMirrorCenter));
+      strokes.push({
+        dash: pen.dash,
+        live: true,
+        points: nodeGraphHitTrailMirrorStroke(live, nodeGraphMvp.hitTrailMirrorCenter),
+        width: pen.width,
+      });
     }
   }
   return strokes;
 }
 
+function nodeGraphHitTrailSyncPaths(svg, count) {
+  const ns = "http://www.w3.org/2000/svg";
+  const paths = [...svg.querySelectorAll("path")];
+  while (paths.length < count) {
+    const next = document.createElementNS(ns, "path");
+    next.setAttribute("class", "node-selection-hit-trail-path");
+    svg.append(next);
+    paths.push(next);
+  }
+  while (paths.length > Math.max(1, count)) {
+    paths.pop().remove();
+  }
+  return paths;
+}
+
 function renderNodeGraphMarqueeSelection() {
   // Legacy name kept for call sites. Renders the hit trail snake.
   const svg = nodeGraphHitTrailSvg();
-  const path = nodeGraphHitTrailPath();
   const marquee = document.getElementById("nodeSelectionMarquee");
   if (marquee) {
     marquee.hidden = true;
   }
   const strokes = nodeGraphHitTrailAllStrokes();
-  if (!svg || !path || !strokes.length) {
-    if (svg) {
-      svg.setAttribute("hidden", "");
-      svg.style.display = "none";
-    }
-    if (path) {
-      path.removeAttribute("d");
-    }
+  if (!svg) {
+    return;
+  }
+  if (!strokes.length) {
+    svg.setAttribute("hidden", "");
+    svg.style.display = "none";
+    nodeGraphHitTrailSyncPaths(svg, 1)[0]?.removeAttribute("d");
     return;
   }
 
@@ -166,17 +195,17 @@ function renderNodeGraphMarqueeSelection() {
   svg.style.opacity = "1";
   svg.style.pointerEvents = "none";
 
-  // Visual only — cubic Catmull–Rom stroke. Hit sampling still uses drag.points raw.
-  path.setAttribute("d", strokes.map((s) => nodeGraphHitTrailSmoothPathD(s)).filter(Boolean).join(" "));
-  // Keep ~6 screen-px thick dashes stable under workspace CSS zoom.
-  const zoom = nodeGraphHitTrailZoom();
-  path.setAttribute("stroke", "var(--node-selection-hit-trail-color)");
-  path.setAttribute("fill", "none");
-  path.setAttribute("stroke-width", String(6 / zoom));
-  path.setAttribute("stroke-linecap", "round");
-  path.setAttribute("stroke-linejoin", "round");
-  path.setAttribute("stroke-dasharray", `${14 / zoom} ${11 / zoom}`);
-  path.style.opacity = "0.95";
+  const paths = nodeGraphHitTrailSyncPaths(svg, strokes.length);
+  for (let i = 0; i < strokes.length; i += 1) {
+    const stroke = strokes[i];
+    const el = paths[i];
+    const d = nodeGraphHitTrailSmoothPathD(stroke.points);
+    el.setAttribute("d", d);
+    el.setAttribute("fill", "none");
+    el.style.strokeWidth = String(stroke.width);
+    el.style.strokeDasharray = stroke.dash;
+    el.style.opacity = "0.95";
+  }
 }
 
 function nodeGraphHitTrailAppendPoint(drag, point) {
@@ -733,9 +762,6 @@ function startNodeGraphMarqueeSelection(event, workspace) {
   const keepCtrl = Boolean(event.ctrlKey);
   const mirrorDraw = Boolean(event.shiftKey);
   const cosmetic = keepCtrl || mirrorDraw;
-  if (!cosmetic) {
-    clearNodeGraphHitTrailKept();
-  }
   if (mirrorDraw) {
     // Shift+click plants the mirror origin. Drag never moves it.
     nodeGraphMvp.hitTrailMirrorCenter = { x: point.x, y: point.y };
@@ -852,9 +878,13 @@ function dragNodeGraphMarqueeSelection(event) {
 
   const point = nodeGraphClientPoint(event);
   drag.current = point;
+  const wasMoved = drag.moved;
   drag.moved ||=
     Math.abs(point.x - drag.start.x) > 2 ||
     Math.abs(point.y - drag.start.y) > 2;
+  if (drag.moved && !wasMoved && !drag.keepTrail && !drag.cosmetic) {
+    clearNodeGraphHitTrailKept();
+  }
   if (event.ctrlKey) {
     drag.keepTrail = true;
     drag.cosmetic = true;
@@ -884,10 +914,12 @@ function endNodeGraphMarqueeSelection(event) {
     setNodeGraphSelection(null);
   }
   if (drag.keepTrail && drag.moved && drag.points?.length) {
-    nodeGraphHitTrailPushKept(drag.points);
+    const pen = nodeGraphHitTrailLivePen();
+    nodeGraphHitTrailPushKept(drag.points, pen);
     if (drag.mirrorDraw && nodeGraphMvp.hitTrailMirrorCenter) {
       nodeGraphHitTrailPushKept(
         nodeGraphHitTrailMirrorStroke(drag.points, nodeGraphMvp.hitTrailMirrorCenter),
+        pen,
       );
     }
   }

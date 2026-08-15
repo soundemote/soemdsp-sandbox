@@ -207,14 +207,14 @@ function fitNodeModularToolbarText() {
     return;
   }
   toolbar.querySelectorAll(
-    "#nodeUndoButton, #nodeRedoButton, #nodeDonateFiveButton, #nodeDonateFiveButton > span, #nodeDownloadFiftyButton > span",
+    "#nodeUndoButton, #nodeRedoButton, #nodeDonateFiveButton, #nodeDonateFiveButton > span, #nodeDownloadFiftyButton > span, #seDebugButton, #seDebugButton .se-badge",
   ).forEach((el) => {
     el.style.removeProperty("font-size");
   });
   const spans = toolbar.querySelectorAll([
     ".node-view-tabs > .node-toolbar-stack-label > span",
     ".node-view-tabs > button > .node-modular-view-icon",
-    ".node-history-controls > button:not(.node-room-dimmer-button):not(#nodeUndoButton):not(#nodeRedoButton):not(#nodeDonateFiveButton) > span",
+    ".node-history-controls > button:not(.node-room-dimmer-button):not(#nodeUndoButton):not(#nodeRedoButton):not(#nodeDonateFiveButton):not(#seDebugButton) > span",
     ".node-world-position-readout > span",
     ".node-modular-view-size-readout > span",
     ".node-selection-count-readout > span",

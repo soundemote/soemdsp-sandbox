@@ -30,39 +30,17 @@ const nodeUiDevSliderFillColorTargets = Object.freeze([
   { property: "--node-slider-ghost-color", prefix: "nodeUiDevSliderGhostFill", fallback: [262, 100, 76, 38] },
 ]);
 
-/** Pure hue RGB (sat=1, value=1) in 0…1. */
-function nodeUiDevHueUnitRgb(hueDeg) {
-  const h = ((((Number(hueDeg) || 0) % 360) + 360) % 360) / 60;
-  const x = 1 - Math.abs((h % 2) - 1);
-  if (h < 1) return [1, x, 0];
-  if (h < 2) return [x, 1, 0];
-  if (h < 3) return [0, 1, x];
-  if (h < 4) return [0, x, 1];
-  if (h < 5) return [x, 0, 1];
-  return [1, 0, x];
-}
-
-/** Scale hue in linear light (gamma 2.2). 0 = off, 1 = full hue. No mix to white. */
-function nodeUiDevHueBrightnessCss(hueDeg, bright01) {
-  const t = Math.max(0, Math.min(1, Number(bright01) || 0));
-  const rgb = nodeUiDevHueUnitRgb(hueDeg).map((channel) => {
-    const linear = (channel ** 2.2) * t;
-    return Math.round((Math.max(0, linear) ** (1 / 2.2)) * 255);
-  });
-  return `rgb(${rgb[0]} ${rgb[1]} ${rgb[2]})`;
-}
-
 function syncNodeUiDevSnakeSelectColor() {
   const workspace = document.getElementById("nodeGraphWorkspace");
   if (!workspace) {
     return;
   }
   const hue = nodeUiDevSliderFillChannel("nodeUiDevSnakeSelectHue", 191, 360);
-  const brightness = nodeUiDevSliderFillChannel("nodeUiDevSnakeSelectBrightness", 100, 100);
-  workspace.style.setProperty(
-    "--node-selection-hit-trail-color",
-    nodeUiDevHueBrightnessCss(hue, brightness / 100),
-  );
+  const brightness = nodeUiDevSliderFillChannel("nodeUiDevSnakeSelectBrightness", 50, 100);
+  const css = typeof nodeGraphHueBrightnessCss === "function"
+    ? nodeGraphHueBrightnessCss(hue, brightness / 100)
+    : `hsl(${hue} 100% 50%)`;
+  workspace.style.setProperty("--node-selection-hit-trail-color", css);
   const hueOut = document.getElementById("nodeUiDevSnakeSelectHueValue");
   if (hueOut) {
     hueOut.textContent = `${hue}deg`;

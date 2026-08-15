@@ -11342,11 +11342,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-selection-hit-trail-path {
   fill: none !important;
   stroke: var(--node-selection-hit-trail-color, var(--accent, #7fc7d9)) !important;
-  /* JS overwrites width/dash for zoom-stable screen size. */
-  stroke-width: 6;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-dasharray: 14 11;
   opacity: 0.95;
   pointer-events: none !important;
 }
