@@ -111,7 +111,7 @@
     "uiSettingsMoveTitle": "move UI settings",
     "makePlugin": "export the current circuit as a multiplatform audio plugin | currently unavailable",
     "makeModule": "design a reusable DSP module from the current circuit or selected nodes | currently unavailable",
-    "makeWidget": "build a custom UI widget/performer control for circuit interactions and visual performance | currently unavailable",
+    "makeWidget": "build a custom object for circuit interactions and visual performance | currently unavailable",
     "sharePatchCommunity": "share this patch with the community so others can load, remix, and learn from it | currently unavailable",
     "requestFeature": "request a soemdsp sandbox feature",
     "reportBug": "report a soemdsp sandbox bug"

@@ -79,7 +79,7 @@ function nodeGraphParameterGhostSignal(node, key) {
   if (!patchNode) {
     return null;
   }
-  const metadata = nodeGraphReadPatchParameterMetadata(patchNode, key);
+  const metadata = nodeGraphReadPatchParameterMetadata(patchNode, key) || {};
   const targetSlider = nodeGraphSliderForParameter(node, key);
   const baseDomain = targetSlider
     ? nodeGraphReadNodeNumber(node, key)

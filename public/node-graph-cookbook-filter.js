@@ -266,9 +266,10 @@ function nodeGraphLadderFilterMagnitudeAt(params, frequency, sampleRate) {
  */
 function nodeGraphFilterCurveLiveParam(node, key, fallback = 0) {
   const nodeId = node?.id || "";
-  const metadata = typeof nodeGraphReadPatchParameterMetadata === "function"
+  const rawMeta = typeof nodeGraphReadPatchParameterMetadata === "function"
     ? nodeGraphReadPatchParameterMetadata(node, key)
     : (node?.paramMeta?.[key] || {});
+  const metadata = rawMeta && typeof rawMeta === "object" ? rawMeta : {};
   let base = Number(fallback) || 0;
   const slider = typeof nodeGraphSliderForParameter === "function"
     ? nodeGraphSliderForParameter(nodeId, key)
@@ -893,6 +894,18 @@ function drawNodeGraphFilterCurveDisplays() {
     if (section.classList.contains("node-round-shape-display")) {
       if (typeof drawNodeGraphRoundShapeDisplay === "function") {
         drawNodeGraphRoundShapeDisplay(section);
+      }
+      return;
+    }
+    if (section.classList.contains("node-envelope-curve-display")) {
+      if (typeof drawNodeGraphEnvelopeCurveDisplay === "function") {
+        drawNodeGraphEnvelopeCurveDisplay(section);
+      }
+      return;
+    }
+    if (section.classList.contains("node-phone-tone-display")) {
+      if (typeof drawNodeGraphPhoneToneFaceItem === "function") {
+        drawNodeGraphPhoneToneFaceItem(section);
       }
       return;
     }

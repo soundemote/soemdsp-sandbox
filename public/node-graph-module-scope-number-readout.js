@@ -2636,7 +2636,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     context.fillText(
       unit,
       left + padPx + layout.contentW * 0.5,
-      top + padPx + digitAreaHeight + labelHeight * 0.5,
+      top + padPxY + digitAreaHeight + labelHeight * 0.5,
     );
   }
 

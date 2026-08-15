@@ -2,10 +2,10 @@
 // paint-rev syntax-3: file must parse (no ?? mixed with ||).
 // Display Settings → Square ratio screen: on = uniform contain (square
 // pixels); off (default) = stretch to the face. 0×N / N×0 draws nothing.
-// Contrast / brightness / invert are a 256-entry LUT on the
-// raster (S-curve, not CSS contrast() which clips). Blur is a
-// separable neighbor mix on the W×H grid (spectrogram-style mush),
-// then bilinear present. Glow is a wider mix, additive.
+// Contrast / brightness / invert / hue are a LUT on the raster
+// (S-curve, not CSS contrast() which clips). Blur / glow are the
+// original canvas Gaussian: filter:blur() on the present, then an
+// additive wider Gaussian for glow.
 
 const NODE_GRAPH_RASTER_RGB_PAINT_REV = "syntax-3";
 
@@ -227,102 +227,6 @@ function nodeGraphRasterRgbApplyGrade(state, grade) {
     dst[i + 1] = g;
     dst[i + 2] = b;
     dst[i + 3] = 255;
-  }
-  return dst;
-}
-
-function nodeGraphRasterRgbClampIndex(i, lo, hi) {
-  return i < lo ? lo : i > hi ? hi : i;
-}
-
-function nodeGraphRasterRgbBlurAxis(src, dst, w, h, radius, vertical) {
-  const r = Math.max(1, radius | 0);
-  const n = r * 2 + 1;
-  const inv = 1 / n;
-  const lastX = w - 1;
-  const lastY = h - 1;
-  if (!vertical) {
-    for (let y = 0; y < h; y += 1) {
-      const row = y * w;
-      let rs = 0;
-      let gs = 0;
-      let bs = 0;
-      for (let k = -r; k <= r; k += 1) {
-        const o = (row + nodeGraphRasterRgbClampIndex(k, 0, lastX)) * 4;
-        rs += src[o];
-        gs += src[o + 1];
-        bs += src[o + 2];
-      }
-      for (let x = 0; x < w; x += 1) {
-        const o = (row + x) * 4;
-        dst[o] = rs * inv;
-        dst[o + 1] = gs * inv;
-        dst[o + 2] = bs * inv;
-        dst[o + 3] = 255;
-        const drop = (row + nodeGraphRasterRgbClampIndex(x - r, 0, lastX)) * 4;
-        const add = (row + nodeGraphRasterRgbClampIndex(x + r + 1, 0, lastX)) * 4;
-        rs += src[add] - src[drop];
-        gs += src[add + 1] - src[drop + 1];
-        bs += src[add + 2] - src[drop + 2];
-      }
-    }
-    return;
-  }
-  for (let x = 0; x < w; x += 1) {
-    let rs = 0;
-    let gs = 0;
-    let bs = 0;
-    for (let k = -r; k <= r; k += 1) {
-      const o = (nodeGraphRasterRgbClampIndex(k, 0, lastY) * w + x) * 4;
-      rs += src[o];
-      gs += src[o + 1];
-      bs += src[o + 2];
-    }
-    for (let y = 0; y < h; y += 1) {
-      const o = (y * w + x) * 4;
-      dst[o] = rs * inv;
-      dst[o + 1] = gs * inv;
-      dst[o + 2] = bs * inv;
-      dst[o + 3] = 255;
-      const drop = (nodeGraphRasterRgbClampIndex(y - r, 0, lastY) * w + x) * 4;
-      const add = (nodeGraphRasterRgbClampIndex(y + r + 1, 0, lastY) * w + x) * 4;
-      rs += src[add] - src[drop];
-      gs += src[add + 1] - src[drop + 1];
-      bs += src[add + 2] - src[drop + 2];
-    }
-  }
-}
-
-function nodeGraphRasterRgbEnsurePlane(state, key, length) {
-  let plane = state[key];
-  if (!plane || plane.length !== length) {
-    plane = new Uint8ClampedArray(length);
-    state[key] = plane;
-  }
-  return plane;
-}
-
-/** Neighbor mix on the raster grid. 0 = hard pixels. */
-function nodeGraphRasterRgbMushPixels(state, src, amount, destKey = "mush") {
-  const w = state.width;
-  const h = state.height;
-  const a = Math.max(0, Math.min(1, Number(amount) || 0));
-  if (!(a > 0.0005) || w < 1 || h < 1) {
-    return src;
-  }
-  const maxR = Math.max(1, Math.floor(Math.min(w, h) * 0.35));
-  const radius = Math.max(1, Math.round(a * maxR));
-  const len = w * h * 4;
-  const tmp = nodeGraphRasterRgbEnsurePlane(state, `${destKey}Tmp`, len);
-  const dst = nodeGraphRasterRgbEnsurePlane(state, destKey, len);
-  if (dst === src || tmp === src) {
-    return src;
-  }
-  nodeGraphRasterRgbBlurAxis(src, tmp, w, h, radius, false);
-  nodeGraphRasterRgbBlurAxis(tmp, dst, w, h, radius, true);
-  if (a > 0.45) {
-    nodeGraphRasterRgbBlurAxis(dst, tmp, w, h, Math.max(1, Math.round(radius * 0.6)), false);
-    nodeGraphRasterRgbBlurAxis(tmp, dst, w, h, Math.max(1, Math.round(radius * 0.6)), true);
   }
   return dst;
 }
@@ -579,28 +483,10 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
     return;
   }
   const graded = nodeGraphRasterRgbApplyGrade(state, grade);
-  const mushed = nodeGraphRasterRgbMushPixels(state, graded, grade.blur);
-  let present = mushed;
-  if (grade.glow > 0.0005) {
-    const bloom = nodeGraphRasterRgbMushPixels(state, mushed, Math.min(1, 0.35 + grade.glow * 0.65), "glow");
-    const glowAmt = grade.glow;
-    let glowMix = state.glowMix;
-    if (!glowMix || glowMix.length !== mushed.length) {
-      glowMix = new Uint8ClampedArray(mushed.length);
-      state.glowMix = glowMix;
-    }
-    for (let i = 0; i < mushed.length; i += 4) {
-      glowMix[i] = Math.min(255, mushed[i] + bloom[i] * glowAmt);
-      glowMix[i + 1] = Math.min(255, mushed[i + 1] + bloom[i + 1] * glowAmt);
-      glowMix[i + 2] = Math.min(255, mushed[i + 2] + bloom[i + 2] * glowAmt);
-      glowMix[i + 3] = 255;
-    }
-    present = glowMix;
-  }
   canvas.style.imageRendering = "pixelated";
   ctx.imageSmoothingEnabled = false;
   try {
-    const image = nodeGraphRasterRgbPresentImage(state, present);
+    const image = nodeGraphRasterRgbPresentImage(state, graded);
     let tile = state.tileCanvas;
     if (!tile || tile.width !== state.width || tile.height !== state.height) {
       tile = document.createElement("canvas");
@@ -621,8 +507,24 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
       dx = Math.floor((cw - dw) * 0.5);
       dy = Math.floor((ch - dh) * 0.5);
     }
+    const span = Math.max(2, Math.min(dw, dh));
+    const blurPx = grade.blur * span * 0.045;
+    const glowPx = Math.max(blurPx, grade.glow * span * 0.07) * 1.6;
+    ctx.filter = blurPx > 0.05 ? `blur(${blurPx.toFixed(2)}px)` : "none";
     ctx.drawImage(tile, 0, 0, state.width, state.height, dx, dy, dw, dh);
+    if (grade.glow > 0.001 && glowPx > 0.05) {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = grade.glow;
+      ctx.filter = `blur(${glowPx.toFixed(2)}px)`;
+      ctx.drawImage(tile, 0, 0, state.width, state.height, dx, dy, dw, dh);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+    }
+    ctx.filter = "none";
   } catch (_err) {
+    ctx.filter = "none";
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
     ctx.fillStyle = plate;
     ctx.fillRect(0, 0, cw, ch);
   }

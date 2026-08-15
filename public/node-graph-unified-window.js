@@ -450,7 +450,8 @@ function closeNodeGraphUnifiedWindowPage(page = "", options = {}) {
   if (!quiet && nodeGraphMvp.unifiedWindowPage === key) {
     nodeGraphMvp.unifiedWindowPage = "";
   }
-  if (key === "commandCenter" && !quiet && !nodeGraphMvp._unifiedWindowSwitching) {
+  if (!quiet && !nodeGraphMvp._unifiedWindowSwitching && !nodeGraphUnifiedWindowVisiblePage()) {
+    nodeGraphMvp.unifiedWindowPage = "";
     nodeGraphMvp.unifiedWindowPresentation = "closed";
     if (typeof restoreNodeGraphUnifiedWindowFromDock === "function") {
       restoreNodeGraphUnifiedWindowFromDock();
@@ -494,6 +495,9 @@ function markNodeGraphUnifiedWindowPage(page = "") {
   nodeGraphMvp.unifiedWindowPage = key;
   if (key === "moduleActions" || key === "metaparameters" || key === "traceDisplaySettings") {
     nodeGraphMvp.sharedInspectorActive = key;
+  }
+  if (!nodeGraphMvp.unifiedWindowPresentation || nodeGraphMvp.unifiedWindowPresentation === "closed") {
+    nodeGraphMvp.unifiedWindowPresentation = "open";
   }
   syncNodeGraphUnifiedWindowNavBars();
   return key;
@@ -662,11 +666,13 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
 
   // 3. Seat once. 4. Re-assert only this page is visible.
   const element = nodeGraphUnifiedWindowElement(key);
+  const presentation = String(nodeGraphMvp.unifiedWindowPresentation || "");
+  const embed = presentation === "embedLeft" || presentation === "embedRight";
   if (element) {
     element.hidden = false;
-    if (seat) {
+    if (!embed && seat) {
       seatNodeGraphUnifiedWindow(element, key, seat);
-    } else if (typeof raiseNodeGraphFloatingWindow === "function") {
+    } else if (!embed && typeof raiseNodeGraphFloatingWindow === "function") {
       raiseNodeGraphFloatingWindow(element);
     }
   }
@@ -718,16 +724,18 @@ const nodeGraphCommandCenterPresentationOrder = Object.freeze([
   "closed",
 ]);
 
+function nodeGraphUnifiedWindowIsShowing() {
+  return Boolean(nodeGraphUnifiedWindowActivePage());
+}
+
 function nodeGraphCommandCenterIsOpen() {
-  const element = document.getElementById("nodeSceneContextMenu");
-  return Boolean(element && !element.hidden);
+  return nodeGraphUnifiedWindowIsShowing();
 }
 
 function restoreNodeGraphUnifiedWindowFromDock() {
   const dock = document.getElementById("nodeCommandCenterDock");
   const home = document.getElementById("nodeWiringPanel");
-  const panel = document.getElementById("nodeWiringPanel");
-  panel?.classList.remove("command-center-embed-left", "command-center-embed-right");
+  home?.classList.remove("command-center-embed-left", "command-center-embed-right");
   if (!dock || !home) {
     return;
   }
@@ -739,6 +747,9 @@ function restoreNodeGraphUnifiedWindowFromDock() {
     home.insertBefore(child, mainRow || dock);
     child.classList.remove("is-embedded-dock");
     nodeGraphCommandCenterClearDockInlineStyle(child);
+    if (typeof setNodeGraphFloatingWindowLocked === "function") {
+      setNodeGraphFloatingWindowLocked(child, false, { persist: false });
+    }
   }
   dock.hidden = true;
 }
@@ -869,9 +880,12 @@ function applyNodeGraphUnifiedWindowPresentation(options = {}) {
   const mode = String(nodeGraphMvp.unifiedWindowPresentation || "closed");
   const panel = document.getElementById("nodeWiringPanel");
   const dock = document.getElementById("nodeCommandCenterDock");
-  const pageKey = nodeGraphUnifiedWindowActivePage() || "commandCenter";
+  const pageKey = nodeGraphUnifiedWindowActivePage()
+    || String(nodeGraphMvp.unifiedWindowPage || "").trim()
+    || "commandCenter";
   const element = nodeGraphUnifiedWindowElement(pageKey);
   const embed = mode === "embedLeft" || mode === "embedRight";
+  restoreNodeGraphUnifiedWindowFromDock();
   panel?.classList.toggle("command-center-embed-left", mode === "embedLeft");
   panel?.classList.toggle("command-center-embed-right", mode === "embedRight");
   if (embed && dock && element) {
@@ -879,6 +893,7 @@ function applyNodeGraphUnifiedWindowPresentation(options = {}) {
     dock.append(element);
     element.hidden = false;
     element.classList.add("is-embedded-dock");
+    markNodeGraphUnifiedWindowChrome(element);
     element.style.position = "relative";
     element.style.left = "0";
     element.style.top = "0";
@@ -895,9 +910,11 @@ function applyNodeGraphUnifiedWindowPresentation(options = {}) {
       applyNodeGraphCommandCenterDockWidth(nodeGraphMvp.commandCenterDockWidth);
     }
     bindNodeGraphCommandCenterDockSplit();
+    if (typeof syncNodeGraphUnifiedWindowNavBars === "function") {
+      syncNodeGraphUnifiedWindowNavBars();
+    }
     return;
   }
-  restoreNodeGraphUnifiedWindowFromDock();
   if ((mode === "open" || mode === "float") && element && !element.hidden) {
     if (options.inPlace && options.position) {
       element.hidden = false;
@@ -920,6 +937,9 @@ function applyNodeGraphUnifiedWindowPresentation(options = {}) {
     if (typeof setNodeGraphFloatingWindowLocked === "function") {
       setNodeGraphFloatingWindowLocked(element, false, { persist: false });
     }
+    if (typeof syncNodeGraphUnifiedWindowNavBars === "function") {
+      syncNodeGraphUnifiedWindowNavBars();
+    }
   }
 }
 
@@ -927,15 +947,18 @@ function setNodeGraphCommandCenterPresentation(mode, options = {}) {
   const next = String(mode || "closed").trim();
   nodeGraphMvp.unifiedWindowPresentation = next;
   if (next === "closed") {
+    const page = nodeGraphUnifiedWindowActivePage()
+      || String(nodeGraphMvp.unifiedWindowPage || "").trim()
+      || "commandCenter";
     restoreNodeGraphUnifiedWindowFromDock();
     if (typeof closeNodeGraphUnifiedWindowPage === "function") {
-      closeNodeGraphUnifiedWindowPage("commandCenter", { quiet: true });
+      closeNodeGraphUnifiedWindowPage(page, { quiet: true });
     }
     nodeGraphMvp.unifiedWindowPage = "";
     nodeGraphMvp.unifiedWindowPresentation = "closed";
     return;
   }
-  if (!nodeGraphCommandCenterIsOpen()) {
+  if (!nodeGraphUnifiedWindowIsShowing()) {
     if (typeof openNodeGraphUnifiedWindowPage === "function") {
       openNodeGraphUnifiedWindowPage("commandCenter", options);
     } else if (typeof openNodeGraphCommandCenter === "function") {
@@ -946,7 +969,7 @@ function setNodeGraphCommandCenterPresentation(mode, options = {}) {
 }
 
 function cycleNodeGraphCommandCenterPresentation(options = {}) {
-  if (!nodeGraphCommandCenterIsOpen()) {
+  if (!nodeGraphUnifiedWindowIsShowing()) {
     setNodeGraphCommandCenterPresentation("open", options);
     return "open";
   }
@@ -1071,6 +1094,9 @@ function handleNodeGraphUnifiedWindowNavClick(event) {
   }
   event.preventDefault();
   event.stopPropagation();
+  if (typeof noteNodeGraphCommandCenterPage === "function") {
+    noteNodeGraphCommandCenterPage();
+  }
   openNodeGraphUnifiedWindowPage(page);
 }
 
@@ -1194,6 +1220,10 @@ function syncNodeGraphUnifiedWindowNavBars() {
       elementId: "nodeModuleActionsWindow",
       page: "moduleActions",
       prepare(element) {
+        const existing = element.querySelector("#nodeModuleActionsUnifiedNavHost, :scope > .node-unified-window-nav-host");
+        if (existing) {
+          return existing;
+        }
         return ensureNodeGraphUnifiedWindowNavHost(element);
       },
     },
@@ -1215,6 +1245,10 @@ function syncNodeGraphUnifiedWindowNavBars() {
       elementId: "nodeUserUiSettingsPanel",
       page: "uiSettings",
       prepare(element) {
+        const existing = element.querySelector("#nodeUserUiSettingsUnifiedNavHost, :scope > .node-unified-window-nav-host");
+        if (existing) {
+          return existing;
+        }
         return ensureNodeGraphUnifiedWindowNavHost(element);
       },
     },

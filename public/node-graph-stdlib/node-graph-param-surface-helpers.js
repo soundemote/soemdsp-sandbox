@@ -97,16 +97,17 @@ function nodeGraphParamShouldHardClampDomain(metadata = {}) {
  * Wraparound always wraps; resource-constrained / hardClamp params clamp.
  */
 function nodeGraphParamApplyDomainBounds(value, metadata = {}) {
+  const meta = metadata && typeof metadata === "object" ? metadata : {};
   const n = Number(value);
   if (!Number.isFinite(n)) {
     return 0;
   }
-  const min = Number(metadata.min);
-  const max = Number(metadata.max);
-  if (metadata.wraparound && Number.isFinite(min) && Number.isFinite(max) && max > min) {
+  const min = Number(meta.min);
+  const max = Number(meta.max);
+  if (meta.wraparound && Number.isFinite(min) && Number.isFinite(max) && max > min) {
     return nodeGraphParamWrap(n, min, max);
   }
-  if (!nodeGraphParamShouldHardClampDomain(metadata)) {
+  if (!nodeGraphParamShouldHardClampDomain(meta)) {
     return n;
   }
   if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
@@ -191,18 +192,19 @@ function nodeGraphParamDomainToUnit(value, metadata = {}) {
  * Unit [0, 1] → DOMAIN for UI (inverse of skewed domainToUnit).
  */
 function nodeGraphParamUnitToDomain(unit, metadata = {}) {
-  const min = Number(metadata.min);
-  const max = Number(metadata.max);
+  const meta = metadata && typeof metadata === "object" ? metadata : {};
+  const min = Number(meta.min);
+  const max = Number(meta.max);
   const range = max - min;
   if (!Number.isFinite(range) || range <= 0) {
     return Number.isFinite(min) ? min : 0;
   }
-  const normalizedSignal = metadata.wraparound
+  const normalizedSignal = meta.wraparound
     ? nodeGraphParamWrap(Number(unit) || 0, 0, 1)
     : nodeGraphParamClamp(Number(unit) || 0, 0, 1);
-  const exp = nodeGraphParamSkewExponent(metadata);
+  const exp = nodeGraphParamSkewExponent(meta);
   const normalizedValue = normalizedSignal ** exp;
-  return nodeGraphParamApplyDomainBounds(min + range * normalizedValue, metadata);
+  return nodeGraphParamApplyDomainBounds(min + range * normalizedValue, meta);
 }
 
 /**

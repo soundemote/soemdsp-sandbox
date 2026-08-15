@@ -3468,6 +3468,9 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     if (typeof setNodeGraphLiveStatus === "function") {
       setNodeGraphLiveStatus("running", "good");
     }
+    if (typeof logNodeGraphSampleRateInfo === "function") {
+      logNodeGraphSampleRateInfo("live start");
+    }
     // Keep the arming flag honest once the worklet is up.
     nodeGraphMvp.live.outputEnabled = true;
     setNodeGraphLiveOutputMuted(false);

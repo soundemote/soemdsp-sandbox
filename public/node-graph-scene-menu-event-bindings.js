@@ -13,7 +13,13 @@ function bindNodeGraphSceneMenuEvents() {
   ensureNodeGraphModuleActionsWindowBody();
   bindNodeGraphSceneElementEvent("nodeModuleShopView", "click", handleNodeGraphModuleStoreClick);
   bindNodeGraphSceneElementEvent("nodeModuleShopView", "keydown", handleNodeGraphModuleStoreKeydown);
-  bindNodeGraphSceneElementEvent("nodeModuleShopClose", "click", closeNodeGraphModuleShop);
+  bindNodeGraphSceneElementEvent("nodeModuleShopClose", "click", () => {
+    if (typeof closeNodeGraphUnifiedWindowPage === "function") {
+      closeNodeGraphUnifiedWindowPage("moduleBrowser");
+      return;
+    }
+    closeNodeGraphModuleShop();
+  });
   bindNodeGraphSceneElementEvent("nodeModuleShopView", "pointerdown", beginNodeGraphModuleStorePointerPlacement);
   bindNodeGraphSceneElementEvent("nodeModuleShopView", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "moduleBrowser"));
   bindNodeGraphSceneElementEvent("nodeModuleShopHeading", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "moduleBrowser"));
@@ -76,7 +82,13 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneBroomBatch", "click", applyNodeGraphPatchDefaultsFromCurrentSelection);
   bindNodeGraphSceneElementEvent("nodePatchLockButton", "click", toggleNodeGraphPatchLocked);
   bindNodeGraphSceneElementEvent("nodePatchHideUnusedButton", "click", toggleNodeGraphPatchHideUnusedPorts);
-  bindNodeGraphSceneElementEvent("nodePatchDefaultsClose", "click", () => setNodeGraphPatchDefaultsVisible(false));
+  bindNodeGraphSceneElementEvent("nodePatchDefaultsClose", "click", () => {
+    if (typeof closeNodeGraphUnifiedWindowPage === "function") {
+      closeNodeGraphUnifiedWindowPage("patchDefaults");
+      return;
+    }
+    setNodeGraphPatchDefaultsVisible(false);
+  });
   bindNodeGraphSceneElementEvent("nodePatchDefaultsHeading", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "patchDefaults"));
   bindNodeGraphSceneElementEvent("nodePatchDefaultsDragHandle", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "patchDefaults"));
   bindNodeGraphSceneElementEvent("nodePatchDefaultsResizeHandle", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "patchDefaults"));
@@ -109,7 +121,13 @@ function bindNodeGraphSceneMenuEvents() {
     }
     openNodeGraphModuleActionsFromContextWindow();
   });
-  bindNodeGraphSceneElementEvent("nodeModuleActionsClose", "click", closeNodeModuleActionsWindow);
+  bindNodeGraphSceneElementEvent("nodeModuleActionsClose", "click", () => {
+    if (typeof closeNodeGraphUnifiedWindowPage === "function") {
+      closeNodeGraphUnifiedWindowPage("moduleActions");
+      return;
+    }
+    closeNodeModuleActionsWindow();
+  });
   bindNodeGraphSceneElementEvent("nodeModuleActionsWindowHeading", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "moduleActions"));
   bindNodeGraphSceneElementEvent("nodeModuleActionsDragHandle", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "moduleActions"));
   bindNodeGraphSceneElementEvent("nodeModuleActionsResizeHandle", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "moduleActions"));

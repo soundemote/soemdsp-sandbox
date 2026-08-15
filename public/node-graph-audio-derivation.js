@@ -103,3 +103,24 @@ function nodeGraphAudioDerivation(patch = nodeGraphMvp.patch) {
     targetSampleRate,
   };
 }
+
+function nodeGraphSampleRateDebugText(reason = "") {
+  const audio = nodeGraphAudioDerivation();
+  const host = Number(nodeGraphMvp?.live?.context?.sampleRate) || 0;
+  const decode = Number(
+    typeof nodeGraphSampleDecodeTargetRate !== "undefined"
+      ? nodeGraphSampleDecodeTargetRate
+      : 44100,
+  ) || 44100;
+  const live = nodeGraphMvp?.live?.context ? "on" : "off";
+  const prefix = reason ? `sample rates (${reason})` : "sample rates";
+  return `${prefix} — live ${live}, host ${host || "n/a"} Hz, engine ${audio.clampedEngineSampleRate} Hz, decode ${decode} Hz, patch target ${audio.targetSampleRate} Hz`;
+}
+
+function logNodeGraphSampleRateInfo(reason = "") {
+  const line = nodeGraphSampleRateDebugText(reason);
+  if (typeof window !== "undefined" && typeof window.SE?.INFO === "function") {
+    window.SE.INFO(line);
+  }
+  return line;
+}

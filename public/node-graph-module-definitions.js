@@ -10017,7 +10017,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Neighbor mix on the raster grid (not a post-process fog). 0 = hard pixels. Higher melts adjacent samples together, then bilinear-scales to the screen.",
+        tooltip: "Gaussian blur of the presented raster (canvas filter). 0 = hard pixels. Higher softens the picture.",
       },
       {
         defaultValue: "0",
@@ -10028,7 +10028,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Additive wider neighbor-mix of the raster (bloom). Works with or without Blur.",
+        tooltip: "Additive wider Gaussian bloom of the same raster. Works with or without Blur.",
       },
     ],
     visualInputs: [

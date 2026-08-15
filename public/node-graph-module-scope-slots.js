@@ -161,7 +161,7 @@ function nodeGraphModuleScopeHasModelDisplay() {
     return slot.type === "clock" ||
       slot.type === "transport" ||
       nodeGraphModuleScopeIsOscillatorType(slot.type) ||
-      (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope"].includes(slot.type) &&
+      (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "led"].includes(slot.type) &&
         nodeGraphModuleScopeConnectionsTo(slot.nodeId, "In").length > 0) ||
       (["scope2d", "scope2dTrace", "phosphorLight"].includes(renderer) && (
         // Prefer live X/Y wires. Do NOT treat dry Thru ports alone as a model:

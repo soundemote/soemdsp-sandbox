@@ -908,6 +908,12 @@ function nodeGraphSetAudioPlayerResource(nodeId, resourceRow, options = {}) {
     record: options.record !== false,
     status: `${sample.name} referenced`,
   });
+  if (typeof nodeGraphAudioPlayerPlaylistEnsureCurrentSample === "function") {
+    nodeGraphAudioPlayerPlaylistEnsureCurrentSample(targetId, {
+      persist: options.record !== false,
+      refresh: true,
+    });
+  }
   syncNodeGraphSampleDisplayForNode(targetId);
   if (typeof renderNodeGraphMissingSampleAssetsDialog === "function") {
     renderNodeGraphMissingSampleAssetsDialog(nodeGraphMvp.patch);
@@ -959,6 +965,7 @@ function nodeGraphSampleFileToDataUrl(file) {
   });
 }
 
+const nodeGraphSampleDecodeTargetRate = 44100;
 let nodeGraphSampleDecodeAudioContext = null;
 
 function nodeGraphSampleSharedDecodeContext() {
@@ -967,9 +974,33 @@ function nodeGraphSampleSharedDecodeContext() {
     throw new Error("Web Audio API unavailable");
   }
   if (!nodeGraphSampleDecodeAudioContext || nodeGraphSampleDecodeAudioContext.state === "closed") {
-    nodeGraphSampleDecodeAudioContext = new AudioContextConstructor();
+    try {
+      nodeGraphSampleDecodeAudioContext = new AudioContextConstructor({
+        sampleRate: nodeGraphSampleDecodeTargetRate,
+      });
+    } catch {
+      nodeGraphSampleDecodeAudioContext = new AudioContextConstructor();
+    }
   }
   return nodeGraphSampleDecodeAudioContext;
+}
+
+async function resampleNodeGraphAudioBuffer(audioBuffer, targetRate = nodeGraphSampleDecodeTargetRate) {
+  const rate = Math.max(1, Number(targetRate) || nodeGraphSampleDecodeTargetRate);
+  if (!audioBuffer || Math.round(Number(audioBuffer.sampleRate) || 0) === rate) {
+    return audioBuffer;
+  }
+  const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!Offline) {
+    return audioBuffer;
+  }
+  const frames = Math.max(1, Math.round(audioBuffer.length * (rate / Math.max(1, audioBuffer.sampleRate))));
+  const offline = new Offline(audioBuffer.numberOfChannels || 1, frames, rate);
+  const source = offline.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(offline.destination);
+  source.start(0);
+  return offline.startRendering();
 }
 
 function nodeGraphSampleChannelBytes(channelData = []) {
@@ -1133,6 +1164,7 @@ async function decodeNodeGraphSampleArrayBuffer(arrayBuffer, fallbackName = "Sam
   let audioBuffer = null;
   try {
     audioBuffer = await context.decodeAudioData(arrayBuffer.slice(0));
+    audioBuffer = await resampleNodeGraphAudioBuffer(audioBuffer, nodeGraphSampleDecodeTargetRate);
   } catch (error) {
     throw new Error(nodeGraphSampleLoadErrorMessage(error, fallbackName));
   }
@@ -1146,7 +1178,7 @@ async function decodeNodeGraphSampleArrayBuffer(arrayBuffer, fallbackName = "Sam
     channels,
     frames,
     name: fallbackName,
-    sampleRate: audioBuffer.sampleRate,
+    sampleRate: audioBuffer.sampleRate || nodeGraphSampleDecodeTargetRate,
   };
 }
 
@@ -1449,6 +1481,13 @@ function attachNodeGraphDecodedSampleToNode(nodeId, decoded, sourceInfo = {}, op
   nodeGraphMvp.sampleLoadErrors?.delete?.(nodeId);
   nodeGraphMvp.sampleRuntimeStatus?.delete?.(nodeId);
   nodeGraphMvp.audioPlayerActualSpeeds?.delete?.(nodeId);
+  const liveNode = nodeGraphPatchNode(nodeId);
+  if (liveNode?.type === "audioPlayer" && typeof nodeGraphAudioPlayerPlaylistEnsureCurrentSample === "function") {
+    nodeGraphAudioPlayerPlaylistEnsureCurrentSample(nodeId, {
+      persist: options.persist !== false && options.commit !== false,
+      refresh: options.syncDisplay !== false,
+    });
+  }
   if (options.syncDisplay !== false) {
     syncNodeGraphSampleDisplayForNode(nodeId);
   }

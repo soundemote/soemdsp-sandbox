@@ -242,6 +242,15 @@ function nodeGraphModuleActionTargetNodeId() {
   return null;
 }
 
+function nodeGraphSelectionDisplaySyncKey() {
+  const nodes = [...nodeGraphSelectedNodeIds()].sort().join(",");
+  const wire = typeof nodeGraphWireFromSelection === "function"
+    ? nodeGraphWireFromSelection()
+    : null;
+  const wireKey = wire ? `${wire.kind}:${wire.index}` : "";
+  return `${nodes}|${wireKey}`;
+}
+
 function syncNodeGraphModuleActionTargetFromSelection() {
   const commandMenu = document.getElementById("nodeSceneContextMenu");
   const actionWindow = document.getElementById("nodeModuleActionsWindow");
@@ -250,6 +259,9 @@ function syncNodeGraphModuleActionTargetFromSelection() {
   if (!commandMenuOpen && !actionWindowOpen) {
     return;
   }
+  const syncKey = nodeGraphSelectionDisplaySyncKey();
+  const displayChanged = syncKey !== nodeGraphMvp._displayChangeSyncKey;
+  nodeGraphMvp._displayChangeSyncKey = syncKey;
   const selectedWire = nodeGraphWireFromSelection();
   if (selectedWire) {
     nodeGraphMvp.sceneContextTargetWire = {
@@ -258,6 +270,9 @@ function syncNodeGraphModuleActionTargetFromSelection() {
     };
     nodeGraphMvp.sceneContextTargetNode = null;
     configureNodeSceneContextMenu("wire");
+    if (displayChanged && typeof noteNodeGraphDisplayChange === "function") {
+      noteNodeGraphDisplayChange();
+    }
     return;
   }
   const selectedNode = nodeGraphSingleSelectedNodeId();
@@ -275,6 +290,9 @@ function syncNodeGraphModuleActionTargetFromSelection() {
     } else if (actionWindowOpen) {
       configureNodeSceneContextMenu("module");
     }
+  }
+  if (displayChanged && typeof noteNodeGraphDisplayChange === "function") {
+    noteNodeGraphDisplayChange();
   }
 }
 

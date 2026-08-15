@@ -9,7 +9,7 @@
 // Main first (kinds + core UI), then peels that depend on them.
 const nodeGraphCodeScreenUiScriptSrcs = Object.freeze([
   "./public/node-graph-code-screen.js?v=graphify-peel-5",
-  "./public/node-graph-code-box-window.js?v=graphify-peel-5",
+  "./public/node-graph-code-box-window.js?v=no-script-hl-1",
   "./public/node-graph-code-screen-lookup.js?v=graphify-peel-5",
   "./public/node-graph-code-screen-registry.js?v=graphify-peel-5",
   "./public/node-graph-code-screen-workspace.js?v=graphify-peel-5",

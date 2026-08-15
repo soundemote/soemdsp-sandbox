@@ -40,8 +40,6 @@ function fitNodeSettingsHeaderText() {
   const headerSpans = document.querySelectorAll([
     ".node-settings-actions button > span",
     ".node-settings-actions a > span",
-    ".node-patch-page-toolbar button > span",
-    ".node-patch-page-toolbar a > span",
   ].join(", "));
   for (const span of headerSpans) {
     span.style.fontSize = "1px";

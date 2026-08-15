@@ -1303,16 +1303,12 @@ function nodeGraphPhosphorWaveformSyncZoomControl(section, ratio) {
   if (control.textContent !== label) {
     control.textContent = label;
   }
-  if (typeof nodeGraphPhosphorWaveformLineColor === "function") {
-    const settings = nodeGraphPhosphorWaveformSettingsForNode(section.dataset.node);
-    if (settings) {
-      control.style.color = nodeGraphPhosphorWaveformLineColor(settings, 85, 0.7);
-    }
-  }
 }
 
 function beginNodeGraphPhosphorWaveformZoomDrag(event, section) {
-  if (event.button > 0 || (section?.dataset?.musicPlayerFace || "wave") !== "wave") {
+  if (event.button > 0 || (typeof nodeGraphAudioPlayerFaceIsWave === "function"
+    ? !nodeGraphAudioPlayerFaceIsWave(section)
+    : (section?.dataset?.musicPlayerFace || "wave") !== "wave")) {
     return;
   }
   event.preventDefault();
@@ -1366,7 +1362,9 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
   // "pan" = view window, "phase" = relative phaseOffset scrub (Shift+drag).
   let dragMode = "pan";
   canvas.addEventListener("pointerdown", (event) => {
-    if ((section.dataset.musicPlayerFace || "wave") !== "wave") {
+    if (typeof nodeGraphAudioPlayerFaceIsWave === "function"
+      ? !nodeGraphAudioPlayerFaceIsWave(section)
+      : (section.dataset.musicPlayerFace || "wave") !== "wave") {
       return;
     }
     if (event.button !== 0 && event.button !== undefined) {
@@ -1419,7 +1417,9 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
   canvas.addEventListener("pointerup", endDrag);
   canvas.addEventListener("pointercancel", endDrag);
   canvas.addEventListener("dblclick", (event) => {
-    if ((section.dataset.musicPlayerFace || "wave") !== "wave") {
+    if (typeof nodeGraphAudioPlayerFaceIsWave === "function"
+      ? !nodeGraphAudioPlayerFaceIsWave(section)
+      : (section.dataset.musicPlayerFace || "wave") !== "wave") {
       return;
     }
     event.stopPropagation();
@@ -1768,14 +1768,18 @@ function nodeGraphMusicPlayerFaceMetrics(section, canvas, face = "") {
   }
   const key = String(face || section.dataset?.musicPlayerFace || "wave");
   const page = section.querySelector(`[data-music-player-page="${key}"]`);
+  const waveHost = key === "wavplay"
+    ? section.querySelector("[data-music-player-wave-host]")
+    : null;
+  const box = (waveHost && page && !page.hidden) ? waveHost : page;
   const dock = section.querySelector(".node-music-player-dock");
   // Never measure the canvas. height:100% / flex:1 children report 0×0 on the
   // first paint; a 1×1 backing store CSS-stretched is the solid green/red plate.
   let cssWidth = 0;
   let cssHeight = 0;
-  if (page && !page.hidden) {
-    cssWidth = page.clientWidth || page.offsetWidth || 0;
-    cssHeight = page.clientHeight || page.offsetHeight || 0;
+  if (box && !box.hidden) {
+    cssWidth = box.clientWidth || box.offsetWidth || 0;
+    cssHeight = box.clientHeight || box.offsetHeight || 0;
   }
   if (!(cssWidth > 2) || !(cssHeight > 2)) {
     cssWidth = section.clientWidth || section.offsetWidth || 0;
@@ -1819,9 +1823,10 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   if (!node || !canvas) {
     return;
   }
-  // Playlist face: only the compact row waveforms. Main phosphor canvas
-  // stays on the hidden wave page — do not paint a second copy here.
-  if (section.dataset.musicPlayerFace === "pl") {
+  const musicFace = section.dataset.musicPlayerFace || "wave";
+  // Playlist-only face: compact row waveforms. Main phosphor canvas stays
+  // on the hidden wave page — do not paint a second copy here.
+  if (musicFace === "pl") {
     if (typeof nodeGraphAudioPlayerPlaylistPaintWaves === "function") {
       nodeGraphAudioPlayerPlaylistPaintWaves(nodeId, { liveOnly: true });
     }
@@ -1830,7 +1835,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     }
     return;
   }
-  if (section.dataset.musicPlayerFace === "vsxy" || section.dataset.musicPlayerFace === "vslr") {
+  if (musicFace === "vsxy" || musicFace === "vslr") {
     if (typeof nodeGraphAudioPlayerVideoscopePaint === "function") {
       nodeGraphAudioPlayerVideoscopePaint(section);
     }
@@ -1858,8 +1863,9 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     Math.max(1, section.clientHeight),
     circuitRunning,
   );
-  const metrics = nodeGraphMusicPlayerFaceMetrics(section, canvas, "wave");
+  const metrics = nodeGraphMusicPlayerFaceMetrics(section, canvas, musicFace);
   if (!metrics) {
+    nodeGraphPhosphorWaveformPaintCompanionPlaylist(section, nodeId);
     return;
   }
   const { context, height, pixelRatio, width } = metrics;
@@ -1904,6 +1910,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
       settings,
     );
     nodeGraphPhosphorWaveformPaintSpeedLabel(context, nodeId, node, width, height, pixelRatio, settings);
+    nodeGraphPhosphorWaveformPaintCompanionPlaylist(section, nodeId);
     return;
   }
 
@@ -2103,6 +2110,19 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const zoomRatio = (viewEnd - viewStart) / Math.max(1, state.totalFrames);
   nodeGraphPhosphorWaveformSyncZoomControl(section, zoomRatio);
   nodeGraphPhosphorWaveformPaintSpeedLabel(context, nodeId, node, width, height, pixelRatio, settings);
+  nodeGraphPhosphorWaveformPaintCompanionPlaylist(section, nodeId);
+}
+
+function nodeGraphPhosphorWaveformPaintCompanionPlaylist(section, nodeId) {
+  if ((section?.dataset?.musicPlayerFace || "") !== "wavplay") {
+    return;
+  }
+  if (typeof nodeGraphAudioPlayerPlaylistPaintWaves === "function") {
+    nodeGraphAudioPlayerPlaylistPaintWaves(nodeId, { liveOnly: true });
+  }
+  if (typeof nodeGraphAudioPlayerPlaylistSyncScrubber === "function") {
+    nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
+  }
 }
 
 function nodeGraphPhosphorWaveformPaintSpeedLabel(context, nodeId, node, width, height, pixelRatio, settings) {
@@ -2111,23 +2131,41 @@ function nodeGraphPhosphorWaveformPaintSpeedLabel(context, nodeId, node, width, 
   }
   // Face HUD is the rate the engine is actually using (param + Speed jack),
   // never the Speed metaparameter / slider readout.
-  const speed = typeof nodeGraphAudioPlayerLiveSpeedForNode === "function"
+  let speed = typeof nodeGraphAudioPlayerLiveSpeedForNode === "function"
     ? nodeGraphAudioPlayerLiveSpeedForNode(nodeId)
     : null;
   if (!Number.isFinite(speed)) {
-    return;
+    const paramSpeed = Number(node?.params?.speed);
+    if (!Number.isFinite(paramSpeed)) {
+      return;
+    }
+    speed = paramSpeed;
   }
   const speedLabel = `${speed.toFixed(3)}x`;
+  const ratio = Number(pixelRatio) || 1;
+  const fontPx = Math.max(1, Math.round(10 * ratio));
+  context.font = `600 ${fontPx}px system-ui, sans-serif`;
+  const labelPadCss = Math.max(0, Math.min(48, Number(settings?.labelInsetPx) || 0));
+  const pad = labelPadCss * ratio;
+  const x = Math.round(width - pad);
+  const y = Math.round(height - pad);
+  context.textAlign = "right";
+  context.textBaseline = "bottom";
+  if (Math.abs(speed) < 1e-5) {
+    const textW = context.measureText(speedLabel).width;
+    const boxPad = Math.max(1, Math.round(2 * ratio));
+    context.fillStyle = "#FF0000";
+    context.fillRect(
+      Math.round(x - textW - boxPad),
+      Math.round(y - fontPx - boxPad),
+      Math.round(textW + boxPad * 2),
+      Math.round(fontPx + boxPad * 2),
+    );
+  }
   context.fillStyle = typeof nodeGraphPhosphorWaveformLineColor === "function"
     ? nodeGraphPhosphorWaveformLineColor(settings, 85, 0.7)
     : "hsla(140, 90%, 85%, 0.7)";
-  const fontPx = Math.max(1, Math.round(10 * (Number(pixelRatio) || 1)));
-  context.font = `600 ${fontPx}px system-ui, sans-serif`;
-  const labelPadCss = Math.max(0, Math.min(48, Number(settings?.labelInsetPx) || 0));
-  const pad = labelPadCss * (Number(pixelRatio) || 1);
-  context.textAlign = "right";
-  context.textBaseline = "bottom";
-  context.fillText(speedLabel, Math.round(width - pad), Math.round(height - pad));
+  context.fillText(speedLabel, x, y);
   context.textAlign = "left";
   context.textBaseline = "alphabetic";
 }

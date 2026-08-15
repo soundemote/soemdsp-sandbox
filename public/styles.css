@@ -1354,7 +1354,7 @@ button.scw-label:hover,
   left: auto;
   height: auto;
   font: var(--phosphor-hud-font-sm);
-  color: var(--phosphor-hud-color-hot);
+  color: var(--phosphor-hud-color);
   cursor: ew-resize;
   user-select: none;
   -webkit-user-select: none;
@@ -1365,9 +1365,8 @@ button.scw-label:hover,
   outline: none;
   background: transparent;
   color: var(--phosphor-hud-color-hot);
-  filter: brightness(1.25);
 }
-.node-phosphor-waveform-display:not([data-music-player-face="wave"]) .node-phosphor-waveform-zoom {
+.node-phosphor-waveform-display:not([data-music-player-face="wave"]):not([data-music-player-face="wavplay"]) .node-phosphor-waveform-zoom {
   display: none;
 }
 .node-music-player-face-btn {
@@ -1416,7 +1415,8 @@ button.scw-label:hover,
   min-height: 0;
   display: block;
 }
-.node-music-player-page-pl {
+.node-music-player-page-pl,
+.node-music-player-page-wavplay {
   top: 0;
   right: 0;
   bottom: var(--node-music-player-pl-row-height, 1.35rem);
@@ -1431,6 +1431,23 @@ button.scw-label:hover,
   color: var(--phosphor-hud-color);
   font: var(--phosphor-hud-font);
   overflow: hidden;
+}
+.node-music-player-wavplay-wave {
+  position: relative;
+  flex: 0 0 calc(2 * var(--node-music-player-pl-row-height, 1.35rem));
+  height: calc(2 * var(--node-music-player-pl-row-height, 1.35rem));
+  min-height: calc(2 * var(--node-music-player-pl-row-height, 1.35rem));
+  max-height: calc(2 * var(--node-music-player-pl-row-height, 1.35rem));
+  overflow: hidden;
+}
+.node-music-player-wavplay-wave .node-phosphor-waveform-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: block;
 }
 .node-music-player-page-vs {
   z-index: 2;
@@ -1453,7 +1470,7 @@ button.scw-label:hover,
   bottom: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   height: var(--node-music-player-pl-row-height, 1.35rem);
   min-height: var(--node-music-player-pl-row-height, 1.35rem);
   max-height: var(--node-music-player-pl-row-height, 1.35rem);
@@ -1908,8 +1925,17 @@ button.scw-label:hover,
   left: auto;
 }
 
-.node-command-center-dock > .node-unified-window,
-.node-command-center-dock > .node-scene-context-menu {
+.node-command-center-dock > .node-unified-window[hidden],
+.node-command-center-dock > .node-scene-context-menu[hidden],
+.node-command-center-dock > .node-module-shop-view[hidden],
+.node-command-center-dock > .node-user-ui-settings-panel[hidden] {
+  display: none !important;
+}
+
+.node-command-center-dock > .node-unified-window:not([hidden]),
+.node-command-center-dock > .node-scene-context-menu:not([hidden]),
+.node-command-center-dock > .node-module-shop-view:not([hidden]),
+.node-command-center-dock > .node-user-ui-settings-panel:not([hidden]) {
   display: flex !important;
   flex-direction: column;
   position: relative !important;
@@ -4138,14 +4164,16 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   align-items: center;
   justify-content: center;
   align-self: stretch;
-  flex: 0.42 1 0;
+  flex: 0.72 1 0;
   box-sizing: border-box;
-  min-width: 4.4em;
+  min-width: 7.4em;
   background: #050607;
   color: rgba(236, 240, 241, 0.92);
   box-shadow: none;
   font-family: inherit;
+  font-size: clamp(0.78rem, calc(var(--node-toolbar-row-height) * 0.30), 1.05rem);
   line-height: 1;
+  text-align: center;
   text-transform: none;
   transition:
     background-color 2s ease-out,
@@ -8813,13 +8841,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   flex-wrap: nowrap;
   align-items: stretch;
   gap: 0;
-  height: 30px;
-  min-height: 30px;
-  max-height: 30px;
+  height: 60px;
+  min-height: 60px;
+  max-height: 60px;
   margin: 0;
   padding: 0;
   overflow: visible;
-  --node-settings-action-height: 30px;
+  --node-settings-action-height: 60px;
 }
 
 .node-patch-page-toolbar .node-settings-script-action-group,
@@ -8828,31 +8856,30 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: flex;
   flex-wrap: nowrap;
   align-items: stretch;
-  height: 30px;
-  min-height: 30px;
-  max-height: 30px;
+  height: 60px;
+  min-height: 60px;
+  max-height: 60px;
   overflow: visible;
-  --node-settings-action-height: 30px;
+  --node-settings-action-height: 60px;
 }
 
-/* One-line chips. Do not inherit the 44%/3px two-row knob layout (clips).
-   Glyph + label fill the inner box; 2px stroke is the only inset. */
+/* Twice the old 30px chips. Two lines (glyph / label) so 16px type fits. */
 .node-patch-page-toolbar button,
 .node-patch-page-toolbar a {
   container-type: normal;
   display: inline-flex;
   flex: 1 1 0;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   box-sizing: border-box;
   min-width: 0;
-  height: 30px;
-  min-height: 30px;
-  max-height: 30px;
+  height: 60px;
+  min-height: 60px;
+  max-height: 60px;
   margin: 0;
-  padding: 0 3px;
+  padding: 3px 4px;
   border: 2px solid var(--line);
   overflow: hidden;
   grid-template-rows: none;
@@ -8866,12 +8893,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   align-items: center;
   justify-content: center;
   width: auto;
-  height: calc(var(--node-settings-action-height) - 4px);
-  max-width: none;
+  height: auto;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: clip;
   white-space: nowrap;
-  font-size: calc(var(--node-settings-action-height) - 4px);
+  font-size: 22px;
+  font-weight: 650;
   line-height: 1;
 }
 
@@ -10151,14 +10179,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-patch-page-toolbar .node-settings-disabled-action {
   container-type: normal;
   display: inline-flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  height: 30px;
-  min-height: 30px;
-  max-height: 30px;
-  padding: 0 3px;
+  gap: 2px;
+  height: 60px;
+  min-height: 60px;
+  max-height: 60px;
+  padding: 3px 4px;
   border-width: 2px;
   overflow: hidden;
   grid-template-rows: none;
@@ -10184,10 +10212,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   align-items: center;
   justify-content: center;
   width: auto;
-  height: calc(var(--node-settings-action-height) - 4px);
+  height: auto;
   max-width: none;
   overflow: hidden;
-  font-size: calc(var(--node-settings-action-height) - 4px);
+  font-size: 22px;
+  font-weight: 650;
   line-height: 1;
 }
 
@@ -12574,7 +12603,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .dsp-node.led-layout .node-led-face {
   position: relative;
   box-sizing: border-box;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -19928,6 +19959,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 
 .node-code-box-highlight,
 .node-code-widget-highlight {
+  display: none;
   overflow: hidden;
   color: rgba(224, 240, 238, 0.92);
   pointer-events: none;
@@ -19940,7 +19972,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   color: rgba(224, 240, 238, 0.92);
   caret-color: rgba(255, 255, 255, 0.96);
   resize: none;
-  -webkit-text-fill-color: transparent;
+  -webkit-text-fill-color: rgba(224, 240, 238, 0.92);
 }
 
 .node-code-box-source-label textarea:focus {
@@ -21111,17 +21143,20 @@ body.node-slider-dragging .node-param-port {
 
 /* Transport glyphs: force text presentation so emoji skins do not stay red. */
 button.node-transport-play,
+button.node-transport-pause,
 button.node-transport-stop,
 button[data-transport-play],
+button[data-transport-action="pause"],
 button[data-transport-action="stop"],
 #nodeTransportPlay,
+#nodeTransportPause,
 #nodeTransportStop,
 #nodeRenderedPlayerPlay {
   font-variant-emoji: text;
   font-feature-settings: "emoji" 0;
 }
 
-/* Play / pause dual control — grey idle, green playing, yellow paused. */
+/* Play — grey idle, green playing. Pause is a separate button. */
 button.node-transport-play,
 button[data-transport-play],
 #nodeRenderedPlayerPlay,
@@ -21161,20 +21196,36 @@ button[data-transport-play].is-playing:hover:not(:disabled),
   box-shadow: 0 0 12px var(--transport-play-glow);
 }
 
-button.node-transport-play.is-paused,
-button[data-transport-play].is-paused,
-#nodeRenderedPlayerPlay.is-paused,
-#nodeTransportPlay.is-paused {
+button.node-transport-pause,
+button[data-transport-action="pause"],
+#nodeTransportPause {
+  border-color: var(--transport-idle-border);
+  background: var(--transport-idle-bg);
+  color: var(--transport-idle-fg);
+  box-shadow: none;
+}
+
+button.node-transport-pause:hover:not(:disabled),
+button[data-transport-action="pause"]:hover:not(:disabled),
+#nodeTransportPause:hover:not(:disabled) {
+  border-color: var(--transport-idle-border);
+  background: var(--transport-idle-bg-hover);
+  color: var(--transport-idle-fg-hover);
+  box-shadow: none;
+}
+
+button.node-transport-pause.is-paused,
+button[data-transport-action="pause"].is-paused,
+#nodeTransportPause.is-paused {
   border-color: var(--transport-pause-border);
   background: var(--transport-pause-bg);
   color: var(--transport-pause-fg);
   box-shadow: 0 0 10px var(--transport-pause-glow);
 }
 
-button.node-transport-play.is-paused:hover:not(:disabled),
-button[data-transport-play].is-paused:hover:not(:disabled),
-#nodeRenderedPlayerPlay.is-paused:hover:not(:disabled),
-#nodeTransportPlay.is-paused:hover:not(:disabled) {
+button.node-transport-pause.is-paused:hover:not(:disabled),
+button[data-transport-action="pause"].is-paused:hover:not(:disabled),
+#nodeTransportPause.is-paused:hover:not(:disabled) {
   background: var(--transport-pause-bg-hover);
   color: var(--transport-pause-fg);
   box-shadow: 0 0 12px var(--transport-pause-glow);
@@ -21380,6 +21431,7 @@ button[data-transport-action="stop"]:disabled {
 }
 
 .node-patch-raw-highlight {
+  display: none;
   color: rgba(205, 214, 216, 0.9);
   pointer-events: none;
   overflow: hidden;
@@ -21389,9 +21441,9 @@ button[data-transport-action="stop"]:disabled {
   display: block;
   resize: none;
   overflow: auto;
-  color: transparent;
+  color: rgba(205, 214, 216, 0.92);
   caret-color: rgba(255, 255, 255, 0.96);
-  -webkit-text-fill-color: transparent;
+  -webkit-text-fill-color: rgba(205, 214, 216, 0.92);
 }
 
 .node-patch-raw-text:focus {

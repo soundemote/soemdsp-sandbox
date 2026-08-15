@@ -307,13 +307,16 @@
   window.addEventListener("unhandledrejection", (ev) => {
     push("ERROR", `unhandled rejection: ${ev?.reason?.message || ev?.reason || "?"}`, "");
   });
-  ["warn", "error"].forEach((k) => {
+  ["log", "info", "warn", "error"].forEach((k) => {
     const orig = console[k].bind(console);
     console[k] = (...args) => {
       try {
         const text = args.map((a) => (typeof a === "string" ? a : safeStringify(a))).join(" ");
         // Skip our own re-logging noise.
-        if (!text.includes("[se-debug]")) push(k === "error" ? "ERROR" : "WARN", text, "console");
+        if (!text.includes("[se-debug]")) {
+          const level = k === "error" ? "ERROR" : k === "warn" ? "WARN" : k === "info" ? "INFO" : "LOG";
+          push(level, text, "console");
+        }
       } catch (_) {}
       return orig(...args);
     };
@@ -505,7 +508,7 @@
         <button class="se-tool" data-se-close>✕</button>
       </div>
       <div class="se-filters">
-        ${["all","LOG","WARN","FAIL","SMOOTH","ERROR"].map((f)=>`<span class="se-chip${f==="all"?" on":""}" data-se-filter="${f}">${f}</span>`).join("")}
+        ${["all","LOG","INFO","WARN","FAIL","SMOOTH","ERROR"].map((f)=>`<span class="se-chip${f==="all"?" on":""}" data-se-filter="${f}">${f}</span>`).join("")}
         <input class="se-search" data-se-search placeholder="filter text…">
       </div>
       <div class="se-log node-text-selectable" data-se-list tabindex="0"><div class="se-empty">No log entries yet.</div></div>
@@ -822,7 +825,12 @@
     if (!els.panel) return;
     els.panel.classList.toggle("se-open", open);
     els.btn?.setAttribute("aria-pressed", open ? "true" : "false");
-    if (open) { rebuild(); }
+    if (open) {
+      if (typeof logNodeGraphSampleRateInfo === "function") {
+        logNodeGraphSampleRateInfo("debug panel");
+      }
+      rebuild();
+    }
   }
 
   // Always show the 🐞 button (localhost, release site, iframe deploy). Release
@@ -856,6 +864,9 @@
       SE.INFO(
         `debug console ready — build ${(document.querySelector("[data-build-number-value]")?.textContent || "?")} (${seBuildMode()}) · log cleared on load`,
       );
+      if (typeof logNodeGraphSampleRateInfo === "function") {
+        logNodeGraphSampleRateInfo("startup");
+      }
       rebuild();
     } catch (err) {
       try { console.error("[se-debug] init failed", err); } catch (_) {}

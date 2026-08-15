@@ -257,14 +257,13 @@ function handleNodeGraphKeydown(event) {
   if (nodeGraphEventTargetIsTextEditable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
     return;
   }
-  // Space controls audio transport when not typing (panic / play-pause).
+  // Space controls audio transport when not typing (start / resume).
   // Text inputs are excluded above so module search and name fields can take spaces.
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.code === "Space") {
     event.preventDefault();
     event.stopPropagation();
     // Same path as the transport ▶ button so Space and click stay in lockstep
-    // (start when cold, pause/resume when engine is up — never a bare toggle
-    // that can leave outputEnabled true with no worklet).
+    // (start when cold, resume when paused — play never pauses).
     if (typeof nodeGraphTransportHandleAction === "function") {
       nodeGraphTransportHandleAction("play");
     } else if (nodeGraphMvp?.live?.node) {

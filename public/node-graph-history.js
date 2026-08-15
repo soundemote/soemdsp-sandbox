@@ -233,21 +233,57 @@ function renderNodeGraphLastActionReadout() {
   el.textContent = String(nodeGraphMvp.lastHeavyAction || "");
 }
 
+function flashNodeGraphLastActionReadout() {
+  const el = document.getElementById("nodeHistoryLastAction");
+  if (!el) {
+    return;
+  }
+  el.classList.remove("is-history-glow-last");
+  void el.offsetWidth;
+  el.classList.add("is-history-glow-last");
+  window.clearTimeout(flashNodeGraphLastActionReadout._glow);
+  window.clearTimeout(flashNodeGraphLastActionReadout._clear);
+  flashNodeGraphLastActionReadout._glow = window.setTimeout(() => {
+    el.classList.remove("is-history-glow-last");
+    flashNodeGraphLastActionReadout._clear = window.setTimeout(() => {
+      clearNodeGraphLastActionReadout();
+    }, 2000);
+  }, 220);
+}
+
 function clearNodeGraphLastActionReadout() {
   nodeGraphMvp.lastHeavyAction = "";
   renderNodeGraphLastActionReadout();
 }
 
 function noteNodeGraphHeavyHistoryAction(kind) {
-  const label = kind === "delete"
-    ? "add"
-    : kind === "add"
-      ? "remove"
-      : kind === "swapLr"
-        ? "swap l/r"
-        : String(kind || "");
-  nodeGraphMvp.lastHeavyAction = label;
+  const key = String(kind || "").trim();
+  const labels = {
+    add: "add",
+    delete: "delete",
+    swapLr: "swap l/r",
+  };
+  nodeGraphMvp.lastHeavyAction = labels[key] || key;
   renderNodeGraphLastActionReadout();
+  flashNodeGraphLastActionReadout();
+}
+
+function noteNodeGraphDisplayChange() {
+  nodeGraphMvp.lastHeavyAction = "Display Change";
+  renderNodeGraphLastActionReadout();
+  flashNodeGraphLastActionReadout();
+}
+
+function noteNodeGraphCommandCenterPage() {
+  nodeGraphMvp.lastHeavyAction = "command center page";
+  renderNodeGraphLastActionReadout();
+  flashNodeGraphLastActionReadout();
+}
+
+function noteNodeGraphScriptPageOpen() {
+  nodeGraphMvp.lastHeavyAction = "open script page";
+  renderNodeGraphLastActionReadout();
+  flashNodeGraphLastActionReadout();
 }
 
 function beginNodeGraphHistoryGlow(kind) {

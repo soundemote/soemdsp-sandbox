@@ -19,12 +19,10 @@ function syncNodePatchRawTextHighlight() {
   if (!raw || !highlight) {
     return;
   }
-  const highlighter = window.nodeCodeSettingsEditor?.jsonHighlightHtml;
-  highlight.innerHTML = typeof highlighter === "function"
-    ? highlighter(raw.value)
-    : (window.nodeCodeSettingsEditor?.escapeHtml?.(raw.value) || raw.value);
-  highlight.scrollTop = raw.scrollTop;
-  highlight.scrollLeft = raw.scrollLeft;
+  // Syntax highlighting is off: rebuilding a span forest for a full patch
+  // JSON is what made the script page unusably heavy.
+  highlight.replaceChildren();
+  highlight.hidden = true;
 }
 
 function syncNodeGraphSettingsView() {

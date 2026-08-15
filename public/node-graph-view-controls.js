@@ -3864,7 +3864,14 @@ function setNodeGraphViewMode(mode) {
   }
   document.getElementById("nodeCodeScreenView").hidden = !codeMode;
   document.getElementById("nodeMappingView").hidden = !mappingMode;
-  document.getElementById("nodeSettingsView").hidden = !settingsMode;
+  const settingsView = document.getElementById("nodeSettingsView");
+  const openingSettings = settingsMode && Boolean(settingsView?.hidden);
+  if (settingsView) {
+    settingsView.hidden = !settingsMode;
+  }
+  if (openingSettings && typeof noteNodeGraphScriptPageOpen === "function") {
+    noteNodeGraphScriptPageOpen();
+  }
   renderNodeGraphKeyboardControllerModules();
   renderNodeGraphMacroControls();
   renderNodeGraphVideoViewToggle();

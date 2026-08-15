@@ -165,14 +165,15 @@ function updateNodeGraphCodeBoxWindowEditorChrome() {
   const source = document.getElementById("nodeCodeBoxSource");
   const highlight = document.getElementById("nodeCodeBoxHighlight");
   const lineNumbers = document.getElementById("nodeCodeBoxLineNumbers");
-  if (!source || !highlight || !lineNumbers) {
+  if (!source || !lineNumbers) {
     return;
   }
   const lines = String(source.value || "").split("\n");
-  highlight.innerHTML = renderNodeGraphCodeWidgetHighlight(source.value || "", "javascript");
+  if (highlight) {
+    highlight.replaceChildren();
+    highlight.hidden = true;
+  }
   lineNumbers.textContent = lines.map((_, index) => index + 1).join("\n") || "1";
-  highlight.scrollTop = source.scrollTop;
-  highlight.scrollLeft = source.scrollLeft;
   lineNumbers.scrollTop = source.scrollTop;
 }
 

@@ -491,8 +491,9 @@ function syncNodeGraphFloatingWindowLockHandles(element) {
   }
   const locked = nodeGraphFloatingWindowLocked(element);
   for (const handle of element.querySelectorAll(nodeGraphFloatingWindowLockHandleSelector)) {
-    if (!handle.dataset.floatingWindowUnlockedIcon) {
-      handle.dataset.floatingWindowUnlockedIcon = handle.textContent?.trim() || nodeGraphFloatingWindowUnlockedIcon;
+    const stored = String(handle.dataset.floatingWindowUnlockedIcon || "").trim();
+    if (!stored || stored === nodeGraphFloatingWindowLockedIcon) {
+      handle.dataset.floatingWindowUnlockedIcon = nodeGraphFloatingWindowUnlockedIcon;
     }
     handle.textContent = locked
       ? nodeGraphFloatingWindowLockedIcon

@@ -236,10 +236,10 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
 }
 
 /**
- * Transport button states — one color at a time:
- *   playing / starting → green ▶ (play control)
- *   paused             → yellow ⏸ (pause control)
- *   stopped            → red ⏹ (stop control); play stays grey ▶
+ * Transport button states — play and pause are separate controls:
+ *   playing / starting → green ▶
+ *   paused             → yellow ⏸
+ *   stopped            → red ⏹; play stays grey ▶
  */
 function syncNodeGraphTransportPlayButtons({ playing = false, paused = false, starting = false } = {}) {
   const isPlaying = Boolean(playing); // includes "starting" when caller folds it in
@@ -254,31 +254,36 @@ function syncNodeGraphTransportPlayButtons({ playing = false, paused = false, st
 
     tp.classList.add("node-transport-play");
     tp.classList.remove("is-playing", "is-paused");
-
+    tp.textContent = NODE_GRAPH_TRANSPORT_GLYPH_PLAY;
     if (isPlaying) {
-      // Green play — sim running, or output armed and engine coming up.
-      tp.textContent = NODE_GRAPH_TRANSPORT_GLYPH_PLAY;
-      tp.setAttribute("aria-label", isStarting ? "Starting" : "Pause");
-      tp.title = isStarting ? "Starting engine…" : "Playing — click to pause";
+      tp.setAttribute("aria-label", isStarting ? "Starting" : "Play");
+      tp.title = isStarting ? "Starting engine…" : "Playing";
       tp.setAttribute("aria-pressed", "true");
       tp.classList.add("is-playing");
       tp.dataset.transportState = isStarting ? "starting" : "playing";
-    } else if (isPaused) {
-      // Yellow pause button — sim paused (click resumes).
-      tp.textContent = NODE_GRAPH_TRANSPORT_GLYPH_PAUSE;
-      tp.setAttribute("aria-label", "Resume");
-      tp.title = "Paused — click to resume";
-      tp.setAttribute("aria-pressed", "false");
-      tp.classList.add("is-paused");
-      tp.dataset.transportState = "paused";
     } else {
-      // Stopped — grey play affordance.
-      tp.textContent = NODE_GRAPH_TRANSPORT_GLYPH_PLAY;
       tp.setAttribute("aria-label", "Play");
       tp.title = "Play";
       tp.setAttribute("aria-pressed", "false");
-      tp.dataset.transportState = "stopped";
+      tp.dataset.transportState = isPaused ? "paused" : "stopped";
     }
+  }
+
+  for (const pause of document.querySelectorAll('[data-transport-action="pause"], #nodeTransportPause, button.node-transport-pause')) {
+    if (!(pause instanceof HTMLElement)) continue;
+    pause.classList.add("node-transport-pause");
+    pause.classList.toggle("is-paused", isPaused);
+    pause.textContent = NODE_GRAPH_TRANSPORT_GLYPH_PAUSE;
+    pause.dataset.transportState = isPaused
+      ? "paused"
+      : isStarting
+        ? "starting"
+        : isPlaying
+          ? "playing"
+          : "stopped";
+    pause.title = isPaused ? "Paused" : "Pause";
+    pause.setAttribute("aria-label", isPaused ? "Paused" : "Pause");
+    pause.setAttribute("aria-pressed", isPaused ? "true" : "false");
   }
 
   for (const stop of document.querySelectorAll('[data-transport-action="stop"], #nodeTransportStop, button.node-transport-stop')) {
@@ -301,8 +306,7 @@ function syncNodeGraphTransportPlayButtons({ playing = false, paused = false, st
 }
 
 // The header "Speed" field mirrors the engine's speed multiplier, so pausing
-// (transport pause button or spacebar -- both route through
-// setNodeGraphLiveSpeed) visibly reads 0 instead of staying at 1.0.
+// (transport pause button → setNodeGraphLiveSpeed(0)) reads 0 instead of 1.0.
 function renderNodeGraphSpeedReadout() {
   const speed = Math.max(0, Number(nodeGraphMvp.live.speedMultiplier ?? 1));
   const text = speed.toFixed(1);
@@ -460,14 +464,14 @@ function bindNodeGraphLiveVolumeControls() {
 function nodeGraphTransportHandleAction(action) {
   const key = String(action || "").trim();
   if (key === "play") {
-    // Only toggle pause when a live worklet/node actually exists.
+    // Play only starts or resumes. Never pauses.
     // Never re-call enable while already starting — that bumps
     // outputToggleSerial and cancels the in-flight start (green flash → red).
     const hasEngine = Boolean(nodeGraphMvp.live.node);
     const transportState = typeof nodeGraphLiveTransportUiState === "function"
       ? nodeGraphLiveTransportUiState()
       : (hasEngine ? "playing" : "stopped");
-    if (transportState === "starting") {
+    if (transportState === "starting" || transportState === "playing") {
       renderNodeGraphLiveControls();
       return;
     }
@@ -477,11 +481,23 @@ function nodeGraphTransportHandleAction(action) {
       } else if (typeof soemdspSandboxToggleLiveOutput === "function") {
         soemdspSandboxToggleLiveOutput();
       }
-    } else {
-      // playing ↔ paused
-      const speed = transportState === "paused" ? 1 : 0;
+    } else if (transportState === "paused") {
       if (typeof setNodeGraphLiveSpeed === "function") {
-        setNodeGraphLiveSpeed(speed);
+        setNodeGraphLiveSpeed(1);
+      }
+    }
+    renderNodeGraphLiveControls();
+    return;
+  }
+  if (key === "pause") {
+    // Pause only freezes a running engine. Never starts or resumes.
+    const hasEngine = Boolean(nodeGraphMvp.live.node);
+    const transportState = typeof nodeGraphLiveTransportUiState === "function"
+      ? nodeGraphLiveTransportUiState()
+      : (hasEngine ? "playing" : "stopped");
+    if (transportState === "playing") {
+      if (typeof setNodeGraphLiveSpeed === "function") {
+        setNodeGraphLiveSpeed(0);
       }
     }
     renderNodeGraphLiveControls();
