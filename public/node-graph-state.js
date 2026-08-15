@@ -199,8 +199,10 @@ var nodeGraphMvp = {
   viewMode: "modular",
   // Windowed frame always keeps back + resize when phone view is on.
   modularOnlyControlsVisible: true,
-  // Top toolbar + bottom transport (H).
+  // Top toolbar + bottom transport (V).
   appChromeBarsVisible: true,
+  // T — keep bottom transport even when V hides bars.
+  transportChromeStuck: false,
   moduleButtonsVisible: false,
   moduleDefaultOverrides: {},
   moduleSettingsClipboard: null,

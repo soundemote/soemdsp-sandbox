@@ -6,13 +6,11 @@
 // At 100% the room is blacked out; painted displays stay lit (rect punches) and
 // the dimmer button stays punched/stacked above the veil so you can drag back.
 //
-// Two-stage dim (cheap; no extra passes):
-//   0…0.5 — current room trick: bg mixes toward black, full workspace punch,
-//            module lamps stay full. Veil never covers the graph.
-//   0.5…1 — workspace punch fades, module lamps fade, only painted screens
-//            stay open. Screen holes pick up the same soft/spread as module
-//            glow (soft square, not a hard stamp).
-// Cables stay under the veil.
+// Two lights only:
+//   1. Module lamps — CSS heatmap (fades 0.5…1).
+//   2. Screen glow  — veil holes on painted canvases (0.5…1, sim on).
+// 0…0.5: punch the whole workspace (veil stays off the graph).
+// No workspace-shaped hole after 0.5 — that was the moving hard box.
 //
 // Punch geometry:
 //   Prefer the *painted* surface (scope fallback canvas, music-player panel
@@ -26,33 +24,10 @@
 
   const STORAGE_KEY = "soemdsp-sandbox.roomDimmer.v1";
   const MAX_RECTS = 128;
-  const SHADER_REV = 13;
+  const SHADER_REV = 15;
   // Inset punch by this many CSS px so 1px borders / AA don't open chrome.
   const PUNCH_INSET_CSS = 1.25;
 
-  // Prefer painted canvases first; shells only if no canvas child.
-  // Mouse hover cutout is pushed in collectLights.
-  const LIGHT_SELECTOR = [
-    "canvas.node-phosphor-waveform-canvas",
-    "canvas.node-module-scope-local-fallback-canvas",
-    "canvas.node-xy-pad-canvas",
-    "canvas.node-number-readout-canvas",
-    "canvas.node-asciiscope-canvas",
-    "canvas.node-matrix-display-canvas",
-    "canvas.node-filter-curve-canvas",
-    ".node-led-lamp",
-    ".node-module-scope-window",
-    ".node-xy-pad",
-    ".node-number-readout-face",
-    ".node-knob-face",
-    ".node-ray-bouncer-face",
-    ".node-phosphor-waveform-display",
-    ".node-filter-curve-display",
-    ".node-asciiscope-stage",
-    ".node-matrix-display-stage",
-    "[data-light-source]",
-    ".node-light-source",
-  ].join(", ");
   const SCREEN_SELECTOR = [
     "canvas.node-phosphor-waveform-canvas",
     "canvas.node-module-scope-local-fallback-canvas",
@@ -166,10 +141,6 @@ void main() {
     return d <= 0.5 ? 0 : Math.min(1, (d - 0.5) * 2);
   }
 
-  function isScreenPunch(el) {
-    return Boolean(el?.matches?.(SCREEN_SELECTOR));
-  }
-
   function simulationOn() {
     if (typeof nodeGraphLiveEngineIsUp === "function") {
       return Boolean(nodeGraphLiveEngineIsUp());
@@ -187,71 +158,6 @@ void main() {
       || "",
     );
     return Number.isFinite(raw) ? Math.max(0.4, Math.min(2.2, raw)) : 0.78;
-  }
-
-  function layoutBoxInNode(el, node) {
-    if (!el || !node) {
-      return null;
-    }
-    let x = 0;
-    let y = 0;
-    let n = el;
-    while (n && n !== node) {
-      x += n.offsetLeft || 0;
-      y += n.offsetTop || 0;
-      const next = n.offsetParent;
-      if (!next || next === node) {
-        break;
-      }
-      if (!node.contains(next)) {
-        return null;
-      }
-      n = next;
-    }
-    const w = el.offsetWidth || 0;
-    const h = el.offsetHeight || 0;
-    if (!(w > 0) || !(h > 0)) {
-      return null;
-    }
-    return { x, y, w, h };
-  }
-
-  /**
-   * Visual client rect that tracks CSS `zoom` the same way module lamps do
-   * (graph --node-x/y * zoom + origin). getBoundingClientRect on a zoomed
-   * descendant drifts vs a fixed overlay.
-   */
-  function visualClientRect(el) {
-    const node = el?.closest?.(".dsp-node");
-    const ws = workspace();
-    if (
-      !node
-      || !ws
-      || typeof nodeGraphNodeBounds !== "function"
-      || typeof nodeGraphRenderedOriginOffset !== "function"
-    ) {
-      return el.getBoundingClientRect();
-    }
-    const local = layoutBoxInNode(el, node);
-    if (!local) {
-      return el.getBoundingClientRect();
-    }
-    const nb = nodeGraphNodeBounds(node);
-    const zoom = typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1;
-    const origin = nodeGraphRenderedOriginOffset();
-    const wr = ws.getBoundingClientRect();
-    const left = wr.left + (Number(origin.x) || 0) + (nb.left + local.x) * zoom;
-    const top = wr.top + (Number(origin.y) || 0) + (nb.top + local.y) * zoom;
-    const width = local.w * zoom;
-    const height = local.h * zoom;
-    return {
-      left,
-      top,
-      right: left + width,
-      bottom: top + height,
-      width,
-      height,
-    };
   }
 
   function punchCornerRadiusPx(el, boxW, boxH) {
@@ -525,7 +431,7 @@ void main() {
     const str = lightStrength(punchEl) * (opts.strengthScale == null ? 1 : opts.strengthScale);
     if (str < 0.001) return;
 
-    const r = visualClientRect(punchEl);
+    const r = punchEl.getBoundingClientRect();
     if (r.width < 1.5 || r.height < 1.5) return;
 
     const cr = canvasRect;
@@ -533,7 +439,6 @@ void main() {
     const cssH = Math.max(1e-6, cr.height);
     const screenSoft = Number(opts.screenSoft) || 0;
     const glowOn = screenSoft > 0 && simulationOn();
-    const zoom = typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1;
     // Client → UV, no buffer-pixel snap (that drifted under CSS zoom).
     let left = Number(r.left) - cr.left;
     let top = Number(r.top) - cr.top;
@@ -564,12 +469,10 @@ void main() {
     const w = (right - left) / cssW;
     const h = (bottom - top) / cssH;
     const bloomCss = glowOn
-      ? Math.max(18, Math.min(96, (14 + 16 * (moduleLightSpread() - 0.4)) * Math.max(1, zoom))) * screenSoft
+      ? Math.max(28, Math.min(52, 24 + 20 * (moduleLightSpread() - 0.4))) * screenSoft
       : 0;
     const soft = glowOn ? -bloomCss : 0;
-    const layoutW = punchEl.offsetWidth || r.width / Math.max(zoom, 1e-6);
-    const layoutH = punchEl.offsetHeight || r.height / Math.max(zoom, 1e-6);
-    const round = punchCornerRadiusPx(punchEl, layoutW, layoutH) * Math.max(zoom, 1e-6);
+    const round = punchCornerRadiusPx(punchEl, r.width, r.height);
     pushRectArrays(rects, strengths, softs, rounds, x, y, w, h, str, soft, round);
   }
 
@@ -631,14 +534,13 @@ void main() {
     const rectStr = [];
     const rectSoft = [];
     const rectRound = [];
-    // 0…0.5: punch the whole graph (current room trick). 0.5…1: fade that
-    // hole so the veil covers plates; only painted screens stay open.
     const deep = dimDeep();
     const ws = workspace();
-    if (ws) {
-      const wr = ws.getBoundingClientRect();
+    // 0…0.5: full workspace hole. 0.5…1: fade that hole (no pop at 0.5)
+    // so plates go under the veil gradually. Screens add their own holes.
+    if (ws && 1 - deep > 0.001) {
       pushClientRectLight(
-        wr,
+        ws.getBoundingClientRect(),
         canvasRect,
         canvas,
         rects,
@@ -650,25 +552,13 @@ void main() {
         0,
       );
     }
-    // Lights live in the graph; query the document so we still find them if
-    // the canvas is reparented outside the workspace.
-    const root = document;
-    for (const el of root.querySelectorAll(LIGHT_SELECTOR)) {
-      if (rects.length >= MAX_RECTS) break;
-      // Dimmer control is handled below (always full hole, even at 100% dim).
-      if (el.closest?.("#nodeRoomDimmerButton, .node-room-dimmer-button")) continue;
-      const punchEl = resolvePunchElement(el);
-      const screen = isScreenPunch(el) || isScreenPunch(punchEl);
-      if (deep > 0 && screen) {
+    if (deep > 0) {
+      for (const el of document.querySelectorAll(SCREEN_SELECTOR)) {
+        if (rects.length >= MAX_RECTS) break;
+        if (!el.closest?.("#nodeGraphWorkspace")) continue;
         pushRectLight(el, canvasRect, canvas, seen, rects, rectStr, rectSoft, rectRound, {
           screenSoft: deep,
         });
-      } else if (deep > 0) {
-        pushRectLight(el, canvasRect, canvas, seen, rects, rectStr, rectSoft, rectRound, {
-          strengthScale: 1 - deep,
-        });
-      } else {
-        pushRectLight(el, canvasRect, canvas, seen, rects, rectStr, rectSoft, rectRound);
       }
     }
 

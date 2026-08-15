@@ -737,6 +737,7 @@ function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
  *  💻      — computer view: infinite canvas (toolbar button, not a hotkey).
  *  📱      — phone / condensed frame (toolbar button or touch, not a hotkey).
  *  V       — view: hide/show top + bottom app bars (appChromeBarsVisible).
+ *  T       — transport: stick bottom app buttons over V hide.
  *
  * Laptop and phone are mutually exclusive canvas modes.
  */
@@ -793,10 +794,38 @@ function toggleNodeGraphModularOnlyControlsVisible() {
 /**
  * Top + bottom app bars (scene menu). V toggles this.
  */
+function syncNodeGraphTransportChromeStuckClass() {
+  const panel = document.getElementById("nodeWiringPanel");
+  panel?.classList.toggle("transport-chrome-stuck", nodeGraphMvp.transportChromeStuck === true);
+}
+
+function setNodeGraphTransportChromeStuck(stuck, options = {}) {
+  nodeGraphMvp.transportChromeStuck = stuck === true;
+  syncNodeGraphTransportChromeStuckClass();
+  if (typeof applyNodeGraphWorkspaceView === "function") {
+    applyNodeGraphWorkspaceView();
+  }
+  if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
+    notifyNodeGraphChromeLayoutChanged();
+  }
+  if (options.help !== false && typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      nodeGraphMvp.transportChromeStuck
+        ? "Transport stuck on (T). Bottom buttons stay if V hides bars."
+        : "Transport unstuck (T). V hides top and bottom bars.",
+    );
+  }
+}
+
+function toggleNodeGraphTransportChromeStuck() {
+  setNodeGraphTransportChromeStuck(nodeGraphMvp.transportChromeStuck !== true);
+}
+
 function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
   nodeGraphMvp.appChromeBarsVisible = visible !== false;
   const panel = document.getElementById("nodeWiringPanel");
   panel?.classList.toggle("app-chrome-bars-hidden", nodeGraphMvp.appChromeBarsVisible === false);
+  syncNodeGraphTransportChromeStuckClass();
   if (typeof renderNodeGraphModularViewModeButtons === "function") {
     renderNodeGraphModularViewModeButtons();
   }

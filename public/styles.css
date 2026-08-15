@@ -1987,6 +1987,12 @@ body.is-resizing-command-center-dock {
   display: none !important;
 }
 
+/* T — transport stuck: bottom public buttons win over V hide. */
+.node-wiring-panel.app-chrome-bars-hidden.transport-chrome-stuck > .node-graph-controls,
+.node-wiring-panel.modular-only-view.transport-chrome-stuck > .node-graph-controls {
+  display: flex !important;
+}
+
 /* When bars are hidden and M is off, fill the viewport. Must cancel any leftover
    inline width/height from a prior modular-windowed (M) resize, or the canvas
    stays stuck at the condensed frame size. */

@@ -701,6 +701,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const appChromeBarsVisible = view.appChromeBarsVisible === undefined
     ? (nodeGraphMvp.appChromeBarsVisible !== false)
     : Boolean(view.appChromeBarsVisible);
+  const transportChromeStuck = Boolean(view.transportChromeStuck ?? nodeGraphMvp.transportChromeStuck);
   const moduleInterfaceControlsVisible = Boolean(view.moduleInterfaceControlsVisible ?? nodeGraphMvp.moduleInterfaceControlsVisible);
   const moduleOscilloscopesVisible = Boolean(view.moduleOscilloscopesVisible ?? nodeGraphMvp.moduleOscilloscopesVisible);
   const moduleSlidersVisible = Boolean(view.moduleSlidersVisible ?? nodeGraphMvp.moduleSlidersVisible);
@@ -886,6 +887,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
       controllerDockHeight,
       moduleButtonsVisible,
       appChromeBarsVisible,
+      transportChromeStuck,
       moduleInterfaceControlsVisible,
       moduleOscilloscopesVisible,
       moduleSlidersVisible,
@@ -988,6 +990,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
         : Math.max(0, Math.min(620, Math.round(Number(nodeGraphMvp.controllerDockHeight) || 0))),
       moduleButtonsVisible: Boolean(nodeGraphMvp.moduleButtonsVisible),
       appChromeBarsVisible: nodeGraphMvp.appChromeBarsVisible !== false,
+      transportChromeStuck: Boolean(nodeGraphMvp.transportChromeStuck),
       moduleInterfaceControlsVisible: Boolean(nodeGraphMvp.moduleInterfaceControlsVisible),
       moduleOscilloscopesVisible: Boolean(nodeGraphMvp.moduleOscilloscopesVisible),
       moduleSlidersVisible: Boolean(nodeGraphMvp.moduleSlidersVisible),
@@ -1144,6 +1147,10 @@ function applyNodeUiDevSettings(settings) {
     : Boolean(normalized.view.appChromeBarsVisible);
   if (typeof setNodeGraphAppChromeBarsVisible === "function") {
     setNodeGraphAppChromeBarsVisible(nodeGraphMvp.appChromeBarsVisible, { help: false });
+  }
+  nodeGraphMvp.transportChromeStuck = Boolean(normalized.view.transportChromeStuck);
+  if (typeof setNodeGraphTransportChromeStuck === "function") {
+    setNodeGraphTransportChromeStuck(nodeGraphMvp.transportChromeStuck, { help: false });
   }
   nodeGraphMvp.moduleInterfaceControlsVisible = Boolean(normalized.view.moduleInterfaceControlsVisible);
   nodeGraphMvp.moduleOscilloscopesVisible = Boolean(normalized.view.moduleOscilloscopesVisible);
@@ -1508,6 +1515,10 @@ function clearNodeUserStartupRuntimeState() {
   // sliders come back on.
   nodeGraphMvp.moduleButtonsVisible = false;
   nodeGraphMvp.appChromeBarsVisible = true;
+  nodeGraphMvp.transportChromeStuck = false;
+  if (typeof setNodeGraphTransportChromeStuck === "function") {
+    setNodeGraphTransportChromeStuck(false, { help: false });
+  }
   if (typeof setNodeGraphAppChromeBarsVisible === "function") {
     setNodeGraphAppChromeBarsVisible(true, { help: false });
   }
