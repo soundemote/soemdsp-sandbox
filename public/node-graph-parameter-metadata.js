@@ -530,7 +530,8 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
 }
 
 /**
- * Continuous params with no time (or 0) get the shared 0.0333 s linear default.
+ * Continuous params with no time (or 0) get the shared 0.0333 s linear
+ * *internal* stash. Source stays Global so they follow the header time.
  * Discrete / off / already-timed params are left alone.
  */
 function nodeGraphParameterNeedsDefaultModuleSmoothing(meta, source = {}) {
@@ -565,7 +566,7 @@ function nodeGraphApplyDefaultModuleSmoothing(meta) {
     : 0.0333;
   meta.smoothingType = "linear";
   meta.linearSmoothing = true;
-  meta.smoothingMode = "internal";
+  meta.smoothingMode = "global";
   meta.smoothingSeconds = seconds;
   return meta;
 }

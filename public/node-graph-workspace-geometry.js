@@ -58,6 +58,11 @@ function applyNodeGraphWorkspaceView() {
   if (typeof syncNodeGraphWorkspaceResizeHandlePosition === "function") {
     syncNodeGraphWorkspaceResizeHandlePosition();
   }
+  workspace.classList.toggle("patch-locked", Boolean(view.locked));
+  workspace.classList.toggle("patch-unused-ports-hidden", Boolean(view.hideUnusedPorts));
+  if (typeof syncNodeGraphReadyPanelChrome === "function") {
+    syncNodeGraphReadyPanelChrome();
+  }
   if (typeof applyNodeGraphPan === "function") {
     applyNodeGraphPan();
   }

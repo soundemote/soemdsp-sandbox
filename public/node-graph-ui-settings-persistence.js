@@ -162,6 +162,9 @@ function nodeGraphWorkspaceStatesWithSharedInspectorGeometry(states = {}) {
 
 function normalizeNodeGraphWorkspaceWindowStateEntry(entry = {}, key = "") {
   const source = entry && typeof entry === "object" ? entry : {};
+  if (key === "visibilityMenu") {
+    return { open: Boolean(source.open) };
+  }
   const isSharedInspector = nodeGraphSharedInspectorWindowKeys.includes(key);
   const position = isSharedInspector
     ? null
@@ -308,6 +311,18 @@ function rememberNodeGraphWorkspaceWindowState(key, element, patch = {}, options
     return null;
   }
   const states = normalizeNodeGraphWorkspaceWindowStates(nodeGraphMvp.workspaceWindowStates);
+  // Visibility is a Command Center page. An independent saved seat is what
+  // used to yank the unified window to the old toolbar-adjacent position.
+  if (key === "visibilityMenu") {
+    states[key] = normalizeNodeGraphWorkspaceWindowStateEntry({
+      ...states[key],
+      open: patch.open ?? (element ? !element.hidden : states[key]?.open),
+      position: null,
+      size: null,
+    }, key);
+    nodeGraphMvp.workspaceWindowStates = states;
+    return states[key];
+  }
   const shouldCapturePosition = options.capturePosition !== false;
   const position = patch.position || (shouldCapturePosition ? nodeGraphWorkspaceWindowPositionFromElement(element) : null);
   if (nodeGraphSharedInspectorWindowKeys.includes(key)) {
@@ -503,6 +518,11 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
     element.hidden = true;
     return;
   }
+  if (key === "visibilityMenu") {
+    // Unified page: never independently restore the old Visibility seat.
+    element.hidden = true;
+    return;
+  }
   if (key === "standaloneMidiKeyboard" && state.open && typeof initNodeGraphStandaloneMidiKeyboard === "function") {
     initNodeGraphStandaloneMidiKeyboard();
   }
@@ -524,9 +544,6 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
   }
   if (key === "moduleBrowser" && typeof applyNodeGraphModuleShopWindowSize === "function") {
     applyNodeGraphModuleShopWindowSize(state.size);
-  }
-  if (key === "visibilityMenu" && typeof applyNodeGraphVisibilityMenuSize === "function") {
-    applyNodeGraphVisibilityMenuSize(state.size);
   }
   if (key === "metaparameters" && typeof applyNodeMetadataPopoverSize === "function") {
     applyNodeMetadataPopoverSize(nodeGraphMvp.sharedInspectorWindowState?.size);
@@ -1448,6 +1465,9 @@ function resetNodeUiDevControlsToDeclaredDefaults() {
   }
   if (typeof syncNodeUiDevModuleIdleStroke === "function") {
     syncNodeUiDevModuleIdleStroke();
+  }
+  if (typeof syncNodeUiDevModuleRoundness === "function") {
+    syncNodeUiDevModuleRoundness();
   }
   if (typeof syncNodeUiDevOutletRgbBrightness === "function") {
     syncNodeUiDevOutletRgbBrightness();

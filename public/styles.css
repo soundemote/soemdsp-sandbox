@@ -617,9 +617,21 @@ body.node-patch-load-fault-open .node-patch-load-fault {
 
 .node-missing-sample-assets-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
   margin-top: 4px;
+}
+
+.node-missing-sample-assets-controls #nodeMissingSampleAssetsPath {
+  min-width: 0;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid rgba(127, 199, 217, 0.28);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.42);
+  color: rgba(243, 241, 236, 0.92);
+  font: 600 0.82rem/1.2 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
 }
 
 .node-missing-sample-assets-controls input {
@@ -633,12 +645,12 @@ body.node-patch-load-fault-open .node-patch-load-fault {
 }
 
 .node-missing-sample-assets-controls button {
-  padding: 5px 8px;
+  padding: 6px 10px;
   border: 1px solid rgba(127, 199, 217, 0.28);
   border-radius: 4px;
   background: rgba(19, 25, 29, 0.88);
   color: rgba(243, 241, 236, 0.9);
-  font: 700 0.72rem/1 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  font: 700 1rem/1.1 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
 }
 
 .node-missing-sample-assets-controls button:hover,
@@ -668,6 +680,121 @@ body.node-patch-load-fault-open .node-patch-load-fault {
 .node-missing-sample-assets-close:focus-visible {
   border-color: rgba(127, 199, 217, 0.68);
   background: rgba(24, 31, 36, 0.92);
+  outline: 0;
+}
+
+body.node-sample-load-lock-open {
+  overflow: hidden;
+}
+
+.node-sample-load-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 100010;
+  display: none;
+  place-items: center;
+  pointer-events: auto;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(80, 180, 160, 0.12), transparent 38%),
+    rgba(0, 0, 0, 0.62);
+}
+
+body.node-sample-load-lock-open .node-sample-load-lock {
+  display: grid;
+}
+
+.node-sample-load-lock[hidden] {
+  display: none !important;
+}
+
+.node-sample-load-lock-panel {
+  box-sizing: border-box;
+  width: min(520px, calc(100vw - 32px));
+  min-inline-size: min(520px, calc(100vw - 32px));
+  max-inline-size: min(520px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 18px 22px 16px;
+  border: 1px solid rgba(120, 220, 190, 0.4);
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, rgba(40, 120, 100, 0.1), rgba(127, 199, 217, 0.05)),
+    rgba(5, 7, 9, 0.96);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.86), 0 0 28px rgba(40, 160, 120, 0.2);
+  color: var(--text);
+  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  text-align: center;
+}
+
+.node-sample-load-lock-kicker {
+  color: rgba(160, 230, 200, 0.88);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.node-sample-load-lock-title {
+  margin-block: 8px 4px;
+  font-size: 1.28rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.node-sample-load-lock-progress {
+  margin: 10px 0 6px;
+  color: rgba(180, 255, 220, 0.98);
+  font-size: 1.12rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.node-sample-load-lock-detail,
+.node-sample-load-lock-ram {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 1.4em;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  color: rgba(210, 230, 225, 0.88);
+}
+
+.node-sample-load-lock-close {
+  width: min(220px, 100%);
+  min-height: 38px;
+  margin: 16px auto 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(127, 199, 217, 0.45);
+  border-radius: 6px;
+  background: rgba(17, 20, 24, 0.9);
+  color: rgba(243, 241, 236, 0.96);
+  font: 700 0.9rem/1 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.node-sample-load-lock-close:not([hidden]) {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.node-sample-load-lock-close[hidden] {
+  display: block;
+}
+
+.node-sample-load-lock-close:hover,
+.node-sample-load-lock-close:focus-visible {
+  border-color: rgba(127, 199, 217, 0.8);
+  background: rgba(28, 36, 42, 0.96);
   outline: 0;
 }
 
@@ -1158,62 +1285,82 @@ button.scw-label:hover,
   display: block;
   min-height: 0;
   overflow: hidden;
+  --phosphor-hud-font: 600 11px/1 system-ui, sans-serif;
+  --phosphor-hud-font-sm: 600 10px/1 system-ui, sans-serif;
+  --phosphor-hud-color: hsla(140, 90%, 57%, 0.55);
+  --phosphor-hud-color-hot: hsla(140, 90%, 85%, 0.7);
+  --phosphor-hud-color-dim: hsla(140, 90%, 57%, 0.28);
+  --node-music-player-pl-row-height: 1.35rem;
 }
 .node-music-player-face-bar {
+  display: none;
+}
+/* Zoom % is a drag control but must look like the canvas HUD ("No sample loaded"
+   / speed label): 600 system-ui, phosphor line color, no button chrome. */
+.node-phosphor-waveform-zoom,
+.node-music-player-face-btn,
+.node-music-player-dock-btn,
+.node-music-player-pl-row,
+.node-music-player-pl-ram {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--phosphor-hud-color);
+  font: var(--phosphor-hud-font);
+  letter-spacing: 0;
+  text-transform: none;
+  text-shadow: none;
+  outline: none;
+}
+.node-phosphor-waveform-zoom {
   position: absolute;
-  /* Same band as canvas zoom %: panel inset + 1px canvas border + label pad. */
+  z-index: 4;
   top: calc(
     var(--phosphor-waveform-inset, 2px)
     + 1px
     + var(--phosphor-waveform-label-inset, 6px)
   );
-  right: calc(
+  left: calc(
     var(--phosphor-waveform-inset, 2px)
     + 1px
     + var(--phosphor-waveform-label-inset, 6px)
   );
-  z-index: 4;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  pointer-events: auto;
+  height: auto;
+  font: var(--phosphor-hud-font-sm);
+  color: var(--phosphor-hud-color-hot);
+  cursor: ew-resize;
+  user-select: none;
+  -webkit-user-select: none;
 }
-/* Hide face-bar PL control while playlist page is open (waveform dock is back). */
-.node-phosphor-waveform-display[data-music-player-face="pl"] .node-music-player-face-bar {
+.node-phosphor-waveform-zoom:hover,
+.node-phosphor-waveform-zoom:focus-visible,
+.node-phosphor-waveform-zoom.is-dragging {
+  outline: none;
+  background: transparent;
+  color: var(--phosphor-hud-color-hot);
+  filter: brightness(1.25);
+}
+.node-phosphor-waveform-display:not([data-music-player-face="wave"]) .node-phosphor-waveform-zoom {
   display: none;
 }
 .node-music-player-face-btn {
-  min-width: 22px;
-  height: 16px;
-  padding: 0 5px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: rgba(160, 220, 200, 0.72);
-  font: 600 0.62rem/1 "Cascadia Mono", Consolas, "DSEG7 Classic", monospace;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  height: auto;
+  font: var(--phosphor-hud-font-sm);
+  color: var(--phosphor-hud-color);
   cursor: var(--node-dot-cursor);
-  text-shadow: 0 0 6px rgba(80, 180, 160, 0.35);
-}
-.node-music-player-face-bar .node-music-player-face-btn {
-  box-sizing: border-box;
-  min-width: 0;
-  min-height: 0;
-  height: 10px;
-  padding: 0;
-  /* Same 10px system-ui box as the canvas zoom % (textBaseline top). */
-  font: 600 10px/1 system-ui, sans-serif;
-  letter-spacing: 0.06em;
 }
 .node-music-player-face-btn:hover,
-.node-music-player-face-btn:focus-visible {
-  color: rgba(200, 255, 230, 0.95);
-  background: rgba(0, 20, 16, 0.35);
-  outline: none;
-}
+.node-music-player-face-btn:focus-visible,
 .node-music-player-face-btn.is-active {
-  color: rgba(180, 255, 220, 0.98);
+  color: var(--phosphor-hud-color-hot);
+  background: transparent;
+  outline: none;
 }
 /* Fill the display content box (inside --phosphor-waveform-inset padding).
    Absolute children ignore parent padding, so match the inset explicitly —
@@ -1222,7 +1369,10 @@ button.scw-label:hover,
   position: absolute;
   top: var(--phosphor-waveform-inset, 2px);
   right: var(--phosphor-waveform-inset, 2px);
-  bottom: var(--phosphor-waveform-inset, 2px);
+  bottom: calc(
+    var(--phosphor-waveform-inset, 2px)
+    + var(--node-music-player-pl-row-height, 1.35rem)
+  );
   left: var(--phosphor-waveform-inset, 2px);
   min-height: 0;
   display: flex;
@@ -1244,7 +1394,7 @@ button.scw-label:hover,
 .node-music-player-page-pl {
   top: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--node-music-player-pl-row-height, 1.35rem);
   left: 0;
   z-index: 2;
   gap: 0;
@@ -1252,10 +1402,69 @@ button.scw-label:hover,
   border: 0;
   outline: none;
   box-shadow: none;
-  background: #000;
-  color: rgba(190, 220, 230, 0.95);
-  font: 600 0.56rem/1 "Cascadia Mono", Consolas, monospace;
+  background: #050805;
+  color: var(--phosphor-hud-color);
+  font: var(--phosphor-hud-font);
   overflow: hidden;
+}
+.node-music-player-page-vs {
+  z-index: 2;
+  background: #050805;
+  overflow: hidden;
+}
+.node-music-player-vs-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.node-music-player-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  height: var(--node-music-player-pl-row-height, 1.35rem);
+  min-height: var(--node-music-player-pl-row-height, 1.35rem);
+  max-height: var(--node-music-player-pl-row-height, 1.35rem);
+  box-sizing: border-box;
+  border-top: 1px solid var(--phosphor-hud-color-dim);
+  background: #050805;
+}
+.node-music-player-dock-btn {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0 4px;
+  border: 0 !important;
+  border-right: 1px solid var(--phosphor-hud-color-dim) !important;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--phosphor-hud-color);
+  font: var(--phosphor-hud-font-sm);
+  letter-spacing: 0;
+  text-transform: none;
+  text-shadow: none;
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: var(--node-dot-cursor);
+}
+.node-music-player-dock-btn:last-child {
+  border-right: 0 !important;
+}
+.node-music-player-dock-btn:hover,
+.node-music-player-dock-btn:focus-visible,
+.node-music-player-dock-btn.is-active {
+  color: var(--phosphor-hud-color-hot);
+  background: transparent;
+  outline: none;
 }
 .node-music-player-pl-head {
   position: absolute;
@@ -1281,16 +1490,9 @@ button.scw-label:hover,
 .node-music-player-pl-ram {
   justify-self: end;
   max-width: 40%;
-  margin: 0;
-  padding: 0 6px;
-  border: 1px solid rgba(180, 120, 60, 0.35);
-  border-radius: 2px;
-  background: rgba(20, 10, 0, 0.45);
-  color: rgba(255, 200, 140, 0.92);
-  font: 600 0.62rem/1 "Cascadia Mono", Consolas, monospace;
-  height: 22px;
-  min-height: 22px;
-  opacity: 0.9;
+  height: auto;
+  min-height: 0;
+  opacity: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1300,18 +1502,15 @@ button.scw-label:hover,
   display: none !important;
 }
 .node-music-player-pl-ram:hover,
-.node-music-player-pl-ram:focus-visible {
-  border-color: rgba(220, 160, 80, 0.7);
+.node-music-player-pl-ram:focus-visible,
+.node-music-player-pl-ram[aria-pressed="true"] {
+  color: var(--phosphor-hud-color-hot);
+  background: transparent;
   outline: none;
 }
 .node-music-player-pl-ram.is-hog {
-  border-color: rgba(255, 100, 80, 0.75);
-  color: rgba(255, 160, 120, 0.98);
-  background: rgba(40, 8, 0, 0.65);
-}
-.node-music-player-pl-ram[aria-pressed="true"] {
-  border-color: rgba(220, 160, 80, 0.85);
-  background: rgba(40, 18, 0, 0.75);
+  color: var(--phosphor-hud-color-hot);
+  background: transparent;
 }
 .node-music-player-pl-ram-panel {
   flex: 0 1 auto;
@@ -1320,10 +1519,12 @@ button.scw-label:hover,
   gap: 3px;
   max-height: 38%;
   min-height: 0;
-  padding: 4px 5px;
-  border: 1px solid rgba(180, 120, 60, 0.4);
-  border-radius: 3px;
-  background: rgba(12, 6, 0, 0.88);
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--phosphor-hud-color);
+  font: var(--phosphor-hud-font);
   overflow: hidden;
 }
 .node-music-player-pl-ram-panel[hidden] {
@@ -1334,24 +1535,36 @@ button.scw-label:hover,
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.62rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.85;
-  color: rgba(255, 200, 140, 0.95);
+  font: var(--phosphor-hud-font-sm);
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 1;
+  color: var(--phosphor-hud-color);
 }
 .node-music-player-pl-ram-body {
   min-height: 0;
   overflow: auto;
-  font-size: 0.62rem;
+  font: var(--phosphor-hud-font-sm);
+  scrollbar-width: thin;
+  scrollbar-color: var(--phosphor-hud-color-dim) transparent;
+}
+.node-music-player-pl-ram-body::-webkit-scrollbar {
+  width: 6px;
+}
+.node-music-player-pl-ram-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.node-music-player-pl-ram-body::-webkit-scrollbar-thumb {
+  background: var(--phosphor-hud-color-dim);
+  border-radius: 0;
 }
 .node-music-player-pl-ram-summary {
   margin-bottom: 3px;
-  opacity: 0.9;
+  opacity: 1;
 }
 .node-music-player-pl-ram-summary .is-hog {
-  color: rgba(255, 130, 100, 0.98);
-  font-weight: 700;
+  color: var(--phosphor-hud-color-hot);
+  font-weight: 600;
 }
 .node-music-player-pl-ram-table {
   width: 100%;
@@ -1361,12 +1574,12 @@ button.scw-label:hover,
 .node-music-player-pl-ram-table th,
 .node-music-player-pl-ram-table td {
   padding: 2px 4px;
-  border-bottom: 1px solid rgba(80, 60, 40, 0.35);
+  border-bottom: 1px solid var(--phosphor-hud-color-dim);
   text-align: left;
   white-space: nowrap;
 }
 .node-music-player-pl-ram-table th {
-  opacity: 0.65;
+  opacity: 0.7;
   font-weight: 600;
 }
 .node-music-player-pl-ram-name {
@@ -1375,30 +1588,45 @@ button.scw-label:hover,
   text-overflow: ellipsis;
 }
 .node-music-player-pl-ram-table tr[data-active="true"] {
-  background: rgba(30, 100, 80, 0.28);
+  background: transparent;
+  color: var(--phosphor-hud-color-hot);
 }
 .node-music-player-pl-ram-table tr.is-heavy {
-  color: rgba(255, 180, 120, 0.98);
+  color: var(--phosphor-hud-color-hot);
 }
 .node-music-player-pl-ram-empty {
   opacity: 0.6;
   text-align: center;
 }
 
-/* List fills leftover page height; few tracks stretch, many tracks scroll. */
+/* List owns leftover page height. Rows stay natural size and scroll. */
 .node-music-player-pl-list {
+  --node-music-player-pl-row-height: 1.35rem;
   flex: 1 1 0%;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
   border: 0;
   outline: none;
   box-shadow: none;
   border-radius: 0;
   background: transparent;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--phosphor-hud-color-dim) transparent;
+}
+.node-music-player-pl-list::-webkit-scrollbar {
+  width: 6px;
+}
+.node-music-player-pl-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.node-music-player-pl-list::-webkit-scrollbar-thumb {
+  background: var(--phosphor-hud-color-dim);
+  border-radius: 0;
 }
 .node-music-player-pl-empty {
   flex: 1 1 auto;
@@ -1406,46 +1634,53 @@ button.scw-label:hover,
   align-items: center;
   justify-content: center;
   padding: 8px;
-  opacity: 0.65;
+  color: var(--phosphor-hud-color);
+  font: var(--phosphor-hud-font);
   text-align: center;
 }
 .node-music-player-pl-row {
+  --node-music-player-pl-row-height: 1.35rem;
   display: grid;
   grid-template-columns: 1.4rem minmax(0, 1fr);
-  grid-template-rows: auto minmax(20px, 1fr);
-  gap: 2px 4px;
+  grid-template-rows: auto;
+  gap: 0 4px;
   align-items: center;
   width: 100%;
+  height: var(--node-music-player-pl-row-height);
+  min-height: var(--node-music-player-pl-row-height);
   margin: 0;
-  padding: 3px 4px 4px;
-  border: 0;
-  outline: none;
-  box-shadow: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
+  padding: 0 8px;
   text-align: left;
   cursor: var(--node-dot-cursor);
-  flex: 1 1 0;
+  flex: 0 0 auto;
   box-sizing: border-box;
-  min-height: 48px;
+  opacity: var(--node-music-player-pl-fade, 1);
+}
+.node-music-player-pl-row.is-empty {
+  cursor: default;
+  opacity: calc(0.38 * var(--node-music-player-pl-fade, 1));
+  pointer-events: none;
+}
+.node-music-player-pl-row.is-back {
+  color: var(--phosphor-hud-color-hot);
 }
 .node-music-player-pl-row:hover,
 .node-music-player-pl-row:focus-visible {
-  background: rgba(40, 90, 110, 0.35);
-  border: 0;
+  background: transparent;
+  color: var(--phosphor-hud-color-hot);
+  border: 0 !important;
   outline: none;
   box-shadow: none;
 }
 .node-music-player-pl-row[data-active="true"] {
-  background: rgba(30, 100, 80, 0.4);
-  color: rgba(180, 255, 220, 0.98);
+  background: transparent;
+  color: var(--phosphor-hud-color-hot);
 }
 .node-music-player-pl-num {
   grid-column: 1;
   grid-row: 1;
-  opacity: 0.55;
-  font-size: 0.62rem;
+  opacity: 0.7;
+  font: inherit;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
@@ -1455,46 +1690,35 @@ button.scw-label:hover,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.72rem;
+  font: inherit;
   line-height: 1.2;
 }
-.node-music-player-pl-wave {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  display: block;
+.node-music-player-pl-now {
+  --node-music-player-pl-wave-height: calc(var(--node-grid-height, 28px) * 2);
+  flex: 0 0 var(--node-music-player-pl-wave-height);
+  align-self: stretch;
   width: 100%;
-  height: 100%;
-  min-height: 20px;
+  height: var(--node-music-player-pl-wave-height);
+  min-height: var(--node-music-player-pl-wave-height);
+  max-height: var(--node-music-player-pl-wave-height);
   margin: 0;
+  margin-top: auto;
   padding: 0;
   border: 0;
   outline: none;
   box-shadow: none;
   border-radius: 0;
   background: #050805;
-  pointer-events: none;
-}
-.node-music-player-pl-now {
-  flex: 0 0 36%;
-  min-height: 56px;
-  max-height: 46%;
-  position: relative;
-  overflow: hidden;
-  border: 0;
-  outline: none;
-  box-shadow: none;
-  background: #000;
   cursor: var(--node-dot-cursor);
 }
-.node-music-player-pl-now .node-phosphor-waveform-canvas,
-.node-phosphor-waveform-display[data-music-player-face="pl"] .node-phosphor-waveform-canvas {
+.node-music-player-pl-now-wave {
+  display: block;
   width: 100%;
   height: 100%;
-  display: block;
+  margin: 0;
+  padding: 0;
   border: 0;
-  border-radius: 0;
-  outline: none;
-  box-shadow: none;
+  pointer-events: none;
 }
 .node-music-player-pl-scrub {
   flex: 0 0 auto;
@@ -2382,30 +2606,34 @@ body.is-resizing-controller-dock {
    its own (narrower, 2-row) layout. */
 .node-standalone-midi-keyboard-dock .node-macro-controls-module .node-macro-controls-row,
 .node-standalone-midi-keyboard-dock .node-macro-controls-row {
-  grid-template-columns: repeat(8, minmax(0, var(--macro-knob-cell, 56px)));
-  grid-template-rows: minmax(56px, 1fr);
+  container-type: size;
+  --macro-knob-fit: min(
+    calc((100cqi - 7 * var(--macro-knob-gap, 4px)) / 8),
+    100cqb
+  );
+  --macro-knob-cell: calc(var(--macro-knob-fit) * var(--macro-knob-size-scale, 1));
+  grid-template-columns: repeat(8, var(--macro-knob-cell));
+  grid-template-rows: var(--macro-knob-cell);
   gap: var(--macro-knob-gap, 4px);
   justify-content: center;
   align-content: center;
-  width: min(
-    100%,
-    calc(8 * var(--macro-knob-cell, 56px) + 7 * var(--macro-knob-gap, 4px))
-  );
+  width: 100%;
   max-width: 100%;
   margin-inline: auto;
   min-width: 0;
   height: 100%;
-  min-height: 56px;
+  min-height: 0;
 }
 
 /* Sized for the dock strip without overflowing the top chrome.
    Size scale is on the arc only (not the whole knob / label / value). */
 .node-standalone-midi-keyboard-dock .node-macro-knob {
-  min-height: 56px;
+  min-height: 0;
   height: 100%;
   padding: 0;
   font-size: 0.72rem;
   transform: none;
+  overflow: hidden;
 }
 
 .node-standalone-midi-keyboard-dock .node-macro-knob strong {
@@ -2686,13 +2914,21 @@ body.is-resizing-controller-dock {
   height: 100%;
   width: 100%;
   align-content: center;
+  justify-content: center;
   justify-items: stretch;
 }
 
-/* Module face: 2×4 knob grid fills the display area. */
+/* Module face: 2×4. Cell size = remaining space after gaps, times knob size.
+   Spacing is the gap between cells, so growing size does not overlap neighbors. */
 .node-macro-controls-module .node-macro-controls-row {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  container-type: size;
+  --macro-knob-fit: min(
+    calc((100cqi - 3 * var(--macro-knob-gap, 4px)) / 4),
+    calc((100cqb - var(--macro-knob-gap, 4px)) / 2)
+  );
+  --macro-knob-cell: calc(var(--macro-knob-fit) * var(--macro-knob-size-scale, 1));
+  grid-template-columns: repeat(4, var(--macro-knob-cell));
+  grid-template-rows: repeat(2, var(--macro-knob-cell));
   gap: var(--macro-knob-gap, 4px);
 }
 
@@ -2709,7 +2945,7 @@ body.is-resizing-controller-dock {
   gap: 1px;
   box-sizing: border-box;
   min-width: 0;
-  min-height: 86px;
+  min-height: 0;
   padding: 0;
   overflow: hidden;
   border: none;
@@ -2729,6 +2965,7 @@ body.is-resizing-controller-dock {
   width: 100%;
   padding: 0;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Title sits above the dial widget (not over the circle). */
@@ -2783,7 +3020,7 @@ body[data-macro-knob-label-position="bottom"] .node-macro-knob > span:not(.node-
   align-self: stretch;
   width: 100%;
   min-width: 0;
-  min-height: 42px;
+  min-height: 0;
   container-type: size;
   overflow: hidden;
 }
@@ -2876,8 +3113,9 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
 
 /* Hollow arc — centered in the dial cell only (not the title row).
    Span is centered: start = −span/2 (Knob sets CSS vars; bank default 264°).
-   Size scale affects ONLY this arc — label/value stay unscaled.
-   Scale 1 = fill available dial space (no padding). */
+   Bank / dock size is the grid cell (--macro-knob-size-scale), not a
+   transform — so neighbors keep their gap instead of overlapping.
+   Knob module plate still scales the ring with --knob-dial-size. */
 .node-macro-knob-dial i,
 .node-macro-knob-arc,
 .node-macro-knob i {
@@ -2885,14 +3123,13 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   top: 50%;
   left: 50%;
   display: block;
-  /* Full available square at scale 1; scale shrinks/grows the ring only. */
   width: min(100cqmin, 100%);
   max-width: 100%;
   max-height: 100%;
   height: auto;
   aspect-ratio: 1 / 1;
   border-radius: 50%;
-  transform: translate(-50%, -50%) scale(var(--macro-knob-size-scale, 1));
+  transform: translate(-50%, -50%);
   transform-origin: center center;
   background: conic-gradient(
     from var(--macro-arc-start-deg, -132deg),
@@ -3807,12 +4044,37 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 #nodeUndoButton,
-#nodeRedoButton {
+#nodeRedoButton,
+#nodeHistoryDeleteButton {
   flex: 0.55 1 0;
   min-inline-size: 0;
-  font-size: 0.7rem;
+  padding: 6px;
+  font-size: clamp(1.18rem, calc(var(--node-toolbar-row-height) * 0.48), 1.55rem);
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+#nodeUndoButton.is-history-glow-undo,
+#nodeSceneUndoButton.is-history-glow-undo {
+  color: #06240c !important;
+  background: #2ecc71 !important;
+  box-shadow: 0 0 0 1px #81f4b0, 0 0 14px 3px rgba(46, 204, 113, 0.88);
+}
+
+#nodeRedoButton.is-history-glow-redo,
+#nodeSceneRedoButton.is-history-glow-redo {
+  color: #fff !important;
+  background: #1565c0 !important;
+  box-shadow: 0 0 0 1px #82b1ff, 0 0 14px 3px rgba(33, 150, 243, 0.88);
+}
+
+#nodeHistoryDeleteButton.is-history-glow-delete,
+#nodeSceneHistoryDeleteButton.is-history-glow-delete,
+#nodeDeleteButton.is-history-glow-delete,
+#nodeSceneDeleteModule.is-history-glow-delete {
+  color: #fff !important;
+  background: #c62828 !important;
+  box-shadow: 0 0 0 1px #ff8a80, 0 0 14px 3px rgba(229, 57, 53, 0.88);
 }
 
 
@@ -3902,11 +4164,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 #nodeDownloadFiftyButton {
   flex: 0.55 1 0;
   min-inline-size: 0;
+  padding: 6px;
   border-color: rgba(226, 168, 109, 0.28);
   background:
     linear-gradient(180deg, rgba(226, 168, 109, 0.2), rgb(32, 37, 42));
   color: rgba(255, 229, 190, 0.95);
-  font-size: 0.7rem;
+  font-size: clamp(1.05rem, calc(var(--node-toolbar-row-height) * 0.42), 1.4rem);
   font-weight: 700;
 }
 
@@ -4031,7 +4294,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-toolbar-subline {
   color: rgba(243, 241, 236, 0.62);
-  font-size: 0.52rem;
+  font-size: clamp(0.62rem, calc(var(--node-toolbar-row-height) * 0.22), 0.78rem);
   font-weight: 700;
   line-height: 1;
   text-transform: none;
@@ -4064,17 +4327,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-visibility-menu {
   position: fixed;
-  top: 54px;
-  right: 10px;
+  /* No CSS top/right seat. Shared unified left/top is applied in JS.
+     The old `top: 54px; right: 10px` default is what yanked Command Center. */
   z-index: 80;
-  /* Flex column so heading + unified nav + list stack without a phantom gap
-     (the old 2-row grid left an empty band when the nav host was inserted). */
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  width: min(196px, calc(100vw - 28px));
   min-width: min(180px, calc(100vw - 28px));
-  max-width: calc(100vw - 28px);
   gap: 0;
   padding: 0;
   overflow: hidden;
@@ -4086,6 +4345,61 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-visibility-menu[hidden] {
   display: none !important;
+}
+
+.node-hotkeys-page {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: min(220px, calc(100vw - 28px));
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid rgba(127, 199, 217, 0.42);
+  border-radius: 8px;
+  background: rgba(9, 12, 15, 0.96);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36);
+}
+
+.node-hotkeys-page[hidden] {
+  display: none !important;
+}
+
+.node-hotkeys-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.node-hotkeys-row {
+  display: grid;
+  grid-template-columns: 5.4rem minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.12);
+  color: rgba(243, 241, 236, 0.92);
+  font: 650 0.78rem/1.2 "Cascadia Mono", Consolas, monospace;
+}
+
+.node-hotkeys-row kbd {
+  justify-self: start;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(226, 168, 109, 0.95);
+  font: 800 0.78rem/1 inherit;
+}
+
+.node-hotkeys-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .node-visibility-menu .scene-context-heading {
@@ -4288,23 +4602,109 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-patch-defaults-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   flex: 1 1 auto;
   min-height: 0;
-  padding: 12px 10px 14px;
+  padding: 0;
   overflow: auto;
 }
 
-.node-patch-defaults-copy {
+.node-patch-defaults-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.node-patch-defaults-actions .scene-context-window-button {
+  width: auto;
+  min-width: 0;
+  min-height: 32px;
   margin: 0;
+  border-radius: 4px;
+  justify-content: center;
+}
+
+.node-patch-defaults-lock {
+  min-width: 36px;
+  padding: 0 8px;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.node-patch-defaults-actions .scene-context-window-button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, #05090b);
+  color: color-mix(in srgb, var(--accent) 88%, white 12%);
+}
+
+.node-patch-defaults-field {
+  display: grid;
+  grid-template-columns: 7.25rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0 10px;
+  margin: 0;
+  padding: 4px 10px;
+  min-height: 36px;
+  border: 0;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.14);
+  background: rgba(5, 9, 11, 0.62);
   color: var(--muted);
-  font-family: var(--font);
-  font-size: 0.78rem;
-  line-height: 1.35;
+  font-size: 0.86rem;
+}
+
+.node-patch-defaults-field > span {
+  min-width: 0;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.node-patch-defaults-field input,
+.node-patch-defaults-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 3px;
+  background: #05090b;
+  color: var(--text);
+  font: 600 0.92rem/1.3 inherit;
+}
+
+.node-patch-defaults-field input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.node-patch-defaults-field input[type="number"]::-webkit-outer-spin-button,
+.node-patch-defaults-field input[type="number"]::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.node-patch-defaults-field input:focus,
+.node-patch-defaults-field textarea:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+}
+
+.node-patch-defaults-field-wide {
+  align-items: start;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.node-patch-defaults-field-wide textarea {
+  min-height: 5.5rem;
+  resize: vertical;
 }
 
 .node-patch-defaults-body .scene-context-window-button {
   width: 100%;
+  margin: 0;
+  border-radius: 0;
   min-height: var(--node-floating-window-button-height);
   justify-content: center;
 }
@@ -4312,6 +4712,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-patch-defaults-status {
   display: block;
   min-height: 1.2em;
+  margin: 0;
+  padding: 4px 6px;
   color: var(--text);
   font-family: var(--mono);
   font-size: 0.72rem;
@@ -4657,25 +5059,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-phosphor-waveform-settings-window {
-  position: fixed;
-  z-index: 60;
-  display: flex;
-  flex-direction: column;
-  width: 220px;
-  max-width: calc(100vw - 28px);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(90, 255, 150, 0.05), transparent 48%),
-    #080a0c;
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.42),
-    inset 0 0 0 1px rgba(90, 255, 150, 0.08);
-}
-
-.node-phosphor-waveform-settings-window[hidden] {
-  display: none;
+  display: none !important;
 }
 
 .node-settings-range-row,
@@ -4830,7 +5214,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
  * 0.62rem type, 30px buttons, * { min-width:0 }). Do not invent new type sizes
  * or fixed label columns — original uses body Segoe UI + font:inherit.
  */
-.node-trace-display-settings-popover[data-display-settings-type="ledLamp"] {
+.node-trace-display-settings-popover[data-display-settings-type="ledLamp"],
+.node-trace-display-settings-popover[data-display-settings-type="phosphorWaveform"],
+.node-trace-display-settings-popover[data-display-settings-type="matrixWaterfallFace"] {
   background:
     linear-gradient(180deg, rgba(90, 255, 150, 0.05), transparent 48%),
     #080a0c;
@@ -4841,7 +5227,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-trace-display-settings-popover[data-display-settings-type="ledLamp"] > .node-trace-display-settings-grid,
-.node-trace-display-settings-popover[data-display-settings-type="ledLamp"] > .metadata-popover-grid {
+.node-trace-display-settings-popover[data-display-settings-type="ledLamp"] > .metadata-popover-grid,
+.node-trace-display-settings-popover[data-display-settings-type="phosphorWaveform"] > .node-trace-display-settings-grid,
+.node-trace-display-settings-popover[data-display-settings-type="phosphorWaveform"] > .metadata-popover-grid,
+.node-trace-display-settings-popover[data-display-settings-type="matrixWaterfallFace"] > .node-trace-display-settings-grid,
+.node-trace-display-settings-popover[data-display-settings-type="matrixWaterfallFace"] > .metadata-popover-grid {
   background: transparent;
 }
 
@@ -5396,6 +5786,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   );
   /* Hardcoded plate radius (was UIDEV module roundness 53%). */
   --node-module-roundness-ratio: 0.53;
+  --node-module-corner-shape: round;
   --node-module-frame-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0.53));
   /*
    * 1 *screen* CSS pixel under workspace CSS `zoom`.
@@ -5420,11 +5811,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   /* One crescent ring for every inlet/outlet (I/O + param). */
   --node-port-crescent-stroke-width: 1.25px;
   /* One paint recipe for I/O + param crescents (same box, same stroke). */
+  /* closest-corner keeps the ring inside the half-jack box. farthest-side
+     sat on/past the clip edge so idle crescents painted as nothing. */
   --node-port-crescent-paint: radial-gradient(
-    circle farthest-side at var(--node-port-crescent-at),
+    circle closest-corner at var(--node-port-crescent-at),
     transparent 0%,
-    transparent calc(100% - var(--node-port-crescent-stroke-width) - 0.6px),
-    var(--node-port-crescent-stroke) calc(100% - var(--node-port-crescent-stroke-width) + 0.35px),
+    transparent calc(100% - 2.4px),
+    var(--node-port-crescent-stroke) calc(100% - 1.4px),
     var(--node-port-crescent-stroke) 100%
   );
   /* Unused PARAM jack stroke. UIDEV must not write it. Signal I/O jacks
@@ -8845,19 +9238,34 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-module-department-title {
-  display: grid;
-  min-height: 0;
+  display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 28px;
   margin: 0;
-  padding: 2px 6px 0;
+  padding: 4px 8px 2px;
   border-bottom: 1px solid rgba(127, 199, 217, 0.14);
-  color: rgba(127, 199, 217, 0.9);
-  font-size: 0.78rem;
-  font-weight: 650;
+  color: rgba(127, 199, 217, 0.94);
+  font-size: 0.95rem;
+  font-weight: 700;
   letter-spacing: 0;
   line-height: 1.1;
   text-align: center;
   text-transform: none;
+}
+
+.node-module-department-title-emoji {
+  flex: 0 0 auto;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.node-module-department-title-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Module list sits flush under the category title (no top pad/gap). */
@@ -9041,15 +9449,16 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   -webkit-appearance: none;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: 2.75ch 1.6em minmax(0, 1fr);
+  column-gap: 8px;
   align-items: center;
   min-width: 0;
-  height: 24px;
-  min-height: 24px;
-  max-height: 24px;
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
   overflow: hidden;
   margin: 0;
-  padding: 0 6px;
+  padding: 0 8px;
   border: 0;
   border-radius: 0;
   background: rgba(17, 21, 24, 0.82);
@@ -9078,15 +9487,30 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   background: rgba(19, 24, 28, 0.92);
 }
 
+.scene-context-store-department-count {
+  display: grid;
+  align-items: center;
+  justify-items: end;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  color: rgba(226, 168, 109, 0.92);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: right;
+}
+
 .scene-context-store-department-symbol {
   display: grid;
   place-items: center;
-  min-width: max-content;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
-  padding-inline-end: 0.35em;
+  padding: 0;
   color: rgba(243, 241, 236, 0.94);
-  font-size: 14px;
+  font-size: 20px;
   font-weight: 650;
   line-height: 1;
 }
@@ -9099,26 +9523,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  color: rgba(243, 241, 236, 0.9);
-  font-size: 14px;
+  color: rgba(243, 241, 236, 0.92);
+  font-size: 16px;
   font-weight: 650;
   line-height: 1;
   text-overflow: clip;
   white-space: nowrap;
-}
-
-.scene-context-store-department-count {
-  display: grid;
-  align-items: center;
-  justify-items: end;
-  min-width: 2ch;
-  min-height: 0;
-  overflow: hidden;
-  color: rgba(226, 168, 109, 0.86);
-  font-size: 14px;
-  font-weight: 650;
-  line-height: 1;
-  text-align: right;
 }
 
 .node-module-store-list {
@@ -9813,6 +10223,32 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-ui-dev-control-row.select {
   grid-template-columns: minmax(0, 1fr) 76px;
+}
+
+.node-ui-dev-control-row-buttons {
+  display: flex;
+  grid-template-columns: none;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.node-ui-dev-control-row-buttons > button {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 3px 8px;
+  border: 1px solid var(--line, rgba(127, 199, 217, 0.22));
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font: inherit;
+  cursor: var(--node-dot-cursor);
+}
+
+.node-ui-dev-control-row-buttons > button.active,
+.node-ui-dev-control-row-buttons > button[aria-pressed="true"] {
+  border-color: rgba(90, 255, 150, 0.62);
+  background: rgba(90, 255, 150, 0.16);
+  color: rgba(180, 255, 210, 0.95);
 }
 
 .node-ui-dev-control-row input[type="range"] {
@@ -10797,9 +11233,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     calc(var(--node-grid-height) * var(--node-module-io-height-units, 0))
   );
   /* Article tracks come from applyNodeGraphModuleLayout (inline + this var).
-     Hidden bands are omitted — do not reserve a 0px face hole. */
+     Hidden bands are omitted — do not reserve a 0px face hole.
+     start, not stretch: leftover height must not inflate the I/O strip
+     (that crushed Music Player's waveform and hid jacks in empty space). */
   grid-template-rows: var(--node-module-stack-rows, var(--node-header-height) auto);
-  align-content: stretch;
+  align-content: start;
   gap: 0;
   width: calc((var(--node-grid-width) * var(--node-grid-width-units, 7)) - (var(--node-module-grid-inset) * 2));
   min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 7)) - (var(--node-module-grid-inset) * 2));
@@ -10814,10 +11252,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   );
   padding: 0;
   border-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0.53));
+  corner-shape: var(--node-module-corner-shape, round);
   background: var(--node-module-fill);
-  /* Plate = stroke box. Clip chrome to this radius; shadow is a filter so
-     overflow:hidden does not eat it. */
-  overflow: hidden;
+  /* Visible so half-jack crescents on the plate edge are not clipped.
+     Face / slider bands clip themselves. */
+  overflow: visible;
   box-shadow: none;
   /* Plate stroke is outside (outline is not clipped). Selected only changes color. */
   outline: var(--node-module-idle-stroke-width, 1px) solid var(--node-module-idle-stroke, rgb(255 255 255 / 0.5));
@@ -10914,8 +11353,23 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .dsp-node.placing {
+  z-index: 5;
   filter: drop-shadow(0 0 calc(var(--node-grid-size) * 0.55) color-mix(in srgb, var(--node-module-drag-stroke) 62%, transparent));
   pointer-events: none;
+}
+
+/* Snap landing pad under a shop-drag / teleport ghost. Same plate size as the
+   free-floating module; left/top are the grid cell mouseup will commit. */
+.dsp-node-placement-snap-ghost {
+  position: absolute;
+  left: var(--node-x);
+  top: var(--node-y);
+  z-index: 4;
+  box-sizing: border-box;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--node-module-fill, #16130f) 42%, transparent);
+  outline: 2px dashed color-mix(in srgb, var(--node-module-drag-stroke) 78%, transparent);
+  outline-offset: -1px;
 }
 
 .dsp-node.selected {
@@ -11025,13 +11479,29 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 /* Hide unused: unconnected signal jacks (rows) + mute unused param ports. */
 .dsp-node.unused-hidden .node-io-row:not(:has(.connected-port)),
-.dsp-node.unused-hidden .node-io-row:not(:has(.node-port.connected-port)) {
+.dsp-node.unused-hidden .node-io-row:not(:has(.node-port.connected-port)),
+.node-graph-workspace.patch-unused-ports-hidden .dsp-node .node-io-row:not(:has(.connected-port)),
+.node-graph-workspace.patch-unused-ports-hidden .dsp-node .node-io-row:not(:has(.node-port.connected-port)) {
   display: none !important;
 }
 
-.dsp-node.unused-hidden .node-param-port:not(.connected-port) {
+.dsp-node.unused-hidden .node-port:not(.connected-port),
+.node-graph-workspace.patch-unused-ports-hidden .dsp-node .node-port:not(.connected-port) {
+  display: none !important;
+}
+
+.dsp-node.unused-hidden .node-param-port:not(.connected-port),
+.node-graph-workspace.patch-unused-ports-hidden .dsp-node .node-param-port:not(.connected-port) {
   visibility: hidden;
   pointer-events: none;
+}
+
+.node-graph-workspace.patch-locked .node-port,
+.node-graph-workspace.patch-locked .node-param-port,
+.node-graph-workspace.patch-locked .node-wire-svg,
+.node-graph-workspace.patch-locked .node-wire-endpoint-svg,
+.node-graph-workspace.patch-locked .node-selection-hit-trail {
+  pointer-events: none !important;
 }
 
 .dsp-node.removed {
@@ -11095,7 +11565,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   height: var(--node-module-layout-b-shell-track);
   min-height: 0;
   max-height: var(--node-module-layout-b-shell-track);
-  overflow: hidden;
+  /* visible so half-crescents are not clipped by the shell box */
+  overflow: visible;
 }
 
 .dsp-node.chrome-layout-b > .dsp-node-body,
@@ -11112,7 +11583,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
  */
 .dsp-node.chrome-layout-b.layout-b-no-params,
 .dsp-node.solid-module-layout.layout-b-no-params {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .dsp-node.chrome-layout-b.layout-b-no-params > .dsp-node-body,
@@ -11126,13 +11597,17 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   height: 100%;
   min-height: 0;
   max-height: 100%;
-  overflow: hidden;
+  overflow: visible;
   border-end-start-radius: inherit;
   border-end-end-radius: inherit;
 }
 
-/* LayoutB ports live in the shell — never a separate under-face IO strip. */
-.dsp-node.chrome-layout-b > .dsp-node-io-section {
+/* LayoutB ports live in the shell — never a separate under-face IO strip.
+   Must beat `.dsp-node:not(.io-hidden) > .dsp-node-io-section { display:grid }`. */
+.dsp-node.chrome-layout-b > .dsp-node-io-section,
+.dsp-node.chrome-layout-b > .dsp-node-io-section[hidden],
+.dsp-node.chrome-layout-b:not(.io-hidden) > .dsp-node-io-section,
+.dsp-node.chrome-layout-b:not(.io-hidden) > .dsp-node-io-section[hidden] {
   display: none !important;
 }
 
@@ -12118,7 +12593,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-height: 0;
   max-height: none;
   align-self: stretch;
-  overflow: hidden;
+  overflow: visible;
   pointer-events: auto;
   border-bottom: 1px solid rgba(127, 199, 217, 0.1);
 }
@@ -12146,7 +12621,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-width: var(--node-signal-port-width);
   max-width: var(--node-signal-port-width);
   padding: 0 !important;
-  overflow: hidden;
+  overflow: visible;
   justify-items: stretch;
 }
 
@@ -12156,7 +12631,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   width: 100%;
   padding: 0 !important;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
@@ -12190,8 +12665,10 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   overflow: hidden;
 }
 
+/* LayoutB face is always the center track. Jack columns (labeled or
+   jack-only) keep columns 1 and 3 — never sit under an opaque face. */
 .node-solid-module-custom-ui {
-  grid-column: 1 / -1;
+  grid-column: 2;
   grid-row: 1;
   box-sizing: border-box;
   min-width: 0;
@@ -12202,7 +12679,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   height: 100%;
   max-height: 100%;
   pointer-events: auto;
-  /* Below jack columns (z-index 4) so ports remain clickable on the edge. */
   position: relative;
   z-index: 1;
 }
@@ -12212,6 +12688,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   box-sizing: border-box;
   width: 100%;
   height: 100%;
+  overflow: hidden;
   border-radius: 0;
   background:
     radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.82) 0 42%, rgba(0, 0, 0, 0.28) 70%, transparent 100%),
@@ -12229,6 +12706,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-height: 0;
   padding: 0;
   border: 0;
+  overflow: hidden;
+  container-type: size;
   color: inherit;
   cursor: var(--node-dot-cursor);
   background: transparent;
@@ -12245,11 +12724,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1em;
-  font-size: calc(min(
-    (var(--node-grid-width) * var(--node-grid-width-units, 1) * 0.58),
-    (var(--node-grid-height) * var(--node-grid-height-units, 1))
-  ) * 0.52 * var(--node-bug-button-size, 1));
+  /* Size from the face between jack columns, not the whole module grid. */
+  font-size: calc(min(100cqw, 100cqh) * 0.52 * var(--node-bug-button-size, 1));
   line-height: 1;
   pointer-events: none;
   transform: translate(-50%, -50%) scale(var(--node-bug-button-pressed-scale, 1));
@@ -13931,9 +14407,20 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   grid-row: auto;
 }
 
-.node-header-timing-field[data-header-number-drag="true"] {
-  cursor: var(--node-dot-cursor);
+.node-header-timing-field[data-header-number-drag="true"]:not(.node-header-render-range-field),
+.node-header-smoothing-field,
+.node-header-speed-placeholder {
+  cursor: ew-resize;
   user-select: none;
+}
+
+.node-header-timing-field[data-header-number-drag="true"]:not(.node-header-render-range-field) .node-header-timing-caption,
+.node-header-timing-field[data-header-number-drag="true"]:not(.node-header-render-range-field) .node-header-timing-input,
+.node-header-smoothing-field .node-header-timing-caption,
+.node-header-smoothing-field .node-header-timing-input,
+.node-header-speed-placeholder .node-header-timing-caption,
+.node-header-speed-placeholder .node-header-timing-input {
+  cursor: ew-resize;
 }
 
 .node-header-timing-field.value-dragging {
@@ -13977,14 +14464,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-width: 0;
   min-height: 0;
   height: auto;
-  padding: 0;
+  padding: 6px;
   border: 0;
   border-inline-end: 1px solid var(--border);
   border-radius: 0;
   color: rgba(127, 199, 217, 0.92);
   background: rgba(127, 199, 217, 0.08);
   font-family: inherit;
-  font-size: clamp(1rem, calc(var(--node-toolbar-row-height) * 0.44), 1.62rem);
+  font-size: clamp(1.18rem, calc(var(--node-toolbar-row-height) * 0.48), 1.55rem);
   font-weight: 800;
   line-height: 1;
   text-transform: uppercase;
@@ -14031,11 +14518,19 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .node-header-timing-input[data-timing-field][readonly],
-.node-header-timing-input[data-audio-field][readonly] {
-  cursor: var(--node-dot-cursor);
+.node-header-timing-input[data-audio-field][readonly],
+.node-header-timing-input[data-speed-limit][readonly],
+.node-header-timing-input[data-global-smoothing-seconds][readonly],
+.node-header-timing-input[data-speed-readout][readonly],
+.node-header-timing-input[data-global-scope-input][readonly] {
+  cursor: ew-resize;
   user-select: none;
   -webkit-user-select: none;
   caret-color: transparent;
+}
+
+.node-header-timing-input:not([readonly]) {
+  cursor: text;
 }
 
 .node-header-timing-input:focus {
@@ -14245,6 +14740,8 @@ input.node-header-title:focus {
   width: 100%;
   max-width: 100%;
   justify-self: stretch;
+  align-self: start;
+  overflow: visible;
   display: grid;
   /* Side tracks size to the longest port label (set as --node-io-*-label-ch on
      the section). Old hard cap of 2gu clipped names like Frequency / Fidelity
@@ -14305,6 +14802,14 @@ input.node-header-title:focus {
   align-items: stretch;
 }
 
+/* I/O strip stays painted unless Hide In/Out. The hidden attribute must not
+   win — apply-layout used to set it when the io band was omitted. */
+.dsp-node:not(.io-hidden):not(.chrome-layout-b) > .dsp-node-io-section,
+.dsp-node:not(.io-hidden):not(.chrome-layout-b) > .dsp-node-io-section[hidden] {
+  display: grid !important;
+  visibility: visible !important;
+}
+
 .node-io-proxy-port {
   pointer-events: none;
 }
@@ -14319,9 +14824,10 @@ input.node-header-title:focus {
 
 .node-io-column {
   display: grid;
-  align-content: center;
+  align-content: start;
   gap: var(--node-io-gap);
   min-width: 0;
+  overflow: visible;
 }
 
 .node-io-column.input {
@@ -15445,14 +15951,65 @@ body.node-slider-dragging * {
 .node-unified-inspector-empty {
   display: block;
   box-sizing: border-box;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-height: 0;
   margin: 0;
-  padding: 14px 12px 16px;
+  padding: 8px 8px 12px;
+  overflow: auto;
   color: rgba(243, 241, 236, 0.55);
   font: 0.78rem/1.35 var(--mono, "Cascadia Mono", Consolas, monospace);
-  text-align: center;
+  text-align: left;
   letter-spacing: 0.01em;
+}
+
+.node-unified-inspector-empty-hint {
+  margin: 0 4px 8px;
+  color: rgba(243, 241, 236, 0.55);
+  font-size: 0.74rem;
+}
+
+.node-unified-inspector-module-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.node-unified-inspector-module-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.12);
+  border-radius: 0;
+  background: transparent;
+  color: rgba(243, 241, 236, 0.92);
+  font: 650 0.82rem/1 inherit;
+  text-align: left;
+  cursor: var(--node-dot-cursor);
+}
+
+.node-unified-inspector-module-item:hover,
+.node-unified-inspector-module-item:focus-visible {
+  background: rgba(40, 90, 110, 0.35);
+  outline: none;
+}
+
+.node-unified-inspector-module-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-unified-inspector-module-type {
+  color: rgba(226, 168, 109, 0.82);
+  font-size: 0.7rem;
+  font-weight: 650;
+  white-space: nowrap;
 }
 
 .node-unified-inspector-empty[hidden] {
@@ -15626,6 +16183,47 @@ body.node-slider-dragging * {
 .metadata-popover-grid label > span:first-child {
   white-space: nowrap;
   letter-spacing: 0.01em;
+}
+.metadata-parameter-picker-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+}
+.metadata-parameter-picker-controls > select {
+  min-width: 0;
+  width: 100%;
+}
+.metadata-parameter-visibility-stepper {
+  display: grid;
+  grid-template-columns: 1.6rem 1.6rem;
+  align-items: stretch;
+  min-height: var(--metadata-control-row-height, 30px);
+}
+.metadata-parameter-visibility-stepper button {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(127, 199, 217, 0.28);
+  background: rgb(16, 22, 26);
+  color: rgba(243, 241, 236, 0.95);
+  font: 700 0.95rem/1 inherit;
+  cursor: var(--node-dot-cursor);
+}
+.metadata-parameter-visibility-stepper button:first-child {
+  border-radius: 3px 0 0 3px;
+}
+.metadata-parameter-visibility-stepper button:last-child {
+  border-left: 0;
+  border-radius: 0 3px 3px 0;
+}
+.metadata-parameter-visibility-stepper button[aria-pressed="true"] {
+  background: rgba(40, 90, 110, 0.55);
+  color: rgba(180, 255, 220, 0.98);
+}
+.metadata-parameter-visibility-stepper button:disabled {
+  opacity: 0.35;
 }
 
 .metadata-field-actions,
@@ -16195,7 +16793,8 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   padding: 0;
 }
 
-.node-trace-display-settings-popover .metadata-popover-grid label.node-trace-display-line-burn-row {
+.node-trace-display-settings-popover .metadata-popover-grid label.node-trace-display-line-burn-row,
+.node-trace-display-settings-popover .metadata-popover-grid .node-trace-display-line-burn-row {
   grid-template-columns: max-content minmax(0, 1fr);
   column-gap: 6px;
   min-height: var(--ds-row-h);
@@ -16245,8 +16844,31 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   pointer-events: none;
 }
 
-.node-trace-display-settings-popover .metadata-stepper-control button {
-  width: 100%;
+.node-trace-display-settings-popover .metadata-stepper-control {
+  grid-template-columns: minmax(0, 1fr);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.node-trace-display-settings-popover .metadata-stepper-control input,
+.node-trace-display-settings-popover .metadata-popover-grid .metadata-stepper-control input {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.node-trace-display-settings-popover .metadata-stepper-control input:not([readonly]):focus,
+.node-trace-display-settings-popover .metadata-stepper-control input.trace-display-field-editing {
+  outline: none;
+  border: 0;
+  box-shadow: none;
+}
+
+/* Drag fields are enough — hide −/+ on every Display Settings face. */
+.node-trace-display-settings-popover .metadata-stepper-control > button {
+  display: none !important;
 }
 
 .node-trace-display-settings-popover .metadata-close-prompt {
@@ -16470,6 +17092,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   width: 100%;
   height: auto;
   min-height: var(--ds-color-host-h);
+  gap: 0;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control {
@@ -16481,8 +17104,8 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   min-height: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
-  border: 1px solid var(--color-widget-control-border) !important;
-  border-radius: 4px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
   color: transparent !important;
   box-shadow: none !important;
   background: transparent !important;
@@ -16502,11 +17125,21 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:hover,
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label:hover,
-.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:focus:not(:focus-visible),
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label:focus:not(:focus-visible) {
-  border-color: var(--color-widget-control-border) !important;
+.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:focus,
+.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:focus-visible,
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label:focus,
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label:focus-visible,
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label[data-copied="true"],
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hex:focus,
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hex:focus-visible,
+.node-gradient-selector-host button:hover,
+.node-gradient-selector-host button:focus,
+.node-gradient-selector-host button:focus-visible,
+.node-gradient-selector-host button:active {
+  border-color: var(--color-widget-control-border, transparent) !important;
   box-shadow: none !important;
   outline: none !important;
+  filter: none !important;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-plane {
@@ -16525,6 +17158,13 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hex {
+  box-sizing: content-box !important;
+  flex: 0 0 7ch !important;
+  width: 7ch !important;
+  min-width: 7ch !important;
+  max-width: 7ch !important;
+  padding: 0 4px !important;
+  letter-spacing: 0 !important;
   color: var(--color-widget-hex-ink) !important;
   -webkit-user-select: text;
   user-select: text;
@@ -16576,6 +17216,37 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Stereo Instant Trace: Size L|R, Blur L|R, Bright L|R on one row. */
+.node-trace-display-lr-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+}
+
+.node-trace-display-settings-popover .node-trace-display-lr-row > .node-trace-display-line-burn-row {
+  min-width: 0;
+  padding-right: 4px;
+}
+
+.node-trace-display-settings-popover .node-trace-display-lr-row > .node-trace-display-line-burn-row + .node-trace-display-line-burn-row {
+  padding-right: 0;
+  padding-left: 4px;
+  border-left: 1px solid var(--ds-hairline, color-mix(in srgb, var(--accent) 14%, transparent));
+}
+
+.node-trace-display-lr-color-row {
+  align-items: start;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.node-trace-display-settings-popover .node-trace-display-lr-color-row .node-trace-display-color-widget-row {
+  min-width: 0;
 }
 
 .node-trace-display-settings-popover .node-trace-display-swap-lr {
@@ -16786,23 +17457,50 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 .node-trace-display-preview-shell {
   display: grid;
-  grid-template-columns: minmax(0, 0.24fr) minmax(0, 1fr);
-  align-items: center;
-  min-height: 44px;
-  padding: 0;
-  border-top: 1px solid rgba(127, 199, 217, 0.14);
-  color: rgba(205, 214, 216, 0.72);
-  font-size: 0.64rem;
-  text-transform: none;
+  place-items: center;
+  min-height: 96px;
+  margin: 4px 0 6px;
+  padding: 8px;
+  border: 1px solid rgba(127, 199, 217, 0.16);
+  border-radius: 4px;
+  background: #020405;
+}
+
+.node-trace-display-preview-shell.is-stereo {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  place-items: stretch center;
+}
+
+.node-trace-display-preview-cell {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.node-trace-display-preview-side-label {
+  color: var(--muted, rgba(205, 214, 216, 0.72));
+  font: 700 0.62rem/1 inherit;
+  letter-spacing: 0.04em;
+}
+
+.node-trace-display-preview-side-label[data-preview-side-label="L"] {
+  color: #ff3333;
+}
+
+.node-trace-display-preview-side-label[data-preview-side-label="R"] {
+  color: #3366ff;
 }
 
 .node-trace-display-dot-preview {
-  width: 100%;
-  height: 36px;
+  width: 88px;
+  height: 88px;
   min-width: 0;
-  border: 1px solid rgba(127, 199, 217, 0.2);
-  border-radius: 3px;
-  background: #020405;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .metadata-advanced-toggle {
@@ -19582,19 +20280,19 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   --node-port-crescent-at: left center;
   display: block;
   box-sizing: border-box;
-  /* Sized from slot×fit-ratio; max-* keeps them inside the IO row cell. */
+  /* Sized from slot×fit-ratio. Do not max-height:100% — a 0-tall row
+     used to collapse crescents to nothing. */
   width: var(--node-signal-port-width);
-  min-width: 0;
-  max-width: 100%;
+  min-width: var(--node-signal-port-width);
+  max-width: none;
   height: var(--node-signal-port-height);
-  min-height: 0;
-  max-height: 100%;
+  min-height: var(--node-signal-port-height);
+  max-height: none;
   padding: 0;
   color: transparent;
   font-family: Consolas, "Courier New", monospace;
   font-size: 0;
-  /* Clip self; row also clips — double guard against neighbor overlap. */
-  overflow: hidden;
+  overflow: visible;
   text-indent: -999px;
   cursor: var(--node-dot-cursor);
   border: 0;

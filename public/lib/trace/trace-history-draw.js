@@ -90,16 +90,19 @@
     const face = Math.max(1, Number(options.faceMinSide) || 1);
     const size01 = clamp01(options.size, 0.035);
     const blur = clamp01(options.blur, 0);
+    const brightness = clamp01(options.brightness, 1);
     const color = options.color || "#ff3333";
     const blend = normalizeBlend(options.blend, "source-over");
     const budget = Math.max(8, Math.round(Number(options.dotBudget) || 2048));
     const thinned = thinPoints(points, budget);
     const asDots = points.filter((p) => p && Number.isFinite(p.x)).length > budget;
+    const fade = clamp01(options.fade, 0);
     if (typeof global.TraceStroke !== "undefined" && global.TraceStroke.draw) {
       return global.TraceStroke.draw(context, asDots ? thinned : points, {
         size: size01,
         blur,
-        brightness: 1,
+        brightness,
+        fade,
         color,
         faceMinSide: face,
         composite: blend === "combine" ? "source-over" : blend,
@@ -109,11 +112,17 @@
     context.globalCompositeOperation = blend === "combine" ? "source-over" : blend;
     context.strokeStyle = color;
     context.fillStyle = color;
-    context.lineWidth = Math.max(1, face * size01);
+    context.lineWidth = typeof global.TraceStroke?.diameterPx === "function"
+      ? global.TraceStroke.diameterPx(face, size01)
+      : face * size01;
+    if (!(context.lineWidth > 0)) {
+      context.restore();
+      return 0;
+    }
     context.lineCap = "round";
     context.lineJoin = "round";
     if (asDots || thinned.length < 2) {
-      const r = Math.max(0.5, context.lineWidth * 0.5);
+      const r = context.lineWidth * 0.5;
       for (const p of thinned) {
         context.beginPath();
         context.arc(p.x, p.y, r, 0, Math.PI * 2);
@@ -123,7 +132,8 @@
       global.TraceStroke.draw(context, points, {
         size: size01,
         blur,
-        brightness: 1,
+        brightness,
+        fade,
         color,
         faceMinSide: face,
         composite: context.globalCompositeOperation,
@@ -166,8 +176,12 @@
       };
     const widthPx = typeof global.TraceStroke?.diameterPx === "function"
       ? global.TraceStroke.diameterPx(face, size01)
-      : Math.max(1, face * size01);
+      : face * size01;
+    if (!(widthPx > 0)) {
+      return 0;
+    }
     const last = thinned.length - 1;
+    const fade = clamp01(options.fade, 0);
     context.save();
     context.globalCompositeOperation = blend === "combine" ? "source-over" : blend;
     context.lineCap = "round";
@@ -179,7 +193,8 @@
       const p = thinned[i];
       const t = last > 0 ? i / last : 1;
       const rgb = sample(t);
-      const css = rgbCss(rgb);
+      const a = fade <= 0.001 ? 1 : (1 - fade) + fade * t;
+      const css = rgbCss(rgb, a);
       context.strokeStyle = css;
       context.shadowColor = blur > 0.04 ? css : "transparent";
       context.beginPath();
@@ -194,7 +209,6 @@
   /**
    * Two-color history strokes (Output / stereo Trace).
    * Meet (combine) uses TraceStroke.drawStereo when present.
-   * Deposit is always full (brightness 1).
    */
   function strokeStereo(context, leftPoints, rightPoints, leftOptions = {}, rightOptions = {}, stereo = {}) {
     if (!context) {
@@ -205,14 +219,16 @@
     const left = {
       size: leftOptions.size,
       blur: leftOptions.blur,
-      brightness: 1,
+      brightness: clamp01(leftOptions.brightness, 1),
+      fade: clamp01(leftOptions.fade, 0),
       color: leftOptions.color || "#ff0000",
       faceMinSide: face,
     };
     const right = {
       size: rightOptions.size,
       blur: rightOptions.blur,
-      brightness: 1,
+      brightness: clamp01(rightOptions.brightness, 1),
+      fade: clamp01(rightOptions.fade, 0),
       color: rightOptions.color || "#0000ff",
       faceMinSide: face,
     };
@@ -258,6 +274,8 @@
         {
           size: enabled[0].size ?? options.size,
           blur: enabled[0].blur ?? options.blur,
+          brightness: enabled[0].brightness ?? options.brightness,
+          fade: enabled[0].fade ?? options.fade,
           color: enabled[0].color,
           faceMinSide: options.faceMinSide,
           dotBudget: options.dotBudget,
@@ -265,6 +283,8 @@
         {
           size: enabled[1].size ?? options.size,
           blur: enabled[1].blur ?? options.blur,
+          brightness: enabled[1].brightness ?? options.brightness,
+          fade: enabled[1].fade ?? options.fade,
           color: enabled[1].color,
           faceMinSide: options.faceMinSide,
           dotBudget: options.dotBudget,
@@ -278,6 +298,8 @@
       painted += strokeSolid(context, layer.points, {
         size: layer.size ?? options.size,
         blur: layer.blur ?? options.blur,
+        brightness: layer.brightness ?? options.brightness,
+        fade: layer.fade ?? options.fade,
         color: layer.color,
         blend: composite,
         dotBudget: options.dotBudget,

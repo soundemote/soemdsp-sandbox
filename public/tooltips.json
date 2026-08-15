@@ -250,6 +250,7 @@
     },
     "wirePixel": "Pixel wire (manual). Marks the selected wire(s) for a future raster beam renderer — off by default, never auto.",
     "wireAttenuate": "insert a slim attenuverter on each selected signal or modulation wire (title + amplitude 0…1, I/O hidden)",
+    "wireAttenuvert": "insert a bipolar attenuverter on each selected wire (−1…+1 amplitude and offset, I/O hidden)",
     "copyExecutionJson": "click to copy the full compiled execution JSON",
     "copyRuntimeSketch": "click to copy the caller-owned C++ runtime sketch",
     "widthDecrease": "decrease this module width by one grid unit",

@@ -21,9 +21,13 @@ function wrapHueDeg(h) {
   return ((n % 360) + 360) % 360;
 }
 
+/** Selected hue sits at the midpoint of the spectrum bar. */
+const HUE_CENTER_T = 0.5;
+
 /**
  * App-wide hue spectrum for a given left-edge origin (degrees).
  * origin 0 → classic red…red; origin 120 → green at left, etc.
+ * Selected hue is origin + 180° (bar center).
  */
 function hueSpectrumCss(originDeg = 0) {
   const o = wrapHueDeg(originDeg);
@@ -79,6 +83,11 @@ function sampleTFromAbsoluteHue(originDeg, absoluteH) {
   return wrapHueDeg(wrapHueDeg(absoluteH) - wrapHueDeg(originDeg)) / 360;
 }
 
+/** Left-edge origin so `absoluteH` lands at the bar center. */
+function originForCenteredHue(absoluteH) {
+  return wrapHueDeg((Number(absoluteH) || 0) - 180);
+}
+
 const css = `
   .scw-mount {
     --color-widget-accent: #f1b84b;
@@ -125,7 +134,8 @@ const css = `
     padding: 0;
     width: 100%;
     touch-action: none;
-    gap: 2px;
+    gap: 0;
+    overflow: hidden;
   }
 
   .scw-label {
@@ -139,7 +149,7 @@ const css = `
     background-position: 0 0, 0 6px, 6px -6px, -6px 0;
     background-size: 12px 12px, 12px 12px, 12px 12px, 12px 12px;
     border: 0;
-    border-radius: min(12cqh, 4px);
+    border-radius: 0;
     color: var(--color-widget-label-ink);
     cursor: var(--node-dot-cursor);
     display: flex;
@@ -198,21 +208,24 @@ const css = `
     border: 0;
     border-left: 1px solid var(--color-widget-control-border);
     border-radius: 0;
+    box-sizing: content-box;
     color: var(--color-widget-hex-ink);
-    flex: 0 0 7.2em;
+    flex: 0 0 7ch;
     font-family: Consolas, "Cascadia Mono", "Courier New", monospace;
     font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
     line-height: 1;
     margin: 0;
-    min-width: 5.5em;
+    max-width: 7ch;
+    min-width: 7ch;
     outline: 0;
-    padding: 0 6px;
+    overflow: hidden;
+    padding: 0 4px;
     position: relative;
     text-align: center;
     text-transform: uppercase;
-    width: 7.2em;
+    width: 7ch;
     z-index: 2;
     -webkit-user-select: text;
     user-select: text;
@@ -259,8 +272,8 @@ const css = `
   .scw-control {
     appearance: none;
     -webkit-appearance: none;
-    border: 1px solid var(--color-widget-control-border);
-    border-radius: min(12cqh, 4px);
+    border: 0;
+    border-radius: 0;
     box-shadow: none;
     color: inherit;
     display: block;
@@ -288,8 +301,8 @@ const css = `
   }
 
   /*
-   * Hue spectrum fills the bar. Dragging the bar shifts the whole reference
-   * (origin). No sample thumb — origin + stored sample t set the hue.
+   * Hue spectrum fills the bar. Selected hue is the midpoint.
+   * Dragging slides the rainbow so that hue stays centered.
    */
   .scw-hue,
   button.scw-control.scw-hue,
@@ -348,7 +361,7 @@ const css = `
     grid-template-rows:
       minmax(20px, 0.35fr)
       minmax(18px, 1fr);
-    gap: 2px;
+    gap: 0;
   }
   .scw-root[data-channels="hue"] .scw-plane {
     display: none;
@@ -476,7 +489,7 @@ function rgbBytesToHsl(r, g, b) {
     hue /= 6;
   }
   return {
-    h: Math.round(hue * 359),
+    h: Math.round(hue * 360) % 360,
     s: Math.round(saturation * 100),
     l: Math.round(lightness * 100),
     a: 1,
@@ -588,17 +601,19 @@ export class SoundColorWidget {
         // Pure hue stop (s=100, l=50) — Bright does grey→hue→white outside the widget.
         ? { h: rawColor.h, s: 100, l: 50, a: 1 }
         : rawColor;
-    // Ctrl+click snaps hue here by sliding the spectrum (no sample thumb).
-    this.defaultHue = wrapHueDeg(this.color.h);
-    // Spectrum left-edge origin (degrees). Track drag rotates this reference.
-    this.hueOrigin = 0;
-    // Sample position along the current spectrum 0…1 (internal; shift the bar).
-    this.hueSampleT = sampleTFromAbsoluteHue(this.hueOrigin, this.color.h);
+    // Ctrl+click snaps here. 0 is a valid hue (red) — do not treat it as missing.
+    this.defaultHue = Number.isFinite(Number(options.defaultHue))
+      ? wrapHueDeg(options.defaultHue)
+      : wrapHueDeg(this.color.h);
+    // Spectrum left-edge origin. Selected hue is always origin + 180° (center).
+    this.hueSampleT = HUE_CENTER_T;
+    this.hueOrigin = originForCenteredHue(this.color.h);
     this.planeUV = findPlaneUV(this.color.h, this.color);
     this.drag = null;
     this.dragElement = null;
     this.toastTimer = null;
     this.onChange = typeof options.onChange === "function" ? options.onChange : null;
+    this.pinnedHex = null;
     this.handlePointerDown = this.handlePointerDown.bind(this);
     this.handlePointerMove = this.handlePointerMove.bind(this);
     this.handlePointerUp = this.handlePointerUp.bind(this);
@@ -639,10 +654,17 @@ export class SoundColorWidget {
   }
 
   getColor() {
-    return enrichedColor(this.color);
+    const next = enrichedColor(this.color);
+    if (this.pinnedHex) {
+      next.hex = this.pinnedHex;
+    }
+    return next;
   }
 
   setColor(nextColor, emitChange = true, options = {}) {
+    if (!options.keepExactHex) {
+      this.pinnedHex = null;
+    }
     let next = normalizeColor({ ...this.color, ...nextColor });
     if (this.channels === "bw") {
       next = { h: 0, s: 0, l: next.l, a: 1 };
@@ -651,9 +673,10 @@ export class SoundColorWidget {
     }
     next.a = 1;
     this.color = next;
-    // Keep spectrum origin; move internal sample t to match absolute hue.
+    // Keep the selected hue at bar center unless a spectrum drag owns sample t.
     if (!options.preserveHueSample && this.channels !== "bw") {
-      this.hueSampleT = sampleTFromAbsoluteHue(this.hueOrigin, this.color.h);
+      this.hueSampleT = HUE_CENTER_T;
+      this.hueOrigin = originForCenteredHue(this.color.h);
     }
     if (!options.preservePlaneUV && this.channels !== "hue") {
       this.planeUV = findPlaneUV(this.color.h, this.color);
@@ -728,7 +751,7 @@ export class SoundColorWidget {
     if (glyph) {
       glyph.textContent = titled ? this.label : "";
     }
-    const hex = hslToHex(this.color);
+    const hex = this.pinnedHex || hslToHex(this.color);
     const titleStrip = this.root.querySelector(".scw-label");
     if (titleStrip) {
       // Full-opaque swatch + smart B/W title at ~30% so the color shows through the label.
@@ -761,7 +784,7 @@ export class SoundColorWidget {
       hueBar.style.setProperty("--scw-hue-spectrum", hueSpectrumCss(origin));
       hueBar.setAttribute(
         "aria-label",
-        `${ariaName} hue — drag to shift spectrum`,
+        `${ariaName} hue — drag to slide; center is the selected hue`,
       );
     }
     if (this.channels !== "hue") {
@@ -910,14 +933,21 @@ export class SoundColorWidget {
       event.preventDefault();
       event.currentTarget.blur();
     }
-    const next = parseHexToHsl(event.currentTarget?.value);
+    const raw = String(event.currentTarget?.value || "").trim();
+    const next = parseHexToHsl(raw);
     if (!next) {
       if (event.type === "change" || event.type === "keydown") {
-        event.currentTarget.value = hslToHex(this.color);
+        event.currentTarget.value = this.pinnedHex || hslToHex(this.color);
       }
       return;
     }
-    this.setColor(next, true);
+    const match = raw.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+    let hex = match ? match[1] : "";
+    if (hex.length === 3) {
+      hex = `${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`;
+    }
+    this.pinnedHex = hex ? `#${hex.toUpperCase()}` : null;
+    this.setColor(next, true, { keepExactHex: true });
   }
 
   handlePointerDown(event) {
@@ -945,9 +975,21 @@ export class SoundColorWidget {
     window.getSelection?.()?.removeAllRanges();
     const resetClick = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
     if (resetClick && part === "hue" && this.channels !== "bw") {
-      const t = hueSampleTClamp(this.hueSampleT);
-      this.hueOrigin = wrapHueDeg(this.defaultHue - t * 360);
-      this.applyHueFromSampleAndOrigin(true);
+      const h = wrapHueDeg(this.defaultHue);
+      this.hueSampleT = HUE_CENTER_T;
+      this.hueOrigin = originForCenteredHue(h);
+      if (this.channels === "hue") {
+        this.setColor({ h, s: 100, l: 50 }, true, {
+          preserveHueSample: true,
+          preservePlaneUV: true,
+        });
+        return;
+      }
+      this.planeUV = { u: 1, v: 1 };
+      this.setColor(planeColorHsl(h, 1, 1, h), true, {
+        preserveHueSample: true,
+        preservePlaneUV: true,
+      });
       return;
     }
     if (resetClick && part === "plane" && this.channels !== "hue") {
@@ -1002,7 +1044,7 @@ export class SoundColorWidget {
     const hueBar = this.root?.querySelector(".scw-hue");
     const track = hueBar ? hueTrackMetrics(hueBar) : null;
 
-    // Track drag → shift the whole spectrum (reference hue at left).
+    // Track drag → slide the rainbow. Center stays the selected hue.
     if (this.drag.part === "hue") {
       const trackW = Math.max(1, track?.usable || 120);
       const fine = this.drag.fine || event.shiftKey ? 0.15 : 1;

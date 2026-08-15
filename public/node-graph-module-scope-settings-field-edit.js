@@ -351,14 +351,22 @@ function dragNodeGraphTraceDisplayField(event) {
   const sizeDrag = typeof nodeGraphTraceDisplaySizeControlField === "function"
     && nodeGraphTraceDisplaySizeControlField(drag.key)
     && !drag.unitDrag;
+  const blurDrag = typeof nodeGraphTraceDisplayInstantTraceBlurField === "function"
+    && nodeGraphTraceDisplayInstantTraceBlurField(drag.key)
+    && !drag.unitDrag;
   const sizePx = typeof nodeGraphTraceDisplaySizeDragPixels === "number"
     ? nodeGraphTraceDisplaySizeDragPixels
     : 520;
+  const blurPx = typeof nodeGraphTraceDisplayBlurDragPixels === "number"
+    ? nodeGraphTraceDisplayBlurDragPixels
+    : 640;
   const controlDelta = drag.unitDrag
     ? (axes.combined / unitPx) * drag.multiplier
     : sizeDrag
       ? (axes.combined / sizePx) * drag.multiplier
-      : (axes.combined / 8) * drag.quantum * drag.multiplier;
+      : blurDrag
+        ? (axes.combined / blurPx) * drag.multiplier
+        : (axes.combined / 8) * drag.quantum * drag.multiplier;
   let rawValue = adjustNodeGraphTraceDisplaySettingByControlDelta(drag.key, startValue, controlDelta);
   // Unit fields: hard clamp before format (never wrap / never NaN→1).
   // Most are 0…1; shadow offset X/Y are bipolar −1…1.
@@ -449,6 +457,15 @@ function stepNodeGraphTraceDisplaySetting(event) {
     nextValue = nodeGraphSpectrogramStepFftSize(baseValue, direction);
   } else if (key === "historySeconds" || key === "zoomSeconds") {
     // Exponential control-space steps (fine near short history, coarser at long).
+    const quantum = nodeGraphTraceDisplayStepperQuantum(input, baseValue, direction);
+    nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(
+      key,
+      adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum),
+    );
+  } else if (
+    typeof nodeGraphTraceDisplayInstantTraceBlurField === "function"
+    && nodeGraphTraceDisplayInstantTraceBlurField(key)
+  ) {
     const quantum = nodeGraphTraceDisplayStepperQuantum(input, baseValue, direction);
     nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(
       key,

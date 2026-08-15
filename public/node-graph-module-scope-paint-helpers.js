@@ -493,21 +493,6 @@ const nodeGraphScope2dBurnRendererVersion = "energy-mono-lut-soft-beam-1";
 // bounded.
 // disposeNodeGraphScope2dBurnRendererForCanvas → node-graph-module-scope-draw-burn.js
 // nodeGraphScope2dBurnCanvasForSlot → node-graph-module-scope-draw-burn.js
-/**
- * Resolve face pixel density 0–4 to an effective scale.
- * App-wide: 1.0 = layout×dpr (no downsample). 2.0 = 2× backing then bilinear
- * present (cheap SSAA). Vector faces add diamond restroke blur separately.
- * 0 → single pixel (1×1). (No lo-fi floor — user wants the whole dial.)
- */
-function nodeGraphScope2dResolvePixelDensity(pixelDensity, layoutWidth = 1, layoutHeight = 1) {
-  const raw = Number(pixelDensity);
-  // 0–4 buffer scale: <1 = intentional low-res (pixelated upscale),
-  // 1 = native layout×dpr, >1 = supersample then filter down.
-  const density = Number.isFinite(raw) ? Math.max(0, Math.min(4, raw)) : 1;
-  // effective === density; canvas size uses max(1, round(layout * density)).
-  return { density, effective: density, minDensity: 0 };
-}
-
 /** Default face plate — pure black (no teal/CRT tint in the plate color). */
 const nodeGraphFacePlateDefaultBackground = "#000000";
 
@@ -519,17 +504,18 @@ function nodeGraphFacePlateBackground(settings, fallback = nodeGraphFacePlateDef
   );
 }
 
-/**
- * Pixel density 0–4 from settings. Preserves 0 (never `|| 1`).
- * 0 → 1×1 buffer; 1 → layout×dpr; 4 → supersample.
- */
+/** Pixel density 0…1 from settings. Preserves 0 (never `|| 1`). */
 function nodeGraphFacePlateDensity(settings, fallback = 1) {
+  if (typeof nodeGraphTraceDisplayClampPixelDensity === "function") {
+    const n = Number(settings?.pixelDensity);
+    return nodeGraphTraceDisplayClampPixelDensity(Number.isFinite(n) ? n : fallback);
+  }
   const n = Number(settings?.pixelDensity);
   if (!Number.isFinite(n)) {
     const fb = Number(fallback);
-    return Number.isFinite(fb) ? Math.max(0, Math.min(4, fb)) : 1;
+    return Number.isFinite(fb) ? Math.max(0, Math.min(1, fb)) : 1;
   }
-  return Math.max(0, Math.min(4, n));
+  return Math.max(0, Math.min(1, n));
 }
 
 function nodeGraphFacePlateApplyCss(screenElement, bg) {
@@ -919,10 +905,13 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
   const blend = typeof TraceHistoryDraw !== "undefined" && typeof TraceHistoryDraw.normalizeBlend === "function"
     ? TraceHistoryDraw.normalizeBlend(layer.blend || options.blend, "source-over")
     : String(layer.blend || options.blend || "source-over");
+  const layerBright = Number.isFinite(Number(layer.brightness)) ? Number(layer.brightness) : 1;
   if (typeof TraceHistoryDraw !== "undefined" && typeof TraceHistoryDraw.strokeSolid === "function") {
     TraceHistoryDraw.strokeSolid(context, points, {
       size: layer.size,
       blur,
+      brightness: layerBright,
+      fade: Number.isFinite(Number(layer.fade)) ? Number(layer.fade) : 0,
       color: layer.color,
       blend,
       dotBudget: layer.dotBudget,
@@ -934,7 +923,8 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
     TraceStroke.draw(context, points, {
       size: layer.size,
       blur,
-      brightness: 1,
+      brightness: layerBright,
+      fade: Number.isFinite(Number(layer.fade)) ? Number(layer.fade) : 0,
       color: layer.color,
       faceMinSide: face,
       composite: blend === "combine" ? "source-over" : blend,
@@ -1236,23 +1226,36 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     const rightSize = Number.isFinite(Number(settings.secondarySize))
       ? Number(settings.secondarySize)
       : leftSize;
-    const blur = Number.isFinite(Number(settings.lineThickness))
+    const leftBlur = Number.isFinite(Number(settings.lineThickness))
       ? Number(settings.lineThickness)
       : 0;
+    const rightBlur = Number.isFinite(Number(settings.secondaryLineThickness))
+      ? Number(settings.secondaryLineThickness)
+      : leftBlur;
     const budget = Math.max(8, Math.round(Number(settings.dotBudget) || 2048));
+    // Lengthwise Fade is 2D Instant Trace only.
+    const fade = 0;
+    const leftBright = Number.isFinite(Number(settings.dot1Brightness ?? settings.brightness))
+      ? Number(settings.dot1Brightness ?? settings.brightness)
+      : 1;
+    const rightBright = Number.isFinite(Number(settings.secondaryBrightness))
+      ? Number(settings.secondaryBrightness)
+      : leftBright;
     const leftLayer = {
       enabled: settings.dot1Enabled !== false,
       size: leftSize,
-      brightness: 1,
-      blur,
+      brightness: leftBright,
+      blur: leftBlur,
+      fade,
       color: leftColor,
       dotBudget: budget,
     };
     const rightLayer = {
       enabled: settings.secondaryEnabled !== false,
       size: rightSize,
-      brightness: 1,
-      blur,
+      brightness: rightBright,
+      blur: rightBlur,
+      fade,
       color: rightColor,
       dotBudget: budget,
     };
@@ -1271,14 +1274,18 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
         rightLayer.enabled === false ? [] : rightPoints,
         {
           size: leftLayer.size,
-          blur,
+          blur: leftBlur,
+          brightness: leftBright,
+          fade,
           color: leftColor,
           faceMinSide: face,
           dotBudget: budget,
         },
         {
           size: rightLayer.size,
-          blur,
+          blur: rightBlur,
+          brightness: rightBright,
+          fade,
           color: rightColor,
           faceMinSide: face,
           dotBudget: budget,
@@ -1292,15 +1299,17 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
         rightLayer.enabled === false ? [] : rightPoints,
         {
           size: leftLayer.size,
-          blur,
-          brightness: 1,
+          blur: leftBlur,
+          brightness: leftBright,
+          fade,
           color: leftColor,
           faceMinSide: face,
         },
         {
           size: rightLayer.size,
-          blur,
-          brightness: 1,
+          blur: rightBlur,
+          brightness: rightBright,
+          fade,
           color: rightColor,
           faceMinSide: face,
         },
@@ -1337,8 +1346,11 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const layer = {
     enabled: settings.dot1Enabled !== false,
     size: monoSize,
-    brightness: 1,
+    brightness: Number.isFinite(Number(settings.dot1Brightness ?? settings.brightness))
+      ? Number(settings.dot1Brightness ?? settings.brightness)
+      : 1,
     blur: Number.isFinite(Number(settings.lineThickness)) ? Number(settings.lineThickness) : 0,
+    fade: 0,
     color: monoColor,
     dotBudget: Math.max(8, Math.round(Number(settings.dotBudget) || 2048)),
   };

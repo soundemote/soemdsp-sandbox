@@ -593,7 +593,7 @@ function matrixWaterfallParamsFromNode(node) {
     bufColumns: grid.bufColumns,
     bufRows: grid.bufRows,
     // Signed: +fall, −rise, 0 idle. Magnitude is rate.
-    speed: num("speed", 1.35),
+    speed: num("speed", 1),
     // Glyph flips per bin of travel (1 = once per bin; 0 = fixed for stream).
     charSpeed: Math.max(0, num("charSpeed", 1)),
     // Trail 0 = pure Ghost path weight; 1 ≈ freeze (linear/freeze blend).
@@ -663,10 +663,16 @@ function normalizeNodeGraphMatrixWaterfall(raw = null) {
     gradientStops: source.gradientStops ?? source.gradient,
     message: MATRIX_DEFAULT_MESSAGE,
   });
+  const pad = Number(source.screenPadding ?? source.padding);
+  const rounding = Number(source.rounding ?? source.cornerRadius);
+  const shapeRaw = String(source.screenShape ?? source.cornerShape ?? "").toLowerCase();
   return {
     glyphTable: base.glyphTable,
     renderStyle: base.renderStyle,
     gradientStops: base.gradientStops,
+    screenPadding: Number.isFinite(pad) ? Math.max(0, Math.min(1, pad)) : 0,
+    rounding: Number.isFinite(rounding) ? Math.max(0, Math.min(100, rounding)) : 0,
+    screenShape: shapeRaw === "squircle" ? "squircle" : "pill",
   };
 }
 

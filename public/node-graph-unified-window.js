@@ -30,6 +30,14 @@ const nodeGraphUnifiedWindowPages = Object.freeze({
     icon: "🚀",
     showInNav: true,
   }),
+  visibilityMenu: Object.freeze({
+    key: "visibilityMenu",
+    elementId: "nodeVisibilityMenu",
+    workspaceKey: "visibilityMenu",
+    label: "Visibility",
+    icon: "👁️",
+    showInNav: true,
+  }),
   moduleBrowser: Object.freeze({
     key: "moduleBrowser",
     elementId: "nodeModuleShopView",
@@ -54,8 +62,6 @@ const nodeGraphUnifiedWindowPages = Object.freeze({
     icon: "🧩",
     showInNav: true,
   }),
-  // Visibility is a standalone floating window (own seat / size) — not a
-  // unified page. Opening it must never re-seat Command Center / Modules.
   traceDisplaySettings: Object.freeze({
     key: "traceDisplaySettings",
     elementId: "nodeTraceDisplaySettingsPopover",
@@ -76,8 +82,16 @@ const nodeGraphUnifiedWindowPages = Object.freeze({
     key: "patchDefaults",
     elementId: "nodePatchDefaultsPanel",
     workspaceKey: "patchDefaults",
-    label: "Defaults",
+    label: "Ready",
     icon: "🧹",
+    showInNav: true,
+  }),
+  hotkeys: Object.freeze({
+    key: "hotkeys",
+    elementId: "nodeHotkeysPage",
+    workspaceKey: "hotkeys",
+    label: "Hotkeys",
+    icon: "⌨️",
     showInNav: true,
   }),
 });
@@ -92,6 +106,8 @@ const nodeGraphUnifiedWindowPageOrder = Object.freeze([
   "metaparameters",
   "patchDefaults",
   "uiSettings",
+  "visibilityMenu",
+  "hotkeys",
 ]);
 
 function nodeGraphUnifiedWindowPageConfig(page = "") {
@@ -299,6 +315,12 @@ function applyNodeGraphUnifiedWindowSize(element, pageKey = "", size = null) {
     applyNodeGraphTraceDisplaySettingsWindowSize(box);
   } else if (key === "patchDefaults" && typeof applyNodeGraphPatchDefaultsWindowSize === "function") {
     applyNodeGraphPatchDefaultsWindowSize(box);
+  } else if (key === "visibilityMenu" && typeof applyNodeGraphVisibilityMenuSize === "function") {
+    applyNodeGraphVisibilityMenuSize(box, element);
+  } else if (key === "hotkeys" && typeof applyNodeGraphHotkeysPageSize === "function") {
+    applyNodeGraphHotkeysPageSize(box, element);
+  } else if (key === "uiSettings" && typeof applyNodeUserUiSettingsWindowSize === "function") {
+    applyNodeUserUiSettingsWindowSize(box, element);
   }
 
   // Inline box wins over per-page default CSS so the seat never reflows.
@@ -404,6 +426,16 @@ function closeNodeGraphUnifiedWindowPage(page = "", options = {}) {
           setNodeGraphPatchDefaultsVisible(false);
         }
         break;
+      case "visibilityMenu":
+        if (typeof setNodeGraphVisibilityMenuOpen === "function") {
+          setNodeGraphVisibilityMenuOpen(false);
+        }
+        break;
+      case "hotkeys":
+        if (typeof setNodeGraphHotkeysPageOpen === "function") {
+          setNodeGraphHotkeysPageOpen(false);
+        }
+        break;
       default:
         break;
     }
@@ -491,15 +523,6 @@ function focusNodeGraphUnifiedWindowPage(page = "") {
  */
 function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
   const key = String(page || "").trim();
-  // Visibility is a standalone floating window with its own saved seat/size.
-  // Never fold it into the shared Command Center / Modules geometry.
-  if (key === "visibilityMenu") {
-    if (typeof setNodeGraphVisibilityMenuOpen === "function") {
-      setNodeGraphVisibilityMenuOpen(true);
-      return true;
-    }
-    return false;
-  }
   const config = nodeGraphUnifiedWindowPageConfig(key);
   if (!config) {
     return false;
@@ -617,6 +640,16 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
       case "patchDefaults":
         if (typeof setNodeGraphPatchDefaultsVisible === "function") {
           setNodeGraphPatchDefaultsVisible(true);
+        }
+        break;
+      case "visibilityMenu":
+        if (typeof setNodeGraphVisibilityMenuOpen === "function") {
+          setNodeGraphVisibilityMenuOpen(true);
+        }
+        break;
+      case "hotkeys":
+        if (typeof setNodeGraphHotkeysPageOpen === "function") {
+          setNodeGraphHotkeysPageOpen(true);
         }
         break;
       default:
@@ -926,6 +959,108 @@ function cycleNodeGraphCommandCenterPresentation(options = {}) {
   return next;
 }
 
+// ─── Blank inspector: pick a module from the patch ──────────────────────────
+
+function nodeGraphInspectorPatchModules(kind = "") {
+  const nodes = Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes : [];
+  const key = String(kind || "").trim();
+  return nodes
+    .filter((node) => {
+      if (!node?.id) {
+        return false;
+      }
+      if (key === "display") {
+        return typeof nodeGraphNodeCanOpenDisplaySettings === "function"
+          && nodeGraphNodeCanOpenDisplaySettings(node);
+      }
+      if (key === "parameters") {
+        const definition = typeof nodeGraphModuleDefinition === "function"
+          ? nodeGraphModuleDefinition(node.type)
+          : (typeof nodeGraphModuleDefinitions === "object" ? nodeGraphModuleDefinitions[node.type] : null);
+        return (definition?.parameters || []).length > 0;
+      }
+      return true;
+    })
+    .slice()
+    .sort((left, right) => {
+      const titleOf = (node) => String(
+        typeof nodeGraphPatchNodeTitle === "function"
+          ? nodeGraphPatchNodeTitle(node)
+          : (node.alias || node.type || node.id),
+      );
+      return titleOf(left).localeCompare(titleOf(right), undefined, { sensitivity: "base" });
+    });
+}
+
+function fillNodeGraphUnifiedInspectorModuleList(host, {
+  kind = "",
+  hint = "Choose a module",
+  emptyHint = "No modules in this patch.",
+  onPick = null,
+} = {}) {
+  if (!host) {
+    return;
+  }
+  host.replaceChildren();
+  host.classList.add("has-module-list");
+  const modules = nodeGraphInspectorPatchModules(kind);
+  const caption = document.createElement("div");
+  caption.className = "node-unified-inspector-empty-hint";
+  caption.textContent = modules.length ? hint : emptyHint;
+  host.append(caption);
+  if (!modules.length) {
+    return;
+  }
+  const list = document.createElement("div");
+  list.className = "node-unified-inspector-module-list";
+  list.setAttribute("role", "listbox");
+  list.setAttribute("aria-label", hint);
+  for (const node of modules) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "node-unified-inspector-module-item";
+    button.dataset.node = node.id;
+    const title = typeof nodeGraphPatchNodeTitle === "function"
+      ? nodeGraphPatchNodeTitle(node)
+      : (node.alias || nodeGraphNodeLabels?.[node.type] || node.type);
+    const typeName = nodeGraphNodeLabels?.[node.type] || node.type;
+    button.setAttribute("aria-label", title);
+    const name = document.createElement("span");
+    name.className = "node-unified-inspector-module-name";
+    name.textContent = title;
+    button.append(name);
+    if (typeName && typeName !== title) {
+      const type = document.createElement("span");
+      type.className = "node-unified-inspector-module-type";
+      type.textContent = typeName;
+      button.append(type);
+    }
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof onPick === "function") {
+        onPick(node, event);
+      }
+    });
+    list.append(button);
+  }
+  host.append(list);
+}
+
+function nodeGraphSelectInspectorModule(nodeId) {
+  const id = String(nodeId || "").trim();
+  if (!id) {
+    return;
+  }
+  if (typeof setNodeGraphSelection === "function") {
+    setNodeGraphSelection({ type: "node", id });
+  }
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.sceneContextTargetNode = id;
+    nodeGraphMvp.lastModuleActionTargetNode = id;
+  }
+}
+
 // ─── Nav chrome ─────────────────────────────────────────────────────────────
 
 function handleNodeGraphUnifiedWindowNavClick(event) {
@@ -1088,6 +1223,28 @@ function syncNodeGraphUnifiedWindowNavBars() {
       page: "patchDefaults",
       prepare(element) {
         const existing = element.querySelector("#nodePatchDefaultsUnifiedNavHost, :scope > .node-unified-window-nav-host");
+        if (existing) {
+          return existing;
+        }
+        return ensureNodeGraphUnifiedWindowNavHost(element);
+      },
+    },
+    {
+      elementId: "nodeVisibilityMenu",
+      page: "visibilityMenu",
+      prepare(element) {
+        const existing = element.querySelector("#nodeVisibilityUnifiedNavHost, :scope > .node-unified-window-nav-host");
+        if (existing) {
+          return existing;
+        }
+        return ensureNodeGraphUnifiedWindowNavHost(element);
+      },
+    },
+    {
+      elementId: "nodeHotkeysPage",
+      page: "hotkeys",
+      prepare(element) {
+        const existing = element.querySelector("#nodeHotkeysUnifiedNavHost, :scope > .node-unified-window-nav-host");
         if (existing) {
           return existing;
         }

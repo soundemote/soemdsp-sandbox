@@ -471,6 +471,11 @@ function cloneNodeGraphTypedDisplaySettings(node) {
     // LED face settings live on node.led (not traceDisplaySettings).
     return { led: normalizeNodeGraphLedLayout(node.led) };
   }
+  if (displayType === "phosphorWaveform" && typeof normalizeNodeGraphPhosphorWaveformSettings === "function") {
+    return {
+      phosphorWaveformSettings: normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings),
+    };
+  }
   if (displayType === "evolveFieldFace" && typeof normalizeNodeGraphEvolveFieldSettings === "function") {
     return {
       traceDisplaySettings: normalizeNodeGraphEvolveFieldSettings(migrate(node.traceDisplaySettings, false)),

@@ -755,7 +755,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const slewUpTime = this.readEffectiveParameter(node, "upTime", 0.05, frame, frames, frameValues);
         const slewDownTime = this.readEffectiveParameter(node, "downTime", 0.20, frame, frames, frameValues);
         const slewShape = this.readEffectiveParameter(node, "shape", 0, frame, frames, frameValues);
-        const slewMono = mixInput(nodeId);
+        const slewBias = this.readEffectiveParameter(node, "bias", 0, frame, frames, frameValues);
+        const slewMono = mixInput(nodeId) + slewBias;
         return {
           Out: this.slewLimiterSample(state.mono, slewMono, slewUpTime, slewDownTime, safeRate, slewShape),
           Left: this.slewLimiterSample(state.left, mixInput(nodeId, "Left") + slewMono, slewUpTime, slewDownTime, safeRate, slewShape),

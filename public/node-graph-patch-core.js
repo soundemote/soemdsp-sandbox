@@ -464,14 +464,15 @@ function validateNodeGraphPatch(patch) {
     }
   }
 
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const connectionKeys = new Set();
   const connections = (Array.isArray(patch.connections) ? patch.connections : []).flatMap((connection) => {
     const sourceNode = String(connection.sourceNode || "").trim();
     let sourcePort = String(connection.sourcePort || "").trim();
     const destinationNode = String(connection.destinationNode || "").trim();
     let destinationPort = String(connection.destinationPort || "").trim();
-    const sourceType = nodes.find((node) => node.id === sourceNode)?.type;
-    const destinationType = nodes.find((node) => node.id === destinationNode)?.type;
+    const sourceType = nodeById.get(sourceNode)?.type;
+    const destinationType = nodeById.get(destinationNode)?.type;
     if (!sourceType || !destinationType) {
       if (retiredNodeIds.has(sourceNode) || retiredNodeIds.has(destinationNode)) {
         return [];
@@ -479,14 +480,14 @@ function validateNodeGraphPatch(patch) {
       throw new Error("connection references missing node");
     }
     sourcePort = nodeGraphCanonicalOutputPort(sourceType, sourcePort);
-    if (!nodeGraphPatchNodeOutputPorts(nodes.find((node) => node.id === sourceNode)).includes(sourcePort)) {
+    if (!nodeGraphPatchNodeOutputPorts(nodeById.get(sourceNode)).includes(sourcePort)) {
       throw new Error(`connection source port invalid: ${sourceNode}.${sourcePort}`);
     }
     if (destinationType === "output" && destinationPort === "In") {
       destinationPort = "Mono";
     }
     destinationPort = nodeGraphCanonicalInputPort(destinationType, destinationPort);
-    if (!nodeGraphPatchNodeInputPorts(nodes.find((node) => node.id === destinationNode)).includes(destinationPort)) {
+    if (!nodeGraphPatchNodeInputPorts(nodeById.get(destinationNode)).includes(destinationPort)) {
       throw new Error(`connection destination port invalid: ${destinationNode}.${destinationPort}`);
     }
     const key = `${sourceNode}.${sourcePort}->${destinationNode}.${destinationPort}`;
@@ -522,8 +523,8 @@ function validateNodeGraphPatch(patch) {
       if (!sourceNode || !sourcePort || !destinationNode || !destinationParam) {
         throw new Error("modulation entries require sourceNode, sourcePort, destinationNode, destinationParam");
       }
-      const sourceType = nodes.find((node) => node.id === sourceNode)?.type;
-      const destinationType = nodes.find((node) => node.id === destinationNode)?.type;
+      const sourceType = nodeById.get(sourceNode)?.type;
+      const destinationType = nodeById.get(destinationNode)?.type;
       if (!sourceType || !destinationType) {
         if (retiredNodeIds.has(sourceNode) || retiredNodeIds.has(destinationNode)) {
           return [];
@@ -531,10 +532,10 @@ function validateNodeGraphPatch(patch) {
         throw new Error("modulation references missing node");
       }
       sourcePort = nodeGraphCanonicalOutputPort(sourceType, sourcePort);
-      if (!nodeGraphPatchNodeOutputPorts(nodes.find((node) => node.id === sourceNode)).includes(sourcePort)) {
+      if (!nodeGraphPatchNodeOutputPorts(nodeById.get(sourceNode)).includes(sourcePort)) {
         throw new Error(`modulation source port invalid: ${sourceNode}.${sourcePort}`);
       }
-      const destinationPatchNode = nodes.find((node) => node.id === destinationNode);
+      const destinationPatchNode = nodeById.get(destinationNode);
       if (!nodeGraphPatchNodeParameterDefinitions(destinationPatchNode).some((parameter) => parameter.key === destinationParam)) {
         throw new Error(`modulation destination parameter invalid: ${destinationNode}.${destinationParam}`);
       }
@@ -570,8 +571,8 @@ function validateNodeGraphPatch(patch) {
     if (!sourceNode || !sourcePort || !destinationNode || !destinationGraphInput) {
       throw new Error("graph connection entries require sourceNode, sourcePort, destinationNode, destinationGraphInput");
     }
-    const sourcePatchNode = nodes.find((node) => node.id === sourceNode);
-    const destinationPatchNode = nodes.find((node) => node.id === destinationNode);
+    const sourcePatchNode = nodeById.get(sourceNode);
+    const destinationPatchNode = nodeById.get(destinationNode);
     const sourceType = sourcePatchNode?.type;
     const destinationType = destinationPatchNode?.type;
     if (!sourceType || !destinationType) {
@@ -1019,6 +1020,7 @@ function applyNodeGraphModuleElementFromPatch(patchNode, options = {}) {
   let element = nodeGraphNodeElement(patchNode.id);
   const portSignature = nodeGraphModulePortSignature(patchNode);
   const structuralUiSignature = nodeGraphModuleStructuralUiSignature(patchNode);
+  let reusedUnchanged = false;
   if (
     element &&
     (
@@ -1029,6 +1031,8 @@ function applyNodeGraphModuleElementFromPatch(patchNode, options = {}) {
   ) {
     element.remove();
     element = null;
+  } else if (element) {
+    reusedUnchanged = true;
   }
   if (!element) {
     element = createNodeGraphModuleElement(patchNode.type, patchNode.id);
@@ -1039,6 +1043,9 @@ function applyNodeGraphModuleElementFromPatch(patchNode, options = {}) {
     if (typeof nodeGraphViewportCullObserve === "function") {
       nodeGraphViewportCullObserve(element);
     }
+  }
+  if (options.skipExistingChrome && reusedUnchanged) {
+    return element;
   }
   syncNodeGraphModuleChromeElement(element, patchNode);
   if (options.paramSync !== false) {
@@ -1104,11 +1111,12 @@ function applyNodeGraphChromeNodesToDom(nodeIds = []) {
   return elements;
 }
 
-function applyNodeGraphPatchToDom() {
+function applyNodeGraphPatchToDom(options = {}) {
   const container = document.getElementById("nodeGraphNodes");
   if (!container) {
     return;
   }
+  const skipExistingSync = Boolean(options.skipExistingSync);
 
   applyNodeGraphWorkspaceView();
   const workspace = document.getElementById("nodeGraphWorkspace");
@@ -1126,7 +1134,11 @@ function applyNodeGraphPatchToDom() {
   }
 
   for (const patchNode of nodeGraphMvp.patch.nodes) {
-    const element = applyNodeGraphModuleElementFromPatch(patchNode, { paramSync: true });
+    const existing = nodeGraphNodeElement(patchNode.id);
+    const element = applyNodeGraphModuleElementFromPatch(patchNode, {
+      paramSync: skipExistingSync ? !existing : true,
+      skipExistingChrome: skipExistingSync && Boolean(existing),
+    });
     if (element && typeof nodeGraphViewportCullObserve === "function") {
       nodeGraphViewportCullObserve(element);
     }
@@ -1214,6 +1226,8 @@ function commitNodeGraphPatch(patch, options = {}) {
   const isWireEdit = Boolean(options.wireEdit);
   // layoutEdit: module move / snap only — skip DOM rebuild + audio plan + render pending.
   const isLayoutEdit = Boolean(options.layoutEdit);
+  // topologyEdit: add/remove modules — do not re-sync every existing slider/face.
+  const isTopologyEdit = Boolean(options.topologyEdit);
   // chromeEdit: size / show-hide — touch only named modules, defer history/serialize.
   const isChromeEdit = Boolean(options.chromeEdit);
   // softDom: cosmetic module face / label-only edits — keep existing module DOM
@@ -1252,8 +1266,8 @@ function commitNodeGraphPatch(patch, options = {}) {
   } else if (isChromeEdit) {
     applyNodeGraphChromeNodesToDom(options.chromeNodeIds);
   } else if (!isWireEdit && !isSoftDom) {
-    applyNodeGraphPatchToDom();
-    if (typeof applyNodeGraphZoom === "function") {
+    applyNodeGraphPatchToDom({ skipExistingSync: isTopologyEdit });
+    if (!isTopologyEdit && typeof applyNodeGraphZoom === "function") {
       applyNodeGraphZoom();
     }
     syncNodeGraphMonitorIndicators();
@@ -1334,7 +1348,7 @@ function commitNodeGraphPatch(patch, options = {}) {
 
   // Wire/layout/chrome edits keep the UI responsive: history/autosave/palette
   // work runs after the current pointer/frame.
-  if (isWireEdit || isLayoutEdit || isChromeEdit || options.deferUiPanels) {
+  if (isWireEdit || isLayoutEdit || isChromeEdit || isTopologyEdit || options.deferUiPanels) {
     window.requestAnimationFrame(() => {
       window.setTimeout(runDeferredUiPanels, 0);
     });
@@ -1354,10 +1368,30 @@ function clearNodeGraphWires() {
 }
 
 function deleteSelectedNodeGraphItem() {
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Patch is locked.");
+    }
+    return;
+  }
   if (!nodeGraphScriptReadyForGraphAction("delete")) {
     return;
   }
+  if (typeof nodeGraphSelectionCanDelete === "function" && !nodeGraphSelectionCanDelete()) {
+    return;
+  }
   const selection = nodeGraphMvp.selected;
+  if (!selection) {
+    return;
+  }
+  if (typeof runNodeGraphHistoryAfterGlow === "function") {
+    runNodeGraphHistoryAfterGlow("delete", () => performNodeGraphDeleteSelection(selection));
+    return;
+  }
+  performNodeGraphDeleteSelection(selection);
+}
+
+function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
   if (!selection) {
     return;
   }
@@ -1425,6 +1459,8 @@ function deleteSelectedNodeGraphItem() {
     );
     setNodeGraphSelection(null);
     commitNodeGraphPatch(patch, {
+      topologyEdit: true,
+      deferUiPanels: true,
       status: removableNodeIds.size === 1 ? "module deleted" : "modules deleted",
     });
     renderNodeGraphLiveControls();

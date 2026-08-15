@@ -32,19 +32,19 @@ registerNodeGraphChromelessModule("keypad", {
     outputs: ["Analog", "Index", "Gate", "X", "Y"],
     parameters: [
       {
-        choices: ["□", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"],
+        choices: ["□", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
         key: "offset",
-        label: "Offset",
+        label: "Index",
         linearSmoothing: false,
-        max: "11",
+        max: "12",
         mid: "0",
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Added to Analog/Digital (and later Script) then wrapped around the 12 keys. □ is offset 0 — analog stays 0 until a key is chosen. Key 1 is digital/script 1.",
+        tooltip: "Added to Analog/Digital (and later Script) then wrapped around the 12 keys. □ is 0 — analog stays 0 until a key is chosen. 1–12 are the pad keys.",
       },
       {
         choices: ["Momentary", "Latch"],
@@ -80,7 +80,7 @@ registerNodeGraphChromelessModule("keypad", {
   },
   catalog: {
     category: "controller",
-    description: "12-key phone pad. Layout B (A/D in | pad | A/D/G/X/Y out). Offset wraps. Behavior + Drag.",
-    notes: ["keypad", "pad", "phone pad", "controller", "analog", "digital", "offset", "gate", "LayoutB", "momentary", "latch", "drag", "xy"],
+    description: "12-key phone pad. Layout B (A/D in | pad | A/D/G/X/Y out). Index wraps. Behavior + Drag.",
+    notes: ["keypad", "pad", "phone pad", "controller", "analog", "digital", "index", "offset", "gate", "LayoutB", "momentary", "latch", "drag", "xy"],
   },
 });

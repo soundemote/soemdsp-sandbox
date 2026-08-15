@@ -432,13 +432,13 @@ function matrixGlSyncCanvasSize(canvas, columns, rows, renderStyle = "vector") {
 
   canvas.style.display = "block";
   canvas.style.position = "absolute";
+  canvas.style.inset = "0";
   canvas.style.left = "0";
   canvas.style.top = "0";
-  canvas.style.right = "auto";
-  canvas.style.bottom = "auto";
-  canvas.style.inset = "auto";
-  canvas.style.width = `${cssW}px`;
-  canvas.style.height = `${cssH}px`;
+  canvas.style.right = "0";
+  canvas.style.bottom = "0";
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
 
   // Identical buffer for Sharp and Pixel (dpr×ss supersample).
   const maxPx = 3072;
@@ -662,7 +662,7 @@ function matrixGlDrawFace(canvas, state, params, mode) {
 }
 
 /** Engine-off plate — same GPU path, static "ENGINE OFF" stamp (one upload + draw). */
-function matrixGlDrawColdPlate(canvas, columns = 96, rows = 64, renderStyle = "pixel", gradientStops = null) {
+function matrixGlDrawColdPlate(canvas, columns = 96, rows = 64, renderStyle = "vector", gradientStops = null) {
   const glState = matrixGlEnsure(canvas);
   if (!glState?.gl) return false;
   const gl = glState.gl;

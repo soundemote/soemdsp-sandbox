@@ -43,8 +43,15 @@ function buildNodeGraphKeypadDisplaySettingsBodyHtml() {
   const colorRow = typeof nodeGraphDisplaySettingsBuildColorRowHtml === "function"
     ? nodeGraphDisplaySettingsBuildColorRowHtml
     : () => "";
+  const defaultLabels = typeof NODE_GRAPH_KEYPAD_LABELS_TEXT === "string"
+    ? NODE_GRAPH_KEYPAD_LABELS_TEXT
+    : "123456789*0#";
   return `
     <div class="node-led-display-settings-panel" data-keypad-display-settings-panel>
+      <label class="node-led-settings-row">
+        <span>Keys</span>
+        <input type="text" spellcheck="false" autocomplete="off" data-keypad-labels value="${escape(defaultLabels)}" aria-label="Keypad characters, one per key" placeholder="${escape(defaultLabels)}">
+      </label>
       <label class="node-led-settings-row" data-trace-display-choice-row="font">
         <span>Font</span>
         <select data-trace-display-choice="font" id="nodeTraceDisplayKeypadFont" aria-label="Keypad font">
@@ -123,6 +130,15 @@ function syncNodeGraphKeypadDisplaySettingsControls(root, settings) {
       el.value = String(settings[key] ?? "");
     }
   }
+  const labels = root.querySelector?.("[data-keypad-labels]");
+  if (labels && document.activeElement !== labels) {
+    labels.value = String(
+      settings.labels
+      || NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS?.labels
+      || NODE_GRAPH_KEYPAD_LABELS_TEXT
+      || "123456789*0#",
+    );
+  }
   const font = root.querySelector?.(`[data-trace-display-choice="font"]`);
   if (font) {
     font.value = String(settings.font || NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS?.font || "thasadith");
@@ -199,12 +215,12 @@ function bindNodeGraphKeypadDisplaySettingsBody(host) {
     }
   };
   host.addEventListener("input", (event) => {
-    if (event.target?.closest?.("[data-keypad-field]")) {
+    if (event.target?.closest?.("[data-keypad-field], [data-keypad-labels]")) {
       apply("none", false);
     }
   });
   host.addEventListener("change", (event) => {
-    if (event.target?.closest?.("[data-keypad-field], [data-keypad-check], [data-trace-display-choice]")) {
+    if (event.target?.closest?.("[data-keypad-field], [data-keypad-labels], [data-keypad-check], [data-trace-display-choice]")) {
       apply("immediate", true);
     }
   });

@@ -6,7 +6,7 @@
 // Do not add strip-chart scroll or density knobs here — that drifts concepts.
 //
 // Not burn: no energy FBO, no decay, no bleed. Clear + redraw each frame.
-// History plot: deposit is always full (brightness 1). Blur is stroke softness.
+// History plot: brightness scales ink. Blur is stroke softness.
 // Size = 0–1 of face min side: 0 → 1px, 1 → full side (exponential).
 
 (function initTraceStroke(global) {
@@ -36,23 +36,17 @@
   }
 
   /**
-   * Diameter in px — linear map matching phosphor (size * face min side).
-   * Size 0 → 1px (minimum draw size for now).
+   * Diameter in buffer px — linear size × face min side.
+   * Size 0 → 0 (trace vanishes). No 1px floor (sub-pixel is allowed).
+   * Phosphor stamps keep their own 1px floor; do not share that helper.
    */
   function diameterPx(faceMinSide, size01) {
-    if (typeof global.PhosphorDrawer?.size01ToDiameterPx === "function") {
-      return global.PhosphorDrawer.size01ToDiameterPx(faceMinSide, size01);
-    }
     const side = Math.max(1, Number(faceMinSide) || 1);
-    const t = clamp01(size01, 0);
-    return Math.max(1, side * t);
+    return side * clamp01(size01, 0);
   }
 
   function radiusPx(faceMinSide, size01) {
-    if (typeof global.PhosphorDrawer?.size01ToRadiusPx === "function") {
-      return global.PhosphorDrawer.size01ToRadiusPx(faceMinSide, size01);
-    }
-    return Math.max(0.5, diameterPx(faceMinSide, size01) * 0.5);
+    return diameterPx(faceMinSide, size01) * 0.5;
   }
 
   /**
@@ -116,7 +110,12 @@
       if (!next || !Number.isFinite(next?.x) || !Number.isFinite(next?.y)) {
         // 1-point segments: stroke() is invisible — draw a dot instead.
         if (segmentStart === i) {
-          const w = Math.max(1, Number(context.lineWidth) || 1);
+          const w = Math.max(0, Number(context.lineWidth) || 0);
+          if (w <= 0) {
+            drawing = false;
+            segmentStart = -1;
+            continue;
+          }
           context.beginPath();
           context.arc(p.x, p.y, w * 0.5, 0, Math.PI * 2);
           context.fillStyle = context.strokeStyle;
@@ -135,9 +134,81 @@
   }
 
   /**
+   * History fade along the polyline. t=0 oldest, t=1 newest.
+   * fade 0 = even ink. fade 1 = oldest gone, newest full.
+   */
+  function fadeWeight(t, fade01) {
+    const f = clamp01(fade01, 0);
+    if (f <= 0.001) {
+      return 1;
+    }
+    return (1 - f) + f * clamp01(t, 0);
+  }
+
+  function paintStrokePiece(context, pts, r, g, b, alpha, lineWidth, blur, additive) {
+    if (!pts?.length || !(lineWidth > 0) || !(alpha > 0.004)) {
+      return;
+    }
+    const finite = pts.filter((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y));
+    if (!finite.length) {
+      return;
+    }
+    if (blur < 0.04) {
+      const color = additive
+        ? `rgb(${Math.round(r * alpha)}, ${Math.round(g * alpha)}, ${Math.round(b * alpha)})`
+        : `rgba(${r}, ${g}, ${b}, ${Math.min(1, alpha)})`;
+      context.lineWidth = lineWidth;
+      context.strokeStyle = color;
+      context.fillStyle = color;
+      if (finite.length === 1) {
+        context.beginPath();
+        context.arc(finite[0].x, finite[0].y, lineWidth * 0.5, 0, Math.PI * 2);
+        context.fill();
+      } else {
+        strokePath(context, pts);
+      }
+      return;
+    }
+    const expand = lineWidth * blur * 2;
+    const passes = 7;
+    const I = [];
+    const widths = [];
+    for (let i = 0; i < passes; i += 1) {
+      const t = 1 - i / (passes - 1);
+      widths.push(lineWidth + expand * t);
+      I.push(t <= 0 ? 1 : edgeProfile(Math.min(0.999, t), 1));
+    }
+    for (let i = 0; i < passes; i += 1) {
+      const a = (additive
+        ? Math.max(0, I[i] - (i > 0 ? I[i - 1] : 0))
+        : I[i]) * alpha;
+      if (a < 0.008) {
+        continue;
+      }
+      const w = widths[i];
+      if (!(w > 0)) {
+        continue;
+      }
+      const color = `rgba(${r}, ${g}, ${b}, ${Math.min(1, a)})`;
+      context.lineWidth = w;
+      context.strokeStyle = color;
+      context.fillStyle = color;
+      if (finite.length === 1) {
+        context.beginPath();
+        context.arc(finite[0].x, finite[0].y, w * 0.5, 0, Math.PI * 2);
+        context.fill();
+      } else {
+        strokePath(context, pts);
+      }
+    }
+  }
+
+  /**
    * VECTOR polyline stroke (not a pixel/energy stamp).
-   * blur 0 → one solid stroke (default Trace UX).
-   * options: { size, blur, brightness, color, faceMinSide, rgb, composite }
+   * blur 0 → one hard stroke at Size.
+   * blur > 0 → same core plus a soft halo that fattens outward (not into Size).
+   * fade 0…1 fades ink along history (oldest → newest).
+   * options: { size, blur, brightness, fade, color, faceMinSide, rgb, composite }
    * Prefer composite "source-over" + opaque ink for clean vector combines.
    */
   function draw(context, points, options = {}) {
@@ -145,11 +216,11 @@
       return 0;
     }
     const face = Math.max(1, Number(options.faceMinSide) || 1);
-    // size 0 is valid (1px min) — only brightness gates draw.
     const size01 = clamp01(options.size, 0);
     const blur = normalizeBlur(options.blur, 0.2);
     const brightness = Math.max(0, Number(options.brightness) || 0);
-    if (brightness <= 0) {
+    const fade = clamp01(options.fade, 0);
+    if (brightness <= 0 || size01 <= 0) {
       return 0;
     }
 
@@ -171,8 +242,10 @@
     const r = Math.round(rgb[0] * gain);
     const g = Math.round(rgb[1] * gain);
     const b = Math.round(rgb[2] * gain);
-    const lineWidth = Math.max(1, diameterPx(face, size01));
-    const peakAlpha = 1;
+    const lineWidth = diameterPx(face, size01);
+    if (!(lineWidth > 0)) {
+      return 0;
+    }
 
     const visible = points.filter((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y));
     if (!visible.length) {
@@ -189,58 +262,47 @@
     context.miterLimit = 2;
     context.shadowBlur = 0;
     context.shadowColor = "transparent";
+    const additive = String(context.globalCompositeOperation || "") === "lighter";
 
-    // Hard (or nearly): one solid stroke.
-    if (blur < 0.04) {
-      const color = `rgb(${r}, ${g}, ${b})`;
-      context.lineWidth = lineWidth;
-      context.strokeStyle = color;
-      context.fillStyle = color;
-      if (visible.length === 1) {
-        context.beginPath();
-        context.arc(visible[0].x, visible[0].y, lineWidth * 0.5, 0, Math.PI * 2);
-        context.fill();
-      } else {
-        strokePath(context, points);
-      }
+    if (fade <= 0.02 || visible.length < 3) {
+      paintStrokePiece(context, points, r, g, b, 1, lineWidth, blur, additive);
       context.restore();
       return visible.length;
     }
 
-    // Soft edge: concentric strokes, all widths ≤ lineWidth (no expansion).
-    // With additive "lighter", intensity at radius fraction t is the sum of
-    // alphas of every stroke whose widthFrac >= t. Invert the profile so the
-    // visible falloff actually matches edgeProfile() instead of fudging shells.
-    //
-    //   I(t_k) = Σ_{j: w_j >= t_k} a_j  =  peak * edgeProfile(t_k)
-    //   → a_k = I(t_k) - I(t_{k+1})   with t sorted outer→inner (1 → 0)
-    const passes = 4;
-    // Outer → inner radius fractions (must be strictly decreasing).
-    const radii = [];
-    for (let i = 0; i < passes; i += 1) {
-      radii.push(1 - i / passes); // 1, 0.75, 0.5, 0.25
-    }
-    // Sample profile just inside each shell outer edge.
-    const I = radii.map((t) => peakAlpha * edgeProfile(Math.min(0.999, t * 0.98), blur));
-    for (let i = 0; i < passes; i += 1) {
-      const nextI = i + 1 < passes ? I[i + 1] : 0;
-      const a = Math.max(0, I[i] - nextI);
-      if (a < 0.008) {
+    const realTotal = visible.length;
+    const chunks = Math.min(20, Math.max(8, Math.round(Math.sqrt(realTotal))));
+    let realIndex = 0;
+    let piece = [];
+    let pieceT = 0;
+    let bucket = -1;
+    const flush = () => {
+      if (!piece.length) {
+        return;
+      }
+      paintStrokePiece(context, piece, r, g, b, fadeWeight(pieceT, fade), lineWidth, blur, additive);
+      const tail = piece[piece.length - 1];
+      piece = tail && Number.isFinite(tail.x) ? [tail] : [];
+    };
+    for (let i = 0; i < points.length; i += 1) {
+      const p = points[i];
+      if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+        flush();
+        piece = [];
         continue;
       }
-      const w = Math.max(1, lineWidth * radii[i]);
-      const color = `rgba(${r}, ${g}, ${b}, ${Math.min(1, a)})`;
-      context.lineWidth = w;
-      context.strokeStyle = color;
-      context.fillStyle = color;
-      if (visible.length === 1) {
-        context.beginPath();
-        context.arc(visible[0].x, visible[0].y, w * 0.5, 0, Math.PI * 2);
-        context.fill();
-      } else {
-        strokePath(context, points);
+      const t = realTotal > 1 ? realIndex / (realTotal - 1) : 1;
+      const nextBucket = Math.min(chunks - 1, Math.floor(t * chunks + 1e-9));
+      if (bucket >= 0 && nextBucket !== bucket) {
+        pieceT = t;
+        flush();
       }
+      bucket = nextBucket;
+      piece.push(p);
+      pieceT = t;
+      realIndex += 1;
     }
+    flush();
 
     context.restore();
     return visible.length;
@@ -412,13 +474,11 @@
     if (blend !== "combine") {
       const leftCount = draw(destCtx, leftPoints, {
         ...leftOptions,
-        brightness: 1,
         faceMinSide: face,
         composite: blend === "source-over" ? "source-over" : blend,
       });
       const rightCount = draw(destCtx, rightPoints, {
         ...rightOptions,
-        brightness: 1,
         faceMinSide: face,
         composite: blend === "source-over" ? "source-over" : blend,
       });
@@ -529,6 +589,7 @@
   global.TraceStroke = {
     clamp01,
     normalizeBlur,
+    fadeWeight,
     diameterPx,
     radiusPx,
     edgeProfile,

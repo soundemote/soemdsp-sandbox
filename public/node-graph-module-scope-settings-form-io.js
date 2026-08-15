@@ -25,6 +25,11 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
     nodeGraphMvp.gradientSelector = null;
   }
   host.innerHTML = buildNodeGraphDisplaySettingsBodyHtml(type, node);
+  if (typeof nodeGraphDisplaySettingsIsVectorTraceFormType === "function"
+    && nodeGraphDisplaySettingsIsVectorTraceFormType(type)
+    && typeof syncNodeGraphInstantTracePreview === "function") {
+    syncNodeGraphInstantTracePreview(host, node?.traceDisplaySettings || {});
+  }
   // LED: bind range-slider panel (same control scheme as the old LED window).
   if (type === "ledLamp") {
     if (node?.id) {
@@ -48,6 +53,17 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
           ? normalizeNodeGraphKeypadLayout(node?.layout)
           : (node?.layout || {}),
       );
+    }
+  }
+  if (type === "phosphorWaveform") {
+    if (node?.id && typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
+      nodeGraphMvp.phosphorWaveformSettingsTargetNode = String(node.id);
+    }
+    if (typeof bindNodeGraphPhosphorWaveformDisplaySettingsBody === "function") {
+      bindNodeGraphPhosphorWaveformDisplaySettingsBody(host);
+    }
+    if (typeof renderNodeGraphPhosphorWaveformSettingsWindow === "function") {
+      renderNodeGraphPhosphorWaveformSettingsWindow();
     }
   }
   if (type === "portalFace") {
@@ -291,6 +307,13 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
         textWeight: 400,
       };
   }
+  if (type === "phosphorWaveform") {
+    return typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
+      ? normalizeNodeGraphPhosphorWaveformSettings()
+      : (typeof nodeGraphPhosphorWaveformDefaultSettings !== "undefined"
+        ? { ...nodeGraphPhosphorWaveformDefaultSettings }
+        : {});
+  }
   if (type === "textBoxFace") {
     return typeof normalizeNodeGraphTextBoxLayout === "function"
       ? normalizeNodeGraphTextBoxLayout()
@@ -446,6 +469,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   if (type === "keypadFace") {
     return typeof normalizeNodeGraphKeypadLayout === "function"
       ? normalizeNodeGraphKeypadLayout(settings)
+      : (settings || {});
+  }
+  if (type === "phosphorWaveform") {
+    return typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
+      ? normalizeNodeGraphPhosphorWaveformSettings(settings)
       : (settings || {});
   }
   if (type === "textBoxFace") {
@@ -607,6 +635,13 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
         ? normalizeNodeGraphKeypadLayout(node?.layout)
         : (node?.layout || {}));
   }
+  if (settingsSchema === "phosphorWaveform") {
+    return typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
+      ? nodeGraphPhosphorWaveformSettingsForNode(node?.id)
+      : (typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
+        ? normalizeNodeGraphPhosphorWaveformSettings(node?.phosphorWaveformSettings)
+        : (node?.phosphorWaveformSettings || {}));
+  }
   if (settingsSchema === "textBoxFace") {
     return typeof nodeGraphTextBoxDisplaySettingsForNode === "function"
       ? nodeGraphTextBoxDisplaySettingsForNode(node)
@@ -743,6 +778,45 @@ function readNodeGraphTraceDisplaySettingsForm() {
     }
     return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
   }
+  if (formType === "phosphorWaveform") {
+    const next = { ...current };
+    const numberIds = [
+      ["nodePhosphorWaveformTimeWindowInput", "timeWindowSeconds"],
+      ["nodePhosphorWaveformLineWidthInput", "scrollLineWidth"],
+      ["nodePhosphorWaveformTraceWidthInput", "traceWidth"],
+      ["nodePhosphorWaveformHueInput", "hue"],
+      ["nodePhosphorWaveformLineBrightnessInput", "lineBrightness"],
+      ["nodePhosphorWaveformGridBrightnessInput", "gridBrightness"],
+      ["nodePhosphorWaveformBackgroundHueInput", "backgroundHue"],
+      ["nodePhosphorWaveformBackgroundBrightnessInput", "backgroundBrightness"],
+      ["nodePhosphorWaveformCornerRadiusInput", "cornerRadius"],
+      ["nodePhosphorWaveformEdgeSpacingInput", "edgeSpacing"],
+      ["nodePhosphorWaveformLabelInsetInput", "labelInsetPx"],
+      ["nodePhosphorWaveformPlaylistFadeInput", "playlistFade"],
+    ];
+    for (const [id, key] of numberIds) {
+      const input = document.getElementById(id);
+      if (input) {
+        next[key] = Number(input.value);
+      }
+    }
+    if (document.getElementById("nodePhosphorWaveformScrollSnapButton")?.classList.contains("active")) {
+      next.scrollMode = "snap";
+    } else {
+      next.scrollMode = "smooth";
+    }
+    if (document.getElementById("nodePhosphorWaveformPositionLeftButton")?.classList.contains("active")) {
+      next.scrollLinePosition = "left";
+    } else if (document.getElementById("nodePhosphorWaveformPositionRightButton")?.classList.contains("active")) {
+      next.scrollLinePosition = "right";
+    } else {
+      next.scrollLinePosition = "mid";
+    }
+    next.cornerShape = document.getElementById("nodePhosphorWaveformCornerSquareButton")?.classList.contains("active")
+      ? "square"
+      : "squircle";
+    return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
+  }
   if (formType === "keypadFace") {
     const panel = root?.querySelector?.("[data-keypad-display-settings-panel]") || root;
     const next = { ...current };
@@ -759,6 +833,10 @@ function readNodeGraphTraceDisplaySettingsForm() {
     const font = panel?.querySelector?.(`[data-trace-display-choice="font"]`);
     if (font) {
       next.font = font.value;
+    }
+    const labels = panel?.querySelector?.("[data-keypad-labels]");
+    if (labels) {
+      next.labels = labels.value;
     }
     const corner = panel?.querySelector?.("[data-keypad-corner].active, [data-keypad-corner][aria-pressed='true']");
     if (corner) {
@@ -1026,6 +1104,12 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
     }
     return;
   }
+  if (formType === "phosphorWaveform") {
+    if (typeof renderNodeGraphPhosphorWaveformSettingsWindow === "function") {
+      renderNodeGraphPhosphorWaveformSettingsWindow();
+    }
+    return;
+  }
   if (formType === "keypadFace") {
     const panel = root?.querySelector?.("[data-keypad-display-settings-panel]") || root;
     if (typeof syncNodeGraphKeypadDisplaySettingsControls === "function") {
@@ -1141,6 +1225,11 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   syncNodeGraphHueTitleSteppers(root);
   if (formType === "knobFace" && typeof syncNodeGraphKnobFaceDisplaySettingsControls === "function") {
     syncNodeGraphKnobFaceDisplaySettingsControls(root);
+  }
+  if (typeof nodeGraphDisplaySettingsIsVectorTraceFormType === "function"
+    && nodeGraphDisplaySettingsIsVectorTraceFormType(formType)
+    && typeof syncNodeGraphInstantTracePreview === "function") {
+    syncNodeGraphInstantTracePreview(root, normalized);
   }
 }
 
@@ -1331,13 +1420,13 @@ function nodeGraphTraceDisplayColorWidgetModuleUrl() {
   }
   const script = document.querySelector('script[src*="node-graph-module-scopes.js"]');
   if (script?.src) {
-    return new URL("color-widget.js?v=color-hover-nostroke-1", script.src).href;
+    return new URL("color-widget.js?v=hue-reset-red-1", script.src).href;
   }
   // Fallbacks: site root /public/, then document-relative public/
   try {
-    return new URL("/public/color-widget.js?v=color-hover-nostroke-1", window.location.origin).href;
+    return new URL("/public/color-widget.js?v=hue-reset-red-1", window.location.origin).href;
   } catch {
-    return new URL("public/color-widget.js?v=color-hover-nostroke-1", window.location.href).href;
+    return new URL("public/color-widget.js?v=hue-reset-red-1", window.location.href).href;
   }
 }
 
@@ -1454,7 +1543,7 @@ function nodeGraphTraceDisplayHexToHsl(hexToken = "#ffffff") {
   }
   return {
     a: 1,
-    h: Math.round(hue * 359),
+    h: Math.round(hue * 360) % 360,
     l: Math.round(lightness * 100),
     s: Math.round(saturation * 100),
   };
@@ -1518,7 +1607,9 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
         : null;
       return nodeType === "valueLcd" ? "Foreground" : "";
     }
-    const nodeType = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type;
+    const nodeType = typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
+      : null;
     const isStereo = typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
       ? nodeGraphModuleUsesStereoTraceDisplay(nodeType)
       : nodeType === "output";
@@ -1647,10 +1738,18 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
       if (!widget) {
         try {
           host.replaceChildren();
+          const defaultHex = typeof nodeGraphDisplaySettingsColorRowMeta === "function"
+            ? nodeGraphDisplaySettingsColorRowMeta(field, liveType, { stereo: true }).defaultValue
+            : "";
+          const defaultHsl = defaultHex
+            ? nodeGraphTraceDisplayHexToHsl(defaultHex)
+            : null;
           widget = mount(host, {
             // Hue-only never shows a title (giant scaled "Hue" was a waste strip).
             label: hueOnly ? "" : label,
             ...mountHsl,
+            // 0 = red (Left). Must pass explicitly — falsy 0 is still a hue.
+            defaultHue: Number.isFinite(Number(defaultHsl?.h)) ? defaultHsl.h : undefined,
             channels: hueOnly ? "hue" : "full",
             onChange: (color) => {
               if (nodeGraphTraceDisplayColorWidgetState.syncing) {

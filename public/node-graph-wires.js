@@ -1218,6 +1218,9 @@
       if (event.button !== undefined && event.button !== 0) {
         return;
       }
+      if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+        return;
+      }
       const port = event.currentTarget instanceof Element ? event.currentTarget : null;
       if (!port) {
         return;
@@ -1256,6 +1259,9 @@
 
     function handlePortPointerDown(event) {
       if (event.button !== 0) {
+        return;
+      }
+      if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
         return;
       }
       const port = event.currentTarget instanceof Element ? event.currentTarget : null;

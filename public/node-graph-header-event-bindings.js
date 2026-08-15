@@ -11,19 +11,38 @@ function bindNodeGraphHeaderControlEvents() {
   bindNodeGraphCanvasScriptEvents();
   bindNodeGraphCodeScreenEvents();
   renderNodeGraphPatchTimingControls();
-  document.getElementById("nodeDeleteButton").addEventListener("click", deleteSelectedNodeGraphItem);
+  document.getElementById("nodeDeleteButton")?.addEventListener("click", deleteSelectedNodeGraphItem);
+  document.getElementById("nodeHistoryDeleteButton")?.addEventListener("click", deleteSelectedNodeGraphItem);
   document.getElementById("nodeUndoButton").addEventListener("click", undoNodeGraphPatch);
   document.getElementById("nodeRedoButton").addEventListener("click", redoNodeGraphPatch);
   document.getElementById("nodeFullUiButton")?.addEventListener("click", toggleNodeGraphFullUiView);
-  document.getElementById("nodeVisibilityMenuClose").addEventListener("click", () => setNodeGraphVisibilityMenuOpen(false));
+  document.getElementById("nodeVisibilityMenuClose")?.addEventListener("click", () => {
+    if (typeof closeNodeGraphUnifiedWindowPage === "function") {
+      closeNodeGraphUnifiedWindowPage("visibilityMenu");
+      return;
+    }
+    setNodeGraphVisibilityMenuOpen(false);
+  });
   document
     .querySelector("#nodeVisibilityMenu .scene-context-heading")
     ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "visibilityMenu"));
   document
     .getElementById("nodeVisibilityMenuResizeHandle")
     ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "visibilityMenu"));
-  // Move/up: nodeGraphFloatingWindowRegistryPointerBridge (floating-windows.js)
-  document.getElementById("nodeVisibilityMenuButton").addEventListener("click", toggleNodeGraphVisibilityMenu);
+  // Visibility lives on the Command Center 👁️ nav — no top-bar button.
+  document.getElementById("nodeHotkeysPageClose")?.addEventListener("click", () => {
+    if (typeof closeNodeGraphUnifiedWindowPage === "function") {
+      closeNodeGraphUnifiedWindowPage("hotkeys");
+      return;
+    }
+    setNodeGraphHotkeysPageOpen(false);
+  });
+  document
+    .querySelector("#nodeHotkeysPage .scene-context-heading")
+    ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "hotkeys"));
+  document
+    .getElementById("nodeHotkeysPageResizeHandle")
+    ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "hotkeys"));
   document.getElementById("nodeStandaloneMidiKeyboardButton")?.addEventListener("click", toggleNodeGraphStandaloneMidiKeyboard);
   if (typeof bindNodeGraphControllerDockSplit === "function") {
     bindNodeGraphControllerDockSplit();

@@ -77,9 +77,79 @@ function nodeGraphFindCopiedModuleGridPoint(sourceNode, nodes = nodeGraphMvp.pat
   return { gx: candidate.gx, gy: candidate.gy + maxSearchRows };
 }
 
+function nodeGraphPatchIsLocked(patch = nodeGraphMvp?.patch) {
+  const view = typeof normalizeNodeGraphPatchView === "function"
+    ? normalizeNodeGraphPatchView(patch?.view)
+    : patch?.view;
+  return Boolean(view?.locked);
+}
+
+function nodeGraphPatchHidesUnusedPorts(patch = nodeGraphMvp?.patch) {
+  const view = typeof normalizeNodeGraphPatchView === "function"
+    ? normalizeNodeGraphPatchView(patch?.view)
+    : patch?.view;
+  return Boolean(view?.hideUnusedPorts);
+}
+
+function commitNodeGraphPatchViewFlags(nextFlags = {}, status = "view updated") {
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const view = typeof normalizeNodeGraphPatchView === "function"
+    ? normalizeNodeGraphPatchView(patch.view)
+    : { ...(patch.view || {}) };
+  patch.view = { ...view, ...nextFlags };
+  commitNodeGraphPatch(patch, { status });
+  if (typeof applyNodeGraphWorkspaceView === "function") {
+    applyNodeGraphWorkspaceView();
+  }
+  syncNodeGraphReadyPanelChrome();
+}
+
+function syncNodeGraphReadyPanelChrome() {
+  const locked = nodeGraphPatchIsLocked();
+  const hideUnused = nodeGraphPatchHidesUnusedPorts();
+  const lockBtn = document.getElementById("nodePatchLockButton");
+  if (lockBtn) {
+    lockBtn.setAttribute("aria-pressed", String(locked));
+    lockBtn.setAttribute("aria-label", locked ? "Unlock patch" : "Lock patch");
+    lockBtn.title = locked
+      ? "Unlock patch: select, move, add, and delete again"
+      : "Lock patch: no select, move, add, or delete";
+    const label = lockBtn.querySelector(".scene-context-window-button-label");
+    if (label) {
+      label.textContent = locked ? "🔒" : "🔓";
+    }
+  }
+  const hideBtn = document.getElementById("nodePatchHideUnusedButton");
+  if (hideBtn) {
+    hideBtn.setAttribute("aria-pressed", String(hideUnused));
+    hideBtn.title = hideUnused
+      ? "Show unused inlets and outlets"
+      : "Hide unused inlets and outlets";
+  }
+}
+
+function toggleNodeGraphPatchLocked() {
+  const next = !nodeGraphPatchIsLocked();
+  commitNodeGraphPatchViewFlags({ locked: next }, next ? "patch locked" : "patch unlocked");
+}
+
+function toggleNodeGraphPatchHideUnusedPorts() {
+  const next = !nodeGraphPatchHidesUnusedPorts();
+  commitNodeGraphPatchViewFlags(
+    { hideUnusedPorts: next },
+    next ? "unused ports hidden" : "unused ports shown",
+  );
+}
+
 function showNodeGraphModule(node, point = null, options = {}) {
   const type = node;
   if (!Object.hasOwn(nodeGraphModuleDefinitions, type)) {
+    return "";
+  }
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Patch is locked.");
+    }
     return "";
   }
   if (typeof nodeGraphModuleTypeIsUnderConstruction === "function"
@@ -139,12 +209,13 @@ function showNodeGraphModule(node, point = null, options = {}) {
   }));
   commitNodeGraphPatch(patch, {
     status: options.status || "module added",
+    topologyEdit: true,
     // Ghost drag-from-shop: keep pointer responsive (no history/autosave/live plan
     // until drop). Heavy modules like multi-out crossovers were freezing on grab.
     record: options.record,
     autosaveWorkingPatch: options.autosaveWorkingPatch,
     skipLivePlan: options.skipLivePlan,
-    deferUiPanels: options.deferUiPanels,
+    deferUiPanels: options.deferUiPanels !== false,
   });
   return id;
 }
@@ -228,7 +299,46 @@ function nodeGraphClientPointInsideWorkspace(event) {
   );
 }
 
+function nodeGraphPlacementSnapGhostElement() {
+  return document.getElementById("nodeGraphPlacementSnapGhost");
+}
+
+function clearNodeGraphPlacementSnapGhost() {
+  nodeGraphPlacementSnapGhostElement()?.remove();
+}
+
+function syncNodeGraphPlacementSnapGhost(element, visible = true) {
+  if (!element || !visible) {
+    clearNodeGraphPlacementSnapGhost();
+    return null;
+  }
+  const container = document.getElementById("nodeGraphNodes");
+  if (!container) {
+    return null;
+  }
+  let ghost = nodeGraphPlacementSnapGhostElement();
+  if (!ghost) {
+    ghost = document.createElement("div");
+    ghost.id = "nodeGraphPlacementSnapGhost";
+    ghost.className = "dsp-node-placement-snap-ghost";
+    ghost.setAttribute("aria-hidden", "true");
+    container.append(ghost);
+  }
+  const x = Number.parseFloat(element.style.getPropertyValue("--node-x")) || 0;
+  const y = Number.parseFloat(element.style.getPropertyValue("--node-y")) || 0;
+  const snapped = typeof snapNodeGraphPointToGrid === "function"
+    ? snapNodeGraphPointToGrid({ x, y })
+    : { x, y };
+  ghost.style.setProperty("--node-x", `${snapped.x}px`);
+  ghost.style.setProperty("--node-y", `${snapped.y}px`);
+  ghost.style.width = `${element.offsetWidth}px`;
+  ghost.style.height = `${element.offsetHeight}px`;
+  ghost.style.borderRadius = getComputedStyle(element).borderRadius;
+  return ghost;
+}
+
 function cancelNodeGraphModulePlacement(status = "module placement cancelled") {
+  clearNodeGraphPlacementSnapGhost();
   const placement = nodeGraphMvp.modulePlacement;
   if (!placement?.nodeId) {
     nodeGraphMvp.modulePlacement = null;
@@ -265,6 +375,7 @@ function cancelNodeGraphModulePlacement(status = "module placement cancelled") {
   // Ghost was never history/autosave/live-plan committed — keep cancel light too.
   commitNodeGraphPatch(patch, {
     status,
+    topologyEdit: true,
     record: false,
     autosaveWorkingPatch: false,
     skipLivePlan: true,
@@ -290,6 +401,7 @@ function positionNodeGraphPendingModuleAtCursor(cursorPoint) {
   }
   const element = nodeGraphNodeElement(placement.nodeId);
   if (!element) {
+    clearNodeGraphPlacementSnapGhost();
     nodeGraphMvp.modulePlacement = null;
     return false;
   }
@@ -297,12 +409,19 @@ function positionNodeGraphPendingModuleAtCursor(cursorPoint) {
   positionNodeGraphNode(element, point, { clamp: false, snap: false });
   placement.cursorPoint = cursorPoint;
   placement.point = point;
+  syncNodeGraphPlacementSnapGhost(element, placement.overWorkspace !== false);
   drawNodeGraphWires();
   scheduleNodeGraphModuleScopeDraw();
   return true;
 }
 
-function beginNodeGraphModulePlacement(type, point = null) {
+function beginNodeGraphModulePlacement(type, point = null, options = {}) {
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Patch is locked.");
+    }
+    return "";
+  }
   if (!type || !Object.hasOwn(nodeGraphModuleDefinitions, type)) {
     return "";
   }
@@ -311,6 +430,7 @@ function beginNodeGraphModulePlacement(type, point = null) {
   }
 
   const cursorPoint = point || nodeGraphGridToPixel(defaultNodeGraphModuleGridPoint(type));
+  const overWorkspace = options.overWorkspace !== false;
   const existingUnique = typeof nodeGraphModuleTypeIsUniqueInPatch === "function"
     && nodeGraphModuleTypeIsUniqueInPatch(type)
     && typeof nodeGraphFindExistingModuleOfType === "function"
@@ -321,6 +441,7 @@ function beginNodeGraphModulePlacement(type, point = null) {
     nodeGraphMvp.modulePlacement = {
       cursorPoint,
       nodeId: existingUnique.id,
+      overWorkspace,
       point: cursorPoint,
       pointerId: null,
       teleport: true,
@@ -346,6 +467,7 @@ function beginNodeGraphModulePlacement(type, point = null) {
   nodeGraphMvp.modulePlacement = {
     cursorPoint,
     nodeId: id,
+    overWorkspace,
     point: cursorPoint,
     pointerId: null,
     type,
@@ -357,6 +479,9 @@ function beginNodeGraphModulePlacement(type, point = null) {
 }
 
 function beginNodeGraphModuleStorePointerPlacement(event) {
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    return false;
+  }
   if (event.button !== undefined && event.button !== 0) {
     return false;
   }
@@ -365,7 +490,8 @@ function beginNodeGraphModuleStorePointerPlacement(event) {
     return false;
   }
   const type = addButton.dataset.contextModule;
-  const nodeId = beginNodeGraphModulePlacement(type, nodeGraphClientPoint(event));
+  const overWorkspace = nodeGraphClientPointInsideWorkspace(event);
+  const nodeId = beginNodeGraphModulePlacement(type, nodeGraphClientPoint(event), { overWorkspace });
   if (!nodeId) {
     return false;
   }
@@ -385,11 +511,13 @@ function finishNodeGraphModulePlacementAtCurrentPosition(status = "module placed
   }
   const element = nodeGraphNodeElement(placement.nodeId);
   if (!element) {
+    clearNodeGraphPlacementSnapGhost();
     nodeGraphMvp.modulePlacement = null;
     return false;
   }
 
   element.classList.remove("placing", "dragging");
+  clearNodeGraphPlacementSnapGhost();
   const x = Number.parseFloat(element.style.getPropertyValue("--node-x")) || 0;
   const y = Number.parseFloat(element.style.getPropertyValue("--node-y")) || 0;
   const gridPoint = nodeGraphPixelToGrid({ x, y });
@@ -418,6 +546,7 @@ function dragNodeGraphModulePlacement(event) {
   ) {
     return;
   }
+  placement.overWorkspace = nodeGraphClientPointInsideWorkspace(event);
   positionNodeGraphPendingModuleAtCursor(nodeGraphClientPoint(event));
 }
 
@@ -911,6 +1040,10 @@ function setNodeGraphPatchDefaultsVisible(visible) {
     if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
       noteNodeGraphUnifiedWindowOpened("patchDefaults", panel);
     }
+    if (typeof syncNodeGraphSettingsView === "function") {
+      syncNodeGraphSettingsView();
+    }
+    syncNodeGraphReadyPanelChrome();
   }
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState("patchDefaults", panel, { open: visible }, { status: false });
@@ -2541,12 +2674,8 @@ function toggleNodeGraphModuleCollapsedFromContext() {
   configureNodeSceneContextMenu("module");
 }
 
-/** Hide unconnected jacks — under construction; no-op until re-enabled. */
+/** Hide unconnected jacks on selected modules (CSS unused-hidden). */
 function toggleNodeGraphModuleHideUnusedFromContext() {
-  if (typeof setNodeInteractionHelp === "function") {
-    setNodeInteractionHelp("Hide unused is under construction.");
-  }
-  return;
   const targetNodeIds = nodeGraphModuleActionTargetNodeIds();
   if (!targetNodeIds.length) {
     return;
@@ -2787,27 +2916,9 @@ function openNodeGraphNativeModuleLibFromContext() {
 function deleteNodeGraphModuleFromContext() {
   const targetNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
   if (nodeGraphNodeCanBeDeleted(targetNode)) {
-    const targetNodeIds = new Set([targetNode.id]);
-    const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-    patch.nodes = patch.nodes.filter((node) => !targetNodeIds.has(node.id));
-    patch.bypassedNodes = patch.bypassedNodes.filter((nodeId) => !targetNodeIds.has(nodeId));
-    patch.connections = patch.connections.filter(
-      (connection) =>
-        !targetNodeIds.has(connection.sourceNode) &&
-        !targetNodeIds.has(connection.destinationNode),
-    );
-    patch.modulations = patch.modulations.filter(
-      (modulation) =>
-        !targetNodeIds.has(modulation.sourceNode) &&
-        !targetNodeIds.has(modulation.destinationNode),
-    );
-    commitNodeGraphPatch(patch, { status: "module deleted" });
+    setNodeGraphSelection({ type: "node", id: targetNode.id });
+    deleteSelectedNodeGraphItem();
     nodeGraphMvp.sceneContextTargetNode = null;
-    if (nodeGraphSelectedNodeIds().has(targetNode.id)) {
-      setNodeGraphSelection(null);
-    } else {
-      configureNodeSceneContextMenu("module");
-    }
     return;
   }
   configureNodeSceneContextMenu("module");

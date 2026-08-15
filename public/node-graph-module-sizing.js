@@ -611,11 +611,13 @@ function nodeGraphModuleSliderBodyHeightGu(type, ui = null, node = null) {
 
 function nodeGraphModuleIoRowCount(type) {
   const definition = nodeGraphModuleDefinitions[type];
-  return Math.max(
-    definition?.inputs?.length || 0,
-    definition?.outputs?.length || 0,
-    1,
-  );
+  // Match LayoutA jack columns: signal + data ports. Parameter keys are
+  // slider-row mod ports, not extra I/O rows — do not count them here.
+  // Hypersaw draws Phases/Amplitudes/Pans beside Left/Right; counting only
+  // `outputs` reserved 3 rows and clipped Amplitude into the lip.
+  const inputs = (definition?.inputs?.length || 0) + (definition?.dataInputs?.length || 0);
+  const outputs = (definition?.outputs?.length || 0) + (definition?.dataOutputs?.length || 0);
+  return Math.max(inputs, outputs, 1);
 }
 
 function nodeGraphModuleTypeHasIoPorts(type) {
@@ -827,7 +829,7 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
       continue;
     }
     const heightGu = Math.max(0, Number(widget.heightGu) || 0);
-    const visible = widget.visible !== false && heightGu > 0;
+    const visible = widget.visible !== false && (heightGu > 0 || id === "io");
     const existing = byId.get(id);
     if (!existing) {
       byId.set(id, { id, heightGu, visible, grow: false });
@@ -856,6 +858,8 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
   const face = bands.find((band) => band.id === "face");
   // Sliders + I/O off: leftover plate (including the lip) belongs to the face.
   const displayOwnsPlate = Boolean(face?.visible) && !paramsVisible && !ioVisible;
+  // Music Player: leftover plate belongs to the waveform, not the I/O strip.
+  // I/O stays a content-sized track (see bandTrackCss) so 1fr cannot clip jacks.
   if (type === "audioPlayer" || layout === "textBox" || displayOwnsPlate) {
     if (face?.visible) {
       face.grow = true;
@@ -910,9 +914,12 @@ function nodeGraphModuleBandTrackCss(band) {
     return "auto";
   }
   if (band.id === "io") {
+    // Definite / max-content — never `auto` max. `.dsp-node { align-content:
+    // stretch }` inflates auto tracks, so leftover height became a huge empty
+    // I/O band and the face stayed at its min (Music Player waveform vanished).
     return band.grow
       ? "minmax(var(--node-module-io-track-min, var(--node-io-section-min-height)), 1fr)"
-      : "minmax(var(--node-module-io-track-min, var(--node-io-section-min-height)), auto)";
+      : "var(--node-module-io-track-min, var(--node-io-section-min-height))";
   }
   if (band.id === "params") {
     return band.grow
@@ -1060,6 +1067,12 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
     if (index >= 0) {
       child.style.gridRow = String(index + 1);
       child.hidden = false;
+    } else if (id === "io" && child.classList.contains("dsp-node-io-section")) {
+      const ioHidden = article.classList.contains("io-hidden");
+      child.hidden = ioHidden;
+      if (!ioHidden) {
+        child.style.gridRow = String(Math.max(2, lastContentIndex + 1));
+      }
     } else if (child.classList.contains("node-text-box-body")) {
       const faceIndex = visible.findIndex((band) => band.id === "face");
       child.style.gridRow = String(faceIndex >= 0 ? faceIndex + 1 : Math.max(2, visible.length));
@@ -1142,7 +1155,10 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   const ioVisible = !normalizedUi.ioHidden && nodeGraphModuleTypeHasIoPorts(type);
   const ioHeightGu = normalizedUi.ioHidden
     ? nodeGraphModuleHiddenIoSectionHeightGu(type)
-    : nodeGraphModuleIoSectionHeightGu(type);
+    : Math.max(
+      nodeGraphModuleLayout.ioSectionMinHeightGu || 0.5,
+      nodeGraphModuleIoSectionHeightGu(type) || 0,
+    );
   // LayoutC: title + I/O only (no face, no params).
   if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
     return [

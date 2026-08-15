@@ -212,11 +212,7 @@ function openNodeModuleDisplaySettings(event) {
       return;
     }
   }
-  // Shared display inspector for most faces. Music Player phosphor still owns
-  // its own window; LED uses the shared Phosphor Dot (dot) schema.
-  if (nodeId && typeof openNodeGraphPhosphorWaveformSettings === "function" && openNodeGraphPhosphorWaveformSettings(nodeId, event)) {
-    return;
-  }
+  // Shared display inspector (Music Player waveform included).
   if (nodeId && typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
     return;
   }
@@ -931,14 +927,16 @@ function createNodeGraphModuleElement(type, node) {
     const mountFace = typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
       : !patchNodeUi.oscilloscopeHidden;
-    const face = mountFace && typeof createNodeGraphPhoneToneDisplay === "function"
-      ? createNodeGraphPhoneToneDisplay(node, type)
-      : document.createElement("div");
-    if (!mountFace) {
-      face.className = "node-module-display-placeholder";
-      face.hidden = true;
+    if (mountFace && typeof createNodeGraphPhoneToneDisplay === "function") {
+      article.append(createNodeGraphPhoneToneDisplay(node, type));
     }
-    article.append(createNodeGraphLayoutBShell(node, type, face, null, inputPorts, outputPorts));
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "roundShape") {
     // Cheap static sine→square orbit — hideable like every display.
     if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"

@@ -26,7 +26,7 @@ function normalizeNodeGraphVectorRgbSettings(settings = {}) {
     burn: Math.max(0, Math.min(1, num("burn", d.burn))),
     dot1Brightness: Math.max(0, Math.min(1, num("dot1Brightness", d.dot1Brightness))),
     dot1Size: Math.max(0, Math.min(1, num("dot1Size", d.dot1Size))),
-    pixelDensity: Math.max(0.125, Math.min(4, num("pixelDensity", d.pixelDensity))),
+    pixelDensity: Math.max(0, Math.min(1, num("pixelDensity", d.pixelDensity))),
     scale: Math.max(0.05, Math.min(8, num("scale", d.scale))),
     trail: Math.max(0, Math.min(1, num("trail", d.trail))),
   };

@@ -41,6 +41,17 @@ function applyNodeGraphZoom(options = {}) {
   const inGesture = options.gesture === true || Boolean(options.gestureKind);
   if (inGesture && typeof markNodeGraphViewportGesture === "function") {
     markNodeGraphViewportGesture(options.gestureKind || "zoom");
+  } else if (typeof clearNodeGraphViewportGestureClass === "function") {
+    clearNodeGraphViewportGestureClass();
+    if (typeof flushNodeGraphViewportImmediate === "function") {
+      flushNodeGraphViewportImmediate({ zoom: true, pan: true, persist: options.persist !== false });
+    } else {
+      updateNodeGraphGridHeatmap();
+      drawNodeGraphWires();
+      if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+        scheduleNodeGraphModuleScopeDraw();
+      }
+    }
   } else if (typeof flushNodeGraphViewportImmediate === "function") {
     flushNodeGraphViewportImmediate({ zoom: true, pan: true, persist: options.persist !== false });
   } else {

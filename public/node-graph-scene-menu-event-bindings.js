@@ -36,6 +36,7 @@ function bindNodeGraphSceneMenuEvents() {
   document.addEventListener("pointerup", endNodeGraphGraphNodeDrag);
   document.addEventListener("pointercancel", endNodeGraphGraphNodeDrag);
   bindNodeGraphSceneElementEvent("nodeSceneDeleteModule", "click", deleteNodeGraphSelectionFromContext);
+  bindNodeGraphSceneElementEvent("nodeSceneHistoryDeleteButton", "click", deleteSelectedNodeGraphItem);
   document
     .querySelectorAll("#nodeSceneWireTypeControl [data-wire-type]")
     .forEach((button) => {
@@ -53,7 +54,12 @@ function bindNodeGraphSceneMenuEvents() {
   }
   bindNodeGraphSceneElementEvent("nodeSceneWireAttenuate", "click", () => {
     if (typeof attenuateSelectedNodeGraphWires === "function") {
-      attenuateSelectedNodeGraphWires();
+      attenuateSelectedNodeGraphWires("attenuate");
+    }
+  });
+  bindNodeGraphSceneElementEvent("nodeSceneWireAttenuvert", "click", () => {
+    if (typeof attenuateSelectedNodeGraphWires === "function") {
+      attenuateSelectedNodeGraphWires("attenuvert");
     }
   });
   bindNodeGraphSceneElementEvent("nodeSceneCopyModule", "click", copyNodeGraphModuleFromContext);
@@ -68,6 +74,8 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeScenePasteModuleSettings", "click", pasteNodeGraphModuleSettingsFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneSetModuleSettingsAsDefault", "click", setNodeGraphModuleSettingsAsDefaultFromButton);
   bindNodeGraphSceneElementEvent("nodeSceneBroomBatch", "click", applyNodeGraphPatchDefaultsFromCurrentSelection);
+  bindNodeGraphSceneElementEvent("nodePatchLockButton", "click", toggleNodeGraphPatchLocked);
+  bindNodeGraphSceneElementEvent("nodePatchHideUnusedButton", "click", toggleNodeGraphPatchHideUnusedPorts);
   bindNodeGraphSceneElementEvent("nodePatchDefaultsClose", "click", () => setNodeGraphPatchDefaultsVisible(false));
   bindNodeGraphSceneElementEvent("nodePatchDefaultsHeading", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "patchDefaults"));
   bindNodeGraphSceneElementEvent("nodePatchDefaultsDragHandle", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "patchDefaults"));
@@ -133,7 +141,10 @@ function bindNodeGraphSceneMenuEvents() {
     document.getElementById("nodeRoomDimmerButton")?.focus?.();
   });
   bindNodeGraphSceneElementEvent("nodeSceneOpenVisibility", "click", () => {
-    // Standalone Visibility window (own seat) — never unified seat handoff.
+    if (typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("visibilityMenu");
+      return;
+    }
     setNodeGraphVisibilityMenuOpen(true);
   });
   bindNodeGraphSceneElementEvent("nodeSceneGlobalSmoothingSeconds", "change", handleNodeGraphGlobalSmoothingSecondsChange);

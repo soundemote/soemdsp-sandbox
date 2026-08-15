@@ -127,13 +127,13 @@ function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio, pixel
   }
   // Layout pixel grid × density — not screen-space getBoundingClientRect.
   // Workspace zoom must not reallocate burn FBOs (that was the FPS cliff).
-  // density <1 = chunky pixelated; 1 = native; 2–4 = supersample.
   const size = nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio);
   if (!size) {
     return { resized: false, synced: false };
   }
-  const resolved = nodeGraphScope2dResolvePixelDensity(pixelDensity, size.width, size.height);
-  const density = resolved.effective;
+  const density = typeof nodeGraphFacePlateDensity === "function"
+    ? nodeGraphFacePlateDensity({ pixelDensity }, 1)
+    : Math.max(0, Math.min(1, Number(pixelDensity) || 0));
   const width = Math.max(1, Math.round(size.width * density));
   const height = Math.max(1, Math.round(size.height * density));
   const resized = canvas.width !== width || canvas.height !== height;
@@ -156,7 +156,7 @@ function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio, pixel
     canvas.style.width = "";
     canvas.style.height = "";
   }
-  return { resized, synced: true, density, userDensity: resolved.density };
+  return { resized, synced: true, density };
 }
 
 
@@ -857,7 +857,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     context.save();
     // Energy is already additive mono; LUT paints color (incl. dark peaks).
     context.globalCompositeOperation = "source-over";
-    // Smooth when density ≥ 1 (supersample); nearest when intentionally chunky.
+    // Smooth at native density; nearest when intentionally chunky.
     const dens = Number(sync.density);
     context.imageSmoothingEnabled = Number.isFinite(dens) ? dens >= 0.999 : true;
     context.drawImage(energyGl.canvas, 0, 0, width, height);
@@ -1138,10 +1138,14 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   }
   // VECTOR polyline (same philosophy as 1D Trace — not energy stamps).
   if (typeof TraceStroke !== "undefined" && TraceStroke.draw) {
+    const blur = Number.isFinite(Number(settings.lineThickness))
+      ? Number(settings.lineThickness)
+      : 0;
     const count = TraceStroke.draw(context, points, {
       size: settings.dot1Size,
-      blur: 0,
+      blur,
       brightness: settings.dot1Brightness,
+      fade: Number.isFinite(Number(settings.fade)) ? Number(settings.fade) : 0,
       color: settings.dot1Color,
       faceMinSide: Math.max(1, Number(dotSpace) || 1),
       composite: "source-over",
@@ -1193,7 +1197,7 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   const canvas = nodeGraphModuleScopeLocalFallbackCanvas(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
   const settings = nodeGraphScope2dTraceSettingsForNode(nodeGraphModuleScopeNodeForSlot(item.slot));
-  // VECTOR polyline; density scales face buffer for lo-fi/AA (default 1).
+  // VECTOR polyline; density scales face buffer for lo-fi (default 1).
   const density = nodeGraphFacePlateDensity(settings, 1);
   if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(
     canvas,

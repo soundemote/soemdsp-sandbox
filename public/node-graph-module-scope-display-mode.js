@@ -2,6 +2,9 @@
 // (Phase D). Load after normalize.js, before scopes.js.
 
 function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
+  if (renderer === "phosphorWaveform") {
+    return "phosphorWaveform";
+  }
   return nodeGraphDisplayModeRenderers.includes(renderer) ? renderer : "trace";
 }
 
@@ -191,6 +194,8 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "knobFace",
     // Keypad look: fonts, weight, button size, Sound Color Widgets.
     "keypadFace",
+    // Music Player waveform / playlist look.
+    "phosphorWaveform",
     // Text Box look: mode, align, size, Sound Color Widgets.
     "textBoxFace",
     "portalFace",

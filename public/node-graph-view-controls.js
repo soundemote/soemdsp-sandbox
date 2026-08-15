@@ -736,7 +736,7 @@ function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
  * ───────────────────
  *  💻      — computer view: infinite canvas (toolbar button, not a hotkey).
  *  📱      — phone / condensed frame (toolbar button or touch, not a hotkey).
- *  H       — hide/show top + bottom app bars (appChromeBarsVisible).
+ *  V       — view: hide/show top + bottom app bars (appChromeBarsVisible).
  *
  * Laptop and phone are mutually exclusive canvas modes.
  */
@@ -791,7 +791,7 @@ function toggleNodeGraphModularOnlyControlsVisible() {
 }
 
 /**
- * Top + bottom app bars (scene menu). H toggles this.
+ * Top + bottom app bars (scene menu). V toggles this.
  */
 function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
   nodeGraphMvp.appChromeBarsVisible = visible !== false;
@@ -811,8 +811,8 @@ function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
   if (options.help !== false && typeof setNodeInteractionHelp === "function") {
     setNodeInteractionHelp(
       nodeGraphMvp.appChromeBarsVisible === false
-        ? "Top and bottom bars hidden (H)."
-        : "Top and bottom bars shown (H).",
+        ? "Top and bottom bars hidden (V)."
+        : "Top and bottom bars shown (V).",
     );
   }
 }
@@ -1161,30 +1161,48 @@ function hideNodeGraphDebugChrome() {
 
 function setNodeGraphVisibilityMenuOpen(open) {
   const menu = document.getElementById("nodeVisibilityMenu");
-  if (menu) {
-    // Already open: activation only — raise + glow. Never re-home.
-    if (open && !menu.hidden) {
-      if (typeof pulseNodeGraphFloatingWindowAttention === "function") {
-        pulseNodeGraphFloatingWindowAttention(menu);
-      } else if (typeof raiseNodeGraphFloatingWindow === "function") {
-        raiseNodeGraphFloatingWindow(menu);
-      }
-      renderNodeGraphVisibilityMenuButton();
+  if (!menu) {
+    return;
+  }
+  const switching = Boolean(nodeGraphMvp?._unifiedWindowSwitching);
+  // Already showing: pulse only. Independent callers go through the
+  // unified switcher so we never re-home onto a leftover Visibility seat.
+  if (open && !menu.hidden) {
+    if (!switching && typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("visibilityMenu");
       return;
     }
-    menu.hidden = !open;
-    if (open) {
-      // Standalone window: own workspaceWindowStates.visibilityMenu seat/size.
-      // Do not share unified Command Center / Module Browser geometry.
-      applyNodeGraphVisibilityMenuSize(nodeGraphMvp.workspaceWindowStates?.visibilityMenu?.size);
-      openNodeGraphFloatingWindowAtPosition("visibilityMenu", menu);
-      // Strip any leftover unified-nav host (Visibility is not a unified page).
-      menu.querySelectorAll?.(".node-unified-window-nav-host, .node-unified-window-nav")
-        ?.forEach?.((el) => el.remove());
+    if (typeof pulseNodeGraphFloatingWindowAttention === "function") {
+      pulseNodeGraphFloatingWindowAttention(menu);
+    } else if (typeof raiseNodeGraphFloatingWindow === "function") {
+      raiseNodeGraphFloatingWindow(menu);
+    }
+    renderNodeGraphVisibilityMenuButton();
+    return;
+  }
+  if (open && !switching && typeof openNodeGraphUnifiedWindowPage === "function") {
+    openNodeGraphUnifiedWindowPage("visibilityMenu");
+    return;
+  }
+  menu.hidden = !open;
+  if (open) {
+    menu.classList.add("node-unified-window");
+    // Shared seat is applied once by openNodeGraphUnifiedWindowPage.
+    // Do not restore workspaceWindowStates.visibilityMenu.position/size.
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(menu);
+    }
+    if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+      noteNodeGraphUnifiedWindowOpened("visibilityMenu", menu);
     }
   }
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState("visibilityMenu", menu, { open: Boolean(open) }, { status: false });
+    rememberNodeGraphWorkspaceWindowState(
+      "visibilityMenu",
+      menu,
+      { open: Boolean(open) },
+      { status: false, persist: false, capturePosition: false },
+    );
   }
   renderNodeGraphVisibilityMenuButton();
 }
@@ -1212,31 +1230,43 @@ function nodeGraphVisibilityMenuSizeFromElement(menu = document.getElementById("
   const rect = menu.getBoundingClientRect();
   return {
     width: Math.round(rect.width),
+    height: Math.round(rect.height),
   };
 }
 
-function applyNodeGraphVisibilityMenuSize(size = {}) {
-  const menu = document.getElementById("nodeVisibilityMenu");
+function applyNodeGraphVisibilityMenuSize(size = {}, menuArg = null) {
+  const menu = menuArg || document.getElementById("nodeVisibilityMenu");
   if (!menu) {
     return null;
   }
   const rect = menu.getBoundingClientRect();
   const minimum = nodeGraphVisibilityMenuMinimumSize(menu);
+  const shared = nodeGraphMvp?.unifiedWindowSize || {};
+  const wantHeight = Number(size.height) > 40 || Number(shared.height) > 40;
+  const height = Number(size.height) > 40
+    ? Number(size.height)
+    : (Number(shared.height) > 40 ? Number(shared.height) : rect.height);
   const normalized = normalizeNodeGraphFloatingWindowSize(
     {
-      width: Number(size.width) || rect.width,
+      width: Number(size.width) || rect.width || shared.width,
+      ...(wantHeight ? { height } : {}),
     },
     {
       minWidth: minimum.width,
-      maxWidth: 420,
       minHeight: minimum.height,
-      maxHeight: 520,
-      width: 185,
+      width: Number(shared.width) || 185,
+      height: wantHeight ? height : minimum.height,
     },
   );
   menu.style.width = `${normalized.width}px`;
-  menu.style.minHeight = `${minimum.height}px`;
-  menu.style.removeProperty("height");
+  if (wantHeight) {
+    menu.style.height = `${normalized.height}px`;
+    menu.style.minHeight = `${minimum.height}px`;
+    menu.style.maxHeight = "none";
+  } else {
+    menu.style.minHeight = `${minimum.height}px`;
+    menu.style.removeProperty("height");
+  }
   return normalized;
 }
 
@@ -1272,13 +1302,9 @@ function dragNodeGraphVisibilityMenuResize(event) {
 
 function endNodeGraphVisibilityMenuResize(event) {
   endNodeGraphFloatingWindowResize(event, "visibilityMenuResizing", () => {
-    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-      rememberNodeGraphWorkspaceWindowState(
-        "visibilityMenu",
-        document.getElementById("nodeVisibilityMenu"),
-        { size: nodeGraphVisibilityMenuSizeFromElement() },
-        { status: false },
-      );
+    const menu = document.getElementById("nodeVisibilityMenu");
+    if (typeof rememberNodeGraphUnifiedWindowSizeFromElement === "function") {
+      rememberNodeGraphUnifiedWindowSizeFromElement(menu);
     }
   });
 }
@@ -1294,23 +1320,90 @@ function beginNodeGraphVisibilityMenuDrag(event) {
 function dragNodeGraphVisibilityMenu(event) {
   const menu = document.getElementById("nodeVisibilityMenu");
   dragNodeGraphFloatingWindow(event, "visibilityMenuDragging", menu, (next) => {
-    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-      rememberNodeGraphWorkspaceWindowState("visibilityMenu", menu, { open: true, position: next }, { persist: false });
+    if (typeof storeNodeGraphUnifiedWindowSeat === "function") {
+      storeNodeGraphUnifiedWindowSeat({
+        left: next.left,
+        top: next.top,
+        width: nodeGraphMvp?.unifiedWindowSize?.width,
+        height: nodeGraphMvp?.unifiedWindowSize?.height,
+      });
     }
   });
 }
 
 function endNodeGraphVisibilityMenuDrag(event) {
   endNodeGraphFloatingWindowDrag(event, "visibilityMenuDragging", () => {
-    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-      rememberNodeGraphWorkspaceWindowState("visibilityMenu", document.getElementById("nodeVisibilityMenu"), {}, { status: false });
+    const menu = document.getElementById("nodeVisibilityMenu");
+    if (typeof rememberNodeGraphUnifiedWindowSizeFromElement === "function") {
+      rememberNodeGraphUnifiedWindowSizeFromElement(menu);
+    } else if (typeof storeNodeGraphUnifiedWindowSeat === "function") {
+      storeNodeGraphUnifiedWindowSeat(typeof nodeGraphUnifiedWindowSeatFromElement === "function"
+        ? nodeGraphUnifiedWindowSeatFromElement(menu)
+        : null);
     }
   });
 }
 
+function applyNodeGraphHotkeysPageSize(size = {}, panelArg = null) {
+  const panel = panelArg || document.getElementById("nodeHotkeysPage");
+  if (!panel) {
+    return null;
+  }
+  const width = Math.round(Number(size.width) || panel.getBoundingClientRect().width);
+  const height = Math.round(Number(size.height) || panel.getBoundingClientRect().height);
+  if (width > 40) {
+    panel.style.width = `${width}px`;
+  }
+  if (height > 40) {
+    panel.style.height = `${height}px`;
+  }
+  return { width, height };
+}
+
+function setNodeGraphHotkeysPageOpen(open) {
+  const panel = document.getElementById("nodeHotkeysPage");
+  if (!panel) {
+    return;
+  }
+  const switching = Boolean(nodeGraphMvp?._unifiedWindowSwitching);
+  if (open && !panel.hidden) {
+    if (!switching && typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("hotkeys");
+      return;
+    }
+    if (typeof pulseNodeGraphFloatingWindowAttention === "function") {
+      pulseNodeGraphFloatingWindowAttention(panel);
+    }
+    return;
+  }
+  if (open && !switching && typeof openNodeGraphUnifiedWindowPage === "function") {
+    openNodeGraphUnifiedWindowPage("hotkeys");
+    return;
+  }
+  panel.hidden = !open;
+  if (open) {
+    panel.classList.add("node-unified-window");
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(panel);
+    }
+    if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+      noteNodeGraphUnifiedWindowOpened("hotkeys", panel);
+    }
+  }
+}
+
 function toggleNodeGraphVisibilityMenu() {
   const menu = document.getElementById("nodeVisibilityMenu");
-  setNodeGraphVisibilityMenuOpen(!(menu && !menu.hidden));
+  const open = Boolean(menu && !menu.hidden);
+  if (open && typeof closeNodeGraphUnifiedWindowPage === "function") {
+    closeNodeGraphUnifiedWindowPage("visibilityMenu");
+    return;
+  }
+  if (!open && typeof openNodeGraphUnifiedWindowPage === "function") {
+    openNodeGraphUnifiedWindowPage("visibilityMenu");
+    return;
+  }
+  setNodeGraphVisibilityMenuOpen(!open);
 }
 
 function nodeGraphStartupViewModeFromUrl() {
@@ -1832,13 +1925,9 @@ function setNodeGraphMacroKnobArcGapBrightness(value) {
   applyNodeGraphMacroKnobArcGapBrightness();
 }
 
-// A plain transform: scale() on the whole .node-macro-knob button (dial,
-// label, and value readout together, scaled and re-centered as one unit --
-// "zooming in" on the widget itself) rather than resizing any one part in
-// isolation. Transform doesn't reflow layout, so this deliberately doesn't
-// grow the knob's grid cell -- past ~100% it just overflows/clips against
-// the panel's own overflow:hidden, which is the accepted tradeoff for
-// letting this go arbitrarily large without fighting the grid.
+// Bank / dock knob size is a layout scale (--macro-knob-size-scale). Cells
+// grow with that scale and --macro-knob-gap sits between them, so neighbors
+// do not overlap. The Knob module plate uses --knob-dial-size instead.
 const nodeGraphMacroKnobSizeScaleMin = 0.25;
 const nodeGraphMacroKnobSizeScaleMax = 4;
 
@@ -1852,7 +1941,6 @@ function normalizeNodeGraphMacroKnobSizeScale(value) {
 function applyNodeGraphMacroKnobSizeScale() {
   const scale = normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale);
   document.documentElement?.style?.setProperty("--macro-knob-size-scale", String(scale));
-  document.documentElement?.style?.setProperty("--macro-knob-cell", `${Math.round(56 * scale)}px`);
 }
 
 function setNodeGraphMacroKnobSizeScale(value) {

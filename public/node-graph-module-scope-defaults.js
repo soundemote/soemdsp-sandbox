@@ -96,7 +96,7 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
   blur: 0.35,
   // Max phosphor stamps / frame (economy spreads when over).
   dotBudget: 2048,
-  // Face buffer scale (1 = native layout×dpr; <1 pixelated; 2–4 supersample).
+  // Face buffer scale (1 = native layout×dpr; <1 pixelated).
   pixelDensity: 1,
   // Amplitude zoom.
   scale: 1,
@@ -144,6 +144,8 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   syncChannel: "off",
   zoomSeconds: 0.05,
   historySeconds: 0.05,
+  // Lengthwise history fade: 0 = even ink, 1 = oldest gone / newest full.
+  fade: 0,
   // XYZ Trace: stack all three on one plot, or split the face into three bands.
   xyzLayout: "stack",
 });
@@ -555,7 +557,9 @@ const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
   // Closed X/Y orbits (RoundShape, attractors) need ≥1 period on screen.
   // 0.05s only drew a sliver of a 1 Hz Lissajous and looked “broken up”.
   historySeconds: 1,
-  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
+  fade: 0,
+  // Instant Trace Blur: 0 hard (current look) … 1 soft skirt inside Size.
+  lineThickness: 0,
   // Vector stroke; density scales face buffer for lo-fi/chunky look (default 1).
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   scale: nodeGraphScopePhosphorLookDefaults.scale,

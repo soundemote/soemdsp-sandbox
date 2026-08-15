@@ -278,6 +278,219 @@ function nodeGraphMissingAssetPrimaryNodeId(asset = {}) {
   return ids.find((id) => nodeGraphPatchNode(id)) || "";
 }
 
+function nodeGraphNormalizeAudioFileKey(name = "") {
+  return String(name || "").trim().toLowerCase().split(/[\\/]/).pop();
+}
+
+function nodeGraphMissingAssetMatchesFile(asset, file) {
+  const fileName = nodeGraphNormalizeAudioFileKey(file?.name);
+  if (!fileName) {
+    return false;
+  }
+  const fileStem = fileName.replace(/\.[^.]+$/, "");
+  return nodeGraphMissingAssetSearchNames(asset)
+    .map((name) => nodeGraphNormalizeAudioFileKey(name))
+    .filter(Boolean)
+    .some((name) => {
+      const stem = name.replace(/\.[^.]+$/, "");
+      return name === fileName || stem === fileStem || name === fileStem || stem === fileName;
+    });
+}
+
+function bindNodeGraphMissingSampleFolderLink() {
+  const button = document.getElementById("nodeMissingSampleAssetsLinkFolder");
+  const pathInput = document.getElementById("nodeMissingSampleAssetsPath");
+  if (!button || button.dataset.bound === "1") {
+    return;
+  }
+  button.dataset.bound = "1";
+  const run = () => {
+    const root = String(pathInput?.value || "").trim();
+    loadNodeGraphMissingSamplesFromSearchPath(root).catch((error) => {
+      const message = String(error?.message || error || "folder link failed");
+      const status = document.getElementById("nodeMissingSampleAssetsLinkStatus");
+      if (status) {
+        status.textContent = message;
+      }
+      if (typeof setNodeInteractionHelp === "function") {
+        setNodeInteractionHelp(`Sample folder link failed: ${message}`);
+      }
+    });
+  };
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    run();
+  });
+  pathInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      run();
+    }
+  });
+}
+
+async function loadNodeGraphMissingSamplesFromSearchPath(rootPath) {
+  const status = document.getElementById("nodeMissingSampleAssetsLinkStatus");
+  const sourceRoot = String(rootPath || "").trim();
+  const missing = nodeGraphMissingSampleAssets(nodeGraphMvp.patch);
+  if (!sourceRoot) {
+    if (status) {
+      status.textContent = "paste a folder path first";
+    }
+    return;
+  }
+  if (!missing.length) {
+    if (status) {
+      status.textContent = "nothing missing";
+    }
+    return;
+  }
+  if (status) {
+    status.textContent = `searching ${missing.length} missing…`;
+  }
+  beginNodeGraphSampleLoadLock({
+    total: missing.length,
+    title: "Loading missing samples",
+  });
+  let loaded = 0;
+  let missed = 0;
+  let batchError = "";
+  const firstNodeId = nodeGraphMissingAssetPrimaryNodeId(missing[0]);
+  try {
+    for (let index = 0; index < missing.length; index += 1) {
+      const asset = missing[index];
+      const nodeId = nodeGraphMissingAssetPrimaryNodeId(asset);
+      updateNodeGraphSampleLoadLock({
+        index: index + 1,
+        total: missing.length,
+        name: asset.sourceName || asset.id || "audio",
+      });
+      if (!nodeId) {
+        missed += 1;
+        continue;
+      }
+      if (nodeGraphSampleRamWouldExceed(0)) {
+        batchError = `Memory budget reached after ${loaded} file${loaded === 1 ? "" : "s"}.`;
+        break;
+      }
+      try {
+        await loadNodeGraphMissingSampleAssetFromPath(asset, sourceRoot, null);
+        loaded += 1;
+        const node = nodeGraphPatchNode(nodeId);
+        if (node?.type === "audioPlayer" && typeof nodeGraphAudioPlayerPlaylistAppendSample === "function") {
+          nodeGraphAudioPlayerPlaylistAppendSample(nodeId, {
+            id: node?.sample?.id,
+            name: asset.sourceName || node?.sample?.name,
+          }, { persist: false, refresh: false });
+        }
+      } catch (_error) {
+        missed += 1;
+      }
+    }
+  } catch (error) {
+    batchError = String(error?.message || error || "folder search failed");
+  }
+  await finishNodeGraphSampleLoadBatch(firstNodeId, {
+    count: loaded,
+    playlist: Boolean(nodeGraphPatchNode(firstNodeId)?.type === "audioPlayer"),
+    error: batchError,
+  });
+  renderNodeGraphMissingSampleAssetsDialog(nodeGraphMvp.patch);
+  if (status) {
+    status.textContent = batchError
+      ? batchError
+      : `loaded ${loaded}${missed ? `, ${missed} not found` : ""}`;
+  }
+}
+
+async function loadNodeGraphMissingSamplesFromFolderFiles(files = []) {
+  const status = document.getElementById("nodeMissingSampleAssetsLinkStatus");
+  const missing = nodeGraphMissingSampleAssets(nodeGraphMvp.patch);
+  if (!files.length) {
+    if (status) {
+      status.textContent = "no folder selected";
+    }
+    return;
+  }
+  const matches = [];
+  for (const asset of missing) {
+    const file = files.find((candidate) => nodeGraphMissingAssetMatchesFile(asset, candidate));
+    if (file) {
+      matches.push({ asset, file });
+    }
+  }
+  if (!matches.length) {
+    if (status) {
+      status.textContent = `no matches in that folder (${files.length} file${files.length === 1 ? "" : "s"})`;
+    }
+    return;
+  }
+  if (status) {
+    status.textContent = `loading ${matches.length} match${matches.length === 1 ? "" : "es"}…`;
+  }
+  beginNodeGraphSampleLoadLock({
+    total: matches.length,
+    title: "Loading missing samples",
+  });
+  let loaded = 0;
+  let batchError = "";
+  const firstNodeId = nodeGraphMissingAssetPrimaryNodeId(matches[0].asset);
+  try {
+    for (let index = 0; index < matches.length; index += 1) {
+      const { asset, file } = matches[index];
+      const nodeId = nodeGraphMissingAssetPrimaryNodeId(asset);
+      updateNodeGraphSampleLoadLock({
+        index: index + 1,
+        total: matches.length,
+        name: file.name || asset.sourceName || "audio",
+      });
+      if (!nodeId) {
+        continue;
+      }
+      if (nodeGraphSampleRamWouldExceed(0)) {
+        batchError = `Memory budget reached after ${loaded} file${loaded === 1 ? "" : "s"}.`;
+        break;
+      }
+      try {
+        await loadNodeGraphSampleForNode(nodeId, file, {
+          commit: false,
+          persist: false,
+          livePlan: false,
+          record: false,
+          syncDisplay: false,
+        });
+        loaded += 1;
+        const node = nodeGraphPatchNode(nodeId);
+        if (node?.type === "audioPlayer" && typeof nodeGraphAudioPlayerPlaylistAppendSample === "function") {
+          nodeGraphAudioPlayerPlaylistAppendSample(nodeId, {
+            id: node?.sample?.id,
+            name: file.name || node?.sample?.name,
+          }, { persist: false, refresh: false });
+        }
+      } catch (error) {
+        const message = String(error?.message || error || "load failed");
+        if (/memory budget/i.test(message)) {
+          batchError = message;
+          break;
+        }
+      }
+    }
+  } catch (error) {
+    batchError = String(error?.message || error || "folder load failed");
+  }
+  await finishNodeGraphSampleLoadBatch(firstNodeId, {
+    count: loaded,
+    playlist: Boolean(nodeGraphPatchNode(firstNodeId)?.type === "audioPlayer"),
+    error: batchError,
+  });
+  renderNodeGraphMissingSampleAssetsDialog(nodeGraphMvp.patch);
+  if (status) {
+    status.textContent = batchError
+      ? batchError
+      : `loaded ${loaded} of ${matches.length} from folder`;
+  }
+}
+
 async function loadNodeGraphMissingSampleAssetFromPath(asset, rootPath, statusElement = null) {
   const nodeId = nodeGraphMissingAssetPrimaryNodeId(asset);
   const sourceRoot = String(rootPath || "").trim();
@@ -362,41 +575,16 @@ function renderNodeGraphMissingSampleAssetsDialog(patch = nodeGraphMvp.patch) {
     const item = document.createElement("li");
     const source = document.createElement("span");
     source.textContent = asset.sourcePath
-      ? `looking for: ${asset.sourcePath}`
-      : `looking for: ${asset.sourceName || asset.id}`;
+      ? `missing: ${asset.sourcePath}`
+      : `missing: ${asset.sourceName || asset.id}`;
     const usedBy = document.createElement("small");
     usedBy.textContent = asset.requiredBy?.length
       ? `required by: ${asset.requiredBy.join(", ")}`
       : "required by: this patch";
-    const controls = document.createElement("div");
-    controls.className = "node-missing-sample-assets-controls";
-    const pathInput = document.createElement("input");
-    pathInput.type = "text";
-    pathInput.spellcheck = false;
-    pathInput.placeholder = "paste folder or file path";
-    pathInput.value = asset.sourcePath || "";
-    const searchButton = document.createElement("button");
-    searchButton.type = "button";
-    searchButton.textContent = "Search Path";
-    const status = document.createElement("small");
-    status.className = "node-missing-sample-assets-status";
-    searchButton.addEventListener("click", () => {
-      loadNodeGraphMissingSampleAssetFromPath(asset, pathInput.value, status).catch((error) => {
-        const message = String(error?.message || error || "asset search failed");
-        status.textContent = message;
-        setNodeInteractionHelp(`Sample search failed: ${message}`);
-      });
-    });
-    pathInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        searchButton.click();
-      }
-    });
-    controls.append(pathInput, searchButton);
-    item.append(source, usedBy, controls, status);
+    item.append(source, usedBy);
     list.append(item);
   }
+  bindNodeGraphMissingSampleFolderLink();
   dialog.hidden = missing.length === 0 || dismissed;
   document.body.classList.toggle("node-missing-samples-open", missing.length > 0 && !dismissed);
 }
@@ -455,6 +643,30 @@ function nodeGraphSamplePhaseElementsForNode(nodeId) {
 
 function nodeGraphSamplePhaseElementForNode(nodeId) {
   return nodeGraphSamplePhaseElementsForNode(nodeId)[0] || null;
+}
+
+function nodeGraphAudioPlayerLiveSpeedForNode(nodeId) {
+  const id = String(nodeId || "");
+  const reported = Number(nodeGraphMvp.sampleRuntimeStatus?.get?.(id)?.speed);
+  if (Number.isFinite(reported)) {
+    if (!nodeGraphMvp.audioPlayerActualSpeeds) {
+      nodeGraphMvp.audioPlayerActualSpeeds = new Map();
+    }
+    nodeGraphMvp.audioPlayerActualSpeeds.set(id, reported);
+    return reported;
+  }
+  const held = Number(nodeGraphMvp.audioPlayerActualSpeeds?.get?.(id));
+  return Number.isFinite(held) ? held : null;
+}
+
+function syncNodeGraphAudioPlayerSpeedReadout(nodeId) {
+  const nodeElement = typeof nodeGraphNodeElement === "function"
+    ? nodeGraphNodeElement(nodeId)
+    : document.querySelector(`.dsp-node[data-node="${CSS.escape(String(nodeId || ""))}"]`);
+  const slider = nodeElement?.querySelector?.('input[data-param="speed"]');
+  if (slider && typeof syncNodeSliderReadout === "function") {
+    syncNodeSliderReadout(slider);
+  }
 }
 
 function nodeGraphSamplePhaseForNode(nodeId) {
@@ -561,15 +773,26 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
   const primaryNodeId = String(message.nodeId || nodeIds[0] || "");
   const phase = Number(message.phase) || 0;
   const reason = String(message.reason || "").trim();
+  const speeds = message.speeds && typeof message.speeds === "object" ? message.speeds : null;
+  const primarySpeed = Number(message.speed);
   const activeIds = new Set(primaryNodeId ? [primaryNodeId] : nodeIds);
   for (const nodeId of nodeIds) {
+    const mapped = speeds ? Number(speeds[nodeId]) : NaN;
+    const speed = Number.isFinite(mapped)
+      ? mapped
+      : (activeIds.has(nodeId) && Number.isFinite(primarySpeed) ? primarySpeed : undefined);
     nodeGraphMvp.sampleRuntimeStatus?.set?.(nodeId, {
       phase: activeIds.has(nodeId) ? phase : 0,
       reason: activeIds.has(nodeId) ? reason : "engine not in live path",
+      speed,
     });
   }
   if (primaryNodeId && !nodeGraphMvp.sampleRuntimeStatus?.has?.(primaryNodeId)) {
-    nodeGraphMvp.sampleRuntimeStatus?.set?.(primaryNodeId, { phase, reason });
+    nodeGraphMvp.sampleRuntimeStatus?.set?.(primaryNodeId, {
+      phase,
+      reason,
+      speed: Number.isFinite(primarySpeed) ? primarySpeed : undefined,
+    });
   }
   // Persist playhead on the active Music Player(s) for refresh restore.
   if (primaryNodeId && activeIds.has(primaryNodeId)) {
@@ -582,6 +805,9 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
   }
   for (const nodeId of new Set([...nodeIds, primaryNodeId].filter(Boolean))) {
     syncNodeGraphSampleDisplayForNode(nodeId);
+    if (typeof syncNodeGraphAudioPlayerSpeedReadout === "function") {
+      syncNodeGraphAudioPlayerSpeedReadout(nodeId);
+    }
   }
   // Music Player playlist: auto-advance on complete + live scrubber value.
   if (primaryNodeId && typeof nodeGraphAudioPlayerPlaylistOnRuntimeStatus === "function") {
@@ -676,6 +902,7 @@ function nodeGraphSetAudioPlayerResource(nodeId, resourceRow, options = {}) {
   }
   nodeGraphMvp.sampleLoadErrors?.delete?.(targetId);
   nodeGraphMvp.sampleRuntimeStatus?.delete?.(targetId);
+  nodeGraphMvp.audioPlayerActualSpeeds?.delete?.(targetId);
   commitNodeGraphPatch(patch, {
     markPending: false,
     record: options.record !== false,
@@ -732,61 +959,227 @@ function nodeGraphSampleFileToDataUrl(file) {
   });
 }
 
-async function decodeNodeGraphSampleDataUrl(dataUrl, fallbackName = "Sample") {
-  const response = await fetch(dataUrl);
-  const arrayBuffer = await response.arrayBuffer();
+let nodeGraphSampleDecodeAudioContext = null;
+
+function nodeGraphSampleSharedDecodeContext() {
   const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextConstructor) {
     throw new Error("Web Audio API unavailable");
   }
-  const context = new AudioContextConstructor();
+  if (!nodeGraphSampleDecodeAudioContext || nodeGraphSampleDecodeAudioContext.state === "closed") {
+    nodeGraphSampleDecodeAudioContext = new AudioContextConstructor();
+  }
+  return nodeGraphSampleDecodeAudioContext;
+}
+
+function nodeGraphSampleChannelBytes(channelData = []) {
+  let bytes = 0;
+  for (const channel of channelData || []) {
+    bytes += channel?.byteLength || 0;
+  }
+  return bytes;
+}
+
+function nodeGraphSampleDecodedRamBytes() {
+  let bytes = 0;
+  const buffers = nodeGraphMvp?.sampleBuffers;
+  if (!buffers || typeof buffers.values !== "function") {
+    return 0;
+  }
+  for (const buf of buffers.values()) {
+    bytes += nodeGraphSampleChannelBytes(buf?.channelData);
+    if (!buf?.channelData?.length && buf?.samples?.byteLength) {
+      bytes += buf.samples.byteLength;
+    }
+  }
+  return bytes;
+}
+
+function nodeGraphSampleRamBudgetBytes() {
+  const heap = Number(performance?.memory?.jsHeapSizeLimit) || 0;
+  if (heap > 0) {
+    return Math.max(128 * 1024 * 1024, Math.floor(heap * 0.4));
+  }
+  return 512 * 1024 * 1024;
+}
+
+function nodeGraphSampleFormatBytes(bytes) {
+  const n = Math.max(0, Number(bytes) || 0);
+  if (n < 1024 * 1024) {
+    return `${Math.round(n / 1024)} KB`;
+  }
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function nodeGraphSampleRamWouldExceed(extraBytes = 0) {
+  return nodeGraphSampleDecodedRamBytes() + Math.max(0, Number(extraBytes) || 0)
+    > nodeGraphSampleRamBudgetBytes();
+}
+
+function bindNodeGraphSampleLoadLockClose() {
+  const close = document.getElementById("nodeSampleLoadLockClose");
+  if (!close || close.dataset.bound === "1") {
+    return;
+  }
+  close.dataset.bound = "1";
+  close.addEventListener("click", (event) => {
+    event.preventDefault();
+    endNodeGraphSampleLoadLock();
+  });
+}
+
+function nodeGraphSampleLoadLockBlockEvent(event) {
+  if (!document.body.classList.contains("node-sample-load-lock-open")) {
+    return;
+  }
+  if (event.target?.closest?.("#nodeSampleLoadLockClose")) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function bindNodeGraphSampleLoadLockGuard() {
+  if (typeof document === "undefined" || document.documentElement.dataset.sampleLoadLockGuard === "1") {
+    return;
+  }
+  document.documentElement.dataset.sampleLoadLockGuard = "1";
+  document.addEventListener("pointerdown", nodeGraphSampleLoadLockBlockEvent, true);
+  document.addEventListener("keydown", nodeGraphSampleLoadLockBlockEvent, true);
+}
+
+function beginNodeGraphSampleLoadLock({ total = 1, title = "Loading audio" } = {}) {
+  bindNodeGraphSampleLoadLockClose();
+  bindNodeGraphSampleLoadLockGuard();
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.sampleLoadLock = { active: true, total: Math.max(1, Number(total) || 1), index: 0 };
+  }
+  const lock = document.getElementById("nodeSampleLoadLock");
+  const titleEl = document.getElementById("nodeSampleLoadLockTitle");
+  const progress = document.getElementById("nodeSampleLoadLockProgress");
+  const detail = document.getElementById("nodeSampleLoadLockDetail");
+  const ram = document.getElementById("nodeSampleLoadLockRam");
+  const close = document.getElementById("nodeSampleLoadLockClose");
+  if (titleEl) {
+    titleEl.textContent = title;
+  }
+  if (progress) {
+    progress.textContent = `0 / ${Math.max(1, Number(total) || 1)}`;
+  }
+  if (detail) {
+    detail.textContent = "Decoding files into RAM…";
+    detail.title = "";
+  }
+  if (ram) {
+    ram.textContent = `Decoded ${nodeGraphSampleFormatBytes(nodeGraphSampleDecodedRamBytes())} / budget ${nodeGraphSampleFormatBytes(nodeGraphSampleRamBudgetBytes())}`;
+  }
+  if (close) {
+    close.hidden = true;
+  }
+  if (lock) {
+    lock.hidden = false;
+  }
+  document.body.classList.add("node-sample-load-lock-open");
+}
+
+function updateNodeGraphSampleLoadLock({ index, total, name = "", error = "" } = {}) {
+  const lockState = nodeGraphMvp?.sampleLoadLock;
+  const nextIndex = Number.isFinite(Number(index)) ? Number(index) : (lockState?.index || 0);
+  const nextTotal = Number.isFinite(Number(total)) ? Number(total) : (lockState?.total || 1);
+  if (lockState) {
+    lockState.index = nextIndex;
+    lockState.total = nextTotal;
+  }
+  const progress = document.getElementById("nodeSampleLoadLockProgress");
+  const detail = document.getElementById("nodeSampleLoadLockDetail");
+  const ram = document.getElementById("nodeSampleLoadLockRam");
+  if (progress) {
+    progress.textContent = `${nextIndex} / ${nextTotal}`;
+  }
+  if (detail) {
+    const line = error || name || "Decoding files into RAM…";
+    detail.textContent = line;
+    detail.title = line;
+  }
+  if (ram) {
+    ram.textContent = `Decoded ${nodeGraphSampleFormatBytes(nodeGraphSampleDecodedRamBytes())} / budget ${nodeGraphSampleFormatBytes(nodeGraphSampleRamBudgetBytes())}`;
+  }
+}
+
+function endNodeGraphSampleLoadLock({ error = "" } = {}) {
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.sampleLoadLock = { active: false };
+  }
+  const lock = document.getElementById("nodeSampleLoadLock");
+  const close = document.getElementById("nodeSampleLoadLockClose");
+  if (error) {
+    updateNodeGraphSampleLoadLock({ error });
+    if (close) {
+      close.hidden = false;
+    }
+    return;
+  }
+  if (lock) {
+    lock.hidden = true;
+  }
+  if (close) {
+    close.hidden = true;
+  }
+  document.body.classList.remove("node-sample-load-lock-open");
+}
+
+async function decodeNodeGraphSampleArrayBuffer(arrayBuffer, fallbackName = "Sample") {
+  const context = nodeGraphSampleSharedDecodeContext();
   let audioBuffer = null;
   try {
     audioBuffer = await context.decodeAudioData(arrayBuffer.slice(0));
   } catch (error) {
     throw new Error(nodeGraphSampleLoadErrorMessage(error, fallbackName));
-  } finally {
-    await context.close?.();
   }
   const frames = audioBuffer.length;
   const channels = audioBuffer.numberOfChannels;
   const channelData = Array.from({ length: channels }, (_, channel) =>
     new Float32Array(audioBuffer.getChannelData(channel)),
   );
-  const mono = new Float32Array(frames);
-  for (let channel = 0; channel < channels; channel += 1) {
-    const data = channelData[channel];
-    for (let frame = 0; frame < frames; frame += 1) {
-      mono[frame] += data[frame] / Math.max(1, channels);
-    }
-  }
   return {
     channelData,
     channels,
     frames,
     name: fallbackName,
     sampleRate: audioBuffer.sampleRate,
-    samples: mono,
   };
 }
 
-async function loadNodeGraphSampleForNode(nodeId, file) {
+async function decodeNodeGraphSampleDataUrl(dataUrl, fallbackName = "Sample") {
+  const response = await fetch(dataUrl);
+  const arrayBuffer = await response.arrayBuffer();
+  return decodeNodeGraphSampleArrayBuffer(arrayBuffer, fallbackName);
+}
+
+async function loadNodeGraphSampleForNode(nodeId, file, options = {}) {
   if (!file || !nodeId) {
-    return;
+    return null;
   }
   setNodeGraphSampleStatus(nodeId, `loading ${file.name || "audio"}...`);
   nodeGraphMvp.sampleLoadErrors?.delete?.(nodeId);
-  const dataUrl = await nodeGraphSampleFileToDataUrl(file);
+  const arrayBuffer = await file.arrayBuffer();
   try {
-    await loadNodeGraphSampleDataUrlForNode(nodeId, dataUrl, file.name || "Sample", {
+    const decoded = await decodeNodeGraphSampleArrayBuffer(arrayBuffer, file.name || "Sample");
+    return attachNodeGraphDecodedSampleToNode(nodeId, decoded, {
       sourceName: file.name || "Sample",
-    });
+    }, options);
   } catch (error) {
     setNodeGraphSampleStatus(nodeId, "browser decode failed; transcoding...");
-    const transcoded = await transcodeNodeGraphSampleDataUrl(file.name || "Sample", dataUrl);
-    await loadNodeGraphSampleDataUrlForNode(nodeId, transcoded.dataUrl, transcoded.name || file.name || "Sample", {
-      sourceName: file.name || "Sample",
-    });
+    const dataUrl = await nodeGraphSampleFileToDataUrl(file);
+    try {
+      const transcoded = await transcodeNodeGraphSampleDataUrl(file.name || "Sample", dataUrl);
+      return loadNodeGraphSampleDataUrlForNode(nodeId, transcoded.dataUrl, transcoded.name || file.name || "Sample", {
+        sourceName: file.name || "Sample",
+        ...options,
+      });
+    } finally {
+      // Drop the base64 string immediately — it is the OOM path.
+    }
   }
 }
 
@@ -814,42 +1207,77 @@ async function loadNodeGraphSamplePathForNode(nodeId, path) {
         if (!listPayload.files.length) {
           throw new Error("folder has no supported audio files");
         }
-        setNodeGraphSampleStatus(nodeId, `loading ${listPayload.files.length} files...`);
-        for (const file of listPayload.files) {
-          const filePath = String(file.path || "").trim();
-          if (!filePath) {
-            continue;
-          }
-          const response = await fetch("/api/audio-file/data-url", {
-            body: JSON.stringify({ path: filePath }),
-            headers: { "Content-Type": "application/json" },
-            method: "POST",
-          });
-          const payload = await response.json().catch(() => ({}));
-          if (!response.ok || !payload?.ok || !payload?.dataUrl) {
-            continue;
-          }
-          await loadNodeGraphSampleDataUrlForNode(
-            nodeId,
-            payload.dataUrl,
-            payload.name || file.name || "Sample",
-            {
-              sourceName: payload.name || file.name || "Sample",
-              sourcePath: filePath,
-            },
-          );
-          if (typeof nodeGraphAudioPlayerPlaylistAppendSample === "function") {
-            const node = nodeGraphPatchNode(nodeId);
-            nodeGraphAudioPlayerPlaylistAppendSample(nodeId, {
-              id: node?.sample?.id,
-              name: payload.name || file.name,
+        const files = listPayload.files;
+        beginNodeGraphSampleLoadLock({ total: files.length, title: "Loading folder" });
+        let loaded = 0;
+        let batchError = "";
+        try {
+          for (let index = 0; index < files.length; index += 1) {
+            const file = files[index];
+            const filePath = String(file.path || "").trim();
+            const fileName = file.name || filePath.split(/[\\/]/).pop() || "Sample";
+            updateNodeGraphSampleLoadLock({
+              index: index + 1,
+              total: files.length,
+              name: fileName,
             });
+            if (!filePath) {
+              continue;
+            }
+            if (nodeGraphSampleRamWouldExceed(0)) {
+              batchError = `Memory budget reached after ${loaded} file${loaded === 1 ? "" : "s"}.`;
+              break;
+            }
+            const response = await fetch("/api/audio-file/data-url", {
+              body: JSON.stringify({ path: filePath }),
+              headers: { "Content-Type": "application/json" },
+              method: "POST",
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || !payload?.ok || !payload?.dataUrl) {
+              continue;
+            }
+            try {
+              await loadNodeGraphSampleDataUrlForNode(
+                nodeId,
+                payload.dataUrl,
+                payload.name || fileName,
+                {
+                  sourceName: payload.name || fileName,
+                  sourcePath: filePath,
+                  commit: false,
+                  persist: false,
+                  livePlan: false,
+                  record: false,
+                  syncDisplay: false,
+                },
+              );
+              loaded += 1;
+              if (typeof nodeGraphAudioPlayerPlaylistAppendSample === "function") {
+                const node = nodeGraphPatchNode(nodeId);
+                nodeGraphAudioPlayerPlaylistAppendSample(nodeId, {
+                  id: node?.sample?.id,
+                  name: payload.name || fileName,
+                }, { persist: false, refresh: false });
+              }
+            } catch (error) {
+              const message = String(error?.message || error || "load failed");
+              if (/memory budget/i.test(message)) {
+                batchError = message;
+                break;
+              }
+            } finally {
+              payload.dataUrl = "";
+            }
           }
+        } catch (error) {
+          batchError = String(error?.message || error || "folder load failed");
         }
-        setNodeGraphSampleStatus(nodeId, `playlist ${listPayload.files.length} from folder`);
-        if (typeof nodeGraphAudioPlayerPlaylistSetFace === "function") {
-          nodeGraphAudioPlayerPlaylistSetFace(nodeId, "pl");
-        }
+        await finishNodeGraphSampleLoadBatch(nodeId, {
+          count: loaded,
+          playlist: true,
+          error: batchError,
+        });
         return;
       }
     } catch (error) {
@@ -955,13 +1383,18 @@ async function transcodeNodeGraphSampleDataUrl(name, dataUrl) {
   return payload;
 }
 
-async function loadNodeGraphSampleDataUrlForNode(nodeId, dataUrl, name = "Sample", sourceInfo = {}) {
-  const decoded = await decodeNodeGraphSampleDataUrl(dataUrl, name || "Sample");
+function attachNodeGraphDecodedSampleToNode(nodeId, decoded, sourceInfo = {}, options = {}) {
+  const extra = nodeGraphSampleChannelBytes(decoded?.channelData);
+  if (nodeGraphSampleRamWouldExceed(extra)) {
+    throw new Error(
+      `Memory budget reached (${nodeGraphSampleFormatBytes(nodeGraphSampleRamBudgetBytes())}). Stopped before this file.`,
+    );
+  }
+  const name = decoded?.name || sourceInfo.sourceName || "Sample";
   const id = normalizeNodeGraphSampleId(`sample-${Date.now()}-${name || "clip"}`);
   const sourcePath = String(sourceInfo.sourcePath || "").trim();
   const sample = normalizeNodeGraphSampleReference({
     channels: decoded.channels,
-    dataUrl: sourcePath ? "" : dataUrl,
     frames: decoded.frames,
     id,
     name: name || "Sample",
@@ -969,54 +1402,103 @@ async function loadNodeGraphSampleDataUrlForNode(nodeId, dataUrl, name = "Sample
     sourceName: sourceInfo.sourceName || name || "Sample",
     sourcePath,
   });
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const samples = normalizeNodeGraphPatchSamples(patch.samples);
-  samples.push(sample);
-  patch.samples = samples;
-  const node = patch.nodes.find((candidate) => candidate.id === nodeId);
-  if (node) {
-    node.sample = { id };
-    node.params = { ...(node.params || {}), sample: samples.length };
-    // New sample → playhead starts at the beginning.
-    if (node.type === "audioPlayer") {
-      node.samplePhase = 0;
-    }
+  if (!nodeGraphMvp.sampleBuffers) {
+    nodeGraphMvp.sampleBuffers = new Map();
   }
-  nodeGraphMvp.sampleBuffers?.set?.(id, {
+  nodeGraphMvp.sampleBuffers.set(id, {
     channelData: decoded.channelData,
     channels: decoded.channels,
     frames: decoded.frames,
     id,
     name: sample.name,
     sampleRate: decoded.sampleRate,
-    samples: decoded.samples,
   });
+  const livePatch = nodeGraphMvp.patch;
+  if (livePatch && options.commit === false) {
+    const samples = normalizeNodeGraphPatchSamples(livePatch.samples);
+    samples.push(sample);
+    livePatch.samples = samples;
+    const node = livePatch.nodes?.find?.((candidate) => candidate.id === nodeId);
+    if (node) {
+      node.sample = { id };
+      node.params = { ...(node.params || {}), sample: samples.length };
+      if (node.type === "audioPlayer") {
+        node.samplePhase = 0;
+      }
+    }
+  } else {
+    const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+    const samples = normalizeNodeGraphPatchSamples(patch.samples);
+    samples.push(sample);
+    patch.samples = samples;
+    const node = patch.nodes.find((candidate) => candidate.id === nodeId);
+    if (node) {
+      node.sample = { id };
+      node.params = { ...(node.params || {}), sample: samples.length };
+      if (node.type === "audioPlayer") {
+        node.samplePhase = 0;
+      }
+    }
+    commitNodeGraphPatch(patch, {
+      status: `${sample.name} loaded`,
+      record: options.record !== false,
+      autosaveWorkingPatch: options.persist !== false,
+      skipLivePlan: options.livePlan === false,
+    });
+  }
   nodeGraphMvp.sampleLoadErrors?.delete?.(nodeId);
   nodeGraphMvp.sampleRuntimeStatus?.delete?.(nodeId);
-  commitNodeGraphPatch(patch, { status: `${sample.name} loaded` });
-  const committedNode = nodeGraphPatchNode(nodeId);
-  const committedSample = nodeGraphPatchSampleById(committedNode?.sample?.id);
-  if (!committedSample?.id) {
-    const message = `${sample.name} decoded, but was not attached to the patch`;
-    nodeGraphMvp.sampleLoadErrors?.set?.(nodeId, message);
-    setNodeGraphSampleStatus(nodeId, message);
-    throw new Error(message);
+  nodeGraphMvp.audioPlayerActualSpeeds?.delete?.(nodeId);
+  if (options.syncDisplay !== false) {
+    syncNodeGraphSampleDisplayForNode(nodeId);
   }
-  const persistence = typeof saveNodeGraphWorkingPatchToUserSettings === "function"
-    ? await Promise.resolve(saveNodeGraphWorkingPatchToUserSettings({ immediateFile: true, returnFileSave: true }))
-    : { local: false, file: false };
-  renderNodeGraphMissingSampleAssetsDialog(nodeGraphMvp.patch);
+  return sample;
+}
+
+async function loadNodeGraphSampleDataUrlForNode(nodeId, dataUrl, name = "Sample", sourceInfo = {}) {
+  const decoded = await decodeNodeGraphSampleDataUrl(dataUrl, name || "Sample");
+  return attachNodeGraphDecodedSampleToNode(nodeId, decoded, {
+    sourceName: sourceInfo.sourceName || name || "Sample",
+    sourcePath: sourceInfo.sourcePath || "",
+  }, {
+    commit: sourceInfo.commit,
+    persist: sourceInfo.persist,
+    livePlan: sourceInfo.livePlan,
+    record: sourceInfo.record,
+    syncDisplay: sourceInfo.syncDisplay,
+  });
+}
+
+async function finishNodeGraphSampleLoadBatch(nodeId, { count = 0, playlist = false, error = "" } = {}) {
+  const patch = nodeGraphMvp.patch;
+  if (patch && typeof commitNodeGraphPatch === "function") {
+    commitNodeGraphPatch(cloneNodeGraphPatch(patch), {
+      status: error || (count ? `${count} track${count === 1 ? "" : "s"} loaded` : "load stopped"),
+      record: true,
+      autosaveWorkingPatch: true,
+    });
+  }
+  if (typeof renderNodeGraphMissingSampleAssetsDialog === "function") {
+    renderNodeGraphMissingSampleAssetsDialog(nodeGraphMvp.patch);
+  }
   syncNodeGraphSampleDisplayForNode(nodeId);
-  if (!persistence.local) {
-    const fallbackStatus = persistence.file ? "saved to settings file" : "settings file save pending";
-    setNodeGraphSampleStatus(nodeId, `${sample.name} loaded; ${fallbackStatus}`);
-    setNodeInteractionHelp(
-      persistence.file
-        ? "Sample loaded. Browser storage was too small, so the patch was flushed to the settings file."
-        : "Sample loaded. Browser storage was too small and the settings file fallback did not confirm.",
-    );
+  if (playlist && typeof nodeGraphAudioPlayerPlaylistRefreshUi === "function") {
+    nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
   }
-  scheduleNodeGraphLivePlanSync("plan");
+  if (playlist && count > 1 && typeof nodeGraphAudioPlayerPlaylistSetFace === "function") {
+    nodeGraphAudioPlayerPlaylistSetFace(nodeId, "pl");
+  }
+  if (typeof scheduleNodeGraphLivePlanSync === "function") {
+    scheduleNodeGraphLivePlanSync("plan");
+  }
+  if (error) {
+    setNodeGraphSampleStatus(nodeId, error);
+    setNodeInteractionHelp(error);
+    endNodeGraphSampleLoadLock({ error });
+    return;
+  }
+  setNodeGraphSampleStatus(nodeId, count ? `loaded ${count} track${count === 1 ? "" : "s"}` : "no files loaded");
+  endNodeGraphSampleLoadLock();
 }
 
 // Phase readout + 📋 copy button. Used by the waveform display options window
@@ -1079,35 +1561,58 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
       setNodeGraphSampleStatus(nodeId, "no file selected");
       return;
     }
-    const loadOne = async (file) => {
-      await loadNodeGraphSampleForNode(nodeId, file);
-      if (isMusicPlayer && typeof nodeGraphAudioPlayerPlaylistAppendSample === "function") {
-        const node = nodeGraphPatchNode(nodeId);
-        nodeGraphAudioPlayerPlaylistAppendSample(nodeId, {
-          id: node?.sample?.id,
-          name: file.name || node?.sample?.name,
-        });
-      }
-    };
     (async () => {
+      beginNodeGraphSampleLoadLock({
+        total: files.length,
+        title: isMusicPlayer ? "Loading playlist" : "Loading sample",
+      });
+      let loaded = 0;
+      let batchError = "";
       try {
-        for (const file of files) {
-          await loadOne(file);
-        }
-        if (isMusicPlayer && files.length > 1) {
-          if (typeof setNodeGraphSampleStatus === "function") {
-            setNodeGraphSampleStatus(nodeId, `playlist +${files.length} files`);
+        for (let index = 0; index < files.length; index += 1) {
+          const file = files[index];
+          updateNodeGraphSampleLoadLock({
+            index: index + 1,
+            total: files.length,
+            name: file.name || "audio",
+          });
+          if (nodeGraphSampleRamWouldExceed(0)) {
+            batchError = `Memory budget reached after ${loaded} file${loaded === 1 ? "" : "s"}.`;
+            break;
           }
-          if (typeof nodeGraphAudioPlayerPlaylistSetFace === "function") {
-            nodeGraphAudioPlayerPlaylistSetFace(nodeId, "pl");
+          try {
+            await loadNodeGraphSampleForNode(nodeId, file, {
+              commit: false,
+              persist: false,
+              livePlan: false,
+              record: false,
+              syncDisplay: false,
+            });
+            loaded += 1;
+            if (isMusicPlayer && typeof nodeGraphAudioPlayerPlaylistAppendSample === "function") {
+              const node = nodeGraphPatchNode(nodeId);
+              nodeGraphAudioPlayerPlaylistAppendSample(nodeId, {
+                id: node?.sample?.id,
+                name: file.name || node?.sample?.name,
+              }, { persist: false, refresh: false });
+            }
+          } catch (error) {
+            const message = String(error?.message || error || "load failed");
+            if (/memory budget/i.test(message)) {
+              batchError = message;
+              break;
+            }
           }
         }
       } catch (error) {
-        const message = String(error?.message || error || "load failed");
-        nodeGraphMvp.sampleLoadErrors?.set?.(nodeId, message);
-        setNodeGraphSampleStatus(nodeId, message);
-        setNodeInteractionHelp(`Sample load failed: ${message}`);
+        batchError = String(error?.message || error || "load failed");
+        nodeGraphMvp.sampleLoadErrors?.set?.(nodeId, batchError);
       }
+      await finishNodeGraphSampleLoadBatch(nodeId, {
+        count: loaded,
+        playlist: isMusicPlayer,
+        error: batchError,
+      });
     })();
   });
 
@@ -1218,7 +1723,6 @@ async function nodeGraphDecodedSampleForReference(reference) {
     id: reference.id,
     name: reference.name,
     sampleRate: decoded.sampleRate,
-    samples: decoded.samples,
   };
 }
 
@@ -1238,7 +1742,7 @@ async function nodeGraphRuntimeSamplesForPlan(plan, patch = nodeGraphMvp.patch) 
       continue;
     }
     const decoded = await nodeGraphDecodedSampleForReference(reference);
-    if (decoded?.samples?.length) {
+    if (decoded?.channelData?.length || decoded?.samples?.length) {
       samples.push(decoded);
     }
   }

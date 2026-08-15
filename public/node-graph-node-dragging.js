@@ -109,6 +109,15 @@ function beginNodeGraphNodeDrag(event) {
   if (event.button !== undefined && event.button !== 0) {
     return;
   }
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    const headerButton = nodeGraphModuleHeaderButtonFrom(event.target)
+      || nodeGraphModuleHeaderButtonFrom(event.currentTarget);
+    if (!headerButton || headerButton.classList.contains("node-drag-handle")) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    return;
+  }
   const headerButton = nodeGraphModuleHeaderButtonFrom(event.target)
     || nodeGraphModuleHeaderButtonFrom(event.currentTarget);
   if (

@@ -702,11 +702,11 @@ function drawNodeGraphXyPad(pad, options = {}) {
     layoutW = Math.round((rect.width / zoom) * dpr);
     layoutH = Math.round((rect.height / zoom) * dpr);
   }
-  // Pixel density 0–4 (same as 2D Phosphor): 0 → 1×1, 1 → layout×dpr, 4 AA.
+  // Pixel density 0–1 (same as 2D Phosphor): 0 → 1×1, 1 → layout×dpr.
   const densityRaw = typeof nodeGraphFacePlateDensity === "function"
     ? nodeGraphFacePlateDensity(display, 1)
     : Number(display.pixelDensity);
-  const density = Number.isFinite(densityRaw) ? Math.max(0, Math.min(4, densityRaw)) : 1;
+  const density = Number.isFinite(densityRaw) ? Math.max(0, Math.min(1, densityRaw)) : 1;
   const width = Math.max(1, Math.round(layoutW * density));
   const height = Math.max(1, Math.round(layoutH * density));
   if (canvas.width !== width || canvas.height !== height) {

@@ -43,12 +43,18 @@ function nodeGraphPhoneToneFaceInputValue(nodeId, port) {
 }
 
 function nodeGraphPhoneToneFaceHzPair(nodeId) {
-  const reported1 = typeof nodeGraphModuleScopeLatestOutputValue === "function"
-    ? nodeGraphModuleScopeLatestOutputValue(nodeId, "Df1", Number.NaN)
-    : Number.NaN;
-  const reported2 = typeof nodeGraphModuleScopeLatestOutputValue === "function"
-    ? nodeGraphModuleScopeLatestOutputValue(nodeId, "Df2", Number.NaN)
-    : Number.NaN;
+  const readHz = (port, fallbackPort) => {
+    if (typeof nodeGraphModuleScopeLatestOutputValue !== "function") {
+      return Number.NaN;
+    }
+    const primary = nodeGraphModuleScopeLatestOutputValue(nodeId, port, Number.NaN);
+    if (Number.isFinite(primary)) {
+      return primary;
+    }
+    return nodeGraphModuleScopeLatestOutputValue(nodeId, fallbackPort, Number.NaN);
+  };
+  const reported1 = readHz("ƒ1", "Df1");
+  const reported2 = readHz("ƒ2", "Df2");
   if (Number.isFinite(reported1) && Number.isFinite(reported2) && (reported1 > 0 || reported2 > 0)) {
     return [reported1, reported2];
   }
@@ -84,9 +90,12 @@ function nodeGraphPhoneToneFaceHzPair(nodeId) {
 
 function createNodeGraphPhoneToneDisplay(nodeId, type = "phoneTone") {
   const section = document.createElement("section");
-  section.className = "node-filter-curve-display node-phone-tone-display";
+  section.className = "node-filter-curve-display node-phone-tone-display node-module-face";
   section.dataset.node = String(nodeId || "");
   section.dataset.nodeType = String(type || "phoneTone");
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(section, "face");
+  }
   section.dataset.parameterVisual = "true";
   section.dataset.lightSource = "screen";
   section.dataset.lightStrength = "0.4";

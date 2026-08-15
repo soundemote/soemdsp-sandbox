@@ -129,6 +129,7 @@ function drawNodeGraphTraceXyzFaceItem(_renderer, item, pixelRatio) {
   const strokeOpts = {
     size,
     blur,
+    fade: Number.isFinite(Number(settings.fade)) ? Number(settings.fade) : 0,
     dotBudget: budget,
     faceMinSide: faceMin,
     blend,

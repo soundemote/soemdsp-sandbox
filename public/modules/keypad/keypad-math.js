@@ -9,6 +9,25 @@ const NODE_GRAPH_KEYPAD_LABELS = Object.freeze([
 ]);
 
 const NODE_GRAPH_KEYPAD_COUNT = NODE_GRAPH_KEYPAD_LABELS.length;
+const NODE_GRAPH_KEYPAD_LABELS_TEXT = NODE_GRAPH_KEYPAD_LABELS.join("");
+
+function nodeGraphKeypadNormalizeLabels(value) {
+  const fallback = NODE_GRAPH_KEYPAD_LABELS;
+  const chars = Array.from(String(value ?? ""));
+  const next = [];
+  for (let i = 0; i < NODE_GRAPH_KEYPAD_COUNT; i += 1) {
+    const ch = chars[i];
+    next.push(ch != null && String(ch) !== "" ? String(ch) : (fallback[i] || " "));
+  }
+  return next.join("");
+}
+
+function nodeGraphKeypadLabelsList(value) {
+  const text = nodeGraphKeypadNormalizeLabels(
+    value == null || value === "" ? NODE_GRAPH_KEYPAD_LABELS_TEXT : value,
+  );
+  return Array.from(text).slice(0, NODE_GRAPH_KEYPAD_COUNT);
+}
 
 function nodeGraphKeypadWrap(value, count = NODE_GRAPH_KEYPAD_COUNT) {
   const n = Math.max(1, Math.round(Number(count) || NODE_GRAPH_KEYPAD_COUNT));
@@ -170,6 +189,7 @@ const NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS = Object.freeze({
   textColor: "#2d2d2d",
   textSize: 0.87708066581306,
   textWeight: 900,
+  labels: NODE_GRAPH_KEYPAD_LABELS_TEXT,
 });
 
 function nodeGraphKeypadClampUnit(value, fallback = NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.buttonWidth) {
@@ -384,5 +404,8 @@ function normalizeNodeGraphKeypadLayout(layout = {}) {
     textSize,
     textSizePx: textSize,
     textWeight: nodeGraphKeypadClampWeight(source.textWeight ?? source.boldness),
+    labels: nodeGraphKeypadNormalizeLabels(
+      source.labels ?? source.keys ?? source.glyphs ?? d.labels,
+    ),
   };
 }

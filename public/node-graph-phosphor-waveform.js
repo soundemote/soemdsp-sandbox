@@ -61,6 +61,9 @@ const nodeGraphPhosphorWaveformDefaultSettings = Object.freeze({
   edgeSpacing: 0.05,
   // Zoom % / speed labels: CSS px inset from the canvas corner (no arc math).
   labelInsetPx: 6,
+  // Playlist row fade span. 0 = sharp (only the playing row), 1 = gradual
+  // (smoothstep across the whole list, the original look).
+  playlistFade: 1,
 });
 
 function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
@@ -76,6 +79,7 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
   const cornerRadius = Number(source.cornerRadius);
   const edgeSpacing = Number(source.edgeSpacing);
   const labelInsetPx = Number(source.labelInsetPx);
+  const playlistFade = Number(source.playlistFade);
   return {
     scrollMode: source.scrollMode === "snap" ? "snap" : "smooth",
     // 0 = one sample at a time. Finite values only; NaN keeps the default.
@@ -120,6 +124,9 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
     labelInsetPx: Number.isFinite(labelInsetPx)
       ? Math.max(0, Math.min(48, Math.round(labelInsetPx)))
       : nodeGraphPhosphorWaveformDefaultSettings.labelInsetPx,
+    playlistFade: Number.isFinite(playlistFade)
+      ? Math.max(0, Math.min(1, playlistFade))
+      : nodeGraphPhosphorWaveformDefaultSettings.playlistFade,
   };
 }
 
@@ -189,18 +196,13 @@ function nodeGraphPhosphorWaveformSyncTimeWindowFromView(nodeId, windowFrames, s
   }
 }
 
-// Right-click "waveform display options" window -- deliberately a fully
-// independent floating window (own drag state, own position, no
-// persistence), NOT part of the shared-inspector displacement system that
-// metadata/module-actions/trace-display-settings use to auto-close each
-// other -- opening this must never close anything else, and nothing else
-// should close it either.
-// The 📂 + path box and the 📋 + phase readout in this window are the same
-// widgets the Music Player carries on its face -- built by the shared sample
-// factories so hiding the module control surface still leaves load + phase
-// available here. Rebuilt only when the window switches to a different node
-// (listeners close over the node id), so re-rendering on every settings change
-// does not wipe out a path you are halfway through typing.
+// Music Player display options live on Command Center Display Settings.
+// The 📂 + path box and the 📋 + phase readout are the same widgets the
+// Music Player carries on its face -- built by the shared sample factories
+// so hiding the module control surface still leaves load + phase available
+// here. Rebuilt only when the panel switches to a different node (listeners
+// close over the node id), so re-rendering on every settings change does not
+// wipe out a path you are halfway through typing.
 function renderNodeGraphPhosphorWaveformSampleLoader(nodeId) {
   const slot = document.getElementById("nodePhosphorWaveformSampleLoaderSlot");
   if (!slot || typeof createNodeGraphSamplePathLoader !== "function") {
@@ -233,10 +235,17 @@ function renderNodeGraphPhosphorWaveformPhaseReadout(nodeId) {
   slot.append(phase);
 }
 
+function nodeGraphPhosphorWaveformSettingsTargetNodeId() {
+  return String(
+    nodeGraphMvp?.phosphorWaveformSettingsTargetNode
+    || nodeGraphMvp?.traceDisplaySettingsTargetNode
+    || "",
+  );
+}
+
 function renderNodeGraphPhosphorWaveformSettingsWindow() {
-  const nodeId = nodeGraphMvp.phosphorWaveformSettingsTargetNode;
-  const win = document.getElementById("nodePhosphorWaveformSettingsWindow");
-  if (!win || !nodeId) {
+  const nodeId = nodeGraphPhosphorWaveformSettingsTargetNodeId();
+  if (!nodeId) {
     return;
   }
   renderNodeGraphPhosphorWaveformSampleLoader(nodeId);
@@ -259,6 +268,7 @@ function renderNodeGraphPhosphorWaveformSettingsWindow() {
   setValueUnlessFocused("nodePhosphorWaveformCornerRadiusInput", settings.cornerRadius);
   setValueUnlessFocused("nodePhosphorWaveformEdgeSpacingInput", settings.edgeSpacing);
   setValueUnlessFocused("nodePhosphorWaveformLabelInsetInput", settings.labelInsetPx);
+  setValueUnlessFocused("nodePhosphorWaveformPlaylistFadeInput", settings.playlistFade);
   const setPressed = (id, active) => {
     const el = document.getElementById(id);
     if (!el) {
@@ -312,18 +322,15 @@ function nodeGraphNodeUsesPhosphorWaveformDisplay(node) {
 
 function openNodeGraphPhosphorWaveformSettings(nodeId, event) {
   const node = nodeGraphPatchNode(nodeId);
-  // Only Music Player (phosphorWaveform layout) — never claim the shared
-  // display-settings path for other modules after schema-exclusive windows.
   if (!node || !nodeGraphNodeUsesPhosphorWaveformDisplay(node)) {
     return false;
   }
+  closeNodeGraphPhosphorWaveformSettings();
   nodeGraphMvp.phosphorWaveformSettingsTargetNode = nodeId;
-  renderNodeGraphPhosphorWaveformSettingsWindow();
-  positionNodeGraphPhosphorWaveformSettingsAt(
-    Number.isFinite(Number(event?.clientX)) ? event.clientX : window.innerWidth / 2,
-    Number.isFinite(Number(event?.clientY)) ? event.clientY : window.innerHeight / 2,
-  );
-  return true;
+  if (typeof openNodeGraphTraceDisplaySettings === "function") {
+    return openNodeGraphTraceDisplaySettings(nodeId, event);
+  }
+  return false;
 }
 
 function closeNodeGraphPhosphorWaveformSettings() {
@@ -334,7 +341,6 @@ function closeNodeGraphPhosphorWaveformSettings() {
     }
     win.hidden = true;
   }
-  nodeGraphMvp.phosphorWaveformSettingsTargetNode = null;
 }
 
 // Debounced working-patch autosave for display-option drags. Full
@@ -364,7 +370,7 @@ function scheduleNodeGraphPhosphorWaveformSettingsPersist() {
  * Same in-place mutation path as Shift+wheel zoom (SyncTimeWindowFromView).
  */
 function updateNodeGraphPhosphorWaveformSettings(patch) {
-  const nodeId = nodeGraphMvp.phosphorWaveformSettingsTargetNode;
+  const nodeId = nodeGraphPhosphorWaveformSettingsTargetNodeId();
   if (!nodeId) {
     return;
   }
@@ -403,6 +409,12 @@ function updateNodeGraphPhosphorWaveformSettings(patch) {
     }
     if (typeof drawNodeGraphPhosphorWaveformDisplay === "function") {
       drawNodeGraphPhosphorWaveformDisplay(section);
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(patch, "playlistFade")
+      && typeof nodeGraphAudioPlayerPlaylistApplyRowFade === "function"
+    ) {
+      nodeGraphAudioPlayerPlaylistApplyRowFade(section, nodeId);
     }
   }
 }
@@ -475,6 +487,206 @@ function handleNodeGraphPhosphorWaveformLabelInsetChange(event) {
   updateNodeGraphPhosphorWaveformSettings({ labelInsetPx: Number(event.target.value) });
 }
 
+function handleNodeGraphPhosphorWaveformPlaylistFadeChange(event) {
+  updateNodeGraphPhosphorWaveformSettings({ playlistFade: Number(event.target.value) });
+}
+
+function buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml() {
+  return `
+    <div class="node-led-display-settings-panel node-phosphor-waveform-display-settings-panel" data-phosphor-waveform-display-settings-panel>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-load-row" role="group" aria-label="Load sample">
+        <span>Load Sample</span>
+        <div id="nodePhosphorWaveformSampleLoaderSlot" class="node-phosphor-waveform-loader-slot"></div>
+      </div>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-phase-row" role="group" aria-label="Current phase">
+        <span>Phase</span>
+        <div id="nodePhosphorWaveformPhaseSlot" class="node-phosphor-waveform-phase-slot"></div>
+      </div>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+        <span>Time Window</span>
+        <input id="nodePhosphorWaveformTimeWindowInput" type="number" inputmode="decimal" step="0.05" min="0" max="60" autocomplete="off" readonly title="Double-click to edit · 0 = single sample">
+        <span>s</span>
+      </label>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Scroll mode">
+        <span>Scroll</span>
+        <button id="nodePhosphorWaveformScrollSmoothButton" type="button" data-scroll-mode="smooth" aria-pressed="true">Smooth</button>
+        <button id="nodePhosphorWaveformScrollSnapButton" type="button" data-scroll-mode="snap" aria-pressed="false">Snap</button>
+      </div>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Scroll line position">
+        <span>Position</span>
+        <button id="nodePhosphorWaveformPositionLeftButton" type="button" data-scroll-position="left" aria-pressed="false">Left</button>
+        <button id="nodePhosphorWaveformPositionMidButton" type="button" data-scroll-position="mid" aria-pressed="true">Mid</button>
+        <button id="nodePhosphorWaveformPositionRightButton" type="button" data-scroll-position="right" aria-pressed="false">Right</button>
+      </div>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Scroll line thickness">
+        <span>Scroll Line</span>
+        <input id="nodePhosphorWaveformLineWidthInput" type="number" inputmode="decimal" step="0.5" min="0" max="8" autocomplete="off" readonly title="Drag to adjust · double-click to type (0 = hidden)">
+        <span>px</span>
+      </div>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Trace thickness">
+        <span>Trace</span>
+        <input id="nodePhosphorWaveformTraceWidthInput" type="number" inputmode="decimal" step="0.5" min="0.5" max="5" autocomplete="off" readonly title="Drag to adjust · double-click to type (0.5–5 CSS px)">
+        <span>px</span>
+      </div>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+        <span>Hue</span>
+        <input id="nodePhosphorWaveformHueInput" type="range" min="0" max="360" step="1">
+      </label>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+        <span>Line Brightness</span>
+        <input id="nodePhosphorWaveformLineBrightnessInput" type="range" min="0" max="1" step="0.01">
+      </label>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+        <span>Grid Brightness</span>
+        <input id="nodePhosphorWaveformGridBrightnessInput" type="range" min="0" max="1" step="0.01" title="Sample grid lines when zoomed in (0 = hidden)">
+      </label>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+        <span>BG Hue</span>
+        <input id="nodePhosphorWaveformBackgroundHueInput" type="range" min="0" max="360" step="1">
+      </label>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+        <span>BG Brightness</span>
+        <input id="nodePhosphorWaveformBackgroundBrightnessInput" type="range" min="0" max="1" step="0.01">
+      </label>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Corner shape">
+        <span>Corners</span>
+        <button id="nodePhosphorWaveformCornerSquareButton" type="button" data-corner-shape="square" aria-pressed="false">Pill</button>
+        <button id="nodePhosphorWaveformCornerSquircleButton" type="button" data-corner-shape="squircle" aria-pressed="true">Squircle</button>
+      </div>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+        <span>Rounding</span>
+        <input id="nodePhosphorWaveformCornerRadiusInput" type="range" min="0" max="100" step="1">
+        <span>%</span>
+      </label>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+        <span>Edge Spacing</span>
+        <input id="nodePhosphorWaveformEdgeSpacingInput" type="range" min="0" max="1" step="0.01">
+      </label>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+        <span>Label inset</span>
+        <input id="nodePhosphorWaveformLabelInsetInput" type="range" min="0" max="48" step="1" title="How many pixels the zoom/speed labels sit away from the corner">
+        <span>px</span>
+      </label>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row" title="How far playlist rows fade away from the playing track">
+        <span>Playlist fade</span>
+        <span>sharp</span>
+        <input id="nodePhosphorWaveformPlaylistFadeInput" type="range" min="0" max="1" step="0.01" aria-label="Playlist fade from sharp to gradual">
+        <span>gradual</span>
+      </label>
+    </div>`;
+}
+
+function bindNodeGraphPhosphorWaveformDisplaySettingsBody(host) {
+  if (!host) {
+    return;
+  }
+  const nodeId = nodeGraphPhosphorWaveformSettingsTargetNodeId()
+    || document.getElementById("nodeTraceDisplaySettingsPopover")?.dataset.displaySettingsTargetNode
+    || "";
+  if (nodeId && nodeGraphMvp) {
+    nodeGraphMvp.phosphorWaveformSettingsTargetNode = nodeId;
+  }
+  if (typeof bindNodeGraphPhosphorWaveformTimeWindowEditing === "function") {
+    bindNodeGraphPhosphorWaveformTimeWindowEditing();
+  }
+  if (typeof bindNodeGraphPhosphorWaveformPxFields === "function") {
+    bindNodeGraphPhosphorWaveformPxFields();
+  }
+  if (typeof bindNodeGraphPhosphorWaveformSettingModifiers === "function") {
+    bindNodeGraphPhosphorWaveformSettingModifiers();
+  }
+  if (host.dataset.phosphorWaveformSettingsBound !== "true") {
+    host.dataset.phosphorWaveformSettingsBound = "true";
+    host.addEventListener("input", (event) => {
+      const id = event.target?.id || "";
+      if (id === "nodePhosphorWaveformHueInput") {
+        handleNodeGraphPhosphorWaveformHueChange(event);
+      } else if (id === "nodePhosphorWaveformLineBrightnessInput") {
+        handleNodeGraphPhosphorWaveformLineBrightnessChange(event);
+      } else if (id === "nodePhosphorWaveformGridBrightnessInput") {
+        handleNodeGraphPhosphorWaveformGridBrightnessChange(event);
+      } else if (id === "nodePhosphorWaveformBackgroundHueInput") {
+        handleNodeGraphPhosphorWaveformBackgroundHueChange(event);
+      } else if (id === "nodePhosphorWaveformBackgroundBrightnessInput") {
+        handleNodeGraphPhosphorWaveformBackgroundBrightnessChange(event);
+      } else if (id === "nodePhosphorWaveformCornerRadiusInput") {
+        handleNodeGraphPhosphorWaveformCornerRadiusChange(event);
+      } else if (id === "nodePhosphorWaveformEdgeSpacingInput") {
+        handleNodeGraphPhosphorWaveformEdgeSpacingChange(event);
+      } else if (id === "nodePhosphorWaveformLabelInsetInput") {
+        handleNodeGraphPhosphorWaveformLabelInsetChange(event);
+      } else if (id === "nodePhosphorWaveformPlaylistFadeInput") {
+        handleNodeGraphPhosphorWaveformPlaylistFadeChange(event);
+      } else if (id === "nodePhosphorWaveformTraceWidthInput") {
+        handleNodeGraphPhosphorWaveformTraceWidthChange(event);
+      }
+    });
+    host.addEventListener("change", (event) => {
+      const id = event.target?.id || "";
+      if (id === "nodePhosphorWaveformTimeWindowInput") {
+        handleNodeGraphPhosphorWaveformTimeWindowChange(event);
+      } else if (id === "nodePhosphorWaveformLineWidthInput") {
+        handleNodeGraphPhosphorWaveformLineWidthChange(event);
+      } else if (id === "nodePhosphorWaveformTraceWidthInput") {
+        handleNodeGraphPhosphorWaveformTraceWidthChange(event);
+      } else if (id === "nodePhosphorWaveformPlaylistFadeInput") {
+        handleNodeGraphPhosphorWaveformPlaylistFadeChange(event);
+      }
+    });
+    host.addEventListener("click", (event) => {
+      const button = event.target?.closest?.("button");
+      if (!button || !host.contains(button)) {
+        return;
+      }
+      if (button.id === "nodePhosphorWaveformScrollSmoothButton") {
+        event.preventDefault();
+        setNodeGraphPhosphorWaveformScrollMode("smooth");
+      } else if (button.id === "nodePhosphorWaveformScrollSnapButton") {
+        event.preventDefault();
+        setNodeGraphPhosphorWaveformScrollMode("snap");
+      } else if (button.id === "nodePhosphorWaveformPositionLeftButton") {
+        event.preventDefault();
+        setNodeGraphPhosphorWaveformScrollLinePosition("left");
+      } else if (button.id === "nodePhosphorWaveformPositionMidButton") {
+        event.preventDefault();
+        setNodeGraphPhosphorWaveformScrollLinePosition("mid");
+      } else if (button.id === "nodePhosphorWaveformPositionRightButton") {
+        event.preventDefault();
+        setNodeGraphPhosphorWaveformScrollLinePosition("right");
+      } else if (button.id === "nodePhosphorWaveformCornerSquareButton") {
+        event.preventDefault();
+        setNodeGraphPhosphorWaveformCornerShape("square");
+      } else if (button.id === "nodePhosphorWaveformCornerSquircleButton") {
+        event.preventDefault();
+        setNodeGraphPhosphorWaveformCornerShape("squircle");
+      }
+    });
+  }
+  renderNodeGraphPhosphorWaveformSettingsWindow();
+}
+
+function applyNodeGraphPhosphorWaveformDisplaySettingsToFace(node) {
+  const nodeId = String(node?.id || "");
+  if (!nodeId) {
+    return;
+  }
+  const section = document.querySelector?.(
+    `.node-phosphor-waveform-display[data-node="${CSS.escape(nodeId)}"]`,
+  );
+  if (!section) {
+    return;
+  }
+  if (typeof nodeGraphPhosphorWaveformResyncFrameClock === "function") {
+    nodeGraphPhosphorWaveformResyncFrameClock(nodeId);
+  }
+  if (typeof drawNodeGraphPhosphorWaveformDisplay === "function") {
+    drawNodeGraphPhosphorWaveformDisplay(section);
+  }
+  if (typeof nodeGraphAudioPlayerPlaylistApplyRowFade === "function") {
+    nodeGraphAudioPlayerPlaylistApplyRowFade(section, nodeId);
+  }
+}
+
 // Panel shape/inset are pure CSS, but the inset has to be resolved against the
 // live cell size (so "1" really does collapse the panel whatever the module
 // height is) and quantized to whole pixels (so the black gap and the panel
@@ -523,6 +735,9 @@ function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, 
   section.style.setProperty("--phosphor-waveform-label-inset", `${labelInset}px`);
   section.style.setProperty("--phosphor-waveform-radius", `${radius}px`);
   section.style.setProperty("--phosphor-waveform-border-color", borderColor);
+  if (typeof applyNodeGraphPhosphorWaveformHudVars === "function") {
+    applyNodeGraphPhosphorWaveformHudVars(section, settings);
+  }
   // corner-shape is a progressive enhancement: where it is unsupported the
   // declaration is dropped and the panel is a normal rounded rect.
   section.style.setProperty("--phosphor-waveform-corner-shape", shape);
@@ -557,6 +772,7 @@ const nodeGraphPhosphorWaveformSettingInputs = Object.freeze([
   ["nodePhosphorWaveformCornerRadiusInput", "cornerRadius"],
   ["nodePhosphorWaveformEdgeSpacingInput", "edgeSpacing"],
   ["nodePhosphorWaveformLabelInsetInput", "labelInsetPx"],
+  ["nodePhosphorWaveformPlaylistFadeInput", "playlistFade"],
 ]);
 
 function bindNodeGraphPhosphorWaveformSettingModifiers() {
@@ -859,6 +1075,17 @@ function nodeGraphPhosphorWaveformContinuousView(idealStart, windowFrames, total
   };
 }
 
+function nodeGraphPhosphorWaveformEntrySamples(entry) {
+  if (!entry) {
+    return null;
+  }
+  if (entry.samples?.length) {
+    return entry.samples;
+  }
+  const channel = entry.channelData?.[0];
+  return channel?.length ? channel : null;
+}
+
 function nodeGraphPhosphorWaveformSampleEntry(nodeId) {
   const node = nodeGraphPatchNode(nodeId);
   const sampleId = node?.sample?.id;
@@ -866,7 +1093,9 @@ function nodeGraphPhosphorWaveformSampleEntry(nodeId) {
     return null;
   }
   const entry = nodeGraphMvp?.sampleBuffers?.get?.(sampleId);
-  return entry && entry.samples && entry.frames > 0 ? entry : null;
+  const samples = nodeGraphPhosphorWaveformEntrySamples(entry);
+  const frames = Math.max(0, Number(entry?.frames) || samples?.length || 0);
+  return entry && samples && frames > 0 ? entry : null;
 }
 
 function nodeGraphPhosphorWaveformZoomAt(section, canvas, clientX, factor) {
@@ -992,37 +1221,117 @@ function nodeGraphPhosphorWaveformNudgePhaseOffset(nodeId, deltaCycles) {
   }
 }
 
-function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
-  canvas.style.touchAction = "none";
-  // Plain wheel is left alone so it bubbles to the workspace zoom handler --
-  // the Music Player must not be a dead zone you cannot zoom the canvas over,
-  // which is what swallowing every wheel event here used to make it. Waveform
-  // zoom moves to Shift+wheel. (Shift is the safe modifier: Ctrl+wheel is
-  // browser page zoom.) Browsers translate Shift+wheel into horizontal scroll
-  // on most platforms, so the delta can arrive on deltaX instead of deltaY.
-  canvas.addEventListener("wheel", (event) => {
-    if (section.dataset.musicPlayerFace === "pl") {
-      return;
-    }
-    if (!event.shiftKey) {
-      return;
-    }
-    const delta = event.deltaY || event.deltaX;
-    if (!delta) {
-      return;
-    }
+function nodeGraphPhosphorWaveformFormatZoomPercent(ratio) {
+  const pct = Math.max(0, Number(ratio) || 0) * 100;
+  if (pct >= 9.95) {
+    return `${Math.round(pct)}%`;
+  }
+  if (pct >= 0.995) {
+    return `${pct.toFixed(1)}%`;
+  }
+  return `${pct.toFixed(2)}%`;
+}
+
+function nodeGraphPhosphorWaveformEnsureZoomControl(section) {
+  if (!section) {
+    return null;
+  }
+  let control = section.querySelector(":scope > .node-phosphor-waveform-zoom");
+  if (control) {
+    return control;
+  }
+  control = document.createElement("button");
+  control.type = "button";
+  control.className = "node-phosphor-waveform-zoom";
+  control.textContent = "100%";
+  control.title = "Drag to zoom. Double-click resets.";
+  control.setAttribute("aria-label", "Waveform zoom percent");
+  control.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+    beginNodeGraphPhosphorWaveformZoomDrag(event, section);
+  });
+  control.addEventListener("dblclick", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    const factor = delta > 0 ? 1.25 : 0.8;
-    nodeGraphPhosphorWaveformZoomAt(section, canvas, event.clientX, factor);
-  }, { passive: false });
+    nodeGraphPhosphorWaveformResetZoom(section);
+  });
+  section.append(control);
+  return control;
+}
+
+function nodeGraphPhosphorWaveformSyncZoomControl(section, ratio) {
+  const control = nodeGraphPhosphorWaveformEnsureZoomControl(section);
+  if (!control) {
+    return;
+  }
+  const label = nodeGraphPhosphorWaveformFormatZoomPercent(ratio);
+  if (control.textContent !== label) {
+    control.textContent = label;
+  }
+  if (typeof nodeGraphPhosphorWaveformLineColor === "function") {
+    const settings = nodeGraphPhosphorWaveformSettingsForNode(section.dataset.node);
+    if (settings) {
+      control.style.color = nodeGraphPhosphorWaveformLineColor(settings, 85, 0.7);
+    }
+  }
+}
+
+function beginNodeGraphPhosphorWaveformZoomDrag(event, section) {
+  if (event.button > 0 || (section?.dataset?.musicPlayerFace || "wave") !== "wave") {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  const nodeId = section.dataset.node;
+  const entry = nodeGraphPhosphorWaveformSampleEntry(nodeId);
+  if (!entry) {
+    return;
+  }
+  const state = nodeGraphPhosphorWaveformViewState(nodeId, entry.frames);
+  const startWidth = Math.max(1, state.endFrame - state.startFrame);
+  const pointerId = event.pointerId;
+  const startX = event.clientX;
+  const control = event.currentTarget;
+  control.setPointerCapture?.(pointerId);
+  control.classList.add("is-dragging");
+  const applyFromStart = (moveEvent) => {
+    if (moveEvent.pointerId !== pointerId) {
+      return;
+    }
+    moveEvent.preventDefault();
+    moveEvent.stopPropagation();
+    const deltaX = moveEvent.clientX - startX;
+    const targetWidth = startWidth * Math.exp(deltaX * 0.008);
+    const currentWidth = Math.max(1, state.endFrame - state.startFrame);
+    const canvasEl = section.querySelector(".node-phosphor-waveform-canvas");
+    const rect = canvasEl?.getBoundingClientRect?.();
+    const clientX = rect ? rect.left + rect.width * 0.5 : startX;
+    nodeGraphPhosphorWaveformZoomAt(section, canvasEl, clientX, targetWidth / currentWidth);
+  };
+  const endDrag = (endEvent) => {
+    if (endEvent.pointerId !== pointerId) {
+      return;
+    }
+    control.releasePointerCapture?.(pointerId);
+    control.classList.remove("is-dragging");
+    control.removeEventListener("pointermove", applyFromStart);
+    control.removeEventListener("pointerup", endDrag);
+    control.removeEventListener("pointercancel", endDrag);
+  };
+  control.addEventListener("pointermove", applyFromStart);
+  control.addEventListener("pointerup", endDrag);
+  control.addEventListener("pointercancel", endDrag);
+}
+
+function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
+  canvas.style.touchAction = "none";
 
   let dragPointerId = null;
   let lastClientX = 0;
   // "pan" = view window, "phase" = relative phaseOffset scrub (Shift+drag).
   let dragMode = "pan";
   canvas.addEventListener("pointerdown", (event) => {
-    if (section.dataset.musicPlayerFace === "pl") {
+    if ((section.dataset.musicPlayerFace || "wave") !== "wave") {
       return;
     }
     if (event.button !== 0 && event.button !== undefined) {
@@ -1075,7 +1384,7 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
   canvas.addEventListener("pointerup", endDrag);
   canvas.addEventListener("pointercancel", endDrag);
   canvas.addEventListener("dblclick", (event) => {
-    if (section.dataset.musicPlayerFace === "pl") {
+    if ((section.dataset.musicPlayerFace || "wave") !== "wave") {
       return;
     }
     event.stopPropagation();
@@ -1197,6 +1506,7 @@ function createNodeGraphPhosphorWaveformDisplay(nodeId, type) {
       window.__nodeGraphAudioPlayerPlaylistWrapRuntime();
     }
   }
+  nodeGraphPhosphorWaveformEnsureZoomControl(section);
   window.requestAnimationFrame(() => scheduleNodeGraphPhosphorWaveformFrame(section));
   return section;
 }
@@ -1358,6 +1668,18 @@ function nodeGraphPhosphorWaveformStrokeVectorPath(context, points) {
 // by the same factor, preserving their relative contrast to each other.
 // Always normalize: phosphillator (and other callers) may omit settings.
 // Never read properties off a raw `settings` argument — it is often undefined.
+function applyNodeGraphPhosphorWaveformHudVars(section, settings) {
+  if (!section?.style) {
+    return;
+  }
+  const muted = nodeGraphPhosphorWaveformLineColor(settings, 57, 0.55);
+  const hot = nodeGraphPhosphorWaveformLineColor(settings, 85, 0.7);
+  const dim = nodeGraphPhosphorWaveformLineColor(settings, 57, 0.28);
+  section.style.setProperty("--phosphor-hud-color", muted);
+  section.style.setProperty("--phosphor-hud-color-hot", hot);
+  section.style.setProperty("--phosphor-hud-color-dim", dim);
+}
+
 function nodeGraphPhosphorWaveformLineColor(settings, lightness, alpha) {
   const defaults = nodeGraphPhosphorWaveformDefaultSettings || {
     hue: 140,
@@ -1417,8 +1739,8 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   if (!node || !canvas) {
     return;
   }
-  // Playlist face: keep painting the current-track canvas (docked under the
-  // list — that canvas is the back control) plus the compact row waveforms.
+  // Playlist face: only the compact row waveforms. Main phosphor canvas
+  // stays on the hidden wave page — do not paint a second copy here.
   if (section.dataset.musicPlayerFace === "pl") {
     if (typeof nodeGraphAudioPlayerPlaylistPaintWaves === "function") {
       nodeGraphAudioPlayerPlaylistPaintWaves(nodeId, { liveOnly: true });
@@ -1426,6 +1748,13 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     if (typeof nodeGraphAudioPlayerPlaylistSyncScrubber === "function") {
       nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
     }
+    return;
+  }
+  if (section.dataset.musicPlayerFace === "vsxy" || section.dataset.musicPlayerFace === "vslr") {
+    if (typeof nodeGraphAudioPlayerVideoscopePaint === "function") {
+      nodeGraphAudioPlayerVideoscopePaint(section);
+    }
+    return;
   }
   const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
   // Simulation off → pure black plate + no green frame. Circuit = live output
@@ -1499,6 +1828,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
       pixelRatio,
       settings,
     );
+    nodeGraphPhosphorWaveformPaintSpeedLabel(context, nodeId, node, width, height, pixelRatio, settings);
     return;
   }
 
@@ -1631,7 +1961,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const tracePx = Math.max(0.5, traceCss * pixelRatio);
   const skirtPx = tracePx + 0.5;
   const vectorPoints = nodeGraphPhosphorWaveformBuildVectorPath(
-    entry.samples,
+    nodeGraphPhosphorWaveformEntrySamples(entry),
     viewStart,
     viewEnd,
     width,
@@ -1694,25 +2024,33 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   }
 
   const zoomRatio = (viewEnd - viewStart) / Math.max(1, state.totalFrames);
-  const zoomLabel = `${(zoomRatio * 100).toFixed(zoomRatio < 0.1 ? 1 : 0)}%`;
-  const speedRaw = Number(node?.params?.speed);
-  const speed = Number.isFinite(speedRaw) ? speedRaw : 1;
-  const speedLabel = `${speed.toFixed(3)}x`;
+  nodeGraphPhosphorWaveformSyncZoomControl(section, zoomRatio);
+  nodeGraphPhosphorWaveformPaintSpeedLabel(context, nodeId, node, width, height, pixelRatio, settings);
+}
 
-  context.fillStyle = nodeGraphPhosphorWaveformLineColor(settings, 85, 0.7);
-  const fontPx = Math.max(1, Math.round(10 * pixelRatio));
+function nodeGraphPhosphorWaveformPaintSpeedLabel(context, nodeId, node, width, height, pixelRatio, settings) {
+  if (!context) {
+    return;
+  }
+  // Face HUD is the rate the engine is actually using (param + Speed jack),
+  // never the Speed metaparameter / slider readout.
+  const speed = typeof nodeGraphAudioPlayerLiveSpeedForNode === "function"
+    ? nodeGraphAudioPlayerLiveSpeedForNode(nodeId)
+    : null;
+  if (!Number.isFinite(speed)) {
+    return;
+  }
+  const speedLabel = `${speed.toFixed(3)}x`;
+  context.fillStyle = typeof nodeGraphPhosphorWaveformLineColor === "function"
+    ? nodeGraphPhosphorWaveformLineColor(settings, 85, 0.7)
+    : "hsla(140, 90%, 85%, 0.7)";
+  const fontPx = Math.max(1, Math.round(10 * (Number(pixelRatio) || 1)));
   context.font = `600 ${fontPx}px system-ui, sans-serif`;
-  // User slider: CSS px away from the corner (same on both axes). No radius math.
-  const labelPadCss = Math.max(0, Math.min(48, Number(settings.labelInsetPx) || 0));
-  const pad = labelPadCss * pixelRatio;
-  // Zoom % — top-left
-  context.textAlign = "left";
-  context.textBaseline = "top";
-  context.fillText(zoomLabel, snap(pad), snap(pad));
-  // Playback speed — bottom-right
+  const labelPadCss = Math.max(0, Math.min(48, Number(settings?.labelInsetPx) || 0));
+  const pad = labelPadCss * (Number(pixelRatio) || 1);
   context.textAlign = "right";
   context.textBaseline = "bottom";
-  context.fillText(speedLabel, snap(width - pad), snap(height - pad));
+  context.fillText(speedLabel, Math.round(width - pad), Math.round(height - pad));
   context.textAlign = "left";
   context.textBaseline = "alphabetic";
 }

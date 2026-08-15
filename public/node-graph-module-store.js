@@ -41,6 +41,8 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "groupInput",
   "groupOutput",
   "evolveField",
+  // Character-grid XY scope — parked; do not spawn into the modular area.
+  "asciiscope",
   // Classical formant bank (vowel / vocal tract) — placeholder until design lands.
   "formantFilter",
   // Binary counter clock (bit outs + gate) — placeholder until design lands.
@@ -1699,9 +1701,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   asciiscope: {
     category: "oscilloscope",
-    description: "XY into a character-grid phosphor—ASCII scope art from two signals.",
+    description: "Under construction. XY character-grid phosphor is parked and cannot be dragged into the modular area.",
     label: "Asciiscope",
-    notes: ["xy", "glyph ramp", "phosphor decay", "character trail", "oscilloscope"],
+    notes: ["under construction", "xy", "glyph ramp", "phosphor decay", "character trail", "oscilloscope"],
   },
   spectrogram: {
     category: "oscilloscope",
@@ -1836,7 +1838,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   phoneTone: {
     category: "object",
-    description: "DTMF phone tones from Analog 0–1 and/or Digital slot (same 12-key map as Keypad). Gate opens the tone. Pitch Offset + 0.1V/Oct transpose both tones. X = low sine, Z = high sine, M = sum.",
+    description: "DTMF phone tones from Analog 0–1 and/or Digital slot (same 12-key map as Keypad). Gate opens the tone. Pitch Offset + 0.1V/Oct transpose both tones. Tone = sum. ƒ1/ƒ2 = pitched Hz. Analog/Digital Thru pass the ins.",
     label: "Phone Tone",
     notes: ["dtmf", "phone", "tone", "keypad", "robin", "object", "pitch", "0.1v"],
   },
@@ -3360,7 +3362,7 @@ function createNodeGraphModuleDepartmentButton(departmentId, entries) {
   const workingCount = entries.filter((entry) => entry.visible && entry.implemented).length;
   count.textContent = String(workingCount);
 
-  button.append(symbol, title, count);
+  button.append(count, symbol, title);
   return button;
 }
 
@@ -3552,7 +3554,26 @@ function renderNodeGraphModuleStoreCatalog() {
   }
   if (departmentTitle) {
     departmentTitle.hidden = !selectedDepartment;
-    departmentTitle.textContent = selectedDepartment || "";
+    departmentTitle.replaceChildren();
+    if (selectedDepartment) {
+      const dep = nodeGraphModuleStoreDepartmentById[selectedDepartment];
+      const emoji = dep?.emoji || "";
+      const label = dep?.label || selectedDepartment;
+      if (emoji) {
+        const mark = document.createElement("span");
+        mark.className = "node-module-department-title-emoji";
+        mark.setAttribute("aria-hidden", "true");
+        mark.textContent = emoji;
+        departmentTitle.append(mark);
+      }
+      const name = document.createElement("span");
+      name.className = "node-module-department-title-name";
+      name.textContent = label;
+      departmentTitle.append(name);
+      departmentTitle.setAttribute("aria-label", `${label} modules`);
+    } else {
+      departmentTitle.removeAttribute("aria-label");
+    }
   }
   available.classList.add("scene-context-store-department-list");
   available.classList.toggle("node-module-store-list", Boolean(selectedDepartment || searchingAllModules));

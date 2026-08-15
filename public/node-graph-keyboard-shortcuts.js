@@ -354,9 +354,9 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  // H → hide/show top + bottom app bars (not per-module header buttons).
-  // Phone / condensed modular frame is click/touch only (no V / M hotkey).
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "h") {
+  // V → view: hide/show top + bottom app bars (not per-module header buttons).
+  // Phone / condensed modular frame is click/touch only (no M hotkey).
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v") {
     event.preventDefault();
     if (typeof toggleNodeGraphAppChromeBarsVisibility === "function") {
       toggleNodeGraphAppChromeBarsVisibility();
@@ -367,6 +367,13 @@ function handleNodeGraphKeydown(event) {
     event.preventDefault();
     if (typeof toggleNodeGraphConstraintGuideVisibility === "function") {
       toggleNodeGraphConstraintGuideVisibility();
+    }
+    return;
+  }
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    if (typeof toggleNodeGraphStandaloneMidiKeyboard === "function") {
+      toggleNodeGraphStandaloneMidiKeyboard();
     }
     return;
   }

@@ -1,6 +1,67 @@
 // Trace display active-control / section helpers (Phase D).
 // Load after scopes.js (+ settings-form). Extract-only.
 
+function nodeGraphDisplaySettingsIsVectorTraceFormType(type) {
+  const key = String(type || "").trim();
+  return key === "trace"
+    || key === "traceXyz"
+    || key === "scope2dTrace"
+    || key === "gradientVectorscopeFace"
+    || key === "value";
+}
+
+/** Instant Trace stack: Scale → History → Fade (2D only) → Size → Blur → Pixel density → Bright. */
+const nodeGraphInstantTraceDisplayFieldOrder = Object.freeze([
+  "scale",
+  "historySeconds",
+  "zoomSeconds",
+  "fade",
+  "dot1Size",
+  "lineThickness",
+  "pixelDensity",
+  "dot1Brightness",
+]);
+
+/** Instant Trace Right / secondary: Size → Blur → Bright. */
+const nodeGraphTraceDisplaySecondaryInkFieldOrder = Object.freeze([
+  "secondarySize",
+  "secondaryLineThickness",
+  "secondaryBrightness",
+]);
+
+function nodeGraphDisplaySettingsOrderInkGroup(keys, group) {
+  const list = Array.isArray(keys) ? keys : [];
+  const order = Array.isArray(group) ? group : [];
+  if (!order.length) {
+    return list;
+  }
+  const want = new Set(list);
+  const ink = order.filter((key) => want.has(key));
+  if (!ink.length) {
+    return list;
+  }
+  const out = [];
+  let placed = false;
+  for (const key of list) {
+    if (order.includes(key)) {
+      if (!placed) {
+        out.push(...ink);
+        placed = true;
+      }
+      continue;
+    }
+    out.push(key);
+  }
+  return out;
+}
+
+function nodeGraphDisplaySettingsOrderTraceInkFields(keys) {
+  let list = Array.isArray(keys) ? keys.slice() : [];
+  list = nodeGraphDisplaySettingsOrderInkGroup(list, nodeGraphInstantTraceDisplayFieldOrder);
+  list = nodeGraphDisplaySettingsOrderInkGroup(list, nodeGraphTraceDisplaySecondaryInkFieldOrder);
+  return list;
+}
+
 function nodeGraphDisplaySettingsIsPhosphorFormType(type) {
   const key = String(type || "").trim();
   // Spectrogram is *Burn by name only — not the stamp/residual phosphor stack.
@@ -77,12 +138,20 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
 });
 
 const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
-  // History plot (Music Player motion). RGB stroke — no phosphor residual.
+  // 1D history plot (Output / Music Player). RGB stroke — no phosphor residual.
+  // Fade is 2D Instant Trace only (scope2dTrace / XYZ / vectorscope).
+  // Output stereo: Left = Size/Blur, Right = secondary*.
   trace: Object.freeze({
     fields: Object.freeze([
+      "scale",
       "zoomSeconds",
       "dot1Size",
       "lineThickness",
+      "pixelDensity",
+      "dot1Brightness",
+      "secondarySize",
+      "secondaryLineThickness",
+      "secondaryBrightness",
       "dotBudget",
     ]),
     colors: Object.freeze(["dot1Color", "secondaryColor", "backgroundColor"]),
@@ -99,8 +168,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
-      "burn",
-      "burnAmount",
       "pixelDensity",
     ])),
     colors: Object.freeze([]),
@@ -117,8 +184,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
         "dot1Brightness",
         "ghost",
         "trail",
-        "burn",
-        "burnAmount",
         "scale",
         "pixelDensity",
         "dotBudget",
@@ -132,11 +197,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // 0D Value: WebGL beam (no face bitmap / pixelDensity / residual).
   value: Object.freeze({
     fields: Object.freeze([
-      "lineLength",
-      "dot1Brightness",
+      "scale",
       "dot1Size",
       "lineThickness",
-      "scale",
+      "dot1Brightness",
+      "lineLength",
       "capSize",
       "capLength",
       "capPadding",
@@ -145,7 +210,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["capEnabled"]),
     choices: Object.freeze([]),
   }),
-  // 2D Phosphor (Lorenz + friends): Bright → Size → Blur → Ghost → Trail → Burn → Scale → AA → Dot Budget
+  // 2D Phosphor (Lorenz + friends): Bright → Size → Blur → Ghost → Trail → Scale → Pixel density
   scope2d: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
       "dot1Brightness",
@@ -153,8 +218,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "lineThickness",
       "ghost",
       "trail",
-      "burn",
-      "burnAmount",
       "scale",
       "pixelDensity",
       "dotBudget",
@@ -165,12 +228,15 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   // 2D Trace = VECTOR path; density = face buffer lo-fi/AA only.
+  // lineThickness = Instant Trace Blur (concentric stroke skirt, not phosphor).
   scope2dTrace: Object.freeze({
     fields: Object.freeze([
-      "historySeconds",
       "scale",
-      "pixelDensity",
+      "historySeconds",
+      "fade",
       "dot1Size",
+      "lineThickness",
+      "pixelDensity",
       "dot1Brightness",
     ]),
     colors: Object.freeze(["dot1Color", "backgroundColor"]),
@@ -197,9 +263,13 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   gradientVectorscopeFace: Object.freeze({
     fields: Object.freeze([
+      "scale",
       "historySeconds",
+      "fade",
       "dot1Size",
       "lineThickness",
+      "pixelDensity",
+      "dot1Brightness",
       "dotBudget",
     ]),
     colors: Object.freeze(["backgroundColor"]),
@@ -208,9 +278,13 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   traceXyz: Object.freeze({
     fields: Object.freeze([
+      "scale",
       "zoomSeconds",
+      "fade",
       "dot1Size",
       "lineThickness",
+      "pixelDensity",
+      "dot1Brightness",
       "dotBudget",
     ]),
     colors: Object.freeze(["backgroundColor"]),
@@ -318,8 +392,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
         "dot1Brightness",
         "ghost",
         "trail",
-        "burn",
-        "burnAmount",
         "pixelDensity",
         "dotBudget",
       ]),
@@ -337,8 +409,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
-      "burn",
-      "burnAmount",
       "scale",
       "pixelDensity",
       "dotBudget",
@@ -366,8 +436,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "lineThickness",
       "ghost",
       "trail",
-      "burn",
-      "burnAmount",
       "scale",
       "pixelDensity",
       "dotBudget",
@@ -383,8 +451,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
-      "burn",
-      "burnAmount",
       "pixelDensity",
       "dotBudget",
     ])),
@@ -399,8 +465,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
-      "burn",
-      "burnAmount",
       "pixelDensity",
       "dotBudget",
     ])),
@@ -544,7 +608,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
   }),
   trace: Object.freeze({
     // Residual + framing. Ghost once only (was listed twice → double "Ghost" rows).
-    // Phosphor residual order: Ghost → Trail → Burn → Scale → Pixel density → Dot Budget.
+    // Phosphor residual order: Ghost → Trail → Scale → Pixel density → Dot Budget.
     // Stamp size/blur/bright live only under the Dot/Stamp section.
     fields: Object.freeze([
       "decimals",
@@ -777,7 +841,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "decimal",
     id: "nodeTraceDisplayPixelDensity",
     title:
-      "Face buffer scale (0–4). 1 = native layout×dpr. Below 1 = intentional low-res (pixelated / chunky). Above 1 = supersample then filter down (smoother, more GPU).",
+      "Face buffer scale (0–1). 1 = native layout×dpr. Below 1 = intentional low-res (pixelated / chunky).",
   }),
   dotBudget: Object.freeze({
     label: "Dot Budget",
@@ -892,6 +956,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title: "Key height as a fraction of its cell (0.5–1).",
   }),
   lineLength: Object.freeze({ label: "Line length", inputmode: "decimal", id: "nodeTraceDisplayValueLineLength" }),
+  fade: Object.freeze({
+    label: "Fade",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayFade",
+    title: "Fade the stroke along history. 0 = even ink. 1 = oldest gone, newest full.",
+  }),
   dot1Brightness: Object.freeze({
     label: "Bright",
     inputmode: "decimal",
@@ -1349,6 +1419,16 @@ const nodeGraphDisplaySettingsSectionOrder = Object.freeze([
   "value",
   "dot1",
   "secondary",
+  "gradient",
+  "caps",
+]);
+
+// Instant Trace: Size → Blur → Bright first (Left then Right), then History / Scale.
+const nodeGraphTraceDisplaySettingsSectionOrder = Object.freeze([
+  "dot1",
+  "secondary",
+  "trace",
+  "value",
   "gradient",
   "caps",
 ]);

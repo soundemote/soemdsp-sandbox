@@ -222,6 +222,38 @@ function buildNodeGraphMacroControlsFaceDisplaySettingsBodyHtml() {
         <span>Arc track</span>
         <input type="color" data-macro-face-color="arcTrack" value="${track}" aria-label="Macro arc unfilled track">
       </label>
+      <div class="node-trace-display-line-burn-row">
+        <span>Label</span>
+        <span class="metadata-parameter-picker-controls">
+          <select data-macro-face-select="labelPosition" aria-label="Macro label position">${posOpts(s.labelPosition)}</select>
+          <span class="metadata-parameter-visibility-stepper" role="group" aria-label="Hide or show labels">
+            <button type="button" data-macro-face-visibility="showLabels" data-macro-face-visibility-on="false" title="Hide labels" aria-pressed="${s.showLabels ? "false" : "true"}">-</button>
+            <button type="button" data-macro-face-visibility="showLabels" data-macro-face-visibility-on="true" title="Show labels" aria-pressed="${s.showLabels ? "true" : "false"}">+</button>
+          </span>
+        </span>
+      </div>
+      <div class="node-trace-display-line-burn-row">
+        <span>Value</span>
+        <span class="metadata-parameter-picker-controls">
+          <select data-macro-face-select="valuePosition" aria-label="Macro value position">${posOpts(s.valuePosition)}</select>
+          <span class="metadata-parameter-visibility-stepper" role="group" aria-label="Hide or show values">
+            <button type="button" data-macro-face-visibility="showValues" data-macro-face-visibility-on="false" title="Hide values" aria-pressed="${s.showValues ? "false" : "true"}">-</button>
+            <button type="button" data-macro-face-visibility="showValues" data-macro-face-visibility-on="true" title="Show values" aria-pressed="${s.showValues ? "true" : "false"}">+</button>
+          </span>
+        </span>
+      </div>
+      <label class="node-trace-display-line-burn-row">
+        <span>Knob size</span>
+        <input type="range" min="0.25" max="4" step="0.05" data-macro-face-num="sizeScale" value="${s.sizeScale}" aria-label="Macro knob size">
+      </label>
+      <label class="node-trace-display-line-burn-row">
+        <span>Knob spacing</span>
+        <input type="range" min="0" max="32" step="1" data-macro-face-num="knobSpacing" value="${s.knobSpacing}" aria-label="Space between macro knobs">
+      </label>
+      <label class="node-trace-display-line-burn-row">
+        <span>Arc span</span>
+        <input type="range" min="0" max="1440" step="1" data-macro-face-num="rotationDegrees" value="${s.rotationDegrees}" aria-label="Macro arc span">
+      </label>
       <label class="node-trace-display-line-burn-row">
         <span>Arc thickness</span>
         <input type="range" min="1" max="${thicknessMax}" step="0.5" data-macro-face-num="arcThickness" value="${s.arcThickness}" aria-label="Macro arc thickness">
@@ -229,34 +261,6 @@ function buildNodeGraphMacroControlsFaceDisplaySettingsBodyHtml() {
       <label class="node-trace-display-line-burn-row">
         <span>Arc gap</span>
         <input type="range" min="0" max="100" step="1" data-macro-face-num="arcGapBrightness" value="${s.arcGapBrightness}" aria-label="Macro arc gap brightness">
-      </label>
-      <label class="node-trace-display-line-burn-row">
-        <span>Span °</span>
-        <input type="range" min="0" max="1440" step="1" data-macro-face-num="rotationDegrees" value="${s.rotationDegrees}" aria-label="Macro arc span degrees">
-      </label>
-      <label class="node-trace-display-line-burn-row">
-        <span>Knob size</span>
-        <input type="range" min="0.25" max="4" step="0.05" data-macro-face-num="sizeScale" value="${s.sizeScale}" aria-label="Macro knob size">
-      </label>
-      <label class="node-trace-display-line-burn-row">
-        <span>Spacing</span>
-        <input type="range" min="0" max="32" step="1" data-macro-face-num="knobSpacing" value="${s.knobSpacing}" aria-label="Space between macro knobs">
-      </label>
-      <label class="node-trace-display-line-burn-row">
-        <span>Label</span>
-        <select data-macro-face-select="labelPosition" aria-label="Macro label position">${posOpts(s.labelPosition)}</select>
-      </label>
-      <label class="node-trace-display-line-burn-row">
-        <span>Value</span>
-        <select data-macro-face-select="valuePosition" aria-label="Macro value position">${posOpts(s.valuePosition)}</select>
-      </label>
-      <label class="metadata-checkbox-label">
-        <input type="checkbox" data-macro-face-toggle="showLabels"${s.showLabels ? " checked" : ""}>
-        Show labels
-      </label>
-      <label class="metadata-checkbox-label">
-        <input type="checkbox" data-macro-face-toggle="showValues"${s.showValues ? " checked" : ""}>
-        Show values
       </label>
       <div class="metadata-section-title" style="margin-top:0.75rem">Names</div>
       ${labelRows}
@@ -304,6 +308,14 @@ function bindNodeGraphMacroControlsFaceDisplaySettingsBody(host) {
   const commit = () => {
     setNodeGraphMacroControlsFaceSettings(readForm(), { persist: true });
   };
+  const syncVisibilityButtons = (settings) => {
+    const s = settings || nodeGraphMacroControlsFaceSettings();
+    for (const btn of host.querySelectorAll("[data-macro-face-visibility]")) {
+      const key = btn.getAttribute("data-macro-face-visibility");
+      const on = btn.getAttribute("data-macro-face-visibility-on") === "true";
+      btn.setAttribute("aria-pressed", s[key] === on ? "true" : "false");
+    }
+  };
   host.addEventListener("input", (event) => {
     const t = event.target;
     if (!(t instanceof HTMLElement)) return;
@@ -317,6 +329,21 @@ function bindNodeGraphMacroControlsFaceDisplaySettingsBody(host) {
     if (t.matches(lookSelector)) {
       commit();
     }
+  });
+  host.addEventListener("click", (event) => {
+    const btn = event.target?.closest?.("[data-macro-face-visibility]");
+    if (!btn || !host.contains(btn)) {
+      return;
+    }
+    event.preventDefault();
+    const key = btn.getAttribute("data-macro-face-visibility");
+    if (!key) {
+      return;
+    }
+    const on = btn.getAttribute("data-macro-face-visibility-on") === "true";
+    const next = { ...nodeGraphMacroControlsFaceSettings(), [key]: on };
+    setNodeGraphMacroControlsFaceSettings(next, { persist: true });
+    syncVisibilityButtons(next);
   });
 }
 

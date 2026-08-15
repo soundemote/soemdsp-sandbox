@@ -5,8 +5,13 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     const sample = this.samples.get(sampleId);
     const frames = Math.max(0, Number(sample?.frames) || sample?.samples?.length || sample?.channelData?.[0]?.length || 0);
     this.audioPlayerMeterNodeId = nodeId;
+    if (!this.audioPlayerMeterSpeeds) {
+      this.audioPlayerMeterSpeeds = Object.create(null);
+    }
     if (!sample || frames <= 1) {
       this.audioPlayerMeterReason = sampleId ? "engine waiting for sample" : "engine no sample id";
+      this.audioPlayerMeterSpeed = 0;
+      this.audioPlayerMeterSpeeds[nodeId] = 0;
       return { Left: 0, Mono: 0, Out: 0, Phase: 0, Right: 0, Trigger: 0 };
     }
     const start = this.clampValue(readParam("start", 0), 0, 1);
@@ -77,9 +82,10 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     const basePhase = phaseConnected
       ? this.clampValue(readInput("Phase"), 0, 1)
       : this.clampValue(state.phase, 0, 1);
-    // Relative offset (−1…+1 wrap; ±1 ≡ 0). Same path as Phase Offset param / playlist scrubber.
-    const phaseOffsetCycles = ((Number(readParam("phaseOffset", 0)) % 1) + 1) % 1;
-    const phaseWithOffset = basePhase + phaseOffsetCycles;
+    const phaseOffset = Number(readParam("phaseOffset", 0)) || 0;
+    const phaseSkip = Number(readParam("phase", 0)) || 0;
+    const playlistScrub = Number(readParam("playlistScrub", 0)) || 0;
+    const phaseWithOffset = basePhase + phaseOffset + phaseSkip + playlistScrub;
     const boundedPhase = startPhase + this.wrapValue((phaseWithOffset - startPhase) / span, 0, 1) * span;
     const stereo = this.sampleStereoAt(sample, boundedPhase * (frames - 1));
     const level = readParam("level", 1);
@@ -88,6 +94,8 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     const mono = outputActive ? stereo.Mono * level : 0;
     const right = outputActive ? stereo.Right * level : 0;
     this.audioPlayerMeterPhase = boundedPhase;
+    this.audioPlayerMeterSpeed = speed;
+    this.audioPlayerMeterSpeeds[nodeId] = speed;
     this.audioPlayerMeterReason = state.playing
       ? (transportLooping ? "engine looping" : "engine playing")
       : transportPaused

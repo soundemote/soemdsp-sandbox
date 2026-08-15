@@ -103,6 +103,7 @@ function nodeGraphTraceDisplayDrawSignature(slot, item, buffer, settings) {
     Math.round((Number(item?.visibleProgressRange?.[0]) || 0) * 10000),
     Math.round((Number(item?.visibleProgressRange?.[1]) || 0) * 10000),
     settings.zoomSeconds,
+    Number.isFinite(Number(settings.fade)) ? Number(settings.fade) : 0,
     settings.padding,
     Number(settings.scale) || 1,
     settings.skipDiscontinuities ? 1 : 0,

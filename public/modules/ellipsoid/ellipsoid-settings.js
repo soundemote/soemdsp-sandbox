@@ -61,7 +61,7 @@ function normalizeNodeGraphRoundShapeFaceSettings(settings = {}) {
       ? Math.max(0, Math.min(8, blurRaw))
       : defaults.lineBlur,
     pixelDensity: Number.isFinite(densityRaw)
-      ? Math.max(0, Math.min(4, densityRaw))
+      ? Math.max(0, Math.min(1, densityRaw))
       : defaults.pixelDensity,
   };
 }

@@ -4,6 +4,9 @@
 
 function nodeGraphSampleChannelAt(sample, channelIndex, frameIndex) {
   const channel = sample?.channelData?.[channelIndex] || sample?.samples;
+  if (typeof nodeGraphSampleReadHermite === "function") {
+    return nodeGraphSampleReadHermite(channel, frameIndex);
+  }
   if (!channel?.length) {
     return 0;
   }
@@ -118,9 +121,10 @@ function nodeGraphAudioPlayerSample(runtime, node, nodeId, readInput, readParam,
   const basePhase = phaseConnected
     ? clampNodeSliderValue(readInput("Phase"), 0, 1)
     : clampNodeSliderValue(state.phase, 0, 1);
-  // Relative offset (−1…+1 wrap; ±1 ≡ 0). Scrub without jumping transport phase.
-  const phaseOffsetCycles = ((Number(readParam("phaseOffset", 0)) % 1) + 1) % 1;
-  const phaseWithOffset = basePhase + phaseOffsetCycles;
+  const phaseOffset = Number(readParam("phaseOffset", 0)) || 0;
+  const phaseSkip = Number(readParam("phase", 0)) || 0;
+  const playlistScrub = Number(readParam("playlistScrub", 0)) || 0;
+  const phaseWithOffset = basePhase + phaseOffset + phaseSkip + playlistScrub;
   const boundedPhase = startPhase + wrapNodeSliderValue((phaseWithOffset - startPhase) / span, 0, 1) * span;
   const frameIndex = boundedPhase * (frames - 1);
   const stereo = nodeGraphSampleStereoAt(sample, frameIndex);

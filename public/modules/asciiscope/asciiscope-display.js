@@ -548,7 +548,7 @@ function matrixPhosphorColor(mono, brightness, gradientStops = null) {
  * Must not run on a canvas that already has a WebGL context.
  * Reuses the same letterboxed fixed-cell-aspect layout as the GL path.
  */
-function matrixSyncCanvasBacking2d(canvas, columns, rows, renderStyle = "pixel") {
+function matrixSyncCanvasBacking2d(canvas, columns, rows, renderStyle = "vector") {
   if (!canvas) return null;
   // Prefer shared GL layout helper when present (same contain math).
   if (typeof matrixGlSyncCanvasSize === "function") {
@@ -569,7 +569,7 @@ function matrixSyncCanvasBacking2d(canvas, columns, rows, renderStyle = "pixel")
   }
   const style = typeof matrixNormalizeRenderStyle === "function"
     ? matrixNormalizeRenderStyle(renderStyle)
-    : (renderStyle === "vector" ? "vector" : "pixel");
+    : (renderStyle === "pixel" ? "pixel" : "vector");
   const cellW = typeof MATRIX_GL_CELL_W === "number" ? MATRIX_GL_CELL_W : 8;
   const cellH = typeof MATRIX_GL_CELL_H === "number" ? MATRIX_GL_CELL_H : 12;
   const cols = Math.max(1, columns | 0);
@@ -850,10 +850,13 @@ function matrixClearSim(state) {
   }
 }
 
-function matrixDrawColdPlate(canvas, columns = 40, rows = 22, renderStyle = "pixel", gradientStops = null) {
+function matrixDrawColdPlate(canvas, columns = 40, rows = 22, renderStyle = "vector", gradientStops = null) {
   if (!canvas) return;
+  const style = typeof matrixNormalizeRenderStyle === "function"
+    ? matrixNormalizeRenderStyle(renderStyle)
+    : (renderStyle === "pixel" ? "pixel" : "vector");
   if (typeof matrixGlDrawColdPlate === "function"
-    && matrixGlDrawColdPlate(canvas, columns, rows, renderStyle, gradientStops)) {
+    && matrixGlDrawColdPlate(canvas, columns, rows, style, gradientStops)) {
     return;
   }
   let ctx = null;
@@ -863,17 +866,39 @@ function matrixDrawColdPlate(canvas, columns = 40, rows = 22, renderStyle = "pix
     return;
   }
   if (!ctx) return;
-  const backing = matrixSyncCanvasBacking2d(canvas, columns, rows, renderStyle);
+  const backing = matrixSyncCanvasBacking2d(canvas, columns, rows, style);
   if (!backing) return;
-  const { bw, bh } = backing;
+  const { bw, bh, cellW, cellH, cols, rws } = backing;
+  const stops = gradientStops || null;
+  const plate = typeof matrixSampleGradientRgb === "function"
+    ? matrixSampleGradientRgb(stops, 0)
+    : { r: 1, g: 4, b: 2 };
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = "#010402";
+  ctx.imageSmoothingEnabled = style !== "pixel";
+  if ("imageSmoothingQuality" in ctx) {
+    ctx.imageSmoothingQuality = style === "pixel" ? "low" : "high";
+  }
+  ctx.fillStyle = `rgb(${plate.r},${plate.g},${plate.b})`;
   ctx.fillRect(0, 0, bw, bh);
-  ctx.fillStyle = "rgba(40, 90, 50, 0.55)";
-  ctx.font = `600 ${Math.max(8, Math.min(bw, bh) * 0.12)}px ${typeof MATRIX_FONT_STACK === "string" ? MATRIX_FONT_STACK : "monospace"}`;
+  // Same cell-stamped glyphs as the live face so Sharp/Pixel match rain text.
+  const msg = "ENGINE OFF";
+  const startC = Math.max(0, Math.floor((cols - msg.length) * 0.5));
+  const row = Math.floor(rws * 0.5);
+  const fontPx = Math.max(5, Math.min(cellW, cellH) * 0.82);
+  const ink = typeof matrixPhosphorColor === "function"
+    ? matrixPhosphorColor(0.47, 1, stops)
+    : { r: 40, g: 90, b: 50 };
+  ctx.fillStyle = `rgb(${ink.r},${ink.g},${ink.b})`;
+  ctx.font = `700 ${fontPx}px ${typeof MATRIX_FONT_STACK === "string" ? MATRIX_FONT_STACK : "monospace"}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("ENGINE OFF", bw * 0.5, bh * 0.5);
+  ctx.shadowBlur = 0;
+  for (let i = 0; i < msg.length && startC + i < cols; i += 1) {
+    const ch = msg.charAt(i);
+    if (ch === " ") continue;
+    const glyph = typeof matrixSanitizeChar === "function" ? matrixSanitizeChar(ch) : ch;
+    ctx.fillText(glyph, (startC + i + 0.5) * cellW, (row + 0.5) * cellH);
+  }
 }
 
 function matrixMarkLight(face, on) {
@@ -906,6 +931,33 @@ function matrixStripScopeOverlay(face) {
   }
 }
 
+function matrixApplyWaterfallChrome(face, store) {
+  if (!face?.style) {
+    return;
+  }
+  const pad = Number(store?.screenPadding);
+  const rounding = Number(store?.rounding);
+  const cellW = face.offsetWidth || 0;
+  const cellH = face.offsetHeight || 0;
+  const maxInset = Math.max(0, Math.min(cellW, cellH) / 2);
+  const inset = Math.round((Number.isFinite(pad) ? Math.max(0, Math.min(1, pad)) : 0) * maxInset);
+  const panelW = Math.max(0, cellW - inset * 2);
+  const panelH = Math.max(0, cellH - inset * 2);
+  const maxRadius = Math.max(0, Math.min(panelW, panelH) / 2);
+  const radius = Math.round((Number.isFinite(rounding) ? Math.max(0, Math.min(100, rounding)) : 0) / 100 * maxRadius);
+  const shape = store?.screenShape === "squircle" ? "squircle" : "round";
+  face.style.setProperty("--matrix-face-inset", `${inset}px`);
+  face.style.setProperty("--matrix-face-radius", `${radius}px`);
+  face.style.setProperty("--matrix-face-corner-shape", shape);
+  const stage = face.querySelector?.(".node-asciiscope-stage");
+  const canvas = face.querySelector?.(".node-asciiscope-canvas");
+  for (const el of [stage, canvas]) {
+    if (!el?.style) continue;
+    el.style.borderRadius = `${radius}px`;
+    el.style.cornerShape = shape;
+  }
+}
+
 function matrixResolveKind(face, node) {
   const kind = face?.dataset?.matrixKind;
   if (kind === "waterfall" || kind === "plate") return kind;
@@ -924,6 +976,12 @@ function matrixTickFace(face) {
 
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const kind = matrixResolveKind(face, node);
+  if (kind === "waterfall") {
+    const chromeStore = typeof normalizeNodeGraphMatrixWaterfall === "function"
+      ? normalizeNodeGraphMatrixWaterfall(node?.matrixWaterfall || node?.matrixDisplay)
+      : node?.matrixWaterfall;
+    matrixApplyWaterfallChrome(face, chromeStore);
+  }
 
   // Engine-gated: cold plate when live audio node is down.
   if (!matrixEngineIsOn()) {
@@ -938,20 +996,23 @@ function matrixTickFace(face) {
     const storeOff = kind === "waterfall"
       ? (typeof normalizeNodeGraphMatrixWaterfall === "function"
         ? normalizeNodeGraphMatrixWaterfall(node?.matrixWaterfall || node?.matrixDisplay)
-        : { renderStyle: "pixel" })
+        : { renderStyle: "vector" })
       : (typeof normalizeNodeGraphMatrixPlate === "function"
         ? normalizeNodeGraphMatrixPlate(node?.matrixDisplay)
-        : { renderStyle: "pixel" });
+        : { renderStyle: "vector" });
     const state = matrixEnsureSim(nodeId, params);
     if (!state.engineWasOff) {
       matrixClearSim(state);
       state.engineWasOff = true;
     }
+    const offStyle = typeof matrixNormalizeRenderStyle === "function"
+      ? matrixNormalizeRenderStyle(storeOff.renderStyle)
+      : (storeOff.renderStyle === "pixel" ? "pixel" : "vector");
     matrixDrawColdPlate(
       canvas,
       state.bufColumns || params.bufColumns || 96,
       state.bufRows || params.bufRows || 64,
-      storeOff.renderStyle || "pixel",
+      offStyle,
       storeOff.gradientStops || null,
     );
     return;

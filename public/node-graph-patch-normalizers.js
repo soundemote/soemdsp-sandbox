@@ -874,6 +874,8 @@ function normalizeNodeGraphPatchView(view = {}) {
     moduleSlidersVisible: flag("moduleSlidersVisible", true),
     sliderAmountVisible: flag("sliderAmountVisible", false),
     sliderPositionVisible: flag("sliderPositionVisible", true),
+    locked: flag("locked", false),
+    hideUnusedPorts: flag("hideUnusedPorts", false),
   };
 }
 

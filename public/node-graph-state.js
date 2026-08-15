@@ -239,6 +239,7 @@ var nodeGraphMvp = {
   sampleBuffers: new Map(),
   sampleLoadErrors: new Map(),
   sampleRuntimeStatus: new Map(),
+  audioPlayerActualSpeeds: new Map(),
   resources: { resources: [], version: 1 },
   resourceMap: new Map(),
   resourcePathMap: new Map(),

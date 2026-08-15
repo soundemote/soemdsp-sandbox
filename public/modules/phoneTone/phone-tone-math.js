@@ -1,6 +1,6 @@
 // Phone Tone — ITU-T Q.23 DTMF pairs from Analog 0–1 and/or Digital slot.
 // Same idle map as Keypad: analog 0 / digital 0 = no key. Gate mutes audio
-// when connected and low. Robin sinusoids: X = low (f1), Z = high (f2), Out = sum.
+// when connected and low. Robin sinusoids: Tone = sum, ƒ1/ƒ2 = pitched Hz.
 
 const NODE_GRAPH_PHONE_TONE_LABELS = Object.freeze([
   "1", "2", "3",
@@ -203,11 +203,21 @@ function nodeGraphPhoneToneSample(state, options = {}) {
 
   const x = gateOpen ? low : 0;
   const z = gateOpen ? high : 0;
+  const tone = x + z;
+  const analogThru = hasAnalog ? Number(options.analog) || 0 : 0;
+  const digitalThru = hasDigital ? Number(options.digital) || 0 : 0;
   return {
+    "Analog Thru": analogThru,
+    "Digital Thru": digitalThru,
     Df1: df1,
     Df2: df2,
-    Out: x + z,
+    Out: tone,
+    Tone: tone,
     X: x,
     Z: z,
+    f1: df1,
+    f2: df2,
+    "ƒ1": df1,
+    "ƒ2": df2,
   };
 }

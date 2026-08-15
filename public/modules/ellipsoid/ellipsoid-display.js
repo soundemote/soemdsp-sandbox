@@ -168,7 +168,7 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
     pixelRatio = metrics.pixelRatio || 1;
   } else {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const density = Math.max(0, Math.min(4, Number(pixelDensity) || 1));
+    const density = Math.max(0, Math.min(1, Number(pixelDensity) || 1));
     pixelRatio = dpr * Math.max(density, 1e-6);
     width = Math.max(1, Math.floor(rawW));
     height = Math.max(1, Math.floor(rawH));

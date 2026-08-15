@@ -185,7 +185,21 @@ function showBlankNodeGraphTraceDisplaySettingsContent() {
   popover.dataset.displaySettingsTargetNode = "";
   popover.dataset.displaySettingsType = "";
   destroyNodeGraphTraceDisplayColorWidgets();
-  setNodeGraphTraceDisplaySettingsBlankState(true, "Right-click on a display");
+  setNodeGraphTraceDisplaySettingsBlankState(true, "Choose a module");
+  const empty = popover.querySelector(":scope > .node-unified-inspector-empty");
+  if (empty && typeof fillNodeGraphUnifiedInspectorModuleList === "function") {
+    fillNodeGraphUnifiedInspectorModuleList(empty, {
+      kind: "display",
+      hint: "Choose a module",
+      emptyHint: "No displays in this patch.",
+      onPick(node, event) {
+        if (typeof nodeGraphSelectInspectorModule === "function") {
+          nodeGraphSelectInspectorModule(node.id);
+        }
+        openNodeGraphTraceDisplaySettings(node.id, event);
+      },
+    });
+  }
 }
 
 function nodeGraphTraceDisplaySettingsTargetLabel(node) {
@@ -441,6 +455,7 @@ function finishCloseNodeGraphTraceDisplaySettings() {
   destroyNodeGraphTraceDisplayColorWidgets();
   rememberNodeGraphTraceDisplaySettingsWindowState({ open: false }, { status: false });
   nodeGraphMvp.traceDisplaySettingsTargetNode = null;
+  nodeGraphMvp.traceDisplaySettingsFollowedSelectionKey = "";
   setNodeGraphTraceDisplaySettingsMultiTargets(null);
   scheduleNodeGraphModuleScopeDraw();
 }
@@ -453,6 +468,7 @@ function hideNodeGraphTraceDisplaySettingsForInspectorReplacement() {
   }
   rememberNodeGraphTraceDisplaySettingsWindowState({ open: false }, { status: false });
   nodeGraphMvp.traceDisplaySettingsTargetNode = null;
+  nodeGraphMvp.traceDisplaySettingsFollowedSelectionKey = "";
   setNodeGraphTraceDisplaySettingsMultiTargets(null);
 }
 
@@ -540,6 +556,7 @@ function restoreNodeGraphTraceDisplaySettingsWindowFromState(state = {}) {
   // Resolve multi from current selection (same schema as primary).
   const multiTargetIds = nodeGraphTraceDisplaySettingsResolveMultiTargetIds(node.id);
   nodeGraphMvp.traceDisplaySettingsTargetNode = node.id;
+  nodeGraphMvp.traceDisplaySettingsFollowedSelectionKey = nodeGraphTraceDisplaySettingsSelectionFollowKey();
   setNodeGraphTraceDisplaySettingsMultiTargets(multiTargetIds);
   setNodeGraphTraceDisplaySettingsHeader(
     "DISPLAY",
@@ -605,6 +622,13 @@ function syncOpenNodeGraphTraceDisplaySettingsToNode(nodeId) {
  * Call on every selection render so LCD↔LED / multi cohort switches update
  * the shared inspector (Command Center page + floating window).
  */
+function nodeGraphTraceDisplaySettingsSelectionFollowKey() {
+  if (typeof nodeGraphSelectedNodeIds !== "function") {
+    return "";
+  }
+  return [...nodeGraphSelectedNodeIds()].map((id) => String(id || "")).filter(Boolean).sort().join(",");
+}
+
 function syncOpenNodeGraphTraceDisplaySettingsToSelection() {
   const popover = document.getElementById("nodeTraceDisplaySettingsPopover");
   if (
@@ -615,12 +639,18 @@ function syncOpenNodeGraphTraceDisplaySettingsToSelection() {
   ) {
     return false;
   }
+  const followKey = nodeGraphTraceDisplaySettingsSelectionFollowKey();
+  if (followKey && followKey === String(nodeGraphMvp.traceDisplaySettingsFollowedSelectionKey || "")) {
+    return false;
+  }
   const primaryId = nodeGraphTraceDisplaySettingsPrimaryFromSelection();
   if (!primaryId) {
     // Empty / non-display selection: keep pinned form (don't wipe mid-edit).
     return false;
   }
-  return syncOpenNodeGraphTraceDisplaySettingsToNode(primaryId);
+  const changed = syncOpenNodeGraphTraceDisplaySettingsToNode(primaryId);
+  nodeGraphMvp.traceDisplaySettingsFollowedSelectionKey = followKey;
+  return changed;
 }
 
 function openNodeGraphGlobalTraceSettings(event = {}) {
@@ -822,15 +852,19 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   if (node.type === "macroControls" && typeof openNodeGraphMacroControlsDisplaySettings === "function") {
     return openNodeGraphMacroControlsDisplaySettings(event);
   }
-  // Music Player owns nodePhosphorWaveformSettingsWindow — do not fall through
-  // into the shared Trace/schema form (display gear routes there first).
-  if (typeof nodeGraphNodeUsesPhosphorWaveformDisplay === "function" && nodeGraphNodeUsesPhosphorWaveformDisplay(node)) {
-    return false;
-  }
   // LED uses the shared display inspector (formType ledLamp) — same popover
   // as Number Readout / XY Pad / scopes.
   if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
     return false;
+  }
+  // Pin graph selection to this face. Right-click used to open the inspector
+  // without selecting, so a later renderNodeGraphSelection (zoom reset, wire
+  // redraw) followed the *previous* selected module and swapped the form.
+  const selectedIds = typeof nodeGraphSelectedNodeIds === "function"
+    ? nodeGraphSelectedNodeIds()
+    : null;
+  if (selectedIds && !selectedIds.has(node.id) && typeof setNodeGraphSelection === "function") {
+    setNodeGraphSelection({ type: "node", id: node.id });
   }
   // Multi-select: if every selected module shares this display schema, edit all.
   const multiTargetIds = nodeGraphTraceDisplaySettingsResolveMultiTargetIds(node.id);
@@ -868,6 +902,7 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   const popover = nodeGraphTraceDisplaySettingsElement();
   bindNodeGraphTraceDisplaySettingsEvents(popover);
   nodeGraphMvp.traceDisplaySettingsTargetNode = node.id;
+  nodeGraphMvp.traceDisplaySettingsFollowedSelectionKey = nodeGraphTraceDisplaySettingsSelectionFollowKey();
   setNodeGraphTraceDisplaySettingsMultiTargets(multiTargetIds);
   nodeGraphMvp.sharedInspectorActive = "traceDisplaySettings";
   setNodeGraphTraceDisplaySettingsHeader(

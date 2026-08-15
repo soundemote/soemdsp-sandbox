@@ -215,7 +215,6 @@ function fitNodeModularToolbarText() {
     ".node-view-tabs > .node-toolbar-stack-label > span",
     ".node-view-tabs > button > .node-modular-view-icon",
     ".node-history-controls > button:not(.node-room-dimmer-button):not(#nodeUndoButton):not(#nodeRedoButton):not(#nodeDonateFiveButton) > span",
-    ".node-view-tabs > #nodeVisibilityMenuButton",
     ".node-world-position-readout > span",
     ".node-modular-view-size-readout > span",
     ".node-selection-count-readout > span",

@@ -155,6 +155,9 @@ async function bindNodeGraphUiDevSettingsEvents() {
   }
   bindNodeUiDevSliderFillColorControls();
   bindNodeUiDevModuleIdleStroke();
+  if (typeof bindNodeUiDevModuleRoundness === "function") {
+    bindNodeUiDevModuleRoundness();
+  }
   installNodeUiDevExposeControls();
   // Apply saved settings before grouping. Organize/view-mount used to throw
   // and skip apply; unload persist then wrote HTML defaults over the last

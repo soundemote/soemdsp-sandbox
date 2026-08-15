@@ -899,8 +899,19 @@ const nodeGraphFloatingWindowRegistryEntries = Object.freeze([
     dragStateKey: "visibilityMenuDragging",
     resizeStateKey: "visibilityMenuResizing",
     applySizeName: "applyNodeGraphVisibilityMenuSize",
-    sizeAxes: Object.freeze({ width: true, height: false }),
-    pinPositionOnWidthResize: true,
+    sizeAxes: Object.freeze({ width: true, height: true }),
+    headingDragClass: true,
+  }),
+  Object.freeze({
+    workspaceKey: "hotkeys",
+    elementId: "nodeHotkeysPage",
+    dragStateKey: "hotkeysPageDragging",
+    resizeStateKey: "hotkeysPageResizing",
+    applySizeName: "applyNodeGraphHotkeysPageSize",
+    sizeAxes: Object.freeze({ width: true, height: true }),
+    headingDragClass: true,
+    resizeHandleId: "nodeHotkeysPageResizeHandle",
+    resizeAriaLabel: "Resize hotkeys",
   }),
   Object.freeze({
     workspaceKey: "metaparameters",
@@ -1113,6 +1124,21 @@ function nodeGraphFloatingWindowRegistryPointerMove(event) {
     if (entry.dragStateKey && nodeGraphMvp[entry.dragStateKey]) {
       const element = document.getElementById(entry.elementId);
       dragNodeGraphFloatingWindow(event, entry.dragStateKey, element, (next) => {
+        const unified = typeof nodeGraphUnifiedWindowPageConfig === "function"
+          && nodeGraphUnifiedWindowPageConfig(entry.workspaceKey);
+        if (unified && typeof storeNodeGraphUnifiedWindowSeat === "function") {
+          storeNodeGraphUnifiedWindowSeat({
+            left: next.left,
+            top: next.top,
+            width: nodeGraphMvp?.unifiedWindowSize?.width,
+            height: nodeGraphMvp?.unifiedWindowSize?.height,
+          });
+        }
+        // Visibility has no independent seat — writing one used to yank
+        // Command Center to the old toolbar-adjacent position.
+        if (entry.workspaceKey === "visibilityMenu") {
+          return;
+        }
         if (entry.workspaceKey && typeof rememberNodeGraphWorkspaceWindowState === "function") {
           rememberNodeGraphWorkspaceWindowState(
             entry.workspaceKey,
@@ -1154,10 +1180,19 @@ function nodeGraphFloatingWindowRegistryPointerEnd(event) {
       const drag = nodeGraphMvp[entry.dragStateKey];
       drag.heading?.classList.remove("dragging");
       endNodeGraphFloatingWindowDrag(event, entry.dragStateKey, () => {
+        const element = document.getElementById(entry.elementId);
+        if (typeof rememberNodeGraphUnifiedWindowSizeFromElement === "function"
+          && typeof nodeGraphUnifiedWindowPageConfig === "function"
+          && nodeGraphUnifiedWindowPageConfig(entry.workspaceKey)) {
+          rememberNodeGraphUnifiedWindowSizeFromElement(element);
+        }
+        if (entry.workspaceKey === "visibilityMenu") {
+          return;
+        }
         if (entry.workspaceKey && typeof rememberNodeGraphWorkspaceWindowState === "function") {
           rememberNodeGraphWorkspaceWindowState(
             entry.workspaceKey,
-            document.getElementById(entry.elementId),
+            element,
             {},
             { status: false },
           );
@@ -1166,8 +1201,16 @@ function nodeGraphFloatingWindowRegistryPointerEnd(event) {
     }
     if (entry.resizeStateKey && nodeGraphMvp[entry.resizeStateKey]) {
       endNodeGraphFloatingWindowResize(event, entry.resizeStateKey, () => {
+        const element = document.getElementById(entry.elementId);
+        if (typeof rememberNodeGraphUnifiedWindowSizeFromElement === "function"
+          && typeof nodeGraphUnifiedWindowPageConfig === "function"
+          && nodeGraphUnifiedWindowPageConfig(entry.workspaceKey)) {
+          rememberNodeGraphUnifiedWindowSizeFromElement(element);
+        }
+        if (entry.workspaceKey === "visibilityMenu") {
+          return;
+        }
         if (entry.workspaceKey && typeof rememberNodeGraphWorkspaceWindowState === "function") {
-          const element = document.getElementById(entry.elementId);
           const rect = element?.getBoundingClientRect?.();
           const size = rect
             ? {

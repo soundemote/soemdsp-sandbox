@@ -914,6 +914,52 @@ function showNodeModuleActionsWindow(anchorRect = null) {
   }
 }
 
+function hideNodeModuleActionsBlankPicker(menu = document.getElementById("nodeModuleActionsWindow")) {
+  const empty = menu?.querySelector?.(":scope > .node-unified-inspector-empty");
+  if (empty) {
+    empty.hidden = true;
+  }
+}
+
+function fillNodeModuleActionsBlankPicker(menu = document.getElementById("nodeModuleActionsWindow")) {
+  if (!menu) {
+    return;
+  }
+  let empty = menu.querySelector(":scope > .node-unified-inspector-empty");
+  if (!empty) {
+    empty = document.createElement("div");
+    empty.className = "node-unified-inspector-empty";
+    empty.setAttribute("role", "status");
+    if (typeof placeNodeGraphUnifiedInspectorEmpty === "function") {
+      placeNodeGraphUnifiedInspectorEmpty(menu, empty);
+    } else {
+      const nav = menu.querySelector(":scope > .node-unified-window-nav-host");
+      const body = menu.querySelector(".node-module-actions-window-body");
+      if (nav) {
+        nav.after(empty);
+      } else if (body) {
+        body.before(empty);
+      } else {
+        menu.append(empty);
+      }
+    }
+  }
+  empty.hidden = false;
+  if (typeof fillNodeGraphUnifiedInspectorModuleList === "function") {
+    fillNodeGraphUnifiedInspectorModuleList(empty, {
+      kind: "settings",
+      hint: "Choose a module",
+      emptyHint: "No modules in this patch.",
+      onPick(node) {
+        if (typeof nodeGraphSelectInspectorModule === "function") {
+          nodeGraphSelectInspectorModule(node.id);
+        }
+        configureNodeSceneContextMenu("module");
+      },
+    });
+  }
+}
+
 function openNodeGraphModuleActionsFromContextWindow() {
   ensureNodeGraphModuleActionsWindowBody();
   const targetNodeId = nodeGraphModuleActionTargetNodeId();
@@ -1253,9 +1299,15 @@ function configureNodeSceneContextMenu(mode) {
       homeModules.hidden = true;
     }
     closeButton.hidden = false;
+    if (moduleMode) {
+      fillNodeModuleActionsBlankPicker(menu);
+    } else {
+      hideNodeModuleActionsBlankPicker(menu);
+    }
     syncNodeModuleActionsWindowHeightLimit();
     return;
   }
+  hideNodeModuleActionsBlankPicker(menu);
   if (actionMode) {
     setNodeGraphModuleActionControlsHidden(false);
   }
@@ -1817,11 +1869,12 @@ function configureNodeSceneContextMenu(mode) {
         ? "Show this module's input and output ports."
         : "Hide this module's input and output ports.");
     if (toggleHideUnusedButton) {
-      // Under construction — not reliable yet; leave disabled app-wide.
-      toggleHideUnusedButton.disabled = true;
-      toggleHideUnusedButton.setAttribute("aria-disabled", "true");
-      setVisLines(toggleHideUnusedButton, false, "Hide unused");
-      toggleHideUnusedButton.title = "Hide unused — under construction (disabled).";
+      toggleHideUnusedButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
+      toggleHideUnusedButton.removeAttribute("aria-disabled");
+      setVisLines(toggleHideUnusedButton, multiHideUnused, "Hide unused");
+      toggleHideUnusedButton.title = multiHideUnused
+        ? "Show unused inlets and outlets."
+        : "Hide unused inlets and outlets.";
     }
     if (toggleCollapsedButton) {
       const collapsedNow = multiModuleMode
@@ -2017,6 +2070,12 @@ function configureNodeSceneContextMenu(mode) {
       attenuateButton.title = nodeGraphTooltipText("actions.wireAttenuate")
         || "Insert a slim attenuverter on each selected signal or modulation wire.";
     }
+    const attenuvertButton = document.getElementById("nodeSceneWireAttenuvert");
+    if (attenuvertButton) {
+      attenuvertButton.disabled = !canAttenuateWires;
+      attenuvertButton.title = nodeGraphTooltipText("actions.wireAttenuvert")
+        || "Insert a bipolar attenuverter (−1…+1 amplitude and offset) on each selected wire.";
+    }
     deleteButton.disabled = !canDelete;
     deleteButton.title = canDelete
       ? nodeGraphTooltipText("actions.deleteWire")
@@ -2074,6 +2133,10 @@ function configureNodeSceneContextMenu(mode) {
     const idleAttenuate = document.getElementById("nodeSceneWireAttenuate");
     if (idleAttenuate) {
       idleAttenuate.disabled = true;
+    }
+    const idleAttenuvert = document.getElementById("nodeSceneWireAttenuvert");
+    if (idleAttenuvert) {
+      idleAttenuvert.disabled = true;
     }
     copyButton.disabled = true;
     copyButton.title = nodeGraphTooltipText("actions.copyUnavailableModule");
@@ -2300,24 +2363,22 @@ function openNodeScopeContextMenu(event) {
   return true;
 }
 
-// Right-click on the Music Player's waveform display -- deliberately does
-// NOT call closeNodeSceneContextMenu() or touch any other floating window.
-// The waveform settings window is fully independent, not part of the
-// shared-inspector displacement dance (metadata/module-actions/trace
-// settings auto-closing each other) -- opening it must never make another
-// window disappear.
+// Right-click on the Music Player's waveform display opens Command Center
+// Display Settings (same seat as keypad / LED / scopes).
 function openNodePhosphorWaveformContextMenu(event) {
   const display = event.target.closest?.(".node-phosphor-waveform-display");
   const nodeId = display?.dataset?.node || "";
   if (!nodeId || !nodeGraphPatchNode(nodeId)) {
     return false;
   }
-  if (typeof openNodeGraphPhosphorWaveformSettings !== "function") {
-    return false;
-  }
   event.preventDefault();
   event.stopPropagation();
-  openNodeGraphPhosphorWaveformSettings(nodeId, event);
+  if (typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
+    return true;
+  }
+  if (typeof openNodeGraphPhosphorWaveformSettings === "function") {
+    return openNodeGraphPhosphorWaveformSettings(nodeId, event);
+  }
   return true;
 }
 

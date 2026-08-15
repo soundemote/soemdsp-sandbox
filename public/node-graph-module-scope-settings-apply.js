@@ -75,6 +75,15 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     return node.layout;
   }
+  if (displayType === "phosphorWaveform") {
+    node.phosphorWaveformSettings = typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
+      ? normalizeNodeGraphPhosphorWaveformSettings(settings)
+      : (settings || {});
+    if (typeof applyNodeGraphPhosphorWaveformDisplaySettingsToFace === "function") {
+      applyNodeGraphPhosphorWaveformDisplaySettingsToFace(node);
+    }
+    return node.phosphorWaveformSettings;
+  }
   if (displayType === "textBoxFace") {
     const previous = typeof normalizeNodeGraphTextBoxLayout === "function"
       ? normalizeNodeGraphTextBoxLayout(node.layout)
@@ -473,6 +482,11 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
   if (settingsSchema === "keypadFace") {
     return node.layout && typeof node.layout === "object" ? { ...node.layout } : {};
   }
+  if (settingsSchema === "phosphorWaveform") {
+    return node.phosphorWaveformSettings && typeof node.phosphorWaveformSettings === "object"
+      ? { ...node.phosphorWaveformSettings }
+      : {};
+  }
   if (settingsSchema === "textBoxFace") {
     return node.layout && typeof node.layout === "object" ? { ...node.layout } : {};
   }
@@ -553,6 +567,18 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   // otherwise skip the full path; cold plates still run, but force refreshes
   // energy faces too after Clear-while-paused style freezes).
   scheduleNodeGraphModuleScopeDraw({ force: true });
+  if (typeof nodeGraphDisplaySettingsIsVectorTraceFormType === "function"
+    && nodeGraphDisplaySettingsIsVectorTraceFormType(
+      typeof nodeGraphTraceDisplaySettingsFormType === "function"
+        ? nodeGraphTraceDisplaySettingsFormType()
+        : "",
+    )
+    && typeof syncNodeGraphInstantTracePreview === "function") {
+    syncNodeGraphInstantTracePreview(
+      document.getElementById("nodeTraceDisplaySettingsPopover"),
+      settings,
+    );
+  }
   if (typeof paintNodeGraphModuleScopeColdPlatesOnly === "function") {
     paintNodeGraphModuleScopeColdPlatesOnly(undefined, { force: true });
   }

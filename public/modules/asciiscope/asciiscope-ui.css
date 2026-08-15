@@ -1,5 +1,26 @@
 /* Asciiscope — Matrix glyph face (character cells, not sub-glyph pixels) */
 
+/* Waterfall plate chrome: padding + pill/squircle rounding (no extra green frame). */
+.node-asciiscope-face.node-matrix-waterfall-face {
+  padding: var(--matrix-face-inset, 0px);
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.node-matrix-waterfall-face > .node-asciiscope-stage {
+  border: 0;
+  border-radius: var(--matrix-face-radius, 0px);
+  corner-shape: var(--matrix-face-corner-shape, round);
+  overflow: hidden;
+}
+
+.node-matrix-waterfall-face .node-asciiscope-canvas {
+  border-radius: inherit;
+  corner-shape: inherit;
+}
+
 /* Full-bleed matrix face — glyph table lives in Display Settings. */
 .node-asciiscope-face {
   position: relative;
@@ -30,31 +51,41 @@
   background: #010201;
 }
 
-/* Sized in JS to fixed cell aspect (contain) — never stretch to fill.
-   Sharp: image-rendering unset (LCD + .pixelated-canvas-zoom ≥ 2.5).
-   Pixel: JS sets pixelated for crisp scale at every zoom. */
+/* Fill the stage. Sharp/Pixel only change image-rendering, not geometry. */
 .node-asciiscope-canvas {
   position: absolute;
   display: block;
-  /* Default before first layout tick */
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
+  /* Always fill the stage — never lock a leftover px box (that left a
+     black strip on the right after the first undersized layout tick). */
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
 }
 
-/* Display Settings panel (shared popover body) */
+/* Display Settings: waterfall uses LED/waveform row chrome.
+   Plate (Matrix Display) still uses these leftovers. */
 .node-matrix-face-settings-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  grid-column: 1 / -1;
+}
+
+.node-trace-display-settings-popover .node-matrix-face-settings-panel .node-gradient-selector-host,
+.node-trace-display-settings-popover .node-matrix-face-settings-panel .sge-host,
+.node-trace-display-settings-popover .node-matrix-face-settings-panel .sge-root {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .node-matrix-face-settings-hint {
-  margin: 0 0 2px;
-  color: var(--muted, rgba(160, 180, 170, 0.75));
-  font: 600 0.62rem/1.35 var(--mono, Consolas, monospace);
+  margin: 0;
+  padding: 3px 6px;
+  color: var(--muted);
+  font: inherit;
 }
 
 .node-matrix-face-glyph-table,
@@ -65,11 +96,11 @@
   padding: 6px 8px;
   resize: vertical;
   overflow: auto;
-  border: 1px solid rgba(40, 180, 70, 0.32);
-  border-radius: 4px;
-  background: rgba(0, 8, 2, 0.94);
-  color: #7dffa0;
-  font: 600 0.72rem/1.3 "MS Gothic", "Yu Gothic", Consolas, monospace;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: #05090b;
+  color: var(--text);
+  font: 600 0.72rem/1.3 Consolas, "Courier New", monospace;
   white-space: pre;
   tab-size: 2;
   box-sizing: border-box;
@@ -87,52 +118,41 @@
 .node-matrix-face-glyph-table:focus,
 .node-matrix-face-message:focus {
   outline: none;
-  border-color: rgba(100, 255, 140, 0.55);
-  box-shadow: 0 0 0 1px rgba(60, 200, 90, 0.25);
-}
-
-.node-matrix-face-settings-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 6px;
 }
 
 .node-matrix-face-render-toggle {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
-  margin-bottom: 10px;
+  width: 100%;
 }
 
+.node-trace-display-settings-popover .metadata-popover-grid .node-matrix-face-tool,
 .node-matrix-face-tool {
-  min-height: 24px;
+  flex: 1 1 auto;
+  width: auto !important;
+  min-height: var(--ds-row-h, 28px);
   padding: 0 10px;
-  border: 1px solid rgba(40, 180, 70, 0.32);
-  border-radius: 4px;
-  background: rgba(0, 12, 4, 0.92);
-  color: #9effb8;
-  font: 700 0.66rem/1 "Cascadia Mono", Consolas, monospace;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #05090b;
+  color: var(--text);
+  font: 650 0.66rem/1 inherit;
   cursor: var(--node-dot-cursor);
-}
-
-.node-matrix-face-tool:hover {
-  border-color: rgba(120, 255, 150, 0.55);
-  color: #c8ffd4;
 }
 
 .node-matrix-face-tool.active,
 .node-matrix-face-tool[aria-pressed="true"] {
-  border-color: rgba(120, 255, 150, 0.65);
-  background: rgba(20, 60, 30, 0.95);
-  color: #d4ffe0;
-  box-shadow: 0 0 0 1px rgba(60, 200, 90, 0.2);
+  border-color: rgba(90, 255, 150, 0.62);
+  background: rgba(90, 255, 150, 0.16);
+  color: rgba(180, 255, 210, 0.95);
 }
 
-/* Module shell: header | face | io | params | inset */
-.dsp-node.asciiscope-layout,
-.dsp-node.matrix-waterfall-layout,
-.dsp-node.matrix-plate-layout {
+/* Fallback stack only if apply-layout has not written --node-module-stack-rows. */
+.dsp-node.asciiscope-layout:not(.module-stack),
+.dsp-node.matrix-waterfall-layout:not(.module-stack),
+.dsp-node.matrix-plate-layout:not(.module-stack) {
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows:
     var(--node-header-height)
     var(--node-module-scope-height)
@@ -141,8 +161,7 @@
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
-/* Waterfall: no I/O row content — collapse IO track min height */
-.dsp-node.matrix-waterfall-layout {
+.dsp-node.matrix-waterfall-layout:not(.module-stack) {
   grid-template-rows:
     var(--node-header-height)
     var(--node-module-scope-height)
@@ -154,10 +173,13 @@
 .dsp-node.asciiscope-layout > .node-asciiscope-face,
 .dsp-node.matrix-waterfall-layout > .node-asciiscope-face,
 .dsp-node.matrix-plate-layout > .node-asciiscope-face {
-  grid-row: 2;
+  grid-column: 1 / -1;
   align-self: stretch;
+  justify-self: stretch;
   width: 100%;
+  max-width: 100%;
   height: 100%;
+  min-width: 0;
   min-height: 0;
   pointer-events: auto;
 }

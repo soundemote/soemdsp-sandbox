@@ -97,21 +97,13 @@ function nodeGraphClampUnit(value) {
 // CSS pixels with a setTransform(pixelRatio, ...), while the phosphor
 // waveform draws in raw device pixels so it can snap lines to real pixels.
 // Returns null when there is nothing to draw into.
-/**
- * App-wide face backing policy:
- *   pixelDensity 1.0 = CSS × devicePixelRatio (never smaller than the screen grid).
- *   pixelDensity 2.0 = 2× that backing, then bilinear present (cheap SSAA).
- *   <1 = intentional lo-fi (chunky upscale). 0 still yields a 1×1 store.
- *
- * Callers draw in CSS pixels after setTransform(pixelRatio, …) where pixelRatio
- * is dpr × density. The compositor bilinear-filters the larger store down.
- */
+/** Face backing 0…1. 1 = CSS × dpr; below 1 = lo-fi. */
 function nodeGraphResolveDisplayPixelDensity(pixelDensity) {
-  const raw = Number(pixelDensity);
-  if (!Number.isFinite(raw)) {
-    return 1;
+  if (typeof nodeGraphTraceDisplayClampPixelDensity === "function") {
+    return nodeGraphTraceDisplayClampPixelDensity(pixelDensity);
   }
-  return Math.max(0, Math.min(4, raw));
+  const raw = Number(pixelDensity);
+  return Number.isFinite(raw) ? Math.max(0, Math.min(1, raw)) : 1;
 }
 
 function nodeGraphSizeDisplayCanvas(section, canvas, options = {}) {
@@ -139,9 +131,8 @@ function nodeGraphSizeDisplayCanvas(section, canvas, options = {}) {
   cssHeight = Math.max(1, cssHeight);
   const nativeWidth = Math.max(1, Math.round(cssWidth * devicePixelRatio));
   const nativeHeight = Math.max(1, Math.round(cssHeight * devicePixelRatio));
-  // density 1 = native (no downsample). density 2 = upsample then bilinear down.
-  const width = Math.max(1, Math.round(nativeWidth * Math.max(density, 0)));
-  const height = Math.max(1, Math.round(nativeHeight * Math.max(density, 0)));
+  const width = Math.max(1, Math.round(nativeWidth * density));
+  const height = Math.max(1, Math.round(nativeHeight * density));
   if (canvas.width !== width) {
     canvas.width = width;
   }
@@ -166,9 +157,7 @@ function nodeGraphSizeDisplayCanvas(section, canvas, options = {}) {
 
 /**
  * Cheap vector blur: redraw the current path at a diamond of CSS-px offsets
- * (center + 4 cardinal + 4 diagonal) with a tent kernel. No extra canvas,
- * no Gaussian convolution. Combined with pixelDensity > 1 this is a
- * supersampled 4-tap diamond restroke.
+ * (center + 4 cardinal + 4 diagonal) with a tent kernel. No extra canvas.
  */
 function nodeGraphStrokePathWithLineBlur(context, options = {}) {
   if (!context) {

@@ -99,6 +99,7 @@ function nodeGraphEventTargetIsFloatingWindow(target) {
     "#nodeTraceDisplaySettingsPopover",
     "#nodeGlobalScopeMenu",
     "#nodeVisibilityMenu",
+    "#nodeHotkeysPage",
     "#nodeModuleShopView",
     "#nodeUserUiSettingsPanel",
     "#nodePatchDefaultsPanel",
@@ -635,9 +636,16 @@ function renderNodeGraphSelection() {
   }
   renderNodeGraphExecutionSummarySelection();
 
-  const button = document.getElementById("nodeDeleteButton");
-  button.disabled = !nodeGraphSelectionCanDelete();
-  button.title = nodeGraphDeleteTitle();
+  const canDelete = nodeGraphSelectionCanDelete();
+  const deleteTitle = nodeGraphDeleteTitle();
+  for (const id of ["nodeDeleteButton", "nodeHistoryDeleteButton", "nodeSceneHistoryDeleteButton"]) {
+    const button = document.getElementById(id);
+    if (!button) {
+      continue;
+    }
+    button.disabled = !canDelete;
+    button.title = deleteTitle;
+  }
 
   syncNodeGraphModuleActionTargetFromSelection();
   syncNodeGraphSharedInspectorTargetFromSelection();
@@ -645,6 +653,10 @@ function renderNodeGraphSelection() {
 }
 
 function selectNodeGraphWire(event, index, kind = "signal") {
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    event?.stopPropagation?.();
+    return;
+  }
   event.stopPropagation();
   setNodeGraphSelection({ type: "wire", kind, index });
 }

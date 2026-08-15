@@ -88,6 +88,8 @@ const nodeUiDevSettingControls = Object.freeze([
   },
   { defaultValue: 78, id: "nodeUiDevModuleLightSpread", key: "moduleLightSpread", max: 220, min: 40, type: "number" },
   { defaultValue: 6, id: "nodeUiDevModuleGridInset", key: "moduleGridInset", max: 20, min: 0, type: "number" },
+  { defaultValue: 53, id: "nodeUiDevModuleRoundness", key: "moduleRoundness", max: 100, min: 0, type: "number" },
+  { defaultValue: "pill", id: "nodeUiDevModuleCornerShape", key: "moduleCornerShape", type: "string" },
   {
     defaultValue: 0.75,
     exposeDefault: true,
@@ -238,6 +240,8 @@ const nodeUiDevSettingSections = Object.freeze([
       "nodeUiDevModuleStrokeColor",
       "nodeUiDevModuleStrokeAlpha",
       "nodeUiDevModuleGridInset",
+      "nodeUiDevModuleCornerShape",
+      "nodeUiDevModuleRoundness",
       "nodeUiDevViewModuleButtons",
       "nodeUiDevViewModuleOscilloscopes",
       "nodeUiDevViewModuleInterface",

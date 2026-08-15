@@ -9,7 +9,14 @@ function nodeGraphMatrixStoreFromNode(node) {
   if (node?.type === "matrixWaterfall") {
     return typeof normalizeNodeGraphMatrixWaterfall === "function"
       ? normalizeNodeGraphMatrixWaterfall(node.matrixWaterfall || node.matrixDisplay)
-      : { glyphTable: ".", renderStyle: "vector", gradientStops: null };
+      : {
+        glyphTable: ".",
+        renderStyle: "vector",
+        gradientStops: null,
+        screenPadding: 0,
+        rounding: 0,
+        screenShape: "pill",
+      };
   }
   return typeof normalizeNodeGraphMatrixPlate === "function"
     ? normalizeNodeGraphMatrixPlate(node?.matrixDisplay)
@@ -34,11 +41,30 @@ function normalizeNodeGraphMatrixFaceSettings(settings = null, formType = null) 
 
 function buildNodeGraphMatrixWaterfallDisplaySettingsBodyHtml() {
   return `
-    <div class="node-matrix-face-settings-panel" data-matrix-face-settings-panel data-matrix-kind="waterfall">
+    <div
+      class="node-led-display-settings-panel node-matrix-face-settings-panel"
+      data-matrix-face-settings-panel
+      data-matrix-kind="waterfall">
+      <label class="node-led-settings-row">
+        <span>Padding</span>
+        <input type="range" min="0" max="1" step="0.01" data-matrix-face-range="screenPadding" aria-label="Plate padding 0–1">
+      </label>
+      <div class="node-led-settings-row" role="group" aria-label="Corner shape">
+        <span>Corners</span>
+        <button type="button" data-matrix-face-shape="pill" aria-pressed="true">Pill</button>
+        <button type="button" data-matrix-face-shape="squircle" aria-pressed="false">Squircle</button>
+      </div>
+      <label class="node-led-settings-row">
+        <span>Rounding</span>
+        <input type="range" min="0" max="100" step="1" data-matrix-face-range="rounding" aria-label="Corner rounding">
+        <span>%</span>
+      </label>
+      <div class="node-led-settings-row" role="group" aria-label="Render style">
+        <span>Render</span>
+        <button type="button" data-matrix-face-render="vector" aria-pressed="true">Sharp</button>
+        <button type="button" data-matrix-face-render="pixel" aria-pressed="false">Pixel</button>
+      </div>
       <div class="metadata-section-title node-trace-display-gradient-title">Gradient</div>
-      <p class="node-matrix-face-settings-hint">
-        Mono cell energy (black → white) remapped through this gradient.
-      </p>
       <div class="metadata-field-section node-trace-display-gradient-section">
         <div
           id="nodeTraceDisplayGradientSelectorHost"
@@ -47,20 +73,8 @@ function buildNodeGraphMatrixWaterfallDisplaySettingsBodyHtml() {
           data-shared-gradient-host
           data-spectrogram-gradient-host></div>
       </div>
-
-      <div class="metadata-section-title">Render</div>
-      <p class="node-matrix-face-settings-hint">
-        Same grid and residual. Sharp = smooth sampling; Pixel = nearest/pixelated of the same image. Switching style does not wipe trails.
-      </p>
-      <div class="node-matrix-face-render-toggle" role="group" aria-label="Render style">
-        <button type="button" class="node-matrix-face-tool" data-matrix-face-render="vector" aria-pressed="true">Sharp</button>
-        <button type="button" class="node-matrix-face-tool" data-matrix-face-render="pixel" aria-pressed="false">Pixel</button>
-      </div>
-
-      <div class="metadata-section-title">Glyph table</div>
-      <p class="node-matrix-face-settings-hint">
-        Rain charset — one glyph per line (half-width katakana, digits, Latin).
-      </p>
+      <div class="metadata-section-title node-trace-display-glyph-title">Glyph</div>
+      <p class="node-matrix-face-settings-hint">Charset - one glyph per line.</p>
       <textarea
         class="node-matrix-face-glyph-table"
         data-matrix-face-field="glyphTable"
@@ -68,9 +82,10 @@ function buildNodeGraphMatrixWaterfallDisplaySettingsBodyHtml() {
         autocomplete="off"
         rows="12"
         aria-label="Matrix glyph table"></textarea>
-      <div class="node-matrix-face-settings-tools">
-        <button type="button" class="node-matrix-face-tool" data-matrix-face-action="default-glyphs">Default glyphs</button>
-        <button type="button" class="node-matrix-face-tool" data-matrix-face-action="clear-cells">Clear cells</button>
+      <div class="node-led-settings-row" role="group" aria-label="Glyph tools">
+        <span>Table</span>
+        <button type="button" data-matrix-face-action="default-glyphs">Default glyphs</button>
+        <button type="button" data-matrix-face-action="clear-cells">Clear cells</button>
       </div>
     </div>`;
 }
@@ -144,6 +159,20 @@ function syncNodeGraphMatrixFaceDisplaySettingsControls(root, settings) {
   if (message && document.activeElement !== message && settings.message != null) {
     message.value = settings.message || "";
   }
+  const pad = root.querySelector?.('[data-matrix-face-range="screenPadding"]');
+  if (pad && document.activeElement !== pad && settings.screenPadding != null) {
+    pad.value = String(settings.screenPadding);
+  }
+  const rounding = root.querySelector?.('[data-matrix-face-range="rounding"]');
+  if (rounding && document.activeElement !== rounding && settings.rounding != null) {
+    rounding.value = String(settings.rounding);
+  }
+  const shape = settings.screenShape === "squircle" ? "squircle" : "pill";
+  for (const btn of root.querySelectorAll?.("[data-matrix-face-shape]") || []) {
+    const active = btn.getAttribute("data-matrix-face-shape") === shape;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  }
 }
 
 function readNodeGraphMatrixFaceDisplaySettingsForm(root, current = null) {
@@ -173,11 +202,29 @@ function readNodeGraphMatrixFaceDisplaySettingsForm(root, current = null) {
     gradientStops = editor.getStops();
   }
 
+  const padInput = panel?.querySelector?.('[data-matrix-face-range="screenPadding"]');
+  const roundingInput = panel?.querySelector?.('[data-matrix-face-range="rounding"]');
+  const activeShape = panel?.querySelector?.(
+    "[data-matrix-face-shape].active, [data-matrix-face-shape][aria-pressed='true']",
+  );
+  const screenPadding = padInput
+    ? Number(padInput.value)
+    : base.screenPadding;
+  const rounding = roundingInput
+    ? Number(roundingInput.value)
+    : base.rounding;
+  const screenShape = activeShape?.getAttribute?.("data-matrix-face-shape")
+    || base.screenShape
+    || "pill";
+
   if (formType === "matrixWaterfallFace") {
     return normalizeNodeGraphMatrixFaceSettings({
       glyphTable: glyph ? glyph.value : base.glyphTable,
       renderStyle,
       gradientStops,
+      screenPadding,
+      rounding,
+      screenShape,
     }, formType);
   }
   return normalizeNodeGraphMatrixFaceSettings({
@@ -199,6 +246,12 @@ function bindNodeGraphMatrixFaceDisplaySettingsBody(host) {
 
   let inputTimer = 0;
   host.addEventListener("input", (event) => {
+    if (event.target?.closest?.("[data-matrix-face-range]")) {
+      if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
+        applyNodeGraphTraceDisplaySettingsForm({ persist: "none", record: false });
+      }
+      return;
+    }
     if (!event.target?.closest?.("[data-matrix-face-field]")) return;
     window.clearTimeout(inputTimer);
     inputTimer = window.setTimeout(() => {
@@ -208,13 +261,29 @@ function bindNodeGraphMatrixFaceDisplaySettingsBody(host) {
     }, 220);
   });
   host.addEventListener("change", (event) => {
-    if (!event.target?.closest?.("[data-matrix-face-field]")) return;
+    if (!event.target?.closest?.("[data-matrix-face-field], [data-matrix-face-range]")) return;
     if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
       applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true, commit: true });
     }
   });
 
   host.addEventListener("click", (event) => {
+    const shapeBtn = event.target?.closest?.("[data-matrix-face-shape]");
+    if (shapeBtn && host.contains(shapeBtn)) {
+      event.preventDefault();
+      event.stopPropagation();
+      const shape = shapeBtn.getAttribute("data-matrix-face-shape") === "squircle" ? "squircle" : "pill";
+      for (const btn of host.querySelectorAll?.("[data-matrix-face-shape]") || []) {
+        const active = btn.getAttribute("data-matrix-face-shape") === shape;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-pressed", String(active));
+      }
+      if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
+        applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true, commit: true });
+      }
+      return;
+    }
+
     const renderBtn = event.target?.closest?.("[data-matrix-face-render]");
     if (renderBtn && host.contains(renderBtn)) {
       event.preventDefault();

@@ -123,6 +123,8 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         audioPlayerNodeId: this.audioPlayerMeterNodeId || this.audioPlayerNodeIds[0] || "",
         audioPlayerNodeIds: [...this.audioPlayerNodeIds],
         audioPlayerPhase: this.audioPlayerMeterPhase,
+        audioPlayerSpeed: this.audioPlayerMeterSpeed,
+        audioPlayerSpeeds: this.audioPlayerMeterSpeeds || {},
         audioPlayerReason: this.audioPlayerMeterReason,
         clipCount: this.meterClipCount,
         badNumberCount: this.badNumberCount,
@@ -148,6 +150,8 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       this.inputMeterPeak = 0;
       this.audioPlayerMeterNodeId = "";
       this.audioPlayerMeterPhase = 0;
+      this.audioPlayerMeterSpeed = 0;
+      this.audioPlayerMeterSpeeds = Object.create(null);
       this.audioPlayerMeterReason = "";
       this.inputMeterSamples = 0;
       this.inputMeterSquareSum = 0;

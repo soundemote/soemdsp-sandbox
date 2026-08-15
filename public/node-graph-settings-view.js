@@ -38,13 +38,21 @@ function syncNodeGraphSettingsView() {
   }
   syncNodePatchRawTextHighlight();
   setNodeGraphSettingsField("patchNameValue", info.name);
+  setNodeGraphSettingsField("nodePatchDefaultsName", info.name);
   setNodeGraphSettingsField("patchBankValue", info.bank);
+  setNodeGraphSettingsField("nodePatchDefaultsBank", info.bank);
   setNodeGraphSettingsField("patchProgramValue", info.program);
+  setNodeGraphSettingsField("nodePatchDefaultsProgram", info.program);
   setNodeGraphSettingsField("patchBankNameValue", info.bankName);
+  setNodeGraphSettingsField("nodePatchDefaultsBankName", info.bankName);
   setNodeGraphSettingsField("patchCategoryValue", info.category);
+  setNodeGraphSettingsField("nodePatchDefaultsCategory", info.category);
   setNodeGraphSettingsField("patchAuthorValue", info.author);
+  setNodeGraphSettingsField("nodePatchDefaultsAuthor", info.author);
   setNodeGraphSettingsField("patchTagsValue", info.tags);
+  setNodeGraphSettingsField("nodePatchDefaultsTags", info.tags);
   setNodeGraphSettingsField("patchDescriptionValue", info.description);
+  setNodeGraphSettingsField("nodePatchDefaultsDescription", info.description);
   if (typeof applyNodeGraphPatchFaceDisplay === "function") {
     applyNodeGraphPatchFaceDisplay();
   }
@@ -54,16 +62,31 @@ function syncNodeGraphSettingsView() {
   }
 }
 
+function nodeGraphPatchInfoFieldValue(key, ...ids) {
+  const active = document.activeElement;
+  if (active?.getAttribute?.("data-patch-info-field") === key) {
+    return active.value;
+  }
+  for (const id of ids) {
+    const field = document.getElementById(id);
+    if (field) {
+      return field.value;
+    }
+  }
+  const any = document.querySelector(`[data-patch-info-field="${CSS.escape(String(key || ""))}"]`);
+  return any?.value ?? "";
+}
+
 function readNodeGraphSettingsView() {
   return normalizeNodeGraphPatchInfo({
-    author: document.getElementById("patchAuthorValue")?.value,
-    bank: document.getElementById("patchBankValue")?.value,
-    bankName: document.getElementById("patchBankNameValue")?.value,
-    category: document.getElementById("patchCategoryValue")?.value,
-    description: document.getElementById("patchDescriptionValue")?.value,
-    name: document.getElementById("patchNameValue")?.value,
-    program: document.getElementById("patchProgramValue")?.value,
-    tags: document.getElementById("patchTagsValue")?.value,
+    author: nodeGraphPatchInfoFieldValue("author", "nodePatchDefaultsAuthor", "patchAuthorValue"),
+    bank: nodeGraphPatchInfoFieldValue("bank", "nodePatchDefaultsBank", "patchBankValue"),
+    bankName: nodeGraphPatchInfoFieldValue("bankName", "nodePatchDefaultsBankName", "patchBankNameValue"),
+    category: nodeGraphPatchInfoFieldValue("category", "nodePatchDefaultsCategory", "patchCategoryValue"),
+    description: nodeGraphPatchInfoFieldValue("description", "nodePatchDefaultsDescription", "patchDescriptionValue"),
+    name: nodeGraphPatchInfoFieldValue("name", "nodePatchDefaultsName", "patchNameValue"),
+    program: nodeGraphPatchInfoFieldValue("program", "nodePatchDefaultsProgram", "patchProgramValue"),
+    tags: nodeGraphPatchInfoFieldValue("tags", "nodePatchDefaultsTags", "patchTagsValue"),
   });
 }
 

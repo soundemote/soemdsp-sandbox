@@ -1422,6 +1422,7 @@ function writeNodeMetadataEditorValues(metadata) {
   if (showParameterInput) {
     showParameterInput.checked = metadata.visible !== false;
   }
+  syncNodeMetadataParameterVisibilityButtons(metadata.visible !== false);
   const trailEl = document.getElementById("metadataRemoveTrailingZerosValue");
   if (trailEl) {
     trailEl.checked = Boolean(metadata.removeTrailingZeros);
@@ -1607,8 +1608,32 @@ function showBlankNodeMetadataPopoverContent() {
   if (typeof updateNodeMetadataScriptEffective === "function") {
     updateNodeMetadataScriptEffective("");
   }
-  setNodeMetadataScriptDirty(false, "no parameter selected", false, "Right-click on a slider");
-  setNodeMetadataPopoverBlankState(true, "Right-click on a slider");
+  setNodeMetadataScriptDirty(false, "no parameter selected", false, "Choose a module");
+  setNodeMetadataPopoverBlankState(true, "Choose a module");
+  syncNodeMetadataParameterVisibilityButtons(true);
+  const popover = document.getElementById("nodeParameterMetadataPopover");
+  const empty = popover?.querySelector?.(":scope > .node-unified-inspector-empty");
+  if (empty && typeof fillNodeGraphUnifiedInspectorModuleList === "function") {
+    fillNodeGraphUnifiedInspectorModuleList(empty, {
+      kind: "parameters",
+      hint: "Choose a module",
+      emptyHint: "No modules with parameters in this patch.",
+      onPick(node, event) {
+        if (typeof nodeGraphSelectInspectorModule === "function") {
+          nodeGraphSelectInspectorModule(node.id);
+        }
+        const element = typeof nodeGraphNodeElement === "function"
+          ? nodeGraphNodeElement(node.id)
+          : document.querySelector(`.dsp-node[data-node="${CSS.escape(node.id)}"]`);
+        const readout = typeof firstNodeModuleSliderReadout === "function"
+          ? firstNodeModuleSliderReadout(element)
+          : element?.querySelector?.(".node-slider-readout");
+        if (readout && typeof openNodeMetadataPopover === "function") {
+          openNodeMetadataPopover(event, readout);
+        }
+      },
+    });
+  }
 }
 
 function openBlankNodeMetadataPopover(event = {}) {
@@ -1946,6 +1971,18 @@ function bindNodeGraphMetadataPopoverEvents() {
     popover.addEventListener("change", handleNodeMetadataEditorInput);
     popover.addEventListener("click", stepNodeMetadataField);
     popover.addEventListener("click", clickNodeMetadataSmoothingModeButton);
+    document.getElementById("metadataHideParameterButton")
+      ?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setNodeMetadataParameterVisibleFromButtons(false);
+      });
+    document.getElementById("metadataShowParameterButton")
+      ?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setNodeMetadataParameterVisibleFromButtons(true);
+      });
   } else if (popover && typeof bindNodeGraphSettingsTextInputProtection === "function") {
     bindNodeGraphSettingsTextInputProtection(popover);
   }
@@ -2300,6 +2337,7 @@ function applyNodeMetadataEditor(options = {}) {
     refreshNodeGraphModuleParameterVisibility(nodeElement, patchNode);
   }
   populateNodeMetadataParameterPicker(slider);
+  syncNodeMetadataParameterVisibilityButtons(nextMetadata.visible !== false);
   markNodeGraphRenderPending();
   if (!options.keepDirty) {
     setNodeMetadataFieldsDirty(false);
@@ -2492,6 +2530,33 @@ function handleNodeMetadataKindChange() {
   setNodeMetadataFieldsDirty(true);
   applyNodeMetadataEditor({ keepDirty: true });
   document.getElementById("metadataRestoreDefaultButton").classList.add("armed");
+}
+
+function syncNodeMetadataParameterVisibilityButtons(visible) {
+  const shown = visible !== false;
+  const hide = document.getElementById("metadataHideParameterButton");
+  const show = document.getElementById("metadataShowParameterButton");
+  const armed = Boolean(nodeGraphMvp?.metadataEditorTarget);
+  if (hide) {
+    hide.disabled = !armed;
+    hide.setAttribute("aria-pressed", shown ? "false" : "true");
+  }
+  if (show) {
+    show.disabled = !armed;
+    show.setAttribute("aria-pressed", shown ? "true" : "false");
+  }
+}
+
+function setNodeMetadataParameterVisibleFromButtons(visible) {
+  if (!nodeGraphMvp?.metadataEditorTarget) {
+    return;
+  }
+  const checkbox = document.getElementById("metadataShowParameterValue");
+  if (checkbox) {
+    checkbox.checked = visible !== false;
+  }
+  syncNodeMetadataParameterVisibilityButtons(visible);
+  applyNodeMetadataEditor({ keepDirty: false });
 }
 
 function populateNodeMetadataParameterPicker(slider) {

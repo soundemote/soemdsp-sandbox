@@ -95,6 +95,11 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
     && key !== "capSize") {
     return 0.04;
   }
+  // Instant Trace Blur: control-space step (exp map) — fine near a hard line.
+  if (typeof nodeGraphTraceDisplayInstantTraceBlurField === "function"
+    && nodeGraphTraceDisplayInstantTraceBlurField(key)) {
+    return 0.03;
+  }
   // 0…1 unit fields (Bright, Ghost Bright, Residual, …): always 0.1.
   if (typeof nodeGraphTraceDisplayUnitDragField === "function"
     && nodeGraphTraceDisplayUnitDragField(key)) {
@@ -106,6 +111,18 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
 
 function nodeGraphTraceDisplaySizeControlField(key) {
   return ["dot1Size", "secondarySize", "capSize"].includes(key);
+}
+
+/** Instant Trace Blur (not phosphor stamp blur). */
+function nodeGraphTraceDisplayInstantTraceBlurField(key) {
+  if (key !== "lineThickness" && key !== "secondaryLineThickness") {
+    return false;
+  }
+  const type = typeof nodeGraphTraceDisplaySettingsFormType === "function"
+    ? nodeGraphTraceDisplaySettingsFormType()
+    : "";
+  return typeof nodeGraphDisplaySettingsIsVectorTraceFormType === "function"
+    && nodeGraphDisplaySettingsIsVectorTraceFormType(type);
 }
 
 /** History window fields (seconds) — use exponential control mapping. */
@@ -121,6 +138,7 @@ function nodeGraphTraceDisplayUnitDragField(key) {
   return [
     "dot1Brightness",
     "secondaryBrightness",
+    "fade",
     "ghostBrightness",
     "residual",
     "ghost",
@@ -182,11 +200,15 @@ const nodeGraphTraceDisplayUnitDragPixels = 220;
  */
 const nodeGraphTraceDisplaySizeDragPixels = 520;
 
+/** Instant Trace Blur: longer travel than Bright (visual halo is hot near 0). */
+const nodeGraphTraceDisplayBlurDragPixels = 640;
+
 function nodeGraphTraceDisplaySensitiveControlField(key) {
   // Brightness / residual are linear unit drags — not size-style exp maps.
-  // Exp remains for stamp size, pixel density, history windows only.
+  // Exp remains for stamp size, Instant Trace blur, pixel density, history.
   return nodeGraphTraceDisplaySizeControlField(key) ||
     nodeGraphTraceDisplayHistoryControlField(key) ||
+    nodeGraphTraceDisplayInstantTraceBlurField(key) ||
     key === "pixelDensity";
 }
 
@@ -197,7 +219,7 @@ const nodeGraphTraceDisplayHistoryControlExponent = 3.5;
 
 function nodeGraphTraceDisplaySensitiveControlMax(key) {
   if (key === "pixelDensity") {
-    return 4;
+    return 1;
   }
   // Bright is 0…1 energy app-wide (1 = full tip / full deposit).
   return 1;
@@ -318,7 +340,7 @@ function nodeGraphTraceDisplayClampBrightness(value) {
 }
 
 function nodeGraphTraceDisplayClampPixelDensity(value) {
-  return clampNodeSliderValue(Number(value) || 0, 0, 4);
+  return clampNodeSliderValue(Number(value) || 0, 0, 1);
 }
 
 // Stamp blur 0–1 (hard→soft). Migrates legacy signed -1..1 patch values.
@@ -392,6 +414,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   dot1Size: nodeGraphTraceDisplayClampUnit,
   ghost: nodeGraphTraceDisplayClampUnit,
   historySeconds: nodeGraphTraceDisplayClampHistorySeconds,
+  fade: nodeGraphTraceDisplayClampUnit,
   lineLength: nodeGraphTraceDisplayClampUnit,
   lineThickness: nodeGraphTraceDisplayClampNonNegative,
   lineBlur: (value) => clampNodeSliderValue(Number(value) || 0, 0, 8),

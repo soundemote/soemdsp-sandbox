@@ -442,7 +442,7 @@ function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
       source.pixelDensity,
       defaults.pixelDensity,
       0,
-      4,
+      1,
     ),
     // Ignore legacy scale for layout; keep puckSize (migrate old scale→puck if missing).
     puckSize: normalizeNodeGraphTraceDisplayNumber(
@@ -602,7 +602,7 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
       source.pixelDensity,
       defaults.pixelDensity,
       0,
-      4,
+      1,
     ),
     scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0.01, 100),
     sweepSeconds: normalizeNodeGraphLineBurnSweepSeconds(source, defaults),
@@ -641,7 +641,7 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
       source.pixelDensity,
       defaults.pixelDensity,
       0,
-      4,
+      1,
     ),
   };
 }
@@ -681,7 +681,16 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       0,
       1,
     ),
-    secondaryLineThickness: 0,
+    secondaryLineThickness: typeof nodeGraphTraceDisplayClampStampBlur === "function"
+      ? nodeGraphTraceDisplayClampStampBlur(
+        source.secondaryLineThickness ?? defaults.secondaryLineThickness,
+      )
+      : normalizeNodeGraphTraceDisplayNumber(
+        source.secondaryLineThickness,
+        defaults.secondaryLineThickness ?? 0,
+        0,
+        1,
+      ),
     cycles: normalizeNodeGraphTraceDisplayNumber(source.cycles, defaults.cycles, -Infinity, Infinity),
     lineThickness: typeof nodeGraphTraceDisplayClampStampBlur === "function"
       ? nodeGraphTraceDisplayClampStampBlur(source.lineThickness ?? source.blur ?? defaults.lineThickness)
@@ -701,7 +710,7 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       source.pixelDensity,
       defaults.pixelDensity,
       0,
-      4,
+      1,
     ),
     padding: normalizeNodeGraphTraceDisplayNumber(source.padding, defaults.padding, -Infinity, Infinity),
     // Amplitude zoom: multiplies samples before face mapping (1 = full-scale).
@@ -756,6 +765,7 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       source.historySeconds ?? zoomSeconds,
       defaults.historySeconds ?? defaults.zoomSeconds,
     ),
+    fade: normalizeNodeGraphTraceDisplayNumber(source.fade, defaults.fade ?? 0, 0, 1),
     xyzLayout: String(source.xyzLayout || defaults.xyzLayout || "stack").toLowerCase() === "separate"
       ? "separate"
       : "stack",
@@ -795,7 +805,7 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
       source.pixelDensity,
       defaults.pixelDensity,
       0,
-      4,
+      1,
     ),
     scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0.01, 100),
   };
@@ -1260,7 +1270,7 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
       source.pixelDensity,
       defaults.pixelDensity,
       0,
-      4,
+      1,
     ),
     scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0, Infinity),
   };
@@ -1288,6 +1298,7 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
       source.historySeconds ?? source.history,
       defaults.historySeconds,
     ),
+    fade: normalizeNodeGraphTraceDisplayNumber(source.fade, defaults.fade ?? 0, 0, 1),
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
       source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
     ),
@@ -1295,7 +1306,7 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
       source.pixelDensity,
       defaults.pixelDensity,
       0,
-      4,
+      1,
     ),
     scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0, Infinity),
   };

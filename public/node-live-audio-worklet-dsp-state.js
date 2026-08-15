@@ -289,6 +289,9 @@ NodeLiveAudioProcessor.prototype.safeFilterNumber = function safeFilterNumber(va
 
 NodeLiveAudioProcessor.prototype.sampleChannelAt = function sampleChannelAt(sample, channelIndex, frameIndex) {
     const channel = sample?.channelData?.[channelIndex] || sample?.samples;
+    if (typeof nodeGraphSampleReadHermite === "function") {
+      return nodeGraphSampleReadHermite(channel, frameIndex);
+    }
     if (!channel?.length) {
       return 0;
     }

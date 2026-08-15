@@ -11,6 +11,7 @@ const nodeGraphGradientVectorscopeSettingsDefaults = Object.freeze({
   dot1Size: 0.06,
   gradientStops: nodeGraphGradientVectorscopeDefaultStops,
   historySeconds: 1,
+  fade: 0,
   lineThickness: 0.15,
   dotBudget: 2048,
   pixelDensity: 1,
@@ -44,9 +45,10 @@ function normalizeNodeGraphGradientVectorscopeSettings(settings = {}) {
     dot1Size: Math.max(0, Math.min(1, num("dot1Size", d.dot1Size))),
     gradientStops,
     historySeconds: Math.max(0.02, Math.min(8, num("historySeconds", d.historySeconds))),
+    fade: Math.max(0, Math.min(1, num("fade", d.fade))),
     lineThickness: Math.max(0, Math.min(1, Number.isFinite(Number(blurRaw)) ? Number(blurRaw) : d.lineThickness)),
     dotBudget: Math.max(64, Math.min(8192, Math.round(num("dotBudget", d.dotBudget)))),
-    pixelDensity: Math.max(0.125, Math.min(4, num("pixelDensity", d.pixelDensity))),
+    pixelDensity: Math.max(0, Math.min(1, num("pixelDensity", d.pixelDensity))),
     rotate90,
     scale: Math.max(0.05, Math.min(8, num("scale", d.scale))),
   };
@@ -142,6 +144,7 @@ function drawNodeGraphGradientVectorscopeFaceItem(_renderer, item, pixelRatio) {
     TraceHistoryDraw.strokeGradient(ctx, points.filter(Boolean), {
       size: settings.dot1Size,
       blur: settings.lineThickness,
+      fade: Number.isFinite(Number(settings.fade)) ? Number(settings.fade) : 0,
       dotBudget: settings.dotBudget,
       faceMinSide: side,
       sampleRgb: sample,
@@ -150,7 +153,12 @@ function drawNodeGraphGradientVectorscopeFaceItem(_renderer, item, pixelRatio) {
     });
     return;
   }
-  const widthPx = Math.max(0.75, side * settings.dot1Size);
+  const widthPx = typeof TraceStroke !== "undefined" && typeof TraceStroke.diameterPx === "function"
+    ? TraceStroke.diameterPx(side, settings.dot1Size)
+    : side * Number(settings.dot1Size || 0);
+  if (!(widthPx > 0)) {
+    return;
+  }
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";

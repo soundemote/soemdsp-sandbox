@@ -726,6 +726,7 @@ function beginNodeGraphMarqueeSelection(event) {
   if (
     event.button !== 0 ||
     event.ctrlKey ||
+    (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) ||
     nodeGraphMarqueeTargetIsBlocked(event.target)
   ) {
     return;

@@ -73,10 +73,21 @@ function nodeGraphKeypadApplyLayout(face, layout) {
   );
   face.dataset.keypadStroke = String(next.stroke ?? d.stroke ?? 0.0705278719888686);
   face.dataset.keypadRounding = String(next.rounding ?? d.rounding ?? 48.2527147087858);
+  const labels = typeof nodeGraphKeypadLabelsList === "function"
+    ? nodeGraphKeypadLabelsList(next.labels)
+    : (typeof NODE_GRAPH_KEYPAD_LABELS !== "undefined"
+      ? NODE_GRAPH_KEYPAD_LABELS
+      : ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"]);
   const images = Array.isArray(next.keyImages) ? next.keyImages : [];
   for (const key of face.querySelectorAll(".node-keypad-key")) {
     const slot = Number(key.dataset.slot);
     const src = images[slot]?.dataUrl || "";
+    const glyph = labels[slot] ?? "";
+    const labelEl = key.querySelector(".node-keypad-key-label");
+    if (labelEl && labelEl.textContent !== glyph) {
+      labelEl.textContent = glyph;
+    }
+    key.setAttribute("aria-label", `Key ${glyph || slot + 1}`);
     key.classList.toggle("has-image", Boolean(src));
     key.style.backgroundImage = src ? `url("${src}")` : "";
   }

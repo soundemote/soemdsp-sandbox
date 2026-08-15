@@ -13,27 +13,34 @@ function nodeGraphPatchFileName() {
 
 function nodeGraphPatchWithLiveHeaderInfo(patch = nodeGraphMvp.patch) {
   const nextPatch = cloneNodeGraphPatch(patch);
-  const pageName = document.getElementById("patchNameValue");
-  const pageDescription = document.getElementById("patchDescriptionValue");
+  const field = (key, ...ids) => (
+    typeof nodeGraphPatchInfoFieldValue === "function"
+      ? nodeGraphPatchInfoFieldValue(key, ...ids)
+      : (document.getElementById(ids[0])?.value ?? document.getElementById(ids[1])?.value)
+  );
+  const rawBank = field("bank", "nodePatchDefaultsBank", "patchBankValue");
+  const rawProgram = field("program", "nodePatchDefaultsProgram", "patchProgramValue");
   const bank = normalizeNodeGraphSavedPatchBankIndex(
-    document.getElementById("patchBankValue")?.value ?? nodeGraphMvp.savedPatchBankIndex,
+    rawBank === "" || rawBank == null ? nodeGraphMvp.savedPatchBankIndex : rawBank,
   );
   const program = normalizeNodeGraphSavedPatchProgramIndex(
-    document.getElementById("patchProgramValue")?.value ?? nodeGraphMvp.selectedSavedPatchProgram,
+    rawProgram === "" || rawProgram == null
+      ? nodeGraphMvp.selectedSavedPatchProgram
+      : rawProgram,
   );
-  const bankName = document.getElementById("patchBankNameValue")?.value
-    ?? nodeGraphMvp.savedPatchBankName
-    ?? nextPatch.info?.bankName;
   nextPatch.info = normalizeNodeGraphPatchInfo({
     ...nextPatch.info,
     bank,
-    bankName,
-    description: pageDescription ? pageDescription.value : nextPatch.info?.description,
-    name: pageName ? pageName.value : nextPatch.info?.name,
+    bankName: field("bankName", "nodePatchDefaultsBankName", "patchBankNameValue")
+      || nodeGraphMvp.savedPatchBankName
+      || nextPatch.info?.bankName,
+    description: field("description", "nodePatchDefaultsDescription", "patchDescriptionValue")
+      || nextPatch.info?.description,
+    name: field("name", "nodePatchDefaultsName", "patchNameValue") || nextPatch.info?.name,
     program,
-    tags: document.getElementById("patchTagsValue")?.value ?? nextPatch.info?.tags,
-    author: document.getElementById("patchAuthorValue")?.value ?? nextPatch.info?.author,
-    category: document.getElementById("patchCategoryValue")?.value ?? nextPatch.info?.category,
+    tags: field("tags", "nodePatchDefaultsTags", "patchTagsValue") || nextPatch.info?.tags,
+    author: field("author", "nodePatchDefaultsAuthor", "patchAuthorValue") || nextPatch.info?.author,
+    category: field("category", "nodePatchDefaultsCategory", "patchCategoryValue") || nextPatch.info?.category,
   });
   return nextPatch;
 }

@@ -67,7 +67,7 @@ NodeLiveAudioProcessor.prototype.fractalBrownianNoiseSample = function fractalBr
   const octaves = Math.max(1, Math.min(8, Math.round(this.safeFilterNumber(params.octaves, null))));
   const persistence = this.clampValue(this.safeFilterNumber(params.persistence, null), 0, 0.99);
   const scale = Math.max(0.000001, this.safeFilterNumber(params.scale, null));
-  const level = this.safeFilterNumber(params.amplitude, null);
+  const level = this.safeFilterNumber(params.amplitude ?? params.level, 1);
   let total = 0;
   let amplitude = 1;
   let noiseFrequency = 1;
@@ -121,7 +121,7 @@ NodeLiveAudioProcessor.prototype.fractalBrownianNoiseVector = function fractalBr
         const persistence = this.clampValue(this.safeFilterNumber(params.persistence, null), 0, 0.99);
         const scale = Math.max(0.000001, this.safeFilterNumber(params.scale, null));
         const frequency = Math.max(0, this.safeFilterNumber(params.frequency, null));
-        const level = this.safeFilterNumber(params.amplitude, null);
+        const level = this.safeFilterNumber(params.amplitude ?? params.level, 1);
         const blockSize = NodeLiveAudioProcessor.FBM_NATIVE_BLOCK_SIZE;
         this.nativeFbm.soemdsp_fbm_process_block(state.nativeHandle, seed, octaves, persistence, scale, frequency, level, safeRate, blockSize, 1);
         const memory = this.nativeFbm.memory;
@@ -160,7 +160,7 @@ NodeLiveAudioProcessor.prototype.fractalBrownianNoiseVector = function fractalBr
       const persistence = this.clampValue(this.safeFilterNumber(params.persistence, null), 0, 0.99);
       const scale = Math.max(0.000001, this.safeFilterNumber(params.scale, null));
       const frequency = Math.max(0, this.safeFilterNumber(params.frequency, null));
-      const level = this.safeFilterNumber(params.amplitude, null);
+      const level = this.safeFilterNumber(params.amplitude ?? params.level, 1);
       this.nativeFbm.soemdsp_fbm_sample(state.nativeHandle, seed, octaves, persistence, scale, frequency, level, safeRate);
       const rawX = this.nativeFbm.soemdsp_fbm_x_raw?.(state.nativeHandle);
       const rawY = this.nativeFbm.soemdsp_fbm_y_raw?.(state.nativeHandle);
@@ -178,7 +178,7 @@ NodeLiveAudioProcessor.prototype.fractalBrownianNoiseVector = function fractalBr
   const rawX = this.fractalBrownianNoiseSample(state, params, safeRate, nodeId, "x", { raw: true });
   const rawY = this.fractalBrownianNoiseSample(state, params, safeRate, nodeId, "y", { raw: true });
   const rawZ = this.fractalBrownianNoiseSample(state, params, safeRate, nodeId, "z", { raw: true });
-  const level = this.safeFilterNumber(params.amplitude, null);
+  const level = this.safeFilterNumber(params.amplitude ?? params.level, 1);
   return {
     "Out X": this.safeFilterNumber(rawX * level, null),
     "Out Y": this.safeFilterNumber(rawY * level, null),
