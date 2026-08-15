@@ -8559,7 +8559,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Reset", "Speed", "Phase"],
     outputs: ["Mono", "Left", "Right", "Phase", "Trigger"],
     parameters: [
-      { choices: ["Off (reset)", "Stop", "Pause", "Loop", "Play"], defaultValue: "4", displayChoices: true, divideChoicesVisibly: true, key: "transport", label: "Playmode", linearSmoothing: false, max: "4", mid: "2", min: "0", nonlinearSlider: false, step: "1" },
+      { choices: ["Off (reset)", "Stop", "Pause", "Loop", "Play", "Loop All"], defaultValue: "4", displayChoices: true, divideChoicesVisibly: true, key: "transport", label: "Playmode", linearSmoothing: false, max: "5", mid: "2", min: "0", nonlinearSlider: false, step: "1" },
       { defaultValue: "1", key: "speed", label: "Speed", linearSmoothing: false, max: "8", maxDigits: 4, mid: "1", min: "0", step: "any", unit: "x" },
       // Slow reverse/forward nudge. No wrap. Internal 5 s linear (220500 samples @ 44.1 kHz).
       {

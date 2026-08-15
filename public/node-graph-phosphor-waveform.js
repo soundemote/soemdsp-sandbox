@@ -499,6 +499,10 @@ function buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml() {
         <span>Load Sample</span>
         <div id="nodePhosphorWaveformSampleLoaderSlot" class="node-phosphor-waveform-loader-slot"></div>
       </div>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-playlist-actions" role="group" aria-label="Playlist">
+        <button id="nodePhosphorWaveformClearPlaylist" type="button">Clear Playlist</button>
+        <button id="nodePhosphorWaveformRemoveItem" type="button">❌ Item</button>
+      </div>
       <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-phase-row" role="group" aria-label="Current phase">
         <span>Phase</span>
         <div id="nodePhosphorWaveformPhaseSlot" class="node-phosphor-waveform-phase-slot"></div>
@@ -649,6 +653,16 @@ function bindNodeGraphPhosphorWaveformDisplaySettingsBody(host) {
       } else if (button.id === "nodePhosphorWaveformPositionRightButton") {
         event.preventDefault();
         setNodeGraphPhosphorWaveformScrollLinePosition("right");
+      } else if (button.id === "nodePhosphorWaveformClearPlaylist") {
+        event.preventDefault();
+        if (typeof nodeGraphAudioPlayerPlaylistClear === "function") {
+          nodeGraphAudioPlayerPlaylistClear(nodeGraphPhosphorWaveformSettingsTargetNodeId());
+        }
+      } else if (button.id === "nodePhosphorWaveformRemoveItem") {
+        event.preventDefault();
+        if (typeof nodeGraphAudioPlayerPlaylistRemoveSelected === "function") {
+          nodeGraphAudioPlayerPlaylistRemoveSelected(nodeGraphPhosphorWaveformSettingsTargetNodeId());
+        }
       } else if (button.id === "nodePhosphorWaveformCornerSquareButton") {
         event.preventDefault();
         setNodeGraphPhosphorWaveformCornerShape("square");

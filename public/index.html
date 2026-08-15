@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=mp-fix-2">
+  <link rel="stylesheet" href="./public/styles.css?v=snake-hue-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=portal-io-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -377,6 +377,7 @@
           <div class="node-hotkeys-row"><kbd>Space</kbd><span>Pause / play</span></div>
           <div class="node-hotkeys-row"><kbd>Alt</kbd><span>+ click enables or disables a module</span></div>
           <div class="node-hotkeys-row"><kbd>Shift</kbd><span>+ click # locks view to grid</span></div>
+          <div class="node-hotkeys-row"><kbd>Ctrl</kbd><span>+ snake: keep / add trail</span></div>
         </div>
         <button
           id="nodeHotkeysPageResizeHandle"
@@ -1399,6 +1400,32 @@
                 step="1"
                 value="38">
               <output id="nodeUiDevSliderGhostFillAlphaValue" for="nodeUiDevSliderGhostFillAlpha">38%</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>snake select hue</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevSnakeSelectHue"
+                type="range"
+                min="0"
+                max="360"
+                step="1"
+                value="191">
+              <output id="nodeUiDevSnakeSelectHueValue" for="nodeUiDevSnakeSelectHue">191deg</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>snake select brightness</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevSnakeSelectBrightness"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="100">
+              <output id="nodeUiDevSnakeSelectBrightnessValue" for="nodeUiDevSnakeSelectBrightness">100%</output>
             </div>
           </label>
           <label class="node-ui-dev-control">
@@ -3323,7 +3350,7 @@
   <script src="./public/modules/portal/portal-inlet-register.js?v=portal-io-1"></script>
   <script src="./public/modules/portal/portal-outlet-register.js?v=portal-io-1"></script>
   <script src="./public/modules/patch/patch-register.js?v=patch-buttons-on-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=mp-loop-brack-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=mp-pl-transport-1"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script src="./public/node-graph-module-controls.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
@@ -3338,8 +3365,8 @@
   <script src="./public/node-graph-image-utils.js?v=keypad-bgi-1"></script>
   <script src="./public/node-graph-graph-utils.js?v=graph-settings-list-1"></script>
   <script src="./public/node-graph-samples.js?v=player-actual-speed-1"></script>
-  <script src="./public/modules/audioPlayer/audio-player-playlist.js?v=mp-fix-2"></script>
-  <script src="./public/node-graph-phosphor-waveform.js?v=mp-fix-2"></script>
+  <script src="./public/modules/audioPlayer/audio-player-playlist.js?v=mp-hud-1"></script>
+  <script src="./public/node-graph-phosphor-waveform.js?v=mp-pl-transport-1"></script>
   <script src="./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1"></script>
   <script src="./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=unit-mod-linear-1"></script>
   <script src="./public/node-graph-musical-engines.js?v=musical-engines-1"></script>
@@ -3370,7 +3397,7 @@
   <script src="./public/node-graph-workspace-zoom.js?v=jacks-visible-1"></script>
   <script src="./public/node-graph-workspace-view.js?v=chrome-camera-pin-1"></script>
   <script src="./public/node-graph-camera-view.js?v=hitpoint-select-1"></script>
-  <script src="./public/node-graph-marquee-selection.js?v=ready-lock-hide-1"></script>
+  <script src="./public/node-graph-marquee-selection.js?v=snake-hsla-1"></script>
   <script src="./public/node-graph-node-dragging.js?v=ready-lock-hide-1"></script>
   <script src="./public/node-graph-context-menu.js?v=ready-lock-hide-1"></script>
   <script src="./public/node-graph-module-actions.js?v=last-action-1"></script>
@@ -3513,12 +3540,12 @@
   <script src="./public/node-graph-tooltips.js?v=title-bypass-1"></script>
   <script src="./public/node-graph-interaction-help.js?v=last-action-1"></script>
   <script src="./public/presets/useruisettings.js?v=selected-inner-stroke-1"></script>
-  <script src="./public/node-graph-ui-settings-definitions.js?v=ghost-hsla-1"></script>
+  <script src="./public/node-graph-ui-settings-definitions.js?v=snake-hue-1"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=macro-cleanup-1"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=file-picker-1"></script>
-  <script src="./public/node-graph-ui-settings-persistence.js?v=transport-stick-1"></script>
-  <script src="./public/node-graph-ui-settings-sync.js?v=ghost-hsla-1"></script>
+  <script src="./public/node-graph-ui-settings-persistence.js?v=snake-hue-1"></script>
+  <script src="./public/node-graph-ui-settings-sync.js?v=snake-hue-1"></script>
   <script src="./public/node-graph-keyboard-shortcuts.js?v=transport-stick-1"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
@@ -3805,7 +3832,7 @@
   <script src="./public/modules/portal/portal-live-evaluator.js?v=portal-io-1"></script>
   <script src="./public/modules/audioInput/audio-input-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/lib/sample-interpolate.js?v=hermite-1"></script>
-  <script src="./public/modules/audioPlayer/audio-player-live-evaluator.js?v=hermite-1"></script>
+  <script src="./public/modules/audioPlayer/audio-player-live-evaluator.js?v=mp-pl-transport-1"></script>
   <script src="./public/modules/moduleGroup/module-group-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/codeblock/codeblock-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/sineWavetable/sine-wavetable-live-evaluator.js?v=sincos-no-amp-in-1"></script>
@@ -3816,7 +3843,7 @@
   <script src="./public/modules/graph/graph-live-evaluator.js?v=retire-graph-type-20260724"></script>
   <script src="./public/modules/polyBlep/poly-blep-live-evaluator.js?v=one-core-native-20260803"></script>
   <script src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
-  <script src="./public/node-graph-live-runtime.js?v=keypad-latch-1"></script>
+  <script src="./public/node-graph-live-runtime.js?v=mp-pl-transport-1"></script>
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=readout-no-kb-1"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>

@@ -1293,6 +1293,26 @@ button.scw-label:hover,
   --node-music-player-pl-row-height: 1.35rem;
 }
 .node-music-player-face-bar {
+  position: absolute;
+  top: calc(
+    var(--phosphor-waveform-inset, 2px)
+    + 1px
+    + var(--phosphor-waveform-label-inset, 6px)
+  );
+  left: calc(
+    var(--phosphor-waveform-inset, 2px)
+    + 1px
+    + var(--phosphor-waveform-label-inset, 6px)
+  );
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.node-music-player-face-bar > * {
+  pointer-events: auto;
+}
+.node-phosphor-waveform-display:not([data-music-player-face="wave"]) .node-music-player-face-bar {
   display: none;
 }
 /* Zoom % is a drag control but must look like the canvas HUD ("No sample loaded"
@@ -1320,17 +1340,18 @@ button.scw-label:hover,
 }
 .node-phosphor-waveform-zoom {
   position: absolute;
-  z-index: 4;
+  z-index: 6;
   top: calc(
     var(--phosphor-waveform-inset, 2px)
     + 1px
     + var(--phosphor-waveform-label-inset, 6px)
   );
-  left: calc(
+  right: calc(
     var(--phosphor-waveform-inset, 2px)
     + 1px
     + var(--phosphor-waveform-label-inset, 6px)
   );
+  left: auto;
   height: auto;
   font: var(--phosphor-hud-font-sm);
   color: var(--phosphor-hud-color-hot);
@@ -1469,10 +1490,52 @@ button.scw-label:hover,
 }
 .node-music-player-dock-btn:hover,
 .node-music-player-dock-btn:focus-visible,
-.node-music-player-dock-btn.is-active {
+.node-music-player-dock-btn.is-active,
+.node-music-player-pl-transport-btn:hover,
+.node-music-player-pl-transport-btn:focus-visible,
+.node-music-player-pl-transport-btn.is-active {
   color: var(--phosphor-hud-color-hot);
   background: transparent;
   outline: none;
+}
+.node-music-player-pl-transport {
+  flex: 0 0 var(--node-music-player-pl-row-height, 1.35rem);
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  height: var(--node-music-player-pl-row-height, 1.35rem);
+  min-height: var(--node-music-player-pl-row-height, 1.35rem);
+  max-height: var(--node-music-player-pl-row-height, 1.35rem);
+  box-sizing: border-box;
+  border-top: 1px solid var(--phosphor-hud-color-dim);
+  background: #050805;
+}
+.node-music-player-pl-transport-btn {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  border-right: 1px solid var(--phosphor-hud-color-dim) !important;
+  border-radius: 0;
+  background: transparent;
+  color: var(--phosphor-hud-color);
+  font: var(--phosphor-hud-font);
+  line-height: 1;
+  outline: none;
+  cursor: var(--node-dot-cursor);
+}
+.node-music-player-pl-transport-btn:last-child {
+  border-right: 0 !important;
+}
+.node-phosphor-waveform-playlist-actions {
+  gap: 6px;
+}
+.node-phosphor-waveform-playlist-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
 }
 .node-music-player-pl-head {
   position: absolute;
@@ -1625,9 +1688,11 @@ button.scw-label:hover,
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--phosphor-hud-color-dim) transparent;
+  /* 6 screen px: CSS zoom on the graph would otherwise fatten/thin the thumb. */
+  --node-music-player-pl-scrollbar: calc(6px / max(0.0001, var(--node-graph-zoom, 1)));
 }
 .node-music-player-pl-list::-webkit-scrollbar {
-  width: 6px;
+  width: var(--node-music-player-pl-scrollbar);
 }
 .node-music-player-pl-list::-webkit-scrollbar-track {
   background: transparent;
@@ -5922,6 +5987,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-slider-position-color: hsl(203 55% 57% / 0.42);
   --node-slider-amount-color: hsl(200 31% 15% / 0.55);
   --node-slider-ghost-color: hsl(262 100% 76% / 0.38);
+  --node-selection-hit-trail-color: rgb(0 208 255);
   --node-choice-divider-padding: 3px;
   --node-module-fill: #171a1f;
   /* I/O strip is see-through like the plate — jacks are stroke-only. */
@@ -11275,7 +11341,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .node-selection-hit-trail-path {
   fill: none !important;
-  stroke: var(--accent, #7fc7d9) !important;
+  stroke: var(--node-selection-hit-trail-color, var(--accent, #7fc7d9)) !important;
   /* JS overwrites width/dash for zoom-stable screen size. */
   stroke-width: 6;
   stroke-linecap: round;

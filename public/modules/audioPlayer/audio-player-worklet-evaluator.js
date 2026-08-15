@@ -55,7 +55,7 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     const transportFallback = Object.hasOwn(node?.params || {}, "transport")
       ? 4
       : ((Number(node?.params?.loop) || 0) >= 0.5 ? 4 : 0);
-    const transportMode = Math.max(0, Math.min(4, Math.round(readParam("transport", transportFallback))));
+    const transportMode = Math.max(0, Math.min(5, Math.round(readParam("transport", transportFallback))));
     const transportReset = transportMode <= 0;
     const transportStopped = transportMode === 1;
     const transportPaused = transportMode === 2;

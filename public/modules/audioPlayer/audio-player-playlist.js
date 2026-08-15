@@ -28,9 +28,18 @@ function nodeGraphAudioPlayerPlaylistNormalize(raw = null) {
       .filter(Boolean)
     : [];
   const index = Math.max(0, Math.min(items.length ? items.length - 1 : 0, Math.round(Number(source.index) || 0)));
+  const selectedIndex = Math.max(
+    0,
+    Math.min(items.length ? items.length - 1 : 0, Math.round(Number(source.selectedIndex ?? source.index) || 0)),
+  );
   const face = nodeGraphAudioPlayerPlaylistNormalizeFace(source.face);
   const ramOpen = source.ramOpen === true || source.ramOpen === "true" || source.ramOpen === 1;
-  return { face, index, items, ramOpen };
+  const shuffle = source.shuffle === true || source.shuffle === "true" || source.shuffle === 1;
+  let loopMode = String(source.loopMode || "").trim().toLowerCase();
+  if (loopMode !== "off" && loopMode !== "one" && loopMode !== "all") {
+    loopMode = "off";
+  }
+  return { face, index, items, ramOpen, selectedIndex, shuffle, loopMode };
 }
 
 const nodeGraphAudioPlayerPlaylistFaces = Object.freeze(["wave", "pl", "vsxy", "vslr"]);
@@ -163,6 +172,153 @@ function nodeGraphAudioPlayerPlaylistPersist(nodeId, { status = true } = {}) {
   }
 }
 
+/** Playmode base 0…5. Writes the param (modulation still stacks on top). */
+function nodeGraphAudioPlayerWriteTransport(nodeId, mode, { record = false } = {}) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!node || node.type !== "audioPlayer") {
+    return;
+  }
+  const next = Math.max(0, Math.min(5, Math.round(Number(mode) || 0)));
+  node.params = { ...(node.params || {}), transport: String(next) };
+  const slider = document.querySelector(
+    `.dsp-node[data-node="${CSS.escape(String(nodeId))}"] input[data-param="transport"]`,
+  );
+  if (slider) {
+    if (typeof setNodeSliderValue === "function") {
+      setNodeSliderValue(slider, next, { interaction: "program" });
+    } else {
+      slider.value = String(next);
+      if (typeof syncNodeSliderReadout === "function") {
+        syncNodeSliderReadout(slider);
+      }
+    }
+  }
+  if (typeof scheduleNodeGraphLiveParameterSync === "function") {
+    scheduleNodeGraphLiveParameterSync();
+  }
+  if (record && typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+    saveNodeGraphWorkingPatchToUserSettings();
+  }
+  nodeGraphAudioPlayerPlaylistSyncTransport(nodeId);
+}
+
+function nodeGraphAudioPlayerTransportBase(nodeId) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const n = Math.round(Number(node?.params?.transport));
+  return Number.isFinite(n) ? Math.max(0, Math.min(5, n)) : 4;
+}
+
+function nodeGraphAudioPlayerPlaylistPlayModeForLoop(loopMode) {
+  if (loopMode === "one") {
+    return 3;
+  }
+  if (loopMode === "all") {
+    return 5;
+  }
+  return 4;
+}
+
+function nodeGraphAudioPlayerPlaylistClear(nodeId) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!node || node.type !== "audioPlayer") {
+    return;
+  }
+  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  pl.items = [];
+  pl.index = 0;
+  pl.selectedIndex = 0;
+  node.playlist = pl;
+  nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
+  nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: true });
+}
+
+function nodeGraphAudioPlayerPlaylistRemoveSelected(nodeId) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!node || node.type !== "audioPlayer") {
+    return;
+  }
+  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  if (!pl.items.length) {
+    return;
+  }
+  const selected = Number.isInteger(pl.selectedIndex) ? pl.selectedIndex : pl.index;
+  const i = Math.max(0, Math.min(pl.items.length - 1, selected));
+  const removed = pl.items[i];
+  pl.items.splice(i, 1);
+  pl.index = Math.max(0, Math.min(pl.items.length ? pl.items.length - 1 : 0, i));
+  pl.selectedIndex = pl.index;
+  node.playlist = pl;
+  const sid = typeof normalizeNodeGraphSampleId === "function"
+    ? normalizeNodeGraphSampleId(node.sample?.id)
+    : String(node.sample?.id || "").trim();
+  if (removed && sid && removed.sampleId === sid) {
+    if (pl.items[pl.index]) {
+      nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, pl.index, { autoplay: false });
+    }
+  }
+  nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
+  nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: true });
+}
+
+function nodeGraphAudioPlayerPlaylistToggleShuffle(nodeId) {
+  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  pl.shuffle = !pl.shuffle;
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (node) {
+    node.playlist = pl;
+  }
+  nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: false });
+  nodeGraphAudioPlayerPlaylistSyncTransport(nodeId);
+}
+
+function nodeGraphAudioPlayerPlaylistCycleLoop(nodeId) {
+  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  const order = ["off", "one", "all"];
+  const i = order.indexOf(pl.loopMode);
+  pl.loopMode = order[(i + 1) % order.length];
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (node) {
+    node.playlist = pl;
+  }
+  nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: false });
+  const transport = nodeGraphAudioPlayerTransportBase(nodeId);
+  if (transport >= 3) {
+    nodeGraphAudioPlayerWriteTransport(nodeId, nodeGraphAudioPlayerPlaylistPlayModeForLoop(pl.loopMode));
+    return;
+  }
+  nodeGraphAudioPlayerPlaylistSyncTransport(nodeId);
+}
+
+function nodeGraphAudioPlayerPlaylistTogglePlayPause(nodeId) {
+  const transport = nodeGraphAudioPlayerTransportBase(nodeId);
+  if (transport >= 3) {
+    nodeGraphAudioPlayerWriteTransport(nodeId, 2);
+    return;
+  }
+  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  nodeGraphAudioPlayerWriteTransport(nodeId, nodeGraphAudioPlayerPlaylistPlayModeForLoop(pl.loopMode));
+}
+
+function nodeGraphAudioPlayerPlaylistPickNeighbor(pl, from, dir) {
+  const n = pl.items.length;
+  if (n <= 0) {
+    return -1;
+  }
+  if (n === 1) {
+    return 0;
+  }
+  if (pl.shuffle) {
+    let next = from;
+    let guard = 0;
+    while (next === from && guard < 8) {
+      next = Math.floor(Math.random() * n);
+      guard += 1;
+    }
+    return next === from ? (from + dir + n) % n : next;
+  }
+  return from + dir;
+}
+
 /** Append a loaded sample to the playlist (dedupe by sampleId). */
 function nodeGraphAudioPlayerPlaylistAppendSample(nodeId, sampleRef = {}, options = {}) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
@@ -241,6 +397,127 @@ function nodeGraphAudioPlayerPlaylistGoToWave(nodeId) {
   nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: false });
 }
 
+function nodeGraphAudioPlayerPlaylistCreateTransport(nodeId) {
+  const bar = document.createElement("div");
+  bar.className = "node-music-player-pl-transport";
+  bar.dataset.musicPlayerTransport = "true";
+  bar.setAttribute("role", "toolbar");
+  bar.setAttribute("aria-label", "Playlist transport");
+  const specs = [
+    ["prev", "<", "Previous"],
+    ["next", ">", "Next"],
+    ["stop", "⏹️", "Stop"],
+    ["play", "⏯️", "Play / Pause"],
+    ["loop", "↪️", "Loop"],
+    ["shuffle", "🔀", "Shuffle"],
+  ];
+  for (const [action, label, title] of specs) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "node-music-player-pl-transport-btn";
+    btn.dataset.musicPlayerTransport = action;
+    btn.textContent = label;
+    btn.title = title;
+    btn.setAttribute("aria-label", title);
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      nodeGraphAudioPlayerPlaylistTransportAction(nodeId, action);
+    });
+    btn.addEventListener("pointerdown", (event) => event.stopPropagation());
+    bar.append(btn);
+  }
+  return bar;
+}
+
+function nodeGraphAudioPlayerPlaylistTransportAction(nodeId, action) {
+  if (action === "prev") {
+    nodeGraphAudioPlayerPlaylistPlayPrev(nodeId);
+    return;
+  }
+  if (action === "next") {
+    nodeGraphAudioPlayerPlaylistPlayNext(nodeId);
+    return;
+  }
+  if (action === "stop") {
+    nodeGraphAudioPlayerWriteTransport(nodeId, 1);
+    return;
+  }
+  if (action === "play") {
+    nodeGraphAudioPlayerPlaylistTogglePlayPause(nodeId);
+    return;
+  }
+  if (action === "loop") {
+    nodeGraphAudioPlayerPlaylistCycleLoop(nodeId);
+    return;
+  }
+  if (action === "shuffle") {
+    nodeGraphAudioPlayerPlaylistToggleShuffle(nodeId);
+  }
+}
+
+function nodeGraphAudioPlayerPlaylistSyncTransport(nodeId) {
+  const section = document.querySelector(
+    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
+  );
+  const bar = section?.querySelector?.("[data-music-player-transport]");
+  if (!bar) {
+    return;
+  }
+  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  const transport = nodeGraphAudioPlayerTransportBase(nodeId);
+  const loopBtn = bar.querySelector("[data-music-player-transport='loop']");
+  if (loopBtn) {
+    const loop = transport === 3 ? "one" : transport === 5 ? "all" : pl.loopMode;
+    loopBtn.textContent = loop === "one" ? "🔂" : loop === "all" ? "🔁" : "↪️";
+    loopBtn.title = loop === "one" ? "Loop single" : loop === "all" ? "Loop all" : "Loop off";
+    loopBtn.setAttribute("aria-label", loopBtn.title);
+    loopBtn.classList.toggle("is-active", loop !== "off");
+  }
+  const playBtn = bar.querySelector("[data-music-player-transport='play']");
+  if (playBtn) {
+    playBtn.classList.toggle("is-active", transport >= 3);
+  }
+  const stopBtn = bar.querySelector("[data-music-player-transport='stop']");
+  if (stopBtn) {
+    stopBtn.classList.toggle("is-active", transport === 1);
+  }
+  const shuffleBtn = bar.querySelector("[data-music-player-transport='shuffle']");
+  if (shuffleBtn) {
+    shuffleBtn.classList.toggle("is-active", Boolean(pl.shuffle));
+    shuffleBtn.setAttribute("aria-pressed", pl.shuffle ? "true" : "false");
+  }
+}
+
+function nodeGraphAudioPlayerPlaylistEnsureFaceBar(section, nodeId) {
+  if (!section) {
+    return;
+  }
+  let bar = section.querySelector(":scope > .node-music-player-face-bar");
+  if (bar) {
+    return bar;
+  }
+  bar = document.createElement("div");
+  bar.className = "node-music-player-face-bar";
+  const plBtn = document.createElement("button");
+  plBtn.type = "button";
+  plBtn.className = "node-music-player-face-btn";
+  plBtn.dataset.musicPlayerFace = "pl";
+  plBtn.textContent = "playlist";
+  plBtn.title = "Open playlist";
+  plBtn.setAttribute("aria-label", "Open playlist");
+  plBtn.setAttribute("aria-pressed", "false");
+  plBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    nodeGraphAudioPlayerPlaylistSetFace(nodeId, "pl");
+  });
+  plBtn.addEventListener("pointerdown", (event) => event.stopPropagation());
+  bar.append(plBtn);
+  section.append(bar);
+  return bar;
+}
+
 function nodeGraphAudioPlayerPlaylistEnsureLayout(section, nodeId) {
   if (!section) {
     return;
@@ -266,6 +543,13 @@ function nodeGraphAudioPlayerPlaylistEnsureLayout(section, nodeId) {
   }
   for (const dock of section.querySelectorAll("[data-music-player-now]")) {
     dock.remove();
+  }
+  if (!plPage.querySelector("[data-music-player-transport]")) {
+    plPage.append(nodeGraphAudioPlayerPlaylistCreateTransport(nodeId));
+  }
+  nodeGraphAudioPlayerPlaylistEnsureFaceBar(section, nodeId);
+  if (typeof nodeGraphPhosphorWaveformEnsureZoomControl === "function") {
+    nodeGraphPhosphorWaveformEnsureZoomControl(section);
   }
 }
 
@@ -422,21 +706,14 @@ function nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, index, { autoplay = true 
   if (!node.params || typeof node.params !== "object") {
     node.params = {};
   }
-  // Play mode: 4 = Play (once) so auto-advance can fire; user can switch to Loop.
+  // Keep current loop/play choice; default Play if we need to start.
   if (autoplay) {
-    node.params.transport = "4";
+    nodeGraphAudioPlayerWriteTransport(
+      nodeId,
+      nodeGraphAudioPlayerPlaylistPlayModeForLoop(pl.loopMode),
+    );
   }
   node.params.playlistScrub = "0";
-
-  // Mirror transport slider if present.
-  const moduleEl = document.querySelector(`.dsp-node[data-node="${CSS.escape(String(nodeId))}"]`);
-  const transport = moduleEl?.querySelector?.('input[data-param="transport"]');
-  if (transport && autoplay) {
-    transport.value = "4";
-    if (typeof syncNodeSliderReadout === "function") {
-      syncNodeSliderReadout(transport);
-    }
-  }
 
   // Sample swap needs a real plan rebuild so the worklet hears the new file.
   if (typeof cloneNodeGraphPatch === "function" && typeof commitNodeGraphPatch === "function") {
@@ -460,11 +737,7 @@ function nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, index, { autoplay = true 
   nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: false });
 }
 
-function nodeGraphAudioPlayerPlaylistPlayNext(nodeId) {
-  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-  if (!pl.items.length) {
-    return;
-  }
+function nodeGraphAudioPlayerPlaylistPlayingFrom(nodeId, pl) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const sid = typeof normalizeNodeGraphSampleId === "function"
     ? normalizeNodeGraphSampleId(node?.sample?.id)
@@ -472,23 +745,48 @@ function nodeGraphAudioPlayerPlaylistPlayNext(nodeId) {
   const playing = sid
     ? pl.items.findIndex((item) => item.sampleId === sid)
     : pl.index;
-  const from = playing >= 0 ? playing : pl.index;
-  const next = from + 1;
-  if (next >= pl.items.length) {
-    // End of list: stop (transport Stop).
-    const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-    if (node) {
-      node.params = { ...(node.params || {}), transport: "1" };
-      if (typeof scheduleNodeGraphLiveParameterSync === "function") {
-        scheduleNodeGraphLiveParameterSync();
-      }
-      if (typeof setNodeGraphSampleStatus === "function") {
-        setNodeGraphSampleStatus(nodeId, "playlist finished");
-      }
+  return playing >= 0 ? playing : pl.index;
+}
+
+function nodeGraphAudioPlayerPlaylistPlayNext(nodeId) {
+  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  if (!pl.items.length) {
+    return;
+  }
+  const from = nodeGraphAudioPlayerPlaylistPlayingFrom(nodeId, pl);
+  const next = nodeGraphAudioPlayerPlaylistPickNeighbor(pl, from, 1);
+  const transport = nodeGraphAudioPlayerTransportBase(nodeId);
+  const wrap = pl.loopMode === "all" || transport === 5 || pl.shuffle;
+  if (!pl.shuffle && next >= pl.items.length) {
+    if (wrap) {
+      nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, 0, { autoplay: true });
+      return;
+    }
+    nodeGraphAudioPlayerWriteTransport(nodeId, 1);
+    if (typeof setNodeGraphSampleStatus === "function") {
+      setNodeGraphSampleStatus(nodeId, "playlist finished");
     }
     return;
   }
   nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, next, { autoplay: true });
+}
+
+function nodeGraphAudioPlayerPlaylistPlayPrev(nodeId) {
+  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  if (!pl.items.length) {
+    return;
+  }
+  const from = nodeGraphAudioPlayerPlaylistPlayingFrom(nodeId, pl);
+  const prev = nodeGraphAudioPlayerPlaylistPickNeighbor(pl, from, -1);
+  const transport = nodeGraphAudioPlayerTransportBase(nodeId);
+  const wrap = pl.loopMode === "all" || transport === 5 || pl.shuffle;
+  if (!pl.shuffle && prev < 0) {
+    if (wrap) {
+      nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, pl.items.length - 1, { autoplay: true });
+    }
+    return;
+  }
+  nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, prev, { autoplay: true });
 }
 
 // Debounce auto-advance so a held "complete" reason does not skip tracks.
@@ -515,9 +813,9 @@ function nodeGraphAudioPlayerPlaylistOnRuntimeStatus(nodeId, reason = "") {
   if (!nodeGraphAudioPlayerPlaylistAdvanceArmed.get(nodeId)) {
     return;
   }
-  // Only auto-advance when transport is Play (once)=4, not Loop=3.
+  // Auto-advance on Play (4) and Loop All (5), not Loop single (3).
   const transport = Math.round(Number(node.params?.transport) || 0);
-  if (transport !== 4) {
+  if (transport !== 4 && transport !== 5) {
     return;
   }
   nodeGraphAudioPlayerPlaylistAdvanceArmed.set(nodeId, false);
@@ -1033,6 +1331,7 @@ function nodeGraphAudioPlayerPlaylistRefreshUi(nodeId) {
     }
   }
   nodeGraphAudioPlayerPlaylistRefreshRamDebug(nodeId);
+  nodeGraphAudioPlayerPlaylistSyncTransport(nodeId);
   nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
   nodeGraphAudioPlayerPlaylistPaintWaves(nodeId);
   window.requestAnimationFrame(() => {
@@ -1266,8 +1565,8 @@ function nodeGraphAudioPlayerPlaylistEnhanceDisplay(section, nodeId) {
   const dockFaces = [
     ["wave", "waveform", "Waveform"],
     ["pl", "playlist", "Playlist"],
-    ["vsxy", "videoscope XY", "Videoscope XY"],
-    ["vslr", "videoscope LR", "Videoscope LR"],
+    ["vsxy", "XY", "XY"],
+    ["vslr", "LR", "LR"],
   ];
   for (const [face, label, title] of dockFaces) {
     const btn = document.createElement("button");
@@ -1287,8 +1586,14 @@ function nodeGraphAudioPlayerPlaylistEnhanceDisplay(section, nodeId) {
     dock.append(btn);
   }
 
+  plPage.append(nodeGraphAudioPlayerPlaylistCreateTransport(nodeId));
+
   nodeGraphAudioPlayerPlaylistEnsureLayout(section, nodeId);
   section.replaceChildren(wavePage, plPage, vsxyPage, vslrPage, dock);
+  nodeGraphAudioPlayerPlaylistEnsureFaceBar(section, nodeId);
+  if (typeof nodeGraphPhosphorWaveformEnsureZoomControl === "function") {
+    nodeGraphPhosphorWaveformEnsureZoomControl(section);
+  }
 
   nodeGraphAudioPlayerPlaylistApplyFace(nodeId);
 

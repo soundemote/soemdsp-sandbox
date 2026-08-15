@@ -1467,6 +1467,9 @@ function resetNodeUiDevControlsToDeclaredDefaults() {
   if (typeof syncNodeUiDevSliderFillColorControls === "function") {
     syncNodeUiDevSliderFillColorControls();
   }
+  if (typeof syncNodeUiDevSnakeSelectColor === "function") {
+    syncNodeUiDevSnakeSelectColor();
+  }
   if (typeof syncNodeUiDevModuleLightGridControls === "function") {
     syncNodeUiDevModuleLightGridControls();
   }

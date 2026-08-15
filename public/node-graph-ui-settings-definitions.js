@@ -191,6 +191,8 @@ const nodeUiDevSettingControls = Object.freeze([
   { defaultValue: 100, id: "nodeUiDevSliderGhostFillSaturation", key: "sliderGhostFillSaturation", max: 100, min: 0, type: "number" },
   { defaultValue: 76, id: "nodeUiDevSliderGhostFillLightness", key: "sliderGhostFillLightness", max: 100, min: 0, type: "number" },
   { defaultValue: 38, id: "nodeUiDevSliderGhostFillAlpha", key: "sliderGhostFillAlpha", max: 100, min: 0, type: "number" },
+  { defaultValue: 191, id: "nodeUiDevSnakeSelectHue", key: "snakeSelectHue", max: 360, min: 0, type: "number" },
+  { defaultValue: 100, id: "nodeUiDevSnakeSelectBrightness", key: "snakeSelectBrightness", max: 100, min: 0, type: "number" },
   { defaultValue: 1, id: "nodeUiDevTraceWireThickness", key: "traceWireThickness", max: 12, min: 1, type: "number" },
   { defaultValue: 2, id: "nodeUiDevChoiceSlideEmptyBorder", key: "choiceSlideEmptyBorder", max: 8, min: 0, type: "number" },
   { defaultValue: false, id: "nodeUiDevChoiceSlideDebugBoxes", key: "choiceSlideDebugBoxes", type: "boolean" },
@@ -275,6 +277,13 @@ const nodeUiDevSettingSections = Object.freeze([
       "nodeUiDevTraceWireThickness",
       "nodeUiDevViewWireLengths",
       "nodeUiDevViewWiresAbove",
+    ],
+  },
+  {
+    title: "selection",
+    ids: [
+      "nodeUiDevSnakeSelectHue",
+      "nodeUiDevSnakeSelectBrightness",
     ],
   },
   {

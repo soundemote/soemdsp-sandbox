@@ -80,6 +80,42 @@ function nodeGraphHitTrailSmoothPathD(points) {
   return d;
 }
 
+function nodeGraphHitTrailKeptStrokes() {
+  if (!Array.isArray(nodeGraphMvp.hitTrailKeptStrokes)) {
+    nodeGraphMvp.hitTrailKeptStrokes = [];
+  }
+  return nodeGraphMvp.hitTrailKeptStrokes;
+}
+
+function clearNodeGraphHitTrailKept() {
+  nodeGraphMvp.hitTrailKeptStrokes = [];
+}
+
+function nodeGraphHitTrailPushKept(points) {
+  if (!points?.length) {
+    return;
+  }
+  const strokes = nodeGraphHitTrailKeptStrokes();
+  strokes.push(points.map((p) => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })));
+  let total = 0;
+  for (const stroke of strokes) {
+    total += stroke.length;
+  }
+  while (strokes.length > 1 && total > nodeGraphHitTrailMaxPoints * 2) {
+    total -= strokes[0].length;
+    strokes.shift();
+  }
+}
+
+function nodeGraphHitTrailAllStrokes() {
+  const strokes = nodeGraphHitTrailKeptStrokes().slice();
+  const live = nodeGraphMvp.marqueeSelection?.points;
+  if (live?.length) {
+    strokes.push(live);
+  }
+  return strokes;
+}
+
 function renderNodeGraphMarqueeSelection() {
   // Legacy name kept for call sites. Renders the hit trail snake.
   const svg = nodeGraphHitTrailSvg();
@@ -88,8 +124,8 @@ function renderNodeGraphMarqueeSelection() {
   if (marquee) {
     marquee.hidden = true;
   }
-  const drag = nodeGraphMvp.marqueeSelection;
-  if (!svg || !path || !drag?.points?.length) {
+  const strokes = nodeGraphHitTrailAllStrokes();
+  if (!svg || !path || !strokes.length) {
     if (svg) {
       svg.setAttribute("hidden", "");
       svg.style.display = "none";
@@ -113,10 +149,10 @@ function renderNodeGraphMarqueeSelection() {
   svg.style.pointerEvents = "none";
 
   // Visual only — cubic Catmull–Rom stroke. Hit sampling still uses drag.points raw.
-  path.setAttribute("d", nodeGraphHitTrailSmoothPathD(drag.points));
+  path.setAttribute("d", strokes.map((s) => nodeGraphHitTrailSmoothPathD(s)).filter(Boolean).join(" "));
   // Keep ~6 screen-px thick dashes stable under workspace CSS zoom.
   const zoom = nodeGraphHitTrailZoom();
-  path.setAttribute("stroke", "var(--accent, #7fc7d9)");
+  path.setAttribute("stroke", "var(--node-selection-hit-trail-color)");
   path.setAttribute("fill", "none");
   path.setAttribute("stroke-width", String(6 / zoom));
   path.setAttribute("stroke-linecap", "round");
@@ -674,12 +710,17 @@ function startNodeGraphMarqueeSelection(event, workspace) {
     document.activeElement.blur();
   }
   const point = nodeGraphClientPoint(event);
+  const keepCtrl = Boolean(event.ctrlKey);
+  if (!keepCtrl) {
+    clearNodeGraphHitTrailKept();
+  }
   const additive = event.shiftKey || event.ctrlKey || event.metaKey;
   const startSelectedWires = typeof nodeGraphSelectedWireEntries === "function"
     ? nodeGraphSelectedWireEntries()
     : [];
   nodeGraphMvp.marqueeSelection = {
     additive,
+    keepTrail: keepCtrl,
     current: point,
     hitNodeIds: additive ? new Set(nodeGraphSelectedNodeIds()) : new Set(),
     hitWires: additive ? [...startSelectedWires] : [],
@@ -725,7 +766,6 @@ function startNodeGraphMarqueeSelection(event, workspace) {
 function beginNodeGraphMarqueeSelection(event) {
   if (
     event.button !== 0 ||
-    event.ctrlKey ||
     (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) ||
     nodeGraphMarqueeTargetIsBlocked(event.target)
   ) {
@@ -767,7 +807,6 @@ function beginNodeGraphMarqueeSelectionOnEntry(event) {
     !entry ||
     entry.pointerId !== event.pointerId ||
     !(event.buttons & 1) ||
-    event.ctrlKey ||
     nodeGraphMvp.marqueeSelection ||
     nodeGraphMvp.dragging ||
     nodeGraphMvp.nodeDragging ||
@@ -792,6 +831,9 @@ function dragNodeGraphMarqueeSelection(event) {
   drag.moved ||=
     Math.abs(point.x - drag.start.x) > 2 ||
     Math.abs(point.y - drag.start.y) > 2;
+  if (event.ctrlKey) {
+    drag.keepTrail = true;
+  }
   nodeGraphHitTrailAppendPoint(drag, point);
   // Always sample + render once moved (or every frame so the snake draws immediately).
   updateNodeGraphMarqueeSelection(event);
@@ -805,11 +847,17 @@ function endNodeGraphMarqueeSelection(event) {
     return;
   }
 
+  if (event.ctrlKey) {
+    drag.keepTrail = true;
+  }
   if (drag.moved) {
     updateNodeGraphMarqueeSelection(event);
     nodeGraphHitTrailFlushSelection(drag);
   } else if (!drag.additive) {
     setNodeGraphSelection(null);
+  }
+  if (drag.keepTrail && drag.moved && drag.points?.length) {
+    nodeGraphHitTrailPushKept(drag.points);
   }
   nodeGraphMvp.marqueeSelection = null;
   renderNodeGraphMarqueeSelection();
