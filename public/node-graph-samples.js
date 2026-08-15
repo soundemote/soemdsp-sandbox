@@ -119,6 +119,17 @@ function normalizeNodeGraphPatchSamples(samples = []) {
   return normalized.slice(0, 128);
 }
 
+/** Drop embedded audio payloads. Reload uses source path / Missing Samples. */
+function nodeGraphPatchSamplesWithoutEmbeddedAudio(samples = []) {
+  return normalizeNodeGraphPatchSamples(samples).map((sample) => {
+    if (!sample?.dataUrl) {
+      return sample;
+    }
+    const { dataUrl, ...rest } = sample;
+    return rest;
+  });
+}
+
 function nodeGraphPatchSampleById(sampleId, patch = nodeGraphMvp.patch) {
   const id = normalizeNodeGraphSampleId(sampleId);
   return normalizeNodeGraphPatchSamples(patch?.samples).find((sample) => sample.id === id) ||
@@ -856,7 +867,6 @@ function nodeGraphSampleReferenceFromFileGridResource(resource = {}) {
     return null;
   }
   return normalizeNodeGraphSampleReference({
-    dataUrl: entry.dataUrl,
     file: entry.file,
     id: entry.id,
     kind: "audio",

@@ -503,6 +503,23 @@ function nodeGraphTransportHandleAction(action) {
     renderNodeGraphLiveControls();
     return;
   }
+  if (key === "playpause") {
+    // Spacebar: start when cold, resume when paused, pause when playing.
+    const hasEngine = Boolean(nodeGraphMvp.live.node);
+    const transportState = typeof nodeGraphLiveTransportUiState === "function"
+      ? nodeGraphLiveTransportUiState()
+      : (hasEngine ? "playing" : "stopped");
+    if (transportState === "starting") {
+      renderNodeGraphLiveControls();
+      return;
+    }
+    if (transportState === "playing") {
+      nodeGraphTransportHandleAction("pause");
+      return;
+    }
+    nodeGraphTransportHandleAction("play");
+    return;
+  }
   if (key === "stop") {
     // Always full stop (never toggle). Same path as red Output when on.
     if (typeof setNodeGraphLiveOutputEnabled === "function") {

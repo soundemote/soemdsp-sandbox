@@ -936,6 +936,11 @@ function readNodeUiDevSettingsFromControls(options = {}) {
   const workingPatchForSettings = includeWorkingPatch && nodeGraphMvp.workingPatch
     ? cloneNodeGraphPatch(nodeGraphMvp.workingPatch)
     : null;
+  if (workingPatchForSettings && typeof nodeGraphPatchSamplesWithoutEmbeddedAudio === "function") {
+    workingPatchForSettings.samples = nodeGraphPatchSamplesWithoutEmbeddedAudio(
+      workingPatchForSettings.samples,
+    );
+  }
   if (workingPatchForSettings && typeof normalizeNodeGraphPatchView === "function") {
     workingPatchForSettings.view = {
       ...normalizeNodeGraphPatchView(workingPatchForSettings.view),

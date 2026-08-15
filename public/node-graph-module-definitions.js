@@ -8546,6 +8546,8 @@ const nodeGraphModuleDefinitions = (
   audioPlayer: {
     planRole: "source",
     layout: "phosphorWaveform",
+    defaultWidthGu: 11,
+    defaultHeightGu: 22,
     displayType: "customDisplay",
     displayModes: [
       {

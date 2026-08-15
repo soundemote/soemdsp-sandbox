@@ -257,15 +257,14 @@ function handleNodeGraphKeydown(event) {
   if (nodeGraphEventTargetIsTextEditable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
     return;
   }
-  // Space controls audio transport when not typing (start / resume).
+  // Space toggles simulation play/pause when not typing.
   // Text inputs are excluded above so module search and name fields can take spaces.
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.code === "Space") {
     event.preventDefault();
     event.stopPropagation();
-    // Same path as the transport ▶ button so Space and click stay in lockstep
-    // (start when cold, resume when paused — play never pauses).
+    // Space is play/pause, not the dedicated Play button (play never pauses).
     if (typeof nodeGraphTransportHandleAction === "function") {
-      nodeGraphTransportHandleAction("play");
+      nodeGraphTransportHandleAction("playpause");
     } else if (nodeGraphMvp?.live?.node) {
       const isPaused = (nodeGraphMvp.live.speedMultiplier ?? 1) === 0;
       const nextSpeed = isPaused ? 1 : 0;

@@ -20,9 +20,11 @@ function serializeNodeGraphPatch(patch = nodeGraphMvp.patch, options = {}) {
     requiredAssets: typeof nodeGraphRequiredAssetsForPatch === "function"
       ? nodeGraphRequiredAssetsForPatch(patch)
       : [],
-    samples: typeof normalizeNodeGraphPatchSamples === "function"
-      ? normalizeNodeGraphPatchSamples(patch.samples)
-      : [],
+    samples: typeof nodeGraphPatchSamplesWithoutEmbeddedAudio === "function"
+      ? nodeGraphPatchSamplesWithoutEmbeddedAudio(patch.samples)
+      : (typeof normalizeNodeGraphPatchSamples === "function"
+        ? normalizeNodeGraphPatchSamples(patch.samples)
+        : []),
     timing: normalizeNodeGraphPatchTiming(patch.timing),
     uiItems: normalizeNodeGraphPatchUiItems(patch.uiItems),
     view: normalizeNodeGraphPatchView(patch.view),

@@ -96,11 +96,7 @@ function createNodeGraphPatchNode(type, options = {}) {
   }
   if (Object.hasOwn(opts, "widthGu")) {
     node.widthGu = normalizeNodeGraphModuleWidthUnits(resolvedType, opts.widthGu);
-  } else if (
-    typeof nodeGraphModuleUsesLayoutC === "function"
-    && nodeGraphModuleUsesLayoutC(resolvedType)
-  ) {
-    // LayoutC: defaultWidthGu is the spawn width (e.g. Vectorscope 3gu).
+  } else {
     const defW = Number(nodeGraphModuleDefinitions[resolvedType]?.defaultWidthGu);
     if (Number.isFinite(defW)) {
       node.widthGu = normalizeNodeGraphModuleWidthUnits(resolvedType, defW);
@@ -112,16 +108,14 @@ function createNodeGraphPatchNode(type, options = {}) {
       && nodeGraphModuleUsesLayoutC(resolvedType)
       ? nodeGraphLayoutCGridHeightUnits(resolvedType, ui, opts.heightGu)
       : normalizeNodeGraphModuleHeightUnits(resolvedType, opts.heightGu, ui);
-  } else if (
-    typeof nodeGraphModuleUsesLayoutC === "function"
-    && nodeGraphModuleUsesLayoutC(resolvedType)
-  ) {
-    // LayoutC: freehand height is the module bounds (defaultHeightGu, e.g. 3).
+  } else {
     const defH = Number(nodeGraphModuleDefinitions[resolvedType]?.defaultHeightGu);
     if (Number.isFinite(defH)) {
       node.heightGu = typeof nodeGraphLayoutCGridHeightUnits === "function"
+        && typeof nodeGraphModuleUsesLayoutC === "function"
+        && nodeGraphModuleUsesLayoutC(resolvedType)
         ? nodeGraphLayoutCGridHeightUnits(resolvedType, ui, defH)
-        : Math.max(2, Math.round(defH));
+        : normalizeNodeGraphModuleHeightUnits(resolvedType, defH, ui);
     }
   }
   if (nodeGraphModuleDefinitions[resolvedType]?.layout === "textBox") {
@@ -189,7 +183,7 @@ function createNodeGraphPatchNode(type, options = {}) {
 
 const nodeGraphDefaultNodeConfigs = Object.freeze([
   {
-    ...createNodeGraphPatchNode("audioPlayer", { id: "audioPlayer-1", gx: -9, gy: -9, widthGu: 8 }),
+    ...createNodeGraphPatchNode("audioPlayer", { id: "audioPlayer-1", gx: -9, gy: -9, widthGu: 11, heightGu: 22 }),
     params: { ...nodeGraphDefaultParamsForType("audioPlayer"), speed: 1, transport: 4 },
   },
   {
