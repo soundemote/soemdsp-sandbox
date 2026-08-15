@@ -33,12 +33,18 @@ function nodeGraphAudioPlayerPlaylistNormalize(raw = null) {
   return { face, index, items, ramOpen };
 }
 
-const nodeGraphAudioPlayerPlaylistFaces = Object.freeze(["wave", "pl"]);
+const nodeGraphAudioPlayerPlaylistFaces = Object.freeze(["wave", "pl", "vsxy", "vslr"]);
 
 function nodeGraphAudioPlayerPlaylistNormalizeFace(value) {
   const raw = String(value || "wave").trim().toLowerCase();
   if (raw === "pl" || raw === "playlist") {
     return "pl";
+  }
+  if (raw === "vsxy" || raw === "xy") {
+    return "vsxy";
+  }
+  if (raw === "vslr" || raw === "lr") {
+    return "vslr";
   }
   return "wave";
 }
@@ -301,7 +307,7 @@ function nodeGraphAudioPlayerPlaylistApplyFace(nodeId) {
   }
 }
 
-/** Write playlist scrub offset (hidden param). Does not touch ◀◀ ▶▶ / Phase. */
+/** Write playlist scrub offset (hidden param). Does not touch ◀◀ ▶▶ / Scratch. */
 function nodeGraphAudioPlayerPlaylistWritePhaseOffset(nodeId, phaseOffset, { record = false } = {}) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   if (!node || node.type !== "audioPlayer") {
@@ -1354,15 +1360,15 @@ function nodeGraphAudioPlayerVideoscopePaint(section) {
   const settings = typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
     ? nodeGraphPhosphorWaveformSettingsForNode(nodeId)
     : null;
-  const metrics = typeof nodeGraphSizeDisplayCanvas === "function"
-    ? nodeGraphSizeDisplayCanvas(canvas, canvas)
+  const metrics = typeof nodeGraphMusicPlayerFaceMetrics === "function"
+    ? nodeGraphMusicPlayerFaceMetrics(section, canvas, face)
     : null;
   const context = metrics?.context || canvas.getContext("2d");
   if (!context) {
     return;
   }
-  const width = metrics?.width || canvas.width;
-  const height = metrics?.height || canvas.height;
+  const width = Math.max(1, metrics?.width || canvas.width);
+  const height = Math.max(1, metrics?.height || canvas.height);
   const pixelRatio = metrics?.pixelRatio || Math.max(1, window.devicePixelRatio || 1);
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.clearRect(0, 0, width, height);
@@ -1394,12 +1400,13 @@ function nodeGraphAudioPlayerVideoscopePaint(section) {
 }
 
 function nodeGraphAudioPlayerVideoscopePaintXy(context, width, height, channels, win, settings) {
-  const leftColor = "rgba(220, 70, 70, 0.92)";
-  const rightColor = "rgba(70, 140, 230, 0.92)";
-  const line = typeof nodeGraphPhosphorWaveformLineColor === "function"
+  const axis = typeof nodeGraphPhosphorWaveformLineColor === "function"
     ? nodeGraphPhosphorWaveformLineColor(settings, 57, 0.28)
     : "rgba(80, 160, 130, 0.28)";
-  context.strokeStyle = line;
+  const ink = typeof nodeGraphPhosphorWaveformLineColor === "function"
+    ? nodeGraphPhosphorWaveformLineColor(settings, 82, 0.9)
+    : "rgba(180, 230, 200, 0.9)";
+  context.strokeStyle = axis;
   context.lineWidth = 1;
   context.beginPath();
   context.moveTo(width * 0.5, 0);
@@ -1409,21 +1416,34 @@ function nodeGraphAudioPlayerVideoscopePaintXy(context, width, height, channels,
   context.stroke();
   const count = Math.max(1, win.end - win.start);
   const step = Math.max(1, Math.floor(count / Math.max(width, 256)));
-  context.fillStyle = "rgba(220, 210, 180, 0.55)";
+  context.strokeStyle = ink;
+  context.lineWidth = Math.max(1, Math.round((Number(settings?.traceWidth) || 1.5)));
+  context.beginPath();
+  let started = false;
   for (let i = win.start; i < win.end; i += step) {
-    const x = (Number(channels.left[i]) || 0) * 0.5 + 0.5;
-    const y = 0.5 - (Number(channels.right[i]) || 0) * 0.5;
-    const px = Math.round(x * (width - 1));
-    const py = Math.round(y * (height - 1));
-    context.fillRect(px, py, 1, 1);
+    const x = ((Number(channels.left[i]) || 0) * 0.5 + 0.5) * (width - 1);
+    const y = (0.5 - (Number(channels.right[i]) || 0) * 0.5) * (height - 1);
+    if (!started) {
+      context.moveTo(x, y);
+      started = true;
+    } else {
+      context.lineTo(x, y);
+    }
+  }
+  if (started) {
+    context.stroke();
   }
   const play = Math.max(win.start, Math.min(win.end - 1, Math.round(win.playhead)));
-  const hx = (Number(channels.left[play]) || 0) * 0.5 + 0.5;
-  const hy = 0.5 - (Number(channels.right[play]) || 0) * 0.5;
-  context.fillStyle = leftColor;
-  context.fillRect(Math.round(hx * (width - 1)) - 1, Math.round(hy * (height - 1)) - 1, 3, 3);
-  context.strokeStyle = rightColor;
-  context.strokeRect(Math.round(hx * (width - 1)) - 2, Math.round(hy * (height - 1)) - 2, 5, 5);
+  const hx = ((Number(channels.left[play]) || 0) * 0.5 + 0.5) * (width - 1);
+  const hy = (0.5 - (Number(channels.right[play]) || 0) * 0.5) * (height - 1);
+  context.strokeStyle = "rgba(255, 255, 255, 0.9)";
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(hx - 4, hy);
+  context.lineTo(hx + 4, hy);
+  context.moveTo(hx, hy - 4);
+  context.lineTo(hx, hy + 4);
+  context.stroke();
 }
 
 function nodeGraphAudioPlayerVideoscopePaintLr(context, width, height, channels, win, settings) {

@@ -8559,9 +8559,8 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Reset", "Speed", "Phase"],
     outputs: ["Mono", "Left", "Right", "Phase", "Trigger"],
     parameters: [
+      { choices: ["Off (reset)", "Stop", "Pause", "Loop", "Play"], defaultValue: "4", displayChoices: true, divideChoicesVisibly: true, key: "transport", label: "Playmode", linearSmoothing: false, max: "4", mid: "2", min: "0", nonlinearSlider: false, step: "1" },
       { defaultValue: "1", key: "speed", label: "Speed", linearSmoothing: false, max: "8", maxDigits: 4, mid: "1", min: "0", step: "any", unit: "x" },
-      { defaultValue: "0", key: "start", label: "Start", linearSmoothing: false, max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "1", key: "end", label: "End", linearSmoothing: false, max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       // Slow reverse/forward nudge. No wrap. Internal 5 s linear (220500 samples @ 44.1 kHz).
       {
         defaultValue: "0",
@@ -8588,7 +8587,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "0",
         key: "phase",
         kind: "phase",
-        label: "Phase",
+        label: "Scratch",
         max: "0.003",
         maxDigits: 5,
         mid: "0",
@@ -8602,8 +8601,11 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "cycle",
         wraparound: false,
-        tooltip: "Fine phase skip (−0.003…+0.003). 0.156 s Papoulis internal glide."
+        tooltip: "Fine scratch skip (−0.003…+0.003). 0.156 s Papoulis internal glide."
       },
+      { defaultValue: "0", key: "start", label: "[⇦", linearSmoothing: false, max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
+      { defaultValue: "1", key: "end", label: "⇨]", linearSmoothing: false, max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
+      { defaultValue: "1", key: "amplitude", label: "Amplitude", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
       // Playlist / waveform scrub only — not a face slider.
       {
         defaultValue: "0",
@@ -8619,8 +8621,6 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         wraparound: true,
       },
-      { choices: ["Off (reset)", "Stop", "Pause", "Loop", "Play"], defaultValue: "4", displayChoices: true, divideChoicesVisibly: true, key: "transport", label: "Play Mode", linearSmoothing: false, max: "4", mid: "2", min: "0", nonlinearSlider: false, step: "1" },
-      { defaultValue: "1", key: "amplitude", label: "Amplitude", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
     ]
   },
   macroControls: {

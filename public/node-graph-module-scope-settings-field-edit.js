@@ -279,6 +279,15 @@ function beginNodeGraphTraceDisplayFieldDrag(event) {
     beginNodeGraphUnitStepperDrag(event);
     return;
   }
+  // Music Player Time Window / Scroll Line / Trace — same capture path as
+  // other Display Settings number fields (per-input binds die on remount).
+  if (
+    event.target?.closest?.("input[data-phosphor-number-drag]")
+    && typeof nodeGraphPhosphorWaveformBeginNumberDrag === "function"
+  ) {
+    nodeGraphPhosphorWaveformBeginNumberDrag(event);
+    return;
+  }
   const input = nodeGraphTraceDisplayFieldFromTarget(event.target);
   if (!input || !input.readOnly) {
     return;

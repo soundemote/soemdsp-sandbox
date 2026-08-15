@@ -27,6 +27,7 @@ function syncNodeUiDevNodeColorControls() {
 const nodeUiDevSliderFillColorTargets = Object.freeze([
   { property: "--node-slider-amount-color", prefix: "nodeUiDevSliderAmountFill", fallback: [200, 31, 15, 55] },
   { property: "--node-slider-position-color", prefix: "nodeUiDevSliderPositionFill", fallback: [203, 55, 57, 37] },
+  { property: "--node-slider-ghost-color", prefix: "nodeUiDevSliderGhostFill", fallback: [262, 100, 76, 38] },
 ]);
 
 function nodeUiDevSliderFillChannel(id, fallback, max) {

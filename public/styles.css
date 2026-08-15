@@ -1387,8 +1387,12 @@ button.scw-label:hover,
   z-index: 1;
 }
 .node-music-player-page-wave .node-phosphor-waveform-canvas {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   display: block;
 }
 .node-music-player-page-pl {
@@ -1413,9 +1417,13 @@ button.scw-label:hover,
   overflow: hidden;
 }
 .node-music-player-vs-canvas {
-  display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: block;
 }
 .node-music-player-dock {
   position: absolute;
@@ -5211,6 +5219,16 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   margin: 0;
 }
 
+.node-phosphor-waveform-settings-row input[data-phosphor-number-drag] {
+  cursor: ew-resize;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.node-phosphor-waveform-settings-row input[data-phosphor-number-drag].editing {
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
 .node-phosphor-waveform-settings-row input[type="number"].value-dragging,
 .node-led-settings-row input[type="number"].value-dragging {
   border-color: rgba(127, 199, 217, 0.42);
@@ -5903,6 +5921,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
      position sits over text (z2) — opaque amount washed out the row. */
   --node-slider-position-color: hsl(203 55% 57% / 0.42);
   --node-slider-amount-color: hsl(200 31% 15% / 0.55);
+  --node-slider-ghost-color: hsl(262 100% 76% / 0.38);
   --node-choice-divider-padding: 3px;
   --node-module-fill: #171a1f;
   /* I/O strip is see-through like the plate — jacks are stroke-only. */
@@ -15586,7 +15605,7 @@ body.node-slider-dragging * {
   left: var(--ghost-start, 0);
   right: calc(100% - var(--ghost-end, 0));
   opacity: 0;
-  background: rgba(177, 132, 255, 0.38);
+  background: var(--node-slider-ghost-color);
   transition: opacity 120ms ease;
 }
 
@@ -15607,7 +15626,7 @@ body.node-slider-dragging * {
 }
 
 .node-slider-readout.has-ghost-slider.value-dragging::after {
-  background: rgba(177, 132, 255, 0.38);
+  background: var(--node-slider-ghost-color);
 }
 
 .node-graph-workspace.hide-slider-position .node-slider-readout::before,
