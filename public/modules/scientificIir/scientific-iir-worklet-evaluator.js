@@ -143,6 +143,14 @@ NodeLiveAudioProcessor.prototype.formantFilterSample = function formantFilterSam
   return this.safeFilterNumber(input, null) ?? 0;
 };
 
+NodeLiveAudioProcessor.prototype.besselThomsonSample = function besselThomsonSample(_state, input) {
+  return this.safeFilterNumber(input, null) ?? 0;
+};
+
+NodeLiveAudioProcessor.prototype.massSpringDamperSample = function massSpringDamperSample(_state, input) {
+  return this.safeFilterNumber(input, null) ?? 0;
+};
+
 NodeLiveAudioProcessor.prototype.binaryClockSample = function binaryClockSample() {
   return { Out: 0, Bit0: 0, Bit1: 0, Bit2: 0, Bit3: 0, Gate: 0 };
 };

@@ -139,6 +139,16 @@ nodeGraphLiveModuleEvaluators.formantFilter = ({ nodeId, mixInput }) => {
   return { Out: mono, Left: mixInput(nodeId, "Left") + mono, Right: mixInput(nodeId, "Right") + mono };
 };
 
+nodeGraphLiveModuleEvaluators.besselThomson = ({ nodeId, mixInput }) => {
+  const mono = mixInput(nodeId);
+  return { Out: mono, Left: mixInput(nodeId, "Left") + mono, Right: mixInput(nodeId, "Right") + mono };
+};
+
+nodeGraphLiveModuleEvaluators.massSpringDamper = ({ nodeId, mixInput }) => {
+  const mono = mixInput(nodeId);
+  return { Out: mono, Left: mixInput(nodeId, "Left") + mono, Right: mixInput(nodeId, "Right") + mono };
+};
+
 // Under construction: Binary Clock — zero outputs placeholder
 nodeGraphLiveModuleEvaluators.binaryClock = () => ({
   Out: 0,

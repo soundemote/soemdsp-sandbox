@@ -24,6 +24,8 @@ const nodeGraphPostAmplitudeTypes = Object.freeze({
   crossover5: true,
   crossover6: true,
   formantFilter: true,
+  besselThomson: true,
+  massSpringDamper: true,
   phaseDisperse: true,
   quadrature: true,
   // Musical / analog filters.

@@ -45,6 +45,10 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "asciiscope",
   // Classical formant bank (vowel / vocal tract) — placeholder until design lands.
   "formantFilter",
+  // Textbook Bessel–Thomson (max-flat group delay) — placeholder until design lands.
+  "besselThomson",
+  // Mass–spring–damper analog (2nd-order) — placeholder until design lands.
+  "massSpringDamper",
   // Binary counter clock (bit outs + gate) — placeholder until design lands.
   "binaryClock",
   // Space-controlled pitch object / performance controller — placeholder.
@@ -1201,6 +1205,18 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Placeholder formant/vocal filter bank.",
     label: "Formant Filter",
     notes: ["under construction", "formant", "vowel", "scientific"],
+  },
+  besselThomson: {
+    category: "scientificFilter",
+    description: "Placeholder Bessel–Thomson filter — maximally flat group delay (Thomson).",
+    label: "Bessel-Thomson Filter",
+    notes: ["under construction", "bessel", "thomson", "group delay", "linear phase", "scientific"],
+  },
+  massSpringDamper: {
+    category: "scientificFilter",
+    description: "Placeholder mass–spring–damper analog — 2nd-order mechanical resonator.",
+    label: "Mass-Spring-Damper",
+    notes: ["under construction", "mass", "spring", "damper", "resonator", "2-pole", "scientific"],
   },
   binaryClock: {
     category: "clock",

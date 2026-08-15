@@ -376,6 +376,22 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           Right: this.formantFilterSample(null, mixInput(nodeId, "Right") + mono),
         };
       },
+      besselThomson: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        const mono = mixInput(nodeId);
+        return {
+          Out: this.besselThomsonSample(null, mono),
+          Left: this.besselThomsonSample(null, mixInput(nodeId, "Left") + mono),
+          Right: this.besselThomsonSample(null, mixInput(nodeId, "Right") + mono),
+        };
+      },
+      massSpringDamper: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        const mono = mixInput(nodeId);
+        return {
+          Out: this.massSpringDamperSample(null, mono),
+          Left: this.massSpringDamperSample(null, mixInput(nodeId, "Left") + mono),
+          Right: this.massSpringDamperSample(null, mixInput(nodeId, "Right") + mono),
+        };
+      },
       binaryClock: () => this.binaryClockSample(),
       theremin: () => this.thereminSample(),
       osc: () => this.oscSample(),
