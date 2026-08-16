@@ -453,7 +453,10 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
   const captured = nodeGraphRasterRgbTakeChannels(paintSlot);
   const cellCount = state.width * state.height;
   const wired = Boolean(captured.length);
-  if (wired && cellCount > 0) {
+  const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
+    && nodeGraphModuleScopePhosphorFrozen();
+  // New pixels only on a Simulation FPS tick. Pause / FPS 0 holds the raster.
+  if (wired && cellCount > 0 && !frozen) {
     const red = captured.R;
     const green = captured.G;
     const blue = captured.B;
@@ -477,9 +480,7 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
     }
   }
   const gradeKey = `${grade.invert}|${grade.contrast}|${grade.brightness}|${grade.hue}|${grade.blur}|${grade.glow}|${grid.width}x${grid.height}|${wired ? captured.length : 0}`;
-  const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
-    && nodeGraphModuleScopePhosphorFrozen();
-  if (frozen && canvas._rasterRgbBlit && canvas._rasterRgbGradeKey === gradeKey && !wired) {
+  if (frozen && canvas._rasterRgbBlit && canvas._rasterRgbGradeKey === gradeKey) {
     return;
   }
   const graded = nodeGraphRasterRgbApplyGrade(state, grade);
@@ -717,7 +718,13 @@ function scheduleNodeGraphRasterRgbPump() {
     if (!faces.length) {
       return;
     }
-    paintNodeGraphRasterRgbFacesNow();
+    // Same Simulation FPS clock as scopes / phosphor / matrix / asciiscope.
+    const frameReady = typeof nodeGraphDisplayFrameReady === "function"
+      ? nodeGraphDisplayFrameReady("rasterRgb")
+      : true;
+    if (frameReady) {
+      paintNodeGraphRasterRgbFacesNow();
+    }
     scheduleNodeGraphRasterRgbPump();
   });
 }
