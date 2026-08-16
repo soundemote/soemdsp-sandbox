@@ -183,6 +183,7 @@ const nodeGraphNodeLabels = Object.freeze({
   inertialFilter: "Inertial Filter",
   midSideEncode: "Mid/Side",
   quadrature: "Quadrature",
+  hilbert: "Hilbert",
   lookaheadLimiter: "Limiter",
   sampleHold: "Sample & Hold",
   midiOut: "Midi Out",
@@ -3426,10 +3427,10 @@ const nodeGraphModuleDefinitions = (
     inputs: ["In1", "In2", "In3", "In4"],
     outputs: ["Out1", "Out2", "Out3", "Out4"],
     parameters: [
+      { key: "bleed2to1", label: "2→1", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
+      { key: "bleed3to1", label: "3→1", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
+      { key: "bleed4to1", label: "4→1", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
       { key: "volume1", label: "Volume 1", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
-      { key: "bleed2to1", label: "Bleed 2→1", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
-      { key: "bleed3to1", label: "Bleed 3→1", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
-      { key: "bleed4to1", label: "Bleed 4→1", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
       { key: "volume2", label: "Volume 2", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
       { key: "volume3", label: "Volume 3", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
       { key: "volume4", label: "Volume 4", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
@@ -3445,10 +3446,10 @@ const nodeGraphModuleDefinitions = (
     inputs: ["In1", "In2", "In3", "In4"],
     outputs: ["Out1", "Out2", "Out3", "Out4"],
     parameters: [
+      { key: "bleed2to1", label: "2→1", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
+      { key: "bleed3to1", label: "3→1", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
+      { key: "bleed4to1", label: "4→1", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
       { key: "volume1", label: "Volume 1", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
-      { key: "bleed2to1", label: "Bleed 2→1", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
-      { key: "bleed3to1", label: "Bleed 3→1", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
-      { key: "bleed4to1", label: "Bleed 4→1", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
       { key: "volume2", label: "Volume 2", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
       { key: "volume3", label: "Volume 3", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
       { key: "volume4", label: "Volume 4", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
@@ -3490,7 +3491,8 @@ const nodeGraphModuleDefinitions = (
     parameters: [
       {
         curveAmount: "0.55",
-        defaultValue: "0.5",
+        defaultValue: "0",
+        spawnValue: "0.5",
         key: "amplitude",
         label: "Amplitude",
         max: "1",
@@ -8357,6 +8359,34 @@ const nodeGraphModuleDefinitions = (
     inputs: ["In", "Mid", "Side"],
     outputs: ["I", "Q", "MidI", "SideQ"],
     parameters: [
+      nodeGraphOutputAmplitudeParam,
+    ]
+  },
+  // Mono Hilbert: +90° or −90° (Q of the IIR quadrature pair). One in, one out.
+  hilbert: {
+    planRole: "processor",
+    inputAliases: { Mono: "In" },
+    inputLabels: { In: "In" },
+    inputs: ["In"],
+    outputAliases: { Mono: "Out" },
+    outputLabels: { Out: "Out" },
+    outputs: ["Out"],
+    parameters: [
+      {
+        choices: ["+90", "-90"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "shift",
+        label: "Shift",
+        linearSmoothing: false,
+        max: "1",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "+90° = Hilbert Q. −90° = inverted Q. Use on Mid/Side Out Side, then add to Out Mid.",
+      },
       nodeGraphOutputAmplitudeParam,
     ]
   },

@@ -472,6 +472,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/midSideEncode/mid-side-encode-live-evaluator.js",
     "./public/modules/quadrature/quadrature-math.js",
     "./public/modules/quadrature/quadrature-live-evaluator.js",
+    "./public/modules/hilbert/hilbert-math.js",
+    "./public/modules/hilbert/hilbert-live-evaluator.js",
     "./public/modules/lookaheadLimiter/lookahead-limiter-math.js",
     "./public/modules/lookaheadLimiter/lookahead-limiter-live-evaluator.js",
     "./public/modules/inertialFilter/inertial-filter-math.js",
@@ -3954,8 +3956,12 @@ def require_chromeless_module_registry_contract() -> None:
         "fbmField",
         "groupInput",
         "groupOutput",
+        "keypad",
         "led",
         "numberReadout",
+        "patch",
+        "portalInlet",
+        "portalOutlet",
         "rayBouncer",
         "rgbFractal",
         "rgbPicture",
@@ -3963,7 +3969,6 @@ def require_chromeless_module_registry_contract() -> None:
         "stepGrid",
         "valueLcd",
         "xyPad",
-        "patch",
     }
     require(
         discovered_types == expected_types,
@@ -4518,7 +4523,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'axis === "x"' in script_sources["./public/node-graph-jack-chrome.js"]
         and "function nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-viewport-perf.js"]
         and "function nodeGraphElementClientSize" in script_sources["./public/node-graph-viewport-perf.js"]
-        and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/modules/asciiscope/asciiscope-display.js"]
+        and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/modules/asciiscope/asciiscope-core.js"]
         and "nodeGraphElementClientSize" in script_sources["./public/modules/asciiscope/asciiscope-gl.js"]
         and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-slider-readout.js"]
         and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-slider-values.js"]
@@ -4540,9 +4545,12 @@ def require_node_graph_mvp_contract() -> None:
         and 'return "Button"' in script_sources["./public/node-graph-module-scope-settings-form-io.js"]
         and 'return "Stroke"' in script_sources["./public/node-graph-module-scope-settings-form-io.js"]
         and "Background color" not in script_sources["./public/modules/keypad/keypad-settings.js"]
-        and 'return "poiret-one"' in script_sources["./public/modules/keypad/keypad-math.js"]
+        and 'id: "poiret-one"' in script_sources["./public/modules/keypad/keypad-math.js"]
         and "nodeSceneKeypadButtonColor" not in (PUBLIC / "index.html").read_text(encoding="utf-8")
-        and "nodeSceneKeypadTextColor" not in (PUBLIC / "index.html").read_text(encoding="utf-8"),
+        and "nodeSceneKeypadTextColor" not in (PUBLIC / "index.html").read_text(encoding="utf-8")
+        and "function nodeGraphFloatingWindowDragIsFromTitleBar" in script_sources["./public/node-graph-floating-windows.js"]
+        and 'bindNodeGraphSceneElementEvent("nodeModuleShopView", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag'
+            not in script_sources["./public/node-graph-scene-menu-event-bindings.js"],
         "Keypad look should be keypadFace Display Settings with Sound Color Widgets",
     )
     require(
@@ -4568,11 +4576,11 @@ def require_node_graph_mvp_contract() -> None:
         and "drawNodeGraphPhoneToneFaceItem" in script_sources["./public/modules/phoneTone/phone-tone-display.js"]
         and 'displayType: "phoneToneFace"' in script_sources["./public/node-graph-module-definitions.js"]
         and 'category: "object"' in script_sources["./public/node-graph-module-store.js"]
-        and 'inputs: ["Analog", "Digital", "Gate"]' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'inputs: ["Analog", "Digital", "Gate", "0.1V/Oct"]' in script_sources["./public/node-graph-module-definitions.js"]
         and "smoothingSeconds: 0.1" in script_sources["./public/node-graph-module-definitions.js"]
-        and 'outputs: ["X", "Out", "Z"]' in script_sources["./public/node-graph-module-definitions.js"]
-        and 'outputLabels: { X: "X", Out: "M", Z: "Z" }' in script_sources["./public/node-graph-module-definitions.js"]
-        and "LayoutB" in script_sources["./public/node-graph-module-definitions.js"][
+        and 'outputs: ["Tone", "ƒ1", "ƒ2", "Analog Thru", "Digital Thru"]' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'Tone: "Tone"' in script_sources["./public/node-graph-module-definitions.js"]
+        and "LayoutA" in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("phoneTone: {"):
             script_sources["./public/node-graph-module-definitions.js"].index("additiveOsc: {")
         ]
@@ -4898,7 +4906,6 @@ def require_node_graph_mvp_contract() -> None:
             "\n".join([graph_contract_sources["sizing"], graph_contract_sources["style"]]),
             [
                 "layout === \"graph\"",
-                "graph-node-layout",
                 ".node-module-graph-display",
                 ".node-module-graph-node",
                 ".node-module-graph-node.is-hot",
@@ -8601,7 +8608,9 @@ def require_node_graph_mvp_contract() -> None:
         "setNodeGraphModuleStoreDepartment(\"\")",
         "closeNodeGraphModuleShop();",
         "openNodeGraphModuleShop(null);",
-        'bindNodeGraphSceneElementEvent("nodeModuleShopView", "pointerdown", beginNodeGraphModuleShopViewDrag)',
+        'bindNodeGraphSceneElementEvent("nodeModuleShopHeading", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "moduleBrowser"))',
+        "function nodeGraphFloatingWindowDragIsFromTitleBar(event, element)",
+        ".scene-context-store-empty",
         'bindNodeGraphSceneElementEvent("nodeModuleShopView", "keydown", handleNodeGraphModuleStoreKeydown)',
         "function applyNodeGraphModuleShopWindowSize(size = {})",
         'applyNodeGraphFloatingWindowSizeVars(panel, "node-module-shop", nodeGraphModuleShopWindowDefaultSize, normalized)',
@@ -12728,6 +12737,15 @@ def require_node_graph_mvp_contract() -> None:
     require(
         'sliderCurve: "bipolarRational"' in module_definitions_source
         and 'key: "amplitude"' in module_definitions_source
+        and 'spawnValue: "0.5"' in module_definitions_source[
+            module_definitions_source.index("attenuverter: {"):
+            module_definitions_source.index("softClipper: {")
+        ]
+        and 'defaultValue: "0"' in module_definitions_source[
+            module_definitions_source.index("attenuverter: {"):
+            module_definitions_source.index("softClipper: {")
+        ]
+        and "Object.hasOwn(parameter, \"spawnValue\")" in script_sources["./public/node-graph-parameter-metadata.js"]
         and "nodeGraphAttenuverterSample" in "\n".join(script_sources.values())
         and 'nodeGraphLiveModuleEvaluators.attenuverter' in "\n".join(script_sources.values()),
         "Attenuverter should be In/Out * amplitude + offset with bipolar rational amplitude",
@@ -17815,6 +17833,18 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_video_synth_raster_process_block",
             "soemdsp_video_synth_raster_output_ptr",
         ],
+        "raster_rgb": [
+            "soemdsp_raster_rgb_create",
+            "soemdsp_raster_rgb_destroy",
+            "soemdsp_raster_rgb_sample",
+            "soemdsp_raster_rgb_r",
+            "soemdsp_raster_rgb_g",
+            "soemdsp_raster_rgb_b",
+            "soemdsp_raster_rgb_rgba",
+            "soemdsp_raster_rgb_version",
+            "soemdsp_raster_rgb_metadata_json",
+            "soemdsp_raster_rgb_metadata_json_size",
+        ],
     }
     for source_path in native_sources:
         source_text = source_path.read_text(encoding="utf-8")
@@ -17947,7 +17977,7 @@ def require_native_module_contract(base_url: str) -> None:
     require(
         'name === "soft_clipper" || targetType === "softClipper"' in worklet_source
         and "this.nativeSoftClipper?.soemdsp_soft_clipper_sample" in worklet_source
-        and "Out: this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth)" in worklet_source
+        and "Out: this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 0)" in worklet_source
         and "softClipperSample(input, center = 0, width = 2)" not in worklet_source,
         "native Soft Clipper should be worklet-backed with old JS worklet DSP removed",
     )

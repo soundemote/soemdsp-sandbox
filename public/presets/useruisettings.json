@@ -13,14 +13,14 @@
     "tooltipTextSize": 64,
     "moduleLightBrightness": 100,
     "minimumGridBrightness": 20,
-    "gridSpread": 121,
+    "gridSpread": 78,
     "gridDivisionMultiply": 5,
     "moduleLightSpread": 78,
-    "moduleGridInset": 8,
-    "moduleRoundness": 46,
+    "moduleGridInset": 6,
+    "moduleRoundness": 53,
     "moduleCornerShape": "pill",
-    "outletRgbBrightness": 0.75,
-    "inletBlueBrightness": 0.75,
+    "outletRgbBrightness": 0.46,
+    "inletBlueBrightness": 0.69,
     "jackRgbRed": "#f25d5d",
     "jackRgbGreen": "#3ddc84",
     "jackRgbBlue": "#4d8dff",
@@ -31,9 +31,9 @@
     "workspaceBackgroundColor": "#1d1b1b",
     "moduleFillColor": "#171a1f",
     "moduleFillAlpha": 100,
-    "moduleStrokeThickness": 3,
-    "moduleStrokeColor": "#a19b9b",
-    "moduleStrokeAlpha": 46,
+    "moduleStrokeThickness": 1,
+    "moduleStrokeColor": "#ffffff",
+    "moduleStrokeAlpha": 50,
     "moduleSelectedStrokeColor": "#e2a86d",
     "moduleSelectedStrokeAlpha": 100,
     "sliderLabelColor": "#cfdde5",
@@ -51,12 +51,13 @@
     "sliderGhostFillSaturation": 100,
     "sliderGhostFillLightness": 76,
     "sliderGhostFillAlpha": 38,
-    "snakeSelectHue": 360,
-    "snakeSelectBrightness": 100,
+    "snakeSelectHue": 191,
+    "snakeSelectBrightness": 50,
     "snakeSelectAlpha": 95,
     "traceWireThickness": 1,
     "choiceSlideEmptyBorder": 2,
     "choiceSlideDebugBoxes": false,
+    "wiresFollowPortColors": true,
     "bypassIconSize": 36,
     "bypassIconGlowSpread": 40,
     "bypassIconGlowColor": "#f25d5d",
@@ -80,14 +81,14 @@
     "moduleGridInset": false,
     "moduleRoundness": false,
     "moduleCornerShape": false,
-    "outletRgbBrightness": true,
-    "inletBlueBrightness": true,
-    "jackRgbRed": true,
-    "jackRgbGreen": true,
-    "jackRgbBlue": true,
-    "jackAnalogIn": true,
-    "jackAnalogOut": true,
-    "jackDigital": true,
+    "outletRgbBrightness": false,
+    "inletBlueBrightness": false,
+    "jackRgbRed": false,
+    "jackRgbGreen": false,
+    "jackRgbBlue": false,
+    "jackAnalogIn": false,
+    "jackAnalogOut": false,
+    "jackDigital": false,
     "gridColor": false,
     "workspaceBackgroundColor": false,
     "moduleFillColor": false,
@@ -118,6 +119,7 @@
     "traceWireThickness": false,
     "choiceSlideEmptyBorder": false,
     "choiceSlideDebugBoxes": false,
+    "wiresFollowPortColors": false,
     "bypassIconSize": false,
     "bypassIconGlowSpread": false,
     "bypassIconGlowColor": false,
@@ -140,12 +142,12 @@
     "controllerDockHeight": 174,
     "moduleButtonsVisible": false,
     "appChromeBarsVisible": true,
-    "transportChromeStuck": true,
+    "transportChromeStuck": false,
     "moduleInterfaceControlsVisible": true,
     "moduleOscilloscopesVisible": true,
     "moduleSlidersVisible": true,
     "moduleScopeBackgroundColor": "#000000",
-    "globalSmoothingSeconds": 1,
+    "globalSmoothingSeconds": 0.0333,
     "globalSmoothingManual": true,
     "moduleScopeDotCore1Enabled": false,
     "moduleScopeDotCore1Size": 2,
@@ -902,6 +904,10 @@
         "developer": true,
         "home": false
       },
+      "hilbert": {
+        "developer": true,
+        "home": false
+      },
       "lookaheadLimiter": {
         "developer": true,
         "home": false
@@ -1189,24 +1195,20 @@
     },
     "sceneContextWindowSize": {
       "width": 320,
-      "height": 756,
+      "height": 729,
       "_maxWidth": 980,
       "_maxHeight": 951
     },
     "moduleActionWindowSize": {
-      "width": 367,
-      "height": 775,
+      "width": 302,
+      "height": 307,
       "_maxWidth": 980,
       "_maxHeight": 951
     },
     "workspaceWindowStatesVersion": 1,
     "workspaceWindowStates": {
       "commandCenter": {
-        "open": false,
-        "position": {
-          "left": 116,
-          "top": 112
-        }
+        "open": false
       },
       "codeBox": {
         "open": false
@@ -1223,8 +1225,8 @@
       "moduleBrowser": {
         "open": false,
         "position": {
-          "left": 550,
-          "top": 157
+          "left": 1183,
+          "top": 644
         }
       },
       "visibilityMenu": {
@@ -1233,8 +1235,8 @@
       "uiSettings": {
         "open": false,
         "position": {
-          "left": 116,
-          "top": 112
+          "left": 1203,
+          "top": 117
         }
       },
       "uiDev": {
@@ -1246,43 +1248,26 @@
       },
       "traceDisplaySettings": {
         "open": false,
-        "targetNode": "audioPlayer-1"
+        "targetNode": "audioPlayer-2"
       },
       "standaloneMidiKeyboard": {
-        "open": false,
-        "position": {
-          "left": 0,
-          "top": 860
-        }
+        "open": false
       },
       "tooltipWindow": {
         "open": false
       },
       "phosphorWaveformSettings": {
-        "open": false,
-        "position": {
-          "left": 1500,
-          "top": 185
-        }
+        "open": false
       }
     },
-    "sharedInspectorActive": "moduleActions",
-    "sharedInspectorWindowState": {
-      "position": {
-        "left": 1257,
-        "top": 115
-      },
-      "size": {
-        "width": 367,
-        "height": 775
-      }
-    },
+    "sharedInspectorActive": "",
+    "sharedInspectorWindowState": {},
     "workspaceView": {
       "pan": {
-        "x": 0,
-        "y": 0
+        "x": 662.3392857142858,
+        "y": 206.84765625
       },
-      "zoom": 1
+      "zoom": 0.8928571428571428
     },
     "moduleStoreDepartment": "",
     "savedPatchBankIndex": 0,
@@ -1291,12 +1276,12 @@
     "savedPatchUserPath": "",
     "savedPatchGridColumns": 3,
     "workingPatch": null,
-    "currentSavedPatchFilename": "working.json",
-    "patchDirtyState": "edited",
+    "currentSavedPatchFilename": "",
+    "patchDirtyState": "untouched",
     "filePicker": {
       "startIn": "desktop",
-      "lastSettingsName": "useruisettings.json",
-      "lastPatchName": "working.json"
+      "lastSettingsName": "useruisettings2.json",
+      "lastPatchName": "useruisettings2.json"
     }
   }
 }

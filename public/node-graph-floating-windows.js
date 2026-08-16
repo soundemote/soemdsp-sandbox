@@ -673,17 +673,22 @@ function nodeGraphFloatingWindowDragIsFromTitleBar(event, element) {
   if (!target || !element?.contains?.(target)) {
     return false;
   }
-  if (target.closest(".scene-context-resize-handle, .panel-close-button")) {
+  if (target.closest(
+    ".scene-context-resize-handle, .panel-close-button, .node-unified-window-nav-host, .node-module-shop-column, .scene-context-store-empty, .scene-context-module-search, input, textarea, select, [role='listbox']",
+  )) {
+    return false;
+  }
+  const heading = element.querySelector(":scope > .scene-context-heading");
+  if (!heading || !heading.contains(target)) {
     return false;
   }
   const handle = target.closest(
     ".scene-context-drag-handle, .node-drag-handle, [id$='DragHandle']",
   );
-  if (handle && element.contains(handle)) {
+  if (handle && heading.contains(handle)) {
     return true;
   }
-  const heading = target.closest(".scene-context-heading");
-  return Boolean(heading && element.contains(heading));
+  return true;
 }
 
 function beginNodeGraphFloatingWindowDrag(event, element, stateKey) {

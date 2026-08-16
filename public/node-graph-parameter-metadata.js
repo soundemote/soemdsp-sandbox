@@ -90,7 +90,10 @@ function nodeGraphDefaultParamsForType(type) {
     ? nodeGraphModuleDefinition(type)
     : nodeGraphModuleDefinitions[type];
   for (const parameter of definition?.parameters || []) {
-    const value = Number(parameter.defaultValue);
+    // spawnValue = first instance only. defaultValue stays paramMeta.def (reset).
+    const value = Object.hasOwn(parameter, "spawnValue")
+      ? Number(parameter.spawnValue)
+      : Number(parameter.defaultValue);
     params[parameter.key] = Number.isFinite(value) ? value : 0;
   }
   return params;

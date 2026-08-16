@@ -1437,6 +1437,22 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "allpass pair",
     ],
   },
+  hilbert: {
+    category: "scientificFilter",
+    description:
+      "Mono +90° / −90° phase shift (Hilbert Q). Wire Mid/Side Out Side here, add to Out Mid.",
+    label: "Hilbert",
+    notes: [
+      "hilbert",
+      "90",
+      "phase",
+      "quadrature",
+      "side",
+      "mono",
+      "real mono",
+      "scientific",
+    ],
+  },
   lookaheadLimiter: {
     category: "dynamics",
     description:

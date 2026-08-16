@@ -21,8 +21,8 @@ function bindNodeGraphSceneMenuEvents() {
     closeNodeGraphModuleShop();
   });
   bindNodeGraphSceneElementEvent("nodeModuleShopView", "pointerdown", beginNodeGraphModuleStorePointerPlacement);
-  bindNodeGraphSceneElementEvent("nodeModuleShopView", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "moduleBrowser"));
   bindNodeGraphSceneElementEvent("nodeModuleShopHeading", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "moduleBrowser"));
+  bindNodeGraphSceneElementEvent("nodeModuleShopDragHandle", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "moduleBrowser"));
   bindNodeGraphSceneElementEvent("nodeModuleShopResizeHandle", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "moduleBrowser"));
   bindNodeGraphSceneElementEvent("nodeModuleDepartmentSearch", "input", handleNodeGraphModuleDepartmentSearchInput);
   bindNodeGraphSceneElementEvent("nodeModuleDepartmentSearch", "keydown", handleNodeGraphModuleDepartmentSearchKeydown);

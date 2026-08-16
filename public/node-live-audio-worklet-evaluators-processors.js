@@ -798,6 +798,17 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const midIn = mixInput(nodeId, "Mid");
         return this.quadratureFrame(state, sideIn, midIn);
       },
+      // Mono Hilbert (+90 / −90). Math: hilbert-math.js.
+      hilbert: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        if (!this.hilbertStates) {
+          this.hilbertStates = new Map();
+        }
+        const state = this.hilbertStates.get(nodeId) || this.createHilbertState();
+        this.hilbertStates.set(nodeId, state);
+        const shift = this.readEffectiveParameter(node, "shift", 0, frame, frames, frameValues);
+        const sign = Number(shift) >= 1 ? -1 : 1;
+        return this.hilbertFrame(state, mixInput(nodeId), sign);
+      },
       // Look-ahead brickwall limiter (delay = LA, no host PDC). Math: lookahead-limiter-math.js.
       lookaheadLimiter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         if (!this.lookaheadLimiterStates) {
