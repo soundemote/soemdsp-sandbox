@@ -110,27 +110,49 @@ function nodeGraphRenderedPanValue(value, origin = 0) {
   return Object.is(rendered, -0) ? 0 : rendered;
 }
 
-function nodeGraphWorkspaceCenterOffset(container = document.getElementById("nodeGraphWorkspace")) {
+function invalidateNodeGraphWorkspaceLayoutMetrics() {
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp._workspaceLayoutMetrics = null;
+  }
+}
+
+function nodeGraphWorkspaceLayoutMetrics(container = document.getElementById("nodeGraphWorkspace")) {
+  const gesturing = typeof nodeGraphViewportGestureActive === "function"
+    && nodeGraphViewportGestureActive();
+  if (gesturing && nodeGraphMvp?._workspaceLayoutMetrics) {
+    return nodeGraphMvp._workspaceLayoutMetrics;
+  }
   const rect = container?.getBoundingClientRect?.();
   const style = container ? getComputedStyle(container) : null;
-  const borderLeft = Number.parseFloat(style?.borderLeftWidth) || 0;
-  const borderTop = Number.parseFloat(style?.borderTopWidth) || 0;
-  const borderRight = Number.parseFloat(style?.borderRightWidth) || 0;
-  const borderBottom = Number.parseFloat(style?.borderBottomWidth) || 0;
+  const metrics = {
+    borderBottom: Number.parseFloat(style?.borderBottomWidth) || 0,
+    borderLeft: Number.parseFloat(style?.borderLeftWidth) || 0,
+    borderRight: Number.parseFloat(style?.borderRightWidth) || 0,
+    borderTop: Number.parseFloat(style?.borderTopWidth) || 0,
+    height: Number(rect?.height) || 0,
+    left: Number(rect?.left) || 0,
+    top: Number(rect?.top) || 0,
+    width: Number(rect?.width) || 0,
+  };
+  if (gesturing && typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp._workspaceLayoutMetrics = metrics;
+  }
+  return metrics;
+}
+
+function nodeGraphWorkspaceCenterOffset(container = document.getElementById("nodeGraphWorkspace")) {
+  const box = nodeGraphWorkspaceLayoutMetrics(container);
   return {
-    x: borderLeft + Math.max(0, (Number(rect?.width) || 0) - borderLeft - borderRight) * 0.5,
-    y: borderTop + Math.max(0, (Number(rect?.height) || 0) - borderTop - borderBottom) * 0.5,
+    x: box.borderLeft + Math.max(0, box.width - box.borderLeft - box.borderRight) * 0.5,
+    y: box.borderTop + Math.max(0, box.height - box.borderTop - box.borderBottom) * 0.5,
   };
 }
 
 function nodeGraphRenderedPan(pan = nodeGraphMvp.pan || { x: 0, y: 0 }, container = document.getElementById("nodeGraphWorkspace")) {
-  const rect = container?.getBoundingClientRect?.();
-  const style = container ? getComputedStyle(container) : null;
-  const borderLeft = Number.parseFloat(style?.borderLeftWidth) || 0;
-  const borderTop = Number.parseFloat(style?.borderTopWidth) || 0;
+  const box = nodeGraphWorkspaceLayoutMetrics(container);
   return {
-    x: nodeGraphRenderedPanValue(pan.x, (rect?.left || 0) + borderLeft),
-    y: nodeGraphRenderedPanValue(pan.y, (rect?.top || 0) + borderTop),
+    x: nodeGraphRenderedPanValue(pan.x, box.left + box.borderLeft),
+    y: nodeGraphRenderedPanValue(pan.y, box.top + box.borderTop),
   };
 }
 

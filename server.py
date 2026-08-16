@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
 # Human-readable ship label (date + short codename). Prefer dotted dates over
 # opaque timestamps so the toolbar readout stays demystified for users.
-BUILD_NUMBER = "2026.8.16.RGB"
+BUILD_NUMBER = "2026.8.16.5"
 VERSION_FILE = ROOT / "VERSION"
 SANDBOX_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "0.0.0"
 # Per-build stamp: random A–Z/0–9, re-rolled when the server starts OR when
@@ -1065,11 +1065,33 @@ class SandboxServer(BaseHTTPRequestHandler):
             },
         )
 
+    def audio_file_list_entry(self, candidate: Path, root: Path) -> dict | None:
+        """Stat-only file card. No decode, no open of the audio bytes."""
+        try:
+            if not candidate.is_file():
+                return None
+            if candidate.suffix.lower() not in SUPPORTED_AUDIO_FILE_SUFFIXES:
+                return None
+            resolved = candidate.resolve()
+            size = int(resolved.stat().st_size)
+        except OSError:
+            return None
+        try:
+            rel = str(resolved.relative_to(root)).replace("\\", "/")
+        except ValueError:
+            rel = resolved.name
+        return {
+            "bytes": max(0, size),
+            "name": resolved.name,
+            "path": str(resolved),
+            "rel": rel,
+        }
+
     def audio_file_list(self) -> None:
         """List supported audio files in a folder (or report a single file).
 
-        Used by Music Player playlist: paste a folder path → add all tracks.
-        Non-recursive by default; stays inside the user home folder.
+        Music Player: names + sizes only. Decode happens one playing file
+        at a time on the client. `recursive` / `dive` walks subfolders.
         """
         payload = self.read_json_payload(
             "audio file list",
@@ -1097,8 +1119,16 @@ class SandboxServer(BaseHTTPRequestHandler):
             self.send_json({"ok": False, "error": "path does not exist", "path": str(target)}, status=404)
             return
 
+        recursive = bool(payload.get("recursive") or payload.get("dive"))
+        try:
+            max_files = int(payload.get("limit") or 10000)
+        except (TypeError, ValueError):
+            max_files = 10000
+        max_files = max(1, min(10000, max_files))
+
         if target.is_file():
-            if target.suffix.lower() not in SUPPORTED_AUDIO_FILE_SUFFIXES:
+            entry = self.audio_file_list_entry(target, target.parent)
+            if entry is None:
                 self.send_json({"ok": False, "error": "unsupported audio file extension"}, status=400)
                 return
             self.send_json(
@@ -1106,21 +1136,47 @@ class SandboxServer(BaseHTTPRequestHandler):
                     "ok": True,
                     "kind": "file",
                     "path": str(target),
-                    "files": [{"path": str(target), "name": target.name}],
+                    "files": [entry],
+                    "count": 1,
+                    "recursive": False,
+                    "truncated": False,
                 },
             )
             return
 
         files = []
+        truncated = False
         try:
-            for candidate in sorted(target.iterdir(), key=lambda p: p.name.lower()):
-                if not candidate.is_file():
-                    continue
-                if candidate.suffix.lower() not in SUPPORTED_AUDIO_FILE_SUFFIXES:
-                    continue
-                files.append({"path": str(candidate.resolve()), "name": candidate.name})
-                if len(files) >= 500:
-                    break
+            if recursive:
+                for dirpath, dirnames, filenames in os.walk(target):
+                    dirnames.sort(key=str.lower)
+                    folder = Path(dirpath)
+                    try:
+                        if not folder.resolve().is_relative_to(home):
+                            dirnames[:] = []
+                            continue
+                    except OSError:
+                        dirnames[:] = []
+                        continue
+                    for name in sorted(filenames, key=str.lower):
+                        entry = self.audio_file_list_entry(folder / name, target)
+                        if entry is None:
+                            continue
+                        files.append(entry)
+                        if len(files) >= max_files:
+                            truncated = True
+                            break
+                    if truncated:
+                        break
+            else:
+                for candidate in sorted(target.iterdir(), key=lambda p: p.name.lower()):
+                    entry = self.audio_file_list_entry(candidate, target)
+                    if entry is None:
+                        continue
+                    files.append(entry)
+                    if len(files) >= max_files:
+                        truncated = True
+                        break
         except OSError as exc:
             self.send_json({"ok": False, "error": f"folder list failed: {exc}"}, status=500)
             return
@@ -1132,6 +1188,8 @@ class SandboxServer(BaseHTTPRequestHandler):
                 "path": str(target),
                 "files": files,
                 "count": len(files),
+                "recursive": recursive,
+                "truncated": truncated,
             },
         )
 

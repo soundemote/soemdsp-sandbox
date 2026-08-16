@@ -4257,12 +4257,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 
-/* Room dimmer + magnifier zoom share the old dimmer flex cell. */
+/* Room dimmer + magnifier zoom + snake mouse-smooth share the old dimmer flex cell. */
 .node-room-tool-pair {
   display: flex;
   flex: 1 1 0;
   align-items: stretch;
-  min-inline-size: 4.2rem;
+  min-inline-size: 6rem;
   isolation: isolate;
   z-index: 60;
 }
@@ -9581,7 +9581,9 @@ body.node-graph-magnifying-active * {
 }
 
 .node-unified-window-nav-button.active,
-.node-unified-window-nav-button[aria-current="page"] {
+.node-unified-window-nav-button[aria-current="page"],
+.node-unified-window-nav-button.is-active,
+.node-unified-window-nav-button[aria-pressed="true"] {
   border-color: rgba(127, 199, 217, 0.62);
   background: rgba(28, 48, 56, 0.96);
   box-shadow: inset 0 0 0 1px rgba(127, 199, 217, 0.18);
@@ -9970,7 +9972,7 @@ body.node-graph-magnifying-active * {
   -webkit-appearance: none;
   box-sizing: border-box;
   display: grid;
-  place-items: center;
+  align-items: center;
   height: 24px;
   min-height: 24px;
   max-height: 24px;
@@ -9985,9 +9987,40 @@ body.node-graph-magnifying-active * {
   font: inherit;
   font-size: 17px;
   line-height: 1;
-  text-align: center;
+  text-align: left;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.scene-context-store-card-main {
+  display: grid;
+  grid-template-columns: 1.35em minmax(0, 1fr) 2.4em;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: 4px;
+}
+
+.scene-context-store-card-main .scene-context-store-card-category {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.scene-context-store-card-main strong {
+  justify-self: start;
+  text-align: left;
+}
+
+.scene-context-store-card-main small,
+.scene-context-store-card-main .node-module-store-native-status {
+  display: inline;
+  justify-self: end;
+  text-align: right;
+  min-width: 0;
 }
 
 .node-module-store-list .scene-context-store-card::before {
@@ -10111,8 +10144,7 @@ body.node-graph-magnifying-active * {
 }
 
 .node-module-store-list .scene-context-store-card strong {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -10120,7 +10152,7 @@ body.node-graph-magnifying-active * {
   overflow: hidden;
   font-size: 17px;
   line-height: 1;
-  text-align: center;
+  text-align: left;
   text-overflow: clip;
   white-space: nowrap;
   overflow-wrap: normal;
@@ -10143,10 +10175,10 @@ body.node-graph-magnifying-active * {
 }
 
 .node-module-store-list .scene-context-store-card small {
-  display: none;
+  display: inline;
   color: rgba(226, 168, 109, 0.78);
   font: 0.62rem/1 var(--mono);
-  text-align: center;
+  text-align: right;
   text-transform: uppercase;
 }
 
@@ -11245,15 +11277,27 @@ body.node-graph-magnifying-active * {
 
 .node-graph-zoom-surface {
   position: absolute;
-  left: calc(var(--node-graph-pan-x) / var(--node-graph-zoom));
-  top: calc(var(--node-graph-pan-y) / var(--node-graph-zoom));
+  left: 0;
+  top: 0;
   z-index: 1;
   width: calc(100% / var(--node-graph-zoom));
   height: calc(100% / var(--node-graph-zoom));
   background: transparent;
   zoom: var(--node-graph-zoom);
-  transform: none;
+  /* Pan via transform so pointermove does not relayout the whole graph
+     (canvases, wires, modules). Same /zoom as the old left/top: CSS zoom
+     scales the translation too. */
+  transform: translate3d(
+    calc(var(--node-graph-pan-x) / var(--node-graph-zoom)),
+    calc(var(--node-graph-pan-y) / var(--node-graph-zoom)),
+    0
+  );
   pointer-events: none;
+}
+
+.node-graph-workspace.panning .node-graph-zoom-surface,
+.node-graph-workspace.viewport-gesturing .node-graph-zoom-surface {
+  will-change: transform;
 }
 
 .node-graph-origin-marker {
@@ -12164,6 +12208,38 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   overflow: visible;
   border-end-start-radius: inherit;
   border-end-end-radius: inherit;
+  corner-shape: inherit;
+}
+
+/* Face paint stays inside the plate. Side jack columns stay overflow:visible.
+   Default clip offsets are huge so a mid-stack face is unclipped until JS
+   writes the real plate insets (avoid rounding the screen's own box). */
+.dsp-node .node-module-scope-window,
+.dsp-node .node-module-face:not(.node-text-box-body),
+.dsp-node .node-filter-curve-display,
+.dsp-node .node-phosphor-waveform-display,
+.dsp-node .node-module-graph-display {
+  --node-plate-clip-top: 999px;
+  --node-plate-clip-right: 999px;
+  --node-plate-clip-bottom: 999px;
+  --node-plate-clip-left: 999px;
+  overflow: hidden;
+  clip-path: inset(
+    calc(-1 * var(--node-plate-clip-top, 999px))
+    calc(-1 * var(--node-plate-clip-right, 999px))
+    calc(-1 * var(--node-plate-clip-bottom, 999px))
+    calc(-1 * var(--node-plate-clip-left, 999px))
+    round var(--node-module-frame-radius)
+  );
+}
+
+.dsp-node.layout-b-no-params
+  > :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
+  > :is(.node-module-face, .node-module-scope-window, .node-solid-module-custom-ui) {
+  overflow: hidden;
+  border-end-start-radius: inherit;
+  border-end-end-radius: inherit;
+  corner-shape: inherit;
 }
 
 /* LayoutB ports live in the shell — never a separate under-face IO strip.
@@ -19435,16 +19511,14 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 .scene-context-store-card-category {
-  display: none;
+  display: inline-flex;
 }
 
 .scene-context-module-search-results .scene-context-store-card,
 .node-module-store-list.is-module-search-results .scene-context-store-card {
-  display: flex;
-  flex-direction: row;
+  display: grid;
   align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
+  justify-content: stretch;
 }
 
 .scene-context-module-search-results .scene-context-store-card-category,
@@ -19457,12 +19531,13 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 
 .scene-context-module-search-results .scene-context-store-card strong {
   font-size: 0.74rem;
+  text-align: left;
 }
 
 .scene-context-module-search-results .scene-context-store-card small,
 .node-module-store-list.is-module-search-results .scene-context-store-card small {
   display: inline;
-  margin-left: auto;
+  margin-left: 0;
   color: rgba(226, 168, 109, 0.78);
   font-size: 0.62rem;
   line-height: 1;

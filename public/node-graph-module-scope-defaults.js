@@ -210,6 +210,7 @@ const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
   fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
+  sourceSync: false,
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
 });
 

@@ -12,6 +12,9 @@ tools/webui-clap-host/presets/
 native_modules/combined/obj/
 backups/native_cpp_stage.tgz
 
+# Local debug leftovers (never commit)
+backups/jack-visibility-probe.png
+
 # Local staging / crash leftovers (never commit)
 _to_delete/
 /nul

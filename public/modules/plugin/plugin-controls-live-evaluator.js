@@ -49,19 +49,35 @@ nodeGraphLiveModuleEvaluators.momentaryButton = ({
 };
 
 // Same bus math as audioInput / output (shared helpers).
-nodeGraphLiveModuleEvaluators.pluginInput = ({ runtime, node, frame, frames, frameValues }) =>
-  nodeGraphDspExternalStereoFrame(
+nodeGraphLiveModuleEvaluators.pluginInput = ({
+  runtime, node, nodeId, frame, frames, frameValues, mixInput,
+}) => {
+  const live = nodeGraphDspExternalStereoFrame(
     runtime.externalInput,
     frame,
-    nodeGraphPluginReadParam(runtime, node, "level", 1, frame, frames, frameValues),
+    nodeGraphPluginReadParam(runtime, node, "amplitude", 1, frame, frames, frameValues),
   );
+  if (typeof nodeGraphDspSandboxIoFrame === "function") {
+    return nodeGraphDspSandboxIoFrame(
+      live,
+      mixInput(nodeId, "Mono"),
+      mixInput(nodeId, "Left"),
+      mixInput(nodeId, "Right"),
+    );
+  }
+  return live;
+};
 
-nodeGraphLiveModuleEvaluators.pluginOutput = ({ nodeId, mixInput }) =>
-  nodeGraphDspStereoMix(
+nodeGraphLiveModuleEvaluators.pluginOutput = ({ nodeId, mixInput }) => {
+  const mix = nodeGraphDspStereoMix(
     mixInput(nodeId, "Mono"),
     mixInput(nodeId, "Left"),
     mixInput(nodeId, "Right"),
   );
+  return typeof nodeGraphDspSandboxIoTrio === "function"
+    ? nodeGraphDspSandboxIoTrio(mix)
+    : { Left: mix.Left, Mono: mix.Out, Out: mix.Out, Right: mix.Right };
+};
 
 nodeGraphLiveModuleEvaluators.pluginMidiIn = ({
   runtime,

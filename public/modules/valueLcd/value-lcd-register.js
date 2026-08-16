@@ -16,7 +16,7 @@ registerNodeGraphChromelessModule("valueLcd", {
     },
     inputs: ["In"],
     outputs: ["Thru"],
-    outputLabels: { Thru: "→" },
+    outputLabels: { Thru: "←" },
     parameters: [],
     visualInputs: [
       { key: "numberReadout", label: "In", port: "In" },

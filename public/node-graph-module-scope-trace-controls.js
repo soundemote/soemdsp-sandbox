@@ -155,8 +155,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ]),
     colors: Object.freeze(["dot1Color", "secondaryColor", "backgroundColor"]),
-    toggles: Object.freeze([]),
-    choices: Object.freeze(["stereoBlend"]),
+    toggles: Object.freeze(["sourceSync"]),
+    choices: Object.freeze(["stereoBlend", "syncChannel"]),
   }),
   // Phosphor energy faces: color via shared Gradient editor (not single swatches).
   // Field order = nodeGraphPhosphorDisplayFieldOrder (Bright…residual…Pixel density).
@@ -171,7 +171,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "pixelDensity",
     ])),
     colors: Object.freeze([]),
-    toggles: Object.freeze(["bipolarBrightness"]),
+    toggles: Object.freeze(["sourceSync", "bipolarBrightness"]),
     choices: Object.freeze([]),
   }),
   lineBurn: Object.freeze({
@@ -570,7 +570,20 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
 function nodeGraphTraceDisplayActiveControlsForType(type = nodeGraphTraceDisplaySettingsFormType()) {
   const key = String(type || "").trim();
   if (nodeGraphTraceDisplayActiveControlsByType[key]) {
-    return nodeGraphTraceDisplayActiveControlsByType[key];
+    const spec = nodeGraphTraceDisplayActiveControlsByType[key];
+    if (
+      typeof nodeGraphDisplayFormTypeHas1dSync === "function"
+      && nodeGraphDisplayFormTypeHas1dSync(key)
+      && !(spec.toggles || []).includes("sourceSync")
+    ) {
+      return Object.freeze({
+        fields: spec.fields,
+        colors: spec.colors,
+        toggles: Object.freeze(["sourceSync", ...(spec.toggles || [])]),
+        choices: spec.choices,
+      });
+    }
+    return spec;
   }
   // Energy / *Burn faces → scope2d controls. Never default unknown types to
   // "trace" (Output stereo page) — that leaked syncChannel/stereoBlend onto
@@ -1029,7 +1042,7 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     label: "Sync",
     id: "nodeTraceDisplaySourceSync",
     title:
-      "1D Phosphor: when on, rising edges of the input snap the pen to the left (auto-trigger) without a Reset wire. Off = free-run Sweep only (Reset jack still works). 1D Trace: edge-lock the visible window.",
+      "App-wide 1D Sync. Instant Trace: edge-lock the visible window. 1D Phosphor: rising edges snap the pen (Reset jack still works). Off = free-run.",
   }),
   skipDiscontinuities: Object.freeze({ label: "Skip discontinuities", id: "nodeTraceDisplaySkipDiscontinuities" }),
   bipolarBrightness: Object.freeze({ label: "Bipolar", id: "nodeTraceDisplayBipolarBrightness" }),

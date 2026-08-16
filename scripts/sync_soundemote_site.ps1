@@ -76,7 +76,10 @@ $buildMode = "release"
 # ANSI codepage for BOM-less files, which mangles multibyte chars (middot, emoji)
 # and produced double-encoded output when re-written as UTF-8. Read raw UTF-8 bytes.
 $indexRaw = [System.IO.File]::ReadAllText((Join-Path $srcPublic "index.html"), [System.Text.Encoding]::UTF8)
-$indexHtml = $indexRaw.Replace("{{SANDBOX_VERSION}}", $sandboxVersion).Replace("{{BUILD_NUMBER}}", $buildNumber).Replace("{{BUILD_MODE}}", $buildMode)
+$buildToken = ($sandboxVersion -replace "[^A-Za-z0-9]", "").ToUpper()
+if ($buildToken.Length -gt 4) { $buildToken = $buildToken.Substring(0, 4) }
+if (-not $buildToken) { $buildToken = "LIVE" }
+$indexHtml = $indexRaw.Replace("{{SANDBOX_VERSION}}", $sandboxVersion).Replace("{{BUILD_NUMBER}}", $buildNumber).Replace("{{BUILD_MODE}}", $buildMode).Replace("{{BUILD_TOKEN}}", $buildToken)
 [System.IO.File]::WriteAllText((Join-Path $dst "index.html"), $indexHtml, (New-Object System.Text.UTF8Encoding($false)))
 Write-Host "  index.html (v$sandboxVersion, build $buildNumber, mode $buildMode -- placeholders filled)"
 Copy-Item -LiteralPath (Join-Path $srcPublic "native-modules-catalog.json") -Destination (Join-Path $dst "native-modules-catalog.json") -Force

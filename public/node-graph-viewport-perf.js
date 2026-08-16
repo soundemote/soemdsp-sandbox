@@ -93,6 +93,9 @@ function clearNodeGraphViewportGestureClass() {
     return;
   }
   workspace.classList.remove("viewport-gesturing", "viewport-zooming");
+  if (typeof invalidateNodeGraphWorkspaceLayoutMetrics === "function") {
+    invalidateNodeGraphWorkspaceLayoutMetrics();
+  }
 }
 
 /**
@@ -147,7 +150,10 @@ function applyNodeGraphViewportCssLight(options = {}) {
       syncNodeGraphOriginMarker();
     }
   }
-  if (typeof scheduleNodeGraphRoomDimmerDraw === "function") {
+  if (
+    typeof scheduleNodeGraphRoomDimmerDraw === "function"
+    && !(typeof nodeGraphViewportGestureActive === "function" && nodeGraphViewportGestureActive())
+  ) {
     scheduleNodeGraphRoomDimmerDraw();
   }
   if (typeof updateNodeGraphGridHeatmap === "function") {

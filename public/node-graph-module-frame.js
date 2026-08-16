@@ -405,6 +405,9 @@ function updateNodeGraphModuleFrame(nodeElement) {
   }
   // Retired: gapped 1px breathing-room SVG. Plate stroke is CSS ::before.
   nodeGraphModuleFrameHide(nodeElement);
+  if (typeof applyNodeGraphModulePlateClip === "function") {
+    applyNodeGraphModulePlateClip(nodeElement);
+  }
 }
 
 function updateAllNodeGraphModuleFrames(options = {}) {

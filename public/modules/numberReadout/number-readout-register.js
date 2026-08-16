@@ -18,7 +18,7 @@ registerNodeGraphChromelessModule("numberReadout", {
     inputs: ["In"],
     // Dry passthrough so the face can sit in-line (In → face + Thru).
     outputs: ["Thru"],
-    outputLabels: { Thru: "→" },
+    outputLabels: { Thru: "←" },
     parameters: [],
     visualInputs: [
       { key: "numberReadout", label: "In", port: "In" },

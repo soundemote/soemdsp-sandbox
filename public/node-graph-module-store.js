@@ -92,7 +92,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "oscilloscopeBank",
   "shootingStarTail",
   "wallDelay",
-  "output",
   "audioInput",
   "pluginInput",
   "pluginOutput",
@@ -130,6 +129,13 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "percussion",
   "phosphillator",
   "hypersaw",
+]);
+
+// Types that used to be on the UC shelf and are now shipped. Always strip
+// from persisted underconstructionsort so old UI settings do not keep the
+// construction plate over a working face (Output meter/trace).
+const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
+  "output",
 ]);
 
 // Unified module department definitions — single source of truth for
@@ -834,9 +840,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   audioInput: {
     category: "portal",
-    description: "Bring the live mic/line into the patch as Left/Right.",
+    description: "Bring the live mic/line into the patch as Mono, Left, Right.",
     label: "Input",
-    notes: ["audio source", "left right outputs", "live input"],
+    notes: ["audio source", "mono left right", "live input"],
   },
   knob: {
     category: "controller",
@@ -1980,8 +1986,26 @@ function normalizeNodeGraphModuleCatalogVisibility(value = {}) {
   return shelves;
 }
 
+function nodeGraphModuleCatalogStripRetiredUnderConstruction(shelves) {
+  const list = shelves?.underconstructionsort;
+  if (!Array.isArray(list) || !list.length) {
+    return;
+  }
+  const retired = new Set(nodeGraphModuleCatalogRetiredFromUnderConstruction);
+  const next = list.filter((type) => !retired.has(type));
+  if (next.length === list.length) {
+    return;
+  }
+  if (next.length) {
+    shelves.underconstructionsort = next;
+    return;
+  }
+  delete shelves.underconstructionsort;
+}
+
 function nodeGraphModuleCatalogApplyDefaultUnderConstructionSort(source, shelves, validTypes) {
   if (Object.hasOwn(source, "underconstructionsort") || shelves.underconstructionsort) {
+    nodeGraphModuleCatalogStripRetiredUnderConstruction(shelves);
     return;
   }
   const types = nodeGraphModuleCatalogNormalizeTypeList(
@@ -1991,6 +2015,7 @@ function nodeGraphModuleCatalogApplyDefaultUnderConstructionSort(source, shelves
   if (types.length) {
     shelves.underconstructionsort = types;
   }
+  nodeGraphModuleCatalogStripRetiredUnderConstruction(shelves);
 }
 
 function nodeGraphModuleCatalogVisibility() {
@@ -2064,16 +2089,31 @@ function normalizeNodeGraphNativeModuleEntry(entry = {}) {
   });
 }
 
+const nodeGraphNativeModuleTargetAliases = Object.freeze({
+  vactrolEnvelope: Object.freeze(["vactrolEnvelopeSeries", "vactrolEnvelopeCustom"]),
+});
+
+const nodeGraphModuleStoreNativeLabelTypes = Object.freeze(new Set([
+  "kickEnvelope",
+  "attackDecay",
+  "vactrolEnvelopeSeries",
+  "vactrolEnvelopeCustom",
+  "sineKick",
+]));
+
 function applyNodeGraphNativeModuleCatalog(entries = []) {
   const normalized = (Array.isArray(entries) ? entries : [])
     .map((entry) => normalizeNodeGraphNativeModuleEntry(entry))
     .filter(Boolean);
   const byTarget = {};
   for (const entry of normalized) {
-    if (!byTarget[entry.targetType]) {
-      byTarget[entry.targetType] = [];
+    const targets = [entry.targetType, ...(nodeGraphNativeModuleTargetAliases[entry.targetType] || [])];
+    for (const target of targets) {
+      if (!byTarget[target]) {
+        byTarget[target] = [];
+      }
+      byTarget[target].push(entry);
     }
-    byTarget[entry.targetType].push(entry);
   }
   nodeGraphNativeModuleEntries = Object.freeze(normalized);
   nodeGraphNativeModuleEntriesByTarget = Object.freeze(byTarget);
@@ -2864,7 +2904,8 @@ function nodeGraphModuleStoreEntries() {
         homeVisible: nodeGraphModuleIsStoreVisible(type, "home") && implemented && !catalogHidden,
         implemented,
         label: nodeGraphModuleStoreCatalog[type]?.label || nodeGraphNodeLabels[type] || type,
-        nativeAvailable: nativeModules.some((entry) => entry.wasmAvailable),
+        nativeAvailable: nativeModules.some((entry) => entry.wasmAvailable)
+          || nodeGraphModuleStoreNativeLabelTypes.has(type),
         nativeModules,
         shopVisible: publicVisible,
         visible: publicVisible,
@@ -3435,26 +3476,22 @@ function createNodeGraphModuleStoreButton(entry) {
     ? normalizeNodeGraphModuleStoreDepartment(entry.category || "")
     : String(entry.category || "");
   const emoji = nodeGraphModuleStoreDepartmentById[categoryId]?.emoji || "";
-  if (emoji) {
-    const mark = document.createElement("span");
-    mark.className = "scene-context-store-card-category";
-    mark.setAttribute("aria-hidden", "true");
-    mark.textContent = emoji;
-    card.append(mark);
-  }
-
+  const main = document.createElement("span");
+  main.className = "scene-context-store-card-main";
+  const mark = document.createElement("span");
+  mark.className = "scene-context-store-card-category";
+  mark.setAttribute("aria-hidden", "true");
+  mark.textContent = emoji;
   const label = document.createElement("strong");
   label.textContent = entry.label;
-  const nativeStatus = entry.nativeAvailable ? document.createElement("small") : null;
-  if (nativeStatus) {
-    nativeStatus.textContent = "Native C++";
-    nativeStatus.className = "node-module-store-native-status";
+  const nativeStatus = document.createElement("small");
+  nativeStatus.className = "node-module-store-native-status";
+  nativeStatus.textContent = entry.nativeAvailable ? "C++" : "";
+  if (entry.nativeAvailable) {
+    nativeStatus.title = "C++";
   }
-
-  card.append(label);
-  if (nativeStatus) {
-    card.append(nativeStatus);
-  }
+  main.append(mark, label, nativeStatus);
+  card.append(main);
   if (!entry.implemented) {
     const io = createNodeGraphModuleStoreIoPreview(entry.type);
     if (io) {

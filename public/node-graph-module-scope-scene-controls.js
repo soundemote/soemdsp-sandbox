@@ -21,9 +21,12 @@ function renderNodeGraphSceneScopeControls(nodeId = nodeGraphScopeControlTargetN
   }
   const syncButton = document.getElementById("nodeSceneScopeSync");
   if (syncButton) {
-    syncButton.textContent = setting.sync ? "sync" : "free";
-    syncButton.setAttribute("aria-pressed", String(setting.sync));
-    syncButton.title = "Scope auto-trigger sync (rising edge + freerun when unlocked)";
+    const syncOn = typeof nodeGraphNodeDisplaySyncIsOn === "function"
+      ? nodeGraphNodeDisplaySyncIsOn(targetNode)
+      : Boolean(setting.sync);
+    syncButton.textContent = syncOn ? "sync" : "free";
+    syncButton.setAttribute("aria-pressed", String(syncOn));
+    syncButton.title = "Auto-trigger sync — same control as Display Settings → Sync";
   }
   const oscillatorTraceModeButton = document.getElementById("nodeSceneScopeOscillatorTraceMode");
   if (oscillatorTraceModeButton) {
@@ -401,7 +404,11 @@ function handleNodeGraphSceneScopeControlClick(event) {
   const nodeId = nodeGraphScopeControlTargetNodeId();
   const setting = nodeGraphModuleScopeSetting(nodeId);
   if (button.dataset.scopeControl === "sync") {
-    updateNodeGraphModuleScopeSetting(nodeId, { sync: !setting.sync });
+    if (typeof nodeGraphToggleNodeDisplaySync === "function") {
+      nodeGraphToggleNodeDisplaySync(nodeId);
+    } else {
+      updateNodeGraphModuleScopeSetting(nodeId, { sync: !setting.sync });
+    }
   } else if (button.dataset.scopeControl === "oscillatorTraceMode") {
     updateNodeGraphModuleScopeSetting(nodeId, {
       oscillatorTraceMode: setting.oscillatorTraceMode === "window" ? "frequencyReset" : "window",

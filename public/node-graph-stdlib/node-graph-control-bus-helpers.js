@@ -65,6 +65,32 @@ function nodeGraphDspStereoMix(mono, left, right) {
   };
 }
 
+/** Sandbox I/O is locked to 3: Mono, Left, Right. */
+const NODE_GRAPH_SANDBOX_IO_PORTS = Object.freeze(["Mono", "Left", "Right"]);
+
+function nodeGraphDspSandboxIoTrio(mix) {
+  const left = Number(mix?.Left) || 0;
+  const right = Number(mix?.Right) || 0;
+  const mono = Number(mix?.Out) || (left + right) * 0.5;
+  return {
+    Left: left,
+    Mono: mono,
+    Out: mono,
+    Right: right,
+  };
+}
+
+/** Live mic/host plus wired Mono/Left/Right. */
+function nodeGraphDspSandboxIoFrame(liveStereo, mono, left, right) {
+  const wired = nodeGraphDspStereoMix(mono, left, right);
+  const live = liveStereo && typeof liveStereo === "object" ? liveStereo : {};
+  return nodeGraphDspSandboxIoTrio({
+    Left: (Number(live.Left) || 0) + wired.Left,
+    Right: (Number(live.Right) || 0) + wired.Right,
+    Out: (Number(live.Out) || 0) + wired.Out,
+  });
+}
+
 /**
  * Read one frame of external stereo input (mic/host) at amplitude level.
  * externalInput shape: { left?: Float32Array|number[], right?: ... }

@@ -492,21 +492,104 @@ function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycl
 }
 
 /**
+ * 1D Instant Trace + 1D Phosphor share one Sync feature.
+ * Stereo Instant Trace uses syncChannel (off/left/right/mono);
+ * everything else uses sourceSync on/off (stored as mono/off).
+ */
+const NODE_GRAPH_DISPLAY_1D_SYNC_FORM_TYPES = Object.freeze(["trace", "lineBurn", "dot"]);
+
+function nodeGraphDisplayFormTypeHas1dSync(formType) {
+  return NODE_GRAPH_DISPLAY_1D_SYNC_FORM_TYPES.includes(String(formType || "").trim());
+}
+
+/**
  * Resolve sync mode: "off" | "left" | "right" | "mono".
- * Legacy sourceSync true → mono; false → off.
+ * SSOT for Instant Trace window lock and 1D phosphor auto-trigger.
+ * Legacy: sourceSync / settings.sync true → mono; false → off.
  */
 function nodeGraphTraceDisplaySyncChannel(settings) {
   const raw = String(settings?.syncChannel || "").toLowerCase().trim();
   if (raw === "left" || raw === "right" || raw === "mono" || raw === "off") {
     return raw;
   }
-  if (settings?.sourceSync === false) {
+  if (settings?.sourceSync === false || settings?.sync === false) {
     return "off";
   }
-  if (settings?.sourceSync) {
+  if (settings?.sourceSync || settings?.sync === true) {
     return "mono";
   }
   return "off";
+}
+
+function nodeGraphDisplaySyncIsOn(settings) {
+  return nodeGraphTraceDisplaySyncChannel(settings) !== "off";
+}
+
+function nodeGraphDisplayApplySyncEnabled(settings, on) {
+  const next = settings && typeof settings === "object" ? { ...settings } : {};
+  if (on) {
+    next.sourceSync = true;
+    const channel = String(next.syncChannel || "").toLowerCase().trim();
+    next.syncChannel = channel === "left" || channel === "right" || channel === "mono"
+      ? channel
+      : "mono";
+  } else {
+    next.sourceSync = false;
+    next.syncChannel = "off";
+  }
+  return next;
+}
+
+function nodeGraphNodeDisplaySyncSettings(node) {
+  if (!node) {
+    return {};
+  }
+  const schema = typeof nodeGraphModuleDisplaySettingsSchemaForNode === "function"
+    ? nodeGraphModuleDisplaySettingsSchemaForNode(node)
+    : "";
+  if (schema === "dot" && typeof nodeGraphZeroDBurnSettingsForNode === "function") {
+    return nodeGraphZeroDBurnSettingsForNode(node);
+  }
+  if (schema === "lineBurn" && typeof nodeGraphLineBurnSettingsForNode === "function") {
+    return nodeGraphLineBurnSettingsForNode(node);
+  }
+  if (typeof nodeGraphTraceDisplaySettingsForNode === "function") {
+    return nodeGraphTraceDisplaySettingsForNode(node);
+  }
+  return node.traceDisplaySettings || {};
+}
+
+function nodeGraphNodeDisplaySyncIsOn(node) {
+  return nodeGraphDisplaySyncIsOn(nodeGraphNodeDisplaySyncSettings(node));
+}
+
+function nodeGraphToggleNodeDisplaySync(nodeId) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!node) {
+    return;
+  }
+  const schema = typeof nodeGraphModuleDisplaySettingsSchemaForNode === "function"
+    ? nodeGraphModuleDisplaySettingsSchemaForNode(node)
+    : "trace";
+  const current = nodeGraphNodeDisplaySyncSettings(node);
+  const next = nodeGraphDisplayApplySyncEnabled(current, !nodeGraphDisplaySyncIsOn(current));
+  if (typeof assignNodeGraphTypedDisplaySettingsToNode === "function") {
+    assignNodeGraphTypedDisplaySettingsToNode(node, schema, next);
+  } else {
+    node.traceDisplaySettings = next;
+  }
+  if (typeof writeNodeGraphTraceDisplaySettingsForm === "function") {
+    writeNodeGraphTraceDisplaySettingsForm(next);
+  }
+  if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+    saveNodeGraphWorkingPatchToUserSettings();
+  }
+  if (typeof updateNodeGraphModuleScopeSetting === "function") {
+    updateNodeGraphModuleScopeSetting(nodeId, { sync: next.sourceSync === true });
+  }
+  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw({ force: true });
+  }
 }
 
 /** Average L/R into a lightweight buffer for mono cycle detection. */

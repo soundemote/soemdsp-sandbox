@@ -486,7 +486,7 @@ function createNodeGraphLayoutBShell(node, type, customBody, registration, input
   const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output")
     || createNodeGraphLayoutBIoColumnPlaceholder("output");
   // Layout B default: jacks only (labels-hidden). Modules with layoutBPortLabels
-  // keep short labels (←/→, X/Y, G/T, …) in the side band beside each jack.
+  // keep short labels (→ in / ← out, X/Y, G/T, …) in the side band beside each jack.
   // Empty placeholders stay node-layout-b-io-empty so the face claims that side.
   const showPortLabels = Boolean(nodeGraphModuleDefinitions[type]?.layoutBPortLabels);
   if (hasInputs && !showPortLabels) {
@@ -1141,6 +1141,22 @@ function createNodeGraphModuleElement(type, node) {
       && typeof createNodeGraphUnderConstructionFace === "function"
     ) {
       article.append(createNodeGraphUnderConstructionFace(node, type));
+    }
+  } else if (chrome.portsBeside) {
+    const mountFace = typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden;
+    const face = mountFace && typeof createNodeGraphModuleScopeSection === "function"
+      ? createNodeGraphModuleScopeSection(node, type)
+      : document.createElement("div");
+    if (!mountFace) {
+      face.className = "node-module-display-placeholder node-module-face";
+      face.hidden = true;
+      face.setAttribute("aria-hidden", "true");
+    }
+    article.append(createNodeGraphLayoutBShell(node, type, face, null, inputPorts, outputPorts));
+    if (mountFace && typeof registerNodeGraphModuleScopeSlot === "function") {
+      registerNodeGraphModuleScopeSlot(article, { nodeId: node, type, scopeElement: face });
     }
   } else {
     let scopeSection = null;

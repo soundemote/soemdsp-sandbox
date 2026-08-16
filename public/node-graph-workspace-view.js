@@ -185,11 +185,30 @@ function recenterNodeGraphViewAtWorldOrigin(event) {
   event?.preventDefault?.();
 }
 
+function nodeGraphLogModularViewPan(reason = "pan") {
+  if (typeof window.SE?.INFO !== "function") {
+    return;
+  }
+  const pan = nodeGraphMvp?.pan || { x: 0, y: 0 };
+  const zoom = typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1;
+  const gx = typeof nodeGraphGridWidth === "function" ? nodeGraphGridWidth() : 28;
+  const gy = typeof nodeGraphGridHeight === "function" ? nodeGraphGridHeight() : 28;
+  const worldX = -((Number(pan.x) || 0) / Math.max(0.0001, Number(zoom) || 1)) / Math.max(1e-9, gx);
+  const worldY = -((Number(pan.y) || 0) / Math.max(0.0001, Number(zoom) || 1)) / Math.max(1e-9, gy);
+  const label = typeof nodeGraphWorldPositionLabel === "function"
+    ? nodeGraphWorldPositionLabel
+    : (value) => String(Math.round(Number(value) || 0));
+  window.SE.INFO(`modular view ${reason} X ${label(worldX)} Y ${label(worldY)}`);
+}
+
 function setNodeGraphPan(x, y, options = {}) {
   nodeGraphMvp.pan = {
     x: Number.isFinite(Number(x)) ? Number(x) : 0,
     y: Number.isFinite(Number(y)) ? Number(y) : 0,
   };
+  if (options.gesture !== true && options.log !== false) {
+    nodeGraphLogModularViewPan("pan");
+  }
   // Gesture lite path only when explicitly requested (workspace pan drag).
   // Programmatic pan (recenter, load, snap) flushes full chrome immediately.
   const isGesture = options.gesture === true && options.immediate !== true;
@@ -700,7 +719,13 @@ function beginNodeGraphWorkspacePanFrom(pointerId, clientX, clientY) {
     startPanX: pan.x,
     startPanY: pan.y,
   };
+  if (typeof invalidateNodeGraphWorkspaceLayoutMetrics === "function") {
+    invalidateNodeGraphWorkspaceLayoutMetrics();
+  }
   workspace?.classList.add("panning");
+  if (typeof nodeGraphLogModularViewPan === "function") {
+    nodeGraphLogModularViewPan("pan start");
+  }
   if (typeof markNodeGraphViewportGesture === "function") {
     markNodeGraphViewportGesture("pan");
   }
@@ -925,6 +950,9 @@ function endNodeGraphWorkspacePan(event) {
   }
   workspace?.classList.remove("panning");
   nodeGraphMvp.workspacePanning = null;
+  if (typeof nodeGraphLogModularViewPan === "function") {
+    nodeGraphLogModularViewPan("pan");
+  }
   // Lights + wires once on mouse-up — not a settle timer mid/after drag.
   if (typeof flushNodeGraphViewportOnPointerUp === "function") {
     flushNodeGraphViewportOnPointerUp({ pan: true, zoom: true });

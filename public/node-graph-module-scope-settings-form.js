@@ -623,6 +623,11 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   for (const key of sharedPrimary) {
     rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
   }
+  for (const key of toggleKeys) {
+    if (key === "sourceSync") {
+      rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml(key));
+    }
+  }
   if (stereoInk) {
     rows.push(`
       <div class="metadata-section-title node-trace-display-dot1-title node-trace-display-stereo-title">
@@ -653,7 +658,7 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml(key));
   }
   for (const key of toggleKeys) {
-    if (key === "secondaryEnabled") {
+    if (key === "secondaryEnabled" || key === "sourceSync") {
       continue;
     }
     rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml(key));

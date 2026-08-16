@@ -859,7 +859,7 @@ function setNodeSliderMetadata(slider, metadata) {
   const control = slider.closest(".node-parameter-control");
   const alias = normalizeNodeGraphPatchMetadataAlias(metadata.alias);
   slider.dataset.alias = alias;
-  // Display name: custom alias wins, else factory default (e.g. "→"), else prior label.
+  // Display name: custom alias wins, else factory default (e.g. "←" out), else prior label.
   const nextLabel = alias
     || control?.dataset?.defaultParamLabel
     || control?.dataset?.paramLabel

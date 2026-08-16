@@ -154,6 +154,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-graph-utils.js",
     "./public/node-graph-samples.js",
     "./public/modules/audioPlayer/audio-player-playlist.js",
+    "./public/modules/audioPlayer/audio-player-library.js",
+    "./public/modules/audioPlayer/audio-player-math.js",
     "./public/node-graph-phosphor-waveform.js",
     "./public/node-graph-stdlib/node-graph-phasor-helpers.js",
     "./public/node-graph-stdlib/node-graph-param-surface-helpers.js",
@@ -298,6 +300,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-render-settings.js",
     "./public/modules/speakerProtector2/speaker-protector-2-math.js",
     "./public/node-graph-ear-protection.js",
+    "./public/node-graph-emoji-page.js",
     "./public/node-graph-patch-load-fault.js",
     "./public/node-graph-debug-console.js",
     "./public/node-graph-module-diagnostics.js",
@@ -3978,12 +3981,12 @@ def require_chromeless_module_registry_contract() -> None:
     # Each registered type needs a matching UI registration in the same
     # module folder — unless the face is fully shared (e.g. Value LCD reuses
     # the number-readout draw path and has no dedicated *-ui.js).
-    chromeless_ui_optional = {"valueLcd"}
+    chromeless_ui_optional = {"valueLcd", "portalInlet", "portalOutlet"}
     for register_path in register_paths:
         module_dir = register_path.parent
         module_type = register_call_pattern.search(register_path.read_text(encoding="utf-8")).group(1)
         ui_paths = list(module_dir.glob("*-ui.js"))
-        if module_type in chromeless_ui_optional and not ui_paths:
+        if module_type in chromeless_ui_optional:
             continue
         require(len(ui_paths) == 1, f"{module_dir} should have exactly one *-ui.js file")
         ui_source = ui_paths[0].read_text(encoding="utf-8")
@@ -4598,7 +4601,8 @@ def require_node_graph_mvp_contract() -> None:
         "Phone Tone should be an objects-category DTMF source using Robin sinusoids",
     )
     require(
-        "t: nodeGraphTSeriesModuleDefinition(0)" in script_sources["./public/node-graph-module-definitions.js"]
+        "t: nodeGraphTSeriesSingleModuleDefinition()" in script_sources["./public/node-graph-module-definitions.js"]
+        and "t1: nodeGraphTSeriesModuleDefinition(1)" in script_sources["./public/node-graph-module-definitions.js"]
         and "t10: nodeGraphTSeriesModuleDefinition(10)" in script_sources["./public/node-graph-module-definitions.js"]
         and 't: "t"' in script_sources["./public/node-graph-module-definitions.js"]
         and 't2: "2t"' in script_sources["./public/node-graph-module-definitions.js"]
@@ -12871,8 +12875,17 @@ def require_node_graph_mvp_contract() -> None:
         and "function nodeGraphModuleTypeIsUnderConstruction(type)" in module_store_source
         and "nodeGraphModuleIsStoreVisible(key, \"underconstructionsort\")" in module_store_source
         and "function nodeGraphNativeModuleRefIsUnderConstruction(ref = {})" in module_store_source
-        and "function nodeGraphNativeModuleNameToType(name)" in module_store_source,
+        and "function nodeGraphNativeModuleNameToType(name)" in module_store_source
+        and "nodeGraphModuleCatalogRetiredFromUnderConstruction" in module_store_source
+        and "function nodeGraphModuleCatalogStripRetiredUnderConstruction(shelves)" in module_store_source,
         "Under-construction modules live on the underconstructionsort catalog shelf",
+    )
+    require(
+        '"output"' not in module_store_source[
+            module_store_source.index("const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze(["):
+            module_store_source.index("const nodeGraphModuleCatalogRetiredFromUnderConstruction")
+        ],
+        "Output is a working sink with a trace face, not an under-construction plate",
     )
     require(
         "function nodeGraphModuleDiagnosticsIsUnderConstruction(details = {})" in script_sources["./public/node-graph-module-diagnostics.js"]
@@ -15826,6 +15839,14 @@ def require_node_graph_mvp_contract() -> None:
         "border-top" not in square_scope_style and "border-bottom" not in square_scope_style,
         "canvas and oscilloscope square screens should not draw stray top/bottom strokes",
     )
+    require(
+        "function applyNodeGraphModulePlateClip(article)" in script_sources["./public/node-graph-module-sizing.js"]
+        and "applyNodeGraphModulePlateClip(nodeElement)" in script_sources["./public/node-graph-module-frame.js"]
+        and "clip-path: inset(" in style_source
+        and "round var(--node-module-frame-radius)" in style_source
+        and "--node-plate-clip-top" in style_source,
+        "module faces should clip to the rounded plate without clipping side jacks",
+    )
 
     for snippet in [
         'if (event.key === "Escape" && nodeGraphMvp.metadataEditorTarget)',
@@ -15899,7 +15920,8 @@ def require_node_graph_mvp_contract() -> None:
         ".node-zoom-label",
         ".node-zoom-buttons",
         ".node-graph-zoom-surface",
-        "left: calc(var(--node-graph-pan-x) / var(--node-graph-zoom))",
+        "transform: translate3d(",
+        "calc(var(--node-graph-pan-x) / var(--node-graph-zoom))",
         "top: calc(var(--node-graph-pan-y) / var(--node-graph-zoom))",
         "background: transparent",
         ".node-graph-origin-marker",
@@ -15943,6 +15965,9 @@ def require_node_graph_mvp_contract() -> None:
         "align-self: stretch",
         ".node-module-scope-window",
         "height: 100%",
+        "clip-path: inset(",
+        "--node-plate-clip-top",
+        "round var(--node-module-frame-radius)",
         ".node-module-scope-window-surface",
         "--node-scope-background",
         "background: var(--node-scope-background, #000)",
@@ -16790,6 +16815,11 @@ def require_node_graph_mvp_contract() -> None:
         and "function handleNodeGraphMagnifierContextGuard(event)" in script_sources["./public/node-graph-magnifier.js"]
         and "function bindNodeGraphMagnifierZoomControl()" in script_sources["./public/node-graph-magnifier.js"]
         and 'id="nodeMagnifierZoomSlider"' in index_source
+        and 'id="nodeSnakeMouseSmoothSlider"' in index_source
+        and "function bindNodeGraphSnakeMouseSmoothControl()" in script_sources["./public/node-graph-marquee-selection.js"]
+        and "function nodeGraphMouseSmoothPoint(" in script_sources["./public/node-graph-papoulis-filter.js"]
+        and "nodeGraphHitTrailSmoothPointer" in script_sources["./public/node-graph-marquee-selection.js"]
+        and "const nodeGraphHitTrailMinStepPx = 0.12;" in script_sources["./public/node-graph-marquee-selection.js"]
         and "nodeGraphMagnifierShouldBlockContext()" in script_sources["./public/node-graph-context-menu.js"]
         and 'document.addEventListener("wheel", handleNodeGraphMagnifierWheelCapture, { capture: true, passive: false })' in script_sources["./public/node-graph-magnifier.js"]
         and "resizeNodeGraphMagnifierByWheel(event)" in script_sources["./public/node-graph-workspace-zoom.js"]
@@ -17990,7 +18020,7 @@ def require_native_module_contract(base_url: str) -> None:
     )
     require("nodeGraphNativeModuleEntriesByTarget" in module_store_source, "native module store target index missing")
     require("loadNodeGraphNativeModuleCatalog" in module_store_source, "native module catalog loader missing")
-    require("\"Native C++\"" in module_store_source, "native module browser badge missing")
+    require("\"C++\"" in module_store_source, "native module browser badge missing")
     require("id=\"nodeSceneOpenNativeCode\"" in index_html, "native module code action markup missing")
     require("id=\"nodeSceneOpenNativeLib\"" in index_html, "native module lib action markup missing")
     require("id=\"nodeSceneCodeGroup\"" in index_html, "native module SRC/LIB button group markup missing")

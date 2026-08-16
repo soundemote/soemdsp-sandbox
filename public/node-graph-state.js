@@ -160,6 +160,8 @@ var nodeGraphMvp = {
   },
   marqueeSelection: null,
   marqueeSelectionEntryPointer: null,
+  // Snake-select mouse smoothing 0..1. 0 = former light 1-frame EMA (dense).
+  snakeMouseSmooth: 0,
   magnifier: null,
   metadataDragging: null,
   metadataEditorTarget: null,
@@ -240,6 +242,7 @@ var nodeGraphMvp = {
   moduleStoreDepartmentSearch: "",
   // Command Center module search (independent of Module Browser search box).
   commandCenterModuleSearch: "",
+  shopSpeakerMarks: false,
   sampleBuffers: new Map(),
   sampleLoadErrors: new Map(),
   sampleRuntimeStatus: new Map(),

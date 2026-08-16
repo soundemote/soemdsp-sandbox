@@ -5,7 +5,9 @@
 // Wires also use geometric path hits (isPointInStroke / length sampling) because
 // cable hit-paths live under modules and elementFromPoint alone misses them.
 
-const nodeGraphHitTrailMinStepPx = 2;
+// Near-duplicate skip only. A 2px collapse + in-place tip rewrite was eating
+// the first samples (dot, then delay) and turning the trail into a polyline.
+const nodeGraphHitTrailMinStepPx = 0.12;
 const nodeGraphHitTrailMaxPoints = 4000;
 /**
  * Layout-px step along a segment when sampling hits.
@@ -209,26 +211,119 @@ function renderNodeGraphMarqueeSelection() {
   }
 }
 
+function clampNodeGraphSnakeMouseSmooth(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, n));
+}
+
+function nodeGraphSnakeMouseSmoothAmount() {
+  return clampNodeGraphSnakeMouseSmooth(nodeGraphMvp?.snakeMouseSmooth);
+}
+
+function syncNodeGraphSnakeMouseSmoothControl() {
+  const input = document.getElementById("nodeSnakeMouseSmoothSlider");
+  if (!input) {
+    return;
+  }
+  const amount = nodeGraphSnakeMouseSmoothAmount();
+  if (document.activeElement !== input) {
+    input.value = String(amount);
+  }
+  input.setAttribute("aria-valuetext", `${Math.round(amount * 100)}%`);
+}
+
+function persistNodeGraphSnakeMouseSmoothSetting() {
+  if (typeof serializeNodeUiDevSettings !== "function") {
+    return;
+  }
+  if (typeof saveNodeUiDevLocalDefaultSettings === "function") {
+    saveNodeUiDevLocalDefaultSettings(serializeNodeUiDevSettings());
+  }
+}
+
+function setNodeGraphSnakeMouseSmooth(value, options = {}) {
+  nodeGraphMvp.snakeMouseSmooth = clampNodeGraphSnakeMouseSmooth(value);
+  if (options.sync !== false) {
+    syncNodeGraphSnakeMouseSmoothControl();
+  }
+  if (options.persist) {
+    persistNodeGraphSnakeMouseSmoothSetting();
+  }
+  return nodeGraphMvp.snakeMouseSmooth;
+}
+
+function bindNodeGraphSnakeMouseSmoothControl() {
+  const input = document.getElementById("nodeSnakeMouseSmoothSlider");
+  if (!input || input.dataset.snakeMouseSmoothBound === "true") {
+    return;
+  }
+  input.dataset.snakeMouseSmoothBound = "true";
+  input.min = "0";
+  input.max = "1";
+  input.step = "0.01";
+  input.addEventListener("input", (event) => {
+    setNodeGraphSnakeMouseSmooth(event.currentTarget.value, { persist: false, sync: false });
+    event.currentTarget.setAttribute(
+      "aria-valuetext",
+      `${Math.round(nodeGraphSnakeMouseSmoothAmount() * 100)}%`,
+    );
+  });
+  input.addEventListener("change", (event) => {
+    setNodeGraphSnakeMouseSmooth(event.currentTarget.value, { persist: true, sync: false });
+  });
+  syncNodeGraphSnakeMouseSmoothControl();
+}
+
+function nodeGraphHitTrailEnsureMouseSmooth(drag, point, amount) {
+  if (!drag || typeof createNodeGraphMouseSmoothState !== "function") {
+    return null;
+  }
+  if (!drag.mouseSmooth) {
+    drag.mouseSmooth = createNodeGraphMouseSmoothState(point.x, point.y);
+    if (typeof nodeGraphMouseSmoothBegin === "function") {
+      nodeGraphMouseSmoothBegin(drag.mouseSmooth, amount, point.x, point.y);
+    }
+  }
+  return drag.mouseSmooth;
+}
+
+function nodeGraphHitTrailSmoothPointer(drag, point) {
+  const amount = nodeGraphSnakeMouseSmoothAmount();
+  let sx = Number(point.x) || 0;
+  let sy = Number(point.y) || 0;
+  const filter = nodeGraphHitTrailEnsureMouseSmooth(drag, point, amount);
+  if (filter && typeof nodeGraphMouseSmoothPoint === "function") {
+    const smoothed = nodeGraphMouseSmoothPoint(filter, sx, sy, amount);
+    sx = smoothed.x;
+    sy = smoothed.y;
+  }
+  // Amount 0: Papoulis is passthrough. Keep the former light 1-frame EMA so
+  // the lowest slider notch is the original (working) snake feel.
+  if (amount <= 1e-4 && drag.points?.length) {
+    const last = drag.points[drag.points.length - 1];
+    const ema = 0.65;
+    sx = last.x + (sx - last.x) * ema;
+    sy = last.y + (sy - last.y) * ema;
+  }
+  return { x: sx, y: sy };
+}
+
 function nodeGraphHitTrailAppendPoint(drag, point) {
+  const smoothed = nodeGraphHitTrailSmoothPointer(drag, point);
   if (!drag.points?.length) {
-    drag.points = [{ x: point.x, y: point.y }];
+    drag.points = [smoothed];
     return true;
   }
   const last = drag.points[drag.points.length - 1];
-  // Light 1-frame EMA on the tip (~0.65 toward cursor) — one step smoother
-  // than raw pointer without lagging the snake.
-  const smooth = 0.65;
-  const sx = last.x + (point.x - last.x) * smooth;
-  const sy = last.y + (point.y - last.y) * smooth;
-  const dx = sx - last.x;
-  const dy = sy - last.y;
+  const dx = smoothed.x - last.x;
+  const dy = smoothed.y - last.y;
   if ((dx * dx) + (dy * dy) < nodeGraphHitTrailMinStepPx * nodeGraphHitTrailMinStepPx) {
-    // Still update tip so the line tracks the cursor tightly.
-    last.x = sx;
-    last.y = sy;
     return false;
   }
-  drag.points.push({ x: sx, y: sy });
+  drag.points.push(smoothed);
   if (drag.points.length > nodeGraphHitTrailMaxPoints) {
     drag.points.splice(0, drag.points.length - nodeGraphHitTrailMaxPoints);
   }
@@ -745,12 +840,15 @@ function updateNodeGraphMarqueeSelection(event = null) {
     return;
   }
   if (event && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
-    const toSurface = nodeGraphClientPoint(event);
-    const fromSurface = drag.lastSampleSurface || drag.current || drag.start || toSurface;
+    const raw = nodeGraphClientPoint(event);
+    const fromSurface = drag.lastSampleSurface || drag.points?.[drag.points.length - 1] || drag.current || drag.start || raw;
+    nodeGraphHitTrailAppendPoint(drag, raw);
+    const tip = drag.points?.[drag.points.length - 1] || raw;
     if (!drag.cosmetic) {
-      nodeGraphHitTrailSampleSegment(drag, fromSurface, toSurface);
+      nodeGraphHitTrailSampleSegment(drag, fromSurface, tip);
     }
-    drag.lastSampleSurface = { x: toSurface.x, y: toSurface.y };
+    drag.current = raw;
+    drag.lastSampleSurface = { x: tip.x, y: tip.y };
     drag.lastClient = { x: event.clientX, y: event.clientY };
   }
   renderNodeGraphMarqueeSelection();
@@ -779,6 +877,13 @@ function startNodeGraphMarqueeSelection(event, workspace) {
     ? nodeGraphSelectedWireEntries()
     : [];
   const skipModuleHits = typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked();
+  const smoothAmount = nodeGraphSnakeMouseSmoothAmount();
+  const mouseSmooth = typeof createNodeGraphMouseSmoothState === "function"
+    ? createNodeGraphMouseSmoothState(point.x, point.y)
+    : null;
+  if (mouseSmooth && typeof nodeGraphMouseSmoothBegin === "function") {
+    nodeGraphMouseSmoothBegin(mouseSmooth, smoothAmount, point.x, point.y);
+  }
   nodeGraphMvp.marqueeSelection = {
     additive: false,
     cosmetic,
@@ -792,6 +897,7 @@ function startNodeGraphMarqueeSelection(event, workspace) {
     lastSampleSurface: { x: point.x, y: point.y },
     lockMode: null,
     moduleBoundsCache: null,
+    mouseSmooth,
     moved: false,
     pointerId: event.pointerId,
     points: [{ x: point.x, y: point.y }],
@@ -902,8 +1008,6 @@ function dragNodeGraphMarqueeSelection(event) {
     drag.keepTrail = true;
     drag.cosmetic = true;
   }
-  nodeGraphHitTrailAppendPoint(drag, point);
-  // Always sample + render once moved (or every frame so the snake draws immediately).
   updateNodeGraphMarqueeSelection(event);
   event.preventDefault();
   event.stopPropagation();

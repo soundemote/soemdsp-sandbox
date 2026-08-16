@@ -167,12 +167,18 @@ function nodeGraphModuleScopeBufferView(buffer, slot) {
     };
   }
   const estimatedCycle = nodeGraphModuleScopeEstimatedCycle(buffer);
-  const cycleEstimate = settings.sync ? estimatedCycle : null;
+  const displaySettings = typeof nodeGraphTraceDisplaySettingsForSlot === "function"
+    ? nodeGraphTraceDisplaySettingsForSlot(slot)
+    : null;
+  const syncOn = typeof nodeGraphDisplaySyncIsOn === "function"
+    ? nodeGraphDisplaySyncIsOn(displaySettings || settings)
+    : Boolean(settings.sync);
+  const cycleEstimate = syncOn ? estimatedCycle : null;
   const visibleSamples = nodeGraphModuleScopeVisibleSamples(buffer, settings, estimatedCycle);
   const syncBuffer = nodeGraphModuleScopeSyncBuffer(buffer);
   const defaultStart = Math.max(0, buffer.length - visibleSamples);
   let start = defaultStart;
-  if (settings.sync && cycleEstimate && visibleSamples < buffer.length) {
+  if (syncOn && cycleEstimate && visibleSamples < buffer.length) {
     // Oscilloscope auto-trigger: lock when an edge fits; otherwise freerun
     // (keep defaultStart) so quiet / aperiodic signals never freeze.
     const triggeredStart = nodeGraphModuleScopeTriggeredStart(syncBuffer, cycleEstimate, visibleSamples);
@@ -181,7 +187,7 @@ function nodeGraphModuleScopeBufferView(buffer, slot) {
     }
   }
   const rawPanCycles = Number(settings.pan) || 0;
-  const panCycles = settings.sync && cycleEstimate
+  const panCycles = syncOn && cycleEstimate
     ? Math.round(rawPanCycles)
     : rawPanCycles;
   const panSamples = panCycles

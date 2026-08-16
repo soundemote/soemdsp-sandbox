@@ -768,6 +768,12 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const globalSmoothingManual = Boolean(
     view.globalSmoothingManual ?? nodeGraphMvp?.live?.autoSmoothingManual ?? false,
   );
+  const snakeMouseSmooth = typeof clampNodeGraphSnakeMouseSmooth === "function"
+    ? clampNodeGraphSnakeMouseSmooth(view.snakeMouseSmooth ?? nodeGraphMvp?.snakeMouseSmooth ?? 0)
+    : (() => {
+      const n = Number(view.snakeMouseSmooth ?? nodeGraphMvp?.snakeMouseSmooth ?? 0);
+      return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0;
+    })();
   const moduleScopeDotCore1Enabled = normalizeNodeGraphModuleScopeDotCoreEnabled(
     view.moduleScopeDotCore1Enabled ?? nodeGraphMvp.moduleScopeDotCore1Enabled ?? false,
   );
@@ -924,6 +930,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
       moduleScopeBackgroundColor,
       globalSmoothingSeconds,
       globalSmoothingManual,
+      snakeMouseSmooth,
       moduleScopeDotCore1Enabled,
       moduleScopeDotCore1Size,
       moduleScopeDotCore1Brightness,
@@ -997,6 +1004,9 @@ function readNodeUiDevSettingsFromControls(options = {}) {
         nodeGraphMvp?.live?.autoSmoothingSeconds ?? nodeGraphAutoSmoothingDefaultSeconds,
       ),
       globalSmoothingManual: Boolean(nodeGraphMvp?.live?.autoSmoothingManual),
+      snakeMouseSmooth: typeof clampNodeGraphSnakeMouseSmooth === "function"
+        ? clampNodeGraphSnakeMouseSmooth(nodeGraphMvp?.snakeMouseSmooth ?? 0)
+        : Math.max(0, Math.min(1, Number(nodeGraphMvp?.snakeMouseSmooth) || 0)),
       moduleScopeDotCore1Enabled: normalizeNodeGraphModuleScopeDotCoreEnabled(nodeGraphMvp.moduleScopeDotCore1Enabled ?? false),
       moduleScopeDotCore1Size: normalizeNodeGraphModuleScopeDotCoreSize(nodeGraphMvp.moduleScopeDotCore1Size ?? 2, 2),
       moduleScopeDotCore1Brightness: normalizeNodeGraphModuleScopeDotCoreBrightness(nodeGraphMvp.moduleScopeDotCore1Brightness ?? 0.23, 0.23),
@@ -1541,6 +1551,12 @@ function applyNodeUiDevSettings(settings) {
   if (typeof syncNodeGraphGlobalSmoothingControl === "function") {
     syncNodeGraphGlobalSmoothingControl({ force: true });
   }
+  nodeGraphMvp.snakeMouseSmooth = typeof clampNodeGraphSnakeMouseSmooth === "function"
+    ? clampNodeGraphSnakeMouseSmooth(normalized.view.snakeMouseSmooth ?? 0)
+    : Math.max(0, Math.min(1, Number(normalized.view.snakeMouseSmooth) || 0));
+  if (typeof syncNodeGraphSnakeMouseSmoothControl === "function") {
+    syncNodeGraphSnakeMouseSmoothControl();
+  }
   nodeGraphMvp.moduleScopeDotCore1Enabled = normalizeNodeGraphModuleScopeDotCoreEnabled(normalized.view.moduleScopeDotCore1Enabled);
   nodeGraphMvp.moduleScopeDotCore1Size = normalizeNodeGraphModuleScopeDotCoreSize(normalized.view.moduleScopeDotCore1Size, 2);
   nodeGraphMvp.moduleScopeDotCore1Brightness = normalizeNodeGraphModuleScopeDotCoreBrightness(normalized.view.moduleScopeDotCore1Brightness, 0.23);
@@ -1860,6 +1876,10 @@ function clearNodeUserStartupRuntimeState() {
   nodeGraphMvp.wireCurve = 1;
   if (typeof syncNodeGraphWireCurveControl === "function") {
     syncNodeGraphWireCurveControl();
+  }
+  nodeGraphMvp.snakeMouseSmooth = 0;
+  if (typeof syncNodeGraphSnakeMouseSmoothControl === "function") {
+    syncNodeGraphSnakeMouseSmoothControl();
   }
   nodeGraphMvp.sliderAmountVisible = false;
   nodeGraphMvp.wiresAboveModules = false;

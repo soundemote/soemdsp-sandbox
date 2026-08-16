@@ -433,6 +433,29 @@ function nodeGraphTSeriesModuleDefinition(lastIndex) {
   };
 }
 
+/** Lone `t` — LayoutB with arrow In/Out so the side bands stay one glyph wide. */
+function nodeGraphTSeriesSingleModuleDefinition() {
+  return {
+    planRole: "processor",
+    chrome: NodeGraphModuleChromeLayout.LayoutB,
+    layoutBPortLabels: true,
+    digitalInputs: ["Digital"],
+    displayHeightGu: 1,
+    inputAliases: { A: "Analog", D: "Digital", Mono: "In" },
+    inputLabels: { Analog: "A", Digital: "D", In: "→" },
+    inputs: ["In", "Analog", "Digital"],
+    outputAliases: { Out: "0" },
+    outputLabels: { 0: "←" },
+    outputs: ["0"],
+    parameters: [],
+    defaultWidthGu: 3,
+    defaultUi: {
+      buttonsHidden: true,
+      titleHidden: false,
+    },
+  };
+}
+
 const nodeGraphModuleDefinitions = (
   typeof finalizeNodeGraphModuleDefinitionsChrome === "function"
     ? finalizeNodeGraphModuleDefinitionsChrome
@@ -440,7 +463,12 @@ const nodeGraphModuleDefinitions = (
 )({
   audioInput: {
     planRole: "source",
-    outputs: ["Left", "Right"],
+    inputAliases: { In: "Mono", M: "Mono", L: "Left", R: "Right" },
+    inputLabels: { Mono: "M", Left: "L", Right: "R" },
+    inputs: ["Mono", "Left", "Right"],
+    outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
+    outputLabels: { Mono: "M", Left: "L", Right: "R" },
+    outputs: ["Mono", "Left", "Right"],
     parameters: [
       {
         defaultValue: "1",
@@ -485,7 +513,7 @@ const nodeGraphModuleDefinitions = (
     layout: "traceDisplay",
     // Dry passthrough so the face can sit in-line (In1 → face + Thru).
     outputs: ["Thru"],
-    outputLabels: { Thru: "→" },
+    outputLabels: { Thru: "←" },
     parameters: [],
     visualInputs: [
       { key: "customDisplayIn1", label: "In1", port: "In1" },
@@ -499,10 +527,10 @@ const nodeGraphModuleDefinitions = (
     displayHeightGu: 8,
     layoutBPortLabels: true,
     inputs: ["In"],
-    inputLabels: { In: "←" },
+    inputLabels: { In: "→" },
     layout: "graph",
     outputs: ["Out"],
-    outputLabels: { Out: "→" },
+    outputLabels: { Out: "←" },
     parameters: [
       // 0 Input | 1 LFO (wall-clock) | 2 Phasor (accumulates so rate changes don't jump)
       { choices: ["Input", "LFO", "Phasor"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "mode", label: "Mode", linearSmoothing: false, max: "2", mid: "1", min: "0", nonlinearSlider: false, step: "1" },
@@ -549,10 +577,10 @@ const nodeGraphModuleDefinitions = (
     displayHeightGu: 8,
     layoutBPortLabels: true,
     inputs: ["In"],
-    inputLabels: { In: "←" },
+    inputLabels: { In: "→" },
     layout: "graph",
     outputs: ["Out"],
-    outputLabels: { Out: "→" },
+    outputLabels: { Out: "←" },
     parameters: [
       { choices: ["Input", "LFO", "Phasor"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "mode", label: "Mode", linearSmoothing: false, max: "2", mid: "1", min: "0", nonlinearSlider: false, step: "1" },
       {
@@ -3255,7 +3283,7 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  t: nodeGraphTSeriesModuleDefinition(0),
+  t: nodeGraphTSeriesSingleModuleDefinition(),
   t1: nodeGraphTSeriesModuleDefinition(1),
   t2: nodeGraphTSeriesModuleDefinition(2),
   t3: nodeGraphTSeriesModuleDefinition(3),
@@ -3958,7 +3986,7 @@ const nodeGraphModuleDefinitions = (
     defaultDisplayMode: "face",
     layout: "sliderWidget",
     outputs: ["Out"],
-    outputLabels: { Out: "→" },
+    outputLabels: { Out: "←" },
     parameters: [
       {
         defaultValue: "0",
@@ -3993,7 +4021,7 @@ const nodeGraphModuleDefinitions = (
     defaultDisplayMode: "face",
     layout: "sliderWidget",
     outputs: ["Out"],
-    outputLabels: { Out: "→" },
+    outputLabels: { Out: "←" },
     parameters: [
       {
         defaultValue: "0",
@@ -4010,8 +4038,12 @@ const nodeGraphModuleDefinitions = (
   },
   pluginInput: {
     planRole: "source",
-    outputs: ["Out", "Left", "Right"],
-    outputLabels: { Out: "Mono" },
+    inputAliases: { In: "Mono", M: "Mono", L: "Left", R: "Right" },
+    inputLabels: { Mono: "M", Left: "L", Right: "R" },
+    inputs: ["Mono", "Left", "Right"],
+    outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
+    outputLabels: { Mono: "M", Left: "L", Right: "R" },
+    outputs: ["Mono", "Left", "Right"],
     parameters: [
       {
         defaultValue: "1",
@@ -4038,6 +4070,9 @@ const nodeGraphModuleDefinitions = (
     ],
     defaultDisplayMode: "trace",
     inputs: ["Mono", "Left", "Right"],
+    outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
+    outputLabels: { Mono: "M", Left: "L", Right: "R" },
+    outputs: ["Mono", "Left", "Right"],
     output: true,
     parameters: [
       {
@@ -9399,7 +9434,7 @@ const nodeGraphModuleDefinitions = (
     layout: "traceDisplay",
     // Dry passthrough so the face can sit in-line (In → face + Thru).
     outputs: ["Thru"],
-    outputLabels: { Thru: "→" },
+    outputLabels: { Thru: "←" },
     parameters: [],
     visualInputs: [
       { key: "traceDisplay", label: "In", port: "In" },
@@ -9437,7 +9472,7 @@ const nodeGraphModuleDefinitions = (
     layout: "traceDisplay",
     // Dry passthrough so the face can sit in-line (In → face + Thru).
     outputs: ["Thru"],
-    outputLabels: { Thru: "→" },
+    outputLabels: { Thru: "←" },
     parameters: [],
     visualInputs: [
       { key: "dotOscilloscope", label: "In", port: "In" },
@@ -9461,7 +9496,7 @@ const nodeGraphModuleDefinitions = (
     layout: "traceDisplay",
     // Dry passthrough of primary channel A so the face can sit in-line.
     outputs: ["Thru"],
-    outputLabels: { Thru: "→" },
+    outputLabels: { Thru: "←" },
     parameters: [
       { key: "triggerLevel", label: "Trigger Level", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "any" },
       {
@@ -9538,7 +9573,7 @@ const nodeGraphModuleDefinitions = (
     layout: "traceDisplay",
     // Dry passthrough so the analyzer can sit in-line (In → face + Thru).
     outputs: ["Thru"],
-    outputLabels: { Thru: "→" },
+    outputLabels: { Thru: "←" },
     // Face knobs: levels + view band + scroll window.
     // Analysis look (FFT / window / overlap / freq scale / gradient) stays in Display Settings.
     parameters: [
@@ -9750,7 +9785,7 @@ const nodeGraphModuleDefinitions = (
     layout: "matrixPlate",
     // Dry passthrough so the face can sit in-line (In → face + Thru).
     outputs: ["Thru"],
-    outputLabels: { Thru: "→" },
+    outputLabels: { Thru: "←" },
     parameters: [
       {
         choices: ["Info", "Serial"],
@@ -10006,7 +10041,7 @@ const nodeGraphModuleDefinitions = (
     layout: "traceDisplay",
     // Dry passthrough so the face can sit in-line (In → face + Thru).
     outputs: ["Thru"],
-    outputLabels: { Thru: "→" },
+    outputLabels: { Thru: "←" },
     parameters: [],
     visualInputs: [
       { key: "valueOscilloscope", label: "In", port: "In" },
@@ -10022,7 +10057,7 @@ const nodeGraphModuleDefinitions = (
     layout: "traceDisplay",
     // Dry passthrough so the face can sit in-line (In → face + Thru).
     outputs: ["Thru"],
-    outputLabels: { Thru: "→" },
+    outputLabels: { Thru: "←" },
     parameters: [],
     visualInputs: [
       { key: "lineBurnOscilloscope", label: "In", port: "In" },
@@ -10408,6 +10443,9 @@ const nodeGraphModuleDefinitions = (
     ],
     defaultDisplayMode: "trace",
     inputs: ["Mono", "Left", "Right"],
+    outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
+    outputLabels: { Mono: "M", Left: "L", Right: "R" },
+    outputs: ["Mono", "Left", "Right"],
     output: true,
     parameters: [
       {

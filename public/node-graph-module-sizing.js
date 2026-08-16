@@ -1098,6 +1098,67 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
   if (typeof scheduleNodeGraphSliderReadoutRelayout === "function") {
     scheduleNodeGraphSliderReadoutRelayout();
   }
+  if (article.isConnected) {
+    applyNodeGraphModulePlateClip(article);
+  } else {
+    window.requestAnimationFrame(() => applyNodeGraphModulePlateClip(article));
+  }
+}
+
+const NODE_GRAPH_PLATE_CLIP_SEL = [
+  ".node-module-scope-window",
+  ".node-module-face",
+  ".node-filter-curve-display",
+  ".node-phosphor-waveform-display",
+  ".node-module-graph-display",
+  ".node-solid-module-custom-ui",
+].join(", ");
+
+/**
+ * Clip a face to the module plate's rounded stroke. Faces are rectangular;
+ * the plate uses border-radius + corner-shape, and .dsp-node stays
+ * overflow:visible so half-jacks can hang off the sides.
+ * clip-path inset with negative offsets is the plate rounded-rect in the
+ * face's local box — so a mid-stack Instant Trace only loses the pizza
+ * slices that poke through the corners, not its length/height.
+ */
+function applyNodeGraphModulePlateClip(article) {
+  if (!article?.classList?.contains("dsp-node") || !article.isConnected) {
+    return;
+  }
+  const plateW = article.offsetWidth || 0;
+  const plateH = article.offsetHeight || 0;
+  if (plateW < 1 || plateH < 1) {
+    return;
+  }
+  const faces = article.querySelectorAll(NODE_GRAPH_PLATE_CLIP_SEL);
+  for (const face of faces) {
+    if (!(face instanceof HTMLElement)) {
+      continue;
+    }
+    if (face.classList.contains("node-text-box-body")) {
+      continue;
+    }
+    if (face.closest(".node-io-column, .dsp-node-io-section, .dsp-node-header")) {
+      continue;
+    }
+    const box = typeof nodeGraphModuleFrameLayoutBoxInNode === "function"
+      ? nodeGraphModuleFrameLayoutBoxInNode(face, article)
+      : null;
+    const left = box ? box.x : face.offsetLeft || 0;
+    const top = box ? box.y : face.offsetTop || 0;
+    const width = box ? box.w : face.offsetWidth || 0;
+    const height = box ? box.h : face.offsetHeight || 0;
+    if (width < 0.5 || height < 0.5) {
+      continue;
+    }
+    const right = Math.max(0, plateW - left - width);
+    const bottom = Math.max(0, plateH - top - height);
+    face.style.setProperty("--node-plate-clip-top", `${Math.max(0, top).toFixed(2)}px`);
+    face.style.setProperty("--node-plate-clip-right", `${right.toFixed(2)}px`);
+    face.style.setProperty("--node-plate-clip-bottom", `${bottom.toFixed(2)}px`);
+    face.style.setProperty("--node-plate-clip-left", `${Math.max(0, left).toFixed(2)}px`);
+  }
 }
 
 function nodeGraphModuleHiddenIoSectionHeightGu(type) {

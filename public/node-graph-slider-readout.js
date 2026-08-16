@@ -390,7 +390,7 @@ function syncNodeSliderReadout(slider) {
   const usesPortalWrap = nodeSliderShouldWraparound(slider) && !usesChoices;
   if (labelText) {
     // Prefer live control/alias (nodeSliderLabelText) over a stale
-    // readout.dataset.paramLabel left over from factory create ("→").
+    // readout.dataset.paramLabel left over from factory create ("←").
     const displayLabel = nodeSliderLabelText(slider);
     if (displayLabel) {
       readout.dataset.paramLabel = displayLabel;

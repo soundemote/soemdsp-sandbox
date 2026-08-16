@@ -212,16 +212,9 @@ function nodeGraphRequiredAssetsForPatch(patch = {}) {
     if (!(node?.type === "samplePlayer" || node?.type === "sampleLooper" || node?.type === "audioPlayer")) {
       continue;
     }
-    const playlistItems = node.type === "audioPlayer" && Array.isArray(node.playlist?.items)
-      ? node.playlist.items
-      : null;
-    // Empty Music Player playlist is intentional — do not keep prompting for
-    // a leftover node.sample binding after the user removed every track.
-    const sampleIds = playlistItems
-      ? playlistItems
-        .map((item) => normalizeNodeGraphSampleId(item?.sampleId || item?.id))
-        .filter(Boolean)
-      : [normalizeNodeGraphSampleId(node.sample?.id)].filter(Boolean);
+    // Music Player window cards are path metadata. Only the playing sample
+    // is a required decoded asset.
+    const sampleIds = [normalizeNodeGraphSampleId(node.sample?.id)].filter(Boolean);
     for (const sampleId of sampleIds) {
       const sample = samples.get(sampleId) || {};
       const resource = typeof nodeGraphResourceById === "function"
@@ -1233,7 +1226,7 @@ async function loadNodeGraphSampleForNode(nodeId, file, options = {}) {
   }
 }
 
-async function loadNodeGraphSamplePathForNode(nodeId, path) {
+async function loadNodeGraphSamplePathForNode(nodeId, path, options = {}) {
   const sourcePath = String(path || "").trim();
   if (!nodeId || !sourcePath) {
     setNodeGraphSampleStatus(nodeId, "path required");
@@ -1244,94 +1237,16 @@ async function loadNodeGraphSamplePathForNode(nodeId, path) {
   const patchNode = nodeGraphPatchNode(nodeId);
   const isMusicPlayer = patchNode?.type === "audioPlayer";
 
-  // Folder → list audio files and load into playlist (Music Player).
-  if (isMusicPlayer) {
+  if (isMusicPlayer && !options.singleFile && typeof nodeGraphAudioPlayerLibraryBindFolder === "function") {
     try {
-      const listResponse = await fetch("/api/audio-file/list", {
-        body: JSON.stringify({ path: sourcePath }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const listPayload = await listResponse.json().catch(() => ({}));
-      if (listResponse.ok && listPayload?.ok && listPayload?.kind === "dir" && Array.isArray(listPayload.files)) {
-        if (!listPayload.files.length) {
-          throw new Error("folder has no supported audio files");
+      const listed = await nodeGraphAudioPlayerLibraryBindFolder(nodeId, sourcePath);
+      if (listed && listed.kind === "dir") {
+        if (typeof nodeGraphAudioPlayerPlaylistSetFace === "function") {
+          nodeGraphAudioPlayerPlaylistSetFace(nodeId, "pl");
         }
-        const files = listPayload.files;
-        beginNodeGraphSampleLoadLock({ total: files.length, title: "Loading folder" });
-        let loaded = 0;
-        let batchError = "";
-        try {
-          for (let index = 0; index < files.length; index += 1) {
-            const file = files[index];
-            const filePath = String(file.path || "").trim();
-            const fileName = file.name || filePath.split(/[\\/]/).pop() || "Sample";
-            updateNodeGraphSampleLoadLock({
-              index: index + 1,
-              total: files.length,
-              name: fileName,
-            });
-            if (!filePath) {
-              continue;
-            }
-            if (nodeGraphSampleRamWouldExceed(0)) {
-              batchError = `Memory budget reached after ${loaded} file${loaded === 1 ? "" : "s"}.`;
-              break;
-            }
-            const response = await fetch("/api/audio-file/data-url", {
-              body: JSON.stringify({ path: filePath }),
-              headers: { "Content-Type": "application/json" },
-              method: "POST",
-            });
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok || !payload?.ok || !payload?.dataUrl) {
-              continue;
-            }
-            try {
-              await loadNodeGraphSampleDataUrlForNode(
-                nodeId,
-                payload.dataUrl,
-                payload.name || fileName,
-                {
-                  sourceName: payload.name || fileName,
-                  sourcePath: filePath,
-                  commit: false,
-                  persist: false,
-                  livePlan: false,
-                  record: false,
-                  syncDisplay: false,
-                },
-              );
-              loaded += 1;
-              if (typeof nodeGraphAudioPlayerPlaylistAppendSample === "function") {
-                const node = nodeGraphPatchNode(nodeId);
-                nodeGraphAudioPlayerPlaylistAppendSample(nodeId, {
-                  id: node?.sample?.id,
-                  name: payload.name || fileName,
-                }, { persist: false, refresh: false });
-              }
-            } catch (error) {
-              const message = String(error?.message || error || "load failed");
-              if (/memory budget/i.test(message)) {
-                batchError = message;
-                break;
-              }
-            } finally {
-              payload.dataUrl = "";
-            }
-          }
-        } catch (error) {
-          batchError = String(error?.message || error || "folder load failed");
-        }
-        await finishNodeGraphSampleLoadBatch(nodeId, {
-          count: loaded,
-          playlist: true,
-          error: batchError,
-        });
         return;
       }
     } catch (error) {
-      // Fall through to single-file load if list is unavailable / not a dir.
       if (String(error?.message || "").includes("folder has no")) {
         throw error;
       }
@@ -1354,15 +1269,13 @@ async function loadNodeGraphSamplePathForNode(nodeId, path) {
     {
       sourceName: payload.name || sourcePath.split(/[\\/]/).pop() || "Sample",
       sourcePath,
+      commit: options.commit,
+      persist: options.persist,
+      livePlan: options.livePlan,
+      record: options.record,
+      syncDisplay: options.syncDisplay,
     },
   );
-  if (isMusicPlayer && typeof nodeGraphAudioPlayerPlaylistAppendSample === "function") {
-    const node = nodeGraphPatchNode(nodeId);
-    nodeGraphAudioPlayerPlaylistAppendSample(nodeId, {
-      id: node?.sample?.id,
-      name: payload.name || sourcePath.split(/[\\/]/).pop(),
-    });
-  }
 }
 
 async function nodeGraphDataUrlForSampleReference(reference = {}) {
@@ -1613,10 +1526,17 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
     if (!files.length) {
       return;
     }
+    if (isMusicPlayer && typeof nodeGraphAudioPlayerLibraryBindBrowserFiles === "function") {
+      nodeGraphAudioPlayerLibraryBindBrowserFiles(nodeId, files);
+      if (typeof nodeGraphAudioPlayerPlaylistSetFace === "function") {
+        nodeGraphAudioPlayerPlaylistSetFace(nodeId, "pl");
+      }
+      return;
+    }
     (async () => {
       beginNodeGraphSampleLoadLock({
         total: files.length,
-        title: isMusicPlayer ? "Loading playlist" : "Loading sample",
+        title: "Loading sample",
       });
       let loaded = 0;
       let batchError = "";
@@ -1641,13 +1561,6 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
               syncDisplay: false,
             });
             loaded += 1;
-            if (isMusicPlayer && typeof nodeGraphAudioPlayerPlaylistAppendSample === "function") {
-              const node = nodeGraphPatchNode(nodeId);
-              nodeGraphAudioPlayerPlaylistAppendSample(nodeId, {
-                id: node?.sample?.id,
-                name: file.name || node?.sample?.name,
-              }, { persist: false, refresh: false });
-            }
           } catch (error) {
             const message = String(error?.message || error || "load failed");
             if (/memory budget/i.test(message)) {
@@ -1662,7 +1575,7 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
       }
       await finishNodeGraphSampleLoadBatch(nodeId, {
         count: loaded,
-        playlist: isMusicPlayer,
+        playlist: false,
         error: batchError,
       });
     })();
@@ -1674,7 +1587,7 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
   const pathInput = document.createElement("input");
   pathInput.className = "node-sample-path-input";
   pathInput.type = "text";
-  pathInput.placeholder = "C:\\path\\music.mp3";
+  pathInput.placeholder = isMusicPlayer ? "C:\\path\\to\\music\\folder" : "C:\\path\\music.mp3";
   pathInput.spellcheck = false;
   // Read-only until double-clicked, same gesture as the render range Start/End
   // fields -- a single stray click on a module should never put you in a text

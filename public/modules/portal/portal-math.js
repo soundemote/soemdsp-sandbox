@@ -1,32 +1,27 @@
-const NODE_GRAPH_PORTAL_CHANNEL_MAX = 31;
+// Portal I/O — Sandbox 3-channel bus (Mono, Left, Right). No channel picker.
 
-function nodeGraphPortalClampChannel(value) {
-  const n = Math.round(Number(value));
-  if (!Number.isFinite(n)) {
-    return 0;
+function nodeGraphPortalMixTrio(mixInput, nodeId) {
+  if (typeof nodeGraphDspStereoMix === "function") {
+    return nodeGraphDspStereoMix(
+      mixInput(nodeId, "Mono"),
+      mixInput(nodeId, "Left"),
+      mixInput(nodeId, "Right"),
+    );
   }
-  return Math.max(0, Math.min(NODE_GRAPH_PORTAL_CHANNEL_MAX, n));
+  const m = Number(mixInput(nodeId, "Mono")) || 0;
+  const l = Number(mixInput(nodeId, "Left")) || 0;
+  const r = Number(mixInput(nodeId, "Right")) || 0;
+  return { Left: m + l, Right: m + r, Out: m + (l + r) * 0.5 };
 }
 
-function nodeGraphPortalChannelFromNode(node) {
-  return nodeGraphPortalClampChannel(node?.params?.channel ?? node?.portal?.channel ?? 0);
-}
-
-function nodeGraphPortalPickChannel(stereo, channel) {
-  const ch = nodeGraphPortalClampChannel(channel);
-  if (!stereo || typeof stereo !== "object") {
-    return 0;
+function nodeGraphPortalTrioOut(mix) {
+  if (typeof nodeGraphDspSandboxIoTrio === "function") {
+    return nodeGraphDspSandboxIoTrio(mix);
   }
-  if (ch === 1) {
-    return Number(stereo.Right) || 0;
-  }
-  if (ch === 2) {
-    return Number(stereo.Out) || ((Number(stereo.Left) || 0) + (Number(stereo.Right) || 0)) * 0.5;
-  }
-  if (ch === 0) {
-    return Number(stereo.Left) || 0;
-  }
-  return 0;
+  const left = Number(mix?.Left) || 0;
+  const right = Number(mix?.Right) || 0;
+  const mono = Number(mix?.Out) || (left + right) * 0.5;
+  return { Left: left, Mono: mono, Out: mono, Right: right };
 }
 
 function nodeGraphPortalMixOutlets(nodes, mixInput, left, right) {
@@ -40,16 +35,9 @@ function nodeGraphPortalMixOutlets(nodes, mixInput, left, right) {
     if (!node || node.type !== "portalOutlet" || node.bypassed) {
       continue;
     }
-    const sample = Number(mixInput(node.id, "In")) || 0;
-    const ch = nodeGraphPortalChannelFromNode(node);
-    if (ch === 1) {
-      nextR += sample;
-    } else if (ch === 2) {
-      nextL += sample;
-      nextR += sample;
-    } else if (ch === 0) {
-      nextL += sample;
-    }
+    const mix = nodeGraphPortalMixTrio(mixInput, node.id);
+    nextL += Number(mix.Left) || 0;
+    nextR += Number(mix.Right) || 0;
   }
   return { left: nextL, right: nextR };
 }
