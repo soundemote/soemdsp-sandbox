@@ -88,6 +88,10 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   // GM program 5 = Electric Piano 1; GM channel 10 = percussion/drums.
   "ePiano",
   "percussion",
+  // Freehand XY oscillator — parked as under construction.
+  "phosphillator",
+  // Phase-spread saw bank — parked as under construction.
+  "hypersaw",
 ]));
 
 function nodeGraphModuleTypeIsUnderConstruction(type) {
@@ -561,7 +565,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "additive",
     description: "Massive phase-spread saw bank for dense stereo supersaw beds and visual phase columns.",
     label: "Hypersaw",
-    notes: ["oscillator", "supersaw", "polyblep", "anti-aliasing", "native", "phosphor display"],
+    notes: ["oscillator", "supersaw", "polyblep", "anti-aliasing", "native", "phosphor display", "under construction"],
   },
   spiral: {
     category: "jerobeam",
@@ -958,9 +962,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   phosphillator: {
     category: "additive",
-    description: "Draw a closed shape with the mouse and play it back as X/Y motion.",
+    description: "Placeholder Phosphillator — draw a shape and play it back as X/Y motion.",
     label: "Phosphillator",
-    notes: ["freehand draw", "phosphor", "xy oscillator", "papoulis smoothing"],
+    notes: ["under construction", "freehand draw", "phosphor", "xy oscillator", "papoulis smoothing"],
   },
   sampleLooper: {
     category: "sample",
@@ -1701,7 +1705,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "rgb",
     description: "Self-running matrix rain face—atmosphere and glyph aesthetics.",
     label: "Matrix Waterfall",
-    notes: ["rain", "fall", "rise", "parameter only", "glyph table", "gradient", "rgb"],
+    notes: ["rain", "fall", "rise", "Reset", "Spawn", "Speed", "glyph table", "gradient", "rgb"],
   },
   matrixDisplay: {
     category: "multimeter",

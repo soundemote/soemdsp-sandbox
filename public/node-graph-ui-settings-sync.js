@@ -37,10 +37,13 @@ function syncNodeUiDevSnakeSelectColor() {
   }
   const hue = nodeUiDevSliderFillChannel("nodeUiDevSnakeSelectHue", 191, 360);
   const brightness = nodeUiDevSliderFillChannel("nodeUiDevSnakeSelectBrightness", 50, 100);
+  const alpha = nodeUiDevSliderFillChannel("nodeUiDevSnakeSelectAlpha", 95, 100);
   const css = typeof nodeGraphHueBrightnessCss === "function"
     ? nodeGraphHueBrightnessCss(hue, brightness / 100)
     : `hsl(${hue} 100% 50%)`;
   workspace.style.setProperty("--node-selection-hit-trail-color", css);
+  workspace.style.setProperty("--node-selection-hit-trail-alpha", String(alpha / 100));
+  document.documentElement.style.setProperty("--node-selection-hit-trail-alpha", String(alpha / 100));
   const hueOut = document.getElementById("nodeUiDevSnakeSelectHueValue");
   if (hueOut) {
     hueOut.textContent = `${hue}deg`;
@@ -48,6 +51,10 @@ function syncNodeUiDevSnakeSelectColor() {
   const brightOut = document.getElementById("nodeUiDevSnakeSelectBrightnessValue");
   if (brightOut) {
     brightOut.textContent = `${brightness}%`;
+  }
+  const alphaOut = document.getElementById("nodeUiDevSnakeSelectAlphaValue");
+  if (alphaOut) {
+    alphaOut.textContent = `${alpha}%`;
   }
 }
 
@@ -98,7 +105,7 @@ function bindNodeUiDevSliderFillColorControls() {
       input.addEventListener("change", syncNodeUiDevSliderFillColorControls);
     }
   }
-  for (const id of ["nodeUiDevSnakeSelectHue", "nodeUiDevSnakeSelectBrightness"]) {
+  for (const id of ["nodeUiDevSnakeSelectHue", "nodeUiDevSnakeSelectBrightness", "nodeUiDevSnakeSelectAlpha"]) {
     const input = document.getElementById(id);
     if (!input || input.dataset.snakeSelectColorBound === "true") {
       continue;
@@ -357,6 +364,8 @@ function syncNodeUiDevOutletRgbBrightness() {
   }
   const workspace = document.getElementById("nodeGraphWorkspace");
   const css = `${Math.round(brightness * 100)}%`;
+  workspace?.style.setProperty("--node-jack-rgb-brightness", css);
+  document.documentElement.style.setProperty("--node-jack-rgb-brightness", css);
   workspace?.style.setProperty("--node-outlet-rgb-brightness", css);
   document.documentElement.style.setProperty("--node-outlet-rgb-brightness", css);
 }
@@ -376,6 +385,8 @@ function syncNodeUiDevInletBlueBrightness() {
   }
   const workspace = document.getElementById("nodeGraphWorkspace");
   const css = `${Math.round(brightness * 100)}%`;
+  workspace?.style.setProperty("--node-jack-analog-in-brightness", css);
+  document.documentElement.style.setProperty("--node-jack-analog-in-brightness", css);
   workspace?.style.setProperty("--node-inlet-blue-brightness", css);
   document.documentElement.style.setProperty("--node-inlet-blue-brightness", css);
 }
@@ -402,19 +413,19 @@ function syncNodeUiDevJackColors() {
   const red = nodeUiDevApplyJackColorVar(
     "nodeUiDevJackRgbRed",
     "nodeUiDevJackRgbRedValue",
-    "--node-outlet-left-stroke",
+    "--node-jack-red",
     "#f25d5d",
   );
   const green = nodeUiDevApplyJackColorVar(
     "nodeUiDevJackRgbGreen",
     "nodeUiDevJackRgbGreenValue",
-    "--node-outlet-mono-stroke",
+    "--node-jack-green",
     "#3ddc84",
   );
   const blue = nodeUiDevApplyJackColorVar(
     "nodeUiDevJackRgbBlue",
     "nodeUiDevJackRgbBlueValue",
-    "--node-outlet-right-stroke",
+    "--node-jack-blue",
     "#4d8dff",
   );
   const analogIn = nodeUiDevApplyJackColorVar(

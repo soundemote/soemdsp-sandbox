@@ -9487,7 +9487,10 @@ const nodeGraphModuleDefinitions = (
     defaultWidthGu: 12,
     displayHeightGu: 10,
     displayType: "matrixWaterfallFace",
-    inputs: [],
+    bufferedInputs: ["Reset", "Spawn", "Speed"],
+    digitalInputs: ["Reset"],
+    inputs: ["Reset", "Spawn", "Speed"],
+    inputLabels: { Reset: "Reset", Spawn: "Spawn", Speed: "Speed" },
     layout: "matrixWaterfall",
     outputs: [],
     parameters: [

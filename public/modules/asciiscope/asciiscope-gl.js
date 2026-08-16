@@ -427,8 +427,39 @@ function matrixGlSyncCanvasSize(canvas, columns, rows, renderStyle = "vector") {
   const designH = MATRIX_GL_CELL_H;
 
   const stage = canvas.parentElement;
-  const cssW = Math.max(1, Math.floor(stage?.clientWidth || canvas.clientWidth || cols * designW));
-  const cssH = Math.max(1, Math.floor(stage?.clientHeight || canvas.clientHeight || rws * designH));
+  const fallbackW = cols * designW;
+  const fallbackH = rws * designH;
+  const box = typeof nodeGraphElementClientSize === "function"
+    ? nodeGraphElementClientSize(stage || canvas, fallbackW, fallbackH)
+    : (
+      typeof nodeGraphElementInSkippedContentVisibility === "function"
+      && nodeGraphElementInSkippedContentVisibility(stage || canvas)
+        ? { width: fallbackW, height: fallbackH, skipped: true }
+        : {
+          width: Math.max(1, Math.floor(stage?.clientWidth || canvas.clientWidth || fallbackW)),
+          height: Math.max(1, Math.floor(stage?.clientHeight || canvas.clientHeight || fallbackH)),
+          skipped: false,
+        }
+    );
+  if (box.skipped) {
+    if (canvas._matrixLastFit) {
+      return canvas._matrixLastFit;
+    }
+    return {
+      w: Math.max(1, canvas.width || fallbackW),
+      h: Math.max(1, canvas.height || fallbackH),
+      style,
+      cssW: Math.max(1, box.width || fallbackW),
+      cssH: Math.max(1, box.height || fallbackH),
+      left: 0,
+      top: 0,
+      pxPerCol: Math.max(1, designW),
+      pxPerRow: Math.max(1, designH),
+      loFi,
+    };
+  }
+  const cssW = Math.max(1, Math.floor(box.width || fallbackW));
+  const cssH = Math.max(1, Math.floor(box.height || fallbackH));
 
   canvas.style.display = "block";
   canvas.style.position = "absolute";
@@ -476,7 +507,7 @@ function matrixGlSyncCanvasSize(canvas, columns, rows, renderStyle = "vector") {
   // Only assign size when it changes — style-only toggles must not clear the surface.
   if (canvas.width !== w) canvas.width = w;
   if (canvas.height !== h) canvas.height = h;
-  return {
+  const fit = {
     w,
     h,
     style,
@@ -488,6 +519,8 @@ function matrixGlSyncCanvasSize(canvas, columns, rows, renderStyle = "vector") {
     pxPerRow,
     loFi,
   };
+  canvas._matrixLastFit = fit;
+  return fit;
 }
 
 function matrixGlPackCells(state, glState) {
@@ -572,6 +605,12 @@ function matrixGlSyncLut(glState, stops) {
  * @returns {boolean} true if drawn on GPU
  */
 function matrixGlDrawFace(canvas, state, params, mode) {
+  if (
+    typeof nodeGraphElementInSkippedContentVisibility === "function"
+    && nodeGraphElementInSkippedContentVisibility(canvas)
+  ) {
+    return true;
+  }
   const glState = matrixGlEnsure(canvas);
   if (!glState?.gl) return false;
 

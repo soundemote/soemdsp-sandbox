@@ -37,6 +37,12 @@ function nodeSliderChoiceDividerBackground(readout, choices) {
 }
 
 function nodeSliderReadCssNumber(element, property, fallback, min = -Infinity, max = Infinity) {
+  if (
+    typeof nodeGraphElementInSkippedContentVisibility === "function"
+    && nodeGraphElementInSkippedContentVisibility(element)
+  ) {
+    return fallback;
+  }
   const value = Number.parseFloat(getComputedStyle(element).getPropertyValue(property));
   if (!Number.isFinite(value)) {
     return fallback;
@@ -163,6 +169,12 @@ function syncNodeSliderChoiceDebugSquares(readout, choices, enabled, selectedInd
     readout.append(layer);
   }
 
+  if (
+    typeof nodeGraphElementInSkippedContentVisibility === "function"
+    && nodeGraphElementInSkippedContentVisibility(layer)
+  ) {
+    return;
+  }
   const layerRect = layer.getBoundingClientRect();
   const layerWidth = nodeSliderElementLayoutWidth(layer);
   const layerHeight = nodeSliderElementLayoutHeight(layer);
@@ -286,6 +298,12 @@ function syncNodeSliderChoiceDebugSquares(readout, choices, enabled, selectedInd
 
 function syncNodeGraphSliderReadouts() {
   for (const slider of document.querySelectorAll(".dsp-node input[data-param]")) {
+    if (
+      typeof nodeGraphElementInSkippedContentVisibility === "function"
+      && nodeGraphElementInSkippedContentVisibility(slider)
+    ) {
+      continue;
+    }
     syncNodeSliderReadout(slider);
   }
   if (typeof syncNodeGraphGhostSliders === "function") {
@@ -312,6 +330,12 @@ function scheduleNodeGraphSliderReadoutRelayout() {
 // (syncNodeGraphKnobFaceFromSlider).
 
 function syncNodeSliderReadout(slider) {
+  if (
+    typeof nodeGraphElementInSkippedContentVisibility === "function"
+    && nodeGraphElementInSkippedContentVisibility(slider)
+  ) {
+    return;
+  }
   if (typeof syncNodeGraphKnobFaceFromSlider === "function") {
     syncNodeGraphKnobFaceFromSlider(slider);
   }

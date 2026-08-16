@@ -285,6 +285,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-node-accessors.js",
     "./public/node-graph-selection.js",
     "./public/node-graph-port-geometry.js",
+    "./public/node-graph-jack-chrome.js",
     "./public/node-graph-slider-readout.js",
     "./public/modules/knob/knob-face.js",
     "./public/modules/plugin/plugin-controls-ui.js",
@@ -4511,7 +4512,17 @@ def require_node_graph_mvp_contract() -> None:
         and 'return "Down"' in script_sources["./public/node-graph-module-scope-settings-form-io.js"]
         and 'function nodeGraphKeypadSlotToXY' in script_sources["./public/modules/keypad/keypad-math.js"]
         and 'function nodeGraphStereoJackDisplayLabel' in script_sources["./public/node-graph-module-factories.js"]
-        and 'raw === "x"' in script_sources["./public/node-graph-module-factories.js"]
+        and 'function nodeGraphJackChannel' in script_sources["./public/node-graph-jack-chrome.js"]
+        and 'function nodeGraphJackVisibilityCensus' in script_sources["./public/node-graph-jack-chrome.js"]
+        and 'axis === "x"' in script_sources["./public/node-graph-jack-chrome.js"]
+        and "function nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-viewport-perf.js"]
+        and "function nodeGraphElementClientSize" in script_sources["./public/node-graph-viewport-perf.js"]
+        and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/modules/asciiscope/asciiscope-display.js"]
+        and "nodeGraphElementClientSize" in script_sources["./public/modules/asciiscope/asciiscope-gl.js"]
+        and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-slider-readout.js"]
+        and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-slider-values.js"]
+        and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-wires.js"]
+        and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-port-geometry.js"]
         and 'key: "mode"' in script_sources["./public/modules/keypad/keypad-register.js"]
         and "category: \"controller\"" in script_sources["./public/modules/keypad/keypad-register.js"]
         and 'displayType: "keypadFace"' in script_sources["./public/modules/keypad/keypad-register.js"]

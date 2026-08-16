@@ -117,6 +117,12 @@ function nodeGraphPortElementIsLayoutVisible(element) {
   if (!(element instanceof Element)) {
     return false;
   }
+  if (
+    typeof nodeGraphElementInSkippedContentVisibility === "function"
+    && nodeGraphElementInSkippedContentVisibility(element)
+  ) {
+    return false;
+  }
   const rect = element.getBoundingClientRect();
   return rect.width > 0.5 && rect.height > 0.5;
 }
@@ -225,6 +231,12 @@ function nodeGraphElementCenter(element, io = null) {
 
 function nodeGraphElementPatchPointClientCenter(element, io = null) {
   if (!element) {
+    return { x: 0, y: 0 };
+  }
+  if (
+    typeof nodeGraphElementInSkippedContentVisibility === "function"
+    && nodeGraphElementInSkippedContentVisibility(element)
+  ) {
     return { x: 0, y: 0 };
   }
   const rect = element.getBoundingClientRect();

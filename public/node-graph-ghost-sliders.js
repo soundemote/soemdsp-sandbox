@@ -151,6 +151,12 @@ function syncNodeGraphGhostSliders() {
   }
   let any = false;
   for (const slider of document.querySelectorAll(".dsp-node input[data-param]")) {
+    if (
+      typeof nodeGraphElementInSkippedContentVisibility === "function"
+      && nodeGraphElementInSkippedContentVisibility(slider)
+    ) {
+      continue;
+    }
     const node = slider.closest(".dsp-node")?.dataset.node;
     const key = slider.dataset.param;
     const readout = slider.closest("label")?.querySelector(".node-slider-readout");

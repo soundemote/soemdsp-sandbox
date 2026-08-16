@@ -773,18 +773,8 @@ function nodeGraphRgbNamedColor(port) {
 }
 
 function nodeGraphRgbChromeColor(type, port) {
-  if (typeof nodeGraphOutletChannelKind !== "function") {
-    return "";
-  }
-  const channel = nodeGraphOutletChannelKind(type, port, "output");
-  if (channel === "left") {
-    return "red";
-  }
-  if (channel === "mono") {
-    return "green";
-  }
-  if (channel === "right") {
-    return "blue";
+  if (typeof nodeGraphJackChannel === "function") {
+    return nodeGraphJackChannel(type, port, "output") || "";
   }
   return "";
 }

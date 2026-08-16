@@ -1002,7 +1002,13 @@ function createNodeGraphModuleElement(type, node) {
         scopeElement: rainFace,
       });
     }
-    // No I/O section — parameter-only module.
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "matrixPlate" || definition.layout === "asciiscope") {
     // matrixPlate = Matrix Display (Info/Serial). "asciiscope" kept as alias.
     const plateFace = typeof createNodeGraphMatrixPlateFace === "function"

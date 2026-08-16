@@ -755,8 +755,18 @@ function nodeSliderTravelFromValue(slider, value) {
 }
 
 function nodeSliderElementLayoutWidth(element) {
+  if (
+    typeof nodeGraphElementInSkippedContentVisibility === "function"
+    && nodeGraphElementInSkippedContentVisibility(element)
+  ) {
+    const last = Number(element?._awakeClientWidth);
+    return last > 0 ? last : 0;
+  }
   const width = Number(element?.clientWidth || element?.offsetWidth || 0);
   if (Number.isFinite(width) && width > 0) {
+    if (element) {
+      element._awakeClientWidth = width;
+    }
     return width;
   }
   const rectWidth = Number(element?.getBoundingClientRect?.().width) || 0;
@@ -765,8 +775,18 @@ function nodeSliderElementLayoutWidth(element) {
 }
 
 function nodeSliderElementLayoutHeight(element) {
+  if (
+    typeof nodeGraphElementInSkippedContentVisibility === "function"
+    && nodeGraphElementInSkippedContentVisibility(element)
+  ) {
+    const last = Number(element?._awakeClientHeight);
+    return last > 0 ? last : 0;
+  }
   const height = Number(element?.clientHeight || element?.offsetHeight || 0);
   if (Number.isFinite(height) && height > 0) {
+    if (element) {
+      element._awakeClientHeight = height;
+    }
     return height;
   }
   const rectHeight = Number(element?.getBoundingClientRect?.().height) || 0;
@@ -775,6 +795,12 @@ function nodeSliderElementLayoutHeight(element) {
 }
 
 function nodeSliderElementVisualScale(element) {
+  if (
+    typeof nodeGraphElementInSkippedContentVisibility === "function"
+    && nodeGraphElementInSkippedContentVisibility(element)
+  ) {
+    return 1;
+  }
   const layoutWidth = nodeSliderElementLayoutWidth(element);
   const rectWidth = Number(element?.getBoundingClientRect?.().width) || 0;
   if (!Number.isFinite(layoutWidth) || !Number.isFinite(rectWidth) || layoutWidth <= 0 || rectWidth <= 0) {

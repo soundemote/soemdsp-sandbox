@@ -1176,6 +1176,9 @@ function applyNodeGraphPatchToDom(options = {}) {
   } else if (typeof syncNodeGraphLiveOutputVolumeFromOutputModule === "function") {
     syncNodeGraphLiveOutputVolumeFromOutputModule();
   }
+  if (typeof nodeGraphScheduleJackVisibilityLog === "function") {
+    nodeGraphScheduleJackVisibilityLog("patch-dom");
+  }
 }
 
 /**

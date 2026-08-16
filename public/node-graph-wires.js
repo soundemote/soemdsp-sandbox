@@ -457,6 +457,12 @@
       if (!jack) {
         return null;
       }
+      if (
+        typeof nodeGraphElementInSkippedContentVisibility === "function"
+        && nodeGraphElementInSkippedContentVisibility(jack)
+      ) {
+        return null;
+      }
       const jackRect = jack.getBoundingClientRect();
       if (jackRect.width <= 0 || jackRect.height <= 0) {
         return null;
@@ -503,8 +509,21 @@
         ".node-io-row, .node-param-port.modulation-input, .node-param-port.graph-input, .node-port:not(.node-io-row .node-port)",
       );
       for (const target of targets) {
+        if (
+          typeof nodeGraphElementInSkippedContentVisibility === "function"
+          && nodeGraphElementInSkippedContentVisibility(target)
+        ) {
+          continue;
+        }
         const endpoint = endpointFromElement(target);
         const visualElement = visualEndpointElement(target);
+        if (
+          visualElement
+          && typeof nodeGraphElementInSkippedContentVisibility === "function"
+          && nodeGraphElementInSkippedContentVisibility(visualElement)
+        ) {
+          continue;
+        }
         const elementRect = visualElement?.getBoundingClientRect();
         if (
           !endpoint

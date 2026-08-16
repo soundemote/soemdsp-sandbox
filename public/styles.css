@@ -5998,6 +5998,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   /* Unused PARAM jack stroke. UIDEV must not write it. Signal I/O jacks
      use type color mixed with outlet RGB / inlet blue brightness. */
   --node-port-idle-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 22%, transparent);
+  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
   --node-port-radius: calc(var(--node-port-diameter) * 0.5);
   --node-port-area-radius: calc(var(--node-port-area-size) * 0.5);
   /* Column track = half-slot (half-jack width at full fill); visual jack is narrower. */
@@ -6027,6 +6028,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-slider-amount-color: hsl(200 31% 15% / 0.55);
   --node-slider-ghost-color: hsl(262 100% 76% / 0.38);
   --node-selection-hit-trail-color: rgb(0 208 255);
+  --node-selection-hit-trail-alpha: 0.95;
   --node-choice-divider-padding: 3px;
   --node-module-fill: #171a1f;
   /* I/O strip is see-through like the plate — jacks are stroke-only. */
@@ -6050,13 +6052,18 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-output-fill: #e2a86d;
   --node-output-stroke: #e2a86d;
   --node-digital-fill: #ffffff;
-  /* Outlet channel strokes. Brightness is a color-mix % from UIDEV 0…1. */
-  --node-outlet-rgb-brightness: 75%;
-  --node-inlet-blue-brightness: 75%;
+  /* Jack RGB chrome. Brightness is a color-mix % from UIDEV 0…1. */
+  --node-jack-red: #f25d5d;
+  --node-jack-green: #3ddc84;
+  --node-jack-blue: #4d8dff;
+  --node-jack-rgb-brightness: 75%;
+  --node-jack-analog-in-brightness: 75%;
+  --node-outlet-rgb-brightness: var(--node-jack-rgb-brightness);
+  --node-inlet-blue-brightness: var(--node-jack-analog-in-brightness);
   --node-inlet-blue-stroke: #7fc7d9;
-  --node-outlet-mono-stroke: #3ddc84;
-  --node-outlet-left-stroke: #f25d5d;
-  --node-outlet-right-stroke: #4d8dff;
+  --node-outlet-left-stroke: var(--node-jack-red);
+  --node-outlet-mono-stroke: var(--node-jack-green);
+  --node-outlet-right-stroke: var(--node-jack-blue);
   --node-mod-input-fill: #b184ff;
   --node-mod-input-stroke: #b184ff;
   --node-param-output-fill: #66e0a3;
@@ -11384,13 +11391,16 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   stroke: var(--node-selection-hit-trail-color, var(--accent, #7fc7d9)) !important;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.95;
+  opacity: var(--node-selection-hit-trail-alpha, 0.95);
   pointer-events: none !important;
 }
 
+/* Keep in sync with NODE_GRAPH_VIEWPORT_ASLEEP_SKIP_SEL.
+   Faces / custom UI only — not .dsp-node-body. Live slider readout, ghosts,
+   and constraint chrome measure param rows every frame; hiding that band
+   makes Chrome force-paint it ("subtree hidden by content-visibility"). */
 .dsp-node.viewport-asleep .node-module-face,
 .dsp-node.viewport-asleep .node-module-scope-window,
-.dsp-node.viewport-asleep .dsp-node-body,
 .dsp-node.viewport-asleep .node-solid-module-custom-ui {
   content-visibility: hidden;
 }
@@ -12848,11 +12858,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   transform: translateY(-50%);
   box-sizing: border-box;
   width: var(--node-signal-port-width);
-  min-width: 0;
-  max-width: 100%;
+  min-width: var(--node-signal-port-width);
+  max-width: none;
   height: var(--node-signal-port-height);
-  min-height: 0;
-  max-height: 100%;
+  min-height: var(--node-signal-port-height);
+  max-height: none;
 }
 
 :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
@@ -15098,10 +15108,11 @@ input.node-header-title:focus {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  /* Never larger than the owning row box. */
   box-sizing: border-box;
-  max-width: 100%;
-  max-height: 100%;
+  /* Do not max-height/width:100% — a 0-tall or 0-wide row collapses the
+     crescent to nothing (same bug as the old .node-port rule). */
+  max-width: none;
+  max-height: none;
 }
 
 .node-io-row.input .node-port {
@@ -15158,82 +15169,81 @@ input.node-header-title:focus {
 }
 
 /* Analog outlet (no RGB channel, not digital). */
-.dsp-node .node-io-row.output:not([data-digital-signal]) .node-port.output:not([data-outlet-channel]) {
+.dsp-node .node-io-row.output:not([data-digital-signal]) .node-port.output:not([data-jack-channel]) {
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-output-stroke) var(--node-outlet-rgb-brightness, 100%),
+    var(--node-output-stroke) var(--node-jack-rgb-brightness, 100%),
     transparent
   );
 }
 
-/* App-wide jack stroke. Mix amount is Outlet RGB / Inlet blue brightness (0…1).
-   Cables stay gold analog / white digital. */
-.dsp-node .node-port.output[data-outlet-channel="mono"],
-.dsp-node .node-io-row.output[data-outlet-channel="mono"] .node-port.output {
-  --node-output-stroke: var(--node-outlet-mono-stroke);
+/* Jack RGB chrome (inlets and outlets). Cables stay gold analog / white digital. */
+.dsp-node .node-port.output[data-jack-channel="green"],
+.dsp-node .node-io-row.output[data-jack-channel="green"] .node-port.output {
+  --node-output-stroke: var(--node-jack-green);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-outlet-mono-stroke) var(--node-outlet-rgb-brightness, 100%),
+    var(--node-jack-green) var(--node-jack-rgb-brightness, 100%),
     transparent
   );
 }
 
-.dsp-node .node-port.output[data-outlet-channel="left"],
-.dsp-node .node-io-row.output[data-outlet-channel="left"] .node-port.output {
-  --node-output-stroke: var(--node-outlet-left-stroke);
+.dsp-node .node-port.output[data-jack-channel="red"],
+.dsp-node .node-io-row.output[data-jack-channel="red"] .node-port.output {
+  --node-output-stroke: var(--node-jack-red);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-outlet-left-stroke) var(--node-outlet-rgb-brightness, 100%),
+    var(--node-jack-red) var(--node-jack-rgb-brightness, 100%),
     transparent
   );
 }
 
-.dsp-node .node-port.output[data-outlet-channel="right"],
-.dsp-node .node-io-row.output[data-outlet-channel="right"] .node-port.output {
-  --node-output-stroke: var(--node-outlet-right-stroke);
+.dsp-node .node-port.output[data-jack-channel="blue"],
+.dsp-node .node-io-row.output[data-jack-channel="blue"] .node-port.output {
+  --node-output-stroke: var(--node-jack-blue);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-outlet-right-stroke) var(--node-outlet-rgb-brightness, 100%),
+    var(--node-jack-blue) var(--node-jack-rgb-brightness, 100%),
     transparent
   );
 }
 
-/* Analog inlet — same cyan as the cable inlet end (#7fc7d9). RGB inlets override. */
-.dsp-node .node-port.input:not(.node-param-port):not([data-outlet-channel]),
-.dsp-node .node-io-row.input:not([data-digital-signal]) .node-port.input:not(.node-param-port):not([data-outlet-channel]) {
+/* Analog inlet — same cyan as the cable inlet end. RGB inlets override. */
+.dsp-node .node-port.input:not(.node-param-port):not([data-jack-channel]),
+.dsp-node .node-io-row.input:not([data-digital-signal]) .node-port.input:not(.node-param-port):not([data-jack-channel]) {
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-input-stroke, var(--node-inlet-blue-stroke)) var(--node-inlet-blue-brightness, 100%),
+    var(--node-input-stroke, var(--node-inlet-blue-stroke)) var(--node-jack-analog-in-brightness, 100%),
     transparent
   );
 }
 
-.dsp-node .node-port.input[data-outlet-channel="mono"]:not(.node-param-port),
-.dsp-node .node-io-row.input[data-outlet-channel="mono"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
-  --node-input-stroke: var(--node-outlet-mono-stroke);
+.dsp-node .node-port.input[data-jack-channel="green"]:not(.node-param-port),
+.dsp-node .node-io-row.input[data-jack-channel="green"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
+  --node-input-stroke: var(--node-jack-green);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-outlet-mono-stroke) var(--node-outlet-rgb-brightness, 100%),
+    var(--node-jack-green) var(--node-jack-rgb-brightness, 100%),
     transparent
   );
 }
 
-.dsp-node .node-port.input[data-outlet-channel="left"]:not(.node-param-port),
-.dsp-node .node-io-row.input[data-outlet-channel="left"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
-  --node-input-stroke: var(--node-outlet-left-stroke);
+.dsp-node .node-port.input[data-jack-channel="red"]:not(.node-param-port),
+.dsp-node .node-io-row.input[data-jack-channel="red"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
+  --node-input-stroke: var(--node-jack-red);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-outlet-left-stroke) var(--node-outlet-rgb-brightness, 100%),
+    var(--node-jack-red) var(--node-jack-rgb-brightness, 100%),
     transparent
   );
 }
 
-.dsp-node .node-port.input[data-outlet-channel="right"]:not(.node-param-port),
-.dsp-node .node-io-row.input[data-outlet-channel="right"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
-  --node-input-stroke: var(--node-outlet-right-stroke);
+.dsp-node .node-port.input[data-jack-channel="blue"]:not(.node-param-port),
+.dsp-node .node-io-row.input[data-jack-channel="blue"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
+  --node-input-stroke: var(--node-jack-blue);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-outlet-right-stroke) var(--node-outlet-rgb-brightness, 100%),
+    var(--node-jack-blue) var(--node-jack-rgb-brightness, 100%),
     transparent
   );
 }
@@ -20480,6 +20490,15 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
   --node-port-crescent-at: left center;
+  /* Resolve the ring on the jack so RGB / analog stroke vars apply here,
+     not on the workspace (ancestor-resolved var() painted an empty ring). */
+  --node-port-crescent-paint: radial-gradient(
+    circle closest-corner at var(--node-port-crescent-at),
+    transparent 0%,
+    transparent calc(100% - 2.4px),
+    var(--node-port-crescent-stroke) calc(100% - 1.4px),
+    var(--node-port-crescent-stroke) 100%
+  );
   display: block;
   box-sizing: border-box;
   /* Sized from slot×fit-ratio. Do not max-height:100% — a 0-tall row
@@ -20554,6 +20573,13 @@ body.node-slider-dragging .node-param-port {
   --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
   --node-port-crescent-at: left center;
+  --node-port-crescent-paint: radial-gradient(
+    circle closest-corner at var(--node-port-crescent-at),
+    transparent 0%,
+    transparent calc(100% - 2.4px),
+    var(--node-port-crescent-stroke) calc(100% - 1.4px),
+    var(--node-port-crescent-stroke) 100%
+  );
   grid-column: 1;
   grid-row: 1;
   align-self: center;

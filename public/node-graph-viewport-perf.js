@@ -281,6 +281,55 @@ function nodeGraphModuleIsViewportAsleep(nodeOrElement) {
   return Boolean(element?.classList.contains("viewport-asleep"));
 }
 
+/** Bands CSS skips with content-visibility:hidden on .viewport-asleep. */
+var NODE_GRAPH_VIEWPORT_ASLEEP_SKIP_SEL = [
+  ".node-module-face",
+  ".node-module-scope-window",
+  ".node-solid-module-custom-ui",
+].join(", ");
+
+/**
+ * True when measuring this node would force-render a content-visibility:hidden
+ * band (Chrome: "Rendering was performed in a subtree hidden by content-visibility").
+ * I/O columns stay painted on asleep modules — only face / params / custom UI skip.
+ */
+function nodeGraphElementInSkippedContentVisibility(element) {
+  if (!element?.closest) {
+    return false;
+  }
+  const module = element.closest(".dsp-node");
+  if (!module?.classList?.contains("viewport-asleep")) {
+    return false;
+  }
+  return Boolean(element.closest(NODE_GRAPH_VIEWPORT_ASLEEP_SKIP_SEL));
+}
+
+/**
+ * CSS box without forcing a content-visibility:hidden subtree to paint.
+ * Asleep faces reuse the last awake size (or fallback).
+ */
+function nodeGraphElementClientSize(element, fallbackW = 1, fallbackH = 1) {
+  const fw = Math.max(1, Number(fallbackW) || 1);
+  const fh = Math.max(1, Number(fallbackH) || 1);
+  if (!element) {
+    return { width: fw, height: fh, skipped: true };
+  }
+  if (nodeGraphElementInSkippedContentVisibility(element)) {
+    const lastW = Number(element._awakeClientWidth);
+    const lastH = Number(element._awakeClientHeight);
+    return {
+      width: Math.max(1, lastW > 0 ? lastW : fw),
+      height: Math.max(1, lastH > 0 ? lastH : fh),
+      skipped: true,
+    };
+  }
+  const width = Math.max(1, Math.floor(Number(element.clientWidth) || fw));
+  const height = Math.max(1, Math.floor(Number(element.clientHeight) || fh));
+  element._awakeClientWidth = width;
+  element._awakeClientHeight = height;
+  return { width, height, skipped: false };
+}
+
 function nodeGraphViewportCullWakePainters(element) {
   if (!element) {
     return;

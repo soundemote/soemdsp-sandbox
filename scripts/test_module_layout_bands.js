@@ -77,6 +77,14 @@ var sandbox = {
       outputs: ["Out", "Left", "Right"],
       parameters: [{ key: "mode" }, { key: "frequency" }],
     },
+    matrixWaterfall: {
+      chrome: "LayoutA",
+      layout: "matrixWaterfall",
+      customDisplayArea: true,
+      displayHeightGu: 10,
+      inputs: ["Reset", "Spawn", "Speed"],
+      parameters: [{ key: "density" }, { key: "speed" }],
+    },
     graph2: {
       chrome: "LayoutB",
       layout: "graph",
@@ -155,6 +163,7 @@ var cases = [
   { type: "audioPlayer", layout: "A", face: true, sliders: true, io: true, controls: true },
   { type: "kickEnvelope", layout: "A", face: true, sliders: true, io: true },
   { type: "activeFilter", layout: "A", face: true, sliders: true, io: true },
+  { type: "matrixWaterfall", layout: "A", face: true, sliders: true, io: true },
   { type: "graph2", layout: "B", face: true, sliders: true, io: false },
   { type: "vectorscopeTransform", layout: "C", face: false, sliders: false, io: true },
 ];

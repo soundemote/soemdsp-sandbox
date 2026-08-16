@@ -144,17 +144,20 @@ When feature-complete (or when explicitly chosen later): introduce migrations de
 
 ## 13. Stereo jacks: M / L / R (not L / M / R)
 
-App-wide stack order and outlet color. Names keep their color; **Mono is always first**.
+App-wide stack order and jack chrome. Names keep their color; **Mono is always first**.
 
-| Order | Channel | Outlet RGB |
+| Order | Channel | Jack RGB |
 | --- | --- | --- |
 | 1st | Mono (`M`, `In`/`Out` labeled Mono) | Green |
 | 2nd | Left (`L`) | Red |
 | 3rd | Right (`R`) | Blue |
 
-XYZ is the same RGB **by name** (X red, Y green, Z blue), not by slot.
+RGB modules: `R` red, `G` green, `B` blue (`R` is never Right).
 
-- Outlet chrome only. Inlets uncolored. Cables do **not** inherit RGB (gold analog / white digital).
+Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled `Out` stays green.
+
+- RGB chrome on **inlets and outlets**. Analog inlets stay cyan; analog outlets gold.
+- Cables do **not** inherit RGB (gold analog / white digital).
 - Full write-up: [MODULE_LAYOUT_PLAN.md](./MODULE_LAYOUT_PLAN.md) §11.
 
 ---

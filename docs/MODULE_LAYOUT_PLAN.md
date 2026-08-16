@@ -352,21 +352,25 @@ hidden, and the way modules start drawing the same way every time.
 | **2nd** | **Left** | `Left`, `L` | **Red** |
 | **3rd** | **Right** | `Right`, `R` | **Blue** |
 
-XYZ uses the **same RGB by name**, not by stack index:
+Chaos XYZ uses RGB **by name**, not by stack index:
 
 | Name | Color |
 | --- | --- |
 | X | Red (same as Left) |
-| Y | Green (same as Mono) |
-| Z | Blue (same as Right) |
+| Y | Blue |
+| Z | Green |
+| Out | Green (mono) |
+
+RGB module letters (`R`/`G`/`B`) are red / green / blue. **`R` is never Right.**
 
 Rules:
 
 - **Order is M → L → R** in every `inputs` / `outputs` array that has those
   channels. Extra jacks (Trigger, 0.1V/Oct, …) come after the trio.
 - Stereo-only (`Left` + `Right`, no Mono) stays Left then Right.
-- **Outlet chrome only.** Inlets are not RGB. Cables stay analog gold /
-  digital white — they must **not** inherit outlet RGB.
+- RGB chrome on **inlets and outlets**. Analog inlets stay cyan; analog
+  outlets gold. Cables stay analog gold / digital white — they must
+  **not** inherit jack RGB.
 - SSOT for the speaker sink order: `nodeGraphOutputInputPorts`
   (`["Mono", "Left", "Right"]`).
 - Shared filter template: `inputs: ["In", "Left", "Right"]`,

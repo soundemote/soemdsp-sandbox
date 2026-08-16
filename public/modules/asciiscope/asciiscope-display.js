@@ -1032,8 +1032,12 @@ function matrixDrawColdPlate(canvas, columns = 40, rows = 22, renderStyle = "vec
 function matrixMarkLight(face, on) {
   if (!face) return;
   const s = on ? "1" : "0";
+  if (face._matrixLightOn === s) {
+    return;
+  }
+  face._matrixLightOn = s;
   const stage = face.querySelector?.(".node-asciiscope-stage");
-  const canvas = face.querySelector?.(".node-asciiscope-canvas");
+  const canvas = face._matrixCanvas || face.querySelector?.(".node-asciiscope-canvas");
   for (const el of [stage, canvas]) {
     if (!el?.dataset) continue;
     el.dataset.lightStrength = s;
@@ -1047,7 +1051,8 @@ function matrixMarkLight(face, on) {
 /** Scope system used to default this face to Trace and mount an absolute
  *  local-fallback canvas over the rain (grey centerline bar). Strip it. */
 function matrixStripScopeOverlay(face) {
-  if (!face) return;
+  if (!face || face._matrixOverlayStripped) return;
+  face._matrixOverlayStripped = true;
   for (const overlay of face.querySelectorAll?.(
     ":scope > .node-module-scope-local-fallback-canvas",
   ) || []) {
@@ -1065,15 +1070,30 @@ function matrixApplyWaterfallChrome(face, store) {
   }
   const pad = Number(store?.screenPadding);
   const rounding = Number(store?.rounding);
-  const cellW = face.offsetWidth || 0;
-  const cellH = face.offsetHeight || 0;
+  const box = typeof nodeGraphElementClientSize === "function"
+    ? nodeGraphElementClientSize(face, 0, 0)
+    : {
+      width: face.clientWidth || 0,
+      height: face.clientHeight || 0,
+      skipped: false,
+    };
+  if (box.skipped) {
+    return;
+  }
+  const cellW = box.width > 0 ? box.width : 0;
+  const cellH = box.height > 0 ? box.height : 0;
+  const shape = store?.screenShape === "squircle" ? "squircle" : "round";
+  const chromeKey = `${cellW}|${cellH}|${pad}|${rounding}|${shape}`;
+  if (face._matrixChromeKey === chromeKey) {
+    return;
+  }
+  face._matrixChromeKey = chromeKey;
   const maxInset = Math.max(0, Math.min(cellW, cellH) / 2);
   const inset = Math.round((Number.isFinite(pad) ? Math.max(0, Math.min(1, pad)) : 0) * maxInset);
   const panelW = Math.max(0, cellW - inset * 2);
   const panelH = Math.max(0, cellH - inset * 2);
   const maxRadius = Math.max(0, Math.min(panelW, panelH) / 2);
   const radius = Math.round((Number.isFinite(rounding) ? Math.max(0, Math.min(100, rounding)) : 0) / 100 * maxRadius);
-  const shape = store?.screenShape === "squircle" ? "squircle" : "round";
   face.style.setProperty("--matrix-face-inset", `${inset}px`);
   face.style.setProperty("--matrix-face-radius", `${radius}px`);
   face.style.setProperty("--matrix-face-corner-shape", shape);
@@ -1097,7 +1117,12 @@ function matrixResolveKind(face, node) {
 function matrixTickFace(face) {
   const nodeId = face?.dataset?.node;
   if (!nodeId || !face.isConnected) return;
-  const canvas = face.querySelector(".node-asciiscope-canvas, .node-matrix-canvas");
+  if (face.closest?.(".dsp-node")?.classList.contains("viewport-asleep")) {
+    return;
+  }
+  const canvas = face._matrixCanvas?.isConnected
+    ? face._matrixCanvas
+    : (face._matrixCanvas = face.querySelector(".node-asciiscope-canvas, .node-matrix-canvas"));
   if (!canvas) return;
 
   matrixStripScopeOverlay(face);
@@ -1136,15 +1161,17 @@ function matrixTickFace(face) {
     const offStyle = typeof matrixNormalizeRenderStyle === "function"
       ? matrixNormalizeRenderStyle(storeOff.renderStyle)
       : (storeOff.renderStyle === "pixel" ? "pixel" : "vector");
-    matrixDrawColdPlate(
-      canvas,
-      state.bufColumns || params.bufColumns || 96,
-      state.bufRows || params.bufRows || 64,
-      offStyle,
-      storeOff.gradientStops || null,
-    );
+    const cols = state.bufColumns || params.bufColumns || 96;
+    const rows = state.bufRows || params.bufRows || 64;
+    const idleKey = `off|${cols}|${rows}|${offStyle}`;
+    if (face._matrixIdleKey === idleKey) {
+      return;
+    }
+    face._matrixIdleKey = idleKey;
+    matrixDrawColdPlate(canvas, cols, rows, offStyle, storeOff.gradientStops || null);
     return;
   }
+  face._matrixIdleKey = "";
 
   matrixMarkLight(face, true);
 
@@ -1162,7 +1189,7 @@ function matrixTickFace(face) {
   }
 }
 
-function matrixTickWaterfall(_face, canvas, node, nodeId) {
+function matrixTickWaterfall(face, canvas, node, nodeId) {
   const params = typeof matrixWaterfallParamsFromNode === "function"
     ? matrixWaterfallParamsFromNode(node)
     : asciiscopeParamsFromNode(node);
@@ -1173,6 +1200,14 @@ function matrixTickWaterfall(_face, canvas, node, nodeId) {
       : { glyphTable: ".", renderStyle: "vector", gradientStops: null });
   params.renderStyle = store.renderStyle || "vector";
   params.gradientStops = store.gradientStops || null;
+  if (matrixReadPortBuffer(nodeId, "Spawn")?.length) {
+    params.spawn = Math.max(0, Number(matrixReadPortLast(nodeId, "Spawn")) || 0);
+  }
+  if (matrixReadPortBuffer(nodeId, "Speed")?.length) {
+    params.speed = Number(matrixReadPortLast(nodeId, "Speed")) || 0;
+  }
+  const resetLevel = matrixReadPortLast(nodeId, "Reset");
+  const resetHigh = resetLevel > 0.5;
 
   const glyphSlots = typeof asciiscopeParseGlyphTable === "function"
     ? asciiscopeParseGlyphTable(store.glyphTable)
@@ -1196,6 +1231,11 @@ function matrixTickWaterfall(_face, canvas, node, nodeId) {
   });
   const state = matrixEnsureSim(nodeId, params);
   const rise = (Number(params.speed) || 0) < 0;
+  if (resetHigh && !state.resetWasHigh) {
+    matrixClearSim(state);
+    state.engineWasOff = true;
+  }
+  state.resetWasHigh = resetHigh;
 
   if (state.engineWasOff) {
     matrixClearSim(state);
@@ -1222,9 +1262,14 @@ function matrixTickWaterfall(_face, canvas, node, nodeId) {
   const hold = matrixSimPaused() || Boolean(params.freeze);
   if (hold) {
     state.lastMs = 0;
+    if (face._matrixHoldKey === "rain") {
+      return;
+    }
+    face._matrixHoldKey = "rain";
     matrixDrawFace(canvas, state, params, matrixDrawStyleRain());
     return;
   }
+  face._matrixHoldKey = "";
 
   const now = performance.now?.() || Date.now();
   const dt = state.lastMs > 0 ? Math.min(0.05, (now - state.lastMs) / 1000) : 1 / 60;
@@ -1234,7 +1279,7 @@ function matrixTickWaterfall(_face, canvas, node, nodeId) {
   matrixDrawFace(canvas, state, params, matrixDrawStyleRain());
 }
 
-function matrixTickPlate(_face, canvas, node, nodeId) {
+function matrixTickPlate(face, canvas, node, nodeId) {
   const params = typeof matrixPlateParamsFromNode === "function"
     ? matrixPlateParamsFromNode(node)
     : asciiscopeParamsFromNode(node);
@@ -1270,9 +1315,14 @@ function matrixTickPlate(_face, canvas, node, nodeId) {
   const hold = matrixSimPaused() || Boolean(params.freeze);
   if (hold) {
     state.lastMs = 0;
+    if (face._matrixHoldKey === "plate") {
+      return;
+    }
+    face._matrixHoldKey = "plate";
     matrixDrawFace(canvas, state, params, matrixDrawStylePlate());
     return;
   }
+  face._matrixHoldKey = "";
 
   const now = performance.now?.() || Date.now();
   const dt = state.lastMs > 0 ? Math.min(0.05, (now - state.lastMs) / 1000) : 1 / 60;
@@ -1313,7 +1363,12 @@ function asciiscopeSchedulePump() {
       ? nodeGraphDisplayFrameReady("asciiscope")
       : true;
     if (frameReady) {
-      for (const face of faces) matrixTickFace(face);
+      for (const face of faces) {
+        if (face.closest?.(".dsp-node")?.classList.contains("viewport-asleep")) {
+          continue;
+        }
+        matrixTickFace(face);
+      }
     }
     asciiscopeSchedulePump();
   });

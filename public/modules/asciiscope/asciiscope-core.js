@@ -127,9 +127,18 @@ function matrixResolveDensityGrid(density, stageAspect = 1.2) {
 /** Stage width/height from the face canvas parent (letterbox-free fill target). */
 function matrixStageAspectFromCanvas(canvas) {
   const stage = canvas?.parentElement;
-  const w = Math.max(1, stage?.clientWidth || canvas?.clientWidth || 1);
-  const h = Math.max(1, stage?.clientHeight || canvas?.clientHeight || 1);
-  return w / h;
+  const box = typeof nodeGraphElementClientSize === "function"
+    ? nodeGraphElementClientSize(stage || canvas, 1, 1)
+    : (
+      typeof nodeGraphElementInSkippedContentVisibility === "function"
+      && nodeGraphElementInSkippedContentVisibility(stage || canvas)
+        ? { width: 1, height: 1, skipped: true }
+        : {
+          width: Math.max(1, stage?.clientWidth || canvas?.clientWidth || 1),
+          height: Math.max(1, stage?.clientHeight || canvas?.clientHeight || 1),
+        }
+    );
+  return Math.max(1, box.width) / Math.max(1, box.height);
 }
 
 /** Clamp density for soft engine floors (metaparam may expand past 1). */
