@@ -88,7 +88,11 @@ function nodeGraphModuleScopeSlotIsDrawable(slot) {
 }
 
 function nodeGraphVisibleModuleScopeSlots() {
-  return nodeGraphModuleScopeSlots().filter(nodeGraphModuleScopeSlotIsDrawable);
+  const slots = nodeGraphModuleScopeSlots().filter(nodeGraphModuleScopeSlotIsDrawable);
+  if (typeof nodeGraphScreenSoloAllowsNode !== "function" || !nodeGraphScreenSoloIsActive?.()) {
+    return slots;
+  }
+  return slots.filter((slot) => nodeGraphScreenSoloAllowsNode(slot?.nodeId));
 }
 
 function nodeGraphVisibleModuleScopeNodeIds() {

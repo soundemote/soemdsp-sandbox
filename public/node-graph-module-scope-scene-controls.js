@@ -257,7 +257,6 @@ function bindNodeGraphModuleScopeWindowEvents(scopeElement) {
     return;
   }
   scopeElement.dataset.scopeWindowEventsBound = "true";
-  scopeElement.addEventListener("dblclick", beginNodeGraphModuleScopeWindowNumberEdit);
   scopeElement.addEventListener("contextmenu", beginNodeGraphModuleScopeWindowNumberEdit);
 }
 

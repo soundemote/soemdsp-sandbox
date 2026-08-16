@@ -229,6 +229,12 @@ function resizeSelectedNodeGraphModulesOnGrid(axis, delta) {
 }
 
 function handleNodeGraphKeydown(event) {
+  if (event.key === "Escape" && typeof nodeGraphScreenSoloIsActive === "function" && nodeGraphScreenSoloIsActive()) {
+    event.preventDefault();
+    event.stopPropagation();
+    endNodeGraphScreenSolo();
+    return;
+  }
   // Title + area Text Box share this gate. Check before window-nudge / H-V-M.
   if (
     !event.ctrlKey

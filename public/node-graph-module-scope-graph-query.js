@@ -21,6 +21,10 @@ function nodeGraphModuleScopeNodeParam(node, key, fallback) {
 const nodeGraphDisplayFrameClockStates = new Map();
 
 function nodeGraphDisplayFrameReady(clockKey = "__default") {
+  if (typeof nodeGraphScreenSoloAllowsClock === "function"
+    && !nodeGraphScreenSoloAllowsClock(clockKey)) {
+    return false;
+  }
   const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
     ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
     : Math.max(0, Math.round(Number(nodeGraphMvp?.moduleScopeFramesPerSecond) || 60));

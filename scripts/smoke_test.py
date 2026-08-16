@@ -624,6 +624,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-pulse-explosion-display.js",
     "./public/node-graph-live-runtime.js",
     "./public/node-graph-wire-controller-bootstrap.js",
+    "./public/node-graph-screen-solo.js",
     "./public/node-graph-workspace-event-bindings.js",
     "./public/node-graph-render-live-event-bindings.js",
     "./public/node-graph-header-event-bindings.js",
@@ -4635,7 +4636,7 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         'vectorRgb: "Vector RGB"' in script_sources["./public/node-graph-module-definitions.js"]
-        and 'rasterRgb: "Raster RGB"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'rasterRgb: "Pixel Grid"' in script_sources["./public/node-graph-module-definitions.js"]
         and 'gradientVectorscope: "Gradient Vectorscope"' in script_sources["./public/node-graph-module-definitions.js"]
         and "drawNodeGraphVectorRgbFaceItem" in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
         and "drawNodeGraphRasterRgbFaceItem" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
@@ -4644,7 +4645,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'key: "hue"' in script_sources["./public/node-graph-module-definitions.js"]
         and "drawNodeGraphGradientVectorscopeFaceItem" in script_sources["./public/modules/gradientVectorscope/gradient-vectorscope-display.js"]
         and 'label: "Vector RGB"' in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "Raster RGB"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "Pixel Grid"' in script_sources["./public/node-graph-module-store.js"]
         and 'label: "Gradient Vectorscope"' in script_sources["./public/node-graph-module-store.js"],
         "RGB display trio (Vector / Raster / Gradient Vectorscope) should be registered",
     )
@@ -16826,6 +16827,17 @@ def require_node_graph_mvp_contract() -> None:
         and '.addEventListener("pointerdown", beginNodeGraphMagnifier)' in script_sources["./public/node-graph-workspace-event-bindings.js"]
         and "handleNodeGraphWorkspaceSnakeCircleCursorPointerDown" not in script_sources["./public/node-graph-workspace-event-bindings.js"],
         "empty-workspace right-click should hold a resizable magnifying glass; wheel resizes the glass",
+    )
+    require(
+        "function beginNodeGraphScreenSolo(" in script_sources["./public/node-graph-screen-solo.js"]
+        and "function endNodeGraphScreenSolo(" in script_sources["./public/node-graph-screen-solo.js"]
+        and "function handleNodeGraphScreenSoloDoubleClick(" in script_sources["./public/node-graph-screen-solo.js"]
+        and "bindNodeGraphScreenSoloEvents" in script_sources["./public/node-graph-workspace-event-bindings.js"]
+        and "nodeGraphScreenSoloAllowsNode" in script_sources["./public/node-graph-module-scope-slots.js"]
+        and "nodeGraphScreenSoloAllowsClock" in script_sources["./public/node-graph-module-scope-graph-query.js"]
+        and "body.node-screen-solo-active" in style_source
+        and "scopeElement.addEventListener(\"dblclick\", beginNodeGraphModuleScopeWindowNumberEdit)" not in script_sources["./public/node-graph-module-scope-scene-controls.js"],
+        "double-click a screen should maximize it and stop other screen paints; Escape exits",
     )
     require(
         "function watchNodeGraphSectionResizeDrag(event, options = {})" in script_sources["./public/node-graph-workspace-geometry.js"]

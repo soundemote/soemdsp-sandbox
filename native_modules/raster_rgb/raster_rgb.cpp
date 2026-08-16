@@ -1,5 +1,5 @@
 // soemdsp-native-module: raster_rgb
-// soemdsp-native-label: Raster RGB
+// soemdsp-native-label: Pixel Grid
 // soemdsp-native-target: rasterRgb
 // soemdsp-native-kind: processor
 //
@@ -16,7 +16,7 @@ using namespace soemdsp_maths;
 static const char kMetadataJson[] =
   "{"
     "\"module\":\"raster_rgb\","
-    "\"label\":\"Raster RGB\","
+    "\"label\":\"Pixel Grid\","
     "\"targetType\":\"rasterRgb\","
     "\"kind\":\"processor\","
     "\"inputs\":[\"R\",\"G\",\"B\"],"

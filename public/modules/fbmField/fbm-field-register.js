@@ -128,6 +128,7 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "2",
+        hidden: true,
         key: "lacunarity",
         label: "Lacunarity",
         max: "4",
@@ -139,6 +140,7 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "0.55",
+        hidden: true,
         key: "smoothness",
         label: "Smoothness",
         max: "1",
@@ -150,6 +152,7 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "1",
+        hidden: true,
         key: "scale",
         label: "Scale",
         max: "10",
@@ -160,6 +163,7 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "1",
+        hidden: true,
         key: "zoom",
         label: "Zoom",
         max: "16",
@@ -172,6 +176,7 @@ registerNodeGraphChromelessModule("fbmField", {
       {
         bipolar: true,
         defaultValue: "0",
+        hidden: true,
         key: "panX",
         label: "Pan X",
         max: "4",
@@ -184,6 +189,7 @@ registerNodeGraphChromelessModule("fbmField", {
       {
         bipolar: true,
         defaultValue: "0",
+        hidden: true,
         key: "panY",
         label: "Pan Y",
         max: "4",
@@ -195,6 +201,7 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "0",
+        hidden: true,
         key: "rotate",
         label: "Rotate",
         max: "1",
@@ -208,6 +215,7 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "1",
+        hidden: true,
         key: "contrast",
         label: "Contrast",
         max: "4",
@@ -222,6 +230,7 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "1",
+        hidden: true,
         key: "seed",
         label: "Seed",
         linearSmoothing: false,
@@ -234,6 +243,7 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "1",
+        hidden: true,
         key: "brightness",
         label: "Brightness",
         max: "1",

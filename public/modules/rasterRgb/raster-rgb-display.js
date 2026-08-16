@@ -693,6 +693,10 @@ function nodeGraphRasterRgbCollectFaces() {
       if (host?.classList.contains("viewport-asleep")) {
         continue;
       }
+      if (typeof nodeGraphScreenSoloAllowsNode === "function"
+        && !nodeGraphScreenSoloAllowsNode(face.dataset?.node || host?.dataset?.node)) {
+        continue;
+      }
       seen.add(face);
       const nodeId = face.dataset?.node || host?.dataset?.node;
       const slot = (typeof nodeGraphModuleScopeState === "object"

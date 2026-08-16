@@ -109,7 +109,7 @@ var sandbox = {
   nodeGraphNodeLabels: {
     output: "Output",
     gain: "Gain",
-    rasterRgb: "Raster RGB",
+    rasterRgb: "Pixel Grid",
     audioPlayer: "Music Player",
   },
   nodeGraphLabel: function (node, port) { return String(port || ""); },

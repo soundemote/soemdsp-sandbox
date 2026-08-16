@@ -48,12 +48,20 @@ function bindNodeGraphWorkspaceInteractionEvents() {
   //   .addEventListener("dblclick", handleNodeGraphWorkspaceDoubleClickToAddTextBox);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      if (typeof nodeGraphScreenSoloIsActive === "function" && nodeGraphScreenSoloIsActive()) {
+        event.preventDefault();
+        endNodeGraphScreenSolo();
+        return;
+      }
       nodeGraphWireInteractions.cancelPortConnectionMode();
       if (typeof endNodeGraphMagnifier === "function") {
         endNodeGraphMagnifier();
       }
     }
   });
+  if (typeof bindNodeGraphScreenSoloEvents === "function") {
+    bindNodeGraphScreenSoloEvents();
+  }
   document
     .getElementById("nodeGraphWorkspace")
     .addEventListener("pointerdown", beginNodeGraphWorkspacePinchZoom, true);

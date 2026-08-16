@@ -1112,6 +1112,13 @@ function applyNodeGraphChromeNodesToDom(nodeIds = []) {
 }
 
 function applyNodeGraphPatchToDom(options = {}) {
+  if (typeof nodeGraphScreenSoloIsActive === "function" && nodeGraphScreenSoloIsActive()) {
+    const soloId = typeof nodeGraphScreenSoloNodeId === "function" ? nodeGraphScreenSoloNodeId() : "";
+    const stillThere = soloId && nodeGraphMvp?.patch?.nodes?.some((node) => node?.id === soloId);
+    if (!stillThere) {
+      endNodeGraphScreenSolo({ silent: true });
+    }
+  }
   const container = document.getElementById("nodeGraphNodes");
   if (!container) {
     return;

@@ -162,6 +162,7 @@ var nodeGraphMvp = {
   marqueeSelectionEntryPointer: null,
   // Snake-select mouse smoothing 0..1. 0 = former light 1-frame EMA (dense).
   snakeMouseSmooth: 0,
+  screenSoloNodeId: "",
   magnifier: null,
   metadataDragging: null,
   metadataEditorTarget: null,

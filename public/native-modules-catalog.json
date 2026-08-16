@@ -795,7 +795,7 @@
     },
     {
       "name": "raster_rgb",
-      "label": "Raster RGB",
+      "label": "Pixel Grid",
       "targetType": "rasterRgb",
       "kind": "processor",
       "source": "native_modules/raster_rgb/raster_rgb.cpp",

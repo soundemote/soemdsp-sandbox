@@ -228,7 +228,7 @@ const nodeGraphNodeLabels = Object.freeze({
   scope2d: "2D Phosphor",
   scope2dTrace: "2D Trace",
   vectorRgb: "Vector RGB",
-  rasterRgb: "Raster RGB",
+  rasterRgb: "Pixel Grid",
   gradientVectorscope: "Gradient Vectorscope",
   traceXyz: "XYZ Trace",
   phosphorLight: "2D Phosphor",

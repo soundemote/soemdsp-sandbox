@@ -11765,6 +11765,72 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none !important;
 }
 
+/* Coup de grâce: one screen owns the view. Other faces stop painting. */
+.node-screen-solo-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 199990;
+  background: #000;
+  pointer-events: none;
+}
+
+.node-screen-solo-veil[hidden] {
+  display: none !important;
+}
+
+body.node-screen-solo-active {
+  background: #000;
+}
+
+body.node-screen-solo-active .dsp-node:not(.node-screen-solo-host),
+body.node-screen-solo-active .dsp-node.node-screen-solo-host > :not(.node-screen-solo-face):not(.node-solid-module-shell):not(.node-module-chrome-layout-b-shell),
+body.node-screen-solo-active .node-grid-heatmap,
+body.node-screen-solo-active #nodeWireSvg,
+body.node-screen-solo-active #nodeWireEndpointSvg,
+body.node-screen-solo-active #nodeSelectionHitTrail,
+body.node-screen-solo-active #nodeSelectionMarquee,
+body.node-screen-solo-active #nodeCameraOverlayLayer,
+body.node-screen-solo-active #nodeGraphResizeHandle,
+body.node-screen-solo-active .node-graph-origin-marker,
+body.node-screen-solo-active .node-graph-controls,
+body.node-screen-solo-active .node-history-controls,
+body.node-screen-solo-active .node-zoom-controls,
+body.node-screen-solo-active #nodeUnifiedWindow,
+body.node-screen-solo-active .node-parameter-metadata-popover,
+body.node-screen-solo-active #nodeSceneContextMenu,
+body.node-screen-solo-active .node-controller-dock,
+body.node-screen-solo-active .status-strip {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.node-screen-solo-active .dsp-node.node-screen-solo-host > .node-solid-module-shell > :not(.node-screen-solo-face),
+body.node-screen-solo-active .dsp-node.node-screen-solo-host > .node-module-chrome-layout-b-shell > :not(.node-screen-solo-face) {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.node-screen-solo-active .node-screen-solo-face {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 200000 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  clip-path: none !important;
+  overflow: hidden !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  background: #000 !important;
+}
+
 /* Keep in sync with NODE_GRAPH_VIEWPORT_ASLEEP_SKIP_SEL.
    Faces / custom UI only — not .dsp-node-body. Live slider readout, ghosts,
    and constraint chrome measure param rows every frame; hiding that band

@@ -155,6 +155,10 @@ function nodeGraphFbmFieldStartLoop(face, nodeId) {
       nodeGraphFbmFieldStopLoop(face);
       return;
     }
+    if (typeof nodeGraphScreenSoloAllowsNode === "function" && !nodeGraphScreenSoloAllowsNode(nodeId)) {
+      nodeGraphFbmFieldStopLoop(face);
+      return;
+    }
     // Engine went off mid-loop — black + halt (paint also stops the loop).
     if (typeof nodeGraphFbmFieldCircuitRunning === "function" && !nodeGraphFbmFieldCircuitRunning()) {
       if (typeof paintNodeGraphFbmFieldFaceForNode === "function") {

@@ -1400,7 +1400,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   scope2dTrace: "Trace",
   traceXyz: "XYZ Trace",
   vectorRgbFace: "Vector RGB",
-  rasterRgbFace: "Raster RGB",
+  rasterRgbFace: "Pixel Grid",
   gradientVectorscopeFace: "Vectorscope",
   numberReadout: "Value",
   xyPad: "Phosphor",

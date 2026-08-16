@@ -33,6 +33,10 @@ function attachNodeGraphSolidModuleShellEvents(node) {
       if (event.target?.closest?.(".node-module-graph-display, .node-knob-face, .node-keypad-face")) {
         return;
       }
+      if (typeof handleNodeGraphScreenSoloDoubleClick === "function"
+        && handleNodeGraphScreenSoloDoubleClick(event)) {
+        return;
+      }
       openNodeModuleActionMenu(event);
     });
     face.addEventListener("contextmenu", openNodeModuleActionMenu);
