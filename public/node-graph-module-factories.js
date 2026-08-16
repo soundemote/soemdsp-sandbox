@@ -26,6 +26,10 @@ function createNodeGraphPort(node, type, port, io) {
   const portLabel = nodeGraphPatchNodePortDisplayLabel(node, type, port, io);
   const label = `${nodeGraphNodeLabels[type]} ${io} port ${portLabel}`;
   button.setAttribute("aria-label", label);
+  const portTip = nodeGraphPortTooltipText(type, port, io);
+  if (portTip) {
+    button.dataset.interactionHelp = portTip;
+  }
   return button;
 }
 
@@ -53,6 +57,12 @@ function nodeGraphStereoJackDisplayLabel(value, type, port) {
   if (key === "m") return "Mono";
   if (key === "r") return "Right";
   return raw;
+}
+
+function nodeGraphPortTooltipText(type, port, io) {
+  const def = nodeGraphModuleDefinitions[type];
+  const map = io === "output" ? def?.outputTooltips : def?.inputTooltips;
+  return String(map?.[port] || "").trim();
 }
 
 function nodeGraphPortDisplayLabel(type, port, io) {
@@ -140,6 +150,10 @@ function createNodeGraphIoColumn(node, type, ports, io) {
       "aria-label",
       `${nodeGraphNodeLabels[type]} ${io} port ${portLabel} interaction area`,
     );
+    const portTip = nodeGraphPortTooltipText(type, port, io);
+    if (portTip) {
+      row.dataset.interactionHelp = portTip;
+    }
     const label = document.createElement("span");
     label.className = "node-io-label";
     label.dataset.portLabel = port;

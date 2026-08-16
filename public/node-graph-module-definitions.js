@@ -8356,7 +8356,19 @@ const nodeGraphModuleDefinitions = (
   quadrature: {
     planRole: "processor",
     inputLabels: { In: "In", Mid: "Mid", Side: "Side" },
+    inputTooltips: {
+      In: "Into I and Q. Added to Side.",
+      Side: "Into I and Q. Added to In.",
+      Mid: "Into MidI only.",
+    },
     inputs: ["In", "Mid", "Side"],
+    outputLabels: { I: "I", Q: "Q", MidI: "MidI", SideQ: "SideQ" },
+    outputTooltips: {
+      I: "In+Side. 1 sample to align with Q.",
+      Q: "+90° of In+Side.",
+      SideQ: "+90° of In+Side.",
+      MidI: "Mid. 1 sample to align with Q.",
+    },
     outputs: ["I", "Q", "MidI", "SideQ"],
     parameters: [
       nodeGraphOutputAmplitudeParam,
