@@ -53,8 +53,6 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "binaryClock",
   // Space-controlled pitch object / performance controller — placeholder.
   "theremin",
-  // Open Sound Control I/O bridge (Controller shelf) — placeholder.
-  "osc",
   // Multi-frame wavetable oscillators — placeholders until table engine lands.
   "wavetable2d",
   "wavetable3d",
@@ -339,7 +337,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "additive",
     description: "Everyday multi-wave starter oscillator with pitch CV—default voice for quick patches.",
     label: "BasicShape",
-    notes: ["BasicShape", "multi-waveform", "cv input", "LFO"],
+    notes: ["osc", "BasicShape", "multi-waveform", "cv input", "LFO", "oscillator"],
   },
   aliasSine: {
     category: "additive",
@@ -1285,12 +1283,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Placeholder space-controlled pitch/volume controller.",
     label: "Theremin",
     notes: ["under construction", "theremin", "controller", "proximity", "pitch", "performance"],
-  },
-  osc: {
-    category: "controller",
-    description: "Placeholder Open Sound Control bridge—network CV I/O when the protocol layer lands.",
-    label: "OSC",
-    notes: ["under construction", "osc", "open sound control", "controller", "network", "midi-alternative", "cv"],
   },
   // --- Analog Filter: character / named circuits ---
   yellowjacketFilter: {
@@ -3230,7 +3222,7 @@ function renderNodeGraphCommandCenterModuleSearch() {
     ? nodeGraphModuleStoreEntries()
     : [];
   const matches = entries
-    .filter((entry) => entry.visible && entry.implemented
+    .filter((entry) => entry.visible
       && (typeof nodeGraphModuleStoreEntryMatchesSearch === "function"
         ? nodeGraphModuleStoreEntryMatchesSearch(entry, query)
         : true))
@@ -3408,6 +3400,18 @@ function createNodeGraphModuleStoreButton(entry) {
   } else {
     card.classList.add("under-construction");
     card.setAttribute("aria-disabled", "true");
+  }
+
+  const categoryId = typeof normalizeNodeGraphModuleStoreDepartment === "function"
+    ? normalizeNodeGraphModuleStoreDepartment(entry.category || "")
+    : String(entry.category || "");
+  const emoji = nodeGraphModuleStoreDepartmentById[categoryId]?.emoji || "";
+  if (emoji) {
+    const mark = document.createElement("span");
+    mark.className = "scene-context-store-card-category";
+    mark.setAttribute("aria-hidden", "true");
+    mark.textContent = emoji;
+    card.append(mark);
   }
 
   const label = document.createElement("strong");
@@ -3679,6 +3683,7 @@ function renderNodeGraphModuleStoreCatalog() {
   }
   available.classList.add("scene-context-store-department-list");
   available.classList.toggle("node-module-store-list", Boolean(selectedDepartment || searchingAllModules));
+  available.classList.toggle("is-module-search-results", searchingAllModules);
 
   for (const entry of homeEntries) {
     homeShelf.append(createNodeGraphModuleStoreButton(entry));

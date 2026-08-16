@@ -19406,8 +19406,40 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   border-top: 0;
 }
 
+.scene-context-store-card-category {
+  display: none;
+}
+
+.scene-context-module-search-results .scene-context-store-card,
+.node-module-store-list.is-module-search-results .scene-context-store-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.scene-context-module-search-results .scene-context-store-card-category,
+.node-module-store-list.is-module-search-results .scene-context-store-card-category {
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
 .scene-context-module-search-results .scene-context-store-card strong {
   font-size: 0.74rem;
+}
+
+.scene-context-module-search-results .scene-context-store-card small,
+.node-module-store-list.is-module-search-results .scene-context-store-card small {
+  display: inline;
+  margin-left: auto;
+  color: rgba(226, 168, 109, 0.78);
+  font-size: 0.62rem;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .scene-context-module-search-results .scene-context-store-empty {

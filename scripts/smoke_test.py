@@ -16824,6 +16824,23 @@ def require_node_graph_mvp_contract() -> None:
         "slider and choice handles should use UIDEV hue/brightness/alpha",
     )
     require(
+        "Never adopt a click-spawned rect as the seat" in script_sources["./public/node-graph-unified-window.js"]
+        and "seatNodeGraphUnifiedWindow(element, key, existing)" in script_sources["./public/node-graph-unified-window.js"]
+        and 'captureNodeGraphUnifiedWindowSeat("metaparameters")' in script_sources["./public/node-graph-metadata-editor.js"],
+        "right-click parameter settings must keep the shared unified seat, not move Command Center to the click",
+    )
+    require(
+        '"osc",' not in script_sources["./public/node-graph-module-store.js"].split("nodeGraphModuleStoreUnderConstructionTypes")[1].split("]);")[0]
+        and 'notes: ["osc", "BasicShape"' in script_sources["./public/node-graph-module-store.js"]
+        and "Placeholder Open Sound Control" not in script_sources["./public/node-graph-module-store.js"]
+        and "entry.visible && entry.implemented" not in script_sources["./public/node-graph-module-store.js"][
+            script_sources["./public/node-graph-module-store.js"].index("function renderNodeGraphCommandCenterModuleSearch"):
+            script_sources["./public/node-graph-module-store.js"].index("function nodeGraphModuleStoreDemoPatchAvailable")
+        ]
+        and 'mark.className = "scene-context-store-card-category"' in script_sources["./public/node-graph-module-store.js"],
+        "search should find the osc oscillator, include under-construction modules, and show category emoji",
+    )
+    require(
         ".node-wiring-panel.modular-only-view .node-graph-resize-handle {\n  display: none;" not in style_source,
         "modular-only view should keep the modular workspace resize handle visible",
     )

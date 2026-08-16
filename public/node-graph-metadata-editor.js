@@ -1534,6 +1534,11 @@ function openNodeMetadataPopover(event, readout) {
     Number.isFinite(Number(savedPosition?.top));
   applyNodeMetadataPopoverSize(sharedInspectorState.size);
   const popover = document.getElementById("nodeParameterMetadataPopover");
+  // Grab the live Command Center / unified seat before we unhide this page.
+  // Spawning at the click is last resort only (no seat yet).
+  if (!nodeGraphMvp._unifiedWindowSwitching && typeof captureNodeGraphUnifiedWindowSeat === "function") {
+    captureNodeGraphUnifiedWindowSeat("metaparameters");
+  }
   // Unified switcher seats after return — skip independent placement.
   if (nodeGraphMvp._unifiedWindowSwitching) {
     popover.hidden = false;
@@ -1668,6 +1673,9 @@ function openBlankNodeMetadataPopover(event = {}) {
     Number.isFinite(Number(savedPosition?.top));
   applyNodeMetadataPopoverSize(sharedInspectorState.size);
   const popover = document.getElementById("nodeParameterMetadataPopover");
+  if (!nodeGraphMvp._unifiedWindowSwitching && typeof captureNodeGraphUnifiedWindowSeat === "function") {
+    captureNodeGraphUnifiedWindowSeat("metaparameters");
+  }
   if (nodeGraphMvp._unifiedWindowSwitching) {
     popover.hidden = false;
     if (typeof markNodeGraphFloatingWindowSurface === "function") {

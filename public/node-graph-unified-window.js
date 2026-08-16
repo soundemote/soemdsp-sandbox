@@ -892,16 +892,36 @@ function noteNodeGraphUnifiedWindowOpened(page = "", element = null) {
   const previous = String(nodeGraphMvp?.unifiedWindowPage || "").trim();
 
   // Independent open (toolbar / hotkey / right-click that didn't use the switcher).
-  captureNodeGraphUnifiedWindowSeat(key);
+  // Capture the live page first. Never adopt a click-spawned rect as the seat —
+  // that is what yanked Command Center when right-clicking a parameter.
+  const captured = captureNodeGraphUnifiedWindowSeat(key);
   closeOtherNodeGraphUnifiedWindowPages(key);
+  const existing = captured
+    || (nodeGraphMvp.unifiedWindowPosition
+      && Number.isFinite(Number(nodeGraphMvp.unifiedWindowPosition.left))
+      && Number.isFinite(Number(nodeGraphMvp.unifiedWindowPosition.top))
+      ? {
+        left: Math.round(Number(nodeGraphMvp.unifiedWindowPosition.left)),
+        top: Math.round(Number(nodeGraphMvp.unifiedWindowPosition.top)),
+        width: nodeGraphMvp.unifiedWindowSize?.width,
+        height: nodeGraphMvp.unifiedWindowSize?.height,
+      }
+      : null);
   if (element && !element.hidden) {
-    const seat = nodeGraphUnifiedWindowSeatFromElement(element);
-    if (seat) {
-      storeNodeGraphUnifiedWindowSeat(seat);
+    if (existing) {
+      seatNodeGraphUnifiedWindow(element, key, existing);
+    } else {
+      const seat = nodeGraphUnifiedWindowSeatFromElement(element);
+      if (seat) {
+        storeNodeGraphUnifiedWindowSeat(seat);
+      }
     }
   }
   assertOnlyNodeGraphUnifiedWindowPageVisible(key);
   markNodeGraphUnifiedWindowPage(key);
+  if (typeof applyNodeGraphUnifiedWindowPresentation === "function") {
+    applyNodeGraphUnifiedWindowPresentation();
+  }
   if (previous !== key) {
     announceNodeGraphUnifiedWindowPage(key);
   }
