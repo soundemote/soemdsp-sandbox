@@ -13,87 +13,15 @@ let nodeGraphNativeModuleEntries = Object.freeze([]);
 let nodeGraphNativeModuleEntriesByTarget = Object.freeze({});
 let nodeGraphNativeModuleCatalogLoadStarted = false;
 
-// Module types that appear in the Module Browser as disabled
-// "under construction" cards (not spawnable from the shop). Also the
-// single source of truth for suppressing expected native-engine noise:
-// placeholder native shells (e.g. wall_delay) must not spam
-// module-diagnostics when Live Audio loads the combined wasm.
-//
-// When you mark a module UC here, diagnostics + native wasm send both
-// consult nodeGraphModuleTypeIsUnderConstruction / 
-// nodeGraphNativeModuleRefIsUnderConstruction automatically.
-const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
-  "canvas",
-  "humanFilter",
-  "oscilloscopeBank",
-  "shootingStarTail",
-  // Geometric room delay / "wall verb" — JS prototype only; native is a
-  // version stub that the worklet does not wire (unsupported native module).
-  "wallDelay",
-  // Full-plate noise flow field experiment (not Julia / kaleidoscope).
-  // Placeholder only until the flow-field design is ready.
-  "output",
-  "audioInput",
-  "pluginInput",
-  "pluginOutput",
-  "pluginMidiIn",
-  "pluginMidiOut",
-  "groupInput",
-  "groupOutput",
-  "evolveField",
-  // Character-grid XY scope — parked; do not spawn into the modular area.
-  "asciiscope",
-  // Classical formant bank (vowel / vocal tract) — placeholder until design lands.
-  "formantFilter",
-  // Textbook Bessel–Thomson (max-flat group delay) — placeholder until design lands.
-  "besselThomson",
-  // Mass–spring–damper analog (2nd-order) — placeholder until design lands.
-  "massSpringDamper",
-  // Binary counter clock (bit outs + gate) — placeholder until design lands.
-  "binaryClock",
-  // Space-controlled pitch object / performance controller — placeholder.
-  "theremin",
-  // Multi-frame wavetable oscillators — placeholders until table engine lands.
-  "wavetable2d",
-  "wavetable3d",
-  // RGB pixel-grid experiments (stroke split, bevels, etc.) — placeholder.
-  "pixelGrid",
-  "chromaColor",
-  "image",
-  "rgbaHsla",
-  "screenSpaceShader",
-  // Waveguide physical model — shell exists (passthrough); full engine later.
-  "waveguide",
-  // Classic modulation FX
-  "phaser",
-  "flanger",
-  "chorus",
-  // Electro drum voice suite (placeholders until synthesis design lands).
-  "electroKick",
-  "electroSnare",
-  "electroHat",
-  // Flexible multi-point control grid (Modulator shelf) — placeholder.
-  "flexGrid",
-  // Airwindows Density-style clipper — withdrawn; do not spawn or use.
-  "airClipper",
-  // Chaosfly attractor / fly-like chaos (Chaos shelf) — placeholder.
-  "chaosfly",
-  // Sequence shelf: pattern drummer engine — placeholder.
-  "drummer",
-  // Musical shelf: arpeggiator — placeholder.
-  "arp",
-  // Sample Player: GM soundfont voices — placeholders until player/font lands.
-  // GM program 5 = Electric Piano 1; GM channel 10 = percussion/drums.
-  "ePiano",
-  "percussion",
-  // Freehand XY oscillator — parked as under construction.
-  "phosphillator",
-  // Phase-spread saw bank — parked as under construction.
-  "hypersaw",
-]));
-
 function nodeGraphModuleTypeIsUnderConstruction(type) {
-  return nodeGraphModuleStoreUnderConstructionTypes.has(String(type || "").trim());
+  const key = String(type || "").trim();
+  if (!key) {
+    return false;
+  }
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    return nodeGraphModuleIsStoreVisible(key, "underconstructionsort");
+  }
+  return nodeGraphModuleCatalogUnderConstructionSort.includes(key);
 }
 
 /** native catalog name (snake_case) → module type (camelCase). */
@@ -152,8 +80,57 @@ const nodeGraphModuleCatalogShelfIds = Object.freeze([
   "gamesort8",
   "gamesort9",
   "gamesort10",
+  "underconstructionsort",
 ]);
 const nodeGraphModuleCatalogShelfIdSet = Object.freeze(new Set(nodeGraphModuleCatalogShelfIds));
+
+// Default underconstructionsort shelf. UC = on this list (shop cards disabled,
+// native stub diagnostics silenced). Edit this array; do not keep a second set.
+const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
+  "canvas",
+  "humanFilter",
+  "oscilloscopeBank",
+  "shootingStarTail",
+  "wallDelay",
+  "output",
+  "audioInput",
+  "pluginInput",
+  "pluginOutput",
+  "pluginMidiIn",
+  "pluginMidiOut",
+  "groupInput",
+  "groupOutput",
+  "evolveField",
+  "asciiscope",
+  "formantFilter",
+  "besselThomson",
+  "massSpringDamper",
+  "binaryClock",
+  "theremin",
+  "wavetable2d",
+  "wavetable3d",
+  "pixelGrid",
+  "chromaColor",
+  "image",
+  "rgbaHsla",
+  "screenSpaceShader",
+  "waveguide",
+  "phaser",
+  "flanger",
+  "chorus",
+  "electroKick",
+  "electroSnare",
+  "electroHat",
+  "flexGrid",
+  "airClipper",
+  "chaosfly",
+  "drummer",
+  "arp",
+  "ePiano",
+  "percussion",
+  "phosphillator",
+  "hypersaw",
+]);
 
 // Unified module department definitions — single source of truth for
 // emoji, display label, ad copy, and backward-compatible alias resolution.
@@ -1907,7 +1884,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
 });
 
 function defaultNodeGraphModuleCatalogVisibility() {
-  return {};
+  return {
+    underconstructionsort: nodeGraphModuleCatalogUnderConstructionSort.slice(),
+  };
 }
 
 function nodeGraphModuleCatalogLooksLegacy(value = {}) {
@@ -1958,6 +1937,7 @@ function normalizeNodeGraphModuleCatalogVisibility(value = {}) {
     if (home.length) {
       shelves.home = home;
     }
+    nodeGraphModuleCatalogApplyDefaultUnderConstructionSort(source, shelves, validTypes);
     return shelves;
   }
   for (const shelf of nodeGraphModuleCatalogShelfIds) {
@@ -1966,7 +1946,21 @@ function normalizeNodeGraphModuleCatalogVisibility(value = {}) {
       shelves[shelf] = types;
     }
   }
+  nodeGraphModuleCatalogApplyDefaultUnderConstructionSort(source, shelves, validTypes);
   return shelves;
+}
+
+function nodeGraphModuleCatalogApplyDefaultUnderConstructionSort(source, shelves, validTypes) {
+  if (Object.hasOwn(source, "underconstructionsort") || shelves.underconstructionsort) {
+    return;
+  }
+  const types = nodeGraphModuleCatalogNormalizeTypeList(
+    nodeGraphModuleCatalogUnderConstructionSort,
+    validTypes,
+  );
+  if (types.length) {
+    shelves.underconstructionsort = types;
+  }
 }
 
 function nodeGraphModuleCatalogVisibility() {
@@ -2825,7 +2819,7 @@ function nodeGraphModuleStoreEntries() {
       const nativeModules = nodeGraphNativeModulesForType(type);
       const implemented =
         Object.hasOwn(nodeGraphModuleDefinitions, type) &&
-        !nodeGraphModuleStoreUnderConstructionTypes.has(type);
+        !nodeGraphModuleTypeIsUnderConstruction(type);
       const developerOnly = nodeGraphModuleStoreCatalog[type]?.developerOnly === true;
       const catalogHidden = nodeGraphModuleStoreCatalog[type]?.hidden === true;
       const publicVisible = !developerOnly && !catalogHidden;

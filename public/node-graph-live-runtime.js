@@ -673,7 +673,7 @@ async function sendNodeGraphLiveNativeModules(liveNode, plan = null) {
     if (!entry?.wasmAvailable || entry.kind === "video-poc") {
       return false;
     }
-    // Under-construction modules (see nodeGraphModuleStoreUnderConstructionTypes)
+    // Under-construction modules (underconstructionsort catalog shelf)
     // may ship placeholder native shells (wall_delay version stub). Skip them
     // so the worklet never posts "unsupported native module" for expected UC.
     if (

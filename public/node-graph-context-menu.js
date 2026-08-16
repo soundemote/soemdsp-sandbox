@@ -2280,6 +2280,11 @@ function openNodeGraphModuleSettingsFromContextEvent(event, nodeElement = null) 
 }
 
 function openNodeModuleActionMenu(event) {
+  if (typeof nodeGraphMagnifierShouldBlockContext === "function" && nodeGraphMagnifierShouldBlockContext()) {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    return;
+  }
   if (event?.type === "dblclick" && event.altKey) {
     event.preventDefault?.();
     event.stopPropagation?.();
@@ -2445,6 +2450,11 @@ function nodeGraphCssColorForSvgStroke(value) {
 }
 
 function openNodeSceneContextMenu(event) {
+  if (typeof nodeGraphMagnifierShouldBlockContext === "function" && nodeGraphMagnifierShouldBlockContext()) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   if (event.target.closest?.(".node-view-toolbar, .node-graph-controls")) {
     event.preventDefault();
     event.stopPropagation();

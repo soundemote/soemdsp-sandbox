@@ -9619,6 +9619,7 @@ def require_node_graph_mvp_contract() -> None:
         "soemdsp-sandbox.moduleCatalogVisibility.v2",
         "usersort10",
         "gamesort10",
+        "underconstructionsort",
         "const developerOnly = nodeGraphModuleStoreCatalog[type]?.developerOnly === true",
         "const publicVisible = !developerOnly",
         "developerOnly,",
@@ -12861,16 +12862,19 @@ def require_node_graph_mvp_contract() -> None:
     require("dotOscilloscope: {" in module_store_source and "oscilloscopeBank: {" in module_store_source and "valueOscilloscope: {" in module_store_source and "numberReadout: {" in module_store_source and "lineBurnOscilloscope: {" in module_store_source and "scope2d: {" in module_store_source and "scope2dTrace: {" in module_store_source, "Oscilloscope modules should be listed together")
     require("oscilloscopeBank: {" in module_store_source and 'label: "Oscilloscope Bank"' in module_store_source, "Oscilloscope Bank should exist")
     require(
-        "nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([" in module_store_source
+        "underconstructionsort" in module_store_source
+        and "nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([" in module_store_source
         and '"canvas"' in module_store_source
         and '"humanFilter"' in module_store_source
         and '"oscilloscopeBank"' in module_store_source
         and '"shootingStarTail"' in module_store_source
         and '"wallDelay"' in module_store_source
+        and "nodeGraphModuleStoreUnderConstructionTypes" not in module_store_source
         and "function nodeGraphModuleTypeIsUnderConstruction(type)" in module_store_source
+        and "nodeGraphModuleIsStoreVisible(key, \"underconstructionsort\")" in module_store_source
         and "function nodeGraphNativeModuleRefIsUnderConstruction(ref = {})" in module_store_source
         and "function nodeGraphNativeModuleNameToType(name)" in module_store_source,
-        "Under-construction set should include canvas/humanFilter/oscilloscopeBank/shootingStarTail/wallDelay plus helpers for diagnostics silence",
+        "Under-construction modules live on the underconstructionsort catalog shelf",
     )
     require(
         "function nodeGraphModuleDiagnosticsIsUnderConstruction(details = {})" in script_sources["./public/node-graph-module-diagnostics.js"]
@@ -16795,6 +16799,9 @@ def require_node_graph_mvp_contract() -> None:
         "function beginNodeGraphMagnifier(event)" in script_sources["./public/node-graph-magnifier.js"]
         and "function resizeNodeGraphMagnifierByWheel(event)" in script_sources["./public/node-graph-magnifier.js"]
         and "function handleNodeGraphMagnifierWheelCapture(event)" in script_sources["./public/node-graph-magnifier.js"]
+        and "function nodeGraphMagnifierShouldBlockContext()" in script_sources["./public/node-graph-magnifier.js"]
+        and "function handleNodeGraphMagnifierContextGuard(event)" in script_sources["./public/node-graph-magnifier.js"]
+        and "nodeGraphMagnifierShouldBlockContext()" in script_sources["./public/node-graph-context-menu.js"]
         and 'document.addEventListener("wheel", handleNodeGraphMagnifierWheelCapture, { capture: true, passive: false })' in script_sources["./public/node-graph-magnifier.js"]
         and "resizeNodeGraphMagnifierByWheel(event)" in script_sources["./public/node-graph-workspace-zoom.js"]
         and '.addEventListener("pointerdown", beginNodeGraphMagnifier)' in script_sources["./public/node-graph-workspace-event-bindings.js"]
@@ -16830,7 +16837,7 @@ def require_node_graph_mvp_contract() -> None:
         "right-click parameter settings must keep the shared unified seat, not move Command Center to the click",
     )
     require(
-        '"osc",' not in script_sources["./public/node-graph-module-store.js"].split("nodeGraphModuleStoreUnderConstructionTypes")[1].split("]);")[0]
+        '"osc",' not in script_sources["./public/node-graph-module-store.js"].split("nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([")[1].split("]);")[0]
         and 'notes: ["osc", "BasicShape"' in script_sources["./public/node-graph-module-store.js"]
         and "Placeholder Open Sound Control" not in script_sources["./public/node-graph-module-store.js"]
         and "entry.visible && entry.implemented" not in script_sources["./public/node-graph-module-store.js"][

@@ -15,6 +15,9 @@ function nodeGraphMagnifierSession() {
       mag: nodeGraphMagnifierLimits.mag,
       pointerId: null,
       size: nodeGraphMagnifierLimits.defaultSize,
+      blockContextUntil: 0,
+      contextGuardBound: false,
+      contextGuardTimer: 0,
       wheelBound: false,
       world: null,
       x: 0,
@@ -147,10 +150,72 @@ function handleNodeGraphMagnifierWheelCapture(event) {
   resizeNodeGraphMagnifierByWheel(event);
 }
 
+function nodeGraphMagnifierShouldBlockContext() {
+  const session = nodeGraphMvp?.magnifier;
+  if (!session) {
+    return false;
+  }
+  if (session.active) {
+    return true;
+  }
+  const until = Number(session.blockContextUntil) || 0;
+  return until > 0 && performance.now() < until;
+}
+
+function handleNodeGraphMagnifierContextGuard(event) {
+  if (!nodeGraphMagnifierShouldBlockContext()) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+  if (event.type === "contextmenu" && nodeGraphMvp.magnifier && !nodeGraphMvp.magnifier.active) {
+    nodeGraphMvp.magnifier.blockContextUntil = 0;
+  }
+}
+
+function bindNodeGraphMagnifierContextGuard(on) {
+  const session = nodeGraphMagnifierSession();
+  if (on) {
+    if (session.contextGuardBound) {
+      return;
+    }
+    document.addEventListener("contextmenu", handleNodeGraphMagnifierContextGuard, true);
+    document.addEventListener("auxclick", handleNodeGraphMagnifierContextGuard, true);
+    session.contextGuardBound = true;
+    return;
+  }
+  if (!session.contextGuardBound) {
+    return;
+  }
+  document.removeEventListener("contextmenu", handleNodeGraphMagnifierContextGuard, true);
+  document.removeEventListener("auxclick", handleNodeGraphMagnifierContextGuard, true);
+  session.contextGuardBound = false;
+}
+
+function scheduleNodeGraphMagnifierContextGuardRelease() {
+  const session = nodeGraphMagnifierSession();
+  if (session.contextGuardTimer) {
+    window.clearTimeout(session.contextGuardTimer);
+  }
+  session.contextGuardTimer = window.setTimeout(() => {
+    session.contextGuardTimer = 0;
+    session.blockContextUntil = 0;
+    if (!session.active) {
+      bindNodeGraphMagnifierContextGuard(false);
+    }
+  }, 400);
+}
+
 function endNodeGraphMagnifier() {
   const session = nodeGraphMvp.magnifier;
   const workspace = document.getElementById("nodeGraphWorkspace");
   bindNodeGraphMagnifierWheelCapture(false);
+  if (session?.active) {
+    session.blockContextUntil = performance.now() + 400;
+    bindNodeGraphMagnifierContextGuard(true);
+    scheduleNodeGraphMagnifierContextGuardRelease();
+  }
   if (session?.pointerId != null && workspace?.hasPointerCapture?.(session.pointerId)) {
     workspace.releasePointerCapture(session.pointerId);
   }
@@ -199,6 +264,7 @@ function beginNodeGraphMagnifier(event) {
   document.body.classList.add("node-graph-magnifying-active");
   applyNodeGraphMagnifierLayout();
   bindNodeGraphMagnifierWheelCapture(true);
+  bindNodeGraphMagnifierContextGuard(true);
   workspace.setPointerCapture?.(event.pointerId);
   const pointerId = event.pointerId;
   window.requestAnimationFrame(() => {
@@ -241,6 +307,8 @@ function endNodeGraphMagnifierFromPointer(event) {
   if (session.pointerId != null && event.pointerId !== session.pointerId) {
     return;
   }
+  event.preventDefault();
+  event.stopPropagation();
   endNodeGraphMagnifier();
 }
 

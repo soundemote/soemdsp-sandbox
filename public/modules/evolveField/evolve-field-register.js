@@ -5,7 +5,7 @@
 // not Julia and not kaleidoscope Soft Fractal territory.
 //
 // Catalog shows as under-construction (not spawnable from the shop until
-// nodeGraphModuleStoreUnderConstructionTypes drops "evolveField").
+// evolveField leaves the underconstructionsort shelf).
 registerNodeGraphChromelessModule("evolveField", {
   label: "Evolve Field",
   solidModule: false,
