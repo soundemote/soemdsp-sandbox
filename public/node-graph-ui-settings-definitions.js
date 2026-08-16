@@ -199,17 +199,16 @@ const nodeUiDevSettingControls = Object.freeze([
   { defaultValue: "#cfdde5", id: "nodeUiDevSliderLabelColor", key: "sliderLabelColor", type: "color" },
   { defaultValue: "#ffffff", id: "nodeUiDevSliderValueColor", key: "sliderValueColor", type: "color" },
   { defaultValue: "#7fc7d9", id: "nodeUiDevSliderUnitColor", key: "sliderUnitColor", type: "color" },
-  // Amount fill (the "how far along" band) and position fill (the handle /
-  // value indicator) each get full HSLA so they can be told apart by eye.
+  // Amount fill (the "how far along" band) stays HSLA. Slider / choice handles
+  // use hue + physically plausible brightness + alpha (same model as snake).
   // UI-Dev-only (no exposeDefault): tuned once, not something end users touch.
   { defaultValue: 200, id: "nodeUiDevSliderAmountFillHue", key: "sliderAmountFillHue", max: 360, min: 0, type: "number" },
   { defaultValue: 31, id: "nodeUiDevSliderAmountFillSaturation", key: "sliderAmountFillSaturation", max: 100, min: 0, type: "number" },
   { defaultValue: 15, id: "nodeUiDevSliderAmountFillLightness", key: "sliderAmountFillLightness", max: 100, min: 0, type: "number" },
   { defaultValue: 55, id: "nodeUiDevSliderAmountFillAlpha", key: "sliderAmountFillAlpha", max: 100, min: 0, type: "number" },
-  { defaultValue: 203, id: "nodeUiDevSliderPositionFillHue", key: "sliderPositionFillHue", max: 360, min: 0, type: "number" },
-  { defaultValue: 55, id: "nodeUiDevSliderPositionFillSaturation", key: "sliderPositionFillSaturation", max: 100, min: 0, type: "number" },
-  { defaultValue: 57, id: "nodeUiDevSliderPositionFillLightness", key: "sliderPositionFillLightness", max: 100, min: 0, type: "number" },
-  { defaultValue: 37, id: "nodeUiDevSliderPositionFillAlpha", key: "sliderPositionFillAlpha", max: 100, min: 0, type: "number" },
+  { defaultValue: 203, id: "nodeUiDevSliderHandleHue", key: "sliderHandleHue", max: 360, min: 0, type: "number" },
+  { defaultValue: 57, id: "nodeUiDevSliderHandleBrightness", key: "sliderHandleBrightness", max: 100, min: 0, type: "number" },
+  { defaultValue: 37, id: "nodeUiDevSliderHandleAlpha", key: "sliderHandleAlpha", max: 100, min: 0, type: "number" },
   { defaultValue: 262, id: "nodeUiDevSliderGhostFillHue", key: "sliderGhostFillHue", max: 360, min: 0, type: "number" },
   { defaultValue: 100, id: "nodeUiDevSliderGhostFillSaturation", key: "sliderGhostFillSaturation", max: 100, min: 0, type: "number" },
   { defaultValue: 76, id: "nodeUiDevSliderGhostFillLightness", key: "sliderGhostFillLightness", max: 100, min: 0, type: "number" },
@@ -326,10 +325,9 @@ const nodeUiDevSettingSections = Object.freeze([
       "nodeUiDevSliderAmountFillSaturation",
       "nodeUiDevSliderAmountFillLightness",
       "nodeUiDevSliderAmountFillAlpha",
-      "nodeUiDevSliderPositionFillHue",
-      "nodeUiDevSliderPositionFillSaturation",
-      "nodeUiDevSliderPositionFillLightness",
-      "nodeUiDevSliderPositionFillAlpha",
+      "nodeUiDevSliderHandleHue",
+      "nodeUiDevSliderHandleBrightness",
+      "nodeUiDevSliderHandleAlpha",
       "nodeUiDevSliderGhostFillHue",
       "nodeUiDevSliderGhostFillSaturation",
       "nodeUiDevSliderGhostFillLightness",

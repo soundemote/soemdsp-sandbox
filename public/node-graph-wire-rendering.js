@@ -682,13 +682,37 @@ function drawNodeGraphWires(options = {}) {
   }
 }
 
+function syncNodeGraphWireSvgViewBox() {
+  const svg = document.getElementById("nodeWireSvg");
+  if (!svg || typeof nodeGraphGraphRect !== "function") {
+    return;
+  }
+  const graphRect = nodeGraphGraphRect();
+  const viewBox = `0 0 ${graphRect.width} ${graphRect.height}`;
+  if (svg.getAttribute("viewBox") !== viewBox) {
+    svg.setAttribute("viewBox", viewBox);
+  }
+  const capSvg = document.getElementById("nodeWireEndpointSvg");
+  if (capSvg && capSvg.getAttribute("viewBox") !== viewBox) {
+    capSvg.setAttribute("viewBox", viewBox);
+  }
+}
+
 function scheduleNodeGraphWireRedrawAfterLayout() {
+  if (nodeGraphMvp.chromeSectionResizing) {
+    syncNodeGraphWireSvgViewBox();
+    return;
+  }
   if (nodeGraphMvp.wireRedrawFrame) {
     return;
   }
   nodeGraphMvp.wireRedrawFrame = window.requestAnimationFrame(() => {
     nodeGraphMvp.wireRedrawFrame = window.requestAnimationFrame(() => {
       nodeGraphMvp.wireRedrawFrame = 0;
+      if (nodeGraphMvp.chromeSectionResizing) {
+        syncNodeGraphWireSvgViewBox();
+        return;
+      }
       drawNodeGraphWires();
     });
   });
@@ -709,6 +733,10 @@ function notifyNodeGraphChromeLayoutChanged() {
     applyNodeGraphPan({ persist: false, skipHeavy: true });
   }
   ensureNodeGraphWorkspaceWireLayoutObserver();
+  if (nodeGraphMvp?.chromeSectionResizing) {
+    syncNodeGraphWireSvgViewBox();
+    return;
+  }
   scheduleNodeGraphWireRedrawAfterLayout();
   if (typeof updateNodeGraphGridHeatmap === "function") {
     updateNodeGraphGridHeatmap();
@@ -753,9 +781,13 @@ function ensureNodeGraphWorkspaceWireLayoutObserver() {
           applyNodeGraphPan({ persist: false, skipHeavy: true });
         }
       }
-      scheduleNodeGraphWireRedrawAfterLayout();
-      if (typeof updateNodeGraphGridHeatmap === "function") {
-        updateNodeGraphGridHeatmap();
+      if (nodeGraphMvp?.chromeSectionResizing) {
+        syncNodeGraphWireSvgViewBox();
+      } else {
+        scheduleNodeGraphWireRedrawAfterLayout();
+        if (typeof updateNodeGraphGridHeatmap === "function") {
+          updateNodeGraphGridHeatmap();
+        }
       }
     }
   });

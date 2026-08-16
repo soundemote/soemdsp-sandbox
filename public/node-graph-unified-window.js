@@ -1001,7 +1001,7 @@ function beginNodeGraphCommandCenterDockResize(event) {
   }
   const dock = document.getElementById("nodeCommandCenterDock");
   const handle = event.currentTarget;
-  if (!dock || !handle) {
+  if (!dock || !handle || typeof watchNodeGraphSectionResizeDrag !== "function") {
     return false;
   }
   event.preventDefault();
@@ -1009,32 +1009,20 @@ function beginNodeGraphCommandCenterDockResize(event) {
   const side = String(nodeGraphMvp?.unifiedWindowPresentation || "") === "embedLeft" ? "left" : "right";
   const startX = event.clientX;
   const startWidth = dock.getBoundingClientRect().width;
-  handle.classList.add("is-dragging");
   document.body.classList.add("is-resizing-command-center-dock");
-  handle.setPointerCapture?.(event.pointerId);
-  const onMove = (moveEvent) => {
-    if (moveEvent.pointerId !== undefined && event.pointerId !== undefined
-      && moveEvent.pointerId !== event.pointerId) {
-      return;
-    }
-    const dx = moveEvent.clientX - startX;
-    applyNodeGraphCommandCenterDockWidth(side === "right" ? startWidth - dx : startWidth + dx);
-  };
-  const onUp = (upEvent) => {
-    if (upEvent.pointerId !== undefined && event.pointerId !== undefined
-      && upEvent.pointerId !== event.pointerId) {
-      return;
-    }
-    handle.classList.remove("is-dragging");
-    document.body.classList.remove("is-resizing-command-center-dock");
-    handle.releasePointerCapture?.(event.pointerId);
-    handle.removeEventListener("pointermove", onMove);
-    handle.removeEventListener("pointerup", onUp);
-    handle.removeEventListener("pointercancel", onUp);
-  };
-  handle.addEventListener("pointermove", onMove);
-  handle.addEventListener("pointerup", onUp);
-  handle.addEventListener("pointercancel", onUp);
+  watchNodeGraphSectionResizeDrag(event, {
+    handle,
+    onMove: (point) => {
+      const dx = point.x - startX;
+      applyNodeGraphCommandCenterDockWidth(side === "right" ? startWidth - dx : startWidth + dx);
+    },
+    onEnd: () => {
+      document.body.classList.remove("is-resizing-command-center-dock");
+      if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
+        notifyNodeGraphChromeLayoutChanged();
+      }
+    },
+  });
   return true;
 }
 

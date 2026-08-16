@@ -187,6 +187,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-marquee-selection.js",
     "./public/node-graph-node-dragging.js",
     "./public/node-graph-context-menu.js",
+    "./public/node-graph-magnifier.js",
     "./public/node-graph-module-actions.js",
     "./public/lib/phosphor/phosphor-residual.js",
     "./public/lib/phosphor/phosphor-energy-gl.js",
@@ -16789,6 +16790,38 @@ def require_node_graph_mvp_contract() -> None:
         and "x: anchorPoint.x - workspaceRect.left - nextCenter.x - anchoredContentPoint.x * zoom" in script_sources["./public/node-graph-workspace-zoom.js"]
         and "function withNodeGraphWorkspaceContentAnchored(workspace, update) {\n  update();\n  applyNodeGraphPan();\n}" in script_sources["./public/node-graph-grid-utils.js"],
         "node graph zoom and resize should preserve the center-origin pan contract",
+    )
+    require(
+        "function beginNodeGraphMagnifier(event)" in script_sources["./public/node-graph-magnifier.js"]
+        and "function resizeNodeGraphMagnifierByWheel(event)" in script_sources["./public/node-graph-magnifier.js"]
+        and "function handleNodeGraphMagnifierWheelCapture(event)" in script_sources["./public/node-graph-magnifier.js"]
+        and 'document.addEventListener("wheel", handleNodeGraphMagnifierWheelCapture, { capture: true, passive: false })' in script_sources["./public/node-graph-magnifier.js"]
+        and "resizeNodeGraphMagnifierByWheel(event)" in script_sources["./public/node-graph-workspace-zoom.js"]
+        and '.addEventListener("pointerdown", beginNodeGraphMagnifier)' in script_sources["./public/node-graph-workspace-event-bindings.js"]
+        and "handleNodeGraphWorkspaceSnakeCircleCursorPointerDown" not in script_sources["./public/node-graph-workspace-event-bindings.js"],
+        "empty-workspace right-click should hold a resizable magnifying glass; wheel resizes the glass",
+    )
+    require(
+        "function watchNodeGraphSectionResizeDrag(event, options = {})" in script_sources["./public/node-graph-workspace-geometry.js"]
+        and "function nodeGraphSectionResizeAcceptPoint(event, lastPoint)" in script_sources["./public/node-graph-workspace-geometry.js"]
+        and "function syncNodeGraphWireSvgViewBox()" in script_sources["./public/node-graph-wire-rendering.js"]
+        and "if (nodeGraphMvp.chromeSectionResizing)" in script_sources["./public/node-graph-wire-rendering.js"]
+        and "watchNodeGraphSectionResizeDrag(event, {" in script_sources["./public/node-graph-view-controls.js"]
+        and "watchNodeGraphSectionResizeDrag(event, {" in script_sources["./public/node-graph-unified-window.js"],
+        "section resize drags should ignore lost-pointer ghost coords and skip full wire redraws while dragging",
+    )
+    require(
+        'id: "nodeUiDevSliderHandleHue"' in script_sources["./public/node-graph-ui-settings-definitions.js"]
+        and 'id: "nodeUiDevSliderHandleBrightness"' in script_sources["./public/node-graph-ui-settings-definitions.js"]
+        and 'id: "nodeUiDevSliderHandleAlpha"' in script_sources["./public/node-graph-ui-settings-definitions.js"]
+        and "function syncNodeUiDevSliderHandleColor()" in script_sources["./public/node-graph-ui-settings-sync.js"]
+        and "nodeGraphHueBrightnessCss(hue, brightness / 100, alpha / 100)" in script_sources["./public/node-graph-ui-settings-sync.js"]
+        and 'id="nodeUiDevSliderHandleHue"' in index_source
+        and 'id="nodeUiDevSliderHandleBrightness"' in index_source
+        and 'id="nodeUiDevSliderHandleAlpha"' in index_source
+        and "sliderPositionFillHue" not in script_sources["./public/node-graph-ui-settings-definitions.js"]
+        and "fill: var(--node-slider-position-color)" in style_source,
+        "slider and choice handles should use UIDEV hue/brightness/alpha",
     )
     require(
         ".node-wiring-panel.modular-only-view .node-graph-resize-handle {\n  display: none;" not in style_source,

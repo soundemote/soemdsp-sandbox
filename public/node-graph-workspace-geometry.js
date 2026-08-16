@@ -199,6 +199,101 @@ function pinNodeGraphWorkspaceCameraToScreen(container = document.getElementById
   return true;
 }
 
+function setNodeGraphChromeSectionResizing(on) {
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.chromeSectionResizing = Boolean(on);
+  }
+  document.body.classList.toggle("is-resizing-chrome-section", Boolean(on));
+}
+
+/**
+ * Taskbar / Start / leaving the browser window often delivers pointercancel
+ * or a ghost client point (0,0 or a huge jump). Keep the last good sample.
+ */
+function nodeGraphSectionResizeAcceptPoint(event, lastPoint) {
+  if (!event) {
+    return null;
+  }
+  const type = String(event.type || "");
+  if (type === "pointercancel" || type === "lostpointercapture") {
+    return null;
+  }
+  const x = Number(event.clientX);
+  const y = Number(event.clientY);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return null;
+  }
+  if (lastPoint) {
+    const span = Math.min(Number(window.innerWidth) || 800, Number(window.innerHeight) || 600);
+    const maxJump = Math.max(160, Math.round(span * 0.4));
+    if (Math.abs(x - lastPoint.x) > maxJump || Math.abs(y - lastPoint.y) > maxJump) {
+      return null;
+    }
+  }
+  return { x, y };
+}
+
+function watchNodeGraphSectionResizeDrag(event, options = {}) {
+  const handle = options.handle || event.currentTarget;
+  const pointerId = event.pointerId;
+  let lastPoint = nodeGraphSectionResizeAcceptPoint(event, null) || {
+    x: Number(event.clientX) || 0,
+    y: Number(event.clientY) || 0,
+  };
+  let finished = false;
+  setNodeGraphChromeSectionResizing(true);
+  handle?.classList.add("is-dragging");
+  try {
+    handle?.setPointerCapture?.(pointerId);
+  } catch {
+    // ignore
+  }
+
+  const onMove = (moveEvent) => {
+    if (finished) {
+      return;
+    }
+    if (moveEvent.pointerId != null && pointerId != null && moveEvent.pointerId !== pointerId) {
+      return;
+    }
+    const point = nodeGraphSectionResizeAcceptPoint(moveEvent, lastPoint);
+    if (!point) {
+      return;
+    }
+    lastPoint = point;
+    options.onMove?.(point, moveEvent);
+  };
+
+  const onEnd = (endEvent) => {
+    if (finished) {
+      return;
+    }
+    if (endEvent?.pointerId != null && pointerId != null && endEvent.pointerId !== pointerId) {
+      return;
+    }
+    finished = true;
+    handle?.classList.remove("is-dragging");
+    try {
+      if (pointerId != null && handle?.hasPointerCapture?.(pointerId)) {
+        handle.releasePointerCapture(pointerId);
+      }
+    } catch {
+      // ignore
+    }
+    document.removeEventListener("pointermove", onMove, true);
+    document.removeEventListener("pointerup", onEnd, true);
+    document.removeEventListener("pointercancel", onEnd, true);
+    handle?.removeEventListener("lostpointercapture", onEnd);
+    setNodeGraphChromeSectionResizing(false);
+    options.onEnd?.(endEvent, lastPoint);
+  };
+
+  document.addEventListener("pointermove", onMove, true);
+  document.addEventListener("pointerup", onEnd, true);
+  document.addEventListener("pointercancel", onEnd, true);
+  handle?.addEventListener("lostpointercapture", onEnd);
+}
+
 function nodeGraphRenderedOriginOffset(
   pan = nodeGraphMvp.pan || { x: 0, y: 0 },
   container = document.getElementById("nodeGraphWorkspace"),

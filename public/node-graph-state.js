@@ -160,8 +160,7 @@ var nodeGraphMvp = {
   },
   marqueeSelection: null,
   marqueeSelectionEntryPointer: null,
-  snakeCircleCursor: false,
-  snakeCircleCursorPointerId: null,
+  magnifier: null,
   metadataDragging: null,
   metadataEditorTarget: null,
   metadataPopoverPosition: null,
@@ -427,6 +426,7 @@ var nodeGraphMvp = {
     screenShakeY: 0,
   },
   workspaceResizing: null,
+  chromeSectionResizing: false,
   zoom: 1,
   zoomResetClickTimer: 0,
 };

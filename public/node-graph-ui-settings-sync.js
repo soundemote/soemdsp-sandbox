@@ -19,14 +19,13 @@ function syncNodeUiDevNodeColorControls() {
   }
 }
 
-// Slider fill colors (amount band + position/handle indicator) as full HSLA.
+// Slider fill colors. Amount + ghost stay HSLA. Handles (numeric + choice)
+// use hue / physically-plausible brightness / alpha.
 // Deliberately NOT folded into syncNodeUiDevSettingsHeaderControls below --
 // that function bails early if any one of its ~80 hardcoded inputs is missing,
-// so anything added to it inherits that fragility. This reads its own controls
-// by definition key and writes two CSS custom properties, nothing else.
+// so anything added to it inherits that fragility.
 const nodeUiDevSliderFillColorTargets = Object.freeze([
   { property: "--node-slider-amount-color", prefix: "nodeUiDevSliderAmountFill", fallback: [200, 31, 15, 55] },
-  { property: "--node-slider-position-color", prefix: "nodeUiDevSliderPositionFill", fallback: [203, 55, 57, 37] },
   { property: "--node-slider-ghost-color", prefix: "nodeUiDevSliderGhostFill", fallback: [262, 100, 76, 38] },
 ]);
 
@@ -44,8 +43,8 @@ function syncNodeUiDevSnakeSelectColor() {
   workspace.style.setProperty("--node-selection-hit-trail-color", css);
   workspace.style.setProperty("--node-selection-hit-trail-alpha", String(alpha / 100));
   document.documentElement.style.setProperty("--node-selection-hit-trail-alpha", String(alpha / 100));
-  if (typeof syncNodeGraphWorkspaceSnakeCircleCursor === "function") {
-    syncNodeGraphWorkspaceSnakeCircleCursor();
+  if (typeof nodeGraphMagnifierIsActive === "function" && nodeGraphMagnifierIsActive()) {
+    applyNodeGraphMagnifierLayout();
   }
   const hueOut = document.getElementById("nodeUiDevSnakeSelectHueValue");
   if (hueOut) {
@@ -67,11 +66,38 @@ function nodeUiDevSliderFillChannel(id, fallback, max) {
   return Number.isFinite(value) ? Math.max(0, Math.min(max, value)) : fallback;
 }
 
+function syncNodeUiDevSliderHandleColor() {
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  if (!workspace) {
+    return;
+  }
+  const hue = nodeUiDevSliderFillChannel("nodeUiDevSliderHandleHue", 203, 360);
+  const brightness = nodeUiDevSliderFillChannel("nodeUiDevSliderHandleBrightness", 57, 100);
+  const alpha = nodeUiDevSliderFillChannel("nodeUiDevSliderHandleAlpha", 37, 100);
+  const css = typeof nodeGraphHueBrightnessCss === "function"
+    ? nodeGraphHueBrightnessCss(hue, brightness / 100, alpha / 100)
+    : `hsl(${hue} 100% 50% / ${alpha / 100})`;
+  workspace.style.setProperty("--node-slider-position-color", css);
+  const hueOut = document.getElementById("nodeUiDevSliderHandleHueValue");
+  if (hueOut) {
+    hueOut.textContent = `${hue}deg`;
+  }
+  const brightOut = document.getElementById("nodeUiDevSliderHandleBrightnessValue");
+  if (brightOut) {
+    brightOut.textContent = `${brightness}%`;
+  }
+  const alphaOut = document.getElementById("nodeUiDevSliderHandleAlphaValue");
+  if (alphaOut) {
+    alphaOut.textContent = `${alpha}%`;
+  }
+}
+
 function syncNodeUiDevSliderFillColorControls() {
   const workspace = document.getElementById("nodeGraphWorkspace");
   if (!workspace) {
     return;
   }
+  syncNodeUiDevSliderHandleColor();
   for (const target of nodeUiDevSliderFillColorTargets) {
     const [hueFallback, satFallback, lightFallback, alphaFallback] = target.fallback;
     const hue = nodeUiDevSliderFillChannel(`${target.prefix}Hue`, hueFallback, 360);
@@ -167,6 +193,15 @@ function bindNodeUiDevSliderFillColorControls() {
       input.addEventListener("input", syncNodeUiDevSliderFillColorControls);
       input.addEventListener("change", syncNodeUiDevSliderFillColorControls);
     }
+  }
+  for (const id of ["nodeUiDevSliderHandleHue", "nodeUiDevSliderHandleBrightness", "nodeUiDevSliderHandleAlpha"]) {
+    const input = document.getElementById(id);
+    if (!input || input.dataset.sliderHandleColorBound === "true") {
+      continue;
+    }
+    input.dataset.sliderHandleColorBound = "true";
+    input.addEventListener("input", syncNodeUiDevSliderHandleColor);
+    input.addEventListener("change", syncNodeUiDevSliderHandleColor);
   }
   for (const id of ["nodeUiDevSnakeSelectHue", "nodeUiDevSnakeSelectBrightness", "nodeUiDevSnakeSelectAlpha"]) {
     const input = document.getElementById(id);

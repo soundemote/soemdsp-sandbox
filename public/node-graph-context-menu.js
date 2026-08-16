@@ -2444,69 +2444,6 @@ function nodeGraphCssColorForSvgStroke(value) {
   return "rgb(0 208 255)";
 }
 
-function nodeGraphWorkspaceSnakeCircleCursorValue() {
-  const workspace = document.getElementById("nodeGraphWorkspace");
-  const style = workspace ? getComputedStyle(workspace) : null;
-  const color = nodeGraphCssColorForSvgStroke(
-    style?.getPropertyValue("--node-selection-hit-trail-color") || "rgb(0 208 255)",
-  );
-  const alphaRaw = Number(style?.getPropertyValue("--node-selection-hit-trail-alpha"));
-  const alpha = Number.isFinite(alphaRaw) ? Math.max(0, Math.min(1, alphaRaw)) : 0.95;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="11" fill="none" stroke="${color}" stroke-width="2" opacity="${alpha}"/></svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 16 16, crosshair`;
-}
-
-function syncNodeGraphWorkspaceSnakeCircleCursor() {
-  const workspace = document.getElementById("nodeGraphWorkspace");
-  if (!workspace) {
-    return;
-  }
-  workspace.style.setProperty("--node-selection-hit-trail-cursor", nodeGraphWorkspaceSnakeCircleCursorValue());
-}
-
-function setNodeGraphWorkspaceSnakeCircleCursor(on) {
-  const workspace = document.getElementById("nodeGraphWorkspace");
-  if (nodeGraphMvp) {
-    nodeGraphMvp.snakeCircleCursor = Boolean(on);
-    if (!on) {
-      nodeGraphMvp.snakeCircleCursorPointerId = null;
-    }
-  }
-  if (!workspace) {
-    return;
-  }
-  if (on) {
-    syncNodeGraphWorkspaceSnakeCircleCursor();
-  }
-  workspace.classList.toggle("snake-circle-cursor", Boolean(on));
-}
-
-function handleNodeGraphWorkspaceSnakeCircleCursorPointerDown(event) {
-  if (event.button !== 2 || !nodeGraphEventTargetIsEmptyWorkspaceArea(event)) {
-    return;
-  }
-  event.preventDefault();
-  if (nodeGraphMvp) {
-    nodeGraphMvp.snakeCircleCursorPointerId = event.pointerId;
-  }
-  setNodeGraphWorkspaceSnakeCircleCursor(true);
-  event.currentTarget?.setPointerCapture?.(event.pointerId);
-}
-
-function handleNodeGraphWorkspaceSnakeCircleCursorPointerUp(event) {
-  if (event.button !== 2) {
-    return;
-  }
-  const held = nodeGraphMvp?.snakeCircleCursorPointerId;
-  if (held != null && event.pointerId !== held) {
-    return;
-  }
-  if (nodeGraphMvp) {
-    nodeGraphMvp.snakeCircleCursorPointerId = null;
-  }
-  setNodeGraphWorkspaceSnakeCircleCursor(false);
-}
-
 function openNodeSceneContextMenu(event) {
   if (event.target.closest?.(".node-view-toolbar, .node-graph-controls")) {
     event.preventDefault();

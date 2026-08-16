@@ -1495,41 +1495,29 @@ function beginNodeGraphControllerDockResize(event) {
   }
   const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
   const handle = event.currentTarget;
-  if (!dock || dock.hidden || !handle) {
+  if (!dock || dock.hidden || !handle || typeof watchNodeGraphSectionResizeDrag !== "function") {
     return false;
   }
   event.preventDefault();
   event.stopPropagation();
   const startY = event.clientY;
   const startHeight = dock.getBoundingClientRect().height;
-  handle.classList.add("is-dragging");
   document.body.classList.add("is-resizing-controller-dock");
-  handle.setPointerCapture?.(event.pointerId);
-  const onMove = (moveEvent) => {
-    if (moveEvent.pointerId !== undefined && event.pointerId !== undefined
-      && moveEvent.pointerId !== event.pointerId) {
-      return;
-    }
-    applyNodeGraphControllerDockHeight(startHeight - (moveEvent.clientY - startY));
-  };
-  const onUp = (upEvent) => {
-    if (upEvent.pointerId !== undefined && event.pointerId !== undefined
-      && upEvent.pointerId !== event.pointerId) {
-      return;
-    }
-    handle.classList.remove("is-dragging");
-    document.body.classList.remove("is-resizing-controller-dock");
-    handle.releasePointerCapture?.(event.pointerId);
-    handle.removeEventListener("pointermove", onMove);
-    handle.removeEventListener("pointerup", onUp);
-    handle.removeEventListener("pointercancel", onUp);
-    if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
-      saveNodeGraphWorkingPatchToUserSettings({ immediateFile: false });
-    }
-  };
-  handle.addEventListener("pointermove", onMove);
-  handle.addEventListener("pointerup", onUp);
-  handle.addEventListener("pointercancel", onUp);
+  watchNodeGraphSectionResizeDrag(event, {
+    handle,
+    onMove: (point) => {
+      applyNodeGraphControllerDockHeight(startHeight - (point.y - startY));
+    },
+    onEnd: () => {
+      document.body.classList.remove("is-resizing-controller-dock");
+      if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
+        notifyNodeGraphChromeLayoutChanged();
+      }
+      if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+        saveNodeGraphWorkingPatchToUserSettings({ immediateFile: false });
+      }
+    },
+  });
   return true;
 }
 
@@ -1691,22 +1679,45 @@ function beginNodeGraphTooltipEmbedResize(event) {
   if (!handle || !help?.classList.contains("is-embedded")) {
     return;
   }
+  if (typeof watchNodeGraphSectionResizeDrag !== "function") {
+    return;
+  }
   event.preventDefault();
   event.stopPropagation();
   handle.classList.add("dragging");
+  const startY = event.clientY;
+  const startHeight = normalizeNodeGraphTooltipEmbedHeight(
+    nodeGraphMvp.tooltipEmbedHeight ?? nodeTooltipEmbedHeightDefault,
+  );
   nodeGraphMvp.tooltipEmbedResizing = {
     handle,
-    startY: event.clientY,
-    startHeight: normalizeNodeGraphTooltipEmbedHeight(
-      nodeGraphMvp.tooltipEmbedHeight ?? nodeTooltipEmbedHeightDefault,
-    ),
+    startY,
+    startHeight,
     pointerId: event.pointerId,
   };
-  try {
-    handle.setPointerCapture?.(event.pointerId);
-  } catch {
-    // ignore
-  }
+  watchNodeGraphSectionResizeDrag(event, {
+    handle,
+    onMove: (point) => {
+      applyNodeGraphTooltipEmbedHeight(startHeight + (point.y - startY));
+      if (typeof fitNodeInteractionHelpText === "function") {
+        fitNodeInteractionHelpText(help);
+      }
+    },
+    onEnd: () => {
+      handle.classList.remove("dragging");
+      nodeGraphMvp.tooltipEmbedResizing = null;
+      applyNodeGraphTooltipEmbedHeight();
+      if (typeof fitNodeInteractionHelpText === "function") {
+        fitNodeInteractionHelpText(help);
+      }
+      if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
+        notifyNodeGraphChromeLayoutChanged();
+      }
+      if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+        saveNodeGraphWorkingPatchToUserSettings({ immediateFile: false });
+      }
+    },
+  });
 }
 
 function dragNodeGraphTooltipEmbedResize(event) {
@@ -1714,9 +1725,17 @@ function dragNodeGraphTooltipEmbedResize(event) {
   if (!state) {
     return;
   }
-  // Drag down = taller tips (toward modular workspace); drag up = shorter.
-  const delta = event.clientY - state.startY;
-  const next = applyNodeGraphTooltipEmbedHeight(state.startHeight + delta);
+  const last = state.lastPoint || { x: state.startY, y: state.startY };
+  const point = typeof nodeGraphSectionResizeAcceptPoint === "function"
+    ? nodeGraphSectionResizeAcceptPoint(event, { x: last.x ?? state.startY, y: last.y ?? state.startY })
+    : (event.type === "pointercancel" || event.type === "lostpointercapture"
+      ? null
+      : { x: event.clientX, y: event.clientY });
+  if (!point) {
+    return;
+  }
+  state.lastPoint = point;
+  const next = applyNodeGraphTooltipEmbedHeight(state.startHeight + (point.y - state.startY));
   const help = document.getElementById("nodeInteractionHelp");
   if (typeof fitNodeInteractionHelpText === "function") {
     fitNodeInteractionHelpText(help);
@@ -1742,6 +1761,9 @@ function endNodeGraphTooltipEmbedResize(event) {
   const help = document.getElementById("nodeInteractionHelp");
   if (typeof fitNodeInteractionHelpText === "function") {
     fitNodeInteractionHelpText(help);
+  }
+  if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
+    notifyNodeGraphChromeLayoutChanged();
   }
   if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
     saveNodeGraphWorkingPatchToUserSettings({ immediateFile: false });

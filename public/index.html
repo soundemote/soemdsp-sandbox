@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=controller-rows-1">
+  <link rel="stylesheet" href="./public/styles.css?v=slider-handle-hb-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=portal-io-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -1417,55 +1417,42 @@
             </div>
           </label>
           <label class="node-ui-dev-control">
-            <span>position fill hue</span>
+            <span>slider handle hue</span>
             <div class="node-ui-dev-control-row">
               <input
-                id="nodeUiDevSliderPositionFillHue"
+                id="nodeUiDevSliderHandleHue"
                 type="range"
                 min="0"
                 max="360"
                 step="1"
                 value="203">
-              <output id="nodeUiDevSliderPositionFillHueValue" for="nodeUiDevSliderPositionFillHue">203deg</output>
+              <output id="nodeUiDevSliderHandleHueValue" for="nodeUiDevSliderHandleHue">203deg</output>
             </div>
           </label>
           <label class="node-ui-dev-control">
-            <span>position fill saturation</span>
+            <span>slider handle brightness</span>
             <div class="node-ui-dev-control-row">
               <input
-                id="nodeUiDevSliderPositionFillSaturation"
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value="55">
-              <output id="nodeUiDevSliderPositionFillSaturationValue" for="nodeUiDevSliderPositionFillSaturation">55%</output>
-            </div>
-          </label>
-          <label class="node-ui-dev-control">
-            <span>position fill lightness</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevSliderPositionFillLightness"
+                id="nodeUiDevSliderHandleBrightness"
                 type="range"
                 min="0"
                 max="100"
                 step="1"
                 value="57">
-              <output id="nodeUiDevSliderPositionFillLightnessValue" for="nodeUiDevSliderPositionFillLightness">57%</output>
+              <output id="nodeUiDevSliderHandleBrightnessValue" for="nodeUiDevSliderHandleBrightness">57%</output>
             </div>
           </label>
           <label class="node-ui-dev-control">
-            <span>position fill alpha</span>
+            <span>slider handle alpha</span>
             <div class="node-ui-dev-control-row">
               <input
-                id="nodeUiDevSliderPositionFillAlpha"
+                id="nodeUiDevSliderHandleAlpha"
                 type="range"
                 min="0"
                 max="100"
                 step="1"
                 value="37">
-              <output id="nodeUiDevSliderPositionFillAlphaValue" for="nodeUiDevSliderPositionFillAlpha">37%</output>
+              <output id="nodeUiDevSliderHandleAlphaValue" for="nodeUiDevSliderHandleAlpha">37%</output>
             </div>
           </label>
           <label class="node-ui-dev-control">
@@ -3455,7 +3442,7 @@
   <script src="./public/manifest-loader.js?v=manifest-loader-refactor-1780389600000"></script>
   <script src="./public/node-graph-wires.js?v=connected-dot-overlay-1"></script>
   <script src="./public/node-graph-floating-windows.js?v=cc-shrink-ssot-1"></script>
-  <script src="./public/node-graph-unified-window.js?v=cc-shrink-ssot-1"></script>
+  <script src="./public/node-graph-unified-window.js?v=section-resize-1"></script>
   <script src="./public/node-graph-emoji-page.js?v=cc-shrink-ssot-1"></script>
   <script src="./public/node-graph-file-actions.js?v=session-split-1"></script>
   <script src="./public/node-graph-default-buttons.js?v=patch-save-refresh-1"></script>
@@ -3525,15 +3512,16 @@
   <script src="./public/node-graph-settings-text-fit.js?v=title-label-1"></script>
   <script src="./public/node-graph-default-preset.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-script-status.js?v=book-ui-script-1"></script>
-  <script src="./public/node-graph-view-controls.js?v=controller-rows-1"></script>
-  <script src="./public/node-graph-workspace-geometry.js?v=grid-phase-1"></script>
+  <script src="./public/node-graph-view-controls.js?v=section-resize-1"></script>
+  <script src="./public/node-graph-workspace-geometry.js?v=section-resize-1"></script>
   <script src="./public/node-graph-viewport-perf.js?v=cv-skip-4"></script>
-  <script src="./public/node-graph-workspace-zoom.js?v=snake-vec-1"></script>
+  <script src="./public/node-graph-workspace-zoom.js?v=magnifier-1"></script>
   <script src="./public/node-graph-workspace-view.js?v=emoji-page-1"></script>
   <script src="./public/node-graph-camera-view.js?v=hitpoint-select-1"></script>
   <script src="./public/node-graph-marquee-selection.js?v=snake-lock-nomod-1"></script>
   <script src="./public/node-graph-node-dragging.js?v=ready-lock-hide-1"></script>
   <script src="./public/node-graph-context-menu.js?v=cc-shrink-ssot-1"></script>
+  <script src="./public/node-graph-magnifier.js?v=magnifier-wheel-1"></script>
   <script src="./public/node-graph-module-actions.js?v=title-label-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
   <script src="./public/lib/phosphor/phosphor-residual.js?v=trail-0-ghost-1"></script>
@@ -3668,7 +3656,7 @@
   <script src="./public/node-graph-execution-summary.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-wire-actions.js?v=pair-left-only-1"></script>
   <script src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
-  <script src="./public/node-graph-wire-rendering.js?v=curve-and-dots-1"></script>
+  <script src="./public/node-graph-wire-rendering.js?v=section-resize-1"></script>
   <script src="./public/node-graph-render-output.js?v=speaker-protector-noclip-1"></script>
   <script src="./public/node-graph-debug-copy.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-execution-debug-api.js?v=noise-generator-stereo-20260630"></script>
@@ -3676,12 +3664,12 @@
   <script src="./public/node-graph-tooltips.js?v=script-page-name-1"></script>
   <script src="./public/node-graph-interaction-help.js?v=script-page-name-1"></script>
   <script src="./public/presets/useruisettings.js?v=catalog-shelves-1"></script>
-  <script src="./public/node-graph-ui-settings-definitions.js?v=io-section-gap-1"></script>
+  <script src="./public/node-graph-ui-settings-definitions.js?v=slider-handle-hb-1"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=macro-cleanup-2"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=cc-shrink-ssot-1"></script>
-  <script src="./public/node-graph-ui-settings-persistence.js?v=io-section-pad-1"></script>
-  <script src="./public/node-graph-ui-settings-sync.js?v=io-section-pad-1"></script>
+  <script src="./public/node-graph-ui-settings-persistence.js?v=slider-handle-hb-1"></script>
+  <script src="./public/node-graph-ui-settings-sync.js?v=slider-handle-hb-1"></script>
   <script src="./public/node-graph-keyboard-shortcuts.js?v=textbox-ctrl-a-1"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
@@ -3983,9 +3971,9 @@
   <script src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
   <script src="./public/node-graph-live-runtime.js?v=dip-ms-db-1"></script>
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
-  <script src="./public/node-graph-workspace-event-bindings.js?v=rclick-ring-hold-1"></script>
+  <script src="./public/node-graph-workspace-event-bindings.js?v=magnifier-1"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>
-  <script src="./public/node-graph-header-event-bindings.js?v=last-action-1"></script>
+  <script src="./public/node-graph-header-event-bindings.js?v=section-resize-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
   <script src="./public/node-graph-scene-menu-event-bindings.js?v=cc-dock-page-2"></script>
   <script src="./public/node-graph-uidev-event-bindings.js?v=io-section-pad-1"></script>

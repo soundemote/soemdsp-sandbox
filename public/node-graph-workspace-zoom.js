@@ -352,6 +352,9 @@ function handleNodeGraphWorkspaceWheel(event) {
   if (!event.deltaY) {
     return;
   }
+  if (typeof resizeNodeGraphMagnifierByWheel === "function" && resizeNodeGraphMagnifierByWheel(event)) {
+    return;
+  }
   event.preventDefault();
   event.stopPropagation();
   if (typeof markNodeGraphViewportGesture === "function") {

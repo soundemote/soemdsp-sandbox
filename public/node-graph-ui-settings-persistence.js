@@ -665,9 +665,35 @@ function normalizeNodeUiDevSettings(settings = {}) {
       controls.jackAnalog = controls.jackAnalogIn;
     }
   }
+  if (controls.sliderHandleHue == null && controls.sliderPositionFillHue != null) {
+    controls.sliderHandleHue = controls.sliderPositionFillHue;
+  }
+  if (controls.sliderHandleBrightness == null) {
+    if (controls.sliderPositionFillBrightness != null) {
+      controls.sliderHandleBrightness = controls.sliderPositionFillBrightness;
+    } else if (controls.sliderPositionFillLightness != null) {
+      controls.sliderHandleBrightness = controls.sliderPositionFillLightness;
+    }
+  }
+  if (controls.sliderHandleAlpha == null && controls.sliderPositionFillAlpha != null) {
+    controls.sliderHandleAlpha = controls.sliderPositionFillAlpha;
+  }
   const exposedControls = settings.exposedControls && typeof settings.exposedControls === "object"
-    ? settings.exposedControls
+    ? { ...settings.exposedControls }
     : {};
+  if (exposedControls.sliderHandleHue == null && exposedControls.sliderPositionFillHue != null) {
+    exposedControls.sliderHandleHue = exposedControls.sliderPositionFillHue;
+  }
+  if (exposedControls.sliderHandleBrightness == null) {
+    if (exposedControls.sliderPositionFillBrightness != null) {
+      exposedControls.sliderHandleBrightness = exposedControls.sliderPositionFillBrightness;
+    } else if (exposedControls.sliderPositionFillLightness != null) {
+      exposedControls.sliderHandleBrightness = exposedControls.sliderPositionFillLightness;
+    }
+  }
+  if (exposedControls.sliderHandleAlpha == null && exposedControls.sliderPositionFillAlpha != null) {
+    exposedControls.sliderHandleAlpha = exposedControls.sliderPositionFillAlpha;
+  }
   const nodeColors = settings.nodeColors && typeof settings.nodeColors === "object"
     ? settings.nodeColors
     : {};

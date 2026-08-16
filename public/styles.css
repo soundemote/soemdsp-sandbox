@@ -6152,11 +6152,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-slider-label-color: #cfdde5;
   --node-slider-value-color: #ffffff;
   --node-slider-unit-color: #7fc7d9;
-  /* Amount band vs position/handle indicator, tunable as full HSLA from
-     UI Dev -> "slider fill colors" (syncNodeUiDevSliderFillColorControls
-     writes these). Both use alpha: amount sits under label/value (z0),
-     position sits over text (z2) — opaque amount washed out the row. */
-  --node-slider-position-color: hsl(203 55% 57% / 0.42);
+  /* Amount/ghost stay HSLA. Handle (numeric + choice) is hue/brightness/alpha
+     via nodeGraphHueBrightnessCss. Amount under text (z0); handle over (z2). */
+  --node-slider-position-color: rgb(68 164 255 / 0.37);
   --node-slider-amount-color: hsl(200 31% 15% / 0.55);
   --node-slider-ghost-color: hsl(262 100% 76% / 0.38);
   --node-selection-hit-trail-color: rgb(0 208 255);
@@ -6280,9 +6278,74 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 /* During pan/zoom: light CSS + lite wires; full chrome resumes on settle. */
-.node-graph-workspace.snake-circle-cursor,
-.node-graph-workspace.snake-circle-cursor .node-wire-svg {
-  cursor: var(--node-selection-hit-trail-cursor, var(--node-dot-cursor));
+body.node-graph-magnifying-active,
+body.node-graph-magnifying-active * {
+  cursor: none !important;
+}
+
+.node-graph-magnifier {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 80;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  --magnifier-size: 220px;
+  --node-graph-magnifier-color: rgb(0 208 255);
+  --node-graph-magnifier-alpha: 0.95;
+}
+
+.node-graph-magnifier[hidden] {
+  display: none;
+}
+
+.node-graph-magnifier-lens {
+  position: absolute;
+  left: calc(var(--magnifier-size) / -2);
+  top: calc(var(--magnifier-size) / -2);
+  z-index: 1;
+  width: var(--magnifier-size);
+  height: var(--magnifier-size);
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px color-mix(
+      in srgb,
+      var(--node-graph-magnifier-color) calc(var(--node-graph-magnifier-alpha) * 100%),
+      transparent
+    ),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 10px 28px rgba(0, 0, 0, 0.45);
+  background: var(--node-workspace-bg, #1d1b1b);
+}
+
+.node-graph-magnifier-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  overflow: hidden;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.node-graph-magnifier-handle {
+  position: absolute;
+  left: calc(var(--magnifier-size) * 0.34);
+  top: calc(var(--magnifier-size) * 0.34);
+  z-index: 0;
+  width: calc(var(--magnifier-size) * 0.4);
+  height: calc(10px + var(--magnifier-size) * 0.02);
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--node-graph-magnifier-color) calc(var(--node-graph-magnifier-alpha) * 100%),
+    transparent
+  );
+  transform: rotate(45deg);
+  transform-origin: 0 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .node-graph-workspace.viewport-gesturing {
