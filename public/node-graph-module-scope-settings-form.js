@@ -1002,8 +1002,18 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       : packingCandidates.filter((key) => key !== "sourceSync");
     const packingKeySet = new Set(packingKeys);
     // Preferred order: choices → toggles (except packing) → fields → packing → colors.
-    for (const key of choiceKeys) {
-      rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml(key));
+    // Spectrogram: one column, one row per control (label | dropdown).
+    // Other faces may pack 2+ short choices into a two-column grid.
+    if (type === "spectrogramBurn" || choiceKeys.length < 2) {
+      for (const key of choiceKeys) {
+        rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml(key));
+      }
+    } else {
+      rows.push(
+        `<div class="node-trace-display-choice-grid">${
+          choiceKeys.map((key) => nodeGraphDisplaySettingsBuildChoiceRowHtml(key)).join("")
+        }</div>`,
+      );
     }
     for (const key of toggleKeys) {
       if (section === "secondary" && key === "secondaryEnabled") {

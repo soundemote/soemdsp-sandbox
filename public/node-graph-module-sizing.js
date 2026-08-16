@@ -1103,6 +1103,12 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
   } else {
     window.requestAnimationFrame(() => applyNodeGraphModulePlateClip(article));
   }
+  if (
+    typeof scheduleNodeGraphFilterCurveDraw === "function"
+    && article.querySelector?.(".node-filter-curve-display")
+  ) {
+    scheduleNodeGraphFilterCurveDraw();
+  }
 }
 
 const NODE_GRAPH_PLATE_CLIP_SEL = [
@@ -1139,6 +1145,9 @@ function applyNodeGraphModulePlateClip(article) {
     if (face.classList.contains("node-text-box-body")) {
       continue;
     }
+    if (face.classList.contains("node-filter-curve-display")) {
+      continue;
+    }
     if (face.closest(".node-io-column, .dsp-node-io-section, .dsp-node-header")) {
       continue;
     }
@@ -1154,6 +1163,9 @@ function applyNodeGraphModulePlateClip(article) {
     }
     const right = Math.max(0, plateW - left - width);
     const bottom = Math.max(0, plateH - top - height);
+    if (top + bottom >= height - 1 || left + right >= width - 1) {
+      continue;
+    }
     face.style.setProperty("--node-plate-clip-top", `${Math.max(0, top).toFixed(2)}px`);
     face.style.setProperty("--node-plate-clip-right", `${right.toFixed(2)}px`);
     face.style.setProperty("--node-plate-clip-bottom", `${bottom.toFixed(2)}px`);

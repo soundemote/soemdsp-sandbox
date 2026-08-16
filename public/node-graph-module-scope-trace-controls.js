@@ -121,6 +121,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
   choices: [
     "syncChannel",
     "stereoBlend",
+    "fftSize",
     "window",
     "overlap",
     "freqOverlap",
@@ -420,12 +421,10 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // Spectrogram: FFT + analysis choices. History / Min·Max Freq are module sliders.
   // Gradient separate.
   spectrogramBurn: Object.freeze({
-    fields: Object.freeze([
-      "fftSize",
-    ]),
+    fields: Object.freeze([]),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
-    choices: Object.freeze(["window", "overlap", "freqOverlap", "freqScale"]),
+    choices: Object.freeze(["fftSize", "window", "overlap", "freqOverlap", "freqScale"]),
   }),
   // Videoscope / bank / hypersaw: mono energy phosphor (same knobs as 2D Phosphor).
   // MUST NOT fall through to "trace" — that is Output's Left/Right page.
@@ -654,6 +653,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "pixelDensity",
       "dotBudget",
       "padding",
+      "screenPadding",
       "fftSize",
       "minFreq",
       "maxFreq",
@@ -671,6 +671,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "decimalBudget",
       "removeTrailingZeros",
       "rotate90",
+      "squareRatio",
     ]),
     // window/overlap/freqOverlap/freqScale = spectrogram; syncChannel/stereoBlend = Output.
     // cornerShape = LED.
@@ -688,6 +689,8 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "labelPosition",
       "valuePosition",
       "xyzLayout",
+      "screenShape",
+      "fftSize",
     ]),
   }),
   value: Object.freeze({
@@ -1060,9 +1063,9 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     title: "Audio vectorscope rotation: (X−Y, X+Y)/√2 so mono is vertical. Off = raw X/Y.",
   }),
   squareRatio: Object.freeze({
-    label: "Square ratio screen",
+    label: "Square pixels",
     id: "nodeTraceDisplaySquareRatio",
-    title: "On: keep pixels square and letterbox the raster. Off (default): stretch to fill the face.",
+    title: "Keep raster cells square. When Width and Height match, a non-square face letterboxes instead of stretching. Off: stretch the grid to fill the face.",
   }),
   dotsOnly: Object.freeze({
     label: "Dots only",
@@ -1341,6 +1344,22 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
       Object.freeze({ value: "big-shoulders", label: "Big Shoulders" }),
       Object.freeze({ value: "tenor-sans", label: "Tenor Sans" }),
       Object.freeze({ value: "zen-loop", label: "Zen Loop" }),
+    ]),
+  }),
+  fftSize: Object.freeze({
+    label: "FFT size",
+    aria: "FFT size",
+    id: "nodeTraceDisplayFftSize",
+    title: "Analysis window length (samples). Time hop = N / time-overlap. Freq overlap zero-pads the FFT.",
+    options: Object.freeze([
+      Object.freeze({ value: "128", label: "128" }),
+      Object.freeze({ value: "256", label: "256" }),
+      Object.freeze({ value: "512", label: "512" }),
+      Object.freeze({ value: "1024", label: "1024" }),
+      Object.freeze({ value: "2048", label: "2048" }),
+      Object.freeze({ value: "4096", label: "4096" }),
+      Object.freeze({ value: "8192", label: "8192" }),
+      Object.freeze({ value: "16384", label: "16384" }),
     ]),
   }),
   window: Object.freeze({

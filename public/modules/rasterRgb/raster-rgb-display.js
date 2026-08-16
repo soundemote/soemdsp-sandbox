@@ -7,7 +7,11 @@
 // original canvas Gaussian: filter:blur() on the present, then an
 // additive wider Gaussian for glow.
 
-const NODE_GRAPH_RASTER_RGB_PAINT_REV = "syntax-3";
+const NODE_GRAPH_RASTER_RGB_PAINT_REV = "title-keep-1";
+
+// Rolling framebuffer lives by node id — not on the face canvas.
+// Hide/show title rebuilds the module DOM; the raster must survive that.
+const nodeGraphRasterRgbBuffers = new Map();
 
 const nodeGraphRasterRgbSettingsDefaults = Object.freeze({
   background: "#000000",
@@ -76,9 +80,10 @@ function nodeGraphRasterRgbDim(value, fallback) {
 }
 
 function nodeGraphRasterRgbGridSize(node) {
+  const params = node?.params || {};
   return {
-    width: nodeGraphRasterRgbDim(node?.params?.width, 96),
-    height: nodeGraphRasterRgbDim(node?.params?.height, 54),
+    width: nodeGraphRasterRgbDim(params.width, 96),
+    height: nodeGraphRasterRgbDim(params.height, 54),
   };
 }
 
@@ -104,8 +109,10 @@ function nodeGraphRasterRgbHueParam(value) {
 function nodeGraphRasterRgbGrade(node) {
   const params = node?.params && typeof node.params === "object" ? node.params : {};
   const invert = nodeGraphRasterRgbUnit01(params.invert, 0);
-  const contrast = Math.max(0, Math.min(4, Number(params.contrast)));
-  const brightness = Math.max(0, Math.min(4, Number(params.brightness)));
+  const contrastRaw = Number(params.contrast);
+  const brightnessRaw = Number(params.brightness);
+  const contrast = Number.isFinite(contrastRaw) ? Math.max(-4, Math.min(4, contrastRaw)) : 1;
+  const brightness = Number.isFinite(brightnessRaw) ? Math.max(-4, Math.min(4, brightnessRaw)) : 1;
   const blur = nodeGraphRasterRgbUnit01(params.blur, 0);
   const glow = nodeGraphRasterRgbUnit01(params.glow, 0);
   return {
@@ -118,20 +125,24 @@ function nodeGraphRasterRgbGrade(node) {
   };
 }
 
-/** Power S-curve. 1 = identity, 0 = mid grey, >1 = steeper mids + compressive ends. */
+/** Power S-curve. 1 = identity, 0 = mid grey, >1 = steeper mids, <0 = inverted. */
 function nodeGraphRasterRgbContrastCurve(x, contrast) {
+  if (typeof nodeGraphRasterRgbContrast01 === "function") {
+    return nodeGraphRasterRgbContrast01(x, contrast);
+  }
   const t = x < 0 ? 0 : x > 1 ? 1 : x;
   const c = Number(contrast);
-  if (!(c > 0) || !Number.isFinite(c)) {
+  if (!Number.isFinite(c) || c === 0) {
     return 0.5;
   }
-  if (Math.abs(c - 1) < 1e-4) {
-    return t;
+  const mag = Math.abs(c);
+  let y = t;
+  if (Math.abs(mag - 1) >= 1e-4) {
+    y = t < 0.5
+      ? 0.5 * (2 * t) ** mag
+      : 1 - 0.5 * (2 * (1 - t)) ** mag;
   }
-  if (t < 0.5) {
-    return 0.5 * (2 * t) ** c;
-  }
-  return 1 - 0.5 * (2 * (1 - t)) ** c;
+  return c < 0 ? 1 - y : y;
 }
 
 function nodeGraphRasterRgbParseHexRgb(value, fallback = "#000000") {
@@ -167,20 +178,11 @@ function nodeGraphRasterRgbInvertCssColor(value, invert) {
 }
 
 function nodeGraphRasterRgbGradeLut(grade) {
-  const invert = nodeGraphRasterRgbUnit01(grade?.invert, 0);
-  const contrast = Number.isFinite(Number(grade?.contrast)) ? Number(grade.contrast) : 1;
-  const brightness = Number.isFinite(Number(grade?.brightness)) ? Math.max(0, Number(grade.brightness)) : 1;
   const lut = new Uint8Array(256);
   for (let i = 0; i < 256; i += 1) {
-    let x = i / 255;
-    x = nodeGraphRasterRgbContrastCurve(x, contrast);
-    x *= brightness;
-    if (x > 1) {
-      x = 1;
-    }
-    if (invert > 0) {
-      x += invert * (1 - 2 * x);
-    }
+    const x = typeof nodeGraphRasterRgbGradeChannel01 === "function"
+      ? nodeGraphRasterRgbGradeChannel01(i / 255, grade)
+      : nodeGraphRasterRgbContrastCurve(i / 255, grade?.contrast);
     lut[i] = x <= 0 ? 0 : x >= 1 ? 255 : Math.round(x * 255);
   }
   return lut;
@@ -231,24 +233,121 @@ function nodeGraphRasterRgbApplyGrade(state, grade) {
   return dst;
 }
 
-function nodeGraphRasterRgbState(canvas, width, height) {
-  if (
-    !canvas._rasterRgb
-    || canvas._rasterRgb.width !== width
-    || canvas._rasterRgb.height !== height
-  ) {
-    canvas._rasterRgb = {
+function nodeGraphRasterRgbState(nodeId, width, height) {
+  const key = String(nodeId || "");
+  let state = key ? nodeGraphRasterRgbBuffers.get(key) : null;
+  if (!state || state.width !== width || state.height !== height) {
+    state = {
       height,
       pixels: new Uint8ClampedArray(width * height * 4),
       width,
       write: 0,
     };
-    const pix = canvas._rasterRgb.pixels;
+    const pix = state.pixels;
     for (let i = 0; i < pix.length; i += 4) {
       pix[i + 3] = 255;
     }
+    if (key) {
+      nodeGraphRasterRgbBuffers.set(key, state);
+    }
   }
-  return canvas._rasterRgb;
+  return state;
+}
+
+function nodeGraphRasterRgbDropState(nodeId) {
+  const key = String(nodeId || "");
+  if (key) {
+    nodeGraphRasterRgbBuffers.delete(key);
+  }
+}
+
+function nodeGraphRasterRgbCircuitRunning() {
+  if (typeof nodeGraphModuleScopeCircuitRunning === "function") {
+    return nodeGraphModuleScopeCircuitRunning();
+  }
+  const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live : null;
+  return Boolean(live?.outputEnabled && live?.node);
+}
+
+function nodeGraphRasterRgbClearState(state) {
+  if (!state?.pixels) {
+    return;
+  }
+  const pix = state.pixels;
+  for (let i = 0; i < pix.length; i += 4) {
+    pix[i] = 0;
+    pix[i + 1] = 0;
+    pix[i + 2] = 0;
+    pix[i + 3] = 255;
+  }
+  state.write = 0;
+}
+
+function nodeGraphRasterRgbUnlightFace(face) {
+  if (face?.dataset) {
+    face.dataset.lightStrength = "0";
+  }
+  const canvas = face?.querySelector?.(":scope > .node-raster-rgb-canvas");
+  if (canvas?.dataset) {
+    canvas.dataset.lightStrength = "0";
+  }
+  if (typeof setNodeGraphLightStrength === "function" && face) {
+    try {
+      setNodeGraphLightStrength(face, 0);
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
+}
+
+function wipeNodeGraphRasterRgbScreensToColdBoot() {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const faces = typeof nodeGraphRasterRgbCollectFaces === "function"
+    ? nodeGraphRasterRgbCollectFaces()
+    : [];
+  const seen = new Set();
+  const list = faces.length
+    ? faces.map((entry) => entry.face).filter(Boolean)
+    : Array.from(document.querySelectorAll(
+      ".dsp-node[data-node-type=\"rasterRgb\"] .node-module-scope-window, .node-module-scope-window[data-node-type=\"rasterRgb\"]",
+    ));
+  for (const face of list) {
+    if (!face || seen.has(face)) {
+      continue;
+    }
+    seen.add(face);
+    const canvas = face.querySelector?.(":scope > .node-raster-rgb-canvas");
+    const nodeId = face.dataset?.node || face.closest?.(".dsp-node")?.dataset?.node || "";
+    const state = (nodeId && nodeGraphRasterRgbBuffers.get(String(nodeId)))
+      || canvas?._rasterRgb;
+    if (state) {
+      nodeGraphRasterRgbClearState(state);
+    }
+    if (nodeId) {
+      nodeGraphRasterRgbDropState(nodeId);
+    }
+    if (canvas) {
+      canvas._rasterRgb = null;
+      canvas._rasterRgbBlit = false;
+      canvas._rasterRgbGradeKey = "";
+    }
+    const ctx = canvas?.getContext?.("2d");
+    if (ctx && canvas.width > 0 && canvas.height > 0) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.filter = "none";
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (face.style) {
+      face.style.background = "#000000";
+    }
+    nodeGraphRasterRgbUnlightFace(face);
+  }
+  nodeGraphRasterRgbBuffers.clear();
 }
 
 function nodeGraphRasterRgbAnalog01(value, bipolar) {
@@ -421,7 +520,15 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
   const settings = nodeGraphRasterRgbSettingsForNode(node);
   const grade = nodeGraphRasterRgbGrade(node);
   const plate = nodeGraphRasterRgbInvertCssColor(settings.background, grade.invert);
-  nodeGraphRasterRgbApplyPlate(face, plate);
+  const running = nodeGraphRasterRgbCircuitRunning();
+  if (running) {
+    nodeGraphRasterRgbApplyPlate(face, plate);
+  } else {
+    if (face.style) {
+      face.style.background = plate;
+    }
+    nodeGraphRasterRgbUnlightFace(face);
+  }
   const paintSlot = slot || { nodeId, scopeElement: face, type: "rasterRgb" };
   const canvas = nodeGraphRasterRgbEnsureCanvas(face, paintSlot, pixelRatio);
   canvas.style.background = plate;
@@ -439,13 +546,25 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
   ctx.filter = "none";
   ctx.fillStyle = plate;
   ctx.fillRect(0, 0, cw, ch);
+  if (!running) {
+    const held = nodeGraphRasterRgbBuffers.get(String(nodeId || ""));
+    if (held) {
+      nodeGraphRasterRgbClearState(held);
+    }
+    nodeGraphRasterRgbDropState(nodeId);
+    canvas._rasterRgb = null;
+    canvas._rasterRgbBlit = false;
+    canvas._rasterRgbGradeKey = "";
+    return;
+  }
   if (!(grid.width > 0) || !(grid.height > 0)) {
     canvas._rasterRgbBlit = true;
     return;
   }
   let state;
   try {
-    state = nodeGraphRasterRgbState(canvas, grid.width, grid.height);
+    state = nodeGraphRasterRgbState(nodeId, grid.width, grid.height);
+    canvas._rasterRgb = state;
   } catch (_err) {
     canvas._rasterRgbBlit = true;
     return;
@@ -455,8 +574,9 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
   const wired = Boolean(captured.length);
   const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen();
-  // New pixels only on a Simulation FPS tick. Pause / FPS 0 holds the raster.
-  if (wired && cellCount > 0 && !frozen) {
+  // New pixels only when the shared Simulation FPS tick arms ingest.
+  // Extra paints (pump, collect, slider) re-present grade without a second write.
+  if (wired && cellCount > 0 && !frozen && nodeGraphRasterRgbShouldIngest()) {
     const red = captured.R;
     const green = captured.G;
     const blue = captured.B;
@@ -708,6 +828,30 @@ function nodeGraphRasterRgbCollectFaces() {
   return faces;
 }
 
+const nodeGraphRasterRgbIngestClock = { gen: 0, done: 0 };
+
+function nodeGraphRasterRgbArmIngest() {
+  nodeGraphRasterRgbIngestClock.gen += 1;
+}
+
+function nodeGraphRasterRgbShouldIngest() {
+  return nodeGraphRasterRgbIngestClock.gen !== nodeGraphRasterRgbIngestClock.done;
+}
+
+function nodeGraphRasterRgbConsumeIngest() {
+  nodeGraphRasterRgbIngestClock.done = nodeGraphRasterRgbIngestClock.gen;
+}
+
+function nodeGraphRasterRgbLiveLoopActive() {
+  if (typeof scopePaintShouldFullDraw === "function") {
+    return scopePaintShouldFullDraw(false);
+  }
+  if (typeof nodeGraphModuleScopeLivePaintActive === "function") {
+    return nodeGraphModuleScopeLivePaintActive();
+  }
+  return typeof nodeGraphModuleScopePaused !== "function" || !nodeGraphModuleScopePaused();
+}
+
 function scheduleNodeGraphRasterRgbPump() {
   if (nodeGraphRasterRgbPumpQueued) {
     return;
@@ -722,13 +866,27 @@ function scheduleNodeGraphRasterRgbPump() {
     if (!faces.length) {
       return;
     }
-    // Same Simulation FPS clock as scopes / phosphor / matrix / asciiscope.
-    const frameReady = typeof nodeGraphDisplayFrameReady === "function"
-      ? nodeGraphDisplayFrameReady("rasterRgb")
-      : true;
-    if (frameReady) {
-      paintNodeGraphRasterRgbFacesNow();
+    const live = nodeGraphRasterRgbLiveLoopActive();
+    const tracesOff = typeof nodeGraphModuleScopeTracesOff === "function"
+      && nodeGraphModuleScopeTracesOff();
+    // Live compositor owns the Simulation FPS tick so Pixel Grid stays
+    // phase-locked with phosphor / traces. Pump only covers pause + traces-off.
+    if (live && !tracesOff) {
+      scheduleNodeGraphRasterRgbPump();
+      return;
     }
+    if (live && tracesOff) {
+      const frameReady = typeof nodeGraphDisplayFrameReady === "function"
+        ? nodeGraphDisplayFrameReady("rasterRgb")
+        : true;
+      if (frameReady) {
+        nodeGraphRasterRgbArmIngest();
+        paintNodeGraphRasterRgbFacesNow();
+      }
+      scheduleNodeGraphRasterRgbPump();
+      return;
+    }
+    paintNodeGraphRasterRgbFacesNow();
     scheduleNodeGraphRasterRgbPump();
   });
 }
@@ -748,12 +906,15 @@ function paintNodeGraphRasterRgbFacesNow(pixelRatio = window.devicePixelRatio ||
       nodeGraphRasterRgbNoteError(slot?.nodeId || face?.dataset?.node, err);
     }
   }
+  nodeGraphRasterRgbConsumeIngest();
   nodeGraphRasterRgbMaybeLogStatus(painted);
   return painted;
 }
 
 if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {
-  nodeGraphModuleScopeCustomRenderers.rasterRgbFace = drawNodeGraphRasterRgbFaceItem;
+  nodeGraphModuleScopeCustomRenderers.rasterRgbFace = function nodeGraphRasterRgbScopeHook() {
+    // Live write/present is once, after the shared Simulation FPS gate.
+  };
 }
 
 if (typeof window !== "undefined") {

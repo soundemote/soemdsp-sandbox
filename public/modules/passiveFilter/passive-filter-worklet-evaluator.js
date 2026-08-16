@@ -1,3 +1,19 @@
+NodeLiveAudioProcessor.prototype.sweepFrequencyHz = function sweepFrequencyHz(hz, semitones) {
+    if (typeof nodeGraphSweepFrequencyHz === "function") {
+      return nodeGraphSweepFrequencyHz(hz, semitones);
+    }
+    const f = Number(hz);
+    if (!Number.isFinite(f) || f <= 0) {
+      return 0;
+    }
+    const st = Number(semitones);
+    if (!Number.isFinite(st) || st === 0) {
+      return f;
+    }
+    const out = f * (2 ** (st / 12));
+    return Number.isFinite(out) && out > 0 ? out : 0;
+  };
+
 NodeLiveAudioProcessor.prototype.createPassiveFilterState = function createPassiveFilterState() {
     return { nativeHandle: 0 };
   };

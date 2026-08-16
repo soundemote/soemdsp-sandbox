@@ -8,5 +8,5 @@ nodeGraphLiveModuleEvaluators.spectrogram = ({ runtime, nodeId, mixInput }) => {
     null,
     "spectrogram in",
   );
-  return { Thru: raw };
+  return { Thru: raw, rgba: 0 };
 };

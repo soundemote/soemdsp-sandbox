@@ -64,7 +64,7 @@
     "tooltip": "tooltip text stored in this parameter's metadata spec | language-neutral, authored by C++, JavaScript, or any future module source",
     "kind": "parameter value type and default formatting behavior",
     "unit": "unit text shown next to the parameter value",
-    "maxDigits": "maximum number of displayed digits for this parameter value | minimum 1 (0 is invalid)",
+    "maxDigits": "maximum number of displayed digits for this parameter value | 0 = integer (no fraction)",
     "max": "highest value this parameter can reach",
     "mid": "middle reference value for mid skew | slider center lands on this domain value | also bipolar fill center when bipolar is on",
     "min": "lowest value this parameter can reach",

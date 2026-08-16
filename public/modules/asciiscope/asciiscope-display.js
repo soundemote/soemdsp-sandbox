@@ -1368,7 +1368,11 @@ function asciiscopeSchedulePump() {
           continue;
         }
         if (typeof nodeGraphScreenSoloAllowsNode === "function"
-          && !nodeGraphScreenSoloAllowsNode(face.closest?.(".dsp-node")?.dataset?.node)) {
+          && !nodeGraphScreenSoloAllowsNode(
+            typeof nodeGraphDisplayNodeIdFromElement === "function"
+              ? nodeGraphDisplayNodeIdFromElement(face)
+              : face.closest?.(".dsp-node")?.dataset?.node,
+          )) {
           continue;
         }
         matrixTickFace(face);

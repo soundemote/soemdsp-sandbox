@@ -35,7 +35,9 @@ function limit_decimals(
   if (!dot) {
     if (!removeTrailingZeros) {
       // maxDigits policy: ≥ 1 app-wide (same as normalizeNodeGraphMetadataMaxDigits).
-      const boundedMaxDigits = Math.max(1, Math.min(12, Math.round(Number(maxDigits) || 1)));
+      const boundedMaxDigits = Number.isFinite(Number(maxDigits))
+        ? Math.max(0, Math.min(12, Math.round(Number(maxDigits))))
+        : 3;
       const boundedMinDecimals = Math.max(0, Math.round(Number(minDecimalPlaces) || 0));
       const boundedMaxDecimals = Math.max(0, Math.round(Number(maxDecimalPlaces) || 0));
       const digitBudget = Math.max(0, boundedMaxDigits - whole.length);
@@ -47,7 +49,9 @@ function limit_decimals(
     return `${sign}${whole}`;
   }
 
-  const boundedMaxDigits = Math.max(1, Math.min(12, Math.round(Number(maxDigits) || 1)));
+  const boundedMaxDigits = Number.isFinite(Number(maxDigits))
+    ? Math.max(0, Math.min(12, Math.round(Number(maxDigits))))
+    : 3;
   const boundedMinDecimals = Math.max(0, Math.round(Number(minDecimalPlaces) || 0));
   const boundedMaxDecimals = Math.max(0, Math.round(Number(maxDecimalPlaces) || 0));
   let digitBudget = Math.max(0, boundedMaxDigits - whole.length);

@@ -206,6 +206,17 @@ function validateNodeGraphPatch(patch) {
     const paramMeta = {};
     const rawParams = node.params && typeof node.params === "object" ? node.params : {};
     const rawParamMeta = node.paramMeta && typeof node.paramMeta === "object" ? node.paramMeta : {};
+    const fbmFieldFaceKeys = [
+      "lacunarity",
+      "smoothness",
+      "scale",
+      "zoom",
+      "contrast",
+      "brightness",
+      "rotate",
+    ];
+    const liftFbmFieldFaceParams = type === "fbmField"
+      && fbmFieldFaceKeys.every((key) => rawParamMeta[key]?.visible !== true);
     for (const parameter of nodeGraphModuleDefinitions[type].parameters || []) {
       // Legacy source "level" → "amplitude" (RoundShape and other sources).
       const legacyLevelMeta = parameter.key === "amplitude" ? rawParamMeta.level : undefined;
@@ -214,14 +225,21 @@ function validateNodeGraphPatch(patch) {
         parameter.key,
         rawParamMeta[parameter.key] ?? legacyLevelMeta,
       );
-      // Raster RGB used to hard-floor Width/Height at 8 (and cap 320/240).
-      // 0 = no raster, 1 = one pixel; lift old factory mins so settings accept 1.
+      // Raster RGB: contrast/brightness used to be 0…1 unipolar.
+      if (
+        type === "rasterRgb"
+        && (parameter.key === "contrast" || parameter.key === "brightness")
+        && metadata
+        && Number(metadata.min) === 0
+      ) {
+        metadata.min = -4;
+      }
       if (
         type === "rasterRgb"
         && (parameter.key === "width" || parameter.key === "height")
         && metadata
       ) {
-        if (Number(metadata.min) === 8) {
+        if (Number(metadata.min) < 0) {
           metadata.min = 0;
         }
         if (
@@ -230,6 +248,12 @@ function validateNodeGraphPatch(patch) {
         ) {
           metadata.max = 512;
         }
+        if (Number(metadata.maxDigits) > 0 || !Object.hasOwn(metadata, "maxDigits")) {
+          metadata.maxDigits = 0;
+        }
+      }
+      if (liftFbmFieldFaceParams && fbmFieldFaceKeys.includes(parameter.key)) {
+        metadata.visible = true;
       }
       paramMeta[parameter.key] = metadata;
       let value = Object.hasOwn(rawParams, parameter.key)
@@ -243,6 +267,28 @@ function validateNodeGraphPatch(patch) {
               ? nodeGraphPhaseDisperseAmountToStages(rawParams.amount)
               : 1 + Math.max(0, Math.min(1, Number(rawParams.amount) || 0)) * 63)
             : parameter.defaultValue));
+      // Old Active Filter had a single Frequency knob. Missing Low/High inherit it.
+      if (
+        type === "activeFilter"
+        && (parameter.key === "lowFrequency" || parameter.key === "highFrequency")
+        && !Object.hasOwn(rawParams, parameter.key)
+        && Object.hasOwn(rawParams, "frequency")
+      ) {
+        const hz = Number(rawParams.frequency);
+        if (Number.isFinite(hz) && hz >= 0) {
+          value = hz;
+        }
+      }
+      // Squares+offset era → absolute W×H. Missing Squares means W×H already absolute.
+      if (
+        type === "rasterRgb"
+        && (parameter.key === "width" || parameter.key === "height")
+        && Object.hasOwn(rawParams, "squares")
+      ) {
+        const squares = Number(rawParams.squares) || 0;
+        const offset = Number(value);
+        value = Math.max(0, Math.round((Number.isFinite(offset) ? offset : 0) + squares));
+      }
       // Smooth Graph Curve: collapse old 6-choice layout (Linear/Smooth/Bezier/
       // Quadratic/Cubic/Catmull) where Smooth/Bezier/Catmull were one path.
       // Detect old layout via saved max≥5 or orphan indices 4–5.

@@ -9,6 +9,7 @@ nodeGraphLiveModuleEvaluators.fbmField = ({ runtime, node, nodeId, frame, frames
   const read = (key, fallback) =>
     readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
   const out = nodeGraphFbmFieldSample({
+    amplitude: read("amplitude", 1),
     brightness: read("brightness", 1),
     contrast: read("contrast", 1),
     frequency: Math.max(0, read("frequency", 20)),
@@ -22,7 +23,7 @@ nodeGraphLiveModuleEvaluators.fbmField = ({ runtime, node, nodeId, frame, frames
     seed: read("seed", 1),
     smoothness: read("smoothness", 0.55),
     zoom: read("zoom", 1),
-    reset: mixInput(nodeId, "Reset"),
+    reset: mixInput(nodeId, "In"),
     sampleRate,
     state,
   });

@@ -2,6 +2,29 @@
 // offline/render-time algorithm, now living next to the rest of its
 // per-module code instead of the shared file.
 
+function createNodeGraphPassiveFilterState() {
+  return {
+    highpass: { inputBuffer: 0, outputBuffer: 0 },
+    lowpass: { inputBuffer: 0, outputBuffer: 0 },
+  };
+}
+
+function nodeGraphPassiveSweepHz(hz, semitones) {
+  if (typeof nodeGraphSweepFrequencyHz === "function") {
+    return nodeGraphSweepFrequencyHz(hz, semitones);
+  }
+  const f = Number(hz);
+  if (!Number.isFinite(f) || f <= 0) {
+    return 0;
+  }
+  const st = Number(semitones);
+  if (!Number.isFinite(st) || st === 0) {
+    return f;
+  }
+  const out = f * (2 ** (st / 12));
+  return Number.isFinite(out) && out > 0 ? out : 0;
+}
+
 function nodeGraphOnePoleHighpassSample(state, input, frequency, sampleRate, runtime = null, nodeId = "") {
   const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
   const safeInput = nodeGraphSafeFilterNumber(input, runtime, nodeId, state, "highpass input");
@@ -23,6 +46,8 @@ function nodeGraphOnePoleHighpassSample(state, input, frequency, sampleRate, run
 
 
 function nodeGraphPassiveFilterSample(state, input, mode, lowFrequency, highFrequency, sampleRate, runtime, nodeId) {
+  if (!state.highpass) state.highpass = { inputBuffer: 0, outputBuffer: 0 };
+  if (!state.lowpass) state.lowpass = { inputBuffer: 0, outputBuffer: 0 };
   const safeMode = Math.round(Number(mode)) || 0;
   if (safeMode === 1) {
     const lowCut  = Math.max(0, Number(lowFrequency)  || 0);
@@ -46,8 +71,15 @@ nodeGraphLiveModuleEvaluators.passiveFilter = ({ runtime, node, nodeId, frame, f
   const state = runtime.passiveFilterStates.get(nodeId) || createNodeGraphStereoFilterState(createNodeGraphPassiveFilterState);
   runtime.passiveFilterStates.set(nodeId, state);
   const passiveMode = readNodeGraphLiveEffectiveParam(runtime, node, "mode", 0, frame, frames, frameValues);
-  const passiveLowFrequency = readNodeGraphLiveEffectiveParam(runtime, node, "lowFrequency", 200, frame, frames, frameValues);
-  const passiveHighFrequency = readNodeGraphLiveEffectiveParam(runtime, node, "highFrequency", 1000, frame, frames, frameValues);
+  const passiveSweep = readNodeGraphLiveEffectiveParam(runtime, node, "sweep", 0, frame, frames, frameValues);
+  const passiveLowFrequency = nodeGraphPassiveSweepHz(
+    readNodeGraphLiveEffectiveParam(runtime, node, "lowFrequency", 200, frame, frames, frameValues),
+    passiveSweep,
+  );
+  const passiveHighFrequency = nodeGraphPassiveSweepHz(
+    readNodeGraphLiveEffectiveParam(runtime, node, "highFrequency", 1000, frame, frames, frameValues),
+    passiveSweep,
+  );
   const passiveMono = mixInput(nodeId);
   return {
     Out: nodeGraphPassiveFilterSample(state.mono, passiveMono, passiveMode, passiveLowFrequency, passiveHighFrequency, sampleRate, runtime, `${nodeId}:mono`),

@@ -55,3 +55,30 @@ NodeLiveAudioProcessor.prototype.activeFilterSample = function activeFilterSampl
   }
   return this.safeFilterNumber(input, state) ?? 0;
 };
+
+NodeLiveAudioProcessor.prototype.activeFilterProcess = function activeFilterProcess(
+  state,
+  input,
+  params,
+  rate = sampleRate,
+) {
+  const resolved = typeof nodeGraphActiveFilterResolveInto === "function"
+    ? nodeGraphActiveFilterResolveInto(state._resolved || (state._resolved = {}), params)
+    : { bandpass: false, frequency: params?.frequency, mode: params?.mode };
+  if (resolved.bandpass) {
+    if (!state.hp) state.hp = this.createActiveFilterState();
+    if (!state.lp) state.lp = this.createActiveFilterState();
+    const hpParams = typeof nodeGraphActiveFilterFillLadderParams === "function"
+      ? nodeGraphActiveFilterFillLadderParams(state.hp._p || (state.hp._p = {}), resolved, "hp")
+      : { ...params, frequency: resolved.hpHz, mode: resolved.hpMode };
+    const lpParams = typeof nodeGraphActiveFilterFillLadderParams === "function"
+      ? nodeGraphActiveFilterFillLadderParams(state.lp._p || (state.lp._p = {}), resolved, "lp")
+      : { ...params, frequency: resolved.lpHz, mode: resolved.lpMode };
+    const mid = this.activeFilterSample(state.hp, input, hpParams, rate);
+    return this.activeFilterSample(state.lp, mid, lpParams, rate);
+  }
+  const single = typeof nodeGraphActiveFilterFillLadderParams === "function"
+    ? nodeGraphActiveFilterFillLadderParams(state._p || (state._p = {}), resolved, "single")
+    : params;
+  return this.activeFilterSample(state, input, single, rate);
+};

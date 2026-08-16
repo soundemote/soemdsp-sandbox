@@ -439,12 +439,12 @@ function nodeGraphDefaultMetadataMaxDigits(kind = "decimal") {
 }
 
 function normalizeNodeGraphMetadataMaxDigits(value, kind = "decimal") {
-  // App-wide policy: maxDigits is always ≥ 1 (0 is invalid).
+  // 0 = integer (no fraction). 1…12 = digit budget. Missing → kind default.
   const number = Number(value);
   if (!Number.isFinite(number)) {
     return nodeGraphDefaultMetadataMaxDigits(kind);
   }
-  return Math.max(1, Math.min(12, Math.round(number)));
+  return Math.max(0, Math.min(12, Math.round(number)));
 }
 
 function nodeGraphInferParameterMetadataKind(parameter = {}) {

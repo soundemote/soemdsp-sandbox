@@ -1767,7 +1767,7 @@ function nodeGraphMusicPlayerFaceMetrics(section, canvas, face = "") {
   }
   const key = String(face || section.dataset?.musicPlayerFace || "wave");
   const page = section.querySelector(`[data-music-player-page="${key}"]`);
-  const waveHost = key === "wavplay"
+  const waveHost = key === "waveplay"
     ? section.querySelector("[data-music-player-wave-host]")
     : null;
   const box = (waveHost && page && !page.hidden) ? waveHost : page;
@@ -2113,7 +2113,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
 }
 
 function nodeGraphPhosphorWaveformPaintCompanionPlaylist(section, nodeId) {
-  if ((section?.dataset?.musicPlayerFace || "") !== "wavplay") {
+  if ((section?.dataset?.musicPlayerFace || "") !== "waveplay") {
     return;
   }
   if (typeof nodeGraphAudioPlayerPlaylistPaintWaves === "function") {
@@ -2133,12 +2133,16 @@ function nodeGraphPhosphorWaveformPaintSpeedLabel(context, nodeId, node, width, 
   let speed = typeof nodeGraphAudioPlayerLiveSpeedForNode === "function"
     ? nodeGraphAudioPlayerLiveSpeedForNode(nodeId)
     : null;
-  if (!Number.isFinite(speed)) {
+  const hasSample = Boolean(node?.sample?.id);
+  if (!Number.isFinite(speed) || (!hasSample && speed === 0)) {
     const paramSpeed = Number(node?.params?.speed);
     if (!Number.isFinite(paramSpeed)) {
-      return;
+      if (!Number.isFinite(speed)) {
+        return;
+      }
+    } else {
+      speed = paramSpeed;
     }
-    speed = paramSpeed;
   }
   const speedLabel = `${speed.toFixed(3)}x`;
   const ratio = Number(pixelRatio) || 1;

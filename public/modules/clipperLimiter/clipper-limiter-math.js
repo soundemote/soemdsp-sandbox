@@ -1,7 +1,7 @@
-// Clipper Limiter — original Soft Clipper tanh, engaged only between Min/Max dB.
-// Wider Min→Max span = more gradual knee. Below Min the signal is unchanged;
-// the curve approaches Max as a ceiling.
-// Knee shaping is the shared Soft Clipper sample (ADAA + dither when state/aa given).
+// Clipper Limiter — stages in order: Gain → Min knee → Soft Clipper last.
+// Gain drives the input. Below Min the driven signal is unchanged.
+// Excess above Min is the shared Soft Clipper tanh (ADAA when state/aa given).
+// Wider Min→Max span = more gradual knee. Soft Clipper is never followed by gain.
 
 function nodeGraphClipperLimiterDbToLin(db) {
   if (typeof nodeGraphClipperDbToLin === "function") {
@@ -23,6 +23,7 @@ function nodeGraphClipperLimiterPrep(input, minDb = -12, maxDb = 0, gainDb = 0) 
   const hiDb = Number(maxDb);
   const minLin = nodeGraphClipperLimiterDbToLin(Math.min(loDb, hiDb));
   const maxLin = nodeGraphClipperLimiterDbToLin(Math.max(loDb, hiDb));
+  // Stage 1 — Gain (drive). Soft Clipper is applied later, never after this.
   const drive = nodeGraphClipperLimiterDbToLin(Number(gainDb) || 0);
   const x = (Number(input) || 0) * drive;
   const ax = Math.abs(x);
@@ -51,7 +52,7 @@ function nodeGraphClipperLimiterSample(input, minDb = -12, maxDb = 0, gainDb = 0
   if (prep.dry) {
     return prep.y;
   }
-  // Original: center=0, width=2*span → y = span * tanh(excess/span), asymptote span.
+  // Last stage — Soft Clipper (Antialias/ADAA lives here, not on Gain).
   const shaped = typeof nodeGraphSoftClipperSample === "function"
     ? nodeGraphSoftClipperSample(prep.excess, 0, 2 * prep.span, state, oversample)
     : prep.span * Math.tanh(prep.excess / prep.span);

@@ -102,11 +102,14 @@ function createNodeGraphPatchNode(type, options = {}) {
     }
   }
   if (Object.hasOwn(opts, "heightGu")) {
-    node.heightGu = typeof nodeGraphLayoutCGridHeightUnits === "function"
-      && typeof nodeGraphModuleUsesLayoutC === "function"
-      && nodeGraphModuleUsesLayoutC(resolvedType)
-      ? nodeGraphLayoutCGridHeightUnits(resolvedType, ui, opts.heightGu)
-      : normalizeNodeGraphModuleHeightUnits(resolvedType, opts.heightGu, ui);
+    node.heightGu = nodeGraphModuleDefinitions[resolvedType]?.layout === "textBox"
+      && typeof normalizeNodeGraphTextBoxHeightUnits === "function"
+      ? normalizeNodeGraphTextBoxHeightUnits(opts.heightGu, ui)
+      : (typeof nodeGraphLayoutCGridHeightUnits === "function"
+        && typeof nodeGraphModuleUsesLayoutC === "function"
+        && nodeGraphModuleUsesLayoutC(resolvedType)
+        ? nodeGraphLayoutCGridHeightUnits(resolvedType, ui, opts.heightGu)
+        : normalizeNodeGraphModuleHeightUnits(resolvedType, opts.heightGu, ui));
   } else {
     const defH = Number(nodeGraphModuleDefinitions[resolvedType]?.defaultHeightGu);
     if (Number.isFinite(defH)) {

@@ -10,8 +10,10 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     }
     if (!sample || frames <= 1) {
       this.audioPlayerMeterReason = sampleId ? "engine waiting for sample" : "engine no sample id";
-      this.audioPlayerMeterSpeed = 0;
-      this.audioPlayerMeterSpeeds[nodeId] = 0;
+      // No file is silence, not 0× speed — HUD should still show param + Speed jack.
+      const idleSpeed = readParam("speed", 1) + readInput("Speed");
+      this.audioPlayerMeterSpeed = idleSpeed;
+      this.audioPlayerMeterSpeeds[nodeId] = idleSpeed;
       return { Left: 0, Mono: 0, Out: 0, Phase: 0, Right: 0, Trigger: 0 };
     }
     const range = typeof nodeGraphAudioPlayerResolvedPhaseRange === "function"

@@ -22,9 +22,9 @@ static const char kMetadataJson[] =
     "\"inputs\":[\"R\",\"G\",\"B\"],"
     "\"outputs\":[\"R\",\"G\",\"B\",\"rgba\"],"
     "\"parameters\":["
+      "{\"key\":\"contrast\",\"label\":\"Contrast\",\"defaultValue\":1,\"min\":-4,\"max\":4},"
+      "{\"key\":\"brightness\",\"label\":\"Brightness\",\"defaultValue\":1,\"min\":-4,\"max\":4},"
       "{\"key\":\"invert\",\"label\":\"Invert\",\"defaultValue\":0,\"min\":0,\"max\":1},"
-      "{\"key\":\"contrast\",\"label\":\"Contrast\",\"defaultValue\":1,\"min\":0,\"max\":4},"
-      "{\"key\":\"brightness\",\"label\":\"Brightness\",\"defaultValue\":1,\"min\":0,\"max\":4},"
       "{\"key\":\"hue\",\"label\":\"Hue\",\"defaultValue\":0,\"min\":-1,\"max\":1}"
     "]"
   "}";
@@ -60,10 +60,22 @@ static double pow01(double base, double expn) {
 
 static double contrast01(double x, double contrast) {
   const double t = clamp01(x);
-  if (!(contrast > 0.0)) return 0.5;
-  if (contrast > 0.9999 && contrast < 1.0001) return t;
-  if (t < 0.5) return 0.5 * pow01(2.0 * t, contrast);
-  return 1.0 - 0.5 * pow01(2.0 * (1.0 - t), contrast);
+  if (!(contrast > 0.0) && !(contrast < 0.0)) return 0.5;
+  const double mag = contrast < 0.0 ? -contrast : contrast;
+  double y = t;
+  if (!(mag > 0.9999 && mag < 1.0001)) {
+    if (t < 0.5) y = 0.5 * pow01(2.0 * t, mag);
+    else y = 1.0 - 0.5 * pow01(2.0 * (1.0 - t), mag);
+  }
+  return contrast < 0.0 ? 1.0 - y : y;
+}
+
+static double applyBrightness01(double x, double brightness) {
+  if (!(brightness > 0.0) && !(brightness < 0.0)) return 0.0;
+  const double mag = brightness < 0.0 ? -brightness : brightness;
+  double y = clamp01(x) * mag;
+  if (y > 1.0) y = 1.0;
+  return brightness < 0.0 ? 1.0 - y : y;
 }
 
 static void hueRotate(double& r, double& g, double& b, double hueCycles) {
@@ -134,20 +146,18 @@ extern "C" double soemdsp_raster_rgb_sample(
   double R = clamp01(r);
   double G = clamp01(g);
   double B = clamp01(b);
-  const double c = contrast;
-  const double br = brightness > 0.0 ? brightness : 0.0;
   const double inv = clamp01(invert);
-  R = contrast01(R, c) * br;
-  G = contrast01(G, c) * br;
-  B = contrast01(B, c) * br;
-  if (R > 1.0) R = 1.0;
-  if (G > 1.0) G = 1.0;
-  if (B > 1.0) B = 1.0;
+  R = applyBrightness01(contrast01(R, contrast), brightness);
+  G = applyBrightness01(contrast01(G, contrast), brightness);
+  B = applyBrightness01(contrast01(B, contrast), brightness);
   if (inv > 0.0) {
     R += inv * (1.0 - 2.0 * R);
     G += inv * (1.0 - 2.0 * G);
     B += inv * (1.0 - 2.0 * B);
   }
+  R = clamp01(R);
+  G = clamp01(G);
+  B = clamp01(B);
   hueRotate(R, G, B, hue);
   RasterRgbState& st = gPool[handle - 1];
   st.r = R;
@@ -178,7 +188,7 @@ extern "C" double soemdsp_raster_rgb_rgba(int handle) {
 }
 
 extern "C" int soemdsp_raster_rgb_version() {
-  return 1;
+  return 2;
 }
 
 extern "C" const char* soemdsp_raster_rgb_metadata_json() {

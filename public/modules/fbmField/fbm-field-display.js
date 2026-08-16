@@ -440,20 +440,56 @@ function paintNodeGraphFbmFieldFaceForNode(nodeId, options = {}) {
   return paintNodeGraphFbmFieldFace(canvas, face, id, options);
 }
 
-function drawNodeGraphFbmFieldFaceItem(renderer, item, pixelRatio) {
-  const slot = item?.slot;
-  const face = item?.screenElement || slot?.scopeElement;
-  if (!slot || !face) return;
-  if (!face._fbmFieldRunning && typeof paintNodeGraphFbmFieldFace === "function") {
-    const canvas = face.querySelector?.(".node-fbm-field-canvas");
-    if (canvas) {
-      paintNodeGraphFbmFieldFace(canvas, face, slot.nodeId, {
-        dt: 0,
-        force: true,
+function nodeGraphFbmFieldCollectFaces() {
+  const faces = [];
+  if (typeof document === "undefined") {
+    return faces;
+  }
+  const nodes = document.querySelectorAll(".node-fbm-field-face");
+  for (const face of nodes) {
+    if (face.closest?.(".dsp-node")?.classList.contains("viewport-asleep")) {
+      continue;
+    }
+    const nodeId = face.dataset?.node
+      || face.closest?.(".dsp-node")?.dataset?.node
+      || "";
+    if (typeof nodeGraphScreenSoloAllowsNode === "function"
+      && !nodeGraphScreenSoloAllowsNode(nodeId)) {
+      continue;
+    }
+    faces.push({ face, nodeId });
+  }
+  return faces;
+}
+
+function paintNodeGraphFbmFieldFacesNow(options = {}) {
+  const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
+    ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
+    : Math.max(0, Math.round(Number(nodeGraphMvp?.moduleScopeFramesPerSecond) || 60));
+  const dt = options.dt != null
+    ? Number(options.dt)
+    : (fps > 0 ? Math.min(0.05, 1 / fps) : 0);
+  let painted = 0;
+  for (const { face, nodeId } of nodeGraphFbmFieldCollectFaces()) {
+    if (!nodeId) {
+      continue;
+    }
+    try {
+      paintNodeGraphFbmFieldFaceForNode(nodeId, {
+        dt: Number.isFinite(dt) ? dt : 0,
         face,
+        force: options.force === true,
       });
+      painted += 1;
+    } catch (_error) {
+      // Best-effort per face.
     }
   }
+  return painted;
+}
+
+function drawNodeGraphFbmFieldFaceItem() {
+  // Live write is once, after the shared Simulation FPS gate.
 }
 
 if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {

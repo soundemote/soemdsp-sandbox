@@ -7,8 +7,15 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const state = this.passiveFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createPassiveFilterState());
         this.passiveFilterStates.set(nodeId, state);
         const passiveMode = this.readEffectiveParameter(node, "mode", 0, frame, frames, frameValues);
-        const passiveLowFrequency = this.readEffectiveParameter(node, "lowFrequency", 200, frame, frames, frameValues);
-        const passiveHighFrequency = this.readEffectiveParameter(node, "highFrequency", 1000, frame, frames, frameValues);
+        const passiveSweep = this.readEffectiveParameter(node, "sweep", 0, frame, frames, frameValues);
+        const passiveLowFrequency = this.sweepFrequencyHz(
+          this.readEffectiveParameter(node, "lowFrequency", 200, frame, frames, frameValues),
+          passiveSweep,
+        );
+        const passiveHighFrequency = this.sweepFrequencyHz(
+          this.readEffectiveParameter(node, "highFrequency", 1000, frame, frames, frameValues),
+          passiveSweep,
+        );
         const passiveMono = mixInput(nodeId);
         return {
           Out: this.passiveFilterSample(state.mono, passiveMono, passiveMode, passiveLowFrequency, passiveHighFrequency, safeRate),
@@ -107,20 +114,35 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         }
         const state = this.activeFilterStates.get(nodeId) || this.createStereoActiveFilterState();
         this.activeFilterStates.set(nodeId, state);
+        const activeMode = this.readEffectiveParameter(node, "mode", 3, frame, frames, frameValues);
+        const activeFreqWired = typeof hasInput === "function" && hasInput(nodeId, "f");
+        const activeFreqJack = activeFreqWired ? mixInput(nodeId, "f") : null;
+        const activeBandpass = typeof nodeGraphActiveFilterIsBandpass === "function"
+          ? nodeGraphActiveFilterIsBandpass(activeMode)
+          : Math.round(Number(activeMode) || 0) >= 8;
+        const activeHp = !activeBandpass && Math.round(Number(activeMode) || 0) >= 4;
+        const activeLp = !activeBandpass && !activeHp;
         const activeParams = {
           feedbackCircuit: this.readEffectiveParameter(node, "feedbackCircuit", 3, frame, frames, frameValues),
-          frequency: (typeof hasInput === "function" && hasInput(nodeId, "f"))
-            ? mixInput(nodeId, "f")
-            : this.readEffectiveParameter(node, "frequency", 1000, frame, frames, frameValues),
+          centerFrequency: activeFreqWired && activeBandpass ? activeFreqJack : undefined,
           gainCompensation: this.readEffectiveParameter(node, "gainCompensation", 1, frame, frames, frameValues),
-          mode: this.readEffectiveParameter(node, "mode", 3, frame, frames, frameValues),
+          highFrequency: activeFreqWired && activeLp
+            ? activeFreqJack
+            : this.readEffectiveParameter(node, "highFrequency", 1000, frame, frames, frameValues),
+          hpSlope: this.readEffectiveParameter(node, "hpSlope", 1, frame, frames, frameValues),
+          lowFrequency: activeFreqWired && activeHp
+            ? activeFreqJack
+            : this.readEffectiveParameter(node, "lowFrequency", 200, frame, frames, frameValues),
+          lpSlope: this.readEffectiveParameter(node, "lpSlope", 1, frame, frames, frameValues),
+          mode: activeMode,
           resonance: this.readEffectiveParameter(node, "resonance", 0.2, frame, frames, frameValues),
+          sweep: this.readEffectiveParameter(node, "sweep", 0, frame, frames, frameValues),
         };
         const activeMono = mixInput(nodeId);
         return {
-          Out: this.activeFilterSample(state.mono, activeMono, activeParams, safeRate),
-          Left: this.activeFilterSample(state.left, mixInput(nodeId, "Left") + activeMono, activeParams, safeRate),
-          Right: this.activeFilterSample(state.right, mixInput(nodeId, "Right") + activeMono, activeParams, safeRate),
+          Out: this.activeFilterProcess(state.mono, activeMono, activeParams, safeRate),
+          Left: this.activeFilterProcess(state.left, mixInput(nodeId, "Left") + activeMono, activeParams, safeRate),
+          Right: this.activeFilterProcess(state.right, mixInput(nodeId, "Right") + activeMono, activeParams, safeRate),
         };
       },
       butterworth: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
@@ -1372,6 +1394,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       // Spectrogram: face analyzes buffered In; Thru is dry passthrough.
       spectrogram: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+        rgba: 0,
       }),
       // Signal-path displays: dry Thru (→ jack) so faces can sit in-line.
       customDisplay: (node, nodeId, frame, frames, frameValues, mixInput) => ({

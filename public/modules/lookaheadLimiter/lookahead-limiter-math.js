@@ -92,8 +92,7 @@ function nodeGraphLookaheadLimiterFrame(
     targetGain = ceiling / state.env;
     const dip = Number(dipGain);
     if (Number.isFinite(dip) && dip !== 1 && targetGain < 1) {
-      const k = Math.max(0.5, Math.min(3, dip));
-      targetGain = Math.pow(targetGain, k);
+      targetGain = Math.pow(targetGain, dip);
     }
   }
   // One-pole on gain (attack when reducing = follow attCoeff; release = relCoeff).

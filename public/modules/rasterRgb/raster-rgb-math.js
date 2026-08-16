@@ -1,5 +1,6 @@
 // Raster RGB — analog color-corrector. One sample in → graded analog out.
-// Contrast → brightness → invert → hue. rgba is Rec.709 luma of the result.
+// Contrast → brightness → invert → hue. Contrast and brightness are bipolar
+// (negative flips around mid / photographic invert). Invert is a 0…1 mix last.
 // Mirrors native_modules/raster_rgb/raster_rgb.cpp.
 
 function nodeGraphRasterRgbClamp01(value) {
@@ -21,16 +22,43 @@ function nodeGraphRasterRgbWrapHue(value) {
 function nodeGraphRasterRgbContrast01(x, contrast) {
   const t = nodeGraphRasterRgbClamp01(x);
   const c = Number(contrast);
-  if (!(c > 0) || !Number.isFinite(c)) {
+  if (!Number.isFinite(c) || c === 0) {
     return 0.5;
   }
-  if (Math.abs(c - 1) < 1e-4) {
-    return t;
+  const mag = Math.abs(c);
+  let y = t;
+  if (Math.abs(mag - 1) >= 1e-4) {
+    y = t < 0.5
+      ? 0.5 * (2 * t) ** mag
+      : 1 - 0.5 * (2 * (1 - t)) ** mag;
   }
-  if (t < 0.5) {
-    return 0.5 * (2 * t) ** c;
+  return c < 0 ? 1 - y : y;
+}
+
+function nodeGraphRasterRgbApplyBrightness01(x, brightness) {
+  const b = Number(brightness);
+  if (!Number.isFinite(b) || b === 0) {
+    return 0;
   }
-  return 1 - 0.5 * (2 * (1 - t)) ** c;
+  let y = nodeGraphRasterRgbClamp01(x) * Math.abs(b);
+  if (y > 1) {
+    y = 1;
+  }
+  return b < 0 ? 1 - y : y;
+}
+
+function nodeGraphRasterRgbGradeChannel01(x, opts = {}) {
+  const contrast = Number.isFinite(Number(opts.contrast)) ? Number(opts.contrast) : 1;
+  const brightness = Number.isFinite(Number(opts.brightness)) ? Number(opts.brightness) : 1;
+  const invert = nodeGraphRasterRgbClamp01(opts.invert);
+  let y = nodeGraphRasterRgbApplyBrightness01(
+    nodeGraphRasterRgbContrast01(x, contrast),
+    brightness,
+  );
+  if (invert > 0) {
+    y += invert * (1 - 2 * y);
+  }
+  return nodeGraphRasterRgbClamp01(y);
 }
 
 function nodeGraphRasterRgbHueRotate(r, g, b, hueCycles) {
@@ -96,23 +124,10 @@ function nodeGraphRasterRgbProcessSample(r, g, b, opts = {}) {
   let R = bipolar ? nodeGraphRasterRgbAsVideo01(r) : nodeGraphRasterRgbClamp01(r);
   let G = bipolar ? nodeGraphRasterRgbAsVideo01(g) : nodeGraphRasterRgbClamp01(g);
   let B = bipolar ? nodeGraphRasterRgbAsVideo01(b) : nodeGraphRasterRgbClamp01(b);
-  const contrast = Number.isFinite(Number(opts.contrast)) ? Number(opts.contrast) : 1;
-  const brightness = Number.isFinite(Number(opts.brightness))
-    ? Math.max(0, Number(opts.brightness))
-    : 1;
-  const invert = nodeGraphRasterRgbClamp01(opts.invert);
   const hue = Number(opts.hue) || 0;
-  R = nodeGraphRasterRgbContrast01(R, contrast) * brightness;
-  G = nodeGraphRasterRgbContrast01(G, contrast) * brightness;
-  B = nodeGraphRasterRgbContrast01(B, contrast) * brightness;
-  if (R > 1) R = 1;
-  if (G > 1) G = 1;
-  if (B > 1) B = 1;
-  if (invert > 0) {
-    R += invert * (1 - 2 * R);
-    G += invert * (1 - 2 * G);
-    B += invert * (1 - 2 * B);
-  }
+  R = nodeGraphRasterRgbGradeChannel01(R, opts);
+  G = nodeGraphRasterRgbGradeChannel01(G, opts);
+  B = nodeGraphRasterRgbGradeChannel01(B, opts);
   const rotated = nodeGraphRasterRgbHueRotate(R, G, B, hue);
   R = rotated.r;
   G = rotated.g;

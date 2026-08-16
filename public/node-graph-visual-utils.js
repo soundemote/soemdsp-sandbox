@@ -152,10 +152,17 @@ function nodeGraphHueBrightnessCss(hueDeg, brightness01, alpha01 = 1) {
   return `rgb(${R} ${G} ${B} / ${a})`;
 }
 
-/** Face backing 0…1. 1 = CSS × dpr; below 1 = lo-fi. */
+/** Face backing 0…1. 1 = CSS × dpr; below 1 = lo-fi. Omitted → 1 (never 0). */
 function nodeGraphResolveDisplayPixelDensity(pixelDensity) {
+  if (pixelDensity == null || pixelDensity === "") {
+    return 1;
+  }
   if (typeof nodeGraphTraceDisplayClampPixelDensity === "function") {
-    return nodeGraphTraceDisplayClampPixelDensity(pixelDensity);
+    const n = Number(pixelDensity);
+    if (!Number.isFinite(n)) {
+      return 1;
+    }
+    return nodeGraphTraceDisplayClampPixelDensity(n);
   }
   const raw = Number(pixelDensity);
   return Number.isFinite(raw) ? Math.max(0, Math.min(1, raw)) : 1;

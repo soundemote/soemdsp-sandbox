@@ -914,7 +914,8 @@ function createNodeGraphModuleElement(type, node) {
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
       : !patchNodeUi.oscilloscopeHidden)
       && typeof createNodeGraphFilterCurveDisplay === "function") {
-      article.append(createNodeGraphFilterCurveDisplay(node, type));
+      const curve = createNodeGraphFilterCurveDisplay(node, type);
+      article.append(curve);
     }
     appendNodeGraphModuleIoSection(
       article,
@@ -1249,6 +1250,12 @@ function createNodeGraphModuleElement(type, node) {
 
   if (typeof applyNodeGraphModuleLayout === "function") {
     applyNodeGraphModuleLayout(article, patchNode);
+  }
+  if (
+    typeof scheduleNodeGraphFilterCurveDraw === "function"
+    && article.querySelector(".node-filter-curve-display")
+  ) {
+    scheduleNodeGraphFilterCurveDraw();
   }
 
   attachNodeGraphNodeEvents(article);

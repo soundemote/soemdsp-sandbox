@@ -997,20 +997,25 @@ function openNodeGraphModuleActionsFromContextWindow() {
   showNodeModuleActionsWindow(anchor?.getBoundingClientRect?.());
 }
 
-// Nav / Command Center entry for Parameter Settings: always blank.
-// Filling the form is only via right-click on a slider readout.
+// Nav / Command Center entry for Parameter Settings: selected module
+// (same target as Module Settings) opens that module's parameter page.
 function openNodeGraphMetaparametersFromContextWindow() {
   const anchor = document.getElementById("nodeSceneOpenMetaparameters");
   const rect = anchor?.getBoundingClientRect?.() || {
     right: window.innerWidth * 0.5,
     top: window.innerHeight * 0.25,
   };
-  openBlankNodeMetadataPopover({
+  const event = {
     clientX: rect.right + 8,
     clientY: rect.top,
     preventDefault() {},
     stopPropagation() {},
-  });
+  };
+  if (typeof openNodeGraphMetaparametersPage === "function") {
+    openNodeGraphMetaparametersPage({ event });
+    return;
+  }
+  openBlankNodeMetadataPopover(event);
 }
 
 function setNodeSceneContextHeader(label, detail = "") {

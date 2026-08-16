@@ -1567,10 +1567,97 @@ function openNodeMetadataPopover(event, readout) {
   }
 }
 
+function nodeGraphNodeCanOpenParameterSettings(node) {
+  const patchNode = node && typeof node === "object" && node.type
+    ? node
+    : (typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null);
+  if (!patchNode) {
+    return false;
+  }
+  const definition = typeof nodeGraphModuleDefinition === "function"
+    ? nodeGraphModuleDefinition(patchNode.type)
+    : (typeof nodeGraphModuleDefinitions === "object" ? nodeGraphModuleDefinitions[patchNode.type] : null);
+  return (definition?.parameters || []).length > 0;
+}
+
+function nodeGraphMetaparametersTargetNodeId(options = {}) {
+  const fromOptions = String(options?.nodeId || "").trim();
+  if (fromOptions && typeof nodeGraphPatchNode === "function" && nodeGraphPatchNode(fromOptions)) {
+    return fromOptions;
+  }
+  if (typeof nodeGraphModuleActionTargetNodeId === "function") {
+    const fromActions = String(nodeGraphModuleActionTargetNodeId() || "").trim();
+    if (fromActions) {
+      return fromActions;
+    }
+  }
+  if (typeof nodeGraphSingleSelectedNodeId === "function") {
+    const fromSelection = String(nodeGraphSingleSelectedNodeId() || "").trim();
+    if (fromSelection) {
+      return fromSelection;
+    }
+  }
+  return String(
+    nodeGraphMvp?.sceneContextTargetNode
+    || nodeGraphMvp?.lastModuleActionTargetNode
+    || "",
+  ).trim();
+}
+
+function openNodeGraphMetaparametersForNode(nodeId, event = {}) {
+  const id = String(nodeId || "").trim();
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+  if (!id || !node || !nodeGraphNodeCanOpenParameterSettings(node)) {
+    return false;
+  }
+  const element = typeof nodeGraphNodeElement === "function"
+    ? nodeGraphNodeElement(id)
+    : document.querySelector(`.dsp-node[data-node="${CSS.escape(id)}"]`);
+  const readout = typeof firstNodeModuleSliderReadout === "function"
+    ? firstNodeModuleSliderReadout(element)
+    : element?.querySelector?.(".node-slider-readout");
+  if (!readout || typeof openNodeMetadataPopover !== "function") {
+    return false;
+  }
+  if (typeof nodeGraphSelectInspectorModule === "function") {
+    nodeGraphSelectInspectorModule(id);
+  } else if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.sceneContextTargetNode = id;
+    nodeGraphMvp.lastModuleActionTargetNode = id;
+  }
+  const gesture = event && typeof event === "object"
+    ? event
+    : {};
+  if (typeof gesture.preventDefault !== "function") {
+    gesture.preventDefault = () => {};
+  }
+  if (typeof gesture.stopPropagation !== "function") {
+    gesture.stopPropagation = () => {};
+  }
+  openNodeMetadataPopover(gesture, readout);
+  return true;
+}
+
 /**
- * Parameter Settings never auto-bind from module selection — only right-click
- * on a slider fills the form. Selection changes only clear to the blank state
- * when nothing is selected or the open parameter no longer belongs to the selection.
+ * Open Parameter Settings for the current module when one is known
+ * (selection, Module Settings target, or last inspected module).
+ * Falls back to the module list only when nothing is selected.
+ */
+function openNodeGraphMetaparametersPage(options = {}) {
+  const event = options.event || {};
+  const nodeId = nodeGraphMetaparametersTargetNodeId(options);
+  if (nodeId && openNodeGraphMetaparametersForNode(nodeId, event)) {
+    return true;
+  }
+  if (typeof openBlankNodeMetadataPopover === "function") {
+    openBlankNodeMetadataPopover(event);
+  }
+  return false;
+}
+
+/**
+ * Parameter Settings stays pinned to the slider it opened on while the page
+ * is already open. Selection changes do not wipe or retarget that form.
  */
 function syncOpenNodeMetadataPopoverToModule(nodeId) {
   const popover = document.getElementById("nodeParameterMetadataPopover");
@@ -1846,8 +1933,8 @@ function stepNodeMetadataField(event) {
     next = Math.round(next * 10) / 10;
   }
   if (input.id === "metadataMaxDigitsValue") {
-    // App-wide: maxDigits ≥ 1 (0 is invalid).
-    next = Math.max(1, Math.min(12, Math.round(next)));
+    // 0 = integer (no fraction). 1…12 = digit budget.
+    next = Math.max(0, Math.min(12, Math.round(next)));
   }
   // Optional clamp (e.g. SENSITIVITY uses standard curve range −1…+1).
   const clampMin = Number(input.dataset.metadataClampMin);

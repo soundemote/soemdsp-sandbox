@@ -204,6 +204,34 @@ function nodeGraphBandpassMagnitudeAt(lowCut, highCut, frequency, sampleRate) {
     nodeGraphOnePoleLowpassMagnitudeAt(high, frequency, sampleRate);
 }
 
+function nodeGraphCookbookSweepHz(hz, semitones) {
+  if (typeof nodeGraphSweepFrequencyHz === "function") {
+    return nodeGraphSweepFrequencyHz(hz, semitones);
+  }
+  const f = Number(hz);
+  if (!Number.isFinite(f) || f <= 0) {
+    return 0;
+  }
+  const st = Number(semitones);
+  if (!Number.isFinite(st) || st === 0) {
+    return f;
+  }
+  const out = f * (2 ** (st / 12));
+  return Number.isFinite(out) && out > 0 ? out : 0;
+}
+
+function nodeGraphActiveFilterSlopeMagnitudeAt(kind, cutoff, frequency, slope, sampleRate) {
+  const stages = (Number.isFinite(Number(slope)) ? Math.max(0, Math.min(3, Math.round(Number(slope)))) : 1) + 1;
+  const one = kind === "hp"
+    ? nodeGraphOnePoleHighpassMagnitudeAt(cutoff, frequency, sampleRate)
+    : nodeGraphOnePoleLowpassMagnitudeAt(cutoff, frequency, sampleRate);
+  let mag = 1;
+  for (let i = 0; i < stages; i += 1) {
+    mag *= one;
+  }
+  return mag;
+}
+
 // nodeGraphLadderFilterStageCount / nodeGraphLadderFilterMix now live in
 // node-graph-stdlib/node-graph-shared-dsp-helpers.js and
 // public/modules/ladderFilter/ladder-filter-live-evaluator.js (this file's
@@ -400,11 +428,36 @@ function nodeGraphFilterCurveView(node) {
     };
   }
   if (node.type === "passiveFilter") {
+    const sweep = nodeGraphFilterCurveLiveParam(node, "sweep", 0);
     return {
       type: node.type,
       mode: Math.round(nodeGraphFilterCurveLiveParam(node, "mode", 0)),
-      lowFrequency: nodeGraphFilterCurveLiveParam(node, "lowFrequency", 200),
+      lowFrequency: nodeGraphCookbookSweepHz(nodeGraphFilterCurveLiveParam(node, "lowFrequency", 200), sweep),
+      highFrequency: nodeGraphCookbookSweepHz(nodeGraphFilterCurveLiveParam(node, "highFrequency", 1000), sweep),
+    };
+  }
+  if (node.type === "activeFilter") {
+    const mode = Math.round(nodeGraphFilterCurveLiveParam(node, "mode", 3));
+    const params = {
       highFrequency: nodeGraphFilterCurveLiveParam(node, "highFrequency", 1000),
+      hpSlope: nodeGraphFilterCurveLiveParam(node, "hpSlope", 1),
+      lowFrequency: nodeGraphFilterCurveLiveParam(node, "lowFrequency", 200),
+      lpSlope: nodeGraphFilterCurveLiveParam(node, "lpSlope", 1),
+      mode,
+      sweep: nodeGraphFilterCurveLiveParam(node, "sweep", 0),
+    };
+    const resolved = typeof nodeGraphActiveFilterResolveParams === "function"
+      ? nodeGraphActiveFilterResolveParams(params)
+      : { bandpass: mode >= 8, ...params };
+    return {
+      type: node.type,
+      bandpass: !!resolved.bandpass,
+      frequency: resolved.frequency,
+      highFrequency: resolved.highFrequency,
+      hpSlope: resolved.hpSlope,
+      lowFrequency: resolved.lowFrequency,
+      lpSlope: resolved.lpSlope,
+      mode: resolved.mode,
     };
   }
   if (node.type === "ladderFilter") {
@@ -498,6 +551,16 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
     }
     return nodeGraphOnePoleLowpassMagnitudeAt(v.highFrequency, frequency, sampleRate);
   }
+  if (node.type === "activeFilter") {
+    if (v.bandpass) {
+      return nodeGraphActiveFilterSlopeMagnitudeAt("hp", v.lowFrequency, frequency, v.hpSlope, sampleRate)
+        * nodeGraphActiveFilterSlopeMagnitudeAt("lp", v.highFrequency, frequency, v.lpSlope, sampleRate);
+    }
+    const mode = Math.round(Number(v.mode) || 0);
+    const kind = mode >= 4 ? "hp" : "lp";
+    const slope = mode >= 4 ? mode - 4 : mode;
+    return nodeGraphActiveFilterSlopeMagnitudeAt(kind, v.frequency, frequency, slope, sampleRate);
+  }
   if (node.type === "ladderFilter") {
     return nodeGraphLadderFilterMagnitudeAt({
       frequency: nodeGraphFilterCurveFiniteHz(v.frequency, 1000),
@@ -557,8 +620,21 @@ function nodeGraphFilterCurveCutoffFrequencies(node, view = null) {
       return [nodeGraphFilterCurveFiniteHz(v.lowFrequency, 0)]
         .filter((x) => Number.isFinite(x) && x >= 0);
     }
+    if (mode === 0) {
+      return [nodeGraphFilterCurveFiniteHz(v.highFrequency, 0)]
+        .filter((x) => Number.isFinite(x) && x >= 0);
+    }
     return [v.lowFrequency, v.highFrequency]
       .map((value) => nodeGraphFilterCurveFiniteHz(value, 0))
+      .filter((value) => Number.isFinite(value) && value >= 0);
+  }
+  if (node.type === "activeFilter") {
+    if (v.bandpass) {
+      return [v.lowFrequency, v.highFrequency]
+        .map((value) => nodeGraphFilterCurveFiniteHz(value, 0))
+        .filter((value) => Number.isFinite(value) && value >= 0);
+    }
+    return [nodeGraphFilterCurveFiniteHz(v.frequency, 0)]
       .filter((value) => Number.isFinite(value) && value >= 0);
   }
   if (node.type === "papoulisFilter" || node.type === "tb303Filter") {
@@ -616,8 +692,12 @@ function nodeGraphFilterCurveLabel(node) {
     return modes?.[Math.round(Number(node.params?.mode) || 1)] || "EQ";
   }
   if (node.type === "activeFilter") {
+    const mode = Math.round(Number(node.params?.mode) || 3);
+    if (mode >= 8) {
+      return "BP";
+    }
     const modes = typeof nodeGraphActiveFilterModes !== "undefined" ? nodeGraphActiveFilterModes : null;
-    return modes?.[Math.round(Number(node.params?.mode) || 3)] || "Active";
+    return modes?.[mode] || "Active";
   }
   return nodeGraphCookbookFilterModes[Math.round(Number(node.params?.mode) || 0)] || "Filter";
 }
@@ -646,11 +726,67 @@ function nodeGraphFilterCurveApplyCrossoverLightCutout(section, canvas, type) {
   }
 }
 
+/** Parameter plots stay punched through the room dimmer (not live scopes). */
+function nodeGraphFilterCurveApplyScreenLight(section, canvas) {
+  if (!section) {
+    return;
+  }
+  const type = section.dataset?.nodeType;
+  if (typeof nodeGraphIsCrossoverType === "function" && nodeGraphIsCrossoverType(type)) {
+    nodeGraphFilterCurveApplyCrossoverLightCutout(section, canvas, type);
+    return;
+  }
+  section.classList.add("node-light-source");
+  if (section.dataset) {
+    section.dataset.lightSource = "screen";
+    section.dataset.lightStrength = "1";
+  }
+  if (canvas?.dataset) {
+    canvas.dataset.lightSource = "screen";
+    canvas.dataset.lightStrength = "1";
+  }
+  if (typeof setNodeGraphLightStrength === "function") {
+    setNodeGraphLightStrength(section, 1);
+    if (canvas) {
+      setNodeGraphLightStrength(canvas, 1);
+    }
+  }
+}
+
+function nodeGraphFilterCurveIsPersistentScreen(el) {
+  if (!el) {
+    return false;
+  }
+  const cls = el.classList;
+  if (
+    cls?.contains("node-filter-curve-display")
+    || cls?.contains("node-filter-curve-canvas")
+    || cls?.contains("node-envelope-curve-display")
+    || cls?.contains("node-round-shape-display")
+    || cls?.contains("node-pulse-curve-display")
+  ) {
+    return true;
+  }
+  return Boolean(
+    el.closest?.(".node-filter-curve-display")
+    || el.closest?.(".node-envelope-curve-display")
+    || el.closest?.(".node-round-shape-display")
+    || el.closest?.(".node-pulse-curve-display")
+  );
+}
+
 function createNodeGraphFilterCurveDisplay(nodeId, type) {
+  const id = nodeId && typeof nodeId === "object"
+    ? String(nodeId.dataset?.node || nodeId.id || "")
+    : String(nodeId || "");
   const section = document.createElement("section");
-  section.className = "node-filter-curve-display";
-  section.dataset.node = nodeId;
+  section.className = "node-filter-curve-display node-light-source";
+  section.dataset.node = id;
   section.dataset.nodeType = type;
+  section.dataset.lightSource = "screen";
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(section, "face");
+  }
   // Hook into the shared parameter-visual contract so mid-drag flush redraws
   // the curve every frame (same path as bug button / XY pad).
   section.dataset.parameterVisual = "true";
@@ -660,6 +796,9 @@ function createNodeGraphFilterCurveDisplay(nodeId, type) {
   };
   const canvas = document.createElement("canvas");
   canvas.className = "node-filter-curve-canvas";
+  canvas.dataset.lightSource = "screen";
+  canvas.dataset.lightStrength = "1";
+  section.dataset.lightStrength = "1";
   section.append(canvas);
   // Crossovers: room-dimmer cutout at 2/3 (not as bright as full displays).
   nodeGraphFilterCurveApplyCrossoverLightCutout(section, canvas, type);
@@ -678,9 +817,16 @@ function createNodeGraphFilterCurveDisplay(nodeId, type) {
     ro.observe(section);
     section._filterCurveResizeObserver = ro;
   }
-  // Double-rAF: wait for module layout so first paint is not 1×1.
+  // Layout may land after the first rAF (article not in the workspace yet).
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => drawNodeGraphFilterCurveDisplay(section));
+    requestAnimationFrame(() => {
+      section._filterCurveForceDraw = true;
+      section._filterCurveLaidOut = false;
+      drawNodeGraphFilterCurveDisplay(section);
+      if (typeof scheduleNodeGraphFilterCurveDraw === "function") {
+        scheduleNodeGraphFilterCurveDraw();
+      }
+    });
   });
   return section;
 }
@@ -702,7 +848,36 @@ function drawNodeGraphFilterCurveDisplay(section) {
   }
 }
 
+function nodeGraphFilterCurveMeasureBox(section) {
+  let rawW = Number(section.clientWidth || section.offsetWidth) || 0;
+  let rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+  if (rawW < 8 || rawH < 8) {
+    const host = section.closest?.(".dsp-node");
+    if (host) {
+      rawW = Math.max(rawW, Number(host.clientWidth || host.offsetWidth) || 0);
+      const gu = Number(
+        (host.style && host.style.getPropertyValue("--node-module-display-height-units"))
+        || (typeof getComputedStyle === "function"
+          ? getComputedStyle(host).getPropertyValue("--node-module-display-height-units")
+          : "")
+        || 5,
+      ) || 5;
+      const gridH = Number(
+        (typeof getComputedStyle === "function"
+          ? parseFloat(getComputedStyle(host).getPropertyValue("--node-grid-height"))
+          : 0)
+        || 28,
+      ) || 28;
+      rawH = Math.max(rawH, Math.round(gridH * Math.max(2, gu)));
+    }
+  }
+  return { rawW, rawH };
+}
+
 function drawNodeGraphFilterCurveDisplayInner(section) {
+  if (section) {
+    section.hidden = false;
+  }
   const node = nodeGraphPatchNode(section?.dataset?.node || "");
   const canvas = section?.querySelector?.(".node-filter-curve-canvas");
   if (!node || !canvas) {
@@ -722,19 +897,27 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   }
   // Layout size: offsetWidth avoids getBoundingClientRect (cheaper; zoom is
   // applied via CSS transform on the workspace, not on face layout size).
-  const rawW = Number(section.clientWidth || section.offsetWidth) || 0;
-  const rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+  const measured = nodeGraphFilterCurveMeasureBox(section);
+  const rawW = measured.rawW;
+  const rawH = measured.rawH;
   if (rawW < 8 || rawH < 8) {
-    // Face not laid out yet — do not cache signature; retry next frame.
+    // Face not laid out yet — do not cache signature; keep retrying.
     section._filterCurveLaidOut = false;
     section._filterCurveForceDraw = true;
-    if (!section._filterCurveRetryFrame) {
+    const tries = (Number(section._filterCurveRetryCount) || 0) + 1;
+    section._filterCurveRetryCount = tries;
+    if (tries <= 45 && !section._filterCurveRetryFrame) {
       section._filterCurveRetryFrame = requestAnimationFrame(() => {
         section._filterCurveRetryFrame = 0;
         drawNodeGraphFilterCurveDisplay(section);
       });
     }
     return;
+  }
+  section._filterCurveRetryCount = 0;
+  if ((Number(section.clientWidth) || 0) < 8 || (Number(section.clientHeight) || 0) < 8) {
+    section.style.width = `${Math.max(8, rawW)}px`;
+    section.style.height = `${Math.max(8, rawH)}px`;
   }
   const cssW = Math.max(1, rawW);
   const cssH = Math.max(1, rawH);
@@ -747,7 +930,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   ) {
     return;
   }
-  const metrics = nodeGraphSizeDisplayCanvas(section, canvas);
+  const metrics = nodeGraphSizeDisplayCanvas(section, canvas, { pixelDensity: 1 });
   if (!metrics) {
     return;
   }
@@ -882,10 +1065,9 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
     context.fillText(title, 8, titleY);
   }
 
-  // Keep crossover dimmer cutout after paint (2/3 vs full-bright scopes).
-  if (isCrossover) {
-    nodeGraphFilterCurveApplyCrossoverLightCutout(section, canvas, node.type);
-  }
+  // Keep the dimmer hole open after paint. Stop wipe used to leave strength 0
+  // on this light-source, so the room veil covered a perfectly drawn curve.
+  nodeGraphFilterCurveApplyScreenLight(section, canvas);
 }
 
 function drawNodeGraphFilterCurveDisplays() {

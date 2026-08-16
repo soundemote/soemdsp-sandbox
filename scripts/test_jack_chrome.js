@@ -100,11 +100,19 @@ var sandbox = {
       outputs: ["R"],
       outputLabels: { R: "R" },
     },
+    fbmField: {
+      inputs: ["In"],
+      inputAliases: { Reset: "In" },
+      inputLabels: { In: "→" },
+      outputs: ["X", "Y", "Z"],
+      outputLabels: { X: "X", Y: "Y", Z: "Z" },
+    },
   },
   nodeGraphModuleStoreCatalog: {
     lorenzAttractor: { category: "chaos" },
     rasterRgb: { category: "visual" },
     output: { category: "io" },
+    fbmField: { category: "noise" },
   },
   nodeGraphNodeLabels: {
     output: "Output",
@@ -147,6 +155,10 @@ assert(ch("loneR", "R", "output") === "", "lone R is not Right and not RGB");
 assert(ch("lorenzAttractor", "X", "output") === "red", "chaos X red");
 assert(ch("lorenzAttractor", "Y", "output") === "blue", "chaos Y blue");
 assert(ch("lorenzAttractor", "Z", "output") === "green", "chaos Z green");
+assert(ch("fbmField", "X", "output") === "red", "fBf X red");
+assert(ch("fbmField", "Y", "output") === "blue", "fBf Y blue");
+assert(ch("fbmField", "Z", "output") === "green", "fBf Z green");
+assert(ch("fbmField", "In", "input") === "green", "fBf In is mono green");
 assert(ch("quadrature", "Sin", "output") === "red", "sin red");
 assert(ch("quadrature", "Cos", "output") === "blue", "cos blue");
 assert(ch("audioPlayer", "Trigger", "output") === "", "digital trigger has no channel");

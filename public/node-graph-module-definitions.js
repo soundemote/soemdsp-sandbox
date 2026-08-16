@@ -342,32 +342,88 @@ const nodeGraphActiveFilterDefinition = {
   outputs: ["Out", "Left", "Right"],
   parameters: [
     {
-      choices: ["LP6", "LP12", "LP18", "LP24", "HP6", "HP12", "HP18", "HP24", "BP6", "BP12"],
+      choices: ["LP6", "LP12", "LP18", "LP24", "HP6", "HP12", "HP18", "HP24", "BP"],
       defaultValue: "3",
       displayChoices: true,
       divideChoicesVisibly: true,
       key: "mode",
       label: "Mode",
       linearSmoothing: false,
-      max: "9",
+      max: "8",
       mid: "3",
       min: "0",
       nonlinearSlider: false,
       step: "1",
-      tooltip: "Response / slope. No Flat/bypass — use graph bypass if needed."
+      tooltip: "LP/HP are one ladder. BP is two filters in one: HP then LP, each with its own cutoff and slope. Old BP6/BP12 patches become BP."
+    },
+    {
+      defaultValue: "200",
+      key: "lowFrequency",
+      kind: "frequency",
+      label: "Low Cut",
+      max: "20000",
+      maxDigits: 5,
+      mid: "200",
+      min: "0",
+      step: "any",
+      unit: "Hz",
+      tooltip: "Highpass cutoff (HP and BP). Sweep and ƒ move this with High Cut in musical steps. When ƒ is wired in HP, that Hz is the cutoff."
     },
     {
       defaultValue: "1000",
-      key: "frequency",
+      key: "highFrequency",
       kind: "frequency",
-      label: "Frequency",
+      label: "High Cut",
       max: "20000",
       maxDigits: 5,
       mid: "1000",
       min: "0",
       step: "any",
       unit: "Hz",
-      tooltip: "Cutoff in Hz. When ƒ is wired, that Hz is the cutoff (Pitch Detector Frequency → ƒ). Unwired uses this knob. 0 = frozen."
+      tooltip: "Lowpass cutoff (LP and BP). Sweep and ƒ move this with Low Cut in musical steps. When ƒ is wired in LP, that Hz is the cutoff."
+    },
+    {
+      choices: ["6", "12", "18", "24"],
+      defaultValue: "1",
+      displayChoices: true,
+      divideChoicesVisibly: true,
+      key: "hpSlope",
+      label: "HP Slope",
+      linearSmoothing: false,
+      max: "3",
+      mid: "1.5",
+      min: "0",
+      nonlinearSlider: false,
+      step: "1",
+      tooltip: "Highpass slope in dB/oct. Used in HP and BP."
+    },
+    {
+      choices: ["6", "12", "18", "24"],
+      defaultValue: "1",
+      displayChoices: true,
+      divideChoicesVisibly: true,
+      key: "lpSlope",
+      label: "LP Slope",
+      linearSmoothing: false,
+      max: "3",
+      mid: "1.5",
+      min: "0",
+      nonlinearSlider: false,
+      step: "1",
+      tooltip: "Lowpass slope in dB/oct. Used in LP and BP."
+    },
+    {
+      defaultValue: "0",
+      key: "sweep",
+      label: "Sweep",
+      max: "48",
+      mid: "0",
+      min: "-48",
+      nonlinearSlider: false,
+      showSign: true,
+      step: "any",
+      unit: "st",
+      tooltip: "Shift Low Cut and/or High Cut in semitones. BP keeps the interval (ratio) constant."
     },
     {
       defaultValue: "0.2",
@@ -378,7 +434,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       nonlinearSlider: false,
       step: "any",
-      tooltip: "Feedback 0…1 when Feedback Circuit includes resonance. Max 1.0."
+      tooltip: "Feedback 0…1 when Feedback Circuit includes resonance. Max 1.0. In BP this applies to both filters."
     },
     {
       choices: ["Off", "Resonance only", "Clipping only", "Res + Clip"],
@@ -3631,7 +3687,20 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Same Soft Clipper modes on the Min→Max knee. x0 original, x1 ADAA, x2 extra linear 2× (usually inaudible vs x1)."
+        tooltip: "Soft Clipper modes on the last stage (the Min→Max knee). x0 original, x1 ADAA, x2 extra linear 2× (usually inaudible vs x1)."
+      },
+      {
+        defaultValue: "0",
+        key: "gainDb",
+        kind: "decibels",
+        label: "Gain",
+        max: "60",
+        mid: "12",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "dB",
+        tooltip: "Input drive before the knee. Soft Clipper is the last stage — this is not make-up gain after clip."
       },
       {
         defaultValue: "-12",
@@ -3644,7 +3713,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "dB",
-        tooltip: "Level where the original soft clipper starts. Below this the signal is unchanged."
+        tooltip: "Level where the Soft Clipper starts. Below this the driven signal is unchanged."
       },
       {
         defaultValue: "0",
@@ -3659,19 +3728,6 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "dB",
         tooltip: "Ceiling the tanh curve approaches. A wider Min→Max span makes a more gradual clip."
-      },
-      {
-        defaultValue: "0",
-        key: "gainDb",
-        kind: "decibels",
-        label: "Gain",
-        max: "60",
-        mid: "12",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        unit: "dB",
-        tooltip: "Input gain into the clipper. Raise this to drive the signal into the Min/Max knee."
       },
     ]
   },
@@ -4166,7 +4222,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "1-pole (~6 dB/oct). HP6 tames lows gently; LP6 softens highs; BP6 chains both."
+        tooltip: "1-pole (~6 dB/oct). HP6 tames lows gently; LP6 softens highs; BP6 is both filters in one (HP then LP)."
       },
       {
         defaultValue: "200",
@@ -4179,7 +4235,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Highpass cutoff (~6 dB/oct). Used in HP and BP. Good rumble tame: 20–120 Hz."
+        tooltip: "Highpass cutoff (~6 dB/oct). Used in HP and BP. Sweep moves this with High Cut in musical steps."
       },
       {
         defaultValue: "1000",
@@ -4192,7 +4248,20 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Lowpass cutoff (~6 dB/oct). Used in LP and BP."
+        tooltip: "Lowpass cutoff (~6 dB/oct). Used in LP and BP. Sweep moves this with Low Cut in musical steps."
+      },
+      {
+        defaultValue: "0",
+        key: "sweep",
+        label: "Sweep",
+        max: "48",
+        mid: "0",
+        min: "-48",
+        nonlinearSlider: false,
+        showSign: true,
+        step: "any",
+        unit: "st",
+        tooltip: "Shift used cutoffs in semitones. BP keeps the Low/High interval (ratio) constant."
       },
         nodeGraphOutputAmplitudeParam,
     ]
@@ -4243,6 +4312,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { In: "Mono", f: "ƒ" },
     inputs: ["In", "Left", "Right", "f"],
     layout: "filterCurve",
+    displayHeightGu: 5,
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
     outputs: ["Out", "Left", "Right"],
@@ -8570,7 +8640,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "x",
         tooltip:
-          "Over-reduction after the exact brickwall cut. 1× = just enough for the Ceiling. 2× = twice the dB of dip. 0.5× = half the dip (clamp still catches peaks). Hidden by default.",
+          "Over-reduction after the exact brickwall cut. 1× = just enough for the Ceiling. 2× = twice the dB of dip. Slider min/max are yours in Parameter Settings — DSP does not clamp this. Hidden by default.",
       },
     ]
   },
@@ -9572,14 +9642,39 @@ const nodeGraphModuleDefinitions = (
     inputs: ["In"],
     layout: "traceDisplay",
     // Dry passthrough so the analyzer can sit in-line (In → face + Thru).
-    outputs: ["Thru"],
-    outputLabels: { Thru: "←" },
-    // Face knobs: levels + view band + scroll window.
+    // 📺 / rgba is reserved for a later video tap (silence until then).
+    outputs: ["Thru", "rgba"],
+    outputLabels: { Thru: "←", rgba: "📺" },
+    outputTooltips: {
+      rgba: "TV tap — unimplemented. Reserved for a later video/raster send.",
+    },
+    // Face knobs: Pixel Grid grade + view band + scroll window.
     // Analysis look (FFT / window / overlap / freq scale / gradient) stays in Display Settings.
     parameters: [
-      { key: "brightness", label: "Brightness", defaultValue: "0.2", min: "0", mid: "0.2", max: "1", step: "0.01", maxDigits: 4 },
-      { key: "minThreshold", label: "Min Thresh", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
-      { key: "maxThreshold", label: "Max Thresh", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01", maxDigits: 4 },
+      {
+        bipolar: true,
+        defaultValue: "1",
+        key: "contrast",
+        label: "Contrast",
+        max: "4",
+        mid: "0",
+        min: "-4",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Same S-curve as Pixel Grid. 1 = unity. Below 1 compresses highs so bins don’t clip as fast. 0 = mid grey. Negative inverts the curve.",
+      },
+      {
+        bipolar: true,
+        defaultValue: "0.2",
+        key: "brightness",
+        label: "Brightness",
+        max: "4",
+        mid: "0",
+        min: "-4",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Same gain as Pixel Grid, after contrast. 1 = unity. 0 = black. Default 0.2 stays dim. Negative is the same gain, then invert.",
+      },
       {
         key: "minFreq",
         kind: "frequency",
@@ -10165,61 +10260,58 @@ const nodeGraphModuleDefinitions = (
     outputLabels: { R: "R", G: "G", B: "B", rgba: "📺" },
     parameters: [
       {
+        curveAmount: "0.55",
         defaultValue: "96",
         key: "width",
         label: "Width",
         max: "512",
+        maxDigits: 0,
         mid: "96",
         min: "0",
-        nonlinearSlider: false,
-        step: "1",
         modClamp: false,
-        tooltip: "Pixels per line. 0 = no raster. 1 = one pixel. Slider 0…512 is a guide only — type larger values if you want.",
+        nonlinearSlider: true,
+        sliderCurve: "custom",
+        step: "1",
+        tooltip: "Grid width in pixels. Integer. Slider is finer near 0 (Parameter Settings → Sensitivity).",
       },
       {
+        curveAmount: "0.55",
         defaultValue: "54",
         key: "height",
         label: "Height",
         max: "512",
+        maxDigits: 0,
         mid: "54",
         min: "0",
-        nonlinearSlider: false,
-        step: "1",
         modClamp: false,
-        tooltip: "Number of lines. 0 = no raster. 1 = one pixel. W×H samples fill one rolling frame. Slider max is a guide only.",
+        nonlinearSlider: true,
+        sliderCurve: "custom",
+        step: "1",
+        tooltip: "Grid height in pixels. Integer. Slider is finer near 0 (Parameter Settings → Sensitivity).",
       },
       {
-        defaultValue: "0",
-        key: "invert",
-        label: "Invert",
-        max: "1",
-        mid: "0",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        tooltip: "0 = normal. 1 = photographic invert of the whole screen (black plate → white). In between crossfades.",
-      },
-      {
+        bipolar: true,
         defaultValue: "1",
         key: "contrast",
         label: "Contrast",
         max: "4",
-        mid: "1",
-        min: "0",
+        mid: "0",
+        min: "-4",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Compressive color contrast (S-curve on R/G/B). 1 = unity. 0 = mid grey. Above 1 opens midtones and rolls off highlights/shadows instead of clipping.",
+        tooltip: "Bipolar S-curve on R/G/B. 1 = unity. 0 = mid grey. Above 1 opens midtones. Negative is the same curve, photographically inverted (−1 = invert, −4 = inverted high contrast).",
       },
       {
+        bipolar: true,
         defaultValue: "1",
         key: "brightness",
         label: "Brightness",
         max: "4",
-        mid: "1",
-        min: "0",
+        mid: "0",
+        min: "-4",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "1 = unity. 0 = black. Above 1 lifts the face.",
+        tooltip: "Bipolar gain after contrast. 1 = unity. 0 = black. Above 1 lifts. Negative is the same gain, then photographic invert (−1 = invert).",
       },
       {
         defaultValue: "0",
@@ -10233,7 +10325,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "cycle",
         wraparound: true,
-        tooltip: "Rotate processed RGB hue. 0 = unchanged. ±1 = full cycle. Applied after invert/contrast/brightness on the face and analog R/G/B/📺 outs.",
+        tooltip: "Rotate processed RGB hue. 0 = unchanged. ±1 = full cycle. Applied after contrast/brightness/invert on the face and analog R/G/B/📺 outs.",
       },
       {
         defaultValue: "0",
@@ -10256,6 +10348,17 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip: "Additive wider Gaussian bloom of the same raster. Works with or without Blur.",
+      },
+      {
+        defaultValue: "0",
+        key: "invert",
+        label: "Invert",
+        max: "1",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Dedicated 0…1 photographic invert mix (last). Contrast −1 or Brightness −1 already fully invert; this crossfades without moving those knobs.",
       },
     ],
     visualInputs: [

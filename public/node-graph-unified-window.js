@@ -782,11 +782,12 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
         }
         break;
       case "metaparameters":
-        // Always blank from nav — only right-click on a slider fills the form.
-        if (typeof openBlankNodeMetadataPopover === "function") {
-          openBlankNodeMetadataPopover(options.event || {});
+        if (typeof openNodeGraphMetaparametersPage === "function") {
+          openNodeGraphMetaparametersPage(options);
         } else if (typeof openNodeGraphMetaparametersFromContextWindow === "function") {
           openNodeGraphMetaparametersFromContextWindow();
+        } else if (typeof openBlankNodeMetadataPopover === "function") {
+          openBlankNodeMetadataPopover(options.event || {});
         }
         break;
       case "traceDisplaySettings": {

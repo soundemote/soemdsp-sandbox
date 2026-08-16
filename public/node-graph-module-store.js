@@ -799,7 +799,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   clipperLimiter: {
     category: "dynamics",
-    description: "Soft-clip limiter: below Min dB is dry; Min→Max is the shared Soft Clipper tanh knee (wider span = more gradual).",
+    description: "Drive with Gain, then Soft Clip last: below Min dB is dry; Min→Max is the shared Soft Clipper tanh knee (wider span = more gradual).",
     label: "Clipper Limiter",
     notes: ["soft clip", "limiter", "dB", "tanh", "ADAA", "dynamics"],
   },
@@ -3567,12 +3567,7 @@ function createNodeGraphModuleDepartmentButton(departmentId, entries) {
   title.className = "scene-context-store-department-title";
   title.textContent = titleText;
 
-  const count = document.createElement("span");
-  count.className = "scene-context-store-department-count";
-  const workingCount = entries.filter((entry) => entry.visible && entry.implemented).length;
-  count.textContent = String(workingCount);
-
-  button.append(count, symbol, title);
+  button.append(symbol, title);
   return button;
 }
 

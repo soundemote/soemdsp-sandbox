@@ -59,6 +59,11 @@ NodeLiveAudioProcessor.prototype.fbmFieldVector = function fbmFieldVector(state,
       this.fbmFieldMotionMode(params.motion),
       Math.max(0, this.fbmFieldNum(params.contrast, 1)),
     );
+    const amp = Math.max(0, this.fbmFieldNum(params.amplitude, 1));
+    const scale = (value) => {
+      const n = this.safeFilterNumber(value, null);
+      return n == null ? null : n * amp;
+    };
     const x = this.nativeFbmField.soemdsp_fbm_field_x(state.nativeHandle);
     const y = this.nativeFbmField.soemdsp_fbm_field_y(state.nativeHandle);
     const z = this.nativeFbmField.soemdsp_fbm_field_z?.(state.nativeHandle) ?? 0;
@@ -66,12 +71,12 @@ NodeLiveAudioProcessor.prototype.fbmFieldVector = function fbmFieldVector(state,
     const yRaw = this.nativeFbmField.soemdsp_fbm_field_y_raw?.(state.nativeHandle) ?? y;
     const zRaw = this.nativeFbmField.soemdsp_fbm_field_z_raw?.(state.nativeHandle) ?? z;
     return {
-      X: this.safeFilterNumber(x, null),
-      Y: this.safeFilterNumber(y, null),
-      Z: this.safeFilterNumber(z, null),
-      "X Raw": this.safeFilterNumber(xRaw, null),
-      "Y Raw": this.safeFilterNumber(yRaw, null),
-      "Z Raw": this.safeFilterNumber(zRaw, null),
+      X: scale(x),
+      Y: scale(y),
+      Z: scale(z),
+      "X Raw": scale(xRaw),
+      "Y Raw": scale(yRaw),
+      "Z Raw": scale(zRaw),
     };
   } catch (error) {
     this.nativeFbmFieldReady = false;

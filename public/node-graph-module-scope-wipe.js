@@ -53,6 +53,11 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
       || el.closest?.(".node-value-lcd-face")
       || el.closest?.(".node-value-led-face")
       || el.closest?.(".node-pitch-detector-lcd")
+      || (typeof nodeGraphFilterCurveIsPersistentScreen === "function"
+        && nodeGraphFilterCurveIsPersistentScreen(el))
+      || el.classList?.contains("node-filter-curve-display")
+      || el.classList?.contains("node-filter-curve-canvas")
+      || el.closest?.(".node-filter-curve-display")
     ) {
       continue;
     }
@@ -95,6 +100,7 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
       || canvas.classList?.contains("node-room-dimmer-canvas")
       || canvas.classList?.contains("node-number-readout-canvas")
       || canvas.classList?.contains("node-raster-rgb-canvas")
+      || canvas.classList?.contains("node-filter-curve-canvas")
     ) {
       continue;
     }
@@ -146,6 +152,23 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
   if (typeof wipeNodeGraphFbmFieldScreensToColdBoot === "function") {
     try {
       wipeNodeGraphFbmFieldScreensToColdBoot();
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
+  // Pixel Grid keeps its own rolling framebuffer (skipped in the 2d plate loop).
+  if (typeof wipeNodeGraphRasterRgbScreensToColdBoot === "function") {
+    try {
+      wipeNodeGraphRasterRgbScreensToColdBoot();
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
+  // EQ / filter-curve faces are parameter plots — redraw after Stop, do not
+  // leave a black plate under the room veil.
+  if (typeof scheduleNodeGraphFilterCurveDraw === "function") {
+    try {
+      scheduleNodeGraphFilterCurveDraw();
     } catch (_error) {
       // Best-effort.
     }

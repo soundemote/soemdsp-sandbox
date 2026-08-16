@@ -60,8 +60,10 @@ registerNodeGraphChromelessModule("fbmField", {
       },
     ],
     defaultDisplayMode: "face",
-    inputs: ["Reset"],
-    inputLabels: { Reset: "Rst" },
+    layoutBPortLabels: true,
+    inputAliases: { Reset: "In" },
+    inputs: ["In"],
+    inputLabels: { In: "→" },
     outputs: ["X", "Y", "Z"],
     outputLabels: { X: "X", Y: "Y", Z: "Z" },
     parameters: [
@@ -128,7 +130,6 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "2",
-        hidden: true,
         key: "lacunarity",
         label: "Lacunarity",
         max: "4",
@@ -140,7 +141,6 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "0.55",
-        hidden: true,
         key: "smoothness",
         label: "Smoothness",
         max: "1",
@@ -152,7 +152,6 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "1",
-        hidden: true,
         key: "scale",
         label: "Scale",
         max: "10",
@@ -163,7 +162,6 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "1",
-        hidden: true,
         key: "zoom",
         label: "Zoom",
         max: "16",
@@ -172,6 +170,57 @@ registerNodeGraphChromelessModule("fbmField", {
         nonlinearSlider: true,
         step: "any",
         tooltip: "View magnification (and domain span for probes).",
+      },
+      {
+        defaultValue: "1",
+        key: "contrast",
+        label: "Contrast",
+        max: "4",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: true,
+        step: "any",
+        tooltip:
+          "Dynamics around mid/zero — same law on face and X/Y/Z. "
+          + "1 = unity. >1 expands (more black/white, hotter CV swings). "
+          + "<1 compresses toward mid-gray / quieter field. Clamps at ±1 after expand.",
+      },
+      {
+        defaultValue: "1",
+        key: "brightness",
+        label: "Brightness",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "0.01",
+        tooltip:
+          "Overall gain after contrast. Face: scales mono toward black (0 = black plate). "
+          + "X/Y/Z: scales bipolar CV toward silence. 1 = full.",
+      },
+      {
+        defaultValue: "0",
+        key: "rotate",
+        label: "Rotate",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "0.01",
+        kind: "phase",
+        unit: "cycle",
+        wraparound: true,
+        tooltip: "View rotation of the field (cycles).",
+      },
+      {
+        defaultValue: "1",
+        key: "amplitude",
+        label: "Amplitude",
+        max: "1",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        modClamp: false,
+        tooltip: "Output scale for X/Y/Z.",
       },
       {
         bipolar: true,
@@ -200,35 +249,6 @@ registerNodeGraphChromelessModule("fbmField", {
         tooltip: "Field / probe origin Y.",
       },
       {
-        defaultValue: "0",
-        hidden: true,
-        key: "rotate",
-        label: "Rotate",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        step: "0.01",
-        kind: "phase",
-        unit: "cycle",
-        wraparound: true,
-        tooltip: "View rotation of the field (cycles).",
-      },
-      {
-        defaultValue: "1",
-        hidden: true,
-        key: "contrast",
-        label: "Contrast",
-        max: "4",
-        mid: "1",
-        min: "0",
-        nonlinearSlider: true,
-        step: "any",
-        tooltip:
-          "Dynamics around mid/zero — same law on face and X/Y/Z. "
-          + "1 = unity. >1 expands (more black/white, hotter CV swings). "
-          + "<1 compresses toward mid-gray / quieter field. Clamps at ±1 after expand.",
-      },
-      {
         defaultValue: "1",
         hidden: true,
         key: "seed",
@@ -240,19 +260,6 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0",
         step: "1",
         tooltip: "Lattice seed.",
-      },
-      {
-        defaultValue: "1",
-        hidden: true,
-        key: "brightness",
-        label: "Brightness",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        step: "0.01",
-        tooltip:
-          "Overall gain after contrast. Face: scales mono toward black (0 = black plate). "
-          + "X/Y/Z: scales bipolar CV toward silence. 1 = full.",
       },
     ],
   },

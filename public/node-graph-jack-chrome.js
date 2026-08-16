@@ -54,7 +54,12 @@ function nodeGraphModuleUsesChaosOutletRgb(type) {
   const category = typeof nodeGraphModuleStoreCatalog === "object"
     ? nodeGraphModuleStoreCatalog?.[type]?.category
     : "";
-  const has = String(category || "").toLowerCase() === "chaos";
+  if (String(category || "").toLowerCase() === "chaos") {
+    nodeGraphJackChaosTypeCache.set(key, true);
+    return true;
+  }
+  const ports = new Set(nodeGraphJackTypePortList(type));
+  const has = ports.has("X") && ports.has("Y") && ports.has("Z");
   nodeGraphJackChaosTypeCache.set(key, has);
   return has;
 }

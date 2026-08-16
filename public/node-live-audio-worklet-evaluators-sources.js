@@ -1167,6 +1167,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         return this.fbmFieldVector(
           state,
           {
+            amplitude: read("amplitude", 1),
             brightness: read("brightness", 1),
             contrast: read("contrast", 1),
             frequency: read("frequency", 20),
@@ -1183,7 +1184,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
             zoom: read("zoom", 1),
           },
           safeRate,
-          mixInput(nodeId, "Reset"),
+          mixInput(nodeId, "In"),
         );
       },
       spiral: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {

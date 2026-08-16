@@ -1386,7 +1386,7 @@ button.scw-label:hover,
   background: transparent;
   color: var(--phosphor-hud-color-hot);
 }
-.node-phosphor-waveform-display:not([data-music-player-face="wave"]):not([data-music-player-face="wavplay"]) .node-phosphor-waveform-zoom {
+.node-phosphor-waveform-display:not([data-music-player-face="wave"]):not([data-music-player-face="waveplay"]) .node-phosphor-waveform-zoom {
   display: none;
 }
 .node-music-player-face-btn {
@@ -1436,8 +1436,7 @@ button.scw-label:hover,
   display: block;
 }
 .node-music-player-page-pl,
-.node-music-player-page-playinfo,
-.node-music-player-page-wavplay {
+.node-music-player-page-playinfo {
   top: 0;
   right: 0;
   bottom: var(--node-music-player-pl-row-height, 1.35rem);
@@ -1453,15 +1452,17 @@ button.scw-label:hover,
   font: var(--phosphor-hud-font);
   overflow: hidden;
 }
-.node-music-player-wavplay-wave {
+.node-music-player-page-waveplay {
+  z-index: 2;
+}
+.node-music-player-waveplay-wave {
   position: relative;
-  flex: 0 0 calc(2 * var(--node-music-player-pl-row-height, 1.35rem));
-  height: calc(2 * var(--node-music-player-pl-row-height, 1.35rem));
-  min-height: calc(2 * var(--node-music-player-pl-row-height, 1.35rem));
-  max-height: calc(2 * var(--node-music-player-pl-row-height, 1.35rem));
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
-.node-music-player-wavplay-wave .node-phosphor-waveform-canvas {
+.node-music-player-waveplay-wave .node-phosphor-waveform-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1469,6 +1470,40 @@ button.scw-label:hover,
   min-width: 0;
   min-height: 0;
   display: block;
+}
+.node-music-player-waveplay-song {
+  flex: 0 0 var(--node-music-player-pl-row-height, 1.35rem);
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--node-music-player-pl-row-height, 1.35rem);
+  min-height: var(--node-music-player-pl-row-height, 1.35rem);
+  max-height: var(--node-music-player-pl-row-height, 1.35rem);
+  margin: 0;
+  padding: 0 8px;
+  border: 0 !important;
+  border-top: 1px solid var(--phosphor-hud-color-dim) !important;
+  border-radius: 0;
+  box-sizing: border-box;
+  background: #050805;
+  color: var(--phosphor-hud-color);
+  font: var(--phosphor-hud-font);
+  text-align: left;
+  outline: none;
+  cursor: var(--node-dot-cursor);
+  overflow: hidden;
+}
+.node-music-player-waveplay-song .node-music-player-pl-name {
+  grid-column: auto;
+  grid-row: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.node-music-player-waveplay-song:hover,
+.node-music-player-waveplay-song:focus-visible {
+  color: var(--phosphor-hud-color-hot);
+  background: #050805;
+  outline: none;
 }
 .node-music-player-page-vs {
   z-index: 2;
@@ -9874,7 +9909,7 @@ body.node-graph-magnifying-active * {
   -webkit-appearance: none;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: 2.75ch 1.6em minmax(0, 1fr);
+  grid-template-columns: 1.6em minmax(0, 1fr);
   column-gap: 8px;
   align-items: center;
   min-width: 0;
@@ -9913,7 +9948,7 @@ body.node-graph-magnifying-active * {
 }
 
 .scene-context-store-department-count {
-  display: grid;
+  display: none;
   align-items: center;
   justify-items: end;
   min-width: 0;
@@ -11765,61 +11800,38 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none !important;
 }
 
-/* Coup de grâce: one screen owns the view. Other faces stop painting. */
-.node-screen-solo-veil {
+/* Coup de grâce: live face is reparented onto this body-level stage. */
+.node-screen-solo-stage {
   position: fixed;
   inset: 0;
-  z-index: 199990;
+  z-index: 200000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #000;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
-.node-screen-solo-veil[hidden] {
+.node-screen-solo-stage[hidden] {
   display: none !important;
+}
+
+.node-screen-solo-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  pointer-events: none;
 }
 
 body.node-screen-solo-active {
   background: #000;
 }
 
-body.node-screen-solo-active .dsp-node:not(.node-screen-solo-host),
-body.node-screen-solo-active .dsp-node.node-screen-solo-host > :not(.node-screen-solo-face):not(.node-solid-module-shell):not(.node-module-chrome-layout-b-shell),
-body.node-screen-solo-active .node-grid-heatmap,
-body.node-screen-solo-active #nodeWireSvg,
-body.node-screen-solo-active #nodeWireEndpointSvg,
-body.node-screen-solo-active #nodeSelectionHitTrail,
-body.node-screen-solo-active #nodeSelectionMarquee,
-body.node-screen-solo-active #nodeCameraOverlayLayer,
-body.node-screen-solo-active #nodeGraphResizeHandle,
-body.node-screen-solo-active .node-graph-origin-marker,
-body.node-screen-solo-active .node-graph-controls,
-body.node-screen-solo-active .node-history-controls,
-body.node-screen-solo-active .node-zoom-controls,
-body.node-screen-solo-active #nodeUnifiedWindow,
-body.node-screen-solo-active .node-parameter-metadata-popover,
-body.node-screen-solo-active #nodeSceneContextMenu,
-body.node-screen-solo-active .node-controller-dock,
-body.node-screen-solo-active .status-strip {
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
-body.node-screen-solo-active .dsp-node.node-screen-solo-host > .node-solid-module-shell > :not(.node-screen-solo-face),
-body.node-screen-solo-active .dsp-node.node-screen-solo-host > .node-module-chrome-layout-b-shell > :not(.node-screen-solo-face) {
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
 body.node-screen-solo-active .node-screen-solo-face {
-  position: fixed !important;
-  inset: 0 !important;
-  z-index: 200000 !important;
-  width: 100vw !important;
-  height: 100vh !important;
+  z-index: 1 !important;
   min-width: 0 !important;
   min-height: 0 !important;
-  max-width: none !important;
-  max-height: none !important;
   margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
@@ -11829,13 +11841,49 @@ body.node-screen-solo-active .node-screen-solo-face {
   pointer-events: auto !important;
   visibility: visible !important;
   background: #000 !important;
+  flex: 0 0 auto;
+}
+
+body.node-screen-solo-fit-contain .node-screen-solo-face {
+  position: relative !important;
+  inset: auto !important;
+  width: var(--node-screen-solo-w, 100%) !important;
+  height: var(--node-screen-solo-h, 100%) !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+body.node-screen-solo-fit-fill .node-screen-solo-face {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+body.node-screen-solo-active .node-screen-solo-face,
+body.node-screen-solo-active .node-screen-solo-face * {
+  pointer-events: auto !important;
+}
+
+body.node-screen-solo-active .node-screen-solo-face canvas,
+body.node-screen-solo-active .node-screen-solo-face .node-module-scope-window-surface,
+body.node-screen-solo-active .node-screen-solo-face .node-raster-rgb-canvas,
+body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
 }
 
 /* Keep in sync with NODE_GRAPH_VIEWPORT_ASLEEP_SKIP_SEL.
    Faces / custom UI only — not .dsp-node-body. Live slider readout, ghosts,
    and constraint chrome measure param rows every frame; hiding that band
    makes Chrome force-paint it ("subtree hidden by content-visibility"). */
-.dsp-node.viewport-asleep .node-module-face,
+.dsp-node.viewport-asleep .node-module-face:not(.node-filter-curve-display),
 .dsp-node.viewport-asleep .node-module-scope-window,
 .dsp-node.viewport-asleep .node-solid-module-custom-ui {
   content-visibility: hidden;
@@ -12281,8 +12329,7 @@ body.node-screen-solo-active .node-screen-solo-face {
    Default clip offsets are huge so a mid-stack face is unclipped until JS
    writes the real plate insets (avoid rounding the screen's own box). */
 .dsp-node .node-module-scope-window,
-.dsp-node .node-module-face:not(.node-text-box-body),
-.dsp-node .node-filter-curve-display,
+.dsp-node .node-module-face:not(.node-text-box-body):not(.node-filter-curve-display),
 .dsp-node .node-phosphor-waveform-display,
 .dsp-node .node-module-graph-display {
   --node-plate-clip-top: 999px;
@@ -12297,6 +12344,13 @@ body.node-screen-solo-active .node-screen-solo-face {
     calc(-1 * var(--node-plate-clip-left, 999px))
     round var(--node-module-frame-radius)
   );
+}
+
+/* EQ / filter-curve plots: clip-path + size containment ate the canvas. */
+.dsp-node .node-filter-curve-display,
+.dsp-node .node-module-face.node-filter-curve-display {
+  clip-path: none;
+  overflow: hidden;
 }
 
 .dsp-node.layout-b-no-params
@@ -13849,11 +13903,13 @@ body.node-screen-solo-active .node-screen-solo-face {
 
 .node-filter-curve-display {
   position: relative;
+  z-index: 2;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  height: 100%;
-  min-height: 0;
+  height: calc(var(--node-grid-height) * var(--node-module-display-height-units, 5));
+  min-height: calc(var(--node-grid-height) * 2);
+  align-self: stretch;
   overflow: hidden;
   border-top: 1px solid rgba(128, 224, 224, 0.16);
   border-bottom: 1px solid rgba(128, 224, 224, 0.16);
@@ -13864,8 +13920,10 @@ body.node-screen-solo-active .node-screen-solo-face {
 
 .node-filter-curve-canvas {
   display: block;
+  position: static;
   width: 100%;
   height: 100%;
+  min-height: inherit;
 }
 
 .node-wall-room-display {
@@ -17516,10 +17574,54 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 .node-trace-display-settings-popover .metadata-popover-grid label.node-trace-display-line-burn-row,
 .node-trace-display-settings-popover .metadata-popover-grid .node-trace-display-line-burn-row {
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: var(--ds-label-col, 7.25em) minmax(0, 1fr);
   column-gap: 6px;
   min-height: var(--ds-row-h);
   overflow: visible;
+}
+
+.node-trace-display-choice-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-column: 1 / -1;
+  column-gap: 0;
+  row-gap: 0;
+  min-width: 0;
+}
+
+.node-trace-display-settings-popover .node-trace-display-choice-grid .node-trace-display-line-burn-row {
+  grid-template-columns: 7.25em minmax(0, 1fr);
+  min-width: 0;
+}
+
+/* Spectrogram: one control per row; label | dropdown. Do not 2-col pack. */
+.node-trace-display-settings-popover[data-display-settings-type="spectrogramBurn"] .node-trace-display-choice-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.node-trace-display-settings-popover[data-display-settings-type="spectrogramBurn"] .node-trace-display-line-burn-row,
+.node-trace-display-settings-popover[data-display-settings-type="spectrogramBurn"] .metadata-popover-grid label.node-trace-display-line-burn-row,
+.node-trace-display-settings-popover[data-display-settings-type="spectrogramBurn"] .node-trace-display-choice-grid .node-trace-display-line-burn-row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.node-trace-display-settings-popover[data-display-settings-type="spectrogramBurn"] .node-trace-display-line-burn-row > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 6px 0 8px;
+}
+
+.node-trace-display-settings-popover[data-display-settings-type="spectrogramBurn"] .node-trace-display-line-burn-row > select {
+  min-width: 0;
+  width: 100%;
+  pointer-events: auto;
+  z-index: 1;
 }
 
 .node-trace-display-settings-popover .metadata-popover-grid label.node-trace-display-line-burn-row > span:first-child {

@@ -387,6 +387,24 @@ function drawNodeGraphModuleScopes(options = {}) {
     scheduleNodeGraphModuleScopeDraw();
     return;
   }
+  // Same Simulation FPS tick as phosphor / traces — one Pixel Grid write.
+  if (typeof nodeGraphRasterRgbArmIngest === "function") {
+    nodeGraphRasterRgbArmIngest();
+  }
+  if (typeof paintNodeGraphRasterRgbFacesNow === "function") {
+    try {
+      paintNodeGraphRasterRgbFacesNow(pixelRatio);
+    } catch (_error) {
+      // Best-effort — typed item may still present.
+    }
+  }
+  if (typeof paintNodeGraphFbmFieldFacesNow === "function") {
+    try {
+      paintNodeGraphFbmFieldFacesNow();
+    } catch (_error) {
+      // Best-effort — RAF covers traces-off only.
+    }
+  }
   setNodeGraphModuleScopeDebugPhase("clear-current-frame");
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, canvas.width, canvas.height);

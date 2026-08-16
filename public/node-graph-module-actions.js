@@ -930,9 +930,7 @@ function addNodeGraphModuleGroupFromBrowser(name) {
     counts[sourceNode.type] = (counts[sourceNode.type] || 0) + 1;
     const id = `${sourceNode.type}-${counts[sourceNode.type]}`;
     idMap[sourceNode.id] = id;
-    const sizingOptions = {
-      ...(Object.hasOwn(sourceNode, "widthGu") ? { widthGu: sourceNode.widthGu } : {}),
-    };
+    const sizingOptions = nodeGraphCopiedModuleSizeOptions(sourceNode);
     patch.nodes.push({
       ...createNodeGraphPatchNode(sourceNode.type, {
         alias: sourceNode.alias,
@@ -973,6 +971,29 @@ function addNodeGraphModuleGroupFromBrowser(name) {
   commitNodeGraphPatch(patch, { status: "group added" });
 }
 
+function nodeGraphCopiedModuleSizeOptions(sourceNode) {
+  const options = {};
+  if (!sourceNode) {
+    return options;
+  }
+  if (Object.hasOwn(sourceNode, "widthGu")) {
+    options.widthGu = sourceNode.widthGu;
+  } else if (typeof nodeGraphPatchNodeGridWidthUnits === "function") {
+    options.widthGu = nodeGraphPatchNodeGridWidthUnits(sourceNode);
+  }
+  const heightCapability = typeof nodeGraphModuleSizingCapabilities === "function"
+    ? nodeGraphModuleSizingCapabilities(sourceNode.type)?.moduleHeight
+    : "";
+  if (Object.hasOwn(sourceNode, "heightGu")) {
+    options.heightGu = sourceNode.heightGu;
+  } else if (heightCapability === "textBox" || heightCapability === "custom") {
+    options.heightGu = typeof nodeGraphPatchNodeGridHeightUnits === "function"
+      ? nodeGraphPatchNodeGridHeightUnits(sourceNode)
+      : sourceNode.heightGu;
+  }
+  return options;
+}
+
 function copyNodeGraphModule(sourceNode) {
   if (typeof nodeGraphModuleTypeIsUniqueInPatch === "function"
     && nodeGraphModuleTypeIsUniqueInPatch(sourceNode?.type)) {
@@ -994,7 +1015,7 @@ function copyNodeGraphModule(sourceNode) {
       graph: sourceNode.graph,
       codeblock: sourceNode.codeblock,
       ui: sourceNode.ui,
-      ...(Object.hasOwn(sourceNode, "widthGu") ? { widthGu: sourceNode.widthGu } : {}),
+      ...nodeGraphCopiedModuleSizeOptions(sourceNode),
     }),
     ...(nodeGraphNodeTypeHasTextBoxLayout(sourceNode.type)
       ? { layout: normalizeNodeGraphTextBoxLayout(sourceNode.layout) }
@@ -1053,6 +1074,7 @@ function copyNodeGraphModuleFromContext() {
 const nodeGraphModuleSettingsFields = Object.freeze([
   "alias",
   "widthGu",
+  "heightGu",
   "ui",
   "layout",
   "led",

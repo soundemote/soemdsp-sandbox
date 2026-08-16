@@ -182,12 +182,7 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
               buffer: null,
             }, 1);
           } else if (selfPaint === "rasterRgbFace" || slot?.type === "rasterRgb") {
-            if (typeof drawNodeGraphRasterRgbFaceItem === "function") {
-              drawNodeGraphRasterRgbFaceItem(null, {
-                slot,
-                screenElement: slot.scopeElement,
-              }, pixelRatio);
-            }
+            // Pixel Grid paints after the Simulation FPS gate — not on collect.
           } else if (
             selfPaint === "trace"
             || selfPaint === "dot"

@@ -4529,6 +4529,16 @@ def require_node_graph_mvp_contract() -> None:
         and 'function nodeGraphJackChannel' in script_sources["./public/node-graph-jack-chrome.js"]
         and 'function nodeGraphJackVisibilityCensus' in script_sources["./public/node-graph-jack-chrome.js"]
         and 'axis === "x"' in script_sources["./public/node-graph-jack-chrome.js"]
+        and "layoutBPortLabels: true" in script_sources["./public/modules/fbmField/fbm-field-register.js"]
+        and 'In: "→"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
+        and 'Reset: "In"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
+        and 'key: "rotate"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
+        and 'key: "amplitude"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
+        and "liftFbmFieldFaceParams" in script_sources["./public/node-graph-patch-core.js"]
+        and '"squareRatio",' in script_sources["./public/node-graph-module-scope-trace-controls.js"]
+        and '"fftSize", "window", "overlap"' in script_sources["./public/node-graph-module-scope-trace-controls.js"]
+        and "node-trace-display-choice-grid" in script_sources["./public/node-graph-module-scope-settings-form.js"]
+        and "node-trace-display-choice-grid" in style_source
         and "function nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-viewport-perf.js"]
         and "function nodeGraphElementClientSize" in script_sources["./public/node-graph-viewport-perf.js"]
         and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/modules/asciiscope/asciiscope-core.js"]
@@ -4641,6 +4651,14 @@ def require_node_graph_mvp_contract() -> None:
         and "drawNodeGraphVectorRgbFaceItem" in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
         and "drawNodeGraphRasterRgbFaceItem" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
         and "function nodeGraphRasterRgbProcessSample" in script_sources["./public/modules/rasterRgb/raster-rgb-math.js"]
+        and "function nodeGraphRasterRgbGradeChannel01" in script_sources["./public/modules/rasterRgb/raster-rgb-math.js"]
+        and 'bipolar: true' in script_sources["./public/node-graph-module-definitions.js"][
+            script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
+            script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
+        ]
+        and 'key: "squares"' in script_sources["./public/node-graph-module-definitions.js"]
+        and "squares + widthOffset" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
+        and 'parameter.key === "squares"' in script_sources["./public/node-graph-patch-core.js"]
         and '"rgba"' in script_sources["./public/node-graph-module-definitions.js"]
         and 'key: "hue"' in script_sources["./public/node-graph-module-definitions.js"]
         and "drawNodeGraphGradientVectorscopeFaceItem" in script_sources["./public/modules/gradientVectorscope/gradient-vectorscope-display.js"]
@@ -10831,6 +10849,8 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphContextTargetSliderReadout(nodeId = nodeGraphModuleActionTargetNodeId())",
         "function openNodeGraphModuleActionsFromContextWindow()",
         "function openNodeGraphMetaparametersFromContextWindow()",
+        "function openNodeGraphMetaparametersPage(options = {})",
+        "function openNodeGraphMetaparametersForNode(nodeId, event = {})",
         "function openBlankNodeMetadataPopover(event = {})",
         "function showNodeModuleActionsWindow(anchorRect = null)",
         "menu.hidden = false;",
@@ -10889,6 +10909,7 @@ def require_node_graph_mvp_contract() -> None:
         'nodeGraphTooltipText("actions.deleteWire")',
         "function deleteNodeGraphSelectionFromContext()",
         "function copyNodeGraphModule(sourceNode)",
+        "function nodeGraphCopiedModuleSizeOptions(sourceNode)",
         "function copyNodeGraphModuleFromContext()",
         "const copiedNodeId = copyNodeGraphModule(sourceNode)",
         "function copySelectedNodeGraphModule()",
@@ -16832,12 +16853,21 @@ def require_node_graph_mvp_contract() -> None:
         "function beginNodeGraphScreenSolo(" in script_sources["./public/node-graph-screen-solo.js"]
         and "function endNodeGraphScreenSolo(" in script_sources["./public/node-graph-screen-solo.js"]
         and "function handleNodeGraphScreenSoloDoubleClick(" in script_sources["./public/node-graph-screen-solo.js"]
+        and "function handleNodeGraphScreenSoloPointerDown(" in script_sources["./public/node-graph-screen-solo.js"]
+        and "function nodeGraphDisplayNodeIdFromElement(" in script_sources["./public/node-graph-screen-solo.js"]
+        and "function applyNodeGraphScreenSoloFit(" in script_sources["./public/node-graph-screen-solo.js"]
+        and 'applyNodeGraphScreenSoloFit("contain")' in script_sources["./public/node-graph-screen-solo.js"]
+        and 'applyNodeGraphScreenSoloFit("fill")' in script_sources["./public/node-graph-screen-solo.js"]
+        and "nodeGraphScreenSoloConsumeGesture" in script_sources["./public/node-graph-screen-solo.js"]
+        and "stage.addEventListener(\"dblclick\"" not in script_sources["./public/node-graph-screen-solo.js"]
         and "bindNodeGraphScreenSoloEvents" in script_sources["./public/node-graph-workspace-event-bindings.js"]
         and "nodeGraphScreenSoloAllowsNode" in script_sources["./public/node-graph-module-scope-slots.js"]
         and "nodeGraphScreenSoloAllowsClock" in script_sources["./public/node-graph-module-scope-graph-query.js"]
-        and "body.node-screen-solo-active" in style_source
+        and "node-screen-solo-stage" in style_source
+        and "node-screen-solo-fit-contain" in style_source
+        and "node-screen-solo-fit-fill" in style_source
         and "scopeElement.addEventListener(\"dblclick\", beginNodeGraphModuleScopeWindowNumberEdit)" not in script_sources["./public/node-graph-module-scope-scene-controls.js"],
-        "double-click a screen should maximize it and stop other screen paints; Escape exits",
+        "double-click a screen cycles fit (unskewed), stretch, then restore; Escape exits",
     )
     require(
         "function watchNodeGraphSectionResizeDrag(event, options = {})" in script_sources["./public/node-graph-workspace-geometry.js"]

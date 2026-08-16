@@ -15,9 +15,11 @@ NodeLiveAudioProcessor.prototype.rasterRgbSample = function rasterRgbSample(mixI
   if (!Number.isFinite(opts.brightness)) opts.brightness = 1;
   if (!Number.isFinite(opts.contrast)) opts.contrast = 1;
   let processed = null;
+  const nativeGradeVersion = Number(this.nativeRasterRgb?.soemdsp_raster_rgb_version?.()) || 0;
   if (
     this.nativeRasterRgbReady
     && this.nativeRasterRgb?.soemdsp_raster_rgb_sample
+    && nativeGradeVersion >= 2
   ) {
     try {
       const state = options.state || this.createRasterRgbState();

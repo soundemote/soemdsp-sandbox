@@ -323,9 +323,8 @@ function syncNodeGraphSharedInspectorTargetFromSelection() {
     }
   }
 
-  // Parameter Settings: never auto-fill from module selection. Right-click on a
-  // slider is the only way to populate. Do not blank the open form when
-  // selection clears — only explicit close / open-blank does that.
+  // Parameter Settings: opening the page uses the selected module. While
+  // the form is already open it stays pinned to that slider.
   if (nodeGraphMvp.sharedInspectorActive === "metaparameters") {
     // no-op on selection change (pinned slider target is independent)
   }

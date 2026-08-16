@@ -76,6 +76,8 @@ function nodeGraphFbmFieldSample(options = {}) {
     nodeGraphFbmFieldMotionMode(options.motion),
     Math.max(0, nodeGraphFbmFieldNum(options.contrast, 1)),
   );
+  const amp = Math.max(0, nodeGraphFbmFieldNum(options.amplitude, 1));
+  const scale = (value) => (Number.isFinite(value) ? value * amp : 0);
   const x = wasm.soemdsp_fbm_field_x(state.nativeHandle);
   const y = wasm.soemdsp_fbm_field_y(state.nativeHandle);
   const z = wasm.soemdsp_fbm_field_z?.(state.nativeHandle) ?? 0;
@@ -83,12 +85,12 @@ function nodeGraphFbmFieldSample(options = {}) {
   const yRaw = wasm.soemdsp_fbm_field_y_raw?.(state.nativeHandle) ?? y;
   const zRaw = wasm.soemdsp_fbm_field_z_raw?.(state.nativeHandle) ?? z;
   return {
-    X: Number.isFinite(x) ? x : 0,
-    Y: Number.isFinite(y) ? y : 0,
-    Z: Number.isFinite(z) ? z : 0,
-    "X Raw": Number.isFinite(xRaw) ? xRaw : 0,
-    "Y Raw": Number.isFinite(yRaw) ? yRaw : 0,
-    "Z Raw": Number.isFinite(zRaw) ? zRaw : 0,
+    X: scale(x),
+    Y: scale(y),
+    Z: scale(z),
+    "X Raw": scale(xRaw),
+    "Y Raw": scale(yRaw),
+    "Z Raw": scale(zRaw),
   };
 }
 

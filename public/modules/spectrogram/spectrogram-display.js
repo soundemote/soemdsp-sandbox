@@ -11,11 +11,12 @@
 // This keeps motion tied to real time without needing a huge hop ring, and
 // avoids the “zoom/stretch as we fill” effect.
 //
-// Zoom / face-resize:
+// Zoom / face-resize / screen solo:
 //   Workspace zoom must NOT reallocate the permanent buffer (layout CSS size is
-//   stable; CSS scales the face canvas). Module drag-resize does change layout
-//   size — we rebuffer with bilinear stretch and only when the size moves by a
-//   few pixels so continuous drag doesn’t thrash nearest-neighbor every frame.
+//   stable; CSS scales the face canvas). Screen solo also must NOT grow the
+//   buffer — present scales the same ink. Module drag-resize does change
+//   layout size — we rebuffer with bilinear stretch and only when the size
+//   moves by a few pixels so continuous drag doesn’t thrash nearest-neighbor.
 
 const spectrogramHistory = new Map();
 const spectrogramLutRgbCache = new Map();
@@ -370,6 +371,40 @@ function spectrogramResizePreserve(st, faceW, faceH) {
   return next;
 }
 
+/**
+ * Screen solo must not raise analysis resolution. Keep the permanent buffer
+ * at the module-face size and scale it onto the solo canvas.
+ */
+function spectrogramBufferSizeForFace(nodeId, faceW, faceH, screenElement) {
+  const wantW = Math.max(1, faceW | 0);
+  const wantH = Math.max(1, faceH | 0);
+  const id = String(nodeId || "");
+  const soloId = typeof nodeGraphScreenSoloNodeId === "function"
+    ? nodeGraphScreenSoloNodeId()
+    : "";
+  if (!id || !soloId || soloId !== id) {
+    return { w: wantW, h: wantH };
+  }
+  const existing = spectrogramHistory.get(id);
+  if (existing && (existing.faceW | 0) > 0 && (existing.faceH | 0) > 0) {
+    return { w: existing.faceW | 0, h: existing.faceH | 0 };
+  }
+  const session = typeof nodeGraphScreenSoloSession === "function"
+    ? nodeGraphScreenSoloSession()
+    : null;
+  const srcW = Number(session?.sourceWidth);
+  const srcH = Number(session?.sourceHeight);
+  if (!(srcW > 0) || !(srcH > 0)) {
+    return { w: wantW, h: wantH };
+  }
+  const cssW = Math.max(1, Number(screenElement?.clientWidth) || srcW);
+  const cssH = Math.max(1, Number(screenElement?.clientHeight) || srcH);
+  return {
+    w: Math.max(1, Math.round(srcW * (wantW / cssW))),
+    h: Math.max(1, Math.round(srcH * (wantH / cssH))),
+  };
+}
+
 function spectrogramEnsureState(nodeId, faceW, faceH, historySeconds) {
   let st = spectrogramHistory.get(String(nodeId || ""));
   const wantW = Math.max(1, faceW | 0);
@@ -419,7 +454,25 @@ function spectrogramPoolPending(st, mags) {
 }
 
 /** Scroll permanent bitmap left by n pixels and paint n right columns from pending mags. */
-function spectrogramScrollPaintPixels(st, nPixels, lutRgb, minThresh, threshRange, brightness) {
+function spectrogramGrade01(norm, contrast, brightness) {
+  const x = Number(norm);
+  // Worklet log-mags often sit above 1. Fold into 0…1 so Contrast can still
+  // shape peaks (a hard 0–1 window slammed them to white first).
+  const folded = !Number.isFinite(x) || x <= 0 ? 0 : x / (1 + x);
+  const t = folded > 1 ? 1 : folded;
+  if (typeof nodeGraphRasterRgbGradeChannel01 === "function") {
+    return nodeGraphRasterRgbGradeChannel01(t, { contrast, brightness, invert: 0 });
+  }
+  const b = Number(brightness);
+  if (!Number.isFinite(b) || b === 0) {
+    return 0;
+  }
+  let y = t * Math.abs(b);
+  if (y > 1) y = 1;
+  return b < 0 ? 1 - y : y;
+}
+
+function spectrogramScrollPaintPixels(st, nPixels, lutRgb, brightness, contrast) {
   const n = Math.max(0, Math.floor(nPixels));
   const sctx = st.ctx;
   const w = st.faceW;
@@ -428,7 +481,8 @@ function spectrogramScrollPaintPixels(st, nPixels, lutRgb, minThresh, threshRang
 
   sctx.imageSmoothingEnabled = false;
   if ("imageSmoothingQuality" in sctx) sctx.imageSmoothingQuality = "low";
-  const invRange = 1 / Math.max(1e-9, threshRange);
+  const bright = Number(brightness);
+  const cont = Number.isFinite(Number(contrast)) ? Number(contrast) : 1;
 
   // Integer scroll of permanent ink (nearest-neighbor only).
   if (n >= w) {
@@ -442,7 +496,7 @@ function spectrogramScrollPaintPixels(st, nPixels, lutRgb, minThresh, threshRang
   }
 
   // 0 brightness: scroll history, deposit nothing (black strip).
-  if (!(brightness > 0)) {
+  if (!Number.isFinite(bright) || bright === 0) {
     sctx.fillStyle = "#000000";
     sctx.fillRect(Math.max(0, w - n), 0, Math.min(n, w), h);
     st.pendingValid = false;
@@ -455,9 +509,7 @@ function spectrogramScrollPaintPixels(st, nPixels, lutRgb, minThresh, threshRang
     const x = w - n + p;
     if (x < 0 || x >= w) continue;
     for (let y = 0; y < h; y += 1) {
-      let t = ((Number(st.pendingMags[y]) || 0) - minThresh) * invRange * brightness;
-      if (!Number.isFinite(t) || t < 0) t = 0;
-      if (t > 1) t = 1;
+      const t = spectrogramGrade01(Number(st.pendingMags[y]) || 0, cont, bright);
       const li = Math.min(255, Math.max(0, Math.floor(t * 255 + 1e-6)));
       const idx = li * 3;
       sctx.fillStyle = `rgb(${lutRgb[idx]},${lutRgb[idx + 1]},${lutRgb[idx + 2]})`;
@@ -483,11 +535,10 @@ function spectrogramIngestHop(
   sampleRate,
   freqScaleIdx,
   lutRgb,
-  minThresh,
-  threshRange,
   brightness,
   minFreqHz,
   maxFreqHz,
+  contrast,
 ) {
   const h = st.faceH;
   // Wall-clock width = what the user sees (present), not a stale buffer size
@@ -526,7 +577,7 @@ function spectrogramIngestHop(
   let whole = Math.floor(st.scrollDebtSec / Math.max(1e-12, secPerBufPx));
   if (whole >= 1) {
     whole = Math.min(bufW, whole);
-    spectrogramScrollPaintPixels(st, whole, lutRgb, minThresh, threshRange, brightness);
+    spectrogramScrollPaintPixels(st, whole, lutRgb, brightness, contrast);
     st.scrollDebtSec -= whole * secPerBufPx;
     if (st.scrollDebtSec < 0) st.scrollDebtSec = 0;
   }
@@ -575,10 +626,9 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
   const node = nodeGraphPatchNode(nodeId);
   const settings = spectrogramSettingsForNode(node);
   const brightnessRaw = Number(node?.params?.brightness);
-  const brightness = Math.max(0, Math.min(1, Number.isFinite(brightnessRaw) ? brightnessRaw : 0.2));
-  const minThresh = Math.max(0, Number(node?.params?.minThreshold) || 0);
-  const maxThresh = Math.max(minThresh + 0.001, Number(node?.params?.maxThreshold) || 1);
-  const threshRange = maxThresh - minThresh;
+  const brightness = Number.isFinite(brightnessRaw) ? brightnessRaw : 0.2;
+  const contrastRaw = Number(node?.params?.contrast);
+  const contrast = Number.isFinite(contrastRaw) ? contrastRaw : 1;
   const freqScaleIdx = Math.max(0, Math.min(2, Math.round(Number(settings.freqScale) || 0)));
   const minFreqHz = Number(settings.minFreq);
   const maxFreqHz = Number(settings.maxFreq);
@@ -602,7 +652,8 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
   const spectrumBins = (spectrum instanceof Float32Array) ? spectrum.length : 0;
 
   const { hopSize, sampleRate, hopSerial, batchColumns } = spectrogramHopMeta(settings, node);
-  const st = spectrogramEnsureState(nodeId, faceW, faceH, historySeconds);
+  const buf = spectrogramBufferSizeForFace(nodeId, faceW, faceH, screenElement);
+  const st = spectrogramEnsureState(nodeId, buf.w, buf.h, historySeconds);
 
   // Ink uses settings at paint time; already-drawn pixels stay as-is.
   st.paintFreqScale = freqScaleIdx;
@@ -637,11 +688,10 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
           sampleRate,
           freqScaleIdx,
           lutRgb,
-          minThresh,
-          threshRange,
           brightness,
           minFreqHz,
           maxFreqHz,
+          contrast,
         );
       }
       st.lastHop = hopSerial;
@@ -654,11 +704,10 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
         sampleRate,
         freqScaleIdx,
         lutRgb,
-        minThresh,
-        threshRange,
         brightness,
         minFreqHz,
         maxFreqHz,
+        contrast,
       );
       st.lastHop = hopSerial;
     }
