@@ -311,6 +311,19 @@ function createNodeGraphInputSection(node, type) {
   return section;
 }
 
+function createNodeGraphUnderConstructionFace(node, type) {
+  const section = document.createElement("div");
+  section.className = "node-module-under-construction node-module-face";
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(section, "face");
+  }
+  section.dataset.node = node;
+  section.dataset.nodeType = type;
+  section.textContent = "Under construction";
+  section.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} under construction`);
+  return section;
+}
+
 function createNodeGraphModuleScopeSection(node, type) {
   const section = document.createElement("div");
   section.className = "node-module-scope-window node-module-face node-light-source";
@@ -564,7 +577,7 @@ function mountNodeGraphControllerRows(host) {
     createNodeGraphControllerRow(
       "keyboard",
       [createNodeGraphPitchModWheelBody(), createNodeGraphKeyboardControllerBody()],
-      { split: true, grow: true },
+      { split: true },
     ),
   );
   return host;

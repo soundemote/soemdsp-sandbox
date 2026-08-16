@@ -109,6 +109,12 @@ function nodeGraphXyPadDspProcessAxis(sig, opts = {}) {
   return nodeGraphXyPadDspQuantizeBipolar(sig, quantizeAmt);
 }
 
+/** Per-axis throw. Default 1 (full pad). Negative inverts. */
+function nodeGraphXyPadDspOutputAmplitude(raw) {
+  const a = Number(raw);
+  return Number.isFinite(a) ? a : 1;
+}
+
 /** Pad axes that must never use the shared param smoother. */
 const nodeGraphXyPadDspUnsmoothedParamKeys = Object.freeze(["x", "y", "xPhase", "yPhase"]);
 

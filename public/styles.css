@@ -1898,8 +1898,11 @@ button.scw-label:hover,
 
 .node-wiring-panel > .node-graph-workspace,
 .node-wiring-panel > .node-graph-main-row {
-  flex: 1 1 0;
+  /* height:0 + grow: leftover column only. auto/100% here lets the
+     canvas lock the row so the controller dock can only expand down. */
+  flex: 1 1 0%;
   order: 1;
+  height: 0;
   min-height: 0;
   overflow: hidden;
 }
@@ -1933,9 +1936,9 @@ button.scw-label:hover,
   top: 0;
   bottom: 0;
   z-index: 20;
-  width: var(--node-command-center-dock-width, min(320px, 38vw));
-  min-width: 196px;
-  max-width: 42vw;
+  width: var(--node-command-center-dock-width, 320px);
+  min-width: var(--node-unified-window-min-width, 24px);
+  max-width: none;
   min-height: 0;
   overflow: visible;
   pointer-events: auto;
@@ -2133,10 +2136,10 @@ body.is-resizing-command-center-dock {
 
 .node-wiring-panel.app-chrome-bars-hidden:not(.modular-only-view) > .node-graph-workspace,
 .node-wiring-panel.app-chrome-bars-hidden:not(.modular-only-view) > .node-graph-main-row {
-  flex: 1 1 auto !important;
+  flex: 1 1 0% !important;
   width: 100% !important;
   max-width: none !important;
-  height: auto !important;
+  height: 0 !important;
   min-height: 0 !important;
   margin: 0 !important;
 }
@@ -2466,17 +2469,16 @@ html.soemdsp-hide-ui .status-strip {
   position: relative;
   z-index: 5;
   display: flex;
-  flex: 0 0 auto;
-  flex-shrink: 0;
+  flex: 0 0 var(--node-controller-dock-height, 240px);
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: stretch;
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  height: var(--node-controller-dock-height, auto);
+  height: var(--node-controller-dock-height, 240px);
   min-height: 0;
-  max-height: 55vh;
+  max-height: none;
   margin: 0;
   overflow: visible;
   border: 0;
@@ -2537,50 +2539,40 @@ body.is-resizing-controller-dock {
   display: none;
 }
 
-/* Controller area: a vertical stack of rows. Today: macros, then keyboard
-   (pitch/mod | piano). More rows append as siblings and scroll. */
+/* Controller area: even lane cells. Surfaces fill the cell; they do not
+   size the dock. Today two rows (macros | keyboard). */
 .node-standalone-midi-keyboard-body,
 .node-controller-rows {
   position: relative;
   flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
   align-items: stretch;
   gap: 0;
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 0;
 }
 
 .node-controller-row {
   display: flex;
-  flex: 0 0 auto;
-  justify-content: center;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
   min-height: 0;
-}
-
-.node-controller-row[data-controller-grow="1"] {
-  flex: 1 1 auto;
-}
-
-.node-standalone-midi-keyboard-dock.has-controller-height .node-controller-row[data-controller-grow="1"] {
-  min-height: 0;
+  overflow: hidden;
 }
 
 .node-controller-row > * {
   box-sizing: border-box;
-  width: min(
-    100%,
-    calc(var(--midi-keyboard-wheel-width, 64px) + var(--midi-keyboard-piano-width, 0px))
-  );
+  width: 100%;
   max-width: 100%;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
 }
 
 .node-controller-row-split {
@@ -2624,10 +2616,16 @@ body.is-resizing-controller-dock {
   max-height: none;
 }
 
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-panel {
-  flex: 1 1 auto;
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-surface {
   width: 100%;
-  height: auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-panel {
+  display: grid;
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   max-width: none;
@@ -2637,10 +2635,8 @@ body.is-resizing-controller-dock {
   border-radius: 0;
   background: none;
   box-shadow: none;
-  /* heading | piano | remaining signals | bitmask — extra height grows the
-     piano downward from the top (resize handle), not up from the bottom. */
-  grid-template-rows: auto minmax(var(--midi-keyboard-piano-height, 112px), 1fr) auto auto;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  align-content: stretch;
   gap: 2px;
 }
 
@@ -4261,7 +4257,49 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 
-/* Room dimmer: fill the gap between Speed Limit strip and Download.
+/* Room dimmer + magnifier zoom share the old dimmer flex cell. */
+.node-room-tool-pair {
+  display: flex;
+  flex: 1 1 0;
+  align-items: stretch;
+  min-inline-size: 4.2rem;
+  isolation: isolate;
+  z-index: 60;
+}
+
+.node-magnifier-zoom {
+  display: flex;
+  flex: 0 0 1.85rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 1.7rem;
+  padding: 2px 0 3px;
+  background: rgb(32, 37, 42);
+}
+
+.node-magnifier-zoom-glyph {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.node-magnifier-zoom-slider {
+  appearance: slider-vertical;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  flex: 1 1 auto;
+  width: 14px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: rgb(127, 199, 217);
+  cursor: ns-resize;
+}
+
+/* Room dimmer: fill leftover pair space (Download sits after).
    z-index above the full-UI veil (z:50) so the control stays interactive
    and fully visible even at 100% room black — the veil also punches its rect.
    Icons: stacked on/off bulbs crossfade with --room-dim (0 = full light / on,
@@ -4272,7 +4310,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   position: relative;
   z-index: 60;
   flex: 1 1 0;
-  min-inline-size: 2.5rem;
+  min-inline-size: 2rem;
   max-inline-size: none;
   padding-inline: 0.35rem;
   font-size: clamp(1.05rem, calc(var(--node-toolbar-row-height) * 0.42), 1.35rem);
@@ -9549,8 +9587,7 @@ body.node-graph-magnifying-active * {
   box-shadow: inset 0 0 0 1px rgba(127, 199, 217, 0.18);
 }
 
-/* Back + search: one row when space allows; wrap at very thin shop widths.
-   Same flush strip as Command Center module search (no inner field box). */
+/* Same flush search strip as Command Center — full-width field, no back row. */
 .node-module-shop-controls {
   display: flex;
   flex-wrap: wrap;
@@ -9566,10 +9603,6 @@ body.node-graph-magnifying-active * {
   overflow: visible;
 }
 
-.node-module-shop-view:not(.department-selected) .node-module-department-search-placeholder {
-  flex: 1 1 100%;
-}
-
 .node-module-home-shelf {
   flex: 1 1 100%;
   display: grid;
@@ -9581,29 +9614,9 @@ body.node-graph-magnifying-active * {
   display: none;
 }
 
-.node-module-department-back-button {
-  box-sizing: border-box;
-  display: grid;
-  /* Fixed width when sharing a row with search; full-width stack below. */
-  flex: 0 0 54px;
-  width: 54px;
-  min-width: 54px;
-  min-height: var(--node-floating-window-button-height);
-  place-items: center;
-  border: 1px solid rgba(127, 199, 217, 0.24);
-  border-radius: 0;
-  background: rgba(7, 10, 13, 0.74);
-  color: rgba(243, 241, 236, 0.82);
-  font: 1.05rem/1 var(--mono);
-}
-
-.node-module-department-back-button[hidden] {
-  display: none;
-}
-
 .node-module-department-search-placeholder {
   display: grid;
-  flex: 1 1 auto;
+  flex: 1 1 100%;
   width: 100%;
   min-width: 0;
   min-height: var(--node-floating-window-button-height);
@@ -9687,69 +9700,6 @@ body.node-graph-magnifying-active * {
 
 .node-module-department-search-placeholder input:disabled {
   opacity: 1;
-}
-
-/* Stack + full-width once the shop is too narrow for back|search side-by-side
-   (~54px back + gap + ~8rem search ≈ 185px). Selectors are descendants of the
-   container (.node-module-shop-view), not nested inside a second shop-view. */
-@container module-shop (max-width: 200px) {
-  .node-module-department-back-button:not([hidden]) {
-    flex: 1 1 100%;
-    width: 100%;
-    min-width: 100%;
-  }
-
-  .node-module-department-search-placeholder {
-    flex: 1 1 100%;
-    min-width: 100%;
-  }
-
-  .node-module-department-search-placeholder input {
-    font-size: 0.78rem;
-    padding: 0 1.45rem 0 6px;
-  }
-}
-
-.node-module-department-title {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 28px;
-  margin: 0;
-  padding: 4px 8px 2px;
-  border-bottom: 1px solid rgba(127, 199, 217, 0.14);
-  color: rgba(127, 199, 217, 0.94);
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1.1;
-  text-align: center;
-  text-transform: none;
-}
-
-.node-module-department-title-emoji {
-  flex: 0 0 auto;
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
-.node-module-department-title-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Module list sits flush under the category title (no top pad/gap). */
-.node-module-shop-view.department-selected #nodeModuleDepartmentList {
-  margin-top: 0;
-  padding-top: 0;
-  gap: 0;
-}
-
-.node-module-department-title[hidden] {
-  display: none;
 }
 
 .node-scene-context-menu.node-module-collections-menu {
@@ -10007,7 +9957,7 @@ body.node-graph-magnifying-active * {
 .node-module-store-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-auto-rows: 24px;
+  grid-auto-rows: minmax(24px, auto);
   align-content: start;
   gap: 0;
   width: 100%;
@@ -10056,7 +10006,17 @@ body.node-graph-magnifying-active * {
   box-shadow: inset 0 0 0 1px rgba(226, 168, 109, 0.36);
 }
 
-.node-module-shop-view .scene-context-store-card.under-construction {
+.node-module-shop-view .scene-context-store-card.under-construction,
+.node-module-store-list .scene-context-store-card.under-construction {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  height: auto;
+  min-height: 24px;
+  max-height: none;
+  gap: 4px;
+  padding: 5px 6px 6px;
   border-color: rgba(226, 168, 109, 0.34);
   background:
     repeating-linear-gradient(
@@ -10067,6 +10027,82 @@ body.node-graph-magnifying-active * {
     rgba(17, 21, 24, 0.68);
   color: rgba(243, 241, 236, 0.68);
   opacity: 0.82;
+}
+
+.scene-context-store-card-io {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.scene-context-store-card-io-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.scene-context-store-card-io-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.scene-context-store-card-io-row.input {
+  justify-content: flex-start;
+}
+
+.scene-context-store-card-io-row.output {
+  justify-content: flex-end;
+}
+
+.scene-context-store-card-io-label {
+  overflow: hidden;
+  color: rgba(243, 241, 236, 0.82);
+  font-size: 0.62rem;
+  font-weight: 650;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scene-context-store-card-io-jack {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--jack-analog-out, #e2a86d);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.scene-context-store-card-io-jack.input {
+  border-color: var(--jack-analog-in, #7fc7d9);
+}
+
+.scene-context-store-card-io-row[data-digital-signal] .scene-context-store-card-io-jack {
+  border-color: var(--jack-digital, #ffffff);
+}
+
+.node-module-store-list .scene-context-store-card.under-construction small,
+.node-module-store-list.is-module-search-results .scene-context-store-card.under-construction small {
+  display: block;
+  margin-left: 0;
+  text-align: center;
+}
+
+.dsp-node .node-module-under-construction {
+  display: grid;
+  place-items: center;
+  min-height: 1.4em;
+  padding: 4px 6px;
+  color: rgba(226, 168, 109, 0.88);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .node-module-shop-view .scene-context-store-card.under-construction:hover,
@@ -16433,20 +16469,12 @@ body.node-slider-dragging * {
   gap: 0;
   grid-template-columns: minmax(0, 1fr);
   grid-auto-rows: max-content;
-  width: clamp(
-    var(--metadata-popover-min-width, var(--node-unified-window-min-width, 24px)),
-    var(--metadata-popover-width, 680px),
-    min(var(--metadata-popover-max-width, 900px), calc(100vw - 12px))
-  );
-  height: clamp(
-    var(--metadata-popover-min-height, var(--node-unified-window-min-height, 120px)),
-    var(--metadata-popover-height, 620px),
-    min(var(--metadata-popover-max-height, 820px), calc(100vh - 12px))
-  );
-  min-width: var(--metadata-popover-min-width, var(--node-unified-window-min-width, 24px));
-  min-height: var(--metadata-popover-min-height, var(--node-unified-window-min-height, 120px));
-  max-width: min(var(--metadata-popover-max-width, 900px), calc(100vw - 12px));
-  max-height: min(var(--metadata-popover-max-height, 820px), calc(100vh - 12px));
+  width: var(--metadata-popover-width, 680px);
+  height: var(--metadata-popover-height, 620px);
+  min-width: var(--node-unified-window-min-width, 24px);
+  min-height: var(--node-unified-window-min-height, 120px);
+  max-width: none;
+  max-height: none;
   /* Shell does not scroll — heading/nav stay fixed; body grid is the scrollport. */
   overflow: hidden;
   padding: 0;
@@ -22514,8 +22542,8 @@ body.keyboard-debug-hidden
 body.keyboard-debug-hidden
   .node-wiring-panel:not(.modular-only-view):not(.camera-view-visible)
   > #nodeGraphWorkspace:not([hidden]) {
-  flex: 1 1 0;
-  height: auto !important;
+  flex: 1 1 0%;
+  height: 0;
   min-height: 0;
   overflow: hidden;
 }

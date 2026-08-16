@@ -127,8 +127,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/phoneTone/phone-tone-math.js",
     "./public/modules/phoneTone/phone-tone-live-evaluator.js",
     "./public/modules/phoneTone/phone-tone-display.js",
-    "./public/modules/numberGate/number-gate-math.js",
-    "./public/modules/numberGate/number-gate-live-evaluator.js",
+    "./public/modules/tSeries/t-series-math.js",
+    "./public/modules/tSeries/t-series-live-evaluator.js",
     "./public/modules/vectorRgb/vector-rgb-display.js",
     "./public/modules/rasterRgb/raster-rgb-math.js",
     "./public/modules/rasterRgb/raster-rgb-display.js",
@@ -4295,8 +4295,12 @@ def require_xy_pad_interaction_contract() -> None:
         and 'key: "papoulis"' in register_source
         and 'key: "filterOrder"' in register_source
         and 'label: "Smoothing"' in register_source
-        and 'label: "Filter Order"' in register_source,
-        "XY Pad should expose X/Y inputs, unsmoothed params, Smoothing + Filter Order",
+        and 'label: "Filter Order"' in register_source
+        and 'key: "xAmplitude"' in register_source
+        and 'key: "yAmplitude"' in register_source
+        and 'sliderCurve: "bipolarRational"' in register_source
+        and "function nodeGraphXyPadDspOutputAmplitude" in script_sources["./public/modules/xyPad/xy-pad-dsp.js"],
+        "XY Pad should expose X/Y inputs, unsmoothed params, Smoothing + Filter Order, and invertible X/Y amplitudes",
     )
     # LatestOutput lives in graph-query; snapshot listener in scopes; solid shell gate in execution-plan.
     require(
@@ -4594,20 +4598,24 @@ def require_node_graph_mvp_contract() -> None:
         "Phone Tone should be an objects-category DTMF source using Robin sinusoids",
     )
     require(
-        "gate12: nodeGraphNGateModuleDefinition(12)" in script_sources["./public/node-graph-module-definitions.js"]
-        and 'gate12: "12Gate"' in script_sources["./public/node-graph-module-definitions.js"]
-        and 'gate8: "8Gate"' in script_sources["./public/node-graph-module-definitions.js"]
-        and 'gate2: "2Gate"' in script_sources["./public/node-graph-module-definitions.js"]
-        and 'label: "12Gate"' in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "8Gate"' in script_sources["./public/node-graph-module-store.js"]
+        "t: nodeGraphTSeriesModuleDefinition(0)" in script_sources["./public/node-graph-module-definitions.js"]
+        and "t10: nodeGraphTSeriesModuleDefinition(10)" in script_sources["./public/node-graph-module-definitions.js"]
+        and 't: "t"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 't2: "2t"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 't10: "10t"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'label: "t"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "2t"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "10t"' in script_sources["./public/node-graph-module-store.js"]
         and 'category: "digital"' in script_sources["./public/node-graph-module-store.js"]
-        and 'inputs: ["Analog", "Digital"]' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'inputs: ["In", "Analog", "Digital"]' in script_sources["./public/node-graph-module-definitions.js"]
         and "digitalInputs: [\"Digital\"]" in script_sources["./public/node-graph-module-definitions.js"]
-        and "function nodeGraphNumberGateSample" in script_sources["./public/modules/numberGate/number-gate-math.js"]
-        and '["gate12", "gate8", "gate6", "gate4", "gate3", "gate2", "numberGate"]' in script_sources["./public/modules/numberGate/number-gate-live-evaluator.js"]
-        and "gate12:" in (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8")
-        and "if (t === \"numberGate\") return \"gate12\";" in script_sources["./public/node-graph-default-patch.js"],
-        "12Gate family should decode A/D into analog 0–1 gates (not digital-white outlets)",
+        and "function nodeGraphTSeriesSample" in script_sources["./public/modules/tSeries/t-series-math.js"]
+        and "NODE_GRAPH_T_SERIES_TYPES" in script_sources["./public/modules/tSeries/t-series-live-evaluator.js"]
+        and "tSeriesEvaluate" in (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8")
+        and "gate2" not in script_sources["./public/node-graph-module-definitions.js"]
+        and "numberGate" not in script_sources["./public/node-graph-module-definitions.js"]
+        and "gate12" not in script_sources["./public/node-graph-default-patch.js"],
+        "t-series should be transistor paths t…10t with no gateN leftovers",
     )
     require(
         'momentaryButton: "Momentary"' in script_sources["./public/node-graph-module-definitions.js"]
@@ -6534,11 +6542,7 @@ def require_node_graph_mvp_contract() -> None:
         "nodeModuleShopHeading",
         "nodeModuleShopResizeHandle",
         "nodeModuleDepartmentSearch",
-        "nodeModuleDepartmentBack",
-        "Back to module categories",
-        "&larr;",
-        "nodeModuleDepartmentTitle",
-            "nodeModuleHomeShelfShell",
+        "nodeModuleHomeShelfShell",
         "nodeModuleHomeShelf",
         "nodeModuleDepartmentList",
         "nodeModuleGroups",
@@ -8602,8 +8606,6 @@ def require_node_graph_mvp_contract() -> None:
         'bindNodeGraphSceneElementEvent("nodeModuleShopClose", "click", closeNodeGraphModuleShop)',
         "nodeModuleShopHeading",
         "nodeModuleShopResizeHandle",
-        "nodeModuleDepartmentBack",
-        "setNodeGraphModuleStoreDepartment(\"\")",
         "closeNodeGraphModuleShop();",
         "openNodeGraphModuleShop(null);",
         'bindNodeGraphSceneElementEvent("nodeModuleShopHeading", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "moduleBrowser"))',
@@ -9587,15 +9589,11 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphModuleStoreSearchResultOrder(a, b)",
         "const implementedDelta = Number(Boolean(b?.implemented)) - Number(Boolean(a?.implemented))",
         "function nodeGraphModuleStorePublicEntriesByDepartment(entries = [])",
-        "const searchingAllModules = hasDepartmentSearchText",
-        "const visibleModuleEntries = selectedDepartment || departmentSearch",
-        "[...publicEntries].sort(nodeGraphModuleStoreSearchResultOrder)",
-        "shopView.classList.toggle(\"department-selected\", Boolean(selectedDepartment))",
-        "departmentTitle.textContent = selectedDepartment || \"\"",
-        "createNodeGraphModuleDepartmentButton(department, entries)",
+        "const searchingAllModules = Boolean(nodeGraphNormalizeModuleDepartmentSearch(departmentSearch))",
+        "createNodeGraphModuleDepartmentButton(department, departmentEntries)",
         "available.classList.add(\"scene-context-store-department-list\")",
-        "available.classList.toggle(\"node-module-store-list\", Boolean(selectedDepartment || searchingAllModules))",
-        "if (selectedDepartment || searchingAllModules)",
+        "available.classList.toggle(\"node-module-store-list\", searchingAllModules)",
+        "if (searchingAllModules)",
         "No modules match this search.",
         "function positionNodeGraphModuleShopView(x, y)",
         "function beginNodeGraphModuleShopViewDrag(event)",
@@ -12850,9 +12848,9 @@ def require_node_graph_mvp_contract() -> None:
     require('codeblock: {' in module_store_source, "Codeblock should live in Digital")
     require('canvas: {' in module_store_source, "Canvas should live in Digital")
     require('bitConverter: {' in module_store_source and 'label: "BitConverter"' in module_store_source, "BitConverter should live in Digital")
-    require('gate12: {' in module_store_source and 'label: "12Gate"' in module_store_source, "12Gate should live in Digital")
-    require('gate8: {' in module_store_source and 'label: "8Gate"' in module_store_source, "8Gate should live in Digital")
-    require('gate2: {' in module_store_source and 'label: "2Gate"' in module_store_source, "2Gate should live in Digital")
+    require('t: {' in module_store_source and 'label: "t"' in module_store_source, "t should live in Digital")
+    require('t2: {' in module_store_source and 'label: "2t"' in module_store_source, "2t should live in Digital")
+    require('t10: {' in module_store_source and 'label: "10t"' in module_store_source, "10t should live in Digital")
     require('traceDisplay: {' in module_store_source, "Trace Display should author as Oscilloscope before display-category normalization")
     require("dotOscilloscope: {" in module_store_source and 'label: "0D Burn"' in module_store_source, "0D Burn oscilloscope should exist")
     require("valueOscilloscope: {" in module_store_source and 'label: "0D Value"' in module_store_source, "0D Value oscilloscope should exist")
@@ -16022,19 +16020,8 @@ def require_node_graph_mvp_contract() -> None:
         ".node-module-shop-column > .node-module-shop-scroll-frame",
         ".node-module-department-search-placeholder",
         '"Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace',
-        ".node-module-shop-view.department-selected .node-module-shop-controls",
-        "grid-template-columns: minmax(54px, 0.32fr) minmax(0, 1fr)",
-        ".node-module-shop-view:not(.department-selected) .node-module-department-search-placeholder",
-        "grid-column: 1 / -1",
-        "display: none",
         ".node-module-department-search-placeholder input:disabled",
-        ".node-module-department-back-button",
-        "font: 1.05rem/1 var(--mono)",
-        ".node-module-department-title",
-        "color: rgba(127, 199, 217, 0.9)",
-        "font-size: 0.78rem",
-        "font-weight: 650",
-        "text-transform: none",
+        "font: 0.84rem/1.2 \"Cascadia Mono\", \"Cascadia Code\", Consolas, \"Courier New\", monospace",
         ".node-scene-context-menu.node-module-collections-menu",
         ".node-module-collection-card",
         ".node-module-shop-section",
@@ -16791,7 +16778,7 @@ def require_node_graph_mvp_contract() -> None:
     require(
         "const oldOrigin = workspace ? nodeGraphRenderedOriginOffset(oldPan, workspace) : oldPan;" in script_sources["./public/node-graph-workspace-zoom.js"]
         and "const nextCenter = workspace ? nodeGraphWorkspaceCenterOffset(workspace) : { x: 0, y: 0 };" in script_sources["./public/node-graph-workspace-zoom.js"]
-        and "x: anchorPoint.x - workspaceRect.left - nextCenter.x - anchoredContentPoint.x * zoom" in script_sources["./public/node-graph-workspace-zoom.js"]
+        and "x: anchorPoint.x - workspaceRect.left - nextCenter.x - (Number(pin.x) || 0) - anchoredContentPoint.x * zoom" in script_sources["./public/node-graph-workspace-zoom.js"]
         and "function withNodeGraphWorkspaceContentAnchored(workspace, update) {\n  update();\n  applyNodeGraphPan();\n}" in script_sources["./public/node-graph-grid-utils.js"],
         "node graph zoom and resize should preserve the center-origin pan contract",
     )
@@ -16801,6 +16788,8 @@ def require_node_graph_mvp_contract() -> None:
         and "function handleNodeGraphMagnifierWheelCapture(event)" in script_sources["./public/node-graph-magnifier.js"]
         and "function nodeGraphMagnifierShouldBlockContext()" in script_sources["./public/node-graph-magnifier.js"]
         and "function handleNodeGraphMagnifierContextGuard(event)" in script_sources["./public/node-graph-magnifier.js"]
+        and "function bindNodeGraphMagnifierZoomControl()" in script_sources["./public/node-graph-magnifier.js"]
+        and 'id="nodeMagnifierZoomSlider"' in index_source
         and "nodeGraphMagnifierShouldBlockContext()" in script_sources["./public/node-graph-context-menu.js"]
         and 'document.addEventListener("wheel", handleNodeGraphMagnifierWheelCapture, { capture: true, passive: false })' in script_sources["./public/node-graph-magnifier.js"]
         and "resizeNodeGraphMagnifierByWheel(event)" in script_sources["./public/node-graph-workspace-zoom.js"]
@@ -16814,7 +16803,11 @@ def require_node_graph_mvp_contract() -> None:
         and "function syncNodeGraphWireSvgViewBox()" in script_sources["./public/node-graph-wire-rendering.js"]
         and "if (nodeGraphMvp.chromeSectionResizing)" in script_sources["./public/node-graph-wire-rendering.js"]
         and "watchNodeGraphSectionResizeDrag(event, {" in script_sources["./public/node-graph-view-controls.js"]
-        and "watchNodeGraphSectionResizeDrag(event, {" in script_sources["./public/node-graph-unified-window.js"],
+        and "watchNodeGraphSectionResizeDrag(event, {" in script_sources["./public/node-graph-unified-window.js"]
+        and "function nodeGraphControllerDockBottomEdge(dock)" in script_sources["./public/node-graph-view-controls.js"]
+        and "applyNodeGraphControllerDockHeight(startBottom - point.y, { layout: false })" in script_sources["./public/node-graph-view-controls.js"]
+        and "flex: 0 0 var(--node-controller-dock-height, 240px);" in style_source
+        and "startHeight - (point.y - startY)" not in script_sources["./public/node-graph-view-controls.js"],
         "section resize drags should ignore lost-pointer ghost coords and skip full wire redraws while dragging",
     )
     require(
@@ -16833,7 +16826,9 @@ def require_node_graph_mvp_contract() -> None:
     require(
         "Never adopt a click-spawned rect as the seat" in script_sources["./public/node-graph-unified-window.js"]
         and "seatNodeGraphUnifiedWindow(element, key, existing)" in script_sources["./public/node-graph-unified-window.js"]
-        and 'captureNodeGraphUnifiedWindowSeat("metaparameters")' in script_sources["./public/node-graph-metadata-editor.js"],
+        and 'captureNodeGraphUnifiedWindowSeat("metaparameters")' in script_sources["./public/node-graph-metadata-editor.js"]
+        and "applyNodeMetadataPopoverSize(sharedInspectorState.size)" not in script_sources["./public/node-graph-metadata-editor.js"]
+        and "nodeGraphMvp.unifiedWindowSize = stored" in script_sources["./public/node-graph-metadata-editor.js"],
         "right-click parameter settings must keep the shared unified seat, not move Command Center to the click",
     )
     require(

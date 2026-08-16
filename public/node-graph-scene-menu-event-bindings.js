@@ -30,7 +30,7 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeCommandCenterModuleSearchInput", "keydown", handleNodeGraphCommandCenterModuleSearchKeydown);
   bindNodeGraphSceneElementEvent("nodeCommandCenterModuleSearchResults", "click", handleNodeGraphModuleStoreClick);
   bindNodeGraphSceneElementEvent("nodeCommandCenterModuleSearchResults", "pointerdown", beginNodeGraphModuleStorePointerPlacement);
-  bindNodeGraphSceneElementEvent("nodeModuleDepartmentBack", "click", () => setNodeGraphModuleStoreDepartment(""));
+
   // Module shop / module actions / code box / command center drag+resize:
   // registry pointer bridge (node-graph-floating-windows.js)
   document.addEventListener("pointerup", releaseNodeGraphModuleStorePointerPlacement);

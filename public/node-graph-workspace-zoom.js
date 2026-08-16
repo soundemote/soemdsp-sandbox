@@ -94,10 +94,13 @@ function setNodeGraphZoom(nextZoom, anchor = null) {
   nodeGraphMvp.zoom = zoom;
   syncNodeGraphPatchViewZoom(zoom);
   const nextCenter = workspace ? nodeGraphWorkspaceCenterOffset(workspace) : { x: 0, y: 0 };
+  const pin = typeof nodeGraphWorkspaceChromePin === "function"
+    ? nodeGraphWorkspaceChromePin()
+    : { x: 0, y: 0 };
   const nextPan = workspaceRect && anchorPoint && anchoredContentPoint
     ? {
-      x: anchorPoint.x - workspaceRect.left - nextCenter.x - anchoredContentPoint.x * zoom,
-      y: anchorPoint.y - workspaceRect.top - nextCenter.y - anchoredContentPoint.y * zoom,
+      x: anchorPoint.x - workspaceRect.left - nextCenter.x - (Number(pin.x) || 0) - anchoredContentPoint.x * zoom,
+      y: anchorPoint.y - workspaceRect.top - nextCenter.y - (Number(pin.y) || 0) - anchoredContentPoint.y * zoom,
     }
     : oldPan;
   nodeGraphMvp.pan = {

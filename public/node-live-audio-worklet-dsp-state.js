@@ -53,8 +53,12 @@ NodeLiveAudioProcessor.prototype.outputSampleClipped = function outputSampleClip
 };
 
 NodeLiveAudioProcessor.prototype.outputSampleTripsEarProtection = function outputSampleTripsEarProtection(value) {
+    if (typeof nodeGraphSpeakerProtector2SampleTrips === "function") {
+      return nodeGraphSpeakerProtector2SampleTrips(value);
+    }
     const number = Number(value);
-    return !Number.isFinite(number) || Math.abs(number) > 1;
+    const eps = typeof NODE_GRAPH_NUMERIC_PRECISION === "number" ? NODE_GRAPH_NUMERIC_PRECISION : 1e-7;
+    return !Number.isFinite(number) || Math.abs(number) > 1 + eps;
 };
 
 NodeLiveAudioProcessor.prototype.badValueReason = function badValueReason(value) {

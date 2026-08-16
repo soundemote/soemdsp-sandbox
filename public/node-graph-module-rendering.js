@@ -1127,6 +1127,7 @@ function createNodeGraphModuleElement(type, node) {
     );
   } else if (isLayoutC) {
     // LayoutC: title (above) + I/O only. No face, no param rows.
+    // UC: jacks + labels sit above the construction plate.
     appendNodeGraphModuleIoSection(
       article,
       createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
@@ -1134,10 +1135,31 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
+    if (
+      typeof nodeGraphModuleTypeIsUnderConstruction === "function"
+      && nodeGraphModuleTypeIsUnderConstruction(type)
+      && typeof createNodeGraphUnderConstructionFace === "function"
+    ) {
+      article.append(createNodeGraphUnderConstructionFace(node, type));
+    }
   } else {
     let scopeSection = null;
+    const underConstruction = typeof nodeGraphModuleTypeIsUnderConstruction === "function"
+      && nodeGraphModuleTypeIsUnderConstruction(type);
     // Chromeless LayoutB modules already mounted above — don't add a second face.
-    if (typeof nodeGraphModuleShouldMountDisplayFace === "function"
+    // UC: inlets/outlets first, construction plate under them.
+    if (underConstruction) {
+      appendNodeGraphModuleIoSection(
+        article,
+        createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+        node,
+        inputPorts,
+        outputPorts,
+      );
+      if (typeof createNodeGraphUnderConstructionFace === "function") {
+        article.append(createNodeGraphUnderConstructionFace(node, type));
+      }
+    } else if (typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
       : !patchNodeUi.oscilloscopeHidden) {
       scopeSection = createNodeGraphModuleScopeSection(node, type);
@@ -1152,13 +1174,15 @@ function createNodeGraphModuleElement(type, node) {
     if (scopeSection) {
       registerNodeGraphModuleScopeSlot(article, { nodeId: node, type, scopeElement: scopeSection });
     }
-    appendNodeGraphModuleIoSection(
-      article,
-      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
-      node,
-      inputPorts,
-      outputPorts,
-    );
+    if (!underConstruction) {
+      appendNodeGraphModuleIoSection(
+        article,
+        createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+        node,
+        inputPorts,
+        outputPorts,
+      );
+    }
   }
 
   if (type === "audioInput") {

@@ -18,7 +18,6 @@ function nodeGraphResolveModuleTypeAlias(type) {
   if (t === "gainBias") return "gain";
   // GainBiasMix renamed to Mix.
   if (t === "gainBiasMix") return "mix";
-  if (t === "numberGate") return "gate12";
   return t;
 }
 

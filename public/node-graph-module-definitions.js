@@ -40,13 +40,17 @@ const nodeGraphNodeLabels = Object.freeze({
   comparator: "Comparator",
   sampleDelay: "Sample Delay",
   bitConverter: "Bit Converter",
-  gate12: "12Gate",
-  gate8: "8Gate",
-  gate6: "6Gate",
-  gate4: "4Gate",
-  gate3: "3Gate",
-  gate2: "2Gate",
-  numberGate: "12Gate",
+  t: "t",
+  t1: "1t",
+  t2: "2t",
+  t3: "3t",
+  t4: "4t",
+  t5: "5t",
+  t6: "6t",
+  t7: "7t",
+  t8: "8t",
+  t9: "9t",
+  t10: "10t",
   stepSequencer: "Step Sequencer",
   spiral: "Spiral",
   fractalSpiral: "Fractal Spiral",
@@ -409,25 +413,19 @@ const nodeGraphActiveFilterDefinition = {
   ]
 };
 
-function nodeGraphNGatePorts(lastIndex) {
-  const last = Math.max(1, Math.round(Number(lastIndex) || 12));
-  return Array.from({ length: last + 1 }, (_, index) => String(index));
-}
-
-function nodeGraphNGateModuleDefinition(lastIndex) {
-  const last = Math.max(1, Math.round(Number(lastIndex) || 12));
-  const ports = nodeGraphNGatePorts(last);
+function nodeGraphTSeriesModuleDefinition(lastIndex) {
+  const last = Math.max(0, Math.min(10, Math.round(Number(lastIndex) || 0)));
   return {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutC,
     digitalInputs: ["Digital"],
-    inputAliases: { A: "Analog", D: "Digital" },
-    inputLabels: { Analog: "A", Digital: "D" },
-    inputs: ["Analog", "Digital"],
-    outputs: ports,
+    inputAliases: { A: "Analog", D: "Digital", Mono: "In" },
+    inputLabels: { Analog: "A", Digital: "D", In: "In" },
+    inputs: ["In", "Analog", "Digital"],
+    outputs: Array.from({ length: last + 1 }, (_, index) => String(index)),
     parameters: [],
-    defaultWidthGu: last >= 10 ? 5 : 4,
-    defaultHeightGu: last >= 12 ? 9 : last >= 8 ? 7 : last >= 6 ? 6 : last >= 4 ? 5 : 4,
+    defaultWidthGu: last >= 10 ? 5 : last >= 1 ? 4 : 3,
+    defaultHeightGu: last >= 8 ? 7 : last >= 6 ? 6 : last >= 4 ? 5 : last >= 2 ? 4 : 3,
     defaultUi: {
       buttonsHidden: true,
       titleHidden: false,
@@ -3257,12 +3255,17 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  gate12: nodeGraphNGateModuleDefinition(12),
-  gate8: nodeGraphNGateModuleDefinition(8),
-  gate6: nodeGraphNGateModuleDefinition(6),
-  gate4: nodeGraphNGateModuleDefinition(4),
-  gate3: nodeGraphNGateModuleDefinition(3),
-  gate2: nodeGraphNGateModuleDefinition(2),
+  t: nodeGraphTSeriesModuleDefinition(0),
+  t1: nodeGraphTSeriesModuleDefinition(1),
+  t2: nodeGraphTSeriesModuleDefinition(2),
+  t3: nodeGraphTSeriesModuleDefinition(3),
+  t4: nodeGraphTSeriesModuleDefinition(4),
+  t5: nodeGraphTSeriesModuleDefinition(5),
+  t6: nodeGraphTSeriesModuleDefinition(6),
+  t7: nodeGraphTSeriesModuleDefinition(7),
+  t8: nodeGraphTSeriesModuleDefinition(8),
+  t9: nodeGraphTSeriesModuleDefinition(9),
+  t10: nodeGraphTSeriesModuleDefinition(10),
   gain: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
@@ -8736,7 +8739,13 @@ const nodeGraphModuleDefinitions = (
       },
     ],
     defaultDisplayMode: "waveform",
-    inputs: ["Reset", "Speed", "Phase"],
+    digitalInputs: ["Reset", "Start Time", "End Time"],
+    digitalOutputs: ["Trigger"],
+    inputTooltips: {
+      "Start Time": "File time in seconds. Converted to 0…1 phase from the loaded sample length. Unconnected uses the [⇦ slider.",
+      "End Time": "File time in seconds. Converted to 0…1 phase from the loaded sample length. Unconnected uses the ⇨] slider.",
+    },
+    inputs: ["Reset", "Start Time", "End Time", "Speed", "Phase"],
     outputs: ["Mono", "Left", "Right", "Phase", "Trigger"],
     parameters: [
       { choices: ["Off (reset)", "Stop", "Pause", "Loop", "Play", "Loop All"], defaultValue: "4", displayChoices: true, divideChoicesVisibly: true, key: "transport", label: "Playmode", linearSmoothing: false, max: "5", mid: "2", min: "0", nonlinearSlider: false, step: "1" },

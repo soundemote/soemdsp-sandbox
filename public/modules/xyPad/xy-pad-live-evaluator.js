@@ -17,10 +17,15 @@ nodeGraphLiveModuleEvaluators.xyPad = ({ runtime, node, nodeId, frame, frames, f
     runtime.xyPadHoldStates = new Map();
   }
   const held = runtime.xyPadHoldStates.get(nodeId);
+  const ampFn = typeof nodeGraphXyPadDspOutputAmplitude === "function"
+    ? nodeGraphXyPadDspOutputAmplitude
+    : (raw) => (Number.isFinite(Number(raw)) ? Number(raw) : 1);
+  const ampX = ampFn(read("xAmplitude", 1));
+  const ampY = ampFn(read("yAmplitude", 1));
   if (pauseOnLift && gate < 1 && held && Number.isFinite(held.X) && Number.isFinite(held.Y)) {
     return {
-      X: held.X,
-      Y: held.Y,
+      X: held.X * ampX,
+      Y: held.Y * ampY,
       Gate: 0,
       Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
     };
@@ -57,5 +62,7 @@ nodeGraphLiveModuleEvaluators.xyPad = ({ runtime, node, nodeId, frame, frames, f
     Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
   };
   runtime.xyPadHoldStates.set(nodeId, { X: out.X, Y: out.Y });
+  out.X *= ampX;
+  out.Y *= ampY;
   return out;
 };

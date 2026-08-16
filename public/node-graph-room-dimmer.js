@@ -608,19 +608,19 @@ void main() {
       }
     }
 
-    // Always punch the dimmer button so it stays visible/usable at full black.
-    const btn = buttonEl();
-    if (btn && rects.length < MAX_RECTS) {
-      const prev = btn.dataset?.lightStrength;
-      if (btn.dataset) {
-        btn.dataset.lightStrength = "1";
+    // Punch the dimmer + magnifier pair so both stay usable at full black.
+    const punch = document.querySelector(".node-room-tool-pair") || buttonEl();
+    if (punch && rects.length < MAX_RECTS) {
+      const prev = punch.dataset?.lightStrength;
+      if (punch.dataset) {
+        punch.dataset.lightStrength = "1";
       }
-      pushRectLight(btn, canvasRect, canvas, seen, rects, rectStr, rectSoft, rectRound);
-      if (btn.dataset) {
+      pushRectLight(punch, canvasRect, canvas, seen, rects, rectStr, rectSoft, rectRound);
+      if (punch.dataset) {
         if (prev == null || prev === "") {
-          delete btn.dataset.lightStrength;
+          delete punch.dataset.lightStrength;
         } else {
-          btn.dataset.lightStrength = prev;
+          punch.dataset.lightStrength = prev;
         }
       }
     }

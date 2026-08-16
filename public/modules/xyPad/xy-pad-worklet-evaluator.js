@@ -37,10 +37,15 @@
 
       const gate = read("gate", 0) > 0.5 ? 1 : 0;
       const pauseOnLift = read("pauseOnLift", 0) > 0.5;
+      const ampFn = typeof nodeGraphXyPadDspOutputAmplitude === "function"
+        ? nodeGraphXyPadDspOutputAmplitude
+        : (raw) => (Number.isFinite(Number(raw)) ? Number(raw) : 1);
+      const ampX = ampFn(read("xAmplitude", 1));
+      const ampY = ampFn(read("yAmplitude", 1));
       if (pauseOnLift && gate < 1 && pair.held && Number.isFinite(pair.held.X) && Number.isFinite(pair.held.Y)) {
         return {
-          X: pair.held.X,
-          Y: pair.held.Y,
+          X: pair.held.X * ampX,
+          Y: pair.held.Y * ampY,
           Gate: 0,
           Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
         };
@@ -85,6 +90,8 @@
         Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
       };
       pair.held = { X: out.X, Y: out.Y };
+      out.X *= ampX;
+      out.Y *= ampY;
       return out;
     };
     return evaluators;

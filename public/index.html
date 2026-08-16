@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=search-uc-1">
+  <link rel="stylesheet" href="./public/styles.css?v=param-size-ssot-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=portal-io-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -264,6 +264,7 @@
           <button id="nodeUndoButton" type="button" disabled>Undo</button>
           <button id="nodeRedoButton" type="button" disabled>Redo</button>
           <span id="nodePatchTimingControls" class="node-patch-timing-controls" aria-label="Patch timing"></span>
+          <span class="node-room-tool-pair">
           <button
             id="nodeRoomDimmerButton"
             class="node-room-dimmer-button"
@@ -272,6 +273,22 @@
             aria-label="Room light. Drag up or down to darken the room (0–100%); displays stay lit."
             title="Room light · drag up/down · off darkens the room (displays stay lit)"
           ><span class="node-room-dimmer-fill" aria-hidden="true"></span><span class="node-room-dimmer-icons" aria-hidden="true"><img class="node-room-dimmer-icon node-room-dimmer-icon-on" src="./public/resources/icons/lightbulb-on.svg" alt="" draggable="false" width="24" height="35"><img class="node-room-dimmer-icon node-room-dimmer-icon-off" src="./public/resources/icons/lightbulb-off.svg" alt="" draggable="false" width="24" height="35"></span></button>
+          <label
+            id="nodeMagnifierZoomControl"
+            class="node-magnifier-zoom"
+            title="Magnifying glass zoom">
+            <span class="node-magnifier-zoom-glyph" aria-hidden="true">🔍</span>
+            <input
+              id="nodeMagnifierZoomSlider"
+              class="node-magnifier-zoom-slider"
+              type="range"
+              min="2"
+              max="8"
+              step="0.05"
+              value="2"
+              aria-label="Magnifying glass zoom">
+          </label>
+          </span>
           <button
             id="nodeDonateFiveButton"
             class="node-donate-five-button"
@@ -648,13 +665,6 @@
         <div id="nodeModuleShopUnifiedNavHost" class="node-unified-window-nav-host" aria-label="Floating window pages"></div>
         <div class="node-module-shop-column">
           <div class="node-module-shop-controls">
-            <button
-              id="nodeModuleDepartmentBack"
-              class="node-module-department-back-button"
-              type="button"
-              aria-label="Back to module categories"
-              title="Back to module categories"
-              hidden>&larr;</button>
             <section id="nodeModuleHomeShelfShell" class="node-module-home-shelf" hidden>
               <div class="node-module-shop-section-title">
                 <span>Home</span>
@@ -670,7 +680,6 @@
                 spellcheck="false">
             </label>
           </div>
-          <div id="nodeModuleDepartmentTitle" class="node-module-department-title" hidden></div>
           <div class="node-module-shop-scroll-frame">
             <section id="nodeModuleDepartmentList" class="node-module-shop-section scene-context-store-list" aria-label="Modules"></section>
           </div>
@@ -3442,7 +3451,7 @@
   <script src="./public/manifest-loader.js?v=manifest-loader-refactor-1780389600000"></script>
   <script src="./public/node-graph-wires.js?v=connected-dot-overlay-1"></script>
   <script src="./public/node-graph-floating-windows.js?v=cc-shrink-ssot-1"></script>
-  <script src="./public/node-graph-unified-window.js?v=param-rclick-seat-1"></script>
+  <script src="./public/node-graph-unified-window.js?v=dock-width-ssot-1"></script>
   <script src="./public/node-graph-emoji-page.js?v=cc-shrink-ssot-1"></script>
   <script src="./public/node-graph-file-actions.js?v=session-split-1"></script>
   <script src="./public/node-graph-default-buttons.js?v=patch-save-refresh-1"></script>
@@ -3459,8 +3468,8 @@
   <script src="./public/modules/evolveField/evolve-field-register.js?v=evolve-field-uc-1"></script>
   <script src="./public/modules/fbmField/fbm-field-register.js?v=module-smooth-0333-1"></script>
   <script src="./public/modules/bugButton/bug-button-register.js?v=bug-button-io-order-20260724"></script>
-  <script src="./public/modules/xyPad/xy-pad-dsp.js?v=xy-pad-center-q-1"></script>
-  <script src="./public/modules/xyPad/xy-pad-register.js?v=layoutb-port-labels-1"></script>
+  <script src="./public/modules/xyPad/xy-pad-dsp.js?v=xy-amp-xy-1"></script>
+  <script src="./public/modules/xyPad/xy-pad-register.js?v=xy-amp-xy-1"></script>
   <script src="./public/modules/numberReadout/number-readout-register.js?v=value-led-1"></script>
     <script src="./public/modules/valueLcd/value-lcd-register.js?v=value-lcd-1"></script>
 <script src="./public/modules/rayBouncer/ray-bouncer-register.js?v=ray-bouncer-solid-1"></script>
@@ -3471,12 +3480,12 @@
   <script src="./public/modules/portal/portal-inlet-register.js?v=portal-io-1"></script>
   <script src="./public/modules/portal/portal-outlet-register.js?v=portal-io-1"></script>
   <script src="./public/modules/patch/patch-register.js?v=patch-buttons-on-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=io-flush-gap-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=mp-time-io-1"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script src="./public/node-graph-module-controls.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
-  <script src="./public/node-graph-module-store.js?v=uc-sort-1"></script>
-  <script src="./public/node-graph-module-sizing.js?v=io-flush-gap-1"></script>
+  <script src="./public/node-graph-module-store.js?v=uc-io-above-1"></script>
+  <script src="./public/node-graph-module-sizing.js?v=uc-io-above-1"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=param-meta-ui-1"></script>
   <script src="./public/node-graph-parameter-smoother-filters.js?v=module-smooth-0333-1"></script>
   <script src="./public/node-graph-parameter-metadata.js?v=smooth-global-default-2"></script>
@@ -3512,16 +3521,16 @@
   <script src="./public/node-graph-settings-text-fit.js?v=title-label-1"></script>
   <script src="./public/node-graph-default-preset.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-script-status.js?v=book-ui-script-1"></script>
-  <script src="./public/node-graph-view-controls.js?v=section-resize-1"></script>
+  <script src="./public/node-graph-view-controls.js?v=controller-grow-up-1"></script>
   <script src="./public/node-graph-workspace-geometry.js?v=section-resize-1"></script>
   <script src="./public/node-graph-viewport-perf.js?v=cv-skip-4"></script>
-  <script src="./public/node-graph-workspace-zoom.js?v=magnifier-1"></script>
+  <script src="./public/node-graph-workspace-zoom.js?v=smooth-zoom-pin-1"></script>
   <script src="./public/node-graph-workspace-view.js?v=emoji-page-1"></script>
   <script src="./public/node-graph-camera-view.js?v=hitpoint-select-1"></script>
   <script src="./public/node-graph-marquee-selection.js?v=snake-lock-nomod-1"></script>
   <script src="./public/node-graph-node-dragging.js?v=ready-lock-hide-1"></script>
   <script src="./public/node-graph-context-menu.js?v=magnifier-ctx-1"></script>
-  <script src="./public/node-graph-magnifier.js?v=magnifier-ctx-1"></script>
+  <script src="./public/node-graph-magnifier.js?v=mag-min-2-size-10"></script>
   <script src="./public/node-graph-module-actions.js?v=title-label-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
   <script src="./public/lib/phosphor/phosphor-residual.js?v=trail-0-ghost-1"></script>
@@ -3586,9 +3595,9 @@
   <script src="./public/modules/rasterRgb/raster-rgb-display.js?v=gauss-glow-1"></script>
   <script src="./public/modules/gradientVectorscope/gradient-vectorscope-display.js?v=trace-fade-1"></script>
   <script src="./public/modules/traceXyz/trace-xyz-display.js?v=trace-fade-1"></script>
-  <script src="./public/node-graph-room-dimmer.js?v=textbox-light-50-1"></script>
+  <script src="./public/node-graph-room-dimmer.js?v=mag-zoom-slider-1"></script>
   <script src="./public/node-graph-canvas-script.js?v=floating-chrome-unify-1"></script>
-  <script src="./public/node-graph-module-factories.js?v=controller-rows-1"></script>
+  <script src="./public/node-graph-module-factories.js?v=uc-io-above-1"></script>
   <script src="./public/modules/led/led-ui.js?v=led-lamp-1"></script>
   <script src="./public/modules/led/led-settings.js?v=keypad-bgi-1"></script>
   <script src="./public/modules/led/led-display.js?v=dimmer-punch-fix-2"></script>
@@ -3607,7 +3616,7 @@
   <script src="./public/modules/fbmField/fbm-field-ui.js?v=viewport-sleep-1"></script>
   <script src="./public/modules/fbmField/fbm-field-display.js?v=fractal-noise-1"></script>
   <script src="./public/modules/bugButton/bug-button-ui.js?v=bug-button-settings-edit-20260723"></script>
-  <script src="./public/modules/xyPad/xy-pad-ui.js?v=burn-sticky-1"></script>
+  <script src="./public/modules/xyPad/xy-pad-ui.js?v=xy-amp-xy-1"></script>
   <script src="./public/modules/numberReadout/number-readout-ui.js?v=value-led-lcd-1"></script>
   <script src="./public/modules/rayBouncer/ray-bouncer-ui.js?v=ray-bouncer-solid-1"></script>
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
@@ -3621,7 +3630,7 @@
   <script src="./public/modules/portal/portal-settings.js?v=portal-io-1"></script>
   <script src="./public/modules/portal/portal-ui.js?v=portal-io-1"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=title-label-1"></script>
-  <script src="./public/node-graph-module-rendering.js?v=title-label-1"></script>
+  <script src="./public/node-graph-module-rendering.js?v=uc-io-above-1"></script>
   <script src="./public/node-graph-module-frame.js?v=inlet-outlet-size-1"></script>
   <script src="./public/node-graph-history.js?v=book-ui-script-1"></script>
   <script src="./public/node-graph-visual-utils.js?v=hue-bright-1"></script>
@@ -3639,9 +3648,9 @@
   <script src="./public/node-graph-slider-readout-controls.js?v=jacks-slider-2"></script>
   <script src="./public/node-graph-ghost-sliders.js?v=cv-skip-3"></script>
   <script src="./public/node-code-settings-editor.js?v=json-highlight-1"></script>
-  <script src="./public/node-graph-metadata-editor.js?v=param-rclick-seat-1"></script>
+  <script src="./public/node-graph-metadata-editor.js?v=param-size-ssot-1"></script>
   <script src="./public/node-graph-render-settings.js?v=cleanup-20260725-slider-unit-color-1780307400000"></script>
-  <script src="./public/modules/speakerProtector2/speaker-protector-2-math.js?v=peak-above-0db-1"></script>
+  <script src="./public/modules/speakerProtector2/speaker-protector-2-math.js?v=peak-eps-1e7-1"></script>
   <script src="./public/node-graph-ear-protection.js?v=protect-banner-1"></script>
   <script src="./public/node-graph-patch-load-fault.js?v=patch-load-fault-1"></script>
   <script src="./public/node-graph-debug-console.js?v=sr-info-1"></script>
@@ -3651,13 +3660,13 @@
   <script src="./public/node-graph-rendered-visual-output.js?v=beta-polish-1"></script>
   <script src="./public/node-graph-rendered-output-canvases.js?v=beta-polish-1"></script>
   <script src="./public/node-graph-execution-wires.js?v=external-graph-inputs-1780816800000"></script>
-  <script src="./public/node-graph-module-bypass.js?v=trace-history-1"></script>
+  <script src="./public/node-graph-module-bypass.js?v=t-series-1"></script>
   <script src="./public/node-graph-execution-plan.js?v=bt-msd-uc-1"></script>
   <script src="./public/node-graph-execution-summary.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-wire-actions.js?v=pair-left-only-1"></script>
   <script src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
   <script src="./public/node-graph-wire-rendering.js?v=section-resize-1"></script>
-  <script src="./public/node-graph-render-output.js?v=speaker-protector-noclip-1"></script>
+  <script src="./public/node-graph-render-output.js?v=peak-eps-1e7-1"></script>
   <script src="./public/node-graph-debug-copy.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-execution-debug-api.js?v=noise-generator-stereo-20260630"></script>
   <script src="./public/node-graph-execution-debug-view.js?v=slider-unit-color-1780307400000"></script>
@@ -3668,7 +3677,7 @@
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=macro-cleanup-2"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=cc-shrink-ssot-1"></script>
-  <script src="./public/node-graph-ui-settings-persistence.js?v=slider-handle-hb-1"></script>
+  <script src="./public/node-graph-ui-settings-persistence.js?v=param-size-ssot-1"></script>
   <script src="./public/node-graph-ui-settings-sync.js?v=slider-handle-hb-1"></script>
   <script src="./public/node-graph-keyboard-shortcuts.js?v=textbox-ctrl-a-1"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
@@ -3804,8 +3813,8 @@
   <script src="./public/modules/phoneTone/phone-tone-math.js?v=phone-tone-layout-a-1"></script>
   <script src="./public/modules/phoneTone/phone-tone-live-evaluator.js?v=phone-tone-layout-a-1"></script>
   <script src="./public/modules/phoneTone/phone-tone-display.js?v=phone-tone-layout-a-1"></script>
-  <script src="./public/modules/numberGate/number-gate-math.js?v=n-gate-family-1"></script>
-  <script src="./public/modules/numberGate/number-gate-live-evaluator.js?v=n-gate-family-1"></script>
+  <script src="./public/modules/tSeries/t-series-math.js?v=t-series-1"></script>
+  <script src="./public/modules/tSeries/t-series-live-evaluator.js?v=t-series-1"></script>
   <script src="./public/modules/tb303Filter/tb303-filter-live-evaluator.js?v=tb303-stable-1"></script>
   <script src="./public/modules/delayEffect/delay-effect-live-evaluator.js?v=delay-mixm-1"></script>
   <script src="./public/modules/pingPongDelay/ping-pong-delay-live-evaluator.js?v=tape-lfo-1"></script>
@@ -3904,7 +3913,7 @@
   <script src="./public/modules/midiOut/midi-out-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/midiNotePitch/midi-note-pitch-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/keyboardController/keyboard-controller-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/keyboardController/keyboard-layout-settings.js?v=key-layout-2"></script>
+  <script src="./public/modules/keyboardController/keyboard-layout-settings.js?v=controller-lanes-1"></script>
   <script src="./public/modules/buttonEvents/button-events-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/wireEvents/wire-events-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/shootingStarExplosion/shooting-star-explosion-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3922,7 +3931,7 @@
   <script src="./public/modules/rgbFractal/rgb-fractal-live-evaluator.js?v=orbit-speed-1"></script>
   <script src="./public/modules/evolveField/evolve-field-live-evaluator.js?v=evolve-field-uc-1"></script>
   <script src="./public/modules/bugButton/bug-button-live-evaluator.js?v=solid-module-shell-2-20260723"></script>
-  <script src="./public/modules/xyPad/xy-pad-live-evaluator.js?v=xy-pad-drag-1"></script>
+  <script src="./public/modules/xyPad/xy-pad-live-evaluator.js?v=xy-amp-xy-1"></script>
 
   <script src="./public/modules/bias/bias-math.js?v=bias-io-1"></script>
   <script src="./public/modules/bias/bias-live-evaluator.js?v=bias-io-1"></script>
@@ -3958,7 +3967,8 @@
   <script src="./public/modules/portal/portal-live-evaluator.js?v=portal-io-1"></script>
   <script src="./public/modules/audioInput/audio-input-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/lib/sample-interpolate.js?v=hermite-1"></script>
-  <script src="./public/modules/audioPlayer/audio-player-live-evaluator.js?v=mp-pl-transport-1"></script>
+  <script src="./public/modules/audioPlayer/audio-player-math.js?v=mp-time-io-1"></script>
+  <script src="./public/modules/audioPlayer/audio-player-live-evaluator.js?v=mp-time-io-1"></script>
   <script src="./public/modules/moduleGroup/module-group-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/codeblock/codeblock-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/sineWavetable/sine-wavetable-live-evaluator.js?v=sincos-no-amp-in-1"></script>
@@ -3973,9 +3983,9 @@
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=magnifier-1"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>
-  <script src="./public/node-graph-header-event-bindings.js?v=section-resize-1"></script>
+  <script src="./public/node-graph-header-event-bindings.js?v=mag-zoom-slider-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
-  <script src="./public/node-graph-scene-menu-event-bindings.js?v=cc-dock-page-2"></script>
+  <script src="./public/node-graph-scene-menu-event-bindings.js?v=shop-one-ui-1"></script>
   <script src="./public/node-graph-uidev-event-bindings.js?v=io-section-pad-1"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=book-ui-script-1"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>

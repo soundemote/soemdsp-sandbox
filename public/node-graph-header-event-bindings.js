@@ -8,6 +8,9 @@ function bindNodeGraphHeaderControlEvents() {
   } else if (typeof bindNodeGraphShaderScriptEvents === "function") {
     bindNodeGraphShaderScriptEvents();
   }
+  if (typeof bindNodeGraphMagnifierZoomControl === "function") {
+    bindNodeGraphMagnifierZoomControl();
+  }
   bindNodeGraphCanvasScriptEvents();
   bindNodeGraphCodeScreenEvents();
   renderNodeGraphPatchTimingControls();

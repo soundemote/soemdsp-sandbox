@@ -68,39 +68,26 @@ function applyNodeMetadataPopoverPosition(popover, x, y, remember = false) {
 }
 
 const nodeMetadataPopoverDefaultSize = Object.freeze({
-  width: 185,
+  width: 680,
   height: 620,
   minWidth: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
     ? nodeGraphUnifiedWindowMinSize.minWidth
     : 24,
-  maxWidth: 900,
   minHeight: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
     ? nodeGraphUnifiedWindowMinSize.minHeight
     : 120,
-  maxHeight: 820,
 });
 
 function normalizeNodeMetadataPopoverSize(size = {}) {
-  if (typeof normalizeNodeGraphFloatingWindowSize === "function") {
-    return normalizeNodeGraphFloatingWindowSize(size, nodeMetadataPopoverDefaultSize);
-  }
-  const source = size && typeof size === "object" ? size : {};
-  return {
-    width: Math.max(
-      nodeMetadataPopoverDefaultSize.minWidth,
-      Math.min(
-        nodeMetadataPopoverDefaultSize.maxWidth,
-        Math.round(Number(source.width) || nodeMetadataPopoverDefaultSize.width),
-      ),
-    ),
-    height: Math.max(
-      nodeMetadataPopoverDefaultSize.minHeight,
-      Math.min(
-        nodeMetadataPopoverDefaultSize.maxHeight,
-        Math.round(Number(source.height) || nodeMetadataPopoverDefaultSize.height),
-      ),
-    ),
-  };
+  const mins = typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize
+    : { minWidth: 24, minHeight: 120 };
+  const source = size && typeof size === "object" && (Number(size.width) || Number(size.height))
+    ? size
+    : (typeof nodeGraphMvp === "object" ? nodeGraphMvp?.unifiedWindowSize : null) || {};
+  const width = Math.max(mins.minWidth, Math.round(Number(source.width) || nodeMetadataPopoverDefaultSize.width));
+  const height = Math.max(mins.minHeight, Math.round(Number(source.height) || nodeMetadataPopoverDefaultSize.height));
+  return { width, height };
 }
 
 function applyNodeMetadataPopoverSize(size = {}, element = null) {
@@ -108,20 +95,34 @@ function applyNodeMetadataPopoverSize(size = {}, element = null) {
   const normalized = normalizeNodeMetadataPopoverSize(size);
   const stored = {
     width: normalized.width,
-    ...(Number.isFinite(normalized.height) ? { height: normalized.height } : {}),
+    height: normalized.height,
   };
   if (popover) {
+    if (typeof applyNodeGraphUnifiedWindowMinBoxToElement === "function") {
+      applyNodeGraphUnifiedWindowMinBoxToElement(popover);
+    }
     if (typeof applyNodeGraphFloatingWindowSizeVars === "function") {
       applyNodeGraphFloatingWindowSizeVars(popover, "metadata-popover", nodeMetadataPopoverDefaultSize, normalized);
     } else {
       popover.style.setProperty("--metadata-popover-width", `${stored.width}px`);
-      if (Number.isFinite(stored.height)) {
-        popover.style.setProperty("--metadata-popover-height", `${stored.height}px`);
-      }
+      popover.style.setProperty("--metadata-popover-height", `${stored.height}px`);
     }
+    popover.style.boxSizing = "border-box";
+    popover.style.width = `${stored.width}px`;
+    popover.style.height = `${stored.height}px`;
+    popover.style.maxWidth = "none";
+    popover.style.maxHeight = "none";
     if (typeof syncNodeGraphFloatingWindowInlineBox === "function") {
       syncNodeGraphFloatingWindowInlineBox(popover, stored);
     }
+  }
+  if (
+    typeof nodeGraphMvp === "object"
+    && nodeGraphMvp
+    && typeof nodeGraphUnifiedWindowSizeLooksReal === "function"
+    && nodeGraphUnifiedWindowSizeLooksReal(stored)
+  ) {
+    nodeGraphMvp.unifiedWindowSize = stored;
   }
   return stored;
 }
@@ -186,13 +187,16 @@ function nodeMetadataReplacementX(sourceRect, targetPopover, fallbackX) {
 
 function saveNodeMetadataPopoverWindowState(options = {}) {
   const popover = document.getElementById("nodeParameterMetadataPopover");
+  if (typeof rememberNodeGraphUnifiedWindowSizeFromElement === "function") {
+    rememberNodeGraphUnifiedWindowSizeFromElement(popover);
+  }
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState(
       "metaparameters",
       popover,
       {
         open: !popover?.hidden,
-        size: nodeMetadataPopoverSizeFromElement(popover),
+        size: nodeGraphMvp.unifiedWindowSize || nodeMetadataPopoverSizeFromElement(popover),
       },
       { status: false, ...options },
     );
@@ -1525,14 +1529,10 @@ function openNodeMetadataPopover(event, readout) {
   nodeGraphMvp.metadataEditorTarget = slider.id;
   nodeGraphMvp.sharedInspectorActive = "metaparameters";
   fillNodeMetadataPopover(slider);
-  const sharedInspectorState = typeof normalizeNodeGraphSharedInspectorWindowState === "function"
-    ? normalizeNodeGraphSharedInspectorWindowState(nodeGraphMvp.sharedInspectorWindowState, nodeGraphMvp.workspaceWindowStates)
-    : (nodeGraphMvp.sharedInspectorWindowState || {});
-  const savedPosition = sharedInspectorState.position || nodeGraphMvp.metadataPopoverPosition;
+  const savedPosition = nodeGraphMvp.unifiedWindowPosition || nodeGraphMvp.metadataPopoverPosition;
   const hasSavedPosition =
     Number.isFinite(Number(savedPosition?.left)) &&
     Number.isFinite(Number(savedPosition?.top));
-  applyNodeMetadataPopoverSize(sharedInspectorState.size);
   const popover = document.getElementById("nodeParameterMetadataPopover");
   // Grab the live Command Center / unified seat before we unhide this page.
   // Spawning at the click is last resort only (no seat yet).
@@ -1664,14 +1664,10 @@ function openBlankNodeMetadataPopover(event = {}) {
     ? prepareNodeModuleActionsWindowForInspectorReplacement()
     : null;
   showBlankNodeMetadataPopoverContent();
-  const sharedInspectorState = typeof normalizeNodeGraphSharedInspectorWindowState === "function"
-    ? normalizeNodeGraphSharedInspectorWindowState(nodeGraphMvp.sharedInspectorWindowState, nodeGraphMvp.workspaceWindowStates)
-    : (nodeGraphMvp.sharedInspectorWindowState || {});
-  const savedPosition = sharedInspectorState.position || nodeGraphMvp.metadataPopoverPosition;
+  const savedPosition = nodeGraphMvp.unifiedWindowPosition || nodeGraphMvp.metadataPopoverPosition;
   const hasSavedPosition =
     Number.isFinite(Number(savedPosition?.left)) &&
     Number.isFinite(Number(savedPosition?.top));
-  applyNodeMetadataPopoverSize(sharedInspectorState.size);
   const popover = document.getElementById("nodeParameterMetadataPopover");
   if (!nodeGraphMvp._unifiedWindowSwitching && typeof captureNodeGraphUnifiedWindowSeat === "function") {
     captureNodeGraphUnifiedWindowSeat("metaparameters");

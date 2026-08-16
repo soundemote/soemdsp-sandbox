@@ -852,6 +852,17 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
   }
   const isLayoutB = typeof nodeGraphModuleUsesLayoutB === "function"
     && nodeGraphModuleUsesLayoutB(type);
+  if (
+    typeof nodeGraphModuleTypeIsUnderConstruction === "function"
+    && nodeGraphModuleTypeIsUnderConstruction(type)
+  ) {
+    const ioAt = order.indexOf("io");
+    const faceAt = order.indexOf("face");
+    if (ioAt > faceAt && faceAt >= 0) {
+      order.splice(ioAt, 1);
+      order.splice(faceAt, 0, "io");
+    }
+  }
   const isLayoutC = typeof nodeGraphModuleUsesLayoutC === "function"
     && nodeGraphModuleUsesLayoutC(type);
   const layout = nodeGraphModuleDefinitions[type]?.layout;

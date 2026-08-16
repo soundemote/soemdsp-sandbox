@@ -1437,10 +1437,12 @@ function resetNodeGraphStartupView() {
   }
 }
 
-// In-flow strip above the bottom transport bar (not floating). Same
-// keyboard / wheels / macros bodies as the graph modules; shared state.
+// In-flow strip glued to the transport bar. Height is the gap from the
+// top seam (the split handle / pointer) down to the transport — never a
+// startHeight ± dy sign that flips when layout is confused.
 const nodeGraphControllerDockHeightMin = 72;
 const nodeGraphControllerDockHeightMax = 620;
+const nodeGraphControllerDockHeightDefault = 240;
 
 function nodeGraphControllerDockHeightLimits() {
   const panel = document.getElementById("nodeWiringPanel");
@@ -1463,7 +1465,18 @@ function normalizeNodeGraphControllerDockHeight(value) {
   return Math.max(limits.min, Math.min(limits.max, n));
 }
 
-function applyNodeGraphControllerDockHeight(height = nodeGraphMvp?.controllerDockHeight) {
+function nodeGraphControllerDockBottomEdge(dock) {
+  const transport = document.querySelector("#nodeWiringPanel > .node-graph-controls");
+  if (transport) {
+    const style = getComputedStyle(transport);
+    if (style.display !== "none" && style.visibility !== "hidden") {
+      return transport.getBoundingClientRect().top;
+    }
+  }
+  return dock?.getBoundingClientRect?.().bottom || 0;
+}
+
+function applyNodeGraphControllerDockHeight(height = nodeGraphMvp?.controllerDockHeight, options = {}) {
   const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
   const px = normalizeNodeGraphControllerDockHeight(
     height ?? nodeGraphMvp?.controllerDockHeight ?? 0,
@@ -1475,15 +1488,15 @@ function applyNodeGraphControllerDockHeight(height = nodeGraphMvp?.controllerDoc
     return px;
   }
   dock.classList.toggle("has-controller-height", px > 0);
-  if (px > 0) {
-    dock.style.setProperty("--node-controller-dock-height", `${px}px`);
-  } else {
-    dock.style.removeProperty("--node-controller-dock-height");
-  }
-  if (typeof applyNodeGraphMidiKeyboardLayout === "function") {
+  dock.style.setProperty(
+    "--node-controller-dock-height",
+    `${px > 0 ? px : nodeGraphControllerDockHeightDefault}px`,
+  );
+  const layout = options.layout !== false && !nodeGraphMvp?.chromeSectionResizing;
+  if (layout && typeof applyNodeGraphMidiKeyboardLayout === "function") {
     applyNodeGraphMidiKeyboardLayout();
   }
-  if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
+  if (layout && typeof notifyNodeGraphChromeLayoutChanged === "function") {
     notifyNodeGraphChromeLayoutChanged();
   }
   return px;
@@ -1500,16 +1513,18 @@ function beginNodeGraphControllerDockResize(event) {
   }
   event.preventDefault();
   event.stopPropagation();
-  const startY = event.clientY;
-  const startHeight = dock.getBoundingClientRect().height;
+  const startBottom = nodeGraphControllerDockBottomEdge(dock);
   document.body.classList.add("is-resizing-controller-dock");
   watchNodeGraphSectionResizeDrag(event, {
     handle,
     onMove: (point) => {
-      applyNodeGraphControllerDockHeight(startHeight - (point.y - startY));
+      applyNodeGraphControllerDockHeight(startBottom - point.y, { layout: false });
     },
     onEnd: () => {
       document.body.classList.remove("is-resizing-controller-dock");
+      if (typeof applyNodeGraphMidiKeyboardLayout === "function") {
+        applyNodeGraphMidiKeyboardLayout();
+      }
       if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
         notifyNodeGraphChromeLayoutChanged();
       }

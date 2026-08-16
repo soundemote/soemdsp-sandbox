@@ -101,8 +101,15 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
     surface.style.setProperty("--midi-white-key-width", `${whiteW}px`);
     surface.style.setProperty("--midi-black-key-width", `${blackW}px`);
     surface.style.setProperty("--midi-black-key-height", `${s.blackKeyHeight}%`);
-    surface.style.setProperty("--midi-keyboard-piano-height", `${s.keyboardHeight}px`);
-    surface.style.height = `${s.keyboardHeight}px`;
+    const docked = Boolean(surface.closest(".node-standalone-midi-keyboard-dock"));
+    if (docked) {
+      surface.style.removeProperty("--midi-keyboard-piano-height");
+      surface.style.height = "100%";
+      surface.style.width = "100%";
+    } else {
+      surface.style.setProperty("--midi-keyboard-piano-height", `${s.keyboardHeight}px`);
+      surface.style.height = `${s.keyboardHeight}px`;
+    }
     const whiteRow = surface.querySelector(".node-midi-keyboard-white-row");
     if (whiteRow) {
       whiteRow.style.gridTemplateColumns = totalWhite > 0
@@ -129,7 +136,7 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
     const dock = surface.closest(".node-standalone-midi-keyboard-dock");
     if (dock) {
       dock.style.setProperty("--midi-keyboard-piano-width", `${pianoW}px`);
-      dock.style.setProperty("--midi-keyboard-piano-height", `${s.keyboardHeight}px`);
+      dock.style.removeProperty("--midi-keyboard-piano-height");
       dock.style.setProperty("--midi-keyboard-wheel-width", "64px");
     }
   });

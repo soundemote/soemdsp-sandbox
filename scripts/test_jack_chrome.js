@@ -91,9 +91,9 @@ var sandbox = {
       outputLabels: { Sin: "Sin", Cos: "Cos" },
     },
     audioPlayer: {
-      inputs: ["Reset", "Speed", "Phase"],
+      inputs: ["Reset", "Start Time", "End Time", "Speed", "Phase"],
       outputs: ["Mono", "Left", "Right", "Phase", "Trigger"],
-      digitalInputs: ["Reset"],
+      digitalInputs: ["Reset", "Start Time", "End Time"],
       digitalOutputs: ["Trigger"],
     },
     loneR: {
@@ -151,6 +151,8 @@ assert(ch("quadrature", "Sin", "output") === "red", "sin red");
 assert(ch("quadrature", "Cos", "output") === "blue", "cos blue");
 assert(ch("audioPlayer", "Trigger", "output") === "", "digital trigger has no channel");
 assert(ch("audioPlayer", "Reset", "input") === "", "digital reset has no channel");
+assert(ch("audioPlayer", "Start Time", "input") === "", "digital start time has no channel");
+assert(ch("audioPlayer", "End Time", "input") === "", "digital end time has no channel");
 assert(ch("audioPlayer", "Left", "output") === "red", "player Left red");
 assert(ch("audioPlayer", "Right", "output") === "blue", "player Right blue");
 assert(ch("audioPlayer", "Mono", "output") === "green", "player Mono green");

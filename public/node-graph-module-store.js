@@ -147,7 +147,7 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   // Spectral filters split by intent: textbook toolbox vs character engines.
   // Temporary names only if we rename later — these are the hard-won labels.
   { id: "scientificFilter", emoji: "💧", label: "Scientific Filter", symbol: "🔬", title: "Scientific Filter", pitch: "Textbook responses. Hz, order, clean controls — Passive, Active, EQ, Tilt, and other predictable spectral tools." },
-  { id: "analogFilter",     emoji: "🎛️", label: "Analog Filter",     symbol: "≈",  title: "Analog Filter",     pitch: "Named character circuits. Timbre first — 303, Flower Child, SuperLove, and other engines with personality." },
+  { id: "analogFilter",     emoji: "🔥", label: "Analog Filter",     symbol: "≈",  title: "Analog Filter",     pitch: "Named character circuits. Timbre first — 303, Flower Child, SuperLove, and other engines with personality." },
   { id: "space",        emoji: "⛪", label: "Space",        symbol: "FX",  title: "Delay",     pitch: "Delay, reverb, distortion, and performance processors for shaping finished sound." },
   { id: "digital",      emoji: "🔬", label: "Digital",      symbol: "{ }", title: "Digital",   pitch: "Patch-local code surfaces, exact value conversion, and digital/visual programming tools inside the sandbox." },
   { id: "clock",        emoji: "⌚", label: "Sequence",     symbol: "♪",   title: "Sequence",  pitch: "Clocks, sequencers, dividers, counters, and trigger timing — everything that decides WHEN the rest of the patch fires." },
@@ -412,41 +412,71 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "BitConverter",
     notes: ["normalize", "0..1", "-1..1", "bitmask"],
   },
-  gate12: {
+  t: {
     category: "digital",
-    description: "Decode Analog and Digital into analog 0–1 gates 0–12. A and D can each light one outlet.",
-    label: "12Gate",
-    notes: ["decoder", "gate", "12gate", "keypad", "0-12"],
+    description: "One transistor. Digital 0 sends In (open In = 1); analog 0–1 is conduction.",
+    label: "t",
+    notes: ["transistor", "t"],
   },
-  gate8: {
+  t1: {
     category: "digital",
-    description: "Decode Analog and Digital into analog 0–1 gates 0–8. A and D can each light one outlet.",
-    label: "8Gate",
-    notes: ["decoder", "gate", "8gate", "0-8"],
+    description: "Two transistor paths (0, 1). Digital one-hot; analog 0–1 crossfades. Open In = 1.",
+    label: "1t",
+    notes: ["transistor", "1t"],
   },
-  gate6: {
+  t2: {
     category: "digital",
-    description: "Decode Analog and Digital into analog 0–1 gates 0–6. A and D can each light one outlet.",
-    label: "6Gate",
-    notes: ["decoder", "gate", "6gate", "0-6"],
+    description: "Three transistor paths (0, 1, 2). Digital one-hot; analog 0–1 crossfades. Open In = 1.",
+    label: "2t",
+    notes: ["transistor", "2t"],
   },
-  gate4: {
+  t3: {
     category: "digital",
-    description: "Decode Analog and Digital into analog 0–1 gates 0–4. A and D can each light one outlet.",
-    label: "4Gate",
-    notes: ["decoder", "gate", "4gate", "0-4"],
+    description: "Four transistor paths (0–3). Digital one-hot; analog 0–1 crossfades. Open In = 1.",
+    label: "3t",
+    notes: ["transistor", "3t"],
   },
-  gate3: {
+  t4: {
     category: "digital",
-    description: "Decode Analog and Digital into analog 0–1 gates 0–3. A and D can each light one outlet.",
-    label: "3Gate",
-    notes: ["decoder", "gate", "3gate", "0-3"],
+    description: "Five transistor paths (0–4). Digital one-hot; analog 0–1 crossfades. Open In = 1.",
+    label: "4t",
+    notes: ["transistor", "4t"],
   },
-  gate2: {
+  t5: {
     category: "digital",
-    description: "Decode Analog and Digital into analog 0–1 gates 0–2. A and D can each light one outlet.",
-    label: "2Gate",
-    notes: ["decoder", "gate", "2gate", "0-2"],
+    description: "Six transistor paths (0–5). Digital one-hot; analog 0–1 crossfades. Open In = 1.",
+    label: "5t",
+    notes: ["transistor", "5t"],
+  },
+  t6: {
+    category: "digital",
+    description: "Seven transistor paths (0–6). Digital one-hot; analog 0–1 crossfades. Open In = 1.",
+    label: "6t",
+    notes: ["transistor", "6t"],
+  },
+  t7: {
+    category: "digital",
+    description: "Eight transistor paths (0–7). Digital one-hot; analog 0–1 crossfades. Open In = 1.",
+    label: "7t",
+    notes: ["transistor", "7t"],
+  },
+  t8: {
+    category: "digital",
+    description: "Nine transistor paths (0–8). Digital one-hot; analog 0–1 crossfades. Open In = 1.",
+    label: "8t",
+    notes: ["transistor", "8t"],
+  },
+  t9: {
+    category: "digital",
+    description: "Ten transistor paths (0–9). Digital one-hot; analog 0–1 crossfades. Open In = 1.",
+    label: "9t",
+    notes: ["transistor", "9t"],
+  },
+  t10: {
+    category: "digital",
+    description: "Eleven transistor paths (0–10). Digital one-hot; analog 0–1 crossfades. Open In = 1.",
+    label: "10t",
+    notes: ["transistor", "10t"],
   },
   stepSequencer: {
     category: "clock",
@@ -2877,17 +2907,22 @@ function normalizeNodeGraphModuleStoreDepartment(department = "") {
   return nodeGraphModuleStoreDepartmentAliasToId[value] || "";
 }
 
-// Every path that a USER CLICK takes to change page goes through here (the
-// category cards and the back button), which is exactly what makes this the
-// right place to record the anchor: the page the browser returns to next time
-// it opens. Pages the browser moves to on its own -- the all-categories view a
-// search drops you into -- never touch it.
 function setNodeGraphModuleStoreDepartment(department = "") {
-  nodeGraphMvp.moduleStoreDepartment = normalizeNodeGraphModuleStoreDepartment(department);
-  nodeGraphMvp.moduleStoreDepartmentAnchor = nodeGraphMvp.moduleStoreDepartment;
+  const id = normalizeNodeGraphModuleStoreDepartment(department);
+  const dep = nodeGraphModuleStoreDepartmentById[id];
+  const query = String(dep?.label || id || "").trim();
+  nodeGraphMvp.moduleStoreDepartment = "";
+  nodeGraphMvp.moduleStoreDepartmentSearch = query;
+  const field = document.getElementById("nodeModuleDepartmentSearch");
+  if (field) {
+    field.value = query;
+  }
   renderNodeGraphModuleStoreCatalog();
   if (typeof saveNodeGraphModuleStoreStateToUserSettings === "function") {
     saveNodeGraphModuleStoreStateToUserSettings();
+  }
+  if (query && typeof focusNodeGraphModuleShopSearch === "function") {
+    focusNodeGraphModuleShopSearch();
   }
 }
 
@@ -3416,21 +3451,59 @@ function createNodeGraphModuleStoreButton(entry) {
     nativeStatus.className = "node-module-store-native-status";
   }
 
-  if (entry.implemented) {
-    card.append(label);
-    if (nativeStatus) {
-      card.append(nativeStatus);
+  card.append(label);
+  if (nativeStatus) {
+    card.append(nativeStatus);
+  }
+  if (!entry.implemented) {
+    const io = createNodeGraphModuleStoreIoPreview(entry.type);
+    if (io) {
+      card.append(io);
     }
-  } else {
     const status = document.createElement("small");
     status.textContent = "Under construction";
-    card.append(label);
-    if (nativeStatus) {
-      card.append(nativeStatus);
-    }
     card.append(status);
   }
   return card;
+}
+
+function createNodeGraphModuleStoreIoPreview(type) {
+  const def = typeof nodeGraphModuleDefinitions === "object" ? nodeGraphModuleDefinitions[type] : null;
+  const inputs = Array.isArray(def?.inputs) ? def.inputs : [];
+  const outputs = Array.isArray(def?.outputs) ? def.outputs : [];
+  if (!inputs.length && !outputs.length) {
+    return null;
+  }
+  const preview = document.createElement("div");
+  preview.className = "scene-context-store-card-io";
+  preview.setAttribute("aria-hidden", "true");
+  const column = (ports, io) => {
+    const col = document.createElement("div");
+    col.className = `scene-context-store-card-io-col ${io}`;
+    for (const port of ports) {
+      const row = document.createElement("div");
+      row.className = `scene-context-store-card-io-row ${io}`;
+      if (typeof nodeGraphPortIsDigitalSignal === "function" && nodeGraphPortIsDigitalSignal(type, port, io)) {
+        row.dataset.digitalSignal = io;
+      }
+      const jack = document.createElement("span");
+      jack.className = `scene-context-store-card-io-jack ${io}`;
+      const text = document.createElement("span");
+      text.className = "scene-context-store-card-io-label";
+      text.textContent = typeof nodeGraphPortDisplayLabel === "function"
+        ? nodeGraphPortDisplayLabel(type, port, io)
+        : String(port);
+      if (io === "input") {
+        row.append(jack, text);
+      } else {
+        row.append(text, jack);
+      }
+      col.append(row);
+    }
+    return col;
+  };
+  preview.append(column(inputs, "input"), column(outputs, "output"));
+  return preview;
 }
 
 function createNodeGraphModuleDepartmentButton(departmentId, entries) {
@@ -3601,8 +3674,6 @@ function renderNodeGraphModuleStoreCatalog() {
   const homeShell = document.getElementById("nodeModuleHomeShelfShell");
   const homeShelf = document.getElementById("nodeModuleHomeShelf");
   const shopView = document.getElementById("nodeModuleShopView");
-  const backButton = document.getElementById("nodeModuleDepartmentBack");
-  const departmentTitle = document.getElementById("nodeModuleDepartmentTitle");
   if (!available || !homeShell || !homeShelf || !shopView) {
     return;
   }
@@ -3610,73 +3681,22 @@ function renderNodeGraphModuleStoreCatalog() {
   available.innerHTML = "";
   homeShelf.innerHTML = "";
   const entries = nodeGraphModuleStoreEntries();
-  const selectedDepartment = normalizeNodeGraphModuleStoreDepartment(nodeGraphMvp.moduleStoreDepartment || "");
-  if (nodeGraphMvp.moduleStoreDepartment !== selectedDepartment) {
-    nodeGraphMvp.moduleStoreDepartment = selectedDepartment;
-  }
+  nodeGraphMvp.moduleStoreDepartment = "";
   const departmentSearch = nodeGraphMvp.moduleStoreDepartmentSearch || "";
-  const hasDepartmentSearchText = Boolean(nodeGraphNormalizeModuleDepartmentSearch(departmentSearch));
-  // Typing a search query always searches every module across every category,
-  // even while a specific category tab is selected -- previously search text
-  // was silently restricted to whatever category tab happened to be open.
-  const searchingAllModules = hasDepartmentSearchText;
+  const searchingAllModules = Boolean(nodeGraphNormalizeModuleDepartmentSearch(departmentSearch));
   const departmentSearchField = document.getElementById("nodeModuleDepartmentSearch");
   if (departmentSearchField && departmentSearchField.value !== departmentSearch) {
     departmentSearchField.value = departmentSearch;
   }
 
   const publicDepartmentEntries = nodeGraphModuleStorePublicEntriesByDepartment(entries);
-  const publicDepartmentNames = new Set(publicDepartmentEntries.map(([department]) => department));
-  if (selectedDepartment && !publicDepartmentNames.has(selectedDepartment)) {
-    nodeGraphMvp.moduleStoreDepartment = "";
-    renderNodeGraphModuleStoreCatalog();
-    if (typeof saveNodeGraphModuleStoreStateToUserSettings === "function") {
-      saveNodeGraphModuleStoreStateToUserSettings();
-    }
-    return;
-  }
-  const matchingEntries = entries.filter((item) => nodeGraphModuleStoreEntryMatchesSearch(item, departmentSearch));
-  const publicEntries = matchingEntries.filter((entry) =>
-    entry.visible &&
-    // Once there's search text, match against every category -- only fall
-    // back to restricting by the selected category tab when the search box
-    // is empty (plain category browsing).
-    (!selectedDepartment || hasDepartmentSearchText || entry.category === selectedDepartment)
-  );
-  const visibleModuleEntries = selectedDepartment || departmentSearch
-    ? [...publicEntries].sort((a, b) => nodeGraphModuleStoreSearchResultOrder(a, b, departmentSearch))
-    : publicEntries;
+  const matchingEntries = entries
+    .filter((item) => item.visible && nodeGraphModuleStoreEntryMatchesSearch(item, departmentSearch))
+    .sort((a, b) => nodeGraphModuleStoreSearchResultOrder(a, b, departmentSearch));
   const homeEntries = entries.filter((entry) => entry.implemented && entry.homeVisible);
 
-  shopView.classList.toggle("department-selected", Boolean(selectedDepartment));
-  if (backButton) {
-    backButton.hidden = !selectedDepartment;
-  }
-  if (departmentTitle) {
-    departmentTitle.hidden = !selectedDepartment;
-    departmentTitle.replaceChildren();
-    if (selectedDepartment) {
-      const dep = nodeGraphModuleStoreDepartmentById[selectedDepartment];
-      const emoji = dep?.emoji || "";
-      const label = dep?.label || selectedDepartment;
-      if (emoji) {
-        const mark = document.createElement("span");
-        mark.className = "node-module-department-title-emoji";
-        mark.setAttribute("aria-hidden", "true");
-        mark.textContent = emoji;
-        departmentTitle.append(mark);
-      }
-      const name = document.createElement("span");
-      name.className = "node-module-department-title-name";
-      name.textContent = label;
-      departmentTitle.append(name);
-      departmentTitle.setAttribute("aria-label", `${label} modules`);
-    } else {
-      departmentTitle.removeAttribute("aria-label");
-    }
-  }
   available.classList.add("scene-context-store-department-list");
-  available.classList.toggle("node-module-store-list", Boolean(selectedDepartment || searchingAllModules));
+  available.classList.toggle("node-module-store-list", searchingAllModules);
   available.classList.toggle("is-module-search-results", searchingAllModules);
 
   for (const entry of homeEntries) {
@@ -3684,15 +3704,12 @@ function renderNodeGraphModuleStoreCatalog() {
   }
   homeShell.hidden = homeEntries.length === 0;
 
-  if (selectedDepartment || searchingAllModules) {
-    for (const entry of visibleModuleEntries) {
+  if (searchingAllModules) {
+    for (const entry of matchingEntries) {
       available.append(createNodeGraphModuleStoreButton(entry));
     }
   } else {
     for (const [department, departmentEntries] of publicDepartmentEntries) {
-      if (!nodeGraphModuleStoreDepartmentMatchesSearch(department, departmentEntries, departmentSearch)) {
-        continue;
-      }
       available.append(createNodeGraphModuleDepartmentButton(department, departmentEntries));
     }
   }
@@ -3701,9 +3718,7 @@ function renderNodeGraphModuleStoreCatalog() {
     empty.className = "scene-context-store-empty";
     empty.textContent = departmentSearch
       ? "No modules match this search."
-      : selectedDepartment
-        ? "No modules are available in this category."
-        : "No categories are available.";
+      : "No categories are available.";
     available.append(empty);
   }
   renderNodeGraphModuleGroupCatalog();
@@ -3813,16 +3828,9 @@ function endNodeGraphModuleShopViewResize(event) {
   });
 }
 
-// Opening the browser is always a fresh start to type into: the search box is
-// emptied and focused, and the page goes back to the last category the user
-// clicked (nodeGraphMvp.moduleStoreDepartmentAnchor) rather than wherever the
-// previous search left it. Applies to an already-open browser too -- a second
-// right-click is a "give me a clean browser" gesture, not a no-op.
 function resetNodeGraphModuleShopSearch() {
   nodeGraphMvp.moduleStoreDepartmentSearch = "";
-  const anchor = normalizeNodeGraphModuleStoreDepartment(nodeGraphMvp.moduleStoreDepartmentAnchor || "");
-  nodeGraphMvp.moduleStoreDepartmentAnchor = anchor;
-  nodeGraphMvp.moduleStoreDepartment = anchor;
+  nodeGraphMvp.moduleStoreDepartment = "";
   const field = document.getElementById("nodeModuleDepartmentSearch");
   if (field) {
     field.value = "";

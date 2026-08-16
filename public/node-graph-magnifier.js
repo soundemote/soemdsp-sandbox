@@ -1,8 +1,10 @@
 const nodeGraphMagnifierLimits = Object.freeze({
   defaultSize: 220,
   mag: 2,
+  maxMag: 8,
+  minMag: 2,
   maxSize: 640,
-  minSize: 80,
+  minSize: 10,
   sizeRatio: 1.12,
 });
 
@@ -29,6 +31,51 @@ function nodeGraphMagnifierSession() {
 
 function nodeGraphMagnifierIsActive() {
   return Boolean(nodeGraphMvp.magnifier?.active);
+}
+
+function clampNodeGraphMagnifierMag(value) {
+  const mag = Number(value);
+  const fallback = nodeGraphMagnifierLimits.mag;
+  if (!Number.isFinite(mag) || mag <= 0) {
+    return fallback;
+  }
+  return Math.max(nodeGraphMagnifierLimits.minMag, Math.min(nodeGraphMagnifierLimits.maxMag, mag));
+}
+
+function syncNodeGraphMagnifierZoomControl() {
+  const input = document.getElementById("nodeMagnifierZoomSlider");
+  if (!input) {
+    return;
+  }
+  const mag = clampNodeGraphMagnifierMag(nodeGraphMvp?.magnifier?.mag ?? nodeGraphMagnifierLimits.mag);
+  if (document.activeElement !== input) {
+    input.value = String(mag);
+  }
+  input.setAttribute("aria-valuetext", `${mag.toFixed(2)}×`);
+}
+
+function setNodeGraphMagnifierMag(value) {
+  const session = nodeGraphMagnifierSession();
+  session.mag = clampNodeGraphMagnifierMag(value);
+  syncNodeGraphMagnifierZoomControl();
+  if (session.active) {
+    applyNodeGraphMagnifierLayout();
+  }
+  return session.mag;
+}
+
+function bindNodeGraphMagnifierZoomControl() {
+  const input = document.getElementById("nodeMagnifierZoomSlider");
+  if (!input || input.dataset.magnifierZoomBound === "true") {
+    return;
+  }
+  input.dataset.magnifierZoomBound = "true";
+  input.min = String(nodeGraphMagnifierLimits.minMag);
+  input.max = String(nodeGraphMagnifierLimits.maxMag);
+  input.addEventListener("input", (event) => {
+    setNodeGraphMagnifierMag(event.currentTarget.value);
+  });
+  syncNodeGraphMagnifierZoomControl();
 }
 
 function clampNodeGraphMagnifierSize(value) {
@@ -253,7 +300,7 @@ function beginNodeGraphMagnifier(event) {
   endNodeGraphMagnifier();
   const host = ensureNodeGraphMagnifierHost();
   session.active = true;
-  session.mag = nodeGraphMagnifierLimits.mag;
+  session.mag = clampNodeGraphMagnifierMag(session.mag || nodeGraphMagnifierLimits.mag);
   session.pointerId = event.pointerId;
   session.size = clampNodeGraphMagnifierSize(session.size || nodeGraphMagnifierLimits.defaultSize);
   session.x = event.clientX;

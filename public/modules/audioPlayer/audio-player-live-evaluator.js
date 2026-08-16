@@ -54,12 +54,21 @@ function nodeGraphAudioPlayerSample(runtime, node, nodeId, readInput, readParam,
   if (!sample || frames <= 1) {
     return { Left: 0, Mono: 0, Out: 0, Phase: 0, Right: 0 };
   }
-  const start = clampNodeSliderValue(readParam("start", 0), 0, 1);
-  const end = clampNodeSliderValue(readParam("end", 1), 0, 1);
-  const collapsedRange = Math.abs(end - start) <= 0.000001;
-  const startPhase = collapsedRange ? 0 : Math.min(start, end);
-  const endPhase = collapsedRange ? 1 : Math.max(start, end);
-  const span = Math.max(0.000001, endPhase - startPhase);
+  const range = typeof nodeGraphAudioPlayerResolvedPhaseRange === "function"
+    ? nodeGraphAudioPlayerResolvedPhaseRange({
+      frames,
+      sampleRate,
+      hasInput: (port) => runtime.inputConnections?.has?.(
+        typeof nodeGraphInputKey === "function" ? nodeGraphInputKey(nodeId, port) : `${nodeId}:${port}`,
+      ),
+      readInput,
+      readParam,
+      clamp: clampNodeSliderValue,
+    })
+    : null;
+  const startPhase = range ? range.startPhase : clampNodeSliderValue(readParam("start", 0), 0, 1);
+  const endPhase = range ? range.endPhase : clampNodeSliderValue(readParam("end", 1), 0, 1);
+  const span = range ? range.span : Math.max(0.000001, Math.abs(endPhase - startPhase));
   const rangeKey = `${startPhase}:${endPhase}`;
   if (state.sampleId !== sampleId) {
     // Cold start / first bind: restore patch-remembered phase. Sample swap: reset.

@@ -563,7 +563,7 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
     applyNodeGraphModuleShopWindowSize(state.size);
   }
   if (key === "metaparameters" && typeof applyNodeMetadataPopoverSize === "function") {
-    applyNodeMetadataPopoverSize(nodeGraphMvp.sharedInspectorWindowState?.size);
+    applyNodeMetadataPopoverSize(nodeGraphMvp.unifiedWindowSize || nodeGraphMvp.sharedInspectorWindowState?.size);
   }
   if (key === "traceDisplaySettings" && typeof applyNodeGraphTraceDisplaySettingsWindowSize === "function") {
     applyNodeGraphTraceDisplaySettingsWindowSize(nodeGraphMvp.sharedInspectorWindowState?.size);
@@ -1220,7 +1220,7 @@ function normalizeNodeGraphUserSession(payload = {}) {
       const raw = payload.unifiedWindowSize ?? view.unifiedWindowSize;
       const width = Math.round(Number(raw?.width));
       const height = Math.round(Number(raw?.height));
-      return width > 40 && height > 40 ? { width, height } : null;
+      return width >= 24 && height >= 120 ? { width, height } : null;
     })(),
   };
 }
@@ -1291,7 +1291,8 @@ function readNodeGraphUserSessionFromState() {
         top: Math.round(Number(nodeGraphMvp.unifiedWindowPosition.top)),
       }
       : null,
-    unifiedWindowSize: nodeGraphMvp.unifiedWindowSize?.width > 40
+    unifiedWindowSize: nodeGraphMvp.unifiedWindowSize?.width >= 24
+      && nodeGraphMvp.unifiedWindowSize?.height >= 120
       ? {
         width: Math.round(Number(nodeGraphMvp.unifiedWindowSize.width)),
         height: Math.round(Number(nodeGraphMvp.unifiedWindowSize.height)),

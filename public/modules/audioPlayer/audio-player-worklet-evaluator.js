@@ -14,12 +14,19 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
       this.audioPlayerMeterSpeeds[nodeId] = 0;
       return { Left: 0, Mono: 0, Out: 0, Phase: 0, Right: 0, Trigger: 0 };
     }
-    const start = this.clampValue(readParam("start", 0), 0, 1);
-    const end = this.clampValue(readParam("end", 1), 0, 1);
-    const collapsedRange = Math.abs(end - start) <= 0.000001;
-    const startPhase = collapsedRange ? 0 : Math.min(start, end);
-    const endPhase = collapsedRange ? 1 : Math.max(start, end);
-    const span = Math.max(0.000001, endPhase - startPhase);
+    const range = typeof nodeGraphAudioPlayerResolvedPhaseRange === "function"
+      ? nodeGraphAudioPlayerResolvedPhaseRange({
+        frames,
+        sampleRate: rate,
+        hasInput: (port) => this.inputConnections?.has?.(this.inputKey(nodeId, port)),
+        readInput,
+        readParam,
+        clamp: (value, lo, hi) => this.clampValue(value, lo, hi),
+      })
+      : null;
+    const startPhase = range ? range.startPhase : this.clampValue(readParam("start", 0), 0, 1);
+    const endPhase = range ? range.endPhase : this.clampValue(readParam("end", 1), 0, 1);
+    const span = range ? range.span : Math.max(0.000001, Math.abs(endPhase - startPhase));
     const rangeKey = `${startPhase}:${endPhase}`;
     if (state.sampleId !== sampleId) {
       // Cold start / first bind: restore patch-remembered phase. Sample swap: start.

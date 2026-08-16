@@ -1182,20 +1182,13 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           slot: node?.params?.slot,
         });
       },
-      gate12: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
-        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
-      gate8: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
-        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
-      gate6: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
-        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
-      gate4: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
-        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
-      gate3: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
-        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
-      gate2: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
-        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
-      numberGate: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
-        this.nGateEvaluate(node, nodeId, mixInput, hasInput),
+      ...Object.fromEntries(
+        ["t", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10"].map((type) => [
+          type,
+          (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
+            this.tSeriesEvaluate(node, nodeId, mixInput, hasInput),
+        ]),
+      ),
       vectorRgb: (node, nodeId, frame, frames, frameValues, mixInput) =>
         this.vectorRgbSample(mixInput, nodeId),
       rasterRgb: (node, nodeId, frame, frames, frameValues, mixInput) => {

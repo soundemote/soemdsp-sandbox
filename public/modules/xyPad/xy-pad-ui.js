@@ -415,9 +415,14 @@ function nodeGraphXyPadPhosphorTargetUnit(pad) {
     };
   const outX = process(sigX, { cutoff: 0, order, quantizeAmt: qX, filterSample: null });
   const outY = process(sigY, { cutoff: 0, order, quantizeAmt: qY, filterSample: null });
+  const ampFn = typeof nodeGraphXyPadDspOutputAmplitude === "function"
+    ? nodeGraphXyPadDspOutputAmplitude
+    : (raw) => (Number.isFinite(Number(raw)) ? Number(raw) : 1);
+  const ampX = ampFn(nodeGraphXyPadParam(pad, "xAmplitude", 1));
+  const ampY = ampFn(nodeGraphXyPadParam(pad, "yAmplitude", 1));
   return {
-    x: nodeGraphXyPadNormalizeGhostUnit(outX, phaseX),
-    y: nodeGraphXyPadNormalizeGhostUnit(outY, phaseY),
+    x: nodeGraphXyPadNormalizeGhostUnit(outX * ampX, phaseX),
+    y: nodeGraphXyPadNormalizeGhostUnit(outY * ampY, phaseY),
     fromOut: false,
   };
 }

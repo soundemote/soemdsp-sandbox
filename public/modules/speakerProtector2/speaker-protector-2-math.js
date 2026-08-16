@@ -1,8 +1,12 @@
 // Speaker Protector 2.0 — stereo-linked VCA only. Never clips or knees.
-// High load (raw |peak| > 1 or 1 kHz HP ≥ +6 dB) → fast slew gain to 0
-// → hold 0.333 s → slow slew back to 1.
-// While |peak| > 1, gain is also capped at 1/peak so the waveform is scaled,
-// not flattened. Shared by the patch module and the always-on Output bus.
+// High load (raw |peak| > 1 + NODE_GRAPH_NUMERIC_PRECISION or 1 kHz HP ≥ +6 dB)
+// → fast slew gain to 0 → hold 0.333 s → slow slew back to 1.
+// While peak is over that ceiling, gain is also capped at 1/peak so the
+// waveform is scaled, not flattened. Shared by the patch module and Output.
+
+// Named amplitude floor for "same as this level" checks. The app has no other
+// universal precision SSOT; 1e-7 is the value used here and by ear-trip helpers.
+var NODE_GRAPH_NUMERIC_PRECISION = 1e-7;
 
 var NODE_GRAPH_SPEAKER_PROTECTOR2_HP_HZ = 1000;
 var NODE_GRAPH_SPEAKER_PROTECTOR2_THRESHOLD = 10 ** (6 / 20);
@@ -54,6 +58,20 @@ function nodeGraphSpeakerProtector2Prepare(state, sampleRate) {
   return state;
 }
 
+function nodeGraphSpeakerProtector2NumericPrecision() {
+  const eps = Number(NODE_GRAPH_NUMERIC_PRECISION);
+  return Number.isFinite(eps) && eps >= 0 ? eps : 1e-7;
+}
+
+function nodeGraphSpeakerProtector2PeakDanger(peak) {
+  return Number(peak) > 1 + nodeGraphSpeakerProtector2NumericPrecision();
+}
+
+function nodeGraphSpeakerProtector2SampleTrips(value) {
+  const number = Number(value);
+  return !Number.isFinite(number) || nodeGraphSpeakerProtector2PeakDanger(Math.abs(number));
+}
+
 function nodeGraphSpeakerProtector2SlewToward(gain, target, seconds, sampleRate) {
   const rate = Math.max(1, Number(sampleRate) || 44100);
   const time = Math.max(0, Number(seconds) || 0);
@@ -96,7 +114,7 @@ function nodeGraphSpeakerProtector2Protect(state, left, right, sampleRate, optio
   st.hpOut = st.hpB0 * mono + st.hpB1 * st.hpIn + st.hpA1 * st.hpOut;
   st.hpIn = mono;
   const hpDanger = Math.abs(st.hpOut) >= NODE_GRAPH_SPEAKER_PROTECTOR2_THRESHOLD;
-  const peakDanger = peak > 1;
+  const peakDanger = nodeGraphSpeakerProtector2PeakDanger(peak);
   const danger = hpDanger || peakDanger || !Number.isFinite(lIn) || !Number.isFinite(rIn);
   if (danger) {
     st.mode = NODE_GRAPH_SPEAKER_PROTECTOR2_MODE_DROP;
@@ -127,7 +145,7 @@ function nodeGraphSpeakerProtector2Protect(state, left, right, sampleRate, optio
   }
 
   let g = st.gain;
-  if (peak > 1) {
+  if (nodeGraphSpeakerProtector2PeakDanger(peak)) {
     const ceiling = 1 / peak;
     if (ceiling < g) {
       g = ceiling;

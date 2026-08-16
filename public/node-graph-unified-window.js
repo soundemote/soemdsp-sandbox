@@ -996,20 +996,37 @@ function nodeGraphCommandCenterIsDocked() {
 }
 
 function nodeGraphCommandCenterDockWidthLimits() {
+  const minWidth = typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minWidth
+    : 24;
   const row = document.getElementById("nodeGraphMainRow");
-  const max = Math.max(196, Math.round((row?.clientWidth || window.innerWidth || 800) * 0.42));
-  return { min: 196, max };
+  let maxWidth = Math.max(minWidth, Math.round(row?.clientWidth || window.innerWidth || 800) - minWidth);
+  if (typeof nodeGraphFloatingWindowAvailableBox === "function") {
+    const available = nodeGraphFloatingWindowAvailableBox();
+    maxWidth = Math.max(minWidth, Math.round(Number(available.maxWidth) || maxWidth));
+  }
+  return { min: minWidth, max: maxWidth };
 }
 
 function applyNodeGraphCommandCenterDockWidth(widthPx) {
   const dock = document.getElementById("nodeCommandCenterDock");
   const limits = nodeGraphCommandCenterDockWidthLimits();
   const raw = Number(widthPx);
+  const fallback = Number(nodeGraphMvp?.unifiedWindowSize?.width);
   const next = Number.isFinite(raw)
     ? Math.max(limits.min, Math.min(limits.max, Math.round(raw)))
-    : Math.round(Math.min(limits.max, 320));
+    : Math.round(Math.min(limits.max, Number.isFinite(fallback) ? fallback : 320));
   if (nodeGraphMvp) {
     nodeGraphMvp.commandCenterDockWidth = next;
+    const prevH = Number(nodeGraphMvp.unifiedWindowSize?.height);
+    nodeGraphMvp.unifiedWindowSize = {
+      width: next,
+      height: Number.isFinite(prevH) && prevH > 0
+        ? Math.round(prevH)
+        : (typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+          ? nodeGraphUnifiedWindowMinSize.minHeight
+          : 120),
+    };
   }
   dock?.style.setProperty("--node-command-center-dock-width", `${next}px`);
   return next;
@@ -1109,7 +1126,9 @@ function applyNodeGraphUnifiedWindowPresentation(options = {}) {
       setNodeGraphFloatingWindowLocked(element, true, { persist: false });
     }
     if (typeof applyNodeGraphCommandCenterDockWidth === "function") {
-      applyNodeGraphCommandCenterDockWidth(nodeGraphMvp.commandCenterDockWidth);
+      applyNodeGraphCommandCenterDockWidth(
+        nodeGraphMvp.unifiedWindowSize?.width ?? nodeGraphMvp.commandCenterDockWidth,
+      );
     }
     bindNodeGraphCommandCenterDockSplit();
     if (typeof syncNodeGraphUnifiedWindowNavBars === "function") {
