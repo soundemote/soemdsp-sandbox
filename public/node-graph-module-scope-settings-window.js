@@ -857,15 +857,8 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
     return false;
   }
-  // Pin graph selection to this face. Right-click used to open the inspector
-  // without selecting, so a later renderNodeGraphSelection (zoom reset, wire
-  // redraw) followed the *previous* selected module and swapped the form.
-  const selectedIds = typeof nodeGraphSelectedNodeIds === "function"
-    ? nodeGraphSelectedNodeIds()
-    : null;
-  if (selectedIds && !selectedIds.has(node.id) && typeof setNodeGraphSelection === "function") {
-    setNodeGraphSelection({ type: "node", id: node.id });
-  }
+  // Do not change graph selection. Pin the form to this face; follow-key is
+  // the current selection so wire redraws do not steal the inspector.
   // Multi-select: if every selected module shares this display schema, edit all.
   const multiTargetIds = nodeGraphTraceDisplaySettingsResolveMultiTargetIds(node.id);
   const multiKey = multiTargetIds.join(",");

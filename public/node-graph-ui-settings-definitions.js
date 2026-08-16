@@ -197,6 +197,7 @@ const nodeUiDevSettingControls = Object.freeze([
   { defaultValue: 1, id: "nodeUiDevTraceWireThickness", key: "traceWireThickness", max: 12, min: 1, type: "number" },
   { defaultValue: 2, id: "nodeUiDevChoiceSlideEmptyBorder", key: "choiceSlideEmptyBorder", max: 8, min: 0, type: "number" },
   { defaultValue: false, id: "nodeUiDevChoiceSlideDebugBoxes", key: "choiceSlideDebugBoxes", type: "boolean" },
+  { defaultValue: true, id: "nodeUiDevWiresFollowPortColors", key: "wiresFollowPortColors", type: "boolean" },
   { defaultValue: 36, id: "nodeUiDevBypassIconSize", key: "bypassIconSize", max: 100, min: 0, type: "number" },
   { defaultValue: 40, id: "nodeUiDevBypassIconGlowSpread", key: "bypassIconGlowSpread", max: 200, min: 0, type: "number" },
   { defaultValue: "#f25d5d", id: "nodeUiDevBypassIconGlowColor", key: "bypassIconGlowColor", type: "color" },
@@ -276,6 +277,7 @@ const nodeUiDevSettingSections = Object.freeze([
     title: "wires",
     ids: [
       "nodeUiDevTraceWireThickness",
+      "nodeUiDevWiresFollowPortColors",
       "nodeUiDevViewWireLengths",
       "nodeUiDevViewWiresAbove",
     ],

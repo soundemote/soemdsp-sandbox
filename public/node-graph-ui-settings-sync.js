@@ -93,6 +93,31 @@ function syncNodeUiDevSliderFillColorControls() {
   }
 }
 
+function syncNodeUiDevWiresFollowPortColors() {
+  const input = document.getElementById("nodeUiDevWiresFollowPortColors");
+  const on = input ? Boolean(input.checked) : true;
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.wiresFollowPortColors = on;
+  }
+  if (typeof drawNodeGraphWires === "function") {
+    drawNodeGraphWires();
+  }
+}
+
+function bindNodeUiDevWiresFollowPortColors() {
+  const input = document.getElementById("nodeUiDevWiresFollowPortColors");
+  if (input && input.dataset.wiresFollowPortColorsBound !== "true") {
+    input.dataset.wiresFollowPortColorsBound = "true";
+    input.addEventListener("change", () => {
+      syncNodeUiDevWiresFollowPortColors();
+      if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
+        scheduleNodeUiDevSettingsAutosave();
+      }
+    });
+  }
+  syncNodeUiDevWiresFollowPortColors();
+}
+
 function bindNodeUiDevSliderFillColorControls() {
   for (const target of nodeUiDevSliderFillColorTargets) {
     for (const suffix of ["Hue", "Saturation", "Lightness", "Alpha"]) {
@@ -116,6 +141,7 @@ function bindNodeUiDevSliderFillColorControls() {
   }
   syncNodeUiDevSliderFillColorControls();
   syncNodeUiDevSnakeSelectColor();
+  bindNodeUiDevWiresFollowPortColors();
 }
 
 // Unselected plate outline. CSS-only — do not fold into the header sync
@@ -540,6 +566,9 @@ function syncNodeUiDevSettingsHeaderControls() {
   syncNodeUiDevSliderFillColorControls();
   if (typeof syncNodeUiDevSnakeSelectColor === "function") {
     syncNodeUiDevSnakeSelectColor();
+  }
+  if (typeof syncNodeUiDevWiresFollowPortColors === "function") {
+    syncNodeUiDevWiresFollowPortColors();
   }
   syncNodeUiDevModuleIdleStroke();
   syncNodeUiDevDimmerCutoutControls();

@@ -22,6 +22,8 @@ nodeGraphLiveModuleEvaluators.lookaheadLimiter = ({
   const lookaheadSamples = readNodeGraphLiveEffectiveParam(runtime, node, "lookaheadSamples", 0, frame, frames, frameValues);
   const attackMs = readNodeGraphLiveEffectiveParam(runtime, node, "attack", 0.2, frame, frames, frameValues);
   const releaseMs = readNodeGraphLiveEffectiveParam(runtime, node, "release", 100, frame, frames, frameValues);
+  const gainCompensation = readNodeGraphLiveEffectiveParam(runtime, node, "gainCompensation", 0, frame, frames, frameValues);
+  const dipGain = readNodeGraphLiveEffectiveParam(runtime, node, "dipGain", 1, frame, frames, frameValues);
 
   // Mono sums into L/R (Gain convention).
   const mono = mixInput(nodeId);
@@ -38,6 +40,8 @@ nodeGraphLiveModuleEvaluators.lookaheadLimiter = ({
     releaseMs,
     sampleRate,
     lookaheadEnabled,
+    gainCompensation,
+    dipGain,
   );
   return {
     Out: nodeGraphSafeFilterNumber(out.Out, runtime, nodeId, state, "limiter out"),

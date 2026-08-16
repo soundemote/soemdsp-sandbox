@@ -1600,14 +1600,9 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
   }
   input.title = isMusicPlayer ? "Load music file(s) into playlist" : "Load sample file";
   protectNodeGraphSampleControl(input);
-  input.addEventListener("click", () => {
-    setNodeGraphSampleStatus(nodeId, "file picker opened");
-  });
   input.addEventListener("change", () => {
-    setNodeGraphSampleStatus(nodeId, "file selection changed");
     const files = [...(input.files || [])];
     if (!files.length) {
-      setNodeGraphSampleStatus(nodeId, "no file selected");
       return;
     }
     (async () => {
@@ -1700,7 +1695,6 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
   protectNodeGraphSampleControl(pathButton);
   pathButton.addEventListener("click", () => {
     if (!pathInput.value.trim()) {
-      setNodeGraphSampleStatus(nodeId, isMusicPlayer ? "choose music file" : "choose sample file");
       input.click();
       return;
     }
@@ -1729,7 +1723,11 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
 function createNodeGraphSampleModuleBody(nodeOrId) {
   const nodeId = typeof nodeOrId === "string" ? nodeOrId : nodeOrId?.id;
   const patchNode = nodeGraphPatchNode(nodeId);
-  const isMusicPlayer = patchNode?.type === "audioPlayer";
+  // Music Player load/path/status live in Display Settings + the waveform.
+  // A module-body status row stole face height for picker chatter.
+  if (patchNode?.type === "audioPlayer") {
+    return null;
+  }
   const body = document.createElement("div");
   body.className = "node-module-interface-controls node-sample-module-body";
   if (typeof tagNodeGraphModuleBand === "function") {
@@ -1739,23 +1737,19 @@ function createNodeGraphSampleModuleBody(nodeOrId) {
   status.className = "node-sample-status";
   status.dataset.sampleStatusForNode = nodeId;
   applyNodeGraphSampleTextRow(status, nodeGraphSampleStatusForNode(nodeId));
-  if (!isMusicPlayer) {
-    const { fileInput: input, pathShell } = createNodeGraphSamplePathLoader(nodeId);
-    const name = document.createElement("div");
-    name.className = "node-sample-name";
-    name.dataset.sampleNameForNode = nodeId;
-    applyNodeGraphSampleTextRow(name, nodeGraphSampleNameForNode(nodeId));
-    const picker = document.createElement("label");
-    picker.className = "node-sample-load-button node-sample-file-picker";
-    picker.htmlFor = input.id;
-    protectNodeGraphSampleControl(picker);
-    const pickerText = document.createElement("span");
-    pickerText.textContent = "Load Sample";
-    picker.append(pickerText);
-    body.append(name, status, picker, input, pathShell);
-  } else {
-    body.append(status);
-  }
+  const { fileInput: input, pathShell } = createNodeGraphSamplePathLoader(nodeId);
+  const name = document.createElement("div");
+  name.className = "node-sample-name";
+  name.dataset.sampleNameForNode = nodeId;
+  applyNodeGraphSampleTextRow(name, nodeGraphSampleNameForNode(nodeId));
+  const picker = document.createElement("label");
+  picker.className = "node-sample-load-button node-sample-file-picker";
+  picker.htmlFor = input.id;
+  protectNodeGraphSampleControl(picker);
+  const pickerText = document.createElement("span");
+  pickerText.textContent = "Load Sample";
+  picker.append(pickerText);
+  body.append(name, status, picker, input, pathShell);
   return body;
 }
 

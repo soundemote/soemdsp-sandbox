@@ -1338,9 +1338,6 @@ function openNodeGraphParameterSettingsFromContextEvent(event, nodeElement = nul
     event.stopImmediatePropagation?.();
     const node = nodeElement || readout.closest?.(".dsp-node");
     const nodeId = String(node?.dataset?.node || "").trim();
-    if (nodeId && typeof setNodeGraphSelection === "function") {
-      setNodeGraphSelection({ type: "node", id: nodeId });
-    }
     if (nodeId) {
       nodeGraphMvp.sceneContextTargetNode = nodeId;
       nodeGraphMvp.lastModuleActionTargetNode = nodeId;
@@ -1361,9 +1358,6 @@ function openNodeGraphParameterSettingsFromContextEvent(event, nodeElement = nul
   event.stopImmediatePropagation?.();
   const node = nodeElement || slider.closest?.(".dsp-node");
   const nodeId = String(node?.dataset?.node || "").trim();
-  if (nodeId && typeof setNodeGraphSelection === "function") {
-    setNodeGraphSelection({ type: "node", id: nodeId });
-  }
   if (nodeId) {
     nodeGraphMvp.sceneContextTargetNode = nodeId;
     nodeGraphMvp.lastModuleActionTargetNode = nodeId;

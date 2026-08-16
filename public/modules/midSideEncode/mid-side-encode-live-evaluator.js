@@ -9,8 +9,8 @@ nodeGraphLiveModuleEvaluators.midSideEncode = ({
   frameValues,
   mixInput,
 }) => {
-  const midGain = readNodeGraphLiveEffectiveParam(runtime, node, "midGain", 1, frame, frames, frameValues);
-  const sideGain = readNodeGraphLiveEffectiveParam(runtime, node, "sideGain", 1, frame, frames, frameValues);
+  const midGain = readNodeGraphLiveEffectiveParam(runtime, node, "midGain", 0, frame, frames, frameValues);
+  const sideGain = readNodeGraphLiveEffectiveParam(runtime, node, "sideGain", 0, frame, frames, frameValues);
   const left = mixInput(nodeId, "Left");
   const right = mixInput(nodeId, "Right");
   const out = nodeGraphMidSideEncodeSample(left, right, midGain, sideGain);

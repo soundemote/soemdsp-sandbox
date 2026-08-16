@@ -225,9 +225,6 @@ function nodeGraphTextBoxEnsureSettingsOpen(nodeId, event = null) {
     return;
   }
   if (alreadyOpen) {
-    if (typeof setNodeGraphSelection === "function") {
-      setNodeGraphSelection({ type: "node", id: nodeId });
-    }
     if (nodeGraphMvp) {
       nodeGraphMvp.sceneContextTargetNode = nodeId;
       nodeGraphMvp.lastModuleActionTargetNode = nodeId;

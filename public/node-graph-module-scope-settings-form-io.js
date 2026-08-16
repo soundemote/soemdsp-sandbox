@@ -66,6 +66,19 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       renderNodeGraphPhosphorWaveformSettingsWindow();
     }
   }
+  if (type === "limiterGainFace") {
+    if (typeof bindNodeGraphLimiterGainDisplaySettingsBody === "function") {
+      bindNodeGraphLimiterGainDisplaySettingsBody(host);
+    }
+    if (typeof syncNodeGraphLimiterGainDisplaySettingsControls === "function") {
+      syncNodeGraphLimiterGainDisplaySettingsControls(
+        host,
+        typeof normalizeNodeGraphLimiterGainFaceSettings === "function"
+          ? normalizeNodeGraphLimiterGainFaceSettings(node?.traceDisplaySettings)
+          : (node?.traceDisplaySettings || {}),
+      );
+    }
+  }
   if (type === "portalFace") {
     if (typeof bindNodeGraphPortalDisplaySettingsBody === "function") {
       bindNodeGraphPortalDisplaySettingsBody(host);
@@ -314,6 +327,17 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
         ? { ...nodeGraphPhosphorWaveformDefaultSettings }
         : {});
   }
+  if (type === "limiterGainFace") {
+    return typeof normalizeNodeGraphLimiterGainFaceSettings === "function"
+      ? normalizeNodeGraphLimiterGainFaceSettings()
+      : {
+        backgroundColor: "#020407",
+        historySeconds: 2,
+        hue: 42,
+        lineBrightness: 0.5,
+        lineThickness: 2,
+      };
+  }
   if (type === "textBoxFace") {
     return typeof normalizeNodeGraphTextBoxLayout === "function"
       ? normalizeNodeGraphTextBoxLayout()
@@ -474,6 +498,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   if (type === "phosphorWaveform") {
     return typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
       ? normalizeNodeGraphPhosphorWaveformSettings(settings)
+      : (settings || {});
+  }
+  if (type === "limiterGainFace") {
+    return typeof normalizeNodeGraphLimiterGainFaceSettings === "function"
+      ? normalizeNodeGraphLimiterGainFaceSettings(settings)
       : (settings || {});
   }
   if (type === "textBoxFace") {
@@ -641,6 +670,13 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
       : (typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
         ? normalizeNodeGraphPhosphorWaveformSettings(node?.phosphorWaveformSettings)
         : (node?.phosphorWaveformSettings || {}));
+  }
+  if (settingsSchema === "limiterGainFace") {
+    return typeof nodeGraphLimiterGainFaceSettingsForNode === "function"
+      ? nodeGraphLimiterGainFaceSettingsForNode(node)
+      : (typeof normalizeNodeGraphLimiterGainFaceSettings === "function"
+        ? normalizeNodeGraphLimiterGainFaceSettings(node?.traceDisplaySettings)
+        : (node?.traceDisplaySettings || {}));
   }
   if (settingsSchema === "textBoxFace") {
     return typeof nodeGraphTextBoxDisplaySettingsForNode === "function"
@@ -815,6 +851,21 @@ function readNodeGraphTraceDisplaySettingsForm() {
     next.cornerShape = document.getElementById("nodePhosphorWaveformCornerSquareButton")?.classList.contains("active")
       ? "square"
       : "squircle";
+    return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
+  }
+  if (formType === "limiterGainFace") {
+    const panel = root?.querySelector?.("[data-limiter-gain-display-settings-panel]") || root;
+    const next = { ...current };
+    for (const key of ["historySeconds", "lineThickness", "hue", "lineBrightness"]) {
+      const input = panel?.querySelector?.(`[data-limiter-gain-field="${key}"]`);
+      if (input) {
+        next[key] = Number(input.value);
+      }
+    }
+    const color = panel?.querySelector?.(`[data-trace-display-color="backgroundColor"]`);
+    if (color) {
+      next.backgroundColor = color.value;
+    }
     return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
   }
   if (formType === "keypadFace") {
@@ -1108,6 +1159,16 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
     if (typeof renderNodeGraphPhosphorWaveformSettingsWindow === "function") {
       renderNodeGraphPhosphorWaveformSettingsWindow();
     }
+    return;
+  }
+  if (formType === "limiterGainFace") {
+    const panel = root?.querySelector?.("[data-limiter-gain-display-settings-panel]") || root;
+    if (typeof syncNodeGraphLimiterGainDisplaySettingsControls === "function") {
+      syncNodeGraphLimiterGainDisplaySettingsControls(panel, normalized);
+    }
+    syncNodeGraphTraceDisplayColorWidgets(
+      document.getElementById("nodeTraceDisplaySettingsPopover"),
+    );
     return;
   }
   if (formType === "keypadFace") {

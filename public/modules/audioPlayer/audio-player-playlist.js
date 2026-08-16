@@ -173,16 +173,12 @@ function nodeGraphAudioPlayerPlaylistRamSummary(nodeId) {
   };
 }
 
-function nodeGraphAudioPlayerPlaylistPersist(nodeId, { status = true } = {}) {
+function nodeGraphAudioPlayerPlaylistPersist(nodeId) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   if (!node || node.type !== "audioPlayer") {
     return;
   }
   node.playlist = nodeGraphAudioPlayerPlaylistNormalize(node.playlist);
-  if (status && typeof setNodeGraphSampleStatus === "function") {
-    const ram = nodeGraphAudioPlayerPlaylistRamSummary(nodeId);
-    setNodeGraphSampleStatus(nodeId, `playlist ${ram.tracks} · ${ram.label}`);
-  }
   if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
     saveNodeGraphWorkingPatchToUserSettings();
   } else if (typeof markNodeGraphRenderPending === "function") {
@@ -247,7 +243,7 @@ function nodeGraphAudioPlayerPlaylistClear(nodeId) {
   pl.selectedIndex = 0;
   node.playlist = pl;
   nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
-  nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: true });
+  nodeGraphAudioPlayerPlaylistPersist(nodeId);
 }
 
 function nodeGraphAudioPlayerPlaylistRemoveSelected(nodeId) {
@@ -275,7 +271,7 @@ function nodeGraphAudioPlayerPlaylistRemoveSelected(nodeId) {
     }
   }
   nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
-  nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: true });
+  nodeGraphAudioPlayerPlaylistPersist(nodeId);
 }
 
 function nodeGraphAudioPlayerPlaylistToggleShuffle(nodeId) {
@@ -285,7 +281,7 @@ function nodeGraphAudioPlayerPlaylistToggleShuffle(nodeId) {
   if (node) {
     node.playlist = pl;
   }
-  nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: false });
+  nodeGraphAudioPlayerPlaylistPersist(nodeId);
   nodeGraphAudioPlayerPlaylistSyncTransport(nodeId);
 }
 
@@ -298,7 +294,7 @@ function nodeGraphAudioPlayerPlaylistCycleLoop(nodeId) {
   if (node) {
     node.playlist = pl;
   }
-  nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: false });
+  nodeGraphAudioPlayerPlaylistPersist(nodeId);
   const transport = nodeGraphAudioPlayerTransportBase(nodeId);
   if (transport >= 3) {
     nodeGraphAudioPlayerWriteTransport(nodeId, nodeGraphAudioPlayerPlaylistPlayModeForLoop(pl.loopMode));
@@ -428,7 +424,7 @@ function nodeGraphAudioPlayerPlaylistAppendSample(nodeId, sampleRef = {}, option
   }
   node.playlist = pl;
   if (options.persist !== false) {
-    nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: false });
+    nodeGraphAudioPlayerPlaylistPersist(nodeId);
   }
   if (options.refresh !== false) {
     nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
@@ -445,7 +441,7 @@ function nodeGraphAudioPlayerPlaylistSetFace(nodeId, face) {
   pl.face = nodeGraphAudioPlayerPlaylistNormalizeFace(face);
   node.playlist = pl;
   nodeGraphAudioPlayerPlaylistApplyFace(nodeId);
-  nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: false });
+  nodeGraphAudioPlayerPlaylistPersist(nodeId);
 }
 
 /**
@@ -470,7 +466,7 @@ function nodeGraphAudioPlayerPlaylistGoToWave(nodeId) {
   pl.face = "wave";
   node.playlist = pl;
   nodeGraphAudioPlayerPlaylistApplyFace(nodeId);
-  nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: false });
+  nodeGraphAudioPlayerPlaylistPersist(nodeId);
 }
 
 function nodeGraphAudioPlayerPlaylistCreateTransport(nodeId) {
@@ -995,15 +991,12 @@ function nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, index, { autoplay = true 
   } else if (typeof scheduleNodeGraphLiveParameterSync === "function") {
     scheduleNodeGraphLiveParameterSync();
   }
-  if (typeof setNodeGraphSampleStatus === "function") {
-    setNodeGraphSampleStatus(nodeId, `playing ${item.name}`);
-  }
   if (typeof syncNodeGraphSampleDisplayForNode === "function") {
     syncNodeGraphSampleDisplayForNode(nodeId);
   }
   nodeGraphAudioPlayerPlaylistAdvanceArmed.set(nodeId, true);
   nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
-  nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: false });
+  nodeGraphAudioPlayerPlaylistPersist(nodeId);
 }
 
 function nodeGraphAudioPlayerPlaylistPlayingFrom(nodeId, pl) {
@@ -1032,9 +1025,6 @@ function nodeGraphAudioPlayerPlaylistPlayNext(nodeId) {
       return;
     }
     nodeGraphAudioPlayerWriteTransport(nodeId, 1);
-    if (typeof setNodeGraphSampleStatus === "function") {
-      setNodeGraphSampleStatus(nodeId, "playlist finished");
-    }
     return;
   }
   nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, next, { autoplay: true });

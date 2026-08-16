@@ -1,5 +1,5 @@
 const nodeUiDevDefaultSettingsUrl = "./public/presets/useruisettings.json";
-const nodeUiDevDefaultSettingsStorageKey = "soemdsp-sandbox.userUiSettings.startup.v12";
+const nodeUiDevDefaultSettingsStorageKey = "soemdsp-sandbox.userUiSettings.startup.v13";
 // Until the first load/apply finishes, serialize() only sees HTML defaults.
 // Any persist in that window (window-seat remember, unload flush) would
 // overwrite the last good localStorage blob. Refuse those writes.

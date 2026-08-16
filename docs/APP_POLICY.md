@@ -157,7 +157,7 @@ RGB modules: `R` red, `G` green, `B` blue (`R` is never Right).
 Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled `Out` stays green.
 
 - RGB chrome on **inlets and outlets**. Analog inlets stay cyan; analog outlets gold.
-- Cables do **not** inherit RGB (gold analog / white digital).
+- Cables follow jack colors when UIDEV **wires follow port colors** is on (default). Dual-color gradient still matches both ends. Digital stays white. Off = gold analog / white digital.
 - Full write-up: [MODULE_LAYOUT_PLAN.md](./MODULE_LAYOUT_PLAN.md) §11.
 
 ---

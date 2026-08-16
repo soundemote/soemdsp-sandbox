@@ -779,11 +779,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   vectorscopeTransform: {
     category: "dynamics",
-    description: "Rotate stereo so mono stands vertical—classic vectorscope / balance view.",
+    description: "Rotate stereo so mono stands vertical—classic vectorscope / balance view. Rotate dials extra angle (−180…+180°).",
     label: "Vectorscope Rotation",
     notes: [
       "vectorscope",
       "vectorscope rotation",
+      "rotate",
       "goniometer",
       "phase scope",
       "stereo image",
@@ -1406,7 +1407,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   midSideEncode: {
     category: "dynamics",
     description: "Stereo → Mid/Side encode (0.5 matrix) for M/S processing and dual-bus routing.",
-    label: "Mid/Side Encoder",
+    label: "Mid/Side",
     notes: [
       "mid/side",
       "ms",
@@ -1439,7 +1440,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   lookaheadLimiter: {
     category: "dynamics",
     description:
-      "Brickwall limiter with optional look-ahead delay (modulatable). No host delay compensation.",
+      "Brickwall limiter with optional look-ahead and gain compensation (makeup −ceiling to 0 dBFS).",
     label: "Limiter",
     notes: [
       "limiter",
@@ -1447,6 +1448,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "lookahead",
       "brickwall",
       "ceiling",
+      "gain compensation",
+      "makeup",
       "dynamics",
       "peak",
       "compressor",
@@ -3748,20 +3751,28 @@ function resetNodeGraphModuleShopSearch() {
   }
 }
 
-// Focus lands after the panel is unhidden AND positioned: focusing a hidden or
-// mid-move element is what makes browsers scroll the page to chase it.
+// Focus after the panel is unhidden AND seated. A single rAF is too early:
+// openNodeGraphUnifiedWindowPage still seats/embeds the window after shop
+// open returns, which blurs a caret that landed mid-move.
 function focusNodeGraphModuleShopSearch() {
-  const field = document.getElementById("nodeModuleDepartmentSearch");
-  if (!field) {
-    return;
-  }
-  window.requestAnimationFrame(() => {
-    if (document.getElementById("nodeModuleShopView")?.hidden) {
+  const run = () => {
+    const field = document.getElementById("nodeModuleDepartmentSearch");
+    if (!field || document.getElementById("nodeModuleShopView")?.hidden) {
       return;
     }
-    field.focus({ preventScroll: true });
-    field.select?.();
+    try {
+      field.focus({ preventScroll: true });
+    } catch {
+      field.focus();
+    }
+    if (typeof field.select === "function" && field.value) {
+      field.select();
+    }
+  };
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(run);
   });
+  window.setTimeout(run, 0);
 }
 
 function ensureNodeGraphModuleShopIsFloating(panel = document.getElementById("nodeModuleShopView")) {

@@ -1611,12 +1611,6 @@ function openNodeKnobFaceContextMenu(event) {
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
-  // Preserve multi-select for same-display multi-adjust when this knob is already selected.
-  const alreadySelected = typeof nodeGraphSelectedNodeIds === "function"
-    && nodeGraphSelectedNodeIds().has(nodeId);
-  if (!alreadySelected && typeof setNodeGraphSelection === "function") {
-    setNodeGraphSelection({ type: "node", id: nodeId });
-  }
   if (nodeGraphMvp) {
     nodeGraphMvp.sceneContextTargetNode = nodeId;
     nodeGraphMvp.lastModuleActionTargetNode = nodeId;

@@ -665,6 +665,27 @@ function moveNodeGraphFloatingWindowElement(element, left, top) {
   return next;
 }
 
+function nodeGraphFloatingWindowDragIsFromTitleBar(event, element) {
+  const raw = event?.target;
+  const target = raw instanceof Element
+    ? raw
+    : (raw instanceof Node ? raw.parentElement : null);
+  if (!target || !element?.contains?.(target)) {
+    return false;
+  }
+  if (target.closest(".scene-context-resize-handle, .panel-close-button")) {
+    return false;
+  }
+  const handle = target.closest(
+    ".scene-context-drag-handle, .node-drag-handle, [id$='DragHandle']",
+  );
+  if (handle && element.contains(handle)) {
+    return true;
+  }
+  const heading = target.closest(".scene-context-heading");
+  return Boolean(heading && element.contains(heading));
+}
+
 function beginNodeGraphFloatingWindowDrag(event, element, stateKey) {
   if (
     event.button > 0 ||
@@ -674,6 +695,7 @@ function beginNodeGraphFloatingWindowDrag(event, element, stateKey) {
     element.closest?.("#nodeCommandCenterDock") ||
     (typeof nodeGraphCommandCenterIsDocked === "function" && nodeGraphCommandCenterIsDocked()
       && element.classList?.contains("is-embedded-dock")) ||
+    !nodeGraphFloatingWindowDragIsFromTitleBar(event, element) ||
     (typeof nodeGraphDialogDragTargetIsInteractive === "function" &&
       nodeGraphDialogDragTargetIsInteractive(event))
   ) {

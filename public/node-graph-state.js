@@ -65,6 +65,7 @@ var nodeGraphMvp = {
   wireCurve: 1,
   // Wires + inlet/outlet jacks. Off = same hide as zoom (skip draw).
   wiringChromeVisible: true,
+  wiresFollowPortColors: true,
   // Cable strokes under modules by default; Visibility can raise them above.
   wiresAboveModules: false,
   macroControls: new Array(10).fill(0),

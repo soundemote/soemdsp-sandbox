@@ -262,6 +262,12 @@ function syncNodeGraphModuleActionTargetFromSelection() {
   const syncKey = nodeGraphSelectionDisplaySyncKey();
   const displayChanged = syncKey !== nodeGraphMvp._displayChangeSyncKey;
   nodeGraphMvp._displayChangeSyncKey = syncKey;
+  // Wire redraw also calls renderNodeGraphSelection. Only retarget the
+  // inspector when the actual selection changed — right-click pins a
+  // context module without becoming the selection.
+  if (!displayChanged) {
+    return;
+  }
   const selectedWire = nodeGraphWireFromSelection();
   if (selectedWire) {
     nodeGraphMvp.sceneContextTargetWire = {

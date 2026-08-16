@@ -160,7 +160,7 @@ var cases = [
   { type: "gain", layout: "A", face: true, sliders: true, io: true },
   { type: "samplePlayer", layout: "A", face: true, sliders: true, io: true, controls: true },
   { type: "sampleLooper", layout: "A", face: true, sliders: true, io: true, controls: true },
-  { type: "audioPlayer", layout: "A", face: true, sliders: true, io: true, controls: true },
+  { type: "audioPlayer", layout: "A", face: true, sliders: true, io: true },
   { type: "kickEnvelope", layout: "A", face: true, sliders: true, io: true },
   { type: "activeFilter", layout: "A", face: true, sliders: true, io: true },
   { type: "matrixWaterfall", layout: "A", face: true, sliders: true, io: true },

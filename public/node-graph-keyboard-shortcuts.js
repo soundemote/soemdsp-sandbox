@@ -336,8 +336,19 @@ function handleNodeGraphKeydown(event) {
     event.preventDefault();
     if (typeof openNodeGraphUnifiedWindowPage === "function") {
       openNodeGraphUnifiedWindowPage("moduleBrowser");
-    } else {
+    } else if (typeof openNodeGraphModuleShop === "function") {
       openNodeGraphModuleShop(null);
+    }
+    // Already-open unified pages only pulse and never reach the shop opener,
+    // so Shift+A must always land the caret in search after the window is up.
+    if (typeof resetNodeGraphModuleShopSearch === "function") {
+      resetNodeGraphModuleShopSearch();
+    }
+    if (typeof renderNodeGraphModuleStoreCatalog === "function") {
+      renderNodeGraphModuleStoreCatalog();
+    }
+    if (typeof focusNodeGraphModuleShopSearch === "function") {
+      focusNodeGraphModuleShopSearch();
     }
     return;
   }

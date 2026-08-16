@@ -18,6 +18,8 @@ NodeLiveAudioProcessor.prototype.lookaheadLimiterFrame = function lookaheadLimit
   releaseMs,
   sampleRate,
   lookaheadEnabled,
+  gainCompensation,
+  dipGain,
 ) {
   if (typeof nodeGraphLookaheadLimiterFrame === "function") {
     const out = nodeGraphLookaheadLimiterFrame(
@@ -31,6 +33,8 @@ NodeLiveAudioProcessor.prototype.lookaheadLimiterFrame = function lookaheadLimit
       releaseMs,
       sampleRate,
       lookaheadEnabled,
+      gainCompensation,
+      dipGain,
     );
     return {
       Out: this.safeFilterNumber(out.Out, state) ?? 0,

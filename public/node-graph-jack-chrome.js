@@ -71,6 +71,54 @@ function nodeGraphJackSignalKind(type, port, io = null) {
   return "analog";
 }
 
+/** UIDEV "wires follow port colors". Default on. */
+function nodeGraphWiresFollowPortColors() {
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp && typeof nodeGraphMvp.wiresFollowPortColors === "boolean") {
+    return nodeGraphMvp.wiresFollowPortColors;
+  }
+  const input = typeof document !== "undefined"
+    ? document.getElementById("nodeUiDevWiresFollowPortColors")
+    : null;
+  if (input) {
+    return Boolean(input.checked);
+  }
+  return true;
+}
+
+function nodeGraphJackChannelCssColor(channel) {
+  if (channel === "red") {
+    return typeof nodeGraphCssColor === "function"
+      ? nodeGraphCssColor("--node-jack-red", "#f25d5d")
+      : "#f25d5d";
+  }
+  if (channel === "green") {
+    return typeof nodeGraphCssColor === "function"
+      ? nodeGraphCssColor("--node-jack-green", "#3ddc84")
+      : "#3ddc84";
+  }
+  if (channel === "blue") {
+    return typeof nodeGraphCssColor === "function"
+      ? nodeGraphCssColor("--node-jack-blue", "#4d8dff")
+      : "#4d8dff";
+  }
+  return "";
+}
+
+/**
+ * Cable end color when follow-port-colors is on.
+ * Digital stays white. RGB / stereo / chaos / quad jacks use channel color.
+ * Uncolored analog returns "" so the caller keeps gold/cyan.
+ */
+function nodeGraphJackWireColor(type, port, io = "output") {
+  if (nodeGraphJackSignalKind(type, port, io) === "digital") {
+    return "#ffffff";
+  }
+  if (!nodeGraphWiresFollowPortColors()) {
+    return "";
+  }
+  return nodeGraphJackChannelCssColor(nodeGraphJackChannel(type, port, io));
+}
+
 function nodeGraphJackRgbLetterChannel(type, value) {
   const key = String(value || "").trim();
   if (!key) {

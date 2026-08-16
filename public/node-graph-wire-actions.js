@@ -235,22 +235,18 @@ function nodeGraphAttenuateWireAlias(patch, entry) {
   }
   const src = patch?.nodes?.find((node) => node.id === wire.sourceNode);
   const dst = patch?.nodes?.find((node) => node.id === wire.destinationNode);
-  const srcTitle = typeof nodeGraphPatchNodeTitle === "function"
-    ? nodeGraphPatchNodeTitle(src)
-    : (src?.alias || src?.type || "");
-  const dstTitle = typeof nodeGraphPatchNodeTitle === "function"
-    ? nodeGraphPatchNodeTitle(dst)
-    : (dst?.alias || dst?.type || "");
-  const srcPort = typeof nodeGraphPatchNodePortDisplayLabel === "function"
-    ? nodeGraphPatchNodePortDisplayLabel(src, src?.type, wire.sourcePort, "output")
-    : wire.sourcePort;
-  const dstPort = entry.kind === "modulation"
-    ? String(wire.destinationParam || "")
-    : (typeof nodeGraphPatchNodePortDisplayLabel === "function"
-      ? nodeGraphPatchNodePortDisplayLabel(dst, dst?.type, wire.destinationPort, "input")
-      : wire.destinationPort);
-  const from = [srcTitle, srcPort].map((part) => String(part || "").trim()).filter(Boolean).join(" ");
-  const to = [dstTitle, dstPort].map((part) => String(part || "").trim()).filter(Boolean).join(" ");
+  const from = String(
+    typeof nodeGraphPatchNodePortDisplayLabel === "function"
+      ? nodeGraphPatchNodePortDisplayLabel(src, src?.type, wire.sourcePort, "output")
+      : wire.sourcePort || "",
+  ).trim();
+  const to = String(
+    entry.kind === "modulation"
+      ? (wire.destinationParam || "")
+      : (typeof nodeGraphPatchNodePortDisplayLabel === "function"
+        ? nodeGraphPatchNodePortDisplayLabel(dst, dst?.type, wire.destinationPort, "input")
+        : wire.destinationPort || ""),
+  ).trim();
   if (!from || !to) {
     return from || to || "";
   }
@@ -525,8 +521,8 @@ function connectNodeGraphGraphInput(sourceNode, sourcePort, destinationNode, des
 
 /**
  * Double-connection (auto-pair) port groups.
- * Connecting one side of a pair also connects the sibling when both modules
- * expose matching ports. Same role (0=L/X, 1=R/Y) + same group → auto-pair.
+ * Connecting Left/X (red) also connects the sibling when both modules
+ * expose matching ports. Right/Y (blue) is a single wire — no multi-connect.
  *
  * All stereo L/R-style names share stereo-xy-lr so Wet L→Left also wires
  * Wet R→Right (and Dry L/R, X/Y, Left Out/Right Out, legacy Mix/Dry names).
@@ -868,9 +864,9 @@ function nodeGraphAutoPairPushConnection(patch, sourceNode, sourcePort, destinat
 }
 
 /**
- * RGB multi-connect: red→red on a module with RGB inlets also wires
- * green→green and blue→blue. Source color is the named R/G/B jack, or
- * outlet chrome (Left/X red, Mono/Z green, Right/Y blue).
+ * RGB multi-connect: only red→red on a module with RGB inlets also wires
+ * green→green and blue→blue. Blue→blue and green→green stay a single cable.
+ * Source color is the named R/G/B jack, or outlet chrome (Left/X red).
  */
 function nodeGraphAutoPairRgbConnections(patch, sourceNode, sourcePort, destinationNode, destinationPort, wireData = {}) {
   if (!patch) {
@@ -888,7 +884,7 @@ function nodeGraphAutoPairRgbConnections(patch, sourceNode, sourcePort, destinat
   const source = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(sourceNode) : null;
   const sourceType = source?.type;
   const srcColor = nodeGraphRgbSourcePortColor(sourceType, sourcePort);
-  if (!srcColor || srcColor !== destColor) {
+  if (!srcColor || srcColor !== destColor || destColor !== "red") {
     return 0;
   }
   const sourcePorts = nodeGraphAutoPairAvailablePorts(sourceNode, "output");
@@ -919,7 +915,7 @@ function nodeGraphAutoPairRgbConnections(patch, sourceNode, sourcePort, destinat
 
 /**
  * Vectorscope Rotation jacks are L/R (labels Left/Right) with X/Y aliases.
- * X/Left → Left also wires Y/Right → Right (and the reverse).
+ * X/Left → Left also wires Y/Right → Right. Right→Right does not pair Left.
  */
 function nodeGraphAutoPairVectorscopeRotationConnections(
   patch,
@@ -954,14 +950,12 @@ function nodeGraphAutoPairVectorscopeRotationConnections(
   const destKey = String(destCanon || destinationPort || "").trim().toLowerCase();
   const srcKey = String(srcCanon || sourcePort || "").trim().toLowerCase();
   const destLeft = destKey === "l" || destKey === "left" || destKey === "x";
-  const destRight = destKey === "r" || destKey === "right" || destKey === "y";
   const srcLeft = srcKey === "x" || srcKey === "left" || srcKey === "l";
-  const srcRight = srcKey === "y" || srcKey === "right" || srcKey === "r";
-  if (!((destLeft && srcLeft) || (destRight && srcRight))) {
+  if (!(destLeft && srcLeft)) {
     return 0;
   }
-  const nextDestName = destLeft ? ["R", "Right", "Y"] : ["L", "Left", "X"];
-  const nextSrcName = srcLeft ? ["Y", "Right", "R"] : ["X", "Left", "L"];
+  const nextDestName = ["R", "Right", "Y"];
+  const nextSrcName = ["Y", "Right", "R"];
   const findPort = (want, ports) => {
     const lower = new Map();
     for (const p of ports || []) {
@@ -996,7 +990,7 @@ function nodeGraphAutoPairVectorscopeRotationConnections(
 /**
  * Videoscope A/B is group "ab", stereo is "stereo-xy-lr" — they do not
  * auto-pair through the shared table. Left/X → A also wires Right/Y → B
- * (and the reverse) when the destination is a videoscope.
+ * when the destination is a videoscope. B / Right does not pair A / Left.
  */
 function nodeGraphAutoPairVideoscopeAbConnections(
   patch,
@@ -1016,12 +1010,11 @@ function nodeGraphAutoPairVideoscopeAbConnections(
     return 0;
   }
   const destKey = String(destinationPort || "").trim().toUpperCase();
-  if (destKey !== "A" && destKey !== "B") {
+  if (destKey !== "A") {
     return 0;
   }
-  const destSibling = destKey === "A" ? "B" : "A";
   const destPorts = nodeGraphAutoPairAvailablePorts(destinationNode, "input");
-  const destSiblingPort = destPorts.find((port) => String(port || "").trim().toUpperCase() === destSibling);
+  const destSiblingPort = destPorts.find((port) => String(port || "").trim().toUpperCase() === "B");
   if (!destSiblingPort) {
     return 0;
   }
@@ -1029,8 +1022,7 @@ function nodeGraphAutoPairVideoscopeAbConnections(
   if (!srcMeta || srcMeta.group !== "stereo-xy-lr") {
     return 0;
   }
-  const destRole = destKey === "A" ? 0 : 1;
-  if (srcMeta.role !== destRole) {
+  if (srcMeta.role !== 0) {
     return 0;
   }
   const sourcePorts = nodeGraphAutoPairAvailablePorts(sourceNode, "output");
@@ -1062,8 +1054,11 @@ function nodeGraphAutoPairPortConnections(patch, sourceNode, sourcePort, destina
   }
   const srcMeta = nodeGraphPortPairMeta(sourcePort);
   const dstMeta = nodeGraphPortPairMeta(destinationPort);
-  // Same pair group and same role (both L-side or both R-side).
+  // Same pair group, and only the Left/X (red) role starts multi-connect.
   if (!srcMeta || !dstMeta || srcMeta.group !== dstMeta.group || srcMeta.role !== dstMeta.role) {
+    return 0;
+  }
+  if (srcMeta.role !== 0) {
     return 0;
   }
   const sourcePorts = nodeGraphAutoPairAvailablePorts(sourceNode, "output");

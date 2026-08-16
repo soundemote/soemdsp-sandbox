@@ -54,7 +54,7 @@ function createNodeGraphPatchNode(type, options = {}) {
       }
     }
   }
-  // Explicit opts.alias wins. Else definition.defaultAlias (e.g. Vectorscope → "90°").
+  // Explicit opts.alias wins. Else definition.defaultAlias (e.g. Vectorscope → "Rotate").
   let aliasSource = opts.alias;
   if (!Object.hasOwn(opts, "alias")) {
     const defAlias = nodeGraphModuleDefinitions[resolvedType]?.defaultAlias;

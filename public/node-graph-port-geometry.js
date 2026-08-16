@@ -378,13 +378,21 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
 
 function nodeGraphPortWireColor(node, port, io) {
   const canonicalPort = nodeGraphCanonicalPortForNode(node, port, io);
+  const type = nodeGraphPatchNodeType(node);
   // Digital signal ports get a solid white wire instead of the usual role
   // color -- see the .node-io-row[data-digital-signal] CSS for the matching
   // port tap color, and nodeGraphPortIsDigitalSignal for what qualifies.
-  if (nodeGraphPortIsDigitalSignal(nodeGraphPatchNodeType(node), canonicalPort, io)) {
+  if (nodeGraphPortIsDigitalSignal(type, canonicalPort, io)) {
     return "#ffffff";
   }
-  // M/L/R and R/G/B inlet+outlet RGB is jack chrome only — never cable color.
+  // UIDEV "wires follow port colors": RGB / stereo / chaos / quad jacks
+  // paint that end of the cable. Dual-color gradient still matches both ends.
+  if (typeof nodeGraphJackWireColor === "function") {
+    const follow = nodeGraphJackWireColor(type, canonicalPort, io);
+    if (follow) {
+      return follow;
+    }
+  }
   if (io === "input") {
     return nodeGraphCssColor("--node-input-fill", "#7fc7d9");
   }

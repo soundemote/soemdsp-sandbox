@@ -369,8 +369,9 @@ Rules:
   channels. Extra jacks (Trigger, 0.1V/Oct, …) come after the trio.
 - Stereo-only (`Left` + `Right`, no Mono) stays Left then Right.
 - RGB chrome on **inlets and outlets**. Analog inlets stay cyan; analog
-  outlets gold. Cables stay analog gold / digital white — they must
-  **not** inherit jack RGB.
+  outlets gold. Cables follow jack RGB when UIDEV **wires follow port
+  colors** is on (default); the gradient still matches both ends.
+  Digital stays white.
 - SSOT for the speaker sink order: `nodeGraphOutputInputPorts`
   (`["Mono", "Left", "Right"]`).
 - Shared filter template: `inputs: ["In", "Left", "Right"]`,

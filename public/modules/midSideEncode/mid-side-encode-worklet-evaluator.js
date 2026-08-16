@@ -3,11 +3,11 @@
 NodeLiveAudioProcessor.prototype.midSideEncodeSample = function midSideEncodeSample(
   left,
   right,
-  midGain = 1,
-  sideGain = 1,
+  midGainDb = 0,
+  sideGainDb = 0,
 ) {
   if (typeof nodeGraphMidSideEncodeSample === "function") {
-    const out = nodeGraphMidSideEncodeSample(left, right, midGain, sideGain);
+    const out = nodeGraphMidSideEncodeSample(left, right, midGainDb, sideGainDb);
     return {
       Mid: this.safeFilterNumber(out.Mid, null) ?? 0,
       Side: this.safeFilterNumber(out.Side, null) ?? 0,
@@ -15,10 +15,14 @@ NodeLiveAudioProcessor.prototype.midSideEncodeSample = function midSideEncodeSam
   }
   const l = this.safeFilterNumber(left, null) ?? 0;
   const r = this.safeFilterNumber(right, null) ?? 0;
-  const mg = this.safeFilterNumber(midGain, null);
-  const sg = this.safeFilterNumber(sideGain, null);
+  const midLin = typeof nodeGraphMidSideDbToGain === "function"
+    ? nodeGraphMidSideDbToGain(midGainDb)
+    : 1;
+  const sideLin = typeof nodeGraphMidSideDbToGain === "function"
+    ? nodeGraphMidSideDbToGain(sideGainDb)
+    : 1;
   return {
-    Mid: 0.5 * (l + r) * (Number.isFinite(mg) ? mg : 1),
-    Side: 0.5 * (l - r) * (Number.isFinite(sg) ? sg : 1),
+    Mid: 0.5 * (l + r) * midLin,
+    Side: 0.5 * (l - r) * sideLin,
   };
 };

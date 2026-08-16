@@ -155,6 +155,17 @@ assert(ch("audioPlayer", "Left", "output") === "red", "player Left red");
 assert(ch("audioPlayer", "Right", "output") === "blue", "player Right blue");
 assert(ch("audioPlayer", "Mono", "output") === "green", "player Mono green");
 
+sandbox.nodeGraphMvp = { wiresFollowPortColors: true };
+assert(sandbox.nodeGraphWiresFollowPortColors() === true, "follow default on");
+assert(sandbox.nodeGraphJackWireColor("rasterRgb", "R", "output") === "#f25d5d", "follow RGB R wire");
+assert(sandbox.nodeGraphJackWireColor("output", "Left", "input") === "#f25d5d", "follow stereo L wire");
+assert(sandbox.nodeGraphJackWireColor("output", "Right", "input") === "#4d8dff", "follow stereo R wire");
+assert(sandbox.nodeGraphJackWireColor("audioPlayer", "Phase", "output") === "", "uncolored analog no follow color");
+assert(sandbox.nodeGraphJackWireColor("audioPlayer", "Trigger", "output") === "#ffffff", "digital wire stays white");
+sandbox.nodeGraphMvp.wiresFollowPortColors = false;
+assert(sandbox.nodeGraphJackWireColor("rasterRgb", "R", "output") === "", "follow off leaves RGB to analog gold");
+sandbox.nodeGraphMvp.wiresFollowPortColors = true;
+
 assert(sandbox.nodeGraphOutletChannelKind("output", "Left", "input") === "left", "legacy left");
 assert(sandbox.nodeGraphOutletChannelKind("output", "Mono", "input") === "mono", "legacy mono");
 assert(sandbox.nodeGraphOutletChannelKind("output", "Right", "input") === "right", "legacy right");

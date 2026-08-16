@@ -2208,10 +2208,9 @@ function openNodeGraphModuleSettingsFromContextEvent(event, nodeElement = null) 
   event?.preventDefault?.();
   event?.stopPropagation?.();
   event?.stopImmediatePropagation?.();
-  // Make this module the sole selection so Module Settings has a clear target
-  // even if a multi-selection was active under the pointer.
-  if (typeof setNodeGraphSelection === "function") {
-    setNodeGraphSelection({ type: "node", id: nodeId });
+  // Pin Module Settings to this module without changing graph selection.
+  if (typeof nodeGraphSelectionDisplaySyncKey === "function") {
+    nodeGraphMvp._displayChangeSyncKey = nodeGraphSelectionDisplaySyncKey();
   }
   nodeGraphMvp.sceneContextPoint = null;
   if (typeof closeNodeScopeContextMenu === "function") {
@@ -2321,13 +2320,6 @@ function openNodeXyPadContextMenu(event) {
   event.stopImmediatePropagation?.();
   // Prefer phosphor Display Settings (color / background / reset canvas).
   if (typeof openNodeGraphTraceDisplaySettings === "function") {
-    // Keep multi-select when the face is already part of the selection so
-    // same-display multi-adjust can apply. Collapse only when not selected.
-    const alreadySelected = typeof nodeGraphSelectedNodeIds === "function"
-      && nodeGraphSelectedNodeIds().has(nodeId);
-    if (!alreadySelected && typeof setNodeGraphSelection === "function") {
-      setNodeGraphSelection({ type: "node", id: nodeId });
-    }
     nodeGraphMvp.sceneContextTargetNode = nodeId;
     nodeGraphMvp.lastModuleActionTargetNode = nodeId;
     if (openNodeGraphTraceDisplaySettings(nodeId, event)) {

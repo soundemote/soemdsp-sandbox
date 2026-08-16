@@ -41,9 +41,6 @@ function matrixCreateFaceShell(node, options = {}) {
   face.addEventListener("contextmenu", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (typeof setNodeGraphSelection === "function") {
-      setNodeGraphSelection({ type: "node", id: node });
-    }
     if (typeof nodeGraphMvp !== "undefined") {
       nodeGraphMvp.sceneContextTargetNode = node;
       nodeGraphMvp.lastModuleActionTargetNode = node;

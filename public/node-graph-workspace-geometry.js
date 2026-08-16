@@ -341,18 +341,36 @@ function nodeGraphGridVisualScaleCss(workspace) {
   return 1;
 }
 
+function nodeGraphGridScreenCellPx(workspace, zoom) {
+  const z = Number.isFinite(Number(zoom)) ? Number(zoom) : (typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1);
+  const visualScale = nodeGraphGridVisualScaleCss(workspace);
+  return {
+    height: nodeGraphGridHeight() * z * visualScale,
+    width: nodeGraphGridWidth() * z * visualScale,
+  };
+}
+
+function nodeGraphGridBackgroundPhase(origin, cell) {
+  const period = Number(cell);
+  if (!(period > 0) || !Number.isFinite(period)) {
+    return 0;
+  }
+  const value = Number(origin) || 0;
+  return ((value % period) + period) % period;
+}
+
 function applyNodeGraphGridVisualCellSize(workspace, heatmap, zoom) {
   const surface = heatmap || document.getElementById("nodeGridHeatmap");
   const host = workspace || document.getElementById("nodeGraphWorkspace");
   if (!surface || !host) {
-    return;
+    return null;
   }
-  const z = Number.isFinite(Number(zoom)) ? Number(zoom) : (typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1);
-  const visualScale = nodeGraphGridVisualScaleCss(host);
+  const cell = nodeGraphGridScreenCellPx(host, zoom);
   surface.style.setProperty(
     "--node-grid-heatmap-grid-size",
-    `${(nodeGraphGridWidth() * z * visualScale).toFixed(2)}px ${(nodeGraphGridHeight() * z * visualScale).toFixed(2)}px`,
+    `${cell.width}px ${cell.height}px`,
   );
+  return cell;
 }
 
 function nodeGraphHeatmapWantsGrid() {
@@ -384,9 +402,14 @@ function updateNodeGraphGridHeatmap(options = {}) {
 
   const zoom = nodeGraphZoom();
   const origin = nodeGraphRenderedOriginOffset();
-  // Grid lines track pan/zoom every call — never freeze the grid mid-gesture.
-  heatmap.style.setProperty("--node-grid-heatmap-grid-position", `${origin.x}px ${origin.y}px`);
-  applyNodeGraphGridVisualCellSize(workspace, heatmap, zoom);
+  // Phase-wrap into one cell. A raw origin of e.g. -3500 with a 4000px tile
+  // puts the 1px line off-screen; Chrome then often skips the next tile, so
+  // the line you zoomed in on vanishes once the cell exceeds the workspace.
+  const cell = applyNodeGraphGridVisualCellSize(workspace, heatmap, zoom)
+    || nodeGraphGridScreenCellPx(workspace, zoom);
+  const phaseX = nodeGraphGridBackgroundPhase(origin.x, cell.width);
+  const phaseY = nodeGraphGridBackgroundPhase(origin.y, cell.height);
+  heatmap.style.setProperty("--node-grid-heatmap-grid-position", `${phaseX}px ${phaseY}px`);
 
   const gesturing = typeof nodeGraphViewportGestureActive === "function"
     && nodeGraphViewportGestureActive();

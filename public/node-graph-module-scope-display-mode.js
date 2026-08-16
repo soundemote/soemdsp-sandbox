@@ -200,6 +200,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "textBoxFace",
     "portalFace",
     "roundShapeFace",
+    "limiterGainFace",
     // Patch identity plate — not Trace.
     "patchFace",
     "vectorRgbFace",

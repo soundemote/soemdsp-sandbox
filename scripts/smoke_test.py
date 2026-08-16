@@ -238,6 +238,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-module-scope-paint-helpers.js",
     "./public/modules/traceXyz/trace-xyz-display.js",
     "./public/node-graph-module-scope-draw-orchestrator.js",
+    "./public/modules/lookaheadLimiter/lookahead-limiter-display.js",
     "./public/modules/patch/patch-ui.js",
     "./public/modules/phosphorLight/phosphor-light-display.js",
     "./public/modules/oscilloscopeBank/oscilloscope-bank-display.js",
@@ -4521,6 +4522,8 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphElementClientSize" in script_sources["./public/modules/asciiscope/asciiscope-gl.js"]
         and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-slider-readout.js"]
         and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-slider-values.js"]
+        and "function nodeGraphJackWireColor" in script_sources["./public/node-graph-jack-chrome.js"]
+        and "nodeUiDevWiresFollowPortColors" in script_sources["./public/node-graph-ui-settings-definitions.js"]
         and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-wires.js"]
         and "nodeGraphElementInSkippedContentVisibility" in script_sources["./public/node-graph-port-geometry.js"]
         and 'key: "mode"' in script_sources["./public/modules/keypad/keypad-register.js"]
@@ -7348,9 +7351,6 @@ def require_node_graph_mvp_contract() -> None:
                 "/api/audio-file/data-url",
                 "sampleLoadErrors",
                 ".wav,.wave,.mp3,.ogg,.oga,.opus,.flac,.m4a,.aac",
-                "file picker opened",
-                "file selection changed",
-                "no file selected",
                 "loading ${file.name || \"audio\"}",
                 "could not decode ${format}",
                 "node-sample-file-picker",
@@ -7362,9 +7362,7 @@ def require_node_graph_mvp_contract() -> None:
                 "node-sample-path-input",
                 "Load music from path",
                 "pathInput.value.trim()",
-                'setNodeGraphSampleStatus(nodeId, isMusicPlayer ? "choose music file" : "choose sample file")',
                 "input.click()",
-                "if (!isMusicPlayer) {",
                 'pickerText.textContent = "Load Sample"',
                 "protectNodeGraphSampleControl(pathButton)",
                 "protectNodeGraphSampleControl(pathInput)",
@@ -11166,7 +11164,7 @@ def require_node_graph_mvp_contract() -> None:
         "function dragNodeUserUiSettings(event)",
         "function endNodeUserUiSettingsDrag(event)",
         "const nodeUiDevDefaultSettingsUrl = \"./public/presets/useruisettings.json\"",
-        "const nodeUiDevDefaultSettingsStorageKey = \"soemdsp-sandbox.userUiSettings.startup.v12\"",
+        "const nodeUiDevDefaultSettingsStorageKey = \"soemdsp-sandbox.userUiSettings.startup.v13\"",
         "function sanitizeNodeUiDevWorkingPatchForStartup(patch)",
         'nodeGraphRetiredNodeTypes.has(node?.type)',
         "nodeGraphMissingSampleAssets(patch).length",

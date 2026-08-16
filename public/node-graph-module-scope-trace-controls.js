@@ -524,6 +524,12 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  limiterGainFace: Object.freeze({
+    fields: Object.freeze(["historySeconds", "lineThickness", "hue", "lineBrightness"]),
+    colors: Object.freeze(["backgroundColor"]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
   textBoxFace: Object.freeze({
     fields: Object.freeze(["textSizePercent", "verticalAlignPercent"]),
     colors: Object.freeze(["backgroundColor", "textColor"]),

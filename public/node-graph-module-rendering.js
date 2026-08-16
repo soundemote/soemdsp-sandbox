@@ -1097,7 +1097,10 @@ function createNodeGraphModuleElement(type, node) {
     );
   } else if (definition.layout === "phosphorWaveform") {
     if (typeof createNodeGraphSampleModuleBody === "function") {
-      article.append(createNodeGraphSampleModuleBody(node));
+      const sampleBody = createNodeGraphSampleModuleBody(node);
+      if (sampleBody) {
+        article.append(sampleBody);
+      }
     }
     if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
@@ -1145,7 +1148,10 @@ function createNodeGraphModuleElement(type, node) {
       article.append(scopeSection);
     }
     if ((type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer") && typeof createNodeGraphSampleModuleBody === "function") {
-      article.append(createNodeGraphSampleModuleBody(node));
+      const sampleBody = createNodeGraphSampleModuleBody(node);
+      if (sampleBody) {
+        article.append(sampleBody);
+      }
     }
     if (scopeSection) {
       registerNodeGraphModuleScopeSlot(article, { nodeId: node, type, scopeElement: scopeSection });

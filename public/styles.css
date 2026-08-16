@@ -930,7 +930,7 @@ button:disabled {
   .node-settings-actions .node-settings-link-action,
   .node-ui-dev-actions button,
   .node-user-ui-settings-actions button
-):not(.node-patch-community-control):not(.node-under-construction-view-button):not(:disabled):not(.active):hover,
+):not(.node-patch-community-control):not(.node-under-construction-view-button):not(:disabled):not(.active):not(.confirming-default):not(.saved-default):hover,
 :where(
   .node-view-toolbar button,
   .node-toolbar-hsl-control,
@@ -940,7 +940,7 @@ button:disabled {
   .node-settings-actions .node-settings-link-action,
   .node-ui-dev-actions button,
   .node-user-ui-settings-actions button
-):not(.node-patch-community-control):not(.node-under-construction-view-button):not(:disabled):not(.active):focus-visible {
+):not(.node-patch-community-control):not(.node-under-construction-view-button):not(:disabled):not(.active):not(.confirming-default):not(.saved-default):focus-visible {
   border-color: var(--node-front-button-hover-border);
   background: var(--node-front-button-hover-bg);
   box-shadow: none;
@@ -4639,7 +4639,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   background: rgb(22, 32, 38);
 }
 
-.node-view-toolbar button:not(:disabled):not(.active):hover,
+.node-view-toolbar button:not(:disabled):not(.active):not(.confirming-default):not(.saved-default):hover,
 .node-view-toolbar a:not(.active):hover,
 .node-toolbar-hsl-control:hover {
   border-color: var(--node-front-button-hover-border);
@@ -5245,17 +5245,23 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 /* Waveform settings hosts the same 📂 + path box as sample-module bodies
-   (createNodeGraphSamplePathLoader). Those controls size themselves from
-   --node-sample-control-height, which normally comes from
-   .node-sample-module-body -- declared here so the widget is self-contained
-   inside this window too. The row's generic `button` rule would otherwise
-   repaint the folder button with padding and a border, so the loader's own
-   look is restored explicitly. */
+   (createNodeGraphSamplePathLoader). Row height matches the rest of the
+   Display Settings grid; the folder cell is a square of that height. */
 .node-phosphor-waveform-loader-slot,
 .node-phosphor-waveform-phase-slot {
-  --node-sample-control-height: 22px;
+  --node-sample-control-height: 30px;
   --node-sample-control-line: rgba(0, 2, 4, 0.82);
-  flex: 1 1 190px;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+}
+
+.node-phosphor-waveform-load-row {
+  align-items: stretch;
+}
+
+.node-phosphor-waveform-loader-slot .node-sample-path-loader {
+  width: 100%;
   min-width: 0;
 }
 
@@ -5265,9 +5271,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   border: 0;
   border-radius: 0;
   background: rgba(255, 255, 255, 0.06);
+  font-size: calc(var(--node-sample-control-height) * 0.82);
 }
 
-.node-phosphor-waveform-load-row > span:first-child,
 .node-phosphor-waveform-phase-row > span:first-child {
   flex: 0 0 auto;
 }
@@ -5545,6 +5551,32 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   border-color: rgba(90, 255, 150, 0.62);
   background: rgba(90, 255, 150, 0.16);
   color: rgba(180, 255, 210, 0.95);
+}
+
+.node-trace-display-settings-popover .node-phosphor-waveform-load-row,
+.node-trace-display-settings-popover .metadata-popover-grid .node-phosphor-waveform-load-row {
+  display: flex !important;
+  align-items: stretch;
+  gap: 0;
+}
+
+.node-trace-display-settings-popover .node-phosphor-waveform-loader-slot,
+.node-trace-display-settings-popover .node-phosphor-waveform-loader-slot .node-sample-path-loader,
+.node-trace-display-settings-popover .node-phosphor-waveform-loader-slot .node-sample-path-input {
+  min-width: 0 !important;
+  min-inline-size: 0 !important;
+}
+
+.node-trace-display-settings-popover .node-phosphor-waveform-loader-slot .node-sample-path-button {
+  flex: 0 0 auto !important;
+  width: var(--node-sample-control-height) !important;
+  min-width: var(--node-sample-control-height) !important;
+  height: var(--node-sample-control-height) !important;
+  min-height: var(--node-sample-control-height) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-size: calc(var(--node-sample-control-height) * 0.82) !important;
 }
 
 .node-trace-display-settings-popover .node-led-display-settings-panel .node-led-color-preview {
@@ -18116,8 +18148,14 @@ button.saved-default {
 }
 
 button.confirming-default,
+button.confirming-default:hover,
+button.confirming-default:focus-visible,
+.node-view-toolbar button.confirming-default:not(:disabled):hover,
+.node-view-toolbar button.confirming-default:not(:disabled):focus-visible,
 .node-script-actions button.confirming-default,
-.node-ui-dev-actions button.confirming-default {
+.node-script-actions button.confirming-default:hover,
+.node-ui-dev-actions button.confirming-default,
+.node-ui-dev-actions button.confirming-default:hover {
   border-color: rgba(242, 93, 93, 0.82);
   background: rgba(122, 28, 28, 0.78);
   color: #ffd7d7;
@@ -18125,8 +18163,14 @@ button.confirming-default,
 }
 
 button.saved-default,
+button.saved-default:hover,
+button.saved-default:focus-visible,
+.node-view-toolbar button.saved-default:not(:disabled):hover,
+.node-view-toolbar button.saved-default:not(:disabled):focus-visible,
 .node-script-actions button.saved-default,
-.node-ui-dev-actions button.saved-default {
+.node-script-actions button.saved-default:hover,
+.node-ui-dev-actions button.saved-default,
+.node-ui-dev-actions button.saved-default:hover {
   border-color: rgba(102, 255, 175, 0.96);
   background: rgba(18, 122, 73, 0.92);
   color: #d9ffe8;

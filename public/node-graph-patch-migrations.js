@@ -157,6 +157,50 @@ function nodeGraphPatchMigrateOutputVolumeLinearToDb(patch) {
 }
 
 /**
+ * Mid/Side Mid Gain / Side Gain used to store 0…4 linear.
+ * Stored value is now dB. Old patches (kind not decibels, max ≤ 4, value in 0…4)
+ * convert in place: 1 → 0 dB, 2 → +6 dB.
+ */
+function nodeGraphPatchMigrateMidSideGainLinearToDb(patch) {
+  if (!patch || !Array.isArray(patch.nodes)) {
+    return patch;
+  }
+  let changed = false;
+  const nodes = patch.nodes.map((node) => {
+    if (!node || node.type !== "midSideEncode") {
+      return node;
+    }
+    const metaBag = node.paramMeta && typeof node.paramMeta === "object" ? node.paramMeta : {};
+    const nextParams = { ...(node.params || {}) };
+    const nextMeta = { ...metaBag };
+    let nodeChanged = false;
+    for (const key of ["midGain", "sideGain"]) {
+      const meta = metaBag[key];
+      const kind = String(meta?.kind || "").trim().toLowerCase();
+      if (kind === "decibels") {
+        continue;
+      }
+      const max = Number(meta?.max);
+      const value = Number(nextParams[key]);
+      const rangeLooksLinear = !Number.isFinite(max) || max <= 4;
+      const valueLooksLinear = Number.isFinite(value) && value >= 0 && value <= 4;
+      if (!rangeLooksLinear || !valueLooksLinear) {
+        continue;
+      }
+      nodeChanged = true;
+      nextParams[key] = value <= 0 ? -24 : 20 * Math.log10(value);
+      delete nextMeta[key];
+    }
+    if (!nodeChanged) {
+      return node;
+    }
+    changed = true;
+    return { ...node, params: nextParams, paramMeta: nextMeta };
+  });
+  return changed ? { ...patch, nodes } : patch;
+}
+
+/**
  * Module type + face field renames: valueSlider → knob.
  * Also migrates face property and displayType/mode schema keys when present.
  */
@@ -296,6 +340,7 @@ function migrateNodeGraphPatchToCurrent(patch) {
     next = nodeGraphPatchMigrateValueSliderToKnob(next);
     next = nodeGraphPatchMigrateSineWavetableDropAmplitudeJack(next);
     next = nodeGraphPatchMigrateOutputVolumeLinearToDb(next);
+    next = nodeGraphPatchMigrateMidSideGainLinearToDb(next);
   }
 
   return next;

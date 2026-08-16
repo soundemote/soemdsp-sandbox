@@ -421,6 +421,9 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}
   } else if (formType === "roundShapeFace" && key === "dotColor") {
     aria = "RoundShape cursor dot color";
     base = { ...base, defaultValue: "#ffffff" };
+  } else if (formType === "limiterGainFace" && key === "backgroundColor") {
+    aria = "Limiter gain face background color";
+    base = { ...base, defaultValue: "#020407" };
   } else if (formType === "textBoxFace" && key === "backgroundColor") {
     aria = "Text Box background color";
     base = { ...base, defaultValue: "#020407" };
@@ -754,6 +757,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   }
   if (type === "phosphorWaveform" && typeof buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml();
+  }
+  if (type === "limiterGainFace" && typeof buildNodeGraphLimiterGainDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphLimiterGainDisplaySettingsBodyHtml();
   }
   if (type === "portalFace" && typeof buildNodeGraphPortalDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphPortalDisplaySettingsBodyHtml();

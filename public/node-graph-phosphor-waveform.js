@@ -496,7 +496,6 @@ function buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml() {
   return `
     <div class="node-led-display-settings-panel node-phosphor-waveform-display-settings-panel" data-phosphor-waveform-display-settings-panel>
       <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-load-row" role="group" aria-label="Load sample">
-        <span>Load Sample</span>
         <div id="nodePhosphorWaveformSampleLoaderSlot" class="node-phosphor-waveform-loader-slot"></div>
       </div>
       <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-playlist-actions" role="group" aria-label="Playlist">

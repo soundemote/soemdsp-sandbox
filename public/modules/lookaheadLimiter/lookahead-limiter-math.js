@@ -37,6 +37,8 @@ function nodeGraphLookaheadLimiterDbToGain(db) {
  * @param {number} releaseMs gain release (default 100)
  * @param {number} sampleRate
  * @param {number} [lookaheadEnabled]  >0.5 = use look-ahead delay; else delay is 0
+ * @param {number} [gainCompensation]  >0.5 = makeup −ceiling so limited peaks hit 0 dBFS
+ * @param {number} [dipGain]  over-reduction exponent (1 = exact brickwall, 2 = twice the dB cut)
  * @returns {{ Out: number, Left: number, Right: number, Gain: number }}
  */
 function nodeGraphLookaheadLimiterFrame(
@@ -50,6 +52,8 @@ function nodeGraphLookaheadLimiterFrame(
   releaseMs,
   sampleRate,
   lookaheadEnabled,
+  gainCompensation,
+  dipGain,
 ) {
   if (!state || !state.delayL) {
     const x = Number(left) || 0;
@@ -86,6 +90,11 @@ function nodeGraphLookaheadLimiterFrame(
   let targetGain = 1;
   if (state.env > ceiling) {
     targetGain = ceiling / state.env;
+    const dip = Number(dipGain);
+    if (Number.isFinite(dip) && dip !== 1 && targetGain < 1) {
+      const k = Math.max(0.5, Math.min(3, dip));
+      targetGain = Math.pow(targetGain, k);
+    }
   }
   // One-pole on gain (attack when reducing = follow attCoeff; release = relCoeff).
   if (targetGain < state.gain) {
@@ -117,6 +126,11 @@ function nodeGraphLookaheadLimiterFrame(
   else if (dL < -ceiling) dL = -ceiling;
   if (dR > ceiling) dR = ceiling;
   else if (dR < -ceiling) dR = -ceiling;
+  if (Number(gainCompensation) > 0.5) {
+    const makeup = 1 / ceiling;
+    dL *= makeup;
+    dR *= makeup;
+  }
   if (!Number.isFinite(dL)) dL = 0;
   if (!Number.isFinite(dR)) dR = 0;
 

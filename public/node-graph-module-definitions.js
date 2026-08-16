@@ -181,7 +181,7 @@ const nodeGraphNodeLabels = Object.freeze({
   speedColorInertia: "Speed Color Inertia",
   slewLimiter: "Slew",
   inertialFilter: "Inertial Filter",
-  midSideEncode: "Mid/Side Encoder",
+  midSideEncode: "Mid/Side",
   quadrature: "Quadrature",
   lookaheadLimiter: "Limiter",
   sampleHold: "Sample & Hold",
@@ -3704,24 +3704,36 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0", key: "rotateZ", kind: "phase", label: "Rotate Z", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
     ]
   },
-  // Stereo L/R → goniometer axes for any X/Y scope. Fixed 45° rotation.
-  // LayoutC: compact title + I/O only (no face, no sliders). Spawns 3×3 gu.
+  // Stereo L/R → goniometer axes for any X/Y scope. Classic 45° + Rotate.
+  // No face (hasFace false): title, I/O, and the Rotate slider.
   vectorscopeTransform: {
     planRole: "processor",
-    chrome: NodeGraphModuleChromeLayout.LayoutC,
+    hasFace: false,
     inputs: ["L", "R"],
     inputLabels: { L: "Left", R: "Right" },
     // Legacy X/Y port names (and full Left/Right) still wire in.
     inputAliases: { X: "L", Y: "R", Left: "L", Right: "R" },
     outputs: ["X", "Y"],
-    parameters: [],
-    defaultWidthGu: 3,
-    defaultHeightGu: 3,
-    // Title shows the spawn alias (90°); action buttons off by default.
-    defaultAlias: "90°",
+    parameters: [
+      {
+        defaultValue: "0",
+        key: "rotate",
+        label: "Rotate",
+        max: "180",
+        mid: "0",
+        min: "-180",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "°",
+        tooltip: "Extra rotation after the classic 45° vectorscope (mono vertical). 0 = unchanged. Positive is counterclockwise.",
+      },
+    ],
+    defaultWidthGu: 4,
+    defaultHeightGu: 4,
+    defaultAlias: "Rotate",
     defaultUi: {
       buttonsHidden: true,
-      titleHidden: false
+      titleHidden: false,
     }
   },
   // |Δsample| speed → desaturation target + attack/release inertia (multimeter).
@@ -8310,26 +8322,30 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Mid", "Side"],
     parameters: [
       {
-        defaultValue: "1",
+        defaultValue: "0",
         key: "midGain",
+        kind: "decibels",
         label: "Mid Gain",
-        max: "4",
-        mid: "1",
-        min: "0",
+        max: "12",
+        mid: "0",
+        min: "-24",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Linear gain on Mid after encode (default 1 = unity Mid for correlated L=R)."
+        unit: "dB",
+        tooltip: "Mid level after encode. 0 dB = unity Mid for correlated L=R. Old linear 0…4 patches convert on load."
       },
       {
-        defaultValue: "1",
+        defaultValue: "0",
         key: "sideGain",
+        kind: "decibels",
         label: "Side Gain",
-        max: "4",
-        mid: "1",
-        min: "0",
+        max: "12",
+        mid: "0",
+        min: "-24",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Linear gain on Side after encode (default 1)."
+        unit: "dB",
+        tooltip: "Side level after encode. 0 dB = unity. Old linear 0…4 patches convert on load."
       },
     ]
   },
@@ -8347,6 +8363,18 @@ const nodeGraphModuleDefinitions = (
   // Brickwall limiter. Look-ahead is optional (explicit delay, no host PDC).
   lookaheadLimiter: {
     planRole: "processor",
+    displayHeightGu: 3,
+    displayType: "limiterGainFace",
+    defaultDisplayMode: "gain",
+    displayModes: [
+      {
+        key: "gain",
+        label: "Gain",
+        renderer: "limiterGainFace",
+        settingsSchema: "limiterGainFace",
+        source: { value: "Gain" },
+      },
+    ],
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -8354,6 +8382,22 @@ const nodeGraphModuleDefinitions = (
     outputLabels: { Out: "Mono" },
     outputs: ["Out", "Left", "Right", "Gain"],
     parameters: [
+      {
+        choices: ["Off", "On"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "gainCompensation",
+        label: "Gain Comp",
+        linearSmoothing: false,
+        max: "1",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "On = apply makeup of −Ceiling after the brickwall so limited peaks sit at 0 dBFS. Off = output stays at the Ceiling. Gain jack still reports the reduction.",
+      },
       {
         defaultValue: "-1",
         key: "ceiling",
@@ -8398,6 +8442,7 @@ const nodeGraphModuleDefinitions = (
       },
       {
         defaultValue: "0",
+        hidden: true,
         key: "lookaheadSamples",
         label: "LA Samples",
         max: "16384",
@@ -8405,7 +8450,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Extra look-ahead in samples (added to Look-ahead ms). Same idea as Sample Delay samples."
+        tooltip: "Extra look-ahead in samples (added to Look-ahead ms). Same idea as Sample Delay samples. Hidden by default — show it from Parameter Settings."
       },
       {
         defaultValue: "0.2",
@@ -8432,6 +8477,20 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "ms",
         tooltip: "How fast gain returns to unity after a peak (slow enough not to pump bass)."
+      },
+      {
+        defaultValue: "1",
+        hidden: true,
+        key: "dipGain",
+        label: "Dip Gain",
+        max: "3",
+        mid: "1",
+        min: "0.5",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "x",
+        tooltip:
+          "Over-reduction after the exact brickwall cut. 1× = just enough for the Ceiling. 2× = twice the dB of dip. 0.5× = half the dip (clamp still catches peaks). Hidden by default.",
       },
     ]
   },

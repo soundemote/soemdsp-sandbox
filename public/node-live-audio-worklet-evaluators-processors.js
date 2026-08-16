@@ -784,8 +784,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         this.midSideEncodeSample(
           mixInput(nodeId, "Left"),
           mixInput(nodeId, "Right"),
-          this.readEffectiveParameter(node, "midGain", 1, frame, frames, frameValues),
-          this.readEffectiveParameter(node, "sideGain", 1, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "midGain", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "sideGain", 0, frame, frames, frameValues),
         ),
       // IIR quadrature I/Q. Math: quadrature-math.js.
       quadrature: (node, nodeId, frame, frames, frameValues, mixInput) => {
@@ -817,6 +817,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.readEffectiveParameter(node, "release", 100, frame, frames, frameValues),
           safeRate,
           this.readEffectiveParameter(node, "lookaheadEnabled", 1, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "gainCompensation", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "dipGain", 1, frame, frames, frameValues),
         );
       },
       inertialFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
@@ -1343,7 +1345,11 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         ),
       // Stereo L/R → goniometer X/Y axes. Math: vectorscope-transform-math.js.
       vectorscopeTransform: (node, nodeId, frame, frames, frameValues, mixInput) =>
-        this.vectorscopeTransformSample(mixInput(nodeId, "L"), mixInput(nodeId, "R")),
+        this.vectorscopeTransformSample(
+          mixInput(nodeId, "L"),
+          mixInput(nodeId, "R"),
+          this.readEffectiveParameter(node, "rotate", 0, frame, frames, frameValues),
+        ),
       // |Δsample| speed + sat inertia. Math: speed-color-inertia-math.js.
       speedColorInertia: (node, nodeId, frame, frames, frameValues, mixInput) => {
         if (!this.speedColorInertiaStates) {

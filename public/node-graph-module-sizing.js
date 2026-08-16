@@ -159,6 +159,9 @@ function nodeGraphModuleHasFace(type) {
   if (!definition) {
     return false;
   }
+  if (definition.hasFace === false) {
+    return false;
+  }
   // Custom / status / control faces (Pitch, RoundShape, graph, XY, …).
   if (nodeGraphModuleTypeHasCustomDisplayArea(normalizedType)) {
     return true;
@@ -839,7 +842,7 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
     }
   }
   let order = [...byId.keys()];
-  // Music Player: load-path chrome above the waveform (historical stack).
+  // Music Player: waveform sits directly under the header (no load/status strip).
   if (type === "audioPlayer") {
     order = order.filter((id) => id !== "face" && id !== "controls");
     const headerAt = order.indexOf("header");
@@ -1094,7 +1097,7 @@ function nodeGraphModuleHiddenIoSectionHeightGu(type) {
 }
 
 function nodeGraphModuleTypeHasInterfaceControls(type) {
-  return ["samplePlayer", "sampleLooper", "audioPlayer"].includes(type);
+  return type === "samplePlayer" || type === "sampleLooper";
 }
 
 function nodeGraphModuleInterfaceControlsVisibleForUi(type, ui = {}) {
@@ -1104,9 +1107,6 @@ function nodeGraphModuleInterfaceControlsVisibleForUi(type, ui = {}) {
 function nodeGraphModuleInterfaceControlsHeightGu(type, ui = {}) {
   if (!nodeGraphModuleInterfaceControlsVisibleForUi(type, ui)) {
     return 0;
-  }
-  if (type === "audioPlayer") {
-    return 4;
   }
   if (type === "samplePlayer" || type === "sampleLooper") {
     return 4;

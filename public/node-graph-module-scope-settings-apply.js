@@ -84,6 +84,12 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     return node.phosphorWaveformSettings;
   }
+  if (displayType === "limiterGainFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphLimiterGainFaceSettings === "function"
+      ? normalizeNodeGraphLimiterGainFaceSettings(settings)
+      : (settings || {});
+    return node.traceDisplaySettings;
+  }
   if (displayType === "textBoxFace") {
     const previous = typeof normalizeNodeGraphTextBoxLayout === "function"
       ? normalizeNodeGraphTextBoxLayout(node.layout)
@@ -487,7 +493,8 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
   if (settingsSchema === "lineBurn" || settingsSchema === "value" || settingsSchema === "trace"
     || settingsSchema === "scope2d" || settingsSchema === "scope2dTrace"
     || settingsSchema === "numberReadout" || settingsSchema === "knobFace"
-    || settingsSchema === "phosphorLight" || settingsSchema === "roundShapeFace") {
+    || settingsSchema === "phosphorLight" || settingsSchema === "roundShapeFace"
+    || settingsSchema === "limiterGainFace") {
     return node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
       ? { ...node.traceDisplaySettings }
       : {};
