@@ -10528,16 +10528,12 @@ const nodeGraphModuleLayout = Object.freeze({
   fitCushionGu: 2 / 28,
   headerHeightGu: 88 / 28,
   headerTitleRowHeightGu: 34 / 28,
-  /* The io section renders with `padding: var(--node-io-section-padding-block) 0`
-     and that var is 0 (styles.css) -- the old 4px here was phantom height. */
+  /* IO strip hugs jack rows. Extra air is only UIDEV io-to-screen / io-to-sliders. */
   ioPaddingYGu: 0,
-  ioRowGapGu: 1 / 28,
-  /* Match LayoutA .node-io-row min-height: max(1em, port-diameter).
-     Port diameter = 0.52 × grid gu.
-     Use 16/28 (not 14/28) so dense strips (8-out crossover) keep a few px of
-     cushion vs font metrics / subpixel — under-reserve lets HFR clip into params. */
-  ioRowHeightGu: 16 / 28,
-  ioSectionMinHeightGu: 24 / 28,
+  ioRowGapGu: 0,
+  /* Match --node-signal-port-height at default --node-port-size-ratio (0.52). */
+  ioRowHeightGu: 0.52,
+  ioSectionMinHeightGu: 0.52,
   /* Side/top plate air vs grid (CSS --node-module-grid-inset). Bottom is half. */
   moduleGridInsetGu: 6 / 28,
   moduleScopeHeightGu: 2,

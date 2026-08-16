@@ -284,7 +284,7 @@ function fitNodeGraphModuleTitleText() {
     return;
   }
   const titles = document.querySelectorAll([
-    ".node-graph-workspace .dsp-node input.node-header-title",
+    ".node-graph-workspace .dsp-node .node-header-title",
     ".node-module-store-list .scene-context-store-card strong",
   ].join(", "));
   const minPx = 8;

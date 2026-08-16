@@ -203,25 +203,22 @@ function nodeGraphDrawWireWithOptionalPath(svg, options) {
     });
     return true;
   }
-  // Caps only (hidden IO / hidden sliders / missing jack): no path, no hit path.
+  // Dots only (hidden IO / hidden sliders).
   if (typeof nodeGraphWireHelpers?.drawEndpointCap !== "function") {
     return false;
   }
-  const paint = fromColor || toColor || null;
   const capClass = [
     String(pathOptions.pathClass || "").includes("inactive-wire") ? "inactive-wire" : "",
     pathOptions.kind === "modulation" || pathOptions.kind === "graph" ? "modulation" : "",
   ].filter(Boolean).join(" ");
   if (fromOk) {
-    nodeGraphWireHelpers.drawEndpointCap(svg, from, "from", paint, capClass, {
+    nodeGraphWireHelpers.drawEndpointCap(svg, from, "from", fromColor, capClass, {
       endColor: fromColor,
-      gradientId: pathOptions.gradientId,
     });
   }
   if (toOk) {
-    nodeGraphWireHelpers.drawEndpointCap(svg, to, "to", paint, capClass, {
+    nodeGraphWireHelpers.drawEndpointCap(svg, to, "to", toColor, capClass, {
       endColor: toColor,
-      gradientId: pathOptions.gradientId,
     });
   }
   return true;
@@ -453,13 +450,10 @@ function nodeGraphDrawMovingWireFixedCaps(svg, wire, kind = "signal", interactCo
     to = nodeGraphPortCenter(wire.destinationNode, wire.destinationPort, "input");
     nativeToColor = nodeGraphPortWireColor(wire.destinationNode, wire.destinationPort, "input");
   }
-  // Prefer the color of the jack the user interacted with for both dots.
   const fromColor = interactColor || nativeFromColor;
   const toColor = interactColor || nativeToColor;
   const paint = fromColor || toColor || null;
   const capClass = kind === "modulation" || kind === "graph" ? "modulation" : "";
-  // Always keep the fixed-side dots: both ends get caps so neither jack goes
-  // blank while the cable path is hidden (ghost replaces the stroke only).
   if (nodeGraphWirePointIsFinite(from)) {
     nodeGraphWireHelpers.drawEndpointCap(svg, from, "from", paint, capClass, {
       endColor: fromColor,
@@ -497,23 +491,6 @@ function nodeGraphDrawTemporaryWire(svg, options) {
       freeColor,
     ],
   );
-  // Cap under stroke (same paint-order rule as permanent wires).
-  if (typeof nodeGraphWireHelpers.drawEndpointCap === "function") {
-    const role = endpoint?.io === "input" || endpoint?.io === "modulation" || endpoint?.io === "graph"
-      ? "to"
-      : "from";
-    nodeGraphWireHelpers.drawEndpointCap(svg, from, role, stroke, "temp", {
-      endColor: fromColor,
-      gradientId,
-    });
-    if (drawCursorCap && nodeGraphWirePointIsFinite(to)) {
-      const freeRole = role === "from" ? "to" : "from";
-      nodeGraphWireHelpers.drawEndpointCap(svg, to, freeRole, stroke, "temp", {
-        endColor: freeColor,
-        gradientId,
-      });
-    }
-  }
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
   path.setAttribute("class", className);
   path.setAttribute("stroke", stroke);
@@ -524,9 +501,24 @@ function nodeGraphDrawTemporaryWire(svg, options) {
   } else {
     path.setAttribute("d", nodeGraphWireHelpers.path(from, to));
   }
-  // Visual on endpoint layer after the disc so AA doesn't fringe the join.
-  const capSvg = document.getElementById("nodeWireEndpointSvg") || svg;
-  capSvg.append(path);
+  const paintSvg = typeof nodeGraphWireHelpers.visualCableSvg === "function"
+    ? nodeGraphWireHelpers.visualCableSvg(svg)
+    : svg;
+  paintSvg.append(path);
+  if (typeof nodeGraphWireHelpers.drawEndpointCap === "function") {
+    const role = endpoint?.io === "input" || endpoint?.io === "modulation" || endpoint?.io === "graph"
+      ? "to"
+      : "from";
+    nodeGraphWireHelpers.drawEndpointCap(paintSvg, from, role, fromColor, "temp", {
+      endColor: fromColor,
+    });
+    if (drawCursorCap && nodeGraphWirePointIsFinite(to)) {
+      const freeRole = role === "from" ? "to" : "from";
+      nodeGraphWireHelpers.drawEndpointCap(paintSvg, to, freeRole, freeColor, "temp", {
+        endColor: freeColor,
+      });
+    }
+  }
 }
 
 function nodeGraphResetConnectedWireClasses(workspace) {
@@ -542,19 +534,6 @@ function drawNodeGraphWires(options = {}) {
   const workspace = nodeGraphZoomSurface();
   const svg = document.getElementById("nodeWireSvg");
   if (!workspace || !svg) {
-    return;
-  }
-  if (nodeGraphMvp?.wiringChromeVisible === false) {
-    if (options.skipHeatmap !== true && typeof updateNodeGraphGridHeatmap === "function") {
-      updateNodeGraphGridHeatmap();
-    }
-    if (svg.childNodes.length) {
-      svg.replaceChildren();
-    }
-    const capSvg = document.getElementById("nodeWireEndpointSvg");
-    if (capSvg?.childNodes.length) {
-      capSvg.replaceChildren();
-    }
     return;
   }
   const lite = Boolean(options.lite);

@@ -70,10 +70,13 @@ function applyNodeMetadataPopoverPosition(popover, x, y, remember = false) {
 const nodeMetadataPopoverDefaultSize = Object.freeze({
   width: 185,
   height: 620,
-  minWidth: 24,
+  minWidth: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minWidth
+    : 24,
   maxWidth: 900,
-  /* Tall enough for heading + a few fixed-height rows; shorter = scroll, never compress. */
-  minHeight: 220,
+  minHeight: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minHeight
+    : 120,
   maxHeight: 820,
 });
 
@@ -1537,6 +1540,9 @@ function openNodeMetadataPopover(event, readout) {
     if (typeof markNodeGraphFloatingWindowSurface === "function") {
       markNodeGraphFloatingWindowSurface(popover);
     }
+  } else if (typeof applyNodeGraphUnifiedSeatToElement === "function"
+    && applyNodeGraphUnifiedSeatToElement(popover)) {
+    popover.hidden = false;
   } else {
     positionNodeMetadataPopover(
       popover,
@@ -1667,6 +1673,9 @@ function openBlankNodeMetadataPopover(event = {}) {
     if (typeof markNodeGraphFloatingWindowSurface === "function") {
       markNodeGraphFloatingWindowSurface(popover);
     }
+  } else if (typeof applyNodeGraphUnifiedSeatToElement === "function"
+    && applyNodeGraphUnifiedSeatToElement(popover)) {
+    popover.hidden = false;
   } else {
     positionNodeMetadataPopover(
       popover,

@@ -316,6 +316,9 @@ function handleNodeGraphKeydown(event) {
     return;
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+    if (nodeGraphEventTargetIsTextEditable(event.target)) {
+      return;
+    }
     event.preventDefault();
     selectAllNodeGraphModules();
     return;
@@ -386,11 +389,11 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  // T → stick bottom transport over V hide.
+  // T → docked tooltips on/off.
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "t") {
     event.preventDefault();
-    if (typeof toggleNodeGraphTransportChromeStuck === "function") {
-      toggleNodeGraphTransportChromeStuck();
+    if (typeof toggleNodeGraphTooltipWindow === "function") {
+      toggleNodeGraphTooltipWindow();
     }
     return;
   }

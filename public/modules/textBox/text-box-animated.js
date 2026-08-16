@@ -27,12 +27,16 @@ function nodeGraphTextBoxAnimatedSyncTitle(element, patchNode) {
   const field = element?.querySelector?.(".node-header-title");
   if (!field) return;
   const resolvedTitle = nodeGraphTextBoxAnimatedResolvedTitle(patchNode);
-  field.readOnly = resolvedTitle !== null;
+  if (resolvedTitle !== null) {
+    field.dataset.titleLocked = "1";
+  } else {
+    delete field.dataset.titleLocked;
+  }
   const displayValue = resolvedTitle !== null
     ? resolvedTitle
     : (typeof nodeGraphPatchNodeTitle === "function" ? nodeGraphPatchNodeTitle(patchNode.id) : "");
-  if (document.activeElement !== field && field.value !== displayValue) {
-    field.value = displayValue;
+  if (field.dataset.titleEditing !== "1" && field.textContent !== displayValue) {
+    field.textContent = displayValue;
   }
 }
 

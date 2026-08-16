@@ -49,6 +49,9 @@ function bindNodeGraphWorkspaceInteractionEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       nodeGraphWireInteractions.cancelPortConnectionMode();
+      if (typeof setNodeGraphWorkspaceSnakeCircleCursor === "function") {
+        setNodeGraphWorkspaceSnakeCircleCursor(false);
+      }
     }
   });
   document
@@ -60,6 +63,15 @@ function bindNodeGraphWorkspaceInteractionEvents() {
   document
     .getElementById("nodeGraphWorkspace")
     .addEventListener("pointerdown", beginNodeGraphSmoothZoomDrag, true);
+  document
+    .getElementById("nodeGraphWorkspace")
+    .addEventListener("pointerdown", handleNodeGraphWorkspaceSnakeCircleCursorPointerDown);
+  document
+    .getElementById("nodeGraphWorkspace")
+    .addEventListener("pointerup", handleNodeGraphWorkspaceSnakeCircleCursorPointerUp);
+  document
+    .getElementById("nodeGraphWorkspace")
+    .addEventListener("pointercancel", handleNodeGraphWorkspaceSnakeCircleCursorPointerUp);
   document
     .getElementById("nodeGraphWorkspace")
     .addEventListener("pointerdown", beginNodeGraphMarqueeSelection);

@@ -2,10 +2,14 @@
 
 function createNodeGraphTextBoxBody(node) {
   const body = document.createElement("div");
-  body.className = "node-text-box-body";
+  body.className = "node-text-box-body node-module-face node-light-source";
   body.dataset.node = node;
   body.dataset.moduleBand = "face";
-  body.classList.add("node-module-face");
+  body.dataset.lightSource = "screen";
+  body.dataset.lightStrength = "0.5";
+  if (typeof setNodeGraphLightStrength === "function") {
+    setNodeGraphLightStrength(body, 0.5);
+  }
   return body;
 }
 

@@ -131,7 +131,7 @@ function nodeInteractionMouseHint(element) {
     return nodeGraphTooltipText("view.snapGrid");
   }
   if (element.id === "nodeSettingsViewButton") {
-    return nodeGraphTooltipText("view.patchSettings") || "Open raw patch text.";
+    return nodeGraphTooltipText("view.patchSettings") || "Script page";
   }
   if (element.id === "nodeModularInfiniteViewButton") {
     return nodeGraphTooltipText("view.infiniteModular")

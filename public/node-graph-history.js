@@ -274,14 +274,20 @@ function noteNodeGraphDisplayChange() {
   flashNodeGraphLastActionReadout();
 }
 
-function noteNodeGraphCommandCenterPage() {
-  nodeGraphMvp.lastHeavyAction = "command center page";
+function noteNodeGraphCommandCenterPage(label = "") {
+  const name = String(label || "").trim();
+  nodeGraphMvp.lastHeavyAction = name || "command center page";
   renderNodeGraphLastActionReadout();
   flashNodeGraphLastActionReadout();
 }
 
 function noteNodeGraphScriptPageOpen() {
-  nodeGraphMvp.lastHeavyAction = "open script page";
+  const page = typeof nodeGraphBookScriptPage === "function"
+    ? nodeGraphBookScriptPage()
+    : nodeGraphMvp?.bookScriptPage;
+  nodeGraphMvp.lastHeavyAction = page === "ui-settings"
+    ? "open ui settings script page"
+    : "open script page";
   renderNodeGraphLastActionReadout();
   flashNodeGraphLastActionReadout();
 }

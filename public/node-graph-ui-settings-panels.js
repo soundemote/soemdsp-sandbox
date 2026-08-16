@@ -1,8 +1,12 @@
 const nodeUserUiSettingsWindowDefaultSize = Object.freeze({
   width: 360,
   height: 620,
-  minWidth: 280,
-  minHeight: 240,
+  minWidth: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minWidth
+    : 24,
+  minHeight: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minHeight
+    : 120,
 });
 
 const nodeUiDevHelperWindowDefaultSize = Object.freeze({
@@ -174,14 +178,13 @@ function setNodeUserUiSettingsVisible(visible) {
     const savedSize = nodeGraphMvp.workspaceWindowStates?.uiSettings?.size
       || nodeGraphMvp.userUiSettingsWindowSize;
     applyNodeUserUiSettingsWindowSize(savedSize || nodeUserUiSettingsWindowDefaultSize, panel);
-    const pending = nodeGraphMvp._unifiedWindowPendingPosition;
-    if (pending && Number.isFinite(Number(pending.left)) && Number.isFinite(Number(pending.top))) {
-      if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
-        setNodeGraphFloatingWindowViewportPosition(panel, pending.left, pending.top);
-      } else {
-        panel.style.left = `${Math.round(pending.left)}px`;
-        panel.style.top = `${Math.round(pending.top)}px`;
+    if (nodeGraphMvp._unifiedWindowSwitching) {
+      if (typeof markNodeGraphFloatingWindowSurface === "function") {
+        markNodeGraphFloatingWindowSurface(panel);
       }
+    } else if (typeof applyNodeGraphUnifiedSeatToElement === "function"
+      && applyNodeGraphUnifiedSeatToElement(panel)) {
+      // Shared Command Center seat — do not restore this page's old offset.
     } else if (typeof positionNodeGraphWorkspaceWindowFromState === "function") {
       positionNodeGraphWorkspaceWindowFromState("uiSettings", panel);
     }

@@ -32,7 +32,6 @@ function renderNodeGraphVisibilityMenuButton() {
     nodeGraphMvp.gridVisible ? 0 : 1,
     nodeGraphMvp.gridLightVisible === false ? 1 : 0,
     nodeGraphMvp.wireLengthsVisible === false ? 1 : 0,
-    nodeGraphMvp.wiringChromeVisible === false ? 1 : 0,
     nodeGraphMvp.moduleButtonsVisible === false ? 1 : 0,
     nodeGraphMvp.moduleInterfaceControlsVisible === false ? 1 : 0,
     nodeGraphMvp.moduleOscilloscopesVisible === false ? 1 : 0,
@@ -67,7 +66,6 @@ const nodeGraphVisibilityOnMarks = Object.freeze({
   grid: "🗺️",
   gridLight: "💡",
   wireLengths: "🧬",
-  wiringChrome: "🔌",
   wiresAbove: "⬆️",
   moduleButtons: "🔘",
   displays: "📺",
@@ -196,7 +194,6 @@ function persistNodeGraphPatchVisibilityView() {
   view.gridVisible = nodeGraphMvp.gridVisible !== false;
   view.gridLightVisible = nodeGraphMvp.gridLightVisible !== false;
   view.wireLengthsVisible = nodeGraphMvp.wireLengthsVisible !== false;
-  view.wiringChromeVisible = nodeGraphMvp.wiringChromeVisible !== false;
   view.wiresAboveModules = Boolean(nodeGraphMvp.wiresAboveModules);
   view.moduleButtonsVisible = nodeGraphMvp.moduleButtonsVisible !== false;
   view.moduleOscilloscopesVisible = nodeGraphMvp.moduleOscilloscopesVisible !== false;
@@ -230,7 +227,6 @@ function applyNodeGraphPatchVisibilityView() {
   if (Object.hasOwn(view, "gridVisible")) nodeGraphMvp.gridVisible = Boolean(view.gridVisible);
   if (Object.hasOwn(view, "gridLightVisible")) nodeGraphMvp.gridLightVisible = view.gridLightVisible !== false;
   if (Object.hasOwn(view, "wireLengthsVisible")) nodeGraphMvp.wireLengthsVisible = view.wireLengthsVisible !== false;
-  if (Object.hasOwn(view, "wiringChromeVisible")) nodeGraphMvp.wiringChromeVisible = view.wiringChromeVisible !== false;
   if (Object.hasOwn(view, "wiresAboveModules")) nodeGraphMvp.wiresAboveModules = Boolean(view.wiresAboveModules);
   if (Object.hasOwn(view, "moduleButtonsVisible")) nodeGraphMvp.moduleButtonsVisible = view.moduleButtonsVisible !== false;
   if (Object.hasOwn(view, "moduleOscilloscopesVisible")) nodeGraphMvp.moduleOscilloscopesVisible = view.moduleOscilloscopesVisible !== false;
@@ -239,7 +235,6 @@ function applyNodeGraphPatchVisibilityView() {
   if (Object.hasOwn(view, "sliderAmountVisible")) nodeGraphMvp.sliderAmountVisible = view.sliderAmountVisible === true;
   if (Object.hasOwn(view, "sliderPositionVisible")) nodeGraphMvp.sliderPositionVisible = view.sliderPositionVisible !== false;
   if (typeof renderNodeGraphWireLengthsToggle === "function") renderNodeGraphWireLengthsToggle();
-  if (typeof renderNodeGraphWiringChromeToggle === "function") renderNodeGraphWiringChromeToggle();
   if (typeof renderNodeGraphWiresAboveModulesToggle === "function") renderNodeGraphWiresAboveModulesToggle();
   if (typeof renderNodeGraphGridToggle === "function") renderNodeGraphGridToggle();
   if (typeof renderNodeGraphGridLightToggle === "function") renderNodeGraphGridLightToggle();
@@ -252,44 +247,6 @@ function applyNodeGraphPatchVisibilityView() {
   }
   if (typeof renderNodeGraphSliderVisibilityToggles === "function") {
     renderNodeGraphSliderVisibilityToggles();
-  }
-}
-
-/**
- * Wires + inlet/outlet jacks on/off. Off matches zoom: hide paint and skip
- * cable draw so a large patch stays cheap.
- */
-function renderNodeGraphWiringChromeToggle() {
-  const workspace = document.getElementById("nodeGraphWorkspace");
-  const button = document.getElementById("nodeWiringChromeToggleButton");
-  const visible = nodeGraphMvp.wiringChromeVisible !== false;
-  nodeGraphMvp.wiringChromeVisible = visible;
-  workspace?.classList.toggle("wiring-chrome-hidden", !visible);
-  setNodeGraphVisibilityToggleLabel(button, visible, "Wires Inlets Outlets", {
-    onMark: nodeGraphVisibilityOnMarks.wiringChrome,
-  });
-  if (typeof drawNodeGraphWires === "function") {
-    drawNodeGraphWires();
-  }
-  renderNodeGraphVisibilityMenuButton();
-  if (typeof syncNodeUserUiSettingsViewControls === "function") {
-    syncNodeUserUiSettingsViewControls();
-  }
-}
-
-function toggleNodeGraphWiringChromeVisibility() {
-  nodeGraphMvp.wiringChromeVisible = !(nodeGraphMvp.wiringChromeVisible !== false);
-  persistNodeGraphPatchVisibilityView();
-  renderNodeGraphWiringChromeToggle();
-  if (typeof scheduleNodeGraphWorkspaceViewPersist === "function") {
-    scheduleNodeGraphWorkspaceViewPersist();
-  }
-  if (typeof setNodeInteractionHelp === "function") {
-    setNodeInteractionHelp(
-      nodeGraphMvp.wiringChromeVisible !== false
-        ? "Wires, inlets, and outlets shown."
-        : "Wires, inlets, and outlets hidden (same as zoom).",
-    );
   }
 }
 
@@ -811,8 +768,8 @@ function setNodeGraphTransportChromeStuck(stuck, options = {}) {
   if (options.help !== false && typeof setNodeInteractionHelp === "function") {
     setNodeInteractionHelp(
       nodeGraphMvp.transportChromeStuck
-        ? "Transport stuck on (T). Bottom buttons stay if V hides bars."
-        : "Transport unstuck (T). V hides top and bottom bars.",
+        ? "Transport stuck on. Bottom buttons stay if V hides bars."
+        : "Transport unstuck. V hides top and bottom bars.",
     );
   }
 }
@@ -1236,19 +1193,13 @@ function setNodeGraphVisibilityMenuOpen(open) {
   renderNodeGraphVisibilityMenuButton();
 }
 
-function nodeGraphVisibilityMenuMinimumSize(menu = document.getElementById("nodeVisibilityMenu")) {
-  const readableWindowMinWidth = 180;
-  const rootStyle = window.getComputedStyle(document.documentElement);
-  const sharedHeaderHeight = Number.parseFloat(
-    rootStyle.getPropertyValue("--node-floating-window-header-height"),
-  ) || 30;
-  const sharedButtonHeight = Number.parseFloat(
-    rootStyle.getPropertyValue("--node-floating-window-button-height"),
-  ) || 30;
-  const buttonCount = menu?.querySelectorAll?.(".node-visibility-menu-list button").length || 7;
+function nodeGraphVisibilityMenuMinimumSize(_menu = document.getElementById("nodeVisibilityMenu")) {
+  const mins = typeof nodeGraphUnifiedWindowMinBox === "function"
+    ? nodeGraphUnifiedWindowMinBox()
+    : { minWidth: 24, minHeight: 120 };
   return {
-    width: readableWindowMinWidth,
-    height: Math.ceil(sharedHeaderHeight + (buttonCount * sharedButtonHeight)),
+    width: mins.minWidth,
+    height: mins.minHeight,
   };
 }
 
@@ -1268,13 +1219,16 @@ function applyNodeGraphVisibilityMenuSize(size = {}, menuArg = null) {
   if (!menu) {
     return null;
   }
+  if (typeof applyNodeGraphUnifiedWindowShellSize === "function") {
+    return applyNodeGraphUnifiedWindowShellSize(menu, size);
+  }
   const rect = menu.getBoundingClientRect();
   const minimum = nodeGraphVisibilityMenuMinimumSize(menu);
   const shared = nodeGraphMvp?.unifiedWindowSize || {};
-  const wantHeight = Number(size.height) > 40 || Number(shared.height) > 40;
-  const height = Number(size.height) > 40
+  const wantHeight = Number(size.height) >= minimum.height || Number(shared.height) >= minimum.height;
+  const height = Number(size.height) >= minimum.height
     ? Number(size.height)
-    : (Number(shared.height) > 40 ? Number(shared.height) : rect.height);
+    : (Number(shared.height) >= minimum.height ? Number(shared.height) : rect.height);
   const normalized = normalizeNodeGraphFloatingWindowSize(
     {
       width: Number(size.width) || rect.width || shared.width,
@@ -1287,13 +1241,13 @@ function applyNodeGraphVisibilityMenuSize(size = {}, menuArg = null) {
       height: wantHeight ? height : minimum.height,
     },
   );
+  menu.style.minWidth = `${minimum.width}px`;
+  menu.style.minHeight = `${minimum.height}px`;
   menu.style.width = `${normalized.width}px`;
   if (wantHeight) {
     menu.style.height = `${normalized.height}px`;
-    menu.style.minHeight = `${minimum.height}px`;
     menu.style.maxHeight = "none";
   } else {
-    menu.style.minHeight = `${minimum.height}px`;
     menu.style.removeProperty("height");
   }
   return normalized;
@@ -1378,12 +1332,15 @@ function applyNodeGraphHotkeysPageSize(size = {}, panelArg = null) {
   if (!panel) {
     return null;
   }
+  if (typeof applyNodeGraphUnifiedWindowShellSize === "function") {
+    return applyNodeGraphUnifiedWindowShellSize(panel, size);
+  }
   const width = Math.round(Number(size.width) || panel.getBoundingClientRect().width);
   const height = Math.round(Number(size.height) || panel.getBoundingClientRect().height);
-  if (width > 40) {
+  if (width >= 24) {
     panel.style.width = `${width}px`;
   }
-  if (height > 40) {
+  if (height >= 120) {
     panel.style.height = `${height}px`;
   }
   return { width, height };
@@ -1453,14 +1410,25 @@ function nodeGraphStartupViewModeFromUrl() {
   ) {
     return "modular-windowed";
   }
-  return "modular";
+  if (value === "settings" || value === "script") {
+    return "settings";
+  }
+  if (value === "code" || value === "mapping" || value === "modular") {
+    return value;
+  }
+  return "";
 }
 
 function resetNodeGraphStartupView() {
-  nodeGraphMvp.moduleStoreDepartment = "";
-  nodeGraphMvp.moduleStoreDepartmentAnchor = "";
   nodeGraphMvp.sceneContextPoint = null;
-  setNodeGraphViewMode(nodeGraphStartupViewModeFromUrl());
+  const urlMode = nodeGraphStartupViewModeFromUrl();
+  const savedMode = typeof normalizeNodeGraphPersistedViewMode === "function"
+    ? normalizeNodeGraphPersistedViewMode(nodeGraphMvp.viewMode)
+    : nodeGraphMvp.viewMode;
+  setNodeGraphViewMode(urlMode || savedMode || "modular");
+  if (typeof renderNodeGraphBookScriptPage === "function") {
+    renderNodeGraphBookScriptPage();
+  }
   if (nodeGraphMvp._startupHideAppChromeBars) {
     nodeGraphMvp._startupHideAppChromeBars = false;
     setNodeGraphAppChromeBarsVisible(false, { help: false });
@@ -1581,10 +1549,9 @@ function initNodeGraphStandaloneMidiKeyboard() {
     return;
   }
   dock.dataset.populated = "true";
-  const performanceRow = document.createElement("div");
-  performanceRow.className = "node-standalone-performance-row";
-  performanceRow.append(createNodeGraphPitchModWheelBody(), createNodeGraphKeyboardControllerBody());
-  body.append(createNodeGraphMacroControlsBody(), performanceRow);
+  if (typeof mountNodeGraphControllerRows === "function") {
+    mountNodeGraphControllerRows(body);
+  }
   renderNodeGraphKeyboardControllerModules();
   bindNodeGraphMacroControlModuleEvents();
   bindNodeGraphControllerDockSplit();
@@ -3905,5 +3872,8 @@ function setNodeGraphViewMode(mode) {
   }
   if (typeof applyNodeGraphWorkspaceView === "function") {
     applyNodeGraphWorkspaceView();
+  }
+  if (typeof persistNodeGraphUserSession === "function") {
+    persistNodeGraphUserSession();
   }
 }

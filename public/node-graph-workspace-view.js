@@ -953,6 +953,8 @@ const nodeGraphFloatingWindowSelector = [
   "#nodeCodeBoxWindow",
   "#nodeModuleShopView",
   "#nodeVisibilityMenu",
+  "#nodeHotkeysPage",
+  "#nodeEmojiPage",
   "#nodeParameterMetadataPopover",
   "#nodeTraceDisplaySettingsPopover",
   "#nodeUiDevHelper",

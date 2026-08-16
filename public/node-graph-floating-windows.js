@@ -248,10 +248,12 @@ function fitNodeGraphFloatingWindowsToViewport() {
       if (!element || element.hidden) {
         continue;
       }
-      ensureNodeGraphFloatingWindowResizeHandleReachable(element, apply, {
-        minWidth: 96,
-        minHeight: 120,
-      });
+      const unified = typeof nodeGraphWorkspaceKeyIsUnifiedPage === "function"
+        && nodeGraphWorkspaceKeyIsUnifiedPage(entry.workspaceKey);
+      const mins = unified && typeof nodeGraphUnifiedWindowMinBox === "function"
+        ? nodeGraphUnifiedWindowMinBox()
+        : { minWidth: 96, minHeight: 120 };
+      ensureNodeGraphFloatingWindowResizeHandleReachable(element, apply, mins);
     }
     return;
   }
@@ -942,6 +944,17 @@ const nodeGraphFloatingWindowRegistryEntries = Object.freeze([
     resizeAriaLabel: "Resize hotkeys",
   }),
   Object.freeze({
+    workspaceKey: "emoji",
+    elementId: "nodeEmojiPage",
+    dragStateKey: "emojiPageDragging",
+    resizeStateKey: "emojiPageResizing",
+    applySizeName: "applyNodeGraphEmojiPageSize",
+    sizeAxes: Object.freeze({ width: true, height: true }),
+    headingDragClass: true,
+    resizeHandleId: "nodeEmojiPageResizeHandle",
+    resizeAriaLabel: "Resize emojis",
+  }),
+  Object.freeze({
     workspaceKey: "metaparameters",
     elementId: "nodeParameterMetadataPopover",
     dragStateKey: "metadataDragging",
@@ -1040,10 +1053,16 @@ function nodeGraphFloatingWindowRegistryApplySize(entry) {
     if (el && typeof syncNodeGraphFloatingWindowInlineBox === "function") {
       const width = Number(box?.width);
       const height = Number(box?.height);
-      if (width > 40 || height > 40) {
+      const minWidth = typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+        ? nodeGraphUnifiedWindowMinSize.minWidth
+        : 24;
+      const minHeight = typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+        ? nodeGraphUnifiedWindowMinSize.minHeight
+        : 120;
+      if (width >= minWidth || height >= minHeight) {
         syncNodeGraphFloatingWindowInlineBox(el, {
-          width: width > 40 ? width : undefined,
-          height: height > 40 ? height : undefined,
+          width: width >= minWidth ? width : undefined,
+          height: height >= minHeight ? height : undefined,
         });
       }
     }
@@ -1162,9 +1181,8 @@ function nodeGraphFloatingWindowRegistryPointerMove(event) {
             height: nodeGraphMvp?.unifiedWindowSize?.height,
           });
         }
-        // Visibility has no independent seat — writing one used to yank
-        // Command Center to the old toolbar-adjacent position.
-        if (entry.workspaceKey === "visibilityMenu") {
+        if (typeof nodeGraphWorkspaceKeyIsUnifiedPage === "function"
+          && nodeGraphWorkspaceKeyIsUnifiedPage(entry.workspaceKey)) {
           return;
         }
         if (entry.workspaceKey && typeof rememberNodeGraphWorkspaceWindowState === "function") {
@@ -1214,7 +1232,8 @@ function nodeGraphFloatingWindowRegistryPointerEnd(event) {
           && nodeGraphUnifiedWindowPageConfig(entry.workspaceKey)) {
           rememberNodeGraphUnifiedWindowSizeFromElement(element);
         }
-        if (entry.workspaceKey === "visibilityMenu") {
+        if (typeof nodeGraphWorkspaceKeyIsUnifiedPage === "function"
+          && nodeGraphWorkspaceKeyIsUnifiedPage(entry.workspaceKey)) {
           return;
         }
         if (entry.workspaceKey && typeof rememberNodeGraphWorkspaceWindowState === "function") {
@@ -1235,7 +1254,8 @@ function nodeGraphFloatingWindowRegistryPointerEnd(event) {
           && nodeGraphUnifiedWindowPageConfig(entry.workspaceKey)) {
           rememberNodeGraphUnifiedWindowSizeFromElement(element);
         }
-        if (entry.workspaceKey === "visibilityMenu") {
+        if (typeof nodeGraphWorkspaceKeyIsUnifiedPage === "function"
+          && nodeGraphWorkspaceKeyIsUnifiedPage(entry.workspaceKey)) {
           return;
         }
         if (entry.workspaceKey && typeof rememberNodeGraphWorkspaceWindowState === "function") {

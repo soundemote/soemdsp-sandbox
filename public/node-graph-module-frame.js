@@ -163,7 +163,7 @@ function nodeGraphModuleFramePortVisualHalfPx(port, nodeElement, layoutBox = nul
     // Signal ports: element size is already the half-disk.
     return hitHalf;
   }
-  // Param jack face is ::before at 52% of the 1gu slot (CSS --node-port-diameter).
+  // Param jack face is ::before at --node-port-size-ratio of the 1gu slot.
   const cs = getComputedStyle(nodeElement);
   const visualDiameter = Number.parseFloat(cs.getPropertyValue("--node-port-diameter"));
   if (Number.isFinite(visualDiameter) && visualDiameter > 1) {

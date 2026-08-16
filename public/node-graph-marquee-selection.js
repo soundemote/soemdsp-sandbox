@@ -1,5 +1,6 @@
 // Hitpoint / “snake” selection: drag a thick dotted trail on empty canvas;
 // whatever the trail crosses is selected. First hit locks mode to modules XOR wires.
+// Locked patch: trail + wire hits still run; modules are never selected.
 // Samples the mouse path with lerp so fast drags do not skip over modules/wires.
 // Wires also use geometric path hits (isPointInStroke / length sampling) because
 // cable hit-paths live under modules and elementFromPoint alone misses them.
@@ -602,6 +603,10 @@ function nodeGraphHitTrailApplyHit(drag, hit) {
   if (!drag || !hit) {
     return;
   }
+  // Locked patch: trail and wire hits stay live; modules are not selectable.
+  if (drag.skipModuleHits && hit.kind === "module") {
+    return;
+  }
   // Lock to first hit type: modules XOR wires for this drag.
   if (!drag.lockMode) {
     drag.lockMode = hit.kind === "wire" ? "wires" : "modules";
@@ -651,7 +656,9 @@ function nodeGraphHitTrailFlushSelection(drag) {
   }
   drag.selectionDirty = false;
   if (drag.lockMode === "modules") {
-    setNodeGraphNodeSelection([...(drag.hitNodeIds || [])]);
+    if (!drag.skipModuleHits) {
+      setNodeGraphNodeSelection([...(drag.hitNodeIds || [])]);
+    }
     return;
   }
   if (drag.lockMode === "wires") {
@@ -677,7 +684,9 @@ function nodeGraphHitTrailSampleSegment(drag, fromSurface, toSurface) {
   const dy = toSurface.y - from.y;
   const dist = Math.hypot(dx, dy);
   const steps = Math.max(1, Math.ceil(dist / nodeGraphHitTrailSampleStepPx));
-  const moduleBounds = nodeGraphHitTrailEnsureModuleBoundsCache(drag);
+  const moduleBounds = drag.skipModuleHits
+    ? null
+    : nodeGraphHitTrailEnsureModuleBoundsCache(drag);
   // Only build wire geom when we might need it (unlocked or wire-locked).
   const mayHitWires = !drag.lockMode || drag.lockMode === "wires";
   const wireGeoms = mayHitWires ? nodeGraphHitTrailEnsureWireGeomCache(drag) : null;
@@ -704,7 +713,7 @@ function nodeGraphHitTrailSampleSegment(drag, fromSurface, toSurface) {
     const baseY = from.y + dy * t;
     const center = { x: baseX, y: baseY };
 
-    if (!drag.lockMode || drag.lockMode === "modules") {
+    if (!drag.skipModuleHits && (!drag.lockMode || drag.lockMode === "modules")) {
       for (const hit of nodeGraphModulesContainingSurfacePoint(center, 2, moduleBounds)) {
         nodeGraphHitTrailApplyHit(drag, hit);
       }
@@ -769,6 +778,7 @@ function startNodeGraphMarqueeSelection(event, workspace) {
   const startSelectedWires = typeof nodeGraphSelectedWireEntries === "function"
     ? nodeGraphSelectedWireEntries()
     : [];
+  const skipModuleHits = typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked();
   nodeGraphMvp.marqueeSelection = {
     additive: false,
     cosmetic,
@@ -786,6 +796,7 @@ function startNodeGraphMarqueeSelection(event, workspace) {
     pointerId: event.pointerId,
     points: [{ x: point.x, y: point.y }],
     selectionDirty: false,
+    skipModuleHits,
     start: point,
     startSelectedIds: [...nodeGraphSelectedNodeIds()],
     startSelectedWires,
@@ -793,10 +804,13 @@ function startNodeGraphMarqueeSelection(event, workspace) {
     wirePathCache: null,
   };
   // Pre-warm module AABBs once on pointerdown. Wire polylines are built lazily
-  // on first wire hunt (modules-only snakes never pay that cost).
+  // on first wire hunt (modules-only snakes never pay that cost). Locked patch
+  // still draws and can hit wires; it never selects modules.
   if (!cosmetic) {
-    nodeGraphHitTrailEnsureModuleBoundsCache(nodeGraphMvp.marqueeSelection);
-    setNodeGraphSelection(null);
+    if (!skipModuleHits) {
+      nodeGraphHitTrailEnsureModuleBoundsCache(nodeGraphMvp.marqueeSelection);
+      setNodeGraphSelection(null);
+    }
     nodeGraphHitTrailSampleSegment(
       nodeGraphMvp.marqueeSelection,
       point,
@@ -816,7 +830,6 @@ function startNodeGraphMarqueeSelection(event, workspace) {
 function beginNodeGraphMarqueeSelection(event) {
   if (
     event.button !== 0 ||
-    (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) ||
     nodeGraphMarqueeTargetIsBlocked(event.target)
   ) {
     return;
@@ -910,7 +923,7 @@ function endNodeGraphMarqueeSelection(event) {
     if (!drag.cosmetic) {
       nodeGraphHitTrailFlushSelection(drag);
     }
-  } else if (!drag.cosmetic) {
+  } else if (!drag.cosmetic && !drag.skipModuleHits) {
     setNodeGraphSelection(null);
   }
   if (drag.keepTrail && drag.moved && drag.points?.length) {

@@ -334,15 +334,24 @@ def sanitize_default_ui_settings_view(payload: dict) -> None:
     view = payload.get("view")
     if not isinstance(view, dict):
         return
-    view["workingPatch"] = None
-    view["patchDirtyState"] = "untouched"
-    view["sharedInspectorActive"] = ""
-    view["sharedInspectorWindowState"] = {}
-    workspace_window_states = view.get("workspaceWindowStates")
-    if isinstance(workspace_window_states, dict):
-        for state in workspace_window_states.values():
-            if isinstance(state, dict):
-                state["open"] = False
+    view.pop("workingPatch", None)
+    view.pop("patchDirtyState", None)
+    view.pop("currentSavedPatchFilename", None)
+    view.pop("workspaceView", None)
+    view.pop("workspaceWindowStates", None)
+    view.pop("workspaceWindowStatesVersion", None)
+    view.pop("sharedInspectorActive", None)
+    view.pop("sharedInspectorWindowState", None)
+    view.pop("controllerDockHeight", None)
+    view.pop("sceneContextWindowSize", None)
+    view.pop("moduleActionWindowSize", None)
+    view.pop("moduleStoreDepartment", None)
+    view.pop("savedPatchBankIndex", None)
+    view.pop("savedPatchBankName", None)
+    view.pop("savedPatchFactoryPath", None)
+    view.pop("savedPatchUserPath", None)
+    view.pop("savedPatchGridColumns", None)
+    view.pop("filePicker", None)
 
 
 def ui_settings_script_text(payload: dict) -> str:

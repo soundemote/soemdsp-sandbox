@@ -50,9 +50,6 @@ async function initNodeGraphMvp() {
   if (typeof clearNodeGraphViewportGestureClass === "function") {
     clearNodeGraphViewportGestureClass();
   }
-  if (typeof renderNodeGraphWiringChromeToggle === "function") {
-    renderNodeGraphWiringChromeToggle();
-  }
   renderNodeGraphGridToggle();
   if (typeof renderNodeGraphGridLightToggle === "function") {
     renderNodeGraphGridLightToggle();

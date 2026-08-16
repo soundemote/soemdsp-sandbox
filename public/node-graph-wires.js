@@ -122,18 +122,31 @@
     /**
      * Solid full-circle contact on the overlay above modules, centered on the
      * mid-jack attach point. Fill is the endpoint port color (same as the
-     * gradient stop at that end) — no glow, no stub line.
+     * gradient stop at that end). The cable is the overlay stroke — not a
+     * second under-module path plus a short jut.
      */
-    function drawEndpointCap(_svg, attachPoint, role, paint, extraClass = "", options = {}) {
-      const target = endpointCapSvg();
+    function wireEndColor(endColor, paint) {
+      const hex = String(endColor || "").trim();
+      if (hex && !hex.startsWith("url(")) {
+        return hex;
+      }
+      const fallback = String(paint || "").trim();
+      if (fallback && !fallback.startsWith("url(")) {
+        return fallback;
+      }
+      return "";
+    }
+
+    function drawEndpointCap(svg, attachPoint, role, paint, extraClass = "", options = {}) {
+      // Always on the overlay above modules — fakes the plug where the
+      // under-module cable disappears into the plate. Do not follow the cable
+      // host (visualCableSvg); that hid the disc under the idle stroke.
+      const target = endpointCapSvg() || visualCableSvg(svg) || svg;
       const point = wireEndpointCapCenter(attachPoint, role);
       if (!target || !point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
         return null;
       }
-      const endColor = options.endColor || null;
-      // Prefer solid end color so the disc matches the gradient stop at 0%/100%.
-      // Fall back to stroke paint only if color is missing.
-      const fill = endColor || paint || null;
+      const fill = wireEndColor(options.endColor, paint);
       const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       circle.setAttribute(
         "class",
@@ -142,6 +155,7 @@
       circle.setAttribute("cx", String(point.x));
       circle.setAttribute("cy", String(point.y));
       circle.setAttribute("r", String(wireEndpointCapRadius()));
+      circle.setAttribute("color-interpolation", "sRGB");
       if (fill) {
         circle.setAttribute("fill", fill);
         circle.style.fill = fill;
@@ -217,37 +231,53 @@
       const gradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
       gradient.id = id;
       gradient.setAttribute("gradientUnits", "userSpaceOnUse");
-      gradient.setAttribute("x1", String(from.x));
-      gradient.setAttribute("y1", String(from.y));
-      gradient.setAttribute("x2", String(to.x));
-      gradient.setAttribute("y2", String(to.y));
+      gradient.setAttribute("color-interpolation", "sRGB");
+      // Push the axis past each jack so a curved stroke still samples the
+      // solid end color at the contact disc (userSpaceOnUse is a chord, not
+      // the bezier).
+      const dx = (Number(to.x) || 0) - (Number(from.x) || 0);
+      const dy = (Number(to.y) || 0) - (Number(from.y) || 0);
+      const len = Math.hypot(dx, dy) || 1;
+      const pad = Math.max(wireEndpointCapRadius() * 3, Math.min(36, len * 0.12));
+      const ux = dx / len;
+      const uy = dy / len;
+      gradient.setAttribute("x1", String(from.x - ux * pad));
+      gradient.setAttribute("y1", String(from.y - uy * pad));
+      gradient.setAttribute("x2", String(to.x + ux * pad));
+      gradient.setAttribute("y2", String(to.y + uy * pad));
+      gradient.setAttribute("spreadMethod", "pad");
 
       // Same color on both ends: skip the opacity dip entirely rather than
       // faking a transition that never actually changes color -- app-wide
       // policy, not specific to any one wire kind.
       const sameColor = Boolean(fromColor) && Boolean(toColor) && fromColor === toColor;
       const middleColor = !sameColor && fromColor && toColor ? mixWireColor(fromColor, toColor) : null;
-      // End plateaus: solid port color near each jack (matches contact discs);
-      // phosphor dip + crossfade only in the middle of the cable.
-      const endPlateau = 0.14;
-      const p0 = "0%";
-      const pFrom = `${Math.round(endPlateau * 100)}%`;
-      const pTo = `${Math.round((1 - endPlateau) * 100)}%`;
-      const p1 = "100%";
+      const opaque = typeof nodeGraphFullyOpaqueWires === "function"
+        ? nodeGraphFullyOpaqueWires()
+        : Boolean(typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.fullyOpaqueWires);
+      // Opacity stays 1 until near the midpoint so the plug and the cable
+      // leaving it are the same color. The phosphor dip is only the center.
       const stops = sameColor
         ? [
-            [p0, "1", fromColor],
-            [p1, "1", toColor],
+            ["0%", "1", fromColor],
+            ["100%", "1", toColor],
           ]
-        : [
-            [p0, "1", fromColor],
-            [pFrom, "1", fromColor],
-            ["48%", "0.36", fromColor],
-            ["50%", "0.34", middleColor],
-            ["52%", "0.36", toColor],
-            [pTo, "1", toColor],
-            [p1, "1", toColor],
-          ];
+        : opaque
+          ? [
+              ["0%", "1", fromColor],
+              ["42%", "1", fromColor],
+              ["58%", "1", toColor],
+              ["100%", "1", toColor],
+            ]
+          : [
+              ["0%", "1", fromColor],
+              ["42%", "1", fromColor],
+              ["48%", "0.36", fromColor],
+              ["50%", "0.34", middleColor],
+              ["52%", "0.36", toColor],
+              ["58%", "1", toColor],
+              ["100%", "1", toColor],
+            ];
       for (const [offset, opacity, color] of stops) {
         const stop = document.createElementNS("http://www.w3.org/2000/svg", "stop");
         stop.setAttribute("class", stopClass);
@@ -260,8 +290,7 @@
         gradient.append(stop);
       }
 
-      // Paint server on both layers: under-module cable SVG and over-module
-      // endpoint SVG (caps always; strokes when "Wires Above Modules" is on).
+      // Paint server on both layers so the same url(#id) works above or below.
       const capSvg = endpointCapSvg();
       ensureSvgDefs(svg)?.append(gradient);
       if (capSvg && capSvg !== svg) {
@@ -278,9 +307,9 @@
     }
 
     /**
-     * Visual cable stroke host. Hit targets always stay on the under-module
-     * wire SVG. Caps always stay on the endpoint overlay (mid-jack discs).
-     * Stroke layer follows Visibility → Wires Above Modules.
+     * Visual curve + dots host.
+     * Above modules → overlay. Below → #nodeWireSvg (dots go with the cable).
+     * Hit targets always stay on the under-module wire SVG.
      */
     function visualCableSvg(wireSvg) {
       if (wiresAboveModules()) {
@@ -331,13 +360,9 @@
         svg.append(hitPath);
       }
 
-      // Caps always on the endpoint overlay (visible mid-jack above faces).
-      // Cable stroke: under modules by default; above when Visibility toggle on.
-      // Visibility → Wire Lengths off: skip the stroke, keep dots + hit targets.
-      // When stroke + disc share a layer, paint discs first then stroke so the
-      // join has no AA fringe (disc-over-stroke samples a third color at edge).
+      // Curve follows Visibility → Wires Above. Contact discs are always
+      // drawn on #nodeWireEndpointSvg (drawEndpointCap), above the plate.
       const paintSvg = visualCableSvg(svg) || svg;
-      const above = paintSvg !== svg;
       const showLength = typeof nodeGraphMvp === "undefined"
         || nodeGraphMvp?.wireLengthsVisible !== false;
       const [fromColor, toColor] = wireColors || [null, null];
@@ -346,48 +371,31 @@
         kind === "modulation" || kind === "graph" ? "modulation" : "",
       ].filter(Boolean).join(" ");
 
-      const drawCaps = () => {
-        drawEndpointCap(svg, from, "from", stroke, capClass, {
-          endColor: fromColor,
-          gradientId,
-        });
-        drawEndpointCap(svg, to, "to", stroke, capClass, {
-          endColor: toColor,
-          gradientId,
-        });
-      };
-
-      if (!showLength) {
-        drawCaps();
-        return;
-      }
-
-      const renderedPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      renderedPath.setAttribute(
-        "class",
-        `${pathClass}${isTrace ? " trace-wire" : ""}${isPixel ? " pixel-wire" : ""}`,
-      );
-      renderedPath.dataset.alias = alias;
-      renderedPath.dataset.connectionIndex = String(index);
-      renderedPath.dataset.connectionKind = kind;
-      renderedPath.dataset.interactionMode = mode;
-      if (isPixel) {
-        renderedPath.dataset.pixelWire = "true";
-      }
-      if (Array.isArray(options.tracePoints)) {
-        renderedPath.dataset.tracePoints = nodeGraphTraceWaypointAttribute(options.tracePoints);
-      }
-      renderedPath.setAttribute("d", pathData);
-      renderedPath.setAttribute("stroke", stroke);
-      renderedPath.style.stroke = stroke;
-
-      if (above) {
-        drawCaps();
+      if (showLength) {
+        const renderedPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        renderedPath.setAttribute(
+          "class",
+          `${pathClass}${isTrace ? " trace-wire" : ""}${isPixel ? " pixel-wire" : ""}`,
+        );
+        renderedPath.dataset.alias = alias;
+        renderedPath.dataset.connectionIndex = String(index);
+        renderedPath.dataset.connectionKind = kind;
+        renderedPath.dataset.interactionMode = mode;
+        if (isPixel) {
+          renderedPath.dataset.pixelWire = "true";
+        }
+        if (Array.isArray(options.tracePoints)) {
+          renderedPath.dataset.tracePoints = nodeGraphTraceWaypointAttribute(options.tracePoints);
+        }
+        renderedPath.setAttribute("d", pathData);
+        renderedPath.setAttribute("stroke", stroke);
+        renderedPath.setAttribute("color-interpolation", "sRGB");
+        renderedPath.style.stroke = stroke;
         paintSvg.append(renderedPath);
-      } else {
-        paintSvg.append(renderedPath);
-        drawCaps();
       }
+
+      drawEndpointCap(paintSvg, from, "from", fromColor, capClass, { endColor: fromColor });
+      drawEndpointCap(paintSvg, to, "to", toColor, capClass, { endColor: toColor });
     }
 
     function elementForEndpoint(endpoint) {
@@ -701,7 +709,9 @@
       patchPointTargetFromPoint,
       path,
       pointInEndpointHitbox,
+      visualCableSvg,
       wireEndpointCapCenter,
+      wireEndpointCapRadius,
       straightPath,
       tracePath,
     };

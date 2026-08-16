@@ -113,7 +113,7 @@ function syncNodeGraphReadyPanelChrome() {
     lockBtn.setAttribute("aria-label", locked ? "Unlock patch" : "Lock patch");
     lockBtn.title = locked
       ? "Unlock patch: select, move, add, and delete again"
-      : "Lock patch: no select, move, add, or delete";
+      : "Lock patch: no module select, move, add, or delete";
     const label = lockBtn.querySelector(".scene-context-window-button-label");
     if (label) {
       label.textContent = locked ? "🔒" : "🔓";
@@ -238,8 +238,7 @@ function showPaletteNode(node) {
 
 // Double-clicking empty canvas is a fast path to a Text Box: spawn one at the
 // click point, then open its module actions window with the text field
-// focused -- the same edit surface a manual double-click on an existing text
-// box already opens (see .node-text-box-input's dblclick -> openNodeModuleActionMenu).
+// focused. Face text itself is edited inline; this window is the settings path.
 function handleNodeGraphWorkspaceDoubleClickToAddTextBox(event) {
   if (!nodeGraphEventTargetIsEmptyWorkspaceArea(event)) {
     return;
@@ -343,16 +342,38 @@ function syncNodeGraphPlacementSnapGhost(element, visible = true) {
     : { x, y };
   ghost.style.setProperty("--node-x", `${snapped.x}px`);
   ghost.style.setProperty("--node-y", `${snapped.y}px`);
-  ghost.style.width = `${element.offsetWidth}px`;
-  ghost.style.height = `${element.offsetHeight}px`;
-  ghost.style.borderRadius = getComputedStyle(element).borderRadius;
+  const cached = nodeGraphMvp._placementGhostMetrics;
+  if (cached?.nodeId === element.dataset.node && cached.width > 0) {
+    ghost.style.width = `${cached.width}px`;
+    ghost.style.height = `${cached.height}px`;
+    ghost.style.borderRadius = cached.radius;
+  } else {
+    const width = element.offsetWidth;
+    const height = element.offsetHeight;
+    const radius = getComputedStyle(element).borderRadius;
+    nodeGraphMvp._placementGhostMetrics = {
+      nodeId: element.dataset.node,
+      width,
+      height,
+      radius,
+    };
+    ghost.style.width = `${width}px`;
+    ghost.style.height = `${height}px`;
+    ghost.style.borderRadius = radius;
+  }
   return ghost;
 }
 
 function cancelNodeGraphModulePlacement(status = "module placement cancelled") {
+  const pendingRaf = nodeGraphMvp.modulePlacement?._positionRaf;
+  if (pendingRaf) {
+    window.cancelAnimationFrame(pendingRaf);
+  }
+  nodeGraphMvp._placementGhostMetrics = null;
   clearNodeGraphPlacementSnapGhost();
   const placement = nodeGraphMvp.modulePlacement;
   if (!placement?.nodeId) {
+    placement?.sourceElement?.classList.remove("placing-module");
     nodeGraphMvp.modulePlacement = null;
     return false;
   }
@@ -406,9 +427,9 @@ function nodeGraphModulePlacementPixelFromCursor(cursorPoint, element) {
   };
 }
 
-function positionNodeGraphPendingModuleAtCursor(cursorPoint) {
+function applyNodeGraphPendingModuleCursor(cursorPoint) {
   const placement = nodeGraphMvp.modulePlacement;
-  if (!placement) {
+  if (!placement?.nodeId) {
     return false;
   }
   const element = nodeGraphNodeElement(placement.nodeId);
@@ -422,8 +443,41 @@ function positionNodeGraphPendingModuleAtCursor(cursorPoint) {
   placement.cursorPoint = cursorPoint;
   placement.point = point;
   syncNodeGraphPlacementSnapGhost(element, placement.overWorkspace !== false);
-  drawNodeGraphWires();
-  scheduleNodeGraphModuleScopeDraw();
+  // New shop ghosts have no cables. A full wire rebuild + scope paint here
+  // is what made heavy faces (Sabrina Trace, crossovers) hitch: freeze-move.
+  // Teleport of an already-wired unique module still needs a lite wire pass.
+  if (placement.teleport && typeof drawNodeGraphWires === "function") {
+    drawNodeGraphWires({
+      lite: true,
+      skipHeatmap: true,
+      skipScopes: true,
+      skipSelection: true,
+    });
+  }
+  return true;
+}
+
+function positionNodeGraphPendingModuleAtCursor(cursorPoint) {
+  const placement = nodeGraphMvp.modulePlacement;
+  if (!placement) {
+    return false;
+  }
+  placement._pendingCursorPoint = cursorPoint;
+  if (placement._positionRaf) {
+    return true;
+  }
+  placement._positionRaf = window.requestAnimationFrame(() => {
+    const live = nodeGraphMvp.modulePlacement;
+    if (!live) {
+      return;
+    }
+    live._positionRaf = 0;
+    const next = live._pendingCursorPoint;
+    live._pendingCursorPoint = null;
+    if (next) {
+      applyNodeGraphPendingModuleCursor(next);
+    }
+  });
   return true;
 }
 
@@ -490,6 +544,8 @@ function beginNodeGraphModulePlacement(type, point = null, options = {}) {
   return id;
 }
 
+const nodeGraphModuleStoreDragSlopPx = 6;
+
 function beginNodeGraphModuleStorePointerPlacement(event) {
   if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
     return false;
@@ -502,17 +558,52 @@ function beginNodeGraphModuleStorePointerPlacement(event) {
     return false;
   }
   const type = addButton.dataset.contextModule;
-  const overWorkspace = nodeGraphClientPointInsideWorkspace(event);
-  const nodeId = beginNodeGraphModulePlacement(type, nodeGraphClientPoint(event), { overWorkspace });
-  if (!nodeId) {
+  if (!type || !Object.hasOwn(nodeGraphModuleDefinitions, type)) {
     return false;
   }
-  nodeGraphMvp.modulePlacement.pointerId = event.pointerId ?? null;
-  nodeGraphMvp.modulePlacement.sourceElement = addButton;
+  if (nodeGraphMvp.modulePlacement?.nodeId) {
+    cancelNodeGraphModulePlacement();
+  }
+  nodeGraphMvp.modulePlacement = {
+    armed: true,
+    cursorPoint: nodeGraphClientPoint(event),
+    nodeId: "",
+    overWorkspace: nodeGraphClientPointInsideWorkspace(event),
+    pointerId: event.pointerId ?? null,
+    sourceElement: addButton,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    type,
+  };
   addButton.classList.add("placing-module");
   addButton.setPointerCapture?.(event.pointerId);
   event.preventDefault();
   event.stopPropagation();
+  return true;
+}
+
+function spawnNodeGraphModuleStorePlacementIfDragged(event) {
+  const placement = nodeGraphMvp.modulePlacement;
+  if (!placement?.armed || placement.nodeId) {
+    return Boolean(placement?.nodeId);
+  }
+  const dx = Number(event.clientX) - Number(placement.startClientX);
+  const dy = Number(event.clientY) - Number(placement.startClientY);
+  if (!Number.isFinite(dx) || !Number.isFinite(dy) || (dx * dx + dy * dy) < (nodeGraphModuleStoreDragSlopPx ** 2)) {
+    return false;
+  }
+  const type = placement.type;
+  const pointerId = placement.pointerId;
+  const sourceElement = placement.sourceElement;
+  const nodeId = beginNodeGraphModulePlacement(type, nodeGraphClientPoint(event), {
+    overWorkspace: nodeGraphClientPointInsideWorkspace(event),
+  });
+  if (!nodeId || !nodeGraphMvp.modulePlacement) {
+    return false;
+  }
+  nodeGraphMvp.modulePlacement.armed = false;
+  nodeGraphMvp.modulePlacement.pointerId = pointerId;
+  nodeGraphMvp.modulePlacement.sourceElement = sourceElement;
   return true;
 }
 
@@ -521,6 +612,15 @@ function finishNodeGraphModulePlacementAtCurrentPosition(status = "module placed
   if (!placement?.nodeId) {
     return false;
   }
+  if (placement._positionRaf) {
+    window.cancelAnimationFrame(placement._positionRaf);
+    placement._positionRaf = 0;
+  }
+  if (placement._pendingCursorPoint) {
+    applyNodeGraphPendingModuleCursor(placement._pendingCursorPoint);
+    placement._pendingCursorPoint = null;
+  }
+  nodeGraphMvp._placementGhostMetrics = null;
   const element = nodeGraphNodeElement(placement.nodeId);
   if (!element) {
     clearNodeGraphPlacementSnapGhost();
@@ -568,12 +668,18 @@ function dragNodeGraphModulePlacement(event) {
   ) {
     return;
   }
-  placement.overWorkspace = nodeGraphClientPointInsideWorkspace(event);
+  if (!placement.nodeId) {
+    spawnNodeGraphModuleStorePlacementIfDragged(event);
+    if (!nodeGraphMvp.modulePlacement?.nodeId) {
+      return;
+    }
+  }
+  nodeGraphMvp.modulePlacement.overWorkspace = nodeGraphClientPointInsideWorkspace(event);
   positionNodeGraphPendingModuleAtCursor(nodeGraphClientPoint(event));
 }
 
 function completeNodeGraphModulePlacement(event) {
-  if (!nodeGraphMvp.modulePlacement) {
+  if (!nodeGraphMvp.modulePlacement?.nodeId) {
     return false;
   }
   if (event.button !== undefined && event.button !== 0) {
@@ -598,11 +704,17 @@ function releaseNodeGraphModuleStorePointerPlacement(event) {
   ) {
     return false;
   }
-  positionNodeGraphPendingModuleAtCursor(nodeGraphClientPoint(event));
   placement.sourceElement?.classList.remove("placing-module");
   if (event.pointerId !== undefined && placement.sourceElement?.hasPointerCapture?.(event.pointerId)) {
     placement.sourceElement.releasePointerCapture(event.pointerId);
   }
+  if (!placement.nodeId) {
+    nodeGraphMvp.modulePlacement = null;
+    event.preventDefault();
+    event.stopPropagation();
+    return false;
+  }
+  positionNodeGraphPendingModuleAtCursor(nodeGraphClientPoint(event));
   const placed = nodeGraphClientPointInsideWorkspace(event)
     ? finishNodeGraphModulePlacementAtCurrentPosition()
     : cancelNodeGraphModulePlacement();
@@ -992,8 +1104,12 @@ function applyNodeGraphModuleSettingsSnapshot(targetNode, snapshot) {
 const nodeGraphPatchDefaultsWindowDefaultSize = Object.freeze({
   width: 280,
   height: 280,
-  minWidth: 160,
-  minHeight: 160,
+  minWidth: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minWidth
+    : 24,
+  minHeight: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minHeight
+    : 120,
 });
 
 function applyNodeGraphPatchDefaultsWindowSize(size = {}, element = null) {
@@ -1048,14 +1164,13 @@ function setNodeGraphPatchDefaultsVisible(visible) {
     const savedSize = nodeGraphMvp.workspaceWindowStates?.patchDefaults?.size
       || nodeGraphPatchDefaultsWindowDefaultSize;
     applyNodeGraphPatchDefaultsWindowSize(savedSize, panel);
-    const pending = nodeGraphMvp._unifiedWindowPendingPosition;
-    if (pending && Number.isFinite(Number(pending.left)) && Number.isFinite(Number(pending.top))) {
-      if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
-        setNodeGraphFloatingWindowViewportPosition(panel, pending.left, pending.top);
-      } else {
-        panel.style.left = `${Math.round(pending.left)}px`;
-        panel.style.top = `${Math.round(pending.top)}px`;
+    if (nodeGraphMvp._unifiedWindowSwitching) {
+      if (typeof markNodeGraphFloatingWindowSurface === "function") {
+        markNodeGraphFloatingWindowSurface(panel);
       }
+    } else if (typeof applyNodeGraphUnifiedSeatToElement === "function"
+      && applyNodeGraphUnifiedSeatToElement(panel)) {
+      // Shared Command Center seat.
     } else if (typeof positionNodeGraphWorkspaceWindowFromState === "function") {
       positionNodeGraphWorkspaceWindowFromState("patchDefaults", panel);
     }
@@ -1348,16 +1463,20 @@ function adjustNodeGraphModuleHeightFromContext(delta) {
 }
 
 /**
- * Header titles are readOnly until an explicit rename session (triple-click).
+ * Header titles are a label until an explicit rename session (double-click).
  * Multi-select may rename several modules at once; selection changes must not
  * silently retarget a focused alias/title field onto a non-editing module.
  */
+function nodeGraphModuleTitleFieldText(el) {
+  return String(el?.textContent ?? "").replace(/\u00a0/g, " ");
+}
+
 function nodeGraphModuleTitleInputIsEditing(input) {
   return Boolean(input?.dataset?.titleEditing === "1");
 }
 
 function nodeGraphModuleTitleInputsEditing() {
-  return [...document.querySelectorAll("input.node-header-title[data-title-editing='1']")];
+  return [...document.querySelectorAll(".node-header-title[data-title-editing='1']")];
 }
 
 function nodeGraphModuleTitleInputForNodeId(nodeId) {
@@ -1366,8 +1485,29 @@ function nodeGraphModuleTitleInputForNodeId(nodeId) {
     return null;
   }
   return document.querySelector(
-    `.dsp-node[data-node="${CSS.escape(id)}"] input.node-header-title`,
+    `.dsp-node[data-node="${CSS.escape(id)}"] .node-header-title`,
   );
+}
+
+function nodeGraphModuleTitleFieldBeginEdit(el) {
+  if (!(el instanceof HTMLElement)) {
+    return;
+  }
+  el.contentEditable = "true";
+  el.tabIndex = 0;
+  el.dataset.titleEditing = "1";
+  el.setAttribute("role", "textbox");
+  el.setAttribute("aria-multiline", "false");
+}
+
+function nodeGraphModuleTitleFieldEndEdit(el) {
+  if (!(el instanceof HTMLElement)) {
+    return;
+  }
+  el.contentEditable = "false";
+  el.tabIndex = -1;
+  delete el.dataset.titleEditing;
+  el.setAttribute("role", "text");
 }
 
 /** End any open header-title rename sessions (commit or revert). */
@@ -1377,20 +1517,18 @@ function endAllNodeGraphModuleTitleEdits({ commit = true, revert = false } = {})
     return;
   }
   const primary = editing.find((el) => document.activeElement === el) || editing[0];
-  const value = primary?.value;
+  const value = nodeGraphModuleTitleFieldText(primary);
   const ids = editing.map((el) => el.dataset.node).filter(Boolean);
   for (const input of editing) {
     if (revert && input.dataset.node) {
       const patchNode = typeof nodeGraphPatchNode === "function"
         ? nodeGraphPatchNode(input.dataset.node)
         : null;
-      input.value = typeof nodeGraphPatchNodeTitle === "function"
+      input.textContent = typeof nodeGraphPatchNodeTitle === "function"
         ? nodeGraphPatchNodeTitle(patchNode || { id: input.dataset.node })
-        : input.value;
+        : nodeGraphModuleTitleFieldText(input);
     }
-    input.readOnly = true;
-    input.tabIndex = -1;
-    delete input.dataset.titleEditing;
+    nodeGraphModuleTitleFieldEndEdit(input);
   }
   if (commit && !revert && ids.length) {
     commitNodeGraphModuleTitleFromHeaderInput(ids[0], value, { multiIds: ids });
@@ -1398,11 +1536,14 @@ function endAllNodeGraphModuleTitleEdits({ commit = true, revert = false } = {})
 }
 
 /**
- * Begin rename on primaryInput. If that module is multi-selected, open a
- * rename session on every selected module (same alias applied on commit).
+ * Begin rename on the title label. Multi-select opens the same session on
+ * every selected module (same alias applied on commit).
  */
-function startNodeGraphModuleTitleEdit(primaryInput) {
-  if (!(primaryInput instanceof HTMLInputElement)) {
+function startNodeGraphModuleTitleEdit(primaryInput, pointerEvent = null) {
+  if (!(primaryInput instanceof HTMLElement)) {
+    return;
+  }
+  if (primaryInput.dataset.titleLocked === "1") {
     return;
   }
   const primaryId = String(primaryInput.dataset.node || "");
@@ -1416,29 +1557,33 @@ function startNodeGraphModuleTitleEdit(primaryInput) {
       ids = selected;
     }
   }
-  // Close any other title sessions first (commit their value).
   const already = nodeGraphModuleTitleInputsEditing();
   const alreadyIds = new Set(already.map((el) => el.dataset.node));
   if (already.length && ![...alreadyIds].every((id) => ids.includes(id))) {
     endAllNodeGraphModuleTitleEdits({ commit: true });
   }
   for (const id of ids) {
-    const input = id === primaryId
+    const field = id === primaryId
       ? primaryInput
       : nodeGraphModuleTitleInputForNodeId(id);
-    if (!(input instanceof HTMLInputElement)) {
+    if (!(field instanceof HTMLElement) || field.dataset.titleLocked === "1") {
       continue;
     }
-    input.readOnly = false;
-    input.tabIndex = 0;
-    input.dataset.titleEditing = "1";
+    nodeGraphModuleTitleFieldBeginEdit(field);
+  }
+  if (typeof textBoxWidgetPlaceCaretAtPoint === "function"
+    && Number.isFinite(Number(pointerEvent?.clientX))) {
+    textBoxWidgetPlaceCaretAtPoint(
+      primaryInput,
+      Number(pointerEvent.clientX),
+      Number(pointerEvent.clientY),
+    );
+    return;
   }
   try {
     primaryInput.focus({ preventScroll: true });
-    primaryInput.select();
   } catch {
     primaryInput.focus();
-    primaryInput.select();
   }
 }
 
@@ -1447,10 +1592,10 @@ function syncNodeGraphModuleTitleEditPeers(sourceInput) {
   if (!nodeGraphModuleTitleInputIsEditing(sourceInput)) {
     return;
   }
-  const value = sourceInput.value;
-  for (const input of nodeGraphModuleTitleInputsEditing()) {
-    if (input !== sourceInput && input.value !== value) {
-      input.value = value;
+  const value = nodeGraphModuleTitleFieldText(sourceInput);
+  for (const field of nodeGraphModuleTitleInputsEditing()) {
+    if (field !== sourceInput && nodeGraphModuleTitleFieldText(field) !== value) {
+      field.textContent = value;
     }
   }
 }

@@ -94,6 +94,14 @@ const nodeGraphUnifiedWindowPages = Object.freeze({
     icon: "⌨️",
     showInNav: true,
   }),
+  emoji: Object.freeze({
+    key: "emoji",
+    elementId: "nodeEmojiPage",
+    workspaceKey: "emoji",
+    label: "Emojis",
+    icon: "🕯️",
+    showInNav: true,
+  }),
 });
 
 // Module / Display / Parameter settings sit after Modules in the shared
@@ -108,10 +116,118 @@ const nodeGraphUnifiedWindowPageOrder = Object.freeze([
   "uiSettings",
   "visibilityMenu",
   "hotkeys",
+  "emoji",
 ]);
 
 function nodeGraphUnifiedWindowPageConfig(page = "") {
   return nodeGraphUnifiedWindowPages[String(page || "").trim()] || null;
+}
+
+// Shrink floor for every Command Center page. Match the main page
+// (nodeSceneContextWindowDefaultSize). CSS --node-unified-window-min-*
+// is written from this object — do not invent per-page mins.
+const nodeGraphUnifiedWindowMinSize = Object.freeze({
+  minWidth: 24,
+  minHeight: 120,
+});
+
+function nodeGraphUnifiedWindowMinBox() {
+  return nodeGraphUnifiedWindowMinSize;
+}
+
+function nodeGraphUnifiedWindowSizeLooksReal(size = {}) {
+  const width = Math.round(Number(size.width));
+  const height = Math.round(Number(size.height));
+  return width >= nodeGraphUnifiedWindowMinSize.minWidth
+    && height >= nodeGraphUnifiedWindowMinSize.minHeight;
+}
+
+function applyNodeGraphUnifiedWindowMinBoxToElement(element) {
+  if (!element?.style) {
+    return nodeGraphUnifiedWindowMinSize;
+  }
+  const { minWidth, minHeight } = nodeGraphUnifiedWindowMinSize;
+  element.style.minWidth = `${minWidth}px`;
+  element.style.minHeight = `${minHeight}px`;
+  return nodeGraphUnifiedWindowMinSize;
+}
+
+function applyNodeGraphUnifiedWindowShellSize(element, size = {}) {
+  if (!element) {
+    return null;
+  }
+  const mins = nodeGraphUnifiedWindowMinSize;
+  const rect = element.getBoundingClientRect?.();
+  const merged = {
+    width: Number(size.width) || Number(rect?.width) || mins.minWidth,
+    height: Number(size.height) || Number(rect?.height) || mins.minHeight,
+  };
+  const normalized = typeof normalizeNodeGraphFloatingWindowSize === "function"
+    ? normalizeNodeGraphFloatingWindowSize(
+      merged,
+      {
+        minWidth: mins.minWidth,
+        minHeight: mins.minHeight,
+        width: merged.width,
+        height: merged.height,
+      },
+      { element },
+    )
+    : {
+      width: Math.max(mins.minWidth, Math.round(merged.width)),
+      height: Math.max(mins.minHeight, Math.round(merged.height)),
+    };
+  applyNodeGraphUnifiedWindowMinBoxToElement(element);
+  if (typeof syncNodeGraphFloatingWindowInlineBox === "function") {
+    syncNodeGraphFloatingWindowInlineBox(element, normalized);
+  } else {
+    if (Number.isFinite(normalized.width)) {
+      element.style.width = `${normalized.width}px`;
+    }
+    if (Number.isFinite(normalized.height)) {
+      element.style.height = `${normalized.height}px`;
+    }
+  }
+  return {
+    width: normalized.width,
+    ...(Number.isFinite(normalized.height) ? { height: normalized.height } : {}),
+  };
+}
+
+function applyNodeGraphUnifiedWindowMinSizeCssVars() {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const root = document.documentElement;
+  if (!root) {
+    return;
+  }
+  root.style.setProperty("--node-unified-window-min-width", `${nodeGraphUnifiedWindowMinSize.minWidth}px`);
+  root.style.setProperty("--node-unified-window-min-height", `${nodeGraphUnifiedWindowMinSize.minHeight}px`);
+}
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", applyNodeGraphUnifiedWindowMinSizeCssVars, { once: true });
+  } else {
+    applyNodeGraphUnifiedWindowMinSizeCssVars();
+  }
+}
+
+function nodeGraphWorkspaceKeyIsUnifiedPage(key = "") {
+  return Boolean(nodeGraphUnifiedWindowPageConfig(String(key || "").trim()));
+}
+
+/** Apply the one shared seat. Never clamp — clamping is what crawls the window. */
+function applyNodeGraphUnifiedSeatToElement(element) {
+  if (!element) {
+    return false;
+  }
+  const pos = nodeGraphMvp?.unifiedWindowPosition;
+  if (!pos || !Number.isFinite(Number(pos.left)) || !Number.isFinite(Number(pos.top))) {
+    return false;
+  }
+  return applyNodeGraphUnifiedWindowPosition(element, pos);
 }
 
 function nodeGraphUnifiedWindowElement(page = "") {
@@ -198,7 +314,7 @@ function storeNodeGraphUnifiedWindowSeat(seat) {
   nodeGraphMvp.unifiedWindowPosition = { left, top };
   const width = Math.round(Number(seat.width));
   const height = Math.round(Number(seat.height));
-  if (width > 40 && height > 40) {
+  if (nodeGraphUnifiedWindowSizeLooksReal({ width, height })) {
     nodeGraphMvp.unifiedWindowSize = { width, height };
   }
   return {
@@ -285,19 +401,20 @@ function applyNodeGraphUnifiedWindowSize(element, pageKey = "", size = null) {
   }
   let width = Math.round(Number(source.width));
   let height = Math.round(Number(source.height));
-  if (!(width > 40) || !(height > 40)) {
+  const { minWidth, minHeight } = nodeGraphUnifiedWindowMinSize;
+  if (!nodeGraphUnifiedWindowSizeLooksReal({ width, height })) {
     return false;
   }
   // Cap by available view from this element's origin (not a fixed pixel max).
   if (typeof nodeGraphFloatingWindowAvailableBox === "function") {
     const available = nodeGraphFloatingWindowAvailableBox({}, { element });
-    width = Math.max(96, Math.min(width, available.maxWidth));
-    height = Math.max(120, Math.min(height, available.maxHeight));
+    width = Math.max(minWidth, Math.min(width, available.maxWidth));
+    height = Math.max(minHeight, Math.min(height, available.maxHeight));
   } else {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1200;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 800;
-    width = Math.max(96, Math.min(width, viewportWidth - 2));
-    height = Math.max(120, Math.min(height, viewportHeight - 2));
+    width = Math.max(minWidth, Math.min(width, viewportWidth - 2));
+    height = Math.max(minHeight, Math.min(height, viewportHeight - 2));
   }
   const box = { width, height };
 
@@ -319,11 +436,14 @@ function applyNodeGraphUnifiedWindowSize(element, pageKey = "", size = null) {
     applyNodeGraphVisibilityMenuSize(box, element);
   } else if (key === "hotkeys" && typeof applyNodeGraphHotkeysPageSize === "function") {
     applyNodeGraphHotkeysPageSize(box, element);
+  } else if (key === "emoji" && typeof applyNodeGraphEmojiPageSize === "function") {
+    applyNodeGraphEmojiPageSize(box, element);
   } else if (key === "uiSettings" && typeof applyNodeUserUiSettingsWindowSize === "function") {
     applyNodeUserUiSettingsWindowSize(box, element);
   }
 
   // Inline box wins over per-page default CSS so the seat never reflows.
+  applyNodeGraphUnifiedWindowMinBoxToElement(element);
   element.style.boxSizing = "border-box";
   element.style.width = `${width}px`;
   element.style.height = `${height}px`;
@@ -341,7 +461,7 @@ function seatNodeGraphUnifiedWindow(element, pageKey = "", seat = null) {
   const position = seat
     ? { left: seat.left, top: seat.top }
     : nodeGraphMvp.unifiedWindowPosition;
-  const size = (seat && seat.width > 40 && seat.height > 40)
+  const size = (seat && nodeGraphUnifiedWindowSizeLooksReal(seat))
     ? { width: seat.width, height: seat.height }
     : nodeGraphMvp.unifiedWindowSize;
   applyNodeGraphUnifiedWindowPosition(element, position);
@@ -436,6 +556,11 @@ function closeNodeGraphUnifiedWindowPage(page = "", options = {}) {
           setNodeGraphHotkeysPageOpen(false);
         }
         break;
+      case "emoji":
+        if (typeof setNodeGraphEmojiPageOpen === "function") {
+          setNodeGraphEmojiPageOpen(false);
+        }
+        break;
       default:
         break;
     }
@@ -487,6 +612,39 @@ function assertOnlyNodeGraphUnifiedWindowPageVisible(keepPage = "") {
   }
 }
 
+function restoreNodeGraphUnifiedWindowAfterWorkspaceStates() {
+  let page = String(nodeGraphMvp?.unifiedWindowPage || "").trim();
+  if (!nodeGraphUnifiedWindowPageConfig(page)) {
+    page = "";
+    const states = nodeGraphMvp?.workspaceWindowStates || {};
+    for (const key of nodeGraphUnifiedWindowPageOrder) {
+      if (states[key]?.open) {
+        page = key;
+        break;
+      }
+    }
+  }
+  if (!page) {
+    return;
+  }
+  if (!nodeGraphMvp.unifiedWindowPosition) {
+    const states = nodeGraphMvp?.workspaceWindowStates || {};
+    const fallback = states.commandCenter?.position || states[page]?.position;
+    if (fallback && Number.isFinite(Number(fallback.left)) && Number.isFinite(Number(fallback.top))) {
+      nodeGraphMvp.unifiedWindowPosition = {
+        left: Math.round(Number(fallback.left)),
+        top: Math.round(Number(fallback.top)),
+      };
+    }
+  }
+  if (String(nodeGraphMvp.unifiedWindowPresentation || "closed") === "closed") {
+    nodeGraphMvp.unifiedWindowPresentation = "open";
+  }
+  if (typeof openNodeGraphUnifiedWindowPage === "function") {
+    openNodeGraphUnifiedWindowPage(page, { force: true });
+  }
+}
+
 function markNodeGraphUnifiedWindowPage(page = "") {
   const key = String(page || "").trim();
   if (!nodeGraphUnifiedWindowPageConfig(key)) {
@@ -525,6 +683,18 @@ function focusNodeGraphUnifiedWindowPage(page = "") {
  * Open a unified page. Closes siblings, hands off the shared seat, seats once.
  * Re-opening the already-active page only pulses — never re-seats (no drift).
  */
+function announceNodeGraphUnifiedWindowPage(page = "") {
+  const key = String(page || "").trim();
+  const config = nodeGraphUnifiedWindowPageConfig(key);
+  const label = String(config?.label || "command center page").trim();
+  if (typeof noteNodeGraphCommandCenterPage === "function") {
+    noteNodeGraphCommandCenterPage(label);
+  }
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(label);
+  }
+}
+
 function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
   const key = String(page || "").trim();
   const config = nodeGraphUnifiedWindowPageConfig(key);
@@ -532,9 +702,14 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
     return false;
   }
 
+  const previous = String(nodeGraphMvp?.unifiedWindowPage || "").trim();
+
   // Same page already open → attention only. Re-applying the seat is what
   // nudged the window a few pixels on every nav click.
   if (!options.force && focusNodeGraphUnifiedWindowPage(key)) {
+    if (previous !== key) {
+      announceNodeGraphUnifiedWindowPage(key);
+    }
     return true;
   }
 
@@ -617,6 +792,9 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
       case "traceDisplaySettings": {
         // Selected display face(s) → open settings (multi-select aware).
         // Otherwise blank page: "Right-click on a display".
+        const fromActions = typeof nodeGraphModuleActionTargetNodeId === "function"
+          ? nodeGraphModuleActionTargetNodeId()
+          : "";
         const fromSelection = typeof nodeGraphTraceDisplaySettingsPrimaryFromSelection === "function"
           ? nodeGraphTraceDisplaySettingsPrimaryFromSelection()
           : (typeof nodeGraphSingleSelectedNodeId === "function"
@@ -624,8 +802,10 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
             : "");
         const nodeId = String(
           options.nodeId
+          || fromActions
           || fromSelection
           || nodeGraphMvp.sceneContextTargetNode
+          || nodeGraphMvp.lastModuleActionTargetNode
           || "",
         ).trim();
         const node = nodeId && typeof nodeGraphPatchNode === "function"
@@ -656,6 +836,11 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
           setNodeGraphHotkeysPageOpen(true);
         }
         break;
+      case "emoji":
+        if (typeof setNodeGraphEmojiPageOpen === "function") {
+          setNodeGraphEmojiPageOpen(true);
+        }
+        break;
       default:
         break;
     }
@@ -681,6 +866,9 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
   if (typeof applyNodeGraphUnifiedWindowPresentation === "function") {
     applyNodeGraphUnifiedWindowPresentation();
   }
+  if (previous !== key) {
+    announceNodeGraphUnifiedWindowPage(key);
+  }
   return Boolean(element && !element.hidden);
 }
 
@@ -695,10 +883,13 @@ function noteNodeGraphUnifiedWindowOpened(page = "", element = null) {
   }
 
   // Unified switcher already closed siblings and will seat after return.
+  // Page-change message is announced by openNodeGraphUnifiedWindowPage.
   if (nodeGraphMvp._unifiedWindowSwitching) {
     markNodeGraphUnifiedWindowPage(key);
     return;
   }
+
+  const previous = String(nodeGraphMvp?.unifiedWindowPage || "").trim();
 
   // Independent open (toolbar / hotkey / right-click that didn't use the switcher).
   captureNodeGraphUnifiedWindowSeat(key);
@@ -711,6 +902,9 @@ function noteNodeGraphUnifiedWindowOpened(page = "", element = null) {
   }
   assertOnlyNodeGraphUnifiedWindowPageVisible(key);
   markNodeGraphUnifiedWindowPage(key);
+  if (previous !== key) {
+    announceNodeGraphUnifiedWindowPage(key);
+  }
 }
 
 // ─── Command Center presentation (C) ────────────────────────────────────────
@@ -1094,9 +1288,6 @@ function handleNodeGraphUnifiedWindowNavClick(event) {
   }
   event.preventDefault();
   event.stopPropagation();
-  if (typeof noteNodeGraphCommandCenterPage === "function") {
-    noteNodeGraphCommandCenterPage();
-  }
   openNodeGraphUnifiedWindowPage(page);
 }
 
@@ -1279,6 +1470,17 @@ function syncNodeGraphUnifiedWindowNavBars() {
       page: "hotkeys",
       prepare(element) {
         const existing = element.querySelector("#nodeHotkeysUnifiedNavHost, :scope > .node-unified-window-nav-host");
+        if (existing) {
+          return existing;
+        }
+        return ensureNodeGraphUnifiedWindowNavHost(element);
+      },
+    },
+    {
+      elementId: "nodeEmojiPage",
+      page: "emoji",
+      prepare(element) {
+        const existing = element.querySelector("#nodeEmojiUnifiedNavHost, :scope > .node-unified-window-nav-host");
         if (existing) {
           return existing;
         }

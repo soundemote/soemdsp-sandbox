@@ -232,6 +232,30 @@ function nodeGraphAudioPlayerPlaylistPlayModeForLoop(loopMode) {
   return 4;
 }
 
+function nodeGraphAudioPlayerPlaylistUnbindCurrentSample(nodeId) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!node || node.type !== "audioPlayer") {
+    return;
+  }
+  delete node.sample;
+  node.samplePhase = 0;
+  nodeGraphMvp?.sampleLoadErrors?.delete?.(nodeId);
+  nodeGraphMvp?.sampleRuntimeStatus?.delete?.(nodeId);
+  nodeGraphMvp?.audioPlayerActualSpeeds?.delete?.(nodeId);
+  if (typeof nodeGraphAudioPlayerWriteTransport === "function") {
+    nodeGraphAudioPlayerWriteTransport(nodeId, 0);
+  }
+  if (typeof syncNodeGraphSampleDisplayForNode === "function") {
+    syncNodeGraphSampleDisplayForNode(nodeId);
+  }
+  if (typeof renderNodeGraphMissingSampleAssetsDialog === "function") {
+    renderNodeGraphMissingSampleAssetsDialog(nodeGraphMvp?.patch);
+  }
+  if (typeof scheduleNodeGraphLivePlanSync === "function") {
+    scheduleNodeGraphLivePlanSync("plan");
+  }
+}
+
 function nodeGraphAudioPlayerPlaylistClear(nodeId) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   if (!node || node.type !== "audioPlayer") {
@@ -242,6 +266,7 @@ function nodeGraphAudioPlayerPlaylistClear(nodeId) {
   pl.index = 0;
   pl.selectedIndex = 0;
   node.playlist = pl;
+  nodeGraphAudioPlayerPlaylistUnbindCurrentSample(nodeId);
   nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
   nodeGraphAudioPlayerPlaylistPersist(nodeId);
 }
@@ -265,10 +290,10 @@ function nodeGraphAudioPlayerPlaylistRemoveSelected(nodeId) {
   const sid = typeof normalizeNodeGraphSampleId === "function"
     ? normalizeNodeGraphSampleId(node.sample?.id)
     : String(node.sample?.id || "").trim();
-  if (removed && sid && removed.sampleId === sid) {
-    if (pl.items[pl.index]) {
-      nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, pl.index, { autoplay: false });
-    }
+  if (!pl.items.length) {
+    nodeGraphAudioPlayerPlaylistUnbindCurrentSample(nodeId);
+  } else if (removed && sid && removed.sampleId === sid) {
+    nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, pl.index, { autoplay: false });
   }
   nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
   nodeGraphAudioPlayerPlaylistPersist(nodeId);

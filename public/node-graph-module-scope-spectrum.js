@@ -190,8 +190,12 @@ const nodeGraphTraceDisplaySettingsWindowSize = Object.freeze({
   height: 620,
   maxHeight: 820,
   maxWidth: 760,
-  minHeight: 260,
-  minWidth: 24,
+  minHeight: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minHeight
+    : 120,
+  minWidth: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minWidth
+    : 24,
   width: 185,
 });
 

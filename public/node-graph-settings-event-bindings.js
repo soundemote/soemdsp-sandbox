@@ -59,6 +59,26 @@ function bindNodeGraphSettingsFormEvents() {
     });
     raw.addEventListener("scroll", refreshHighlight);
   }
+  const uiSettingsRaw = document.getElementById("nodeUiSettingsRawText");
+  if (uiSettingsRaw) {
+    uiSettingsRaw.addEventListener("input", () => {
+      if (typeof scheduleNodeUiDevSettingsScriptCommit === "function") {
+        scheduleNodeUiDevSettingsScriptCommit(uiSettingsRaw.value);
+      }
+    });
+    uiSettingsRaw.addEventListener("change", () => {
+      if (typeof commitNodeUiDevSettingsScript === "function") {
+        commitNodeUiDevSettingsScript(uiSettingsRaw.value);
+      }
+    });
+  }
+  for (const tab of document.querySelectorAll(".node-patch-script-tabs [data-book-script-page]")) {
+    tab.addEventListener("click", () => {
+      if (typeof setNodeGraphBookScriptPage === "function") {
+        setNodeGraphBookScriptPage(tab.dataset.bookScriptPage);
+      }
+    });
+  }
   for (const field of document.querySelectorAll("[data-patch-bank-name-field]")) {
     field.addEventListener("input", handleNodeGraphSavedPatchBankNameInput);
     field.addEventListener("change", commitNodeGraphSettingsHistory);

@@ -92,33 +92,15 @@ function setNodeGraphPatchDirtyState(state = "edited") {
 let nodeGraphWorkingPatchFileAutosaveTimer = 0;
 
 function scheduleNodeGraphWorkingPatchFileAutosave(text, options = {}) {
-  if (typeof postNodeUiDevSettingsPreset !== "function") {
-    return Promise.resolve(false);
-  }
-  if (nodeGraphWorkingPatchFileAutosaveTimer) {
-    window.clearTimeout(nodeGraphWorkingPatchFileAutosaveTimer);
-  }
-  if (options.immediate) {
-    nodeGraphWorkingPatchFileAutosaveTimer = 0;
-    return postNodeUiDevSettingsPreset(text).then(() => true).catch(() => {
-      // Local settings already saved when possible; file sync is a best-effort fallback.
-      return false;
-    });
-  }
-  nodeGraphWorkingPatchFileAutosaveTimer = window.setTimeout(() => {
-    nodeGraphWorkingPatchFileAutosaveTimer = 0;
-    postNodeUiDevSettingsPreset(text).catch(() => {
-      // Local settings already saved; file sync is best-effort while dragging.
-    });
-  }, 350);
-  return Promise.resolve(true);
+  void text;
+  void options;
+  // Working-patch restore is the session blob in localStorage, not the
+  // shipped useruisettings.json preset.
+  return Promise.resolve(false);
 }
 
 function saveNodeGraphWorkingPatchToUserSettings(options = {}) {
-  if (
-    typeof serializeNodeUiDevSettings !== "function" ||
-    typeof saveNodeUiDevLocalDefaultSettings !== "function"
-  ) {
+  if (typeof persistNodeGraphUserSession !== "function") {
     return false;
   }
   // Prefer live graph; fall back to last known working patch if patch is empty
@@ -138,11 +120,9 @@ function saveNodeGraphWorkingPatchToUserSettings(options = {}) {
   }
   nodeGraphMvp.workingPatch = cloneNodeGraphPatch(live);
   syncNodeGraphCurrentSavedPatchHeader();
-  const text = serializeNodeUiDevSettings();
-  const saved = saveNodeUiDevLocalDefaultSettings(text);
-  const fileSave = scheduleNodeGraphWorkingPatchFileAutosave(text, { immediate: Boolean(options.immediateFile) });
+  const saved = persistNodeGraphUserSession();
   if (options.returnFileSave) {
-    return Promise.resolve(fileSave).then((fileSaved) => ({ local: saved, file: Boolean(fileSaved) }));
+    return Promise.resolve({ local: saved, file: false });
   }
   return saved;
 }
@@ -165,16 +145,13 @@ if (typeof window !== "undefined" && !window.__nodeGraphWorkingPatchUnloadBound)
 }
 
 function clearNodeGraphWorkingPatchFromUserSettings() {
-  if (
-    typeof serializeNodeUiDevSettings !== "function" ||
-    typeof saveNodeUiDevLocalDefaultSettings !== "function"
-  ) {
+  if (typeof persistNodeGraphUserSession !== "function") {
     return false;
   }
   nodeGraphMvp.workingPatch = null;
   nodeGraphMvp.currentSavedPatchFilename = "";
   nodeGraphMvp.patchDirtyState = "untouched";
-  return saveNodeUiDevLocalDefaultSettings(serializeNodeUiDevSettings());
+  return persistNodeGraphUserSession();
 }
 
 function initNodeGraphPatchFromDefault() {

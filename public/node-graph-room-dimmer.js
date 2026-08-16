@@ -39,6 +39,7 @@
     "canvas.node-filter-curve-canvas",
     "canvas.node-raster-rgb-canvas",
     ".node-keypad-face",
+    ".node-text-box-body",
   ].join(", ");
   // Default mouse cutout size (CSS px); UI Dev can override.
   const HOVER_CURSOR_CUTOUT_CSS_DEFAULT = 56;
@@ -444,7 +445,7 @@ void main() {
     if (
       punchEl !== el
       && el.matches?.(
-        ".node-module-scope-window, .node-xy-pad, .node-number-readout-face, .node-knob-face, .node-ray-bouncer-face, .node-phosphor-waveform-display, [data-light-source], .node-light-source",
+        ".node-module-scope-window, .node-xy-pad, .node-number-readout-face, .node-knob-face, .node-ray-bouncer-face, .node-phosphor-waveform-display, .node-text-box-body, [data-light-source], .node-light-source",
       )
     ) {
       // Still mark shell seen so generic selectors don't double-add.

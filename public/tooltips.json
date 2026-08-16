@@ -22,7 +22,7 @@
     "backToFull": "return to full modular view"
   },
   "view": {
-    "patchSettings": "Patch settings",
+    "patchSettings": "Script page",
     "midiKeyboardDevelopment": "show or hide the mouse-playable keyboard panel",
     "switchView": "click to switch view",
     "infiniteModular": "Computer view — infinite canvas, no crop (V)",

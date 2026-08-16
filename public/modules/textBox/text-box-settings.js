@@ -18,7 +18,7 @@ function nodeGraphTextBoxDisplaySliderDefaults() {
     ? normalizeNodeGraphTextBoxLayout()
     : {
       textSizePercent: 100,
-      verticalAlignPercent: 50,
+      verticalAlignPercent: 0,
     };
 }
 
@@ -32,7 +32,6 @@ function buildNodeGraphTextBoxDisplaySettingsBodyHtml() {
         <span>Mode</span>
         <button type="button" data-textbox-mode="singleLine" aria-pressed="true">Single</button>
         <button type="button" data-textbox-mode="multiline" aria-pressed="false">Multi</button>
-        <button type="button" data-textbox-mode="fill" aria-pressed="false">Fill</button>
       </div>
       <div class="node-led-settings-row" role="group" aria-label="Horizontal align">
         <span>Align</span>
@@ -42,7 +41,7 @@ function buildNodeGraphTextBoxDisplaySettingsBodyHtml() {
       </div>
       <label class="node-led-settings-row">
         <span>Vertical</span>
-        <input type="range" min="-50" max="150" step="1" data-textbox-field="verticalAlignPercent" aria-label="Vertical position −50–150">
+        <input type="range" min="-100" max="100" step="1" data-textbox-field="verticalAlignPercent" aria-label="Vertical position −100–100">
         <span>%</span>
       </label>
       <label class="node-led-settings-row">
@@ -65,9 +64,7 @@ function syncNodeGraphTextBoxDisplaySettingsControls(root, settings) {
       el.value = String(settings[key] ?? "");
     }
   }
-  const mode = settings.textMode === "multiline" || settings.textMode === "fill"
-    ? settings.textMode
-    : "singleLine";
+  const mode = settings.textMode === "multiline" ? "multiline" : "singleLine";
   for (const button of root.querySelectorAll?.("[data-textbox-mode]") || []) {
     const on = button.getAttribute("data-textbox-mode") === mode;
     button.classList.toggle("active", on);

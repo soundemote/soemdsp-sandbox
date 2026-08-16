@@ -140,8 +140,7 @@ function bindNodeGraphHeaderControlEvents() {
   document.getElementById("nodeGridToggleButton").addEventListener("click", toggleNodeGraphGridVisibility);
   document.getElementById("nodeGridLightToggleButton")
     ?.addEventListener("click", toggleNodeGraphGridLightVisibility);
-  document.getElementById("nodeWiringChromeToggleButton")
-    ?.addEventListener("click", toggleNodeGraphWiringChromeVisibility);
+
   document.getElementById("nodeWireLengthsToggleButton")
     ?.addEventListener("click", toggleNodeGraphWireLengthsVisibility);
   document.getElementById("nodeWiresAboveModulesToggleButton")

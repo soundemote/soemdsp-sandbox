@@ -128,7 +128,34 @@ function nodeGraphNativeModuleRefIsUnderConstruction(ref = {}) {
 }
 
 const nodeGraphModuleGroupStorageKey = "soemdsp-sandbox.moduleGroups.v1";
-const nodeGraphModuleCatalogVisibilityStorageKey = "soemdsp-sandbox.moduleCatalogVisibility.v2";
+const nodeGraphModuleCatalogVisibilityStorageKey = "soemdsp-sandbox.moduleCatalogVisibility.v3";
+const nodeGraphModuleCatalogVisibilityLegacyStorageKey = "soemdsp-sandbox.moduleCatalogVisibility.v2";
+const nodeGraphModuleCatalogShelfIds = Object.freeze([
+  "home",
+  "inventory",
+  "quickslot",
+  "usersort1",
+  "usersort2",
+  "usersort3",
+  "usersort4",
+  "usersort5",
+  "usersort6",
+  "usersort7",
+  "usersort8",
+  "usersort9",
+  "usersort10",
+  "gamesort1",
+  "gamesort2",
+  "gamesort3",
+  "gamesort4",
+  "gamesort5",
+  "gamesort6",
+  "gamesort7",
+  "gamesort8",
+  "gamesort9",
+  "gamesort10",
+]);
+const nodeGraphModuleCatalogShelfIdSet = Object.freeze(new Set(nodeGraphModuleCatalogShelfIds));
 
 // Unified module department definitions — single source of truth for
 // emoji, display label, ad copy, and backward-compatible alias resolution.
@@ -1888,55 +1915,81 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
 });
 
 function defaultNodeGraphModuleCatalogVisibility() {
-  return Object.fromEntries(
-    nodeGraphModuleStoreTypesList().map((type) => [
-      type,
-      {
-        developer: true,
-        home: false,
-      },
-    ]),
-  );
+  return {};
+}
+
+function nodeGraphModuleCatalogLooksLegacy(value = {}) {
+  const keys = Object.keys(value);
+  if (!keys.length) {
+    return false;
+  }
+  if (keys.some((key) => nodeGraphModuleCatalogShelfIdSet.has(key))) {
+    return false;
+  }
+  const first = value[keys[0]];
+  return Boolean(first && typeof first === "object" && !Array.isArray(first));
+}
+
+function nodeGraphModuleCatalogNormalizeTypeList(raw, validTypes) {
+  if (!Array.isArray(raw) || !raw.length) {
+    return [];
+  }
+  const types = [];
+  const seen = new Set();
+  for (const item of raw) {
+    const type = String(item || "").trim();
+    if (!type || seen.has(type) || !validTypes.has(type)) {
+      continue;
+    }
+    seen.add(type);
+    types.push(type);
+  }
+  return types;
 }
 
 function normalizeNodeGraphModuleCatalogVisibility(value = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  return Object.fromEntries(
-    nodeGraphModuleStoreTypesList().map((type) => {
-      const entry = source[type];
-      if (entry && typeof entry === "object" && !Array.isArray(entry)) {
-        return [
-          type,
-          {
-            developer: entry.developer !== false && entry.shop !== false,
-            home: entry.home === true,
-          },
-        ];
-      }
-      return [
-        type,
-        {
-          developer: entry !== false,
-          home: false,
-        },
-      ];
-    }),
+  const validTypes = new Set(
+    typeof nodeGraphModuleStoreTypesList === "function" ? nodeGraphModuleStoreTypesList() : [],
   );
+  const shelves = {};
+  if (nodeGraphModuleCatalogLooksLegacy(source)) {
+    const home = [];
+    for (const [type, entry] of Object.entries(source)) {
+      if (!validTypes.has(type) || !entry || typeof entry !== "object" || Array.isArray(entry)) {
+        continue;
+      }
+      if (entry.home === true) {
+        home.push(type);
+      }
+    }
+    if (home.length) {
+      shelves.home = home;
+    }
+    return shelves;
+  }
+  for (const shelf of nodeGraphModuleCatalogShelfIds) {
+    const types = nodeGraphModuleCatalogNormalizeTypeList(source[shelf], validTypes);
+    if (types.length) {
+      shelves[shelf] = types;
+    }
+  }
+  return shelves;
 }
 
 function nodeGraphModuleCatalogVisibility() {
   return normalizeNodeGraphModuleCatalogVisibility(nodeGraphMvp.moduleCatalogVisibility);
 }
 
-function nodeGraphModuleIsStoreVisible(type, shelf = "shop") {
-  const visibility = nodeGraphModuleCatalogVisibility()[type];
-  if (shelf === "developer") {
-    return visibility?.developer !== false;
+function nodeGraphModuleIsStoreVisible(type, shelf = "home") {
+  if (shelf === "developer" || shelf === "shop") {
+    return true;
   }
-  if (shelf === "home") {
-    return visibility?.home === true;
+  if (!nodeGraphModuleCatalogShelfIdSet.has(shelf)) {
+    return false;
   }
-  return true;
+  const list = nodeGraphModuleCatalogVisibility()[shelf];
+  return Array.isArray(list) && list.includes(type);
 }
 
 function applyNodeGraphModuleCatalogVisibility(value = {}) {
@@ -1949,7 +2002,8 @@ function loadNodeGraphModuleCatalogVisibilityLocal() {
     return null;
   }
   try {
-    const text = window.localStorage.getItem(nodeGraphModuleCatalogVisibilityStorageKey);
+    const text = window.localStorage.getItem(nodeGraphModuleCatalogVisibilityStorageKey)
+      || window.localStorage.getItem(nodeGraphModuleCatalogVisibilityLegacyStorageKey);
     if (!text) {
       return null;
     }
@@ -2780,7 +2834,6 @@ function nodeGraphModuleStoreEntries() {
       const implemented =
         Object.hasOwn(nodeGraphModuleDefinitions, type) &&
         !nodeGraphModuleStoreUnderConstructionTypes.has(type);
-      const developerVisible = nodeGraphModuleIsStoreVisible(type, "developer");
       const developerOnly = nodeGraphModuleStoreCatalog[type]?.developerOnly === true;
       const catalogHidden = nodeGraphModuleStoreCatalog[type]?.hidden === true;
       const publicVisible = !developerOnly && !catalogHidden;
@@ -2791,7 +2844,7 @@ function nodeGraphModuleStoreEntries() {
         demoPatch: nodeGraphModuleStoreDemoPatchAvailable(type),
         demoListen: nodeGraphModuleStoreDemoListenAvailable(type),
         developerOnly,
-        developerVisible: developerVisible && !catalogHidden,
+        developerVisible: !catalogHidden,
         homeVisible: nodeGraphModuleIsStoreVisible(type, "home") && implemented && !catalogHidden,
         implemented,
         label: nodeGraphModuleStoreCatalog[type]?.label || nodeGraphNodeLabels[type] || type,
@@ -2803,19 +2856,28 @@ function nodeGraphModuleStoreEntries() {
     });
 }
 
-function setNodeGraphModuleCatalogVisibility(type, visible, shelf = "shop") {
+function setNodeGraphModuleCatalogVisibility(type, visible, shelf = "home") {
   if (!Object.hasOwn(nodeGraphModuleDefinitions || {}, type)) {
     return;
   }
-  const key = shelf === "home" ? "home" : "developer";
+  if (!nodeGraphModuleCatalogShelfIdSet.has(shelf)) {
+    return;
+  }
   const current = nodeGraphModuleCatalogVisibility();
-  nodeGraphMvp.moduleCatalogVisibility = {
-    ...current,
-    [type]: {
-      ...(current[type] || { developer: true, home: false }),
-      [key]: Boolean(visible),
-    },
-  };
+  const next = { ...current };
+  const list = Array.isArray(next[shelf]) ? [...next[shelf]] : [];
+  const index = list.indexOf(type);
+  if (visible && index < 0) {
+    list.push(type);
+  } else if (!visible && index >= 0) {
+    list.splice(index, 1);
+  }
+  if (list.length) {
+    next[shelf] = list;
+  } else {
+    delete next[shelf];
+  }
+  nodeGraphMvp.moduleCatalogVisibility = normalizeNodeGraphModuleCatalogVisibility(next);
   saveNodeGraphModuleCatalogVisibilityLocal();
   renderNodeGraphModuleStoreCatalog();
 }
@@ -2844,11 +2906,8 @@ function setNodeGraphModuleStoreDepartment(department = "") {
 }
 
 function saveNodeGraphModuleStoreStateToUserSettings() {
-  if (
-    typeof serializeNodeUiDevSettings === "function" &&
-    typeof saveNodeUiDevLocalDefaultSettings === "function"
-  ) {
-    saveNodeUiDevLocalDefaultSettings(serializeNodeUiDevSettings());
+  if (typeof persistNodeGraphUserSession === "function") {
+    persistNodeGraphUserSession();
   }
 }
 
@@ -3005,9 +3064,13 @@ function nodeGraphModuleStorePublicEntriesByDepartment(entries = []) {
 const nodeGraphModuleShopWindowDefaultSize = Object.freeze({
   width: 180,
   height: 620,
-  minWidth: 96,
+  minWidth: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minWidth
+    : 24,
   maxWidth: 980,
-  minHeight: 120,
+  minHeight: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minHeight
+    : 120,
   // Height max = available view from window top (no fixed ceiling).
 });
 

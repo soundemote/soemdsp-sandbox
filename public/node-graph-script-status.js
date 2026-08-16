@@ -132,3 +132,53 @@ function clearNodeGraphScriptBlockedActions() {
   clearNodeGraphRenderScriptBlock();
   clearNodeGraphLiveScriptBlock();
 }
+
+function clearNodeUiDevSettingsScriptCommitTimer() {
+  if (!nodeGraphMvp.uiSettingsScriptCommitTimer) {
+    return;
+  }
+  window.clearTimeout(nodeGraphMvp.uiSettingsScriptCommitTimer);
+  nodeGraphMvp.uiSettingsScriptCommitTimer = 0;
+}
+
+function commitNodeUiDevSettingsScript(text) {
+  if (typeof loadNodeUiDevSettingsFromScript !== "function" || typeof applyNodeUiDevSettings !== "function") {
+    return false;
+  }
+  try {
+    applyNodeUiDevSettings(loadNodeUiDevSettingsFromScript(text));
+    nodeGraphMvp.uiSettingsScriptDirty = false;
+    setNodeGraphScriptStatus("ui settings script applied", true);
+    return true;
+  } catch (error) {
+    nodeGraphMvp.uiSettingsScriptDirty = true;
+    setNodeGraphScriptStatus(error.message, false);
+    if (typeof setNodeUiDevSettingsStatus === "function") {
+      setNodeUiDevSettingsStatus(error.message, false);
+    }
+    return false;
+  }
+}
+
+function scheduleNodeUiDevSettingsScriptCommit(text) {
+  clearNodeUiDevSettingsScriptCommitTimer();
+  nodeGraphMvp.uiSettingsScriptDirty = true;
+  setNodeGraphScriptStatus("ui settings script editing", true);
+  nodeGraphMvp.uiSettingsScriptCommitTimer = window.setTimeout(() => {
+    nodeGraphMvp.uiSettingsScriptCommitTimer = 0;
+    commitNodeUiDevSettingsScript(text);
+  }, nodeGraphMvp.scriptCommitDelayMs);
+}
+
+function flushNodeUiDevSettingsScriptCommit() {
+  if (!nodeGraphMvp.uiSettingsScriptCommitTimer) {
+    return !nodeGraphMvp.uiSettingsScriptDirty;
+  }
+  clearNodeUiDevSettingsScriptCommitTimer();
+  const raw = document.getElementById("nodeUiSettingsRawText");
+  if (raw && nodeGraphMvp.uiSettingsScriptDirty) {
+    return commitNodeUiDevSettingsScript(raw.value);
+  }
+  nodeGraphMvp.uiSettingsScriptDirty = false;
+  return true;
+}

@@ -40,20 +40,20 @@ const nodeSceneContextWindowDefaultSize = Object.freeze({
   // Content-height cold open (no fixed tall box full of empty chrome).
   // User resize / unified seat still pin an explicit height when set.
   // height omitted → CSS height:auto from content.
-  minWidth: 24,
+  minWidth: nodeGraphUnifiedWindowMinSize.minWidth,
   // Match module-browser max so the unified floating window can keep one size
   // when switching Command Center ↔ Modules without clamping narrower.
   maxWidth: 980,
-  minHeight: 120,
+  minHeight: nodeGraphUnifiedWindowMinSize.minHeight,
   // Height max is available view space from the window top (no fixed ceiling).
 });
 
 const nodeModuleActionsWindowDefaultSize = Object.freeze({
   width: 185,
   height: 620,
-  minWidth: 24,
+  minWidth: nodeGraphUnifiedWindowMinSize.minWidth,
   maxWidth: 980,
-  minHeight: 120,
+  minHeight: nodeGraphUnifiedWindowMinSize.minHeight,
 });
 
 // pulseNodeGraphFloatingWindowAttention moved to node-graph-floating-windows.js
@@ -102,20 +102,29 @@ function syncNodeGraphFloatingWindowInlineBox(element, size = {}) {
   }
   const width = Math.round(Number(size.width));
   const height = Math.round(Number(size.height));
-  if (width > 40) {
+  const minWidth = typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minWidth
+    : 24;
+  const minHeight = typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+    ? nodeGraphUnifiedWindowMinSize.minHeight
+    : 120;
+  if (width >= minWidth) {
     element.style.width = `${width}px`;
   }
-  if (height > 40) {
+  if (height >= minHeight) {
     element.style.height = `${height}px`;
   }
-  if (width > 40 || height > 40) {
+  if (width >= minWidth || height >= minHeight) {
     element.style.boxSizing = "border-box";
     // Clear CSS max-* so authored maxHeight vars cannot block stretch once
     // the user has an explicit box (still clamped in normalize to viewport).
     element.style.maxWidth = "none";
     element.style.maxHeight = "none";
   }
-  if (width > 40 && height > 40 && nodeGraphMvp) {
+  if (typeof applyNodeGraphUnifiedWindowMinBoxToElement === "function") {
+    applyNodeGraphUnifiedWindowMinBoxToElement(element);
+  }
+  if (width >= minWidth && height >= minHeight && nodeGraphMvp) {
     nodeGraphMvp.unifiedWindowSize = { width, height };
   }
 }
@@ -472,6 +481,14 @@ function positionNodeSceneContextMenuAtCurrentSavedOrInitial(menu, x, y) {
 }
 
 function positionNodeSceneContextMenuAtSavedOr(menu, x, y) {
+  const unified = nodeGraphMvp.unifiedWindowPosition;
+  if (typeof applyNodeGraphUnifiedSeatToElement === "function"
+    && unified
+    && Number.isFinite(Number(unified.left))
+    && Number.isFinite(Number(unified.top))) {
+    applyNodeGraphUnifiedSeatToElement(menu);
+    return;
+  }
   const workspaceState = nodeGraphMvp.workspaceWindowStates?.commandCenter;
   const savedPosition = workspaceState?.position;
   const hasSavedPosition = typeof nodeGraphFloatingWindowSavedPositionIsUsable === "function"
@@ -887,24 +904,34 @@ function showNodeModuleActionsWindow(anchorRect = null) {
     bottom: window.innerHeight * 0.25,
   };
   nodeGraphMvp.sharedInspectorActive = "moduleActions";
-  positionNodeModuleActionsWindowAtSavedOr(
-    menu,
-    Number.isFinite(Number(pending?.left))
-      ? pending.left
-      : Number.isFinite(Number(replacementRect?.left))
-      ? replacementRect.left
-      : Number.isFinite(Number(rect.right))
-      ? rect.right + 8
-      : window.innerWidth * 0.5,
-    Number.isFinite(Number(pending?.top))
-      ? pending.top
-      : Number.isFinite(Number(replacementRect?.top))
-      ? replacementRect.top
-      : Number.isFinite(Number(rect.top))
-      ? rect.top
-      : Number(rect.bottom) || window.innerHeight * 0.25,
-  );
-  menu.hidden = false;
+  if (nodeGraphMvp._unifiedWindowSwitching) {
+    menu.hidden = false;
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(menu);
+    }
+  } else if (typeof applyNodeGraphUnifiedSeatToElement === "function"
+    && applyNodeGraphUnifiedSeatToElement(menu)) {
+    menu.hidden = false;
+  } else {
+    positionNodeModuleActionsWindowAtSavedOr(
+      menu,
+      Number.isFinite(Number(pending?.left))
+        ? pending.left
+        : Number.isFinite(Number(replacementRect?.left))
+        ? replacementRect.left
+        : Number.isFinite(Number(rect.right))
+        ? rect.right + 8
+        : window.innerWidth * 0.5,
+      Number.isFinite(Number(pending?.top))
+        ? pending.top
+        : Number.isFinite(Number(replacementRect?.top))
+        ? replacementRect.top
+        : Number.isFinite(Number(rect.top))
+        ? rect.top
+        : Number(rect.bottom) || window.innerHeight * 0.25,
+    );
+    menu.hidden = false;
+  }
   syncNodeModuleActionsWindowHeightLimit();
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState("moduleActions", menu, { open: true }, { status: false });
@@ -1168,7 +1195,6 @@ function configureNodeSceneContextMenu(mode) {
   const textBoxControls = document.getElementById("nodeSceneTextBoxControls");
   const textBoxSingleLine = document.getElementById("nodeSceneTextBoxSingleLine");
   const textBoxMultiline = document.getElementById("nodeSceneTextBoxMultiline");
-  const textBoxFill = document.getElementById("nodeSceneTextBoxFill");
   const textBoxHorizontalAlignControls = document.getElementById("nodeSceneTextBoxHorizontalAlignControls");
   const textBoxAlignLeft = document.getElementById("nodeSceneTextBoxAlignLeft");
   const textBoxAlignCenter = document.getElementById("nodeSceneTextBoxAlignCenter");
@@ -1970,13 +1996,8 @@ function configureNodeSceneContextMenu(mode) {
     }
     textBoxSingleLine?.setAttribute("aria-pressed", textBoxMode === "singleLine" ? "true" : "false");
     textBoxMultiline?.setAttribute("aria-pressed", textBoxMode === "multiline" ? "true" : "false");
-    textBoxFill?.setAttribute("aria-pressed", textBoxMode === "fill" ? "true" : "false");
     if (textBoxSingleLine) textBoxSingleLine.title = nodeGraphTooltipText("actions.textBoxSingleLine") || "Single line";
-    if (textBoxMultiline) textBoxMultiline.title = nodeGraphTooltipText("actions.textBoxMultiline") || "Multiline (fixed size; shrink if too wide)";
-    if (textBoxFill) {
-      textBoxFill.title = nodeGraphTooltipText("actions.textBoxFill")
-        || "Fill — multiline text grows or shrinks to use the available face";
-    }
+    if (textBoxMultiline) textBoxMultiline.title = nodeGraphTooltipText("actions.textBoxMultiline") || "Multiline (wraps in the face)";
     textBoxTextInput.disabled = !targetNode || !targetSupportsTextBoxHeight;
     if (document.activeElement !== textBoxTextInput) {
       textBoxTextInput.value = targetSupportsTextBoxHeight ? textBoxLayout.text : "";
@@ -2383,6 +2404,7 @@ const nodeGraphWorkspaceFloatingUiSelector =
   "#nodePhosphorWaveformSettingsWindow, #nodeModuleShopView, " +
   "#nodeTraceDisplaySettingsPopover, #nodeUserUiSettingsPanel, #nodeUiDevHelper, " +
   "#nodeVisibilityMenu, #nodePatchDefaultsPanel, #nodeStandaloneMidiKeyboardDock, " +
+  "#nodeHotkeysPage, #nodeEmojiPage, " +
   ".node-floating-window-surface";
 // Legacy alias: includes form fields for empty-canvas / marquee checks only.
 const nodeGraphWorkspaceInteractiveDialogSelector =
@@ -2409,6 +2431,80 @@ function nodeGraphEventTargetIsEmptyWorkspaceArea(event) {
     return false;
   }
   return true;
+}
+
+function nodeGraphCssColorForSvgStroke(value) {
+  const text = String(value || "").trim();
+  if (/^#[0-9a-fA-F]{3,8}$/.test(text)) {
+    return text;
+  }
+  if (/^(?:rgb|hsl)a?\([^)]+\)$/.test(text)) {
+    return text;
+  }
+  return "rgb(0 208 255)";
+}
+
+function nodeGraphWorkspaceSnakeCircleCursorValue() {
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  const style = workspace ? getComputedStyle(workspace) : null;
+  const color = nodeGraphCssColorForSvgStroke(
+    style?.getPropertyValue("--node-selection-hit-trail-color") || "rgb(0 208 255)",
+  );
+  const alphaRaw = Number(style?.getPropertyValue("--node-selection-hit-trail-alpha"));
+  const alpha = Number.isFinite(alphaRaw) ? Math.max(0, Math.min(1, alphaRaw)) : 0.95;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="11" fill="none" stroke="${color}" stroke-width="2" opacity="${alpha}"/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 16 16, crosshair`;
+}
+
+function syncNodeGraphWorkspaceSnakeCircleCursor() {
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  if (!workspace) {
+    return;
+  }
+  workspace.style.setProperty("--node-selection-hit-trail-cursor", nodeGraphWorkspaceSnakeCircleCursorValue());
+}
+
+function setNodeGraphWorkspaceSnakeCircleCursor(on) {
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  if (nodeGraphMvp) {
+    nodeGraphMvp.snakeCircleCursor = Boolean(on);
+    if (!on) {
+      nodeGraphMvp.snakeCircleCursorPointerId = null;
+    }
+  }
+  if (!workspace) {
+    return;
+  }
+  if (on) {
+    syncNodeGraphWorkspaceSnakeCircleCursor();
+  }
+  workspace.classList.toggle("snake-circle-cursor", Boolean(on));
+}
+
+function handleNodeGraphWorkspaceSnakeCircleCursorPointerDown(event) {
+  if (event.button !== 2 || !nodeGraphEventTargetIsEmptyWorkspaceArea(event)) {
+    return;
+  }
+  event.preventDefault();
+  if (nodeGraphMvp) {
+    nodeGraphMvp.snakeCircleCursorPointerId = event.pointerId;
+  }
+  setNodeGraphWorkspaceSnakeCircleCursor(true);
+  event.currentTarget?.setPointerCapture?.(event.pointerId);
+}
+
+function handleNodeGraphWorkspaceSnakeCircleCursorPointerUp(event) {
+  if (event.button !== 2) {
+    return;
+  }
+  const held = nodeGraphMvp?.snakeCircleCursorPointerId;
+  if (held != null && event.pointerId !== held) {
+    return;
+  }
+  if (nodeGraphMvp) {
+    nodeGraphMvp.snakeCircleCursorPointerId = null;
+  }
+  setNodeGraphWorkspaceSnakeCircleCursor(false);
 }
 
 function openNodeSceneContextMenu(event) {
@@ -2487,7 +2583,7 @@ function openNodeSceneContextMenu(event) {
   }
 
   // Anywhere on a module (ports, inputs, body, header) → Module Settings.
-  // Never Module Browser. Shared with title dblclick / gear action button.
+  // Never Module Browser. Shared with the gear action button.
   if (openNodeGraphModuleSettingsFromContextEvent(event, onModule)) {
     return;
   }
@@ -2500,17 +2596,6 @@ function openNodeSceneContextMenu(event) {
   nodeGraphMvp.sceneContextPoint = nodeGraphClientPoint(event);
   nodeGraphMvp.sceneContextTargetNode = null;
   nodeGraphMvp.sceneContextTargetWire = null;
-  clearNodeGraphSelection();
-  // Right-click empty modular background only. Top/bottom bars and floating
-  // windows (UI Settings, UIDEV, …) never open the Module Browser.
-  if (typeof openNodeGraphUnifiedWindowPage === "function") {
-    openNodeGraphUnifiedWindowPage("moduleBrowser", {
-      point: nodeGraphMvp.sceneContextPoint,
-      windowPoint: { x: event.clientX, y: event.clientY },
-    });
-    return;
-  }
-  openNodeGraphModuleShop(nodeGraphMvp.sceneContextPoint, { x: event.clientX, y: event.clientY });
 }
 
 // Command Center open path (toolbar rocket / "C" hotkey / unified switcher).

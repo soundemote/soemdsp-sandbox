@@ -394,7 +394,7 @@ function nodeGraphPortWireColor(node, port, io) {
     }
   }
   if (io === "input") {
-    return nodeGraphCssColor("--node-input-fill", "#7fc7d9");
+    return nodeGraphCssColor("--node-input-fill", "#e2a86d");
   }
   if (io === "modulation") {
     return nodeGraphCssColor("--node-mod-input-fill", "#b184ff");

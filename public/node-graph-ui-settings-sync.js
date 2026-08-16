@@ -44,6 +44,9 @@ function syncNodeUiDevSnakeSelectColor() {
   workspace.style.setProperty("--node-selection-hit-trail-color", css);
   workspace.style.setProperty("--node-selection-hit-trail-alpha", String(alpha / 100));
   document.documentElement.style.setProperty("--node-selection-hit-trail-alpha", String(alpha / 100));
+  if (typeof syncNodeGraphWorkspaceSnakeCircleCursor === "function") {
+    syncNodeGraphWorkspaceSnakeCircleCursor();
+  }
   const hueOut = document.getElementById("nodeUiDevSnakeSelectHueValue");
   if (hueOut) {
     hueOut.textContent = `${hue}deg`;
@@ -118,6 +121,41 @@ function bindNodeUiDevWiresFollowPortColors() {
   syncNodeUiDevWiresFollowPortColors();
 }
 
+function nodeGraphFullyOpaqueWires() {
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp && typeof nodeGraphMvp.fullyOpaqueWires === "boolean") {
+    return nodeGraphMvp.fullyOpaqueWires;
+  }
+  const input = typeof document !== "undefined"
+    ? document.getElementById("nodeUiDevFullyOpaqueWires")
+    : null;
+  return Boolean(input?.checked);
+}
+
+function syncNodeUiDevFullyOpaqueWires() {
+  const input = document.getElementById("nodeUiDevFullyOpaqueWires");
+  const on = input ? Boolean(input.checked) : false;
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.fullyOpaqueWires = on;
+  }
+  if (typeof drawNodeGraphWires === "function") {
+    drawNodeGraphWires();
+  }
+}
+
+function bindNodeUiDevFullyOpaqueWires() {
+  const input = document.getElementById("nodeUiDevFullyOpaqueWires");
+  if (input && input.dataset.fullyOpaqueWiresBound !== "true") {
+    input.dataset.fullyOpaqueWiresBound = "true";
+    input.addEventListener("change", () => {
+      syncNodeUiDevFullyOpaqueWires();
+      if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
+        scheduleNodeUiDevSettingsAutosave();
+      }
+    });
+  }
+  syncNodeUiDevFullyOpaqueWires();
+}
+
 function bindNodeUiDevSliderFillColorControls() {
   for (const target of nodeUiDevSliderFillColorTargets) {
     for (const suffix of ["Hue", "Saturation", "Lightness", "Alpha"]) {
@@ -142,6 +180,7 @@ function bindNodeUiDevSliderFillColorControls() {
   syncNodeUiDevSliderFillColorControls();
   syncNodeUiDevSnakeSelectColor();
   bindNodeUiDevWiresFollowPortColors();
+  bindNodeUiDevFullyOpaqueWires();
 }
 
 // Unselected plate outline. CSS-only — do not fold into the header sync
@@ -375,46 +414,94 @@ function syncNodeUiDevGridDivisionMultiply() {
   }
 }
 
-function syncNodeUiDevOutletRgbBrightness() {
-  const input = document.getElementById("nodeUiDevOutletRgbBrightness");
+function nodeUiDevSyncPortBrightnessControl(inputId, outputId, cssVar, fallback) {
+  const input = document.getElementById(inputId);
   const raw = Number(input?.value);
   const brightness = Number.isFinite(raw)
     ? Math.max(0, Math.min(1, raw))
-    : 0.75;
+    : fallback;
   if (input) {
     input.value = String(brightness);
   }
-  const output = document.getElementById("nodeUiDevOutletRgbBrightnessValue");
+  const output = document.getElementById(outputId);
   if (output) {
     output.textContent = brightness.toFixed(2);
   }
-  const workspace = document.getElementById("nodeGraphWorkspace");
   const css = `${Math.round(brightness * 100)}%`;
-  workspace?.style.setProperty("--node-jack-rgb-brightness", css);
-  document.documentElement.style.setProperty("--node-jack-rgb-brightness", css);
-  workspace?.style.setProperty("--node-outlet-rgb-brightness", css);
-  document.documentElement.style.setProperty("--node-outlet-rgb-brightness", css);
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  workspace?.style.setProperty(cssVar, css);
+  document.documentElement.style.setProperty(cssVar, css);
 }
 
-function syncNodeUiDevInletBlueBrightness() {
-  const input = document.getElementById("nodeUiDevInletBlueBrightness");
+function syncNodeUiDevIoSectionPadding() {
+  const apply = (inputId, outputId, cssVar, fallback) => {
+    const input = document.getElementById(inputId);
+    const raw = Number(input?.value);
+    const px = Number.isFinite(raw) ? Math.max(0, Math.min(32, raw)) : fallback;
+    if (input && input.value !== String(px)) {
+      input.value = String(px);
+    }
+    const output = document.getElementById(outputId);
+    if (output) {
+      output.textContent = `${Math.round(px)}px`;
+    }
+    const css = `${Math.round(px)}px`;
+    const workspace = document.getElementById("nodeGraphWorkspace");
+    workspace?.style.setProperty(cssVar, css);
+    document.documentElement.style.setProperty(cssVar, css);
+  };
+  apply(
+    "nodeUiDevIoSectionPaddingTop",
+    "nodeUiDevIoSectionPaddingTopValue",
+    "--node-io-section-padding-top",
+    0,
+  );
+  apply(
+    "nodeUiDevIoSectionPaddingBottom",
+    "nodeUiDevIoSectionPaddingBottomValue",
+    "--node-io-section-padding-bottom",
+    0,
+  );
+  if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
+    scheduleNodeGraphModuleFramesUpdate();
+  }
+}
+
+function syncNodeUiDevPortSize() {
+  const input = document.getElementById("nodeUiDevInletOutletSize");
   const raw = Number(input?.value);
-  const brightness = Number.isFinite(raw)
-    ? Math.max(0, Math.min(1, raw))
-    : 0.75;
-  if (input) {
-    input.value = String(brightness);
+  const percent = Number.isFinite(raw)
+    ? Math.max(20, Math.min(100, raw))
+    : 52;
+  if (input && input.value !== String(percent)) {
+    input.value = String(percent);
   }
-  const output = document.getElementById("nodeUiDevInletBlueBrightnessValue");
+  const output = document.getElementById("nodeUiDevInletOutletSizeValue");
   if (output) {
-    output.textContent = brightness.toFixed(2);
+    output.textContent = `${Math.round(percent)}%`;
   }
+  const css = String(percent / 100);
   const workspace = document.getElementById("nodeGraphWorkspace");
-  const css = `${Math.round(brightness * 100)}%`;
-  workspace?.style.setProperty("--node-jack-analog-in-brightness", css);
-  document.documentElement.style.setProperty("--node-jack-analog-in-brightness", css);
-  workspace?.style.setProperty("--node-inlet-blue-brightness", css);
-  document.documentElement.style.setProperty("--node-inlet-blue-brightness", css);
+  workspace?.style.setProperty("--node-port-size-ratio", css);
+  document.documentElement.style.setProperty("--node-port-size-ratio", css);
+  if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
+    scheduleNodeGraphModuleFramesUpdate();
+  }
+}
+
+function syncNodeUiDevPortBrightness() {
+  nodeUiDevSyncPortBrightnessControl(
+    "nodeUiDevUsedPortBrightness",
+    "nodeUiDevUsedPortBrightnessValue",
+    "--node-port-used-brightness",
+    0.85,
+  );
+  nodeUiDevSyncPortBrightnessControl(
+    "nodeUiDevUnusedPortBrightness",
+    "nodeUiDevUnusedPortBrightnessValue",
+    "--node-port-unused-brightness",
+    0.4,
+  );
 }
 
 function nodeUiDevApplyJackColorVar(inputId, outputId, cssVar, fallback) {
@@ -454,15 +541,9 @@ function syncNodeUiDevJackColors() {
     "--node-jack-blue",
     "#4d8dff",
   );
-  const analogIn = nodeUiDevApplyJackColorVar(
-    "nodeUiDevJackAnalogIn",
-    "nodeUiDevJackAnalogInValue",
-    "--node-input-fill",
-    "#7fc7d9",
-  );
-  const analogOut = nodeUiDevApplyJackColorVar(
-    "nodeUiDevJackAnalogOut",
-    "nodeUiDevJackAnalogOutValue",
+  const analog = nodeUiDevApplyJackColorVar(
+    "nodeUiDevJackAnalog",
+    "nodeUiDevJackAnalogValue",
     "--node-output-fill",
     "#e2a86d",
   );
@@ -478,11 +559,10 @@ function syncNodeUiDevJackColors() {
     workspace?.style.setProperty(name, value);
     root.style.setProperty(name, value);
   };
-  /* Connected-only type colors. Do not write unused crescent / idle stroke —
-     unused I/O and param jacks share --node-port-idle-crescent-stroke in CSS. */
-  setBoth("--node-input-stroke", analogIn);
-  setBoth("--node-output-stroke", analogOut);
-  setBoth("--node-inlet-blue-stroke", analogIn);
+  setBoth("--node-input-fill", analog);
+  setBoth("--node-input-stroke", analog);
+  setBoth("--node-output-stroke", analog);
+  setBoth("--node-inlet-blue-stroke", analog);
   workspace?.style.removeProperty("--node-port-idle-crescent-stroke");
   root.style.removeProperty("--node-port-idle-crescent-stroke");
   workspace?.style.removeProperty("--node-port-idle-stroke");
@@ -491,12 +571,12 @@ function syncNodeUiDevJackColors() {
   root.style.removeProperty("--node-port-crescent-stroke");
   const fillIn = document.getElementById("nodeUiDevInputFillColor");
   const fillOut = document.getElementById("nodeUiDevOutputFillColor");
-  if (fillIn) fillIn.value = analogIn;
-  if (fillOut) fillOut.value = analogOut;
+  if (fillIn) fillIn.value = analog;
+  if (fillOut) fillOut.value = analog;
   const strokeIn = document.getElementById("nodeUiDevInputStrokeColor");
   const strokeOut = document.getElementById("nodeUiDevOutputStrokeColor");
-  if (strokeIn) strokeIn.value = analogIn;
-  if (strokeOut) strokeOut.value = analogOut;
+  if (strokeIn) strokeIn.value = analog;
+  if (strokeOut) strokeOut.value = analog;
   void red;
   void green;
   void blue;
@@ -572,9 +652,13 @@ function syncNodeUiDevSettingsHeaderControls() {
   }
   syncNodeUiDevModuleIdleStroke();
   syncNodeUiDevDimmerCutoutControls();
-  syncNodeUiDevOutletRgbBrightness();
-  syncNodeUiDevInletBlueBrightness();
+  syncNodeUiDevPortSize();
+  syncNodeUiDevIoSectionPadding();
+  syncNodeUiDevPortBrightness();
   syncNodeUiDevJackColors();
+  if (typeof syncNodeUiDevFullyOpaqueWires === "function") {
+    syncNodeUiDevFullyOpaqueWires();
+  }
   syncNodeUiDevGridDivisionMultiply();
   syncNodeUiDevModuleLightGridControls();
   const settingsView = document.getElementById("nodeSettingsView");
@@ -743,9 +827,7 @@ function syncNodeUiDevSettingsHeaderControls() {
       "--node-module-fill",
       `rgb(${nodeUiDevHexColorToRgbTriplet(moduleFillColor)} / ${moduleFillAlphaPercent / 100})`,
     );
-  document
-    .getElementById("nodeGraphWorkspace")
-    ?.style.removeProperty("--node-port-size-ratio");
+  // --node-port-size-ratio is owned by syncNodeUiDevPortSize().
   document
     .getElementById("nodeGraphWorkspace")
     ?.style.removeProperty("--node-slider-readout-height");

@@ -632,44 +632,36 @@ function createNodeGraphModuleHeader(type, node, definition) {
   const titleRow = document.createElement("div");
   titleRow.className = "node-header-title-row";
   nodeGraphApplyTooltip(titleRow, "module.titleMove", {}, { title: false });
-  const titleText = document.createElement("input");
-  titleText.type = "text";
-  titleText.className = "node-header-title node-header-title-input";
+  const titleText = document.createElement("span");
+  titleText.className = "node-header-title";
   titleText.dataset.node = node;
   titleText.spellcheck = false;
-  // Locked until triple-click rename — never focusable as a normal text field.
-  titleText.readOnly = true;
   titleText.tabIndex = -1;
-  // Shows user alias when set, otherwise the default type title.
-  // Pass node id so patch lookup can read alias (not a bare {id,type} stub).
-  titleText.value = typeof nodeGraphPatchNodeTitle === "function"
+  titleText.setAttribute("role", "text");
+  titleText.textContent = typeof nodeGraphPatchNodeTitle === "function"
     ? nodeGraphPatchNodeTitle(node)
     : (nodeGraphNodeLabels?.[type] || type);
   nodeGraphApplyTooltip(titleText, "module.titleMove", {}, { title: false });
-  // Single/double click: select/drag or open module settings (bubbles to row).
-  // preventDefault blocks the input's native caret placement on click #1.
-  // Triple-click (detail >= 3) starts an explicit rename session only.
   titleText.addEventListener("pointerdown", (event) => {
-    // While already renaming this field, allow normal caret/selection.
     if (titleText.dataset.titleEditing === "1") {
-      return;
+      event.stopPropagation();
     }
-    event.preventDefault();
   });
-  titleText.addEventListener("click", (event) => {
-    if (event.detail < 3) {
-      return;
-    }
+  titleText.addEventListener("dblclick", (event) => {
+    event.preventDefault();
     event.stopPropagation();
     if (typeof startNodeGraphModuleTitleEdit === "function") {
-      startNodeGraphModuleTitleEdit(titleText);
-    } else {
-      titleText.readOnly = false;
-      titleText.focus();
-      titleText.select();
+      startNodeGraphModuleTitleEdit(titleText, event);
     }
   });
   titleText.addEventListener("input", () => {
+    if (titleText.dataset.titleEditing !== "1") {
+      return;
+    }
+    const clean = String(titleText.textContent || "").replace(/[\r\n]+/g, "");
+    if (clean !== titleText.textContent) {
+      titleText.textContent = clean;
+    }
     if (typeof syncNodeGraphModuleTitleEditPeers === "function") {
       syncNodeGraphModuleTitleEditPeers(titleText);
     }
@@ -677,23 +669,23 @@ function createNodeGraphModuleHeader(type, node, definition) {
       scheduleNodeGraphModuleTitleTextFit();
     }
   });
-  // Commit only on blur of an active rename session (never from accidental focus).
+  titleText.addEventListener("paste", (event) => {
+    if (titleText.dataset.titleEditing !== "1") {
+      return;
+    }
+    event.preventDefault();
+    const pasted = String(event.clipboardData?.getData("text/plain") || "").replace(/[\r\n]+/g, " ");
+    if (typeof document.execCommand === "function") {
+      document.execCommand("insertText", false, pasted);
+    }
+  });
   titleText.addEventListener("blur", () => {
     if (titleText.dataset.titleEditing !== "1") {
-      titleText.readOnly = true;
-      titleText.tabIndex = -1;
       return;
     }
     if (typeof endAllNodeGraphModuleTitleEdits === "function") {
       endAllNodeGraphModuleTitleEdits({ commit: true, revert: false });
-      return;
     }
-    if (typeof commitNodeGraphModuleTitleFromHeaderInput === "function") {
-      commitNodeGraphModuleTitleFromHeaderInput(node, titleText.value);
-    }
-    titleText.readOnly = true;
-    titleText.tabIndex = -1;
-    delete titleText.dataset.titleEditing;
   });
   titleText.addEventListener("keydown", (event) => {
     if (titleText.dataset.titleEditing !== "1") {
@@ -706,13 +698,6 @@ function createNodeGraphModuleHeader(type, node, definition) {
       event.preventDefault();
       if (typeof endAllNodeGraphModuleTitleEdits === "function") {
         endAllNodeGraphModuleTitleEdits({ commit: false, revert: true });
-      } else {
-        const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
-        titleText.value = typeof nodeGraphPatchNodeTitle === "function"
-          ? nodeGraphPatchNodeTitle(patchNode || { id: node, type })
-          : titleText.value;
-        titleText.readOnly = true;
-        titleText.blur();
       }
     }
   });

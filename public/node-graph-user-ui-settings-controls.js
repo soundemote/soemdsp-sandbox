@@ -176,19 +176,6 @@ function createNodeUserUiSettingsGridLightControl() {
   });
 }
 
-function createNodeUserUiSettingsWiringChromeControl() {
-  return createNodeUserUiSettingsViewCheckbox({
-    key: "wiringChromeVisible",
-    id: "nodeUiDevViewWiringChrome",
-    label: "Show wires inlets outlets",
-    getValue: () => nodeGraphMvp.wiringChromeVisible !== false,
-    setValue: (visible) => {
-      nodeGraphMvp.wiringChromeVisible = visible;
-      persistAndRenderUserUiVisibility(renderNodeGraphWiringChromeToggle);
-    },
-  });
-}
-
 function createNodeUserUiSettingsWireLengthsControl() {
   return createNodeUserUiSettingsViewCheckbox({
     key: "wireLengthsVisible",
@@ -384,7 +371,6 @@ function renderNodeUiDevHelperViewControls() {
   const viewRows = [
     maybe(createNodeUserUiSettingsViewControl),
     maybe(createNodeUserUiSettingsGridLightControl),
-    maybe(createNodeUserUiSettingsWiringChromeControl),
     maybe(createNodeUserUiSettingsWireLengthsControl),
     maybe(createNodeUserUiSettingsWiresAboveControl),
     maybe(createNodeUserUiSettingsModuleButtonsControl),
@@ -412,12 +398,6 @@ function syncNodeUserUiSettingsViewControls() {
       continue;
     }
     input.checked = nodeGraphMvp.gridLightVisible !== false;
-  }
-  for (const input of document.querySelectorAll("[data-node-ui-view-setting='wiringChromeVisible']")) {
-    if (document.activeElement === input) {
-      continue;
-    }
-    input.checked = nodeGraphMvp.wiringChromeVisible !== false;
   }
   for (const input of document.querySelectorAll("[data-node-ui-view-setting='wireLengthsVisible']")) {
     if (document.activeElement === input) {

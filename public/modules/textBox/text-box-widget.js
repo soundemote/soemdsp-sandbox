@@ -2,18 +2,18 @@
 // Not a textarea (CSS zoom on the workspace does not paint textarea glyphs).
 // Host may call setText / setLayout and listen for onChange / onCommit.
 
-const TextBoxWidgetFitLimits = Object.freeze({
-  min: 0.4,
-  maxFill: 16,
-});
-
 function textBoxWidgetNormalizeMode(value) {
   const mode = String(value || "").trim().toLowerCase();
   if (mode === "multiline" || mode === "multi" || mode === "multi-line") {
     return "multiline";
   }
-  if (mode === "fill" || mode === "multilinefill" || mode === "multiline-fill" || mode === "fit") {
-    return "fill";
+  if (
+    mode === "fill"
+    || mode === "multilinefill"
+    || mode === "multiline-fill"
+    || mode === "fit"
+  ) {
+    return "multiline";
   }
   return "singleLine";
 }
@@ -29,12 +29,12 @@ function textBoxWidgetNormalizeVertical(value) {
   }
   const numeric = Math.round(Number(value));
   if (Number.isFinite(numeric)) {
-    return Math.max(-50, Math.min(150, numeric));
+    return Math.max(-100, Math.min(100, numeric));
   }
   const align = String(value || "").toLowerCase();
-  if (align === "top") return 0;
+  if (align === "top") return -100;
   if (align === "bottom") return 100;
-  return 50;
+  return 0;
 }
 
 function textBoxWidgetReadText(field) {
@@ -50,68 +50,15 @@ function textBoxWidgetWriteText(field, value) {
   field.textContent = next;
 }
 
-function textBoxWidgetMeasureMaxLineWidth(field, mode) {
-  if (!field) return 0;
-  const style = window.getComputedStyle(field);
-  const text = textBoxWidgetReadText(field);
-  const lines = text.split(/\r\n|\r|\n/);
-  const samples = mode === "singleLine"
-    ? [text || " "]
-    : [
-      ...lines.map((line) => line || " "),
-      ...lines.flatMap((line) => line.trim().split(/\s+/).filter(Boolean)),
-    ];
-  const list = samples.length ? samples : [" "];
-  const canvas = textBoxWidgetMeasureMaxLineWidth.canvas ||= document.createElement("canvas");
-  const context = canvas.getContext("2d");
-  if (!context) return 0;
-  context.font = style.font;
-  return list.reduce((width, sample) => Math.max(width, context.measureText(sample || " ").width), 0);
-}
-
-function textBoxWidgetFitScale(field, layout) {
-  if (!field) return 1;
-  const mode = textBoxWidgetNormalizeMode(layout.textMode);
-  if (mode === "singleLine") return 1;
-  const style = window.getComputedStyle(field);
-  const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
-  const paddingRight = Number.parseFloat(style.paddingRight) || 0;
-  const availableWidth = Math.max(1, field.clientWidth - paddingLeft - paddingRight);
-  const maxWidth = textBoxWidgetMeasureMaxLineWidth(field, mode);
-  if (mode === "multiline") {
-    if (!(maxWidth > 0) || maxWidth <= availableWidth) return 1;
-    return Math.max(TextBoxWidgetFitLimits.min, availableWidth / maxWidth);
-  }
-  const fontSize = Number.parseFloat(style.fontSize) || 14;
-  const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.2;
-  const paddingTop = Number.parseFloat(style.paddingTop) || 0;
-  const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
-  const availableHeight = Math.max(1, field.clientHeight - paddingTop - paddingBottom);
-  const text = textBoxWidgetReadText(field);
-  const lineCount = Math.max(1, text.split(/\r\n|\r|\n/).length);
-  const contentHeightAt1 = lineCount * lineHeight;
-  const sHeight = contentHeightAt1 > 0 ? availableHeight / contentHeightAt1 : TextBoxWidgetFitLimits.maxFill;
-  const sWidth = maxWidth > 0 ? availableWidth / maxWidth : TextBoxWidgetFitLimits.maxFill;
-  return Math.max(
-    TextBoxWidgetFitLimits.min,
-    Math.min(TextBoxWidgetFitLimits.maxFill, Math.min(sHeight, sWidth)),
-  );
-}
-
 function textBoxWidgetApplyAlign(field, layout) {
   if (!field) return;
   field.style.setProperty("--node-text-box-content-offset", "0px");
   void field.offsetHeight;
-  const style = window.getComputedStyle(field);
-  const fontSize = Number.parseFloat(style.fontSize) || 14;
-  const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.2;
-  const text = textBoxWidgetReadText(field);
-  const multiline = textBoxWidgetNormalizeMode(layout.textMode) !== "singleLine";
-  const lineCount = multiline ? Math.max(1, text.split(/\r\n|\r|\n/).length) : 1;
-  const contentHeight = lineCount * lineHeight;
   const box = Math.max(0, field.clientHeight);
+  const contentHeight = Math.max(0, field.scrollHeight);
   const slack = box - contentHeight;
-  const offset = slack * textBoxWidgetNormalizeVertical(layout.verticalAlignPercent) / 100;
+  const bipolar = textBoxWidgetNormalizeVertical(layout.verticalAlignPercent);
+  const offset = slack * 0.5 + (slack * bipolar) / 200;
   field.style.setProperty("--node-text-box-content-offset", `${offset.toFixed(2)}px`);
 }
 
@@ -120,9 +67,51 @@ function textBoxWidgetApplyVisual(field, layout) {
   field.scrollLeft = 0;
   field.scrollTop = 0;
   field.style.setProperty("--node-text-box-font-fit-scale", "1");
-  void field.offsetWidth;
-  field.style.setProperty("--node-text-box-font-fit-scale", String(textBoxWidgetFitScale(field, layout)));
   textBoxWidgetApplyAlign(field, layout);
+}
+
+function textBoxWidgetRangeFromPoint(x, y) {
+  if (typeof document.caretRangeFromPoint === "function") {
+    return document.caretRangeFromPoint(x, y);
+  }
+  if (typeof document.caretPositionFromPoint === "function") {
+    const pos = document.caretPositionFromPoint(x, y);
+    if (!pos?.offsetNode) {
+      return null;
+    }
+    const range = document.createRange();
+    range.setStart(pos.offsetNode, pos.offset);
+    range.collapse(true);
+    return range;
+  }
+  return null;
+}
+
+function textBoxWidgetPlaceCaretAtPoint(field, x, y) {
+  if (!field) {
+    return;
+  }
+  try {
+    field.focus({ preventScroll: true });
+  } catch {
+    field.focus();
+  }
+  const selection = window.getSelection?.();
+  if (!selection) {
+    return;
+  }
+  const fromPoint = textBoxWidgetRangeFromPoint(x, y);
+  if (fromPoint && field.contains(fromPoint.startContainer)) {
+    fromPoint.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(fromPoint);
+    return;
+  }
+  const end = document.createRange();
+  end.selectNodeContents(field);
+  end.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(end);
 }
 
 function createTextBoxWidget(body, options = {}) {
@@ -168,15 +157,45 @@ function createTextBoxWidget(body, options = {}) {
     nodeGraphTextBoxBindFieldKeySteal(field);
   }
 
+  let pointerStart = null;
   field.addEventListener("pointerdown", (event) => {
     event.stopPropagation();
+    if (!editable || event.button !== 0) {
+      return;
+    }
+    pointerStart = { x: event.clientX, y: event.clientY };
+    if (document.activeElement !== field) {
+      try {
+        field.focus({ preventScroll: true });
+      } catch {
+        field.focus();
+      }
+    }
+  });
+  field.addEventListener("pointerup", (event) => {
+    if (!editable || event.button !== 0 || !pointerStart) {
+      return;
+    }
+    const dx = event.clientX - pointerStart.x;
+    const dy = event.clientY - pointerStart.y;
+    const dragged = (dx * dx) + (dy * dy) > 16;
+    pointerStart = null;
+    if (dragged || event.shiftKey) {
+      return;
+    }
+    const selected = String(window.getSelection?.()?.toString() || "");
+    const all = textBoxWidgetReadText(field);
+    if (selected && all && selected === all) {
+      textBoxWidgetPlaceCaretAtPoint(field, event.clientX, event.clientY);
+    }
   });
   field.addEventListener("click", (event) => event.stopPropagation());
   field.addEventListener("dblclick", (event) => {
+    // Stay on the face. Native dblclick selects the whole nowrap line.
+    event.preventDefault();
     event.stopPropagation();
-    const nodeId = body.dataset?.node;
-    if (typeof nodeGraphTextBoxOpenFloatingEditor === "function" && nodeId) {
-      nodeGraphTextBoxOpenFloatingEditor(nodeId, "text", event);
+    if (editable) {
+      textBoxWidgetPlaceCaretAtPoint(field, event.clientX, event.clientY);
     }
   });
   field.addEventListener("contextmenu", (event) => {
@@ -219,6 +238,7 @@ function createTextBoxWidget(body, options = {}) {
     field.style.textAlign = layout.horizontalAlign;
     field.style.setProperty("--node-text-box-font-scale", String(layout.textSizePercent / 100));
     if (layout.backgroundColor) {
+      body.style.setProperty("--node-text-box-bg", layout.backgroundColor);
       field.style.setProperty("--node-text-box-bg", layout.backgroundColor);
     }
     if (layout.textColor) {

@@ -944,7 +944,6 @@ REQUIRED_SHELL_IDS = {
     "nodeCanvasScriptStatus",
     "nodeSceneCanvasControls",
     "nodeSceneCanvasScript",
-    "updateDefaultPresetButton",
     "nodeRedoButton",
     "nodeRenderButton",
     "nodeModuleShopView",
@@ -4677,8 +4676,8 @@ def require_node_graph_mvp_contract() -> None:
         "bundled UI settings script payload should match useruisettings.json exactly",
     )
     default_ui_view = default_ui_settings_payload.get("view", {})
-    require(default_ui_view.get("workingPatch") is None, "default ui settings should not embed a working patch")
-    require(default_ui_view.get("patchDirtyState") == "untouched", "default ui settings should start untouched")
+    require(default_ui_view.get("workingPatch") in (None,), "default ui settings should not embed a working patch")
+    require(default_ui_view.get("patchDirtyState", "untouched") == "untouched", "default ui settings should start untouched")
     require(
         all(not entry.get("open") for entry in default_ui_view.get("workspaceWindowStates", {}).values()),
         "default ui settings should not open floating windows on first load",
@@ -6285,7 +6284,7 @@ def require_node_graph_mvp_contract() -> None:
             assert snippet not in source, f"code screen {name} should keep events script-only, found: {snippet}"
 
     for snippet in [
-        "Patch settings",
+        "Script page",
         "Patch Name",
         "Patch Author",
         "Patch Tags",
@@ -6303,7 +6302,6 @@ def require_node_graph_mvp_contract() -> None:
         "data-patch-grid-field",
         "<span>Load</span><span>Patch</span>",
         "<span>Save</span><span>Patch</span>",
-        "<span>Save</span><span>Init</span>",
         "Update Default",
         ">Copy</button>",
         ">Paste</button>",
@@ -6331,7 +6329,6 @@ def require_node_graph_mvp_contract() -> None:
         "nodeSavedPatchesResizeHandle",
         "nodeSavedPatchesCloseButton",
         "nodeSavedPatchWindowList",
-        "updateDefaultPresetButton",
         "nodeSettingsSaveScriptButton",
         "<span>UIDEV</span>",
         "nodeUiDevHelper",
@@ -6447,8 +6444,8 @@ def require_node_graph_mvp_contract() -> None:
         "nodeVisibilityMenuClose",
         "Workspace visibility",
         "nodeGridToggleButton",
-        "nodeWiringChromeToggleButton",
-        "Wires Inlets Outlets",
+        "nodeWireLengthsToggleButton",
+        "Wire Lengths",
         "Show Grid",
         "nodePatchTimingControls",
         "node-patch-timing-controls",
@@ -8951,8 +8948,8 @@ def require_node_graph_mvp_contract() -> None:
         "const nodeGraphModuleLayout",
         "bodyRowGapGu: 2 / 28",
         "ioPaddingYGu: 0",
-        "ioRowGapGu: 1 / 28",
-        "ioSectionMinHeightGu: 24 / 28",
+        "ioRowGapGu: 0",
+        "ioSectionMinHeightGu: 0.52",
         "moduleScopeHeightGu: 2",
         "textBoxBodyMinGu: 4",
         "function nodeGraphModuleSliderBodyHeightGu(type)",
@@ -9617,10 +9614,10 @@ def require_node_graph_mvp_contract() -> None:
         "function endNodeGraphCameraFrameDrag(event)",
         "const nodeGraphModuleGroupStorageKey",
         "const nodeGraphModuleCatalogVisibilityStorageKey",
+        "soemdsp-sandbox.moduleCatalogVisibility.v3",
         "soemdsp-sandbox.moduleCatalogVisibility.v2",
-        "developer: true",
-        "home: false",
-        "const developerVisible = nodeGraphModuleIsStoreVisible(type, \"developer\")",
+        "usersort10",
+        "gamesort10",
         "const developerOnly = nodeGraphModuleStoreCatalog[type]?.developerOnly === true",
         "const publicVisible = !developerOnly",
         "developerOnly,",
@@ -9644,7 +9641,7 @@ def require_node_graph_mvp_contract() -> None:
         "function loadNodeGraphModuleCatalogVisibilityLocal()",
         "function saveNodeGraphModuleCatalogVisibilityLocal(value = nodeGraphModuleCatalogVisibility())",
         "data-context-group",
-        "function setNodeGraphModuleCatalogVisibility(type, visible, shelf = \"shop\")",
+        "function setNodeGraphModuleCatalogVisibility(type, visible, shelf = \"home\")",
         "const nodeGraphModuleStoreDepartments = Object.freeze([",
         'samplePlayer: {',
         'audioPlayer: {',
@@ -10977,11 +10974,9 @@ def require_node_graph_mvp_contract() -> None:
         'addEventListener("pointermove", dragNodeGraphWorkspacePan)',
         'addEventListener("pointerup", endNodeGraphWorkspacePan)',
         'getElementById("nodeGridToggleButton")',
-        'getElementById("nodeWiringChromeToggleButton")',
-        "function renderNodeGraphWiringChromeToggle()",
-        "function toggleNodeGraphWiringChromeVisibility()",
-        "wiring-chrome-hidden",
-        "wiringChromeVisible",
+        'getElementById("nodeWireLengthsToggleButton")',
+        "function renderNodeGraphWireLengthsToggle()",
+        "function toggleNodeGraphWireLengthsVisibility()",
         'bindNodeGraphSceneElementEvent("nodeSceneOpenVisibility", "click", () => {',
         "button.replaceChildren()",
         'label.textContent = "Visibility"',
@@ -11015,7 +11010,7 @@ def require_node_graph_mvp_contract() -> None:
         "params.get(\"sandboxView\")",
         "value === \"modular-only\"",
         "function resetNodeGraphStartupView()",
-        "setNodeGraphViewMode(nodeGraphStartupViewModeFromUrl())",
+        "setNodeGraphViewMode(urlMode || savedMode || \"modular\")",
         "function renderNodeGraphGridToggle()",
         "function renderNodeGraphModuleVisibilityToggles()",
         "function normalizeNodeGraphModuleScopeLineThickness(value)",
@@ -11223,11 +11218,14 @@ def require_node_graph_mvp_contract() -> None:
         "currentSavedPatchFilename",
         "patchDirtyState",
         "function readNodeUiDevSettingsFromControls(options = {})",
-        "const includeWorkingPatch = options.includeWorkingPatch !== false",
-        "serializeNodeUiDevSettings({ includeWorkingPatch: false })",
-        "nodeGraphMvp.workingPatch = normalized.view.workingPatch",
-        "nodeGraphMvp.currentSavedPatchFilename = String(normalized.view.currentSavedPatchFilename || \"\")",
-        "nodeGraphMvp.patchDirtyState = [\"saved\", \"edited\", \"untouched\"].includes(normalized.view.patchDirtyState)",
+        "const nodeGraphUserSessionStorageKey = \"soemdsp-sandbox.userSession.startup.v1\"",
+        "soemdsp-sandbox-user-session",
+        "function serializeNodeGraphUserSession()",
+        "function applyNodeGraphUserSession(session, options = {})",
+        "function persistNodeGraphUserSession()",
+        "nodeGraphMvp.workingPatch = cloneNodeGraphPatch(normalized.workingPatch)",
+        "nodeGraphMvp.currentSavedPatchFilename = String(normalized.currentSavedPatchFilename || \"\")",
+        "nodeGraphMvp.patchDirtyState = [\"saved\", \"edited\", \"untouched\"].includes(normalized.patchDirtyState)",
         "function nodeGraphWorkspaceWindowStatesAllOpen(states = {})",
         "function closeNodeGraphWorkspaceWindowStates(states = {})",
         "function normalizeNodeGraphWorkspaceWindowStates(states = {})",
@@ -11298,8 +11296,8 @@ def require_node_graph_mvp_contract() -> None:
         "workspaceView: normalizeNodeGraphWorkspaceViewState",
         "nodeGraphMvp.pan = { ...workspaceView.pan }",
         "nodeGraphMvp.zoom = workspaceView.zoom",
-        "workingPatchForSettings.view = {",
-        "...normalizeNodeGraphPatchView(workingPatchForSettings.view)",
+        "workingPatchForSession.view = {",
+        "...normalizeNodeGraphPatchView(workingPatchForSession.view)",
         "zoom: typeof nodeGraphZoom === \"function\" ? nodeGraphZoom() : nodeGraphMvp.zoom",
         "nodeGraphMvp.moduleStoreDepartment = normalizeNodeGraphModuleStoreDepartmentState",
         "function saveNodeGraphWorkspaceViewToUserSettings(options = {})",
@@ -13368,8 +13366,9 @@ def require_node_graph_mvp_contract() -> None:
     require(
         "typeof readNodeGraphTraceDisplaySettingsForm === \"function\"" not in script_sources["./public/node-graph-ui-settings-persistence.js"]
         and "readNodeGraphTraceDisplaySettingsForm()," not in script_sources["./public/node-graph-ui-settings-persistence.js"]
-        and "workingPatch: workingPatchForSettings" in script_sources["./public/node-graph-ui-settings-persistence.js"],
-        "UI settings serialization should not secretly flush a Display Settings draft",
+        and "workingPatch: workingPatchForSession" in script_sources["./public/node-graph-ui-settings-persistence.js"]
+        and "workingPatch: workingPatchForSettings" not in script_sources["./public/node-graph-ui-settings-persistence.js"],
+        "UI settings serialization should not embed the working patch; session persist should not secretly flush a Display Settings draft",
     )
     require(
         "Object.assign(normalizedNode, cloneNodeGraphTypedDisplaySettings(node));" in script_sources["./public/node-graph-patch-core.js"],
@@ -15801,7 +15800,7 @@ def require_node_graph_mvp_contract() -> None:
         ]
         and "color: var(--node-module-primary-text-color);" in style_source[
             style_source.index(".node-header-title {"):
-            style_source.index("input.node-header-title {")
+            style_source.index(".node-header-title[data-title-editing")
         ],
         "text box text and module title should share the halfway brightness token",
     )
@@ -15879,7 +15878,8 @@ def require_node_graph_mvp_contract() -> None:
         "--node-grid-height: 28px",
         "--node-grid-width: 28px",
         "--node-port-area-size: var(--node-grid-height)",
-        "--node-port-diameter: calc(var(--node-port-area-size) * 0.52)",
+        "--node-port-size-ratio: 0.52",
+        "--node-port-diameter: calc(var(--node-port-area-size) * var(--node-port-size-ratio, 0.52))",
         "--node-port-radius: calc(var(--node-port-diameter) * 0.5)",
         "--node-port-area-radius: calc(var(--node-port-area-size) * 0.5)",
         "--node-port-column-width: var(--node-port-area-radius)",

@@ -349,7 +349,7 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
         textColor: "#f3f1ec",
         textMode: "singleLine",
         textSizePercent: 100,
-        verticalAlignPercent: 50,
+        verticalAlignPercent: 0,
       };
   }
   if (type === "patchFace") {

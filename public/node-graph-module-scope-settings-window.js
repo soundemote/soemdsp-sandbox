@@ -914,7 +914,21 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   // Widgets skip mount while popover is hidden — refresh after unhide.
   syncNodeGraphTraceDisplayColorWidgets(popover);
   const unifiedDriving = Boolean(nodeGraphMvp._unifiedWindowSwitching);
-  if (!unifiedDriving) {
+  if (unifiedDriving) {
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(popover);
+    }
+    rememberNodeGraphTraceDisplaySettingsWindowState(
+      { open: true, targetNode: node.id },
+      { capturePosition: false, status: false },
+    );
+  } else if (typeof applyNodeGraphUnifiedSeatToElement === "function"
+    && applyNodeGraphUnifiedSeatToElement(popover)) {
+    rememberNodeGraphTraceDisplaySettingsWindowState(
+      { open: true, targetNode: node.id },
+      { capturePosition: false, status: false },
+    );
+  } else {
     const position = nodeGraphTraceDisplaySettingsOpenPosition(popover, sharedInspectorState, replacementRect, event);
     popover.style.position = "fixed";
     if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
@@ -927,14 +941,6 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
     rememberNodeGraphTraceDisplaySettingsWindowState(
       { open: true, position, targetNode: node.id },
       { status: false },
-    );
-  } else {
-    if (typeof markNodeGraphFloatingWindowSurface === "function") {
-      markNodeGraphFloatingWindowSurface(popover);
-    }
-    rememberNodeGraphTraceDisplaySettingsWindowState(
-      { open: true, targetNode: node.id },
-      { capturePosition: false, status: false },
     );
   }
   if (typeof raiseNodeGraphFloatingWindow === "function") {
@@ -967,7 +973,21 @@ function openBlankNodeGraphTraceDisplaySettings(event = {}) {
   applyNodeGraphTraceDisplaySettingsWindowSize(sharedInspectorState.size);
   popover.hidden = false;
   const unifiedDriving = Boolean(nodeGraphMvp._unifiedWindowSwitching);
-  if (!unifiedDriving) {
+  if (unifiedDriving) {
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(popover);
+    }
+    rememberNodeGraphTraceDisplaySettingsWindowState(
+      { open: true, targetNode: "" },
+      { capturePosition: false, status: false },
+    );
+  } else if (typeof applyNodeGraphUnifiedSeatToElement === "function"
+    && applyNodeGraphUnifiedSeatToElement(popover)) {
+    rememberNodeGraphTraceDisplaySettingsWindowState(
+      { open: true, targetNode: "" },
+      { capturePosition: false, status: false },
+    );
+  } else {
     const position = nodeGraphTraceDisplaySettingsOpenPosition(popover, sharedInspectorState, replacementRect, event);
     popover.style.position = "fixed";
     if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
@@ -980,14 +1000,6 @@ function openBlankNodeGraphTraceDisplaySettings(event = {}) {
     rememberNodeGraphTraceDisplaySettingsWindowState(
       { open: true, position, targetNode: "" },
       { status: false },
-    );
-  } else {
-    if (typeof markNodeGraphFloatingWindowSurface === "function") {
-      markNodeGraphFloatingWindowSurface(popover);
-    }
-    rememberNodeGraphTraceDisplaySettingsWindowState(
-      { open: true, targetNode: "" },
-      { capturePosition: false, status: false },
     );
   }
   if (typeof raiseNodeGraphFloatingWindow === "function") {

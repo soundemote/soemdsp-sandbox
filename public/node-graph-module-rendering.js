@@ -66,16 +66,12 @@ function attachNodeGraphNodeEvents(node) {
       event.stopPropagation();
       return;
     }
-    const type = node.dataset?.nodeType;
-    if (
-      typeof nodeGraphTextBoxOpenFloatingEditor === "function"
-      && typeof nodeGraphNodeTypeHasTextBoxLayout === "function"
-      && nodeGraphNodeTypeHasTextBoxLayout(type)
-    ) {
-      nodeGraphTextBoxOpenFloatingEditor(node.dataset?.node, "title", event);
-      return;
+    event.preventDefault();
+    event.stopPropagation();
+    const titleField = node.querySelector(".node-header-title");
+    if (typeof startNodeGraphModuleTitleEdit === "function" && titleField) {
+      startNodeGraphModuleTitleEdit(titleField, event);
     }
-    openNodeModuleActionMenu(event);
   });
   // Right-click anywhere on the module shell opens Module Settings (shared
   // path with document contextmenu). Slider readouts / display faces stop

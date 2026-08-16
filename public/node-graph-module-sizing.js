@@ -917,12 +917,11 @@ function nodeGraphModuleBandTrackCss(band) {
     return "auto";
   }
   if (band.id === "io") {
-    // Definite / max-content — never `auto` max. `.dsp-node { align-content:
-    // stretch }` inflates auto tracks, so leftover height became a huge empty
-    // I/O band and the face stayed at its min (Music Player waveform vanished).
+    // Hug jack rows + UIDEV pads. A reserved min taller than the crescents
+    // left a phantom band between I/O and sliders (align-content:start).
     return band.grow
-      ? "minmax(var(--node-module-io-track-min, var(--node-io-section-min-height)), 1fr)"
-      : "var(--node-module-io-track-min, var(--node-io-section-min-height))";
+      ? "minmax(0, 1fr)"
+      : "auto";
   }
   if (band.id === "params") {
     return band.grow

@@ -212,45 +212,53 @@ function nodeGraphRequiredAssetsForPatch(patch = {}) {
     if (!(node?.type === "samplePlayer" || node?.type === "sampleLooper" || node?.type === "audioPlayer")) {
       continue;
     }
-    const sampleId = normalizeNodeGraphSampleId(node.sample?.id);
-    if (!sampleId) {
-      continue;
-    }
-    const sample = samples.get(sampleId) || {};
-    const resource = typeof nodeGraphResourceById === "function"
-      ? nodeGraphResourceById(sample.resourceId || sampleId)
+    const playlistItems = node.type === "audioPlayer" && Array.isArray(node.playlist?.items)
+      ? node.playlist.items
       : null;
-    const explicit = explicitAssets.get(sampleId) || {};
-    const file = normalizeNodeGraphAssetFile(explicit.file || sample.file, {
-      name: sample.name || resource?.name || explicit.name || explicit.sourceName || sampleId,
-      sourceName: sample.sourceName || resource?.sourceName || explicit.sourceName,
-      sourcePath: sample.sourcePath || resource?.sourcePath || explicit.sourcePath,
-    });
-    const metadata = {
-      ...normalizeNodeGraphAssetMetadata(sample.metadata),
-      ...normalizeNodeGraphAssetMetadata(explicit.metadata),
-    };
-    const current = assets.get(sampleId) || {
-      acceptedTypes: ["audio/*"],
-      file,
-      id: sampleId,
-      kind: "audio",
-      metadata,
-      name: sample.name || resource?.name || explicit.name || explicit.sourceName || sampleId,
-      nodeIds: [],
-      requiredBy: [],
-      ...(sample.resourceId || resource?.id ? { resourceId: sample.resourceId || resource.id } : {}),
-      ...(sample.sourceName || resource?.sourceName || explicit.sourceName ? { sourceName: sample.sourceName || resource?.sourceName || explicit.sourceName } : {}),
-      ...(sample.sourcePath || resource?.sourcePath || explicit.sourcePath ? { sourcePath: sample.sourcePath || resource?.sourcePath || explicit.sourcePath } : {}),
-    };
-    const label = nodeGraphSampleRequiredByLabel(node);
-    if (label && !current.requiredBy.includes(label)) {
-      current.requiredBy.push(label);
+    // Empty Music Player playlist is intentional — do not keep prompting for
+    // a leftover node.sample binding after the user removed every track.
+    const sampleIds = playlistItems
+      ? playlistItems
+        .map((item) => normalizeNodeGraphSampleId(item?.sampleId || item?.id))
+        .filter(Boolean)
+      : [normalizeNodeGraphSampleId(node.sample?.id)].filter(Boolean);
+    for (const sampleId of sampleIds) {
+      const sample = samples.get(sampleId) || {};
+      const resource = typeof nodeGraphResourceById === "function"
+        ? nodeGraphResourceById(sample.resourceId || sampleId)
+        : null;
+      const explicit = explicitAssets.get(sampleId) || {};
+      const file = normalizeNodeGraphAssetFile(explicit.file || sample.file, {
+        name: sample.name || resource?.name || explicit.name || explicit.sourceName || sampleId,
+        sourceName: sample.sourceName || resource?.sourceName || explicit.sourceName,
+        sourcePath: sample.sourcePath || resource?.sourcePath || explicit.sourcePath,
+      });
+      const metadata = {
+        ...normalizeNodeGraphAssetMetadata(sample.metadata),
+        ...normalizeNodeGraphAssetMetadata(explicit.metadata),
+      };
+      const current = assets.get(sampleId) || {
+        acceptedTypes: ["audio/*"],
+        file,
+        id: sampleId,
+        kind: "audio",
+        metadata,
+        name: sample.name || resource?.name || explicit.name || explicit.sourceName || sampleId,
+        nodeIds: [],
+        requiredBy: [],
+        ...(sample.resourceId || resource?.id ? { resourceId: sample.resourceId || resource.id } : {}),
+        ...(sample.sourceName || resource?.sourceName || explicit.sourceName ? { sourceName: sample.sourceName || resource?.sourceName || explicit.sourceName } : {}),
+        ...(sample.sourcePath || resource?.sourcePath || explicit.sourcePath ? { sourcePath: sample.sourcePath || resource?.sourcePath || explicit.sourcePath } : {}),
+      };
+      const label = nodeGraphSampleRequiredByLabel(node);
+      if (label && !current.requiredBy.includes(label)) {
+        current.requiredBy.push(label);
+      }
+      if (node.id && !current.nodeIds.includes(node.id)) {
+        current.nodeIds.push(node.id);
+      }
+      assets.set(sampleId, current);
     }
-    if (node.id && !current.nodeIds.includes(node.id)) {
-      current.nodeIds.push(node.id);
-    }
-    assets.set(sampleId, current);
   }
   return normalizeNodeGraphPatchRequiredAssets([...assets.values()]);
 }

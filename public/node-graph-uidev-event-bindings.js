@@ -43,23 +43,40 @@ async function bindNodeGraphUiDevSettingsEvents() {
     .getElementById("nodeUiDevModuleGridInset")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document
-    .getElementById("nodeUiDevOutletRgbBrightness")
-    ?.addEventListener("input", syncNodeUiDevOutletRgbBrightness);
+    .getElementById("nodeUiDevInletOutletSize")
+    ?.addEventListener("input", syncNodeUiDevPortSize);
   document
-    .getElementById("nodeUiDevOutletRgbBrightness")
-    ?.addEventListener("change", syncNodeUiDevOutletRgbBrightness);
+    .getElementById("nodeUiDevInletOutletSize")
+    ?.addEventListener("change", syncNodeUiDevPortSize);
   document
-    .getElementById("nodeUiDevInletBlueBrightness")
-    ?.addEventListener("input", syncNodeUiDevInletBlueBrightness);
+    .getElementById("nodeUiDevIoSectionPaddingTop")
+    ?.addEventListener("input", syncNodeUiDevIoSectionPadding);
   document
-    .getElementById("nodeUiDevInletBlueBrightness")
-    ?.addEventListener("change", syncNodeUiDevInletBlueBrightness);
+    .getElementById("nodeUiDevIoSectionPaddingTop")
+    ?.addEventListener("change", syncNodeUiDevIoSectionPadding);
+  document
+    .getElementById("nodeUiDevIoSectionPaddingBottom")
+    ?.addEventListener("input", syncNodeUiDevIoSectionPadding);
+  document
+    .getElementById("nodeUiDevIoSectionPaddingBottom")
+    ?.addEventListener("change", syncNodeUiDevIoSectionPadding);
+  document
+    .getElementById("nodeUiDevUsedPortBrightness")
+    ?.addEventListener("input", syncNodeUiDevPortBrightness);
+  document
+    .getElementById("nodeUiDevUsedPortBrightness")
+    ?.addEventListener("change", syncNodeUiDevPortBrightness);
+  document
+    .getElementById("nodeUiDevUnusedPortBrightness")
+    ?.addEventListener("input", syncNodeUiDevPortBrightness);
+  document
+    .getElementById("nodeUiDevUnusedPortBrightness")
+    ?.addEventListener("change", syncNodeUiDevPortBrightness);
   for (const jackColorId of [
     "nodeUiDevJackRgbRed",
     "nodeUiDevJackRgbGreen",
     "nodeUiDevJackRgbBlue",
-    "nodeUiDevJackAnalogIn",
-    "nodeUiDevJackAnalogOut",
+    "nodeUiDevJackAnalog",
     "nodeUiDevJackDigital",
   ]) {
     document.getElementById(jackColorId)?.addEventListener("input", syncNodeUiDevJackColors);

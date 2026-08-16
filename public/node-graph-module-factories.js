@@ -536,6 +536,40 @@ function createNodeGraphPerformanceWheel(spec) {
   return wheel;
 }
 
+function createNodeGraphControllerRow(kind, children = [], options = {}) {
+  const row = document.createElement("div");
+  row.className = "node-controller-row";
+  row.dataset.controllerRow = String(kind || "");
+  if (options.grow) {
+    row.dataset.controllerGrow = "1";
+  }
+  if (options.split) {
+    const split = document.createElement("div");
+    split.className = "node-controller-row-split";
+    split.append(...children);
+    row.append(split);
+  } else {
+    row.append(...children);
+  }
+  return row;
+}
+
+function mountNodeGraphControllerRows(host) {
+  if (!host) {
+    return host;
+  }
+  host.classList.add("node-controller-rows");
+  host.replaceChildren(
+    createNodeGraphControllerRow("macros", [createNodeGraphMacroControlsBody()]),
+    createNodeGraphControllerRow(
+      "keyboard",
+      [createNodeGraphPitchModWheelBody(), createNodeGraphKeyboardControllerBody()],
+      { split: true, grow: true },
+    ),
+  );
+  return host;
+}
+
 function createNodeGraphPitchModWheelBody(node = null) {
   const section = document.createElement("section");
   section.className = "node-performance-wheels-panel node-performance-wheels-module node-module-face";

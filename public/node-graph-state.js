@@ -63,9 +63,8 @@ var nodeGraphMvp = {
   wireLengthsVisible: true,
   // Cubic cable bow (1 = original span, 0 = straight).
   wireCurve: 1,
-  // Wires + inlet/outlet jacks. Off = same hide as zoom (skip draw).
-  wiringChromeVisible: true,
   wiresFollowPortColors: true,
+  fullyOpaqueWires: false,
   // Cable strokes under modules by default; Visibility can raise them above.
   wiresAboveModules: false,
   macroControls: new Array(10).fill(0),
@@ -161,6 +160,8 @@ var nodeGraphMvp = {
   },
   marqueeSelection: null,
   marqueeSelectionEntryPointer: null,
+  snakeCircleCursor: false,
+  snakeCircleCursorPointerId: null,
   metadataDragging: null,
   metadataEditorTarget: null,
   metadataPopoverPosition: null,
@@ -375,6 +376,9 @@ var nodeGraphMvp = {
   scriptCommitDelayMs: 250,
   scriptDirty: false,
   scriptCommitTimer: 0,
+  bookScriptPage: "patch",
+  uiSettingsScriptDirty: false,
+  uiSettingsScriptCommitTimer: 0,
   selected: null,
   sampleRate: 44100,
   seconds: 2,
@@ -389,6 +393,8 @@ var nodeGraphMvp = {
   uiDevHelperDragging: null,
   uiDevHelperResizing: null,
   uiDevHelperWindowSize: null,
+  emojiPageDragging: null,
+  emojiPageResizing: null,
   sliderDragging: null,
   smoothZoomDragging: null,
   snapGridWhilePanning: false,
