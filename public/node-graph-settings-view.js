@@ -101,8 +101,15 @@ function syncNodeGraphSettingsView() {
   if (typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
     syncNodeGraphCurrentSavedPatchHeader();
   }
+  const settingsView = document.getElementById("nodeSettingsView");
   const raw = document.getElementById("nodePatchRawText");
-  if (raw && document.activeElement !== raw && typeof serializeNodeGraphPatch === "function") {
+  const scriptVisible = Boolean(settingsView && !settingsView.hidden);
+  if (
+    scriptVisible
+    && raw
+    && document.activeElement !== raw
+    && typeof serializeNodeGraphPatch === "function"
+  ) {
     raw.value = serializeNodeGraphPatch();
   }
   syncNodePatchRawTextHighlight();

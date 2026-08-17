@@ -305,6 +305,15 @@ function changeNodeGraphTraceDisplayMode(_event) {
   return false;
 }
 
+function nodeGraphSwapTraceLookPair(settings, leftKey, rightKey, mirrorKey) {
+  const next = settings[rightKey];
+  settings[rightKey] = settings[leftKey];
+  settings[leftKey] = next;
+  if (mirrorKey) {
+    settings[mirrorKey] = settings[leftKey];
+  }
+}
+
 /** Swap Left/Right look (color, size, blur, brightness) on Output / stereo Trace. */
 function swapNodeGraphOutputTraceLook() {
   const nodeId = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
@@ -314,57 +323,46 @@ function swapNodeGraphOutputTraceLook() {
   if (!node) {
     return;
   }
-  const apply = () => {
-    const s = { ...(node.traceDisplaySettings || {}) };
-    const leftColor = s.dot1Color ?? s.color;
-    const rightColor = s.secondaryColor;
-    s.dot1Color = rightColor;
-    s.color = rightColor;
-    s.secondaryColor = leftColor;
-    const leftSize = s.dot1Size ?? s.size;
-    const rightSize = s.secondarySize;
-    s.dot1Size = rightSize;
-    if (s.size !== undefined) {
-      s.size = rightSize;
-    }
-    s.secondarySize = leftSize;
-    const leftBright = s.dot1Brightness ?? s.brightness;
-    const rightBright = s.secondaryBrightness;
-    s.dot1Brightness = rightBright;
-    if (s.brightness !== undefined) {
-      s.brightness = rightBright;
-    }
-    s.secondaryBrightness = leftBright;
-    const leftBlur = s.lineThickness;
-    s.lineThickness = s.secondaryLineThickness;
-    s.secondaryLineThickness = leftBlur;
-    node.traceDisplaySettings = s;
-    if (typeof commitNodeGraphPatch === "function") {
-      const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-      const dest = patch.nodes.find((n) => n.id === node.id);
-      if (dest) {
-        dest.traceDisplaySettings = { ...s };
-        commitNodeGraphPatch(patch, {
-          status: "swapped L/R look",
-          deferUiPanels: true,
-        });
-      }
-    }
-    if (typeof writeNodeGraphTraceDisplaySettingsForm === "function") {
-      writeNodeGraphTraceDisplaySettingsForm(s);
-    }
-    if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
-      scheduleNodeGraphModuleScopeDraw({ force: true });
-    }
-  };
+  const s = { ...(node.traceDisplaySettings || {}) };
+  if (s.dot1Color === undefined && s.color !== undefined) {
+    s.dot1Color = s.color;
+  }
+  if (s.dot1Size === undefined && s.size !== undefined) {
+    s.dot1Size = s.size;
+  }
+  if (s.dot1Brightness === undefined && s.brightness !== undefined) {
+    s.dot1Brightness = s.brightness;
+  }
+  nodeGraphSwapTraceLookPair(s, "dot1Color", "secondaryColor", "color");
+  nodeGraphSwapTraceLookPair(s, "dot1Size", "secondarySize", "size");
+  nodeGraphSwapTraceLookPair(s, "dot1Brightness", "secondaryBrightness", "brightness");
+  nodeGraphSwapTraceLookPair(s, "lineThickness", "secondaryLineThickness");
+  node.traceDisplaySettings = s;
   if (typeof noteNodeGraphHeavyHistoryAction === "function") {
     noteNodeGraphHeavyHistoryAction("swapLr");
   }
-  if (typeof runNodeGraphHistoryAfterGlow === "function") {
-    runNodeGraphHistoryAfterGlow("last", apply);
-    return;
+  nodeGraphMvp.patchDirtyState = "edited";
+  persistNodeGraphTraceDisplaySettingsSoon("debounce");
+  if (typeof recordNodeGraphHistory === "function") {
+    recordNodeGraphHistory();
+  } else if (typeof renderNodeGraphHistoryControls === "function") {
+    renderNodeGraphHistoryControls();
   }
-  apply();
+  if (typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
+    syncNodeGraphCurrentSavedPatchHeader();
+  }
+  if (typeof writeNodeGraphTraceDisplaySettingsForm === "function") {
+    writeNodeGraphTraceDisplaySettingsForm(s);
+  }
+  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw({ force: true });
+  }
+  if (typeof syncNodeGraphInstantTracePreview === "function") {
+    syncNodeGraphInstantTracePreview(
+      document.getElementById("nodeTraceDisplaySettingsPopover"),
+      s,
+    );
+  }
 }
 
 let nodeGraphTraceDisplaySettingsPersistTimer = 0;

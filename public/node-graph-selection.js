@@ -276,8 +276,11 @@ function syncNodeGraphModuleActionTargetFromSelection() {
       kind: selectedWire.kind,
     };
     nodeGraphMvp.sceneContextTargetNode = null;
+    if (!actionWindowOpen) {
+      return;
+    }
     configureNodeSceneContextMenu("wire");
-    if (displayChanged && typeof noteNodeGraphDisplayChange === "function") {
+    if (typeof noteNodeGraphDisplayChange === "function") {
       noteNodeGraphDisplayChange();
     }
     return;
@@ -287,18 +290,15 @@ function syncNodeGraphModuleActionTargetFromSelection() {
     nodeGraphMvp.sceneContextTargetNode = selectedNode;
     nodeGraphMvp.lastModuleActionTargetNode = selectedNode;
     nodeGraphMvp.sceneContextTargetWire = null;
-    configureNodeSceneContextMenu("module");
   } else {
-    const selectedNodeIds = nodeGraphSelectedNodeIds();
     nodeGraphMvp.sceneContextTargetNode = null;
     nodeGraphMvp.sceneContextTargetWire = null;
-    if (selectedNodeIds.size > 1) {
-      configureNodeSceneContextMenu("module");
-    } else if (actionWindowOpen) {
-      configureNodeSceneContextMenu("module");
-    }
   }
-  if (displayChanged && typeof noteNodeGraphDisplayChange === "function") {
+  if (!actionWindowOpen) {
+    return;
+  }
+  configureNodeSceneContextMenu("module");
+  if (typeof noteNodeGraphDisplayChange === "function") {
     noteNodeGraphDisplayChange();
   }
 }

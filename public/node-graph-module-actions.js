@@ -152,6 +152,13 @@ function showNodeGraphModule(node, point = null, options = {}) {
     }
     return "";
   }
+  if (typeof nodeGraphModuleTypeIsInvisible === "function"
+    && nodeGraphModuleTypeIsInvisible(type)) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("This module is not listed.");
+    }
+    return "";
+  }
   if (typeof nodeGraphModuleTypeIsUnderConstruction === "function"
     && nodeGraphModuleTypeIsUnderConstruction(type)) {
     if (typeof setNodeInteractionHelp === "function") {
@@ -165,26 +172,24 @@ function showNodeGraphModule(node, point = null, options = {}) {
       ? nodeGraphFindExistingModuleOfType(type)
       : nodeGraphMvp.patch?.nodes?.find((candidate) => candidate.type === type);
     if (existing) {
-      const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-      const target = patch.nodes.find((candidate) => candidate.id === existing.id);
       const gridPoint = point ? nodeGraphPixelToGrid(point) : defaultNodeGraphModuleGridPoint(type);
-      if (target) {
-        target.gx = gridPoint.gx;
-        target.gy = gridPoint.gy;
-      }
-      commitNodeGraphPatch(patch, {
+      existing.gx = gridPoint.gx;
+      existing.gy = gridPoint.gy;
+      commitNodeGraphPatch(nodeGraphMvp.patch, {
         status: options.status || "module moved",
+        layoutEdit: true,
+        skipValidate: true,
         record: options.record,
         autosaveWorkingPatch: options.autosaveWorkingPatch,
-        skipLivePlan: options.skipLivePlan,
+        skipLivePlan: options.skipLivePlan !== false,
         deferUiPanels: options.deferUiPanels,
       });
       return existing.id;
     }
   }
 
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const counts = nextNodeGraphTypeCounts(patch.nodes);
+  const live = nodeGraphMvp.patch;
+  const counts = nextNodeGraphTypeCounts(live.nodes);
   counts[type] = (counts[type] || 0) + 1;
   const id = `${type}-${counts[type]}`;
   const gridPoint = point ? nodeGraphPixelToGrid(point) : defaultNodeGraphModuleGridPoint(type);
@@ -201,12 +206,18 @@ function showNodeGraphModule(node, point = null, options = {}) {
   const defaultAlias = type === "groupInput" ? `Input ${counts[type]}`
     : type === "groupOutput" ? `Output ${counts[type]}`
     : undefined;
-  patch.nodes.push(createNodeGraphPatchNode(type, {
-    id,
-    gx: gridPoint.gx,
-    gy: gridPoint.gy,
-    ...(defaultAlias ? { alias: defaultAlias } : {}),
-  }));
+  const patch = {
+    ...live,
+    nodes: [
+      ...(live.nodes || []),
+      createNodeGraphPatchNode(type, {
+        id,
+        gx: gridPoint.gx,
+        gy: gridPoint.gy,
+        ...(defaultAlias ? { alias: defaultAlias } : {}),
+      }),
+    ],
+  };
   const commitAdd = () => {
     commitNodeGraphPatch(patch, {
       status: options.status || "module added",
@@ -633,16 +644,22 @@ function finishNodeGraphModulePlacementAtCurrentPosition(status = "module placed
   const x = Number.parseFloat(element.style.getPropertyValue("--node-x")) || 0;
   const y = Number.parseFloat(element.style.getPropertyValue("--node-y")) || 0;
   const gridPoint = nodeGraphPixelToGrid({ x, y });
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const patchNode = patch.nodes.find((candidate) => candidate.id === placement.nodeId);
+  const patchNode = typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(placement.nodeId)
+    : nodeGraphMvp.patch?.nodes?.find((candidate) => candidate.id === placement.nodeId);
   if (patchNode) {
     patchNode.gx = gridPoint.gx;
     patchNode.gy = gridPoint.gy;
   }
   nodeGraphMvp.modulePlacement = null;
   const commitDrop = () => {
-    // Full commit on drop: history + autosave + live plan (ghost create skipped these).
-    commitNodeGraphPatch(patch, { status });
+    // Position is already on the DOM. Ghost create skipped live plan — start it now.
+    commitNodeGraphPatch(nodeGraphMvp.patch, {
+      status,
+      layoutEdit: true,
+      skipValidate: true,
+      livePlan: true,
+    });
     clearNodeGraphSelection();
   };
   if (typeof noteNodeGraphHeavyHistoryAction === "function") {

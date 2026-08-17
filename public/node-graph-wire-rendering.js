@@ -479,7 +479,8 @@ function nodeGraphDrawTemporaryWire(svg, options) {
   } = options;
   const nativeFromColor = nodeGraphPortWireColor(endpoint.node, endpoint.port, endpoint.io);
   const fromColor = interactColor || nativeFromColor;
-  const freeColor = interactColor || "rgba(243, 241, 236, 0.9)";
+  // Unconnected drag: solid source color end to end. Two-color blend only
+  // after both jacks exist.
   const stroke = nodeGraphWireHelpers.createGradient(
     svg,
     gradientId,
@@ -488,7 +489,7 @@ function nodeGraphDrawTemporaryWire(svg, options) {
     "node-wire-gradient-stop",
     [
       fromColor,
-      freeColor,
+      fromColor,
     ],
   );
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -514,8 +515,8 @@ function nodeGraphDrawTemporaryWire(svg, options) {
     });
     if (drawCursorCap && nodeGraphWirePointIsFinite(to)) {
       const freeRole = role === "from" ? "to" : "from";
-      nodeGraphWireHelpers.drawEndpointCap(paintSvg, to, freeRole, freeColor, "temp", {
-        endColor: freeColor,
+      nodeGraphWireHelpers.drawEndpointCap(paintSvg, to, freeRole, fromColor, "temp", {
+        endColor: fromColor,
       });
     }
   }
@@ -804,6 +805,13 @@ function ensureNodeGraphWorkspaceWireLayoutObserver() {
 }
 
 function renderNodeGraphConnectionList() {
+  const list = document.getElementById("nodeConnectionList");
+  if (!list) {
+    return;
+  }
+  if (document.body?.classList?.contains("keyboard-debug-hidden")) {
+    return;
+  }
   const plan = compileNodeGraphExecutionPlan();
   const validation = {
     issues: plan.issues,
@@ -816,7 +824,6 @@ function renderNodeGraphConnectionList() {
     sourceNodes: plan.sourceNodes,
     valid: plan.valid,
   };
-  const list = document.getElementById("nodeConnectionList");
   const status = document.getElementById("nodeGraphStatus");
   const source = document.getElementById("nodeGraphSource");
   const validationPill = document.getElementById("nodeGraphValidation");

@@ -1315,7 +1315,7 @@ function commitNodeGraphPatch(patch, options = {}) {
       }
       nodeGraphPatchThrowLoadFailure(pretty, error);
     }
-    nodeGraphMvp.patch = cloneNodeGraphPatch(validated);
+    nodeGraphMvp.patch = validated;
   }
   if (typeof preserveNodeGraphEditorZoomOnPatch === "function") {
     preserveNodeGraphEditorZoomOnPatch(nodeGraphMvp.patch);
@@ -1366,7 +1366,10 @@ function commitNodeGraphPatch(patch, options = {}) {
     } else if (typeof scheduleNodeGraphLivePlanSync === "function") {
       scheduleNodeGraphLivePlanSync();
     }
-  } else if (!isLayoutEdit && !isSoftDom && !isChromeEdit && options.skipLivePlan !== true) {
+  } else if (
+    options.skipLivePlan !== true
+    && (options.livePlan || (!isLayoutEdit && !isSoftDom && !isChromeEdit))
+  ) {
     scheduleNodeGraphLivePlanSync();
   }
 
@@ -1385,7 +1388,9 @@ function commitNodeGraphPatch(patch, options = {}) {
       }
     } else if (!isLayoutEdit) {
       renderNodePalette();
-      renderNodeGraphConnectionList();
+      if (typeof renderNodeGraphConnectionList === "function") {
+        renderNodeGraphConnectionList();
+      }
       syncNodeGraphGhostSliders();
       syncNodeGraphFilterCurveDisplays();
       renderNodeGraphVisualSettings();
@@ -1524,24 +1529,27 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
   }
 
   if (removableNodeIds.size) {
-    const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-    patch.nodes = patch.nodes.filter((node) => !removableNodeIds.has(node.id));
-    patch.bypassedNodes = patch.bypassedNodes.filter((nodeId) => !removableNodeIds.has(nodeId));
-    patch.connections = patch.connections.filter(
-      (connection) =>
-        !removableNodeIds.has(connection.sourceNode) &&
-        !removableNodeIds.has(connection.destinationNode),
-    );
-    patch.modulations = patch.modulations.filter(
-      (modulation) =>
-        !removableNodeIds.has(modulation.sourceNode) &&
-        !removableNodeIds.has(modulation.destinationNode),
-    );
-    patch.graphConnections = patch.graphConnections.filter(
-      (connection) =>
-        !removableNodeIds.has(connection.sourceNode) &&
-        !removableNodeIds.has(connection.destinationNode),
-    );
+    const live = nodeGraphMvp.patch;
+    const patch = {
+      ...live,
+      nodes: live.nodes.filter((node) => !removableNodeIds.has(node.id)),
+      bypassedNodes: (live.bypassedNodes || []).filter((nodeId) => !removableNodeIds.has(nodeId)),
+      connections: (live.connections || []).filter(
+        (connection) =>
+          !removableNodeIds.has(connection.sourceNode) &&
+          !removableNodeIds.has(connection.destinationNode),
+      ),
+      modulations: (live.modulations || []).filter(
+        (modulation) =>
+          !removableNodeIds.has(modulation.sourceNode) &&
+          !removableNodeIds.has(modulation.destinationNode),
+      ),
+      graphConnections: (live.graphConnections || []).filter(
+        (connection) =>
+          !removableNodeIds.has(connection.sourceNode) &&
+          !removableNodeIds.has(connection.destinationNode),
+      ),
+    };
     setNodeGraphSelection(null);
     commitNodeGraphPatch(patch, {
       topologyEdit: true,
@@ -1554,8 +1562,12 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
 
   if (hideOnlyNodeIds.size) {
     setNodeGraphSelection(null);
-    applyNodeGraphPatchToDom();
-    drawNodeGraphWires();
+    applyNodeGraphPatchToDom({ skipExistingSync: true });
+    if (typeof scheduleNodeGraphWireRedrawAfterLayout === "function") {
+      scheduleNodeGraphWireRedrawAfterLayout();
+    } else if (typeof drawNodeGraphWires === "function") {
+      drawNodeGraphWires();
+    }
     scheduleNodeGraphLivePlanSync();
     renderNodeGraphLiveControls();
     setNodeGraphScriptStatus("input module hidden; script preserved", true);

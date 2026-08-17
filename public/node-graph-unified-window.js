@@ -497,6 +497,9 @@ function closeNodeGraphUnifiedWindowPage(page = "", options = {}) {
   }
   const quiet = options.quiet === true;
   const element = document.getElementById(config.elementId);
+  if (element?.hidden && (quiet || nodeGraphMvp.unifiedWindowPage !== key)) {
+    return false;
+  }
 
   if (element && !element.hidden) {
     const seat = nodeGraphUnifiedWindowSeatFromElement(element);
@@ -1541,17 +1544,20 @@ function syncNodeGraphUnifiedWindowNavBars() {
     if (!element) {
       continue;
     }
+    const pageIsOpen = !element.hidden;
+    if (!pageIsOpen) {
+      const idleHost = element.querySelector(":scope > .node-unified-window-nav-host");
+      if (idleHost) {
+        idleHost.hidden = true;
+      }
+      continue;
+    }
     markNodeGraphUnifiedWindowChrome(element);
     const host = mount.prepare(element);
     if (!host) {
       continue;
     }
-    const pageIsOpen = !element.hidden;
     host.replaceChildren();
-    if (!pageIsOpen) {
-      host.hidden = true;
-      continue;
-    }
     const nav = buildNodeGraphUnifiedWindowNav(active || mount.page);
     if (!nav) {
       host.hidden = true;
