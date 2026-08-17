@@ -941,13 +941,6 @@ function saveNodeGraphScriptEditor() {
 
 async function copyNodeGraphScriptToClipboard(event) {
   const button = event?.currentTarget;
-  if (typeof confirmNodeGraphDefaultButtonClick === "function" && button) {
-    if (!confirmNodeGraphDefaultButtonClick(button, () => {
-      setNodeGraphScriptStatus("click Confirm Copy to copy this patch", true);
-    }, { confirmText: "Confirm Copy" })) {
-      return;
-    }
-  }
   if (typeof nodeGraphScriptReadyForGraphAction === "function"
     && !nodeGraphScriptReadyForGraphAction("copy")) {
     return;
