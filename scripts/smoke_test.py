@@ -4656,9 +4656,20 @@ def require_node_graph_mvp_contract() -> None:
             script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
             script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
         ]
-        and 'key: "squares"' in script_sources["./public/node-graph-module-definitions.js"]
-        and "squares + widthOffset" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
-        and 'parameter.key === "squares"' in script_sources["./public/node-graph-patch-core.js"]
+        and 'key: "width"' in script_sources["./public/node-graph-module-definitions.js"][
+            script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
+            script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
+        ]
+        and 'key: "height"' in script_sources["./public/node-graph-module-definitions.js"][
+            script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
+            script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
+        ]
+        and "maxDigits: 0" in script_sources["./public/node-graph-module-definitions.js"][
+            script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
+            script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
+        ]
+        and "nodeGraphRasterRgbGridSize" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
+        and 'Object.hasOwn(rawParams, "squares")' in script_sources["./public/node-graph-patch-core.js"]
         and '"rgba"' in script_sources["./public/node-graph-module-definitions.js"]
         and 'key: "hue"' in script_sources["./public/node-graph-module-definitions.js"]
         and "drawNodeGraphGradientVectorscopeFaceItem" in script_sources["./public/modules/gradientVectorscope/gradient-vectorscope-display.js"]
