@@ -41,6 +41,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // back to per-sample soemdsp_robin_sinusoid_sample.
   static ROBIN_SINUSOID_NATIVE_BLOCK_SIZE = 128;
 
+  // RobinSupersaw generator block — same 128-sample quantum when pitch
+  // jacks are unconnected. A 0.1V/Oct or `f` jack falls back to
+  // soemdsp_robin_supersaw_sample (4 WASM hops per sample).
+  static ROBIN_SUPERSAW_NATIVE_BLOCK_SIZE = 128;
+
   constructor() {
     super();
     this.liveModuleEvaluators = this.buildLiveModuleEvaluators();
@@ -356,6 +361,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.sessionId = 0;
     this.scopeBuffers = new Map();
     this.scopeCaptureNodeIds = [];
+    this.scopeCaptureRates = Object.create(null);
     this.scopeCounter = 0;
     this.scopeSampleStride = 1;
     // Continuous engine-sample counter for free-running graph LFO phase

@@ -263,7 +263,7 @@ static void ensurePath(SnowflakeState& s, int patternIndex, int iterations, doub
   if (s.hasPath
       && s.cachedPattern == idx
       && s.cachedIters == iters
-      && dsp_fabs(s.cachedAngle - angle) < 1e-6) {
+      && near_planck(s.cachedAngle, angle)) {
     return;
   }
   rebuildPath(s, idx, iters, angle);

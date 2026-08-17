@@ -359,7 +359,7 @@ function nodeGraphModuleScopeClockCapturedLightTarget(slot, capturedBuffer) {
   if (selectedPort === "Analog Out") {
     return nodeGraphModuleScopeCapturedCurrentLightTarget(capturedBuffer);
   }
-  if (selectedPort === "Pulse") {
+  if (selectedPort === "Pulse" || selectedPort === "T") {
     return nodeGraphModuleScopeCapturedPulseLightTarget(capturedBuffer);
   }
   return nodeGraphModuleScopeCapturedGateLightTarget(capturedBuffer);

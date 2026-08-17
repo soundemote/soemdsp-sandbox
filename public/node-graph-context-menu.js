@@ -2305,6 +2305,9 @@ function openNodeModuleActionMenu(event) {
     event.stopPropagation?.();
     return;
   }
+  if (typeof nodeGraphEventTargetIsPortalShell === "function" && nodeGraphEventTargetIsPortalShell(event)) {
+    return;
+  }
   if (event?.type === "dblclick" && event.altKey) {
     event.preventDefault?.();
     event.stopPropagation?.();
@@ -2482,6 +2485,27 @@ const nodeGraphWorkspaceOccupiedElementSelector =
 // Shared by the right-click scene menu and double-click-to-spawn: true only when
 // the event lands on empty modular background (inside #nodeGraphWorkspace),
 // not the top/bottom bars, a floating window, a wire, a node, or a port/readout.
+function nodeGraphEventTargetIsPortalShell(event) {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) {
+    return false;
+  }
+  // Wires stay wire-menu. The whole portal plate — title/text, I/O ports,
+  // and parameter ports — is empty workspace for the magnifier.
+  if (target.closest?.(".node-wire-hit-path, .node-wire-path")) {
+    return false;
+  }
+  const nodeEl = target.closest?.(".dsp-node");
+  if (!nodeEl) {
+    return false;
+  }
+  const type = nodeEl.dataset?.nodeType || "";
+  if (typeof nodeGraphPortalKindFromType === "function") {
+    return Boolean(nodeGraphPortalKindFromType(type));
+  }
+  return type === "portalInlet" || type === "portalOutlet" || String(type).startsWith("portalInlet") || String(type).startsWith("portalOutlet");
+}
+
 function nodeGraphEventTargetIsEmptyWorkspaceArea(event) {
   const target = event.target instanceof Element ? event.target : null;
   if (!target?.closest?.("#nodeGraphWorkspace")) {
@@ -2492,6 +2516,10 @@ function nodeGraphEventTargetIsEmptyWorkspaceArea(event) {
   }
   if (target.closest?.(nodeGraphWorkspaceInteractiveDialogSelector)) {
     return false;
+  }
+  // In/Out portal plates are jacks in the world — right-click is the magnifier.
+  if (nodeGraphEventTargetIsPortalShell(event)) {
+    return true;
   }
   if (target.closest?.(nodeGraphWorkspaceOccupiedElementSelector)) {
     return false;
@@ -2545,6 +2573,10 @@ function openNodeSceneContextMenu(event) {
   if (typeof openNodeXyPadContextMenu === "function" && openNodeXyPadContextMenu(event)) {
     return;
   }
+  // In/Out text, jacks, and param ports yield to the magnifier.
+  if (typeof nodeGraphEventTargetIsPortalShell === "function" && nodeGraphEventTargetIsPortalShell(event)) {
+    return;
+  }
   // Parameter rows / readouts → Parameter Settings (unified window page).
   if (typeof openNodeGraphParameterSettingsFromContextEvent === "function"
     && openNodeGraphParameterSettingsFromContextEvent(event, onModule)) {
@@ -2587,6 +2619,11 @@ function openNodeSceneContextMenu(event) {
         noteNodeGraphUnifiedWindowOpened("moduleActions", wireMenu);
       }
     }
+    return;
+  }
+
+  // In/Out portal plates yield to the magnifier instead of Module Settings.
+  if (typeof nodeGraphEventTargetIsPortalShell === "function" && nodeGraphEventTargetIsPortalShell(event)) {
     return;
   }
 

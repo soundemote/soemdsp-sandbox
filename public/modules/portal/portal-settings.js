@@ -1,1 +1,1 @@
-// Portal I/O is a fixed Mono / Left / Right trio. No channel picker.
+// Portal I/O lanes are separate module types (Mono, Left, Right, LR, MLR).

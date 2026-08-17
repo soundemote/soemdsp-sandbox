@@ -388,6 +388,59 @@ function syncNodeUiDevDimmerCutoutControls() {
   }
 }
 
+function applyNodeGraphMagnifierRimLook(thicknessPx = 5, softnessPx = 4) {
+  const thickness = Math.max(0, Math.min(24, Number(thicknessPx) || 0));
+  const softness = Math.max(0, Math.min(32, Number(softnessPx) || 0));
+  const thickCss = `${thickness}px`;
+  const softCss = `${softness}px`;
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  workspace?.style.setProperty("--magnifier-rim-width", thickCss);
+  workspace?.style.setProperty("--magnifier-rim-softness", softCss);
+  document.documentElement.style.setProperty("--magnifier-rim-width", thickCss);
+  document.documentElement.style.setProperty("--magnifier-rim-softness", softCss);
+  document.getElementById("nodeGraphMagnifier")?.style.setProperty("--magnifier-rim-width", thickCss);
+  document.getElementById("nodeGraphMagnifier")?.style.setProperty("--magnifier-rim-softness", softCss);
+  if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
+    nodeGraphMvp.magnifierBorderThickness = thickness;
+    nodeGraphMvp.magnifierBorderSoftness = softness;
+  }
+}
+
+function syncNodeUiDevMagnifierRimControls() {
+  const thickEl = document.getElementById("nodeUiDevMagnifierBorderThickness");
+  const thickOut = document.getElementById("nodeUiDevMagnifierBorderThicknessValue");
+  const softEl = document.getElementById("nodeUiDevMagnifierBorderSoftness");
+  const softOut = document.getElementById("nodeUiDevMagnifierBorderSoftnessValue");
+  let thickness = 5;
+  let softness = 4;
+  if (thickEl) {
+    thickness = Math.max(0, Math.min(24, Number(thickEl.value) || 0));
+    if (!thickEl.matches(":active")) {
+      thickEl.value = String(thickness);
+    }
+  } else if (typeof nodeGraphMvp !== "undefined" && Number.isFinite(Number(nodeGraphMvp?.magnifierBorderThickness))) {
+    thickness = Number(nodeGraphMvp.magnifierBorderThickness);
+  }
+  if (softEl) {
+    softness = Math.max(0, Math.min(32, Number(softEl.value) || 0));
+    if (!softEl.matches(":active")) {
+      softEl.value = String(softness);
+    }
+  } else if (typeof nodeGraphMvp !== "undefined" && Number.isFinite(Number(nodeGraphMvp?.magnifierBorderSoftness))) {
+    softness = Number(nodeGraphMvp.magnifierBorderSoftness);
+  }
+  if (thickOut) {
+    thickOut.textContent = `${thickness}px`;
+  }
+  if (softOut) {
+    softOut.textContent = `${softness}px`;
+  }
+  applyNodeGraphMagnifierRimLook(thickness, softness);
+  if (typeof applyNodeGraphMagnifierLayout === "function") {
+    applyNodeGraphMagnifierLayout();
+  }
+}
+
 function nodeGraphGridVisualScaleFromMultiply(multiply) {
   const n = Math.round(Number(multiply));
   const step = Number.isFinite(n) ? Math.max(1, Math.min(8, n)) : 2;
@@ -653,6 +706,7 @@ function syncNodeUiDevSettingsHeaderControls() {
   }
   syncNodeUiDevModuleIdleStroke();
   syncNodeUiDevDimmerCutoutControls();
+  syncNodeUiDevMagnifierRimControls();
   syncNodeUiDevPortSize();
   syncNodeUiDevIoSectionPadding();
   syncNodeUiDevPortBrightness();

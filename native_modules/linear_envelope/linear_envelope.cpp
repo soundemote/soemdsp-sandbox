@@ -54,7 +54,7 @@ static void trigger_attack(LinearEnvelopeState& s, double delay, double attack, 
     }
     return;
   }
-  if (s.out <= 0.000001) {
+  if (s.out <= kPlanck) {
     s.out = 0.0;
     s.secondsPassed = 0.0;
   }

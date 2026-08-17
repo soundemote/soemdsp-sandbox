@@ -89,6 +89,11 @@ struct SabrinaState {
   double lastLeft;
   double lastRight;
   double lastWet;
+  // soemdsp::dynamics::SilenceDetector — clock 0→1 in 1s, level = Planck 1e-7.
+  // Reverb::runWithIdleDetection feeds in+fb+wet+dry into the same detector.
+  bool isIdle;
+  double idleClock;
+  double idleIncrement;
   double mix;
   double diffusionSize;
   double diffusionAmount;
@@ -383,8 +388,7 @@ void applyDelayGeometry(SabrinaState& state) {
 // advanceSabrinaSmoothing skip applyDelayGeometry's 14-delay-line recompute
 // entirely instead of redoing it, unchanged, every single sample forever.
 bool sabrinaSmoothingNeedsWork(const SabrinaState& state) {
-  constexpr double kEpsilon = 1e-6;
-  auto near = [](double a, double b) { return __builtin_fabs(a - b) < kEpsilon; };
+  auto near = [](double a, double b) { return near_planck(a, b); };
   return !(
     near(state.smoothedDiffusionSize, state.diffusionSize) &&
     near(state.smoothedDelaySize, state.delaySize) &&
@@ -408,6 +412,28 @@ bool sabrinaSmoothingNeedsWork(const SabrinaState& state) {
 // step; no measurable difference during an already-smoothed drag). The LFO
 // parameters are smoothed here too, but that's conservative legacy
 // behavior pending audio/render validation, not a confirmed safety need.
+// Transcribed from soemdsp/dynamics/SilenceDetector.hpp.
+// increment = timeToIncrement(1.0) = 1/sr. Any |level| >= Planck (1e-7)
+// resets the clock; once the clock passes 1.0 the reverb is idle.
+bool sabrinaSilenceDetectorRun(SabrinaState& state, double level) {
+  const double absIn = __builtin_fabs(level);
+  state.idleClock += state.idleIncrement;
+  if (absIn >= kPlanck) {
+    state.isIdle = false;
+    state.idleClock = 0.0;
+  } else if (state.idleClock > 1.0) {
+    state.isIdle = true;
+  }
+  return state.isIdle;
+}
+
+bool sabrinaIdleFromPorts(SabrinaState& state, double inL, double inR) {
+  return sabrinaSilenceDetectorRun(
+    state,
+    inL + inR + state.ch0 + state.ch1 + state.lastLeft + state.lastRight + state.lastWet
+  );
+}
+
 void advanceSabrinaSmoothing(SabrinaState& state) {
   if (!sabrinaSmoothingNeedsWork(state)) {
     return;
@@ -432,9 +458,14 @@ void advanceSabrinaSmoothing(SabrinaState& state) {
 // live per-sample API since that was switched to the paired kernels).
 void sabrinaProcessBlockScalar(SabrinaState& state, const double* leftIn, const double* rightIn, double* leftOut, double* rightOut, int frameCount) {
   for (int frame = 0; frame < frameCount; frame += 1) {
-    advanceSabrinaSmoothing(state);
     const double dryLeft = finite(leftIn[frame]) ? leftIn[frame] : 0.0;
     const double dryRight = finite(rightIn[frame]) ? rightIn[frame] : dryLeft;
+    if (sabrinaIdleFromPorts(state, dryLeft, dryRight)) {
+      leftOut[frame] = state.lastLeft;
+      rightOut[frame] = state.lastRight;
+      continue;
+    }
+    advanceSabrinaSmoothing(state);
     const double preLeft = delaySample(state.delays[12], state.ch1);
     const double preRight = delaySample(state.delays[13], state.ch0);
     double left = dryLeft + preLeft * state.recycle;
@@ -462,9 +493,14 @@ void sabrinaProcessBlockScalar(SabrinaState& state, const double* leftIn, const 
 // already uses live, per sample.
 void sabrinaProcessBlockSimd(SabrinaState& state, const double* leftIn, const double* rightIn, double* leftOut, double* rightOut, int frameCount) {
   for (int frame = 0; frame < frameCount; frame += 1) {
-    advanceSabrinaSmoothing(state);
     const double dryLeft = finite(leftIn[frame]) ? leftIn[frame] : 0.0;
     const double dryRight = finite(rightIn[frame]) ? rightIn[frame] : dryLeft;
+    if (sabrinaIdleFromPorts(state, dryLeft, dryRight)) {
+      leftOut[frame] = state.lastLeft;
+      rightOut[frame] = state.lastRight;
+      continue;
+    }
+    advanceSabrinaSmoothing(state);
     double preLeft, preRight;
     delaySamplePairSimd(state.delays[12], state.delays[13], state.ch1, state.ch0, preLeft, preRight);
     double left = dryLeft + preLeft * state.recycle;
@@ -495,6 +531,9 @@ void resetState(SabrinaState& state, double sampleRate) {
   state.lastLeft = 0.0;
   state.lastRight = 0.0;
   state.lastWet = 0.0;
+  state.isIdle = true;
+  state.idleClock = 0.0;
+  state.idleIncrement = 1.0 / state.sampleRate;
   state.mix = 0.43;
   state.diffusionSize = 0.35;
   state.diffusionAmount = 0.70;
@@ -568,8 +607,7 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
   // work a field actually owns. Mix has no *Changed() in soemdsp::delay::Reverb
   // -- it is a Wire read in drywet() -- so a mix poke must never rebuild
   // delay geometry or rewrite diffusion feedback.
-  constexpr double kNear = 1.0e-7;
-  auto near = [](double a, double b) { return __builtin_fabs(a - b) < kNear; };
+  auto near = [](double a, double b) { return near_planck(a, b); };
   auto assignIf = [&](double& dst, double next) {
     if (!near(dst, next)) {
       dst = next;
@@ -605,9 +643,12 @@ extern "C" void soemdsp_sabrina_reverb_process(int handle, double leftInput, dou
   if (!state) {
     return;
   }
-  advanceSabrinaSmoothing(*state);
   const double dryLeft = finite(leftInput) ? leftInput : 0.0;
   const double dryRight = finite(rightInput) ? rightInput : dryLeft;
+  if (sabrinaIdleFromPorts(*state, dryLeft, dryRight)) {
+    return;
+  }
+  advanceSabrinaSmoothing(*state);
   // Left and right channels are independent within this call (cross-feed
   // only happens via ch0/ch1 persisted from the *previous* call), so both
   // chains are processed together, one SIMD lane per channel, instead of
@@ -700,6 +741,11 @@ extern "C" double soemdsp_sabrina_reverb_wet_right(int handle) {
   return state ? state->ch1 : 0.0;
 }
 
+extern "C" int soemdsp_sabrina_reverb_is_idle(int handle) {
+  SabrinaState* state = stateForHandle(handle);
+  return state && state->isIdle ? 1 : 0;
+}
+
 extern "C" int soemdsp_sabrina_reverb_version() {
-  return 1;
+  return 2;
 }

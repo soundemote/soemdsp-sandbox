@@ -298,7 +298,7 @@ function attenuateSelectedNodeGraphWires(mode = "attenuate") {
       ui: {
         buttonsHidden: true,
         oscilloscopeHidden: true,
-        ioHidden: true,
+        ioHidden: false,
       },
       params: {
         amplitude: bipolar ? 1 : 0.5,
@@ -430,7 +430,7 @@ function convertPolarityOnSelectedNodeGraphWires(type) {
       ui: {
         buttonsHidden: true,
         oscilloscopeHidden: true,
-        ioHidden: true,
+        ioHidden: false,
       },
     }));
     newIds.push(id);

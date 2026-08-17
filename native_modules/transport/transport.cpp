@@ -1,5 +1,5 @@
 // soemdsp-native-module: transport
-// soemdsp-native-label: Transport
+// soemdsp-native-label: Master Clock
 // soemdsp-native-target: transport
 // soemdsp-native-kind: utility
 //

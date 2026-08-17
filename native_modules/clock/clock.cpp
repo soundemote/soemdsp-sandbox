@@ -93,7 +93,13 @@ extern "C" double soemdsp_clock_sample(
   const bool resetActive = safeReset > 0.0;
   const double rawPhase = resetActive ? 0.0 : wrap01(s.phase);
   const double phase = wrap01(rawPhase + safePhaseOffset);
-  const double digital = phase < safeDuty ? safeLevel : 0.0;
+  const double periodSamples = safeRate > 0.0 ? rateHz / safeRate : 0.0;
+  double digital = 0.0;
+  if (periodSamples > 0.0) {
+    const double dutySamples = dsp_floor(safeDuty * periodSamples + 0.5);
+    const double phaseSamples = phase * periodSamples;
+    digital = phaseSamples < dutySamples ? safeLevel : 0.0;
+  }
   const double analog = clock_analog_whip_sample(phase, safeLevel);
   const double nextRawPhase = wrap01(rawPhase + safeRate / rateHz);
   const double pulse = (safeRate > 0.0 && !resetActive && (!s.hasStarted || nextRawPhase < rawPhase)) ? safeLevel : 0.0;

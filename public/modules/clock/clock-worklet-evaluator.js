@@ -45,6 +45,7 @@ NodeLiveAudioProcessor.prototype.clockSample = function clockSample(state, reset
             "Digital Out": digital,
             Out: digital,
             Pulse: pulse,
+            T: pulse,
           };
         }
       } catch (error) {
@@ -69,13 +70,15 @@ NodeLiveAudioProcessor.prototype.clockSample = function clockSample(state, reset
         this.safeFilterNumber(level, null),
         rateHz,
       );
+      const pulse = this.safeFilterNumber(out.T ?? out.Pulse, null);
       return {
         "Analog Out": this.safeFilterNumber(out["Analog Out"], null),
         "Digital Out": this.safeFilterNumber(out["Digital Out"], null),
         Out: this.safeFilterNumber(out.Out, null),
-        Pulse: this.safeFilterNumber(out.Pulse, null),
+        Pulse: pulse,
+        T: pulse,
       };
     }
-    return { "Analog Out": 0, "Digital Out": 0, Out: 0, Pulse: 0 };
+    return { "Analog Out": 0, "Digital Out": 0, Out: 0, Pulse: 0, T: 0 };
   };
 

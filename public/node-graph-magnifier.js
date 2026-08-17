@@ -71,6 +71,35 @@ function setNodeGraphMagnifierMag(value) {
   return session.mag;
 }
 
+function syncNodeGraphMagnifierSizeControl() {
+  const button = document.getElementById("nodeMagnifierSizeSlider");
+  if (!button) {
+    return;
+  }
+  if (typeof button._syncToolbarFill === "function") {
+    button._syncToolbarFill();
+    return;
+  }
+  const size = clampNodeGraphMagnifierSize(nodeGraphMvp?.magnifier?.size ?? nodeGraphMagnifierLimits.defaultSize);
+  const min = nodeGraphMagnifierLimits.minSize;
+  const max = nodeGraphMagnifierLimits.maxSize;
+  const unit = (size - min) / (max - min || 1);
+  button.style.setProperty("--toolbar-fill", String(Math.max(0, Math.min(1, unit))));
+  button.setAttribute("aria-valuenow", String(size));
+  button.setAttribute("aria-valuetext", `${Math.round(size)}px`);
+  button.setAttribute("aria-pressed", unit > 0.001 ? "true" : "false");
+}
+
+function setNodeGraphMagnifierSize(value) {
+  const session = nodeGraphMagnifierSession();
+  session.size = clampNodeGraphMagnifierSize(value);
+  syncNodeGraphMagnifierSizeControl();
+  if (session.active) {
+    applyNodeGraphMagnifierLayout();
+  }
+  return session.size;
+}
+
 function bindNodeGraphMagnifierZoomControl() {
   const button = document.getElementById("nodeMagnifierZoomSlider");
   if (!button || button.dataset.magnifierZoomBound === "true") {
@@ -90,6 +119,27 @@ function bindNodeGraphMagnifierZoomControl() {
     return;
   }
   syncNodeGraphMagnifierZoomControl();
+}
+
+function bindNodeGraphMagnifierSizeControl() {
+  const button = document.getElementById("nodeMagnifierSizeSlider");
+  if (!button || button.dataset.magnifierSizeBound === "true") {
+    return;
+  }
+  button.dataset.magnifierSizeBound = "true";
+  if (typeof bindNodeGraphToolbarFillSlider === "function") {
+    bindNodeGraphToolbarFillSlider(button, {
+      min: nodeGraphMagnifierLimits.minSize,
+      max: nodeGraphMagnifierLimits.maxSize,
+      get: () => clampNodeGraphMagnifierSize(nodeGraphMvp?.magnifier?.size ?? nodeGraphMagnifierLimits.defaultSize),
+      set: (value) => {
+        setNodeGraphMagnifierSize(value);
+      },
+      format: (value) => `${Math.round(Number(value) || 0)}px`,
+    });
+    return;
+  }
+  syncNodeGraphMagnifierSizeControl();
 }
 
 function clampNodeGraphMagnifierSize(value) {
@@ -173,6 +223,14 @@ function applyNodeGraphMagnifierLayout() {
   session.host.style.left = `${session.x}px`;
   session.host.style.top = `${session.y}px`;
   session.host.style.setProperty("--magnifier-size", `${session.size}px`);
+  const rimW = Number.isFinite(Number(nodeGraphMvp?.magnifierBorderThickness))
+    ? Number(nodeGraphMvp.magnifierBorderThickness)
+    : 5;
+  const rimS = Number.isFinite(Number(nodeGraphMvp?.magnifierBorderSoftness))
+    ? Number(nodeGraphMvp.magnifierBorderSoftness)
+    : 4;
+  session.host.style.setProperty("--magnifier-rim-width", `${rimW}px`);
+  session.host.style.setProperty("--magnifier-rim-softness", `${rimS}px`);
   nodeGraphMagnifierPaintRim(workspace);
   if (!workspace || !session.world) {
     return;
@@ -205,7 +263,7 @@ function bindNodeGraphMagnifierWheelCapture(on) {
 }
 
 function handleNodeGraphMagnifierWheelCapture(event) {
-  resizeNodeGraphMagnifierByWheel(event);
+  zoomNodeGraphMagnifierByWheel(event);
 }
 
 function nodeGraphMagnifierShouldBlockContext() {
@@ -314,6 +372,8 @@ function beginNodeGraphMagnifier(event) {
   session.mag = clampNodeGraphMagnifierMag(session.mag || nodeGraphMagnifierLimits.mag);
   session.pointerId = event.pointerId;
   session.size = clampNodeGraphMagnifierSize(session.size || nodeGraphMagnifierLimits.defaultSize);
+  syncNodeGraphMagnifierZoomControl();
+  syncNodeGraphMagnifierSizeControl();
   session.x = event.clientX;
   session.y = event.clientY;
   session.lens?.replaceChildren();
@@ -370,7 +430,7 @@ function endNodeGraphMagnifierFromPointer(event) {
   endNodeGraphMagnifier();
 }
 
-function resizeNodeGraphMagnifierByWheel(event) {
+function zoomNodeGraphMagnifierByWheel(event) {
   const session = nodeGraphMvp.magnifier;
   if (!session?.active || !event.deltaY) {
     return false;
@@ -383,13 +443,16 @@ function resizeNodeGraphMagnifierByWheel(event) {
   if (!steps) {
     return true;
   }
-  session.size = clampNodeGraphMagnifierSize(
-    session.size * Math.exp(Math.log(nodeGraphMagnifierLimits.sizeRatio) * steps),
+  setNodeGraphMagnifierMag(
+    session.mag * Math.exp(Math.log(nodeGraphMagnifierLimits.sizeRatio) * steps),
   );
   if (Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
     session.x = event.clientX;
     session.y = event.clientY;
   }
-  applyNodeGraphMagnifierLayout();
   return true;
+}
+
+function resizeNodeGraphMagnifierByWheel(event) {
+  return zoomNodeGraphMagnifierByWheel(event);
 }

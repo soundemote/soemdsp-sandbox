@@ -1059,7 +1059,7 @@
     },
     {
       "name": "transport",
-      "label": "Transport",
+      "label": "Master Clock",
       "targetType": "transport",
       "kind": "utility",
       "source": "native_modules/transport/transport.cpp",

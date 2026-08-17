@@ -81,7 +81,10 @@ function nodeGraphSmoothVisualControl(runtime, key, target, sampleRate, seconds 
   const time = Math.max(0, Number(seconds) || 0);
   const coefficient = time <= 0 ? 1 : 1 - Math.exp(-1 / Math.max(1, time * rate));
   const next = current + (safeTarget - current) * coefficient;
-  const cleaned = Math.abs(next) < 0.000001 ? 0 : clampNodeSliderValue(next, min, max);
+  const planck = typeof nodeGraphPlanck === "function"
+    ? nodeGraphPlanck()
+    : (typeof NODE_GRAPH_PLANCK === "number" ? NODE_GRAPH_PLANCK : 1e-7);
+  const cleaned = Math.abs(next) < planck ? 0 : clampNodeSliderValue(next, min, max);
   runtime.visualControlStates.set(key, cleaned);
   runtime.visualControls[key] = cleaned;
   return cleaned;

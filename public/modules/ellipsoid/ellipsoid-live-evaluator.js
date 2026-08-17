@@ -54,8 +54,25 @@ function nodeGraphEllipsoidLivePitchAndPhase({
     "ellipsoid increment input",
   );
   const safeRate = Math.max(1, Number(sampleRate) || 44100);
-  const phaseIncrement = (pitchedFrequency / safeRate) + incrementInput;
-  return { read, phase, phaseOffset, phaseIncrement, pitchedFrequency, sampleRate: safeRate };
+  const motion = Math.max(0, Math.min(3, Math.round(Number(read("motion", 1)) || 0)));
+  const clockWise = motion === 0 || motion === 2;
+  const useSimTime = motion >= 2;
+  const dir = clockWise ? -1 : 1;
+  const phaseIncrement = useSimTime
+    ? 0
+    : (dir * pitchedFrequency / safeRate) + incrementInput;
+  return {
+    read,
+    phase,
+    phaseOffset,
+    phaseIncrement,
+    pitchedFrequency,
+    sampleRate: safeRate,
+    motion,
+    useSimTime,
+    dir,
+    incrementInput,
+  };
 }
 
 // RoundShape — sine→square
@@ -68,7 +85,16 @@ nodeGraphLiveModuleEvaluators.ellipsoid = ({
   });
   const shape = clampNodeSliderValue(ctx.read("shape", 0), 0, 1);
   const level = ctx.read("amplitude", 1);
-  let samplePhase = ctx.phase + ctx.phaseOffset;
+  let samplePhase;
+  if (ctx.useSimTime) {
+    const simSamples = Math.max(0, Number(runtime.absoluteFrame) || Number(frame) || 0);
+    samplePhase = ctx.dir
+      * ((ctx.pitchedFrequency / ctx.sampleRate) + ctx.incrementInput)
+      * simSamples
+      + ctx.phaseOffset;
+  } else {
+    samplePhase = ctx.phase + ctx.phaseOffset;
+  }
   samplePhase -= Math.floor(samplePhase);
   const value = nodeGraphEllipsoidSineToSquareVector(samplePhase, {
     amplitude: level,
@@ -95,7 +121,16 @@ nodeGraphLiveModuleEvaluators.ellipsoidOsc = ({
     defaultFrequency: 100,
   });
   // Phase in cycles → radians for legacy getEllipsoid
-  let samplePhaseCycles = ctx.phase + ctx.phaseOffset;
+  let samplePhaseCycles;
+  if (ctx.useSimTime) {
+    const simSamples = Math.max(0, Number(runtime.absoluteFrame) || Number(frame) || 0);
+    samplePhaseCycles = ctx.dir
+      * ((ctx.pitchedFrequency / ctx.sampleRate) + ctx.incrementInput)
+      * simSamples
+      + ctx.phaseOffset;
+  } else {
+    samplePhaseCycles = ctx.phase + ctx.phaseOffset;
+  }
   samplePhaseCycles -= Math.floor(samplePhaseCycles);
   const phaseRadians = samplePhaseCycles * Math.PI * 2;
   const value = nodeGraphEllipsoidVectorSample(phaseRadians, {

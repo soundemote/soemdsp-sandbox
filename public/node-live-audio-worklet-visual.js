@@ -92,7 +92,10 @@ NodeLiveAudioProcessor.prototype.smoothVisualControl = function smoothVisualCont
     const time = Math.max(0, Number(seconds) || 0);
     const coefficient = time <= 0 ? 1 : 1 - Math.exp(-1 / Math.max(1, time * safeRate));
     const next = current + (safeTarget - current) * coefficient;
-    const cleaned = Math.abs(next) < 0.000001 ? 0 : this.clampValue(next, min, max);
+    const planck = typeof nodeGraphPlanck === "function"
+      ? nodeGraphPlanck()
+      : (typeof NODE_GRAPH_PLANCK === "number" ? NODE_GRAPH_PLANCK : 1e-7);
+    const cleaned = Math.abs(next) < planck ? 0 : this.clampValue(next, min, max);
     this.visualControlStates.set(key, cleaned);
     this.visualControls[key] = cleaned;
     return cleaned;

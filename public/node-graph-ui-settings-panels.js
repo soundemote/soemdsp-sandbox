@@ -250,10 +250,6 @@ function installNodeUiDevExposeControls() {
       if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
         scheduleNodeUiDevSettingsAutosave();
       }
-      setNodeUiDevSettingsStatus(
-        checkbox.checked ? "control exposed to ui settings" : "control hidden from ui settings",
-        true,
-      );
     });
   }
 }

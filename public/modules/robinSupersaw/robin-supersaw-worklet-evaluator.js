@@ -9,7 +9,38 @@ NodeLiveAudioProcessor.prototype.createRobinSupersawState = function createRobin
       left.push(this.createRobinSupersawDitherVoice());
       right.push(this.createRobinSupersawDitherVoice());
     }
-    return { left, right, nativeHandle: 0 };
+    return {
+      left,
+      right,
+      nativeHandle: 0,
+      cachedParams: null,
+      out: { Mono: 0, Left: 0, Right: 0 },
+      blockCache: { cursor: 0, size: 0, left: null, right: null, mono: null, memory: null },
+    };
+  };
+
+NodeLiveAudioProcessor.prototype.bindRobinSupersawBlockViews = function bindRobinSupersawBlockViews(native, state, blockSize) {
+    const memory = native?.memory;
+    if (!memory?.buffer || !state?.nativeHandle || blockSize < 1) {
+      return false;
+    }
+    const cache = state.blockCache || (state.blockCache = {});
+    if (cache.left && cache.memory === memory.buffer && cache.size === blockSize) {
+      return true;
+    }
+    const leftPtr = native.soemdsp_robin_supersaw_block_output_left_ptr?.(state.nativeHandle);
+    const rightPtr = native.soemdsp_robin_supersaw_block_output_right_ptr?.(state.nativeHandle);
+    const monoPtr = native.soemdsp_robin_supersaw_block_output_mono_ptr?.(state.nativeHandle);
+    if (!leftPtr || !rightPtr || !monoPtr) {
+      return false;
+    }
+    cache.left = new Float64Array(memory.buffer, leftPtr, blockSize);
+    cache.right = new Float64Array(memory.buffer, rightPtr, blockSize);
+    cache.mono = new Float64Array(memory.buffer, monoPtr, blockSize);
+    cache.memory = memory.buffer;
+    cache.size = blockSize;
+    cache.cursor = blockSize;
+    return true;
   };
 
 NodeLiveAudioProcessor.prototype.robinSupersawCalcCycleDistribution = function robinSupersawCalcCycleDistribution(c) {
@@ -64,8 +95,17 @@ NodeLiveAudioProcessor.prototype.robinSupersawSample = function robinSupersawSam
     ) {
       throw new Error("native RobinSupersaw not ready");
     }
+    const native = this.nativeRobinSupersaw;
     if (!state.nativeHandle) {
-      state.nativeHandle = this.nativeRobinSupersaw.soemdsp_robin_supersaw_create();
+      state.nativeHandle = native.soemdsp_robin_supersaw_create();
+      if (state.blockCache) {
+        state.blockCache.cursor = 0;
+        state.blockCache.size = 0;
+        state.blockCache.left = null;
+        state.blockCache.right = null;
+        state.blockCache.mono = null;
+        state.blockCache.memory = null;
+      }
     }
     if (!state.nativeHandle) {
       throw new Error("native RobinSupersaw failed to create instance");
@@ -75,7 +115,34 @@ NodeLiveAudioProcessor.prototype.robinSupersawSample = function robinSupersawSam
     const detuneCents = Number(options.detuneCents) || 0;
     const voices = Math.round(Number(options.voices) || 1);
     const level = Number(options.level) || 0;
-    this.nativeRobinSupersaw.soemdsp_robin_supersaw_sample(
+    const out = state.out || (state.out = { Mono: 0, Left: 0, Right: 0 });
+    const blockSize = NodeLiveAudioProcessor.ROBIN_SUPERSAW_NATIVE_BLOCK_SIZE;
+    if (
+      options.useBlock &&
+      native.soemdsp_robin_supersaw_process_block &&
+      this.bindRobinSupersawBlockViews(native, state, blockSize)
+    ) {
+      const cache = state.blockCache;
+      if (cache.cursor >= cache.size) {
+        native.soemdsp_robin_supersaw_process_block(
+          state.nativeHandle,
+          frequencyHz,
+          sampleRate,
+          detuneCents,
+          voices,
+          level,
+          blockSize,
+        );
+        cache.cursor = 0;
+      }
+      const index = cache.cursor;
+      cache.cursor += 1;
+      out.Mono = Number(cache.mono[index]) || 0;
+      out.Left = Number(cache.left[index]) || 0;
+      out.Right = Number(cache.right[index]) || 0;
+      return out;
+    }
+    native.soemdsp_robin_supersaw_sample(
       state.nativeHandle,
       frequencyHz,
       sampleRate,
@@ -83,10 +150,9 @@ NodeLiveAudioProcessor.prototype.robinSupersawSample = function robinSupersawSam
       voices,
       level,
     );
-    return {
-      Mono: Number(this.nativeRobinSupersaw.soemdsp_robin_supersaw_mono(state.nativeHandle)) || 0,
-      Left: Number(this.nativeRobinSupersaw.soemdsp_robin_supersaw_left(state.nativeHandle)) || 0,
-      Right: Number(this.nativeRobinSupersaw.soemdsp_robin_supersaw_right(state.nativeHandle)) || 0,
-    };
+    out.Mono = Number(native.soemdsp_robin_supersaw_mono(state.nativeHandle)) || 0;
+    out.Left = Number(native.soemdsp_robin_supersaw_left(state.nativeHandle)) || 0;
+    out.Right = Number(native.soemdsp_robin_supersaw_right(state.nativeHandle)) || 0;
+    return out;
   };
 

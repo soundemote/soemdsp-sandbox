@@ -62,7 +62,7 @@ static void trigger_attack(ExpAdsrState& s, double delay, double attack, double 
     }
     return;
   }
-  if (s.out <= 0.000001) {
+  if (s.out <= kPlanck) {
     s.out = 0.0;
     s.secondsPassed = 0.0;
   }

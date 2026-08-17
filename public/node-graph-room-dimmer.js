@@ -1,7 +1,8 @@
 // Room light — full-UI screenspace dim veil with rect light punches.
 //
-// Lightbulb control drag = room dim (0 = full light / no veil, 1 = pure black
-// outside holes). Button icons crossfade lightbulb-on → lightbulb-off with dim.
+// Lightbulb control drag = room light (up brighter / down darker).
+// Internal dim is 0 = full light / no veil, 1 = pure black outside holes.
+// Button icons crossfade lightbulb-on → lightbulb-off with dim.
 // Covers the whole app chrome (top toolbar + bottom resource bar + workspace).
 // At 100% the room is blacked out; painted displays stay lit (rect punches) and
 // the dimmer button stays punched/stacked above the veil so you can drag back.
@@ -750,21 +751,22 @@ void main() {
     workspace()?.style.setProperty("--room-dim-deep", String(deep));
     veilHost()?.style?.setProperty?.("--room-dim", String(dim));
     veilHost()?.style?.setProperty?.("--room-dim-deep", String(deep));
+    const lightPct = 100 - pct;
     btn.setAttribute("aria-pressed", on ? "true" : "false");
-    btn.setAttribute("aria-valuenow", String(pct));
+    btn.setAttribute("aria-valuenow", String(lightPct));
     btn.setAttribute("aria-valuemin", "0");
     btn.setAttribute("aria-valuemax", "100");
     btn.setAttribute(
       "aria-valuetext",
-      pct <= 0
+      lightPct >= 100
         ? "Room light full on"
-        : pct >= 100
+        : lightPct <= 0
           ? "Room dark; displays stay lit"
-          : `Room ${pct} percent dark; displays stay lit`,
+          : `Room ${lightPct} percent light; displays stay lit`,
     );
     btn.title = on
-      ? `Room ${pct}% dark · drag (displays stay lit)`
-      : "Room light · drag up to darken the room (displays stay lit)";
+      ? `Room ${lightPct}% light · drag up brighter, down darker (displays stay lit)`
+      : "Room light · drag up to brighten, down to darken (displays stay lit)";
   }
 
   function setDim(value, options = {}) {
@@ -820,7 +822,7 @@ void main() {
     btn.addEventListener("pointermove", (event) => {
       if (!state.drag || state.drag.id !== event.pointerId) return;
       const dy = state.drag.y0 - event.clientY;
-      setDim(state.drag.d0 + dy / 140, { persist: false });
+      setDim(state.drag.d0 - dy / 140, { persist: false });
     });
     btn.addEventListener("pointerup", end);
     btn.addEventListener("pointercancel", end);
@@ -828,16 +830,16 @@ void main() {
       const d = clampDim(state.dim);
       if (event.key === "ArrowUp" || event.key === "ArrowRight") {
         event.preventDefault();
-        setDim(d + 0.05);
+        setDim(d - 0.05);
       } else if (event.key === "ArrowDown" || event.key === "ArrowLeft") {
         event.preventDefault();
-        setDim(d - 0.05);
+        setDim(d + 0.05);
       } else if (event.key === "Home") {
         event.preventDefault();
-        setDim(0);
+        setDim(1);
       } else if (event.key === "End") {
         event.preventDefault();
-        setDim(1);
+        setDim(0);
       }
     });
   }

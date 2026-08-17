@@ -27,6 +27,9 @@ function nodeGraphBuildLivePlan() {
     outputNode: compiled.outputNode,
     patchFingerprint: nodeGraphPatchFingerprint(),
     scopeCaptureNodeIds: [...(compiled.scopeCaptureNodeIds || [])],
+    scopeCaptureRates: compiled.scopeCaptureRates && typeof compiled.scopeCaptureRates === "object"
+      ? { ...compiled.scopeCaptureRates }
+      : {},
     speakerOutputActive: Boolean(compiled.speakerOutputActive),
     sourceNodes: [...compiled.sourceNodes],
     timing: typeof normalizeNodeGraphPatchTiming === "function"
@@ -66,6 +69,9 @@ function nodeGraphBuildLivePlanForPatch(patch) {
     outputNode: compiled.outputNode,
     patchFingerprint: nodeGraphPatchFingerprint(normalizedPatch),
     scopeCaptureNodeIds: [...(compiled.scopeCaptureNodeIds || [])],
+    scopeCaptureRates: compiled.scopeCaptureRates && typeof compiled.scopeCaptureRates === "object"
+      ? { ...compiled.scopeCaptureRates }
+      : {},
     speakerOutputActive: Boolean(compiled.speakerOutputActive),
     sourceNodes: [...compiled.sourceNodes],
     timing: normalizeNodeGraphPatchTiming(compiled.timing),
@@ -927,6 +933,9 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     samplePlaybackStates,
     samples,
     scopeCaptureNodeIds: [...(plan.scopeCaptureNodeIds || [])],
+    scopeCaptureRates: plan.scopeCaptureRates && typeof plan.scopeCaptureRates === "object"
+      ? { ...plan.scopeCaptureRates }
+      : {},
     slewLimiterStates,
     smoothers,
     activeSmoothers,
@@ -966,6 +975,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   runtime.order = [...(plan.order || [])];
   runtime.outputNode = plan.outputNode || "output";
   runtime.scopeCaptureNodeIds = [...(plan.scopeCaptureNodeIds || [])];
+  runtime.scopeCaptureRates = plan.scopeCaptureRates && typeof plan.scopeCaptureRates === "object"
+    ? { ...plan.scopeCaptureRates }
+    : {};
   runtime.timing = normalizeNodeGraphPatchTiming(plan.timing);
   runtime.visualSinks = (plan.visualSinks || []).map((sink) => ({
     ...sink,
@@ -2303,6 +2315,9 @@ function updateNodeGraphLiveRuntimeConnections(runtime, plan) {
   runtime.modulationConnections = nodeGraphLiveModulationConnectionMap(plan);
   runtime.outputNode = plan.outputNode || runtime.outputNode || "output";
   runtime.scopeCaptureNodeIds = [...(plan.scopeCaptureNodeIds || [])];
+  runtime.scopeCaptureRates = plan.scopeCaptureRates && typeof plan.scopeCaptureRates === "object"
+    ? { ...plan.scopeCaptureRates }
+    : {};
   runtime.visualSinks = (plan.visualSinks || []).map((sink) => ({
     ...sink,
     bufferedInputs: [...(sink.bufferedInputs || [])],

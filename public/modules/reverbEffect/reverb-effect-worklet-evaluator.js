@@ -3,9 +3,11 @@ NodeLiveAudioProcessor.prototype.createSabrinaReverbState = function createSabri
       nativeHandle: 0,
       nativeParamKey: "",
       nativeSampleRate: 0,
-      idleCounter: 0,
-      isIdle: false,
+      isIdle: true,
+      idleClock: 0,
+      idleIncrement: 0,
       cachedParams: null,
+      out: { "Dry L": 0, "Dry R": 0, "Mix L": 0, "Mix R": 0 },
       blockCache: {
         cursor: 0,
         size: 0,
@@ -76,7 +78,9 @@ NodeLiveAudioProcessor.prototype.applySabrinaDspBindingIfDirty = function applyS
     const recycle = this.clampValue(this.safeFilterNumber(params.recycle, null), 0, 0.98);
     const seed = Math.max(0, Math.min(99999, Math.round(this.safeFilterNumber(params.seed, null) ?? 0)));
     const prev = state.nativeBoundParams;
-    const near = (a, b) => Math.abs(a - b) < 1e-7;
+    const near = (a, b) => (typeof nodeGraphIsNear === "function"
+      ? nodeGraphIsNear(a, b)
+      : Math.abs(a - b) < (typeof NODE_GRAPH_PLANCK === "number" ? NODE_GRAPH_PLANCK : 1e-7));
     if (
       prev &&
       near(prev.delaySize, delaySize) &&
@@ -117,6 +121,31 @@ NodeLiveAudioProcessor.prototype.applySabrinaDspBindingIfDirty = function applyS
     );
   };
 
+// soemdsp::dynamics::SilenceDetector — clock 0→1 in 1s (timeToIncrement(1)),
+// level = Planck (NODE_GRAPH_PLANCK / 1e-7). Reverb::runWithIdleDetection
+// feeds in+fb+wet+dry.
+NodeLiveAudioProcessor.prototype.sabrinaSilenceDetectorRun = function sabrinaSilenceDetectorRun(state, level) {
+    const planck = typeof NODE_GRAPH_PLANCK === "number" ? NODE_GRAPH_PLANCK : 1e-7;
+    const absIn = level < 0 ? -level : level;
+    state.idleClock += state.idleIncrement;
+    if (absIn >= planck) {
+      state.isIdle = false;
+      state.idleClock = 0;
+    } else if (state.idleClock > 1) {
+      state.isIdle = true;
+    }
+    return state.isIdle;
+  };
+
+NodeLiveAudioProcessor.prototype.sabrinaWriteOut = function sabrinaWriteOut(state, dryLeft, dryRight, mixLeft, mixRight) {
+    const out = state.out || (state.out = { "Dry L": 0, "Dry R": 0, "Mix L": 0, "Mix R": 0 });
+    out["Dry L"] = dryLeft;
+    out["Dry R"] = dryRight;
+    out["Mix L"] = mixLeft;
+    out["Mix R"] = mixRight;
+    return out;
+  };
+
 NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabrinaReverbSample(state, leftInput, rightInput, params, rateHz = sampleRate, frame = 0) {
     const native = this.nativeSabrinaReverb;
     if (
@@ -126,8 +155,26 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
     ) {
       return null;
     }
+    const dryLeft = Number.isFinite(leftInput) ? leftInput : 0;
+    const dryRight = Number.isFinite(rightInput) ? rightInput : dryLeft;
+    const heldMixL = Number(state.out?.["Mix L"]) || 0;
+    const heldMixR = Number(state.out?.["Mix R"]) || 0;
+    const heldWet = Number(state.lastWet) || 0;
     try {
       const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
+      if (!state.idleIncrement || state.nativeSampleRate !== safeRate) {
+        state.idleIncrement = 1 / safeRate;
+      }
+      const blockPending = (state.blockCache?.cursor || 0) > 0;
+      if (state.isIdle && state.nativeHandle && !blockPending) {
+        this.sabrinaSilenceDetectorRun(
+          state,
+          dryLeft + dryRight + heldMixL + heldMixR + heldWet,
+        );
+        if (state.isIdle) {
+          return this.sabrinaWriteOut(state, dryLeft, dryRight, heldMixL, heldMixR);
+        }
+      }
       if (!state.nativeHandle || state.nativeSampleRate !== safeRate) {
         if (state.nativeHandle && native.soemdsp_sabrina_reverb_destroy) {
           native.soemdsp_sabrina_reverb_destroy(state.nativeHandle);
@@ -136,14 +183,11 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
         state.nativeSampleRate = safeRate;
         state.nativeParamKey = "";
         state.nativeBoundParams = null;
-        state.idleCounter = 0;
-        state.isIdle = false;
+        state.isIdle = true;
+        state.idleClock = 0;
+        state.idleIncrement = 1 / safeRate;
+        state.lastWet = 0;
         this.resetSabrinaBlockCache(state);
-        // Force-apply params on handle creation: the native reverb initializes
-        // with hardcoded defaults, and if the WASM exports load in two steps
-        // (create before set_params), the normal paramKey check can miss the
-        // first opportunity. Force-apply now so the reverb always starts with
-        // the patch's actual parameter values.
         if (state.nativeHandle && native.soemdsp_sabrina_reverb_set_params) {
           this.applySabrinaDspBindingIfDirty(native, state, params);
         }
@@ -151,22 +195,8 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
       if (!state.nativeHandle) {
         return null;
       }
-      // Params are resolved once per worklet quantum. Skip the 8-clamp
-      // dirty walk on the other 127 samples unless nothing is bound yet.
       if (frame === 0 || !state.nativeBoundParams) {
         this.applySabrinaDspBindingIfDirty(native, state, params);
-      }
-      const dryLeft = this.safeFilterNumber(leftInput, null);
-      const dryRight = this.safeFilterNumber(rightInput, null);
-      const inputActive = Math.abs(dryLeft) >= 0.000001 || Math.abs(dryRight) >= 0.000001;
-      if (inputActive) {
-        state.isIdle = false;
-        state.idleCounter = 0;
-      }
-      // Bypass mode: reverb is idle, pass dry signal straight through all outputs
-      if (state.isIdle) {
-        // Dry = pure input; Mix = dry/wet blend (no wet-only outs).
-        return { "Dry L": dryLeft, "Dry R": dryRight, "Mix L": dryLeft, "Mix R": dryRight };
       }
       const blockSize = NodeLiveAudioProcessor.SABRINA_NATIVE_BLOCK_SIZE;
       if (
@@ -175,39 +205,39 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
       ) {
         const cache = state.blockCache;
         const index = cache.cursor;
-        const mixLeft = this.safeFilterNumber(cache.outL[index], null);
-        const mixRight = this.safeFilterNumber(cache.outR[index], null);
+        const mixLeft = cache.outL[index] || 0;
+        const mixRight = cache.outR[index] || 0;
         cache.inL[index] = dryLeft;
         cache.inR[index] = dryRight;
         cache.cursor += 1;
         if (cache.cursor >= blockSize) {
           native.soemdsp_sabrina_reverb_process_block(state.nativeHandle, blockSize, 1);
           cache.cursor = 0;
-        }
-        const outputPeak = Math.max(Math.abs(mixLeft), Math.abs(mixRight));
-        if (outputPeak < 0.000001) {
-          state.idleCounter += 1;
-          if (state.idleCounter >= safeRate) {
-            state.isIdle = true;
+          const wetL = Number(native.soemdsp_sabrina_reverb_wet_left?.(state.nativeHandle)) || 0;
+          const wetR = Number(native.soemdsp_sabrina_reverb_wet_right?.(state.nativeHandle)) || 0;
+          state.lastWet = wetL + wetR;
+          if (native.soemdsp_sabrina_reverb_is_idle) {
+            state.isIdle = native.soemdsp_sabrina_reverb_is_idle(state.nativeHandle) === 1;
+            if (state.isIdle) {
+              state.idleClock = 1;
+            }
           }
-        } else {
-          state.idleCounter = 0;
         }
-        return { "Dry L": dryLeft, "Dry R": dryRight, "Mix L": mixLeft, "Mix R": mixRight };
+        return this.sabrinaWriteOut(state, dryLeft, dryRight, mixLeft, mixRight);
       }
       native.soemdsp_sabrina_reverb_process(state.nativeHandle, dryLeft, dryRight);
-      const mixLeft = this.safeFilterNumber(native.soemdsp_sabrina_reverb_left?.(state.nativeHandle), null);
-      const mixRight = this.safeFilterNumber(native.soemdsp_sabrina_reverb_right?.(state.nativeHandle), null);
-      const outputPeak = Math.max(Math.abs(mixLeft), Math.abs(mixRight));
-      if (outputPeak < 0.000001) {
-        state.idleCounter += 1;
-        if (state.idleCounter >= safeRate) {
-          state.isIdle = true;
+      const mixLeft = Number(native.soemdsp_sabrina_reverb_left?.(state.nativeHandle)) || 0;
+      const mixRight = Number(native.soemdsp_sabrina_reverb_right?.(state.nativeHandle)) || 0;
+      const wetL = Number(native.soemdsp_sabrina_reverb_wet_left?.(state.nativeHandle)) || 0;
+      const wetR = Number(native.soemdsp_sabrina_reverb_wet_right?.(state.nativeHandle)) || 0;
+      state.lastWet = wetL + wetR;
+      if (native.soemdsp_sabrina_reverb_is_idle) {
+        state.isIdle = native.soemdsp_sabrina_reverb_is_idle(state.nativeHandle) === 1;
+        if (state.isIdle) {
+          state.idleClock = 1;
         }
-      } else {
-        state.idleCounter = 0;
       }
-      return { "Dry L": dryLeft, "Dry R": dryRight, "Mix L": mixLeft, "Mix R": mixRight };
+      return this.sabrinaWriteOut(state, dryLeft, dryRight, mixLeft, mixRight);
     } catch (error) {
       this.nativeSabrinaReverbReady = false;
       if (state.nativeHandle && native.soemdsp_sabrina_reverb_destroy) {
@@ -216,8 +246,9 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
       state.nativeHandle = 0;
       state.nativeParamKey = "";
       state.nativeBoundParams = null;
-      state.idleCounter = 0;
-      state.isIdle = false;
+      state.isIdle = true;
+      state.idleClock = 0;
+      state.lastWet = 0;
       this.resetSabrinaBlockCache(state);
       this.port.postMessage({
         type: "nativeModuleStatus",
@@ -230,12 +261,12 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
   };
 
 NodeLiveAudioProcessor.prototype.sabrinaReverbSample = function sabrinaReverbSample(state, leftInput, rightInput, params, rateHz = sampleRate, frame = 0) {
-    const dryLeft = this.safeFilterNumber(leftInput, null);
-    const dryRight = this.safeFilterNumber(rightInput, null);
     const nativeOutput = this.nativeSabrinaReverbSample(state, leftInput, rightInput, params, rateHz, frame);
     if (nativeOutput) {
       return nativeOutput;
     }
-    return { "Dry L": dryLeft, "Dry R": dryRight, "Mix L": dryLeft, "Mix R": dryRight };
+    const dryLeft = Number.isFinite(leftInput) ? leftInput : 0;
+    const dryRight = Number.isFinite(rightInput) ? rightInput : dryLeft;
+    return this.sabrinaWriteOut(state, dryLeft, dryRight, dryLeft, dryRight);
   };
 

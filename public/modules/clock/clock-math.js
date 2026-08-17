@@ -42,7 +42,13 @@ function nodeGraphClockCore(state, reset, phaseOffset, rate, duty, level, sample
   const resetActive = safeReset > 0;
   const rawPhase = resetActive ? 0 : nodeGraphClockWrap01(state.phase);
   const phase = nodeGraphClockWrap01(rawPhase + safePhaseOffset);
-  const digital = phase < safeDuty ? safeLevel : 0;
+  const periodSamples = safeRate > 0 ? sr / safeRate : 0;
+  let digital = 0;
+  if (periodSamples > 0) {
+    const dutySamples = Math.round(safeDuty * periodSamples);
+    const phaseSamples = phase * periodSamples;
+    digital = phaseSamples < dutySamples ? safeLevel : 0;
+  }
   const analog = nodeGraphClockAnalogWhipSample(phase, safeLevel);
   const nextRawPhase = nodeGraphClockWrap01(rawPhase + safeRate / sr);
   const pulse = safeRate > 0 && !resetActive && (!state.hasStarted || nextRawPhase < rawPhase) ? safeLevel : 0;
@@ -53,5 +59,6 @@ function nodeGraphClockCore(state, reset, phaseOffset, rate, duty, level, sample
     "Digital Out": digital,
     Out: digital,
     Pulse: pulse,
+    T: pulse,
   };
 }

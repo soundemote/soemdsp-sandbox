@@ -99,6 +99,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "pluginMidiOut",
   "groupInput",
   "groupOutput",
+  "moduleGroup",
   "evolveField",
   "asciiscope",
   "formantFilter",
@@ -128,6 +129,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "percussion",
   "phosphillator",
   "hypersaw",
+  "bloomGlow",
 ]);
 
 // Types that used to be on the UC shelf and are now shipped. Always strip
@@ -137,6 +139,53 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "output",
   "airClipper",
 ]);
+
+/** Short shop-card reminder for under-construction modules (title tooltip). */
+const nodeGraphModuleConstructionPlans = Object.freeze({
+  bloomGlow: "Screen bloom/glow/dim from CV. Parked until the shader wash stack is live.",
+  canvas: "Composite images, scopes, and shaders. Parked until the shader stack ships.",
+  screenSpaceShader: "Scripted screen FX from declared inputs. Parked until shader host lands.",
+  rgbaHsla: "RGB/HSL screen wash. Parked until shader color controls land.",
+  chromaColor: "Drifting chroma wash. Parked until shader lighting lands.",
+  image: "Patch image asset for textures. Parked until file storage ships.",
+  pixelGrid: "Lo-fi pixel-grid looks. Parked until RGB face pass.",
+  asciiscope: "XY character-grid phosphor. Parked; cannot spawn yet.",
+  oscilloscopeBank: "Multi-voice phase/amp bank. Parked until Hypersaw face is done.",
+  evolveField: "Field evolve visual. Parked until RGB/shader pass.",
+  phosphillator: "Draw a path, play it as X/Y. Parked until the draw engine is ready.",
+  hypersaw: "Phase-spread saw bank. Parked until the voice-bank face is ready.",
+  wavetable2d: "Multi-frame 2D table morph. Parked until wavetable playback exists.",
+  wavetable3d: "Dual-axis table morph. Parked until wavetable playback exists.",
+  formantFilter: "Vocal formant bank. Parked until the scientific-filter pass.",
+  besselThomson: "Maximally flat group-delay filter. Parked until that filter lands.",
+  massSpringDamper: "2-pole mechanical resonator. Parked until that analog lands.",
+  humanFilter: "Vocal-ish dual-phasor filter. Shelf-parked until analog-filter pass.",
+  waveguide: "Full waveguide. Use Comb/Mode resonators for now.",
+  phaser: "Modulated phaser FX. Parked until the analog FX pass.",
+  flanger: "Short-delay flanger. Parked until the space FX pass.",
+  chorus: "Multi-voice chorus. Parked until the space FX pass.",
+  wallDelay: "Geometric room/wall delay. Parked until ray-room DSP lands.",
+  electroKick: "Electro kick voice. Parked until the drum shelf ships.",
+  electroSnare: "Electro snare voice. Parked until the drum shelf ships.",
+  electroHat: "Electro hat voice. Parked until the drum shelf ships.",
+  drummer: "Pattern/rhythm engine. Parked until Sequence drummer lands.",
+  arp: "Held-chord arpeggiator. Parked until Musical arp lands.",
+  binaryClock: "Binary bit counter. Parked until Sequence bits land.",
+  flexGrid: "Multi-point CV morph grid. Parked until the modulator surface lands.",
+  chaosfly: "Fly-like X/Y/Z chaos. Parked until that attractor lands.",
+  ePiano: "GM electric piano. Parked until sample/MIDI voices exist.",
+  percussion: "GM channel-10 kit. Parked until sample/MIDI voices exist.",
+  theremin: "Proximity pitch/volume. Parked until that controller lands.",
+  audioInput: "Live mic/line in. Parked until host capture is wired.",
+  pluginInput: "Plugin stereo in. Parked until plugin I/O ships.",
+  pluginOutput: "Plugin stereo out. Parked until plugin I/O ships.",
+  pluginMidiIn: "Host MIDI in. Parked until plugin MIDI ships.",
+  pluginMidiOut: "Host MIDI out. Parked until plugin MIDI ships.",
+  groupInput: "Group inlet portal. Parked until nested patches ship.",
+  groupOutput: "Group outlet portal. Parked until nested patches ship.",
+  moduleGroup: "Nested patch box. Parked until grouping ships.",
+  shootingStarTail: "Shooting-star trail events. Parked until that game trigger lands.",
+});
 
 // Unified module department definitions — single source of truth for
 // emoji, display label, ad copy, and backward-compatible alias resolution.
@@ -367,14 +416,21 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   clock: {
     category: "clock",
+    label: "Clock",
     description: "Free-running pulse clock to drive sequencers, envelopes, and rhythmic events.",
-    notes: ["rate and phase control", "duty cycle", "reset input"],
+    notes: ["clock", "rate and phase control", "duty cycle", "reset input", "T"],
+  },
+  simulationTime: {
+    category: "clock",
+    label: "⏱ Sim Time",
+    description: "Planck-accurate display of processed audio seconds (sample count / sample rate).",
+    notes: ["simulation time", "seconds", "planck", "gate", "sample count"],
   },
   transport: {
     category: "clock",
     description: "BPM-locked square clocks so everything stays in time with the project tempo.",
-    label: "Transport",
-    notes: ["project BPM", "beat divisions", "engine-start phase"],
+    label: "Master Clock",
+    notes: ["master clock", "transport", "project BPM", "beat divisions", "engine-start phase"],
   },
   clockDivider: {
     category: "clock",
@@ -874,6 +930,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Bring the live mic/line into the patch as Mono, Left, Right.",
     label: "Input",
     notes: ["audio source", "mono left right", "live input"],
+  },
+  moduleGroup: {
+    category: "portal",
+    description: "Under construction. Nested patch box — grouping is not ready to spawn.",
+    label: "Module Group",
+    notes: ["under construction", "group", "nested patch", "portal"],
   },
   knob: {
     category: "controller",
@@ -1698,9 +1760,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["under construction", "scripted visual sink", "custom inputs", "screen shader controls"],
   },
   bloomGlow: {
-    category: "rgb",
+    category: "rgba",
     description: "Drive bloom/glow/dim of the screen wash from control signals.",
-    notes: ["visual sink", "dim input", "bloom and glow"],
+    notes: ["under construction", "visual sink", "dim input", "bloom and glow", "shader"],
   },
   rgbaHsla: {
     category: "rgba",
@@ -1784,10 +1846,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["oscilloscope", "trigger", "dot", "line", "xy", "native", "phosphor display"],
   },
   matrixWaterfall: {
-    category: "rgb",
+    category: "multimeter",
     description: "Self-running matrix rain face—atmosphere and glyph aesthetics.",
     label: "Matrix Waterfall",
-    notes: ["rain", "fall", "rise", "Reset", "Spawn", "Speed", "glyph table", "gradient", "rgb"],
+    notes: ["rain", "fall", "rise", "Reset", "Spawn", "Speed", "glyph table", "gradient", "multimeter"],
   },
   matrixDisplay: {
     category: "multimeter",
@@ -2034,8 +2096,28 @@ function nodeGraphModuleCatalogStripRetiredUnderConstruction(shelves) {
   delete shelves.underconstructionsort;
 }
 
+function nodeGraphModuleCatalogEnsureForcedUnderConstruction(shelves) {
+  const forced = ["moduleGroup"];
+  const list = Array.isArray(shelves?.underconstructionsort)
+    ? [...shelves.underconstructionsort]
+    : [];
+  const have = new Set(list);
+  let changed = false;
+  for (const type of forced) {
+    if (!have.has(type)) {
+      list.push(type);
+      have.add(type);
+      changed = true;
+    }
+  }
+  if (changed) {
+    shelves.underconstructionsort = list;
+  }
+}
+
 function nodeGraphModuleCatalogApplyDefaultUnderConstructionSort(source, shelves, validTypes) {
   if (Object.hasOwn(source, "underconstructionsort") || shelves.underconstructionsort) {
+    nodeGraphModuleCatalogEnsureForcedUnderConstruction(shelves);
     nodeGraphModuleCatalogStripRetiredUnderConstruction(shelves);
     return;
   }
@@ -2339,6 +2421,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/clock/clock-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/clock/clock-math.js",
   },
+  simulationTime: {
+    source: "public/modules/simulationTime/simulation-time-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/simulationTime/simulation-time-math.js",
+  },
   clockDivider: {
     source: "public/modules/clockDivider/clock-divider-live-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/clockDivider/clock-divider-live-evaluator.js",
@@ -2467,14 +2553,21 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/groupInput/group-input-live-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/groupInput/group-input-live-evaluator.js",
   },
-  portalInlet: {
-    source: "public/modules/portal/portal-live-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/portal/portal-live-evaluator.js",
-  },
-  portalOutlet: {
-    source: "public/modules/portal/portal-live-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/portal/portal-live-evaluator.js",
-  },
+  ...(typeof nodeGraphPortalAllTypes === "function"
+    ? Object.fromEntries(nodeGraphPortalAllTypes().map((type) => [type, {
+      source: "public/modules/portal/portal-live-evaluator.js",
+      sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/portal/portal-live-evaluator.js",
+    }]))
+    : {
+      portalInlet: {
+        source: "public/modules/portal/portal-live-evaluator.js",
+        sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/portal/portal-live-evaluator.js",
+      },
+      portalOutlet: {
+        source: "public/modules/portal/portal-live-evaluator.js",
+        sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/portal/portal-live-evaluator.js",
+      },
+    }),
   groupOutput: {
     source: "public/modules/groupOutput/group-output-live-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/groupOutput/group-output-live-evaluator.js",
@@ -3518,25 +3611,33 @@ function editNodeGraphModuleStoreDemo(entry) {
   });
 }
 
+function nodeGraphModuleStoreConstructionPlan(type) {
+  const key = String(type || "").trim();
+  const plan = nodeGraphModuleConstructionPlans[key];
+  if (plan) {
+    return String(plan);
+  }
+  const catalog = nodeGraphModuleStoreCatalog[key];
+  return String(catalog?.plan || catalog?.description || "Planned. Not spawnable yet.").trim();
+}
+
 function createNodeGraphModuleStoreButton(entry) {
   const card = document.createElement(entry.visible && entry.implemented ? "button" : "div");
-  const spawnLabel = `Drag into scene to spawn ${entry.label} module`;
   card.className = "scene-context-store-card";
   card.dataset.moduleEnabled = String(entry.visible);
   card.dataset.homeEnabled = String(entry.homeVisible);
   card.dataset.developerEnabled = String(entry.developerVisible);
   card.dataset.moduleImplemented = String(entry.implemented);
-  // Hover tooltip: use-case first (short sentence from catalog description).
-  const useCase = String(entry.description || "").trim()
-    || "Module reference entry.";
+  const useCase = String(entry.description || "").trim() || "Module reference entry.";
+  const constructionPlan = nodeGraphModuleStoreConstructionPlan(entry.type);
   card.title = entry.visible && entry.implemented
     ? `${useCase} — drag into the scene to spawn.`
-    : `${entry.label}: ${useCase}`;
+    : `${entry.label}: ${constructionPlan}`;
   card.setAttribute(
     "aria-label",
     entry.visible && entry.implemented
       ? `${entry.label}. ${useCase} Drag into scene to spawn.`
-      : `${entry.label} module unavailable. ${useCase}`,
+      : `${entry.label} under construction. ${constructionPlan}`,
   );
   if (entry.visible && entry.implemented) {
     card.dataset.contextModule = entry.type;
@@ -3562,61 +3663,16 @@ function createNodeGraphModuleStoreButton(entry) {
   label.textContent = entry.label;
   const nativeStatus = document.createElement("small");
   nativeStatus.className = "node-module-store-native-status";
-  nativeStatus.textContent = entry.nativeAvailable ? "C++" : "";
   if (entry.nativeAvailable) {
+    nativeStatus.textContent = "C++";
     nativeStatus.title = "C++";
+  } else if (!entry.implemented) {
+    nativeStatus.textContent = "Under construction";
+    nativeStatus.title = "Under construction";
   }
   main.append(mark, label, nativeStatus);
   card.append(main);
-  if (!entry.implemented) {
-    const io = createNodeGraphModuleStoreIoPreview(entry.type);
-    if (io) {
-      card.append(io);
-    }
-    const status = document.createElement("small");
-    status.textContent = "Under construction";
-    card.append(status);
-  }
   return card;
-}
-
-function createNodeGraphModuleStoreIoPreview(type) {
-  const def = typeof nodeGraphModuleDefinitions === "object" ? nodeGraphModuleDefinitions[type] : null;
-  const inputs = Array.isArray(def?.inputs) ? def.inputs : [];
-  const outputs = Array.isArray(def?.outputs) ? def.outputs : [];
-  if (!inputs.length && !outputs.length) {
-    return null;
-  }
-  const preview = document.createElement("div");
-  preview.className = "scene-context-store-card-io";
-  preview.setAttribute("aria-hidden", "true");
-  const column = (ports, io) => {
-    const col = document.createElement("div");
-    col.className = `scene-context-store-card-io-col ${io}`;
-    for (const port of ports) {
-      const row = document.createElement("div");
-      row.className = `scene-context-store-card-io-row ${io}`;
-      if (typeof nodeGraphPortIsDigitalSignal === "function" && nodeGraphPortIsDigitalSignal(type, port, io)) {
-        row.dataset.digitalSignal = io;
-      }
-      const jack = document.createElement("span");
-      jack.className = `scene-context-store-card-io-jack ${io}`;
-      const text = document.createElement("span");
-      text.className = "scene-context-store-card-io-label";
-      text.textContent = typeof nodeGraphPortDisplayLabel === "function"
-        ? nodeGraphPortDisplayLabel(type, port, io)
-        : String(port);
-      if (io === "input") {
-        row.append(jack, text);
-      } else {
-        row.append(text, jack);
-      }
-      col.append(row);
-    }
-    return col;
-  };
-  preview.append(column(inputs, "input"), column(outputs, "output"));
-  return preview;
 }
 
 function createNodeGraphModuleDepartmentButton(departmentId, entries) {

@@ -178,7 +178,7 @@ function nodeGraphModuleScopeOfflineSignalSample(context, nodeId, localTime, sam
     if (port === "Analog Out") {
       return nodeGraphModuleScopeClockAnalogMonitorSample(phase, level);
     }
-    if (port === "Pulse") {
+    if (port === "Pulse" || port === "T") {
       return rate > 0 && phase < Math.min(1, rate / Math.max(1, sampleRate)) ? level : 0;
     }
     return duty > 0 && level > 0 && phase < duty ? level : 0;
@@ -646,7 +646,7 @@ function nodeGraphModuleScopeClockMonitorTargetAtPhase(slot, node, phase, duty, 
   if (port === "Analog Out") {
     return clampNodeSliderValue(Math.abs(nodeGraphModuleScopeClockAnalogMonitorSample(safePhase, safeLevel)), 0, 1);
   }
-  if (port === "Pulse") {
+  if (port === "Pulse" || port === "T") {
     const rate = Math.max(0, nodeGraphModuleScopeNodeParam(node, "rate", 0));
     const frameWindow = Math.max(1 / 120, Number(nodeGraphModuleScopeState.animationDeltaSeconds) || (1 / 60));
     return rate > 0 && safePhase < Math.min(1, rate * frameWindow) ? safeLevel : 0;
@@ -742,7 +742,7 @@ function nodeGraphModuleScopeClockMonitorTarget(slot, node, phasor, duty, level)
   if (port === "Analog Out") {
     return nodeGraphModuleScopeClockAnalogFrameBrightness(frameStartPhase, turns, level);
   }
-  if (port === "Pulse") {
+  if (port === "Pulse" || port === "T") {
     return nodeGraphModuleScopeClockPulseFrameBrightness(frameStartPhase, turns, nodeGraphModuleScopeNodeParam(node, "rate", 0), level);
   }
   return nodeGraphModuleScopeClockGateFrameBrightness(frameStartPhase, turns, duty, level);

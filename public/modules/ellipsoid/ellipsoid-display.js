@@ -440,23 +440,73 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
     context.arc(px, py, Math.max(0.5, dotW * 0.5), 0, Math.PI * 2);
     context.fill();
   }
-  if (livePlaying && !section._roundShapePlayheadRaf) {
-    const nodeId = section.dataset?.node || "";
-    if (typeof nodeGraphModuleIsViewportAsleep === "function"
-      && nodeGraphModuleIsViewportAsleep(section)) {
-      return;
-    }
-    if (typeof nodeGraphScreenSoloIsActive === "function"
-      && nodeGraphScreenSoloIsActive()
-      && typeof nodeGraphScreenSoloAllowsNode === "function"
-      && !nodeGraphScreenSoloAllowsNode(nodeId)) {
-      return;
-    }
-    section._roundShapePlayheadRaf = requestAnimationFrame(() => {
-      section._roundShapePlayheadRaf = 0;
-      drawNodeGraphRoundShapeDisplay(section);
-    });
+  if (livePlaying) {
+    scheduleNodeGraphRoundShapePlayhead(section);
   }
+}
+
+function nodeGraphRoundShapeScopeFps() {
+  if (typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function") {
+    return normalizeNodeGraphModuleScopeFramesPerSecond(
+      nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60,
+    );
+  }
+  const n = Math.round(Number(nodeGraphMvp?.moduleScopeFramesPerSecond) || 60);
+  return Number.isFinite(n) ? Math.max(0, Math.min(240, n)) : 60;
+}
+
+function nodeGraphRoundShapeFpsReady(section) {
+  if (section?._roundShapeForceDraw) {
+    return true;
+  }
+  const fps = nodeGraphRoundShapeScopeFps();
+  if (!(fps > 0)) {
+    return false;
+  }
+  const nodeId = section?.dataset?.node || "round-shape";
+  if (typeof nodeGraphDisplayFrameReady === "function") {
+    return nodeGraphDisplayFrameReady(`round-shape:${nodeId}`);
+  }
+  const now = typeof performance !== "undefined" && performance.now
+    ? performance.now()
+    : Date.now();
+  const last = Number(section._roundShapeLastPaintTs) || 0;
+  if (last && (now - last) < (1000 / fps) - 0.5) {
+    return false;
+  }
+  section._roundShapeLastPaintTs = now;
+  return true;
+}
+
+function scheduleNodeGraphRoundShapePlayhead(section) {
+  if (!section || section._roundShapePlayheadRaf) {
+    return;
+  }
+  if (!nodeGraphRoundShapeLivePlaying()) {
+    return;
+  }
+  const nodeId = section.dataset?.node || "";
+  if (typeof nodeGraphModuleIsViewportAsleep === "function"
+    && nodeGraphModuleIsViewportAsleep(section)) {
+    return;
+  }
+  if (typeof nodeGraphScreenSoloIsActive === "function"
+    && nodeGraphScreenSoloIsActive()
+    && typeof nodeGraphScreenSoloAllowsNode === "function"
+    && !nodeGraphScreenSoloAllowsNode(nodeId)) {
+    return;
+  }
+  if (!(nodeGraphRoundShapeScopeFps() > 0)) {
+    return;
+  }
+  section._roundShapePlayheadRaf = requestAnimationFrame(() => {
+    section._roundShapePlayheadRaf = 0;
+    if (nodeGraphRoundShapeFpsReady(section)) {
+      drawNodeGraphRoundShapeDisplay(section);
+      return;
+    }
+    scheduleNodeGraphRoundShapePlayhead(section);
+  });
 }
 
 function drawNodeGraphRoundShapeDisplays() {

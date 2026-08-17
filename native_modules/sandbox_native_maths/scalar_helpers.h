@@ -4,6 +4,11 @@
 
 namespace soemdsp_maths {
 
+// Universe floor — same number as public/node-graph-semath.js NODE_GRAPH_PLANCK.
+// Silence, idle, dirty-near, envelope rest. Not a divide-by-zero guard for
+// frequency/scale/period (those keep their own positive floors).
+constexpr double kPlanck = 1.0e-7;
+
 // NaN/Inf guard matching the JS `nodeGraphSafeFilterNumber`-style sanitizers:
 // x*0.0 == 0.0 is true for every finite x and false for NaN/+-Inf.
 static inline double safe(double x) { return x * 0.0 == 0.0 ? x : 0.0; }
@@ -28,6 +33,14 @@ static inline double dsp_ceil(double x) {
 }
 
 static inline double dsp_fabs(double x) { return x < 0.0 ? -x : x; }
+
+static inline bool near_planck(double a, double b) {
+  return dsp_fabs(a - b) < kPlanck;
+}
+
+static inline bool silent_planck(double x) {
+  return dsp_fabs(x) < kPlanck;
+}
 
 // x - floor(x), wrapped into [0, 1). Previously duplicated identically in
 // dsf_oscillator, polyblep, and surge_oscillator.

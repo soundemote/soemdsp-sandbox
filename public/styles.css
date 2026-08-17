@@ -4291,12 +4291,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 
-/* Room dimmer + magnifier zoom + snake mouse-smooth share the old dimmer flex cell. */
+/* Room dimmer + magnifier zoom/size + snake mouse-smooth share the old dimmer flex cell. */
 .node-room-tool-pair {
   display: flex;
   flex: 1 1 0;
   align-items: stretch;
-  min-inline-size: 6rem;
+  min-inline-size: 8rem;
   isolation: isolate;
   z-index: 60;
 }
@@ -4372,6 +4372,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   pointer-events: none;
   z-index: 0;
   transition: height 40ms linear;
+}
+
+/* Lightbulb fill tracks room light (up = brighter), not veil amount. */
+#nodeRoomDimmerButton .node-room-dimmer-fill {
+  height: calc((1 - var(--room-dim, 0)) * 100%);
 }
 
 .node-room-dimmer-button.room-dimmer-dragging .node-room-dimmer-fill {
@@ -4711,6 +4716,19 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   outline: none;
 }
 
+.node-emoji-glyph.saved-default,
+.node-emoji-glyph.saved-default:hover,
+.node-emoji-glyph.saved-default:focus-visible {
+  border: none;
+  background: rgba(18, 122, 73, 0.92);
+  color: #d9ffe8;
+  box-shadow:
+    0 0 0 1px rgba(102, 255, 175, 0.38) inset,
+    0 0 22px rgba(102, 255, 175, 0.54),
+    0 0 42px rgba(102, 255, 175, 0.24);
+  animation: node-default-saved-pulse 1000ms ease-out both;
+}
+
 .node-hotkeys-list {
   display: flex;
   flex-direction: column;
@@ -4901,7 +4919,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   z-index: 96;
   top: 96px;
   right: 22px;
-  /* Flex column: heading / actions / scroll body / status. Exposed controls
+  /* Flex column: heading / actions / tabs / scroll body. Exposed controls
      always pack to the top of the body — never sink when the window is tall. */
   display: flex;
   flex-direction: column;
@@ -5205,37 +5223,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-user-ui-settings-actions button:hover,
 .node-user-ui-settings-actions button:focus-visible {
   z-index: 1;
-}
-
-.node-user-ui-settings-status-row {
-  display: grid;
-  flex: 0 0 auto;
-  box-sizing: border-box;
-  height: var(--node-floating-window-button-height);
-  min-height: var(--node-floating-window-button-height);
-  max-height: var(--node-floating-window-button-height);
-  min-width: 0;
-  padding: 0;
-  border-top: 1px solid rgba(127, 199, 217, 0.16);
-  background: rgba(3, 5, 7, 0.48);
-}
-
-.node-user-ui-settings-status-row .pill {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  height: var(--node-floating-window-button-height);
-  min-height: var(--node-floating-window-button-height);
-  max-height: var(--node-floating-window-button-height);
-  min-width: 0;
-  border: 0;
-  border-radius: 0;
-  overflow: hidden;
-  text-align: center;
-  text-overflow: clip;
-  white-space: nowrap;
-  line-height: 1;
 }
 
 .node-user-ui-settings-controls {
@@ -6452,6 +6439,8 @@ body.node-graph-magnifying-active * {
   height: 0;
   pointer-events: none;
   --magnifier-size: 220px;
+  --magnifier-rim-width: 5px;
+  --magnifier-rim-softness: 4px;
 }
 
 .node-graph-magnifier[hidden] {
@@ -6470,14 +6459,14 @@ body.node-graph-magnifying-active * {
   background: var(--node-workspace-bg, #1d1b1b);
 }
 
-/* Soft ~5px black ring. Glow = same stroke, Gaussian-blurred, source-over (not additive). */
+/* Soft black ring. Thickness + blur come from UIDEV. */
 .node-graph-magnifier-rim,
 .node-graph-magnifier-rim::before {
   position: absolute;
   box-sizing: border-box;
   width: var(--magnifier-size);
   height: var(--magnifier-size);
-  border: 5px solid rgb(0 0 0);
+  border: var(--magnifier-rim-width, 5px) solid rgb(0 0 0);
   border-radius: 50%;
   background: transparent;
   pointer-events: none;
@@ -6487,17 +6476,16 @@ body.node-graph-magnifying-active * {
   left: calc(var(--magnifier-size) / -2);
   top: calc(var(--magnifier-size) / -2);
   z-index: 2;
-  border-color: rgb(0 0 0 / 0.55);
+  border-color: rgb(0 0 0);
 }
 
 .node-graph-magnifier-rim::before {
   content: "";
-  left: -5px;
-  top: -5px;
+  inset: 0;
   width: 100%;
   height: 100%;
-  border-color: rgb(0 0 0 / 0.5);
-  filter: blur(4px);
+  border-color: rgb(0 0 0);
+  filter: blur(var(--magnifier-rim-softness, 4px));
   mix-blend-mode: normal;
 }
 
@@ -10126,7 +10114,7 @@ body.node-graph-magnifying-active * {
 
 .scene-context-store-card-main {
   display: grid;
-  grid-template-columns: 1.35em minmax(0, 1fr) 2.4em;
+  grid-template-columns: 1.35em minmax(0, 1fr) auto;
   align-items: center;
   width: 100%;
   min-width: 0;
@@ -10173,15 +10161,6 @@ body.node-graph-magnifying-active * {
 
 .node-module-shop-view .scene-context-store-card.under-construction,
 .node-module-store-list .scene-context-store-card.under-construction {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  height: auto;
-  min-height: 24px;
-  max-height: none;
-  gap: 4px;
-  padding: 5px 6px 6px;
   border-color: rgba(226, 168, 109, 0.34);
   background:
     repeating-linear-gradient(
@@ -10192,70 +10171,6 @@ body.node-graph-magnifying-active * {
     rgba(17, 21, 24, 0.68);
   color: rgba(243, 241, 236, 0.68);
   opacity: 0.82;
-}
-
-.scene-context-store-card-io {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 6px 8px;
-  width: 100%;
-  min-width: 0;
-}
-
-.scene-context-store-card-io-col {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.scene-context-store-card-io-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.scene-context-store-card-io-row.input {
-  justify-content: flex-start;
-}
-
-.scene-context-store-card-io-row.output {
-  justify-content: flex-end;
-}
-
-.scene-context-store-card-io-label {
-  overflow: hidden;
-  color: rgba(243, 241, 236, 0.82);
-  font-size: 0.62rem;
-  font-weight: 650;
-  line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.scene-context-store-card-io-jack {
-  flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
-  border: 1px solid var(--jack-analog-out, #e2a86d);
-  border-radius: 50%;
-  background: transparent;
-}
-
-.scene-context-store-card-io-jack.input {
-  border-color: var(--jack-analog-in, #7fc7d9);
-}
-
-.scene-context-store-card-io-row[data-digital-signal] .scene-context-store-card-io-jack {
-  border-color: var(--jack-digital, #ffffff);
-}
-
-.node-module-store-list .scene-context-store-card.under-construction small,
-.node-module-store-list.is-module-search-results .scene-context-store-card.under-construction small {
-  display: block;
-  margin-left: 0;
-  text-align: center;
 }
 
 .dsp-node .node-module-under-construction {
@@ -11851,8 +11766,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-graph-nodes {
   position: absolute;
   inset: 0;
-  /* No stacking context — idle plate (::before, z 0) must sit behind
-     #nodeWireSvg (z 1) while module faces (z 2) stay above the cables. */
+  /* Modules stack as units above #nodeWireSvg (z:1) so cables sit behind
+     the plate. Wires Above Modules paints on #nodeWireEndpointSvg (z:3). */
   z-index: auto;
   pointer-events: none;
 }
@@ -12040,11 +11955,12 @@ body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
   padding: 0;
   border-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0.11));
   corner-shape: var(--node-module-corner-shape, squircle);
-  /* Plate + idle stroke live on ::before (z:0), behind #nodeWireSvg (z:1).
-     Do not isolate this host — that would trap the idle stroke above wires.
-     Faces isolate themselves (z:2) so inner z-index cannot leak. */
+  /* Whole plate (including ::before fill) sits above #nodeWireSvg (z:1)
+     so cables run behind the module background. Isolate so child z-index
+     cannot leak onto the workspace. Wires-above uses overlay z:3. */
   background: none;
-  isolation: auto;
+  isolation: isolate;
+  z-index: 2;
   overflow: visible;
   box-shadow: none;
   outline: none;
@@ -12195,9 +12111,9 @@ body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
   content: "";
   position: absolute;
   inset: 0;
-  /* Same band as faces (z:2), after them in tree so the ring sits on the plate.
-     Keep below #nodeWireEndpointSvg (z:3) so jack caps stay on top. */
-  z-index: 2;
+  /* Above faces (z:2) and the bypass wallpaper (z:40). Still inside the
+     isolated module so workspace overlay wires (z:3) stay above the plate. */
+  z-index: 45;
   pointer-events: none;
   border-radius: inherit;
   corner-shape: inherit;
@@ -12236,7 +12152,11 @@ body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
   content: none;
 }
 
-/* Construction fill only. Selection stays on the plate outline. */
+.dsp-node.bypassed.selected::after {
+  z-index: 45;
+}
+
+/* Construction fill only. Selection ring + I/O sit above this wallpaper. */
 .dsp-node.bypassed::before {
   content: "OFF";
   position: absolute;
@@ -12283,11 +12203,9 @@ body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
   opacity: 1;
 }
 
-/* Dim painted faces under the veil so they read as inactive, not “still live”. */
-.dsp-node.bypassed > .node-solid-module-shell,
-.dsp-node.bypassed > .node-module-chrome-layout-b-shell,
+/* Dim painted faces under the veil so they read as inactive, not “still live”.
+   Do not greyscale the Layout B shell — jacks live inside it. */
 .dsp-node.bypassed > .dsp-node-body,
-.dsp-node.bypassed > .dsp-node-io-section,
 .dsp-node.bypassed > .node-module-scope-window,
 .dsp-node.bypassed > .node-pitch-detector-face,
 .dsp-node.bypassed > .node-filter-curve-display,
@@ -12303,6 +12221,20 @@ body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
 .dsp-node.bypassed .node-param-row {
   filter: grayscale(0.72) brightness(0.58) saturate(0.35);
   opacity: 0.88;
+}
+
+/* Jacks + labels stay readable on top of the OFF wallpaper. */
+.dsp-node.bypassed > .dsp-node-io-section,
+.dsp-node.bypassed .dsp-node-io-section,
+.dsp-node.bypassed .node-io-column,
+.dsp-node.bypassed .node-io-row,
+.dsp-node.bypassed .node-port,
+.dsp-node.bypassed .node-param-port,
+.dsp-node.bypassed .node-io-label {
+  position: relative;
+  z-index: 50;
+  filter: none;
+  opacity: 1;
 }
 
 /* Hide unused: unconnected signal jacks (rows) + mute unused param ports. */

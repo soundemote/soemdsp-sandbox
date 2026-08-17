@@ -436,7 +436,9 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   // Plugin Output nodes are audio sinks; keep them reachable so upstream evaluates.
   for (const node of graph.nodes) {
     if (
-      (node?.type === "pluginOutput" || node?.type === "portalOutlet")
+      (node?.type === "pluginOutput"
+        || node?.type === "portalOutlet"
+        || (typeof nodeGraphPortalIsOutletType === "function" && nodeGraphPortalIsOutletType(node?.type)))
       && !bypassedNodes.has(node.id)
     ) {
       markReachable(node.id);
@@ -660,6 +662,12 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
     reachableNodes: [...reachableNodes],
     speakerOutputActive: hasOutputNode && hasOutputSpeakerInput,
     scopeCaptureNodeIds,
+    scopeCaptureRates: Object.fromEntries(
+      (scopeCaptureNodeIds || []).map((nodeId) => [
+        String(nodeId),
+        nodeGraphScopeCaptureWriteHz(graph.nodeMap.get(nodeId)),
+      ]),
+    ),
     sourceNodes,
     timing: normalizeNodeGraphPatchTiming(patch.timing),
     valid: blockingIssues.length === 0,
@@ -735,16 +743,53 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
 // CPU cost is write rate (decimated in worklet); capacity stays modest.
 const nodeGraphVisualSinkHistorySeconds = 1;
 
+const NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ = 12000;
+const NODE_GRAPH_VISUAL_LATEST_WRITE_HZ = 120;
+
+function nodeGraphVisualDisplayNeedsWaveformRing(node) {
+  const displayType = String(
+    nodeGraphModuleDefinitions[node?.type]?.displayType || node?.displayType || "",
+  );
+  return (
+    displayType === "trace" ||
+    displayType === "scope2d" ||
+    displayType === "scope2dTrace" ||
+    displayType === "lineBurn" ||
+    displayType === "hypersawBurn" ||
+    displayType === "videoscopeBurn" ||
+    displayType === "oscilloscopeBankBurn" ||
+    displayType === "spectrogramBurn" ||
+    displayType === "phosphorWaveform" ||
+    displayType === "phosphorLight" ||
+    displayType === "customDisplay" ||
+    displayType === "matrixFace" ||
+    displayType === "matrixWaterfallFace" ||
+    displayType === "matrixDisplayFace" ||
+    displayType === "dot"
+  );
+}
+
 /** Target samples/sec into visual rings (display quality, not audio fidelity). */
 function nodeGraphVisualSinkWriteHz(node) {
-  void node;
-  // Match legacy scope hop (~12 kHz): dense enough for 2D phosphor paths.
-  return 12000;
+  // LCD / LED / value plates only need the latest number. Instant Trace and
+  // 2D phosphor still hop at ~12 kHz so paths stay dense.
+  if (nodeGraphVisualDisplayNeedsWaveformRing(node)) {
+    return NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ;
+  }
+  return NODE_GRAPH_VISUAL_LATEST_WRITE_HZ;
+}
+
+/** Generic module-output capture rate (LCD, RoundShape __Phase, slider ghosts). */
+function nodeGraphScopeCaptureWriteHz(node) {
+  if (nodeGraphVisualDisplayNeedsWaveformRing(node)) {
+    return NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ;
+  }
+  return NODE_GRAPH_VISUAL_LATEST_WRITE_HZ;
 }
 
 function nodeGraphVisualSinkBufferSampleLimit(node) {
   const sampleRate = Math.max(1, Math.round(Number(nodeGraphMvp?.sampleRate) || 44100));
-  const writeHz = Math.max(1, Math.round(Number(nodeGraphVisualSinkWriteHz(node)) || 12000));
+  const writeHz = Math.max(1, Math.round(Number(nodeGraphVisualSinkWriteHz(node)) || NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ));
   // Capacity in *written* samples (after hop), not engine-rate samples.
   const historySamples = Math.ceil(writeHz * nodeGraphVisualSinkHistorySeconds);
   const fallback = Math.max(1, Math.round(Number(nodeGraphBufferedInputSampleLimit) || 65536));

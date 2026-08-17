@@ -43,28 +43,40 @@ NodeLiveAudioProcessor.prototype.scopeScalarValue = function scopeScalarValue(va
 
 NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModuleScopeFrame(frameValues = null, frame = 0, frames = 1) {
     const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
-    // Scope posts + visual ring writes: hop engine samples (~12 kHz), not full rate.
-    // Full-rate visual writes were starving the audio thread on multi-face patches.
+    // Waveform faces stay ~12 kHz. LCD / latest-value ports hop much slower.
     this.scopeSampleStride = Math.max(1, Math.floor(engineRate / 12000));
-    const captureDebugScope = (this.scopeCounter % this.scopeSampleStride) === 0;
-    if (captureDebugScope) {
-      const captureNodeIds = Array.isArray(this.scopeCaptureNodeIds)
-        ? this.scopeCaptureNodeIds
-        : this.order;
-      const captured = new Set();
-      for (const nodeId of captureNodeIds) {
-        if (!this.nodeOutputs.has(nodeId)) {
-          continue;
-        }
-        this.captureModuleScopeOutput(nodeId, this.nodeOutputs.get(nodeId));
-        captured.add(String(nodeId));
+    const rates = this.scopeCaptureRates || Object.create(null);
+    const captureNodeIds = Array.isArray(this.scopeCaptureNodeIds)
+      ? this.scopeCaptureNodeIds
+      : this.order;
+    const captured = new Set();
+    for (const nodeId of captureNodeIds) {
+      if (!this.nodeOutputs.has(nodeId)) {
+        continue;
       }
+      const writeHz = Math.max(1, Math.min(engineRate, Number(rates[nodeId]) || 12000));
+      const stride = Math.max(1, Math.floor(engineRate / writeHz));
+      if ((this.scopeCounter % stride) !== 0) {
+        continue;
+      }
+      this.captureModuleScopeOutput(nodeId, this.nodeOutputs.get(nodeId));
+      captured.add(String(nodeId));
+    }
+    {
       // Speaker Output publishes {Left,Right,Mono} after evaluateFrame — always
       // capture it when present so the Output Trace face is not stuck on a cold
       // plate waiting for a plan that omitted the sink from scopeCaptureNodeIds.
       const outId = String(this.outputNode || "output");
-      if (!captured.has(outId) && this.nodes.has(outId) && this.nodeOutputs.has(outId)) {
+      const outHz = Math.max(1, Math.min(engineRate, Number(rates[outId]) || 12000));
+      const outStride = Math.max(1, Math.floor(engineRate / outHz));
+      if (
+        !captured.has(outId)
+        && this.nodes.has(outId)
+        && this.nodeOutputs.has(outId)
+        && (this.scopeCounter % outStride) === 0
+      ) {
         this.captureModuleScopeOutput(outId, this.nodeOutputs.get(outId));
+        captured.add(outId);
       }
     }
     // No visual sinks planned (all faces hidden) → skip the whole loop.
@@ -114,12 +126,12 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
             },
           );
         }
-        if (captureDebugScope && inputPort && !input?.buffered) {
+        if (writeBufferedThisSample && inputPort && !input?.buffered) {
           const portId = `${nodeId}:${inputPort}`;
           this.appendScopeBufferSample(portId, inputValue);
         }
       }
-      if (captureDebugScope && hasConnected) {
+      if (writeBufferedThisSample && hasConnected) {
         this.appendScopeBufferSample(nodeId, value);
       }
     }

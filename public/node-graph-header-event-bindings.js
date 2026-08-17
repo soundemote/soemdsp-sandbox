@@ -11,6 +11,9 @@ function bindNodeGraphHeaderControlEvents() {
   if (typeof bindNodeGraphMagnifierZoomControl === "function") {
     bindNodeGraphMagnifierZoomControl();
   }
+  if (typeof bindNodeGraphMagnifierSizeControl === "function") {
+    bindNodeGraphMagnifierSizeControl();
+  }
   if (typeof bindNodeGraphSnakeMouseSmoothControl === "function") {
     bindNodeGraphSnakeMouseSmoothControl();
   }

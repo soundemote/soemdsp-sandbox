@@ -37,6 +37,8 @@ async function bindNodeGraphUiDevSettingsEvents() {
     "nodeUiDevDimmerMouseSize",
     "nodeUiDevDimmerMouseSoftness",
     "nodeUiDevDimmerMouseShape",
+    "nodeUiDevMagnifierBorderThickness",
+    "nodeUiDevMagnifierBorderSoftness",
   ]) {
     document.getElementById(id)?.addEventListener("input", syncNodeUiDevSettingsHeaderControls);
     document.getElementById(id)?.addEventListener("change", syncNodeUiDevSettingsHeaderControls);

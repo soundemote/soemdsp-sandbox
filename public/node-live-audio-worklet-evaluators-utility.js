@@ -2,7 +2,7 @@
 // Behavior must match the prior monolith bit-for-bit.
 
 NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function buildLiveModuleEvaluators_utility() {
-  return {
+  const map = {
       midiOut: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const hasMidiInput = this.inputConnections.has(this.inputKey(nodeId, "MIDI Number"));
         const midiNumber = this.readEffectiveParameter(node, "midiNumber", 60, frame, frames, frameValues);
@@ -466,31 +466,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
       groupInput: (node, nodeId) => ({
         Out: Number(this.externalGroupInputs?.get(nodeId)) || 0,
       }),
-      portalInlet: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame) => {
-        const live = typeof nodeGraphDspExternalStereoFrame === "function"
-          ? nodeGraphDspExternalStereoFrame(this.externalInput, inputFrame ?? frame, 1)
-          : { Left: 0, Out: 0, Right: 0 };
-        return typeof nodeGraphDspSandboxIoFrame === "function"
-          ? nodeGraphDspSandboxIoFrame(
-            live,
-            mixInput(nodeId, "Mono"),
-            mixInput(nodeId, "Left"),
-            mixInput(nodeId, "Right"),
-          )
-          : live;
-      },
-      portalOutlet: (node, nodeId, frame, frames, frameValues, mixInput) => {
-        const mix = typeof nodeGraphPortalMixTrio === "function"
-          ? nodeGraphPortalMixTrio(mixInput, nodeId)
-          : nodeGraphDspStereoMix(
-            mixInput(nodeId, "Mono"),
-            mixInput(nodeId, "Left"),
-            mixInput(nodeId, "Right"),
-          );
-        return typeof nodeGraphPortalTrioOut === "function"
-          ? nodeGraphPortalTrioOut(mix)
-          : { Left: mix.Left, Mono: mix.Out, Out: mix.Out, Right: mix.Right };
-      },
+      portalInlet: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame) =>
+        this.evaluatePortalInlet(node, nodeId, mixInput, inputFrame ?? frame),
+      portalOutlet: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.evaluatePortalOutlet(node, nodeId, mixInput),
       audioPlayer: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const readParam = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
         return this.audioPlayerSample(
@@ -524,4 +503,35 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
       moduleGroup: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame) => this.evaluateModuleGroup(node, mixInput, frame, frames, safeRate, inputFrame),
       codeblock: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame) => this.evaluateCodeblock(node, mixInput, frame, frames, safeRate, inputFrame),
   };
+  const inletEval = (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame) =>
+    this.evaluatePortalInlet(node, nodeId, mixInput, inputFrame ?? frame);
+  const outletEval = (node, nodeId, frame, frames, frameValues, mixInput) =>
+    this.evaluatePortalOutlet(node, nodeId, mixInput);
+  const inletTypes = typeof nodeGraphPortalInletTypes === "function"
+    ? nodeGraphPortalInletTypes()
+    : ["portalInlet"];
+  const outletTypes = typeof nodeGraphPortalOutletTypes === "function"
+    ? nodeGraphPortalOutletTypes()
+    : ["portalOutlet"];
+  for (const type of inletTypes) {
+    map[type] = inletEval;
+  }
+  for (const type of outletTypes) {
+    map[type] = outletEval;
+  }
+  return map;
+};
+
+NodeLiveAudioProcessor.prototype.evaluatePortalInlet = function evaluatePortalInlet(node, nodeId, mixInput, frame) {
+  if (typeof nodeGraphEvaluatePortalInlet === "function") {
+    return nodeGraphEvaluatePortalInlet(this.externalInput, node?.type, nodeId, mixInput, frame);
+  }
+  return { Left: 0, Mono: 0, Out: 0, Right: 0 };
+};
+
+NodeLiveAudioProcessor.prototype.evaluatePortalOutlet = function evaluatePortalOutlet(node, nodeId, mixInput) {
+  if (typeof nodeGraphEvaluatePortalOutlet === "function") {
+    return nodeGraphEvaluatePortalOutlet(node?.type, nodeId, mixInput);
+  }
+  return { Left: 0, Mono: 0, Out: 0, Right: 0 };
 };

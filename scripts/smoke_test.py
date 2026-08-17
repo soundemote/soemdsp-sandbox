@@ -541,6 +541,9 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/fbmField/fbm-field-live-evaluator.js",
     "./public/modules/clock/clock-math.js",
     "./public/modules/clock/clock-live-evaluator.js",
+    "./public/modules/simulationTime/simulation-time-math.js",
+    "./public/modules/simulationTime/simulation-time-live-evaluator.js",
+    "./public/modules/simulationTime/simulation-time-register.js",
     "./public/modules/transport/transport-math.js",
     "./public/modules/transport/transport-live-evaluator.js",
     "./public/modules/randomClock/random-clock-math.js",
@@ -6392,7 +6395,6 @@ def require_node_graph_mvp_contract() -> None:
         "saveNodeUiDevSettingsButton",
         "updateDefaultNodeUiDevSettingsButton",
         "nodeUiDevSettingsFileInput",
-        "nodeUiDevSettingsStatus",
         "nodeUiDevShowOriginMarker",
         "show world origin",
         "user UI settings actions",
@@ -6417,7 +6419,6 @@ def require_node_graph_mvp_contract() -> None:
         "Move UI settings",
         "nodeUserUiSettingsOpenUiDev",
         "UIDEV",
-        "nodeUserUiSettingsStatus",
         "nodeUserUiSettingsControls",
         "exposed from UIDEV",
         "node-patch-page-toolbar",
@@ -6816,20 +6817,24 @@ def require_node_graph_mvp_contract() -> None:
         require(snippet not in index_source, f"Dot 2 has been removed app-wide, should be absent: {snippet}")
 
     require(
-        index_source.index('class="node-user-ui-settings-actions"') <
-        index_source.index('id="nodeUserUiSettingsControls"') <
-        index_source.index('class="node-user-ui-settings-status-row"'),
-        "UI Settings actions should stay above scrollable controls with status fixed at the bottom",
+        "nodeUiDevSettingsStatus" not in index_source
+        and "nodeUserUiSettingsStatus" not in index_source
+        and "node-user-ui-settings-status-row" not in index_source
+        and "setNodeUiDevSettingsStatus" not in node_graph_source,
+        "UI Settings status bar and setNodeUiDevSettingsStatus should be gone",
     )
     require(
-        "grid-template-rows: auto auto minmax(0, 1fr) auto;" in style_source
-        and "height: min(620px, calc(100vh - 124px));" in style_source
+        index_source.index('class="node-user-ui-settings-actions"') <
+        index_source.index('class="node-user-ui-settings-tabs"') <
+        index_source.index('id="nodeUserUiSettingsControls"'),
+        "UI Settings Copy/Paste should stay above Settings/UIDEV tabs and scrollable controls",
+    )
+    require(
+        "height: min(620px, calc(100vh - 124px));" in style_source
         and ".node-user-ui-settings-controls" in style_source
-        and "align-content: start;" in style_source
         and "overflow-y: auto;" in style_source
-        and ".node-user-ui-settings-actions" in style_source
-        and "border-top: 1px solid rgba(127, 199, 217, 0.16);" in style_source,
-        "UI Settings should have top actions, scrollable controls, and a non-scrolling bottom status strip",
+        and ".node-user-ui-settings-actions" in style_source,
+        "UI Settings should have top actions and a scrollable controls body",
     )
 
     require(
@@ -7779,7 +7784,8 @@ def require_node_graph_mvp_contract() -> None:
         'Out: "Digital Out"',
         '"Analog Out": "\\u223F"',
         '"Digital Out": "\\u25AE"',
-        'outputs: ["Digital Out", "Analog Out", "Pulse"]',
+        'outputs: ["Digital Out", "Analog Out", "T"]',
+        'Pulse: "T"',
         "key: \"phase\"",
         "clockDivider: \"Clock Divider\"",
         "clockDivider: {",
@@ -12771,7 +12777,7 @@ def require_node_graph_mvp_contract() -> None:
     live_plan_runtime_source = script_sources["./public/node-graph-live-plan-runtime.js"]
     header_rendering_source = script_sources["./public/node-graph-module-header-rendering.js"]
     require("transport: {" in module_store_source, "Transport should be listed in the module browser type registry")
-    require('transport: "Transport"' in module_definitions_source, "Transport label should be registered")
+    require('transport: "Master Clock"' in module_definitions_source, "Transport module should display as Master Clock")
     require("transport: {" in module_definitions_source, "Transport module definition should exist")
     require(
         'outputs: ["0..1", "-1..1", "Trigger"]' in module_definitions_source,
@@ -12914,6 +12920,18 @@ def require_node_graph_mvp_contract() -> None:
     require("dotOscilloscope: {" in module_store_source and "oscilloscopeBank: {" in module_store_source and "valueOscilloscope: {" in module_store_source and "numberReadout: {" in module_store_source and "lineBurnOscilloscope: {" in module_store_source and "scope2d: {" in module_store_source and "scope2dTrace: {" in module_store_source, "Oscilloscope modules should be listed together")
     require("oscilloscopeBank: {" in module_store_source and 'label: "Oscilloscope Bank"' in module_store_source, "Oscilloscope Bank should exist")
     require(
+        'matrixWaterfall: {\n    category: "multimeter"' in module_store_source,
+        "Matrix Waterfall should live in the Multimeter category",
+    )
+    require(
+        'bloomGlow: {\n    category: "rgba"' in module_store_source
+        and '"bloomGlow"' in module_store_source[
+            module_store_source.index("const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze(["):
+            module_store_source.index("const nodeGraphModuleCatalogRetiredFromUnderConstruction")
+        ],
+        "Bloom & Glow should be an under-construction Shader-shelf module",
+    )
+    require(
         "underconstructionsort" in module_store_source
         and "nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([" in module_store_source
         and '"canvas"' in module_store_source
@@ -12921,6 +12939,9 @@ def require_node_graph_mvp_contract() -> None:
         and '"oscilloscopeBank"' in module_store_source
         and '"shootingStarTail"' in module_store_source
         and '"wallDelay"' in module_store_source
+        and '"bloomGlow"' in module_store_source
+        and "nodeGraphModuleConstructionPlans" in module_store_source
+        and "function nodeGraphModuleStoreConstructionPlan(type)" in module_store_source
         and "nodeGraphModuleStoreUnderConstructionTypes" not in module_store_source
         and "function nodeGraphModuleTypeIsUnderConstruction(type)" in module_store_source
         and "nodeGraphModuleIsStoreVisible(key, \"underconstructionsort\")" in module_store_source
@@ -14742,11 +14763,15 @@ def require_node_graph_mvp_contract() -> None:
     ]
     require(
         "const resyncDuration = Math.max(0.5, frameDuration * 4);" in fixed_clock_source
-        and "elapsed > resyncDuration" in fixed_clock_source,
+        and "elapsed > resyncDuration" in fixed_clock_source
+        and "if (now <= lastUpdate)" in fixed_clock_source
+        and "ready: false" in fixed_clock_source
+        and "Math.min(frameDuration * 0.05, 1 / 120)" in fixed_clock_source,
         "scope fixed-frame clock should scale its resync threshold with the requested FPS",
     )
     require(
-        "elapsed > 0.5" not in fixed_clock_source,
+        "elapsed > 0.5" not in fixed_clock_source
+        and "now <= lastUpdate) {\n    return {\n      ready: true" not in fixed_clock_source,
         "scope fixed-frame clock should not force 1 FPS scopes to update at 2 FPS",
     )
     header_scope_source = script_sources["./public/node-graph-module-header-rendering.js"]
@@ -16866,12 +16891,15 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         "function beginNodeGraphMagnifier(event)" in script_sources["./public/node-graph-magnifier.js"]
+        and "function zoomNodeGraphMagnifierByWheel(event)" in script_sources["./public/node-graph-magnifier.js"]
         and "function resizeNodeGraphMagnifierByWheel(event)" in script_sources["./public/node-graph-magnifier.js"]
         and "function handleNodeGraphMagnifierWheelCapture(event)" in script_sources["./public/node-graph-magnifier.js"]
         and "function nodeGraphMagnifierShouldBlockContext()" in script_sources["./public/node-graph-magnifier.js"]
         and "function handleNodeGraphMagnifierContextGuard(event)" in script_sources["./public/node-graph-magnifier.js"]
         and "function bindNodeGraphMagnifierZoomControl()" in script_sources["./public/node-graph-magnifier.js"]
+        and "function bindNodeGraphMagnifierSizeControl()" in script_sources["./public/node-graph-magnifier.js"]
         and 'id="nodeMagnifierZoomSlider"' in index_source
+        and 'id="nodeMagnifierSizeSlider"' in index_source
         and 'id="nodeSnakeMouseSmoothSlider"' in index_source
         and "function bindNodeGraphSnakeMouseSmoothControl()" in script_sources["./public/node-graph-marquee-selection.js"]
         and "function nodeGraphMouseSmoothPoint(" in script_sources["./public/node-graph-papoulis-filter.js"]
@@ -16882,7 +16910,7 @@ def require_node_graph_mvp_contract() -> None:
         and "resizeNodeGraphMagnifierByWheel(event)" in script_sources["./public/node-graph-workspace-zoom.js"]
         and '.addEventListener("pointerdown", beginNodeGraphMagnifier)' in script_sources["./public/node-graph-workspace-event-bindings.js"]
         and "handleNodeGraphWorkspaceSnakeCircleCursorPointerDown" not in script_sources["./public/node-graph-workspace-event-bindings.js"],
-        "empty-workspace right-click should hold a resizable magnifying glass; wheel resizes the glass",
+        "empty-workspace right-click should hold a magnifying glass; wheel changes zoom, toolbar slider sets size",
     )
     require(
         "function beginNodeGraphScreenSolo(" in script_sources["./public/node-graph-screen-solo.js"]
@@ -17963,6 +17991,10 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_robin_supersaw_create",
             "soemdsp_robin_supersaw_destroy",
             "soemdsp_robin_supersaw_sample",
+            "soemdsp_robin_supersaw_process_block",
+            "soemdsp_robin_supersaw_block_output_left_ptr",
+            "soemdsp_robin_supersaw_block_output_right_ptr",
+            "soemdsp_robin_supersaw_block_output_mono_ptr",
         ],
         "hypersaw": ["soemdsp_hypersaw_create", "soemdsp_hypersaw_destroy", "soemdsp_hypersaw_sample", "soemdsp_hypersaw_left", "soemdsp_hypersaw_right"],
         "videoscope": ["soemdsp_videoscope_create", "soemdsp_videoscope_destroy", "soemdsp_videoscope_push", "soemdsp_videoscope_window_size", "soemdsp_videoscope_column_min", "soemdsp_videoscope_column_max", "soemdsp_videoscope_xy_a", "soemdsp_videoscope_xy_b", "soemdsp_videoscope_version"],

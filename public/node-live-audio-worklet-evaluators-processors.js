@@ -1090,6 +1090,11 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           safeRate,
         );
       },
+      simulationTime: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => (
+        typeof this.simulationTimeWorkletEvaluate === "function"
+          ? this.simulationTimeWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate)
+          : { Time: 0, A: 1 }
+      ),
       clock: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.clockStates.get(nodeId) || this.createClockState();
         this.clockStates.set(nodeId, state);

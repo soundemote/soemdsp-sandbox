@@ -23,10 +23,10 @@ function nodeGraphModuleSmoothingDefaultSeconds() {
 }
 
 // One-pole / multi-pole smoothers asymptote toward the target and never quite
-// land. When |out − target| is within this absolute band (normalized 0…1
-// signal space), snap exactly so knobs read 1.00 and Number Readout settles.
-// 1e-6 is enough for 5–6 decimal displays without hanging forever at long τ.
-const nodeGraphParameterSmootherConvergenceEpsilon = 1e-6;
+// land. When |out − target| is within Planck, snap exactly so knobs read 1.00
+// and Number Readout settles. Same floor as silence/idle/dirty-near.
+const nodeGraphParameterSmootherConvergenceEpsilon =
+  typeof NODE_GRAPH_PLANCK === "number" ? NODE_GRAPH_PLANCK : 1e-7;
 
 const nodeGraphParameterSmootherFilterTypes = Object.freeze([
   "linear",

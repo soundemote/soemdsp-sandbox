@@ -24,7 +24,7 @@ const nodeGraphNodeLabels = Object.freeze({
   ellipsoid: "RoundShape",
   ellipsoidOsc: "Ellipsoid",
   clock: "Clock",
-  transport: "Transport",
+  transport: "Master Clock",
   clockDivider: "Clock Divider",
   delayedTrigger: "Delayed Trigger",
   buttonEvents: "Button Events",
@@ -1369,18 +1369,30 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Uni X", "Uni Y", "Bi X", "Bi Y"],
     parameters: [
       {
-        bipolar: true,
-        defaultValue: "0",
+        choices: ["Clock(Ph)", "CounterClock(Ph)", "Clock(T)", "CounterClock(T)"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "motion",
+        label: "Motion",
+        linearSmoothing: false,
+        max: "3",
+        mid: "1",
+        min: "0",
+        step: "1",
+        tooltip: "Ph = running phasor (CounterClock(Ph) is the original orbit). T = simulation time (sample count / sample rate), no stored phasor. Clock vs CounterClock flips direction.",
+      },
+      {
+        defaultValue: "1",
         key: "frequency",
         kind: "frequency",
         label: "Clock",
-        max: "0",
-        mid: "0",
-        min: "-1",
-        showSign: true,
+        max: "20000",
+        mid: "20",
+        min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Orbit rate in Hz. Negative reverses (clockwise). If you type min > max (e.g. 0 and −1), we swap them so min < max.",
+        tooltip: "Orbit rate in Hz. Slider 0…20 kHz. Negative values reverse the orbit.",
       },
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", step: "0.01", unit: "cycle", wraparound: true },
       {
@@ -3006,13 +3018,16 @@ const nodeGraphModuleDefinitions = (
     displayRenderer: "pulseDot",
     inputs: ["Reset"],
     outputAliases: {
-      Out: "Digital Out"
+      Out: "Digital Out",
+      Pulse: "T",
+      Trigger: "T",
     },
     outputLabels: {
       "Analog Out": "\u223F",
-      "Digital Out": "\u25AE"
+      "Digital Out": "\u25AE",
+      T: "T",
     },
-    outputs: ["Digital Out", "Analog Out", "Pulse"],
+    outputs: ["Digital Out", "Analog Out", "T"],
     parameters: [
       {
         defaultValue: "2",
@@ -3049,7 +3064,8 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "edges",
         curveAmount: "0.3",
-        step: "any"
+        step: "any",
+        tooltip: "High time as a fraction of the period. Quantized to whole samples at the current rate.",
       },
       {
         defaultValue: "1",
@@ -4354,7 +4370,11 @@ const nodeGraphModuleDefinitions = (
     defaultDisplayMode: "trace",
     inputs: ["Mono", "Left", "Right"],
     outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
-    outputLabels: { Mono: "M", Left: "L", Right: "R" },
+    outputLabels: {
+      Mono: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
+      Left: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
+      Right: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
+    },
     outputs: ["Mono", "Left", "Right"],
     output: true,
     parameters: [
@@ -10814,7 +10834,11 @@ const nodeGraphModuleDefinitions = (
     defaultDisplayMode: "trace",
     inputs: ["Mono", "Left", "Right"],
     outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
-    outputLabels: { Mono: "M", Left: "L", Right: "R" },
+    outputLabels: {
+      Mono: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
+      Left: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
+      Right: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
+    },
     outputs: ["Mono", "Left", "Right"],
     output: true,
     parameters: [

@@ -67,6 +67,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     this.scopeCaptureNodeIds = Array.isArray(plan?.scopeCaptureNodeIds)
       ? plan.scopeCaptureNodeIds.map((nodeId) => String(nodeId || "")).filter(Boolean)
       : [];
+    this.scopeCaptureRates = plan?.scopeCaptureRates && typeof plan.scopeCaptureRates === "object"
+      ? { ...plan.scopeCaptureRates }
+      : Object.create(null);
     this.visualSinks = (Array.isArray(plan?.visualSinks) ? plan.visualSinks : []).map((sink) => ({
       ...sink,
       bufferedInputs: Array.isArray(sink?.bufferedInputs) ? [...sink.bufferedInputs] : [],

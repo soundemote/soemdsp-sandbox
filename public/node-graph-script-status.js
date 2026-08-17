@@ -153,9 +153,6 @@ function commitNodeUiDevSettingsScript(text) {
   } catch (error) {
     nodeGraphMvp.uiSettingsScriptDirty = true;
     setNodeGraphScriptStatus(error.message, false);
-    if (typeof setNodeUiDevSettingsStatus === "function") {
-      setNodeUiDevSettingsStatus(error.message, false);
-    }
     return false;
   }
 }

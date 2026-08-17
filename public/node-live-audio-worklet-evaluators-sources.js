@@ -690,37 +690,45 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
       robinSupersaw: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.robinSupersawStates.get(nodeId) || this.createRobinSupersawState();
         this.robinSupersawStates.set(nodeId, state);
-        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
-        // baseFrequency is the pitch heard at the global pitch reference
-        // note (see node-graph-patch-normalizers.js) -- set it equal to
-        // the master "Pitch Reference Frequency" setting and a MIDI
-        // keyboard is automatically in tune; double it to transpose the
-        // whole instrument up an octave.
-        const baseFrequency = Math.max(0, read("frequency", 100));
-        const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
-        const referenceVoltage = referenceMidiNote / 120;
         const hasPitchInput = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"));
-        const pitchCv = hasPitchInput
-          ? this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null)
-          : referenceVoltage;
-        const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
-          ? nodeGraphParamResolveOscPitchHz({baseHz: baseFrequency,
-            hasPitchCv: hasPitchInput,
-            pitchCv,
-            referenceVoltage,
-      hasInput: typeof hasInput === "function" ? hasInput : (id, port) => this.inputConnections.has(this.inputKey(id, port)),
-      mixInput,
-      nodeId,
-    })
-          : (typeof nodeGraphPitchedFrequency === "function"
+        const hasFreqInput = this.inputConnections.has(this.inputKey(nodeId, "f"));
+        const useBlock = !hasPitchInput && !hasFreqInput;
+        if (frame === 0 || !state.cachedParams || !useBlock) {
+          const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+          const baseFrequency = Math.max(0, read("frequency", 100));
+          const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
+          const referenceVoltage = referenceMidiNote / 120;
+          const pitchCv = hasPitchInput
+            ? this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null)
+            : referenceVoltage;
+          const hasInput = (id, port) => this.inputConnections.has(this.inputKey(id, port));
+          const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
+            ? nodeGraphParamResolveOscPitchHz({
+              baseHz: baseFrequency,
+              hasPitchCv: hasPitchInput,
+              pitchCv,
+              referenceVoltage,
+              hasInput,
+              mixInput,
+              nodeId,
+            })
+            : (typeof nodeGraphPitchedFrequency === "function"
               ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
               : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
+          state.cachedParams = {
+            frequencyHz: effectiveFrequency,
+            detuneCents: read("detuneCents", 30),
+            voices: read("voices", 7),
+            level: read("amplitude", 1),
+          };
+        }
         return this.robinSupersawSample(state, {
-          frequencyHz: effectiveFrequency,
+          frequencyHz: state.cachedParams.frequencyHz,
           sampleRate: safeRate,
-          detuneCents: read("detuneCents", 30),
-          voices: read("voices", 7),
-          level: read("amplitude", 1),
+          detuneCents: state.cachedParams.detuneCents,
+          voices: state.cachedParams.voices,
+          level: state.cachedParams.level,
+          useBlock,
         });
       },
       hypersaw: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {

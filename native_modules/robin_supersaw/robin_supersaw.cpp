@@ -44,6 +44,7 @@ using namespace soemdsp_maths;
 
 constexpr int kMaxInstances = 8;
 constexpr int kMaxVoices = 9;
+constexpr int kMaxBlockFrames = 2048;
 
 // xorshift32 -- freestanding WASM has no <random>. Deterministic, cheap,
 // good enough statistical quality for dithering noise (not cryptographic).
@@ -148,26 +149,40 @@ double sawFromPhasor(double phasor) {
   return 2.0 * phasor - 1.0;
 }
 
+void prepareVoiceBank(
+  DitherVoiceState* bank,
+  int numVoices,
+  double safeFrequency,
+  double safeSampleRate,
+  double spreadCents
+) {
+  for (int i = 0; i < numVoices; i++) {
+    double centsOffset = 0.0;
+    if (numVoices > 1) {
+      const double t = static_cast<double>(i) / static_cast<double>(numVoices - 1);
+      centsOffset = (t - 0.5) * spreadCents;
+    }
+    const double ratio = pow2Small(centsOffset / 1200.0);
+    const double voiceFreq = safeFrequency * ratio;
+    const double meanCycleLength = safeSampleRate / (voiceFreq > 1.0 ? voiceFreq : 1.0);
+    calcCycleDistribution(meanCycleLength, &bank[i].lenMid, &bank[i].probShort, &bank[i].probMid);
+  }
+}
+
+double sumPreparedVoiceBank(DitherVoiceState* bank, int numVoices) {
+  double sum = 0.0;
+  for (int i = 0; i < numVoices; i++) {
+    sum += sawFromPhasor(getSamplePhasor(bank[i]));
+  }
+  return sum / static_cast<double>(numVoices);
+}
+
 // Sums numVoices detuned, pitch-dithered saws from one voice bank. Voice 0
 // is always centered (0 cents) as the tonal anchor; the rest spread
 // symmetrically across +/- spreadCents/2.
 double sumVoiceBank(DitherVoiceState* bank, int numVoices, double safeFrequency, double safeSampleRate, double spreadCents) {
-  double sum = 0.0;
-  for (int i = 0; i < numVoices; i++) {
-    double centsOffset = 0.0;
-    if (numVoices > 1) {
-      const double t = static_cast<double>(i) / static_cast<double>(numVoices - 1);  // 0..1
-      centsOffset = (t - 0.5) * spreadCents;
-    }
-    const double ratio = pow2Small(centsOffset / 1200.0);  // cents -> frequency ratio
-    const double voiceFreq = safeFrequency * ratio;
-    const double meanCycleLength = safeSampleRate / (voiceFreq > 1.0 ? voiceFreq : 1.0);
-
-    DitherVoiceState& voice = bank[i];
-    calcCycleDistribution(meanCycleLength, &voice.lenMid, &voice.probShort, &voice.probMid);
-    sum += sawFromPhasor(getSamplePhasor(voice));
-  }
-  return sum / static_cast<double>(numVoices);
+  prepareVoiceBank(bank, numVoices, safeFrequency, safeSampleRate, spreadCents);
+  return sumPreparedVoiceBank(bank, numVoices);
 }
 
 struct RobinSupersawState {
@@ -177,6 +192,9 @@ struct RobinSupersawState {
   double outLeft;
   double outRight;
   double outMono;
+  double blockOutLeft[kMaxBlockFrames];
+  double blockOutRight[kMaxBlockFrames];
+  double blockOutMono[kMaxBlockFrames];
 };
 
 static RobinSupersawState gPool[kMaxInstances];
@@ -270,6 +288,63 @@ extern "C" void soemdsp_robin_supersaw_sample(
   s.outMono = (s.outLeft + s.outRight) * 0.5;
 }
 
+extern "C" void soemdsp_robin_supersaw_process_block(
+  int handle,
+  double frequencyHz,
+  double sampleRate,
+  double detuneCents,
+  int voices,
+  double level,
+  int frameCount
+) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  RobinSupersawState& s = gPool[handle - 1];
+
+  const double safeSampleRate = sampleRate > 1.0 ? sampleRate : 48000.0;
+  const double safeFrequency = (frequencyHz == frequencyHz) ? frequencyHz : 0.0;
+  const int numVoices = voices < 1 ? 1 : (voices > kMaxVoices ? kMaxVoices : voices);
+  const double spreadCents = clamp(detuneCents, 0.0, 100.0);
+  const int safeFrameCount = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
+
+  prepareVoiceBank(s.left, numVoices, safeFrequency, safeSampleRate, spreadCents);
+  prepareVoiceBank(s.right, numVoices, safeFrequency, safeSampleRate, spreadCents);
+
+  for (int frame = 0; frame < safeFrameCount; frame += 1) {
+    double left = sumPreparedVoiceBank(s.left, numVoices);
+    double right = sumPreparedVoiceBank(s.right, numVoices);
+    if (!(left * 0.0 == 0.0)) left = 0.0;
+    if (!(right * 0.0 == 0.0)) right = 0.0;
+    const double outLeft = clamp(left, -1.5, 1.5) * level;
+    const double outRight = clamp(right, -1.5, 1.5) * level;
+    const double outMono = (outLeft + outRight) * 0.5;
+    s.blockOutLeft[frame] = outLeft;
+    s.blockOutRight[frame] = outRight;
+    s.blockOutMono[frame] = outMono;
+    s.outLeft = outLeft;
+    s.outRight = outRight;
+    s.outMono = outMono;
+  }
+}
+
+extern "C" int soemdsp_robin_supersaw_block_output_left_ptr(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  return reinterpret_cast<int>(gPool[handle - 1].blockOutLeft);
+}
+
+extern "C" int soemdsp_robin_supersaw_block_output_right_ptr(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  return reinterpret_cast<int>(gPool[handle - 1].blockOutRight);
+}
+
+extern "C" int soemdsp_robin_supersaw_block_output_mono_ptr(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  return reinterpret_cast<int>(gPool[handle - 1].blockOutMono);
+}
+
+extern "C" int soemdsp_robin_supersaw_max_block_frames() {
+  return kMaxBlockFrames;
+}
+
 extern "C" double soemdsp_robin_supersaw_left(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   return gPool[handle - 1].outLeft;
@@ -286,5 +361,5 @@ extern "C" double soemdsp_robin_supersaw_mono(int handle) {
 }
 
 extern "C" int soemdsp_robin_supersaw_version() {
-  return 2;
+  return 3;
 }

@@ -508,6 +508,14 @@ NodeLiveAudioProcessor.prototype.destroyLorenzAttractorNativeState = function de
 };
 
 NodeLiveAudioProcessor.prototype.destroyRobinSupersawNativeState = function destroyRobinSupersawNativeState(state) {
+    if (state?.blockCache) {
+      state.blockCache.cursor = 0;
+      state.blockCache.size = 0;
+      state.blockCache.left = null;
+      state.blockCache.right = null;
+      state.blockCache.mono = null;
+      state.blockCache.memory = null;
+    }
     if (state?.nativeHandle && this.nativeRobinSupersaw?.soemdsp_robin_supersaw_destroy) {
       this.nativeRobinSupersaw.soemdsp_robin_supersaw_destroy(state.nativeHandle);
       state.nativeHandle = 0;

@@ -234,6 +234,8 @@ var nodeGraphMvp = {
   dimmerMouseSize: 56,
   dimmerMouseSoftness: 25,
   dimmerMouseShape: 0,
+  magnifierBorderThickness: 5,
+  magnifierBorderSoftness: 4,
   moduleStoreDepartment: "",
   // The last category the user actually CLICKED, as opposed to whatever page
   // the browser happens to be showing (a search shows results across every

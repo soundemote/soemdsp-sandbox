@@ -27,7 +27,7 @@ function nodeGraphExpAdsrTriggerAttack(state, delay, attack, sampleRate) {
     }
     return;
   }
-  if (state.out <= 0.000001) {
+  if (state.out <= (typeof nodeGraphPlanck === "function" ? nodeGraphPlanck() : 1e-7)) {
     state.out = 0;
     state.secondsPassed = 0;
   }

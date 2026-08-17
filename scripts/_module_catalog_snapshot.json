@@ -81,12 +81,12 @@
   },
   {
     "type": "clock",
-    "label": "Transport",
+    "label": "Clock",
     "description": "Timer pulse source. Emits a steady gate for triggering samplers, sequencers, and motion events."
   },
   {
     "type": "transport",
-    "label": "Transport",
+    "label": "Master Clock",
     "description": "Project-synced beat clock source. Emits in-phase square waves derived from patch BPM."
   },
   {

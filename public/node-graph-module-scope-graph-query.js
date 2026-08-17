@@ -66,12 +66,23 @@ function nodeGraphModuleScopeAdvanceFixedFrameClock(state, now, fps) {
   const frameDuration = 1 / normalizedFps;
   const lastUpdate = Number(state?.lastUpdate);
   const stateTime = Number(state?.time);
-  if (!Number.isFinite(lastUpdate) || lastUpdate <= 0 || now <= lastUpdate) {
+  if (!Number.isFinite(lastUpdate) || lastUpdate <= 0) {
     return {
       ready: true,
       steps: 1,
       lastUpdate: now,
       time: Number.isFinite(stateTime) ? stateTime : now,
+    };
+  }
+  // Early-accept can park lastUpdate a few ms in the future. The next rAF
+  // must wait — treating now <= lastUpdate as a new frame made 1 FPS traces
+  // paint twice (1, 1, 1, 2-burst).
+  if (now <= lastUpdate) {
+    return {
+      ready: false,
+      steps: 0,
+      lastUpdate,
+      time: Number.isFinite(stateTime) ? stateTime : lastUpdate,
     };
   }
   const elapsed = now - lastUpdate;
@@ -84,7 +95,9 @@ function nodeGraphModuleScopeAdvanceFixedFrameClock(state, now, fps) {
       time: now,
     };
   }
-  if (elapsed + frameDuration * 0.05 < frameDuration) {
+  // Cap slop at ~1 display refresh so 1 FPS does not accept 50ms early.
+  const slop = Math.min(frameDuration * 0.05, 1 / 120);
+  if (elapsed + slop < frameDuration) {
     return {
       ready: false,
       steps: 0,
@@ -92,7 +105,7 @@ function nodeGraphModuleScopeAdvanceFixedFrameClock(state, now, fps) {
       time: Number.isFinite(stateTime) ? stateTime : lastUpdate,
     };
   }
-  const steps = Math.max(1, Math.floor((elapsed + frameDuration * 0.05) / frameDuration));
+  const steps = Math.max(1, Math.floor((elapsed + slop) / frameDuration));
   const nextLastUpdate = lastUpdate + steps * frameDuration;
   const nextTime = (Number.isFinite(stateTime) ? stateTime : lastUpdate) + steps * frameDuration;
   return {

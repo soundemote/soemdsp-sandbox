@@ -175,7 +175,7 @@ struct SilenceDetector {
   }
   bool run(double in) {
     counter += increment;
-    if (dsp_fabs(in) >= 1.0e-6) {
+    if (dsp_fabs(in) >= kPlanck) {
       isSilent = false;
       counter = 0.0;
     } else if (counter > 1.0) {
@@ -578,7 +578,7 @@ static void dryWet(SoEmReverbState& s, double inL, double inR) {
 // === Reverb::runWithIdleDetection exact order ===
 static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
   const double energy = inL + inR + s.fbL + s.fbR + s.wetL + s.wetR + s.dryL + s.dryR;
-  if (s.silence.run(energy) && dsp_fabs(energy) < 1.0e-6) {
+  if (s.silence.run(energy) && silent_planck(energy)) {
     return;
   }
 

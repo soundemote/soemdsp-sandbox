@@ -163,7 +163,15 @@ NodeLiveAudioProcessor.prototype.ellipsoidWorkletEvaluate = function ellipsoidWo
         ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)
         : frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
   const incrementInput = this.safeFilterNumber(mixInput(nodeId, "Increment"));
-  const phaseIncrement = (pitchedFrequency / safeRate) + incrementInput;
+  const motion = Math.max(0, Math.min(3, Math.round(Number(
+    this.readEffectiveParameter(node, "motion", 1, frame, frames, frameValues),
+  ) || 0)));
+  const clockWise = motion === 0 || motion === 2;
+  const useSimTime = motion >= 2;
+  const dir = clockWise ? -1 : 1;
+  const phaseIncrement = useSimTime
+    ? 0
+    : (dir * pitchedFrequency / safeRate) + incrementInput;
   let ellipsoidFrame = this.ellipsoidOutputFrames.get(nodeId);
   if (!ellipsoidFrame) {
     ellipsoidFrame = {
@@ -172,7 +180,13 @@ NodeLiveAudioProcessor.prototype.ellipsoidWorkletEvaluate = function ellipsoidWo
     };
     this.ellipsoidOutputFrames.set(nodeId, ellipsoidFrame);
   }
-  let samplePhase = phase + phaseOffset;
+  let samplePhase;
+  if (useSimTime) {
+    const simSamples = Math.max(0, Number(this.absoluteFrame) || 0);
+    samplePhase = dir * ((pitchedFrequency / safeRate) + incrementInput) * simSamples + phaseOffset;
+  } else {
+    samplePhase = phase + phaseOffset;
+  }
   samplePhase -= Math.floor(samplePhase);
   const amp = this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues);
   let value;

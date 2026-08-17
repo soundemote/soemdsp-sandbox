@@ -45,10 +45,12 @@ nodeGraphLiveModuleEvaluators.clock = ({
     ),
     sampleRate,
   );
+  const pulse = nodeGraphSafeFilterNumber(out.T ?? out.Pulse, runtime, nodeId, null, "clock pulse");
   return {
     "Analog Out": nodeGraphSafeFilterNumber(out["Analog Out"], runtime, nodeId, null, "clock analog"),
     "Digital Out": nodeGraphSafeFilterNumber(out["Digital Out"], runtime, nodeId, null, "clock digital"),
     Out: nodeGraphSafeFilterNumber(out.Out, runtime, nodeId, null, "clock out"),
-    Pulse: nodeGraphSafeFilterNumber(out.Pulse, runtime, nodeId, null, "clock pulse"),
+    Pulse: pulse,
+    T: pulse,
   };
 };
