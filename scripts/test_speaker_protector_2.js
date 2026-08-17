@@ -169,7 +169,7 @@ function sineQuiet(state, n) {
   }
 }
 
-// 9. Unity and 1 + NODE_GRAPH_NUMERIC_PRECISION must not trip.
+// 9. Unity must not trip. 1 + NODE_GRAPH_NUMERIC_PRECISION must trip.
 {
   const eps = ctx.NODE_GRAPH_NUMERIC_PRECISION;
   if (!(eps > 0) || eps !== 1e-7) {
@@ -188,16 +188,16 @@ function sineQuiet(state, n) {
     ok("0 dB does not trip");
   }
   last = ctx.nodeGraphSpeakerProtector2Protect(state, 1 + eps, -(1 + eps), RATE);
-  if (last.danger || last.engaged) {
-    fail(`1 + ${eps} should not trip, got danger=${last.danger} mode=${last.mode}`);
+  if (!last.danger) {
+    fail(`1 + ${eps} should trip`);
   } else {
-    ok("1e-7 over 0 dB does not trip");
+    ok("1e-7 over unity trips");
   }
   last = ctx.nodeGraphSpeakerProtector2Protect(state, 1.001, -1.001, RATE);
   if (!last.danger) {
     fail("1.001 should trip");
   } else {
-    ok("above slack trips");
+    ok("well over unity trips");
   }
 }
 

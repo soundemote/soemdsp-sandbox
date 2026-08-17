@@ -48,7 +48,7 @@ function nodeGraphOutputSampleTripsEarProtection(value) {
   }
   const number = Number(value);
   const eps = typeof NODE_GRAPH_NUMERIC_PRECISION === "number" ? NODE_GRAPH_NUMERIC_PRECISION : 1e-7;
-  return !Number.isFinite(number) || Math.abs(number) > 1 + eps;
+  return !Number.isFinite(number) || Math.abs(number) >= 1 + eps;
 }
 
 function nodeGraphTemporaryPrefilterForResample(samples, sourceRate, outputRate) {

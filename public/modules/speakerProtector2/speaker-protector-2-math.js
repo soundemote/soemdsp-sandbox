@@ -1,11 +1,12 @@
 // Speaker Protector 2.0 — stereo-linked VCA only. Never clips or knees.
-// High load (raw |peak| > 1 + NODE_GRAPH_NUMERIC_PRECISION or 1 kHz HP ≥ +6 dB)
+// High load (raw |peak| ≥ 1 + NODE_GRAPH_NUMERIC_PRECISION or 1 kHz HP ≥ +6 dB)
 // → fast slew gain to 0 → hold 0.333 s → slow slew back to 1.
 // While peak is over that ceiling, gain is also capped at 1/peak so the
 // waveform is scaled, not flattened. Shared by the patch module and Output.
 
-// Named amplitude floor for "same as this level" checks. The app has no other
-// universal precision SSOT; 1e-7 is the value used here and by ear-trip helpers.
+// Universe tick (Planck). Compile-time law — never a runtime / user setting.
+// 1.0 is home. First real step is 1 + this (1.0000001). Shared by protector
+// trip helpers. Not a dump of every 1e-12 denom / 1e-4 mute snap.
 var NODE_GRAPH_NUMERIC_PRECISION = 1e-7;
 
 var NODE_GRAPH_SPEAKER_PROTECTOR2_HP_HZ = 1000;
@@ -64,7 +65,8 @@ function nodeGraphSpeakerProtector2NumericPrecision() {
 }
 
 function nodeGraphSpeakerProtector2PeakDanger(peak) {
-  return Number(peak) > 1 + nodeGraphSpeakerProtector2NumericPrecision();
+  // 1.0 is safe. First trip is the precision quantum (1.0000001), not 1.0000002.
+  return Number(peak) >= 1 + nodeGraphSpeakerProtector2NumericPrecision();
 }
 
 function nodeGraphSpeakerProtector2SampleTrips(value) {
