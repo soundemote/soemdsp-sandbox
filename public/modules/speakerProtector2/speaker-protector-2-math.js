@@ -4,10 +4,11 @@
 // While peak is over that ceiling, gain is also capped at 1/peak so the
 // waveform is scaled, not flattened. Shared by the patch module and Output.
 
-// Universe tick (Planck). Compile-time law — never a runtime / user setting.
-// 1.0 is home. First real step is 1 + this (1.0000001). Shared by protector
-// trip helpers. Not a dump of every 1e-12 denom / 1e-4 mute snap.
-var NODE_GRAPH_NUMERIC_PRECISION = 1e-7;
+// Planck lives in node-graph-semath.js (NODE_GRAPH_PLANCK). Alias kept so
+// older callers / tests that only load this file still resolve a number.
+var NODE_GRAPH_NUMERIC_PRECISION = typeof NODE_GRAPH_PLANCK === "number"
+  ? NODE_GRAPH_PLANCK
+  : 1e-7;
 
 var NODE_GRAPH_SPEAKER_PROTECTOR2_HP_HZ = 1000;
 var NODE_GRAPH_SPEAKER_PROTECTOR2_THRESHOLD = 10 ** (6 / 20);
@@ -60,18 +61,29 @@ function nodeGraphSpeakerProtector2Prepare(state, sampleRate) {
 }
 
 function nodeGraphSpeakerProtector2NumericPrecision() {
+  if (typeof nodeGraphPlanck === "function") {
+    return nodeGraphPlanck();
+  }
   const eps = Number(NODE_GRAPH_NUMERIC_PRECISION);
   return Number.isFinite(eps) && eps >= 0 ? eps : 1e-7;
 }
 
 function nodeGraphSpeakerProtector2PeakDanger(peak) {
-  // 1.0 is safe. First trip is the precision quantum (1.0000001), not 1.0000002.
+  if (typeof nodeGraphAboveUnity === "function") {
+    return nodeGraphAboveUnity(peak);
+  }
   return Number(peak) >= 1 + nodeGraphSpeakerProtector2NumericPrecision();
 }
 
 function nodeGraphSpeakerProtector2SampleTrips(value) {
   const number = Number(value);
-  return !Number.isFinite(number) || nodeGraphSpeakerProtector2PeakDanger(Math.abs(number));
+  if (!Number.isFinite(number)) {
+    return true;
+  }
+  if (typeof nodeGraphOutsideUnity === "function") {
+    return nodeGraphOutsideUnity(number);
+  }
+  return nodeGraphSpeakerProtector2PeakDanger(Math.abs(number));
 }
 
 function nodeGraphSpeakerProtector2SlewToward(gain, target, seconds, sampleRate) {

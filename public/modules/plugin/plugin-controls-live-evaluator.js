@@ -52,10 +52,14 @@ nodeGraphLiveModuleEvaluators.momentaryButton = ({
 nodeGraphLiveModuleEvaluators.pluginInput = ({
   runtime, node, nodeId, frame, frames, frameValues, mixInput,
 }) => {
+  const amplitude = nodeGraphPluginReadParam(runtime, node, "amplitude", NaN, frame, frames, frameValues);
+  const level = Number.isFinite(amplitude)
+    ? amplitude
+    : nodeGraphPluginReadParam(runtime, node, "level", 1, frame, frames, frameValues);
   const live = nodeGraphDspExternalStereoFrame(
     runtime.externalInput,
     frame,
-    nodeGraphPluginReadParam(runtime, node, "amplitude", 1, frame, frames, frameValues),
+    level,
   );
   if (typeof nodeGraphDspSandboxIoFrame === "function") {
     return nodeGraphDspSandboxIoFrame(

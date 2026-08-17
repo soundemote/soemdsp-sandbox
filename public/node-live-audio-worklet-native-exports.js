@@ -1067,6 +1067,36 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+      if (name === "u2b" || targetType === "u2b") {
+        this.nativeU2b = exports;
+        this.nativeU2bReady = Boolean(this.nativeU2b?.soemdsp_u2b_sample);
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "u2b",
+          status: this.nativeU2bReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "b2u" || targetType === "b2u") {
+        this.nativeB2u = exports;
+        this.nativeB2uReady = Boolean(this.nativeB2u?.soemdsp_b2u_sample);
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "b2u",
+          status: this.nativeB2uReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "inv" || targetType === "inv") {
+        this.nativeInv = exports;
+        this.nativeInvReady = Boolean(this.nativeInv?.soemdsp_inv_sample);
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "inv",
+          status: this.nativeInvReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "metallic_ratio" || targetType === "metallicRatio") {
         this.nativeMetallicRatio = exports;
         this.nativeMetallicRatioReady = Boolean(
@@ -1108,6 +1138,24 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
           type: "nativeModuleStatus",
           name: "dsf_oscillator",
           status: this.nativeDsfOscillatorReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "robin_sinusoid" || targetType === "robinSinusoid") {
+        if (this.robinSinusoidStates) {
+          for (const state of this.robinSinusoidStates.values()) {
+            this.destroyRobinSinusoidNativeState(state);
+          }
+        }
+        this.nativeRobinSinusoid = exports;
+        this.nativeRobinSinusoidReady = Boolean(
+          this.nativeRobinSinusoid?.soemdsp_robin_sinusoid_create &&
+          this.nativeRobinSinusoid?.soemdsp_robin_sinusoid_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "robin_sinusoid",
+          status: this.nativeRobinSinusoidReady ? "ready" : "missing exports",
         });
         return;
       }

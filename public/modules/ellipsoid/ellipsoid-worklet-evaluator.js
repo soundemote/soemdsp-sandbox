@@ -230,5 +230,8 @@ NodeLiveAudioProcessor.prototype.ellipsoidWorkletEvaluate = function ellipsoidWo
   let nextPhase = phase + phaseIncrement;
   nextPhase -= Math.floor(nextPhase);
   this.phases.set(nodeId, nextPhase);
+  if (value && typeof value === "object") {
+    value.__Phase = samplePhase;
+  }
   return value;
 };

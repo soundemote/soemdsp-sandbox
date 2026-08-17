@@ -42,17 +42,8 @@ function normalizeNodeGraphParameterSmootherFilterType(value) {
   if (key === "none" || key === "off" || key === "instant" || key === "0") {
     return "none";
   }
-  // Linear ramp (UI "L") — real lerp, not instant.
-  if (key === "L" || key === "l" || key === "linear" || key === "lerp") {
-    return "linear";
-  }
-  if (key === "2P" || key === "2p" || key === "twoPole" || key === "two-pole" || key === "2pole") {
-    return "twoPole";
-  }
-  if (key === "1P" || key === "1p") {
-    return "onePole";
-  }
-  return nodeGraphParameterSmootherFilterTypes.includes(key) ? key : "onePole";
+  // CPU experiment: only linear ramps. onePole / twoPole / papoulis parked.
+  return "linear";
 }
 
 /** True when the parameter should glide (not snap). Derived from smoothing type. */
@@ -175,13 +166,17 @@ nodeGraphRegisterParameterSmootherFilter("linear", {
     // seconds = 1/freq → sample count for a complete move.
     const durationSamples = Math.max(1, Math.round(safeRate / freq));
     const prevTarget = Number(state.rampTo);
-    const targetChanged = !Number.isFinite(prevTarget) || Math.abs(prevTarget - target) > 1e-15;
+    const targetChanged = !Number.isFinite(prevTarget)
+      || Math.abs(prevTarget - target) > nodeGraphParameterSmootherConvergenceEpsilon;
     if (targetChanged) {
       state.rampFrom = prev;
       state.rampTo = target;
       state.rampSamples = 0;
       state.rampDuration = durationSamples;
-    } else if ((Number(state.rampDuration) || 0) !== durationSamples) {
+    } else if (
+      (Number(state.rampDuration) || 0) > 0
+      && (Number(state.rampDuration) || 0) !== durationSamples
+    ) {
       // Smooth Time changed mid-ramp: keep progress ratio, retarget length.
       const oldDur = Math.max(1, Number(state.rampDuration) || durationSamples);
       const progress = Math.min(1, (Number(state.rampSamples) || 0) / oldDur);

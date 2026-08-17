@@ -111,6 +111,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "logisticMap" && !this.logisticMapStates.has(id)) {
         this.logisticMapStates.set(id, this.createLogisticMapState());
       }
+      if (node?.type === "robinSinusoid" && !this.robinSinusoidStates.has(id)) {
+        this.robinSinusoidStates.set(id, this.createRobinSinusoidState());
+      }
       if (node?.type === "henonMap" && !this.henonMapStates.has(id)) {
         this.henonMapStates.set(id, this.createHenonMapState());
       }
@@ -1180,6 +1183,14 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       for (const id of [...this.phoneToneStates.keys()]) {
         if (!ids.has(id)) {
           this.phoneToneStates.delete(id);
+        }
+      }
+    }
+    if (this.robinSinusoidStates) {
+      for (const id of [...this.robinSinusoidStates.keys()]) {
+        if (!ids.has(id)) {
+          this.destroyRobinSinusoidNativeState(this.robinSinusoidStates.get(id));
+          this.robinSinusoidStates.delete(id);
         }
       }
     }

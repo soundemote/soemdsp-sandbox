@@ -15,21 +15,51 @@ function nodeGraphFbmFieldMotionMode(value) {
   return Math.max(0, Math.min(1, n));
 }
 
+function nodeGraphFbmFieldWasmCandidateUrls() {
+  // Local sandbox serves per-module files at /native_modules/…
+  // Release site sync ships ONLY combined wasm (relative to the page).
+  return [
+    "/native_modules/fbm_field/fbm_field.wasm",
+    "native_modules/fbm_field/fbm_field.wasm",
+    "/native_modules/combined/soemdsp_combined.wasm",
+    "native_modules/combined/soemdsp_combined.wasm?v=fbf-face-1",
+  ];
+}
+
 function nodeGraphFbmFieldLoadWasm() {
   if (nodeGraphFbmFieldWasm.promise || typeof fetch !== "function" || typeof WebAssembly === "undefined") {
     return nodeGraphFbmFieldWasm.promise;
   }
-  nodeGraphFbmFieldWasm.promise = fetch("/native_modules/fbm_field/fbm_field.wasm")
-    .then((response) => response.arrayBuffer())
-    .then((bytes) => WebAssembly.instantiate(bytes, {}))
-    .then((result) => {
-      nodeGraphFbmFieldWasm.exports = result.instance.exports;
-      return nodeGraphFbmFieldWasm.exports;
-    })
-    .catch(() => {
-      nodeGraphFbmFieldWasm.failed = true;
-      return null;
-    });
+  nodeGraphFbmFieldWasm.promise = (async () => {
+    const urls = nodeGraphFbmFieldWasmCandidateUrls();
+    for (let i = 0; i < urls.length; i += 1) {
+      try {
+        const response = await fetch(urls[i]);
+        if (!response.ok) {
+          continue;
+        }
+        const bytes = await response.arrayBuffer();
+        const result = await WebAssembly.instantiate(bytes, {});
+        const exports = result?.instance?.exports || null;
+        if (!exports?.soemdsp_fbm_field_fill_grid || !exports.memory) {
+          continue;
+        }
+        nodeGraphFbmFieldWasm.exports = exports;
+        if (typeof paintNodeGraphFbmFieldFacesNow === "function") {
+          try {
+            paintNodeGraphFbmFieldFacesNow({ force: true });
+          } catch (_error) {
+            // Face loop / compositor will retry.
+          }
+        }
+        return exports;
+      } catch (_error) {
+        // Try the next URL.
+      }
+    }
+    nodeGraphFbmFieldWasm.failed = true;
+    return null;
+  })();
   return nodeGraphFbmFieldWasm.promise;
 }
 

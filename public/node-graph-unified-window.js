@@ -1583,7 +1583,7 @@ function openNodeGraphParameterSettingsFromContextEvent(event, nodeElement = nul
     return false;
   }
   if (target.closest?.(
-    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-ray-bouncer-face, .node-phosphor-waveform-display, .node-xy-pad, .node-xy-pad-canvas",
+    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-ray-bouncer-face, .node-phosphor-waveform-display, .node-xy-pad, .node-xy-pad-canvas, .node-round-shape-display, .node-round-shape-canvas",
   )) {
     return false;
   }

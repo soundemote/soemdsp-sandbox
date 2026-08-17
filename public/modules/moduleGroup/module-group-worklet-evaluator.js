@@ -187,6 +187,7 @@ NodeLiveAudioProcessor.prototype.setNestedPlan = function setNestedPlan(plan) {
     if (node?.type === "logSpiral") this.logSpiralStates.set(id, this.createLogSpiralState());
     if (node?.type === "lorenzAttractor") this.lorenzAttractorStates.set(id, this.createLorenzAttractorState());
     if (node?.type === "logisticMap") this.logisticMapStates.set(id, this.createLogisticMapState());
+    if (node?.type === "robinSinusoid") this.robinSinusoidStates.set(id, this.createRobinSinusoidState());
     if (node?.type === "henonMap") this.henonMapStates.set(id, this.createHenonMapState());
     if (node?.type === "rayBouncer") this.rayBouncerStates.set(id, this.createRayBouncerState());
     if (node?.type === "chuaAttractor") this.chuaAttractorStates.set(id, this.createChuaAttractorState());

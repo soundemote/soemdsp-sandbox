@@ -17,6 +17,7 @@ const NODE_GRAPH_BYPASS_AUDIO_IN = new Set([
   "In", "Mono", "Left", "Right", "L", "R",
   "Dry", "Dry L", "Dry R", "Wet L", "Wet R",
   "In L", "In R", "In1", "In2", "In3", "In4", "In 1", "In 2", "In 3", "In 4",
+  "L1", "R1", "L2", "R2", "L3", "R3", "L4", "R4",
   "X", "Y", "Z", "A", "B",
   "Mid", "Side",
 ]);
@@ -40,8 +41,8 @@ const NODE_GRAPH_BYPASS_OUT_ALIASES = Object.freeze({
   Thru: ["In", "Mono", "In1", "X", "A"],
   Delayed: ["In", "Mono"],
   Mono: ["Mono", "In"],
-  Left: ["Left", "L", "In", "Mono"],
-  Right: ["Right", "R", "In", "Mono"],
+  Left: ["Left", "L", "L1", "In", "Mono"],
+  Right: ["Right", "R", "R1", "In", "Mono"],
   L: ["L", "Left", "In", "Mono"],
   R: ["R", "Right", "In", "Mono"],
   "Left Out": ["Left", "L", "In", "Mono"],

@@ -73,8 +73,6 @@ const nodeGraphEmojiCatalog = Object.freeze([
   },
 ]);
 
-let nodeGraphEmojiInsertTarget = null;
-
 function applyNodeGraphEmojiPageSize(size = {}, panelArg = null) {
   const panel = panelArg || document.getElementById("nodeEmojiPage");
   if (!panel) {
@@ -127,66 +125,19 @@ function setNodeGraphEmojiPageOpen(open) {
   }
 }
 
-function nodeGraphRememberEmojiInsertTarget(target) {
-  if (!(target instanceof Element)) {
-    return;
-  }
-  if (target.closest?.("#nodeEmojiPage")) {
-    return;
-  }
-  if (typeof nodeGraphEventTargetIsTextEditable === "function") {
-    if (!nodeGraphEventTargetIsTextEditable(target)) {
-      return;
-    }
-  } else if (!target.closest?.("input, textarea, [contenteditable='true']")) {
-    return;
-  }
-  nodeGraphEmojiInsertTarget = target.closest?.("input, textarea, [contenteditable='true']") || target;
-}
-
-function insertNodeGraphEmojiGlyph(glyph) {
+function copyNodeGraphEmojiGlyph(glyph) {
   const text = String(glyph || "");
   if (!text) {
     return;
   }
-  const field = nodeGraphEmojiInsertTarget && document.contains(nodeGraphEmojiInsertTarget)
-    ? nodeGraphEmojiInsertTarget
-    : null;
-  if (!field) {
-    if (typeof copyTextToClipboard === "function") {
-      void copyTextToClipboard(text);
-    }
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp("copied emoji — click a text field, then pick again to type it");
-    }
-    return;
+  if (typeof copyTextToClipboard === "function") {
+    void copyTextToClipboard(text);
+  } else if (navigator?.clipboard?.writeText) {
+    void navigator.clipboard.writeText(text);
   }
-  try {
-    field.focus();
-  } catch {
-    // ignore
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(`copied ${text}`);
   }
-  if (field.isContentEditable) {
-    document.execCommand("insertText", false, text);
-    return;
-  }
-  if (typeof field.selectionStart === "number") {
-    const start = Number(field.selectionStart);
-    const end = Number(field.selectionEnd);
-    const value = String(field.value || "");
-    field.value = `${value.slice(0, start)}${text}${value.slice(end)}`;
-    const caret = start + text.length;
-    try {
-      field.setSelectionRange(caret, caret);
-    } catch {
-      // ignore
-    }
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-    field.dispatchEvent(new Event("change", { bubbles: true }));
-    return;
-  }
-  field.value = `${String(field.value || "")}${text}`;
-  field.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 function renderNodeGraphEmojiPage() {
@@ -211,13 +162,10 @@ function renderNodeGraphEmojiPage() {
       button.type = "button";
       button.className = "node-emoji-glyph";
       button.textContent = glyph;
-      button.title = `Type ${glyph}`;
-      button.setAttribute("aria-label", `Insert ${glyph}`);
-      button.addEventListener("pointerdown", (event) => {
-        event.preventDefault();
-      });
+      button.title = `Copy ${glyph}`;
+      button.setAttribute("aria-label", `Copy ${glyph}`);
       button.addEventListener("click", () => {
-        insertNodeGraphEmojiGlyph(glyph);
+        copyNodeGraphEmojiGlyph(glyph);
       });
       grid.append(button);
     }
@@ -232,9 +180,6 @@ function bindNodeGraphEmojiPageEvents() {
     return;
   }
   document.documentElement.dataset.emojiPageBound = "true";
-  document.addEventListener("focusin", (event) => {
-    nodeGraphRememberEmojiInsertTarget(event.target);
-  });
   document.getElementById("nodeEmojiPageClose")?.addEventListener("click", () => {
     if (typeof closeNodeGraphUnifiedWindowPage === "function") {
       closeNodeGraphUnifiedWindowPage("emoji");

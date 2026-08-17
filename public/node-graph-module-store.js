@@ -121,7 +121,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "electroSnare",
   "electroHat",
   "flexGrid",
-  "airClipper",
   "chaosfly",
   "drummer",
   "arp",
@@ -136,6 +135,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
 // construction plate over a working face (Output meter/trace).
 const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "output",
+  "airClipper",
 ]);
 
 // Unified module department definitions — single source of truth for
@@ -152,7 +152,7 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "envelope",     emoji: "📐", label: "Envelope",     symbol: "⌒",   title: "Envelope",  pitch: "Attack, decay, sustain, release, and gate-shaped motion. Make sound and visuals breathe on command." },
   // Spectral filters split by intent: textbook toolbox vs character engines.
   // Temporary names only if we rename later — these are the hard-won labels.
-  { id: "scientificFilter", emoji: "💧", label: "Scientific Filter", symbol: "🔬", title: "Scientific Filter", pitch: "Textbook responses. Hz, order, clean controls — Passive, Active, EQ, Tilt, and other predictable spectral tools." },
+  { id: "scientificFilter", emoji: "💧", label: "Scientific Filter", symbol: "🔬", title: "Scientific Filter", pitch: "Textbook responses. Hz, order, clean controls — Passive, Active, Tilt, and other predictable spectral tools." },
   { id: "analogFilter",     emoji: "🔥", label: "Analog Filter",     symbol: "≈",  title: "Analog Filter",     pitch: "Named character circuits. Timbre first — 303, Flower Child, SuperLove, and other engines with personality." },
   { id: "space",        emoji: "⛪", label: "Space",        symbol: "FX",  title: "Delay",     pitch: "Delay, reverb, distortion, and performance processors for shaping finished sound." },
   { id: "digital",      emoji: "🔬", label: "Digital",      symbol: "{ }", title: "Digital",   pitch: "Patch-local code surfaces, exact value conversion, and digital/visual programming tools inside the sandbox." },
@@ -171,11 +171,14 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "sample",       emoji: "🎶", label: "Sample Player", symbol: "▣", title: "Sample Player", pitch: "Sample and music-file playback: one-shots, loops, and scrubbable players that turn stored audio into patch signal." },
   { id: "object",       emoji: "🧊", label: "Object",       symbol: "●",   title: "Object",    pitch: "Things you place in the world rather than wire into the signal path -- indicator lights, label plates, and other in-world props." },
   { id: "rgb",          emoji: "🌈", label: "RGB",          symbol: "◍",   title: "RGB",       pitch: "RGB analog picture and vector faces — Pixel Grid, Vector RGB, and other color-path scopes." },
-  { id: "rgba",         emoji: "🖼️", label: "RGBA",         symbol: "▣",   title: "RGBA",      pitch: "Color-space, image, and screen-wash modules — RGBA/HSLA, chroma, stills, and screen-space shaders." },
+  // Id stays rgba (saved settings / catalog). Shelf label is Shader.
+  { id: "rgba",         emoji: "🖼️", label: "Shader",       symbol: "▣",   title: "Shader",    pitch: "Screen-space shaders, color-space, image, and screen-wash modules — RGBA/HSLA, chroma, and stills." },
   { id: "oscilloscope", emoji: "📺", label: "Oscilloscope", symbol: "OSC", title: "Oscilloscope", pitch: "Dedicated display testbeds for trace, line burn, 2D scope, videoscope, and canvas-style waveform inspection." },
   { id: "multimeter",   emoji: "📟", label: "Multimeter",   symbol: "0D",  title: "Multimeter", pitch: "Readouts that are not waveforms: numbers, character grids, and other value/message faces for what the signal is saying right now." },
   { id: "debug",        emoji: "🐞", label: "Debug",        symbol: "DBG", title: "Debug",     pitch: "Inspection tools, sentinels, and safety monitors for catching bad values while a patch is under test." },
   { id: "plugin",       emoji: "🔌", label: "Plugin",       symbol: "PLG", title: "Plugin",    pitch: "Performance controls and boundary ports: knobs, sliders, buttons, dedicated audio I/O, and MIDI I/O for building clear patch front-ends." },
+  // Holding pen. listed:false = never a browser shelf, never search, never developer dump.
+  { id: "invisible",    emoji: "",   label: "Invisible",    symbol: "",    title: "Invisible", pitch: "Not listed. Modules we are unsure about — hidden from the module browser for users and developers.", listed: false },
 ]);
 
 // Fast lookup: department ID → definition object.
@@ -245,6 +248,8 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   RGB:               "rgb",
   RGBA:              "rgba",
   rgba:              "rgba",
+  Shader:            "rgba",
+  shader:            "rgba",
   Sample:            "sample",
   "Sample Player":   "sample",
   Samples:           "sample",
@@ -259,6 +264,8 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   // Renamed 2026-07-25 from Time; label Clock→Sequence 2026-08.
   time:              "clock",
   Visual:            "digital",
+  Invisible:         "invisible",
+  invisible:         "invisible",
 });
 
 const nodeGraphModuleStoreCatalog = Object.freeze({
@@ -716,7 +723,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "noise",
     description: "Layered fBm drift for natural multi-scale organic modulation.",
     label: "Fractal Brownian Motion",
-    notes: ["out x/y/z", "seeded value noise", "slow terrain motion"],
+    notes: ["fbm", "out x/y/z", "seeded value noise", "slow terrain motion"],
   },
   piSpigotNoise: {
     category: "noise",
@@ -772,6 +779,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Mix",
     notes: ["mixer", "bias", "bleed", "4-channel", "utility"],
   },
+  mixStereo: {
+    category: "dynamics",
+    description: "Four stereo pairs plus Mono into Mono/Left/Right, each pair with Volume and Pan, plus master Amplitude.",
+    label: "MixStereo",
+    notes: ["mixer", "stereo", "mono", "pan", "volume", "4-channel", "utility"],
+  },
   // Legacy id for Mix.
   gainBiasMix: {
     category: "dynamics",
@@ -791,6 +804,24 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Attenuverter",
     notes: ["attenuverter", "scale", "invert", "offset", "utility"],
   },
+  u2b: {
+    category: "dynamics",
+    description: "Unipolar 0…1 to bipolar −1…1 (out = 2·in − 1).",
+    label: "U2B",
+    notes: ["unipolar", "bipolar", "convert", "range", "0 to 1", "minus 1 to 1", "utility"],
+  },
+  b2u: {
+    category: "dynamics",
+    description: "Bipolar −1…1 to unipolar 0…1 (out = (in + 1) / 2).",
+    label: "B2U",
+    notes: ["bipolar", "unipolar", "convert", "range", "minus 1 to 1", "0 to 1", "utility"],
+  },
+  inv: {
+    category: "dynamics",
+    description: "Invert a signal (out = −in).",
+    label: "Inv",
+    notes: ["invert", "negate", "flip", "phase invert", "utility"],
+  },
   softClipper: {
     category: "dynamics",
     description: "Gentle saturation/limiting when peaks need taming without hard digital clip.",
@@ -804,10 +835,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["soft clip", "limiter", "dB", "tanh", "ADAA", "dynamics"],
   },
   airClipper: {
-    category: "dynamics",
-    description: "Under construction. Not available.",
+    category: "invisible",
+    description: "Not listed. Holding pen — unsure about this module.",
     label: "AirClipper",
-    notes: ["under construction", "airwindows", "Density3", "density", "soft clip", "dynamics"],
+    notes: ["invisible", "airwindows", "Density3", "density", "soft clip"],
   },
   rotate3dTo2d: {
     category: "dynamics",
@@ -1014,9 +1045,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   // --- Scientific Filter: textbook / predictable spectral tools ---
   passiveFilter: {
     category: "scientificFilter",
-    description: "Gentle 6 dB LP/HP/BP for soft cleanup and light tone shaping.",
+    description: "Real-pole LP/HP/BP with 6–24 dB slope, stagger spread, and optional −3 dB gain compensation.",
     label: "Passive Filter",
-    notes: ["lowpass", "highpass", "bandpass", "1-pole", "6 dB/oct", "tame", "rumble", "scientific"],
+    notes: ["lowpass", "highpass", "bandpass", "1-pole", "cascade", "stagger", "6 dB/oct", "24 dB/oct", "tame", "rumble", "scientific"],
   },
   tiltFilter: {
     category: "scientificFilter",
@@ -1025,7 +1056,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["tilt", "shelf", "tone balance", "first order", "Robin Schmidt", "RS-MET", "scientific"],
   },
   eqFilter: {
-    category: "scientificFilter",
+    category: "dynamics",
     description: "Zero-latency multipurpose EQ band (LP/HP/peak/shelf…) for clean tone fixes.",
     label: "EQ Filter",
     notes: [
@@ -1127,31 +1158,31 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["allpass", "phase", "SVF", "ZDF", "scientific", "Robin Schmidt", "RS-MET", "not a delay line"],
   },
   crossover2: {
-    category: "scientificFilter",
+    category: "dynamics",
     description: "Dedicated 2-way Linkwitz–Riley split (low/high outs that recombine flat). LR/Butterworth alone also work for a simple two-way; prefer this for matched band outs.",
     label: "2-Crossover",
     notes: ["crossover", "linkwitz-riley", "2-way", "stereo", "scientific", "RS-MET"],
   },
   crossover3: {
-    category: "scientificFilter",
+    category: "dynamics",
     description: "Dedicated 3-way Linkwitz–Riley multiband split—use this (not hand-wired filters) for three or more bands.",
     label: "3-Crossover",
     notes: ["crossover", "linkwitz-riley", "3-way", "stereo", "scientific", "RS-MET"],
   },
   crossover4: {
-    category: "scientificFilter",
+    category: "dynamics",
     description: "Dedicated 4-way Linkwitz–Riley multiband split—use the Crossover modules for anything beyond a simple two-way.",
     label: "4-Crossover",
     notes: ["crossover", "linkwitz-riley", "4-way", "stereo", "scientific", "RS-MET"],
   },
   crossover5: {
-    category: "scientificFilter",
+    category: "dynamics",
     description: "Dedicated 5-way Linkwitz–Riley multiband split—prefer Crossover over stacking LR/Butterworth for multi-way work.",
     label: "5-Crossover",
     notes: ["crossover", "linkwitz-riley", "5-way", "stereo", "scientific", "RS-MET"],
   },
   crossover6: {
-    category: "scientificFilter",
+    category: "dynamics",
     description: "Dedicated 6-way Linkwitz–Riley multiband split—the full multi-band path when two-way LR/Butterworth is not enough.",
     label: "6-Crossover",
     notes: ["crossover", "linkwitz-riley", "6-way", "stereo", "scientific", "RS-MET"],
@@ -2177,8 +2208,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/aliasSine/alias-sine-worklet-evaluator.js",
   },
   robinSinusoid: {
-    source: "public/modules/robinSinusoid/robin-sinusoid-math.js",
-    sourceUrl: "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/generators/rosic_SineOscillator.h",
+    source: "native_modules/robin_sinusoid/robin_sinusoid.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/robin_sinusoid/robin_sinusoid.cpp",
   },
   allpass: {
     source: "public/modules/scientificIir/scientific-iir-math.js",
@@ -2223,6 +2254,18 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   attenuverter: {
     source: "public/modules/attenuverter/attenuverter-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/attenuverter/attenuverter-math.js",
+  },
+  u2b: {
+    source: "native_modules/u2b/u2b.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/u2b/u2b.cpp",
+  },
+  b2u: {
+    source: "native_modules/b2u/b2u.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/b2u/b2u.cpp",
+  },
+  inv: {
+    source: "native_modules/inv/inv.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/inv/inv.cpp",
   },
   bitConverter: {
     source: "public/modules/bitConverter/bit-converter-math.js",
@@ -2411,6 +2454,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   gainBiasMix: {
     source: "public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
+  },
+  mixStereo: {
+    source: "public/modules/mixStereo/mix-stereo-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/mixStereo/mix-stereo-math.js",
   },
   graph: {
     source: "public/modules/graph/graph-live-evaluator.js",
@@ -2891,7 +2938,8 @@ function nodeGraphModuleStoreEntries() {
         Object.hasOwn(nodeGraphModuleDefinitions, type) &&
         !nodeGraphModuleTypeIsUnderConstruction(type);
       const developerOnly = nodeGraphModuleStoreCatalog[type]?.developerOnly === true;
-      const catalogHidden = nodeGraphModuleStoreCatalog[type]?.hidden === true;
+      const catalogHidden = nodeGraphModuleStoreCatalog[type]?.hidden === true
+        || nodeGraphModuleStoreCategoryIsInvisible(nodeGraphModuleStoreCatalog[type]?.category);
       const publicVisible = !developerOnly && !catalogHidden;
       return {
         ...(nodeGraphModuleStoreCatalog[type] || {}),
@@ -2946,6 +2994,28 @@ function normalizeNodeGraphModuleStoreDepartment(department = "") {
   if (nodeGraphModuleStoreDepartmentById[value]) return value;
   // Backward-compat: old bare-name strings from stored settings.
   return nodeGraphModuleStoreDepartmentAliasToId[value] || "";
+}
+
+/** False for Invisible — no shelf, no search hit, no developer category dump. */
+function nodeGraphModuleStoreDepartmentIsListed(department = "") {
+  const id = normalizeNodeGraphModuleStoreDepartment(department);
+  if (!id) {
+    return true;
+  }
+  return nodeGraphModuleStoreDepartmentById[id]?.listed !== false;
+}
+
+function nodeGraphModuleStoreCategoryIsInvisible(department = "") {
+  const id = normalizeNodeGraphModuleStoreDepartment(department);
+  return id === "invisible" || nodeGraphModuleStoreDepartmentById[id]?.listed === false;
+}
+
+function nodeGraphModuleTypeIsInvisible(type) {
+  const key = String(type || "").trim();
+  if (!key) {
+    return false;
+  }
+  return nodeGraphModuleStoreCategoryIsInvisible(nodeGraphModuleStoreCatalog[key]?.category);
 }
 
 function setNodeGraphModuleStoreDepartment(department = "") {
@@ -3025,14 +3095,14 @@ function nodeGraphModuleStoreSearchRank(entry, query) {
   if (label === needle || type === needle) {
     return -100;
   }
+  // Catalog notes used as search aliases (e.g. "fbf" → Field, "fbm" → Motion).
+  // Rank above type-prefix so "fbm" prefers Motion over fbmField.
+  if (tokens.every((t) => notes.some((n) => n === t))) {
+    return -90;
+  }
   // Label starts with full query ("eq" → "eq filter")
   if (label.startsWith(needle) || type.startsWith(needle)) {
     return -80;
-  }
-  // Catalog notes used as search aliases (e.g. "value" → Number Readout).
-  // Prefer an exact note match over a loose description substring.
-  if (tokens.every((t) => notes.some((n) => n === t))) {
-    return -70;
   }
   if (tokens.every((t) => notes.some((n) => {
     const words = n.split(/[^a-z0-9]+/).filter(Boolean);
@@ -3095,6 +3165,9 @@ function nodeGraphModuleStoreSearchResultOrder(a, b, query = "") {
 function nodeGraphModuleStorePublicEntriesByDepartment(entries = []) {
   const groups = new Map();
   for (const dep of nodeGraphModuleStoreDepartments) {
+    if (dep.listed === false) {
+      continue;
+    }
     groups.set(dep.id, []);
   }
   entries
@@ -3103,6 +3176,9 @@ function nodeGraphModuleStorePublicEntriesByDepartment(entries = []) {
       const rawCategory = entry.category || "Other";
       const departmentId = nodeGraphModuleStoreDepartmentAliasToId[rawCategory]
         || rawCategory;
+      if (!nodeGraphModuleStoreDepartmentIsListed(departmentId)) {
+        return;
+      }
       if (!groups.has(departmentId)) {
         groups.set(departmentId, []);
       }
@@ -3710,11 +3786,16 @@ function renderNodeGraphModuleStoreCatalog() {
     return;
   }
 
+  const departmentSearch = nodeGraphMvp.moduleStoreDepartmentSearch || "";
+  if (available.childElementCount && nodeGraphMvp._moduleStoreCatalogKey === departmentSearch) {
+    renderNodeGraphModuleGroupCatalog();
+    return;
+  }
+
   available.innerHTML = "";
   homeShelf.innerHTML = "";
   const entries = nodeGraphModuleStoreEntries();
   nodeGraphMvp.moduleStoreDepartment = "";
-  const departmentSearch = nodeGraphMvp.moduleStoreDepartmentSearch || "";
   const searchingAllModules = Boolean(nodeGraphNormalizeModuleDepartmentSearch(departmentSearch));
   const departmentSearchField = document.getElementById("nodeModuleDepartmentSearch");
   if (departmentSearchField && departmentSearchField.value !== departmentSearch) {
@@ -3753,6 +3834,7 @@ function renderNodeGraphModuleStoreCatalog() {
       : "No categories are available.";
     available.append(empty);
   }
+  nodeGraphMvp._moduleStoreCatalogKey = departmentSearch;
   renderNodeGraphModuleGroupCatalog();
   bindNodeGraphModuleStoreScrollAffordance();
   requestAnimationFrame(updateNodeGraphModuleStoreScrollAffordance);

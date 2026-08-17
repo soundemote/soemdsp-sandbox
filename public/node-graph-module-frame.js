@@ -351,7 +351,12 @@ function nodeGraphModuleFrameGridSizePx(nodeElement) {
 }
 
 function nodeGraphModuleFrameRadiusPx(nodeElement) {
-  return nodeGraphModuleFrameGridSizePx(nodeElement) * 2 * 0.53;
+  const grid = nodeGraphModuleFrameGridSizePx(nodeElement);
+  const raw = nodeElement
+    ? getComputedStyle(nodeElement).getPropertyValue("--node-module-roundness-ratio")
+    : "";
+  const ratio = Number.parseFloat(raw);
+  return grid * 2 * (Number.isFinite(ratio) ? ratio : 0.11);
 }
 
 /**

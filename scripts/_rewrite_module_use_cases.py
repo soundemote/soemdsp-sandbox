@@ -119,7 +119,7 @@ USE_CASES: dict[str, str] = {
   "audioPlayer": "Play music files with scrub/phasor control—loops, stems, and timelines.",
   "phosphillator": "Draw a closed shape with the mouse and play it back as X/Y motion.",
   "sampleLooper": "Gated looping sample player with bounds, pitch, and seam crossfade.",
-  "passiveFilter": "Gentle 6 dB LP/HP/BP — BP is two cuts in one, with a musical sweep.",
+  "passiveFilter": "Real-pole LP/HP/BP with slope, stagger, and optional −3 dB gain compensation.",
   "tiltFilter": "Pivot bright/dark balance without a hard cut—quick spectral posture.",
   "eqFilter": "Zero-latency multipurpose EQ band (LP/HP/peak/shelf…) for clean tone fixes.",
   "papoulisFilter": "Smooth lowpass with steeper roll-off than Butterworth for the same order.",

@@ -379,21 +379,24 @@ function spectrogramBufferSizeForFace(nodeId, faceW, faceH, screenElement) {
   const wantW = Math.max(1, faceW | 0);
   const wantH = Math.max(1, faceH | 0);
   const id = String(nodeId || "");
-  const soloId = typeof nodeGraphScreenSoloNodeId === "function"
-    ? nodeGraphScreenSoloNodeId()
-    : "";
-  if (!id || !soloId || soloId !== id) {
+  const soloOn = typeof nodeGraphScreenSoloAllowsNode === "function"
+    ? nodeGraphScreenSoloAllowsNode(id)
+    : (typeof nodeGraphScreenSoloNodeId === "function" && nodeGraphScreenSoloNodeId() === id);
+  if (!id || !soloOn || (typeof nodeGraphScreenSoloIsActive === "function" && !nodeGraphScreenSoloIsActive())) {
     return { w: wantW, h: wantH };
   }
   const existing = spectrogramHistory.get(id);
   if (existing && (existing.faceW | 0) > 0 && (existing.faceH | 0) > 0) {
     return { w: existing.faceW | 0, h: existing.faceH | 0 };
   }
+  const item = typeof nodeGraphScreenSoloItemForNode === "function"
+    ? nodeGraphScreenSoloItemForNode(id)
+    : null;
   const session = typeof nodeGraphScreenSoloSession === "function"
     ? nodeGraphScreenSoloSession()
     : null;
-  const srcW = Number(session?.sourceWidth);
-  const srcH = Number(session?.sourceHeight);
+  const srcW = Number(item?.sourceWidth ?? session?.sourceWidth);
+  const srcH = Number(item?.sourceHeight ?? session?.sourceHeight);
   if (!(srcW > 0) || !(srcH > 0)) {
     return { w: wantW, h: wantH };
   }

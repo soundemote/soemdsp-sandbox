@@ -307,6 +307,12 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
       null;
   }
+  if (/^t([1-9]|10)?$/.test(String(slot?.type || ""))) {
+    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:0`) ||
+      nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||
+      nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
+      null;
+  }
   // Pitch Detector LCD: own Frequency out (not an external In wire).
   if (slot?.type === "helmholtzPitch") {
     return nodeGraphModuleScopeState.buffers.get(`${nodeId}:Frequency`) ||

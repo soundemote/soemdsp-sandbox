@@ -37,6 +37,9 @@
   --node-dot-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 13 13'%3E%3Cpath d='M2.5 6.5h8M6.5 2.5v8' fill='none' stroke='%23ffffff' stroke-width='1' stroke-linecap='square'/%3E%3C/svg%3E") 6 6, crosshair;
   --node-default-cursor: var(--node-dot-cursor);
   --node-slider-dot-cursor: url("./cursors/slider-drag-dot.svg") 8 8, crosshair;
+  --node-module-roundness-ratio: 0.11;
+  --node-module-corner-shape: squircle;
+  --node-module-frame-radius: calc(var(--node-grid-size, 28px) * 2 * var(--node-module-roundness-ratio, 0.11));
   /* Module drag only — OS arrow for familiarity (not the app + / not “move”). */
   --node-module-move-cursor: default;
 }
@@ -4170,10 +4173,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
  * Prefer .node-toolbar-stack-label over growing ID lists.
  */
 .node-view-tabs > .node-toolbar-stack-label,
-#nodeSettingsSaveScriptButton,
 #loadNodeGraphScriptButton,
 #nodeToolbarCopyPatchButton,
-#nodeToolbarPastePatchButton,
 #nodeUserUiSettingsButton {
   flex: 1.35 1 0;
   min-inline-size: 0;
@@ -4193,10 +4194,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-view-tabs > .node-toolbar-stack-label > span,
-#nodeSettingsSaveScriptButton > span,
 #loadNodeGraphScriptButton > span,
 #nodeToolbarCopyPatchButton > span,
-#nodeToolbarPastePatchButton > span,
 #nodeUserUiSettingsButton > span {
   display: grid;
   align-items: center;
@@ -4302,36 +4301,42 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   z-index: 60;
 }
 
-.node-magnifier-zoom {
-  display: flex;
-  flex: 0 0 1.85rem;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  min-width: 1.7rem;
-  padding: 2px 0 3px;
-  background: rgb(32, 37, 42);
+.node-room-tool-pair > .node-room-dimmer-button {
+  flex: 1 1 0;
+  min-inline-size: 1.7rem;
 }
 
-.node-magnifier-zoom-glyph {
-  flex: 0 0 auto;
-  font-size: 0.72rem;
+.node-toolbar-fill-slider {
+  --toolbar-fill: 0;
+  --room-dim: var(--toolbar-fill);
+  flex-direction: column;
+  gap: 1px;
+}
+
+.node-toolbar-fill-glyph {
+  display: block;
+  font-size: 1.05em;
   line-height: 1;
   pointer-events: none;
+  user-select: none;
 }
 
-.node-magnifier-zoom-slider {
-  appearance: slider-vertical;
-  writing-mode: vertical-lr;
-  direction: rtl;
-  flex: 1 1 auto;
-  width: 14px;
-  min-height: 0;
-  margin: 0;
-  padding: 0;
-  accent-color: rgb(127, 199, 217);
-  cursor: ns-resize;
+.node-toolbar-fill-value {
+  position: relative;
+  z-index: 1;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: rgba(243, 241, 236, 0.88);
+  font-family: var(--mono, Consolas, "Courier New", monospace);
+  font-size: clamp(0.58rem, calc(var(--node-toolbar-row-height) * 0.22), 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* Room dimmer: fill leftover pair space (Download sits after).
@@ -4356,12 +4361,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   isolation: isolate;
 }
 
-#nodeRoomDimmerButton .node-room-dimmer-fill {
+.node-room-dimmer-button .node-room-dimmer-fill {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: calc(var(--room-dim) * 100%);
+  height: calc(var(--room-dim, var(--toolbar-fill, 0)) * 100%);
   background:
     linear-gradient(180deg, rgba(255, 210, 90, 0.08), rgba(255, 200, 80, 0.42));
   pointer-events: none;
@@ -4369,11 +4374,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   transition: height 40ms linear;
 }
 
-#nodeRoomDimmerButton.room-dimmer-dragging .node-room-dimmer-fill {
+.node-room-dimmer-button.room-dimmer-dragging .node-room-dimmer-fill {
   transition: none;
 }
 
-#nodeRoomDimmerButton .node-room-dimmer-icons {
+.node-room-dimmer-button .node-room-dimmer-icons {
   position: relative;
   z-index: 1;
   display: inline-grid;
@@ -4384,7 +4389,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   pointer-events: none;
 }
 
-#nodeRoomDimmerButton .node-room-dimmer-icon {
+.node-room-dimmer-button .node-room-dimmer-icon {
   grid-area: 1 / 1;
   width: 100%;
   height: 100%;
@@ -4395,7 +4400,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   transition: opacity 40ms linear;
 }
 
-#nodeRoomDimmerButton.room-dimmer-dragging .node-room-dimmer-icon {
+.node-room-dimmer-button.room-dimmer-dragging .node-room-dimmer-icon {
   transition: none;
 }
 
@@ -4603,7 +4608,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   padding: 0;
   overflow: hidden;
   border: 1px solid rgba(127, 199, 217, 0.42);
-  border-radius: 8px;
+  border-radius: var(--node-module-frame-radius);
+  corner-shape: var(--node-module-corner-shape, squircle);
   background: rgba(9, 12, 15, 0.96);
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36);
 }
@@ -4623,7 +4629,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow: hidden;
   padding: 0;
   border: 1px solid rgba(127, 199, 217, 0.42);
-  border-radius: 8px;
+  border-radius: var(--node-module-frame-radius);
+  corner-shape: var(--node-module-corner-shape, squircle);
   background: rgba(9, 12, 15, 0.96);
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36);
 }
@@ -4643,7 +4650,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow: hidden;
   padding: 0;
   border: 1px solid rgba(127, 199, 217, 0.42);
-  border-radius: 8px;
+  border-radius: var(--node-module-frame-radius);
+  corner-shape: var(--node-module-corner-shape, squircle);
   background: rgba(9, 12, 15, 0.96);
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36);
 }
@@ -4908,7 +4916,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   max-height: var(--node-user-ui-settings-max-height, calc(100vh - 24px));
   overflow: hidden;
   border: 1px solid rgba(127, 199, 217, 0.42);
-  border-radius: 8px;
+  border-radius: var(--node-module-frame-radius);
+  corner-shape: var(--node-module-corner-shape, squircle);
   background:
     linear-gradient(180deg, rgba(31, 36, 41, 0.98), rgba(10, 13, 16, 0.98)),
     rgba(27, 30, 34, 0.98);
@@ -4921,6 +4930,84 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-user-ui-settings-panel > .scene-context-heading {
   display: grid;
   flex: 0 0 auto;
+}
+
+.node-user-ui-settings-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  height: 32px;
+  min-height: 32px;
+  max-height: 32px;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.16);
+  background: rgb(5, 8, 10);
+}
+
+.node-user-ui-settings-tabs > button {
+  flex: 1 1 0;
+  margin: 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.node-user-ui-settings-tabs > button[aria-selected="true"] {
+  color: var(--accent);
+  background: rgba(127, 199, 217, 0.08);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.node-user-ui-settings-tabs > button:hover,
+.node-user-ui-settings-tabs > button:focus-visible {
+  color: var(--accent);
+}
+
+.node-user-ui-settings-page,
+.node-user-ui-settings-uidev-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.node-user-ui-settings-page[hidden],
+.node-user-ui-settings-uidev-host[hidden] {
+  display: none !important;
+}
+
+.node-user-ui-settings-panel .node-ui-dev-helper-embedded {
+  position: relative;
+  inset: auto;
+  top: auto;
+  right: auto;
+  z-index: auto;
+  flex: 1 1 auto;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.node-user-ui-settings-panel .node-ui-dev-helper-embedded > .scene-context-heading,
+.node-user-ui-settings-panel .node-ui-dev-helper-embedded > .scene-context-resize-handle {
+  display: none;
 }
 
 #nodeUserUiSettingsClose {
@@ -5064,11 +5151,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-user-ui-settings-actions {
   /* Stay above the scrollable exposed-settings list so overflow never steals clicks.
-     Fixed row height — never stretch Clear Startup / Save / UIDEV with panel height. */
+     Fixed row height — never stretch Copy / Paste with panel height. */
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: var(--node-floating-window-button-height);
   gap: 0;
   align-items: stretch;
@@ -6171,10 +6258,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-module-grid-inset-y-total: calc(
     var(--node-module-grid-inset) + var(--node-module-grid-inset-bottom)
   );
-  /* Hardcoded plate radius (was UIDEV module roundness 53%). */
-  --node-module-roundness-ratio: 0.53;
-  --node-module-corner-shape: round;
-  --node-module-frame-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0.53));
+  /* Plate radius: 11% squircle (not a UIDEV control). */
+  --node-module-roundness-ratio: 0.11;
+  --node-module-corner-shape: squircle;
+  --node-module-frame-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0.11));
   /*
    * 1 *screen* CSS pixel under workspace CSS `zoom`.
    * Path is outset 1 screen px outside the plate and gaps 1 screen px past
@@ -6365,8 +6452,6 @@ body.node-graph-magnifying-active * {
   height: 0;
   pointer-events: none;
   --magnifier-size: 220px;
-  --node-graph-magnifier-color: rgb(0 208 255);
-  --node-graph-magnifier-alpha: 0.95;
 }
 
 .node-graph-magnifier[hidden] {
@@ -6382,15 +6467,38 @@ body.node-graph-magnifying-active * {
   height: var(--magnifier-size);
   overflow: hidden;
   border-radius: 50%;
-  box-shadow:
-    0 0 0 2px color-mix(
-      in srgb,
-      var(--node-graph-magnifier-color) calc(var(--node-graph-magnifier-alpha) * 100%),
-      transparent
-    ),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
-    0 10px 28px rgba(0, 0, 0, 0.45);
   background: var(--node-workspace-bg, #1d1b1b);
+}
+
+/* Soft ~5px black ring. Glow = same stroke, Gaussian-blurred, source-over (not additive). */
+.node-graph-magnifier-rim,
+.node-graph-magnifier-rim::before {
+  position: absolute;
+  box-sizing: border-box;
+  width: var(--magnifier-size);
+  height: var(--magnifier-size);
+  border: 5px solid rgb(0 0 0);
+  border-radius: 50%;
+  background: transparent;
+  pointer-events: none;
+}
+
+.node-graph-magnifier-rim {
+  left: calc(var(--magnifier-size) / -2);
+  top: calc(var(--magnifier-size) / -2);
+  z-index: 2;
+  border-color: rgb(0 0 0 / 0.55);
+}
+
+.node-graph-magnifier-rim::before {
+  content: "";
+  left: -5px;
+  top: -5px;
+  width: 100%;
+  height: 100%;
+  border-color: rgb(0 0 0 / 0.5);
+  filter: blur(4px);
+  mix-blend-mode: normal;
 }
 
 .node-graph-magnifier-world {
@@ -6403,24 +6511,6 @@ body.node-graph-magnifying-active * {
   pointer-events: none;
 }
 
-.node-graph-magnifier-handle {
-  position: absolute;
-  left: calc(var(--magnifier-size) * 0.34);
-  top: calc(var(--magnifier-size) * 0.34);
-  z-index: 0;
-  width: calc(var(--magnifier-size) * 0.4);
-  height: calc(10px + var(--magnifier-size) * 0.02);
-  border-radius: 999px;
-  background: color-mix(
-    in srgb,
-    var(--node-graph-magnifier-color) calc(var(--node-graph-magnifier-alpha) * 100%),
-    transparent
-  );
-  transform: rotate(45deg);
-  transform-origin: 0 50%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-}
-
 .node-graph-workspace.viewport-gesturing {
   cursor: var(--node-dot-cursor);
 }
@@ -6429,11 +6519,12 @@ body.node-graph-magnifying-active * {
   cursor: var(--node-dot-cursor);
 }
 
-/* Hide cable strokes while zooming (wheel / pinch / smooth-zoom).
-   Jacks stay painted — hiding .node-port here stuck them invisible when
-   settle never ran (load / persist / mis-tagged zoom). */
+/* Hide cables, jack inlets/outlets, and connection dots while zooming.
+   Modules stay. visibility so settle unhides (class drop). */
 .node-graph-workspace.viewport-zooming #nodeWireSvg,
-.node-graph-workspace.viewport-zooming #nodeWireEndpointSvg {
+.node-graph-workspace.viewport-zooming #nodeWireEndpointSvg,
+.node-graph-workspace.viewport-zooming .node-port,
+.node-graph-workspace.viewport-zooming .node-param-port {
   visibility: hidden !important;
   pointer-events: none !important;
 }
@@ -8862,6 +8953,9 @@ body.node-graph-magnifying-active * {
   position: sticky;
   top: 0;
   z-index: 6;
+  border-start-start-radius: var(--node-module-frame-radius);
+  border-start-end-radius: var(--node-module-frame-radius);
+  corner-shape: var(--node-module-corner-shape, squircle);
 }
 
 /* Full-page / embedded headers: no move or close cells. */
@@ -9058,7 +9152,7 @@ body.node-graph-magnifying-active * {
 .node-parameter-metadata-popover > .metadata-popover-grid,
 .node-trace-display-settings-popover > .metadata-popover-grid,
 .node-trace-display-settings-popover > .node-trace-display-settings-grid,
-.node-user-ui-settings-panel > .node-user-ui-settings-controls,
+.node-user-ui-settings-panel .node-user-ui-settings-controls,
 .node-ui-dev-helper > .node-ui-dev-helper-body {
   position: relative;
   z-index: 0;
@@ -9437,7 +9531,8 @@ body.node-graph-magnifying-active * {
   overflow: hidden;
   padding: 0;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--node-module-frame-radius);
+  corner-shape: var(--node-module-corner-shape, squircle);
   background: #111418;
   box-shadow:
     0 18px 44px rgba(0, 0, 0, 0.42),
@@ -9525,6 +9620,8 @@ body.node-graph-magnifying-active * {
 .node-unified-window {
   min-width: var(--node-unified-window-min-width, 24px);
   min-height: var(--node-unified-window-min-height, 120px);
+  border-radius: var(--node-module-frame-radius);
+  corner-shape: var(--node-module-corner-shape, squircle);
 }
 
 .node-unified-window > .scene-context-heading,
@@ -11800,14 +11897,17 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none !important;
 }
 
-/* Coup de grâce: live face is reparented onto this body-level stage. */
+/* F: selected screens reparented onto this body-level even grid. */
 .node-screen-solo-stage {
   position: fixed;
   inset: 0;
   z-index: 200000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(var(--node-screen-solo-cols, 1), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--node-screen-solo-rows, 1), minmax(0, 1fr));
+  gap: 2px;
+  align-items: stretch;
+  justify-items: stretch;
   background: #000;
   pointer-events: auto;
 }
@@ -11829,9 +11929,15 @@ body.node-screen-solo-active {
 }
 
 body.node-screen-solo-active .node-screen-solo-face {
+  position: relative !important;
+  inset: auto !important;
   z-index: 1 !important;
   min-width: 0 !important;
   min-height: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
   margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
@@ -11841,21 +11947,21 @@ body.node-screen-solo-active .node-screen-solo-face {
   pointer-events: auto !important;
   visibility: visible !important;
   background: #000 !important;
-  flex: 0 0 auto;
+}
+
+body.node-screen-solo-fit-contain .node-screen-solo-stage {
+  align-items: center;
+  justify-items: center;
 }
 
 body.node-screen-solo-fit-contain .node-screen-solo-face {
-  position: relative !important;
-  inset: auto !important;
-  width: var(--node-screen-solo-w, 100%) !important;
-  height: var(--node-screen-solo-h, 100%) !important;
+  width: var(--node-screen-solo-item-w, 100%) !important;
+  height: var(--node-screen-solo-item-h, 100%) !important;
   max-width: 100% !important;
   max-height: 100% !important;
 }
 
 body.node-screen-solo-fit-fill .node-screen-solo-face {
-  position: absolute !important;
-  inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
   max-width: none !important;
@@ -11932,8 +12038,8 @@ body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
     - var(--node-module-grid-inset-y-total)
   );
   padding: 0;
-  border-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0.53));
-  corner-shape: var(--node-module-corner-shape, round);
+  border-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0.11));
+  corner-shape: var(--node-module-corner-shape, squircle);
   /* Plate + idle stroke live on ::before (z:0), behind #nodeWireSvg (z:1).
      Do not isolate this host — that would trap the idle stroke above wires.
      Faces isolate themselves (z:2) so inner z-index cannot leak. */
@@ -13750,6 +13856,7 @@ body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
   border-start-end-radius: inherit;
   border-end-start-radius: 0;
   border-end-end-radius: 0;
+  corner-shape: var(--node-module-corner-shape, squircle);
   overflow: hidden;
 }
 
@@ -13770,6 +13877,7 @@ body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
   border-start-end-radius: inherit;
   border-end-start-radius: 0;
   border-end-end-radius: 0;
+  corner-shape: var(--node-module-corner-shape, squircle);
 }
 
 .dsp-node-body {
@@ -15450,6 +15558,9 @@ body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
   padding: 0 calc(var(--node-grid-size) * 0.1428571);
   background:
     linear-gradient(180deg, rgba(2, 4, 7, 0.98), rgba(8, 10, 13, 0.92));
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+  corner-shape: var(--node-module-corner-shape, squircle);
 }
 
 .node-header-title {
@@ -16679,7 +16790,8 @@ body.node-slider-dragging * {
   overflow: hidden;
   padding: 0;
   border: 1px solid rgba(127, 199, 217, 0.42);
-  border-radius: 8px;
+  border-radius: var(--node-module-frame-radius);
+  corner-shape: var(--node-module-corner-shape, squircle);
   background: rgba(27, 30, 34, 0.98);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
 }
@@ -18026,37 +18138,72 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   white-space: nowrap;
 }
 
-/* Output / stereo Trace: title + Swap L/R share one row (do not stack/clip). */
+/* Output / stereo Trace: Swap in the label column; L | R over the steppers. */
 .node-trace-display-settings-popover .metadata-section-title.node-trace-display-stereo-title {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: var(--ds-label-col) minmax(0, 1fr);
   place-items: center stretch;
   overflow: hidden;
-  padding: 0 0 0 8px;
+  padding: 0;
 }
 
 .node-trace-display-settings-popover .node-trace-display-stereo-title > span {
-  justify-self: start;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Stereo Instant Trace: Size L|R, Blur L|R, Bright L|R on one row. */
+.node-trace-display-settings-popover .node-trace-display-lr-title-spacer {
+  display: block;
+}
+
+.node-trace-display-settings-popover .node-trace-display-lr-col-head {
+  justify-self: center;
+  text-align: center;
+  font: 700 0.62rem/1 inherit;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--accent) 88%, white 12%);
+}
+
+/* Stereo Instant Trace: one Size/Blur/Bright label, two steppers under L | R. */
 .node-trace-display-lr-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: var(--ds-label-col) minmax(0, 1fr);
   align-items: stretch;
-  gap: 0;
+  column-gap: 6px;
   width: 100%;
   min-width: 0;
 }
 
-.node-trace-display-settings-popover .node-trace-display-lr-row > .node-trace-display-line-burn-row {
+.node-trace-display-lr-shared-label {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 6px 0 8px;
+  color: var(--muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.node-trace-display-lr-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+}
+
+.node-trace-display-settings-popover .node-trace-display-lr-heads {
+  align-items: center;
+}
+
+.node-trace-display-settings-popover .node-trace-display-lr-row .node-trace-display-stepper-only,
+.node-trace-display-settings-popover .metadata-popover-grid .node-trace-display-lr-row .node-trace-display-stepper-only {
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   padding-right: 4px;
 }
 
-.node-trace-display-settings-popover .node-trace-display-lr-row > .node-trace-display-line-burn-row + .node-trace-display-line-burn-row {
+.node-trace-display-settings-popover .node-trace-display-lr-pair > .node-trace-display-stepper-only + .node-trace-display-stepper-only {
   padding-right: 0;
   padding-left: 4px;
   border-left: 1px solid var(--ds-hairline, color-mix(in srgb, var(--accent) 14%, transparent));
@@ -18064,7 +18211,6 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 .node-trace-display-lr-color-row {
   align-items: start;
-  gap: 6px;
   padding: 4px 0;
 }
 
@@ -18076,16 +18222,17 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   appearance: none;
   box-sizing: border-box;
   align-self: stretch;
+  justify-self: stretch;
   width: auto !important;
   max-width: 100%;
   height: var(--ds-row-h) !important;
   min-height: 0 !important;
   min-width: 0;
   margin: 0;
-  padding: 0 10px !important;
+  padding: 0 6px !important;
   border: 0 !important;
-  border-left: 1px solid var(--ds-split, color-mix(in srgb, var(--accent) 18%, transparent)) !important;
-  border-radius: 0 5px 5px 0 !important;
+  border-right: 1px solid var(--ds-split, color-mix(in srgb, var(--accent) 18%, transparent)) !important;
+  border-radius: 5px 0 0 5px !important;
   background: color-mix(in srgb, var(--accent) 14%, transparent) !important;
   color: color-mix(in srgb, var(--accent) 92%, white 8%) !important;
   box-shadow: none !important;
@@ -18813,7 +18960,8 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   overflow: auto;
   padding: 8px;
   border: 1px solid rgba(127, 199, 217, 0.42);
-  border-radius: 8px;
+  border-radius: var(--node-module-frame-radius);
+  corner-shape: var(--node-module-corner-shape, squircle);
   background:
     linear-gradient(180deg, rgba(31, 36, 41, 0.98), rgba(10, 13, 16, 0.98)),
     rgba(27, 30, 34, 0.98);
@@ -20167,53 +20315,73 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   width: 100%;
 }
 
-.scene-context-timing-controls .node-command-center-timing-row {
+.scene-context-timing-controls .node-header-timing-field {
   display: grid;
-  width: 100%;
+  grid-template-columns: 5.75em 0.65em minmax(0, 1fr);
+  grid-template-rows: auto;
+  align-items: center;
+  column-gap: 0;
+  min-width: 0;
   height: var(--scene-context-timing-row-height);
+  padding: 0;
+  border-radius: 0;
+  text-transform: none;
 }
 
-.scene-context-timing-controls .node-command-center-timing-row-tempo {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.scene-context-timing-controls .node-command-center-timing-row-pitch {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.scene-context-timing-controls .node-command-center-timing-row + .node-command-center-timing-row {
+.scene-context-timing-controls .node-header-timing-field + .node-header-timing-field {
   border-top: 1px solid rgba(226, 168, 109, 0.24);
 }
 
-/* Thin Command Center: BPM / Beats / Unit stack as a column. */
-@container command-center (max-width: 300px) {
-  .scene-context-timing-controls .node-command-center-timing-row-tempo {
-    grid-template-columns: minmax(0, 1fr);
-    height: auto;
-  }
-
-  .scene-context-timing-controls .node-command-center-timing-row-tempo > .node-header-timing-field {
-    width: 100%;
-    height: var(--scene-context-timing-row-height);
-  }
-
-  .scene-context-timing-controls
-    .node-command-center-timing-row-tempo
-    > .node-header-timing-field
-    + .node-header-timing-field {
-    border-top: 1px solid rgba(226, 168, 109, 0.24);
-  }
+.scene-context-timing-controls .node-header-timing-field span {
+  display: flex;
+  place-items: center;
+  width: auto;
+  height: auto;
+  justify-content: flex-start;
+  padding: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: left;
 }
 
-.scene-context-timing-controls .node-header-timing-field {
-  min-width: 0;
-  height: var(--scene-context-timing-row-height);
-  padding-block: 0;
-  border-radius: 0;
+.scene-context-timing-controls .node-header-timing-colon {
+  justify-content: center;
+  opacity: 0.55;
 }
 
-.scene-context-timing-controls .node-header-timing-field span:first-child {
-  line-height: 1;
+.scene-context-timing-controls .node-header-timing-input {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.scene-context-timing-controls .node-header-planck-readout {
+  cursor: default;
+  user-select: none;
+  background: #000;
+  color: #8a8a8a;
+}
+
+.scene-context-timing-controls .node-header-planck-readout .node-header-timing-caption,
+.scene-context-timing-controls .node-header-planck-readout .node-header-timing-colon,
+.scene-context-timing-controls .node-header-planck-value {
+  color: #8a8a8a;
+  cursor: default;
+}
+
+.scene-context-timing-controls .node-header-planck-value {
+  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 1.05rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .scene-context-history-controls {

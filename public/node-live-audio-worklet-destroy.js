@@ -2,6 +2,11 @@
 // Load after core class, before registerProcessor.
 
 NodeLiveAudioProcessor.prototype.destroySabrinaReverbState = function destroySabrinaReverbState(state) {
+    if (state) {
+      this.resetSabrinaBlockCache?.(state);
+      state.nativeBoundParams = null;
+      state.cachedParams = null;
+    }
     if (!state?.nativeHandle || !this.nativeSabrinaReverb?.soemdsp_sabrina_reverb_destroy) {
       return;
     }

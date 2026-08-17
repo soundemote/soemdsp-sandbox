@@ -396,7 +396,7 @@ function setNodeSliderValue(slider, value, options = {}) {
   }
   if (
     !nodeGraphMvp?._inputVolumeMirrorLock
-    && param === "level"
+    && (param === "amplitude" || param === "level")
     && nodeType === "audioInput"
     && typeof syncNodeGraphLiveInputVolumeFromInputModule === "function"
   ) {

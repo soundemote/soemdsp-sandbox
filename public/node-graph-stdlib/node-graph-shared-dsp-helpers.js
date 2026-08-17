@@ -65,14 +65,14 @@ function nodeGraphDelayInterpolateLinear(buffer, where) {
 /**
  * 4-point Hermite (Catmull-Rom) fractional delay read.
  * Smoother under continuous time modulation than linear (less imaging / zipper).
- * `interpolation`: 0 = linear, 1 = hermite (default hermite when omitted).
+ * `interpolation`: 0 = linear, 1 = hermite. CPU experiment: always linear.
  */
-function nodeGraphDelayInterpolate(buffer, where, interpolation = 1) {
+function nodeGraphDelayInterpolate(buffer, where, interpolation = 0) {
   const length = buffer?.length || 0;
   if (!length) {
     return 0;
   }
-  const mode = Math.round(Number(interpolation) || 0);
+  const mode = 0;
   if (mode < 1) {
     return nodeGraphDelayInterpolateLinear(buffer, where);
   }

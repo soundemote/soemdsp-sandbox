@@ -2102,6 +2102,21 @@ function configureNodeSceneContextMenu(mode) {
       attenuvertButton.title = nodeGraphTooltipText("actions.wireAttenuvert")
         || "Insert a bipolar attenuverter (−1…+1 amplitude and offset) on each selected wire.";
     }
+    const u2bButton = document.getElementById("nodeSceneWireU2b");
+    if (u2bButton) {
+      u2bButton.disabled = !canAttenuateWires;
+      u2bButton.title = "Insert U2B (0…1 → −1…1) on each selected wire.";
+    }
+    const b2uButton = document.getElementById("nodeSceneWireB2u");
+    if (b2uButton) {
+      b2uButton.disabled = !canAttenuateWires;
+      b2uButton.title = "Insert B2U (−1…1 → 0…1) on each selected wire.";
+    }
+    const invButton = document.getElementById("nodeSceneWireInv");
+    if (invButton) {
+      invButton.disabled = !canAttenuateWires;
+      invButton.title = "Insert Inv (out = −in) on each selected wire.";
+    }
     deleteButton.disabled = !canDelete;
     deleteButton.title = canDelete
       ? nodeGraphTooltipText("actions.deleteWire")
@@ -2310,6 +2325,9 @@ function openNodeModuleActionMenu(event) {
   if (typeof openNodeKeypadDisplaySettings === "function" && openNodeKeypadDisplaySettings(event)) {
     return;
   }
+  if (typeof openNodeRoundShapeContextMenu === "function" && openNodeRoundShapeContextMenu(event)) {
+    return;
+  }
   if (typeof openNodeScopeContextMenu === "function" && openNodeScopeContextMenu(event)) {
     return;
   }
@@ -2360,9 +2378,47 @@ function openNodeXyPadContextMenu(event) {
   return openNodeGraphModuleSettingsFromContextEvent(event, nodeEl);
 }
 
+function openNodeRoundShapeContextMenu(event) {
+  const target = event?.target;
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  const face = target.closest?.(".node-round-shape-display, .node-round-shape-canvas");
+  if (!face) {
+    return false;
+  }
+  const display = face.classList?.contains("node-round-shape-display")
+    ? face
+    : face.closest?.(".node-round-shape-display");
+  const nodeId = String(
+    display?.dataset?.node
+    || face.dataset?.node
+    || face.closest?.(".dsp-node")?.dataset?.node
+    || "",
+  ).trim();
+  if (!nodeId || !nodeGraphPatchNode(nodeId)) {
+    return false;
+  }
+  event.preventDefault?.();
+  event.stopPropagation?.();
+  event.stopImmediatePropagation?.();
+  if (typeof closeNodeSceneContextMenu === "function") {
+    closeNodeSceneContextMenu();
+  }
+  nodeGraphMvp.sceneContextPoint = null;
+  nodeGraphMvp.sceneContextTargetNode = nodeId;
+  nodeGraphMvp.lastModuleActionTargetNode = nodeId;
+  nodeGraphMvp.scopeContextTargetNode = nodeId;
+  if (typeof openNodeGraphTraceDisplaySettings === "function"
+    && openNodeGraphTraceDisplaySettings(nodeId, event)) {
+    return true;
+  }
+  return false;
+}
+
 function openNodeScopeContextMenu(event) {
   const contextScope = event.target.closest?.(
-    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-value-lcd-face, .node-ray-bouncer-face, .node-asciiscope-face, .node-matrix-face",
+    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-value-lcd-face, .node-ray-bouncer-face, .node-asciiscope-face, .node-matrix-face, .node-round-shape-display",
   );
   const nodeId = contextScope?.dataset?.node || "";
   if (!nodeId || !nodeGraphPatchNode(nodeId)) {

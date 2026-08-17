@@ -161,23 +161,22 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   burn: 0,
   burnAmount: 1,
   residualSchema: 3,
-  decay: 0.3,
-  ghost: 0.3,
-  trail: 0.7,
+  decay: 0.8199,
+  ghost: 0,
+  trail: 0.1801,
   scale: 1,
-  // Bright stamps; Size 0 → 1px floor (crisp 1D pen).
-  dot1Brightness: 0.8,
+  // Bright / Size / Blur from tuned PolyBLEP face.
+  dot1Brightness: 0.5091,
   dot1Color: "#75ebff",
   dot1Enabled: true,
-  dot1Size: 0,
-  lineThickness: 0.2,
+  dot1Size: 0.0325,
+  lineThickness: 0,
   pixelDensity: 1,
-  dotBudget: 1024,
+  dotBudget: 3944,
   fullDotEconomy: false,
   dotsOnly: false,
   // Rising-edge auto-trigger on In (snaps pen left). Off = free-run + Reset jack.
   sourceSync: false,
-  // Fast sweep — matches polyBlep init preset (~one screen of high-freq detail).
   sweepSeconds: 0.01,
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),

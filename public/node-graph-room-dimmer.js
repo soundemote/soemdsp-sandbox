@@ -1004,3 +1004,107 @@ void main() {
     bind();
   }
 })();
+
+/**
+ * Light-button-style vertical fill slider (magnifier zoom, mouse smoother).
+ * Drag 140px = full range. options: { min, max, get, set, format }.
+ */
+function bindNodeGraphToolbarFillSlider(button, options = {}) {
+  if (!(button instanceof HTMLElement) || button.dataset.toolbarFillSliderBound === "true") {
+    return;
+  }
+  const min = Number.isFinite(Number(options.min)) ? Number(options.min) : 0;
+  const max = Number.isFinite(Number(options.max)) ? Number(options.max) : 1;
+  const span = max - min || 1;
+  const get = typeof options.get === "function" ? options.get : () => min;
+  const set = typeof options.set === "function" ? options.set : () => {};
+  const format = typeof options.format === "function"
+    ? options.format
+    : (value) => String(value);
+  const toUnit = (value) => Math.max(0, Math.min(1, (Number(value) - min) / span));
+  const fromUnit = (unit) => min + Math.max(0, Math.min(1, Number(unit) || 0)) * span;
+
+  const sync = () => {
+    const value = get();
+    const unit = toUnit(value);
+    const label = format(value);
+    button.style.setProperty("--toolbar-fill", String(unit));
+    button.style.setProperty("--room-dim", String(unit));
+    button.setAttribute("aria-valuenow", String(value));
+    button.setAttribute("aria-valuetext", label);
+    button.setAttribute("aria-pressed", unit > 0.001 ? "true" : "false");
+    const readout = button.querySelector("[data-toolbar-fill-value]");
+    if (readout) {
+      readout.textContent = label;
+    }
+    const tip = String(button.getAttribute("data-toolbar-fill-tip") || button.getAttribute("aria-label") || "").trim();
+    button.title = tip ? `${tip} · ${label} · drag up/down` : `${label} · drag up/down`;
+  };
+
+  button.dataset.toolbarFillSliderBound = "true";
+  button.setAttribute("role", "slider");
+  button.setAttribute("aria-orientation", "vertical");
+  button.setAttribute("aria-valuemin", String(min));
+  button.setAttribute("aria-valuemax", String(max));
+
+  let drag = null;
+  const end = (event) => {
+    if (!drag) {
+      return;
+    }
+    drag = null;
+    button.classList.remove("room-dimmer-dragging");
+    try {
+      button.releasePointerCapture?.(event.pointerId);
+    } catch (_error) {
+      /* ignore */
+    }
+    set(get(), { persist: true });
+  };
+
+  button.addEventListener("pointerdown", (event) => {
+    if (event.button != null && event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    drag = {
+      id: event.pointerId,
+      y0: event.clientY,
+      u0: toUnit(get()),
+    };
+    button.classList.add("room-dimmer-dragging");
+    try {
+      button.setPointerCapture?.(event.pointerId);
+    } catch (_error) {
+      /* ignore */
+    }
+  });
+  button.addEventListener("pointermove", (event) => {
+    if (!drag || drag.id !== event.pointerId) {
+      return;
+    }
+    const dy = drag.y0 - event.clientY;
+    set(fromUnit(drag.u0 + dy / 140), { persist: false });
+  });
+  button.addEventListener("pointerup", end);
+  button.addEventListener("pointercancel", end);
+  button.addEventListener("keydown", (event) => {
+    const unit = toUnit(get());
+    const step = event.shiftKey ? 0.02 : 0.05;
+    if (event.key === "ArrowUp" || event.key === "ArrowRight") {
+      event.preventDefault();
+      set(fromUnit(unit + step), { persist: true });
+    } else if (event.key === "ArrowDown" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      set(fromUnit(unit - step), { persist: true });
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      set(min, { persist: true });
+    } else if (event.key === "End") {
+      event.preventDefault();
+      set(max, { persist: true });
+    }
+  });
+  button._syncToolbarFill = sync;
+  sync();
+}

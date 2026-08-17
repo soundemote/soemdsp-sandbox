@@ -434,6 +434,9 @@ function nodeGraphFilterCurveView(node) {
       mode: Math.round(nodeGraphFilterCurveLiveParam(node, "mode", 0)),
       lowFrequency: nodeGraphCookbookSweepHz(nodeGraphFilterCurveLiveParam(node, "lowFrequency", 200), sweep),
       highFrequency: nodeGraphCookbookSweepHz(nodeGraphFilterCurveLiveParam(node, "highFrequency", 1000), sweep),
+      slope: nodeGraphFilterCurveLiveParam(node, "slope", 0),
+      stagger: nodeGraphFilterCurveLiveParam(node, "stagger", 1),
+      gainCompensation: nodeGraphFilterCurveLiveParam(node, "gainCompensation", 1),
     };
   }
   if (node.type === "activeFilter") {
@@ -543,13 +546,32 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
   }
   if (node.type === "passiveFilter") {
     const mode = Math.round(Number(v.mode) || 0);
-    if (mode === 1) {
-      return nodeGraphBandpassMagnitudeAt(v.lowFrequency, v.highFrequency, frequency, sampleRate);
+    const stages = typeof nodeGraphPassiveFilterStageCount === "function"
+      ? nodeGraphPassiveFilterStageCount(v.slope)
+      : 1;
+    const k = typeof nodeGraphPassiveFilterStaggerRatio === "function"
+      ? nodeGraphPassiveFilterStaggerRatio(v.stagger)
+      : 1;
+    const comp = Number(v.gainCompensation) > 0.5 ? 1 : 0;
+    const stackHz = (fc, kind) => (
+      typeof nodeGraphPassiveFilterStackFrequencies === "function"
+        ? nodeGraphPassiveFilterStackFrequencies(fc, stages, k, comp, kind)
+        : [Number(fc) || 0]
+    );
+    let mag = 1;
+    if (mode === 1 || mode === 2) {
+      const hpHz = stackHz(v.lowFrequency, "hp");
+      for (let i = 0; i < hpHz.length; i += 1) {
+        mag *= nodeGraphOnePoleHighpassMagnitudeAt(hpHz[i], frequency, sampleRate);
+      }
     }
-    if (mode === 2) {
-      return nodeGraphOnePoleHighpassMagnitudeAt(v.lowFrequency, frequency, sampleRate);
+    if (mode === 1 || mode === 0) {
+      const lpHz = stackHz(v.highFrequency, "lp");
+      for (let i = 0; i < lpHz.length; i += 1) {
+        mag *= nodeGraphOnePoleLowpassMagnitudeAt(lpHz[i], frequency, sampleRate);
+      }
     }
-    return nodeGraphOnePoleLowpassMagnitudeAt(v.highFrequency, frequency, sampleRate);
+    return mag;
   }
   if (node.type === "activeFilter") {
     if (v.bandpass) {
@@ -675,7 +697,11 @@ function nodeGraphFilterCurveLabel(node) {
   }
   if (node.type === "passiveFilter") {
     const mode = Math.round(Number(node.params?.mode) || 0);
-    return mode === 1 ? "BP6" : mode === 2 ? "HP6" : "LP6";
+    const stages = typeof nodeGraphPassiveFilterStageCount === "function"
+      ? nodeGraphPassiveFilterStageCount(node.params?.slope)
+      : 1;
+    const db = stages * 6;
+    return mode === 1 ? `BP${db}` : mode === 2 ? `HP${db}` : `LP${db}`;
   }
   if (node.type === "ladderFilter") {
     return nodeGraphLadderFilterModes[Math.round(Number(node.params?.mode) || 0)] || "Ladder";
@@ -852,6 +878,15 @@ function nodeGraphFilterCurveMeasureBox(section) {
   let rawW = Number(section.clientWidth || section.offsetWidth) || 0;
   let rawH = Number(section.clientHeight || section.offsetHeight) || 0;
   if (rawW < 8 || rawH < 8) {
+    const stage = section.closest?.("#nodeScreenSoloStage") || section.parentElement;
+    if (stage?.id === "nodeScreenSoloStage") {
+      const cols = Math.max(1, Number(stage.style.getPropertyValue("--node-screen-solo-cols")) || 1);
+      const rows = Math.max(1, Number(stage.style.getPropertyValue("--node-screen-solo-rows")) || 1);
+      rawW = Math.max(rawW, Math.floor((stage.clientWidth || window.innerWidth || 0) / cols));
+      rawH = Math.max(rawH, Math.floor((stage.clientHeight || window.innerHeight || 0) / rows));
+    }
+  }
+  if (rawW < 8 || rawH < 8) {
     const host = section.closest?.(".dsp-node");
     if (host) {
       rawW = Math.max(rawW, Number(host.clientWidth || host.offsetWidth) || 0);
@@ -878,7 +913,11 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   if (section) {
     section.hidden = false;
   }
-  const node = nodeGraphPatchNode(section?.dataset?.node || "");
+  const node = nodeGraphPatchNode(
+    section?.dataset?.node
+    || section?.closest?.(".dsp-node")?.dataset?.node
+    || "",
+  );
   const canvas = section?.querySelector?.(".node-filter-curve-canvas");
   if (!node || !canvas) {
     return;

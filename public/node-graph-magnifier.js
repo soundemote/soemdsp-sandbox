@@ -43,15 +43,22 @@ function clampNodeGraphMagnifierMag(value) {
 }
 
 function syncNodeGraphMagnifierZoomControl() {
-  const input = document.getElementById("nodeMagnifierZoomSlider");
-  if (!input) {
+  const button = document.getElementById("nodeMagnifierZoomSlider");
+  if (!button) {
+    return;
+  }
+  if (typeof button._syncToolbarFill === "function") {
+    button._syncToolbarFill();
     return;
   }
   const mag = clampNodeGraphMagnifierMag(nodeGraphMvp?.magnifier?.mag ?? nodeGraphMagnifierLimits.mag);
-  if (document.activeElement !== input) {
-    input.value = String(mag);
-  }
-  input.setAttribute("aria-valuetext", `${mag.toFixed(2)}×`);
+  const min = nodeGraphMagnifierLimits.minMag;
+  const max = nodeGraphMagnifierLimits.maxMag;
+  const unit = (mag - min) / (max - min || 1);
+  button.style.setProperty("--toolbar-fill", String(Math.max(0, Math.min(1, unit))));
+  button.setAttribute("aria-valuenow", String(mag));
+  button.setAttribute("aria-valuetext", `${mag.toFixed(2)}×`);
+  button.setAttribute("aria-pressed", unit > 0.001 ? "true" : "false");
 }
 
 function setNodeGraphMagnifierMag(value) {
@@ -65,16 +72,23 @@ function setNodeGraphMagnifierMag(value) {
 }
 
 function bindNodeGraphMagnifierZoomControl() {
-  const input = document.getElementById("nodeMagnifierZoomSlider");
-  if (!input || input.dataset.magnifierZoomBound === "true") {
+  const button = document.getElementById("nodeMagnifierZoomSlider");
+  if (!button || button.dataset.magnifierZoomBound === "true") {
     return;
   }
-  input.dataset.magnifierZoomBound = "true";
-  input.min = String(nodeGraphMagnifierLimits.minMag);
-  input.max = String(nodeGraphMagnifierLimits.maxMag);
-  input.addEventListener("input", (event) => {
-    setNodeGraphMagnifierMag(event.currentTarget.value);
-  });
+  button.dataset.magnifierZoomBound = "true";
+  if (typeof bindNodeGraphToolbarFillSlider === "function") {
+    bindNodeGraphToolbarFillSlider(button, {
+      min: nodeGraphMagnifierLimits.minMag,
+      max: nodeGraphMagnifierLimits.maxMag,
+      get: () => clampNodeGraphMagnifierMag(nodeGraphMvp?.magnifier?.mag ?? nodeGraphMagnifierLimits.mag),
+      set: (value) => {
+        setNodeGraphMagnifierMag(value);
+      },
+      format: (value) => `${Number(value).toFixed(2)}×`,
+    });
+    return;
+  }
   syncNodeGraphMagnifierZoomControl();
 }
 
@@ -89,6 +103,13 @@ function clampNodeGraphMagnifierSize(value) {
 function ensureNodeGraphMagnifierHost() {
   const session = nodeGraphMagnifierSession();
   if (session.host instanceof HTMLElement) {
+    session.host.querySelector(".node-graph-magnifier-handle")?.remove();
+    if (!session.host.querySelector(".node-graph-magnifier-rim")) {
+      const existingRim = document.createElement("div");
+      existingRim.className = "node-graph-magnifier-rim";
+      existingRim.setAttribute("aria-hidden", "true");
+      session.host.prepend(existingRim);
+    }
     return session.host;
   }
   const host = document.createElement("div");
@@ -96,30 +117,20 @@ function ensureNodeGraphMagnifierHost() {
   host.className = "node-graph-magnifier";
   host.hidden = true;
   host.setAttribute("aria-hidden", "true");
+  const rim = document.createElement("div");
+  rim.className = "node-graph-magnifier-rim";
+  rim.setAttribute("aria-hidden", "true");
   const lens = document.createElement("div");
   lens.className = "node-graph-magnifier-lens";
-  const handle = document.createElement("div");
-  handle.className = "node-graph-magnifier-handle";
-  host.append(lens, handle);
+  host.append(rim, lens);
   document.body.append(host);
   session.host = host;
   session.lens = lens;
   return host;
 }
 
-function nodeGraphMagnifierPaintRim(workspace) {
-  const host = nodeGraphMagnifierSession().host;
-  if (!host) {
-    return;
-  }
-  const style = workspace ? getComputedStyle(workspace) : null;
-  const color = typeof nodeGraphCssColorForSvgStroke === "function"
-    ? nodeGraphCssColorForSvgStroke(style?.getPropertyValue("--node-selection-hit-trail-color") || "rgb(0 208 255)")
-    : (style?.getPropertyValue("--node-selection-hit-trail-color") || "rgb(0 208 255)").trim();
-  const alphaRaw = Number(style?.getPropertyValue("--node-selection-hit-trail-alpha"));
-  const alpha = Number.isFinite(alphaRaw) ? Math.max(0, Math.min(1, alphaRaw)) : 0.95;
-  host.style.setProperty("--node-graph-magnifier-color", color);
-  host.style.setProperty("--node-graph-magnifier-alpha", String(alpha));
+function nodeGraphMagnifierPaintRim(_workspace) {
+  // Rim is a fixed black soft stroke (normal alpha glow). No selection tint.
 }
 
 function nodeGraphMagnifierCloneWorkspace(workspace) {

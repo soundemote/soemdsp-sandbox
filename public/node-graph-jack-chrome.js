@@ -58,8 +58,18 @@ function nodeGraphModuleUsesChaosOutletRgb(type) {
     nodeGraphJackChaosTypeCache.set(key, true);
     return true;
   }
-  const ports = new Set(nodeGraphJackTypePortList(type));
-  const has = ports.has("X") && ports.has("Y") && ports.has("Z");
+  const ports = nodeGraphJackTypePortList(type);
+  const axes = new Set();
+  for (const port of ports) {
+    const name = String(port || "").trim();
+    const axis = name.toLowerCase() === "x" || name.toLowerCase() === "y" || name.toLowerCase() === "z"
+      ? name.toLowerCase()
+      : nodeGraphJackLastToken(name);
+    if (axis === "x" || axis === "y" || axis === "z") {
+      axes.add(axis);
+    }
+  }
+  const has = axes.has("x") && axes.has("y") && axes.has("z");
   nodeGraphJackChaosTypeCache.set(key, has);
   return has;
 }
@@ -201,7 +211,7 @@ function nodeGraphJackStereoChannel(value) {
   const tokens = raw.split(/[\s/_-]+/).filter(Boolean);
   const first = tokens[0] || raw;
   const last = tokens[tokens.length - 1] || raw;
-  if (raw === "l" || raw === "left" || first === "left" || last === "left") {
+  if (raw === "l" || /^l\d+$/.test(raw) || raw === "left" || first === "left" || last === "left" || raw === "tonel") {
     return "red";
   }
   if (raw === "m" || raw === "mono" || first === "mono" || last === "mono") {
@@ -210,7 +220,7 @@ function nodeGraphJackStereoChannel(value) {
   if (raw === "in" || raw === "input" || raw === "out" || raw === "output") {
     return "green";
   }
-  if (raw === "right" || first === "right" || last === "right") {
+  if (/^r\d+$/.test(raw) || raw === "right" || first === "right" || last === "right" || raw === "toner") {
     return "blue";
   }
   return "";

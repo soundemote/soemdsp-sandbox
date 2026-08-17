@@ -170,7 +170,7 @@ NodeLiveAudioProcessor.prototype.pingPongInterpLinear = function pingPongInterpL
 };
 
 /** 4-point Hermite (Catmull-Rom). Prefer shared helper when present in the blob. */
-NodeLiveAudioProcessor.prototype.pingPongInterp = function pingPongInterp(buffer, where, interpolation = 1) {
+NodeLiveAudioProcessor.prototype.pingPongInterp = function pingPongInterp(buffer, where, interpolation = 0) {
   if (typeof nodeGraphDelayInterpolate === "function") {
     return nodeGraphDelayInterpolate(buffer, where, interpolation);
   }
@@ -247,7 +247,7 @@ NodeLiveAudioProcessor.prototype.pingPongDelaySampleJs = function pingPongDelayS
   state.position = (state.position + 1) % state.bufferSize;
   const readPosL = (state.position + state.bufferSize - delaySamplesL) % state.bufferSize;
   const readPosR = (state.position + state.bufferSize - delaySamplesR) % state.bufferSize;
-  const interpMode = Math.round(Number(params.interpolation) || 0) >= 1 ? 1 : 0;
+  const interpMode = 0;
   const readL = this.pingPongInterp(state.bufferL, readPosL, interpMode);
   const readR = this.pingPongInterp(state.bufferR, readPosR, interpMode);
 

@@ -160,7 +160,10 @@ NodeLiveAudioProcessor.prototype.evaluateFrame = function evaluateFrame(frame, f
           const input = inputs[0] || [];
           const leftChannel = input[0] || input[1] || null;
           const rightChannel = input[1] || input[0] || null;
-          const level = this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues);
+          const amplitude = this.readEffectiveParameter(node, "amplitude", NaN, frame, frames, frameValues);
+          const level = Number.isFinite(amplitude)
+            ? amplitude
+            : this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues);
           const live = nodeGraphDspExternalStereoFrame(
             { left: leftChannel, right: rightChannel },
             inputFrame,
@@ -183,7 +186,7 @@ NodeLiveAudioProcessor.prototype.evaluateFrame = function evaluateFrame(frame, f
     const outputNodeId = this.outputNode || "output";
     const outputNode = this.nodes.get(outputNodeId);
     const outputDb = outputNode
-      ? this.readEffectiveParameter(outputNode, "volume", -20, frame, frames, frameValues)
+      ? this.readEffectiveParameter(outputNode, "volume", -3, frame, frames, frameValues)
       : 0;
     const outputVolume = typeof nodeGraphOutputVolumeDbToLin === "function"
       ? nodeGraphOutputVolumeDbToLin(outputDb)

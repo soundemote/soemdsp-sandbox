@@ -94,7 +94,11 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   }
   if (formType === "roundShapeFace" && key === "lineThickness") {
     label = "Line thickness";
-    title = "Stroke width in CSS pixels (0.25–16).";
+    title = "Orbit stroke width in CSS pixels (0.25–16).";
+  }
+  if (formType === "roundShapeFace" && key === "dotThickness") {
+    label = "Dot thickness";
+    title = "Cursor dot diameter in CSS pixels (0.25–32).";
   }
   if (formType === "roundShapeFace" && key === "lineBlur") {
     label = "Line blur";
@@ -103,18 +107,6 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   if (formType === "roundShapeFace" && key === "pixelDensity") {
     label = "Pixel density";
     title = "1.0 = CSS × devicePixelRatio. Below 1 = chunky lo-fi.";
-  }
-  const stereoSide = options.stereoSide === "R" ? "R" : (options.stereoSide === "L" ? "L" : "");
-  if (stereoSide) {
-    if (key === "dot1Size" || key === "secondarySize") {
-      label = `\u26AA Size ${stereoSide}`;
-    } else if (key === "lineThickness" || key === "secondaryLineThickness") {
-      label = `Blur ${stereoSide}`;
-    } else if (key === "dot1Brightness" || key === "secondaryBrightness") {
-      label = `\uD83D\uDCA1 Bright ${stereoSide}`;
-    } else if (label && !String(label).endsWith(` ${stereoSide}`)) {
-      label = `${label} ${stereoSide}`;
-    }
   }
   if (key === "innerRadius" && formType === "knobFace") {
     label = "Inner radius";
@@ -179,12 +171,22 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     ? ` title="${nodeGraphDisplaySettingsEscapeHtml(title)}"`
     : "";
   const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
+  const ariaLabel = String(options.ariaLabel || label || key).trim();
+  const ariaAttr = options.hideLabel
+    ? ` aria-label="${nodeGraphDisplaySettingsEscapeHtml(ariaLabel)}"`
+    : "";
+  const labelHtml = options.hideLabel
+    ? ""
+    : `<span>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>`;
+  const rowClass = options.hideLabel
+    ? "node-trace-display-line-burn-row node-trace-display-stepper-only"
+    : "node-trace-display-line-burn-row";
   return `
-    <label class="node-trace-display-line-burn-row" data-trace-display-control-row>
-      <span>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>
+    <label class="${rowClass}" data-trace-display-control-row>
+      ${labelHtml}
       <span class="metadata-stepper-control">
         <button type="button" data-trace-display-step-target="${key}" data-trace-display-step-direction="-1">-</button>
-        <input type="text" inputmode="${meta.inputmode || "decimal"}" data-trace-display-field="${key}"${idAttr}${titleAttr}>
+        <input type="text" inputmode="${meta.inputmode || "decimal"}" data-trace-display-field="${key}"${idAttr}${titleAttr}${ariaAttr}>
         <button type="button" data-trace-display-step-target="${key}" data-trace-display-step-direction="1">+</button>
       </span>
     </label>`;
@@ -203,11 +205,30 @@ function nodeGraphDisplaySettingsStereoPairKey(leftKey) {
   return "";
 }
 
+function nodeGraphDisplaySettingsStereoSharedLabel(leftKey) {
+  if (leftKey === "dot1Size") {
+    return "\u26AA Size";
+  }
+  if (leftKey === "lineThickness") {
+    return "Blur";
+  }
+  if (leftKey === "dot1Brightness") {
+    return "\uD83D\uDCA1 Bright";
+  }
+  return "";
+}
+
 function nodeGraphDisplaySettingsBuildStereoPairRowHtml(leftKey, rightKey, formType = null) {
+  const shared = nodeGraphDisplaySettingsStereoSharedLabel(leftKey)
+    || (nodeGraphDisplaySettingsFieldMeta[leftKey] || {}).label
+    || leftKey;
   return `
     <div class="node-trace-display-lr-row" data-trace-display-lr-row>
-      ${nodeGraphDisplaySettingsBuildStepperRowHtml(leftKey, formType, { stereoSide: "L" })}
-      ${nodeGraphDisplaySettingsBuildStepperRowHtml(rightKey, formType, { stereoSide: "R" })}
+      <span class="node-trace-display-lr-shared-label">${nodeGraphDisplaySettingsEscapeHtml(shared)}</span>
+      <div class="node-trace-display-lr-pair">
+        ${nodeGraphDisplaySettingsBuildStepperRowHtml(leftKey, formType, { hideLabel: true, ariaLabel: `${shared} L` })}
+        ${nodeGraphDisplaySettingsBuildStepperRowHtml(rightKey, formType, { hideLabel: true, ariaLabel: `${shared} R` })}
+      </div>
     </div>`;
 }
 
@@ -631,8 +652,11 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   if (stereoInk) {
     rows.push(`
       <div class="metadata-section-title node-trace-display-dot1-title node-trace-display-stereo-title">
-        <span id="nodeTraceDisplayDot1TitleLabel">L / R</span>
         <button type="button" id="nodeTraceDisplaySwapStereoLook" class="node-trace-display-swap-lr">Swap L/R</button>
+        <span id="nodeTraceDisplayDot1TitleLabel" class="node-trace-display-lr-pair node-trace-display-lr-heads">
+          <span class="node-trace-display-lr-col-head">L</span>
+          <span class="node-trace-display-lr-col-head">R</span>
+        </span>
       </div>`);
   }
   const pairedSecondary = new Set();
@@ -686,7 +710,7 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
       if (pairedSecondary.has(key)) {
         continue;
       }
-      rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type, { stereoSide: "R" }));
+      rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
     }
   }
   const stereoColorPair = stereoInk
@@ -695,8 +719,11 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   if (stereoColorPair) {
     rows.push(`
       <div class="node-trace-display-lr-row node-trace-display-lr-color-row" data-trace-display-lr-row>
-        ${nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type, { stereo: true })}
-        ${nodeGraphDisplaySettingsBuildColorRowHtml("secondaryColor", type, { stereo: true })}
+        <span class="node-trace-display-lr-shared-label"></span>
+        <div class="node-trace-display-lr-pair">
+          ${nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type, { stereo: true })}
+          ${nodeGraphDisplaySettingsBuildColorRowHtml("secondaryColor", type, { stereo: true })}
+        </div>
       </div>`);
   }
   for (const key of inkColors) {
@@ -857,6 +884,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     if (type === "numberReadout" && section === "dot1") {
       continue;
     }
+    if (type === "roundShapeFace" && section === "dot1") {
+      continue;
+    }
 
     const sectionControls = nodeGraphTraceDisplaySectionControls[section];
     if (!sectionControls) {
@@ -865,12 +895,26 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     let fieldKeys = (sectionControls.fields || []).filter(
       (key) => activeFields.has(key) && allowKey("fields", key),
     );
+    if (type === "roundShapeFace" && section === "trace") {
+      fieldKeys = [
+        "lineThickness",
+        "lineBrightness",
+        "dotThickness",
+        "dotBrightness",
+        "backgroundBrightness",
+        "lineBlur",
+        "pixelDensity",
+      ].filter((key) => activeFields.has(key) && allowKey("fields", key));
+    }
     if (isVectorTraceForm && typeof nodeGraphDisplaySettingsOrderTraceInkFields === "function") {
       fieldKeys = nodeGraphDisplaySettingsOrderTraceInkFields(fieldKeys);
     }
     let colorKeys = (sectionControls.colors || []).filter(
       (key) => activeColors.has(key) && allowKey("colors", key),
     );
+    if (type === "roundShapeFace") {
+      colorKeys = [];
+    }
     if (type === "trace" && isStereoTraceNode) {
       colorKeys = colorKeys.filter((key) => !NODE_GRAPH_TRACE_STEREO_COLOR_ORDER.includes(key));
     }
@@ -1032,6 +1076,39 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           stepField: "dot1Brightness",
           colorField: "dot1Color",
           formType: type,
+        }));
+        continue;
+      }
+      if (type === "roundShapeFace" && key === "lineBrightness") {
+        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+          title: "Line",
+          stepField: "lineBrightness",
+          colorField: "strokeColor",
+          formType: type,
+          defaultHueHex: "#00ffd0",
+          titleAttr: "Line brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
+        }));
+        continue;
+      }
+      if (type === "roundShapeFace" && key === "dotBrightness") {
+        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+          title: "Dot",
+          stepField: "dotBrightness",
+          colorField: "dotColor",
+          formType: type,
+          defaultHueHex: "#00ffd0",
+          titleAttr: "Dot brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
+        }));
+        continue;
+      }
+      if (type === "roundShapeFace" && key === "backgroundBrightness") {
+        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+          title: "Background",
+          stepField: "backgroundBrightness",
+          colorField: "backgroundColor",
+          formType: type,
+          defaultHueHex: "#00aaff",
+          titleAttr: "Background brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
         }));
         continue;
       }

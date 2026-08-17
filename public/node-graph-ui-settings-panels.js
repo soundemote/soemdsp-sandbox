@@ -84,25 +84,58 @@ function applyNodeUiDevHelperWindowSize(size = nodeGraphMvp.uiDevHelperWindowSiz
   return stored;
 }
 
-function setNodeUiDevHelperVisible(visible) {
+function nodeUserUiSettingsActivePage() {
+  return nodeGraphMvp?.uiSettingsPage === "uidev" ? "uidev" : "settings";
+}
+
+function mountNodeUiDevHelperAsUiSettingsPage() {
+  const host = document.getElementById("nodeUserUiSettingsUiDevHost");
   const helper = document.getElementById("nodeUiDevHelper");
-  const button = document.getElementById("nodeUiDevButton");
-  if (!helper) {
-    return;
+  if (!host || !helper || helper.parentElement === host) {
+    return helper;
   }
-  if (visible && !helper.hidden) {
-    if (typeof pulseNodeGraphFloatingWindowAttention === "function") {
-      pulseNodeGraphFloatingWindowAttention(helper);
-    } else if (typeof raiseNodeGraphFloatingWindow === "function") {
-      raiseNodeGraphFloatingWindow(helper);
-    }
-    return;
+  host.append(helper);
+  helper.classList.add("node-ui-dev-helper-embedded");
+  helper.removeAttribute("role");
+  helper.removeAttribute("aria-label");
+  return helper;
+}
+
+function syncNodeUserUiSettingsPageChrome(page = nodeUserUiSettingsActivePage()) {
+  const next = page === "uidev" ? "uidev" : "settings";
+  const userPage = document.getElementById("nodeUserUiSettingsUserPage");
+  const host = document.getElementById("nodeUserUiSettingsUiDevHost");
+  const helper = mountNodeUiDevHelperAsUiSettingsPage();
+  const settingsTab = document.getElementById("nodeUserUiSettingsPageTab");
+  const uiDevTab = document.getElementById("nodeUserUiSettingsUiDevTab");
+  const subtitle = document.getElementById("nodeUserUiSettingsSubtitle");
+  const uiDevButton = document.getElementById("nodeUiDevButton");
+  if (userPage) {
+    userPage.hidden = next !== "settings";
   }
-  helper.hidden = !visible;
-  button?.classList.toggle("active", visible);
-  button?.setAttribute("aria-pressed", String(visible));
-  if (visible) {
-    // Always re-check: closed <details> leave only section titles visible.
+  if (host) {
+    host.hidden = next !== "uidev";
+  }
+  if (helper) {
+    helper.hidden = next !== "uidev";
+  }
+  settingsTab?.setAttribute("aria-selected", String(next === "settings"));
+  uiDevTab?.setAttribute("aria-selected", String(next === "uidev"));
+  if (subtitle) {
+    subtitle.textContent = next === "uidev" ? "all controls" : "exposed settings";
+  }
+  const uiDevActive = next === "uidev";
+  uiDevButton?.classList.toggle("active", uiDevActive);
+  uiDevButton?.setAttribute("aria-pressed", String(uiDevActive));
+}
+
+function setNodeUserUiSettingsPage(page) {
+  const next = page === "uidev" ? "uidev" : "settings";
+  if (nodeGraphMvp) {
+    nodeGraphMvp.uiSettingsPage = next;
+  }
+  syncNodeUserUiSettingsPageChrome(next);
+  if (next === "uidev") {
     if (typeof renderNodeUiDevHelperViewControls === "function") {
       renderNodeUiDevHelperViewControls();
     }
@@ -112,40 +145,28 @@ function setNodeUiDevHelperVisible(visible) {
     if (typeof syncNodeUiDevPatchGridFields === "function") {
       syncNodeUiDevPatchGridFields();
     }
-    if (typeof bindNodeGraphFloatingWindowResizeHandle === "function") {
-      bindNodeGraphFloatingWindowResizeHandle("uiDev");
-    }
-    if (typeof markNodeGraphFloatingWindowSurface === "function") {
-      markNodeGraphFloatingWindowSurface(helper);
-    }
-    const savedSize = nodeGraphMvp.workspaceWindowStates?.uiDev?.size
-      || nodeGraphMvp.uiDevHelperWindowSize;
-    applyNodeUiDevHelperWindowSize(savedSize || nodeUiDevHelperWindowDefaultSize, helper);
-    if (typeof positionNodeGraphWorkspaceWindowFromState === "function") {
-      positionNodeGraphWorkspaceWindowFromState("uiDev", helper);
-    }
-    if (typeof raiseNodeGraphFloatingWindow === "function") {
-      raiseNodeGraphFloatingWindow(helper);
-    }
-  }
-  setNodeInteractionHelp(
-    visible
-      ? "UIDEV helper open. Future UI tuning controls can live in this floating window."
-      : "UIDEV helper closed.",
-  );
-  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState("uiDev", helper, { open: visible }, { status: false });
   }
 }
 
+function setNodeUiDevHelperVisible(visible) {
+  if (visible) {
+    setNodeUserUiSettingsPage("uidev");
+    if (typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("uiSettings");
+    } else {
+      setNodeUserUiSettingsVisible(true);
+    }
+    setNodeInteractionHelp("UIDEV page open. Every UI setting lives here.");
+    return;
+  }
+  setNodeUserUiSettingsPage("settings");
+  setNodeInteractionHelp("UIDEV page closed.");
+}
+
 function toggleNodeUiDevHelper() {
-  const helper = document.getElementById("nodeUiDevHelper");
-  if (
-    helper
-    && !helper.hidden
-    && typeof nodeGraphFloatingWindowIsFrontmost === "function"
-    && nodeGraphFloatingWindowIsFrontmost(helper)
-  ) {
+  const panel = document.getElementById("nodeUserUiSettingsPanel");
+  const open = Boolean(panel && !panel.hidden);
+  if (open && nodeUserUiSettingsActivePage() === "uidev") {
     setNodeUiDevHelperVisible(false);
     return;
   }
@@ -189,6 +210,7 @@ function setNodeUserUiSettingsVisible(visible) {
       positionNodeGraphWorkspaceWindowFromState("uiSettings", panel);
     }
     renderNodeUserUiSettingsControls();
+    setNodeUserUiSettingsPage(nodeUserUiSettingsActivePage());
     if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
       noteNodeGraphUnifiedWindowOpened("uiSettings", panel);
     }

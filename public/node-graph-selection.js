@@ -25,6 +25,9 @@ function setNodeGraphSelection(selection) {
     }
   }
   nodeGraphMvp.selected = selection;
+  if (!selection || (selection.type !== "node" && selection.type !== "nodes")) {
+    nodeGraphMvp.selectionOrder = [];
+  }
   const selectedNode = nodeGraphSingleSelectedNodeId(selection);
   if (selectedNode && nodeGraphPatchNode(selectedNode)) {
     nodeGraphMvp.lastModuleActionTargetNode = selectedNode;
@@ -205,6 +208,18 @@ function nodeGraphSelectedNodeIds(selection = nodeGraphMvp.selected) {
   return new Set();
 }
 
+/** Selection order: first added stays first (leftmost in F-grid). */
+function nodeGraphSelectedNodeIdsInOrder(selection = nodeGraphMvp.selected) {
+  if (selection?.type === "node" && selection.id) {
+    return [String(selection.id)];
+  }
+  if (selection?.type === "nodes" && Array.isArray(selection.ids)) {
+    return selection.ids.map((id) => String(id || "")).filter(Boolean);
+  }
+  const stored = Array.isArray(nodeGraphMvp?.selectionOrder) ? nodeGraphMvp.selectionOrder : [];
+  return stored.map((id) => String(id || "")).filter(Boolean);
+}
+
 function syncNodeGraphSelectionCountReadout(selection = nodeGraphMvp.selected) {
   const readout = document.getElementById("nodeSelectionCountReadout");
   if (!readout) {
@@ -331,16 +346,33 @@ function syncNodeGraphSharedInspectorTargetFromSelection() {
 }
 
 function setNodeGraphNodeSelection(ids) {
-  const uniqueIds = [...new Set(ids)].filter((id) => nodeGraphMvp.activeNodes.has(id));
+  const uniqueIds = [];
+  const seen = new Set();
+  for (const raw of ids || []) {
+    const id = String(raw || "");
+    if (!id || seen.has(id) || !nodeGraphMvp.activeNodes.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    uniqueIds.push(id);
+  }
   if (!uniqueIds.length) {
+    nodeGraphMvp.selectionOrder = [];
     setNodeGraphSelection(null);
     return;
   }
-  if (uniqueIds.length === 1) {
-    setNodeGraphSelection({ type: "node", id: uniqueIds[0] });
+  const prevOrder = Array.isArray(nodeGraphMvp.selectionOrder) ? nodeGraphMvp.selectionOrder : [];
+  const incomingSet = new Set(uniqueIds);
+  const ordered = [
+    ...prevOrder.filter((id) => incomingSet.has(id)),
+    ...uniqueIds.filter((id) => !prevOrder.includes(id)),
+  ];
+  nodeGraphMvp.selectionOrder = ordered;
+  if (ordered.length === 1) {
+    setNodeGraphSelection({ type: "node", id: ordered[0] });
     return;
   }
-  setNodeGraphSelection({ type: "nodes", ids: uniqueIds });
+  setNodeGraphSelection({ type: "nodes", ids: ordered });
 }
 
 function nodeGraphWireSelectionKey(kind, index) {
@@ -412,31 +444,29 @@ function toggleNodeGraphNodeSelection(id, additive = false) {
   if (!nodeGraphMvp.activeNodes.has(id)) {
     return;
   }
-  const selectedNodeIds = nodeGraphSelectedNodeIds();
+  const ordered = nodeGraphSelectedNodeIdsInOrder();
   if (!additive) {
     // Click (no drag) toggles: unselected → sole selection; selected → drop it.
     // Drag never reaches here — endNodeGraphNodeDrag only calls this when !moved.
-    if (selectedNodeIds.has(id)) {
-      selectedNodeIds.delete(id);
-      setNodeGraphNodeSelection([...selectedNodeIds]);
+    if (ordered.includes(id)) {
+      setNodeGraphNodeSelection(ordered.filter((item) => item !== id));
     } else {
       setNodeGraphNodeSelection([id]);
     }
     return;
   }
 
-  if (selectedNodeIds.has(id)) {
+  if (ordered.includes(id)) {
     // Multi-select remove only when other modules stay selected. Shift+click on
     // the sole selected module (common before Shift+arrow resize) must not
     // clear selection.
-    if (selectedNodeIds.size <= 1) {
+    if (ordered.length <= 1) {
       return;
     }
-    selectedNodeIds.delete(id);
-  } else {
-    selectedNodeIds.add(id);
+    setNodeGraphNodeSelection(ordered.filter((item) => item !== id));
+    return;
   }
-  setNodeGraphNodeSelection([...selectedNodeIds]);
+  setNodeGraphNodeSelection([...ordered, id]);
 }
 
 function sameNodeGraphSelection(a, b) {

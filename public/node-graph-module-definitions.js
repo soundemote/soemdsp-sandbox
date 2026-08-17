@@ -97,10 +97,14 @@ const nodeGraphNodeLabels = Object.freeze({
   // Legacy id — patches migrate to "gain" on load.
   gainBias: "Gain",
   mix: "Mix",
+  mixStereo: "MixStereo",
   // Legacy id for Mix
   gainBiasMix: "Mix",
   bias: "Bias",
   attenuverter: "Attenuverter",
+  u2b: "U2B",
+  b2u: "B2U",
+  inv: "Inv",
   softClipper: "Soft Clipper",
   clipperLimiter: "Clipper Limiter",
   airClipper: "AirClipper",
@@ -469,11 +473,26 @@ const nodeGraphActiveFilterDefinition = {
   ]
 };
 
+function nodeGraphTSeriesValueDisplayModes() {
+  return [
+    {
+      key: "value",
+      label: "0D Value",
+      renderer: "value",
+      settingsSchema: "value",
+      source: { value: "0" },
+    },
+  ];
+}
+
 function nodeGraphTSeriesModuleDefinition(lastIndex) {
   const last = Math.max(0, Math.min(10, Math.round(Number(lastIndex) || 0)));
   return {
     planRole: "processor",
-    chrome: NodeGraphModuleChromeLayout.LayoutC,
+    chrome: NodeGraphModuleChromeLayout.LayoutA,
+    displayType: "value",
+    displayHeightGu: 1,
+    displayModes: nodeGraphTSeriesValueDisplayModes(),
     digitalInputs: ["Digital"],
     inputAliases: { A: "Analog", D: "Digital", Mono: "In" },
     inputLabels: { Analog: "A", Digital: "D", In: "In" },
@@ -495,8 +514,10 @@ function nodeGraphTSeriesSingleModuleDefinition() {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
     layoutBPortLabels: true,
-    digitalInputs: ["Digital"],
+    displayType: "value",
     displayHeightGu: 1,
+    displayModes: nodeGraphTSeriesValueDisplayModes(),
+    digitalInputs: ["Digital"],
     inputAliases: { A: "Analog", D: "Digital", Mono: "In" },
     inputLabels: { Analog: "A", Digital: "D", In: "→" },
     inputs: ["In", "Analog", "Digital"],
@@ -1046,6 +1067,7 @@ const nodeGraphModuleDefinitions = (
   // RS-MET rosic::SineOscillator — free-running 2nd-order recursive sine (no sin() per sample).
   robinSinusoid: {
     planRole: "source",
+    defaultAlias: "Osc",
     displayType: "trace",
     inputs: ["Reset", "f"],
     inputLabels: {Reset: "Reset",
@@ -1128,17 +1150,23 @@ const nodeGraphModuleDefinitions = (
       Out: "Tone",
       M: "Tone",
       Mono: "Tone",
-      X: "Tone",
-      Z: "Tone",
+      L: "ToneL",
+      R: "ToneR",
+      Left: "ToneL",
+      Right: "ToneR",
+      X: "ToneL",
+      Z: "ToneR",
       f1: "ƒ1",
       Df1: "ƒ1",
       f2: "ƒ2",
       Df2: "ƒ2",
     },
     inputs: ["Analog", "Digital", "Gate", "0.1V/Oct"],
-    outputs: ["Tone", "ƒ1", "ƒ2", "Analog Thru", "Digital Thru"],
+    outputs: ["Tone", "ToneL", "ToneR", "ƒ1", "ƒ2", "Analog Thru", "Digital Thru"],
     outputLabels: {
       Tone: "Tone",
+      ToneL: "ToneL",
+      ToneR: "ToneR",
       "ƒ1": "ƒ1",
       "ƒ2": "ƒ2",
       "Analog Thru": "Analog Thru",
@@ -1340,7 +1368,20 @@ const nodeGraphModuleDefinitions = (
     // Uni 0..1, Bi −1..1 (quadrature pair). No Mono.
     outputs: ["Uni X", "Uni Y", "Bi X", "Bi Y"],
     parameters: [
-      { defaultValue: "1", key: "frequency", kind: "frequency", label: "Frequency", max: "20000", mid: "20", min: "0", step: "any", unit: "Hz" },
+      {
+        bipolar: true,
+        defaultValue: "0",
+        key: "frequency",
+        kind: "frequency",
+        label: "Clock",
+        max: "0",
+        mid: "0",
+        min: "-1",
+        showSign: true,
+        step: "any",
+        unit: "Hz",
+        tooltip: "Orbit rate in Hz. Negative reverses (clockwise). If you type min > max (e.g. 0 and −1), we swap them so min < max.",
+      },
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", step: "0.01", unit: "cycle", wraparound: true },
       {
         defaultValue: "0",
@@ -3527,6 +3568,153 @@ const nodeGraphModuleDefinitions = (
       { key: "bias4", label: "Bias 4", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
     ]
   },
+  mixStereo: {
+    planRole: "processor",
+    displayType: "trace",
+    stereoTracePorts: { left: "Left", right: "Right" },
+    inputAliases: { In: "Mono" },
+    inputLabels: { Mono: "Mono" },
+    inputs: ["Mono", "L1", "R1", "L2", "R2", "L3", "R3", "L4", "R4"],
+    outputAliases: { Out: "Mono", M: "Mono" },
+    outputLabels: { Mono: "Mono" },
+    outputs: ["Mono", "Left", "Right"],
+    parameters: [
+      {
+        defaultValue: "0",
+        key: "volume1",
+        kind: "decibels",
+        label: "Volume1",
+        max: "12",
+        mid: "0",
+        min: "-140",
+        minusInf: true,
+        nonlinearSlider: true,
+        linearSmoothing: true,
+        smoothingType: "linear",
+        smoothingMode: "internal",
+        smoothingSeconds: 0.0333,
+        step: "any",
+        unit: "dB",
+        tooltip: "Pair 1 level (−∞…+12 dB). 0 dB is unity.",
+      },
+      {
+        defaultValue: "0",
+        key: "pan1",
+        label: "Pan1",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Pair 1 stereo balance. 0 = unchanged. −1 = left only. +1 = right only.",
+      },
+      {
+        defaultValue: "0",
+        key: "volume2",
+        kind: "decibels",
+        label: "Volume2",
+        max: "12",
+        mid: "0",
+        min: "-140",
+        minusInf: true,
+        nonlinearSlider: true,
+        linearSmoothing: true,
+        smoothingType: "linear",
+        smoothingMode: "internal",
+        smoothingSeconds: 0.0333,
+        step: "any",
+        unit: "dB",
+        tooltip: "Pair 2 level (−∞…+12 dB). 0 dB is unity.",
+      },
+      {
+        defaultValue: "0",
+        key: "pan2",
+        label: "Pan2",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Pair 2 stereo balance. 0 = unchanged. −1 = left only. +1 = right only.",
+      },
+      {
+        defaultValue: "0",
+        key: "volume3",
+        kind: "decibels",
+        label: "Volume3",
+        max: "12",
+        mid: "0",
+        min: "-140",
+        minusInf: true,
+        nonlinearSlider: true,
+        linearSmoothing: true,
+        smoothingType: "linear",
+        smoothingMode: "internal",
+        smoothingSeconds: 0.0333,
+        step: "any",
+        unit: "dB",
+        tooltip: "Pair 3 level (−∞…+12 dB). 0 dB is unity.",
+      },
+      {
+        defaultValue: "0",
+        key: "pan3",
+        label: "Pan3",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Pair 3 stereo balance. 0 = unchanged. −1 = left only. +1 = right only.",
+      },
+      {
+        defaultValue: "0",
+        key: "volume4",
+        kind: "decibels",
+        label: "Volume4",
+        max: "12",
+        mid: "0",
+        min: "-140",
+        minusInf: true,
+        nonlinearSlider: true,
+        linearSmoothing: true,
+        smoothingType: "linear",
+        smoothingMode: "internal",
+        smoothingSeconds: 0.0333,
+        step: "any",
+        unit: "dB",
+        tooltip: "Pair 4 level (−∞…+12 dB). 0 dB is unity.",
+      },
+      {
+        defaultValue: "0",
+        key: "pan4",
+        label: "Pan4",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Pair 4 stereo balance. 0 = unchanged. −1 = left only. +1 = right only.",
+      },
+      {
+        defaultValue: "0",
+        key: "amplitude",
+        kind: "decibels",
+        label: "Amplitude (All)",
+        max: "12",
+        mid: "0",
+        min: "-140",
+        minusInf: true,
+        nonlinearSlider: true,
+        linearSmoothing: true,
+        smoothingType: "linear",
+        smoothingMode: "internal",
+        smoothingSeconds: 0.0333,
+        step: "any",
+        unit: "dB",
+        tooltip: "Master gain after all four pairs (−∞…+12 dB). 0 dB is unity.",
+      },
+    ],
+  },
   // Legacy type id → same as mix (load alias until patches re-save).
   gainBiasMix: {
     planRole: "processor",
@@ -3564,6 +3752,45 @@ const nodeGraphModuleDefinitions = (
         step: "any"
       },
     ]
+  },
+  u2b: {
+    planRole: "processor",
+    defaultWidthGu: 3,
+    defaultUi: {
+      buttonsHidden: true,
+      oscilloscopeHidden: true,
+    },
+    inputLabels: { In: "in" },
+    outputLabels: { Out: "out" },
+    inputs: ["In"],
+    outputs: ["Out"],
+    parameters: [],
+  },
+  b2u: {
+    planRole: "processor",
+    defaultWidthGu: 3,
+    defaultUi: {
+      buttonsHidden: true,
+      oscilloscopeHidden: true,
+    },
+    inputLabels: { In: "in" },
+    outputLabels: { Out: "out" },
+    inputs: ["In"],
+    outputs: ["Out"],
+    parameters: [],
+  },
+  inv: {
+    planRole: "processor",
+    defaultWidthGu: 3,
+    defaultUi: {
+      buttonsHidden: true,
+      oscilloscopeHidden: true,
+    },
+    inputLabels: { In: "in" },
+    outputLabels: { Out: "out" },
+    inputs: ["In"],
+    outputs: ["Out"],
+    parameters: [],
   },
   attenuverter: {
     planRole: "processor",
@@ -4211,7 +4438,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out", "Left", "Right"],
     parameters: [
       {
-        choices: ["LP6", "BP6", "HP6"],
+        choices: ["LP", "BP", "HP"],
         defaultValue: "0",
         displayChoices: true,
         key: "mode",
@@ -4222,7 +4449,22 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "1-pole (~6 dB/oct). HP6 tames lows gently; LP6 softens highs; BP6 is both filters in one (HP then LP)."
+        tooltip: "Real-pole stacks. LP / HP use High Cut / Low Cut. BP is HP then LP. Old LP6/BP6/HP6 values stay 0/1/2."
+      },
+      {
+        choices: ["6", "12", "18", "24"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "slope",
+        label: "Slope",
+        linearSmoothing: false,
+        max: "3",
+        mid: "1.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Cascaded real 1-poles. 6 dB = one pole; 24 dB = four. No resonance."
       },
       {
         defaultValue: "200",
@@ -4235,7 +4477,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Highpass cutoff (~6 dB/oct). Used in HP and BP. Sweep moves this with High Cut in musical steps."
+        tooltip: "Highpass cutoff (HP and BP). Sweep moves this with High Cut in musical steps."
       },
       {
         defaultValue: "1000",
@@ -4248,7 +4490,18 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Lowpass cutoff (~6 dB/oct). Used in LP and BP. Sweep moves this with Low Cut in musical steps."
+        tooltip: "Lowpass cutoff (LP and BP). Sweep moves this with Low Cut in musical steps."
+      },
+      {
+        defaultValue: "1",
+        key: "stagger",
+        label: "Stagger",
+        max: "4",
+        mid: "1.6",
+        min: "1",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Pole spread ratio k. 1 = same freq; ~1.5 gentle spread; above ~2.2 a stair-step. No effect at 6 dB."
       },
       {
         defaultValue: "0",
@@ -4262,6 +4515,20 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "st",
         tooltip: "Shift used cutoffs in semitones. BP keeps the Low/High interval (ratio) constant."
+      },
+      {
+        choices: ["Off", "On"],
+        defaultValue: "1",
+        displayChoices: true,
+        key: "gainCompensation",
+        label: "Gain Comp",
+        linearSmoothing: false,
+        max: "1",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "On = scale poles so the labeled cutoff is −3 dB. Off = every pole sits on the staggered freqs. No effect at 6 dB."
       },
         nodeGraphOutputAmplitudeParam,
     ]
@@ -7796,19 +8063,19 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0", key: "modVariation", label: "Variation", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any" },
       {
         choices: ["Linear", "Hermite"],
-        defaultValue: "1",
+        defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
         key: "interpolation",
         label: "Interp",
         linearSmoothing: false,
         max: "1",
-        mid: "1",
+        mid: "0",
         min: "0",
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Delay-line fractional read. Linear is cheapest; Hermite (Catmull-Rom) is smoother under modulation / pitch bend."
+          "Delay-line fractional read. Linear only for now (Hermite parked — CPU experiment)."
       },
       {
         defaultValue: "1",
@@ -8025,19 +8292,19 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       {
         choices: ["Linear", "Hermite"],
-        defaultValue: "1",
+        defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
         key: "interpolation",
         label: "Interp",
         linearSmoothing: false,
         max: "1",
-        mid: "1",
+        mid: "0",
         min: "0",
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Delay-line fractional read. Linear is cheapest; Hermite (Catmull-Rom) is smoother under LFO drift / pitch bend."
+          "Delay-line fractional read. Linear only for now (Hermite parked — CPU experiment)."
       },
     ]
   },
@@ -10552,12 +10819,12 @@ const nodeGraphModuleDefinitions = (
     output: true,
     parameters: [
       {
-        defaultValue: "-20",
+        defaultValue: "-3",
         key: "volume",
         kind: "decibels",
         label: "Volume",
-        max: "12",
-        mid: "-20",
+        max: "0",
+        mid: "-3",
         min: "-140",
         minusInf: true,
         nonlinearSlider: true,
@@ -10567,7 +10834,7 @@ const nodeGraphModuleDefinitions = (
         smoothingSeconds: 0.0333,
         step: "any",
         unit: "dB",
-        tooltip: "Speaker level (−∞…+12 dB). 0 dB is unity. Old patches that stored 0…1 linear Volume are converted on load. Type a dB value (or −inf)."
+        tooltip: "Speaker level (−∞…0 dB). 0 dB is unity. Default −3 dB. Old patches that stored 0…1 linear Volume are converted on load. Type a dB value (or −inf)."
       },
       {
         defaultValue: "0",

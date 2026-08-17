@@ -184,6 +184,14 @@ function createNodeGraphHeaderTimingInput(key, label, options = {}) {
   caption.className = "node-header-timing-caption";
   caption.textContent = label;
   field.append(caption);
+  if (options.nameValue) {
+    field.classList.add("is-name-value");
+    const colon = document.createElement("span");
+    colon.className = "node-header-timing-colon";
+    colon.textContent = ":";
+    colon.setAttribute("aria-hidden", "true");
+    field.append(colon);
+  }
 
   const input = document.createElement("input");
   input.className = "node-header-timing-input";
@@ -214,6 +222,14 @@ function createNodeGraphHeaderAudioInput(key, label, options = {}) {
   caption.className = "node-header-timing-caption";
   caption.textContent = label;
   field.append(caption);
+  if (options.nameValue) {
+    field.classList.add("is-name-value");
+    const colon = document.createElement("span");
+    colon.className = "node-header-timing-colon";
+    colon.textContent = ":";
+    colon.setAttribute("aria-hidden", "true");
+    field.append(colon);
+  }
 
   const input = document.createElement("input");
   input.className = "node-header-timing-input";
@@ -544,31 +560,49 @@ function createNodeGraphHeaderTimingWidgets() {
   return group;
 }
 
+function nodeGraphPlanckReadoutText() {
+  const n = typeof nodeGraphPlanck === "function"
+    ? nodeGraphPlanck()
+    : (typeof NODE_GRAPH_PLANCK === "number" ? NODE_GRAPH_PLANCK : 1e-7);
+  return Number.isFinite(n) ? n.toFixed(7) : "0.0000001";
+}
+
+function createNodeGraphPlanckReadout() {
+  const field = document.createElement("div");
+  field.className = "node-header-timing-field node-header-planck-readout is-name-value";
+  field.setAttribute("aria-label", "Planck");
+  const caption = document.createElement("span");
+  caption.className = "node-header-timing-caption";
+  caption.textContent = "Planck";
+  const colon = document.createElement("span");
+  colon.className = "node-header-timing-colon";
+  colon.textContent = ":";
+  colon.setAttribute("aria-hidden", "true");
+  const value = document.createElement("span");
+  value.className = "node-header-planck-value";
+  value.textContent = nodeGraphPlanckReadoutText();
+  field.append(caption, colon, value);
+  return field;
+}
+
 function createNodeGraphCommandCenterTimingWidgets() {
   const group = document.createElement("div");
   group.className = "node-header-timing-widgets node-command-center-timing-widgets";
   group.setAttribute("aria-label", "Command Center patch timing");
-
-  const tempoRow = document.createElement("div");
-  tempoRow.className = "node-command-center-timing-row node-command-center-timing-row-tempo";
-  tempoRow.append(
-    createNodeGraphHeaderTimingInput("tempoBpm", "BPM", { max: 320 }),
-    createNodeGraphHeaderTimingInput("timeSignatureNumerator", "Beats"),
-    createNodeGraphHeaderTimingInput("timeSignatureDenominator", "Unit"),
-  );
-
-  const pitchRow = document.createElement("div");
-  pitchRow.className = "node-command-center-timing-row node-command-center-timing-row-pitch";
-  pitchRow.append(
+  const nv = { nameValue: true };
+  group.append(
+    createNodeGraphHeaderTimingInput("tempoBpm", "BPM", { ...nv, max: 320 }),
+    createNodeGraphHeaderTimingInput("timeSignatureNumerator", "Beats", nv),
+    createNodeGraphHeaderTimingInput("timeSignatureDenominator", "Unit", nv),
     createNodeGraphHeaderAudioInput("pitchReferenceHz", "Freq Ref", {
+      ...nv,
       ariaLabel: "Pitch Reference Frequency in Hz (0.1V/Oct reference)",
       tooltipKey: "timing.pitchReferenceHz",
       min: 0.01,
       max: 20000,
     }),
+    createNodeGraphPlanckReadout(),
   );
-
-  group.append(tempoRow, pitchRow);
   return group;
 }
 
@@ -577,7 +611,10 @@ function renderNodeGraphCommandCenterTimingControls() {
   if (!host) {
     return;
   }
-  if (!host.querySelector(".node-command-center-timing-widgets")) {
+  if (
+    !host.querySelector(".node-command-center-timing-widgets")
+    || !host.querySelector(".node-header-planck-readout")
+  ) {
     host.replaceChildren(createNodeGraphCommandCenterTimingWidgets());
   }
   bindNodeGraphHeaderTimingWidgets(host);

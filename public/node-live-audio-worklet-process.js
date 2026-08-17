@@ -6,6 +6,11 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
     const output = outputs[0] || [];
     const frames = output[0]?.length || 128;
     const input = inputs[0] || [];
+    // Same buffer the Input / Plugin Input evaluators scale by Amplitude.
+    this.externalInput = {
+      left: input[0] || input[1] || null,
+      right: input[1] || input[0] || null,
+    };
     // App-wide: oversampling under construction — never multi-rate in process.
     const oversamplingRatio = 1;
     const rawEngineSampleRate = Math.max(1, this.hostSampleRate || this.engineSampleRate || sampleRate || 44100);

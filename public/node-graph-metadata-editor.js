@@ -2360,8 +2360,16 @@ function readNodeMetadataEditorValues(slider) {
   };
   let min = parseNodeMetadataNumber(sanitizeMetadataNumberInput("metadataMinValue"), current.min);
   let max = parseNodeMetadataNumber(sanitizeMetadataNumberInput("metadataMaxValue"), current.max);
-  if (min > max) {
+  if (Number.isFinite(min) && Number.isFinite(max) && min > max) {
     [min, max] = [max, min];
+    const minInput = document.getElementById("metadataMinValue");
+    const maxInput = document.getElementById("metadataMaxValue");
+    if (minInput) {
+      minInput.value = formatNodeSliderCompactNumber(min);
+    }
+    if (maxInput) {
+      maxInput.value = formatNodeSliderCompactNumber(max);
+    }
   }
   const stepInput = sanitizeMetadataNumberInput("metadataStepValue");
   const kind = normalizeNodeMetadataKind(document.getElementById("metadataKindValue").value);

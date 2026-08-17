@@ -57,8 +57,16 @@ NodeLiveAudioProcessor.prototype.outputSampleTripsEarProtection = function outpu
       return nodeGraphSpeakerProtector2SampleTrips(value);
     }
     const number = Number(value);
-    const eps = typeof NODE_GRAPH_NUMERIC_PRECISION === "number" ? NODE_GRAPH_NUMERIC_PRECISION : 1e-7;
-    return !Number.isFinite(number) || Math.abs(number) >= 1 + eps;
+    if (!Number.isFinite(number)) {
+      return true;
+    }
+    if (typeof nodeGraphOutsideUnity === "function") {
+      return nodeGraphOutsideUnity(number);
+    }
+    const eps = typeof nodeGraphPlanck === "function"
+      ? nodeGraphPlanck()
+      : (typeof NODE_GRAPH_PLANCK === "number" ? NODE_GRAPH_PLANCK : 1e-7);
+    return Math.abs(number) >= 1 + eps;
 };
 
 NodeLiveAudioProcessor.prototype.badValueReason = function badValueReason(value) {

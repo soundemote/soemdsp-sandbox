@@ -29,6 +29,18 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // so its block cache also refills transparently with no added latency.
   static NOISE_NATIVE_BLOCK_SIZE = 128;
 
+  // Sabrina Reverb is an effect (needs per-sample input), so its block
+  // kernel cannot generate ahead like FBM/noise. Inputs are collected for
+  // this many samples, then soemdsp_sabrina_reverb_process_block runs once
+  // (~2.9ms @ 44.1kHz). Mix is one block behind Dry; Dry ports stay
+  // sample-accurate. Cuts ~384 JS<->WASM crossings per quantum to one.
+  static SABRINA_NATIVE_BLOCK_SIZE = 128;
+
+  // RobinSinusoid generator block — same 128-sample quantum as FBM/noise
+  // when Frequency is not audio-rate wired. Reset or an `f` jack falls
+  // back to per-sample soemdsp_robin_sinusoid_sample.
+  static ROBIN_SINUSOID_NATIVE_BLOCK_SIZE = 128;
+
   constructor() {
     super();
     this.liveModuleEvaluators = this.buildLiveModuleEvaluators();
@@ -115,6 +127,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.ellipsoidOutputFrames = new Map();
     this.nativeEllipsoid = null;
     this.nativeEllipsoidReady = false;
+    this.nativeU2b = null;
+    this.nativeU2bReady = false;
+    this.nativeB2u = null;
+    this.nativeB2uReady = false;
+    this.nativeInv = null;
+    this.nativeInvReady = false;
     this.nativeSabrinaReverb = null;
     this.nativeSabrinaReverbReady = false;
     this.nativeSoemReverb = null;
@@ -271,6 +289,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.minMaxStates = new Map();
     this.aliasSineStates = new Map();
     this.robinSinusoidStates = new Map();
+    this.nativeRobinSinusoid = null;
+    this.nativeRobinSinusoidReady = false;
     this.phoneToneStates = new Map();
     this.ladderFilterStates = new Map();
     this.tb303FilterStates = new Map();

@@ -3,8 +3,10 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
+const semathPath = path.join(__dirname, "..", "public", "node-graph-semath.js");
 const mathPath = path.join(__dirname, "..", "public", "modules", "speakerProtector2", "speaker-protector-2-math.js");
 const ctx = { Math, Number, console };
+vm.runInNewContext(fs.readFileSync(semathPath, "utf8"), ctx);
 vm.runInNewContext(fs.readFileSync(mathPath, "utf8"), ctx);
 
 const RATE = 48000;
@@ -171,11 +173,16 @@ function sineQuiet(state, n) {
 
 // 9. Unity must not trip. 1 + NODE_GRAPH_NUMERIC_PRECISION must trip.
 {
-  const eps = ctx.NODE_GRAPH_NUMERIC_PRECISION;
-  if (!(eps > 0) || eps !== 1e-7) {
-    fail(`expected NODE_GRAPH_NUMERIC_PRECISION === 1e-7, got ${eps}`);
+  const eps = ctx.NODE_GRAPH_PLANCK;
+  if (!(eps > 0) || eps !== 1e-7 || ctx.NODE_GRAPH_NUMERIC_PRECISION !== eps) {
+    fail(`expected NODE_GRAPH_PLANCK === 1e-7, got ${eps} / ${ctx.NODE_GRAPH_NUMERIC_PRECISION}`);
   } else {
-    ok("numeric precision is 1e-7");
+    ok("planck is 1e-7");
+  }
+  if (!ctx.nodeGraphAboveUnity || ctx.nodeGraphAboveUnity(1) || !ctx.nodeGraphAboveUnity(1 + eps)) {
+    fail("nodeGraphAboveUnity should be false at 1 and true at 1+planck");
+  } else {
+    ok("aboveUnity matches planck");
   }
   const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
   let last = null;

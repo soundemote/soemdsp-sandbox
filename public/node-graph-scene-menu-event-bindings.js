@@ -68,6 +68,21 @@ function bindNodeGraphSceneMenuEvents() {
       attenuateSelectedNodeGraphWires("attenuvert");
     }
   });
+  bindNodeGraphSceneElementEvent("nodeSceneWireU2b", "click", () => {
+    if (typeof convertPolarityOnSelectedNodeGraphWires === "function") {
+      convertPolarityOnSelectedNodeGraphWires("u2b");
+    }
+  });
+  bindNodeGraphSceneElementEvent("nodeSceneWireB2u", "click", () => {
+    if (typeof convertPolarityOnSelectedNodeGraphWires === "function") {
+      convertPolarityOnSelectedNodeGraphWires("b2u");
+    }
+  });
+  bindNodeGraphSceneElementEvent("nodeSceneWireInv", "click", () => {
+    if (typeof convertPolarityOnSelectedNodeGraphWires === "function") {
+      convertPolarityOnSelectedNodeGraphWires("inv");
+    }
+  });
   bindNodeGraphSceneElementEvent("nodeSceneCopyModule", "click", copyNodeGraphModuleFromContext);
   // Wired but disabled -- module grouping itself is under construction (see
   // saveNodeGraphSelectionAsModuleGroup's early return in

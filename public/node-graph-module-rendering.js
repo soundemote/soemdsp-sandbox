@@ -30,11 +30,9 @@ function attachNodeGraphSolidModuleShellEvents(node) {
     // Graph face owns double-click (add/remove points). Knob face owns
     // double-click type-in (Bias). Do not open Module Settings from those.
     face.addEventListener("dblclick", (event) => {
-      if (event.target?.closest?.(".node-module-graph-display, .node-knob-face, .node-keypad-face")) {
-        return;
-      }
-      if (typeof handleNodeGraphScreenSoloDoubleClick === "function"
-        && handleNodeGraphScreenSoloDoubleClick(event)) {
+      if (event.target?.closest?.(
+        ".node-module-graph-display, .node-knob-face, .node-keypad-face, .node-xy-pad, .node-text-box-body, .node-phosphillator-draw-display",
+      )) {
         return;
       }
       openNodeModuleActionMenu(event);
@@ -44,7 +42,9 @@ function attachNodeGraphSolidModuleShellEvents(node) {
   node.querySelectorAll(".node-solid-module-shell").forEach((shell) => {
     shell.addEventListener("pointerdown", beginNodeGraphNodeDrag);
     shell.addEventListener("dblclick", (event) => {
-      if (event.target?.closest?.(".node-module-graph-display, .node-knob-face")) {
+      if (event.target?.closest?.(
+        ".node-module-graph-display, .node-knob-face, .node-keypad-face, .node-xy-pad, .node-text-box-body, .node-phosphillator-draw-display",
+      )) {
         return;
       }
       openNodeModuleActionMenu(event);

@@ -62,6 +62,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "b2u",
+      "label": "B2U",
+      "targetType": "b2u",
+      "kind": "utility",
+      "source": "native_modules/b2u/b2u.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/b2u/b2u.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/b2u/b2u.wasm",
+      "wasmUrl": "native_modules/b2u/b2u.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "basic_oscillator",
       "label": "LFO",
       "targetType": "osc",
@@ -407,6 +419,18 @@
       "libUrl": "",
       "wasm": "native_modules/hypersaw/hypersaw.wasm",
       "wasmUrl": "native_modules/hypersaw/hypersaw.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "inv",
+      "label": "Inv",
+      "targetType": "inv",
+      "kind": "utility",
+      "source": "native_modules/inv/inv.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/inv/inv.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/inv/inv.wasm",
+      "wasmUrl": "native_modules/inv/inv.wasm",
       "wasmAvailable": true
     },
     {
@@ -830,6 +854,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "robin_sinusoid",
+      "label": "RobinSinusoid",
+      "targetType": "robinSinusoid",
+      "kind": "oscillator",
+      "source": "native_modules/robin_sinusoid/robin_sinusoid.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/robin_sinusoid/robin_sinusoid.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/generators/rosic_SineOscillator.h",
+      "wasm": "native_modules/robin_sinusoid/robin_sinusoid.wasm",
+      "wasmUrl": "native_modules/robin_sinusoid/robin_sinusoid.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "robin_supersaw",
       "label": "RobinSupersaw",
       "targetType": "robinSupersaw",
@@ -1067,6 +1103,18 @@
       "libUrl": "",
       "wasm": "native_modules/turing_machine/turing_machine.wasm",
       "wasmUrl": "native_modules/turing_machine/turing_machine.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "u2b",
+      "label": "U2B",
+      "targetType": "u2b",
+      "kind": "utility",
+      "source": "native_modules/u2b/u2b.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/u2b/u2b.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/u2b/u2b.wasm",
+      "wasmUrl": "native_modules/u2b/u2b.wasm",
       "wasmAvailable": true
     },
     {

@@ -80,6 +80,9 @@ nodeGraphLiveModuleEvaluators.ellipsoid = ({
   let nextPhase = ctx.phase + ctx.phaseIncrement;
   nextPhase -= Math.floor(nextPhase);
   runtime.phases.set(nodeId, nextPhase);
+  if (value && typeof value === "object") {
+    value.__Phase = samplePhase;
+  }
   return value;
 };
 

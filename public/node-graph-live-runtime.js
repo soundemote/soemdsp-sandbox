@@ -57,7 +57,7 @@ function setNodeGraphLiveOutputMuted(muted) {
 }
 
 // â”€â”€ Module level mirrors (toolbar ðŸ”Š â†” Input/Output module params) â”€â”€â”€â”€â”€â”€â”€â”€
-// Loudness lives in the graph (audioInput.level, output.volume). Host gain is
+// Loudness lives in the graph (audioInput.amplitude, output.volume). Host gain is
 // mute-only for output and unity for input so we never double-apply.
 
 function nodeGraphPatchModuleNodeByType(type, fallbackId = "") {
@@ -156,7 +156,7 @@ function nodeGraphAudioInputModuleNode() {
 /** Canonical live out level in dB (Output module Volume). */
 function getNodeGraphOutputModuleVolumeDb() {
   const node = nodeGraphOutputModuleNode();
-  const fallback = -20;
+  const fallback = -3;
   if (!node) {
     return fallback;
   }
@@ -183,8 +183,13 @@ function getNodeGraphOutputModuleVolume() {
 
 /** Canonical live in level = Input module Amplitude / level (0..1). */
 function getNodeGraphAudioInputModuleLevel() {
+  const node = nodeGraphAudioInputModuleNode();
+  const fromAmplitude = nodeGraphReadModuleParamLevel(node, "amplitude", NaN);
+  if (Number.isFinite(fromAmplitude)) {
+    return fromAmplitude;
+  }
   return nodeGraphReadModuleParamLevel(
-    nodeGraphAudioInputModuleNode(),
+    node,
     "level",
     nodeGraphMvp?.live?.inputVolume ?? 1,
   );
@@ -192,7 +197,7 @@ function getNodeGraphAudioInputModuleLevel() {
 
 function setNodeGraphOutputModuleVolumeDb(db, options = {}) {
   const node = nodeGraphOutputModuleNode();
-  const value = Number.isFinite(Number(db)) ? Number(db) : -20;
+  const value = Number.isFinite(Number(db)) ? Number(db) : -3;
   const lockKey = "_outputVolumeMirrorLock";
   if (node && !options.fromModuleSlider) {
     node.params = { ...(node.params || {}), volume: value };
@@ -252,7 +257,7 @@ function setNodeGraphOutputModuleVolume(value, options = {}) {
 function setNodeGraphAudioInputModuleLevel(value, options = {}) {
   const level = nodeGraphWriteModuleParamLevel(
     nodeGraphAudioInputModuleNode(),
-    "level",
+    "amplitude",
     value,
     { ...options, lockKey: "_inputVolumeMirrorLock" },
   );
@@ -318,7 +323,7 @@ function syncNodeGraphLiveVolumeMirrorsFromModules() {
 }
 
 /**
- * Mic host gain is always unity. Attenuation is audioInput.level in the graph
+ * Mic host gain is always unity. Attenuation is audioInput.amplitude in the graph
  * (same rule as output: one place for loudness). Node still exists so the
  * stream can be rewired without re-prompting for permission.
  */
@@ -506,7 +511,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=raster-rgb-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=inv-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -1961,6 +1966,9 @@ function handleNodeGraphLiveWorkletMessage(event) {
     if (typeof updateNodeGraphPitchDetectorFacesFromScopeValues === "function") {
       updateNodeGraphPitchDetectorFacesFromScopeValues(scopeValues);
     }
+    if (typeof drawNodeGraphRoundShapeDisplays === "function") {
+      drawNodeGraphRoundShapeDisplays();
+    }
     if (Array.isArray(message.dataPorts) && message.dataPorts.length) {
       for (const [nodeId, port, value] of message.dataPorts) {
         writeNodeGraphDataOutput(String(nodeId), port, value);
@@ -2843,42 +2851,43 @@ async function stopNodeGraphLiveAudio() {
 const nodeGraphLiveWorkletSourceFiles = [
   // Pure stdlib first so per-module worklet chunks can call nodeGraphWrap01 /
   // nodeGraphTrisaw / nodeGraphPitchedFrequency / nodeGraphAdvancePhase01.
+  "./public/node-graph-semath.js?v=planck-1",
   "./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1",
-  "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=io3-1",
+  "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=input-amp-1",
   "./public/modules/portal/portal-math.js?v=io3-1",
   "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=unit-mod-linear-1",
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
-  "./public/node-graph-parameter-smoother-filters.js?v=module-smooth-0333-1",
+  "./public/node-graph-parameter-smoother-filters.js?v=dirty-skip-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=t-series-1",
-  "./public/node-live-audio-worklet-core.js?v=player-speed-readout-1",
+  "./public/node-live-audio-worklet-core.js?v=inv-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
-  "./public/node-live-audio-worklet-smoother.js?v=module-smooth-0333-1",
+  "./public/node-live-audio-worklet-smoother.js?v=dirty-skip-1",
   "./public/node-live-audio-worklet-param-map.js?v=domain-mod-1",
-  "./public/node-live-audio-worklet-destroy.js?v=plan-d-split-6",
+  "./public/node-live-audio-worklet-destroy.js?v=sabrina-block-1",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=hermite-1",
-  "./public/node-live-audio-worklet-dsp-state.js?v=peak-eps-1e7-1",
+  "./public/node-live-audio-worklet-dsp-state.js?v=planck-1",
   "./public/node-live-audio-worklet-events.js?v=domain-mod-1",
   "./public/node-live-audio-worklet-visual.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-scope-io.js?v=visual-rate-meta-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-evaluators-sources.js?v=fbf-amp-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=active-no-freq-1",
-  "./public/node-live-audio-worklet-evaluators-utility.js?v=io3-1",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=inv-1",
+  "./public/node-live-audio-worklet-evaluators-utility.js?v=input-amp-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
-  "./public/node-live-audio-worklet-native-exports.js?v=soft-clipper-gain-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=kick-split-1",
+  "./public/node-live-audio-worklet-native-exports.js?v=inv-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=robin-native-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=kick-split-1",
   "./public/node-live-audio-worklet-handle-message.js?v=keypad-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=visual-rate-meta-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
-  "./public/node-live-audio-worklet-evaluate-frame.js?v=io3-1",
-  "./public/node-live-audio-worklet-process.js?v=player-speed-readout-1",
+  "./public/node-live-audio-worklet-evaluate-frame.js?v=out-vol-m3-1",
+  "./public/node-live-audio-worklet-process.js?v=input-amp-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=xy-pad-dsp-path-1",
-  "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=uni-bi-outs-1",
+  "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=robin-native-1",
+  "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=round-phase-1",
   "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=sincos-no-amp-in-1",
   "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-core-1",
   "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=one-core-native-20260803",
@@ -2927,7 +2936,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   // Musical engines last among musical/chord chunks so JS spruces override native-only stubs.
   "./public/modules/musicalEngines/musical-engines-worklet-evaluator.js?v=musical-engines-1",
   "./public/modules/lutCell/lut-cell-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/passiveFilter/passive-filter-worklet-evaluator.js?v=bp-two-in-one-1",
+  "./public/modules/passiveFilter/passive-filter-math.js?v=stagger-cache-1",
+  "./public/modules/passiveFilter/passive-filter-worklet-evaluator.js?v=passive-slope-1",
   "./public/modules/papoulisFilter/papoulis-filter-worklet-evaluator.js?v=xy-pad-native-1",
   "./public/modules/phosphillator/phosphillator-worklet-evaluator.js?v=drawnpath-fix-1",
   "./public/modules/cookbookFilter/cookbook-filter-worklet-evaluator.js?v=native-strip-1",
@@ -2949,12 +2959,12 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/minMax/min-max-worklet-evaluator.js?v=min-max-1",
   "./public/modules/aliasSine/alias-sine-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/robinSinusoid/robin-sinusoid-math.js?v=robin-sin-fm-1",
-  "./public/modules/robinSinusoid/robin-sinusoid-worklet-evaluator.js?v=robin-sin-fm-1",
+  "./public/modules/robinSinusoid/robin-sinusoid-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/tb303Filter/tb303-filter-worklet-evaluator.js?v=native-no-fallback-1",
-  "./public/modules/delayEffect/delay-effect-worklet-evaluator.js?v=delay-mixm-1",
-  "./public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js?v=tape-lfo-1",
+  "./public/modules/delayEffect/delay-effect-worklet-evaluator.js?v=linear-smooth-only-1",
+  "./public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js?v=linear-smooth-only-1",
   "./public/modules/wallDelay/wall-delay-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/reverbEffect/reverb-effect-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/reverbEffect/reverb-effect-worklet-evaluator.js?v=sabrina-mix-dirty-1",
   "./public/modules/soemReverb/soem-reverb-worklet-evaluator.js?v=5-ping-pong",
   "./public/modules/pll/pll-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js?v=pitch-display-1",
@@ -3020,7 +3030,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/rasterRgb/raster-rgb-math.js?v=bipolar-grade-1",
   "./public/modules/rasterRgb/raster-rgb-worklet-evaluator.js?v=bipolar-grade-1",
   "./public/modules/rgbDisplays/rgb-display-worklet-evaluator.js?v=trace-xyz-1",
-  "./public/modules/phoneTone/phone-tone-math.js?v=phone-tone-layout-a-1",
+  "./public/modules/phoneTone/phone-tone-math.js?v=tone-lr-1",
   "./public/modules/phoneTone/phone-tone-worklet-evaluator.js?v=phone-tone-layout-a-1",
   "./public/modules/xyPad/xy-pad-dsp.js?v=xy-amp-xy-1",
   "./public/modules/xyPad/xy-pad-worklet-evaluator.js?v=xy-amp-xy-1",
@@ -3048,7 +3058,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/nextPatch/next-patch-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-os-1",
   "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=soft-clipper-os-1",
-  "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=peak-eps-1e7-1",
+  "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=planck-1",
   "./public/modules/speakerProtector2/speaker-protector-2-worklet-evaluator.js?v=speaker-protector-noclip-1",
   "./public/modules/clipperLimiter/clipper-limiter-math.js?v=clipper-order-1",
   "./public/modules/clipperLimiter/clipper-limiter-worklet-evaluator.js?v=clipper-order-1",
@@ -3066,10 +3076,15 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/gain/gain-math.js?v=output-db-1",
   "./public/modules/gain/gain-worklet-evaluator.js?v=gain-db-1",
+  "./public/modules/mixStereo/mix-stereo-math.js?v=mix-stereo-mono-1",
+  "./public/modules/mixStereo/mix-stereo-worklet-evaluator.js?v=mix-stereo-mono-1",
   "./public/modules/bias/bias-math.js?v=bias-io-1",
   "./public/modules/bias/bias-worklet-evaluator.js?v=bias-io-1",
   "./public/modules/attenuverter/attenuverter-math.js?v=attenuverter-1",
   "./public/modules/attenuverter/attenuverter-worklet-evaluator.js?v=attenuverter-1",
+  "./public/modules/u2b/u2b-worklet-evaluator.js?v=u2b-1",
+  "./public/modules/b2u/b2u-worklet-evaluator.js?v=b2u-1",
+  "./public/modules/inv/inv-worklet-evaluator.js?v=inv-1",
 
   "./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js?v=rotate-3d-to-2d-1",
   "./public/modules/rotate3dTo2d/rotate-3d-to-2d-worklet-evaluator.js?v=rotate-3d-to-2d-1",

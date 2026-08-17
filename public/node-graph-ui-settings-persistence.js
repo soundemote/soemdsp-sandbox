@@ -532,6 +532,19 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
     element.hidden = true;
     return;
   }
+  if (key === "uiDev") {
+    // UIDEV is a page inside UI Settings, not its own window.
+    if (state.open && nodeGraphMvp) {
+      nodeGraphMvp.uiSettingsPage = "uidev";
+    }
+    if (typeof mountNodeUiDevHelperAsUiSettingsPage === "function") {
+      mountNodeUiDevHelperAsUiSettingsPage();
+    }
+    if (typeof syncNodeUserUiSettingsPageChrome === "function") {
+      syncNodeUserUiSettingsPageChrome();
+    }
+    return;
+  }
   if (typeof nodeGraphWorkspaceKeyIsUnifiedPage === "function"
     ? nodeGraphWorkspaceKeyIsUnifiedPage(key)
     : key === "visibilityMenu") {
@@ -1211,6 +1224,9 @@ function normalizeNodeGraphUserSession(payload = {}) {
     bookScriptPage: payload.bookScriptPage === "ui-settings" || view.bookScriptPage === "ui-settings"
       ? "ui-settings"
       : "patch",
+    uiSettingsPage: (payload.uiSettingsPage ?? view.uiSettingsPage) === "uidev"
+      ? "uidev"
+      : "settings",
     unifiedWindowPage: typeof nodeGraphUnifiedWindowPageConfig === "function"
       && nodeGraphUnifiedWindowPageConfig(payload.unifiedWindowPage ?? view.unifiedWindowPage)
       ? String(payload.unifiedWindowPage ?? view.unifiedWindowPage)
@@ -1292,6 +1308,7 @@ function readNodeGraphUserSessionFromState() {
       : nodeGraphMvp.filePicker,
     viewMode: normalizeNodeGraphPersistedViewMode(nodeGraphMvp.viewMode),
     bookScriptPage: nodeGraphMvp.bookScriptPage === "ui-settings" ? "ui-settings" : "patch",
+    uiSettingsPage: nodeGraphMvp.uiSettingsPage === "uidev" ? "uidev" : "settings",
     unifiedWindowPage: String(nodeGraphMvp.unifiedWindowPage || ""),
     unifiedWindowPresentation: String(nodeGraphMvp.unifiedWindowPresentation || "closed"),
     unifiedWindowPosition: nodeGraphMvp.unifiedWindowPosition
@@ -1398,6 +1415,10 @@ function applyNodeGraphUserSession(session, options = {}) {
       : "untouched";
   nodeGraphMvp.viewMode = normalizeNodeGraphPersistedViewMode(normalized.viewMode);
   nodeGraphMvp.bookScriptPage = normalized.bookScriptPage === "ui-settings" ? "ui-settings" : "patch";
+  nodeGraphMvp.uiSettingsPage = normalized.uiSettingsPage === "uidev" ? "uidev" : "settings";
+  if (typeof syncNodeUserUiSettingsPageChrome === "function") {
+    syncNodeUserUiSettingsPageChrome();
+  }
   nodeGraphMvp.unifiedWindowPage = String(normalized.unifiedWindowPage || "");
   nodeGraphMvp.unifiedWindowPresentation = String(normalized.unifiedWindowPresentation || "closed");
   nodeGraphMvp.unifiedWindowPosition = normalized.unifiedWindowPosition || null;

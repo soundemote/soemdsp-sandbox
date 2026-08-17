@@ -287,59 +287,25 @@ function syncNodeUiDevModuleIdleStroke() {
   );
 }
 
-function syncNodeUiDevModuleRoundness() {
-  const roundEl = document.getElementById("nodeUiDevModuleRoundness");
-  const roundOut = document.getElementById("nodeUiDevModuleRoundnessValue");
-  const shapeEl = document.getElementById("nodeUiDevModuleCornerShape");
+const NODE_MODULE_PLATE_ROUNDNESS_RATIO = 0.11;
+const NODE_MODULE_PLATE_CORNER_SHAPE = "squircle";
+
+function applyNodeModulePlateLook() {
   const workspace = document.getElementById("nodeGraphWorkspace");
-  const percent = Math.max(0, Math.min(100, Number(roundEl?.value) || 0));
-  const shape = String(shapeEl?.value || "pill").toLowerCase() === "squircle" ? "squircle" : "pill";
-  if (roundEl && !roundEl.matches(":active")) {
-    roundEl.value = String(percent);
-  }
-  if (shapeEl) {
-    shapeEl.value = shape;
-  }
-  if (roundOut) {
-    roundOut.textContent = `${percent}%`;
-  }
-  for (const btn of document.querySelectorAll("[data-module-corner-shape]")) {
-    const active = btn.getAttribute("data-module-corner-shape") === shape;
-    btn.classList.toggle("active", active);
-    btn.setAttribute("aria-pressed", String(active));
-  }
-  workspace?.style.setProperty("--node-module-roundness-ratio", String(percent / 100));
-  workspace?.style.setProperty("--node-module-corner-shape", shape === "squircle" ? "squircle" : "round");
+  const ratio = String(NODE_MODULE_PLATE_ROUNDNESS_RATIO);
+  const shape = NODE_MODULE_PLATE_CORNER_SHAPE;
+  workspace?.style.setProperty("--node-module-roundness-ratio", ratio);
+  workspace?.style.setProperty("--node-module-corner-shape", shape);
+  document.documentElement.style.setProperty("--node-module-roundness-ratio", ratio);
+  document.documentElement.style.setProperty("--node-module-corner-shape", shape);
+}
+
+function syncNodeUiDevModuleRoundness() {
+  applyNodeModulePlateLook();
 }
 
 function bindNodeUiDevModuleRoundness() {
-  const roundEl = document.getElementById("nodeUiDevModuleRoundness");
-  if (roundEl && roundEl.dataset.moduleRoundnessBound !== "true") {
-    roundEl.dataset.moduleRoundnessBound = "true";
-    roundEl.addEventListener("input", syncNodeUiDevModuleRoundness);
-    roundEl.addEventListener("change", syncNodeUiDevModuleRoundness);
-  }
-  const host = document.getElementById("nodeUiDevHelper");
-  if (host && host.dataset.moduleCornerShapeBound !== "true") {
-    host.dataset.moduleCornerShapeBound = "true";
-    host.addEventListener("click", (event) => {
-      const btn = event.target?.closest?.("[data-module-corner-shape]");
-      if (!btn || !host.contains(btn)) {
-        return;
-      }
-      event.preventDefault();
-      const shape = btn.getAttribute("data-module-corner-shape") === "squircle" ? "squircle" : "pill";
-      const input = document.getElementById("nodeUiDevModuleCornerShape");
-      if (input) {
-        input.value = shape;
-      }
-      syncNodeUiDevModuleRoundness();
-      if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
-        scheduleNodeUiDevSettingsAutosave();
-      }
-    });
-  }
-  syncNodeUiDevModuleRoundness();
+  applyNodeModulePlateLook();
 }
 
 function bindNodeUiDevModuleIdleStroke() {

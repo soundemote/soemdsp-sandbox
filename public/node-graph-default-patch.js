@@ -190,7 +190,7 @@ const nodeGraphDefaultNodeConfigs = Object.freeze([
   },
   {
     ...createNodeGraphPatchNode("output", { id: "output", gx: 2, gy: -5 }),
-    params: { ...nodeGraphDefaultParamsForType("output"), volume: -2 },
+    params: { ...nodeGraphDefaultParamsForType("output") },
   },
 ]);
 

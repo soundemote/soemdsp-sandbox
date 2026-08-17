@@ -184,7 +184,7 @@ function nodeGraphDelayEffectSample(state, input, params, sampleRate, runtime = 
   const bufferOffset = delaySamples - delaySamples * lfo * modAmount + 1;
   state.position = (state.position + 1) % state.bufferSize;
   const readPosition = (state.position + state.bufferSize - bufferOffset) % state.bufferSize;
-  const interpMode = Math.round(Number(params.interpolation) || 0) >= 1 ? 1 : 0;
+  const interpMode = 0;
   const wet = typeof nodeGraphDelayInterpolate === "function"
     ? nodeGraphDelayInterpolate(state.buffer, readPosition, interpMode)
     : nodeGraphDelayInterpolateLinear(state.buffer, readPosition);
@@ -224,7 +224,7 @@ nodeGraphLiveModuleEvaluators.delayEffect = ({ runtime, node, nodeId, frame, fra
     modVariation: read("modVariation", 0),
     time: read("time", 0.18),
     // 0 = linear, 1 = hermite (default hermite).
-    interpolation: read("interpolation", 1),
+    interpolation: read("interpolation", 0),
   };
   // Mono In sums into both sides (not a third independent delay line).
   // Mix M = (Mix L + Mix R) * 0.5 — house mono-sum convention.

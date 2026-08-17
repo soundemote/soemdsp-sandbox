@@ -518,8 +518,16 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   roundShapeFace: Object.freeze({
-    fields: Object.freeze(["lineThickness", "lineBlur", "pixelDensity"]),
-    colors: Object.freeze(["backgroundColor", "strokeColor", "dotColor"]),
+    fields: Object.freeze([
+      "lineThickness",
+      "lineBrightness",
+      "dotThickness",
+      "dotBrightness",
+      "backgroundBrightness",
+      "lineBlur",
+      "pixelDensity",
+    ]),
+    colors: Object.freeze(["strokeColor", "dotColor", "backgroundColor"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
@@ -659,9 +667,14 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "maxFreq",
       "hue",
       "rounding",
+      "lineBrightness",
+      "dotThickness",
+      "dotBrightness",
+      "backgroundBrightness",
+      "lineBlur",
     ]),
     // Face plate (+ number readout ghost ink) + Knob arc colors.
-    colors: Object.freeze(["backgroundColor", "ghostColor", "arcFill", "arcTrack"]),
+    colors: Object.freeze(["backgroundColor", "ghostColor", "arcFill", "arcTrack", "strokeColor", "dotColor"]),
     toggles: Object.freeze([
       "sourceSync",
       "skipDiscontinuities",
@@ -1003,6 +1016,30 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayLineBlur",
     title:
       "Vector restroke blur in CSS pixels (0 = hard). Diamond tent kernel: the path is redrawn at center + 4 cardinal + 4 diagonal offsets. Cheap, no extra canvas.",
+  }),
+  lineBrightness: Object.freeze({
+    label: "Line",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayRoundShapeLineBrightness",
+    title: "Line brightness 0…1 (black → full hue at 0.5 → white). Drag the title strip to change hue.",
+  }),
+  dotThickness: Object.freeze({
+    label: "Dot thickness",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayRoundShapeDotThickness",
+    title: "Cursor dot diameter in CSS pixels (0.25–32).",
+  }),
+  dotBrightness: Object.freeze({
+    label: "Dot",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayRoundShapeDotBrightness",
+    title: "Dot brightness 0…1 (black → full hue at 0.5 → white). Drag the title strip to change hue.",
+  }),
+  backgroundBrightness: Object.freeze({
+    label: "Background",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayRoundShapeBackgroundBrightness",
+    title: "Background brightness 0…1 (black → full hue at 0.5 → white). Drag the title strip to change hue.",
   }),
   dot1Size: Object.freeze({
     label: "Size",

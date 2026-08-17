@@ -244,13 +244,25 @@ NodeLiveAudioProcessor.prototype.runActiveSmoothers = function runActiveSmoother
 
 NodeLiveAudioProcessor.prototype.updateSmoother = function updateSmoother(smoother, targetValue, metadata = {}, smootherKey = null) {
     const value = Number(targetValue);
-    smoother.target = Number.isFinite(value) ? value : smoother.target;
+    const nextTarget = Number.isFinite(value) ? value : smoother.target;
+    const nextType = this.smoothingTypeFromMetadata(metadata);
+    const key = smootherKey || smoother._activeKey || null;
+    // setParams / setPlan push every knob on every sync. If the domain value
+    // did not move, do not rewrite targetSignal (normalize can ulp-jitter)
+    // or the linear ramp treats that as a brand-new move and stays dirty.
+    if (nextTarget === smoother.target && smoother.smoothingType === nextType) {
+      smoother.metadata = metadata || smoother.metadata;
+      if (key && this.smootherNeedsWork(smoother)) {
+        this.activateSmoother(key, smoother);
+      }
+      return;
+    }
+    smoother.target = nextTarget;
     smoother.max = Number.isFinite(Number(metadata?.max)) ? Number(metadata.max) : smoother.max;
     smoother.metadata = metadata;
     smoother.min = Number.isFinite(Number(metadata?.min)) ? Number(metadata.min) : smoother.min;
     smoother.smoothingMode = this.smoothingModeFromMetadata(metadata);
     smoother.smoothingSeconds = this.smoothingSecondsFromMetadata(metadata);
-    const nextType = this.smoothingTypeFromMetadata(metadata);
     if (smoother.smoothingType !== nextType) {
       if (smoother.filterState?.nativeHandle) {
         this.destroyPapoulisParameterSmootherNativeState(smoother);
@@ -266,7 +278,6 @@ NodeLiveAudioProcessor.prototype.updateSmoother = function updateSmoother(smooth
       : (nextType !== "none" && metadata?.linearSmoothing !== false);
     smoother.targetSignal = this.parameterValueToNormalizedSignal(smoother.target, metadata);
     smoother.wraparound = Boolean(metadata?.wraparound);
-    const key = smootherKey || smoother._activeKey || null;
     if (!smoother.linearSmoothing || !this.smootherNeedsWork(smoother)) {
       this.settleSmoother(smoother);
       if (key) {

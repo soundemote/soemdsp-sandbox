@@ -298,6 +298,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-code-settings-editor.js",
     "./public/node-graph-metadata-editor.js",
     "./public/node-graph-render-settings.js",
+    "./public/node-graph-semath.js",
     "./public/modules/speakerProtector2/speaker-protector-2-math.js",
     "./public/node-graph-ear-protection.js",
     "./public/node-graph-emoji-page.js",
@@ -433,6 +434,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/musicalEngines/musical-engines-live-evaluator.js",
     "./public/modules/lutCell/lut-cell-live-evaluator.js",
     "./public/modules/metallicRatio/metallic-ratio-live-evaluator.js",
+    "./public/modules/passiveFilter/passive-filter-math.js",
     "./public/modules/passiveFilter/passive-filter-live-evaluator.js",
     "./public/modules/papoulisFilter/papoulis-filter-live-evaluator.js",
     "./public/modules/phosphillator/phosphillator-live-evaluator.js",
@@ -566,6 +568,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/pitchModWheel/pitch-mod-wheel-live-evaluator.js",
     "./public/modules/gain/gain-math.js",
     "./public/modules/gain/gain-live-evaluator.js",
+    "./public/modules/mixStereo/mix-stereo-math.js",
+    "./public/modules/mixStereo/mix-stereo-live-evaluator.js",
     "./public/modules/sinc/sinc-live-evaluator.js",
     "./public/modules/led/led-live-evaluator.js",
     "./public/modules/rgbShape/rgb-shape-live-evaluator.js",
@@ -579,6 +583,9 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/bias/bias-live-evaluator.js",
     "./public/modules/attenuverter/attenuverter-math.js",
     "./public/modules/attenuverter/attenuverter-live-evaluator.js",
+    "./public/modules/u2b/u2b-live-evaluator.js",
+    "./public/modules/b2u/b2u-live-evaluator.js",
+    "./public/modules/inv/inv-live-evaluator.js",
     "./public/modules/softClipper/soft-clipper-math.js",
     "./public/modules/softClipper/soft-clipper-live-evaluator.js",
     "./public/modules/clipperLimiter/clipper-limiter-math.js",
@@ -4596,7 +4603,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'category: "object"' in script_sources["./public/node-graph-module-store.js"]
         and 'inputs: ["Analog", "Digital", "Gate", "0.1V/Oct"]' in script_sources["./public/node-graph-module-definitions.js"]
         and "smoothingSeconds: 0.1" in script_sources["./public/node-graph-module-definitions.js"]
-        and 'outputs: ["Tone", "ƒ1", "ƒ2", "Analog Thru", "Digital Thru"]' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'outputs: ["Tone", "ToneL", "ToneR", "ƒ1", "ƒ2", "Analog Thru", "Digital Thru"]' in script_sources["./public/node-graph-module-definitions.js"]
         and 'Tone: "Tone"' in script_sources["./public/node-graph-module-definitions.js"]
         and "LayoutA" in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("phoneTone: {"):
@@ -4618,6 +4625,10 @@ def require_node_graph_mvp_contract() -> None:
         and 't: "t"' in script_sources["./public/node-graph-module-definitions.js"]
         and 't2: "2t"' in script_sources["./public/node-graph-module-definitions.js"]
         and 't10: "10t"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'displayType: "value"' in script_sources["./public/node-graph-module-definitions.js"][
+            script_sources["./public/node-graph-module-definitions.js"].index("function nodeGraphTSeriesModuleDefinition"):
+            script_sources["./public/node-graph-module-definitions.js"].index("const nodeGraphModuleDefinitions")
+        ]
         and 'label: "t"' in script_sources["./public/node-graph-module-store.js"]
         and 'label: "2t"' in script_sources["./public/node-graph-module-store.js"]
         and 'label: "10t"' in script_sources["./public/node-graph-module-store.js"]
@@ -12769,6 +12780,12 @@ def require_node_graph_mvp_contract() -> None:
     require("softClipper: {" in module_store_source, "Soft Clipper should be listed in the module browser type registry")
     require('attenuverter: "Attenuverter"' in module_definitions_source, "Attenuverter label should be registered")
     require("attenuverter: {" in module_store_source, "Attenuverter should be listed in the module browser type registry")
+    require('u2b: "U2B"' in module_definitions_source, "U2B label should be registered")
+    require("u2b: {" in module_store_source, "U2B should be listed in Dynamics")
+    require('b2u: "B2U"' in module_definitions_source, "B2U label should be registered")
+    require("b2u: {" in module_store_source, "B2U should be listed in Dynamics")
+    require('inv: "Inv"' in module_definitions_source, "Inv label should be registered")
+    require("inv: {" in module_store_source, "Inv should be listed in Dynamics")
     require(
         'sliderCurve: "bipolarRational"' in module_definitions_source
         and 'key: "amplitude"' in module_definitions_source
@@ -14906,6 +14923,13 @@ def require_node_graph_mvp_contract() -> None:
         and "function attenuateSelectedNodeGraphWires" in wire_actions_source
         and "function applySelectedNodeGraphWires" in wire_actions_source,
         "wire actions should insert an attenuverter on every selected signal/mod wire",
+    )
+    require(
+        'id="nodeSceneWireU2b"' in index_source
+        and 'id="nodeSceneWireB2u"' in index_source
+        and 'id="nodeSceneWireInv"' in index_source
+        and "function convertPolarityOnSelectedNodeGraphWires" in wire_actions_source,
+        "wire actions should insert U2B / B2U / Inv converters on selected wires",
     )
     require(
         'trace: "trace",' in wire_actions_source
@@ -17763,6 +17787,9 @@ def require_native_module_contract(base_url: str) -> None:
         "chord_sequencer": ["soemdsp_chord_sequencer_create", "soemdsp_chord_sequencer_destroy", "soemdsp_chord_sequencer_sample"],
         "lut_cell": ["soemdsp_lut_cell_create", "soemdsp_lut_cell_destroy", "soemdsp_lut_cell_sample", "soemdsp_lut_cell_q"],
         "metallic_ratio": ["soemdsp_metallic_ratio_sample"],
+        "u2b": ["soemdsp_u2b_sample"],
+        "b2u": ["soemdsp_b2u_sample"],
+        "inv": ["soemdsp_inv_sample"],
         "chua_attractor": ["soemdsp_chua_attractor_create", "soemdsp_chua_attractor_destroy", "soemdsp_chua_attractor_sample"],
         "ellipsoid": ["soemdsp_ellipsoid_sine_to_square", "soemdsp_ellipsoid_sample"],
         "fractal_brownian_noise": ["soemdsp_fbm_create", "soemdsp_fbm_destroy", "soemdsp_fbm_sample"],
@@ -17926,6 +17953,11 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_dsf_oscillator_create",
             "soemdsp_dsf_oscillator_destroy",
             "soemdsp_dsf_oscillator_sample",
+        ],
+        "robin_sinusoid": [
+            "soemdsp_robin_sinusoid_create",
+            "soemdsp_robin_sinusoid_destroy",
+            "soemdsp_robin_sinusoid_sample",
         ],
         "robin_supersaw": [
             "soemdsp_robin_supersaw_create",

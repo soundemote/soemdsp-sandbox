@@ -24,7 +24,10 @@ function applySabrinaDspBindingIfDirty(native, state, params, runtime, nodeId) {
     safeParams.lfoBaseSpeed,
     safeParams.lfoVariation,
   ].map((value) => Math.round(value * 1000000)).join(":") + `:${safeParams.seed}`;
-  if (paramKey === state.nativeParamKey || !native.soemdsp_sabrina_reverb_set_params) {
+  if (!native.soemdsp_sabrina_reverb_set_params) {
+    return;
+  }
+  if (paramKey === state.nativeParamKey) {
     return;
   }
   state.nativeParamKey = paramKey;

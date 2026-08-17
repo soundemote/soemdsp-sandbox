@@ -1159,8 +1159,10 @@ function applyNodeGraphChromeNodesToDom(nodeIds = []) {
 
 function applyNodeGraphPatchToDom(options = {}) {
   if (typeof nodeGraphScreenSoloIsActive === "function" && nodeGraphScreenSoloIsActive()) {
-    const soloId = typeof nodeGraphScreenSoloNodeId === "function" ? nodeGraphScreenSoloNodeId() : "";
-    const stillThere = soloId && nodeGraphMvp?.patch?.nodes?.some((node) => node?.id === soloId);
+    const soloIds = typeof nodeGraphScreenSoloNodeIds === "function"
+      ? nodeGraphScreenSoloNodeIds()
+      : [(typeof nodeGraphScreenSoloNodeId === "function" ? nodeGraphScreenSoloNodeId() : "")];
+    const stillThere = soloIds.some((id) => id && nodeGraphMvp?.patch?.nodes?.some((node) => node?.id === id));
     if (!stillThere) {
       endNodeGraphScreenSolo({ silent: true });
     }

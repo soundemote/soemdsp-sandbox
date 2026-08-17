@@ -1791,9 +1791,68 @@ function nodeGraphNumberReadoutDrawInnerShadow(context, left, top, width, height
 }
 
 
+function nodeGraphNumberReadoutLcdCompositeHang(canvas, context, spec = {}) {
+  const hangOn = Boolean(spec.hangOn);
+  if (!canvas || !context || !hangOn) {
+    return;
+  }
+  if (!canvas._lcdGhostPlate) {
+    canvas._lcdGhostPlate = document.createElement("canvas");
+  }
+  const plate = canvas._lcdGhostPlate;
+  const width = Math.max(1, Math.round(Number(spec.width) || canvas.width || 1));
+  const height = Math.max(1, Math.round(Number(spec.height) || canvas.height || 1));
+  if (plate.width !== width || plate.height !== height) {
+    plate.width = width;
+    plate.height = height;
+  }
+  const gctx = plate.getContext("2d");
+  if (!gctx) {
+    return;
+  }
+  if (!spec.frozen) {
+    const erase = nodeGraphNumberReadoutBurnEraseAlpha(spec.trailHang, spec.ghostHang);
+    if (erase > 0.00005) {
+      gctx.save();
+      gctx.globalCompositeOperation = "destination-out";
+      gctx.fillStyle = `rgba(0, 0, 0, ${erase.toFixed(4)})`;
+      gctx.fillRect(0, 0, width, height);
+      gctx.restore();
+    }
+    const previousValueText = String(spec.previousValueText || "");
+    const valueText = String(spec.valueText || "");
+    if (
+      spec.textChanged
+      && previousValueText
+      && previousValueText !== valueText
+      && spec.digitFontSize > 0.25
+    ) {
+      const depositText = nodeGraphNumberReadoutGhostDepositText(previousValueText, valueText);
+      if (depositText) {
+        const rgb = Array.isArray(spec.ghostRgb) ? spec.ghostRgb : [80, 80, 80];
+        nodeGraphNumberReadoutDrawDigits(gctx, {
+          text: depositText,
+          centerX: spec.digitX,
+          centerY: spec.digitY,
+          fontFamily: spec.digitFontFamily,
+          fontSize: spec.digitFontSize,
+          cellW: spec.cellW,
+          rgb,
+          alpha: 0.62,
+          softBlurPx: 0,
+          glow: 0,
+          plate: false,
+          composite: "source-over",
+        });
+      }
+    }
+  }
+  context.drawImage(plate, 0, 0);
+}
+
 /**
- * Value LCD — vector DSEG (no phosphor residual hang).
- * Background + multiply unlit “8”s + solid FG digits + glass inner shadow.
+ * Value LCD — vector DSEG + optional previous-digit Ghost/Trail hang.
+ * Background + unlit “8”s + fading previous ink + solid FG digits + glass.
  */
 function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit, slot = null, options = null) {
   if (!canvas || !context) {
@@ -1926,6 +1985,26 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
       });
     }
 
+    // Previous-digit hang (Trail / Ghost). Unlit 8s stay; these fade.
+    nodeGraphNumberReadoutLcdCompositeHang(canvas, context, {
+      settings,
+      valueText,
+      previousValueText: options?.previousValueText,
+      textChanged: Boolean(options?.textChanged),
+      trailHang: Number(options?.trailHang) || 0,
+      ghostHang: Number(options?.ghostHang) || 0,
+      hangOn: Boolean(options?.hangOn),
+      frozen: Boolean(options?.frozen),
+      digitX,
+      digitY,
+      digitFontFamily,
+      digitFontSize,
+      cellW,
+      ghostRgb,
+      width,
+      height,
+    });
+
     // Live value — solid foreground ink.
     if (digitFontSize > 0.25 && !String(valueText || "").includes("!")) {
       nodeGraphNumberReadoutDrawDigits(context, {
@@ -1987,8 +2066,14 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
   canvas._nodeGraphNumberReadoutHeight = height;
   canvas._nodeGraphNumberReadoutZoom = lcdZoom;
   canvas._nodeGraphNumberReadoutPaintAt = now;
-  canvas._numberReadoutResidualEnergy = 0;
-  nodeGraphNumberReadoutClearBurnPlate(canvas);
+  if (!options?.hangOn) {
+    canvas._numberReadoutResidualEnergy = 0;
+    nodeGraphNumberReadoutClearBurnPlate(canvas);
+    if (canvas._lcdGhostPlate) {
+      const g = canvas._lcdGhostPlate.getContext("2d");
+      g?.clearRect(0, 0, canvas._lcdGhostPlate.width, canvas._lcdGhostPlate.height);
+    }
+  }
 }
 
 
@@ -2137,7 +2222,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const text = `${valueText}${unit ? ` ${unit}` : ""}${pitchMode !== "hz" ? `|${pitchMode}` : ""}|¢${
     Number.isFinite(pitchCents) ? pitchCents.toFixed(1) : ""
   }`;
-  // Value LCD: dedicated vector path (no residual hang / burn plate).
+  // Value LCD: vector DSEG. Ghost/Trail still need a hang tick every frame
+  // (previous digits fade). Skipping when text is unchanged froze ghosts.
   if (isLcd) {
     const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
     const lcdZoomNow = nodeGraphNumberReadoutWorkspaceZoom();
@@ -2150,7 +2236,10 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       Math.round(Number(canvas._nodeGraphNumberReadoutZoom) || 1) !== Math.round(lcdZoomNow);
     const textChanged = canvas._nodeGraphNumberReadoutText == null
       || canvas._nodeGraphNumberReadoutText !== text;
-    if (!textChanged && !styleChanged) {
+    const trailHang = clampNodeSliderValue(Number(settings.trail ?? settings.residual) || 0, 0, 1);
+    const ghostHang = clampNodeSliderValue(Number(settings.ghost ?? settings.ghostBrightness) || 0, 0, 1);
+    const hangOn = trailHang > 0.001 || ghostHang > 0.001;
+    if (!textChanged && !styleChanged && !(hangOn && !frozen)) {
       return;
     }
     // High-quality glyph AA at the on-screen pixel grid.
@@ -2161,6 +2250,12 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit, slot, {
       pitchMode,
       cents: pitchCents,
+      previousValueText: String(canvas._numberReadoutLastValueText || ""),
+      textChanged,
+      trailHang,
+      ghostHang,
+      hangOn,
+      frozen,
     });
     nodeGraphNumberReadoutRememberGoodValue(canvas, valueText);
     return;

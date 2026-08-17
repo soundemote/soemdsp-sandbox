@@ -790,7 +790,7 @@
   function dumpModuleCategories() {
     const deps = (typeof nodeGraphModuleStoreDepartments !== "undefined"
       && Array.isArray(nodeGraphModuleStoreDepartments))
-      ? nodeGraphModuleStoreDepartments
+      ? nodeGraphModuleStoreDepartments.filter((dep) => dep?.listed !== false)
       : [];
     if (!deps.length) {
       push("WARN", "no module categories available (store not loaded)", "debug-console");

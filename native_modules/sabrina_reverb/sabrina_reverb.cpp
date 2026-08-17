@@ -564,19 +564,40 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
   if (!state) {
     return;
   }
-  state->mix = clamp(mix, 0.0, 1.0);
-  state->diffusionSize = clamp(diffusionSize, 0.0, 1.0);
-  state->diffusionAmount = clamp(diffusionAmount, 0.0, 0.98);
-  state->delaySize = clamp(delaySize, 0.0, 1.0);
-  state->recycle = clamp(recycle, 0.0, 0.98);
-  state->lfoAmplitude = clamp(lfoAmplitude, 0.0, 1.0);
-  state->lfoBaseSpeed = clamp(lfoBaseSpeed, 0.0, 1.0);
-  state->lfoVariation = clamp(lfoVariation, 0.0, 1.0);
+  // DirtyUpdater-style (soemdsp::DirtyUpdater + Reverb Wires): only run the
+  // work a field actually owns. Mix has no *Changed() in soemdsp::delay::Reverb
+  // -- it is a Wire read in drywet() -- so a mix poke must never rebuild
+  // delay geometry or rewrite diffusion feedback.
+  constexpr double kNear = 1.0e-7;
+  auto near = [](double a, double b) { return __builtin_fabs(a - b) < kNear; };
+  auto assignIf = [&](double& dst, double next) {
+    if (!near(dst, next)) {
+      dst = next;
+      return true;
+    }
+    return false;
+  };
+
+  assignIf(state->mix, clamp(mix, 0.0, 1.0));
+  assignIf(state->recycle, clamp(recycle, 0.0, 0.98));
+
+  if (assignIf(state->diffusionAmount, clamp(diffusionAmount, 0.0, 0.98))) {
+    for (int index = 0; index < kDiffusionCount; index += 1) {
+      state->delays[index].feedback = state->diffusionAmount;
+    }
+  }
+
+  assignIf(state->diffusionSize, clamp(diffusionSize, 0.0, 1.0));
+  assignIf(state->delaySize, clamp(delaySize, 0.0, 1.0));
+  assignIf(state->lfoAmplitude, clamp(lfoAmplitude, 0.0, 1.0));
+  assignIf(state->lfoBaseSpeed, clamp(lfoBaseSpeed, 0.0, 1.0));
+  assignIf(state->lfoVariation, clamp(lfoVariation, 0.0, 1.0));
+
   const int seedInt = static_cast<int>(seed + 0.5);
   if (seedInt != state->seed) {
     reseedDelays(*state, seedInt);
+    applyDelayGeometry(*state);
   }
-  applyDelayGeometry(*state);
 }
 
 extern "C" void soemdsp_sabrina_reverb_process(int handle, double leftInput, double rightInput) {

@@ -91,6 +91,20 @@ function nodeGraphDspSandboxIoFrame(liveStereo, mono, left, right) {
   });
 }
 
+/** Input / Plugin Input loudness: Amplitude (current) or leftover `level`. */
+function nodeGraphReadIoInputAmplitude(params, fallback = 1) {
+  const amp = Number(params?.amplitude);
+  if (Number.isFinite(amp)) {
+    return amp;
+  }
+  const level = Number(params?.level);
+  if (Number.isFinite(level)) {
+    return level;
+  }
+  const fb = Number(fallback);
+  return Number.isFinite(fb) ? fb : 1;
+}
+
 /**
  * Read one frame of external stereo input (mic/host) at amplitude level.
  * externalInput shape: { left?: Float32Array|number[], right?: ... }

@@ -433,7 +433,7 @@ function bindNodeGraphLiveVolumeControls() {
     outSlider.addEventListener("change", handle);
     const initialDb = typeof getNodeGraphOutputModuleVolumeDb === "function"
       ? getNodeGraphOutputModuleVolumeDb()
-      : -20;
+      : -3;
     outSlider.value = String(nodeGraphOutputVolumeDbToToolbarLin(initialDb));
     if (readout) {
       readout.textContent = formatNodeGraphOutputVolumeReadout(initialDb);

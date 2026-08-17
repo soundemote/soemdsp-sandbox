@@ -293,12 +293,19 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
     return typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
       ? normalizeNodeGraphRoundShapeFaceSettings()
       : {
-        backgroundColor: "#020609",
-        strokeColor: "rgba(120, 220, 200, 0.92)",
-        dotColor: "#ffffff",
+        lineHue: 165,
+        lineBrightness: 0.5,
         lineThickness: 2,
         lineBlur: 0,
+        dotHue: 165,
+        dotBrightness: 1,
+        dotThickness: 5,
+        backgroundHue: 200,
+        backgroundBrightness: 0.03,
         pixelDensity: 1,
+        strokeColor: "#00ffd0",
+        dotColor: "#00ffd0",
+        backgroundColor: "#00aaff",
       };
   }
   if (type === "keypadFace") {

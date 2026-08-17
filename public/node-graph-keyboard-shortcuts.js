@@ -372,6 +372,16 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
+  // ? (Shift+/ on US) → open Command Center.
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key === "?") {
+    event.preventDefault();
+    if (typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("commandCenter");
+    } else if (typeof openNodeGraphCommandCenter === "function") {
+      openNodeGraphCommandCenter();
+    }
+    return;
+  }
   // V → view: hide/show top + bottom app bars (not per-module header buttons).
   // Phone / condensed modular frame is click/touch only (no M hotkey).
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v") {
@@ -392,6 +402,13 @@ function handleNodeGraphKeydown(event) {
     event.preventDefault();
     if (typeof toggleNodeGraphStandaloneMidiKeyboard === "function") {
       toggleNodeGraphStandaloneMidiKeyboard();
+    }
+    return;
+  }
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "f") {
+    event.preventDefault();
+    if (typeof toggleNodeGraphSelectedScreensFullscreen === "function") {
+      toggleNodeGraphSelectedScreensFullscreen();
     }
     return;
   }

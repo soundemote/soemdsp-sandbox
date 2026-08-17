@@ -220,7 +220,7 @@ NodeLiveAudioProcessor.prototype.delayEffectSampleJs = function delayEffectSampl
 NodeLiveAudioProcessor.prototype.delayEffectSample = function delayEffectSample(state, input, params, rateHz = sampleRate, nodeId = "") {
   // Prefer JS: Hermite interp, mod styles (Parabol/RW/FBM), InLevel, and
   // feedback 0–1. Native delay_effect is linear-only and still mode-era.
-  const wantHermite = Math.round(Number(params.interpolation) || 0) >= 1;
+  const wantHermite = false;
   const modStyle = Math.round(Number(params.modStyle) || 0);
   const useNative = !wantHermite
     && modStyle === 0

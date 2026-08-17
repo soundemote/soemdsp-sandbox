@@ -1,3 +1,6 @@
+// Worklet peel for Passive Filter. Math: passive-filter-math.js (same Blob).
+// JS cascade (native 1 HP + 1 LP is not enough for Slope 12–24).
+
 NodeLiveAudioProcessor.prototype.sweepFrequencyHz = function sweepFrequencyHz(hz, semitones) {
     if (typeof nodeGraphSweepFrequencyHz === "function") {
       return nodeGraphSweepFrequencyHz(hz, semitones);
@@ -15,29 +18,40 @@ NodeLiveAudioProcessor.prototype.sweepFrequencyHz = function sweepFrequencyHz(hz
   };
 
 NodeLiveAudioProcessor.prototype.createPassiveFilterState = function createPassiveFilterState() {
-    return { nativeHandle: 0 };
+    return typeof createNodeGraphPassiveFilterState === "function"
+      ? createNodeGraphPassiveFilterState()
+      : { hp: [], lp: [] };
   };
 
-NodeLiveAudioProcessor.prototype.passiveFilterSample = function passiveFilterSample(state, input, mode, lowFrequency, highFrequency, rate) {
-    if (!this.nativePassiveFilterReady) {
+NodeLiveAudioProcessor.prototype.passiveFilterSample = function passiveFilterSample(
+    state,
+    input,
+    mode,
+    lowFrequency,
+    highFrequency,
+    rate,
+    slope,
+    stagger,
+    gainCompensation,
+  ) {
+    const safeIn = this.safeFilterNumber(input, state);
+    if (typeof nodeGraphPassiveFilterSample !== "function") {
       return 0;
     }
-    if (!state.nativeHandle) {
-      state.nativeHandle = this.nativePassiveFilter.soemdsp_passive_filter_create();
-    }
-    if (!state.nativeHandle) {
-      throw new Error("native Passive Filter failed to create instance");
-    }
     return this.safeFilterNumber(
-      this.nativePassiveFilter.soemdsp_passive_filter_sample(
-        state.nativeHandle,
-        this.safeFilterNumber(input, state),
-        Math.round(Number(mode)) || 0,
-        Number(lowFrequency) || 0,
-        Number(highFrequency) || 0,
-        Math.max(1, Number(rate) || sampleRate || 44100),
+      nodeGraphPassiveFilterSample(
+        state,
+        safeIn,
+        mode,
+        lowFrequency,
+        highFrequency,
+        rate,
+        null,
+        "",
+        slope,
+        stagger,
+        gainCompensation,
       ),
       state,
     );
   };
-

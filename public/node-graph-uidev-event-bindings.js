@@ -1,4 +1,10 @@
 async function bindNodeGraphUiDevSettingsEvents() {
+  if (typeof mountNodeUiDevHelperAsUiSettingsPage === "function") {
+    mountNodeUiDevHelperAsUiSettingsPage();
+  }
+  if (typeof syncNodeUserUiSettingsPageChrome === "function") {
+    syncNodeUserUiSettingsPageChrome();
+  }
   document.getElementById("saveNodeUiDevSettingsButton")?.addEventListener("click", saveNodeUiDevSettingsFile);
   document.getElementById("nodeUserUiSettingsCopy")?.addEventListener("click", copyNodeUiDevSettingsToClipboard);
   document.getElementById("nodeUserUiSettingsPaste")?.addEventListener("click", pasteNodeUiDevSettingsFromClipboard);

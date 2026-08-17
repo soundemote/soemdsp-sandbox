@@ -213,6 +213,8 @@ function nodeGraphPhoneToneSample(state, options = {}) {
     Df2: df2,
     Out: tone,
     Tone: tone,
+    ToneL: x,
+    ToneR: z,
     X: x,
     Z: z,
     f1: df1,

@@ -240,7 +240,7 @@ function nodeGraphPingPongDelaySample(state, input, params, sampleRate, runtime 
   state.position = (state.position + 1) % state.bufferSize;
   const readPosL = (state.position + state.bufferSize - delaySamplesL) % state.bufferSize;
   const readPosR = (state.position + state.bufferSize - delaySamplesR) % state.bufferSize;
-  const interpMode = Math.round(Number(params.interpolation) || 0) >= 1 ? 1 : 0;
+  const interpMode = 0;
   const readL = typeof nodeGraphDelayInterpolate === "function"
     ? nodeGraphDelayInterpolate(state.bufferL, readPosL, interpMode)
     : (typeof nodeGraphDelayInterpolateLinear === "function"
@@ -284,7 +284,7 @@ nodeGraphLiveModuleEvaluators.pingPongDelay = ({ runtime, node, nodeId, frame, f
       feedback: read("feedback", 0.35),
       hpfFrequency: read("hpfFrequency", 20),
       // 0 = linear, 1 = hermite (default hermite).
-      interpolation: read("interpolation", 1),
+      interpolation: read("interpolation", 0),
       level: read("level", 1),
       lfoRate: read("lfoRate", 0.35),
       lfoStyle: read("lfoStyle", 0),

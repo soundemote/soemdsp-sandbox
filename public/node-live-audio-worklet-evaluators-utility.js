@@ -198,11 +198,34 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
         nodeGraphDspBinaryOut(this.readEffectiveParameter(node, "value", 0, frame, frames, frameValues)),
       momentaryButton: (node, nodeId, frame, frames, frameValues) =>
         nodeGraphDspBinaryOut(this.readEffectiveParameter(node, "value", 0, frame, frames, frameValues)),
-      pluginInput: (node, nodeId, frame, frames, frameValues, mixInput) => {
+      audioInput: (node, nodeId, frame, frames, frameValues, mixInput, _safeRate, _hasInput, inputFrame) => {
+        const amplitude = this.readEffectiveParameter(node, "amplitude", NaN, frame, frames, frameValues);
+        const level = Number.isFinite(amplitude)
+          ? amplitude
+          : this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues);
         const live = nodeGraphDspExternalStereoFrame(
           this.externalInput,
-          frame,
-          this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues),
+          inputFrame ?? frame,
+          level,
+        );
+        return typeof nodeGraphDspSandboxIoFrame === "function"
+          ? nodeGraphDspSandboxIoFrame(
+            live,
+            mixInput(nodeId, "Mono"),
+            mixInput(nodeId, "Left"),
+            mixInput(nodeId, "Right"),
+          )
+          : live;
+      },
+      pluginInput: (node, nodeId, frame, frames, frameValues, mixInput, _safeRate, _hasInput, inputFrame) => {
+        const amplitude = this.readEffectiveParameter(node, "amplitude", NaN, frame, frames, frameValues);
+        const level = Number.isFinite(amplitude)
+          ? amplitude
+          : this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues);
+        const live = nodeGraphDspExternalStereoFrame(
+          this.externalInput,
+          inputFrame ?? frame,
+          level,
         );
         return typeof nodeGraphDspSandboxIoFrame === "function"
           ? nodeGraphDspSandboxIoFrame(

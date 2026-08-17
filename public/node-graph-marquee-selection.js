@@ -224,15 +224,19 @@ function nodeGraphSnakeMouseSmoothAmount() {
 }
 
 function syncNodeGraphSnakeMouseSmoothControl() {
-  const input = document.getElementById("nodeSnakeMouseSmoothSlider");
-  if (!input) {
+  const button = document.getElementById("nodeSnakeMouseSmoothSlider");
+  if (!button) {
+    return;
+  }
+  if (typeof button._syncToolbarFill === "function") {
+    button._syncToolbarFill();
     return;
   }
   const amount = nodeGraphSnakeMouseSmoothAmount();
-  if (document.activeElement !== input) {
-    input.value = String(amount);
-  }
-  input.setAttribute("aria-valuetext", `${Math.round(amount * 100)}%`);
+  button.style.setProperty("--toolbar-fill", String(amount));
+  button.setAttribute("aria-valuenow", String(amount));
+  button.setAttribute("aria-valuetext", `${Math.round(amount * 100)}%`);
+  button.setAttribute("aria-pressed", amount > 0.001 ? "true" : "false");
 }
 
 function persistNodeGraphSnakeMouseSmoothSetting() {
@@ -256,24 +260,26 @@ function setNodeGraphSnakeMouseSmooth(value, options = {}) {
 }
 
 function bindNodeGraphSnakeMouseSmoothControl() {
-  const input = document.getElementById("nodeSnakeMouseSmoothSlider");
-  if (!input || input.dataset.snakeMouseSmoothBound === "true") {
+  const button = document.getElementById("nodeSnakeMouseSmoothSlider");
+  if (!button || button.dataset.snakeMouseSmoothBound === "true") {
     return;
   }
-  input.dataset.snakeMouseSmoothBound = "true";
-  input.min = "0";
-  input.max = "1";
-  input.step = "0.01";
-  input.addEventListener("input", (event) => {
-    setNodeGraphSnakeMouseSmooth(event.currentTarget.value, { persist: false, sync: false });
-    event.currentTarget.setAttribute(
-      "aria-valuetext",
-      `${Math.round(nodeGraphSnakeMouseSmoothAmount() * 100)}%`,
-    );
-  });
-  input.addEventListener("change", (event) => {
-    setNodeGraphSnakeMouseSmooth(event.currentTarget.value, { persist: true, sync: false });
-  });
+  button.dataset.snakeMouseSmoothBound = "true";
+  if (typeof bindNodeGraphToolbarFillSlider === "function") {
+    bindNodeGraphToolbarFillSlider(button, {
+      min: 0,
+      max: 1,
+      get: () => nodeGraphSnakeMouseSmoothAmount(),
+      set: (value, options = {}) => {
+        setNodeGraphSnakeMouseSmooth(value, {
+          persist: Boolean(options.persist),
+          sync: true,
+        });
+      },
+      format: (value) => `${Math.round(clampNodeGraphSnakeMouseSmooth(value) * 100)}%`,
+    });
+    return;
+  }
   syncNodeGraphSnakeMouseSmoothControl();
 }
 

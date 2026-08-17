@@ -237,8 +237,22 @@ function bindNodeGraphHeaderControlEvents() {
   document
     .getElementById("clearNodeUiDevStartupButton")
     ?.addEventListener("click", handleClearNodeUserStartupStateClick);
-  // Shortcut from the user-facing panel to the full UI Dev panel, where every
-  // setting lives (including the ones not exposed here).
+  document
+    .getElementById("nodeUserUiSettingsPageTab")
+    ?.addEventListener("click", () => {
+      if (typeof setNodeUserUiSettingsPage === "function") {
+        setNodeUserUiSettingsPage("settings");
+      }
+    });
+  document
+    .getElementById("nodeUserUiSettingsUiDevTab")
+    ?.addEventListener("click", () => {
+      if (typeof setNodeUiDevHelperVisible === "function") {
+        setNodeUiDevHelperVisible(true);
+      } else if (typeof setNodeUserUiSettingsPage === "function") {
+        setNodeUserUiSettingsPage("uidev");
+      }
+    });
   document
     .getElementById("nodeUserUiSettingsOpenUiDev")
     ?.addEventListener("click", () => {

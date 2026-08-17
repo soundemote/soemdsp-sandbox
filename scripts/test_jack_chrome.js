@@ -76,6 +76,10 @@ var sandbox = {
       inputLabels: { In: "In", Left: "Left", Right: "Right" },
       outputLabels: { Out: "Out", Left: "Left", Right: "Right" },
     },
+    mixStereo: {
+      inputs: ["Mono", "L1", "R1", "L2", "R2", "L3", "R3", "L4", "R4"],
+      outputs: ["Mono", "Left", "Right"],
+    },
     rasterRgb: {
       inputs: ["R", "G", "B"],
       outputs: ["R", "G", "B"],
@@ -107,18 +111,31 @@ var sandbox = {
       outputs: ["X", "Y", "Z"],
       outputLabels: { X: "X", Y: "Y", Z: "Z" },
     },
+    fractalBrownianNoise: {
+      outputs: ["Out X", "Out Y", "Out Z"],
+      outputAliases: { X: "Out X", Y: "Out Y", Z: "Out Z" },
+    },
+    phoneTone: {
+      outputs: ["Tone", "ToneL", "ToneR", "ƒ1", "ƒ2"],
+      digitalOutputs: ["ƒ1", "ƒ2"],
+    },
   },
   nodeGraphModuleStoreCatalog: {
     lorenzAttractor: { category: "chaos" },
     rasterRgb: { category: "visual" },
     output: { category: "io" },
     fbmField: { category: "noise" },
+    fractalBrownianNoise: { category: "noise" },
   },
   nodeGraphNodeLabels: {
     output: "Output",
     gain: "Gain",
+    mixStereo: "MixStereo",
     rasterRgb: "Pixel Grid",
     audioPlayer: "Music Player",
+    fbmField: "Fractal Brownian Field",
+    fractalBrownianNoise: "Fractal Brownian Motion",
+    phoneTone: "Phone Tone",
   },
   nodeGraphLabel: function (node, port) { return String(port || ""); },
   nodeGraphPatchNode: function () { return null; },
@@ -146,6 +163,14 @@ var ch = sandbox.nodeGraphJackChannel;
 assert(ch("output", "Left", "input") === "red", "output Left is red");
 assert(ch("output", "Mono", "input") === "green", "output Mono is green");
 assert(ch("output", "Right", "input") === "blue", "output Right is blue");
+assert(ch("mixStereo", "Mono", "input") === "green", "MixStereo Mono in is green");
+assert(ch("mixStereo", "L1", "input") === "red", "MixStereo L1 is red");
+assert(ch("mixStereo", "R1", "input") === "blue", "MixStereo R1 is blue");
+assert(ch("mixStereo", "L4", "input") === "red", "MixStereo L4 is red");
+assert(ch("mixStereo", "R4", "input") === "blue", "MixStereo R4 is blue");
+assert(ch("mixStereo", "Mono", "output") === "green", "MixStereo Mono out is green");
+assert(ch("mixStereo", "Left", "output") === "red", "MixStereo Left is red");
+assert(ch("mixStereo", "Right", "output") === "blue", "MixStereo Right is blue");
 assert(ch("gain", "Out", "output") === "green", "gain Out is green");
 assert(ch("gain", "In", "input") === "green", "gain In is green");
 assert(ch("rasterRgb", "R", "output") === "red", "RGB R is red");
@@ -159,6 +184,12 @@ assert(ch("fbmField", "X", "output") === "red", "fBf X red");
 assert(ch("fbmField", "Y", "output") === "blue", "fBf Y blue");
 assert(ch("fbmField", "Z", "output") === "green", "fBf Z green");
 assert(ch("fbmField", "In", "input") === "green", "fBf In is mono green");
+assert(ch("fractalBrownianNoise", "Out X", "output") === "red", "fBm Out X red");
+assert(ch("fractalBrownianNoise", "Out Y", "output") === "blue", "fBm Out Y blue");
+assert(ch("fractalBrownianNoise", "Out Z", "output") === "green", "fBm Out Z green");
+assert(ch("phoneTone", "ToneL", "output") === "red", "Phone ToneL red");
+assert(ch("phoneTone", "ToneR", "output") === "blue", "Phone ToneR blue");
+assert(ch("phoneTone", "ƒ1", "output") === "", "Phone ƒ1 is digital Hz");
 assert(ch("quadrature", "Sin", "output") === "red", "sin red");
 assert(ch("quadrature", "Cos", "output") === "blue", "cos blue");
 assert(ch("audioPlayer", "Trigger", "output") === "", "digital trigger has no channel");
