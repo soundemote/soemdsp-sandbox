@@ -454,6 +454,7 @@ function nodeGraphAudioPlayerLibraryPlayPrev(nodeId) {
   if (!pl.items.length) {
     return;
   }
+  // Always the previous item — never “restart this track if we’re past 0:00”.
   const from = typeof nodeGraphAudioPlayerPlaylistPlayingFrom === "function"
     ? nodeGraphAudioPlayerPlaylistPlayingFrom(nodeId, pl)
     : pl.index;

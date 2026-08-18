@@ -1,4 +1,4 @@
-// Music Player faces — dock: wave / playlist / playinfo / waveplay / XY / LR.
+// Music Player faces — dock: wave / waveplay / playlist / playinfo / XY / LR.
 // waveplay is the wave page plus one playlist-row song name (opens playlist).
 // playinfo is the decoded-buffer table. List UI + phase scrubber.
 
@@ -55,7 +55,7 @@ function nodeGraphAudioPlayerPlaylistNormalize(raw = null) {
   return { face, folderDive, folderPath, index, items, selectedIndex, shuffle, loopMode, used };
 }
 
-const nodeGraphAudioPlayerPlaylistFaces = Object.freeze(["wave", "pl", "playinfo", "waveplay", "vsxy", "vslr"]);
+const nodeGraphAudioPlayerPlaylistFaces = Object.freeze(["wave", "waveplay", "pl", "playinfo", "vsxy", "vslr"]);
 
 function nodeGraphAudioPlayerPlaylistNormalizeFace(value) {
   const raw = String(value || "wave").trim().toLowerCase();
@@ -681,9 +681,9 @@ function nodeGraphAudioPlayerPlaylistEnsureFaceBar(section, nodeId) {
 
 const nodeGraphAudioPlayerPlaylistDockFaces = Object.freeze([
   ["wave", "wave", "Wave"],
+  ["waveplay", "waveplay", "Waveplay"],
   ["pl", "playlist", "Playlist"],
   ["playinfo", "playinfo", "Playinfo"],
-  ["waveplay", "waveplay", "Waveplay"],
   ["vsxy", "XY", "XY"],
   ["vslr", "LR", "LR"],
 ]);
@@ -736,8 +736,12 @@ function nodeGraphAudioPlayerPlaylistEnsureWaveplayPage(section) {
       host.dataset.musicPlayerWaveHost = "true";
       page.prepend(host);
     }
-    if (!page.querySelector("[data-music-player-now-song]")) {
-      page.append(nodeGraphAudioPlayerPlaylistCreateNowSong(section.dataset?.node || ""));
+    let nowSong = page.querySelector("[data-music-player-now-song]");
+    if (!nowSong?.querySelector?.("[data-music-player-transport='prev']")) {
+      nowSong?.replaceWith?.(nodeGraphAudioPlayerPlaylistCreateNowSong(section.dataset?.node || ""));
+      if (!page.querySelector("[data-music-player-now-song]")) {
+        page.append(nodeGraphAudioPlayerPlaylistCreateNowSong(section.dataset?.node || ""));
+      }
     }
     return page;
   }
@@ -764,27 +768,50 @@ function nodeGraphAudioPlayerPlaylistEnsureWavplayPage(section) {
 }
 
 function nodeGraphAudioPlayerPlaylistCreateNowSong(nodeId) {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "node-music-player-waveplay-song";
-  btn.dataset.musicPlayerNowSong = "true";
-  btn.title = "Open playlist";
-  btn.setAttribute("aria-label", "Open playlist");
-  const name = document.createElement("span");
+  const row = document.createElement("div");
+  row.className = "node-music-player-waveplay-song";
+  row.dataset.musicPlayerNowSong = "true";
+  const makeSkip = (action, glyph, title) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "node-music-player-waveplay-skip";
+    btn.dataset.musicPlayerTransport = action;
+    btn.textContent = glyph;
+    btn.title = title;
+    btn.setAttribute("aria-label", title);
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const id = String(nodeId || row.closest?.("[data-node]")?.dataset?.node || "");
+      if (id) {
+        nodeGraphAudioPlayerPlaylistTransportAction(id, action);
+      }
+    });
+    btn.addEventListener("pointerdown", (event) => event.stopPropagation());
+    return btn;
+  };
+  const name = document.createElement("button");
+  name.type = "button";
   name.className = "node-music-player-pl-name";
   name.dataset.musicPlayerNowSongName = "true";
   name.textContent = "No sample loaded";
-  btn.append(name);
-  btn.addEventListener("click", (event) => {
+  name.title = "Open playlist";
+  name.setAttribute("aria-label", "Open playlist");
+  name.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    const id = String(nodeId || btn.closest?.("[data-node]")?.dataset?.node || "");
+    const id = String(nodeId || row.closest?.("[data-node]")?.dataset?.node || "");
     if (id) {
       nodeGraphAudioPlayerPlaylistSetFace(id, "pl");
     }
   });
-  btn.addEventListener("pointerdown", (event) => event.stopPropagation());
-  return btn;
+  name.addEventListener("pointerdown", (event) => event.stopPropagation());
+  row.append(
+    makeSkip("prev", "◁", "Previous track"),
+    name,
+    makeSkip("next", "▷", "Next track"),
+  );
+  return row;
 }
 
 function nodeGraphAudioPlayerPlaylistSyncNowSong(nodeId) {
@@ -1390,7 +1417,7 @@ function nodeGraphAudioPlayerPlaylistPaintWaves(nodeId, { liveOnly = false } = {
     ? nodeGraphPhosphorWaveformSampleEntry(nodeId)
     : null;
   const view = playingEntry && typeof nodeGraphPhosphorWaveformViewState === "function"
-    ? nodeGraphPhosphorWaveformViewState(nodeId, playingEntry.frames)
+    ? nodeGraphPhosphorWaveformViewState(nodeId, playingEntry.frames, section)
     : null;
   const phase = typeof nodeGraphSamplePhaseForNode === "function"
     ? nodeGraphSamplePhaseForNode(nodeId)
@@ -1831,7 +1858,7 @@ function nodeGraphAudioPlayerPlaylistEnhanceDisplay(section, nodeId) {
 
   plPage.append(nodeGraphAudioPlayerPlaylistCreateTransport(nodeId));
 
-  section.replaceChildren(wavePage, plPage, playinfoPage, waveplayPage, vsxyPage, vslrPage);
+  section.replaceChildren(wavePage, waveplayPage, plPage, playinfoPage, vsxyPage, vslrPage);
   nodeGraphAudioPlayerPlaylistEnsureLayout(section, nodeId);
 
   nodeGraphAudioPlayerPlaylistApplyFace(nodeId);

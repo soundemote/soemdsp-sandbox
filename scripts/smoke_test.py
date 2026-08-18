@@ -134,6 +134,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/rasterRgb/raster-rgb-display.js",
     "./public/modules/rasterRgb/raster-rgb-live-evaluator.js",
     "./public/modules/gradientVectorscope/gradient-vectorscope-display.js",
+    "./public/modules/portal/portal-lanes.js",
     "./public/modules/portal/portal-inlet-register.js",
     "./public/modules/portal/portal-outlet-register.js",
     "./public/modules/groupInput/group-input-register.js",
@@ -3956,13 +3957,27 @@ def require_chromeless_module_registry_contract() -> None:
     # exactly the expected set -- catches both a *-register.js that exists
     # but never got wired up, and a stray registration nobody meant to add.
     register_call_pattern = re.compile(r'registerNodeGraphChromelessModule\(\s*"([a-zA-Z0-9]+)"')
+    portal_family_pattern = re.compile(r'registerNodeGraphPortalLaneFamily\(\s*"(inlet|outlet)"')
     register_paths = sorted(PUBLIC.glob("modules/*/*-register.js"))
     discovered_types: set[str] = set()
+
+    def chromeless_register_type(register_path, source: str) -> str:
+        match = register_call_pattern.search(source)
+        if match:
+            return match.group(1)
+        portal = portal_family_pattern.search(source)
+        if portal:
+            require(
+                "function registerNodeGraphPortalLaneFamily(kind)" in script_sources["./public/modules/portal/portal-lanes.js"]
+                and "registerNodeGraphChromelessModule(nodeGraphPortalTypeName(kind, spec)" in script_sources["./public/modules/portal/portal-lanes.js"],
+                f"{register_path} uses portal lane family but portal-lanes.js does not register chromeless types",
+            )
+            return "portalInlet" if portal.group(1) == "inlet" else "portalOutlet"
+        raise AssertionError(f"{register_path} does not call registerNodeGraphChromelessModule")
+
     for register_path in register_paths:
         source = register_path.read_text(encoding="utf-8")
-        match = register_call_pattern.search(source)
-        require(match is not None, f"{register_path} does not call registerNodeGraphChromelessModule")
-        discovered_types.add(match.group(1))
+        discovered_types.add(chromeless_register_type(register_path, source))
 
     expected_types = {
         "bugButton",
@@ -3980,6 +3995,7 @@ def require_chromeless_module_registry_contract() -> None:
         "rgbFractal",
         "rgbPicture",
         "rgbShape",
+        "simulationTime",
         "stepGrid",
         "valueLcd",
         "xyPad",
@@ -3992,10 +4008,10 @@ def require_chromeless_module_registry_contract() -> None:
     # Each registered type needs a matching UI registration in the same
     # module folder — unless the face is fully shared (e.g. Value LCD reuses
     # the number-readout draw path and has no dedicated *-ui.js).
-    chromeless_ui_optional = {"valueLcd", "portalInlet", "portalOutlet"}
+    chromeless_ui_optional = {"valueLcd", "portalInlet", "portalOutlet", "simulationTime"}
     for register_path in register_paths:
         module_dir = register_path.parent
-        module_type = register_call_pattern.search(register_path.read_text(encoding="utf-8")).group(1)
+        module_type = chromeless_register_type(register_path, register_path.read_text(encoding="utf-8"))
         ui_paths = list(module_dir.glob("*-ui.js"))
         if module_type in chromeless_ui_optional:
             continue
@@ -7173,7 +7189,7 @@ def require_node_graph_mvp_contract() -> None:
             script_sources["./public/node-graph-module-store.js"].index("const nodeGraphModuleShopWindowDefaultSize")
         ]
         and 'card.classList.add("under-construction")' in script_sources["./public/node-graph-module-store.js"]
-        and 'status.textContent = "Under construction"' in script_sources["./public/node-graph-module-store.js"]
+        and 'nativeStatus.textContent = "🚧"' in script_sources["./public/node-graph-module-store.js"]
         and '.scene-context-store-card.under-construction' in style_source,
         "unfinished modules should render inside their category as disabled under-construction cards",
     )
@@ -12924,12 +12940,27 @@ def require_node_graph_mvp_contract() -> None:
         "Matrix Waterfall should live in the Multimeter category",
     )
     require(
+        'gradientVectorscope: {\n    category: "oscilloscope"' in module_store_source,
+        "Gradient Vectorscope should live in the Oscilloscope category",
+    )
+    require(
         'bloomGlow: {\n    category: "rgba"' in module_store_source
         and '"bloomGlow"' in module_store_source[
             module_store_source.index("const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze(["):
             module_store_source.index("const nodeGraphModuleCatalogRetiredFromUnderConstruction")
         ],
         "Bloom & Glow should be an under-construction Shader-shelf module",
+    )
+    require(
+        'gravity: {\n    category: "chaos"' in module_store_source
+        and '"gravity"' in module_store_source[
+            module_store_source.index("const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze(["):
+            module_store_source.index("const nodeGraphModuleCatalogRetiredFromUnderConstruction")
+        ]
+        and "First Doppler puzzle piece" in module_store_source
+        and 'gravity: "Gravity"' in module_definitions_source
+        and 'gravity: {' in module_definitions_source,
+        "Gravity should be an under-construction Chaos-shelf module and the first Doppler puzzle piece",
     )
     require(
         "underconstructionsort" in module_store_source
@@ -12944,6 +12975,7 @@ def require_node_graph_mvp_contract() -> None:
         and "function nodeGraphModuleStoreConstructionPlan(type)" in module_store_source
         and "nodeGraphModuleStoreUnderConstructionTypes" not in module_store_source
         and "function nodeGraphModuleTypeIsUnderConstruction(type)" in module_store_source
+        and "nodeGraphModuleCatalogUnderConstructionSort.includes(key)" in module_store_source
         and "nodeGraphModuleIsStoreVisible(key, \"underconstructionsort\")" in module_store_source
         and "function nodeGraphNativeModuleRefIsUnderConstruction(ref = {})" in module_store_source
         and "function nodeGraphNativeModuleNameToType(name)" in module_store_source

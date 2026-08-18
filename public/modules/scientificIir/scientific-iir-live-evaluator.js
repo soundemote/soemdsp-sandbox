@@ -192,6 +192,9 @@ nodeGraphLiveModuleEvaluators.flexGrid = () => ({ Out: 0, X: 0, Y: 0 });
 // Under construction: Chaosfly — silent chaos placeholder
 nodeGraphLiveModuleEvaluators.chaosfly = () => ({ Out: 0, X: 0, Y: 0, Z: 0 });
 
+// Under construction: Gravity — silent few-body / Doppler placeholder
+nodeGraphLiveModuleEvaluators.gravity = () => ({ Out: 0, X: 0, Y: 0, Radial: 0 });
+
 // Under construction: Drummer — silent Sequence placeholder
 nodeGraphLiveModuleEvaluators.drummer = () => ({
   Out: 0,

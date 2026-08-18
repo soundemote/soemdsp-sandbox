@@ -18,10 +18,19 @@ function nodeGraphModuleTypeIsUnderConstruction(type) {
   if (!key) {
     return false;
   }
+  if (nodeGraphModuleCatalogRetiredFromUnderConstruction.includes(key)) {
+    return false;
+  }
+  // Default UC list is SSOT. Persisted underconstructionsort can add extras,
+  // but cannot un-park a type still on the default array (old settings used
+  // to leave new UC modules spawnable).
+  if (nodeGraphModuleCatalogUnderConstructionSort.includes(key)) {
+    return true;
+  }
   if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
     return nodeGraphModuleIsStoreVisible(key, "underconstructionsort");
   }
-  return nodeGraphModuleCatalogUnderConstructionSort.includes(key);
+  return false;
 }
 
 /** native catalog name (snake_case) → module type (camelCase). */
@@ -123,6 +132,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "electroHat",
   "flexGrid",
   "chaosfly",
+  "gravity",
   "drummer",
   "arp",
   "ePiano",
@@ -173,6 +183,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   binaryClock: "Binary bit counter. Parked until Sequence bits land.",
   flexGrid: "Multi-point CV morph grid. Parked until the modulator surface lands.",
   chaosfly: "Fly-like X/Y/Z chaos. Parked until that attractor lands.",
+  gravity: "Few-body Newtonian orbits on phosphor. First Doppler puzzle piece. Parked — write pairwise + leapfrog ourselves.",
   ePiano: "GM electric piano. Parked until sample/MIDI voices exist.",
   percussion: "GM channel-10 kit. Parked until sample/MIDI voices exist.",
   theremin: "Proximity pitch/volume. Parked until that controller lands.",
@@ -764,6 +775,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Placeholder Chaosfly attractor—fly-like chaotic X/Y/Z motion (under construction).",
     label: "Chaosfly",
     notes: ["under construction", "chaos", "attractor", "fly", "X/Y/Z", "modulation"],
+  },
+  gravity: {
+    category: "chaos",
+    description: "Placeholder few-body gravity for phosphor orbits (under construction). First piece of the Doppler module.",
+    label: "Gravity",
+    notes: ["under construction", "chaos", "n-body", "orbits", "phosphor", "doppler", "pairwise", "leapfrog"],
   },
   noiseGenerator: {
     category: "noise",
@@ -1963,10 +1980,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["pixel grid", "raster", "framebuffer", "rgb", "hue", "color correct", "tv"],
   },
   gradientVectorscope: {
-    category: "rgb",
+    category: "oscilloscope",
     description: "2D trace with color along path length (not phosphor brightness). Optional 90° mid/side rotation.",
     label: "Gradient Vectorscope",
-    notes: ["vectorscope", "gradient", "xy trace", "90"],
+    notes: ["vectorscope", "gradient", "xy trace", "90", "oscilloscope"],
   },
   traceXyz: {
     category: "oscilloscope",
@@ -2097,7 +2114,7 @@ function nodeGraphModuleCatalogStripRetiredUnderConstruction(shelves) {
 }
 
 function nodeGraphModuleCatalogEnsureForcedUnderConstruction(shelves) {
-  const forced = ["moduleGroup"];
+  const forced = nodeGraphModuleCatalogUnderConstructionSort;
   const list = Array.isArray(shelves?.underconstructionsort)
     ? [...shelves.underconstructionsort]
     : [];
@@ -3667,7 +3684,7 @@ function createNodeGraphModuleStoreButton(entry) {
     nativeStatus.textContent = "C++";
     nativeStatus.title = "C++";
   } else if (!entry.implemented) {
-    nativeStatus.textContent = "Under construction";
+    nativeStatus.textContent = "🚧";
     nativeStatus.title = "Under construction";
   }
   main.append(mark, label, nativeStatus);

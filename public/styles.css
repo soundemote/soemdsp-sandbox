@@ -1477,13 +1477,13 @@ button.scw-label:hover,
 .node-music-player-waveplay-song {
   flex: 0 0 var(--node-music-player-pl-row-height, 1.35rem);
   display: flex;
-  align-items: center;
+  align-items: stretch;
   width: 100%;
   height: var(--node-music-player-pl-row-height, 1.35rem);
   min-height: var(--node-music-player-pl-row-height, 1.35rem);
   max-height: var(--node-music-player-pl-row-height, 1.35rem);
   margin: 0;
-  padding: 0 8px;
+  padding: 0;
   border: 0 !important;
   border-top: 1px solid var(--phosphor-hud-color-dim) !important;
   border-radius: 0;
@@ -1491,16 +1491,42 @@ button.scw-label:hover,
   background: #050805;
   color: var(--phosphor-hud-color);
   font: var(--phosphor-hud-font);
-  text-align: left;
-  outline: none;
-  cursor: var(--node-dot-cursor);
   overflow: hidden;
+}
+.node-music-player-waveplay-skip {
+  flex: 0 0 1.7rem;
+  width: 1.7rem;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent;
+  color: var(--phosphor-hud-color);
+  font: var(--phosphor-hud-font);
+  cursor: var(--node-dot-cursor);
+}
+.node-music-player-waveplay-skip:hover,
+.node-music-player-waveplay-skip:focus-visible {
+  color: var(--phosphor-hud-color-hot);
+  background: transparent;
+  outline: none;
 }
 .node-music-player-waveplay-song .node-music-player-pl-name {
   grid-column: auto;
   grid-row: auto;
   flex: 1 1 auto;
   min-width: 0;
+  margin: 0;
+  padding: 0 6px;
+  border: 0 !important;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: var(--node-dot-cursor);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .node-music-player-waveplay-song:hover,
 .node-music-player-waveplay-song:focus-visible {
@@ -4687,19 +4713,22 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-emoji-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(auto-fill, 34px);
+  gap: 0;
 }
 
 .node-emoji-glyph {
   display: grid;
   place-items: center;
-  min-width: 0;
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
   min-height: 34px;
   margin: 0;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
   box-shadow: none;
   color: inherit;
@@ -11900,6 +11929,15 @@ body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
   max-height: none !important;
 }
 
+/* Music Player: pages are inset for the module dock. In F they must fill
+   the stage (minus the one-row dock) or the wave sits in a short band. */
+body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-display .node-music-player-page {
+  top: 0 !important;
+  right: 0 !important;
+  left: 0 !important;
+  bottom: var(--node-music-player-pl-row-height, 1.35rem) !important;
+}
+
 /* Keep in sync with NODE_GRAPH_VIEWPORT_ASLEEP_SKIP_SEL.
    Faces / custom UI only — not .dsp-node-body. Live slider readout, ghosts,
    and constraint chrome measure param rows every frame; hiding that band
@@ -12223,15 +12261,21 @@ body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
   opacity: 0.88;
 }
 
-/* Jacks + labels stay readable on top of the OFF wallpaper. */
+/* Jacks + labels stay readable on top of the OFF wallpaper.
+   Do not rewrite port position — jacks are absolute overlays on the row.
+   `position: relative` pulled them into flow and double-padded the labels. */
 .dsp-node.bypassed > .dsp-node-io-section,
-.dsp-node.bypassed .dsp-node-io-section,
+.dsp-node.bypassed .dsp-node-io-section {
+  z-index: 50;
+  filter: none;
+  opacity: 1;
+}
+
 .dsp-node.bypassed .node-io-column,
 .dsp-node.bypassed .node-io-row,
+.dsp-node.bypassed .node-io-label,
 .dsp-node.bypassed .node-port,
-.dsp-node.bypassed .node-param-port,
-.dsp-node.bypassed .node-io-label {
-  position: relative;
+.dsp-node.bypassed .node-param-port {
   z-index: 50;
   filter: none;
   opacity: 1;

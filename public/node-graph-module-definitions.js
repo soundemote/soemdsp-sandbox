@@ -172,6 +172,7 @@ const nodeGraphNodeLabels = Object.freeze({
   pixelGrid: "PixelGrid",
   flexGrid: "Flex Grid",
   chaosfly: "Chaosfly",
+  gravity: "Gravity",
   drummer: "Drummer",
   arp: "Arp",
   // GM program 5 = Electric Piano 1; GM channel 10 = percussion kit.
@@ -6859,6 +6860,73 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip: "Under construction — planned Chaosfly chaos / wing-spread amount."
+      },
+      {
+        defaultValue: "1",
+        key: "amplitude",
+        label: "Amplitude",
+        max: "1",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        modClamp: false,
+        tooltip: "Under construction — output scale."
+      },
+    ]
+  },
+  // Under construction: few-body gravity (Chaos shelf). First Doppler piece.
+  gravity: {
+    planRole: "source",
+    planFreeRun: true,
+    displayType: "lineBurn",
+    displayModes: [
+      { key: "lineBurn", renderer: "lineBurn", source: { x: "X", y: "Y" } },
+    ],
+    displaySignals: [
+      { key: "X", kind: "scalar" },
+      { key: "Y", kind: "scalar" },
+      { key: "Radial", kind: "scalar" },
+      { key: "Out", kind: "scalar" },
+    ],
+    inputs: ["Reset"],
+    outputs: ["Out", "X", "Y", "Radial"],
+    outputTooltips: {
+      Radial: "Planned signed radial velocity toward the listener — first Doppler puzzle piece.",
+    },
+    parameters: [
+      {
+        defaultValue: "8",
+        key: "bodies",
+        label: "Bodies",
+        max: "64",
+        mid: "8",
+        min: "2",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Under construction — planned particle count (few bodies, phosphor orbits)."
+      },
+      {
+        defaultValue: "1",
+        key: "g",
+        label: "G",
+        max: "8",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Under construction — planned gravitational strength."
+      },
+      {
+        defaultValue: "0.05",
+        key: "soften",
+        label: "Soften",
+        max: "1",
+        mid: "0.05",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Under construction — planned Plummer softening to avoid 1/r² blowups."
       },
       {
         defaultValue: "1",

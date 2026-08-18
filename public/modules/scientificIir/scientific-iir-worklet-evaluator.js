@@ -200,6 +200,11 @@ NodeLiveAudioProcessor.prototype.chaosflySample = function chaosflySample() {
   return { Out: 0, X: 0, Y: 0, Z: 0 };
 };
 
+// UC Gravity (silent few-body / Doppler placeholder)
+NodeLiveAudioProcessor.prototype.gravitySample = function gravitySample() {
+  return { Out: 0, X: 0, Y: 0, Radial: 0 };
+};
+
 // UC Drummer (silent Sequence placeholder)
 NodeLiveAudioProcessor.prototype.drummerSample = function drummerSample() {
   return { Out: 0, Kick: 0, Snare: 0, Hat: 0, Gate: 0 };

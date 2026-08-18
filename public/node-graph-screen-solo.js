@@ -305,6 +305,20 @@ function nodeGraphScreenSoloClearFitClasses() {
   }
 }
 
+function nodeGraphScreenSoloFacePrefersFill(face) {
+  return Boolean(
+    face?.classList?.contains("node-phosphor-waveform-display")
+    || face?.classList?.contains("node-module-scope-window"),
+  );
+}
+
+function nodeGraphScreenSoloInitialFit(items) {
+  if (items.length === 1 && nodeGraphScreenSoloFacePrefersFill(items[0]?.face)) {
+    return "fill";
+  }
+  return "contain";
+}
+
 function nodeGraphScreenSoloGridSize(count) {
   const n = Math.max(1, Math.round(Number(count) || 1));
   const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
@@ -457,7 +471,7 @@ function beginNodeGraphScreenSoloGrid(nodeIds) {
   for (const item of items) {
     stage.append(item.face);
   }
-  applyNodeGraphScreenSoloFit("contain");
+  applyNodeGraphScreenSoloFit(nodeGraphScreenSoloInitialFit(items));
   const keep = new Set(items.map((item) => item.nodeId));
   for (const node of document.querySelectorAll(".dsp-node")) {
     if (keep.has(node.dataset?.node)) {
@@ -553,10 +567,13 @@ function toggleNodeGraphSelectedScreensFullscreen() {
     );
   } else if (started && typeof setNodeInteractionHelp === "function") {
     const n = nodeGraphScreenSoloItems().length;
+    const fit = nodeGraphScreenSoloSession().fit;
     setNodeInteractionHelp(
-      n === 1
-        ? "Fullscreen, original ratio. F stretches, F again exits."
-        : `Fullscreen ${n} screens, original ratio. F stretches, F again exits.`,
+      n === 1 && fit === "fill"
+        ? "Fullscreen stretched. F again exits."
+        : n === 1
+          ? "Fullscreen, original ratio. F stretches, F again exits."
+          : `Fullscreen ${n} screens, original ratio. F stretches, F again exits.`,
     );
   }
   return started;

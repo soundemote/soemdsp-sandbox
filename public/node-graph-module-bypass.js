@@ -111,6 +111,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   wavetable3d: "silence",
   flexGrid: "silence",
   chaosfly: "silence",
+  gravity: "silence",
   drummer: "silence",
   arp: "silence",
   ePiano: "silence",
