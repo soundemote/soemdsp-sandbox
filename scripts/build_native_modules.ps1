@@ -127,6 +127,18 @@ $modules = @(
     "soemdsp_comb_resonator_create", "soemdsp_comb_resonator_destroy", "soemdsp_comb_resonator_sample",
     "soemdsp_comb_resonator_version", "soemdsp_comb_resonator_metadata_json", "soemdsp_comb_resonator_metadata_json_size"
   ) }
+  @{ Name = "gain"; Simd = $false; Exports = @("soemdsp_gain_sample", "soemdsp_gain_version", "soemdsp_gain_metadata_json", "soemdsp_gain_metadata_json_size") }
+  @{ Name = "bias"; Simd = $false; Exports = @("soemdsp_bias_sample", "soemdsp_bias_version", "soemdsp_bias_metadata_json", "soemdsp_bias_metadata_json_size") }
+  @{ Name = "attenuverter"; Simd = $false; Exports = @("soemdsp_attenuverter_sample", "soemdsp_attenuverter_version", "soemdsp_attenuverter_metadata_json", "soemdsp_attenuverter_metadata_json_size") }
+  @{ Name = "mix"; Simd = $false; Exports = @("soemdsp_mix_sample", "soemdsp_mix_version", "soemdsp_mix_metadata_json", "soemdsp_mix_metadata_json_size") }
+  @{ Name = "mix_stereo"; Simd = $false; Exports = @("soemdsp_mix_stereo_sample", "soemdsp_mix_stereo_version", "soemdsp_mix_stereo_metadata_json", "soemdsp_mix_stereo_metadata_json_size") }
+  @{ Name = "mid_side_encode"; Simd = $false; Exports = @("soemdsp_mid_side_encode_sample", "soemdsp_mid_side_encode_version", "soemdsp_mid_side_encode_metadata_json", "soemdsp_mid_side_encode_metadata_json_size") }
+  @{ Name = "vectorscope_transform"; Simd = $false; Exports = @("soemdsp_vectorscope_transform_sample", "soemdsp_vectorscope_transform_version", "soemdsp_vectorscope_transform_metadata_json", "soemdsp_vectorscope_transform_metadata_json_size") }
+  @{ Name = "rotate_3d_to_2d"; Simd = $false; Exports = @("soemdsp_rotate_3d_to_2d_sample", "soemdsp_rotate_3d_to_2d_version", "soemdsp_rotate_3d_to_2d_metadata_json", "soemdsp_rotate_3d_to_2d_metadata_json_size") }
+  @{ Name = "clipper_limiter"; Simd = $false; Exports = @("soemdsp_clipper_limiter_create", "soemdsp_clipper_limiter_destroy", "soemdsp_clipper_limiter_sample", "soemdsp_clipper_limiter_version", "soemdsp_clipper_limiter_metadata_json", "soemdsp_clipper_limiter_metadata_json_size") }
+  @{ Name = "eq_filter"; Simd = $false; Exports = @("soemdsp_eq_filter_create", "soemdsp_eq_filter_destroy", "soemdsp_eq_filter_sample", "soemdsp_eq_filter_version", "soemdsp_eq_filter_metadata_json", "soemdsp_eq_filter_metadata_json_size") }
+  @{ Name = "inertial_filter"; Simd = $false; Exports = @("soemdsp_inertial_filter_create", "soemdsp_inertial_filter_destroy", "soemdsp_inertial_filter_sample", "soemdsp_inertial_filter_version", "soemdsp_inertial_filter_metadata_json", "soemdsp_inertial_filter_metadata_json_size") }
+  @{ Name = "lookahead_limiter"; Simd = $false; Exports = @("soemdsp_lookahead_limiter_create", "soemdsp_lookahead_limiter_destroy", "soemdsp_lookahead_limiter_sample", "soemdsp_lookahead_limiter_left", "soemdsp_lookahead_limiter_right", "soemdsp_lookahead_limiter_gain", "soemdsp_lookahead_limiter_version", "soemdsp_lookahead_limiter_metadata_json", "soemdsp_lookahead_limiter_metadata_json_size") }
 )
 
 foreach ($module in $modules) {

@@ -14,6 +14,41 @@ NodeLiveAudioProcessor.prototype.createGainBiasMixState = function createGainBia
 };
 
 NodeLiveAudioProcessor.prototype.gainBiasMixSample = function gainBiasMixSample(state, params, nodeId) {
+  if (this.nativeMixReady && this.nativeMix?.soemdsp_mix_sample) {
+    try {
+      const args = [
+        this.safeFilterNumber(params.in1, 0) ?? 0,
+        this.safeFilterNumber(params.in2, 0) ?? 0,
+        this.safeFilterNumber(params.in3, 0) ?? 0,
+        this.safeFilterNumber(params.in4, 0) ?? 0,
+        this.safeFilterNumber(params.volume1, 1) ?? 1,
+        this.safeFilterNumber(params.volume2, 1) ?? 1,
+        this.safeFilterNumber(params.volume3, 1) ?? 1,
+        this.safeFilterNumber(params.volume4, 1) ?? 1,
+        this.safeFilterNumber(params.bias1, 0) ?? 0,
+        this.safeFilterNumber(params.bias2, 0) ?? 0,
+        this.safeFilterNumber(params.bias3, 0) ?? 0,
+        this.safeFilterNumber(params.bias4, 0) ?? 0,
+        this.safeFilterNumber(params.bleed2to1, 0) ?? 0,
+        this.safeFilterNumber(params.bleed3to1, 0) ?? 0,
+        this.safeFilterNumber(params.bleed4to1, 0) ?? 0,
+      ];
+      return {
+        Out1: this.safeFilterNumber(this.nativeMix.soemdsp_mix_sample(1, ...args), null) ?? 0,
+        Out2: this.safeFilterNumber(this.nativeMix.soemdsp_mix_sample(2, ...args), null) ?? 0,
+        Out3: this.safeFilterNumber(this.nativeMix.soemdsp_mix_sample(3, ...args), null) ?? 0,
+        Out4: this.safeFilterNumber(this.nativeMix.soemdsp_mix_sample(4, ...args), null) ?? 0,
+      };
+    } catch (error) {
+      this.nativeMixReady = false;
+      this.port.postMessage({
+        type: "nativeModuleStatus",
+        name: "mix",
+        status: "disabled",
+        message: String(error?.message || error || "native Mix failed"),
+      });
+    }
+  }
   const v1 = this.safeFilterNumber(params.volume1, 1) ?? 1;
   const b1 = this.safeFilterNumber(params.bias1, 0) ?? 0;
   const v2 = this.safeFilterNumber(params.volume2, 1) ?? 1;

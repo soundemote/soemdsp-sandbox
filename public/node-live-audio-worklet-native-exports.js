@@ -1568,6 +1568,164 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+      if (name === "gain" || targetType === "gain" || targetType === "gainBias") {
+        this.nativeGain = exports;
+        this.nativeGainReady = Boolean(this.nativeGain?.soemdsp_gain_sample);
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "gain",
+          status: this.nativeGainReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "bias" || targetType === "bias") {
+        this.nativeBias = exports;
+        this.nativeBiasReady = Boolean(this.nativeBias?.soemdsp_bias_sample);
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "bias",
+          status: this.nativeBiasReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "attenuverter" || targetType === "attenuverter") {
+        this.nativeAttenuverter = exports;
+        this.nativeAttenuverterReady = Boolean(this.nativeAttenuverter?.soemdsp_attenuverter_sample);
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "attenuverter",
+          status: this.nativeAttenuverterReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "mix" || targetType === "mix" || targetType === "gainBiasMix") {
+        this.nativeMix = exports;
+        this.nativeMixReady = Boolean(this.nativeMix?.soemdsp_mix_sample);
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "mix",
+          status: this.nativeMixReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "mix_stereo" || targetType === "mixStereo") {
+        this.nativeMixStereo = exports;
+        this.nativeMixStereoReady = Boolean(this.nativeMixStereo?.soemdsp_mix_stereo_sample);
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "mix_stereo",
+          status: this.nativeMixStereoReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "mid_side_encode" || targetType === "midSideEncode") {
+        this.nativeMidSideEncode = exports;
+        this.nativeMidSideEncodeReady = Boolean(this.nativeMidSideEncode?.soemdsp_mid_side_encode_sample);
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "mid_side_encode",
+          status: this.nativeMidSideEncodeReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "vectorscope_transform" || targetType === "vectorscopeTransform") {
+        this.nativeVectorscopeTransform = exports;
+        this.nativeVectorscopeTransformReady = Boolean(
+          this.nativeVectorscopeTransform?.soemdsp_vectorscope_transform_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "vectorscope_transform",
+          status: this.nativeVectorscopeTransformReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "rotate_3d_to_2d" || targetType === "rotate3dTo2d") {
+        this.nativeRotate3dTo2d = exports;
+        this.nativeRotate3dTo2dReady = Boolean(this.nativeRotate3dTo2d?.soemdsp_rotate_3d_to_2d_sample);
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "rotate_3d_to_2d",
+          status: this.nativeRotate3dTo2dReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "clipper_limiter" || targetType === "clipperLimiter") {
+        if (this.clipperLimiterStates) {
+          for (const state of this.clipperLimiterStates.values()) {
+            this.destroyClipperLimiterNativeState?.(state);
+          }
+        }
+        this.nativeClipperLimiter = exports;
+        this.nativeClipperLimiterReady = Boolean(
+          this.nativeClipperLimiter?.soemdsp_clipper_limiter_create &&
+          this.nativeClipperLimiter?.soemdsp_clipper_limiter_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "clipper_limiter",
+          status: this.nativeClipperLimiterReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "eq_filter" || targetType === "eqFilter") {
+        if (this.eqFilterStates) {
+          for (const bundle of this.eqFilterStates.values()) {
+            this.destroyEqFilterNativeState?.(bundle?.left);
+            this.destroyEqFilterNativeState?.(bundle?.mono);
+            this.destroyEqFilterNativeState?.(bundle?.right);
+          }
+        }
+        this.nativeEqFilter = exports;
+        this.nativeEqFilterReady = Boolean(
+          this.nativeEqFilter?.soemdsp_eq_filter_create &&
+          this.nativeEqFilter?.soemdsp_eq_filter_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "eq_filter",
+          status: this.nativeEqFilterReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "inertial_filter" || targetType === "inertialFilter") {
+        if (this.inertialFilterStates) {
+          for (const bundle of this.inertialFilterStates.values()) {
+            this.destroyInertialFilterNativeState?.(bundle?.left);
+            this.destroyInertialFilterNativeState?.(bundle?.mono);
+            this.destroyInertialFilterNativeState?.(bundle?.right);
+          }
+        }
+        this.nativeInertialFilter = exports;
+        this.nativeInertialFilterReady = Boolean(
+          this.nativeInertialFilter?.soemdsp_inertial_filter_create &&
+          this.nativeInertialFilter?.soemdsp_inertial_filter_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "inertial_filter",
+          status: this.nativeInertialFilterReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "lookahead_limiter" || targetType === "lookaheadLimiter") {
+        if (this.lookaheadLimiterStates) {
+          for (const state of this.lookaheadLimiterStates.values()) {
+            this.destroyLookaheadLimiterNativeState?.(state);
+          }
+        }
+        this.nativeLookaheadLimiter = exports;
+        this.nativeLookaheadLimiterReady = Boolean(
+          this.nativeLookaheadLimiter?.soemdsp_lookahead_limiter_create &&
+          this.nativeLookaheadLimiter?.soemdsp_lookahead_limiter_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "lookahead_limiter",
+          status: this.nativeLookaheadLimiterReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "archimedes" || targetType === "archimedes") {
         for (const state of this.archimedesStates.values()) {
           this.destroyArchimedesNativeState(state);

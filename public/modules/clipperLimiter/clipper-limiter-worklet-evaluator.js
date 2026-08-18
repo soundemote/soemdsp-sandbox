@@ -1,5 +1,12 @@
 // Clipper Limiter — Soft Clipper knee (native ADAA when available).
 
+NodeLiveAudioProcessor.prototype.destroyClipperLimiterNativeState = function destroyClipperLimiterNativeState(state) {
+  if (state?.clipperNativeHandle && this.nativeClipperLimiter?.soemdsp_clipper_limiter_destroy) {
+    try { this.nativeClipperLimiter.soemdsp_clipper_limiter_destroy(state.clipperNativeHandle); } catch (_error) { /* ignore */ }
+  }
+  if (state) state.clipperNativeHandle = 0;
+};
+
 NodeLiveAudioProcessor.prototype.clipperLimiterChannel = function clipperLimiterChannel(
   input,
   minDb,
@@ -9,6 +16,37 @@ NodeLiveAudioProcessor.prototype.clipperLimiterChannel = function clipperLimiter
   oversample,
   channel,
 ) {
+  if (this.nativeClipperLimiterReady && this.nativeClipperLimiter?.soemdsp_clipper_limiter_sample && state) {
+    try {
+      if (!state.clipperNativeHandle) {
+        state.clipperNativeHandle = this.nativeClipperLimiter.soemdsp_clipper_limiter_create();
+      }
+      if (state.clipperNativeHandle) {
+        const aa = Number(oversample) > 0 ? 1 : 0;
+        return this.safeFilterNumber(
+          this.nativeClipperLimiter.soemdsp_clipper_limiter_sample(
+            state.clipperNativeHandle,
+            channel | 0,
+            input,
+            minDb,
+            maxDb,
+            gainDb,
+            aa,
+          ),
+          null,
+        ) ?? 0;
+      }
+    } catch (error) {
+      this.nativeClipperLimiterReady = false;
+      state.clipperNativeHandle = 0;
+      this.port.postMessage({
+        type: "nativeModuleStatus",
+        name: "clipper_limiter",
+        status: "disabled",
+        message: String(error?.message || error || "native Clipper Limiter failed"),
+      });
+    }
+  }
   const prep = typeof nodeGraphClipperLimiterPrep === "function"
     ? nodeGraphClipperLimiterPrep(input, minDb, maxDb, gainDb)
     : { dry: true, y: Number(input) || 0 };

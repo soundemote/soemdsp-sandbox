@@ -17850,6 +17850,25 @@ def require_native_module_contract(base_url: str) -> None:
         "u2b": ["soemdsp_u2b_sample"],
         "b2u": ["soemdsp_b2u_sample"],
         "inv": ["soemdsp_inv_sample"],
+        "gain": ["soemdsp_gain_sample"],
+        "bias": ["soemdsp_bias_sample"],
+        "attenuverter": ["soemdsp_attenuverter_sample"],
+        "mix": ["soemdsp_mix_sample"],
+        "mix_stereo": ["soemdsp_mix_stereo_sample"],
+        "mid_side_encode": ["soemdsp_mid_side_encode_sample"],
+        "vectorscope_transform": ["soemdsp_vectorscope_transform_sample"],
+        "rotate_3d_to_2d": ["soemdsp_rotate_3d_to_2d_sample"],
+        "clipper_limiter": ["soemdsp_clipper_limiter_create", "soemdsp_clipper_limiter_destroy", "soemdsp_clipper_limiter_sample"],
+        "eq_filter": ["soemdsp_eq_filter_create", "soemdsp_eq_filter_destroy", "soemdsp_eq_filter_sample"],
+        "inertial_filter": ["soemdsp_inertial_filter_create", "soemdsp_inertial_filter_destroy", "soemdsp_inertial_filter_sample"],
+        "lookahead_limiter": [
+            "soemdsp_lookahead_limiter_create",
+            "soemdsp_lookahead_limiter_destroy",
+            "soemdsp_lookahead_limiter_sample",
+            "soemdsp_lookahead_limiter_left",
+            "soemdsp_lookahead_limiter_right",
+            "soemdsp_lookahead_limiter_gain",
+        ],
         "chua_attractor": ["soemdsp_chua_attractor_create", "soemdsp_chua_attractor_destroy", "soemdsp_chua_attractor_sample"],
         "ellipsoid": ["soemdsp_ellipsoid_sine_to_square", "soemdsp_ellipsoid_sample"],
         "fractal_brownian_noise": ["soemdsp_fbm_create", "soemdsp_fbm_destroy", "soemdsp_fbm_sample"],
@@ -18211,6 +18230,13 @@ def require_native_module_contract(base_url: str) -> None:
         and "Out: this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 0)" in worklet_source
         and "softClipperSample(input, center = 0, width = 2)" not in worklet_source,
         "native Soft Clipper should be worklet-backed with old JS worklet DSP removed",
+    )
+    require(
+        'name === "gain" || targetType === "gain"' in worklet_source
+        and "this.nativeGain?.soemdsp_gain_sample" in worklet_source
+        and 'name === "lookahead_limiter" || targetType === "lookaheadLimiter"' in worklet_source
+        and "this.nativeLookaheadLimiter?.soemdsp_lookahead_limiter_sample" in worklet_source,
+        "Dynamics modules should apply native WASM exports in the worklet",
     )
     require(
         '"soemdsp_soft_clipper_sample"' in native_build_source

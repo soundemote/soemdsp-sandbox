@@ -62,6 +62,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "attenuverter",
+      "label": "Attenuverter",
+      "targetType": "attenuverter",
+      "kind": "dynamics",
+      "source": "native_modules/attenuverter/attenuverter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/attenuverter/attenuverter.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/attenuverter/attenuverter.wasm",
+      "wasmUrl": "native_modules/attenuverter/attenuverter.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "b2u",
       "label": "B2U",
       "targetType": "b2u",
@@ -95,6 +107,18 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET",
       "wasm": "native_modules/bessel/bessel.wasm",
       "wasmUrl": "native_modules/bessel/bessel.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "bias",
+      "label": "Bias",
+      "targetType": "bias",
+      "kind": "dynamics",
+      "source": "native_modules/bias/bias.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/bias/bias.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/bias/bias.wasm",
+      "wasmUrl": "native_modules/bias/bias.wasm",
       "wasmAvailable": true
     },
     {
@@ -191,6 +215,18 @@
       "libUrl": "",
       "wasm": "native_modules/chua_attractor/chua_attractor.wasm",
       "wasmUrl": "native_modules/chua_attractor/chua_attractor.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "clipper_limiter",
+      "label": "Clipper Limiter",
+      "targetType": "clipperLimiter",
+      "kind": "dynamics",
+      "source": "native_modules/clipper_limiter/clipper_limiter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/clipper_limiter/clipper_limiter.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/clipper_limiter/clipper_limiter.wasm",
+      "wasmUrl": "native_modules/clipper_limiter/clipper_limiter.wasm",
       "wasmAvailable": true
     },
     {
@@ -302,6 +338,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "eq_filter",
+      "label": "EQ Filter",
+      "targetType": "eqFilter",
+      "kind": "dynamics",
+      "source": "native_modules/eq_filter/eq_filter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/eq_filter/eq_filter.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/eq_filter/eq_filter.wasm",
+      "wasmUrl": "native_modules/eq_filter/eq_filter.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "exp_adsr",
       "label": "Curve Envelope",
       "targetType": "expAdsr",
@@ -374,6 +422,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "gain",
+      "label": "Gain",
+      "targetType": "gain",
+      "kind": "dynamics",
+      "source": "native_modules/gain/gain.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/gain/gain.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/gain/gain.wasm",
+      "wasmUrl": "native_modules/gain/gain.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "helmholtz",
       "label": "Helmholtz Pitch",
       "targetType": "helmholtzPitch",
@@ -419,6 +479,18 @@
       "libUrl": "",
       "wasm": "native_modules/hypersaw/hypersaw.wasm",
       "wasmUrl": "native_modules/hypersaw/hypersaw.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "inertial_filter",
+      "label": "Inertial Filter",
+      "targetType": "inertialFilter",
+      "kind": "dynamics",
+      "source": "native_modules/inertial_filter/inertial_filter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/inertial_filter/inertial_filter.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/inertial_filter/inertial_filter.wasm",
+      "wasmUrl": "native_modules/inertial_filter/inertial_filter.wasm",
       "wasmAvailable": true
     },
     {
@@ -602,6 +674,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "lookahead_limiter",
+      "label": "Limiter",
+      "targetType": "lookaheadLimiter",
+      "kind": "dynamics",
+      "source": "native_modules/lookahead_limiter/lookahead_limiter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/lookahead_limiter/lookahead_limiter.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/lookahead_limiter/lookahead_limiter.wasm",
+      "wasmUrl": "native_modules/lookahead_limiter/lookahead_limiter.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "lorenz_attractor",
       "label": "Lorenz Attractor",
       "targetType": "lorenzAttractor",
@@ -638,6 +722,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "mid_side_encode",
+      "label": "Mid/Side",
+      "targetType": "midSideEncode",
+      "kind": "dynamics",
+      "source": "native_modules/mid_side_encode/mid_side_encode.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/mid_side_encode/mid_side_encode.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/mid_side_encode/mid_side_encode.wasm",
+      "wasmUrl": "native_modules/mid_side_encode/mid_side_encode.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "min_max",
       "label": "Min/Max",
       "targetType": "minMax",
@@ -647,6 +743,30 @@
       "libUrl": "",
       "wasm": "native_modules/min_max/min_max.wasm",
       "wasmUrl": "native_modules/min_max/min_max.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "mix",
+      "label": "Mix",
+      "targetType": "mix",
+      "kind": "dynamics",
+      "source": "native_modules/mix/mix.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/mix/mix.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/mix/mix.wasm",
+      "wasmUrl": "native_modules/mix/mix.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "mix_stereo",
+      "label": "MixStereo",
+      "targetType": "mixStereo",
+      "kind": "dynamics",
+      "source": "native_modules/mix_stereo/mix_stereo.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/mix_stereo/mix_stereo.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/mix_stereo/mix_stereo.wasm",
+      "wasmUrl": "native_modules/mix_stereo/mix_stereo.wasm",
       "wasmAvailable": true
     },
     {
@@ -875,6 +995,18 @@
       "libUrl": "",
       "wasm": "native_modules/robin_supersaw/robin_supersaw.wasm",
       "wasmUrl": "native_modules/robin_supersaw/robin_supersaw.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "rotate_3d_to_2d",
+      "label": "Rotation 3D to 2D",
+      "targetType": "rotate3dTo2d",
+      "kind": "dynamics",
+      "source": "native_modules/rotate_3d_to_2d/rotate_3d_to_2d.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/rotate_3d_to_2d/rotate_3d_to_2d.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/rotate_3d_to_2d/rotate_3d_to_2d.wasm",
+      "wasmUrl": "native_modules/rotate_3d_to_2d/rotate_3d_to_2d.wasm",
       "wasmAvailable": true
     },
     {
@@ -1127,6 +1259,18 @@
       "libUrl": "",
       "wasm": "native_modules/vactrol_envelope/vactrol_envelope.wasm",
       "wasmUrl": "native_modules/vactrol_envelope/vactrol_envelope.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "vectorscope_transform",
+      "label": "Vectorscope Rotation",
+      "targetType": "vectorscopeTransform",
+      "kind": "dynamics",
+      "source": "native_modules/vectorscope_transform/vectorscope_transform.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/vectorscope_transform/vectorscope_transform.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/vectorscope_transform/vectorscope_transform.wasm",
+      "wasmUrl": "native_modules/vectorscope_transform/vectorscope_transform.wasm",
       "wasmAvailable": true
     },
     {

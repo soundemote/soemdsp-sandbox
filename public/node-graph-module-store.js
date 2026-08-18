@@ -836,7 +836,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "dynamics",
     description: "Scale and offset signals—level matching, bias shifts, and simple VCA-style control.",
     label: "Gain",
-    notes: ["multiplication", "offset", "scale and shift", "utility", "gain bias", "level control"],
+    notes: ["multiplication", "offset", "scale and shift", "utility", "gain bias", "level control", "native"],
   },
   // Retired shop entry — type still loads as alias of gain.
   gainBias: {
@@ -850,13 +850,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "dynamics",
     description: "Sum several voices with per-channel level and bias—utility multivoice summing.",
     label: "Mix",
-    notes: ["mixer", "bias", "bleed", "4-channel", "utility"],
+    notes: ["mixer", "bias", "bleed", "4-channel", "utility", "native"],
   },
   mixStereo: {
     category: "dynamics",
     description: "Four stereo pairs plus Mono into Mono/Left/Right, each pair with Volume and Pan, plus master Amplitude.",
     label: "MixStereo",
-    notes: ["mixer", "stereo", "mono", "pan", "volume", "4-channel", "utility"],
+    notes: ["mixer", "stereo", "mono", "pan", "volume", "4-channel", "utility", "native"],
   },
   // Legacy id for Mix.
   gainBiasMix: {
@@ -869,13 +869,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   bias: {
     category: "dynamics",
     description: "Nudge a signal off center—steer bipolar CV into a new range.",
-    notes: ["addition", "offset", "control lane shift"],
+    notes: ["addition", "offset", "control lane shift", "native"],
   },
   attenuverter: {
     category: "dynamics",
     description: "Scale and invert a signal, then add offset. Amplitude −1…+1 (0 mute, +1 unity, −1 invert).",
     label: "Attenuverter",
-    notes: ["attenuverter", "scale", "invert", "offset", "utility"],
+    notes: ["attenuverter", "scale", "invert", "offset", "utility", "native"],
   },
   u2b: {
     category: "dynamics",
@@ -905,7 +905,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "dynamics",
     description: "Drive with Gain, then Soft Clip last: below Min dB is dry; Min→Max is the shared Soft Clipper tanh knee (wider span = more gradual).",
     label: "Clipper Limiter",
-    notes: ["soft clip", "limiter", "dB", "tanh", "ADAA", "dynamics"],
+    notes: ["soft clip", "limiter", "dB", "tanh", "ADAA", "dynamics", "native"],
   },
   airClipper: {
     category: "invisible",
@@ -917,7 +917,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "dynamics",
     description: "Spin X/Y/Z points then project to 2D for scope art and stereo transforms.",
     label: "Rotation 3D to 2D",
-    notes: ["3D rotation", "2D projection", "signal transform"],
+    notes: ["3D rotation", "2D projection", "signal transform", "native"],
   },
   vectorscopeTransform: {
     category: "dynamics",
@@ -934,6 +934,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "L R",
       "X Y",
       "signal transform",
+      "native",
     ],
   },
   output: {
@@ -1157,6 +1158,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "min-phase",
       "scientific",
       "scientific filter",
+      "native",
     ],
   },
   papoulisFilter: {
@@ -1560,6 +1562,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "mid",
       "dynamics",
       "utility",
+      "native",
     ],
   },
   quadrature: {
@@ -1611,6 +1614,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "dynamics",
       "peak",
       "compressor",
+      "native",
     ],
   },
   inertialFilter: {
@@ -1629,6 +1633,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "slew",
       "smooth",
       "dynamics",
+      "native",
     ],
   },
   delayEffect: {

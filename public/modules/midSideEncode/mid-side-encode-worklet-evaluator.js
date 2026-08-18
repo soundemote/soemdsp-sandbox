@@ -6,6 +6,28 @@ NodeLiveAudioProcessor.prototype.midSideEncodeSample = function midSideEncodeSam
   midGainDb = 0,
   sideGainDb = 0,
 ) {
+  if (this.nativeMidSideEncodeReady && this.nativeMidSideEncode?.soemdsp_mid_side_encode_sample) {
+    try {
+      return {
+        Mid: this.safeFilterNumber(
+          this.nativeMidSideEncode.soemdsp_mid_side_encode_sample(0, left, right, midGainDb, sideGainDb),
+          null,
+        ) ?? 0,
+        Side: this.safeFilterNumber(
+          this.nativeMidSideEncode.soemdsp_mid_side_encode_sample(1, left, right, midGainDb, sideGainDb),
+          null,
+        ) ?? 0,
+      };
+    } catch (error) {
+      this.nativeMidSideEncodeReady = false;
+      this.port.postMessage({
+        type: "nativeModuleStatus",
+        name: "mid_side_encode",
+        status: "disabled",
+        message: String(error?.message || error || "native Mid/Side failed"),
+      });
+    }
+  }
   if (typeof nodeGraphMidSideEncodeSample === "function") {
     const out = nodeGraphMidSideEncodeSample(left, right, midGainDb, sideGainDb);
     return {
