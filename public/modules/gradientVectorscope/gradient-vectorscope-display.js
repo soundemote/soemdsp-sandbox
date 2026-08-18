@@ -8,6 +8,8 @@ const nodeGraphGradientVectorscopeDefaultStops = Object.freeze([
 
 const nodeGraphGradientVectorscopeSettingsDefaults = Object.freeze({
   background: "#000004",
+  backgroundHue: 210,
+  backgroundBrightness: 0,
   dot1Size: 0.06,
   gradientStops: nodeGraphGradientVectorscopeDefaultStops,
   historySeconds: 1,
@@ -26,9 +28,20 @@ function normalizeNodeGraphGradientVectorscopeSettings(settings = {}) {
     const n = Number(source[key]);
     return Number.isFinite(n) ? n : fallback;
   };
-  const background = typeof normalizeNodeGraphTraceDisplayColor === "function"
-    ? normalizeNodeGraphTraceDisplayColor(source.background ?? source.backgroundColor, d.background)
-    : String(source.background || d.background);
+  const plate = typeof nodeGraphDisplaySettingsNormalizePlateLook === "function"
+    ? nodeGraphDisplaySettingsNormalizePlateLook(source, {
+      ...d,
+      backgroundBrightness: d.backgroundBrightness ?? 0,
+      backgroundHue: d.backgroundHue ?? 0,
+    })
+    : {
+      background: typeof normalizeNodeGraphTraceDisplayColor === "function"
+        ? normalizeNodeGraphTraceDisplayColor(source.background ?? source.backgroundColor, d.background)
+        : String(source.background || d.background),
+      backgroundColor: source.backgroundColor || source.background || d.background,
+      backgroundHue: Number(source.backgroundHue) || 0,
+      backgroundBrightness: Number(source.backgroundBrightness) || 0,
+    };
   let gradientStops;
   if (typeof nodeGraphPhosphorGradientStopsFromSettings === "function") {
     gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, d.gradientStops[1].color);
@@ -41,7 +54,7 @@ function normalizeNodeGraphGradientVectorscopeSettings(settings = {}) {
   const rotate90 = rotateRaw === true || rotateRaw === 1 || rotateRaw === "true" || rotateRaw === "1";
   const blurRaw = source.lineThickness ?? source.blur ?? source.dot1Blur;
   return {
-    background,
+    ...plate,
     dot1Size: Math.max(0, Math.min(1, num("dot1Size", d.dot1Size))),
     gradientStops,
     historySeconds: Math.max(0.02, Math.min(8, num("historySeconds", d.historySeconds))),
@@ -96,7 +109,9 @@ function drawNodeGraphGradientVectorscopeFaceItem(_renderer, item, pixelRatio) {
   if (!ctx) {
     return;
   }
-  const bg = settings.background;
+  const bg = typeof nodeGraphFacePlateBackground === "function"
+    ? nodeGraphFacePlateBackground(settings)
+    : settings.background;
   if (typeof nodeGraphFacePlateApplyCss === "function") {
     nodeGraphFacePlateApplyCss(face, bg);
   }

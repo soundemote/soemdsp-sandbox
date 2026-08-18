@@ -101,12 +101,22 @@ function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
     start = Math.max(validStart, Math.min(validEnd - visibleSamples, Number(options.forceStart)));
   }
   const ampScale = Number(settings?.scale);
+  const scale = Number.isFinite(ampScale) && ampScale > 0
+    ? clampNodeSliderValue(ampScale, 0.01, 100)
+    : 1;
+  // Limiter Gain is 0…1 (unity at top). Map onto Instant Trace ±1.
+  if (slot?.type === "lookaheadLimiter") {
+    return {
+      end: Math.min(validEnd, start + visibleSamples),
+      gain: scale * 2,
+      offset: -scale,
+      start,
+    };
+  }
   return {
     end: Math.min(validEnd, start + visibleSamples),
     // Amplitude zoom for Output / Trace drawers (1 = full-scale face).
-    gain: Number.isFinite(ampScale) && ampScale > 0
-      ? clampNodeSliderValue(ampScale, 0.01, 100)
-      : 1,
+    gain: scale,
     offset: 0,
     start,
   };

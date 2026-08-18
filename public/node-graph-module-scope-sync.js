@@ -358,7 +358,8 @@ function nodeGraphTraceDisplayPixelLockedView(view, canvasWidthPx) {
   };
 }
 
-// TRACE = VECTOR (polylines). Strip-chart pixel-scroll removed — that model is phosphor/waterfall only.
+// Instant Trace freerun: scroll the face bitmap and stroke only new samples
+// (see drawNodeGraphTraceDisplayCanvasItem). Sync still remeshes the window.
 
 /**
  * Oscilloscope-style auto-trigger for Trace / Output displays.

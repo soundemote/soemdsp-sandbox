@@ -1245,6 +1245,19 @@ function normalizeNodeGraphUserSession(payload = {}) {
       const height = Math.round(Number(raw?.height));
       return width >= 24 && height >= 120 ? { width, height } : null;
     })(),
+    moduleScopeFramesPerSecond: typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
+      ? normalizeNodeGraphModuleScopeFramesPerSecond(
+        payload.moduleScopeFramesPerSecond
+          ?? view.moduleScopeFramesPerSecond
+          ?? nodeGraphMvp.moduleScopeFramesPerSecond
+          ?? 60,
+      )
+      : Math.max(0, Math.min(240, Math.round(Number(
+        payload.moduleScopeFramesPerSecond
+          ?? view.moduleScopeFramesPerSecond
+          ?? nodeGraphMvp.moduleScopeFramesPerSecond
+          ?? 60,
+      ) || 60))),
   };
 }
 
@@ -1322,6 +1335,9 @@ function readNodeGraphUserSessionFromState() {
         height: Math.round(Number(nodeGraphMvp.unifiedWindowSize.height)),
       }
       : null,
+    moduleScopeFramesPerSecond: typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
+      ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60)
+      : Math.max(0, Math.min(240, Math.round(Number(nodeGraphMvp.moduleScopeFramesPerSecond) || 60))),
   };
 }
 
@@ -1420,6 +1436,14 @@ function applyNodeGraphUserSession(session, options = {}) {
   nodeGraphMvp.unifiedWindowPresentation = String(normalized.unifiedWindowPresentation || "closed");
   nodeGraphMvp.unifiedWindowPosition = normalized.unifiedWindowPosition || null;
   nodeGraphMvp.unifiedWindowSize = normalized.unifiedWindowSize || null;
+  if (normalized.moduleScopeFramesPerSecond != null) {
+    nodeGraphMvp.moduleScopeFramesPerSecond = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
+      ? normalizeNodeGraphModuleScopeFramesPerSecond(normalized.moduleScopeFramesPerSecond)
+      : Math.max(0, Math.min(240, Math.round(Number(normalized.moduleScopeFramesPerSecond) || 60)));
+    if (typeof renderNodeGraphModuleScopeBrightnessControl === "function") {
+      renderNodeGraphModuleScopeBrightnessControl();
+    }
+  }
   if (typeof applyNodeGraphWorkspaceWindowStates === "function") {
     applyNodeGraphWorkspaceWindowStates();
   }

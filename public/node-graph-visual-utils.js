@@ -152,6 +152,72 @@ function nodeGraphHueBrightnessCss(hueDeg, brightness01, alpha01 = 1) {
   return `rgb(${R} ${G} ${B} / ${a})`;
 }
 
+function nodeGraphHueUnitHex(hueDeg) {
+  const [r, g, b] = nodeGraphHueUnitRgb01(hueDeg);
+  const to = (c) => Math.round(Math.max(0, Math.min(1, c)) * 255).toString(16).padStart(2, "0");
+  return `#${to(r)}${to(g)}${to(b)}`;
+}
+
+function nodeGraphHueDegFromRgb01(r, g, b) {
+  const rr = Number(r) || 0;
+  const gg = Number(g) || 0;
+  const bb = Number(b) || 0;
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const span = max - min;
+  if (span <= 1e-6) {
+    return 0;
+  }
+  let h;
+  if (max === rr) {
+    h = ((gg - bb) / span + (gg < bb ? 6 : 0));
+  } else if (max === gg) {
+    h = (bb - rr) / span + 2;
+  } else {
+    h = (rr - gg) / span + 4;
+  }
+  return ((h * 60) % 360 + 360) % 360;
+}
+
+function nodeGraphHueDegFromHex(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+  if (!m) {
+    return 0;
+  }
+  const n = Number.parseInt(m[1], 16);
+  return nodeGraphHueDegFromRgb01(
+    ((n >> 16) & 255) / 255,
+    ((n >> 8) & 255) / 255,
+    (n & 255) / 255,
+  );
+}
+
+/** Invert hue-brightness so old hex plates migrate to hue + amount. */
+function nodeGraphHueBrightnessFromHex(hex, fallbackHue = 80, fallbackBright = 0.5) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+  if (!m) {
+    return { hue: fallbackHue, brightness: fallbackBright };
+  }
+  const n = Number.parseInt(m[1], 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const hue = nodeGraphHueDegFromRgb01(r, g, b);
+  const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const [hr, hg, hb] = nodeGraphHueUnitRgb01(hue);
+  const hueLuma = 0.2126 * hr + 0.7152 * hg + 0.0722 * hb;
+  let brightness;
+  if (luma <= hueLuma) {
+    brightness = 0.5 * (luma / Math.max(1e-6, hueLuma));
+  } else {
+    brightness = 0.5 + 0.5 * ((luma - hueLuma) / Math.max(1e-6, 1 - hueLuma));
+  }
+  return {
+    hue,
+    brightness: Math.max(0, Math.min(1, brightness)),
+  };
+}
+
 /** Face backing 0…1. 1 = CSS × dpr; below 1 = lo-fi. Omitted → 1 (never 0). */
 function nodeGraphResolveDisplayPixelDensity(pixelDensity) {
   if (pixelDensity == null || pixelDensity === "") {

@@ -1148,6 +1148,14 @@ function applyNodeGraphModulePlateClip(article) {
     if (face.classList.contains("node-filter-curve-display")) {
       continue;
     }
+    if (article.classList.contains("layout-b-no-params")
+      || article.classList.contains("led-layout")
+      || article.classList.contains("value-lcd-layout")
+      || article.classList.contains("number-readout-layout")
+      || article.classList.contains("clock-layout")
+      || article.dataset?.nodeType === "clock") {
+      continue;
+    }
     if (face.closest(".node-io-column, .dsp-node-io-section, .dsp-node-header")) {
       continue;
     }

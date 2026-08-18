@@ -13,7 +13,7 @@ registerNodeGraphChromelessModule("led", {
     planRole: "monitor",
     bufferedInputs: ["In"],
     defaultWidthGu: 2,
-    displayType: "ledLamp",
+    displayType: "vectorDot",
     displayHeightGu: 2,
     inputs: ["In"],
     outputs: ["Out"],
@@ -25,7 +25,7 @@ registerNodeGraphChromelessModule("led", {
   },
   catalog: {
     category: "object",
-    description: "Signal light. Layout B (In | lamp | Out), resizable. Mono energy (level × brightness) maps through a multi-stop gradient (any bright/dim shape).",
-    notes: ["LayoutB", "resizable", "input light", "visual indicator"],
+    description: "Signal light. Layout B (In | lamp | Out), resizable. Buffered In energy lights a Vector Dot (hue + brightness, smoothstep edge).",
+    notes: ["LayoutB", "resizable", "input light", "visual indicator", "vector dot"],
   },
 });

@@ -148,7 +148,16 @@ function nodeGraphLimiterGainFaceLineCss(settings) {
   return `hsl(${Number.isFinite(hue) ? hue : 42} 90% 55%)`;
 }
 
-function drawNodeGraphLimiterGainFaceItem(_renderer, item, pixelRatio) {
+function drawNodeGraphLimiterGainFaceItem(renderer, item, pixelRatio) {
+  // Instant Trace owns the Limiter Gain face (scroll strip, not remesh).
+  if (typeof drawNodeGraphTraceDisplayItem === "function") {
+    drawNodeGraphTraceDisplayItem(renderer, item, pixelRatio);
+    return;
+  }
+  if (typeof drawNodeGraphTraceDisplayCanvasItem === "function") {
+    drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio);
+    return;
+  }
   const slot = item?.slot;
   const screenElement = item?.screenElement || slot?.scopeElement;
   if (!slot || !screenElement) {

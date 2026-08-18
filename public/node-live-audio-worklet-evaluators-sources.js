@@ -1096,8 +1096,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         this.piSpigotNoiseStates.set(nodeId, state);
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
         return this.piSpigotNoiseSample(state, {
-          seedLeft: read("seedLeft", 0),
-          seedRight: read("seedRight", 0.5),
+          start: read("start", read("seedLeft", 0)),
+          stride: read("stride", 1),
           color: read("color", 0),
           smoothing: read("smoothing", 0),
           level: read("amplitude", 1),

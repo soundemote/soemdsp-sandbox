@@ -204,39 +204,33 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
 // DepartmentAliases map, DepartmentAds map) with emoji baked into identity
 // strings and mismatched keys between them.
 const nodeGraphModuleStoreDepartments = Object.freeze([
-  { id: "controller",   emoji: "🕹️", label: "Controller",   symbol: "⌘",   title: "Controllers", pitch: "Input devices and control bridges for keyboards, MIDI, gamepads, and external gestures." },
-  { id: "gametrigger",  emoji: "♟️", label: "Game Trigger",  symbol: "",    title: "Game Triggers", pitch: "" },
   { id: "portal",       emoji: "🌐", label: "Portal",       symbol: "IO",  title: "Portals",   pitch: "Patch boundary portals for moving left, right, and mono signal lanes between rooms, templates, and larger circuits." },
-  { id: "drum",         emoji: "🥁", label: "Drum",         symbol: "▥",   title: "Drum",      pitch: "Rhythm machines, drum voices, pattern engines, and percussion control surfaces." },
-  { id: "dynamics",     emoji: "⚡", label: "Dynamics",     symbol: "⚡",   title: "Dynamics",  pitch: "Power routing, level control, offsets, and response shaping for keeping a circuit alive under pressure." },
-  { id: "envelope",     emoji: "📐", label: "Envelope",     symbol: "⌒",   title: "Envelope",  pitch: "Attack, decay, sustain, release, and gate-shaped motion. Make sound and visuals breathe on command." },
-  // Spectral filters split by intent: textbook toolbox vs character engines.
-  // Temporary names only if we rename later — these are the hard-won labels.
-  { id: "scientificFilter", emoji: "💧", label: "Scientific Filter", symbol: "🔬", title: "Scientific Filter", pitch: "Textbook responses. Hz, order, clean controls — Passive, Active, Tilt, and other predictable spectral tools." },
-  { id: "analogFilter",     emoji: "🔥", label: "Analog Filter",     symbol: "≈",  title: "Analog Filter",     pitch: "Named character circuits. Timbre first — 303, Flower Child, SuperLove, and other engines with personality." },
-  { id: "space",        emoji: "⛪", label: "Space",        symbol: "FX",  title: "Delay",     pitch: "Delay, reverb, distortion, and performance processors for shaping finished sound." },
-  { id: "digital",      emoji: "🔬", label: "Digital",      symbol: "{ }", title: "Digital",   pitch: "Patch-local code surfaces, exact value conversion, and digital/visual programming tools inside the sandbox." },
-  { id: "clock",        emoji: "⌚", label: "Sequence",     symbol: "♪",   title: "Sequence",  pitch: "Clocks, sequencers, dividers, counters, and trigger timing — everything that decides WHEN the rest of the patch fires." },
-  // Pitch, scale, chord — not sample playback (that's Sample Player) and not
-  // "when" (that's Sequence). G-clef mark keeps Musical distinct from 🎶 Sample Player.
-  { id: "musical",      emoji: "🎼", label: "Musical",      symbol: "𝄞",  title: "Musical",  pitch: "Pitch, scale, and harmony tools: quantizers, chord pickers, progressions, and other note-theory building blocks." },
+  { id: "controller",   emoji: "🕹️", label: "Controller",   symbol: "⌘",   title: "Controllers", pitch: "Input devices and control bridges for keyboards, MIDI, gamepads, and external gestures." },
+  { id: "oscillator",   emoji: "〰️", label: "Oscillator",   symbol: "∿",   title: "Oscillator", pitch: "Voices and raw tones: classic waves, tables, sync, supersaws, and other things that start a sound." },
   { id: "modulator",    emoji: "♾️", label: "Modulator",    symbol: "⇄",   title: "Modulator", pitch: "Motion sources for pitch, amplitude, time, and texture. Small control engines that make patches move." },
-  { id: "additive",     emoji: "📊", label: "Additive",     symbol: "∑",   title: "Additive",   pitch: "Additive voices and oscillators: harmonic stacks, table tones, and the raw signal that everything else learns to orbit." },
+  { id: "additive",     emoji: "📊", label: "Additive",     symbol: "∑",   title: "Additive",   pitch: "Harmonic-stack voices: build timbre from partials, not a single waveform." },
   { id: "chaos",        emoji: "🌌", label: "Chaos",        symbol: "∞",   title: "Chaos",     pitch: "All the various attractors and strange motion systems. The wild shelf where math starts looking back." },
   { id: "jerobeam",     emoji: "♻️", label: "Jerobeam",     symbol: "JRB", title: "Jerobeam",  pitch: "Jerobeam spiral and orbit motion systems. Spiral Generator lives here." },
   { id: "noise",        emoji: "🌧️", label: "Noise",        symbol: "✦",   title: "Noise",     pitch: "Noise, dust, instability, sparks, and all the useful mess a clean machine secretly needs." },
-  // Was "Music" (playback only). Sample Player holds Music Player / sample modules.
-  // 🎶 reused so the shelf still reads as the audio-file family, not theory.
-  // Samples / Grains / Media shelves stay offline until file storage exists.
+  { id: "drum",         emoji: "🥁", label: "Drum",         symbol: "▥",   title: "Drum",      pitch: "Rhythm machines, drum voices, pattern engines, and percussion control surfaces." },
+  { id: "dynamics",     emoji: "⚡", label: "Dynamics",     symbol: "⚡",   title: "Dynamics",  pitch: "Power routing, level control, offsets, and response shaping for keeping a circuit alive under pressure." },
+  { id: "envelope",     emoji: "📐", label: "Envelope",     symbol: "⌒",   title: "Envelope",  pitch: "Attack, decay, sustain, release, and gate-shaped motion. Make sound and visuals breathe on command." },
+  { id: "scientificFilter", emoji: "💧", label: "Scientific Filter", symbol: "🔬", title: "Scientific Filter", pitch: "Textbook responses. Hz, order, clean controls — Passive, Active, Tilt, and other predictable spectral tools." },
+  { id: "analogFilter",     emoji: "🔥", label: "Analog Filter",     symbol: "≈",  title: "Analog Filter",     pitch: "Named character circuits. Timbre first — 303, Flower Child, SuperLove, and other engines with personality." },
+  { id: "musical",      emoji: "🎼", label: "Musical",      symbol: "𝄞",  title: "Musical",  pitch: "Pitch, scale, and harmony tools: quantizers, chord pickers, progressions, and other note-theory building blocks." },
+  { id: "space",        emoji: "⛪", label: "Space",        symbol: "FX",  title: "Space",     pitch: "Delay, reverb, distortion, and performance processors for shaping finished sound." },
+  // Id stays clock (saved settings / catalog). Shelf label is Time.
+  { id: "clock",        emoji: "⌚", label: "Time",         symbol: "♪",   title: "Time",      pitch: "Clocks, sequencers, dividers, counters, and trigger timing — everything that decides WHEN the rest of the patch fires." },
+  { id: "digital",      emoji: "🔬", label: "Digital",      symbol: "{ }", title: "Digital",   pitch: "Patch-local code surfaces, exact value conversion, and digital/visual programming tools inside the sandbox." },
   { id: "sample",       emoji: "🎶", label: "Sample Player", symbol: "▣", title: "Sample Player", pitch: "Sample and music-file playback: one-shots, loops, and scrubbable players that turn stored audio into patch signal." },
   { id: "object",       emoji: "🧊", label: "Object",       symbol: "●",   title: "Object",    pitch: "Things you place in the world rather than wire into the signal path -- indicator lights, label plates, and other in-world props." },
   { id: "rgb",          emoji: "🌈", label: "RGB",          symbol: "◍",   title: "RGB",       pitch: "RGB analog picture and vector faces — Pixel Grid, Vector RGB, and other color-path scopes." },
-  // Id stays rgba (saved settings / catalog). Shelf label is Shader.
   { id: "rgba",         emoji: "🖼️", label: "Shader",       symbol: "▣",   title: "Shader",    pitch: "Screen-space shaders, color-space, image, and screen-wash modules — RGBA/HSLA, chroma, and stills." },
   { id: "oscilloscope", emoji: "📺", label: "Oscilloscope", symbol: "OSC", title: "Oscilloscope", pitch: "Dedicated display testbeds for trace, line burn, 2D scope, videoscope, and canvas-style waveform inspection." },
   { id: "multimeter",   emoji: "📟", label: "Multimeter",   symbol: "0D",  title: "Multimeter", pitch: "Readouts that are not waveforms: numbers, character grids, and other value/message faces for what the signal is saying right now." },
+  { id: "gametrigger",  emoji: "♟️", label: "Game Trigger",  symbol: "",    title: "Game Triggers", pitch: "" },
   { id: "debug",        emoji: "🐞", label: "Debug",        symbol: "DBG", title: "Debug",     pitch: "Inspection tools, sentinels, and safety monitors for catching bad values while a patch is under test." },
-  { id: "plugin",       emoji: "🔌", label: "Plugin",       symbol: "PLG", title: "Plugin",    pitch: "Performance controls and boundary ports: knobs, sliders, buttons, dedicated audio I/O, and MIDI I/O for building clear patch front-ends." },
+  // Retired Plugin shelf — knobs/sliders live in Controller, I/O in Portal.
   // Holding pen. listed:false = never a browser shelf, never search, never developer dump.
   { id: "invisible",    emoji: "",   label: "Invisible",    symbol: "",    title: "Invisible", pitch: "Not listed. Modules we are unsure about — hidden from the module browser for users and developers.", listed: false },
 ]);
@@ -298,13 +292,13 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   Noise:             "noise",
   Additive:          "additive",
   additive:          "additive",
-  Oscillator:        "additive",
-  oscillator:        "additive",
+  Oscillator:        "oscillator",
+  oscillator:        "oscillator",
   Oscilloscope:      "oscilloscope",
   Other:             "digital",
   Portals:           "portal",
-  Plugin:            "plugin",
-  plugin:            "plugin",
+  Plugin:            "portal",
+  plugin:            "portal",
   RGB:               "rgb",
   RGBA:              "rgba",
   rgba:              "rgba",
@@ -320,8 +314,7 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   Clock:             "clock",
   clock:             "clock",
   Time:              "clock",
-  // Category id stays "clock" (persistence); shelf label is Sequence.
-  // Renamed 2026-07-25 from Time; label Clock→Sequence 2026-08.
+  // Category id stays "clock" (persistence); shelf label is Time.
   time:              "clock",
   Visual:            "digital",
   Invisible:         "invisible",
@@ -330,19 +323,19 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
 
 const nodeGraphModuleStoreCatalog = Object.freeze({
   polyBlep: {
-    category: "additive",
+    category: "oscillator",
     description: "Clean multi-wave oscillator when you want saw/square/tri/sine without harsh aliasing.",
     label: "PolyBLEP",
     notes: ["anti-aliasing", "polyblep", "realtime oscillator"],
   },
   blit: {
-    category: "additive",
+    category: "oscillator",
     description: "Band-limited impulse-train tones for classic digital waves that stay sharp but controlled.",
     label: "BLIT",
     notes: ["anti-aliasing", "blit", "realtime oscillator"],
   },
   archimedes: {
-    category: "additive",
+    category: "oscillator",
     description: "Cheap quadrature sine/cosine pair (and a novelty π readout) for modulation and math demos.",
     label: "Archimedes",
     notes: ["quadrature", "fixed-point", "realtime oscillator"],
@@ -354,49 +347,49 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["test-tone impairment", "jitter", "frequency translation", "native"],
   },
   antisaw: {
-    category: "additive",
+    category: "oscillator",
     description: "Cooked “aliasing on purpose” saw color—fold Nyquist junk into musical in-band grit.",
     label: "Antisaw",
     notes: ["simulated aliasing", "additive resynthesis", "reflections", "native"],
   },
   sineWavetable: {
-    category: "additive",
+    category: "oscillator",
     description: "Straightforward pitchable sin/cos voice when you need a clean table sine with amplitude control.",
     label: "SinCos",
     notes: ["implemented", "wavetable", "sin/cos", "native"],
   },
   wavetable2d: {
-    category: "additive",
+    category: "oscillator",
     description: "Placeholder: multi-frame 2D wavetable morph—use later for evolving table tones.",
     label: "Wavetable2D",
     notes: ["under construction", "wavetable", "2d", "morph", "oscillator", "frame"],
   },
   wavetable3d: {
-    category: "additive",
+    category: "oscillator",
     description: "Placeholder: dual-axis morph wavetable—use later for deep table morphs.",
     label: "Wavetable3D",
     notes: ["under construction", "wavetable", "3d", "morph", "volume", "oscillator"],
   },
   sinc: {
-    category: "additive",
+    category: "oscillator",
     description: "Impulse-like sinc tones for modulation sources or teaching resampling / band-limit ideas.",
     label: "Sinc",
     notes: ["sinc", "sin(x)/x", "impulse", "oscillator"],
   },
   osc: {
-    category: "additive",
+    category: "oscillator",
     description: "Everyday multi-wave starter oscillator with pitch CV—default voice for quick patches.",
     label: "BasicShape",
     notes: ["osc", "BasicShape", "multi-waveform", "cv input", "LFO", "oscillator"],
   },
   aliasSine: {
-    category: "additive",
+    category: "oscillator",
     description: "Raw sine that intentionally wraps past Nyquist—hear aliasing as a feature, not a bug.",
     label: "Alias Sine",
     notes: ["sine", "aliasing", "native"],
   },
   robinSinusoid: {
-    category: "additive",
+    category: "oscillator",
     description: "Ultra-cheap recursive sine when you want steady tone with almost no CPU cost.",
     label: "RobinSinusoid",
     notes: ["RS-MET", "rosic", "recursive sine", "self-oscillating", "sinusoid"],
@@ -420,7 +413,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["RoundShape", "getSineToSquare", "Uni X", "Uni Y", "Bi X", "Bi Y", "Limit AA", "f", "native"],
   },
   ellipsoidOsc: {
-    category: "additive",
+    category: "oscillator",
     description: "Full parametric ellipsoid path for rich 2D-scope-friendly oscillators.",
     label: "Ellipsoid",
     notes: ["ellipsoid", "offset", "shape", "scale", "Limit AA", "X/Y", "native"],
@@ -638,43 +631,43 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["transpose", "octave", "semitone"],
   },
   surgeOscillator: {
-    category: "additive",
+    category: "oscillator",
     description: "Hard-sync multi-wave oscillator for aggressive locked-tone leads and bass.",
     label: "Surge Oscillator",
     notes: ["oscillator", "hard sync", "polyblep", "anti-aliasing", "native"],
   },
   softwaveOsc: {
-    category: "additive",
+    category: "oscillator",
     description: "Soft-shaped multi-wave voice when you want warm morphing waves, not a distortion box.",
     label: "Softwave Oscillator",
     notes: ["softwave", "tube", "tanh", "morph", "analog waves", "walter"],
   },
   curveOsc: {
-    category: "additive",
+    category: "oscillator",
     description: "Play math curves (rose, Lissajous, etc.) as mono audio or X/Y scope art.",
     label: "Curve Oscillator",
     notes: ["2d to 1d", "project", "lissajous", "rose", "butterfly", "superformula", "parametric", "xy"],
   },
   snowflake: {
-    category: "additive",
+    category: "oscillator",
     description: "Fractal turtle paths as stereo X/Y—ornamental motion and strange stereo voices.",
     label: "Snowflake",
     notes: ["L-system", "turtle", "Koch", "fractal pattern synthesis", "RS-MET", "X/Y", "native", "wasm"],
   },
   dsfOscillator: {
-    category: "additive",
+    category: "oscillator",
     description: "Alias-free DSF kit (sine/saw/PWM/etc.) for clean digital tones with classic PWM tools.",
     label: "DSF Oscillator",
     notes: ["oscillator", "dsf", "discrete summation formula", "anti-aliasing", "0.1V/Oct", "phase CV", "amplitude CV", "native"],
   },
   robinSupersaw: {
-    category: "additive",
+    category: "oscillator",
     description: "Detuned multi-saw wall with pitch dither—huge pads and trance supersaws.",
     label: "RobinSupersaw",
     notes: ["oscillator", "supersaw", "pitch dithering", "anti-aliasing", "native"],
   },
   hypersaw: {
-    category: "additive",
+    category: "oscillator",
     description: "Massive phase-spread saw bank for dense stereo supersaw beds and visual phase columns.",
     label: "Hypersaw",
     notes: ["oscillator", "supersaw", "polyblep", "anti-aliasing", "native", "phosphor display", "under construction"],
@@ -699,13 +692,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   blubb: {
     category: "jerobeam",
-    description: "Placeholder Jerobeam Blubb motion—reserved for future curve engine.",
+    description: "Placeholder Jerobeam Blubb motion—reserved for future path engine.",
     label: "Jerobeam Blubb",
     notes: ["placeholder", "jerobeam"],
   },
   boing: {
     category: "jerobeam",
-    description: "Placeholder Jerobeam Boing motion—reserved for future bounce/curve engine.",
+    description: "Placeholder Jerobeam Boing motion—reserved for future bounce/path engine.",
     label: "Jerobeam Boing",
     notes: ["placeholder", "jerobeam"],
   },
@@ -717,19 +710,19 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   mushroom: {
     category: "jerobeam",
-    description: "Placeholder Jerobeam Mushroom motion—reserved for future curve engine.",
+    description: "Placeholder Jerobeam Mushroom motion—reserved for future path engine.",
     label: "Jerobeam Mushroom",
     notes: ["placeholder", "jerobeam"],
   },
   nyquistShannon: {
     category: "jerobeam",
-    description: "Placeholder Jerobeam Nyquist-Shannon motion—reserved for future curve engine.",
+    description: "Placeholder Jerobeam Nyquist-Shannon motion—reserved for future path engine.",
     label: "Jerobeam NyquistShannon",
     notes: ["placeholder", "jerobeam"],
   },
   radar: {
     category: "jerobeam",
-    description: "Placeholder Jerobeam Radar motion—reserved for future sweep/curve engine.",
+    description: "Placeholder Jerobeam Radar motion—reserved for future sweep/path engine.",
     label: "Jerobeam Radar",
     notes: ["placeholder", "jerobeam"],
   },
@@ -790,7 +783,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   randomWalk: {
     category: "modulator",
     description: "Controlled wander CV—smooth drift, steps, or filtered noise motion for parameters.",
-    notes: ["bounded walk", "jitter curve", "one-pole smoothing", "native"],
+    notes: ["bounded walk", "jitter walk", "one-pole smoothing", "native"],
   },
   fractalBrownianNoise: {
     category: "noise",
@@ -800,9 +793,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   piSpigotNoise: {
     category: "noise",
-    description: "Noise from π digits with color shaping—quirky stereo texture that never hard-loops.",
+    description: "Live BBP four-phase π walk: Sum/Term audio, latched hex bits for rhythm. No digit file.",
     label: "Pi Spigot Noise",
-    notes: ["real pi digits", "stereo independent seeds", "noise color", "gaussian smoothing", "native"],
+    notes: ["bbp", "pi", "hex", "bits", "sum", "term", "spigot", "native"],
   },
   codeblock: {
     category: "digital",
@@ -818,13 +811,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "modulator",
     description: "Shape a control curve by points—map phasors/LFOs into custom response shapes.",
     label: "Smooth Graph",
-    notes: ["per-point shape", "contour", "Input · LFO · Phasor", "rate without jumps in Phasor"],
+    notes: ["curve", "per-point shape", "contour", "Input · LFO · Phasor", "rate without jumps in Phasor"],
   },
   graphCopy: {
     category: "modulator",
     description: "Stepped or free control graph when you want quantized X and shared curve tools.",
     label: "Step Graph",
-    notes: ["step grid (0 = free)", "global shape", "per-node curve", "Input · LFO · Phasor"],
+    notes: ["curve", "step grid (0 = free)", "global shape", "per-node curve", "Input · LFO · Phasor"],
   },
   flexGrid: {
     category: "modulator",
@@ -1111,7 +1104,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["music playback", "scrubbable", "phasor", "audio source"],
   },
   phosphillator: {
-    category: "additive",
+    category: "oscillator",
     description: "Placeholder Phosphillator — draw a shape and play it back as X/Y motion.",
     label: "Phosphillator",
     notes: ["under construction", "freehand draw", "phosphor", "xy oscillator", "papoulis smoothing"],
@@ -1171,7 +1164,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "scientificFilter",
     description: "Stack RBJ biquads for steeper multi-stage slopes when one band isn’t enough.",
     label: "Multi Stage Filter",
-    notes: ["mode selection", "biquad stages", "curve display", "RBJ", "cascade", "scientific"],
+    notes: ["mode selection", "biquad stages", "magnitude plot", "RBJ", "cascade", "scientific"],
   },
   activeFilter: {
     category: "scientificFilter",
@@ -1269,7 +1262,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["crossover", "linkwitz-riley", "6-way", "stereo", "scientific", "RS-MET"],
   },
   softpopOscillator: {
-    category: "additive",
+    category: "oscillator",
     description: "Noise through a resonant peak BP—softpop-style pitchable noise voice.",
     label: "Softpop Oscillator",
     notes: [

@@ -62,7 +62,14 @@ $modules = @(
   @{ Name = "pluck_envelope"; Simd = $false; Exports = @("soemdsp_pluck_envelope_create", "soemdsp_pluck_envelope_destroy", "soemdsp_pluck_envelope_sample", "soemdsp_pluck_envelope_version", "soemdsp_pluck_envelope_metadata_json", "soemdsp_pluck_envelope_metadata_json_size") }
   @{ Name = "exp_adsr"; Simd = $false; Exports = @("soemdsp_exp_adsr_create", "soemdsp_exp_adsr_destroy", "soemdsp_exp_adsr_sample", "soemdsp_exp_adsr_version", "soemdsp_exp_adsr_metadata_json", "soemdsp_exp_adsr_metadata_json_size") }
   @{ Name = "random_walk"; Simd = $false; Exports = @("soemdsp_random_walk_create", "soemdsp_random_walk_destroy", "soemdsp_random_walk_reset_seed", "soemdsp_random_walk_sample", "soemdsp_random_walk_version", "soemdsp_random_walk_metadata_json", "soemdsp_random_walk_metadata_json_size") }
-  @{ Name = "pi_spigot_noise"; Simd = $false; Exports = @("soemdsp_pi_spigot_noise_create", "soemdsp_pi_spigot_noise_destroy", "soemdsp_pi_spigot_noise_reset_seed", "soemdsp_pi_spigot_noise_sample", "soemdsp_pi_spigot_noise_version", "soemdsp_pi_spigot_noise_metadata_json", "soemdsp_pi_spigot_noise_metadata_json_size") }
+  @{ Name = "pi_spigot_noise"; Simd = $false; Exports = @(
+    "soemdsp_pi_spigot_noise_create", "soemdsp_pi_spigot_noise_destroy", "soemdsp_pi_spigot_noise_reset_seed",
+    "soemdsp_pi_spigot_noise_sample", "soemdsp_pi_spigot_noise_left", "soemdsp_pi_spigot_noise_right",
+    "soemdsp_pi_spigot_noise_hex", "soemdsp_pi_spigot_noise_n", "soemdsp_pi_spigot_noise_t",
+    "soemdsp_pi_spigot_noise_b3", "soemdsp_pi_spigot_noise_b2", "soemdsp_pi_spigot_noise_b1", "soemdsp_pi_spigot_noise_b0",
+    "soemdsp_pi_spigot_noise_compute_bipolar", "soemdsp_pi_spigot_noise_sample_count",
+    "soemdsp_pi_spigot_noise_version", "soemdsp_pi_spigot_noise_metadata_json", "soemdsp_pi_spigot_noise_metadata_json_size"
+  ) }
   @{ Name = "lorenz_attractor"; Simd = $false; Exports = @("soemdsp_lorenz_attractor_create", "soemdsp_lorenz_attractor_destroy", "soemdsp_lorenz_attractor_sample", "soemdsp_lorenz_attractor_x", "soemdsp_lorenz_attractor_y", "soemdsp_lorenz_attractor_z", "soemdsp_lorenz_attractor_version", "soemdsp_lorenz_attractor_metadata_json", "soemdsp_lorenz_attractor_metadata_json_size") }
   @{ Name = "sine_wavetable"; Simd = $false; Exports = @("soemdsp_sine_wavetable_create", "soemdsp_sine_wavetable_destroy", "soemdsp_sine_wavetable_sample", "soemdsp_sine_wavetable_sin", "soemdsp_sine_wavetable_cos", "soemdsp_sine_wavetable_version", "soemdsp_sine_wavetable_metadata_json", "soemdsp_sine_wavetable_metadata_json_size") }
   @{ Name = "log_spiral"; Simd = $false; Exports = @("soemdsp_log_spiral_create", "soemdsp_log_spiral_destroy", "soemdsp_log_spiral_sample", "soemdsp_log_spiral_x", "soemdsp_log_spiral_y", "soemdsp_log_spiral_z", "soemdsp_log_spiral_version", "soemdsp_log_spiral_metadata_json", "soemdsp_log_spiral_metadata_json_size") }

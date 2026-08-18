@@ -50,6 +50,8 @@ function drawNodeGraphKnobFaceItem(_renderer, item, _pixelRatio) {
 const nodeGraphModuleScopeCustomRenderers = {
   trace: drawNodeGraphTraceDisplayItem,
   dot: drawNodeGraphDotOscilloscopeItem,
+  vectorDot: drawNodeGraphVectorDotItem,
+  pulseDot: drawNodeGraphVectorDotItem,
   value: drawNodeGraphValueOscilloscopeItem,
   lineBurn: drawNodeGraphLineBurnOscilloscopeItem,
   hypersawBurn: drawNodeGraphHypersawBurnItem,

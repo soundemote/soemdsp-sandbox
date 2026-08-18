@@ -89,6 +89,9 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
   if (key === "sweepSeconds" || key === "sweepHz") {
     return 0.05;
   }
+  if (key === "backgroundHue" || key === "hue") {
+    return 1;
+  }
   // Stamp Size: fixed control-space quantum (exp-mapped) — not magnitude 0.1.
   if (typeof nodeGraphTraceDisplaySizeControlField === "function"
     && nodeGraphTraceDisplaySizeControlField(key)
@@ -445,6 +448,12 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
     return clampNodeSliderValue(n, 1, 24000);
   },
   zoomSeconds: nodeGraphTraceDisplayClampHistorySeconds,
+  backgroundBrightness: nodeGraphTraceDisplayClampUnit,
+  backgroundHue: (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return clampNodeSliderValue(n, 0, 360);
+  },
   textSize: (value) => (typeof nodeGraphKeypadClampTextSize === "function"
     ? nodeGraphKeypadClampTextSize(value)
     : Math.max(0, Math.min(1, Number(value) || 0.55))),
@@ -501,6 +510,18 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   // Phosphor Dot: same blur continuum as 2D Phosphor stamps.
   dot: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
+  }),
+  vectorDot: Object.freeze({
+    lineThickness: nodeGraphTraceDisplayClampUnit,
+    dot1Size: nodeGraphTraceDisplayClampUnit,
+    dot1Brightness: nodeGraphTraceDisplayClampBrightness,
+    backgroundBrightness: nodeGraphTraceDisplayClampUnit,
+  }),
+  pulseDot: Object.freeze({
+    lineThickness: nodeGraphTraceDisplayClampUnit,
+    dot1Size: nodeGraphTraceDisplayClampUnit,
+    dot1Brightness: nodeGraphTraceDisplayClampBrightness,
+    backgroundBrightness: nodeGraphTraceDisplayClampUnit,
   }),
   // 1D Phosphor: stamp blur + sweep rate.
   lineBurn: Object.freeze({

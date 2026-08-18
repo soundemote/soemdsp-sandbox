@@ -42,10 +42,12 @@ registerNodeGraphChromelessModuleUi("led", {
   // rendering dispatch (node-graph-module-rendering.js) can't do for it.
   afterMount(article, body, node, type) {
     // Scope slot must target the lit lamp plate (not the whole stack).
-    const lamp = body?.querySelector?.(".node-led-lamp") || body;
+    const face = body?.classList?.contains("node-led-face")
+      ? body
+      : (body?.querySelector?.(".node-led-face") || body);
     registerNodeGraphModuleScopeSlot(article, {
       nodeId: node,
-      scopeElement: lamp,
+      scopeElement: face,
       type,
       viewDrag: false,
     });

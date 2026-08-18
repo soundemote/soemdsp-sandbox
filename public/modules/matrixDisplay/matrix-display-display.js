@@ -82,33 +82,20 @@ function matrixDisplayEnsureSim(nodeId, paramsOrCols, maybeRows) {
  * Ghost = extreme analog hang. Burn = sticky residual floor (0 = off).
  * Frame-rate independent.
  */
-function matrixDisplayFade(ages, trail, dtSec = 1 / 60, maxAge = 32, ghost = 0, burn = 0) {
+function matrixDisplayFade(ages, trail, _dtSec = 1 / 60, maxAge = 32, ghost = 0, burn = 0) {
+  const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const t = Math.max(0, Math.min(1, Number(trail) || 0));
-  const baseKeep = typeof matrixPhosphorBaseKeep === "function"
-    ? matrixPhosphorBaseKeep(t, dtSec)
-    : Math.exp(-(dtSec || 1 / 60) / 0.3);
-  const kill = typeof matrixPhosphorKillFloor === "function"
-    ? matrixPhosphorKillFloor(t)
-    : 0.015;
   const ghostAmt = Math.max(0, Math.min(1, Number(ghost) || 0));
   const burnAmt = Math.max(0, Math.min(1, Number(burn) || 0));
-  const killFloor = burnAmt >= 0.999
-    ? 0
-    : kill * (1 - Math.max(ghostAmt, burnAmt) * 0.85);
   const ma = Math.max(1, maxAge);
-  const applyHang = typeof matrixPhosphorApplyGhostHang === "function"
-    ? matrixPhosphorApplyGhostHang
-    : (energy, keep) => energy * keep;
+  const step = Residual?.applyResidual
+    ? (e) => Residual.applyResidual(e, t, ghostAmt, burnAmt)
+    : (e) => e;
   for (let i = 0; i < ages.length; i += 1) {
     const a = ages[i];
     if (a <= 0) continue;
-    const e0 = a / ma;
-    const e1 = applyHang(e0, baseKeep, ghostAmt, burnAmt, t);
-    if (killFloor > 0 && e1 < killFloor && !(burnAmt > 0.001 && e1 >= burnAmt * 0.999)) {
-      ages[i] = 0;
-    } else {
-      ages[i] = Math.max(1, Math.min(ma, Math.round(e1 * ma)));
-    }
+    const e1 = step(a / ma);
+    ages[i] = e1 <= 0 ? 0 : Math.max(1, Math.min(ma, Math.round(e1 * ma)));
   }
 }
 

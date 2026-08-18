@@ -224,7 +224,7 @@ const nodeGraphLedDefaultGradientStops = Object.freeze([
 
 const nodeGraphLedDefaultSettings = Object.freeze({
   blur: 0.35,
-  brightness: 1,
+  brightness: 0.5,
   cornerShape: "squircle",
   // 0% = inscribed square (never a stretched rectangle of the cell);
   // 100% = lamp plate fills the available face area.
@@ -348,6 +348,7 @@ function normalizeNodeGraphLedLayout(layout = {}) {
     hue,
     kind: "led",
     rounding: clamp(source.rounding, 0, 100, defaults.rounding),
+    dot1Size: clamp(source.dot1Size ?? source.size, 0, 1, 0.85),
     bottomImage: normalizeNodeGraphLedImageLayer(source.bottomImage || source.bottom),
     topImage: normalizeNodeGraphLedImageLayer(source.topImage || source.top),
   };
@@ -419,6 +420,24 @@ function cloneNodeGraphTypedDisplaySettings(node) {
   if (displayType === "dot") {
     return { zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(migrate(node.zeroDBurnSettings, false)) };
   }
+  if (displayType === "vectorDot" || displayType === "pulseDot") {
+    const packed = node.vectorDotSettings || node.zeroDBurnSettings || node.led || {};
+    const next = {
+      vectorDotSettings: typeof normalizeNodeGraphVectorDotSettings === "function"
+        ? normalizeNodeGraphVectorDotSettings(packed)
+        : packed,
+    };
+    if (node.type === "led" && typeof normalizeNodeGraphLedLayout === "function") {
+      next.led = normalizeNodeGraphLedLayout({
+        ...(node.led || {}),
+        hue: next.vectorDotSettings.hue,
+        brightness: next.vectorDotSettings.dot1Brightness,
+        blur: next.vectorDotSettings.lineThickness,
+        dot1Size: next.vectorDotSettings.dot1Size,
+      });
+    }
+    return next;
+  }
   if (displayType === "lineBurn") {
     return { traceDisplaySettings: normalizeNodeGraphLineBurnSettings(migrate(node.traceDisplaySettings, false)) };
   }
@@ -453,7 +472,15 @@ function cloneNodeGraphTypedDisplaySettings(node) {
     return { traceDisplaySettings: normalizeNodeGraphScope2dTraceSettings(migrate(node.traceDisplaySettings, false)) };
   }
   if (displayType === "numberReadout") {
-    return { traceDisplaySettings: normalizeNodeGraphNumberReadoutSettings(migrate(node.traceDisplaySettings, false)) };
+    const defaults = typeof nodeGraphNumberReadoutDefaultsForNode === "function"
+      ? nodeGraphNumberReadoutDefaultsForNode(node)
+      : null;
+    return {
+      traceDisplaySettings: normalizeNodeGraphNumberReadoutSettings(
+        migrate(node.traceDisplaySettings, false),
+        defaults,
+      ),
+    };
   }
   if (displayType === "xyPad" && typeof normalizeNodeGraphXyPadDisplaySettings === "function") {
     return {

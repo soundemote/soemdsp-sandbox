@@ -68,8 +68,10 @@ const nodeGraphModuleScopeUnipolarTypes = new Set([
  * Bright / Size / Ghost / Trail / Burn / Scale / Pixel density / Dot budget.
  */
 const nodeGraphScopePhosphorLookDefaults = Object.freeze({
-  // Face / gradient floor (stop 0).
+  // Face / gradient floor (stop 0). Plate hue+brightness default black.
   background: "#000004",
+  backgroundHue: 240,
+  backgroundBrightness: 0,
   // Peak / tip (stop 1 + dot1Color).
   peakColor: "#fcfdbf",
   // Multi-stop energy→color LUT.
@@ -109,7 +111,9 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   // Instant Trace is a VECTOR stroke, not phosphor energy — do NOT inherit the
   // phosphor look brightness (0.08) / size (0.02). Those made Output Meet
   // strokes nearly invisible so only the plate color seemed to work.
-  background: "#000000",
+  background: "#ff0000",
+  backgroundHue: 0,
+  backgroundBrightness: 0,
   // Full-ish ink so Left/Right colors read as chosen (Brightness still 0…1).
   brightness: 0.95,
   // Mono / primary stroke (Output Left). Pure red so Meet (red+blue) is green.
@@ -157,6 +161,8 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
  */
 const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   background: "#000000",
+  backgroundHue: 0,
+  backgroundBrightness: 0,
   // Sticky Burn off; decay is legacy 1−trail only.
   burn: 0,
   burnAmount: 1,
@@ -175,8 +181,10 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   dotBudget: 3944,
   fullDotEconomy: false,
   dotsOnly: false,
-  // Rising-edge auto-trigger on In (snaps pen left). Off = free-run + Reset jack.
-  sourceSync: false,
+  // Rising-edge auto-trigger on In (snaps pen left). On so PolyBLEP / 1D
+  // phosphor faces lock to the period instead of crawling.
+  sourceSync: true,
+  skipDiscontinuities: false,
   sweepSeconds: 0.01,
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),
@@ -289,14 +297,22 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
 });
 
-// Value LCD — vector DSEG (no phosphor residual / Ghost / Trail hang).
-// FX: permanent dim “8” plate (unlit segments) + dialable glass inner shadow.
+// Value LCD — vector DSEG redraw every frame (no phosphor residual / hang).
+// Plate + ink use hue + physically-plausible brightness (not HSL, not hex widgets).
+// FX: permanent dim “8” ghost plate + dialable glass inner shadow.
+const nodeGraphValueLcdDefaultHueDeg = 82;
 const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   faceStyle: "lcd",
-  background: "#b0b5a6",
-  brightness: 1,
-  // Foreground (digit ink) — full color widget, same family as Background.
-  color: "#1a2216",
+  // Stored as pure hue hex; amount is backgroundBrightness.
+  background: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(nodeGraphValueLcdDefaultHueDeg)
+    : "#a2ff00",
+  backgroundBrightness: 0.88,
+  // Foreground ink: same hue family, dark end of the brightness cone.
+  color: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(nodeGraphValueLcdDefaultHueDeg)
+    : "#a2ff00",
+  brightness: 0.18,
   // Residual hang unused on LCD (kept 0 so old patches don’t re-enable burn path).
   trail: 0,
   ghost: 0,
@@ -317,15 +333,37 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   polarity: "bipolar",
   removeTrailingZeros: false,
   // LCD Ghost: permanent “8” skeleton amount 0…1 (soft fade from 0).
-  unlitSegments: 0.01,
+  unlitSegments: 0.22,
   // Inner shadow (screen glass): Gaussian soft inset + CSS-like offset.
-  // LCD glass inset shadow defaults.
   innerShadowDistance: 1,
   innerShadowSharpness: 0.732,
   // Offset −1…1 (0 = centered). Positive X/Y darkens left/top (light from +X/+Y).
   innerShadowOffsetX: 0,
   innerShadowOffsetY: 0.135,
   gradientStops: Object.freeze([]),
+});
+
+// Vector Dot — cheap companion to Phosphor Dot. Clear + redraw; no residual FBO.
+const nodeGraphVectorDotSettingsDefaults = Object.freeze({
+  background: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(220)
+    : "#0055ff",
+  backgroundBrightness: 0,
+  backgroundColor: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(220)
+    : "#0055ff",
+  dot1Color: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(25)
+    : "#ff6a00",
+  color: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(25)
+    : "#ff6a00",
+  hue: 25,
+  dot1Brightness: 0.5,
+  brightness: 0.5,
+  dot1Size: 0.85,
+  lineThickness: 0.35,
+  blur: 0.35,
 });
 
 
@@ -387,6 +425,8 @@ const nodeGraphScope2dInitGradientStops = Object.freeze([
 const nodeGraphScope2dSettingsDefaults = Object.freeze({
   // 2D phosphor base — overridden per attractor / Jerobeam family below.
   background: "#000000",
+  backgroundHue: 0,
+  backgroundBrightness: 0,
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
   burn: 0,
@@ -550,6 +590,8 @@ const nodeGraphXyPadDisplaySettingsDefaults = Object.freeze({
 const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
   // Same family as PhosphorLight / Number Readout face plate.
   background: nodeGraphScopePhosphorLookDefaults.background,
+  backgroundHue: nodeGraphScopePhosphorLookDefaults.backgroundHue,
+  backgroundBrightness: 0,
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
   dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,

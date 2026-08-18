@@ -1,27 +1,23 @@
-// Moved from node-graph-live-frame-evaluator.js: this module's own
-// offline/render-time algorithm, now living next to the rest of its
-// per-module code instead of the shared file.
+// Offline/render Pi Spigot — same revolving BBP as the native module.
 
-// Unlike node-live-audio-worklet-core.js, this evaluator runs on the main
-// thread (module groups / offline render), which does have fetch -- so
-// rather than duplicate the 333,333-sample pi-digit dataset in JS, it
-// just loads the same pi_spigot_noise.wasm the worklet uses and calls
-// its exports directly. See pi_spigot_noise.cpp for what that dataset is
-// and why it replaced computing every sample live.
 const nodeGraphPiSpigotNoiseWasm = { promise: null, exports: null, failed: false };
+const NODE_GRAPH_PI_SPIGOT_MAX_N = 2048;
+const NODE_GRAPH_PI_SPIGOT_TAIL = 16;
+const NODE_GRAPH_PI_SPIGOT_SERIES_M = [1, 4, 5, 6];
+const NODE_GRAPH_PI_SPIGOT_SERIES_C = [4, -2, -1, -1];
 
 function applyNodeGraphPiSpigotSmoothing(channel, x, smoothing) {
   const safeSmoothing = clampNodeSliderValue(Number(smoothing) || 0, 0, 1);
   if (safeSmoothing <= 0) return x;
-  const lnSmoothMinG = -3.912023005428146; // ln(0.02)
-  const g = Math.exp(safeSmoothing * lnSmoothMinG);
+  const g = Math.exp(safeSmoothing * -3.912023005428146);
   let y = x;
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 4; i += 1) {
     channel.smoothLp[i] += g * (y - channel.smoothLp[i]);
     y = channel.smoothLp[i];
   }
   return y;
 }
+
 function applyNodeGraphPiSpigotColor(state, white, color) {
   if (color === 1) {
     state.pink[0] = 0.99886 * state.pink[0] + white * 0.0555179;
@@ -30,8 +26,8 @@ function applyNodeGraphPiSpigotColor(state, white, color) {
     state.pink[3] = 0.8665 * state.pink[3] + white * 0.3104856;
     state.pink[4] = 0.55 * state.pink[4] + white * 0.5329522;
     state.pink[5] = -0.7616 * state.pink[5] - white * 0.016898;
-    const out = (state.pink[0] + state.pink[1] + state.pink[2] +
-      state.pink[3] + state.pink[4] + state.pink[5] + state.pink[6] + white * 0.5362) * 0.11;
+    const out = (state.pink[0] + state.pink[1] + state.pink[2]
+      + state.pink[3] + state.pink[4] + state.pink[5] + state.pink[6] + white * 0.5362) * 0.11;
     state.pink[6] = white * 0.115926;
     return out;
   }
@@ -52,6 +48,7 @@ function applyNodeGraphPiSpigotColor(state, white, color) {
   }
   return white;
 }
+
 function resetNodeGraphPiSpigotColorFilters(state) {
   state.pink[0] = 0; state.pink[1] = 0; state.pink[2] = 0; state.pink[3] = 0;
   state.pink[4] = 0; state.pink[5] = 0; state.pink[6] = 0;
@@ -60,67 +57,102 @@ function resetNodeGraphPiSpigotColorFilters(state) {
   state.prevWhite2 = 0;
   state.smoothLp[0] = 0; state.smoothLp[1] = 0; state.smoothLp[2] = 0; state.smoothLp[3] = 0;
 }
+
 function nodeGraphPiSpigotPowMod(a, b, m) {
+  if (!(m > 0)) return 0;
   let result = 1;
   let base = a % m;
-  while (b > 0.5) {
-    if (b % 2 >= 1) {
-      result = (result * base) % m;
-    }
-    b = Math.floor(b / 2);
+  if (base < 0) base += m;
+  let expn = b < 0 ? 0 : b;
+  while (expn > 0.5) {
+    if (expn % 2 >= 1) result = (result * base) % m;
+    expn = Math.floor(expn / 2);
     base = (base * base) % m;
   }
   return result;
 }
-function nodeGraphPiSpigotSeries(m, n) {
-  let s = 0;
-  for (let k = 0; k <= n; k++) {
-    const ak = 8 * k + m;
-    const t = nodeGraphPiSpigotPowMod(16, n - k, ak);
-    s += t / ak;
-    s -= Math.floor(s);
-  }
-  for (let k = n + 1; k < n + 100; k++) {
-    const ak = 8 * k + m;
-    const t = Math.pow(16, n - k);
-    if (t < 1e-17) break;
-    s += t / ak;
-  }
-  const frac = s - Math.floor(s);
-  return frac < 0 ? frac + 1 : frac;
-}
-function nodeGraphPiSpigotBipolar(n) {
-  let x = 4 * nodeGraphPiSpigotSeries(1, n) - 2 * nodeGraphPiSpigotSeries(4, n)
-    - nodeGraphPiSpigotSeries(5, n) - nodeGraphPiSpigotSeries(6, n);
-  x -= Math.floor(x);
-  if (x < 0) x += 1;
-  return x * 2 - 1;
-}
-function fillNodeGraphPiSpigotNoiseCacheFallback(state, start) {
-  const cacheSize = 1024;
-  const maxStart = 256;
-  const safeStart = clampNodeSliderValue(Math.floor(Number(start) || 0), 0, maxStart);
-  const cache = new Float64Array(cacheSize);
-  for (let i = 0; i < cacheSize; i++) {
-    cache[i] = nodeGraphPiSpigotBipolar(safeStart + i);
-  }
-  state.cache = cache;
-  state.readIndex = 0;
-  state.cacheStart = safeStart;
-}
 
+function nodeGraphPiSpigotSeriesTerm(m, k, n) {
+  const ak = 8 * k + m;
+  if (ak <= 0) return 0;
+  if (k <= n) return nodeGraphPiSpigotPowMod(16, n - k, ak) / ak;
+  let t = 1;
+  for (let i = 0; i < k - n; i += 1) t *= 0.0625;
+  return t / ak;
+}
 
 function createNodeGraphPiSpigotNoiseChannelState() {
   return {
-    cache: null,
-    readIndex: 0,
-    cacheStart: null,
     pink: [0, 0, 0, 0, 0, 0, 0],
     brown: 0,
     prevWhite1: 0,
     prevWhite2: 0,
     smoothLp: [0, 0, 0, 0],
   };
+}
+
+function createNodeGraphPiSpigotNoiseState() {
+  return {
+    startN: 0,
+    stride: 1,
+    n: 0,
+    k: 0,
+    phase: 0,
+    S: 0,
+    lastTerm: 0,
+    hex: 0,
+    pulse: 0,
+    sumCh: createNodeGraphPiSpigotNoiseChannelState(),
+    termCh: createNodeGraphPiSpigotNoiseChannelState(),
+    wasmHandle: 0,
+    wasmStart: null,
+    wasmStride: null,
+  };
+}
+
+function nodeGraphPiSpigotRestartDigit(state) {
+  state.k = 0;
+  state.phase = 0;
+  state.S = 0;
+  state.lastTerm = 0;
+}
+
+function nodeGraphPiSpigotApplyStartStride(state, start, stride) {
+  const startN = clampNodeSliderValue(Math.round((Number(start) || 0) * NODE_GRAPH_PI_SPIGOT_MAX_N), 0, NODE_GRAPH_PI_SPIGOT_MAX_N);
+  const st = clampNodeSliderValue(Math.round(Number(stride) || 1), 1, 16);
+  if (startN === state.startN && st === state.stride) return;
+  state.startN = startN;
+  state.stride = st;
+  state.n = startN;
+  state.hex = 0;
+  state.pulse = 0;
+  nodeGraphPiSpigotRestartDigit(state);
+  resetNodeGraphPiSpigotColorFilters(state.sumCh);
+  resetNodeGraphPiSpigotColorFilters(state.termCh);
+}
+
+function nodeGraphPiSpigotStepEquation(state) {
+  const m = NODE_GRAPH_PI_SPIGOT_SERIES_M[state.phase];
+  const c = NODE_GRAPH_PI_SPIGOT_SERIES_C[state.phase];
+  const term = c * nodeGraphPiSpigotSeriesTerm(m, state.k, state.n);
+  state.lastTerm = term;
+  state.S += term;
+  state.S -= Math.floor(state.S);
+  if (state.S < 0) state.S += 1;
+  state.pulse = 0;
+  state.phase += 1;
+  if (state.phase < 4) return;
+  state.phase = 0;
+  state.k += 1;
+  if (state.k <= state.n + NODE_GRAPH_PI_SPIGOT_TAIL) return;
+  let hex = Math.floor(state.S * 16);
+  if (hex > 15) hex = 15;
+  if (hex < 0) hex = 0;
+  state.hex = hex;
+  state.pulse = 1;
+  state.n += state.stride;
+  if (state.n > NODE_GRAPH_PI_SPIGOT_MAX_N) state.n = state.startN;
+  nodeGraphPiSpigotRestartDigit(state);
 }
 
 function nodeGraphPiSpigotNoiseLoadWasm() {
@@ -138,38 +170,29 @@ function nodeGraphPiSpigotNoiseLoadWasm() {
     });
 }
 
-function nodeGraphPiSpigotNoiseChannelSampleFallback(channel, seedFraction, color, smoothing, level) {
-  // Fallback range is the small BBP-computed cache, not the full
-  // 1-second buffer the wasm path reads from -- the normalized seed
-  // still spreads across it.
-  const fallbackStart = clampNodeSliderValue(Math.round(seedFraction * 256), 0, 256);
-  if (!channel.cache || channel.cacheStart !== fallbackStart) {
-    fillNodeGraphPiSpigotNoiseCacheFallback(channel, fallbackStart);
-    resetNodeGraphPiSpigotColorFilters(channel);
-  }
-  const white = channel.cache[channel.readIndex];
-  channel.readIndex = (channel.readIndex + 1) % channel.cache.length;
-  const colored = applyNodeGraphPiSpigotColor(channel, white, color);
-  return applyNodeGraphPiSpigotSmoothing(channel, colored, smoothing);
-}
-
-
-function createNodeGraphPiSpigotNoiseState() {
+function nodeGraphPiSpigotPortsFromState(state, color, smoothing, level) {
+  nodeGraphPiSpigotStepEquation(state);
+  const sum = state.S * 2 - 1;
+  const term = clampNodeSliderValue(state.lastTerm * 0.25, -1, 1);
   return {
-    left: createNodeGraphPiSpigotNoiseChannelState(),
-    right: createNodeGraphPiSpigotNoiseChannelState(),
-    wasmHandle: 0,
-    wasmSeedLeft: null,
-    wasmSeedRight: null,
+    "Left Out": applyNodeGraphPiSpigotSmoothing(state.sumCh, applyNodeGraphPiSpigotColor(state.sumCh, sum, color), smoothing) * level,
+    "Right Out": applyNodeGraphPiSpigotSmoothing(state.termCh, applyNodeGraphPiSpigotColor(state.termCh, term, color), smoothing) * level,
+    Hex: state.hex / 15,
+    N: state.n / NODE_GRAPH_PI_SPIGOT_MAX_N,
+    T: state.pulse ? 1 : 0,
+    B3: (state.hex & 8) ? 1 : 0,
+    B2: (state.hex & 4) ? 1 : 0,
+    B1: (state.hex & 2) ? 1 : 0,
+    B0: (state.hex & 1) ? 1 : 0,
   };
 }
 
 function nodeGraphPiSpigotNoiseSample(state, params, runtime = null, nodeId = "") {
-  const seedLeft = clampNodeSliderValue(nodeGraphSafeFilterNumber(params.seedLeft, runtime, nodeId, null, "pi spigot noise seed L"), 0, 1);
-  const seedRight = clampNodeSliderValue(nodeGraphSafeFilterNumber(params.seedRight, runtime, nodeId, null, "pi spigot noise seed R"), 0, 1);
+  const start = clampNodeSliderValue(nodeGraphSafeFilterNumber(params.start ?? params.seedLeft, runtime, nodeId, null, "pi spigot start"), 0, 1);
+  const stride = clampNodeSliderValue(nodeGraphSafeFilterNumber(params.stride, runtime, nodeId, null, "pi spigot stride") || 1, 1, 16);
   const color = clampNodeSliderValue(Math.round(nodeGraphSafeFilterNumber(params.color, runtime, nodeId, null, "pi spigot noise color")), 0, 4);
   const smoothing = clampNodeSliderValue(nodeGraphSafeFilterNumber(params.smoothing, runtime, nodeId, null, "pi spigot noise smoothing"), 0, 1);
-  const level = nodeGraphSafeFilterNumber(params.amplitude, runtime, nodeId, null, "pi spigot noise level");
+  const level = nodeGraphSafeFilterNumber(params.amplitude ?? params.level, runtime, nodeId, null, "pi spigot noise level");
 
   nodeGraphPiSpigotNoiseLoadWasm();
   const wasm = nodeGraphPiSpigotNoiseWasm.exports;
@@ -178,35 +201,42 @@ function nodeGraphPiSpigotNoiseSample(state, params, runtime = null, nodeId = ""
       state.wasmHandle = wasm.soemdsp_pi_spigot_noise_create();
     }
     if (state.wasmHandle) {
-      if (state.wasmSeedLeft !== seedLeft || state.wasmSeedRight !== seedRight) {
-        state.wasmSeedLeft = seedLeft;
-        state.wasmSeedRight = seedRight;
-        wasm.soemdsp_pi_spigot_noise_reset_seed(state.wasmHandle, seedLeft, seedRight);
+      if (state.wasmStart !== start || state.wasmStride !== stride) {
+        state.wasmStart = start;
+        state.wasmStride = stride;
+        wasm.soemdsp_pi_spigot_noise_reset_seed(state.wasmHandle, start, stride);
       }
       wasm.soemdsp_pi_spigot_noise_sample(state.wasmHandle, color, smoothing, level);
+      const h = state.wasmHandle;
       return {
-        "Left Out": nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_left(state.wasmHandle), runtime, nodeId, null, "pi spigot noise left"),
-        "Right Out": nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_right(state.wasmHandle), runtime, nodeId, null, "pi spigot noise right"),
+        "Left Out": nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_left(h), runtime, nodeId, null, "pi spigot sum"),
+        "Right Out": nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_right(h), runtime, nodeId, null, "pi spigot term"),
+        Hex: nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_hex?.(h) ?? 0, runtime, nodeId, null, "pi spigot hex"),
+        N: nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_n?.(h) ?? 0, runtime, nodeId, null, "pi spigot n"),
+        T: nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_t?.(h) ?? 0, runtime, nodeId, null, "pi spigot t"),
+        B3: nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_b3?.(h) ?? 0, runtime, nodeId, null, "pi spigot b3"),
+        B2: nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_b2?.(h) ?? 0, runtime, nodeId, null, "pi spigot b2"),
+        B1: nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_b1?.(h) ?? 0, runtime, nodeId, null, "pi spigot b1"),
+        B0: nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_b0?.(h) ?? 0, runtime, nodeId, null, "pi spigot b0"),
       };
     }
   }
 
+  nodeGraphPiSpigotApplyStartStride(state, start, stride);
+  const ports = nodeGraphPiSpigotPortsFromState(state, color, smoothing, level);
   return {
-    "Left Out": nodeGraphSafeFilterNumber(
-      nodeGraphPiSpigotNoiseChannelSampleFallback(state.left, seedLeft, color, smoothing, level) * level,
-      runtime, nodeId, null, "pi spigot noise left",
-    ),
-    "Right Out": nodeGraphSafeFilterNumber(
-      nodeGraphPiSpigotNoiseChannelSampleFallback(state.right, seedRight, color, smoothing, level) * level,
-      runtime, nodeId, null, "pi spigot noise right",
-    ),
+    "Left Out": nodeGraphSafeFilterNumber(ports["Left Out"], runtime, nodeId, null, "pi spigot sum"),
+    "Right Out": nodeGraphSafeFilterNumber(ports["Right Out"], runtime, nodeId, null, "pi spigot term"),
+    Hex: ports.Hex,
+    N: ports.N,
+    T: ports.T,
+    B3: ports.B3,
+    B2: ports.B2,
+    B1: ports.B1,
+    B0: ports.B0,
   };
 }
 
-
-// Registers the offline/render-time dispatch handler for piSpigotNoise into
-// nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
-// Extracted from the inline if/else-if branch that used to live in that file.
 nodeGraphLiveModuleEvaluators.piSpigotNoise = ({ runtime, node, nodeId, frame, frames, frameValues }) => {
   const state = runtime.piSpigotNoiseStates.get(nodeId) || createNodeGraphPiSpigotNoiseState();
   runtime.piSpigotNoiseStates.set(nodeId, state);
@@ -214,8 +244,8 @@ nodeGraphLiveModuleEvaluators.piSpigotNoise = ({ runtime, node, nodeId, frame, f
   return nodeGraphPiSpigotNoiseSample(
     state,
     {
-      seedLeft: read("seedLeft", 0),
-      seedRight: read("seedRight", 0.5),
+      start: read("start", read("seedLeft", 0)),
+      stride: read("stride", 1),
       color: read("color", 0),
       smoothing: read("smoothing", 0),
       level: read("amplitude", 1),

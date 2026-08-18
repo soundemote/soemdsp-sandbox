@@ -252,6 +252,11 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "dot") {
     return normalizeNodeGraphZeroDBurnSettings(nodeGraphZeroDBurnSettingsDefaults);
   }
+  if (type === "vectorDot" || type === "pulseDot") {
+    return typeof normalizeNodeGraphVectorDotSettings === "function"
+      ? normalizeNodeGraphVectorDotSettings(nodeGraphVectorDotSettingsDefaults)
+      : { ...nodeGraphVectorDotSettingsDefaults };
+  }
   if (type === "value") {
     return normalizeNodeGraphValueOscilloscopeSettings(nodeGraphValueOscilloscopeSettingsDefaults);
   }
@@ -449,6 +454,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   }
   if (type === "dot") {
     return normalizeNodeGraphZeroDBurnSettings(settings);
+  }
+  if (type === "vectorDot" || type === "pulseDot") {
+    return typeof normalizeNodeGraphVectorDotSettings === "function"
+      ? normalizeNodeGraphVectorDotSettings(settings)
+      : (settings || {});
   }
   if (type === "value") {
     return normalizeNodeGraphValueOscilloscopeSettings(settings);
@@ -699,6 +709,13 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   }
   if (settingsSchema === "xyPad") {
     return normalizeNodeGraphXyPadDisplaySettings(node.traceDisplaySettings);
+  }
+  if (settingsSchema === "vectorDot" || settingsSchema === "pulseDot") {
+    return typeof nodeGraphVectorDotSettingsForNode === "function"
+      ? nodeGraphVectorDotSettingsForNode(node)
+      : normalizeNodeGraphVectorDotSettings(
+        node?.vectorDotSettings || node?.zeroDBurnSettings || node?.traceDisplaySettings,
+      );
   }
   if (settingsSchema === "ledLamp") {
     return typeof normalizeNodeGraphLedLayout === "function"
@@ -968,6 +985,14 @@ function readNodeGraphTraceDisplaySettingsForm() {
       if (key === "dot1Brightness") {
         next.brightness = sanitizedValue;
       }
+      if (key === "backgroundHue") {
+        const hueN = Number(sanitizedValue);
+        if (Number.isFinite(hueN) && typeof nodeGraphHueUnitHex === "function") {
+          const hueHex = nodeGraphHueUnitHex(hueN);
+          next.background = hueHex;
+          next.backgroundColor = hueHex;
+        }
+      }
       if (key === "zoomSeconds") {
         next.historySeconds = sanitizedValue;
       }
@@ -1107,6 +1132,15 @@ function nodeGraphDisplaySettingsFormValue(settings, key) {
   }
   if (key === "backgroundColor") {
     return settings.backgroundColor ?? settings.background;
+  }
+  if (key === "backgroundHue") {
+    const stored = Number(settings.backgroundHue);
+    if (Number.isFinite(stored)) {
+      return stored;
+    }
+    return typeof nodeGraphHueDegFromHex === "function"
+      ? nodeGraphHueDegFromHex(settings.background ?? settings.backgroundColor)
+      : 0;
   }
   if (key === "arcFill") {
     return settings.arcFill;
@@ -1776,7 +1810,9 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
       // Value LCD Foreground: full color widget (same as Background).
       const lcdNode = liveType === "numberReadout"
         && typeof nodeGraphPatchNode === "function"
-        && nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type === "valueLcd";
+        && ["valueLcd", "helmholtzPitch"].includes(
+          nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type,
+        );
       const hueOnly = liveType === "numberReadout" && field === "dot1Color" && !lcdNode;
       const mountHsl = hueOnly
         ? { h: hsl.h, s: 100, l: 50, a: 1 }

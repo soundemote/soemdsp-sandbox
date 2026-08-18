@@ -194,7 +194,10 @@ function scheduleNodeGraphLedFaceRefresh(nodeId) {
 }
 
 function drawNodeGraphLedLampItem(renderer, item, pixelRatio) {
-  // Prefer the stack root so fill% sizes against the full cell.
+  if (typeof drawNodeGraphVectorDotItem === "function") {
+    drawNodeGraphVectorDotItem(renderer, item, pixelRatio);
+    return;
+  }
   const lampOrFace = item?.screenElement || item?.slot?.scopeElement;
   const face = lampOrFace?.closest?.(".node-led-face") || lampOrFace;
   if (!face) {
@@ -204,27 +207,11 @@ function drawNodeGraphLedLampItem(renderer, item, pixelRatio) {
   if (buffer) {
     renderNodeGraphModuleScopeAnalyzer(item.slot, buffer);
   }
-  clearNodeGraphModuleScopeLocalFallback(item.slot);
   const node = nodeGraphModuleScopeNodeForSlot(item.slot);
-  const settings = normalizeNodeGraphLedLayout(node?.led);
-  let level = 0;
-  if (buffer?.length) {
-    level = Number(buffer.nodeGraphScopeLightTarget);
-    if (!Number.isFinite(level)) {
-      // Live rings often omit lightTarget metadata — use peak |sample|.
-      let peak = 0;
-      const n = Math.min(buffer.length, 64);
-      for (let i = Math.max(0, buffer.length - n); i < buffer.length; i += 1) {
-        const s = Math.abs(Number(buffer[i]) || 0);
-        if (s > peak) peak = s;
-      }
-      level = peak;
-      buffer.nodeGraphScopeLightTarget = peak;
-    }
-    level = clampNodeSliderValue(level, 0, 1);
-  } else {
-    level = Number(face.dataset.ledLevel) || 0;
-  }
+  const settings = typeof nodeGraphVectorDotSettingsForNode === "function"
+    ? nodeGraphVectorDotSettingsForNode(node)
+    : normalizeNodeGraphLedLayout(node?.led);
+  const level = nodeGraphVectorDotFrameEnergy01(buffer);
   applyNodeGraphLedFaceAppearance(face, settings, level);
 }
 

@@ -783,8 +783,9 @@
    * Module department list as one multi-line LOG entry (emoji + name per line).
    * Shape (easy select/copy of a single log row):
    *   [#2410 10:31:53 AM] [+0ms] LOG categories:
+   *   🌐 Portals
    *   🕹️ Controllers
-   *   ♟️ Game Triggers
+   *   〰️ Oscillator
    *   …
    */
   function dumpModuleCategories() {
@@ -803,7 +804,7 @@
     });
     // One entry: header + emoji lines. formatEntryLine → easy single-block copy.
     //   [#n t] [+0ms] LOG categories:
-    //   🕹️ Controllers
+    //   🌐 Portals
     //   …
     const entry = push("LOG", `categories:\n${lines.join("\n")}`, "");
     const text = formatEntryLine(entry);

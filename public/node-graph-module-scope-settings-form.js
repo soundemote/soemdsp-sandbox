@@ -112,6 +112,14 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Inner radius";
     title = "Arc hole size 0…1 (0 = solid, ~0.7 default ring, higher = thinner ring).";
   }
+  if ((formType === "vectorDot" || formType === "pulseDot") && key === "lineThickness") {
+    label = "Blur";
+    title = "Smoothstep edge softness 0…1 (0 = hard disc, 1 = soft skirt). Cheap vector rings — not a gradient.";
+  }
+  if ((formType === "vectorDot" || formType === "pulseDot") && key === "dot1Size") {
+    label = "Size";
+    title = "Dot diameter as a fraction of the face min side.";
+  }
   if (formType === "numberReadout" && key === "dot1Brightness") {
     const nodeType = typeof nodeGraphPatchNode === "function"
       && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
@@ -135,7 +143,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   }
   if (formType === "numberReadout" && key === "burn") {
     label = "Burn";
-    title = "Sticky residual floor 0…1. 0 = no stick; 0.5 = once energy ≥ 0.5 the pixel freezes at that floor; 1 = freeze all residual. Off by default.";
+    title = "Extra persist 0…1 on leftover energy. 0 = Trail/Ghost only; mid = dim afterglow that still fades; 1 = freeze residual.";
   }
   if (formType === "numberReadout" && key === "burnAmount") {
     label = "Burn \u2A2F";
@@ -590,6 +598,19 @@ function syncNodeGraphInstantTracePreview(root, settings) {
   }
 }
 
+function nodeGraphDisplaySettingsPushBackgroundHueRow(rows, type) {
+  rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+    title: "Background",
+    stepField: "backgroundBrightness",
+    colorField: "backgroundColor",
+    formType: type,
+    defaultHueHex: typeof nodeGraphHueUnitHex === "function"
+      ? nodeGraphHueUnitHex(0)
+      : "#ff0000",
+    titleAttr: "Plate brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
+  }));
+}
+
 function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey) {
   const activeFields = nodeGraphTraceDisplayActiveControlSet("fields", type);
   const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", type);
@@ -602,7 +623,7 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   const fieldList = [...activeFields].filter((key) => allow("fields", key));
   const primaryOrder = typeof nodeGraphInstantTraceDisplayFieldOrder !== "undefined"
     ? nodeGraphInstantTraceDisplayFieldOrder
-    : ["scale", "historySeconds", "zoomSeconds", "dot1Size", "lineThickness", "pixelDensity", "dot1Brightness"];
+    : ["scale", "historySeconds", "zoomSeconds", "backgroundBrightness", "backgroundHue", "dot1Size", "lineThickness", "dot1Brightness", "dotBudget", "pixelDensity"];
   const secondaryOrder = typeof nodeGraphTraceDisplaySecondaryInkFieldOrder !== "undefined"
     ? nodeGraphTraceDisplaySecondaryInkFieldOrder
     : ["secondarySize", "secondaryLineThickness", "secondaryBrightness"];
@@ -621,15 +642,10 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     ? ["dot1Color", "secondaryColor"]
     : ["dot1Color"]
   ).filter((key) => activeColors.has(key) && allow("colors", key));
-  const bgColors = ["backgroundColor"].filter((key) => activeColors.has(key) && allow("colors", key));
   const parts = [];
   const rows = [];
   const stereoInk = isStereoTraceNode && type === "trace";
-  const previewAfter = orderedPrimary.includes("dot1Brightness")
-    ? "dot1Brightness"
-    : (orderedPrimary.includes("pixelDensity")
-      ? "pixelDensity"
-      : (orderedPrimary.includes("lineThickness") ? "lineThickness" : orderedPrimary[orderedPrimary.length - 1]));
+  const previewAfter = "dot1Brightness";
   let previewPlaced = false;
   const pushPreview = () => {
     if (previewPlaced) {
@@ -638,17 +654,45 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     rows.push(nodeGraphInstantTracePreviewHtml(stereoInk));
     previewPlaced = true;
   };
-  const sharedSet = new Set(["scale", "historySeconds", "zoomSeconds", "fade"]);
-  const sharedPrimary = orderedPrimary.filter((key) => sharedSet.has(key));
-  const inkPrimary = orderedPrimary.filter((key) => !sharedSet.has(key));
-  for (const key of sharedPrimary) {
-    rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
+  const usedChoices = new Set();
+  const usedToggles = new Set();
+  if (toggleKeys.includes("skipDiscontinuities")) {
+    rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("skipDiscontinuities"));
+    usedToggles.add("skipDiscontinuities");
   }
-  for (const key of toggleKeys) {
-    if (key === "sourceSync") {
-      rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml(key));
+  if (stereoInk && choiceKeys.includes("syncChannel")) {
+    rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml("syncChannel"));
+    usedChoices.add("syncChannel");
+  } else if (toggleKeys.includes("sourceSync")) {
+    rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("sourceSync"));
+    usedToggles.add("sourceSync");
+  }
+  const stackHead = new Set([
+    "scale",
+    "historySeconds",
+    "zoomSeconds",
+    "backgroundBrightness",
+    "backgroundHue",
+  ]);
+  const pushStackField = (key) => {
+    if (!orderedPrimary.includes(key)) {
+      return;
     }
+    if (key === "zoomSeconds" && orderedPrimary.includes("historySeconds")) {
+      return;
+    }
+    rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
+  };
+  pushStackField("scale");
+  if (choiceKeys.includes("stereoBlend")) {
+    rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml("stereoBlend"));
+    usedChoices.add("stereoBlend");
   }
+  pushStackField("historySeconds");
+  pushStackField("zoomSeconds");
+  pushStackField("backgroundBrightness");
+  pushStackField("backgroundHue");
+  const inkPrimary = orderedPrimary.filter((key) => !stackHead.has(key));
   if (stereoInk) {
     rows.push(`
       <div class="metadata-section-title node-trace-display-dot1-title node-trace-display-stereo-title">
@@ -679,10 +723,13 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
   }
   for (const key of choiceKeys) {
+    if (usedChoices.has(key)) {
+      continue;
+    }
     rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml(key));
   }
   for (const key of toggleKeys) {
-    if (key === "secondaryEnabled" || key === "sourceSync") {
+    if (key === "secondaryEnabled" || usedToggles.has(key)) {
       continue;
     }
     rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml(key));
@@ -748,11 +795,6 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
           data-spectrogram-gradient-host></div>
       </div>`);
   }
-  for (const key of bgColors) {
-    rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type, {
-      stereo: isStereoTraceNode && type === "trace",
-    }));
-  }
   parts.push(`<div class="metadata-field-section node-trace-display-trace-section">${rows.join("")}</div>`);
   return parts.join("\n");
 }
@@ -776,6 +818,77 @@ function nodeGraphDisplaySettingsBuildColorRowHtml(key, formType = null, options
     </div>`;
 }
 
+
+function buildNodeGraphPhosphorDisplaySettingsBodyHtml(type, node, allowKey) {
+  const activeFields = nodeGraphTraceDisplayActiveControlSet("fields", type);
+  const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", type);
+  const activeToggles = nodeGraphTraceDisplayActiveControlSet("toggles", type);
+  const activeChoices = nodeGraphTraceDisplayActiveControlSet("choices", type);
+  const allow = typeof allowKey === "function" ? allowKey : () => true;
+  const fieldList = [...activeFields].filter((key) => allow("fields", key));
+  const toggleKeys = [...activeToggles].filter((key) => allow("toggles", key));
+  const choiceKeys = [...activeChoices].filter((key) => allow("choices", key));
+  const colorKeys = [...activeColors].filter((key) => allow("colors", key));
+  const order = typeof nodeGraphPhosphorDisplayFieldOrder !== "undefined"
+    ? nodeGraphPhosphorDisplayFieldOrder
+    : (typeof nodeGraphDisplaySettingsSharedStackOrder !== "undefined"
+      ? nodeGraphDisplaySettingsSharedStackOrder
+      : fieldList);
+  const ordered = order.filter((key) => fieldList.includes(key));
+  const leftover = fieldList.filter((key) => !order.includes(key));
+  const packingKeys = NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS.filter(
+    (key) => toggleKeys.includes(key) && key !== "sourceSync",
+  );
+  const packingKeySet = new Set(packingKeys);
+  const usedToggles = new Set();
+  const usedChoices = new Set();
+  const rows = [];
+  if (toggleKeys.includes("skipDiscontinuities")) {
+    rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("skipDiscontinuities"));
+    usedToggles.add("skipDiscontinuities");
+  }
+  if (toggleKeys.includes("sourceSync")) {
+    rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("sourceSync"));
+    usedToggles.add("sourceSync");
+  }
+  for (const key of choiceKeys) {
+    rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml(key));
+    usedChoices.add(key);
+  }
+  for (const key of ordered) {
+    rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
+  }
+  for (const key of leftover) {
+    rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
+  }
+  for (const key of toggleKeys) {
+    if (usedToggles.has(key) || packingKeySet.has(key)) {
+      continue;
+    }
+    rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml(key));
+  }
+  if (packingKeys.length) {
+    rows.push(nodeGraphDisplaySettingsBuildPackingToggleRowHtml(packingKeys));
+  }
+  for (const key of colorKeys) {
+    rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type));
+  }
+  if (
+    typeof nodeGraphDisplaySettingsFormTypeUsesGradient === "function"
+    && nodeGraphDisplaySettingsFormTypeUsesGradient(type)
+  ) {
+    rows.push(`
+      <div class="metadata-field-section node-trace-display-gradient-section">
+        <div
+          id="nodeTraceDisplayGradientSelectorHost"
+          class="node-gradient-selector-host node-shared-gradient-host node-spectrogram-gradient-host"
+          data-gradient-selector-host
+          data-shared-gradient-host
+          data-spectrogram-gradient-host></div>
+      </div>`);
+  }
+  return `<div class="metadata-field-section node-trace-display-trace-section">${rows.join("")}</div>`;
+}
 
 function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   const type = formType || "trace";
@@ -853,6 +966,12 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   if (isVectorTraceForm) {
     return buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey);
   }
+  if (
+    typeof nodeGraphDisplaySettingsIsPhosphorFormType === "function"
+    && nodeGraphDisplaySettingsIsPhosphorFormType(type)
+  ) {
+    return buildNodeGraphPhosphorDisplaySettingsBodyHtml(type, node, allowKey);
+  }
   const sectionOrder = nodeGraphDisplaySettingsIsPhosphorFormType(type)
     ? nodeGraphPhosphorDisplaySettingsSectionOrder
     : (isVectorTraceForm && typeof nodeGraphTraceDisplaySettingsSectionOrder !== "undefined"
@@ -912,7 +1031,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     let colorKeys = (sectionControls.colors || []).filter(
       (key) => activeColors.has(key) && allowKey("colors", key),
     );
-    if (type === "roundShapeFace") {
+    if (type === "roundShapeFace" || type === "vectorDot" || type === "pulseDot") {
       colorKeys = [];
     }
     if (type === "trace" && isStereoTraceNode) {
@@ -936,6 +1055,8 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           "digits",
           "decimals",
           "facePadding",
+          "backgroundBrightness",
+          "dot1Brightness",
           "unlitSegments",
           ...(nrNodeType === "helmholtzPitch" ? ["centsBand"] : []),
           "innerShadowDistance",
@@ -944,8 +1065,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           "innerShadowOffsetY",
         ].filter((key) => activeFields.has(key));
         choiceKeys = ["polarity"].filter((key) => activeChoices.has(key));
-        colorKeys = ["dot1Color", "backgroundColor"]
-          .filter((key) => activeColors.has(key));
+        colorKeys = [];
       } else {
         // Value LED: Digits → Decimals → Padding → Bright → Ghost → Trail → Burn → Burn ⨉.
         fieldKeys = [
@@ -1069,13 +1189,66 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml(key));
     }
     for (const key of fieldKeys) {
-      if (type === "numberReadout" && key === "dot1Brightness" && activeColors.has("dot1Color")) {
-        // Value LED only (LCD has no Bright field in its stack).
+      if (type === "numberReadout" && key === "backgroundBrightness") {
         rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
-          title: "LED",
+          title: "Background",
+          stepField: "backgroundBrightness",
+          colorField: "backgroundColor",
+          formType: type,
+          defaultHueHex: typeof nodeGraphHueUnitHex === "function"
+            ? nodeGraphHueUnitHex(typeof nodeGraphValueLcdDefaultHueDeg === "number"
+              ? nodeGraphValueLcdDefaultHueDeg
+              : 82)
+            : "#a2ff00",
+          titleAttr: "LCD plate brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
+        }));
+        continue;
+      }
+      if (type === "numberReadout" && key === "dot1Brightness" && activeColors.has("dot1Color")) {
+        const nrNodeType = typeof nodeGraphPatchNode === "function"
+          && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+          ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
+          : null;
+        const lcdInk = nrNodeType === "valueLcd" || nrNodeType === "helmholtzPitch";
+        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+          title: lcdInk ? "Foreground" : "LED",
           stepField: "dot1Brightness",
           colorField: "dot1Color",
           formType: type,
+          defaultHueHex: lcdInk && typeof nodeGraphHueUnitHex === "function"
+            ? nodeGraphHueUnitHex(typeof nodeGraphValueLcdDefaultHueDeg === "number"
+              ? nodeGraphValueLcdDefaultHueDeg
+              : 82)
+            : undefined,
+          titleAttr: lcdInk
+            ? "LCD ink brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue."
+            : undefined,
+        }));
+        continue;
+      }
+      if ((type === "vectorDot" || type === "pulseDot") && key === "backgroundBrightness") {
+        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+          title: "Background",
+          stepField: "backgroundBrightness",
+          colorField: "backgroundColor",
+          formType: type,
+          defaultHueHex: typeof nodeGraphHueUnitHex === "function"
+            ? nodeGraphHueUnitHex(220)
+            : "#0055ff",
+          titleAttr: "Plate brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
+        }));
+        continue;
+      }
+      if ((type === "vectorDot" || type === "pulseDot") && key === "dot1Brightness") {
+        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+          title: "Dot",
+          stepField: "dot1Brightness",
+          colorField: "dot1Color",
+          formType: type,
+          defaultHueHex: typeof nodeGraphHueUnitHex === "function"
+            ? nodeGraphHueUnitHex(25)
+            : "#ff6a00",
+          titleAttr: "Dot brightness gain 0…1 (black → full hue at 0.5 → white). Signal energy scales this. Drag the title to change hue.",
         }));
         continue;
       }
@@ -1129,7 +1302,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
         ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
         : null;
-      if (nrNodeType !== "valueLcd") {
+      if (nrNodeType !== "valueLcd" && nrNodeType !== "helmholtzPitch") {
         rows.push(`
         <div class="metadata-section-title node-trace-display-gradient-title">Ghost Gradient</div>
         <div

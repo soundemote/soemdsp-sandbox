@@ -184,14 +184,37 @@ function nodeGraphCameraCloneWireSvg(liveSvg) {
   return clone;
 }
 
-function copyNodeGraphCameraWorldCanvases(source, clone) {
+function nodeGraphCanvasCopyIsExpensive(canvas) {
+  if (!canvas) {
+    return true;
+  }
+  if (canvas._phosphorEnergyGl || canvas._nodeGraphWebgl) {
+    return true;
+  }
+  const id = String(canvas.id || "");
+  if (id === "nodeModuleScopeCanvas" || id === "nodeModuleScopeLightCanvas") {
+    return true;
+  }
+  const cls = String(canvas.className || "");
+  if (/\b(node-module-scope-webgl|scope-webgl|phosphor-energy)\b/i.test(cls)) {
+    return true;
+  }
+  return false;
+}
+
+function copyNodeGraphCameraWorldCanvases(source, clone, options = {}) {
   const sourceCanvases = [...source.querySelectorAll("canvas")];
   const cloneCanvases = [...clone.querySelectorAll("canvas")];
+  const skipExpensive = options.skipExpensive !== false;
   sourceCanvases.forEach((sourceCanvas, index) => {
     const cloneCanvas = cloneCanvases[index];
     if (!cloneCanvas || !sourceCanvas.width || !sourceCanvas.height) {
       return;
     }
+    if (skipExpensive && nodeGraphCanvasCopyIsExpensive(sourceCanvas)) {
+      return;
+    }
+    // Never raise backing store — magnify/zoom must not upscale display buffers.
     cloneCanvas.width = sourceCanvas.width;
     cloneCanvas.height = sourceCanvas.height;
     try {

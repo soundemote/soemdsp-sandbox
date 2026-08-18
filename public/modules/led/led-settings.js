@@ -103,8 +103,11 @@ function nodeGraphLedEmittedRgb(hueOrSettings, level, brightness = 1) {
     hue = Number(hueOrSettings) || 0;
     gain = Math.max(0, Math.min(1, Number.isFinite(Number(brightness)) ? Number(brightness) : 1));
   }
-  // Mono energy channel: signal × brightness gain, then free gradient remap.
   const energy = Math.max(0, Math.min(1, drive * gain));
+  if (typeof nodeGraphHueBrightnessRgb01 === "function") {
+    const [r, g, b] = nodeGraphHueBrightnessRgb01(hue, energy);
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+  }
   const normalizedStops = nodeGraphLedNormalizeStops(stops, hue);
   return nodeGraphLedSampleGradientRgb(normalizedStops, energy);
 }

@@ -746,6 +746,150 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
 }
 
 
+function nodeGraphVectorDotFrameEnergy01(buffer) {
+  if (!buffer || !buffer.length) {
+    return 0;
+  }
+  let peak = Number(buffer.nodeGraphScopeLightTarget);
+  if (!Number.isFinite(peak)) {
+    peak = 0;
+    for (let i = 0; i < buffer.length; i += 1) {
+      const s = Math.abs(Number(buffer[i]) || 0);
+      if (s > peak) {
+        peak = s;
+      }
+    }
+    buffer.nodeGraphScopeLightTarget = peak;
+  }
+  return Math.max(0, Math.min(1, peak));
+}
+
+function nodeGraphDrawVectorDotDisc(context, cx, cy, radius, blur01, cssColor) {
+  if (!context || !(radius > 0.05)) {
+    return;
+  }
+  const blur = Math.max(0, Math.min(1, Number(blur01) || 0));
+  const outer = Math.max(0.35, Number(radius) || 0);
+  context.save();
+  context.globalCompositeOperation = "source-over";
+  if (blur < 0.02) {
+    context.beginPath();
+    context.arc(cx, cy, outer, 0, Math.PI * 2);
+    context.fillStyle = cssColor;
+    context.fill();
+    context.restore();
+    return;
+  }
+  const inner = outer * (1 - blur * 0.85);
+  context.beginPath();
+  context.arc(cx, cy, Math.max(0.25, inner), 0, Math.PI * 2);
+  context.fillStyle = cssColor;
+  context.fill();
+  const rings = Math.max(5, Math.min(12, Math.round(5 + blur * 7)));
+  const band = Math.max(0.75, (outer - inner) / rings);
+  context.lineCap = "butt";
+  context.lineWidth = band;
+  for (let i = 1; i <= rings; i += 1) {
+    const u = i / rings;
+    const rad = inner + (outer - inner) * u;
+    const a = 1 - (u * u * (3 - 2 * u));
+    if (a <= 0.004) {
+      continue;
+    }
+    context.beginPath();
+    context.arc(cx, cy, rad, 0, Math.PI * 2);
+    context.strokeStyle = cssColor;
+    context.globalAlpha = a;
+    context.stroke();
+  }
+  context.restore();
+}
+
+/**
+ * Vector Dot — companion to Phosphor Dot. Cheap 2D disc, smoothstep edge blur,
+ * hue+brightness, one energy gather per frame. No residual FBO, no gradients.
+ */
+function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
+  const buffer = item?.buffer;
+  const screenElement = item?.screenElement || item?.slot?.scopeElement;
+  const canvas = typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
+    ? nodeGraphModuleScopeLocalFallbackCanvas(item?.slot)
+    : null;
+  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(
+    canvas,
+    screenElement,
+    pixelRatio,
+    1,
+  )) {
+    return;
+  }
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return;
+  }
+  if (buffer) {
+    if (typeof renderNodeGraphModuleScopeAnalyzer === "function") {
+      renderNodeGraphModuleScopeAnalyzer(item.slot, buffer);
+    }
+  }
+  const node = typeof nodeGraphModuleScopeNodeForSlot === "function"
+    ? nodeGraphModuleScopeNodeForSlot(item?.slot)
+    : null;
+  const settings = typeof nodeGraphVectorDotSettingsForNode === "function"
+    ? nodeGraphVectorDotSettingsForNode(node)
+    : {};
+  const energy = nodeGraphVectorDotFrameEnergy01(buffer);
+  const gain = clampNodeSliderValue(
+    Number(settings.dot1Brightness ?? settings.brightness) || 0,
+    0,
+    1,
+  );
+  const amount = clampNodeSliderValue(energy * gain, 0, 1);
+  const hue = Number.isFinite(Number(settings.hue))
+    ? Number(settings.hue)
+    : (typeof nodeGraphHueDegFromHex === "function"
+      ? nodeGraphHueDegFromHex(settings.dot1Color || settings.color)
+      : 25);
+  const bgHue = typeof nodeGraphHueDegFromHex === "function"
+    ? nodeGraphHueDegFromHex(settings.backgroundColor || settings.background)
+    : 220;
+  const bgAmt = clampNodeSliderValue(Number(settings.backgroundBrightness) || 0, 0, 1);
+  const bg = typeof nodeGraphHueBrightnessCss === "function"
+    ? nodeGraphHueBrightnessCss(bgHue, bgAmt)
+    : "#000000";
+  if (typeof nodeGraphFacePlateApplyCss === "function" && screenElement) {
+    nodeGraphFacePlateApplyCss(screenElement, bg);
+  }
+  nodeGraphFacePlateFillCanvas(context, canvas, bg);
+  const width = canvas.width;
+  const height = canvas.height;
+  const minSide = Math.max(1, Math.min(width, height));
+  const size01 = clampNodeSliderValue(Number(settings.dot1Size) || 0, 0, 1);
+  const radius = minSide * 0.5 * size01;
+  const blur = clampNodeSliderValue(
+    Number(settings.lineThickness ?? settings.blur) || 0,
+    0,
+    1,
+  );
+  const color = typeof nodeGraphHueBrightnessCss === "function"
+    ? nodeGraphHueBrightnessCss(hue, amount)
+    : "#ff6a00";
+  if (amount > 0.001 && radius > 0.05) {
+    nodeGraphDrawVectorDotDisc(context, width * 0.5, height * 0.5, radius, blur, color);
+  }
+  const punch = amount > 0.001 ? 1 : 0;
+  if (screenElement?.dataset) {
+    screenElement.dataset.lightSource = "screen";
+    screenElement.dataset.lightStrength = String(punch);
+  }
+  if (typeof setNodeGraphLightStrength === "function" && screenElement) {
+    setNodeGraphLightStrength(screenElement, punch);
+  }
+  if (typeof recordNodeGraphModuleScopeRenderMetrics === "function") {
+    recordNodeGraphModuleScopeRenderMetrics(1, 1);
+  }
+}
+
 function drawNodeGraphCustomDisplayItem(renderer, item, pixelRatio) {
   const slot = item?.slot;
   const node = nodeGraphModuleScopeNodeForSlot(slot);

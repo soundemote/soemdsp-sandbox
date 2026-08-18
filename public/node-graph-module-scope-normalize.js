@@ -11,6 +11,63 @@ function nodeGraphDisplaySettingsToggleIsOn(value) {
 }
 
 /**
+ * Plate hue + physically-plausible brightness (black → full hue @ 0.5 → white).
+ * `background` / `backgroundColor` store a pure hue hex; amount is backgroundBrightness.
+ */
+function nodeGraphDisplaySettingsNormalizePlateLook(source = {}, defaults = {}) {
+  const src = source && typeof source === "object" ? source : {};
+  const defs = defaults && typeof defaults === "object" ? defaults : {};
+  const fallbackHue = Number.isFinite(Number(defs.backgroundHue))
+    ? Number(defs.backgroundHue)
+    : 0;
+  const fallbackBright = Number.isFinite(Number(defs.backgroundBrightness))
+    ? Number(defs.backgroundBrightness)
+    : 0;
+  const rawHex = src.background ?? src.backgroundColor ?? defs.background;
+  const hex = typeof normalizeNodeGraphTraceDisplayColor === "function"
+    ? normalizeNodeGraphTraceDisplayColor(rawHex, defs.background || "#ff0000")
+    : String(rawHex || "#ff0000");
+  const mapped = typeof nodeGraphHueBrightnessFromHex === "function"
+    ? nodeGraphHueBrightnessFromHex(hex, fallbackHue, fallbackBright)
+    : { hue: fallbackHue, brightness: fallbackBright };
+  const hueRaw = Number(src.backgroundHue);
+  let hue;
+  if (Number.isFinite(hueRaw)) {
+    hue = Math.max(0, Math.min(360, hueRaw));
+  } else if (
+    src.backgroundBrightness == null
+    && typeof hex === "string"
+    && /^#000000$/i.test(hex)
+  ) {
+    hue = fallbackHue;
+  } else {
+    hue = mapped.hue;
+  }
+  let brightness;
+  if (src.backgroundBrightness != null) {
+    brightness = normalizeNodeGraphTraceDisplayNumber(
+      src.backgroundBrightness,
+      fallbackBright,
+      0,
+      1,
+    );
+  } else if (typeof hex === "string" && /^#00000[0-9a-f]$/i.test(hex)) {
+    brightness = 0;
+  } else {
+    brightness = mapped.brightness;
+  }
+  const hueHex = typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(hue)
+    : hex;
+  return {
+    backgroundHue: hue,
+    backgroundBrightness: brightness,
+    background: hueHex,
+    backgroundColor: hueHex,
+  };
+}
+
+/**
  * App-wide phosphor residual axes (Ghost / Trail / Burn / Burn Amount).
  * residualSchema ≥ 2: burn is sticky floor (default 0). Legacy burn≡ghost → Burn off.
  * residualSchema ≥ 3: burnAmount multiplies Bright for residual deposits (default 1).
@@ -408,11 +465,14 @@ function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
   const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
   const residual = normalizeNodeGraphPhosphorResidualAxes(source, defaults);
   return {
-    background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
+    ...nodeGraphDisplaySettingsNormalizePlateLook(source, {
+      ...defaults,
+      backgroundBrightness: defaults.backgroundBrightness ?? 0,
+      backgroundHue: defaults.backgroundHue ?? 0,
+    }),
     ghost: residual.ghost,
     trail: residual.trail,
     burn: residual.burn,
-    burnAmount: residual.burnAmount,
     burnAmount: residual.burnAmount,
     residualSchema: residual.residualSchema,
     decay: residual.decay,
@@ -560,7 +620,11 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
   // Ghost / Trail / Burn are UI truth (same as scope2d). decay = 1 − trail only.
   const residual = normalizeNodeGraphPhosphorResidualAxes(source, defaults);
   return {
-    background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
+    ...nodeGraphDisplaySettingsNormalizePlateLook(source, {
+      ...defaults,
+      backgroundBrightness: defaults.backgroundBrightness ?? 0,
+      backgroundHue: defaults.backgroundHue ?? 0,
+    }),
     burn: residual.burn,
     burnAmount: residual.burnAmount,
     residualSchema: residual.residualSchema,
@@ -592,7 +656,10 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     ),
     // Auto-trigger: rising edge of In snaps pen left (Reset jack still works).
     sourceSync: nodeGraphDisplaySettingsToggleIsOn(
-      source.sourceSync ?? source.sync,
+      source.sourceSync ?? source.sync ?? defaults.sourceSync,
+    ),
+    skipDiscontinuities: nodeGraphDisplaySettingsToggleIsOn(
+      source.skipDiscontinuities ?? defaults.skipDiscontinuities,
     ),
     gradientStops,
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
@@ -618,7 +685,11 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
   const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
   const residual = normalizeNodeGraphPhosphorResidualAxes(source, defaults);
   return {
-    background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
+    ...nodeGraphDisplaySettingsNormalizePlateLook(source, {
+      ...defaults,
+      backgroundBrightness: defaults.backgroundBrightness ?? 0,
+      backgroundHue: defaults.backgroundHue ?? 0,
+    }),
     bipolarBrightness: source.bipolarBrightness === true,
     ghost: residual.ghost,
     trail: residual.trail,
@@ -653,10 +724,7 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
   const legacyWindowMs = source.windowMs === undefined ? undefined : Number(source.windowMs) / 1000;
   const zoomSeconds = source.zoomSeconds ?? source.windowSeconds ?? legacyWindowMs;
   return {
-    background: normalizeNodeGraphTraceDisplayColor(
-      source.background ?? source.backgroundColor,
-      defaults.background,
-    ),
+    ...nodeGraphDisplaySettingsNormalizePlateLook(source, defaults),
     brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
@@ -715,7 +783,16 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
     padding: normalizeNodeGraphTraceDisplayNumber(source.padding, defaults.padding, -Infinity, Infinity),
     // Amplitude zoom: multiplies samples before face mapping (1 = full-scale).
     scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale ?? 1, 0.01, 100),
-    skipDiscontinuities: source.skipDiscontinuities !== false,
+    skipDiscontinuities: (() => {
+      const raw = source.skipDiscontinuities;
+      if (raw === true || raw === 1 || raw === "1" || raw === "true") {
+        return true;
+      }
+      if (raw === false || raw === 0 || raw === "0" || raw === "false") {
+        return false;
+      }
+      return defaults.skipDiscontinuities === true;
+    })(),
     // Default OFF (matches defaults.sourceSync). Never use `!== false` here —
     // that treated missing settings as Sync-on and let multi-scope locks thrash.
     sourceSync: (function normalizeSourceSync() {
@@ -778,10 +855,11 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
   const defaults = nodeGraphValueOscilloscopeSettingsDefaults;
   const residual = normalizeNodeGraphPhosphorResidualAxes(source, defaults);
   return {
-    background: normalizeNodeGraphTraceDisplayColor(
-      source.background ?? source.backgroundColor,
-      defaults.background,
-    ),
+    ...nodeGraphDisplaySettingsNormalizePlateLook(source, {
+      ...defaults,
+      backgroundBrightness: defaults.backgroundBrightness ?? 0,
+      backgroundHue: defaults.backgroundHue ?? 0,
+    }),
     brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
@@ -878,7 +956,7 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
       : nodeGraphNumberReadoutSettingsDefaults);
   const faceStyle = faceHint === "lcd" || defaults.faceStyle === "lcd" ? "lcd" : "led";
   // LED: Ghost Gradient LUT (ignore LED hue so stops never track Light control).
-  // LCD: no Ghost Gradient — unlit/ghost segments are hard-coded greyscale only.
+  // LCD: no Ghost Gradient — unlit 8s share the ink hue at Ghost amount.
   const gradientStops = faceStyle === "lcd"
     ? []
     : nodeGraphPhosphorGradientStopsFromSettings(
@@ -886,11 +964,55 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
       defaults.color,
       { ignoreLiveColor: true },
     );
-  // Plate background (own color widget).
-  const background = normalizeNodeGraphTraceDisplayColor(
+  // Plate background. LCD stores a pure hue hex; amount is backgroundBrightness.
+  let background = normalizeNodeGraphTraceDisplayColor(
     source.background ?? source.backgroundColor,
     defaults.background,
   );
+  let backgroundBrightness = normalizeNodeGraphTraceDisplayNumber(
+    source.backgroundBrightness,
+    defaults.backgroundBrightness ?? 0.88,
+    0,
+    1,
+  );
+  let lcdInkColor = source.color ?? source.dot1Color;
+  let lcdInkBrightness = source.brightness ?? source.dot1Brightness;
+  if (faceStyle === "lcd") {
+    const rawBg = String(source.background ?? source.backgroundColor ?? "").trim();
+    const rawInk = String(source.color ?? source.dot1Color ?? "").trim();
+    const legacyPlate = !rawBg || /^#b0b5a6$/i.test(rawBg);
+    const legacyInk = !rawInk || /^#1a2216$/i.test(rawInk);
+    if (legacyPlate && typeof nodeGraphHueUnitHex === "function") {
+      background = nodeGraphHueUnitHex(
+        typeof nodeGraphValueLcdDefaultHueDeg === "number" ? nodeGraphValueLcdDefaultHueDeg : 82,
+      );
+      if (source.backgroundBrightness == null) {
+        backgroundBrightness = defaults.backgroundBrightness ?? 0.88;
+      }
+    } else if (rawBg && typeof nodeGraphHueBrightnessFromHex === "function"
+      && source.backgroundBrightness == null) {
+      const mapped = nodeGraphHueBrightnessFromHex(rawBg, 82, defaults.backgroundBrightness ?? 0.88);
+      if (typeof nodeGraphHueUnitHex === "function") {
+        background = nodeGraphHueUnitHex(mapped.hue);
+      }
+      backgroundBrightness = mapped.brightness;
+    }
+    if (legacyInk && typeof nodeGraphHueUnitHex === "function") {
+      lcdInkColor = nodeGraphHueUnitHex(
+        typeof nodeGraphValueLcdDefaultHueDeg === "number" ? nodeGraphValueLcdDefaultHueDeg : 82,
+      );
+      if (source.brightness == null && source.dot1Brightness == null) {
+        lcdInkBrightness = defaults.brightness ?? 0.18;
+      }
+    } else if (rawInk && typeof nodeGraphHueBrightnessFromHex === "function"
+      && source.brightness == null && source.dot1Brightness == null) {
+      const mapped = nodeGraphHueBrightnessFromHex(rawInk, 82, defaults.brightness ?? 0.18);
+      if (typeof nodeGraphHueUnitHex === "function") {
+        lcdInkColor = nodeGraphHueUnitHex(mapped.hue);
+      }
+      lcdInkBrightness = mapped.brightness;
+    }
+  }
   // Trail = deposit hang. Prefer trail; migrate residual (old Number Readout hang).
   // Do NOT merge ghost into trail (that broke independent Ghost control).
   const trailDefault = Number.isFinite(Number(defaults.trail))
@@ -949,14 +1071,17 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
   return {
     faceStyle,
     background,
+    backgroundBrightness,
     // Live digit light / ink strength 0…1.
     brightness: normalizeNodeGraphTraceDisplayBrightness(
-      source.brightness ?? source.dot1Brightness,
+      faceStyle === "lcd"
+        ? lcdInkBrightness
+        : (source.brightness ?? source.dot1Brightness),
       defaults.brightness,
     ),
-    // Live digit solid color (LED hue or LCD ink).
+    // Live digit solid color (LED hue or LCD ink hue).
     color: normalizeNodeGraphTraceDisplayColor(
-      source.color ?? source.dot1Color,
+      faceStyle === "lcd" ? lcdInkColor : (source.color ?? source.dot1Color),
       defaults.color,
     ),
     // App-wide residual axes (+ legacy trail/ghost aliases kept equal).
@@ -1229,7 +1354,11 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
   // Display Settings truth is Ghost + Trail + Burn. decay = 1 − trail only.
   const residual = normalizeNodeGraphPhosphorResidualAxes(source, defaults);
   return {
-    background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
+    ...nodeGraphDisplaySettingsNormalizePlateLook(source, {
+      ...defaults,
+      backgroundBrightness: defaults.backgroundBrightness ?? 0,
+      backgroundHue: defaults.backgroundHue ?? 0,
+    }),
     burn: residual.burn,
     burnAmount: residual.burnAmount,
     residualSchema: residual.residualSchema,
@@ -1283,10 +1412,11 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
     ? { ...nodeGraphScope2dTraceSettingsDefaults, ...typeDefaults }
     : nodeGraphScope2dTraceSettingsDefaults;
   return {
-    background: normalizeNodeGraphTraceDisplayColor(
-      source.background ?? source.backgroundColor,
-      defaults.background,
-    ),
+    ...nodeGraphDisplaySettingsNormalizePlateLook(source, {
+      ...defaults,
+      backgroundBrightness: defaults.backgroundBrightness ?? 0,
+      backgroundHue: defaults.backgroundHue ?? 0,
+    }),
     dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
@@ -1320,6 +1450,121 @@ function nodeGraphZeroDBurnSettingsForNode(node) {
   return normalizeNodeGraphZeroDBurnSettings(node.zeroDBurnSettings);
 }
 
+function normalizeNodeGraphVectorDotSettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = typeof nodeGraphVectorDotSettingsDefaults !== "undefined"
+    ? nodeGraphVectorDotSettingsDefaults
+    : {};
+  const hueRaw = Number(source.hue);
+  const colorHex = normalizeNodeGraphTraceDisplayColor(
+    source.dot1Color ?? source.color,
+    defaults.dot1Color ?? "#ff6a00",
+  );
+  const hue = Number.isFinite(hueRaw)
+    ? ((hueRaw % 360) + 360) % 360
+    : (typeof nodeGraphHueDegFromHex === "function"
+      ? nodeGraphHueDegFromHex(colorHex)
+      : 25);
+  const hueHex = typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(hue)
+    : colorHex;
+  const bgHex = normalizeNodeGraphTraceDisplayColor(
+    source.backgroundColor ?? source.background,
+    defaults.background ?? "#0055ff",
+  );
+  const bgHue = typeof nodeGraphHueDegFromHex === "function"
+    ? nodeGraphHueDegFromHex(bgHex)
+    : 220;
+  return {
+    hue,
+    color: hueHex,
+    dot1Color: hueHex,
+    background: typeof nodeGraphHueUnitHex === "function"
+      ? nodeGraphHueUnitHex(bgHue)
+      : bgHex,
+    backgroundColor: typeof nodeGraphHueUnitHex === "function"
+      ? nodeGraphHueUnitHex(bgHue)
+      : bgHex,
+    backgroundBrightness: normalizeNodeGraphTraceDisplayNumber(
+      source.backgroundBrightness,
+      defaults.backgroundBrightness ?? 0,
+      0,
+      1,
+    ),
+    brightness: normalizeNodeGraphTraceDisplayBrightness(
+      source.brightness ?? source.dot1Brightness,
+      defaults.dot1Brightness ?? 0.5,
+    ),
+    dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
+      source.dot1Brightness ?? source.brightness,
+      defaults.dot1Brightness ?? 0.5,
+    ),
+    dot1Size: normalizeNodeGraphTraceDisplayNumber(
+      source.dot1Size ?? source.size ?? source.fillPercent,
+      defaults.dot1Size ?? 0.85,
+      0,
+      1,
+    ),
+    lineThickness: normalizeNodeGraphTraceDisplayNumber(
+      source.lineThickness ?? source.blur,
+      defaults.lineThickness ?? 0.35,
+      0,
+      1,
+    ),
+    blur: normalizeNodeGraphTraceDisplayNumber(
+      source.blur ?? source.lineThickness,
+      defaults.blur ?? 0.35,
+      0,
+      1,
+    ),
+  };
+}
+
+function nodeGraphVectorDotSettingsForNode(node) {
+  if (node?.type === "led") {
+    const led = typeof normalizeNodeGraphLedLayout === "function"
+      ? normalizeNodeGraphLedLayout(node.led)
+      : (node.led || {});
+    return normalizeNodeGraphVectorDotSettings({
+      hue: led.hue,
+      brightness: led.brightness,
+      blur: led.blur,
+      dot1Size: led.dot1Size ?? (Number(led.fillPercent) > 0 ? Number(led.fillPercent) / 100 : 0.85),
+      backgroundBrightness: led.backgroundBrightness ?? 0,
+      backgroundColor: led.backgroundColor ?? led.background,
+    });
+  }
+  return normalizeNodeGraphVectorDotSettings(
+    node?.vectorDotSettings || node?.zeroDBurnSettings || node?.traceDisplaySettings,
+  );
+}
+
+
+function nodeGraphMigrateLimiterGainFaceToTraceSettings(source = {}) {
+  const src = source && typeof source === "object" ? source : {};
+  const legacyLimiter = (src.lineBrightness != null || src.hue != null)
+    && src.dot1Size == null
+    && src.dot1Brightness == null;
+  if (!legacyLimiter) {
+    return src;
+  }
+  const hue = Number(src.hue);
+  const hueHex = typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(Number.isFinite(hue) ? hue : 42)
+    : "#ffaa00";
+  const bright = Number(src.lineBrightness);
+  const ink = Number.isFinite(bright) ? Math.max(0, Math.min(1, bright)) : 0.5;
+  return {
+    ...src,
+    color: hueHex,
+    dot1Color: hueHex,
+    brightness: ink,
+    dot1Brightness: ink,
+    background: src.backgroundColor || src.background,
+    backgroundColor: src.backgroundColor || src.background,
+    lineThickness: 0.15,
+  };
+}
 
 function nodeGraphTraceDisplaySettingsForNode(node) {
   if (!node) {
@@ -1331,7 +1576,9 @@ function nodeGraphTraceDisplaySettingsForNode(node) {
   }
   // Instant Trace: seed from the global bucket until this module is edited.
   if (settingsSchema === "trace") {
-    const local = node.traceDisplaySettings;
+    const local = node.type === "lookaheadLimiter"
+      ? nodeGraphMigrateLimiterGainFaceToTraceSettings(node.traceDisplaySettings)
+      : node.traceDisplaySettings;
     const hasLocal = Boolean(local && typeof local === "object" && Object.keys(local).length);
     if (!hasLocal) {
       return nodeGraphGlobalTraceSettings();

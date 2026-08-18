@@ -1,4 +1,10 @@
-// Shared phosphor residual model (app-wide).
+// Shared phosphor residual model (app-wide SSOT).
+//
+// One physical drawer. Faces only change the stamp:
+//   energy-GL / 1D Phosphor / 2D Phosphor → line & dot energy
+//   Value LED                               → digit energy
+//   Matrix rain / plate                     → glyph-cell energy
+// Same Bright / Ghost / Trail / Burn / Burn ⨉ → same hang, same numbers.
 //
 // Display Settings order (shared faces, including Lorenz):
 //   Bright → Size → Blur → Ghost → Trail → Burn → Burn Amount → Scale → …
@@ -6,10 +12,9 @@
 // Axes:
 //   Bright      → live light (LED) / tip intensity 0…1
 //   Ghost       → extreme analog (super-exp) residual hang. Perfect alone when Trail=0.
-//   Trail       → mix from Ghost-only toward linear, then freeze:
-//     0.00 → Ghost only (Ghost 0 = wipe; Ghost 1 = full analog hang)
-//     0.50 → 50% linear + 50% Ghost
-//     0.75 → 100% linear decay
+//   Trail       → independent *linear* path (shader = max of the two):
+//     0.00 → linear path off (Ghost-only if Ghost > 0)
+//     0.75 → full linear decay (keep ≈ 0.94)
 //     1.00 → freeze (never decay residual pixels)
 //   Burn        → sticky residual floor 0…1 (0 = off; 1 = freeze all residual)
 //   Burn Amount → multiplies Bright for residual *deposits* only (default 1):
@@ -95,18 +100,16 @@
 
   /**
    * Pure Ghost super-exp keep (independent of Trail).
-   * Ghost 0 → no hang (keep 0 = wipe residual unless linear path holds it).
-   *
-   * This is the classic sticky analog hang (e.g. Ghost 0.52 → keep ≈ 0.998).
-   * Trail=0 must use ONLY this path — do not water it down for low-ghost
-   * “finish wipe” cases; those are handled when Trail > 0 via residualKeep.
+   * Ghost 0 → no hang. Ghost 0.3 → classic analog afterglow (keep ≈ 0.9955).
+   * Ghost 1 → almost freeze. Trail must never dilute this number — the drawer
+   * takes max(linear, ghost) so Ghost hang sits under a faster linear trail.
    */
   function pureGhostKeep(ghost) {
     const g = clamp01(ghost, 0);
     if (g <= 0.001) {
       return 0;
     }
-    // Super-exponential hang: near g=1 → almost freeze residual energy.
+    // Super-exponential hang: Ghost 0.52 → keep ≈ 0.998.
     const fade = Math.pow(1 - g, 2.8) * 0.012;
     const slow = 1 - Math.max(0.00025, fade);
     return Math.min(0.99975, slow);
@@ -126,9 +129,28 @@
   }
 
   /**
-   * Combined keep for one residual step (0…1, high = more hang).
-   * Trail 0 = Ghost only (Ghost 0 wipes). Trail 1 = freeze.
-   * Burn is applied separately via applyBurnFloor (not a keep factor).
+   * Linear-path keep from Trail alone (Ghost is a separate path).
+   * Trail 0 → 0 (off). Trail 0.75 → LINEAR_KEEP_FULL. Trail 1 → freeze.
+   */
+  function trailLinearKeep(trail) {
+    const t = clamp01(trail, 0);
+    const blend = resolveTrailBlend(t);
+    if (blend.freeze >= 0.999) {
+      return 1;
+    }
+    if (t <= 0.001) {
+      return 0;
+    }
+    if (t <= 0.75) {
+      return LINEAR_KEEP_FULL * (t / 0.75);
+    }
+    const u = (t - 0.75) / 0.25;
+    return LINEAR_KEEP_FULL + (1 - LINEAR_KEEP_FULL) * u;
+  }
+
+  /**
+   * Combined keep for one residual step = max(linear Trail, Ghost hang).
+   * Matches the energy-GL dual path. Trail 0 + Ghost 0.3 → Ghost only.
    */
   function residualKeep(trail, ghost = 0) {
     const blend = resolveTrailBlend(trail);
@@ -138,15 +160,7 @@
     if (blend.freeze >= 0.999) {
       return 1;
     }
-    const gKeep = pureGhostKeep(ghost);
-    const lKeep = linearKeep(1);
-    let mixed = blend.ghostWeight * gKeep + blend.linearWeight * lKeep;
-    if (blend.linearWeight > 0.001) {
-      const linearPull = 1 - (1 - lKeep) * Math.min(1, blend.linearWeight * 2.5);
-      mixed = Math.min(mixed, linearPull);
-    }
-    mixed = blend.freeze + (1 - blend.freeze) * mixed;
-    return Math.max(0, Math.min(1, (1 - (blend.wipe || 0)) * mixed));
+    return Math.max(trailLinearKeep(trail), pureGhostKeep(ghost));
   }
 
   /** Sticky Burn floor 0…1. */
@@ -184,10 +198,6 @@
    * Sticky Burn floor after a decay step.
    * Burn 0 → no stick. Burn 1 → freeze all residual energy.
    * Otherwise: once energy ≥ Burn, never decay below Burn.
-   *
-   * @param {number} energyBefore energy before this frame’s decay
-   * @param {number} energyAfter  energy after Trail/Ghost decay
-   * @param {number} burn         sticky threshold 0…1
    */
   function applyBurnFloor(energyBefore, energyAfter, burn = 0) {
     const b = clampBurn(burn, 0);
@@ -196,11 +206,9 @@
     }
     const before = Math.max(0, Number(energyBefore) || 0);
     const after = Math.max(0, Number(energyAfter) || 0);
-    // Full Burn: every residual pixel freezes (nothing decays).
     if (b >= 0.999) {
       return before;
     }
-    // Sticky floor: pixels that have reached Burn never drop below it.
     if (before >= b) {
       return Math.max(after, b);
     }
@@ -242,38 +250,60 @@
    * Pure multiplicative hang (Trail/Ghost), then sticky Burn floor.
    * Ghost never injects brightness; Burn never raises energy above prior.
    */
+  /**
+   * Present tone-map: stored mono energy → 0…1 LUT / glyph brightness.
+   * Must match energy-GL PRESENT_FRAG (lift + film + gamma).
+   * Default exposure matches PhosphorDrawer.exposure() (2.9).
+   */
+  const PRESENT_LIFT = 0.045;
+  const PRESENT_LIFT_POW = 0.42;
+  const PRESENT_FILM = 0.68;
+  const PRESENT_GAMMA = 0.92;
+  const PRESENT_EXPOSURE = 2.9;
+
+  function presentMono(energy01, exposure = PRESENT_EXPOSURE) {
+    const raw = Math.max(0, Number(energy01) || 0);
+    const lifted = raw + PRESENT_LIFT * (raw > 0 ? raw ** PRESENT_LIFT_POW : 0);
+    const expn = Number(exposure);
+    let e;
+    if (Number.isFinite(expn) && expn > 0.001) {
+      e = 1 - Math.exp(-lifted * expn * PRESENT_FILM);
+      e = Math.max(0, Math.min(1, e)) ** PRESENT_GAMMA;
+    } else {
+      e = lifted / (1 + lifted);
+      e = Math.max(0, Math.min(1, e)) ** 0.88;
+    }
+    return Math.max(0, Math.min(1, e));
+  }
+
   function applyResidual(energy01, trail, ghost = 0, burn = 0) {
     const e = Math.max(0, Number(energy01) || 0);
     if (e <= 0.0005) {
       return 0;
     }
-    const keep = residualKeep(trail, ghost);
-    let faded = e * keep;
-    // Kill the last crumb when residual is actually dying (keep well below hang).
-    if (faded < 0.004 && keep < 0.99) {
-      faded = 0;
-    }
+    const keepFast = trailLinearKeep(trail);
+    const keepSlow = pureGhostKeep(ghost);
+    const faded = Math.max(e * keepFast, ghost > 0.001 ? e * keepSlow : 0);
     return applyBurnFloor(e, faded, burn);
   }
 
   /**
-   * Dual-path keeps for energy-GL / shader.
-   * Shader does max(e*keepFast, e*keepSlow) then applyBurnFloor with uBurn.
-   * Weighted Trail blend is already folded into a single keep — set both paths
-   * equal so max ≡ blend (not “ghost always wins”).
+   * Dual-path keeps for energy-GL.
+   * Shader: e = max(e * keepFast, ghostCap ? e * keepSlow : 0), then Burn.
+   * keepFast = linear Trail. keepSlow = Ghost super-exp. Do not blend them.
    */
   function residualKeeps(trail, ghost = 0, burn = 0, burnAmount = DEFAULT_BURN_AMOUNT) {
     const blend = resolveTrailBlend(trail);
     const g = clamp01(ghost, 0);
     const b = clampBurn(burn, 0);
     const ba = clampBurnAmount(burnAmount, DEFAULT_BURN_AMOUNT);
-    const keep = residualKeep(trail, ghost);
+    const keepFast = trailLinearKeep(trail);
+    const keepSlow = pureGhostKeep(g);
+    const keep = Math.max(keepFast, keepSlow);
     return {
-      keepFast: keep,
-      keepSlow: keep,
-      ghostCap: (blend.wipe || 0) >= 0.999
-        ? 0
-        : (g > 0.001 || blend.freeze > 0.001 || keep > 0.001 || b > 0.001 ? 1 : 0),
+      keepFast,
+      keepSlow,
+      ghostCap: g > 0.001 ? 1 : 0,
       fade: Math.max(0, 1 - keep),
       keep,
       freeze: blend.freeze,
@@ -397,11 +427,18 @@
     resolveTrailBlend,
     pureGhostKeep,
     linearKeep,
+    trailLinearKeep,
     trailFadeAmount,
     trailKeep,
     ghostKeep,
     ghostCap,
     applyBurnFloor,
+    presentMono,
+    PRESENT_LIFT,
+    PRESENT_LIFT_POW,
+    PRESENT_FILM,
+    PRESENT_GAMMA,
+    PRESENT_EXPOSURE,
     applyResidual,
     residualKeep,
     residualKeeps,

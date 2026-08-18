@@ -4113,13 +4113,13 @@ def require_chromeless_module_registry_contract() -> None:
         needle = f'id: "{cat_id}"'
         return store_source.find(needle)
 
-    controller_i = _store_cat_pos("controller")
-    gametrigger_i = _store_cat_pos("gametrigger")
     portal_i = _store_cat_pos("portal")
-    if min(controller_i, gametrigger_i, portal_i) >= 0:
+    controller_i = _store_cat_pos("controller")
+    oscillator_i = _store_cat_pos("oscillator")
+    if min(portal_i, controller_i, oscillator_i) >= 0:
         require(
-            controller_i < gametrigger_i < portal_i,
-            "Game Trigger should immediately follow Controller in the module browser",
+            portal_i < controller_i < oscillator_i,
+            "Portals, Controllers, then Oscillator should lead the module browser",
         )
     sample_i = _store_cat_pos("sample")
     grains_i = _store_cat_pos("grains")
@@ -4129,15 +4129,22 @@ def require_chromeless_module_registry_contract() -> None:
             sample_i < grains_i < media_i,
             "Sample and Grains should immediately precede Media in the module browser",
         )
-    space_i = _store_cat_pos("space")
-    digital_i = _store_cat_pos("digital")
-    clock_i = _store_cat_pos("clock")
     modulator_i = _store_cat_pos("modulator")
-    oscillator_i = _store_cat_pos("oscillator")
-    if min(space_i, digital_i, clock_i, modulator_i, oscillator_i) >= 0:
+    additive_i = _store_cat_pos("additive")
+    space_i = _store_cat_pos("space")
+    clock_i = _store_cat_pos("clock")
+    digital_i = _store_cat_pos("digital")
+    gametrigger_i = _store_cat_pos("gametrigger")
+    debug_i = _store_cat_pos("debug")
+    if min(oscillator_i, modulator_i, additive_i, space_i, clock_i, digital_i) >= 0:
         require(
-            space_i < digital_i < clock_i < modulator_i < oscillator_i,
-            "Space, Digital, Clock, Modulator, and Oscillator should keep their requested browser order",
+            oscillator_i < modulator_i < additive_i < space_i < clock_i < digital_i,
+            "Oscillator, Modulator, Additive, then Space / Time / Digital should keep their requested browser order",
+        )
+    if min(digital_i, gametrigger_i, debug_i) >= 0:
+        require(
+            digital_i < gametrigger_i < debug_i,
+            "Game Triggers and Debug should sit at the end of the module browser",
         )
     videoscope_at = store_source.find("  videoscope: {")
     if videoscope_at >= 0:
@@ -4148,6 +4155,19 @@ def require_chromeless_module_registry_contract() -> None:
             'category: "rgb"' in videoscope_catalog or "category:" in videoscope_catalog,
             "Videoscope should declare a module browser category",
         )
+    require(
+        '{ id: "plugin"' not in store_source,
+        "Plugin must not be a module-browser department",
+    )
+    require(
+        'label: "Time"' in store_source and 'title: "Time"' in store_source,
+        "Clock department shelf should be labeled Time",
+    )
+    require(
+        'category: "oscillator"' in store_source
+        and 'Oscillator:        "oscillator"' in store_source,
+        "Oscillator must be its own department, not an Additive alias",
+    )
 
 
 def require_bug_button_interaction_contract() -> None:
@@ -9652,6 +9672,12 @@ def require_node_graph_mvp_contract() -> None:
         "function handleNodeGraphModuleDepartmentSearchInput(event)",
         "function handleNodeGraphModuleDepartmentSearchKeydown(event)",
         "function nodeGraphModuleStoreEntryMatchesSearch(entry, query)",
+        "function drawNodeGraphVectorDotItem(renderer, item, pixelRatio)",
+        "function nodeGraphNumberReadoutLcdBgCss(settings)",
+        "notes: [\"curve\", \"per-point shape\"",
+        "notes: [\"curve\", \"step grid (0 = free)\"",
+        "notes: [\"mode selection\", \"biquad stages\", \"magnitude plot\"",
+        "notes: [\"bounded walk\", \"jitter walk\"",
         "function nodeGraphModuleStoreDepartmentMatchesSearch(department, entries, query)",
         "function nodeGraphModuleStoreSearchResultOrder(a, b)",
         "const implementedDelta = Number(Boolean(b?.implemented)) - Number(Boolean(a?.implemented))",
@@ -17887,7 +17913,16 @@ def require_native_module_contract(base_url: str) -> None:
         "pluck_envelope": ["soemdsp_pluck_envelope_create", "soemdsp_pluck_envelope_destroy", "soemdsp_pluck_envelope_sample"],
         "exp_adsr": ["soemdsp_exp_adsr_create", "soemdsp_exp_adsr_destroy", "soemdsp_exp_adsr_sample"],
         "random_walk": ["soemdsp_random_walk_create", "soemdsp_random_walk_destroy", "soemdsp_random_walk_reset_seed", "soemdsp_random_walk_sample"],
-        "pi_spigot_noise": ["soemdsp_pi_spigot_noise_create", "soemdsp_pi_spigot_noise_destroy", "soemdsp_pi_spigot_noise_reset_seed", "soemdsp_pi_spigot_noise_sample"],
+        "pi_spigot_noise": [
+            "soemdsp_pi_spigot_noise_create",
+            "soemdsp_pi_spigot_noise_destroy",
+            "soemdsp_pi_spigot_noise_reset_seed",
+            "soemdsp_pi_spigot_noise_sample",
+            "soemdsp_pi_spigot_noise_left",
+            "soemdsp_pi_spigot_noise_right",
+            "soemdsp_pi_spigot_noise_hex",
+            "soemdsp_pi_spigot_noise_t",
+        ],
         "lorenz_attractor": ["soemdsp_lorenz_attractor_create", "soemdsp_lorenz_attractor_destroy", "soemdsp_lorenz_attractor_sample", "soemdsp_lorenz_attractor_x", "soemdsp_lorenz_attractor_y", "soemdsp_lorenz_attractor_z"],
         "bradley_2a": ["soemdsp_bradley_2a_create", "soemdsp_bradley_2a_destroy", "soemdsp_bradley_2a_sample"],
         "antisaw": ["soemdsp_antisaw_create", "soemdsp_antisaw_destroy", "soemdsp_antisaw_sample"],

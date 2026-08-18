@@ -4,9 +4,9 @@
 //   Fixed mono cells. Not full Unicode. Unknown codes → '.' or space.
 //   Alphabet = density ramp + half-width katakana (classic digital rain).
 //
-// Residual policy (LCD / Number Readout):
-//   Live glyph is hard while held. On change, previous glyph burns residual.
-//   Residual energy decays (Trail). Static cells do not re-burn.
+// Residual policy (PhosphorResidual SSOT — same drawer as 1D/2D phosphor / LED):
+//   Each cell is one energy pixel. Live glyph is the stamp; Ghost/Trail/Burn
+//   hang that energy. Matrix does not invent a second fade model.
 //
 // Shared matrix cell helpers.
 // Types: matrixWaterfall (rain), matrixDisplay (Info/Serial plate).
@@ -149,74 +149,42 @@ function matrixClampDensity(n, fallback = 0.5) {
 }
 
 /**
- * Phosphor persistence (CRT-style) — shared by Matrix rain, plate residual, Asciiscope XY.
- *
- * Residual axes match phosphor drawers (PhosphorResidual):
- *   Bright      → live tip / present gain
- *   Ghost       → super-exp analog hang (long dim residual)
- *   Trail       → 0 Ghost only · 0.5 half Ghost / half linear · 0.75 linear · 1 freeze
- *   Burn        → sticky residual floor (0 = off)
- *   Burn Amount → residual deposit peak = Bright × this (live tip stays Bright)
- *
- * Decay is applyResidual once per display frame (same as energy-GL drawers).
- * Do not add a kill floor — that wipes the dim hang Ghost is for.
+ * Phosphor persistence — Matrix is the glyph stamp of the same drawer.
+ * Always PhosphorResidual (energy-GL / LED / 1D Phosphor). No local fade fork.
  */
 
-/** Persistence time constant (seconds) from trail 0..1. */
+function matrixPhosphorResidualApi() {
+  return typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+}
+
+/** @deprecated dt-keep fork — residual is per display frame via applyResidual. */
 function matrixPhosphorTau(trail) {
-  const t = Math.max(0, Math.min(1, Number(trail) || 0));
-  // Exponential map: gentle near 0, multi-second at high trail (not a 0.78–0.99 fudge).
-  return 0.04 * Math.exp(t * 5.7); // ~0.04s … ~12s
+  const Residual = matrixPhosphorResidualApi();
+  const keep = Residual?.residualKeep
+    ? Residual.residualKeep(trail, Residual.DEFAULT_GHOST ?? 0.45)
+    : 0.94;
+  if (!(keep > 0) || keep >= 0.999) {
+    return keep >= 0.999 ? 60 : 0.04;
+  }
+  return -1 / 60 / Math.log(keep);
 }
 
-/**
- * Base keep factor for one frame of length dtSec (frame-rate independent).
- * trail 0 → keep near 0; trail 1 → keep near 1 (very slow fade).
- */
-function matrixPhosphorBaseKeep(trail, dtSec = 1 / 60) {
-  const dt = Math.max(1 / 240, Math.min(0.1, Number(dtSec) || 1 / 60));
-  const t = Math.max(0, Math.min(1, Number(trail) || 0));
-  if (t <= 0.0005) return 0; // hard off
-  const tau = matrixPhosphorTau(t);
-  return Math.exp(-dt / tau);
+/** @deprecated use PhosphorResidual.applyResidual. */
+function matrixPhosphorBaseKeep(trail, _dtSec = 1 / 60) {
+  const Residual = matrixPhosphorResidualApi();
+  if (Residual?.residualKeep) {
+    return Residual.residualKeep(trail, Residual.DEFAULT_GHOST ?? 0.45);
+  }
+  return 0.94;
 }
 
-/**
- * One-frame residual after Trail/Ghost/Burn (same idea as energy-GL step).
- * Ghost → extreme analog (super-exp) hang. Trail encoded as baseKeep when
- * PhosphorResidual is unavailable. Burn → sticky residual floor (0 = off).
- * Returns next energy (not just a keep factor) so the floor is enforced.
- *
- * @param {number} energy01
- * @param {number} baseKeep trail-derived keep when Residual helper is missing
- * @param {number} ghost
- * @param {number} [burn=0]
- * @param {number} [trail] optional Trail 0…1 for full Residual path
- */
-function matrixPhosphorApplyGhostHang(energy01, baseKeep, ghost = 0, burn = 0, trail = null) {
-  const e = Math.max(0, Number(energy01) || 0);
-  const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
-  if (Residual && typeof Residual.applyResidual === "function") {
-    const t = trail == null ? (Residual.DEFAULT_TRAIL ?? 0.5) : trail;
-    return Residual.applyResidual(e, t, ghost, burn);
+function matrixPhosphorApplyGhostHang(energy01, _baseKeep, ghost = 0, burn = 0, trail = null) {
+  const Residual = matrixPhosphorResidualApi();
+  const t = trail == null ? (Residual?.DEFAULT_TRAIL ?? 0.5) : trail;
+  if (Residual?.applyResidual) {
+    return Residual.applyResidual(energy01, t, ghost, burn);
   }
-  const bk = Math.max(0, Math.min(1, Number(baseKeep) || 0));
-  const g = Math.max(0, Math.min(1, Number(ghost) || 0));
-  const b = Math.max(0, Math.min(1, Number(burn) || 0));
-  let faded;
-  if (g <= 0.001) {
-    faded = e * bk;
-  } else {
-    const fade = Math.pow(1 - g, 2.8) * 0.012;
-    const keepSlow = Math.min(0.99975, Math.max(bk, 1 - Math.max(0.00025, fade)));
-    faded = Math.max(e * bk, e * keepSlow);
-  }
-  if (Residual && typeof Residual.applyBurnFloor === "function") {
-    return Residual.applyBurnFloor(e, faded, b);
-  }
-  if (b >= 0.999) return e;
-  if (b > 0.001 && e >= b) return Math.max(faded, b);
-  return faded;
+  return Math.max(0, Number(energy01) || 0);
 }
 
 /** Residual deposit peak = Bright × Burn Amount (same as phosphor drawers). */
@@ -268,20 +236,19 @@ function matrixPhosphorCellKeep(baseKeep, energy01, ghost = 0, burn = 0, trail =
  * Soft lift keeps faint trails visible without treating burn as brightness.
  */
 function matrixPhosphorFilm(energy01) {
+  const Residual = matrixPhosphorResidualApi();
+  if (Residual?.presentMono) {
+    return Residual.presentMono(energy01);
+  }
   const raw = Math.max(0, Number(energy01) || 0);
-  // Low-end lift (like energy-GL PRESENT_FRAG) so long trails don't quantize off.
-  const lifted = raw + 0.04 * Math.pow(raw, 0.42);
-  const e = 1 - Math.exp(-lifted * 2.35);
-  return Math.pow(Math.max(0, Math.min(1, e)), 0.92);
+  const lifted = raw + 0.045 * (raw > 0 ? raw ** 0.42 : 0);
+  const e = 1 - Math.exp(-lifted * 2.9 * 0.68);
+  return Math.max(0, Math.min(1, e)) ** 0.92;
 }
 
-/** Kill floor for energy → true black in finite time (pure exp never hits 0). */
-function matrixPhosphorKillFloor(trail) {
-  const t = Math.max(0, Math.min(1, Number(trail) || 0));
-  if (t >= 0.95) return 0.0015;
-  if (t >= 0.7) return 0.004;
-  if (t >= 0.35) return 0.01;
-  return 0.02;
+/** @deprecated Residual.applyResidual already crumbs-to-zero. Do not extra-kill. */
+function matrixPhosphorKillFloor(_trail) {
+  return 0;
 }
 
 /**

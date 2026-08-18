@@ -10,16 +10,42 @@ function nodeGraphDisplaySettingsIsVectorTraceFormType(type) {
     || key === "value";
 }
 
-/** Instant Trace stack: Scale → History → Fade (2D only) → Size → Blur → Pixel density → Bright. */
+/**
+ * Shared Trace + Phosphor Display Settings order.
+ * Skip / Sync sit above this (toggle or stereo channel). Unused keys are omitted.
+ * Scale → Blend → History/Sweep → Brightness → Hue → Size → …
+ */
+const nodeGraphDisplaySettingsSharedStackOrder = Object.freeze([
+  "scale",
+  "historySeconds",
+  "zoomSeconds",
+  "sweepSeconds",
+  "backgroundBrightness",
+  "backgroundHue",
+  "dot1Size",
+  "lineThickness",
+  "dot1Brightness",
+  "dotBudget",
+  "pixelDensity",
+  "ghost",
+  "trail",
+  "burn",
+  "burnAmount",
+]);
+
+/** Instant Trace stack (subset of the shared order + 2D fade). */
 const nodeGraphInstantTraceDisplayFieldOrder = Object.freeze([
   "scale",
   "historySeconds",
   "zoomSeconds",
-  "fade",
+  "backgroundBrightness",
+  "backgroundHue",
   "dot1Size",
   "lineThickness",
-  "pixelDensity",
   "dot1Brightness",
+  "dotBudget",
+  "pixelDensity",
+  "fade",
 ]);
 
 /** Instant Trace Right / secondary: Size → Blur → Bright. */
@@ -98,6 +124,8 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "buttonHeight",
     "labelSize",
     "valueSize",
+    "backgroundBrightness",
+    "backgroundHue",
   ],
   colors: ["dot1Color", "secondaryColor", "backgroundColor", "ghostColor", "buttonColor", "hoverColor", "downColor", "textColor", "strokeColor", "dotColor"],
   // Every control key that exists in the shared popover MUST be listed here.
@@ -145,7 +173,10 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   trace: Object.freeze({
     fields: Object.freeze([
       "scale",
+      "historySeconds",
       "zoomSeconds",
+      "backgroundBrightness",
+      "backgroundHue",
       "dot1Size",
       "lineThickness",
       "pixelDensity",
@@ -156,23 +187,49 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ]),
     colors: Object.freeze(["dot1Color", "secondaryColor", "backgroundColor"]),
-    toggles: Object.freeze(["sourceSync"]),
+    toggles: Object.freeze(["skipDiscontinuities", "sourceSync"]),
     choices: Object.freeze(["stereoBlend", "syncChannel"]),
   }),
   // Phosphor energy faces: color via shared Gradient editor (not single swatches).
   // Field order = nodeGraphPhosphorDisplayFieldOrder (Bright…residual…Pixel density).
-  // Ghost/Trail/Burn are the pixel fade hang — same residual stack as 2D Phosphor.
+  // Ghost/Trail/Burn/Burn ⨉ — same residual stack as 2D Phosphor / Matrix.
   dot: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
+      "backgroundBrightness",
+      "backgroundHue",
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
       "ghost",
       "trail",
+      "burn",
+      "burnAmount",
       "pixelDensity",
     ])),
     colors: Object.freeze([]),
     toggles: Object.freeze(["sourceSync", "bipolarBrightness"]),
+    choices: Object.freeze([]),
+  }),
+  vectorDot: Object.freeze({
+    fields: Object.freeze([
+      "backgroundBrightness",
+      "dot1Brightness",
+      "dot1Size",
+      "lineThickness",
+    ]),
+    colors: Object.freeze(["backgroundColor", "dot1Color"]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  pulseDot: Object.freeze({
+    fields: Object.freeze([
+      "backgroundBrightness",
+      "dot1Brightness",
+      "dot1Size",
+      "lineThickness",
+    ]),
+    colors: Object.freeze(["backgroundColor", "dot1Color"]),
+    toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
   lineBurn: Object.freeze({
@@ -180,25 +237,31 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     fields: Object.freeze([
       "sweepSeconds",
       ...nodeGraphPhosphorDisplayFieldsFor([
+        "backgroundBrightness",
+        "backgroundHue",
         "dot1Size",
         "lineThickness",
         "dot1Brightness",
         "ghost",
         "trail",
+        "burn",
+        "burnAmount",
         "scale",
         "pixelDensity",
         "dotBudget",
       ]),
     ]),
     colors: Object.freeze([]),
-    // Packing row: Sync | Full Dots | Dots only | Clear
-    toggles: Object.freeze(["sourceSync", "fullDotEconomy", "dotsOnly"]),
+    // Skip at top; packing row: Sync | Full Dots | Dots only | Clear
+    toggles: Object.freeze(["skipDiscontinuities", "sourceSync", "fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
   // 0D Value: WebGL beam (no face bitmap / pixelDensity / residual).
   value: Object.freeze({
     fields: Object.freeze([
       "scale",
+      "backgroundBrightness",
+      "backgroundHue",
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
@@ -211,7 +274,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["capEnabled"]),
     choices: Object.freeze([]),
   }),
-  // 2D Phosphor (Lorenz + friends): Bright → Size → Blur → Ghost → Trail → Scale → Pixel density
+  // 2D Phosphor (Lorenz + friends): Bright → Size → Blur → Ghost → Trail → Burn → Burn ⨉
   scope2d: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
       "dot1Brightness",
@@ -219,7 +282,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "lineThickness",
       "ghost",
       "trail",
+      "burn",
+      "burnAmount",
       "scale",
+      "backgroundBrightness",
+      "backgroundHue",
       "pixelDensity",
       "dotBudget",
     ])),
@@ -234,6 +301,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     fields: Object.freeze([
       "scale",
       "historySeconds",
+      "backgroundBrightness",
+      "backgroundHue",
       "fade",
       "dot1Size",
       "lineThickness",
@@ -241,7 +310,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
     ]),
     colors: Object.freeze(["dot1Color", "backgroundColor"]),
-    toggles: Object.freeze([]),
+    toggles: Object.freeze(["skipDiscontinuities"]),
     choices: Object.freeze([]),
   }),
   vectorRgbFace: Object.freeze({
@@ -266,6 +335,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     fields: Object.freeze([
       "scale",
       "historySeconds",
+      "backgroundBrightness",
+      "backgroundHue",
       "fade",
       "dot1Size",
       "lineThickness",
@@ -281,6 +352,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     fields: Object.freeze([
       "scale",
       "zoomSeconds",
+      "backgroundBrightness",
+      "backgroundHue",
       "fade",
       "dot1Size",
       "lineThickness",
@@ -299,6 +372,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "digits",
       "decimals",
       "facePadding",
+      "backgroundBrightness",
       "dot1Brightness",
       "ghost",
       "trail",
@@ -317,6 +391,28 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze(["lightBlend", "polarity"]),
   }),
   // LED lamp: same shared display inspector as other faces (not a separate window).
+  vectorDot: Object.freeze({
+    fields: Object.freeze([
+      "backgroundBrightness",
+      "dot1Brightness",
+      "dot1Size",
+      "lineThickness",
+    ]),
+    colors: Object.freeze(["backgroundColor", "dot1Color"]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  pulseDot: Object.freeze({
+    fields: Object.freeze([
+      "backgroundBrightness",
+      "dot1Brightness",
+      "dot1Size",
+      "lineThickness",
+    ]),
+    colors: Object.freeze(["backgroundColor", "dot1Color"]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
   ledLamp: Object.freeze({
     fields: Object.freeze([
       "hue",
@@ -388,11 +484,15 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   xyPad: Object.freeze({
     fields: Object.freeze([
       ...nodeGraphPhosphorDisplayFieldsFor([
+        "backgroundBrightness",
+        "backgroundHue",
         "dot1Size",
         "lineThickness",
         "dot1Brightness",
         "ghost",
         "trail",
+        "burn",
+        "burnAmount",
         "pixelDensity",
         "dotBudget",
       ]),
@@ -410,7 +510,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
+      "burn",
+      "burnAmount",
       "scale",
+      "backgroundBrightness",
+      "backgroundHue",
       "pixelDensity",
       "dotBudget",
     ])),
@@ -431,10 +535,14 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // Videoscope Bright lives on the module face param — not in Display Settings.
   videoscopeBurn: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
+      "backgroundBrightness",
+      "backgroundHue",
       "dot1Size",
       "lineThickness",
       "ghost",
       "trail",
+      "burn",
+      "burnAmount",
       "scale",
       "pixelDensity",
       "dotBudget",
@@ -445,11 +553,15 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   oscilloscopeBankBurn: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
+      "backgroundBrightness",
+      "backgroundHue",
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
       "ghost",
       "trail",
+      "burn",
+      "burnAmount",
       "pixelDensity",
       "dotBudget",
     ])),
@@ -459,11 +571,15 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   hypersawBurn: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
+      "backgroundBrightness",
+      "backgroundHue",
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
       "ghost",
       "trail",
+      "burn",
+      "burnAmount",
       "pixelDensity",
       "dotBudget",
     ])),
@@ -671,6 +787,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "dotThickness",
       "dotBrightness",
       "backgroundBrightness",
+      "backgroundHue",
       "lineBlur",
     ]),
     // Face plate (+ number readout ghost ink) + Knob arc colors.
@@ -761,19 +878,19 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhost",
-    title: "Extreme analog (super-exp) residual hang — not brightness. Trail 0 = Ghost only (this is the whole hang). Mixes toward linear as Trail rises.",
+    title: "Analog super-exp hang — not brightness. Trail 0 = this is the whole decay. 0 = wipe; 0.3 = classic afterglow; 1 = almost freeze.",
   }),
   trail: Object.freeze({
     label: "Trail",
     inputmode: "decimal",
     id: "nodeTraceDisplayTrail",
-    title: "Mix from Ghost-only toward linear, then freeze. 0 = Ghost only; 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.",
+    title: "Independent linear residual. 0 = off (Ghost-only); 0.75 = full linear fade; 1 = freeze. Ghost hang is max()'d on top — Trail never dilutes it.",
   }),
   burn: Object.freeze({
     label: "Burn",
     inputmode: "decimal",
     id: "nodeTraceDisplayBurn",
-    title: "Sticky residual floor 0…1. 0 = none stick; 0.5 = once energy ≥ 0.5 freezes there; 1 = freeze all residual. Off by default.",
+    title: "Sticky residual floor 0…1. 0 = none; 0.5 = once energy ≥ 0.5 it never drops below; 1 = freeze all residual.",
   }),
   burnAmount: Object.freeze({
     label: "Burn \u2A2F",
@@ -1036,10 +1153,16 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title: "Dot brightness 0…1 (black → full hue at 0.5 → white). Drag the title strip to change hue.",
   }),
   backgroundBrightness: Object.freeze({
-    label: "Background",
+    label: "Brightness",
     inputmode: "decimal",
-    id: "nodeTraceDisplayRoundShapeBackgroundBrightness",
-    title: "Background brightness 0…1 (black → full hue at 0.5 → white). Drag the title strip to change hue.",
+    id: "nodeTraceDisplayBackgroundBrightness",
+    title: "Plate brightness 0…1 (black → full hue at 0.5 → white).",
+  }),
+  backgroundHue: Object.freeze({
+    label: "Hue",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayBackgroundHue",
+    title: "Plate hue in degrees (0–360). App-wide hue policy: no wrap — clamp to red edges.",
   }),
   dot1Size: Object.freeze({
     label: "Size",
@@ -1084,7 +1207,11 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     title:
       "App-wide 1D Sync. Instant Trace: edge-lock the visible window. 1D Phosphor: rising edges snap the pen (Reset jack still works). Off = free-run.",
   }),
-  skipDiscontinuities: Object.freeze({ label: "Skip discontinuities", id: "nodeTraceDisplaySkipDiscontinuities" }),
+  skipDiscontinuities: Object.freeze({
+    label: "Skip Discontinuity",
+    id: "nodeTraceDisplaySkipDiscontinuities",
+    title: "Break the stroke at wrap/jump samples instead of drawing a vertical seam.",
+  }),
   bipolarBrightness: Object.freeze({ label: "Bipolar", id: "nodeTraceDisplayBipolarBrightness" }),
   secondaryEnabled: Object.freeze({ label: "Secondary on", id: "nodeTraceDisplaySecondaryEnabled" }),
   capEnabled: Object.freeze({ label: "Caps on", id: "nodeTraceDisplayCapEnabled" }),
@@ -1462,6 +1589,8 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   xyPad: "Phosphor",
   phosphorLight: "2D Phosphor",
   dot: "Phosphor Dot",
+  vectorDot: "Vector Dot",
+  pulseDot: "Vector Dot",
   spectrogramBurn: "Spectrogram",
   ledLamp: "LED",
   rgbShapeFace: "Shape",

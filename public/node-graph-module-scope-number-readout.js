@@ -116,7 +116,7 @@ function paintNodeGraphValueFacesNow(pixelRatio = window.devicePixelRatio || 1) 
       || type === "numberReadout"
       || type === "valueLcd"
       || type === "helmholtzPitch";
-    const isLedLamp = renderer === "ledLamp";
+    const isLedLamp = renderer === "ledLamp" || renderer === "vectorDot" || renderer === "pulseDot";
     if (!isNumberFace && !isLedLamp) {
       continue;
     }
@@ -451,24 +451,51 @@ function nodeGraphNumberReadoutApplyLcdLightCutout(face, canvas = null) {
 /**
  * LCD foreground (digit ink) RGB — solid color widget only (no Bright ramp).
  */
+function nodeGraphNumberReadoutLcdHueDeg(settings, fallbackHex, fallbackHue) {
+  const hex = settings?.color || settings?.dot1Color || settings?.background || fallbackHex;
+  if (typeof nodeGraphHueDegFromHex === "function") {
+    const h = nodeGraphHueDegFromHex(hex);
+    if (Number.isFinite(h)) {
+      return h;
+    }
+  }
+  return fallbackHue;
+}
+
 function nodeGraphNumberReadoutLcdInkRgb(settings) {
-  const hex = settings?.color
-    || (typeof nodeGraphValueLcdSettingsDefaults !== "undefined"
-      ? nodeGraphValueLcdSettingsDefaults.color
-      : "#1a2216");
-  const m = String(hex).match(/^#?([0-9a-f]{6})$/i);
-  if (m) {
-    const n = Number.parseInt(m[1], 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const hue = nodeGraphNumberReadoutLcdHueDeg(
+    { color: settings?.color ?? settings?.dot1Color },
+    settings?.color,
+    typeof nodeGraphValueLcdDefaultHueDeg === "number" ? nodeGraphValueLcdDefaultHueDeg : 82,
+  );
+  const amount = clampNodeSliderValue(
+    Number(settings?.brightness ?? settings?.dot1Brightness),
+    0,
+    1,
+  );
+  if (typeof nodeGraphHueBrightnessRgb01 === "function") {
+    const [r, g, b] = nodeGraphHueBrightnessRgb01(hue, amount);
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
   }
   return [26, 34, 22];
 }
 
 /**
- * LCD “ghost” / unlit-segment RGB — hard policy: greyscale only (no hue).
- * Uses Rec.709 luma of the FG ink so ghost weight tracks ink darkness.
+ * LCD ghost 8s — same ink hue, parked between plate and ink (not a grey policy).
  */
-function nodeGraphNumberReadoutLcdGhostRgb(inkRgb) {
+function nodeGraphNumberReadoutLcdGhostRgb(inkRgb, settings = null) {
+  if (settings && typeof nodeGraphHueBrightnessRgb01 === "function") {
+    const hue = nodeGraphNumberReadoutLcdHueDeg(
+      { color: settings.color ?? settings.dot1Color },
+      settings.color,
+      typeof nodeGraphValueLcdDefaultHueDeg === "number" ? nodeGraphValueLcdDefaultHueDeg : 82,
+    );
+    const inkAmt = clampNodeSliderValue(Number(settings.brightness ?? settings.dot1Brightness), 0, 1);
+    const plateAmt = clampNodeSliderValue(Number(settings.backgroundBrightness), 0, 1);
+    const ghostAmt = plateAmt + (inkAmt - plateAmt) * 0.42;
+    const [r, g, b] = nodeGraphHueBrightnessRgb01(hue, ghostAmt);
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+  }
   const r = Number(inkRgb?.[0]) || 0;
   const g = Number(inkRgb?.[1]) || 0;
   const b = Number(inkRgb?.[2]) || 0;
@@ -477,19 +504,25 @@ function nodeGraphNumberReadoutLcdGhostRgb(inkRgb) {
 }
 
 /**
- * LCD background plate RGB from the Background color widget.
+ * LCD background plate RGB from hue + physically-plausible brightness.
  */
 function nodeGraphNumberReadoutLcdBgRgb(settings) {
-  const hex = settings?.background
-    || (typeof nodeGraphValueLcdSettingsDefaults !== "undefined"
-      ? nodeGraphValueLcdSettingsDefaults.background
-      : "#b0b5a6");
-  const m = String(hex).match(/^#?([0-9a-f]{6})$/i);
-  if (m) {
-    const n = Number.parseInt(m[1], 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const hue = nodeGraphNumberReadoutLcdHueDeg(
+    { color: settings?.background ?? settings?.backgroundColor },
+    settings?.background,
+    typeof nodeGraphValueLcdDefaultHueDeg === "number" ? nodeGraphValueLcdDefaultHueDeg : 82,
+  );
+  const amount = clampNodeSliderValue(Number(settings?.backgroundBrightness), 0, 1);
+  if (typeof nodeGraphHueBrightnessRgb01 === "function") {
+    const [r, g, b] = nodeGraphHueBrightnessRgb01(hue, amount);
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
   }
   return [176, 181, 166];
+}
+
+function nodeGraphNumberReadoutLcdBgCss(settings) {
+  const [r, g, b] = nodeGraphNumberReadoutLcdBgRgb(settings);
+  return `rgb(${r} ${g} ${b})`;
 }
 
 /**
@@ -779,7 +812,7 @@ function paintNodeGraphNumberReadoutColdBoot(canvas, screenElement, node = null,
   const isLcd = typeof nodeGraphNumberReadoutFaceStyleForNode === "function"
     && nodeGraphNumberReadoutFaceStyleForNode(node) === "lcd";
   if (!syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio, {
-    screenSharp: isLcd,
+    screenSharp: false,
   })) {
     return false;
   }
@@ -788,7 +821,9 @@ function paintNodeGraphNumberReadoutColdBoot(canvas, screenElement, node = null,
     return false;
   }
   const settings = nodeGraphNumberReadoutSettingsForNode(node);
-  const bg = nodeGraphFacePlateBackground(settings);
+  const bg = isLcd && typeof nodeGraphNumberReadoutLcdBgCss === "function"
+    ? nodeGraphNumberReadoutLcdBgCss(settings)
+    : nodeGraphFacePlateBackground(settings);
   if (isLcd) {
     nodeGraphNumberReadoutApplyLcdLightCutout(screenElement, canvas);
   } else {
@@ -1292,6 +1327,7 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.digitBins === false ? 0 : 1,
     settings.lightBlend,
     settings.facePadding,
+    settings.backgroundBrightness,
     settings.unlitSegments,
     settings.innerShadowDistance,
     settings.innerShadowSharpness,
@@ -1851,8 +1887,8 @@ function nodeGraphNumberReadoutLcdCompositeHang(canvas, context, spec = {}) {
 }
 
 /**
- * Value LCD — vector DSEG + optional previous-digit Ghost/Trail hang.
- * Background + unlit “8”s + fading previous ink + solid FG digits + glass.
+ * Value LCD — vector DSEG redraw every frame.
+ * Background + unlit “8” ghost + solid FG digits + glass. No phosphor hang.
  */
 function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit, slot = null, options = null) {
   if (!canvas || !context) {
@@ -1863,8 +1899,8 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
   const top = 0;
   const width = canvas.width;
   const height = canvas.height;
-  const bg = typeof nodeGraphFacePlateBackground === "function"
-    ? nodeGraphFacePlateBackground(settings)
+  const bg = typeof nodeGraphNumberReadoutLcdBgCss === "function"
+    ? nodeGraphNumberReadoutLcdBgCss(settings)
     : (settings?.background || "#b0b5a6");
   if (typeof nodeGraphFacePlateApplyCss === "function" && screenElement) {
     nodeGraphFacePlateApplyCss(screenElement, bg);
@@ -1878,8 +1914,7 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
     canvas,
   );
   const inkRgb = nodeGraphNumberReadoutLcdInkRgb(settings);
-  // App-wide LCD policy: ghost/unlit segments are greyscale only (no hue).
-  const ghostRgb = nodeGraphNumberReadoutLcdGhostRgb(inkRgb);
+  const ghostRgb = nodeGraphNumberReadoutLcdGhostRgb(inkRgb, settings);
   const hasUnit = Boolean(unit);
   // Pitch Detector “Hz” (and any unit labeled Hz) gets a larger unit band.
   const largeUnit = hasUnit && String(unit).trim().toLowerCase() === "hz";
@@ -1980,32 +2015,11 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
         softBlurPx: 0,
         glow: 0,
         plate: true,
-        // source-over + greyscale alpha fades smoothly; multiply was a hard lip near 0.
         composite: "source-over",
       });
     }
 
-    // Previous-digit hang (Trail / Ghost). Unlit 8s stay; these fade.
-    nodeGraphNumberReadoutLcdCompositeHang(canvas, context, {
-      settings,
-      valueText,
-      previousValueText: options?.previousValueText,
-      textChanged: Boolean(options?.textChanged),
-      trailHang: Number(options?.trailHang) || 0,
-      ghostHang: Number(options?.ghostHang) || 0,
-      hangOn: Boolean(options?.hangOn),
-      frozen: Boolean(options?.frozen),
-      digitX,
-      digitY,
-      digitFontFamily,
-      digitFontSize,
-      cellW,
-      ghostRgb,
-      width,
-      height,
-    });
-
-    // Live value — solid foreground ink.
+    // Live value — solid foreground ink. No phosphor hang plate.
     if (digitFontSize > 0.25 && !String(valueText || "").includes("!")) {
       nodeGraphNumberReadoutDrawDigits(context, {
         text: valueText,
@@ -2066,13 +2080,11 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
   canvas._nodeGraphNumberReadoutHeight = height;
   canvas._nodeGraphNumberReadoutZoom = lcdZoom;
   canvas._nodeGraphNumberReadoutPaintAt = now;
-  if (!options?.hangOn) {
-    canvas._numberReadoutResidualEnergy = 0;
-    nodeGraphNumberReadoutClearBurnPlate(canvas);
-    if (canvas._lcdGhostPlate) {
-      const g = canvas._lcdGhostPlate.getContext("2d");
-      g?.clearRect(0, 0, canvas._lcdGhostPlate.width, canvas._lcdGhostPlate.height);
-    }
+  canvas._numberReadoutResidualEnergy = 0;
+  nodeGraphNumberReadoutClearBurnPlate(canvas);
+  if (canvas._lcdGhostPlate) {
+    const g = canvas._lcdGhostPlate.getContext("2d");
+    g?.clearRect(0, 0, canvas._lcdGhostPlate.width, canvas._lcdGhostPlate.height);
   }
 }
 
@@ -2101,7 +2113,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const isLcd = faceStyle === "lcd";
   // Value LCD: screen-sharp buffer (tracks zoom). Value LED: fixed layout grid.
   if (!canvas || !syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio, {
-    screenSharp: isLcd,
+    screenSharp: false,
   })) {
     return;
   }
@@ -2236,10 +2248,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       Math.round(Number(canvas._nodeGraphNumberReadoutZoom) || 1) !== Math.round(lcdZoomNow);
     const textChanged = canvas._nodeGraphNumberReadoutText == null
       || canvas._nodeGraphNumberReadoutText !== text;
-    const trailHang = clampNodeSliderValue(Number(settings.trail ?? settings.residual) || 0, 0, 1);
-    const ghostHang = clampNodeSliderValue(Number(settings.ghost ?? settings.ghostBrightness) || 0, 0, 1);
-    const hangOn = trailHang > 0.001 || ghostHang > 0.001;
-    if (!textChanged && !styleChanged && !(hangOn && !frozen)) {
+    if (!textChanged && !styleChanged) {
       return;
     }
     // High-quality glyph AA at the on-screen pixel grid.
@@ -2250,11 +2259,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit, slot, {
       pitchMode,
       cents: pitchCents,
-      previousValueText: String(canvas._numberReadoutLastValueText || ""),
-      textChanged,
-      trailHang,
-      ghostHang,
-      hangOn,
       frozen,
     });
     nodeGraphNumberReadoutRememberGoodValue(canvas, valueText);

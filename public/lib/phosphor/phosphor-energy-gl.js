@@ -80,7 +80,7 @@
   //   uKeepFast  — Trail+Ghost blended keep (1 = freeze)
   //   uKeepSlow  — same keep (dual path max ≡ single blend)
   //   uGhostCap  — gates slow path (0 = off, 1 = on); not a brightness ceiling
-  //   uBurn      — sticky floor 0…1 (0 = off; 1 = freeze all residual)
+  //   uBurn      — extra persist 0…1 (0 = off; 1 = freeze residual)
   // When Ghost is 0, keepSlow/cap are 0 and only Trail erase runs (unless Burn).
   const STEP_FRAG = `
     precision highp float;
@@ -113,7 +113,8 @@
         float blur = (e0 * 4.0 + (e1 + e2 + e3 + e4) * 2.0 + (e5 + e6 + e7 + e8)) / 16.0;
         eBase = mix(e0, blur, bleed);
       }
-      // Trail + Ghost keep, then sticky Burn floor.
+      // Dual path: linear Trail (keepFast) vs Ghost super-exp (keepSlow).
+      // max() so Ghost hang is never diluted by a faster linear trail.
       float eFast = eBase * uKeepFast;
       float eGhost = (uGhostCap > 0.0001)
         ? (eBase * uKeepSlow)
@@ -152,8 +153,7 @@
     uniform float uExposure;
     void main() {
       float raw = max(texture2D(uEnergy, vUv).r, 0.0);
-      // Lift sub-threshold residual so near-zero energy still maps into the LUT
-      // (avoids a hard empty band when burn is low under decay).
+      // PhosphorResidual.presentMono — keep in lockstep with the JS SSOT.
       float lifted = raw + 0.045 * pow(raw, 0.42);
       float e;
       if (uExposure > 0.001) {

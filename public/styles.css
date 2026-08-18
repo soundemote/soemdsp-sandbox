@@ -12439,8 +12439,22 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   > :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
   > :is(.node-module-face, .node-module-scope-window, .node-solid-module-custom-ui) {
   overflow: hidden;
-  border-end-start-radius: inherit;
-  border-end-end-radius: inherit;
+  clip-path: none;
+  border-radius: var(--node-module-frame-radius);
+  corner-shape: inherit;
+}
+
+/* LED / LCD / Value LED / Clock screens: matching top+bottom radius inside the face cell. */
+.dsp-node.led-layout .node-led-face,
+.dsp-node.value-lcd-layout .node-module-scope-window,
+.dsp-node.value-lcd-layout .node-value-lcd-face,
+.dsp-node.number-readout-layout .node-module-scope-window,
+.dsp-node.number-readout-layout .node-number-readout-face,
+.dsp-node.clock-layout .node-module-scope-window,
+.dsp-node[data-node-type="clock"] .node-module-scope-window {
+  clip-path: none;
+  overflow: hidden;
+  border-radius: var(--node-module-frame-radius);
   corner-shape: inherit;
 }
 
@@ -13355,7 +13369,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 /* Value LCD shell: plate color comes from Display Settings (canvas). No fixed CSS bevel. */
 .dsp-node.value-lcd-layout .node-value-lcd-face,
 .node-number-readout-face.node-value-lcd-face {
-  background: #b0b5a6;
+  background: var(--node-scope-background, rgb(241 255 232));
 }
 
 /* Ray Bouncer solid face — phosphor scope fills the shell center cell. */

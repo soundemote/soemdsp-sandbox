@@ -10,6 +10,23 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.zeroDBurnSettings = normalizeNodeGraphZeroDBurnSettings(settings);
     return node.zeroDBurnSettings;
   }
+  if (displayType === "vectorDot" || displayType === "pulseDot") {
+    node.vectorDotSettings = typeof normalizeNodeGraphVectorDotSettings === "function"
+      ? normalizeNodeGraphVectorDotSettings(settings)
+      : (settings || {});
+    if (node.type === "led") {
+      node.led = typeof normalizeNodeGraphLedLayout === "function"
+        ? normalizeNodeGraphLedLayout({
+          ...(node.led || {}),
+          hue: node.vectorDotSettings.hue,
+          brightness: node.vectorDotSettings.dot1Brightness,
+          blur: node.vectorDotSettings.lineThickness,
+          dot1Size: node.vectorDotSettings.dot1Size,
+        })
+        : node.led;
+    }
+    return node.vectorDotSettings;
+  }
   if (displayType === "lineBurn") {
     node.traceDisplaySettings = normalizeNodeGraphLineBurnSettings(settings);
     return node.traceDisplaySettings;
@@ -462,6 +479,17 @@ function nodeGraphMergeDisplaySettingsDirty(existing, form, dirtyKeys) {
   if (dirtyKeys.has("backgroundColor") && formObj.background !== undefined) {
     base.background = formObj.background;
   }
+  if (dirtyKeys.has("backgroundHue")) {
+    if (formObj.background !== undefined) {
+      base.background = formObj.background;
+    }
+    if (formObj.backgroundColor !== undefined) {
+      base.backgroundColor = formObj.backgroundColor;
+    }
+    if (formObj.backgroundHue !== undefined) {
+      base.backgroundHue = formObj.backgroundHue;
+    }
+  }
   if (dirtyKeys.has("gradientStops") || dirtyKeys.has("gradient")) {
     if (formObj.gradientStops != null) {
       base.gradientStops = formObj.gradientStops;
@@ -695,6 +723,8 @@ const NODE_GRAPH_DISPLAY_SETTINGS_PRESERVE_LOOK_KEYS = Object.freeze([
   "gradient",
   "background",
   "backgroundColor",
+  "backgroundHue",
+  "backgroundBrightness",
   "color",
   "peakColor",
   "dot1Color",

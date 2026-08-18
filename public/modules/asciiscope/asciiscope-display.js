@@ -240,30 +240,20 @@ function matrixResidualKeep(trail) {
  * energy-GL drawers — one apply per display frame. No kill floor: that
  * erased the dim Ghost hang (long + dim). Brightness is present-only.
  */
-function matrixDecayEnergy(state, params, dtSec = 1 / 60) {
+function matrixDecayEnergy(state, params, _dtSec = 1 / 60) {
   if (params.freeze) return;
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+  if (!Residual?.applyResidual) {
+    return;
+  }
   const trail = Number(params.trail);
-  const t = Number.isFinite(trail) ? Math.max(0, Math.min(1, trail)) : (Residual?.DEFAULT_TRAIL ?? 0.5);
+  const t = Number.isFinite(trail) ? Math.max(0, Math.min(1, trail)) : (Residual.DEFAULT_TRAIL ?? 0.5);
   const ghostAmt = Math.max(0, Math.min(1, Number(params.ghost) || 0));
   const burnAmt = Math.max(0, Math.min(1, Number(params.burn) || 0));
   const e = state.energy;
-  if (Residual && typeof Residual.applyResidual === "function") {
-    for (let i = 0; i < e.length; i += 1) {
-      if (e[i] <= 0) continue;
-      e[i] = Residual.applyResidual(e[i], t, ghostAmt, burnAmt);
-    }
-    return;
-  }
-  const baseKeep = typeof matrixPhosphorBaseKeep === "function"
-    ? matrixPhosphorBaseKeep(t, dtSec)
-    : 0.9;
-  const applyHang = typeof matrixPhosphorApplyGhostHang === "function"
-    ? matrixPhosphorApplyGhostHang
-    : (energy, keep) => energy * keep;
   for (let i = 0; i < e.length; i += 1) {
     if (e[i] <= 0) continue;
-    e[i] = applyHang(e[i], baseKeep, ghostAmt, burnAmt, t);
+    e[i] = Residual.applyResidual(e[i], t, ghostAmt, burnAmt);
   }
 }
 

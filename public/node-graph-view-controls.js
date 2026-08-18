@@ -866,12 +866,29 @@ function renderNodeGraphModularViewModeButtons() {
   sceneM?.setAttribute("aria-pressed", String(windowed));
 }
 
+function persistNodeGraphModuleScopeFramesPerSecondSetting() {
+  // Header FPS hydrates from user UI settings (`view.moduleScopeFramesPerSecond`),
+  // not the session blob. Session persist alone left refresh at the old value.
+  if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
+    scheduleNodeUiDevSettingsAutosave();
+  } else if (
+    typeof serializeNodeUiDevSettings === "function"
+    && typeof saveNodeUiDevLocalDefaultSettings === "function"
+  ) {
+    saveNodeUiDevLocalDefaultSettings(serializeNodeUiDevSettings());
+  }
+  if (typeof persistNodeGraphUserSession === "function") {
+    persistNodeGraphUserSession();
+  }
+}
+
 function setNodeGraphModuleScopeFramesPerSecond(value) {
   nodeGraphMvp.moduleScopeFramesPerSecond = normalizeNodeGraphModuleScopeFramesPerSecond(value);
   renderNodeGraphModuleScopeBrightnessControl();
   if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
     scheduleNodeGraphModuleScopeDraw();
   }
+  persistNodeGraphModuleScopeFramesPerSecondSetting();
 }
 
 function setNodeGraphModuleScopePointBudget(value) {
