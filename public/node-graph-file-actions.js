@@ -103,6 +103,7 @@ function saveNodeGraphWorkingPatchToUserSettings(options = {}) {
   if (typeof persistNodeGraphUserSession !== "function") {
     return false;
   }
+  // Name is historical: writes the session blob, not useruisettings.json.
   // Prefer live graph; fall back to last known working patch if patch is empty
   // mid-transition (should not happen, but never serialize "no modules" over a
   // non-empty autosave by accident).

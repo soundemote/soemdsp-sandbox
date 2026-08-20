@@ -78,6 +78,13 @@ Main-thread faces load order:
 scope-defaults → normalize → display-mode → phosphor → settings-form
   → settings-ui → capture → number-readout → draw-basic → draw-burn
   → scopes.js (thin shell: state + scalar + drawFrame)
+```
+
+## Persist + Display Settings (unconfuse)
+
+Session blob vs UI-settings blob, Display Settings schema table, phosphor shims, and deprecated no-ops: **`docs/UNCONFUSE_REFACTOR_PLAN.md` Phase 0**.
+
+Boot (target): load UI settings → load session → hydrate → commit patch → restore selection → restore windows. Do not persist empty selection / empty live graph over a good session during that window.
   → spectrum → buffer-io → sync → metrics → geometry → webgl → vertices
   → offline → screen-items → slots → buffer-view → monitors
   → scene-controls → shader-settings → trace-controls → wipe
