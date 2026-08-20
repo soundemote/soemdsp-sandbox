@@ -25,12 +25,12 @@ const nodeGraphDisplaySettingsSharedStackOrder = Object.freeze([
   "dot1Size",
   "lineThickness",
   "dot1Brightness",
-  "dotBudget",
-  "pixelDensity",
   "ghost",
   "trail",
   "burn",
   "burnAmount",
+  "dotBudget",
+  "pixelDensity",
 ]);
 
 /** Instant Trace stack (subset of the shared order + 2D fade). */
@@ -86,6 +86,45 @@ function nodeGraphDisplaySettingsOrderTraceInkFields(keys) {
   list = nodeGraphDisplaySettingsOrderInkGroup(list, nodeGraphInstantTraceDisplayFieldOrder);
   list = nodeGraphDisplaySettingsOrderInkGroup(list, nodeGraphTraceDisplaySecondaryInkFieldOrder);
   return list;
+}
+
+/** Clipboard family for Display Settings copy/paste (same style only). */
+function nodeGraphDisplaySettingsClipboardFamily(formType) {
+  const key = String(formType || "").trim();
+  if (!key) {
+    return "";
+  }
+  if (key === "trace" || key === "value") {
+    return "trace1d";
+  }
+  if (key === "scope2dTrace" || key === "gradientVectorscopeFace" || key === "traceXyz") {
+    return "trace2d";
+  }
+  if (key === "lineBurn" || key === "hypersawBurn" || key === "oscilloscopeBankBurn") {
+    return "phosphor1d";
+  }
+  if (typeof nodeGraphDisplaySettingsIsPhosphorFormType === "function"
+    && nodeGraphDisplaySettingsIsPhosphorFormType(key)
+    && key !== "dot") {
+    return "phosphor2d";
+  }
+  return "";
+}
+
+function nodeGraphDisplaySettingsClipboardFamilyLabel(family) {
+  if (family === "phosphor1d") {
+    return "1D Phosphor";
+  }
+  if (family === "phosphor2d") {
+    return "2D Phosphor";
+  }
+  if (family === "trace1d") {
+    return "1D Instant Trace";
+  }
+  if (family === "trace2d") {
+    return "2D Instant Trace";
+  }
+  return "";
 }
 
 function nodeGraphDisplaySettingsIsPhosphorFormType(type) {
@@ -191,7 +230,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze(["stereoBlend", "syncChannel"]),
   }),
   // Phosphor energy faces: color via shared Gradient editor (not single swatches).
-  // Field order = nodeGraphPhosphorDisplayFieldOrder (Bright…residual…Pixel density).
+  // Field order = nodeGraphPhosphorDisplayFieldOrder (Bright…residual…Burn ⨉…Dot Budget).
   // Ghost/Trail/Burn/Burn ⨉ — same residual stack as 2D Phosphor / Matrix.
   dot: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
@@ -291,8 +330,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    // Packing row: Sync | Full Dots | Dots only | Clear
-    toggles: Object.freeze(["sourceSync", "fullDotEconomy", "dotsOnly"]),
+    // Skip at top. Packing row: Full Dots | Dots only | Clear (no Sync — 2D has no sweep).
+    toggles: Object.freeze(["skipDiscontinuities", "fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
   // 2D Trace = VECTOR path; density = face buffer lo-fi/AA only.
@@ -999,7 +1038,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Dot Budget",
     inputmode: "numeric",
     id: "nodeTraceDisplayDotBudget",
-    title: "Max phosphor stamps per frame. Under budget: dense packing. Over budget: even spacing across the whole path (beautiful sparse dots at high frequency — not unlimited line drawing).",
+    title: "Max phosphor stamps per frame (1–8192). Under budget: discs fuse into a line. Over budget: keep fuse spacing and stop — no sparse spread.",
   }),
   zoomSeconds: Object.freeze({
     label: "History (s)",
@@ -1210,7 +1249,8 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
   skipDiscontinuities: Object.freeze({
     label: "Skip Discontinuity",
     id: "nodeTraceDisplaySkipDiscontinuities",
-    title: "Break the stroke at wrap/jump samples instead of drawing a vertical seam.",
+    title:
+      "Break the stroke at wrap/jump samples instead of drawing a seam. 1D: no vertical wrap line. 2D: no chord across a sudden X/Y jump.",
   }),
   bipolarBrightness: Object.freeze({ label: "Bipolar", id: "nodeTraceDisplayBipolarBrightness" }),
   secondaryEnabled: Object.freeze({ label: "Secondary on", id: "nodeTraceDisplaySecondaryEnabled" }),

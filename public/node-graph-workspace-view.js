@@ -186,10 +186,7 @@ function recenterNodeGraphViewAtWorldOrigin(event) {
 }
 
 function nodeGraphLogModularViewPan() {
-  if (typeof window.SE?.INFO !== "function") {
-    return;
-  }
-  window.SE.INFO("Pan");
+  // Pan is a hot path — never log it (debug-log performance).
 }
 
 function setNodeGraphPan(x, y, options = {}) {

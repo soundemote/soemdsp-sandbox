@@ -45,9 +45,7 @@ static double naive_triangle(double phaseCycle) {
 }
 
 struct OscState {
-  double stoppedSample;
   unsigned int noiseSeed;
-  bool   hasStoppedSample;
   bool   hasNoiseSeed;
   bool   active;
 };
@@ -71,9 +69,7 @@ extern "C" int soemdsp_basic_oscillator_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       OscState& s = gPool[i];
-      s.stoppedSample = 0.0;
       s.noiseSeed = 0;
-      s.hasStoppedSample = false;
       s.hasNoiseSeed = false;
       s.active = true;
       return i + 1;
@@ -98,10 +94,6 @@ extern "C" double soemdsp_basic_oscillator_sample(
 
   const double phaseDelta = safe(phaseIncrement);
   const bool phaseStopped = absd(phaseDelta) <= 1e-12;
-  if (phaseStopped && s.hasStoppedSample) {
-    return s.stoppedSample;
-  }
-
   const double phaseCycle = wrap01_frac(safe(phase) / kTwoPi);
 
   double sample = 0.0;
@@ -128,17 +120,11 @@ extern "C" double soemdsp_basic_oscillator_sample(
       break;
   }
 
-  if (phaseStopped) {
-    s.stoppedSample = sample;
-    s.hasStoppedSample = true;
-  } else {
-    s.hasStoppedSample = false;
-  }
   return sample;
 }
 
 extern "C" int soemdsp_basic_oscillator_version() {
-  return 3;
+  return 4;
 }
 
 extern "C" const char* soemdsp_basic_oscillator_metadata_json() {

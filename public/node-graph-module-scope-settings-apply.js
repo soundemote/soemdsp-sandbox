@@ -735,6 +735,122 @@ const NODE_GRAPH_DISPLAY_SETTINGS_PRESERVE_LOOK_KEYS = Object.freeze([
   "strokeColor",
 ]);
 
+function cloneNodeGraphDisplaySettingsClipboardBag(settings) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  try {
+    return JSON.parse(JSON.stringify(source));
+  } catch (_error) {
+    return { ...source };
+  }
+}
+
+function nodeGraphDisplaySettingsClipboardFamilyForOpenForm() {
+  const formType = typeof nodeGraphTraceDisplaySettingsFormType === "function"
+    ? nodeGraphTraceDisplaySettingsFormType()
+    : "";
+  return typeof nodeGraphDisplaySettingsClipboardFamily === "function"
+    ? nodeGraphDisplaySettingsClipboardFamily(formType)
+    : "";
+}
+
+function syncNodeGraphTraceDisplaySettingsClipboardButtons() {
+  const family = nodeGraphDisplaySettingsClipboardFamilyForOpenForm();
+  const copyBtn = document.getElementById("nodeTraceDisplaySettingsCopy");
+  const pasteBtn = document.getElementById("nodeTraceDisplaySettingsPaste");
+  const clip = nodeGraphMvp?.displaySettingsClipboard;
+  const clipFamily = String(clip?.family || "");
+  const row = copyBtn?.parentElement || pasteBtn?.parentElement;
+  if (row?.classList) {
+    row.classList.toggle("is-clipboard-row", Boolean(family));
+  }
+  if (copyBtn) {
+    copyBtn.hidden = !family;
+    copyBtn.disabled = !family;
+    copyBtn.title = family
+      ? `Copy ${nodeGraphDisplaySettingsClipboardFamilyLabel?.(family) || family} display settings`
+      : "";
+  }
+  if (pasteBtn) {
+    pasteBtn.hidden = !family;
+    pasteBtn.disabled = !family || !clipFamily || clipFamily !== family;
+    pasteBtn.title = !family
+      ? ""
+      : (!clipFamily
+        ? "Paste display settings"
+        : (clipFamily === family
+          ? `Paste ${nodeGraphDisplaySettingsClipboardFamilyLabel?.(clipFamily) || clipFamily} display settings`
+          : `Clipboard is ${nodeGraphDisplaySettingsClipboardFamilyLabel?.(clipFamily) || clipFamily}`));
+  }
+}
+
+function copyNodeGraphTraceDisplaySettings() {
+  const family = nodeGraphDisplaySettingsClipboardFamilyForOpenForm();
+  if (!family) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("This face cannot copy display settings.");
+    }
+    return;
+  }
+  const settings = typeof readNodeGraphTraceDisplaySettingsForm === "function"
+    ? readNodeGraphTraceDisplaySettingsForm()
+    : null;
+  if (!settings || typeof settings !== "object") {
+    return;
+  }
+  nodeGraphMvp.displaySettingsClipboard = {
+    family,
+    settings: cloneNodeGraphDisplaySettingsClipboardBag(settings),
+  };
+  syncNodeGraphTraceDisplaySettingsClipboardButtons();
+  const label = typeof nodeGraphDisplaySettingsClipboardFamilyLabel === "function"
+    ? nodeGraphDisplaySettingsClipboardFamilyLabel(family)
+    : family;
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(`Copied ${label} display settings.`);
+  }
+}
+
+function pasteNodeGraphTraceDisplaySettings() {
+  const family = nodeGraphDisplaySettingsClipboardFamilyForOpenForm();
+  const clip = nodeGraphMvp?.displaySettingsClipboard;
+  const clipFamily = String(clip?.family || "");
+  if (!family) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("This face cannot paste display settings.");
+    }
+    return;
+  }
+  if (!clipFamily || !clip.settings) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Nothing to paste. Copy display settings first.");
+    }
+    return;
+  }
+  if (clipFamily !== family) {
+    const from = typeof nodeGraphDisplaySettingsClipboardFamilyLabel === "function"
+      ? nodeGraphDisplaySettingsClipboardFamilyLabel(clipFamily)
+      : clipFamily;
+    const to = typeof nodeGraphDisplaySettingsClipboardFamilyLabel === "function"
+      ? nodeGraphDisplaySettingsClipboardFamilyLabel(family)
+      : family;
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp(`Can't paste: clipboard is ${from}, this face is ${to}.`);
+    }
+    return;
+  }
+  const bag = cloneNodeGraphDisplaySettingsClipboardBag(clip.settings);
+  writeNodeGraphTraceDisplaySettingsForm(bag);
+  markNodeGraphTraceDisplaySettingsDirty("*");
+  applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true, forceAll: true });
+  clearNodeGraphTraceDisplaySettingsDirty();
+  const label = typeof nodeGraphDisplaySettingsClipboardFamilyLabel === "function"
+    ? nodeGraphDisplaySettingsClipboardFamilyLabel(family)
+    : family;
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(`Pasted ${label} display settings.`);
+  }
+}
+
 function setNodeGraphTraceDisplaySettingsDefaults() {
   const formType = typeof nodeGraphTraceDisplaySettingsFormType === "function"
     ? nodeGraphTraceDisplaySettingsFormType()

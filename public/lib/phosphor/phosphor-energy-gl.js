@@ -17,9 +17,6 @@
 //   or low-level nodeGraphPhosphorEnergyGl* exports below.
 
 (function initNodeGraphPhosphorEnergyGl(global) {
-  if (typeof console !== "undefined" && console.info) {
-    console.info("[phosphor-energy-gl] loaded online-site-1 (soundemote.io sandbox match)");
-  }
   // Allow density 4× on large faces (matches scope max backing store).
   const MAX_DIM = 4096;
 
@@ -412,10 +409,6 @@
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.bindTexture(gl.TEXTURE_2D, null);
       if (ok) {
-        if (!gl._phosphorEnergyFormatLogged) {
-          gl._phosphorEnergyFormatLogged = true;
-          console.info("[phosphor-energy-gl] energy surface format:", format.label || "rgba8");
-        }
         return {
           texture,
           framebuffer,
@@ -913,8 +906,12 @@
       }
     } else {
       // —— Path packing: fuse soft stamps along continuous motion ——
-      const fuseStep = Math.max(0.28, radius * (0.42 + blur * 0.22));
-      const denseStep = Math.max(0.22, Math.min(radius * (0.18 + blur * 0.08), fuseStep * 0.55));
+      // Spacing is a fraction of stamp radius so discs overlap. Do not floor
+      // to ~0.28px (gaps when Size is small) or loosen with Blur.
+      // Over budget: keep fuse spacing and stop (do not sparse-spread the path —
+      // that dotted long discontinuity chords).
+      const fuseStep = Math.max(0.05, radius * 0.48);
+      const denseStep = Math.max(0.05, Math.min(radius * 0.22, fuseStep * 0.55));
 
       let totalLen = 0;
       for (let p = 0; p < pieces.length; p += 1) {
@@ -930,19 +927,7 @@
       let step = fullEconomy ? denseStep : fuseStep;
       if (fullEconomy && totalLen > 1e-4) {
         const budgetStep = totalLen / Math.max(1, maxDots - Math.max(1, pieces.length));
-        step = Math.max(0.22, Math.min(denseStep, budgetStep));
-      }
-      let idealCount = pieces.length;
-      for (let p = 0; p < pieces.length; p += 1) {
-        const pts = pieces[p];
-        for (let i = 1; i < pts.length; i += 1) {
-          const dist = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-          idealCount += dist < 1e-4 ? 0 : Math.max(1, Math.ceil(dist / step));
-        }
-      }
-      idealCount = Math.max(1, idealCount);
-      if (idealCount > maxDots && totalLen > 1e-4) {
-        step = Math.max(step, totalLen / Math.max(1, maxDots - Math.max(1, pieces.length)));
+        step = Math.min(denseStep, Math.max(0.05, budgetStep));
       }
 
       outer: for (let p = 0; p < pieces.length; p += 1) {

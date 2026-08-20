@@ -483,12 +483,9 @@ function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
-    dotBudget: Math.max(
-      64,
-      Math.min(8192, Math.round(
-        Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget,
-      )),
-    ),
+    dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
+      ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
+      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 2048))),
     // Default ON when missing (devilish solid trails). Explicit false stays off.
     fullDotEconomy: source.fullDotEconomy !== false
       && source.useFullDotEconomy !== false,
@@ -641,12 +638,9 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     // Dot Budget + Full Dot Economy persist (toggle was dropped before).
-    dotBudget: Math.max(
-      64,
-      Math.min(8192, Math.round(
-        Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget || 2048,
-      )),
-    ),
+    dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
+      ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
+      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 2048))),
     // Shared packing toggles (same SSOT as scope2d / 2D Phosphor).
     fullDotEconomy: nodeGraphDisplaySettingsToggleIsOn(
       source.fullDotEconomy ?? source.useFullDotEconomy,
@@ -768,12 +762,9 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
         0,
         1,
       ),
-    dotBudget: Math.max(
-      64,
-      Math.min(8192, Math.round(
-        Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget || 2048,
-      )),
-    ),
+    dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
+      ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
+      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 2048))),
     pixelDensity: normalizeNodeGraphTraceDisplayNumber(
       source.pixelDensity,
       defaults.pixelDensity,
@@ -1373,12 +1364,9 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
-    dotBudget: Math.max(
-      64,
-      Math.min(8192, Math.round(
-        Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget,
-      )),
-    ),
+    dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
+      ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
+      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 2048))),
     // Full Dots / Dots only — shared phosphor packing (scope2d SSOT).
     // Accept bool true and common form/patch coercions (1 / "1" / "true" / "on").
     fullDotEconomy: nodeGraphDisplaySettingsToggleIsOn(
@@ -1390,6 +1378,9 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
     // Latch present for packing-row UI consistency; 2D deposit path freeruns.
     sourceSync: nodeGraphDisplaySettingsToggleIsOn(
       source.sourceSync ?? source.sync,
+    ),
+    skipDiscontinuities: nodeGraphDisplaySettingsToggleIsOn(
+      source.skipDiscontinuities ?? defaults.skipDiscontinuities,
     ),
     gradientStops,
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
@@ -1439,6 +1430,9 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
       1,
     ),
     scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0, Infinity),
+    skipDiscontinuities: nodeGraphDisplaySettingsToggleIsOn(
+      source.skipDiscontinuities ?? defaults.skipDiscontinuities,
+    ),
   };
 }
 

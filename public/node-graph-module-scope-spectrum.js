@@ -246,7 +246,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
  * Shared phosphor Display Settings order (app-wide, including Lorenz).
  * Faces pick a subset; builders keep this relative order.
  * Shared stack: Scale → Sweep → Brightness → Hue → Size → Blur → Bright
- * → Dot Budget → Pixel density → Ghost → Trail → Burn → Burn ⨉.
+ * → Ghost → Trail → Burn → Burn ⨉ → Dot Budget → Pixel density.
  * Skip / Sync sit above (toggles).
  */
 const nodeGraphPhosphorDisplayFieldOrder = Object.freeze([
@@ -257,11 +257,11 @@ const nodeGraphPhosphorDisplayFieldOrder = Object.freeze([
   "dot1Size",
   "lineThickness",
   "dot1Brightness",
-  "dotBudget",
-  "pixelDensity",
   "ghost",
   "trail",
   "burn",
   "burnAmount",
+  "dotBudget",
+  "pixelDensity",
 ]);
 

@@ -441,6 +441,7 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   fullDotEconomy: false,
   dotsOnly: false,
   sourceSync: false,
+  skipDiscontinuities: false,
   gradientStops: nodeGraphScope2dInitGradientStops,
   lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   pixelDensity: 1,
@@ -605,6 +606,7 @@ const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
   // Vector stroke; density scales face buffer for lo-fi/chunky look (default 1).
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   scale: nodeGraphScopePhosphorLookDefaults.scale,
+  skipDiscontinuities: false,
 });
 
 /** Optional per-type 2D Trace defaults (e.g. longer history for closed shapes). */

@@ -13,14 +13,12 @@ constexpr int kMaxInstances = 16;
 // Slot 0 is the currently-selected waveform (driven by the Waveform
 // parameter); slots 1-5 are the always-on Saw/Ramp/Square/Tri/Sine taps that
 // mirror node-graph-oscillator-runtime.js's polyBlep implementation exactly,
-// including its per-slot phase-stopped caching and the (deliberate, matches
-// the JS host) quirk that Reset only zeroes slot 0's triangle integrator.
+// including the (deliberate, matches the JS host) quirk that Reset only
+// zeroes slot 0's triangle integrator. Hz 0 still follows host phase.
 constexpr int kSlotCount = 6;
 
 struct SlotState {
   double lastPhaseIncrement;
-  double stoppedSample;
-  bool hasStoppedSample;
   double triangleIntegrator;
   unsigned int noiseSeed;
   bool hasNoiseSeed;
@@ -85,11 +83,10 @@ double seedToBipolar(unsigned int seed) {
 
 double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, int waveform) {
   const double phaseDelta = phaseIncrement;
-  const bool phaseStopped = (phaseDelta < 0.0 ? -phaseDelta : phaseDelta) <= 1.0e-12;
-  if (phaseStopped && slot.hasStoppedSample) {
-    return slot.stoppedSample;
-  }
-  const double renderIncrement = phaseStopped ? slot.lastPhaseIncrement : phaseDelta;
+  const double absDelta = phaseDelta < 0.0 ? -phaseDelta : phaseDelta;
+  const bool phaseStopped = absDelta <= 1.0e-12;
+  // Hz 0 is not special: still evaluate at the host phase (Phase knob / PM).
+  const double renderIncrement = phaseStopped ? 1.0e-6 : phaseDelta;
   const double phaseCycle = wrap01(phase / kTwoPi);
   double sample = 0.0;
   switch (waveform) {
@@ -101,7 +98,9 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
       break;
     case 3: {
       if (phaseStopped) {
-        sample = slot.triangleIntegrator;
+        const double t = phaseCycle < 0.5 ? (0.5 - phaseCycle) : (phaseCycle - 0.5);
+        sample = 1.0 - 4.0 * t;
+        slot.triangleIntegrator = sample;
         break;
       }
       double nextTriangle = (slot.triangleIntegrator + polyBlepSquare(phaseCycle, renderIncrement) * phaseDelta * 4.0) * 0.995;
@@ -131,11 +130,7 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
       sample = 1.0 - phaseCycle * 2.0 + polyBlep(phaseCycle, renderIncrement);
       break;
   }
-  if (phaseStopped) {
-    slot.stoppedSample = sample;
-    slot.hasStoppedSample = true;
-  } else {
-    slot.hasStoppedSample = false;
+  if (!phaseStopped) {
     slot.lastPhaseIncrement = phaseDelta;
   }
   return sample;
@@ -214,5 +209,5 @@ extern "C" double soemdsp_polyblep_sine(int handle) {
 }
 
 extern "C" int soemdsp_polyblep_version() {
-  return 1;
+  return 2;
 }

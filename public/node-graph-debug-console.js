@@ -12,6 +12,7 @@
   if (window.__seDebugConsole) return;
 
   const CAP = 4000;
+  const VISIBLE_CAP = 200;
   // Survives F5 in the same tab. localStorage keeps a "last unload" dump so a
   // hard crash / new tab can still recover the previous session's log.
   const STORAGE_SESSION = "seDebugLog.session.v1";
@@ -86,10 +87,32 @@
     ERROR: { tag: "ERR", color: "#ff5555", err: true },
   };
 
+  function seVerboseLog() {
+    try {
+      return localStorage.getItem("seDebug") === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function sePanelOpen() {
+    return Boolean(els.panel?.classList.contains("se-open"));
+  }
+
+  /** ERROR/FAIL always. INFO/LOG/WARN only with panel open or seDebug=1. */
+  function seShouldRecord(level) {
+    if (level === "ERROR" || level === "FAIL") {
+      return true;
+    }
+    return seVerboseLog() || sePanelOpen();
+  }
+
   function push(level, msg, loc) {
+    if (!seShouldRecord(level)) {
+      return null;
+    }
     if (paused && level !== "ERROR" && level !== "FAIL") {
-      // Still persist critical failures even while paused? Keep old pause
-      // semantics: push always records; pause only freezes live UI follow.
+      // Pause only freezes live UI follow; recording still happens.
     }
     const lv = LEVELS[level] || LEVELS.LOG;
     const ts = Date.now();
@@ -255,9 +278,9 @@
 
   // ---- sehelper.hpp-style API ----------------------------------------------
   const SE = {
-    LOG: (msg) => push("LOG", msg || "FAILURE: no error message provided", callerLoc()),
-    INFO: (msg) => push("INFO", msg, callerLoc()),
-    WARN: (cond, msg) => { if (!cond) push("WARN", msg, callerLoc()); return cond; },
+    LOG: (msg) => push("LOG", msg || "FAILURE: no error message provided", ""),
+    INFO: (msg) => push("INFO", msg, ""),
+    WARN: (cond, msg) => { if (!cond) push("WARN", msg, ""); return cond; },
     CHECK: (cond, msg) => { if (!cond) { push("FAIL", msg || "CHECK failed", callerLoc()); try { console.assert(false, msg); } catch (_) {} } return cond; },
     ERROR: (msg, loc = callerLoc()) => push("ERROR", msg || "ERROR", loc),
     FAIL: (msg) => push("FAIL", msg || "FAIL", callerLoc()),
@@ -307,15 +330,13 @@
   window.addEventListener("unhandledrejection", (ev) => {
     push("ERROR", `unhandled rejection: ${ev?.reason?.message || ev?.reason || "?"}`, "");
   });
-  ["log", "info", "warn", "error"].forEach((k) => {
+  ["warn", "error"].forEach((k) => {
     const orig = console[k].bind(console);
     console[k] = (...args) => {
       try {
         const text = args.map((a) => (typeof a === "string" ? a : safeStringify(a))).join(" ");
-        // Skip our own re-logging noise.
         if (!text.includes("[se-debug]")) {
-          const level = k === "error" ? "ERROR" : k === "warn" ? "WARN" : k === "info" ? "INFO" : "LOG";
-          push(level, text, "console");
+          push(k === "error" ? "ERROR" : "WARN", text, "console");
         }
       } catch (_) {}
       return orig(...args);
@@ -694,12 +715,18 @@
     // Newest at top: stick to top when already near the top (following live feed).
     const atTop = els.list.scrollTop < 30;
     els.list.insertAdjacentHTML("afterbegin", rowHtml(e));
+    while (els.list.querySelectorAll(".se-row").length > VISIBLE_CAP) {
+      const last = els.list.lastElementChild;
+      if (!last || last.classList.contains("se-empty")) {
+        break;
+      }
+      last.remove();
+    }
     if (atTop) els.list.scrollTop = 0;
   }
   function rebuild() {
     if (!els.list) return;
-    // entries is already newest-first.
-    const rows = entries.filter(matches);
+    const rows = entries.filter(matches).slice(0, VISIBLE_CAP);
     els.list.innerHTML = rows.length ? rows.map(rowHtml).join("") : `<div class="se-empty">No matching entries.</div>`;
     els.list.scrollTop = 0;
   }
@@ -839,13 +866,8 @@
   // button. SE.devMode(false) can still tear the UI down on demand; logging
   // and error capture stay active regardless.
   function seDevEnabled() {
-    try {
-      // Explicit opt-out only (not the default on public/release pages).
-      if (localStorage.getItem("seDebug") === "0") return false;
-      return true;
-    } catch (_) {
-      return true;
-    }
+    // 🐞 button always ships. Verbose recording is seDebug=1 or an open panel.
+    return true;
   }
   function init() {
     try {
@@ -855,19 +877,11 @@
       // Drop any leftover dump from older builds that auto-persisted on hide.
       wipePersistedLogStorage();
       if (!seDevEnabled()) {
-        // Keep logging without the panel.
-        SE.INFO(`debug console (headless) — build ${seBuildMode()}`);
         return;
       }
       injectStyles();
       buildButton();
       buildPanel();
-      SE.INFO(
-        `debug console ready — build ${(document.querySelector("[data-build-number-value]")?.textContent || "?")} (${seBuildMode()}) · log cleared on load`,
-      );
-      if (typeof logNodeGraphSampleRateInfo === "function") {
-        logNodeGraphSampleRateInfo("startup");
-      }
       rebuild();
     } catch (err) {
       try { console.error("[se-debug] init failed", err); } catch (_) {}

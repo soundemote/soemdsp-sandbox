@@ -46,6 +46,26 @@ function nodeGraphModuleHasQuadraturePorts(type) {
   return has;
 }
 
+function nodeGraphJackAxisToken(port, label) {
+  const tryOne = (value) => {
+    const raw = String(value || "").trim();
+    const low = raw.toLowerCase();
+    // Combined X/Y (or XY) is not a single axis — do not steal "Y" from "X/Y".
+    if (!low || low === "x/y" || low === "xy" || low.includes("/")) {
+      return "";
+    }
+    if (low === "x" || low === "y" || low === "z") {
+      return low;
+    }
+    const token = nodeGraphJackLastToken(raw);
+    if (token === "x" || token === "y" || token === "z") {
+      return token;
+    }
+    return "";
+  };
+  return tryOne(port) || tryOne(label);
+}
+
 function nodeGraphModuleUsesChaosOutletRgb(type) {
   const key = String(type || "");
   if (nodeGraphJackChaosTypeCache.has(key)) {
@@ -61,15 +81,13 @@ function nodeGraphModuleUsesChaosOutletRgb(type) {
   const ports = nodeGraphJackTypePortList(type);
   const axes = new Set();
   for (const port of ports) {
-    const name = String(port || "").trim();
-    const axis = name.toLowerCase() === "x" || name.toLowerCase() === "y" || name.toLowerCase() === "z"
-      ? name.toLowerCase()
-      : nodeGraphJackLastToken(name);
-    if (axis === "x" || axis === "y" || axis === "z") {
+    const axis = nodeGraphJackAxisToken(port);
+    if (axis) {
       axes.add(axis);
     }
   }
-  const has = axes.has("x") && axes.has("y") && axes.has("z");
+  // X/Y pair is enough (2D phosphor / XY faces). Z is optional (green).
+  const has = axes.has("x") && axes.has("y");
   nodeGraphJackChaosTypeCache.set(key, has);
   return has;
 }
@@ -175,7 +193,7 @@ function nodeGraphJackChaosChannel(type, port, label) {
   if (!nodeGraphModuleUsesChaosOutletRgb(type)) {
     return "";
   }
-  const axis = nodeGraphJackLastToken(port) || nodeGraphJackLastToken(label);
+  const axis = nodeGraphJackAxisToken(port, label);
   if (axis === "x") {
     return "red";
   }
@@ -462,14 +480,6 @@ function nodeGraphLogJackVisibility(reason = "census") {
     `applyFn=${report.applyFn}`,
     `ok=${report.ok}`,
   ].join(" ");
-  try {
-    console.info(line);
-    if (report.hidden.length) {
-      console.info("JACKS hidden sample", report.hidden);
-    }
-  } catch (_) {
-    /* ignore */
-  }
   const se = typeof window !== "undefined" ? window.SE : null;
   if (se?.INFO) {
     se.INFO(line);

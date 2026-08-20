@@ -362,8 +362,8 @@
     const area = Math.max(1, (Number(faceWidth) || 1) * (Number(faceHeight) || 1));
     const auto = Math.max(256, Math.min(4096, Math.floor(Math.sqrt(area) * 8)));
     const user = Math.floor(Number(userBudget) || 0);
-    if (user >= 64) {
-      return Math.max(64, Math.min(8192, user));
+    if (user >= 1) {
+      return Math.max(1, Math.min(8192, user));
     }
     return auto;
   }

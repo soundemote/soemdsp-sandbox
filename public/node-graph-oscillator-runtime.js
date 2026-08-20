@@ -148,10 +148,6 @@ function nodeGraphPolyBlepSquareDirectional(phaseCycle, phaseIncrement) {
 function nodeGraphOscillatorWaveformSample(runtime, nodeId, phase, phaseIncrement, waveform) {
   const phaseDelta = Number(phaseIncrement) || 0;
   const phaseStopped = Math.abs(phaseDelta) <= 1e-12;
-  runtime.oscillatorStoppedSamples ||= new Map();
-  if (phaseStopped && runtime.oscillatorStoppedSamples.has(nodeId)) {
-    return runtime.oscillatorStoppedSamples.get(nodeId) || 0;
-  }
   const phaseCycle = wrapNodeSliderValue(phase / (Math.PI * 2), 0, 1);
   let sample = 0;
   switch (Math.round(Number(waveform) || 0)) {
@@ -174,11 +170,6 @@ function nodeGraphOscillatorWaveformSample(runtime, nodeId, phase, phaseIncremen
     default:
       sample = 1 - phaseCycle * 2;
       break;
-  }
-  if (phaseStopped) {
-    runtime.oscillatorStoppedSamples.set(nodeId, sample);
-  } else {
-    runtime.oscillatorStoppedSamples.delete(nodeId);
   }
   return sample;
 }

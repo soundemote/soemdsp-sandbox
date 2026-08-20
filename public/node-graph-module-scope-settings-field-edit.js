@@ -304,6 +304,8 @@ function beginNodeGraphTraceDisplayFieldDrag(event) {
   const startValue = Number(input.value);
   const unitDrag = typeof nodeGraphTraceDisplayUnitDragField === "function"
     && nodeGraphTraceDisplayUnitDragField(key);
+  const integerPixelDrag = typeof nodeGraphTraceDisplayIntegerPixelDragField === "function"
+    && nodeGraphTraceDisplayIntegerPixelDragField(key);
   nodeGraphMvp.traceDisplayFieldDragging = {
     input,
     key,
@@ -315,6 +317,7 @@ function beginNodeGraphTraceDisplayFieldDrag(event) {
     multiplier: nodeGraphTraceDisplayNumberDragMultiplier(event),
     // Unit 0…1 fields: fixed gain (px → value). Others: stepper quantum × /8.
     unitDrag,
+    integerPixelDrag,
     quantum: unitDrag
       ? 1
       : nodeGraphTraceDisplayStepperQuantum(input, startValue),
@@ -371,11 +374,13 @@ function dragNodeGraphTraceDisplayField(event) {
     : 640;
   const controlDelta = drag.unitDrag
     ? (axes.combined / unitPx) * drag.multiplier
-    : sizeDrag
-      ? (axes.combined / sizePx) * drag.multiplier
-      : blurDrag
-        ? (axes.combined / blurPx) * drag.multiplier
-        : (axes.combined / 8) * drag.quantum * drag.multiplier;
+    : drag.integerPixelDrag
+      ? axes.combined * drag.quantum * drag.multiplier
+      : sizeDrag
+        ? (axes.combined / sizePx) * drag.multiplier
+        : blurDrag
+          ? (axes.combined / blurPx) * drag.multiplier
+          : (axes.combined / 8) * drag.quantum * drag.multiplier;
   let rawValue = adjustNodeGraphTraceDisplaySettingByControlDelta(drag.key, startValue, controlDelta);
   // Unit fields: hard clamp before format (never wrap / never NaN→1).
   // Most are 0…1; shadow offset X/Y are bipolar −1…1.

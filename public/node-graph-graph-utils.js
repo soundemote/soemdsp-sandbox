@@ -1813,10 +1813,14 @@ function nodeGraphGraphMoveNode(graphValue, index, point) {
 // SE isn't present (e.g. debug console script missing) or dev mode is off;
 // SE.INFO entries only show up in the panel once it/dev mode is opened.
 function nodeGraphGraphDebugTrace(msg, data) {
+  const text = String(msg || "");
+  if (text === "graph pointermove" || text === "graph node moved") {
+    return;
+  }
   if (typeof window === "undefined" || !window.SE?.INFO) {
     return;
   }
-  window.SE.INFO(data === undefined ? msg : `${msg} ${nodeGraphGraphDebugStringify(data)}`);
+  window.SE.INFO(data === undefined ? text : `${text} ${nodeGraphGraphDebugStringify(data)}`);
 }
 
 function nodeGraphGraphDebugStringify(value) {

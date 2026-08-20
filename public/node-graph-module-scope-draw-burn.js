@@ -815,7 +815,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       maxDots: (() => {
         const budget = Number(settings?.dotBudget);
         if (Number.isFinite(budget)) {
-          return Math.max(0, Math.min(8192, Math.round(budget)));
+          return Math.max(1, Math.min(8192, Math.round(budget)));
         }
         const fallback = typeof nodeGraphScope2dMaxSamplesPerFrame === "function"
           ? nodeGraphScope2dMaxSamplesPerFrame(canvas)

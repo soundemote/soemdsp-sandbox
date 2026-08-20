@@ -17136,6 +17136,12 @@ body.node-slider-dragging * {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* Display Settings: Copy | Paste | Defaults on one row. */
+.node-trace-display-settings-popover > .metadata-popover-grid > .metadata-field-actions.is-clipboard-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .metadata-field-actions > :only-child {
   width: 100%;
   min-width: 0;

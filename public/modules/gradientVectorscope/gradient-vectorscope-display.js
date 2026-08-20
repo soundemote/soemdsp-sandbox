@@ -60,7 +60,7 @@ function normalizeNodeGraphGradientVectorscopeSettings(settings = {}) {
     historySeconds: Math.max(0.02, Math.min(8, num("historySeconds", d.historySeconds))),
     fade: Math.max(0, Math.min(1, num("fade", d.fade))),
     lineThickness: Math.max(0, Math.min(1, Number.isFinite(Number(blurRaw)) ? Number(blurRaw) : d.lineThickness)),
-    dotBudget: Math.max(0, Math.min(8192, Math.round(num("dotBudget", d.dotBudget)))),
+    dotBudget: Math.max(1, Math.min(8192, Math.round(num("dotBudget", d.dotBudget)))),
     pixelDensity: Math.max(0, Math.min(1, num("pixelDensity", d.pixelDensity))),
     rotate90,
     scale: Math.max(0.05, Math.min(8, num("scale", d.scale))),

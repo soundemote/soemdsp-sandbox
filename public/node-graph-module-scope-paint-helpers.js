@@ -770,7 +770,9 @@ function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) 
   // history window holds multiple orbits; even-index downsampling then
   // produces large chords. Gating those as “discontinuities” left only
   // single-point segments — and a 1-pt stroke is invisible → blank face.
-  // Only break on non-finite / missing samples.
+  // Skip Discontinuity: break only on sample-space X/Y jumps (or missing).
+  const skipDisc = nodeGraphScope2dSkipDiscontinuitiesEnabled(settings);
+  let prevIndex = -1;
   const visit = (index) => {
     const point = nodeGraphScope2dTracePointFromSamples(
       canvasSquare,
@@ -780,9 +782,14 @@ function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) 
     );
     if (!point) {
       breakNodeGraphScope2dPath(points);
+      prevIndex = -1;
       return;
     }
+    if (skipDisc && prevIndex >= 0 && nodeGraphScope2dRangeHasDiscontinuity(buffer, prevIndex, index)) {
+      breakNodeGraphScope2dPath(points);
+    }
     points.push(point);
+    prevIndex = index;
   };
   if (indices && indices.length) {
     for (let i = 0; i < indices.length; i += 1) {
@@ -1775,6 +1782,42 @@ function breakNodeGraphScope2dPath(points) {
   }
 }
 
+function nodeGraphScope2dSkipDiscontinuitiesEnabled(settings) {
+  return typeof nodeGraphDisplaySettingsToggleIsOn === "function"
+    ? nodeGraphDisplaySettingsToggleIsOn(settings?.skipDiscontinuities)
+    : settings?.skipDiscontinuities === true;
+}
+
+function nodeGraphScope2dAdjacentSampleIsDiscontinuity(buffer, indexA, indexB, threshold) {
+  const t = Number.isFinite(Number(threshold))
+    ? Number(threshold)
+    : (typeof nodeGraphModuleScopeDiscontinuityThreshold === "number"
+      ? nodeGraphModuleScopeDiscontinuityThreshold
+      : 0.85);
+  const ax = Number(buffer?.x?.[indexA]);
+  const ay = Number(buffer?.y?.[indexA]);
+  const bx = Number(buffer?.x?.[indexB]);
+  const by = Number(buffer?.y?.[indexB]);
+  if (![ax, ay, bx, by].every(Number.isFinite)) {
+    return true;
+  }
+  return Math.abs(bx - ax) > t || Math.abs(by - ay) > t;
+}
+
+function nodeGraphScope2dRangeHasDiscontinuity(buffer, fromIndex, toIndex, threshold) {
+  const from = Math.floor(Number(fromIndex) || 0);
+  const to = Math.floor(Number(toIndex) || 0);
+  if (!(to > from)) {
+    return false;
+  }
+  for (let i = from; i < to; i += 1) {
+    if (nodeGraphScope2dAdjacentSampleIsDiscontinuity(buffer, i, i + 1, threshold)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function firstNodeGraphScope2dPathPoint(points) {
   if (!Array.isArray(points)) {
     return null;
@@ -1871,10 +1914,13 @@ function buildNodeGraphScope2dEvenPathPoints(square, buffer, maxPoints, settings
   );
   const indices = nodeGraphScope2dEvenSampleIndices(count, controlCap);
   const pathPoints = [];
+  const skipDisc = nodeGraphScope2dSkipDiscontinuitiesEnabled(settings);
+  let prevIndex = -1;
   for (let i = 0; i < indices.length; i += 1) {
     const index = indices[i];
     if (!nodeGraphScope2dSampleIsFinite(buffer.x[index], buffer.y[index])) {
       breakNodeGraphScope2dPath(pathPoints);
+      prevIndex = -1;
       continue;
     }
     const point = nodeGraphScope2dPointFromSamples(
@@ -1885,9 +1931,14 @@ function buildNodeGraphScope2dEvenPathPoints(square, buffer, maxPoints, settings
     );
     if (!point) {
       breakNodeGraphScope2dPath(pathPoints);
+      prevIndex = -1;
       continue;
     }
+    if (skipDisc && prevIndex >= 0 && nodeGraphScope2dRangeHasDiscontinuity(buffer, prevIndex, index)) {
+      breakNodeGraphScope2dPath(pathPoints);
+    }
     pathPoints.push(point);
+    prevIndex = index;
   }
   return pathPoints;
 }
@@ -1923,6 +1974,7 @@ function nodeGraphScope2dCanvasSettingsSignature(settings) {
     // Packing toggles (Full Dot Economy | Dots only) — must bust face cache.
     safeSettings.fullDotEconomy ? 1 : 0,
     safeSettings.dotsOnly ? 1 : 0,
+    safeSettings.skipDiscontinuities ? 1 : 0,
     Math.round(Number(safeSettings.dotBudget) || 2048),
   ].join("|");
 }
@@ -1968,8 +2020,10 @@ function buildNodeGraphScope2dPathPoints(square, buffer, startIndex = 0, options
     Math.min(Number(square?.width) || 1, Number(square?.height) || 1),
   );
   const interpolate = options.interpolate !== false;
+  const skipDisc = nodeGraphScope2dSkipDiscontinuitiesEnabled(options.settings);
   let previousPoint = null;
-  for (let index = Math.max(0, Math.floor(Number(startIndex) || 0)); index < count; index += 1) {
+  const start = Math.max(0, Math.floor(Number(startIndex) || 0));
+  for (let index = start; index < count; index += 1) {
     if (!nodeGraphScope2dSampleIsFinite(buffer.x[index], buffer.y[index])) {
       breakNodeGraphScope2dPath(pathPoints);
       previousPoint = null;
@@ -1980,6 +2034,10 @@ function buildNodeGraphScope2dPathPoints(square, buffer, startIndex = 0, options
       breakNodeGraphScope2dPath(pathPoints);
       previousPoint = null;
       continue;
+    }
+    if (skipDisc && index > start && nodeGraphScope2dAdjacentSampleIsDiscontinuity(buffer, index - 1, index)) {
+      breakNodeGraphScope2dPath(pathPoints);
+      previousPoint = null;
     }
     if (interpolate) {
       previousPoint = appendNodeGraphScope2dSegment(pathPoints, previousPoint, point, interpolationSpacingPx);

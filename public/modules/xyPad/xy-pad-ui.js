@@ -568,7 +568,7 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
     pathPoints = [pathPoints[0], pathPoints[0]];
   }
   const maxDots = Math.max(
-    64,
+    1,
     Math.min(8192, Math.round(Number(options.maxDots) || 2048)),
   );
   // Default ON: spend dense packing up to Dot budget (hard solid trails).
@@ -767,7 +767,7 @@ function drawNodeGraphXyPad(pad, options = {}) {
     : Math.max(0, Math.min(1, Number(display.lineThickness) || 0.42));
   const puckSize01 = Math.max(0.005, Math.min(0.25, Number(display.puckSize) || 0.045));
   const dotBudget = Math.max(
-    64,
+    1,
     Math.min(8192, Math.round(Number(display.dotBudget) || 2048)),
   );
   const fullDotEconomy = display.fullDotEconomy !== false;

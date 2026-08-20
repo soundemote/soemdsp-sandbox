@@ -70,7 +70,7 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
     return 100;
   }
   if (key === "dotBudget") {
-    return 64;
+    return 1;
   }
   if (key === "bins") {
     return 8;
@@ -110,6 +110,11 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
   }
   const value = currentValue != null ? currentValue : Number(input.value);
   return nodeGraphMagnitudeStepperQuantum(value, direction);
+}
+
+/** Integer fields: 1 screen pixel of drag → 1 quantum (Dot Budget = 1). */
+function nodeGraphTraceDisplayIntegerPixelDragField(key) {
+  return key === "dotBudget";
 }
 
 function nodeGraphTraceDisplaySizeControlField(key) {
@@ -365,7 +370,7 @@ function nodeGraphTraceDisplayClampDotBudget(value) {
   if (!Number.isFinite(n)) {
     return 2048;
   }
-  return Math.max(0, Math.min(8192, n));
+  return Math.max(1, Math.min(8192, n));
 }
 
 // Clamp rules shared by every display-settings form type, keyed by field name.
