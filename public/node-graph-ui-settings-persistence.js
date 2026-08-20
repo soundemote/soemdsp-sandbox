@@ -362,7 +362,7 @@ function rememberNodeGraphWorkspaceWindowState(key, element, patch = {}, options
 }
 
 function saveNodeGraphWorkspaceWindowStatesToUserSettings(options = {}) {
-  persistNodeGraphUserSession();
+  persistSession({ reason: "session", ...options });
 }
 
 // App-wide floating-window open policy, in one place.
@@ -1030,9 +1030,6 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       macroControlsFace: typeof normalizeNodeGraphMacroControlsFaceSettings === "function"
         ? normalizeNodeGraphMacroControlsFaceSettings(nodeGraphMvp.macroControlsFace)
         : nodeGraphMvp.macroControlsFace,
-      traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
-        ? normalizeNodeGraphTraceDisplaySettings(nodeGraphMvp.traceSettings)
-        : nodeGraphMvp.traceSettings,
       sliderLayout: normalizeNodeGraphSliderLayout(nodeGraphMvp.sliderLayout),
       sliderAmountVisible: Boolean(nodeGraphMvp.sliderAmountVisible),
       sliderPositionVisible: Boolean(nodeGraphMvp.sliderPositionVisible),
@@ -1084,11 +1081,94 @@ function nodeGraphUserSessionFormat() {
   };
 }
 
+function readNodeGraphSessionSelectionFromState() {
+  const ids = typeof nodeGraphSelectedNodeIdsInOrder === "function"
+    ? nodeGraphSelectedNodeIdsInOrder()
+    : (typeof nodeGraphSelectedNodeIds === "function"
+      ? [...nodeGraphSelectedNodeIds()]
+      : []);
+  const live = {
+    selectedNodeIds: ids.map((id) => String(id || "").trim()).filter(Boolean),
+    lastModuleActionTargetNode: String(nodeGraphMvp?.lastModuleActionTargetNode || "").trim(),
+  };
+  const pending = nodeGraphMvp?.sessionSelection;
+  if (!live.selectedNodeIds.length && Array.isArray(pending?.selectedNodeIds) && pending.selectedNodeIds.length) {
+    return {
+      selectedNodeIds: pending.selectedNodeIds.map((id) => String(id || "").trim()).filter(Boolean),
+      lastModuleActionTargetNode: String(
+        pending.lastModuleActionTargetNode || live.lastModuleActionTargetNode,
+      ).trim(),
+    };
+  }
+  return live;
+}
+
+function normalizeNodeGraphSessionSelection(source = {}) {
+  const raw = source && typeof source === "object" ? source : {};
+  const list = Array.isArray(raw.selectedNodeIds)
+    ? raw.selectedNodeIds
+    : (raw.selected?.type === "node" && raw.selected.id
+      ? [raw.selected.id]
+      : (Array.isArray(raw.selected?.ids) ? raw.selected.ids : []));
+  const selectedNodeIds = [];
+  const seen = new Set();
+  for (const id of list) {
+    const next = String(id || "").trim();
+    if (!next || seen.has(next)) {
+      continue;
+    }
+    seen.add(next);
+    selectedNodeIds.push(next);
+  }
+  return {
+    selectedNodeIds,
+    lastModuleActionTargetNode: String(raw.lastModuleActionTargetNode || "").trim(),
+  };
+}
+
+function applyNodeGraphSessionSelection(snapshot = nodeGraphMvp?.sessionSelection) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return false;
+  }
+  nodeGraphMvp._applyingSessionSelection = true;
+  try {
+    const last = String(snapshot.lastModuleActionTargetNode || "").trim();
+    if (last && typeof nodeGraphPatchNode === "function" && nodeGraphPatchNode(last)) {
+      nodeGraphMvp.lastModuleActionTargetNode = last;
+    }
+    const ids = (snapshot.selectedNodeIds || []).filter((id) => (
+      typeof nodeGraphPatchNode === "function" ? Boolean(nodeGraphPatchNode(id)) : true
+    ));
+    if (typeof setNodeGraphNodeSelection === "function") {
+      setNodeGraphNodeSelection(ids);
+    }
+    return ids.length > 0;
+  } finally {
+    nodeGraphMvp._applyingSessionSelection = false;
+  }
+}
+
+function nodeGraphPatchSourceForUserSession() {
+  const live = nodeGraphMvp?.patch;
+  const working = nodeGraphMvp?.workingPatch;
+  const liveCount = Array.isArray(live?.nodes) ? live.nodes.length : 0;
+  const workingCount = Array.isArray(working?.nodes) ? working.nodes.length : 0;
+  // Display Settings (and every other live node bag) live on the graph.
+  // Window/pan persist used to serialize a stale workingPatch snapshot, so
+  // knobs shown in Display Settings vanished on refresh. Prefer live when it
+  // has modules; never serialize an empty live graph over a non-empty autosave.
+  if (liveCount === 0 && workingCount > 0) {
+    return working;
+  }
+  return liveCount > 0 ? live : working;
+}
+
 function cloneNodeGraphWorkingPatchForSession(patch) {
-  if (!patch || typeof patch !== "object") {
+  const source = nodeGraphPatchSourceForUserSession() || patch;
+  if (!source || typeof source !== "object") {
     return null;
   }
-  const workingPatchForSession = cloneNodeGraphPatch(patch);
+  const workingPatchForSession = cloneNodeGraphPatch(source);
   if (typeof nodeGraphPatchSamplesWithoutEmbeddedAudio === "function") {
     workingPatchForSession.samples = nodeGraphPatchSamplesWithoutEmbeddedAudio(
       workingPatchForSession.samples,
@@ -1258,6 +1338,16 @@ function normalizeNodeGraphUserSession(payload = {}) {
           ?? nodeGraphMvp.moduleScopeFramesPerSecond
           ?? 60,
       ) || 60))),
+    traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
+      ? normalizeNodeGraphTraceDisplaySettings(
+        payload.traceSettings ?? view.traceSettings ?? nodeGraphMvp.traceSettings,
+      )
+      : (payload.traceSettings ?? view.traceSettings ?? nodeGraphMvp.traceSettings ?? null),
+    ...normalizeNodeGraphSessionSelection({
+      selectedNodeIds: payload.selectedNodeIds ?? view.selectedNodeIds,
+      lastModuleActionTargetNode: payload.lastModuleActionTargetNode ?? view.lastModuleActionTargetNode,
+      selected: payload.selected ?? view.selected,
+    }),
   };
 }
 
@@ -1274,7 +1364,7 @@ function nodeGraphUserSessionFromLegacySettings(settings = {}) {
 }
 
 function readNodeGraphUserSessionFromState() {
-  const workingPatchForSession = cloneNodeGraphWorkingPatchForSession(nodeGraphMvp.workingPatch);
+  const workingPatchForSession = cloneNodeGraphWorkingPatchForSession(nodeGraphPatchSourceForUserSession());
   return {
     format: nodeGraphUserSessionFormat(),
     workingPatch: workingPatchForSession,
@@ -1338,11 +1428,15 @@ function readNodeGraphUserSessionFromState() {
     moduleScopeFramesPerSecond: typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
       ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60)
       : Math.max(0, Math.min(240, Math.round(Number(nodeGraphMvp.moduleScopeFramesPerSecond) || 60))),
+    traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
+      ? normalizeNodeGraphTraceDisplaySettings(nodeGraphMvp.traceSettings)
+      : nodeGraphMvp.traceSettings,
+    ...readNodeGraphSessionSelectionFromState(),
   };
 }
 
 function serializeNodeGraphUserSession() {
-  return JSON.stringify(readNodeGraphUserSessionFromState(), null, 2);
+  return JSON.stringify(readNodeGraphUserSessionFromState());
 }
 
 function loadNodeGraphUserSessionFromScript(text) {
@@ -1444,7 +1538,22 @@ function applyNodeGraphUserSession(session, options = {}) {
       renderNodeGraphModuleScopeBrightnessControl();
     }
   }
-  if (typeof applyNodeGraphWorkspaceWindowStates === "function") {
+  if (normalized.traceSettings != null) {
+    nodeGraphMvp.traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
+      ? normalizeNodeGraphTraceDisplaySettings(normalized.traceSettings)
+      : normalized.traceSettings;
+  }
+  nodeGraphMvp.sessionSelection = {
+    selectedNodeIds: Array.isArray(normalized.selectedNodeIds) ? normalized.selectedNodeIds : [],
+    lastModuleActionTargetNode: String(normalized.lastModuleActionTargetNode || "").trim(),
+  };
+  if (Array.isArray(nodeGraphMvp.patch?.nodes) && nodeGraphMvp.patch.nodes.length > 0) {
+    applyNodeGraphSessionSelection(nodeGraphMvp.sessionSelection);
+  }
+  // Window restore after patch commit (bootstrap). Applying here while
+  // live patch is empty remembers Display Settings targetNode: "".
+  const liveNodeCount = Array.isArray(nodeGraphMvp.patch?.nodes) ? nodeGraphMvp.patch.nodes.length : 0;
+  if (liveNodeCount > 0 && typeof applyNodeGraphWorkspaceWindowStates === "function") {
     applyNodeGraphWorkspaceWindowStates();
   }
   if (typeof applyNodeGraphZoom === "function") {
@@ -1481,6 +1590,29 @@ function persistNodeGraphUserSession() {
     return false;
   }
   return saveNodeGraphUserSessionLocal(serializeNodeGraphUserSession());
+}
+
+/**
+ * One persist door. `reason` picks the blob so callers do not dual-write:
+ *   session (default) — seats, selection, FPS, global traceSettings, workingPatch field
+ *   workingPatch — clone live graph onto workingPatch, then session
+ *   uiSettings — chrome look only (not global traceSettings)
+ */
+function persistSession(options = {}) {
+  const reason = String(options.reason || "session");
+  if (reason === "uiSettings") {
+    if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
+      scheduleNodeUiDevSettingsAutosave();
+    }
+    return true;
+  }
+  if (reason === "workingPatch") {
+    if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+      return saveNodeGraphWorkingPatchToUserSettings(options);
+    }
+    return false;
+  }
+  return persistNodeGraphUserSession();
 }
 
 function loadNodeGraphUserSessionLocal() {
@@ -1983,7 +2115,7 @@ function saveNodeGraphWorkspaceViewToUserSettings(options = {}) {
   // Ambient autosave (pan/zoom/smoothing-drag/etc.) only persists to this
   // browser's session blob so a refresh doesn't lose progress. It must never
   // silently overwrite the shipped default UI settings preset on the server.
-  return persistNodeGraphUserSession();
+  return persistSession({ reason: "session" });
 }
 
 function finishNodeUiDevSettingsHydration() {
@@ -2077,7 +2209,7 @@ async function loadNodeUiDevDefaultSettings() {
     document.documentElement.dataset.nodeUiDevSettingsSource = "local";
     finishNodeUiDevSettingsHydration();
     if (!sessionLoadFailed && storedSession) {
-      persistNodeGraphUserSession();
+      persistSession({ reason: "session" });
     }
     return;
   }

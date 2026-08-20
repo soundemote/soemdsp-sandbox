@@ -434,10 +434,19 @@ function rememberNodeGraphTraceDisplaySettingsWindowState(patch = {}, options = 
   if (typeof rememberNodeGraphWorkspaceWindowState !== "function") {
     return null;
   }
+  const nextPatch = { ...patch };
+  const liveCount = Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes.length : 0;
+  const workingCount = Array.isArray(nodeGraphMvp?.workingPatch?.nodes)
+    ? nodeGraphMvp.workingPatch.nodes.length
+    : 0;
+  // Boot can restore Display Settings before nodes exist. Do not persist "".
+  if (nextPatch.targetNode === "" && liveCount === 0 && workingCount > 0) {
+    delete nextPatch.targetNode;
+  }
   return rememberNodeGraphWorkspaceWindowState(
     "traceDisplaySettings",
     popover,
-    patch,
+    nextPatch,
     { status: false, ...options },
   );
 }
@@ -550,6 +559,11 @@ function restoreNodeGraphTraceDisplaySettingsWindowFromState(state = {}) {
     return;
   }
   if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
+    const liveCount = Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes.length : 0;
+    if (liveCount === 0 && nodeId && nodeId !== "__globalTraceSettings") {
+      nodeGraphMvp.traceDisplaySettingsTargetNode = nodeId;
+      return;
+    }
     showBlankNodeGraphTraceDisplaySettingsContent();
     return;
   }
@@ -589,6 +603,10 @@ function syncOpenNodeGraphTraceDisplaySettingsToNode(nodeId) {
   }
   const node = nodeGraphPatchNode(nodeId);
   if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
+    const liveCount = Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes.length : 0;
+    if (liveCount === 0) {
+      return false;
+    }
     // No module / no display face: empty page stays open.
     showBlankNodeGraphTraceDisplaySettingsContent();
     rememberNodeGraphTraceDisplaySettingsWindowState(

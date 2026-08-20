@@ -100,13 +100,16 @@ function scheduleNodeGraphWorkingPatchFileAutosave(text, options = {}) {
 }
 
 function saveNodeGraphWorkingPatchToUserSettings(options = {}) {
-  if (typeof persistNodeGraphUserSession !== "function") {
-    return false;
-  }
   // Name is historical: writes the session blob, not useruisettings.json.
   // Prefer live graph; fall back to last known working patch if patch is empty
   // mid-transition (should not happen, but never serialize "no modules" over a
   // non-empty autosave by accident).
+  const persist = typeof persistSession === "function"
+    ? () => persistSession({ reason: "session" })
+    : (typeof persistNodeGraphUserSession === "function" ? persistNodeGraphUserSession : null);
+  if (!persist) {
+    return false;
+  }
   const live = nodeGraphMvp.patch;
   const liveCount = Array.isArray(live?.nodes) ? live.nodes.length : 0;
   const priorCount = Array.isArray(nodeGraphMvp.workingPatch?.nodes)
@@ -121,7 +124,7 @@ function saveNodeGraphWorkingPatchToUserSettings(options = {}) {
   }
   nodeGraphMvp.workingPatch = cloneNodeGraphPatch(live);
   syncNodeGraphCurrentSavedPatchHeader();
-  const saved = persistNodeGraphUserSession();
+  const saved = persist();
   if (options.returnFileSave) {
     return Promise.resolve({ local: saved, file: false });
   }
@@ -146,13 +149,16 @@ if (typeof window !== "undefined" && !window.__nodeGraphWorkingPatchUnloadBound)
 }
 
 function clearNodeGraphWorkingPatchFromUserSettings() {
-  if (typeof persistNodeGraphUserSession !== "function") {
+  const persist = typeof persistSession === "function"
+    ? () => persistSession({ reason: "session" })
+    : (typeof persistNodeGraphUserSession === "function" ? persistNodeGraphUserSession : null);
+  if (!persist) {
     return false;
   }
   nodeGraphMvp.workingPatch = null;
   nodeGraphMvp.currentSavedPatchFilename = "";
   nodeGraphMvp.patchDirtyState = "untouched";
-  return persistNodeGraphUserSession();
+  return persist();
 }
 
 function initNodeGraphPatchFromDefault() {

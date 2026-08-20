@@ -95,6 +95,9 @@ async function initNodeGraphMvp() {
   renderNodeGraphSliderVisibilityToggles();
   renderNodeGraphSliderLayout();
   ensureNodeGraphStartupModulesVisible();
+  if (typeof applyNodeGraphSessionSelection === "function") {
+    applyNodeGraphSessionSelection();
+  }
   if (typeof applyNodeGraphWorkspaceWindowStates === "function") {
     applyNodeGraphWorkspaceWindowStates();
   }

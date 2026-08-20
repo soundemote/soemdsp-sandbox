@@ -59,6 +59,22 @@ load → migrateNodeGraphPatchToCurrent → validateNodeGraphPatch → compileNo
 
 See `docs/PATCH_MIGRATIONS.md`.
 
+## Boot + persist order
+
+```text
+UI-settings hydrate (chrome; may seed legacy traceSettings)
+  → session hydrate (workingPatch field, seats, selection, FPS, traceSettings SSOT)
+  → persistSession({ reason: "session" })  // must not wipe pending selection
+initNodeGraphMvp:
+  commit live patch (no working-patch autosave)
+  → applyNodeGraphSessionSelection
+  → applyNodeGraphWorkspaceWindowStates  (Display Settings target after nodes exist)
+persistSession({ reason }):
+  session      — seats / selection / FPS / global traceSettings / stored workingPatch
+  workingPatch — clone live graph, then session
+  uiSettings   — chrome look only (not global traceSettings)
+```
+
 ## AudioWorklet Blob order (Phase D)
 
 ```text

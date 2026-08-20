@@ -417,133 +417,209 @@ function cloneNodeGraphTypedDisplaySettings(node) {
   const migrate = typeof migrateNodeGraphLegacyDot2Settings === "function"
     ? migrateNodeGraphLegacyDot2Settings
     : (settings) => settings;
-  if (displayType === "dot") {
-    return { zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(migrate(node.zeroDBurnSettings, false)) };
-  }
-  if (displayType === "vectorDot" || displayType === "pulseDot") {
-    const packed = node.vectorDotSettings || node.zeroDBurnSettings || node.led || {};
-    const next = {
-      vectorDotSettings: typeof normalizeNodeGraphVectorDotSettings === "function"
-        ? normalizeNodeGraphVectorDotSettings(packed)
-        : packed,
-    };
-    if (node.type === "led" && typeof normalizeNodeGraphLedLayout === "function") {
-      next.led = normalizeNodeGraphLedLayout({
-        ...(node.led || {}),
-        hue: next.vectorDotSettings.hue,
-        brightness: next.vectorDotSettings.dot1Brightness,
-        blur: next.vectorDotSettings.lineThickness,
-        dot1Size: next.vectorDotSettings.dot1Size,
-      });
+  const bag = migrate(node?.traceDisplaySettings, displayType === "trace" && isOutput);
+  switch (displayType) {
+    case "dot":
+      return { zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(migrate(node.zeroDBurnSettings, false)) };
+    case "vectorDot":
+    case "pulseDot": {
+      const packed = node.vectorDotSettings || node.zeroDBurnSettings || node.led || {};
+      const next = {
+        vectorDotSettings: typeof normalizeNodeGraphVectorDotSettings === "function"
+          ? normalizeNodeGraphVectorDotSettings(packed)
+          : packed,
+      };
+      if (node.type === "led" && typeof normalizeNodeGraphLedLayout === "function") {
+        next.led = normalizeNodeGraphLedLayout({
+          ...(node.led || {}),
+          hue: next.vectorDotSettings.hue,
+          brightness: next.vectorDotSettings.dot1Brightness,
+          blur: next.vectorDotSettings.lineThickness,
+          dot1Size: next.vectorDotSettings.dot1Size,
+        });
+      }
+      return next;
     }
-    return next;
-  }
-  if (displayType === "lineBurn") {
-    return { traceDisplaySettings: normalizeNodeGraphLineBurnSettings(migrate(node.traceDisplaySettings, false)) };
-  }
-  if (displayType === "value") {
-    return { traceDisplaySettings: normalizeNodeGraphValueOscilloscopeSettings(migrate(node.traceDisplaySettings, false)) };
-  }
-  // scope2d-schema faces (incl. Videoscope / bank / hypersaw energy phosphor).
-  // Must not fall through to {} — validateNodeGraphPatch only copies what we
-  // return here, so resize/commit would wipe burn/decay/density on miss.
-  if (
-    displayType === "scope2d"
-    || displayType === "phosphorLight"
-    || displayType === "videoscopeBurn"
-    || displayType === "oscilloscopeBankBurn"
-    || displayType === "hypersawBurn"
-  ) {
-    // phosphorLight is a legacy alias of scope2d; always store scope2d schema.
-    const raw = migrate(node.traceDisplaySettings, false) || {};
-    const mapped = {
-      ...raw,
-      background: raw.background ?? raw.backgroundColor,
-      dot1Color: raw.dot1Color ?? raw.color,
-      dot1Brightness: raw.dot1Brightness ?? raw.brightness,
-      lineThickness: raw.lineThickness ?? raw.dot1Blur,
-    };
-    const typeDefaults = typeof nodeGraphScope2dSettingsDefaultsForModuleType === "function"
-      ? nodeGraphScope2dSettingsDefaultsForModuleType(node?.type)
-      : null;
-    return { traceDisplaySettings: normalizeNodeGraphScope2dSettings(mapped, typeDefaults) };
-  }
-  if (displayType === "scope2dTrace") {
-    return { traceDisplaySettings: normalizeNodeGraphScope2dTraceSettings(migrate(node.traceDisplaySettings, false)) };
-  }
-  if (displayType === "numberReadout") {
-    const defaults = typeof nodeGraphNumberReadoutDefaultsForNode === "function"
-      ? nodeGraphNumberReadoutDefaultsForNode(node)
-      : null;
-    return {
-      traceDisplaySettings: normalizeNodeGraphNumberReadoutSettings(
-        migrate(node.traceDisplaySettings, false),
-        defaults,
-      ),
-    };
-  }
-  if (displayType === "xyPad" && typeof normalizeNodeGraphXyPadDisplaySettings === "function") {
-    return {
-      traceDisplaySettings: normalizeNodeGraphXyPadDisplaySettings(migrate(node.traceDisplaySettings, false)),
-    };
-  }
-  if (displayType === "spectrogramBurn" && typeof normalizeNodeGraphSpectrogramSettings === "function") {
-    const merged = { ...(migrate(node.traceDisplaySettings, false) || {}) };
-    if (merged.fftSize == null && node.params?.fftSize != null) {
-      merged.fftSize = node.params.fftSize;
+    case "lineBurn":
+      return { traceDisplaySettings: normalizeNodeGraphLineBurnSettings(bag) };
+    case "value":
+      return { traceDisplaySettings: normalizeNodeGraphValueOscilloscopeSettings(bag) };
+    case "scope2d":
+    case "phosphorLight":
+    case "videoscopeBurn":
+    case "oscilloscopeBankBurn":
+    case "hypersawBurn": {
+      const raw = bag || {};
+      const mapped = {
+        ...raw,
+        background: raw.background ?? raw.backgroundColor,
+        dot1Color: raw.dot1Color ?? raw.color,
+        dot1Brightness: raw.dot1Brightness ?? raw.brightness,
+        lineThickness: raw.lineThickness ?? raw.dot1Blur,
+      };
+      const typeDefaults = typeof nodeGraphScope2dSettingsDefaultsForModuleType === "function"
+        ? nodeGraphScope2dSettingsDefaultsForModuleType(node?.type)
+        : null;
+      return { traceDisplaySettings: normalizeNodeGraphScope2dSettings(mapped, typeDefaults) };
     }
-    return { traceDisplaySettings: normalizeNodeGraphSpectrogramSettings(merged, node) };
+    case "scope2dTrace": {
+      const typeDefaults = typeof nodeGraphScope2dTraceSettingsDefaultsForModuleType === "function"
+        ? nodeGraphScope2dTraceSettingsDefaultsForModuleType(node?.type)
+        : null;
+      return { traceDisplaySettings: normalizeNodeGraphScope2dTraceSettings(bag, typeDefaults) };
+    }
+    case "numberReadout": {
+      const defaults = typeof nodeGraphNumberReadoutDefaultsForNode === "function"
+        ? nodeGraphNumberReadoutDefaultsForNode(node)
+        : null;
+      return { traceDisplaySettings: normalizeNodeGraphNumberReadoutSettings(bag, defaults) };
+    }
+    case "xyPad":
+      return typeof normalizeNodeGraphXyPadDisplaySettings === "function"
+        ? { traceDisplaySettings: normalizeNodeGraphXyPadDisplaySettings(bag) }
+        : { traceDisplaySettings: bag || {} };
+    case "spectrogramBurn": {
+      const merged = { ...(bag || {}) };
+      if (merged.fftSize == null && node.params?.fftSize != null) {
+        merged.fftSize = node.params.fftSize;
+      }
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphSpectrogramSettings === "function"
+          ? normalizeNodeGraphSpectrogramSettings(merged, node)
+          : merged,
+      };
+    }
+    case "ledLamp":
+      return typeof normalizeNodeGraphLedLayout === "function"
+        ? { led: normalizeNodeGraphLedLayout(node.led) }
+        : { led: node.led || {} };
+    case "phosphorWaveform":
+      return {
+        phosphorWaveformSettings: typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
+          ? normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings)
+          : (node.phosphorWaveformSettings || {}),
+      };
+    case "knobFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphKnobFaceDisplaySettings === "function"
+          ? normalizeNodeGraphKnobFaceDisplaySettings(bag)
+          : (bag || {}),
+      };
+    case "portalFace": {
+      const channel = typeof nodeGraphPortalClampChannel === "function"
+        ? nodeGraphPortalClampChannel(node?.params?.channel)
+        : Math.max(0, Math.round(Number(node?.params?.channel) || 0));
+      return { params: { ...(node.params || {}), channel } };
+    }
+    case "roundShapeFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
+          ? normalizeNodeGraphRoundShapeFaceSettings(bag)
+          : (bag || {}),
+      };
+    case "keypadFace":
+      return {
+        layout: typeof normalizeNodeGraphKeypadLayout === "function"
+          ? normalizeNodeGraphKeypadLayout(node.layout)
+          : (node.layout || {}),
+      };
+    case "textBoxFace":
+      return {
+        layout: typeof normalizeNodeGraphTextBoxLayout === "function"
+          ? normalizeNodeGraphTextBoxLayout(node.layout)
+          : (node.layout || {}),
+      };
+    case "patchFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphPatchFaceDisplaySettings === "function"
+          ? normalizeNodeGraphPatchFaceDisplaySettings(bag)
+          : (bag || {}),
+      };
+    case "limiterGainFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphLimiterGainFaceSettings === "function"
+          ? normalizeNodeGraphLimiterGainFaceSettings(bag)
+          : (bag || {}),
+      };
+    case "evolveFieldFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphEvolveFieldSettings === "function"
+          ? normalizeNodeGraphEvolveFieldSettings(bag)
+          : (bag || {}),
+      };
+    case "rgbShapeFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphRgbShapeSettings === "function"
+          ? normalizeNodeGraphRgbShapeSettings(bag)
+          : (bag || {}),
+      };
+    case "rgbPictureFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphRgbPictureSettings === "function"
+          ? normalizeNodeGraphRgbPictureSettings(node.rgbPicture || bag)
+          : (bag || {}),
+      };
+    case "rgbFractalFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphRgbFractalSettings === "function"
+          ? normalizeNodeGraphRgbFractalSettings(bag)
+          : (bag || {}),
+      };
+    case "fbmFieldFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphFbmFieldSettings === "function"
+          ? normalizeNodeGraphFbmFieldSettings(bag)
+          : (bag || {}),
+      };
+    case "vectorRgbFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphVectorRgbSettings === "function"
+          ? normalizeNodeGraphVectorRgbSettings(bag)
+          : (bag || {}),
+      };
+    case "rasterRgbFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphRasterRgbSettings === "function"
+          ? normalizeNodeGraphRasterRgbSettings(bag)
+          : (bag || {}),
+      };
+    case "gradientVectorscopeFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphGradientVectorscopeSettings === "function"
+          ? normalizeNodeGraphGradientVectorscopeSettings(bag)
+          : (bag || {}),
+      };
+    case "matrixFace":
+    case "matrixWaterfallFace":
+    case "matrixDisplayFace": {
+      if (node.type === "matrixWaterfall" || displayType === "matrixWaterfallFace") {
+        const settings = node.matrixWaterfall || node.matrixDisplay || bag;
+        return {
+          matrixWaterfall: typeof normalizeNodeGraphMatrixWaterfall === "function"
+            ? normalizeNodeGraphMatrixWaterfall(settings)
+            : (typeof normalizeNodeGraphMatrixFaceSettings === "function"
+              ? normalizeNodeGraphMatrixFaceSettings(settings, "matrixWaterfallFace")
+              : (settings || {})),
+        };
+      }
+      const settings = node.matrixDisplay || bag;
+      return {
+        matrixDisplay: typeof normalizeNodeGraphMatrixPlate === "function"
+          ? normalizeNodeGraphMatrixPlate(settings)
+          : (typeof normalizeNodeGraphMatrixFaceSettings === "function"
+            ? normalizeNodeGraphMatrixFaceSettings(settings, "matrixDisplayFace")
+            : (settings || {})),
+      };
+    }
+    case "trace":
+    case "traceXyz":
+      return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(bag) };
+    default:
+      if (node?.traceDisplaySettings && typeof node.traceDisplaySettings === "object") {
+        return { traceDisplaySettings: { ...node.traceDisplaySettings } };
+      }
+      return {};
   }
-  if (displayType === "ledLamp" && typeof normalizeNodeGraphLedLayout === "function") {
-    // LED face settings live on node.led (not traceDisplaySettings).
-    return { led: normalizeNodeGraphLedLayout(node.led) };
-  }
-  if (displayType === "phosphorWaveform" && typeof normalizeNodeGraphPhosphorWaveformSettings === "function") {
-    return {
-      phosphorWaveformSettings: normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings),
-    };
-  }
-  if (displayType === "evolveFieldFace" && typeof normalizeNodeGraphEvolveFieldSettings === "function") {
-    return {
-      traceDisplaySettings: normalizeNodeGraphEvolveFieldSettings(migrate(node.traceDisplaySettings, false)),
-    };
-  }
-  if (displayType === "rgbFractalFace" && typeof normalizeNodeGraphRgbFractalSettings === "function") {
-    return {
-      traceDisplaySettings: normalizeNodeGraphRgbFractalSettings(migrate(node.traceDisplaySettings, false)),
-    };
-  }
-  if (displayType === "fbmFieldFace" && typeof normalizeNodeGraphFbmFieldSettings === "function") {
-    return {
-      traceDisplaySettings: normalizeNodeGraphFbmFieldSettings(migrate(node.traceDisplaySettings, false)),
-    };
-  }
-  if (displayType === "patchFace" && typeof normalizeNodeGraphPatchFaceDisplaySettings === "function") {
-    return {
-      traceDisplaySettings: normalizeNodeGraphPatchFaceDisplaySettings(migrate(node.traceDisplaySettings, false)),
-    };
-  }
-  if (displayType === "trace" && Object.hasOwn(node, "traceDisplaySettings")) {
-    return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(migrate(node.traceDisplaySettings, isOutput)) };
-  }
-  if (displayType === "traceXyz" && Object.hasOwn(node, "traceDisplaySettings")) {
-    return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(migrate(node.traceDisplaySettings, false)) };
-  }
-  if (displayType === "gradientVectorscopeFace" && typeof normalizeNodeGraphGradientVectorscopeSettings === "function") {
-    return {
-      traceDisplaySettings: normalizeNodeGraphGradientVectorscopeSettings(migrate(node.traceDisplaySettings, false)),
-    };
-  }
-  // Last resort: if a face still has settings but schema is unknown/new,
-  // preserve the object rather than dropping it on every validate/clone.
-  if (Object.hasOwn(node, "traceDisplaySettings") && node.traceDisplaySettings) {
-    return {
-      traceDisplaySettings: {
-        ...(typeof node.traceDisplaySettings === "object" ? node.traceDisplaySettings : {}),
-      },
-    };
-  }
-  return {};
 }
 
 function cloneNodeGraphPatch(patch) {

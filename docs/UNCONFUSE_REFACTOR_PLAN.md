@@ -179,11 +179,11 @@ Phase 4.1: delete the **zero-caller** trio after smoke_test strings are updated.
 
 | ID | Win | Files | Risk |
 |----|-----|-------|------|
-| 1.1 | One helper: `persistSession({ reason })`. Callers stop choosing between session / UI-settings / workingPatch by accident. | `ui-settings-persistence.js`, `file-actions.js` | Low if it only wraps |
-| 1.2 | Document boot order in `ARCHITECTURE.md` (10 lines). | docs | None |
-| 1.3 | Stop dual-writing global `traceSettings` into the UI-settings blob unless that blob is the SSOT. Pick **session**. | persistence, settings-apply | Medium — Clear Startup / bundled preset |
-| 1.4 | Window restore must not `remember(..., targetNode: "")` during boot before nodes exist (that can persist a blank Display Settings target). | settings-window.js | Medium |
-| 1.5 | `cloneNodeGraphTypedDisplaySettings`: one switch per `settingsSchema`; add missing schemas in the same list as assign/form-io (lineBurn, limiter, matrix residual if any). No `Object.hasOwn` traps that drop first-time bags incorrectly. | `patch-clone.js`, `settings-apply.js`, `settings-form-io.js` | Medium — round-trip a phosphor + Instant Trace node |
+| 1.1 | ~~One helper: `persistSession({ reason })`. Callers stop choosing between session / UI-settings / workingPatch by accident.~~ | `ui-settings-persistence.js`, `file-actions.js` | Low if it only wraps |
+| 1.2 | ~~Document boot order in `ARCHITECTURE.md` (10 lines).~~ | docs | None |
+| 1.3 | ~~Stop dual-writing global `traceSettings` into the UI-settings blob unless that blob is the SSOT. Pick **session**.~~ | persistence, settings-apply | Medium — Clear Startup / bundled preset |
+| 1.4 | ~~Window restore must not `remember(..., targetNode: "")` during boot before nodes exist (that can persist a blank Display Settings target).~~ | settings-window.js | Medium |
+| 1.5 | ~~`cloneNodeGraphTypedDisplaySettings`: one switch per `settingsSchema`; add missing schemas in the same list as assign/form-io (lineBurn, limiter, matrix residual if any). No `Object.hasOwn` traps that drop first-time bags incorrectly.~~ | `patch-clone.js`, `settings-apply.js`, `settings-form-io.js` | Medium — round-trip a phosphor + Instant Trace node |
 
 **Verify:** change Bright/Ghost/Blur, select a module, refresh. Panel, knobs, selection, window page match.
 

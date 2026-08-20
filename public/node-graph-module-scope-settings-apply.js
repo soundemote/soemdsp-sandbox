@@ -393,13 +393,16 @@ function persistNodeGraphTraceDisplaySettingsSoon(persistMode = "debounce") {
     nodeGraphTraceDisplaySettingsPersistTimer = 0;
   }
   const persist = () => {
+    // Global traceSettings SSOT is the session blob (workingPatch clone).
+    if (typeof persistSession === "function") {
+      persistSession({
+        reason: "workingPatch",
+        immediateFile: persistMode === "immediate",
+      });
+      return;
+    }
     if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
       saveNodeGraphWorkingPatchToUserSettings({ immediateFile: persistMode === "immediate" });
-    } else if (
-      typeof serializeNodeUiDevSettings === "function" &&
-      typeof saveNodeUiDevLocalDefaultSettings === "function"
-    ) {
-      saveNodeUiDevLocalDefaultSettings(serializeNodeUiDevSettings());
     }
   };
   if (persistMode === "immediate") {

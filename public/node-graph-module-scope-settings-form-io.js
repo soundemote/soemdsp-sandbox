@@ -617,6 +617,7 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
     return nodeGraphDisplaySettingsDefaultsForFormType(formType);
   }
+  // Keep this schema list in lockstep with assign + cloneNodeGraphTypedDisplaySettings.
   const settingsSchema = nodeGraphModuleDisplaySettingsSchemaForNode(node);
   if (settingsSchema === "dot") {
     return normalizeNodeGraphZeroDBurnSettings(node.zeroDBurnSettings);
