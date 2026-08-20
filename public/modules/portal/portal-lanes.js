@@ -112,15 +112,20 @@ function nodeGraphPortalAllTypes() {
 
 function nodeGraphPortalLaneDefinition(kind, spec) {
   const ports = spec.ports.slice();
-  const labels = {};
+  const inArrow = "\u2192";
+  const outLabels = {};
+  const inLabels = {};
   if (spec.hasMono) {
-    labels.Mono = NODE_GRAPH_THRU_SYMBOL;
+    outLabels.Mono = NODE_GRAPH_THRU_SYMBOL;
+    inLabels.Mono = inArrow;
   }
   if (spec.hasLeft) {
-    labels.Left = NODE_GRAPH_THRU_SYMBOL;
+    outLabels.Left = NODE_GRAPH_THRU_SYMBOL;
+    inLabels.Left = inArrow;
   }
   if (spec.hasRight) {
-    labels.Right = NODE_GRAPH_THRU_SYMBOL;
+    outLabels.Right = NODE_GRAPH_THRU_SYMBOL;
+    inLabels.Right = inArrow;
   }
   const aliases = {};
   if (spec.hasMono) {
@@ -128,6 +133,7 @@ function nodeGraphPortalLaneDefinition(kind, spec) {
     aliases.M = "Mono";
     aliases.Out = "Mono";
     aliases[NODE_GRAPH_THRU_SYMBOL] = "Mono";
+    aliases[inArrow] = "Mono";
     aliases.Thru = "Mono";
   }
   if (spec.hasLeft) {
@@ -136,18 +142,19 @@ function nodeGraphPortalLaneDefinition(kind, spec) {
   if (spec.hasRight) {
     aliases.R = "Right";
   }
+  const isInlet = kind !== "outlet";
   return {
     chrome: "LayoutC",
-    planRole: kind === "outlet" ? "sink" : "source",
+    planRole: isInlet ? "source" : "sink",
     planFreeRun: true,
     defaultWidthGu: 4,
     defaultHeightGu: 2,
     defaultUi: { buttonsHidden: true, titleHidden: true },
-    inputAliases: aliases,
-    inputLabels: labels,
-    inputs: ports.slice(),
+    inputAliases: isInlet ? {} : aliases,
+    inputLabels: isInlet ? {} : inLabels,
+    inputs: isInlet ? [] : ports.slice(),
     outputAliases: aliases,
-    outputLabels: labels,
+    outputLabels: outLabels,
     outputs: ports.slice(),
     parameters: [],
   };

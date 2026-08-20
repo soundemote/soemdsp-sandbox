@@ -635,7 +635,22 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
       settings,
     );
   }
-  if (typeof paintNodeGraphModuleScopeColdPlatesOnly === "function") {
+  const dirty = nodeGraphMvp.traceDisplaySettingsDirtyKeys;
+  const inkOnly = dirty
+    && dirty.size > 0
+    && ![...dirty].some((key) => {
+      const k = String(key || "");
+      return k === "*"
+        || k === "background"
+        || k === "backgroundColor"
+        || k === "backgroundHue"
+        || k === "backgroundBrightness"
+        || k === "historySeconds"
+        || k === "zoomSeconds"
+        || k === "pixelDensity"
+        || k === "scale";
+    });
+  if (typeof paintNodeGraphModuleScopeColdPlatesOnly === "function" && !inkOnly) {
     paintNodeGraphModuleScopeColdPlatesOnly(undefined, { force: true });
   }
   // XY Pad face is not a scope slot — repaint pads when display settings change.

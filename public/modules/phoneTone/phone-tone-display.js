@@ -121,7 +121,9 @@ function createNodeGraphPhoneToneDisplay(nodeId, type = "phoneTone") {
       section._phoneToneRaf = 0;
       return;
     }
-    drawNodeGraphPhoneToneFaceItem(section);
+    if (!(typeof nodeGraphDisplaysFrozen === "function" && nodeGraphDisplaysFrozen())) {
+      drawNodeGraphPhoneToneFaceItem(section);
+    }
     section._phoneToneRaf = requestAnimationFrame(tick);
   };
   section._phoneToneRaf = requestAnimationFrame(tick);

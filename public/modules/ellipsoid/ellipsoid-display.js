@@ -54,6 +54,9 @@ function nodeGraphRoundShapeReadScopePort(nodeId, port) {
 }
 
 function nodeGraphRoundShapeLivePlaying() {
+  if (typeof nodeGraphDisplaysFrozen === "function" && nodeGraphDisplaysFrozen()) {
+    return false;
+  }
   if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp?.live?.node) {
     return false;
   }

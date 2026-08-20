@@ -35,8 +35,13 @@ function scopePaintIsVisualPaused() {
 
 /**
  * Full live paint loop should run (RAF + sample force paints).
- * True when engine is playing and visual scope-pause is off.
+ * Live graph never freezes for the magnifier. The lens is a snapshot clone;
+ * scopes on the patch keep drawing.
  */
+function nodeGraphDisplaysFrozen() {
+  return false;
+}
+
 function scopePaintIsLive() {
   if (scopePaintIsVisualPaused()) {
     return false;

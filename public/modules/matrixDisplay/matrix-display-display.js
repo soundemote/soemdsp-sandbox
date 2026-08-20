@@ -307,7 +307,7 @@ function matrixDisplaySchedulePump() {
     const frameReady = typeof nodeGraphDisplayFrameReady === "function"
       ? nodeGraphDisplayFrameReady("matrixDisplay")
       : true;
-    if (frameReady) {
+    if (frameReady && !(typeof nodeGraphDisplaysFrozen === "function" && nodeGraphDisplaysFrozen())) {
       for (const face of faces) {
         if (typeof nodeGraphScreenSoloAllowsNode === "function"
           && !nodeGraphScreenSoloAllowsNode(

@@ -1548,7 +1548,11 @@ function scheduleNodeGraphPhosphorWaveformFrame(section) {
   // doesn't advance -- when the section scrolls back into view its frame
   // clock's stalled-too-long resync path (nodeGraphModuleScopeAdvanceFixedFrameClock)
   // fires a single fresh frame instead of a multi-step catch-up burst.
-  if (nodeGraphPhosphorWaveformSectionOnScreen(section) && nodeGraphPhosphorWaveformFrameReady(section.dataset.node)) {
+  if (
+    !(typeof nodeGraphDisplaysFrozen === "function" && nodeGraphDisplaysFrozen())
+    && nodeGraphPhosphorWaveformSectionOnScreen(section)
+    && nodeGraphPhosphorWaveformFrameReady(section.dataset.node)
+  ) {
     drawNodeGraphPhosphorWaveformDisplay(section);
   }
   window.requestAnimationFrame(() => scheduleNodeGraphPhosphorWaveformFrame(section));

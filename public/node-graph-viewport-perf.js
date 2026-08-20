@@ -159,6 +159,7 @@ function applyNodeGraphViewportCssLight(options = {}) {
   if (typeof updateNodeGraphGridHeatmap === "function") {
     updateNodeGraphGridHeatmap({ lite: true });
   }
+  scheduleNodeGraphViewportCullRefresh();
 }
 
 function nodeGraphWirePlanCacheKey() {
@@ -367,6 +368,63 @@ function nodeGraphViewportCullSleepPainters(element) {
   }));
 }
 
+function nodeGraphViewportCullRefresh() {
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  const surface = typeof nodeGraphZoomSurface === "function"
+    ? nodeGraphZoomSurface()
+    : document.getElementById("nodeGraphZoomSurface");
+  if (!workspace || !surface) {
+    return;
+  }
+  const zoom = Math.max(
+    0.0001,
+    typeof nodeGraphZoom === "function" ? nodeGraphZoom() : (Number(nodeGraphMvp?.zoom) || 1),
+  );
+  const origin = typeof nodeGraphRenderedOriginOffset === "function"
+    ? nodeGraphRenderedOriginOffset()
+    : { x: 0, y: 0 };
+  const box = typeof nodeGraphWorkspaceLayoutMetrics === "function"
+    ? nodeGraphWorkspaceLayoutMetrics(workspace)
+    : { width: workspace.clientWidth, height: workspace.clientHeight };
+  const margin = 96;
+  const worldLeft = (0 - margin - (Number(origin.x) || 0)) / zoom;
+  const worldTop = (0 - margin - (Number(origin.y) || 0)) / zoom;
+  const worldRight = ((Number(box.width) || 0) + margin - (Number(origin.x) || 0)) / zoom;
+  const worldBottom = ((Number(box.height) || 0) + margin - (Number(origin.y) || 0)) / zoom;
+  const selected = typeof nodeGraphSelectedNodeIds === "function"
+    ? nodeGraphSelectedNodeIds()
+    : new Set();
+  for (const element of surface.querySelectorAll(".dsp-node:not(.removed)")) {
+    const id = String(element.dataset?.node || "");
+    let width = Number(element.offsetWidth) || 0;
+    let height = Number(element.offsetHeight) || 0;
+    if (width > 1 && height > 1) {
+      element._viewportCullW = width;
+      element._viewportCullH = height;
+    } else {
+      width = Number(element._viewportCullW) || 220;
+      height = Number(element._viewportCullH) || 140;
+    }
+    const x = Number.parseFloat(element.style.getPropertyValue("--node-x")) || 0;
+    const y = Number.parseFloat(element.style.getPropertyValue("--node-y")) || 0;
+    const intersecting = x < worldRight
+      && (x + width) > worldLeft
+      && y < worldBottom
+      && (y + height) > worldTop;
+    nodeGraphViewportCullApply(element, intersecting || (id && selected.has(id)));
+  }
+}
+
+function scheduleNodeGraphViewportCullRefresh() {
+  if (nodeGraphViewportPerf.cullRaf) {
+    return;
+  }
+  nodeGraphViewportPerf.cullRaf = window.requestAnimationFrame(() => {
+    nodeGraphViewportPerf.cullRaf = 0;
+    nodeGraphViewportCullRefresh();
+  });
+}
+
 function nodeGraphViewportCullApply(element, intersecting) {
   if (!element?.classList?.contains("dsp-node")) {
     return;
@@ -423,14 +481,14 @@ function nodeGraphViewportCullObserve(element) {
     return;
   }
   const observer = ensureNodeGraphViewportModuleCull();
-  if (!observer) {
-    return;
+  if (observer) {
+    try {
+      observer.observe(node);
+    } catch (_error) {
+      // Ignore detached / double-observe.
+    }
   }
-  try {
-    observer.observe(node);
-  } catch (_error) {
-    // Ignore detached / double-observe.
-  }
+  scheduleNodeGraphViewportCullRefresh();
 }
 
 function nodeGraphViewportCullSyncSelection() {

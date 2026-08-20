@@ -1606,6 +1606,15 @@
     if (!willDeposit && renderer.energyActive === false) {
       return true;
     }
+    // Trail/Ghost/Burn all off: keep the last stamp. Fading between audio
+    // hops wiped the FBO and the 2D present looked like a blinking/blank dot.
+    const holdLastStamp = !willDeposit
+      && (Number(options.trail) || 0) <= 0.0001
+      && (Number(options.ghost) || 0) <= 0.0001
+      && (Number(options.burn) || 0) <= 0.0001;
+    if (holdLastStamp) {
+      return true;
+    }
 
     // Fade + neighborhood bleed. Trail=1 freezes hot path; Ghost = dim scorch hang.
     // Hard stamps pass bleed=0 so freeze-collect stays 1px crisp.

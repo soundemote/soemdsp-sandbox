@@ -1352,7 +1352,7 @@ function asciiscopeSchedulePump() {
     const frameReady = typeof nodeGraphDisplayFrameReady === "function"
       ? nodeGraphDisplayFrameReady("asciiscope")
       : true;
-    if (frameReady) {
+    if (frameReady && !(typeof nodeGraphDisplaysFrozen === "function" && nodeGraphDisplaysFrozen())) {
       for (const face of faces) {
         if (face.closest?.(".dsp-node")?.classList.contains("viewport-asleep")) {
           continue;

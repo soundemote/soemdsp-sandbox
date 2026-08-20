@@ -3,13 +3,9 @@
 // 1px stroke on a physical pixel -- the standard crisp-line trick. But
 // this coordinate is in PRE-ZOOM local units (the zoom factor has already
 // been divided out via nodeGraphClientToZoomSurfacePoint), and the SVG
-// then sits inside a container with CSS `zoom` applied, which scales the
-// already-rounded value up afterward. Since CSS `zoom` affects layout
-// (unlike transform: scale), a port's local coordinate drifts by
-// sub-pixel amounts as zoom changes continuously -- and every time that
-// drift crosses a .5 boundary, the old plain Math.round snapped by a full
-// LOCAL unit, which zoom then blew up into a multi-pixel jump at an
-// unpredictable point mid-zoom. That's the wire jitter bug.
+// then sits inside a container with camera `scale()`, which scales the
+// already-rounded value up afterward. Snap in screen space so zoom does
+// not blow a local-unit round into a multi-pixel jump.
 // Fix: snap in SCREEN space (after zoom), then divide back down to local
 // units -- the crisp-pixel alignment this was already trying to do, just
 // computed at the resolution it's actually meant for.

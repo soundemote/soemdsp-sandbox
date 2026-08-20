@@ -3745,10 +3745,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-bitmask-row {
 body.keyboard-debug-hidden:not(.constraint-guide-visible) .node-constraint-color-guide {
   display: none;
 }
-body.keyboard-debug-hidden.constraint-guide-visible .node-constraint-metrics,
-body.keyboard-debug-hidden.constraint-guide-visible .node-scope-resource-debug {
-  display: none !important;
-}
 
 /* The signal bar itself stays visible -- Freq/Pitch/X/Y aren't just
    debug readouts, they're the keyboard's actual current output values,
@@ -6072,39 +6068,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-constraint-metrics strong {
   display: inline-block;
+  min-width: 4ch;
   color: var(--node-constraint-meter-color);
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   text-align: right;
-}
-
-.node-scope-cpu-metrics strong[data-scope-cpu-metric="fps"],
-.node-scope-gpu-metrics strong[data-scope-gpu-metric="fps"] {
-  width: 5ch;
-}
-
-.node-scope-cpu-metrics strong[data-scope-cpu-metric="lag"],
-.node-scope-cpu-metrics strong[data-scope-cpu-metric="busy"],
-.node-scope-gpu-metrics strong[data-scope-gpu-metric="points"] {
-  width: 6ch;
-}
-
-.node-scope-ram-metrics strong[data-scope-ram-metric] {
-  width: 4ch;
-}
-
-.node-scope-resource-debug {
-  display: inline-block;
-  max-width: min(54vw, 620px);
-  overflow: hidden;
-  color: rgba(243, 241, 236, 0.58);
-  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-  font-size: 0.68rem;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
-  text-overflow: clip;
-  vertical-align: baseline;
 }
 
 .node-parameter-row[data-node-constraint] {
@@ -6279,7 +6248,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-module-corner-shape: squircle;
   --node-module-frame-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0.11));
   /*
-   * 1 *screen* CSS pixel under workspace CSS `zoom`.
+   * 1 *screen* CSS pixel under workspace camera scale.
    * Path is outset 1 screen px outside the plate and gaps 1 screen px past
    * jack faces (layout = screen/zoom) — see nodeGraphModuleFrameBreathingLayoutPx.
    * Do NOT also use vector-effect:non-scaling-stroke — that double-handles
@@ -6455,7 +6424,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 /* During pan/zoom: light CSS + lite wires; full chrome resumes on settle. */
 body.node-graph-magnifying-active,
-body.node-graph-magnifying-active * {
+body.node-graph-magnifying-active .node-graph-workspace,
+body.node-graph-magnifying-active .node-graph-workspace * {
   cursor: none !important;
 }
 
@@ -11356,24 +11326,19 @@ body.node-graph-magnifying-active * {
   left: 0;
   top: 0;
   z-index: 1;
-  width: calc(100% / var(--node-graph-zoom));
-  height: calc(100% / var(--node-graph-zoom));
+  width: 100%;
+  height: 100%;
   background: transparent;
-  zoom: var(--node-graph-zoom);
-  /* Pan via transform so pointermove does not relayout the whole graph
-     (canvases, wires, modules). Same /zoom as the old left/top: CSS zoom
-     scales the translation too. */
+  /* 1× layout + GPU scale. Off-screen modules are display:none so the
+     layer AABB is only what's on screen — CSS zoom rasterized those at
+     zoom× pixels and pan died. */
+  transform-origin: 0 0;
   transform: translate3d(
-    calc(var(--node-graph-pan-x) / var(--node-graph-zoom)),
-    calc(var(--node-graph-pan-y) / var(--node-graph-zoom)),
+    var(--node-graph-pan-x),
+    var(--node-graph-pan-y),
     0
-  );
+  ) scale(var(--node-graph-zoom));
   pointer-events: none;
-}
-
-.node-graph-workspace.panning .node-graph-zoom-surface,
-.node-graph-workspace.viewport-gesturing .node-graph-zoom-surface {
-  will-change: transform;
 }
 
 .node-graph-origin-marker {
@@ -11938,14 +11903,10 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   bottom: var(--node-music-player-pl-row-height, 1.35rem) !important;
 }
 
-/* Keep in sync with NODE_GRAPH_VIEWPORT_ASLEEP_SKIP_SEL.
-   Faces / custom UI only — not .dsp-node-body. Live slider readout, ghosts,
-   and constraint chrome measure param rows every frame; hiding that band
-   makes Chrome force-paint it ("subtree hidden by content-visibility"). */
-.dsp-node.viewport-asleep .node-module-face:not(.node-filter-curve-display),
-.dsp-node.viewport-asleep .node-module-scope-window,
-.dsp-node.viewport-asleep .node-solid-module-custom-ui {
-  content-visibility: hidden;
+/* Off-screen modules must leave the CSS-zoom paint tree. Face-only
+   content-visibility still left chrome/jacks in a zoomed compositor layer. */
+.dsp-node.viewport-asleep {
+  display: none !important;
 }
 
 .dsp-node {

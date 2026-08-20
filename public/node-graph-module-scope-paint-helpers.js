@@ -900,6 +900,7 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
       start: view.start,
       end: view.end,
       width,
+      vertexWidth: Math.max(width, Number(canvas.width) || 0),
       height: box.height,
       midY: box.height * 0.5,
       halfHeight,
@@ -1161,6 +1162,17 @@ function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePix
   if (!context) {
     return false;
   }
+  // Waterfall Instant Trace: Size/color/etc. apply as new ink. fillRect here
+  // is what made a Size drag look like the capture buffer had been cleared.
+  if (canvas._traceScroll && canvas.width > 1 && canvas.height > 1) {
+    const holdBg = typeof nodeGraphFacePlateBackground === "function"
+      ? nodeGraphFacePlateBackground(settings)
+      : "#000000";
+    if (typeof nodeGraphFacePlateApplyCss === "function") {
+      nodeGraphFacePlateApplyCss(screenElement, holdBg);
+    }
+    return true;
+  }
   // Frozen + already-backed face: CSS plate only. fillRect here is what
   // made pause+drag look like the capture buffer had been cleared.
   if (frozen && !force && canvas.width > 1 && canvas.height > 1) {
@@ -1209,23 +1221,14 @@ function nodeGraphTraceDisplayBufferCursor(buffer) {
 }
 
 function nodeGraphTraceDisplayLookSignature(settings, canvas, stereo) {
+  // Geometry / time mapping only. Size, blur, color, brightness are ink for
+  // newly printed pixels — including them remeshed the whole history so a
+  // Size drag rewrote the waterfall.
   return [
     canvas?.width || 0,
     canvas?.height || 0,
     settings?.historySeconds ?? settings?.zoomSeconds,
-    settings?.scale,
-    settings?.dot1Size,
-    settings?.lineThickness,
-    settings?.dot1Brightness ?? settings?.brightness,
-    settings?.color || settings?.dot1Color,
-    settings?.secondarySize,
-    settings?.secondaryLineThickness,
-    settings?.secondaryBrightness,
-    settings?.secondaryColor,
-    settings?.stereoBlend,
     settings?.pixelDensity,
-    settings?.background,
-    settings?.dotBudget,
     stereo ? 1 : 0,
   ].join("|");
 }
@@ -1621,77 +1624,19 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
       color: rightColor,
       dotBudget: budget,
     };
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    const face = Math.min(canvas.width, canvas.height);
-    let painted = 0;
     const blend = settings.stereoBlend || "combine";
-    if (blend !== "combine") {
-      // Canvas composites: plate first, then strokes.
-      fillTraceBackground();
+    // Same polyline drawer as mono 1D. Meet/getImageData (drawStereo) filled
+    // between a live channel and a 0-line on Output and looked like a blob
+    // dancing 0 ↔ peak.
+    const strokeBlend = blend === "combine" ? "source-over" : blend;
+    fillTraceBackground();
+    if (rightLayer.enabled !== false) {
+      drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, rightLayer, canvas, { blend: strokeBlend });
     }
-    if (typeof TraceHistoryDraw !== "undefined" && typeof TraceHistoryDraw.strokeStereo === "function") {
-      painted = TraceHistoryDraw.strokeStereo(
-        context,
-        leftLayer.enabled === false ? [] : leftPoints,
-        rightLayer.enabled === false ? [] : rightPoints,
-        {
-          size: leftLayer.size,
-          blur: leftBlur,
-          brightness: leftBright,
-          fade,
-          color: leftColor,
-          faceMinSide: face,
-          dotBudget: budget,
-        },
-        {
-          size: rightLayer.size,
-          blur: rightBlur,
-          brightness: rightBright,
-          fade,
-          color: rightColor,
-          faceMinSide: face,
-          dotBudget: budget,
-        },
-        { blend, meetColor: "auto" },
-      );
-    } else if (typeof TraceStroke !== "undefined" && TraceStroke.drawStereo) {
-      painted = TraceStroke.drawStereo(
-        context,
-        leftLayer.enabled === false ? [] : leftPoints,
-        rightLayer.enabled === false ? [] : rightPoints,
-        {
-          size: leftLayer.size,
-          blur: leftBlur,
-          brightness: leftBright,
-          fade,
-          color: leftColor,
-          faceMinSide: face,
-        },
-        {
-          size: rightLayer.size,
-          blur: rightBlur,
-          brightness: rightBright,
-          fade,
-          color: rightColor,
-          faceMinSide: face,
-        },
-        {
-          blend,
-          leftColor,
-          rightColor,
-          meetColor: "auto",
-        },
-      );
-    } else {
-      fillTraceBackground();
-      drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, rightLayer, canvas, { blend });
-      drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas, { blend });
-      painted = leftPoints.length + rightPoints.length;
+    if (leftLayer.enabled !== false) {
+      drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas, { blend: strokeBlend });
     }
-    // Meet putImageData leaves transparent holes — plate goes underneath.
-    if (blend === "combine") {
-      paintBackgroundUnder();
-    }
+    const painted = leftPoints.length + rightPoints.length;
     recordNodeGraphModuleScopeRenderMetrics(painted, painted);
     paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density);
     rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);

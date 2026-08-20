@@ -851,12 +851,20 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   }
 
   // Present film from Bright (peak light). Ghost does not open exposure.
-  // Re-present while frozen so the face stays visible if something cleared the 2D canvas.
+  // Never wipe the 2D plate unless present actually produced a frame —
+  // skipping present after a clear is the blank-flash when dots sit still
+  // (energyActive goes false) and when the magnifier freeze-holds residual.
   const exposure = nodeGraphScope2dEnergyBurnExposure(bright);
   context.setTransform(1, 0, 0, 1, 0, 0);
-  nodeGraphFacePlateFillCanvas(context, canvas, bgHex);
+  if (frozen && energyGl) {
+    energyGl.energyDirty = true;
+    if (energyGl.energyActive === false) {
+      energyGl.energyActive = true;
+    }
+  }
   let presented = false;
   if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
+    nodeGraphFacePlateFillCanvas(context, canvas, bgHex);
     context.save();
     // Energy is already additive mono; LUT paints color (incl. dark peaks).
     context.globalCompositeOperation = "source-over";

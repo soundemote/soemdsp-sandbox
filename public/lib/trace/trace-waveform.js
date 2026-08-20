@@ -108,8 +108,10 @@
     };
 
     const sampleCount = last - first + 1;
-    // ~3 verts/pixel: enough for min+max plus a join, cheap enough live.
-    const maxVertices = Math.max(2, Math.floor(width) * 3);
+    // ~3 verts/pixel of the FACE, not a 1–2px scroll strip. Using strip
+    // width here min/max-bucketed every column (0↔peak blobs on stereo 1D).
+    const budgetWidth = Math.max(width, Number(options.vertexWidth) || 0);
+    const maxVertices = Math.max(2, Math.floor(budgetWidth) * 3);
 
     if (sampleCount <= maxVertices) {
       if (start < first) {
@@ -140,57 +142,26 @@
       const rangeEnd = Math.min(last + 1, Math.max(rangeStart + 1, Math.ceil(t1)));
       const rangeLen = rangeEnd - rangeStart;
       const stride = Math.max(1, Math.floor(rangeLen / MAX_SAMPLES_PER_BUCKET));
-      let minV = Infinity;
-      let maxV = -Infinity;
-      let minI = rangeStart;
-      let maxI = rangeStart;
+      // Instant Trace is a polyline, not a min/max envelope. Output's 12 kHz
+      // ring put many samples in one pixel; min+max drew a vertical 0↔peak blob.
+      let lastV = 0;
+      let lastI = rangeStart;
       for (let i = rangeStart; i < rangeEnd; i += stride) {
-        const value = Number(buffer[i]) || 0;
-        if (value < minV) {
-          minV = value;
-          minI = i;
-        }
-        if (value > maxV) {
-          maxV = value;
-          maxI = i;
-        }
+        lastV = Number(buffer[i]) || 0;
+        lastI = i;
       }
       if (stride > 1) {
-        const i = rangeEnd - 1;
-        const value = Number(buffer[i]) || 0;
-        if (value < minV) {
-          minV = value;
-          minI = i;
-        }
-        if (value > maxV) {
-          maxV = value;
-          maxI = i;
-        }
-      }
-      if (!(minV <= maxV)) {
-        minV = 0;
-        maxV = 0;
-        minI = rangeStart;
-        maxI = rangeStart;
+        lastI = rangeEnd - 1;
+        lastV = Number(buffer[lastI]) || 0;
       }
       const broke = skipDisc && bucketHasDiscontinuity(
         buffer,
         prevIndex,
-        Math.min(minI, maxI),
+        lastI,
         discThreshold,
       );
-      if (minI === maxI) {
-        push(mapX(minI), mapY(minV), broke);
-        prevIndex = minI;
-      } else if (minI < maxI) {
-        push(mapX(minI), mapY(minV), broke);
-        push(mapX(maxI), mapY(maxV), false);
-        prevIndex = maxI;
-      } else {
-        push(mapX(maxI), mapY(maxV), broke);
-        push(mapX(minI), mapY(minV), false);
-        prevIndex = minI;
-      }
+      push(mapX(lastI), mapY(lastV), broke);
+      prevIndex = lastI;
     }
     return points;
   }

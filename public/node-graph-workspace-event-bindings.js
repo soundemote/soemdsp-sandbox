@@ -175,17 +175,9 @@ function formatNodeGraphConstraintMetricNumber(value, digits = 4) {
 function formatNodeGraphConstraintMetricFps(value) {
   const fps = Number(value);
   if (!Number.isFinite(fps) || fps <= 0) {
-    return "--.-";
+    return "--";
   }
-  return Math.min(999.9, fps).toFixed(1).padStart(5, "0");
-}
-
-function formatNodeGraphConstraintMetricMs(value) {
-  const ms = Number(value);
-  if (!Number.isFinite(ms) || ms < 0) {
-    return "--.-";
-  }
-  return Math.min(999.9, ms).toFixed(1).padStart(5, "0");
+  return String(Math.round(Math.min(999, fps)));
 }
 
 function setNodeGraphConstraintMetricText(root, selector, text) {
@@ -201,30 +193,16 @@ function syncNodeGraphCpuConstraintMetrics() {
     return;
   }
   if (!document.body.classList.contains("node-constraint-cpu-active")) {
-    setNodeGraphConstraintMetricText(root, "[data-scope-cpu-metric='fps']", "--.-");
-    setNodeGraphConstraintMetricText(root, "[data-scope-cpu-metric='lag']", "--.-");
-    setNodeGraphConstraintMetricText(root, "[data-scope-cpu-debug='summary']", "cpu debug --");
-    root.dataset.debugSnapshot = "";
+    setNodeGraphConstraintMetricText(root, "[data-scope-cpu-metric='fps']", "--");
+    setNodeGraphConstraintMetricText(root, "[data-scope-cpu-metric='busy']", "--");
     return;
   }
   const metrics = nodeGraphMvp.constraintResourceMetrics || {};
   const frameRate = Number(metrics.mainFrameRate) || 0;
   const lagMs = Math.max(0, Number(metrics.mainThreadLagMs) || 0);
-  const busyPct = Math.min(100, Math.max(0, Math.round(lagMs * 6)));
+  const busyPct = Math.min(100, Math.max(0, Math.round(lagMs / 10)));
   setNodeGraphConstraintMetricText(root, "[data-scope-cpu-metric='fps']", formatNodeGraphConstraintMetricFps(frameRate));
-  setNodeGraphConstraintMetricText(root, "[data-scope-cpu-metric='lag']", formatNodeGraphConstraintMetricMs(lagMs));
-  const snapshot = {
-    busyPct,
-    domNodes: document.getElementsByTagName("*").length,
-    frameRate,
-    lagMs,
-  };
-  root.dataset.debugSnapshot = JSON.stringify(snapshot);
-  setNodeGraphConstraintMetricText(
-    root,
-    "[data-scope-cpu-debug='summary']",
-    `busy${formatNodeGraphConstraintMetricNumber(busyPct, 3)}% DOM nodes ${formatNodeGraphConstraintMetricNumber(snapshot.domNodes, 5)}`,
-  );
+  setNodeGraphConstraintMetricText(root, "[data-scope-cpu-metric='busy']", String(busyPct));
 }
 
 function syncNodeGraphRamConstraintMetrics() {
@@ -233,36 +211,24 @@ function syncNodeGraphRamConstraintMetrics() {
     return;
   }
   if (!document.body.classList.contains("node-constraint-ram-active")) {
-    setNodeGraphConstraintMetricText(root, "[data-scope-ram-metric='used']", "----");
-    setNodeGraphConstraintMetricText(root, "[data-scope-ram-metric='limit']", "----");
-    setNodeGraphConstraintMetricText(root, "[data-scope-ram-debug='summary']", "ram debug --");
-    root.dataset.debugSnapshot = "";
+    setNodeGraphConstraintMetricText(root, "[data-scope-ram-metric='used']", "--");
     return;
   }
   const memory = performance?.memory || {};
   const usedMb = memory.usedJSHeapSize ? memory.usedJSHeapSize / (1024 * 1024) : 0;
-  const limitMb = memory.jsHeapSizeLimit ? memory.jsHeapSizeLimit / (1024 * 1024) : 0;
-  const totalMb = memory.totalJSHeapSize ? memory.totalJSHeapSize / (1024 * 1024) : 0;
-  const domNodes = document.getElementsByTagName("*").length;
-  setNodeGraphConstraintMetricText(root, "[data-scope-ram-metric='used']", usedMb ? formatNodeGraphConstraintMetricNumber(usedMb, 4) : "n/a ");
-  setNodeGraphConstraintMetricText(root, "[data-scope-ram-metric='limit']", limitMb ? formatNodeGraphConstraintMetricNumber(limitMb, 4) : "n/a ");
-  const snapshot = {
-    domNodes,
-    heapLimitMb: limitMb,
-    heapTotalMb: totalMb,
-    heapUsedMb: usedMb,
-  };
-  root.dataset.debugSnapshot = JSON.stringify(snapshot);
   setNodeGraphConstraintMetricText(
     root,
-    "[data-scope-ram-debug='summary']",
-    `total${totalMb ? formatNodeGraphConstraintMetricNumber(totalMb, 4) : "n/a "}mb DOM nodes ${formatNodeGraphConstraintMetricNumber(domNodes, 5)}`,
+    "[data-scope-ram-metric='used']",
+    usedMb ? String(Math.round(usedMb)) : "n/a",
   );
 }
 
 function syncNodeGraphConstraintResourceMetrics() {
   syncNodeGraphCpuConstraintMetrics();
   syncNodeGraphRamConstraintMetrics();
+  if (typeof syncNodeGraphScopeGpuMetricsDisplay === "function") {
+    syncNodeGraphScopeGpuMetricsDisplay();
+  }
 }
 
 function startNodeGraphConstraintResourceMetrics() {

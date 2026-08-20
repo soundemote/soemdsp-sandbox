@@ -541,9 +541,6 @@ const nodeGraphModuleDefinitions = (
 )({
   audioInput: {
     planRole: "source",
-    inputAliases: { In: "Mono", M: "Mono", L: "Left", R: "Right" },
-    inputLabels: { Mono: "M", Left: "L", Right: "R" },
-    inputs: ["Mono", "Left", "Right"],
     outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
     outputLabels: { Mono: "M", Left: "L", Right: "R" },
     outputs: ["Mono", "Left", "Right"],
@@ -4368,9 +4365,6 @@ const nodeGraphModuleDefinitions = (
   },
   pluginInput: {
     planRole: "source",
-    inputAliases: { In: "Mono", M: "Mono", L: "Left", R: "Right" },
-    inputLabels: { Mono: "M", Left: "L", Right: "R" },
-    inputs: ["Mono", "Left", "Right"],
     outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
     outputLabels: { Mono: "M", Left: "L", Right: "R" },
     outputs: ["Mono", "Left", "Right"],
@@ -4400,6 +4394,7 @@ const nodeGraphModuleDefinitions = (
     ],
     defaultDisplayMode: "trace",
     inputs: ["Mono", "Left", "Right"],
+    inputLabels: { Mono: "\u2192", Left: "\u2192", Right: "\u2192" },
     outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
     outputLabels: {
       Mono: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
@@ -10931,6 +10926,7 @@ const nodeGraphModuleDefinitions = (
     ],
     defaultDisplayMode: "trace",
     inputs: ["Mono", "Left", "Right"],
+    inputLabels: { Mono: "\u2192", Left: "\u2192", Right: "\u2192" },
     outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
     outputLabels: {
       Mono: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",

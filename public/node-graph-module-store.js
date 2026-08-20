@@ -101,7 +101,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "oscilloscopeBank",
   "shootingStarTail",
   "wallDelay",
-  "audioInput",
   "pluginInput",
   "pluginOutput",
   "pluginMidiIn",
@@ -147,6 +146,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
 // construction plate over a working face (Output meter/trace).
 const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "output",
+  "audioInput",
   "airClipper",
 ]);
 

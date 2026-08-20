@@ -788,10 +788,10 @@ function nodeGraphScopeCaptureWriteHz(node) {
 }
 
 function nodeGraphVisualSinkBufferSampleLimit(node) {
-  const sampleRate = Math.max(1, Math.round(Number(nodeGraphMvp?.sampleRate) || 44100));
   const writeHz = Math.max(1, Math.round(Number(nodeGraphVisualSinkWriteHz(node)) || NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ));
-  // Capacity in *written* samples (after hop), not engine-rate samples.
-  const historySamples = Math.ceil(writeHz * nodeGraphVisualSinkHistorySeconds);
+  // History faces keep ≥1s even when Simulation FPS is 1 (one paint/sec).
+  const seconds = Math.max(1, Number(nodeGraphVisualSinkHistorySeconds) || 1);
+  const historySamples = Math.ceil(writeHz * seconds);
   const fallback = Math.max(1, Math.round(Number(nodeGraphBufferedInputSampleLimit) || 65536));
   return Math.min(fallback, Math.max(4096, historySamples));
 }

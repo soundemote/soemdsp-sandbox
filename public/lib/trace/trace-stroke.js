@@ -81,13 +81,8 @@
       return 0;
     }
     let pieces = 0;
-    if (typeof global.drawNodeGraphScopeCanvasSmoothPath === "function") {
-      context.beginPath();
-      global.drawNodeGraphScopeCanvasSmoothPath(context, points);
-      context.stroke();
-      pieces = 1;
-      return pieces;
-    }
+    // Instant Trace is a polyline. Quadratic smoothing bows low-frequency
+    // 1D/stereo traces into blobs; never use the phosphor smooth-path helper.
     let drawing = false;
     let segmentStart = -1;
     for (let i = 0; i < points.length; i += 1) {

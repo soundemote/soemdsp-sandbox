@@ -495,9 +495,8 @@
               <strong>CPU</strong>
             </label>
             <span id="nodeScopeCpuMetrics" class="node-constraint-metrics node-scope-cpu-metrics" aria-live="polite">
-              <span>main fps <strong data-scope-cpu-metric="fps">--.-</strong></span>
-              <span>lag <strong data-scope-cpu-metric="lag">--.-</strong>ms</span>
-              <span class="node-scope-resource-debug" data-scope-cpu-debug="summary">cpu debug --</span>
+              <span>CPU <strong data-scope-cpu-metric="busy">--</strong>%</span>
+              <span><strong data-scope-cpu-metric="fps">--</strong> fps</span>
             </span>
           </span>
           <span class="node-constraint-stack" data-constraint-stack="ram">
@@ -506,9 +505,7 @@
               <strong>RAM</strong>
             </label>
             <span id="nodeScopeRamMetrics" class="node-constraint-metrics node-scope-ram-metrics" aria-live="polite">
-              <span>heap <strong data-scope-ram-metric="used">----</strong>mb</span>
-              <span>limit <strong data-scope-ram-metric="limit">----</strong>mb</span>
-              <span class="node-scope-resource-debug" data-scope-ram-debug="summary">ram debug --</span>
+              <span>RAM <strong data-scope-ram-metric="used">--</strong> MB</span>
             </span>
           </span>
           <span class="node-constraint-stack" data-constraint-stack="gpu">
@@ -517,9 +514,9 @@
               <strong>GPU</strong>
             </label>
             <span id="nodeScopeGpuMetrics" class="node-constraint-metrics node-scope-gpu-metrics" aria-live="polite">
-              <span>display fps <strong data-scope-gpu-metric="fps">--</strong></span>
-              <span>points <strong data-scope-gpu-metric="points">--</strong></span>
-              <span class="node-scope-resource-debug node-scope-gpu-debug" data-scope-gpu-debug="summary">debug --</span>
+              <span>GPU <strong data-scope-gpu-metric="fps">--</strong> fps</span>
+              <span><strong data-scope-gpu-metric="contexts">--</strong> ctx</span>
+              <span><strong data-scope-gpu-metric="points">--</strong> pts</span>
             </span>
           </span>
         </div>
