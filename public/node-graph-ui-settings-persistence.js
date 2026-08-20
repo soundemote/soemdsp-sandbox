@@ -1138,25 +1138,28 @@ function applyNodeGraphSessionSelection(snapshot = nodeGraphMvp?.sessionSelectio
   if (!snapshot || typeof snapshot !== "object") {
     return false;
   }
+  const wanted = snapshot.selectedNodeIds || [];
+  const ids = wanted.filter((id) => (
+    typeof nodeGraphPatchNode === "function" ? Boolean(nodeGraphPatchNode(id)) : true
+  ));
+  // Saved IDs exist, but not on this live graph yet (default patch at hydrate).
+  // Keep the bag for bootstrap after working-patch commit.
+  if (wanted.length && !ids.length) {
+    return false;
+  }
   nodeGraphMvp._applyingSessionSelection = true;
   try {
     const last = String(snapshot.lastModuleActionTargetNode || "").trim();
     if (last && typeof nodeGraphPatchNode === "function" && nodeGraphPatchNode(last)) {
       nodeGraphMvp.lastModuleActionTargetNode = last;
     }
-    const ids = (snapshot.selectedNodeIds || []).filter((id) => (
-      typeof nodeGraphPatchNode === "function" ? Boolean(nodeGraphPatchNode(id)) : true
-    ));
     if (typeof setNodeGraphNodeSelection === "function") {
       setNodeGraphNodeSelection(ids);
     }
+    nodeGraphMvp.sessionSelection = null;
     return ids.length > 0;
   } finally {
     nodeGraphMvp._applyingSessionSelection = false;
-    const liveNodeCount = Array.isArray(nodeGraphMvp.patch?.nodes) ? nodeGraphMvp.patch.nodes.length : 0;
-    if (liveNodeCount > 0) {
-      nodeGraphMvp.sessionSelection = null;
-    }
   }
 }
 
@@ -1559,9 +1562,8 @@ function applyNodeGraphUserSession(session, options = {}) {
     selectedNodeIds: Array.isArray(normalized.selectedNodeIds) ? normalized.selectedNodeIds : [],
     lastModuleActionTargetNode: String(normalized.lastModuleActionTargetNode || "").trim(),
   };
-  if (Array.isArray(nodeGraphMvp.patch?.nodes) && nodeGraphMvp.patch.nodes.length > 0) {
-    applyNodeGraphSessionSelection(nodeGraphMvp.sessionSelection);
-  }
+  // Do not apply here: live patch is still the default graph. Bootstrap
+  // restores selection after workingPatch commit.
   // Window restore after patch commit (bootstrap). Applying here while
   // live patch is empty remembers Display Settings targetNode: "".
   const liveNodeCount = Array.isArray(nodeGraphMvp.patch?.nodes) ? nodeGraphMvp.patch.nodes.length : 0;

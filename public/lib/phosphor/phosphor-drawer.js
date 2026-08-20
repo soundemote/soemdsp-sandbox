@@ -93,20 +93,20 @@
   }
 
   // Size 0–1 linear diameter map: diameter = size * faceMinSide.
-  // Floor: size 0 → 1 buffer pixel (radius 0.5). Soft blur still AA's the edge.
-  const MIN_DIAMETER_PX = 1;
-  const MIN_RADIUS_PX = MIN_DIAMETER_PX * 0.5;
+  // Size 0 → 0 (stamp gone). No 1px floor.
+  const MIN_DIAMETER_PX = 0;
+  const MIN_RADIUS_PX = 0;
 
-  /** Diameter in buffer px: size 0–1 of face min side (1px floor at size 0). */
+  /** Diameter in buffer px: size 0–1 of face min side. Size 0 → 0. */
   function diameterFromSize(faceMinSide, size01) {
     const side = Math.max(1, Number(faceMinSide) || 1);
     const t = clamp01(size01, 0);
-    return Math.max(MIN_DIAMETER_PX, side * t);
+    return side * t;
   }
 
-  /** Radius in buffer px: half of diameterFromSize (0.5px floor at size 0). */
+  /** Radius in buffer px: half of diameterFromSize. Size 0 → 0. */
   function radiusFromSize(faceMinSide, size01) {
-    return Math.max(MIN_RADIUS_PX, diameterFromSize(faceMinSide, size01) * 0.5);
+    return diameterFromSize(faceMinSide, size01) * 0.5;
   }
 
   // Canonical names used across paint-helpers / TraceStroke.
@@ -156,11 +156,11 @@
       brightness = depositGain(rawBright, size01);
     }
     const radiusRaw = Number(options.radius);
-    const radius = Number.isFinite(radiusRaw) && radiusRaw > 0
-      ? Math.max(MIN_RADIUS_PX, radiusRaw)
+    const radius = Number.isFinite(radiusRaw)
+      ? Math.max(0, radiusRaw)
       : (Number.isFinite(Number(options.size01))
         ? radiusFromSize(Math.max(1, Number(options.faceMinSide) || 256), size01)
-        : Math.max(MIN_RADIUS_PX, 2));
+        : 2);
     // Site path: always dots for soft circular hits (segments only if forced).
     const mode = String(options.mode || "dots").toLowerCase() === "segments"
       ? "segments"
@@ -170,6 +170,8 @@
     if (bleed === undefined && blur <= 0.001) {
       bleed = 0;
     }
+    const maxDotsN = Math.round(Number(options.maxDots));
+    const maxDots = Number.isFinite(maxDotsN) ? Math.max(0, Math.min(8192, maxDotsN)) : 2048;
     return global.nodeGraphPhosphorEnergyGlStepBeams(face, {
       decay: options.decay != null ? clamp01(options.decay, DEFAULT_DECAY) : undefined,
       trail: options.trail,
@@ -179,11 +181,11 @@
       residualSchema: options.residualSchema,
       pathPoints: options.pathPoints || null,
       vertices: options.vertices || null,
-      radius: Math.max(0.35, radius),
+      radius,
       brightness: Math.max(0, brightness || 0),
       blur,
       mode,
-      maxDots: Math.max(64, Math.min(8192, Math.round(Number(options.maxDots) || 2048))),
+      maxDots,
       bleed,
       fullEconomy: options.fullEconomy === true
         || options.fullDotEconomy === true

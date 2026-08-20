@@ -25,10 +25,10 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
     nodeGraphMvp.gradientSelector = null;
   }
   host.innerHTML = buildNodeGraphDisplaySettingsBodyHtml(type, node);
-  if (typeof nodeGraphDisplaySettingsIsVectorTraceFormType === "function"
-    && nodeGraphDisplaySettingsIsVectorTraceFormType(type)
-    && typeof syncNodeGraphInstantTracePreview === "function") {
-    syncNodeGraphInstantTracePreview(host, node?.traceDisplaySettings || {});
+  if (typeof nodeGraphDisplaySettingsShowsStampPreview === "function"
+    && nodeGraphDisplaySettingsShowsStampPreview(type)
+    && typeof syncNodeGraphStampPreview === "function") {
+    syncNodeGraphStampPreview(host, node?.traceDisplaySettings || {});
   }
   // LED: bind range-slider panel (same control scheme as the old LED window).
   if (type === "ledLamp") {
@@ -1334,10 +1334,10 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   if (formType === "knobFace" && typeof syncNodeGraphKnobFaceDisplaySettingsControls === "function") {
     syncNodeGraphKnobFaceDisplaySettingsControls(root);
   }
-  if (typeof nodeGraphDisplaySettingsIsVectorTraceFormType === "function"
-    && nodeGraphDisplaySettingsIsVectorTraceFormType(formType)
-    && typeof syncNodeGraphInstantTracePreview === "function") {
-    syncNodeGraphInstantTracePreview(root, normalized);
+  if (typeof nodeGraphDisplaySettingsShowsStampPreview === "function"
+    && nodeGraphDisplaySettingsShowsStampPreview(formType)
+    && typeof syncNodeGraphStampPreview === "function") {
+    syncNodeGraphStampPreview(root, normalized);
   }
 }
 

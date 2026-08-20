@@ -701,7 +701,7 @@ function nodeGraphScope2dTraceMaxSegmentPixels(square) {
 
 /**
  * Size 0–1 → radius px (linear diameter map).
- * diameter = size * faceMinSide, radius = half. Size 0 → 1px diameter (0.5 radius).
+ * diameter = size * faceMinSide, radius = half. Size 0 → 0.
  */
 function nodeGraphScopeSize01ToRadiusPx(faceMinSide, size01) {
   if (typeof PhosphorDrawer !== "undefined" && typeof PhosphorDrawer.size01ToRadiusPx === "function") {
@@ -712,10 +712,10 @@ function nodeGraphScopeSize01ToRadiusPx(faceMinSide, size01) {
   }
   const side = Math.max(1, Number(faceMinSide) || 1);
   const t = clampNodeSliderValue(Number(size01), 0, 1);
-  return Math.max(0.5, side * t * 0.5);
+  return side * t * 0.5;
 }
 
-/** Size 0–1 → diameter/line-width px (linear: size * face min side; min 1px). */
+/** Size 0–1 → diameter/line-width px (linear: size * face min side). Size 0 → 0. */
 function nodeGraphScopeSize01ToDiameterPx(faceMinSide, size01) {
   if (typeof PhosphorDrawer !== "undefined" && typeof PhosphorDrawer.size01ToDiameterPx === "function") {
     return PhosphorDrawer.size01ToDiameterPx(faceMinSide, size01);
@@ -725,7 +725,7 @@ function nodeGraphScopeSize01ToDiameterPx(faceMinSide, size01) {
   }
   const side = Math.max(1, Number(faceMinSide) || 1);
   const t = clampNodeSliderValue(Number(size01), 0, 1);
-  return Math.max(1, side * t);
+  return side * t;
 }
 
 function nodeGraphScope2dLayerRadiusPx(settings, dotSpace) {

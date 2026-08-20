@@ -807,18 +807,21 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       burnAmount,
       residualSchema,
       pathPoints: points,
-      radius: Math.max(0.35, layer.radius),
+      radius: Math.max(0, Number(layer.radius) || 0),
       brightness: beamBrightness,
       blur: stampBlur,
       mode: "dots",
       // User / face ceiling. Under load: even skips across full path (not head-only).
-      maxDots: Math.max(
-        64,
-        Math.min(
-          8192,
-          Math.round(Number(settings?.dotBudget) || nodeGraphScope2dMaxSamplesPerFrame(canvas)),
-        ),
-      ),
+      maxDots: (() => {
+        const budget = Number(settings?.dotBudget);
+        if (Number.isFinite(budget)) {
+          return Math.max(0, Math.min(8192, Math.round(budget)));
+        }
+        const fallback = typeof nodeGraphScope2dMaxSamplesPerFrame === "function"
+          ? nodeGraphScope2dMaxSamplesPerFrame(canvas)
+          : 2048;
+        return Math.max(0, Math.min(8192, Math.round(Number(fallback) || 2048)));
+      })(),
       fullEconomy: fullDotEconomy,
       fullDotEconomy,
       // Sample hits only — no chord packing (no connective lines).

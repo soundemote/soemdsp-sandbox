@@ -374,8 +374,8 @@ function swapNodeGraphOutputTraceLook() {
   if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
     scheduleNodeGraphModuleScopeDraw({ force: true });
   }
-  if (typeof syncNodeGraphInstantTracePreview === "function") {
-    syncNodeGraphInstantTracePreview(
+  if (typeof syncNodeGraphStampPreview === "function") {
+    syncNodeGraphStampPreview(
       document.getElementById("nodeTraceDisplaySettingsPopover"),
       s,
     );
@@ -629,14 +629,8 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   // otherwise skip the full path; cold plates still run, but force refreshes
   // energy faces too after Clear-while-paused style freezes).
   scheduleNodeGraphModuleScopeDraw({ force: true });
-  if (typeof nodeGraphDisplaySettingsIsVectorTraceFormType === "function"
-    && nodeGraphDisplaySettingsIsVectorTraceFormType(
-      typeof nodeGraphTraceDisplaySettingsFormType === "function"
-        ? nodeGraphTraceDisplaySettingsFormType()
-        : "",
-    )
-    && typeof syncNodeGraphInstantTracePreview === "function") {
-    syncNodeGraphInstantTracePreview(
+  if (typeof syncNodeGraphStampPreview === "function") {
+    syncNodeGraphStampPreview(
       document.getElementById("nodeTraceDisplaySettingsPopover"),
       settings,
     );

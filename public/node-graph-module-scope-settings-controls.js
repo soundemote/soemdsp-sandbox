@@ -361,11 +361,11 @@ function nodeGraphTraceDisplayClampStampBlur(value) {
 }
 
 function nodeGraphTraceDisplayClampDotBudget(value) {
-  const n = Math.round(Number(value) || 0);
+  const n = Math.round(Number(value));
   if (!Number.isFinite(n)) {
     return 2048;
   }
-  return Math.max(64, Math.min(8192, n));
+  return Math.max(0, Math.min(8192, n));
 }
 
 // Clamp rules shared by every display-settings form type, keyed by field name.

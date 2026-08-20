@@ -836,9 +836,14 @@
    */
   function buildDotVertices(pathPoints, options = {}) {
     const points = Array.isArray(pathPoints) ? pathPoints : [];
-    const radius = Math.max(0.35, Number(options.radius) || 2);
+    const radiusN = Number(options.radius);
+    const radius = Number.isFinite(radiusN) ? Math.max(0, radiusN) : 2;
     const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
-    const maxDots = Math.max(16, Math.floor(Number(options.maxDots) || 2048));
+    const maxDotsN = Math.floor(Number(options.maxDots));
+    const maxDots = Number.isFinite(maxDotsN) ? Math.max(0, maxDotsN) : 2048;
+    if (!(radius > 0) || maxDots <= 0) {
+      return [];
+    }
     const fullEconomy = options.fullEconomy === true
       || options.fullDotEconomy === true
       || options.useFullDotEconomy === true
@@ -1000,9 +1005,10 @@
     if (vertexCount <= 0) {
       return 0;
     }
-    const radius = Math.max(0.5, Number(options.radius) || 2);
+    const radiusN = Number(options.radius);
+    const radius = Number.isFinite(radiusN) ? Math.max(0, radiusN) : 2;
     const brightness = Math.max(0, Number(options.brightness) || 0);
-    if (brightness < 1e-6) {
+    if (brightness < 1e-6 || !(radius > 0)) {
       return 0;
     }
     const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
@@ -1058,9 +1064,10 @@
     if (vertexCount <= 0) {
       return 0;
     }
-    const radius = Math.max(0.5, Number(options.radius) || 2);
+    const radiusN = Number(options.radius);
+    const radius = Number.isFinite(radiusN) ? Math.max(0, radiusN) : 2;
     const brightness = Math.max(0, Number(options.brightness) || 0);
-    if (brightness < 1e-6) {
+    if (brightness < 1e-6 || !(radius > 0)) {
       return 0;
     }
     // Blur 0 hard … 1 full soft gaussian.
@@ -1571,7 +1578,8 @@
       mode = "dots",
     } = options;
     const dotsMode = String(mode || "dots").toLowerCase() !== "segments";
-    const maxDots = Math.max(64, Math.floor(Number(options.maxDots) || 2048));
+    const maxDotsN = Math.floor(Number(options.maxDots));
+    const maxDots = Number.isFinite(maxDotsN) ? Math.max(0, Math.min(8192, maxDotsN)) : 2048;
     // Blur 0..1 — wider bleed when user asks for soft.
     const softAmt = Math.max(0, Math.min(1, Number(blur) || 0));
     const bleedOpt = Number(options.bleed);
@@ -1601,7 +1609,13 @@
     const hasPath = Array.isArray(depositVertices)
       && depositVertices.length >= (dotsMode ? 3 : 5);
     const canDraw = dotsMode ? renderer.dot?.program : renderer.beam?.program;
-    const willDeposit = hasPath && brightness > 1e-6 && canDraw;
+    const radiusN = Number(radius);
+    const willDeposit = hasPath
+      && brightness > 1e-6
+      && canDraw
+      && Number.isFinite(radiusN)
+      && radiusN > 0
+      && maxDots > 0;
 
     // Fully quiet trail and nothing new: skip fade + deposit + present upstream.
     if (!willDeposit && renderer.energyActive === false) {

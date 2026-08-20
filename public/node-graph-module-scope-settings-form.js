@@ -483,119 +483,288 @@ const NODE_GRAPH_TRACE_STEREO_COLOR_ORDER = Object.freeze([
   "backgroundColor",
 ]);
 
-function nodeGraphInstantTracePreviewHtml(stereo = false) {
+function nodeGraphDisplaySettingsShowsStampPreview(type) {
+  return (typeof nodeGraphDisplaySettingsIsVectorTraceFormType === "function"
+      && nodeGraphDisplaySettingsIsVectorTraceFormType(type))
+    || (typeof nodeGraphDisplaySettingsIsPhosphorFormType === "function"
+      && nodeGraphDisplaySettingsIsPhosphorFormType(type));
+}
+
+function nodeGraphStampPreviewHtml(stereo = false, kind = "trace") {
   const canvas = (side, label) => `
       <div class="node-trace-display-preview-cell">
         ${side ? `<span class="node-trace-display-preview-side-label" data-preview-side-label="${side}">${label}</span>` : ""}
         <canvas
           class="node-trace-display-dot-preview"
-          data-instant-trace-preview-canvas
+          data-stamp-preview-canvas
           ${side ? `data-preview-side="${side}"` : ""}
           width="96"
           height="96"
-          aria-label="${side ? `${label} size, blur, and pixel density preview` : "Trace size, blur, and pixel density preview"}"></canvas>
+          aria-label="${side ? `${label} size, blur, and pixel density preview` : "Stamp size, blur, and pixel density preview"}"></canvas>
       </div>`;
   if (stereo) {
     return `
-    <div class="node-trace-display-preview-shell is-stereo" data-instant-trace-preview data-preview-stereo="1">
+    <div class="node-trace-display-preview-shell is-stereo" data-stamp-preview="${kind}" data-preview-stereo="1">
       ${canvas("L", "L")}
       ${canvas("R", "R")}
     </div>`;
   }
   return `
-    <div class="node-trace-display-preview-shell" data-instant-trace-preview>
+    <div class="node-trace-display-preview-shell" data-stamp-preview="${kind}">
       ${canvas("", "")}
     </div>`;
 }
 
-function paintNodeGraphInstantTracePreviewCanvas(canvas, settings = {}, side = "") {
+function nodeGraphStampPreviewUnit(value, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    const fb = Number(fallback);
+    return Math.max(0, Math.min(1, Number.isFinite(fb) ? fb : 0));
+  }
+  return Math.max(0, Math.min(1, n));
+}
+
+function nodeGraphStampPreviewParseHex(hex, fallback = [255, 255, 255]) {
+  const s = String(hex || "").replace("#", "");
+  if (s.length < 6) {
+    return fallback;
+  }
+  const r = Number.parseInt(s.slice(0, 2), 16);
+  const g = Number.parseInt(s.slice(2, 4), 16);
+  const b = Number.parseInt(s.slice(4, 6), 16);
+  if (![r, g, b].every(Number.isFinite)) {
+    return fallback;
+  }
+  return [r, g, b];
+}
+
+/** Live module face buffer min-side. Never the preview plate. */
+function nodeGraphStampPreviewFaceMinSide(settings) {
+  const nodeId = String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
+  if (nodeId && typeof nodeGraphModuleScopePersistentCanvases !== "undefined") {
+    const face = nodeGraphModuleScopePersistentCanvases.get?.(nodeId);
+    const w = Number(face?.width);
+    const h = Number(face?.height);
+    if (w > 0 && h > 0) {
+      return Math.min(w, h);
+    }
+  }
+  const density = typeof nodeGraphFacePlateDensity === "function"
+    ? nodeGraphFacePlateDensity(settings, 1)
+    : nodeGraphStampPreviewUnit(settings?.pixelDensity, 1);
+  const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
+  return Math.max(1, Math.round(128 * dpr * Math.max(0, density)));
+}
+
+/** Halo extent in face-buffer px so the full stamp (core + Blur) fits. */
+function nodeGraphStampPreviewExtent(radius, blur01, phosphor) {
+  const r = Math.max(0, Number(radius) || 0);
+  const blur = nodeGraphStampPreviewUnit(blur01, 0);
+  if (phosphor) {
+    return r * (1.2 + 5.3 * blur) + 1.5 * (1 - blur);
+  }
+  return r * (1 + 2 * blur);
+}
+
+/** Laid-out CSS plate in px. Never the stamp bitmap. */
+function nodeGraphStampPreviewPlatePx(canvas) {
+  const laid = Math.round(Number(canvas?.clientWidth) || 0);
+  if (laid > 0) {
+    return laid;
+  }
+  const parent = Math.round(Number(canvas?.parentElement?.clientWidth) || 0);
+  return Math.max(48, parent || 96);
+}
+
+function nodeGraphStampPreviewScratch(owner, size) {
+  let scratch = owner._stampPreviewScratch;
+  if (!(scratch instanceof HTMLCanvasElement)) {
+    scratch = document.createElement("canvas");
+    owner._stampPreviewScratch = scratch;
+  }
+  const n = Math.max(1, Math.round(Number(size) || 1));
+  if (scratch.width !== n) {
+    scratch.width = n;
+  }
+  if (scratch.height !== n) {
+    scratch.height = n;
+  }
+  return scratch;
+}
+
+function nodeGraphStampPreviewBlit(plateCtx, platePx, scratch) {
+  plateCtx.setTransform(1, 0, 0, 1, 0, 0);
+  plateCtx.imageSmoothingEnabled = false;
+  plateCtx.globalCompositeOperation = "source-over";
+  plateCtx.fillStyle = "#020405";
+  plateCtx.fillRect(0, 0, platePx, platePx);
+  if (scratch && scratch.width > 0 && scratch.height > 0) {
+    plateCtx.drawImage(scratch, 0, 0, platePx, platePx);
+  }
+}
+
+function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind = "trace") {
   if (!canvas) {
     return;
   }
-  const cssW = Math.max(48, Math.round(canvas.clientWidth || 96));
-  const cssH = Math.max(48, Math.round(canvas.clientHeight || 96));
-  const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
-  const density = typeof nodeGraphFacePlateDensity === "function"
-    ? nodeGraphFacePlateDensity(settings, 1)
-    : Math.max(0, Math.min(1, Number(settings?.pixelDensity) || 1));
-  const bw = Math.max(1, Math.round(cssW * dpr * density));
-  const bh = Math.max(1, Math.round(cssH * dpr * density));
-  if (canvas.width !== bw) {
-    canvas.width = bw;
+  const platePx = nodeGraphStampPreviewPlatePx(canvas);
+  if (canvas.width !== platePx) {
+    canvas.width = platePx;
   }
-  if (canvas.height !== bh) {
-    canvas.height = bh;
+  if (canvas.height !== platePx) {
+    canvas.height = platePx;
   }
-  canvas.style.imageRendering = density < 0.999 ? "pixelated" : "auto";
   const context = canvas.getContext("2d");
   if (!context) {
     return;
   }
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.globalCompositeOperation = "source-over";
-  context.clearRect(0, 0, bw, bh);
-  context.fillStyle = "#020405";
-  context.fillRect(0, 0, bw, bh);
+  const fillEmpty = () => {
+    nodeGraphStampPreviewBlit(context, platePx, null);
+  };
   const right = side === "R";
-  const size = Number(right ? settings.secondarySize : settings.dot1Size);
+  const size = nodeGraphStampPreviewUnit(
+    right ? settings.secondarySize : (settings.dot1Size ?? settings.size),
+    0,
+  );
   if (!(size > 0)) {
+    fillEmpty();
     return;
   }
   const blur = Number(right ? settings.secondaryLineThickness : settings.lineThickness);
+  const blur01 = Number.isFinite(blur) ? Math.max(0, Math.min(1, blur)) : 0;
   const color = right
     ? (settings.secondaryColor || "#0000ff")
     : (side === "L"
       ? (settings.dot1Color || settings.color || "#ff0000")
-      : "#ffffff");
-  const face = Math.min(bw, bh);
-  if (typeof TraceStroke !== "undefined" && typeof TraceStroke.draw === "function") {
-    TraceStroke.draw(context, [{ x: bw * 0.5, y: bh * 0.5 }], {
+      : (settings.dot1Color || settings.color || "#ffffff"));
+  const faceMin = nodeGraphStampPreviewFaceMinSide(settings);
+  const phosphor = typeof nodeGraphDisplaySettingsIsPhosphorFormType === "function"
+    && nodeGraphDisplaySettingsIsPhosphorFormType(kind);
+  const radius = phosphor && typeof PhosphorDrawer !== "undefined"
+    && typeof PhosphorDrawer.radiusFromSize === "function"
+    ? PhosphorDrawer.radiusFromSize(faceMin, size)
+    : (typeof TraceStroke !== "undefined" && typeof TraceStroke.radiusPx === "function"
+      ? TraceStroke.radiusPx(faceMin, size)
+      : faceMin * size * 0.5);
+  if (!(radius > 0)) {
+    fillEmpty();
+    return;
+  }
+  const extent = nodeGraphStampPreviewExtent(radius, blur01, phosphor);
+  const buf = Math.max(1, Math.min(2048, Math.ceil(extent * 2 + 2)));
+  const scratch = nodeGraphStampPreviewScratch(canvas, buf);
+  const scratchCtx = scratch.getContext("2d");
+  if (!scratchCtx) {
+    fillEmpty();
+    return;
+  }
+  scratchCtx.setTransform(1, 0, 0, 1, 0, 0);
+  scratchCtx.imageSmoothingEnabled = false;
+  scratchCtx.globalCompositeOperation = "source-over";
+  scratchCtx.fillStyle = "#020405";
+  scratchCtx.fillRect(0, 0, buf, buf);
+  const cx = buf * 0.5;
+  const cy = buf * 0.5;
+  const bright = Number(settings.dot1Brightness ?? settings.brightness);
+  const bright01 = Number.isFinite(bright) ? Math.max(0, bright) : 1;
+  let painted = false;
+  if (phosphor && typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.ensure && PhosphorDrawer.stepDots) {
+    const splat = PhosphorDrawer.ensure(scratch, buf, buf, "_stampPreview");
+    if (splat) {
+      if (typeof nodeGraphPhosphorEnergyGlClear === "function") {
+        nodeGraphPhosphorEnergyGlClear(splat);
+      } else if (typeof PhosphorDrawer.stepFade === "function") {
+        PhosphorDrawer.stepFade(splat, { decay: 1, trail: 0, ghost: 0, bleed: 0 });
+      }
+      const stops = Array.isArray(settings.gradientStops) ? settings.gradientStops : null;
+      if (stops && stops.length >= 2 && typeof PhosphorDrawer.setLutStops === "function") {
+        PhosphorDrawer.setLutStops(splat, stops);
+      } else if (typeof PhosphorDrawer.setLut === "function") {
+        PhosphorDrawer.setLut(splat, nodeGraphStampPreviewParseHex(color), "#020405");
+      }
+      PhosphorDrawer.stepDots(splat, {
+        pathPoints: [{ x: cx, y: cy }],
+        size01: size,
+        faceMinSide: faceMin,
+        radius,
+        brightness: bright01,
+        useDepositGain: true,
+        blur: blur01,
+        maxDots: 1,
+        dotsOnly: true,
+        trail: 0,
+        ghost: 0,
+        decay: 0,
+        bleed: 0,
+      });
+      if (typeof PhosphorDrawer.presentTo === "function") {
+        PhosphorDrawer.presentTo(splat, scratchCtx, {
+          width: buf,
+          height: buf,
+          smooth: false,
+          exposure: typeof PhosphorDrawer.exposure === "function"
+            ? PhosphorDrawer.exposure(bright01)
+            : undefined,
+        });
+      }
+      painted = true;
+    }
+  }
+  if (!painted && typeof TraceStroke !== "undefined" && typeof TraceStroke.draw === "function") {
+    TraceStroke.draw(scratchCtx, [{ x: cx, y: cy }], {
       size,
-      blur: Number.isFinite(blur) ? blur : 0,
+      blur: blur01,
       brightness: 1,
       color,
-      faceMinSide: face,
+      faceMinSide: faceMin,
       composite: "source-over",
     });
-    return;
+    painted = true;
   }
-  const diameter = face * Math.max(0, Math.min(1, size));
-  if (!(diameter > 0)) {
-    return;
+  if (!painted) {
+    scratchCtx.fillStyle = color;
+    scratchCtx.beginPath();
+    scratchCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+    scratchCtx.fill();
   }
-  context.fillStyle = color;
-  context.beginPath();
-  context.arc(bw * 0.5, bh * 0.5, diameter * 0.5, 0, Math.PI * 2);
-  context.fill();
+  nodeGraphStampPreviewBlit(context, platePx, scratch);
 }
 
-function paintNodeGraphInstantTracePreview(root, settings = {}) {
-  const canvases = root?.querySelectorAll?.("[data-instant-trace-preview-canvas]");
+function paintNodeGraphStampPreview(root, settings = {}) {
+  const shell = root?.querySelector?.("[data-stamp-preview]");
+  const kind = shell?.getAttribute?.("data-stamp-preview") || "trace";
+  const canvases = root?.querySelectorAll?.("[data-stamp-preview-canvas]");
   if (!canvases?.length) {
     return;
   }
   for (const canvas of canvases) {
-    paintNodeGraphInstantTracePreviewCanvas(
+    paintNodeGraphStampPreviewCanvas(
       canvas,
       settings,
       canvas.getAttribute("data-preview-side") || "",
+      kind,
     );
   }
 }
 
-function syncNodeGraphInstantTracePreview(root, settings) {
-  const host = root?.querySelector?.("[data-instant-trace-preview]")
+function syncNodeGraphStampPreview(root, settings) {
+  const host = root?.querySelector?.("[data-stamp-preview]")
     ? root
     : document.getElementById("nodeTraceDisplaySettingsPopover");
-  if (!host?.querySelector?.("[data-instant-trace-preview-canvas]")) {
+  if (!host?.querySelector?.("[data-stamp-preview-canvas]")) {
     return;
   }
-  const paint = () => paintNodeGraphInstantTracePreview(host, settings || {});
+  const paint = () => paintNodeGraphStampPreview(host, settings || {});
   if (typeof requestAnimationFrame === "function") {
     requestAnimationFrame(paint);
   } else {
     paint();
   }
+}
+
+/** @deprecated Use syncNodeGraphStampPreview. */
+function syncNodeGraphInstantTracePreview(root, settings) {
+  return syncNodeGraphStampPreview(root, settings);
 }
 
 function nodeGraphDisplaySettingsPushBackgroundHueRow(rows, type) {
@@ -651,7 +820,7 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     if (previewPlaced) {
       return;
     }
-    rows.push(nodeGraphInstantTracePreviewHtml(stereoInk));
+    rows.push(nodeGraphStampPreviewHtml(stereoInk, type));
     previewPlaced = true;
   };
   const usedChoices = new Set();
@@ -843,6 +1012,14 @@ function buildNodeGraphPhosphorDisplaySettingsBodyHtml(type, node, allowKey) {
   const usedToggles = new Set();
   const usedChoices = new Set();
   const rows = [];
+  let previewPlaced = false;
+  const pushPreview = () => {
+    if (previewPlaced) {
+      return;
+    }
+    rows.push(nodeGraphStampPreviewHtml(false, type));
+    previewPlaced = true;
+  };
   if (toggleKeys.includes("skipDiscontinuities")) {
     rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("skipDiscontinuities"));
     usedToggles.add("skipDiscontinuities");
@@ -857,6 +1034,12 @@ function buildNodeGraphPhosphorDisplaySettingsBodyHtml(type, node, allowKey) {
   }
   for (const key of ordered) {
     rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
+    if (key === "dot1Brightness") {
+      pushPreview();
+    }
+  }
+  if (!previewPlaced) {
+    pushPreview();
   }
   for (const key of leftover) {
     rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
