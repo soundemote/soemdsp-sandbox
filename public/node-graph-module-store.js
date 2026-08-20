@@ -3146,7 +3146,9 @@ function setNodeGraphModuleStoreDepartment(department = "") {
 }
 
 function saveNodeGraphModuleStoreStateToUserSettings() {
-  if (typeof persistNodeGraphUserSession === "function") {
+  if (typeof persistSession === "function") {
+    persistSession({ reason: "session" });
+  } else if (typeof persistNodeGraphUserSession === "function") {
     persistNodeGraphUserSession();
   }
 }

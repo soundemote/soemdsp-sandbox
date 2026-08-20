@@ -362,7 +362,7 @@ function rememberNodeGraphWorkspaceWindowState(key, element, patch = {}, options
 }
 
 function saveNodeGraphWorkspaceWindowStatesToUserSettings(options = {}) {
-  persistSession({ reason: "session", ...options });
+  persistSession({ ...options, reason: "session" });
 }
 
 // App-wide floating-window open policy, in one place.
@@ -1092,7 +1092,15 @@ function readNodeGraphSessionSelectionFromState() {
     lastModuleActionTargetNode: String(nodeGraphMvp?.lastModuleActionTargetNode || "").trim(),
   };
   const pending = nodeGraphMvp?.sessionSelection;
-  if (!live.selectedNodeIds.length && Array.isArray(pending?.selectedNodeIds) && pending.selectedNodeIds.length) {
+  const liveNodeCount = Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes.length : 0;
+  // Pending bag is only for hydrate-before-commit. After nodes exist, persist live
+  // (including empty selection).
+  if (
+    liveNodeCount === 0
+    && !live.selectedNodeIds.length
+    && Array.isArray(pending?.selectedNodeIds)
+    && pending.selectedNodeIds.length
+  ) {
     return {
       selectedNodeIds: pending.selectedNodeIds.map((id) => String(id || "").trim()).filter(Boolean),
       lastModuleActionTargetNode: String(
@@ -1145,6 +1153,10 @@ function applyNodeGraphSessionSelection(snapshot = nodeGraphMvp?.sessionSelectio
     return ids.length > 0;
   } finally {
     nodeGraphMvp._applyingSessionSelection = false;
+    const liveNodeCount = Array.isArray(nodeGraphMvp.patch?.nodes) ? nodeGraphMvp.patch.nodes.length : 0;
+    if (liveNodeCount > 0) {
+      nodeGraphMvp.sessionSelection = null;
+    }
   }
 }
 
@@ -1586,10 +1598,7 @@ function saveNodeGraphUserSessionLocal(text) {
 }
 
 function persistNodeGraphUserSession() {
-  if (typeof serializeNodeGraphUserSession !== "function") {
-    return false;
-  }
-  return saveNodeGraphUserSessionLocal(serializeNodeGraphUserSession());
+  return persistSession({ reason: "session" });
 }
 
 /**
@@ -1612,7 +1621,10 @@ function persistSession(options = {}) {
     }
     return false;
   }
-  return persistNodeGraphUserSession();
+  if (typeof serializeNodeGraphUserSession !== "function") {
+    return false;
+  }
+  return saveNodeGraphUserSessionLocal(serializeNodeGraphUserSession());
 }
 
 function loadNodeGraphUserSessionLocal() {

@@ -790,6 +790,11 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
       ? normalizeNodeGraphVectorRgbSettings(node.traceDisplaySettings)
       : (node.traceDisplaySettings || {});
   }
+  if (settingsSchema === "rasterRgbFace") {
+    return typeof normalizeNodeGraphRasterRgbSettings === "function"
+      ? normalizeNodeGraphRasterRgbSettings(node.traceDisplaySettings)
+      : (node.traceDisplaySettings || {});
+  }
   return nodeGraphGlobalTraceSettings();
 }
 

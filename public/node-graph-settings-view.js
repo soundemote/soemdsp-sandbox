@@ -80,8 +80,12 @@ function setNodeGraphBookScriptPage(page, options = {}) {
   if (next !== previous && options.note !== false && typeof noteNodeGraphCommandCenterPage === "function") {
     noteNodeGraphCommandCenterPage(next === "ui-settings" ? "ui settings script page" : "script page");
   }
-  if (next !== previous && options.persist !== false && typeof persistNodeGraphUserSession === "function") {
-    persistNodeGraphUserSession();
+  if (next !== previous && options.persist !== false) {
+    if (typeof persistSession === "function") {
+      persistSession({ reason: "session" });
+    } else if (typeof persistNodeGraphUserSession === "function") {
+      persistNodeGraphUserSession();
+    }
   }
 }
 

@@ -877,7 +877,9 @@ function persistNodeGraphModuleScopeFramesPerSecondSetting() {
   ) {
     saveNodeUiDevLocalDefaultSettings(serializeNodeUiDevSettings());
   }
-  if (typeof persistNodeGraphUserSession === "function") {
+  if (typeof persistSession === "function") {
+    persistSession({ reason: "session" });
+  } else if (typeof persistNodeGraphUserSession === "function") {
     persistNodeGraphUserSession();
   }
 }
@@ -3927,7 +3929,9 @@ function setNodeGraphViewMode(mode) {
   if (typeof applyNodeGraphWorkspaceView === "function") {
     applyNodeGraphWorkspaceView();
   }
-  if (typeof persistNodeGraphUserSession === "function") {
+  if (typeof persistSession === "function") {
+    persistSession({ reason: "session" });
+  } else if (typeof persistNodeGraphUserSession === "function") {
     persistNodeGraphUserSession();
   }
 }
