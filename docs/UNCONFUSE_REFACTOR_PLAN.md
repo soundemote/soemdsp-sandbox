@@ -69,6 +69,8 @@ Unconfusing that is worth more than splitting another 3k-line file.
 
 ### Persist map (what each door actually writes)
 
+Paths below are `public/node-graph-*` unless noted (`modules/audioPlayer/…`).
+
 Two blobs:
 
 | Blob | Key / file | Intended contents |
