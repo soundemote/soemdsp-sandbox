@@ -2558,23 +2558,19 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 .node-standalone-midi-keyboard-dock {
-  position: relative !important;
-  left: auto !important;
-  top: auto !important;
-  right: auto !important;
-  bottom: auto !important;
+  position: relative;
   z-index: 6;
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
   justify-content: stretch;
   box-sizing: border-box;
-  width: 100% !important;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
   height: var(--node-controller-dock-height, 240px);
   min-height: 72px;
-  margin: 0 !important;
+  margin: 0;
   overflow: hidden;
   border: 0;
   border-top: 1px solid rgba(127, 199, 217, 0.12);

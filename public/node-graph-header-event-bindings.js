@@ -231,6 +231,7 @@ function bindNodeGraphHeaderControlEvents() {
     .addEventListener("change", handleNodeGraphSceneScopeOptionInput);
   document.getElementById("nodeModuleSlidersToggleButton").addEventListener("click", toggleNodeGraphModuleSlidersVisibility);
   document.getElementById("nodeTooltipToggleButton")?.addEventListener("click", toggleNodeGraphTooltipWindow);
+  document.getElementById("nodeAppChromeBarsToggleButton")?.addEventListener("click", toggleNodeGraphAppChromeBarsVisibility);
   document
     .getElementById("nodeUserUiSettingsSaveDefault")
     ?.addEventListener("click", handleSaveNodeUserUiSettingsDefaultClick);

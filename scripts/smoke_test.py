@@ -15585,21 +15585,26 @@ def require_node_graph_mvp_contract() -> None:
         and 'id="nodeModularWindowedViewButton"' in index_source
         and 'aria-hidden="true">💻</span></button>' in index_source
         and 'aria-hidden="true">📱</span></button>' in index_source
-        and "nodeAppChromeBarsToggleButton" not in index_source
+        and 'id="nodeAppChromeBarsToggleButton"' in index_source
+        and "<kbd>V</kbd>" in index_source
         and 'id="nodeSceneToggleModularInfiniteView"' in index_source
         and 'id="nodeSceneToggleModularWindowedView"' in index_source
-        and 'bindNodeGraphSceneElementEvent("nodeSceneToggleModularInfiniteView", "click", toggleNodeGraphAppChromeBarsVisibility)' in node_graph_source
-        and 'bindNodeGraphSceneElementEvent("nodeSceneToggleModularWindowedView", "click", toggleNodeGraphModularWindowedView)' in node_graph_source
+        and 'bindNodeGraphSceneElementEvent("nodeSceneToggleModularInfiniteView", "click", () => {' in node_graph_source
+        and "setNodeGraphModularWindowedActive(false)" in node_graph_source
+        and 'bindNodeGraphSceneElementEvent("nodeSceneToggleModularWindowedView", "click", () => {' in node_graph_source
+        and "setNodeGraphModularWindowedActive(true)" in node_graph_source
         and "function toggleNodeGraphAppChromeBarsVisibility()" in node_graph_source
+        and "function renderNodeGraphAppChromeBarsToggle()" in node_graph_source
         and "function toggleNodeGraphModularWindowedView()" in node_graph_source
         and "function setNodeGraphModularWindowedActive" in node_graph_source
         and "appChromeBarsVisible: true," in script_sources["./public/node-graph-state.js"]
         and ".node-wiring-panel.app-chrome-bars-hidden > .node-view-toolbar," in style_source
         and ".scene-context-modular-view-controls {" in style_source
         and "toggleNodeGraphAppChromeBarsVisibility" in script_sources["./public/node-graph-keyboard-shortcuts.js"]
-        and "toggleNodeGraphModularWindowedView" in script_sources["./public/node-graph-keyboard-shortcuts.js"]
+        and 'event.key.toLowerCase() === "v"' in script_sources["./public/node-graph-keyboard-shortcuts.js"]
+        and "toggleNodeGraphModularWindowedView" in node_graph_source
         and 'event.key.toLowerCase() === "b"' not in script_sources["./public/node-graph-keyboard-shortcuts.js"],
-        "Modular chrome SSOT: 💻/V toggles top+bottom bars; 📱/M toggles condensed resize frame (independent)",
+        "Modular chrome SSOT: Visibility/V toggles top+bottom bars; 💻 computer canvas; 📱 condensed frame",
     )
 
     require(

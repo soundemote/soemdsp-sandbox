@@ -76,6 +76,7 @@ const nodeGraphVisibilityOnMarks = Object.freeze({
   debug: "🐞",
   tooltipsOff: "⬛",
   tooltipsEmbedded: "📌",
+  appBars: "🪟",
 });
 
 /**
@@ -787,6 +788,17 @@ function toggleNodeGraphTransportChromeStuck() {
   setNodeGraphTransportChromeStuck(nodeGraphMvp.transportChromeStuck !== true);
 }
 
+function renderNodeGraphAppChromeBarsToggle() {
+  const button = document.getElementById("nodeAppChromeBarsToggleButton");
+  const visible = nodeGraphMvp.appChromeBarsVisible !== false;
+  setNodeGraphVisibilityToggleLabel(button, visible, "App Bars", {
+    onMark: nodeGraphVisibilityOnMarks.appBars,
+  });
+  if (typeof renderNodeGraphVisibilityMenuButton === "function") {
+    renderNodeGraphVisibilityMenuButton();
+  }
+}
+
 function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
   nodeGraphMvp.appChromeBarsVisible = visible !== false;
   const panel = document.getElementById("nodeWiringPanel");
@@ -795,9 +807,7 @@ function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
   if (typeof renderNodeGraphModularViewModeButtons === "function") {
     renderNodeGraphModularViewModeButtons();
   }
-  if (typeof renderNodeGraphVisibilityMenuButton === "function") {
-    renderNodeGraphVisibilityMenuButton();
-  }
+  renderNodeGraphAppChromeBarsToggle();
   // Re-apply workspace size: clearing bars must drop any fixed frame size when
   // M is off so the canvas can fill the panel (see applyNodeGraphWorkspaceView).
   if (typeof applyNodeGraphWorkspaceView === "function") {
@@ -809,6 +819,13 @@ function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
         ? "Top and bottom bars hidden (V)."
         : "Top and bottom bars shown (V).",
     );
+  }
+  if (options.persist !== false) {
+    if (typeof persistSession === "function") {
+      persistSession({ reason: "uiSettings" });
+    } else if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
+      scheduleNodeUiDevSettingsAutosave();
+    }
   }
 }
 
@@ -860,19 +877,19 @@ function toggleNodeGraphViewButtonsVisibility() {
 
 function renderNodeGraphModularViewModeButtons() {
   const windowed = nodeGraphIsModularWindowedView();
-  const vBtn = document.getElementById("nodeModularInfiniteViewButton");
-  const mBtn = document.getElementById("nodeModularWindowedViewButton");
-  vBtn?.classList.toggle("active", !windowed);
-  vBtn?.setAttribute("aria-pressed", String(!windowed));
-  mBtn?.classList.toggle("active", windowed);
-  mBtn?.setAttribute("aria-pressed", String(windowed));
-  const sceneV = document.getElementById("nodeSceneToggleModularInfiniteView");
-  sceneV?.classList.toggle("active", !windowed);
-  sceneV?.setAttribute("aria-pressed", String(!windowed));
-  const sceneM = document.getElementById("nodeSceneToggleModularWindowedView")
+  const computerBtn = document.getElementById("nodeModularInfiniteViewButton");
+  const phoneBtn = document.getElementById("nodeModularWindowedViewButton");
+  computerBtn?.classList.toggle("active", !windowed);
+  computerBtn?.setAttribute("aria-pressed", String(!windowed));
+  phoneBtn?.classList.toggle("active", windowed);
+  phoneBtn?.setAttribute("aria-pressed", String(windowed));
+  const sceneComputer = document.getElementById("nodeSceneToggleModularInfiniteView");
+  sceneComputer?.classList.toggle("active", !windowed);
+  sceneComputer?.setAttribute("aria-pressed", String(!windowed));
+  const scenePhone = document.getElementById("nodeSceneToggleModularWindowedView")
     || document.getElementById("nodeSceneToggleModularOnlyView");
-  sceneM?.classList.toggle("active", windowed);
-  sceneM?.setAttribute("aria-pressed", String(windowed));
+  scenePhone?.classList.toggle("active", windowed);
+  scenePhone?.setAttribute("aria-pressed", String(windowed));
 }
 
 function persistNodeGraphModuleScopeFramesPerSecondSetting() {
@@ -1459,16 +1476,26 @@ function resetNodeGraphStartupView() {
   }
   if (nodeGraphMvp._startupHideAppChromeBars) {
     nodeGraphMvp._startupHideAppChromeBars = false;
-    setNodeGraphAppChromeBarsVisible(false, { help: false });
+    setNodeGraphAppChromeBarsVisible(false, { help: false, persist: false });
   } else if (typeof setNodeGraphAppChromeBarsVisible === "function") {
-    setNodeGraphAppChromeBarsVisible(nodeGraphMvp.appChromeBarsVisible !== false, { help: false });
+    setNodeGraphAppChromeBarsVisible(nodeGraphMvp.appChromeBarsVisible !== false, { help: false, persist: false });
   }
 }
 
-// Keyboard sits in a footer stack above the button bar. Resize is just height.
+// Controller dock: in-flow strip above the button bar. Same show/hide
+// pattern as App Bars (V) — a flag, hidden=, height. Not a floating window.
 const nodeGraphControllerDockHeightMin = 72;
 const nodeGraphControllerDockHeightMax = 620;
 const nodeGraphControllerDockHeightDefault = 240;
+
+function nodeGraphControllerDockElement() {
+  return document.getElementById("nodeStandaloneMidiKeyboardDock");
+}
+
+function nodeGraphControllerDockVisible() {
+  const dock = nodeGraphControllerDockElement();
+  return Boolean(dock && !dock.hidden);
+}
 
 function nodeGraphControllerDockHeightLimits() {
   const panel = document.getElementById("nodeWiringPanel");
@@ -1492,7 +1519,7 @@ function normalizeNodeGraphControllerDockHeight(value) {
 }
 
 function applyNodeGraphControllerDockHeight(height = nodeGraphMvp?.controllerDockHeight, options = {}) {
-  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  const dock = nodeGraphControllerDockElement();
   const px = normalizeNodeGraphControllerDockHeight(
     height ?? nodeGraphMvp?.controllerDockHeight ?? 0,
   );
@@ -1501,18 +1528,8 @@ function applyNodeGraphControllerDockHeight(height = nodeGraphMvp?.controllerDoc
     nodeGraphMvp.controllerDockHeight = px;
   }
   if (dock) {
-    dock.style.position = "";
-    dock.style.left = "";
-    dock.style.right = "";
-    dock.style.top = "";
-    dock.style.bottom = "";
-    dock.style.margin = "";
-    dock.style.width = "";
     dock.style.height = `${used}px`;
     dock.style.setProperty("--node-controller-dock-height", `${used}px`);
-    dock.classList.toggle("has-controller-height", px > 0);
-    dock.classList.remove("node-floating-window-surface", "floating-window-locked");
-    delete dock.dataset.floatingWindowLocked;
   }
   const layout = options.layout !== false && !nodeGraphMvp?.chromeSectionResizing;
   if (layout && typeof applyNodeGraphMidiKeyboardLayout === "function") {
@@ -1528,7 +1545,7 @@ function beginNodeGraphControllerDockResize(event) {
   if (event.button > 0) {
     return false;
   }
-  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  const dock = nodeGraphControllerDockElement();
   const handle = event.currentTarget;
   if (!dock || dock.hidden || !handle || typeof watchNodeGraphSectionResizeDrag !== "function") {
     return false;
@@ -1568,13 +1585,8 @@ function bindNodeGraphControllerDockSplit() {
   handle.addEventListener("pointerdown", beginNodeGraphControllerDockResize);
 }
 
-function syncNodeGraphControllerDockShown() {
-  bindNodeGraphControllerDockSplit();
-  applyNodeGraphControllerDockHeight();
-}
-
 function initNodeGraphStandaloneMidiKeyboard() {
-  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  const dock = nodeGraphControllerDockElement();
   const body = document.getElementById("nodeStandaloneMidiKeyboardBody");
   if (!dock || !body || dock.dataset.populated === "true") {
     return;
@@ -1590,10 +1602,9 @@ function initNodeGraphStandaloneMidiKeyboard() {
 }
 
 function renderNodeGraphStandaloneMidiKeyboardToggle() {
+  const visible = nodeGraphControllerDockVisible();
   const button = document.getElementById("nodeStandaloneMidiKeyboardButton");
   const sceneButton = document.getElementById("nodeSceneToggleStandaloneMidiKeyboard");
-  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
-  const visible = Boolean(dock && !dock.hidden);
   if (button) {
     button.setAttribute("aria-pressed", visible ? "true" : "false");
   }
@@ -1602,39 +1613,44 @@ function renderNodeGraphStandaloneMidiKeyboardToggle() {
   }
 }
 
-function closeNodeGraphStandaloneMidiKeyboard() {
-  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
-  if (dock) {
-    dock.hidden = true;
+function setNodeGraphControllerDockVisible(visible, options = {}) {
+  const dock = nodeGraphControllerDockElement();
+  if (!dock) {
+    return false;
   }
+  const on = visible !== false;
+  if (on) {
+    initNodeGraphStandaloneMidiKeyboard();
+  }
+  dock.hidden = !on;
   applyNodeGraphControllerDockHeight(nodeGraphMvp?.controllerDockHeight, { layout: false });
+  if (on) {
+    bindNodeGraphControllerDockSplit();
+  }
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState("standaloneMidiKeyboard", dock, { open: false }, { status: false });
+    rememberNodeGraphWorkspaceWindowState(
+      "standaloneMidiKeyboard",
+      dock,
+      { open: on },
+      { persist: options.persist !== false, status: false },
+    );
   }
   renderNodeGraphStandaloneMidiKeyboardToggle();
-  setNodeInteractionHelp("Controller hidden.");
-  if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
+  if (options.layout !== false && typeof notifyNodeGraphChromeLayoutChanged === "function") {
     notifyNodeGraphChromeLayoutChanged();
   }
+  if (options.help !== false && typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(on ? "Controller shown." : "Controller hidden.");
+  }
+  return on;
+}
+
+function closeNodeGraphStandaloneMidiKeyboard() {
+  setNodeGraphControllerDockVisible(false);
 }
 
 function toggleNodeGraphStandaloneMidiKeyboard() {
-  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
-  const currentlyVisible = Boolean(dock && !dock.hidden);
-  if (currentlyVisible) {
-    closeNodeGraphStandaloneMidiKeyboard();
-    return;
-  }
-  initNodeGraphStandaloneMidiKeyboard();
-  if (dock) {
-    dock.hidden = false;
-  }
-  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState("standaloneMidiKeyboard", dock, { open: true }, { persist: false });
-  }
-  syncNodeGraphControllerDockShown();
-  renderNodeGraphStandaloneMidiKeyboardToggle();
-  setNodeInteractionHelp("Controller shown.");
+  setNodeGraphControllerDockVisible(!nodeGraphControllerDockVisible());
 }
 
 function nodeGraphTooltipsShown() {

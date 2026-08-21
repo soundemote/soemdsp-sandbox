@@ -534,7 +534,15 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
   if (!element) {
     return;
   }
-  if (key !== "standaloneMidiKeyboard" && typeof markNodeGraphFloatingWindowSurface === "function") {
+  if (key === "standaloneMidiKeyboard") {
+    if (typeof setNodeGraphControllerDockVisible === "function") {
+      setNodeGraphControllerDockVisible(state.open, { persist: false, help: false });
+    } else {
+      element.hidden = !state.open;
+    }
+    return;
+  }
+  if (typeof markNodeGraphFloatingWindowSurface === "function") {
     markNodeGraphFloatingWindowSurface(element);
   }
   if (key === "oscilloscopeSettings") {
@@ -560,22 +568,6 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
     // Unified pages are one window. Restore that window after all keys,
     // never independently unhide/re-home each page from its old seat.
     element.hidden = true;
-    return;
-  }
-  if (key === "standaloneMidiKeyboard") {
-    if (state.open && typeof initNodeGraphStandaloneMidiKeyboard === "function") {
-      initNodeGraphStandaloneMidiKeyboard();
-    }
-    element.hidden = !state.open;
-    if (typeof applyNodeGraphControllerDockHeight === "function") {
-      applyNodeGraphControllerDockHeight(nodeGraphMvp?.controllerDockHeight, { layout: false });
-    }
-    if (state.open && typeof syncNodeGraphControllerDockShown === "function") {
-      syncNodeGraphControllerDockShown();
-    }
-    if (typeof renderNodeGraphStandaloneMidiKeyboardToggle === "function") {
-      renderNodeGraphStandaloneMidiKeyboardToggle();
-    }
     return;
   }
   element.hidden = !state.open;
@@ -1745,7 +1737,7 @@ function applyNodeUiDevSettings(settings) {
     ? true
     : Boolean(normalized.view.appChromeBarsVisible);
   if (typeof setNodeGraphAppChromeBarsVisible === "function") {
-    setNodeGraphAppChromeBarsVisible(nodeGraphMvp.appChromeBarsVisible, { help: false });
+    setNodeGraphAppChromeBarsVisible(nodeGraphMvp.appChromeBarsVisible, { help: false, persist: false });
   }
   nodeGraphMvp.transportChromeStuck = Boolean(normalized.view.transportChromeStuck);
   if (typeof setNodeGraphTransportChromeStuck === "function") {
@@ -2062,7 +2054,7 @@ function clearNodeUserStartupRuntimeState() {
     setNodeGraphTransportChromeStuck(false, { help: false });
   }
   if (typeof setNodeGraphAppChromeBarsVisible === "function") {
-    setNodeGraphAppChromeBarsVisible(true, { help: false });
+    setNodeGraphAppChromeBarsVisible(true, { help: false, persist: false });
   }
   nodeGraphMvp.moduleInterfaceControlsVisible = true;
   nodeGraphMvp.moduleOscilloscopesVisible = true;
