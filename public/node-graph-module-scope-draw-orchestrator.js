@@ -332,6 +332,18 @@ function drawNodeGraphModuleScopes(options = {}) {
   debug.canvasWidth = canvas.width;
   debug.canvasHeight = canvas.height;
   const gl = renderer.gl;
+  // Simulation FPS gate BEFORE collect. screenItems used to run every rAF and
+  // wipe vector 2D Trace on no-buffer frames, so FPS 1 flashed then went blank
+  // instead of holding the last stroke for the whole frame.
+  const fpsClockSlot = typeof nodeGraphVisibleModuleScopeSlots === "function"
+    ? nodeGraphVisibleModuleScopeSlots()[0]
+    : null;
+  if (!force && !nodeGraphModuleScopePhosphorFrameReady(fpsClockSlot)) {
+    setNodeGraphModuleScopeDebugPhase("fps-gate");
+    commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
+    scheduleNodeGraphModuleScopeDraw();
+    return;
+  }
   setNodeGraphModuleScopeDebugPhase("collect");
   const visibleItems = nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio);
   debug.visibleItems = visibleItems.length;
@@ -371,7 +383,6 @@ function drawNodeGraphModuleScopes(options = {}) {
     }
     nodeGraphModuleScopeMarkScreenLit(face, 1);
   }
-  const firstVisibleSlot = visibleItems[0]?.slot;
   flushNodeSliderReadoutUpdates();
   // Instant Trace skip only when paint gate says idle (never while live).
   const allowTraceSkip = typeof scopePaintShouldSkipUnchangedTrace === "function"
@@ -381,14 +392,6 @@ function drawNodeGraphModuleScopes(options = {}) {
     setNodeGraphModuleScopeDebugPhase("trace-unchanged");
     commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
     nodeGraphModuleScopeKeepDrawLoopAlive(scopePaused);
-    return;
-  }
-  // force (Clear) must not wait on the phosphor FPS clock — that dropped
-  // pause-clear rebinds and left faces dark until Stop+Play.
-  if (!force && !nodeGraphModuleScopePhosphorFrameReady(firstVisibleSlot)) {
-    setNodeGraphModuleScopeDebugPhase("fps-gate");
-    commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
-    scheduleNodeGraphModuleScopeDraw();
     return;
   }
   // Same Simulation FPS tick as phosphor / traces — one Pixel Grid write.

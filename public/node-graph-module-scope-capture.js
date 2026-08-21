@@ -485,7 +485,16 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   const xRecentSamples = nodeGraphScopeBufferRecentSampleCount(xBuffer);
   const yRecentSamples = nodeGraphScopeBufferRecentSampleCount(yBuffer);
   const hasRecentSampleMetadata = xRecentSamples !== null || yRecentSamples !== null;
-  if (hasRecentSampleMetadata && !(xRecentSamples > 0 && yRecentSamples > 0)) {
+  const historySeconds = Number(options.historySeconds);
+  const historyWindow = Number.isFinite(historySeconds);
+  // Phosphor: skip when this visual post has no new samples (energy FBO holds).
+  // Vector 2D Trace passes historySeconds and must still copy the retained
+  // window — otherwise FPS 1 returns null and the face is wiped blank.
+  if (
+    !historyWindow
+    && hasRecentSampleMetadata
+    && !(xRecentSamples > 0 && yRecentSamples > 0)
+  ) {
     return null;
   }
   // Match soundemote.io / site sandbox capture: end-aligned X/Y pairs, continuous
@@ -503,7 +512,6 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   const newSinceLastDraw = Number.isFinite(lastDrawnFrame) && absoluteFrame > lastDrawnFrame
     ? absoluteFrame - lastDrawnFrame
     : 0;
-  const historySeconds = Number(options.historySeconds);
   const minWindowFrames = nodeGraphScope2dSourceFrameCount(sampleRate, fps, validLength);
   // Capture only what we need to deposit this frame (new samples + a small
   // pad). The energy FBO holds the trail via decay — re-capturing ~1s and

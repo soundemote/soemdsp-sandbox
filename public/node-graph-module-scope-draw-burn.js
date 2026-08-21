@@ -1248,10 +1248,26 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   const points = buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings);
   const bg = nodeGraphFacePlateBackground(settings, nodeGraphScope2dTraceSettingsDefaults.background);
   nodeGraphFacePlateApplyCss(screenElement, bg);
-  nodeGraphFacePlateFillCanvas(context, canvas, bg);
-  if (!points.some(Boolean)) {
+  // Need two consecutive finite verts or the stroke is invisible and a fill
+  // would blank the last frame (FPS 1 / one-sample posts).
+  let strokeable = false;
+  let run = 0;
+  for (let i = 0; i < points.length; i += 1) {
+    const p = points[i];
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+      run += 1;
+      if (run >= 2) {
+        strokeable = true;
+        break;
+      }
+    } else {
+      run = 0;
+    }
+  }
+  if (!strokeable) {
     return;
   }
+  nodeGraphFacePlateFillCanvas(context, canvas, bg);
   const dotSpace = Math.min(canvas.width, canvas.height);
   drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings);
 }

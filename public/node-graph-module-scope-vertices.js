@@ -655,7 +655,8 @@ function syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixe
     : (typeof nodeGraphModuleScopePhosphorFrozen === "function"
       && nodeGraphModuleScopePhosphorFrozen());
   const holdWaterfall = Boolean(canvas._waterfall?.started || canvas._traceScroll?.started);
-  if ((frozen || holdWaterfall) && canvas.width >= 2 && canvas.height >= 2) {
+  const holdVectorTrace = Boolean(canvas.classList?.contains("node-module-scope-vector-trace"));
+  if ((frozen || holdWaterfall || holdVectorTrace) && canvas.width >= 2 && canvas.height >= 2) {
     const dw = Math.abs(width - canvas.width);
     const dh = Math.abs(height - canvas.height);
     const slop = holdWaterfall ? 2 : 1;

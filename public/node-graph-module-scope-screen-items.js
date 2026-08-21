@@ -197,6 +197,9 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
             if (typeof paintNodeGraphTraceDisplayColdPlate === "function") {
               paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio);
             }
+          } else if (selfPaint === "scope2dTrace") {
+            // Vector 2D Trace has no energy FBO. Between Simulation FPS posts
+            // (e.g. FPS 1) capture is empty — hold last pixels, do not wipe.
           } else {
             // Do NOT wipe phosphor/local faces every no-buffer frame — that
             // blanked scopes until a zoom/layout event re-drew them.
@@ -204,7 +207,11 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
             const faceCanvas = slot?.scopeElement?.querySelector?.(
               ":scope > .node-module-scope-local-fallback-canvas",
             );
-            if (faceCanvas && !faceCanvas._phosphorEnergyGl) {
+            if (
+              faceCanvas
+              && !faceCanvas._phosphorEnergyGl
+              && !faceCanvas.classList?.contains("node-module-scope-vector-trace")
+            ) {
               clearNodeGraphModuleScopeLocalFallback(slot);
             }
           }
