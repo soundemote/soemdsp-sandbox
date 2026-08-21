@@ -107,7 +107,7 @@ function notifyNodeGraphModuleScopeSnapshotListeners() {
 }
 const nodeGraphModuleScopeSettingsStorageKey = "soemdsp-sandbox.moduleScopeSettings.v1";
 const nodeGraphModuleScopeMaxBackingStoreSize = 4096;
-// 1D Trace history window (UI label "History (s)"). 10s covers slow LFO /
+// 1D Waterfall history window (UI label "History (s)"). 10s covers slow LFO /
 // envelope inspection without absurd live-buffer growth at 48k.
 // nodeGraphTraceDisplayMaxZoomSeconds → node-graph-module-scope-defaults.js
 // nodeGraphModuleScopeDefaultSettings → node-graph-module-scope-defaults.js

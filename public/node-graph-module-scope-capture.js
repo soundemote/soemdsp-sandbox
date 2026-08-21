@@ -308,8 +308,8 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
         ? nodeGraphScope2dTraceSettingsForNode(node)
         : null;
       const history = Number(settings?.historySeconds);
-      if (Number.isFinite(history) && history > 0) {
-        captureOpts.historySeconds = history;
+      if (Number.isFinite(history)) {
+        captureOpts.historySeconds = Math.max(0, history);
       }
     }
     return nodeGraphModuleScopeCapturedScope2dBuffer(slot, captureOpts);
@@ -509,11 +509,20 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   // pad). The energy FBO holds the trail via decay — re-capturing ~1s and
   // re-stamping it every frame painted a lagging "second path" behind the beam.
   // Vector 2D Trace passes historySeconds and needs a real contiguous window.
+  // Use the buffer's own sample rate (visual hop), not engine 44100, so a
+  // 1 s window is 1 s of ring data. Missing samples stay NaN (path break),
+  // never 0,0 — that drew chords through the origin.
+  const bufferRate = typeof nodeGraphScopeSampleRate === "function"
+    ? nodeGraphScopeSampleRate(xBuffer)
+    : 0;
+  const windowRate = bufferRate > 0 ? bufferRate : sampleRate;
   const frames = Number.isFinite(historySeconds)
-    ? Math.min(
-      validLength,
-      Math.max(1, Math.ceil(Math.max(0, historySeconds) * sampleRate)),
-    )
+    ? (historySeconds <= 0
+      ? 1
+      : Math.min(
+        validLength,
+        Math.max(1, Math.ceil(historySeconds * windowRate)),
+      ))
     : Math.min(
       validLength,
       Math.max(minWindowFrames, newSinceLastDraw, 1),
@@ -523,8 +532,10 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   const x = new Float32Array(frames);
   const y = new Float32Array(frames);
   for (let index = 0; index < frames; index += 1) {
-    x[index] = Number(xBuffer[start + index]) || 0;
-    y[index] = Number(yBuffer[start + index]) || 0;
+    const xv = Number(xBuffer[start + index]);
+    const yv = Number(yBuffer[start + index]);
+    x[index] = Number.isFinite(xv) ? xv : Number.NaN;
+    y[index] = Number.isFinite(yv) ? yv : Number.NaN;
   }
   return {
     length: frames,

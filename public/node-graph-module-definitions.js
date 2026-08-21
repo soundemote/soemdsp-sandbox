@@ -219,8 +219,8 @@ const nodeGraphNodeLabels = Object.freeze({
   image: "Image",
   canvas: "Canvas",
   visualOscilloscope: "Display",
-  traceDisplay: "1D Trace",
-  traceDisplayStereo: "1D Trace Stereo",
+  traceDisplay: "1D Waterfall",
+  traceDisplayStereo: "1D Waterfall Stereo",
   dotOscilloscope: "Phosphor Dot",
   oscilloscopeBank: "Oscilloscope Bank",
   videoscope: "Videoscope",
@@ -1748,7 +1748,7 @@ const nodeGraphModuleDefinitions = (
       { key: "Out", kind: "scalar" },
     ],
     displayModes: [
-      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out" } },
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace", source: { value: "Out" } },
     ],
     defaultDisplayMode: "trace",
     inputs: ["Reset"],
@@ -2142,7 +2142,7 @@ const nodeGraphModuleDefinitions = (
       { key: "Pitch", kind: "scalar" },
     ],
     displayModes: [
-      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace", source: { value: "CV" } },
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace", source: { value: "CV" } },
       { key: "pitchTrace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "Pitch" } },
     ],
     defaultDisplayMode: "trace",
@@ -4559,7 +4559,7 @@ const nodeGraphModuleDefinitions = (
     displayType: "trace",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
     bufferedInputs: ["Mono", "Left", "Right"],
@@ -8392,7 +8392,7 @@ const nodeGraphModuleDefinitions = (
     displayType: "trace",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
     stereoTracePorts: { left: "Mod L", right: "Mod R" },
@@ -8651,7 +8651,7 @@ const nodeGraphModuleDefinitions = (
     displayType: "trace",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
     stereoTracePorts: { left: "Mix L", right: "Mix R" },
@@ -9313,7 +9313,7 @@ const nodeGraphModuleDefinitions = (
     displayType: "trace",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
     stereoTracePorts: { left: "Left", right: "Right" },
@@ -9337,7 +9337,7 @@ const nodeGraphModuleDefinitions = (
     displayType: "trace",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
     stereoTracePorts: { left: "Left", right: "Right" },
@@ -10019,7 +10019,7 @@ const nodeGraphModuleDefinitions = (
       },
       {
         key: "monoTrace",
-        label: "1D Trace",
+        label: "1D Waterfall",
         renderer: "trace",
         settingsSchema: "trace",
         source: { value: "In" }
@@ -10062,14 +10062,14 @@ const nodeGraphModuleDefinitions = (
     ],
     visualSink: true
   },
-  // Same stereo Instant Trace face as Output (L/R colors, Meet blend, sync).
+  // Same stereo waterfall face as Output (L/R colors, Meet in the pen, sync).
   traceDisplayStereo: {
     planRole: "monitor",
     bufferedInputs: ["Left", "Right"],
     displayType: "trace",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
     stereoTracePorts: { left: "Left", right: "Right" },
@@ -11093,7 +11093,7 @@ const nodeGraphModuleDefinitions = (
     // Single fixed face — no Trace/Spectrum Mode dropdown in Display Settings.
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
     bufferedInputs: ["Mono", "Left", "Right"],

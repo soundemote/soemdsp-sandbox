@@ -8078,7 +8078,7 @@ def require_node_graph_mvp_contract() -> None:
         'key: "visualOscilloscopeY"',
         'label: "Y"',
         'port: "Y"',
-        'traceDisplay: "1D Trace"',
+        'traceDisplay: "1D Waterfall"',
         '"traceDisplay"',
         "traceDisplay: {",
         'bufferedInputs: ["In"]',

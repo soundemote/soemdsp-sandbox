@@ -119,7 +119,7 @@ function nodeGraphDisplaySettingsClipboardFamilyLabel(family) {
     return "2D Phosphor";
   }
   if (family === "trace1d") {
-    return "1D Instant Trace";
+    return "1D Waterfall";
   }
   if (family === "trace2d") {
     return "2D Instant Trace";
@@ -223,7 +223,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "secondarySize",
       "secondaryLineThickness",
       "secondaryBrightness",
-      "dotBudget",
     ]),
     colors: Object.freeze(["dot1Color", "secondaryColor", "backgroundColor"]),
     toggles: Object.freeze(["skipDiscontinuities", "sourceSync"]),
@@ -1001,7 +1000,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "History (s)",
     inputmode: "decimal",
     id: "nodeTraceDisplayHistorySeconds",
-    title: "Seconds of audio across the face (short windows near 0). Drag uses exponential scaling — fine control for short history, long windows toward the top of the range.",
+    title: "Seconds of tape across the face. 0 = now (a full-width line). Off: scroll speed. Sync: time for the pen to walk left→right.",
   }),
   fftSize: Object.freeze({
     label: "FFT size",
@@ -1244,7 +1243,7 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     label: "Sync",
     id: "nodeTraceDisplaySourceSync",
     title:
-      "App-wide 1D Sync. Instant Trace: edge-lock the visible window. 1D Phosphor: rising edges snap the pen (Reset jack still works). Off = free-run.",
+      "1D Waterfall: Off = tape scrolls left, pen parked on the right. On = tape parked, pen walks left→right and waits off-screen until the next edge. 1D Phosphor: rising edges snap the pen (Reset jack still works).",
   }),
   skipDiscontinuities: Object.freeze({
     label: "Skip Discontinuity",
@@ -1498,6 +1497,7 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     label: "Sync",
     aria: "Sync channel",
     id: "nodeTraceDisplaySyncChannel",
+    title: "Off: tape scrolls left, pen on the right. Left/Right/Mono: pen walks from the left and waits off-screen until that channel's next rising edge.",
     options: Object.freeze([
       Object.freeze({ value: "off", label: "Off" }),
       Object.freeze({ value: "left", label: "Left" }),
@@ -1509,6 +1509,7 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     label: "Blend",
     aria: "Stereo blend mode",
     id: "nodeTraceDisplayStereoBlend",
+    title: "How Left and Right composite in the waterfall pen before the strip is committed to the tape. Meet = coverage mix (red+blue→green).",
     options: Object.freeze([
       Object.freeze({ value: "combine", label: "Meet" }),
       Object.freeze({ value: "lighter", label: "Add" }),

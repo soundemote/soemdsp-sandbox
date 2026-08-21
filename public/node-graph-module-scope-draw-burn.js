@@ -1206,6 +1206,9 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   }
   renderNodeGraphModuleScopeAnalyzer(item.slot, buffer);
   const canvas = nodeGraphModuleScopeLocalFallbackCanvas(item?.slot);
+  if (typeof nodeGraphWaterfallAbandonTape === "function") {
+    nodeGraphWaterfallAbandonTape(canvas);
+  }
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
   const settings = nodeGraphScope2dTraceSettingsForNode(nodeGraphModuleScopeNodeForSlot(item.slot));
   // VECTOR polyline; density scales face buffer for lo-fi (default 1).

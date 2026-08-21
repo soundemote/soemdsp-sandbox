@@ -14,9 +14,11 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Span °";
     title = "Centered arc sweep across Bias 0…1 (degrees). Opens left and right together; gap stays opposite center.";
   }
-  if ((key === "zoomSeconds" || key === "historySeconds") && (
-    formType === "trace"
-    || formType === "traceXyz"
+  if ((key === "zoomSeconds" || key === "historySeconds") && formType === "trace") {
+    label = "History";
+    title = "Seconds of tape across the face. 0 = now (a full-width line). Off: scroll speed. Sync: time for the pen to walk left→right.";
+  } else if ((key === "zoomSeconds" || key === "historySeconds") && (
+    formType === "traceXyz"
     || formType === "scope2dTrace"
     || formType === "gradientVectorscopeFace"
   )) {

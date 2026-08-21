@@ -654,7 +654,7 @@ function syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixe
     ? scopePaintIsFrozen()
     : (typeof nodeGraphModuleScopePhosphorFrozen === "function"
       && nodeGraphModuleScopePhosphorFrozen());
-  const holdWaterfall = Boolean(canvas._traceScroll?.started);
+  const holdWaterfall = Boolean(canvas._waterfall?.started || canvas._traceScroll?.started);
   if ((frozen || holdWaterfall) && canvas.width >= 2 && canvas.height >= 2) {
     const dw = Math.abs(width - canvas.width);
     const dh = Math.abs(height - canvas.height);

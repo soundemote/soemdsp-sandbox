@@ -133,21 +133,72 @@ function nodeGraphHitTrailMirrorStroke(points, center) {
   return points.map((p) => nodeGraphHitTrailMirrorPoint(p, center));
 }
 
+function nodeGraphHitTrailEnsureMirrorStrokes(drag) {
+  if (!drag) {
+    return [];
+  }
+  if (!Array.isArray(drag.mirrorStrokes)) {
+    drag.mirrorStrokes = [];
+  }
+  return drag.mirrorStrokes;
+}
+
+function nodeGraphHitTrailStampMirrorPoint(drag, point) {
+  if (!drag?.mirrorDraw || !point) {
+    return false;
+  }
+  const center = nodeGraphMvp.hitTrailMirrorCenter;
+  if (!center) {
+    return false;
+  }
+  const strokes = nodeGraphHitTrailEnsureMirrorStrokes(drag);
+  let stroke = strokes[strokes.length - 1];
+  if (!stroke) {
+    stroke = [];
+    strokes.push(stroke);
+  }
+  const mirrored = nodeGraphHitTrailMirrorPoint(point, center);
+  const last = stroke[stroke.length - 1];
+  if (last) {
+    const dx = mirrored.x - last.x;
+    const dy = mirrored.y - last.y;
+    if ((dx * dx) + (dy * dy) < nodeGraphHitTrailMinStepPx * nodeGraphHitTrailMinStepPx) {
+      return false;
+    }
+  }
+  stroke.push(mirrored);
+  if (stroke.length > nodeGraphHitTrailMaxPoints) {
+    stroke.splice(0, stroke.length - nodeGraphHitTrailMaxPoints);
+  }
+  return true;
+}
+
+function nodeGraphHitTrailBeginMirrorStroke(drag, point) {
+  if (!drag) {
+    return;
+  }
+  const strokes = nodeGraphHitTrailEnsureMirrorStrokes(drag);
+  const last = strokes[strokes.length - 1];
+  if (!last || last.length) {
+    strokes.push([]);
+  }
+  drag.mirrorDraw = true;
+  nodeGraphHitTrailStampMirrorPoint(drag, point);
+}
+
 function nodeGraphHitTrailAllStrokes() {
   const strokes = nodeGraphHitTrailKeptStrokes().slice();
   const drag = nodeGraphMvp.marqueeSelection;
+  const pen = nodeGraphHitTrailLivePen();
   const live = drag?.points;
   if (live?.length) {
-    const pen = nodeGraphHitTrailLivePen();
-    const liveStroke = { dash: pen.dash, live: true, points: live, width: pen.width };
-    strokes.push(liveStroke);
-    if (drag.mirrorDraw && nodeGraphMvp.hitTrailMirrorCenter) {
-      strokes.push({
-        dash: pen.dash,
-        live: true,
-        points: nodeGraphHitTrailMirrorStroke(live, nodeGraphMvp.hitTrailMirrorCenter),
-        width: pen.width,
-      });
+    strokes.push({ dash: pen.dash, live: true, points: live, width: pen.width });
+  }
+  if (Array.isArray(drag?.mirrorStrokes)) {
+    for (const points of drag.mirrorStrokes) {
+      if (points?.length) {
+        strokes.push({ dash: pen.dash, live: true, points, width: pen.width });
+      }
     }
   }
   return strokes;
@@ -321,6 +372,7 @@ function nodeGraphHitTrailAppendPoint(drag, point) {
   const smoothed = nodeGraphHitTrailSmoothPointer(drag, point);
   if (!drag.points?.length) {
     drag.points = [smoothed];
+    nodeGraphHitTrailStampMirrorPoint(drag, smoothed);
     return true;
   }
   const last = drag.points[drag.points.length - 1];
@@ -333,6 +385,7 @@ function nodeGraphHitTrailAppendPoint(drag, point) {
   if (drag.points.length > nodeGraphHitTrailMaxPoints) {
     drag.points.splice(0, drag.points.length - nodeGraphHitTrailMaxPoints);
   }
+  nodeGraphHitTrailStampMirrorPoint(drag, smoothed);
   return true;
 }
 
@@ -840,10 +893,58 @@ function nodeGraphHitTrailSampleSegment(drag, fromSurface, toSurface) {
   nodeGraphHitTrailFlushSelection(drag);
 }
 
+function nodeGraphEventHoldsShift(event) {
+  return Boolean(event?.shiftKey);
+}
+
+function syncNodeGraphMarqueeShiftMirror(shiftHeld) {
+  const drag = nodeGraphMvp?.marqueeSelection;
+  if (!drag) {
+    return false;
+  }
+  const on = Boolean(shiftHeld);
+  if (on && !nodeGraphMvp.hitTrailMirrorCenter) {
+    const origin = drag.start || drag.current;
+    if (origin) {
+      nodeGraphMvp.hitTrailMirrorCenter = { x: origin.x, y: origin.y };
+    }
+  }
+  if (drag.mirrorDraw === on) {
+    return false;
+  }
+  if (on) {
+    const tip = drag.points?.[drag.points.length - 1] || drag.current || drag.start;
+    nodeGraphHitTrailBeginMirrorStroke(drag, tip);
+  } else {
+    drag.mirrorDraw = false;
+  }
+  renderNodeGraphMarqueeSelection();
+  return true;
+}
+
+function handleNodeGraphMarqueeModifierKey(event) {
+  if (!nodeGraphMvp?.marqueeSelection) {
+    return;
+  }
+  syncNodeGraphMarqueeShiftMirror(nodeGraphEventHoldsShift(event));
+}
+
+function bindNodeGraphMarqueeModifierKeys() {
+  if (typeof document === "undefined" || document.documentElement.dataset.marqueeModifierKeysBound === "true") {
+    return;
+  }
+  document.documentElement.dataset.marqueeModifierKeysBound = "true";
+  document.addEventListener("keydown", handleNodeGraphMarqueeModifierKey, true);
+  document.addEventListener("keyup", handleNodeGraphMarqueeModifierKey, true);
+}
+
 function updateNodeGraphMarqueeSelection(event = null) {
   const drag = nodeGraphMvp.marqueeSelection;
   if (!drag) {
     return;
+  }
+  if (event) {
+    syncNodeGraphMarqueeShiftMirror(nodeGraphEventHoldsShift(event));
   }
   if (event && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
     const raw = nodeGraphClientPoint(event);
@@ -895,6 +996,7 @@ function startNodeGraphMarqueeSelection(event, workspace) {
     cosmetic,
     keepTrail: keepCtrl,
     mirrorDraw,
+    mirrorStrokes: [],
     current: point,
     hitNodeIds: new Set(),
     hitWires: [],
@@ -915,6 +1017,9 @@ function startNodeGraphMarqueeSelection(event, workspace) {
     wireGeomCache: null,
     wirePathCache: null,
   };
+  if (mirrorDraw) {
+    nodeGraphHitTrailBeginMirrorStroke(nodeGraphMvp.marqueeSelection, point);
+  }
   // Pre-warm module AABBs once on pointerdown. Wire polylines are built lazily
   // on first wire hunt (modules-only snakes never pay that cost). Locked patch
   // still draws and can hit wires; it never selects modules.
@@ -1028,6 +1133,7 @@ function endNodeGraphMarqueeSelection(event) {
   if (event.ctrlKey) {
     drag.keepTrail = true;
   }
+  syncNodeGraphMarqueeShiftMirror(nodeGraphEventHoldsShift(event));
   if (drag.moved) {
     updateNodeGraphMarqueeSelection(event);
     if (!drag.cosmetic) {
@@ -1039,11 +1145,10 @@ function endNodeGraphMarqueeSelection(event) {
   if (drag.keepTrail && drag.moved && drag.points?.length) {
     const pen = nodeGraphHitTrailLivePen();
     nodeGraphHitTrailPushKept(drag.points, pen);
-    if (drag.mirrorDraw && nodeGraphMvp.hitTrailMirrorCenter) {
-      nodeGraphHitTrailPushKept(
-        nodeGraphHitTrailMirrorStroke(drag.points, nodeGraphMvp.hitTrailMirrorCenter),
-        pen,
-      );
+    if (Array.isArray(drag.mirrorStrokes)) {
+      for (const points of drag.mirrorStrokes) {
+        nodeGraphHitTrailPushKept(points, pen);
+      }
     }
   }
   nodeGraphMvp.marqueeSelection = null;

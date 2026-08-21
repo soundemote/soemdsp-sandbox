@@ -414,6 +414,18 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
           context.restore();
         }
         canvas._outputPauseBannerStamped = false;
+        canvas._traceScroll = null;
+        canvas._waterfall = null;
+        delete canvas._waterfallLastY;
+        delete canvas._waterfallLastLeftY;
+        delete canvas._waterfallLastRightY;
+        delete canvas._waterfallLastDrawnFrame;
+        delete canvas._waterfallPendingEndFrame;
+        delete canvas._traceWaterfallLastPoint;
+        delete canvas._traceWaterfallLastLeft;
+        delete canvas._traceWaterfallLastRight;
+        delete canvas._traceWaterfallLastDrawnFrame;
+        delete canvas._traceWaterfallPendingEndFrame;
       }
     }
 

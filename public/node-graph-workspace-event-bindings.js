@@ -86,6 +86,9 @@ function bindNodeGraphWorkspaceInteractionEvents() {
   document
     .getElementById("nodeGraphWorkspace")
     .addEventListener("pointerdown", beginNodeGraphMarqueeSelection);
+  if (typeof bindNodeGraphMarqueeModifierKeys === "function") {
+    bindNodeGraphMarqueeModifierKeys();
+  }
   document
     .getElementById("nodeGraphWorkspace")
     .addEventListener("pointermove", beginNodeGraphMarqueeSelectionOnEntry);

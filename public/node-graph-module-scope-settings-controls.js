@@ -563,7 +563,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     backgroundBrightness: (value) => clampNodeSliderValue(Number(value) || 0, 0, 1),
     pixelDensity: nodeGraphTraceDisplayClampPixelDensity,
   }),
-  // 1D Trace / Output: blur 0 hard … 1 soft skirt (instant, no persistence).
+  // 1D Waterfall / Output: blur 0 hard … 1 soft skirt (instant, no persistence).
   trace: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
     secondaryLineThickness: nodeGraphTraceDisplayClampStampBlur,

@@ -354,8 +354,8 @@ function normalizeNodeGraphLedLayout(layout = {}) {
   };
 }
 
-// When true, titles become "1D Trace 2" from id suffix. When false (default),
-// every instance uses the plain label ("1D Trace") — cosmetic only; ids stay unique.
+// When true, titles become "1D Waterfall 2" from id suffix. When false (default),
+// every instance uses the plain label ("1D Waterfall") — cosmetic only; ids stay unique.
 const nodeGraphModuleTitleAppendIdSuffix = false;
 
 function nodeGraphDefaultNodeTitle(type, id) {

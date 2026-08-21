@@ -376,8 +376,35 @@ function nodeGraphTraceDisplayPixelLockedView(view, canvasWidthPx) {
   };
 }
 
-// Instant Trace freerun: scroll the face bitmap and stroke only new samples
-// (see drawNodeGraphTraceDisplayCanvasItem). Sync still remeshes the window.
+// 1D Waterfall: Sync Off scrolls the dest tape; Sync On walks a pen L→R
+// and waits off-screen until the next rising edge (see paint waterfall).
+
+function nodeGraphWaterfallNewestEdgeAbs(syncBuffer) {
+  if (!syncBuffer?.length) {
+    return null;
+  }
+  const searchStart = Math.max(1, syncBuffer.length - 8192);
+  const triggers = typeof nodeGraphModuleScopeCollectSyncTriggers === "function"
+    ? nodeGraphModuleScopeCollectSyncTriggers(syncBuffer, searchStart, syncBuffer.length)
+    : null;
+  const edges = triggers?.edges;
+  if (!edges?.length) {
+    return null;
+  }
+  const idx = Number(edges[edges.length - 1]);
+  if (!Number.isFinite(idx)) {
+    return null;
+  }
+  const absEnd = Number(syncBuffer.nodeGraphScopeAbsoluteFrame);
+  const total = Number(syncBuffer.nodeGraphScopeTotalSampleCount);
+  if (Number.isFinite(absEnd) && absEnd > 0) {
+    return absEnd - (syncBuffer.length - idx);
+  }
+  if (Number.isFinite(total) && total > 0) {
+    return total - (syncBuffer.length - idx);
+  }
+  return idx;
+}
 
 /**
  * Oscilloscope-style auto-trigger for Trace / Output displays.
@@ -511,8 +538,8 @@ function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycl
 }
 
 /**
- * 1D Instant Trace + 1D Phosphor share one Sync feature.
- * Stereo Instant Trace uses syncChannel (off/left/right/mono);
+ * 1D Waterfall + 1D Phosphor share one Sync feature.
+ * Stereo waterfall uses syncChannel (off/left/right/mono);
  * everything else uses sourceSync on/off (stored as mono/off).
  */
 const NODE_GRAPH_DISPLAY_1D_SYNC_FORM_TYPES = Object.freeze(["trace", "lineBurn", "dot"]);
@@ -640,6 +667,8 @@ function nodeGraphTraceDisplayMonoSyncBuffer(leftBuffer, rightBuffer) {
       ?? rightBuffer.nodeGraphScopeTotalSampleCount,
     nodeGraphScopeRecentSampleCount: leftBuffer.nodeGraphScopeRecentSampleCount
       ?? rightBuffer.nodeGraphScopeRecentSampleCount,
+    nodeGraphScopeAbsoluteFrame: leftBuffer.nodeGraphScopeAbsoluteFrame
+      ?? rightBuffer.nodeGraphScopeAbsoluteFrame,
   };
   // Proxy numeric index access onto the Float32Array.
   return new Proxy(head, {

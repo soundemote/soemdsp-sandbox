@@ -146,8 +146,8 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   // Non-output single traces treat any non-off as "sync on" for that buffer.
   sourceSync: false,
   syncChannel: "off",
-  zoomSeconds: 0.05,
-  historySeconds: 0.05,
+  zoomSeconds: 2,
+  historySeconds: 2,
   // Lengthwise history fade: 0 = even ink, 1 = oldest gone / newest full.
   fade: 0,
   // XYZ Trace: stack all three on one plot, or split the face into three bands.
