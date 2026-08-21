@@ -1170,22 +1170,45 @@ function nodeGraphTraceDisplayPrimaryLayer(settings, color) {
  * changes are visible without waiting for scope samples.
  */
 const NODE_GRAPH_OUTPUT_PROTECT_BANNER = "♨️";
+const NODE_GRAPH_OUTPUT_PAUSE_BANNER = "▐▐";
+const NODE_GRAPH_OUTPUT_PROTECT_FONT =
+  '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif';
+const NODE_GRAPH_OUTPUT_PAUSE_FONT =
+  '"Segoe UI Symbol","Segoe UI","Arial Unicode MS","Noto Sans Symbols 2","Noto Sans Symbols",sans-serif';
 
 function nodeGraphOutputProtectFaceSlot(slot) {
   const type = String(slot?.type || "");
   return type === "output" || type === "pluginOutput";
 }
 
-function paintNodeGraphOutputProtectBanner(context, canvas, settings = {}, options = {}) {
-  const mute = Math.max(0, Math.min(1, Number(options.mute ?? globalThis.nodeGraphOutputProtectMute) || 0));
-  if (!(mute > 0.001) || !context || !(canvas?.width > 0) || !(canvas?.height > 0)) {
+function nodeGraphOutputTransportIsPaused() {
+  if (typeof nodeGraphLiveEngineIsPaused === "function") {
+    return nodeGraphLiveEngineIsPaused();
+  }
+  const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live : null;
+  if (!live?.node) {
     return false;
   }
-  void settings;
-  const text = NODE_GRAPH_OUTPUT_PROTECT_BANNER;
+  if (typeof scopePaintIsEnginePlaying === "function") {
+    return !scopePaintIsEnginePlaying();
+  }
+  const speed = Number(live.speedMultiplier);
+  return Number.isFinite(speed) && speed <= 0;
+}
+
+/** Dest-pixel ink (protect / pause). Stamped into history so Instant Trace can waterfall it. */
+function paintNodeGraphOutputFaceInk(context, canvas, text, options = {}) {
+  if (!context || !(canvas?.width > 0) || !(canvas?.height > 0) || !text) {
+    return false;
+  }
+  const alpha = Math.max(0, Math.min(1, Number(options.alpha ?? 1)));
+  if (!(alpha > 0.001)) {
+    return false;
+  }
   const pad = Math.max(2, Math.round(Math.min(canvas.width, canvas.height) * 0.06));
   const maxSide = Math.max(8, Math.min(canvas.width, canvas.height) - pad * 2);
-  const fontFamily = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif';
+  const fontFamily = options.fontFamily || NODE_GRAPH_OUTPUT_PROTECT_FONT;
+  const fontWeight = options.fontWeight ? `${options.fontWeight} ` : "";
   const density = Number(options.density);
   let lo = 8;
   let hi = Math.max(lo, maxSide);
@@ -1195,7 +1218,7 @@ function paintNodeGraphOutputProtectBanner(context, canvas, settings = {}, optio
   context.textBaseline = "middle";
   for (let i = 0; i < 14; i += 1) {
     const mid = (lo + hi) * 0.5;
-    context.font = `${mid}px ${fontFamily}`;
+    context.font = `${fontWeight}${mid}px ${fontFamily}`;
     const metrics = context.measureText(text);
     const w = metrics.width;
     const h = (Number(metrics.actualBoundingBoxAscent) || mid * 0.85)
@@ -1207,13 +1230,37 @@ function paintNodeGraphOutputProtectBanner(context, canvas, settings = {}, optio
       hi = mid;
     }
   }
-  context.font = `${best}px ${fontFamily}`;
+  context.font = `${fontWeight}${best}px ${fontFamily}`;
   context.imageSmoothingEnabled = !(density < 0.999);
   context.globalCompositeOperation = "source-over";
-  context.globalAlpha = mute;
-  context.fillText(text, canvas.width * 0.5, canvas.height * 0.5);
+  context.globalAlpha = alpha;
+  const x = canvas.width * 0.5;
+  const y = canvas.height * 0.5;
+  if (options.stroke) {
+    context.lineJoin = "round";
+    context.miterLimit = 2;
+    context.lineWidth = Math.max(1, best * 0.06);
+    context.strokeStyle = options.stroke;
+    context.strokeText(text, x, y);
+  }
+  context.fillStyle = options.fill || "#ffffff";
+  context.fillText(text, x, y);
   context.restore();
   return true;
+}
+
+function paintNodeGraphOutputProtectBanner(context, canvas, settings = {}, options = {}) {
+  const mute = Math.max(0, Math.min(1, Number(options.mute ?? globalThis.nodeGraphOutputProtectMute) || 0));
+  if (!(mute > 0.001)) {
+    return false;
+  }
+  void settings;
+  return paintNodeGraphOutputFaceInk(context, canvas, NODE_GRAPH_OUTPUT_PROTECT_BANNER, {
+    density: options.density,
+    alpha: mute,
+    fontFamily: NODE_GRAPH_OUTPUT_PROTECT_FONT,
+    fill: "#ffffff",
+  });
 }
 
 function paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density) {
@@ -1221,6 +1268,120 @@ function paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settin
     return false;
   }
   return paintNodeGraphOutputProtectBanner(context, canvas, settings, { density });
+}
+
+function paintNodeGraphOutputPauseBanner(context, canvas, settings = {}, options = {}) {
+  void settings;
+  return paintNodeGraphOutputFaceInk(context, canvas, NODE_GRAPH_OUTPUT_PAUSE_BANNER, {
+    density: options.density,
+    alpha: 1,
+    fontFamily: NODE_GRAPH_OUTPUT_PAUSE_FONT,
+    fontWeight: 700,
+    fill: "#ffffff",
+    stroke: "rgba(0,0,0,0.85)",
+  });
+}
+
+function paintNodeGraphOutputPauseBannerIfNeeded(context, canvas, slot, settings, density, options = {}) {
+  if (!nodeGraphOutputProtectFaceSlot(slot) || !canvas) {
+    return false;
+  }
+  if (!nodeGraphOutputTransportIsPaused()) {
+    canvas._outputPauseBannerStamped = false;
+    return false;
+  }
+  if (!options.force && canvas._outputPauseBannerStamped) {
+    return false;
+  }
+  const painted = paintNodeGraphOutputPauseBanner(context, canvas, settings, { density });
+  if (painted) {
+    canvas._outputPauseBannerStamped = true;
+  }
+  return painted;
+}
+
+function nodeGraphTraceDisplayPinWaterfallClocks(nowMs) {
+  const now = Number.isFinite(Number(nowMs))
+    ? Number(nowMs)
+    : ((typeof performance !== "undefined" && typeof performance.now === "function")
+      ? performance.now()
+      : Date.now());
+  const pin = (canvas) => {
+    if (canvas?._traceScroll) {
+      canvas._traceScroll.lastMs = now;
+    }
+  };
+  if (typeof nodeGraphModuleScopePersistentCanvases?.forEach === "function") {
+    nodeGraphModuleScopePersistentCanvases.forEach(pin);
+  }
+  if (typeof nodeGraphModuleScopeSlots === "function") {
+    for (const slot of nodeGraphModuleScopeSlots() || []) {
+      pin(typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
+        ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
+        : null);
+    }
+  }
+}
+
+function nodeGraphOutputPauseBannerClearStampFlags() {
+  const clear = (canvas) => {
+    if (canvas) {
+      canvas._outputPauseBannerStamped = false;
+    }
+  };
+  if (typeof nodeGraphModuleScopePersistentCanvases?.forEach === "function") {
+    nodeGraphModuleScopePersistentCanvases.forEach(clear);
+  }
+  if (typeof nodeGraphModuleScopeSlots === "function") {
+    for (const slot of nodeGraphModuleScopeSlots() || []) {
+      if (!nodeGraphOutputProtectFaceSlot(slot)) {
+        continue;
+      }
+      clear(typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
+        ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
+        : null);
+    }
+  }
+}
+
+function stampNodeGraphOutputPauseBanners(options = {}) {
+  if (!nodeGraphOutputTransportIsPaused()) {
+    return false;
+  }
+  const slots = typeof nodeGraphVisibleModuleScopeSlots === "function"
+    ? nodeGraphVisibleModuleScopeSlots()
+    : (typeof nodeGraphModuleScopeSlots === "function" ? nodeGraphModuleScopeSlots() : []);
+  let any = false;
+  for (const slot of slots || []) {
+    if (!nodeGraphOutputProtectFaceSlot(slot)) {
+      continue;
+    }
+    const canvas = typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
+      ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
+      : null;
+    if (!canvas || !(canvas.width > 1) || !(canvas.height > 1)) {
+      continue;
+    }
+    let context = null;
+    try {
+      context = canvas.getContext("2d");
+    } catch (_error) {
+      context = null;
+    }
+    if (!context) {
+      continue;
+    }
+    const settings = typeof nodeGraphTraceDisplaySettingsForSlot === "function"
+      ? nodeGraphTraceDisplaySettingsForSlot(slot)
+      : {};
+    const density = typeof nodeGraphFacePlateDensity === "function"
+      ? nodeGraphFacePlateDensity(settings, 1)
+      : 1;
+    if (paintNodeGraphOutputPauseBannerIfNeeded(context, canvas, slot, settings, density, options)) {
+      any = true;
+    }
+  }
+  return any;
 }
 
 function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePixelRatio || 1, options = {}) {
@@ -1269,6 +1430,10 @@ function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePix
     if (typeof nodeGraphFacePlateApplyCss === "function") {
       nodeGraphFacePlateApplyCss(screenElement, holdBg);
     }
+    const holdCtx = canvas.getContext?.("2d");
+    if (holdCtx) {
+      paintNodeGraphOutputPauseBannerIfNeeded(holdCtx, canvas, slot, settings, density);
+    }
     return true;
   }
   // Frozen + already-backed face: CSS plate only. fillRect here is what
@@ -1280,6 +1445,7 @@ function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePix
     if (typeof nodeGraphFacePlateApplyCss === "function") {
       nodeGraphFacePlateApplyCss(screenElement, holdBg);
     }
+    paintNodeGraphOutputPauseBannerIfNeeded(context, canvas, slot, settings, density);
     return true;
   }
   const bg = typeof nodeGraphFacePlateBackground === "function"
@@ -1303,6 +1469,7 @@ function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePix
     nodeGraphModuleScopeMarkScreenLit(screenElement, 1);
   }
   paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density);
+  paintNodeGraphOutputPauseBannerIfNeeded(context, canvas, slot, settings, density);
   return true;
 }
 
@@ -1617,10 +1784,6 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   if (!buffer?.length) {
     return paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio);
   }
-  if (typeof nodeGraphModuleScopePhosphorFrozen === "function"
-    && nodeGraphModuleScopePhosphorFrozen()) {
-    return true;
-  }
   const settings = nodeGraphTraceDisplaySettingsForSlot(slot);
   const canvas = nodeGraphModuleScopeLocalFallbackCanvas(slot);
   const density = nodeGraphFacePlateDensity(settings, 1);
@@ -1637,6 +1800,11 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const context = canvas.getContext("2d");
   if (!context) {
     return false;
+  }
+  if (typeof nodeGraphModuleScopePhosphorFrozen === "function"
+    && nodeGraphModuleScopePhosphorFrozen()) {
+    paintNodeGraphOutputPauseBannerIfNeeded(context, canvas, slot, settings, density);
+    return true;
   }
   context.imageSmoothingEnabled = density >= 0.999;
   if ("imageSmoothingQuality" in context && density >= 0.999) {

@@ -1240,20 +1240,36 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
   }
   // Speed 0 = simulation pause: stop phosphor energy steps immediately so
   // trails do not keep decaying on the main-thread draw loop.
-  if (clamped <= 0 && typeof absorbNodeGraphModuleScopePhosphorDrawCursors === "function") {
-    if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
-      if (nodeGraphModuleScopeState.drawFrame) {
-        window.cancelAnimationFrame(nodeGraphModuleScopeState.drawFrame);
-        nodeGraphModuleScopeState.drawFrame = 0;
-        nodeGraphModuleScopeState.drawFrameRequestedAt = 0;
+  if (clamped <= 0) {
+    if (typeof absorbNodeGraphModuleScopePhosphorDrawCursors === "function") {
+      if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
+        if (nodeGraphModuleScopeState.drawFrame) {
+          window.cancelAnimationFrame(nodeGraphModuleScopeState.drawFrame);
+          nodeGraphModuleScopeState.drawFrame = 0;
+          nodeGraphModuleScopeState.drawFrameRequestedAt = 0;
+        }
+        if (nodeGraphModuleScopeState.drawFrameWatchdog) {
+          window.clearTimeout(nodeGraphModuleScopeState.drawFrameWatchdog);
+          nodeGraphModuleScopeState.drawFrameWatchdog = 0;
+        }
       }
-      if (nodeGraphModuleScopeState.drawFrameWatchdog) {
-        window.clearTimeout(nodeGraphModuleScopeState.drawFrameWatchdog);
-        nodeGraphModuleScopeState.drawFrameWatchdog = 0;
-      }
+      absorbNodeGraphModuleScopePhosphorDrawCursors();
     }
-    absorbNodeGraphModuleScopePhosphorDrawCursors();
+    // Freeze Instant Trace wall-clock so resume does not jump History.
+    // Stamp ▐▐ into Output dest now; it waterfalls away after play.
+    if (typeof nodeGraphTraceDisplayPinWaterfallClocks === "function") {
+      nodeGraphTraceDisplayPinWaterfallClocks();
+    }
+    if (typeof stampNodeGraphOutputPauseBanners === "function") {
+      stampNodeGraphOutputPauseBanners();
+    }
   } else if (clamped > 0) {
+    if (typeof nodeGraphTraceDisplayPinWaterfallClocks === "function") {
+      nodeGraphTraceDisplayPinWaterfallClocks();
+    }
+    if (typeof nodeGraphOutputPauseBannerClearStampFlags === "function") {
+      nodeGraphOutputPauseBannerClearStampFlags();
+    }
     // Unpause / force rearm: Instant Trace can early-out on a stale draw
     // signature (black face, unchanged sample count). Force a full paint.
     if (typeof nodeGraphNumberReadoutRearmAllFacesAfterLiveStart === "function") {

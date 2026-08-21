@@ -413,6 +413,7 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
           context.fillRect(0, 0, canvas.width, canvas.height);
           context.restore();
         }
+        canvas._outputPauseBannerStamped = false;
       }
     }
 
@@ -481,6 +482,9 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
     }
   }
 
+  if (typeof stampNodeGraphOutputPauseBanners === "function") {
+    stampNodeGraphOutputPauseBanners();
+  }
   // Force a draw even while paused so energy re-binds and the plate stays black.
   // Without this, pause early-outs only absorb cursors and never re-ensure GL.
   // One schedule for the whole multi-select batch.
