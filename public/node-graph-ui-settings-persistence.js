@@ -165,9 +165,13 @@ function nodeGraphWorkspaceStatesWithSharedInspectorGeometry(states = {}) {
   return states;
 }
 
+function nodeGraphWorkspaceKeyIsControllerDock(key) {
+  return key === "standaloneMidiKeyboard";
+}
+
 function normalizeNodeGraphWorkspaceWindowStateEntry(entry = {}, key = "") {
   const source = entry && typeof entry === "object" ? entry : {};
-  if (key === "visibilityMenu") {
+  if (key === "visibilityMenu" || nodeGraphWorkspaceKeyIsControllerDock(key)) {
     return { open: Boolean(source.open) };
   }
   const isSharedInspector = nodeGraphSharedInspectorWindowKeys.includes(key);
@@ -328,6 +332,14 @@ function rememberNodeGraphWorkspaceWindowState(key, element, patch = {}, options
       size: key === "visibilityMenu" ? null : states[key]?.size,
     }, key);
     nodeGraphMvp.workspaceWindowStates = states;
+    return states[key];
+  }
+  if (nodeGraphWorkspaceKeyIsControllerDock(key)) {
+    states[key] = { open: Boolean(patch.open ?? (element ? !element.hidden : states[key]?.open)) };
+    nodeGraphMvp.workspaceWindowStates = states;
+    if (options.persist !== false) {
+      saveNodeGraphWorkspaceWindowStatesToUserSettings(options);
+    }
     return states[key];
   }
   const shouldCapturePosition = options.capturePosition !== false;
@@ -550,11 +562,24 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
     element.hidden = true;
     return;
   }
-  if (key === "standaloneMidiKeyboard" && state.open && typeof initNodeGraphStandaloneMidiKeyboard === "function") {
-    initNodeGraphStandaloneMidiKeyboard();
+  if (key === "standaloneMidiKeyboard") {
+    if (state.open && typeof initNodeGraphStandaloneMidiKeyboard === "function") {
+      initNodeGraphStandaloneMidiKeyboard();
+    }
+    element.hidden = !state.open;
+    if (typeof applyNodeGraphControllerDockHeight === "function") {
+      applyNodeGraphControllerDockHeight(nodeGraphMvp?.controllerDockHeight, { layout: false });
+    }
+    if (state.open && typeof syncNodeGraphControllerDockShown === "function") {
+      syncNodeGraphControllerDockShown();
+    }
+    if (typeof renderNodeGraphStandaloneMidiKeyboardToggle === "function") {
+      renderNodeGraphStandaloneMidiKeyboardToggle();
+    }
+    return;
   }
   element.hidden = !state.open;
-  if (key !== "standaloneMidiKeyboard" && state.open && typeof raiseNodeGraphFloatingWindow === "function") {
+  if (state.open && typeof raiseNodeGraphFloatingWindow === "function") {
     raiseNodeGraphFloatingWindow(element);
   }
   if (key === "uiSettings" && typeof applyNodeUserUiSettingsWindowSize === "function") {

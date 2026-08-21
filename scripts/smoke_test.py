@@ -17000,11 +17000,10 @@ def require_node_graph_mvp_contract() -> None:
         and "if (nodeGraphMvp.chromeSectionResizing)" in script_sources["./public/node-graph-wire-rendering.js"]
         and "watchNodeGraphSectionResizeDrag(event, {" in script_sources["./public/node-graph-view-controls.js"]
         and "watchNodeGraphSectionResizeDrag(event, {" in script_sources["./public/node-graph-unified-window.js"]
-        and "function nodeGraphControllerDockBottomEdge(dock)" in script_sources["./public/node-graph-view-controls.js"]
-        and "applyNodeGraphControllerDockHeight(startBottom - point.y, { layout: false })" in script_sources["./public/node-graph-view-controls.js"]
-        and "flex: 0 0 var(--node-controller-dock-height, 240px);" in style_source
-        and "startHeight - (point.y - startY)" not in script_sources["./public/node-graph-view-controls.js"],
-        "section resize drags should ignore lost-pointer ghost coords and skip full wire redraws while dragging",
+        and "id=\"nodeBottomStack\"" in index_source
+        and "startHeight - (point.y - startY)" in script_sources["./public/node-graph-view-controls.js"]
+        and ".node-controller-dock-split" in style_source,
+        "controller dock stacks above the button bar; top bar resize is startHeight - dy",
     )
     require(
         'id: "nodeUiDevSliderHandleHue"' in script_sources["./public/node-graph-ui-settings-definitions.js"]

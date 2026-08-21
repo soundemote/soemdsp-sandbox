@@ -1456,7 +1456,12 @@ button.scw-label:hover,
   overflow: hidden;
 }
 .node-music-player-page-waveplay {
-  z-index: 2;
+  top: 0;
+  right: 0;
+  bottom: var(--node-music-player-pl-row-height, 1.35rem);
+  left: 0;
+  z-index: 3;
+  overflow: hidden;
 }
 .node-music-player-waveplay-wave {
   position: relative;
@@ -1477,7 +1482,8 @@ button.scw-label:hover,
 .node-music-player-waveplay-song {
   flex: 0 0 var(--node-music-player-pl-row-height, 1.35rem);
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  z-index: 6;
   width: 100%;
   height: var(--node-music-player-pl-row-height, 1.35rem);
   min-height: var(--node-music-player-pl-row-height, 1.35rem);
@@ -1485,12 +1491,13 @@ button.scw-label:hover,
   margin: 0;
   padding: 0;
   border: 0 !important;
-  border-top: 1px solid var(--phosphor-hud-color-dim) !important;
   border-radius: 0;
   box-sizing: border-box;
+  box-shadow: inset 0 1px 0 var(--phosphor-hud-color-dim);
   background: #050805;
   color: var(--phosphor-hud-color);
   font: var(--phosphor-hud-font);
+  line-height: 1;
   overflow: hidden;
 }
 .node-music-player-waveplay-skip {
@@ -1515,13 +1522,18 @@ button.scw-label:hover,
   grid-column: auto;
   grid-row: auto;
   flex: 1 1 auto;
+  display: flex;
+  align-items: center;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
   margin: 0;
   padding: 0 6px;
   border: 0 !important;
   background: transparent;
   color: inherit;
   font: inherit;
+  line-height: 1;
   text-align: left;
   cursor: var(--node-dot-cursor);
   overflow: hidden;
@@ -1936,6 +1948,7 @@ button.scw-label:hover,
   --node-toolbar-button-bg-alpha: 1;
   --node-tooltip-text-size: 64px; /* max font for tip fit-to-box (not a fixed size) */
   --node-min-grid-brightness-alpha: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -2121,13 +2134,23 @@ body.is-resizing-command-center-dock {
   user-select: none;
 }
 
+.node-wiring-panel > .node-bottom-stack {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  order: 11;
+  z-index: 6;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.node-bottom-stack > .node-graph-controls,
 .node-wiring-panel > .node-graph-controls {
   flex: 0 0 auto;
   flex-shrink: 0;
-  order: 11;
   margin-top: 0;
   z-index: 5;
-  /* Sit on the page background so content doesn't show through. */
   background: rgba(8, 10, 12, 0.96);
   border-top: 1px solid rgba(127, 199, 217, 0.12);
 }
@@ -2139,12 +2162,12 @@ body.is-resizing-command-center-dock {
   overflow: hidden;
 }
 
-.node-wiring-panel.content-view-mode > .node-graph-controls {
+.node-wiring-panel.content-view-mode .node-graph-controls {
   margin-top: 0;
 }
 
 .node-wiring-panel.content-view-mode > .node-graph-main-row,
-.node-wiring-panel.content-view-mode > .node-standalone-midi-keyboard-dock {
+.node-wiring-panel.content-view-mode .node-standalone-midi-keyboard-dock {
   display: none;
 }
 
@@ -2172,6 +2195,13 @@ body.is-resizing-command-center-dock {
   border-color: transparent;
   position: relative;
 }
+.node-wiring-panel.modular-only-view > .node-bottom-stack {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+}
 
 /* Infinite modular view (💻 / V): hide back + resize, fill viewport edge-to-edge. */
 .node-wiring-panel.modular-only-view.modular-only-controls-hidden {
@@ -2180,13 +2210,13 @@ body.is-resizing-command-center-dock {
 
 /* 💻 / V: hide top toolbar + bottom transport — bigger canvas, same modular mode. */
 .node-wiring-panel.app-chrome-bars-hidden > .node-view-toolbar,
-.node-wiring-panel.app-chrome-bars-hidden > .node-graph-controls {
+.node-wiring-panel.app-chrome-bars-hidden .node-graph-controls {
   display: none !important;
 }
 
 /* T — transport stuck: bottom public buttons win over V hide. */
-.node-wiring-panel.app-chrome-bars-hidden.transport-chrome-stuck > .node-graph-controls,
-.node-wiring-panel.modular-only-view.transport-chrome-stuck > .node-graph-controls {
+.node-wiring-panel.app-chrome-bars-hidden.transport-chrome-stuck .node-graph-controls,
+.node-wiring-panel.modular-only-view.transport-chrome-stuck .node-graph-controls {
   display: flex !important;
 }
 
@@ -2268,7 +2298,10 @@ html.soemdsp-hide-ui .status-strip {
   display: none;
 }
 
-.node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-graph-main-row):not(.node-view-toolbar):not(.node-floating-window-surface):not(.node-command-center-dock):not(.node-standalone-midi-keyboard-dock) {
+.node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-graph-main-row):not(.node-view-toolbar):not(.node-floating-window-surface):not(.node-command-center-dock):not(.node-bottom-stack) {
+  display: none;
+}
+.node-wiring-panel.modular-only-view:not(.transport-chrome-stuck) .node-graph-controls {
   display: none;
 }
 
@@ -2524,27 +2557,25 @@ html.soemdsp-hide-ui .status-strip {
   display: none;
 }
 
-/* In-flow strip glued to the transport bar. Height grows into the workspace. */
-.node-wiring-panel > .node-standalone-midi-keyboard-dock {
-  order: 10;
-}
-
 .node-standalone-midi-keyboard-dock {
-  position: relative;
-  z-index: 5;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  z-index: 6;
   display: flex;
-  flex: 0 0 var(--node-controller-dock-height, 240px);
+  flex: 0 0 auto;
   flex-direction: column;
   justify-content: stretch;
   box-sizing: border-box;
-  width: 100%;
+  width: 100% !important;
   max-width: 100%;
   min-width: 0;
   height: var(--node-controller-dock-height, 240px);
-  min-height: 0;
-  max-height: none;
-  margin: 0;
-  overflow: visible;
+  min-height: 72px;
+  margin: 0 !important;
+  overflow: hidden;
   border: 0;
   border-top: 1px solid rgba(127, 199, 217, 0.12);
   border-radius: 0;
@@ -2553,23 +2584,18 @@ html.soemdsp-hide-ui .status-strip {
     #080a0c;
 }
 
-.node-standalone-midi-keyboard-dock.has-controller-height {
-  min-height: 72px;
-}
-
 .node-controller-dock-split {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   z-index: 6;
-  height: 22px;
+  height: 10px;
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
-  transform: translateY(-50%);
   cursor: ns-resize;
   touch-action: none;
 }
@@ -2579,9 +2605,8 @@ html.soemdsp-hide-ui .status-strip {
   position: absolute;
   left: 0;
   right: 0;
-  top: 50%;
-  height: 8px;
-  transform: translateY(-50%);
+  top: 0;
+  height: 4px;
   background: var(--accent-2, #e2a86d);
   opacity: 0;
   pointer-events: none;
@@ -11894,6 +11919,9 @@ body.node-screen-solo-active .node-screen-solo-face .node-fbm-field-canvas {
   height: 100% !important;
   max-width: none !important;
   max-height: none !important;
+}
+body.node-screen-solo-active .node-screen-solo-face .node-music-player-waveplay-wave canvas {
+  inset: 0 !important;
 }
 
 /* Music Player: pages are inset for the module dock. In F they must fill
@@ -23000,7 +23028,7 @@ body.keyboard-debug-hidden
 
 body.keyboard-debug-hidden
   .node-wiring-panel:not(.modular-only-view):not(.camera-view-visible)
-  > .node-graph-controls {
+  .node-graph-controls {
   flex: 0 0 auto;
   margin-top: 0;
 }

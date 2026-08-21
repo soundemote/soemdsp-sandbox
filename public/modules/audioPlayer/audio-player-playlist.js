@@ -436,10 +436,14 @@ function nodeGraphAudioPlayerPlaylistEnsureCurrentSample(nodeId, options = {}) {
   const byName = pl.items.find((item) => !item.sampleId && item.name === ref.name);
   if (byName) {
     byName.sampleId = ref.id;
+    node.playlist = pl;
+    if (options.persist !== false && typeof nodeGraphAudioPlayerPlaylistPersist === "function") {
+      nodeGraphAudioPlayerPlaylistPersist(nodeId);
+    }
+    if (options.refresh !== false && typeof nodeGraphAudioPlayerPlaylistRefreshUi === "function") {
+      nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
+    }
     return byName;
-  }
-  if (pl.folderPath || pl.items.length) {
-    return null;
   }
   return nodeGraphAudioPlayerPlaylistAppendSample(nodeId, ref, options);
 }
@@ -1600,6 +1604,9 @@ function nodeGraphAudioPlayerPlaylistBindTrackRow(row, nodeId, item, index) {
 }
 
 function nodeGraphAudioPlayerPlaylistRefreshUi(nodeId) {
+  if (typeof nodeGraphAudioPlayerPlaylistEnsureCurrentSample === "function") {
+    nodeGraphAudioPlayerPlaylistEnsureCurrentSample(nodeId, { persist: false, refresh: false });
+  }
   const section = document.querySelector(
     `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
   );

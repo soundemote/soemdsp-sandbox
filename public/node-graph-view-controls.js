@@ -1465,9 +1465,7 @@ function resetNodeGraphStartupView() {
   }
 }
 
-// In-flow strip glued to the transport bar. Height is the gap from the
-// top seam (the split handle / pointer) down to the transport — never a
-// startHeight ± dy sign that flips when layout is confused.
+// Keyboard sits in a footer stack above the button bar. Resize is just height.
 const nodeGraphControllerDockHeightMin = 72;
 const nodeGraphControllerDockHeightMax = 620;
 const nodeGraphControllerDockHeightDefault = 240;
@@ -1493,33 +1491,29 @@ function normalizeNodeGraphControllerDockHeight(value) {
   return Math.max(limits.min, Math.min(limits.max, n));
 }
 
-function nodeGraphControllerDockBottomEdge(dock) {
-  const transport = document.querySelector("#nodeWiringPanel > .node-graph-controls");
-  if (transport) {
-    const style = getComputedStyle(transport);
-    if (style.display !== "none" && style.visibility !== "hidden") {
-      return transport.getBoundingClientRect().top;
-    }
-  }
-  return dock?.getBoundingClientRect?.().bottom || 0;
-}
-
 function applyNodeGraphControllerDockHeight(height = nodeGraphMvp?.controllerDockHeight, options = {}) {
   const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
   const px = normalizeNodeGraphControllerDockHeight(
     height ?? nodeGraphMvp?.controllerDockHeight ?? 0,
   );
+  const used = px > 0 ? px : nodeGraphControllerDockHeightDefault;
   if (nodeGraphMvp) {
     nodeGraphMvp.controllerDockHeight = px;
   }
-  if (!dock) {
-    return px;
+  if (dock) {
+    dock.style.position = "";
+    dock.style.left = "";
+    dock.style.right = "";
+    dock.style.top = "";
+    dock.style.bottom = "";
+    dock.style.margin = "";
+    dock.style.width = "";
+    dock.style.height = `${used}px`;
+    dock.style.setProperty("--node-controller-dock-height", `${used}px`);
+    dock.classList.toggle("has-controller-height", px > 0);
+    dock.classList.remove("node-floating-window-surface", "floating-window-locked");
+    delete dock.dataset.floatingWindowLocked;
   }
-  dock.classList.toggle("has-controller-height", px > 0);
-  dock.style.setProperty(
-    "--node-controller-dock-height",
-    `${px > 0 ? px : nodeGraphControllerDockHeightDefault}px`,
-  );
   const layout = options.layout !== false && !nodeGraphMvp?.chromeSectionResizing;
   if (layout && typeof applyNodeGraphMidiKeyboardLayout === "function") {
     applyNodeGraphMidiKeyboardLayout();
@@ -1541,12 +1535,13 @@ function beginNodeGraphControllerDockResize(event) {
   }
   event.preventDefault();
   event.stopPropagation();
-  const startBottom = nodeGraphControllerDockBottomEdge(dock);
   document.body.classList.add("is-resizing-controller-dock");
+  const startY = event.clientY;
+  const startHeight = dock.getBoundingClientRect().height;
   watchNodeGraphSectionResizeDrag(event, {
     handle,
     onMove: (point) => {
-      applyNodeGraphControllerDockHeight(startBottom - point.y, { layout: false });
+      applyNodeGraphControllerDockHeight(startHeight - (point.y - startY), { layout: false });
     },
     onEnd: () => {
       document.body.classList.remove("is-resizing-controller-dock");
@@ -1571,6 +1566,11 @@ function bindNodeGraphControllerDockSplit() {
   }
   handle.dataset.dockSplitBound = "true";
   handle.addEventListener("pointerdown", beginNodeGraphControllerDockResize);
+}
+
+function syncNodeGraphControllerDockShown() {
+  bindNodeGraphControllerDockSplit();
+  applyNodeGraphControllerDockHeight();
 }
 
 function initNodeGraphStandaloneMidiKeyboard() {
@@ -1607,6 +1607,7 @@ function closeNodeGraphStandaloneMidiKeyboard() {
   if (dock) {
     dock.hidden = true;
   }
+  applyNodeGraphControllerDockHeight(nodeGraphMvp?.controllerDockHeight, { layout: false });
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState("standaloneMidiKeyboard", dock, { open: false }, { status: false });
   }
@@ -1631,8 +1632,7 @@ function toggleNodeGraphStandaloneMidiKeyboard() {
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState("standaloneMidiKeyboard", dock, { open: true }, { persist: false });
   }
-  bindNodeGraphControllerDockSplit();
-  applyNodeGraphControllerDockHeight();
+  syncNodeGraphControllerDockShown();
   renderNodeGraphStandaloneMidiKeyboardToggle();
   setNodeInteractionHelp("Controller shown.");
 }

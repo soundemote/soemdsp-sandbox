@@ -617,28 +617,36 @@ function nodeGraphKnobFaceLiveOffset(nodeId) {
   return inputSum + slider;
 }
 
-/** Live Max + Polarity → Bias domain [min, max] for dial mapping. */
+/** Live Min/Max (legacy Polarity) → Bias domain [min, max] for dial mapping. */
 function nodeGraphKnobFaceBiasRange(patchNode) {
   const id = patchNode?.id;
+  let rangeMin = 0;
   let rangeMax = 1;
   let polarity = 0;
   if (id && typeof nodeGraphReadNodeNumber === "function") {
+    const rn = nodeGraphReadNodeNumber(id, "rangeMin");
     const rm = nodeGraphReadNodeNumber(id, "rangeMax");
     const pol = nodeGraphReadNodeNumber(id, "polarity");
+    if (Number.isFinite(rn)) rangeMin = rn;
     if (Number.isFinite(rm)) rangeMax = rm;
     if (Number.isFinite(pol)) polarity = pol;
   } else {
+    const rn = Number(patchNode?.params?.rangeMin);
     const rm = Number(patchNode?.params?.rangeMax);
     const pol = Number(patchNode?.params?.polarity);
+    if (Number.isFinite(rn)) rangeMin = rn;
     if (Number.isFinite(rm)) rangeMax = rm;
     if (Number.isFinite(pol)) polarity = pol;
+  }
+  if (typeof nodeGraphDspControllerRange === "function") {
+    return nodeGraphDspControllerRange(rangeMin, rangeMax, polarity);
   }
   if (typeof nodeGraphDspKnobBiasRange === "function") {
     return nodeGraphDspKnobBiasRange(rangeMax, polarity);
   }
   const hi = Math.abs(rangeMax) > 0 ? Math.abs(rangeMax) : 1;
   const bipolar = Math.round(polarity) >= 1;
-  return { min: bipolar ? -hi : 0, max: hi, bipolar };
+  return { min: bipolar ? -hi : rangeMin, max: hi, bipolar };
 }
 
 function nodeGraphKnobFaceUnitFromValue(value, patchNode) {
@@ -773,15 +781,25 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
     ? nodeGraphKnobFaceDisplaySettingsForNode(patchNode)
     : null;
 
+  const wantsMouse = typeof nodeGraphDspControllerDisplayIsMouse === "function"
+    ? nodeGraphDspControllerDisplayIsMouse(patchNode)
+    : true;
   let value = null;
-  if (buffer?.length) {
+  if (!wantsMouse && buffer?.length) {
     const sample = Number(buffer[buffer.length - 1]);
     if (Number.isFinite(sample)) {
       value = sample;
     }
   }
   if (value == null) {
-    value = nodeGraphKnobFaceLiveOffset(nodeId);
+    if (wantsMouse) {
+      let base = typeof nodeGraphReadNodeNumber === "function"
+        ? nodeGraphReadNodeNumber(nodeId, "offset")
+        : Number(patchNode?.params?.offset);
+      value = Number.isFinite(base) ? base : 0;
+    } else {
+      value = nodeGraphKnobFaceLiveOffset(nodeId);
+    }
   }
   if (!Number.isFinite(value)) {
     value = 0;

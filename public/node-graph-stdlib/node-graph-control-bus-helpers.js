@@ -53,6 +53,109 @@ function nodeGraphDspBinaryOut(raw) {
   return { Out: out, value: out };
 }
 
+const NODE_GRAPH_CONTROLLER_SMOOTHING_TYPES = Object.freeze([
+  "linear",
+  "onePole",
+  "twoPole",
+  "papoulis",
+]);
+
+function nodeGraphDspControllerSmoothingTypeFromIndex(value) {
+  const i = Math.max(0, Math.min(3, Math.round(Number(value) || 0)));
+  return NODE_GRAPH_CONTROLLER_SMOOTHING_TYPES[i] || "linear";
+}
+
+/**
+ * Explicit Min/Max range. Legacy Knob Polarity=Bipolar with Min still at 0
+ * maps to −Max…+Max so old patches keep thru-zero Bias.
+ */
+function nodeGraphDspControllerRange(rangeMin, rangeMax, polarity) {
+  let lo = Number(rangeMin);
+  let hi = Number(rangeMax);
+  if (!Number.isFinite(lo)) {
+    lo = 0;
+  }
+  if (!Number.isFinite(hi)) {
+    hi = 1;
+  }
+  if (Math.round(Number(polarity) || 0) >= 1 && Math.abs(lo) <= 1e-12 && hi > 0) {
+    lo = -Math.abs(hi);
+  }
+  if (lo > hi) {
+    const swap = lo;
+    lo = hi;
+    hi = swap;
+  }
+  if (!(hi > lo)) {
+    hi = lo + 1e-9;
+  }
+  return {
+    bipolar: lo < 0 && hi > 0,
+    max: hi,
+    min: lo,
+  };
+}
+
+function nodeGraphDspControllerUnitToRange(unit, rangeMin, rangeMax, polarity) {
+  const range = nodeGraphDspControllerRange(rangeMin, rangeMax, polarity);
+  const u = Number(unit);
+  const t = Number.isFinite(u) ? (u < 0 ? 0 : (u > 1 ? 1 : u)) : 0;
+  return range.min + (range.max - range.min) * t;
+}
+
+/** Overlay Smooth time/algo onto the hidden mouse-target param (offset/value). */
+function nodeGraphDspApplyControllerSmoothingMeta(node, controlKey) {
+  if (!node || !controlKey) {
+    return null;
+  }
+  if (!node.paramMeta || typeof node.paramMeta !== "object") {
+    node.paramMeta = {};
+  }
+  const params = node.params && typeof node.params === "object" ? node.params : {};
+  const existing = node.paramMeta[controlKey] && typeof node.paramMeta[controlKey] === "object"
+    ? node.paramMeta[controlKey]
+    : {};
+  const seconds = Number(params.smoothingSeconds);
+  const snap = !Number.isFinite(seconds) || seconds <= 0;
+  const type = nodeGraphDspControllerSmoothingTypeFromIndex(params.smoothingType);
+  const meta = {
+    ...existing,
+    linearSmoothing: !snap,
+    smoothingMode: snap ? "off" : "internal",
+    smoothingSeconds: snap ? 0 : seconds,
+    smoothingType: snap ? "none" : type,
+  };
+  node.paramMeta[controlKey] = meta;
+  return meta;
+}
+
+function nodeGraphDspApplyControllerLiveSmoothing(runtimeNode) {
+  const type = String(runtimeNode?.type || "");
+  if (type !== "knob" && type !== "toggleButton" && type !== "momentaryButton") {
+    return runtimeNode;
+  }
+  const controlKey = type === "knob" ? "offset" : "value";
+  nodeGraphDspApplyControllerSmoothingMeta(runtimeNode, controlKey);
+  if (type === "knob") {
+    const params = runtimeNode.params || {};
+    const range = nodeGraphDspControllerRange(params.rangeMin, params.rangeMax, params.polarity);
+    const meta = runtimeNode.paramMeta[controlKey] || {};
+    runtimeNode.paramMeta[controlKey] = {
+      ...meta,
+      bipolar: range.bipolar,
+      max: range.max,
+      mid: range.bipolar ? 0 : range.min + (range.max - range.min) * 0.5,
+      min: range.min,
+    };
+  }
+  return runtimeNode;
+}
+
+function nodeGraphDspControllerDisplayIsMouse(node) {
+  const n = Number(node?.params?.displaySource);
+  return !Number.isFinite(n) || Math.round(n) < 1;
+}
+
 /** Classic stereo bus sum: Left/Right += Mono, Out = mono-mix. */
 function nodeGraphDspStereoMix(mono, left, right) {
   const m = Number(mono) || 0;

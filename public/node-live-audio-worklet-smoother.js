@@ -252,6 +252,8 @@ NodeLiveAudioProcessor.prototype.updateSmoother = function updateSmoother(smooth
     // or the linear ramp treats that as a brand-new move and stays dirty.
     if (nextTarget === smoother.target && smoother.smoothingType === nextType) {
       smoother.metadata = metadata || smoother.metadata;
+      smoother.smoothingMode = this.smoothingModeFromMetadata(metadata);
+      smoother.smoothingSeconds = this.smoothingSecondsFromMetadata(metadata);
       if (key && this.smootherNeedsWork(smoother)) {
         this.activateSmoother(key, smoother);
       }

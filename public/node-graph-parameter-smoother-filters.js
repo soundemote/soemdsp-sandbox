@@ -39,10 +39,22 @@ const nodeGraphParameterSmootherFilterTypes = Object.freeze([
 function normalizeNodeGraphParameterSmootherFilterType(value) {
   const key = String(value || "").trim();
   // Instant / no filter (discrete params, legacy linearSmoothing=false).
-  if (key === "none" || key === "off" || key === "instant" || key === "0") {
+  if (key === "none" || key === "off" || key === "instant") {
     return "none";
   }
-  // CPU experiment: only linear ramps. onePole / twoPole / papoulis parked.
+  const lower = key.toLowerCase();
+  if (lower === "linear" || lower === "lin" || lower === "l" || lower === "lerp") {
+    return "linear";
+  }
+  if (lower === "onepole" || lower === "1p" || lower === "one-pole" || lower === "1pole") {
+    return "onePole";
+  }
+  if (lower === "twopole" || lower === "2p" || lower === "two-pole" || lower === "2pole") {
+    return "twoPole";
+  }
+  if (lower === "papoulis" || lower === "pi" || lower === "π") {
+    return "papoulis";
+  }
   return "linear";
 }
 

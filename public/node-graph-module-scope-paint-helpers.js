@@ -1656,6 +1656,172 @@ function nodeGraphTraceDisplayScratchContext(owner, key, width, height) {
   return { canvas, context };
 }
 
+function nodeGraphTraceWaterfallUndrawnWindow(canvas, buffer) {
+  const retained = Math.max(
+    0,
+    Math.min(
+      buffer?.length || 0,
+      Math.floor(Number(buffer?.nodeGraphScopeRetainedSampleCount) || Number(buffer?.length) || 0),
+    ),
+  );
+  const recent = Math.max(0, Math.floor(Number(buffer?.nodeGraphScopeRecentSampleCount) || 0));
+  const absEnd = Number(buffer?.nodeGraphScopeAbsoluteFrame);
+  const totalSamples = Number(buffer?.nodeGraphScopeTotalSampleCount);
+  const lastDrawn = Number(canvas?._traceWaterfallLastDrawnFrame);
+  if (Number.isFinite(absEnd) && absEnd > 0) {
+    if (Number.isFinite(lastDrawn) && lastDrawn >= absEnd) {
+      return { count: 0, endFrame: absEnd };
+    }
+    const undrawn = Number.isFinite(lastDrawn) && lastDrawn > 0
+      ? Math.max(0, Math.floor(absEnd - lastDrawn))
+      : Math.max(recent, 0);
+    const count = Math.min(retained || buffer.length, undrawn > 0 ? undrawn : Math.max(recent, 1));
+    return { count, endFrame: absEnd };
+  }
+  if (Number.isFinite(totalSamples) && totalSamples > 0 && Number.isFinite(lastDrawn)) {
+    if (lastDrawn >= totalSamples) {
+      return { count: 0, endFrame: totalSamples };
+    }
+    const undrawn = Math.max(0, Math.floor(totalSamples - lastDrawn));
+    const count = Math.min(retained || buffer.length, undrawn > 0 ? undrawn : Math.max(recent, 1));
+    return { count, endFrame: totalSamples };
+  }
+  return {
+    count: Math.max(1, Math.min(buffer?.length || 0, recent || 1)),
+    endFrame: Number.isFinite(absEnd) ? absEnd : (Number.isFinite(totalSamples) ? totalSamples : null),
+  };
+}
+
+function nodeGraphTraceDisplayWaterfallStampStrip(context, canvas, spec, stripX, stripW) {
+  const { slot, settings, buffer, stereoBuffers } = spec || {};
+  if (!context || !canvas || !settings || stripW < 1) {
+    return 0;
+  }
+  const width = Math.max(1, canvas.width);
+  const height = Math.max(1, canvas.height);
+  const face = Math.min(width, height);
+  const budget = Math.max(8, Math.round(Number(settings.dotBudget) || 2048));
+  const fade = 0;
+  const stampBuffer = (liveBuffer, color, size, brightness, blur, lastKey) => {
+    if (!liveBuffer?.length) {
+      return 0;
+    }
+    const prepared = typeof prepareNodeGraphTraceDisplayBuffer === "function"
+      ? prepareNodeGraphTraceDisplayBuffer(liveBuffer, settings)
+      : liveBuffer;
+    const windowInfo = nodeGraphTraceWaterfallUndrawnWindow(canvas, prepared || liveBuffer);
+    const count = Math.max(0, Math.floor(Number(windowInfo.count) || 0));
+    if (count <= 0) {
+      return 0;
+    }
+    const start = Math.max(0, (prepared || liveBuffer).length - count);
+    const baseView = typeof nodeGraphTraceDisplayBufferView === "function"
+      ? nodeGraphTraceDisplayBufferView(prepared || liveBuffer, slot, { forceSyncOff: true })
+      : null;
+    const view = {
+      ...(baseView || { gain: 1, offset: 0 }),
+      start,
+      end: (prepared || liveBuffer).length,
+      validStart: start,
+    };
+    const points = buildNodeGraphTraceDisplayCanvasPoints(
+      prepared || liveBuffer,
+      canvas,
+      slot,
+      view,
+      { x: stripX, y: 0, width: Math.max(1, stripW), height },
+      { skipPixelLock: true, vertexWidth: Math.max(stripW, 8) },
+    );
+    const prev = canvas[lastKey];
+    if (prev && Number.isFinite(Number(prev.y)) && points[0] && Number.isFinite(Number(points[0].y))) {
+      points.unshift({ x: stripX, y: Number(prev.y) });
+    }
+    const layer = {
+      enabled: true,
+      size,
+      brightness,
+      blur,
+      fade,
+      color,
+      dotBudget: budget,
+    };
+    drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, {
+      faceMinSide: face,
+      lineCap: "round",
+    });
+    const last = points[points.length - 1];
+    if (last && Number.isFinite(Number(last.y))) {
+      canvas[lastKey] = { x: width - 1, y: Number(last.y) };
+    }
+    if (Number.isFinite(Number(windowInfo.endFrame))) {
+      const prevEnd = Number(canvas._traceWaterfallPendingEndFrame);
+      canvas._traceWaterfallPendingEndFrame = Number.isFinite(prevEnd)
+        ? Math.max(prevEnd, windowInfo.endFrame)
+        : windowInfo.endFrame;
+    }
+    return points.length;
+  };
+  if (stereoBuffers) {
+    const leftSize = Number.isFinite(Number(settings.dot1Size))
+      ? Number(settings.dot1Size)
+      : (Number(settings.size) || 0.035);
+    const rightSize = Number.isFinite(Number(settings.secondarySize))
+      ? Number(settings.secondarySize)
+      : leftSize;
+    const leftBright = Number.isFinite(Number(settings.dot1Brightness ?? settings.brightness))
+      ? Number(settings.dot1Brightness ?? settings.brightness)
+      : 1;
+    const rightBright = Number.isFinite(Number(settings.secondaryBrightness))
+      ? Number(settings.secondaryBrightness)
+      : leftBright;
+    const leftBlur = Number.isFinite(Number(settings.lineThickness)) ? Number(settings.lineThickness) : 0;
+    const rightBlur = Number.isFinite(Number(settings.secondaryLineThickness))
+      ? Number(settings.secondaryLineThickness)
+      : leftBlur;
+    let painted = 0;
+    if (settings.dot1Enabled !== false) {
+      painted += stampBuffer(
+        stereoBuffers.left,
+        settings.color || settings.dot1Color || "#ff0000",
+        leftSize,
+        leftBright,
+        leftBlur,
+        "_traceWaterfallLastLeft",
+      );
+    }
+    if (settings.secondaryEnabled !== false) {
+      painted += stampBuffer(
+        stereoBuffers.right,
+        settings.secondaryColor || "#0000ff",
+        rightSize,
+        rightBright,
+        rightBlur,
+        "_traceWaterfallLastRight",
+      );
+    }
+    if (Number.isFinite(Number(canvas._traceWaterfallPendingEndFrame))) {
+      canvas._traceWaterfallLastDrawnFrame = canvas._traceWaterfallPendingEndFrame;
+      canvas._traceWaterfallPendingEndFrame = Number.NaN;
+    }
+    return painted;
+  }
+  const painted = stampBuffer(
+    buffer,
+    settings.color || settings.dot1Color || "#ff3333",
+    Number.isFinite(Number(settings.dot1Size)) ? Number(settings.dot1Size) : 0.035,
+    Number.isFinite(Number(settings.dot1Brightness ?? settings.brightness))
+      ? Number(settings.dot1Brightness ?? settings.brightness)
+      : 1,
+    Number.isFinite(Number(settings.lineThickness)) ? Number(settings.lineThickness) : 0,
+    "_traceWaterfallLastPoint",
+  );
+  if (Number.isFinite(Number(canvas._traceWaterfallPendingEndFrame))) {
+    canvas._traceWaterfallLastDrawnFrame = canvas._traceWaterfallPendingEndFrame;
+    canvas._traceWaterfallPendingEndFrame = Number.NaN;
+  }
+  return painted;
+}
+
 /**
  * Freerun Instant Trace is a strip chart. Dest pixels are never rebuilt
  * from the capture buffer.
@@ -1665,8 +1831,8 @@ function nodeGraphTraceDisplayScratchContext(owner, key, width, height) {
  * Changing History only changes that speed. Size/background/emoji are ink
  * printed into new columns.
  *
- * New columns are taken from an offscreen current-window draw — that is
- * how we rasterize new ink, not how we rewrite history.
+ * New ink is stamped into the new right columns (vector TraceStroke / history
+ * polyline). Dest history is only scrolled, never remeshed.
  */
 function nodeGraphTraceDisplayPaintWaterfall(spec) {
   const {
@@ -1698,9 +1864,8 @@ function nodeGraphTraceDisplayPaintWaterfall(spec) {
   if (!liveBuffer?.length) {
     return false;
   }
-  const frame = nodeGraphTraceDisplayScratchContext(canvas, "_traceWaterfallFrame", width, height);
   const hold = nodeGraphTraceDisplayScratchContext(canvas, "_traceWaterfallHold", width, height);
-  if (!frame || !hold) {
+  if (!hold) {
     return false;
   }
   const now = (typeof performance !== "undefined" && typeof performance.now === "function")
@@ -1737,14 +1902,6 @@ function nodeGraphTraceDisplayPaintWaterfall(spec) {
     shift = width - 1;
     st.debtPx = 0;
   }
-  frame.context.imageSmoothingEnabled = Number(density) >= 0.999;
-  const painted = nodeGraphTraceDisplayPaintWindow(frame.context, frame.canvas, {
-    slot,
-    settings,
-    buffer: liveBuffer,
-    stereoBuffers,
-    bg,
-  });
   hold.context.imageSmoothingEnabled = false;
   hold.context.globalCompositeOperation = "copy";
   hold.context.drawImage(canvas, 0, 0);
@@ -1756,19 +1913,20 @@ function nodeGraphTraceDisplayPaintWaterfall(spec) {
   context.globalCompositeOperation = "source-over";
   context.fillStyle = bg || "#000000";
   context.fillRect(width - shift, 0, shift, height);
-  context.drawImage(
-    frame.canvas,
+  const painted = nodeGraphTraceDisplayWaterfallStampStrip(
+    context,
+    canvas,
+    {
+      slot,
+      settings,
+      buffer: liveBuffer,
+      stereoBuffers,
+    },
     width - shift,
-    0,
     shift,
-    height,
-    width - shift,
-    0,
-    shift,
-    height,
   );
   context.restore();
-  recordNodeGraphModuleScopeRenderMetrics(painted.painted, painted.painted);
+  recordNodeGraphModuleScopeRenderMetrics(painted, painted);
   paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density);
   rememberNodeGraphTraceDisplaySignature(slot, item, liveBuffer, settings);
   return true;

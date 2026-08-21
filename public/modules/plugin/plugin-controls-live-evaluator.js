@@ -22,31 +22,34 @@ nodeGraphLiveModuleEvaluators.pluginSlider = ({
   return nodeGraphDspBiasFromIn(offset, mixInput?.(nodeId, "In"));
 };
 
+function nodeGraphPluginControlSmoothedOut(runtime, node, frame, frames, frameValues) {
+  if (typeof nodeGraphDspApplyControllerLiveSmoothing === "function") {
+    nodeGraphDspApplyControllerLiveSmoothing(node);
+  }
+  const unit = nodeGraphPluginReadParam(runtime, node, "value", 0, frame, frames, frameValues);
+  const rangeMin = nodeGraphPluginReadParam(runtime, node, "rangeMin", 0, frame, frames, frameValues);
+  const rangeMax = nodeGraphPluginReadParam(runtime, node, "rangeMax", 1, frame, frames, frameValues);
+  const out = typeof nodeGraphDspControllerUnitToRange === "function"
+    ? nodeGraphDspControllerUnitToRange(unit, rangeMin, rangeMax)
+    : unit;
+  return { Out: out, value: out };
+}
+
 nodeGraphLiveModuleEvaluators.toggleButton = ({
   runtime,
   node,
   frame,
   frames,
   frameValues,
-}) => nodeGraphDspBinaryOut(
-  nodeGraphPluginReadParam(runtime, node, "value", 0, frame, frames, frameValues),
-);
+}) => nodeGraphPluginControlSmoothedOut(runtime, node, frame, frames, frameValues);
 
 nodeGraphLiveModuleEvaluators.momentaryButton = ({
   runtime,
   node,
-  nodeId,
   frame,
   frames,
   frameValues,
-}) => {
-  if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.pluginMomentary?.[nodeId] > 0.5) {
-    return nodeGraphDspBinaryOut(1);
-  }
-  return nodeGraphDspBinaryOut(
-    nodeGraphPluginReadParam(runtime, node, "value", 0, frame, frames, frameValues),
-  );
-};
+}) => nodeGraphPluginControlSmoothedOut(runtime, node, frame, frames, frameValues);
 
 // Same bus math as audioInput / output (shared helpers).
 nodeGraphLiveModuleEvaluators.pluginInput = ({

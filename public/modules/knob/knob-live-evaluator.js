@@ -8,10 +8,22 @@ nodeGraphLiveModuleEvaluators.knob = ({
   frameValues,
   mixInput,
 }) => {
+  if (typeof nodeGraphDspApplyControllerLiveSmoothing === "function") {
+    nodeGraphDspApplyControllerLiveSmoothing(node);
+  }
   const offset = readNodeGraphLiveEffectiveParam(
     runtime,
     node,
     "offset",
+    0,
+    frame,
+    frames,
+    frameValues,
+  );
+  const rangeMin = readNodeGraphLiveEffectiveParam(
+    runtime,
+    node,
+    "rangeMin",
     0,
     frame,
     frames,
@@ -35,8 +47,10 @@ nodeGraphLiveModuleEvaluators.knob = ({
     frames,
     frameValues,
   );
-  const range = typeof nodeGraphDspKnobBiasRange === "function"
-    ? nodeGraphDspKnobBiasRange(rangeMax, polarity)
-    : { min: 0, max: 1 };
+  const range = typeof nodeGraphDspControllerRange === "function"
+    ? nodeGraphDspControllerRange(rangeMin, rangeMax, polarity)
+    : (typeof nodeGraphDspKnobBiasRange === "function"
+      ? nodeGraphDspKnobBiasRange(rangeMax, polarity)
+      : { min: 0, max: 1 });
   return nodeGraphDspBiasFromIn(offset, mixInput?.(nodeId, "In"), range.min, range.max);
 };

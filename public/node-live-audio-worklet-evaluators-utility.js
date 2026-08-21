@@ -181,12 +181,18 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
         };
       },
       knob: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        if (typeof nodeGraphDspApplyControllerLiveSmoothing === "function") {
+          nodeGraphDspApplyControllerLiveSmoothing(node);
+        }
         const offset = this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues);
+        const rangeMin = this.readEffectiveParameter(node, "rangeMin", 0, frame, frames, frameValues);
         const rangeMax = this.readEffectiveParameter(node, "rangeMax", 1, frame, frames, frameValues);
         const polarity = this.readEffectiveParameter(node, "polarity", 0, frame, frames, frameValues);
-        const range = typeof nodeGraphDspKnobBiasRange === "function"
-          ? nodeGraphDspKnobBiasRange(rangeMax, polarity)
-          : { min: 0, max: 1 };
+        const range = typeof nodeGraphDspControllerRange === "function"
+          ? nodeGraphDspControllerRange(rangeMin, rangeMax, polarity)
+          : (typeof nodeGraphDspKnobBiasRange === "function"
+            ? nodeGraphDspKnobBiasRange(rangeMax, polarity)
+            : { min: 0, max: 1 });
         return nodeGraphDspBiasFromIn(offset, mixInput?.(nodeId, "In"), range.min, range.max);
       },
       pluginSlider: (node, nodeId, frame, frames, frameValues, mixInput) =>
@@ -194,10 +200,30 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
           this.readEffectiveParameter(node, "value", 0, frame, frames, frameValues),
           mixInput?.(nodeId, "In"),
         ),
-      toggleButton: (node, nodeId, frame, frames, frameValues) =>
-        nodeGraphDspBinaryOut(this.readEffectiveParameter(node, "value", 0, frame, frames, frameValues)),
-      momentaryButton: (node, nodeId, frame, frames, frameValues) =>
-        nodeGraphDspBinaryOut(this.readEffectiveParameter(node, "value", 0, frame, frames, frameValues)),
+      toggleButton: (node, nodeId, frame, frames, frameValues) => {
+        if (typeof nodeGraphDspApplyControllerLiveSmoothing === "function") {
+          nodeGraphDspApplyControllerLiveSmoothing(node);
+        }
+        const unit = this.readEffectiveParameter(node, "value", 0, frame, frames, frameValues);
+        const rangeMin = this.readEffectiveParameter(node, "rangeMin", 0, frame, frames, frameValues);
+        const rangeMax = this.readEffectiveParameter(node, "rangeMax", 1, frame, frames, frameValues);
+        const out = typeof nodeGraphDspControllerUnitToRange === "function"
+          ? nodeGraphDspControllerUnitToRange(unit, rangeMin, rangeMax)
+          : unit;
+        return { Out: out, value: out };
+      },
+      momentaryButton: (node, nodeId, frame, frames, frameValues) => {
+        if (typeof nodeGraphDspApplyControllerLiveSmoothing === "function") {
+          nodeGraphDspApplyControllerLiveSmoothing(node);
+        }
+        const unit = this.readEffectiveParameter(node, "value", 0, frame, frames, frameValues);
+        const rangeMin = this.readEffectiveParameter(node, "rangeMin", 0, frame, frames, frameValues);
+        const rangeMax = this.readEffectiveParameter(node, "rangeMax", 1, frame, frames, frameValues);
+        const out = typeof nodeGraphDspControllerUnitToRange === "function"
+          ? nodeGraphDspControllerUnitToRange(unit, rangeMin, rangeMax)
+          : unit;
+        return { Out: out, value: out };
+      },
       audioInput: (node, nodeId, frame, frames, frameValues, mixInput, _safeRate, _hasInput, inputFrame) => {
         const amplitude = this.readEffectiveParameter(node, "amplitude", NaN, frame, frames, frameValues);
         const level = Number.isFinite(amplitude)

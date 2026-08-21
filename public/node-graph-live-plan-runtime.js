@@ -145,6 +145,9 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
         params,
         type: node.type,
       };
+      if (typeof nodeGraphDspApplyControllerLiveSmoothing === "function") {
+        nodeGraphDspApplyControllerLiveSmoothing(runtimeNode);
+      }
       if (bypassed.has(node.id) && typeof nodeGraphModuleBypassSpec === "function") {
         runtimeNode.bypassed = true;
         runtimeNode.bypassSpec = nodeGraphModuleBypassSpec(node.type);
@@ -210,6 +213,9 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
         params,
         type: node.type,
       };
+      if (typeof nodeGraphDspApplyControllerLiveSmoothing === "function") {
+        nodeGraphDspApplyControllerLiveSmoothing(runtimeNode);
+      }
       if (bypassed.has(node.id) && typeof nodeGraphModuleBypassSpec === "function") {
         runtimeNode.bypassed = true;
         runtimeNode.bypassSpec = nodeGraphModuleBypassSpec(node.type);

@@ -127,6 +127,9 @@ function nodeGraphAudioPlayerLibraryFillWindow(nodeId, { persist = true, refresh
   pl.index = 0;
   pl.selectedIndex = 0;
   node.playlist = pl;
+  if (typeof nodeGraphAudioPlayerPlaylistEnsureCurrentSample === "function") {
+    nodeGraphAudioPlayerPlaylistEnsureCurrentSample(nodeId, { persist: false, refresh: false });
+  }
   if (refresh && typeof nodeGraphAudioPlayerPlaylistRefreshUi === "function") {
     nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
   }

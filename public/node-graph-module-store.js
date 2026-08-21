@@ -418,6 +418,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Ellipsoid",
     notes: ["ellipsoid", "offset", "shape", "scale", "Limit AA", "X/Y", "native"],
   },
+  basicShape: {
+    category: "modulator",
+    description: "Naive sine / tri / saw / square (no anti-aliasing) with PWM and RoundShape-style motion.",
+    label: "BasicShape",
+    notes: ["BasicShape", "naive", "no anti-aliasing", "PWM", "LFO", "sine", "triangle", "saw", "square"],
+  },
   clock: {
     category: "clock",
     label: "Clock",
@@ -2518,6 +2524,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/ellipsoid/ellipsoid-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/ellipsoid/ellipsoid-worklet-evaluator.js",
   },
+  basicShape: {
+    source: "public/modules/basicShape/basic-shape-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/basicShape/basic-shape-live-evaluator.js",
+  },
   elliptic: {
     source: "public/modules/scientificIir/scientific-iir-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
@@ -3139,7 +3149,7 @@ function nodeGraphModuleTypeIsInvisible(type) {
 function setNodeGraphModuleStoreDepartment(department = "") {
   const id = normalizeNodeGraphModuleStoreDepartment(department);
   const dep = nodeGraphModuleStoreDepartmentById[id];
-  const query = String(dep?.label || id || "").trim();
+  const query = String(dep?.emoji || dep?.label || id || "").trim();
   nodeGraphMvp.moduleStoreDepartment = "";
   nodeGraphMvp.moduleStoreDepartmentSearch = query;
   const field = document.getElementById("nodeModuleDepartmentSearch");
@@ -3174,14 +3184,14 @@ function nodeGraphModuleStoreEntryMatchesSearch(entry, query) {
   }
   // Include department display name (e.g. "Scientific Filter") so shelf labels match.
   const depId = String(entry.category || "");
-  const depLabel = nodeGraphModuleStoreDepartmentById[depId]?.label
-    || nodeGraphModuleStoreDepartmentById[depId]?.title
-    || "";
+  const dep = nodeGraphModuleStoreDepartmentById[depId] || {};
+  const depLabel = dep.label || dep.title || "";
   const haystack = [
     entry.label,
     entry.type,
     entry.category,
     depLabel,
+    dep.emoji,
     entry.description,
     ...(entry.notes || []),
   ]
@@ -3220,6 +3230,10 @@ function nodeGraphModuleStoreSearchRank(entry, query) {
   if (tokens.every((t) => notes.some((n) => n === t))) {
     return -90;
   }
+  const depEmoji = String(nodeGraphModuleStoreDepartmentById[entry?.category]?.emoji || "");
+  if (depEmoji && tokens.every((t) => t === depEmoji || t === depEmoji.toLowerCase())) {
+    return -90;
+  }
   // Label starts with full query ("eq" → "eq filter")
   if (label.startsWith(needle) || type.startsWith(needle)) {
     return -80;
@@ -3252,8 +3266,13 @@ function nodeGraphModuleStoreDepartmentMatchesSearch(department, entries, query)
   if (!needle) {
     return true;
   }
+  const dep = nodeGraphModuleStoreDepartmentById[
+    normalizeNodeGraphModuleStoreDepartment(department)
+  ] || {};
   const haystack = [
     department,
+    dep.emoji,
+    dep.label,
     ...(entries || []).flatMap((entry) => [
       entry.label,
       entry.type,

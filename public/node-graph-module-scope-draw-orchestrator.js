@@ -70,7 +70,9 @@ const nodeGraphModuleScopeCustomRenderers = {
   toggleButtonFace: (renderer, item) => {
     item?.screenElement?.syncFromParameters?.();
   },
-  momentaryButtonFace: () => {},
+  momentaryButtonFace: (renderer, item) => {
+    item?.screenElement?.syncFromParameters?.();
+  },
   keypadFace: () => {},
   portalFace: () => {},
   roundShapeFace: () => {},

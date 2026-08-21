@@ -58,10 +58,27 @@ function createNodeGraphToggleButtonFace(node, type) {
   btn.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} toggle`);
 
   const sync = () => {
-    const on = nodeGraphPluginReadParamDom(node, "value", 0) > 0.5;
+    const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
+    const wantsMouse = typeof nodeGraphDspControllerDisplayIsMouse === "function"
+      ? nodeGraphDspControllerDisplayIsMouse(patchNode)
+      : true;
+    const target = nodeGraphPluginReadParamDom(node, "value", 0);
+    let shown = target;
+    if (!wantsMouse && typeof nodeGraphModuleScopeLatestOutputValue === "function") {
+      const live = Number(nodeGraphModuleScopeLatestOutputValue(node, "Out", Number.NaN));
+      if (Number.isFinite(live)) {
+        shown = live;
+      }
+    }
+    const on = shown > 0.5;
     btn.classList.toggle("is-on", on);
     btn.setAttribute("aria-pressed", on ? "true" : "false");
-    btn.textContent = on ? "ON" : "OFF";
+    if (wantsMouse) {
+      btn.textContent = target > 0.5 ? "ON" : "OFF";
+    } else {
+      const places = 2;
+      btn.textContent = Number.isFinite(shown) ? shown.toFixed(places) : "0.00";
+    }
   };
   btn.addEventListener("click", (event) => {
     event.preventDefault();
@@ -122,7 +139,29 @@ function createNodeGraphMomentaryButtonFace(node, type) {
   btn.addEventListener("pointerup", release);
   btn.addEventListener("pointercancel", release);
   btn.addEventListener("lostpointercapture", () => setDown(false));
+  const sync = () => {
+    const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
+    const wantsMouse = typeof nodeGraphDspControllerDisplayIsMouse === "function"
+      ? nodeGraphDspControllerDisplayIsMouse(patchNode)
+      : true;
+    const target = nodeGraphPluginReadParamDom(node, "value", 0);
+    let shown = target;
+    if (!wantsMouse && typeof nodeGraphModuleScopeLatestOutputValue === "function") {
+      const live = Number(nodeGraphModuleScopeLatestOutputValue(node, "Out", Number.NaN));
+      if (Number.isFinite(live)) {
+        shown = live;
+      }
+    }
+    btn.classList.toggle("is-down", (wantsMouse ? target : shown) > 0.5);
+    if (wantsMouse) {
+      btn.textContent = "GATE";
+    } else {
+      btn.textContent = Number.isFinite(shown) ? shown.toFixed(2) : "0.00";
+    }
+  };
   face.append(btn);
+  face.syncFromParameters = sync;
+  requestAnimationFrame(sync);
   return face;
 }
 
