@@ -2669,6 +2669,25 @@ body.is-resizing-controller-dock {
   overflow: hidden;
 }
 
+/* Center wheels + piano + mode/freq strip as one unit in the controller. */
+.node-standalone-midi-keyboard-dock .node-controller-row[data-controller-row="keyboard"] {
+  justify-content: center;
+}
+
+.node-standalone-midi-keyboard-dock .node-controller-row[data-controller-row="keyboard"] > * {
+  width: auto;
+  max-width: 100%;
+}
+
+.node-standalone-midi-keyboard-dock .node-controller-row-split {
+  grid-template-columns:
+    var(--midi-keyboard-wheel-width, 64px)
+    var(--midi-keyboard-piano-width, minmax(0, 1fr));
+  width: max-content;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
 /* Pitch and mod stacked in the dock. The row is a grid so the keyboard
    stack gives the track a definite height; 1fr/1fr then splits that
    height. Flex-grow / % height on an auto-height flex row stayed at
@@ -2701,22 +2720,13 @@ body.is-resizing-controller-dock {
   max-height: none;
 }
 
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-surface {
-  width: var(--midi-keyboard-piano-width, auto);
-  max-width: 100%;
-  height: 100%;
-  min-height: 0;
-  margin-inline: auto;
-  justify-self: center;
-}
-
 .node-standalone-midi-keyboard-dock .node-midi-keyboard-panel {
   display: grid;
-  width: 100%;
+  width: var(--midi-keyboard-piano-width, auto);
   height: 100%;
   min-width: 0;
   min-height: 0;
-  max-width: none;
+  max-width: 100%;
   padding: 0;
   overflow: hidden;
   border: none;
@@ -2725,6 +2735,7 @@ body.is-resizing-controller-dock {
   box-shadow: none;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   align-content: stretch;
+  justify-items: stretch;
   gap: 2px;
 }
 
@@ -2756,13 +2767,24 @@ body.is-resizing-controller-dock {
   min-height: 0;
 }
 
-/* Macro row: knobs sit over the piano, not the wheel column. */
+/* Macro row: same centered width as wheels+piano so knobs sit over the keys. */
+.node-standalone-midi-keyboard-dock .node-controller-row[data-controller-row="macros"] {
+  justify-content: center;
+}
+
+.node-standalone-midi-keyboard-dock .node-controller-row[data-controller-row="macros"] > * {
+  width: auto;
+  max-width: 100%;
+}
+
 .node-standalone-midi-keyboard-dock .node-macro-controls-panel {
   box-sizing: border-box;
+  width: calc(var(--midi-keyboard-wheel-width, 64px) + var(--midi-keyboard-piano-width, 0px));
+  max-width: 100%;
+  margin-inline: auto;
   padding: 10px 8px 8px var(--midi-keyboard-wheel-width, 64px);
   min-height: 72px;
   max-height: none;
-  margin: 0;
   gap: 0;
   border: none;
   border-radius: 0;
@@ -2770,16 +2792,18 @@ body.is-resizing-controller-dock {
   overflow: hidden;
 }
 
-/* Piano is sized to the keys and centered in the controller row. */
+/* Piano fills the centered keyboard column (same width as mode / freq strip). */
 .node-standalone-midi-keyboard-dock .node-midi-keyboard-surface {
   border-radius: 0;
   border-left: 0;
   border-right: 0;
   min-width: 0;
   max-width: 100%;
-  width: var(--midi-keyboard-piano-width, auto);
-  margin-inline: auto;
-  justify-self: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin-inline: 0;
+  justify-self: stretch;
 }
 
 /* Title-only text removed from the wheel and keyboard panels, same as
