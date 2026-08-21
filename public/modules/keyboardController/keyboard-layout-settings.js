@@ -105,7 +105,8 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
     if (docked) {
       surface.style.removeProperty("--midi-keyboard-piano-height");
       surface.style.height = "100%";
-      surface.style.width = "100%";
+      // Keep natural piano width (whiteCount × key width) and center in the
+      // controller row — stretching to 100% packed keys hard left.
     } else {
       surface.style.setProperty("--midi-keyboard-piano-height", `${s.keyboardHeight}px`);
       surface.style.height = `${s.keyboardHeight}px`;
