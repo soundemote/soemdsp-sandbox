@@ -48,6 +48,10 @@ function syncNodeGraphModuleScopeHeartbeat() {
       if (nodeGraphModuleScopeState.buffers?.size) {
         absorbNodeGraphModuleScopePhosphorDrawCursors();
       }
+      if (typeof scopePaintIsFrozen === "function" && scopePaintIsFrozen()
+        && typeof holdNodeGraphScope2dTraceFaces === "function") {
+        holdNodeGraphScope2dTraceFaces();
+      }
       return;
     }
     const pendingFrame = Number(nodeGraphModuleScopeState.drawFrame) || 0;

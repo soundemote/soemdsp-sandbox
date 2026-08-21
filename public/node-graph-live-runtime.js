@@ -1241,6 +1241,11 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
   // Speed 0 = simulation pause: stop phosphor energy steps immediately so
   // trails do not keep decaying on the main-thread draw loop.
   if (clamped <= 0) {
+    // Copy live 2D Trace bitmaps before pause teardown (RAF cancel / absorb /
+    // control re-render) can wipe or cover the face.
+    if (typeof snapshotAllNodeGraphScope2dTraceFaces === "function") {
+      snapshotAllNodeGraphScope2dTraceFaces();
+    }
     if (typeof absorbNodeGraphModuleScopePhosphorDrawCursors === "function") {
       if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
         if (nodeGraphModuleScopeState.drawFrame) {

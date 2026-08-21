@@ -241,6 +241,9 @@ function drawNodeGraphModuleScopes(options = {}) {
     if (force) {
       paintNodeGraphModuleScopeColdPlatesOnly(undefined, { force: true });
     }
+    if (typeof holdNodeGraphScope2dTraceFaces === "function") {
+      holdNodeGraphScope2dTraceFaces();
+    }
     markNodeGraphModuleScopeDebugSkip("paused");
     return;
   }
@@ -557,6 +560,9 @@ function scheduleNodeGraphModuleScopeDraw(options = {}) {
       // Never fill idle plates over a frozen face (move/resize used to wipe LCD).
       if (force) {
         paintNodeGraphModuleScopeColdPlatesOnly(undefined, { force: true });
+      }
+      if (typeof holdNodeGraphScope2dTraceFaces === "function") {
+        holdNodeGraphScope2dTraceFaces();
       }
       return;
     }

@@ -1256,10 +1256,19 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
 }
 
 
+const nodeGraphScope2dTraceHoldByNodeId = new Map();
+
+function nodeGraphScope2dTraceIsSlot(slot) {
+  const renderer = typeof nodeGraphModuleDisplayRendererForSlot === "function"
+    ? nodeGraphModuleDisplayRendererForSlot(slot)
+    : "";
+  return renderer === "scope2dTrace" || slot?.type === "scope2dTrace";
+}
+
 function nodeGraphScope2dTraceFaceCanvas(slot) {
   const screen = slot?.scopeElement;
   const fromDom = screen?.querySelector?.(
-    ":scope > canvas.node-module-scope-local-fallback-canvas, :scope canvas.node-module-scope-vector-trace",
+    ":scope > canvas.node-module-scope-vector-trace, :scope > canvas.node-module-scope-local-fallback-canvas, canvas.node-module-scope-vector-trace",
   );
   if (fromDom) {
     return fromDom;
@@ -1271,9 +1280,9 @@ function nodeGraphScope2dTraceFaceCanvas(slot) {
   return null;
 }
 
-function snapshotNodeGraphScope2dTraceHold(canvas) {
+function snapshotNodeGraphScope2dTraceHold(canvas, nodeId = "") {
   if (!canvas || !(canvas.width > 0) || !(canvas.height > 0)) {
-    return;
+    return null;
   }
   let hold = canvas._scope2dTraceHold;
   if (!hold) {
@@ -1288,73 +1297,94 @@ function snapshotNodeGraphScope2dTraceHold(canvas) {
   }
   const context = hold.getContext("2d");
   if (!context) {
-    return;
+    return null;
   }
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.imageSmoothingEnabled = false;
   context.globalCompositeOperation = "copy";
   context.drawImage(canvas, 0, 0);
+  const id = String(nodeId || "");
+  if (id) {
+    nodeGraphScope2dTraceHoldByNodeId.set(id, hold);
+  }
+  return hold;
 }
 
-function restrokeNodeGraphScope2dTraceHold(slot, pixelRatio = window.devicePixelRatio || 1) {
+function snapshotAllNodeGraphScope2dTraceFaces() {
+  const slots = typeof nodeGraphModuleScopeSlots === "function"
+    ? nodeGraphModuleScopeSlots()
+    : [];
+  for (const slot of slots || []) {
+    if (!nodeGraphScope2dTraceIsSlot(slot)) {
+      continue;
+    }
+    snapshotNodeGraphScope2dTraceHold(nodeGraphScope2dTraceFaceCanvas(slot), slot?.nodeId);
+  }
+}
+
+function blitNodeGraphScope2dTraceHold(slot) {
   const screenElement = slot?.scopeElement;
   const canvas = nodeGraphScope2dTraceFaceCanvas(slot);
   if (!canvas || !screenElement) {
     return false;
   }
-  const settings = typeof nodeGraphScope2dTraceSettingsForNode === "function"
-    ? nodeGraphScope2dTraceSettingsForNode(nodeGraphModuleScopeNodeForSlot(slot))
-    : {};
-  const density = typeof nodeGraphFacePlateDensity === "function"
-    ? nodeGraphFacePlateDensity(settings, 1)
-    : 1;
-  if (typeof syncNodeGraphModuleScopeLocalFallbackCanvas === "function") {
-    syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio, density);
-  }
+  const hold = canvas._scope2dTraceHold
+    || nodeGraphScope2dTraceHoldByNodeId.get(String(slot?.nodeId || ""));
   const context = canvas.getContext?.("2d");
   if (!context) {
     return false;
   }
-  const bg = typeof nodeGraphFacePlateBackground === "function"
-    ? nodeGraphFacePlateBackground(settings, nodeGraphScope2dTraceSettingsDefaults?.background)
-    : "#000000";
-  if (typeof nodeGraphFacePlateApplyCss === "function") {
-    nodeGraphFacePlateApplyCss(screenElement, bg);
-  }
-  const last = canvas._scope2dTraceLastPoints;
-  if (Array.isArray(last) && last.length >= 2) {
+  if (hold && hold.width > 0 && hold.height > 0) {
+    if (canvas.width !== hold.width) {
+      canvas.width = hold.width;
+    }
+    if (canvas.height !== hold.height) {
+      canvas.height = hold.height;
+    }
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.imageSmoothingEnabled = false;
+    context.globalCompositeOperation = "copy";
+    context.drawImage(hold, 0, 0);
+  } else {
+    const last = canvas._scope2dTraceLastPoints;
+    if (!(Array.isArray(last) && last.length >= 2)) {
+      return false;
+    }
+    const settings = typeof nodeGraphScope2dTraceSettingsForNode === "function"
+      ? nodeGraphScope2dTraceSettingsForNode(nodeGraphModuleScopeNodeForSlot(slot))
+      : {};
+    const bg = typeof nodeGraphFacePlateBackground === "function"
+      ? nodeGraphFacePlateBackground(settings, nodeGraphScope2dTraceSettingsDefaults?.background)
+      : "#000000";
     if (typeof nodeGraphFacePlateFillCanvas === "function") {
       nodeGraphFacePlateFillCanvas(context, canvas, bg);
     }
     drawNodeGraphScope2dTraceLayer(context, last, Math.min(canvas.width, canvas.height), settings);
-  } else if (canvas._scope2dTraceHold?.width) {
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.imageSmoothingEnabled = false;
-    context.globalCompositeOperation = "copy";
-    context.drawImage(canvas._scope2dTraceHold, 0, 0);
-  } else {
-    return false;
   }
   canvas.classList.add("node-module-scope-vector-trace");
+  canvas.style.visibility = "visible";
+  canvas.style.opacity = "1";
   if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
     nodeGraphModuleScopeMarkScreenLit(screenElement, 1);
+    nodeGraphModuleScopeMarkScreenLit(canvas, 1);
   }
   return true;
 }
 
+function restrokeNodeGraphScope2dTraceHold(slot, _pixelRatio) {
+  return blitNodeGraphScope2dTraceHold(slot);
+}
+
 function holdNodeGraphScope2dTraceFaces() {
-  const slots = typeof nodeGraphVisibleModuleScopeSlots === "function"
-    ? nodeGraphVisibleModuleScopeSlots()
-    : (typeof nodeGraphModuleScopeSlots === "function" ? nodeGraphModuleScopeSlots() : []);
+  const slots = typeof nodeGraphModuleScopeSlots === "function"
+    ? nodeGraphModuleScopeSlots()
+    : [];
   let any = false;
   for (const slot of slots || []) {
-    const renderer = typeof nodeGraphModuleDisplayRendererForSlot === "function"
-      ? nodeGraphModuleDisplayRendererForSlot(slot)
-      : "";
-    if (renderer !== "scope2dTrace" && slot?.type !== "scope2dTrace") {
+    if (!nodeGraphScope2dTraceIsSlot(slot)) {
       continue;
     }
-    if (restrokeNodeGraphScope2dTraceHold(slot)) {
+    if (blitNodeGraphScope2dTraceHold(slot)) {
       any = true;
     }
   }
@@ -1457,7 +1487,7 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
     nodeGraphFacePlateFillCanvas(context, canvas, bg);
     drawNodeGraphScope2dTraceLayer(context, [single, { x: single.x, y: single.y }], Math.min(canvas.width, canvas.height), settings);
     canvas._scope2dTraceLastPoints = [single, { x: single.x, y: single.y }];
-    snapshotNodeGraphScope2dTraceHold(canvas);
+    snapshotNodeGraphScope2dTraceHold(canvas, item?.slot?.nodeId);
     return;
   }
   nodeGraphFacePlateFillCanvas(context, canvas, bg);
@@ -1466,7 +1496,7 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   if (strokeable) {
     canvas._scope2dTraceLastPoints = points;
   }
-  snapshotNodeGraphScope2dTraceHold(canvas);
+  snapshotNodeGraphScope2dTraceHold(canvas, item?.slot?.nodeId);
 }
 
 

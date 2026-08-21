@@ -389,6 +389,9 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
       delete canvas._nodeGraphScope2dLastDrawnPoint;
       delete canvas._scope2dTraceLastPoints;
       canvas._scope2dTraceHold = null;
+      if (typeof nodeGraphScope2dTraceHoldByNodeId?.delete === "function") {
+        nodeGraphScope2dTraceHoldByNodeId.delete(id);
+      }
       // Do NOT dispose legacy WebGL-on-face burn here — that permanently poisons
       // the canvas so getContext("2d") fails and the face never draws again.
       let context = null;
