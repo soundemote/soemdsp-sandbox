@@ -17,10 +17,12 @@
   // hard crash / new tab can still recover the previous session's log.
   const STORAGE_SESSION = "seDebugLog.session.v1";
   const STORAGE_LAST_UNLOAD = "seDebugLog.lastUnload.v1";
+  // Survives F5 / new tab. Missing key = paused (first-run default).
+  const STORAGE_PAUSED = "seDebugPaused.v1";
   const entries = [];
   let seq = 0;
   let errorCount = 0;
-  let paused = false;
+  let paused = readPausedPreference();
   let filter = "all";
   let search = "";
   let persistTimer = 0;
@@ -93,6 +95,39 @@
     } catch (_) {
       return false;
     }
+  }
+
+  /** Pause/resume of the live log UI. Default paused when nothing is stored. */
+  function readPausedPreference() {
+    try {
+      const raw = localStorage.getItem(STORAGE_PAUSED);
+      if (raw === "0") return false;
+      if (raw === "1") return true;
+    } catch (_) {}
+    return true;
+  }
+
+  function writePausedPreference(value) {
+    try {
+      localStorage.setItem(STORAGE_PAUSED, value ? "1" : "0");
+    } catch (_) {}
+  }
+
+  function syncPauseButton() {
+    const btn = els.pauseBtn || els.panel?.querySelector("[data-se-pause]");
+    if (!btn) return;
+    btn.textContent = paused ? "Resume" : "Pause";
+    btn.setAttribute("aria-pressed", paused ? "true" : "false");
+    btn.title = paused
+      ? "Log UI paused — click to follow live entries"
+      : "Following live entries — click to freeze the list";
+  }
+
+  function setPaused(next) {
+    paused = !!next;
+    writePausedPreference(paused);
+    syncPauseButton();
+    if (!paused) rebuild();
   }
 
   function sePanelOpen() {
@@ -523,7 +558,7 @@
         <span class="se-title">Debug Log</span>
         <button class="se-tool" data-se-watch aria-pressed="false">○ smoothing</button>
         <button class="se-tool" data-se-cats title="Copy module category list (emoji + name, one per line)" aria-label="Copy module category list">📋🎛️</button>
-        <button class="se-tool" data-se-pause>Pause</button>
+        <button class="se-tool" data-se-pause aria-pressed="true">Resume</button>
         <button class="se-tool" data-se-copy>Copy</button>
         <button class="se-tool" data-se-clear>Clear</button>
         <button class="se-tool" data-se-close>✕</button>
@@ -549,7 +584,9 @@
     p.querySelector("[data-se-copy]").addEventListener("click", copyLog);
     p.querySelector("[data-se-cats]")?.addEventListener("click", dumpModuleCategories);
     const pauseBtn = p.querySelector("[data-se-pause]");
-    pauseBtn.addEventListener("click", () => { paused = !paused; pauseBtn.textContent = paused ? "Resume" : "Pause"; if (!paused) rebuild(); });
+    els.pauseBtn = pauseBtn;
+    syncPauseButton();
+    pauseBtn.addEventListener("click", () => setPaused(!paused));
     els.watchBtn.addEventListener("click", () => setSmoothingWatch(!smoothingWatch));
     p.querySelectorAll("[data-se-filter]").forEach((c) => c.addEventListener("click", () => {
       filter = c.dataset.seFilter;

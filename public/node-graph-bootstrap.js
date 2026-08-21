@@ -103,7 +103,10 @@ async function initNodeGraphMvp() {
   }
   renderNodeGraphStandaloneMidiKeyboardToggle();
   if (typeof applyNodeGraphTooltipEmbed === "function") {
-    applyNodeGraphTooltipEmbed();
+    applyNodeGraphTooltipEmbed({
+      shown: nodeGraphMvp.tooltipEmbedded !== false,
+      persist: false,
+    });
   }
   renderNodeGraphTooltipWindowToggle();
   if (typeof ensureNodeGraphWorkspaceWireLayoutObserver === "function") {

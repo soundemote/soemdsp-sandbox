@@ -1711,7 +1711,7 @@ function applyNodeUiDevSettings(settings) {
     ? normalizeNodeGraphTooltipEmbedHeight(normalized.view.tooltipEmbedHeight ?? 46)
     : Math.max(32, Math.min(320, Math.round(Number(normalized.view.tooltipEmbedHeight) || 46)));
   if (typeof applyNodeGraphTooltipEmbed === "function") {
-    applyNodeGraphTooltipEmbed({ shown: nodeGraphMvp.tooltipEmbedded });
+    applyNodeGraphTooltipEmbed({ shown: nodeGraphMvp.tooltipEmbedded, persist: false });
   } else if (typeof applyNodeGraphTooltipEmbedHeight === "function") {
     applyNodeGraphTooltipEmbedHeight(nodeGraphMvp.tooltipEmbedHeight);
   }

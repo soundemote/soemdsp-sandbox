@@ -4537,7 +4537,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 #nodeModuleShopButton,
 #nodeStandaloneMidiKeyboardButton,
 #nodeModularInfiniteViewButton,
-#nodeModularWindowedViewButton {
+#nodeModularWindowedViewButton,
+#nodeSettingsSaveScriptButton,
+#nodeToolbarPastePatchButton {
   padding: 6px;
 }
 
@@ -17001,7 +17003,8 @@ body.node-slider-dragging * {
 }
 
 .node-parameter-metadata-popover > .node-unified-inspector-empty,
-.node-trace-display-settings-popover > .node-unified-inspector-empty {
+.node-trace-display-settings-popover > .node-unified-inspector-empty,
+.node-module-actions-window > .node-unified-inspector-empty {
   flex: 0 0 auto;
 }
 
@@ -18415,9 +18418,8 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   display: block;
   box-sizing: border-box;
   width: 100%;
-  height: auto;
-  aspect-ratio: 1 / 1;
-  max-width: 100%;
+  height: 100px;
+  max-height: 100px;
   justify-self: stretch;
   border: 0;
   background: #020405;
@@ -19165,7 +19167,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   flex: 0 0 auto;
 }
 
-.node-module-actions-window button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button) {
+.node-module-actions-window button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button):not(.node-unified-inspector-module-item) {
   box-sizing: border-box;
   min-width: 0;
   height: var(--node-floating-window-button-height);
@@ -19506,7 +19508,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   gap: 4px;
 }
 
-.node-scene-context-menu button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button) {
+.node-scene-context-menu button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button):not(.node-unified-inspector-module-item) {
   min-height: 32px;
   margin: 0;
   justify-content: flex-start;
@@ -21887,9 +21889,31 @@ body.node-slider-dragging .node-param-port {
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Shared edges: avoid double-thick seams between adjacent squares. */
+/* Conglomerate strip: overlap 1px so one seam is shared. Active / hover
+   raise z-index so their stroke paints on top of the neighbor instead of
+   getting clipped (pause yellow used to lose its left edge to play). */
+.node-graph-controls .node-transport-group {
+  isolation: isolate;
+}
+
+.node-graph-controls .node-transport-group button {
+  position: relative;
+  z-index: 0;
+}
+
 .node-graph-controls .node-transport-group button + button {
-  border-left-width: 0;
+  margin-left: -1px;
+}
+
+.node-graph-controls .node-transport-group button.is-playing,
+.node-graph-controls .node-transport-group button.is-paused,
+.node-graph-controls .node-transport-group button.is-stopped {
+  z-index: 2;
+}
+
+.node-graph-controls .node-transport-group button:hover:not(:disabled),
+.node-graph-controls .node-transport-group button:focus-visible {
+  z-index: 3;
 }
 
 .node-transport-group button:hover {
@@ -22159,10 +22183,34 @@ button[data-transport-action="stop"]:disabled {
 }
 
 #nodeDownloadSampleButton {
-  min-width: 6.2rem;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--node-public-control-height, 2.8rem);
+  min-width: var(--node-public-control-height, 2.8rem);
+  max-width: var(--node-public-control-height, 2.8rem);
   height: 100%;
+  padding: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
   border-radius: 0;
+  background: rgba(17, 20, 24, 0.62);
+  color: var(--muted);
+  line-height: 1;
   cursor: var(--node-dot-cursor);
+}
+
+#nodeDownloadSampleButton .node-modular-view-icon {
+  width: auto;
+  height: auto;
+  align-self: center;
+  justify-self: center;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: calc((var(--node-public-control-height, 2.8rem) - 12px) * 0.8);
 }
 
 #nodeDownloadSampleButton:active {
@@ -22263,8 +22311,7 @@ button[data-transport-action="stop"]:disabled {
    fitNodeLiveToggleText (node-graph-settings-text-fit.js) measures these
    spans along with the live toggles and writes an inline font-size, so the
    hardcoded 89% scale in fitNodeLiveToggleText drives both. */
-.node-render-duration-control #nodeRenderButton,
-.node-render-duration-control #nodeDownloadSampleButton {
+.node-render-duration-control #nodeRenderButton {
   display: grid;
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   align-items: stretch;
@@ -22280,8 +22327,7 @@ button[data-transport-action="stop"]:disabled {
 }
 
 /* Mirrors .node-live-toggle-palette .node-live-toggle span exactly. */
-.node-render-duration-control #nodeRenderButton span,
-.node-render-duration-control #nodeDownloadSampleButton span {
+.node-render-duration-control #nodeRenderButton span {
   display: grid;
   align-items: center;
   justify-items: center;

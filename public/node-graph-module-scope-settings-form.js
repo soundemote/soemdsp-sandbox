@@ -567,13 +567,15 @@ function nodeGraphStampPreviewExtent(radius, blur01, phosphor) {
 }
 
 /** Laid-out CSS plate in px. Never the stamp bitmap. */
-function nodeGraphStampPreviewPlatePx(canvas) {
-  const laid = Math.round(Number(canvas?.clientWidth) || 0);
-  if (laid > 0) {
-    return laid;
-  }
-  const parent = Math.round(Number(canvas?.parentElement?.clientWidth) || 0);
-  return Math.max(48, parent || 96);
+function nodeGraphStampPreviewPlateSize(canvas) {
+  const width = Math.round(Number(canvas?.clientWidth) || 0)
+    || Math.round(Number(canvas?.parentElement?.clientWidth) || 0)
+    || 96;
+  const height = Math.round(Number(canvas?.clientHeight) || 0) || 100;
+  return {
+    width: Math.max(1, width),
+    height: Math.max(1, height),
+  };
 }
 
 function nodeGraphStampPreviewScratch(owner, size) {
@@ -592,14 +594,17 @@ function nodeGraphStampPreviewScratch(owner, size) {
   return scratch;
 }
 
-function nodeGraphStampPreviewBlit(plateCtx, platePx, scratch) {
+function nodeGraphStampPreviewBlit(plateCtx, plateW, plateH, scratch) {
   plateCtx.setTransform(1, 0, 0, 1, 0, 0);
   plateCtx.imageSmoothingEnabled = false;
   plateCtx.globalCompositeOperation = "source-over";
   plateCtx.fillStyle = "#020405";
-  plateCtx.fillRect(0, 0, platePx, platePx);
+  plateCtx.fillRect(0, 0, plateW, plateH);
   if (scratch && scratch.width > 0 && scratch.height > 0) {
-    plateCtx.drawImage(scratch, 0, 0, platePx, platePx);
+    const dest = Math.min(plateW, plateH);
+    const x = Math.round((plateW - dest) * 0.5);
+    const y = Math.round((plateH - dest) * 0.5);
+    plateCtx.drawImage(scratch, 0, 0, scratch.width, scratch.height, x, y, dest, dest);
   }
 }
 
@@ -607,19 +612,19 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
   if (!canvas) {
     return;
   }
-  const platePx = nodeGraphStampPreviewPlatePx(canvas);
-  if (canvas.width !== platePx) {
-    canvas.width = platePx;
+  const plate = nodeGraphStampPreviewPlateSize(canvas);
+  if (canvas.width !== plate.width) {
+    canvas.width = plate.width;
   }
-  if (canvas.height !== platePx) {
-    canvas.height = platePx;
+  if (canvas.height !== plate.height) {
+    canvas.height = plate.height;
   }
   const context = canvas.getContext("2d");
   if (!context) {
     return;
   }
   const fillEmpty = () => {
-    nodeGraphStampPreviewBlit(context, platePx, null);
+    nodeGraphStampPreviewBlit(context, plate.width, plate.height, null);
   };
   const right = side === "R";
   const size = nodeGraphStampPreviewUnit(
@@ -727,7 +732,7 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
     scratchCtx.arc(cx, cy, radius, 0, Math.PI * 2);
     scratchCtx.fill();
   }
-  nodeGraphStampPreviewBlit(context, platePx, scratch);
+  nodeGraphStampPreviewBlit(context, plate.width, plate.height, scratch);
 }
 
 function paintNodeGraphStampPreview(root, settings = {}) {

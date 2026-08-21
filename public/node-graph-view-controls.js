@@ -201,6 +201,7 @@ function persistNodeGraphPatchVisibilityView() {
   view.moduleSlidersVisible = nodeGraphMvp.moduleSlidersVisible !== false;
   view.sliderAmountVisible = nodeGraphMvp.sliderAmountVisible === true;
   view.sliderPositionVisible = nodeGraphMvp.sliderPositionVisible !== false;
+  view.tooltipEmbedded = nodeGraphMvp.tooltipEmbedded !== false;
   nodeGraphMvp.patch.view = view;
   if (nodeGraphMvp.workingPatch) {
     nodeGraphMvp.workingPatch.view = {
@@ -234,6 +235,14 @@ function applyNodeGraphPatchVisibilityView() {
   if (Object.hasOwn(view, "moduleSlidersVisible")) nodeGraphMvp.moduleSlidersVisible = view.moduleSlidersVisible !== false;
   if (Object.hasOwn(view, "sliderAmountVisible")) nodeGraphMvp.sliderAmountVisible = view.sliderAmountVisible === true;
   if (Object.hasOwn(view, "sliderPositionVisible")) nodeGraphMvp.sliderPositionVisible = view.sliderPositionVisible !== false;
+  if (Object.hasOwn(view, "tooltipEmbedded")) nodeGraphMvp.tooltipEmbedded = view.tooltipEmbedded !== false;
+  const wantTooltipsShown = nodeGraphMvp.tooltipEmbedded !== false;
+  if (
+    typeof applyNodeGraphTooltipEmbed === "function"
+    && nodeGraphTooltipsShown() !== wantTooltipsShown
+  ) {
+    applyNodeGraphTooltipEmbed({ shown: wantTooltipsShown, persist: false });
+  }
   if (typeof renderNodeGraphWireLengthsToggle === "function") renderNodeGraphWireLengthsToggle();
   if (typeof renderNodeGraphWiresAboveModulesToggle === "function") renderNodeGraphWiresAboveModulesToggle();
   if (typeof renderNodeGraphGridToggle === "function") renderNodeGraphGridToggle();
@@ -1804,14 +1813,16 @@ function endNodeGraphTooltipEmbedResize(event) {
   }
 }
 
-function applyNodeGraphTooltipEmbed({ shown } = {}) {
+function applyNodeGraphTooltipEmbed({ shown, persist = true } = {}) {
   const help = document.getElementById("nodeInteractionHelp");
   const slot = document.getElementById("nodeInteractionHelpEmbedSlot");
   const resize = document.getElementById("nodeInteractionHelpEmbedResize");
   if (!help || !slot) {
     return;
   }
-  const wantShown = shown === undefined ? nodeGraphTooltipsShown() : Boolean(shown);
+  const wantShown = shown === undefined
+    ? nodeGraphMvp.tooltipEmbedded !== false
+    : Boolean(shown);
   nodeGraphMvp.tooltipEmbedded = wantShown;
   help.classList.add("is-embedded");
   slot.hidden = !wantShown;
@@ -1828,8 +1839,17 @@ function applyNodeGraphTooltipEmbed({ shown } = {}) {
   if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
     notifyNodeGraphChromeLayoutChanged();
   }
-  if (typeof scheduleNodeGraphWorkspaceViewPersist === "function") {
-    scheduleNodeGraphWorkspaceViewPersist();
+  if (persist !== false) {
+    if (typeof persistNodeGraphPatchVisibilityView === "function") {
+      persistNodeGraphPatchVisibilityView();
+    } else if (typeof scheduleNodeGraphWorkspaceViewPersist === "function") {
+      scheduleNodeGraphWorkspaceViewPersist();
+    }
+    if (typeof persistSession === "function") {
+      persistSession({ reason: "uiSettings" });
+    } else if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
+      scheduleNodeUiDevSettingsAutosave();
+    }
   }
 }
 
