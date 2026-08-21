@@ -317,7 +317,7 @@ function syncNodeGraphScopeGpuMetricsDisplay() {
   }
   root.dataset.scopePoints = String(points);
   root.dataset.scopeVertices = String(vertices);
-  root.title = `WebGL/canvas surfaces ${contexts} · phosphor points ${points} · vertices ${vertices}`;
+  root.title = `surfaces (ctx): ${contexts} canvas/WebGL faces · pts: ${points} stamps/path points this frame · vertices ${vertices}`;
 }
 
 function nodeGraphScopeGpuMetricsVisible(root = document.getElementById("nodeScopeGpuMetrics")) {

@@ -18,6 +18,14 @@ function registerNodeGraphModuleScopeSlot(moduleElement, options = {}) {
   if (options.viewDrag !== false) {
     bindNodeGraphModuleScopeWindowEvents(scopeElement);
   }
+  if (scopeElement && typeof applyNodeGraphResourceConstraintMarks === "function") {
+    applyNodeGraphResourceConstraintMarks(
+      scopeElement,
+      typeof nodeGraphModuleResourceConstraintsForType === "function"
+        ? nodeGraphModuleResourceConstraintsForType(slot.type)
+        : "",
+    );
+  }
   nodeGraphModuleScopeState.slots.set(nodeId, slot);
   if (slot.type === "rasterRgb" && typeof scheduleNodeGraphRasterRgbPump === "function") {
     scheduleNodeGraphRasterRgbPump();

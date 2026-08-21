@@ -521,7 +521,9 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
       ? Boolean(parameter.modClamp)
       : false,
     hardClamp: Boolean(parameter.hardClamp),
-    constraint: parameter.constraint ? String(parameter.constraint) : "",
+    constraint: Array.isArray(parameter.constraint)
+      ? parameter.constraint.join(" ")
+      : (parameter.constraint ? String(parameter.constraint) : ""),
     unit: parameter.unit ?? "",
     wraparound: Boolean(parameter.wraparound),
     visible: nodeGraphParameterDefaultVisible(parameter),

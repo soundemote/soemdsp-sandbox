@@ -6099,43 +6099,67 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   text-align: right;
 }
 
-.node-parameter-row[data-node-constraint] {
+.node-parameter-row[data-node-constraint],
+.node-module-scope-window[data-node-constraint],
+.node-module-face[data-node-constraint] {
   --node-active-constraint-color: transparent;
+  --node-constraint-ring-cpu: transparent;
+  --node-constraint-ring-ram: transparent;
+  --node-constraint-ring-gpu: transparent;
   position: relative;
   border-radius: 5px;
 }
 
 .node-parameter-row[data-node-constraint]::before,
-.node-parameter-row[data-node-constraint]::after {
+.node-module-scope-window[data-node-constraint]::before,
+.node-module-face[data-node-constraint]::before {
+  content: "";
   pointer-events: none;
+  position: absolute;
+  inset: 1px var(--node-port-column-width, 0px);
+  z-index: 0;
+  border-radius: 5px;
   opacity: 0;
   transition: opacity 120ms ease;
-}
-
-.node-parameter-row[data-node-constraint]::before {
-  content: "";
-  position: absolute;
-  inset: 1px var(--node-port-column-width);
-  z-index: 0;
-  border: 1px solid color-mix(in srgb, var(--node-active-constraint-color) 64%, transparent);
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--node-active-constraint-color) 13%, transparent);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--node-active-constraint-color) 18%, transparent) inset,
+    inset 0 0 0 1px var(--node-constraint-ring-cpu),
+    inset 0 0 0 2px var(--node-constraint-ring-ram),
+    inset 0 0 0 3px var(--node-constraint-ring-gpu),
     0 0 14px color-mix(in srgb, var(--node-active-constraint-color) 22%, transparent);
+  background: color-mix(in srgb, var(--node-active-constraint-color) 10%, transparent);
 }
 
-.node-parameter-row[data-node-constraint]::after {
-  content: attr(data-node-constraint);
+.node-module-scope-window[data-node-constraint]::before,
+.node-module-face[data-node-constraint]::before {
+  inset: 1px;
+}
+
+.node-constraint-badges {
   position: absolute;
   top: -2px;
-  right: calc(var(--node-port-column-width) + 4px);
+  right: calc(var(--node-port-column-width, 0px) + 4px);
   z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: flex-end;
+  pointer-events: none;
+  max-width: 70%;
+}
+
+.node-module-scope-window > .node-constraint-badges,
+.node-module-face > .node-constraint-badges {
+  top: 3px;
+  right: 4px;
+}
+
+.node-constraint-badge {
+  display: none;
   padding: 1px 4px;
-  border: 1px solid color-mix(in srgb, var(--node-active-constraint-color) 58%, transparent);
+  border: 1px solid color-mix(in srgb, var(--node-badge-constraint-color) 58%, transparent);
   border-radius: 3px;
-  background: color-mix(in srgb, var(--node-active-constraint-color) 24%, rgba(3, 5, 7, 0.9));
-  color: var(--node-active-constraint-color);
+  background: color-mix(in srgb, var(--node-badge-constraint-color) 24%, rgba(3, 5, 7, 0.9));
+  color: var(--node-badge-constraint-color);
   font-family: Consolas, "Courier New", monospace;
   font-size: 0.58rem;
   font-weight: 700;
@@ -6143,25 +6167,43 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   text-transform: uppercase;
 }
 
-.node-constraint-cpu-active .node-parameter-row[data-node-constraint="cpu"] {
+.node-constraint-badge[data-constraint-badge="cpu"] {
+  --node-badge-constraint-color: var(--node-constraint-cpu);
+}
+
+.node-constraint-badge[data-constraint-badge="ram"] {
+  --node-badge-constraint-color: var(--node-constraint-ram);
+}
+
+.node-constraint-badge[data-constraint-badge="gpu"] {
+  --node-badge-constraint-color: var(--node-constraint-gpu);
+}
+
+.node-constraint-cpu-active [data-node-constraint~="cpu"] {
+  --node-constraint-ring-cpu: var(--node-constraint-cpu);
   --node-active-constraint-color: var(--node-constraint-cpu);
 }
 
-.node-constraint-ram-active .node-parameter-row[data-node-constraint="ram"] {
+.node-constraint-ram-active [data-node-constraint~="ram"] {
+  --node-constraint-ring-ram: var(--node-constraint-ram);
   --node-active-constraint-color: var(--node-constraint-ram);
 }
 
-.node-constraint-gpu-active .node-parameter-row[data-node-constraint="gpu"] {
+.node-constraint-gpu-active [data-node-constraint~="gpu"] {
+  --node-constraint-ring-gpu: var(--node-constraint-gpu);
   --node-active-constraint-color: var(--node-constraint-gpu);
 }
 
-.node-constraint-cpu-active .node-parameter-row[data-node-constraint="cpu"]::before,
-.node-constraint-cpu-active .node-parameter-row[data-node-constraint="cpu"]::after,
-.node-constraint-ram-active .node-parameter-row[data-node-constraint="ram"]::before,
-.node-constraint-ram-active .node-parameter-row[data-node-constraint="ram"]::after,
-.node-constraint-gpu-active .node-parameter-row[data-node-constraint="gpu"]::before,
-.node-constraint-gpu-active .node-parameter-row[data-node-constraint="gpu"]::after {
+.node-constraint-cpu-active [data-node-constraint~="cpu"]::before,
+.node-constraint-ram-active [data-node-constraint~="ram"]::before,
+.node-constraint-gpu-active [data-node-constraint~="gpu"]::before {
   opacity: 1;
+}
+
+.node-constraint-cpu-active .node-constraint-badge[data-constraint-badge="cpu"],
+.node-constraint-ram-active .node-constraint-badge[data-constraint-badge="ram"],
+.node-constraint-gpu-active .node-constraint-badge[data-constraint-badge="gpu"] {
+  display: inline-flex;
 }
 
 .node-view-tabs button.active {

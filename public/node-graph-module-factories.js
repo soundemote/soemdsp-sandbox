@@ -366,6 +366,7 @@ function createNodeGraphModuleScopeSection(node, type) {
   if (typeof nodeGraphApplyTooltip === "function") {
     nodeGraphApplyTooltip(section, "module.scopeWindow");
   }
+  applyNodeGraphResourceConstraintMarks(section, nodeGraphModuleResourceConstraintsForType(type));
 
   const surface = document.createElement("div");
   surface.className = "node-module-scope-window-surface";
@@ -836,10 +837,6 @@ function createNodeGraphParameter(node, type, parameter) {
     row.classList.add("node-parameter-row-hidden");
   }
   row.dataset.param = parameter.key;
-  const constraint = normalizeNodeGraphResourceConstraint(parameter.constraint);
-  if (constraint) {
-    row.dataset.nodeConstraint = constraint;
-  }
   // Jacks follow explicit parameterOutput / modulation flags, not visibility.
   // Hidden rows keep their jacks in the DOM so showing a param remounts nothing.
   const showModPort = parameter?.modulation !== false;
@@ -894,8 +891,11 @@ function createNodeGraphParameter(node, type, parameter) {
   input.dataset.wraparound = metadata?.wraparound ? "true" : "false";
   input.dataset.visible = isVisible ? "true" : "false";
   // Domain hard-clamp policy (slider-values): only constraint / hardClamp clip.
-  if (metadata?.constraint || parameter.constraint) {
-    input.dataset.constraint = String(metadata?.constraint || parameter.constraint || "");
+  const constraintToken = nodeGraphResourceConstraintToken(
+    parameter.constraint ?? metadata?.constraint,
+  );
+  if (constraintToken) {
+    input.dataset.constraint = constraintToken;
   }
   if (metadata?.hardClamp || parameter.hardClamp) {
     input.dataset.hardClamp = "true";
@@ -908,10 +908,103 @@ function createNodeGraphParameter(node, type, parameter) {
   if (showParamOut) {
     row.append(createNodeParameterOutputPort(node, type, parameter));
   }
+  applyNodeGraphResourceConstraintMarks(
+    row,
+    parameter.constraint ?? metadata?.constraint,
+  );
   return row;
 }
 
 function normalizeNodeGraphResourceConstraint(value) {
-  const constraint = String(value || "").trim().toLowerCase();
-  return ["cpu", "ram", "gpu"].includes(constraint) ? constraint : "";
+  return normalizeNodeGraphResourceConstraints(value)[0] || "";
+}
+
+/** Accept "gpu", "cpu ram", ["cpu","gpu"], or {cpu:true, ram:true}. */
+function normalizeNodeGraphResourceConstraints(value) {
+  let parts = [];
+  if (Array.isArray(value)) {
+    parts = value;
+  } else if (value && typeof value === "object") {
+    parts = ["cpu", "ram", "gpu"].filter((key) => value[key]);
+  } else {
+    parts = String(value || "").split(/[\s,|/]+/);
+  }
+  const seen = new Set();
+  const out = [];
+  for (const raw of parts) {
+    const key = String(raw || "").trim().toLowerCase();
+    if (!["cpu", "ram", "gpu"].includes(key) || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    out.push(key);
+  }
+  return out;
+}
+
+function nodeGraphResourceConstraintToken(value) {
+  return normalizeNodeGraphResourceConstraints(value).join(" ");
+}
+
+/**
+ * Stroke + cpu/ram/gpu badges on a param row, scope face, or other widget.
+ * Pass one, two, or all three; debug checkboxes show the matching marks.
+ */
+function applyNodeGraphResourceConstraintMarks(element, value) {
+  if (!element) {
+    return [];
+  }
+  const list = normalizeNodeGraphResourceConstraints(value);
+  if (!list.length) {
+    delete element.dataset.nodeConstraint;
+    element.querySelector(":scope > .node-constraint-badges")?.remove();
+    return [];
+  }
+  element.dataset.nodeConstraint = list.join(" ");
+  let badges = element.querySelector(":scope > .node-constraint-badges");
+  if (!badges) {
+    badges = document.createElement("span");
+    badges.className = "node-constraint-badges";
+    badges.setAttribute("aria-hidden", "true");
+    element.append(badges);
+  }
+  badges.replaceChildren(...list.map((key) => {
+    const mark = document.createElement("span");
+    mark.className = "node-constraint-badge";
+    mark.dataset.constraintBadge = key;
+    mark.textContent = key;
+    return mark;
+  }));
+  return list;
+}
+
+/** Default CPU/RAM/GPU tags for live scope faces (override with def.resourceConstraints). */
+function nodeGraphModuleResourceConstraintsForType(type) {
+  const def = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[type]
+    : null;
+  if (def && def.resourceConstraints != null) {
+    return normalizeNodeGraphResourceConstraints(def.resourceConstraints);
+  }
+  const display = String(def?.displayType || "");
+  if (
+    def?.visualSink
+    || display === "trace"
+    || display === "scope2d"
+    || display === "scope2dTrace"
+    || display === "lineBurn"
+    || display === "dot"
+    || display === "value"
+    || display === "hypersawBurn"
+    || display === "videoscopeBurn"
+    || display === "oscilloscopeBankBurn"
+    || display === "vectorRgbFace"
+    || display === "gradientVectorscopeFace"
+    || display === "traceXyz"
+    || display === "phosphorLight"
+    || display.endsWith("Burn")
+  ) {
+    return ["cpu", "ram", "gpu"];
+  }
+  return [];
 }
