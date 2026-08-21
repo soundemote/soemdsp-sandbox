@@ -33,7 +33,7 @@ function createNodeGraphPort(node, type, port, io) {
   return button;
 }
 
-/** LayoutB stays L/M/R. Everyone else spells Mono / Left / Right. Never rename RGB R. */
+/** LayoutB / LayoutC / Input / portal stay L/M/R. Never rename RGB R. */
 function nodeGraphStereoJackDisplayLabel(value, type, port) {
   const raw = String(value || "").trim();
   const key = raw.toLowerCase();
@@ -45,12 +45,15 @@ function nodeGraphStereoJackDisplayLabel(value, type, port) {
   ) {
     return raw;
   }
-  const compact = typeof nodeGraphModuleUsesLayoutB === "function"
-    && nodeGraphModuleUsesLayoutB(type);
+  const compact = (
+    (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type))
+    || (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type))
+    || (typeof nodeGraphPortalKindFromType === "function" && Boolean(nodeGraphPortalKindFromType(type)))
+  );
   if (compact) {
-    if (key === "left") return "L";
-    if (key === "mono") return "M";
-    if (key === "right") return "R";
+    if (key === "left" || key === "l") return "L";
+    if (key === "mono" || key === "m") return "M";
+    if (key === "right" || key === "r") return "R";
     return raw;
   }
   if (key === "l") return "Left";
@@ -309,6 +312,30 @@ function createNodeGraphInputSection(node, type) {
     section.append(row);
   }
   return section;
+}
+
+function createNodeGraphAudioInputStatusFace(node, type) {
+  const face = document.createElement("div");
+  face.className = "node-live-input-state-badge node-module-face";
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(face, "face");
+  }
+  face.dataset.node = node;
+  face.dataset.nodeType = type || "audioInput";
+  face.dataset.micState = "off";
+  face.textContent = "mic off";
+  face.setAttribute("role", "status");
+  face.setAttribute("aria-live", "polite");
+  if (typeof syncNodeGraphInputModuleLiveState === "function") {
+    queueMicrotask(() => {
+      try {
+        syncNodeGraphInputModuleLiveState();
+      } catch (_error) {
+        // Status text is best-effort until live input sync runs.
+      }
+    });
+  }
+  return face;
 }
 
 function createNodeGraphUnderConstructionFace(node, type) {

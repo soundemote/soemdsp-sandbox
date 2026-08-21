@@ -51,6 +51,9 @@ function nodeGraphDisplaySettingsNormalizePlateLook(source = {}, defaults = {}) 
       0,
       1,
     );
+  } else if (src.background == null && src.backgroundColor == null) {
+    // Hue hex is storage, not a painted plate. Missing amount → default 0 (black).
+    brightness = fallbackBright;
   } else if (typeof hex === "string" && /^#00000[0-9a-f]$/i.test(hex)) {
     brightness = 0;
   } else {

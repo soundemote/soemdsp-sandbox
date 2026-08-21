@@ -552,16 +552,32 @@ function createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, op
     ioSection.style.setProperty("--node-io-output-label-ch", String(outCh));
   }
   if (options.inputsOnly) {
+    ioSection.classList.add("io-inputs-only");
     ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(document.createElement("div"));
   } else if (options.outputsOnly) {
-    ioSection.append(document.createElement("div"));
+    ioSection.classList.add("io-outputs-only");
     ioSection.append(outputColumn || document.createElement("div"));
   } else {
     ioSection.append(inputColumn || document.createElement("div"));
     ioSection.append(outputColumn || document.createElement("div"));
   }
   return ioSection;
+}
+
+function nodeGraphModuleLayoutAIoOptions(type, inputPorts, outputPorts) {
+  if (type === "audioInput" || (typeof nodeGraphPortalIsInletType === "function" && nodeGraphPortalIsInletType(type))) {
+    return { outputsOnly: true };
+  }
+  if (typeof nodeGraphPortalIsOutletType === "function" && nodeGraphPortalIsOutletType(type)) {
+    return { inputsOnly: true };
+  }
+  if (Array.isArray(inputPorts) && inputPorts.length && !(Array.isArray(outputPorts) && outputPorts.length)) {
+    return { inputsOnly: true };
+  }
+  if (Array.isArray(outputPorts) && outputPorts.length && !(Array.isArray(inputPorts) && inputPorts.length)) {
+    return { outputsOnly: true };
+  }
+  return {};
 }
 
 // Third UI tier alongside "generic" (knob/slider rows) and "generic + custom"
@@ -670,10 +686,16 @@ function createNodeGraphModuleElement(type, node) {
     if (!chrome.headerless && !chrome.portsBeside && !patchNodeUi.titleHidden) {
       article.append(createNodeGraphModuleHeader(type, node, definition));
     }
-    const mountFace = typeof nodeGraphModuleShouldMountDisplayFace === "function"
-      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
-      : !patchNodeUi.oscilloscopeHidden;
-    const chromelessBody = mountFace && typeof chromelessRegistration.createBody === "function"
+    const compactTile = typeof nodeGraphChromelessModuleIsCompactTile === "function"
+      && nodeGraphChromelessModuleIsCompactTile(type);
+    const hasCustomBody = typeof chromelessRegistration.createBody === "function";
+    const mountFace = compactTile
+      ? hasCustomBody
+      : ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+        ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+        : !patchNodeUi.oscilloscopeHidden)
+        && hasCustomBody);
+    const chromelessBody = mountFace
       ? chromelessRegistration.createBody(node, type)
       : document.createElement("div");
     if (!mountFace && chromelessBody) {
@@ -690,10 +712,16 @@ function createNodeGraphModuleElement(type, node) {
       if (mountFace) {
         article.append(chromelessBody);
       }
-      if (!nodeGraphChromelessModuleIsCompactTile(type)) {
+      if (!compactTile) {
         appendNodeGraphModuleIoSection(
           article,
-          createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+          createNodeGraphLayoutAIoSection(
+            node,
+            type,
+            inputPorts,
+            outputPorts,
+            nodeGraphModuleLayoutAIoOptions(type, inputPorts, outputPorts),
+          ),
           node,
           inputPorts,
           outputPorts,
@@ -1135,7 +1163,13 @@ function createNodeGraphModuleElement(type, node) {
     // UC: jacks + labels sit above the construction plate.
     appendNodeGraphModuleIoSection(
       article,
-      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      createNodeGraphLayoutAIoSection(
+        node,
+        type,
+        inputPorts,
+        outputPorts,
+        nodeGraphModuleLayoutAIoOptions(type, inputPorts, outputPorts),
+      ),
       node,
       inputPorts,
       outputPorts,
@@ -1180,6 +1214,18 @@ function createNodeGraphModuleElement(type, node) {
       if (typeof createNodeGraphUnderConstructionFace === "function") {
         article.append(createNodeGraphUnderConstructionFace(node, type));
       }
+    } else if (
+      type === "audioInput"
+      && (typeof nodeGraphModuleShouldMountDisplayFace === "function"
+        ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+        : !patchNodeUi.oscilloscopeHidden)
+    ) {
+      const statusFace = typeof createNodeGraphAudioInputStatusFace === "function"
+        ? createNodeGraphAudioInputStatusFace(node, type)
+        : null;
+      if (statusFace) {
+        article.append(statusFace);
+      }
     } else if (typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
       : !patchNodeUi.oscilloscopeHidden) {
@@ -1198,20 +1244,18 @@ function createNodeGraphModuleElement(type, node) {
     if (!underConstruction) {
       appendNodeGraphModuleIoSection(
         article,
-        createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+        createNodeGraphLayoutAIoSection(
+          node,
+          type,
+          inputPorts,
+          outputPorts,
+          nodeGraphModuleLayoutAIoOptions(type, inputPorts, outputPorts),
+        ),
         node,
         inputPorts,
         outputPorts,
       );
     }
-  }
-
-  if (type === "audioInput") {
-    const stateBadge = document.createElement("div");
-    stateBadge.className = "node-live-input-state-badge";
-    stateBadge.dataset.micState = "off";
-    stateBadge.textContent = "mic off";
-    article.append(stateBadge);
   }
 
   // Chromeless LayoutB always had params under the shell; LayoutA chromeless

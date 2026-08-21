@@ -191,7 +191,7 @@ const nodeGraphNodeLabels = Object.freeze({
   slewLimiter: "Slew",
   inertialFilter: "Inertial Filter",
   midSideEncode: "Mid/Side",
-  quadrature: "Quadrature",
+  quadrature: "Hilbert Pair",
   hilbert: "Hilbert",
   lookaheadLimiter: "Limiter",
   sampleHold: "Sample & Hold",
@@ -541,8 +541,11 @@ const nodeGraphModuleDefinitions = (
 )({
   audioInput: {
     planRole: "source",
+    chrome: NodeGraphModuleChromeLayout.LayoutA,
+    customDisplayArea: true,
+    displayHeightGu: 2,
     outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
-    outputLabels: { Mono: "M", Left: "L", Right: "R" },
+    outputLabels: { Mono: "Mono", Left: "Left", Right: "Right" },
     outputs: ["Mono", "Left", "Right"],
     parameters: [
       {
@@ -558,17 +561,6 @@ const nodeGraphModuleDefinitions = (
         smoothingMode: "internal",
         smoothingSeconds: 0.0333,
         modClamp: false
-      },
-      {
-        defaultValue: "1",
-        key: "seed",
-        label: "Seed",
-        max: "99999",
-        maxDigits: 5,
-        mid: "1",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1"
       },
     ]
   },
@@ -8841,23 +8833,23 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  // IIR quadrature: I reference, Q ≈ +90°. Dual bus Mid → MidI, Side/In → SideQ / I / Q.
-  // ~1 sample delay — not host-compensated.
+  // IIR Hilbert pair. In+Side → I (allpass, 1-sample align) + Q (~+90°).
+  // Mid → MidI (allpass align only). SideQ is a copy of Q.
   quadrature: {
     planRole: "processor",
     inputLabels: { In: "In", Mid: "Mid", Side: "Side" },
     inputTooltips: {
-      In: "Into I and Q. Added to Side.",
-      Side: "Into I and Q. Added to In.",
-      Mid: "Into MidI only.",
+      In: "Mixed with Side, then into I+S Allpass and I+S Hilbert.",
+      Side: "Mixed with In, then into I+S Allpass and I+S Hilbert.",
+      Mid: "Into MidI only (allpass + 1 sample). Not mixed with In or Side.",
     },
     inputs: ["In", "Mid", "Side"],
-    outputLabels: { I: "I", Q: "Q", MidI: "MidI", SideQ: "SideQ" },
+    outputLabels: { I: "I+S Allpass", Q: "I+S Hilbert", MidI: "M Allpass", SideQ: "I+S Hilbert (copy)" },
     outputTooltips: {
-      I: "In+Side. 1 sample to align with Q.",
-      Q: "+90° of In+Side.",
-      SideQ: "+90° of In+Side.",
-      MidI: "Mid. 1 sample to align with Q.",
+      I: "In+Side through the reference allpass. 1 sample delay so it lines up with I+S Hilbert.",
+      Q: "In+Side through the Hilbert allpass. ~90° shift relative to I+S Allpass.",
+      SideQ: "Copy of I+S Hilbert (same In+Side +90°). Extra jack for Mid/Side wiring.",
+      MidI: "Mid only through the reference allpass. 1 sample delay. Not mixed with In or Side.",
     },
     outputs: ["I", "Q", "MidI", "SideQ"],
     parameters: [

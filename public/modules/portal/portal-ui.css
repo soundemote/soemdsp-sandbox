@@ -7,10 +7,12 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
   background: #0a0c0e;
   color: #f3f1ec;
   user-select: none;
+  container-type: size;
+  grid-auto-rows: 1fr;
 }
 
 .node-portal-channel {
@@ -20,18 +22,23 @@
   pointer-events: none;
 }
 
-.node-portal-face {
-  container-type: size;
+.node-portal-lane {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
 }
 
-.node-portal-face.is-inlet .node-port.output {
+.node-portal-face.is-inlet > .node-port.output,
+.node-portal-lane .node-port.output {
   position: absolute;
   right: calc(var(--node-port-diameter) * -0.5);
   top: 50%;
   transform: translateY(-50%);
 }
 
-.node-portal-face.is-outlet .node-port.input {
+.node-portal-face.is-outlet > .node-port.input,
+.node-portal-lane .node-port.input {
   position: absolute;
   left: calc(var(--node-port-diameter) * -0.5);
   top: 50%;

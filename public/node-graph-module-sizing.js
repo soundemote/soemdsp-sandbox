@@ -153,7 +153,10 @@ function nodeGraphModuleHasFace(type) {
     return false;
   }
   if (nodeGraphChromelessModuleIsCompactTile?.(normalizedType)) {
-    return false;
+    return Boolean(
+      typeof nodeGraphChromelessModuleHasCustomDisplayArea === "function"
+      && nodeGraphChromelessModuleHasCustomDisplayArea(normalizedType),
+    );
   }
   const definition = nodeGraphModuleDefinitions[normalizedType];
   if (!definition) {
@@ -1004,7 +1007,7 @@ function inferNodeGraphModuleBandId(child) {
     return "";
   }
   if (cls.contains("node-live-input-state-badge")) {
-    return "";
+    return "face";
   }
   return "face";
 }

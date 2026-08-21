@@ -873,8 +873,10 @@ function loadNodeGraphPatchFromObject(patch) {
 }
 
 function nodeGraphModuleShouldBeVisible(node) {
-  const type = typeof node === "string" ? nodeGraphPatchNodeType(node) : node?.type;
-  return type !== "audioInput" || Boolean(nodeGraphMvp.live.inputActive);
+  void node;
+  // Input modules stay on the graph even when the bottom Input button is Off.
+  // Live capture is still gated by inputActive (runtime bypass / host stream).
+  return true;
 }
 
 function nodeGraphPatchNodeIsVisible(nodeId) {

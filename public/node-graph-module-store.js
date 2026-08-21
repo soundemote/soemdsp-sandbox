@@ -940,7 +940,17 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "portal",
     description: "Bring the live mic/line into the patch as Mono, Left, Right.",
     label: "Input",
-    notes: ["audio source", "mono left right", "live input"],
+    notes: [
+      "audio source",
+      "mono left right",
+      "live input",
+      "input",
+      "in",
+      "in left",
+      "in right",
+      "in mono",
+      "mic",
+    ],
   },
   moduleGroup: {
     category: "portal",
@@ -1561,8 +1571,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   quadrature: {
     category: "scientificFilter",
     description:
-      "IIR quadrature pair (I / +90° Q). Low-latency Hilbert-class phase tool — no host delay compensation.",
-    label: "Quadrature",
+      "IIR Hilbert pair (I / +90° Q). Low-latency phase tool — no host delay compensation.",
+    label: "Hilbert Pair",
     notes: [
       "quadrature",
       "hilbert",
