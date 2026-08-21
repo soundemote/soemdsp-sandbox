@@ -202,30 +202,111 @@ function nodeGraphCanvasCopyIsExpensive(canvas) {
   return false;
 }
 
-function copyNodeGraphCameraWorldCanvases(source, clone, options = {}) {
-  const sourceCanvases = [...source.querySelectorAll("canvas")];
-  const cloneCanvases = [...clone.querySelectorAll("canvas")];
-  const skipExpensive = options.skipExpensive !== false;
-  sourceCanvases.forEach((sourceCanvas, index) => {
-    const cloneCanvas = cloneCanvases[index];
-    if (!cloneCanvas || !sourceCanvas.width || !sourceCanvas.height) {
-      return;
-    }
-    if (skipExpensive && nodeGraphCanvasCopyIsExpensive(sourceCanvas)) {
-      return;
-    }
-    // Never raise backing store — magnify/zoom must not upscale display buffers.
-    cloneCanvas.width = sourceCanvas.width;
-    cloneCanvas.height = sourceCanvas.height;
-    try {
-      cloneCanvas.getContext("2d")?.drawImage(sourceCanvas, 0, 0);
-    } catch {
-      // WebGL canvases can be unreadable in some contexts; the camera feed should keep rendering.
+function stampNodeGraphCanvasCopyKeys(root) {
+  if (!root?.querySelectorAll) {
+    return;
+  }
+  root.querySelectorAll(".dsp-node[data-node]").forEach((node) => {
+    const id = String(node.getAttribute("data-node") || "");
+    [...node.querySelectorAll("canvas")].forEach((canvas, index) => {
+      canvas.dataset.canvasCopyKey = `${id}:${index}`;
+    });
+  });
+  [...root.querySelectorAll("canvas")].forEach((canvas, index) => {
+    if (!canvas.dataset.canvasCopyKey) {
+      canvas.dataset.canvasCopyKey = `root:${index}`;
     }
   });
 }
 
+function clearNodeGraphCanvasCopyKeys(root) {
+  root?.querySelectorAll?.("canvas[data-canvas-copy-key]").forEach((canvas) => {
+    delete canvas.dataset.canvasCopyKey;
+  });
+}
+
+function copyNodeGraphCanvasBitmap(sourceCanvas, cloneCanvas) {
+  if (!sourceCanvas || !cloneCanvas || !sourceCanvas.width || !sourceCanvas.height) {
+    return false;
+  }
+  // Never raise backing store — magnify/zoom must not upscale display buffers.
+  cloneCanvas.width = sourceCanvas.width;
+  cloneCanvas.height = sourceCanvas.height;
+  try {
+    const context = cloneCanvas.getContext("2d");
+    if (!context) {
+      return false;
+    }
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.imageSmoothingEnabled = false;
+    if ("imageSmoothingQuality" in context) {
+      context.imageSmoothingQuality = "low";
+    }
+    context.globalCompositeOperation = "copy";
+    context.drawImage(sourceCanvas, 0, 0);
+    cloneCanvas.style.imageRendering = "pixelated";
+    return true;
+  } catch {
+    // WebGL canvases can be unreadable; 2D Trace / phosphor faces are 2d bitmaps.
+    return false;
+  }
+}
+
+function copyNodeGraphCameraWorldCanvases(source, clone, options = {}) {
+  if (!source || !clone) {
+    return;
+  }
+  const skipExpensive = options.skipExpensive !== false;
+  const sourceCanvases = [...source.querySelectorAll("canvas")];
+  const cloneByKey = new Map();
+  clone.querySelectorAll("canvas[data-canvas-copy-key]").forEach((canvas) => {
+    cloneByKey.set(String(canvas.dataset.canvasCopyKey || ""), canvas);
+  });
+  const cloneAll = [...clone.querySelectorAll("canvas")];
+  const used = new Set();
+  const copyPair = (sourceCanvas, cloneCanvas) => {
+    if (!cloneCanvas || used.has(cloneCanvas)) {
+      return;
+    }
+    const faceCanvas = sourceCanvas.classList?.contains("node-module-scope-vector-trace")
+      || sourceCanvas.classList?.contains("node-module-scope-local-fallback-canvas");
+    if (skipExpensive && !faceCanvas && nodeGraphCanvasCopyIsExpensive(sourceCanvas)) {
+      return;
+    }
+    used.add(cloneCanvas);
+    copyNodeGraphCanvasBitmap(sourceCanvas, cloneCanvas);
+  };
+  sourceCanvases.forEach((sourceCanvas, index) => {
+    const key = String(sourceCanvas.dataset.canvasCopyKey || "");
+    const byKey = key ? cloneByKey.get(key) : null;
+    copyPair(sourceCanvas, byKey || cloneAll[index]);
+  });
+  // Scope faces: pair by module id so 2D Trace still copies if tree order shifted.
+  source.querySelectorAll(".dsp-node[data-node]").forEach((srcNode) => {
+    const id = String(srcNode.getAttribute("data-node") || "");
+    if (!id) {
+      return;
+    }
+    const dstNode = clone.querySelector(`.dsp-node[data-node="${CSS.escape(id)}"]`);
+    if (!dstNode) {
+      return;
+    }
+    const srcFaces = [...srcNode.querySelectorAll(
+      "canvas.node-module-scope-local-fallback-canvas, canvas.node-module-scope-vector-trace",
+    )];
+    const dstFaces = [...dstNode.querySelectorAll(
+      "canvas.node-module-scope-local-fallback-canvas, canvas.node-module-scope-vector-trace",
+    )];
+    srcFaces.forEach((srcFace, index) => {
+      copyPair(srcFace, dstFaces[index]);
+    });
+  });
+}
+
 function createNodeGraphCameraWorldClone(source, wireSvg) {
+  if (typeof stampNodeGraphCanvasCopyKeys === "function") {
+    stampNodeGraphCanvasCopyKeys(source);
+  }
   const clone = source.cloneNode(true);
   clone.classList.add("node-camera-preview-world");
   clone.style.setProperty("--node-graph-pan-x", "0px");
@@ -255,6 +336,9 @@ function createNodeGraphCameraWorldClone(source, wireSvg) {
     }
   }
   copyNodeGraphCameraWorldCanvases(source, clone);
+  if (typeof clearNodeGraphCanvasCopyKeys === "function") {
+    clearNodeGraphCanvasCopyKeys(source);
+  }
   clone.querySelectorAll("[id]").forEach((element) => {
     if (element.closest("defs")) {
       return;

@@ -1263,6 +1263,9 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
     if (typeof stampNodeGraphOutputPauseBanners === "function") {
       stampNodeGraphOutputPauseBanners();
     }
+    if (typeof holdNodeGraphScope2dTraceFaces === "function") {
+      holdNodeGraphScope2dTraceFaces();
+    }
   } else if (clamped > 0) {
     if (typeof nodeGraphTraceDisplayPinWaterfallClocks === "function") {
       nodeGraphTraceDisplayPinWaterfallClocks();

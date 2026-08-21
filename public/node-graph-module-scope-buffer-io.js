@@ -189,6 +189,15 @@ function pushNodeGraphLiveModuleScopeSnapshot(values, options = {}) {
   if (!values) {
     return;
   }
+  // Pause/visual freeze: keep capture rings as they were. In-flight worklet
+  // posts after speed 0 (or a re-arm that rebuilt empty rings) used to shift
+  // silence into the 2D Trace window and wipe the last Lissajous.
+  if (typeof scopePaintIsFrozen === "function" && scopePaintIsFrozen()) {
+    return;
+  }
+  if (typeof scopePaintIsEnginePlaying === "function" && !scopePaintIsEnginePlaying()) {
+    return;
+  }
   const patchFingerprint = String(options.patchFingerprint || nodeGraphPatchFingerprint());
   if (nodeGraphModuleScopeState.mode !== "live") {
     beginNodeGraphLiveModuleScopeCapture({

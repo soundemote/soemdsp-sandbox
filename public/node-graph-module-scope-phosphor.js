@@ -55,7 +55,10 @@ function absorbNodeGraphModuleScopePhosphorDrawCursors() {
 
 
 function nodeGraphModuleScopePhosphorFrameReady(slot) {
-  const key = String(slot?.nodeId || "__default");
+  // One global Simulation FPS clock. Keying on visibleSlots[0] reset the
+  // timer whenever the first widget changed, so FPS 1 fired extra paints
+  // (or skipped) and 2D Trace looked intermittent.
+  const key = "__simulation-fps";
   const fps = normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60);
   const now = Math.max(0, Number(nodeGraphModuleScopeState.animationTime) || 0);
   const state = nodeGraphModuleScopeState.phosphorFrame || {

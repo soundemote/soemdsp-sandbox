@@ -659,7 +659,7 @@ function syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixe
   if ((frozen || holdWaterfall || holdVectorTrace) && canvas.width >= 2 && canvas.height >= 2) {
     const dw = Math.abs(width - canvas.width);
     const dh = Math.abs(height - canvas.height);
-    const slop = holdWaterfall ? 2 : 1;
+    const slop = (holdWaterfall || holdVectorTrace) ? 2 : 1;
     if (dw <= slop && dh <= slop) {
       width = canvas.width;
       height = canvas.height;

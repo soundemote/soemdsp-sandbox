@@ -387,6 +387,8 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
       }
       // Drop last-point bridge only (not the frame cursor — see absorb below).
       delete canvas._nodeGraphScope2dLastDrawnPoint;
+      delete canvas._scope2dTraceLastPoints;
+      canvas._scope2dTraceHold = null;
       // Do NOT dispose legacy WebGL-on-face burn here — that permanently poisons
       // the canvas so getContext("2d") fails and the face never draws again.
       let context = null;

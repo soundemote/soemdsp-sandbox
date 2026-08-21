@@ -190,6 +190,9 @@ function nodeGraphMagnifierPaintRim(_workspace) {
 }
 
 function nodeGraphMagnifierCloneWorkspace(workspace) {
+  if (typeof stampNodeGraphCanvasCopyKeys === "function") {
+    stampNodeGraphCanvasCopyKeys(workspace);
+  }
   const clone = workspace.cloneNode(true);
   clone.removeAttribute("id");
   clone.classList.add("node-graph-magnifier-world");
@@ -215,8 +218,11 @@ function nodeGraphMagnifierCloneWorkspace(workspace) {
   clone.style.border = "none";
   clone.style.borderRadius = "0";
   if (typeof copyNodeGraphCameraWorldCanvases === "function") {
-    // Glass is a still frame: copy every canvas once (including phosphor).
+    // Glass is a still frame: copy every canvas once (including 2D Trace / phosphor).
     copyNodeGraphCameraWorldCanvases(workspace, clone, { skipExpensive: false });
+  }
+  if (typeof clearNodeGraphCanvasCopyKeys === "function") {
+    clearNodeGraphCanvasCopyKeys(workspace);
   }
   return clone;
 }

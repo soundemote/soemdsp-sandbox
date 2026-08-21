@@ -6591,6 +6591,15 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   overflow: hidden;
   transform-origin: 0 0;
   pointer-events: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Lens scale() must not bilinear-filter scope bitmaps. */
+.node-graph-magnifier-world canvas,
+.node-graph-magnifier-lens canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .node-graph-workspace.viewport-gesturing {

@@ -735,7 +735,17 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   const idle = nodeGraphScope2dPointsAreIdleBeam(points, square);
   const holdPt = canvas._nodeGraphScope2dLastDrawnPoint;
   let holdParkedBeam = false;
-  if (!frozen && holdPt && Number.isFinite(holdPt.x) && Number.isFinite(holdPt.y)) {
+  // Parked/silent hold is 2D XY only. 1D Phosphor samples often sit <0.5px
+  // apart on a slow sweep — treating that as a parked beam collapsed the
+  // waveform to one stamp per Simulation FPS tick (dots, then a line).
+  const allowParkedHold = options.parkedBeamHold === true;
+  if (
+    allowParkedHold
+    && !frozen
+    && holdPt
+    && Number.isFinite(holdPt.x)
+    && Number.isFinite(holdPt.y)
+  ) {
     if (idle.silent) {
       // 0 amplitude: do not restamp the origin (that wiped the last lit hit).
       points = [holdPt];
@@ -989,6 +999,7 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
   );
   drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, {
     endFrame: Number(buffer.nodeGraphScopeAbsoluteFrame),
+    parkedBeamHold: true,
   });
 }
 
@@ -1245,14 +1256,124 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
 }
 
 
-function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
-  const buffer = item?.buffer;
-  if (!buffer?.nodeGraphScopeXy || !buffer.x?.length || !buffer.y?.length) {
+function nodeGraphScope2dTraceFaceCanvas(slot) {
+  const screen = slot?.scopeElement;
+  const fromDom = screen?.querySelector?.(
+    ":scope > canvas.node-module-scope-local-fallback-canvas, :scope canvas.node-module-scope-vector-trace",
+  );
+  if (fromDom) {
+    return fromDom;
+  }
+  const nodeId = slot?.nodeId;
+  if (nodeId && typeof nodeGraphModuleScopePersistentCanvases !== "undefined") {
+    return nodeGraphModuleScopePersistentCanvases.get?.(nodeId) || null;
+  }
+  return null;
+}
+
+function snapshotNodeGraphScope2dTraceHold(canvas) {
+  if (!canvas || !(canvas.width > 0) || !(canvas.height > 0)) {
     return;
   }
-  // Pause freeze: hold face pixels. Do not re-stroke history after Clear-while-paused.
-  if (typeof nodeGraphModuleScopePhosphorFrozen === "function"
-    && nodeGraphModuleScopePhosphorFrozen()) {
+  let hold = canvas._scope2dTraceHold;
+  if (!hold) {
+    hold = document.createElement("canvas");
+    canvas._scope2dTraceHold = hold;
+  }
+  if (hold.width !== canvas.width) {
+    hold.width = canvas.width;
+  }
+  if (hold.height !== canvas.height) {
+    hold.height = canvas.height;
+  }
+  const context = hold.getContext("2d");
+  if (!context) {
+    return;
+  }
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.imageSmoothingEnabled = false;
+  context.globalCompositeOperation = "copy";
+  context.drawImage(canvas, 0, 0);
+}
+
+function restrokeNodeGraphScope2dTraceHold(slot, pixelRatio = window.devicePixelRatio || 1) {
+  const screenElement = slot?.scopeElement;
+  const canvas = nodeGraphScope2dTraceFaceCanvas(slot);
+  if (!canvas || !screenElement) {
+    return false;
+  }
+  const settings = typeof nodeGraphScope2dTraceSettingsForNode === "function"
+    ? nodeGraphScope2dTraceSettingsForNode(nodeGraphModuleScopeNodeForSlot(slot))
+    : {};
+  const density = typeof nodeGraphFacePlateDensity === "function"
+    ? nodeGraphFacePlateDensity(settings, 1)
+    : 1;
+  if (typeof syncNodeGraphModuleScopeLocalFallbackCanvas === "function") {
+    syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio, density);
+  }
+  const context = canvas.getContext?.("2d");
+  if (!context) {
+    return false;
+  }
+  const bg = typeof nodeGraphFacePlateBackground === "function"
+    ? nodeGraphFacePlateBackground(settings, nodeGraphScope2dTraceSettingsDefaults?.background)
+    : "#000000";
+  if (typeof nodeGraphFacePlateApplyCss === "function") {
+    nodeGraphFacePlateApplyCss(screenElement, bg);
+  }
+  const last = canvas._scope2dTraceLastPoints;
+  if (Array.isArray(last) && last.length >= 2) {
+    if (typeof nodeGraphFacePlateFillCanvas === "function") {
+      nodeGraphFacePlateFillCanvas(context, canvas, bg);
+    }
+    drawNodeGraphScope2dTraceLayer(context, last, Math.min(canvas.width, canvas.height), settings);
+  } else if (canvas._scope2dTraceHold?.width) {
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.imageSmoothingEnabled = false;
+    context.globalCompositeOperation = "copy";
+    context.drawImage(canvas._scope2dTraceHold, 0, 0);
+  } else {
+    return false;
+  }
+  canvas.classList.add("node-module-scope-vector-trace");
+  if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+    nodeGraphModuleScopeMarkScreenLit(screenElement, 1);
+  }
+  return true;
+}
+
+function holdNodeGraphScope2dTraceFaces() {
+  const slots = typeof nodeGraphVisibleModuleScopeSlots === "function"
+    ? nodeGraphVisibleModuleScopeSlots()
+    : (typeof nodeGraphModuleScopeSlots === "function" ? nodeGraphModuleScopeSlots() : []);
+  let any = false;
+  for (const slot of slots || []) {
+    const renderer = typeof nodeGraphModuleDisplayRendererForSlot === "function"
+      ? nodeGraphModuleDisplayRendererForSlot(slot)
+      : "";
+    if (renderer !== "scope2dTrace" && slot?.type !== "scope2dTrace") {
+      continue;
+    }
+    if (restrokeNodeGraphScope2dTraceHold(slot)) {
+      any = true;
+    }
+  }
+  return any;
+}
+
+function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
+  // Pause: restroke the last polyline / blit the hold bitmap. Returning
+  // without paint left a blank face when pause had already wiped or covered
+  // the live canvas.
+  if (typeof scopePaintIsFrozen === "function"
+    ? scopePaintIsFrozen()
+    : (typeof nodeGraphModuleScopePhosphorFrozen === "function"
+      && nodeGraphModuleScopePhosphorFrozen())) {
+    restrokeNodeGraphScope2dTraceHold(item?.slot, pixelRatio);
+    return;
+  }
+  const buffer = item?.buffer;
+  if (!buffer?.nodeGraphScopeXy || !buffer.x?.length || !buffer.y?.length) {
     return;
   }
   renderNodeGraphModuleScopeAnalyzer(item.slot, buffer);
@@ -1315,12 +1436,37 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
       run = 0;
     }
   }
-  if (!strokeable) {
+  const lastPoints = canvas._scope2dTraceLastPoints;
+  const inkPoints = strokeable
+    ? points
+    : (Array.isArray(lastPoints) && lastPoints.length >= 2 ? lastPoints : null);
+  if (!inkPoints) {
+    // One finite sample (History 0 / a single-sample FPS tick): keep a beam
+    // dot so the face is not blank for a whole second at FPS 1.
+    let single = null;
+    for (let i = 0; i < points.length; i += 1) {
+      const p = points[i];
+      if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+        single = p;
+        break;
+      }
+    }
+    if (!single) {
+      return;
+    }
+    nodeGraphFacePlateFillCanvas(context, canvas, bg);
+    drawNodeGraphScope2dTraceLayer(context, [single, { x: single.x, y: single.y }], Math.min(canvas.width, canvas.height), settings);
+    canvas._scope2dTraceLastPoints = [single, { x: single.x, y: single.y }];
+    snapshotNodeGraphScope2dTraceHold(canvas);
     return;
   }
   nodeGraphFacePlateFillCanvas(context, canvas, bg);
   const dotSpace = Math.min(canvas.width, canvas.height);
-  drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings);
+  drawNodeGraphScope2dTraceLayer(context, inkPoints, dotSpace, settings);
+  if (strokeable) {
+    canvas._scope2dTraceLastPoints = points;
+  }
+  snapshotNodeGraphScope2dTraceHold(canvas);
 }
 
 

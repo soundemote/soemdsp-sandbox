@@ -86,6 +86,15 @@ function finishNodeGraphRenderedScopeCapture(capture) {
 
 
 function beginNodeGraphLiveModuleScopeCapture(plan = {}, options = {}) {
+  const frozen = typeof scopePaintIsFrozen === "function"
+    ? scopePaintIsFrozen()
+    : (typeof nodeGraphModuleScopePhosphorFrozen === "function"
+      && nodeGraphModuleScopePhosphorFrozen());
+  if (frozen && nodeGraphModuleScopeState.buffers?.size > 0) {
+    // Pause must not rebuild/replace rings (empty order from a control
+    // re-render dropped X/Y history and 2D Trace went blank).
+    return;
+  }
   if (!nodeGraphModuleScopeHasDrawableSlots() || nodeGraphModuleScopeTracesOff()) {
     // Transient re-arm / no slots must never cold-boot wipe residual faces
     // (pause + wire connect was killing Pitch Detector / Value LED ghosts).

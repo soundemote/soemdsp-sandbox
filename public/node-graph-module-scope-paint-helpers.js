@@ -1366,9 +1366,10 @@ function nodeGraphTraceDisplayPinWaterfallClocks(nowMs) {
   }
   if (typeof nodeGraphModuleScopeSlots === "function") {
     for (const slot of nodeGraphModuleScopeSlots() || []) {
-      pin(typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
-        ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
-        : null);
+      const existing = slot?.scopeElement?.querySelector?.(
+        ":scope > canvas.node-module-scope-local-fallback-canvas",
+      );
+      pin(existing);
     }
   }
 }
