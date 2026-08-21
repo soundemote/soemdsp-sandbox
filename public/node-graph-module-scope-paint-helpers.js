@@ -1956,7 +1956,13 @@ function buildNodeGraphScope2dPathPoints(square, buffer, startIndex = 0, options
   const skipDisc = nodeGraphScope2dSkipDiscontinuitiesEnabled(options.settings);
   let previousPoint = null;
   const start = Math.max(0, Math.floor(Number(startIndex) || 0));
-  for (let index = start; index < count; index += 1) {
+  const indexList = Array.isArray(options.indices) ? options.indices : null;
+  const visitCount = indexList ? indexList.length : Math.max(0, count - start);
+  for (let n = 0; n < visitCount; n += 1) {
+    const index = indexList ? Math.floor(Number(indexList[n])) : start + n;
+    if (!Number.isFinite(index) || index < 0 || index >= count) {
+      continue;
+    }
     if (!nodeGraphScope2dSampleIsFinite(buffer.x[index], buffer.y[index])) {
       breakNodeGraphScope2dPath(pathPoints);
       previousPoint = null;

@@ -429,9 +429,7 @@ function nodeGraphScope2dEnergyBurnDepositGain(a, b, c) {
     return 0;
   }
   const s = clampNodeSliderValue(Number(size01) || 0, 0, 1);
-  const sizeFactor = 1.12 - s * 0.32;
-  const shape = Math.pow(Math.min(br, 2), 0.88);
-  return Math.max(0, shape * 0.48 * sizeFactor);
+  return Math.max(0, br * 0.1 * (1.12 - s * 0.42));
 }
 
 /** Soft present exposure — Bright opens the film (Ghost does not). */

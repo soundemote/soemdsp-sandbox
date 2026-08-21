@@ -51,18 +51,27 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "scope2dTrace"
     || formType === "gradientVectorscopeFace"
     || formType === "value"
+    || formType === "scope2d"
+    || formType === "lineBurn"
+    || formType === "phosphorLight"
   )) {
     label = "\uD83D\uDCA1 Bright";
-    title = "Ink light 0…1 (1 = full). Does not change the Display Settings preview dot.";
+    title = formType === "trace" || formType === "traceXyz" || formType === "scope2dTrace" || formType === "gradientVectorscopeFace" || formType === "value"
+      ? "Ink light 0…1 (1 = full)."
+      : "Stamp brightness 0…1 (single source of truth). 1 = full ink. Preview matches the face.";
   }
   if (key === "pixelDensity" && (
     formType === "trace"
     || formType === "traceXyz"
     || formType === "scope2dTrace"
     || formType === "gradientVectorscopeFace"
+    || formType === "scope2d"
+    || formType === "lineBurn"
+    || formType === "phosphorLight"
+    || formType === "xyPad"
   )) {
     label = "Pixel density";
-    title = "1 = CSS \u00d7 devicePixelRatio. Below 1 = chunky lo-fi face buffer.";
+    title = "1 = native face buffer. Below 1 = chunky lo-fi grid (nearest-neighbor).";
   }
   if (key === "fade" && (
     formType === "traceXyz"
@@ -597,11 +606,11 @@ function nodeGraphStampPreviewScratch(owner, size) {
   return scratch;
 }
 
-function nodeGraphStampPreviewBlit(plateCtx, plateW, plateH, scratch) {
+function nodeGraphStampPreviewBlit(plateCtx, plateW, plateH, scratch, bgHex = "#020405") {
   plateCtx.setTransform(1, 0, 0, 1, 0, 0);
   plateCtx.imageSmoothingEnabled = false;
   plateCtx.globalCompositeOperation = "source-over";
-  plateCtx.fillStyle = "#020405";
+  plateCtx.fillStyle = bgHex || "#020405";
   plateCtx.fillRect(0, 0, plateW, plateH);
   if (scratch && scratch.width > 0 && scratch.height > 0) {
     plateCtx.drawImage(scratch, 0, 0, scratch.width, scratch.height, 0, 0, plateW, plateH);
@@ -623,8 +632,14 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
   if (!context) {
     return;
   }
+  const bgHex = typeof nodeGraphFacePlateBackground === "function"
+    ? nodeGraphFacePlateBackground(settings, "#020405")
+    : "#020405";
+  const density = typeof nodeGraphFacePlateDensity === "function"
+    ? nodeGraphFacePlateDensity(settings, 1)
+    : 1;
   const fillEmpty = () => {
-    nodeGraphStampPreviewBlit(context, plate.width, plate.height, null);
+    nodeGraphStampPreviewBlit(context, plate.width, plate.height, null, bgHex);
   };
   const right = side === "R";
   const size = nodeGraphStampPreviewUnit(
@@ -666,7 +681,7 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
   scratchCtx.setTransform(1, 0, 0, 1, 0, 0);
   scratchCtx.imageSmoothingEnabled = false;
   scratchCtx.globalCompositeOperation = "source-over";
-  scratchCtx.fillStyle = "#020405";
+  scratchCtx.fillStyle = bgHex;
   scratchCtx.fillRect(0, 0, buf, buf);
   const cx = buf * 0.5;
   const cy = buf * 0.5;
@@ -679,13 +694,13 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
       if (typeof nodeGraphPhosphorEnergyGlClear === "function") {
         nodeGraphPhosphorEnergyGlClear(splat);
       } else if (typeof PhosphorDrawer.stepFade === "function") {
-        PhosphorDrawer.stepFade(splat, { decay: 1, trail: 0, ghost: 0, bleed: 0 });
+        PhosphorDrawer.stepFade(splat, { decay: 1, trail: 1, ghost: 1, bleed: 0 });
       }
       const stops = Array.isArray(settings.gradientStops) ? settings.gradientStops : null;
       if (stops && stops.length >= 2 && typeof PhosphorDrawer.setLutStops === "function") {
         PhosphorDrawer.setLutStops(splat, stops);
       } else if (typeof PhosphorDrawer.setLut === "function") {
-        PhosphorDrawer.setLut(splat, nodeGraphStampPreviewParseHex(color), "#020405");
+        PhosphorDrawer.setLut(splat, nodeGraphStampPreviewParseHex(color), bgHex);
       }
       PhosphorDrawer.stepDots(splat, {
         pathPoints: [{ x: cx, y: cy }],
@@ -693,12 +708,13 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
         faceMinSide: faceMin,
         radius,
         brightness: bright01,
-        useDepositGain: true,
+        useDepositGain: false,
         blur: blur01,
         maxDots: 1,
         dotsOnly: true,
         trail: 0,
         ghost: 0,
+        burnAmount: 1,
         decay: 0,
         bleed: 0,
       });
@@ -706,7 +722,7 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
         PhosphorDrawer.presentTo(splat, scratchCtx, {
           width: buf,
           height: buf,
-          smooth: false,
+          smooth: density >= 0.999,
           exposure: typeof PhosphorDrawer.exposure === "function"
             ? PhosphorDrawer.exposure(bright01)
             : undefined,
@@ -719,7 +735,7 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
     TraceStroke.draw(scratchCtx, [{ x: cx, y: cy }], {
       size,
       blur: blur01,
-      brightness: 1,
+      brightness: bright01,
       color,
       faceMinSide: faceMin,
       composite: "source-over",
@@ -732,7 +748,9 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
     scratchCtx.arc(cx, cy, radius, 0, Math.PI * 2);
     scratchCtx.fill();
   }
-  nodeGraphStampPreviewBlit(context, plate.width, plate.height, scratch);
+  context.imageSmoothingEnabled = density >= 0.999;
+  canvas.style.imageRendering = density < 0.999 ? "pixelated" : "";
+  nodeGraphStampPreviewBlit(context, plate.width, plate.height, scratch, bgHex);
 }
 
 function paintNodeGraphStampPreview(root, settings = {}) {

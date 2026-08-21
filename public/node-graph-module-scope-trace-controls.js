@@ -916,13 +916,13 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhost",
-    title: "Analog super-exp hang — not brightness. Trail 0 = this is the whole decay. 0 = wipe; 0.3 = classic afterglow; 1 = almost freeze.",
+    title: "Dim scorched-floor hang. 0 = off. Mid = analog afterglow (capped, never full white). 1 = strongest ghost floor. Not Bright.",
   }),
   trail: Object.freeze({
     label: "Trail",
     inputmode: "decimal",
     id: "nodeTraceDisplayTrail",
-    title: "Independent linear residual. 0 = off (Ghost-only); 0.75 = full linear fade; 1 = freeze. Ghost hang is max()'d on top — Trail never dilutes it.",
+    title: "Hot residual length. 0 = die fast. ~0.88 = classic hang. 1 \u2248 freeze the bright path. Not Bright.",
   }),
   burn: Object.freeze({
     label: "Burn",
@@ -934,7 +934,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Burn \u2A2F",
     inputmode: "decimal",
     id: "nodeTraceDisplayBurnAmount",
-    title: "Residual deposit gain vs Bright (default 1). Deposit = Bright \u00d7 this control. Live light unchanged. 0.5 = dim ghost deposit; 2 = hot deposit.",
+    title: "Residual ink vs Bright. Live stamp stays on Bright. 1 = residual at Bright; 0.5 = residual at half; 0 = no ghost/trail (nothing hung).",
   }),
   residual: Object.freeze({
     // Legacy key — Value LED/LCD forms use trail (same axis).

@@ -11099,13 +11099,9 @@ const nodeGraphModuleDefinitions = (
     bufferedInputs: ["Mono", "Left", "Right"],
     stereoTracePorts: { left: "Left", right: "Right" },
     inputs: ["Mono", "Left", "Right"],
-    inputLabels: { Mono: "\u2192", Left: "\u2192", Right: "\u2192" },
+    inputLabels: { Mono: "Mono", Left: "Left", Right: "Right" },
     outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
-    outputLabels: {
-      Mono: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
-      Left: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
-      Right: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
-    },
+    outputLabels: { Mono: "Mono", Left: "Left", Right: "Right" },
     outputs: ["Mono", "Left", "Right"],
     output: true,
     parameters: [

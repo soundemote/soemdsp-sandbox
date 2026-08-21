@@ -131,13 +131,16 @@
   /**
    * History fade along the polyline. t=0 oldest, t=1 newest.
    * fade 0 = even ink. fade 1 = oldest gone, newest full.
+   * Power ease: linear left the back half of a circle sitting near 50%.
    */
   function fadeWeight(t, fade01) {
     const f = clamp01(fade01, 0);
     if (f <= 0.001) {
       return 1;
     }
-    return (1 - f) + f * clamp01(t, 0);
+    const u = clamp01(t, 0);
+    const k = 1 + f * 2.2;
+    return (1 - f) + f * Math.pow(u, k);
   }
 
   function paintStrokePiece(context, pts, r, g, b, alpha, lineWidth, blur, additive) {
@@ -269,35 +272,41 @@
     }
 
     const realTotal = visible.length;
-    const chunks = Math.min(20, Math.max(8, Math.round(Math.sqrt(realTotal))));
+    const chunks = Math.min(48, Math.max(12, Math.round(Math.sqrt(realTotal) * 1.6)));
     let realIndex = 0;
     let piece = [];
-    let pieceT = 0;
+    let pieceT0 = 0;
+    let pieceT1 = 0;
     let bucket = -1;
     const flush = () => {
       if (!piece.length) {
         return;
       }
-      paintStrokePiece(context, piece, r, g, b, fadeWeight(pieceT, fade), lineWidth, blur, additive);
+      const tMid = (pieceT0 + pieceT1) * 0.5;
+      paintStrokePiece(context, piece, r, g, b, fadeWeight(tMid, fade), lineWidth, blur, additive);
       const tail = piece[piece.length - 1];
       piece = tail && Number.isFinite(tail.x) ? [tail] : [];
+      pieceT0 = pieceT1;
     };
     for (let i = 0; i < points.length; i += 1) {
       const p = points[i];
       if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
         flush();
         piece = [];
+        bucket = -1;
         continue;
       }
       const t = realTotal > 1 ? realIndex / (realTotal - 1) : 1;
       const nextBucket = Math.min(chunks - 1, Math.floor(t * chunks + 1e-9));
       if (bucket >= 0 && nextBucket !== bucket) {
-        pieceT = t;
         flush();
+      }
+      if (!piece.length) {
+        pieceT0 = t;
       }
       bucket = nextBucket;
       piece.push(p);
-      pieceT = t;
+      pieceT1 = t;
       realIndex += 1;
     }
     flush();

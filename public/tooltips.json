@@ -11,10 +11,10 @@
   "constraints": {
     "cpu": "CPU overlay | highlight knobs and faces whose work runs on the audio/UI thread (voices, FFT, filter order, waterfall/trace path packing) | raising those values spends more CPU | meter: main-thread busy % and display FPS",
     "ram": "RAM overlay | highlight knobs and faces that grow stored sample history (delay lines, scope rings, History seconds) | longer buffers use more memory | meter: JS heap used (MB)",
-    "gpu": "GPU overlay | highlight knobs and faces that spend fill-rate or extra drawing surfaces (phosphor stamps, shader faces, pixel density) | meter: display FPS, surfaces, and pts",
-    "gpuFps": "GPU / display frame rate | how often scope faces actually present a new picture (Simulation FPS and draw cost both cap this)",
-    "gpuSurfaces": "surfaces (ctx) | count of canvas / WebGL drawing surfaces in the modular view | each 2D Trace, phosphor, or compositor face is one surface | more visible scopes → more GPU contexts",
-    "gpuPoints": "pts | phosphor stamps and path vertices submitted this display frame | 2D Phosphor = energy dots | 2D Trace / waterfall = polyline points after packing | bigger History or Density raises this",
+    "gpu": "GPU overlay. Highlights knobs and faces that spend fill-rate or extra drawing surfaces (phosphor stamps, shader faces, pixel density). Meter shows display FPS, surfaces, and stamps.",
+    "gpuFps": "GPU display frame rate: how often scope faces present a new picture. Simulation FPS and draw cost both cap this.",
+    "gpuSurfaces": "Surfaces: how many canvas/WebGL drawing faces are live in the modular view. Each 2D Trace, phosphor, or compositor face is one surface.",
+    "gpuPoints": "Stamps this display frame: phosphor energy dabs plus 2D Trace / waterfall polyline points actually submitted to draw. 0 means no scope drew new points this frame (paused, FPS gate, or empty path). Lorenz/phosphor should read in the hundreds to thousands when Dot Budget is high.",
     "cpuBusy": "main-thread busy percent | time spent in the last display frame vs the frame budget | high with many canvases or long polylines",
     "cpuFps": "UI frame rate | animation frames completed per second | drops when CPU or GPU draw work overruns",
     "ramUsed": "JavaScript heap used | includes live scope capture rings | not the same as GPU VRAM"

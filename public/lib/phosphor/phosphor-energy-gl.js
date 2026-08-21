@@ -1,12 +1,11 @@
-// Shared WebGL mono energy phosphor (canonical burn backend).
+// Shared WebGL mono energy phosphor (canonical residual backend).
+// Lives in public/lib/phosphor/. Trail (high=long) + Ghost (dim hang) + Brightness.
 // Prefer public/lib/phosphor/phosphor-drawer.js for the high-level face API.
 //
 // Architecture:
 //   energy  ──fade + optional bleed──►  energy'
-//   energy' ──+ GPU soft/hard dots (additive mono deposit)──►  energy''
-//   present: tone-map energy → e∈[0,1], color = LUT(e)  (any gradient, incl. white→black)
-//   blit:    source-over onto plate (plate = gradient floor). Do NOT re-add as light —
-//            additive already happened in energy space; lighter would kill dark LUT peaks.
+//   energy' ──+ GPU soft/hard dots (additive)──►  energy''
+//   present: color = LUT(energy) with HDR film curve
 //   resize:  reallocate FBOs + copy residual (do NOT clear on zoom)
 //
 // Blur UX: 0 = hard disc (~1px AA), 1 = full soft gaussian bleed.
@@ -73,29 +72,33 @@
   // Bleed is what makes a slow dwell "grow outward" instead of a hard saturated disc:
   // each frame a little energy seeps into neighbors (CRT phosphor charge diffusion).
   //
-  // Residual (matches PhosphorResidual):
-  //   uKeepFast  — Trail+Ghost blended keep (1 = freeze)
-  //   uKeepSlow  — same keep (dual path max ≡ single blend)
-  //   uGhostCap  — gates slow path (0 = off, 1 = on); not a brightness ceiling
-  //   uBurn      — extra persist 0…1 (0 = off; 1 = freeze residual)
-  // When Ghost is 0, keepSlow/cap are 0 and only Trail erase runs (unless Burn).
+  // Temporal dither after keep is critical on rgba8 fallbacks: e*=keep quantizes to
+  // 1/255 steps and dim trails "hold then jump". Dither lets energy average smoothly.
+  // Dual residual:
+  //   uKeep / Trail → hot path (high Trail = high keep)
+  //   uKeepSlow / Ghost → dim scorched floor (high Ghost = long low hang)
+  // Ghost is NOT peak brightness.
   const STEP_FRAG = `
     precision highp float;
     varying vec2 vUv;
     uniform sampler2D uEnergy;
     uniform sampler2D uMask;
-    uniform float uKeepFast;
+    uniform float uKeep;
     uniform float uKeepSlow;
-    uniform float uGhostCap;
-    uniform float uBurn;
+    uniform float uGhost;
     uniform float uGain;
     uniform float uUseMask;
     uniform vec2 uTexel;
     uniform float uBleed;
+    uniform float uFrame;
+    uniform float uQuantizeBits; // 0 = HDR float, 8 = rgba8-ish
+    float hash21(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    }
     void main() {
       float e0 = texture2D(uEnergy, vUv).r;
       float bleed = clamp(uBleed, 0.0, 1.0);
-      float eBase = e0;
+      float e = e0;
       if (bleed > 0.0001) {
         // 3×3 gaussian-ish blur; mix with center so cores seep outward slowly.
         vec2 t = max(uTexel, vec2(1e-5));
@@ -108,21 +111,22 @@
         float e7 = texture2D(uEnergy, vUv + vec2( t.x, -t.y)).r;
         float e8 = texture2D(uEnergy, vUv + vec2(-t.x, -t.y)).r;
         float blur = (e0 * 4.0 + (e1 + e2 + e3 + e4) * 2.0 + (e5 + e6 + e7 + e8)) / 16.0;
-        eBase = mix(e0, blur, bleed);
+        e = mix(e0, blur, bleed);
       }
-      // Dual path: linear Trail (keepFast) vs Ghost super-exp (keepSlow).
-      // max() so Ghost hang is never diluted by a faster linear trail.
-      float eFast = eBase * uKeepFast;
-      float eGhost = (uGhostCap > 0.0001)
-        ? (eBase * uKeepSlow)
-        : 0.0;
-      float e = max(eFast, eGhost);
-      float burn = clamp(uBurn, 0.0, 1.0);
-      if (burn >= 0.999) {
-        e = eBase;
-      } else if (burn > 0.001 && eBase >= burn) {
-        e = max(e, burn);
+      // Trail = hot residual; Ghost = dim scorched floor under ghostCap.
+      float ghost = clamp(uGhost, 0.0, 1.0);
+      float keepFast = clamp(uKeep, 0.0, 1.0);
+      float keepSlow = max(keepFast, clamp(uKeepSlow, 0.0, 0.9998));
+      float eFast = e * keepFast;
+      float ghostCap = ghost * 0.12 + ghost * ghost * 0.38;
+      float eGhost = min(e * keepSlow, ghostCap);
+      e = max(eFast, eGhost);
+      // Break 8-bit banding on long slow decays (1 LSB of UNORM8 ≈ 1/255).
+      if (uQuantizeBits > 0.5) {
+        float n = hash21(vUv * 1.017 + vec2(uFrame * 0.137, uFrame * 0.091));
+        e += (n - 0.5) * (1.0 / 255.0);
       }
+      e = max(e, 0.0);
       if (uUseMask > 0.5) {
         vec4 m = texture2D(uMask, vUv);
         float ink = max(m.r, max(m.g, m.b)) * m.a;
@@ -135,12 +139,11 @@
     }
   `;
 
-  // Present = deposit amount → gradient color (not "emit light").
-  //   1) Tone-map HDR mono energy to e∈[0,1] (film curve keeps soft skirts).
-  //   2) Sample multi-stop LUT at e (stop0 = cold / plate floor, stop1 = hot peak).
-  //   3) Premultiplied RGBA for source-over blit onto the face plate.
-  // Additive accumulation already happened in the energy FBO — do not use
-  // canvas "lighter" after this or dark LUT peaks (e.g. white→black) vanish.
+  // HDR present: never clamp energy before the film curve. Clamping to 1 first
+  // turns slow burn into a flat plateau with a hard pixel edge at the isosurface.
+  // Soft film (1-exp) compresses bright cores and leaves dim skirts glowing.
+  // Low-end lift keeps tiny residual energy visible so low burn is dim, not dead.
+  // Present dither blurs 256-entry LUT steps so decay doesn't posterize.
   const PRESENT_FRAG = `
     precision highp float;
     varying vec2 vUv;
@@ -148,9 +151,16 @@
     uniform sampler2D uLut;
     uniform float uTrailGain;
     uniform float uExposure;
+    uniform float uFrame;
+    float hash21(vec2 p) {
+      return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+    }
     void main() {
       float raw = max(texture2D(uEnergy, vUv).r, 0.0);
-      // PhosphorResidual.presentMono — keep in lockstep with the JS SSOT.
+      // Sub-LSB temporal dither before film/LUT — hides discrete energy levels.
+      float n = hash21(vUv * 0.97 + vec2(uFrame * 0.11, -uFrame * 0.07));
+      raw = max(0.0, raw + (n - 0.5) * (1.0 / 384.0));
+      // Lift sub-threshold residual so near-zero energy still glows dimly.
       float lifted = raw + 0.045 * pow(raw, 0.42);
       float e;
       if (uExposure > 0.001) {
@@ -160,10 +170,9 @@
         e = lifted / (1.0 + lifted);
         e = pow(clamp(e, 0.0, 1.0), 0.88);
       }
-      // e is the gradient coordinate. c is the face color at that deposit level.
-      vec3 c = texture2D(uLut, vec2(clamp(e, 0.0, 1.0), 0.5)).rgb;
-      // Coverage from deposit amount (soft skirts); color is independent of
-      // whether the LUT peak is light or dark.
+      // Tiny dither in LUT domain so color doesn't stair-step with energy.
+      e = clamp(e + (n - 0.5) * (1.0 / 512.0), 0.0, 1.0);
+      vec3 c = texture2D(uLut, vec2(e, 0.5)).rgb;
       float a = clamp(e * uTrailGain, 0.0, 1.0);
       gl_FragColor = vec4(c * a, a);
     }
@@ -200,8 +209,7 @@
       float side = (aCorner == 0.0 || aCorner == 2.0) ? 1.0 : -1.0;
       float endpointMix = aCorner < 2.0 ? 0.0 : 1.0;
       float cap = aCorner < 2.0 ? -1.0 : 1.0;
-      // Pad must cover soft multi-skirt (up to ~3.2×R) so glow is not clipped.
-      float padding = max(uRadius * 6.5, 2.5);
+      float padding = max(uRadius * 3.45, 2.0);
       vec2 endpoint = mix(aStart, aEnd, endpointMix);
       vec2 position = endpoint + normal * side * padding + tangent * cap * padding;
       vStart = aStart;
@@ -233,32 +241,19 @@
         : 0.0;
       vec2 closest = vStart + segment * t;
       float d = length(vPosition - closest);
-      float d2 = d * d;
 
       // Hard ribbon (blur 0): flat capsule core + ~1px AA — true hard edge.
       float aa = max(0.65, min(1.6, R * 0.08));
       float hard = 1.0 - smoothstep(R - aa, R + aa * 0.35, d);
 
-      // Soft ribbon (blur 1): same triple-gaussian stack as soft stamps —
-      // core + mid + wide skirt so trails read as glow, not a flat tube.
-      float coreW = max(R * mix(0.30, 0.58, soft), 0.5);
-      float midW = max(R * mix(0.55, 1.45, soft), coreW * 1.2);
-      float skirtW = max(R * mix(0.9, 3.2, soft), midW * 1.2);
-      float core = exp(-d2 / (2.0 * coreW * coreW));
-      float mid = exp(-d2 / (2.0 * midW * midW));
-      float skirt = exp(-d2 / (2.0 * skirtW * skirtW));
-      float coreAmt = mix(0.72, 0.12, soft);
-      float midAmt = mix(0.20, 0.40, soft);
-      float skirtAmt = mix(0.06, 0.95, soft);
-      float softPeak = mix(0.78, 0.36, soft);
-      float softProfile = core * coreAmt + mid * midAmt + skirt * skirtAmt;
-      float softNow = coreAmt + midAmt + skirtAmt;
-      softProfile = softProfile * (softPeak / max(softNow, 0.001));
-
-      // Morph hard capsule → soft gaussian beam.
-      float softMix = pow(soft, 1.45);
+      // Soft ribbon (blur 1): wide gaussian energy skirt.
+      float sigma = max(R * mix(0.34, 1.15, soft), 0.45);
+      float softProfile = exp(-(d * d) / (2.0 * sigma * sigma));
+      // Morph hard capsule → soft beam. soft^1.4 keeps mid range painterly.
+      float softMix = pow(soft, 1.4);
       float hardPeak = 0.88;
-      float profile = mix(hard * hardPeak, softProfile, softMix);
+      float softPeak = mix(0.78, 0.42, soft);
+      float profile = mix(hard * hardPeak, softProfile * softPeak, softMix);
 
       float e = max(profile, 0.0) * uBrightness;
       // Monochrome energy (R=G=B); additive blend accumulates trail.
@@ -279,6 +274,7 @@
     uniform float uRadius;
     uniform float uBlur;
     varying vec2 vOffset;
+    varying vec2 vUv;
     varying float vRadius;
     varying float vBlur;
     void main() {
@@ -291,6 +287,7 @@
       );
       vec2 position = aCenter + cornerOffset * pad;
       vOffset = position - aCenter;
+      vUv = cornerOffset * 0.5 + 0.5;
       vRadius = max(uRadius, 0.5);
       vBlur = softAmt;
       vec2 clip = vec2(
@@ -304,41 +301,32 @@
   const DOT_FRAG = `
     precision highp float;
     uniform float uBrightness;
+    uniform float uStampCustom;
+    uniform sampler2D uStamp;
     varying vec2 vOffset;
+    varying vec2 vUv;
     varying float vRadius;
     varying float vBlur;
     void main() {
-      // soft 0 = hard disc (flat + AA), 1 = full soft multi-skirt airbrush
       float soft = clamp(vBlur, 0.0, 1.0);
       float R = max(vRadius, 0.5);
-      float r2 = dot(vOffset, vOffset);
-      float r = sqrt(r2);
-
-      // --- Hard disc (blur 0): flat core, crisp edge, ~1px AA only ---
-      // Tighter AA than before so Size large + Blur 0 still reads as a disc.
+      float r = length(vOffset);
+      vec4 stamp = texture2D(uStamp, vUv);
+      float tex = max(stamp.r, max(stamp.g, stamp.b)) * stamp.a;
+      if (stamp.a < 0.001) {
+        tex = stamp.r;
+      }
+      // Custom art (heart, …): the texture *is* the stamp.
+      if (uStampCustom > 0.5) {
+        float e = max(tex, 0.0) * uBrightness;
+        gl_FragColor = vec4(e, e, e, e);
+        return;
+      }
+      // Built-in: Blur 0 = hard disc; Blur 1 = baked gaussian texture.
       float aa = max(0.55, min(1.25, R * 0.06));
       float hard = 1.0 - smoothstep(R - aa, R + aa * 0.25, r);
-
-      // --- Soft stack (blur 1): triple gaussians, wide bleed skirts ---
-      float coreW = max(R * mix(0.30, 0.58, soft), 0.5);
-      float midW = max(R * mix(0.55, 1.45, soft), coreW * 1.2);
-      float skirtW = max(R * mix(0.9, 3.2, soft), midW * 1.2);
-      float core = exp(-r2 / (2.0 * coreW * coreW));
-      float mid = exp(-r2 / (2.0 * midW * midW));
-      float skirt = exp(-r2 / (2.0 * skirtW * skirtW));
-      float coreAmt = mix(0.72, 0.12, soft);
-      float midAmt = mix(0.20, 0.40, soft);
-      float skirtAmt = mix(0.06, 0.95, soft);
-      float softPeak = mix(0.78, 0.36, soft);
-      float softProfile = core * coreAmt + mid * midAmt + skirt * skirtAmt;
-      float softNow = coreAmt + midAmt + skirtAmt;
-      softProfile = softProfile * (softPeak / max(softNow, 0.001));
-
-      // Morph hard → soft. pow keeps mid painterly; 0 = pure hard, 1 = pure soft.
       float softMix = pow(soft, 1.45);
-      float hardPeak = 0.92;
-      float profile = mix(hard * hardPeak, softProfile, softMix);
-
+      float profile = mix(hard * 0.92, tex * mix(0.78, 0.42, soft), softMix);
       float e = max(profile, 0.0) * uBrightness;
       gl_FragColor = vec4(e, e, e, e);
     }
@@ -351,30 +339,37 @@
     if (!gl._phosphorEnergyTextureFormats) {
       const halfFloat = gl.getExtension("OES_texture_half_float");
       const halfFloatLinear = gl.getExtension("OES_texture_half_float_linear");
-      const colorBufferHalfFloat = gl.getExtension("EXT_color_buffer_half_float")
-        || gl.getExtension("WEBGL_color_buffer_float");
+      // Render-to-half-float needs EXT_color_buffer_half_float (not WEBGL_color_buffer_float).
+      const colorBufferHalfFloat = gl.getExtension("EXT_color_buffer_half_float");
       const floatTex = gl.getExtension("OES_texture_float");
       const floatLinear = gl.getExtension("OES_texture_float_linear");
+      // Full float render targets need WEBGL_color_buffer_float (or EXT on some drivers).
+      const colorBufferFloat = gl.getExtension("WEBGL_color_buffer_float")
+        || gl.getExtension("EXT_color_buffer_float");
       const formats = [];
-      // HDR energy is critical: 8-bit clamps cores to 1 and kills soft skirts.
+      // HDR energy is critical: rgba8 quantizes e*=keep to 1/255 steps → visible decay jumps.
       if (halfFloat && colorBufferHalfFloat) {
         formats.push({
           filter: halfFloatLinear ? gl.LINEAR : gl.NEAREST,
           type: halfFloat.HALF_FLOAT_OES,
           label: "rgba16f",
+          quantizeBits: 0,
         });
       }
-      if (floatTex && colorBufferHalfFloat) {
+      if (floatTex && colorBufferFloat) {
         formats.push({
           filter: floatLinear ? gl.LINEAR : gl.NEAREST,
           type: gl.FLOAT,
           label: "rgba32f",
+          quantizeBits: 0,
         });
       }
+      // Last resort — enable temporal dither in STEP (quantizeBits=8).
       formats.push({
         filter: gl.LINEAR,
         type: gl.UNSIGNED_BYTE,
         label: "rgba8",
+        quantizeBits: 8,
       });
       gl._phosphorEnergyTextureFormats = formats;
     }
@@ -409,6 +404,10 @@
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.bindTexture(gl.TEXTURE_2D, null);
       if (ok) {
+        if (!gl._phosphorEnergyFormatLogged) {
+          gl._phosphorEnergyFormatLogged = true;
+          console.info("[phosphor-energy-gl] energy surface format:", format.label || "rgba8");
+        }
         return {
           texture,
           framebuffer,
@@ -416,6 +415,7 @@
           height,
           type: format.type || gl.UNSIGNED_BYTE,
           label: format.label || "rgba8",
+          quantizeBits: format.quantizeBits != null ? format.quantizeBits : (format.label === "rgba8" ? 8 : 0),
         };
       }
       gl.deleteFramebuffer(framebuffer);
@@ -436,6 +436,41 @@
     }
   }
 
+  /**
+   * Bake a unit gaussian once (shared device). Size is UV 0–1; peak at center.
+   * Later swapped via setStampTexture for arbitrary art (heart, …).
+   */
+  function bakeGaussianStampTexture(gl, size = 64) {
+    const n = Math.max(8, Math.min(256, Math.round(Number(size) || 64)));
+    const data = new Uint8Array(n * n * 4);
+    const cx = (n - 1) * 0.5;
+    const sigma = n * 0.18;
+    const inv = 1 / (2 * sigma * sigma);
+    for (let y = 0; y < n; y += 1) {
+      for (let x = 0; x < n; x += 1) {
+        const dx = x - cx;
+        const dy = y - cx;
+        const g = Math.exp(-(dx * dx + dy * dy) * inv);
+        const v = Math.round(Math.max(0, Math.min(1, g)) * 255);
+        const o = (y * n + x) * 4;
+        data[o] = v;
+        data[o + 1] = v;
+        data[o + 2] = v;
+        data[o + 3] = v;
+      }
+    }
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return texture;
+  }
+
   function createQuad(gl) {
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -454,14 +489,31 @@
     return buffer;
   }
 
-  function fadeAmount(decay) {
-    const d = Math.max(0, Math.min(1, Number(decay) || 0));
+  function fadeAmountFromTrail(trail) {
+    if (global.PhosphorResidual?.trailFadeAmount) {
+      return global.PhosphorResidual.trailFadeAmount(trail);
+    }
+    // Fallback if residual lib not loaded: Trail high = long = low erase.
+    const t = Math.max(0, Math.min(1, Number(trail) || 0.88));
+    const d = 1 - t;
     if (d <= 0.001) {
       return 0;
     }
-    // Gentler floor than 0.025 — a high minimum erase made low burn deposits
-    // quantize to zero (dead band ~0.04) instead of a dim continuous trail.
     return Math.max(0.006, Math.min(0.55, 0.006 + d * 0.11 + d * d * 0.32));
+  }
+
+  function ghostKeepAmount(ghost, baseKeep) {
+    if (global.PhosphorResidual?.ghostKeep) {
+      return global.PhosphorResidual.ghostKeep(ghost, baseKeep);
+    }
+    const g = Math.max(0, Math.min(1, Number(ghost) || 0));
+    const k = Math.max(0, Math.min(1, Number(baseKeep) || 0));
+    if (g <= 0.001) {
+      return k;
+    }
+    const fade = Math.pow(1 - g, 2.8) * 0.012;
+    const slow = 1 - Math.max(0.00025, fade);
+    return Math.min(0.99975, Math.max(k, slow));
   }
 
   function buildStops(peakRgb, backgroundHex) {
@@ -576,16 +628,15 @@
       aPos: gl.getAttribLocation(stepProgram, "aPos"),
       uEnergy: gl.getUniformLocation(stepProgram, "uEnergy"),
       uMask: gl.getUniformLocation(stepProgram, "uMask"),
-      // Trail+Ghost keep + sticky Burn floor (uKeep is legacy alias for keepFast).
-      uKeepFast: gl.getUniformLocation(stepProgram, "uKeepFast"),
+      uKeep: gl.getUniformLocation(stepProgram, "uKeep"),
       uKeepSlow: gl.getUniformLocation(stepProgram, "uKeepSlow"),
-      uGhostCap: gl.getUniformLocation(stepProgram, "uGhostCap"),
-      uBurn: gl.getUniformLocation(stepProgram, "uBurn"),
-      uKeep: gl.getUniformLocation(stepProgram, "uKeepFast"),
+      uGhost: gl.getUniformLocation(stepProgram, "uGhost"),
       uGain: gl.getUniformLocation(stepProgram, "uGain"),
       uUseMask: gl.getUniformLocation(stepProgram, "uUseMask"),
       uTexel: gl.getUniformLocation(stepProgram, "uTexel"),
       uBleed: gl.getUniformLocation(stepProgram, "uBleed"),
+      uFrame: gl.getUniformLocation(stepProgram, "uFrame"),
+      uQuantizeBits: gl.getUniformLocation(stepProgram, "uQuantizeBits"),
     };
     const present = {
       program: presentProgram,
@@ -594,6 +645,7 @@
       uLut: gl.getUniformLocation(presentProgram, "uLut"),
       uTrailGain: gl.getUniformLocation(presentProgram, "uTrailGain"),
       uExposure: gl.getUniformLocation(presentProgram, "uExposure"),
+      uFrame: gl.getUniformLocation(presentProgram, "uFrame"),
     };
     const copy = {
       program: copyProgram,
@@ -623,8 +675,11 @@
         uRadius: gl.getUniformLocation(dotProgram, "uRadius"),
         uBrightness: gl.getUniformLocation(dotProgram, "uBrightness"),
         uBlur: gl.getUniformLocation(dotProgram, "uBlur"),
+        uStamp: gl.getUniformLocation(dotProgram, "uStamp"),
+        uStampCustom: gl.getUniformLocation(dotProgram, "uStampCustom"),
       };
     }
+    const stampTexture = bakeGaussianStampTexture(gl);
 
     canvas.addEventListener("webglcontextlost", (event) => {
       event.preventDefault();
@@ -642,6 +697,8 @@
       copy,
       beam,
       dot,
+      stampTexture,
+      stampCustom: false,
     };
     return sharedDevice;
   }
@@ -720,8 +777,6 @@
       alive: true,
       // Skip full-screen present when nothing changed (idle dark trail).
       energyActive: false,
-      // Set true when stamps land this frame so present cannot race quiet-sleep.
-      energyDirty: false,
       quietFrames: 0,
     };
   }
@@ -745,37 +800,6 @@
     renderer.lutTexture = null;
     renderer.maskTexture = null;
     renderer.alive = false;
-    renderer.energyActive = false;
-    renderer.energyDirty = false;
-    renderer.quietFrames = 0;
-  }
-
-  /**
-   * Wipe residual energy to black without tearing down GL (keeps face canvas
-   * healthy). Used by Display Settings → Clear, including while paused.
-   */
-  function clearEnergy(renderer) {
-    if (!isRendererLive(renderer)) {
-      return false;
-    }
-    const { gl } = renderer;
-    const w = Math.max(1, renderer.width || 1);
-    const h = Math.max(1, renderer.height || 1);
-    for (const surface of [renderer.read, renderer.write]) {
-      if (!surface?.framebuffer) {
-        continue;
-      }
-      gl.bindFramebuffer(gl.FRAMEBUFFER, surface.framebuffer);
-      gl.viewport(0, 0, w, h);
-      gl.clearColor(0, 0, 0, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-    }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    // Empty residual: present may skip (caller fills the 2D plate).
-    renderer.energyActive = false;
-    renderer.energyDirty = false;
-    renderer.quietFrames = 0;
-    return true;
   }
 
   /** Append one ribbon quad (6 verts × 5 floats) like scope2d burn. */
@@ -816,35 +840,34 @@
   }
 
   /**
-   * Dot deposit + Dot Budget.
+   * Dots-only with dwell fill + beautiful budget failure.
    *
-   * dotsOnly / verticesOnly: stamp ONLY real sample hits — no chord packing
-   * between samples (no connective lines). Over maxDots: even index skip.
+   * Under budget (thrifty): stamp only at ideal spacing (enough for fused soft
+   * lines); may use far fewer than maxDots — never pad.
    *
-   * Path packing (default): soft discs fuse into continuous trails.
-   * fullEconomy OFF: fuse spacing. ON: denser pack toward maxDots.
-   * Over budget: widen step evenly across the whole path.
+   * fullEconomy: always spend dense packing up to maxDots so hard trails read
+   * solid (no thrifty under-use of the budget).
+   *
+   * Over budget: do NOT solid-line the head and drop the rest. Widen spacing
+   * evenly across the whole path so the full signal shape stays visible as
+   * disconnected dots (skips). Fail beautifully instead of truncating.
    *
    * Format: center.x, center.y, corner (6 verts per stamp).
    */
   function buildDotVertices(pathPoints, options = {}) {
     const points = Array.isArray(pathPoints) ? pathPoints : [];
-    const radiusN = Number(options.radius);
-    const radius = Number.isFinite(radiusN) ? Math.max(0, radiusN) : 2;
+    const radius = Math.max(0.5, Number(options.radius) || 2);
+    // Blur 0..1; denser packing at hard end so discs fuse without soft skirts.
     const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
-    const maxDotsN = Math.floor(Number(options.maxDots));
-    const maxDots = Number.isFinite(maxDotsN) ? Math.max(0, maxDotsN) : 2048;
-    if (!(radius > 0) || maxDots <= 0) {
-      return [];
-    }
+    const maxDots = Math.max(16, Math.floor(Number(options.maxDots) || 2048));
     const fullEconomy = options.fullEconomy === true
       || options.fullDotEconomy === true
-      || options.useFullDotEconomy === true
-      || options.fullEconomy === 1
-      || options.fullDotEconomy === 1;
-    const dotsOnly = options.dotsOnly === true
-      || options.verticesOnly === true
-      || String(options.stampMode || "").toLowerCase() === "vertices";
+      || options.useFullDotEconomy === true;
+    // Hard (blur 0): pack ~every 0.35–0.5 px or radius*0.12 so discs tile solid.
+    // Soft: wider step is fine (skirts fuse). Full economy always takes the dense path.
+    const thriftyStep = Math.max(0.35, radius * (0.18 + blur * 0.18));
+    const denseStep = Math.max(0.28, Math.min(radius * 0.12, 1.1));
+    const idealStep = fullEconomy ? denseStep : thriftyStep;
 
     const pieces = [];
     let piece = [];
@@ -866,100 +889,85 @@
       return [];
     }
 
+    let totalLen = 0;
+    let pairCount = 0;
+    for (let p = 0; p < pieces.length; p += 1) {
+      const pts = pieces[p];
+      if (pts.length === 1) {
+        continue;
+      }
+      for (let i = 1; i < pts.length; i += 1) {
+        totalLen += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+        pairCount += 1;
+      }
+    }
+    // Estimate stamps if we used ideal spacing. Many tiny pairs need ~1 stamp
+    // each (ceil), so length/step alone under-counts — that false ceiling used
+    // to stop mid-path and made low-frequency look disconnected.
+    let idealCount = pieces.length;
+    for (let p = 0; p < pieces.length; p += 1) {
+      const pts = pieces[p];
+      for (let i = 1; i < pts.length; i += 1) {
+        const dist = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+        idealCount += dist < 1e-4 ? 0 : Math.max(1, Math.ceil(dist / idealStep));
+      }
+    }
+    idealCount = Math.max(1, idealCount);
+    // Full economy: pack toward the full maxDots budget along the path
+    // (solid hard trails). Floor step so a 1px twitch cannot dump 2k stamps.
+    // Over budget: widen evenly across the FULL path (beautiful skips).
+    let step = idealStep;
+    if (fullEconomy && totalLen > 1e-4) {
+      const budgetStep = totalLen / Math.max(1, maxDots - Math.max(1, pieces.length));
+      // Dense floor (~0.28px / radius*0.12); spend budget when path is longer.
+      step = Math.max(0.28, Math.min(denseStep, budgetStep));
+    }
+    if (idealCount > maxDots && totalLen > 1e-4) {
+      step = Math.max(step, totalLen / Math.max(1, maxDots - Math.max(1, pieces.length)));
+    }
+    // Hard ceiling is always maxDots only — never a short idealCount cap.
+    const stampCap = maxDots;
+
     const stamps = [];
     const pushStamp = (x, y) => {
-      if (stamps.length / 2 >= maxDots) {
+      if (stamps.length / 2 >= stampCap) {
         return false;
-      }
-      if (!Number.isFinite(x) || !Number.isFinite(y)) {
-        return true;
       }
       stamps.push(x, y);
       return true;
     };
 
-    // —— Dots only: sample hits only, never mid-segment stamps ——
-    if (dotsOnly) {
-      let totalPts = 0;
-      for (let p = 0; p < pieces.length; p += 1) {
-        totalPts += pieces[p].length;
-      }
-      // Even index stride under budget; thrifty skips when not fullEconomy.
-      let stride = totalPts > maxDots
-        ? Math.max(1, Math.ceil(totalPts / maxDots))
-        : 1;
-      if (!fullEconomy && totalPts > 1 && totalPts <= maxDots) {
-        // Mild thrifty: keep ~half the samples when dense (still no chords).
-        stride = Math.max(1, Math.floor(totalPts / Math.min(maxDots, Math.max(2, Math.ceil(totalPts * 0.55)))));
-      }
-      let seen = 0;
-      outerV: for (let p = 0; p < pieces.length; p += 1) {
-        const pts = pieces[p];
-        for (let i = 0; i < pts.length; i += 1) {
-          if ((seen % stride) === 0) {
-            if (!pushStamp(pts[i].x, pts[i].y)) {
-              break outerV;
-            }
-          }
-          seen += 1;
-        }
-      }
-    } else {
-      // —— Path packing: fuse soft stamps along continuous motion ——
-      // Spacing is a fraction of stamp radius so discs overlap. Do not floor
-      // to ~0.28px (gaps when Size is small) or loosen with Blur.
-      // Over budget: keep fuse spacing and stop (do not sparse-spread the path —
-      // that dotted long discontinuity chords).
-      const fuseStep = Math.max(0.05, radius * 0.48);
-      const denseStep = Math.max(0.05, Math.min(radius * 0.22, fuseStep * 0.55));
-
-      let totalLen = 0;
-      for (let p = 0; p < pieces.length; p += 1) {
-        const pts = pieces[p];
-        for (let i = 1; i < pts.length; i += 1) {
-          const dist = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-          if (dist > 1e-4) {
-            totalLen += dist;
-          }
-        }
-      }
-
-      let step = fullEconomy ? denseStep : fuseStep;
-      if (fullEconomy && totalLen > 1e-4) {
-        const budgetStep = totalLen / Math.max(1, maxDots - Math.max(1, pieces.length));
-        step = Math.min(denseStep, Math.max(0.05, budgetStep));
-      }
-
-      outer: for (let p = 0; p < pieces.length; p += 1) {
-        const pts = pieces[p];
-        if (pts.length === 1) {
-          if (!pushStamp(pts[0].x, pts[0].y)) {
-            break;
-          }
-          continue;
-        }
+    // Oldest→newest so even sparse coverage maps the whole shape.
+    outer: for (let p = 0; p < pieces.length; p += 1) {
+      const pts = pieces[p];
+      if (pts.length === 1) {
         if (!pushStamp(pts[0].x, pts[0].y)) {
           break;
         }
-        for (let i = 1; i < pts.length; i += 1) {
-          const a = pts[i - 1];
-          const b = pts[i];
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const dist = Math.hypot(dx, dy);
-          if (dist < 1e-4) {
-            continue;
-          }
-          const n = Math.max(1, Math.ceil(dist / step));
-          for (let s = 1; s <= n; s += 1) {
-            const t = s / n;
-            if (!pushStamp(a.x + dx * t, a.y + dy * t)) {
-              break outer;
-            }
+        continue;
+      }
+      if (!pushStamp(pts[0].x, pts[0].y)) {
+        break;
+      }
+      for (let i = 1; i < pts.length; i += 1) {
+        const a = pts[i - 1];
+        const b = pts[i];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 1e-4) {
+          continue;
+        }
+        const n = Math.max(1, Math.ceil(dist / step));
+        for (let s = 1; s <= n; s += 1) {
+          const t = s / n;
+          if (!pushStamp(a.x + dx * t, a.y + dy * t)) {
+            break outer;
           }
         }
       }
     }
+    void pairCount;
 
     const vertices = [];
     const corners = [0, 1, 2, 1, 3, 2];
@@ -990,10 +998,9 @@
     if (vertexCount <= 0) {
       return 0;
     }
-    const radiusN = Number(options.radius);
-    const radius = Number.isFinite(radiusN) ? Math.max(0, radiusN) : 2;
+    const radius = Math.max(0.5, Number(options.radius) || 2);
     const brightness = Math.max(0, Number(options.brightness) || 0);
-    if (brightness < 1e-6 || !(radius > 0)) {
+    if (brightness < 1e-6) {
       return 0;
     }
     const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
@@ -1015,7 +1022,6 @@
       renderer.segmentScratch.subarray(0, vertices.length),
       gl.STREAM_DRAW,
     );
-    disableAllVertexAttribs(gl);
     const stride = 5 * 4;
     gl.enableVertexAttribArray(renderer.beam.aStart);
     gl.vertexAttribPointer(renderer.beam.aStart, 2, gl.FLOAT, false, stride, 0);
@@ -1049,10 +1055,9 @@
     if (vertexCount <= 0) {
       return 0;
     }
-    const radiusN = Number(options.radius);
-    const radius = Number.isFinite(radiusN) ? Math.max(0, radiusN) : 2;
+    const radius = Math.max(0.5, Number(options.radius) || 2);
     const brightness = Math.max(0, Number(options.brightness) || 0);
-    if (brightness < 1e-6 || !(radius > 0)) {
+    if (brightness < 1e-6) {
       return 0;
     }
     // Blur 0 hard … 1 full soft gaussian.
@@ -1075,7 +1080,6 @@
       renderer.segmentScratch.subarray(0, vertices.length),
       gl.STREAM_DRAW,
     );
-    disableAllVertexAttribs(gl);
     const stride = 3 * 4;
     gl.enableVertexAttribArray(renderer.dot.aCenter);
     gl.vertexAttribPointer(renderer.dot.aCenter, 2, gl.FLOAT, false, stride, 0);
@@ -1085,7 +1089,18 @@
     gl.uniform1f(renderer.dot.uRadius, radius);
     gl.uniform1f(renderer.dot.uBrightness, brightness);
     gl.uniform1f(renderer.dot.uBlur, blur);
+    const device = renderer.device || sharedDevice;
+    const stamp = device?.stampTexture || null;
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, stamp);
+    if (renderer.dot.uStamp) {
+      gl.uniform1i(renderer.dot.uStamp, 0);
+    }
+    if (renderer.dot.uStampCustom) {
+      gl.uniform1f(renderer.dot.uStampCustom, device?.stampCustom ? 1 : 0);
+    }
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
+    gl.bindTexture(gl.TEXTURE_2D, null);
     gl.disable(gl.BLEND);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return vertexCount;
@@ -1173,23 +1188,8 @@
     return true;
   }
 
-  /**
-   * Disable every enabled vertex attrib so leftover beam/dot arrays do not
-   * poison full-screen or other mesh draws on the shared GL device.
-   */
-  function disableAllVertexAttribs(gl) {
-    if (!gl) {
-      return;
-    }
-    const max = Math.min(16, Number(gl.getParameter(gl.MAX_VERTEX_ATTRIBS)) || 8);
-    for (let i = 0; i < max; i += 1) {
-      gl.disableVertexAttribArray(i);
-    }
-  }
-
   function drawFullScreen(renderer, programLoc) {
     const { gl, quad } = renderer;
-    disableAllVertexAttribs(gl);
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.enableVertexAttribArray(programLoc.aPos);
     gl.vertexAttribPointer(programLoc.aPos, 2, gl.FLOAT, false, 0, 0);
@@ -1321,119 +1321,28 @@
    * options.bleed: 0–1 per-frame energy diffusion (default soft phosphor seep).
    * Even with decay=0, bleed still runs so long dwell expands outward.
    */
-  /**
-   * Resolve Trail/Ghost/Burn residual keeps for the energy step.
-   * Prefer explicit trail/ghost/burn; fall back to legacy decay (high = faster die).
-   * Legacy: burn-without-ghost = ghost hang. Schema ≥2 / explicit ghost: burn = sticky floor.
-   * burnAmount multiplies deposit gain (default 1).
-   */
-  function residualKeeps(options = {}) {
-    const Residual = global.PhosphorResidual;
-    let trail;
-    let ghost;
-    let burn;
-    let burnAmount;
-    if (options.trail != null && Number.isFinite(Number(options.trail))) {
-      trail = Math.max(0, Math.min(1, Number(options.trail)));
-    } else if (options.decay != null && Number.isFinite(Number(options.decay))) {
-      trail = Math.max(0, Math.min(1, 1 - Number(options.decay)));
-    } else {
-      trail = Residual?.DEFAULT_TRAIL ?? 0.5;
-    }
-    if (options.ghost != null && Number.isFinite(Number(options.ghost))) {
-      ghost = Math.max(0, Math.min(1, Number(options.ghost)));
-    } else if (
-      options.burn != null
-      && Number.isFinite(Number(options.burn))
-      && !(Number(options.residualSchema) >= 2)
-    ) {
-      // Legacy burn name = ghost hang (only when ghost absent and pre-schema).
-      ghost = Math.max(0, Math.min(1, Number(options.burn)));
-    } else {
-      ghost = 0;
-    }
-    if (options.burn != null && Number.isFinite(Number(options.burn))) {
-      // Sticky Burn when ghost is explicit or residualSchema ≥ 2; else legacy → 0.
-      if (
-        options.ghost != null && Number.isFinite(Number(options.ghost))
-        || Number(options.residualSchema) >= 2
-      ) {
-        burn = Residual?.clampBurn
-          ? Residual.clampBurn(options.burn, 0)
-          : Math.max(0, Math.min(1, Number(options.burn)));
-      } else {
-        burn = 0;
-      }
-    } else {
-      burn = 0;
-    }
-    burnAmount = Residual?.clampBurnAmount
-      ? Residual.clampBurnAmount(options.burnAmount, Residual.DEFAULT_BURN_AMOUNT ?? 1)
-      : Math.max(0, Math.min(4, Number(options.burnAmount) || 1));
-    // Preferred: shared Trail-blend model + sticky Burn.
-    if (Residual && typeof Residual.residualKeeps === "function") {
-      const k = Residual.residualKeeps(trail, ghost, burn, burnAmount);
-      return {
-        keepFast: Number(k.keepFast) || 0,
-        keepSlow: Number(k.keepSlow) || 0,
-        ghostCap: Number(k.ghostCap) || 0,
-        fade: Number(k.fade) || 0,
-        burn: Number(k.burn) || burn,
-        burnAmount: Number(k.burnAmount) || burnAmount,
-        trail,
-        ghost,
-      };
-    }
-    if (Residual && typeof Residual.residualKeep === "function") {
-      const keep = Residual.residualKeep(trail, ghost);
-      const cap = Residual.ghostCap ? Residual.ghostCap(ghost) : (ghost > 0.001 ? 1 : 0);
-      return {
-        keepFast: keep,
-        keepSlow: keep,
-        ghostCap: cap,
-        fade: Math.max(0, 1 - keep),
-        burn,
-        burnAmount,
-        trail,
-        ghost,
-      };
-    }
-    // No residual helper: Trail → fadeAmount(1-trail); Ghost ignored for keep.
-    const decay = Math.max(0, Math.min(1, 1 - trail));
-    const fade = fadeAmount(decay);
-    const keepFast = Math.max(0, 1 - fade);
-    return {
-      keepFast,
-      keepSlow: keepFast,
-      ghostCap: 0,
-      fade,
-      burn,
-      burnAmount,
-      trail,
-      ghost,
-    };
-  }
-
   function stepEnergy(renderer, options = {}) {
     if (!isRendererLive(renderer)) {
       return false;
     }
-    const {
-      depositGain = 0,
-      maskCanvas = null,
-    } = options;
+    // trail (preferred) or legacy decay (high=die → invert). ghost or legacy burn.
+    const trail = Number.isFinite(Number(options.trail))
+      ? Number(options.trail)
+      : (Number.isFinite(Number(options.decay))
+        ? 1 - Math.max(0, Math.min(1, Number(options.decay)))
+        : (global.PhosphorResidual?.DEFAULT_TRAIL ?? 0.88));
+    const ghostAmt = Number.isFinite(Number(options.ghost))
+      ? Math.max(0, Math.min(1, Number(options.ghost)))
+      : (Number.isFinite(Number(options.burn))
+        ? Math.max(0, Math.min(1, Number(options.burn)))
+        : 0);
+    const depositGain = options.depositGain || 0;
+    const maskCanvas = options.maskCanvas || null;
     const { gl } = renderer;
-    const Residual = global.PhosphorResidual;
-    const { keepFast, keepSlow, ghostCap, fade, burn, burnAmount } = residualKeeps(options);
-    // Sticky floor 0…1. Deposit gain multiplies by Burn Amount (default 1).
-    const burnAmt = Residual?.clampBurn
-      ? Residual.clampBurn(burn, 0)
-      : Math.max(0, Math.min(1, Number(burn) || 0));
-    const burnAmountScale = Residual?.clampBurnAmount
-      ? Residual.clampBurnAmount(burnAmount, 1)
-      : Math.max(0, Math.min(4, Number(burnAmount) || 1));
-    const scaledDepositGain = Math.max(0, Number(depositGain) || 0) * burnAmountScale;
-    const useMask = maskCanvas && scaledDepositGain > 0.0001 ? 1 : 0;
+    const fade = fadeAmountFromTrail(trail);
+    const keep = Math.max(0, 1 - fade);
+    const keepSlow = ghostKeepAmount(ghostAmt, keep);
+    const useMask = maskCanvas && depositGain > 0.0001 ? 1 : 0;
     // Default bleed: gentle CRT-like charge diffusion. Soft enough to not mush
     // the beam, strong enough that a slow burn grows a soft halo over time.
     const bleedOpt = Number(options.bleed);
@@ -1441,21 +1350,13 @@
       ? Math.max(0, Math.min(1, bleedOpt))
       : 0.12;
 
-    // Skip only when truly idle: freeze / full keep / full Burn, no bleed, no mask deposit.
-    const fullyFrozen = (keepFast >= 0.9999 && keepSlow >= 0.9999) || burnAmt >= 0.999;
-    if (fullyFrozen && bleed < 0.0001 && !useMask) {
-      // Trail≈1: residual is frozen but still count quiet frames so we stop
-      // calling into GL every RAF after a short hold (energyActive → false).
-      if (renderer.energyActive !== false) {
-        renderer.quietFrames = (renderer.quietFrames || 0) + 1;
-        if (renderer.quietFrames > 90) {
-          renderer.energyActive = false;
-        }
-      }
+    // Skip only when truly idle: no fade, no bleed, no mask, nothing active.
+    // Burn hang still counts as work when residual may be decaying slowly.
+    if (keepSlow >= 0.9999 && bleed < 0.0001 && !useMask) {
       return true;
     }
     // No residual and nothing depositing — skip empty full-screen passes.
-    if (!useMask && renderer.energyActive === false && fullyFrozen) {
+    if (!useMask && renderer.energyActive === false && keepSlow >= 0.9999) {
       return true;
     }
 
@@ -1472,7 +1373,6 @@
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
       gl.bindTexture(gl.TEXTURE_2D, null);
       renderer.energyActive = true;
-      renderer.energyDirty = true;
       renderer.quietFrames = 0;
     }
 
@@ -1489,22 +1389,14 @@
     gl.bindTexture(gl.TEXTURE_2D, renderer.maskTexture);
     gl.uniform1i(renderer.step.uMask, 1);
 
-    if (renderer.step.uKeepFast) {
-      gl.uniform1f(renderer.step.uKeepFast, keepFast);
-    } else if (renderer.step.uKeep) {
-      gl.uniform1f(renderer.step.uKeep, keepFast);
-    }
+    gl.uniform1f(renderer.step.uKeep, keep);
     if (renderer.step.uKeepSlow) {
       gl.uniform1f(renderer.step.uKeepSlow, keepSlow);
     }
-    if (renderer.step.uGhostCap) {
-      gl.uniform1f(renderer.step.uGhostCap, ghostCap);
+    if (renderer.step.uGhost) {
+      gl.uniform1f(renderer.step.uGhost, ghostAmt);
     }
-    if (renderer.step.uBurn) {
-      gl.uniform1f(renderer.step.uBurn, burnAmt);
-    }
-    // Cap GL deposit a bit above 1 so Burn Amount > 1 can still hot-write.
-    gl.uniform1f(renderer.step.uGain, useMask ? Math.max(0, Math.min(2.5, scaledDepositGain)) : 0);
+    gl.uniform1f(renderer.step.uGain, useMask ? Math.max(0, Math.min(1.5, depositGain)) : 0);
     gl.uniform1f(renderer.step.uUseMask, useMask);
     const tw = Math.max(1, renderer.width);
     const th = Math.max(1, renderer.height);
@@ -1514,30 +1406,30 @@
     if (renderer.step.uBleed) {
       gl.uniform1f(renderer.step.uBleed, bleed);
     }
+    renderer.frameIndex = ((renderer.frameIndex || 0) + 1) % 1000003;
+    if (renderer.step.uFrame) {
+      gl.uniform1f(renderer.step.uFrame, renderer.frameIndex);
+    }
+    // Dither harder on rgba8; light dither still helps half-float near black.
+    const qBits = renderer.read?.quantizeBits != null
+      ? renderer.read.quantizeBits
+      : (renderer.read?.label === "rgba8" ? 8 : 0);
+    if (renderer.step.uQuantizeBits) {
+      gl.uniform1f(renderer.step.uQuantizeBits, qBits > 0 ? qBits : 0);
+    }
 
     drawFullScreen(renderer, renderer.step);
     swap(renderer);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);
-    // Count quiet frames whenever nothing is depositing (mask gain 0).
-    // Trail≈1 freezes residual (fade≈0) but still must sleep after a dwell
-    // with no new stamps — otherwise every RAF keeps full-screen stepEnergy.
-    if (!useMask) {
+    // Sleep only after ghost hang has had time to die.
+    if (fade > 0 || ghostAmt > 0.001) {
       renderer.quietFrames = (renderer.quietFrames || 0) + 1;
-      const Residual = global.PhosphorResidual;
-      // Frozen trail: short sleep (hold image via last present until next deposit).
-      // Ghost hang: long budget so scorch is not killed early.
-      let sleepBudget = 240;
-      if (fade <= 0.0001 && ghostCap <= 0.0001 && burnAmt <= 0.001) {
-        sleepBudget = 90; // ~1.5s @60fps then stop stepping frozen residual
-      } else if (Residual && typeof Residual.residualSleepFrames === "function") {
-        const ghostArg = Number.isFinite(Number(options.ghost))
-          ? Number(options.ghost)
-          : (ghostCap > 0 ? 0.45 : 0);
-        sleepBudget = Residual.residualSleepFrames(ghostArg, burnAmt);
-      }
-      if (renderer.quietFrames > sleepBudget) {
+      const sleepAfter = global.PhosphorResidual?.residualSleepFrames
+        ? global.PhosphorResidual.residualSleepFrames(ghostAmt)
+        : (ghostAmt > 0.001 ? Math.round(1800 + ghostAmt * ghostAmt * 12000) : 240);
+      if (renderer.quietFrames > sleepAfter) {
         renderer.energyActive = false;
       }
     }
@@ -1545,26 +1437,28 @@
   }
 
   /**
-   * Efficient scope frame: fade mono energy, then additive deposit.
-   * options.mode: "dots" (preferred — sample impacts) | "segments" (legacy beam ribbons).
-   * Scope2d always passes dots; segments remain for any caller that still wants ribbons.
+   * Efficient scope frame: fade mono energy, then additive GPU beam segments
+   * (Lorenz geometry → energy FBO → LUT present later).
+   * options.mode: "segments" (default) | "dots" — dots = one soft impact per sample.
    */
   function stepBeams(renderer, options = {}) {
     if (!isRendererLive(renderer)) {
       return false;
     }
     const {
-      decay = 0,
+      trail = undefined,
+      decay = undefined, // legacy
+      ghost = undefined,
+      burn = undefined, // legacy
       pathPoints = null,
       vertices = null,
       radius = 2,
       brightness = 0,
       blur = 0.35,
-      mode = "dots",
+      mode = "segments",
     } = options;
-    const dotsMode = String(mode || "dots").toLowerCase() !== "segments";
-    const maxDotsN = Math.floor(Number(options.maxDots));
-    const maxDots = Number.isFinite(maxDotsN) ? Math.max(0, Math.min(8192, maxDotsN)) : 2048;
+    const dotsMode = String(mode || "segments").toLowerCase() === "dots";
+    const maxDots = Math.max(64, Math.floor(Number(options.maxDots) || 2048));
     // Blur 0..1 — wider bleed when user asks for soft.
     const softAmt = Math.max(0, Math.min(1, Number(blur) || 0));
     const bleedOpt = Number(options.bleed);
@@ -1583,9 +1477,6 @@
           fullEconomy: options.fullEconomy === true
             || options.fullDotEconomy === true
             || options.useFullDotEconomy === true,
-          dotsOnly: options.dotsOnly === true || options.verticesOnly === true,
-          verticesOnly: options.dotsOnly === true || options.verticesOnly === true,
-          stampMode: options.stampMode,
         });
       }
     } else if (!Array.isArray(depositVertices) || depositVertices.length < 5) {
@@ -1594,81 +1485,42 @@
     const hasPath = Array.isArray(depositVertices)
       && depositVertices.length >= (dotsMode ? 3 : 5);
     const canDraw = dotsMode ? renderer.dot?.program : renderer.beam?.program;
-    const radiusN = Number(radius);
-    const willDeposit = hasPath
-      && brightness > 1e-6
-      && canDraw
-      && Number.isFinite(radiusN)
-      && radiusN > 0
-      && maxDots > 0;
+    const willDeposit = hasPath && brightness > 1e-6 && canDraw;
 
     // Fully quiet trail and nothing new: skip fade + deposit + present upstream.
     if (!willDeposit && renderer.energyActive === false) {
       return true;
     }
-    // Parked / silent beam (0 Hz or 0 amplitude): do not decay the last stamp
-    // to empty. Live scopes keep the last hit until pause/stop wipe or Clear.
-    if (!willDeposit || options.holdParkedBeam === true) {
-      if (options.holdParkedBeam === true && willDeposit) {
-        renderer.energyActive = true;
-        renderer.energyDirty = true;
-        renderer.quietFrames = 0;
-        const Residual = global.PhosphorResidual;
-        const burnAmtScale = Residual?.clampBurnAmount
-          ? Residual.clampBurnAmount(options.burnAmount, Residual.DEFAULT_BURN_AMOUNT ?? 1)
-          : Math.max(0, Math.min(4, Number(options.burnAmount) || 1));
-        const depositBright = Math.max(0, Number(brightness) || 0) * burnAmtScale;
-        if (dotsMode) {
-          depositDots(renderer, {
-            vertices: depositVertices,
-            radius,
-            brightness: depositBright,
-            blur,
-          });
-        }
-        return true;
-      }
-      renderer.quietFrames = 0;
-      return true;
-    }
 
-    // Fade + neighborhood bleed. Trail=1 freezes hot path; Ghost = dim scorch hang.
-    // Hard stamps pass bleed=0 so freeze-collect stays 1px crisp.
+    // Fade + neighborhood bleed. Trail = hot residual; Ghost = dim scorch floor.
     stepEnergy(renderer, {
+      trail,
       decay,
-      trail: options.trail,
-      ghost: options.ghost,
-      burn: options.burn,
-      burnAmount: options.burnAmount,
-      residualSchema: options.residualSchema,
+      ghost,
+      burn,
       depositGain: 0,
       maskCanvas: null,
       bleed: willDeposit || renderer.energyActive ? bleed : 0,
     });
+    renderer.lastDepositCount = 0;
     if (willDeposit) {
-      // Burn Amount multiplies deposit ink vs Bright (live present still uses Bright).
-      const Residual = global.PhosphorResidual;
-      const burnAmtScale = Residual?.clampBurnAmount
-        ? Residual.clampBurnAmount(options.burnAmount, Residual.DEFAULT_BURN_AMOUNT ?? 1)
-        : Math.max(0, Math.min(4, Number(options.burnAmount) || 1));
-      const depositBright = Math.max(0, Number(brightness) || 0) * burnAmtScale;
       const count = dotsMode
         ? depositDots(renderer, {
           vertices: depositVertices,
           radius,
-          brightness: depositBright,
+          brightness,
           blur,
         })
         : depositBeamSegments(renderer, {
           vertices: depositVertices,
           radius,
-          brightness: depositBright,
+          brightness,
           blur,
         });
       if (count > 0) {
         renderer.energyActive = true;
-        renderer.energyDirty = true;
         renderer.quietFrames = 0;
+        renderer.lastDepositCount = Math.floor(count / 6);
       }
     }
     return true;
@@ -1676,7 +1528,6 @@
 
   /**
    * Present energy×LUT into shared canvas (premultiplied RGBA), sized to this scope.
-   * Caller should source-over this onto the face plate (gradient floor / background).
    * options.exposure: optional soft film curve before LUT (scope2d / Lorenz beauty).
    */
   function present(renderer, trailGain = 0.85, options = {}) {
@@ -1684,8 +1535,7 @@
       return false;
     }
     // Idle dark: skip present GPU pass (caller still draws solid background).
-    // energyDirty forces one present after a deposit even if quiet-sleep raced.
-    if (renderer.energyActive === false && renderer.energyDirty !== true) {
+    if (renderer.energyActive === false) {
       return false;
     }
     const { gl, canvas } = renderer;
@@ -1713,18 +1563,17 @@
     gl.bindTexture(gl.TEXTURE_2D, renderer.lutTexture);
     gl.uniform1i(renderer.present.uLut, 1);
 
-    // Number(0) is falsy — do not collapse intentional 0 gain to 0.85.
-    const gainRaw = Number(trailGain);
-    const gain = Number.isFinite(gainRaw) ? gainRaw : 0.85;
-    gl.uniform1f(renderer.present.uTrailGain, Math.max(0, Math.min(2, gain)));
+    gl.uniform1f(renderer.present.uTrailGain, Math.max(0, Math.min(2, Number(trailGain) || 0.85)));
     const exposure = Number(options?.exposure);
     gl.uniform1f(
       renderer.present.uExposure,
       Number.isFinite(exposure) && exposure > 0 ? exposure : 0,
     );
+    if (renderer.present.uFrame) {
+      gl.uniform1f(renderer.present.uFrame, renderer.frameIndex || 0);
+    }
     drawFullScreen(renderer, renderer.present);
     gl.bindTexture(gl.TEXTURE_2D, null);
-    renderer.energyDirty = false;
     return true;
   }
 
@@ -1736,7 +1585,6 @@
 
   global.nodeGraphPhosphorEnergyGlEnsure = ensure;
   global.nodeGraphPhosphorEnergyGlDestroy = destroyRenderer;
-  global.nodeGraphPhosphorEnergyGlClear = clearEnergy;
   global.nodeGraphPhosphorEnergyGlResize = resizeRenderer;
   global.nodeGraphPhosphorEnergyGlSetLutFromPeak = setLutFromPeak;
   global.nodeGraphPhosphorEnergyGlSetLutFromStops = setLutFromStops;
@@ -1746,7 +1594,84 @@
   global.nodeGraphPhosphorEnergyGlBuildBeamVertices = buildBeamVertices;
   global.nodeGraphPhosphorEnergyGlBuildDotVertices = buildDotVertices;
   global.nodeGraphPhosphorEnergyGlPresent = present;
-  global.nodeGraphPhosphorEnergyGlFadeAmount = fadeAmount;
+  global.nodeGraphPhosphorEnergyGlClear = function clearEnergy(renderer) {
+    if (!renderer?.gl || !renderer.read) {
+      return false;
+    }
+    const gl = renderer.gl;
+    const w = Math.max(1, renderer.width || 1);
+    const h = Math.max(1, renderer.height || 1);
+    for (const surface of [renderer.read, renderer.write]) {
+      if (!surface?.framebuffer) {
+        continue;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, surface.framebuffer);
+      gl.viewport(0, 0, w, h);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    renderer.energyActive = false;
+    renderer.energyDirty = false;
+    return true;
+  };
+  /**
+   * Replace the shared stamp kernel. Pass an image/canvas/ImageData for
+   * custom art (heart, …), or null to restore the baked gaussian.
+   */
+  function setStampTexture(source) {
+    const device = getSharedDevice();
+    if (!device?.gl) {
+      return false;
+    }
+    const gl = device.gl;
+    if (!source) {
+      if (device.stampTexture && device.stampCustom) {
+        gl.deleteTexture(device.stampTexture);
+      }
+      device.stampTexture = bakeGaussianStampTexture(gl);
+      device.stampCustom = false;
+      return true;
+    }
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    try {
+      if (source instanceof ImageData) {
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          source.width,
+          source.height,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          source.data,
+        );
+      } else {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      }
+    } catch (_err) {
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.deleteTexture(texture);
+      return false;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    if (device.stampTexture) {
+      gl.deleteTexture(device.stampTexture);
+    }
+    device.stampTexture = texture;
+    device.stampCustom = true;
+    return true;
+  }
+
+  global.nodeGraphPhosphorEnergyGlFadeAmount = fadeAmountFromTrail;
+  global.nodeGraphPhosphorEnergyGlSetStampTexture = setStampTexture;
 
   /** Normalize stamp blur to 0..1 (hard→soft). Migrates legacy signed -1..1. */
   function normalizeBlur(value, fallback = 0.35) {

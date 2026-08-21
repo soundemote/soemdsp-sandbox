@@ -83,17 +83,18 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
     Object.freeze({ t: 0.8, color: "#fe9f6d" }),
     Object.freeze({ t: 1, color: "#fcfdbf" }),
   ]),
-  // Bright 0…1 (deposit / tip).
-  brightness: 0.08,
-  // Ghost = extreme analog (super-exp) hang; Trail = linear blend; Burn = sticky floor (off).
-  // Burn Amount = residual deposit gain vs Bright (1 = deposit at Bright).
+  // Bright 0…1 (1 = full deposit / tip). c1091b4 scope2d used ~0.92.
+  brightness: 0.92,
+  // Ghost/Trail match c1091b4 burn/decay after rename:
+  //   decay 0.12 → trail = 1 - 0.12 = 0.88
+  //   burn 0.45  → ghost = 0.45
   ghost: 0.45,
-  trail: 0,
+  trail: 0.88,
   burn: 0,
   burnAmount: 1,
   residualSchema: 3,
-  // Size 0…1 diameter map (0 → 1px floor, 1 → full face min side).
-  size: 0.02,
+  // Size 0…1 linear diameter map (c1091b4 scope2d default 0.08).
+  size: 0.08,
   // Stamp blur 0 hard … 1 soft.
   blur: 0.35,
   // Max phosphor stamps / frame (economy spreads when over).

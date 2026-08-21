@@ -387,6 +387,9 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
       }
       // Drop last-point bridge only (not the frame cursor — see absorb below).
       delete canvas._nodeGraphScope2dLastDrawnPoint;
+      canvas._phosphorLiveOverlayPoints = null;
+      canvas._phosphorLiveScratchInk = false;
+      canvas._phosphorLiveScratch = null;
       delete canvas._scope2dTraceLastPoints;
       canvas._scope2dTraceHold = null;
       if (typeof nodeGraphScope2dTraceHoldByNodeId?.delete === "function") {
