@@ -59,25 +59,15 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
       if ((this.scopeCounter % stride) !== 0) {
         continue;
       }
+      const captureType = String(this.nodes.get(nodeId)?.type || "");
+      // Output Instant Trace uses visual-sink L/R rings (same as 1D Stereo Trace).
+      // Dumping mixed speaker {Left,Right,Mono} into the same keys interleaved
+      // zeros with the live waveform.
+      if (captureType === "output" || captureType === "pluginOutput") {
+        continue;
+      }
       this.captureModuleScopeOutput(nodeId, this.nodeOutputs.get(nodeId));
       captured.add(String(nodeId));
-    }
-    {
-      // Speaker Output publishes {Left,Right,Mono} after evaluateFrame — always
-      // capture it when present so the Output Trace face is not stuck on a cold
-      // plate waiting for a plan that omitted the sink from scopeCaptureNodeIds.
-      const outId = String(this.outputNode || "output");
-      const outHz = Math.max(1, Math.min(engineRate, Number(rates[outId]) || 12000));
-      const outStride = Math.max(1, Math.floor(engineRate / outHz));
-      if (
-        !captured.has(outId)
-        && this.nodes.has(outId)
-        && this.nodeOutputs.has(outId)
-        && (this.scopeCounter % outStride) === 0
-      ) {
-        this.captureModuleScopeOutput(outId, this.nodeOutputs.get(outId));
-        captured.add(outId);
-      }
     }
     // No visual sinks planned (all faces hidden) → skip the whole loop.
     const sinks = this.visualSinks || [];
@@ -131,7 +121,13 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
           this.appendScopeBufferSample(portId, inputValue);
         }
       }
-      if (writeBufferedThisSample && hasConnected) {
+      const sinkType = String(sink.type || this.nodes.get(nodeId)?.type || "");
+      if (
+        writeBufferedThisSample
+        && hasConnected
+        && sinkType !== "output"
+        && sinkType !== "pluginOutput"
+      ) {
         this.appendScopeBufferSample(nodeId, value);
       }
     }

@@ -277,6 +277,18 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
     return null;
   }
   const renderer = nodeGraphModuleDisplayRendererForSlot(slot);
+  if (
+    typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
+    && nodeGraphModuleUsesStereoTraceDisplay(slot?.type)
+  ) {
+    const ports = typeof nodeGraphModuleStereoTracePorts === "function"
+      ? nodeGraphModuleStereoTracePorts(slot.type)
+      : { left: "Left", right: "Right" };
+    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:${ports?.left}`)
+      || nodeGraphModuleScopeState.buffers.get(`${nodeId}:${ports?.right}`)
+      || nodeGraphModuleScopeState.buffers.get(nodeId)
+      || null;
+  }
   if (["scope2d", "scope2dTrace", "phosphorLight"].includes(renderer)) {
     const source = nodeGraphModuleScopeSlotUsesWiredInputs(slot)
       ? null

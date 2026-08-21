@@ -308,18 +308,36 @@ function nodeGraphModuleScopeVisibleSamples(buffer, settings, cycleEstimate) {
     : buffer.length;
 }
 
-function nodeGraphTraceDisplayVisibleSamples(buffer, settings) {
-  const safeSettings = normalizeNodeGraphTraceDisplaySettings(settings);
-  const sampleRate = nodeGraphScopeSampleRate(buffer);
+function nodeGraphTraceDisplayHistorySampleCount(buffer, settings) {
+  const safeSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
+    ? normalizeNodeGraphTraceDisplaySettings(settings)
+    : (settings || {});
   const windowSeconds = Number(safeSettings.historySeconds ?? safeSettings.zoomSeconds);
-  const requestedSamples = windowSeconds * sampleRate;
-  if (requestedSamples === Infinity) {
-    return buffer.length;
+  if (!Number.isFinite(windowSeconds) || windowSeconds <= 0) {
+    return Math.max(1, buffer?.length || 1);
   }
+  // Instant Trace rings are visual (~12 kHz). Engine-rate metadata with
+  // stride 1 makes History demand too many samples, so a 0.07 s window
+  // only paints the right half of the face.
+  let sampleRate = typeof nodeGraphScopeSampleRate === "function"
+    ? nodeGraphScopeSampleRate(buffer)
+    : 0;
+  const visualHz = typeof NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ === "number"
+    ? NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ
+    : 12000;
+  const stride = Number(buffer?.nodeGraphScopeSampleStride);
+  if (!(sampleRate > 0) || (sampleRate >= visualHz * 1.5 && !(stride > 1.5))) {
+    sampleRate = visualHz;
+  }
+  return Math.max(1, Math.round(windowSeconds * sampleRate));
+}
+
+function nodeGraphTraceDisplayVisibleSamples(buffer, settings) {
+  const requestedSamples = nodeGraphTraceDisplayHistorySampleCount(buffer, settings);
   if (!Number.isFinite(requestedSamples)) {
     return 0;
   }
-  return Math.max(0, Math.min(buffer.length, requestedSamples));
+  return Math.max(0, Math.min(buffer?.length || 0, requestedSamples));
 }
 
 /**

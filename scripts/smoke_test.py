@@ -8097,6 +8097,7 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphNodeCanOpenDisplaySettings(node)",
         "nodeGraphPatchNodeHasHideableOscilloscope(node)",
         "function nodeGraphTraceDisplayVisibleSamples",
+        "function nodeGraphTraceDisplayHistorySampleCount",
         "function nodeGraphTraceDisplayBufferView",
         "nodeTraceDisplaySettingsPopover",
         "nodeTraceDisplaySettingsDefaults",
@@ -14264,7 +14265,7 @@ def require_node_graph_mvp_contract() -> None:
     )
     trace_buffer_view_source = node_graph_source[
         node_graph_source.index("function nodeGraphTraceDisplayBufferView"):
-        node_graph_source.index("function nodeGraphModuleScopeBufferProgressRanges")
+        node_graph_source.index("function nodeGraphModuleScopeInterpolatedSample")
     ]
     trace_webgl_source = node_graph_source[
         node_graph_source.index("function drawNodeGraphModuleScopeBufferWebGl"):
@@ -14283,7 +14284,9 @@ def require_node_graph_mvp_contract() -> None:
         and 'slot?.type === "traceDisplay"' not in trace_segment_source
         and "const availableSamples = nodeGraphScopeAvailableSampleCount(buffer)" in trace_buffer_view_source
         and "const validStart = availableSamples > 0" in trace_buffer_view_source
-        and "visibleSamples = Math.min(validSamples, nodeGraphTraceDisplayVisibleSamples(buffer, settings))" in trace_buffer_view_source
+        and "nodeGraphTraceDisplayHistorySampleCount(buffer, settings)" in trace_buffer_view_source
+        and "visibleSamples = Math.min(validSamples, historySamples)" in trace_buffer_view_source
+        and "validEnd - historySamples" in trace_buffer_view_source
         and "triggeredStart !== null && triggeredStart >= validStart" in trace_buffer_view_source
         and 'slot?.type !== "traceDisplay"' not in trace_segment_source,
         "Typed trace displays should use the same recent-tail buffer view and WebGL trace renderer as 1D Trace",

@@ -156,6 +156,9 @@
       context.strokeStyle = color;
       context.fillStyle = color;
       if (finite.length === 1) {
+        if (context.lineCap === "butt") {
+          return;
+        }
         context.beginPath();
         context.arc(finite[0].x, finite[0].y, lineWidth * 0.5, 0, Math.PI * 2);
         context.fill();
@@ -252,8 +255,8 @@
     // bitmap is later scaled — leave AA to the path rasterizer.
     context.globalCompositeOperation = options.composite || "source-over";
     context.imageSmoothingEnabled = false;
-    context.lineCap = "round";
-    context.lineJoin = "round";
+    context.lineCap = options.lineCap === "butt" ? "butt" : "round";
+    context.lineJoin = options.lineCap === "butt" ? "miter" : "round";
     context.miterLimit = 2;
     context.shadowBlur = 0;
     context.shadowColor = "transparent";
@@ -460,10 +463,16 @@
       return 0;
     }
     const blend = normalizeStereoBlend(stereo.blend);
-    const face = Math.min(
-      Math.max(1, destCtx.canvas.width),
-      Math.max(1, destCtx.canvas.height),
+    const faceFromOpts = Math.max(
+      1,
+      Number(leftOptions.faceMinSide) || Number(rightOptions.faceMinSide) || 0,
     );
+    const face = faceFromOpts > 1
+      ? faceFromOpts
+      : Math.min(
+        Math.max(1, destCtx.canvas.width),
+        Math.max(1, destCtx.canvas.height),
+      );
 
     // Standard canvas blend modes: sequential strokes, user colors.
     if (blend !== "combine") {
@@ -508,30 +517,28 @@
     rightCtx.setTransform(1, 0, 0, 1, 0, 0);
     leftCtx.clearRect(0, 0, w, h);
     rightCtx.clearRect(0, 0, w, h);
-    leftCtx.fillStyle = "#000";
-    rightCtx.fillStyle = "#000";
-    leftCtx.fillRect(0, 0, w, h);
-    rightCtx.fillRect(0, 0, w, h);
-
-    // Mask must be drawn at full ink. Brightness used to multiply the white
-    // mask (default Instant Trace brightness 0.08 from phosphor look defaults)
-    // which crushed Meet recolor to ~8% of the chosen Left/Right colors — the
-    // plate showed through and strokes looked black / “not taking color”.
+    // Transparent masks (not opaque black). Black fill + putImageData made a
+    // halo around every scroll stamp. Classic Meet: hard white ink, blur off.
+    const cap = stereo.lineCap === "butt" ? "butt" : "round";
     const leftCount = draw(leftCtx, leftPoints, {
       ...leftOptions,
+      blur: 0,
       brightness: 1,
       color: "#ffffff",
       rgb: [255, 255, 255],
       faceMinSide: face,
-      composite: "lighter",
+      composite: "source-over",
+      lineCap: cap,
     });
     const rightCount = draw(rightCtx, rightPoints, {
       ...rightOptions,
+      blur: 0,
       brightness: 1,
       color: "#ffffff",
       rgb: [255, 255, 255],
       faceMinSide: face,
-      composite: "lighter",
+      composite: "source-over",
+      lineCap: cap,
     });
 
     const gainL = clamp01(leftOptions.brightness, 1);

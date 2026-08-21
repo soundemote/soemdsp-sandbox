@@ -720,6 +720,8 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
     .filter((node) =>
       reachableNodes.has(node.id) &&
       !bypassedNodes.has(node.id) &&
+      node.type !== "output" &&
+      node.type !== "pluginOutput" &&
       (
         // Graph editor playhead reads "__GraphPhase" from scope buffers -- always
         // capture graph modules even when they have no separate oscilloscope face.

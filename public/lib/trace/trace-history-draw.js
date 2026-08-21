@@ -106,6 +106,7 @@
         color,
         faceMinSide: face,
         composite: blend === "combine" ? "source-over" : blend,
+        lineCap: options.lineCap,
       });
     }
     context.save();
@@ -119,8 +120,8 @@
       context.restore();
       return 0;
     }
-    context.lineCap = "round";
-    context.lineJoin = "round";
+    context.lineCap = options.lineCap === "butt" ? "butt" : "round";
+    context.lineJoin = options.lineCap === "butt" ? "miter" : "round";
     if (asDots || thinned.length < 2) {
       const r = context.lineWidth * 0.5;
       for (const p of thinned) {
@@ -137,6 +138,7 @@
         color,
         faceMinSide: face,
         composite: context.globalCompositeOperation,
+        lineCap: options.lineCap,
       });
     } else {
       context.beginPath();
@@ -244,6 +246,7 @@
           leftColor: left.color,
           rightColor: right.color,
           meetColor: stereo.meetColor || "auto",
+          lineCap: stereo.lineCap,
         },
       );
     }

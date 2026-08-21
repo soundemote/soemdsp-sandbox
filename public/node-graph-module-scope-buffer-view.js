@@ -58,8 +58,16 @@ function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
     ? Math.max(0, validEnd - Math.min(validEnd, availableSamples))
     : 0;
   const validSamples = Math.max(0, validEnd - validStart);
-  const visibleSamples = Math.min(validSamples, nodeGraphTraceDisplayVisibleSamples(buffer, settings));
-  let start = Math.max(validStart, validEnd - visibleSamples);
+  const historySamples = typeof nodeGraphTraceDisplayHistorySampleCount === "function"
+    ? nodeGraphTraceDisplayHistorySampleCount(buffer, settings)
+    : nodeGraphTraceDisplayVisibleSamples(buffer, settings);
+  const visibleSamples = Math.min(validSamples, historySamples);
+  // Freerun: span is always History seconds (start may be < 0). Mapping
+  // only the samples we have across the full width is the "zoom out while
+  // the ring fills" effect. Right-align so new ink walks left at constant spp.
+  let start = forceOff || syncChannel === "off"
+    ? validEnd - historySamples
+    : Math.max(validStart, validEnd - visibleSamples);
   const syncEligible = !forceOff && !zoomEditActive && visibleSamples < validSamples;
   const estimatedCycle = syncEligible
     ? nodeGraphModuleScopeEstimatedCycle(syncBuffer || syncSourceBuffer)
@@ -105,20 +113,25 @@ function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
     ? clampNodeSliderValue(ampScale, 0.01, 100)
     : 1;
   // Limiter Gain is 0…1 (unity at top). Map onto Instant Trace ±1.
+  const end = forceOff || syncChannel === "off"
+    ? validEnd
+    : Math.min(validEnd, start + visibleSamples);
   if (slot?.type === "lookaheadLimiter") {
     return {
-      end: Math.min(validEnd, start + visibleSamples),
+      end,
       gain: scale * 2,
       offset: -scale,
       start,
+      validStart,
     };
   }
   return {
-    end: Math.min(validEnd, start + visibleSamples),
+    end,
     // Amplitude zoom for Output / Trace drawers (1 = full-scale face).
     gain: scale,
     offset: 0,
     start,
+    validStart,
   };
 }
 

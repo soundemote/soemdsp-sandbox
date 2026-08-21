@@ -1192,13 +1192,13 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title: "Dot brightness 0…1 (black → full hue at 0.5 → white). Drag the title strip to change hue.",
   }),
   backgroundBrightness: Object.freeze({
-    label: "Brightness",
+    label: "BG Brightness",
     inputmode: "decimal",
     id: "nodeTraceDisplayBackgroundBrightness",
     title: "Plate brightness 0…1 (black → full hue at 0.5 → white).",
   }),
   backgroundHue: Object.freeze({
-    label: "Hue",
+    label: "BG Hue",
     inputmode: "decimal",
     id: "nodeTraceDisplayBackgroundHue",
     title: "Plate hue in degrees (0–360). App-wide hue policy: no wrap — clamp to red edges.",

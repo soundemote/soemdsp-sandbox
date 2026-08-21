@@ -874,6 +874,7 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
   if (
     syncChannel === "off"
     && !options?.skipPixelLock
+    && Number(view?.start) >= 0
     && typeof nodeGraphTraceDisplayPixelLockedView === "function"
   ) {
     view = nodeGraphTraceDisplayPixelLockedView(view, width);
@@ -899,8 +900,12 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
       buffer,
       start: view.start,
       end: view.end,
+      validStart: view.validStart,
       width,
-      vertexWidth: Math.max(width, Number(canvas.width) || 0),
+      // Vertex budget follows the face, not a 1–2px clip rect.
+      vertexWidth: Number(options?.vertexWidth) > 0
+        ? Number(options.vertexWidth)
+        : Math.max(width, Number(canvas.width) || 0),
       height: box.height,
       midY: box.height * 0.5,
       halfHeight,
@@ -917,7 +922,10 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
     return built.map((p) => (p && Number.isFinite(p.x) ? { x: p.x + box.x, y: p.y + box.y } : p));
   }
   // Fallback: sample-accurate polyline (still no i/(n-1) remap).
-  const first = Math.max(0, Math.floor(view.start));
+  const first = Math.max(
+    Number.isFinite(Number(view.validStart)) ? Number(view.validStart) : 0,
+    Math.max(0, Math.floor(view.start)),
+  );
   const last = Math.min(buffer.length - 1, Math.ceil(view.end) - 1);
   const span = Math.max(1e-9, view.end - view.start);
   const points = [];
@@ -939,7 +947,10 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
   if (layer.enabled === false) {
     return;
   }
-  const face = Math.min(canvas.width, canvas.height);
+  const face = Math.max(
+    1,
+    Number(options.faceMinSide) || Math.min(canvas.width, canvas.height),
+  );
   const blur = Number.isFinite(Number(layer.blur)) ? Number(layer.blur) : 0;
   const blend = typeof TraceHistoryDraw !== "undefined" && typeof TraceHistoryDraw.normalizeBlend === "function"
     ? TraceHistoryDraw.normalizeBlend(layer.blend || options.blend, "source-over")
@@ -955,6 +966,7 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
       blend,
       dotBudget: layer.dotBudget,
       faceMinSide: face,
+      lineCap: options.lineCap,
     });
     return;
   }
@@ -967,6 +979,7 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
       color: layer.color,
       faceMinSide: face,
       composite: blend === "combine" ? "source-over" : blend,
+      lineCap: options.lineCap,
     });
     return;
   }
@@ -978,8 +991,8 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
   context.save();
   context.globalCompositeOperation = blend === "combine" ? "source-over" : blend;
   context.imageSmoothingEnabled = false;
-  context.lineCap = "round";
-  context.lineJoin = "round";
+  context.lineCap = options.lineCap === "butt" ? "butt" : "round";
+  context.lineJoin = options.lineCap === "butt" ? "miter" : "round";
   context.lineWidth = lineWidth;
   context.strokeStyle = `rgb(${Math.round(rgb[0] * 255)}, ${Math.round(rgb[1] * 255)}, ${Math.round(rgb[2] * 255)})`;
   context.shadowBlur = 0;
@@ -1003,10 +1016,6 @@ function nodeGraphModuleStereoTracePorts(type) {
   const ports = def?.stereoTracePorts;
   if (ports && ports.left != null && ports.right != null) {
     return { left: String(ports.left), right: String(ports.right) };
-  }
-  // Classic stereo bus sinks.
-  if (def?.output === true || t === "output" || t === "pluginOutput") {
-    return { left: "Left", right: "Right" };
   }
   return null;
 }
@@ -1034,17 +1043,12 @@ function nodeGraphStereoTraceBuffers(nodeId, type) {
   if (!id || !ports) {
     return null;
   }
-  let left = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.left}`);
-  let right = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.right}`);
-  if (typeof nodeGraphModuleScopeConnectedSourceBuffer === "function") {
-    if (!left?.length) {
-      left = nodeGraphModuleScopeConnectedSourceBuffer(id, ports.left);
-    }
-    if (!right?.length) {
-      right = nodeGraphModuleScopeConnectedSourceBuffer(id, ports.right);
-    }
-  }
-  if (!left?.length || !right?.length) {
+  // Same rings as 1D Stereo Trace: this node's visual L/R only.
+  // Do not fall back to the wired source's capture buffer — that clock/rate
+  // mix is what made Output Instant Trace blob between 0 and the signal.
+  const left = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.left}`);
+  const right = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.right}`);
+  if (!left?.length && !right?.length) {
     return null;
   }
   return { left, right };
@@ -1053,6 +1057,100 @@ function nodeGraphStereoTraceBuffers(nodeId, type) {
 /** @deprecated Prefer nodeGraphStereoTraceBuffers(nodeId, type). */
 function nodeGraphOutputStereoTraceBuffers(nodeId) {
   return nodeGraphStereoTraceBuffers(nodeId, "output");
+}
+
+/**
+ * Stereo Instant Trace (traceDisplayStereo SSOT). Meet = red+blue→green.
+ */
+function paintNodeGraphTraceDisplayStereoStrokes(
+  context,
+  canvas,
+  leftPoints,
+  rightPoints,
+  leftLayer,
+  rightLayer,
+  blend,
+  faceMinSide = 0,
+  lineCap = "",
+) {
+  if (!context || !canvas) {
+    return 0;
+  }
+  const mode = String(blend || "combine");
+  const face = Math.max(
+    1,
+    Number(faceMinSide) || Math.min(canvas.width, canvas.height),
+  );
+  const leftPts = leftLayer?.enabled === false ? [] : (leftPoints || []);
+  const rightPts = rightLayer?.enabled === false ? [] : (rightPoints || []);
+  if (mode === "combine"
+    && typeof TraceHistoryDraw !== "undefined"
+    && typeof TraceHistoryDraw.strokeStereo === "function") {
+    return TraceHistoryDraw.strokeStereo(
+      context,
+      leftPts,
+      rightPts,
+      {
+        size: leftLayer.size,
+        blur: leftLayer.blur,
+        brightness: leftLayer.brightness,
+        fade: leftLayer.fade || 0,
+        color: leftLayer.color,
+        faceMinSide: face,
+        dotBudget: leftLayer.dotBudget,
+      },
+      {
+        size: rightLayer.size,
+        blur: rightLayer.blur,
+        brightness: rightLayer.brightness,
+        fade: rightLayer.fade || 0,
+        color: rightLayer.color,
+        faceMinSide: face,
+        dotBudget: rightLayer.dotBudget,
+      },
+      { blend: "combine", meetColor: "auto", lineCap },
+    );
+  }
+  if (mode === "combine"
+    && typeof TraceStroke !== "undefined"
+    && typeof TraceStroke.drawStereo === "function") {
+    return TraceStroke.drawStereo(
+      context,
+      leftPts,
+      rightPts,
+      {
+        size: leftLayer.size,
+        blur: leftLayer.blur,
+        brightness: leftLayer.brightness,
+        fade: leftLayer.fade || 0,
+        color: leftLayer.color,
+        faceMinSide: face,
+      },
+      {
+        size: rightLayer.size,
+        blur: rightLayer.blur,
+        brightness: rightLayer.brightness,
+        fade: rightLayer.fade || 0,
+        color: rightLayer.color,
+        faceMinSide: face,
+      },
+      {
+        blend: "combine",
+        leftColor: leftLayer.color,
+        rightColor: rightLayer.color,
+        meetColor: "auto",
+        lineCap,
+      },
+    );
+  }
+  const strokeBlend = mode === "combine" ? "source-over" : mode;
+  if (rightPts.length) {
+    drawNodeGraphTraceDisplayCanvasLayer(context, rightPts, rightLayer, canvas, { blend: strokeBlend });
+  }
+  if (leftPts.length) {
+    drawNodeGraphTraceDisplayCanvasLayer(context, leftPts, leftLayer, canvas, { blend: strokeBlend });
+  }
+  return leftPts.length + rightPts.length;
 }
 
 function nodeGraphTraceDisplayPrimaryLayer(settings, color) {
@@ -1220,98 +1318,190 @@ function nodeGraphTraceDisplayBufferCursor(buffer) {
   return Number.NaN;
 }
 
-function nodeGraphTraceDisplayLookSignature(settings, canvas, stereo) {
-  // Geometry / time mapping only. Size, blur, color, brightness are ink for
-  // newly printed pixels — including them remeshed the whole history so a
-  // Size drag rewrote the waterfall.
-  return [
-    canvas?.width || 0,
-    canvas?.height || 0,
-    settings?.historySeconds ?? settings?.zoomSeconds,
-    settings?.pixelDensity,
-    stereo ? 1 : 0,
-  ].join("|");
-}
-
-function nodeGraphTraceDisplayShiftFace(context, canvas, shift, bg) {
-  const w = Math.max(1, canvas.width);
-  const h = Math.max(1, canvas.height);
-  const n = Math.max(0, Math.floor(Number(shift) || 0));
-  if (n <= 0) {
-    return;
+function nodeGraphTraceDisplayEnsureScratchCanvas(owner, key, width, height) {
+  if (!owner) {
+    return null;
   }
-  if (n >= w) {
-    context.save();
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.globalCompositeOperation = "source-over";
-    context.fillStyle = bg || "#000000";
-    context.fillRect(0, 0, w, h);
-    context.restore();
-    return;
-  }
-  context.save();
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.imageSmoothingEnabled = false;
-  context.globalCompositeOperation = "copy";
-  context.drawImage(canvas, -n, 0);
-  context.globalCompositeOperation = "source-over";
-  context.fillStyle = bg || "#000000";
-  context.fillRect(w - n, 0, n, h);
-  context.restore();
-}
-
-function nodeGraphTraceDisplayArmScroll(canvas, settings, leftBuffer, rightBuffer) {
+  let canvas = owner[key];
   if (!canvas) {
-    return;
+    canvas = owner[key] = document.createElement("canvas");
   }
-  let cursor = nodeGraphTraceDisplayBufferCursor(leftBuffer);
-  if (rightBuffer) {
-    const rightCursor = nodeGraphTraceDisplayBufferCursor(rightBuffer);
-    if (Number.isFinite(rightCursor)) {
-      cursor = Number.isFinite(cursor) ? Math.max(cursor, rightCursor) : rightCursor;
-    }
+  const w = Math.max(1, Math.floor(Number(width) || 1));
+  const h = Math.max(1, Math.floor(Number(height) || 1));
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
   }
-  if (!Number.isFinite(cursor)) {
-    const recent = Math.max(
-      0,
-      Math.floor(Number(leftBuffer?.nodeGraphScopeRecentSampleCount) || 0),
-    );
-    cursor = recent;
-  }
-  const st = canvas._traceScroll || (canvas._traceScroll = {});
-  st.sig = nodeGraphTraceDisplayLookSignature(settings, canvas, Boolean(rightBuffer));
-  st.lastAbs = cursor;
-  st.debtPx = 0;
+  return canvas;
 }
 
-function nodeGraphTraceDisplayTailView(buffer, settings, tailSamples, slot = null) {
-  const len = Math.max(0, buffer?.length || 0);
-  const count = Math.max(2, Math.min(len, Math.ceil(Number(tailSamples) || 2)));
-  const ampScale = Number(settings?.scale);
-  const scale = Number.isFinite(ampScale) && ampScale > 0
-    ? clampNodeSliderValue(ampScale, 0.01, 100)
-    : 1;
-  if (slot?.type === "lookaheadLimiter") {
+function nodeGraphTraceDisplayPaintWindow(context, canvas, spec = {}) {
+  const slot = spec.slot;
+  const settings = spec.settings;
+  const bg = spec.bg;
+  const buffer = spec.buffer;
+  const stereoBuffers = spec.stereoBuffers;
+  if (!context || !canvas || !settings) {
+    return { painted: 0, leftBuffer: null, rightBuffer: null, leftPoints: [], rightPoints: [] };
+  }
+  const fade = 0;
+  const budget = Math.max(8, Math.round(Number(settings.dotBudget) || 2048));
+  const face = Math.min(canvas.width, canvas.height);
+  const pointOpts = { skipPixelLock: true };
+  const fillBg = () => {
+    if (typeof nodeGraphFacePlateFillCanvas === "function") {
+      nodeGraphFacePlateFillCanvas(context, canvas, bg);
+    }
+  };
+  const fillUnder = () => {
+    if (typeof nodeGraphFacePlateFillUnder === "function") {
+      nodeGraphFacePlateFillUnder(context, canvas, bg);
+    }
+  };
+  if (stereoBuffers) {
+    const leftBuffer = typeof prepareNodeGraphTraceDisplayBuffer === "function"
+      ? prepareNodeGraphTraceDisplayBuffer(stereoBuffers.left, settings)
+      : stereoBuffers.left;
+    const rightBuffer = typeof prepareNodeGraphTraceDisplayBuffer === "function"
+      ? prepareNodeGraphTraceDisplayBuffer(stereoBuffers.right, settings)
+      : stereoBuffers.right;
+    const views = typeof nodeGraphTraceDisplayStereoBufferViews === "function"
+      ? nodeGraphTraceDisplayStereoBufferViews(leftBuffer, rightBuffer, slot)
+      : {
+        left: nodeGraphTraceDisplayBufferView(leftBuffer, slot, { forceSyncOff: true }),
+        right: nodeGraphTraceDisplayBufferView(rightBuffer, slot, { forceSyncOff: true }),
+      };
+    const leftPoints = buildNodeGraphTraceDisplayCanvasPoints(
+      leftBuffer,
+      canvas,
+      slot,
+      views.left,
+      null,
+      pointOpts,
+    );
+    const rightPoints = buildNodeGraphTraceDisplayCanvasPoints(
+      rightBuffer,
+      canvas,
+      slot,
+      views.right,
+      null,
+      pointOpts,
+    );
+    const leftSize = Number.isFinite(Number(settings.dot1Size))
+      ? Number(settings.dot1Size)
+      : (Number(settings.size) || 0.035);
+    const rightSize = Number.isFinite(Number(settings.secondarySize))
+      ? Number(settings.secondarySize)
+      : leftSize;
+    const leftLayer = {
+      enabled: settings.dot1Enabled !== false,
+      size: leftSize,
+      brightness: Number.isFinite(Number(settings.dot1Brightness ?? settings.brightness))
+        ? Number(settings.dot1Brightness ?? settings.brightness)
+        : 1,
+      blur: Number.isFinite(Number(settings.lineThickness)) ? Number(settings.lineThickness) : 0,
+      fade,
+      color: settings.color || settings.dot1Color || "#ff0000",
+      dotBudget: budget,
+    };
+    const rightLayer = {
+      enabled: settings.secondaryEnabled !== false,
+      size: rightSize,
+      brightness: Number.isFinite(Number(settings.secondaryBrightness))
+        ? Number(settings.secondaryBrightness)
+        : leftLayer.brightness,
+      blur: Number.isFinite(Number(settings.secondaryLineThickness))
+        ? Number(settings.secondaryLineThickness)
+        : leftLayer.blur,
+      fade,
+      color: settings.secondaryColor || "#0000ff",
+      dotBudget: budget,
+    };
+    const blend = settings.stereoBlend || "combine";
+    if (blend !== "combine") {
+      fillBg();
+    }
+    const painted = paintNodeGraphTraceDisplayStereoStrokes(
+      context,
+      canvas,
+      leftPoints,
+      rightPoints,
+      leftLayer,
+      rightLayer,
+      blend,
+      face,
+      "round",
+    );
+    if (blend === "combine") {
+      fillUnder();
+    }
     return {
-      start: Math.max(0, len - count),
-      end: len,
-      gain: scale * 2,
-      offset: -scale,
+      painted,
+      leftBuffer,
+      rightBuffer,
+      leftPoints,
+      rightPoints,
     };
   }
+  const prepared = typeof prepareNodeGraphTraceDisplayBuffer === "function"
+    ? prepareNodeGraphTraceDisplayBuffer(buffer, settings)
+    : buffer;
+  fillBg();
+  const points = buildNodeGraphTraceDisplayCanvasPoints(
+    prepared || buffer,
+    canvas,
+    slot,
+    null,
+    null,
+    pointOpts,
+  );
+  const layer = {
+    enabled: settings.dot1Enabled !== false,
+    size: Number.isFinite(Number(settings.dot1Size)) ? Number(settings.dot1Size) : 0.035,
+    brightness: Number.isFinite(Number(settings.dot1Brightness ?? settings.brightness))
+      ? Number(settings.dot1Brightness ?? settings.brightness)
+      : 1,
+    blur: Number.isFinite(Number(settings.lineThickness)) ? Number(settings.lineThickness) : 0,
+    fade,
+    color: settings.color || settings.dot1Color || "#ff3333",
+    dotBudget: budget,
+  };
+  drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, {
+    faceMinSide: face,
+    lineCap: "round",
+  });
   return {
-    start: Math.max(0, len - count),
-    end: len,
-    gain: scale,
-    offset: 0,
+    painted: points.length,
+    leftBuffer: prepared || buffer,
+    rightBuffer: null,
+    leftPoints: points,
+    rightPoints: null,
   };
 }
 
+function nodeGraphTraceDisplayScratchContext(owner, key, width, height) {
+  const canvas = nodeGraphTraceDisplayEnsureScratchCanvas(owner, key, width, height);
+  const context = canvas?.getContext("2d");
+  if (!context) {
+    return null;
+  }
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  return { canvas, context };
+}
+
 /**
- * Freerun Instant Trace: scroll retained pixels, stroke only the new strip.
- * Returns false when the caller must remesh the whole window.
+ * Freerun Instant Trace is a strip chart. Dest pixels are never rebuilt
+ * from the capture buffer.
+ *
+ * History (seconds) = wall-clock time from the right edge (now) to the left.
+ *   pixels_per_second = width / History
+ * Changing History only changes that speed. Size/background/emoji are ink
+ * printed into new columns.
+ *
+ * New columns are taken from an offscreen current-window draw — that is
+ * how we rasterize new ink, not how we rewrite history.
  */
-function nodeGraphTraceDisplayTryScrollPaint(spec) {
+function nodeGraphTraceDisplayPaintWaterfall(spec) {
   const {
     item,
     slot,
@@ -1328,176 +1518,90 @@ function nodeGraphTraceDisplayTryScrollPaint(spec) {
   }
   const width = Math.max(1, canvas.width);
   const height = Math.max(1, canvas.height);
-  const leftBuffer = stereoBuffers
-    ? (typeof prepareNodeGraphTraceDisplayBuffer === "function"
-      ? prepareNodeGraphTraceDisplayBuffer(stereoBuffers.left, settings)
-      : stereoBuffers.left)
-    : (typeof prepareNodeGraphTraceDisplayBuffer === "function"
-      ? prepareNodeGraphTraceDisplayBuffer(buffer, settings)
-      : buffer);
-  const rightBuffer = stereoBuffers
-    ? (typeof prepareNodeGraphTraceDisplayBuffer === "function"
-      ? prepareNodeGraphTraceDisplayBuffer(stereoBuffers.right, settings)
-      : stereoBuffers.right)
-    : null;
+  const historySeconds = Math.max(
+    1e-4,
+    Number(settings.historySeconds ?? settings.zoomSeconds) || 0.05,
+  );
+  const pixelsPerSecond = width / historySeconds;
+  const prepare = (buf) => (typeof prepareNodeGraphTraceDisplayBuffer === "function"
+    ? prepareNodeGraphTraceDisplayBuffer(buf, settings)
+    : buf);
+  const leftBuffer = stereoBuffers ? prepare(stereoBuffers.left) : prepare(buffer);
   const liveBuffer = leftBuffer || buffer;
   if (!liveBuffer?.length) {
     return false;
   }
-  let cursor = nodeGraphTraceDisplayBufferCursor(liveBuffer);
-  if (rightBuffer) {
-    const rightCursor = nodeGraphTraceDisplayBufferCursor(rightBuffer);
-    if (Number.isFinite(rightCursor)) {
-      cursor = Number.isFinite(cursor) ? Math.max(cursor, rightCursor) : rightCursor;
-    }
+  const frame = nodeGraphTraceDisplayScratchContext(canvas, "_traceWaterfallFrame", width, height);
+  const hold = nodeGraphTraceDisplayScratchContext(canvas, "_traceWaterfallHold", width, height);
+  if (!frame || !hold) {
+    return false;
   }
-  if (!Number.isFinite(cursor)) {
-    const recent = Math.max(
-      0,
-      Math.floor(Number(liveBuffer.nodeGraphScopeRecentSampleCount) || 0),
-    );
-    if (!(recent > 0)) {
-      return false;
-    }
-    cursor = (Number(canvas._traceScroll?.lastAbs) || 0) + recent;
-  }
-  const sig = nodeGraphTraceDisplayLookSignature(settings, canvas, Boolean(stereoBuffers));
+  const now = (typeof performance !== "undefined" && typeof performance.now === "function")
+    ? performance.now()
+    : Date.now();
   const st = canvas._traceScroll || (canvas._traceScroll = {
-    lastAbs: Number.NaN,
     debtPx: 0,
-    sig: "",
+    lastMs: Number.NaN,
+    started: false,
   });
-  if (st.sig !== sig || !Number.isFinite(st.lastAbs) || cursor < st.lastAbs) {
-    return false;
+  if (!st.started) {
+    if (typeof nodeGraphFacePlateFillCanvas === "function") {
+      nodeGraphFacePlateFillCanvas(context, canvas, bg);
+    }
+    st.started = true;
+    st.lastMs = now;
+    st.debtPx = 0;
   }
-  const rate = Math.max(1, Number(typeof nodeGraphScopeSampleRate === "function"
-    ? nodeGraphScopeSampleRate(liveBuffer)
-    : 44100) || 44100);
-  const hist = Math.max(
-    1e-4,
-    Number(settings.historySeconds ?? settings.zoomSeconds) || 0.05,
-  );
-  const spp = (hist * rate) / width;
-  if (!(spp > 0) || !Number.isFinite(spp)) {
-    return false;
-  }
-  const delta = Math.max(0, cursor - st.lastAbs);
-  st.debtPx = Math.max(0, Number(st.debtPx) || 0) + delta / spp;
-  st.lastAbs = cursor;
-  const shift = Math.floor(st.debtPx);
+  // Do not clamp dt to History — that made short History (0.05 s) replace
+  // the whole face every paint (a remesh parked on the right, no waterfall).
+  const elapsed = Number.isFinite(st.lastMs) ? (now - st.lastMs) / 1000 : 0;
+  const dt = Math.max(0, Math.min(0.25, elapsed));
+  st.lastMs = now;
+  st.debtPx = Math.max(0, Number(st.debtPx) || 0) + dt * pixelsPerSecond;
+  let shift = Math.floor(st.debtPx);
   if (shift < 1) {
     rememberNodeGraphTraceDisplaySignature(slot, item, liveBuffer, settings);
     return true;
   }
   st.debtPx -= shift;
+  // Always keep at least one column of prior ink so we never paste a
+  // full remesh over the dest (that was the right-edge-only live draw).
   if (shift >= width) {
-    return false;
+    shift = width - 1;
+    st.debtPx = 0;
   }
-  nodeGraphTraceDisplayShiftFace(context, canvas, shift, bg);
-  const tailSamples = Math.max(2, Math.ceil(shift * spp) + 1);
-  const strip = {
-    x: width - shift,
-    y: 0,
-    width: shift,
+  frame.context.imageSmoothingEnabled = Number(density) >= 0.999;
+  const painted = nodeGraphTraceDisplayPaintWindow(frame.context, frame.canvas, {
+    slot,
+    settings,
+    buffer: liveBuffer,
+    stereoBuffers,
+    bg,
+  });
+  hold.context.imageSmoothingEnabled = false;
+  hold.context.globalCompositeOperation = "copy";
+  hold.context.drawImage(canvas, 0, 0);
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.imageSmoothingEnabled = false;
+  context.globalCompositeOperation = "copy";
+  context.drawImage(hold.canvas, -shift, 0);
+  context.globalCompositeOperation = "source-over";
+  context.fillStyle = bg || "#000000";
+  context.fillRect(width - shift, 0, shift, height);
+  context.drawImage(
+    frame.canvas,
+    width - shift,
+    0,
+    shift,
     height,
-  };
-  const face = Math.min(width, height);
-  const fade = 0;
-  const budget = Math.max(8, Math.round(Number(settings.dotBudget) || 2048));
-  let painted = 0;
-  if (stereoBuffers && leftBuffer && rightBuffer) {
-    const leftView = nodeGraphTraceDisplayTailView(leftBuffer, settings, tailSamples, slot);
-    const rightView = nodeGraphTraceDisplayTailView(rightBuffer, settings, tailSamples, slot);
-    const leftPoints = buildNodeGraphTraceDisplayCanvasPoints(
-      leftBuffer,
-      canvas,
-      slot,
-      leftView,
-      strip,
-      { skipPixelLock: true },
-    );
-    const rightPoints = buildNodeGraphTraceDisplayCanvasPoints(
-      rightBuffer,
-      canvas,
-      slot,
-      rightView,
-      strip,
-      { skipPixelLock: true },
-    );
-    const leftColor = settings.color || settings.dot1Color || "#ff0000";
-    const rightColor = settings.secondaryColor || "#0000ff";
-    const leftSize = Number.isFinite(Number(settings.dot1Size))
-      ? Number(settings.dot1Size)
-      : 0.035;
-    const rightSize = Number.isFinite(Number(settings.secondarySize))
-      ? Number(settings.secondarySize)
-      : leftSize;
-    const leftBlur = Number.isFinite(Number(settings.lineThickness))
-      ? Number(settings.lineThickness)
-      : 0;
-    const rightBlur = Number.isFinite(Number(settings.secondaryLineThickness))
-      ? Number(settings.secondaryLineThickness)
-      : leftBlur;
-    const leftBright = Number.isFinite(Number(settings.dot1Brightness ?? settings.brightness))
-      ? Number(settings.dot1Brightness ?? settings.brightness)
-      : 1;
-    const rightBright = Number.isFinite(Number(settings.secondaryBrightness))
-      ? Number(settings.secondaryBrightness)
-      : leftBright;
-    const blend = settings.stereoBlend || "combine";
-    // Do not Meet/getImageData the whole face for a few new pixels.
-    const stripBlend = blend === "combine" ? "lighter" : blend;
-    if (settings.secondaryEnabled !== false) {
-      drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, {
-        enabled: true,
-        size: rightSize,
-        brightness: rightBright,
-        blur: rightBlur,
-        fade,
-        color: rightColor,
-        dotBudget: budget,
-      }, canvas, { blend: stripBlend });
-    }
-    if (settings.dot1Enabled !== false) {
-      drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, {
-        enabled: true,
-        size: leftSize,
-        brightness: leftBright,
-        blur: leftBlur,
-        fade,
-        color: leftColor,
-        dotBudget: budget,
-      }, canvas, { blend: stripBlend });
-    }
-    painted = leftPoints.length + rightPoints.length;
-  } else {
-    const view = nodeGraphTraceDisplayTailView(liveBuffer, settings, tailSamples, slot);
-    const points = buildNodeGraphTraceDisplayCanvasPoints(
-      liveBuffer,
-      canvas,
-      slot,
-      view,
-      strip,
-      { skipPixelLock: true },
-    );
-    const monoColor = settings.color || settings.dot1Color || "#ff3333";
-    const monoSize = Number.isFinite(Number(settings.dot1Size))
-      ? Number(settings.dot1Size)
-      : 0.035;
-    drawNodeGraphTraceDisplayCanvasLayer(context, points, {
-      enabled: settings.dot1Enabled !== false,
-      size: monoSize,
-      brightness: Number.isFinite(Number(settings.dot1Brightness ?? settings.brightness))
-        ? Number(settings.dot1Brightness ?? settings.brightness)
-        : 1,
-      blur: Number.isFinite(Number(settings.lineThickness)) ? Number(settings.lineThickness) : 0,
-      fade,
-      color: monoColor,
-      dotBudget: budget,
-    }, canvas);
-    painted = points.length;
-  }
-  recordNodeGraphModuleScopeRenderMetrics(painted, painted);
+    width - shift,
+    0,
+    shift,
+    height,
+  );
+  context.restore();
+  recordNodeGraphModuleScopeRenderMetrics(painted.painted, painted.painted);
   paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density);
   rememberNodeGraphTraceDisplaySignature(slot, item, liveBuffer, settings);
   return true;
@@ -1513,15 +1617,12 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   if (!buffer?.length) {
     return paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio);
   }
-  // Pause freeze: hold face pixels (same as phosphor). A force-draw after
-  // Clear-while-paused must NOT re-stroke the capture buffer onto a wiped plate.
   if (typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen()) {
     return true;
   }
   const settings = nodeGraphTraceDisplaySettingsForSlot(slot);
   const canvas = nodeGraphModuleScopeLocalFallbackCanvas(slot);
-  // VECTOR polyline into density-scaled face buffer (default 1 = current look).
   const density = nodeGraphFacePlateDensity(settings, 1);
   if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(
     canvas,
@@ -1531,39 +1632,26 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   )) {
     return false;
   }
-  // Vector class: normal blend (not screen). Density < 1 always chunky;
-  // density ≥ 1 defers to CSS (smooth at 1:1, pixelated under zoom ≥ 2.5).
   canvas.classList.add("node-module-scope-vector-trace");
-  if (density < 0.999) {
-    canvas.style.imageRendering = "pixelated";
-  } else {
-    canvas.style.imageRendering = "";
-  }
+  canvas.style.imageRendering = density < 0.999 ? "pixelated" : "";
   const context = canvas.getContext("2d");
   if (!context) {
     return false;
   }
-  // At lo-fi density, keep nearest-neighbor presentation; at ≥1, smooth AA into buffer.
   context.imageSmoothingEnabled = density >= 0.999;
   if ("imageSmoothingQuality" in context && density >= 0.999) {
     context.imageSmoothingQuality = "high";
   }
   const bg = nodeGraphFacePlateBackground(settings);
   nodeGraphFacePlateApplyCss(screenElement, bg);
-  const fillTraceBackground = () => nodeGraphFacePlateFillCanvas(context, canvas, bg);
-  // putImageData (combine/Meet) replaces pixels — paint plate *under* with destination-over after.
-  const paintBackgroundUnder = () => nodeGraphFacePlateFillUnder(context, canvas, bg);
   const stereoBuffers = nodeGraphModuleUsesStereoTraceDisplay(slot?.type)
     ? nodeGraphStereoTraceBuffers(slot.nodeId, slot.type)
     : null;
   const syncChannel = typeof nodeGraphTraceDisplaySyncChannel === "function"
     ? nodeGraphTraceDisplaySyncChannel(settings)
     : "off";
-  // Freerun Instant Trace: scroll the face bitmap and stroke only the new
-  // strip. High History used to remesh the whole window every frame (1 FPS).
-  // Sync still remeshes so the trigger lock can jump.
-  if (syncChannel === "off"
-    && nodeGraphTraceDisplayTryScrollPaint({
+  if (syncChannel === "off") {
+    return nodeGraphTraceDisplayPaintWaterfall({
       item,
       slot,
       buffer,
@@ -1573,100 +1661,18 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
       bg,
       stereoBuffers,
       density,
-    })) {
-    return true;
+    });
   }
-  if (stereoBuffers) {
-    const leftBuffer = prepareNodeGraphTraceDisplayBuffer(stereoBuffers.left, settings);
-    const rightBuffer = prepareNodeGraphTraceDisplayBuffer(stereoBuffers.right, settings);
-    const views = nodeGraphTraceDisplayStereoBufferViews(leftBuffer, rightBuffer, slot);
-    const leftPoints = buildNodeGraphTraceDisplayCanvasPoints(leftBuffer, canvas, slot, views.left);
-    const rightPoints = buildNodeGraphTraceDisplayCanvasPoints(rightBuffer, canvas, slot, views.right);
-    // Form stores Left as dot1Color (also mirrored to color) and Right as secondaryColor.
-    const leftColor = settings.color || settings.dot1Color || "#ff0000";
-    const rightColor = settings.secondaryColor || "#0000ff";
-    const leftSize = Number.isFinite(Number(settings.dot1Size))
-      ? Number(settings.dot1Size)
-      : (Number(settings.size) || 0.035);
-    const rightSize = Number.isFinite(Number(settings.secondarySize))
-      ? Number(settings.secondarySize)
-      : leftSize;
-    const leftBlur = Number.isFinite(Number(settings.lineThickness))
-      ? Number(settings.lineThickness)
-      : 0;
-    const rightBlur = Number.isFinite(Number(settings.secondaryLineThickness))
-      ? Number(settings.secondaryLineThickness)
-      : leftBlur;
-    const budget = Math.max(8, Math.round(Number(settings.dotBudget) || 2048));
-    // Lengthwise Fade is 2D Instant Trace only.
-    const fade = 0;
-    const leftBright = Number.isFinite(Number(settings.dot1Brightness ?? settings.brightness))
-      ? Number(settings.dot1Brightness ?? settings.brightness)
-      : 1;
-    const rightBright = Number.isFinite(Number(settings.secondaryBrightness))
-      ? Number(settings.secondaryBrightness)
-      : leftBright;
-    const leftLayer = {
-      enabled: settings.dot1Enabled !== false,
-      size: leftSize,
-      brightness: leftBright,
-      blur: leftBlur,
-      fade,
-      color: leftColor,
-      dotBudget: budget,
-    };
-    const rightLayer = {
-      enabled: settings.secondaryEnabled !== false,
-      size: rightSize,
-      brightness: rightBright,
-      blur: rightBlur,
-      fade,
-      color: rightColor,
-      dotBudget: budget,
-    };
-    const blend = settings.stereoBlend || "combine";
-    // Same polyline drawer as mono 1D. Meet/getImageData (drawStereo) filled
-    // between a live channel and a 0-line on Output and looked like a blob
-    // dancing 0 ↔ peak.
-    const strokeBlend = blend === "combine" ? "source-over" : blend;
-    fillTraceBackground();
-    if (rightLayer.enabled !== false) {
-      drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, rightLayer, canvas, { blend: strokeBlend });
-    }
-    if (leftLayer.enabled !== false) {
-      drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas, { blend: strokeBlend });
-    }
-    const painted = leftPoints.length + rightPoints.length;
-    recordNodeGraphModuleScopeRenderMetrics(painted, painted);
-    paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density);
-    rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);
-    nodeGraphTraceDisplayArmScroll(canvas, settings, leftBuffer || stereoBuffers?.left, rightBuffer);
-    return true;
-  }
-  // Mono 1D Trace = VECTOR polyline (not a pixel strip / energy grid).
-  const prepared = prepareNodeGraphTraceDisplayBuffer(buffer, settings);
-  fillTraceBackground();
-  const points = buildNodeGraphTraceDisplayCanvasPoints(prepared || buffer, canvas, slot);
-  const monoColor = settings.color || settings.dot1Color || "#ff3333";
-  const monoSize = Number.isFinite(Number(settings.dot1Size))
-    ? Number(settings.dot1Size)
-    : 0.035;
-  const layer = {
-    enabled: settings.dot1Enabled !== false,
-    size: monoSize,
-    brightness: Number.isFinite(Number(settings.dot1Brightness ?? settings.brightness))
-      ? Number(settings.dot1Brightness ?? settings.brightness)
-      : 1,
-    blur: Number.isFinite(Number(settings.lineThickness)) ? Number(settings.lineThickness) : 0,
-    fade: 0,
-    color: monoColor,
-    dotBudget: Math.max(8, Math.round(Number(settings.dotBudget) || 2048)),
-  };
-  drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas);
-  recordNodeGraphModuleScopeRenderMetrics(points.length, points.length);
+  const painted = nodeGraphTraceDisplayPaintWindow(context, canvas, {
+    slot,
+    settings,
+    buffer,
+    stereoBuffers,
+    bg,
+  });
+  recordNodeGraphModuleScopeRenderMetrics(painted.painted, painted.painted);
   paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density);
   rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);
-  nodeGraphTraceDisplayArmScroll(canvas, settings, prepared || buffer, null);
   return true;
 }
 

@@ -93,7 +93,10 @@
     const mapX = (sampleIndex) => ((sampleIndex - start) / span) * width;
     const mapY = (raw) => midY - clampUnit(raw * gain + offset) * halfHeight;
 
-    const first = Math.max(0, Math.floor(start));
+    const validStart = Number.isFinite(Number(options.validStart))
+      ? Math.max(0, Number(options.validStart))
+      : 0;
+    const first = Math.max(validStart, Math.max(0, Math.floor(start)));
     const last = Math.min(buffer.length - 1, Math.ceil(end) - 1);
     if (last < first) {
       return [];
@@ -114,7 +117,10 @@
     const maxVertices = Math.max(2, Math.floor(budgetWidth) * 3);
 
     if (sampleCount <= maxVertices) {
-      if (start < first) {
+      // Only interpolate a fractional start that lands inside valid samples.
+      // A start left of validStart is empty History (right-aligned fill) —
+      // a vertex there stretched a line across the blank left.
+      if (start < first && start >= validStart) {
         push(mapX(start), mapY(interpolatedSample(buffer, start)), false);
       }
       let prev = first;
