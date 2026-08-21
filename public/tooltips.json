@@ -14,7 +14,7 @@
     "gpu": "GPU overlay. Highlights knobs and faces that spend fill-rate or extra drawing surfaces (phosphor stamps, shader faces, pixel density). Meter shows display FPS, surfaces, and stamps.",
     "gpuFps": "GPU display frame rate: how often scope faces present a new picture. Simulation FPS and draw cost both cap this.",
     "gpuSurfaces": "Surfaces: how many canvas/WebGL drawing faces are live in the modular view. Each 2D Trace, phosphor, or compositor face is one surface.",
-    "gpuPoints": "Stamps this display frame: phosphor energy dabs plus 2D Trace / waterfall polyline points actually submitted to draw. 0 means no scope drew new points this frame (paused, FPS gate, or empty path). Lorenz/phosphor should read in the hundreds to thousands when Dot Budget is high.",
+    "gpuPoints": "Stamps: phosphor energy dabs plus 2D Trace / waterfall polyline points, averaged over about half a second so the meter is readable. Lorenz/phosphor should sit in the hundreds to thousands when Dot Budget is high. 0 means nothing was deposited in that window.",
     "cpuBusy": "main-thread busy percent | time spent in the last display frame vs the frame budget | high with many canvases or long polylines",
     "cpuFps": "UI frame rate | animation frames completed per second | drops when CPU or GPU draw work overruns",
     "ramUsed": "JavaScript heap used | includes live scope capture rings | not the same as GPU VRAM"
