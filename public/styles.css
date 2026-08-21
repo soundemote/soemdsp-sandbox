@@ -18477,8 +18477,9 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   display: block;
   box-sizing: border-box;
   width: 100%;
-  height: 100px;
-  max-height: 100px;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  max-height: none;
   justify-self: stretch;
   border: 0;
   background: #020405;

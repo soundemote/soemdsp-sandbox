@@ -568,15 +568,16 @@ function nodeGraphStampPreviewExtent(radius, blur01, phosphor) {
   return r * (1 + 2 * blur);
 }
 
-/** Laid-out CSS plate in px. Never the stamp bitmap. */
+/** Laid-out CSS plate in px. Always square so resize cannot oval-stretch the stamp. */
 function nodeGraphStampPreviewPlateSize(canvas) {
   const width = Math.round(Number(canvas?.clientWidth) || 0)
     || Math.round(Number(canvas?.parentElement?.clientWidth) || 0)
     || 96;
-  const height = Math.round(Number(canvas?.clientHeight) || 0) || 100;
+  const height = Math.round(Number(canvas?.clientHeight) || 0);
+  const side = Math.max(1, height > 0 ? Math.min(width, height) : width);
   return {
-    width: Math.max(1, width),
-    height: Math.max(1, height),
+    width: side,
+    height: side,
   };
 }
 
@@ -603,10 +604,7 @@ function nodeGraphStampPreviewBlit(plateCtx, plateW, plateH, scratch) {
   plateCtx.fillStyle = "#020405";
   plateCtx.fillRect(0, 0, plateW, plateH);
   if (scratch && scratch.width > 0 && scratch.height > 0) {
-    const dest = Math.min(plateW, plateH);
-    const x = Math.round((plateW - dest) * 0.5);
-    const y = Math.round((plateH - dest) * 0.5);
-    plateCtx.drawImage(scratch, 0, 0, scratch.width, scratch.height, x, y, dest, dest);
+    plateCtx.drawImage(scratch, 0, 0, scratch.width, scratch.height, 0, 0, plateW, plateH);
   }
 }
 
@@ -761,7 +759,17 @@ function syncNodeGraphStampPreview(root, settings) {
   if (!host?.querySelector?.("[data-stamp-preview-canvas]")) {
     return;
   }
-  const paint = () => paintNodeGraphStampPreview(host, settings || {});
+  host._stampPreviewSettings = settings || {};
+  const paint = () => paintNodeGraphStampPreview(host, host._stampPreviewSettings || {});
+  const shell = host.querySelector("[data-stamp-preview]");
+  if (typeof ResizeObserver === "function" && shell && host._stampPreviewResizeTarget !== shell) {
+    host._stampPreviewResize?.disconnect?.();
+    host._stampPreviewResize = new ResizeObserver(() => {
+      paint();
+    });
+    host._stampPreviewResize.observe(shell);
+    host._stampPreviewResizeTarget = shell;
+  }
   if (typeof requestAnimationFrame === "function") {
     requestAnimationFrame(paint);
   } else {

@@ -662,6 +662,34 @@ function compositeNodeGraphScope2dBurn(renderer, settings, options = {}) {
 }
 
 
+/** Idle beam: all samples at origin (0 amp) or no motion (0 Hz). */
+function nodeGraphScope2dPointsAreIdleBeam(points, square) {
+  const cx = (Number(square?.left) || 0) + (Number(square?.width) || 0) * 0.5;
+  const cy = (Number(square?.top) || 0) + (Number(square?.height) || 0) * 0.5;
+  let n = 0;
+  let maxFromCenter = 0;
+  let maxStep = 0;
+  let px = 0;
+  let py = 0;
+  for (let i = 0; i < (points?.length || 0); i += 1) {
+    const p = points[i];
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+      continue;
+    }
+    maxFromCenter = Math.max(maxFromCenter, Math.hypot(p.x - cx, p.y - cy));
+    if (n > 0) {
+      maxStep = Math.max(maxStep, Math.hypot(p.x - px, p.y - py));
+    }
+    px = p.x;
+    py = p.y;
+    n += 1;
+  }
+  return {
+    silent: n === 0 || maxFromCenter < 0.75,
+    parked: n > 0 && maxStep < 0.5,
+  };
+}
+
 function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settings, options = {}) {
   if (typeof nodeGraphPhosphorEnergyGlEnsure !== "function"
     || typeof nodeGraphPhosphorEnergyGlStepBeams !== "function"
@@ -695,13 +723,35 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
 
   const width = canvas.width;
   const height = canvas.height;
-  const points = Array.isArray(pathPoints) ? pathPoints : [];
+  let points = Array.isArray(pathPoints) ? pathPoints : [];
   const endFrame = Number(options.endFrame);
   const bgHex = nodeGraphFacePlateBackground(settings);
   nodeGraphFacePlateApplyCss(screenElement, bgHex);
   const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen();
-  const hasPoints = points.length > 0;
+  const square = typeof nodeGraphScope2dBurnCanvasSquare === "function"
+    ? nodeGraphScope2dBurnCanvasSquare(canvas)
+    : null;
+  const idle = nodeGraphScope2dPointsAreIdleBeam(points, square);
+  const holdPt = canvas._nodeGraphScope2dLastDrawnPoint;
+  let holdParkedBeam = false;
+  if (!frozen && holdPt && Number.isFinite(holdPt.x) && Number.isFinite(holdPt.y)) {
+    if (idle.silent) {
+      // 0 amplitude: do not restamp the origin (that wiped the last lit hit).
+      points = [holdPt];
+      holdParkedBeam = true;
+    } else if (idle.parked) {
+      const last = typeof lastNodeGraphScope2dPathPoint === "function"
+        ? lastNodeGraphScope2dPathPoint(points)
+        : holdPt;
+      points = [last || holdPt];
+      holdParkedBeam = true;
+    } else if (!points.some((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y))) {
+      points = [holdPt];
+      holdParkedBeam = true;
+    }
+  }
+  const hasPoints = points.some((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y));
   // Absorb cursor only after a successful paint (or when truly idle / frozen).
   // Absorbing *before* deposit used to burn undrawn samples when GL ensure or
   // present failed — faces stayed black until Stop+Play rebuilt the path.
@@ -828,6 +878,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       dotsOnly,
       verticesOnly: dotsOnly,
       bleed,
+      holdParkedBeam,
     });
   } else if (typeof nodeGraphPhosphorEnergyGlStep === "function") {
     // Fade + bleed when no drawable layer (trail still softens outward).
@@ -843,7 +894,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     });
   }
 
-  if (!frozen) {
+  if (!frozen && !idle.silent) {
     const lastPoint = lastNodeGraphScope2dPathPoint(points);
     if (lastPoint) {
       canvas._nodeGraphScope2dLastDrawnPoint = lastPoint;

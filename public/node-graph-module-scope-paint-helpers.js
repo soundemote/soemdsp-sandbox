@@ -753,6 +753,60 @@ function nodeGraphScope2dTraceSegmentIsContinuous(previousPoint, point, maxSegme
   return distance <= Math.max(1, Number(maxSegmentPixels) || 1);
 }
 
+/** Drop 2D Trace verts that sit inside minPx of the last kept point. Keep
+ *  path breaks and each piece's first/last so endpoints stay exact. */
+function nodeGraphScope2dCollapseTracePoints(points, minPx = 0.5) {
+  if (!Array.isArray(points) || points.length < 3) {
+    return points || [];
+  }
+  const minSq = Math.max(0.01, Number(minPx) || 0.5) ** 2;
+  const out = [];
+  let pieceStart = -1;
+  const flushPiece = (from, to) => {
+    const first = points[from];
+    const last = points[to];
+    out.push(first);
+    if (to <= from) {
+      return;
+    }
+    let lx = first.x;
+    let ly = first.y;
+    for (let i = from + 1; i < to; i += 1) {
+      const p = points[i];
+      const dx = p.x - lx;
+      const dy = p.y - ly;
+      if ((dx * dx) + (dy * dy) >= minSq) {
+        out.push(p);
+        lx = p.x;
+        ly = p.y;
+      }
+    }
+    const tail = out[out.length - 1];
+    if (!tail || tail.x !== last.x || tail.y !== last.y) {
+      out.push(last);
+    }
+  };
+  for (let i = 0; i < points.length; i += 1) {
+    const p = points[i];
+    const real = Boolean(p && Number.isFinite(p.x) && Number.isFinite(p.y));
+    if (real) {
+      if (pieceStart < 0) {
+        pieceStart = i;
+      }
+      continue;
+    }
+    if (pieceStart >= 0) {
+      flushPiece(pieceStart, i - 1);
+      pieceStart = -1;
+    }
+    out.push(p);
+  }
+  if (pieceStart >= 0) {
+    flushPiece(pieceStart, points.length - 1);
+  }
+  return out;
+}
+
 function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) {
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
   if (!canvasSquare || count <= 0) {
@@ -793,7 +847,7 @@ function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) 
       visit(index);
     }
   }
-  return points;
+  return nodeGraphScope2dCollapseTracePoints(points, 0.5);
 }
 
 // drawNodeGraphScope2dTraceLayer → node-graph-module-scope-draw-burn.js

@@ -1606,13 +1606,29 @@
     if (!willDeposit && renderer.energyActive === false) {
       return true;
     }
-    // Trail/Ghost/Burn all off: keep the last stamp. Fading between audio
-    // hops wiped the FBO and the 2D present looked like a blinking/blank dot.
-    const holdLastStamp = !willDeposit
-      && (Number(options.trail) || 0) <= 0.0001
-      && (Number(options.ghost) || 0) <= 0.0001
-      && (Number(options.burn) || 0) <= 0.0001;
-    if (holdLastStamp) {
+    // Parked / silent beam (0 Hz or 0 amplitude): do not decay the last stamp
+    // to empty. Live scopes keep the last hit until pause/stop wipe or Clear.
+    if (!willDeposit || options.holdParkedBeam === true) {
+      if (options.holdParkedBeam === true && willDeposit) {
+        renderer.energyActive = true;
+        renderer.energyDirty = true;
+        renderer.quietFrames = 0;
+        const Residual = global.PhosphorResidual;
+        const burnAmtScale = Residual?.clampBurnAmount
+          ? Residual.clampBurnAmount(options.burnAmount, Residual.DEFAULT_BURN_AMOUNT ?? 1)
+          : Math.max(0, Math.min(4, Number(options.burnAmount) || 1));
+        const depositBright = Math.max(0, Number(brightness) || 0) * burnAmtScale;
+        if (dotsMode) {
+          depositDots(renderer, {
+            vertices: depositVertices,
+            radius,
+            brightness: depositBright,
+            blur,
+          });
+        }
+        return true;
+      }
+      renderer.quietFrames = 0;
       return true;
     }
 
