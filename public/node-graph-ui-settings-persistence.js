@@ -778,6 +778,12 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const appChromeBarsVisible = view.appChromeBarsVisible === undefined
     ? (nodeGraphMvp.appChromeBarsVisible !== false)
     : Boolean(view.appChromeBarsVisible);
+  const appChromeBarsMode = typeof normalizeNodeGraphAppChromeBarsMode === "function"
+    ? normalizeNodeGraphAppChromeBarsMode(
+      view.appChromeBarsMode ?? nodeGraphMvp.appChromeBarsMode,
+      appChromeBarsVisible,
+    )
+    : (appChromeBarsVisible ? "all" : "none");
   const transportChromeStuck = Boolean(view.transportChromeStuck ?? nodeGraphMvp.transportChromeStuck);
   const moduleInterfaceControlsVisible = Boolean(view.moduleInterfaceControlsVisible ?? nodeGraphMvp.moduleInterfaceControlsVisible);
   const moduleOscilloscopesVisible = Boolean(view.moduleOscilloscopesVisible ?? nodeGraphMvp.moduleOscilloscopesVisible);
@@ -950,6 +956,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
       tooltipEmbedHeight,
       moduleButtonsVisible,
       appChromeBarsVisible,
+      appChromeBarsMode,
       transportChromeStuck,
       moduleInterfaceControlsVisible,
       moduleOscilloscopesVisible,
@@ -1022,6 +1029,9 @@ function readNodeUiDevSettingsFromControls(options = {}) {
         : Math.max(32, Math.min(320, Math.round(Number(nodeGraphMvp.tooltipEmbedHeight) || 46))),
       moduleButtonsVisible: Boolean(nodeGraphMvp.moduleButtonsVisible),
       appChromeBarsVisible: nodeGraphMvp.appChromeBarsVisible !== false,
+      appChromeBarsMode: typeof nodeGraphAppChromeBarsMode === "function"
+        ? nodeGraphAppChromeBarsMode()
+        : (nodeGraphMvp.appChromeBarsVisible === false ? "none" : "all"),
       transportChromeStuck: Boolean(nodeGraphMvp.transportChromeStuck),
       moduleInterfaceControlsVisible: Boolean(nodeGraphMvp.moduleInterfaceControlsVisible),
       moduleOscilloscopesVisible: Boolean(nodeGraphMvp.moduleOscilloscopesVisible),
@@ -1736,7 +1746,15 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.appChromeBarsVisible = normalized.view.appChromeBarsVisible === undefined
     ? true
     : Boolean(normalized.view.appChromeBarsVisible);
-  if (typeof setNodeGraphAppChromeBarsVisible === "function") {
+  nodeGraphMvp.appChromeBarsMode = typeof normalizeNodeGraphAppChromeBarsMode === "function"
+    ? normalizeNodeGraphAppChromeBarsMode(
+      normalized.view.appChromeBarsMode,
+      nodeGraphMvp.appChromeBarsVisible,
+    )
+    : (nodeGraphMvp.appChromeBarsVisible ? "all" : "none");
+  if (typeof setNodeGraphAppChromeBarsMode === "function") {
+    setNodeGraphAppChromeBarsMode(nodeGraphMvp.appChromeBarsMode, { help: false, persist: false });
+  } else if (typeof setNodeGraphAppChromeBarsVisible === "function") {
     setNodeGraphAppChromeBarsVisible(nodeGraphMvp.appChromeBarsVisible, { help: false, persist: false });
   }
   nodeGraphMvp.transportChromeStuck = Boolean(normalized.view.transportChromeStuck);
@@ -2049,6 +2067,7 @@ function clearNodeUserStartupRuntimeState() {
   // sliders come back on.
   nodeGraphMvp.moduleButtonsVisible = false;
   nodeGraphMvp.appChromeBarsVisible = true;
+  nodeGraphMvp.appChromeBarsMode = "all";
   nodeGraphMvp.transportChromeStuck = false;
   if (typeof setNodeGraphTransportChromeStuck === "function") {
     setNodeGraphTransportChromeStuck(false, { help: false });

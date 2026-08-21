@@ -2208,9 +2208,15 @@ body.is-resizing-command-center-dock {
   --node-modular-only-inset: 0px;
 }
 
-/* 💻 / V: hide top toolbar + bottom transport — bigger canvas, same modular mode. */
+/* V: hide top toolbar (first press). */
+.node-wiring-panel.app-chrome-top-hidden > .node-view-toolbar {
+  display: none !important;
+}
+
+/* V second press / legacy both-hidden: also hide bottom transport. */
 .node-wiring-panel.app-chrome-bars-hidden > .node-view-toolbar,
-.node-wiring-panel.app-chrome-bars-hidden .node-graph-controls {
+.node-wiring-panel.app-chrome-bars-hidden .node-graph-controls,
+.node-wiring-panel.app-chrome-bottom-hidden .node-graph-controls {
   display: none !important;
 }
 
@@ -2223,13 +2229,16 @@ body.is-resizing-command-center-dock {
 /* When bars are hidden and M is off, fill the viewport. Must cancel any leftover
    inline width/height from a prior modular-windowed (M) resize, or the canvas
    stays stuck at the condensed frame size. */
-.node-wiring-panel.app-chrome-bars-hidden:not(.modular-only-view) {
+.node-wiring-panel.app-chrome-bars-hidden:not(.modular-only-view),
+.node-wiring-panel.app-chrome-top-hidden:not(.modular-only-view) {
   min-height: 100dvh;
   height: 100dvh;
 }
 
 .node-wiring-panel.app-chrome-bars-hidden:not(.modular-only-view) > .node-graph-workspace,
-.node-wiring-panel.app-chrome-bars-hidden:not(.modular-only-view) > .node-graph-main-row {
+.node-wiring-panel.app-chrome-bars-hidden:not(.modular-only-view) > .node-graph-main-row,
+.node-wiring-panel.app-chrome-top-hidden:not(.modular-only-view) > .node-graph-workspace,
+.node-wiring-panel.app-chrome-top-hidden:not(.modular-only-view) > .node-graph-main-row {
   flex: 1 1 0% !important;
   width: 100% !important;
   max-width: none !important;

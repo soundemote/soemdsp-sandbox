@@ -703,7 +703,7 @@ function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
  * ───────────────────
  *  💻      — computer view: infinite canvas (toolbar button, not a hotkey).
  *  📱      — phone / condensed frame (toolbar button or touch, not a hotkey).
- *  V       — view: hide/show top + bottom app bars (appChromeBarsVisible).
+ *  V       — view cycle: hide top bar → also hide bottom bar → show both.
  *  T       — transport: stick bottom app buttons over V hide.
  *
  * Laptop and phone are mutually exclusive canvas modes.
@@ -788,9 +788,50 @@ function toggleNodeGraphTransportChromeStuck() {
   setNodeGraphTransportChromeStuck(nodeGraphMvp.transportChromeStuck !== true);
 }
 
+function normalizeNodeGraphAppChromeBarsMode(value, visibleFallback) {
+  const lower = String(value ?? "").trim().toLowerCase();
+  if (lower === "all" || lower === "shown" || lower === "both") {
+    return "all";
+  }
+  if (lower === "tophidden" || lower === "top" || lower === "top-hidden") {
+    return "topHidden";
+  }
+  if (lower === "none" || lower === "hidden" || lower === "bothhidden" || lower === "both-hidden") {
+    return "none";
+  }
+  if (visibleFallback === false) {
+    return "none";
+  }
+  return "all";
+}
+
+function nodeGraphAppChromeBarsMode() {
+  return normalizeNodeGraphAppChromeBarsMode(
+    nodeGraphMvp?.appChromeBarsMode,
+    nodeGraphMvp?.appChromeBarsVisible,
+  );
+}
+
+function nodeGraphAppChromeBarsHelp(mode) {
+  if (mode === "topHidden") {
+    return "Top bar hidden (V).";
+  }
+  if (mode === "none") {
+    return "Top and bottom bars hidden (V).";
+  }
+  return "Top and bottom bars shown (V).";
+}
+
+function applyNodeGraphAppChromeBarsClasses(panel = document.getElementById("nodeWiringPanel")) {
+  const mode = nodeGraphAppChromeBarsMode();
+  panel?.classList.toggle("app-chrome-top-hidden", mode === "topHidden" || mode === "none");
+  panel?.classList.toggle("app-chrome-bottom-hidden", mode === "none");
+  panel?.classList.toggle("app-chrome-bars-hidden", mode === "none");
+}
+
 function renderNodeGraphAppChromeBarsToggle() {
   const button = document.getElementById("nodeAppChromeBarsToggleButton");
-  const visible = nodeGraphMvp.appChromeBarsVisible !== false;
+  const visible = nodeGraphAppChromeBarsMode() === "all";
   setNodeGraphVisibilityToggleLabel(button, visible, "App Bars", {
     onMark: nodeGraphVisibilityOnMarks.appBars,
   });
@@ -799,10 +840,11 @@ function renderNodeGraphAppChromeBarsToggle() {
   }
 }
 
-function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
-  nodeGraphMvp.appChromeBarsVisible = visible !== false;
-  const panel = document.getElementById("nodeWiringPanel");
-  panel?.classList.toggle("app-chrome-bars-hidden", nodeGraphMvp.appChromeBarsVisible === false);
+function setNodeGraphAppChromeBarsMode(mode, options = {}) {
+  const next = normalizeNodeGraphAppChromeBarsMode(mode, true);
+  nodeGraphMvp.appChromeBarsMode = next;
+  nodeGraphMvp.appChromeBarsVisible = next === "all";
+  applyNodeGraphAppChromeBarsClasses();
   syncNodeGraphTransportChromeStuckClass();
   if (typeof renderNodeGraphModularViewModeButtons === "function") {
     renderNodeGraphModularViewModeButtons();
@@ -814,11 +856,7 @@ function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
     applyNodeGraphWorkspaceView();
   }
   if (options.help !== false && typeof setNodeInteractionHelp === "function") {
-    setNodeInteractionHelp(
-      nodeGraphMvp.appChromeBarsVisible === false
-        ? "Top and bottom bars hidden (V)."
-        : "Top and bottom bars shown (V).",
-    );
+    setNodeInteractionHelp(nodeGraphAppChromeBarsHelp(next));
   }
   if (options.persist !== false) {
     if (typeof persistSession === "function") {
@@ -829,8 +867,14 @@ function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
   }
 }
 
+function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
+  setNodeGraphAppChromeBarsMode(visible === false ? "none" : "all", options);
+}
+
 function toggleNodeGraphAppChromeBarsVisibility() {
-  setNodeGraphAppChromeBarsVisible(nodeGraphMvp.appChromeBarsVisible === false);
+  const mode = nodeGraphAppChromeBarsMode();
+  const next = mode === "all" ? "topHidden" : mode === "topHidden" ? "none" : "all";
+  setNodeGraphAppChromeBarsMode(next);
 }
 
 /** 💻 — computer / infinite canvas (legacy name). */
@@ -1476,9 +1520,9 @@ function resetNodeGraphStartupView() {
   }
   if (nodeGraphMvp._startupHideAppChromeBars) {
     nodeGraphMvp._startupHideAppChromeBars = false;
-    setNodeGraphAppChromeBarsVisible(false, { help: false, persist: false });
-  } else if (typeof setNodeGraphAppChromeBarsVisible === "function") {
-    setNodeGraphAppChromeBarsVisible(nodeGraphMvp.appChromeBarsVisible !== false, { help: false, persist: false });
+    setNodeGraphAppChromeBarsMode("none", { help: false, persist: false });
+  } else if (typeof setNodeGraphAppChromeBarsMode === "function") {
+    setNodeGraphAppChromeBarsMode(nodeGraphAppChromeBarsMode(), { help: false, persist: false });
   }
 }
 
@@ -3945,7 +3989,11 @@ function setNodeGraphViewMode(mode) {
     renderNodeGraphModularViewModeButtons();
   }
   // Apply V bar state (independent of M).
-  wiringPanel?.classList.toggle("app-chrome-bars-hidden", nodeGraphMvp.appChromeBarsVisible === false);
+  if (typeof applyNodeGraphAppChromeBarsClasses === "function") {
+    applyNodeGraphAppChromeBarsClasses(wiringPanel);
+  } else {
+    wiringPanel?.classList.toggle("app-chrome-bars-hidden", nodeGraphMvp.appChromeBarsVisible === false);
+  }
   document.getElementById("nodeWiringPanel")?.classList.toggle("content-view-mode", settingsMode || codeMode || mappingMode);
   if (codeMode) {
     renderNodeGraphCodeScreen();

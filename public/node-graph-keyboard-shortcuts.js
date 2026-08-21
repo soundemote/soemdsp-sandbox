@@ -382,7 +382,7 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  // V → view: hide/show top + bottom app bars (not per-module header buttons).
+  // V → view cycle: hide top bar → also hide bottom bar → show both.
   // Phone / condensed modular frame is click/touch only (no M hotkey).
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v") {
     event.preventDefault();

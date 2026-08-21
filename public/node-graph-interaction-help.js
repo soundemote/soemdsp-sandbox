@@ -156,9 +156,16 @@ function nodeInteractionMouseHint(element) {
       : (nodeGraphTooltipText("view.tipsCycleEmbed") || "Show docked tips (T).");
   }
   if (element.id === "nodeAppChromeBarsToggleButton") {
-    return nodeGraphMvp.appChromeBarsVisible !== false
-      ? (nodeGraphTooltipText("view.appBarsHide") || "Hide top and bottom bars (V). T can keep the transport.")
-      : (nodeGraphTooltipText("view.appBarsShow") || "Show top and bottom bars (V).");
+    const mode = typeof nodeGraphAppChromeBarsMode === "function"
+      ? nodeGraphAppChromeBarsMode()
+      : (nodeGraphMvp.appChromeBarsVisible === false ? "none" : "all");
+    if (mode === "all") {
+      return nodeGraphTooltipText("view.appBarsHide") || "Hide top bar (V). Press again to hide the bottom bar too.";
+    }
+    if (mode === "topHidden") {
+      return "Hide bottom bar too (V).";
+    }
+    return nodeGraphTooltipText("view.appBarsShow") || "Show top and bottom bars (V).";
   }
   if (element.id === "nodeSliderAmountToggleButton") {
     return nodeGraphTooltipText(nodeGraphMvp.sliderAmountVisible ? "view.sliderAmountHide" : "view.sliderAmountShow");
