@@ -94,6 +94,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   polyBlep: "silence",
   blit: "silence",
   sineWavetable: "silence",
+  sinCos: "silence",
   additiveOsc: "silence",
   gpuAdditiveOsc: "silence",
   aliasSine: "silence",

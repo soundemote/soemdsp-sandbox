@@ -355,8 +355,14 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   sineWavetable: {
     category: "oscillator",
     description: "Pitchable sine with 1–4 evenly spaced phase taps (sine, cosine, sincos, antiphase, 3-phase, 4-phase).",
-    label: "N-Phase",
-    notes: ["implemented", "wavetable", "n-phase", "sincos", "native"],
+    label: "SinCos4",
+    notes: ["implemented", "wavetable", "sincos4", "native"],
+  },
+  sinCos: {
+    category: "oscillator",
+    description: "Pitchable sine and cosine pair (quadrature).",
+    label: "SinCos",
+    notes: ["implemented", "wavetable", "sincos", "native"],
   },
   wavetable2d: {
     category: "oscillator",
@@ -2884,6 +2890,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sinc/sinc-worklet-evaluator.js",
   },
   sineWavetable: {
+    source: "public/node-graph-oscillator-runtime.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/node-graph-oscillator-runtime.js",
+  },
+  sinCos: {
     source: "public/node-graph-oscillator-runtime.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/node-graph-oscillator-runtime.js",
   },

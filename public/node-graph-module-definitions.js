@@ -15,7 +15,8 @@ const nodeGraphNodeLabels = Object.freeze({
   polyBlep: "PolyBLEP",
   blit: "BLIT",
   archimedes: "Archimedes",
-  sineWavetable: "N-Phase",
+  sineWavetable: "SinCos4",
+  sinCos: "SinCos",
   aliasSine: "Alias Sine",
   robinSinusoid: "RobinSinusoid",
   phoneTone: "Phone Tone",
@@ -1008,26 +1009,10 @@ const nodeGraphModuleDefinitions = (
     displayType: "trace",
     // Same left-column jacks as PolyBLEP / BLIT (Phase + Amp are knobs only).
     inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
-    inputAliases: {
-      "0.1V": "0.1V/Oct",
-      "0.1v": "0.1V/Oct",
-      freq: "f",
-      Freq: "f",
-      Frequency: "f",
-      F: "f",
-      "ƒ": "f",
-    },
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ",
-    },
-    outputAliases: {
-      sin: "A",
-      Sin: "A",
-      Out: "A",
-      cos: "B",
-      Cos: "B",
     },
     outputs: ["A", "B", "C", "D"],
     parameters: [
@@ -1046,6 +1031,59 @@ const nodeGraphModuleDefinitions = (
         tooltip:
           "How many phase taps. sine / cosine: A only. sincos: A=sin B=cos. antiphase: A and −A. 3-phase: 0°/120°/240°. 4-phase: 0°/90°/180°/270°. Unused A–D sit at 0.",
       },
+      {
+        defaultValue: "0",
+        key: "phase",
+        kind: "phase",
+        label: "Phase",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "0.01",
+        unit: "cycle",
+        wraparound: true
+      },
+      {
+        bipolar: false,
+        defaultValue: "100",
+        key: "freq",
+        kind: "frequency",
+        label: "Freq",
+        max: "20000",
+        mid: "440",
+        min: "0",
+        step: "any",
+        tooltip:
+          "Hz. Parameter MOD is domain-add (base + CV). Set base 0 and wire Pitch Detector / Knob Bias for absolute Hz. Enable Bipolar in param settings for thru-zero FM (negative Hz = reverse phase).",
+        unit: "Hz",
+      },
+      {
+        defaultValue: "1",
+        key: "amp",
+        label: "Amplitude",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any"
+      },
+    ]
+  },
+  sinCos: {
+    planRole: "source",
+    displayType: "trace",
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputLabels: {
+      "0.1V/Oct": "0.1V",
+      Increment: "Inc.",
+      f: "ƒ",
+    },
+    outputs: ["sin", "cos"],
+    outputLabels: {
+      sin: "Sin",
+      cos: "Cos",
+    },
+    parameters: [
       {
         defaultValue: "0",
         key: "phase",
@@ -4545,6 +4583,8 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         hidden: true,
+        choices: ["Off", "On"],
+        displayChoices: true,
         linearSmoothing: true,
         smoothingMode: "internal",
         smoothingSeconds: 0.0333,
@@ -11320,7 +11360,7 @@ function nodeGraphModuleIsGraphType(type) {
 }
 
 function nodeGraphModuleIsRealtimeOscillatorType(type) {
-  return type === "osc" || type === "polyBlep" || type === "sineWavetable" || type === "blit";
+  return type === "osc" || type === "polyBlep" || type === "sineWavetable" || type === "sinCos" || type === "blit";
 }
 
 /**

@@ -279,15 +279,12 @@ function nodeGraphKeypadGridMetrics(innerW, innerH, squareRatio) {
   };
 }
 
-const NODE_GRAPH_KEYPAD_FONTS = Object.freeze([
-  { id: "thasadith", family: "\"Thasadith\", sans-serif", label: "Thasadith" },
-  { id: "poiret-one", family: "\"Poiret One\", sans-serif", label: "Poiret One" },
-  { id: "big-shoulders", family: "\"Big Shoulders\", sans-serif", label: "Big Shoulders" },
-  { id: "tenor-sans", family: "\"Tenor Sans\", sans-serif", label: "Tenor Sans" },
-  { id: "zen-loop", family: "\"Zen Loop\", sans-serif", label: "Zen Loop" },
-]);
+const NODE_GRAPH_KEYPAD_FONTS = NODE_GRAPH_APP_FONTS;
 
 function nodeGraphKeypadNormalizeFont(value) {
+  if (typeof nodeGraphAppNormalizeFont === "function") {
+    return nodeGraphAppNormalizeFont(value, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.font);
+  }
   const id = String(value || "").trim().toLowerCase();
   if (NODE_GRAPH_KEYPAD_FONTS.some((font) => font.id === id)) {
     return id;
@@ -296,6 +293,9 @@ function nodeGraphKeypadNormalizeFont(value) {
 }
 
 function nodeGraphKeypadFontFamily(value) {
+  if (typeof nodeGraphAppFontFamily === "function") {
+    return nodeGraphAppFontFamily(value, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.font);
+  }
   const id = nodeGraphKeypadNormalizeFont(value);
   return NODE_GRAPH_KEYPAD_FONTS.find((font) => font.id === id)?.family
     || "\"Thasadith\", sans-serif";

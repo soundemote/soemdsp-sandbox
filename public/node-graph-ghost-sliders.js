@@ -30,6 +30,39 @@ function nodeGraphGhostSliderScopeSample(nodeId, port) {
  * else a parameter port's current slider (unit-mapped like the engine).
  * Does not request new capture — no extra buffers.
  */
+function nodeGraphGhostSliderControllerOutSample(nodeId, port) {
+  const p = String(port || "").trim();
+  if (p !== "Out" && p !== "Bias") {
+    return null;
+  }
+  const type = typeof nodeGraphPatchNodeType === "function"
+    ? nodeGraphPatchNodeType(nodeId)
+    : "";
+  if (type !== "toggleButton" && type !== "momentaryButton" && type !== "knob") {
+    return null;
+  }
+  if (typeof nodeGraphModuleScopeLatestOutputValue === "function") {
+    const live = Number(nodeGraphModuleScopeLatestOutputValue(nodeId, p, Number.NaN));
+    if (Number.isFinite(live)) {
+      return live;
+    }
+  }
+  const read = (key, fallback) => {
+    const n = typeof nodeGraphReadNodeNumber === "function"
+      ? Number(nodeGraphReadNodeNumber(nodeId, key))
+      : Number.NaN;
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const unit = read("value", 0);
+  const rangeMin = read("rangeMin", 0);
+  const rangeMax = read("rangeMax", 1);
+  if (typeof nodeGraphDspControllerUnitToRange === "function") {
+    return nodeGraphDspControllerUnitToRange(unit, rangeMin, rangeMax);
+  }
+  const t = unit < 0 ? 0 : (unit > 1 ? 1 : unit);
+  return rangeMin + (rangeMax - rangeMin) * t;
+}
+
 function nodeGraphGhostSliderModSample(sourceNode, sourcePort) {
   const port = String(sourcePort || "").trim();
   const scoped = nodeGraphGhostSliderScopeSample(sourceNode, port);
@@ -39,6 +72,10 @@ function nodeGraphGhostSliderModSample(sourceNode, sourcePort) {
   const nodeId = String(sourceNode || "").trim();
   if (!nodeId || !port) {
     return null;
+  }
+  const fromController = nodeGraphGhostSliderControllerOutSample(nodeId, port);
+  if (fromController != null && Number.isFinite(fromController)) {
+    return fromController;
   }
   const sourceType = typeof nodeGraphPatchNodeType === "function"
     ? nodeGraphPatchNodeType(nodeId)

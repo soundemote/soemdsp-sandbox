@@ -83,6 +83,15 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     return node.traceDisplaySettings;
   }
+  if (displayType === "toggleButtonFace" || displayType === "momentaryButtonFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphPluginButtonDisplaySettings === "function"
+      ? normalizeNodeGraphPluginButtonDisplaySettings(settings)
+      : (settings || {});
+    if (typeof applyNodeGraphPluginButtonDisplaySettingsToFace === "function") {
+      applyNodeGraphPluginButtonDisplaySettingsToFace(node);
+    }
+    return node.traceDisplaySettings;
+  }
   if (displayType === "keypadFace") {
     node.layout = typeof normalizeNodeGraphKeypadLayout === "function"
       ? normalizeNodeGraphKeypadLayout(settings)
@@ -523,7 +532,8 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
     || settingsSchema === "scope2d" || settingsSchema === "scope2dTrace"
     || settingsSchema === "numberReadout" || settingsSchema === "knobFace"
     || settingsSchema === "phosphorLight" || settingsSchema === "roundShapeFace"
-    || settingsSchema === "limiterGainFace") {
+    || settingsSchema === "limiterGainFace"
+    || settingsSchema === "toggleButtonFace" || settingsSchema === "momentaryButtonFace") {
     return node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
       ? { ...node.traceDisplaySettings }
       : {};

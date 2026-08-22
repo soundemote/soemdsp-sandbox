@@ -517,6 +517,13 @@ function cloneNodeGraphTypedDisplaySettings(node) {
           ? normalizeNodeGraphRoundShapeFaceSettings(bag)
           : (bag || {}),
       };
+    case "toggleButtonFace":
+    case "momentaryButtonFace":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphPluginButtonDisplaySettings === "function"
+          ? normalizeNodeGraphPluginButtonDisplaySettings(bag)
+          : (bag || {}),
+      };
     case "keypadFace":
       return {
         layout: typeof normalizeNodeGraphKeypadLayout === "function"

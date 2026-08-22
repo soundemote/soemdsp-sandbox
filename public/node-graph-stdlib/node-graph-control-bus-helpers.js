@@ -96,11 +96,20 @@ function nodeGraphDspControllerRange(rangeMin, rangeMax, polarity) {
   };
 }
 
-function nodeGraphDspControllerUnitToRange(unit, rangeMin, rangeMax, polarity) {
-  const range = nodeGraphDspControllerRange(rangeMin, rangeMax, polarity);
+function nodeGraphDspControllerUnitToRange(unit, rangeMin, rangeMax, _polarity) {
+  // Off = rangeMin, On = rangeMax. Do not sort the ends — inverted ranges
+  // (min 1, max 0) are how a mute / pad toggle is authored.
   const u = Number(unit);
   const t = Number.isFinite(u) ? (u < 0 ? 0 : (u > 1 ? 1 : u)) : 0;
-  return range.min + (range.max - range.min) * t;
+  let lo = Number(rangeMin);
+  let hi = Number(rangeMax);
+  if (!Number.isFinite(lo)) {
+    lo = 0;
+  }
+  if (!Number.isFinite(hi)) {
+    hi = 1;
+  }
+  return lo + (hi - lo) * t;
 }
 
 /** Overlay Smooth time/algo onto the hidden mouse-target param (offset/value). */

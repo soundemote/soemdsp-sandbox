@@ -33,13 +33,17 @@ function nodeGraphKeypadDisplaySliderDefaults() {
 }
 
 function buildNodeGraphKeypadDisplaySettingsBodyHtml() {
-  const fonts = typeof NODE_GRAPH_KEYPAD_FONTS !== "undefined" ? NODE_GRAPH_KEYPAD_FONTS : [];
+  const fontOptions = typeof nodeGraphAppFontOptionsHtml === "function"
+    ? nodeGraphAppFontOptionsHtml()
+    : ((typeof NODE_GRAPH_KEYPAD_FONTS !== "undefined" ? NODE_GRAPH_KEYPAD_FONTS : []).map((font) => {
+      const escape = typeof nodeGraphDisplaySettingsEscapeHtml === "function"
+        ? nodeGraphDisplaySettingsEscapeHtml
+        : (value) => String(value ?? "");
+      return `<option value="${escape(font.id)}">${escape(font.label)}</option>`;
+    }).join(""));
   const escape = typeof nodeGraphDisplaySettingsEscapeHtml === "function"
     ? nodeGraphDisplaySettingsEscapeHtml
     : (value) => String(value ?? "");
-  const fontOptions = fonts.map((font) => (
-    `<option value="${escape(font.id)}">${escape(font.label)}</option>`
-  )).join("");
   const colorRow = typeof nodeGraphDisplaySettingsBuildColorRowHtml === "function"
     ? nodeGraphDisplaySettingsBuildColorRowHtml
     : () => "";

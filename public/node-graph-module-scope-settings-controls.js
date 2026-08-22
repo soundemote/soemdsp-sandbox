@@ -174,7 +174,12 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "lineBrightness",
     "dotBrightness",
     "backgroundBrightness",
-  ].includes(key);
+    "textBrightness",
+    "buttonBrightness",
+    "buttonStrokeBrightness",
+    "hoverBrightness",
+    "onBrightness",
+  ].includes(key) || /Brightness$/i.test(String(key || ""));
 }
 
 /** Drag/clamp range for unit-style fields (most are 0…1; shadow offset bipolar). */
@@ -454,6 +459,13 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   },
   zoomSeconds: nodeGraphTraceDisplayClampHistorySeconds,
   backgroundBrightness: nodeGraphTraceDisplayClampUnit,
+  textBrightness: nodeGraphTraceDisplayClampUnit,
+  buttonBrightness: nodeGraphTraceDisplayClampUnit,
+  buttonStrokeBrightness: nodeGraphTraceDisplayClampUnit,
+  hoverBrightness: nodeGraphTraceDisplayClampUnit,
+  onBrightness: nodeGraphTraceDisplayClampUnit,
+  hoverAlpha: nodeGraphTraceDisplayClampUnit,
+  onAlpha: nodeGraphTraceDisplayClampUnit,
   backgroundHue: (value) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return 0;
@@ -574,5 +586,11 @@ function normalizeNodeGraphTraceDisplaySettingValueForKey(key, value) {
   const formType = nodeGraphTraceDisplaySettingsFormType();
   const clamp = nodeGraphTraceDisplayFormTypeValueClampOverrides[formType]?.[key] ||
     nodeGraphTraceDisplaySharedValueClamps[key];
-  return clamp ? clamp(value) : value;
+  if (clamp) {
+    return clamp(value);
+  }
+  if (/Brightness$/i.test(String(key || "")) || /Alpha$/i.test(String(key || ""))) {
+    return nodeGraphTraceDisplayClampUnit(value);
+  }
+  return value;
 }

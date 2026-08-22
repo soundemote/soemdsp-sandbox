@@ -55,6 +55,19 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       );
     }
   }
+  if (type === "toggleButtonFace" || type === "momentaryButtonFace") {
+    if (typeof bindNodeGraphPluginButtonDisplaySettingsBody === "function") {
+      bindNodeGraphPluginButtonDisplaySettingsBody(host);
+    }
+    if (typeof syncNodeGraphPluginButtonDisplaySettingsControls === "function") {
+      syncNodeGraphPluginButtonDisplaySettingsControls(
+        host,
+        typeof nodeGraphPluginButtonDisplaySettingsForNode === "function"
+          ? nodeGraphPluginButtonDisplaySettingsForNode(node)
+          : (node?.traceDisplaySettings || {}),
+      );
+    }
+  }
   if (type === "phosphorWaveform") {
     if (node?.id && typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
       nodeGraphMvp.phosphorWaveformSettingsTargetNode = String(node.id);
@@ -313,6 +326,11 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
         backgroundColor: "#00aaff",
       };
   }
+  if (type === "toggleButtonFace" || type === "momentaryButtonFace") {
+    return typeof normalizeNodeGraphPluginButtonDisplaySettings === "function"
+      ? normalizeNodeGraphPluginButtonDisplaySettings()
+      : { ...(typeof NODE_GRAPH_PLUGIN_BUTTON_DISPLAY_DEFAULTS !== "undefined" ? NODE_GRAPH_PLUGIN_BUTTON_DISPLAY_DEFAULTS : {}) };
+  }
   if (type === "keypadFace") {
     return typeof normalizeNodeGraphKeypadLayout === "function"
       ? normalizeNodeGraphKeypadLayout()
@@ -507,6 +525,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
       ? normalizeNodeGraphRoundShapeFaceSettings(settings)
       : (settings || {});
   }
+  if (type === "toggleButtonFace" || type === "momentaryButtonFace") {
+    return typeof normalizeNodeGraphPluginButtonDisplaySettings === "function"
+      ? normalizeNodeGraphPluginButtonDisplaySettings(settings)
+      : (settings || {});
+  }
   if (type === "keypadFace") {
     return typeof normalizeNodeGraphKeypadLayout === "function"
       ? normalizeNodeGraphKeypadLayout(settings)
@@ -673,6 +696,13 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
       ? nodeGraphRoundShapeFaceSettingsForNode(node)
       : (typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
         ? normalizeNodeGraphRoundShapeFaceSettings(node?.traceDisplaySettings)
+        : (node?.traceDisplaySettings || {}));
+  }
+  if (settingsSchema === "toggleButtonFace" || settingsSchema === "momentaryButtonFace") {
+    return typeof nodeGraphPluginButtonDisplaySettingsForNode === "function"
+      ? nodeGraphPluginButtonDisplaySettingsForNode(node)
+      : (typeof normalizeNodeGraphPluginButtonDisplaySettings === "function"
+        ? normalizeNodeGraphPluginButtonDisplaySettings(node?.traceDisplaySettings)
         : (node?.traceDisplaySettings || {}));
   }
   if (settingsSchema === "keypadFace") {
@@ -897,6 +927,12 @@ function readNodeGraphTraceDisplaySettingsForm() {
       next.backgroundColor = color.value;
     }
     return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
+  }
+  if (formType === "toggleButtonFace" || formType === "momentaryButtonFace") {
+    if (typeof readNodeGraphPluginButtonDisplaySettingsForm === "function") {
+      return readNodeGraphPluginButtonDisplaySettingsForm(root, current);
+    }
+    return normalizeNodeGraphDisplaySettingsForFormType(current, formType);
   }
   if (formType === "keypadFace") {
     const panel = root?.querySelector?.("[data-keypad-display-settings-panel]") || root;
@@ -1216,6 +1252,19 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
     syncNodeGraphTraceDisplayColorWidgets(
       document.getElementById("nodeTraceDisplaySettingsPopover"),
     );
+    return;
+  }
+  if (formType === "toggleButtonFace" || formType === "momentaryButtonFace") {
+    const panel = root?.querySelector?.("[data-plugin-button-display-settings-panel]") || root;
+    if (typeof syncNodeGraphPluginButtonDisplaySettingsControls === "function") {
+      syncNodeGraphPluginButtonDisplaySettingsControls(panel, normalized);
+    }
+    syncNodeGraphTraceDisplayColorWidgets(
+      document.getElementById("nodeTraceDisplaySettingsPopover"),
+    );
+    if (typeof syncNodeGraphHueTitleSteppers === "function") {
+      syncNodeGraphHueTitleSteppers(panel);
+    }
     return;
   }
   if (formType === "keypadFace") {

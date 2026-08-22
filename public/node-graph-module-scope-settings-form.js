@@ -1116,6 +1116,12 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   if (type === "keypadFace" && typeof buildNodeGraphKeypadDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphKeypadDisplaySettingsBodyHtml();
   }
+  if (
+    (type === "toggleButtonFace" || type === "momentaryButtonFace")
+    && typeof buildNodeGraphPluginButtonDisplaySettingsBodyHtml === "function"
+  ) {
+    return buildNodeGraphPluginButtonDisplaySettingsBodyHtml();
+  }
   if (type === "phosphorWaveform" && typeof buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml();
   }

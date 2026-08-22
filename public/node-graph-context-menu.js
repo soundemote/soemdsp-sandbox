@@ -1499,15 +1499,13 @@ function configureNodeSceneContextMenu(mode) {
       selectedLabel.textContent = "";
       selectedLabel.hidden = true;
     }
-    // Selected module title under Command Center (alias when set, else type name).
+    // Catalog type name (never alias) above the alias field.
     selectedModule.querySelector("strong").textContent = multiModuleMode
       ? `${selectedNodeIds.size} modules`
       : targetNode
-        ? (typeof nodeGraphPatchNodeTitle === "function"
-          ? nodeGraphPatchNodeTitle(targetNode)
-          : (typeof nodeGraphModuleChromeTitle === "function"
-            ? nodeGraphModuleChromeTitle(targetNode)
-            : (nodeGraphNodeLabels?.[targetNode.type] || targetNode.type)))
+        ? (typeof nodeGraphDefaultNodeTitle === "function"
+          ? nodeGraphDefaultNodeTitle(targetNode.type, targetNode.id)
+          : (nodeGraphNodeLabels?.[targetNode.type] || targetNode.type))
         : "none";
     aliasControl.hidden = multiModuleMode;
     aliasInput.disabled = !targetNode || multiModuleMode;

@@ -1071,7 +1071,7 @@
     },
     {
       "name": "sine_wavetable",
-      "label": "N-Phase",
+      "label": "SinCos4",
       "targetType": "sineWavetable",
       "kind": "oscillator",
       "source": "native_modules/sine_wavetable/sine_wavetable.cpp",

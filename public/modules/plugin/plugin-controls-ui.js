@@ -3,14 +3,19 @@
 function nodeGraphPluginWriteParamValue(nodeId, key, value, options = {}) {
   const id = String(nodeId || "").trim();
   if (!id || !key) return;
+  const numeric = Number(value);
   const slider = document.getElementById(`node-${id}-${key}`);
   if (slider) {
+    if (Number.isFinite(numeric)) {
+      slider.dataset.domainValue = String(numeric);
+    }
     slider.value = String(value);
     if (typeof applyNodeGraphInputUnboundedValue === "function") {
-      applyNodeGraphInputUnboundedValue(slider, value);
+      applyNodeGraphInputUnboundedValue(slider, Number.isFinite(numeric) ? numeric : value);
     }
     if (typeof syncNodeGraphPatchParameterFromSlider === "function") {
       syncNodeGraphPatchParameterFromSlider(slider, {
+        domainValue: Number.isFinite(numeric) ? numeric : undefined,
         record: Boolean(options.record),
         status: options.status || "plugin control",
       });
@@ -19,6 +24,12 @@ function nodeGraphPluginWriteParamValue(nodeId, key, value, options = {}) {
       if (options.record) {
         slider.dispatchEvent(new Event("change", { bubbles: true }));
       }
+    }
+    if (typeof scheduleNodeGraphLiveParameterSync === "function") {
+      scheduleNodeGraphLiveParameterSync();
+    }
+    if (typeof scheduleNodeGraphGhostSlidersFromLive === "function") {
+      scheduleNodeGraphGhostSlidersFromLive();
     }
     return;
   }
@@ -30,6 +41,9 @@ function nodeGraphPluginWriteParamValue(nodeId, key, value, options = {}) {
   }
   if (options.record && typeof recordNodeGraphHistory === "function") {
     recordNodeGraphHistory();
+  }
+  if (typeof scheduleNodeGraphGhostSlidersFromLive === "function") {
+    scheduleNodeGraphGhostSlidersFromLive();
   }
 }
 
@@ -44,6 +58,27 @@ function nodeGraphPluginReadParamDom(nodeId, key, fallback = 0) {
 }
 
 // —— Toggle ————————————————————————————————————————————————————————————
+
+function nodeGraphPluginButtonBindLook(face, nodeId) {
+  const paint = () => {
+    const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+    if (typeof nodeGraphPluginButtonPaintFace === "function") {
+      nodeGraphPluginButtonPaintFace(
+        face,
+        typeof nodeGraphPluginButtonDisplaySettingsForNode === "function"
+          ? nodeGraphPluginButtonDisplaySettingsForNode(patchNode)
+          : patchNode?.traceDisplaySettings,
+      );
+    }
+  };
+  face._pluginBtnPaintLook = paint;
+  if (typeof ResizeObserver === "function") {
+    const ro = new ResizeObserver(paint);
+    ro.observe(face);
+    face._pluginBtnResize = ro;
+  }
+  requestAnimationFrame(paint);
+}
 
 function createNodeGraphToggleButtonFace(node, type) {
   const face = document.createElement("div");
@@ -73,22 +108,33 @@ function createNodeGraphToggleButtonFace(node, type) {
     const on = shown > 0.5;
     btn.classList.toggle("is-on", on);
     btn.setAttribute("aria-pressed", on ? "true" : "false");
+    const labels = typeof nodeGraphPluginButtonFaceLabels === "function"
+      ? nodeGraphPluginButtonFaceLabels(patchNode || node)
+      : { off: "Off", on: "On" };
     if (wantsMouse) {
-      btn.textContent = target > 0.5 ? "ON" : "OFF";
+      btn.textContent = (target > 0.5 ? labels.on : labels.off) || "";
     } else {
-      const places = 2;
-      btn.textContent = Number.isFinite(shown) ? shown.toFixed(places) : "0.00";
+      btn.textContent = Number.isFinite(shown) ? shown.toFixed(2) : "0.00";
     }
+    face._pluginBtnPaintLook?.();
   };
+  btn.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+  });
   btn.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     const on = nodeGraphPluginReadParamDom(node, "value", 0) > 0.5;
     nodeGraphPluginWriteParamValue(node, "value", on ? 0 : 1, { record: true, status: "toggle" });
     sync();
+    if (typeof scheduleNodeGraphGhostSlidersFromLive === "function") {
+      scheduleNodeGraphGhostSlidersFromLive();
+    }
   });
   face.append(btn);
   face.syncFromParameters = sync;
+  nodeGraphPluginButtonBindLook(face, node);
   requestAnimationFrame(sync);
   return face;
 }
@@ -153,14 +199,19 @@ function createNodeGraphMomentaryButtonFace(node, type) {
       }
     }
     btn.classList.toggle("is-down", (wantsMouse ? target : shown) > 0.5);
+    const labels = typeof nodeGraphPluginButtonFaceLabels === "function"
+      ? nodeGraphPluginButtonFaceLabels(patchNode || node)
+      : { off: "GATE", on: "GATE" };
     if (wantsMouse) {
-      btn.textContent = "GATE";
+      btn.textContent = ((wantsMouse ? target : shown) > 0.5 ? labels.on : labels.off) || "";
     } else {
       btn.textContent = Number.isFinite(shown) ? shown.toFixed(2) : "0.00";
     }
+    face._pluginBtnPaintLook?.();
   };
   face.append(btn);
   face.syncFromParameters = sync;
+  nodeGraphPluginButtonBindLook(face, node);
   requestAnimationFrame(sync);
   return face;
 }

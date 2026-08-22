@@ -836,6 +836,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         this.basicShapeWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
       sineWavetable: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
         this.sineWavetableWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
+      sinCos: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
+        this.sinCosWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
       metallicRatio: (node, nodeId, frame, frames, frameValues) => ({
         Ratio: this.metallicRatioSample(
           this.readEffectiveParameter(node, "index", 1, frame, frames, frameValues),

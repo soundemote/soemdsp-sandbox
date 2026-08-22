@@ -1,7 +1,5 @@
-// Registers the offline/render-time dispatch handler for sineWavetable into
-// nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
-// Extracted from the inline if/else-if branch that used to live in that file.
-nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate }) => {
+// Offline/render dispatch for SinCos4 (sineWavetable) and SinCos (sinCos).
+function nodeGraphSineWavetableAdvancePair({ runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate }) {
   const resetState = runtime.oscResetStates.get(nodeId) || (typeof createNodeGraphOscResetState === "function"
     ? createNodeGraphOscResetState()
     : { lastReset: 0 });
@@ -11,7 +9,7 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
     runtime,
     nodeId,
     resetState,
-    "n-phase reset",
+    "sine wavetable reset",
   );
   const resetEdge = resetState.lastReset <= 0 && resetValue > 0;
   resetState.lastReset = resetValue;
@@ -27,15 +25,6 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
       frameValues,
     ),
   );
-  const mode = readNodeGraphLiveEffectiveParam(
-    runtime,
-    node,
-    "mode",
-    2,
-    frame,
-    frames,
-    frameValues,
-  );
   const baseFrequency = readNodeGraphLiveEffectiveParam(
     runtime,
     node,
@@ -50,14 +39,14 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
     runtime,
     nodeId,
     null,
-    "n-phase freq input",
+    "sine wavetable freq input",
   );
   const incrementInput = nodeGraphSafeFilterNumber(
     mixInput(nodeId, "Increment"),
     runtime,
     nodeId,
     null,
-    "n-phase increment input",
+    "sine wavetable increment input",
   );
   const amplitude = Math.max(
     0,
@@ -79,7 +68,7 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
       runtime,
       nodeId,
       null,
-      "n-phase 0.1v input",
+      "sine wavetable 0.1v input",
     ), -1, 1)
     : referenceVoltage;
   const baseWithFreqJack = baseFrequency + (Number(freqInput) || 0);
@@ -101,7 +90,21 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
     nodeId,
     wrapNodeSliderValue(phase + Math.PI * 2 * phaseIncrement, 0, Math.PI * 2),
   );
-  return typeof nodeGraphNPhaseFromSinCos === "function"
-    ? nodeGraphNPhaseFromSinCos(pair.sin, pair.cos, mode)
-    : { A: pair.sin, B: pair.cos, C: 0, D: 0, sin: pair.sin, cos: pair.cos };
+  return pair;
+}
+
+nodeGraphLiveModuleEvaluators.sineWavetable = (args) => {
+  const pair = nodeGraphSineWavetableAdvancePair(args);
+  const mode = readNodeGraphLiveEffectiveParam(
+    args.runtime,
+    args.node,
+    "mode",
+    2,
+    args.frame,
+    args.frames,
+    args.frameValues,
+  );
+  return nodeGraphSinCos4FromPair(pair.sin, pair.cos, mode);
 };
+
+nodeGraphLiveModuleEvaluators.sinCos = (args) => nodeGraphSineWavetableAdvancePair(args);

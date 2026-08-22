@@ -46,31 +46,31 @@ function nodeGraphSineCosWavetableSample(phaseRadians, frequency, amplitude, sam
   };
 }
 
-/** Expand a sin/cos pair into N-Phase jacks A–D. Unused taps are 0. */
-function nodeGraphNPhaseFromSinCos(sin, cos, mode) {
+/** Expand a sin/cos pair into SinCos4 jacks A–D. Unused taps are 0. */
+function nodeGraphSinCos4FromPair(sin, cos, mode) {
   const s = Number(sin) || 0;
   const c = Number(cos) || 0;
   const m = Math.max(0, Math.min(5, Math.round(Number(mode) || 0)));
   const z = 0;
   if (m === 0) {
-    return { A: s, B: z, C: z, D: z, sin: s, cos: z };
+    return { A: s, B: z, C: z, D: z };
   }
   if (m === 1) {
-    return { A: c, B: z, C: z, D: z, sin: c, cos: z };
+    return { A: c, B: z, C: z, D: z };
   }
   if (m === 2) {
-    return { A: s, B: c, C: z, D: z, sin: s, cos: c };
+    return { A: s, B: c, C: z, D: z };
   }
   if (m === 3) {
-    return { A: s, B: -s, C: z, D: z, sin: s, cos: -s };
+    return { A: s, B: -s, C: z, D: z };
   }
   if (m === 4) {
     const k = Math.sqrt(3) * 0.5;
     const b = s * -0.5 + c * k;
     const d = s * -0.5 - c * k;
-    return { A: s, B: b, C: d, D: z, sin: s, cos: b };
+    return { A: s, B: b, C: d, D: z };
   }
-  return { A: s, B: c, C: -s, D: -c, sin: s, cos: c };
+  return { A: s, B: c, C: -s, D: -c };
 }
 
 function nextNodeGraphNoiseSample(runtime, nodeId) {
