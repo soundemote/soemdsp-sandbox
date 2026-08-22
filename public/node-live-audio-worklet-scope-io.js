@@ -45,6 +45,9 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
     const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
     // Waveform faces stay ~12 kHz. LCD / latest-value ports hop much slower.
     this.scopeSampleStride = Math.max(1, Math.floor(engineRate / 12000));
+    if ((this.scopeCounter % this.scopeSampleStride) !== 0) {
+      return;
+    }
     const rates = this.scopeCaptureRates || Object.create(null);
     const captureNodeIds = Array.isArray(this.scopeCaptureNodeIds)
       ? this.scopeCaptureNodeIds
@@ -83,6 +86,9 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
       const writeHz = Math.max(1, Math.min(engineRate, Number(sink.visualWriteHz) || 12000));
       const visualStride = Math.max(1, Math.floor(engineRate / writeHz));
       const writeBufferedThisSample = (this.scopeCounter % visualStride) === 0;
+      if (!writeBufferedThisSample) {
+        continue;
+      }
       let value = 0;
       let hasConnected = false;
       for (const input of sink.inputs || []) {

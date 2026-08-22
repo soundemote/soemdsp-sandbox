@@ -93,7 +93,8 @@ const nodeGraphPhosphorWaveformDefaultSettings = Object.freeze({
   labelInsetPx: 6,
   // Playlist row fade span. 0 = sharp (only the playing row), 1 = gradual
   // (smoothstep across the whole list, the original look).
-  playlistFade: 1,
+  playlistFade: 0,
+  playlistVisibleCount: 8,
 });
 
 function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
@@ -110,6 +111,7 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
   const edgeSpacing = Number(source.edgeSpacing);
   const labelInsetPx = Number(source.labelInsetPx);
   const playlistFade = Number(source.playlistFade);
+  const playlistVisibleCount = Number(source.playlistVisibleCount);
   return {
     scrollMode: source.scrollMode === "snap" ? "snap" : "smooth",
     // 0 = one sample at a time. Finite values only; NaN keeps the default.
@@ -157,6 +159,9 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
     playlistFade: Number.isFinite(playlistFade)
       ? Math.max(0, Math.min(1, playlistFade))
       : nodeGraphPhosphorWaveformDefaultSettings.playlistFade,
+    playlistVisibleCount: Number.isFinite(playlistVisibleCount)
+      ? Math.max(1, Math.min(10, Math.round(playlistVisibleCount)))
+      : nodeGraphPhosphorWaveformDefaultSettings.playlistVisibleCount,
   };
 }
 
@@ -380,6 +385,7 @@ function renderNodeGraphPhosphorWaveformSettingsWindow() {
   setValueUnlessFocused("nodePhosphorWaveformEdgeSpacingInput", settings.edgeSpacing);
   setValueUnlessFocused("nodePhosphorWaveformLabelInsetInput", settings.labelInsetPx);
   setValueUnlessFocused("nodePhosphorWaveformPlaylistFadeInput", settings.playlistFade);
+  setValueUnlessFocused("nodePhosphorWaveformPlaylistVisibleCountInput", settings.playlistVisibleCount);
   const setPressed = (id, active) => {
     const el = document.getElementById(id);
     if (!el) {
@@ -524,7 +530,8 @@ function updateNodeGraphPhosphorWaveformSettings(patch) {
       drawNodeGraphPhosphorWaveformDisplay(section);
     }
     if (
-      Object.prototype.hasOwnProperty.call(patch, "playlistFade")
+      (Object.prototype.hasOwnProperty.call(patch, "playlistFade")
+        || Object.prototype.hasOwnProperty.call(patch, "playlistVisibleCount"))
       && typeof nodeGraphAudioPlayerPlaylistApplyRowFade === "function"
     ) {
       nodeGraphAudioPlayerPlaylistApplyRowFade(section, nodeId);
@@ -604,6 +611,14 @@ function handleNodeGraphPhosphorWaveformPlaylistFadeChange(event) {
   updateNodeGraphPhosphorWaveformSettings({ playlistFade: Number(event.target.value) });
 }
 
+function handleNodeGraphPhosphorWaveformPlaylistVisibleCountChange(event) {
+  const value = Math.round(Number(event.target.value));
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  updateNodeGraphPhosphorWaveformSettings({ playlistVisibleCount: value });
+}
+
 function buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml() {
   return `
     <div class="node-led-display-settings-panel node-phosphor-waveform-display-settings-panel" data-phosphor-waveform-display-settings-panel>
@@ -624,84 +639,121 @@ function buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml() {
       </label>
       <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-playlist-actions" role="group" aria-label="Playlist">
         <button id="nodePhosphorWaveformLoadPlaylist" type="button">Load</button>
-        <button id="nodePhosphorWaveformShufflePlaylist" type="button">Shuffle</button>
+        <button id="nodePhosphorWaveformShufflePlaylist" type="button" title="Shuffle the unplayed list. Playing keeps its list number.">Shuffle</button>
         <button id="nodePhosphorWaveformClearPlaylist" type="button">Clear</button>
+      </div>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-playlist-actions node-phosphor-waveform-history-reset" role="group" aria-label="Play history">
+        <button id="nodePhosphorWaveformResetHistory" type="button" title="Move played tracks into unplayed. Playing stays on top.">Reset history</button>
       </div>
       <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-phase-row" role="group" aria-label="Current phase">
         <span>Phase</span>
         <div id="nodePhosphorWaveformPhaseSlot" class="node-phosphor-waveform-phase-slot"></div>
       </div>
-      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Time window">
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row" role="group" aria-label="Time window">
         <span>Time Window</span>
-        <input id="nodePhosphorWaveformTimeWindowInput" data-phosphor-number-drag="timeWindowSeconds" type="number" inputmode="decimal" step="0.05" min="0" max="60" autocomplete="off" readonly title="Drag to adjust · double-click to type · 0 = single sample">
-        <span>s</span>
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformTimeWindowInput" data-phosphor-number-drag="timeWindowSeconds" type="number" inputmode="decimal" step="0.05" min="0" max="60" autocomplete="off" readonly title="Drag to adjust · double-click to type · 0 = single sample">
+          <span>s</span>
+        </span>
       </div>
-      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Scroll mode">
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row" role="group" aria-label="Scroll mode">
         <span>Scroll</span>
-        <button id="nodePhosphorWaveformScrollSmoothButton" type="button" data-scroll-mode="smooth" aria-pressed="true">Smooth</button>
-        <button id="nodePhosphorWaveformScrollSnapButton" type="button" data-scroll-mode="snap" aria-pressed="false">Snap</button>
+        <span class="node-phosphor-waveform-control-widgets">
+          <button id="nodePhosphorWaveformScrollSmoothButton" type="button" data-scroll-mode="smooth" aria-pressed="true">Smooth</button>
+          <button id="nodePhosphorWaveformScrollSnapButton" type="button" data-scroll-mode="snap" aria-pressed="false">Snap</button>
+        </span>
       </div>
-      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Scroll line position">
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row" role="group" aria-label="Scroll line position">
         <span>Position</span>
-        <button id="nodePhosphorWaveformPositionLeftButton" type="button" data-scroll-position="left" aria-pressed="false">Left</button>
-        <button id="nodePhosphorWaveformPositionMidButton" type="button" data-scroll-position="mid" aria-pressed="true">Mid</button>
-        <button id="nodePhosphorWaveformPositionRightButton" type="button" data-scroll-position="right" aria-pressed="false">Right</button>
+        <span class="node-phosphor-waveform-control-widgets">
+          <button id="nodePhosphorWaveformPositionLeftButton" type="button" data-scroll-position="left" aria-pressed="false">Left</button>
+          <button id="nodePhosphorWaveformPositionMidButton" type="button" data-scroll-position="mid" aria-pressed="true">Mid</button>
+          <button id="nodePhosphorWaveformPositionRightButton" type="button" data-scroll-position="right" aria-pressed="false">Right</button>
+        </span>
       </div>
-      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Scroll line thickness">
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row" role="group" aria-label="Scroll line thickness">
         <span>Scroll Line</span>
-        <input id="nodePhosphorWaveformLineWidthInput" data-phosphor-number-drag="scrollLineWidth" type="number" inputmode="decimal" step="0.5" min="0" max="8" autocomplete="off" readonly title="Drag to adjust · double-click to type (0 = hidden)">
-        <span>px</span>
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformLineWidthInput" data-phosphor-number-drag="scrollLineWidth" type="number" inputmode="decimal" step="0.5" min="0" max="8" autocomplete="off" readonly title="Drag to adjust · double-click to type (0 = hidden)">
+          <span>px</span>
+        </span>
       </div>
-      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Trace thickness">
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row" role="group" aria-label="Trace thickness">
         <span>Trace</span>
-        <input id="nodePhosphorWaveformTraceWidthInput" data-phosphor-number-drag="traceWidth" type="number" inputmode="decimal" step="0.5" min="0.5" max="5" autocomplete="off" readonly title="Drag to adjust · double-click to type (0.5–5 CSS px)">
-        <span>px</span>
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformTraceWidthInput" data-phosphor-number-drag="traceWidth" type="number" inputmode="decimal" step="0.5" min="0.5" max="5" autocomplete="off" readonly title="Drag to adjust · double-click to type (0.5–5 CSS px)">
+          <span>px</span>
+        </span>
       </div>
-      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
         <span>Hue</span>
-        <input id="nodePhosphorWaveformHueInput" type="range" min="0" max="360" step="1">
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformHueInput" type="range" min="0" max="360" step="1">
+        </span>
       </label>
-      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
         <span>Line Brightness</span>
-        <input id="nodePhosphorWaveformLineBrightnessInput" type="range" min="0" max="1" step="0.01">
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformLineBrightnessInput" type="range" min="0" max="1" step="0.01">
+        </span>
       </label>
-      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
         <span>Grid Brightness</span>
-        <input id="nodePhosphorWaveformGridBrightnessInput" type="range" min="0" max="1" step="0.01" title="Sample grid lines when zoomed in (0 = hidden)">
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformGridBrightnessInput" type="range" min="0" max="1" step="0.01" title="Sample grid lines when zoomed in (0 = hidden)">
+        </span>
       </label>
-      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
         <span>BG Hue</span>
-        <input id="nodePhosphorWaveformBackgroundHueInput" type="range" min="0" max="360" step="1">
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformBackgroundHueInput" type="range" min="0" max="360" step="1">
+        </span>
       </label>
-      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
         <span>BG Brightness</span>
-        <input id="nodePhosphorWaveformBackgroundBrightnessInput" type="range" min="0" max="1" step="0.01">
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformBackgroundBrightnessInput" type="range" min="0" max="1" step="0.01">
+        </span>
       </label>
-      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Corner shape">
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row" role="group" aria-label="Corner shape">
         <span>Corners</span>
-        <button id="nodePhosphorWaveformCornerSquareButton" type="button" data-corner-shape="square" aria-pressed="false">Pill</button>
-        <button id="nodePhosphorWaveformCornerSquircleButton" type="button" data-corner-shape="squircle" aria-pressed="true">Squircle</button>
+        <span class="node-phosphor-waveform-control-widgets">
+          <button id="nodePhosphorWaveformCornerSquareButton" type="button" data-corner-shape="square" aria-pressed="false">Pill</button>
+          <button id="nodePhosphorWaveformCornerSquircleButton" type="button" data-corner-shape="squircle" aria-pressed="true">Squircle</button>
+        </span>
       </div>
-      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
         <span>Rounding</span>
-        <input id="nodePhosphorWaveformCornerRadiusInput" type="range" min="0" max="100" step="1">
-        <span>%</span>
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformCornerRadiusInput" type="range" min="0" max="100" step="1">
+          <span>%</span>
+        </span>
       </label>
-      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
         <span>Edge Spacing</span>
-        <input id="nodePhosphorWaveformEdgeSpacingInput" type="range" min="0" max="1" step="0.01">
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformEdgeSpacingInput" type="range" min="0" max="1" step="0.01">
+        </span>
       </label>
-      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
         <span>Label inset</span>
-        <input id="nodePhosphorWaveformLabelInsetInput" type="range" min="0" max="48" step="1" title="How many pixels the zoom/speed labels sit away from the corner">
-        <span>px</span>
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformLabelInsetInput" type="range" min="0" max="48" step="1" title="How many pixels the zoom/speed labels sit away from the corner">
+          <span>px</span>
+        </span>
       </label>
-      <label class="node-led-settings-row node-phosphor-waveform-settings-row" title="How far playlist rows fade away from the playing track">
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row" title="0 = no fade. Full = only the playing row stays visible.">
         <span>Playlist fade</span>
-        <span>sharp</span>
-        <input id="nodePhosphorWaveformPlaylistFadeInput" type="range" min="0" max="1" step="0.01" aria-label="Playlist fade from sharp to gradual">
-        <span>gradual</span>
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformPlaylistFadeInput" type="range" min="0" max="1" step="0.01" aria-label="Playlist fade. 0 is no fade. Full shows only the playing track.">
+        </span>
       </label>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row" role="group" aria-label="Playlist items shown">
+        <span>Items shown</span>
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodePhosphorWaveformPlaylistVisibleCountInput" data-phosphor-number-drag="playlistVisibleCount" type="number" inputmode="numeric" step="1" min="1" max="10" autocomplete="off" readonly title="Drag to adjust · double-click to type · 1 = fill the face, 2–10 = that many rows">
+        </span>
+      </div>
     </div>`;
 }
 
@@ -741,6 +793,8 @@ function bindNodeGraphPhosphorWaveformDisplaySettingsBody(host) {
         handleNodeGraphPhosphorWaveformLabelInsetChange(event);
       } else if (id === "nodePhosphorWaveformPlaylistFadeInput") {
         handleNodeGraphPhosphorWaveformPlaylistFadeChange(event);
+      } else if (id === "nodePhosphorWaveformPlaylistVisibleCountInput") {
+        handleNodeGraphPhosphorWaveformPlaylistVisibleCountChange(event);
       } else if (id === "nodePhosphorWaveformTraceWidthInput") {
         handleNodeGraphPhosphorWaveformTraceWidthChange(event);
       }
@@ -764,6 +818,8 @@ function bindNodeGraphPhosphorWaveformDisplaySettingsBody(host) {
         handleNodeGraphPhosphorWaveformTraceWidthChange(event);
       } else if (id === "nodePhosphorWaveformPlaylistFadeInput") {
         handleNodeGraphPhosphorWaveformPlaylistFadeChange(event);
+      } else if (id === "nodePhosphorWaveformPlaylistVisibleCountInput") {
+        handleNodeGraphPhosphorWaveformPlaylistVisibleCountChange(event);
       }
     });
     host.addEventListener("click", (event) => {
@@ -807,6 +863,11 @@ function bindNodeGraphPhosphorWaveformDisplaySettingsBody(host) {
         event.preventDefault();
         if (typeof nodeGraphAudioPlayerPlaylistClear === "function") {
           nodeGraphAudioPlayerPlaylistClear(nodeGraphPhosphorWaveformSettingsTargetNodeId());
+        }
+      } else if (button.id === "nodePhosphorWaveformResetHistory") {
+        event.preventDefault();
+        if (typeof nodeGraphAudioPlayerPlaylistResetHistory === "function") {
+          nodeGraphAudioPlayerPlaylistResetHistory(nodeGraphPhosphorWaveformSettingsTargetNodeId());
         }
       } else if (button.id === "nodePhosphorWaveformCornerSquareButton") {
         event.preventDefault();
@@ -928,6 +989,7 @@ const nodeGraphPhosphorWaveformSettingInputs = Object.freeze([
   ["nodePhosphorWaveformEdgeSpacingInput", "edgeSpacing"],
   ["nodePhosphorWaveformLabelInsetInput", "labelInsetPx"],
   ["nodePhosphorWaveformPlaylistFadeInput", "playlistFade"],
+  ["nodePhosphorWaveformPlaylistVisibleCountInput", "playlistVisibleCount"],
 ]);
 
 function bindNodeGraphPhosphorWaveformSettingModifiers() {
@@ -971,6 +1033,16 @@ const nodeGraphPhosphorWaveformNumberDragSpecs = Object.freeze({
     commit: () => typeof handleNodeGraphPhosphorWaveformTraceWidthChange === "function"
       && handleNodeGraphPhosphorWaveformTraceWidthChange({
         target: document.getElementById("nodePhosphorWaveformTraceWidthInput"),
+      }),
+  },
+  playlistVisibleCount: {
+    step: 1,
+    min: 1,
+    max: 10,
+    pixelsPerStep: 12,
+    commit: () => typeof handleNodeGraphPhosphorWaveformPlaylistVisibleCountChange === "function"
+      && handleNodeGraphPhosphorWaveformPlaylistVisibleCountChange({
+        target: document.getElementById("nodePhosphorWaveformPlaylistVisibleCountInput"),
       }),
   },
 });
@@ -1652,21 +1724,60 @@ function nodeGraphPhosphorWaveformSectionOnScreen(section) {
     rect.top < workspaceRect.bottom;
 }
 
+function nodeGraphPhosphorWaveformShouldKeepLoop(section) {
+  if (!section?.isConnected) {
+    return false;
+  }
+  const face = section.dataset.musicPlayerFace || "wave";
+  if (face === "pl" || face === "playinfo") {
+    return false;
+  }
+  const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live : null;
+  if (!live?.outputEnabled || !live?.node) {
+    return false;
+  }
+  const speed = Number(live.speedMultiplier);
+  if (Number.isFinite(speed) && speed <= 0) {
+    return false;
+  }
+  const nodeId = section.dataset.node;
+  if (typeof nodeGraphAudioPlayerPlaylistIsAudible === "function"
+    && !nodeGraphAudioPlayerPlaylistIsAudible(nodeId)) {
+    return false;
+  }
+  return true;
+}
+
 function scheduleNodeGraphPhosphorWaveformFrame(section) {
   if (!section.isConnected) {
+    section.dataset.phosphorRaf = "";
     return;
   }
-  // Order matters: skip the FPS-gate clock entirely while off-screen so it
-  // doesn't advance -- when the section scrolls back into view its frame
-  // clock's stalled-too-long resync path (nodeGraphModuleScopeAdvanceFixedFrameClock)
-  // fires a single fresh frame instead of a multi-step catch-up burst.
+  const keep = nodeGraphPhosphorWaveformShouldKeepLoop(section);
+  const face = section.dataset.musicPlayerFace || "wave";
+  const skipFace = face === "pl" || face === "playinfo";
   if (
-    !(typeof nodeGraphDisplaysFrozen === "function" && nodeGraphDisplaysFrozen())
+    keep
+    && !skipFace
+    && !(typeof nodeGraphDisplaysFrozen === "function" && nodeGraphDisplaysFrozen())
     && nodeGraphPhosphorWaveformSectionOnScreen(section)
     && nodeGraphPhosphorWaveformFrameReady(section.dataset.node)
   ) {
     drawNodeGraphPhosphorWaveformDisplay(section);
   }
+  if (!keep) {
+    section.dataset.phosphorRaf = "";
+    return;
+  }
+  section.dataset.phosphorRaf = "1";
+  window.requestAnimationFrame(() => scheduleNodeGraphPhosphorWaveformFrame(section));
+}
+
+function nodeGraphPhosphorWaveformEnsureLoop(section) {
+  if (!section || section.dataset.phosphorRaf === "1") {
+    return;
+  }
+  section.dataset.phosphorRaf = "1";
   window.requestAnimationFrame(() => scheduleNodeGraphPhosphorWaveformFrame(section));
 }
 
@@ -1694,7 +1805,7 @@ function createNodeGraphPhosphorWaveformDisplay(nodeId, type) {
     }
   }
   nodeGraphPhosphorWaveformEnsureZoomControl(section);
-  window.requestAnimationFrame(() => scheduleNodeGraphPhosphorWaveformFrame(section));
+  nodeGraphPhosphorWaveformEnsureLoop(section);
   return section;
 }
 
@@ -1924,7 +2035,6 @@ function nodeGraphMusicPlayerFaceMetrics(section, canvas, face = "") {
     ? section.querySelector("[data-music-player-wave-host]")
     : null;
   const box = (waveHost && page && !page.hidden) ? waveHost : page;
-  const dock = section.querySelector(".node-music-player-dock");
   // Never measure the canvas. height:100% / flex:1 children report 0×0 on the
   // first paint; a 1×1 backing store CSS-stretched is the solid green/red plate.
   let cssWidth = 0;
@@ -1935,13 +2045,13 @@ function nodeGraphMusicPlayerFaceMetrics(section, canvas, face = "") {
   }
   if (!(cssWidth > 2) || !(cssHeight > 2)) {
     cssWidth = section.clientWidth || section.offsetWidth || 0;
-    cssHeight = (section.clientHeight || section.offsetHeight || 0) - (dock?.offsetHeight || 0);
+    cssHeight = section.clientHeight || section.offsetHeight || 0;
   }
   if (!(cssWidth > 2) || !(cssHeight > 2)) {
     const rect = section.getBoundingClientRect();
     const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
     cssWidth = rect.width / zoom;
-    cssHeight = rect.height / zoom - (dock?.offsetHeight || 0);
+    cssHeight = rect.height / zoom;
   }
   cssWidth = Math.max(8, Math.round(cssWidth));
   cssHeight = Math.max(8, Math.round(cssHeight));
@@ -1978,13 +2088,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const musicFace = section.dataset.musicPlayerFace || "wave";
   // Playlist-only face: compact row waveforms. Main phosphor canvas stays
   // on the hidden wave page — do not paint a second copy here.
-  if (musicFace === "pl") {
-    if (typeof nodeGraphAudioPlayerPlaylistPaintWaves === "function") {
-      nodeGraphAudioPlayerPlaylistPaintWaves(nodeId, { liveOnly: true });
-    }
-    if (typeof nodeGraphAudioPlayerPlaylistSyncScrubber === "function") {
-      nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
-    }
+  if (musicFace === "pl" || musicFace === "playinfo") {
     return;
   }
   if (musicFace === "vsxy" || musicFace === "vslr") {

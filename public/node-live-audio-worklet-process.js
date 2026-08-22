@@ -20,9 +20,11 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       : 1;
     const engineFrames = frames;
     // Speed 0 = pause: fill silence and return immediately.
-    if (this.speedMultiplier === 0) {
+    if (!(Number(this.speedMultiplier) > 0)) {
       for (const channel of output) {
-        channel.fill(0);
+        if (channel) {
+          channel.fill(0);
+        }
       }
       return true;
     }

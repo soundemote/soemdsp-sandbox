@@ -123,6 +123,9 @@ function nodeGraphAudioPlayerLibraryCatalogs() {
 }
 
 function nodeGraphAudioPlayerLibraryFiles() {
+  if (typeof nodeGraphSampleFileStore === "function") {
+    return nodeGraphSampleFileStore();
+  }
   if (!globalThis.nodeGraphAudioPlayerLibraryFileMap) {
     globalThis.nodeGraphAudioPlayerLibraryFileMap = new Map();
   }
@@ -278,22 +281,32 @@ function nodeGraphAudioPlayerLibraryBindCards(nodeId, files, extras = {}) {
     pl.folderDive = Boolean(extras.folderDive);
   }
   pl.used = [];
-  const cards = nodeGraphAudioPlayerLibrarySetCatalog(nodeId, files);
-  node.playlist = pl;
-  // One disk/handle walk built `cards`. Keep that as the in-memory catalog.
-  // Visible playlist is the 100-track window — never dump the whole tree into DOM/JSON.
-  const windowed = nodeGraphAudioPlayerLibraryFillWindow(nodeId, {
-    persist: extras.persist !== false,
-    refresh: extras.refresh !== false,
+  const cards = nodeGraphAudioPlayerLibrarySetCatalog(nodeId, files).map((card, index) => {
+    card.listNumber = index + 1;
+    return card;
   });
-  const shown = windowed?.items?.length || 0;
+  pl.played = [];
+  pl.playing = cards[0] || null;
+  pl.unplayed = cards.slice(1);
+  if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
+    nodeGraphAudioPlayerPlaylistRebuildItems(pl);
+  } else {
+    pl.items = cards;
+    pl.index = 0;
+    pl.selectedIndex = 0;
+  }
+  node.playlist = pl;
+  if (extras.refresh !== false && typeof nodeGraphAudioPlayerPlaylistRefreshUi === "function") {
+    nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
+  }
+  if (extras.persist !== false && typeof nodeGraphAudioPlayerPlaylistPersist === "function") {
+    nodeGraphAudioPlayerPlaylistPersist(nodeId);
+  }
   nodeGraphAudioPlayerLibraryReport(
     nodeId,
-    cards.length > shown
-      ? `${shown} of ${cards.length} in playlist (folder scanned once)`
-      : `${shown} track${shown === 1 ? "" : "s"} listed`,
+    `${cards.length} track${cards.length === 1 ? "" : "s"} listed (slots only on screen)`,
   );
-  return windowed || pl;
+  return pl;
 }
 
 async function nodeGraphAudioPlayerLibraryBindFolder(nodeId, folderPath, { dive = null, persist = true } = {}) {
@@ -524,18 +537,16 @@ function nodeGraphAudioPlayerLibraryShufflePlaylist(nodeId) {
   if (!node || node.type !== "audioPlayer") {
     return null;
   }
-  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-  const items = Array.isArray(pl.items) ? pl.items.slice() : [];
-  for (let i = items.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const swap = items[i];
-    items[i] = items[j];
-    items[j] = swap;
+  const pl = typeof nodeGraphAudioPlayerPlaylistEnsureQueues === "function"
+    ? nodeGraphAudioPlayerPlaylistEnsureQueues(nodeGraphAudioPlayerPlaylistForNode(nodeId))
+    : nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  const shuffleFn = typeof nodeGraphAudioPlayerPlaylistShuffleArray === "function"
+    ? nodeGraphAudioPlayerPlaylistShuffleArray
+    : (list) => list;
+  pl.unplayed = shuffleFn(pl.unplayed || []);
+  if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
+    nodeGraphAudioPlayerPlaylistRebuildItems(pl);
   }
-  pl.items = items;
-  pl.shuffle = true;
-  pl.index = 0;
-  pl.selectedIndex = 0;
   node.playlist = pl;
   if (typeof nodeGraphAudioPlayerPlaylistRefreshUi === "function") {
     nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
@@ -544,7 +555,7 @@ function nodeGraphAudioPlayerLibraryShufflePlaylist(nodeId) {
     nodeGraphAudioPlayerPlaylistPersist(nodeId);
   }
   if (typeof setNodeGraphSampleStatus === "function") {
-    setNodeGraphSampleStatus(nodeId, `shuffled ${items.length}`);
+    setNodeGraphSampleStatus(nodeId, `shuffled ${pl.unplayed.length} unplayed (playing stays #${pl.playing?.listNumber || pl.index + 1})`);
   }
   return pl;
 }
@@ -557,6 +568,74 @@ function nodeGraphAudioPlayerLibraryItemLoaded(item) {
   return Boolean(nodeGraphMvp?.sampleBuffers?.get?.(sampleId));
 }
 
+function nodeGraphAudioPlayerLibraryFindFileForItem(item) {
+  if (!item) {
+    return null;
+  }
+  const store = nodeGraphAudioPlayerLibraryFiles();
+  const key = String(item.fileKey || "").trim();
+  if (key) {
+    const held = store.get(key);
+    if (held) {
+      return held;
+    }
+  }
+  const base = String(item.name || item.path || "").replace(/\\/g, "/").split("/").pop();
+  if (!base) {
+    return null;
+  }
+  for (const file of store.values()) {
+    if (file && String(file.name || "") === base) {
+      return file;
+    }
+  }
+  const lists = typeof nodeGraphAudioPlayerLibraryFolderFileLists === "function"
+    ? nodeGraphAudioPlayerLibraryFolderFileLists()
+    : null;
+  if (lists) {
+    for (const list of lists.values()) {
+      const found = (list || []).find((file) => String(file?.name || "") === base);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return null;
+}
+
+async function nodeGraphAudioPlayerLibraryFileFromFolderHandle(nodeId, item) {
+  const handles = typeof nodeGraphAudioPlayerLibraryFolderHandles === "function"
+    ? nodeGraphAudioPlayerLibraryFolderHandles()
+    : null;
+  const handle = handles?.get?.(String(nodeId)) || handles?.get?.("*last*") || null;
+  if (!handle) {
+    return null;
+  }
+  const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
+    ? nodeGraphAudioPlayerPlaylistForNode(nodeId)
+    : null;
+  const recursive = Boolean(pl?.folderDive);
+  const wantPath = String(item?.path || "").replace(/\\/g, "/");
+  const wantName = String(item?.name || wantPath).replace(/\\/g, "/").split("/").pop();
+  const walked = await nodeGraphAudioPlayerLibraryWalkDirectoryHandle(handle, "", recursive, []);
+  const store = nodeGraphAudioPlayerLibraryFiles();
+  for (const entry of walked) {
+    const rel = String(entry.rel || entry.name || "").replace(/\\/g, "/");
+    const name = String(entry.name || "").split("/").pop();
+    if ((wantPath && rel === wantPath) || (wantName && name === wantName)) {
+      const fileKey = nodeGraphAudioPlayerLibraryFileKey(entry.file);
+      if (fileKey) {
+        store.set(fileKey, entry.file);
+        if (item) {
+          item.fileKey = fileKey;
+        }
+      }
+      return entry.file;
+    }
+  }
+  return null;
+}
+
 async function nodeGraphAudioPlayerLibraryEnsureItemLoaded(nodeId, item) {
   if (!item) {
     return null;
@@ -564,7 +643,10 @@ async function nodeGraphAudioPlayerLibraryEnsureItemLoaded(nodeId, item) {
   if (nodeGraphAudioPlayerLibraryItemLoaded(item)) {
     return item.sampleId;
   }
-  const file = item.fileKey ? nodeGraphAudioPlayerLibraryFiles().get(item.fileKey) : null;
+  let file = nodeGraphAudioPlayerLibraryFindFileForItem(item);
+  if (!file) {
+    file = await nodeGraphAudioPlayerLibraryFileFromFolderHandle(nodeId, item);
+  }
   if (file && typeof loadNodeGraphSampleForNode === "function") {
     const sample = await loadNodeGraphSampleForNode(nodeId, file, {
       commit: false,
@@ -576,7 +658,9 @@ async function nodeGraphAudioPlayerLibraryEnsureItemLoaded(nodeId, item) {
     return sample?.id || "";
   }
   const path = String(item.path || "").trim();
-  if (path && typeof loadNodeGraphSamplePathForNode === "function") {
+  if (path && typeof nodeGraphAudioPlayerLibraryLooksLikeOsPath === "function"
+    && nodeGraphAudioPlayerLibraryLooksLikeOsPath(path)
+    && typeof loadNodeGraphSamplePathForNode === "function") {
     await loadNodeGraphSamplePathForNode(nodeId, path, {
       commit: false,
       livePlan: false,
@@ -588,7 +672,7 @@ async function nodeGraphAudioPlayerLibraryEnsureItemLoaded(nodeId, item) {
     const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
     return node?.sample?.id || "";
   }
-  return item.sampleId || "";
+  throw new Error(`no local file for ${item.name || item.path || "track"} — Load the folder again`);
 }
 
 async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = true } = {}) {
@@ -596,20 +680,24 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
   if (!node || node.type !== "audioPlayer") {
     return;
   }
-  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  const pl = typeof nodeGraphAudioPlayerPlaylistEnsureQueues === "function"
+    ? nodeGraphAudioPlayerPlaylistEnsureQueues(nodeGraphAudioPlayerPlaylistForNode(nodeId))
+    : nodeGraphAudioPlayerPlaylistForNode(nodeId);
   if (!pl.items.length) {
     return;
   }
   const nextIndex = Math.max(0, Math.min(pl.items.length - 1, Math.round(Number(index) || 0)));
-  const item = pl.items[nextIndex];
+  let item = pl.items[nextIndex];
   if (!item) {
     return;
+  }
+  if (typeof nodeGraphAudioPlayerPlaylistAdoptPlaying === "function") {
+    nodeGraphAudioPlayerPlaylistAdoptPlaying(pl, item, { retireCurrent: true });
+    item = pl.playing || item;
   }
   const tokens = nodeGraphAudioPlayerLibraryPlayTokens();
   const token = (Number(tokens.get(nodeId)) || 0) + 1;
   tokens.set(nodeId, token);
-  pl.index = nextIndex;
-  pl.selectedIndex = nextIndex;
   node.playlist = pl;
   if (!nodeGraphAudioPlayerLibraryItemLoaded(item)) {
     if (typeof setNodeGraphSampleStatus === "function") {
@@ -634,6 +722,12 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
   }
   const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : node;
   if (!live || tokens.get(nodeId) !== token) {
+    return;
+  }
+  if (!nodeGraphAudioPlayerLibraryItemLoaded(item) && !nodeGraphMvp?.sampleBuffers?.get?.(item.sampleId)) {
+    if (typeof setNodeGraphSampleStatus === "function") {
+      setNodeGraphSampleStatus(nodeId, `could not decode ${item.name || "track"}`);
+    }
     return;
   }
   nodeGraphAudioPlayerLibraryReleaseOrphans(nodeId, item.sampleId || live.sample?.id);
@@ -676,8 +770,9 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
       record: false,
       status: `playing ${item.name}`,
     });
-  } else if (typeof scheduleNodeGraphLivePlanSync === "function") {
-    scheduleNodeGraphLivePlanSync();
+  }
+  if (typeof scheduleNodeGraphLivePlanSync === "function") {
+    scheduleNodeGraphLivePlanSync("plan");
   }
   if (typeof syncNodeGraphSampleDisplayForNode === "function") {
     syncNodeGraphSampleDisplayForNode(nodeId);
@@ -694,25 +789,33 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
 }
 
 function nodeGraphAudioPlayerLibraryPlayNext(nodeId) {
-  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-  if (!pl.items.length) {
-    return;
-  }
-  const from = typeof nodeGraphAudioPlayerPlaylistPlayingFrom === "function"
-    ? nodeGraphAudioPlayerPlaylistPlayingFrom(nodeId, pl)
-    : pl.index;
+  const pl = typeof nodeGraphAudioPlayerPlaylistEnsureQueues === "function"
+    ? nodeGraphAudioPlayerPlaylistEnsureQueues(nodeGraphAudioPlayerPlaylistForNode(nodeId))
+    : nodeGraphAudioPlayerPlaylistForNode(nodeId);
   const transport = typeof nodeGraphAudioPlayerTransportBase === "function"
     ? nodeGraphAudioPlayerTransportBase(nodeId)
     : 4;
   const wrap = pl.loopMode === "all" || transport === 5;
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   if (pl.removeAfterPlay) {
-    const i = Math.max(0, Math.min(pl.items.length - 1, from));
-    pl.items.splice(i, 1);
-    const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-    if (node) {
-      node.playlist = pl;
-    }
-    if (!pl.items.length) {
+    pl.playing = null;
+  } else if (pl.playing) {
+    pl.played = [...(pl.played || []), pl.playing];
+    pl.playing = null;
+  }
+  if (!(pl.unplayed || []).length) {
+    if (wrap && (pl.played || []).length) {
+      pl.unplayed = pl.shuffle && typeof nodeGraphAudioPlayerPlaylistShuffleArray === "function"
+        ? nodeGraphAudioPlayerPlaylistShuffleArray(pl.played)
+        : pl.played.slice();
+      pl.played = [];
+    } else {
+      if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
+        nodeGraphAudioPlayerPlaylistRebuildItems(pl);
+      }
+      if (node) {
+        node.playlist = pl;
+      }
       if (typeof nodeGraphAudioPlayerWriteTransport === "function") {
         nodeGraphAudioPlayerWriteTransport(nodeId, 1);
       }
@@ -724,31 +827,23 @@ function nodeGraphAudioPlayerLibraryPlayNext(nodeId) {
       }
       return;
     }
-    nodeGraphAudioPlayerLibraryPlayIndex(nodeId, Math.min(i, pl.items.length - 1), { autoplay: true });
-    return;
   }
-  if (from + 1 < pl.items.length) {
-    nodeGraphAudioPlayerLibraryPlayIndex(nodeId, from + 1, { autoplay: true });
-    return;
+  let next = null;
+  if (pl.shuffle && pl.unplayed.length) {
+    const pick = Math.floor(Math.random() * pl.unplayed.length);
+    next = pl.unplayed.splice(pick, 1)[0];
+  } else {
+    next = pl.unplayed.shift();
   }
-  let catalog = nodeGraphAudioPlayerLibraryCatalog(nodeId);
-  if (!catalog.length && pl.items.length && typeof nodeGraphAudioPlayerLibrarySetCatalog === "function") {
-    catalog = nodeGraphAudioPlayerLibrarySetCatalog(nodeId, pl.items);
+  pl.playing = next || null;
+  if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
+    nodeGraphAudioPlayerPlaylistRebuildItems(pl);
   }
-  // Folder dive is Load/toggle only. Never re-walk the tree to fetch the next window.
-  const unused = catalog.filter((file) => !(pl.used || []).includes(file.path));
-  if (catalog.length && (unused.length || wrap)) {
-    if (!unused.length && wrap) {
-      pl.used = [];
-    }
-    const next = nodeGraphAudioPlayerLibraryFillWindow(nodeId, { persist: false, refresh: true });
-    if (next?.items?.length) {
-      nodeGraphAudioPlayerLibraryPlayIndex(nodeId, 0, { autoplay: true });
-      return;
-    }
+  if (node) {
+    node.playlist = pl;
   }
-  if (wrap) {
-    nodeGraphAudioPlayerLibraryPlayIndex(nodeId, 0, { autoplay: true });
+  if (next) {
+    nodeGraphAudioPlayerLibraryPlayIndex(nodeId, pl.index, { autoplay: true });
     return;
   }
   if (typeof nodeGraphAudioPlayerWriteTransport === "function") {
@@ -757,24 +852,38 @@ function nodeGraphAudioPlayerLibraryPlayNext(nodeId) {
 }
 
 function nodeGraphAudioPlayerLibraryPlayPrev(nodeId) {
-  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-  if (!pl.items.length) {
-    return;
-  }
-  // Always the previous item — never “restart this track if we’re past 0:00”.
-  const from = typeof nodeGraphAudioPlayerPlaylistPlayingFrom === "function"
-    ? nodeGraphAudioPlayerPlaylistPlayingFrom(nodeId, pl)
-    : pl.index;
+  const pl = typeof nodeGraphAudioPlayerPlaylistEnsureQueues === "function"
+    ? nodeGraphAudioPlayerPlaylistEnsureQueues(nodeGraphAudioPlayerPlaylistForNode(nodeId))
+    : nodeGraphAudioPlayerPlaylistForNode(nodeId);
   const transport = typeof nodeGraphAudioPlayerTransportBase === "function"
     ? nodeGraphAudioPlayerTransportBase(nodeId)
     : 4;
   const wrap = pl.loopMode === "all" || transport === 5;
-  if (from > 0) {
-    nodeGraphAudioPlayerLibraryPlayIndex(nodeId, from - 1, { autoplay: true });
-    return;
+  if (!(pl.played || []).length) {
+    if (wrap && (pl.unplayed || []).length) {
+      const last = pl.unplayed.pop();
+      if (pl.playing) {
+        pl.unplayed.unshift(pl.playing);
+      }
+      pl.playing = last;
+    } else {
+      return;
+    }
+  } else {
+    if (pl.playing) {
+      pl.unplayed = [pl.playing, ...(pl.unplayed || [])];
+    }
+    pl.playing = pl.played.pop();
   }
-  if (wrap) {
-    nodeGraphAudioPlayerLibraryPlayIndex(nodeId, pl.items.length - 1, { autoplay: true });
+  if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
+    nodeGraphAudioPlayerPlaylistRebuildItems(pl);
+  }
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (node) {
+    node.playlist = pl;
+  }
+  if (pl.playing) {
+    nodeGraphAudioPlayerLibraryPlayIndex(nodeId, pl.index, { autoplay: true });
   }
 }
 

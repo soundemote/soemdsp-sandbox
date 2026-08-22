@@ -250,10 +250,12 @@ function nodeGraphRequiredAssetsForPatch(patch = {}) {
         ? nodeGraphResourceById(sample.resourceId || sampleId)
         : null;
       const explicit = explicitAssets.get(sampleId) || {};
+      const pointerPath = String(node.sample?.sourcePath || node.sample?.path || "").trim();
+      const pointerKey = String(node.sample?.fileKey || "").trim();
       const file = normalizeNodeGraphAssetFile(explicit.file || sample.file, {
         name: sample.name || resource?.name || explicit.name || explicit.sourceName || sampleId,
         sourceName: sample.sourceName || resource?.sourceName || explicit.sourceName,
-        sourcePath: sample.sourcePath || resource?.sourcePath || explicit.sourcePath,
+        sourcePath: sample.sourcePath || resource?.sourcePath || explicit.sourcePath || pointerPath,
       });
       const metadata = {
         ...normalizeNodeGraphAssetMetadata(sample.metadata),
@@ -270,7 +272,10 @@ function nodeGraphRequiredAssetsForPatch(patch = {}) {
         requiredBy: [],
         ...(sample.resourceId || resource?.id ? { resourceId: sample.resourceId || resource.id } : {}),
         ...(sample.sourceName || resource?.sourceName || explicit.sourceName ? { sourceName: sample.sourceName || resource?.sourceName || explicit.sourceName } : {}),
-        ...(sample.sourcePath || resource?.sourcePath || explicit.sourcePath ? { sourcePath: sample.sourcePath || resource?.sourcePath || explicit.sourcePath } : {}),
+        ...(sample.sourcePath || resource?.sourcePath || explicit.sourcePath || pointerPath
+          ? { sourcePath: sample.sourcePath || resource?.sourcePath || explicit.sourcePath || pointerPath }
+          : {}),
+        ...(sample.fileKey || pointerKey ? { fileKey: sample.fileKey || pointerKey } : {}),
       };
       const label = nodeGraphSampleRequiredByLabel(node);
       if (label && !current.requiredBy.includes(label)) {
@@ -1292,29 +1297,30 @@ async function loadNodeGraphSamplePathForNode(nodeId, path, options = {}) {
     }
   }
 
-  const response = await fetch("/api/audio-file/data-url", {
+  const response = await fetch("/api/audio-file/bytes", {
     body: JSON.stringify({ path: sourcePath }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
   });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload?.ok || !payload?.dataUrl) {
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
     throw new Error(payload?.error || `local path load failed (${response.status})`);
   }
-  await loadNodeGraphSampleDataUrlForNode(
-    nodeId,
-    payload.dataUrl,
-    payload.name || sourcePath.split(/[\\/]/).pop() || "Sample",
-    {
-      sourceName: payload.name || sourcePath.split(/[\\/]/).pop() || "Sample",
-      sourcePath,
-      commit: options.commit,
-      persist: options.persist,
-      livePlan: options.livePlan,
-      record: options.record,
-      syncDisplay: options.syncDisplay,
-    },
-  );
+  const name = response.headers.get("X-Audio-File-Name")
+    || sourcePath.split(/[\\/]/).pop()
+    || "Sample";
+  const arrayBuffer = await response.arrayBuffer();
+  const decoded = await decodeNodeGraphSampleArrayBuffer(arrayBuffer, name);
+  return attachNodeGraphDecodedSampleToNode(nodeId, decoded, {
+    sourceName: name,
+    sourcePath,
+  }, {
+    commit: options.commit,
+    persist: options.persist,
+    livePlan: options.livePlan,
+    record: options.record,
+    syncDisplay: options.syncDisplay,
+  });
 }
 
 async function nodeGraphDataUrlForSampleReference(reference = {}) {
@@ -1649,7 +1655,9 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
   const pathInput = document.createElement("input");
   pathInput.className = "node-sample-path-input";
   pathInput.type = "text";
-  pathInput.placeholder = isMusicPlayer ? "folder not set" : "C:\\path\\music.mp3";
+  pathInput.placeholder = isMusicPlayer
+    ? "folder name, or paste C:\\full\\path"
+    : "C:\\path\\music.mp3";
   if (isMusicPlayer) {
     pathInput.dataset.samplePathForNode = nodeId;
     const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
@@ -1664,7 +1672,9 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
   // fields -- a single stray click on a module should never put you in a text
   // field you did not mean to edit.
   pathInput.readOnly = true;
-  pathInput.title = "Double-click to type a path";
+  pathInput.title = isMusicPlayer
+    ? "Folder picker only yields the folder name. Paste a full C:\\ path to list via the server. Double-click to type."
+    : "Double-click to type a path";
   pathInput.addEventListener("dblclick", () => {
     pathInput.readOnly = false;
     pathInput.classList.add("editing");

@@ -763,8 +763,15 @@ function normalizeNodeUiDevSettings(settings = {}) {
       return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 1;
     })();
   const wiresAboveModules = Boolean(view.wiresAboveModules ?? nodeGraphMvp.wiresAboveModules);
-  // Debug chrome is session-only — never default on, never restore from UI settings.
-  const keyboardDebugInfoVisible = false;
+  const keyboardDebugInfoVisible = Boolean(view.keyboardDebugInfoVisible ?? nodeGraphMvp.keyboardDebugInfoVisible);
+  const constraintGuideVisible = Boolean(view.constraintGuideVisible ?? nodeGraphMvp.constraintGuideVisible);
+  const constraintToggles = typeof normalizeNodeGraphConstraintToggles === "function"
+    ? normalizeNodeGraphConstraintToggles(view.constraintToggles ?? nodeGraphMvp.constraintToggles)
+    : {
+      cpu: Boolean((view.constraintToggles ?? nodeGraphMvp.constraintToggles)?.cpu),
+      ram: Boolean((view.constraintToggles ?? nodeGraphMvp.constraintToggles)?.ram),
+      gpu: Boolean((view.constraintToggles ?? nodeGraphMvp.constraintToggles)?.gpu),
+    };
   const tooltipEmbedded = view.tooltipEmbedded !== undefined
     ? Boolean(view.tooltipEmbedded)
     : (nodeGraphMvp.tooltipEmbedded !== false);
@@ -952,6 +959,8 @@ function normalizeNodeUiDevSettings(settings = {}) {
       wireCurve,
       wiresAboveModules,
       keyboardDebugInfoVisible,
+      constraintGuideVisible,
+      constraintToggles,
       tooltipEmbedded,
       tooltipEmbedHeight,
       moduleButtonsVisible,
@@ -1021,8 +1030,15 @@ function readNodeUiDevSettingsFromControls(options = {}) {
         ? normalizeNodeGraphWireCurve(nodeGraphMvp.wireCurve)
         : Number(nodeGraphMvp.wireCurve ?? 1),
       wiresAboveModules: Boolean(nodeGraphMvp.wiresAboveModules),
-      // Never persist "show debug" — refresh / defaults always hide diagnostics.
-      keyboardDebugInfoVisible: false,
+      keyboardDebugInfoVisible: Boolean(nodeGraphMvp.keyboardDebugInfoVisible),
+      constraintGuideVisible: Boolean(nodeGraphMvp.constraintGuideVisible),
+      constraintToggles: typeof normalizeNodeGraphConstraintToggles === "function"
+        ? normalizeNodeGraphConstraintToggles(nodeGraphMvp.constraintToggles)
+        : {
+          cpu: Boolean(nodeGraphMvp.constraintToggles?.cpu),
+          ram: Boolean(nodeGraphMvp.constraintToggles?.ram),
+          gpu: Boolean(nodeGraphMvp.constraintToggles?.gpu),
+        },
       tooltipEmbedded: Boolean(nodeGraphMvp.tooltipEmbedded),
       tooltipEmbedHeight: typeof normalizeNodeGraphTooltipEmbedHeight === "function"
         ? normalizeNodeGraphTooltipEmbedHeight(nodeGraphMvp.tooltipEmbedHeight ?? 46)
@@ -1725,13 +1741,12 @@ function applyNodeUiDevSettings(settings) {
     syncNodeGraphWireCurveControl();
   }
   nodeGraphMvp.wiresAboveModules = Boolean(normalized.view.wiresAboveModules);
-  // Force-hide debug on every UI-settings apply / page load (not a saved
-  // preference). Same for debug and release builds — Clear Startup / Save /
-  // cold boot must never leave developer chrome visible by default.
-  if (typeof hideNodeGraphDebugChrome === "function") {
-    hideNodeGraphDebugChrome();
+  nodeGraphMvp.keyboardDebugInfoVisible = Boolean(normalized.view.keyboardDebugInfoVisible);
+  nodeGraphMvp.constraintGuideVisible = Boolean(normalized.view.constraintGuideVisible);
+  if (typeof applyNodeGraphConstraintToggles === "function") {
+    applyNodeGraphConstraintToggles(normalized.view.constraintToggles, { persist: false });
   } else {
-    nodeGraphMvp.keyboardDebugInfoVisible = false;
+    nodeGraphMvp.constraintToggles = normalized.view.constraintToggles || { cpu: false, ram: false, gpu: false };
   }
   nodeGraphMvp.tooltipEmbedded = normalized.view.tooltipEmbedded !== false;
   nodeGraphMvp.tooltipEmbedHeight = typeof normalizeNodeGraphTooltipEmbedHeight === "function"
@@ -1816,11 +1831,11 @@ function applyNodeUiDevSettings(settings) {
   if (typeof renderNodeGraphWiresAboveModulesToggle === "function") {
     renderNodeGraphWiresAboveModulesToggle();
   }
-  // Debug hide already applied above; re-render so body classes + buttons match.
-  if (typeof hideNodeGraphDebugChrome === "function") {
-    hideNodeGraphDebugChrome();
-  } else if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
+  if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
     renderNodeGraphKeyboardDebugToggle();
+  }
+  if (typeof renderNodeGraphConstraintGuide === "function") {
+    renderNodeGraphConstraintGuide();
   }
   renderNodeGraphModuleVisibilityToggles();
   renderNodeGraphModuleScopeBrightnessControl();
@@ -2102,6 +2117,11 @@ function clearNodeUserStartupRuntimeState() {
     if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
       renderNodeGraphKeyboardDebugToggle();
     }
+  }
+  if (typeof applyNodeGraphConstraintToggles === "function") {
+    applyNodeGraphConstraintToggles({ cpu: false, ram: false, gpu: false }, { persist: false });
+  } else {
+    nodeGraphMvp.constraintToggles = { cpu: false, ram: false, gpu: false };
   }
   if (typeof renderNodeGraphGridToggle === "function") {
     renderNodeGraphGridToggle();

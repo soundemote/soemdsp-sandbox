@@ -210,9 +210,7 @@ function createNodeUserUiSettingsKeyboardDebugControl() {
     getValue: () => nodeGraphMvp.keyboardDebugInfoVisible === true,
     setValue: (visible) => {
       nodeGraphMvp.keyboardDebugInfoVisible = visible;
-      if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
-        renderNodeGraphKeyboardDebugToggle();
-      }
+      persistAndRenderUserUiVisibility(renderNodeGraphKeyboardDebugToggle);
     },
   });
 }

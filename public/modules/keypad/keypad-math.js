@@ -279,7 +279,19 @@ function nodeGraphKeypadGridMetrics(innerW, innerH, squareRatio) {
   };
 }
 
-const NODE_GRAPH_KEYPAD_FONTS = NODE_GRAPH_APP_FONTS;
+function nodeGraphKeypadFontCatalog() {
+  try {
+    const catalog = typeof globalThis !== "undefined" ? globalThis.NODE_GRAPH_APP_FONTS : null;
+    if (Array.isArray(catalog) && catalog.length) {
+      return catalog;
+    }
+  } catch (_error) {
+    // AudioWorklet: lexical NODE_GRAPH_APP_FONTS is not defined.
+  }
+  return Object.freeze([]);
+}
+
+const NODE_GRAPH_KEYPAD_FONTS = nodeGraphKeypadFontCatalog();
 
 function nodeGraphKeypadNormalizeFont(value) {
   if (typeof nodeGraphAppNormalizeFont === "function") {

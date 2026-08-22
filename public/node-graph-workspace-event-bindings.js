@@ -156,20 +156,53 @@ function bindNodeGraphWorkspaceInteractionEvents() {
   // etc.): nodeGraphFloatingWindowRegistryPointerBridge in floating-windows.js
 }
 
+function normalizeNodeGraphConstraintToggles(value) {
+  const src = value && typeof value === "object" ? value : {};
+  return {
+    cpu: Boolean(src.cpu),
+    ram: Boolean(src.ram),
+    gpu: Boolean(src.gpu),
+  };
+}
+
 function bindNodeGraphConstraintOverlayToggles() {
   for (const input of document.querySelectorAll("[data-constraint-toggle]")) {
-    input.addEventListener("change", syncNodeGraphConstraintOverlayToggles);
+    input.addEventListener("change", () => {
+      syncNodeGraphConstraintOverlayToggles({ persist: true });
+    });
   }
-  syncNodeGraphConstraintOverlayToggles();
+  applyNodeGraphConstraintToggles(nodeGraphMvp?.constraintToggles, { persist: false });
   startNodeGraphConstraintResourceMetrics();
 }
 
-function syncNodeGraphConstraintOverlayToggles() {
+function applyNodeGraphConstraintToggles(toggles, options = {}) {
+  const next = normalizeNodeGraphConstraintToggles(toggles);
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.constraintToggles = next;
+  }
+  for (const constraint of ["cpu", "ram", "gpu"]) {
+    const input = document.querySelector(`[data-constraint-toggle="${constraint}"]`);
+    if (input) {
+      input.checked = Boolean(next[constraint]);
+    }
+  }
+  syncNodeGraphConstraintOverlayToggles({ persist: options.persist === true });
+}
+
+function syncNodeGraphConstraintOverlayToggles(options = {}) {
   const workspace = document.getElementById("nodeGraphWorkspace");
+  const next = { cpu: false, ram: false, gpu: false };
   for (const constraint of ["cpu", "ram", "gpu"]) {
     const active = Boolean(document.querySelector(`[data-constraint-toggle="${constraint}"]`)?.checked);
+    next[constraint] = active;
     document.body.classList.toggle(`node-constraint-${constraint}-active`, active);
     workspace?.classList.toggle(`node-constraint-${constraint}-active`, active);
+  }
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.constraintToggles = next;
+  }
+  if (options.persist && typeof persistNodeGraphDebugChromePreference === "function") {
+    persistNodeGraphDebugChromePreference();
   }
   syncNodeGraphConstraintResourceMetrics();
 }
@@ -206,8 +239,9 @@ function syncNodeGraphCpuConstraintMetrics() {
   }
   const metrics = nodeGraphMvp.constraintResourceMetrics || {};
   const frameRate = Number(metrics.mainFrameRate) || 0;
-  const lagMs = Math.max(0, Number(metrics.mainThreadLagMs) || 0);
-  const busyPct = Math.min(100, Math.max(0, Math.round(lagMs / 10)));
+  const busyPct = frameRate > 0
+    ? Math.min(100, Math.max(0, Math.round((1 - Math.min(frameRate, 60) / 60) * 100)))
+    : Math.min(100, Math.max(0, Math.round((Number(metrics.mainThreadLagMs) || 0) / 10)));
   setNodeGraphConstraintMetricText(root, "[data-scope-cpu-metric='fps']", formatNodeGraphConstraintMetricFps(frameRate));
   setNodeGraphConstraintMetricText(root, "[data-scope-cpu-metric='busy']", String(busyPct));
 }

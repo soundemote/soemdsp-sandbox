@@ -1209,7 +1209,7 @@ function renderNodeGraphKeyboardDebugToggle() {
   });
 }
 
-/** Force diagnostics off (startup, Clear Startup, UI-settings apply). */
+/** Force diagnostics off (Clear Startup / reset view). */
 function hideNodeGraphDebugChrome() {
   if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
     nodeGraphMvp.keyboardDebugInfoVisible = false;
@@ -1757,7 +1757,6 @@ function applyNodeGraphTooltipEmbedHeight(height = nodeGraphMvp.tooltipEmbedHeig
   const px = normalizeNodeGraphTooltipEmbedHeight(
     height ?? nodeGraphMvp.tooltipEmbedHeight ?? nodeTooltipEmbedHeightDefault,
   );
-  const prev = Number(nodeGraphMvp.tooltipEmbedHeight);
   nodeGraphMvp.tooltipEmbedHeight = px;
   const panel = document.getElementById("nodeWiringPanel");
   const help = document.getElementById("nodeInteractionHelp");
@@ -1765,10 +1764,6 @@ function applyNodeGraphTooltipEmbedHeight(height = nodeGraphMvp.tooltipEmbedHeig
   panel?.style?.setProperty("--node-tooltip-embed-height", css);
   if (help?.classList.contains("is-embedded")) {
     help.style.setProperty("--node-tooltip-embed-height", css);
-  }
-  // Height changes reflow the modular workspace under the tips band.
-  if (prev !== px && typeof notifyNodeGraphChromeLayoutChanged === "function") {
-    notifyNodeGraphChromeLayoutChanged();
   }
   return px;
 }
@@ -1812,9 +1807,6 @@ function beginNodeGraphTooltipEmbedResize(event) {
       applyNodeGraphTooltipEmbedHeight();
       if (typeof fitNodeInteractionHelpText === "function") {
         fitNodeInteractionHelpText(help);
-      }
-      if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
-        notifyNodeGraphChromeLayoutChanged();
       }
       if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
         saveNodeGraphWorkingPatchToUserSettings({ immediateFile: false });
@@ -1865,9 +1857,6 @@ function endNodeGraphTooltipEmbedResize(event) {
   if (typeof fitNodeInteractionHelpText === "function") {
     fitNodeInteractionHelpText(help);
   }
-  if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
-    notifyNodeGraphChromeLayoutChanged();
-  }
   if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
     saveNodeGraphWorkingPatchToUserSettings({ immediateFile: false });
   }
@@ -1896,9 +1885,6 @@ function applyNodeGraphTooltipEmbed({ shown, persist = true } = {}) {
     fitNodeInteractionHelpText(help);
   }
   renderNodeGraphTooltipWindowToggle();
-  if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
-    notifyNodeGraphChromeLayoutChanged();
-  }
   if (persist !== false) {
     if (typeof persistNodeGraphPatchVisibilityView === "function") {
       persistNodeGraphPatchVisibilityView();
@@ -3790,12 +3776,21 @@ function renderNodeGraphConstraintGuide() {
   document.body.classList.toggle("constraint-guide-visible", visible);
 }
 
-/** D: CPU / RAM / GPU checkboxes only. Session-only. Does not open Evidence. */
+function persistNodeGraphDebugChromePreference() {
+  if (typeof persistSession === "function") {
+    persistSession({ reason: "uiSettings" });
+  } else if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
+    scheduleNodeUiDevSettingsAutosave();
+  }
+}
+
+/** D: CPU / RAM / GPU checkboxes only. Does not open Evidence. */
 function toggleNodeGraphConstraintGuideVisibility() {
   if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
     nodeGraphMvp.constraintGuideVisible = !(nodeGraphMvp.constraintGuideVisible === true);
   }
   renderNodeGraphConstraintGuide();
+  persistNodeGraphDebugChromePreference();
   if (typeof setNodeInteractionHelp === "function") {
     setNodeInteractionHelp(
       nodeGraphMvp?.constraintGuideVisible
@@ -3806,14 +3801,12 @@ function toggleNodeGraphConstraintGuideVisibility() {
 }
 
 function toggleNodeGraphKeyboardDebugVisibility() {
-  // Session-only: Visibility → Debug toggles debug chrome for this visit.
-  // Not written to UI settings; refresh / Clear Startup / Save always start hidden
-  // (debug and release builds alike).
   nodeGraphMvp.keyboardDebugInfoVisible = !(nodeGraphMvp.keyboardDebugInfoVisible === true);
   renderNodeGraphKeyboardDebugToggle();
+  persistNodeGraphDebugChromePreference();
   setNodeInteractionHelp(
     nodeGraphMvp.keyboardDebugInfoVisible
-      ? "Debug chrome shown (session only — not saved)."
+      ? "Debug chrome shown."
       : "Debug chrome hidden.",
   );
 }

@@ -889,6 +889,7 @@ function readNodeGraphTraceDisplaySettingsForm() {
       ["nodePhosphorWaveformEdgeSpacingInput", "edgeSpacing"],
       ["nodePhosphorWaveformLabelInsetInput", "labelInsetPx"],
       ["nodePhosphorWaveformPlaylistFadeInput", "playlistFade"],
+      ["nodePhosphorWaveformPlaylistVisibleCountInput", "playlistVisibleCount"],
     ];
     for (const [id, key] of numberIds) {
       const input = document.getElementById(id);

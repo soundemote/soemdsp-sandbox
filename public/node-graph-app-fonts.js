@@ -17,6 +17,10 @@ const NODE_GRAPH_APP_FONTS = Object.freeze([
   { id: "dseg7", family: "\"DSEG7 Classic\", Consolas, monospace", label: "DSEG7 Classic" },
 ]);
 
+if (typeof globalThis !== "undefined") {
+  globalThis.NODE_GRAPH_APP_FONTS = NODE_GRAPH_APP_FONTS;
+}
+
 function nodeGraphAppFontById(value) {
   const id = String(value || "").trim().toLowerCase();
   return NODE_GRAPH_APP_FONTS.find((font) => font.id === id) || null;

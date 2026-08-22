@@ -193,6 +193,7 @@ var nodeGraphMvp = {
   keyboardDebugInfoVisible: false,
   // D hotkey: CPU / RAM / GPU chips only (not the rest of debug chrome).
   constraintGuideVisible: false,
+  constraintToggles: { cpu: false, ram: false, gpu: false },
   // Docked tips band (on/off). No floating tips window.
   filePicker: { startIn: "desktop", lastSettingsName: "useruisettings.json", lastPatchName: "" },
   tooltipEmbedded: true,

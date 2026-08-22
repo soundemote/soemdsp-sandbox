@@ -151,18 +151,19 @@ function finishNodeBootLoading() {
       console.warn("Unable to reset startup view before hiding boot screen", error);
     }
   }
-  // Boot reveal must match release UX: diagnostics off even on debug servers.
-  if (typeof hideNodeGraphDebugChrome === "function") {
+  if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
     try {
-      hideNodeGraphDebugChrome();
+      renderNodeGraphKeyboardDebugToggle();
     } catch (error) {
-      console.warn("Unable to hide debug chrome before revealing interface", error);
-      document.body.classList.add("keyboard-debug-hidden");
-      document.body.classList.add("debug-collapsed");
+      console.warn("Unable to apply debug chrome before revealing interface", error);
     }
-  } else {
-    document.body.classList.add("keyboard-debug-hidden");
-    document.body.classList.add("debug-collapsed");
+  }
+  if (typeof renderNodeGraphConstraintGuide === "function") {
+    try {
+      renderNodeGraphConstraintGuide();
+    } catch (error) {
+      console.warn("Unable to apply constraint guide before revealing interface", error);
+    }
   }
   setNodeBootLoadingProgress(100, "ready");
   document.body.dataset.nodeBootFinished = "interface-ready";

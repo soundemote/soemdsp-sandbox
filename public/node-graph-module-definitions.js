@@ -572,7 +572,10 @@ function nodeGraphControllerRangeSmoothingParameters() {
       min: "0",
       step: "any",
       unit: "s",
+      // Time-constant params must not be smoothed (app-wide). Type L + source off.
       linearSmoothing: false,
+      smoothingMode: "off",
+      smoothingType: "linear",
       tooltip: "Time the output takes to reach the mouse target. 0 = snap.",
     },
     {

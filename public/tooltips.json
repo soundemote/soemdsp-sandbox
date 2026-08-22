@@ -15,7 +15,7 @@
     "gpuFps": "GPU display frame rate: how often scope faces present a new picture. Simulation FPS and draw cost both cap this.",
     "gpuSurfaces": "Surfaces: how many canvas/WebGL drawing faces are live in the modular view. Each 2D Trace, phosphor, or compositor face is one surface.",
     "gpuPoints": "Stamps: phosphor energy dabs plus 2D Trace / waterfall polyline points, averaged over about half a second so the meter is readable. Lorenz/phosphor should sit in the hundreds to thousands when Dot Budget is high. 0 means nothing was deposited in that window.",
-    "cpuBusy": "main-thread busy percent | time spent in the last display frame vs the frame budget | high with many canvases or long polylines",
+    "cpuBusy": "UI stall percent | 0 = display running at 60 fps | 100 = the main thread is not keeping a 60 fps budget | not audio-worklet DSP load",
     "cpuFps": "UI frame rate | animation frames completed per second | drops when CPU or GPU draw work overruns",
     "ramUsed": "JavaScript heap used | includes live scope capture rings | not the same as GPU VRAM"
   },

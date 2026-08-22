@@ -367,6 +367,10 @@ function nodeGraphVisualSinkNeedsAudioCapture(node, options = {}) {
   if (!nodeGraphVisualSinkActiveInPlan(node, options)) {
     return false;
   }
+  // Music Player paints from decoded sample buffers, not worklet scope rings.
+  if (node?.type === "audioPlayer") {
+    return false;
+  }
   if (typeof nodeGraphPatchNodeDisplayVisibleInPlan === "function") {
     return nodeGraphPatchNodeDisplayVisibleInPlan(node, options);
   }
@@ -745,8 +749,8 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
 // CPU cost is write rate (decimated in worklet); capacity stays modest.
 const nodeGraphVisualSinkHistorySeconds = 1;
 
-const NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ = 12000;
-const NODE_GRAPH_VISUAL_LATEST_WRITE_HZ = 120;
+const NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ = 4000;
+const NODE_GRAPH_VISUAL_LATEST_WRITE_HZ = 60;
 
 function nodeGraphVisualDisplayNeedsWaveformRing(node) {
   const displayType = String(
@@ -761,7 +765,6 @@ function nodeGraphVisualDisplayNeedsWaveformRing(node) {
     displayType === "videoscopeBurn" ||
     displayType === "oscilloscopeBankBurn" ||
     displayType === "spectrogramBurn" ||
-    displayType === "phosphorWaveform" ||
     displayType === "phosphorLight" ||
     displayType === "customDisplay" ||
     displayType === "matrixFace" ||

@@ -968,7 +968,6 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   if (stereoColorPair) {
     rows.push(`
       <div class="node-trace-display-lr-row node-trace-display-lr-color-row" data-trace-display-lr-row>
-        <span class="node-trace-display-lr-shared-label"></span>
         <div class="node-trace-display-lr-pair">
           ${nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type, { stereo: true })}
           ${nodeGraphDisplaySettingsBuildColorRowHtml("secondaryColor", type, { stereo: true })}

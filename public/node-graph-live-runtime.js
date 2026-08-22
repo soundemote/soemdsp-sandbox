@@ -32,7 +32,14 @@ function normalizeNodeGraphVolume(value, fallback = 1) {
 // param (applied inside the graph). Toolbar ðŸ”Š is a mirror of that param â€”
 // not a second volume stage (would double-attenuate).
 function nodeGraphLiveOutputTargetGain() {
-  return nodeGraphMvp.live.outputMuted ? 0 : 1;
+  if (nodeGraphMvp.live.outputMuted) {
+    return 0;
+  }
+  // Pause (speed 0) must not leak the last worklet block through the host.
+  if (nodeGraphMvp.live.node && !(Number(nodeGraphMvp.live.speedMultiplier) > 0)) {
+    return 0;
+  }
+  return 1;
 }
 
 function applyNodeGraphLiveOutputGain() {
@@ -1229,6 +1236,9 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
   }
   nodeGraphMvp.live.speedMultiplier = clamped;
   sendNodeGraphLiveSpeed();
+  if (typeof applyNodeGraphLiveOutputGain === "function") {
+    applyNodeGraphLiveOutputGain();
+  }
   // Every pause/play path funnels through here (transport button, spacebar,
   // external host messages), so refresh the header Speed readout and the
   // play/pause glyph from one place rather than at each call site.
@@ -2914,7 +2924,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-scope-snapshot.js?v=visual-rate-meta-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=out-vol-m3-1",
-  "./public/node-live-audio-worklet-process.js?v=input-amp-1",
+  "./public/node-live-audio-worklet-process.js?v=pause-le0-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",
@@ -3054,7 +3064,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/bugButton/bug-button-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/keypad/keypad-math.js?v=keypad-latch-1",
+  "./public/modules/keypad/keypad-math.js?v=fonts-globalthis-1",
   "./public/modules/keypad/keypad-worklet-evaluator.js?v=keypad-latch-1",
   "./public/modules/tSeries/t-series-math.js?v=t-series-1",
   "./public/modules/tSeries/t-series-worklet-evaluator.js?v=t-series-1",
@@ -3139,7 +3149,8 @@ async function buildNodeGraphLiveWorkletBlobUrl(sourceFiles) {
     }
     return response.text();
   }));
-  const combined = sources.join("\n;\n");
+  const prelude = "globalThis.NODE_GRAPH_APP_FONTS = globalThis.NODE_GRAPH_APP_FONTS || [];\n";
+  const combined = prelude + sources.join("\n;\n");
   const blob = new Blob([combined], { type: "text/javascript" });
   return URL.createObjectURL(blob);
 }
@@ -3431,9 +3442,15 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       liveNode = await createNodeGraphLiveWorkletNode(context, plan);
       usesWorklet = true;
     } catch (error) {
+      const message = String(error?.message || error || "AudioWorklet failed");
+      if (typeof window.SE?.ERROR === "function") {
+        window.SE.ERROR(`AudioWorklet failed → ScriptProcessor fallback: ${message}`);
+      } else {
+        console.error("[live] AudioWorklet failed", error);
+      }
       liveNode = createNodeGraphLiveScriptProcessorNode(context, plan);
       setNodeGraphLiveEngineStatus("engine fallback", "warn");
-      setNodeGraphLiveEngineTitle(error.message);
+      setNodeGraphLiveEngineTitle(message);
     }
     if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
       await nodeGraphLiveOutputDisposeCancelledStart(outputSerial, context, liveNode);

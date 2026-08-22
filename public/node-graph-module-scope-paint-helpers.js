@@ -1100,6 +1100,17 @@ function nodeGraphModuleUsesStereoTraceDisplay(type) {
   return Boolean(nodeGraphModuleStereoTracePorts(type));
 }
 
+/** True when L or R jack is actually wired. Unwired L/R rings are silence. */
+function nodeGraphStereoTraceLrWired(nodeId, type) {
+  const id = String(nodeId || "");
+  const ports = nodeGraphModuleStereoTracePorts(type);
+  if (!id || !ports || typeof nodeGraphModuleScopeConnectionsTo !== "function") {
+    return false;
+  }
+  return nodeGraphModuleScopeConnectionsTo(id, ports.left).length > 0
+    || nodeGraphModuleScopeConnectionsTo(id, ports.right).length > 0;
+}
+
 /**
  * Instant Trace look (history, colors, sync) is per module/display.
  * The global Trace bucket is only a seed for modules that have never been
@@ -1117,6 +1128,10 @@ function nodeGraphStereoTraceBuffers(nodeId, type) {
   const id = String(nodeId || "");
   const ports = nodeGraphModuleStereoTracePorts(type);
   if (!id || !ports) {
+    return null;
+  }
+  // Mono-only graphs (SinCos → Output Mono) must not use empty L/R rings.
+  if (!nodeGraphStereoTraceLrWired(id, type)) {
     return null;
   }
   // Same rings as 1D Stereo Trace: this node's visual L/R only.

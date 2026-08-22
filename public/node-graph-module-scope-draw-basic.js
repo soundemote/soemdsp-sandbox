@@ -380,11 +380,20 @@ function drawNodeGraphModuleScopeLightDisplays(items, pixelRatio) {
 function drawNodeGraphTraceDisplayItem(renderer, item, pixelRatio) {
   const slot = item?.slot;
   const buffer = item?.buffer;
-  if (!slot || !buffer?.length) {
+  if (!slot) {
+    return;
+  }
+  if (!buffer?.length) {
+    if (typeof paintNodeGraphTraceDisplayColdPlate === "function") {
+      paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio);
+    }
     return;
   }
   renderNodeGraphModuleScopeAnalyzer(slot, buffer);
-  drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio);
+  const painted = drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio);
+  if (painted === false && typeof paintNodeGraphTraceDisplayColdPlate === "function") {
+    paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio);
+  }
 }
 
 
@@ -895,6 +904,11 @@ function drawNodeGraphCustomDisplayItem(renderer, item, pixelRatio) {
   const node = nodeGraphModuleScopeNodeForSlot(slot);
   const screenElement = item?.screenElement || slot?.scopeElement;
   if (!node || !screenElement) {
+    return;
+  }
+  // Music Player paints its own phosphor face. Running the custom-display
+  // compiler here every RAF is why spawning a player pegged CPU.
+  if (slot?.type === "audioPlayer" || node?.type === "audioPlayer") {
     return;
   }
   renderNodeGraphModuleScopeAnalyzer(slot, item?.buffer || null);

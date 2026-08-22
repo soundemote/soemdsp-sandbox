@@ -1342,7 +1342,6 @@ button.scw-label:hover,
    / speed label): 600 system-ui, phosphor line color, no button chrome. */
 .node-phosphor-waveform-zoom,
 .node-music-player-face-btn,
-.node-music-player-dock-btn,
 .node-music-player-pl-row,
 .node-music-player-pl-ram {
   box-sizing: border-box;
@@ -1426,6 +1425,12 @@ button.scw-label:hover,
 .node-music-player-page[hidden] {
   display: none !important;
 }
+.node-phosphor-waveform-display[data-music-player-face="wave"] .node-music-player-page-bar {
+  display: none;
+}
+.node-phosphor-waveform-display[data-music-player-face="wave"] .node-music-player-page-wave {
+  bottom: var(--phosphor-waveform-inset, 2px);
+}
 .node-music-player-page-wave {
   z-index: 1;
 }
@@ -1500,24 +1505,6 @@ button.scw-label:hover,
   line-height: 1;
   overflow: hidden;
 }
-.node-music-player-waveplay-skip {
-  flex: 0 0 1.7rem;
-  width: 1.7rem;
-  margin: 0;
-  padding: 0;
-  border: 0 !important;
-  border-radius: 0;
-  background: transparent;
-  color: var(--phosphor-hud-color);
-  font: var(--phosphor-hud-font);
-  cursor: var(--node-dot-cursor);
-}
-.node-music-player-waveplay-skip:hover,
-.node-music-player-waveplay-skip:focus-visible {
-  color: var(--phosphor-hud-color-hot);
-  background: transparent;
-  outline: none;
-}
 .node-music-player-waveplay-song .node-music-player-pl-name {
   grid-column: auto;
   grid-row: auto;
@@ -1547,9 +1534,62 @@ button.scw-label:hover,
   outline: none;
 }
 .node-music-player-page-vs {
+  top: 0;
+  right: 0;
+  bottom: var(--node-music-player-pl-row-height, 1.35rem);
+  left: 0;
   z-index: 2;
   background: #050805;
   overflow: hidden;
+}
+.node-music-player-page-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: stretch;
+  height: var(--node-music-player-pl-row-height, 1.35rem);
+  min-height: var(--node-music-player-pl-row-height, 1.35rem);
+  max-height: var(--node-music-player-pl-row-height, 1.35rem);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--phosphor-hud-color-dim);
+  background: #050805;
+}
+.node-music-player-page-btn {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  border-right: 1px solid var(--phosphor-hud-color-dim) !important;
+  border-radius: 0;
+  background: transparent;
+  color: var(--phosphor-hud-color);
+  font: var(--phosphor-hud-font-sm);
+  line-height: 1;
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: var(--node-dot-cursor);
+}
+.node-music-player-page-btn:last-child {
+  border-right: 0 !important;
+}
+.node-music-player-page-btn:hover,
+.node-music-player-page-btn:focus-visible,
+.node-music-player-page-btn.is-active {
+  color: var(--phosphor-hud-color-hot);
+  background: transparent;
+  outline: none;
 }
 .node-music-player-vs-canvas {
   position: absolute;
@@ -1560,52 +1600,6 @@ button.scw-label:hover,
   min-height: 0;
   display: block;
 }
-.node-music-player-dock {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 5;
-  display: flex;
-  align-items: stretch;
-  height: var(--node-music-player-pl-row-height, 1.35rem);
-  min-height: var(--node-music-player-pl-row-height, 1.35rem);
-  max-height: var(--node-music-player-pl-row-height, 1.35rem);
-  box-sizing: border-box;
-  border-top: 1px solid var(--phosphor-hud-color-dim);
-  background: #050805;
-}
-.node-music-player-dock-btn {
-  box-sizing: border-box;
-  flex: 1 1 auto;
-  min-width: max-content;
-  min-height: 0;
-  width: auto;
-  height: 100%;
-  margin: 0;
-  padding: 0 6px;
-  border: 0 !important;
-  border-right: 1px solid var(--phosphor-hud-color-dim) !important;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--phosphor-hud-color);
-  font: var(--phosphor-hud-font-sm);
-  letter-spacing: 0;
-  text-transform: none;
-  text-shadow: none;
-  outline: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: var(--node-dot-cursor);
-}
-.node-music-player-dock-btn:last-child {
-  border-right: 0 !important;
-}
-.node-music-player-dock-btn:hover,
-.node-music-player-dock-btn:focus-visible,
-.node-music-player-dock-btn.is-active,
 .node-music-player-pl-transport-btn:hover,
 .node-music-player-pl-transport-btn:focus-visible,
 .node-music-player-pl-transport-btn.is-active {
@@ -1620,6 +1614,8 @@ button.scw-label:hover,
   height: var(--node-music-player-pl-row-height, 1.35rem);
   min-height: var(--node-music-player-pl-row-height, 1.35rem);
   max-height: var(--node-music-player-pl-row-height, 1.35rem);
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
   border-top: 1px solid var(--phosphor-hud-color-dim);
   background: #050805;
@@ -1646,11 +1642,22 @@ button.scw-label:hover,
   border-right: 0 !important;
 }
 .node-phosphor-waveform-playlist-actions {
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  margin: 0;
 }
 .node-phosphor-waveform-playlist-actions > button {
+  box-sizing: border-box;
   flex: 1 1 0;
   min-width: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
 }
 .node-music-player-pl-head {
   position: absolute;
@@ -1792,7 +1799,7 @@ button.scw-label:hover,
   text-align: center;
 }
 
-/* Fixed on-screen slots only. Wheel shifts which playlist rows fill them. */
+/* N slots equally split the list column. Wheel pages that window through the file list. */
 .node-music-player-pl-list {
   --node-music-player-pl-row-height: 1.35rem;
   flex: 1 1 0%;
@@ -1800,13 +1807,42 @@ button.scw-label:hover,
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: stretch;
+  gap: 0;
+  margin: 0;
+  padding: 0;
   border: 0;
   outline: none;
   box-shadow: none;
   border-radius: 0;
   background: transparent;
   overscroll-behavior: contain;
+}
+.node-music-player-pl-list.is-single {
+  padding: 8px;
+}
+.node-music-player-pl-list.is-single .node-music-player-pl-row {
+  padding: 10px 14px;
+  font-size: 1.25em;
+}
+.node-music-player-pl-row {
+  --node-music-player-pl-row-height: 1.35rem;
+  display: grid;
+  grid-template-columns: 1.4rem minmax(0, 1fr);
+  grid-template-rows: auto;
+  gap: 0 4px;
+  align-items: center;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  padding: 0 8px;
+  text-align: left;
+  cursor: var(--node-dot-cursor);
+  flex: 1 1 0;
+  box-sizing: border-box;
+  opacity: var(--node-music-player-pl-fade, 1);
 }
 .node-music-player-pl-empty {
   flex: 1 1 auto;
@@ -1817,25 +1853,6 @@ button.scw-label:hover,
   color: var(--phosphor-hud-color);
   font: var(--phosphor-hud-font);
   text-align: center;
-}
-.node-music-player-pl-row {
-  --node-music-player-pl-row-height: 1.35rem;
-  display: grid;
-  grid-template-columns: 1.4rem minmax(0, 1fr);
-  grid-template-rows: auto;
-  gap: 0 4px;
-  align-items: center;
-  width: 100%;
-  height: var(--node-music-player-pl-row-height);
-  min-height: var(--node-music-player-pl-row-height);
-  max-height: var(--node-music-player-pl-row-height);
-  margin: 0;
-  padding: 0 8px;
-  text-align: left;
-  cursor: var(--node-dot-cursor);
-  flex: 0 0 var(--node-music-player-pl-row-height);
-  box-sizing: border-box;
-  opacity: var(--node-music-player-pl-fade, 1);
 }
 .node-music-player-pl-row.is-empty {
   cursor: default;
@@ -5598,6 +5615,64 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   align-items: stretch;
 }
 
+.node-phosphor-waveform-settings-row.node-phosphor-waveform-playlist-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.node-phosphor-waveform-settings-row.node-phosphor-waveform-playlist-actions > button {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+}
+
+.node-phosphor-waveform-history-reset {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.node-phosphor-waveform-tune-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.38fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.node-phosphor-waveform-tune-row > span:first-child {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.node-phosphor-waveform-control-widgets {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.node-phosphor-waveform-control-widgets input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+.node-phosphor-waveform-control-widgets input[type="number"] {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 2.25em;
+  max-width: 100%;
+  padding: 3px 4px 3px 2px;
+  text-align: left;
+}
+
 .node-phosphor-waveform-format-checks {
   display: flex;
   flex-wrap: wrap;
@@ -5634,7 +5709,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 /* Read-only until double-clicked (time window + px fields). */
 #nodePhosphorWaveformTimeWindowInput[readonly],
 #nodePhosphorWaveformLineWidthInput[readonly],
-#nodePhosphorWaveformTraceWidthInput[readonly] {
+#nodePhosphorWaveformTraceWidthInput[readonly],
+#nodePhosphorWaveformPlaylistVisibleCountInput[readonly] {
   cursor: var(--node-dot-cursor);
   user-select: none;
   caret-color: transparent;
@@ -5642,7 +5718,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 #nodePhosphorWaveformTimeWindowInput.editing,
 #nodePhosphorWaveformLineWidthInput.editing,
-#nodePhosphorWaveformTraceWidthInput.editing {
+#nodePhosphorWaveformTraceWidthInput.editing,
+#nodePhosphorWaveformPlaylistVisibleCountInput.editing {
   border-color: rgba(127, 199, 217, 0.52);
   cursor: text;
   caret-color: currentColor;
@@ -5683,6 +5760,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-phosphor-waveform-settings-row input[data-phosphor-number-drag] {
+  width: auto;
+  min-width: 2.25em;
+  padding: 3px 4px 3px 2px;
+  text-align: left;
   cursor: ew-resize;
   user-select: none;
   -webkit-user-select: none;
@@ -5699,6 +5780,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   cursor: var(--node-dot-cursor);
 }
 
+.node-phosphor-waveform-control-widgets > button,
 .node-phosphor-waveform-settings-row button,
 .node-led-settings-row button {
   padding: 3px 8px;
@@ -5829,6 +5911,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   border-top: 0;
 }
 
+.node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row.node-phosphor-waveform-tune-row,
+.node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel label.node-led-settings-row.node-phosphor-waveform-tune-row {
+  display: grid !important;
+  grid-template-columns: minmax(7rem, 0.38fr) minmax(0, 1fr) !important;
+  grid-template-rows: auto !important;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Labels + trailing %: same as original first-span / unit span. */
 .node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row > span:first-child,
 .node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel label.node-led-settings-row > span:first-child {
@@ -5875,6 +5966,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
  * Square / Squircle: content-sized only (padding 3px 8px, font:inherit).
  * Defeat metadata button min-height:30px / padding:0 / font-size:0.72rem.
  */
+.node-trace-display-settings-popover .node-led-display-settings-panel .node-phosphor-waveform-control-widgets > button,
+.node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel .node-phosphor-waveform-control-widgets > button,
 .node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row > button,
 .node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel .node-led-settings-row > button {
   box-sizing: border-box;
@@ -5911,6 +6004,34 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: flex !important;
   align-items: stretch;
   gap: 0;
+}
+
+.node-trace-display-settings-popover .node-phosphor-waveform-playlist-actions,
+.node-trace-display-settings-popover .metadata-popover-grid .node-phosphor-waveform-playlist-actions {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0 !important;
+  padding: 0 !important;
+  margin: 0;
+}
+
+.node-trace-display-settings-popover .node-phosphor-waveform-history-reset,
+.node-trace-display-settings-popover .metadata-popover-grid .node-phosphor-waveform-history-reset {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.node-trace-display-settings-popover .node-phosphor-waveform-playlist-actions > button,
+.node-trace-display-settings-popover .metadata-popover-grid .node-phosphor-waveform-playlist-actions > button {
+  flex: 1 1 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
 }
 
 .node-trace-display-settings-popover .node-phosphor-waveform-loader-slot,
@@ -18614,11 +18735,12 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-dot-preview {
   display: block;
   box-sizing: border-box;
-  width: 100%;
+  width: min(100%, 96px);
   height: auto;
+  max-width: 96px;
+  max-height: 96px;
   aspect-ratio: 1 / 1;
-  max-height: none;
-  justify-self: stretch;
+  justify-self: center;
   border: 0;
   background: #020405;
   image-rendering: pixelated;
@@ -20642,7 +20764,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 /* Thin Command Center: Modular View / View Buttons / Keyboard stack vertically. */
-@container command-center (max-width: 300px) {
+@container command-center (max-width: 80px) {
   .scene-context-modular-view-controls {
     grid-template-columns: minmax(0, 1fr);
   }

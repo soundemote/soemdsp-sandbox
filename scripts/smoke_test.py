@@ -198,6 +198,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-phosphor-energy-gl.js",
     "./public/lib/trace/trace-stroke.js",
     "./public/lib/trace/trace-waveform.js",
+    "./public/lib/trace/trace-tape.js",
     "./public/node-graph-phosphor-gaussian-drawer.js",
     "./public/color-widget-boot.js",
     "./public/modules/spectrogram/spectrogram-gradient-editor.js",
@@ -240,6 +241,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-module-scope-canvas.js",
     "./public/lib/trace/trace-history-draw.js",
     "./public/node-graph-module-scope-paint-helpers.js",
+    "./public/node-graph-module-scope-waterfall.js",
     "./public/modules/traceXyz/trace-xyz-display.js",
     "./public/node-graph-module-scope-draw-orchestrator.js",
     "./public/modules/lookaheadLimiter/lookahead-limiter-display.js",
@@ -292,8 +294,10 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-port-geometry.js",
     "./public/node-graph-jack-chrome.js",
     "./public/node-graph-slider-readout.js",
+    "./public/node-graph-app-fonts.js",
     "./public/modules/knob/knob-face.js",
     "./public/modules/plugin/plugin-controls-ui.js",
+    "./public/modules/plugin/plugin-button-settings.js",
     "./public/node-graph-slider-readout-controls.js",
     "./public/node-graph-ghost-sliders.js",
     "./public/node-code-settings-editor.js",
@@ -402,6 +406,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/spectrogram/spectrogram-live-evaluator.js",
     "./public/modules/_shared/output-amplitude.js",
     "./public/modules/_shared/display-thru-live-evaluators.js",
+    "./public/modules/basicShape/basic-shape-live-evaluator.js",
     "./public/modules/logisticMap/logistic-map-math.js",
     "./public/modules/logisticMap/logistic-map-live-evaluator.js",
     "./public/modules/turingMachine/turing-machine-live-evaluator.js",
@@ -4431,7 +4436,7 @@ def require_node_graph_mvp_contract() -> None:
     definitions_source = script_sources["./public/node-graph-module-definitions.js"]
     require(
         "function nodeGraphModuleIsRealtimeOscillatorType(type)" in definitions_source
-        and 'return type === "osc" || type === "polyBlep" || type === "sineWavetable" || type === "blit";' in definitions_source,
+        and 'return type === "osc" || type === "polyBlep" || type === "sineWavetable" || type === "sinCos" || type === "blit";' in definitions_source,
         "polyBlep should share the browser-side realtime oscillator type helper",
     )
     require(
@@ -7647,6 +7652,8 @@ def require_node_graph_mvp_contract() -> None:
     )
     for snippet in [
         'parsed.path == "/api/audio-file/data-url"',
+        'parsed.path == "/api/audio-file/bytes"',
+        "def audio_file_bytes(self) -> None:",
         "def audio_file_data_url(self) -> None:",
         'parsed.path == "/api/audio-file/find"',
         "def audio_file_find(self) -> None:",

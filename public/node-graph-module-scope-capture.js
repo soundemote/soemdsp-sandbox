@@ -293,10 +293,23 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
     const ports = typeof nodeGraphModuleStereoTracePorts === "function"
       ? nodeGraphModuleStereoTracePorts(slot.type)
       : { left: "Left", right: "Right" };
-    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:${ports?.left}`)
-      || nodeGraphModuleScopeState.buffers.get(`${nodeId}:${ports?.right}`)
-      || nodeGraphModuleScopeState.buffers.get(nodeId)
-      || null;
+    const pick = (key) => {
+      const buf = nodeGraphModuleScopeState.buffers.get(key);
+      return buf && buf.length > 0 ? buf : null;
+    };
+    const lrWired = typeof nodeGraphStereoTraceLrWired === "function"
+      ? nodeGraphStereoTraceLrWired(nodeId, slot.type)
+      : true;
+    if (lrWired) {
+      return pick(`${nodeId}:${ports?.left}`)
+        || pick(`${nodeId}:${ports?.right}`)
+        || pick(`${nodeId}:Mono`)
+        || pick(nodeId);
+    }
+    return pick(`${nodeId}:Mono`)
+      || pick(nodeId)
+      || pick(`${nodeId}:${ports?.left}`)
+      || pick(`${nodeId}:${ports?.right}`);
   }
   if (["scope2d", "scope2dTrace", "phosphorLight"].includes(renderer)) {
     const source = nodeGraphModuleScopeSlotUsesWiredInputs(slot)

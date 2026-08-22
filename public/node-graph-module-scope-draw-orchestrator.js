@@ -59,6 +59,7 @@ const nodeGraphModuleScopeCustomRenderers = {
   scope2d: drawNodeGraphScope2dItem,
   numberReadout: drawNodeGraphNumberReadoutItem,
   customDisplay: drawNodeGraphCustomDisplayItem,
+  phosphorWaveform: () => {},
   selfPaintFace: drawNodeGraphSelfPaintFaceItem,
   matrixFace: drawNodeGraphSelfPaintFaceItem,
   matrixWaterfallFace: drawNodeGraphSelfPaintFaceItem,
@@ -208,6 +209,20 @@ function drawNodeGraphModuleScopes(options = {}) {
     lastFrameStartMs: nodeGraphModuleScopeNowMs(),
     zoom: nodeGraphModuleScopeZoomScale(),
   });
+  const animationTimeEarly = (performance.now?.() || Date.now()) / 1000;
+  nodeGraphModuleScopeState.animationTime = animationTimeEarly;
+  if (!force && nodeGraphModuleScopeState?.idleHold) {
+    markNodeGraphModuleScopeDebugSkip("idle-hold");
+    return;
+  }
+  if (!force && typeof nodeGraphModuleScopePhosphorFrameReady === "function"
+    && !nodeGraphModuleScopePhosphorFrameReady()) {
+    setNodeGraphModuleScopeDebugPhase("fps-gate");
+    if (typeof scopePaintShouldKeepLoop === "function" ? scopePaintShouldKeepLoop() : true) {
+      scheduleNodeGraphModuleScopeDraw();
+    }
+    return;
+  }
   const canvas = nodeGraphModuleScopeCanvas();
   const workspace = document.getElementById("nodeGraphWorkspace");
   if (!nodeGraphModuleScopeHasDrawableSlots()) {
@@ -330,23 +345,11 @@ function drawNodeGraphModuleScopes(options = {}) {
   beginNodeGraphModuleScopeRenderMetricsFrame();
   const pixelRatio = Number(renderer.pixelRatio) ||
     Number(nodeGraphModuleScopeState.backingPixelRatio) ||
-    nodeGraphModuleScopeBackingPixelRatio(workspace.getBoundingClientRect());
+    prePixelRatio;
   debug.pixelRatio = pixelRatio;
   debug.canvasWidth = canvas.width;
   debug.canvasHeight = canvas.height;
   const gl = renderer.gl;
-  // Simulation FPS gate BEFORE collect. screenItems used to run every rAF and
-  // wipe vector 2D Trace on no-buffer frames, so FPS 1 flashed then went blank
-  // instead of holding the last stroke for the whole frame.
-  const fpsClockSlot = typeof nodeGraphVisibleModuleScopeSlots === "function"
-    ? nodeGraphVisibleModuleScopeSlots()[0]
-    : null;
-  if (!force && !nodeGraphModuleScopePhosphorFrameReady(fpsClockSlot)) {
-    setNodeGraphModuleScopeDebugPhase("fps-gate");
-    commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
-    scheduleNodeGraphModuleScopeDraw();
-    return;
-  }
   setNodeGraphModuleScopeDebugPhase("collect");
   const visibleItems = nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio);
   debug.visibleItems = visibleItems.length;
@@ -498,6 +501,10 @@ function drawNodeGraphModuleScopes(options = {}) {
   setNodeGraphModuleScopeDebugPhase("commit");
   commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
   // Keep RAF alive while the paint gate says live and faces exist.
+  if (typeof nodeGraphModuleScopeState !== "undefined" && nodeGraphModuleScopeState) {
+    nodeGraphModuleScopeState.idleHold = typeof nodeGraphModuleScopeBuffersIdleSilent === "function"
+      && nodeGraphModuleScopeBuffersIdleSilent();
+  }
   const keepDrawing = (typeof scopePaintShouldKeepLoop === "function"
     ? scopePaintShouldKeepLoop()
     : !scopePaused && nodeGraphModuleScopeHasDrawableSlots())

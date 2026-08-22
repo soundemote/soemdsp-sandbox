@@ -531,6 +531,9 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
   if (nodeGraphParameterNeedsDefaultModuleSmoothing(defined, parameter)) {
     nodeGraphApplyDefaultModuleSmoothing(defined);
   }
+  if (nodeGraphParameterIsSmoothingTimeControl(parameter)) {
+    nodeGraphApplySmoothingTimeControlPolicy(defined);
+  }
   return defined;
 }
 
@@ -757,6 +760,10 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
   if (nodeGraphParameterNeedsDefaultModuleSmoothing(normalized, source)) {
     nodeGraphApplyDefaultModuleSmoothing(normalized);
   }
+  // User-facing smoothing-time params must not themselves be smoothed.
+  if (nodeGraphParameterIsSmoothingTimeControl({ key })) {
+    nodeGraphApplySmoothingTimeControlPolicy(normalized);
+  }
   // XY pad mouse/phase targets are instant UI only (audio path owns Papoulis).
   if (
     type === "xyPad"
@@ -792,6 +799,27 @@ function nodeGraphIsHardcodedIoVolumeParam(type, key) {
     return true;
   }
   return false;
+}
+
+/** Params whose *value* is a smoothing time (Toggle/Momentary/Knob Smooth, …). */
+function nodeGraphParameterIsSmoothingTimeControl(parameter = {}) {
+  const key = String(parameter?.key || "").trim();
+  return key === "smoothingSeconds";
+}
+
+/**
+ * App-wide: a parameter that sets smoothing time must not be smoothed.
+ * Smoothing TYPE = linear, SOURCE = off (disabled). Saved paramMeta cannot override.
+ */
+function nodeGraphApplySmoothingTimeControlPolicy(meta) {
+  if (!meta || typeof meta !== "object") {
+    return meta;
+  }
+  meta.smoothingType = "linear";
+  meta.linearSmoothing = false;
+  meta.smoothingMode = "off";
+  meta.smoothingSeconds = 0;
+  return meta;
 }
 
 function nodeGraphApplyHardcodedIoVolumeSmoothing(normalized) {

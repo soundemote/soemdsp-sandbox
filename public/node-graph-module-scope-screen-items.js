@@ -135,6 +135,21 @@ function nodeGraphModuleScopeEmissiveShaderRgb(rgb, brightness) {
 // drawNodeGraphModuleScopeLightDisplays → node-graph-module-scope-draw-basic.js
 function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
   const workspaceRect = workspace.getBoundingClientRect();
+  const layoutKey = [
+    Math.round(workspaceRect.width),
+    Math.round(workspaceRect.height),
+    Math.round(Number(nodeGraphMvp?.zoom) * 1000) || 0,
+    Math.round(Number(nodeGraphMvp?.pan?.x) || 0),
+    Math.round(Number(nodeGraphMvp?.pan?.y) || 0),
+    Math.round(Number(pixelRatio) * 100) || 100,
+  ].join("|");
+  const layoutCache = nodeGraphModuleScopeState.screenItemLayoutCache || { key: "", rects: new Map() };
+  const reuseRects = layoutCache.key === layoutKey;
+  if (!reuseRects) {
+    layoutCache.key = layoutKey;
+    layoutCache.rects = new Map();
+    nodeGraphModuleScopeState.screenItemLayoutCache = layoutCache;
+  }
   const viewportRect = {
     height: workspaceRect.height,
     left: 0,
@@ -160,7 +175,7 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
         rectWidth: 0,
         type: slot.type,
       };
-      if (!buffer) {
+      if (!buffer || !buffer.length) {
         entry.skip = "no-buffer";
         slotDebug.push(entry);
         renderNodeGraphModuleScopeAnalyzer(slot, null);
@@ -263,7 +278,11 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
         }
         return null;
       }
-      const rect = slot.scopeElement.getBoundingClientRect();
+      let rect = reuseRects ? layoutCache.rects.get(slot.nodeId) : null;
+      if (!rect) {
+        rect = slot.scopeElement.getBoundingClientRect();
+        layoutCache.rects.set(slot.nodeId, rect);
+      }
       entry.rectHeight = rect.height;
       entry.rectWidth = rect.width;
       const screenRect = {

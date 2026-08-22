@@ -16,7 +16,14 @@ function serializeNodeGraphPatch(patch = nodeGraphMvp.patch, options = {}) {
     modularOnlyControlsVisible: Boolean(patch.modularOnlyControlsVisible),
     modulations: patch.modulations || [],
     monitors: normalizeNodeGraphPatchMonitors(patch.monitors, patch),
-    nodes: patch.nodes,
+    nodes: Array.isArray(patch.nodes)
+      ? patch.nodes.map((node) => {
+        if (node?.type === "audioPlayer" && node.playlist && typeof nodeGraphAudioPlayerPlaylistForPersist === "function") {
+          return { ...node, playlist: nodeGraphAudioPlayerPlaylistForPersist(node.playlist) };
+        }
+        return node;
+      })
+      : patch.nodes,
     requiredAssets: typeof nodeGraphRequiredAssetsForPatch === "function"
       ? nodeGraphRequiredAssetsForPatch(patch)
       : [],

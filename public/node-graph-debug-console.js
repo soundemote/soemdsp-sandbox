@@ -86,6 +86,7 @@
     WARN: { tag: "WARN", color: "#ffcf6b", err: false },
     FAIL: { tag: "FAIL", color: "#ff6b6b", err: true },
     SMOOTH: { tag: "SMTH", color: "#b184ff", err: false },
+    LIVE: { tag: "LIVE", color: "#6ee7b7", err: false },
     ERROR: { tag: "ERR", color: "#ff5555", err: true },
   };
 
@@ -349,6 +350,7 @@
     storageKeys: () => ({ session: STORAGE_SESSION, lastUnload: STORAGE_LAST_UNLOAD }),
     buildMode: () => seBuildMode(),
     smoothingWatch: (on) => setSmoothingWatch(on),
+    liveDisplay: () => dumpLiveDisplay(),
     devMode: (on) => {
       try { localStorage.setItem("seDebug", on ? "1" : "0"); } catch (_) {}
       if (on) { injectStyles(); buildButton(); buildPanel(); showPanel(true); }
@@ -378,6 +380,41 @@
     };
   });
   function safeStringify(v) { try { return JSON.stringify(v); } catch (_) { return String(v); } }
+
+  function dumpLiveDisplay() {
+    const mvp = window.nodeGraphMvp;
+    const live = mvp?.live || {};
+    const slots = typeof nodeGraphVisibleModuleScopeSlots === "function"
+      ? nodeGraphVisibleModuleScopeSlots()
+      : [];
+    const slotLines = slots.map((slot) => {
+      const buf = typeof nodeGraphModuleScopeCapturedBufferForSlot === "function"
+        ? nodeGraphModuleScopeCapturedBufferForSlot(slot)
+        : null;
+      const renderer = typeof nodeGraphModuleDisplayRendererForSlot === "function"
+        ? nodeGraphModuleDisplayRendererForSlot(slot)
+        : "";
+      const lr = typeof nodeGraphStereoTraceLrWired === "function"
+        ? nodeGraphStereoTraceLrWired(slot.nodeId, slot.type)
+        : false;
+      return `${slot.type} ${slot.nodeId} ${renderer} n=${buf?.length || 0} lr=${lr ? "1" : "0"}`;
+    });
+    const snap = {
+      speed: live.speedMultiplier,
+      paused: !(Number(live.speedMultiplier) > 0) && Boolean(live.node),
+      outputMuted: live.outputMuted,
+      hostGain: live.outputGain?.gain?.value,
+      engine: Boolean(live.node),
+      phosphorRaf: [...document.querySelectorAll("[data-phosphor-raf='1']")].map((el) => el.dataset.node),
+      slots: slotLines,
+    };
+    push("LIVE", JSON.stringify(snap), "live-display");
+    if (typeof window.SE?.INFO === "function") {
+      // keep a second readable line
+    }
+    showPanel(true);
+    return snap;
+  }
 
   // ---- live-audio smoothing watch ------------------------------------------
   let smoothingWatch = false;
@@ -557,6 +594,7 @@
         <button class="se-bug" data-se-fake-err type="button" title="Click: generate a fake ERR entry (tests the log pipeline end to end)" aria-label="Generate a fake error">🐞</button>
         <span class="se-title">Debug Log</span>
         <button class="se-tool" data-se-watch aria-pressed="false">○ smoothing</button>
+        <button class="se-tool" data-se-live title="Dump Output/pause/Music Player live-display snapshot">LIVE</button>
         <button class="se-tool" data-se-cats title="Copy module category list (emoji + name, one per line)" aria-label="Copy module category list">📋🎛️</button>
         <button class="se-tool" data-se-pause aria-pressed="true">Resume</button>
         <button class="se-tool" data-se-copy>Copy</button>
@@ -564,7 +602,7 @@
         <button class="se-tool" data-se-close>✕</button>
       </div>
       <div class="se-filters">
-        ${["all","LOG","INFO","WARN","FAIL","SMOOTH","ERROR"].map((f)=>`<span class="se-chip${f==="all"?" on":""}" data-se-filter="${f}">${f}</span>`).join("")}
+        ${["all","LOG","INFO","WARN","FAIL","SMOOTH","LIVE","ERROR"].map((f)=>`<span class="se-chip${f==="all"?" on":""}" data-se-filter="${f}">${f}</span>`).join("")}
         <input class="se-search" data-se-search placeholder="filter text…">
       </div>
       <div class="se-log node-text-selectable" data-se-list tabindex="0"><div class="se-empty">No log entries yet.</div></div>
@@ -588,6 +626,7 @@
     syncPauseButton();
     pauseBtn.addEventListener("click", () => setPaused(!paused));
     els.watchBtn.addEventListener("click", () => setSmoothingWatch(!smoothingWatch));
+    p.querySelector("[data-se-live]")?.addEventListener("click", () => dumpLiveDisplay());
     p.querySelectorAll("[data-se-filter]").forEach((c) => c.addEventListener("click", () => {
       filter = c.dataset.seFilter;
       p.querySelectorAll("[data-se-filter]").forEach((x) => x.classList.toggle("on", x === c));

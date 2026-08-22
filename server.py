@@ -418,6 +418,9 @@ class SandboxServer(BaseHTTPRequestHandler):
         if parsed.path == "/api/audio-file/data-url":
             self.audio_file_data_url()
             return
+        if parsed.path == "/api/audio-file/bytes":
+            self.audio_file_bytes()
+            return
         if parsed.path == "/api/audio-file/find":
             self.audio_file_find()
             return
@@ -991,6 +994,67 @@ class SandboxServer(BaseHTTPRequestHandler):
 
         self.send_json({"ok": True, "path": str(target)})
 
+    def resolve_user_audio_file(self, source_path: str) -> Path | None:
+        if not isinstance(source_path, str) or not source_path.strip():
+            self.send_json({"ok": False, "error": "path is required"}, status=400)
+            return None
+        try:
+            target = Path(source_path).expanduser().resolve()
+        except OSError as exc:
+            self.send_json({"ok": False, "error": f"path resolve failed: {exc}"}, status=400)
+            return None
+        home = Path.home().resolve()
+        if not target.is_relative_to(home):
+            self.send_json({"ok": False, "error": "audio path must stay inside the user home folder"}, status=403)
+            return None
+        if not target.exists() or not target.is_file():
+            self.send_json({"ok": False, "error": "audio file does not exist", "path": str(target)}, status=404)
+            return None
+        if target.suffix.lower() not in SUPPORTED_AUDIO_FILE_SUFFIXES:
+            self.send_json({"ok": False, "error": "unsupported audio file extension"}, status=400)
+            return None
+        try:
+            size = target.stat().st_size
+        except OSError as exc:
+            self.send_json({"ok": False, "error": f"audio file stat failed: {exc}"}, status=500)
+            return None
+        if size <= 0:
+            self.send_json({"ok": False, "error": "audio file is empty"}, status=400)
+            return None
+        if size > MAX_AUDIO_FILE_BYTES:
+            self.send_json({"ok": False, "error": "audio file is too large"}, status=413)
+            return None
+        return target
+
+    def audio_file_bytes(self) -> None:
+        payload = self.read_json_payload("audio file", max_bytes=16 * 1024)
+        if payload is None:
+            return
+        target = self.resolve_user_audio_file(payload.get("path"))
+        if target is None:
+            return
+        transcoded = self.transcode_audio_file_to_wav(target)
+        if transcoded is not None:
+            body = transcoded
+            mime_type = "audio/wav"
+            name = f"{target.stem}.wav"
+        else:
+            try:
+                body = target.read_bytes()
+            except OSError as exc:
+                self.send_json({"ok": False, "error": f"audio file read failed: {exc}"}, status=500)
+                return
+            mime_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+            name = target.name
+        self.send_response(200)
+        self.send_header("Content-Type", mime_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Audio-File-Name", name)
+        self.send_header("X-Audio-File-Path", str(target))
+        self.send_no_store_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
     def audio_file_data_url(self) -> None:
         payload = self.read_json_payload(
             "audio file",
@@ -999,38 +1063,13 @@ class SandboxServer(BaseHTTPRequestHandler):
         if payload is None:
             return
 
-        source_path = payload.get("path")
-        if not isinstance(source_path, str) or not source_path.strip():
-            self.send_json({"ok": False, "error": "path is required"}, status=400)
-            return
-
-        try:
-            target = Path(source_path).expanduser().resolve()
-        except OSError as exc:
-            self.send_json({"ok": False, "error": f"path resolve failed: {exc}"}, status=400)
-            return
-
-        home = Path.home().resolve()
-        if not target.is_relative_to(home):
-            self.send_json({"ok": False, "error": "audio path must stay inside the user home folder"}, status=403)
-            return
-        if not target.exists() or not target.is_file():
-            self.send_json({"ok": False, "error": "audio file does not exist", "path": str(target)}, status=404)
-            return
-        if target.suffix.lower() not in SUPPORTED_AUDIO_FILE_SUFFIXES:
-            self.send_json({"ok": False, "error": "unsupported audio file extension"}, status=400)
+        target = self.resolve_user_audio_file(payload.get("path"))
+        if target is None:
             return
         try:
             size = target.stat().st_size
-        except OSError as exc:
-            self.send_json({"ok": False, "error": f"audio file stat failed: {exc}"}, status=500)
-            return
-        if size <= 0:
-            self.send_json({"ok": False, "error": "audio file is empty"}, status=400)
-            return
-        if size > MAX_AUDIO_FILE_BYTES:
-            self.send_json({"ok": False, "error": "audio file is too large"}, status=413)
-            return
+        except OSError:
+            size = 0
 
         transcoded = self.transcode_audio_file_to_wav(target)
         if transcoded is not None:
