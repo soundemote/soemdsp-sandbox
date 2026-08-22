@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=JetBrains+Mono:wght@400;500;600;700&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=btn-on-1">
+  <link rel="stylesheet" href="./public/styles.css?v=overlay-help-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=input-outlet-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -477,12 +477,9 @@
         aria-hidden="true"></div>
 
       <div class="node-help-stack">
-        <!-- Embedded tips land here: same in-flow band as the CPU/RAM/GPU
-             guide below, so they take real layout space instead of floating
-             over the patch. #nodeInteractionHelp is MOVED into this slot and
-             back out again - there is only ever one of it, which is what lets
-             setNodeInteractionHelp keep working by id regardless of mode.
-             Resize handle between this tips band and the modular workspace. -->
+        <!-- Tips + CPU/RAM/GPU meters overlay the workspace. They must not
+             change #nodeGraphWorkspace size (that used to pin-camera / pan /
+             remesh wires / heatmap / scopes). One #nodeInteractionHelp by id. -->
         <div id="nodeInteractionHelpEmbedSlot" class="node-interaction-help-embed-slot">
           <div id="nodeInteractionHelp" class="node-interaction-help is-embedded" role="status" aria-live="polite"></div>
           <button
@@ -2872,8 +2869,8 @@
                 <button type="button" data-metadata-step-target="metadataMaxDigitsValue" data-metadata-step-direction="1">+</button>
               </span>
             </label>
-            <label class="metadata-full-row" data-tooltip-key="parameterSettings.smoothingSeconds">
-              <span>SMOOTH</span>
+            <label data-tooltip-key="parameterSettings.smoothingSeconds">
+              <span>SMOOTH (S)</span>
               <span class="metadata-stepper-control">
                 <button type="button" data-metadata-step-target="metadataSmoothingSecondsValue" data-metadata-step-direction="-1">-</button>
                 <input id="metadataSmoothingSecondsValue" type="text" inputmode="decimal" placeholder="0.000" data-metadata-clamp-min="0">
@@ -3554,10 +3551,10 @@
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-image-utils.js?v=keypad-bgi-1"></script>
   <script src="./public/node-graph-graph-utils.js?v=graph-settings-list-1"></script>
-  <script src="./public/node-graph-samples.js?v=mp-lib-100-1"></script>
-  <script src="./public/modules/audioPlayer/audio-player-library.js?v=pl-current-sample-1"></script>
-  <script src="./public/modules/audioPlayer/audio-player-playlist.js?v=pl-current-sample-1"></script>
-  <script src="./public/node-graph-phosphor-waveform.js?v=wave-zoom-2"></script>
+  <script src="./public/node-graph-samples.js?v=mp-folder-1"></script>
+  <script src="./public/modules/audioPlayer/audio-player-library.js?v=mp-folder-2"></script>
+  <script src="./public/modules/audioPlayer/audio-player-playlist.js?v=mp-folder-1"></script>
+  <script src="./public/node-graph-phosphor-waveform.js?v=mp-folder-1"></script>
   <script src="./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1"></script>
   <script src="./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=curve-min-1"></script>
   <script src="./public/node-graph-musical-engines.js?v=musical-engines-1"></script>

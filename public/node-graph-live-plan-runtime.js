@@ -166,7 +166,9 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
         }
       }
       if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
-        runtimeNode.sample = { id: normalizeNodeGraphSampleId(node.sample?.id) };
+        runtimeNode.sample = typeof normalizeNodeGraphNodeSamplePointer === "function"
+          ? normalizeNodeGraphNodeSamplePointer(node.sample)
+          : { id: normalizeNodeGraphSampleId(node.sample?.id) };
       }
       if (node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhase))) {
         runtimeNode.samplePhase = Math.max(0, Math.min(1, Number(node.samplePhase)));
@@ -234,7 +236,9 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
         }
       }
       if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
-        runtimeNode.sample = { id: normalizeNodeGraphSampleId(node.sample?.id) };
+        runtimeNode.sample = typeof normalizeNodeGraphNodeSamplePointer === "function"
+          ? normalizeNodeGraphNodeSamplePointer(node.sample)
+          : { id: normalizeNodeGraphSampleId(node.sample?.id) };
       }
       if (node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhase))) {
         runtimeNode.samplePhase = Math.max(0, Math.min(1, Number(node.samplePhase)));

@@ -1792,13 +1792,12 @@ button.scw-label:hover,
   text-align: center;
 }
 
-/* List owns leftover page height. Rows stay natural size and scroll. */
+/* Fixed on-screen slots only. Wheel shifts which playlist rows fill them. */
 .node-music-player-pl-list {
   --node-music-player-pl-row-height: 1.35rem;
   flex: 1 1 0%;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -1808,20 +1807,6 @@ button.scw-label:hover,
   border-radius: 0;
   background: transparent;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--phosphor-hud-color-dim) transparent;
-  /* 6 screen px: CSS zoom on the graph would otherwise fatten/thin the thumb. */
-  --node-music-player-pl-scrollbar: calc(6px / max(0.0001, var(--node-graph-zoom, 1)));
-}
-.node-music-player-pl-list::-webkit-scrollbar {
-  width: var(--node-music-player-pl-scrollbar);
-}
-.node-music-player-pl-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.node-music-player-pl-list::-webkit-scrollbar-thumb {
-  background: var(--phosphor-hud-color-dim);
-  border-radius: 0;
 }
 .node-music-player-pl-empty {
   flex: 1 1 auto;
@@ -1843,11 +1828,12 @@ button.scw-label:hover,
   width: 100%;
   height: var(--node-music-player-pl-row-height);
   min-height: var(--node-music-player-pl-row-height);
+  max-height: var(--node-music-player-pl-row-height);
   margin: 0;
   padding: 0 8px;
   text-align: left;
   cursor: var(--node-dot-cursor);
-  flex: 0 0 auto;
+  flex: 0 0 var(--node-music-player-pl-row-height);
   box-sizing: border-box;
   opacity: var(--node-music-player-pl-fade, 1);
 }
@@ -5504,16 +5490,29 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   text-align: center;
 }
 
+/* Overlay the modular workspace. Showing tooltips / CPU meters must not
+   steal height from #nodeGraphWorkspace (that pin-camera + pan + wire +
+   heatmap + scope pass is a full scene rebuild). */
 .node-help-stack {
   display: flex;
   flex-direction: column;
   justify-self: center;
+  flex: 0 0 0;
   width: 100%;
   max-width: none;
   min-width: 0;
+  height: 0;
+  overflow: visible;
   gap: 0;
   margin: 0;
   padding: 0;
+  position: relative;
+  z-index: 18;
+  pointer-events: none;
+}
+
+.node-help-stack > * {
+  pointer-events: auto;
 }
 
 .node-help-stack > [hidden] {
@@ -5597,6 +5596,21 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-phosphor-waveform-load-row {
   align-items: stretch;
+}
+
+.node-phosphor-waveform-format-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.node-phosphor-waveform-format-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
 }
 
 .node-phosphor-waveform-loader-slot .node-sample-path-loader {
@@ -17390,7 +17404,7 @@ body.node-slider-dragging * {
 /*
  * Parameter Settings only (not Display Settings — that also uses
  * .node-parameter-metadata-popover as a chrome class and must stay 1-col full width).
- * Flat 2-column body grid; Range/Fields/Toggles use display:contents.
+ * Flat 2-column body grid; Toggles use display:contents. Range/Fields stay 1-col.
  */
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid {
   display: grid;
@@ -17414,14 +17428,14 @@ body.node-slider-dragging * {
   grid-column: 1 / -1;
 }
 
-/* Range is one column. Identity / toggles flatten into the parent 2-col grid. */
-.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section {
+/* Range + Fields identity: one column each (full width). Toggles flatten 2-col. */
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-identity-section {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-column: 1 / -1;
 }
 
-.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-identity-section,
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-toggle-section {
   display: contents;
 }
@@ -17440,17 +17454,35 @@ body.node-slider-dragging * {
   background: rgba(5, 9, 11, 0.62);
 }
 
-.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section > label {
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section > label,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-identity-section > label {
   border-right: 0;
 }
 
-.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-identity-section > label:nth-child(2n),
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-toggle-section > label:nth-child(2n) {
   border-right: 0;
 }
 
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
+  > .metadata-popover-grid
+  > .metadata-identity-section
+  > label {
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 4px;
+  padding: 0 3px 0 5px;
+}
+
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
+  > .metadata-popover-grid
+  > .metadata-identity-section
+  > label
+  > span:first-child {
+  max-width: none;
+  font-size: 0.58rem;
+  letter-spacing: 0;
+}
+
 /* Full-width rows inside the flat grid when a lone control needs the line. */
-.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-identity-section > .metadata-full-row,
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section > .metadata-curve-sensitivity-label {
   grid-column: 1 / -1;
   border-right: 0;
@@ -18331,6 +18363,12 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-lr-color-row {
   align-items: start;
   padding: 4px 0;
+  /* Color widgets have their own L/R captions — do not reserve the stepper label column. */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.node-trace-display-lr-color-row .node-trace-display-lr-shared-label {
+  display: none;
 }
 
 .node-trace-display-settings-popover .node-trace-display-lr-color-row .node-trace-display-color-widget-row {

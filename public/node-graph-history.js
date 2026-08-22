@@ -15,7 +15,7 @@ function nodeGraphHistoryRememberSamples(samples) {
     if (!id) {
       continue;
     }
-    if (sample.dataUrl || !bank.has(id)) {
+    if (!bank.has(id)) {
       bank.set(id, sample);
     }
   }
@@ -27,8 +27,11 @@ function nodeGraphHistorySlimSamples(samples) {
     return [];
   }
   return samples.map((sample) => {
-    if (!sample || typeof sample !== "object" || !sample.dataUrl) {
+    if (!sample || typeof sample !== "object") {
       return sample;
+    }
+    if (typeof nodeGraphPatchSamplesWithoutEmbeddedAudio === "function") {
+      return nodeGraphPatchSamplesWithoutEmbeddedAudio([sample])[0] || sample;
     }
     const slim = { ...sample };
     delete slim.dataUrl;
@@ -45,7 +48,7 @@ function nodeGraphHistoryResolveSamples(samples) {
   return samples.map((sample) => {
     const id = sample?.id;
     const full = id ? bank.get(id) : null;
-    return full?.dataUrl ? full : sample;
+    return full || sample;
   });
 }
 

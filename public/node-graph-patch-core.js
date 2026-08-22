@@ -437,9 +437,14 @@ function validateNodeGraphPatch(patch) {
     }
     if (
       (type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer") &&
-      normalizeNodeGraphSampleId(node.sample?.id)
+      node.sample
     ) {
-      normalizedNode.sample = { id: normalizeNodeGraphSampleId(node.sample?.id) };
+      const pointer = typeof normalizeNodeGraphNodeSamplePointer === "function"
+        ? normalizeNodeGraphNodeSamplePointer(node.sample)
+        : (normalizeNodeGraphSampleId(node.sample?.id) ? { id: normalizeNodeGraphSampleId(node.sample.id) } : null);
+      if (pointer) {
+        normalizedNode.sample = pointer;
+      }
     }
     if (type === "audioPlayer" && Object.hasOwn(node, "phosphorWaveformSettings")) {
       normalizedNode.phosphorWaveformSettings = normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings);

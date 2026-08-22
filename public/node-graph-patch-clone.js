@@ -730,8 +730,13 @@ function cloneNodeGraphPatch(patch) {
         ...(node.type === "moduleGroup"
           ? { moduleGroup: normalizeNodeGraphModuleGroup(node.moduleGroup) }
           : {}),
-        ...((node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") && normalizeNodeGraphSampleId(node.sample?.id)
-          ? { sample: { id: normalizeNodeGraphSampleId(node.sample?.id) } }
+        ...((node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") && node.sample
+          ? (() => {
+            const pointer = typeof normalizeNodeGraphNodeSamplePointer === "function"
+              ? normalizeNodeGraphNodeSamplePointer(node.sample)
+              : (normalizeNodeGraphSampleId(node.sample?.id) ? { id: normalizeNodeGraphSampleId(node.sample.id) } : null);
+            return pointer ? { sample: pointer } : {};
+          })()
           : {}),
         ...(node.type === "audioPlayer" && Object.hasOwn(node, "phosphorWaveformSettings")
           ? { phosphorWaveformSettings: normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings) }
@@ -753,9 +758,11 @@ function cloneNodeGraphPatch(patch) {
     requiredAssets: typeof nodeGraphRequiredAssetsForPatch === "function"
       ? nodeGraphRequiredAssetsForPatch(patch)
       : [],
-    samples: typeof normalizeNodeGraphPatchSamples === "function"
-      ? normalizeNodeGraphPatchSamples(patch.samples)
-      : [],
+    samples: typeof nodeGraphPatchSamplesWithoutEmbeddedAudio === "function"
+      ? nodeGraphPatchSamplesWithoutEmbeddedAudio(patch.samples)
+      : (typeof normalizeNodeGraphPatchSamples === "function"
+        ? normalizeNodeGraphPatchSamples(patch.samples)
+        : []),
     timing: normalizeNodeGraphPatchTiming(patch.timing),
     uiItems: normalizeNodeGraphPatchUiItems(patch.uiItems),
     view: normalizeNodeGraphPatchView(patch.view),

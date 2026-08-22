@@ -48,11 +48,15 @@ function nodeGraphAudioPlayerPlaylistNormalize(raw = null) {
     loopMode = "off";
   }
   const folderPath = String(source.folderPath || "").trim();
-  const folderDive = source.folderDive === true || source.folderDive === "true" || source.folderDive === 1;
+  const folderDive = source.folderDive !== false && source.folderDive !== "false" && source.folderDive !== 0;
+  const removeAfterPlay = source.removeAfterPlay !== false && source.removeAfterPlay !== "false" && source.removeAfterPlay !== 0;
+  const formats = typeof nodeGraphAudioPlayerLibraryNormalizeFormats === "function"
+    ? nodeGraphAudioPlayerLibraryNormalizeFormats(source.formats)
+    : (source.formats && typeof source.formats === "object" ? source.formats : {});
   const used = Array.isArray(source.used)
     ? source.used.map((path) => String(path || "").trim()).filter(Boolean).slice(0, 10000)
     : [];
-  return { face, folderDive, folderPath, index, items, selectedIndex, shuffle, loopMode, used };
+  return { face, folderDive, folderPath, formats, index, items, removeAfterPlay, selectedIndex, shuffle, loopMode, used };
 }
 
 const nodeGraphAudioPlayerPlaylistFaces = Object.freeze(["wave", "waveplay", "pl", "playinfo", "vsxy", "vslr"]);
@@ -100,18 +104,24 @@ function nodeGraphAudioPlayerFaceShowsPlayinfo(sectionOrFace) {
   return nodeGraphAudioPlayerPlaylistNormalizeFace(face) === "playinfo";
 }
 
+const nodeGraphAudioPlayerPlaylistReady = new WeakSet();
+
 function nodeGraphAudioPlayerPlaylistForNode(nodeId) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   if (!node || node.type !== "audioPlayer") {
     return nodeGraphAudioPlayerPlaylistNormalize(null);
   }
-  const normalized = nodeGraphAudioPlayerPlaylistNormalize(node.playlist);
+  const existing = node.playlist;
+  if (existing && nodeGraphAudioPlayerPlaylistReady.has(existing) && Array.isArray(existing.items)) {
+    return existing;
+  }
+  const normalized = nodeGraphAudioPlayerPlaylistNormalize(existing);
   node.playlist = normalized;
+  nodeGraphAudioPlayerPlaylistReady.add(normalized);
   if (
     typeof nodeGraphAudioPlayerLibraryCatalog === "function"
     && !nodeGraphAudioPlayerLibraryCatalog(node.id).length
     && normalized.items.length
-    && !normalized.folderPath
     && typeof nodeGraphAudioPlayerLibrarySetCatalog === "function"
   ) {
     nodeGraphAudioPlayerLibrarySetCatalog(node.id, normalized.items);
@@ -288,7 +298,6 @@ function nodeGraphAudioPlayerPlaylistClear(nodeId) {
   pl.index = 0;
   pl.selectedIndex = 0;
   pl.used = [];
-  pl.folderPath = "";
   node.playlist = pl;
   if (typeof nodeGraphAudioPlayerLibraryCatalogs === "function") {
     nodeGraphAudioPlayerLibraryCatalogs().delete(String(nodeId));
@@ -327,6 +336,10 @@ function nodeGraphAudioPlayerPlaylistRemoveSelected(nodeId) {
 }
 
 function nodeGraphAudioPlayerPlaylistToggleShuffle(nodeId) {
+  if (typeof nodeGraphAudioPlayerLibraryShufflePlaylist === "function") {
+    nodeGraphAudioPlayerLibraryShufflePlaylist(nodeId);
+    return;
+  }
   const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
   pl.shuffle = !pl.shuffle;
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
@@ -650,7 +663,9 @@ function nodeGraphAudioPlayerPlaylistSyncTransport(nodeId) {
   if (diveBtn) {
     diveBtn.classList.toggle("is-active", Boolean(pl.folderDive));
     diveBtn.setAttribute("aria-pressed", pl.folderDive ? "true" : "false");
-    diveBtn.title = pl.folderDive ? "Folder dive on — next 100 can come from subfolders" : "Folder dive off — this folder only";
+    diveBtn.title = pl.folderDive
+      ? "Folder dive on — Load scans subfolders once, then the 100-track window comes from that list"
+      : "Folder dive off — Load this folder only (no subfolders)";
   }
 }
 
@@ -1126,7 +1141,7 @@ function nodeGraphAudioPlayerPlaylistOnRuntimeStatus(nodeId, reason = "") {
   const catalogCount = typeof nodeGraphAudioPlayerLibraryCatalog === "function"
     ? nodeGraphAudioPlayerLibraryCatalog(nodeId).length
     : 0;
-  if (pl.items.length < 2 && catalogCount <= pl.items.length) {
+  if (!pl.items.length) {
     nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
     return;
   }
@@ -1444,12 +1459,10 @@ function nodeGraphAudioPlayerPlaylistPaintWaves(nodeId, { liveOnly = false } = {
     view.startFrame = next.viewStart;
     view.endFrame = next.viewEnd;
   }
-  for (const row of section.querySelectorAll(".node-music-player-pl-row")) {
-    const sampleId = row.dataset.sampleId || "";
-    const live = Boolean(playingId && sampleId && sampleId === playingId);
-    row.dataset.playing = live ? "true" : "false";
+  const list = section.querySelector("[data-music-player-list]");
+  if (list) {
+    nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying: false });
   }
-  nodeGraphAudioPlayerPlaylistApplyRowFade(section, nodeId, playingId);
 }
 
 function nodeGraphAudioPlayerPlaylistSmoothstep(t) {
@@ -1459,49 +1472,42 @@ function nodeGraphAudioPlayerPlaylistSmoothstep(t) {
 
 function nodeGraphAudioPlayerPlaylistPlayingIndex(nodeId, playingId = "") {
   const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  const hinted = Math.max(0, Math.round(Number(pl.index) || 0));
   const sid = normalizeNodeGraphSampleId
     ? normalizeNodeGraphSampleId(playingId)
     : String(playingId || "").trim();
+  if (sid && pl.items[hinted]?.sampleId === sid) {
+    return hinted;
+  }
   if (sid) {
     const found = pl.items.findIndex((item) => item.sampleId === sid);
     if (found >= 0) {
       return found;
     }
   }
-  return Math.max(0, Math.round(Number(pl.index) || 0));
+  return hinted;
 }
 
-/** Fade only downward from the playing row. Rows above stay full. */
-function nodeGraphAudioPlayerPlaylistRowFade(index, playingIndex, itemCount, playlistFade = 1) {
-  const n = Math.max(1, Number(itemCount) || 1);
-  const fade = Math.max(0, Math.min(1, Number(playlistFade)));
-  const span = Math.max(1, 1 + (n - 1) * fade);
-  const i = Math.round(Number(index) || 0);
-  const p = Math.max(0, Math.round(Number(playingIndex) || 0));
-  if (i <= p) {
+/**
+ * Opacity from distance to the playing index, in view-slot units.
+ * playlistFade 0 = all slots full. 1 = one screen of distance reaches 0.
+ */
+function nodeGraphAudioPlayerPlaylistSlotFade(index, playingIndex, slotCount, playlistFade = 1) {
+  const amount = Math.max(0, Math.min(1, Number(playlistFade) || 0));
+  if (amount <= 0) {
     return 1;
   }
-  return 1 - nodeGraphAudioPlayerPlaylistSmoothstep((i - p) / span);
+  const dist = Math.abs((Number(index) || 0) - (Number(playingIndex) || 0));
+  const span = Math.max(1, (Math.max(1, Number(slotCount) || 1) - 1) * amount);
+  return 1 - nodeGraphAudioPlayerPlaylistSmoothstep(dist / span);
 }
 
-function nodeGraphAudioPlayerPlaylistApplyRowFade(section, nodeId, playingId = "") {
+function nodeGraphAudioPlayerPlaylistApplyRowFade(section, nodeId) {
   const list = section?.querySelector?.("[data-music-player-list]");
   if (!list) {
     return;
   }
-  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-  const rows = list.querySelectorAll(".node-music-player-pl-row");
-  const itemCount = pl.items.length || Math.max(1, rows.length);
-  const playingIndex = nodeGraphAudioPlayerPlaylistPlayingIndex(nodeId, playingId);
-  const settings = typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
-    ? nodeGraphPhosphorWaveformSettingsForNode(nodeId)
-    : null;
-  const playlistFade = settings?.playlistFade;
-  rows.forEach((row) => {
-    const index = Number(row.dataset.playlistIndex);
-    const fade = nodeGraphAudioPlayerPlaylistRowFade(index, playingIndex, itemCount, playlistFade);
-    row.style.setProperty("--node-music-player-pl-fade", String(fade));
-  });
+  nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying: false });
 }
 
 function nodeGraphAudioPlayerPlaylistRowHeightPx(list) {
@@ -1524,15 +1530,156 @@ function nodeGraphAudioPlayerPlaylistVisibleSlotCount(list) {
   return Math.max(1, Math.floor(height / rowH) || 1);
 }
 
+function nodeGraphAudioPlayerPlaylistSlotCount(list) {
+  return nodeGraphAudioPlayerPlaylistVisibleSlotCount(list);
+}
+
+function nodeGraphAudioPlayerPlaylistClampViewStart(start, itemCount, slotCount) {
+  const maxStart = Math.max(0, (Number(itemCount) || 0) - Math.max(1, Number(slotCount) || 1));
+  return Math.max(0, Math.min(maxStart, Math.round(Number(start) || 0)));
+}
+
 function nodeGraphAudioPlayerPlaylistBindListResize(list, nodeId) {
-  if (!list || list.dataset.slotResizeBound === "1" || typeof ResizeObserver === "undefined") {
+  if (!list || list.dataset.slotResizeBound === "1") {
     return;
   }
   list.dataset.slotResizeBound = "1";
-  const observer = new ResizeObserver(() => {
-    nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
+  if (typeof ResizeObserver !== "undefined") {
+    const observer = new ResizeObserver(() => {
+      nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying: false });
+    });
+    observer.observe(list);
+  }
+  list.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+    const slots = nodeGraphAudioPlayerPlaylistSlotCount(list);
+    const step = event.deltaY > 0 || event.deltaX > 0 ? 1 : -1;
+    const next = nodeGraphAudioPlayerPlaylistClampViewStart(
+      (Number(list.dataset.plViewStart) || 0) + step,
+      pl.items.length,
+      slots,
+    );
+    list.dataset.plViewStart = String(next);
+    nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying: false });
+  }, { passive: false });
+  list.addEventListener("pointerdown", (event) => {
+    if (event.target.closest(".node-music-player-pl-row")) {
+      event.stopPropagation();
+    }
   });
-  observer.observe(list);
+  list.addEventListener("click", (event) => {
+    const row = event.target.closest(".node-music-player-pl-row");
+    if (!row || row.dataset.slot === "empty") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    nodeGraphAudioPlayerPlaylistActivateRow(nodeId, Number(row.dataset.playlistIndex), { play: false });
+  });
+  list.addEventListener("dblclick", (event) => {
+    const row = event.target.closest(".node-music-player-pl-row");
+    if (!row || row.dataset.slot === "empty") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    nodeGraphAudioPlayerPlaylistActivateRow(nodeId, Number(row.dataset.playlistIndex), { play: true });
+  });
+}
+
+// Face buttons are a fixed slot pool (how many rows fit). The file list is
+// separate data. Wheel only changes which list index each slot shows.
+function nodeGraphAudioPlayerPlaylistEnsureSlotButtons(list, slotCount) {
+  const want = Math.max(1, Math.round(Number(slotCount) || 1));
+  list.querySelectorAll(".node-music-player-pl-virtual-rail").forEach((el) => el.remove());
+  const rows = [...list.querySelectorAll(":scope > .node-music-player-pl-row")];
+  if (rows.length === want) {
+    return want;
+  }
+  if (rows.length > want) {
+    for (let i = want; i < rows.length; i += 1) {
+      rows[i].remove();
+    }
+    return want;
+  }
+  for (let i = rows.length; i < want; i += 1) {
+    list.append(nodeGraphAudioPlayerPlaylistMakeRowShell(i, { empty: true }));
+  }
+  return want;
+}
+
+function nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying = false } = {}) {
+  if (!list) {
+    return;
+  }
+  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  const items = pl.items;
+  const slotCount = nodeGraphAudioPlayerPlaylistEnsureSlotButtons(
+    list,
+    nodeGraphAudioPlayerPlaylistSlotCount(list),
+  );
+  const playingId = normalizeNodeGraphSampleId
+    ? normalizeNodeGraphSampleId(nodeGraphPatchNode(nodeId)?.sample?.id)
+    : String(nodeGraphPatchNode(nodeId)?.sample?.id || "").trim();
+  const playingIndex = nodeGraphAudioPlayerPlaylistPlayingIndex(nodeId, playingId);
+  let start = Number(list.dataset.plViewStart) || 0;
+  if (followPlaying && items.length) {
+    if (playingIndex < start || playingIndex >= start + slotCount) {
+      start = playingIndex;
+    }
+  }
+  start = nodeGraphAudioPlayerPlaylistClampViewStart(start, items.length, slotCount);
+  list.dataset.plViewStart = String(start);
+  const selected = Number.isInteger(pl.selectedIndex) ? pl.selectedIndex : pl.index;
+  const settings = typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
+    ? nodeGraphPhosphorWaveformSettingsForNode(nodeId)
+    : null;
+  const fadeAmt = settings?.playlistFade;
+  const rows = list.querySelectorAll(":scope > .node-music-player-pl-row");
+  for (let slot = 0; slot < rows.length; slot += 1) {
+    const row = rows[slot];
+    const index = start + slot;
+    const item = items[index];
+    row.dataset.playlistIndex = String(index);
+    row.style.setProperty(
+      "--node-music-player-pl-fade",
+      String(nodeGraphAudioPlayerPlaylistSlotFade(index, playingIndex, slotCount, fadeAmt)),
+    );
+    if (!item) {
+      row.classList.add("is-empty");
+      row.dataset.slot = "empty";
+      row.tabIndex = -1;
+      row.setAttribute("aria-hidden", "true");
+      row.dataset.active = "false";
+      row.dataset.playing = "false";
+      row.dataset.sampleId = "";
+      row.title = "";
+      const nameEmpty = row.querySelector(".node-music-player-pl-name");
+      const numEmpty = row.querySelector(".node-music-player-pl-num");
+      if (nameEmpty) nameEmpty.textContent = "";
+      if (numEmpty) numEmpty.textContent = "";
+      continue;
+    }
+    row.classList.remove("is-empty");
+    delete row.dataset.slot;
+    row.tabIndex = 0;
+    row.removeAttribute("aria-hidden");
+    row.dataset.sampleId = item.sampleId;
+    row.dataset.active = index === selected ? "true" : "false";
+    row.dataset.playing = playingId && item.sampleId === playingId ? "true" : "false";
+    const num = row.querySelector(".node-music-player-pl-num");
+    const name = row.querySelector(".node-music-player-pl-name");
+    if (num) {
+      num.textContent = String(index + 1).padStart(2, "0");
+    }
+    if (name) {
+      name.textContent = item.name;
+    }
+    row.title = "Double-click to play";
+  }
+  return slotCount;
 }
 
 function nodeGraphAudioPlayerPlaylistMakeRowShell(index, { empty = false } = {}) {
@@ -1555,51 +1702,41 @@ function nodeGraphAudioPlayerPlaylistMakeRowShell(index, { empty = false } = {})
   return row;
 }
 
-function nodeGraphAudioPlayerPlaylistBindTrackRow(row, nodeId, item, index) {
-  row.dataset.sampleId = item.sampleId;
-  row.title = "Double-click to play";
-  row.addEventListener("dblclick", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-    const sid = normalizeNodeGraphSampleId
-      ? normalizeNodeGraphSampleId(node?.sample?.id)
-      : String(node?.sample?.id || "").trim();
-    const already = Boolean(item.sampleId && sid && item.sampleId === sid);
-    const transport = Number(node?.params?.transport);
-    const playing = Number.isFinite(transport) ? transport >= 3 : false;
+function nodeGraphAudioPlayerPlaylistActivateRow(nodeId, index, { play = false } = {}) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!node) {
+    return;
+  }
+  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  const item = pl.items[index];
+  if (!item) {
+    return;
+  }
+  const sid = normalizeNodeGraphSampleId
+    ? normalizeNodeGraphSampleId(node.sample?.id)
+    : String(node.sample?.id || "").trim();
+  const already = Boolean(item.sampleId && sid && item.sampleId === sid);
+  const transport = Number(node.params?.transport);
+  const playing = Number.isFinite(transport) ? transport >= 3 : false;
+  if (play) {
     if (already && playing) {
       nodeGraphAudioPlayerPlaylistSetFace(nodeId, "waveplay");
       return;
     }
     nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, index, { autoplay: true });
-  });
-  row.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-    if (!node) {
-      return;
-    }
-    const sid = normalizeNodeGraphSampleId
-      ? normalizeNodeGraphSampleId(node?.sample?.id)
-      : String(node?.sample?.id || "").trim();
-    if (item.sampleId && sid && item.sampleId === sid) {
-      nodeGraphAudioPlayerPlaylistSetFace(nodeId, "waveplay");
-      return;
-    }
-    const cur = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-    cur.selectedIndex = index;
-    node.playlist = cur;
-    const listEl = row.closest("[data-music-player-list]");
-    if (listEl) {
-      listEl.querySelectorAll(".node-music-player-pl-row").forEach((el) => {
-        el.dataset.active = el.dataset.playlistIndex === String(index) ? "true" : "false";
-      });
-    }
-  });
-  row.addEventListener("pointerdown", (event) => {
-    event.stopPropagation();
+    return;
+  }
+  if (already) {
+    nodeGraphAudioPlayerPlaylistSetFace(nodeId, "waveplay");
+    return;
+  }
+  pl.selectedIndex = index;
+  node.playlist = pl;
+  const listEl = document.querySelector(
+    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId))}"] [data-music-player-list]`,
+  );
+  listEl?.querySelectorAll(".node-music-player-pl-row").forEach((el) => {
+    el.dataset.active = el.dataset.playlistIndex === String(index) ? "true" : "false";
   });
 }
 
@@ -1613,62 +1750,15 @@ function nodeGraphAudioPlayerPlaylistRefreshUi(nodeId) {
   if (!section) {
     return;
   }
-  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
   const list = section.querySelector("[data-music-player-list]");
   if (list) {
     nodeGraphAudioPlayerPlaylistBindListResize(list, nodeId);
-    const visibleSlots = nodeGraphAudioPlayerPlaylistVisibleSlotCount(list);
-    const rowCount = Math.max(pl.items.length, visibleSlots);
-    const signature = `${pl.items.map((item) => item.sampleId).join("|")}#${rowCount}`;
-    const reuse = list.dataset.itemSignature === signature
-      && list.querySelectorAll(".node-music-player-pl-row").length === rowCount;
-    if (!reuse) {
-      list.dataset.itemSignature = signature;
-      list.replaceChildren();
-      const selected = Number.isInteger(pl.selectedIndex) ? pl.selectedIndex : pl.index;
-      const playingId = normalizeNodeGraphSampleId
-        ? normalizeNodeGraphSampleId(nodeGraphPatchNode(nodeId)?.sample?.id)
-        : String(nodeGraphPatchNode(nodeId)?.sample?.id || "").trim();
-      for (let index = 0; index < rowCount; index += 1) {
-        const item = pl.items[index];
-        if (item) {
-          const row = nodeGraphAudioPlayerPlaylistMakeRowShell(index);
-          const name = row.querySelector(".node-music-player-pl-name");
-          if (name) {
-            name.textContent = item.name;
-          }
-          row.dataset.active = index === selected ? "true" : "false";
-          row.dataset.playing = playingId && item.sampleId === playingId ? "true" : "false";
-          nodeGraphAudioPlayerPlaylistBindTrackRow(row, nodeId, item, index);
-          list.append(row);
-          continue;
-        }
-        list.append(nodeGraphAudioPlayerPlaylistMakeRowShell(index, { empty: true }));
-      }
-      nodeGraphAudioPlayerPlaylistApplyRowFade(section, nodeId);
-    } else {
-      const selected = Number.isInteger(pl.selectedIndex) ? pl.selectedIndex : pl.index;
-      const playingId = normalizeNodeGraphSampleId
-        ? normalizeNodeGraphSampleId(nodeGraphPatchNode(nodeId)?.sample?.id)
-        : String(nodeGraphPatchNode(nodeId)?.sample?.id || "").trim();
-      list.querySelectorAll(".node-music-player-pl-row").forEach((row) => {
-        if (row.dataset.slot === "empty") {
-          return;
-        }
-        const index = Number(row.dataset.playlistIndex);
-        const item = pl.items[index];
-        row.dataset.active = index === selected ? "true" : "false";
-        row.dataset.playing = playingId && item?.sampleId === playingId ? "true" : "false";
-        const name = row.querySelector(".node-music-player-pl-name");
-        if (name && item) {
-          name.textContent = item.name;
-        }
-      });
-      nodeGraphAudioPlayerPlaylistApplyRowFade(section, nodeId);
-    }
+    nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying: true });
   }
   nodeGraphAudioPlayerPlaylistSyncNowSong(nodeId);
-  nodeGraphAudioPlayerPlaylistRefreshRamDebug(nodeId);
+  if (nodeGraphAudioPlayerFaceShowsPlayinfo(section)) {
+    nodeGraphAudioPlayerPlaylistRefreshRamDebug(nodeId);
+  }
   nodeGraphAudioPlayerPlaylistSyncTransport(nodeId);
   nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
   nodeGraphAudioPlayerPlaylistPaintWaves(nodeId);

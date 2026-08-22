@@ -250,6 +250,81 @@ function renderNodeGraphPhosphorWaveformSampleLoader(nodeId) {
   slot.append(loader.fileInput, loader.pathShell);
 }
 
+function syncNodeGraphPhosphorWaveformPlaylistSettingsControls(nodeId) {
+  const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
+    ? nodeGraphAudioPlayerPlaylistForNode(nodeId)
+    : null;
+  if (!pl) {
+    return;
+  }
+  const recursive = document.getElementById("nodePhosphorWaveformRecursiveSearch");
+  if (recursive) {
+    recursive.checked = Boolean(pl.folderDive);
+  }
+  const remove = document.getElementById("nodePhosphorWaveformRemoveAfterPlay");
+  if (remove) {
+    remove.checked = pl.removeAfterPlay !== false;
+  }
+  const host = document.getElementById("nodePhosphorWaveformFormatChecks");
+  if (host && typeof NODE_GRAPH_AUDIO_PLAYER_FORMATS !== "undefined") {
+    const formats = typeof nodeGraphAudioPlayerLibraryNormalizeFormats === "function"
+      ? nodeGraphAudioPlayerLibraryNormalizeFormats(pl.formats)
+      : {};
+    if (!host.childElementCount) {
+      for (const fmt of NODE_GRAPH_AUDIO_PLAYER_FORMATS) {
+        const label = document.createElement("label");
+        label.className = "node-phosphor-waveform-format-check";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.dataset.musicFormat = fmt.id;
+        box.checked = formats[fmt.id] !== false;
+        label.append(box, document.createTextNode(fmt.label));
+        host.append(label);
+      }
+    } else {
+      for (const box of host.querySelectorAll("[data-music-format]")) {
+        box.checked = formats[box.dataset.musicFormat] !== false;
+      }
+    }
+  }
+  const pathBox = document.querySelector(
+    `.node-sample-path-input[data-sample-path-for-node="${CSS.escape(String(nodeId))}"]`,
+  );
+  if (pathBox && document.activeElement !== pathBox && pl.folderPath) {
+    pathBox.value = pl.folderPath;
+  }
+}
+
+function nodeGraphPhosphorWaveformCommitPlaylistOptions() {
+  const nodeId = nodeGraphPhosphorWaveformSettingsTargetNodeId();
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!node || node.type !== "audioPlayer" || typeof nodeGraphAudioPlayerPlaylistForNode !== "function") {
+    return;
+  }
+  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  const recursive = document.getElementById("nodePhosphorWaveformRecursiveSearch");
+  if (recursive) {
+    pl.folderDive = Boolean(recursive.checked);
+  }
+  const remove = document.getElementById("nodePhosphorWaveformRemoveAfterPlay");
+  if (remove) {
+    pl.removeAfterPlay = Boolean(remove.checked);
+  }
+  const formats = {};
+  for (const box of document.querySelectorAll("#nodePhosphorWaveformFormatChecks [data-music-format]")) {
+    formats[box.dataset.musicFormat] = Boolean(box.checked);
+  }
+  if (typeof nodeGraphAudioPlayerLibraryNormalizeFormats === "function") {
+    pl.formats = nodeGraphAudioPlayerLibraryNormalizeFormats(formats);
+  } else {
+    pl.formats = formats;
+  }
+  node.playlist = pl;
+  if (typeof nodeGraphAudioPlayerPlaylistPersist === "function") {
+    nodeGraphAudioPlayerPlaylistPersist(nodeId);
+  }
+}
+
 function renderNodeGraphPhosphorWaveformPhaseReadout(nodeId) {
   const slot = document.getElementById("nodePhosphorWaveformPhaseSlot");
   if (!slot || typeof createNodeGraphSamplePhaseReadout !== "function") {
@@ -283,6 +358,9 @@ function renderNodeGraphPhosphorWaveformSettingsWindow() {
   }
   renderNodeGraphPhosphorWaveformSampleLoader(nodeId);
   renderNodeGraphPhosphorWaveformPhaseReadout(nodeId);
+  if (typeof syncNodeGraphPhosphorWaveformPlaylistSettingsControls === "function") {
+    syncNodeGraphPhosphorWaveformPlaylistSettingsControls(nodeId);
+  }
   const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
   const setValueUnlessFocused = (id, value) => {
     const el = document.getElementById(id);
@@ -532,9 +610,22 @@ function buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml() {
       <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-load-row" role="group" aria-label="Load sample">
         <div id="nodePhosphorWaveformSampleLoaderSlot" class="node-phosphor-waveform-loader-slot"></div>
       </div>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+        <span>Recursive search</span>
+        <input id="nodePhosphorWaveformRecursiveSearch" type="checkbox">
+      </label>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Formats">
+        <span>Formats</span>
+        <div id="nodePhosphorWaveformFormatChecks" class="node-phosphor-waveform-format-checks"></div>
+      </div>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row">
+        <span>Remove after play</span>
+        <input id="nodePhosphorWaveformRemoveAfterPlay" type="checkbox" checked>
+      </label>
       <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-playlist-actions" role="group" aria-label="Playlist">
-        <button id="nodePhosphorWaveformClearPlaylist" type="button">Clear Playlist</button>
-        <button id="nodePhosphorWaveformRemoveItem" type="button">❌ Item</button>
+        <button id="nodePhosphorWaveformLoadPlaylist" type="button">Load</button>
+        <button id="nodePhosphorWaveformShufflePlaylist" type="button">Shuffle</button>
+        <button id="nodePhosphorWaveformClearPlaylist" type="button">Clear</button>
       </div>
       <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-phase-row" role="group" aria-label="Current phase">
         <span>Phase</span>
@@ -655,7 +746,16 @@ function bindNodeGraphPhosphorWaveformDisplaySettingsBody(host) {
       }
     });
     host.addEventListener("change", (event) => {
-      const id = event.target?.id || "";
+      const target = event.target;
+      const id = target?.id || "";
+      if (
+        id === "nodePhosphorWaveformRecursiveSearch"
+        || id === "nodePhosphorWaveformRemoveAfterPlay"
+        || target?.dataset?.musicFormat
+      ) {
+        nodeGraphPhosphorWaveformCommitPlaylistOptions();
+        return;
+      }
       if (id === "nodePhosphorWaveformTimeWindowInput") {
         handleNodeGraphPhosphorWaveformTimeWindowChange(event);
       } else if (id === "nodePhosphorWaveformLineWidthInput") {
@@ -686,15 +786,27 @@ function bindNodeGraphPhosphorWaveformDisplaySettingsBody(host) {
       } else if (button.id === "nodePhosphorWaveformPositionRightButton") {
         event.preventDefault();
         setNodeGraphPhosphorWaveformScrollLinePosition("right");
+      } else if (button.id === "nodePhosphorWaveformLoadPlaylist") {
+        event.preventDefault();
+        const id = nodeGraphPhosphorWaveformSettingsTargetNodeId();
+        nodeGraphPhosphorWaveformCommitPlaylistOptions();
+        if (typeof nodeGraphAudioPlayerLibraryLoadPlaylist === "function") {
+          nodeGraphAudioPlayerLibraryLoadPlaylist(id).catch((error) => {
+            const message = String(error?.message || error || "load failed");
+            if (typeof setNodeGraphSampleStatus === "function") {
+              setNodeGraphSampleStatus(id, message);
+            }
+          });
+        }
+      } else if (button.id === "nodePhosphorWaveformShufflePlaylist") {
+        event.preventDefault();
+        if (typeof nodeGraphAudioPlayerLibraryShufflePlaylist === "function") {
+          nodeGraphAudioPlayerLibraryShufflePlaylist(nodeGraphPhosphorWaveformSettingsTargetNodeId());
+        }
       } else if (button.id === "nodePhosphorWaveformClearPlaylist") {
         event.preventDefault();
         if (typeof nodeGraphAudioPlayerPlaylistClear === "function") {
           nodeGraphAudioPlayerPlaylistClear(nodeGraphPhosphorWaveformSettingsTargetNodeId());
-        }
-      } else if (button.id === "nodePhosphorWaveformRemoveItem") {
-        event.preventDefault();
-        if (typeof nodeGraphAudioPlayerPlaylistRemoveSelected === "function") {
-          nodeGraphAudioPlayerPlaylistRemoveSelected(nodeGraphPhosphorWaveformSettingsTargetNodeId());
         }
       } else if (button.id === "nodePhosphorWaveformCornerSquareButton") {
         event.preventDefault();
