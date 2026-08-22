@@ -183,8 +183,14 @@
     precision mediump float;
     varying vec2 vUv;
     uniform sampler2D uTexture;
+    uniform vec2 uUvOffset;
     void main() {
-      gl_FragColor = texture2D(uTexture, vUv);
+      vec2 uv = vUv + uUvOffset;
+      if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+      }
+      gl_FragColor = texture2D(uTexture, uv);
     }
   `;
 
@@ -651,6 +657,7 @@
       program: copyProgram,
       aPos: gl.getAttribLocation(copyProgram, "aPos"),
       uTexture: gl.getUniformLocation(copyProgram, "uTexture"),
+      uUvOffset: gl.getUniformLocation(copyProgram, "uUvOffset"),
     };
     let beam = null;
     if (beamProgram) {
@@ -1110,7 +1117,7 @@
    * Blit source energy surface into target (UV 0–1 → stretch/shrink to new size).
    * Mirrors copyNodeGraphScope2dBurnSurface so zoom keeps phosphor trails.
    */
-  function copySurface(renderer, sourceSurface, targetSurface, width, height) {
+  function copySurface(renderer, sourceSurface, targetSurface, width, height, options = {}) {
     const gl = renderer?.gl;
     if (!gl || !sourceSurface?.texture || !targetSurface?.framebuffer || !renderer.copy?.program) {
       return false;
@@ -1122,8 +1129,44 @@
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, sourceSurface.texture);
     gl.uniform1i(renderer.copy.uTexture, 0);
+    if (renderer.copy.uUvOffset) {
+      const ox = Number(options?.uvOffsetX) || 0;
+      const oy = Number(options?.uvOffsetY) || 0;
+      gl.uniform2f(renderer.copy.uUvOffset, ox, oy);
+    }
     drawFullScreen(renderer, renderer.copy);
     gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return true;
+  }
+
+  /**
+   * Scroll energy left by dx pixels (waterfall tape). New columns on the right are empty.
+   * No residual fade.
+   */
+  function scrollEnergy(renderer, dxPx) {
+    if (!isRendererLive(renderer) || !renderer.copy?.program) {
+      return false;
+    }
+    const dx = Math.round(Number(dxPx) || 0);
+    if (dx === 0) {
+      return true;
+    }
+    const w = Math.max(1, renderer.width || 1);
+    const h = Math.max(1, renderer.height || 1);
+    const shift = Math.max(-w, Math.min(w, dx));
+    const ok = copySurface(renderer, renderer.read, renderer.write, w, h, {
+      uvOffsetX: shift / w,
+      uvOffsetY: 0,
+    });
+    if (!ok) {
+      return false;
+    }
+    const tmp = renderer.read;
+    renderer.read = renderer.write;
+    renderer.write = tmp;
+    renderer.energyActive = true;
+    renderer.energyDirty = true;
     return true;
   }
 
@@ -1594,6 +1637,8 @@
   global.nodeGraphPhosphorEnergyGlBuildBeamVertices = buildBeamVertices;
   global.nodeGraphPhosphorEnergyGlBuildDotVertices = buildDotVertices;
   global.nodeGraphPhosphorEnergyGlPresent = present;
+  global.nodeGraphPhosphorEnergyGlDepositDots = depositDots;
+  global.nodeGraphPhosphorEnergyGlScroll = scrollEnergy;
   global.nodeGraphPhosphorEnergyGlClear = function clearEnergy(renderer) {
     if (!renderer?.gl || !renderer.read) {
       return false;

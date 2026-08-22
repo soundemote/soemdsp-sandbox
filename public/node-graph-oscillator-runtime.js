@@ -46,6 +46,33 @@ function nodeGraphSineCosWavetableSample(phaseRadians, frequency, amplitude, sam
   };
 }
 
+/** Expand a sin/cos pair into N-Phase jacks A–D. Unused taps are 0. */
+function nodeGraphNPhaseFromSinCos(sin, cos, mode) {
+  const s = Number(sin) || 0;
+  const c = Number(cos) || 0;
+  const m = Math.max(0, Math.min(5, Math.round(Number(mode) || 0)));
+  const z = 0;
+  if (m === 0) {
+    return { A: s, B: z, C: z, D: z, sin: s, cos: z };
+  }
+  if (m === 1) {
+    return { A: c, B: z, C: z, D: z, sin: c, cos: z };
+  }
+  if (m === 2) {
+    return { A: s, B: c, C: z, D: z, sin: s, cos: c };
+  }
+  if (m === 3) {
+    return { A: s, B: -s, C: z, D: z, sin: s, cos: -s };
+  }
+  if (m === 4) {
+    const k = Math.sqrt(3) * 0.5;
+    const b = s * -0.5 + c * k;
+    const d = s * -0.5 - c * k;
+    return { A: s, B: b, C: d, D: z, sin: s, cos: b };
+  }
+  return { A: s, B: c, C: -s, D: -c, sin: s, cos: c };
+}
+
 function nextNodeGraphNoiseSample(runtime, nodeId) {
   const seed = (Math.imul(1664525, runtime.noiseSeeds.get(nodeId) || 0x12345678) + 1013904223) >>> 0;
   runtime.noiseSeeds.set(nodeId, seed);

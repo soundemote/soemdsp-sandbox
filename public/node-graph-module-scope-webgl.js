@@ -68,6 +68,7 @@ function createNodeGraphModuleScopeWebGlRenderer(canvas) {
     attribute float aPointAge;
     uniform vec2 uCanvasSize;
     uniform float uSize;
+    uniform float uBlur;
     varying vec2 vStart;
     varying vec2 vEnd;
     varying vec2 vPosition;
@@ -80,9 +81,13 @@ function createNodeGraphModuleScopeWebGlRenderer(canvas) {
       float side = (aCorner == 0.0 || aCorner == 2.0) ? 1.0 : -1.0;
       float endpointMix = aCorner < 2.0 ? 0.0 : 1.0;
       float cap = aCorner < 2.0 ? -1.0 : 1.0;
-      float beamHalfWidth = max(uSize * 1.85, 1.5);
+      // Ribbon = width only. Extending a full half-width along the tangent
+      // made a diamond per short segment (saw/blob along a sine).
+      float radius = max(uSize * 0.34, 0.5);
+      float beamHalfWidth = radius * mix(1.2, 3.2, clamp(uBlur, 0.0, 1.0)) + 1.0;
+      float capPad = 1.25;
       vec2 endpoint = mix(aStart, aEnd, endpointMix);
-      vec2 position = endpoint + normal * side * beamHalfWidth + tangent * cap * beamHalfWidth;
+      vec2 position = endpoint + normal * side * beamHalfWidth + tangent * cap * capPad;
       vStart = aStart;
       vEnd = aEnd;
       vPosition = position;

@@ -146,27 +146,22 @@
       const t1 = start + ((b + 1) / buckets) * span;
       const rangeStart = Math.max(first, Math.floor(t0));
       const rangeEnd = Math.min(last + 1, Math.max(rangeStart + 1, Math.ceil(t1)));
-      const rangeLen = rangeEnd - rangeStart;
-      const stride = Math.max(1, Math.floor(rangeLen / MAX_SAMPLES_PER_BUCKET));
-      // Instant Trace is a polyline, not a min/max envelope. Output's 12 kHz
-      // ring put many samples in one pixel; min+max drew a vertical 0↔peak blob.
-      let lastV = 0;
-      let lastI = rangeStart;
-      for (let i = rangeStart; i < rangeEnd; i += stride) {
-        lastV = Number(buffer[i]) || 0;
-        lastI = i;
-      }
-      if (stride > 1) {
-        lastI = rangeEnd - 1;
-        lastV = Number(buffer[lastI]) || 0;
-      }
+      const firstI = rangeStart;
+      const lastI = rangeEnd - 1;
+      const firstV = Number(buffer[firstI]) || 0;
+      const lastV = Number(buffer[lastI]) || 0;
       const broke = skipDisc && bucketHasDiscontinuity(
         buffer,
         prevIndex,
-        lastI,
+        firstI,
         discThreshold,
       );
-      push(mapX(lastI), mapY(lastV), broke);
+      // Keep the bucket as a short polyline (first→last), not last-only.
+      // Last-only aliased a sine into a saw along the same path.
+      push(mapX(firstI), mapY(firstV), broke);
+      if (lastI !== firstI) {
+        push(mapX(lastI), mapY(lastV), false);
+      }
       prevIndex = lastI;
     }
     return points;

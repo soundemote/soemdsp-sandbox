@@ -58,6 +58,32 @@ function nodeLiveSineCosWavetableSample(phaseRadians, frequency, amplitude, samp
   };
 }
 
+function nodeLiveNPhaseFromSinCos(sin, cos, mode) {
+  const s = Number(sin) || 0;
+  const c = Number(cos) || 0;
+  const m = Math.max(0, Math.min(5, Math.round(Number(mode) || 0)));
+  const z = 0;
+  if (m === 0) {
+    return { A: s, B: z, C: z, D: z, sin: s, cos: z };
+  }
+  if (m === 1) {
+    return { A: c, B: z, C: z, D: z, sin: c, cos: z };
+  }
+  if (m === 2) {
+    return { A: s, B: c, C: z, D: z, sin: s, cos: c };
+  }
+  if (m === 3) {
+    return { A: s, B: -s, C: z, D: z, sin: s, cos: -s };
+  }
+  if (m === 4) {
+    const k = Math.sqrt(3) * 0.5;
+    const b = s * -0.5 + c * k;
+    const d = s * -0.5 - c * k;
+    return { A: s, B: b, C: d, D: z, sin: s, cos: b };
+  }
+  return { A: s, B: c, C: -s, D: -c, sin: s, cos: c };
+}
+
 NodeLiveAudioProcessor.prototype.createSineWavetableState = function createSineWavetableState() {
   return {
     nativeHandle: 0,
@@ -65,9 +91,16 @@ NodeLiveAudioProcessor.prototype.createSineWavetableState = function createSineW
 };
 
 NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWavetableWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate) {
+  const resetState = this.oscResetStates.get(nodeId) || this.createOscResetState();
+  this.oscResetStates.set(nodeId, resetState);
+  const resetValue = this.safeFilterNumber(mixInput(nodeId, "Reset"), resetState);
+  const resetEdge = resetState.lastReset <= 0 && resetValue > 0;
+  resetState.lastReset = resetValue;
+  const freePhase = resetEdge ? 0 : this.phases.get(nodeId) || 0;
   const phaseOffset = this.phaseRadians(
     this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues),
   );
+  const mode = this.readEffectiveParameter(node, "mode", 2, frame, frames, frameValues);
   const baseFrequency = this.readEffectiveParameter(
     node,
     "freq",
@@ -76,7 +109,9 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
     frames,
     frameValues,
   );
-  const freqInput = this.safeFilterNumber(mixInput(nodeId, "Freq"), null);
+  const freqInput = this.safeFilterNumber(mixInput(nodeId, "f"), null)
+    ?? this.safeFilterNumber(mixInput(nodeId, "Freq"), null);
+  const incrementInput = this.safeFilterNumber(mixInput(nodeId, "Increment"), null);
   // Amp parameter only (Amplitude CV jack removed).
   const amplitude = Math.max(
     0,
@@ -88,7 +123,7 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
   const pitchCv = hasPitchInput
     ? this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null)
     : referenceVoltage;
-  const baseWithFreqJack = baseFrequency + freqInput;
+  const baseWithFreqJack = baseFrequency + (Number(freqInput) || 0);
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
     ? nodeGraphParamResolveOscPitchHz({baseHz: baseWithFreqJack,
       hasPitchCv: hasPitchInput,
@@ -103,7 +138,8 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
         ? nodeGraphPitchedFrequency(baseWithFreqJack, pitchCv, referenceVoltage)
         : Math.max(0, baseWithFreqJack * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
     );
-  let value;
+  const phaseIncrement = (effectiveFrequency / safeRate) + (Number(incrementInput) || 0);
+  let pair;
   if (
     this.nativeSineWavetableReady &&
     this.nativeSineWavetable?.soemdsp_sine_wavetable_create &&
@@ -123,7 +159,7 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
           amplitude,
           safeRate,
         );
-        value = {
+        pair = {
           sin: this.nativeSineWavetable.soemdsp_sine_wavetable_sin(nativeState.nativeHandle),
           cos: this.nativeSineWavetable.soemdsp_sine_wavetable_cos(nativeState.nativeHandle),
         };
@@ -140,14 +176,12 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
       });
     }
   }
-  if (!this.nativeSineWavetableReady) {
-    const phase = this.phases.get(nodeId) || 0;
-    const phaseIncrement = effectiveFrequency / safeRate;
-    value = nodeLiveSineCosWavetableSample(phase + phaseOffset, effectiveFrequency, amplitude, safeRate);
-    this.phases.set(
-      nodeId,
-      this.wrapValue(phase + Math.PI * 2 * phaseIncrement, 0, Math.PI * 2),
-    );
+  if (!pair) {
+    pair = nodeLiveSineCosWavetableSample(freePhase + phaseOffset, effectiveFrequency, amplitude, safeRate);
   }
-  return value;
+  this.phases.set(
+    nodeId,
+    this.wrapValue(freePhase + Math.PI * 2 * phaseIncrement, 0, Math.PI * 2),
+  );
+  return nodeLiveNPhaseFromSinCos(pair.sin, pair.cos, mode);
 };

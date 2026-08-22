@@ -80,6 +80,7 @@ function nodeGraphPatchMigratePhosphorLightNodes(patch) {
 /**
  * SinCos (sineWavetable): drop retired Amplitude CV jack wires.
  * Level is the Amp parameter only; old patches must not fail validation.
+ * Also remap retired sin/cos outlets to A/B (N-Phase).
  */
 function nodeGraphPatchMigrateSineWavetableDropAmplitudeJack(patch) {
   if (!patch || !Array.isArray(patch.connections) || !Array.isArray(patch.nodes)) {
@@ -105,6 +106,20 @@ function nodeGraphPatchMigrateSineWavetableDropAmplitudeJack(patch) {
     if (sincosIds.has(dest) && (port === "Amplitude" || port === "amplitude")) {
       changed = true;
       return false;
+    }
+    const src = String(connection.sourceNode || "").trim();
+    const srcPort = String(connection.sourcePort || "").trim();
+    if (sincosIds.has(src) && (srcPort === "sin" || srcPort === "Sin")) {
+      changed = true;
+      return { ...connection, sourcePort: "A" };
+    }
+    if (sincosIds.has(src) && (srcPort === "cos" || srcPort === "Cos")) {
+      changed = true;
+      return { ...connection, sourcePort: "B" };
+    }
+    if (sincosIds.has(dest) && (port === "Freq" || port === "freq")) {
+      changed = true;
+      return { ...connection, destinationPort: "f" };
     }
     return true;
   });

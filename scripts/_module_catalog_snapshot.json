@@ -26,7 +26,7 @@
   },
   {
     "type": "sineWavetable",
-    "label": "SinCos",
+    "label": "N-Phase",
     "description": "Table-driven sine/cosine oscillator with pitch, frequency, Amp parameter, and Nyquist-edge fade. Native C++/WASM."
   },
   {

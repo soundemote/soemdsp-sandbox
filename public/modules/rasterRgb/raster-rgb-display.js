@@ -540,13 +540,22 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
   const cw = canvas.width;
   const ch = canvas.height;
   nodeGraphRasterRgbApplyScreenChrome(face, canvas, settings);
+  const frozen = (typeof scopePaintIsFrozen === "function" && scopePaintIsFrozen())
+    || (typeof nodeGraphModuleScopePhosphorFrozen === "function"
+      && nodeGraphModuleScopePhosphorFrozen());
+  const sizeKey = `${cw}x${ch}|${grid.width}x${grid.height}`;
+  // Pause/speed 0: keep the last frame. Do not fill-wipe then early-return
+  // (that left a blank plate while the pixel buffer still existed).
+  if (frozen && canvas._rasterRgbBlit && canvas._rasterRgbHoldKey === sizeKey) {
+    return;
+  }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
   ctx.filter = "none";
   ctx.fillStyle = plate;
   ctx.fillRect(0, 0, cw, ch);
-  if (!running) {
+  if (!running && !frozen) {
     const held = nodeGraphRasterRgbBuffers.get(String(nodeId || ""));
     if (held) {
       nodeGraphRasterRgbClearState(held);
@@ -555,10 +564,12 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
     canvas._rasterRgb = null;
     canvas._rasterRgbBlit = false;
     canvas._rasterRgbGradeKey = "";
+    canvas._rasterRgbHoldKey = "";
     return;
   }
   if (!(grid.width > 0) || !(grid.height > 0)) {
     canvas._rasterRgbBlit = true;
+    canvas._rasterRgbHoldKey = sizeKey;
     return;
   }
   let state;
@@ -567,13 +578,12 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
     canvas._rasterRgb = state;
   } catch (_err) {
     canvas._rasterRgbBlit = true;
+    canvas._rasterRgbHoldKey = sizeKey;
     return;
   }
   const captured = nodeGraphRasterRgbTakeChannels(paintSlot);
   const cellCount = state.width * state.height;
   const wired = Boolean(captured.length);
-  const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
-    && nodeGraphModuleScopePhosphorFrozen();
   // New pixels only when the shared Simulation FPS tick arms ingest.
   // Extra paints (pump, collect, slider) re-present grade without a second write.
   if (wired && cellCount > 0 && !frozen && nodeGraphRasterRgbShouldIngest()) {
@@ -600,9 +610,6 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
     }
   }
   const gradeKey = `${grade.invert}|${grade.contrast}|${grade.brightness}|${grade.hue}|${grade.blur}|${grade.glow}|${grid.width}x${grid.height}|${wired ? captured.length : 0}`;
-  if (frozen && canvas._rasterRgbBlit && canvas._rasterRgbGradeKey === gradeKey) {
-    return;
-  }
   const graded = nodeGraphRasterRgbApplyGrade(state, grade);
   canvas.style.imageRendering = "pixelated";
   ctx.imageSmoothingEnabled = false;
@@ -651,6 +658,7 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
   }
   canvas._rasterRgbBlit = true;
   canvas._rasterRgbGradeKey = gradeKey;
+  canvas._rasterRgbHoldKey = sizeKey;
   canvas._rasterRgbDebug = {
     nodeId,
     renderer: typeof nodeGraphModuleDisplayRendererForSlot === "function"

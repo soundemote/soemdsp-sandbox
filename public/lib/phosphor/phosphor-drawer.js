@@ -163,6 +163,65 @@
     });
   }
 
+  /**
+   * Waterfall / Instant Trace tape: no Ghost, Trail, or Burn.
+   * Optional scroll (pixels left), then additive gaussian stamps along a path.
+   */
+  function stepTape(face, options = {}) {
+    if (!face) {
+      return false;
+    }
+    const scrollPx = Math.round(Number(options.scrollPx) || 0);
+    if (scrollPx && typeof global.nodeGraphPhosphorEnergyGlScroll === "function") {
+      global.nodeGraphPhosphorEnergyGlScroll(face, scrollPx);
+    }
+    if (options.clear === true && typeof global.nodeGraphPhosphorEnergyGlClear === "function") {
+      global.nodeGraphPhosphorEnergyGlClear(face);
+    }
+    const pathPoints = options.pathPoints;
+    if (!pathPoints || !pathPoints.length) {
+      return true;
+    }
+    if (typeof global.nodeGraphPhosphorEnergyGlDepositDots !== "function") {
+      return false;
+    }
+    const blur = normalizeBlur(options.blur, 0.2);
+    const size01 = clamp01(options.size01, 0.035);
+    const radius = Number.isFinite(Number(options.radius))
+      ? Math.max(0.35, Number(options.radius))
+      : radiusFromSize(options.faceMinSide || face.width || 1, size01);
+    const brightness = Math.max(0, Math.min(1.5, Number(options.brightness) || 0));
+    if (brightness < 1e-6) {
+      return true;
+    }
+    global.nodeGraphPhosphorEnergyGlDepositDots(face, {
+      pathPoints,
+      radius,
+      brightness,
+      blur,
+      maxDots: Math.max(64, Math.min(8192, Math.round(Number(options.maxDots) || 4096))),
+      fullEconomy: true,
+    });
+    if (face) {
+      face.energyActive = true;
+    }
+    return true;
+  }
+
+  function scroll(face, dxPx) {
+    if (!face || typeof global.nodeGraphPhosphorEnergyGlScroll !== "function") {
+      return false;
+    }
+    return Boolean(global.nodeGraphPhosphorEnergyGlScroll(face, dxPx));
+  }
+
+  function clear(face) {
+    if (!face || typeof global.nodeGraphPhosphorEnergyGlClear !== "function") {
+      return false;
+    }
+    return Boolean(global.nodeGraphPhosphorEnergyGlClear(face));
+  }
+
   function presentTo(face, destCtx, options = {}) {
     if (!face || !destCtx || typeof global.nodeGraphPhosphorEnergyGlPresent !== "function") {
       return false;
@@ -251,6 +310,9 @@
       return Boolean(global.nodeGraphPhosphorEnergyGlSetStampTexture(source));
     },
     stepDots,
+    stepTape,
+    scroll,
+    clear,
     stepFade,
     presentTo,
     verticalStemPoints,

@@ -15,7 +15,7 @@ const nodeGraphNodeLabels = Object.freeze({
   polyBlep: "PolyBLEP",
   blit: "BLIT",
   archimedes: "Archimedes",
-  sineWavetable: "SinCos",
+  sineWavetable: "N-Phase",
   aliasSine: "Alias Sine",
   robinSinusoid: "RobinSinusoid",
   phoneTone: "Phone Tone",
@@ -1006,23 +1006,46 @@ const nodeGraphModuleDefinitions = (
   sineWavetable: {
     planRole: "source",
     displayType: "trace",
-    // Amp is the parameter slider only (no Amplitude CV jack).
-    inputs: ["0.1V/Oct", "Freq"],
-    inputAliases: {"0.1V": "0.1V/Oct",
+    // Same left-column jacks as PolyBLEP / BLIT (Phase + Amp are knobs only).
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputAliases: {
+      "0.1V": "0.1V/Oct",
       "0.1v": "0.1V/Oct",
-      freq: "Freq",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f",
-      Freq: "f", Frequency: "f", F: "f", "ƒ": "f"},
+      freq: "f",
+      Freq: "f",
+      Frequency: "f",
+      F: "f",
+      "ƒ": "f",
+    },
     inputLabels: {
-      "0.1V/Oct": "0.1V"
+      "0.1V/Oct": "0.1V",
+      Increment: "Inc.",
+      f: "ƒ",
     },
     outputAliases: {
-      Cos: "cos",
-      Sin: "sin"
+      sin: "A",
+      Sin: "A",
+      Out: "A",
+      cos: "B",
+      Cos: "B",
     },
-    outputs: ["sin", "cos"],
+    outputs: ["A", "B", "C", "D"],
     parameters: [
+      {
+        choices: ["sine", "cosine", "sincos", "antiphase", "3-phase", "4-phase"],
+        defaultValue: "2",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "mode",
+        label: "Mode",
+        linearSmoothing: false,
+        max: "5",
+        mid: "2",
+        min: "0",
+        step: "1",
+        tooltip:
+          "How many phase taps. sine / cosine: A only. sincos: A=sin B=cos. antiphase: A and −A. 3-phase: 0°/120°/240°. 4-phase: 0°/90°/180°/270°. Unused A–D sit at 0.",
+      },
       {
         defaultValue: "0",
         key: "phase",
@@ -1036,8 +1059,6 @@ const nodeGraphModuleDefinitions = (
         wraparound: true
       },
       {
-        // Domain-add MOD: effective = base + Σ(CV). Base 0 + Pitch Detector Hz tracks exactly.
-        // Bipolar (param settings): signed MOD for thru-zero FM.
         bipolar: false,
         defaultValue: "100",
         key: "freq",

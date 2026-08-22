@@ -204,6 +204,242 @@
     }
   }
 
+  let fadeGl = null;
+
+  const FADE_VERT = `
+    precision highp float;
+    attribute vec2 aStart;
+    attribute vec2 aEnd;
+    attribute float aCorner;
+    attribute float aAge0;
+    attribute float aAge1;
+    uniform vec2 uCanvasSize;
+    uniform float uRadius;
+    uniform float uBlur;
+    varying vec2 vStart;
+    varying vec2 vEnd;
+    varying vec2 vPosition;
+    varying float vAge0;
+    varying float vAge1;
+    void main() {
+      vec2 segment = aEnd - aStart;
+      float segmentLength = max(length(segment), 0.0001);
+      vec2 tangent = segment / segmentLength;
+      vec2 normal = vec2(-tangent.y, tangent.x);
+      float side = (aCorner == 0.0 || aCorner == 2.0) ? 1.0 : -1.0;
+      float endpointMix = aCorner < 2.0 ? 0.0 : 1.0;
+      float cap = aCorner < 2.0 ? -1.0 : 1.0;
+      float pad = max(uRadius * mix(1.15, 3.2, clamp(uBlur, 0.0, 1.0)), 1.25);
+      float capPad = 1.25;
+      vec2 endpoint = mix(aStart, aEnd, endpointMix);
+      vec2 position = endpoint + normal * side * pad + tangent * cap * capPad;
+      vStart = aStart;
+      vEnd = aEnd;
+      vPosition = position;
+      vAge0 = aAge0;
+      vAge1 = aAge1;
+      vec2 clip = vec2(
+        (position.x / uCanvasSize.x) * 2.0 - 1.0,
+        1.0 - (position.y / uCanvasSize.y) * 2.0
+      );
+      gl_Position = vec4(clip, 0.0, 1.0);
+    }
+  `;
+
+  const FADE_FRAG = `
+    precision highp float;
+    uniform vec3 uColor;
+    uniform float uRadius;
+    uniform float uBlur;
+    uniform float uFade;
+    varying vec2 vStart;
+    varying vec2 vEnd;
+    varying vec2 vPosition;
+    varying float vAge0;
+    varying float vAge1;
+    float fadeWeightGl(float t, float f) {
+      if (f <= 0.001) {
+        return 1.0;
+      }
+      float u = clamp(t, 0.0, 1.0);
+      float k = 1.0 + f * 2.2;
+      return (1.0 - f) + f * pow(u, k);
+    }
+    void main() {
+      vec2 segment = vEnd - vStart;
+      float len2 = max(dot(segment, segment), 0.0001);
+      float along = clamp(dot(vPosition - vStart, segment) / len2, 0.0, 1.0);
+      vec2 closest = vStart + segment * along;
+      float radius = max(uRadius, 0.35);
+      float nd = length(vPosition - closest) / radius;
+      if (nd > 6.0) {
+        discard;
+      }
+      float blur = clamp(uBlur, 0.0, 1.0);
+      float edgeFromBlur = mix(0.02, 1.15, blur);
+      float edgeFromPixel = 0.85 / max(radius, 0.5);
+      float edgeWidth = max(edgeFromBlur, min(0.55, edgeFromPixel));
+      float core = clamp(1.0 - smoothstep(1.0 - edgeWidth, 1.0 + edgeWidth, nd), 0.0, 1.0);
+      float fade = fadeWeightGl(mix(vAge0, vAge1, along), uFade);
+      float a = core * fade;
+      if (a < 0.004) {
+        discard;
+      }
+      gl_FragColor = vec4(uColor * a, a);
+    }
+  `;
+
+  function compileFadeShader(gl, type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      gl.deleteShader(shader);
+      return null;
+    }
+    return shader;
+  }
+
+  function getFadeGlDevice() {
+    if (fadeGl?.gl && !fadeGl.gl.isContextLost()) {
+      return fadeGl;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = 2;
+    canvas.height = 2;
+    const gl = canvas.getContext("webgl", {
+      alpha: true,
+      antialias: false,
+      premultipliedAlpha: true,
+      preserveDrawingBuffer: true,
+    });
+    if (!gl) {
+      fadeGl = null;
+      return null;
+    }
+    const vs = compileFadeShader(gl, gl.VERTEX_SHADER, FADE_VERT);
+    const fs = compileFadeShader(gl, gl.FRAGMENT_SHADER, FADE_FRAG);
+    if (!vs || !fs) {
+      return null;
+    }
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      gl.deleteProgram(program);
+      return null;
+    }
+    const buffer = gl.createBuffer();
+    fadeGl = {
+      canvas,
+      gl,
+      program,
+      buffer,
+      aStart: gl.getAttribLocation(program, "aStart"),
+      aEnd: gl.getAttribLocation(program, "aEnd"),
+      aCorner: gl.getAttribLocation(program, "aCorner"),
+      aAge0: gl.getAttribLocation(program, "aAge0"),
+      aAge1: gl.getAttribLocation(program, "aAge1"),
+      uCanvasSize: gl.getUniformLocation(program, "uCanvasSize"),
+      uRadius: gl.getUniformLocation(program, "uRadius"),
+      uBlur: gl.getUniformLocation(program, "uBlur"),
+      uFade: gl.getUniformLocation(program, "uFade"),
+      uColor: gl.getUniformLocation(program, "uColor"),
+    };
+    canvas.addEventListener("webglcontextlost", (event) => {
+      event.preventDefault();
+      fadeGl = null;
+    }, false);
+    return fadeGl;
+  }
+
+  function buildFadeRibbon(points, realTotal) {
+    const floats = [];
+    const corners = [0, 1, 2, 1, 3, 2];
+    let realIndex = 0;
+    let prev = null;
+    let prevT = 0;
+    for (let i = 0; i < points.length; i += 1) {
+      const p = points[i];
+      if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+        prev = null;
+        continue;
+      }
+      const t = realTotal > 1 ? realIndex / (realTotal - 1) : 1;
+      if (prev) {
+        for (let c = 0; c < corners.length; c += 1) {
+          floats.push(prev.x, prev.y, p.x, p.y, corners[c], prevT, t);
+        }
+      }
+      prev = p;
+      prevT = t;
+      realIndex += 1;
+    }
+    return floats;
+  }
+
+  function drawFadeRibbon(context, points, r, g, b, lineWidth, blur, fade, additive) {
+    const dest = context?.canvas;
+    const width = Math.max(1, dest?.width || 0);
+    const height = Math.max(1, dest?.height || 0);
+    if (!dest || width < 2 || height < 2) {
+      return false;
+    }
+    const device = getFadeGlDevice();
+    if (!device?.gl) {
+      return false;
+    }
+    const visible = points.filter((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y));
+    if (visible.length < 2) {
+      return false;
+    }
+    const floats = buildFadeRibbon(points, visible.length);
+    if (floats.length < 14) {
+      return false;
+    }
+    const gl = device.gl;
+    const canvas = device.canvas;
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    gl.viewport(0, 0, width, height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    if (additive) {
+      gl.blendFunc(gl.ONE, gl.ONE);
+    } else {
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    }
+    gl.useProgram(device.program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, device.buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(floats), gl.STREAM_DRAW);
+    const stride = 7 * 4;
+    gl.enableVertexAttribArray(device.aStart);
+    gl.vertexAttribPointer(device.aStart, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(device.aEnd);
+    gl.vertexAttribPointer(device.aEnd, 2, gl.FLOAT, false, stride, 8);
+    gl.enableVertexAttribArray(device.aCorner);
+    gl.vertexAttribPointer(device.aCorner, 1, gl.FLOAT, false, stride, 16);
+    gl.enableVertexAttribArray(device.aAge0);
+    gl.vertexAttribPointer(device.aAge0, 1, gl.FLOAT, false, stride, 20);
+    gl.enableVertexAttribArray(device.aAge1);
+    gl.vertexAttribPointer(device.aAge1, 1, gl.FLOAT, false, stride, 24);
+    gl.uniform2f(device.uCanvasSize, width, height);
+    gl.uniform1f(device.uRadius, Math.max(0.35, lineWidth * 0.5));
+    gl.uniform1f(device.uBlur, blur);
+    gl.uniform1f(device.uFade, fade);
+    gl.uniform3f(device.uColor, r / 255, g / 255, b / 255);
+    gl.drawArrays(gl.TRIANGLES, 0, floats.length / 7);
+    gl.disable(gl.BLEND);
+    context.drawImage(canvas, 0, 0, width, height);
+    return true;
+  }
+
   /**
    * VECTOR polyline stroke (not a pixel/energy stamp).
    * blur 0 → one hard stroke at Size.
@@ -267,6 +503,11 @@
 
     if (fade <= 0.02 || visible.length < 3) {
       paintStrokePiece(context, points, r, g, b, 1, lineWidth, blur, additive);
+      context.restore();
+      return visible.length;
+    }
+
+    if (drawFadeRibbon(context, points, r, g, b, lineWidth, blur, fade, additive)) {
       context.restore();
       return visible.length;
     }

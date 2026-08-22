@@ -354,9 +354,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   sineWavetable: {
     category: "oscillator",
-    description: "Straightforward pitchable sin/cos voice when you need a clean table sine with amplitude control.",
-    label: "SinCos",
-    notes: ["implemented", "wavetable", "sin/cos", "native"],
+    description: "Pitchable sine with 1–4 evenly spaced phase taps (sine, cosine, sincos, antiphase, 3-phase, 4-phase).",
+    label: "N-Phase",
+    notes: ["implemented", "wavetable", "n-phase", "sincos", "native"],
   },
   wavetable2d: {
     category: "oscillator",
