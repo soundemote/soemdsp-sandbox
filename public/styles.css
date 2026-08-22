@@ -1247,6 +1247,10 @@ audio {
   gap: 0;
 }
 
+.node-sample-path-loader.path-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .node-sample-path-input {
   box-sizing: border-box;
   min-width: 0;
@@ -5599,9 +5603,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   color: var(--muted);
 }
 
-/* Waveform settings hosts the same 📂 + path box as sample-module bodies
-   (createNodeGraphSamplePathLoader). Row height matches the rest of the
-   Display Settings grid; the folder cell is a square of that height. */
+/* Waveform settings hosts the Music Player path box (paste-only) and the
+   sample-module 📂 loader. Row height matches the rest of the Display
+   Settings grid. */
 .node-phosphor-waveform-loader-slot,
 .node-phosphor-waveform-phase-slot {
   --node-sample-control-height: 30px;

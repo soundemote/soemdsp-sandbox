@@ -1592,50 +1592,26 @@ function createNodeGraphSamplePhaseReadout(nodeId) {
   return { phase, phaseValue, copyPhaseButton };
 }
 
-// The 📂-button-plus-path-box loader, built once here so every place that
-// offers "load a sample into this node" is the same widget with the same
-// gestures (double-click the box to type, Enter loads, empty box + button
-// opens the file picker). Used by the module body below and by the Waveform
-// display options window (node-graph-phosphor-waveform.js).
+// Path loader: sample modules get 📂 + path box; Music Player is paste-only
+// (the browser folder picker cannot give a C:\ path). Used by the module
+// body below and by Music Player Display Settings.
 // `instance` namespaces the hidden file input's id so a second copy of the
 // loader for the same node cannot collide with the module's own.
 function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
   const patchNode = nodeGraphPatchNode(nodeId);
   const isMusicPlayer = patchNode?.type === "audioPlayer";
   const inputId = `node-sample-file-input-${normalizeNodeGraphSampleId(nodeId)}${instance ? `-${instance}` : ""}`;
-  const input = document.createElement("input");
-  input.id = inputId;
-  input.className = "node-sample-file-input";
-  input.type = "file";
-  if (isMusicPlayer) {
-    input.webkitdirectory = true;
-    input.directory = true;
-    input.multiple = true;
-    input.title = "Choose music folder";
-  } else {
+  const input = isMusicPlayer ? null : document.createElement("input");
+  if (input) {
+    input.id = inputId;
+    input.className = "node-sample-file-input";
+    input.type = "file";
     input.accept = "audio/*,.wav,.wave,.mp3,.ogg,.oga,.opus,.flac,.m4a,.aac";
     input.title = "Load sample file";
-  }
-  protectNodeGraphSampleControl(input);
-  input.addEventListener("change", () => {
+    protectNodeGraphSampleControl(input);
+    input.addEventListener("change", () => {
     const files = [...(input.files || [])];
     if (!files.length) {
-      return;
-    }
-    if (isMusicPlayer && typeof nodeGraphAudioPlayerLibrarySetFolderFromWebkitFiles === "function") {
-      nodeGraphAudioPlayerLibrarySetFolderFromWebkitFiles(nodeId, files);
-      const pathBox = document.querySelector(
-        `.node-sample-path-input[data-sample-path-for-node="${CSS.escape(String(nodeId))}"]`,
-      );
-      const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
-        ? nodeGraphAudioPlayerPlaylistForNode(nodeId)
-        : null;
-      if (pathBox && pl?.folderPath) {
-        pathBox.value = pl.folderPath;
-      }
-      return;
-    }
-    if (isMusicPlayer) {
       return;
     }
     (async () => {
@@ -1684,7 +1660,8 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
         error: batchError,
       });
     })();
-  });
+    });
+  }
 
   const pathShell = document.createElement("div");
   pathShell.className = "node-sample-path-loader";
@@ -1692,26 +1669,65 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
   const pathInput = document.createElement("input");
   pathInput.className = "node-sample-path-input";
   pathInput.type = "text";
-  pathInput.placeholder = isMusicPlayer
-    ? "folder name, or paste C:\\full\\path"
-    : "C:\\path\\music.mp3";
-  if (isMusicPlayer) {
-    pathInput.dataset.samplePathForNode = nodeId;
-    const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
-      ? nodeGraphAudioPlayerPlaylistForNode(nodeId)
-      : null;
-    if (pl?.folderPath) {
-      pathInput.value = pl.folderPath;
-    }
-  }
   pathInput.spellcheck = false;
-  // Read-only until double-clicked, same gesture as the render range Start/End
-  // fields -- a single stray click on a module should never put you in a text
-  // field you did not mean to edit.
+  protectNodeGraphSampleControl(pathInput);
+  if (isMusicPlayer) {
+    pathShell.classList.add("path-only");
+    pathInput.dataset.samplePathForNode = nodeId;
+    pathInput.placeholder = "paste C:\\full\\path\\to\\folder";
+    pathInput.title = "Paste a full folder path, then Load";
+    const stored = typeof nodeGraphAudioPlayerLibraryStoredFolderPath === "function"
+      ? nodeGraphAudioPlayerLibraryStoredFolderPath(
+        typeof nodeGraphAudioPlayerPlaylistForNode === "function"
+          ? nodeGraphAudioPlayerPlaylistForNode(nodeId)?.folderPath
+          : "",
+      )
+      : "";
+    pathInput.value = stored;
+    pathInput.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        pathInput.blur();
+        return;
+      }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        if (typeof nodeGraphAudioPlayerLibraryLoadPlaylist === "function") {
+          nodeGraphAudioPlayerLibraryLoadPlaylist(nodeId);
+        }
+        pathInput.blur();
+      }
+    });
+    pathInput.addEventListener("blur", () => {
+      const node = nodeGraphPatchNode(nodeId);
+      if (!node || node.type !== "audioPlayer") {
+        return;
+      }
+      const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
+        ? nodeGraphAudioPlayerPlaylistForNode(nodeId)
+        : null;
+      if (!pl) {
+        return;
+      }
+      const next = typeof nodeGraphAudioPlayerLibraryStoredFolderPath === "function"
+        ? nodeGraphAudioPlayerLibraryStoredFolderPath(pathInput.value)
+        : "";
+      if (pl.folderPath === next) {
+        pathInput.value = next;
+        return;
+      }
+      pl.folderPath = next;
+      pathInput.value = next;
+      node.playlist = pl;
+      if (typeof nodeGraphAudioPlayerPlaylistPersist === "function") {
+        nodeGraphAudioPlayerPlaylistPersist(nodeId);
+      }
+    });
+    pathShell.append(pathInput);
+    return { fileInput: null, pathButton: null, pathInput, pathShell };
+  }
+  pathInput.placeholder = "C:\\path\\music.mp3";
   pathInput.readOnly = true;
-  pathInput.title = isMusicPlayer
-    ? "Folder picker only yields the folder name. Paste a full C:\\ path to list via the server. Double-click to type."
-    : "Double-click to type a path";
+  pathInput.title = "Double-click to type a path";
   pathInput.addEventListener("dblclick", () => {
     pathInput.readOnly = false;
     pathInput.classList.add("editing");
@@ -1722,34 +1738,14 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
     pathInput.readOnly = true;
     pathInput.classList.remove("editing");
   });
-  protectNodeGraphSampleControl(pathInput);
   const pathButton = document.createElement("button");
   pathButton.className = "node-sample-path-button";
   pathButton.type = "button";
   pathButton.textContent = "📂";
-  pathButton.setAttribute("aria-label", isMusicPlayer ? "Choose music folder" : "Load sample from path");
-  pathButton.title = isMusicPlayer
-    ? "Choose a folder (Load in Display Settings builds the playlist)"
-    : "Load a path, or choose a sample file when the path box is empty";
+  pathButton.setAttribute("aria-label", "Load sample from path");
+  pathButton.title = "Load a path, or choose a sample file when the path box is empty";
   protectNodeGraphSampleControl(pathButton);
   pathButton.addEventListener("click", () => {
-    if (isMusicPlayer) {
-      if (typeof window.showDirectoryPicker !== "function") {
-        input.click();
-        return;
-      }
-      Promise.resolve(nodeGraphAudioPlayerLibraryPickFolder(nodeId)).then((pl) => {
-        if (pl?.folderPath) {
-          pathInput.value = pl.folderPath;
-        }
-      }).catch((error) => {
-        if (error && error.name === "AbortError") {
-          return;
-        }
-        input.click();
-      });
-      return;
-    }
     if (!pathInput.value.trim()) {
       input.click();
       return;

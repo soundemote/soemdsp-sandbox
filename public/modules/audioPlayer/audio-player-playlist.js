@@ -91,7 +91,12 @@ function nodeGraphAudioPlayerPlaylistNormalize(raw = null) {
   if (loopMode !== "off" && loopMode !== "one" && loopMode !== "all") {
     loopMode = "off";
   }
-  const folderPath = String(source.folderPath || "").trim();
+  const folderPathRaw = String(source.folderPath || "").trim();
+  const folderPath = typeof nodeGraphAudioPlayerLibraryStoredFolderPath === "function"
+    ? nodeGraphAudioPlayerLibraryStoredFolderPath(folderPathRaw)
+    : ((/^[a-zA-Z]:[\\/]/.test(folderPathRaw) || folderPathRaw.startsWith("/") || folderPathRaw.startsWith("\\\\"))
+      ? folderPathRaw
+      : "");
   const folderDive = source.folderDive !== false && source.folderDive !== "false" && source.folderDive !== 0;
   const removeAfterPlay = source.removeAfterPlay !== false && source.removeAfterPlay !== "false" && source.removeAfterPlay !== 0;
   const formats = typeof nodeGraphAudioPlayerLibraryNormalizeFormats === "function"
@@ -390,6 +395,9 @@ function nodeGraphAudioPlayerWriteTransport(nodeId, mode, { record = false } = {
   if (typeof scheduleNodeGraphLiveParameterSync === "function") {
     scheduleNodeGraphLiveParameterSync();
   }
+  if (typeof flushNodeGraphLivePlanSync === "function") {
+    flushNodeGraphLivePlanSync();
+  }
   if (record && typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
     saveNodeGraphWorkingPatchToUserSettings();
   }
@@ -545,8 +553,11 @@ function nodeGraphAudioPlayerPlaylistStop(nodeId) {
   if (typeof nodeGraphAudioPlayerPlaylistApplyScrub === "function") {
     nodeGraphAudioPlayerPlaylistApplyScrub(nodeId, 0, { record: false, commit: true });
   }
-  if (typeof scheduleNodeGraphLivePlanSync === "function") {
-    scheduleNodeGraphLivePlanSync();
+  if (typeof scheduleNodeGraphLiveParameterSync === "function") {
+    scheduleNodeGraphLiveParameterSync();
+  }
+  if (typeof flushNodeGraphLivePlanSync === "function") {
+    flushNodeGraphLivePlanSync();
   }
 }
 

@@ -37,13 +37,6 @@ function nodeGraphAudioPlayerLibraryFileMatchesFormats(name, formats) {
   return false;
 }
 
-function nodeGraphAudioPlayerLibraryFolderHandles() {
-  if (!globalThis.nodeGraphAudioPlayerLibraryFolderHandleMap) {
-    globalThis.nodeGraphAudioPlayerLibraryFolderHandleMap = new Map();
-  }
-  return globalThis.nodeGraphAudioPlayerLibraryFolderHandleMap;
-}
-
 function nodeGraphAudioPlayerLibraryFolderFileLists() {
   if (!globalThis.nodeGraphAudioPlayerLibraryFolderFileListMap) {
     globalThis.nodeGraphAudioPlayerLibraryFolderFileListMap = new Map();
@@ -56,135 +49,9 @@ function nodeGraphAudioPlayerLibraryLooksLikeOsPath(path) {
   return /^[a-zA-Z]:[\\/]/.test(p) || p.startsWith("/") || p.startsWith("\\\\");
 }
 
-function nodeGraphAudioPlayerLibraryFolderName(path) {
-  const raw = String(path || "").trim().replace(/\\/g, "/");
-  if (!raw) {
-    return "";
-  }
-  const parts = raw.split("/").filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : raw;
-}
-
-async function nodeGraphAudioPlayerLibraryHandleDb() {
-  if (typeof nodeGraphFilePickerOpenDb === "function") {
-    return nodeGraphFilePickerOpenDb();
-  }
-  return new Promise((resolve, reject) => {
-    const request = window.indexedDB.open("soemdsp-sandbox-file-picker", 1);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains("handles")) {
-        db.createObjectStore("handles");
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error("folder handle db failed"));
-  });
-}
-
-async function nodeGraphAudioPlayerLibraryIdbGetHandle(key) {
-  try {
-    const db = await nodeGraphAudioPlayerLibraryHandleDb();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction("handles", "readonly");
-      const req = tx.objectStore("handles").get(key);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-    });
-  } catch (_error) {
-    return null;
-  }
-}
-
-async function nodeGraphAudioPlayerLibraryIdbPutHandle(key, handle) {
-  if (!key || !handle) {
-    return;
-  }
-  try {
-    const db = await nodeGraphAudioPlayerLibraryHandleDb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction("handles", "readwrite");
-      tx.objectStore("handles").put(handle, key);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch (_error) {
-    // Private mode / quota — in-memory map still works this session.
-  }
-}
-
-async function nodeGraphAudioPlayerLibraryRememberFolderHandle(nodeId, handle) {
-  if (!handle) {
-    return;
-  }
-  const id = String(nodeId || "");
-  const name = nodeGraphAudioPlayerLibraryFolderName(handle.name);
-  const map = nodeGraphAudioPlayerLibraryFolderHandles();
-  if (id) {
-    map.set(id, handle);
-  }
-  map.set("*last*", handle);
-  if (id) {
-    await nodeGraphAudioPlayerLibraryIdbPutHandle(`audioPlayer:${id}`, handle);
-  }
-  await nodeGraphAudioPlayerLibraryIdbPutHandle("audioPlayer:last", handle);
-  if (name) {
-    await nodeGraphAudioPlayerLibraryIdbPutHandle(`audioPlayer:name:${name}`, handle);
-  }
-}
-
-async function nodeGraphAudioPlayerLibraryRestoreFolderHandle(nodeId, folderPath) {
-  const id = String(nodeId || "");
-  const map = nodeGraphAudioPlayerLibraryFolderHandles();
-  let handle = (id && map.get(id)) || map.get("*last*") || null;
-  const wantName = nodeGraphAudioPlayerLibraryLooksLikeOsPath(folderPath)
-    ? ""
-    : nodeGraphAudioPlayerLibraryFolderName(folderPath);
-  if (!handle) {
-    const keys = [];
-    if (id) {
-      keys.push(`audioPlayer:${id}`);
-    }
-    if (wantName) {
-      keys.push(`audioPlayer:name:${wantName}`);
-    }
-    keys.push("audioPlayer:last");
-    for (const key of keys) {
-      const stored = await nodeGraphAudioPlayerLibraryIdbGetHandle(key);
-      if (!stored) {
-        continue;
-      }
-      const storedName = nodeGraphAudioPlayerLibraryFolderName(stored.name);
-      if (key === "audioPlayer:last" && wantName && storedName && storedName !== wantName) {
-        continue;
-      }
-      handle = stored;
-      break;
-    }
-  }
-  if (!handle) {
-    return null;
-  }
-  if (typeof handle.queryPermission === "function" && typeof handle.requestPermission === "function") {
-    let perm = "prompt";
-    try {
-      perm = await handle.queryPermission({ mode: "read" });
-    } catch (_error) {
-      perm = "prompt";
-    }
-    if (perm !== "granted") {
-      try {
-        perm = await handle.requestPermission({ mode: "read" });
-      } catch (_error) {
-        return null;
-      }
-    }
-    if (perm !== "granted") {
-      return null;
-    }
-  }
-  await nodeGraphAudioPlayerLibraryRememberFolderHandle(id, handle);
-  return handle;
+function nodeGraphAudioPlayerLibraryStoredFolderPath(path) {
+  const p = String(path || "").trim();
+  return nodeGraphAudioPlayerLibraryLooksLikeOsPath(p) ? p : "";
 }
 
 function nodeGraphAudioPlayerLog(level, message, extra) {
@@ -436,7 +303,7 @@ function nodeGraphAudioPlayerLibraryBindCards(nodeId, files, extras = {}) {
     return null;
   }
   const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-  pl.folderPath = String(extras.folderPath || pl.folderPath || "").trim();
+  pl.folderPath = nodeGraphAudioPlayerLibraryStoredFolderPath(extras.folderPath || pl.folderPath);
   if (Object.prototype.hasOwnProperty.call(extras, "folderDive")) {
     pl.folderDive = Boolean(extras.folderDive);
   }
@@ -474,19 +341,27 @@ async function nodeGraphAudioPlayerLibraryBindFolder(nodeId, folderPath, { dive 
   if (!node || node.type !== "audioPlayer") {
     return null;
   }
+  const sourcePath = nodeGraphAudioPlayerLibraryStoredFolderPath(folderPath);
+  if (!sourcePath) {
+    throw new Error("paste a full folder path, then Load");
+  }
   const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
   const recursive = dive == null ? Boolean(pl.folderDive) : Boolean(dive);
-  const payload = await nodeGraphAudioPlayerLibraryListFolder(folderPath, { dive: recursive });
-  if (payload.kind === "file") {
-    return payload;
-  }
-  const files = Array.isArray(payload.files) ? payload.files : [];
+  const payload = await nodeGraphAudioPlayerLibraryListFolder(sourcePath, { dive: recursive });
+  const listed = Array.isArray(payload.files) ? payload.files : [];
+  const files = listed.filter((file) =>
+    nodeGraphAudioPlayerLibraryFileMatchesFormats(file.name || file.path || file.rel, pl.formats),
+  );
   if (!files.length) {
-    throw new Error("folder has no supported audio files");
+    throw new Error(
+      recursive
+        ? "folder has no matching audio"
+        : "folder has no matching audio (try Recursive search)",
+    );
   }
   nodeGraphAudioPlayerLibraryBindCards(nodeId, files, {
     folderDive: recursive,
-    folderPath: payload.path || folderPath,
+    folderPath: nodeGraphAudioPlayerLibraryStoredFolderPath(payload.path || sourcePath),
     persist,
   });
   if (typeof setNodeGraphSampleStatus === "function") {
@@ -496,90 +371,6 @@ async function nodeGraphAudioPlayerLibraryBindFolder(nodeId, folderPath, { dive 
     );
   }
   return payload;
-}
-
-function nodeGraphAudioPlayerLibraryBindBrowserFiles(nodeId, fileList) {
-  nodeGraphAudioPlayerLibraryFolderFileLists().set(String(nodeId), [...(fileList || [])]);
-  const files = [...(fileList || [])];
-  const firstRel = String(files[0]?.webkitRelativePath || files[0]?.name || "").replace(/\\/g, "/");
-  const folderName = firstRel.includes("/") ? firstRel.split("/")[0] : "";
-  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  if (node && node.type === "audioPlayer" && folderName) {
-    const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-    pl.folderPath = folderName;
-    node.playlist = pl;
-    if (typeof nodeGraphAudioPlayerPlaylistPersist === "function") {
-      nodeGraphAudioPlayerPlaylistPersist(nodeId);
-    }
-  }
-  return nodeGraphAudioPlayerLibraryLoadPlaylist(nodeId);
-}
-
-async function nodeGraphAudioPlayerLibraryWalkDirectoryHandle(handle, prefix, recursive, out) {
-  if (!handle || typeof handle.entries !== "function") {
-    return out;
-  }
-  const list = Array.isArray(out) ? out : [];
-  for await (const [name, entry] of handle.entries()) {
-    const rel = prefix ? `${prefix}/${name}` : name;
-    if (entry.kind === "file") {
-      try {
-        const file = await entry.getFile();
-        list.push({ file, rel, name: file.name, bytes: file.size });
-      } catch (_error) {
-        // Skip unreadable entries.
-      }
-    } else if (recursive && entry.kind === "directory") {
-      await nodeGraphAudioPlayerLibraryWalkDirectoryHandle(entry, rel, true, list);
-    }
-  }
-  return list;
-}
-
-async function nodeGraphAudioPlayerLibraryPickFolder(nodeId) {
-  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  if (!node || node.type !== "audioPlayer") {
-    return null;
-  }
-  if (typeof window.showDirectoryPicker === "function") {
-    const handle = await window.showDirectoryPicker({ mode: "read" });
-    await nodeGraphAudioPlayerLibraryRememberFolderHandle(nodeId, handle);
-    nodeGraphAudioPlayerLibraryFolderFileLists().delete(String(nodeId));
-    const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-    pl.folderPath = String(handle.name || "folder").trim();
-    node.playlist = pl;
-    if (typeof nodeGraphAudioPlayerPlaylistPersist === "function") {
-      nodeGraphAudioPlayerPlaylistPersist(nodeId);
-    }
-    if (typeof setNodeGraphSampleStatus === "function") {
-      setNodeGraphSampleStatus(nodeId, `folder ${pl.folderPath}`);
-    }
-    return pl;
-  }
-  return null;
-}
-
-function nodeGraphAudioPlayerLibrarySetFolderFromWebkitFiles(nodeId, fileList) {
-  const files = [...(fileList || [])];
-  nodeGraphAudioPlayerLibraryFolderFileLists().set(String(nodeId), files);
-  nodeGraphAudioPlayerLibraryFolderFileLists().set("*last*", files);
-  nodeGraphAudioPlayerLibraryFolderHandles().delete(String(nodeId));
-  const firstRel = String(files[0]?.webkitRelativePath || files[0]?.name || "").replace(/\\/g, "/");
-  const folderName = firstRel.includes("/") ? firstRel.split("/")[0] : (files[0]?.name || "folder");
-  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  if (!node || node.type !== "audioPlayer") {
-    return null;
-  }
-  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-  pl.folderPath = folderName;
-  node.playlist = pl;
-  if (typeof nodeGraphAudioPlayerPlaylistPersist === "function") {
-    nodeGraphAudioPlayerPlaylistPersist(nodeId);
-  }
-  if (typeof setNodeGraphSampleStatus === "function") {
-    setNodeGraphSampleStatus(nodeId, `folder ${pl.folderPath}`);
-  }
-  return pl;
 }
 
 async function nodeGraphAudioPlayerLibraryLoadPlaylist(nodeId) {
@@ -592,133 +383,42 @@ async function nodeGraphAudioPlayerLibraryLoadPlaylist(nodeId) {
   const pathBox = document.querySelector(
     `.node-sample-path-input[data-sample-path-for-node="${CSS.escape(String(nodeId))}"]`,
   );
-  if (pathBox?.value?.trim() && nodeGraphAudioPlayerLibraryLooksLikeOsPath(pathBox.value)) {
-    pl.folderPath = pathBox.value.trim();
+  const typed = nodeGraphAudioPlayerLibraryStoredFolderPath(pathBox?.value);
+  const folder = typed || nodeGraphAudioPlayerLibraryStoredFolderPath(pl.folderPath);
+  if (!folder) {
+    pl.folderPath = "";
     node.playlist = pl;
-  }
-  const recursive = Boolean(pl.folderDive);
-  const formats = pl.formats;
-  const store = nodeGraphAudioPlayerLibraryFiles();
-  const cards = [];
-  const handles = nodeGraphAudioPlayerLibraryFolderHandles();
-  const lists = nodeGraphAudioPlayerLibraryFolderFileLists();
-  let handle = handles.get(String(nodeId)) || handles.get("*last*") || null;
-  if (!handle) {
-    handle = await nodeGraphAudioPlayerLibraryRestoreFolderHandle(nodeId, pl.folderPath);
-    if (handle) {
-      nodeGraphAudioPlayerLog("INFO", "folder restored", {
-        nodeId,
-        folder: handle.name || pl.folderPath || "",
-      });
+    if (pathBox && document.activeElement !== pathBox) {
+      pathBox.value = "";
     }
-  }
-  let files = lists.get(String(nodeId)) || lists.get("*last*") || [];
-  if (handle && !handles.has(String(nodeId))) {
-    handles.set(String(nodeId), handle);
-  }
-  if (files.length && !lists.has(String(nodeId))) {
-    lists.set(String(nodeId), files);
-  }
-  if (handle) {
-    if (handle.queryPermission && handle.requestPermission) {
-      const perm = await handle.queryPermission({ mode: "read" });
-      if (perm !== "granted") {
-        await handle.requestPermission({ mode: "read" });
-      }
-    }
-    nodeGraphAudioPlayerLibraryReport(nodeId, `scanning ${pl.folderPath || "folder"}…`);
-    const walked = await nodeGraphAudioPlayerLibraryWalkDirectoryHandle(handle, "", recursive, []);
-    for (const entry of walked) {
-      if (!nodeGraphAudioPlayerLibraryFileMatchesFormats(entry.name, formats)) {
-        continue;
-      }
-      const fileKey = nodeGraphAudioPlayerLibraryFileKey(entry.file);
-      if (fileKey) {
-        store.set(fileKey, entry.file);
-      }
-      cards.push({
-        bytes: entry.bytes,
-        fileKey,
-        name: entry.rel || entry.name,
-        path: entry.rel || entry.name,
-      });
-    }
-  } else if (files.length) {
-    nodeGraphAudioPlayerLibraryReport(nodeId, `scanning ${pl.folderPath || "folder"}…`);
-    for (const file of files) {
-      const rel = String(file.webkitRelativePath || file.name || "").replace(/\\/g, "/");
-      const depth = rel.split("/").filter(Boolean).length;
-      if (!recursive && depth > 2) {
-        continue;
-      }
-      if (!nodeGraphAudioPlayerLibraryFileMatchesFormats(file.name, formats)) {
-        continue;
-      }
-      const fileKey = nodeGraphAudioPlayerLibraryFileKey(file);
-      if (fileKey) {
-        store.set(fileKey, file);
-      }
-      cards.push({
-        bytes: file.size,
-        fileKey,
-        name: rel || file.name,
-        path: rel || file.name,
-      });
-    }
-  } else if (nodeGraphAudioPlayerLibraryLooksLikeOsPath(pl.folderPath)) {
-    nodeGraphAudioPlayerLibraryReport(nodeId, `listing ${pl.folderPath}…`);
-    const payload = await nodeGraphAudioPlayerLibraryListFolder(pl.folderPath, { dive: recursive });
-    const listed = Array.isArray(payload.files) ? payload.files : [];
-    if (payload.path && nodeGraphAudioPlayerLibraryLooksLikeOsPath(payload.path)) {
-      pl.folderPath = payload.path;
-      node.playlist = pl;
-    }
-    for (const file of listed) {
-      if (!nodeGraphAudioPlayerLibraryFileMatchesFormats(file.name || file.path || file.rel, formats)) {
-        continue;
-      }
-      cards.push(file);
-    }
-  } else {
-    nodeGraphAudioPlayerLog("FAIL", "Load: no folder handle or OS path", {
-      nodeId,
-      folder: pl.folderPath || "",
-    });
-    nodeGraphAudioPlayerLibraryReport(
-      nodeId,
-      "Choose a folder with 📂 first, then Load. The browser cannot see C:\\ from the picker — we remember the folder handle. Or paste a full C:\\ path.",
-    );
+    nodeGraphAudioPlayerLog("FAIL", "Load: paste a full folder path", { nodeId });
+    nodeGraphAudioPlayerLibraryReport(nodeId, "Paste a full C:\\ path, then Load.");
     return pl;
   }
-  nodeGraphAudioPlayerLibraryBindCards(nodeId, cards, {
-    folderDive: recursive,
-    folderPath: pl.folderPath,
-  });
-  if (!cards.length) {
-    nodeGraphAudioPlayerLog("FAIL", "Load: no matching audio", {
-      nodeId,
-      folder: pl.folderPath || "",
-      recursive,
-    });
-    nodeGraphAudioPlayerLibraryReport(
-      nodeId,
-      recursive
-        ? `no matching audio in ${pl.folderPath || "folder"}`
-        : `no matching audio in ${pl.folderPath || "folder"} (try Recursive search)`,
-    );
+  pl.folderPath = folder;
+  node.playlist = pl;
+  try {
+    await nodeGraphAudioPlayerLibraryBindFolder(nodeId, folder);
+  } catch (error) {
+    const message = String(error?.message || error || "load failed");
+    nodeGraphAudioPlayerLog("FAIL", message, { nodeId, folder });
+    nodeGraphAudioPlayerLibraryReport(nodeId, message);
+    return pl;
+  }
+  const loaded = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  if (pathBox && document.activeElement !== pathBox) {
+    pathBox.value = loaded?.folderPath || folder;
   }
   if (typeof nodeGraphAudioPlayerPlaylistSetFace === "function") {
     nodeGraphAudioPlayerPlaylistSetFace(nodeId, "pl");
   }
-  const loaded = nodeGraphAudioPlayerPlaylistForNode(nodeId);
   const transport = typeof nodeGraphAudioPlayerTransportBase === "function"
     ? nodeGraphAudioPlayerTransportBase(nodeId)
     : 0;
   nodeGraphAudioPlayerLog("INFO", "listed", {
     nodeId,
     tracks: loaded?.items?.length || 0,
-    folder: loaded?.folderPath || "",
-    handle: Boolean(handles.get(String(nodeId)) || handles.get("*last*")),
+    folder: loaded?.folderPath || folder,
     transport,
   });
   if ((loaded?.items?.length || 0) > 0 && transport >= 3) {
@@ -833,45 +533,6 @@ function nodeGraphAudioPlayerLibraryFindFileForItem(item) {
   return null;
 }
 
-async function nodeGraphAudioPlayerLibraryFileFromFolderHandle(nodeId, item) {
-  const handles = typeof nodeGraphAudioPlayerLibraryFolderHandles === "function"
-    ? nodeGraphAudioPlayerLibraryFolderHandles()
-    : null;
-  let handle = handles?.get?.(String(nodeId)) || handles?.get?.("*last*") || null;
-  if (!handle) {
-    const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
-      ? nodeGraphAudioPlayerPlaylistForNode(nodeId)
-      : null;
-    handle = await nodeGraphAudioPlayerLibraryRestoreFolderHandle(nodeId, pl?.folderPath || item?.path || "");
-  }
-  if (!handle) {
-    return null;
-  }
-  const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
-    ? nodeGraphAudioPlayerPlaylistForNode(nodeId)
-    : null;
-  const recursive = Boolean(pl?.folderDive);
-  const wantPath = String(item?.path || "").replace(/\\/g, "/");
-  const wantName = String(item?.name || wantPath).replace(/\\/g, "/").split("/").pop();
-  const walked = await nodeGraphAudioPlayerLibraryWalkDirectoryHandle(handle, "", recursive, []);
-  const store = nodeGraphAudioPlayerLibraryFiles();
-  for (const entry of walked) {
-    const rel = String(entry.rel || entry.name || "").replace(/\\/g, "/");
-    const name = String(entry.name || "").split("/").pop();
-    if ((wantPath && rel === wantPath) || (wantName && name === wantName)) {
-      const fileKey = nodeGraphAudioPlayerLibraryFileKey(entry.file);
-      if (fileKey) {
-        store.set(fileKey, entry.file);
-        if (item) {
-          item.fileKey = fileKey;
-        }
-      }
-      return entry.file;
-    }
-  }
-  return null;
-}
-
 async function nodeGraphAudioPlayerLibraryEnsureItemLoaded(nodeId, item) {
   if (!item) {
     nodeGraphAudioPlayerLog("FAIL", "decode skipped: no playlist item", { nodeId });
@@ -888,14 +549,9 @@ async function nodeGraphAudioPlayerLibraryEnsureItemLoaded(nodeId, item) {
     return held.id;
   }
   let source = "none";
-  let file = nodeGraphAudioPlayerLibraryFindFileForItem(item);
+  const file = nodeGraphAudioPlayerLibraryFindFileForItem(item);
   if (file) {
     source = "store";
-  } else {
-    file = await nodeGraphAudioPlayerLibraryFileFromFolderHandle(nodeId, item);
-    if (file) {
-      source = "handle";
-    }
   }
   const path = String(item.path || "").trim();
   nodeGraphAudioPlayerLog("INFO", "decode source", {
@@ -933,7 +589,7 @@ async function nodeGraphAudioPlayerLibraryEnsureItemLoaded(nodeId, item) {
     const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
     return node?.sample?.id || "";
   }
-  throw new Error(`no local file for ${item.name || item.path || "track"} — Load the folder again`);
+  throw new Error(`no local file for ${item.name || item.path || "track"} — paste a full folder path and Load`);
 }
 
 async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = true } = {}) {
@@ -978,10 +634,6 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
     path: item.path || "",
     sampleId: item.sampleId || "",
     hasFile: Boolean(nodeGraphAudioPlayerLibraryFindFileForItem(item)),
-    hasHandle: Boolean(
-      nodeGraphAudioPlayerLibraryFolderHandles().get(String(nodeId))
-      || nodeGraphAudioPlayerLibraryFolderHandles().get("*last*"),
-    ),
   });
   if (!nodeGraphAudioPlayerLibraryItemLoaded(item)) {
     if (typeof setNodeGraphSampleStatus === "function") {
@@ -1224,7 +876,7 @@ async function nodeGraphAudioPlayerLibraryToggleDive(nodeId) {
   const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
   pl.folderDive = !pl.folderDive;
   node.playlist = pl;
-  if (pl.folderPath) {
+  if (nodeGraphAudioPlayerLibraryStoredFolderPath(pl.folderPath)) {
     await nodeGraphAudioPlayerLibraryBindFolder(nodeId, pl.folderPath, { dive: pl.folderDive });
     return;
   }

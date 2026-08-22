@@ -236,12 +236,10 @@ function nodeGraphPhosphorWaveformSyncTimeWindowFromView(nodeId, windowFrames, s
 }
 
 // Music Player display options live on Command Center Display Settings.
-// The 📂 + path box and the 📋 + phase readout are the same widgets the
-// Music Player carries on its face -- built by the shared sample factories
-// so hiding the module control surface still leaves load + phase available
-// here. Rebuilt only when the panel switches to a different node (listeners
-// close over the node id), so re-rendering on every settings change does not
-// wipe out a path you are halfway through typing.
+// Folder path is paste-only (no picker). Phase readout is the same widget
+// the sample modules use. Rebuilt only when the panel switches to a different
+// node (listeners close over the node id), so re-rendering on every settings
+// change does not wipe out a path you are halfway through typing.
 function renderNodeGraphPhosphorWaveformSampleLoader(nodeId) {
   const slot = document.getElementById("nodePhosphorWaveformSampleLoaderSlot");
   if (!slot || typeof createNodeGraphSamplePathLoader !== "function") {
@@ -253,7 +251,10 @@ function renderNodeGraphPhosphorWaveformSampleLoader(nodeId) {
   slot.dataset.node = nodeId;
   slot.textContent = "";
   const loader = createNodeGraphSamplePathLoader(nodeId, { instance: "waveform-settings" });
-  slot.append(loader.fileInput, loader.pathShell);
+  if (loader.fileInput) {
+    slot.append(loader.fileInput);
+  }
+  slot.append(loader.pathShell);
 }
 
 function syncNodeGraphPhosphorWaveformPlaylistSettingsControls(nodeId) {
@@ -296,8 +297,11 @@ function syncNodeGraphPhosphorWaveformPlaylistSettingsControls(nodeId) {
   const pathBox = document.querySelector(
     `.node-sample-path-input[data-sample-path-for-node="${CSS.escape(String(nodeId))}"]`,
   );
-  if (pathBox && document.activeElement !== pathBox && pl.folderPath) {
-    pathBox.value = pl.folderPath;
+  if (pathBox && document.activeElement !== pathBox) {
+    const stored = typeof nodeGraphAudioPlayerLibraryStoredFolderPath === "function"
+      ? nodeGraphAudioPlayerLibraryStoredFolderPath(pl.folderPath)
+      : "";
+    pathBox.value = stored;
   }
 }
 

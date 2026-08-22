@@ -122,6 +122,12 @@ NodeLiveAudioProcessor.prototype.setConnections = function setConnections(plan, 
     }
     const bypassed = new Set(Array.isArray(plan?.bypassedNodes) ? plan.bypassedNodes : []);
     if (Array.isArray(plan?.nodes)) {
+      // Connection-only plan posts still carry runtime nodes. Apply params /
+      // samplePhase here or Stop/Pause never reach the worklet when the graph
+      // shape is unchanged (setPlan is skipped, setParams was coalesced away).
+      if (typeof this.setParams === "function" && plan.nodes.length) {
+        this.setParams(plan.nodes, message);
+      }
       for (const node of plan.nodes) {
         const current = this.nodes.get(node.id);
         if (!current) {
