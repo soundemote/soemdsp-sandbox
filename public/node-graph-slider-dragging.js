@@ -816,6 +816,17 @@ function beginNodeSliderDrag(event) {
       Math.abs(event.clientX - lastDown.x) < 6 &&
       Math.abs(event.clientY - lastDown.y) < 6);
   nodeGraphMvp.sliderLastPointerDown = { surface, time: now, x: event.clientX, y: event.clientY };
+  // Knob / button faces: double-click must not open type-in or Module Settings.
+  // Type a value on the numeric readout instead.
+  const skipTypeIn = surface.classList.contains("node-knob-face")
+    || surface.classList.contains("node-plugin-slider-face")
+    || surface.classList.contains("node-plugin-toggle-button")
+    || surface.closest?.(".node-plugin-button-shell, .node-bug-button-face, .node-plugin-toggle-button");
+  if (isDoubleClick && skipTypeIn) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   if (isDoubleClick) {
     nodeGraphMvp.sliderLastPointerDown = null;
     event.preventDefault();

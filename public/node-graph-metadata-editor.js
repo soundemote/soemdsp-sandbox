@@ -1,4 +1,4 @@
-// The SMOOTHING TIME (s) field is seconds-facing for the user, but the
+// The SMOOTH field is seconds-facing for the user, but the
 // underlying metadata.smoothingSeconds is a sample count (app-wide policy:
 // 0 = instant, 1 = 1 sample, 2 = 2 samples, ...). Convert at the UI edge.
 function nodeGraphMetadataSmoothingSecondsToSamples(seconds) {
@@ -1281,7 +1281,9 @@ function parseNodeMetadataScriptValue(rawValue, key, current) {
     if (!sanitizeNodeGraphNumericText(value)) {
       return null;
     }
-    return normalizeNodeGraphMetadataSmoothingSeconds(parseNodeMetadataNumber(value, current.smoothingSeconds));
+    return normalizeNodeGraphMetadataSmoothingSeconds(
+      Math.max(0, parseNodeMetadataNumber(value, current.smoothingSeconds)),
+    );
   }
   if (key === "smoothingMode") {
     return normalizeNodeGraphMetadataSmoothingMode(value.replace(/^["']|["']$/g, ""));
@@ -2379,7 +2381,9 @@ function readNodeMetadataEditorValues(slider) {
     ? (typeof nodeGraphModuleSmoothingDefaultSeconds === "function"
       ? nodeGraphModuleSmoothingDefaultSeconds()
       : 0.0333)
-    : nodeGraphMetadataSmoothingSecondsToSamples(parseNodeMetadataNumber(smoothingSecondsInput, smoothingSecondsFallback));
+    : nodeGraphMetadataSmoothingSecondsToSamples(
+      Math.max(0, parseNodeMetadataNumber(smoothingSecondsInput, smoothingSecondsFallback)),
+    );
   const smoothingType = normalizeNodeGraphMetadataSmoothingType(
     document.getElementById("metadataSmoothingTypeGroup")?.dataset.type,
   );

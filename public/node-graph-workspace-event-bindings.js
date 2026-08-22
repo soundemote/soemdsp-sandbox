@@ -39,13 +39,17 @@ function bindNodeGraphWorkspaceInteractionEvents() {
   document
     .getElementById("nodeGraphWorkspace")
     .addEventListener("click", nodeGraphWireInteractions.handleWorkspaceClick);
-  // Double-click-to-add-text-box is disabled for now (binding intentionally
-  // commented out, not removed -- handleNodeGraphWorkspaceDoubleClickToAddTextBox
-  // in node-graph-module-actions.js is untouched, ready to re-enable by
-  // uncommenting this one line).
-  // document
-  //   .getElementById("nodeGraphWorkspace")
-  //   .addEventListener("dblclick", handleNodeGraphWorkspaceDoubleClickToAddTextBox);
+  // Empty-canvas double-click does not open the module shop / spawn menu.
+  // Right-click is the add-module path.
+  document
+    .getElementById("nodeGraphWorkspace")
+    .addEventListener("dblclick", (event) => {
+      if (typeof nodeGraphEventTargetIsEmptyWorkspaceArea === "function"
+        && nodeGraphEventTargetIsEmptyWorkspaceArea(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       if (typeof nodeGraphScreenSoloIsActive === "function" && nodeGraphScreenSoloIsActive()) {

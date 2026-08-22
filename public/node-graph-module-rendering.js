@@ -27,28 +27,12 @@ function stopPropagation(event) {
 function attachNodeGraphSolidModuleShellEvents(node) {
   node.querySelectorAll(".node-solid-module-custom-ui").forEach((face) => {
     face.addEventListener("pointerdown", beginNodeGraphNodeDrag);
-    // Graph face owns double-click (add/remove points). Knob face owns
-    // double-click type-in (Bias). Do not open Module Settings from those.
-    face.addEventListener("dblclick", (event) => {
-      if (event.target?.closest?.(
-        ".node-module-graph-display, .node-knob-face, .node-keypad-face, .node-xy-pad, .node-text-box-body, .node-phosphillator-draw-display",
-      )) {
-        return;
-      }
-      openNodeModuleActionMenu(event);
-    });
+    // Module Settings is right-click only. Graph / keypad / text still
+    // handle their own dblclick (add point, type-in) and stopPropagation.
     face.addEventListener("contextmenu", openNodeModuleActionMenu);
   });
   node.querySelectorAll(".node-solid-module-shell").forEach((shell) => {
     shell.addEventListener("pointerdown", beginNodeGraphNodeDrag);
-    shell.addEventListener("dblclick", (event) => {
-      if (event.target?.closest?.(
-        ".node-module-graph-display, .node-knob-face, .node-keypad-face, .node-xy-pad, .node-text-box-body, .node-phosphillator-draw-display",
-      )) {
-        return;
-      }
-      openNodeModuleActionMenu(event);
-    });
     shell.addEventListener("contextmenu", openNodeModuleActionMenu);
   });
 }
@@ -91,9 +75,7 @@ function attachNodeGraphNodeEvents(node) {
   // each face contains: handlePortPointerDown (node-graph-wires.js)
   // stopPropagation()s before this could also fire.
   node.querySelector(".node-group-input-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
-  node.querySelector(".node-group-input-face")?.addEventListener("dblclick", openNodeModuleActionMenu);
   node.querySelector(".node-group-output-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
-  node.querySelector(".node-group-output-face")?.addEventListener("dblclick", openNodeModuleActionMenu);
   attachNodeGraphSolidModuleShellEvents(node);
   node.querySelectorAll(".dsp-node-io-section")
     .forEach((section) => section.addEventListener("pointerdown", beginNodeGraphNodeDrag));

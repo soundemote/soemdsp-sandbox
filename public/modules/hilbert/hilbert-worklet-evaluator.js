@@ -7,9 +7,9 @@ NodeLiveAudioProcessor.prototype.createHilbertState = function createHilbertStat
   return { net: null };
 };
 
-NodeLiveAudioProcessor.prototype.hilbertFrame = function hilbertFrame(state, input, sign) {
+NodeLiveAudioProcessor.prototype.hilbertFrame = function hilbertFrame(state, input, mode) {
   if (typeof nodeGraphHilbertFrame === "function") {
-    const out = nodeGraphHilbertFrame(state, input, sign);
+    const out = nodeGraphHilbertFrame(state, input, mode);
     return { Out: this.safeFilterNumber(out.Out, state?.net) ?? 0 };
   }
   return { Out: 0 };

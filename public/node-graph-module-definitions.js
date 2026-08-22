@@ -542,9 +542,9 @@ function nodeGraphControllerRangeSmoothingParameters() {
       defaultValue: "0",
       key: "rangeMin",
       label: "Min",
-      max: "1000000",
+      max: "10",
       mid: "0",
-      min: "-1000000",
+      min: "-10",
       nonlinearSlider: true,
       step: "any",
       linearSmoothing: false,
@@ -554,9 +554,9 @@ function nodeGraphControllerRangeSmoothingParameters() {
       defaultValue: "1",
       key: "rangeMax",
       label: "Max",
-      max: "1000000",
+      max: "10",
       mid: "1",
-      min: "-1000000",
+      min: "-10",
       nonlinearSlider: true,
       step: "any",
       linearSmoothing: false,
@@ -4517,8 +4517,8 @@ const nodeGraphModuleDefinitions = (
   momentaryButton: {
     planRole: "source",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
-    defaultWidthGu: 4,
-    // Face 2gu + title row (22/28) ceils to 3gu outer — spawn 4×3.
+    defaultWidthGu: 5,
+    // Face 2gu + title row (22/28) ceils to 3gu outer — spawn 5×3.
     displayHeightGu: 2,
     displayType: "momentaryButtonFace",
     displayModes: [
@@ -9054,7 +9054,7 @@ const nodeGraphModuleDefinitions = (
       nodeGraphOutputAmplitudeParam,
     ]
   },
-  // Mono Hilbert: +90° or −90° (Q of the IIR quadrature pair). One in, one out.
+  // Mono Hilbert: +90°, −90°, or 0° (I of the IIR quadrature pair). One in, one out.
   hilbert: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
@@ -9065,19 +9065,20 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out"],
     parameters: [
       {
-        choices: ["+90", "-90"],
+        choices: ["+90°", "-90°", "0°"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
         key: "shift",
         label: "Shift",
         linearSmoothing: false,
-        max: "1",
+        max: "2",
         mid: "0",
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "+90° = Hilbert Q. −90° = inverted Q. Use on Mid/Side Out Side, then add to Out Mid.",
+        tooltip:
+          "+90° = Hilbert Q. −90° = inverted Q. 0° = I (same delay as Q, not a raw dry bypass). Use on Mid/Side Out Side, then add to Out Mid.",
       },
       nodeGraphOutputAmplitudeParam,
     ]

@@ -17412,8 +17412,13 @@ body.node-slider-dragging * {
   grid-column: 1 / -1;
 }
 
-/* Flatten range / identity / toggles into the parent 2-col grid. */
-.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section,
+/* Range is one column. Identity / toggles flatten into the parent 2-col grid. */
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-column: 1 / -1;
+}
+
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-identity-section,
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-toggle-section {
   display: contents;
@@ -17433,7 +17438,10 @@ body.node-slider-dragging * {
   background: rgba(5, 9, 11, 0.62);
 }
 
-.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section > label:nth-child(2n),
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section > label {
+  border-right: 0;
+}
+
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-identity-section > label:nth-child(2n),
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-toggle-section > label:nth-child(2n) {
   border-right: 0;
@@ -23919,6 +23927,20 @@ code {
   cursor: var(--node-dot-cursor);
   user-select: none;
   touch-action: none;
+}
+.node-plugin-toggle-button:hover,
+.node-plugin-momentary-button:hover {
+  border-color: hsl(200 20% 35% / 0.85);
+  filter: none;
+  background: linear-gradient(180deg, hsl(210 14% 22%), hsl(210 16% 14%));
+}
+.node-plugin-toggle-button.is-on:hover {
+  border-color: hsl(145 40% 45% / 0.9);
+  background: linear-gradient(180deg, hsl(145 45% 32%), hsl(145 50% 18%));
+}
+.node-plugin-momentary-button.is-down:hover {
+  border-color: hsl(30 70% 50% / 0.9);
+  background: linear-gradient(180deg, hsl(28 70% 40%), hsl(20 65% 22%));
 }
 .node-plugin-toggle-button.is-on {
   background: linear-gradient(180deg, hsl(145 45% 32%), hsl(145 50% 18%));

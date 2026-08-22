@@ -15,8 +15,7 @@ nodeGraphLiveModuleEvaluators.hilbert = ({
   const state = runtime.hilbertStates.get(nodeId) || createNodeGraphHilbertState();
   runtime.hilbertStates.set(nodeId, state);
   const shift = readNodeGraphLiveEffectiveParam(runtime, node, "shift", 0, frame, frames, frameValues);
-  const sign = Number(shift) >= 1 ? -1 : 1;
-  const out = nodeGraphHilbertFrame(state, mixInput(nodeId), sign);
+  const out = nodeGraphHilbertFrame(state, mixInput(nodeId), shift);
   return {
     Out: nodeGraphSafeFilterNumber(out.Out, runtime, nodeId, state.net, "hilbert Out"),
   };

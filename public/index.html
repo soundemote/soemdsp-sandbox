@@ -2798,6 +2798,14 @@
           </label>
           <div class="metadata-section-title">Range</div>
           <div class="metadata-field-section metadata-range-section">
+            <label data-tooltip-key="parameterSettings.default">
+              <span>DEFAULT</span>
+              <span class="metadata-stepper-control">
+                <button type="button" data-metadata-step-target="metadataDefaultValue" data-metadata-step-direction="-1">-</button>
+                <input id="metadataDefaultValue" type="text" inputmode="decimal">
+                <button type="button" data-metadata-step-target="metadataDefaultValue" data-metadata-step-direction="1">+</button>
+              </span>
+            </label>
             <label>
               <span>MAX</span>
               <span class="metadata-stepper-control">
@@ -2822,14 +2830,6 @@
                 <button type="button" data-metadata-step-target="metadataMinValue" data-metadata-step-direction="1">+</button>
               </span>
             </label>
-            <label data-tooltip-key="parameterSettings.default">
-              <span>DEFAULT</span>
-              <span class="metadata-stepper-control">
-                <button type="button" data-metadata-step-target="metadataDefaultValue" data-metadata-step-direction="-1">-</button>
-                <input id="metadataDefaultValue" type="text" inputmode="decimal">
-                <button type="button" data-metadata-step-target="metadataDefaultValue" data-metadata-step-direction="1">+</button>
-              </span>
-            </label>
             <label data-tooltip-key="parameterSettings.step">
               <span>STEP</span>
               <span class="metadata-stepper-control">
@@ -2839,7 +2839,7 @@
               </span>
             </label>
             <label class="metadata-curve-label" data-tooltip-key="parameterSettings.skew">
-              <span>SKEW</span>
+              <span>CURVE</span>
               <select id="metadataSliderCurveValue">
                 <option value="linear">off</option>
                 <option value="skew">mid skew</option>
@@ -2850,7 +2850,7 @@
               <input id="metadataNonlinearSliderValue" type="checkbox" hidden tabindex="-1" aria-hidden="true">
             </label>
             <label id="metadataCurveSensitivityLabel" class="metadata-curve-sensitivity-label" data-tooltip-key="parameterSettings.skewSensitivity" title="Used by custom skew and edge skew. Hidden for off and mid skew.">
-              <span class="metadata-curve-sensitivity-heading">SENSITIVITY</span>
+              <span class="metadata-curve-sensitivity-heading">SKEW</span>
               <span class="metadata-stepper-control">
                 <button type="button" data-metadata-step-target="metadataCurveSensitivityValue" data-metadata-step-direction="-1" data-tooltip-key="parameterSettings.skewSensitivity">-</button>
                 <input id="metadataCurveSensitivityValue" type="text" inputmode="decimal" data-tooltip-key="parameterSettings.skewSensitivity" data-metadata-clamp-min="-1" data-metadata-clamp-max="1" aria-valuemin="-1" aria-valuemax="1">
@@ -2873,10 +2873,10 @@
               </span>
             </label>
             <label class="metadata-full-row" data-tooltip-key="parameterSettings.smoothingSeconds">
-              <span>SMOOTHING TIME (s)</span>
+              <span>SMOOTH</span>
               <span class="metadata-stepper-control">
                 <button type="button" data-metadata-step-target="metadataSmoothingSecondsValue" data-metadata-step-direction="-1">-</button>
-                <input id="metadataSmoothingSecondsValue" type="text" inputmode="decimal" placeholder="0.000">
+                <input id="metadataSmoothingSecondsValue" type="text" inputmode="decimal" placeholder="0.000" data-metadata-clamp-min="0">
                 <button type="button" data-metadata-step-target="metadataSmoothingSecondsValue" data-metadata-step-direction="1">+</button>
               </span>
             </label>
@@ -3540,7 +3540,7 @@
   <script src="./public/modules/portal/portal-outlet-register.js?v=input-outlet-1"></script>
   <script src="./public/modules/simulationTime/simulation-time-register.js?v=sim-time-1"></script>
   <script src="./public/modules/patch/patch-register.js?v=patch-buttons-on-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=n-phase-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=hilbert-0-2"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script src="./public/node-graph-module-controls.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
@@ -3590,7 +3590,7 @@
   <script src="./public/node-graph-camera-view.js?v=mag-trace-2"></script>
   <script src="./public/node-graph-marquee-selection.js?v=snake-shift-ink-1"></script>
   <script src="./public/node-graph-node-dragging.js?v=ready-lock-hide-1"></script>
-  <script src="./public/node-graph-context-menu.js?v=portal-mag-ports-1"></script>
+  <script src="./public/node-graph-context-menu.js?v=no-dblclick-menu-1"></script>
   <script src="./public/node-graph-magnifier.js?v=mag-trace-2"></script>
   <script src="./public/node-graph-module-actions.js?v=eff-pass-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
@@ -3693,14 +3693,14 @@
   <script src="./public/modules/portal/portal-settings.js?v=portal-lanes-1"></script>
   <script src="./public/modules/portal/portal-ui.js?v=input-outlet-1"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=cc-name-value-1"></script>
-  <script src="./public/node-graph-module-rendering.js?v=input-layout-a-1"></script>
+  <script src="./public/node-graph-module-rendering.js?v=no-dblclick-menu-1"></script>
   <script src="./public/node-graph-module-frame.js?v=plate-11-1"></script>
   <script src="./public/node-graph-history.js?v=book-ui-script-1"></script>
   <script src="./public/node-graph-visual-utils.js?v=eq-curve-4"></script>
   <script src="./public/node-graph-patch-clone.js?v=player-cc-display-1"></script>
   <script src="./public/node-graph-slider-metadata.js?v=pixel-grid-wh-1"></script>
   <script src="./public/node-graph-slider-values.js?v=cv-skip-3"></script>
-  <script src="./public/node-graph-slider-dragging.js?v=input-amp-1"></script>
+  <script src="./public/node-graph-slider-dragging.js?v=no-dblclick-menu-1"></script>
   <script src="./public/node-graph-node-accessors.js?v=cleanup-20260725-smoothing-time-20260701"></script>
   <script src="./public/node-graph-selection.js?v=screen-order-1"></script>
   <script src="./public/node-graph-port-geometry.js?v=wire-follow-1"></script>
@@ -3711,7 +3711,7 @@
   <script src="./public/node-graph-slider-readout-controls.js?v=jacks-slider-2"></script>
   <script src="./public/node-graph-ghost-sliders.js?v=cv-skip-3"></script>
   <script src="./public/node-code-settings-editor.js?v=json-highlight-1"></script>
-  <script src="./public/node-graph-metadata-editor.js?v=pixel-grid-wh-1"></script>
+  <script src="./public/node-graph-metadata-editor.js?v=smooth-min-0"></script>
   <script src="./public/node-graph-render-settings.js?v=cleanup-20260725-slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-semath.js?v=planck-1"></script>
   <script src="./public/modules/speakerProtector2/speaker-protector-2-math.js?v=planck-1"></script>
@@ -3898,8 +3898,8 @@
   <script src="./public/modules/midSideEncode/mid-side-encode-live-evaluator.js?v=dip-ms-db-1"></script>
   <script src="./public/modules/quadrature/quadrature-math.js?v=ms-quad-lim-1"></script>
   <script src="./public/modules/quadrature/quadrature-live-evaluator.js?v=ms-quad-lim-1"></script>
-  <script src="./public/modules/hilbert/hilbert-math.js?v=hilbert-1"></script>
-  <script src="./public/modules/hilbert/hilbert-live-evaluator.js?v=hilbert-1"></script>
+  <script src="./public/modules/hilbert/hilbert-math.js?v=hilbert-0-1"></script>
+  <script src="./public/modules/hilbert/hilbert-live-evaluator.js?v=hilbert-0-1"></script>
   <script src="./public/modules/lookaheadLimiter/lookahead-limiter-math.js?v=dip-no-clamp-1"></script>
   <script src="./public/modules/lookaheadLimiter/lookahead-limiter-live-evaluator.js?v=dip-no-clamp-1"></script>
   <script src="./public/modules/inertialFilter/inertial-filter-math.js?v=inertial-hz-1"></script>
@@ -4052,10 +4052,10 @@
   <script src="./public/modules/graph/graph-live-evaluator.js?v=retire-graph-type-20260724"></script>
   <script src="./public/modules/polyBlep/poly-blep-live-evaluator.js?v=one-core-native-20260803"></script>
   <script src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
-  <script src="./public/node-graph-live-runtime.js?v=n-phase-1"></script>
+  <script src="./public/node-graph-live-runtime.js?v=hilbert-0-1"></script>
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-screen-solo.js?v=mp-f-fill-1"></script>
-  <script src="./public/node-graph-workspace-event-bindings.js?v=snake-shift-live-1"></script>
+  <script src="./public/node-graph-workspace-event-bindings.js?v=no-dblclick-menu-1"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>
   <script src="./public/node-graph-header-event-bindings.js?v=vis-bars-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>

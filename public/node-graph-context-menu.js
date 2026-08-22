@@ -2227,15 +2227,14 @@ function configureNodeSceneContextMenu(mode) {
 }
 
 /**
- * Shared: open Module Settings for a .dsp-node from any right-click/dblclick
+ * Shared: open Module Settings for a .dsp-node from right-click
  * on that module (header, body, ports, parameter inputs, …).
- * Never opens the Module Browser.
+ * Never opens the Module Browser. Double-click does not open settings
+ * (knobs / buttons / faces use click-drag; right-click is the menu).
  * @returns {boolean} true if handled
  */
 function openNodeGraphModuleSettingsFromContextEvent(event, nodeElement = null) {
-  if (event?.type === "dblclick" && event.altKey) {
-    event.preventDefault?.();
-    event.stopPropagation?.();
+  if (event?.type === "dblclick") {
     return false;
   }
   ensureNodeGraphModuleActionsWindowBody();
@@ -2308,9 +2307,7 @@ function openNodeModuleActionMenu(event) {
   if (typeof nodeGraphEventTargetIsPortalShell === "function" && nodeGraphEventTargetIsPortalShell(event)) {
     return;
   }
-  if (event?.type === "dblclick" && event.altKey) {
-    event.preventDefault?.();
-    event.stopPropagation?.();
+  if (event?.type === "dblclick") {
     return;
   }
   // Module shell binds contextmenu on the whole .dsp-node, which runs before
@@ -2482,7 +2479,7 @@ const nodeGraphWorkspaceInteractiveDialogSelector =
 const nodeGraphWorkspaceOccupiedElementSelector =
   ".node-wire-hit-path, .node-wire-path, .dsp-node, .node-port, .node-param-port, .node-slider-readout";
 
-// Shared by the right-click scene menu and double-click-to-spawn: true only when
+// Shared by the right-click scene menu: true only when
 // the event lands on empty modular background (inside #nodeGraphWorkspace),
 // not the top/bottom bars, a floating window, a wire, a node, or a port/readout.
 function nodeGraphEventTargetIsPortalShell(event) {
