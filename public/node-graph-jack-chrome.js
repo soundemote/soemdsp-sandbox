@@ -466,26 +466,11 @@ function nodeGraphLogJackVisibility(reason = "census") {
     workspace.dataset.jackOutlets = String(report.outletCount);
     workspace.dataset.jackOk = report.ok ? "1" : "0";
   }
-  const line = [
-    `JACKS ${reason}:`,
-    `modules=${report.moduleCount}`,
-    `ports=${report.portCount}`,
-    `painted=${report.paintedCount}`,
-    `in=${report.inletCount}`,
-    `out=${report.outletCount}`,
-    `rgb=${report.rgbCount}`,
-    `ioHidden=${report.ioHiddenModules}`,
-    `unusedHidden=${report.unusedHiddenModules}`,
-    `workspaceHideUnused=${report.workspaceUnusedHidden}`,
-    `applyFn=${report.applyFn}`,
-    `ok=${report.ok}`,
-  ].join(" ");
   const se = typeof window !== "undefined" ? window.SE : null;
-  if (se?.INFO) {
-    se.INFO(line);
-  }
-  if (!report.ok && se?.WARN) {
-    se.WARN(`JACKS not visible (${reason}) hidden=${JSON.stringify(report.hidden)}`);
+  if (!report.ok && typeof se?.FAIL === "function") {
+    se.FAIL(
+      `JACKS not visible (${reason}) painted=${report.paintedCount} hidden=${JSON.stringify(report.hidden)}`,
+    );
   }
   return report;
 }

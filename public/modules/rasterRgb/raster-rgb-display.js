@@ -694,15 +694,12 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
 
 let nodeGraphRasterRgbPumpQueued = false;
 let nodeGraphRasterRgbLastError = "";
-let nodeGraphRasterRgbLastLogAt = 0;
-let nodeGraphRasterRgbLoadLogged = false;
 
 function nodeGraphRasterRgbSe(level, msg) {
   const text = `[raster-rgb ${NODE_GRAPH_RASTER_RGB_PAINT_REV}] ${msg}`;
   try {
-    if (typeof console !== "undefined") {
-      if (level === "FAIL" && console.error) console.error(text);
-      else if (console.info) console.info(text);
+    if (level === "FAIL" && typeof console !== "undefined" && console.error) {
+      console.error(text);
     }
   } catch (_err) {
     // ignore
@@ -712,13 +709,8 @@ function nodeGraphRasterRgbSe(level, msg) {
     if (!se) {
       return;
     }
-    // SE.WARN is (cond, msg) — never call it with a string as the condition.
     if (level === "FAIL" && typeof se.FAIL === "function") {
       se.FAIL(text);
-    } else if (typeof se.INFO === "function") {
-      se.INFO(text);
-    } else if (typeof se.LOG === "function") {
-      se.LOG(text);
     }
   } catch (_err) {
     // ignore
@@ -767,28 +759,7 @@ function nodeGraphRasterRgbDebugDump() {
   } catch (_err) {
     // ignore
   }
-  nodeGraphRasterRgbSe("INFO", JSON.stringify(dump));
   return dump;
-}
-
-function nodeGraphRasterRgbMaybeLogStatus(painted) {
-  const now = Date.now();
-  if (!nodeGraphRasterRgbLoadLogged) {
-    nodeGraphRasterRgbLoadLogged = true;
-    const stamp = nodeGraphRasterRgbBuildStamp();
-    nodeGraphRasterRgbSe(
-      "INFO",
-      `loaded paintRev=${stamp.paintRev} ${stamp.version} ${stamp.build} token=${stamp.token || "?"}`,
-    );
-  }
-  if (now - nodeGraphRasterRgbLastLogAt < 2000) {
-    return;
-  }
-  nodeGraphRasterRgbLastLogAt = now;
-  const dump = nodeGraphRasterRgbDebugDump();
-  if (!(painted > 0) && dump.faceCount === 0) {
-    nodeGraphRasterRgbSe("WARN", "no Raster RGB faces found this frame");
-  }
 }
 
 function nodeGraphRasterRgbCollectFaces() {
@@ -915,7 +886,6 @@ function paintNodeGraphRasterRgbFacesNow(pixelRatio = window.devicePixelRatio ||
     }
   }
   nodeGraphRasterRgbConsumeIngest();
-  nodeGraphRasterRgbMaybeLogStatus(painted);
   return painted;
 }
 
@@ -931,7 +901,3 @@ if (typeof window !== "undefined") {
 }
 
 scheduleNodeGraphRasterRgbPump();
-nodeGraphRasterRgbSe(
-  "INFO",
-  `script parsed paintRev=${NODE_GRAPH_RASTER_RGB_PAINT_REV} — console: nodeGraphRasterRgbDebugDump()`,
-);

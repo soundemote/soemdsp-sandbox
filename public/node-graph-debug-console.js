@@ -135,9 +135,9 @@
     return Boolean(els.panel?.classList.contains("se-open"));
   }
 
-  /** ERROR/FAIL always. INFO/LOG/WARN only with panel open or seDebug=1. */
+  /** ERROR/FAIL/LIVE always. INFO/LOG/WARN only with panel open or seDebug=1. */
   function seShouldRecord(level) {
-    if (level === "ERROR" || level === "FAIL") {
+    if (level === "ERROR" || level === "FAIL" || level === "LIVE") {
       return true;
     }
     return seVerboseLog() || sePanelOpen();
@@ -320,6 +320,7 @@
     CHECK: (cond, msg) => { if (!cond) { push("FAIL", msg || "CHECK failed", callerLoc()); try { console.assert(false, msg); } catch (_) {} } return cond; },
     ERROR: (msg, loc = callerLoc()) => push("ERROR", msg || "ERROR", loc),
     FAIL: (msg) => push("FAIL", msg || "FAIL", callerLoc()),
+    LIVE: (msg) => push("LIVE", msg || "", ""),
     STOP: (msg) => push("FAIL", msg || "DEBUG BREAK", callerLoc()),
     WITHINSIZE: (value, container, msg) => {
       const n = container && container.length != null ? container.length : container && container.size;

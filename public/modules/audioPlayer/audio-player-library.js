@@ -56,6 +56,166 @@ function nodeGraphAudioPlayerLibraryLooksLikeOsPath(path) {
   return /^[a-zA-Z]:[\\/]/.test(p) || p.startsWith("/") || p.startsWith("\\\\");
 }
 
+function nodeGraphAudioPlayerLibraryFolderName(path) {
+  const raw = String(path || "").trim().replace(/\\/g, "/");
+  if (!raw) {
+    return "";
+  }
+  const parts = raw.split("/").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : raw;
+}
+
+async function nodeGraphAudioPlayerLibraryHandleDb() {
+  if (typeof nodeGraphFilePickerOpenDb === "function") {
+    return nodeGraphFilePickerOpenDb();
+  }
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open("soemdsp-sandbox-file-picker", 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("handles")) {
+        db.createObjectStore("handles");
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("folder handle db failed"));
+  });
+}
+
+async function nodeGraphAudioPlayerLibraryIdbGetHandle(key) {
+  try {
+    const db = await nodeGraphAudioPlayerLibraryHandleDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction("handles", "readonly");
+      const req = tx.objectStore("handles").get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function nodeGraphAudioPlayerLibraryIdbPutHandle(key, handle) {
+  if (!key || !handle) {
+    return;
+  }
+  try {
+    const db = await nodeGraphAudioPlayerLibraryHandleDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("handles", "readwrite");
+      tx.objectStore("handles").put(handle, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (_error) {
+    // Private mode / quota — in-memory map still works this session.
+  }
+}
+
+async function nodeGraphAudioPlayerLibraryRememberFolderHandle(nodeId, handle) {
+  if (!handle) {
+    return;
+  }
+  const id = String(nodeId || "");
+  const name = nodeGraphAudioPlayerLibraryFolderName(handle.name);
+  const map = nodeGraphAudioPlayerLibraryFolderHandles();
+  if (id) {
+    map.set(id, handle);
+  }
+  map.set("*last*", handle);
+  if (id) {
+    await nodeGraphAudioPlayerLibraryIdbPutHandle(`audioPlayer:${id}`, handle);
+  }
+  await nodeGraphAudioPlayerLibraryIdbPutHandle("audioPlayer:last", handle);
+  if (name) {
+    await nodeGraphAudioPlayerLibraryIdbPutHandle(`audioPlayer:name:${name}`, handle);
+  }
+}
+
+async function nodeGraphAudioPlayerLibraryRestoreFolderHandle(nodeId, folderPath) {
+  const id = String(nodeId || "");
+  const map = nodeGraphAudioPlayerLibraryFolderHandles();
+  let handle = (id && map.get(id)) || map.get("*last*") || null;
+  const wantName = nodeGraphAudioPlayerLibraryLooksLikeOsPath(folderPath)
+    ? ""
+    : nodeGraphAudioPlayerLibraryFolderName(folderPath);
+  if (!handle) {
+    const keys = [];
+    if (id) {
+      keys.push(`audioPlayer:${id}`);
+    }
+    if (wantName) {
+      keys.push(`audioPlayer:name:${wantName}`);
+    }
+    keys.push("audioPlayer:last");
+    for (const key of keys) {
+      const stored = await nodeGraphAudioPlayerLibraryIdbGetHandle(key);
+      if (!stored) {
+        continue;
+      }
+      const storedName = nodeGraphAudioPlayerLibraryFolderName(stored.name);
+      if (key === "audioPlayer:last" && wantName && storedName && storedName !== wantName) {
+        continue;
+      }
+      handle = stored;
+      break;
+    }
+  }
+  if (!handle) {
+    return null;
+  }
+  if (typeof handle.queryPermission === "function" && typeof handle.requestPermission === "function") {
+    let perm = "prompt";
+    try {
+      perm = await handle.queryPermission({ mode: "read" });
+    } catch (_error) {
+      perm = "prompt";
+    }
+    if (perm !== "granted") {
+      try {
+        perm = await handle.requestPermission({ mode: "read" });
+      } catch (_error) {
+        return null;
+      }
+    }
+    if (perm !== "granted") {
+      return null;
+    }
+  }
+  await nodeGraphAudioPlayerLibraryRememberFolderHandle(id, handle);
+  return handle;
+}
+
+function nodeGraphAudioPlayerLog(level, message, extra) {
+  const text = extra !== undefined
+    ? `[music-player] ${message} ${JSON.stringify(extra)}`
+    : `[music-player] ${message}`;
+  try {
+    const se = typeof window !== "undefined" ? window.SE : null;
+    if (level === "FAIL") {
+      if (typeof se?.FAIL === "function") {
+        se.FAIL(text);
+      }
+    } else if (typeof se?.LIVE === "function") {
+      se.LIVE(text);
+    } else if (typeof se?.INFO === "function") {
+      se.INFO(text);
+    }
+  } catch (_error) {
+    // ignore
+  }
+  try {
+    if (level === "FAIL") {
+      console.error(text);
+    } else {
+      console.info(text);
+    }
+  } catch (_error) {
+    // ignore
+  }
+}
+
 function nodeGraphAudioPlayerLibraryReport(nodeId, message) {
   const text = String(message || "").trim();
   if (!text) {
@@ -383,8 +543,7 @@ async function nodeGraphAudioPlayerLibraryPickFolder(nodeId) {
   }
   if (typeof window.showDirectoryPicker === "function") {
     const handle = await window.showDirectoryPicker({ mode: "read" });
-    nodeGraphAudioPlayerLibraryFolderHandles().set(String(nodeId), handle);
-    nodeGraphAudioPlayerLibraryFolderHandles().set("*last*", handle);
+    await nodeGraphAudioPlayerLibraryRememberFolderHandle(nodeId, handle);
     nodeGraphAudioPlayerLibraryFolderFileLists().delete(String(nodeId));
     const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
     pl.folderPath = String(handle.name || "folder").trim();
@@ -444,6 +603,15 @@ async function nodeGraphAudioPlayerLibraryLoadPlaylist(nodeId) {
   const handles = nodeGraphAudioPlayerLibraryFolderHandles();
   const lists = nodeGraphAudioPlayerLibraryFolderFileLists();
   let handle = handles.get(String(nodeId)) || handles.get("*last*") || null;
+  if (!handle) {
+    handle = await nodeGraphAudioPlayerLibraryRestoreFolderHandle(nodeId, pl.folderPath);
+    if (handle) {
+      nodeGraphAudioPlayerLog("INFO", "folder restored", {
+        nodeId,
+        folder: handle.name || pl.folderPath || "",
+      });
+    }
+  }
   let files = lists.get(String(nodeId)) || lists.get("*last*") || [];
   if (handle && !handles.has(String(nodeId))) {
     handles.set(String(nodeId), handle);
@@ -501,6 +669,10 @@ async function nodeGraphAudioPlayerLibraryLoadPlaylist(nodeId) {
     nodeGraphAudioPlayerLibraryReport(nodeId, `listing ${pl.folderPath}…`);
     const payload = await nodeGraphAudioPlayerLibraryListFolder(pl.folderPath, { dive: recursive });
     const listed = Array.isArray(payload.files) ? payload.files : [];
+    if (payload.path && nodeGraphAudioPlayerLibraryLooksLikeOsPath(payload.path)) {
+      pl.folderPath = payload.path;
+      node.playlist = pl;
+    }
     for (const file of listed) {
       if (!nodeGraphAudioPlayerLibraryFileMatchesFormats(file.name || file.path || file.rel, formats)) {
         continue;
@@ -508,9 +680,13 @@ async function nodeGraphAudioPlayerLibraryLoadPlaylist(nodeId) {
       cards.push(file);
     }
   } else {
+    nodeGraphAudioPlayerLog("FAIL", "Load: no folder handle or OS path", {
+      nodeId,
+      folder: pl.folderPath || "",
+    });
     nodeGraphAudioPlayerLibraryReport(
       nodeId,
-      "Choose a folder with 📂 first, then Load. The picker only gives the folder name, not C:\\… — Load reads the live folder handle.",
+      "Choose a folder with 📂 first, then Load. The browser cannot see C:\\ from the picker — we remember the folder handle. Or paste a full C:\\ path.",
     );
     return pl;
   }
@@ -519,6 +695,11 @@ async function nodeGraphAudioPlayerLibraryLoadPlaylist(nodeId) {
     folderPath: pl.folderPath,
   });
   if (!cards.length) {
+    nodeGraphAudioPlayerLog("FAIL", "Load: no matching audio", {
+      nodeId,
+      folder: pl.folderPath || "",
+      recursive,
+    });
     nodeGraphAudioPlayerLibraryReport(
       nodeId,
       recursive
@@ -529,7 +710,24 @@ async function nodeGraphAudioPlayerLibraryLoadPlaylist(nodeId) {
   if (typeof nodeGraphAudioPlayerPlaylistSetFace === "function") {
     nodeGraphAudioPlayerPlaylistSetFace(nodeId, "pl");
   }
-  return nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  const loaded = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  const transport = typeof nodeGraphAudioPlayerTransportBase === "function"
+    ? nodeGraphAudioPlayerTransportBase(nodeId)
+    : 0;
+  nodeGraphAudioPlayerLog("INFO", "listed", {
+    nodeId,
+    tracks: loaded?.items?.length || 0,
+    folder: loaded?.folderPath || "",
+    handle: Boolean(handles.get(String(nodeId)) || handles.get("*last*")),
+    transport,
+  });
+  if ((loaded?.items?.length || 0) > 0 && transport >= 3) {
+    nodeGraphAudioPlayerLog("INFO", "autostart after load (Playmode already on)");
+    nodeGraphAudioPlayerLibraryPlayIndex(nodeId, loaded.index || 0, { autoplay: true }).catch((error) => {
+      nodeGraphAudioPlayerLog("FAIL", String(error?.message || error || "autostart failed"));
+    });
+  }
+  return loaded;
 }
 
 function nodeGraphAudioPlayerLibraryShufflePlaylist(nodeId) {
@@ -560,12 +758,44 @@ function nodeGraphAudioPlayerLibraryShufflePlaylist(nodeId) {
   return pl;
 }
 
-function nodeGraphAudioPlayerLibraryItemLoaded(item) {
-  const sampleId = String(item?.sampleId || "").trim();
-  if (!sampleId) {
-    return false;
+function nodeGraphAudioPlayerLibraryCandidateSampleIds(item) {
+  const ids = [];
+  const push = (value) => {
+    const id = typeof normalizeNodeGraphSampleId === "function"
+      ? normalizeNodeGraphSampleId(value)
+      : String(value || "").trim().replace(/[^A-Za-z0-9_.:-]+/g, "-");
+    if (id && !ids.includes(id)) {
+      ids.push(id);
+    }
+  };
+  push(item?.sampleId);
+  push(item?.path);
+  push(item?.fileKey);
+  const base = String(item?.name || item?.path || "").replace(/\\/g, "/").split("/").pop();
+  push(base);
+  return ids;
+}
+
+function nodeGraphAudioPlayerLibraryFindBufferForItem(item) {
+  const buffers = nodeGraphMvp?.sampleBuffers;
+  if (!item || !buffers?.get) {
+    return null;
   }
-  return Boolean(nodeGraphMvp?.sampleBuffers?.get?.(sampleId));
+  for (const id of nodeGraphAudioPlayerLibraryCandidateSampleIds(item)) {
+    const buf = buffers.get(id);
+    const frames = Math.max(
+      0,
+      Number(buf?.frames) || buf?.channelData?.[0]?.length || buf?.samples?.length || 0,
+    );
+    if (buf && frames > 0) {
+      return { buf, frames, id };
+    }
+  }
+  return null;
+}
+
+function nodeGraphAudioPlayerLibraryItemLoaded(item) {
+  return Boolean(nodeGraphAudioPlayerLibraryFindBufferForItem(item));
 }
 
 function nodeGraphAudioPlayerLibraryFindFileForItem(item) {
@@ -607,7 +837,13 @@ async function nodeGraphAudioPlayerLibraryFileFromFolderHandle(nodeId, item) {
   const handles = typeof nodeGraphAudioPlayerLibraryFolderHandles === "function"
     ? nodeGraphAudioPlayerLibraryFolderHandles()
     : null;
-  const handle = handles?.get?.(String(nodeId)) || handles?.get?.("*last*") || null;
+  let handle = handles?.get?.(String(nodeId)) || handles?.get?.("*last*") || null;
+  if (!handle) {
+    const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
+      ? nodeGraphAudioPlayerPlaylistForNode(nodeId)
+      : null;
+    handle = await nodeGraphAudioPlayerLibraryRestoreFolderHandle(nodeId, pl?.folderPath || item?.path || "");
+  }
   if (!handle) {
     return null;
   }
@@ -638,36 +874,61 @@ async function nodeGraphAudioPlayerLibraryFileFromFolderHandle(nodeId, item) {
 
 async function nodeGraphAudioPlayerLibraryEnsureItemLoaded(nodeId, item) {
   if (!item) {
+    nodeGraphAudioPlayerLog("FAIL", "decode skipped: no playlist item", { nodeId });
     return null;
   }
-  if (nodeGraphAudioPlayerLibraryItemLoaded(item)) {
-    return item.sampleId;
+  const held = nodeGraphAudioPlayerLibraryFindBufferForItem(item);
+  if (held) {
+    item.sampleId = held.id;
+    nodeGraphAudioPlayerLog("INFO", "decode skipped: already in memory", {
+      nodeId,
+      sampleId: held.id,
+      frames: held.frames,
+    });
+    return held.id;
   }
+  let source = "none";
   let file = nodeGraphAudioPlayerLibraryFindFileForItem(item);
-  if (!file) {
+  if (file) {
+    source = "store";
+  } else {
     file = await nodeGraphAudioPlayerLibraryFileFromFolderHandle(nodeId, item);
+    if (file) {
+      source = "handle";
+    }
   }
+  const path = String(item.path || "").trim();
+  nodeGraphAudioPlayerLog("INFO", "decode source", {
+    nodeId,
+    name: item.name || "",
+    source,
+    fileKey: item.fileKey || "",
+    path,
+    fileName: file?.name || "",
+    fileBytes: Math.max(0, Math.round(Number(file?.size) || 0)),
+  });
   if (file && typeof loadNodeGraphSampleForNode === "function") {
     const sample = await loadNodeGraphSampleForNode(nodeId, file, {
-      commit: false,
-      livePlan: false,
+      commit: true,
+      livePlan: true,
       persist: false,
       record: false,
-      syncDisplay: false,
+      sourcePath: path || item.name || "",
+      syncDisplay: true,
     });
     return sample?.id || "";
   }
-  const path = String(item.path || "").trim();
   if (path && typeof nodeGraphAudioPlayerLibraryLooksLikeOsPath === "function"
     && nodeGraphAudioPlayerLibraryLooksLikeOsPath(path)
     && typeof loadNodeGraphSamplePathForNode === "function") {
+    nodeGraphAudioPlayerLog("INFO", "decode via OS path", { nodeId, path });
     await loadNodeGraphSamplePathForNode(nodeId, path, {
-      commit: false,
-      livePlan: false,
+      commit: true,
+      livePlan: true,
       persist: false,
       record: false,
       singleFile: true,
-      syncDisplay: false,
+      syncDisplay: true,
     });
     const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
     return node?.sample?.id || "";
@@ -678,17 +939,27 @@ async function nodeGraphAudioPlayerLibraryEnsureItemLoaded(nodeId, item) {
 async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = true } = {}) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   if (!node || node.type !== "audioPlayer") {
+    nodeGraphAudioPlayerLog("FAIL", "play ignored: not a Music Player", {
+      nodeId,
+      type: node?.type || "",
+    });
     return;
   }
   const pl = typeof nodeGraphAudioPlayerPlaylistEnsureQueues === "function"
     ? nodeGraphAudioPlayerPlaylistEnsureQueues(nodeGraphAudioPlayerPlaylistForNode(nodeId))
     : nodeGraphAudioPlayerPlaylistForNode(nodeId);
   if (!pl.items.length) {
+    nodeGraphAudioPlayerLog("FAIL", "play ignored: playlist empty", { nodeId });
     return;
   }
   const nextIndex = Math.max(0, Math.min(pl.items.length - 1, Math.round(Number(index) || 0)));
   let item = pl.items[nextIndex];
   if (!item) {
+    nodeGraphAudioPlayerLog("FAIL", "play ignored: no item at index", {
+      nodeId,
+      index: nextIndex,
+      items: pl.items.length,
+    });
     return;
   }
   if (typeof nodeGraphAudioPlayerPlaylistAdoptPlaying === "function") {
@@ -699,6 +970,19 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
   const token = (Number(tokens.get(nodeId)) || 0) + 1;
   tokens.set(nodeId, token);
   node.playlist = pl;
+  nodeGraphAudioPlayerLog("INFO", "play", {
+    nodeId,
+    index: nextIndex,
+    name: item.name || "",
+    fileKey: item.fileKey || "",
+    path: item.path || "",
+    sampleId: item.sampleId || "",
+    hasFile: Boolean(nodeGraphAudioPlayerLibraryFindFileForItem(item)),
+    hasHandle: Boolean(
+      nodeGraphAudioPlayerLibraryFolderHandles().get(String(nodeId))
+      || nodeGraphAudioPlayerLibraryFolderHandles().get("*last*"),
+    ),
+  });
   if (!nodeGraphAudioPlayerLibraryItemLoaded(item)) {
     if (typeof setNodeGraphSampleStatus === "function") {
       setNodeGraphSampleStatus(nodeId, `loading ${item.name}...`);
@@ -706,9 +990,16 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
     try {
       const sampleId = await nodeGraphAudioPlayerLibraryEnsureItemLoaded(nodeId, item);
       if (tokens.get(nodeId) !== token) {
+        nodeGraphAudioPlayerLog("INFO", "play superseded during decode", { nodeId, token });
         return;
       }
       item.sampleId = sampleId || item.sampleId;
+      nodeGraphAudioPlayerLog("INFO", "decoded", {
+        nodeId,
+        sampleId: item.sampleId || "",
+        frames: nodeGraphMvp?.sampleBuffers?.get?.(item.sampleId)?.frames || 0,
+        channels: nodeGraphMvp?.sampleBuffers?.get?.(item.sampleId)?.channels || 0,
+      });
     } catch (error) {
       if (tokens.get(nodeId) !== token) {
         return;
@@ -717,33 +1008,49 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
       if (typeof setNodeGraphSampleStatus === "function") {
         setNodeGraphSampleStatus(nodeId, message);
       }
+      if (typeof setNodeInteractionHelp === "function") {
+        setNodeInteractionHelp(message);
+      }
+      nodeGraphAudioPlayerLog("FAIL", message, {
+        name: item.name || "",
+        fileKey: item.fileKey || "",
+        path: item.path || "",
+      });
       return;
     }
   }
   const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : node;
   if (!live || tokens.get(nodeId) !== token) {
+    nodeGraphAudioPlayerLog("INFO", "play superseded after decode", { nodeId, token });
     return;
   }
-  if (!nodeGraphAudioPlayerLibraryItemLoaded(item) && !nodeGraphMvp?.sampleBuffers?.get?.(item.sampleId)) {
+  const found = nodeGraphAudioPlayerLibraryFindBufferForItem(item)
+    || (live.sample?.id && nodeGraphMvp?.sampleBuffers?.get?.(live.sample.id)
+      ? { id: live.sample.id, buf: nodeGraphMvp.sampleBuffers.get(live.sample.id) }
+      : null);
+  if (found?.id) {
+    item.sampleId = found.id;
+  } else if (!item.sampleId && live.sample?.id) {
+    item.sampleId = String(live.sample.id);
+  }
+  if (!found && !nodeGraphAudioPlayerLibraryItemLoaded(item) && !nodeGraphMvp?.sampleBuffers?.get?.(item.sampleId || live.sample?.id)) {
+    const message = `could not decode ${item.name || "track"}`;
     if (typeof setNodeGraphSampleStatus === "function") {
-      setNodeGraphSampleStatus(nodeId, `could not decode ${item.name || "track"}`);
+      setNodeGraphSampleStatus(nodeId, message);
     }
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp(message);
+    }
+    nodeGraphAudioPlayerLog("FAIL", message, { sampleId: item.sampleId || live.sample?.id || "" });
     return;
   }
-  nodeGraphAudioPlayerLibraryReleaseOrphans(nodeId, item.sampleId || live.sample?.id);
-  const ref = (typeof normalizeNodeGraphPatchSamples === "function"
-    ? normalizeNodeGraphPatchSamples(nodeGraphMvp.patch?.samples || [])
-    : [])
-    .find((sample) => sample.id === item.sampleId);
-  const pointer = typeof normalizeNodeGraphNodeSamplePointer === "function"
-    ? normalizeNodeGraphNodeSamplePointer({
-      fileKey: item.fileKey || ref?.fileKey,
-      id: item.sampleId || ref?.id,
-      name: item.name || ref?.name,
-      sourcePath: item.path || ref?.sourcePath,
-    })
-    : null;
-  live.sample = pointer || (item.sampleId ? { id: item.sampleId, name: item.name } : live.sample);
+  nodeGraphAudioPlayerLibraryReleaseOrphans(nodeId, item.sampleId || found?.id || live.sample?.id);
+  live.sample = {
+    id: item.sampleId,
+    name: item.name || found?.buf?.name || item.sampleId,
+    ...(item.fileKey ? { fileKey: item.fileKey } : {}),
+    ...(item.path ? { sourcePath: item.path } : {}),
+  };
   live.samplePhase = 0;
   live.samplePhaseSeek = (Math.round(Number(live.samplePhaseSeek) || 0) + 1) || 1;
   if (!live.params || typeof live.params !== "object") {
@@ -786,6 +1093,28 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
   if (typeof nodeGraphAudioPlayerPlaylistPersist === "function") {
     nodeGraphAudioPlayerPlaylistPersist(nodeId);
   }
+  const section = document.querySelector(
+    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId))}"]`,
+  );
+  if (section && typeof nodeGraphPhosphorWaveformEnsureLoop === "function") {
+    nodeGraphPhosphorWaveformEnsureLoop(section);
+  }
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(`playing ${item.name}`);
+  }
+  const boundId = String(live.sample?.id || item.sampleId || "");
+  const boundBuf = boundId ? nodeGraphMvp?.sampleBuffers?.get?.(boundId) : null;
+  nodeGraphAudioPlayerLog("INFO", "bound", {
+    nodeId,
+    sampleId: boundId,
+    frames: boundBuf?.frames || 0,
+    channels: boundBuf?.channels || 0,
+    transport: live.params?.transport || "",
+    autoplay,
+    displayName: typeof nodeGraphAudioPlayerPlaylistCurrentSampleRef === "function"
+      ? (nodeGraphAudioPlayerPlaylistCurrentSampleRef(live)?.name || "")
+      : (live.sample?.name || ""),
+  });
 }
 
 function nodeGraphAudioPlayerLibraryPlayNext(nodeId) {

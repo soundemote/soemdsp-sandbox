@@ -97,7 +97,10 @@ function normalizeNodeGraphSampleReference(sample = {}) {
   const source = sample && typeof sample === "object" ? sample : {};
   const sourcePath = String(source.sourcePath || source.path || source.file?.sourcePath || source.file?.path || "").trim().slice(0, 512);
   const fileKey = String(source.fileKey || source.file?.fileKey || "").trim().slice(0, 220);
-  const id = normalizeNodeGraphSampleId(sourcePath || fileKey || source.id || source.resourceId);
+  // Keep an already-assigned id. Path/fileKey only mint an id for a new
+  // reference — otherwise clone/bind from a playlist path retargets the
+  // node onto a key the decoder never wrote (No sample loaded).
+  const id = normalizeNodeGraphSampleId(source.id || source.resourceId || sourcePath || fileKey);
   const name = String(source.name || id || "Sample").trim().slice(0, 128);
   const resourceId = normalizeNodeGraphSampleId(source.resourceId || source.assetId || sourcePath || id);
   const sourceName = String(source.sourceName || source.fileName || source.file?.name || name || "").trim().slice(0, 160);
@@ -814,6 +817,8 @@ function setNodeGraphSampleStatus(nodeId, message) {
   return message;
 }
 
+const nodeGraphAudioPlayerLastEngineReason = new Map();
+
 function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
   const nodeIds = Array.isArray(message.nodeIds)
     ? message.nodeIds.map((id) => String(id || "")).filter(Boolean)
@@ -849,6 +854,25 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
   for (const nodeId of nodeIds) {
     if (activeIds.has(nodeId) && nodeId !== primaryNodeId) {
       rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase);
+    }
+  }
+  if (primaryNodeId && reason && typeof nodeGraphAudioPlayerLog === "function") {
+    const interesting = reason.includes("sample")
+      || reason === "engine playing"
+      || reason === "engine looping";
+    const prev = nodeGraphAudioPlayerLastEngineReason.get(primaryNodeId) || "";
+    if (interesting && prev !== reason) {
+      nodeGraphAudioPlayerLastEngineReason.set(primaryNodeId, reason);
+      const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(primaryNodeId) : null;
+      const sampleId = String(node?.sample?.id || "");
+      const frames = sampleId ? (nodeGraphMvp?.sampleBuffers?.get?.(sampleId)?.frames || 0) : 0;
+      const missing = reason.includes("sample");
+      nodeGraphAudioPlayerLog(missing ? "FAIL" : "INFO", "engine", {
+        nodeId: primaryNodeId,
+        reason,
+        sampleId,
+        frames,
+      });
     }
   }
   for (const nodeId of new Set([...nodeIds, primaryNodeId].filter(Boolean))) {
@@ -1249,7 +1273,7 @@ async function loadNodeGraphSampleForNode(nodeId, file, options = {}) {
       file,
       fileKey: nodeGraphSampleFileKeyFromFile(file),
       sourceName: file.name || "Sample",
-      sourcePath: rel || "",
+      sourcePath: String(options.sourcePath || rel || file.name || "").trim(),
     }, options);
   } catch (error) {
     setNodeGraphSampleStatus(nodeId, "browser decode failed; transcoding...");
@@ -1261,7 +1285,7 @@ async function loadNodeGraphSampleForNode(nodeId, file, options = {}) {
         file,
         fileKey: nodeGraphSampleFileKeyFromFile(file),
         sourceName: file.name || "Sample",
-        sourcePath: rel || "",
+        sourcePath: String(options.sourcePath || rel || file.name || "").trim(),
         ...options,
       });
     } finally {
@@ -1466,6 +1490,19 @@ function attachNodeGraphDecodedSampleToNode(nodeId, decoded, sourceInfo = {}, op
   nodeGraphMvp.sampleLoadErrors?.delete?.(nodeId);
   nodeGraphMvp.sampleRuntimeStatus?.delete?.(nodeId);
   nodeGraphMvp.audioPlayerActualSpeeds?.delete?.(nodeId);
+  if (typeof nodeGraphAudioPlayerLog === "function") {
+    const liveType = nodeGraphPatchNode(nodeId)?.type || "";
+    if (liveType === "audioPlayer") {
+      nodeGraphAudioPlayerLog("INFO", "attached", {
+        nodeId,
+        sampleId: id,
+        frames: decoded?.frames || 0,
+        channels: decoded?.channels || 0,
+        fileKey,
+        sourcePath,
+      });
+    }
+  }
   const liveNode = nodeGraphPatchNode(nodeId);
   if (liveNode?.type === "audioPlayer" && typeof nodeGraphAudioPlayerPlaylistEnsureCurrentSample === "function") {
     nodeGraphAudioPlayerPlaylistEnsureCurrentSample(nodeId, {

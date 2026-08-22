@@ -3115,7 +3115,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/radar/radar-worklet-evaluator.js?v=phasor-stdlib-1",
   "./public/modules/audioPlayer/audio-player-math.js?v=mp-time-io-1",
-  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=mp-idle-speed-1",
+  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=mp-amp-1",
   "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/gain/gain-math.js?v=output-db-1",
   "./public/modules/gain/gain-worklet-evaluator.js?v=gain-db-1",
@@ -3535,9 +3535,6 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     clearNodeGraphLiveStatusTitle();
     if (typeof setNodeGraphLiveStatus === "function") {
       setNodeGraphLiveStatus("running", "good");
-    }
-    if (typeof logNodeGraphSampleRateInfo === "function") {
-      logNodeGraphSampleRateInfo("live start");
     }
     // Keep the arming flag honest once the worklet is up.
     nodeGraphMvp.live.outputEnabled = true;

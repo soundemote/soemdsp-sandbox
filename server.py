@@ -127,6 +127,7 @@ DEFAULT_MANIFEST = (
 STATIC_MIME_TYPES = {
     ".css": "text/css",
     ".js": "application/javascript",
+    ".svg": "image/svg+xml",
     ".wasm": "application/wasm",
 }
 NATIVE_MODULE_HEADER_RE = re.compile(
@@ -476,6 +477,10 @@ class SandboxServer(BaseHTTPRequestHandler):
 
         # Optional embed overrides (sibling of public/, not under it). Missing
         # file → empty JSON so the client fetch is 200 instead of a noisy 404.
+        if parsed.path in ("/favicon.ico", "/favicon.svg"):
+            self.serve_public("favicon.svg", send_body=send_body)
+            return
+
         if parsed.path == "/embed-config.json":
             self.serve_embed_config(send_body=send_body)
             return

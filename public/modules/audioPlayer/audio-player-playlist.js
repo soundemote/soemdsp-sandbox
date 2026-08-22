@@ -577,9 +577,33 @@ function nodeGraphAudioPlayerPlaylistPlay(nodeId) {
   const i = Number.isInteger(pl.selectedIndex) ? pl.selectedIndex : pl.index;
   const item = pl.items[i] || pl.items[pl.index] || pl.items[0];
   if (!item) {
+    if (typeof nodeGraphAudioPlayerLog === "function") {
+      nodeGraphAudioPlayerLog("FAIL", "Play: playlist empty", { nodeId });
+    }
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Load a folder first, then Play.");
+    }
     return;
   }
-  nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, pl.items[i] ? i : 0, { autoplay: true });
+  if (typeof nodeGraphAudioPlayerLog === "function") {
+    nodeGraphAudioPlayerLog("INFO", "Play button", {
+      nodeId,
+      index: pl.items[i] ? i : 0,
+      name: item.name || "",
+      transport: nodeGraphAudioPlayerTransportBase(nodeId),
+    });
+  }
+  const result = nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, pl.items[i] ? i : 0, { autoplay: true });
+  if (result && typeof result.catch === "function") {
+    result.catch((error) => {
+      if (typeof nodeGraphAudioPlayerLog === "function") {
+        nodeGraphAudioPlayerLog("FAIL", String(error?.message || error || "play failed"), {
+          nodeId,
+          name: item.name || "",
+        });
+      }
+    });
+  }
 }
 
 function nodeGraphAudioPlayerPlaylistPause(nodeId) {

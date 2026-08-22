@@ -410,10 +410,6 @@
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.bindTexture(gl.TEXTURE_2D, null);
       if (ok) {
-        if (!gl._phosphorEnergyFormatLogged) {
-          gl._phosphorEnergyFormatLogged = true;
-          console.info("[phosphor-energy-gl] energy surface format:", format.label || "rgba8");
-        }
         return {
           texture,
           framebuffer,

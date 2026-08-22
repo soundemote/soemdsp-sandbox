@@ -9,6 +9,7 @@
 // WebGL scope compositor used by every other module's display.
 
 const nodeGraphPhosphorWaveformViewStates = new Map();
+let nodeGraphPhosphorWaveformMissingLogged = "";
 
 function nodeGraphPhosphorWaveformFaceSlot(sectionOrFace) {
   const raw = typeof sectionOrFace === "string"
@@ -1343,12 +1344,20 @@ function nodeGraphPhosphorWaveformEntrySamples(entry) {
 function nodeGraphPhosphorWaveformSampleEntry(nodeId) {
   const node = nodeGraphPatchNode(nodeId);
   const sampleId = node?.sample?.id;
-  if (!sampleId) {
-    return null;
+  let entry = sampleId ? nodeGraphMvp?.sampleBuffers?.get?.(sampleId) : null;
+  let samples = nodeGraphPhosphorWaveformEntrySamples(entry);
+  let frames = Math.max(0, Number(entry?.frames) || samples?.length || 0);
+  if (!(entry && samples && frames > 0) && typeof nodeGraphAudioPlayerLibraryFindBufferForItem === "function") {
+    const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
+      ? nodeGraphAudioPlayerPlaylistForNode(nodeId)
+      : null;
+    const found = nodeGraphAudioPlayerLibraryFindBufferForItem(pl?.playing || pl?.items?.[pl?.index || 0]);
+    if (found?.buf) {
+      entry = found.buf;
+      samples = nodeGraphPhosphorWaveformEntrySamples(entry);
+      frames = Math.max(0, Number(found.frames) || samples?.length || 0);
+    }
   }
-  const entry = nodeGraphMvp?.sampleBuffers?.get?.(sampleId);
-  const samples = nodeGraphPhosphorWaveformEntrySamples(entry);
-  const frames = Math.max(0, Number(entry?.frames) || samples?.length || 0);
   return entry && samples && frames > 0 ? entry : null;
 }
 
@@ -2140,6 +2149,9 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   // Music Player face is visibly "there" — pure #000 under the room dimmer
   // looked identical to a dead/missing display.
   const entry = nodeGraphPhosphorWaveformSampleEntry(nodeId);
+  if (entry && nodeGraphPhosphorWaveformMissingLogged.startsWith(`${nodeId}:`)) {
+    nodeGraphPhosphorWaveformMissingLogged = "";
+  }
   context.fillStyle = circuitRunning
     ? nodeGraphPhosphorWaveformBackgroundColor(settings)
     : (entry ? "hsl(140, 20%, 4%)" : "#050805");
@@ -2157,6 +2169,21 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   }
 
   if (!entry) {
+    const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
+      ? nodeGraphAudioPlayerPlaylistForNode(nodeId)
+      : null;
+    if (circuitRunning && (pl?.items?.length || 0) > 0 && typeof nodeGraphAudioPlayerLog === "function") {
+      const missKey = `${nodeId}:${node?.sample?.id || ""}:${pl.items.length}`;
+      if (nodeGraphPhosphorWaveformMissingLogged !== missKey) {
+        nodeGraphPhosphorWaveformMissingLogged = missKey;
+        nodeGraphAudioPlayerLog("FAIL", "waveform has no buffer", {
+          nodeId,
+          sampleId: node?.sample?.id || "",
+          tracks: pl.items.length,
+          transport: node?.params?.transport || "",
+        });
+      }
+    }
     drawNodeGraphPhosphorWaveformPlaceholder(
       context,
       width,
