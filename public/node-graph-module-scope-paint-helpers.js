@@ -818,24 +818,53 @@ function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) 
   // Safety cap only — still hundreds of points per cycle at 4 Hz / 10 s.
   const cap = 16384;
   const skipDisc = nodeGraphScope2dSkipDiscontinuitiesEnabled(settings);
+  // Unfilled ring prefix is 0,0 (face center). Stroking that into the orbit
+  // draws the curve PLUS chords / an inner hexagon. Break huge spatial jumps;
+  // skip a leading dead origin run.
+  const maxSeg = typeof nodeGraphScope2dTraceMaxSegmentPixels === "function"
+    ? Math.max(12, Math.min(
+      nodeGraphScope2dTraceMaxSegmentPixels(canvasSquare),
+      Math.min(canvasSquare.width, canvasSquare.height) * 0.12,
+    ))
+    : Math.max(12, Math.min(canvasSquare.width, canvasSquare.height) * 0.12);
   let prevIndex = -1;
+  let prevPoint = null;
+  let skippedOrigin = false;
   const visit = (index) => {
+    const sx = Number(buffer.x[index]);
+    const sy = Number(buffer.y[index]);
+    if (!Number.isFinite(sx) || !Number.isFinite(sy)) {
+      breakNodeGraphScope2dPath(points);
+      prevIndex = -1;
+      prevPoint = null;
+      return;
+    }
+    if (!skippedOrigin && Math.abs(sx) < 1e-6 && Math.abs(sy) < 1e-6) {
+      return;
+    }
+    skippedOrigin = true;
     const point = nodeGraphScope2dTracePointFromSamples(
       canvasSquare,
-      buffer.x[index],
-      buffer.y[index],
+      sx,
+      sy,
       settings,
     );
     if (!point) {
       breakNodeGraphScope2dPath(points);
       prevIndex = -1;
+      prevPoint = null;
       return;
     }
     if (skipDisc && prevIndex >= 0 && nodeGraphScope2dRangeHasDiscontinuity(buffer, prevIndex, index)) {
       breakNodeGraphScope2dPath(points);
+      prevPoint = null;
+    }
+    if (prevPoint && !nodeGraphScope2dTraceSegmentIsContinuous(prevPoint, point, maxSeg)) {
+      breakNodeGraphScope2dPath(points);
     }
     points.push(point);
     prevIndex = index;
+    prevPoint = point;
   };
   if (count > cap && typeof nodeGraphScope2dEvenSampleIndices === "function") {
     const indices = nodeGraphScope2dEvenSampleIndices(count, cap);
