@@ -6,6 +6,7 @@ sandbox-preview.png
 .python-version
 .DS_Store
 *.bak
+# Personal UI dump (local only). Seed from useruisettings.default.json.
 public/presets/useruisettings.json
 public/presets/useruisettings.js
 tools/webui-clap-host/presets/

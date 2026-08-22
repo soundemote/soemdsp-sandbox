@@ -25,10 +25,32 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
 DEFAULT_UI_SETTINGS = PUBLIC / "presets" / "useruisettings.json"
 DEFAULT_UI_SETTINGS_SCRIPT = PUBLIC / "presets" / "useruisettings.js"
+DEFAULT_UI_SETTINGS_TEMPLATE = PUBLIC / "presets" / "useruisettings.default.json"
 DEFAULT_MANIFEST = (
     ROOT.parent / "soemdsp" / "runtime_dsp_object_bound_wav_resync_demo.manifest.json"
 )
 JS_CONTENT_TYPES = ("application/javascript", "text/javascript")
+
+
+def ensure_local_ui_settings_files() -> None:
+    """Seed gitignored personal UI settings from the shipped template."""
+    if DEFAULT_UI_SETTINGS.is_file() and DEFAULT_UI_SETTINGS_SCRIPT.is_file():
+        return
+    if not DEFAULT_UI_SETTINGS_TEMPLATE.is_file():
+        raise AssertionError("missing public/presets/useruisettings.default.json")
+    payload = json.loads(DEFAULT_UI_SETTINGS_TEMPLATE.read_text(encoding="utf-8-sig"))
+    text = f"{json.dumps(payload, indent=2)}\n"
+    DEFAULT_UI_SETTINGS.parent.mkdir(parents=True, exist_ok=True)
+    if not DEFAULT_UI_SETTINGS.is_file():
+        DEFAULT_UI_SETTINGS.write_text(text, encoding="utf-8")
+    if not DEFAULT_UI_SETTINGS_SCRIPT.is_file():
+        DEFAULT_UI_SETTINGS_SCRIPT.write_text(
+            "(function (settings) {\n"
+            "  window.nodeUiDevBundledDefaultSettings = settings;\n"
+            "  document.documentElement.dataset.nodeUiDevBundledDefaultSettings = JSON.stringify(settings);\n"
+            f"}})({json.dumps(payload, indent=2)});\n",
+            encoding="utf-8",
+        )
 
 
 def parse_bundled_default_ui_settings_script_payload(source: str) -> dict:
@@ -18542,6 +18564,7 @@ def run_readable_malformed_manifest_smoke(port: int) -> None:
 
 
 def run_smoke(port: int, manifest: Path) -> None:
+    ensure_local_ui_settings_files()
     valid_manifest_port = find_free_port() if port == 0 else port
     error_manifest_port = 0 if port == 0 else port + 1
     malformed_manifest_port = 0 if port == 0 else port + 3

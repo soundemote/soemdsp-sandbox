@@ -101,6 +101,7 @@ BUILD_MODE = "release" if os.environ.get("SOEMDSP_BUILD_MODE", "").strip().lower
 DEFAULT_PRESET = PUBLIC / "presets" / "default.json"
 DEFAULT_UI_SETTINGS = PUBLIC / "presets" / "useruisettings.json"
 DEFAULT_UI_SETTINGS_SCRIPT = PUBLIC / "presets" / "useruisettings.js"
+DEFAULT_UI_SETTINGS_TEMPLATE = PUBLIC / "presets" / "useruisettings.default.json"
 NATIVE_MODULES = ROOT / "native_modules"
 SAVED_PATCHES = ROOT / "saved-patches"
 MAX_PRESET_BYTES = 512 * 1024
@@ -354,6 +355,25 @@ def sanitize_default_ui_settings_view(payload: dict) -> None:
     view.pop("filePicker", None)
 
 
+def ensure_user_ui_settings_files() -> None:
+    """Copy the shipped template into gitignored personal files if missing."""
+    template = DEFAULT_UI_SETTINGS_TEMPLATE
+    if not template.is_file():
+        return
+    if DEFAULT_UI_SETTINGS.is_file() and DEFAULT_UI_SETTINGS_SCRIPT.is_file():
+        return
+    payload = json.loads(template.read_text(encoding="utf-8-sig"))
+    if not isinstance(payload, dict):
+        return
+    sanitize_default_ui_settings_view(payload)
+    text = f"{json.dumps(payload, indent=2, sort_keys=False)}\n"
+    DEFAULT_UI_SETTINGS.parent.mkdir(parents=True, exist_ok=True)
+    if not DEFAULT_UI_SETTINGS.is_file():
+        DEFAULT_UI_SETTINGS.write_text(text, encoding="utf-8")
+    if not DEFAULT_UI_SETTINGS_SCRIPT.is_file():
+        DEFAULT_UI_SETTINGS_SCRIPT.write_text(ui_settings_script_text(payload), encoding="utf-8")
+
+
 def ui_settings_script_text(payload: dict) -> str:
     payload_text = json.dumps(payload, indent=2, sort_keys=False)
     return (
@@ -450,6 +470,7 @@ class SandboxServer(BaseHTTPRequestHandler):
     def serve_request(self, send_body: bool) -> None:
         parsed = urlparse(self.path)
         if parsed.path in ("/", "/index.html"):
+            ensure_user_ui_settings_files()
             self.serve_index(send_body=send_body)
             return
 
@@ -1658,6 +1679,7 @@ def main() -> None:
     print(f"version: v{SANDBOX_VERSION} · {BUILD_NUMBER}")
 
     server = ThreadingHTTPServer((args.host, args.port), SandboxServer)
+    ensure_user_ui_settings_files()
     print(f"soemdsp-sandbox serving http://{args.host}:{args.port}")
     print(f"manifest: {SandboxServer.manifest_path}")
     server.serve_forever()
