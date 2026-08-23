@@ -1375,15 +1375,17 @@ function nodeGraphOutputInkFade(canvas, dtMs) {
   context.restore();
 }
 
-function nodeGraphOutputInkComposite(destCtx, canvas) {
+function nodeGraphOutputInkComposite(destCtx, canvas, alpha = 1) {
   const layer = canvas?._outputInkLayer;
-  if (!destCtx || !layer) {
+  const a = Math.max(0, Math.min(1, Number(alpha) || 0));
+  if (!destCtx || !layer || !(a > 0.001)) {
     return;
   }
   destCtx.save();
   destCtx.setTransform(1, 0, 0, 1, 0, 0);
   destCtx.globalCompositeOperation = "source-over";
   destCtx.imageSmoothingEnabled = false;
+  destCtx.globalAlpha = a;
   destCtx.drawImage(layer, 0, 0);
   destCtx.restore();
 }
@@ -1527,43 +1529,53 @@ function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, 
     return false;
   }
   const now = nodeGraphOutputInkNowMs();
-  const scrolled = options.scrolled === true || Math.round(Number(options.scrollPx) || 0) > 0;
+  const last = Number(canvas._outputInkLastFadeMs);
+  const dt = Number.isFinite(last) ? Math.max(0, Math.min(80, now - last)) : 16;
+  canvas._outputInkLastFadeMs = now;
+  const scrollPx = Math.round(Number(options.scrollPx) || 0);
+  const scrolled = options.scrolled === true || scrollPx > 0;
   const paused = nodeGraphOutputTransportIsPaused();
+
   if (paused) {
-    const plate = nodeGraphOutputPausePlateEnsure(canvas);
-    if (plate && !canvas._outputPausePlateReady) {
-      const pctx = plate.getContext("2d");
-      if (pctx) {
-        pctx.setTransform(1, 0, 0, 1, 0, 0);
-        pctx.globalCompositeOperation = "copy";
-        pctx.drawImage(canvas, 0, 0);
-        canvas._outputPausePlateReady = true;
-        canvas._outputPauseFadeBorn = now;
-        nodeGraphOutputInkArmFrames(NODE_GRAPH_OUTPUT_INK_FADE_MS + 400);
+    // Simulation off: one still stamp. No dest-out, no rAF.
+    if (!canvas._outputPauseBannerStamped) {
+      const plate = nodeGraphOutputPausePlateEnsure(canvas);
+      if (plate) {
+        const pctx = plate.getContext("2d");
+        if (pctx) {
+          pctx.setTransform(1, 0, 0, 1, 0, 0);
+          pctx.globalCompositeOperation = "copy";
+          pctx.drawImage(canvas, 0, 0);
+          canvas._outputPausePlateReady = true;
+        }
       }
+      const ink = nodeGraphOutputInkEnsure(canvas);
+      if (ink) {
+        ink.context.save();
+        ink.context.setTransform(1, 0, 0, 1, 0, 0);
+        ink.context.clearRect(0, 0, ink.layer.width, ink.layer.height);
+        ink.context.restore();
+        paintNodeGraphOutputPauseBars(ink.context, ink.layer, { density, alpha: 1 });
+      }
+      paintNodeGraphOutputPauseBars(destCtx, canvas, { density, alpha: 1 });
+      canvas._outputPauseBannerStamped = true;
+      canvas._waterfallDestHistory = true;
     }
-    const born = Number(canvas._outputPauseFadeBorn);
-    const alpha = Number.isFinite(born)
-      ? Math.max(0, 1 - (now - born) / NODE_GRAPH_OUTPUT_INK_FADE_MS)
-      : 1;
-    if (plate && canvas._outputPausePlateReady) {
-      destCtx.save();
-      destCtx.setTransform(1, 0, 0, 1, 0, 0);
-      destCtx.globalCompositeOperation = "copy";
-      destCtx.drawImage(plate, 0, 0);
-      destCtx.restore();
-    }
-    if (alpha > 0.001) {
-      paintNodeGraphOutputPauseBars(destCtx, canvas, { density, alpha });
-    }
-    canvas._outputPauseBannerStamped = true;
-  } else {
-    canvas._outputPauseBannerStamped = false;
-    canvas._outputPausePlateReady = false;
+    return true;
   }
 
-  // soundemote.io: dest canvas is the tape. Stamp ♨️ at mute alpha only when
-  // dest actually scrolled so last frame's pixels ride left with the waveform.
+  // Play: dest is the tape. Previous dest pixels (last fade frame) already
+  // scrolled left. Stamp bars in place at falling alpha so the new frame is
+  // fainter and Instant Trace drifts the old frames leftward.
+  if (!Number.isFinite(Number(canvas._outputPauseFadeBorn))) {
+    canvas._outputPauseFadeBorn = now;
+  }
+  const born = Number(canvas._outputPauseFadeBorn);
+  const fadeAlpha = Math.max(0, 1 - (now - born) / NODE_GRAPH_OUTPUT_INK_FADE_MS);
+  if (fadeAlpha > 0.001 && (scrolled || options.force === true)) {
+    paintNodeGraphOutputPauseBars(destCtx, canvas, { density, alpha: fadeAlpha });
+  }
+
   const mute = Math.max(0, Math.min(1, Number(globalThis.nodeGraphOutputProtectMute) || 0));
   if (mute > 0.001 && (scrolled || options.force === true)) {
     paintNodeGraphOutputFaceInk(destCtx, canvas, NODE_GRAPH_OUTPUT_PROTECT_BANNER, {
@@ -1624,9 +1636,13 @@ function nodeGraphTraceDisplayPinWaterfallClocks(nowMs) {
 
 function nodeGraphOutputPauseBannerClearStampFlags() {
   const clear = (canvas) => {
-    if (canvas) {
-      canvas._outputPauseBannerStamped = false;
+    if (!canvas) {
+      return;
     }
+    canvas._outputPauseBannerStamped = false;
+    canvas._outputPausePlateReady = false;
+    canvas._outputPauseFadeBorn = nodeGraphOutputInkNowMs();
+    canvas._outputInkLastFadeMs = canvas._outputPauseFadeBorn;
   };
   if (typeof nodeGraphModuleScopePersistentCanvases?.forEach === "function") {
     nodeGraphModuleScopePersistentCanvases.forEach(clear);

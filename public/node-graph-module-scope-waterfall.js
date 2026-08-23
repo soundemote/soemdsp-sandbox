@@ -501,6 +501,51 @@ function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampl
   return n;
 }
 
+function nodeGraphWaterfallWaveformEnsure(canvas) {
+  if (!canvas || !(canvas.width > 0) || !(canvas.height > 0)) {
+    return null;
+  }
+  let wave = canvas._waterfallWaveform;
+  if (!wave || wave.width !== canvas.width || wave.height !== canvas.height) {
+    wave = document.createElement("canvas");
+    wave.width = canvas.width;
+    wave.height = canvas.height;
+    canvas._waterfallWaveform = wave;
+    const ctx = wave.getContext("2d");
+    if (ctx) {
+      ctx.globalCompositeOperation = "copy";
+      ctx.drawImage(canvas._outputPausePlate || canvas, 0, 0);
+    }
+  }
+  return wave;
+}
+
+function nodeGraphWaterfallCaptureWaveform(canvas, source) {
+  const wave = nodeGraphWaterfallWaveformEnsure(canvas);
+  const src = source || canvas._outputPausePlate || canvas;
+  const ctx = wave?.getContext?.("2d");
+  if (!wave || !ctx || !src) {
+    return null;
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = "copy";
+  ctx.drawImage(src, 0, 0);
+  return wave;
+}
+
+function nodeGraphWaterfallPresentWaveform(destCtx, canvas) {
+  const wave = canvas?._waterfallWaveform;
+  if (!destCtx || !wave) {
+    return;
+  }
+  destCtx.save();
+  destCtx.setTransform(1, 0, 0, 1, 0, 0);
+  destCtx.globalCompositeOperation = "copy";
+  destCtx.imageSmoothingEnabled = false;
+  destCtx.drawImage(wave, 0, 0);
+  destCtx.restore();
+}
+
 function nodeGraphWaterfallScrollLeft(destCtx, destCanvas, hold, columns, bg) {
   const w = destCanvas.width;
   const h = destCanvas.height;
@@ -602,6 +647,7 @@ function nodeGraphWaterfallState(canvas, width, height, sweep, nowLine, bg, cont
     delete canvas._waterfallLastLeftY;
     delete canvas._waterfallLastRightY;
     canvas._waterfallDestHistory = false;
+    canvas._waterfallWaveform = null;
     if (typeof TraceTape !== "undefined" && TraceTape.clear) {
       TraceTape.clear(canvas._traceTapeRgb);
       TraceTape.clear(canvas._traceTapeL);
@@ -837,6 +883,8 @@ function nodeGraphWaterfallPaint(spec) {
 
   const destHistory = canvas._waterfallDestHistory === true && !sweep;
   if (destHistory) {
+    // Dest canvas is the tape (soundemote.io Instant Trace). Scroll those
+    // pixels, ink the new strip, then stamp pause/protect onto dest.
     if (!frozen) {
       const destHold = typeof nodeGraphTraceDisplayScratchContext === "function"
         ? nodeGraphTraceDisplayScratchContext(canvas, "_waterfallHold", width, height)
@@ -913,6 +961,7 @@ function nodeGraphWaterfallPaint(spec) {
       }
     }
     nodeGraphWaterfallPaintTapes(spec, context, canvas, ink);
+    nodeGraphWaterfallCaptureWaveform(canvas, canvas);
     nodeGraphWaterfallFinishOutputInk(spec, context, canvas, scrollPx);
     if (!sweep) {
       canvas._waterfallDestHistory = true;
@@ -933,10 +982,14 @@ function nodeGraphWaterfallPaint(spec) {
     }
     nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
   } else {
-    nodeGraphWaterfallScrollLeft(context, canvas, hold, columns, spec.bg);
+    const wave = nodeGraphWaterfallWaveformEnsure(canvas);
+    const waveCtx = wave?.getContext?.("2d") || context;
+    const waveCanvas = wave || canvas;
+    nodeGraphWaterfallScrollLeft(waveCtx, waveCanvas, hold, columns, spec.bg);
     nodeGraphWaterfallInk(
-      context, canvas, writeSpec, width - columns, columns, spec.bg, sampleStart, sampleEnd,
+      waveCtx, waveCanvas, writeSpec, width - columns, columns, spec.bg, sampleStart, sampleEnd,
     );
+    nodeGraphWaterfallPresentWaveform(context, canvas);
     nodeGraphWaterfallFinishOutputInk(spec, context, canvas, frozen ? 0 : columns);
     canvas._waterfallDestHistory = true;
   }

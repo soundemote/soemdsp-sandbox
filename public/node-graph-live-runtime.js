@@ -1278,9 +1278,6 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
     if (typeof stampNodeGraphOutputPauseBanners === "function") {
       stampNodeGraphOutputPauseBanners();
     }
-    if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
-      scheduleNodeGraphModuleScopeDraw();
-    }
     if (typeof holdNodeGraphScope2dTraceFaces === "function") {
       holdNodeGraphScope2dTraceFaces();
     }
