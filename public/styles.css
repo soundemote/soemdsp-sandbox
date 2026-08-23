@@ -544,13 +544,7 @@ body.node-patch-load-fault-open .node-patch-load-fault {
 }
 
 .node-missing-sample-assets {
-  position: fixed;
-  inset: 0;
-  z-index: 100000;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-  background: rgba(0, 0, 0, 0.26);
+  display: none !important;
 }
 
 .node-missing-sample-assets[hidden] {
@@ -1646,19 +1640,7 @@ button.scw-label:hover,
   border-right: 0 !important;
 }
 .node-music-player-pl-debug {
-  flex: 0 0 auto;
-  max-height: 2.8rem;
-  overflow: hidden;
-  margin: 0;
-  padding: 1px 6px;
-  box-sizing: border-box;
-  color: var(--phosphor-hud-color-hot);
-  font: var(--phosphor-hud-font);
-  font-size: 0.68em;
-  line-height: 1.25;
-  white-space: pre-wrap;
-  pointer-events: none;
-  border-top: 1px solid var(--phosphor-hud-color-dim);
+  display: none;
 }
 .node-phosphor-waveform-playlist-actions {
   display: grid;

@@ -1329,15 +1329,7 @@ function nodeGraphAudioPlayerPlaylistPlaceShared(section, nodeId, face) {
   if (transport && plPage && transport.parentElement !== plPage) {
     plPage.append(transport);
   }
-  const debugEl = section.querySelector("[data-music-player-debug]");
-  if (debugEl && plPage) {
-    const before = plPage.querySelector("[data-music-player-transport]");
-    if (before) {
-      plPage.insertBefore(debugEl, before);
-    } else if (debugEl.parentElement !== plPage) {
-      plPage.append(debugEl);
-    }
-  }
+  section.querySelectorAll("[data-music-player-debug]").forEach((el) => el.remove());
 }
 
 function nodeGraphAudioPlayerPlaylistEnsureLayout(section, nodeId) {
@@ -1606,31 +1598,6 @@ function nodeGraphAudioPlayerPlaylistDebug(nodeId, event, extra = {}) {
   nodeGraphAudioPlayerPlaylistDebugLastSig.set(snap.nodeId, sig);
   if (typeof nodeGraphAudioPlayerLog === "function") {
     nodeGraphAudioPlayerLog(String(event).includes("ignored") || event.includes("fail") ? "FAIL" : "INFO", event, snap);
-  }
-  const line = `${event} t${snap.transport ?? "?"} armed=${snap.armed ? 1 : 0} busy=${snap.busy ? 1 : 0} want=${snap.want || "-"} bound=${snap.bound || "-"} play=${snap.playing || "-"} P${snap.played}/U${snap.unplayed}${snap.why ? ` (${snap.why})` : ""}`;
-  const section = document.querySelector(
-    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
-  );
-  if (section) {
-    let el = section.querySelector("[data-music-player-debug]");
-    if (!el) {
-      el = document.createElement("div");
-      el.className = "node-music-player-pl-debug";
-      el.dataset.musicPlayerDebug = "true";
-      const plPage = section.querySelector("[data-music-player-page='pl']");
-      const transportEl = section.querySelector("[data-music-player-transport]");
-      if (plPage && transportEl) {
-        plPage.insertBefore(el, transportEl);
-      } else if (plPage) {
-        plPage.append(el);
-      } else {
-        section.append(el);
-      }
-    }
-    el.textContent = line;
-  }
-  if (typeof setNodeGraphSampleStatus === "function" && (event.includes("advance") || event.includes("ignored") || event === "play-next" || event === "play-button")) {
-    setNodeGraphSampleStatus(nodeId, line);
   }
   return snap;
 }
@@ -2208,7 +2175,7 @@ function nodeGraphAudioPlayerPlaylistPlayingIndex(nodeId, playingId = "") {
  * 0 = no fade. Slider up: fade over ~100 items, then tighten.
  * 1 = only the playing row is visible; everything else is fully faded.
  */
-function nodeGraphAudioPlayerPlaylistSlotFade(index, playingIndex, slotCount, playlistFade = 1) {
+function nodeGraphAudioPlayerPlaylistSlotFade(index, playingIndex, slotCount, playlistFade = 0.1) {
   const amount = Math.max(0, Math.min(1, Number(playlistFade) || 0));
   if (amount <= 0) {
     return 1;

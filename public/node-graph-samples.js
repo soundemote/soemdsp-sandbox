@@ -609,35 +609,12 @@ function dismissNodeGraphMissingSampleAssetsDialog() {
   document.body.classList.remove("node-missing-samples-open");
 }
 
-function renderNodeGraphMissingSampleAssetsDialog(patch = nodeGraphMvp.patch) {
+function renderNodeGraphMissingSampleAssetsDialog(_patch = nodeGraphMvp.patch) {
   const dialog = document.getElementById("nodeMissingSampleAssetsDialog");
-  const list = document.getElementById("nodeMissingSampleAssetsList");
-  if (!dialog || !list) {
-    return;
+  if (dialog) {
+    dialog.hidden = true;
   }
-  const missing = nodeGraphMissingSampleAssets(patch);
-  const fingerprint = nodeGraphMissingSampleAssetsFingerprint(missing);
-  if (!missing.length) {
-    nodeGraphMvp.dismissedMissingSampleAssetsFingerprint = "";
-  }
-  const dismissed = Boolean(fingerprint && fingerprint === nodeGraphMvp.dismissedMissingSampleAssetsFingerprint);
-  list.replaceChildren();
-  for (const asset of missing) {
-    const item = document.createElement("li");
-    const source = document.createElement("span");
-    source.textContent = asset.sourcePath
-      ? `missing: ${asset.sourcePath}`
-      : `missing: ${asset.sourceName || asset.id}`;
-    const usedBy = document.createElement("small");
-    usedBy.textContent = asset.requiredBy?.length
-      ? `required by: ${asset.requiredBy.join(", ")}`
-      : "required by: this patch";
-    item.append(source, usedBy);
-    list.append(item);
-  }
-  bindNodeGraphMissingSampleFolderLink();
-  dialog.hidden = missing.length === 0 || dismissed;
-  document.body.classList.toggle("node-missing-samples-open", missing.length > 0 && !dismissed);
+  document.body.classList.remove("node-missing-samples-open");
 }
 
 function nodeGraphSampleNameForNode(nodeId) {
