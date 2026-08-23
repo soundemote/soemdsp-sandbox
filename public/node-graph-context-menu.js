@@ -2381,13 +2381,16 @@ function openNodeRoundShapeContextMenu(event) {
   if (!(target instanceof Element)) {
     return false;
   }
-  const face = target.closest?.(".node-round-shape-display, .node-round-shape-canvas");
+  const face = target.closest?.(
+    ".node-round-shape-display, .node-round-shape-canvas, .node-basic-shape-display, .node-basic-shape-canvas",
+  );
   if (!face) {
     return false;
   }
   const display = face.classList?.contains("node-round-shape-display")
+    || face.classList?.contains("node-basic-shape-display")
     ? face
-    : face.closest?.(".node-round-shape-display");
+    : (face.closest?.(".node-round-shape-display") || face.closest?.(".node-basic-shape-display"));
   const nodeId = String(
     display?.dataset?.node
     || face.dataset?.node
@@ -2416,7 +2419,7 @@ function openNodeRoundShapeContextMenu(event) {
 
 function openNodeScopeContextMenu(event) {
   const contextScope = event.target.closest?.(
-    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-value-lcd-face, .node-ray-bouncer-face, .node-asciiscope-face, .node-matrix-face, .node-round-shape-display",
+    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-value-lcd-face, .node-ray-bouncer-face, .node-asciiscope-face, .node-matrix-face, .node-round-shape-display, .node-basic-shape-display",
   );
   const nodeId = contextScope?.dataset?.node || "";
   if (!nodeId || !nodeGraphPatchNode(nodeId)) {

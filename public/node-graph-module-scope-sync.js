@@ -316,20 +316,13 @@ function nodeGraphTraceDisplayHistorySampleCount(buffer, settings) {
   if (!Number.isFinite(windowSeconds) || windowSeconds <= 0) {
     return Math.max(1, buffer?.length || 1);
   }
-  // Instant Trace rings are visual (~12 kHz). Engine-rate metadata with
-  // stride 1 makes History demand too many samples, so a 0.07 s window
-  // only paints the right half of the face.
-  let sampleRate = typeof nodeGraphScopeSampleRate === "function"
+  const sampleRate = typeof nodeGraphScopeSampleRate === "function"
     ? nodeGraphScopeSampleRate(buffer)
     : 0;
-  const visualHz = typeof NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ === "number"
-    ? NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ
-    : 12000;
-  const stride = Number(buffer?.nodeGraphScopeSampleStride);
-  if (!(sampleRate > 0) || (sampleRate >= visualHz * 1.5 && !(stride > 1.5))) {
-    sampleRate = visualHz;
-  }
-  return Math.max(1, Math.round(windowSeconds * sampleRate));
+  const hz = sampleRate > 0
+    ? sampleRate
+    : (Number(nodeGraphModuleScopeState?.sampleRate) || Number(nodeGraphMvp?.sampleRate) || 44100);
+  return Math.max(1, Math.round(windowSeconds * hz));
 }
 
 function nodeGraphTraceDisplayVisibleSamples(buffer, settings) {

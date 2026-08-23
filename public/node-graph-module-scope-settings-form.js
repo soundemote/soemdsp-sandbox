@@ -103,19 +103,21 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Value size";
     title = "Readout size 0…1. Independent of knob size.";
   }
-  if (formType === "roundShapeFace" && key === "lineThickness") {
+  if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "lineThickness") {
     label = "Line thickness";
-    title = "Orbit stroke width in CSS pixels (0.25–16).";
+    title = formType === "basicShapeFace"
+      ? "Wave stroke width in CSS pixels (0.25–16)."
+      : "Orbit stroke width in CSS pixels (0.25–16).";
   }
-  if (formType === "roundShapeFace" && key === "dotThickness") {
+  if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "dotThickness") {
     label = "Dot thickness";
-    title = "Cursor dot diameter in CSS pixels (0.25–32).";
+    title = "Phase-dot diameter in CSS pixels (0.25–32).";
   }
-  if (formType === "roundShapeFace" && key === "lineBlur") {
+  if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "lineBlur") {
     label = "Line blur";
     title = "Diamond restroke blur in CSS pixels (0 = hard). Path is redrawn at 9 tent-weighted offsets — cheap, no extra canvas.";
   }
-  if (formType === "roundShapeFace" && key === "pixelDensity") {
+  if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "pixelDensity") {
     label = "Pixel density";
     title = "1.0 = CSS × devicePixelRatio. Below 1 = chunky lo-fi.";
   }
@@ -452,13 +454,13 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}
     aria = "Keypad text color";
   } else if (formType === "keypadFace" && key === "strokeColor") {
     aria = "Keypad stroke color";
-  } else if (formType === "roundShapeFace" && key === "backgroundColor") {
+  } else if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "backgroundColor") {
     aria = "RoundShape background color";
     base = { ...base, defaultValue: "#020609" };
-  } else if (formType === "roundShapeFace" && key === "strokeColor") {
+  } else if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "strokeColor") {
     aria = "RoundShape foreground / stroke color";
     base = { ...base, defaultValue: "#78dcc8" };
-  } else if (formType === "roundShapeFace" && key === "dotColor") {
+  } else if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "dotColor") {
     aria = "RoundShape cursor dot color";
     base = { ...base, defaultValue: "#ffffff" };
   } else if (formType === "limiterGainFace" && key === "backgroundColor") {
@@ -1224,7 +1226,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     if (type === "numberReadout" && section === "dot1") {
       continue;
     }
-    if (type === "roundShapeFace" && section === "dot1") {
+    if ((type === "roundShapeFace" || type === "basicShapeFace") && section === "dot1") {
       continue;
     }
 
@@ -1235,7 +1237,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     let fieldKeys = (sectionControls.fields || []).filter(
       (key) => activeFields.has(key) && allowKey("fields", key),
     );
-    if (type === "roundShapeFace" && section === "trace") {
+    if ((type === "roundShapeFace" || type === "basicShapeFace") && section === "trace") {
       fieldKeys = [
         "lineThickness",
         "lineBrightness",
@@ -1252,7 +1254,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     let colorKeys = (sectionControls.colors || []).filter(
       (key) => activeColors.has(key) && allowKey("colors", key),
     );
-    if (type === "roundShapeFace" || type === "vectorDot" || type === "pulseDot") {
+    if ((type === "roundShapeFace" || type === "basicShapeFace") || type === "vectorDot" || type === "pulseDot") {
       colorKeys = [];
     }
     if (type === "trace" && isStereoTraceNode) {
@@ -1473,7 +1475,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         }));
         continue;
       }
-      if (type === "roundShapeFace" && key === "lineBrightness") {
+      if ((type === "roundShapeFace" || type === "basicShapeFace") && key === "lineBrightness") {
         rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
           title: "Line",
           stepField: "lineBrightness",
@@ -1484,7 +1486,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         }));
         continue;
       }
-      if (type === "roundShapeFace" && key === "dotBrightness") {
+      if ((type === "roundShapeFace" || type === "basicShapeFace") && key === "dotBrightness") {
         rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
           title: "Dot",
           stepField: "dotBrightness",
@@ -1495,7 +1497,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         }));
         continue;
       }
-      if (type === "roundShapeFace" && key === "backgroundBrightness") {
+      if ((type === "roundShapeFace" || type === "basicShapeFace") && key === "backgroundBrightness") {
         rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
           title: "Background",
           stepField: "backgroundBrightness",

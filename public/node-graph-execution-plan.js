@@ -694,8 +694,7 @@ function nodeGraphCompiledVisualSinks(graph, reachableNodes) {
       const bufferedSet = new Set(bufferedInputs);
       return {
         bufferSampleLimit: nodeGraphVisualSinkBufferSampleLimit(node),
-        // Target visual write rate (Hz). Worklet hops engine samples to this.
-        // ~12 kHz is enough for phosphor / scopes; full rate was starving audio.
+        // 0 = every engine sample. >0 = LCD/latest-value (worklet uses Simulation FPS).
         visualWriteHz: nodeGraphVisualSinkWriteHz(node),
         bufferedInputs,
         hasParameters: (nodeGraphModuleDefinitions[node.type]?.parameters || []).length > 0,
@@ -745,17 +744,21 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
     .map((node) => node.id);
 }
 
-// History length is for display windows, not full 10s of engine-rate audio.
-// CPU cost is write rate (decimated in worklet); capacity stays modest.
+// Waveform rings keep ≥1 s so a 1 Hz paint still has a second of tape.
 const nodeGraphVisualSinkHistorySeconds = 1;
 
-const NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ = 4000;
+// 0 = every engine sample (no hop). Draw path buckets those samples to pixels.
+// Positive = latest-value class (LCD). Worklet writes those at Simulation FPS.
+const NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ = 0;
 const NODE_GRAPH_VISUAL_LATEST_WRITE_HZ = 60;
 
 function nodeGraphVisualDisplayNeedsWaveformRing(node) {
-  const displayType = String(
-    nodeGraphModuleDefinitions[node?.type]?.displayType || node?.displayType || "",
-  );
+  // Use the renderer the face actually paints with. Modules that omit
+  // displayType still fall back to Instant Trace ("trace") — treating them
+  // as LCD (60 Hz) is what made Gain a dotted "custom oscilloscope".
+  const displayType = typeof nodeGraphModuleDisplayRendererForNode === "function"
+    ? String(nodeGraphModuleDisplayRendererForNode(node) || "")
+    : String(nodeGraphModuleDefinitions[node?.type]?.displayType || node?.displayType || "");
   return (
     displayType === "trace" ||
     displayType === "scope2d" ||
@@ -774,10 +777,8 @@ function nodeGraphVisualDisplayNeedsWaveformRing(node) {
   );
 }
 
-/** Target samples/sec into visual rings (display quality, not audio fidelity). */
+/** Target samples/sec into visual rings. 0 = engine rate (no hop). */
 function nodeGraphVisualSinkWriteHz(node) {
-  // LCD / LED / value plates only need the latest number. Instant Trace and
-  // 2D phosphor still hop at ~12 kHz so paths stay dense.
   if (nodeGraphVisualDisplayNeedsWaveformRing(node)) {
     return NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ;
   }
@@ -793,12 +794,13 @@ function nodeGraphScopeCaptureWriteHz(node) {
 }
 
 function nodeGraphVisualSinkBufferSampleLimit(node) {
-  const writeHz = Math.max(1, Math.round(Number(nodeGraphVisualSinkWriteHz(node)) || NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ));
-  // History faces keep ≥1s even when Simulation FPS is 1 (one paint/sec).
   const seconds = Math.max(1, Number(nodeGraphVisualSinkHistorySeconds) || 1);
-  const historySamples = Math.ceil(writeHz * seconds);
-  const fallback = Math.max(1, Math.round(Number(nodeGraphBufferedInputSampleLimit) || 65536));
-  return Math.min(fallback, Math.max(4096, historySamples));
+  const fallback = Math.max(1, Math.round(Number(nodeGraphBufferedInputSampleLimit) || 262144));
+  if (nodeGraphVisualDisplayNeedsWaveformRing(node)) {
+    // 1 s at up to 96 kHz. Worklet writes engine samples; draw buckets to px.
+    return Math.min(fallback, Math.max(4096, Math.ceil(96000 * seconds)));
+  }
+  return Math.min(fallback, 4096);
 }
 
 function nodeGraphNodeSignalOutputRequired(graph, nodeId) {

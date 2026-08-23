@@ -525,29 +525,6 @@ function nodeGraphRoundShapeScopeFps() {
   return Number.isFinite(n) ? Math.max(0, Math.min(240, n)) : 60;
 }
 
-function nodeGraphRoundShapeFpsReady(section) {
-  if (section?._roundShapeForceDraw) {
-    return true;
-  }
-  const fps = nodeGraphRoundShapeScopeFps();
-  if (!(fps > 0)) {
-    return false;
-  }
-  const nodeId = section?.dataset?.node || "round-shape";
-  if (typeof nodeGraphDisplayFrameReady === "function") {
-    return nodeGraphDisplayFrameReady(`round-shape:${nodeId}`);
-  }
-  const now = typeof performance !== "undefined" && performance.now
-    ? performance.now()
-    : Date.now();
-  const last = Number(section._roundShapeLastPaintTs) || 0;
-  if (last && (now - last) < (1000 / fps) - 0.5) {
-    return false;
-  }
-  section._roundShapeLastPaintTs = now;
-  return true;
-}
-
 function scheduleNodeGraphRoundShapePlayhead(section) {
   if (!section || section._roundShapePlayheadRaf) {
     return;
@@ -566,16 +543,9 @@ function scheduleNodeGraphRoundShapePlayhead(section) {
     && !nodeGraphScreenSoloAllowsNode(nodeId)) {
     return;
   }
-  if (!(nodeGraphRoundShapeScopeFps() > 0)) {
-    return;
-  }
   section._roundShapePlayheadRaf = requestAnimationFrame(() => {
     section._roundShapePlayheadRaf = 0;
-    if (nodeGraphRoundShapeFpsReady(section)) {
-      drawNodeGraphRoundShapeDisplay(section);
-      return;
-    }
-    scheduleNodeGraphRoundShapePlayhead(section);
+    drawNodeGraphRoundShapeDisplay(section);
   });
 }
 

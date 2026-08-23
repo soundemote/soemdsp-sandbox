@@ -1593,15 +1593,24 @@ const nodeGraphModuleDefinitions = (
   },
   // Naive sine/tri/saw/square modulator (no anti-aliasing). Type is basicShape
   // because `osc` is already the Open Sound Control module.
+  // Face: cheap 1D one-cycle + phase dot (RoundShape family, not phosphor).
   basicShape: {
     planRole: "source",
-    displayType: "lineBurn",
+    layout: "basicShape",
+    chrome: "LayoutA",
+    customDisplayArea: true,
+    displayType: "basicShapeFace",
+    displayHeightGu: 4,
+    spectrumCompanion: false,
     displayModes: [
-      { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave Out" } },
+      {
+        key: "face",
+        label: "Face",
+        renderer: "basicShapeFace",
+        settingsSchema: "basicShapeFace",
+      },
     ],
-    displaySignals: [
-      { key: "Wave Out", kind: "scalar" },
-    ],
+    defaultDisplayMode: "face",
     inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
@@ -3666,6 +3675,13 @@ const nodeGraphModuleDefinitions = (
   t10: nodeGraphTSeriesModuleDefinition(10),
   gain: {
     planRole: "processor",
+    displayType: "trace",
+    spectrumCompanion: false,
+    displayModes: [
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+    ],
+    defaultDisplayMode: "trace",
+    stereoTracePorts: { left: "Left", right: "Right" },
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3746,6 +3762,13 @@ const nodeGraphModuleDefinitions = (
   // Shop-hidden legacy alias of gain (same surface).
   gainBias: {
     planRole: "processor",
+    displayType: "trace",
+    spectrumCompanion: false,
+    displayModes: [
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+    ],
+    defaultDisplayMode: "trace",
+    stereoTracePorts: { left: "Left", right: "Right" },
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],

@@ -41,25 +41,34 @@ NodeLiveAudioProcessor.prototype.scopeScalarValue = function scopeScalarValue(va
     return 0;
 };
 
+NodeLiveAudioProcessor.prototype.visualWriteStride = function visualWriteStride(writeHz, engineRate) {
+    const rate = Math.max(1, Number(engineRate) || 44100);
+    const hz = Number(writeHz);
+    // 0 / missing / ≥ engine → every sample (waveform rings).
+    if (!Number.isFinite(hz) || hz <= 0 || hz >= rate) {
+      return 1;
+    }
+    // Positive writeHz is "latest-value" (LCD). Follow Simulation FPS, not 60.
+    const fps = Number(this.displayFps);
+    if (!(fps > 0)) {
+      return 0;
+    }
+    return Math.max(1, Math.floor(rate / fps));
+};
+
 NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModuleScopeFrame(frameValues = null, frame = 0, frames = 1) {
     const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
-    // Waveform faces stay ~12 kHz. LCD / latest-value ports hop much slower.
-    this.scopeSampleStride = Math.max(1, Math.floor(engineRate / 12000));
-    if ((this.scopeCounter % this.scopeSampleStride) !== 0) {
-      return;
-    }
+    this.scopeSampleStride = 1;
     const rates = this.scopeCaptureRates || Object.create(null);
     const captureNodeIds = Array.isArray(this.scopeCaptureNodeIds)
       ? this.scopeCaptureNodeIds
       : this.order;
-    const captured = new Set();
     for (const nodeId of captureNodeIds) {
       if (!this.nodeOutputs.has(nodeId)) {
         continue;
       }
-      const writeHz = Math.max(1, Math.min(engineRate, Number(rates[nodeId]) || 12000));
-      const stride = Math.max(1, Math.floor(engineRate / writeHz));
-      if ((this.scopeCounter % stride) !== 0) {
+      const stride = this.visualWriteStride(rates[nodeId], engineRate);
+      if (!(stride > 0) || (this.scopeCounter % stride) !== 0) {
         continue;
       }
       const captureType = String(this.nodes.get(nodeId)?.type || "");
@@ -70,9 +79,7 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
         continue;
       }
       this.captureModuleScopeOutput(nodeId, this.nodeOutputs.get(nodeId));
-      captured.add(String(nodeId));
     }
-    // No visual sinks planned (all faces hidden) → skip the whole loop.
     const sinks = this.visualSinks || [];
     if (!sinks.length) {
       return;
@@ -82,11 +89,8 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
       if (!nodeId) {
         continue;
       }
-      // Per-sink hop (plan may request different write rates later).
-      const writeHz = Math.max(1, Math.min(engineRate, Number(sink.visualWriteHz) || 12000));
-      const visualStride = Math.max(1, Math.floor(engineRate / writeHz));
-      const writeBufferedThisSample = (this.scopeCounter % visualStride) === 0;
-      if (!writeBufferedThisSample) {
+      const visualStride = this.visualWriteStride(sink.visualWriteHz, engineRate);
+      if (!(visualStride > 0) || (this.scopeCounter % visualStride) !== 0) {
         continue;
       }
       let value = 0;
@@ -108,8 +112,7 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
         );
         value += inputValue;
         const inputPort = String(input.port || "").trim();
-        // Buffered rings: only at visual hop — not every engine sample.
-        if (input?.buffered && inputPort && writeBufferedThisSample) {
+        if (input?.buffered && inputPort) {
           this.writeVisualInputBufferSample(
             nodeId,
             inputPort,
@@ -122,15 +125,14 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
             },
           );
         }
-        if (writeBufferedThisSample && inputPort && !input?.buffered) {
+        if (inputPort && !input?.buffered) {
           const portId = `${nodeId}:${inputPort}`;
           this.appendScopeBufferSample(portId, inputValue);
         }
       }
       const sinkType = String(sink.type || this.nodes.get(nodeId)?.type || "");
       if (
-        writeBufferedThisSample
-        && hasConnected
+        hasConnected
         && sinkType !== "output"
         && sinkType !== "pluginOutput"
       ) {
@@ -144,7 +146,9 @@ NodeLiveAudioProcessor.prototype.appendScopeBufferSample = function appendScopeB
     if (!key) {
       return;
     }
-    const limit = 4096;
+    const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
+    const fps = Math.max(1, Number(this.displayFps) || 60);
+    const limit = Math.max(4096, Math.ceil(engineRate / fps) + 256);
     let samples = this.scopeBuffers.get(key);
     if (!(samples instanceof Float32Array)) {
       samples = new Float32Array(limit);

@@ -74,11 +74,14 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     return { channel };
   }
-  if (displayType === "roundShapeFace") {
+  if (displayType === "roundShapeFace" || displayType === "basicShapeFace") {
     node.traceDisplaySettings = typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
       ? normalizeNodeGraphRoundShapeFaceSettings(settings)
       : (settings || {});
-    if (typeof applyNodeGraphRoundShapeDisplaySettingsToFace === "function") {
+    if (displayType === "basicShapeFace"
+      && typeof applyNodeGraphBasicShapeDisplaySettingsToFace === "function") {
+      applyNodeGraphBasicShapeDisplaySettingsToFace(node);
+    } else if (typeof applyNodeGraphRoundShapeDisplaySettingsToFace === "function") {
       applyNodeGraphRoundShapeDisplaySettingsToFace(node);
     }
     return node.traceDisplaySettings;
@@ -532,6 +535,7 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
     || settingsSchema === "scope2d" || settingsSchema === "scope2dTrace"
     || settingsSchema === "numberReadout" || settingsSchema === "knobFace"
     || settingsSchema === "phosphorLight" || settingsSchema === "roundShapeFace"
+    || settingsSchema === "basicShapeFace"
     || settingsSchema === "limiterGainFace"
     || settingsSchema === "toggleButtonFace" || settingsSchema === "momentaryButtonFace") {
     return node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"

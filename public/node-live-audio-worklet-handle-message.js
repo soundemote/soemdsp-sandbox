@@ -89,6 +89,13 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       this.setInputWireBreakTrigger(message.nodeId, message.port);
       return;
     }
+    if (message.type === "setDisplayFps") {
+      const fps = Number(message.displayFps);
+      this.displayFps = Number.isFinite(fps)
+        ? Math.max(0, Math.min(240, Math.round(fps)))
+        : 0;
+      return;
+    }
     if (message.type === "setSpeed") {
       this.setSpeed(message.speed);
       return;

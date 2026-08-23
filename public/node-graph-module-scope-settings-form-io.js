@@ -307,7 +307,7 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "portalFace") {
     return { channel: 0 };
   }
-  if (type === "roundShapeFace") {
+  if (type === "roundShapeFace" || type === "basicShapeFace") {
     return typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
       ? normalizeNodeGraphRoundShapeFaceSettings()
       : {
@@ -520,7 +520,7 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
         : Math.max(0, Math.round(Number(settings?.channel) || 0)),
     };
   }
-  if (type === "roundShapeFace") {
+  if (type === "roundShapeFace" || type === "basicShapeFace") {
     return typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
       ? normalizeNodeGraphRoundShapeFaceSettings(settings)
       : (settings || {});
@@ -691,7 +691,7 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
       ? nodeGraphPortalDisplaySettingsForNode(node)
       : { channel: 0 };
   }
-  if (settingsSchema === "roundShapeFace") {
+  if (settingsSchema === "roundShapeFace" || settingsSchema === "basicShapeFace") {
     return typeof nodeGraphRoundShapeFaceSettingsForNode === "function"
       ? nodeGraphRoundShapeFaceSettingsForNode(node)
       : (typeof normalizeNodeGraphRoundShapeFaceSettings === "function"

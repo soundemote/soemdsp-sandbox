@@ -608,7 +608,15 @@ function captureNodeGraphLiveModuleScopeFrame(runtime, sampleRate) {
   if (!runtime?.nodeOutputs?.size || !nodeGraphModuleScopeHasDrawableSlots() || nodeGraphModuleScopeTracesOff()) {
     return;
   }
-  const interval = Math.max(1, Math.floor((Number(sampleRate) || nodeGraphMvp.sampleRate || 44100) / 30));
+  const fps = typeof nodeGraphSimulationDisplayFps === "function"
+    ? nodeGraphSimulationDisplayFps()
+    : (typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
+      ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
+      : 60);
+  if (!(fps > 0)) {
+    return;
+  }
+  const interval = Math.max(1, Math.floor((Number(sampleRate) || nodeGraphMvp.sampleRate || 44100) / fps));
   runtime.scopeBuffers ||= new Map();
   const visibleScopeNodeIds = Array.isArray(runtime.scopeCaptureNodeIds) && runtime.scopeCaptureNodeIds.length
     ? new Set(runtime.scopeCaptureNodeIds.map((nodeId) => String(nodeId || "")).filter(Boolean))

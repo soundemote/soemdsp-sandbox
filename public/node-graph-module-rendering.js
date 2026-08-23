@@ -406,6 +406,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     filterCurve: "filter-curve-layout",
     envelopeCurve: "filter-curve-layout",
     roundShape: "filter-curve-layout",
+    basicShape: "filter-curve-layout",
     graph: "graph-node-layout",
     image: "image-node-layout",
     keyboardController: "keyboard-controller-layout",
@@ -940,6 +941,20 @@ function createNodeGraphModuleElement(type, node) {
       : !patchNodeUi.oscilloscopeHidden;
     if (mountFace && typeof createNodeGraphPhoneToneDisplay === "function") {
       article.append(createNodeGraphPhoneToneDisplay(node, type));
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
+  } else if (definition.layout === "basicShape") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphBasicShapeDisplay === "function") {
+      article.append(createNodeGraphBasicShapeDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(
       article,

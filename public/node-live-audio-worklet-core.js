@@ -387,7 +387,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.scopeCaptureNodeIds = [];
     this.scopeCaptureRates = Object.create(null);
     this.scopeCounter = 0;
+    this.scopeSnapshotCounter = 0;
     this.scopeSampleStride = 1;
+    this.displayFps = 60;
     // Continuous engine-sample counter for free-running graph LFO phase
     // (Rate mode). Advanced once per evaluateFrame call.
     this.absoluteFrame = 0;

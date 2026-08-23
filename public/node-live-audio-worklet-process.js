@@ -66,9 +66,13 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         }
         this.captureModuleScopeFrame(this.currentFrameValues, engineFrame, engineFrames);
         this.scopeCounter += 1;
-        if (this.scopeCounter >= Math.max(1, Math.floor(effectiveRate / 30))) {
-          this.scopeCounter = 0;
-          this.postModuleScopeSnapshot();
+        const displayFps = Number(this.displayFps);
+        if (displayFps > 0) {
+          this.scopeSnapshotCounter = (Number(this.scopeSnapshotCounter) || 0) + 1;
+          if (this.scopeSnapshotCounter >= Math.max(1, Math.floor(effectiveRate / displayFps))) {
+            this.scopeSnapshotCounter = 0;
+            this.postModuleScopeSnapshot();
+          }
         }
         this.visualControlCounter += 1;
         if (this.visualControlCounter >= Math.max(1, Math.floor(effectiveRate / 30))) {

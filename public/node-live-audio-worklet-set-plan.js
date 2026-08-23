@@ -18,6 +18,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       this.pitchReferenceHz = Number(message.pitchReferenceHz);
     }
     this.hostSampleRate = Math.max(1, Number(message.sampleRate) || sampleRate || 44100);
+    if (Number.isFinite(Number(message.displayFps))) {
+      this.displayFps = Math.max(0, Math.min(240, Math.round(Number(message.displayFps))));
+    }
     // App-wide: oversampling under construction — always ×1 (ignore plan/message).
     this.oversamplingRatio = 1;
     this.engineSampleRate = this.hostSampleRate;

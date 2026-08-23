@@ -6,6 +6,7 @@ const NODE_GRAPH_SCREEN_SOLO_FACE_SEL = [
   ".node-module-scope-window",
   ".node-filter-curve-display",
   ".node-round-shape-display",
+  ".node-basic-shape-display",
   ".node-envelope-curve-display",
   ".node-phone-tone-display",
   ".node-pulse-curve-display",
@@ -166,6 +167,7 @@ function nodeGraphScreenSoloFaceScore(face) {
   if (face.dataset?.lightSource === "screen") score += 40;
   if (face.classList.contains("node-filter-curve-display")) score += 30;
   if (face.classList.contains("node-round-shape-display")) score += 35;
+  if (face.classList.contains("node-basic-shape-display")) score += 35;
   if (face.classList.contains("node-module-scope-window")) score += 25;
   if (face.classList.contains("node-module-face")) score += 10;
   const w = Number(face.clientWidth || face.offsetWidth) || 0;
@@ -209,6 +211,7 @@ function nodeGraphScreenSoloFindFace(nodeId) {
   const loose = document.querySelector(
     `[data-node="${escaped}"].node-filter-curve-display, `
     + `[data-node="${escaped}"].node-round-shape-display, `
+    + `[data-node="${escaped}"].node-basic-shape-display, `
     + `[data-node="${escaped}"].node-module-scope-window, `
     + `[data-node="${escaped}"][data-light-source="screen"]`,
   );
@@ -261,6 +264,13 @@ function nodeGraphScreenSoloWakeFace(face) {
     face._roundShapeLaidOut = false;
     if (typeof drawNodeGraphRoundShapeDisplay === "function") {
       drawNodeGraphRoundShapeDisplay(face);
+    }
+  }
+  if (face.classList.contains("node-basic-shape-display")) {
+    face._basicShapeForceDraw = true;
+    face._basicShapeLaidOut = false;
+    if (typeof drawNodeGraphBasicShapeDisplay === "function") {
+      drawNodeGraphBasicShapeDisplay(face);
     }
   }
   if (face.classList.contains("node-filter-curve-display")) {

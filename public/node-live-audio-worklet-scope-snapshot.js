@@ -4,8 +4,22 @@
 NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleScopeSnapshot() {
     const values = [];
     const engineSampleRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
-    const scopeSampleStride = Math.max(1, Number(this.scopeSampleStride) || 1);
-    const decimatedScopeSampleRate = engineSampleRate / scopeSampleStride;
+    const rates = this.scopeCaptureRates || Object.create(null);
+    const captureRateForKey = (key) => {
+      const raw = String(key || "");
+      const colon = raw.indexOf(":");
+      const nodeKey = colon >= 0 ? raw.slice(0, colon) : raw;
+      const writeHz = Number(rates[nodeKey]);
+      const stride = typeof this.visualWriteStride === "function"
+        ? this.visualWriteStride(writeHz, engineSampleRate)
+        : ((!Number.isFinite(writeHz) || writeHz <= 0 || writeHz >= engineSampleRate)
+          ? 1
+          : Math.max(1, Math.floor(engineSampleRate / writeHz)));
+      return {
+        sampleRate: engineSampleRate / stride,
+        sampleStride: stride,
+      };
+    };
     for (const [nodeId, samples] of this.scopeBuffers) {
       const length = samples instanceof Float32Array
         ? Math.min(samples.length, Number(samples.nodeGraphScopeLength) || 0)
@@ -25,10 +39,11 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
         // attach absoluteFrame).
         const totalPosted = (Number(samples.nodeGraphScopeTotalPosted) || 0) + length;
         samples.nodeGraphScopeTotalPosted = totalPosted;
+        const rateMeta = captureRateForKey(nodeId);
         values.push([nodeId, ordered, {
           absoluteFrame: totalPosted,
-          sampleRate: decimatedScopeSampleRate,
-          sampleStride: scopeSampleStride,
+          sampleRate: rateMeta.sampleRate,
+          sampleStride: rateMeta.sampleStride,
           sourceSampleRate: engineSampleRate,
           startFrame: Math.max(0, totalPosted - length),
         }]);
@@ -37,10 +52,11 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
         if (samples && typeof samples === "object") {
           samples.nodeGraphScopeTotalPosted = totalPosted;
         }
+        const rateMeta = captureRateForKey(nodeId);
         values.push([nodeId, samples, {
           absoluteFrame: totalPosted,
-          sampleRate: decimatedScopeSampleRate,
-          sampleStride: scopeSampleStride,
+          sampleRate: rateMeta.sampleRate,
+          sampleStride: rateMeta.sampleStride,
           sourceSampleRate: engineSampleRate,
           startFrame: Math.max(0, totalPosted - length),
         }]);

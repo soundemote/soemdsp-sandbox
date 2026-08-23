@@ -1306,6 +1306,25 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
   }
 }
 
+function sendNodeGraphLiveDisplayFps() {
+  if (!nodeGraphMvp.live.node || !nodeGraphMvp.live.usesWorklet) {
+    return;
+  }
+  const fps = typeof nodeGraphSimulationDisplayFps === "function"
+    ? nodeGraphSimulationDisplayFps()
+    : (typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
+      ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
+      : 60);
+  try {
+    nodeGraphMvp.live.node.port.postMessage({
+      type: "setDisplayFps",
+      displayFps: fps,
+    });
+  } catch (_error) {
+    // Worklet may be disconnected.
+  }
+}
+
 function sendNodeGraphLiveSpeed() {
   if (!nodeGraphMvp.live.node || !nodeGraphMvp.live.usesWorklet) {
     return;
@@ -2202,6 +2221,9 @@ function nodeGraphLiveConnectionUpdatePayload(plan = {}, audio = {}) {
       ? plan.scopeCaptureRates
       : {},
     sessionId: nodeGraphMvp.live.sessionId,
+    displayFps: typeof nodeGraphSimulationDisplayFps === "function"
+      ? nodeGraphSimulationDisplayFps()
+      : 60,
     timing: plan.timing || null,
     type: "setConnections",
     visualSinks: Array.isArray(plan.visualSinks) ? plan.visualSinks : [],
@@ -2276,9 +2298,13 @@ async function sendNodeGraphLivePlan() {
             planSerial: nodeGraphMvp.live.planSerial,
             sampleRate: nodeGraphMvp.live.context?.sampleRate || nodeGraphMvp.sampleRate,
             sessionId: nodeGraphMvp.live.sessionId,
+            displayFps: typeof nodeGraphSimulationDisplayFps === "function"
+              ? nodeGraphSimulationDisplayFps()
+              : 60,
             type: "setPlan",
           });
           sendNodeGraphLiveSpeed();
+          sendNodeGraphLiveDisplayFps();
           sendNodeGraphLiveSpeedLimit();
         }
         // Lazily send wasm for any native module type this plan introduced
@@ -2900,7 +2926,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-graph-parameter-smoother-filters.js?v=unpark-types-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=t-series-1",
-  "./public/node-live-audio-worklet-core.js?v=sincos4-1",
+  "./public/node-live-audio-worklet-core.js?v=engine-ring-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
   "./public/node-live-audio-worklet-smoother.js?v=smooth-time-live-1",
@@ -2909,22 +2935,22 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=hermite-1",
   "./public/node-live-audio-worklet-dsp-state.js?v=planck-1",
-  "./public/node-live-audio-worklet-events.js?v=mp-stop-1",
+  "./public/node-live-audio-worklet-events.js?v=sim-fps-lcd-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
-  "./public/node-live-audio-worklet-scope-io.js?v=block-scope-1",
+  "./public/node-live-audio-worklet-scope-io.js?v=engine-ring-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-evaluators-sources.js?v=sincos4-1",
   "./public/node-live-audio-worklet-evaluators-processors.js?v=hilbert-0-1",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=controller-smooth-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=block-scope-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=block-scope-1",
-  "./public/node-live-audio-worklet-clear-plan.js?v=kick-split-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=keypad-1",
-  "./public/node-live-audio-worklet-scope-snapshot.js?v=visual-rate-meta-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=sim-fps-lcd-1",
+  "./public/node-live-audio-worklet-clear-plan.js?v=engine-ring-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=sim-fps-lcd-1",
+  "./public/node-live-audio-worklet-scope-snapshot.js?v=engine-ring-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=out-vol-m3-1",
-  "./public/node-live-audio-worklet-process.js?v=pause-le0-1",
+  "./public/node-live-audio-worklet-process.js?v=engine-ring-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",

@@ -47,10 +47,8 @@ function nodeGraphWaterfallVisualHz(buffer) {
       return hz;
     }
   }
-  const visual = typeof NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ === "number"
-    ? NODE_GRAPH_VISUAL_WAVEFORM_WRITE_HZ
-    : 12000;
-  return visual;
+  const engine = Number(nodeGraphModuleScopeState?.sampleRate) || Number(nodeGraphMvp?.sampleRate);
+  return engine > 0 ? engine : 44100;
 }
 
 function nodeGraphWaterfallAmp(buffer, slot) {

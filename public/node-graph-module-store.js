@@ -426,7 +426,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   basicShape: {
     category: "modulator",
-    description: "Naive sine / tri / saw / square (no anti-aliasing) with PWM and RoundShape-style motion.",
+    description: "Naive sine / tri / saw / square (no anti-aliasing) with PWM, a cheap 1D cycle+dot face, and RoundShape-style motion.",
     label: "BasicShape",
     notes: ["BasicShape", "naive", "no anti-aliasing", "PWM", "LFO", "sine", "triangle", "saw", "square"],
   },

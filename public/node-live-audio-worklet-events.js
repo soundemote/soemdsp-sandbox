@@ -117,6 +117,9 @@ NodeLiveAudioProcessor.prototype.setConnections = function setConnections(plan, 
     if (Number.isFinite(Number(message.pitchReferenceHz))) {
       this.pitchReferenceHz = Number(message.pitchReferenceHz);
     }
+    if (Number.isFinite(Number(message.displayFps))) {
+      this.displayFps = Math.max(0, Math.min(240, Math.round(Number(message.displayFps))));
+    }
     if (Number.isFinite(Number(message.autoSmoothingSeconds)) && typeof this.clampAutoSmoothingSeconds === "function") {
       this.autoSmoothingSeconds = this.clampAutoSmoothingSeconds(message.autoSmoothingSeconds);
     }

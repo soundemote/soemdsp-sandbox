@@ -439,6 +439,12 @@ function normalizeNodeGraphModuleScopeFramesPerSecond(value) {
   return Number.isFinite(number) ? clampNodeSliderValue(Math.round(number), 0, 240) : 60;
 }
 
+function nodeGraphSimulationDisplayFps() {
+  return normalizeNodeGraphModuleScopeFramesPerSecond(
+    nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60,
+  );
+}
+
 function normalizeNodeGraphModuleScopePointBudget(value) {
   const number = Number(value);
   return Number.isFinite(number) ? clampNodeSliderValue(Math.round(number), 1, 65536) : 4096;
@@ -957,6 +963,9 @@ function persistNodeGraphModuleScopeFramesPerSecondSetting() {
 function setNodeGraphModuleScopeFramesPerSecond(value) {
   nodeGraphMvp.moduleScopeFramesPerSecond = normalizeNodeGraphModuleScopeFramesPerSecond(value);
   renderNodeGraphModuleScopeBrightnessControl();
+  if (typeof sendNodeGraphLiveDisplayFps === "function") {
+    sendNodeGraphLiveDisplayFps();
+  }
   if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
     scheduleNodeGraphModuleScopeDraw();
   }

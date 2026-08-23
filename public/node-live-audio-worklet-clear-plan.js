@@ -270,6 +270,7 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
     this.airClipperStates = new Map();
     this.scopeBuffers = new Map();
     this.scopeCounter = 0;
+    this.scopeSnapshotCounter = 0;
     this.destroyAllPapoulisParameterSmootherNativeStates?.();
     this.smoothers = new Map();
     this.activeSmoothers = [];

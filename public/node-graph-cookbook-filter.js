@@ -789,6 +789,7 @@ function nodeGraphFilterCurveIsPersistentScreen(el) {
     || cls?.contains("node-filter-curve-canvas")
     || cls?.contains("node-envelope-curve-display")
     || cls?.contains("node-round-shape-display")
+    || cls?.contains("node-basic-shape-display")
     || cls?.contains("node-pulse-curve-display")
   ) {
     return true;
@@ -797,6 +798,7 @@ function nodeGraphFilterCurveIsPersistentScreen(el) {
     el.closest?.(".node-filter-curve-display")
     || el.closest?.(".node-envelope-curve-display")
     || el.closest?.(".node-round-shape-display")
+    || el.closest?.(".node-basic-shape-display")
     || el.closest?.(".node-pulse-curve-display")
   );
 }
