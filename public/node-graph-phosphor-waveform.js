@@ -1772,8 +1772,8 @@ function scheduleNodeGraphPhosphorWaveformFrame(section) {
     keep
     && !skipFace
     && !(typeof nodeGraphDisplaysFrozen === "function" && nodeGraphDisplaysFrozen())
-    && nodeGraphPhosphorWaveformSectionOnScreen(section)
     && nodeGraphPhosphorWaveformFrameReady(section.dataset.node)
+    && nodeGraphPhosphorWaveformSectionOnScreen(section)
   ) {
     drawNodeGraphPhosphorWaveformDisplay(section);
   }

@@ -9492,6 +9492,22 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Reset", "Start Time", "End Time", "Speed", "Phase"],
     outputs: ["Mono", "Left", "Right", "Phase", "Trigger"],
     parameters: [
+      {
+        choices: ["Off", "Hermite"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        hidden: true,
+        key: "antialias",
+        label: "Antialias",
+        linearSmoothing: false,
+        max: "1",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Fractional sample read. Off = linear. Hermite = 4-point cubic (smoother varispeed, more CPU).",
+      },
       { choices: ["Off (reset)", "Stop", "Pause", "Loop", "Play", "Loop All"], defaultValue: "4", displayChoices: true, divideChoicesVisibly: true, key: "transport", label: "Playmode", linearSmoothing: false, max: "5", mid: "2", min: "0", nonlinearSlider: false, step: "1" },
       { defaultValue: "1", key: "speed", label: "Speed", linearSmoothing: false, max: "8", maxDigits: 4, mid: "1", min: "0", step: "any", unit: "x" },
       // Slow reverse/forward nudge. No wrap. Internal 5 s linear (220500 samples @ 44.1 kHz).

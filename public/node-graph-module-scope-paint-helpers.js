@@ -1261,11 +1261,8 @@ function nodeGraphTraceDisplayPrimaryLayer(settings, color) {
  * changes are visible without waiting for scope samples.
  */
 const NODE_GRAPH_OUTPUT_PROTECT_BANNER = "♨️";
-const NODE_GRAPH_OUTPUT_PAUSE_BANNER = "▐▐";
 const NODE_GRAPH_OUTPUT_PROTECT_FONT =
   '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif';
-const NODE_GRAPH_OUTPUT_PAUSE_FONT =
-  '"Segoe UI Symbol","Segoe UI","Arial Unicode MS","Noto Sans Symbols 2","Noto Sans Symbols",sans-serif';
 
 function nodeGraphOutputProtectFaceSlot(slot) {
   const type = String(slot?.type || "");
@@ -1287,7 +1284,110 @@ function nodeGraphOutputTransportIsPaused() {
   return Number.isFinite(speed) && speed <= 0;
 }
 
-/** Dest-pixel ink (protect / pause). Stamped into history so Instant Trace can waterfall it. */
+/** Dest-pixel ink (protect / pause). Lives on a layer that scrolls with Instant Trace. */
+const NODE_GRAPH_OUTPUT_INK_FADE_MS = 1100;
+const NODE_GRAPH_OUTPUT_PROTECT_REPRINT_MS = 400;
+let nodeGraphOutputInkHoldUntil = 0;
+
+function nodeGraphOutputInkNowMs() {
+  return (typeof performance !== "undefined" && typeof performance.now === "function")
+    ? performance.now()
+    : Date.now();
+}
+
+function nodeGraphOutputInkArmFrames(extraMs = NODE_GRAPH_OUTPUT_INK_FADE_MS + 1400) {
+  const until = nodeGraphOutputInkNowMs() + Math.max(0, Number(extraMs) || 0);
+  if (until > nodeGraphOutputInkHoldUntil) {
+    nodeGraphOutputInkHoldUntil = until;
+  }
+}
+
+function nodeGraphOutputInkWantsFrames() {
+  if ((Number(globalThis.nodeGraphOutputProtectMute) || 0) > 0.001) {
+    return true;
+  }
+  return nodeGraphOutputInkNowMs() < nodeGraphOutputInkHoldUntil;
+}
+
+function nodeGraphOutputInkEnsure(canvas) {
+  if (!canvas || !(canvas.width > 0) || !(canvas.height > 0)) {
+    return null;
+  }
+  let layer = canvas._outputInkLayer;
+  if (!layer || layer.width !== canvas.width || layer.height !== canvas.height) {
+    const prev = layer;
+    layer = document.createElement("canvas");
+    layer.width = canvas.width;
+    layer.height = canvas.height;
+    const ctx = layer.getContext("2d");
+    if (!ctx) {
+      return null;
+    }
+    if (prev && prev.width > 0 && prev.height > 0) {
+      ctx.drawImage(prev, 0, 0);
+    }
+    canvas._outputInkLayer = layer;
+    canvas._outputInkCtx = ctx;
+  }
+  return canvas._outputInkCtx
+    ? { layer: canvas._outputInkLayer, context: canvas._outputInkCtx }
+    : null;
+}
+
+function nodeGraphOutputInkScroll(canvas, dxPx) {
+  const dx = Math.round(Number(dxPx) || 0);
+  if (!dx || !canvas?._outputInkLayer) {
+    return;
+  }
+  const ink = nodeGraphOutputInkEnsure(canvas);
+  if (!ink) {
+    return;
+  }
+  const { layer, context } = ink;
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "copy";
+  context.drawImage(layer, -dx, 0);
+  context.globalCompositeOperation = "source-over";
+  context.clearRect(dx > 0 ? layer.width - dx : 0, 0, Math.abs(dx), layer.height);
+  context.restore();
+}
+
+function nodeGraphOutputInkFade(canvas, dtMs) {
+  const ink = canvas?._outputInkLayer ? nodeGraphOutputInkEnsure(canvas) : null;
+  if (!ink) {
+    return;
+  }
+  const dt = Math.max(0, Number(dtMs) || 0);
+  if (!(dt > 0)) {
+    return;
+  }
+  const amount = 1 - Math.exp(-dt / NODE_GRAPH_OUTPUT_INK_FADE_MS);
+  if (!(amount > 0.002)) {
+    return;
+  }
+  const { layer, context } = ink;
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "destination-out";
+  context.fillStyle = `rgba(0,0,0,${Math.min(1, amount).toFixed(4)})`;
+  context.fillRect(0, 0, layer.width, layer.height);
+  context.restore();
+}
+
+function nodeGraphOutputInkComposite(destCtx, canvas) {
+  const layer = canvas?._outputInkLayer;
+  if (!destCtx || !layer) {
+    return;
+  }
+  destCtx.save();
+  destCtx.setTransform(1, 0, 0, 1, 0, 0);
+  destCtx.globalCompositeOperation = "source-over";
+  destCtx.imageSmoothingEnabled = false;
+  destCtx.drawImage(layer, 0, 0);
+  destCtx.restore();
+}
+
 function paintNodeGraphOutputFaceInk(context, canvas, text, options = {}) {
   if (!context || !(canvas?.width > 0) || !(canvas?.height > 0) || !text) {
     return false;
@@ -1296,15 +1396,17 @@ function paintNodeGraphOutputFaceInk(context, canvas, text, options = {}) {
   if (!(alpha > 0.001)) {
     return false;
   }
-  const pad = Math.max(2, Math.round(Math.min(canvas.width, canvas.height) * 0.06));
-  const maxSide = Math.max(8, Math.min(canvas.width, canvas.height) - pad * 2);
+  const pad = Math.max(2, Math.round(Math.min(canvas.width, canvas.height) * 0.12));
+  const maxW = Math.max(8, canvas.width - pad * 2);
+  const maxH = Math.max(8, Math.round((canvas.height - pad * 2) * 0.42));
   const fontFamily = options.fontFamily || NODE_GRAPH_OUTPUT_PROTECT_FONT;
   const fontWeight = options.fontWeight ? `${options.fontWeight} ` : "";
   const density = Number(options.density);
   let lo = 8;
-  let hi = Math.max(lo, maxSide);
+  let hi = Math.max(lo, Math.min(maxW, maxH * 2));
   let best = lo;
   context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
   context.textAlign = "center";
   context.textBaseline = "middle";
   for (let i = 0; i < 14; i += 1) {
@@ -1314,7 +1416,7 @@ function paintNodeGraphOutputFaceInk(context, canvas, text, options = {}) {
     const w = metrics.width;
     const h = (Number(metrics.actualBoundingBoxAscent) || mid * 0.85)
       + (Number(metrics.actualBoundingBoxDescent) || mid * 0.2);
-    if (w <= maxSide && h <= maxSide) {
+    if (w <= maxW && h <= maxH) {
       best = mid;
       lo = mid;
     } else {
@@ -1340,55 +1442,128 @@ function paintNodeGraphOutputFaceInk(context, canvas, text, options = {}) {
   return true;
 }
 
-function paintNodeGraphOutputProtectBanner(context, canvas, settings = {}, options = {}) {
-  const mute = Math.max(0, Math.min(1, Number(options.mute ?? globalThis.nodeGraphOutputProtectMute) || 0));
-  if (!(mute > 0.001)) {
+function paintNodeGraphOutputPauseBars(context, canvas, options = {}) {
+  if (!context || !(canvas?.width > 0) || !(canvas?.height > 0)) {
     return false;
   }
-  void settings;
-  return paintNodeGraphOutputFaceInk(context, canvas, NODE_GRAPH_OUTPUT_PROTECT_BANNER, {
+  const w = canvas.width;
+  const h = canvas.height;
+  const fit = Math.max(8, Math.min(w, h) - Math.max(2, Math.round(Math.min(w, h) * 0.1)) * 2);
+  const barH = Math.max(6, Math.round(fit * 0.36));
+  const barW = Math.max(2, Math.round(fit * 0.14));
+  const gap = Math.max(2, Math.round(fit * 0.12));
+  const totalW = barW * 2 + gap;
+  const x0 = Math.round((w - totalW) * 0.5);
+  const y0 = Math.round((h - barH) * 0.5);
+  const alpha = Math.max(0, Math.min(1, Number(options.alpha ?? 1)));
+  const density = Number(options.density);
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "source-over";
+  context.globalAlpha = alpha;
+  context.imageSmoothingEnabled = !(density < 0.999);
+  context.fillStyle = "#ffffff";
+  context.strokeStyle = "rgba(0,0,0,0.85)";
+  context.lineWidth = Math.max(1, Math.round(barW * 0.08));
+  context.lineJoin = "miter";
+  const drawBar = (x) => {
+    context.beginPath();
+    context.rect(x, y0, barW, barH);
+    context.fill();
+    context.stroke();
+  };
+  drawBar(x0);
+  drawBar(x0 + barW + gap);
+  context.restore();
+  return true;
+}
+
+function nodeGraphOutputInkPrintPause(canvas, options = {}) {
+  const ink = nodeGraphOutputInkEnsure(canvas);
+  if (!ink) {
+    return false;
+  }
+  const ok = paintNodeGraphOutputPauseBars(ink.context, ink.layer, options);
+  if (ok) {
+    nodeGraphOutputInkArmFrames();
+  }
+  return ok;
+}
+
+function nodeGraphOutputInkPrintProtect(canvas, alpha, options = {}) {
+  const ink = nodeGraphOutputInkEnsure(canvas);
+  if (!ink) {
+    return false;
+  }
+  const ok = paintNodeGraphOutputFaceInk(ink.context, ink.layer, NODE_GRAPH_OUTPUT_PROTECT_BANNER, {
     density: options.density,
-    alpha: mute,
+    alpha,
     fontFamily: NODE_GRAPH_OUTPUT_PROTECT_FONT,
     fill: "#ffffff",
   });
+  if (ok) {
+    nodeGraphOutputInkArmFrames();
+  }
+  return ok;
+}
+
+function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, options = {}) {
+  if (!nodeGraphOutputProtectFaceSlot(slot) || !canvas || !destCtx) {
+    return false;
+  }
+  const now = nodeGraphOutputInkNowMs();
+  const last = Number(canvas._outputInkLastFadeMs);
+  const dt = Number.isFinite(last) ? Math.max(0, Math.min(80, now - last)) : 16;
+  canvas._outputInkLastFadeMs = now;
+  const scrollPx = Math.round(Number(options.scrollPx) || 0);
+  if (scrollPx) {
+    nodeGraphOutputInkScroll(canvas, scrollPx);
+  }
+  nodeGraphOutputInkFade(canvas, dt);
+
+  const paused = nodeGraphOutputTransportIsPaused();
+  if (paused) {
+    if (options.force === true || canvas._outputPauseBannerStamped !== true) {
+      nodeGraphOutputInkPrintPause(canvas, { density, alpha: 1 });
+      canvas._outputPauseBannerStamped = true;
+    }
+  } else {
+    canvas._outputPauseBannerStamped = false;
+  }
+
+  const mute = Math.max(0, Math.min(1, Number(globalThis.nodeGraphOutputProtectMute) || 0));
+  if (mute > 0.02) {
+    const lastMute = Number(canvas._outputProtectLastMute) || 0;
+    const lastPrint = Number(canvas._outputProtectLastPrintMs) || 0;
+    const rising = mute > lastMute + 0.04;
+    const due = !(now - lastPrint < NODE_GRAPH_OUTPUT_PROTECT_REPRINT_MS);
+    if (options.force === true || rising || due || !lastPrint) {
+      nodeGraphOutputInkPrintProtect(canvas, mute, { density });
+      canvas._outputProtectLastPrintMs = now;
+    }
+  }
+  canvas._outputProtectLastMute = mute;
+
+  nodeGraphOutputInkComposite(destCtx, canvas);
+  return true;
+}
+
+function paintNodeGraphOutputProtectBanner(context, canvas, settings = {}, options = {}) {
+  void settings;
+  return paintNodeGraphOutputInkFrame(context, canvas, { type: "output" }, settings, options.density, options);
 }
 
 function paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density) {
-  if (!nodeGraphOutputProtectFaceSlot(slot)) {
-    return false;
-  }
-  return paintNodeGraphOutputProtectBanner(context, canvas, settings, { density });
+  return paintNodeGraphOutputInkFrame(context, canvas, slot, settings, density);
 }
 
 function paintNodeGraphOutputPauseBanner(context, canvas, settings = {}, options = {}) {
   void settings;
-  return paintNodeGraphOutputFaceInk(context, canvas, NODE_GRAPH_OUTPUT_PAUSE_BANNER, {
-    density: options.density,
-    alpha: 1,
-    fontFamily: NODE_GRAPH_OUTPUT_PAUSE_FONT,
-    fontWeight: 700,
-    fill: "#ffffff",
-    stroke: "rgba(0,0,0,0.85)",
-  });
+  return nodeGraphOutputInkPrintPause(canvas, options);
 }
 
 function paintNodeGraphOutputPauseBannerIfNeeded(context, canvas, slot, settings, density, options = {}) {
-  if (!nodeGraphOutputProtectFaceSlot(slot) || !canvas) {
-    return false;
-  }
-  if (!nodeGraphOutputTransportIsPaused()) {
-    canvas._outputPauseBannerStamped = false;
-    return false;
-  }
-  if (!options.force && canvas._outputPauseBannerStamped) {
-    return false;
-  }
-  const painted = paintNodeGraphOutputPauseBanner(context, canvas, settings, { density });
-  if (painted) {
-    canvas._outputPauseBannerStamped = true;
-  }
-  return painted;
+  return paintNodeGraphOutputInkFrame(context, canvas, slot, settings, density, options);
 }
 
 function nodeGraphTraceDisplayPinWaterfallClocks(nowMs) {
@@ -1562,8 +1737,7 @@ function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePix
   if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
     nodeGraphModuleScopeMarkScreenLit(screenElement, 1);
   }
-  paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settings, density);
-  paintNodeGraphOutputPauseBannerIfNeeded(context, canvas, slot, settings, density);
+  paintNodeGraphOutputInkFrame(context, canvas, slot, settings, density);
   return true;
 }
 
@@ -1674,11 +1848,6 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const context = canvas.getContext("2d");
   if (!context) {
     return false;
-  }
-  if (typeof nodeGraphModuleScopePhosphorFrozen === "function"
-    && nodeGraphModuleScopePhosphorFrozen()) {
-    paintNodeGraphOutputPauseBannerIfNeeded(context, canvas, slot, settings, density);
-    return true;
   }
   context.imageSmoothingEnabled = density >= 0.999;
   if ("imageSmoothingQuality" in context && density >= 0.999) {

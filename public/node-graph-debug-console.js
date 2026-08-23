@@ -120,8 +120,8 @@
     btn.textContent = paused ? "Resume" : "Pause";
     btn.setAttribute("aria-pressed", paused ? "true" : "false");
     btn.title = paused
-      ? "Log UI paused — click to follow live entries"
-      : "Following live entries — click to freeze the list";
+      ? "Paused — INFO/LIVE not recorded. ERROR/FAIL still land. Click to resume."
+      : "Recording live entries — click to pause INFO/LIVE posts";
   }
 
   function setPaused(next) {
@@ -148,7 +148,7 @@
       return null;
     }
     if (paused && level !== "ERROR" && level !== "FAIL") {
-      // Pause only freezes live UI follow; recording still happens.
+      return null;
     }
     const lv = LEVELS[level] || LEVELS.LOG;
     const ts = Date.now();

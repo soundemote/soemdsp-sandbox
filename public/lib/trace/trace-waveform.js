@@ -125,11 +125,10 @@
       }
       let prev = first;
       for (let i = first; i <= last; i += 1) {
-        push(
-          mapX(i),
-          mapY(Number(buffer[i]) || 0),
-          skipDisc && i > prev && bucketHasDiscontinuity(buffer, prev, i, discThreshold),
-        );
+        const value = Number(buffer[i]) || 0;
+        const broke = skipDisc && i > prev
+          && Math.abs(value - (Number(buffer[prev]) || 0)) > discThreshold;
+        push(mapX(i), mapY(value), broke);
         prev = i;
       }
       if (end - 1 > last) {
@@ -140,29 +139,60 @@
     }
 
     const buckets = Math.max(1, Math.floor(maxVertices / 2));
-    let prevIndex = first;
+    let prevValue = Number(buffer[first]) || 0;
     for (let b = 0; b < buckets; b += 1) {
       const t0 = start + (b / buckets) * span;
       const t1 = start + ((b + 1) / buckets) * span;
       const rangeStart = Math.max(first, Math.floor(t0));
       const rangeEnd = Math.min(last + 1, Math.max(rangeStart + 1, Math.ceil(t1)));
-      const firstI = rangeStart;
-      const lastI = rangeEnd - 1;
-      const firstV = Number(buffer[firstI]) || 0;
-      const lastV = Number(buffer[lastI]) || 0;
-      const broke = skipDisc && bucketHasDiscontinuity(
-        buffer,
-        prevIndex,
-        firstI,
-        discThreshold,
-      );
-      // Keep the bucket as a short polyline (first→last), not last-only.
-      // Last-only aliased a sine into a saw along the same path.
-      push(mapX(firstI), mapY(firstV), broke);
-      if (lastI !== firstI) {
-        push(mapX(lastI), mapY(lastV), false);
+      const rangeLen = rangeEnd - rangeStart;
+      const stride = Math.max(1, Math.floor(rangeLen / MAX_SAMPLES_PER_BUCKET));
+      let minV = Infinity;
+      let maxV = -Infinity;
+      let minI = rangeStart;
+      let maxI = rangeStart;
+      for (let i = rangeStart; i < rangeEnd; i += stride) {
+        const value = Number(buffer[i]) || 0;
+        if (value < minV) {
+          minV = value;
+          minI = i;
+        }
+        if (value > maxV) {
+          maxV = value;
+          maxI = i;
+        }
       }
-      prevIndex = lastI;
+      if (stride > 1) {
+        const i = rangeEnd - 1;
+        const value = Number(buffer[i]) || 0;
+        if (value < minV) {
+          minV = value;
+          minI = i;
+        }
+        if (value > maxV) {
+          maxV = value;
+          maxI = i;
+        }
+      }
+      if (!(minV <= maxV)) {
+        minV = 0;
+        maxV = 0;
+        minI = rangeStart;
+        maxI = rangeStart;
+      }
+      const broke = skipDisc && Math.abs(minV - prevValue) > discThreshold;
+      if (minI === maxI) {
+        push(mapX(minI), mapY(minV), broke);
+        prevValue = minV;
+      } else if (minI < maxI) {
+        push(mapX(minI), mapY(minV), broke);
+        push(mapX(maxI), mapY(maxV), false);
+        prevValue = maxV;
+      } else {
+        push(mapX(maxI), mapY(maxV), broke);
+        push(mapX(minI), mapY(minV), false);
+        prevValue = minV;
+      }
     }
     return points;
   }

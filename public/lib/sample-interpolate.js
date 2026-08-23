@@ -1,5 +1,24 @@
-// 4-point 3rd-order Hermite (x-form) for sample playback.
-// Better than linear for varispeed / scratch. Not band-limited (no sinc).
+// Fractional sample reads. Linear is cheap. Hermite is 4-point cubic
+// (smoother varispeed / scratch). Neither is band-limited sinc.
+
+function nodeGraphSampleReadLinear(channel, frameIndex) {
+  if (!channel?.length) {
+    return 0;
+  }
+  const maxIndex = channel.length - 1;
+  let index = Number(frameIndex) || 0;
+  if (index < 0) {
+    index = 0;
+  } else if (index > maxIndex) {
+    index = maxIndex;
+  }
+  const low = Math.floor(index);
+  const high = low < maxIndex ? low + 1 : maxIndex;
+  const t = index - low;
+  const a = Number(channel[low]) || 0;
+  const b = Number(channel[high]) || 0;
+  return a + (b - a) * t;
+}
 
 function nodeGraphSampleReadHermite(channel, frameIndex) {
   if (!channel?.length) {

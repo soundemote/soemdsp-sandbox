@@ -216,11 +216,14 @@ function drawNodeGraphModuleScopes(options = {}) {
     markNodeGraphModuleScopeDebugSkip("idle-hold");
     return;
   }
+  // Sim FPS gate BEFORE layout/collect. Immediate rAF-on-miss + the 100 ms
+  // watchdog stacked extra draws when a frame already overran the budget.
   if (!force && typeof nodeGraphModuleScopePhosphorFrameReady === "function"
     && !nodeGraphModuleScopePhosphorFrameReady()) {
     setNodeGraphModuleScopeDebugPhase("fps-gate");
+    markNodeGraphModuleScopeDebugSkip("fps-gate");
     if (typeof scopePaintShouldKeepLoop === "function" ? scopePaintShouldKeepLoop() : true) {
-      scheduleNodeGraphModuleScopeDraw();
+      scheduleNodeGraphModuleScopeDrawAfterSimClock();
     }
     return;
   }
@@ -531,10 +534,51 @@ function drawNodeGraphModuleScopes(options = {}) {
   }
 }
 
+function nodeGraphModuleScopeSimFps() {
+  return typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
+    ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
+    : Math.max(0, Math.round(Number(nodeGraphMvp?.moduleScopeFramesPerSecond) || 60));
+}
+
+function clearNodeGraphModuleScopeDrawWait() {
+  if (nodeGraphModuleScopeState.drawWaitTimer) {
+    window.clearTimeout(nodeGraphModuleScopeState.drawWaitTimer);
+    nodeGraphModuleScopeState.drawWaitTimer = 0;
+  }
+}
+
+function scheduleNodeGraphModuleScopeDrawAfterSimClock() {
+  if (nodeGraphModuleScopeState.drawWaitTimer || nodeGraphModuleScopeState.drawFrame) {
+    return;
+  }
+  const fps = nodeGraphModuleScopeSimFps();
+  if (!(fps > 0)) {
+    return;
+  }
+  const now = (performance.now?.() || Date.now()) / 1000;
+  const last = Number(nodeGraphModuleScopeState.phosphorFrame?.lastUpdate) || 0;
+  const frameDur = 1 / fps;
+  let remainingMs = (last + frameDur - now) * 1000;
+  if (!Number.isFinite(remainingMs) || remainingMs < 8) {
+    remainingMs = 8;
+  }
+  remainingMs = Math.min(remainingMs, frameDur * 1000);
+  nodeGraphModuleScopeState.drawWaitTimer = window.setTimeout(() => {
+    nodeGraphModuleScopeState.drawWaitTimer = 0;
+    scheduleNodeGraphModuleScopeDraw();
+  }, remainingMs);
+}
+
 function scheduleNodeGraphModuleScopeDraw(options = {}) {
   const force = options?.force === true;
   if (!nodeGraphModuleScopeHasDrawableSlots()) {
     return;
+  }
+  if (!force && nodeGraphModuleScopeState.drawWaitTimer) {
+    return;
+  }
+  if (force) {
+    clearNodeGraphModuleScopeDrawWait();
   }
   if (nodeGraphModuleScopeTracesOff()) {
     if (!nodeGraphModuleScopeState.scopeTracesOffActive) {
@@ -630,6 +674,9 @@ function scheduleNodeGraphModuleScopeDraw(options = {}) {
   });
   nodeGraphModuleScopeState.drawFrame = frameId;
   nodeGraphModuleScopeState.drawFrameRequestedAt = (performance.now?.() || Date.now());
+  const simFps = nodeGraphModuleScopeSimFps();
+  const frameMs = simFps > 0 ? 1000 / simFps : 100;
+  const watchdogMs = Math.max(250, Math.round(frameMs * 2));
   nodeGraphModuleScopeState.drawFrameWatchdog = window.setTimeout(() => {
     if (nodeGraphModuleScopeState.drawFrame !== frameId) {
       return;
@@ -640,7 +687,12 @@ function scheduleNodeGraphModuleScopeDraw(options = {}) {
     nodeGraphModuleScopeState.drawFrameRequestedAt = 0;
     nodeGraphModuleScopeState.drawFrameForce = false;
     nodeGraphModuleScopeState.drawFrameWatchdog = 0;
+    if (nodeGraphModuleScopeState.drawBusy) {
+      return;
+    }
     setNodeGraphModuleScopeDebugPhase("watchdog");
-    runNodeGraphModuleScopeDrawFrame("watchdog", { force: frameForce });
-  }, 100);
+    // Re-arm rAF instead of drawing on the timer. A sync watchdog draw
+    // during an overrun stacked a second 50–167ms paint in the same budget.
+    scheduleNodeGraphModuleScopeDraw(frameForce ? { force: true } : {});
+  }, watchdogMs);
 }

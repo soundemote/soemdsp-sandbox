@@ -537,6 +537,9 @@ function clearNodeGraphModuleScopeBuffers(options = {}) {
     window.clearTimeout(nodeGraphModuleScopeState.drawFrameWatchdog);
     nodeGraphModuleScopeState.drawFrameWatchdog = 0;
   }
+  if (typeof clearNodeGraphModuleScopeDrawWait === "function") {
+    clearNodeGraphModuleScopeDrawWait();
+  }
   if (nodeGraphModuleScopeState.drawFrameHeartbeat) {
     window.clearInterval(nodeGraphModuleScopeState.drawFrameHeartbeat);
     nodeGraphModuleScopeState.drawFrameHeartbeat = 0;

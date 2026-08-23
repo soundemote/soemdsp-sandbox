@@ -88,6 +88,9 @@ function scopePaintShouldFullDraw(force = false) {
   if (force === true) {
     return true;
   }
+  if (typeof nodeGraphOutputInkWantsFrames === "function" && nodeGraphOutputInkWantsFrames()) {
+    return true;
+  }
   return scopePaintIsLive();
 }
 
@@ -95,6 +98,12 @@ function scopePaintShouldFullDraw(force = false) {
  * After a successful full draw, should we request another RAF?
  */
 function scopePaintShouldKeepLoop() {
+  if (typeof nodeGraphOutputInkWantsFrames === "function" && nodeGraphOutputInkWantsFrames()) {
+    if (typeof nodeGraphModuleScopeHasDrawableSlots === "function") {
+      return nodeGraphModuleScopeHasDrawableSlots();
+    }
+    return true;
+  }
   if (!scopePaintIsLive()) {
     return false;
   }

@@ -299,10 +299,14 @@ NodeLiveAudioProcessor.prototype.safeFilterNumber = function safeFilterNumber(va
     return 0;
 };
 
-NodeLiveAudioProcessor.prototype.sampleChannelAt = function sampleChannelAt(sample, channelIndex, frameIndex) {
+NodeLiveAudioProcessor.prototype.sampleChannelAt = function sampleChannelAt(sample, channelIndex, frameIndex, interpolation) {
     const channel = sample?.channelData?.[channelIndex] || sample?.samples;
-    if (typeof nodeGraphSampleReadHermite === "function") {
+    const hermite = interpolation !== "linear";
+    if (hermite && typeof nodeGraphSampleReadHermite === "function") {
       return nodeGraphSampleReadHermite(channel, frameIndex);
+    }
+    if (typeof nodeGraphSampleReadLinear === "function") {
+      return nodeGraphSampleReadLinear(channel, frameIndex);
     }
     if (!channel?.length) {
       return 0;
@@ -315,10 +319,10 @@ NodeLiveAudioProcessor.prototype.sampleChannelAt = function sampleChannelAt(samp
     return (Number(channel[low]) || 0) + ((Number(channel[high]) || 0) - (Number(channel[low]) || 0)) * frac;
 };
 
-NodeLiveAudioProcessor.prototype.sampleStereoAt = function sampleStereoAt(sample, frameIndex) {
-    const left = this.sampleChannelAt(sample, 0, frameIndex);
+NodeLiveAudioProcessor.prototype.sampleStereoAt = function sampleStereoAt(sample, frameIndex, interpolation) {
+    const left = this.sampleChannelAt(sample, 0, frameIndex, interpolation);
     const right = sample?.channelData?.length > 1
-      ? this.sampleChannelAt(sample, 1, frameIndex)
+      ? this.sampleChannelAt(sample, 1, frameIndex, interpolation)
       : left;
     return {
       Left: left,

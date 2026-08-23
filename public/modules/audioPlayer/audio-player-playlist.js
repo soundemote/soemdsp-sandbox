@@ -549,9 +549,6 @@ function nodeGraphAudioPlayerWriteTransport(nodeId, mode, { record = false } = {
   if (typeof scheduleNodeGraphLiveParameterSync === "function") {
     scheduleNodeGraphLiveParameterSync();
   }
-  if (typeof flushNodeGraphLivePlanSync === "function") {
-    flushNodeGraphLivePlanSync();
-  }
   if (record && typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
     saveNodeGraphWorkingPatchToUserSettings();
   }
@@ -1597,7 +1594,7 @@ function nodeGraphAudioPlayerPlaylistDebug(nodeId, event, extra = {}) {
   }
   nodeGraphAudioPlayerPlaylistDebugLastSig.set(snap.nodeId, sig);
   if (typeof nodeGraphAudioPlayerLog === "function") {
-    nodeGraphAudioPlayerLog(String(event).includes("ignored") || event.includes("fail") ? "FAIL" : "INFO", event, snap);
+    nodeGraphAudioPlayerLog("INFO", event, snap);
   }
   return snap;
 }
@@ -1681,8 +1678,10 @@ function nodeGraphAudioPlayerPlaylistOnRuntimeStatus(nodeId, reason = "", workle
   if (!node || node.type !== "audioPlayer") {
     return;
   }
-  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-  if (!pl.items.length) {
+  const pl = (node.playlist && Array.isArray(node.playlist.items))
+    ? node.playlist
+    : nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  if (!pl?.items?.length) {
     nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
     return;
   }
@@ -1828,7 +1827,6 @@ function nodeGraphAudioPlayerPlaylistOnRuntimeStatus(nodeId, reason = "", workle
   nodeGraphAudioPlayerPlaylistMarkPlayedBySample(pl, engineSid);
   node.playlist = pl;
   nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
-  nodeGraphAudioPlayerPlaylistPersist(nodeId);
   nodeGraphAudioPlayerPlaylistAdvanceArmed.set(id, false);
   nodeGraphAudioPlayerPlaylistLoadBusy.set(id, true);
   nodeGraphAudioPlayerPlaylistAdvancePending.set(id, true);

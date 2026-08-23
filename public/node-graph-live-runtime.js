@@ -1271,12 +1271,15 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
       absorbNodeGraphModuleScopePhosphorDrawCursors();
     }
     // Freeze Instant Trace wall-clock so resume does not jump History.
-    // Stamp ▐▐ into Output dest now; it waterfalls away after play.
+    // Stamp pause bars into Output dest now; they waterfall away after play.
     if (typeof nodeGraphTraceDisplayPinWaterfallClocks === "function") {
       nodeGraphTraceDisplayPinWaterfallClocks();
     }
     if (typeof stampNodeGraphOutputPauseBanners === "function") {
       stampNodeGraphOutputPauseBanners();
+    }
+    if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+      scheduleNodeGraphModuleScopeDraw();
     }
     if (typeof holdNodeGraphScope2dTraceFaces === "function") {
       holdNodeGraphScope2dTraceFaces();
@@ -2934,8 +2937,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-param-map.js?v=domain-mod-1",
   "./public/node-live-audio-worklet-destroy.js?v=block-scope-1",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
-  "./public/lib/sample-interpolate.js?v=hermite-1",
-  "./public/node-live-audio-worklet-dsp-state.js?v=planck-1",
+  "./public/lib/sample-interpolate.js?v=mp-aa-1",
+  "./public/node-live-audio-worklet-dsp-state.js?v=mp-aa-1",
   "./public/node-live-audio-worklet-events.js?v=sim-fps-lcd-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=engine-ring-1",
@@ -3142,7 +3145,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/radar/radar-worklet-evaluator.js?v=phasor-stdlib-1",
   "./public/modules/audioPlayer/audio-player-math.js?v=mp-time-io-1",
-  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=mp-worklet-sid-1",
+  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=mp-aa-1",
   "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/gain/gain-math.js?v=output-db-1",
   "./public/modules/gain/gain-worklet-evaluator.js?v=gain-db-1",

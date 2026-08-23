@@ -722,9 +722,6 @@ function flushNodeGraphAudioPlayerSamplePhase(nodeId) {
   if (Number.isFinite(statusPhase)) {
     live.samplePhase = Math.max(0, Math.min(1, statusPhase));
   }
-  if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
-    saveNodeGraphWorkingPatchToUserSettings({ immediateFile: true });
-  }
 }
 
 function flushAllNodeGraphAudioPlayerSamplePhases() {

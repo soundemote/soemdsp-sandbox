@@ -2,10 +2,14 @@
 // offline/render-time algorithm, now living next to the rest of its
 // per-module code instead of the shared file.
 
-function nodeGraphSampleChannelAt(sample, channelIndex, frameIndex) {
+function nodeGraphSampleChannelAt(sample, channelIndex, frameIndex, interpolation) {
   const channel = sample?.channelData?.[channelIndex] || sample?.samples;
-  if (typeof nodeGraphSampleReadHermite === "function") {
+  const hermite = interpolation !== "linear";
+  if (hermite && typeof nodeGraphSampleReadHermite === "function") {
     return nodeGraphSampleReadHermite(channel, frameIndex);
+  }
+  if (typeof nodeGraphSampleReadLinear === "function") {
+    return nodeGraphSampleReadLinear(channel, frameIndex);
   }
   if (!channel?.length) {
     return 0;
@@ -31,10 +35,10 @@ function createNodeGraphSamplePlaybackState() {
   };
 }
 
-function nodeGraphSampleStereoAt(sample, frameIndex) {
-  const left = nodeGraphSampleChannelAt(sample, 0, frameIndex);
+function nodeGraphSampleStereoAt(sample, frameIndex, interpolation) {
+  const left = nodeGraphSampleChannelAt(sample, 0, frameIndex, interpolation);
   const right = sample?.channelData?.length > 1
-    ? nodeGraphSampleChannelAt(sample, 1, frameIndex)
+    ? nodeGraphSampleChannelAt(sample, 1, frameIndex, interpolation)
     : left;
   return {
     Left: left,
@@ -136,7 +140,8 @@ function nodeGraphAudioPlayerSample(runtime, node, nodeId, readInput, readParam,
   const phaseWithOffset = basePhase + phaseOffset + phaseSkip + playlistScrub;
   const boundedPhase = startPhase + wrapNodeSliderValue((phaseWithOffset - startPhase) / span, 0, 1) * span;
   const frameIndex = boundedPhase * (frames - 1);
-  const stereo = nodeGraphSampleStereoAt(sample, frameIndex);
+  const interpolation = Math.round(Number(readParam("antialias", 0)) || 0) >= 1 ? "hermite" : "linear";
+  const stereo = nodeGraphSampleStereoAt(sample, frameIndex, interpolation);
   const level = readParam("level", 1);
   let done = 0;
   if (!phaseConnected && state.playing) {

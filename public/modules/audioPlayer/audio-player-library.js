@@ -775,12 +775,6 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
     item.sampleRate = est.sampleRate;
     item.channels = est.channels;
   }
-  if (typeof cloneNodeGraphPatch === "function" && typeof commitNodeGraphPatch === "function") {
-    commitNodeGraphPatch(cloneNodeGraphPatch(nodeGraphMvp.patch), {
-      record: false,
-      status: `playing ${item.name}`,
-    });
-  }
   if (typeof scheduleNodeGraphLivePlanSync === "function") {
     scheduleNodeGraphLivePlanSync("plan");
   }
@@ -789,9 +783,6 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
   }
   if (typeof nodeGraphAudioPlayerPlaylistRefreshUi === "function") {
     nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
-  }
-  if (typeof nodeGraphAudioPlayerPlaylistPersist === "function") {
-    nodeGraphAudioPlayerPlaylistPersist(nodeId);
   }
   const section = document.querySelector(
     `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId))}"]`,

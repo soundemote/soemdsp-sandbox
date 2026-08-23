@@ -69,6 +69,9 @@ function syncNodeGraphModuleScopeHeartbeat() {
       window.clearTimeout(nodeGraphModuleScopeState.drawFrameWatchdog);
       nodeGraphModuleScopeState.drawFrameWatchdog = 0;
     }
+    if (nodeGraphModuleScopeState.drawBusy) {
+      return;
+    }
     scheduleNodeGraphModuleScopeDraw();
   }, 100);
 }

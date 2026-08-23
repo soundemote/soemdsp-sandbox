@@ -314,24 +314,87 @@
     return fallback.slice();
   }
 
-  function buildStampVertices(pathPoints, radius, blur, maxDots) {
-    if (typeof global.nodeGraphPhosphorEnergyGlBuildDotVertices === "function") {
-      return global.nodeGraphPhosphorEnergyGlBuildDotVertices(pathPoints, {
-        radius,
-        blur,
-        maxDots,
-        fullEconomy: true,
-      });
-    }
-    const pts = Array.isArray(pathPoints) ? pathPoints.filter((p) => p && Number.isFinite(p.x)) : [];
+  function buildStampVertices(pathPoints, radius, blur, maxDots, options = {}) {
     const corners = [0, 1, 2, 1, 3, 2];
+    const cap = Math.max(1, Math.min(8192, Math.floor(Number(maxDots) || 2048)));
     const out = [];
-    for (let i = 0; i < pts.length; i += 1) {
-      for (let c = 0; c < corners.length; c += 1) {
-        out.push(pts[i].x, pts[i].y, corners[c]);
+    let stamps = 0;
+    const push = (x, y) => {
+      if (stamps >= cap) {
+        return false;
       }
+      for (let c = 0; c < corners.length; c += 1) {
+        out.push(x, y, corners[c]);
+      }
+      stamps += 1;
+      return true;
+    };
+    const raw = Array.isArray(pathPoints) ? pathPoints : [];
+    // Fuse discs along each segment (~radius/2). Column vertices alone
+    // were axis-aligned squares; 0.28px fullEconomy packing was the rAF stall.
+    const spacing = Math.max(
+      0.65,
+      Number(options.spacingPx) > 0
+        ? Number(options.spacingPx)
+        : Math.max(0.65, (Number(radius) || 2) * 0.4),
+    );
+    let prev = null;
+    for (let i = 0; i < raw.length; i += 1) {
+      const p = raw[i];
+      if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+        prev = null;
+        continue;
+      }
+      if (!prev) {
+        if (!push(p.x, p.y)) {
+          break;
+        }
+        prev = p;
+        continue;
+      }
+      const dx = p.x - prev.x;
+      const dy = p.y - prev.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 1e-4) {
+        prev = p;
+        continue;
+      }
+      const steps = Math.max(1, Math.ceil(dist / spacing));
+      for (let s = 1; s <= steps; s += 1) {
+        const t = s / steps;
+        if (!push(prev.x + dx * t, prev.y + dy * t)) {
+          return out;
+        }
+      }
+      prev = p;
     }
     return out;
+  }
+
+  /** Grow the shared GL canvas; never shrink (resize was ~frame-budget each present). */
+  function ensurePresentSize(dev, width, height) {
+    const w = Math.max(1, Math.min(MAX_DIM, Math.round(width) || 1));
+    const h = Math.max(1, Math.min(MAX_DIM, Math.round(height) || 1));
+    const cw = Math.max(dev.canvas.width || 1, w);
+    const ch = Math.max(dev.canvas.height || 1, h);
+    if (dev.canvas.width !== cw || dev.canvas.height !== ch) {
+      dev.canvas.width = cw;
+      dev.canvas.height = ch;
+    }
+    return { w, h, cw, ch };
+  }
+
+  function bindPresentViewport(gl, cw, ch, w, h) {
+    // 2D canvas origin is top-left; WebGL viewport y is from the bottom.
+    const y = Math.max(0, ch - h);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, y, w, h);
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(0, y, w, h);
+    gl.disable(gl.BLEND);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.SCISSOR_TEST);
   }
 
   function ensure(host, width, height, key = "_traceTapeRgb") {
@@ -439,7 +502,8 @@
       pathPoints,
       radius,
       blur,
-      Math.max(64, Math.min(8192, Math.round(Number(options.maxDots) || 4096))),
+      Math.max(8, Math.min(8192, Math.round(Number(options.maxDots) || 4096))),
+      options,
     );
     const vertexCount = Math.floor(vertices.length / 3);
     if (vertexCount <= 0) {
@@ -489,15 +553,8 @@
     const gl = tape.gl;
     const width = Math.max(1, Number(options.width) || tape.width);
     const height = Math.max(1, Number(options.height) || tape.height);
-    if (dev.canvas.width !== width || dev.canvas.height !== height) {
-      dev.canvas.width = width;
-      dev.canvas.height = height;
-    }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, width, height);
-    gl.disable(gl.BLEND);
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    const size = ensurePresentSize(dev, width, height);
+    bindPresentViewport(gl, size.cw, size.ch, size.w, size.h);
     gl.useProgram(dev.present.program);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tape.read.texture);
@@ -507,7 +564,7 @@
     destCtx.save();
     destCtx.globalCompositeOperation = options.composite || "source-over";
     destCtx.imageSmoothingEnabled = options.smooth === true;
-    destCtx.drawImage(dev.canvas, 0, 0, width, height);
+    destCtx.drawImage(dev.canvas, 0, 0, size.w, size.h, 0, 0, size.w, size.h);
     destCtx.restore();
     return true;
   }
@@ -523,10 +580,7 @@
     const gl = leftTape.gl;
     const width = Math.max(1, Number(options.width) || leftTape.width);
     const height = Math.max(1, Number(options.height) || leftTape.height);
-    if (dev.canvas.width !== width || dev.canvas.height !== height) {
-      dev.canvas.width = width;
-      dev.canvas.height = height;
-    }
+    const size = ensurePresentSize(dev, width, height);
     let cL = Array.isArray(options.leftRgb) ? options.leftRgb : hexToRgb01(options.leftColor, [1, 0, 0]);
     let cR = Array.isArray(options.rightRgb) ? options.rightRgb : hexToRgb01(options.rightColor, [0, 0, 1]);
     let cM = Array.isArray(options.meetRgb) ? options.meetRgb : null;
@@ -543,11 +597,7 @@
         Math.max(0, 1 - cL[2] - cR[2]),
       ];
     }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, width, height);
-    gl.disable(gl.BLEND);
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    bindPresentViewport(gl, size.cw, size.ch, size.w, size.h);
     gl.useProgram(dev.meet.program);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, leftTape.read.texture);
@@ -566,7 +616,7 @@
     destCtx.save();
     destCtx.globalCompositeOperation = "source-over";
     destCtx.imageSmoothingEnabled = options.smooth === true;
-    destCtx.drawImage(dev.canvas, 0, 0, width, height);
+    destCtx.drawImage(dev.canvas, 0, 0, size.w, size.h, 0, 0, size.w, size.h);
     destCtx.restore();
     return true;
   }

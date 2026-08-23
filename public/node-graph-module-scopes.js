@@ -3,10 +3,13 @@ const nodeGraphModuleScopeState = {
   animationDeltaSeconds: 1 / 60,
   animationLastTime: 0,
   buffers: new Map(),
+  drawBusy: false,
   drawFrame: 0,
   drawFrameHeartbeat: 0,
+  drawFrameForce: false,
   drawFrameRequestedAt: 0,
   drawFrameWatchdog: 0,
+  drawWaitTimer: 0,
   enabled: false,
   frames: 0,
   lightDisplayStates: new Map(),
@@ -149,12 +152,18 @@ function nodeGraphModuleScopeScalarValue(value) {
 // Scope graph query → node-graph-module-scope-graph-query.js
 // Scope canvas → node-graph-module-scope-canvas.js
 function runNodeGraphModuleScopeDrawFrame(source = "raf", options = {}) {
+  if (nodeGraphModuleScopeState.drawBusy) {
+    return;
+  }
+  nodeGraphModuleScopeState.drawBusy = true;
   try {
     drawNodeGraphModuleScopes(options);
   } catch (error) {
     markNodeGraphModuleScopeDebugError(error);
     console.error(`node graph module scope ${source} draw failed`, error);
     scheduleNodeGraphModuleScopeDraw(options?.force ? { force: true } : {});
+  } finally {
+    nodeGraphModuleScopeState.drawBusy = false;
   }
 }
 

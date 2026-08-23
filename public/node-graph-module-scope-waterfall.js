@@ -235,7 +235,8 @@ function nodeGraphWaterfallStampLayer(tape, layer, faceMin, blur, coverage) {
     blur,
     brightness: Math.max(0, Number(layer.brightness) || 0),
     color: coverage ? "#ffffff" : layer.color,
-    maxDots: 4096,
+    maxDots: 2048,
+    spacingPx: Math.max(0.7, radius * 0.4),
   });
 }
 
@@ -612,6 +613,23 @@ function nodeGraphWaterfallState(canvas, width, height, sweep, nowLine, bg, cont
   return st;
 }
 
+function nodeGraphWaterfallFinishOutputInk(spec, context, canvas, scrollPx) {
+  if (typeof paintNodeGraphOutputInkFrame === "function") {
+    paintNodeGraphOutputInkFrame(
+      context,
+      canvas,
+      spec?.slot,
+      spec?.settings,
+      spec?.density,
+      { scrollPx: Number(scrollPx) || 0 },
+    );
+    return;
+  }
+  if (typeof paintNodeGraphOutputProtectBannerIfNeeded === "function") {
+    paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, spec?.slot, spec?.settings, spec?.density);
+  }
+}
+
 function nodeGraphWaterfallFillPlate(context, canvas, bg) {
   if (typeof nodeGraphFacePlateFillCanvas === "function") {
     nodeGraphFacePlateFillCanvas(context, canvas, bg);
@@ -627,6 +645,20 @@ function nodeGraphWaterfallFillPlate(context, canvas, bg) {
 
 function nodeGraphWaterfallPaintTapes(spec, context, canvas, ink = {}) {
   const settings = spec.settings || {};
+  const hasInk = Boolean(
+    (ink.points && ink.points.length)
+    || (ink.leftPoints && ink.leftPoints.length)
+    || (ink.rightPoints && ink.rightPoints.length)
+    || ink.clear === true
+    || (Number(ink.scrollPx) || 0),
+  );
+  // Last face pixels stay. Re-presenting the whole tape every idle rAF
+  // (fill + GL blit) was the bulk of "animation took too long".
+  // Output pause/protect ink still needs a present so dest-out fade can
+  // composite onto a fresh tape blit (not stack on last dest).
+  if (ink.frozen === true && !hasInk && ink.present !== true) {
+    return true;
+  }
   nodeGraphWaterfallFillPlate(context, canvas, spec.bg);
   const stereo = spec.stereoBuffers;
   const layers = [];
@@ -695,9 +727,7 @@ function nodeGraphWaterfallPaint(spec) {
 
   if (nowLine) {
     nodeGraphWaterfallPaintNowLine(spec, context, canvas, settings, width, height, spec.bg);
-    if (typeof paintNodeGraphOutputProtectBannerIfNeeded === "function") {
-      paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, spec.slot, settings, spec.density);
-    }
+    nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
     if (typeof rememberNodeGraphTraceDisplaySignature === "function") {
       rememberNodeGraphTraceDisplaySignature(spec.slot, spec.item, live, settings);
     }
@@ -736,8 +766,9 @@ function nodeGraphWaterfallPaint(spec) {
         st.lastAbs = window.absEnd;
       }
       st.frac = 0;
-      if (useTape) {
-        nodeGraphWaterfallPaintTapes(spec, context, canvas, { frozen: true });
+      if (typeof nodeGraphOutputInkWantsFrames === "function" && nodeGraphOutputInkWantsFrames()) {
+        nodeGraphWaterfallPaintTapes(spec, context, canvas, { frozen: true, present: true });
+        nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
       }
       return true;
     }
@@ -749,8 +780,9 @@ function nodeGraphWaterfallPaint(spec) {
   const columnsFloat = window.count / samplesPerColumn + (Number(st.frac) || 0);
   let columns = Math.floor(columnsFloat);
   if (columns < 1) {
-    if (useTape) {
-      nodeGraphWaterfallPaintTapes(spec, context, canvas, { frozen: true });
+    if (typeof nodeGraphOutputInkWantsFrames === "function" && nodeGraphOutputInkWantsFrames()) {
+      nodeGraphWaterfallPaintTapes(spec, context, canvas, { frozen: true, present: true });
+      nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
     }
     return true;
   }
@@ -766,8 +798,9 @@ function nodeGraphWaterfallPaint(spec) {
         st.lastAbs = window.absEnd;
       }
       st.frac = 0;
-      if (useTape) {
-        nodeGraphWaterfallPaintTapes(spec, context, canvas, { frozen: true });
+      if (typeof nodeGraphOutputInkWantsFrames === "function" && nodeGraphOutputInkWantsFrames()) {
+        nodeGraphWaterfallPaintTapes(spec, context, canvas, { frozen: true, present: true });
+        nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
       }
       return true;
     }
@@ -797,8 +830,9 @@ function nodeGraphWaterfallPaint(spec) {
   }
 
   if (columns < 1) {
-    if (useTape) {
-      nodeGraphWaterfallPaintTapes(spec, context, canvas, { frozen: true });
+    if (typeof nodeGraphOutputInkWantsFrames === "function" && nodeGraphOutputInkWantsFrames()) {
+      nodeGraphWaterfallPaintTapes(spec, context, canvas, { frozen: true, present: true });
+      nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
     }
     return true;
   }
@@ -861,6 +895,7 @@ function nodeGraphWaterfallPaint(spec) {
       }
     }
     nodeGraphWaterfallPaintTapes(spec, context, canvas, ink);
+    nodeGraphWaterfallFinishOutputInk(spec, context, canvas, scrollPx);
   } else if (sweep) {
     const fromX = Math.max(0, Math.floor(st.penX));
     st.penX += columns;
@@ -875,15 +910,13 @@ function nodeGraphWaterfallPaint(spec) {
       st.penX = width;
       st.frac = 0;
     }
+    nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
   } else {
     nodeGraphWaterfallScrollLeft(context, canvas, hold, columns, spec.bg);
     nodeGraphWaterfallInk(
       context, canvas, writeSpec, width - columns, columns, spec.bg, sampleStart, sampleEnd,
     );
-  }
-
-  if (typeof paintNodeGraphOutputProtectBannerIfNeeded === "function") {
-    paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, spec.slot, settings, spec.density);
+    nodeGraphWaterfallFinishOutputInk(spec, context, canvas, frozen ? 0 : columns);
   }
   if (typeof rememberNodeGraphTraceDisplaySignature === "function") {
     rememberNodeGraphTraceDisplaySignature(spec.slot, spec.item, live, settings);
