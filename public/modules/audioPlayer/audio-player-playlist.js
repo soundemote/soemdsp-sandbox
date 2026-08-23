@@ -41,22 +41,71 @@ function nodeGraphAudioPlayerPlaylistRebuildItems(pl) {
   if (!pl || typeof pl !== "object") {
     return pl;
   }
-  const playing = pl.playing ? [pl.playing] : [];
-  pl.items = [...(Array.isArray(pl.played) ? pl.played : []), ...playing, ...(Array.isArray(pl.unplayed) ? pl.unplayed : [])];
-  pl.index = Array.isArray(pl.played) ? pl.played.length : 0;
-  if (!pl.playing) {
-    pl.index = Math.max(0, pl.items.length ? pl.items.length - 1 : 0);
+  if (!Array.isArray(pl.items)) {
+    pl.items = [];
+  }
+  const playingKey = nodeGraphAudioPlayerPlaylistItemKey(pl.playing);
+  if (playingKey) {
+    const found = pl.items.findIndex((item) => nodeGraphAudioPlayerPlaylistItemKey(item) === playingKey);
+    if (found >= 0) {
+      pl.index = found;
+    }
+  } else if (!pl.items.length) {
+    pl.index = 0;
+  } else {
+    pl.index = Math.max(0, Math.min(pl.items.length - 1, Math.round(Number(pl.index) || 0)));
   }
   pl.selectedIndex = pl.index;
   return pl;
+}
+
+function nodeGraphAudioPlayerPlaylistPlayedKeySet(pl) {
+  return new Set(
+    (Array.isArray(pl?.played) ? pl.played : [])
+      .map((item) => nodeGraphAudioPlayerPlaylistItemKey(item))
+      .filter(Boolean),
+  );
+}
+
+/** Keep played / unplayed in list order. Never restack `items` when a track is played. */
+function nodeGraphAudioPlayerPlaylistSyncQueues(pl) {
+  if (!pl || typeof pl !== "object") {
+    return pl;
+  }
+  const items = Array.isArray(pl.items) ? pl.items : [];
+  const playedKeys = nodeGraphAudioPlayerPlaylistPlayedKeySet(pl);
+  const playingKey = nodeGraphAudioPlayerPlaylistItemKey(pl.playing);
+  pl.played = items.filter((item) => {
+    const key = nodeGraphAudioPlayerPlaylistItemKey(item);
+    return key && playedKeys.has(key) && key !== playingKey;
+  });
+  pl.unplayed = items.filter((item) => {
+    const key = nodeGraphAudioPlayerPlaylistItemKey(item);
+    return key && key !== playingKey && !playedKeys.has(key);
+  });
+  if (playingKey) {
+    const found = items.find((item) => nodeGraphAudioPlayerPlaylistItemKey(item) === playingKey);
+    if (found) {
+      pl.playing = found;
+    }
+  }
+  return nodeGraphAudioPlayerPlaylistRebuildItems(pl);
 }
 
 function nodeGraphAudioPlayerPlaylistEnsureQueues(pl) {
   if (!pl || typeof pl !== "object") {
     return pl;
   }
-  if (Array.isArray(pl.played) && Array.isArray(pl.unplayed) && Object.prototype.hasOwnProperty.call(pl, "playing")) {
-    return nodeGraphAudioPlayerPlaylistRebuildItems(pl);
+  const hasQueues = Array.isArray(pl.played)
+    && Array.isArray(pl.unplayed)
+    && Object.prototype.hasOwnProperty.call(pl, "playing");
+  if (hasQueues && Array.isArray(pl.items) && pl.items.length) {
+    return nodeGraphAudioPlayerPlaylistSyncQueues(pl);
+  }
+  if (hasQueues) {
+    const playing = pl.playing ? [pl.playing] : [];
+    pl.items = [...pl.played, ...playing, ...pl.unplayed];
+    return nodeGraphAudioPlayerPlaylistSyncQueues(pl);
   }
   const items = Array.isArray(pl.items) ? pl.items : [];
   const i = Math.max(0, Math.min(items.length ? items.length - 1 : 0, Math.round(Number(pl.index) || 0)));
@@ -77,9 +126,10 @@ function nodeGraphAudioPlayerPlaylistNormalize(raw = null) {
     source.unplayed,
     played.length + playingList.length,
   );
-  let items = hasQueues
-    ? [...played, ...playingList, ...unplayed]
-    : nodeGraphAudioPlayerPlaylistNormalizeCardList(source.items, 0);
+  let items = nodeGraphAudioPlayerPlaylistNormalizeCardList(source.items, 0);
+  if (!items.length && hasQueues) {
+    items = [...played, ...playingList, ...unplayed];
+  }
   const index = Math.max(0, Math.min(items.length ? items.length - 1 : 0, Math.round(Number(source.index) || 0)));
   const selectedIndex = Math.max(
     0,
@@ -293,6 +343,7 @@ function nodeGraphAudioPlayerPlaylistForPersist(raw = null) {
     folderPath: n.folderPath,
     formats: n.formats,
     index: n.index,
+    items: (n.items || []).map(nodeGraphAudioPlayerPlaylistCardForPersist).filter(Boolean),
     loopMode: n.loopMode,
     played: (n.played || []).map(nodeGraphAudioPlayerPlaylistCardForPersist).filter(Boolean),
     playing: nodeGraphAudioPlayerPlaylistCardForPersist(n.playing),
@@ -332,14 +383,14 @@ function nodeGraphAudioPlayerPlaylistAdoptPlaying(pl, item, { retireCurrent = tr
   }
   const key = nodeGraphAudioPlayerPlaylistItemKey(item);
   if (pl.playing && nodeGraphAudioPlayerPlaylistItemKey(pl.playing) === key) {
-    return nodeGraphAudioPlayerPlaylistRebuildItems(pl);
+    return nodeGraphAudioPlayerPlaylistSyncQueues(pl);
   }
   nodeGraphAudioPlayerPlaylistPullItem(pl, item);
   if (retireCurrent && pl.playing) {
     pl.played = [...(pl.played || []), pl.playing];
   }
   pl.playing = item;
-  return nodeGraphAudioPlayerPlaylistRebuildItems(pl);
+  return nodeGraphAudioPlayerPlaylistSyncQueues(pl);
 }
 
 function nodeGraphAudioPlayerPlaylistResetHistory(nodeId) {
@@ -348,9 +399,8 @@ function nodeGraphAudioPlayerPlaylistResetHistory(nodeId) {
     return;
   }
   const pl = nodeGraphAudioPlayerPlaylistEnsureQueues(nodeGraphAudioPlayerPlaylistForNode(nodeId));
-  pl.unplayed = [...(pl.played || []), ...(pl.unplayed || [])];
   pl.played = [];
-  nodeGraphAudioPlayerPlaylistRebuildItems(pl);
+  nodeGraphAudioPlayerPlaylistSyncQueues(pl);
   node.playlist = pl;
   if (typeof setNodeGraphSampleStatus === "function") {
     setNodeGraphSampleStatus(nodeId, "play history reset");
@@ -1694,7 +1744,11 @@ function nodeGraphAudioPlayerPlaylistSmoothstep(t) {
 function nodeGraphAudioPlayerPlaylistPlayingIndex(nodeId, playingId = "") {
   const pl = nodeGraphAudioPlayerPlaylistEnsureQueues(nodeGraphAudioPlayerPlaylistForNode(nodeId));
   if (pl.playing) {
-    return Array.isArray(pl.played) ? pl.played.length : 0;
+    const key = nodeGraphAudioPlayerPlaylistItemKey(pl.playing);
+    const found = (pl.items || []).findIndex((item) => nodeGraphAudioPlayerPlaylistItemKey(item) === key);
+    if (found >= 0) {
+      return found;
+    }
   }
   const hinted = Math.max(0, Math.round(Number(pl.index) || 0));
   const sid = normalizeNodeGraphSampleId
@@ -1893,11 +1947,13 @@ function nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying = 
     );
     if (!item) {
       row.classList.add("is-empty");
+      row.classList.remove("is-played");
       row.dataset.slot = "empty";
       row.tabIndex = -1;
       row.setAttribute("aria-hidden", "true");
       row.dataset.active = "false";
       row.dataset.playing = "false";
+      row.dataset.queue = "";
       row.dataset.sampleId = "";
       row.title = "";
       const nameEmpty = row.querySelector(".node-music-player-pl-name");
@@ -1912,9 +1968,14 @@ function nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying = 
     row.removeAttribute("aria-hidden");
     row.dataset.sampleId = item.sampleId;
     row.dataset.active = index === selected ? "true" : "false";
-    const playedCount = Array.isArray(pl.played) ? pl.played.length : 0;
-    row.dataset.playing = index === playedCount ? "true" : "false";
-    row.dataset.queue = index < playedCount ? "played" : (index === playedCount ? "playing" : "unplayed");
+    const playedKeys = nodeGraphAudioPlayerPlaylistPlayedKeySet(pl);
+    const playingKey = nodeGraphAudioPlayerPlaylistItemKey(pl.playing);
+    const itemKey = nodeGraphAudioPlayerPlaylistItemKey(item);
+    const isPlaying = Boolean(itemKey) && itemKey === playingKey;
+    const isPlayed = Boolean(itemKey) && playedKeys.has(itemKey) && !isPlaying;
+    row.dataset.playing = isPlaying ? "true" : "false";
+    row.dataset.queue = isPlaying ? "playing" : (isPlayed ? "played" : "unplayed");
+    row.classList.toggle("is-played", isPlayed);
     const num = row.querySelector(".node-music-player-pl-num");
     const name = row.querySelector(".node-music-player-pl-name");
     if (num) {

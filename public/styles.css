@@ -1880,6 +1880,11 @@ button.scw-label:hover,
 .node-music-player-pl-row[data-playing="true"] {
   background: var(--phosphor-hud-color-dim);
 }
+.node-music-player-pl-row.is-played .node-music-player-pl-name,
+.node-music-player-pl-row[data-queue="played"] .node-music-player-pl-name {
+  text-decoration: line-through;
+  opacity: 0.62;
+}
 .node-music-player-pl-num {
   grid-column: 1;
   grid-row: 1;

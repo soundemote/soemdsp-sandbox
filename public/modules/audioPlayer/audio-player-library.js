@@ -312,13 +312,15 @@ function nodeGraphAudioPlayerLibraryBindCards(nodeId, files, extras = {}) {
     card.listNumber = index + 1;
     return card;
   });
+  pl.items = cards;
   pl.played = [];
   pl.playing = cards[0] || null;
   pl.unplayed = cards.slice(1);
-  if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
+  if (typeof nodeGraphAudioPlayerPlaylistSyncQueues === "function") {
+    nodeGraphAudioPlayerPlaylistSyncQueues(pl);
+  } else if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
     nodeGraphAudioPlayerPlaylistRebuildItems(pl);
   } else {
-    pl.items = cards;
     pl.index = 0;
     pl.selectedIndex = 0;
   }
@@ -441,8 +443,32 @@ function nodeGraphAudioPlayerLibraryShufflePlaylist(nodeId) {
   const shuffleFn = typeof nodeGraphAudioPlayerPlaylistShuffleArray === "function"
     ? nodeGraphAudioPlayerPlaylistShuffleArray
     : (list) => list;
-  pl.unplayed = shuffleFn(pl.unplayed || []);
-  if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
+  const items = Array.isArray(pl.items) ? pl.items : [];
+  const playedKeys = typeof nodeGraphAudioPlayerPlaylistPlayedKeySet === "function"
+    ? nodeGraphAudioPlayerPlaylistPlayedKeySet(pl)
+    : new Set();
+  const playingKey = typeof nodeGraphAudioPlayerPlaylistItemKey === "function"
+    ? nodeGraphAudioPlayerPlaylistItemKey(pl.playing)
+    : "";
+  const slots = [];
+  const cards = [];
+  for (let i = 0; i < items.length; i += 1) {
+    const key = typeof nodeGraphAudioPlayerPlaylistItemKey === "function"
+      ? nodeGraphAudioPlayerPlaylistItemKey(items[i])
+      : "";
+    if (key && key !== playingKey && !playedKeys.has(key)) {
+      slots.push(i);
+      cards.push(items[i]);
+    }
+  }
+  const shuffled = shuffleFn(cards);
+  for (let n = 0; n < slots.length; n += 1) {
+    items[slots[n]] = shuffled[n];
+  }
+  pl.items = items;
+  if (typeof nodeGraphAudioPlayerPlaylistSyncQueues === "function") {
+    nodeGraphAudioPlayerPlaylistSyncQueues(pl);
+  } else if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
     nodeGraphAudioPlayerPlaylistRebuildItems(pl);
   }
   node.playlist = pl;
@@ -784,12 +810,15 @@ function nodeGraphAudioPlayerLibraryPlayNext(nodeId) {
     pl.played = [...(pl.played || []), pl.playing];
     pl.playing = null;
   }
+  if (typeof nodeGraphAudioPlayerPlaylistSyncQueues === "function") {
+    nodeGraphAudioPlayerPlaylistSyncQueues(pl);
+  }
   if (!(pl.unplayed || []).length) {
     if (wrap && (pl.played || []).length) {
-      pl.unplayed = pl.shuffle && typeof nodeGraphAudioPlayerPlaylistShuffleArray === "function"
-        ? nodeGraphAudioPlayerPlaylistShuffleArray(pl.played)
-        : pl.played.slice();
       pl.played = [];
+      if (typeof nodeGraphAudioPlayerPlaylistSyncQueues === "function") {
+        nodeGraphAudioPlayerPlaylistSyncQueues(pl);
+      }
     } else {
       if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
         nodeGraphAudioPlayerPlaylistRebuildItems(pl);
@@ -810,14 +839,24 @@ function nodeGraphAudioPlayerLibraryPlayNext(nodeId) {
     }
   }
   let next = null;
-  if (pl.shuffle && pl.unplayed.length) {
-    const pick = Math.floor(Math.random() * pl.unplayed.length);
-    next = pl.unplayed.splice(pick, 1)[0];
-  } else {
-    next = pl.unplayed.shift();
+  const pool = Array.isArray(pl.unplayed) ? pl.unplayed : [];
+  if (pl.shuffle && pool.length) {
+    next = pool[Math.floor(Math.random() * pool.length)];
+  } else if (pool.length) {
+    const from = Math.max(0, Math.round(Number(pl.index) || 0));
+    const keyOf = typeof nodeGraphAudioPlayerPlaylistItemKey === "function"
+      ? nodeGraphAudioPlayerPlaylistItemKey
+      : (item) => String(item?.path || item?.id || "");
+    const after = pool.find((item) => {
+      const found = (pl.items || []).findIndex((entry) => keyOf(entry) === keyOf(item));
+      return found > from;
+    });
+    next = after || pool[0];
   }
   pl.playing = next || null;
-  if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
+  if (typeof nodeGraphAudioPlayerPlaylistSyncQueues === "function") {
+    nodeGraphAudioPlayerPlaylistSyncQueues(pl);
+  } else if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
     nodeGraphAudioPlayerPlaylistRebuildItems(pl);
   }
   if (node) {
@@ -856,7 +895,9 @@ function nodeGraphAudioPlayerLibraryPlayPrev(nodeId) {
     }
     pl.playing = pl.played.pop();
   }
-  if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
+  if (typeof nodeGraphAudioPlayerPlaylistSyncQueues === "function") {
+    nodeGraphAudioPlayerPlaylistSyncQueues(pl);
+  } else if (typeof nodeGraphAudioPlayerPlaylistRebuildItems === "function") {
     nodeGraphAudioPlayerPlaylistRebuildItems(pl);
   }
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
