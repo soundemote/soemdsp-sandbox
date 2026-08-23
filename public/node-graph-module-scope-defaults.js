@@ -182,9 +182,9 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   dotBudget: 3944,
   fullDotEconomy: false,
   dotsOnly: false,
-  // Rising-edge auto-trigger on In (snaps pen left). On so PolyBLEP / 1D
-  // phosphor faces lock to the period instead of crawling.
-  sourceSync: true,
+  // Rising-edge auto-trigger on In (snaps pen left). Off unless the user
+  // turns Sync on — same default as Instant Trace / other 1D faces.
+  sourceSync: false,
   skipDiscontinuities: false,
   sweepSeconds: 0.01,
   gradientStops: Object.freeze([

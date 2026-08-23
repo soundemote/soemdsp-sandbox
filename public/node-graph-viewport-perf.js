@@ -98,6 +98,25 @@ function clearNodeGraphViewportGestureClass() {
   }
 }
 
+if (typeof window !== "undefined" && !window.__nodeGraphViewportStrokeRescue) {
+  window.__nodeGraphViewportStrokeRescue = true;
+  window.addEventListener("pageshow", () => {
+    if (typeof nodeGraphViewportGestureActive === "function" && nodeGraphViewportGestureActive()) {
+      return;
+    }
+    clearNodeGraphViewportGestureClass();
+  });
+  document.addEventListener("pointerdown", () => {
+    if (typeof nodeGraphViewportGestureActive === "function" && nodeGraphViewportGestureActive()) {
+      return;
+    }
+    const workspace = document.getElementById("nodeGraphWorkspace");
+    if (workspace?.classList.contains("viewport-zooming")) {
+      clearNodeGraphViewportGestureClass();
+    }
+  }, true);
+}
+
 /**
  * Light path only: CSS zoom/pan vars + cheap chrome (buttons, world readout).
  * Safe to call every wheel/pointermove sample.
