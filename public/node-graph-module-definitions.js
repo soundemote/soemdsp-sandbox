@@ -234,6 +234,7 @@ const nodeGraphNodeLabels = Object.freeze({
   lineBurnOscilloscope: "1D Phosphor",
   scope2d: "2D Phosphor",
   scope2dTrace: "2D Trace",
+  vectorDot: "Vector Dot",
   vectorRgb: "Vector RGB",
   rasterRgb: "Pixel Grid",
   gradientVectorscope: "Gradient Vectorscope",
@@ -3282,6 +3283,9 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     displayType: "vectorDot",
     displayRenderer: "vectorDot",
+    displayModes: [
+      { key: "vectorDot", label: "Vector Dot", renderer: "vectorDot", source: { value: "Digital Out" } },
+    ],
     inputs: ["Reset"],
     outputAliases: {
       Out: "Digital Out",
@@ -10188,6 +10192,24 @@ const nodeGraphModuleDefinitions = (
       { key: "traceDisplayStereoRight", label: "Right", port: "Right" },
     ],
     visualSink: true
+  },
+  vectorDot: {
+    planRole: "monitor",
+    bufferedInputs: ["In"],
+    displayType: "vectorDot",
+    displayRenderer: "vectorDot",
+    displayModes: [
+      { key: "vectorDot", label: "Vector Dot", renderer: "vectorDot", source: { value: "In" } },
+    ],
+    inputs: ["In"],
+    layout: "traceDisplay",
+    outputs: ["Thru"],
+    outputLabels: { Thru: "←" },
+    parameters: [],
+    visualInputs: [
+      { key: "vectorDot", label: "In", port: "In" },
+    ],
+    visualSink: true,
   },
   dotOscilloscope: {
     planRole: "monitor",

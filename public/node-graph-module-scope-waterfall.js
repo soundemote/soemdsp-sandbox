@@ -120,9 +120,10 @@ function nodeGraphWaterfallLatestY(buffer, slot, settings, height) {
 }
 
 /**
- * One vertex per destination pixel (last sample in that column).
- * Folding every sample into a few pixels made a fat scribble — diamonds /
- * saw-teeth along a sine, same artifact.
+ * Min/max envelope per destination column (every sample in the time bucket).
+ * Last-sample-per-column looked downsampled (missed peaks). Plotting every
+ * sample as a circular stamp fattened sine crests (slow dY, stamps pile up).
+ * Two verts per column, time-ordered extrema, keeps peaks without blobs.
  */
 function nodeGraphWaterfallColumnPath(buffer, slot, columns, height, prevY, settings, start, end) {
   const live = nodeGraphWaterfallPrepare(buffer, settings);
@@ -141,12 +142,43 @@ function nodeGraphWaterfallColumnPath(buffer, slot, columns, height, prevY, sett
     points.push({ x: 0, y: prevY });
   }
   for (let c = 0; c < cols; c += 1) {
-    const idx = from + Math.min(span - 1, Math.floor(((c + 1) / cols) * span) - 1);
-    const i = Math.max(from, Math.min(to - 1, idx));
-    points.push({
-      x: c + 0.5,
-      y: nodeGraphWaterfallY(live[i], amp.gain, amp.offset, midY, halfHeight),
-    });
+    const lo = from + Math.floor((c / cols) * span);
+    const hi = from + Math.min(span, Math.floor(((c + 1) / cols) * span));
+    const rangeStart = Math.max(from, lo);
+    const rangeEnd = Math.max(rangeStart + 1, Math.min(to, hi === lo ? lo + 1 : hi));
+    let minV = Infinity;
+    let maxV = -Infinity;
+    let minI = rangeStart;
+    let maxI = rangeStart;
+    for (let i = rangeStart; i < rangeEnd; i += 1) {
+      const v = Number(live[i]);
+      if (!Number.isFinite(v)) {
+        continue;
+      }
+      if (v < minV) {
+        minV = v;
+        minI = i;
+      }
+      if (v > maxV) {
+        maxV = v;
+        maxI = i;
+      }
+    }
+    if (!(minV <= maxV)) {
+      continue;
+    }
+    const x = c + 0.5;
+    const yMin = nodeGraphWaterfallY(minV, amp.gain, amp.offset, midY, halfHeight);
+    const yMax = nodeGraphWaterfallY(maxV, amp.gain, amp.offset, midY, halfHeight);
+    if (minI === maxI || Math.abs(yMin - yMax) < 0.5) {
+      points.push({ x, y: yMin });
+    } else if (minI < maxI) {
+      points.push({ x, y: yMin });
+      points.push({ x, y: yMax });
+    } else {
+      points.push({ x, y: yMax });
+      points.push({ x, y: yMin });
+    }
   }
   return points;
 }
@@ -236,7 +268,8 @@ function nodeGraphWaterfallStampLayer(tape, layer, faceMin, blur, coverage) {
     brightness: Math.max(0, Number(layer.brightness) || 0),
     color: coverage ? "#ffffff" : layer.color,
     maxDots: 2048,
-    spacingPx: Math.max(0.7, radius * 0.4),
+    // ≥ radius: no overlapping discs at slow dY (sine peaks).
+    spacingPx: Math.max(1, radius),
   });
 }
 

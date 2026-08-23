@@ -512,18 +512,6 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
       return clampNodeSliderValue(n, 1, 24000);
     },
   }),
-  // LED lamp: hue degrees, blur 0–1, rounding %, brightness 0–1.
-  ledLamp: Object.freeze({
-    hue: (value) => {
-      const n = Number(value);
-      if (!Number.isFinite(n)) return 0;
-      // App-wide hue policy: no wrap — clamp to red edges (0…360).
-      return clampNodeSliderValue(n, 0, 360);
-    },
-    lineThickness: nodeGraphTraceDisplayClampUnit,
-    rounding: (value) => clampNodeSliderValue(Number(value) || 0, 0, 100),
-    dot1Brightness: nodeGraphTraceDisplayClampBrightness,
-  }),
   // Phosphor Dot: same blur continuum as 2D Phosphor stamps.
   dot: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,

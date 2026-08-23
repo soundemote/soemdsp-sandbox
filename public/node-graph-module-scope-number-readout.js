@@ -77,23 +77,10 @@ function nodeGraphNumberReadoutRearmAllFacesAfterLiveStart() {
     canvas._numberReadoutLastValueText = "";
     canvas._numberReadoutLastGoodValueText = "";
   }
-  for (const face of document.querySelectorAll(".node-led-face")) {
-    if (face?.dataset) {
-      delete face.dataset.ledAppearance;
-      // Stop wipe zeros these; allow live paint to re-light.
-      if (face.dataset.ledLevel != null) {
-        face.dataset.ledLevel = "0";
-      }
-    }
-    const lamp = face.querySelector?.(".node-led-lamp");
-    if (lamp?.dataset) {
-      delete lamp.dataset.ledAppearance;
-    }
-  }
 }
 
 /**
- * Paint Value LCD / Value LED / Pitch readout / lamp LED faces NOW without the
+ * Paint Value LCD / Value LED / Pitch readout / Vector Dot faces NOW without the
  * shared scope canvas gate. After pause→stop the main draw loop often early-outs
  * on empty buffers ("stale-buffers") and never reaches these face painters —
  * so digits stay wiped / lamps stay black until something else forces a pass.
@@ -116,8 +103,8 @@ function paintNodeGraphValueFacesNow(pixelRatio = window.devicePixelRatio || 1) 
       || type === "numberReadout"
       || type === "valueLcd"
       || type === "helmholtzPitch";
-    const isLedLamp = renderer === "ledLamp" || renderer === "vectorDot" || renderer === "pulseDot";
-    if (!isNumberFace && !isLedLamp) {
+    const isVectorDot = renderer === "vectorDot" || renderer === "pulseDot";
+    if (!isNumberFace && !isVectorDot) {
       continue;
     }
     const captured = typeof nodeGraphModuleScopeCapturedBufferForSlot === "function"
@@ -141,18 +128,8 @@ function paintNodeGraphValueFacesNow(pixelRatio = window.devicePixelRatio || 1) 
       slot,
     };
     try {
-      if (isLedLamp && typeof drawNodeGraphLedLampItem === "function") {
-        // Ensure light target from samples when metadata is missing.
-        if (buffer && !Number.isFinite(Number(buffer.nodeGraphScopeLightTarget))) {
-          let peak = 0;
-          const n = Math.min(buffer.length || 0, 64);
-          for (let i = Math.max(0, (buffer.length || 0) - n); i < (buffer.length || 0); i += 1) {
-            const s = Math.abs(Number(buffer[i]) || 0);
-            if (s > peak) peak = s;
-          }
-          buffer.nodeGraphScopeLightTarget = Math.max(0, Math.min(1, peak));
-        }
-        drawNodeGraphLedLampItem(null, item, pr);
+      if (isVectorDot && typeof drawNodeGraphVectorDotItem === "function") {
+        drawNodeGraphVectorDotItem(renderer, item, pr);
         painted += 1;
         continue;
       }

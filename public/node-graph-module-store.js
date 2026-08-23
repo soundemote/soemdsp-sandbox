@@ -139,6 +139,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "phosphillator",
   "hypersaw",
   "bloomGlow",
+  "gradientVectorscope",
 ]);
 
 // Types that used to be on the UC shelf and are now shipped. Always strip
@@ -153,6 +154,7 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
 /** Short shop-card reminder for under-construction modules (title tooltip). */
 const nodeGraphModuleConstructionPlans = Object.freeze({
   bloomGlow: "Screen bloom/glow/dim from CV. Parked until the shader wash stack is live.",
+  gradientVectorscope: "Woscope XY beam with gradient-along-length and dest persist. Parked until that face is finished.",
   canvas: "Composite images, scopes, and shaders. Parked until the shader stack ships.",
   screenSpaceShader: "Scripted screen FX from declared inputs. Parked until shader host lands.",
   rgbaHsla: "RGB/HSL screen wash. Parked until shader color controls land.",
@@ -435,6 +437,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Clock",
     description: "Free-running pulse clock to drive sequencers, envelopes, and rhythmic events.",
     notes: ["clock", "rate and phase control", "duty cycle", "reset input", "T"],
+  },
+  vectorDot: {
+    category: "oscilloscope",
+    label: "Vector Dot",
+    description: "Per-frame energy disc. Mean of this frame's samples lights the dot (duty 50% = half bright).",
+    notes: ["vector dot", "energy", "brightness", "smoothstep", "clock lamp"],
   },
   simulationTime: {
     category: "clock",

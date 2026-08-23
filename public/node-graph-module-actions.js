@@ -1048,7 +1048,16 @@ function copyNodeGraphModule(sourceNode) {
       }
       : {}),
     ...(sourceNode.type === "led"
-      ? { led: normalizeNodeGraphLedLayout(sourceNode.led) }
+      ? {
+        vectorDotSettings: typeof normalizeNodeGraphVectorDotSettings === "function"
+          ? normalizeNodeGraphVectorDotSettings(
+            sourceNode.vectorDotSettings
+            || (typeof nodeGraphMigrateLegacyLedToVectorDot === "function"
+              ? nodeGraphMigrateLegacyLedToVectorDot(sourceNode.led)
+              : sourceNode.led),
+          )
+          : (sourceNode.vectorDotSettings || {}),
+      }
       : {}),
     ...(nodeGraphModuleIsGraphType(sourceNode.type)
       ? { graph: nodeGraphGraphForNode(sourceNode) }
@@ -2526,15 +2535,17 @@ function setNodeGraphLedColorFromContext({ record = true } = {}) {
   if (!targetNode) {
     return;
   }
-  // The lamp is described by a hue now (see normalizeNodeGraphLedLayout), so
-  // this legacy swatch has to move the hue too -- otherwise it would write a
-  // colour the renderer never reads. Full control lives in the LED options
-  // window (right-click the face).
-  targetNode.led = normalizeNodeGraphLedLayout({
-    ...targetNode.led,
-    color: input?.value,
-    hue: nodeGraphLedHueFromHexColor(input?.value) ?? normalizeNodeGraphLedLayout(targetNode.led).hue,
-  });
+  const hue = typeof nodeGraphHueDegFromHex === "function"
+    ? nodeGraphHueDegFromHex(input?.value)
+    : 0;
+  targetNode.vectorDotSettings = typeof normalizeNodeGraphVectorDotSettings === "function"
+    ? normalizeNodeGraphVectorDotSettings({
+      ...(targetNode.vectorDotSettings || {}),
+      hue,
+      color: input?.value,
+      dot1Color: input?.value,
+    })
+    : { ...(targetNode.vectorDotSettings || {}), hue };
   commitNodeGraphPatch(patch, {
     record,
     status: "led color changed",

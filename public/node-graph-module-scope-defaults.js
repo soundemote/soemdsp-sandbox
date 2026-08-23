@@ -605,25 +605,16 @@ const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
     : nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
-  // Closed X/Y orbits (RoundShape, attractors) need ≥1 period on screen.
-  // 0.05s only drew a sliver of a 1 Hz Lissajous and looked “broken up”.
-  historySeconds: 1,
+  ghost: typeof PhosphorResidual !== "undefined" ? PhosphorResidual.DEFAULT_GHOST : 0.45,
+  trail: typeof PhosphorResidual !== "undefined" ? PhosphorResidual.DEFAULT_TRAIL : 0.88,
   // Vector stroke; density scales face buffer for lo-fi/chunky look (default 1).
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   scale: nodeGraphScopePhosphorLookDefaults.scale,
   skipDiscontinuities: false,
 });
 
-/** Optional per-type 2D Trace defaults (e.g. longer history for closed shapes). */
-const nodeGraphModuleScope2dTraceDisplayDefaultOverrides = Object.freeze({
-  // RoundShape: full closed sine→square orbit; keep a couple of cycles.
-  ellipsoid: Object.freeze({
-    historySeconds: 2,
-  }),
-  ellipsoidOsc: Object.freeze({
-    historySeconds: 2,
-  }),
-});
+/** Optional per-type 2D Trace defaults. */
+const nodeGraphModuleScope2dTraceDisplayDefaultOverrides = Object.freeze({});
 
 function nodeGraphScope2dTraceSettingsDefaultsForModuleType(type) {
   const overrides = type

@@ -711,6 +711,24 @@ function nodeGraphScope2dTraceCanvasSquare(canvas) {
   return nodeGraphScope2dBurnCanvasSquare(canvas);
 }
 
+/** Fade dest pixels toward the plate (Ghost/Trail dest persist). */
+function nodeGraphScopeDestFadeTowardPlate(context, canvas, plateCss, trail, ghost) {
+  if (!context || !canvas) {
+    return;
+  }
+  const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+  const keeps = Residual?.residualKeeps
+    ? Residual.residualKeeps(trail, ghost)
+    : { keepSlow: Math.max(0, Number(trail) || 0) * 0.97 };
+  const fade = Math.max(0.002, Math.min(0.55, 1 - Number(keeps.keepSlow)));
+  context.save();
+  context.globalCompositeOperation = "source-over";
+  context.globalAlpha = fade;
+  context.fillStyle = plateCss;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.restore();
+}
+
 // nodeGraphScope2dBurnCanvasSquare → node-graph-module-scope-draw-burn.js
 // Continuity gate for downsampled X/Y polylines. Too tight (old 8% of face)
 // broke closed orbits into dashed scraps when history held multiple cycles
@@ -828,7 +846,7 @@ function nodeGraphScope2dCollapseTracePoints(points, minPx = 0.5) {
   return out;
 }
 
-function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) {
+function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings, startIndex = 0) {
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
   if (!canvasSquare || count <= 0) {
     return [];
@@ -841,7 +859,7 @@ function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) 
   const skipDisc = nodeGraphScope2dSkipDiscontinuitiesEnabled(settings);
   let prevIndex = -1;
   let prevPoint = null;
-  let skippedOrigin = false;
+  let skippedOrigin = startIndex > 0;
   const visit = (index) => {
     const sx = Number(buffer.x[index]);
     const sy = Number(buffer.y[index]);
@@ -875,7 +893,8 @@ function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) 
     prevIndex = index;
     prevPoint = point;
   };
-  const start = count > cap ? count - cap : 0;
+  const fromCap = count > cap ? count - cap : 0;
+  const start = Math.max(fromCap, Math.max(0, Math.floor(Number(startIndex) || 0)));
   for (let index = start; index < count; index += 1) {
     visit(index);
   }

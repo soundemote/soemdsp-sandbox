@@ -877,8 +877,7 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   if (node.type === "macroControls" && typeof openNodeGraphMacroControlsDisplaySettings === "function") {
     return openNodeGraphMacroControlsDisplaySettings(event);
   }
-  // LED uses the shared display inspector (formType ledLamp) — same popover
-  // as Number Readout / XY Pad / scopes.
+  // LED uses Vector Dot Display Settings — same popover as other faces.
   if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
     return false;
   }

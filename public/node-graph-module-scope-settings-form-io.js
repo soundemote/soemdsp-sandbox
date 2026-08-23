@@ -30,18 +30,6 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
     && typeof syncNodeGraphStampPreview === "function") {
     syncNodeGraphStampPreview(host, node?.traceDisplaySettings || {});
   }
-  // LED: bind range-slider panel (same control scheme as the old LED window).
-  if (type === "ledLamp") {
-    if (node?.id) {
-      nodeGraphMvp.ledSettingsTargetNode = String(node.id);
-    }
-    if (typeof bindNodeGraphLedDisplaySettingsBody === "function") {
-      bindNodeGraphLedDisplaySettingsBody(host);
-    }
-    if (typeof renderNodeGraphLedSettingsWindow === "function") {
-      renderNodeGraphLedSettingsWindow();
-    }
-  }
   if (type === "keypadFace") {
     if (typeof bindNodeGraphKeypadDisplaySettingsBody === "function") {
       bindNodeGraphKeypadDisplaySettingsBody(host);
@@ -406,11 +394,6 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "spectrogramBurn") {
     return normalizeNodeGraphSpectrogramSettings(nodeGraphSpectrogramSettingsDefaults);
   }
-  if (type === "ledLamp") {
-    return typeof normalizeNodeGraphLedLayout === "function"
-      ? normalizeNodeGraphLedLayout()
-      : { hue: 0, brightness: 1, blur: 0, rounding: 100, cornerShape: "squircle" };
-  }
   if (type === "rgbShapeFace") {
     return typeof normalizeNodeGraphRgbShapeSettings === "function"
       ? normalizeNodeGraphRgbShapeSettings()
@@ -582,21 +565,6 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   ) {
     return normalizeNodeGraphScope2dSettings(settings);
   }
-  if (type === "ledLamp") {
-    // Map shared form field names → LED model keys (incl. gradientStops).
-    const raw = settings && typeof settings === "object" ? settings : {};
-    return typeof normalizeNodeGraphLedLayout === "function"
-      ? normalizeNodeGraphLedLayout({
-        ...raw,
-        brightness: raw.brightness ?? raw.dot1Brightness,
-        blur: raw.blur ?? raw.lineThickness,
-        gradientStops: raw.gradientStops ?? raw.gradient,
-        hue: raw.hue,
-        rounding: raw.rounding,
-        cornerShape: raw.cornerShape,
-      })
-      : raw;
-  }
   if (type === "rgbShapeFace") {
     return typeof normalizeNodeGraphRgbShapeSettings === "function"
       ? normalizeNodeGraphRgbShapeSettings(settings)
@@ -748,11 +716,6 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
         node?.vectorDotSettings || node?.zeroDBurnSettings || node?.traceDisplaySettings,
       );
   }
-  if (settingsSchema === "ledLamp") {
-    return typeof normalizeNodeGraphLedLayout === "function"
-      ? normalizeNodeGraphLedLayout(node.led)
-      : (node.led || {});
-  }
   if (settingsSchema === "rgbShapeFace") {
     return typeof nodeGraphRgbShapeSettingsForNode === "function"
       ? nodeGraphRgbShapeSettingsForNode(node)
@@ -835,36 +798,6 @@ function readNodeGraphTraceDisplaySettingsForm() {
     nodeGraphTraceDisplayCurrentSettingsForFormType(formType),
     formType,
   );
-  // LED uses its own range / corner controls (data-led-*), not the stepper form.
-  if (formType === "ledLamp") {
-    const panel = root?.querySelector?.("[data-led-display-settings-panel]") || root;
-    const next = { ...current };
-    for (const key of ["brightness", "blur", "rounding", "fillPercent"]) {
-      const input = panel?.querySelector?.(`[data-led-field="${key}"]`);
-      if (input) {
-        next[key] = Number(input.value);
-      }
-    }
-    const activeCorner = panel?.querySelector?.("[data-led-corner].active, [data-led-corner][aria-pressed='true']");
-    if (activeCorner) {
-      next.cornerShape = activeCorner.getAttribute("data-led-corner") === "square"
-        ? "square"
-        : "squircle";
-    }
-    // Gradient editor writes via applyNodeGraphTraceDisplaySettingsForm — must
-    // not early-return before pulling stops (was the bright→dim failure mode).
-    if (nodeGraphDisplaySettingsFormTypeUsesGradient(formType)) {
-      const editor = typeof NodeGraphGradientSelector !== "undefined"
-        ? NodeGraphGradientSelector.getActive?.()
-        : (nodeGraphMvp?.gradientSelector
-          || nodeGraphMvp?.spectrogramGradientEditor
-          || nodeGraphMvp?.sharedGradientEditor);
-      if (editor && typeof editor.getStops === "function") {
-        next.gradientStops = editor.getStops();
-      }
-    }
-    return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
-  }
   if (formType === "portalFace") {
     const panel = root?.querySelector?.("[data-portal-display-settings-panel]") || root;
     const next = { ...current };
@@ -1076,6 +1009,9 @@ function readNodeGraphTraceDisplaySettingsForm() {
       next[key] = input.value;
       if (key === "dot1Color") {
         next.color = input.value;
+        if (typeof nodeGraphHueDegFromHex === "function") {
+          next.hue = nodeGraphHueDegFromHex(input.value);
+        }
       }
       if (key === "backgroundColor") {
         next.background = input.value;
@@ -1166,10 +1102,6 @@ function nodeGraphDisplaySettingsFormValue(settings, key) {
   if (key === "ghostBrightness") {
     return settings.ghostBrightness ?? settings.ghost;
   }
-  // LED blur reuses the Blur field key.
-  if (key === "lineThickness" && nodeGraphTraceDisplaySettingsFormType() === "ledLamp") {
-    return settings.blur ?? settings.lineThickness;
-  }
   if (key === "dot1Color") {
     return settings.dot1Color ?? settings.color;
   }
@@ -1214,24 +1146,6 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   const formType = nodeGraphTraceDisplaySettingsFormType();
   const root = nodeGraphTraceDisplaySettingsRoot();
   const normalized = normalizeNodeGraphDisplaySettingsForFormType(settings, formType);
-  // LED uses dedicated range controls — not the generic stepper writers.
-  if (formType === "ledLamp") {
-    if (typeof syncNodeGraphLedDisplaySettingsControls === "function") {
-      const panel = root?.querySelector?.("[data-led-display-settings-panel]") || root;
-      syncNodeGraphLedDisplaySettingsControls(panel, normalized);
-    }
-    if (nodeGraphDisplaySettingsFormTypeUsesGradient(formType)) {
-      const editor = typeof NodeGraphGradientSelector !== "undefined"
-        ? NodeGraphGradientSelector.getActive?.()
-        : (nodeGraphMvp?.gradientSelector
-          || nodeGraphMvp?.spectrogramGradientEditor
-          || nodeGraphMvp?.sharedGradientEditor);
-      if (editor && typeof editor.setStops === "function" && normalized.gradientStops) {
-        editor.setStops(normalized.gradientStops);
-      }
-    }
-    return;
-  }
   if (formType === "portalFace") {
     const panel = root?.querySelector?.("[data-portal-display-settings-panel]") || root;
     if (typeof syncNodeGraphPortalDisplaySettingsControls === "function") {

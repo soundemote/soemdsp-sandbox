@@ -83,7 +83,6 @@ const nodeGraphModuleScopeCustomRenderers = {
   // public/modules/oscilloscopeBank/oscilloscope-bank-display.js
   // videoscopeBurn self-registers from
   // public/modules/videoscope/videoscope-display.js
-  // ledLamp self-registers from public/modules/led/led-display.js
   // limiterGainFace self-registers from
   // public/modules/lookaheadLimiter/lookahead-limiter-display.js
 };

@@ -126,8 +126,10 @@ function createNodeGraphPatchNode(type, options = {}) {
     node.layout = normalizeNodeGraphKeypadLayout(opts.layout);
   } else if (nodeGraphModuleDefinitions[resolvedType]?.layout === "image") {
     node.layout = normalizeNodeGraphImageLayout(opts.layout);
-  } else if (nodeGraphModuleDefinitions[resolvedType]?.layout === "led") {
-    node.led = normalizeNodeGraphLedLayout(opts.led);
+  } else if (resolvedType === "led") {
+    node.vectorDotSettings = typeof normalizeNodeGraphVectorDotSettings === "function"
+      ? normalizeNodeGraphVectorDotSettings(opts.vectorDotSettings || opts.led)
+      : (opts.vectorDotSettings || {});
   }
   if (nodeGraphModuleIsGraphType(resolvedType)) {
     node.graph = normalizeNodeGraphGraph(opts.graph);

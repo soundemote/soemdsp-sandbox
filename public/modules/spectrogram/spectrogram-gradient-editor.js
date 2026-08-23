@@ -1333,12 +1333,6 @@
       defaultStops: "phosphor",
       hint: "Select a stop · presets · live audition on the LCD (energy → color)",
     }),
-    // LED: mono energy (level × brightness) → free multi-stop LUT (may go bright→dim).
-    ledLamp: Object.freeze({
-      channels: "color",
-      defaultStops: "phosphor",
-      hint: "Energy → color · stops may go bright→dim · live on the lamp",
-    }),
     // RGB Shape: Position param samples this LUT for fill color.
     rgbShapeFace: Object.freeze({
       channels: "color",

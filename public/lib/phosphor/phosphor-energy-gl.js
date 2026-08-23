@@ -171,7 +171,7 @@
         e = pow(clamp(e, 0.0, 1.0), 0.88);
       }
       // Tiny dither in LUT domain so color doesn't stair-step with energy.
-      e = clamp(e + (n - 0.5) * (1.0 / 512.0), 0.0, 1.0);
+      e = clamp(e + (n - 0.5) * (1.0 / 512.0), 0.0, 0.999);
       vec3 c = texture2D(uLut, vec2(e, 0.5)).rgb;
       float a = clamp(e * uTrailGain, 0.0, 1.0);
       gl_FragColor = vec4(c * a, a);

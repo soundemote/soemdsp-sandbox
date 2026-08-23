@@ -1471,6 +1471,9 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       dotOscilloscope: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
       }),
+      vectorDot: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
       videoscope: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Thru: this.safeFilterNumber(mixInput(nodeId, "A"), null),
       }),

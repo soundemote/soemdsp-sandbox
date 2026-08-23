@@ -204,155 +204,6 @@ function normalizeNodeGraphGraphConnections(graphConnections = []) {
 }
 
 const nodeGraphLedDefaultColor = "#ff0000";
-const nodeGraphLedCenterColor = "#ffffff";
-
-// LED light model:
-//   energy = clamp(level * brightness, 0..1)   // mono "brightness" channel
-//   color  = sample multi-stop gradient at energy  // free LUT (may go bright→dim)
-// Legacy hue is only used to seed a default black→hue→white ramp when a patch
-// has no gradientStops yet.
-//
-// rounding/cornerShape are the same pair the Music Player's waveform panel
-// uses: rounding is a PERCENTAGE of the largest radius the face can take
-// (half its shorter side), so 100 is fully round at any module size, and it
-// means the same thing to both corner shapes.
-const nodeGraphLedDefaultGradientStops = Object.freeze([
-  Object.freeze({ t: 0, color: "#000000" }),
-  Object.freeze({ t: 0.5, color: "#ff0000" }),
-  Object.freeze({ t: 1, color: "#ffffff" }),
-]);
-
-const nodeGraphLedDefaultSettings = Object.freeze({
-  blur: 0.35,
-  brightness: 0.5,
-  cornerShape: "squircle",
-  // 0% = inscribed square (never a stretched rectangle of the cell);
-  // 100% = lamp plate fills the available face area.
-  fillPercent: 0,
-  // Kept for migration / legacy UI; color comes from gradientStops.
-  hue: 0,
-  rounding: 100,
-  gradientStops: nodeGraphLedDefaultGradientStops,
-  // Decorative image layers (back → lamp → top). Same data-URL shape as value slider face.
-  bottomImage: Object.freeze({ dataUrl: "", fileName: "" }),
-  topImage: Object.freeze({ dataUrl: "", fileName: "" }),
-});
-
-function normalizeNodeGraphLedImageLayer(source = {}) {
-  return typeof nodeGraphNormalizeImageAsset === "function"
-    ? nodeGraphNormalizeImageAsset(source)
-    : { dataUrl: "", fileName: "" };
-}
-
-// A legacy node.led.color hex becomes the equivalent hue, so patches saved
-// before the hue-based model keep the lamp color their author picked.
-function nodeGraphLedHueFromHexColor(hex) {
-  const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || "").trim());
-  if (!match) {
-    return null;
-  }
-  const [r, g, b] = match.slice(1).map((part) => Number.parseInt(part, 16) / 255);
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const span = max - min;
-  if (span <= 0) {
-    return null;
-  }
-  const hue = max === r
-    ? ((g - b) / span + (g < b ? 6 : 0))
-    : max === g
-      ? (b - r) / span + 2
-      : (r - g) / span + 4;
-  return ((hue * 60) % 360 + 360) % 360;
-}
-
-/** Hex for a fully saturated hue at mid lightness (legacy seed color). */
-function nodeGraphLedHexFromHue(hue) {
-  const h = ((((Number(hue) || 0) % 360) + 360) % 360) / 60;
-  const x = 1 - Math.abs((h % 2) - 1);
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  if (h < 1) { r = 1; g = x; b = 0; }
-  else if (h < 2) { r = x; g = 1; b = 0; }
-  else if (h < 3) { r = 0; g = 1; b = x; }
-  else if (h < 4) { r = 0; g = x; b = 1; }
-  else if (h < 5) { r = x; g = 0; b = 1; }
-  else { r = 1; g = 0; b = x; }
-  const toHex = (c) => Math.round(Math.max(0, Math.min(1, c)) * 255).toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-/** Default black → hue → white when only a legacy hue/color is present. */
-function nodeGraphLedGradientStopsFromHue(hue) {
-  const mid = nodeGraphLedHexFromHue(hue);
-  return [
-    { t: 0, color: "#000000" },
-    { t: 0.5, color: mid },
-    { t: 1, color: "#ffffff" },
-  ];
-}
-
-function normalizeNodeGraphLedGradientStops(raw, hueFallback = 0) {
-  if (typeof normalizeNodeGraphSharedGradientStops === "function") {
-    return normalizeNodeGraphSharedGradientStops(
-      raw,
-      nodeGraphLedGradientStopsFromHue(hueFallback),
-    );
-  }
-  if (typeof NodeGraphGradientSelector !== "undefined"
-    && typeof NodeGraphGradientSelector.normalizeStops === "function") {
-    return NodeGraphGradientSelector.normalizeStops(raw, {
-      channels: "color",
-      defaultStops: "phosphor",
-      fallbackStops: nodeGraphLedGradientStopsFromHue(hueFallback),
-    });
-  }
-  const list = Array.isArray(raw) ? raw : null;
-  if (list && list.length >= 2) {
-    return list.map((s, i) => ({
-      t: Math.max(0, Math.min(1, Number(s?.t) || (i / Math.max(1, list.length - 1)))),
-      color: String(s?.color || "#ffffff"),
-    }));
-  }
-  return nodeGraphLedGradientStopsFromHue(hueFallback);
-}
-
-function normalizeNodeGraphLedLayout(layout = {}) {
-  const source = layout && typeof layout === "object" ? layout : {};
-  const defaults = nodeGraphLedDefaultSettings;
-  const color = normalizeNodeGraphModuleScopeDotCoreColor(source.color ?? nodeGraphLedDefaultColor, nodeGraphLedDefaultColor);
-  const rawHue = Number(source.hue);
-  const hue = Number.isFinite(rawHue)
-    ? ((rawHue % 360) + 360) % 360
-    : (nodeGraphLedHueFromHexColor(color) ?? defaults.hue);
-  const clamp = (value, min, max, fallback) => {
-    const number = Number(value);
-    return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
-  };
-  const hasStops = Array.isArray(source.gradientStops) && source.gradientStops.length >= 2
-    || Array.isArray(source.gradient) && source.gradient.length >= 2;
-  const gradientStops = normalizeNodeGraphLedGradientStops(
-    hasStops ? (source.gradientStops ?? source.gradient) : null,
-    hue,
-  );
-  // Peak of LUT (for legacy color field mirrors).
-  const peakColor = gradientStops[gradientStops.length - 1]?.color || color;
-  return {
-    blur: clamp(source.blur, 0, 1, defaults.blur),
-    brightness: clamp(source.brightness, 0, 1, defaults.brightness),
-    color: normalizeNodeGraphModuleScopeDotCoreColor(peakColor, color),
-    cornerShape: source.cornerShape === "square" ? "square" : "squircle",
-    fillPercent: clamp(source.fillPercent ?? source.fill, 0, 100, defaults.fillPercent),
-    gradientStops,
-    hue,
-    kind: "led",
-    rounding: clamp(source.rounding, 0, 100, defaults.rounding),
-    dot1Size: clamp(source.dot1Size ?? source.size, 0, 1, 0.85),
-    bottomImage: normalizeNodeGraphLedImageLayer(source.bottomImage || source.bottom),
-    topImage: normalizeNodeGraphLedImageLayer(source.topImage || source.top),
-  };
-}
 
 // When true, titles become "1D Waterfall 2" from id suffix. When false (default),
 // every instance uses the plain label ("1D Waterfall") — cosmetic only; ids stay unique.
@@ -423,22 +274,17 @@ function cloneNodeGraphTypedDisplaySettings(node) {
       return { zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(migrate(node.zeroDBurnSettings, false)) };
     case "vectorDot":
     case "pulseDot": {
-      const packed = node.vectorDotSettings || node.zeroDBurnSettings || node.led || {};
-      const next = {
+      const packed = node.vectorDotSettings
+        || (typeof nodeGraphMigrateLegacyLedToVectorDot === "function"
+          ? nodeGraphMigrateLegacyLedToVectorDot(node.led)
+          : node.led)
+        || node.zeroDBurnSettings
+        || {};
+      return {
         vectorDotSettings: typeof normalizeNodeGraphVectorDotSettings === "function"
           ? normalizeNodeGraphVectorDotSettings(packed)
           : packed,
       };
-      if (node.type === "led" && typeof normalizeNodeGraphLedLayout === "function") {
-        next.led = normalizeNodeGraphLedLayout({
-          ...(node.led || {}),
-          hue: next.vectorDotSettings.hue,
-          brightness: next.vectorDotSettings.dot1Brightness,
-          blur: next.vectorDotSettings.lineThickness,
-          dot1Size: next.vectorDotSettings.dot1Size,
-        });
-      }
-      return next;
     }
     case "lineBurn":
       return { traceDisplaySettings: normalizeNodeGraphLineBurnSettings(bag) };
@@ -489,10 +335,6 @@ function cloneNodeGraphTypedDisplaySettings(node) {
           : merged,
       };
     }
-    case "ledLamp":
-      return typeof normalizeNodeGraphLedLayout === "function"
-        ? { led: normalizeNodeGraphLedLayout(node.led) }
-        : { led: node.led || {} };
     case "phosphorWaveform":
       return {
         phosphorWaveformSettings: typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
@@ -675,8 +517,17 @@ function cloneNodeGraphPatch(patch) {
         ...(nodeGraphModuleDefinitions[node.type]?.layout === "image"
           ? { layout: normalizeNodeGraphImageLayout(node.layout) }
           : {}),
-        ...(nodeGraphModuleDefinitions[node.type]?.layout === "led"
-          ? { led: normalizeNodeGraphLedLayout(node.led) }
+        ...(node.type === "led"
+          ? {
+            vectorDotSettings: typeof normalizeNodeGraphVectorDotSettings === "function"
+              ? normalizeNodeGraphVectorDotSettings(
+                node.vectorDotSettings
+                || (typeof nodeGraphMigrateLegacyLedToVectorDot === "function"
+                  ? nodeGraphMigrateLegacyLedToVectorDot(node.led)
+                  : node.led),
+              )
+              : (node.vectorDotSettings || {}),
+          }
           : {}),
         ...(nodeGraphModuleIsGraphType(node.type)
           ? {

@@ -19,7 +19,6 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     title = "Seconds of tape across the face. 0 = now (a full-width line). Off: scroll speed. Sync: time for the pen to walk left→right.";
   } else if ((key === "zoomSeconds" || key === "historySeconds") && (
     formType === "traceXyz"
-    || formType === "scope2dTrace"
     || formType === "gradientVectorscopeFace"
   )) {
     label = "History";
@@ -28,7 +27,6 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   if (key === "lineThickness" && (
     formType === "trace"
     || formType === "traceXyz"
-    || formType === "gradientVectorscopeFace"
     || formType === "value"
   )) {
     label = "Blur";
@@ -74,10 +72,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Pixel density";
     title = "1 = native face buffer. Below 1 = chunky lo-fi grid (nearest-neighbor).";
   }
-  if (key === "fade" && (
-    formType === "traceXyz"
-    || formType === "gradientVectorscopeFace"
-  )) {
+  if (key === "fade" && formType === "traceXyz") {
     label = "Fade";
     title = "Fade the stroke along history. 0 = even ink. 1 = oldest gone, newest full. Does not change the preview dot.";
   }
@@ -497,7 +492,10 @@ const NODE_GRAPH_TRACE_STEREO_COLOR_ORDER = Object.freeze([
 ]);
 
 function nodeGraphDisplaySettingsShowsStampPreview(type) {
-  return (typeof nodeGraphDisplaySettingsIsVectorTraceFormType === "function"
+  return type === "vectorDot"
+    || type === "pulseDot"
+    || type === "dot"
+    || (typeof nodeGraphDisplaySettingsIsVectorTraceFormType === "function"
       && nodeGraphDisplaySettingsIsVectorTraceFormType(type))
     || (typeof nodeGraphDisplaySettingsIsPhosphorFormType === "function"
       && nodeGraphDisplaySettingsIsPhosphorFormType(type));
@@ -697,7 +695,28 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
     ? 1
     : (Number.isFinite(bright) ? Math.max(0, bright) : 1);
   let painted = false;
-  if (phosphor && typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.ensure && PhosphorDrawer.stepDots) {
+  const spriteKind = kind === "vectorDot" || kind === "pulseDot" || kind === "dot" || phosphor;
+  if (spriteKind && typeof TraceDotSprite !== "undefined" && typeof TraceDotSprite.draw === "function") {
+    const amt = Number.isFinite(bright01) ? Math.max(0, Math.min(1, bright01)) : 0.5;
+    if (kind === "vectorDot" || kind === "pulseDot") {
+      const hue = typeof nodeGraphHueDegFromHex === "function"
+        ? nodeGraphHueDegFromHex(color)
+        : 25;
+      TraceDotSprite.draw(scratchCtx, cx, cy, radius, blur01, { hue, amount: amt }, 1);
+    } else if (kind === "dot" && typeof nodeGraphPhosphorDotLutCss === "function") {
+      TraceDotSprite.draw(scratchCtx, cx, cy, radius, blur01, {
+        amount: amt,
+        colorAt: (b) => nodeGraphPhosphorDotLutCss(settings, b),
+      }, 1);
+    } else {
+      TraceDotSprite.draw(scratchCtx, cx, cy, radius, blur01, {
+        amount: amt,
+        color,
+      }, 1);
+    }
+    painted = true;
+  }
+  if (!painted && phosphor && typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.ensure && PhosphorDrawer.stepDots) {
     const splat = PhosphorDrawer.ensure(scratch, buf, buf, "_stampPreview");
     if (splat) {
       if (typeof nodeGraphPhosphorEnergyGlClear === "function") {
@@ -1136,11 +1155,6 @@ function buildNodeGraphPhosphorDisplaySettingsBodyHtml(type, node, allowKey) {
 
 function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   const type = formType || "trace";
-  // LED keeps its range-slider control scheme (preview + Color/Brightness/
-  // Blur/Corners/Rounding) — better than the generic stepper form.
-  if (type === "ledLamp" && typeof buildNodeGraphLedDisplaySettingsBodyHtml === "function") {
-    return buildNodeGraphLedDisplaySettingsBodyHtml();
-  }
   if (type === "keypadFace" && typeof buildNodeGraphKeypadDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphKeypadDisplaySettingsBodyHtml();
   }
@@ -1500,6 +1514,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
             : "#ff6a00",
           titleAttr: "Dot brightness gain 0…1 (black → full hue at 0.5 → white). Signal energy scales this. Drag the title to change hue.",
         }));
+        rows.push(nodeGraphStampPreviewHtml(false, type));
         continue;
       }
       if ((type === "roundShapeFace" || type === "basicShapeFace") && key === "lineBrightness") {

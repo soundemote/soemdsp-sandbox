@@ -14,6 +14,10 @@ registerNodeGraphChromelessModule("led", {
     bufferedInputs: ["In"],
     defaultWidthGu: 2,
     displayType: "vectorDot",
+    displayRenderer: "vectorDot",
+    displayModes: [
+      { key: "vectorDot", label: "Vector Dot", renderer: "vectorDot", source: { value: "In" } },
+    ],
     displayHeightGu: 2,
     inputs: ["In"],
     outputs: ["Out"],
@@ -25,7 +29,7 @@ registerNodeGraphChromelessModule("led", {
   },
   catalog: {
     category: "object",
-    description: "Signal light. Layout B (In | lamp | Out), resizable. Buffered In energy lights a Vector Dot (hue + brightness, smoothstep edge).",
+    description: "Signal light. Layout B (In | Vector Dot | Out). Buffered In energy drives the shared Vector Dot face.",
     notes: ["LayoutB", "resizable", "input light", "visual indicator", "vector dot"],
   },
 });

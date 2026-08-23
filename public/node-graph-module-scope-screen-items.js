@@ -254,18 +254,9 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
             );
           }
           // frozen: leave canvas + burn plate pixels as-is (no kill).
-        } else if (
-          nodeGraphModuleDisplayRendererForSlot(slot) === "ledLamp"
-          || nodeGraphModuleDisplayRendererForSlot(slot) === "vectorDot"
-        ) {
+        } else if (nodeGraphModuleDisplayRendererForSlot(slot) === "vectorDot") {
           if (typeof drawNodeGraphVectorDotItem === "function") {
             drawNodeGraphVectorDotItem(null, {
-              buffer: null,
-              screenElement: slot.scopeElement,
-              slot,
-            }, pixelRatio);
-          } else if (typeof drawNodeGraphLedLampItem === "function") {
-            drawNodeGraphLedLampItem(null, {
               buffer: null,
               screenElement: slot.scopeElement,
               slot,

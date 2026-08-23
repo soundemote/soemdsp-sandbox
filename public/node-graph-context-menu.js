@@ -1941,13 +1941,15 @@ function configureNodeSceneContextMenu(mode) {
       canvasScript.title = "Open this canvas module's layer and compositor script.";
     }
     if (targetNode?.type === "led") {
-      const led = normalizeNodeGraphLedLayout(targetNode.led);
+      const vd = typeof nodeGraphVectorDotSettingsForNode === "function"
+        ? nodeGraphVectorDotSettingsForNode(targetNode)
+        : (targetNode.vectorDotSettings || {});
       ledColor.disabled = false;
-      ledColor.value = led.color;
-      ledColor.title = "Set this LED's outer rim color. The center uses the bright white dot layer.";
+      ledColor.value = vd.dot1Color || vd.color || "#ff0000";
+      ledColor.title = "LED Vector Dot hue (legacy swatch). Prefer Display Settings.";
     } else {
       ledColor.disabled = true;
-      ledColor.value = nodeGraphLedDefaultColor;
+      ledColor.value = typeof nodeGraphLedDefaultColor === "string" ? nodeGraphLedDefaultColor : "#ff0000";
     }
     if (targetNode?.type === "keypad" && typeof normalizeNodeGraphKeypadLayout === "function") {
       const pad = normalizeNodeGraphKeypadLayout(targetNode.layout);
@@ -2433,7 +2435,7 @@ function openNodeScopeContextMenu(event) {
   nodeGraphMvp.sceneContextTargetNode = null;
   nodeGraphMvp.sceneContextTargetWire = null;
   nodeGraphMvp.scopeContextTargetNode = nodeId;
-  // LED and other faces share the display settings popover (ledLamp schema).
+  // LED uses Vector Dot Display Settings.
   if (typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
     return true;
   }

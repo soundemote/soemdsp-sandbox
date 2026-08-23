@@ -13,26 +13,6 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
       // Best-effort.
     }
   }
-  // LEDs are CSS lamps (no canvas) — force unlit + no glow.
-  for (const face of document.querySelectorAll(".node-led-face")) {
-    const shell = face.closest(".dsp-node") || face;
-    const lamp = face.querySelector?.(".node-led-lamp") || face;
-    shell.style?.setProperty?.("--node-led-face-color", "rgb(0, 0, 0)");
-    shell.style?.setProperty?.("--node-led-face-glow", "none");
-    if (face.dataset) {
-      face.dataset.lightStrength = "0";
-      face.dataset.ledLevel = "0";
-      delete face.dataset.ledAppearance;
-    }
-    if (lamp?.dataset) {
-      lamp.dataset.lightStrength = "0";
-      lamp.dataset.ledLevel = "0";
-    }
-    if (lamp?.style) {
-      lamp.style.background = "rgb(0, 0, 0)";
-      lamp.style.boxShadow = "none";
-    }
-  }
   // Room-light emitters go dark with the simulation. Number Readout / Value LCD
   // / Value LED faces AND their canvases keep their hole — stop wipe used to
   // zero the canvas only, then the room dimmer punched strength 0 and the

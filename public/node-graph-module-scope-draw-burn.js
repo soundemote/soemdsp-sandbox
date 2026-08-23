@@ -1405,11 +1405,52 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   // those are workspace screen coords and grow with zoom, so the stroke would
   // walk out of the face and clip into the module chrome.
   const canvasSquare = nodeGraphScope2dTraceCanvasSquare(canvas);
-  const points = buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings);
   const bg = nodeGraphFacePlateBackground(settings, nodeGraphScope2dTraceSettingsDefaults.background);
   nodeGraphFacePlateApplyCss(screenElement, bg);
-  // Need two consecutive finite verts or the stroke is invisible and a fill
-  // would blank the last frame (FPS 1 / one-sample posts).
+  const sizeKey = `${canvas.width}x${canvas.height}`;
+  if (canvas._s2dSizeKey !== sizeKey) {
+    canvas._s2dSizeKey = sizeKey;
+    canvas._s2dPrimed = false;
+    canvas._s2dAbs = 0;
+    canvas._s2dLastPoint = null;
+  }
+  if (!canvas._s2dPrimed) {
+    nodeGraphFacePlateFillCanvas(context, canvas, bg);
+    canvas._s2dPrimed = true;
+  }
+  if (typeof nodeGraphScopeDestFadeTowardPlate === "function") {
+    nodeGraphScopeDestFadeTowardPlate(context, canvas, bg, settings.trail, settings.ghost);
+  }
+  const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
+  const sampleRate = typeof nodeGraphScopeSampleRate === "function"
+    ? nodeGraphScopeSampleRate(buffer)
+    : (Number(buffer?.nodeGraphScopeSampleRate) || 44100);
+  const abs = Math.max(0, Math.floor(Number(buffer?.nodeGraphScopeTotalSampleCount) || 0));
+  const prevAbs = Number(canvas._s2dAbs || 0);
+  let newCount;
+  if (prevAbs > 0 && abs > prevAbs) {
+    newCount = Math.min(count, Math.max(1, abs - prevAbs));
+  } else {
+    newCount = Math.min(count, Math.max(1, Math.ceil(0.05 * Math.max(1, sampleRate))));
+  }
+  const startIndex = Math.max(0, count - newCount);
+  if (abs) {
+    canvas._s2dAbs = abs;
+  }
+  const points = buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings, startIndex);
+  if (canvas._s2dLastPoint && points.length) {
+    points.unshift(canvas._s2dLastPoint);
+  }
+  let lastPoint = canvas._s2dLastPoint || null;
+  for (let i = points.length - 1; i >= 0; i -= 1) {
+    const p = points[i];
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+      lastPoint = p;
+      break;
+    }
+  }
+  canvas._s2dLastPoint = lastPoint;
+  // Need two consecutive finite verts or the stroke is invisible.
   let strokeable = false;
   let run = 0;
   for (let i = 0; i < points.length; i += 1) {
@@ -1428,28 +1469,18 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   const inkPoints = strokeable
     ? points
     : (Array.isArray(lastPoints) && lastPoints.length >= 2 ? lastPoints : null);
+  const dotSpace = Math.min(canvas.width, canvas.height);
   if (!inkPoints) {
-    // One finite sample (History 0 / a single-sample FPS tick): keep a beam
-    // dot so the face is not blank for a whole second at FPS 1.
-    let single = null;
-    for (let i = 0; i < points.length; i += 1) {
-      const p = points[i];
-      if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
-        single = p;
-        break;
-      }
-    }
+    let single = lastPoint;
     if (!single) {
+      snapshotNodeGraphScope2dTraceHold(canvas, item?.slot?.nodeId);
       return;
     }
-    nodeGraphFacePlateFillCanvas(context, canvas, bg);
-    drawNodeGraphScope2dTraceLayer(context, [single, { x: single.x, y: single.y }], Math.min(canvas.width, canvas.height), settings);
+    drawNodeGraphScope2dTraceLayer(context, [single, { x: single.x, y: single.y }], dotSpace, settings);
     canvas._scope2dTraceLastPoints = [single, { x: single.x, y: single.y }];
     snapshotNodeGraphScope2dTraceHold(canvas, item?.slot?.nodeId);
     return;
   }
-  nodeGraphFacePlateFillCanvas(context, canvas, bg);
-  const dotSpace = Math.min(canvas.width, canvas.height);
   drawNodeGraphScope2dTraceLayer(context, inkPoints, dotSpace, settings);
   if (strokeable) {
     canvas._scope2dTraceLastPoints = points;

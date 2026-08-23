@@ -773,7 +773,9 @@ function nodeGraphVisualDisplayNeedsWaveformRing(node) {
     displayType === "matrixFace" ||
     displayType === "matrixWaterfallFace" ||
     displayType === "matrixDisplayFace" ||
-    displayType === "dot"
+    displayType === "dot" ||
+    displayType === "vectorDot" ||
+    displayType === "pulseDot"
   );
 }
 

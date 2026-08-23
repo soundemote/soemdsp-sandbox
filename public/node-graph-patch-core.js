@@ -356,8 +356,15 @@ function validateNodeGraphPatch(patch) {
       normalizedNode.layout = normalizeNodeGraphKeypadLayout(node.layout);
     } else if (nodeGraphModuleDefinitions[type].layout === "image") {
       normalizedNode.layout = normalizeNodeGraphImageLayout(node.layout);
-    } else if (nodeGraphModuleDefinitions[type].layout === "led") {
-      normalizedNode.led = normalizeNodeGraphLedLayout(node.led);
+    } else if (type === "led") {
+      normalizedNode.vectorDotSettings = typeof normalizeNodeGraphVectorDotSettings === "function"
+        ? normalizeNodeGraphVectorDotSettings(
+          node.vectorDotSettings
+          || (typeof nodeGraphMigrateLegacyLedToVectorDot === "function"
+            ? nodeGraphMigrateLegacyLedToVectorDot(node.led)
+            : node.led),
+        )
+        : (node.vectorDotSettings || {});
     }
     if (nodeGraphModuleIsGraphType(type)) {
       const phaseLinkedGraph = nodeGraphGraphWithPhaseCursor(normalizedNode, node.graph);

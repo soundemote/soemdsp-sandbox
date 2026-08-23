@@ -134,21 +134,10 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
     // Value LCD / Value LED must only ever show real captured input — never an
     // offline model guess. No fallback chain here on purpose.
     buffer = capturedBuffer;
-  } else if (renderer === "ledLamp") {
-    // Legacy CSS lamp: derive light target from the capture ring when metadata is absent.
+  } else if (renderer === "vectorDot" || renderer === "pulseDot") {
     buffer = capturedBuffer;
-    if (buffer?.length && !Number.isFinite(Number(buffer.nodeGraphScopeLightTarget))) {
-      let peak = 0;
-      const n = Math.min(buffer.length, 64);
-      for (let i = Math.max(0, buffer.length - n); i < buffer.length; i += 1) {
-        const s = Math.abs(Number(buffer[i]) || 0);
-        if (s > peak) peak = s;
-      }
-      buffer.nodeGraphScopeLightTarget = Math.max(0, Math.min(1, peak));
-    }
   } else if (slot?.type === "clock") {
-    buffer = nodeGraphModuleScopeDotOscilloscopeLightBuffer(capturedBuffer) ||
-      nodeGraphModuleScopeOfflineClockBlinkBuffer(slot, capturedBuffer);
+    buffer = capturedBuffer;
   } else if (renderer === "transportBpm") {
     buffer = nodeGraphModuleScopeTransportBpmBuffer(slot);
   } else if (renderer === "phoneToneFace" || slot?.type === "phoneTone") {

@@ -4752,6 +4752,8 @@ def require_node_graph_mvp_contract() -> None:
         and '"rgba"' in script_sources["./public/node-graph-module-definitions.js"]
         and 'key: "hue"' in script_sources["./public/node-graph-module-definitions.js"]
         and "drawNodeGraphGradientVectorscopeFaceItem" in script_sources["./public/modules/gradientVectorscope/gradient-vectorscope-display.js"]
+        and "TraceWoscope.draw" in script_sources["./public/modules/gradientVectorscope/gradient-vectorscope-display.js"]
+        and "TraceHistoryDraw" not in script_sources["./public/modules/gradientVectorscope/gradient-vectorscope-display.js"]
         and 'label: "Vector RGB"' in script_sources["./public/node-graph-module-store.js"]
         and 'label: "Pixel Grid"' in script_sources["./public/node-graph-module-store.js"]
         and 'label: "Gradient Vectorscope"' in script_sources["./public/node-graph-module-store.js"],
@@ -12991,6 +12993,7 @@ def require_node_graph_mvp_contract() -> None:
     require("lineBurnOscilloscope: {" in module_store_source and 'label: "1D Burn Dot"' in module_store_source, "1D Burn Dot oscilloscope should exist")
     require("scope2d: {" in module_store_source and 'label: "2D Burn"' in module_store_source, "2D Burn oscilloscope should exist")
     require("scope2dTrace: {" in module_store_source and 'label: "2D Trace"' in module_store_source, "2D Trace oscilloscope should exist")
+    require("vectorDot: {" in module_store_source and 'label: "Vector Dot"' in module_store_source, "Vector Dot module should exist")
     require("dotOscilloscope: {" in module_store_source and "oscilloscopeBank: {" in module_store_source and "valueOscilloscope: {" in module_store_source and "numberReadout: {" in module_store_source and "lineBurnOscilloscope: {" in module_store_source and "scope2d: {" in module_store_source and "scope2dTrace: {" in module_store_source, "Oscilloscope modules should be listed together")
     require("oscilloscopeBank: {" in module_store_source and 'label: "Oscilloscope Bank"' in module_store_source, "Oscilloscope Bank should exist")
     require(
@@ -12998,7 +13001,11 @@ def require_node_graph_mvp_contract() -> None:
         "Matrix Waterfall should live in the Multimeter category",
     )
     require(
-        'gradientVectorscope: {\n    category: "oscilloscope"' in module_store_source,
+        'gradientVectorscope: {\n    category: "oscilloscope"' in module_store_source
+        and '"gradientVectorscope"' in module_store_source[
+            module_store_source.index("const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze(["):
+            module_store_source.index("const nodeGraphModuleCatalogRetiredFromUnderConstruction")
+        ],
         "Gradient Vectorscope should live in the Oscilloscope category",
     )
     require(
@@ -13301,16 +13308,16 @@ def require_node_graph_mvp_contract() -> None:
     require(
         "function normalizeNodeGraphScope2dTraceSettings(settings = {})" in node_graph_source
         and 'scope2dTrace: Object.freeze({' in node_graph_source
-        and '"historySeconds"' in node_graph_source
         and '"scale"' in node_graph_source,
-        "2D Trace should have independent sample-history settings",
+        "2D Trace should have independent display settings",
     )
     require(
         "function drawNodeGraphScope2dTraceItem" in node_graph_source
         and 'if (displayType === "scope2dTrace") {' in node_graph_source
         and "scope2dTrace: drawNodeGraphScope2dTraceItem," in node_graph_source
         and "TraceWoscope.draw" in node_graph_source
-        and "erf((len - xy.x) / SQRT2 / sigma)" in node_graph_source,
+        and "erf((len - xy.x) / SQRT2 / sigma)" in node_graph_source
+        and "uniform sampler2D uLut;" in node_graph_source,
         "2D Trace should dispatch to its own renderer instead of 2D Burn",
     )
     trace_display_definition = module_definitions_source[

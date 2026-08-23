@@ -994,6 +994,7 @@ function nodeGraphModuleResourceConstraintsForType(type) {
     || display === "scope2dTrace"
     || display === "lineBurn"
     || display === "dot"
+    || display === "vectorDot"
     || display === "value"
     || display === "hypersawBurn"
     || display === "videoscopeBurn"

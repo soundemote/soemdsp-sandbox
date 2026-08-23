@@ -318,25 +318,11 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
     const captureOpts = source
       ? { xPort: source.x, yPort: source.y }
       : {};
-    // Vector 2D Trace redraws the whole window each frame (no energy FBO).
-    // Without historySeconds it only pulled “new samples since last draw”
-    // (phosphor deposit style) → incomplete / dashed Lissajous. Phosphor
-    // burn keeps the short window intentionally.
-    if (renderer === "scope2dTrace") {
-      const node = typeof nodeGraphModuleScopeNodeForSlot === "function"
-        ? nodeGraphModuleScopeNodeForSlot(slot)
-        : null;
-      const settings = typeof nodeGraphScope2dTraceSettingsForNode === "function"
-        ? nodeGraphScope2dTraceSettingsForNode(node)
-        : null;
-      const history = Number(settings?.historySeconds);
-      if (Number.isFinite(history)) {
-        captureOpts.historySeconds = Math.max(0, history);
-      }
-    }
+    // 2D Trace stamps live samples onto a dest buffer (woscope). No History
+    // window — Ghost/Trail fade the face. Phosphor burn also uses new samples.
     return nodeGraphModuleScopeCapturedScope2dBuffer(slot, captureOpts);
   }
-  if (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "numberReadout", "valueLcd", "lineBurnOscilloscope", "led"].includes(slot?.type)) {
+  if (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "numberReadout", "valueLcd", "lineBurnOscilloscope", "led", "vectorDot"].includes(slot?.type)) {
     return nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
       null;
@@ -538,7 +524,7 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   // Capture only what we need to deposit this frame (new samples + a small
   // pad). The energy FBO holds the trail via decay — re-capturing ~1s and
   // re-stamping it every frame painted a lagging "second path" behind the beam.
-  // Vector 2D Trace passes historySeconds and needs a real contiguous window.
+  // History window is opt-in (other faces). 2D Trace / phosphor use new samples.
   // Use the buffer's own sample rate (visual hop), not engine 44100, so a
   // 1 s window is 1 s of ring data. Missing samples stay NaN (path break),
   // never 0,0 — that drew chords through the origin.

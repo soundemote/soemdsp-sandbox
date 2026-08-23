@@ -14,17 +14,6 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.vectorDotSettings = typeof normalizeNodeGraphVectorDotSettings === "function"
       ? normalizeNodeGraphVectorDotSettings(settings)
       : (settings || {});
-    if (node.type === "led") {
-      node.led = typeof normalizeNodeGraphLedLayout === "function"
-        ? normalizeNodeGraphLedLayout({
-          ...(node.led || {}),
-          hue: node.vectorDotSettings.hue,
-          brightness: node.vectorDotSettings.dot1Brightness,
-          blur: node.vectorDotSettings.lineThickness,
-          dot1Size: node.vectorDotSettings.dot1Size,
-        })
-        : node.led;
-    }
     return node.vectorDotSettings;
   }
   if (displayType === "lineBurn") {
@@ -163,17 +152,6 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
       applyNodeGraphPatchFaceDisplay(el, node);
     }
     return node.traceDisplaySettings;
-  }
-  if (displayType === "ledLamp") {
-    node.led = typeof normalizeNodeGraphLedLayout === "function"
-      ? normalizeNodeGraphLedLayout({
-        ...(settings || {}),
-        brightness: settings?.brightness ?? settings?.dot1Brightness,
-        blur: settings?.blur ?? settings?.lineThickness,
-        gradientStops: settings?.gradientStops ?? settings?.gradient,
-      })
-      : (settings || {});
-    return node.led;
   }
   if (displayType === "rgbShapeFace") {
     node.traceDisplaySettings = typeof normalizeNodeGraphRgbShapeSettings === "function"
@@ -547,9 +525,6 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
       ? { ...node.zeroDBurnSettings }
       : {};
   }
-  if (settingsSchema === "ledLamp") {
-    return node.led && typeof node.led === "object" ? { ...node.led } : {};
-  }
   if (settingsSchema === "portalFace") {
     return typeof nodeGraphPortalDisplaySettingsForNode === "function"
       ? nodeGraphPortalDisplaySettingsForNode(node)
@@ -696,13 +671,6 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
             ? nodeGraphNodeElement(faceNodeId)
             : null;
           if (el) syncNodeGraphKeypadElement(el, faceNode);
-        }
-      }
-      if (faceNode.type === "led") {
-        if (typeof scheduleNodeGraphLedFaceRefresh === "function") {
-          scheduleNodeGraphLedFaceRefresh(faceNodeId);
-        } else if (typeof refreshNodeGraphLedFaceForNode === "function") {
-          refreshNodeGraphLedFaceForNode(faceNodeId);
         }
       }
       if (faceNode.type === "rgbShape" && typeof paintNodeGraphRgbShapeFaceForNode === "function") {

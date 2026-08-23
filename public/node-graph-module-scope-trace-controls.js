@@ -43,6 +43,8 @@ const nodeGraphInstantTraceDisplayFieldOrder = Object.freeze([
   "dot1Size",
   "lineThickness",
   "dot1Brightness",
+  "ghost",
+  "trail",
   "dotBudget",
   "pixelDensity",
   "fade",
@@ -333,12 +335,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["skipDiscontinuities", "fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
-  // 2D Trace = woscope XY beam. Ink is hue + plausible brightness (no hex widget,
-  // no Fade, no Blur). Density = face buffer lo-fi/AA only.
+  // 2D Trace = woscope XY beam. Ink is hue + plausible brightness.
+  // No History (live samples only). Ghost/Trail dest fade is internal.
   scope2dTrace: Object.freeze({
     fields: Object.freeze([
       "scale",
-      "historySeconds",
       "backgroundBrightness",
       "backgroundHue",
       "dot1Size",
@@ -373,12 +374,10 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "historySeconds",
       "backgroundBrightness",
       "backgroundHue",
-      "fade",
       "dot1Size",
-      "lineThickness",
+      "ghost",
+      "trail",
       "pixelDensity",
-      "dot1Brightness",
-      "dotBudget",
     ]),
     colors: Object.freeze(["backgroundColor"]),
     toggles: Object.freeze(["rotate90"]),
@@ -448,17 +447,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
-  }),
-  ledLamp: Object.freeze({
-    fields: Object.freeze([
-      "hue",
-      "dot1Brightness",
-      "lineThickness",
-      "rounding",
-    ]),
-    colors: Object.freeze([]),
-    toggles: Object.freeze([]),
-    choices: Object.freeze(["cornerShape"]),
   }),
   // RGB Shape: gradient picker only (geometry is module params).
   rgbShapeFace: Object.freeze({
@@ -1667,7 +1655,6 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   vectorDot: "Vector Dot",
   pulseDot: "Vector Dot",
   spectrogramBurn: "Spectrogram",
-  ledLamp: "LED",
   rgbShapeFace: "Shape",
   rgbPictureFace: "Picture",
   rgbFractalFace: "Soft Fractal",

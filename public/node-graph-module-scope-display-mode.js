@@ -61,8 +61,9 @@ function nodeGraphModuleDefaultXyDisplaySource(type) {
 
 function normalizeNodeGraphDisplayMode(mode, type = "", index = 0) {
   const raw = mode && typeof mode === "object" ? mode : {};
-  const renderer = nodeGraphDisplayModeRenderers.includes(raw.renderer)
-    ? raw.renderer
+  const rawRenderer = raw.renderer === "ledLamp" ? "vectorDot" : raw.renderer;
+  const renderer = nodeGraphDisplayModeRenderers.includes(rawRenderer)
+    ? rawRenderer
     : nodeGraphModuleDeclaredDisplayTypeForType(type);
   if (renderer === "legacy") {
     return null;
@@ -177,7 +178,6 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "phosphorLight",
     "numberReadout",
     "xyPad",
-    "ledLamp",
     "spectrogramBurn",
     "videoscopeBurn",
     "oscilloscopeBankBurn",

@@ -34,6 +34,7 @@
     "traceDisplayStereo right",
   );
   nodeGraphLiveModuleEvaluators.dotOscilloscope = thruFrom("In", "dotOscilloscope in");
+  nodeGraphLiveModuleEvaluators.vectorDot = thruFrom("In", "vectorDot in");
   nodeGraphLiveModuleEvaluators.valueOscilloscope = thruFrom("In", "valueOscilloscope in");
   nodeGraphLiveModuleEvaluators.lineBurnOscilloscope = thruFrom("In", "lineBurnOscilloscope in");
   nodeGraphLiveModuleEvaluators.matrixDisplay = thruFrom("In", "matrixDisplay in");

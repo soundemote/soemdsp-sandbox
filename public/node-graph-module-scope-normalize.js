@@ -320,7 +320,6 @@ function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
     "videoscopeBurn",
     "oscilloscopeBankBurn",
     "hypersawBurn",
-    "ledLamp",
     "rgbShapeFace",
     "rgbFractalFace",
     "evolveFieldFace",
@@ -1435,10 +1434,12 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
     dot1Color: inkHueHex,
     dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
-    historySeconds: normalizeNodeGraphTraceDisplayZoomSeconds(
-      source.historySeconds ?? source.history,
-      defaults.historySeconds,
-    ),
+    ghost: typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
+      ? PhosphorResidual.migrateGhost(source, defaults.ghost)
+      : normalizeNodeGraphTraceDisplayNumber(source.ghost, defaults.ghost, 0, 1),
+    trail: typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail)
+      : normalizeNodeGraphTraceDisplayNumber(source.trail, defaults.trail, 0, 1),
     pixelDensity: normalizeNodeGraphTraceDisplayNumber(
       source.pixelDensity,
       defaults.pixelDensity,
@@ -1470,11 +1471,16 @@ function normalizeNodeGraphVectorDotSettings(settings = {}) {
     source.dot1Color ?? source.color,
     defaults.dot1Color ?? "#ff6a00",
   );
-  const hue = Number.isFinite(hueRaw)
-    ? ((hueRaw % 360) + 360) % 360
-    : (typeof nodeGraphHueDegFromHex === "function"
-      ? nodeGraphHueDegFromHex(colorHex)
-      : 25);
+  const hasColor = source.dot1Color != null || source.color != null;
+  // Title-strip hue writes the hidden color field; spread `{...current}` still
+  // has a finite stale `hue`. Prefer the hex the user just dragged.
+  const hue = hasColor && typeof nodeGraphHueDegFromHex === "function"
+    ? nodeGraphHueDegFromHex(colorHex)
+    : (Number.isFinite(hueRaw)
+      ? ((hueRaw % 360) + 360) % 360
+      : (typeof nodeGraphHueDegFromHex === "function"
+        ? nodeGraphHueDegFromHex(colorHex)
+        : 25));
   const hueHex = typeof nodeGraphHueUnitHex === "function"
     ? nodeGraphHueUnitHex(hue)
     : colorHex;
@@ -1530,22 +1536,28 @@ function normalizeNodeGraphVectorDotSettings(settings = {}) {
   };
 }
 
-function nodeGraphVectorDotSettingsForNode(node) {
-  if (node?.type === "led") {
-    const led = typeof normalizeNodeGraphLedLayout === "function"
-      ? normalizeNodeGraphLedLayout(node.led)
-      : (node.led || {});
-    return normalizeNodeGraphVectorDotSettings({
-      hue: led.hue,
-      brightness: led.brightness,
-      blur: led.blur,
-      dot1Size: led.dot1Size ?? (Number(led.fillPercent) > 0 ? Number(led.fillPercent) / 100 : 0.85),
-      backgroundBrightness: led.backgroundBrightness ?? 0,
-      backgroundColor: led.backgroundColor ?? led.background,
-    });
+function nodeGraphMigrateLegacyLedToVectorDot(led) {
+  if (!led || typeof led !== "object") {
+    return null;
   }
+  const fill = Number(led.fillPercent ?? led.fill);
+  return {
+    hue: led.hue,
+    color: led.color,
+    brightness: led.brightness ?? led.dot1Brightness,
+    blur: led.blur ?? led.lineThickness,
+    dot1Size: led.dot1Size ?? (Number.isFinite(fill) && fill > 0 ? fill / 100 : undefined),
+    backgroundBrightness: led.backgroundBrightness,
+    backgroundColor: led.backgroundColor ?? led.background,
+  };
+}
+
+function nodeGraphVectorDotSettingsForNode(node) {
   return normalizeNodeGraphVectorDotSettings(
-    node?.vectorDotSettings || node?.zeroDBurnSettings || node?.traceDisplaySettings,
+    node?.vectorDotSettings
+    || (node?.type === "led" ? nodeGraphMigrateLegacyLedToVectorDot(node.led) : null)
+    || node?.zeroDBurnSettings
+    || node?.traceDisplaySettings,
   );
 }
 

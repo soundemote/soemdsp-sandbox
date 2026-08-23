@@ -403,11 +403,11 @@ void main() {
     if (el.matches?.("canvas.node-matrix-display-canvas")) return el;
     if (el.matches?.("canvas.node-filter-curve-canvas")) return el;
     if (el.matches?.(".node-keypad-face")) return el;
-    if (el.matches?.(".node-led-lamp")) return el;
+    if (el.matches?.(".node-led-face")) return el;
 
     // Outer shells: only if no painted canvas is already the target.
     const painted = el.querySelector?.(
-      "canvas.node-raster-rgb-canvas, canvas.node-module-scope-local-fallback-canvas, canvas.node-phosphor-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, canvas.node-asciiscope-canvas, canvas.node-matrix-display-canvas, canvas.node-filter-curve-canvas, .node-keypad-face, .node-led-lamp",
+      "canvas.node-raster-rgb-canvas, canvas.node-module-scope-local-fallback-canvas, canvas.node-phosphor-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, canvas.node-asciiscope-canvas, canvas.node-matrix-display-canvas, canvas.node-filter-curve-canvas, .node-keypad-face, .node-led-face",
     );
     if (painted) return painted;
 
