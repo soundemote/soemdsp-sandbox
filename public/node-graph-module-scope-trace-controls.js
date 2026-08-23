@@ -207,7 +207,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
 
 const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // 1D history plot (Output / Music Player). RGB stroke — no phosphor residual.
-  // Fade is 2D Instant Trace only (scope2dTrace / XYZ / vectorscope).
+  // Fade is XYZ / vectorscope Instant Trace only (not 2D Trace).
   // Output stereo: Left = Size/Blur, Right = secondary*.
   trace: Object.freeze({
     fields: Object.freeze([
@@ -333,21 +333,19 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["skipDiscontinuities", "fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
-  // 2D Trace = VECTOR path; density = face buffer lo-fi/AA only.
-  // lineThickness = Instant Trace Blur (concentric stroke skirt, not phosphor).
+  // 2D Trace = woscope XY beam. Ink is hue + plausible brightness (no hex widget,
+  // no Fade, no Blur). Density = face buffer lo-fi/AA only.
   scope2dTrace: Object.freeze({
     fields: Object.freeze([
       "scale",
       "historySeconds",
       "backgroundBrightness",
       "backgroundHue",
-      "fade",
       "dot1Size",
-      "lineThickness",
       "pixelDensity",
       "dot1Brightness",
     ]),
-    colors: Object.freeze(["dot1Color", "backgroundColor"]),
+    colors: Object.freeze(["dot1Color"]),
     toggles: Object.freeze(["skipDiscontinuities"]),
     choices: Object.freeze([]),
   }),

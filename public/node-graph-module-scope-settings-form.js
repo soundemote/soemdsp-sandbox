@@ -28,7 +28,6 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   if (key === "lineThickness" && (
     formType === "trace"
     || formType === "traceXyz"
-    || formType === "scope2dTrace"
     || formType === "gradientVectorscopeFace"
     || formType === "value"
   )) {
@@ -56,7 +55,9 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "phosphorLight"
   )) {
     label = "\uD83D\uDCA1 Bright";
-    title = formType === "trace" || formType === "traceXyz" || formType === "scope2dTrace" || formType === "gradientVectorscopeFace" || formType === "value"
+    title = formType === "scope2dTrace"
+      ? "Beam brightness 0…1 (black → full hue at 0.5 → white). Drag the Trace title to change hue."
+      : formType === "trace" || formType === "traceXyz" || formType === "gradientVectorscopeFace" || formType === "value"
       ? "Ink light 0…1 (1 = full)."
       : "Stamp brightness 0…1 (single source of truth). 1 = full ink. Preview matches the face.";
   }
@@ -75,7 +76,6 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   }
   if (key === "fade" && (
     formType === "traceXyz"
-    || formType === "scope2dTrace"
     || formType === "gradientVectorscopeFace"
   )) {
     label = "Fade";
@@ -653,12 +653,17 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
     return;
   }
   const blur = Number(right ? settings.secondaryLineThickness : settings.lineThickness);
-  const blur01 = Number.isFinite(blur) ? Math.max(0, Math.min(1, blur)) : 0;
-  const color = right
+  const blur01 = kind === "scope2dTrace"
+    ? 0
+    : (Number.isFinite(blur) ? Math.max(0, Math.min(1, blur)) : 0);
+  let color = right
     ? (settings.secondaryColor || "#0000ff")
     : (side === "L"
       ? (settings.dot1Color || settings.color || "#ff0000")
       : (settings.dot1Color || settings.color || "#ffffff"));
+  if (kind === "scope2dTrace" && typeof nodeGraphScope2dTraceInkHex === "function") {
+    color = nodeGraphScope2dTraceInkHex(settings);
+  }
   const faceMin = nodeGraphStampPreviewFaceMinSide(settings);
   const phosphor = typeof nodeGraphDisplaySettingsIsPhosphorFormType === "function"
     && nodeGraphDisplaySettingsIsPhosphorFormType(kind);
@@ -688,7 +693,9 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
   const cx = buf * 0.5;
   const cy = buf * 0.5;
   const bright = Number(settings.dot1Brightness ?? settings.brightness);
-  const bright01 = Number.isFinite(bright) ? Math.max(0, bright) : 1;
+  const bright01 = kind === "scope2dTrace"
+    ? 1
+    : (Number.isFinite(bright) ? Math.max(0, bright) : 1);
   let painted = false;
   if (phosphor && typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.ensure && PhosphorDrawer.stepDots) {
     const splat = PhosphorDrawer.ensure(scratch, buf, buf, "_stampPreview");
@@ -849,6 +856,7 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   const parts = [];
   const rows = [];
   const stereoInk = isStereoTraceNode && type === "trace";
+  const inkHueTitle = type === "scope2dTrace";
   const previewAfter = "dot1Brightness";
   let previewPlaced = false;
   const pushPreview = () => {
@@ -913,6 +921,22 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     if (rightKey && orderedSecondary.includes(rightKey)) {
       rows.push(nodeGraphDisplaySettingsBuildStereoPairRowHtml(key, rightKey, type));
       pairedSecondary.add(rightKey);
+    } else if (inkHueTitle && key === "dot1Brightness") {
+      rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+        title: "Trace",
+        stepField: "dot1Brightness",
+        colorField: "dot1Color",
+        formType: type,
+        defaultHueHex: typeof nodeGraphHueUnitHex === "function"
+          ? nodeGraphHueUnitHex(
+            typeof nodeGraphHueDegFromHex === "function"
+              && typeof nodeGraphScopePhosphorLookDefaults !== "undefined"
+              ? nodeGraphHueDegFromHex(nodeGraphScopePhosphorLookDefaults.peakColor)
+              : 60,
+          )
+          : "#fcfdbf",
+        titleAttr: "Beam brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
+      }));
     } else {
       rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
     }
@@ -978,6 +1002,9 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   }
   for (const key of inkColors) {
     if (stereoColorPair && (key === "dot1Color" || key === "secondaryColor")) {
+      continue;
+    }
+    if (inkHueTitle && key === "dot1Color") {
       continue;
     }
     rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type, {

@@ -514,6 +514,27 @@ const nodeGraphScope2dBurnRendererVersion = "energy-mono-lut-soft-beam-1";
 /** Default face plate — pure black (no teal/CRT tint in the plate color). */
 const nodeGraphFacePlateDefaultBackground = "#000000";
 
+/** 2D Trace beam RGB 0…1 from unit hue hex + plausible brightness. */
+function nodeGraphScope2dTraceInkRgb01(settings = {}) {
+  const hue = typeof nodeGraphHueDegFromHex === "function"
+    ? nodeGraphHueDegFromHex(settings?.dot1Color ?? settings?.color)
+    : 60;
+  const bright = Number(settings?.dot1Brightness ?? settings?.brightness);
+  const amount = Number.isFinite(bright) ? bright : 0.5;
+  if (typeof nodeGraphHueBrightnessRgb01 === "function") {
+    return nodeGraphHueBrightnessRgb01(hue, amount);
+  }
+  return [1, 1, 1];
+}
+
+function nodeGraphScope2dTraceInkHex(settings = {}) {
+  const rgb = nodeGraphScope2dTraceInkRgb01(settings);
+  const to = (c) => Math.round(Math.max(0, Math.min(1, Number(c) || 0)) * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return `#${to(rgb[0])}${to(rgb[1])}${to(rgb[2])}`;
+}
+
 /** Resolve face plate color from any display settings object. */
 function nodeGraphFacePlateBackground(settings, fallback = nodeGraphFacePlateDefaultBackground) {
   const bright = settings?.backgroundBrightness;
@@ -813,20 +834,11 @@ function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) 
     return [];
   }
   const points = [];
-  // History already windows capture. Walk samples in order so a slow orbit
-  // (4 Hz circle) is not an octagon from TraceStroke.pointBudget / even pick.
-  // Safety cap only — still hundreds of points per cycle at 4 Hz / 10 s.
+  // Consecutive newest samples — even-pick turned closed orbits into octagons.
+  // Safety cap only. A real XY beam does not hide long jumps (Skip Disc still
+  // can). Unfilled ring prefix is 0,0 (face center); skip that dead origin run.
   const cap = 16384;
   const skipDisc = nodeGraphScope2dSkipDiscontinuitiesEnabled(settings);
-  // Unfilled ring prefix is 0,0 (face center). Stroking that into the orbit
-  // draws the curve PLUS chords / an inner hexagon. Break huge spatial jumps;
-  // skip a leading dead origin run.
-  const maxSeg = typeof nodeGraphScope2dTraceMaxSegmentPixels === "function"
-    ? Math.max(12, Math.min(
-      nodeGraphScope2dTraceMaxSegmentPixels(canvasSquare),
-      Math.min(canvasSquare.width, canvasSquare.height) * 0.12,
-    ))
-    : Math.max(12, Math.min(canvasSquare.width, canvasSquare.height) * 0.12);
   let prevIndex = -1;
   let prevPoint = null;
   let skippedOrigin = false;
@@ -859,24 +871,15 @@ function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) 
       breakNodeGraphScope2dPath(points);
       prevPoint = null;
     }
-    if (prevPoint && !nodeGraphScope2dTraceSegmentIsContinuous(prevPoint, point, maxSeg)) {
-      breakNodeGraphScope2dPath(points);
-    }
     points.push(point);
     prevIndex = index;
     prevPoint = point;
   };
-  if (count > cap && typeof nodeGraphScope2dEvenSampleIndices === "function") {
-    const indices = nodeGraphScope2dEvenSampleIndices(count, cap);
-    for (let i = 0; i < indices.length; i += 1) {
-      visit(indices[i]);
-    }
-  } else {
-    for (let index = 0; index < count; index += 1) {
-      visit(index);
-    }
+  const start = count > cap ? count - cap : 0;
+  for (let index = start; index < count; index += 1) {
+    visit(index);
   }
-  return nodeGraphScope2dCollapseTracePoints(points, 0.5);
+  return nodeGraphScope2dCollapseTracePoints(points, 0.35);
 }
 
 // drawNodeGraphScope2dTraceLayer → node-graph-module-scope-draw-burn.js

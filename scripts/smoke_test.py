@@ -219,6 +219,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/lib/phosphor/phosphor-drawer.js",
     "./public/node-graph-phosphor-energy-gl.js",
     "./public/lib/trace/trace-stroke.js",
+    "./public/lib/trace/trace-woscope.js",
     "./public/lib/trace/trace-waveform.js",
     "./public/lib/trace/trace-tape.js",
     "./public/node-graph-phosphor-gaussian-drawer.js",
@@ -13307,7 +13308,9 @@ def require_node_graph_mvp_contract() -> None:
     require(
         "function drawNodeGraphScope2dTraceItem" in node_graph_source
         and 'if (displayType === "scope2dTrace") {' in node_graph_source
-        and "scope2dTrace: drawNodeGraphScope2dTraceItem," in node_graph_source,
+        and "scope2dTrace: drawNodeGraphScope2dTraceItem," in node_graph_source
+        and "TraceWoscope.draw" in node_graph_source
+        and "erf((len - xy.x) / SQRT2 / sigma)" in node_graph_source,
         "2D Trace should dispatch to its own renderer instead of 2D Burn",
     )
     trace_display_definition = module_definitions_source[

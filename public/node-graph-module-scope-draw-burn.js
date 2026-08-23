@@ -1150,19 +1150,33 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   if (settings.dot1Enabled === false) {
     return;
   }
-  // VECTOR polyline (same philosophy as 1D Trace — not energy stamps).
+  // XY beam: m1el/woscope Gaussian-integral quads (additive). Not 1D Trace
+  // polylines and not phosphor energy stamps.
+  const inkRgb = typeof nodeGraphScope2dTraceInkRgb01 === "function"
+    ? nodeGraphScope2dTraceInkRgb01(settings)
+    : null;
+  if (typeof TraceWoscope !== "undefined" && typeof TraceWoscope.draw === "function") {
+    const count = TraceWoscope.draw(context, points, {
+      size: settings.dot1Size,
+      color: inkRgb || settings.dot1Color,
+      faceMinSide: Math.max(1, Number(dotSpace) || 1),
+    });
+    if (count > 0) {
+      recordNodeGraphModuleScopeRenderMetrics(count, count);
+      return;
+    }
+  }
   if (typeof TraceStroke !== "undefined" && TraceStroke.draw) {
-    const blur = Number.isFinite(Number(settings.lineThickness))
-      ? Number(settings.lineThickness)
-      : 0;
+    const inkHex = typeof nodeGraphScope2dTraceInkHex === "function"
+      ? nodeGraphScope2dTraceInkHex(settings)
+      : settings.dot1Color;
     const count = TraceStroke.draw(context, points, {
       size: settings.dot1Size,
-      blur,
-      brightness: settings.dot1Brightness,
-      fade: Number.isFinite(Number(settings.fade)) ? Number(settings.fade) : 0,
-      color: settings.dot1Color,
+      blur: 0,
+      brightness: 1,
+      color: inkHex,
       faceMinSide: Math.max(1, Number(dotSpace) || 1),
-      composite: "source-over",
+      composite: "lighter",
     });
     if (count > 0) {
       recordNodeGraphModuleScopeRenderMetrics(count, count);
@@ -1170,12 +1184,15 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
     return;
   }
   const size = clampNodeSliderValue(settings.dot1Size, 0, 1);
-  // Bright 0…1 exact — no 0…2 UI with a later half/clamp.
-  const brightness = Math.max(0, Math.min(1, Number(settings.dot1Brightness) || 0));
-  if (brightness <= 0) {
+  const rgb01 = inkRgb || [1, 1, 1];
+  if (!(rgb01[0] > 0 || rgb01[1] > 0 || rgb01[2] > 0)) {
     return;
   }
-  const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(settings.dot1Color));
+  const rgb = [
+    Math.round(rgb01[0] * 255),
+    Math.round(rgb01[1] * 255),
+    Math.round(rgb01[2] * 255),
+  ];
   const side = Math.max(1, Number(dotSpace) || 1);
   const radius = typeof nodeGraphScopeSize01ToRadiusPx === "function"
     ? nodeGraphScopeSize01ToRadiusPx(side, size)
@@ -1183,7 +1200,7 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   // Canvas fallback: soft dots only (match energy-GL dots path; no polyline joins).
   context.save();
   context.globalCompositeOperation = "lighter";
-  context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${brightness})`;
+  context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 1)`;
   context.shadowBlur = 0;
   const r = Math.max(0.5, radius);
   for (let i = 0; i < points.length; i += 1) {

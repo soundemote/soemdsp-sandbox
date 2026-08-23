@@ -1405,26 +1405,39 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
   const defaults = typeDefaults && typeof typeDefaults === "object"
     ? { ...nodeGraphScope2dTraceSettingsDefaults, ...typeDefaults }
     : nodeGraphScope2dTraceSettingsDefaults;
+  const rawInk = source.dot1Color ?? source.color ?? defaults.dot1Color;
+  const inkHex = typeof normalizeNodeGraphTraceDisplayColor === "function"
+    ? normalizeNodeGraphTraceDisplayColor(rawInk, defaults.dot1Color)
+    : String(rawInk || "#fcfdbf");
+  const mappedInk = typeof nodeGraphHueBrightnessFromHex === "function"
+    ? nodeGraphHueBrightnessFromHex(inkHex, 60, defaults.dot1Brightness)
+    : { hue: 60, brightness: defaults.dot1Brightness };
+  const hueRaw = Number(source.dot1Hue);
+  const inkHue = Number.isFinite(hueRaw)
+    ? Math.max(0, Math.min(360, hueRaw))
+    : mappedInk.hue;
+  const inkHueHex = typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(inkHue)
+    : inkHex;
+  const inkBright = source.dot1Brightness != null || source.brightness != null
+    ? normalizeNodeGraphTraceDisplayBrightness(
+      source.dot1Brightness ?? source.brightness,
+      defaults.dot1Brightness,
+    )
+    : mappedInk.brightness;
   return {
     ...nodeGraphDisplaySettingsNormalizePlateLook(source, {
       ...defaults,
       backgroundBrightness: defaults.backgroundBrightness ?? 0,
       backgroundHue: defaults.backgroundHue ?? 0,
     }),
-    dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
-      source.dot1Brightness ?? source.brightness,
-      defaults.dot1Brightness,
-    ),
-    dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.dot1Color),
+    dot1Brightness: inkBright,
+    dot1Color: inkHueHex,
     dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     historySeconds: normalizeNodeGraphTraceDisplayZoomSeconds(
       source.historySeconds ?? source.history,
       defaults.historySeconds,
-    ),
-    fade: normalizeNodeGraphTraceDisplayNumber(source.fade, defaults.fade ?? 0, 0, 1),
-    lineThickness: nodeGraphTraceDisplayClampStampBlur(
-      source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
     ),
     pixelDensity: normalizeNodeGraphTraceDisplayNumber(
       source.pixelDensity,

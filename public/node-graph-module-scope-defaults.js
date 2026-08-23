@@ -594,16 +594,20 @@ const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
   background: nodeGraphScopePhosphorLookDefaults.background,
   backgroundHue: nodeGraphScopePhosphorLookDefaults.backgroundHue,
   backgroundBrightness: 0,
-  dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
-  dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
+  // Beam ink: unit hue hex + plausible brightness (black → hue @ 0.5 → white).
+  dot1Brightness: 0.5,
+  dot1Color: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(
+      typeof nodeGraphHueDegFromHex === "function"
+        ? nodeGraphHueDegFromHex(nodeGraphScopePhosphorLookDefaults.peakColor)
+        : 60,
+    )
+    : nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   // Closed X/Y orbits (RoundShape, attractors) need ≥1 period on screen.
   // 0.05s only drew a sliver of a 1 Hz Lissajous and looked “broken up”.
   historySeconds: 1,
-  fade: 0,
-  // Instant Trace Blur: 0 hard (current look) … 1 soft skirt inside Size.
-  lineThickness: 0,
   // Vector stroke; density scales face buffer for lo-fi/chunky look (default 1).
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   scale: nodeGraphScopePhosphorLookDefaults.scale,
