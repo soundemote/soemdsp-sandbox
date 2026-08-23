@@ -533,6 +533,45 @@ function nodeGraphWaterfallCaptureWaveform(canvas, source) {
   return wave;
 }
 
+function nodeGraphWaterfallTapeSnapEnsure(canvas) {
+  if (!canvas || !(canvas.width > 0)) {
+    return null;
+  }
+  let snap = canvas._waterfallTapeSnap;
+  if (!snap || snap.width !== canvas.width || snap.height !== canvas.height) {
+    snap = document.createElement("canvas");
+    snap.width = canvas.width;
+    snap.height = canvas.height;
+    canvas._waterfallTapeSnap = snap;
+  }
+  return snap;
+}
+
+function nodeGraphWaterfallRestoreTapeSnap(destCtx, canvas) {
+  const snap = canvas?._waterfallTapeSnap;
+  if (!destCtx || !snap) {
+    return false;
+  }
+  destCtx.save();
+  destCtx.setTransform(1, 0, 0, 1, 0, 0);
+  destCtx.globalCompositeOperation = "copy";
+  destCtx.imageSmoothingEnabled = false;
+  destCtx.drawImage(snap, 0, 0);
+  destCtx.restore();
+  return true;
+}
+
+function nodeGraphWaterfallSaveTapeSnap(canvas) {
+  const snap = nodeGraphWaterfallTapeSnapEnsure(canvas);
+  const ctx = snap?.getContext?.("2d");
+  if (!snap || !ctx || !canvas) {
+    return;
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = "copy";
+  ctx.drawImage(canvas, 0, 0);
+}
+
 function nodeGraphWaterfallPresentWaveform(destCtx, canvas) {
   const wave = canvas?._waterfallWaveform;
   if (!destCtx || !wave) {
@@ -648,6 +687,7 @@ function nodeGraphWaterfallState(canvas, width, height, sweep, nowLine, bg, cont
     delete canvas._waterfallLastRightY;
     canvas._waterfallDestHistory = false;
     canvas._waterfallWaveform = null;
+    canvas._waterfallTapeSnap = null;
     if (typeof TraceTape !== "undefined" && TraceTape.clear) {
       TraceTape.clear(canvas._traceTapeRgb);
       TraceTape.clear(canvas._traceTapeL);
@@ -883,9 +923,10 @@ function nodeGraphWaterfallPaint(spec) {
 
   const destHistory = canvas._waterfallDestHistory === true && !sweep;
   if (destHistory) {
-    // Dest canvas is the tape (soundemote.io Instant Trace). Scroll those
-    // pixels, ink the new strip, then stamp pause/protect onto dest.
+    // Tape is dest minus HUD overlay. Restore last snap so engaged ♨️
+    // never lives in Instant Trace history.
     if (!frozen) {
+      nodeGraphWaterfallRestoreTapeSnap(context, canvas);
       const destHold = typeof nodeGraphTraceDisplayScratchContext === "function"
         ? nodeGraphTraceDisplayScratchContext(canvas, "_waterfallHold", width, height)
         : hold;
@@ -897,6 +938,10 @@ function nodeGraphWaterfallPaint(spec) {
       }
     }
     nodeGraphWaterfallFinishOutputInk(spec, context, canvas, frozen ? 0 : columns);
+    nodeGraphWaterfallSaveTapeSnap(canvas);
+    if (typeof paintNodeGraphOutputProtectOverlay === "function") {
+      paintNodeGraphOutputProtectOverlay(context, canvas, spec.density);
+    }
     if (typeof rememberNodeGraphTraceDisplaySignature === "function") {
       rememberNodeGraphTraceDisplaySignature(spec.slot, spec.item, live, settings);
     }
@@ -961,8 +1006,11 @@ function nodeGraphWaterfallPaint(spec) {
       }
     }
     nodeGraphWaterfallPaintTapes(spec, context, canvas, ink);
-    nodeGraphWaterfallCaptureWaveform(canvas, canvas);
     nodeGraphWaterfallFinishOutputInk(spec, context, canvas, scrollPx);
+    nodeGraphWaterfallSaveTapeSnap(canvas);
+    if (typeof paintNodeGraphOutputProtectOverlay === "function") {
+      paintNodeGraphOutputProtectOverlay(context, canvas, spec.density);
+    }
     if (!sweep) {
       canvas._waterfallDestHistory = true;
     }
@@ -991,6 +1039,10 @@ function nodeGraphWaterfallPaint(spec) {
     );
     nodeGraphWaterfallPresentWaveform(context, canvas);
     nodeGraphWaterfallFinishOutputInk(spec, context, canvas, frozen ? 0 : columns);
+    nodeGraphWaterfallSaveTapeSnap(canvas);
+    if (typeof paintNodeGraphOutputProtectOverlay === "function") {
+      paintNodeGraphOutputProtectOverlay(context, canvas, spec.density);
+    }
     canvas._waterfallDestHistory = true;
   }
   if (typeof rememberNodeGraphTraceDisplaySignature === "function") {

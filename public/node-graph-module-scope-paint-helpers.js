@@ -1398,9 +1398,10 @@ function paintNodeGraphOutputFaceInk(context, canvas, text, options = {}) {
   if (!(alpha > 0.001)) {
     return false;
   }
-  const pad = Math.max(2, Math.round(Math.min(canvas.width, canvas.height) * 0.06));
+  const side = Math.min(canvas.width, canvas.height);
+  const pad = Math.max(2, Math.round(side * 0.18));
   const maxW = Math.max(8, canvas.width - pad * 2);
-  const maxH = Math.max(8, canvas.height - pad * 2);
+  const maxH = Math.max(8, Math.round(side * 0.64));
   const fontFamily = options.fontFamily || NODE_GRAPH_OUTPUT_PROTECT_FONT;
   const fontWeight = options.fontWeight ? `${options.fontWeight} ` : "";
   const density = Number(options.density);
@@ -1577,7 +1578,12 @@ function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, 
   }
 
   const mute = Math.max(0, Math.min(1, Number(globalThis.nodeGraphOutputProtectMute) || 0));
-  if (mute > 0.001 && (scrolled || options.force === true)) {
+  const lastMute = Number(canvas._outputProtectLastMute) || 0;
+  const falling = mute > 0.001 && mute < lastMute - 0.012;
+  canvas._outputProtectOverlayMute = (!falling && mute > 0.001) ? mute : 0;
+  // Print into dest tape only while mute is falling. Engaged = HUD overlay
+  // after dest is snapped (paintNodeGraphOutputProtectOverlay).
+  if (falling && (scrolled || options.force === true)) {
     paintNodeGraphOutputFaceInk(destCtx, canvas, NODE_GRAPH_OUTPUT_PROTECT_BANNER, {
       density,
       alpha: mute,
@@ -1587,6 +1593,19 @@ function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, 
   }
   canvas._outputProtectLastMute = mute;
   return true;
+}
+
+function paintNodeGraphOutputProtectOverlay(destCtx, canvas, density) {
+  const mute = Math.max(0, Math.min(1, Number(canvas?._outputProtectOverlayMute) || 0));
+  if (!(mute > 0.001) || !destCtx || !canvas) {
+    return false;
+  }
+  return paintNodeGraphOutputFaceInk(destCtx, canvas, NODE_GRAPH_OUTPUT_PROTECT_BANNER, {
+    density,
+    alpha: mute,
+    fontFamily: NODE_GRAPH_OUTPUT_PROTECT_FONT,
+    fill: "#ffffff",
+  });
 }
 
 function paintNodeGraphOutputProtectBanner(context, canvas, settings = {}, options = {}) {
