@@ -37,6 +37,50 @@ function nodeGraphAudioPlayerPlaylistFileName(item) {
   return base.split(":").shift() || base;
 }
 
+function nodeGraphAudioPlayerPlaylistSid(value) {
+  return typeof normalizeNodeGraphSampleId === "function"
+    ? normalizeNodeGraphSampleId(value)
+    : String(value || "").trim();
+}
+
+function nodeGraphAudioPlayerPlaylistItemMatchesSample(item, sid) {
+  const want = nodeGraphAudioPlayerPlaylistSid(sid);
+  if (!item || !want) {
+    return false;
+  }
+  if (nodeGraphAudioPlayerPlaylistSid(item.sampleId) === want) {
+    return true;
+  }
+  if (item.path && nodeGraphAudioPlayerPlaylistSid(item.path) === want) {
+    return true;
+  }
+  if (item.fileKey && nodeGraphAudioPlayerPlaylistSid(item.fileKey) === want) {
+    return true;
+  }
+  if (item.sourcePath && nodeGraphAudioPlayerPlaylistSid(item.sourcePath) === want) {
+    return true;
+  }
+  return false;
+}
+
+function nodeGraphAudioPlayerPlaylistFindItemForSample(pl, sid) {
+  const want = nodeGraphAudioPlayerPlaylistSid(sid);
+  if (!want || !pl) {
+    return null;
+  }
+  const items = Array.isArray(pl.items) ? pl.items : [];
+  if (pl.playing && nodeGraphAudioPlayerPlaylistItemMatchesSample(pl.playing, want)) {
+    return pl.playing;
+  }
+  const withPath = items.find((item) => (
+    (item.path || item.fileKey) && nodeGraphAudioPlayerPlaylistItemMatchesSample(item, want)
+  ));
+  if (withPath) {
+    return withPath;
+  }
+  return items.find((item) => nodeGraphAudioPlayerPlaylistItemMatchesSample(item, want)) || null;
+}
+
 function nodeGraphAudioPlayerPlaylistRebuildItems(pl) {
   if (!pl || typeof pl !== "object") {
     return pl;
@@ -67,27 +111,82 @@ function nodeGraphAudioPlayerPlaylistPlayedKeySet(pl) {
   );
 }
 
+function nodeGraphAudioPlayerPlaylistMarkPlayed(pl, item) {
+  if (!pl || typeof pl !== "object" || !item) {
+    return pl;
+  }
+  const key = nodeGraphAudioPlayerPlaylistItemKey(item);
+  if (!key) {
+    return pl;
+  }
+  if (!nodeGraphAudioPlayerPlaylistPlayedKeySet(pl).has(key)) {
+    pl.played = [...(pl.played || []), item];
+  }
+  if (nodeGraphAudioPlayerPlaylistItemKey(pl.playing) === key) {
+    pl.playing = null;
+  }
+  // Never splice out of `items`. Played = strikeout in the same list.
+  return typeof nodeGraphAudioPlayerPlaylistSyncQueues === "function"
+    ? nodeGraphAudioPlayerPlaylistSyncQueues(pl)
+    : pl;
+}
+
+function nodeGraphAudioPlayerPlaylistRetirePlaying(pl) {
+  if (!pl || typeof pl !== "object") {
+    return pl;
+  }
+  return nodeGraphAudioPlayerPlaylistMarkPlayed(pl, pl.playing);
+}
+
+function nodeGraphAudioPlayerPlaylistMarkPlayedBySample(pl, sid) {
+  const item = nodeGraphAudioPlayerPlaylistFindItemForSample(pl, sid) || pl?.playing || null;
+  return nodeGraphAudioPlayerPlaylistMarkPlayed(pl, item);
+}
+
 /** Keep played / unplayed in list order. Never restack `items` when a track is played. */
 function nodeGraphAudioPlayerPlaylistSyncQueues(pl) {
   if (!pl || typeof pl !== "object") {
     return pl;
   }
   const items = Array.isArray(pl.items) ? pl.items : [];
+  const pathKeys = new Set(
+    items
+      .filter((item) => item?.path || item?.fileKey)
+      .map((item) => nodeGraphAudioPlayerPlaylistSid(item.sampleId) || nodeGraphAudioPlayerPlaylistSid(item.path))
+      .filter(Boolean),
+  );
+  if (pathKeys.size) {
+    pl.items = items.filter((item) => {
+      if (item?.path || item?.fileKey) {
+        return true;
+      }
+      const sid = nodeGraphAudioPlayerPlaylistSid(item?.sampleId);
+      return !sid || !pathKeys.has(sid);
+    });
+  }
+  const list = Array.isArray(pl.items) ? pl.items : items;
   const playedKeys = nodeGraphAudioPlayerPlaylistPlayedKeySet(pl);
   const playingKey = nodeGraphAudioPlayerPlaylistItemKey(pl.playing);
-  pl.played = items.filter((item) => {
+  pl.played = list.filter((item) => {
     const key = nodeGraphAudioPlayerPlaylistItemKey(item);
     return key && playedKeys.has(key) && key !== playingKey;
   });
-  pl.unplayed = items.filter((item) => {
+  pl.unplayed = list.filter((item) => {
     const key = nodeGraphAudioPlayerPlaylistItemKey(item);
     return key && key !== playingKey && !playedKeys.has(key);
   });
   if (playingKey) {
-    const found = items.find((item) => nodeGraphAudioPlayerPlaylistItemKey(item) === playingKey);
+    const found = list.find((item) => nodeGraphAudioPlayerPlaylistItemKey(item) === playingKey);
     if (found) {
       pl.playing = found;
     }
+  }
+  const nextKey = nodeGraphAudioPlayerPlaylistItemKey(pl.playNext);
+  if (nextKey && nextKey !== playingKey) {
+    const found = list.find((item) => nodeGraphAudioPlayerPlaylistItemKey(item) === nextKey);
+    pl.playNext = found || null;
+  } else {
+    pl.playNext = null;
   }
   return nodeGraphAudioPlayerPlaylistRebuildItems(pl);
 }
@@ -126,6 +225,9 @@ function nodeGraphAudioPlayerPlaylistNormalize(raw = null) {
     source.unplayed,
     played.length + playingList.length,
   );
+  const playNextList = source.playNext
+    ? nodeGraphAudioPlayerPlaylistNormalizeCardList([source.playNext], 0)
+    : [];
   let items = nodeGraphAudioPlayerPlaylistNormalizeCardList(source.items, 0);
   if (!items.length && hasQueues) {
     items = [...played, ...playingList, ...unplayed];
@@ -148,7 +250,7 @@ function nodeGraphAudioPlayerPlaylistNormalize(raw = null) {
       ? folderPathRaw
       : "");
   const folderDive = source.folderDive !== false && source.folderDive !== "false" && source.folderDive !== 0;
-  const removeAfterPlay = source.removeAfterPlay !== false && source.removeAfterPlay !== "false" && source.removeAfterPlay !== 0;
+  const removeAfterPlay = source.removeAfterPlay === true || source.removeAfterPlay === "true" || source.removeAfterPlay === 1;
   const formats = typeof nodeGraphAudioPlayerLibraryNormalizeFormats === "function"
     ? nodeGraphAudioPlayerLibraryNormalizeFormats(source.formats)
     : (source.formats && typeof source.formats === "object" ? source.formats : {});
@@ -165,6 +267,7 @@ function nodeGraphAudioPlayerPlaylistNormalize(raw = null) {
     loopMode,
     played: hasQueues ? played : items.slice(0, index),
     playing: hasQueues ? (playingList[0] || null) : (items[index] || null),
+    playNext: playNextList[0] || null,
     removeAfterPlay,
     selectedIndex,
     shuffle,
@@ -347,6 +450,7 @@ function nodeGraphAudioPlayerPlaylistForPersist(raw = null) {
     loopMode: n.loopMode,
     played: (n.played || []).map(nodeGraphAudioPlayerPlaylistCardForPersist).filter(Boolean),
     playing: nodeGraphAudioPlayerPlaylistCardForPersist(n.playing),
+    playNext: nodeGraphAudioPlayerPlaylistCardForPersist(n.playNext),
     removeAfterPlay: n.removeAfterPlay,
     selectedIndex: n.selectedIndex,
     shuffle: n.shuffle,
@@ -508,6 +612,7 @@ function nodeGraphAudioPlayerPlaylistClear(nodeId) {
   pl.items = [];
   pl.played = [];
   pl.playing = null;
+  pl.playNext = null;
   pl.unplayed = [];
   pl.index = 0;
   pl.selectedIndex = 0;
@@ -534,6 +639,9 @@ function nodeGraphAudioPlayerPlaylistRemoveSelected(nodeId) {
   const i = Math.max(0, Math.min(pl.items.length - 1, selected));
   const removed = pl.items[i];
   pl.items.splice(i, 1);
+  if (removed && nodeGraphAudioPlayerPlaylistItemKey(pl.playNext) === nodeGraphAudioPlayerPlaylistItemKey(removed)) {
+    pl.playNext = null;
+  }
   pl.index = Math.max(0, Math.min(pl.items.length ? pl.items.length - 1 : 0, i));
   pl.selectedIndex = pl.index;
   node.playlist = pl;
@@ -646,13 +754,27 @@ function nodeGraphAudioPlayerPlaylistPlay(nodeId) {
     }
     return;
   }
-  if (typeof nodeGraphAudioPlayerLog === "function") {
-    nodeGraphAudioPlayerLog("INFO", "Play button", {
-      nodeId,
+  const reason = String(nodeGraphMvp?.sampleRuntimeStatus?.get?.(nodeId)?.reason || "").trim().toLowerCase();
+  const transport = nodeGraphAudioPlayerTransportBase(nodeId);
+  if (typeof nodeGraphAudioPlayerPlaylistDebug === "function") {
+    nodeGraphAudioPlayerPlaylistDebug(nodeId, "play-button", {
       index: pl.items[i] ? i : 0,
       name: item.name || "",
-      transport: nodeGraphAudioPlayerTransportBase(nodeId),
+      transport,
+      reason,
     });
+  }
+  // After a file ends the engine stays on Play (4) with completed=true.
+  // Writing 4 again does not clear completed — Stop then Play does.
+  if (reason === "engine complete" || reason === "engine stopped" || transport <= 1) {
+    const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+    if (node) {
+      node.samplePhase = 0;
+      node.samplePhaseSeek = (Math.round(Number(node.samplePhaseSeek) || 0) + 1) || 1;
+    }
+    if (transport !== 1 && typeof nodeGraphAudioPlayerWriteTransport === "function") {
+      nodeGraphAudioPlayerWriteTransport(nodeId, 1);
+    }
   }
   const result = nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, pl.items[i] ? i : 0, { autoplay: true });
   if (result && typeof result.catch === "function") {
@@ -727,21 +849,20 @@ function nodeGraphAudioPlayerPlaylistEnsureCurrentSample(nodeId, options = {}) {
     return null;
   }
   const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-  const existing = pl.items.find((item) => item.sampleId === ref.id);
+  let existing = nodeGraphAudioPlayerPlaylistFindItemForSample(pl, ref.id);
+  if (!existing) {
+    const refName = nodeGraphAudioPlayerPlaylistFileName({ name: ref.name });
+    existing = pl.items.find((item) => (
+      !item.sampleId && nodeGraphAudioPlayerPlaylistFileName(item) === refName
+    ));
+  }
   if (existing) {
+    existing.sampleId = ref.id;
+    node.playlist = pl;
     return existing;
   }
-  const byName = pl.items.find((item) => !item.sampleId && item.name === ref.name);
-  if (byName) {
-    byName.sampleId = ref.id;
-    node.playlist = pl;
-    if (options.persist !== false && typeof nodeGraphAudioPlayerPlaylistPersist === "function") {
-      nodeGraphAudioPlayerPlaylistPersist(nodeId);
-    }
-    if (options.refresh !== false && typeof nodeGraphAudioPlayerPlaylistRefreshUi === "function") {
-      nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
-    }
-    return byName;
+  if ((pl.items || []).some((item) => item.path || item.fileKey)) {
+    return null;
   }
   return nodeGraphAudioPlayerPlaylistAppendSample(nodeId, ref, options);
 }
@@ -759,10 +880,31 @@ function nodeGraphAudioPlayerPlaylistAppendSample(nodeId, sampleRef = {}, option
     return null;
   }
   const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-  const existing = pl.items.findIndex((item) => item.sampleId === sampleId);
+  const existingItem = nodeGraphAudioPlayerPlaylistFindItemForSample(pl, sampleId);
+  const existing = existingItem ? pl.items.indexOf(existingItem) : -1;
   const est = nodeGraphAudioPlayerPlaylistEstimateBytes(sampleId);
+  if (existing >= 0) {
+    const cur = pl.items[existing];
+    cur.sampleId = sampleId;
+    cur.bytes = est.bytes || cur.bytes;
+    cur.frames = est.frames || cur.frames;
+    cur.sampleRate = est.sampleRate || cur.sampleRate;
+    cur.channels = est.channels || cur.channels;
+    if (!cur.name) {
+      cur.name = String(sampleRef.name || sampleRef.sourceName || sampleId).trim().slice(0, 160) || sampleId;
+    }
+    pl.index = existing;
+    node.playlist = pl;
+    if (options.persist !== false) {
+      nodeGraphAudioPlayerPlaylistPersist(nodeId);
+    }
+    if (options.refresh !== false) {
+      nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
+    }
+    return cur;
+  }
   const entry = {
-    id: existing >= 0 ? pl.items[existing].id : `pl-${Date.now().toString(36)}-${sampleId.slice(-8)}`,
+    id: `pl-${Date.now().toString(36)}-${sampleId.slice(-8)}`,
     name: String(sampleRef.name || sampleRef.sourceName || sampleId).trim().slice(0, 160) || sampleId,
     sampleId,
     bytes: est.bytes,
@@ -770,13 +912,8 @@ function nodeGraphAudioPlayerPlaylistAppendSample(nodeId, sampleRef = {}, option
     sampleRate: est.sampleRate,
     channels: est.channels,
   };
-  if (existing >= 0) {
-    pl.items[existing] = entry;
-    pl.index = existing;
-  } else {
-    pl.items.push(entry);
-    pl.index = pl.items.length - 1;
-  }
+  pl.items.push(entry);
+  pl.index = pl.items.length - 1;
   node.playlist = pl;
   if (options.persist !== false) {
     nodeGraphAudioPlayerPlaylistPersist(nodeId);
@@ -837,7 +974,7 @@ function nodeGraphAudioPlayerPlaylistCreateTransport(nodeId) {
     ["play", "▶", "Play"],
     ["pause", "⏸", "Pause"],
     ["loop", "↪️", "Loop off"],
-    ["shuffle", "🔀", "Shuffle next: off"],
+    ["shuffle", "🔀", "Shuffle off"],
   ];
   for (const [action, label, title] of specs) {
     const btn = document.createElement("button");
@@ -937,9 +1074,7 @@ function nodeGraphAudioPlayerPlaylistSyncTransport(nodeId) {
     const on = Boolean(pl.shuffle);
     shuffleBtn.classList.toggle("is-active", on);
     shuffleBtn.setAttribute("aria-pressed", on ? "true" : "false");
-    shuffleBtn.title = on
-      ? "Shuffle next: on — pick a random unplayed track"
-      : "Shuffle next: off — play the next unplayed track";
+    shuffleBtn.title = on ? "Shuffle on" : "Shuffle off";
     shuffleBtn.setAttribute("aria-label", shuffleBtn.title);
   }
 }
@@ -1194,6 +1329,15 @@ function nodeGraphAudioPlayerPlaylistPlaceShared(section, nodeId, face) {
   if (transport && plPage && transport.parentElement !== plPage) {
     plPage.append(transport);
   }
+  const debugEl = section.querySelector("[data-music-player-debug]");
+  if (debugEl && plPage) {
+    const before = plPage.querySelector("[data-music-player-transport]");
+    if (before) {
+      plPage.insertBefore(debugEl, before);
+    } else if (debugEl.parentElement !== plPage) {
+      plPage.append(debugEl);
+    }
+  }
 }
 
 function nodeGraphAudioPlayerPlaylistEnsureLayout(section, nodeId) {
@@ -1390,9 +1534,9 @@ function nodeGraphAudioPlayerPlaylistPlayingFrom(nodeId, pl) {
   return playing >= 0 ? playing : pl.index;
 }
 
-function nodeGraphAudioPlayerPlaylistPlayNext(nodeId) {
+function nodeGraphAudioPlayerPlaylistPlayNext(nodeId, options = {}) {
   if (typeof nodeGraphAudioPlayerLibraryPlayNext === "function") {
-    nodeGraphAudioPlayerLibraryPlayNext(nodeId);
+    nodeGraphAudioPlayerLibraryPlayNext(nodeId, options);
   }
 }
 
@@ -1402,42 +1546,336 @@ function nodeGraphAudioPlayerPlaylistPlayPrev(nodeId) {
   }
 }
 
-// Debounce auto-advance so a held "complete" reason does not skip tracks.
+// Auto-advance: ignore leftover complete/playing from a *different* file
+// than the one we asked to load. Completing the requested file must
+// advance even if we never saw "engine playing" (short file / missed snapshot).
 const nodeGraphAudioPlayerPlaylistAdvanceArmed = new Map();
+const nodeGraphAudioPlayerPlaylistLoadBusy = new Map();
+const nodeGraphAudioPlayerPlaylistLoadTarget = new Map();
+const nodeGraphAudioPlayerPlaylistAdvancePending = new Map();
+const nodeGraphAudioPlayerPlaylistAdvanceTimer = new Map();
+const nodeGraphAudioPlayerPlaylistLastCompletedSid = new Map();
 const nodeGraphAudioPlayerPlaylistScrubLoops = new Map();
+const nodeGraphAudioPlayerPlaylistDebugLastSig = new Map();
 
-function nodeGraphAudioPlayerPlaylistOnRuntimeStatus(nodeId, reason = "") {
+function nodeGraphAudioPlayerPlaylistDebugState(nodeId, extra = {}) {
+  const id = String(nodeId || "");
+  const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
+    ? nodeGraphAudioPlayerPlaylistForNode(id)
+    : null;
+  return {
+    nodeId: id,
+    armed: Boolean(nodeGraphAudioPlayerPlaylistAdvanceArmed.get(id)),
+    busy: Boolean(nodeGraphAudioPlayerPlaylistLoadBusy.get(id)),
+    pending: Boolean(nodeGraphAudioPlayerPlaylistAdvancePending.get(id)),
+    want: nodeGraphAudioPlayerPlaylistLoadTarget.get(id) || "",
+    playing: nodeGraphAudioPlayerPlaylistItemKey(pl?.playing),
+    playNext: nodeGraphAudioPlayerPlaylistItemKey(pl?.playNext),
+    played: Array.isArray(pl?.played) ? pl.played.length : 0,
+    unplayed: Array.isArray(pl?.unplayed) ? pl.unplayed.length : 0,
+    shuffle: Boolean(pl?.shuffle),
+    loop: pl?.loopMode || "",
+    ...extra,
+  };
+}
+
+function nodeGraphAudioPlayerPlaylistDebug(nodeId, event, extra = {}) {
+  const snap = nodeGraphAudioPlayerPlaylistDebugState(nodeId, { event, ...extra });
+  const ring = (typeof window !== "undefined" && (window.__musicPlayerDebug || (window.__musicPlayerDebug = { events: [] })))
+    || { events: [] };
+  ring.events.push({ t: Date.now(), ...snap });
+  if (ring.events.length > 60) {
+    ring.events.shift();
+  }
+  ring.last = snap;
+  if (typeof window !== "undefined") {
+    window.dumpMusicPlayer = function dumpMusicPlayer() {
+      console.table(window.__musicPlayerDebug?.events || []);
+      return window.__musicPlayerDebug;
+    };
+  }
+  const sig = `${event}|${snap.reason || ""}|${snap.armed}|${snap.busy}|${snap.want}|${snap.bound || ""}|${snap.why || ""}`;
+  const throttle = String(event).includes("ignored")
+    || event === "engine-playing-leftover"
+    || event === "engine-playing-armed"
+    || event === "engine-stopped"
+    || event === "engine-paused";
+  if (throttle && nodeGraphAudioPlayerPlaylistDebugLastSig.get(snap.nodeId) === sig) {
+    return snap;
+  }
+  nodeGraphAudioPlayerPlaylistDebugLastSig.set(snap.nodeId, sig);
+  if (typeof nodeGraphAudioPlayerLog === "function") {
+    nodeGraphAudioPlayerLog(String(event).includes("ignored") || event.includes("fail") ? "FAIL" : "INFO", event, snap);
+  }
+  const line = `${event} t${snap.transport ?? "?"} armed=${snap.armed ? 1 : 0} busy=${snap.busy ? 1 : 0} want=${snap.want || "-"} bound=${snap.bound || "-"} play=${snap.playing || "-"} P${snap.played}/U${snap.unplayed}${snap.why ? ` (${snap.why})` : ""}`;
+  const section = document.querySelector(
+    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
+  );
+  if (section) {
+    let el = section.querySelector("[data-music-player-debug]");
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "node-music-player-pl-debug";
+      el.dataset.musicPlayerDebug = "true";
+      const plPage = section.querySelector("[data-music-player-page='pl']");
+      const transportEl = section.querySelector("[data-music-player-transport]");
+      if (plPage && transportEl) {
+        plPage.insertBefore(el, transportEl);
+      } else if (plPage) {
+        plPage.append(el);
+      } else {
+        section.append(el);
+      }
+    }
+    el.textContent = line;
+  }
+  if (typeof setNodeGraphSampleStatus === "function" && (event.includes("advance") || event.includes("ignored") || event === "play-next" || event === "play-button")) {
+    setNodeGraphSampleStatus(nodeId, line);
+  }
+  return snap;
+}
+
+function nodeGraphAudioPlayerPlaylistCancelAdvanceTimer(nodeId) {
+  const id = String(nodeId || "");
+  const timer = nodeGraphAudioPlayerPlaylistAdvanceTimer.get(id);
+  if (timer) {
+    window.clearTimeout(timer);
+    nodeGraphAudioPlayerPlaylistAdvanceTimer.delete(id);
+  }
+}
+
+function nodeGraphAudioPlayerPlaylistBeginLoad(nodeId) {
+  const id = String(nodeId || "");
+  nodeGraphAudioPlayerPlaylistCancelAdvanceTimer(id);
+  nodeGraphAudioPlayerPlaylistAdvanceArmed.set(id, false);
+  nodeGraphAudioPlayerPlaylistLoadBusy.set(id, true);
+  nodeGraphAudioPlayerPlaylistAdvancePending.set(id, false);
+  nodeGraphAudioPlayerPlaylistDebug(id, "begin-load");
+}
+
+function nodeGraphAudioPlayerPlaylistSetLoadTarget(nodeId, item) {
+  const id = String(nodeId || "");
+  const key = nodeGraphAudioPlayerPlaylistItemKey(item);
+  if (key) {
+    nodeGraphAudioPlayerPlaylistLoadTarget.set(id, key);
+  } else {
+    nodeGraphAudioPlayerPlaylistLoadTarget.delete(id);
+  }
+  nodeGraphAudioPlayerPlaylistDebug(id, "load-target", {
+    name: item?.name || "",
+    sampleId: item?.sampleId || "",
+  });
+}
+
+function nodeGraphAudioPlayerPlaylistEndLoad(nodeId) {
+  const id = String(nodeId || "");
+  nodeGraphAudioPlayerPlaylistLoadBusy.set(id, false);
+  nodeGraphAudioPlayerPlaylistLoadTarget.delete(id);
+  nodeGraphAudioPlayerPlaylistAdvancePending.set(id, false);
+  nodeGraphAudioPlayerPlaylistDebug(id, "end-load");
+}
+
+function nodeGraphAudioPlayerPlaylistAutoAdvanceBlocked(nodeId) {
+  const id = String(nodeId || "");
+  if (nodeGraphAudioPlayerPlaylistAdvancePending.get(id)) {
+    nodeGraphAudioPlayerPlaylistAdvancePending.set(id, false);
+    return false;
+  }
+  const blocked = Boolean(nodeGraphAudioPlayerPlaylistLoadBusy.get(id));
+  if (blocked) {
+    nodeGraphAudioPlayerPlaylistDebug(id, "play-next-blocked", { why: "load busy" });
+  }
+  return blocked;
+}
+
+function nodeGraphAudioPlayerPlaylistBoundItemKey(nodeId, pl) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const sid = nodeGraphAudioPlayerPlaylistSid(node?.sample?.id);
+  if (!sid) {
+    return "";
+  }
+  const bound = nodeGraphAudioPlayerPlaylistFindItemForSample(pl, sid);
+  return nodeGraphAudioPlayerPlaylistItemKey(bound);
+}
+
+function nodeGraphAudioPlayerPlaylistEngineSampleId(nodeId, workletSampleId = "") {
+  const fromWorklet = nodeGraphAudioPlayerPlaylistSid(workletSampleId);
+  if (fromWorklet) {
+    return fromWorklet;
+  }
+  const statusId = nodeGraphAudioPlayerPlaylistSid(
+    nodeGraphMvp?.sampleRuntimeStatus?.get?.(nodeId)?.sampleId,
+  );
+  return statusId;
+}
+
+function nodeGraphAudioPlayerPlaylistOnRuntimeStatus(nodeId, reason = "", workletSampleId = "") {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   if (!node || node.type !== "audioPlayer") {
     return;
   }
   const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-  const catalogCount = typeof nodeGraphAudioPlayerLibraryCatalog === "function"
-    ? nodeGraphAudioPlayerLibraryCatalog(nodeId).length
-    : 0;
   if (!pl.items.length) {
     nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
     return;
   }
-  const text = String(reason || "").toLowerCase();
-  const completed = text.includes("complete") || text.includes("finished");
-  if (!completed) {
-    nodeGraphAudioPlayerPlaylistAdvanceArmed.set(nodeId, true);
+  const id = String(nodeId || "");
+  const text = String(reason || "").trim().toLowerCase();
+  const playing = text === "engine playing" || text === "engine looping";
+  const completed = text === "engine complete";
+  const transport = Math.round(Number(node.params?.transport) || 0);
+  const wantKey = nodeGraphAudioPlayerPlaylistLoadTarget.get(id)
+    || nodeGraphAudioPlayerPlaylistItemKey(pl.playing);
+  const engineSid = nodeGraphAudioPlayerPlaylistEngineSampleId(nodeId, workletSampleId);
+  const wantItem = (pl.items || []).find((item) => nodeGraphAudioPlayerPlaylistItemKey(item) === wantKey)
+    || pl.playing
+    || null;
+  const boundKey = nodeGraphAudioPlayerPlaylistBoundItemKey(nodeId, pl);
+  // Leftover = engine is still the previous file. Do not compare playlist
+  // keys: a ghost card (pl-xxx) can share the sample id with the real path
+  // row, which used to look like "still on previous file" forever.
+  const leftoverOther = Boolean(
+    engineSid
+    && wantItem
+    && !nodeGraphAudioPlayerPlaylistItemMatchesSample(wantItem, engineSid),
+  );
+  const finishedRequested = Boolean(
+    engineSid
+    && wantItem
+    && nodeGraphAudioPlayerPlaylistItemMatchesSample(wantItem, engineSid),
+  );
+  if (playing) {
+    if (nodeGraphAudioPlayerPlaylistLoadBusy.get(id) && leftoverOther) {
+      nodeGraphAudioPlayerPlaylistDebug(id, "engine-playing-leftover", {
+        reason: text,
+        bound: boundKey,
+        engineSid,
+        transport,
+        why: "engine still on previous file",
+      });
+      nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
+      return;
+    }
+    if (engineSid && nodeGraphAudioPlayerPlaylistLastCompletedSid.get(id) === engineSid) {
+      nodeGraphAudioPlayerPlaylistLastCompletedSid.delete(id);
+    }
+    nodeGraphAudioPlayerPlaylistLoadBusy.set(id, false);
+    nodeGraphAudioPlayerPlaylistLoadTarget.delete(id);
+    nodeGraphAudioPlayerPlaylistAdvancePending.set(id, false);
+    nodeGraphAudioPlayerPlaylistAdvanceArmed.set(id, true);
+    nodeGraphAudioPlayerPlaylistDebug(id, "engine-playing-armed", {
+      reason: text,
+      bound: boundKey,
+      engineSid,
+      transport,
+    });
     nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
     return;
   }
-  if (!nodeGraphAudioPlayerPlaylistAdvanceArmed.get(nodeId)) {
+  if (!completed) {
+    if (text === "engine stopped" || text === "engine paused") {
+      nodeGraphAudioPlayerPlaylistDebug(id, text.replace(" ", "-"), {
+        reason: text,
+        bound: boundKey,
+        transport,
+      });
+    }
+    nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
     return;
   }
-  // Auto-advance on Play (4) and Loop All (5), not Loop single (3).
-  const transport = Math.round(Number(node.params?.transport) || 0);
+  if (engineSid && nodeGraphAudioPlayerPlaylistLastCompletedSid.get(id) === engineSid) {
+    nodeGraphAudioPlayerPlaylistDebug(id, "complete-ignored", {
+      reason: text,
+      bound: boundKey,
+      engineSid,
+      transport,
+      why: "already advanced this sample",
+    });
+    return;
+  }
+  if (leftoverOther) {
+    nodeGraphAudioPlayerPlaylistDebug(id, "complete-ignored", {
+      reason: text,
+      bound: boundKey,
+      engineSid,
+      transport,
+      why: "leftover complete from previous file",
+    });
+    return;
+  }
+  if (nodeGraphAudioPlayerPlaylistLoadBusy.get(id) && !engineSid) {
+    nodeGraphAudioPlayerPlaylistDebug(id, "complete-ignored", {
+      reason: text,
+      bound: boundKey,
+      engineSid,
+      transport,
+      why: "still loading, no sample bound",
+    });
+    return;
+  }
+  const armed = Boolean(nodeGraphAudioPlayerPlaylistAdvanceArmed.get(id));
+  const busy = Boolean(nodeGraphAudioPlayerPlaylistLoadBusy.get(id));
+  const loadingKey = nodeGraphAudioPlayerPlaylistLoadTarget.get(id) || "";
+  const loadingItem = loadingKey
+    ? (pl.items || []).find((item) => nodeGraphAudioPlayerPlaylistItemKey(item) === loadingKey)
+    : null;
+  if (busy && loadingItem && engineSid && !nodeGraphAudioPlayerPlaylistItemMatchesSample(loadingItem, engineSid)) {
+    nodeGraphAudioPlayerPlaylistDebug(id, "complete-ignored", {
+      reason: text,
+      bound: boundKey,
+      engineSid,
+      transport,
+      why: "already loading the next file",
+    });
+    return;
+  }
+  // Without a worklet sample id, node.sample.id is already the NEXT file
+  // after bind — leftover "engine complete" looked like the new file ended.
+  // Only treat unarmed complete as real if the worklet itself is on that file.
+  if (!armed && !(busy && finishedRequested && workletSampleId)) {
+    nodeGraphAudioPlayerPlaylistDebug(id, "complete-ignored", {
+      reason: text,
+      bound: boundKey,
+      engineSid,
+      workletSampleId: String(workletSampleId || ""),
+      transport,
+      why: !workletSampleId && busy
+        ? "complete during load, no worklet sample id"
+        : (busy ? "busy but bound is not the requested file" : "not armed (never saw engine playing)"),
+    });
+    return;
+  }
   if (transport !== 4 && transport !== 5) {
+    nodeGraphAudioPlayerPlaylistDebug(id, "complete-ignored", {
+      reason: text,
+      bound: boundKey,
+      engineSid,
+      transport,
+      why: `transport ${transport} is not play-once/loop-all`,
+    });
     return;
   }
-  nodeGraphAudioPlayerPlaylistAdvanceArmed.set(nodeId, false);
-  window.setTimeout(() => {
-    nodeGraphAudioPlayerPlaylistPlayNext(nodeId);
-  }, 40);
+  const retired = nodeGraphAudioPlayerPlaylistFindItemForSample(pl, engineSid) || pl.playing;
+  const fromKey = nodeGraphAudioPlayerPlaylistItemKey(retired);
+  nodeGraphAudioPlayerPlaylistLastCompletedSid.set(id, engineSid);
+  nodeGraphAudioPlayerPlaylistMarkPlayedBySample(pl, engineSid);
+  node.playlist = pl;
+  nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
+  nodeGraphAudioPlayerPlaylistPersist(nodeId);
+  nodeGraphAudioPlayerPlaylistAdvanceArmed.set(id, false);
+  nodeGraphAudioPlayerPlaylistLoadBusy.set(id, true);
+  nodeGraphAudioPlayerPlaylistAdvancePending.set(id, true);
+  nodeGraphAudioPlayerPlaylistLoadTarget.delete(id);
+  nodeGraphAudioPlayerPlaylistCancelAdvanceTimer(id);
+  nodeGraphAudioPlayerPlaylistDebug(id, "complete-advance", {
+    reason: text,
+    bound: boundKey,
+    engineSid,
+    fromKey,
+    transport,
+    why: armed ? "armed complete" : "requested file completed before playing snapshot",
+  });
+  nodeGraphAudioPlayerPlaylistPlayNext(nodeId, { fromAuto: true, fromKey });
 }
 
 function nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId) {
@@ -1870,10 +2308,20 @@ function nodeGraphAudioPlayerPlaylistBindListResize(list, nodeId) {
     }
   });
   list.addEventListener("click", (event) => {
-    if (event.target.closest(".node-music-player-pl-row")) {
-      event.preventDefault();
-      event.stopPropagation();
+    const row = event.target.closest(".node-music-player-pl-row");
+    if (!row || row.dataset.slot === "empty") {
+      return;
     }
+    event.preventDefault();
+    event.stopPropagation();
+    if (list.__playNextClickTimer) {
+      window.clearTimeout(list.__playNextClickTimer);
+    }
+    const index = Number(row.dataset.playlistIndex);
+    list.__playNextClickTimer = window.setTimeout(() => {
+      list.__playNextClickTimer = 0;
+      nodeGraphAudioPlayerPlaylistTogglePlayNext(nodeId, index);
+    }, 250);
   });
   list.addEventListener("dblclick", (event) => {
     const row = event.target.closest(".node-music-player-pl-row");
@@ -1882,6 +2330,10 @@ function nodeGraphAudioPlayerPlaylistBindListResize(list, nodeId) {
     }
     event.preventDefault();
     event.stopPropagation();
+    if (list.__playNextClickTimer) {
+      window.clearTimeout(list.__playNextClickTimer);
+      list.__playNextClickTimer = 0;
+    }
     nodeGraphAudioPlayerPlaylistActivateRow(nodeId, Number(row.dataset.playlistIndex), { play: true });
   });
 }
@@ -1947,7 +2399,7 @@ function nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying = 
     );
     if (!item) {
       row.classList.add("is-empty");
-      row.classList.remove("is-played");
+      row.classList.remove("is-played", "is-play-next");
       row.dataset.slot = "empty";
       row.tabIndex = -1;
       row.setAttribute("aria-hidden", "true");
@@ -1970,12 +2422,15 @@ function nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying = 
     row.dataset.active = index === selected ? "true" : "false";
     const playedKeys = nodeGraphAudioPlayerPlaylistPlayedKeySet(pl);
     const playingKey = nodeGraphAudioPlayerPlaylistItemKey(pl.playing);
+    const playNextKey = nodeGraphAudioPlayerPlaylistItemKey(pl.playNext);
     const itemKey = nodeGraphAudioPlayerPlaylistItemKey(item);
     const isPlaying = Boolean(itemKey) && itemKey === playingKey;
+    const isPlayNext = Boolean(itemKey) && itemKey === playNextKey && !isPlaying;
     const isPlayed = Boolean(itemKey) && playedKeys.has(itemKey) && !isPlaying;
     row.dataset.playing = isPlaying ? "true" : "false";
-    row.dataset.queue = isPlaying ? "playing" : (isPlayed ? "played" : "unplayed");
+    row.dataset.queue = isPlaying ? "playing" : (isPlayNext ? "next" : (isPlayed ? "played" : "unplayed"));
     row.classList.toggle("is-played", isPlayed);
+    row.classList.toggle("is-play-next", isPlayNext);
     const num = row.querySelector(".node-music-player-pl-num");
     const name = row.querySelector(".node-music-player-pl-name");
     if (num) {
@@ -1985,7 +2440,9 @@ function nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying = 
     if (name) {
       name.textContent = nodeGraphAudioPlayerPlaylistFileName(item);
     }
-    row.title = String(item.path || item.name || "Double-click to play");
+    row.title = isPlayNext
+      ? "Play next (click to cancel)"
+      : (item.path || item.name || "Click to play next, double-click to play now");
   }
   return slotCount;
 }
@@ -2008,6 +2465,41 @@ function nodeGraphAudioPlayerPlaylistMakeRowShell(index, { empty = false } = {})
   name.className = "node-music-player-pl-name";
   row.append(num, name);
   return row;
+}
+
+function nodeGraphAudioPlayerPlaylistTogglePlayNext(nodeId, index) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!node || node.type !== "audioPlayer") {
+    return;
+  }
+  const pl = nodeGraphAudioPlayerPlaylistEnsureQueues(nodeGraphAudioPlayerPlaylistForNode(nodeId));
+  const item = pl.items[index];
+  if (!item) {
+    return;
+  }
+  pl.selectedIndex = Math.max(0, Math.min(pl.items.length - 1, Math.round(Number(index) || 0)));
+  const key = nodeGraphAudioPlayerPlaylistItemKey(item);
+  const playingKey = nodeGraphAudioPlayerPlaylistItemKey(pl.playing);
+  if (!key || key === playingKey) {
+    node.playlist = pl;
+    nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
+    nodeGraphAudioPlayerPlaylistPersist(nodeId);
+    return;
+  }
+  if (nodeGraphAudioPlayerPlaylistItemKey(pl.playNext) === key) {
+    pl.playNext = null;
+    if (typeof setNodeGraphSampleStatus === "function") {
+      setNodeGraphSampleStatus(nodeId, "play next cleared");
+    }
+  } else {
+    pl.playNext = item;
+    if (typeof setNodeGraphSampleStatus === "function") {
+      setNodeGraphSampleStatus(nodeId, `play next: ${nodeGraphAudioPlayerPlaylistFileName(item)}`);
+    }
+  }
+  node.playlist = pl;
+  nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
+  nodeGraphAudioPlayerPlaylistPersist(nodeId);
 }
 
 function nodeGraphAudioPlayerPlaylistActivateRow(nodeId, index, { play = false } = {}) {
@@ -2458,10 +2950,6 @@ function nodeGraphAudioPlayerVideoscopePaintLr(context, width, height, channels,
     const original = syncNodeGraphAudioPlayerRuntimeStatus;
     function wrapped(message = {}) {
       original(message);
-      const nodeId = String(message.nodeId || (message.nodeIds && message.nodeIds[0]) || "");
-      if (nodeId) {
-        nodeGraphAudioPlayerPlaylistOnRuntimeStatus(nodeId, message.reason || "");
-      }
     }
     wrapped.__playlistWrapped = true;
     // Global function reassignment

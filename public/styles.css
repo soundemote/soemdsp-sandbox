@@ -1645,6 +1645,21 @@ button.scw-label:hover,
 .node-music-player-pl-transport-btn:last-child {
   border-right: 0 !important;
 }
+.node-music-player-pl-debug {
+  flex: 0 0 auto;
+  max-height: 2.8rem;
+  overflow: hidden;
+  margin: 0;
+  padding: 1px 6px;
+  box-sizing: border-box;
+  color: var(--phosphor-hud-color-hot);
+  font: var(--phosphor-hud-font);
+  font-size: 0.68em;
+  line-height: 1.25;
+  white-space: pre-wrap;
+  pointer-events: none;
+  border-top: 1px solid var(--phosphor-hud-color-dim);
+}
 .node-phosphor-waveform-playlist-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1879,6 +1894,11 @@ button.scw-label:hover,
 }
 .node-music-player-pl-row[data-playing="true"] {
   background: var(--phosphor-hud-color-dim);
+}
+.node-music-player-pl-row.is-play-next,
+.node-music-player-pl-row[data-queue="next"] {
+  background: hsla(140, 90%, 57%, 0.14);
+  color: var(--phosphor-hud-color-hot);
 }
 .node-music-player-pl-row.is-played .node-music-player-pl-name,
 .node-music-player-pl-row[data-queue="played"] .node-music-player-pl-name {

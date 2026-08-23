@@ -137,6 +137,7 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         audioPlayerSpeed: this.audioPlayerMeterSpeed,
         audioPlayerSpeeds: this.audioPlayerMeterSpeeds || {},
         audioPlayerReason: this.audioPlayerMeterReason,
+        audioPlayerSampleId: this.audioPlayerMeterSampleId || "",
         clipCount: this.meterClipCount,
         badNumberCount: this.badNumberCount,
         lastBadValueReason: this.lastBadValueReason,

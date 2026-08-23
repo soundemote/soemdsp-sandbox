@@ -768,9 +768,16 @@ function flushAllNodeGraphAudioPlayerSamplePhases() {
   }
 }
 
-function rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase) {
+function rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase, reason = "") {
   const node = nodeGraphPatchNode(nodeId);
   if (!node || node.type !== "audioPlayer") {
+    return;
+  }
+  const why = String(reason || "").trim().toLowerCase();
+  // End-of-file complete snapshots were overwriting samplePhase with 1, so the
+  // next Play/plan rebuild restored the playhead at the end and instantly
+  // completed again (Play looked dead until Stop then Play).
+  if (why === "engine complete" || why === "engine stopped") {
     return;
   }
   const clamped = Math.max(0, Math.min(1, Number(phase) || 0));
@@ -826,6 +833,7 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
   const primaryNodeId = String(message.nodeId || nodeIds[0] || "");
   const phase = Number(message.phase) || 0;
   const reason = String(message.reason || "").trim();
+  const workletSampleId = String(message.sampleId || "").trim();
   const speeds = message.speeds && typeof message.speeds === "object" ? message.speeds : null;
   const primarySpeed = Number(message.speed);
   const activeIds = new Set(primaryNodeId ? [primaryNodeId] : nodeIds);
@@ -837,6 +845,7 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
     nodeGraphMvp.sampleRuntimeStatus?.set?.(nodeId, {
       phase: activeIds.has(nodeId) ? phase : 0,
       reason: activeIds.has(nodeId) ? reason : "engine not in live path",
+      sampleId: activeIds.has(nodeId) ? workletSampleId : "",
       speed,
     });
   }
@@ -844,33 +853,39 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
     nodeGraphMvp.sampleRuntimeStatus?.set?.(primaryNodeId, {
       phase,
       reason,
+      sampleId: workletSampleId,
       speed: Number.isFinite(primarySpeed) ? primarySpeed : undefined,
     });
   }
   // Persist playhead on the active Music Player(s) for refresh restore.
   if (primaryNodeId && activeIds.has(primaryNodeId)) {
-    rememberNodeGraphAudioPlayerSamplePhase(primaryNodeId, phase);
+    rememberNodeGraphAudioPlayerSamplePhase(primaryNodeId, phase, reason);
   }
   for (const nodeId of nodeIds) {
     if (activeIds.has(nodeId) && nodeId !== primaryNodeId) {
-      rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase);
+      rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase, reason);
     }
   }
   if (primaryNodeId && reason && typeof nodeGraphAudioPlayerLog === "function") {
     const interesting = reason.includes("sample")
       || reason === "engine playing"
-      || reason === "engine looping";
+      || reason === "engine looping"
+      || reason === "engine complete"
+      || reason === "engine stopped"
+      || reason === "engine paused";
     const prev = nodeGraphAudioPlayerLastEngineReason.get(primaryNodeId) || "";
     if (interesting && prev !== reason) {
       nodeGraphAudioPlayerLastEngineReason.set(primaryNodeId, reason);
       const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(primaryNodeId) : null;
-      const sampleId = String(node?.sample?.id || "");
+      const sampleId = workletSampleId || String(node?.sample?.id || "");
       const frames = sampleId ? (nodeGraphMvp?.sampleBuffers?.get?.(sampleId)?.frames || 0) : 0;
       const missing = reason.includes("sample");
       nodeGraphAudioPlayerLog(missing ? "FAIL" : "INFO", "engine", {
         nodeId: primaryNodeId,
         reason,
         sampleId,
+        workletSampleId,
+        nodeSampleId: String(node?.sample?.id || ""),
         frames,
       });
     }
@@ -883,7 +898,7 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
   }
   // Music Player playlist: auto-advance on complete + live scrubber value.
   if (primaryNodeId && typeof nodeGraphAudioPlayerPlaylistOnRuntimeStatus === "function") {
-    nodeGraphAudioPlayerPlaylistOnRuntimeStatus(primaryNodeId, reason);
+    nodeGraphAudioPlayerPlaylistOnRuntimeStatus(primaryNodeId, reason, workletSampleId);
   }
 }
 

@@ -5,6 +5,7 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     const sample = this.samples.get(sampleId);
     const frames = Math.max(0, Number(sample?.frames) || sample?.samples?.length || sample?.channelData?.[0]?.length || 0);
     this.audioPlayerMeterNodeId = nodeId;
+    this.audioPlayerMeterSampleId = sampleId;
     if (!this.audioPlayerMeterSpeeds) {
       this.audioPlayerMeterSpeeds = Object.create(null);
     }

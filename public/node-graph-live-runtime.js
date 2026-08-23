@@ -1914,6 +1914,7 @@ function handleNodeGraphLiveWorkletMessage(event) {
         speed: Number(message.audioPlayerSpeed),
         speeds: message.audioPlayerSpeeds || null,
         reason: message.audioPlayerReason || "",
+        sampleId: message.audioPlayerSampleId || "",
       });
     }
     if (Number(message.badNumberCount) > 0) {
@@ -2926,7 +2927,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-graph-parameter-smoother-filters.js?v=unpark-types-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=t-series-1",
-  "./public/node-live-audio-worklet-core.js?v=engine-ring-1",
+  "./public/node-live-audio-worklet-core.js?v=mp-worklet-sid-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
   "./public/node-live-audio-worklet-smoother.js?v=smooth-time-live-1",
@@ -2950,7 +2951,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-scope-snapshot.js?v=engine-ring-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=out-vol-m3-1",
-  "./public/node-live-audio-worklet-process.js?v=engine-ring-1",
+  "./public/node-live-audio-worklet-process.js?v=mp-worklet-sid-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",
@@ -3141,7 +3142,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/radar/radar-worklet-evaluator.js?v=phasor-stdlib-1",
   "./public/modules/audioPlayer/audio-player-math.js?v=mp-time-io-1",
-  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=mp-amp-1",
+  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=mp-worklet-sid-1",
   "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/gain/gain-math.js?v=output-db-1",
   "./public/modules/gain/gain-worklet-evaluator.js?v=gain-db-1",

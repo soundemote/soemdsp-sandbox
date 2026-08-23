@@ -619,8 +619,14 @@ async function nodeGraphAudioPlayerLibraryEnsureItemLoaded(nodeId, item) {
 }
 
 async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = true } = {}) {
+  if (typeof nodeGraphAudioPlayerPlaylistBeginLoad === "function") {
+    nodeGraphAudioPlayerPlaylistBeginLoad(nodeId);
+  }
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   if (!node || node.type !== "audioPlayer") {
+    if (typeof nodeGraphAudioPlayerPlaylistEndLoad === "function") {
+      nodeGraphAudioPlayerPlaylistEndLoad(nodeId);
+    }
     nodeGraphAudioPlayerLog("FAIL", "play ignored: not a Music Player", {
       nodeId,
       type: node?.type || "",
@@ -631,12 +637,18 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
     ? nodeGraphAudioPlayerPlaylistEnsureQueues(nodeGraphAudioPlayerPlaylistForNode(nodeId))
     : nodeGraphAudioPlayerPlaylistForNode(nodeId);
   if (!pl.items.length) {
+    if (typeof nodeGraphAudioPlayerPlaylistEndLoad === "function") {
+      nodeGraphAudioPlayerPlaylistEndLoad(nodeId);
+    }
     nodeGraphAudioPlayerLog("FAIL", "play ignored: playlist empty", { nodeId });
     return;
   }
   const nextIndex = Math.max(0, Math.min(pl.items.length - 1, Math.round(Number(index) || 0)));
   let item = pl.items[nextIndex];
   if (!item) {
+    if (typeof nodeGraphAudioPlayerPlaylistEndLoad === "function") {
+      nodeGraphAudioPlayerPlaylistEndLoad(nodeId);
+    }
     nodeGraphAudioPlayerLog("FAIL", "play ignored: no item at index", {
       nodeId,
       index: nextIndex,
@@ -644,9 +656,16 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
     });
     return;
   }
+  if (typeof nodeGraphAudioPlayerPlaylistSetLoadTarget === "function") {
+    nodeGraphAudioPlayerPlaylistSetLoadTarget(nodeId, item);
+  }
   if (typeof nodeGraphAudioPlayerPlaylistAdoptPlaying === "function") {
     nodeGraphAudioPlayerPlaylistAdoptPlaying(pl, item, { retireCurrent: true });
     item = pl.playing || item;
+  }
+  if (pl.playNext && typeof nodeGraphAudioPlayerPlaylistItemKey === "function"
+    && nodeGraphAudioPlayerPlaylistItemKey(pl.playNext) === nodeGraphAudioPlayerPlaylistItemKey(item)) {
+    pl.playNext = null;
   }
   const tokens = nodeGraphAudioPlayerLibraryPlayTokens();
   const token = (Number(tokens.get(nodeId)) || 0) + 1;
@@ -694,6 +713,9 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
         fileKey: item.fileKey || "",
         path: item.path || "",
       });
+      if (typeof nodeGraphAudioPlayerPlaylistEndLoad === "function") {
+        nodeGraphAudioPlayerPlaylistEndLoad(nodeId);
+      }
       return;
     }
   }
@@ -720,6 +742,9 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
       setNodeInteractionHelp(message);
     }
     nodeGraphAudioPlayerLog("FAIL", message, { sampleId: item.sampleId || live.sample?.id || "" });
+    if (typeof nodeGraphAudioPlayerPlaylistEndLoad === "function") {
+      nodeGraphAudioPlayerPlaylistEndLoad(nodeId);
+    }
     return;
   }
   nodeGraphAudioPlayerLibraryReleaseOrphans(nodeId, item.sampleId || found?.id || live.sample?.id);
@@ -762,9 +787,6 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
   if (typeof syncNodeGraphSampleDisplayForNode === "function") {
     syncNodeGraphSampleDisplayForNode(nodeId);
   }
-  if (typeof nodeGraphAudioPlayerPlaylistAdvanceArmed?.set === "function") {
-    nodeGraphAudioPlayerPlaylistAdvanceArmed.set(nodeId, true);
-  }
   if (typeof nodeGraphAudioPlayerPlaylistRefreshUi === "function") {
     nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
   }
@@ -795,7 +817,12 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
   });
 }
 
-function nodeGraphAudioPlayerLibraryPlayNext(nodeId) {
+function nodeGraphAudioPlayerLibraryPlayNext(nodeId, options = {}) {
+  if (options.fromAuto && typeof nodeGraphAudioPlayerPlaylistAutoAdvanceBlocked === "function"
+    && nodeGraphAudioPlayerPlaylistAutoAdvanceBlocked(nodeId)) {
+    nodeGraphAudioPlayerLog("INFO", "auto-advance ignored: still loading next track", { nodeId });
+    return;
+  }
   const pl = typeof nodeGraphAudioPlayerPlaylistEnsureQueues === "function"
     ? nodeGraphAudioPlayerPlaylistEnsureQueues(nodeGraphAudioPlayerPlaylistForNode(nodeId))
     : nodeGraphAudioPlayerPlaylistForNode(nodeId);
@@ -804,7 +831,9 @@ function nodeGraphAudioPlayerLibraryPlayNext(nodeId) {
     : 4;
   const wrap = pl.loopMode === "all" || transport === 5;
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  if (pl.removeAfterPlay) {
+  if (typeof nodeGraphAudioPlayerPlaylistRetirePlaying === "function") {
+    nodeGraphAudioPlayerPlaylistRetirePlaying(pl);
+  } else if (pl.removeAfterPlay) {
     pl.playing = null;
   } else if (pl.playing) {
     pl.played = [...(pl.played || []), pl.playing];
@@ -813,7 +842,14 @@ function nodeGraphAudioPlayerLibraryPlayNext(nodeId) {
   if (typeof nodeGraphAudioPlayerPlaylistSyncQueues === "function") {
     nodeGraphAudioPlayerPlaylistSyncQueues(pl);
   }
-  if (!(pl.unplayed || []).length) {
+  const keyOf = typeof nodeGraphAudioPlayerPlaylistItemKey === "function"
+    ? nodeGraphAudioPlayerPlaylistItemKey
+    : (item) => String(item?.path || item?.id || "");
+  const queuedKey = keyOf(pl.playNext);
+  const queued = queuedKey
+    ? (pl.items || []).find((item) => keyOf(item) === queuedKey) || null
+    : null;
+  if (!(pl.unplayed || []).length && !queued) {
     if (wrap && (pl.played || []).length) {
       pl.played = [];
       if (typeof nodeGraphAudioPlayerPlaylistSyncQueues === "function") {
@@ -826,8 +862,18 @@ function nodeGraphAudioPlayerLibraryPlayNext(nodeId) {
       if (node) {
         node.playlist = pl;
       }
+      if (typeof nodeGraphAudioPlayerPlaylistEndLoad === "function") {
+        nodeGraphAudioPlayerPlaylistEndLoad(nodeId);
+      }
       if (typeof nodeGraphAudioPlayerWriteTransport === "function") {
         nodeGraphAudioPlayerWriteTransport(nodeId, 1);
+      }
+      if (typeof nodeGraphAudioPlayerPlaylistDebug === "function") {
+        nodeGraphAudioPlayerPlaylistDebug(nodeId, "play-next-stop", {
+          fromAuto: Boolean(options.fromAuto),
+          wrap,
+          why: "no unplayed tracks",
+        });
       }
       if (typeof nodeGraphAudioPlayerPlaylistRefreshUi === "function") {
         nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
@@ -839,14 +885,21 @@ function nodeGraphAudioPlayerLibraryPlayNext(nodeId) {
     }
   }
   let next = null;
+  if (queued) {
+    next = queued;
+    pl.playNext = null;
+  }
   const pool = Array.isArray(pl.unplayed) ? pl.unplayed : [];
-  if (pl.shuffle && pool.length) {
+  if (!next && pl.shuffle && pool.length) {
     next = pool[Math.floor(Math.random() * pool.length)];
-  } else if (pool.length) {
-    const from = Math.max(0, Math.round(Number(pl.index) || 0));
-    const keyOf = typeof nodeGraphAudioPlayerPlaylistItemKey === "function"
-      ? nodeGraphAudioPlayerPlaylistItemKey
-      : (item) => String(item?.path || item?.id || "");
+  } else if (!next && pool.length) {
+    const fromKey = String(options.fromKey || "");
+    let from = fromKey
+      ? (pl.items || []).findIndex((entry) => keyOf(entry) === fromKey)
+      : -1;
+    if (from < 0) {
+      from = Math.max(0, Math.round(Number(pl.index) || 0));
+    }
     const after = pool.find((item) => {
       const found = (pl.items || []).findIndex((entry) => keyOf(entry) === keyOf(item));
       return found > from;
@@ -863,8 +916,27 @@ function nodeGraphAudioPlayerLibraryPlayNext(nodeId) {
     node.playlist = pl;
   }
   if (next) {
+    if (typeof nodeGraphAudioPlayerPlaylistDebug === "function") {
+      nodeGraphAudioPlayerPlaylistDebug(nodeId, "play-next", {
+        fromAuto: Boolean(options.fromAuto),
+        name: next.name || "",
+        queued: Boolean(queued && next === queued),
+        wrap,
+        index: pl.index,
+      });
+    }
     nodeGraphAudioPlayerLibraryPlayIndex(nodeId, pl.index, { autoplay: true });
     return;
+  }
+  if (typeof nodeGraphAudioPlayerPlaylistDebug === "function") {
+    nodeGraphAudioPlayerPlaylistDebug(nodeId, "play-next-stop", {
+      fromAuto: Boolean(options.fromAuto),
+      wrap,
+      why: "next pick empty",
+    });
+  }
+  if (typeof nodeGraphAudioPlayerPlaylistEndLoad === "function") {
+    nodeGraphAudioPlayerPlaylistEndLoad(nodeId);
   }
   if (typeof nodeGraphAudioPlayerWriteTransport === "function") {
     nodeGraphAudioPlayerWriteTransport(nodeId, 1);

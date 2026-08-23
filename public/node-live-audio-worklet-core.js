@@ -66,6 +66,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.audioPlayerMeterSpeed = 0;
     this.audioPlayerMeterSpeeds = Object.create(null);
     this.audioPlayerMeterReason = "";
+    this.audioPlayerMeterSampleId = "";
     this.audioPlayerNodeIds = [];
     this.inputMeterPeak = 0;
     this.inputMeterSamples = 0;
