@@ -394,7 +394,9 @@ function nodeGraphWaterfallDrawLayers(context, left, right, leftLayer, rightLaye
     );
     return;
   }
-  const composite = mode === "combine" ? "lighter" : mode;
+  const composite = typeof nodeGraphScopeStereoBlendComposite === "function"
+    ? nodeGraphScopeStereoBlendComposite(mode)
+    : (mode === "combine" ? "lighter" : mode);
   if (leftLayer.enabled !== false) {
     if (typeof TraceStroke !== "undefined" && TraceStroke.draw) {
       TraceStroke.draw(context, left, {
@@ -441,6 +443,44 @@ function nodeGraphWaterfallDrawLayers(context, left, right, leftLayer, rightLaye
   }
 }
 
+function nodeGraphWaterfallXyzColors() {
+  return (typeof nodeGraphTraceXyzColors === "object" && nodeGraphTraceXyzColors)
+    ? nodeGraphTraceXyzColors
+    : { X: "#ff0000", Y: "#0000ff", Z: "#00ff00" };
+}
+
+function nodeGraphWaterfallDrawXyz(context, layers, blend, face) {
+  const list = Array.isArray(layers) ? layers : [];
+  const composite = typeof nodeGraphScopeStereoBlendComposite === "function"
+    ? nodeGraphScopeStereoBlendComposite(blend)
+    : (String(blend || "combine") === "combine" ? "lighter" : blend);
+  for (const entry of list) {
+    if (!entry?.points?.length || entry.layer?.enabled === false) {
+      continue;
+    }
+    if (typeof TraceStroke !== "undefined" && TraceStroke.draw) {
+      TraceStroke.draw(context, entry.points, {
+        size: entry.layer.size,
+        blur: 0,
+        brightness: entry.layer.brightness,
+        fade: 0,
+        color: entry.layer.color,
+        faceMinSide: face,
+        composite,
+        lineCap: "butt",
+      });
+    } else {
+      nodeGraphWaterfallStroke(
+        context,
+        entry.points,
+        entry.layer.color,
+        nodeGraphWaterfallSizePx(face, entry.layer.size),
+        composite,
+      );
+    }
+  }
+}
+
 function nodeGraphWaterfallDrawMono(context, points, settings, face) {
   const layer = nodeGraphWaterfallPrimaryLayer(settings);
   if (layer.enabled === false || !points?.length) {
@@ -472,7 +512,9 @@ function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampl
   const sc = scratch.context;
   const face = Math.min(width, height);
   const settings = spec.settings || {};
-  const blend = settings.stereoBlend || "combine";
+  const blend = typeof nodeGraphScopeStereoBlendMode === "function"
+    ? nodeGraphScopeStereoBlendMode(settings.stereoBlend)
+    : (settings.stereoBlend || "combine");
   sc.setTransform(1, 0, 0, 1, 0, 0);
   sc.imageSmoothingEnabled = false;
   if (blend === "combine") {
@@ -483,8 +525,33 @@ function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampl
     sc.fillRect(0, 0, n, height);
   }
 
+  const xyz = spec.xyzBuffers;
   const stereo = spec.stereoBuffers;
-  if (stereo) {
+  if (xyz) {
+    const colors = nodeGraphWaterfallXyzColors();
+    const primary = nodeGraphWaterfallPrimaryLayer(settings);
+    const count = Math.max(0, Math.floor(sampleEnd) - Math.floor(sampleStart));
+    const lastKey = { X: "_waterfallLastXY", Y: "_waterfallLastYY", Z: "_waterfallLastZY" };
+    const stack = [];
+    for (const port of ["X", "Y", "Z"]) {
+      const buf = nodeGraphWaterfallPrepare(xyz[port], settings);
+      const range = {
+        start: Math.max(0, (buf?.length || 0) - count),
+        end: buf?.length || 0,
+      };
+      const points = nodeGraphWaterfallColumnPath(
+        xyz[port], spec.slot, n, height, destCanvas[lastKey[port]], settings,
+        range.start, range.end,
+      );
+      stack.push({
+        points,
+        layer: { ...primary, color: colors[port] },
+      });
+      const last = points[points.length - 1];
+      if (Number.isFinite(last?.y)) destCanvas[lastKey[port]] = last.y;
+    }
+    nodeGraphWaterfallDrawXyz(sc, stack, blend, face);
+  } else if (stereo) {
     const leftLayer = nodeGraphWaterfallPrimaryLayer(settings);
     const rightLayer = nodeGraphWaterfallSecondaryLayer(settings, leftLayer);
     const leftBuf = nodeGraphWaterfallPrepare(stereo.left, settings);
@@ -795,7 +862,9 @@ function nodeGraphWaterfallPaintTapes(spec, context, canvas, ink = {}) {
     clear: ink.clear === true,
     scrollPx: ink.scrollPx || 0,
     blur: 0.22,
-    blend: settings.stereoBlend || "combine",
+    blend: typeof nodeGraphScopeStereoBlendMode === "function"
+      ? nodeGraphScopeStereoBlendMode(settings.stereoBlend)
+      : (settings.stereoBlend || "combine"),
     meetColor: settings.meetColor || "auto",
   });
 }
@@ -803,8 +872,24 @@ function nodeGraphWaterfallPaintTapes(spec, context, canvas, ink = {}) {
 function nodeGraphWaterfallPaintNowLine(spec, context, canvas, settings, width, height, bg) {
   spec.bg = bg;
   spec.settings = settings;
+  const xyz = spec.xyzBuffers;
   const stereo = spec.stereoBuffers;
   const frozen = typeof scopePaintIsFrozen === "function" && scopePaintIsFrozen();
+  if (xyz) {
+    const colors = nodeGraphWaterfallXyzColors();
+    const primary = nodeGraphWaterfallPrimaryLayer(settings);
+    const stack = [];
+    for (const port of ["X", "Y", "Z"]) {
+      const y = nodeGraphWaterfallLatestY(xyz[port], spec.slot, settings, height);
+      stack.push({
+        points: Number.isFinite(y) ? [{ x: 0, y }, { x: width, y }] : [],
+        layer: { ...primary, color: colors[port] },
+      });
+    }
+    nodeGraphWaterfallFillPlate(context, canvas, bg);
+    nodeGraphWaterfallDrawXyz(context, stack, settings.stereoBlend || "combine", Math.min(width, height));
+    return true;
+  }
   if (stereo) {
     const yL = nodeGraphWaterfallLatestY(stereo.left, spec.slot, settings, height);
     const yR = nodeGraphWaterfallLatestY(stereo.right, spec.slot, settings, height);
@@ -832,9 +917,14 @@ function nodeGraphWaterfallPaint(spec) {
   }
   const width = Math.max(1, canvas.width);
   const height = Math.max(1, canvas.height);
-  const live = spec.stereoBuffers
-    ? (nodeGraphWaterfallPrepare(spec.stereoBuffers.left, settings) || spec.buffer)
-    : (nodeGraphWaterfallPrepare(spec.buffer, settings) || spec.buffer);
+  const live = spec.xyzBuffers
+    ? (nodeGraphWaterfallPrepare(spec.xyzBuffers.X, settings)
+      || nodeGraphWaterfallPrepare(spec.xyzBuffers.Y, settings)
+      || nodeGraphWaterfallPrepare(spec.xyzBuffers.Z, settings)
+      || spec.buffer)
+    : spec.stereoBuffers
+      ? (nodeGraphWaterfallPrepare(spec.stereoBuffers.left, settings) || spec.buffer)
+      : (nodeGraphWaterfallPrepare(spec.buffer, settings) || spec.buffer);
   if (!live?.length) {
     return false;
   }
@@ -853,7 +943,7 @@ function nodeGraphWaterfallPaint(spec) {
     return true;
   }
 
-  const useTape = nodeGraphWaterfallTapeAvailable();
+  const useTape = false;
   const hold = useTape
     ? true
     : (typeof nodeGraphTraceDisplayScratchContext === "function"
@@ -868,6 +958,7 @@ function nodeGraphWaterfallPaint(spec) {
     settings,
     buffer: live,
     stereoBuffers: spec.stereoBuffers,
+    xyzBuffers: spec.xyzBuffers,
   };
   const frozen = typeof scopePaintIsFrozen === "function" && scopePaintIsFrozen();
 

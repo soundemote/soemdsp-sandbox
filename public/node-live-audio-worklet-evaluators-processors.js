@@ -1468,6 +1468,11 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         Left: this.safeFilterNumber(mixInput(nodeId, "Left"), null),
         Right: this.safeFilterNumber(mixInput(nodeId, "Right"), null),
       }),
+      traceDisplayXyz: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        X: this.safeFilterNumber(mixInput(nodeId, "X"), null),
+        Y: this.safeFilterNumber(mixInput(nodeId, "Y"), null),
+        Z: this.safeFilterNumber(mixInput(nodeId, "Z"), null),
+      }),
       dotOscilloscope: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
       }),

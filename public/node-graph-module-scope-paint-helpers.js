@@ -591,6 +591,27 @@ function nodeGraphFacePlateFillCanvas(context, canvas, bg) {
   context.restore();
 }
 
+/** Same modes as 1D Waterfall / TraceStroke.STEREO_BLEND_MODES. */
+function nodeGraphScopeStereoBlendMode(value, fallback = "combine") {
+  if (typeof TraceStroke !== "undefined" && typeof TraceStroke.normalizeStereoBlend === "function") {
+    return TraceStroke.normalizeStereoBlend(value != null ? value : fallback);
+  }
+  const ok = (typeof TraceStroke !== "undefined" && Array.isArray(TraceStroke.STEREO_BLEND_MODES))
+    ? TraceStroke.STEREO_BLEND_MODES
+    : ["combine", "lighter", "screen", "source-over", "multiply", "difference", "exclusion", "xor"];
+  const raw = String(value != null ? value : (fallback || "combine")).toLowerCase().trim();
+  return ok.includes(raw) ? raw : "combine";
+}
+
+/** Canvas composite for a layer onto the plate (Meet → Add, same as waterfall). */
+function nodeGraphScopeStereoBlendComposite(mode) {
+  const m = nodeGraphScopeStereoBlendMode(mode);
+  if (m === "combine" || m === "meet") {
+    return "lighter";
+  }
+  return m;
+}
+
 /** Paint plate under existing pixels (e.g. after putImageData / transparent energy). */
 function nodeGraphFacePlateFillUnder(context, canvas, bg) {
   if (!context || !canvas) {
@@ -1120,6 +1141,38 @@ function nodeGraphModuleStereoTracePorts(type) {
 
 function nodeGraphModuleUsesStereoTraceDisplay(type) {
   return Boolean(nodeGraphModuleStereoTracePorts(type));
+}
+
+function nodeGraphModuleXyzTracePorts(type) {
+  const t = String(type || "").trim();
+  if (!t) return null;
+  const def = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[t]
+    : null;
+  const ports = def?.xyzTracePorts;
+  if (ports && ports.X != null && ports.Y != null && ports.Z != null) {
+    return { X: String(ports.X), Y: String(ports.Y), Z: String(ports.Z) };
+  }
+  return null;
+}
+
+function nodeGraphModuleUsesXyzTraceDisplay(type) {
+  return Boolean(nodeGraphModuleXyzTracePorts(type));
+}
+
+function nodeGraphXyzTraceBuffers(nodeId, type) {
+  const id = String(nodeId || "");
+  const ports = nodeGraphModuleXyzTracePorts(type);
+  if (!id || !ports || typeof nodeGraphModuleScopeState !== "object") {
+    return null;
+  }
+  const X = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.X}`);
+  const Y = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.Y}`);
+  const Z = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.Z}`);
+  if (!X?.length && !Y?.length && !Z?.length) {
+    return null;
+  }
+  return { X, Y, Z };
 }
 
 /** True when L or R jack is actually wired. Unwired L/R rings are silence. */
@@ -1944,6 +1997,9 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const stereoBuffers = nodeGraphModuleUsesStereoTraceDisplay(slot?.type)
     ? nodeGraphStereoTraceBuffers(slot.nodeId, slot.type)
     : null;
+  const xyzBuffers = (!stereoBuffers && nodeGraphModuleUsesXyzTraceDisplay(slot?.type))
+    ? nodeGraphXyzTraceBuffers(slot.nodeId, slot.type)
+    : null;
   return nodeGraphWaterfallPaint({
     item,
     slot,
@@ -1953,6 +2009,7 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     settings,
     bg,
     stereoBuffers,
+    xyzBuffers,
     density,
   });
 }

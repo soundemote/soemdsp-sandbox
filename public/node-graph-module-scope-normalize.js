@@ -1533,6 +1533,15 @@ function normalizeNodeGraphVectorDotSettings(settings = {}) {
       0,
       1,
     ),
+    stereoBlend: typeof nodeGraphScopeStereoBlendMode === "function"
+      ? nodeGraphScopeStereoBlendMode(source.stereoBlend ?? defaults.stereoBlend)
+      : (function () {
+        const raw = String(source.stereoBlend || defaults.stereoBlend || "combine").toLowerCase().trim();
+        const ok = typeof TraceStroke !== "undefined" && Array.isArray(TraceStroke.STEREO_BLEND_MODES)
+          ? TraceStroke.STEREO_BLEND_MODES
+          : ["combine", "lighter", "screen", "source-over", "multiply", "difference", "exclusion", "xor"];
+        return ok.includes(raw) ? raw : "combine";
+      })(),
   };
 }
 

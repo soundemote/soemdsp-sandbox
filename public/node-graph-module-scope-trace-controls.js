@@ -259,7 +259,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["stereoBlend"]),
   }),
   pulseDot: Object.freeze({
     fields: Object.freeze([
@@ -270,7 +270,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["stereoBlend"]),
   }),
   lineBurn: Object.freeze({
     // Heart-monitor phosphor: Sweep first, then shared phosphor stack.
@@ -435,7 +435,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["stereoBlend"]),
   }),
   pulseDot: Object.freeze({
     fields: Object.freeze([
@@ -446,7 +446,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["stereoBlend"]),
   }),
   // RGB Shape: gradient picker only (geometry is module params).
   rgbShapeFace: Object.freeze({
@@ -1531,7 +1531,7 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     label: "Blend",
     aria: "Stereo blend mode",
     id: "nodeTraceDisplayStereoBlend",
-    title: "How Left and Right composite in the waterfall pen before the strip is committed to the tape. Meet = coverage mix (red+blue→green).",
+    title: "How overlapping ink composites (same modes as 1D Waterfall). Meet = coverage mix (red+blue→green); on a single disc Meet is Add onto the plate.",
     options: Object.freeze([
       Object.freeze({ value: "combine", label: "Meet" }),
       Object.freeze({ value: "lighter", label: "Add" }),

@@ -1412,6 +1412,7 @@ function bindNodeGraphHueTitleSteppers(host) {
       row,
       colorInput,
       startX: event.clientX,
+      startY: event.clientY,
       startHue: Number(hsl.h) || 0,
     };
     swatch.setPointerCapture?.(event.pointerId);
@@ -1425,10 +1426,12 @@ function bindNodeGraphHueTitleSteppers(host) {
         && drag.pointerId !== event.pointerId)) {
       return;
     }
-    // ~1.2° per screen px; Shift = fine.
+    // Right / up = increase, left / down = decrease. ~1.2° per screen px.
     // App-wide hue policy: no wrap — clamp to red edges (0…360).
     const fine = event.shiftKey ? 0.15 : 1;
-    const delta = (event.clientX - drag.startX) * 1.2 * fine;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    const delta = (dx - dy) * 1.2 * fine;
     const nextH = Math.max(0, Math.min(360, drag.startHue + delta));
     const pure = typeof nodeGraphTraceDisplayPureHueHex === "function"
       ? nodeGraphTraceDisplayPureHueHex({ h: nextH }, "#ff0000")

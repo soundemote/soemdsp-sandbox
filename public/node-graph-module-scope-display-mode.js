@@ -61,7 +61,9 @@ function nodeGraphModuleDefaultXyDisplaySource(type) {
 
 function normalizeNodeGraphDisplayMode(mode, type = "", index = 0) {
   const raw = mode && typeof mode === "object" ? mode : {};
-  const rawRenderer = raw.renderer === "ledLamp" ? "vectorDot" : raw.renderer;
+  const rawRenderer = raw.renderer === "ledLamp"
+    ? "vectorDot"
+    : (raw.renderer === "traceXyz" ? "trace" : raw.renderer);
   const renderer = nodeGraphDisplayModeRenderers.includes(rawRenderer)
     ? rawRenderer
     : nodeGraphModuleDeclaredDisplayTypeForType(type);
@@ -209,7 +211,6 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "vectorRgbFace",
     "rasterRgbFace",
     "gradientVectorscopeFace",
-    "traceXyz",
   ].includes(displayType);
 }
 

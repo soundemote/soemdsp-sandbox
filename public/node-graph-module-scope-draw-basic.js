@@ -526,30 +526,54 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
   const frozen0d = typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen();
 
-  const plateKey = `${width}x${height}`;
-  if (canvas._phosphorDotPlateKey !== plateKey) {
-    nodeGraphFacePlateFillCanvas(context, canvas, bg);
-    canvas._phosphorDotPlateKey = plateKey;
+  // Plate is a solid fill every frame (BG hue/bright is not residual).
+  // Ghost/Trail live on a separate ink bitmap so semi-transparent skirts
+  // cannot pile up into the background.
+  nodeGraphFacePlateFillCanvas(context, canvas, bg);
+  let ink = canvas._phosphorDotInk;
+  if (!ink || ink.width !== width || ink.height !== height) {
+    ink = document.createElement("canvas");
+    ink.width = width;
+    ink.height = height;
+    canvas._phosphorDotInk = ink;
   }
-  if (!frozen0d && typeof nodeGraphScopeDestFadeTowardPlate === "function") {
-    nodeGraphScopeDestFadeTowardPlate(context, canvas, bg, trail, ghost);
-  }
-  if (!frozen0d && amount > 0.001 && radius > 0.05) {
-    if (typeof TraceDotSprite !== "undefined" && typeof TraceDotSprite.draw === "function") {
-      TraceDotSprite.draw(context, width * 0.5, height * 0.5, radius, blur, {
-        amount,
-        colorAt: (b) => nodeGraphPhosphorDotLutCss(settings, b),
-      }, 1);
-    } else {
-      nodeGraphDrawVectorDotDisc(
-        context,
-        width * 0.5,
-        height * 0.5,
-        radius,
-        blur,
-        nodeGraphPhosphorDotLutCss(settings, amount),
-      );
+  const inkCtx = ink.getContext("2d");
+  if (inkCtx && !frozen0d) {
+    const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+    const keeps = Residual?.residualKeeps
+      ? Residual.residualKeeps(trail, ghost)
+      : { fade: 0.25 };
+    const fade = Math.max(0.04, Math.min(1, Number(keeps.fade)));
+    inkCtx.save();
+    inkCtx.setTransform(1, 0, 0, 1, 0, 0);
+    inkCtx.globalCompositeOperation = "destination-out";
+    inkCtx.globalAlpha = fade;
+    inkCtx.fillStyle = "#000000";
+    inkCtx.fillRect(0, 0, width, height);
+    inkCtx.restore();
+    if (amount > 0.001 && radius > 0.05) {
+      if (typeof TraceDotSprite !== "undefined" && typeof TraceDotSprite.draw === "function") {
+        TraceDotSprite.draw(inkCtx, width * 0.5, height * 0.5, radius, blur, {
+          amount,
+          colorAt: (b) => nodeGraphPhosphorDotLutCss(settings, b),
+        }, 1);
+      } else {
+        nodeGraphDrawVectorDotDisc(
+          inkCtx,
+          width * 0.5,
+          height * 0.5,
+          radius,
+          blur,
+          nodeGraphPhosphorDotLutCss(settings, amount),
+        );
+      }
     }
+  }
+  if (ink) {
+    context.save();
+    context.globalCompositeOperation = "source-over";
+    context.drawImage(ink, 0, 0);
+    context.restore();
   }
   recordNodeGraphModuleScopeRenderMetrics(1, 1);
 }
@@ -862,15 +886,24 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
     0,
     1,
   );
+  const blend = typeof nodeGraphScopeStereoBlendMode === "function"
+    ? nodeGraphScopeStereoBlendMode(settings.stereoBlend)
+    : (settings.stereoBlend || "combine");
+  const composite = typeof nodeGraphScopeStereoBlendComposite === "function"
+    ? nodeGraphScopeStereoBlendComposite(blend)
+    : (blend === "combine" ? "lighter" : blend);
   // Bright slider is the cone ceiling (0 black → 0.5 full hue → 1 white).
   // Frame energy walks that same axis: duty 1 at Bright 1 = white, 0.5 = hue, 0 = black.
   const e = Math.max(0, Math.min(1, energy));
   const amount = Math.max(0, Math.min(1, e * lampBright));
   if (amount > 0 && radius > 0.05) {
+    context.save();
+    context.globalCompositeOperation = composite;
     nodeGraphDrawVectorDotDisc(context, width * 0.5, height * 0.5, radius, blur, {
       hue,
       amount,
     });
+    context.restore();
   }
   const punch = amount;
   if (screenElement?.dataset) {

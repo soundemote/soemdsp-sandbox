@@ -1849,17 +1849,17 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "oscilloscope",
     description: "One multi-mode display face (1D/2D trace or phosphor) for quick inspection.",
     label: "Display",
-    notes: ["multi-mode", "2D Trace", "2D Phosphor", "1D Waterfall", "1D Phosphor", "Phosphor Dot", "visual sink"],
+    notes: ["multi-mode", "2D Trace", "2D Phosphor", "1D Waterfall", "1D Phosphor", "visual sink"],
   },
   traceDisplay: {
     category: "oscilloscope",
     description: "1D waterfall tape—pen on the right, history scrolls left.",
-    label: "1D Waterfall",
+    label: "1D Waterfall Mono",
     notes: ["1D Waterfall", "waterfall", "waveform", "display testbed"],
   },
   traceDisplayStereo: {
     category: "oscilloscope",
-    description: "Stereo 1D waterfall—Left/Right colors, Meet in the pen, tape or sweeping pen.",
+    description: "Stereo 1D waterfall—Left/Right colors, same dest tape as Mono.",
     label: "1D Waterfall Stereo",
     notes: [
       "1D Waterfall",
@@ -1872,11 +1872,19 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "display testbed",
     ],
   },
-  dotOscilloscope: {
+  traceDisplayXyz: {
+    hidden: true,
     category: "oscilloscope",
-    description: "Single soft phosphor dot for sparse, efficient level/position light.",
+    description: "Retired alias. Use 1D Waterfall XYZ (traceXyz).",
+    label: "1D Waterfall XYZ",
+    notes: ["retired"],
+  },
+  dotOscilloscope: {
+    hidden: true,
+    category: "oscilloscope",
+    description: "Retired. Use Vector Dot.",
     label: "Phosphor Dot",
-    notes: ["phosphor", "single dot", "sub-frame brightness", "energy drawer"],
+    notes: ["retired"],
   },
   oscilloscopeBank: {
     category: "oscilloscope",
@@ -2015,9 +2023,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   traceXyz: {
     category: "oscilloscope",
-    description: "Three history traces: X red, Y blue, Z green. Stack on one plot or split the face into three bands.",
-    label: "XYZ Trace",
-    notes: ["xyz", "rgb", "trace", "history", "stack", "separate", "x red", "y blue", "z green"],
+    description: "XYZ 1D waterfall—X red, Y blue, Z green on the same dest tape as Mono.",
+    label: "1D Waterfall XYZ",
+    notes: ["1D Waterfall", "xyz", "X", "Y", "Z", "waveform", "display testbed"],
   },
   badvalMonitor: {
     category: "debug",

@@ -220,9 +220,9 @@ const nodeGraphNodeLabels = Object.freeze({
   image: "Image",
   canvas: "Canvas",
   visualOscilloscope: "Display",
-  traceDisplay: "1D Waterfall",
+  traceDisplay: "1D Waterfall Mono",
   traceDisplayStereo: "1D Waterfall Stereo",
-  dotOscilloscope: "Phosphor Dot",
+  traceDisplayXyz: "1D Waterfall XYZ",
   oscilloscopeBank: "Oscilloscope Bank",
   videoscope: "Videoscope",
   asciiscope: "Asciiscope",
@@ -238,7 +238,7 @@ const nodeGraphNodeLabels = Object.freeze({
   vectorRgb: "Vector RGB",
   rasterRgb: "Pixel Grid",
   gradientVectorscope: "Gradient Vectorscope",
-  traceXyz: "XYZ Trace",
+  traceXyz: "1D Waterfall XYZ",
   phosphorLight: "2D Phosphor",
   speakerProtection: "Speaker Protection",
   speakerProtector2: "Speaker Protector 2.0",
@@ -10132,13 +10132,6 @@ const nodeGraphModuleDefinitions = (
         settingsSchema: "trace",
         source: { value: "In" }
       },
-      {
-        key: "monoDot",
-        label: "Phosphor Dot",
-        renderer: "dot",
-        settingsSchema: "dot",
-        source: { value: "In" }
-      },
     ],
     inputAliases: { Mono: "In" },
     inputLabels: {In: "Mono",
@@ -10193,6 +10186,27 @@ const nodeGraphModuleDefinitions = (
     ],
     visualSink: true
   },
+  traceDisplayXyz: {
+    planRole: "monitor",
+    bufferedInputs: ["X", "Y", "Z"],
+    displayType: "trace",
+    spectrumCompanion: false,
+    displayModes: [
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+    ],
+    defaultDisplayMode: "trace",
+    xyzTracePorts: { X: "X", Y: "Y", Z: "Z" },
+    inputs: ["X", "Y", "Z"],
+    layout: "traceDisplay",
+    outputs: ["X", "Y", "Z"],
+    parameters: [],
+    visualInputs: [
+      { key: "traceDisplayXyzX", label: "X", port: "X" },
+      { key: "traceDisplayXyzY", label: "Y", port: "Y" },
+      { key: "traceDisplayXyzZ", label: "Z", port: "Z" },
+    ],
+    visualSink: true
+  },
   vectorDot: {
     planRole: "monitor",
     bufferedInputs: ["In"],
@@ -10214,7 +10228,8 @@ const nodeGraphModuleDefinitions = (
   dotOscilloscope: {
     planRole: "monitor",
     bufferedInputs: ["In"],
-    displayType: "dot",
+    displayType: "vectorDot",
+    displayRenderer: "vectorDot",
     inputs: ["In"],
     layout: "traceDisplay",
     // Dry passthrough so the face can sit in-line (In → face + Thru).
@@ -11048,18 +11063,13 @@ const nodeGraphModuleDefinitions = (
   traceXyz: {
     planRole: "monitor",
     bufferedInputs: ["X", "Y", "Z"],
-    displayHeightGu: 5,
-    displayType: "traceXyz",
+    displayType: "trace",
+    spectrumCompanion: false,
     displayModes: [
-      {
-        key: "traceXyz",
-        label: "XYZ Trace",
-        renderer: "traceXyz",
-        settingsSchema: "traceXyz",
-        source: { x: "X", y: "Y" },
-      },
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
-    defaultDisplayMode: "traceXyz",
+    defaultDisplayMode: "trace",
+    xyzTracePorts: { X: "X", Y: "Y", Z: "Z" },
     inputs: ["X", "Y", "Z"],
     inputLabels: { X: "X", Y: "Y", Z: "Z" },
     layout: "traceDisplay",

@@ -514,9 +514,12 @@ function nodeGraphModuleDisplayRendererForSlot(slot) {
 
 // nodeGraphModuleDisplaySettingsSchemaForSlot → node-graph-module-scope-display-mode.js
 function nodeGraphModuleDeclaredDisplayTypeForType(type) {
-  const declared = nodeGraphModuleDefinitions?.[type]?.displayType === "ledLamp"
-    ? "vectorDot"
-    : nodeGraphModuleDefinitions?.[type]?.displayType;
+  let declared = nodeGraphModuleDefinitions?.[type]?.displayType;
+  if (declared === "ledLamp") {
+    declared = "vectorDot";
+  } else if (declared === "traceXyz") {
+    declared = "trace";
+  }
   if (nodeGraphDisplayModeRenderers.includes(declared)) {
     return declared;
   }
@@ -535,7 +538,7 @@ function nodeGraphModuleDisplayTypeForSlot(slot) {
 }
 
 function nodeGraphModuleScopeSlotUsesWiredInputs(slot) {
-  return ["traceDisplay", "traceDisplayStereo", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "scope2d", "scope2dTrace", "phosphorLight", "visualOscilloscope", "numberReadout", "valueLcd", "led", "vectorDot", "vectorRgb", "rasterRgb", "gradientVectorscope", "traceXyz"].includes(slot?.type);
+  return ["traceDisplay", "traceDisplayStereo", "traceDisplayXyz", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "scope2d", "scope2dTrace", "phosphorLight", "visualOscilloscope", "numberReadout", "valueLcd", "led", "vectorDot", "vectorRgb", "rasterRgb", "gradientVectorscope", "traceXyz"].includes(slot?.type);
 }
 
 function nodeGraphModuleDisplaySourceForSlot(slot) {

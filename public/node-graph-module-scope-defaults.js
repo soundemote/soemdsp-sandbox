@@ -365,6 +365,7 @@ const nodeGraphVectorDotSettingsDefaults = Object.freeze({
   dot1Size: 0.85,
   lineThickness: 0.35,
   blur: 0.35,
+  stereoBlend: "combine",
 });
 
 
