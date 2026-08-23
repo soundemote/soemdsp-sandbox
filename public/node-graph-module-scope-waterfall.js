@@ -601,6 +601,7 @@ function nodeGraphWaterfallState(canvas, width, height, sweep, nowLine, bg, cont
     delete canvas._waterfallLastY;
     delete canvas._waterfallLastLeftY;
     delete canvas._waterfallLastRightY;
+    canvas._waterfallDestHistory = false;
     if (typeof TraceTape !== "undefined" && TraceTape.clear) {
       TraceTape.clear(canvas._traceTapeRgb);
       TraceTape.clear(canvas._traceTapeL);
@@ -615,13 +616,14 @@ function nodeGraphWaterfallState(canvas, width, height, sweep, nowLine, bg, cont
 
 function nodeGraphWaterfallFinishOutputInk(spec, context, canvas, scrollPx) {
   if (typeof paintNodeGraphOutputInkFrame === "function") {
+    const px = Math.round(Number(scrollPx) || 0);
     paintNodeGraphOutputInkFrame(
       context,
       canvas,
       spec?.slot,
       spec?.settings,
       spec?.density,
-      { scrollPx: Number(scrollPx) || 0 },
+      { scrollPx: px, scrolled: px > 0 },
     );
     return;
   }
@@ -654,9 +656,7 @@ function nodeGraphWaterfallPaintTapes(spec, context, canvas, ink = {}) {
   );
   // Last face pixels stay. Re-presenting the whole tape every idle rAF
   // (fill + GL blit) was the bulk of "animation took too long".
-  // Output pause/protect ink still needs a present so dest-out fade can
-  // composite onto a fresh tape blit (not stack on last dest).
-  if (ink.frozen === true && !hasInk && ink.present !== true) {
+  if (ink.frozen === true && !hasInk) {
     return true;
   }
   nodeGraphWaterfallFillPlate(context, canvas, spec.bg);
@@ -759,6 +759,16 @@ function nodeGraphWaterfallPaint(spec) {
     st.lastAbs = Math.max(0, window.absEnd - window.count);
   }
 
+  // Frozen dest is the tape. Do not consume undrawn samples or the first
+  // play frame scrolls a full face and dumps pause/protect dest pixels.
+  if (frozen) {
+    nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
+    if (typeof rememberNodeGraphTraceDisplaySignature === "function") {
+      rememberNodeGraphTraceDisplaySignature(spec.slot, spec.item, live, settings);
+    }
+    return true;
+  }
+
   if (sweep) {
     nodeGraphWaterfallArmPen(st, writeSpec);
     if (st.waiting) {
@@ -766,10 +776,7 @@ function nodeGraphWaterfallPaint(spec) {
         st.lastAbs = window.absEnd;
       }
       st.frac = 0;
-      if (typeof nodeGraphOutputInkWantsFrames === "function" && nodeGraphOutputInkWantsFrames()) {
-        nodeGraphWaterfallPaintTapes(spec, context, canvas, { frozen: true, present: true });
-        nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
-      }
+      nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
       return true;
     }
   }
@@ -780,10 +787,7 @@ function nodeGraphWaterfallPaint(spec) {
   const columnsFloat = window.count / samplesPerColumn + (Number(st.frac) || 0);
   let columns = Math.floor(columnsFloat);
   if (columns < 1) {
-    if (typeof nodeGraphOutputInkWantsFrames === "function" && nodeGraphOutputInkWantsFrames()) {
-      nodeGraphWaterfallPaintTapes(spec, context, canvas, { frozen: true, present: true });
-      nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
-    }
+    nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
     return true;
   }
 
@@ -798,10 +802,7 @@ function nodeGraphWaterfallPaint(spec) {
         st.lastAbs = window.absEnd;
       }
       st.frac = 0;
-      if (typeof nodeGraphOutputInkWantsFrames === "function" && nodeGraphOutputInkWantsFrames()) {
-        nodeGraphWaterfallPaintTapes(spec, context, canvas, { frozen: true, present: true });
-        nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
-      }
+      nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
       return true;
     }
     if (columns > remain) {
@@ -830,9 +831,26 @@ function nodeGraphWaterfallPaint(spec) {
   }
 
   if (columns < 1) {
-    if (typeof nodeGraphOutputInkWantsFrames === "function" && nodeGraphOutputInkWantsFrames()) {
-      nodeGraphWaterfallPaintTapes(spec, context, canvas, { frozen: true, present: true });
-      nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
+    nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
+    return true;
+  }
+
+  const destHistory = canvas._waterfallDestHistory === true && !sweep;
+  if (destHistory) {
+    if (!frozen) {
+      const destHold = typeof nodeGraphTraceDisplayScratchContext === "function"
+        ? nodeGraphTraceDisplayScratchContext(canvas, "_waterfallHold", width, height)
+        : hold;
+      if (destHold) {
+        nodeGraphWaterfallScrollLeft(context, canvas, destHold, columns, spec.bg);
+        nodeGraphWaterfallInk(
+          context, canvas, writeSpec, width - columns, columns, spec.bg, sampleStart, sampleEnd,
+        );
+      }
+    }
+    nodeGraphWaterfallFinishOutputInk(spec, context, canvas, frozen ? 0 : columns);
+    if (typeof rememberNodeGraphTraceDisplaySignature === "function") {
+      rememberNodeGraphTraceDisplaySignature(spec.slot, spec.item, live, settings);
     }
     return true;
   }
@@ -896,6 +914,9 @@ function nodeGraphWaterfallPaint(spec) {
     }
     nodeGraphWaterfallPaintTapes(spec, context, canvas, ink);
     nodeGraphWaterfallFinishOutputInk(spec, context, canvas, scrollPx);
+    if (!sweep) {
+      canvas._waterfallDestHistory = true;
+    }
   } else if (sweep) {
     const fromX = Math.max(0, Math.floor(st.penX));
     st.penX += columns;
@@ -917,6 +938,7 @@ function nodeGraphWaterfallPaint(spec) {
       context, canvas, writeSpec, width - columns, columns, spec.bg, sampleStart, sampleEnd,
     );
     nodeGraphWaterfallFinishOutputInk(spec, context, canvas, frozen ? 0 : columns);
+    canvas._waterfallDestHistory = true;
   }
   if (typeof rememberNodeGraphTraceDisplaySignature === "function") {
     rememberNodeGraphTraceDisplaySignature(spec.slot, spec.item, live, settings);

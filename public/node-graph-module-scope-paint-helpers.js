@@ -1396,9 +1396,9 @@ function paintNodeGraphOutputFaceInk(context, canvas, text, options = {}) {
   if (!(alpha > 0.001)) {
     return false;
   }
-  const pad = Math.max(2, Math.round(Math.min(canvas.width, canvas.height) * 0.12));
+  const pad = Math.max(2, Math.round(Math.min(canvas.width, canvas.height) * 0.06));
   const maxW = Math.max(8, canvas.width - pad * 2);
-  const maxH = Math.max(8, Math.round((canvas.height - pad * 2) * 0.42));
+  const maxH = Math.max(8, canvas.height - pad * 2);
   const fontFamily = options.fontFamily || NODE_GRAPH_OUTPUT_PROTECT_FONT;
   const fontWeight = options.fontWeight ? `${options.fontWeight} ` : "";
   const density = Number(options.density);
@@ -1448,10 +1448,10 @@ function paintNodeGraphOutputPauseBars(context, canvas, options = {}) {
   }
   const w = canvas.width;
   const h = canvas.height;
-  const fit = Math.max(8, Math.min(w, h) - Math.max(2, Math.round(Math.min(w, h) * 0.1)) * 2);
-  const barH = Math.max(6, Math.round(fit * 0.36));
-  const barW = Math.max(2, Math.round(fit * 0.14));
-  const gap = Math.max(2, Math.round(fit * 0.12));
+  const fit = Math.max(8, Math.min(w, h) - Math.max(2, Math.round(Math.min(w, h) * 0.08)) * 2);
+  const barH = Math.max(8, Math.round(fit * 0.52));
+  const barW = Math.max(3, Math.round(fit * 0.2));
+  const gap = Math.max(2, Math.round(fit * 0.14));
   const totalW = barW * 2 + gap;
   const x0 = Math.round((w - totalW) * 0.5);
   const y0 = Math.round((h - barH) * 0.5);
@@ -1507,44 +1507,73 @@ function nodeGraphOutputInkPrintProtect(canvas, alpha, options = {}) {
   return ok;
 }
 
+function nodeGraphOutputPausePlateEnsure(canvas) {
+  if (!canvas || !(canvas.width > 0) || !(canvas.height > 0)) {
+    return null;
+  }
+  let plate = canvas._outputPausePlate;
+  if (!plate || plate.width !== canvas.width || plate.height !== canvas.height) {
+    plate = document.createElement("canvas");
+    plate.width = canvas.width;
+    plate.height = canvas.height;
+    canvas._outputPausePlate = plate;
+    canvas._outputPausePlateReady = false;
+  }
+  return plate;
+}
+
 function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, options = {}) {
   if (!nodeGraphOutputProtectFaceSlot(slot) || !canvas || !destCtx) {
     return false;
   }
   const now = nodeGraphOutputInkNowMs();
-  const last = Number(canvas._outputInkLastFadeMs);
-  const dt = Number.isFinite(last) ? Math.max(0, Math.min(80, now - last)) : 16;
-  canvas._outputInkLastFadeMs = now;
-  const scrollPx = Math.round(Number(options.scrollPx) || 0);
-  if (scrollPx) {
-    nodeGraphOutputInkScroll(canvas, scrollPx);
-  }
-  nodeGraphOutputInkFade(canvas, dt);
-
+  const scrolled = options.scrolled === true || Math.round(Number(options.scrollPx) || 0) > 0;
   const paused = nodeGraphOutputTransportIsPaused();
   if (paused) {
-    if (options.force === true || canvas._outputPauseBannerStamped !== true) {
-      nodeGraphOutputInkPrintPause(canvas, { density, alpha: 1 });
-      canvas._outputPauseBannerStamped = true;
+    const plate = nodeGraphOutputPausePlateEnsure(canvas);
+    if (plate && !canvas._outputPausePlateReady) {
+      const pctx = plate.getContext("2d");
+      if (pctx) {
+        pctx.setTransform(1, 0, 0, 1, 0, 0);
+        pctx.globalCompositeOperation = "copy";
+        pctx.drawImage(canvas, 0, 0);
+        canvas._outputPausePlateReady = true;
+        canvas._outputPauseFadeBorn = now;
+        nodeGraphOutputInkArmFrames(NODE_GRAPH_OUTPUT_INK_FADE_MS + 400);
+      }
     }
+    const born = Number(canvas._outputPauseFadeBorn);
+    const alpha = Number.isFinite(born)
+      ? Math.max(0, 1 - (now - born) / NODE_GRAPH_OUTPUT_INK_FADE_MS)
+      : 1;
+    if (plate && canvas._outputPausePlateReady) {
+      destCtx.save();
+      destCtx.setTransform(1, 0, 0, 1, 0, 0);
+      destCtx.globalCompositeOperation = "copy";
+      destCtx.drawImage(plate, 0, 0);
+      destCtx.restore();
+    }
+    if (alpha > 0.001) {
+      paintNodeGraphOutputPauseBars(destCtx, canvas, { density, alpha });
+    }
+    canvas._outputPauseBannerStamped = true;
   } else {
     canvas._outputPauseBannerStamped = false;
+    canvas._outputPausePlateReady = false;
   }
 
+  // soundemote.io: dest canvas is the tape. Stamp ♨️ at mute alpha only when
+  // dest actually scrolled so last frame's pixels ride left with the waveform.
   const mute = Math.max(0, Math.min(1, Number(globalThis.nodeGraphOutputProtectMute) || 0));
-  if (mute > 0.02) {
-    const lastMute = Number(canvas._outputProtectLastMute) || 0;
-    const lastPrint = Number(canvas._outputProtectLastPrintMs) || 0;
-    const rising = mute > lastMute + 0.04;
-    const due = !(now - lastPrint < NODE_GRAPH_OUTPUT_PROTECT_REPRINT_MS);
-    if (options.force === true || rising || due || !lastPrint) {
-      nodeGraphOutputInkPrintProtect(canvas, mute, { density });
-      canvas._outputProtectLastPrintMs = now;
-    }
+  if (mute > 0.001 && (scrolled || options.force === true)) {
+    paintNodeGraphOutputFaceInk(destCtx, canvas, NODE_GRAPH_OUTPUT_PROTECT_BANNER, {
+      density,
+      alpha: mute,
+      fontFamily: NODE_GRAPH_OUTPUT_PROTECT_FONT,
+      fill: "#ffffff",
+    });
   }
   canvas._outputProtectLastMute = mute;
-
-  nodeGraphOutputInkComposite(destCtx, canvas);
   return true;
 }
 
