@@ -254,7 +254,7 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
             );
           }
           // frozen: leave canvas + burn plate pixels as-is (no kill).
-        } else if (nodeGraphModuleDisplayRendererForSlot(slot) === "vectorDot") {
+        } else if (["vectorDot", "pulseDot", "lcdDot"].includes(nodeGraphModuleDisplayRendererForSlot(slot))) {
           if (typeof drawNodeGraphVectorDotItem === "function") {
             drawNodeGraphVectorDotItem(null, {
               buffer: null,

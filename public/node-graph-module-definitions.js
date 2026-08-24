@@ -11419,7 +11419,23 @@ function nodeGraphPatchNodeBufferedInputs(node) {
     : node?.type === "screenSpaceShader"
       ? normalizeNodeGraphScreenSpaceShader(node.screenSpaceShader).bufferedInputs
     : [];
-  return normalizeNodeGraphBufferedInputList([...metadataInputs, ...scriptInputs], nodeGraphPatchNodeInputPorts(node));
+  const extra = [];
+  const stereo = typeof nodeGraphModuleStereoTracePorts === "function"
+    ? nodeGraphModuleStereoTracePorts(node?.type)
+    : null;
+  if (stereo) {
+    extra.push(stereo.left, stereo.right);
+  }
+  const xyz = typeof nodeGraphModuleXyzTracePorts === "function"
+    ? nodeGraphModuleXyzTracePorts(node?.type)
+    : null;
+  if (xyz) {
+    extra.push(xyz.X, xyz.Y, xyz.Z);
+  }
+  return normalizeNodeGraphBufferedInputList(
+    [...metadataInputs, ...scriptInputs, ...extra],
+    nodeGraphPatchNodeInputPorts(node),
+  );
 }
 
 function nodeGraphModuleGraphInputs(type) {

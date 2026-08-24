@@ -103,7 +103,7 @@ function paintNodeGraphValueFacesNow(pixelRatio = window.devicePixelRatio || 1) 
       || type === "numberReadout"
       || type === "valueLcd"
       || type === "helmholtzPitch";
-    const isVectorDot = renderer === "vectorDot" || renderer === "pulseDot";
+    const isVectorDot = renderer === "vectorDot" || renderer === "pulseDot" || renderer === "lcdDot";
     if (!isNumberFace && !isVectorDot) {
       continue;
     }

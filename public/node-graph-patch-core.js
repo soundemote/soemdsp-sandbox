@@ -365,6 +365,10 @@ function validateNodeGraphPatch(patch) {
             : node.led),
         )
         : (node.vectorDotSettings || {});
+    } else if (type === "lcdDot") {
+      normalizedNode.vectorDotSettings = typeof normalizeNodeGraphLcdDotSettings === "function"
+        ? normalizeNodeGraphLcdDotSettings(node.vectorDotSettings)
+        : (node.vectorDotSettings || {});
     }
     if (nodeGraphModuleIsGraphType(type)) {
       const phaseLinkedGraph = nodeGraphGraphWithPhaseCursor(normalizedNode, node.graph);

@@ -18733,6 +18733,12 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   gap: 8px;
 }
 
+.node-trace-display-preview-shell.is-xyz,
+.node-trace-display-lr-pair.is-xyz {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
 .node-trace-display-preview-cell {
   display: grid;
   gap: 4px;

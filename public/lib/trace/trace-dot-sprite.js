@@ -1,11 +1,12 @@
-// Smoothstep disc sprite + plausible-brightness gradient.
-// Alpha stamp is cached per (radius, blur). Color is a cheap radial walk
+// Smoothstep superellipse stamp + plausible-brightness gradient.
+// Alpha is cached per (rx, ry, blur, squircle). Color is a cheap radial walk
 // of the brightness cone (or any 0…1 LUT): core = amount, fringe → hue → black.
+// pill = 0…1 stretch (rx vs ry). squircle = 0 circle … 1 boxy.
 
 (function initTraceDotSprite(global) {
-  const MAX_CACHE = 48;
+  const MAX_CACHE = 64;
   const MAX_RADIUS = 512;
-  /** @type {Map<string, { canvas: HTMLCanvasElement, size: number, radius: number, blur: number }>} */
+  /** @type {Map<string, object>} */
   const cache = new Map();
   let tintScratch = null;
 
@@ -22,9 +23,17 @@
     return x * x * (3 - 2 * x);
   }
 
+  function quant(n, step) {
+    return Math.round(n / step) * step;
+  }
+
+  function squircleN(squircle01) {
+    const s = clamp01(squircle01, 0);
+    return 2 + s * s * 10;
+  }
+
   function innerOuter(radius, blur01) {
     const R = Math.max(0.5, Number(radius) || 0.5);
-    // Slider is steep if used linearly — square it so 0.5 is still a tight disc.
     const b = clamp01(blur01, 0);
     const b2 = b * b;
     const inner = Math.max(0, R * (1 - b2 * 0.88) - (b2 < 0.004 ? 0.65 : 0));
@@ -32,36 +41,49 @@
     return { inner, outer };
   }
 
-  function cacheKey(radius, blur01) {
-    const r = Math.round(Math.max(1, Math.min(MAX_RADIUS, Number(radius) || 1)) * 4) / 4;
-    const b = Math.round(clamp01(blur01, 0) * 64) / 64;
-    return `${r.toFixed(2)}:${b.toFixed(4)}`;
+  function sdfPx(dx, dy, rx, ry, n) {
+    const ax = Math.abs(dx) / Math.max(1e-6, rx);
+    const ay = Math.abs(dy) / Math.max(1e-6, ry);
+    const p = Math.pow(ax, n) + Math.pow(ay, n);
+    const r = Math.pow(Math.max(p, 0), 1 / n);
+    return (r - 1) * Math.min(rx, ry);
   }
 
-  function bake(radius, blur01) {
-    const { inner, outer } = innerOuter(radius, blur01);
-    const pad = Math.max(1, Math.ceil(outer + 1.5));
-    const size = pad * 2 + 1;
+  function cacheKey(rx, ry, blur01, squircle01) {
+    const x = quant(Math.max(1, Math.min(MAX_RADIUS, rx)), 0.25);
+    const y = quant(Math.max(1, Math.min(MAX_RADIUS, ry)), 0.25);
+    const b = quant(clamp01(blur01, 0), 1 / 64);
+    const s = quant(clamp01(squircle01, 0), 1 / 32);
+    return `${x.toFixed(2)}:${y.toFixed(2)}:${b.toFixed(4)}:${s.toFixed(4)}`;
+  }
+
+  function bake(rx, ry, blur01, squircle01) {
+    const n = squircleN(squircle01);
+    const charR = Math.min(rx, ry);
+    const { inner, outer } = innerOuter(charR, blur01);
+    const extra = Math.max(0, outer - charR);
+    const halfW = Math.ceil(rx + extra + 1.5);
+    const halfH = Math.ceil(ry + extra + 1.5);
+    const width = halfW * 2 + 1;
+    const height = halfH * 2 + 1;
     const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext("2d", { willReadFrequently: false });
     if (!ctx) {
       return null;
     }
-    const image = ctx.createImageData(size, size);
+    const image = ctx.createImageData(width, height);
     const data = image.data;
-    const cx = pad;
-    const cy = pad;
+    const cx = halfW;
+    const cy = halfH;
     const span = Math.max(1e-6, outer - inner);
-    for (let y = 0; y < size; y += 1) {
-      for (let x = 0; x < size; x += 1) {
-        const dx = x - cx;
-        const dy = y - cy;
-        const rr = Math.sqrt(dx * dx + dy * dy);
-        const a = 1 - hermite((rr - inner) / span);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const dist = sdfPx(x - cx, y - cy, rx, ry, n);
+        const a = 1 - hermite((dist - (inner - charR)) / span);
         const v = Math.round(Math.max(0, Math.min(1, a)) * 255);
-        const o = (y * size + x) * 4;
+        const o = (y * width + x) * 4;
         data[o] = 255;
         data[o + 1] = 255;
         data[o + 2] = 255;
@@ -69,19 +91,30 @@
       }
     }
     ctx.putImageData(image, 0, 0);
-    return { canvas, size, radius: Number(radius) || 1, blur: clamp01(blur01, 0) };
+    return {
+      canvas,
+      width,
+      height,
+      size: Math.max(width, height),
+      rx,
+      ry,
+      radius: charR,
+      blur: clamp01(blur01, 0),
+      squircle: clamp01(squircle01, 0),
+    };
   }
 
-  function ensure(radius, blur01) {
-    const key = cacheKey(radius, blur01);
+  function ensure(rx, ry, blur01, squircle01) {
+    const key = cacheKey(rx, ry, blur01, squircle01);
     let entry = cache.get(key);
     if (entry) {
       cache.delete(key);
       cache.set(key, entry);
       return entry;
     }
-    const r = Math.max(1, Math.min(MAX_RADIUS, Number(radius) || 1));
-    entry = bake(r, blur01);
+    const x = Math.max(1, Math.min(MAX_RADIUS, Number(rx) || 1));
+    const y = Math.max(1, Math.min(MAX_RADIUS, Number(ry) || 1));
+    entry = bake(x, y, blur01, squircle01);
     if (!entry) {
       return null;
     }
@@ -112,43 +145,64 @@
     return (b) => (b <= 0.002 ? "rgba(0,0,0,0)" : flat);
   }
 
-  function paintGradient(ctx, sprite, amount, colorAt) {
-    const n = sprite.size;
-    const cx = n * 0.5;
-    const cy = n * 0.5;
-    const { inner, outer } = innerOuter(sprite.radius, sprite.blur);
-    const r0 = Math.max(0, inner);
-    const r1 = Math.max(r0 + 0.75, outer);
-    const g = ctx.createRadialGradient(cx, cy, r0, cx, cy, r1);
+  function paintGradient(ctx, sprite, amount, colorAt, flat) {
+    const w = sprite.width;
+    const h = sprite.height;
+    const cx = w * 0.5;
+    const cy = h * 0.5;
     const a = clamp01(amount, 0);
-    g.addColorStop(0, colorAt(a));
-    // Hue lives at 0.5 on the cone. When the core is past hue (white-ish),
-    // park a stop in the blur skirt so the fringe is actually hued.
-    if (a > 0.51) {
-      const t = Math.max(0.04, Math.min(0.96, 1 - 0.5 / a));
-      g.addColorStop(t, colorAt(0.5));
-    } else if (a > 0.08) {
-      g.addColorStop(0.45, colorAt(a * 0.45));
-    }
-    g.addColorStop(1, colorAt(0));
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = "copy";
     ctx.globalAlpha = 1;
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, n, n);
+    if (flat) {
+      ctx.fillStyle = colorAt(a);
+      ctx.fillRect(0, 0, w, h);
+    } else {
+      const { inner, outer } = innerOuter(sprite.radius, sprite.blur);
+      const r0 = Math.max(0, inner);
+      const r1 = Math.max(r0 + 0.75, outer);
+      const g = ctx.createRadialGradient(cx, cy, r0, cx, cy, r1);
+      g.addColorStop(0, colorAt(a));
+      if (a > 0.51) {
+        const t = Math.max(0.04, Math.min(0.96, 1 - 0.5 / a));
+        g.addColorStop(t, colorAt(0.5));
+      } else if (a > 0.08) {
+        g.addColorStop(0.45, colorAt(a * 0.45));
+      }
+      g.addColorStop(1, colorAt(0));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+    }
     ctx.globalCompositeOperation = "destination-in";
     ctx.drawImage(sprite.canvas, 0, 0);
     ctx.globalCompositeOperation = "source-over";
   }
 
   function tintScratchCtx(sprite) {
-    const n = sprite.size;
-    if (!tintScratch || tintScratch.width !== n || tintScratch.height !== n) {
+    const w = sprite.width;
+    const h = sprite.height;
+    if (!tintScratch || tintScratch.width !== w || tintScratch.height !== h) {
       tintScratch = document.createElement("canvas");
-      tintScratch.width = n;
-      tintScratch.height = n;
+      tintScratch.width = w;
+      tintScratch.height = h;
     }
     return tintScratch.getContext("2d");
+  }
+
+  function resolveExtents(radius, style) {
+    const opts = style && typeof style === "object" ? style : {};
+    const r = Math.max(0.5, Number(radius) || 0.5);
+    const rx = Number(opts.rx);
+    const ry = Number(opts.ry);
+    if (rx > 0.05 && ry > 0.05) {
+      return { rx, ry, squircle: clamp01(opts.squircle, 0) };
+    }
+    const pill = clamp01(opts.pill, 0);
+    return {
+      rx: r * (1 + pill * 2),
+      ry: r,
+      squircle: clamp01(opts.squircle, 0),
+    };
   }
 
   /**
@@ -157,7 +211,7 @@
    * @param {number} cy
    * @param {number} radius
    * @param {number} blur01
-   * @param {string|{hue?:number,amount?:number,color?:string,colorAt?:function}|undefined} style
+   * @param {string|{hue?:number,amount?:number,color?:string,colorAt?:function,pill?:number,squircle?:number,rx?:number,ry?:number}|undefined} style
    * @param {number} [alpha01]
    */
   function draw(context, cx, cy, radius, blur01, style, alpha01 = 1) {
@@ -165,10 +219,11 @@
       return false;
     }
     const a = clamp01(alpha01, 1);
-    if (a <= 0.001 || !(Number(radius) > 0.05)) {
+    const extents = resolveExtents(radius, style);
+    if (a <= 0.001 || !(extents.rx > 0.05) || !(extents.ry > 0.05)) {
       return false;
     }
-    const sprite = ensure(radius, blur01);
+    const sprite = ensure(extents.rx, extents.ry, blur01, extents.squircle);
     if (!sprite) {
       return false;
     }
@@ -181,13 +236,18 @@
     if (!ctx) {
       return false;
     }
-    paintGradient(ctx, sprite, amount, resolveColorAt(opts));
-    const half = sprite.size * 0.5;
+    const flat = Boolean(opts.flat)
+      || (Boolean(opts.color) && !Number.isFinite(Number(opts.hue)) && typeof opts.colorAt !== "function");
+    paintGradient(ctx, sprite, amount, resolveColorAt(opts), flat);
     const prev = context.globalAlpha;
-    context.globalAlpha = a;
+    context.globalAlpha = prev * a;
     context.imageSmoothingEnabled = true;
     try {
-      context.drawImage(tintScratch, Number(cx) - half, Number(cy) - half);
+      context.drawImage(
+        tintScratch,
+        Number(cx) - sprite.width * 0.5,
+        Number(cy) - sprite.height * 0.5,
+      );
     } catch (error) {
       context.globalAlpha = prev;
       return false;
@@ -201,9 +261,10 @@
   }
 
   global.TraceDotSprite = {
-    ensure,
+    ensure: (radius, blur01, squircle01 = 0) => ensure(radius, radius, blur01, squircle01),
     draw,
     innerOuter,
+    extents: resolveExtents,
     clearCache,
   };
 })(typeof window !== "undefined" ? window : globalThis);

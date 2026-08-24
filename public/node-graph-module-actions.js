@@ -1059,6 +1059,13 @@ function copyNodeGraphModule(sourceNode) {
           : (sourceNode.vectorDotSettings || {}),
       }
       : {}),
+    ...(sourceNode.type === "lcdDot"
+      ? {
+        vectorDotSettings: typeof normalizeNodeGraphLcdDotSettings === "function"
+          ? normalizeNodeGraphLcdDotSettings(sourceNode.vectorDotSettings)
+          : (sourceNode.vectorDotSettings || {}),
+      }
+      : {}),
     ...(nodeGraphModuleIsGraphType(sourceNode.type)
       ? { graph: nodeGraphGraphForNode(sourceNode) }
       : {}),

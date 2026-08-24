@@ -330,7 +330,7 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
     };
     return pick(`${nodeId}:X`) || pick(`${nodeId}:Y`) || pick(`${nodeId}:Z`) || pick(nodeId);
   }
-  if (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "numberReadout", "valueLcd", "lineBurnOscilloscope", "led", "vectorDot"].includes(slot?.type)) {
+  if (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "numberReadout", "valueLcd", "lineBurnOscilloscope", "led", "vectorDot", "lcdDot"].includes(slot?.type)) {
     return nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
       null;
@@ -580,9 +580,15 @@ function captureNodeGraphLiveModuleScopeOutput(runtime, nodeId, output) {
   if (!id) {
     return;
   }
-  const samples = runtime.scopeBuffers.get(id) || [];
-  samples.push(nodeGraphModuleScopeScalarValue(output));
-  runtime.scopeBuffers.set(id, samples);
+  const visualKeys = runtime.visualInputBuffers;
+  const hasVisualPorts = visualKeys
+    && typeof visualKeys.keys === "function"
+    && [...visualKeys.keys()].some((key) => String(key).startsWith(`${id}:`));
+  if (!hasVisualPorts) {
+    const samples = runtime.scopeBuffers.get(id) || [];
+    samples.push(nodeGraphModuleScopeScalarValue(output));
+    runtime.scopeBuffers.set(id, samples);
+  }
   if (!output || typeof output !== "object") {
     return;
   }
@@ -591,6 +597,9 @@ function captureNodeGraphLiveModuleScopeOutput(runtime, nodeId, output) {
       continue;
     }
     const portId = `${id}:${port}`;
+    if (visualKeys?.has?.(portId)) {
+      continue;
+    }
     const portSamples = runtime.scopeBuffers.get(portId) || [];
     portSamples.push(nodeGraphModuleScopeScalarValue(value));
     runtime.scopeBuffers.set(portId, portSamples);

@@ -52,6 +52,7 @@ const nodeGraphModuleScopeCustomRenderers = {
   dot: drawNodeGraphVectorDotItem,
   vectorDot: drawNodeGraphVectorDotItem,
   pulseDot: drawNodeGraphVectorDotItem,
+  lcdDot: drawNodeGraphVectorDotItem,
   value: drawNodeGraphValueOscilloscopeItem,
   lineBurn: drawNodeGraphLineBurnOscilloscopeItem,
   hypersawBurn: drawNodeGraphHypersawBurnItem,

@@ -131,6 +131,7 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   secondaryEnabled: true,
   secondarySize: 0.035,
   secondaryLineThickness: 0,
+  tertiaryColor: "#00ff00",
   cycles: 2,
   // Stroke softness 0…1 (hard → soft skirt). History plot, not phosphor burn.
   lineThickness: 0.15,
@@ -366,6 +367,48 @@ const nodeGraphVectorDotSettingsDefaults = Object.freeze({
   lineThickness: 0.35,
   blur: 0.35,
   stereoBlend: "combine",
+  pill: 0,
+  squircle: 0,
+});
+
+// LCD Dot — Vector Dot shape + Value LCD plate/ink/glass.
+const nodeGraphLcdDotSettingsDefaults = Object.freeze({
+  faceStyle: "lcd",
+  background: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(typeof nodeGraphValueLcdDefaultHueDeg === "number"
+      ? nodeGraphValueLcdDefaultHueDeg
+      : 82)
+    : "#a2ff00",
+  backgroundBrightness: 0.88,
+  backgroundColor: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(typeof nodeGraphValueLcdDefaultHueDeg === "number"
+      ? nodeGraphValueLcdDefaultHueDeg
+      : 82)
+    : "#a2ff00",
+  dot1Color: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(typeof nodeGraphValueLcdDefaultHueDeg === "number"
+      ? nodeGraphValueLcdDefaultHueDeg
+      : 82)
+    : "#a2ff00",
+  color: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(typeof nodeGraphValueLcdDefaultHueDeg === "number"
+      ? nodeGraphValueLcdDefaultHueDeg
+      : 82)
+    : "#a2ff00",
+  hue: typeof nodeGraphValueLcdDefaultHueDeg === "number" ? nodeGraphValueLcdDefaultHueDeg : 82,
+  dot1Brightness: 0.18,
+  brightness: 0.18,
+  dot1Size: 0.72,
+  lineThickness: 0.12,
+  blur: 0.12,
+  stereoBlend: "source-over",
+  pill: 0,
+  squircle: 0,
+  unlitSegments: 0.22,
+  innerShadowDistance: 1,
+  innerShadowSharpness: 0.732,
+  innerShadowOffsetX: 0,
+  innerShadowOffsetY: 0.135,
 });
 
 

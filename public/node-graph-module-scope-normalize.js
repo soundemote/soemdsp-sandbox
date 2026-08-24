@@ -755,6 +755,10 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
         0,
         1,
       ),
+    tertiaryColor: normalizeNodeGraphTraceDisplayColor(
+      source.tertiaryColor,
+      defaults.tertiaryColor ?? "#00ff00",
+    ),
     cycles: normalizeNodeGraphTraceDisplayNumber(source.cycles, defaults.cycles, -Infinity, Infinity),
     lineThickness: typeof nodeGraphTraceDisplayClampStampBlur === "function"
       ? nodeGraphTraceDisplayClampStampBlur(source.lineThickness ?? source.blur ?? defaults.lineThickness)
@@ -1542,6 +1546,54 @@ function normalizeNodeGraphVectorDotSettings(settings = {}) {
           : ["combine", "lighter", "screen", "source-over", "multiply", "difference", "exclusion", "xor"];
         return ok.includes(raw) ? raw : "combine";
       })(),
+    pill: normalizeNodeGraphTraceDisplayNumber(source.pill, defaults.pill ?? 0, 0, 1),
+    squircle: normalizeNodeGraphTraceDisplayNumber(source.squircle, defaults.squircle ?? 0, 0, 1),
+  };
+}
+
+function normalizeNodeGraphLcdDotSettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const lcdDefaults = typeof nodeGraphLcdDotSettingsDefaults !== "undefined"
+    ? nodeGraphLcdDotSettingsDefaults
+    : {};
+  const merged = normalizeNodeGraphVectorDotSettings({
+    ...lcdDefaults,
+    ...source,
+    stereoBlend: source.stereoBlend ?? lcdDefaults.stereoBlend ?? "source-over",
+  });
+  return {
+    ...merged,
+    faceStyle: "lcd",
+    unlitSegments: normalizeNodeGraphTraceDisplayNumber(
+      source.unlitSegments,
+      lcdDefaults.unlitSegments ?? 0.22,
+      0,
+      1,
+    ),
+    innerShadowDistance: normalizeNodeGraphTraceDisplayNumber(
+      source.innerShadowDistance,
+      lcdDefaults.innerShadowDistance ?? 1,
+      0,
+      1,
+    ),
+    innerShadowSharpness: normalizeNodeGraphTraceDisplayNumber(
+      source.innerShadowSharpness,
+      lcdDefaults.innerShadowSharpness ?? 0.732,
+      0,
+      1,
+    ),
+    innerShadowOffsetX: normalizeNodeGraphTraceDisplayNumber(
+      source.innerShadowOffsetX,
+      lcdDefaults.innerShadowOffsetX ?? 0,
+      -1,
+      1,
+    ),
+    innerShadowOffsetY: normalizeNodeGraphTraceDisplayNumber(
+      source.innerShadowOffsetY,
+      lcdDefaults.innerShadowOffsetY ?? 0.135,
+      -1,
+      1,
+    ),
   };
 }
 
@@ -1562,12 +1614,15 @@ function nodeGraphMigrateLegacyLedToVectorDot(led) {
 }
 
 function nodeGraphVectorDotSettingsForNode(node) {
-  return normalizeNodeGraphVectorDotSettings(
-    node?.vectorDotSettings
+  const bag = node?.vectorDotSettings
     || (node?.type === "led" ? nodeGraphMigrateLegacyLedToVectorDot(node.led) : null)
+    || node?.lcdDotSettings
     || node?.zeroDBurnSettings
-    || node?.traceDisplaySettings,
-  );
+    || node?.traceDisplaySettings;
+  if (node?.type === "lcdDot" && typeof normalizeNodeGraphLcdDotSettings === "function") {
+    return normalizeNodeGraphLcdDotSettings(bag);
+  }
+  return normalizeNodeGraphVectorDotSettings(bag);
 }
 
 

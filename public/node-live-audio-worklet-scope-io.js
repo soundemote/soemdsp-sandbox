@@ -131,8 +131,10 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
         }
       }
       const sinkType = String(sink.type || this.nodes.get(nodeId)?.type || "");
+      const multiBuffered = (sink.bufferedInputs || []).length > 1;
       if (
         hasConnected
+        && !multiBuffered
         && sinkType !== "output"
         && sinkType !== "pluginOutput"
       ) {
@@ -283,7 +285,13 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeOutput = function captureModu
     if (!id) {
       return;
     }
-    this.appendScopeBufferSample(id, output);
+    const visualKeys = this.visualInputBuffers || new Map();
+    const hasVisualPorts = [...visualKeys.keys()].some((key) => String(key).startsWith(`${id}:`));
+    // Stereo/XYZ waterfall already write Left/Right or X/Y/Z visual rings.
+    // Posting the same keys from outputs doubled samples → tape ran ~2× vs Mono (In≠Thru).
+    if (!hasVisualPorts) {
+      this.appendScopeBufferSample(id, output);
+    }
     if (!output || typeof output !== "object") {
       return;
     }
@@ -292,6 +300,9 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeOutput = function captureModu
         continue;
       }
       const portId = `${id}:${port}`;
+      if (visualKeys.has(portId)) {
+        continue;
+      }
       this.appendScopeBufferSample(portId, value);
     }
 };

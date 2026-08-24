@@ -995,6 +995,7 @@ function nodeGraphModuleResourceConstraintsForType(type) {
     || display === "lineBurn"
     || display === "dot"
     || display === "vectorDot"
+    || display === "lcdDot"
     || display === "value"
     || display === "hypersawBurn"
     || display === "videoscopeBurn"

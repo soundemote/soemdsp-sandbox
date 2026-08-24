@@ -130,6 +130,10 @@ function createNodeGraphPatchNode(type, options = {}) {
     node.vectorDotSettings = typeof normalizeNodeGraphVectorDotSettings === "function"
       ? normalizeNodeGraphVectorDotSettings(opts.vectorDotSettings || opts.led)
       : (opts.vectorDotSettings || {});
+  } else if (resolvedType === "lcdDot") {
+    node.vectorDotSettings = typeof normalizeNodeGraphLcdDotSettings === "function"
+      ? normalizeNodeGraphLcdDotSettings(opts.vectorDotSettings)
+      : (opts.vectorDotSettings || {});
   }
   if (nodeGraphModuleIsGraphType(resolvedType)) {
     node.graph = normalizeNodeGraphGraph(opts.graph);

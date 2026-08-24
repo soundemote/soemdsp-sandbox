@@ -1479,6 +1479,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       vectorDot: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
       }),
+      lcdDot: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
+      led: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Out: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
       videoscope: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Thru: this.safeFilterNumber(mixInput(nodeId, "A"), null),
       }),

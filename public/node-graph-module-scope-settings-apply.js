@@ -10,6 +10,12 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.zeroDBurnSettings = normalizeNodeGraphZeroDBurnSettings(settings);
     return node.zeroDBurnSettings;
   }
+  if (displayType === "lcdDot") {
+    node.vectorDotSettings = typeof normalizeNodeGraphLcdDotSettings === "function"
+      ? normalizeNodeGraphLcdDotSettings(settings)
+      : (settings || {});
+    return node.vectorDotSettings;
+  }
   if (displayType === "vectorDot" || displayType === "pulseDot") {
     node.vectorDotSettings = typeof normalizeNodeGraphVectorDotSettings === "function"
       ? normalizeNodeGraphVectorDotSettings(settings)
@@ -723,6 +729,7 @@ const NODE_GRAPH_DISPLAY_SETTINGS_PRESERVE_LOOK_KEYS = Object.freeze([
   "peakColor",
   "dot1Color",
   "secondaryColor",
+  "tertiaryColor",
   "meetColor",
   "ghostColor",
   "arcFill",

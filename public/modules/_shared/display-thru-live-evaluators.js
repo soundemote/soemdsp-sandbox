@@ -39,6 +39,7 @@
     Z: nodeGraphSafeFilterNumber(mixInput(nodeId, "Z"), runtime, nodeId, null, "traceDisplayXyz Z"),
   });
   nodeGraphLiveModuleEvaluators.vectorDot = thruFrom("In", "vectorDot in");
+  nodeGraphLiveModuleEvaluators.lcdDot = thruFrom("In", "lcdDot in");
   nodeGraphLiveModuleEvaluators.valueOscilloscope = thruFrom("In", "valueOscilloscope in");
   nodeGraphLiveModuleEvaluators.lineBurnOscilloscope = thruFrom("In", "lineBurnOscilloscope in");
   nodeGraphLiveModuleEvaluators.matrixDisplay = thruFrom("In", "matrixDisplay in");

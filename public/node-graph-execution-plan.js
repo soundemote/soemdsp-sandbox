@@ -692,13 +692,21 @@ function nodeGraphCompiledVisualSinks(graph, reachableNodes) {
     .map((node) => {
       const bufferedInputs = nodeGraphPatchNodeBufferedInputs(node);
       const bufferedSet = new Set(bufferedInputs);
+      const visualInputs = nodeGraphPatchNodeVisualInputs(node).slice();
+      const havePorts = new Set(visualInputs.map((input) => String(input.port || "").trim()).filter(Boolean));
+      for (const port of bufferedInputs) {
+        if (!havePorts.has(port)) {
+          visualInputs.push({ key: port, label: port, port });
+          havePorts.add(port);
+        }
+      }
       return {
         bufferSampleLimit: nodeGraphVisualSinkBufferSampleLimit(node),
         // 0 = every engine sample. >0 = LCD/latest-value (worklet uses Simulation FPS).
         visualWriteHz: nodeGraphVisualSinkWriteHz(node),
         bufferedInputs,
         hasParameters: (nodeGraphModuleDefinitions[node.type]?.parameters || []).length > 0,
-        inputs: nodeGraphPatchNodeVisualInputs(node).map((input) => ({
+        inputs: visualInputs.map((input) => ({
           ...input,
           buffered: bufferedSet.has(input.port),
           connected: (graph.inputConnections.get(nodeGraphInputKey(node.id, input.port)) || []).length > 0,
@@ -775,7 +783,8 @@ function nodeGraphVisualDisplayNeedsWaveformRing(node) {
     displayType === "matrixDisplayFace" ||
     displayType === "dot" ||
     displayType === "vectorDot" ||
-    displayType === "pulseDot"
+    displayType === "pulseDot" ||
+    displayType === "lcdDot"
   );
 }
 

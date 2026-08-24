@@ -173,6 +173,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "dot",
     "vectorDot",
     "pulseDot",
+    "lcdDot",
     "value",
     "lineBurn",
     "scope2d",
