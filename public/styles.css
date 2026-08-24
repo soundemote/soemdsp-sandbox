@@ -15444,7 +15444,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   display: block;
   width: 100%;
   min-width: 0;
-  height: 100%;
+  /* Auto height so Vertical translate moves the *full* text block.
+     The face (.node-text-box-body / .dsp-node) is the only clip window. */
+  height: auto;
   min-height: 0;
   box-sizing: border-box;
   padding: var(--node-text-box-base-padding);
@@ -15466,7 +15468,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
     var(--node-grid-size) * 0.36 * var(--node-text-box-font-scale, 1)
   );
   line-height: var(--node-text-box-line-height, 1.2);
-  overflow: hidden;
+  overflow: visible;
   transform: translateY(var(--node-text-box-content-offset, 0px));
   cursor: text;
   user-select: text;

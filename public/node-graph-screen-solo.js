@@ -24,6 +24,7 @@ const NODE_GRAPH_SCREEN_SOLO_FACE_SEL = [
   ".node-raster-rgb-face",
   ".node-ray-bouncer-face",
   ".node-module-graph-display",
+  ".node-text-box-body",
   ".node-module-face",
 ].join(", ");
 
@@ -33,7 +34,6 @@ const NODE_GRAPH_SCREEN_SOLO_SKIP_SEL = [
   ".node-slider-readout",
   ".node-parameter-row",
   ".node-knob-face",
-  ".node-text-box-body",
 ].join(", ");
 
 function nodeGraphScreenSoloSession() {
@@ -146,12 +146,15 @@ function nodeGraphScreenSoloWrapCandidate(el) {
   if (!(el instanceof Element)) {
     return null;
   }
-  if (el.closest(NODE_GRAPH_SCREEN_SOLO_SKIP_SEL)) {
+  // Skip chrome wrappers, but keep the face itself when it matches a face sel
+  // (e.g. Text Box body used to be skipped and F on one text box did nothing).
+  const skipHost = el.closest(NODE_GRAPH_SCREEN_SOLO_SKIP_SEL);
+  if (skipHost && skipHost !== el && !el.matches(NODE_GRAPH_SCREEN_SOLO_FACE_SEL)) {
     return null;
   }
   if (el.matches("canvas, svg")) {
     return el.closest(
-      "section, .node-module-face, .node-solid-module-custom-ui, .node-filter-curve-display",
+      "section, .node-module-face, .node-solid-module-custom-ui, .node-filter-curve-display, .node-text-box-body",
     ) || el;
   }
   return el;
@@ -170,6 +173,7 @@ function nodeGraphScreenSoloFaceScore(face) {
   if (face.classList.contains("node-basic-shape-display")) score += 35;
   if (face.classList.contains("node-module-scope-window")) score += 25;
   if (face.classList.contains("node-module-face")) score += 10;
+  if (face.classList.contains("node-text-box-body")) score += 30;
   const w = Number(face.clientWidth || face.offsetWidth) || 0;
   const h = Number(face.clientHeight || face.offsetHeight) || 0;
   if (w >= 8 && h >= 8) score += 20;
@@ -329,11 +333,87 @@ function nodeGraphScreenSoloInitialFit(items) {
   return "contain";
 }
 
-function nodeGraphScreenSoloGridSize(count) {
+function nodeGraphScreenSoloGcd(a, b) {
+  let x = Math.abs(Math.round(a) || 1);
+  let y = Math.abs(Math.round(b) || 1);
+  while (y) {
+    const t = y;
+    y = x % y;
+    x = t;
+  }
+  return Math.max(1, x);
+}
+
+function nodeGraphScreenSoloLcm(a, b) {
+  const x = Math.max(1, Math.round(a) || 1);
+  const y = Math.max(1, Math.round(b) || 1);
+  return Math.max(1, (x / nodeGraphScreenSoloGcd(x, y)) * y);
+}
+
+/**
+ * Row occupancy for F-grid:
+ *   1 → [1]
+ *   2 → [2]          (one row split)
+ *   3 → [1, 2]       (1 top / 2 bottom)
+ *   4 → [2, 2]
+ *   5 → [2, 3]
+ *   6 → [3, 3]       (2×3)
+ *   perfect square → equal rows (9 → [3,3,3])
+ *   else → two rows floor(n/2) / ceil(n/2)
+ */
+function nodeGraphScreenSoloRowPlan(count) {
   const n = Math.max(1, Math.round(Number(count) || 1));
-  const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
-  const rows = Math.max(1, Math.ceil(n / cols));
-  return { cols, rows };
+  if (n === 1) {
+    return { rows: [1], cols: 1 };
+  }
+  if (n === 2) {
+    return { rows: [2], cols: 2 };
+  }
+  const root = Math.sqrt(n);
+  if (Number.isInteger(root) && root >= 2) {
+    return { rows: Array.from({ length: root }, () => root), cols: root };
+  }
+  const top = Math.floor(n / 2);
+  const bottom = n - top;
+  return {
+    rows: [top, bottom],
+    cols: nodeGraphScreenSoloLcm(top, bottom),
+  };
+}
+
+function nodeGraphScreenSoloGridSize(count) {
+  const plan = nodeGraphScreenSoloRowPlan(count);
+  return { cols: plan.cols, rows: plan.rows.length, rowSizes: plan.rows };
+}
+
+function nodeGraphScreenSoloPlaceItems(items, plan) {
+  const cols = Math.max(1, plan.cols || 1);
+  const rowSizes = Array.isArray(plan.rowSizes) ? plan.rowSizes : [items.length];
+  let index = 0;
+  for (let r = 0; r < rowSizes.length; r += 1) {
+    const countInRow = Math.max(1, Math.round(rowSizes[r]) || 1);
+    const span = Math.max(1, Math.round(cols / countInRow));
+    for (let c = 0; c < countInRow && index < items.length; c += 1) {
+      const face = items[index]?.face;
+      index += 1;
+      if (!face) {
+        continue;
+      }
+      const start = c * span + 1;
+      const end = Math.min(cols + 1, start + span);
+      face.style.gridColumn = `${start} / ${end}`;
+      face.style.gridRow = `${r + 1}`;
+    }
+  }
+  while (index < items.length) {
+    const face = items[index]?.face;
+    index += 1;
+    if (!face) {
+      continue;
+    }
+    face.style.gridColumn = "1 / -1";
+    face.style.gridRow = "auto";
+  }
 }
 
 function applyNodeGraphScreenSoloFit(mode) {
@@ -344,7 +424,8 @@ function applyNodeGraphScreenSoloFit(mode) {
   }
   const fit = mode === "fill" ? "fill" : "contain";
   const stage = ensureNodeGraphScreenSoloStage();
-  const { cols, rows } = nodeGraphScreenSoloGridSize(items.length);
+  const plan = nodeGraphScreenSoloGridSize(items.length);
+  const { cols, rows, rowSizes } = plan;
   session.cols = cols;
   session.rows = rows;
   session.fit = fit;
@@ -353,22 +434,32 @@ function applyNodeGraphScreenSoloFit(mode) {
   stage.setAttribute("data-fit", fit);
   stage.style.setProperty("--node-screen-solo-cols", String(cols));
   stage.style.setProperty("--node-screen-solo-rows", String(rows));
-  const cellW = Math.max(1, Math.floor((stage.clientWidth || window.innerWidth || 1) / cols));
-  const cellH = Math.max(1, Math.floor((stage.clientHeight || window.innerHeight || 1) / rows));
-  for (const item of items) {
-    if (fit === "contain") {
-      const srcW = Math.max(1, Number(item.sourceWidth) || 1);
-      const srcH = Math.max(1, Number(item.sourceHeight) || 1);
-      const scale = Math.min(cellW / srcW, cellH / srcH);
-      const w = Math.max(1, Math.round(srcW * scale));
-      const h = Math.max(1, Math.round(srcH * scale));
-      item.face?.style.setProperty("--node-screen-solo-item-w", `${w}px`);
-      item.face?.style.setProperty("--node-screen-solo-item-h", `${h}px`);
-      item.face?.setAttribute("data-solo-fit", "contain");
-    } else {
-      item.face?.style.removeProperty("--node-screen-solo-item-w");
-      item.face?.style.removeProperty("--node-screen-solo-item-h");
-      item.face?.setAttribute("data-solo-fit", "fill");
+  nodeGraphScreenSoloPlaceItems(items, plan);
+  const stageW = Math.max(1, stage.clientWidth || window.innerWidth || 1);
+  const stageH = Math.max(1, stage.clientHeight || window.innerHeight || 1);
+  // Per-item cell size from its row occupancy (uneven rows like 1+2, 2+3).
+  let itemIndex = 0;
+  for (let r = 0; r < rowSizes.length; r += 1) {
+    const countInRow = Math.max(1, Math.round(rowSizes[r]) || 1);
+    const cellW = Math.max(1, Math.floor(stageW / countInRow));
+    const cellH = Math.max(1, Math.floor(stageH / rows));
+    for (let c = 0; c < countInRow && itemIndex < items.length; c += 1) {
+      const item = items[itemIndex];
+      itemIndex += 1;
+      if (fit === "contain") {
+        const srcW = Math.max(1, Number(item.sourceWidth) || 1);
+        const srcH = Math.max(1, Number(item.sourceHeight) || 1);
+        const scale = Math.min(cellW / srcW, cellH / srcH);
+        const w = Math.max(1, Math.round(srcW * scale));
+        const h = Math.max(1, Math.round(srcH * scale));
+        item.face?.style.setProperty("--node-screen-solo-item-w", `${w}px`);
+        item.face?.style.setProperty("--node-screen-solo-item-h", `${h}px`);
+        item.face?.setAttribute("data-solo-fit", "contain");
+      } else {
+        item.face?.style.removeProperty("--node-screen-solo-item-w");
+        item.face?.style.removeProperty("--node-screen-solo-item-h");
+        item.face?.setAttribute("data-solo-fit", "fill");
+      }
     }
   }
   const n = items.length;
@@ -401,6 +492,10 @@ function nodeGraphScreenSoloRestoreItem(item) {
   }
   face.classList.remove("node-screen-solo-face");
   face.removeAttribute("data-solo-fit");
+  face.style.removeProperty("grid-column");
+  face.style.removeProperty("grid-row");
+  face.style.removeProperty("--node-screen-solo-item-w");
+  face.style.removeProperty("--node-screen-solo-item-h");
   if (item.placeholder?.parentNode) {
     item.placeholder.replaceWith(face);
   } else if (item.parent?.isConnected) {
@@ -419,8 +514,12 @@ function nodeGraphScreenSoloCollectFaces(nodeIds) {
     if (!found || seen.has(found.id)) {
       continue;
     }
+    // Solo must show the face even if the module currently hides scopes / faces.
+    found.host?.classList.remove("oscilloscope-hidden");
     found.face.hidden = false;
     found.face.removeAttribute("hidden");
+    found.face.style.display = "";
+    found.face.style.visibility = "visible";
     if (!found.face.dataset.node) {
       found.face.dataset.node = found.id;
     }

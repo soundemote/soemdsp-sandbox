@@ -37,40 +37,50 @@ function normalizeNodeGraphTextBoxHorizontalAlign(value) {
   return ["left", "center", "right"].includes(align) ? align : "center";
 }
 
+/**
+ * Vertical % places the *center* of the text block along the face height:
+ *   0   → text center on the top edge (half clips above)
+ *   50  → text centered in the face (default)
+ *   100 → text center on the bottom edge (half clips below)
+ */
 const nodeGraphTextBoxVerticalAlignLimits = Object.freeze({
   maxPercent: 100,
-  minPercent: -100,
+  minPercent: 0,
+  defaultPercent: 50,
 });
 
-function nodeGraphTextBoxMigrateLegacyVerticalPercent(value) {
-  const numeric = Math.round(Number(value));
-  if (!Number.isFinite(numeric)) {
-    return 0;
+/** Old bipolar −100…+100 (0 = center) → new 0…100 center-point. */
+function nodeGraphTextBoxMigrateBipolarVerticalPercent(value) {
+  const bipolar = Math.round(Number(value));
+  if (!Number.isFinite(bipolar)) {
+    return nodeGraphTextBoxVerticalAlignLimits.defaultPercent;
   }
-  // Legacy 0=top / 50=center / 100=bottom → bipolar 0=center.
   return Math.max(
     nodeGraphTextBoxVerticalAlignLimits.minPercent,
-    Math.min(nodeGraphTextBoxVerticalAlignLimits.maxPercent, (numeric - 50) * 2),
+    Math.min(
+      nodeGraphTextBoxVerticalAlignLimits.maxPercent,
+      Math.round((bipolar + 100) / 2),
+    ),
   );
 }
 
 function normalizeNodeGraphTextBoxVerticalAlignPercent(value, options = {}) {
   const align = String(value || "").toLowerCase();
   if (align === "top") {
-    return -100;
+    return 0;
   }
   if (align === "bottom") {
     return 100;
   }
   if (align === "center" || align === "middle") {
-    return 0;
+    return nodeGraphTextBoxVerticalAlignLimits.defaultPercent;
   }
   const numeric = Math.round(Number(value));
   if (!Number.isFinite(numeric)) {
-    return 0;
+    return nodeGraphTextBoxVerticalAlignLimits.defaultPercent;
   }
-  if (options.legacy) {
-    return nodeGraphTextBoxMigrateLegacyVerticalPercent(numeric);
+  if (options.fromBipolar) {
+    return nodeGraphTextBoxMigrateBipolarVerticalPercent(numeric);
   }
   return Math.max(
     nodeGraphTextBoxVerticalAlignLimits.minPercent,
@@ -153,7 +163,9 @@ function normalizeNodeGraphTextBoxLayout(layout = {}) {
   const text = textMode === "singleLine"
     ? nodeGraphTextBoxOneLineText(source.text)
     : String(source.text ?? "");
-  const bipolarVertical = source.verticalBipolar === true;
+  // Schema 2 = center-point 0…100. Older saves used bipolar −100…+100 with verticalBipolar.
+  const verticalSchema = Number(source.verticalAlignSchema);
+  const fromBipolar = source.verticalBipolar === true && verticalSchema !== 2;
   const font = typeof nodeGraphAppNormalizeFont === "function"
     ? nodeGraphAppNormalizeFont(source.font, NODE_GRAPH_TEXT_BOX_DEFAULT_FONT)
     : String(source.font || NODE_GRAPH_TEXT_BOX_DEFAULT_FONT).trim().toLowerCase() || NODE_GRAPH_TEXT_BOX_DEFAULT_FONT;
@@ -178,10 +190,10 @@ function normalizeNodeGraphTextBoxLayout(layout = {}) {
       source.lineHeight ?? source.lineSpacing ?? source.newlineSpacing,
     ),
     textMode,
-    verticalBipolar: true,
+    verticalAlignSchema: 2,
     verticalAlignPercent: normalizeNodeGraphTextBoxVerticalAlignPercent(
       source.verticalAlignPercent ?? source.verticalAlign,
-      { legacy: !bipolarVertical },
+      { fromBipolar },
     ),
   };
 }

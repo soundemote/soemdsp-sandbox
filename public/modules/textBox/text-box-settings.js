@@ -26,7 +26,7 @@ function nodeGraphTextBoxDisplaySliderDefaults() {
       lineHeight: typeof NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT === "number"
         ? NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT
         : 1.2,
-      verticalAlignPercent: 0,
+      verticalAlignPercent: 50,
     };
 }
 
@@ -58,7 +58,7 @@ function buildNodeGraphTextBoxDisplaySettingsBodyHtml() {
       </label>
       <label class="node-led-settings-row">
         <span>Vertical</span>
-        <input type="range" min="-100" max="100" step="1" data-textbox-field="verticalAlignPercent" aria-label="Vertical position −100–100">
+        <input type="range" min="0" max="100" step="1" data-textbox-field="verticalAlignPercent" aria-label="Vertical: 0 text-center at top, 50 centered, 100 text-center at bottom">
         <span>%</span>
       </label>
       <label class="node-led-settings-row">

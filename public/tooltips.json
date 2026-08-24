@@ -279,7 +279,7 @@
     "textBoxAlignLeft": "align text to the left",
     "textBoxAlignCenter": "align text to the center",
     "textBoxAlignRight": "align text to the right",
-    "textBoxVerticalPosition": "set text vertical position as a percentage of unused space"
+    "textBoxVerticalPosition": "place the center of the text along the face | 0 = top edge (clips) | 50 = centered | 100 = bottom edge (clips)"
   },
   "metadata": {
     "move": "move parameter metadata editor",

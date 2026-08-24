@@ -29,12 +29,12 @@ function textBoxWidgetNormalizeVertical(value) {
   }
   const numeric = Math.round(Number(value));
   if (Number.isFinite(numeric)) {
-    return Math.max(-100, Math.min(100, numeric));
+    return Math.max(0, Math.min(100, numeric));
   }
   const align = String(value || "").toLowerCase();
-  if (align === "top") return -100;
+  if (align === "top") return 0;
   if (align === "bottom") return 100;
-  return 0;
+  return 50;
 }
 
 function textBoxWidgetNormalizeFont(value) {
@@ -145,12 +145,16 @@ function textBoxWidgetApplyAlign(field, layout) {
   if (!field) return;
   field.style.setProperty("--node-text-box-content-offset", "0px");
   void field.offsetHeight;
-  const box = Math.max(0, field.clientHeight);
+  // Face/window height — not the input (input is height:auto so text can
+  // extend past the window; only .node-text-box-body clips).
+  const face = field.parentElement;
+  const box = Math.max(0, face?.clientHeight || field.clientHeight);
   const contentHeight = textBoxWidgetMeasureContentHeight(field);
-  const slack = Math.max(0, box - contentHeight);
-  const bipolar = textBoxWidgetNormalizeVertical(layout.verticalAlignPercent);
-  // -100 = top (0), 0 = center (slack/2), +100 = bottom (slack)
-  const offset = slack * 0.5 + (slack * bipolar) / 200;
+  const percent = textBoxWidgetNormalizeVertical(layout.verticalAlignPercent);
+  // Place the *center* of the full text block along the face:
+  // 0% = top edge, 50% = face center, 100% = bottom edge.
+  // Window overflow clips — never pre-clip the input then translate.
+  const offset = (box * percent) / 100 - contentHeight * 0.5;
   field.style.setProperty("--node-text-box-content-offset", `${offset.toFixed(2)}px`);
 }
 
