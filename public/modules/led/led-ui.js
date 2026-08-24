@@ -6,7 +6,7 @@ function createNodeGraphLedFace(node, type) {
   root.dataset.node = node;
   root.dataset.nodeType = type;
   root.dataset.lightSource = "screen";
-  root.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} LED`);
+  root.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} LED Dot`);
   return root;
 }
 

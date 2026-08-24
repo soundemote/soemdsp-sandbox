@@ -1,4 +1,4 @@
-// Value LED / Value LCD solid-module face: the scope surface IS the module center.
+// LED Value / LCD Value solid-module face: the scope surface IS the module center.
 // Draw path (DSEG + Trail/Ghost residual) lives in node-graph-module-scope-number-readout.js.
 
 function createNodeGraphNumberReadoutBody(node, type) {
@@ -27,7 +27,7 @@ function createNodeGraphNumberReadoutBody(node, type) {
   const label = typeof nodeGraphNodeDisplayName === "function"
     ? nodeGraphNodeDisplayName(node)
     : String(node || "value");
-  face.setAttribute("aria-label", `${label} ${isLcd ? "value LCD" : "value LED"}`);
+  face.setAttribute("aria-label", `${label} ${isLcd ? "LCD Value" : "LED Value"}`);
   return face;
 }
 

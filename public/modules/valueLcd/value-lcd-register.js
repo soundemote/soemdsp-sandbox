@@ -1,9 +1,9 @@
-// Value LCD — reflective seven-segment plate (grey glass, dark ink).
+// LCD Value — reflective seven-segment plate (grey glass, dark ink).
 // Shares the number-readout draw path (displayType numberReadout) with faceStyle lcd.
-// Ghost + Trail use the app-wide residual policy (same settings as Value LED).
+// Ghost + Trail use the app-wide residual policy (same settings as LED Value).
 
 registerNodeGraphChromelessModule("valueLcd", {
-  label: "Value LCD",
+  label: "LCD Value",
   customDisplayArea: true,
   solidModule: true,
   definition: {
@@ -25,12 +25,11 @@ registerNodeGraphChromelessModule("valueLcd", {
   },
   catalog: {
     category: "multimeter",
-    description: "Value LCD: grey plate, dark ink DSEG digits, faint always-on segments (Ghost) + previous-value Trail. Cheap reflective LCD look. Search: value, LCD, multimeter.",
+    description: "LCD Value: grey plate, dark ink DSEG digits, faint always-on segments (Ghost) + previous-value Trail. Cheap reflective LCD look. Search: LCD Value, LCD, multimeter.",
     notes: [
-      "value",
-      "value lcd",
+      "lcd value",
+      "lcd",
       "lcd readout",
-      "value display",
       "numeric display",
       "digital readout",
       "seven-segment",

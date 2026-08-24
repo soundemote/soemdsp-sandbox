@@ -440,8 +440,8 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}
       ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
       : null;
     aria = nodeType === "valueLcd"
-      ? "Value LCD foreground (digit ink) color"
-      : "LED digit hue; LED amount maps grey → full hue → white";
+      ? "LCD Value foreground (digit ink) color"
+      : "LED Value digit hue; LED amount maps grey → full hue → white";
   } else if (formType === "numberReadout" && key === "backgroundColor") {
     aria = "Value face background color";
   } else if (formType === "knobFace" && key === "backgroundColor") {

@@ -1,10 +1,10 @@
-// LED's definition/catalog metadata -- see
+// LED Dot definition/catalog metadata -- see
 // node-graph-chromeless-module-registry.js for why this lives here instead
 // of node-graph-module-definitions.js / node-graph-module-store.js, and
 // why this file has to load early (before those two build their frozen
 // objects).
 registerNodeGraphChromelessModule("led", {
-  label: "LED",
+  label: "LED Dot",
   // Same LayoutB solid shell as Number Readout / XY Pad (ports beside face).
   // No compact-tile / no-label special cases — shared LayoutB chrome only.
   solidModule: true,
@@ -28,8 +28,17 @@ registerNodeGraphChromelessModule("led", {
     visualSink: true,
   },
   catalog: {
-    category: "object",
-    description: "Signal light. Layout B (In | Vector Dot | Out). Buffered In energy drives the shared Vector Dot face.",
-    notes: ["LayoutB", "resizable", "input light", "visual indicator", "vector dot"],
+    category: "multimeter",
+    description: "LED Dot: signal light. Layout B (In | Vector Dot | Out). Buffered In energy drives the shared Vector Dot face.",
+    notes: [
+      "led dot",
+      "led",
+      "LayoutB",
+      "resizable",
+      "input light",
+      "visual indicator",
+      "vector dot",
+      "multimeter",
+    ],
   },
 });

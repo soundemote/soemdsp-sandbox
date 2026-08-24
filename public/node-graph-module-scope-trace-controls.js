@@ -1026,7 +1026,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "decimal",
     id: "nodeTraceDisplayUnlitSegments",
     title:
-      "Value LCD Ghost: permanent dim all-8 segment plate (0 = off, 1 = strong). Soft fade near 0 — not residual hang (LED Trail/Ghost).",
+      "LCD Value Ghost: permanent dim all-8 segment plate (0 = off, 1 = strong). Soft fade near 0 — not residual hang (LED Trail/Ghost).",
   }),
   centsBand: Object.freeze({
     label: "Tune",
@@ -1040,32 +1040,32 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "decimal",
     id: "nodeTraceDisplayFacePadding",
     title:
-      "Value LED/LCD: linear inset on each axis (half-width / half-height). 0 = no inset; positive pulls digits in (1 = pin pixel); negative grows digits toward the plate walls so you can dial wall contact.",
+      "LED Value / LCD Value: linear inset on each axis (half-width / half-height). 0 = no inset; positive pulls digits in (1 = pin pixel); negative grows digits toward the plate walls so you can dial wall contact.",
   }),
   innerShadowDistance: Object.freeze({
     label: "Shadow dist",
     inputmode: "decimal",
     id: "nodeTraceDisplayInnerShadowDistance",
-    title: "Value LCD: how far the Gaussian inset glass shadow reaches from the edge (0 = none, 1 = deep). Not brightness.",
+    title: "LCD Value: how far the Gaussian inset glass shadow reaches from the edge (0 = none, 1 = deep). Not brightness.",
   }),
   innerShadowSharpness: Object.freeze({
     label: "Shadow hard",
     inputmode: "decimal",
     id: "nodeTraceDisplayInnerShadowSharpness",
     title:
-      "Value LCD shadow hardness 0…1. Soft = wide translucent Gaussian; harder = less blur and more black. Full hardness = solid black hard rim.",
+      "LCD Value shadow hardness 0…1. Soft = wide translucent Gaussian; harder = less blur and more black. Full hardness = solid black hard rim.",
   }),
   innerShadowOffsetX: Object.freeze({
     label: "Shadow X",
     inputmode: "decimal",
     id: "nodeTraceDisplayInnerShadowOffsetX",
-    title: "Value LCD: inset shadow horizontal offset −1…1 (0 = centered). Positive darkens the left edge (light from the right).",
+    title: "LCD Value: inset shadow horizontal offset −1…1 (0 = centered). Positive darkens the left edge (light from the right).",
   }),
   innerShadowOffsetY: Object.freeze({
     label: "Shadow Y",
     inputmode: "decimal",
     id: "nodeTraceDisplayInnerShadowOffsetY",
-    title: "Value LCD: inset shadow vertical offset −1…1 (0 = centered). Positive darkens the top edge (light from below).",
+    title: "LCD Value: inset shadow vertical offset −1…1 (0 = centered). Positive darkens the top edge (light from below).",
   }),
   historySeconds: Object.freeze({
     label: "History (s)",

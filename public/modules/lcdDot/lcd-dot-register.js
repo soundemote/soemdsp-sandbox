@@ -1,4 +1,4 @@
-// LCD Dot — reflective plate + ink stamp (Vector Dot shape, Value LCD look).
+// LCD Dot — reflective plate + ink stamp (Vector Dot shape, LCD Value look).
 registerNodeGraphChromelessModule("lcdDot", {
   label: "LCD Dot",
   customDisplayArea: true,
