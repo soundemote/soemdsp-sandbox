@@ -637,6 +637,12 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
       settings,
     );
   }
+  if (typeof syncNodeGraphWaterfallHistoryLabel === "function") {
+    syncNodeGraphWaterfallHistoryLabel(
+      document.getElementById("nodeTraceDisplaySettingsPopover"),
+      settings,
+    );
+  }
   const dirty = nodeGraphMvp.traceDisplaySettingsDirtyKeys;
   const inkOnly = dirty
     && dirty.size > 0

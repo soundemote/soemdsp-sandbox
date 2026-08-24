@@ -195,7 +195,7 @@
     "lineLength": "0D Value line length | 1 reaches the display edge | lower values pull both ends inward",
     "capSize": "0D Value cap thickness as a 0..1 fraction of the display square",
     "capLength": "0D Value cap length as a 0..1 fraction of the display height",
-    "sourceSync": "align display to the detected source cycle | 1D Phosphor: Sweep = cycles in view (smooth); restart each pass on a rising zero-crossing | 1D Waterfall: phase-lock and show floor(History/period) whole cycles",
+    "sourceSync": "align display to the detected source cycle | 1D Phosphor: Sweep = cycles in view (smooth); restart each pass on a rising zero-crossing | 1D Waterfall: History = cycles in view (smooth), stretched full-width to a rising zero-crossing",
     "syncChannel": "Output stereo trigger source | Off freeruns each channel | Left/Right/Mono share one zero-crossing lock so L and R stay time-aligned"
   },
   "wire": {

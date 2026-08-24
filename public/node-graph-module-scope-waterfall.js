@@ -1,8 +1,8 @@
 // 1D Waterfall — strip chart (mono / stereo / XYZ / RGB).
 // Sync Off: scroll left, pen on the right; History is the face width in seconds.
-// Sync On: phase-lock to a rising zero-crossing; History is a time budget —
-// display floor(History / period) whole cycles across the face. History 0: now-line.
-// Ink: TraceTape WebGL discs. Meet/Add on GPU. Canvas2D plate only.
+// Sync On: phase-lock to a rising zero-crossing; History is cycles in view
+// (smooth — e.g. 1.5 = 1½ periods), always stretched across the full face width.
+// History 0: now-line. Ink: TraceTape WebGL discs. Meet/Add on GPU. Canvas2D plate only.
 
 function nodeGraphWaterfallNowMs() {
   return (typeof performance !== "undefined" && typeof performance.now === "function")
@@ -55,10 +55,11 @@ function nodeGraphWaterfallRefinePeriodSamples(edges) {
 }
 
 /**
- * Measure period from the buffer (rising ZCs only — no module frequency hints),
- * then choose how many whole cycles fit in History seconds and a lock edge.
+ * Measure period from the buffer (rising ZCs only — no module frequency hints).
+ * History (when Sync On) is cycles-in-view (smooth), not a time budget that
+ * packs more cycles as frequency rises — zoom stretches that window full-width.
  */
-function nodeGraphWaterfallMeasureSync(syncBuffer, state, historySeconds = 0, sampleRate = 0) {
+function nodeGraphWaterfallMeasureSync(syncBuffer, state, historyCycles = 0, sampleRate = 0) {
   const empty = { periodSamples: 0, edge: Number.NaN, cycles: 0, visibleSamples: 0 };
   if (!syncBuffer?.length || typeof nodeGraphModuleScopeCollectSyncTriggers !== "function") {
     return empty;
@@ -70,14 +71,14 @@ function nodeGraphWaterfallMeasureSync(syncBuffer, state, historySeconds = 0, sa
     return empty;
   }
   const hz = sampleRate > 0 ? sampleRate : nodeGraphWaterfallVisualHz(source);
-  const histSec = Number(historySeconds);
-  const histSamples = Number.isFinite(histSec) && histSec > 0 && hz > 0
-    ? Math.round(histSec * hz)
-    : 0;
-  // Search enough of the ring to cover a long History zoom-out, not just 8k.
+  const cyclesRaw = Number(historyCycles);
+  const cycles = Number.isFinite(cyclesRaw) && cyclesRaw > 0
+    ? Math.max(0.05, Math.min(100, cyclesRaw))
+    : 2;
+  // Search enough ring for several periods of the current cycle zoom.
   const searchSpan = Math.min(
     source.length,
-    Math.max(8192, histSamples > 0 ? histSamples + 4096 : 8192),
+    Math.max(8192, Math.ceil(cycles * 512) + 4096),
   );
   const searchStart = Math.max(0, source.length - searchSpan);
   const triggers = nodeGraphModuleScopeCollectSyncTriggers(
@@ -111,11 +112,7 @@ function nodeGraphWaterfallMeasureSync(syncBuffer, state, historySeconds = 0, sa
       return empty;
     }
   }
-  // History = time budget → how many whole periods fit, then show exactly that.
-  const periodSec = periodSamples / Math.max(1, hz);
-  const cycles = Number.isFinite(histSec) && histSec > 0 && periodSec > 0
-    ? Math.max(1, Math.floor((histSec / periodSec) + 1e-9))
-    : 2;
+  // Fixed cycle zoom × measured period → sample window (stretched to full face).
   const visible = Math.max(8, Math.min(source.length, Math.round(cycles * periodSamples)));
   let edge = Number.NaN;
   for (let i = edges.length - 1; i >= 0; i -= 1) {
@@ -954,8 +951,8 @@ function nodeGraphWaterfallPaint(spec) {
   const history = nodeGraphWaterfallHistorySeconds(settings);
   const hz = nodeGraphWaterfallVisualHz(live);
 
-  // Sync On: History is a time budget → show floor(History/period) whole cycles,
-  // phase-locked to a rising zero-crossing (not a raw History-second slice).
+  // Sync On: History = cycles in view (smooth). Stretch that window across the
+  // full face width (zoom only — do not pack more cycles as frequency rises).
   if (syncOn) {
     const syncBuffer = nodeGraphWaterfallSyncSource(writeSpec) || live;
     const measure = nodeGraphWaterfallMeasureSync(syncBuffer, st, history, hz);
@@ -975,6 +972,7 @@ function nodeGraphWaterfallPaint(spec) {
         sampleStart = Math.max(0, live.length - visible);
       }
       const sampleEnd = Math.min(live.length, sampleStart + visible);
+      // Always map the lock window across the full usable width (no partial face).
       nodeGraphWaterfallClearTapes(canvas);
       nodeGraphWaterfallInk(
         context, canvas, writeSpec, penMin, usableWidth, spec.bg, sampleStart, sampleEnd,

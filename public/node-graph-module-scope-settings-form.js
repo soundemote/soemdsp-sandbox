@@ -18,8 +18,11 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     formType === "trace"
     || formType === "traceRgb"
   )) {
-    label = "History";
-    title = "Seconds of tape across the face. 0 = now (a full-width line). Sync Off: scroll speed. Sync On: time budget — show as many whole cycles as fit in this many seconds.";
+    const syncOn = options.syncOn === true;
+    label = syncOn ? "History (c)" : "History (s)";
+    title = syncOn
+      ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods), stretched across the full face. Rising zero-crossing locks phase."
+      : "Seconds of tape across the face. 0 = now (a full-width line). Longer = slower waterfall scroll.";
   } else if ((key === "zoomSeconds" || key === "historySeconds") && (
     formType === "traceXyz"
     || formType === "gradientVectorscopeFace"
@@ -232,7 +235,9 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     ? ""
     : (key === "sweepSeconds"
       ? `<span data-trace-display-sweep-label>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>`
-      : `<span>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>`);
+      : (key === "historySeconds" || key === "zoomSeconds")
+        ? `<span data-trace-display-history-label>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>`
+        : `<span>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>`);
   const rowClass = options.hideLabel
     ? "node-trace-display-line-burn-row node-trace-display-stepper-only"
     : "node-trace-display-line-burn-row";
@@ -1025,6 +1030,44 @@ function syncNodeGraphLineBurnSweepLabel(root, settings = {}) {
   const title = syncOn
     ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods). Pass restarts on the next rising zero-crossing."
     : "Seconds for one left→right pass (0–10). 0 = collapsed full-width burn.";
+  if (titleSpan) {
+    titleSpan.textContent = label;
+  }
+  const row = field?.closest?.("[data-trace-display-control-row]");
+  if (row) {
+    row.title = title;
+  }
+  if (field) {
+    field.title = title;
+    field.setAttribute("aria-label", `${label} amount`);
+  }
+}
+
+/** History (s) ↔ History (c) when Waterfall Sync is toggled. */
+function syncNodeGraphWaterfallHistoryLabel(root, settings = {}) {
+  const host = root?.querySelector?.(
+    "[data-trace-display-history-label], [data-trace-display-field=\"historySeconds\"], [data-trace-display-field=\"zoomSeconds\"]",
+  )
+    ? root
+    : document.getElementById("nodeTraceDisplaySettingsPopover");
+  if (!host) {
+    return;
+  }
+  const titleSpan = host.querySelector("[data-trace-display-history-label]");
+  const field = host.querySelector(`[data-trace-display-field="historySeconds"]`)
+    || host.querySelector(`[data-trace-display-field="zoomSeconds"]`);
+  if (!titleSpan && !field) {
+    return;
+  }
+  const syncOn = typeof nodeGraphTraceDisplaySyncChannel === "function"
+    ? nodeGraphTraceDisplaySyncChannel(settings) !== "off"
+    : (typeof nodeGraphDisplaySettingsToggleIsOn === "function"
+      ? nodeGraphDisplaySettingsToggleIsOn(settings?.sourceSync ?? settings?.sync)
+      : Boolean(settings?.sourceSync));
+  const label = syncOn ? "History (c)" : "History (s)";
+  const title = syncOn
+    ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods), stretched across the full face. Rising zero-crossing locks phase."
+    : "Seconds of tape across the face. 0 = now (a full-width line). Longer = slower waterfall scroll.";
   if (titleSpan) {
     titleSpan.textContent = label;
   }
