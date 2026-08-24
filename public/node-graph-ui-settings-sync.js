@@ -842,6 +842,10 @@ function syncNodeUiDevSettingsHeaderControls() {
   const sliderValueColorValue = document.getElementById("nodeUiDevSliderValueColorValue");
   const sliderUnitColorInput = document.getElementById("nodeUiDevSliderUnitColor");
   const sliderUnitColorValue = document.getElementById("nodeUiDevSliderUnitColorValue");
+  const wireThicknessInput = document.getElementById("nodeUiDevWireThickness");
+  const wireThicknessValue = document.getElementById("nodeUiDevWireThicknessValue");
+  const wirePatchPointSizeInput = document.getElementById("nodeUiDevWirePatchPointSize");
+  const wirePatchPointSizeValue = document.getElementById("nodeUiDevWirePatchPointSizeValue");
   const traceWireThicknessInput = document.getElementById("nodeUiDevTraceWireThickness");
   const traceWireThicknessValue = document.getElementById("nodeUiDevTraceWireThicknessValue");
   const choiceSlideEmptyBorderInput = document.getElementById("nodeUiDevChoiceSlideEmptyBorder");
@@ -892,6 +896,10 @@ function syncNodeUiDevSettingsHeaderControls() {
     !sliderValueColorValue ||
     !sliderUnitColorInput ||
     !sliderUnitColorValue ||
+    !wireThicknessInput ||
+    !wireThicknessValue ||
+    !wirePatchPointSizeInput ||
+    !wirePatchPointSizeValue ||
     !traceWireThicknessInput ||
     !traceWireThicknessValue ||
     !choiceSlideEmptyBorderInput ||
@@ -935,6 +943,17 @@ function syncNodeUiDevSettingsHeaderControls() {
   const sliderLabelColor = normalizeNodeUiDevColor(sliderLabelColorInput.value, "#cfdde5");
   const sliderValueColor = normalizeNodeUiDevColor(sliderValueColorInput.value, "#ffffff");
   const sliderUnitColor = normalizeNodeUiDevColor(sliderUnitColorInput.value, "#7fc7d9");
+  // Cable stroke is independent of inlet/outlet size (was 0.25 × port diameter).
+  const wireThicknessRaw = Number(wireThicknessInput.value);
+  const wireThicknessPx = Math.max(
+    0.25,
+    Math.min(12, Number.isFinite(wireThicknessRaw) ? wireThicknessRaw : 3.5),
+  );
+  const wirePatchPointSizeRaw = Number(wirePatchPointSizeInput.value);
+  const wirePatchPointSizePercent = Math.max(
+    0,
+    Math.min(200, Number.isFinite(wirePatchPointSizeRaw) ? wirePatchPointSizeRaw : 54),
+  );
   const traceWireThicknessPx = Math.max(1, Math.min(12, Number(traceWireThicknessInput.value) || 1));
   const choiceSlideEmptyBorderPx = Math.max(0, Math.min(8, Number(choiceSlideEmptyBorderInput.value) || 0));
   const bypassIconSizePercent = Math.max(0, Math.min(100, Number(bypassIconSizeInput.value) || 0));
@@ -1001,6 +1020,12 @@ function syncNodeUiDevSettingsHeaderControls() {
     ?.style.setProperty("--node-slider-unit-color", sliderUnitColor);
   document
     .getElementById("nodeGraphWorkspace")
+    ?.style.setProperty("--node-wire-thickness", `${wireThicknessPx}px`);
+  document
+    .getElementById("nodeGraphWorkspace")
+    ?.style.setProperty("--node-wire-patch-point-size-ratio", String(wirePatchPointSizePercent / 100));
+  document
+    .getElementById("nodeGraphWorkspace")
     ?.style.setProperty("--node-trace-wire-thickness", `${traceWireThicknessPx}px`);
   document
     .getElementById("nodeGraphWorkspace")
@@ -1037,6 +1062,17 @@ function syncNodeUiDevSettingsHeaderControls() {
   sliderLabelColorValue.textContent = sliderLabelColor;
   sliderValueColorValue.textContent = sliderValueColor;
   sliderUnitColorValue.textContent = sliderUnitColor;
+  if (!wireThicknessInput.matches(":active") && wireThicknessInput.value !== String(wireThicknessPx)) {
+    wireThicknessInput.value = String(wireThicknessPx);
+  }
+  wireThicknessValue.textContent = `${Math.round(wireThicknessPx * 100) / 100}px`;
+  if (
+    !wirePatchPointSizeInput.matches(":active")
+    && wirePatchPointSizeInput.value !== String(wirePatchPointSizePercent)
+  ) {
+    wirePatchPointSizeInput.value = String(wirePatchPointSizePercent);
+  }
+  wirePatchPointSizeValue.textContent = `${Math.round(wirePatchPointSizePercent)}%`;
   traceWireThicknessValue.textContent = `${traceWireThicknessPx}px`;
   choiceSlideEmptyBorderValue.textContent = `${choiceSlideEmptyBorderPx}px`;
   bypassIconSizeValue.textContent = `${bypassIconSizePercent}%`;

@@ -6566,8 +6566,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-port-column-width: var(--node-port-area-radius);
   /* Shared LayoutA+B: leftover height under last content (≥2px, or +1gu from JS). */
   --node-module-bottom-gap-track: minmax(2px, 1fr);
-  --node-wire-patch-point-size: calc(var(--node-port-diameter) * 0.54);
-  --node-wire-thickness: calc(var(--node-port-diameter) * 0.25);
+  /* Connection / wire-end dots — UIDEV --node-wire-patch-point-size-ratio (% of jack). */
+  --node-wire-patch-point-size-ratio: 0.54;
+  --node-wire-patch-point-size: calc(
+    var(--node-port-diameter) * var(--node-wire-patch-point-size-ratio, 0.54)
+  );
+  /* Cable stroke — UIDEV --node-wire-thickness (independent of inlet/outlet size).
+     Fallback ≈ former 0.25 × diameter at default 52% / 28px grid. */
+  --node-wire-thickness: 3.5px;
   --node-trace-wire-thickness: 1px;
   /*
    * Signal jack cell:

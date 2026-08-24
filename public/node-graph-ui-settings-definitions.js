@@ -258,6 +258,28 @@ const nodeUiDevSettingControls = Object.freeze([
   { defaultValue: 360, id: "nodeUiDevSnakeSelectHue", key: "snakeSelectHue", max: 360, min: 0, type: "number" },
   { defaultValue: 100, id: "nodeUiDevSnakeSelectBrightness", key: "snakeSelectBrightness", max: 100, min: 0, type: "number" },
   { defaultValue: 95, id: "nodeUiDevSnakeSelectAlpha", key: "snakeSelectAlpha", max: 100, min: 0, type: "number" },
+  {
+    // World-space px. Independent of inlet/outlet size (was 0.25 × port diameter).
+    defaultValue: 3.5,
+    exposeDefault: true,
+    id: "nodeUiDevWireThickness",
+    key: "wireThickness",
+    max: 12,
+    min: 0.25,
+    step: 0.05,
+    type: "number",
+  },
+  {
+    // % of --node-port-diameter (connection / wire-end dots).
+    defaultValue: 54,
+    exposeDefault: true,
+    id: "nodeUiDevWirePatchPointSize",
+    key: "wirePatchPointSize",
+    max: 200,
+    min: 0,
+    step: 1,
+    type: "number",
+  },
   { defaultValue: 1, id: "nodeUiDevTraceWireThickness", key: "traceWireThickness", max: 12, min: 1, type: "number" },
   { defaultValue: 2, id: "nodeUiDevChoiceSlideEmptyBorder", key: "choiceSlideEmptyBorder", max: 8, min: 0, type: "number" },
   { defaultValue: false, id: "nodeUiDevChoiceSlideDebugBoxes", key: "choiceSlideDebugBoxes", type: "boolean" },
@@ -345,6 +367,8 @@ const nodeUiDevSettingSections = Object.freeze([
   {
     title: "wires",
     ids: [
+      "nodeUiDevWireThickness",
+      "nodeUiDevWirePatchPointSize",
       "nodeUiDevTraceWireThickness",
       "nodeUiDevWiresFollowPortColors",
       "nodeUiDevFullyOpaqueWires",

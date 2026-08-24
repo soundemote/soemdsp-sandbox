@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=JetBrains+Mono:wght@400;500;600;700&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=io-half-exact-1">
+  <link rel="stylesheet" href="./public/styles.css?v=wire-endpoint-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=input-outlet-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -1416,6 +1416,34 @@
               type="checkbox"
               title="Skip the mid-cable opacity dip so strokes stay solid.">
             <span>fully opaque wires</span>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>wire thickness</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevWireThickness"
+                type="range"
+                min="0.25"
+                max="12"
+                step="0.05"
+                value="3.5"
+                title="Cable stroke width in world px — independent of inlet/outlet size">
+              <output id="nodeUiDevWireThicknessValue" for="nodeUiDevWireThickness">3.5px</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>wire endpoint size</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevWirePatchPointSize"
+                type="range"
+                min="0"
+                max="200"
+                step="1"
+                value="54"
+                title="Connection dot diameter as % of inlet/outlet size">
+              <output id="nodeUiDevWirePatchPointSizeValue" for="nodeUiDevWirePatchPointSize">54%</output>
+            </div>
           </label>
           <label class="node-ui-dev-control">
             <span>trace wire thickness</span>
@@ -3778,13 +3806,13 @@
   <script src="./public/node-graph-execution-debug-view.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-tooltips.js?v=gpu-stamps-1"></script>
   <script src="./public/node-graph-interaction-help.js?v=v-cycle-1"></script>
-  <script src="./public/presets/useruisettings.js?v=plate-11-1"></script>
-  <script src="./public/node-graph-ui-settings-definitions.js?v=io-jack-gap-1"></script>
+  <script src="./public/presets/useruisettings.js?v=wire-endpoint-1"></script>
+  <script src="./public/node-graph-ui-settings-definitions.js?v=wire-endpoint-1"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=macro-cleanup-2"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=uidev-page-1"></script>
   <script src="./public/node-graph-ui-settings-persistence.js?v=v-cycle-1"></script>
-  <script src="./public/node-graph-ui-settings-sync.js?v=io-jack-gap-1"></script>
+  <script src="./public/node-graph-ui-settings-sync.js?v=wire-endpoint-1"></script>
   <script src="./public/node-graph-keyboard-shortcuts.js?v=keyboard-nav-focus-1"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
@@ -4104,7 +4132,7 @@
   <script src="./public/node-graph-header-event-bindings.js?v=vis-bars-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
   <script src="./public/node-graph-scene-menu-event-bindings.js?v=inv-1"></script>
-  <script src="./public/node-graph-uidev-event-bindings.js?v=io-jack-gap-1"></script>
+  <script src="./public/node-graph-uidev-event-bindings.js?v=wire-endpoint-1"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=book-ui-script-1"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>
   <script src="./public/node-graph-event-bindings.js?v=remove-dead-uiview-bind-20260724"></script>
