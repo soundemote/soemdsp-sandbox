@@ -57,8 +57,11 @@ const NODE_GRAPH_SNOWFLAKE_PATTERNS = Object.freeze([
 ]);
 
 const NODE_GRAPH_SNOWFLAKE_DRAW_CHARS = "FGAB";
-const NODE_GRAPH_SNOWFLAKE_MAX_STRING = 48000;
-const NODE_GRAPH_SNOWFLAKE_MAX_ITER = 7;
+// String/point ceilings: L-systems grow exponentially; these are sized so each
+// catalog pattern can take at least one more rewrite past the old 48k/8k walls.
+const NODE_GRAPH_SNOWFLAKE_MAX_STRING = 200000;
+const NODE_GRAPH_SNOWFLAKE_MAX_ITER = 100;
+const NODE_GRAPH_SNOWFLAKE_MAX_POINTS = 32768;
 
 function createNodeGraphSnowflakeState() {
   return {
@@ -120,7 +123,9 @@ function nodeGraphSnowflakeBuildPath(commands, angleDeg) {
       total += Math.sqrt(dx * dx + dy * dy);
       x = nx;
       y = ny;
-      points.push({ x, y, s: total });
+      if (points.length < NODE_GRAPH_SNOWFLAKE_MAX_POINTS) {
+        points.push({ x, y, s: total });
+      }
     } else if (ch === "f") {
       x += Math.cos(heading) * step;
       y += Math.sin(heading) * step;
@@ -138,7 +143,9 @@ function nodeGraphSnowflakeBuildPath(commands, angleDeg) {
         y = popped.y;
         heading = popped.heading;
         // Re-seed polyline at branch base so jumps don't stretch the path.
-        points.push({ x, y, s: total });
+        if (points.length < NODE_GRAPH_SNOWFLAKE_MAX_POINTS) {
+          points.push({ x, y, s: total });
+        }
       }
     }
   }
@@ -246,7 +253,7 @@ function nodeGraphSnowflakeResolveDirection(options = {}) {
   if (options.reverse != null && Number.isFinite(Number(options.reverse))) {
     return Number(options.reverse) > 0.5 ? 0 : 1;
   }
-  return 1;
+  return 0;
 }
 
 function nodeGraphSnowflakeSample(state, options = {}) {
@@ -260,6 +267,9 @@ function nodeGraphSnowflakeSample(state, options = {}) {
   const level = Number.isFinite(Number(options.level)) ? Number(options.level) : 1;
   const direction = nodeGraphSnowflakeResolveDirection(options);
   const spin = Number(options.spin) || 0;
+  const phaseOffset = Number.isFinite(Number(options.phase))
+    ? nodeGraphSnowflakeWrap01(Number(options.phase))
+    : 0;
 
   if (options.reset > 0.5) {
     st.phase = 0;
@@ -268,7 +278,7 @@ function nodeGraphSnowflakeSample(state, options = {}) {
 
   nodeGraphSnowflakeEnsurePath(st, pattern, iterations, angle);
 
-  const phase = nodeGraphSnowflakeWrap01(st.phase);
+  const phase = nodeGraphSnowflakeWrap01(st.phase + phaseOffset);
   st.phase = nodeGraphSnowflakeWrap01(st.phase + frequencyHz / sampleRate);
 
   // Direction morphs path walk with a basic trisaw (warp 0 reverse … 0.5 tri … 1 forward).

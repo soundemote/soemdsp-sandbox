@@ -26,18 +26,20 @@ static const char kMetadataJson[] =
     "\"parameters\":["
       "{\"key\":\"pattern\",\"label\":\"Pattern\",\"defaultValue\":1,\"min\":0,\"max\":6,\"step\":1},"
       "{\"key\":\"frequency\",\"label\":\"Frequency\",\"kind\":\"frequency\",\"defaultValue\":55,\"min\":0,\"mid\":110,\"max\":20000,\"step\":\"any\",\"unit\":\"Hz\"},"
-      "{\"key\":\"iterations\",\"label\":\"Iterations\",\"defaultValue\":3,\"min\":0,\"max\":7,\"step\":1},"
+      "{\"key\":\"iterations\",\"label\":\"Iterations\",\"defaultValue\":3,\"min\":0,\"max\":10,\"step\":1},"
       "{\"key\":\"angle\",\"label\":\"Angle\",\"defaultValue\":60,\"min\":1,\"max\":180,\"step\":\"any\"},"
-      "{\"key\":\"direction\",\"label\":\"Direction\",\"defaultValue\":1,\"min\":-1,\"mid\":0,\"max\":1,\"step\":\"any\"},"
+      "{\"key\":\"direction\",\"label\":\"Direction\",\"defaultValue\":0,\"min\":-1,\"mid\":0,\"max\":1,\"step\":\"any\"},"
+      "{\"key\":\"phase\",\"label\":\"Phase\",\"kind\":\"phase\",\"defaultValue\":0,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\",\"unit\":\"cycle\"},"
       "{\"key\":\"spin\",\"label\":\"Spin\",\"kind\":\"frequency\",\"defaultValue\":0,\"min\":-20,\"mid\":0,\"max\":20,\"step\":\"any\",\"unit\":\"Hz\"},"
       "{\"key\":\"level\",\"label\":\"Level\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"}"
     "]"
   "}";
 
 static const int kMaxInstances = 16;
-static const int kMaxPoints = 8192;
-static const int kMaxString = 48000;
-static const int kMaxIter = 7;
+// Sized so each catalog pattern can take ≥1 more rewrite past the old 8k/48k walls.
+static const int kMaxPoints = 32768;
+static const int kMaxString = 200000;
+static const int kMaxIter = 100;
 static const int kPatternCount = 7;
 static const int kStackMax = 64;
 
@@ -332,10 +334,11 @@ extern "C" void soemdsp_snowflake_destroy(int handle) {
   gPool[handle - 1].hasPath = false;
 }
 
-// ABI (kept arity for existing call sites):
+// ABI:
 //   sizeArg      ignored (Amplitude scales; legacy Size removed)
 //   directionArg −1…1 path morph via trisaw (v2+). Legacy callers may still
 //                pass 0/1 bool reverse; values outside [−1,1] are clamped.
+//   phaseArg     0…1 cycle offset added to free-running phasor (v3+).
 extern "C" void soemdsp_snowflake_sample(
   int handle,
   double frequencyHz,
@@ -347,6 +350,7 @@ extern "C" void soemdsp_snowflake_sample(
   double spin,
   double level,
   double reset,
+  double phaseArg,
   double sampleRate
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
@@ -366,7 +370,8 @@ extern "C" void soemdsp_snowflake_sample(
     angleDeg
   );
 
-  const double phase = wrap01(s.phase);
+  const double phaseOffset = wrap01(safe(phaseArg));
+  const double phase = wrap01(s.phase + phaseOffset);
   s.phase = wrap01(s.phase + maxd(0.0, frequencyHz) / rate);
 
   // Direction −1 reverse … 0 bi … +1 forward → trisaw warp 0…1.
@@ -411,9 +416,9 @@ extern "C" double soemdsp_snowflake_out(int handle) {
   return gPool[handle - 1].out;
 }
 
-// v2: direction trisaw (size ignored); same export arity as v1.
+// v3: phase cycle offset arg before sampleRate (v2 was direction trisaw).
 extern "C" int soemdsp_snowflake_version() {
-  return 2;
+  return 3;
 }
 
 extern "C" const char* soemdsp_snowflake_metadata_json() {

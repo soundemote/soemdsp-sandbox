@@ -39,35 +39,64 @@ NodeLiveAudioProcessor.prototype.snowflakeSample = function snowflakeSample(stat
         // Direction −1…1. Resolve legacy reverse if direction omitted.
         let direction = Number(options.direction);
         if (!Number.isFinite(direction)) {
-          direction = Number(options.reverse) > 0.5 ? 0 : 1;
+          if (options.reverse != null && Number.isFinite(Number(options.reverse))) {
+            direction = Number(options.reverse) > 0.5 ? 0 : 1;
+          } else {
+            direction = 0;
+          }
         }
         direction = direction < -1 ? -1 : direction > 1 ? 1 : direction;
-        // Native ABI keeps (size, reverse) arity for wasm compatibility:
+        // Native ABI:
         //   size ignored (always 1 — Amplitude scales)
         //   reverse slot = direction (−1…1) when version ≥ 2 (trisaw morph)
         //   version 1 treats reverse as bool (map direction → forward/ping-pong)
+        //   version ≥ 3 adds phase (0…1 cycle) before sampleRate
         const nativeVer = Number(this.nativeSnowflake.soemdsp_snowflake_version?.() || 1);
-        const sizeArg = 1;
-        const reverseOrDirection = nativeVer >= 2
-          ? direction
-          : (direction < 0.5 ? 1 : 0);
-        this.nativeSnowflake.soemdsp_snowflake_sample(
-          st.nativeHandle,
-          Math.max(0, Number(options.frequencyHz) || 0),
-          Number(options.pattern) || 0,
-          Number(options.iterations) || 0,
-          Number(options.angle) || 60,
-          sizeArg,
-          reverseOrDirection,
-          Number(options.spin) || 0,
-          Number.isFinite(Number(options.level)) ? Number(options.level) : 1,
-          Number(options.reset) || 0,
-          sampleRateValue,
-        );
-        return {
-          X: this.nativeSnowflake.soemdsp_snowflake_x(st.nativeHandle),
-          Y: this.nativeSnowflake.soemdsp_snowflake_y(st.nativeHandle),
-        };
+        let phase01 = Number.isFinite(Number(options.phase)) ? Number(options.phase) : 0;
+        phase01 -= Math.floor(phase01);
+        if (phase01 < 0) phase01 += 1;
+        const phaseIsZero = phase01 <= 1e-12 || phase01 >= 1 - 1e-12;
+        // Pre-v3 WASM has no phase arg — use JS when a non-zero offset is needed.
+        if (nativeVer >= 3 || phaseIsZero) {
+          const sizeArg = 1;
+          const reverseOrDirection = nativeVer >= 2
+            ? direction
+            : (direction < 0.5 ? 1 : 0);
+          if (nativeVer >= 3) {
+            this.nativeSnowflake.soemdsp_snowflake_sample(
+              st.nativeHandle,
+              Math.max(0, Number(options.frequencyHz) || 0),
+              Number(options.pattern) || 0,
+              Number(options.iterations) || 0,
+              Number(options.angle) || 60,
+              sizeArg,
+              reverseOrDirection,
+              Number(options.spin) || 0,
+              Number.isFinite(Number(options.level)) ? Number(options.level) : 1,
+              Number(options.reset) || 0,
+              phase01,
+              sampleRateValue,
+            );
+          } else {
+            this.nativeSnowflake.soemdsp_snowflake_sample(
+              st.nativeHandle,
+              Math.max(0, Number(options.frequencyHz) || 0),
+              Number(options.pattern) || 0,
+              Number(options.iterations) || 0,
+              Number(options.angle) || 60,
+              sizeArg,
+              reverseOrDirection,
+              Number(options.spin) || 0,
+              Number.isFinite(Number(options.level)) ? Number(options.level) : 1,
+              Number(options.reset) || 0,
+              sampleRateValue,
+            );
+          }
+          return {
+            X: this.nativeSnowflake.soemdsp_snowflake_x(st.nativeHandle),
+            Y: this.nativeSnowflake.soemdsp_snowflake_y(st.nativeHandle),
+          };
+        }
       }
     } catch (error) {
       this.nativeSnowflakeReady = false;

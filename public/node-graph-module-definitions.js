@@ -2757,9 +2757,9 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "3",
         min: "0",
         mid: "3",
-        max: "7",
+        max: "10",
         step: "1",
-        tooltip: "L-system rewrite depth (0–7). Higher = denser self-similar path; cost grows fast."
+        tooltip: "L-system rewrite depth (0–10 on the slider; engine hard-caps at 100). Higher = denser self-similar path; cost grows fast."
       },
       {
         key: "angle",
@@ -2775,13 +2775,27 @@ const nodeGraphModuleDefinitions = (
       {
         key: "direction",
         label: "Direction",
-        defaultValue: "1",
+        defaultValue: "0",
         min: "-1",
         mid: "0",
         max: "1",
         step: "0.01",
         tooltip:
           "Path walk morph (−1…1) via basic trisaw: −1 reverse at 1×, 0 bidirectional (triangle ping-pong), +1 forward loop. Continuous between those shapes."
+      },
+      {
+        defaultValue: "0",
+        key: "phase",
+        kind: "phase",
+        label: "Phase",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "0.01",
+        unit: "cycle",
+        wraparound: true,
+        tooltip:
+          "Path-walk phase offset in cycles (0…1). Added to the free-running Frequency phasor each sample before Direction morph.",
       },
       {
         key: "spin",

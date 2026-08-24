@@ -74,8 +74,12 @@ nodeGraphLiveModuleEvaluators.snowflake = ({
   // Direction −1…1 (trisaw); migrate legacy reverse if direction missing on patch.
   let direction = read("direction", null);
   if (direction == null || !Number.isFinite(Number(direction))) {
-    const legacyReverse = read("reverse", 0);
-    direction = Number(legacyReverse) > 0.5 ? 0 : 1;
+    const hasLegacy = read("reverse", null);
+    if (hasLegacy != null && Number.isFinite(Number(hasLegacy))) {
+      direction = Number(hasLegacy) > 0.5 ? 0 : 1;
+    } else {
+      direction = 0;
+    }
   }
 
   return nodeGraphSnowflakeSample(state, {
@@ -85,6 +89,7 @@ nodeGraphLiveModuleEvaluators.snowflake = ({
     iterations: read("iterations", 3),
     angle: read("angle", 60),
     direction,
+    phase: read("phase", 0),
     spin: read("spin", 0),
     level,
     reset,
