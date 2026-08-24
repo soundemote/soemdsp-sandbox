@@ -220,6 +220,24 @@ function nodeGraphJackQuadratureChannel(type, port) {
   return "";
 }
 
+/** SinCos4 A/B/C taps — RGB like XYZ chaos, D stays uncolored. */
+function nodeGraphJackSinCos4Channel(type, port) {
+  if (String(type || "") !== "sineWavetable") {
+    return "";
+  }
+  const key = String(port || "").trim().toUpperCase();
+  if (key === "A") {
+    return "red";
+  }
+  if (key === "B") {
+    return "green";
+  }
+  if (key === "C") {
+    return "blue";
+  }
+  return "";
+}
+
 /** Stereo / mono words only. Never maps RGB R or Chaos X/Y/Z. */
 function nodeGraphJackStereoChannel(value) {
   const raw = String(value || "").trim().toLowerCase();
@@ -274,6 +292,10 @@ function nodeGraphJackChannel(type, port, io = "output") {
   const fromQuad = nodeGraphJackQuadratureChannel(type, key);
   if (fromQuad) {
     return fromQuad;
+  }
+  const fromSinCos4 = nodeGraphJackSinCos4Channel(type, key);
+  if (fromSinCos4) {
+    return fromSinCos4;
   }
   const fromName = nodeGraphJackStereoChannel(key);
   if (fromName) {
