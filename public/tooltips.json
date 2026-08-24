@@ -172,7 +172,7 @@
     "fftSize": "Regular STFT window length 128…16384 | larger = finer frequency, longer time smearing | hop = N/Overlap",
     "smooth": "PAMGuard 3×3 Gaussian on STFT hop columns (1 2 1 / 2 4 2 / 1 2 1) | softens grain | opt-in",
     "historySeconds": "Spectrogram time span 0–5 s | full face width ≈ this many seconds of audio when the ring is full | hop from Overlap",
-    "sweepSeconds": "1D Phosphor free-run sweep | seconds for one full left→right pass | 0 = collapsed sweep: solid full-width horizontal at each sample Y (same fuse density as a trail; skips samples only under Dot Budget) | e.g. 2 = two seconds to cross",
+    "sweepSeconds": "1D Phosphor sweep | Sync Off: seconds for one free-run left→right pass | Sync On: cycles in view (smooth — 1.5 = 1½ periods); restart each pass on the next rising zero-crossing | 0 = collapsed sweep: solid full-width horizontal at each sample Y",
     "sweepHz": "legacy 1D Phosphor sweep rate (crossings per second) | migrated to Sweep (s) = 1/Hz on load",
     "burn": "display trail amount | 0 clears the trail | 1 keeps the longest trail",
     "decay": "display trail fade speed | 0 fades slowly | 1 fades quickly",
@@ -195,7 +195,7 @@
     "lineLength": "0D Value line length | 1 reaches the display edge | lower values pull both ends inward",
     "capSize": "0D Value cap thickness as a 0..1 fraction of the display square",
     "capLength": "0D Value cap length as a 0..1 fraction of the display height",
-    "sourceSync": "align display to the detected source cycle | 1D Phosphor: stretch one In rising-edge period across the full face width | 1D Waterfall: phase-lock and show as many whole cycles as fit in History seconds",
+    "sourceSync": "align display to the detected source cycle | 1D Phosphor: Sweep = cycles in view (smooth); restart each pass on a rising zero-crossing | 1D Waterfall: phase-lock and show floor(History/period) whole cycles",
     "syncChannel": "Output stereo trigger source | Off freeruns each channel | Left/Right/Mono share one zero-crossing lock so L and R stay time-aligned"
   },
   "wire": {

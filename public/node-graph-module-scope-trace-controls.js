@@ -1119,7 +1119,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Sweep (s)",
     inputmode: "decimal",
     id: "nodeTraceDisplaySweepSeconds",
-    title: "Seconds for one left→right pass (0–10). 0 = collapsed sweep: solid full-width horizontal at each sample Y (fuse density; skips samples only if Dot Budget can’t cover them).",
+    title: "Sync Off: seconds for one left→right pass (0–10). Sync On: becomes Sweep (c) — cycles in view (smooth — e.g. 1.5 = 1½ periods); pass restarts on the next rising zero-crossing. 0 = collapsed full-width burn.",
   }),
   cycles: Object.freeze({ label: "Cycles", inputmode: "decimal", id: "nodeTraceDisplayCycles" }),
   digits: Object.freeze({
@@ -1338,7 +1338,7 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     label: "Sync",
     id: "nodeTraceDisplaySourceSync",
     title:
-      "1D Waterfall: Off = tape scrolls left at History seconds. On = phase-lock to a rising zero-crossing and show floor(History/period) whole cycles. 1D Phosphor: rising edges of In start a sweep stretched across the full face (one period = left→right); Reset jack still snaps.",
+      "1D Waterfall: Off = tape scrolls left at History seconds. On = phase-lock and show floor(History/period) whole cycles. 1D Phosphor: Sync Off = Sweep in seconds; Sync On = Sweep is cycles in view (smooth), restart each pass on a rising zero-crossing; Reset jack still snaps.",
   }),
   cmyMode: Object.freeze({
     label: "CMY",

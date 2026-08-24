@@ -27,6 +27,13 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "History";
     title = "Seconds of live history drawn on the face.";
   }
+  if (key === "sweepSeconds") {
+    const syncOn = options.syncOn === true;
+    label = syncOn ? "Sweep (c)" : "Sweep (s)";
+    title = syncOn
+      ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods). Pass restarts on the next rising zero-crossing."
+      : "Seconds for one left→right pass (0–10). 0 = collapsed full-width burn.";
+  }
   if (key === "lineThickness" && (
     formType === "trace"
     || formType === "traceRgb"
@@ -223,7 +230,9 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     : "";
   const labelHtml = options.hideLabel
     ? ""
-    : `<span>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>`;
+    : (key === "sweepSeconds"
+      ? `<span data-trace-display-sweep-label>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>`
+      : `<span>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>`);
   const rowClass = options.hideLabel
     ? "node-trace-display-line-burn-row node-trace-display-stepper-only"
     : "node-trace-display-line-burn-row";
@@ -996,6 +1005,39 @@ function paintNodeGraphStampPreview(root, settings = {}) {
 }
 
 /** Hide Shape param for Circle; retitle Stretch/Corners/Sides/… from live Shape. */
+/** Sweep (s) ↔ Sweep (c) when 1D Burn Sync is toggled. */
+function syncNodeGraphLineBurnSweepLabel(root, settings = {}) {
+  const host = root?.querySelector?.("[data-trace-display-sweep-label], [data-trace-display-field=\"sweepSeconds\"]")
+    ? root
+    : document.getElementById("nodeTraceDisplaySettingsPopover");
+  if (!host) {
+    return;
+  }
+  const titleSpan = host.querySelector("[data-trace-display-sweep-label]");
+  const field = host.querySelector(`[data-trace-display-field="sweepSeconds"]`);
+  if (!titleSpan && !field) {
+    return;
+  }
+  const syncOn = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
+    ? nodeGraphDisplaySettingsToggleIsOn(settings?.sourceSync ?? settings?.sync)
+    : Boolean(settings?.sourceSync);
+  const label = syncOn ? "Sweep (c)" : "Sweep (s)";
+  const title = syncOn
+    ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods). Pass restarts on the next rising zero-crossing."
+    : "Seconds for one left→right pass (0–10). 0 = collapsed full-width burn.";
+  if (titleSpan) {
+    titleSpan.textContent = label;
+  }
+  const row = field?.closest?.("[data-trace-display-control-row]");
+  if (row) {
+    row.title = title;
+  }
+  if (field) {
+    field.title = title;
+    field.setAttribute("aria-label", `${label} amount`);
+  }
+}
+
 function syncNodeGraphStampShapeControls(root, settings = {}) {
   const host = root?.querySelector?.(`[data-trace-display-choice="shape"]`)
     ? root

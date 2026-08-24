@@ -106,8 +106,10 @@ const nodeGraphLineBurnResetThreshold = 0.5;
  * Sweep 0 = collapsed sweep: each sample burns one solid full-width horizontal
  * at its Y (limit of Sweep→0). Fuse spacing is preserved; under Dot Budget we
  * skip samples, never thin a line into dots. Reset (≥ 0.5) still snaps state.
- * Sync on: stretch one In rising-edge period across the full face width
- * (measured trigger→trigger), so the cycle is not squished to the left.
+ * Sync on: Sweep is cycles-in-view (smooth — 1.5 = one and a half periods
+ * across the face). Mid-sweep rising edges only retune period. When the pen
+ * finishes that window it parks and restarts on the next rising zero-crossing.
+ * Reset jack still snaps to the left immediately. Sync Off: Sweep is seconds.
  */
 function nodeGraphOneDimensionalBurnBufferFrameInfo(buffer, count) {
   const endFrame = Number(buffer?.nodeGraphScopeAbsoluteFrame);
@@ -310,7 +312,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     phasor = 0;
   }
   let resetWasHigh = canvas._lineBurnResetWasHigh === true;
-  // Auto-sync: In rising edge starts a sweep; period stretches to full width.
+  // Auto-sync: measure period from In rising edges; Sweep budgets N cycles.
   const autoSync = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
     ? nodeGraphDisplaySettingsToggleIsOn(settings?.sourceSync ?? settings?.sync)
     : Boolean(settings?.sourceSync);
@@ -325,8 +327,9 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     ? Number(nodeGraphLineBurnResetThreshold)
     : 0.5;
 
-  // Sync stretch: last measured In rising-edge period (samples), and counter
-  // since the previous edge. phaseInc = 1/period so one cycle fills left→right.
+  // Sync: Sweep value = cycles in view (smooth). phaseInc = 1/(period×cycles).
+  // Restart only on a rising ZC after the window finishes; mid-window edges
+  // retune period without snapping X.
   let syncPeriodSamples = Number(canvas._lineBurnSyncPeriodSamples);
   if (!Number.isFinite(syncPeriodSamples) || syncPeriodSamples < 2) {
     syncPeriodSamples = 0;
@@ -335,55 +338,89 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
   if (!Number.isFinite(samplesSinceSync) || samplesSinceSync < 0) {
     samplesSinceSync = 0;
   }
+  let syncAwaitingRestart = canvas._lineBurnSyncAwaitingRestart === true;
+  // Sync reuses the Sweep control as a cycle count (not seconds).
+  const syncCyclesInView = (() => {
+    if (horizontalBurn) {
+      return 1;
+    }
+    const raw = Number(sweepSeconds);
+    if (!Number.isFinite(raw) || raw <= 0) {
+      return 1;
+    }
+    return Math.max(0.05, Math.min(100, raw));
+  })();
+  const syncPhaseIncForPeriod = (periodSamples) => {
+    if (!(periodSamples >= 2)) {
+      return sweepPhaseInc;
+    }
+    return 1 / (periodSamples * syncCyclesInView);
+  };
   let phaseInc = horizontalBurn
     ? 0
-    : (autoSync && syncPeriodSamples >= 2 ? 1 / syncPeriodSamples : sweepPhaseInc);
+    : (autoSync && syncPeriodSamples >= 2
+      ? syncPhaseIncForPeriod(syncPeriodSamples)
+      : sweepPhaseInc);
 
-  const applySyncSnap = (fromSyncEdge) => {
-    if (fromSyncEdge && samplesSinceSync >= 2) {
+  /** Update measured period from the last edge gap. */
+  const retuneSyncPeriodFromGap = () => {
+    if (samplesSinceSync >= 2) {
       syncPeriodSamples = samplesSinceSync;
-      if (!horizontalBurn) {
-        phaseInc = 1 / syncPeriodSamples;
+      if (!horizontalBurn && autoSync) {
+        phaseInc = syncPhaseIncForPeriod(syncPeriodSamples);
       }
     }
     samplesSinceSync = 0;
-    phasor = 0;
   };
 
   const stepPhasorAndReset = (resetSample, signalSample) => {
     const resetHigh = Number(resetSample) >= syncThreshold;
-    let snapped = resetHigh && !resetWasHigh;
-    let fromSyncEdge = false;
+    const resetEdge = resetHigh && !resetWasHigh;
+    let syncEdge = false;
     if (autoSync) {
       const signalHigh = Number(signalSample) >= 0;
       if (signalHigh && !signalWasHigh) {
-        snapped = true;
-        fromSyncEdge = true;
+        syncEdge = true;
       }
       signalWasHigh = signalHigh;
     }
-    if (snapped) {
-      applySyncSnap(fromSyncEdge);
+    if (resetEdge) {
+      retuneSyncPeriodFromGap();
+      phasor = 0;
+      syncAwaitingRestart = false;
+    } else if (syncEdge) {
+      const hadPeriod = syncPeriodSamples >= 2;
+      retuneSyncPeriodFromGap();
+      // Phase lock: start/restart a multi-cycle pass only on ZC.
+      if (syncAwaitingRestart || !hadPeriod) {
+        phasor = 0;
+        syncAwaitingRestart = false;
+      }
     }
     resetWasHigh = resetHigh;
     if (autoSync) {
       samplesSinceSync += 1;
     }
     if (!horizontalBurn) {
-      phasor += phaseInc;
-      if (phasor >= 1) {
-        if (autoSync && syncPeriodSamples >= 2) {
-          // Finished the stretched pass early — park at right until next edge.
-          phasor = 1;
-        } else {
-          phasor -= Math.floor(phasor);
-          if (phasor < 0 || phasor >= 1) {
-            phasor = 0;
+      if (autoSync && syncAwaitingRestart) {
+        phasor = 1;
+      } else {
+        phasor += phaseInc;
+        if (phasor >= 1) {
+          if (autoSync && syncPeriodSamples >= 2) {
+            // Finished N cycles — wait for next rising ZC to restart in phase.
+            phasor = 1;
+            syncAwaitingRestart = true;
+          } else {
+            phasor -= Math.floor(phasor);
+            if (phasor < 0 || phasor >= 1) {
+              phasor = 0;
+            }
           }
         }
       }
     }
-    return snapped;
+    return resetEdge;
   };
 
   // Samples already consumed still update phasor + Reset so edges are not missed.
@@ -438,23 +475,36 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     const sample = buffer[start + index];
     const resetSample = nodeGraphOneDimensionalBurnResetSample(resetBuffer, index, count);
     const resetHigh = Number(resetSample) >= syncThreshold;
-    let snapped = resetHigh && !resetWasHigh;
-    let fromSyncEdge = false;
+    const resetEdge = resetHigh && !resetWasHigh;
+    let syncEdge = false;
     if (autoSync) {
       const signalHigh = Number(sample) >= 0;
       if (signalHigh && !signalWasHigh) {
-        snapped = true;
-        fromSyncEdge = true;
+        syncEdge = true;
       }
       signalWasHigh = signalHigh;
     }
-    if (snapped) {
-      // Rising edge Reset and/or Sync: snap to left; Sync also retunes stretch.
+    if (resetEdge) {
+      // Hard Reset: retune + snap pen to left.
       if (hadPoint) {
         nodeGraphOneDimensionalBurnBreakPath(points);
       }
-      applySyncSnap(fromSyncEdge);
+      retuneSyncPeriodFromGap();
+      phasor = 0;
+      syncAwaitingRestart = false;
       hadPoint = false;
+    } else if (syncEdge) {
+      const hadPeriod = syncPeriodSamples >= 2;
+      retuneSyncPeriodFromGap();
+      // Restart pass on ZC after window end (or first lock) — keeps phase.
+      if (autoSync && (syncAwaitingRestart || !hadPeriod)) {
+        if (hadPoint) {
+          nodeGraphOneDimensionalBurnBreakPath(points);
+        }
+        phasor = 0;
+        syncAwaitingRestart = false;
+        hadPoint = false;
+      }
     }
     resetWasHigh = resetHigh;
     if (autoSync) {
@@ -488,9 +538,8 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
       continue;
     }
 
-    // Sync stretch: after finishing a pass early, blank until the next edge
-    // instead of wrapping (wrapping re-piles energy on the left).
-    if (autoSync && syncPeriodSamples >= 2 && phasor >= 1) {
+    // Finished N cycles — blank until the next rising ZC (phase-aligned restart).
+    if (autoSync && syncAwaitingRestart) {
       phasor = 1;
       prevSample = Number(sample);
       continue;
@@ -506,20 +555,20 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
 
     phasor += phaseInc;
     if (phasor >= 1) {
-      if (autoSync && syncPeriodSamples >= 2) {
-        phasor = 1;
-        if (hadPoint) {
-          nodeGraphOneDimensionalBurnBreakPath(points);
-        }
-        hadPoint = false;
-      } else {
-        // Freerun: completed a pass — break; residual continues from left.
+      if (hadPoint) {
         nodeGraphOneDimensionalBurnBreakPath(points);
+      }
+      hadPoint = false;
+      if (autoSync && syncPeriodSamples >= 2) {
+        // End of Sweep budget — wait for rising ZC to start the next pass.
+        phasor = 1;
+        syncAwaitingRestart = true;
+      } else {
+        // Freerun: wrap immediately.
         phasor -= Math.floor(phasor);
         if (phasor < 0 || phasor >= 1) {
           phasor = 0;
         }
-        hadPoint = false;
       }
     }
   }
@@ -529,6 +578,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
   canvas._lineBurnSignalWasHigh = signalWasHigh;
   canvas._lineBurnSyncPeriodSamples = syncPeriodSamples;
   canvas._lineBurnSamplesSinceSync = samplesSinceSync;
+  canvas._lineBurnSyncAwaitingRestart = syncAwaitingRestart;
   delete canvas._lineBurnSweepOriginFrame;
   return points;
 }

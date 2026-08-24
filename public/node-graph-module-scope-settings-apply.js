@@ -631,6 +631,12 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
       settings,
     );
   }
+  if (typeof syncNodeGraphLineBurnSweepLabel === "function") {
+    syncNodeGraphLineBurnSweepLabel(
+      document.getElementById("nodeTraceDisplaySettingsPopover"),
+      settings,
+    );
+  }
   const dirty = nodeGraphMvp.traceDisplaySettingsDirtyKeys;
   const inkOnly = dirty
     && dirty.size > 0
