@@ -378,9 +378,9 @@ function nodeGraphTraceDisplayPixelLockedView(view, canvasWidthPx) {
   };
 }
 
-// 1D Waterfall: Sync Off scrolls with user History; Sync On phase-locks ~2
-// cycles to a rising zero-crossing (see paint waterfall). Newest-edge helper
-// kept for diagnostics / older callers.
+// 1D Waterfall: Sync Off scrolls with user History; Sync On phase-locks and
+// shows floor(History/period) whole cycles (see paint waterfall). Newest-edge
+// helper kept for diagnostics / older callers.
 
 function nodeGraphWaterfallNewestEdgeAbs(syncBuffer) {
   if (!syncBuffer?.length) {

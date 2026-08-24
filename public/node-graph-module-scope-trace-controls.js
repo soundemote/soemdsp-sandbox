@@ -1070,7 +1070,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "History (s)",
     inputmode: "decimal",
     id: "nodeTraceDisplayHistorySeconds",
-    title: "Seconds of tape across the face. 0 = now (a full-width line). Sync Off: this sets scroll speed. Sync On: unused — face width locks to ~2 zero-crossing cycles.",
+    title: "Seconds of tape across the face. 0 = now (a full-width line). Sync Off: scroll speed. Sync On: time budget — show as many whole cycles as fit in this many seconds.",
   }),
   fftSize: Object.freeze({
     label: "FFT size",
@@ -1338,7 +1338,7 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     label: "Sync",
     id: "nodeTraceDisplaySourceSync",
     title:
-      "1D Waterfall: Off = tape scrolls left at History seconds. On = lock ~2 cycles to a rising zero-crossing (phase-stable redraw). 1D Phosphor: rising edges of In start a sweep stretched across the full face (one period = left→right); Reset jack still snaps.",
+      "1D Waterfall: Off = tape scrolls left at History seconds. On = phase-lock to a rising zero-crossing and show floor(History/period) whole cycles. 1D Phosphor: rising edges of In start a sweep stretched across the full face (one period = left→right); Reset jack still snaps.",
   }),
   cmyMode: Object.freeze({
     label: "CMY",

@@ -1,11 +1,8 @@
 // 1D Waterfall — strip chart (mono / stereo / XYZ / RGB).
 // Sync Off: scroll left, pen on the right; History is the face width in seconds.
-// Sync On: phase-align to a rising zero-crossing; face width = ~2 measured cycles
-// (full redraw each frame — not freerun scroll). History 0: now-line.
+// Sync On: phase-lock to a rising zero-crossing; History is a time budget —
+// display floor(History / period) whole cycles across the face. History 0: now-line.
 // Ink: TraceTape WebGL discs. Meet/Add on GPU. Canvas2D plate only.
-
-/** Face-width cycles when Sync locks to a measured period. */
-const NODE_GRAPH_WATERFALL_SYNC_HISTORY_CYCLES = 2;
 
 function nodeGraphWaterfallNowMs() {
   return (typeof performance !== "undefined" && typeof performance.now === "function")
@@ -58,11 +55,11 @@ function nodeGraphWaterfallRefinePeriodSamples(edges) {
 }
 
 /**
- * Measure period + lock edge from the audio buffer only (rising zero-crossings).
- * No module frequency hints.
+ * Measure period from the buffer (rising ZCs only — no module frequency hints),
+ * then choose how many whole cycles fit in History seconds and a lock edge.
  */
-function nodeGraphWaterfallMeasureSync(syncBuffer, state) {
-  const empty = { periodSamples: 0, edge: Number.NaN };
+function nodeGraphWaterfallMeasureSync(syncBuffer, state, historySeconds = 0, sampleRate = 0) {
+  const empty = { periodSamples: 0, edge: Number.NaN, cycles: 0, visibleSamples: 0 };
   if (!syncBuffer?.length || typeof nodeGraphModuleScopeCollectSyncTriggers !== "function") {
     return empty;
   }
@@ -72,7 +69,17 @@ function nodeGraphWaterfallMeasureSync(syncBuffer, state) {
   if (!source?.length) {
     return empty;
   }
-  const searchStart = Math.max(0, source.length - Math.min(source.length, 8192));
+  const hz = sampleRate > 0 ? sampleRate : nodeGraphWaterfallVisualHz(source);
+  const histSec = Number(historySeconds);
+  const histSamples = Number.isFinite(histSec) && histSec > 0 && hz > 0
+    ? Math.round(histSec * hz)
+    : 0;
+  // Search enough of the ring to cover a long History zoom-out, not just 8k.
+  const searchSpan = Math.min(
+    source.length,
+    Math.max(8192, histSamples > 0 ? histSamples + 4096 : 8192),
+  );
+  const searchStart = Math.max(0, source.length - searchSpan);
   const triggers = nodeGraphModuleScopeCollectSyncTriggers(
     source,
     searchStart,
@@ -104,7 +111,12 @@ function nodeGraphWaterfallMeasureSync(syncBuffer, state) {
       return empty;
     }
   }
-  const visible = periodSamples * NODE_GRAPH_WATERFALL_SYNC_HISTORY_CYCLES;
+  // History = time budget → how many whole periods fit, then show exactly that.
+  const periodSec = periodSamples / Math.max(1, hz);
+  const cycles = Number.isFinite(histSec) && histSec > 0 && periodSec > 0
+    ? Math.max(1, Math.floor((histSec / periodSec) + 1e-9))
+    : 2;
+  const visible = Math.max(8, Math.min(source.length, Math.round(cycles * periodSamples)));
   let edge = Number.NaN;
   for (let i = edges.length - 1; i >= 0; i -= 1) {
     const at = Number(edges[i]);
@@ -114,12 +126,29 @@ function nodeGraphWaterfallMeasureSync(syncBuffer, state) {
     }
   }
   if (!Number.isFinite(edge) && edges.length) {
-    edge = Number(edges[edges.length - 1]);
+    const idealStart = Math.max(0, source.length - visible);
+    let best = Number.NaN;
+    let bestDist = Infinity;
+    for (let i = edges.length - 1; i >= 0; i -= 1) {
+      const at = Number(edges[i]);
+      if (!Number.isFinite(at) || at > idealStart) {
+        continue;
+      }
+      const dist = idealStart - at;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = at;
+      }
+      if (dist <= periodSamples) {
+        break;
+      }
+    }
+    edge = Number.isFinite(best) ? best : Number(edges[edges.length - 1]);
   }
   if (!Number.isFinite(edge)) {
     edge = Math.max(0, source.length - visible);
   }
-  return { periodSamples, edge };
+  return { periodSamples, edge, cycles, visibleSamples: visible };
 }
 
 function nodeGraphWaterfallY(raw, gain, offset, midY, halfHeight) {
@@ -922,13 +951,16 @@ function nodeGraphWaterfallPaint(spec) {
   const penMax = Math.max(penMin + 1, width - inkPad);
   const usableWidth = Math.max(1, penMax - penMin);
 
-  // Sync On: full-face redraw of ~2 cycles starting at a rising zero-crossing.
-  // Freerun scroll only adjusts wavelength — it never looks "locked."
+  const history = nodeGraphWaterfallHistorySeconds(settings);
+  const hz = nodeGraphWaterfallVisualHz(live);
+
+  // Sync On: History is a time budget → show floor(History/period) whole cycles,
+  // phase-locked to a rising zero-crossing (not a raw History-second slice).
   if (syncOn) {
     const syncBuffer = nodeGraphWaterfallSyncSource(writeSpec) || live;
-    const measure = nodeGraphWaterfallMeasureSync(syncBuffer, st);
-    if (measure.periodSamples > 1) {
-      const visible = Math.max(8, Math.round(measure.periodSamples * NODE_GRAPH_WATERFALL_SYNC_HISTORY_CYCLES));
+    const measure = nodeGraphWaterfallMeasureSync(syncBuffer, st, history, hz);
+    if (measure.periodSamples > 1 && measure.visibleSamples > 0) {
+      const visible = Math.min(live.length, Math.max(8, Math.round(measure.visibleSamples)));
       let sampleStart = Number(measure.edge);
       if (!Number.isFinite(sampleStart) || sampleStart < 0) {
         sampleStart = Math.max(0, live.length - visible);
@@ -960,9 +992,6 @@ function nodeGraphWaterfallPaint(spec) {
       return true;
     }
   }
-
-  const history = nodeGraphWaterfallHistorySeconds(settings);
-  const hz = nodeGraphWaterfallVisualHz(live);
   const samplesPerColumn = Math.max(1e-9, (hz * history) / usableWidth);
   const columnsFloat = window.count / samplesPerColumn + (Number(st.frac) || 0);
   let columns = Math.floor(columnsFloat);
