@@ -397,8 +397,9 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
       if (typeof nodeGraphScope2dTraceHoldByNodeId?.delete === "function") {
         nodeGraphScope2dTraceHoldByNodeId.delete(id);
       }
-      // Do NOT dispose legacy WebGL-on-face burn here — that permanently poisons
-      // the canvas so getContext("2d") fails and the face never draws again.
+      // Energy phosphor faces already own WebGL on this canvas — getContext("2d")
+      // is null. Never drop the canvas (that killed drawing until sim restart).
+      const hasEnergyFace = phosphorKeys.some((key) => Boolean(canvas[key]));
       let context = null;
       try {
         context = canvas.getContext?.("2d") || null;
@@ -406,6 +407,14 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
         context = null;
       }
       if (!context) {
+        if (hasEnergyFace) {
+          // FBO wipe above is enough; clear bridge/cursor metadata and continue.
+          canvas._outputPauseBannerStamped = false;
+          canvas._traceScroll = null;
+          canvas._waterfall = null;
+          continue;
+        }
+        // Non-energy face with no 2d context is genuinely dead — remove it.
         nodeGraphDropScopeFaceCanvas(canvas, id);
         continue;
       }

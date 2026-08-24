@@ -219,11 +219,17 @@
     );
   }
 
-  /** Equal-width row of latch/action buttons. */
+  /** Equal-width row of latch/action buttons (columns match child count). */
   function buildRowHtml(buttons = [], rowClass = "") {
-    const cells = (buttons || []).map((opts) => buildHtml(opts)).join("");
+    const list = Array.isArray(buttons) ? buttons : [];
+    const cells = list.map((opts) => buildHtml(opts)).join("");
     const extra = rowClass ? ` ${escapeHtml(rowClass)}` : "";
-    return `<div class="${ROW_CLASS}${extra}" data-latch-button-row data-trace-display-control-row>${cells}</div>`;
+    const cols = Math.max(1, list.length);
+    return (
+      `<div class="${ROW_CLASS}${extra}" data-latch-button-row data-trace-display-control-row`
+      + ` style="--latch-cols:${cols};grid-template-columns:repeat(${cols},minmax(0,1fr))">`
+      + `${cells}</div>`
+    );
   }
 
   const api = {

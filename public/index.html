@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=JetBrains+Mono:wght@400;500;600;700&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=jack-stroke-inset-1">
+  <link rel="stylesheet" href="./public/styles.css?v=ui-improvements-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=input-outlet-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -2855,7 +2855,7 @@
                 <input id="metadataCurveSensitivityValue" type="text" inputmode="decimal" data-tooltip-key="parameterSettings.skewSensitivity" data-metadata-clamp-min="-1" data-metadata-clamp-max="1" aria-valuemin="-1" aria-valuemax="1">
                 <button type="button" data-metadata-step-target="metadataCurveSensitivityValue" data-metadata-step-direction="1" data-tooltip-key="parameterSettings.skewSensitivity">+</button>
               </span>
-              <span id="metadataCurveSensitivityHint" class="metadata-curve-sensitivity-hint">0:linear, +1:fine near min, -1:fine near max</span>
+              <span id="metadataCurveSensitivityHint" class="metadata-curve-sensitivity-hint">0 is linear | +1 fine near MIN | −1 fine near MAX</span>
             </label>
           </div>
           <div class="metadata-section-title">Fields</div>
@@ -3546,7 +3546,7 @@
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
   <script src="./public/node-graph-module-store.js?v=oms-rename-1"></script>
   <script src="./public/node-graph-module-sizing.js?v=basic-shape-lip-1"></script>
-  <script src="./public/node-graph-metadata-kinds.js?v=param-meta-ui-1"></script>
+  <script src="./public/node-graph-metadata-kinds.js?v=param-sens-hint-1"></script>
   <script src="./public/node-graph-parameter-smoother-filters.js?v=unpark-types-1"></script>
   <script src="./public/node-graph-parameter-metadata.js?v=constraints-1"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
@@ -3595,7 +3595,7 @@
   <script src="./public/node-graph-module-actions.js?v=eff-pass-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
   <script src="./public/lib/phosphor/phosphor-residual.js?v=c1091b4"></script>
-  <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=lut-peak-1"></script>
+  <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=ui-improvements-1"></script>
   <script src="./public/lib/phosphor/phosphor-drawer.js?v=tape-rgb-1"></script>
   <script src="./public/node-graph-phosphor-energy-gl.js?v=burn-sticky-1"></script>
   <script src="./public/lib/trace/trace-stroke.js?v=wf-meet-hard-1"></script>
@@ -3612,8 +3612,8 @@
   <script src="./public/node-graph-module-scope-normalize.js?v=dotbudget-1024-1"></script>
   <script src="./public/node-graph-module-scope-display-mode.js?v=wf-rgb-1"></script>
   <script src="./public/node-graph-module-scope-phosphor.js?v=fps-clock-1"></script>
-  <script src="./public/latch-button.js?v=latch-1"></script>
-  <script src="./public/node-graph-module-scope-settings-form.js?v=stamp-shape-3"></script>
+  <script src="./public/latch-button.js?v=ui-improvements-1"></script>
+  <script src="./public/node-graph-module-scope-settings-form.js?v=ui-improvements-1"></script>
   <script src="./public/node-graph-module-scope-settings-controls.js?v=dotbudget-1024-1"></script>
   <!-- Display Settings peel: form-io → field-edit → apply → window → thin ui anchor -->
   <script src="./public/node-graph-module-scope-settings-form-io.js?v=textbox-font-1"></script>
@@ -3624,7 +3624,7 @@
   <script src="./public/node-graph-module-scope-capture.js?v=wf-rgb-2"></script>
   <script src="./public/node-graph-module-scope-number-readout.js?v=lcd-dot-1"></script>
   <script src="./public/node-graph-module-scope-draw-basic.js?v=stamp-shape-3"></script>
-  <script src="./public/node-graph-module-scope-draw-burn.js?v=dotbudget-1024-1"></script>
+  <script src="./public/node-graph-module-scope-draw-burn.js?v=ui-improvements-1"></script>
   <script src="./public/node-graph-module-scopes.js?v=clear-pause-bright-1"></script>
   <script src="./public/node-graph-module-scope-spectrum.js?v=wf-rgb-1"></script>
   <script src="./public/node-graph-module-scope-buffer-io.js?v=pause-hold-1"></script>
@@ -3641,7 +3641,7 @@
   <script src="./public/node-graph-module-scope-scene-controls.js?v=screen-solo-1"></script>
   <script src="./public/node-graph-module-scope-shader-settings.js?v=scope-shader-settings-1"></script>
   <script src="./public/node-graph-module-scope-trace-controls.js?v=sync-stretch-1"></script>
-  <script src="./public/node-graph-module-scope-wipe.js?v=phase-arm-1"></script>
+  <script src="./public/node-graph-module-scope-wipe.js?v=ui-improvements-1"></script>
   <script src="./public/node-graph-module-scope-graph-query.js?v=fps-1-no-double-1"></script>
   <script src="./public/node-graph-module-scope-settings.js?v=scope-sync-off-1"></script>
   <script src="./public/node-graph-module-scope-lifecycle.js?v=pause-hold-3"></script>

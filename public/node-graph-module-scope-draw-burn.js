@@ -844,6 +844,8 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       // Only pass fullEconomy when explicitly true (c1091b4 default: off).
       fullEconomy: settings?.fullDotEconomy === true,
       fullDotEconomy: settings?.fullDotEconomy === true,
+      // Dots only: sample hits only — no fuse packing between points.
+      dotsOnly: settings?.dotsOnly === true || settings?.verticesOnly === true,
     });
     void stepped;
     const stamps = Math.max(

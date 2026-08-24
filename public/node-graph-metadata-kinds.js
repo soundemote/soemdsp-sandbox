@@ -93,10 +93,10 @@ function syncNodeMetadataMidVisibility() {
   if (hint) {
     // Custom = mid-style power from sens; edge = S-curve travel balance.
     hint.textContent = curveValue === "bipolarRational"
-      ? "0:linear, +1:fine around center, -1:fine at extremes"
+      ? "0 is linear | +1 fine near CENTER | −1 fine near EDGE"
       : curveValue === "edges"
-      ? "0:mild, +1:fine near ends, -1:fine near center"
-      : "0:linear, +1:fine near min, -1:fine near max";
+      ? "0 is mild | +1 fine near EDGE | −1 fine near CENTER"
+      : "0 is linear | +1 fine near MIN | −1 fine near MAX";
   }
   if (checkbox) {
     checkbox.checked = Boolean(nonlinear);

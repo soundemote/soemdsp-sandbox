@@ -17102,8 +17102,20 @@ body.node-slider-dragging * {
 .node-parameter-metadata-popover {
   --metadata-popover-min-width: var(--node-unified-window-min-width, 24px);
   --metadata-popover-min-height: var(--node-unified-window-min-height, 120px);
-  /* Form row chrome height — fixed; window height never compresses these. */
-  --metadata-control-row-height: 30px;
+  /* Shared Parameter + Display Settings form chrome (type / row / pad). */
+  /* Row = type height + 3px top + 3px bottom (was ~32px with ~14px pad each side). */
+  --metadata-control-row-height: 22px;
+  --metadata-row-pad-y: 3px;
+  --metadata-label-size: 0.76rem;
+  --metadata-field-name-size: 0.72rem;
+  --metadata-control-size: 0.86rem;
+  --metadata-button-size: 0.78rem;
+  --metadata-section-title-size: 0.78rem;
+  --metadata-section-title-height: 22px;
+  --metadata-hint-size: 0.82rem;
+  --metadata-cell-pad-x: 2px;
+  --metadata-cell-pad-l: 4px;
+  --metadata-label-gap: 3px;
   position: fixed;
   z-index: 20;
   box-sizing: border-box;
@@ -17335,9 +17347,9 @@ body.node-slider-dragging * {
 #nodeParameterMetadataPopover.node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
   > .metadata-popover-grid
   > .metadata-section-title {
-  height: 22px;
-  min-height: 22px;
-  max-height: 22px;
+  height: var(--metadata-section-title-height, 24px);
+  min-height: var(--metadata-section-title-height, 24px);
+  max-height: var(--metadata-section-title-height, 24px);
 }
 
 #nodeParameterMetadataPopover.node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
@@ -17398,16 +17410,18 @@ body.node-slider-dragging * {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   align-items: center;
-  column-gap: 6px;
-  gap: 0 6px;
+  column-gap: var(--metadata-label-gap, 3px);
+  gap: 0 var(--metadata-label-gap, 3px);
   min-width: 0;
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: var(--metadata-label-size, 0.76rem);
 }
 
 .metadata-popover-grid label > span:first-child {
   white-space: nowrap;
   letter-spacing: 0.01em;
+  font-weight: 700;
+  font-size: var(--metadata-field-name-size, 0.72rem);
 }
 .metadata-parameter-picker-controls {
   display: grid;
@@ -17424,7 +17438,7 @@ body.node-slider-dragging * {
   display: grid;
   grid-template-columns: 1.6rem 1.6rem;
   align-items: stretch;
-  min-height: var(--metadata-control-row-height, 30px);
+  min-height: var(--metadata-control-row-height, 32px);
 }
 .metadata-parameter-visibility-stepper button {
   box-sizing: border-box;
@@ -17433,7 +17447,7 @@ body.node-slider-dragging * {
   border: 1px solid rgba(127, 199, 217, 0.28);
   background: rgb(16, 22, 26);
   color: rgba(243, 241, 236, 0.95);
-  font: 700 0.95rem/1 inherit;
+  font: 700 1.05rem/1 inherit;
   cursor: var(--node-dot-cursor);
 }
 .metadata-parameter-visibility-stepper button:first-child {
@@ -17495,13 +17509,15 @@ body.node-slider-dragging * {
 .metadata-section-title {
   display: grid;
   align-items: center;
-  min-height: 22px;
-  padding: 0 8px;
+  height: var(--metadata-section-title-height, 24px);
+  min-height: var(--metadata-section-title-height, 24px);
+  max-height: var(--metadata-section-title-height, 24px);
+  padding: 0 6px;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   border-radius: 5px;
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: color-mix(in srgb, var(--accent) 88%, white 8%);
-  font-size: 0.66rem;
+  font-size: var(--metadata-section-title-size, 0.78rem);
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -17516,7 +17532,7 @@ body.node-slider-dragging * {
 
 .metadata-field-section label,
 .metadata-toggle-section label {
-  min-height: 30px;
+  min-height: var(--metadata-control-row-height, 32px);
   padding: 0;
   border-right: 1px solid rgba(127, 199, 217, 0.14);
   border-bottom: 1px solid rgba(127, 199, 217, 0.14);
@@ -17539,8 +17555,8 @@ body.node-slider-dragging * {
   > .metadata-range-section
   > label {
   grid-template-columns: max-content minmax(0, 1fr);
-  column-gap: 4px;
-  padding: 0 3px 0 5px;
+  column-gap: var(--metadata-label-gap, 3px);
+  padding: 0 var(--metadata-cell-pad-x, 2px) 0 var(--metadata-cell-pad-l, 4px);
 }
 
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
@@ -17549,7 +17565,8 @@ body.node-slider-dragging * {
   > label
   > span:first-child {
   max-width: none;
-  font-size: 0.58rem;
+  font-size: var(--metadata-field-name-size, 0.72rem);
+  font-weight: 700;
   letter-spacing: 0;
 }
 
@@ -17567,19 +17584,20 @@ body.node-slider-dragging * {
 .metadata-curve-sensitivity-label {
   align-items: center;
   /* Natural height only — never allow height compression to collapse this row. */
-  min-height: calc(var(--metadata-control-row-height, 30px) + 1.25em);
+  min-height: calc(var(--metadata-control-row-height, 32px) + 1.25em);
   height: auto;
   max-height: none;
-  row-gap: 2px !important;
-  padding-top: 3px !important;
-  padding-bottom: 4px !important;
+  row-gap: 1px !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
 }
 
 .metadata-curve-sensitivity-label > .metadata-curve-sensitivity-heading {
   grid-column: 1;
   grid-row: 1;
   max-width: none;
-  font-size: 0.58rem;
+  font-size: var(--metadata-field-name-size, 0.72rem);
+  font-weight: 700;
 }
 
 .metadata-curve-sensitivity-label > .metadata-stepper-control {
@@ -17592,12 +17610,12 @@ body.node-slider-dragging * {
   grid-column: 1 / -1;
   grid-row: 2;
   margin: 0;
-  padding: 0 1px 1px;
-  color: rgba(205, 214, 216, 0.55);
-  font-size: 0.55rem;
+  padding: 1px 0 2px;
+  color: rgba(205, 214, 216, 0.78);
+  font-size: var(--metadata-hint-size, 0.82rem);
   font-weight: 400;
   letter-spacing: 0;
-  line-height: 1.25;
+  line-height: 1.3;
   white-space: normal;
   text-transform: none;
   max-width: none !important;
@@ -17612,8 +17630,8 @@ body.node-slider-dragging * {
 
 .metadata-smoothing-mode-section,
 .metadata-smoothing-type-section {
-  padding: 6px;
-  gap: 6px;
+  padding: 3px;
+  gap: 3px;
 }
 
 /*
@@ -17660,9 +17678,9 @@ body.node-slider-dragging * {
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-toggle-section > label {
   box-sizing: border-box;
   min-width: 0;
-  min-height: 30px;
+  min-height: var(--metadata-control-row-height, 32px);
   margin: 0;
-  padding: 0 4px 0 6px;
+  padding: 0 var(--metadata-cell-pad-x, 2px) 0 var(--metadata-cell-pad-l, 4px);
   border: 0;
   border-right: 1px solid rgba(127, 199, 217, 0.14);
   border-bottom: 1px solid rgba(127, 199, 217, 0.14);
@@ -17683,8 +17701,8 @@ body.node-slider-dragging * {
   > .metadata-identity-section
   > label {
   grid-template-columns: max-content minmax(0, 1fr);
-  column-gap: 4px;
-  padding: 0 3px 0 5px;
+  column-gap: var(--metadata-label-gap, 3px);
+  padding: 0 var(--metadata-cell-pad-x, 2px) 0 var(--metadata-cell-pad-l, 4px);
 }
 
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
@@ -17693,7 +17711,8 @@ body.node-slider-dragging * {
   > label
   > span:first-child {
   max-width: none;
-  font-size: 0.58rem;
+  font-size: var(--metadata-field-name-size, 0.72rem);
+  font-weight: 700;
   letter-spacing: 0;
 }
 
@@ -17748,7 +17767,7 @@ body.node-slider-dragging * {
 }
 
 .metadata-smoothing-mode-title {
-  font-size: 0.62rem;
+  font-size: var(--metadata-section-title-size, 0.78rem);
   font-weight: 700;
   letter-spacing: 0.02em;
   color: color-mix(in srgb, var(--accent) 78%, rgba(205, 214, 216, 0.82) 22%);
@@ -17771,14 +17790,14 @@ body.node-slider-dragging * {
   flex: 1 1 0;
   min-width: 0;
   width: auto;
-  min-height: 30px;
-  padding: 2px 0;
+  min-height: var(--metadata-control-row-height, 32px);
+  padding: 0;
   border: 0;
   border-right: 1px solid rgba(127, 199, 217, 0.14);
   border-radius: 0;
   background: rgba(5, 9, 11, 0.62);
   color: rgba(205, 214, 216, 0.82);
-  font-size: 0.92rem;
+  font-size: 1.02rem;
   line-height: 1;
   cursor: var(--node-dot-cursor);
   transition: background-color 0.12s ease, color 0.12s ease;
@@ -17800,8 +17819,8 @@ body.node-slider-dragging * {
 
 .metadata-smoothing-mode-status {
   margin: 0;
-  padding: 0 2px;
-  font-size: 0.62rem;
+  padding: 0;
+  font-size: var(--metadata-field-name-size, 0.72rem);
   line-height: 1.3;
   color: rgba(205, 214, 216, 0.72);
 }
@@ -17809,7 +17828,8 @@ body.node-slider-dragging * {
 .metadata-popover-grid .metadata-checkbox-label {
   grid-template-columns: auto minmax(0, 1fr);
   color: rgba(205, 214, 216, 0.82);
-  font-size: 0.64rem;
+  font-size: var(--metadata-label-size, 0.76rem);
+  font-weight: 700;
   text-transform: none;
 }
 
@@ -17826,21 +17846,22 @@ body.node-slider-dragging * {
 .metadata-popover-grid button {
   width: 100%;
   min-width: 0;
-  height: 30px;
-  padding: 0;
+  height: var(--metadata-control-row-height, 32px);
+  padding: 0 2px;
   border: 1px solid var(--line);
   border-radius: 3px;
   background: #05090b;
   color: var(--text);
   font-family: Consolas, "Courier New", monospace;
-  font-size: 0.72rem;
+  font-size: var(--metadata-control-size, 0.86rem);
 }
 
 .metadata-popover-grid textarea {
   height: auto;
-  min-height: 46px;
-  padding: 0;
+  min-height: 52px;
+  padding: 4px;
   resize: vertical;
+  font-size: 0.8rem;
 }
 
 .metadata-popover-grid .metadata-choices-label {
@@ -17856,10 +17877,11 @@ body.node-slider-dragging * {
 .metadata-popover-grid .metadata-choices-label > span {
   display: grid;
   align-items: center;
-  min-height: 20px;
-  padding: 0 4px;
+  min-height: 18px;
+  padding: 0 3px;
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: var(--metadata-field-name-size, 0.72rem);
+  font-weight: 700;
 }
 
 .metadata-popover-grid .metadata-choices-label textarea {
@@ -17893,7 +17915,29 @@ body.node-slider-dragging * {
 .metadata-popover-grid button {
   align-self: end;
   font-family: inherit;
-  font-size: 0.66rem;
+  font-size: var(--metadata-button-size, 0.78rem);
+}
+
+.metadata-popover-grid .metadata-tooltip-label > span:first-child {
+  font-size: var(--metadata-field-name-size, 0.72rem);
+  font-weight: 700;
+  padding: 0 3px;
+  min-height: 18px;
+}
+
+/* Shared heading type for Parameter + Display Settings shells. */
+.node-parameter-metadata-popover > .scene-context-heading .scene-context-title {
+  font-size: 0.92rem;
+}
+
+.node-parameter-metadata-popover > .scene-context-heading .scene-context-title small {
+  font-size: var(--metadata-field-name-size, 0.72rem);
+}
+
+.node-parameter-metadata-popover > .metadata-popover-grid,
+.node-parameter-metadata-popover > .node-trace-display-settings-grid {
+  /* SE grip clearance — keep tight; was 14/22px empty strip. */
+  padding-bottom: 3px;
 }
 
 /*
@@ -17904,16 +17948,18 @@ body.node-slider-dragging * {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   align-items: center;
-  gap: 0 6px;
+  gap: 0 var(--metadata-label-gap, 3px);
   min-width: 0;
   margin: 0;
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: var(--metadata-label-size, 0.76rem);
 }
 
 .node-trace-display-line-burn-row > span:first-child {
   white-space: nowrap;
   letter-spacing: 0.01em;
+  font-weight: 700;
+  font-size: var(--metadata-field-name-size, 0.72rem);
 }
 
 .node-trace-display-line-burn-row.is-disabled {
@@ -17924,7 +17970,7 @@ body.node-slider-dragging * {
 .metadata-stepper-control {
   --stepper-split: color-mix(in srgb, var(--accent) 18%, transparent);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 15px 15px;
+  grid-template-columns: minmax(0, 1fr) 16px 16px;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -17935,11 +17981,13 @@ body.node-slider-dragging * {
 .metadata-stepper-control input {
   grid-column: 1;
   grid-row: 1;
-  height: 28px;
+  height: var(--metadata-control-row-height, 32px);
   border: 0;
   border-right: 1px solid var(--stepper-split);
   border-radius: 0;
   text-align: center;
+  font-size: var(--metadata-control-size, 0.86rem);
+  padding: 0 2px;
 }
 
 .node-trace-display-settings-popover input[data-trace-display-field][readonly],
@@ -17968,14 +18016,15 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 .metadata-stepper-control button {
   grid-row: 1;
-  width: 15px;
-  height: 28px;
-  min-height: 28px;
+  width: 16px;
+  height: var(--metadata-control-row-height, 32px);
+  min-height: var(--metadata-control-row-height, 32px);
   padding: 0;
   border: 0;
   border-radius: 0;
   background: rgba(14, 20, 24, 0.96);
   color: rgba(205, 214, 216, 0.88);
+  font-size: 0.85rem;
 }
 
 .metadata-stepper-control button:first-child {
@@ -17990,13 +18039,14 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 .metadata-field-actions button,
 .metadata-advanced-toggle {
-  min-height: 30px;
+  min-height: var(--metadata-control-row-height, 32px);
   border: 0;
   border-right: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
   border-radius: 0;
   background: rgba(12, 18, 22, 0.86);
   color: color-mix(in srgb, var(--text) 86%, transparent);
   text-align: center;
+  font-size: var(--metadata-button-size, 0.78rem);
 }
 
 .metadata-field-actions button:last-child {
@@ -18016,8 +18066,9 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
  * Flex column lives above (shared with parameter metadata popover).
  */
 .node-trace-display-settings-popover {
-  --ds-row-h: 28px;
-  --ds-latch-h: 30px;
+  /* Inherit shared Parameter/Display type scale from .node-parameter-metadata-popover. */
+  --ds-row-h: var(--metadata-control-row-height, 32px);
+  --ds-latch-h: var(--metadata-control-row-height, 32px);
   --ds-color-host-h: 168px;
   --ds-label-col: minmax(52px, 0.34fr);
   --ds-hairline: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -18047,7 +18098,8 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-settings-popover .metadata-popover-grid .metadata-choices-label {
   gap: 0;
   grid-template-columns: var(--ds-label-col) minmax(0, 1fr);
-  padding: 0;
+  padding: var(--metadata-row-pad-y, 3px) 0;
+  box-sizing: border-box;
 }
 
 .node-trace-display-settings-popover .metadata-popover-grid label.node-trace-display-line-burn-row,
@@ -18092,7 +18144,8 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 0 6px 0 8px;
+  padding: 0 var(--metadata-cell-pad-x, 2px) 0 var(--metadata-cell-pad-l, 4px);
+  font-weight: 700;
 }
 
 .node-trace-display-settings-popover[data-display-settings-type="spectrogramBurn"] .node-trace-display-line-burn-row > select {
@@ -18105,7 +18158,9 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-settings-popover .metadata-popover-grid label.node-trace-display-line-burn-row > span:first-child {
   overflow: visible;
   text-overflow: unset;
-  padding: 0 6px 0 8px;
+  padding: 0 var(--metadata-cell-pad-x, 2px) 0 var(--metadata-cell-pad-l, 4px);
+  font-weight: 700;
+  font-size: var(--metadata-field-name-size, 0.72rem);
 }
 
 .node-trace-display-settings-popover .metadata-popover-grid .metadata-checkbox-label {
@@ -18224,12 +18279,12 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   align-items: stretch;
   gap: 0;
   min-width: 0;
-  min-height: var(--ds-row-h, 28px);
+  min-height: var(--ds-row-h, var(--metadata-control-row-height, 32px));
   margin: 0;
   padding: 0;
   border-bottom: 1px solid var(--ds-hairline, color-mix(in srgb, var(--accent) 14%, transparent));
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: var(--metadata-label-size, 0.76rem);
 }
 
 .title-stepper > input[type="hidden"],
@@ -18254,12 +18309,13 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   align-items: center;
   justify-content: center;
   min-width: 0;
-  min-height: var(--ds-row-h, 28px);
+  min-height: var(--ds-row-h, var(--metadata-control-row-height, 32px));
   margin: 0;
-  padding: 0 6px;
+  padding: 0 4px;
   border-right: 1px solid var(--ds-split, color-mix(in srgb, var(--accent) 18%, transparent));
   color: var(--muted);
-  font-weight: 650;
+  font-size: var(--metadata-field-name-size, 0.72rem);
+  font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1;
   text-align: center;
@@ -18685,13 +18741,13 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .app-latch-button-row,
 .node-trace-display-settings-popover .node-trace-display-packing-toggles {
   display: grid;
-  /* Sync | Full Dots | Dots only | Clear (4). Fewer keys still share the row. */
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Equal share per child (inline --latch-cols / grid-template-columns from builder). */
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   align-items: stretch;
   gap: 0;
   width: 100%;
   box-sizing: border-box;
-  min-height: var(--ds-latch-h, 30px);
+  min-height: var(--ds-latch-h, var(--metadata-control-row-height, 22px));
 }
 
 .app-latch-button {
@@ -18702,9 +18758,9 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   width: 100%;
   height: 100%;
   min-width: 0;
-  min-height: var(--ds-latch-h, 30px);
+  min-height: var(--ds-latch-h, var(--metadata-control-row-height, 22px));
   margin: 0;
-  padding: 0;
+  padding: var(--metadata-row-pad-y, 3px) 0;
   border: 1px solid var(--line);
   border-radius: 0;
   background: rgba(5, 9, 11, 0.55);

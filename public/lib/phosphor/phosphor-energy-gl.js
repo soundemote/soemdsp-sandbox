@@ -866,6 +866,10 @@
     const fullEconomy = options.fullEconomy === true
       || options.fullDotEconomy === true
       || options.useFullDotEconomy === true;
+    // Dots only: stamp real sample hits only — no connective packing between points.
+    const samplesOnly = options.dotsOnly === true
+      || options.verticesOnly === true
+      || options.samplesOnly === true;
     // Hard (blur 0): pack ~every 0.35–0.5 px or radius*0.12 so discs tile solid.
     // Soft: wider step is fine (skirts fuse). Full economy always takes the dense path.
     const thriftyStep = Math.max(0.35, radius * (0.18 + blur * 0.18));
@@ -943,6 +947,18 @@
     // Oldest→newest so even sparse coverage maps the whole shape.
     outer: for (let p = 0; p < pieces.length; p += 1) {
       const pts = pieces[p];
+      if (samplesOnly) {
+        // Evenly skip samples when over Dot Budget (same spirit as fuse-over-budget).
+        const stride = pts.length > stampCap
+          ? Math.max(1, Math.ceil(pts.length / stampCap))
+          : 1;
+        for (let i = 0; i < pts.length; i += stride) {
+          if (!pushStamp(pts[i].x, pts[i].y)) {
+            break outer;
+          }
+        }
+        continue;
+      }
       if (pts.length === 1) {
         if (!pushStamp(pts[0].x, pts[0].y)) {
           break;
@@ -1516,6 +1532,9 @@
           fullEconomy: options.fullEconomy === true
             || options.fullDotEconomy === true
             || options.useFullDotEconomy === true,
+          dotsOnly: options.dotsOnly === true
+            || options.verticesOnly === true
+            || options.samplesOnly === true,
         });
       }
     } else if (!Array.isArray(depositVertices) || depositVertices.length < 5) {
@@ -1652,8 +1671,10 @@
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // Cleared plate is quiet until the next deposit — do not sleep-lock the face.
     renderer.energyActive = false;
     renderer.energyDirty = false;
+    renderer.quietFrames = 0;
     return true;
   };
   /**

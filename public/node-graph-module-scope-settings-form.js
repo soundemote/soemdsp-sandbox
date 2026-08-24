@@ -411,9 +411,12 @@ function nodeGraphDisplaySettingsBuildPackingToggleRowHtml(keys) {
       + `</button>`
     );
   }).join("");
+  const cols = Math.max(1, buttons.length);
   return (
     `<div class="app-latch-button-row node-trace-display-packing-toggles"`
-    + ` data-latch-button-row data-trace-display-control-row>${cells}</div>`
+    + ` data-latch-button-row data-trace-display-control-row`
+    + ` style="--latch-cols:${cols};grid-template-columns:repeat(${cols},minmax(0,1fr))">`
+    + `${cells}</div>`
   );
 }
 
