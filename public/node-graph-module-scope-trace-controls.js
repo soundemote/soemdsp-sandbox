@@ -1119,7 +1119,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Sweep (s)",
     inputmode: "decimal",
     id: "nodeTraceDisplaySweepSeconds",
-    title: "Seconds for one left→right pass (0.01–10). 0 clamps to 0.01 (fastest), not back to the 2 s default.",
+    title: "Seconds for one left→right pass (0–10). 0 = collapsed sweep: solid full-width horizontal at each sample Y (fuse density; skips samples only if Dot Budget can’t cover them).",
   }),
   cycles: Object.freeze({ label: "Cycles", inputmode: "decimal", id: "nodeTraceDisplayCycles" }),
   digits: Object.freeze({
@@ -1338,7 +1338,7 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     label: "Sync",
     id: "nodeTraceDisplaySourceSync",
     title:
-      "1D Waterfall: Off = tape scrolls left, pen parked on the right. On = tape parked, pen walks left→right and waits off-screen until the next edge. 1D Phosphor: rising edges snap the pen (Reset jack still works).",
+      "1D Waterfall: Off = tape scrolls left, pen parked on the right. On = tape parked, pen walks left→right and waits off-screen until the next edge. 1D Phosphor: rising edges of In start a sweep stretched across the full face (one period = left→right); Reset jack still snaps.",
   }),
   cmyMode: Object.freeze({
     label: "CMY",

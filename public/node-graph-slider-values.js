@@ -1,7 +1,8 @@
 const nodeSliderHandleHalfWidthPx = 8;
 const nodeSliderMinSkewExponent = 0.25;
 const nodeSliderMaxSkewExponent = 4;
-const nodeGraphAutoSmoothingDefaultSeconds = 0.5;
+// World / header Smooth Time default (also used when unset / non-finite).
+const nodeGraphAutoSmoothingDefaultSeconds = 0.0333;
 
 const nodeGraphSmoothingModes = Object.freeze(["global", "internal", "internalGlobal", "off"]);
 

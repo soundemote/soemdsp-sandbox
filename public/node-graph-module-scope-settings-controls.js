@@ -375,7 +375,7 @@ function nodeGraphTraceDisplayClampStampBlur(value) {
 function nodeGraphTraceDisplayClampDotBudget(value) {
   const n = Math.round(Number(value));
   if (!Number.isFinite(n)) {
-    return 2048;
+    return 1024;
   }
   return Math.max(1, Math.min(8192, n));
 }

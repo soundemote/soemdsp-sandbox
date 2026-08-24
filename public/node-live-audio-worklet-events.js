@@ -8,7 +8,28 @@ NodeLiveAudioProcessor.prototype.setInputWireBreakTrigger = function setInputWir
 
 NodeLiveAudioProcessor.prototype.setSpeed = function setSpeed(speed) {
     const value = Number(speed);
-    this.speedMultiplier = Number.isFinite(value) ? Math.max(0, value) : 1;
+    const next = Number.isFinite(value) ? Math.max(0, value) : 1;
+    const wasStopped = !(Number(this.speedMultiplier) > 0);
+    this.speedMultiplier = next;
+    // Pause→Play (speed 0→>0) without tearing down the worklet: snap osc phases
+    // to 0 so PolyBLEP does not resume at a leftover phase.
+    if (wasStopped && next > 0 && this.phases instanceof Map) {
+      for (const id of this.phases.keys()) {
+        this.phases.set(id, 0);
+      }
+      if (this.triangleStates instanceof Map) {
+        for (const id of this.triangleStates.keys()) {
+          this.triangleStates.set(id, 0);
+        }
+      }
+      if (this.polyBlepStates instanceof Map) {
+        for (const state of this.polyBlepStates.values()) {
+          if (state?.nativeHandle && this.nativePolyBlep?.soemdsp_polyblep_reset) {
+            try { this.nativePolyBlep.soemdsp_polyblep_reset(state.nativeHandle); } catch (_e) { /* ignore */ }
+          }
+        }
+      }
+    }
 };
 
 NodeLiveAudioProcessor.prototype.setSpeedLimit = function setSpeedLimit(limit) {

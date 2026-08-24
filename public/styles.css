@@ -6513,16 +6513,25 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
    * IO jack geometry:
    *   slot = --node-port-area-size (1gu)
    *   visual jack = --node-port-size-ratio of the slot (UIDEV / UI settings)
-   *   .node-io-row clips overflow so paint/hit cannot bleed into neighbors.
+   *   Ratio is capped (--node-port-size-ratio-max) so the crescent stroke
+   *   stays inside the 1gu slot at any custom size (never clipped by the row).
    */
   --node-port-area-size: var(--node-grid-height);
+  --node-port-size-ratio-max: 0.9;
   --node-port-size-ratio: 0.52;
-  --node-port-diameter: calc(var(--node-port-area-size) * var(--node-port-size-ratio, 0.52));
+  --node-port-diameter: calc(
+    var(--node-port-area-size)
+    * min(var(--node-port-size-ratio, 0.52), var(--node-port-size-ratio-max, 0.9))
+  );
   /* One crescent ring for every inlet/outlet (I/O + param). */
   /* Screen-constant: zoom-surface uses transform scale, so a raw 1.25px
      jack ring vanishes when zoomed out. Git checkout cannot fix that. */
   --node-port-crescent-stroke-width: calc(1.25px / max(0.0001, var(--node-graph-zoom, 1)));
-  /* Jacks are a CSS border on a half-circle box — not a radial gradient. */
+  /*
+   * Stroke is an INSET ring (never paints outside the circle box). The port
+   * box is overflow:hidden and is the only drawing area — no clip-path half
+   * that leaves the circle hanging outside the jack cell.
+   */
   --node-port-crescent-paint: transparent;
   /* Unused PARAM jack stroke. UIDEV must not write it. Signal I/O jacks
      use type color mixed with outlet RGB / inlet blue brightness. */
@@ -12316,6 +12325,25 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   pointer-events: auto;
 }
 
+/*
+ * Jack strokes must never lose to face fill / labels / slider text
+ * (reads as “clipping” toward the module interior). IO section above body;
+ * header stays on top for drag / title hits.
+ */
+.dsp-node > .dsp-node-body,
+.dsp-node > .node-solid-module-shell,
+.dsp-node > .node-module-chrome-layout-b-shell {
+  z-index: 2;
+}
+
+.dsp-node > .dsp-node-io-section {
+  z-index: 14;
+}
+
+.dsp-node > .dsp-node-header {
+  z-index: 16;
+}
+
 .node-module-frame-path {
   fill: none;
   stroke: none;
@@ -14749,8 +14777,11 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   min-width: var(--node-signal-port-width);
   max-width: var(--node-signal-port-width);
   height: var(--node-signal-port-height);
-  min-height: 0;
-  max-height: 100%;
+  /* Never max-height:100% — that clipped the crescent stroke when the row
+     was shorter than the jack diameter (looked like interior clipping). */
+  min-height: var(--node-signal-port-height);
+  max-height: none;
+  z-index: 2;
 }
 
 :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell).layout-b-port-labels
@@ -15424,7 +15455,10 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   -webkit-text-fill-color: currentColor;
   caret-color: var(--node-text-box-fg, var(--node-module-primary-text-color));
   opacity: 1;
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  font-family: var(
+    --node-text-box-font,
+    "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace
+  );
   font-size: calc(
     var(--node-grid-size) * 0.36 * var(--node-text-box-font-scale, 1)
   );
@@ -16213,6 +16247,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 }
 
 .node-io-label {
+  position: relative;
+  z-index: 0;
   display: block;
   flex: 0 0 auto;
   /* Column sets --node-io-label-min-ch = longest label char count (inlets and
@@ -21658,8 +21694,9 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 /*
- * Half-jacks: a real circle, cut on the diameter with clip-path.
- * Hitbox is the half-slot; paint is not clipped by the plate.
+ * Half-jacks: full circle + inset ring, cut to a crescent by the port box
+ * (overflow:hidden). Stroke never paints outside the circle (inset shadow)
+ * and never outside the port cell (overflow clip). No clip-path.
  */
 .node-port {
   position: relative;
@@ -21681,7 +21718,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   color: transparent;
   font-family: Consolas, "Courier New", monospace;
   font-size: 0;
-  overflow: visible;
+  overflow: hidden;
   text-indent: -999px;
   cursor: var(--node-dot-cursor);
   border: 0;
@@ -21698,13 +21735,15 @@ body.node-slider-dragging .node-param-port {
   content: "";
   position: absolute;
   top: 50%;
+  z-index: 1;
   box-sizing: border-box;
   width: var(--node-port-diameter);
   height: var(--node-port-diameter);
-  margin-top: calc(var(--node-port-diameter) * -0.5);
-  border: var(--node-port-crescent-stroke-width) solid var(--node-port-crescent-stroke);
+  border: 0;
   border-radius: 50%;
   background: transparent;
+  /* Inset ring: stroke stays inside the circle box (cannot escape the jack). */
+  box-shadow: inset 0 0 0 var(--node-port-crescent-stroke-width) var(--node-port-crescent-stroke);
   pointer-events: none;
 }
 
@@ -21716,11 +21755,11 @@ body.node-slider-dragging .node-param-port {
   --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
 }
 
+/* Outlet: center on right edge; overflow keeps the inward (left) half. */
 .node-port.output:not(.node-param-port)::before {
   right: 0;
   left: auto;
-  transform: translateX(50%);
-  clip-path: inset(0 50% 0 0);
+  transform: translate(50%, -50%);
 }
 
 .node-port.input {
@@ -21731,15 +21770,15 @@ body.node-slider-dragging .node-param-port {
   --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
 }
 
+/* Inlet: center on left edge; overflow keeps the inward (right) half. */
 .node-port.input:not(.node-param-port)::before {
   left: 0;
-  transform: translateX(-50%);
-  clip-path: inset(0 0 0 50%);
+  transform: translate(-50%, -50%);
 }
 
 .node-param-port {
   position: relative;
-  z-index: 6;
+  z-index: 8;
   --node-port-stroke-mask-color: transparent;
   --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
@@ -21763,7 +21802,7 @@ body.node-slider-dragging .node-param-port {
   border-radius: 0;
   background: transparent;
   color: transparent;
-  overflow: visible;
+  overflow: hidden;
   text-indent: -999px;
   box-shadow: none;
 }
@@ -21772,16 +21811,17 @@ body.node-slider-dragging .node-param-port {
   content: "";
   position: absolute;
   top: 50%;
+  z-index: 1;
   box-sizing: border-box;
   width: var(--node-port-diameter);
   height: var(--node-port-diameter);
   min-width: 0;
   min-height: 0;
   max-height: none;
-  border: var(--node-port-crescent-stroke-width) solid var(--node-port-crescent-stroke);
+  border: 0;
   border-radius: 50%;
   background: transparent;
-  box-shadow: none;
+  box-shadow: inset 0 0 0 var(--node-port-crescent-stroke-width) var(--node-port-crescent-stroke);
   pointer-events: none;
 }
 
@@ -21805,7 +21845,6 @@ body.node-slider-dragging .node-param-port {
 .node-param-port.graph-input::before {
   left: 0;
   transform: translate(-50%, -50%);
-  clip-path: inset(0 0 0 50%);
 }
 
 .node-param-port.parameter-output {
@@ -21828,7 +21867,6 @@ body.node-slider-dragging .node-param-port {
   right: 0;
   left: auto;
   transform: translate(50%, -50%);
-  clip-path: inset(0 50% 0 0);
 }
 
 /*
@@ -21891,19 +21929,22 @@ body.node-slider-dragging .node-param-port {
 
 .node-port.connected-port,
 .node-param-port.connected-port {
-  overflow: visible;
+  /* Keep overflow:hidden — the port cell is the only crescent drawing area.
+     Wire contact discs live on #nodeWireEndpointSvg, not on the jack. */
+  overflow: hidden;
   background: transparent;
   box-shadow: none;
 }
 
-/* Signal ports paint the crescent on the element itself (no ::before fill). */
+/* Signal ports paint the crescent on ::before (inset ring). */
 .node-port:not(.node-param-port).connected-port::before {
   background: transparent;
+  box-shadow: inset 0 0 0 var(--node-port-crescent-stroke-width) var(--node-port-crescent-stroke);
 }
 
 .node-param-port.connected-port::before {
   background: transparent;
-  box-shadow: none;
+  box-shadow: inset 0 0 0 var(--node-port-crescent-stroke-width) var(--node-port-crescent-stroke);
 }
 
 /*
@@ -21947,15 +21988,16 @@ body.node-slider-dragging .node-param-port {
   position: absolute;
   z-index: 3;
   top: 50%;
-  left: var(--node-patch-point-x, 50%);
-  width: calc(var(--node-wire-patch-point-size) * 0.62);
-  height: calc(var(--node-wire-patch-point-size) * 0.62);
+  /* Keep the pip fully inside the overflow:hidden jack cell. */
+  left: 50%;
+  width: calc(var(--node-wire-patch-point-size) * 0.5);
+  height: calc(var(--node-wire-patch-point-size) * 0.5);
   border-radius: 50%;
   pointer-events: none;
   /* Center monitor pip + soft glow only (no outer jack ring). */
   background: color-mix(in srgb, var(--node-monitor-color) 72%, transparent);
   box-shadow:
-    0 0 calc(var(--node-hover-glow-size) * 0.7) color-mix(in srgb, var(--node-monitor-color) 46%, transparent);
+    0 0 calc(var(--node-hover-glow-size) * 0.55) color-mix(in srgb, var(--node-monitor-color) 40%, transparent);
   transform: translate(-50%, -50%);
 }
 

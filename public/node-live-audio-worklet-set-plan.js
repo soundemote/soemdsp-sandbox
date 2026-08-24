@@ -5,7 +5,11 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     const patchFingerprint = message.patchFingerprint || plan?.patchFingerprint || "";
     this.patchFingerprint = patchFingerprint;
     this.planSerial = message.planSerial || 0;
-    this.sessionId = message.sessionId || 0;
+    const nextSessionId = message.sessionId || 0;
+    // Engine Stop/Play bumps sessionId. Force oscillator phases to 0 so PolyBLEP
+    // (and siblings) do not resume mid-cycle and sound randomly phased.
+    const sessionRestarted = nextSessionId !== this.sessionId;
+    this.sessionId = nextSessionId;
     this.gpuAdditiveQueues = new Map();
     this.gpuAdditiveUnderruns = 0;
     if (Number.isFinite(Number(message.autoSmoothingSeconds)) && typeof this.clampAutoSmoothingSeconds === "function") {
@@ -85,21 +89,57 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     this.modulationConnections = this.buildModulationConnectionMap(plan?.modulations, ids);
     this.resetVisualControls();
 
+    if (sessionRestarted) {
+      this.phases.clear();
+      this.triangleStates.clear();
+      this.absoluteFrame = 0;
+      this.scopeCounter = 0;
+      this.scopeSnapshotCounter = 0;
+      this.scopeBuffers = new Map();
+      this.oscillatorLastPhaseIncrements?.clear?.();
+      this.oscillatorStoppedSamples?.clear?.();
+      if (this.graphLfoStates instanceof Map) {
+        this.graphLfoStates.clear();
+      }
+      // Drop native oscillator handles so triangle integrators etc. cold-start.
+      if (this.polyBlepStates instanceof Map) {
+        for (const state of this.polyBlepStates.values()) {
+          if (state?.nativeHandle && this.nativePolyBlep?.soemdsp_polyblep_destroy) {
+            try { this.nativePolyBlep.soemdsp_polyblep_destroy(state.nativeHandle); } catch (_e) { /* ignore */ }
+          }
+          state.nativeHandle = 0;
+        }
+        this.polyBlepStates.clear();
+      }
+      if (this.blitStates instanceof Map) {
+        for (const state of this.blitStates.values()) {
+          if (state?.nativeHandle && this.nativeBlit?.soemdsp_blit_destroy) {
+            try { this.nativeBlit.soemdsp_blit_destroy(state.nativeHandle); } catch (_e) { /* ignore */ }
+          }
+          state.nativeHandle = 0;
+        }
+        this.blitStates.clear();
+      }
+      if (this.basicOscillatorNativeHandles instanceof Map) {
+        this.basicOscillatorNativeHandles.clear();
+      }
+    }
+
     for (const id of ids) {
       if (!this.nodeOutputs.has(id)) {
         this.nodeOutputs.set(id, 0);
       }
       const node = this.nodes.get(id);
-      if (nodeLiveIsPolyBlepOscillatorType(node?.type) && !this.phases.has(id)) {
+      if (nodeLiveIsPolyBlepOscillatorType(node?.type) && (sessionRestarted || !this.phases.has(id))) {
         this.phases.set(id, 0);
       }
-      if (nodeLiveIsPolyBlepOscillatorType(node?.type) && !this.oscResetStates.has(id)) {
+      if (nodeLiveIsPolyBlepOscillatorType(node?.type) && (sessionRestarted || !this.oscResetStates.has(id))) {
         this.oscResetStates.set(id, this.createOscResetState());
       }
-      if (nodeLiveIsPolyBlepOscillatorType(node?.type) && !this.triangleStates.has(id)) {
+      if (nodeLiveIsPolyBlepOscillatorType(node?.type) && (sessionRestarted || !this.triangleStates.has(id))) {
         this.triangleStates.set(id, 0);
       }
-      if (nodeLiveIsPolyBlepOscillatorType(node?.type) && !this.noiseSeeds.has(id)) {
+      if (nodeLiveIsPolyBlepOscillatorType(node?.type) && (sessionRestarted || !this.noiseSeeds.has(id))) {
         this.noiseSeeds.set(id, this.stableSeed(id));
       }
       if (node?.type === "spiral" && !this.spiralStates.has(id)) {

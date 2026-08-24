@@ -138,24 +138,44 @@ function preserveNodeGraphEditorZoomOnPatch(patch = nodeGraphMvp.patch) {
   patch.view = { ...view, zoom: clampNodeGraphZoom(nodeGraphMvp.zoom) };
 }
 
-// Zoom + pan so the entire patch fits the workspace with a little elbow room.
-// `padding` is the fraction of margin to leave (0.12 == ~12% breathing space).
-function nodeGraphAutoFrame(options = {}) {
+function nodeGraphCollectViewTargetNodes(options = {}) {
   const workspace = document.getElementById("nodeGraphWorkspace");
   const surface = typeof nodeGraphZoomSurface === "function" ? nodeGraphZoomSurface() : null;
   const host = surface || workspace;
   if (!workspace || !host) {
-    return false;
+    return { host: null, nodes: [], workspace: null };
   }
-  const nodes = [...host.querySelectorAll(".dsp-node:not(.removed):not([hidden])")];
+  let nodes = [];
+  const preferSelection = options.preferSelection !== false;
+  if (preferSelection && typeof nodeGraphSelectedNodeIds === "function") {
+    const selectedIds = [...nodeGraphSelectedNodeIds()].filter((id) =>
+      !nodeGraphMvp?.activeNodes || nodeGraphMvp.activeNodes.has(id),
+    );
+    if (selectedIds.length) {
+      nodes = selectedIds.map((id) => {
+        if (typeof nodeGraphNodeElement === "function") {
+          return nodeGraphNodeElement(id);
+        }
+        return host.querySelector?.(`.dsp-node[data-node="${CSS.escape(String(id))}"]`);
+      }).filter((el) => el && !el.classList.contains("removed") && !el.hidden);
+    }
+  }
   if (!nodes.length) {
-    return false;
+    nodes = [...host.querySelectorAll(".dsp-node:not(.removed):not([hidden])")];
   }
+  return { host, nodes, workspace };
+}
+
+function nodeGraphModuleBoundsUnion(nodes) {
   let left = Infinity;
   let top = Infinity;
   let right = -Infinity;
   let bottom = -Infinity;
-  for (const node of nodes) {
+  let count = 0;
+  for (const node of nodes || []) {
+    if (!node || typeof nodeGraphNodeBounds !== "function") {
+      continue;
+    }
     const b = nodeGraphNodeBounds(node);
     if (b.right - b.left <= 0 || b.bottom - b.top <= 0) {
       continue;
@@ -164,10 +184,25 @@ function nodeGraphAutoFrame(options = {}) {
     top = Math.min(top, b.top);
     right = Math.max(right, b.right);
     bottom = Math.max(bottom, b.bottom);
+    count += 1;
   }
-  const contentWidth = right - left;
-  const contentHeight = bottom - top;
-  if (!Number.isFinite(contentWidth) || !Number.isFinite(contentHeight) || contentWidth <= 0 || contentHeight <= 0) {
+  if (!count) {
+    return null;
+  }
+  return { bottom, left, right, top, width: right - left, height: bottom - top };
+}
+
+// Zoom + pan so the entire patch fits the workspace with a little elbow room.
+// `padding` is the fraction of margin to leave (0.12 == ~12% breathing space).
+function nodeGraphAutoFrame(options = {}) {
+  const { nodes, workspace } = nodeGraphCollectViewTargetNodes({
+    preferSelection: options.preferSelection === true,
+  });
+  if (!workspace || !nodes.length) {
+    return false;
+  }
+  const bounds = nodeGraphModuleBoundsUnion(nodes);
+  if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
     return false;
   }
   const rect = workspace.getBoundingClientRect();
@@ -179,9 +214,9 @@ function nodeGraphAutoFrame(options = {}) {
   const pad = Math.max(0, Math.min(0.4, Number.isFinite(Number(options.padding)) ? Number(options.padding) : 0.06));
   const usableWidth = availWidth * (1 - pad);
   const usableHeight = availHeight * (1 - pad);
-  const zoom = clampNodeGraphZoom(Math.min(usableWidth / contentWidth, usableHeight / contentHeight));
-  const centerX = (left + right) / 2;
-  const centerY = (top + bottom) / 2;
+  const zoom = clampNodeGraphZoom(Math.min(usableWidth / bounds.width, usableHeight / bounds.height));
+  const centerX = (bounds.left + bounds.right) / 2;
+  const centerY = (bounds.top + bounds.bottom) / 2;
   nodeGraphMvp.zoom = zoom;
   syncNodeGraphPatchViewZoom(zoom);
   applyNodeGraphZoom({ immediate: true, forceLayout: true, persist: false });
@@ -189,8 +224,41 @@ function nodeGraphAutoFrame(options = {}) {
   return true;
 }
 
+/** Pan only: center selection (or all modules) in the viewport at the current zoom. */
+function nodeGraphCenterViewOnModules(options = {}) {
+  const { nodes } = nodeGraphCollectViewTargetNodes({
+    preferSelection: options.preferSelection !== false,
+  });
+  if (!nodes.length) {
+    return false;
+  }
+  const bounds = nodeGraphModuleBoundsUnion(nodes);
+  if (!bounds) {
+    return false;
+  }
+  const zoom = typeof nodeGraphZoom === "function"
+    ? nodeGraphZoom()
+    : (Number.isFinite(Number(nodeGraphMvp?.zoom)) ? Number(nodeGraphMvp.zoom) : 1);
+  const centerX = (bounds.left + bounds.right) / 2;
+  const centerY = (bounds.top + bounds.bottom) / 2;
+  setNodeGraphPan(-centerX * zoom, -centerY * zoom, {
+    immediate: true,
+    persist: options.persist !== false,
+  });
+  if (typeof setNodeInteractionHelp === "function" && options.help !== false) {
+    setNodeInteractionHelp(
+      options.preferSelection !== false && typeof nodeGraphSelectedNodeIds === "function"
+        && nodeGraphSelectedNodeIds().size
+        ? "View centered on selection."
+        : "View centered on modules.",
+    );
+  }
+  return true;
+}
+
 if (typeof window !== "undefined") {
   window.nodeGraphAutoFrame = nodeGraphAutoFrame;
+  window.nodeGraphCenterViewOnModules = nodeGraphCenterViewOnModules;
 }
 
 function nodeGraphZoomRatioBySteps(steps, baseRatio = nodeGraphZoomLimits.wheelRatio) {

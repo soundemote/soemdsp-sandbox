@@ -442,7 +442,7 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 // normalizeNodeGraphTraceDisplayColor → node-graph-module-scope-normalize.js
 // normalizeNodeGraphTraceDisplayNumber → node-graph-module-scope-normalize.js
 // normalizeNodeGraphTraceDisplayZoomSeconds → node-graph-module-scope-normalize.js
-/** Clamp sweep duration: 0.01 s … 10 s (same ceiling as Trace history). */
+/** Clamp sweep duration: 0 s … 10 s (0 = full-width horizontal at sample Y). */
 // nodeGraphTraceDisplayClampSweepSeconds → node-graph-module-scope-normalize.js
 /**
  * Resolve seconds-per-pass. Migrates legacy sweepHz (crossings/sec) and

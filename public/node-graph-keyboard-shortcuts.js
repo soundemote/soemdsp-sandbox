@@ -420,6 +420,14 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
+  // Z → center view on selection (else all modules) at current zoom. Ctrl+Z stays Undo.
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "z") {
+    event.preventDefault();
+    if (typeof nodeGraphCenterViewOnModules === "function") {
+      nodeGraphCenterViewOnModules({ preferSelection: true });
+    }
+    return;
+  }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === "a") {
     if (addFocusedNodeGraphGraphNode()) {
       event.preventDefault();

@@ -861,6 +861,10 @@ const nodeGraphModuleDefinitions = (
   polyBlep: {
     planRole: "source",
     displayType: "lineBurn",
+    // New PolyBLEP faces start with Sync on (one cycle stretched full-width).
+    defaultDisplaySettings: {
+      sourceSync: true,
+    },
     displayModes: [
       { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave Out" } },
     ],
@@ -881,7 +885,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Saw", "Ramp", "Square", "Tri", "Sine", "Wave Out"],
     parameters: [
       {
-        choices: ["Saw", "Ramp", "Square", "Triangle", "Sine", "Noise", "Center Square", "Trisaw", "Pulse"],
+        choices: ["Trisaw", "Saw", "Ramp", "Square", "Triangle", "Sine", "Center Square", "Pulse", "Noise"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -890,7 +894,7 @@ const nodeGraphModuleDefinitions = (
         label: "Waveform",
         linearSmoothing: false,
         max: "8",
-        mid: "2",
+        mid: "3",
         min: "0",
         step: "1"
       },
@@ -902,6 +906,10 @@ const nodeGraphModuleDefinitions = (
         max: "20000",
         mid: "440",
         min: "0",
+        // World time by default; self stash 0.0333 s + 1P when switched to Self.
+        smoothingMode: "global",
+        smoothingSeconds: 0.0333,
+        smoothingType: "onePole",
         step: "any",
         unit: "Hz",
         tooltip:
@@ -920,14 +928,18 @@ const nodeGraphModuleDefinitions = (
         wraparound: true
       },
       {
+        curveAmount: "-0.9",
         defaultValue: "0.5",
         key: "shape",
         label: "PWM",
         max: "1",
+        maxDigits: 5,
         mid: "0.5",
         min: "0",
-        step: "0.01",
-        tooltip: "Pulse width / morph for Center Square, Pulse, and Trisaw. Ignored by Saw / Ramp / Square / Tri / Sine / Noise."
+        nonlinearSlider: true,
+        sliderCurve: "bipolarRational",
+        step: "0",
+        tooltip: "Pulse width / morph for Trisaw, Center Square, and Pulse. Ignored by Saw / Ramp / Square / Tri / Sine / Noise. Bipolar rational skew −0.9 (finer near center)."
       },
       {
         defaultValue: "1",
@@ -1691,14 +1703,18 @@ const nodeGraphModuleDefinitions = (
         wraparound: true,
       },
       {
+        curveAmount: "-0.9",
         defaultValue: "0.5",
         key: "shape",
         label: "PWM",
         max: "1",
+        maxDigits: 5,
         mid: "0.5",
         min: "0",
-        step: "0.01",
-        tooltip: "Pulse width / morph for Square, Center Square, and Trisaw. 0.5 = centered / 50%. Other waves ignore this.",
+        nonlinearSlider: true,
+        sliderCurve: "bipolarRational",
+        step: "0",
+        tooltip: "Pulse width / morph for Square, Center Square, and Trisaw. 0.5 = centered / 50%. Other waves ignore this. Bipolar rational skew −0.9 (finer near center).",
       },
       {
         defaultValue: "1",

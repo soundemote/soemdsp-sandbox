@@ -26,6 +26,9 @@ function buildNodeGraphTextBoxDisplaySettingsBodyHtml() {
   const colorRow = typeof nodeGraphDisplaySettingsBuildColorRowHtml === "function"
     ? nodeGraphDisplaySettingsBuildColorRowHtml
     : () => "";
+  const fontOptions = typeof nodeGraphAppFontOptionsHtml === "function"
+    ? nodeGraphAppFontOptionsHtml()
+    : "";
   return `
     <div class="node-led-display-settings-panel" data-textbox-display-settings-panel>
       <div class="node-led-settings-row" role="group" aria-label="Text mode">
@@ -39,6 +42,12 @@ function buildNodeGraphTextBoxDisplaySettingsBodyHtml() {
         <button type="button" data-textbox-align="center" aria-pressed="true">Center</button>
         <button type="button" data-textbox-align="right" aria-pressed="false">Right</button>
       </div>
+      <label class="node-led-settings-row" data-trace-display-choice-row="font">
+        <span>Font</span>
+        <select data-trace-display-choice="font" data-textbox-font aria-label="Text box font">
+          ${fontOptions}
+        </select>
+      </label>
       <label class="node-led-settings-row">
         <span>Vertical</span>
         <input type="range" min="-100" max="100" step="1" data-textbox-field="verticalAlignPercent" aria-label="Vertical position −100–100">
@@ -78,6 +87,13 @@ function syncNodeGraphTextBoxDisplaySettingsControls(root, settings) {
     button.classList.toggle("active", on);
     button.setAttribute("aria-pressed", String(on));
   }
+  const font = root.querySelector?.(`[data-trace-display-choice="font"], [data-textbox-font]`);
+  if (font) {
+    const fallback = typeof NODE_GRAPH_TEXT_BOX_DEFAULT_FONT === "string"
+      ? NODE_GRAPH_TEXT_BOX_DEFAULT_FONT
+      : "cascadia-mono";
+    font.value = String(settings.font || fallback);
+  }
 }
 
 function bindNodeGraphTextBoxDisplaySettingsBody(host) {
@@ -99,7 +115,10 @@ function bindNodeGraphTextBoxDisplaySettingsBody(host) {
     }
   });
   host.addEventListener("change", (event) => {
-    if (event.target?.closest?.("[data-textbox-field]")) {
+    if (
+      event.target?.closest?.("[data-textbox-field]")
+      || event.target?.closest?.(`[data-trace-display-choice="font"], [data-textbox-font]`)
+    ) {
       apply("immediate", true);
     }
   });

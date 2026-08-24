@@ -382,6 +382,7 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       ? normalizeNodeGraphTextBoxLayout()
       : {
         backgroundColor: "#020407",
+        font: "cascadia-mono",
         horizontalAlign: "center",
         kind: "textBox",
         text: "",
@@ -951,6 +952,10 @@ function readNodeGraphTraceDisplaySettingsForm() {
     const align = panel?.querySelector?.("[data-textbox-align].active, [data-textbox-align][aria-pressed='true']");
     if (align) {
       next.horizontalAlign = align.getAttribute("data-textbox-align");
+    }
+    const font = panel?.querySelector?.(`[data-trace-display-choice="font"], [data-textbox-font]`);
+    if (font) {
+      next.font = font.value;
     }
     for (const key of ["backgroundColor", "textColor"]) {
       const input = panel?.querySelector?.(`[data-trace-display-color="${key}"]`);

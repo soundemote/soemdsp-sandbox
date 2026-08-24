@@ -109,7 +109,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.engineSampleRate = sampleRate;
     this.hostSampleRate = sampleRate;
     this.oversamplingRatio = 1;
-    this.speedMultiplier = 1;
+    // Stay paused until the host posts setSpeed after setPlan + native preload.
+    // Starting at 1 let LFOs into 0.1V/Oct advance during WASM load so PolyBLEP
+    // pitch sounded randomly phased on every Stop→Play.
+    this.speedMultiplier = 0;
     this.speedLimit = 20000;
     this.raptEllipticDecimatorLeft = this.createRaptEllipticDecimatorState();
     this.raptEllipticDecimatorRight = this.createRaptEllipticDecimatorState();

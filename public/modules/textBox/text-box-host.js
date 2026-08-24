@@ -88,6 +88,7 @@ function nodeGraphTextBoxHostEnsureWidget(body, nodeId, layout, { editable = tru
       horizontalAlign: layout.horizontalAlign,
       verticalAlignPercent: layout.verticalAlignPercent,
       textSizePercent: layout.textSizePercent,
+      font: layout.font,
       backgroundColor: layout.backgroundColor,
       textColor: layout.textColor,
       editable,
@@ -138,6 +139,7 @@ function nodeGraphTextBoxHostSync(element, patchNode) {
     horizontalAlign: layout.horizontalAlign,
     verticalAlignPercent: layout.verticalAlignPercent,
     textSizePercent: layout.textSizePercent,
+    font: layout.font,
     backgroundColor: layout.backgroundColor,
     textColor: layout.textColor,
   });

@@ -103,7 +103,11 @@ const nodeGraphLineBurnResetThreshold = 0.5;
  * it sample-by-sample:
  *   phasor += 1 / (sweepSeconds * sampleRate)
  * so changing duration mid-sweep continues from the current X.
- * Wrap or rising-edge Reset (≥ 0.5) snaps to 0 and breaks the path.
+ * Sweep 0 = collapsed sweep: each sample burns one solid full-width horizontal
+ * at its Y (limit of Sweep→0). Fuse spacing is preserved; under Dot Budget we
+ * skip samples, never thin a line into dots. Reset (≥ 0.5) still snaps state.
+ * Sync on: stretch one In rising-edge period across the full face width
+ * (measured trigger→trigger), so the cycle is not squished to the left.
  */
 function nodeGraphOneDimensionalBurnBufferFrameInfo(buffer, count) {
   const endFrame = Number(buffer?.nodeGraphScopeAbsoluteFrame);
@@ -283,16 +287,20 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
   const start = Math.max(0, buffer.length - count);
   const sampleRate = Math.max(1, Number(nodeGraphScopeSampleRate(buffer)) || 44100);
   // Seconds to cross the face → phase advance per sample.
+  // 0 = collapsed sweep: solid full-width horizontal per sample at fuse density.
   let sweepSeconds = Number(settings?.sweepSeconds);
-  if (!Number.isFinite(sweepSeconds) || sweepSeconds <= 0) {
-    // Legacy patches that still only have sweepHz.
+  if (!Number.isFinite(sweepSeconds)) {
     const legacyHz = Number(settings?.sweepHz);
     sweepSeconds = Number.isFinite(legacyHz) && legacyHz > 0
       ? 1 / legacyHz
       : nodeGraphLineBurnSettingsDefaults.sweepSeconds;
   }
-  sweepSeconds = Math.max(0.01, Math.min(10, sweepSeconds));
-  const phaseInc = 1 / (sweepSeconds * sampleRate);
+  if (sweepSeconds < 0) {
+    sweepSeconds = 0;
+  }
+  sweepSeconds = Math.min(10, sweepSeconds);
+  const horizontalBurn = sweepSeconds <= 0;
+  const sweepPhaseInc = horizontalBurn ? 0 : 1 / (sweepSeconds * sampleRate);
   const width = canvas.width;
   const height = canvas.height;
 
@@ -302,7 +310,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     phasor = 0;
   }
   let resetWasHigh = canvas._lineBurnResetWasHigh === true;
-  // Auto-sync (Display Settings → Sync): rising edge of In snaps pen like Reset.
+  // Auto-sync: In rising edge starts a sweep; period stretches to full width.
   const autoSync = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
     ? nodeGraphDisplaySettingsToggleIsOn(settings?.sourceSync ?? settings?.sync)
     : Boolean(settings?.sourceSync);
@@ -317,29 +325,62 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     ? Number(nodeGraphLineBurnResetThreshold)
     : 0.5;
 
-  const snapPen = () => {
+  // Sync stretch: last measured In rising-edge period (samples), and counter
+  // since the previous edge. phaseInc = 1/period so one cycle fills left→right.
+  let syncPeriodSamples = Number(canvas._lineBurnSyncPeriodSamples);
+  if (!Number.isFinite(syncPeriodSamples) || syncPeriodSamples < 2) {
+    syncPeriodSamples = 0;
+  }
+  let samplesSinceSync = Number(canvas._lineBurnSamplesSinceSync);
+  if (!Number.isFinite(samplesSinceSync) || samplesSinceSync < 0) {
+    samplesSinceSync = 0;
+  }
+  let phaseInc = horizontalBurn
+    ? 0
+    : (autoSync && syncPeriodSamples >= 2 ? 1 / syncPeriodSamples : sweepPhaseInc);
+
+  const applySyncSnap = (fromSyncEdge) => {
+    if (fromSyncEdge && samplesSinceSync >= 2) {
+      syncPeriodSamples = samplesSinceSync;
+      if (!horizontalBurn) {
+        phaseInc = 1 / syncPeriodSamples;
+      }
+    }
+    samplesSinceSync = 0;
     phasor = 0;
   };
 
   const stepPhasorAndReset = (resetSample, signalSample) => {
     const resetHigh = Number(resetSample) >= syncThreshold;
     let snapped = resetHigh && !resetWasHigh;
+    let fromSyncEdge = false;
     if (autoSync) {
       const signalHigh = Number(signalSample) >= 0;
       if (signalHigh && !signalWasHigh) {
         snapped = true;
+        fromSyncEdge = true;
       }
       signalWasHigh = signalHigh;
     }
     if (snapped) {
-      snapPen();
+      applySyncSnap(fromSyncEdge);
     }
     resetWasHigh = resetHigh;
-    phasor += phaseInc;
-    if (phasor >= 1) {
-      phasor -= Math.floor(phasor);
-      if (phasor < 0 || phasor >= 1) {
-        phasor = 0;
+    if (autoSync) {
+      samplesSinceSync += 1;
+    }
+    if (!horizontalBurn) {
+      phasor += phaseInc;
+      if (phasor >= 1) {
+        if (autoSync && syncPeriodSamples >= 2) {
+          // Finished the stretched pass early — park at right until next edge.
+          phasor = 1;
+        } else {
+          phasor -= Math.floor(phasor);
+          if (phasor < 0 || phasor >= 1) {
+            phasor = 0;
+          }
+        }
       }
     }
     return snapped;
@@ -356,27 +397,69 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
   const points = [];
   let hadPoint = false;
   let prevSample = NaN;
+  // Sweep 0: one solid full-width segment per sample (2 endpoints; energy GL
+  // packs stamps at thrifty fuse spacing). Cap line count so total ideal stamps
+  // stay ≤ Dot Budget — otherwise the budget spreads thin and lines look dotted.
+  const remaining = Math.max(0, count - drawStartIndex);
+  let horizStride = 1;
+  if (horizontalBurn) {
+    const dotSpace = Math.max(1, Math.min(width, height));
+    const size01 = typeof clampNodeSliderValue === "function"
+      ? clampNodeSliderValue(Number(settings?.dot1Size) || 0, 0, 1)
+      : Math.max(0, Math.min(1, Number(settings?.dot1Size) || 0));
+    let radius = Math.max(0.5, dotSpace * size01 * 0.5);
+    if (typeof nodeGraphScopeSize01ToRadiusPx === "function") {
+      radius = Math.max(0.35, nodeGraphScopeSize01ToRadiusPx(dotSpace, size01));
+    } else if (typeof PhosphorDrawer !== "undefined" && typeof PhosphorDrawer.size01ToRadiusPx === "function") {
+      radius = Math.max(0.35, PhosphorDrawer.size01ToRadiusPx(dotSpace, size01));
+    }
+    const blurRaw = Number(settings?.lineThickness);
+    const blur = typeof nodeGraphTraceDisplayClampStampBlur === "function"
+      ? nodeGraphTraceDisplayClampStampBlur(blurRaw)
+      : Math.max(0, Math.min(1, Number.isFinite(blurRaw) ? blurRaw : 0));
+    // Match phosphor-energy-gl thriftyStep so densify stays under maxDots.
+    const idealStep = Math.max(0.35, radius * (0.18 + blur * 0.18));
+    const stampsPerLine = Math.max(2, Math.ceil(width / idealStep) + 1);
+    let maxDots = 2048;
+    if (typeof nodeGraphScope2dMaxSamplesPerFrame === "function") {
+      maxDots = nodeGraphScope2dMaxSamplesPerFrame(canvas);
+    }
+    const budgetRaw = Number(settings?.dotBudget);
+    if (Number.isFinite(budgetRaw) && budgetRaw > 0) {
+      maxDots = budgetRaw;
+    }
+    maxDots = Math.max(64, Math.min(8192, Math.round(maxDots)));
+    const maxLines = Math.max(1, Math.floor(maxDots / stampsPerLine));
+    horizStride = Math.max(1, Math.ceil(remaining / maxLines));
+  }
+  let horizEmitIndex = 0;
+
   for (let index = drawStartIndex; index < count; index += 1) {
     const sample = buffer[start + index];
     const resetSample = nodeGraphOneDimensionalBurnResetSample(resetBuffer, index, count);
     const resetHigh = Number(resetSample) >= syncThreshold;
     let snapped = resetHigh && !resetWasHigh;
+    let fromSyncEdge = false;
     if (autoSync) {
       const signalHigh = Number(sample) >= 0;
       if (signalHigh && !signalWasHigh) {
         snapped = true;
+        fromSyncEdge = true;
       }
       signalWasHigh = signalHigh;
     }
     if (snapped) {
-      // Rising edge Reset and/or Sync: snap to left edge for this sample.
+      // Rising edge Reset and/or Sync: snap to left; Sync also retunes stretch.
       if (hadPoint) {
         nodeGraphOneDimensionalBurnBreakPath(points);
       }
-      snapPen();
+      applySyncSnap(fromSyncEdge);
       hadPoint = false;
     }
     resetWasHigh = resetHigh;
+    if (autoSync) {
+      samplesSinceSync += 1;
+    }
 
     if (
       skipDisc
@@ -388,29 +471,64 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
       hadPoint = false;
     }
 
-    // Draw at current phasor, then advance — so changing Sweep keeps X.
+    const y = nodeGraphOneDimensionalBurnSampleToY(sample, height, settings);
+    if (horizontalBurn) {
+      // Collapsed sweep: solid full-width burn at this sample's Y.
+      if ((horizEmitIndex % horizStride) === 0) {
+        if (hadPoint) {
+          nodeGraphOneDimensionalBurnBreakPath(points);
+        }
+        points.push({ x: 0, y });
+        points.push({ x: width, y });
+        nodeGraphOneDimensionalBurnBreakPath(points);
+        hadPoint = false;
+      }
+      horizEmitIndex += 1;
+      prevSample = Number(sample);
+      continue;
+    }
+
+    // Sync stretch: after finishing a pass early, blank until the next edge
+    // instead of wrapping (wrapping re-piles energy on the left).
+    if (autoSync && syncPeriodSamples >= 2 && phasor >= 1) {
+      phasor = 1;
+      prevSample = Number(sample);
+      continue;
+    }
+
+    // Sweeping: stamp at current pen X, then advance.
     points.push({
-      x: phasor * width,
-      y: nodeGraphOneDimensionalBurnSampleToY(sample, height, settings),
+      x: Math.min(width, phasor * width),
+      y,
     });
     hadPoint = true;
     prevSample = Number(sample);
 
     phasor += phaseInc;
     if (phasor >= 1) {
-      // Completed a pass — break path; residual starts the next pass at left.
-      nodeGraphOneDimensionalBurnBreakPath(points);
-      phasor -= Math.floor(phasor);
-      if (phasor < 0 || phasor >= 1) {
-        phasor = 0;
+      if (autoSync && syncPeriodSamples >= 2) {
+        phasor = 1;
+        if (hadPoint) {
+          nodeGraphOneDimensionalBurnBreakPath(points);
+        }
+        hadPoint = false;
+      } else {
+        // Freerun: completed a pass — break; residual continues from left.
+        nodeGraphOneDimensionalBurnBreakPath(points);
+        phasor -= Math.floor(phasor);
+        if (phasor < 0 || phasor >= 1) {
+          phasor = 0;
+        }
+        hadPoint = false;
       }
-      hadPoint = false;
     }
   }
 
   canvas._lineBurnPhasor = phasor;
   canvas._lineBurnResetWasHigh = resetWasHigh;
   canvas._lineBurnSignalWasHigh = signalWasHigh;
+  canvas._lineBurnSyncPeriodSamples = syncPeriodSamples;
+  canvas._lineBurnSamplesSinceSync = samplesSinceSync;
   delete canvas._lineBurnSweepOriginFrame;
   return points;
 }
@@ -2309,7 +2427,7 @@ function nodeGraphScope2dCanvasSettingsSignature(settings) {
     safeSettings.fullDotEconomy ? 1 : 0,
     safeSettings.dotsOnly ? 1 : 0,
     safeSettings.skipDiscontinuities ? 1 : 0,
-    Math.round(Number(safeSettings.dotBudget) || 2048),
+    Math.round(Number(safeSettings.dotBudget) || 1024),
   ].join("|");
 }
 

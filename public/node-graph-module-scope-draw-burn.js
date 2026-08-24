@@ -1122,7 +1122,7 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
     ),
     lineThickness: look?.blur ?? 0.35,
     pixelDensity: look?.pixelDensity ?? 1,
-    dotBudget: look?.dotBudget ?? 2048,
+    dotBudget: look?.dotBudget ?? 1024,
   };
   drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settings, {
     endFrame: Number(item?.buffer?.nodeGraphScopeAbsoluteFrame),

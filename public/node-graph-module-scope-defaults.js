@@ -98,7 +98,7 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
   // Stamp blur 0 hard … 1 soft.
   blur: 0.35,
   // Max phosphor stamps / frame (economy spreads when over).
-  dotBudget: 2048,
+  dotBudget: 1024,
   // Face buffer scale (1 = native layout×dpr; <1 pixelated).
   pixelDensity: 1,
   // Amplitude zoom.
@@ -138,7 +138,7 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   // Stamp packing along the path 0…1 (sparse → dense). Diagnoses soft-blur washout.
   stampDensity: 0.5,
   // Max verts before the drawer switches to sparse dots.
-  dotBudget: 2048,
+  dotBudget: 1024,
   // Vector stroke into a density-scaled face buffer (lo-fi look when < 1).
   // Not a phosphor energy grid — still one polyline; density only sets buffer size.
   pixelDensity: 1,
@@ -182,13 +182,14 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   dot1Size: 0.0325,
   lineThickness: 0,
   pixelDensity: 1,
-  dotBudget: 3944,
+  dotBudget: 1024,
   fullDotEconomy: false,
   dotsOnly: false,
   // Rising-edge auto-trigger on In (snaps pen left). Off unless the user
   // turns Sync on — same default as Instant Trace / other 1D faces.
   sourceSync: false,
-  skipDiscontinuities: false,
+  // Saw / square / pulse wrap jumps look like ink spikes without this.
+  skipDiscontinuities: true,
   sweepSeconds: 0.01,
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),

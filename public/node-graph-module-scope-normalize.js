@@ -487,7 +487,7 @@ function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
-      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 2048))),
+      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 1024))),
     // Default ON when missing (devilish solid trails). Explicit false stays off.
     fullDotEconomy: source.fullDotEconomy !== false
       && source.useFullDotEconomy !== false,
@@ -581,18 +581,21 @@ function normalizeNodeGraphTraceDisplayZoomSeconds(value, fallback) {
 
 function nodeGraphTraceDisplayClampSweepSeconds(value) {
   const n = Number(value);
-  // Non-finite only → default. 0 / negative → fastest legal sweep (0.01 s),
-  // NOT snap back to default 2 s (that felt broken when dragging Sweep to 0).
+  // Non-finite → default. 0 = collapsed sweep (solid full-width horizontal
+  // per sample at fuse density). Negative → 0. Do not snap 0 to default.
   if (!Number.isFinite(n)) {
     return nodeGraphLineBurnSettingsDefaults.sweepSeconds;
   }
-  return clampNodeSliderValue(n, 0.01, 10);
+  if (n <= 0) {
+    return 0;
+  }
+  return clampNodeSliderValue(n, 0, 10);
 }
 
 
 function normalizeNodeGraphLineBurnSweepSeconds(source, defaults) {
   const explicit = Number(source?.sweepSeconds);
-  if (Number.isFinite(explicit) && explicit > 0) {
+  if (Number.isFinite(explicit) && explicit >= 0) {
     return nodeGraphTraceDisplayClampSweepSeconds(explicit);
   }
   // Legacy: sweepHz = full left→right crossings per second.
@@ -642,7 +645,7 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     // Dot Budget + Full Dot Economy persist (toggle was dropped before).
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
-      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 2048))),
+      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 1024))),
     // Shared packing toggles (same SSOT as scope2d / 2D Phosphor).
     fullDotEconomy: nodeGraphDisplaySettingsToggleIsOn(
       source.fullDotEconomy ?? source.useFullDotEconomy,
@@ -776,7 +779,7 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
     ),
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
-      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 2048))),
+      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 1024))),
     pixelDensity: normalizeNodeGraphTraceDisplayNumber(
       source.pixelDensity,
       defaults.pixelDensity,
@@ -1389,7 +1392,7 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
-      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 2048))),
+      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 1024))),
     // Full Dots / Dots only — shared phosphor packing (scope2d SSOT).
     // Accept bool true and common form/patch coercions (1 / "1" / "true" / "on").
     fullDotEconomy: nodeGraphDisplaySettingsToggleIsOn(

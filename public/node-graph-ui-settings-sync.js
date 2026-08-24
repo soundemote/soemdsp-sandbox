@@ -521,14 +521,27 @@ function syncNodeUiDevIoSectionPadding() {
   }
 }
 
+/** Max inlet/outlet size % — leaves room for crescent stroke inside the 1gu slot. */
+const NODE_UI_DEV_PORT_SIZE_PERCENT_MAX = 90;
+const NODE_UI_DEV_PORT_SIZE_PERCENT_MIN = 20;
+const NODE_UI_DEV_PORT_SIZE_PERCENT_DEFAULT = 52;
+
 function syncNodeUiDevPortSize() {
   const input = document.getElementById("nodeUiDevInletOutletSize");
   const raw = Number(input?.value);
   const percent = Number.isFinite(raw)
-    ? Math.max(20, Math.min(100, raw))
-    : 52;
-  if (input && input.value !== String(percent)) {
-    input.value = String(percent);
+    ? Math.max(
+      NODE_UI_DEV_PORT_SIZE_PERCENT_MIN,
+      Math.min(NODE_UI_DEV_PORT_SIZE_PERCENT_MAX, raw),
+    )
+    : NODE_UI_DEV_PORT_SIZE_PERCENT_DEFAULT;
+  if (input) {
+    if (Number(input.max) !== NODE_UI_DEV_PORT_SIZE_PERCENT_MAX) {
+      input.max = String(NODE_UI_DEV_PORT_SIZE_PERCENT_MAX);
+    }
+    if (input.value !== String(percent)) {
+      input.value = String(percent);
+    }
   }
   const output = document.getElementById("nodeUiDevInletOutletSizeValue");
   if (output) {

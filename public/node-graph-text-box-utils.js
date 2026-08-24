@@ -96,6 +96,8 @@ function normalizeNodeGraphTextBoxTextSizePercent(value) {
 
 const NODE_GRAPH_TEXT_BOX_DEFAULT_BACKGROUND = "#020407";
 const NODE_GRAPH_TEXT_BOX_DEFAULT_TEXT_COLOR = "#f3f1ec";
+/** Match the previous hardcoded Cascadia Mono face (app font catalog id). */
+const NODE_GRAPH_TEXT_BOX_DEFAULT_FONT = "cascadia-mono";
 
 function nodeGraphTextBoxNormalizeHex(value, fallback) {
   const text = String(value || "").trim();
@@ -116,11 +118,15 @@ function normalizeNodeGraphTextBoxLayout(layout = {}) {
     ? nodeGraphTextBoxOneLineText(source.text)
     : String(source.text ?? "");
   const bipolarVertical = source.verticalBipolar === true;
+  const font = typeof nodeGraphAppNormalizeFont === "function"
+    ? nodeGraphAppNormalizeFont(source.font, NODE_GRAPH_TEXT_BOX_DEFAULT_FONT)
+    : String(source.font || NODE_GRAPH_TEXT_BOX_DEFAULT_FONT).trim().toLowerCase() || NODE_GRAPH_TEXT_BOX_DEFAULT_FONT;
   return {
     backgroundColor: nodeGraphTextBoxNormalizeHex(
       source.backgroundColor,
       NODE_GRAPH_TEXT_BOX_DEFAULT_BACKGROUND,
     ),
+    font,
     horizontalAlign: normalizeNodeGraphTextBoxHorizontalAlign(source.horizontalAlign || source.textAlign),
     kind: "textBox",
     text,
@@ -136,4 +142,11 @@ function normalizeNodeGraphTextBoxLayout(layout = {}) {
       { legacy: !bipolarVertical },
     ),
   };
+}
+
+function nodeGraphTextBoxFontFamily(value) {
+  if (typeof nodeGraphAppFontFamily === "function") {
+    return nodeGraphAppFontFamily(value, NODE_GRAPH_TEXT_BOX_DEFAULT_FONT);
+  }
+  return "\"Cascadia Mono\", \"Cascadia Code\", Consolas, \"Courier New\", monospace";
 }

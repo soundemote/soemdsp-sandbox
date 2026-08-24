@@ -5,6 +5,28 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
   if (typeof document === "undefined") {
     return;
   }
+  // 1D Phosphor / lineBurn keeps a free-running pen phasor on the canvas.
+  // Clear it on Stop so the next Play does not resume mid-sweep.
+  for (const canvas of document.querySelectorAll("canvas")) {
+    if (!canvas || typeof canvas !== "object") {
+      continue;
+    }
+    if ("_lineBurnPhasor" in canvas) {
+      canvas._lineBurnPhasor = 0;
+    }
+    if ("_lineBurnResetWasHigh" in canvas) {
+      canvas._lineBurnResetWasHigh = false;
+    }
+    if ("_lineBurnSignalWasHigh" in canvas) {
+      canvas._lineBurnSignalWasHigh = false;
+    }
+    if ("_lineBurnSweepOriginFrame" in canvas) {
+      delete canvas._lineBurnSweepOriginFrame;
+    }
+    if ("_nodeGraphOneDimensionalBurnLastDrawnFrame" in canvas) {
+      delete canvas._nodeGraphOneDimensionalBurnLastDrawnFrame;
+    }
+  }
   // Off-screen spectrogram history bitmaps (if the display registered a wipe).
   if (typeof clearNodeGraphSpectrogramHistory === "function") {
     try {

@@ -165,14 +165,23 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
   const double phaseCycle = wrap01(phase / kTwoPi);
   const double m = clampD(morph, 0.0, 1.0);
   double sample = 0.0;
+  // Order matches UI choices:
+  // 0 Trisaw, 1 Saw, 2 Ramp, 3 Square, 4 Triangle, 5 Sine,
+  // 6 Center Square, 7 Pulse, 8 Noise
   switch (waveform) {
+    case 0:
+      sample = polyBlepTrisaw(phaseCycle, absInc, m);
+      break;
     case 1:
-      sample = -1.0 + phaseCycle * 2.0 - polyBlep(phaseCycle, renderIncrement);
+      sample = 1.0 - phaseCycle * 2.0 + polyBlep(phaseCycle, renderIncrement);
       break;
     case 2:
+      sample = -1.0 + phaseCycle * 2.0 - polyBlep(phaseCycle, renderIncrement);
+      break;
+    case 3:
       sample = polyBlepSquare(phaseCycle, renderIncrement);
       break;
-    case 3: {
+    case 4: {
       if (phaseStopped) {
         const double t = phaseCycle < 0.5 ? (0.5 - phaseCycle) : (phaseCycle - 0.5);
         sample = 1.0 - 4.0 * t;
@@ -185,10 +194,16 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
       sample = nextTriangle;
       break;
     }
-    case 4:
+    case 5:
       sample = sinApprox(phase);
       break;
-    case 5: {
+    case 6:
+      sample = polyBlepPulseCenter(phaseCycle, absInc, m);
+      break;
+    case 7:
+      sample = polyBlepPulse(phaseCycle, absInc, m);
+      break;
+    case 8: {
       if (phaseStopped) {
         if (!slot.hasNoiseSeed) {
           slot.noiseSeed = nextNoiseSeed(0x12345678u);
@@ -202,17 +217,8 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
       }
       break;
     }
-    case 6:
-      sample = polyBlepPulseCenter(phaseCycle, absInc, m);
-      break;
-    case 7:
-      sample = polyBlepTrisaw(phaseCycle, absInc, m);
-      break;
-    case 8:
-      sample = polyBlepPulse(phaseCycle, absInc, m);
-      break;
     default:
-      sample = 1.0 - phaseCycle * 2.0 + polyBlep(phaseCycle, renderIncrement);
+      sample = polyBlepTrisaw(phaseCycle, absInc, m);
       break;
   }
   if (!phaseStopped) {
@@ -241,7 +247,19 @@ extern "C" void soemdsp_polyblep_destroy(int handle) {
 
 extern "C" void soemdsp_polyblep_reset(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
-  gPool[handle - 1].slots[0].triangleIntegrator = 0.0;
+  PolyBlepState& s = gPool[handle - 1];
+  for (int i = 0; i < kSlotCount; i++) {
+    s.slots[i].triangleIntegrator = 0.0;
+    s.slots[i].lastPhaseIncrement = 0.0;
+    s.slots[i].hasNoiseSeed = false;
+    s.slots[i].noiseSeed = 0;
+  }
+  s.out = 0.0;
+  s.saw = 0.0;
+  s.ramp = 0.0;
+  s.square = 0.0;
+  s.tri = 0.0;
+  s.sine = 0.0;
 }
 
 extern "C" void soemdsp_polyblep_sample(
@@ -258,11 +276,11 @@ extern "C" void soemdsp_polyblep_sample(
   // NaN/missing morph (older 5-arg callers) → 0.5.
   const double safeMorph = (morph == morph) ? morph : 0.5;
   const double selected = oscillatorSample(s.slots[0], phase, phaseIncrement, safeWaveform, safeMorph) * level;
-  s.saw    = oscillatorSample(s.slots[1], phase, phaseIncrement, 0, 0.5) * level;
-  s.ramp   = oscillatorSample(s.slots[2], phase, phaseIncrement, 1, 0.5) * level;
-  s.square = oscillatorSample(s.slots[3], phase, phaseIncrement, 2, 0.5) * level;
-  s.tri    = oscillatorSample(s.slots[4], phase, phaseIncrement, 3, 0.5) * level;
-  s.sine   = oscillatorSample(s.slots[5], phase, phaseIncrement, 4, 0.5) * level;
+  s.saw    = oscillatorSample(s.slots[1], phase, phaseIncrement, 1, 0.5) * level;
+  s.ramp   = oscillatorSample(s.slots[2], phase, phaseIncrement, 2, 0.5) * level;
+  s.square = oscillatorSample(s.slots[3], phase, phaseIncrement, 3, 0.5) * level;
+  s.tri    = oscillatorSample(s.slots[4], phase, phaseIncrement, 4, 0.5) * level;
+  s.sine   = oscillatorSample(s.slots[5], phase, phaseIncrement, 5, 0.5) * level;
   s.out = selected;
 }
 
@@ -297,5 +315,5 @@ extern "C" double soemdsp_polyblep_sine(int handle) {
 }
 
 extern "C" int soemdsp_polyblep_version() {
-  return 3;
+  return 4;
 }

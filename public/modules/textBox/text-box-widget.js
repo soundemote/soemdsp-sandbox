@@ -37,6 +37,29 @@ function textBoxWidgetNormalizeVertical(value) {
   return 0;
 }
 
+function textBoxWidgetNormalizeFont(value) {
+  if (typeof nodeGraphAppNormalizeFont === "function") {
+    return nodeGraphAppNormalizeFont(
+      value,
+      typeof NODE_GRAPH_TEXT_BOX_DEFAULT_FONT === "string"
+        ? NODE_GRAPH_TEXT_BOX_DEFAULT_FONT
+        : "cascadia-mono",
+    );
+  }
+  const id = String(value || "").trim().toLowerCase();
+  return id || "cascadia-mono";
+}
+
+function textBoxWidgetFontFamily(value) {
+  if (typeof nodeGraphTextBoxFontFamily === "function") {
+    return nodeGraphTextBoxFontFamily(value);
+  }
+  if (typeof nodeGraphAppFontFamily === "function") {
+    return nodeGraphAppFontFamily(value, "cascadia-mono");
+  }
+  return "\"Cascadia Mono\", \"Cascadia Code\", Consolas, \"Courier New\", monospace";
+}
+
 function textBoxWidgetReadText(field) {
   if (!field) return "";
   const raw = String(field.innerText ?? field.textContent ?? "").replace(/\u00a0/g, " ");
@@ -50,14 +73,55 @@ function textBoxWidgetWriteText(field, value) {
   field.textContent = next;
 }
 
+/**
+ * Intrinsic glyph/content height. Do not use scrollHeight here: the face is
+ * height:100%, so scrollHeight equals the box even when text is short — and
+ * the Vertical % knob then has zero slack (especially noticeable in multiline).
+ */
+function textBoxWidgetMeasureContentHeight(field) {
+  if (!field) return 0;
+  try {
+    if (field.childNodes.length) {
+      const range = document.createRange();
+      range.selectNodeContents(field);
+      const rects = range.getClientRects();
+      let top = Infinity;
+      let bottom = -Infinity;
+      for (let i = 0; i < rects.length; i += 1) {
+        const rect = rects[i];
+        if (!(rect.width > 0 || rect.height > 0)) continue;
+        top = Math.min(top, rect.top);
+        bottom = Math.max(bottom, rect.bottom);
+      }
+      if (bottom > top) {
+        return bottom - top;
+      }
+      const bounds = range.getBoundingClientRect();
+      if (bounds.height > 0) {
+        return bounds.height;
+      }
+    }
+  } catch (_error) {
+    // fall through to line-box estimate
+  }
+  const style = window.getComputedStyle(field);
+  const lineHeight = Number.parseFloat(style.lineHeight);
+  if (Number.isFinite(lineHeight) && lineHeight > 0) {
+    return lineHeight;
+  }
+  const fontSize = Number.parseFloat(style.fontSize);
+  return Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.2 : 0;
+}
+
 function textBoxWidgetApplyAlign(field, layout) {
   if (!field) return;
   field.style.setProperty("--node-text-box-content-offset", "0px");
   void field.offsetHeight;
   const box = Math.max(0, field.clientHeight);
-  const contentHeight = Math.max(0, field.scrollHeight);
-  const slack = box - contentHeight;
+  const contentHeight = textBoxWidgetMeasureContentHeight(field);
+  const slack = Math.max(0, box - contentHeight);
   const bipolar = textBoxWidgetNormalizeVertical(layout.verticalAlignPercent);
+  // -100 = top (0), 0 = center (slack/2), +100 = bottom (slack)
   const offset = slack * 0.5 + (slack * bipolar) / 200;
   field.style.setProperty("--node-text-box-content-offset", `${offset.toFixed(2)}px`);
 }
@@ -124,6 +188,7 @@ function createTextBoxWidget(body, options = {}) {
     textSizePercent: Number.isFinite(Number(options.textSizePercent))
       ? Math.max(50, Math.min(1000, Math.round(Number(options.textSizePercent))))
       : 100,
+    font: textBoxWidgetNormalizeFont(options.font),
     backgroundColor: String(options.backgroundColor || ""),
     textColor: String(options.textColor || ""),
   };
@@ -235,8 +300,10 @@ function createTextBoxWidget(body, options = {}) {
     field.dataset.textAlign = layout.horizontalAlign;
     field.dataset.textBoxMode = layout.textMode;
     field.dataset.textBoxModeCss = layout.textMode === "singleLine" ? "singleLine" : "multiline";
+    field.dataset.textBoxFont = layout.font;
     field.style.textAlign = layout.horizontalAlign;
     field.style.setProperty("--node-text-box-font-scale", String(layout.textSizePercent / 100));
+    field.style.setProperty("--node-text-box-font", textBoxWidgetFontFamily(layout.font));
     if (layout.backgroundColor) {
       body.style.setProperty("--node-text-box-bg", layout.backgroundColor);
       field.style.setProperty("--node-text-box-bg", layout.backgroundColor);
@@ -247,6 +314,7 @@ function createTextBoxWidget(body, options = {}) {
     field.setAttribute("aria-multiline", layout.textMode === "singleLine" ? "false" : "true");
     body.dataset.textHorizontalAlign = layout.horizontalAlign;
     body.dataset.textVerticalAlignPercent = String(layout.verticalAlignPercent);
+    body.dataset.textBoxFont = layout.font;
   }
 
   function scheduleVisual() {
@@ -315,6 +383,7 @@ function createTextBoxWidget(body, options = {}) {
         const n = Math.round(Number(next.textSizePercent));
         if (Number.isFinite(n)) layout.textSizePercent = Math.max(50, Math.min(1000, n));
       }
+      if (next.font != null) layout.font = textBoxWidgetNormalizeFont(next.font);
       if (next.backgroundColor != null) layout.backgroundColor = String(next.backgroundColor || "");
       if (next.textColor != null) layout.textColor = String(next.textColor || "");
       if (next.text != null) this.setText(next.text);
