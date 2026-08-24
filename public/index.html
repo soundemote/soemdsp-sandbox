@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=JetBrains+Mono:wght@400;500;600;700&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=keyboard-nav-focus-1">
+  <link rel="stylesheet" href="./public/styles.css?v=io-gap-flush-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=input-outlet-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -1296,6 +1296,34 @@
             </div>
           </label>
           <label class="node-ui-dev-control">
+            <span>inlet outlet stroke thickness</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevInletOutletStrokeThickness"
+                type="range"
+                min="0"
+                max="8"
+                step="0.05"
+                value="1.25"
+                title="Crescent stroke width in world px — scales with zoom (not screen-fixed)">
+              <output id="nodeUiDevInletOutletStrokeThicknessValue" for="nodeUiDevInletOutletStrokeThickness">1.25px</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>inlet outlet gap</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevInletOutletGap"
+                type="range"
+                min="0"
+                max="32"
+                step="1"
+                value="0"
+                title="Vertical space between stacked jacks in the I/O section">
+              <output id="nodeUiDevInletOutletGapValue" for="nodeUiDevInletOutletGap">0px</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
             <span>io to screen gap</span>
             <div class="node-ui-dev-control-row">
               <input
@@ -1345,8 +1373,8 @@
                 min="0"
                 max="1"
                 step="0.01"
-                value="0.40">
-              <output id="nodeUiDevUnusedPortBrightnessValue" for="nodeUiDevUnusedPortBrightness">0.40</output>
+                value="0.68">
+              <output id="nodeUiDevUnusedPortBrightnessValue" for="nodeUiDevUnusedPortBrightness">0.68</output>
             </div>
           </label>
           <label class="node-ui-dev-color-control">
@@ -3692,7 +3720,7 @@
   <script src="./public/modules/fbmField/fbm-field-ui.js?v=fbf-fps-1"></script>
   <script src="./public/modules/fbmField/fbm-field-display.js?v=fbf-fps-1"></script>
   <script src="./public/modules/bugButton/bug-button-ui.js?v=bug-button-settings-edit-20260723"></script>
-  <script src="./public/modules/xyPad/xy-pad-ui.js?v=xy-amp-xy-1"></script>
+  <script src="./public/modules/xyPad/xy-pad-ui.js?v=xy-domain-hold-1"></script>
   <script src="./public/modules/numberReadout/number-readout-ui.js?v=led-lcd-update-1"></script>
   <script src="./public/modules/rayBouncer/ray-bouncer-ui.js?v=ray-bouncer-solid-1"></script>
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
@@ -3707,7 +3735,7 @@
   <script src="./public/modules/portal/portal-ui.js?v=input-outlet-1"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=cc-name-value-1"></script>
   <script src="./public/node-graph-module-rendering.js?v=basic-face-1"></script>
-  <script src="./public/node-graph-module-frame.js?v=plate-11-1"></script>
+  <script src="./public/node-graph-module-frame.js?v=port-io-half-slot-1"></script>
   <script src="./public/node-graph-history.js?v=book-ui-script-1"></script>
   <script src="./public/node-graph-visual-utils.js?v=eq-curve-4"></script>
   <script src="./public/node-graph-patch-clone.js?v=wf-rgb-1"></script>
@@ -3751,12 +3779,12 @@
   <script src="./public/node-graph-tooltips.js?v=gpu-stamps-1"></script>
   <script src="./public/node-graph-interaction-help.js?v=v-cycle-1"></script>
   <script src="./public/presets/useruisettings.js?v=plate-11-1"></script>
-  <script src="./public/node-graph-ui-settings-definitions.js?v=module-strokes-fixed-1"></script>
+  <script src="./public/node-graph-ui-settings-definitions.js?v=io-jack-gap-1"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=macro-cleanup-2"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=uidev-page-1"></script>
   <script src="./public/node-graph-ui-settings-persistence.js?v=v-cycle-1"></script>
-  <script src="./public/node-graph-ui-settings-sync.js?v=module-strokes-fixed-1"></script>
+  <script src="./public/node-graph-ui-settings-sync.js?v=io-jack-gap-1"></script>
   <script src="./public/node-graph-keyboard-shortcuts.js?v=keyboard-nav-focus-1"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
@@ -4076,7 +4104,7 @@
   <script src="./public/node-graph-header-event-bindings.js?v=vis-bars-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
   <script src="./public/node-graph-scene-menu-event-bindings.js?v=inv-1"></script>
-  <script src="./public/node-graph-uidev-event-bindings.js?v=mag-rim-1"></script>
+  <script src="./public/node-graph-uidev-event-bindings.js?v=io-jack-gap-1"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=book-ui-script-1"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>
   <script src="./public/node-graph-event-bindings.js?v=remove-dead-uiview-bind-20260724"></script>

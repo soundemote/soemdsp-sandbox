@@ -533,10 +533,62 @@ function syncNodeUiDevIoSectionPadding() {
   }
 }
 
+/** Vertical gap between stacked I/O jacks (--node-io-gap). */
+const NODE_UI_DEV_INLET_OUTLET_GAP_DEFAULT = 0;
+const NODE_UI_DEV_INLET_OUTLET_GAP_MIN = 0;
+const NODE_UI_DEV_INLET_OUTLET_GAP_MAX = 32;
+
+function syncNodeUiDevInletOutletGap() {
+  const input = document.getElementById("nodeUiDevInletOutletGap");
+  const raw = Number(input?.value);
+  const px = Number.isFinite(raw)
+    ? Math.max(
+      NODE_UI_DEV_INLET_OUTLET_GAP_MIN,
+      Math.min(NODE_UI_DEV_INLET_OUTLET_GAP_MAX, raw),
+    )
+    : NODE_UI_DEV_INLET_OUTLET_GAP_DEFAULT;
+  if (input && !input.matches(":active") && input.value !== String(px)) {
+    input.value = String(px);
+  }
+  const output = document.getElementById("nodeUiDevInletOutletGapValue");
+  if (output) {
+    output.textContent = `${Math.round(px)}px`;
+  }
+  const css = `${Math.round(px)}px`;
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  workspace?.style.setProperty("--node-io-gap", css);
+  document.documentElement.style.setProperty("--node-io-gap", css);
+  if (typeof scheduleNodeUiDevPortGeometryFollowup === "function") {
+    scheduleNodeUiDevPortGeometryFollowup();
+  } else if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
+    scheduleNodeGraphModuleFramesUpdate();
+  }
+}
+
 /** Max inlet/outlet size % — leaves room for crescent stroke inside the 1gu slot. */
 const NODE_UI_DEV_PORT_SIZE_PERCENT_MAX = 90;
 const NODE_UI_DEV_PORT_SIZE_PERCENT_MIN = 20;
 const NODE_UI_DEV_PORT_SIZE_PERCENT_DEFAULT = 52;
+
+/** Crescent stroke in world px — scales with workspace zoom. */
+const NODE_UI_DEV_PORT_STROKE_THICKNESS_DEFAULT = 1.25;
+const NODE_UI_DEV_PORT_STROKE_THICKNESS_MIN = 0;
+const NODE_UI_DEV_PORT_STROKE_THICKNESS_MAX = 8;
+
+/**
+ * Size / stroke change jack row heights and contact radius. Remeasure plate
+ * gaps and redraw wires after layout settles (same double-rAF as other layout).
+ */
+function scheduleNodeUiDevPortGeometryFollowup() {
+  if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
+    scheduleNodeGraphModuleFramesUpdate();
+  }
+  if (typeof scheduleNodeGraphWireRedrawAfterLayout === "function") {
+    scheduleNodeGraphWireRedrawAfterLayout();
+  } else if (typeof drawNodeGraphWires === "function") {
+    window.requestAnimationFrame(() => drawNodeGraphWires());
+  }
+}
 
 function syncNodeUiDevPortSize() {
   const input = document.getElementById("nodeUiDevInletOutletSize");
@@ -563,9 +615,31 @@ function syncNodeUiDevPortSize() {
   const workspace = document.getElementById("nodeGraphWorkspace");
   workspace?.style.setProperty("--node-port-size-ratio", css);
   document.documentElement.style.setProperty("--node-port-size-ratio", css);
-  if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
-    scheduleNodeGraphModuleFramesUpdate();
+  scheduleNodeUiDevPortGeometryFollowup();
+}
+
+function syncNodeUiDevPortStrokeThickness() {
+  const input = document.getElementById("nodeUiDevInletOutletStrokeThickness");
+  const raw = Number(input?.value);
+  const px = Number.isFinite(raw)
+    ? Math.max(
+      NODE_UI_DEV_PORT_STROKE_THICKNESS_MIN,
+      Math.min(NODE_UI_DEV_PORT_STROKE_THICKNESS_MAX, raw),
+    )
+    : NODE_UI_DEV_PORT_STROKE_THICKNESS_DEFAULT;
+  if (input && !input.matches(":active") && input.value !== String(px)) {
+    input.value = String(px);
   }
+  const output = document.getElementById("nodeUiDevInletOutletStrokeThicknessValue");
+  if (output) {
+    const rounded = Math.round(px * 100) / 100;
+    output.textContent = `${rounded}px`;
+  }
+  const css = `${px}px`;
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  workspace?.style.setProperty("--node-port-crescent-stroke-thickness", css);
+  document.documentElement.style.setProperty("--node-port-crescent-stroke-thickness", css);
+  scheduleNodeUiDevPortGeometryFollowup();
 }
 
 function syncNodeUiDevPortBrightness() {
@@ -579,7 +653,7 @@ function syncNodeUiDevPortBrightness() {
     "nodeUiDevUnusedPortBrightness",
     "nodeUiDevUnusedPortBrightnessValue",
     "--node-port-unused-brightness",
-    0.4,
+    0.68,
   );
 }
 
@@ -733,6 +807,8 @@ function syncNodeUiDevSettingsHeaderControls() {
   syncNodeUiDevDimmerCutoutControls();
   syncNodeUiDevMagnifierRimControls();
   syncNodeUiDevPortSize();
+  syncNodeUiDevPortStrokeThickness();
+  syncNodeUiDevInletOutletGap();
   syncNodeUiDevIoSectionPadding();
   syncNodeUiDevPortBrightness();
   syncNodeUiDevJackColors();

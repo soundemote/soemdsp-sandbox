@@ -94,6 +94,23 @@ input[type="range"] {
   -webkit-user-select: text;
 }
 
+/*
+ * App-wide keyboard focus: replace the UA thick white double stroke (Chrome
+ * `outline: auto` on dark UI) with a thin accent ring — but only while
+ * keyboard-navigating (`body.keyboard-nav`, set on Tab, cleared on pointer).
+ * Click / drag anywhere dismisses the ring without fighting real focus.
+ * Components that set `outline: none` on :focus-visible keep their cues.
+ */
+:focus,
+:focus-visible {
+  outline: none;
+}
+
+body.keyboard-nav :focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent, #7fc7d9) 55%, transparent);
+  outline-offset: 1px;
+}
+
 body.node-boot-loading,
 body.node-boot-fading {
   overflow-x: hidden;
@@ -915,6 +932,12 @@ button {
 
 button:hover {
   border-color: var(--accent);
+}
+
+/* Jacks are <button>s — crescent is inset box-shadow, not border. */
+button.node-port:hover,
+button.node-param-port:hover {
+  border-color: transparent;
 }
 
 button:disabled {
@@ -6525,32 +6548,35 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     var(--node-port-area-size)
     * min(var(--node-port-size-ratio, 0.52), var(--node-port-size-ratio-max, 0.9))
   );
-  /* One crescent ring for every inlet/outlet (I/O + param). */
-  /* Screen-constant: zoom-surface uses transform scale, so a raw 1.25px
-     jack ring vanishes when zoomed out. Git checkout cannot fix that. */
-  --node-port-crescent-stroke-width: calc(1.25px / max(0.0001, var(--node-graph-zoom, 1)));
-  /*
-   * Stroke is an INSET ring (never paints outside the circle box). The port
-   * box is overflow:hidden and is the only drawing area — no clip-path half
-   * that leaves the circle hanging outside the jack cell.
-   */
+  /* One crescent ring for every inlet/outlet (I/O + param).
+     World-space thickness (scales with zoom). UIDEV writes
+     --node-port-crescent-stroke-thickness. */
+  --node-port-crescent-stroke-thickness: 1.25px;
+  --node-port-crescent-stroke-width: var(--node-port-crescent-stroke-thickness, 1.25px);
+  /* Crescent = inset ring on a full circle, clipped to the inward half. */
   --node-port-crescent-paint: transparent;
   /* Unused PARAM jack stroke. UIDEV must not write it. Signal I/O jacks
      use type color mixed with outlet RGB / inlet blue brightness. */
-  --node-port-idle-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 22%, transparent);
+  /* Permanent jack stroke = former hover look (no separate idle chrome). */
+  --node-port-idle-crescent-stroke: color-mix(in srgb, var(--node-port-hover-stroke, #f3f1ec) 68%, transparent);
   --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
   --node-port-radius: calc(var(--node-port-diameter) * 0.5);
   --node-port-area-radius: calc(var(--node-port-area-size) * 0.5);
-  /* Column track = half-slot (half-jack width at full fill); visual jack is narrower. */
+  /* Column track = half-slot (1gu/2). Visual crescent is narrower (size %). */
   --node-port-column-width: var(--node-port-area-radius);
   /* Shared LayoutA+B: leftover height under last content (≥2px, or +1gu from JS). */
   --node-module-bottom-gap-track: minmax(2px, 1fr);
   --node-wire-patch-point-size: calc(var(--node-port-diameter) * 0.54);
   --node-wire-thickness: calc(var(--node-port-diameter) * 0.25);
   --node-trace-wire-thickness: 1px;
-  /* Signal jack box — must stay ≤ slot (see .node-io-row overflow + max-height). */
+  /*
+   * Signal jack cell:
+   *   width  = half-slot (room to clip the inward half without eating the wall)
+   *   height = visual diameter (so inlet-outlet gap:0 packs crescents flush;
+   *            using full 1gu height left ~13px phantom air at size 52%)
+   */
   --node-signal-port-height: var(--node-port-diameter);
-  --node-signal-port-width: var(--node-port-radius);
+  --node-signal-port-width: var(--node-port-area-radius);
   --node-slider-padding-block: calc(var(--node-grid-size) * 0.0357143);
   --node-slider-padding-inline: calc(var(--node-grid-size) * 0.25);
   --node-slider-row-padding-block: 0px;
@@ -6578,6 +6604,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-module-drag-stroke: #e2a86d;
   --node-port-idle-fill: transparent;
   --node-port-idle-stroke: var(--node-port-idle-crescent-stroke);
+  /* Kept for smoke + as the permanent stroke source (no hover restyle). */
   --node-port-hover-fill: #f3f1ec;
   --node-port-hover-stroke: #f3f1ec;
   /* --node-dot-cursor / --node-default-cursor live on :root (app-wide SSOT). */
@@ -6595,7 +6622,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-jack-green: #3ddc84;
   --node-jack-blue: #4d8dff;
   --node-port-used-brightness: 85%;
-  --node-port-unused-brightness: 40%;
+  /* Match former hover stroke strength so unused jacks look “lit” permanently. */
+  --node-port-unused-brightness: 68%;
   --node-port-paint-brightness: var(--node-port-unused-brightness);
   --node-inlet-blue-stroke: #e2a86d;
   --node-outlet-left-stroke: var(--node-jack-red);
@@ -9368,8 +9396,9 @@ body.node-graph-magnifying-active .node-graph-workspace * {
  * z-index must beat scroll bodies / form widgets so SE drag still works when
  * a control sits under the grip.
  *
- * APP_POLICY §14: idle-hidden; reveal on parent hover / handle hover / drag.
- * Hit box stays live (opacity only) so the corner is still findable.
+ * APP_POLICY §14: idle-hidden; reveal only when the grip itself is hovered /
+ * focused / dragged — not when the parent window is hovered.
+ * Hit box stays live (opacity only) so the 18×18 corner is still findable.
  */
 .scene-context-resize-handle {
   position: absolute;
@@ -9406,7 +9435,6 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   transition: opacity 120ms ease;
 }
 
-*:hover > .scene-context-resize-handle,
 .scene-context-resize-handle:is(:hover, :focus-visible, :active, .dragging) {
   opacity: 1;
 }
@@ -13690,13 +13718,13 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell) > .node-io-column {
   display: grid;
   grid-row: 1;
-  /* Pack jacks flush. Do not 1fr-stretch rows (that opened gaps between ports). */
+  /* Pack jacks flush (gap from --node-io-gap). Do not 1fr-stretch rows. */
   grid-auto-rows: minmax(var(--node-signal-port-height), auto);
   align-self: stretch;
   align-content: start;
   justify-content: stretch;
   justify-items: stretch;
-  gap: 0;
+  gap: var(--node-io-gap, 0px);
   padding: 0 !important;
   min-height: 0;
   max-height: 100%;
@@ -14749,7 +14777,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   align-items: center;
   gap: 0;
   width: 100%;
-  min-height: max(var(--node-port-area-size), var(--node-signal-port-height));
+  min-height: var(--node-signal-port-height);
   overflow: visible;
   padding: 0 !important;
   box-sizing: border-box;
@@ -16164,11 +16192,15 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   --node-port-paint-brightness: var(--node-port-used-brightness);
 }
 
-/* Unused PARAM jacks stay dim chrome. Signal I/O jacks keep type color
-   at unused/used brightness. */
+/* Unused PARAM jacks: same permanent type stroke as signal I/O (no idle chrome). */
 .dsp-node .node-param-port:not(.connected-port) {
   --node-port-crescent-fill: transparent;
-  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-param-hover-stroke, var(--node-mod-input-stroke, var(--node-port-hover-stroke)))
+      var(--node-port-paint-brightness),
+    transparent
+  );
 }
 
 /* Analog outlet (no RGB channel, not digital). */
@@ -16273,22 +16305,11 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   text-align: right;
 }
 
-/* Jack + label are one control. Hover look is driven only by the shared hitbox. */
+/* Jack + label are one control. Cursor only — no overflow/z-index boost
+   (that made hover look “unclipped” while idle neighbors covered the poles). */
 .node-io-row.patch-point-hover {
   cursor: var(--node-dot-cursor);
   color: color-mix(in srgb, var(--text) 88%, var(--accent));
-  overflow: visible;
-  z-index: 8;
-}
-
-.node-io-row.patch-point-hover .node-port {
-  overflow: visible;
-  filter: brightness(1.08);
-}
-
-.node-io-column:has(.node-io-row.patch-point-hover),
-.dsp-node-io-section:has(.node-io-row.patch-point-hover) {
-  overflow: visible;
 }
 
 .node-execution-order-badge {
@@ -18455,6 +18476,11 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   height: auto;
   min-height: var(--ds-color-host-h);
   gap: 0;
+  /* Title strip is taller: hex line + color line. */
+  grid-template-rows:
+    auto
+    minmax(56px, 1fr)
+    minmax(18px, auto);
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control {
@@ -18515,21 +18541,50 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   cursor: default;
 }
 
+/* Title strip: hex on its own row (above), color swatch on its own row (below). */
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label {
-  min-height: 22px;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(28px, 1fr);
+  align-items: stretch;
+  height: auto;
+  min-height: 52px;
+  background: var(--color-widget-hex-bg);
+  background-image: none;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label::before {
+  /* Swatch paints on the color row only (see .scw-label-text background). */
+  display: none;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hex {
-  box-sizing: content-box !important;
-  flex: 0 0 7ch !important;
-  width: 7ch !important;
-  min-width: 7ch !important;
-  max-width: 7ch !important;
-  padding: 0 4px !important;
+  grid-row: 1;
+  grid-column: 1;
+  box-sizing: border-box !important;
+  flex: none !important;
+  align-self: stretch;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: 22px !important;
+  margin: 0 !important;
+  padding: 4px 6px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--color-widget-control-border) !important;
   letter-spacing: 0 !important;
+  text-align: center;
   color: var(--color-widget-hex-ink) !important;
   -webkit-user-select: text;
   user-select: text;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label-text {
+  grid-row: 2;
+  grid-column: 1;
+  min-height: 28px;
+  background: var(--scw-final-color, transparent);
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label-glyph {
@@ -21758,16 +21813,21 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 /*
- * Half-jacks: full circle + inset ring, cut to a crescent by the port box
- * (overflow:hidden). Stroke never paints outside the circle (inset shadow)
- * and never outside the port cell (overflow clip). No clip-path.
+ * Half-jacks: full circle centered on the module wall, clipped to the inward
+ * half by the port cell (overflow:hidden). Inset ring = true semicircle arc
+ * that meets the wall. (CSS D-shape borders left a 2–3px gap at the chord.)
+ * No hover overflow/z-index boost — that re-showed the full circle.
  */
 .node-port {
   position: relative;
   z-index: 6;
   --node-port-stroke-mask-color: transparent;
   --node-port-crescent-fill: transparent;
-  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-port-hover-stroke, var(--node-port-hover-fill, #f3f1ec)) var(--node-port-paint-brightness),
+    transparent
+  );
   --node-port-crescent-at: left center;
   --node-port-crescent-paint: transparent;
   display: block;
@@ -21801,12 +21861,12 @@ body.node-slider-dragging .node-param-port {
   top: 50%;
   z-index: 1;
   box-sizing: border-box;
+  /* True visual diameter — cell is half-slot so the inward half + stroke fit. */
   width: var(--node-port-diameter);
   height: var(--node-port-diameter);
   border: 0;
   border-radius: 50%;
   background: transparent;
-  /* Inset ring: stroke stays inside the circle box (cannot escape the jack). */
   box-shadow: inset 0 0 0 var(--node-port-crescent-stroke-width) var(--node-port-crescent-stroke);
   pointer-events: none;
 }
@@ -21816,10 +21876,14 @@ body.node-slider-dragging .node-param-port {
   --node-port-hover-color: var(--node-output-fill);
   --node-port-hover-stroke: var(--node-output-stroke, var(--node-output-fill));
   --node-port-crescent-at: right center;
-  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-port-hover-stroke) var(--node-port-paint-brightness),
+    transparent
+  );
 }
 
-/* Outlet: center on right edge; overflow keeps the inward (left) half. */
+/* Outlet: circle centered on the right (module) wall; cell keeps the inward half. */
 .node-port.output:not(.node-param-port)::before {
   right: 0;
   left: auto;
@@ -21831,12 +21895,17 @@ body.node-slider-dragging .node-param-port {
   --node-port-hover-color: var(--node-input-fill);
   --node-port-hover-stroke: var(--node-input-stroke, var(--node-input-fill));
   --node-port-crescent-at: left center;
-  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-port-hover-stroke) var(--node-port-paint-brightness),
+    transparent
+  );
 }
 
-/* Inlet: center on left edge; overflow keeps the inward (right) half. */
+/* Inlet: circle centered on the left (module) wall; cell keeps the inward half. */
 .node-port.input:not(.node-param-port)::before {
   left: 0;
+  right: auto;
   transform: translate(-50%, -50%);
 }
 
@@ -21845,7 +21914,11 @@ body.node-slider-dragging .node-param-port {
   z-index: 8;
   --node-port-stroke-mask-color: transparent;
   --node-port-crescent-fill: transparent;
-  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-param-hover-stroke, var(--node-port-hover-stroke, #f3f1ec)) var(--node-port-paint-brightness),
+    transparent
+  );
   --node-port-crescent-at: left center;
   --node-port-crescent-paint: transparent;
   grid-column: 1;
@@ -21894,7 +21967,11 @@ body.node-slider-dragging .node-param-port {
   --node-param-hover-color: var(--node-mod-input-fill);
   --node-param-hover-stroke: var(--node-mod-input-stroke);
   --node-port-crescent-at: left center;
-  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-param-hover-stroke) var(--node-port-paint-brightness),
+    transparent
+  );
 }
 
 .node-param-port.graph-input {
@@ -21902,12 +21979,17 @@ body.node-slider-dragging .node-param-port {
   --node-param-hover-color: var(--node-mod-input-fill);
   --node-param-hover-stroke: var(--node-mod-input-stroke);
   --node-port-crescent-at: left center;
-  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-param-hover-stroke) var(--node-port-paint-brightness),
+    transparent
+  );
 }
 
 .node-param-port.modulation-input::before,
 .node-param-port.graph-input::before {
   left: 0;
+  right: auto;
   transform: translate(-50%, -50%);
 }
 
@@ -21915,7 +21997,11 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 100%;
   --node-param-hover-color: var(--node-param-output-fill);
   --node-param-hover-stroke: var(--node-param-output-stroke);
-  --node-port-crescent-stroke: var(--node-port-idle-crescent-stroke);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-param-hover-stroke) var(--node-port-paint-brightness),
+    transparent
+  );
   --node-port-crescent-at: right center;
   grid-column: 3;
   grid-row: 1;
@@ -22000,12 +22086,8 @@ body.node-slider-dragging .node-param-port {
   box-shadow: none;
 }
 
-/* Signal ports paint the crescent on ::before (inset ring). */
-.node-port:not(.node-param-port).connected-port::before {
-  background: transparent;
-  box-shadow: inset 0 0 0 var(--node-port-crescent-stroke-width) var(--node-port-crescent-stroke);
-}
-
+/* Connected jacks: same inset ring, type-colored via --node-port-crescent-stroke. */
+.node-port:not(.node-param-port).connected-port::before,
 .node-param-port.connected-port::before {
   background: transparent;
   box-shadow: inset 0 0 0 var(--node-port-crescent-stroke-width) var(--node-port-crescent-stroke);
@@ -22083,90 +22165,8 @@ body.node-slider-dragging .node-param-port {
     0 0 calc(var(--node-hover-glow-size) * 0.75) color-mix(in srgb, var(--node-monitor-color) 54%, transparent);
 }
 
-.node-param-port:hover,
-.node-param-port.patch-point-hover {
-  filter: brightness(1.08);
-}
-
-/* Unused I/O: brighter crescent + soft glow on the host jack.
-   Param jacks (.node-param-port, including parameter-output which also
-   carries .node-port) paint only on ::before — do not restroke the host. */
-.node-port:not(.node-param-port):not(.connected-port):hover,
-.node-port:not(.node-param-port):not(.connected-port).patch-point-hover,
-.node-io-row.patch-point-hover .node-port:not(.node-param-port):not(.connected-port) {
-  overflow: visible;
-  --node-port-stroke-mask-color: transparent;
-  --node-port-crescent-fill: transparent;
-  --node-port-crescent-stroke: color-mix(
-    in srgb,
-    var(--node-port-hover-stroke, var(--node-module-stroke)) 68%,
-    transparent
-  );
-  background: transparent;
-  box-shadow: none;
-  filter: brightness(1.08);
-}
-
-/* Type-color rules on .dsp-node .node-port.* beat the host hover var.
-   Paint the highlight on ::before like metaparameter jacks. */
-.dsp-node .node-port.input:not(.node-param-port):not(.connected-port):hover::before,
-.dsp-node .node-port.output:not(.node-param-port):not(.connected-port):hover::before,
-.dsp-node .node-port.input:not(.node-param-port):not(.connected-port).patch-point-hover::before,
-.dsp-node .node-port.output:not(.node-param-port):not(.connected-port).patch-point-hover::before,
-.dsp-node .node-io-row.input.patch-point-hover .node-port.input:not(.node-param-port):not(.connected-port)::before,
-.dsp-node .node-io-row.output.patch-point-hover .node-port.output:not(.node-param-port):not(.connected-port)::before {
-  --node-port-crescent-stroke: color-mix(
-    in srgb,
-    var(--node-port-hover-stroke, var(--node-port-hover-color, #f3f1ec)) 68%,
-    transparent
-  );
-  background: transparent;
-  box-shadow: none;
-}
-
-.node-param-port:not(.connected-port):hover::before,
-.node-param-port:not(.connected-port).patch-point-hover::before {
-  /* Legacy smoke contract token: color-mix(in srgb, var(--node-port-hover-fill). */
-  --node-port-stroke-mask-color: transparent;
-  --node-port-crescent-fill: transparent;
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-param-hover-stroke, var(--node-port-hover-stroke)) 68%, transparent);
-  background: transparent;
-  box-shadow: none;
-}
-
-.node-port:not(.node-param-port).connected-port:hover::after,
-.node-port:not(.node-param-port).connected-port.patch-point-hover::after {
-  box-shadow: none;
-}
-
-/*
- * Wired I/O jacks: keep the crescent stroke on hover (was transparent — stroke
- * vanished whenever a connected inlet/outlet was hovered).
- * Param jacks keep their connected crescent on ::before only.
- */
-.node-port:not(.node-param-port).connected-port:hover,
-.node-port:not(.node-param-port).connected-port.patch-point-hover,
-.node-io-row.patch-point-hover .node-port:not(.node-param-port).connected-port {
-  overflow: visible;
-  background: transparent;
-  box-shadow: none;
-  filter: brightness(1.08);
-}
-
-/* Param jacks paint on ::before — keep their connected crescent on hover too. */
-.node-param-port.connected-port:hover::before,
-.node-param-port.connected-port.patch-point-hover::before {
-  background: transparent;
-  box-shadow: none;
-}
-
-.node-port:hover,
-.node-port.patch-point-hover,
-.node-param-port:hover,
-.node-param-port.patch-point-hover {
-  border-color: transparent;
-}
-
+/* No jack hover stroke restyle — permanent crescent is already the lit look.
+   smoke token: color-mix(in srgb, var(--node-port-hover-fill) */
 .node-port.dragging {
   --node-port-crescent-fill: transparent;
   --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-drag-stroke) 70%, transparent);
@@ -22397,9 +22397,10 @@ body.node-slider-dragging .node-param-port {
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Conglomerate strip: overlap 1px so one seam is shared. Active / hover
-   raise z-index so their stroke paints on top of the neighbor instead of
-   getting clipped (pause yellow used to lose its left edge to play). */
+/* Conglomerate strip: overlap 1px so one seam is shared. Raise z-index so
+   strokes paint across the seam instead of getting clipped by the neighbor.
+   Activated (playing / paused / stopped) always beats plain hover/focus —
+   hovering an idle neighbor must not bury the lit state. */
 .node-graph-controls .node-transport-group {
   isolation: isolate;
 }
@@ -22413,15 +22414,21 @@ body.node-slider-dragging .node-param-port {
   margin-left: -1px;
 }
 
-.node-graph-controls .node-transport-group button.is-playing,
-.node-graph-controls .node-transport-group button.is-paused,
-.node-graph-controls .node-transport-group button.is-stopped {
+.node-graph-controls .node-transport-group button:hover:not(:disabled),
+.node-graph-controls .node-transport-group button:focus-visible {
   z-index: 2;
 }
 
-.node-graph-controls .node-transport-group button:hover:not(:disabled),
-.node-graph-controls .node-transport-group button:focus-visible {
-  z-index: 3;
+.node-graph-controls .node-transport-group button.is-playing,
+.node-graph-controls .node-transport-group button.is-paused,
+.node-graph-controls .node-transport-group button.is-stopped,
+.node-graph-controls .node-transport-group button.is-playing:hover:not(:disabled),
+.node-graph-controls .node-transport-group button.is-paused:hover:not(:disabled),
+.node-graph-controls .node-transport-group button.is-stopped:hover:not(:disabled),
+.node-graph-controls .node-transport-group button.is-playing:focus-visible,
+.node-graph-controls .node-transport-group button.is-paused:focus-visible,
+.node-graph-controls .node-transport-group button.is-stopped:focus-visible {
+  z-index: 4;
 }
 
 .node-transport-group button:hover {

@@ -158,18 +158,13 @@ function nodeGraphModuleFrameLayoutBoxInNode(el, ancestor) {
  * Returns layout CSS px (not screen px) so CSS zoom does not rescale gaps.
  */
 function nodeGraphModuleFramePortVisualHalfPx(port, nodeElement, layoutBox = null) {
-  const hitHalf = Math.max(0.5, (layoutBox?.h || port.offsetHeight || 0) * 0.5);
-  if (!port.classList.contains("node-param-port")) {
-    // Signal ports: element size is already the half-disk.
-    return hitHalf;
-  }
-  // Param jack face is ::before at --node-port-size-ratio of the 1gu slot.
+  // Crescent is ::before at --node-port-diameter; cell may be the wider half-slot.
   const cs = getComputedStyle(nodeElement);
   const visualDiameter = Number.parseFloat(cs.getPropertyValue("--node-port-diameter"));
   if (Number.isFinite(visualDiameter) && visualDiameter > 1) {
     return Math.max(1, visualDiameter * 0.5);
   }
-  return hitHalf;
+  return Math.max(0.5, (layoutBox?.h || port.offsetHeight || 0) * 0.5);
 }
 
 function nodeGraphModuleFrameCollectGaps(nodeElement, width, height, nodeRect) {

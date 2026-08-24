@@ -115,6 +115,27 @@ const nodeUiDevSettingControls = Object.freeze([
     type: "number",
   },
   {
+    // World-space px (scales with zoom). Not screen-constant like module strokes-fixed.
+    defaultValue: 1.25,
+    exposeDefault: true,
+    id: "nodeUiDevInletOutletStrokeThickness",
+    key: "inletOutletStrokeThickness",
+    max: 8,
+    min: 0,
+    step: 0.05,
+    type: "number",
+  },
+  {
+    defaultValue: 0,
+    exposeDefault: true,
+    id: "nodeUiDevInletOutletGap",
+    key: "inletOutletGap",
+    max: 32,
+    min: 0,
+    step: 1,
+    type: "number",
+  },
+  {
     defaultValue: 0,
     exposeDefault: true,
     id: "nodeUiDevIoSectionPaddingTop",
@@ -145,7 +166,7 @@ const nodeUiDevSettingControls = Object.freeze([
     type: "number",
   },
   {
-    defaultValue: 0.4,
+    defaultValue: 0.68,
     exposeDefault: true,
     id: "nodeUiDevUnusedPortBrightness",
     key: "unusedPortBrightness",
@@ -308,6 +329,8 @@ const nodeUiDevSettingSections = Object.freeze([
     title: "inlets and outlets",
     ids: [
       "nodeUiDevInletOutletSize",
+      "nodeUiDevInletOutletStrokeThickness",
+      "nodeUiDevInletOutletGap",
       "nodeUiDevIoSectionPaddingTop",
       "nodeUiDevIoSectionPaddingBottom",
       "nodeUiDevUsedPortBrightness",

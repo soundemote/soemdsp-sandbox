@@ -57,6 +57,18 @@ async function bindNodeGraphUiDevSettingsEvents() {
     .getElementById("nodeUiDevInletOutletSize")
     ?.addEventListener("change", syncNodeUiDevPortSize);
   document
+    .getElementById("nodeUiDevInletOutletStrokeThickness")
+    ?.addEventListener("input", syncNodeUiDevPortStrokeThickness);
+  document
+    .getElementById("nodeUiDevInletOutletStrokeThickness")
+    ?.addEventListener("change", syncNodeUiDevPortStrokeThickness);
+  document
+    .getElementById("nodeUiDevInletOutletGap")
+    ?.addEventListener("input", syncNodeUiDevInletOutletGap);
+  document
+    .getElementById("nodeUiDevInletOutletGap")
+    ?.addEventListener("change", syncNodeUiDevInletOutletGap);
+  document
     .getElementById("nodeUiDevIoSectionPaddingTop")
     ?.addEventListener("input", syncNodeUiDevIoSectionPadding);
   document
@@ -205,6 +217,10 @@ async function bindNodeGraphUiDevSettingsEvents() {
   syncNodeUiDevSettingsHeaderControls();
   if (typeof syncNodeUserUiSettingsViewControls === "function") {
     syncNodeUserUiSettingsViewControls();
+  }
+  // Same modifier drag/wheel/arrows as Display Settings + module face sliders.
+  if (typeof bindNodeGraphNativeSliderModifiersIn === "function") {
+    bindNodeGraphNativeSliderModifiersIn(document.getElementById("nodeUiDevHelper"));
   }
   // Move/up/resize: nodeGraphFloatingWindowRegistryPointerBridge (floating-windows.js)
   if (typeof installNodeGraphFloatingWindowResizeHandles === "function") {
