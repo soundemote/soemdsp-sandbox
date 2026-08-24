@@ -12481,6 +12481,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .dsp-node.bypassed > .node-wall-room-display,
 .dsp-node.bypassed .node-module-scope-window,
 .dsp-node.bypassed .node-number-readout-face,
+.dsp-node.bypassed .node-lcd-dot-face,
 .dsp-node.bypassed .node-led-face,
 .dsp-node.bypassed .node-knob-face,
 .dsp-node.bypassed .node-param-row {
@@ -12671,10 +12672,12 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   corner-shape: inherit;
 }
 
-/* LED / LCD / Value LED / Clock screens: matching top+bottom radius inside the face cell. */
+/* LED / LCD / Value LED / LCD Dot / Clock screens: matching top+bottom radius inside the face cell. */
 .dsp-node.led-layout .node-led-face,
 .dsp-node.value-lcd-layout .node-module-scope-window,
 .dsp-node.value-lcd-layout .node-value-lcd-face,
+.dsp-node.lcd-dot-layout .node-module-scope-window,
+.dsp-node.lcd-dot-layout .node-lcd-dot-face,
 .dsp-node.number-readout-layout .node-module-scope-window,
 .dsp-node.number-readout-layout .node-number-readout-face,
 .dsp-node.clock-layout .node-module-scope-window,
@@ -13570,11 +13573,13 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   box-shadow: none;
 }
 
-/* Value LED / Value LCD: face must not paint past the shell (shared no-params shell). */
+/* Value LED / Value LCD / LCD Dot: face must not paint past the shell (shared no-params shell). */
 .dsp-node.number-readout-layout.layout-b-no-params > .node-solid-module-shell,
 .dsp-node.number-readout-layout .node-number-readout-face,
 .dsp-node.value-lcd-layout.layout-b-no-params > .node-solid-module-shell,
-.dsp-node.value-lcd-layout .node-number-readout-face {
+.dsp-node.value-lcd-layout .node-number-readout-face,
+.dsp-node.lcd-dot-layout.layout-b-no-params > .node-solid-module-shell,
+.dsp-node.lcd-dot-layout .node-lcd-dot-face {
   overflow: hidden;
 }
 
@@ -13583,18 +13588,21 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   display: none !important;
 }
 
-/* Value LED / Value LCD solid face — plate fills the shell center cell. */
+/* Value LED / Value LCD / LCD Dot solid face — plate fills the shell center cell. */
 .dsp-node.number-readout-layout .node-number-readout-face,
 .dsp-node.number-readout-layout .node-module-scope-window,
 .dsp-node.value-lcd-layout .node-number-readout-face,
-.dsp-node.value-lcd-layout .node-module-scope-window {
+.dsp-node.value-lcd-layout .node-module-scope-window,
+.dsp-node.lcd-dot-layout .node-lcd-dot-face,
+.dsp-node.lcd-dot-layout .node-module-scope-window {
   width: 100%;
   height: 100%;
   min-height: 0;
 }
 
-/* Value LCD shell: plate color comes from Display Settings (canvas). No fixed CSS bevel. */
+/* Value LCD / LCD Dot shell: plate color comes from Display Settings (canvas). No fixed CSS bevel. */
 .dsp-node.value-lcd-layout .node-value-lcd-face,
+.dsp-node.lcd-dot-layout .node-lcd-dot-face,
 .node-number-readout-face.node-value-lcd-face {
   background: var(--node-scope-background, rgb(241 255 232));
 }
