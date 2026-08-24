@@ -11436,7 +11436,7 @@ const nodeGraphModuleLayout = Object.freeze({
   /* IO strip hugs jack rows. Extra air is only UIDEV io-to-screen / io-to-sliders. */
   ioPaddingYGu: 0,
   ioRowGapGu: 0,
-  /* Match --node-signal-port-height at default --node-port-size-ratio (0.52). */
+  /* Match --node-signal-port-height = --node-port-diameter at size ratio 0.52. */
   ioRowHeightGu: 0.52,
   ioSectionMinHeightGu: 0.52,
   /* Side/top plate air vs grid (CSS --node-module-grid-inset). Bottom is half. */

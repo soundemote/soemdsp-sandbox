@@ -6571,12 +6571,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-trace-wire-thickness: 1px;
   /*
    * Signal jack cell:
-   *   width  = half-slot (room to clip the inward half without eating the wall)
-   *   height = visual diameter (so inlet-outlet gap:0 packs crescents flush;
-   *            using full 1gu height left ~13px phantom air at size 52%)
+   *   width  = half-slot (inward half fits)
+   *   height = visual diameter so gap:0 packs crescents flush
+   * Tip/wall AA uses clip-path bleed on .node-port (not taller rows).
    */
   --node-signal-port-height: var(--node-port-diameter);
   --node-signal-port-width: var(--node-port-area-radius);
+  --node-port-crescent-clip-bleed: var(--node-port-crescent-stroke-width, 2px);
   --node-slider-padding-block: calc(var(--node-grid-size) * 0.0357143);
   --node-slider-padding-inline: calc(var(--node-grid-size) * 0.25);
   --node-slider-row-padding-block: 0px;
@@ -12805,7 +12806,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   min-height: var(--node-signal-port-height);
   height: 100%;
   max-height: none;
-  overflow: hidden;
+  /* visible so port clip-path bleed (tip/wall AA) is not re-clipped */
+  overflow: visible;
 }
 
 .dsp-node.chrome-layout-c > .dsp-node-body {
@@ -21813,10 +21815,10 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 /*
- * Half-jacks: full circle centered on the module wall, clipped to the inward
- * half by the port cell (overflow:hidden). Inset ring = true semicircle arc
- * that meets the wall. (CSS D-shape borders left a 2–3px gap at the chord.)
- * No hover overflow/z-index boost — that re-showed the full circle.
+ * Half-jacks: full circle centered on the module wall. Clip to the port box
+ * on the wall axis (exactly half — no outside bleed or it over-draws past a
+ * semicircle). Top/bottom bleed = stroke so tip AA is not shaved. Cell height
+ * = diameter so gap:0 packs flush. Param jacks: overflow:hidden + tall cell.
  */
 .node-port {
   position: relative;
@@ -21842,12 +21844,22 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   color: transparent;
   font-family: Consolas, "Courier New", monospace;
   font-size: 0;
-  overflow: hidden;
+  overflow: visible;
   text-indent: -999px;
   cursor: var(--node-dot-cursor);
   border: 0;
   background: transparent;
   box-shadow: none;
+}
+
+/* Signal I/O only: wall flush (L/R = 0), tip bleed only (T/B). */
+.node-port:not(.node-param-port) {
+  clip-path: inset(
+    calc(-1 * var(--node-port-crescent-clip-bleed))
+    0
+    calc(-1 * var(--node-port-crescent-clip-bleed))
+    0
+  );
 }
 
 body.node-slider-dragging .node-port,
@@ -21883,7 +21895,7 @@ body.node-slider-dragging .node-param-port {
   );
 }
 
-/* Outlet: circle centered on the right (module) wall; cell keeps the inward half. */
+/* Outlet: circle centered on the right (module) wall. */
 .node-port.output:not(.node-param-port)::before {
   right: 0;
   left: auto;
@@ -21902,7 +21914,7 @@ body.node-slider-dragging .node-param-port {
   );
 }
 
-/* Inlet: circle centered on the left (module) wall; cell keeps the inward half. */
+/* Inlet: circle centered on the left (module) wall. */
 .node-port.input:not(.node-param-port)::before {
   left: 0;
   right: auto;
@@ -22077,10 +22089,14 @@ body.node-slider-dragging .node-param-port {
 /* Selected/dragging module: do not restyle inlet arcs (match outlets — frame
    selection is enough; jacks keep idle/connected stroke only). */
 
-.node-port.connected-port,
+.node-port:not(.node-param-port).connected-port {
+  /* Signal I/O: keep clip-path bleed (do not restore overflow:hidden). */
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
+}
+
 .node-param-port.connected-port {
-  /* Keep overflow:hidden — the port cell is the only crescent drawing area.
-     Wire contact discs live on #nodeWireEndpointSvg, not on the jack. */
   overflow: hidden;
   background: transparent;
   box-shadow: none;

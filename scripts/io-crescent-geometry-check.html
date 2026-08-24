@@ -1,0 +1,78 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>I/O vs param crescent geometry check</title>
+<style>
+  :root {
+    --gu: 28px;
+    --ratio: 0.52;
+    --stroke: 1.25px;
+    --area: var(--gu);
+    --diameter: calc(var(--area) * var(--ratio));
+    --area-radius: calc(var(--area) * 0.5);
+    --signal-h: var(--diameter);
+    --signal-w: var(--area-radius);
+    --param-h: 30px;
+    --param-w: var(--area-radius);
+    --bleed: var(--stroke);
+  }
+  body { font: 14px/1.4 system-ui; background: #111; color: #eee; padding: 24px; }
+  .row { display: flex; gap: 0; margin: 8px 0; align-items: center; }
+  .stack { display: flex; flex-direction: column; gap: 0; outline: 1px dashed #666; }
+  .lab { width: 200px; color: #aaa; }
+  .cell {
+    position: relative;
+    box-sizing: border-box;
+    background: #1a2228;
+    outline: 1px solid #445;
+  }
+  .cell::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    box-sizing: border-box;
+    width: var(--diameter);
+    height: var(--diameter);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: inset 0 0 0 var(--stroke) #7fc7d9;
+  }
+  .broken { width: var(--signal-w); height: var(--signal-h); overflow: hidden; }
+  .fixed {
+    width: var(--signal-w); height: var(--signal-h); overflow: visible;
+    clip-path: inset(calc(-1 * var(--bleed)) 0 calc(-1 * var(--bleed)) calc(-1 * var(--bleed)));
+  }
+  .param { width: var(--param-w); height: var(--param-h); overflow: hidden; }
+  .wall { position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: #f55; z-index: 2; }
+  #out { white-space: pre; font: 12px/1.35 ui-monospace, monospace; color: #9c9; }
+</style>
+<h1>gap:0 packing + wall chord</h1>
+<p>Two stacked cells with <b>gap:0</b>. Red = wall. Broken = overflow:hidden. Fixed = clip-path stroke bleed (row height stays = diameter).</p>
+<div class="row">
+  <div class="lab">Broken I/O ×2<br>gap:0 + overflow:hidden</div>
+  <div class="stack">
+    <div class="cell broken"><span class="wall"></span></div>
+    <div class="cell broken"><span class="wall"></span></div>
+  </div>
+</div>
+<div class="row">
+  <div class="lab">Fixed I/O ×2<br>gap:0 + clip-path bleed</div>
+  <div class="stack">
+    <div class="cell fixed"><span class="wall"></span></div>
+    <div class="cell fixed"><span class="wall"></span></div>
+  </div>
+</div>
+<div class="row">
+  <div class="lab">Param (reference)</div>
+  <div class="cell param"><span class="wall"></span></div>
+</div>
+<pre id="out"></pre>
+<script>
+  const gu = 28, ratio = 0.52, stroke = 1.25;
+  const diameter = gu * ratio;
+  document.getElementById("out").textContent = [
+    `row height = diameter = ${diameter.toFixed(2)}px → gap:0 stacks flush`,
+    `clip-path bleed = ${stroke}px → tips/wall chord not AA-shaved`,
+    `phantom gap from taller rows (diameter+2*stroke) was ~${(2 * stroke).toFixed(2)}px — removed`,
+  ].join("\n");
+</script>
