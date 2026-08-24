@@ -336,6 +336,9 @@ function nodeGraphKeypadClampPixelSize(value) {
 }
 
 function nodeGraphKeypadClampWeight(value) {
+  if (typeof nodeGraphAppClampFontWeight === "function") {
+    return nodeGraphAppClampFontWeight(value, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.textWeight);
+  }
   const n = Math.round(Number(value) / 100) * 100;
   if (!Number.isFinite(n)) return NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.textWeight;
   return Math.max(100, Math.min(900, n));

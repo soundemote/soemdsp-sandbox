@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=JetBrains+Mono:wght@400;500;600;700&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=ui-improvements-1">
+  <link rel="stylesheet" href="./public/styles.css?v=ui-improvements-2">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=input-outlet-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -1224,6 +1224,14 @@
                 value="3">
               <output id="nodeUiDevModuleStrokeThicknessValue" for="nodeUiDevModuleStrokeThickness">3px</output>
             </div>
+          </label>
+          <label class="node-ui-dev-check">
+            <input
+              id="nodeUiDevModuleStrokesFixed"
+              type="checkbox"
+              checked
+              title="On: idle + selected module strokes stay constant screen pixels at every zoom (1px = 1 CSS px). Off: strokes scale with workspace zoom.">
+            <span>module strokes fixed</span>
           </label>
           <label class="node-ui-dev-color-control">
             <span>module stroke rgba</span>
@@ -3550,7 +3558,8 @@
   <script src="./public/node-graph-parameter-smoother-filters.js?v=unpark-types-1"></script>
   <script src="./public/node-graph-parameter-metadata.js?v=constraints-1"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
-  <script src="./public/node-graph-text-box-utils.js?v=textbox-font-1"></script>
+  <script src="./public/node-graph-app-fonts.js?v=font-weight-shared-1"></script>
+  <script src="./public/node-graph-text-box-utils.js?v=textbox-lineheight-1"></script>
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-image-utils.js?v=keypad-bgi-1"></script>
   <script src="./public/node-graph-graph-utils.js?v=graph-settings-list-1"></script>
@@ -3564,10 +3573,10 @@
   <script src="./public/node-graph-phosphillator.js?v=phasor-stdlib-1"></script>
   <script src="./public/node-graph-embed-config.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-resources.js?v=embed-config-20260701"></script>
-  <script src="./public/modules/textBox/text-box-widget.js?v=textbox-font-1"></script>
+  <script src="./public/modules/textBox/text-box-widget.js?v=textbox-lineheight-1"></script>
   <script src="./public/modules/textBox/text-box-animated.js?v=title-label-1"></script>
   <script src="./public/modules/textBox/text-box-host.js?v=textbox-font-1"></script>
-  <script src="./public/modules/textBox/text-box-settings.js?v=textbox-font-1"></script>
+  <script src="./public/modules/textBox/text-box-settings.js?v=textbox-lineheight-1"></script>
   <script src="./public/node-graph-text-box-rendering.js?v=textbox-light-50-1"></script>
   <script src="./public/node-graph-patch-normalizers.js?v=tooltip-persist-1"></script>
   <script src="./public/node-graph-audio-derivation.js?v=sr-info-1"></script>
@@ -3616,7 +3625,7 @@
   <script src="./public/node-graph-module-scope-settings-form.js?v=ui-improvements-1"></script>
   <script src="./public/node-graph-module-scope-settings-controls.js?v=dotbudget-1024-1"></script>
   <!-- Display Settings peel: form-io → field-edit → apply → window → thin ui anchor -->
-  <script src="./public/node-graph-module-scope-settings-form-io.js?v=textbox-font-1"></script>
+  <script src="./public/node-graph-module-scope-settings-form-io.js?v=textbox-lineheight-1"></script>
   <script src="./public/node-graph-module-scope-settings-field-edit.js?v=mp-fix-2"></script>
   <script src="./public/node-graph-module-scope-settings-apply.js?v=wf-rgb-1"></script>
   <script src="./public/node-graph-module-scope-settings-window.js?v=cc-seat-ssot-1"></script>
@@ -3640,7 +3649,7 @@
   <script src="./public/node-graph-module-scope-monitors.js?v=scope-monitors-1"></script>
   <script src="./public/node-graph-module-scope-scene-controls.js?v=screen-solo-1"></script>
   <script src="./public/node-graph-module-scope-shader-settings.js?v=scope-shader-settings-1"></script>
-  <script src="./public/node-graph-module-scope-trace-controls.js?v=sync-stretch-1"></script>
+  <script src="./public/node-graph-module-scope-trace-controls.js?v=textbox-lineheight-1"></script>
   <script src="./public/node-graph-module-scope-wipe.js?v=ui-improvements-1"></script>
   <script src="./public/node-graph-module-scope-graph-query.js?v=fps-1-no-double-1"></script>
   <script src="./public/node-graph-module-scope-settings.js?v=scope-sync-off-1"></script>
@@ -3686,9 +3695,8 @@
   <script src="./public/modules/numberReadout/number-readout-ui.js?v=led-lcd-update-1"></script>
   <script src="./public/modules/rayBouncer/ray-bouncer-ui.js?v=ray-bouncer-solid-1"></script>
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
-  <script src="./public/node-graph-app-fonts.js?v=fonts-globalthis-1"></script>
-  <script src="./public/modules/keypad/keypad-math.js?v=fonts-globalthis-1"></script>
-  <script src="./public/modules/keypad/keypad-settings.js?v=app-fonts-1"></script>
+  <script src="./public/modules/keypad/keypad-math.js?v=font-weight-shared-1"></script>
+  <script src="./public/modules/keypad/keypad-settings.js?v=font-weight-shared-1"></script>
   <script src="./public/modules/keypad/keypad-ui.js?v=keypad-glow-50-1"></script>
   <script src="./public/modules/groupInput/group-input-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/patch/patch-ui.js?v=patch-face-1"></script>
@@ -3742,12 +3750,12 @@
   <script src="./public/node-graph-tooltips.js?v=gpu-stamps-1"></script>
   <script src="./public/node-graph-interaction-help.js?v=v-cycle-1"></script>
   <script src="./public/presets/useruisettings.js?v=plate-11-1"></script>
-  <script src="./public/node-graph-ui-settings-definitions.js?v=mag-rim-1"></script>
+  <script src="./public/node-graph-ui-settings-definitions.js?v=module-strokes-fixed-1"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=macro-cleanup-2"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=uidev-page-1"></script>
   <script src="./public/node-graph-ui-settings-persistence.js?v=v-cycle-1"></script>
-  <script src="./public/node-graph-ui-settings-sync.js?v=jack-stroke-stack-1"></script>
+  <script src="./public/node-graph-ui-settings-sync.js?v=module-strokes-fixed-1"></script>
   <script src="./public/node-graph-keyboard-shortcuts.js?v=center-z-1"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>

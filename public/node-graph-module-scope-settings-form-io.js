@@ -939,7 +939,7 @@ function readNodeGraphTraceDisplaySettingsForm() {
   if (formType === "textBoxFace") {
     const panel = root?.querySelector?.("[data-textbox-display-settings-panel]") || root;
     const next = { ...current };
-    for (const key of ["textSizePercent", "verticalAlignPercent"]) {
+    for (const key of ["textSizePercent", "textWeight", "lineHeight", "verticalAlignPercent"]) {
       const input = panel?.querySelector?.(`[data-textbox-field="${key}"]`);
       if (input) {
         next[key] = Number(input.value);

@@ -4,6 +4,8 @@
 
 const NODE_GRAPH_TEXT_BOX_DISPLAY_SLIDER_FIELDS = Object.freeze([
   "textSizePercent",
+  "textWeight",
+  "lineHeight",
   "verticalAlignPercent",
 ]);
 
@@ -18,6 +20,12 @@ function nodeGraphTextBoxDisplaySliderDefaults() {
     ? normalizeNodeGraphTextBoxLayout()
     : {
       textSizePercent: 100,
+      textWeight: typeof NODE_GRAPH_TEXT_BOX_DEFAULT_TEXT_WEIGHT === "number"
+        ? NODE_GRAPH_TEXT_BOX_DEFAULT_TEXT_WEIGHT
+        : 400,
+      lineHeight: typeof NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT === "number"
+        ? NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT
+        : 1.2,
       verticalAlignPercent: 0,
     };
 }
@@ -57,6 +65,16 @@ function buildNodeGraphTextBoxDisplaySettingsBodyHtml() {
         <span>Size</span>
         <input type="range" min="50" max="1000" step="10" data-textbox-field="textSizePercent" aria-label="Text size 50–1000 percent">
         <span>%</span>
+      </label>
+      ${typeof nodeGraphAppFontWeightSettingsRowHtml === "function"
+        ? nodeGraphAppFontWeightSettingsRowHtml("data-textbox-field")
+        : `<label class="node-led-settings-row">
+        <span>Boldness</span>
+        <input type="range" min="100" max="900" step="100" data-textbox-field="textWeight" aria-label="Font weight 100–900">
+      </label>`}
+      <label class="node-led-settings-row">
+        <span>Line height</span>
+        <input type="range" min="0.5" max="3" step="0.05" data-textbox-field="lineHeight" aria-label="Newline vertical spacing 0.5–3">
       </label>
       ${colorRow("backgroundColor", "textBoxFace")}
       ${colorRow("textColor", "textBoxFace")}

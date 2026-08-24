@@ -74,43 +74,71 @@ function textBoxWidgetWriteText(field, value) {
 }
 
 /**
- * Intrinsic glyph/content height. Do not use scrollHeight here: the face is
- * height:100%, so scrollHeight equals the box even when text is short — and
- * the Vertical % knob then has zero slack (especially noticeable in multiline).
+ * Intrinsic glyph/content height for Vertical %.
+ *
+ * Do not use the live face's scrollHeight / Range rects: the input is
+ * height:100%, and with newlines Range.getClientRects() often reports the
+ * full face height → slack 0 → Vertical knob does nothing in Multi mode.
+ * Probe off-DOM at the same width/typography with height:auto instead.
  */
 function textBoxWidgetMeasureContentHeight(field) {
   if (!field) return 0;
-  try {
-    if (field.childNodes.length) {
-      const range = document.createRange();
-      range.selectNodeContents(field);
-      const rects = range.getClientRects();
-      let top = Infinity;
-      let bottom = -Infinity;
-      for (let i = 0; i < rects.length; i += 1) {
-        const rect = rects[i];
-        if (!(rect.width > 0 || rect.height > 0)) continue;
-        top = Math.min(top, rect.top);
-        bottom = Math.max(bottom, rect.bottom);
-      }
-      if (bottom > top) {
-        return bottom - top;
-      }
-      const bounds = range.getBoundingClientRect();
-      if (bounds.height > 0) {
-        return bounds.height;
-      }
-    }
-  } catch (_error) {
-    // fall through to line-box estimate
-  }
   const style = window.getComputedStyle(field);
   const lineHeight = Number.parseFloat(style.lineHeight);
-  if (Number.isFinite(lineHeight) && lineHeight > 0) {
-    return lineHeight;
-  }
   const fontSize = Number.parseFloat(style.fontSize);
-  return Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.2 : 0;
+  const fallback = Number.isFinite(lineHeight) && lineHeight > 0
+    ? lineHeight
+    : (Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.2 : 0);
+  const width = Math.max(0, field.clientWidth);
+  if (!(width > 0)) {
+    return fallback;
+  }
+  const text = textBoxWidgetReadText(field);
+  try {
+    const probe = document.createElement("div");
+    probe.setAttribute("aria-hidden", "true");
+    probe.style.cssText = [
+      "position:absolute",
+      "left:-99999px",
+      "top:0",
+      "visibility:hidden",
+      "pointer-events:none",
+      `width:${width}px`,
+      "height:auto",
+      "min-height:0",
+      "max-height:none",
+      "overflow:visible",
+      "margin:0",
+      `padding:${style.paddingTop} ${style.paddingRight} ${style.paddingBottom} ${style.paddingLeft}`,
+      "border:0",
+      `box-sizing:${style.boxSizing || "border-box"}`,
+      `font-family:${style.fontFamily}`,
+      `font-size:${style.fontSize}`,
+      `font-weight:${style.fontWeight}`,
+      `font-style:${style.fontStyle}`,
+      `line-height:${style.lineHeight}`,
+      `letter-spacing:${style.letterSpacing}`,
+      `white-space:${style.whiteSpace}`,
+      `overflow-wrap:${style.overflowWrap}`,
+      `word-break:${style.wordBreak}`,
+      `text-align:${style.textAlign}`,
+    ].join(";");
+    // NBSP so an empty face still measures one line (Vertical still has slack).
+    probe.textContent = text.length ? text : "\u00a0";
+    document.body.appendChild(probe);
+    const height = Math.max(0, probe.scrollHeight || probe.offsetHeight || 0);
+    probe.remove();
+    if (height > 0) {
+      return height;
+    }
+  } catch (_error) {
+    // fall through
+  }
+  if (!text.length) {
+    return fallback;
+  }
+  const lines = Math.max(1, text.split(/\r\n|\r|\n/).length);
+  return fallback * lines;
 }
 
 function textBoxWidgetApplyAlign(field, layout) {
@@ -188,6 +216,14 @@ function createTextBoxWidget(body, options = {}) {
     textSizePercent: Number.isFinite(Number(options.textSizePercent))
       ? Math.max(50, Math.min(1000, Math.round(Number(options.textSizePercent))))
       : 100,
+    textWeight: typeof normalizeNodeGraphTextBoxTextWeight === "function"
+      ? normalizeNodeGraphTextBoxTextWeight(options.textWeight ?? options.boldness ?? options.fontWeight)
+      : (typeof nodeGraphAppClampFontWeight === "function"
+        ? nodeGraphAppClampFontWeight(options.textWeight ?? options.boldness ?? options.fontWeight, 400)
+        : 400),
+    lineHeight: typeof normalizeNodeGraphTextBoxLineHeight === "function"
+      ? normalizeNodeGraphTextBoxLineHeight(options.lineHeight ?? options.lineSpacing ?? options.newlineSpacing)
+      : 1.2,
     font: textBoxWidgetNormalizeFont(options.font),
     backgroundColor: String(options.backgroundColor || ""),
     textColor: String(options.textColor || ""),
@@ -304,6 +340,8 @@ function createTextBoxWidget(body, options = {}) {
     field.style.textAlign = layout.horizontalAlign;
     field.style.setProperty("--node-text-box-font-scale", String(layout.textSizePercent / 100));
     field.style.setProperty("--node-text-box-font", textBoxWidgetFontFamily(layout.font));
+    field.style.setProperty("--node-text-box-font-weight", String(layout.textWeight || 400));
+    field.style.setProperty("--node-text-box-line-height", String(layout.lineHeight || 1.2));
     if (layout.backgroundColor) {
       body.style.setProperty("--node-text-box-bg", layout.backgroundColor);
       field.style.setProperty("--node-text-box-bg", layout.backgroundColor);
@@ -382,6 +420,18 @@ function createTextBoxWidget(body, options = {}) {
       if (next.textSizePercent != null) {
         const n = Math.round(Number(next.textSizePercent));
         if (Number.isFinite(n)) layout.textSizePercent = Math.max(50, Math.min(1000, n));
+      }
+      if (next.textWeight != null || next.boldness != null || next.fontWeight != null) {
+        layout.textWeight = typeof normalizeNodeGraphTextBoxTextWeight === "function"
+          ? normalizeNodeGraphTextBoxTextWeight(next.textWeight ?? next.boldness ?? next.fontWeight)
+          : (typeof nodeGraphAppClampFontWeight === "function"
+            ? nodeGraphAppClampFontWeight(next.textWeight ?? next.boldness ?? next.fontWeight, 400)
+            : 400);
+      }
+      if (next.lineHeight != null || next.lineSpacing != null || next.newlineSpacing != null) {
+        layout.lineHeight = typeof normalizeNodeGraphTextBoxLineHeight === "function"
+          ? normalizeNodeGraphTextBoxLineHeight(next.lineHeight ?? next.lineSpacing ?? next.newlineSpacing)
+          : 1.2;
       }
       if (next.font != null) layout.font = textBoxWidgetNormalizeFont(next.font);
       if (next.backgroundColor != null) layout.backgroundColor = String(next.backgroundColor || "");

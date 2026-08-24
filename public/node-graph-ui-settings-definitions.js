@@ -206,6 +206,13 @@ const nodeUiDevSettingControls = Object.freeze([
     min: 0,
     type: "number",
   },
+  {
+    // On: 1px stays 1 screen CSS px at every zoom (idle + selected). Off: stroke scales with zoom.
+    defaultValue: true,
+    id: "nodeUiDevModuleStrokesFixed",
+    key: "moduleStrokesFixed",
+    type: "boolean",
+  },
   { defaultValue: "#a19b9b", id: "nodeUiDevModuleStrokeColor", key: "moduleStrokeColor", type: "color" },
   { defaultValue: 46, id: "nodeUiDevModuleStrokeAlpha", key: "moduleStrokeAlpha", max: 100, min: 0, type: "number" },
   { defaultValue: "#e2a86d", id: "nodeUiDevModuleSelectedStrokeColor", key: "moduleSelectedStrokeColor", type: "color" },
@@ -286,6 +293,7 @@ const nodeUiDevSettingSections = Object.freeze([
       "nodeUiDevModuleFillColor",
       "nodeUiDevModuleFillAlpha",
       "nodeUiDevModuleStrokeThickness",
+      "nodeUiDevModuleStrokesFixed",
       "nodeUiDevModuleStrokeColor",
       "nodeUiDevModuleStrokeAlpha",
       "nodeUiDevModuleSelectedStrokeColor",

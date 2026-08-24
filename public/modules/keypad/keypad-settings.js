@@ -66,10 +66,12 @@ function buildNodeGraphKeypadDisplaySettingsBodyHtml() {
         <span>Font size</span>
         <input type="range" min="0" max="1" step="0.01" data-keypad-field="textSize" aria-label="Font size 0–1">
       </label>
-      <label class="node-led-settings-row">
+      ${typeof nodeGraphAppFontWeightSettingsRowHtml === "function"
+        ? nodeGraphAppFontWeightSettingsRowHtml("data-keypad-field")
+        : `<label class="node-led-settings-row">
         <span>Boldness</span>
         <input type="range" min="100" max="900" step="100" data-keypad-field="textWeight" aria-label="Font weight 100–900">
-      </label>
+      </label>`}
       <label class="node-led-settings-row">
         <span>Square ratio</span>
         <input type="checkbox" data-keypad-check="squareRatio" aria-label="Square ratio">

@@ -49,3 +49,37 @@ function nodeGraphAppFontOptionsHtml(escapeHtml) {
     `<option value="${escape(font.id)}">${escape(font.label)}</option>`
   )).join("");
 }
+
+/** CSS font-weight 100–900 in steps of 100 (Keypad Boldness, Text Box, …). */
+const NODE_GRAPH_APP_FONT_WEIGHT_DEFAULT = 400;
+
+function nodeGraphAppClampFontWeight(value, fallback = NODE_GRAPH_APP_FONT_WEIGHT_DEFAULT) {
+  const n = Math.round(Number(value) / 100) * 100;
+  if (!Number.isFinite(n)) {
+    const fb = Math.round(Number(fallback) / 100) * 100;
+    return Number.isFinite(fb)
+      ? Math.max(100, Math.min(900, fb))
+      : NODE_GRAPH_APP_FONT_WEIGHT_DEFAULT;
+  }
+  return Math.max(100, Math.min(900, n));
+}
+
+/**
+ * Shared Display Settings “Boldness” range row.
+ * @param {string} fieldAttr  e.g. data-keypad-field / data-textbox-field
+ */
+function nodeGraphAppFontWeightSettingsRowHtml(fieldAttr = "data-textbox-field") {
+  const attr = String(fieldAttr || "data-textbox-field").trim() || "data-textbox-field";
+  const safeAttr = attr.replace(/[^\w-]/g, "");
+  return `
+      <label class="node-led-settings-row">
+        <span>Boldness</span>
+        <input type="range" min="100" max="900" step="100" ${safeAttr}="textWeight" aria-label="Font weight 100–900">
+      </label>`;
+}
+
+if (typeof globalThis !== "undefined") {
+  globalThis.nodeGraphAppClampFontWeight = nodeGraphAppClampFontWeight;
+  globalThis.nodeGraphAppFontWeightSettingsRowHtml = nodeGraphAppFontWeightSettingsRowHtml;
+  globalThis.NODE_GRAPH_APP_FONT_WEIGHT_DEFAULT = NODE_GRAPH_APP_FONT_WEIGHT_DEFAULT;
+}

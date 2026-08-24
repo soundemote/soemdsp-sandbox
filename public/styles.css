@@ -6498,13 +6498,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-module-corner-shape: squircle;
   --node-module-frame-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0.11));
   /*
-   * 1 *screen* CSS pixel under workspace camera scale.
-   * Path is outset 1 screen px outside the plate and gaps 1 screen px past
-   * jack faces (layout = screen/zoom) — see nodeGraphModuleFrameBreathingLayoutPx.
+   * Module stroke zoom compensate (UIDEV “module strokes fixed”, default on):
+   *   1/zoom → 1px stays 1 *screen* CSS px under workspace camera scale
+   *   1      → stroke scales with zoom
+   * Applies to idle outline, selected inset stroke, and frame path width.
    * Do NOT also use vector-effect:non-scaling-stroke — that double-handles
    * scale and walks the ring off the edge under zoom.
    */
-  --node-module-frame-stroke-width: calc(1px / max(0.0001, var(--node-graph-zoom, 1)));
+  --node-module-stroke-zoom-compensate: calc(1 / max(0.0001, var(--node-graph-zoom, 1)));
+  --node-module-frame-stroke-width: calc(1px * var(--node-module-stroke-zoom-compensate, 1));
   --node-module-scope-height: calc(var(--node-grid-height) * var(--node-module-display-height-units, 2));
   --node-module-interface-controls-height: calc(var(--node-grid-height) * var(--node-module-interface-controls-height-units, 4));
   --node-scope-port-band-overlap: 0px;
@@ -12268,7 +12270,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   border-radius: inherit;
   corner-shape: inherit;
   background: var(--node-module-fill);
-  outline: calc(var(--node-module-idle-stroke-width, 1px) / max(0.0001, var(--node-graph-zoom, 1))) solid var(--node-module-idle-stroke, rgb(255 255 255 / 0.5));
+  outline: calc(var(--node-module-idle-stroke-width, 1px) * var(--node-module-stroke-zoom-compensate, 1)) solid var(--node-module-idle-stroke, rgb(255 255 255 / 0.5));
   outline-color: color-mix(
     in srgb,
     var(--node-module-idle-stroke, rgb(255 255 255 / 0.5))
@@ -12430,7 +12432,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   pointer-events: none;
   border-radius: inherit;
   corner-shape: inherit;
-  box-shadow: inset 0 0 0 calc(var(--node-module-idle-stroke-width, 1px) / max(0.0001, var(--node-graph-zoom, 1))) var(--node-module-selected-stroke);
+  box-shadow: inset 0 0 0 calc(var(--node-module-idle-stroke-width, 1px) * var(--node-module-stroke-zoom-compensate, 1)) var(--node-module-selected-stroke);
 }
 
 .dsp-node.slider-widget-layout.knob-face-has-image,
@@ -15459,10 +15461,11 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
     --node-text-box-font,
     "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace
   );
+  font-weight: var(--node-text-box-font-weight, 400);
   font-size: calc(
     var(--node-grid-size) * 0.36 * var(--node-text-box-font-scale, 1)
   );
-  line-height: 1.2;
+  line-height: var(--node-text-box-line-height, 1.2);
   overflow: hidden;
   transform: translateY(var(--node-text-box-content-offset, 0px));
   cursor: text;
@@ -18858,23 +18861,24 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   grid-template-columns: minmax(0, 1fr);
   width: 100%;
   box-sizing: border-box;
-  margin: 4px 0 6px;
-  padding: 8px;
+  margin: 0;
+  padding: 0;
+  gap: 0;
   border: 1px solid rgba(127, 199, 217, 0.16);
-  border-radius: 4px;
+  border-radius: 0;
   background: #020405;
 }
 
 .node-trace-display-preview-shell.is-stereo {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
+  gap: 0;
 }
 
 .node-trace-display-preview-shell.is-xyz,
 .node-trace-display-preview-shell.is-rgb,
 .node-trace-display-lr-pair.is-xyz {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
+  gap: 0;
 }
 
 /* Cap plate size; shrink with the column so 3-up RGB/XYZ never clip the right edge. */
@@ -18891,10 +18895,12 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-preview-cell {
   display: grid;
   grid-template-rows: auto auto;
-  gap: 4px;
+  gap: 0;
   min-width: 0;
   justify-items: center;
   justify-content: center;
+  margin: 0;
+  padding: 0;
 }
 
 .node-trace-display-preview-side-label {

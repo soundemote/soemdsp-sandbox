@@ -758,7 +758,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   textBoxFace: Object.freeze({
-    fields: Object.freeze(["textSizePercent", "verticalAlignPercent"]),
+    fields: Object.freeze(["textSizePercent", "textWeight", "lineHeight", "verticalAlignPercent"]),
     colors: Object.freeze(["backgroundColor", "textColor"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),

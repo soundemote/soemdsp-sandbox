@@ -285,6 +285,17 @@ function syncNodeUiDevModuleIdleStroke() {
     "--node-module-selected-stroke",
     `rgb(${nodeUiDevHexColorToRgbTriplet(selectedColor)} / ${selectedAlphaPercent / 100})`,
   );
+  // Fixed (default): compensate zoom so idle + selected strokes stay screen-constant.
+  // Off: compensate = 1 → strokes scale with workspace zoom.
+  const strokesFixedInput = document.getElementById("nodeUiDevModuleStrokesFixed");
+  const strokesFixed = strokesFixedInput ? Boolean(strokesFixedInput.checked) : true;
+  if (strokesFixed) {
+    workspace?.style.removeProperty("--node-module-stroke-zoom-compensate");
+    document.documentElement.style.removeProperty("--node-module-stroke-zoom-compensate");
+  } else {
+    workspace?.style.setProperty("--node-module-stroke-zoom-compensate", "1");
+    document.documentElement.style.setProperty("--node-module-stroke-zoom-compensate", "1");
+  }
 }
 
 const NODE_MODULE_PLATE_ROUNDNESS_RATIO = 0.11;
@@ -311,6 +322,7 @@ function bindNodeUiDevModuleRoundness() {
 function bindNodeUiDevModuleIdleStroke() {
   for (const id of [
     "nodeUiDevModuleStrokeThickness",
+    "nodeUiDevModuleStrokesFixed",
     "nodeUiDevModuleStrokeColor",
     "nodeUiDevModuleStrokeAlpha",
     "nodeUiDevModuleSelectedStrokeColor",

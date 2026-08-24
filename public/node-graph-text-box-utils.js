@@ -98,6 +98,42 @@ const NODE_GRAPH_TEXT_BOX_DEFAULT_BACKGROUND = "#020407";
 const NODE_GRAPH_TEXT_BOX_DEFAULT_TEXT_COLOR = "#f3f1ec";
 /** Match the previous hardcoded Cascadia Mono face (app font catalog id). */
 const NODE_GRAPH_TEXT_BOX_DEFAULT_FONT = "cascadia-mono";
+/** Same 100–900 step scale as Keypad Boldness (shared clamp). */
+const NODE_GRAPH_TEXT_BOX_DEFAULT_TEXT_WEIGHT = typeof NODE_GRAPH_APP_FONT_WEIGHT_DEFAULT === "number"
+  ? NODE_GRAPH_APP_FONT_WEIGHT_DEFAULT
+  : 400;
+
+function normalizeNodeGraphTextBoxTextWeight(value) {
+  if (typeof nodeGraphAppClampFontWeight === "function") {
+    return nodeGraphAppClampFontWeight(value, NODE_GRAPH_TEXT_BOX_DEFAULT_TEXT_WEIGHT);
+  }
+  const n = Math.round(Number(value) / 100) * 100;
+  if (!Number.isFinite(n)) {
+    return NODE_GRAPH_TEXT_BOX_DEFAULT_TEXT_WEIGHT;
+  }
+  return Math.max(100, Math.min(900, n));
+}
+
+/** CSS line-height multiplier for Multi / newlines (matches prior face default 1.2). */
+const NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT = 1.2;
+const nodeGraphTextBoxLineHeightLimits = Object.freeze({
+  max: 3,
+  min: 0.5,
+  step: 0.05,
+});
+
+function normalizeNodeGraphTextBoxLineHeight(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT;
+  }
+  const stepped = Math.round(n / nodeGraphTextBoxLineHeightLimits.step)
+    * nodeGraphTextBoxLineHeightLimits.step;
+  return Math.max(
+    nodeGraphTextBoxLineHeightLimits.min,
+    Math.min(nodeGraphTextBoxLineHeightLimits.max, Number(stepped.toFixed(2))),
+  );
+}
 
 function nodeGraphTextBoxNormalizeHex(value, fallback) {
   const text = String(value || "").trim();
@@ -135,6 +171,12 @@ function normalizeNodeGraphTextBoxLayout(layout = {}) {
       NODE_GRAPH_TEXT_BOX_DEFAULT_TEXT_COLOR,
     ),
     textSizePercent: normalizeNodeGraphTextBoxTextSizePercent(source.textSizePercent),
+    textWeight: normalizeNodeGraphTextBoxTextWeight(
+      source.textWeight ?? source.boldness ?? source.fontWeight,
+    ),
+    lineHeight: normalizeNodeGraphTextBoxLineHeight(
+      source.lineHeight ?? source.lineSpacing ?? source.newlineSpacing,
+    ),
     textMode,
     verticalBipolar: true,
     verticalAlignPercent: normalizeNodeGraphTextBoxVerticalAlignPercent(
