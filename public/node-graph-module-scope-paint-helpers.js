@@ -2170,6 +2170,46 @@ function nodeGraphTraceDisplayPaintWaterfall(spec) {
     : false;
 }
 
+/** Horizontal dB guide lines for RMS faces (linear amplitude outs). */
+function nodeGraphPaintRmsDbGuideOverlay(context, canvas) {
+  if (!context || !canvas) {
+    return;
+  }
+  const guides = typeof NODE_GRAPH_RMS_DB_GUIDES !== "undefined"
+    ? NODE_GRAPH_RMS_DB_GUIDES
+    : [6, 3, 0, -1, -3, -6, -12, -18, -24, -48, -60];
+  const width = Math.max(1, canvas.width);
+  const height = Math.max(1, canvas.height);
+  const midY = height * 0.5;
+  const halfHeight = height * 0.42;
+  const gain = typeof NODE_GRAPH_RMS_FACE_GAIN === "number" ? NODE_GRAPH_RMS_FACE_GAIN : 1;
+  const offset = typeof NODE_GRAPH_RMS_FACE_OFFSET === "number" ? NODE_GRAPH_RMS_FACE_OFFSET : -1;
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "source-over";
+  context.lineWidth = 1;
+  for (const db of guides) {
+    const amp = typeof nodeGraphRmsDbToLinear === "function"
+      ? nodeGraphRmsDbToLinear(db)
+      : (Number(db) <= -200 ? 0 : 10 ** (Number(db) / 20));
+    const y = typeof nodeGraphWaterfallY === "function"
+      ? nodeGraphWaterfallY(amp, gain, offset, midY, halfHeight)
+      : (midY - Math.max(-1, Math.min(1, amp * gain + offset)) * halfHeight);
+    if (!Number.isFinite(y)) {
+      continue;
+    }
+    const isZero = Number(db) === 0;
+    context.strokeStyle = isZero
+      ? "rgba(255,255,255,0.55)"
+      : "rgba(255,255,255,0.22)";
+    context.beginPath();
+    context.moveTo(0, y + 0.5);
+    context.lineTo(width, y + 0.5);
+    context.stroke();
+  }
+  context.restore();
+}
+
 function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const slot = item?.slot;
   const buffer = item?.buffer;
@@ -2212,7 +2252,7 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const xyzBuffers = (!stereoBuffers && !rgbBuffers && nodeGraphModuleUsesXyzTraceDisplay(slot?.type))
     ? nodeGraphXyzTraceBuffers(slot.nodeId, slot.type)
     : null;
-  return nodeGraphWaterfallPaint({
+  const painted = nodeGraphWaterfallPaint({
     item,
     slot,
     buffer,
@@ -2225,6 +2265,13 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     rgbBuffers,
     density,
   });
+  const def = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[slot?.type]
+    : null;
+  if (painted && def?.rmsDbGuides) {
+    nodeGraphPaintRmsDbGuideOverlay(context, canvas);
+  }
+  return painted;
 }
 
 function appendNodeGraphScope2dInterpolatedPoint(points, point, spacingPx = 0.5) {

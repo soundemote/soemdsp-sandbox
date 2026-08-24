@@ -503,6 +503,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/helmholtzPitch/helmholtz-pitch-ui.js",
     "./public/modules/noiseDetector/noise-detector-math.js",
     "./public/modules/noiseDetector/noise-detector-live-evaluator.js",
+    "./public/modules/rms/rms-math.js",
+    "./public/modules/rms/rms-live-evaluator.js",
     "./public/modules/slewLimiter/slew-limiter-math.js",
     "./public/modules/slewLimiter/slew-limiter-live-evaluator.js",
     "./public/modules/midSideEncode/mid-side-encode-math.js",
@@ -4573,7 +4575,7 @@ def require_node_graph_mvp_contract() -> None:
         "Helmholtz Pitch should output analyzer zeros on disconnected input and clamp analysis to the safe window range (128–4096)",
     )
     noise_detector_definition_start = node_graph_module_definitions_source.index("  noiseDetector: {")
-    noise_detector_definition_end = node_graph_module_definitions_source.index("  slewLimiter: {", noise_detector_definition_start)
+    noise_detector_definition_end = node_graph_module_definitions_source.index("  rms: {", noise_detector_definition_start)
     noise_detector_definition_source = node_graph_module_definitions_source[
         noise_detector_definition_start:noise_detector_definition_end
     ]
@@ -4589,6 +4591,54 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphLiveModuleEvaluators.noiseDetector" in script_sources["./public/modules/noiseDetector/noise-detector-live-evaluator.js"]
         and "noiseDetector:" in (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8"),
         "Noise Detector should be a stereo thru analyzer with NSDF fidelity + threshold gate",
+    )
+    rms_definition_start = node_graph_module_definitions_source.index("  rms: {")
+    rms_definition_end = node_graph_module_definitions_source.index("  lufs: {", rms_definition_start)
+    rms_definition_source = node_graph_module_definitions_source[rms_definition_start:rms_definition_end]
+    rms_math_source = (PUBLIC / "modules" / "rms" / "rms-math.js").read_text(encoding="utf-8")
+    require(
+        'rms: "RMS"' in node_graph_module_definitions_source
+        and 'inputs: ["Mono", "Left", "Right"]' in rms_definition_source
+        and '"RMS Left D"' in rms_definition_source
+        and '"RMS Right D"' in rms_definition_source
+        and '"RMS Mono D"' in rms_definition_source
+        and 'digitalOutputs: ["Gate", "RMS", "RMS Left D", "RMS Right D", "RMS Mono D"]' in rms_definition_source
+        and 'xyzTracePorts: { X: "RMS Left", Y: "RMS Right", Z: "RMS Mono" }' in rms_definition_source
+        and "rmsDbGuides: true" in rms_definition_source
+        and 'key: "window"' in rms_definition_source
+        and 'key: "thresholdDb"' in rms_definition_source
+        and "function nodeGraphRmsSample" in rms_math_source
+        and "NODE_GRAPH_RMS_DB_GUIDES" in rms_math_source
+        and '"RMS Left": lRms' in rms_math_source
+        and '"RMS Left D": lRms' in rms_math_source
+        and "RMS: mRms" in rms_math_source
+        and "nodeGraphLiveModuleEvaluators.rms" in script_sources["./public/modules/rms/rms-live-evaluator.js"]
+        and "rms:" in (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8")
+        and "ports?.X" in (PUBLIC / "node-graph-module-scope-capture.js").read_text(encoding="utf-8"),
+        "RMS should meter analog RMS L/R/M plus digital RMS L/R/M D with dB gate and XYZ waterfall guides",
+    )
+    lufs_definition_start = node_graph_module_definitions_source.index("  lufs: {")
+    lufs_definition_end = node_graph_module_definitions_source.index("  slewLimiter: {", lufs_definition_start)
+    lufs_definition_source = node_graph_module_definitions_source[lufs_definition_start:lufs_definition_end]
+    uc_sort_source = module_store_source[
+        module_store_source.index("const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze(["):
+        module_store_source.index("]);", module_store_source.index("const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze(["))
+    ]
+    require(
+        'lufs: "LUFS"' in node_graph_module_definitions_source
+        and 'category: "multimeter"' in module_store_source[
+            module_store_source.index("lufs: {"):
+            module_store_source.index("speedColorInertia: {", module_store_source.index("lufs: {"))
+        ]
+        and 'inputs: ["Mono", "Left", "Right"]' in lufs_definition_source
+        and '"Momentary"' in lufs_definition_source
+        and '"Short Term"' in lufs_definition_source
+        and '"Integrated"' in lufs_definition_source
+        and '"rms"' in uc_sort_source
+        and '"lufs"' in uc_sort_source
+        and 'rms: "Sliding RMS' in module_store_source
+        and 'lufs: "Integrated / short-term' in module_store_source,
+        "RMS and LUFS should be Multimeter under-construction modules on the UC shelf",
     )
     require(
         'registerNodeGraphChromelessModule("keypad"' in script_sources["./public/modules/keypad/keypad-register.js"]

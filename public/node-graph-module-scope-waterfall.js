@@ -170,6 +170,15 @@ function nodeGraphWaterfallVisualHz(buffer) {
 }
 
 function nodeGraphWaterfallAmp(buffer, slot) {
+  // RMS meter face: linear amplitude 0→bottom, 1 (0 dB)→mid, 2 (+6 dB)→top.
+  const def = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[slot?.type]
+    : null;
+  if (def?.rmsDbGuides) {
+    const gain = typeof NODE_GRAPH_RMS_FACE_GAIN === "number" ? NODE_GRAPH_RMS_FACE_GAIN : 1;
+    const offset = typeof NODE_GRAPH_RMS_FACE_OFFSET === "number" ? NODE_GRAPH_RMS_FACE_OFFSET : -1;
+    return { gain, offset };
+  }
   const view = typeof nodeGraphTraceDisplayBufferView === "function"
     ? nodeGraphTraceDisplayBufferView(buffer, slot, { forceSyncOff: true })
     : null;

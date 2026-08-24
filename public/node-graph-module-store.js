@@ -140,6 +140,8 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "hypersaw",
   "bloomGlow",
   "gradientVectorscope",
+  "rms",
+  "lufs",
 ]);
 
 // Types that used to be on the UC shelf and are now shipped. Always strip
@@ -198,6 +200,8 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   groupOutput: "Group outlet portal. Parked until nested patches ship.",
   moduleGroup: "Nested patch box. Parked until grouping ships.",
   shootingStarTail: "Shooting-star trail events. Parked until that game trigger lands.",
+  rms: "Sliding RMS L/R/M meter + dB gate + XYZ waterfall. Parked on Multimeter until the face/readouts ship.",
+  lufs: "Integrated / short-term / momentary loudness (LUFS). Parked on Multimeter until loudness metering lands.",
 });
 
 // Unified module department definitions — single source of truth for
@@ -1720,6 +1724,38 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Noise Detector",
     notes: ["multimeter", "fidelity", "nsdf", "mcleod", "noise", "gate", "threshold"],
   },
+  rms: {
+    category: "multimeter",
+    description: "Sliding RMS meter for Mono/Left/Right with a dB threshold gate and XYZ waterfall (L/R/M).",
+    label: "RMS",
+    notes: [
+      "under construction",
+      "multimeter",
+      "rms",
+      "level",
+      "meter",
+      "gate",
+      "threshold",
+      "dB",
+      "waterfall",
+      "xyz",
+    ],
+  },
+  lufs: {
+    category: "multimeter",
+    description: "Placeholder LUFS loudness meter (integrated / short-term / momentary).",
+    label: "LUFS",
+    notes: [
+      "under construction",
+      "multimeter",
+      "lufs",
+      "loudness",
+      "integrated",
+      "short-term",
+      "momentary",
+      "meter",
+    ],
+  },
   speedColorInertia: {
     category: "multimeter",
     description: "Turn signal speed into color desaturation—visual edge energy meters.",
@@ -2746,6 +2782,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   noiseDetector: {
     source: "public/modules/noiseDetector/noise-detector-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/noiseDetector/noise-detector-math.js",
+  },
+  rms: {
+    source: "public/modules/rms/rms-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/rms/rms-math.js",
   },
   noiseGenerator: {
     source: "public/modules/noiseGenerator/noise-generator-math.js",

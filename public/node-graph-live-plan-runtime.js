@@ -351,6 +351,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const pulseExplosionStates = new Map();
   const comparatorStates = new Map();
   const noiseDetectorStates = new Map();
+  const rmsStates = new Map();
   const speedColorInertiaStates = new Map();
   const inertialFilterStates = new Map();
   const airClipperStates = new Map();
@@ -624,6 +625,9 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     if (node.type === "noiseDetector" && typeof createNodeGraphNoiseDetectorState === "function") {
       noiseDetectorStates.set(node.id, createNodeGraphNoiseDetectorState());
     }
+    if (node.type === "rms" && typeof createNodeGraphRmsState === "function") {
+      rmsStates.set(node.id, createNodeGraphRmsState());
+    }
     if (node.type === "speedColorInertia") {
       speedColorInertiaStates.set(node.id, createNodeGraphSpeedColorInertiaState());
     }
@@ -846,6 +850,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     pulseExplosionStates,
     comparatorStates,
     noiseDetectorStates,
+    rmsStates,
     speedColorInertiaStates,
     inertialFilterStates,
     airClipperStates,
@@ -1076,6 +1081,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.noiseDetectorStates) {
     runtime.noiseDetectorStates = new Map();
+  }
+  if (!runtime.rmsStates) {
+    runtime.rmsStates = new Map();
   }
   if (!runtime.speedColorInertiaStates) {
     runtime.speedColorInertiaStates = new Map();
@@ -1525,6 +1533,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       && !runtime.noiseDetectorStates.has(node.id)
     ) {
       runtime.noiseDetectorStates.set(node.id, createNodeGraphNoiseDetectorState());
+    }
+    if (
+      node.type === "rms"
+      && typeof createNodeGraphRmsState === "function"
+      && !runtime.rmsStates.has(node.id)
+    ) {
+      runtime.rmsStates.set(node.id, createNodeGraphRmsState());
     }
     if (node.type === "speedColorInertia" && !runtime.speedColorInertiaStates.has(node.id)) {
       runtime.speedColorInertiaStates.set(node.id, createNodeGraphSpeedColorInertiaState());
@@ -2046,6 +2061,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     for (const id of [...runtime.noiseDetectorStates.keys()]) {
       if (!nodeIds.has(id)) {
         runtime.noiseDetectorStates.delete(id);
+      }
+    }
+  }
+  if (runtime.rmsStates) {
+    for (const id of [...runtime.rmsStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.rmsStates.delete(id);
       }
     }
   }

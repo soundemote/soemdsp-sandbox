@@ -820,6 +820,22 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           hasInput(nodeId, "Right"),
         );
       },
+      rms: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        const state = this.rmsStates.get(nodeId) || this.createRmsState();
+        this.rmsStates.set(nodeId, state);
+        return this.rmsSample(
+          state,
+          mixInput(nodeId, "Left"),
+          mixInput(nodeId, "Mono"),
+          mixInput(nodeId, "Right"),
+          this.readEffectiveParameter(node, "window", 0.05, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "thresholdDb", -12, frame, frames, frameValues),
+          safeRate,
+          hasInput(nodeId, "Left"),
+          hasInput(nodeId, "Mono"),
+          hasInput(nodeId, "Right"),
+        );
+      },
       helmholtzPitch: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.helmholtzStates.get(nodeId) || this.createHelmholtzState();
         this.helmholtzStates.set(nodeId, state);
