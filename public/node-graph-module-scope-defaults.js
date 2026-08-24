@@ -369,11 +369,14 @@ const nodeGraphVectorDotSettingsDefaults = Object.freeze({
   lineThickness: 0.35,
   blur: 0.35,
   stereoBlend: "combine",
+  shape: "circle",
+  shapeParam: 0.5,
+  // Legacy axes (derived on normalize for old readers).
   pill: 0,
   squircle: 0,
 });
 
-// LCD Dot — Vector Dot shape + Value LCD plate/ink/glass.
+// LCD Dot — Vector Dot shape + LCD Value plate/ink/glass.
 const nodeGraphLcdDotSettingsDefaults = Object.freeze({
   faceStyle: "lcd",
   background: typeof nodeGraphHueUnitHex === "function"
@@ -404,6 +407,8 @@ const nodeGraphLcdDotSettingsDefaults = Object.freeze({
   lineThickness: 0.12,
   blur: 0.12,
   stereoBlend: "source-over",
+  shape: "circle",
+  shapeParam: 0.5,
   pill: 0,
   squircle: 0,
   unlitSegments: 0.22,

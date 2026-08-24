@@ -169,6 +169,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "valueSize",
     "backgroundBrightness",
     "backgroundHue",
+    "shapeParam",
     "pill",
     "squircle",
   ],
@@ -201,6 +202,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "freqScale",
     "cornerShape",
     "screenShape",
+    "shape",
     "outerPlate",
     "lightBlend",
     "polarity",
@@ -259,12 +261,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "dot1Size",
       "lineThickness",
-      "pill",
-      "squircle",
+      "shapeParam",
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze(["stereoBlend"]),
+    choices: Object.freeze(["shape", "stereoBlend"]),
   }),
   pulseDot: Object.freeze({
     fields: Object.freeze([
@@ -272,12 +273,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "dot1Size",
       "lineThickness",
-      "pill",
-      "squircle",
+      "shapeParam",
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze(["stereoBlend"]),
+    choices: Object.freeze(["shape", "stereoBlend"]),
   }),
   lineBurn: Object.freeze({
     // Heart-monitor phosphor: Sweep first, then shared phosphor stack.
@@ -457,12 +457,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "dot1Size",
       "lineThickness",
-      "pill",
-      "squircle",
+      "shapeParam",
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze(["stereoBlend"]),
+    choices: Object.freeze(["shape", "stereoBlend"]),
   }),
   pulseDot: Object.freeze({
     fields: Object.freeze([
@@ -470,12 +469,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "dot1Size",
       "lineThickness",
-      "pill",
-      "squircle",
+      "shapeParam",
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze(["stereoBlend"]),
+    choices: Object.freeze(["shape", "stereoBlend"]),
   }),
   lcdDot: Object.freeze({
     fields: Object.freeze([
@@ -483,8 +481,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "dot1Size",
       "lineThickness",
-      "pill",
-      "squircle",
+      "shapeParam",
       "unlitSegments",
       "innerShadowDistance",
       "innerShadowSharpness",
@@ -493,7 +490,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["shape"]),
   }),
   // RGB Shape: gradient picker only (geometry is module params).
   rgbShapeFace: Object.freeze({
@@ -1286,17 +1283,23 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayDot1Size",
     title: "Stroke/dot diameter vs face square min side. 0 = 1px (min), 1 = full square. Linear ratio.",
   }),
+  shapeParam: Object.freeze({
+    label: "Shape",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayShapeParam",
+    title: "Shape parameter 0…1. Meaning depends on Shape (Stretch, Corners, Sides, Points, …).",
+  }),
   pill: Object.freeze({
     label: "Pill",
     inputmode: "decimal",
     id: "nodeTraceDisplayPill",
-    title: "Stretch the stamp along the long face axis. 0 = 1:1, 1 = capsule filling the face.",
+    title: "Legacy stretch axis (migrated into Shape = Pill).",
   }),
   squircle: Object.freeze({
     label: "Squircle",
     inputmode: "decimal",
     id: "nodeTraceDisplaySquircle",
-    title: "Corner boxiness. 0 = circle/ellipse, 1 = square/rectangle. Bitmap stamp — blur still applies.",
+    title: "Legacy corner axis (migrated into Shape = Squircle).",
   }),
   puckSize: Object.freeze({
     label: "Puck size",
@@ -1640,6 +1643,34 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
       Object.freeze({ value: "pill", label: "Pill" }),
       Object.freeze({ value: "squircle", label: "Squircle" }),
     ]),
+  }),
+  shape: Object.freeze({
+    label: "Shape",
+    aria: "Stamp shape",
+    id: "nodeTraceDisplayShape",
+    title: "Ink silhouette for Vector / LED / LCD Dot stamps. App-wide vocabulary.",
+    options: Object.freeze(
+      (typeof TRACE_STAMP_SHAPES !== "undefined" && Array.isArray(TRACE_STAMP_SHAPES)
+        ? TRACE_STAMP_SHAPES
+        : [
+          { id: "circle", label: "Circle" },
+          { id: "pill", label: "Pill" },
+          { id: "squircle", label: "Squircle" },
+          { id: "ngon", label: "N-gon" },
+          { id: "star", label: "Star" },
+          { id: "heart", label: "Heart" },
+          { id: "trapezoid", label: "Trapezoid" },
+          { id: "diamond", label: "Diamond" },
+          { id: "cross", label: "Cross" },
+          { id: "ring", label: "Ring" },
+          { id: "teardrop", label: "Teardrop" },
+          { id: "flower", label: "Flower" },
+        ]
+      ).map((entry) => Object.freeze({
+        value: entry.id || entry.value,
+        label: entry.label,
+      })),
+    ),
   }),
   font: Object.freeze({
     label: "Font",

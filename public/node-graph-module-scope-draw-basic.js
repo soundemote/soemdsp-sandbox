@@ -902,9 +902,16 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
   const width = canvas.width;
   const height = canvas.height;
   const size01 = clampNodeSliderValue(Number(settings.dot1Size) || 0, 0, 1);
-  const pill = clampNodeSliderValue(Number(settings.pill) || 0, 0, 1);
-  const squircle = clampNodeSliderValue(Number(settings.squircle) || 0, 0, 1);
-  const extents = nodeGraphVectorDotStampExtents(width, height, size01, pill);
+  const stampShape = typeof normalizeTraceStampShape === "function"
+    ? normalizeTraceStampShape(settings.shape)
+    : String(settings.shape || "circle");
+  const shapeParam = clampNodeSliderValue(
+    Number(settings.shapeParam ?? (stampShape === "pill" ? settings.pill : settings.squircle)) || 0.5,
+    0,
+    1,
+  );
+  const stretch = stampShape === "pill" ? shapeParam : 0;
+  const extents = nodeGraphVectorDotStampExtents(width, height, size01, stretch);
   const radius = extents.radius;
   const blur = clampNodeSliderValue(
     Number(settings.lineThickness ?? settings.blur) || 0,
@@ -921,7 +928,12 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
       : (blend === "combine" ? "lighter" : blend));
   const e = Math.max(0, Math.min(1, energy));
   const amount = Math.max(0, Math.min(1, e * lampBright));
-  const shape = { rx: extents.rx, ry: extents.ry, squircle, pill };
+  const shape = {
+    rx: extents.rx,
+    ry: extents.ry,
+    shape: stampShape,
+    shapeParam,
+  };
   const cx = width * 0.5;
   const cy = height * 0.5;
   if (lcd) {

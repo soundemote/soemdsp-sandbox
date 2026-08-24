@@ -1,10 +1,9 @@
-// Smoothstep superellipse stamp + plausible-brightness gradient.
-// Alpha is cached per (rx, ry, blur, squircle). Color is a cheap radial walk
-// of the brightness cone (or any 0…1 LUT): core = amount, fringe → hue → black.
-// pill = 0…1 stretch (rx vs ry). squircle = 0 circle … 1 boxy.
+// Smoothstep stamp + plausible-brightness gradient.
+// Alpha is cached per (shape, shapeParam, rx, ry, blur). Color is a cheap radial
+// walk of the brightness cone (or any 0…1 LUT): core = amount, fringe → hue → black.
 
 (function initTraceDotSprite(global) {
-  const MAX_CACHE = 64;
+  const MAX_CACHE = 96;
   const MAX_RADIUS = 512;
   /** @type {Map<string, object>} */
   const cache = new Map();
@@ -27,6 +26,23 @@
     return Math.round(n / step) * step;
   }
 
+  function normalizeShape(value) {
+    if (typeof global.normalizeTraceStampShape === "function") {
+      return global.normalizeTraceStampShape(value);
+    }
+    const raw = String(value || "circle").toLowerCase();
+    return raw || "circle";
+  }
+
+  function paramToCount(param01, minCount, maxCount) {
+    if (typeof global.traceStampParamToCount === "function") {
+      return global.traceStampParamToCount(param01, minCount, maxCount);
+    }
+    const lo = Math.max(2, Math.floor(minCount));
+    const hi = Math.max(lo, Math.floor(maxCount));
+    return Math.round(lo + clamp01(param01, 0) * (hi - lo));
+  }
+
   function squircleN(squircle01) {
     const s = clamp01(squircle01, 0);
     return 2 + s * s * 10;
@@ -41,7 +57,7 @@
     return { inner, outer };
   }
 
-  function sdfPx(dx, dy, rx, ry, n) {
+  function sdfSuperellipse(dx, dy, rx, ry, n) {
     const ax = Math.abs(dx) / Math.max(1e-6, rx);
     const ay = Math.abs(dy) / Math.max(1e-6, ry);
     const p = Math.pow(ax, n) + Math.pow(ay, n);
@@ -49,16 +65,147 @@
     return (r - 1) * Math.min(rx, ry);
   }
 
-  function cacheKey(rx, ry, blur01, squircle01) {
+  function sdfCircle(dx, dy, r) {
+    return Math.hypot(dx, dy) - r;
+  }
+
+  function sdfBox(dx, dy, hx, hy) {
+    const qx = Math.abs(dx) - hx;
+    const qy = Math.abs(dy) - hy;
+    const ox = Math.max(qx, 0);
+    const oy = Math.max(qy, 0);
+    return Math.hypot(ox, oy) + Math.min(Math.max(qx, qy), 0);
+  }
+
+  function sdfPolygon(dx, dy, radius, sides, rot = -Math.PI / 2) {
+    const n = Math.max(3, sides | 0);
+    const ang = Math.atan2(dy, dx) - rot;
+    const sector = (Math.PI * 2) / n;
+    const a = ((ang % sector) + sector) % sector - sector * 0.5;
+    const r = Math.hypot(dx, dy);
+    const edge = radius * Math.cos(Math.PI / n);
+    return r * Math.cos(a) - edge;
+  }
+
+  function sdfStar(dx, dy, radius, points, innerRatio) {
+    const n = Math.max(3, points | 0);
+    const ang = Math.atan2(dy, dx) + Math.PI / 2;
+    const sector = Math.PI / n;
+    const a = Math.abs(((ang % (sector * 2)) + sector * 2) % (sector * 2) - sector);
+    const r = Math.hypot(dx, dy);
+    const t = a / sector;
+    const rim = radius * (1 - t) + radius * innerRatio * t;
+    return r - rim;
+  }
+
+  function sdfHeart(dx, dy, radius, plump01) {
+    const p = 0.75 + clamp01(plump01, 0.5) * 0.55;
+    const x = dx / Math.max(1e-6, radius);
+    const y = -dy / Math.max(1e-6, radius);
+    const x2 = x * x;
+    const y2 = y * y;
+    // Soft algebraic heart; plump scales x.
+    const sx = x / p;
+    const sx2 = sx * sx;
+    const a = sx2 + y2 - 1;
+    const val = a * a * a - sx2 * y2 * y;
+    // Convert implicit field to approx distance in px.
+    return val * radius * 0.55;
+  }
+
+  function sdfTrapezoid(dx, dy, rx, ry, ratio01) {
+    const top = Math.max(0.05, rx * (0.08 + clamp01(ratio01, 0.5) * 0.92));
+    const bottom = rx;
+    const t = (dy + ry) / Math.max(1e-6, ry * 2);
+    const half = bottom + (top - bottom) * Math.max(0, Math.min(1, t));
+    return sdfBox(dx, dy, half, ry);
+  }
+
+  function sdfDiamond(dx, dy, rx, ry, point01) {
+    const p = clamp01(point01, 0.5);
+    const n = 1.05 + (1 - p) * 1.6;
+    return sdfSuperellipse(dx, dy, rx, ry, n);
+  }
+
+  function sdfCross(dx, dy, rx, ry, thick01) {
+    const t = 0.12 + clamp01(thick01, 0.5) * 0.55;
+    const hx = rx;
+    const hy = ry * t;
+    const vx = rx * t;
+    const vy = ry;
+    return Math.min(sdfBox(dx, dy, hx, hy), sdfBox(dx, dy, vx, vy));
+  }
+
+  function sdfRing(dx, dy, radius, hole01) {
+    const outer = radius;
+    const inner = radius * (0.08 + clamp01(hole01, 0.5) * 0.78);
+    const d = Math.hypot(dx, dy);
+    return Math.max(d - outer, inner - d);
+  }
+
+  function sdfTeardrop(dx, dy, radius, taper01) {
+    const t = clamp01(taper01, 0.5);
+    const bulb = sdfCircle(dx, dy + radius * 0.18, radius * (0.72 - t * 0.12));
+    const tipY = -radius * (0.55 + t * 0.4);
+    const tipR = radius * (0.22 + (1 - t) * 0.18);
+    const tip = sdfCircle(dx, dy - tipY * 0.15, tipR);
+    // Cone-ish blend toward tip.
+    const ang = Math.atan2(dx, -(dy + radius * 0.05));
+    const cone = Math.abs(ang) * radius * (0.55 - t * 0.2) - (radius * 0.35 - dy * 0.2);
+    return Math.min(bulb, Math.max(tip, cone));
+  }
+
+  function sdfFlower(dx, dy, radius, petalsParam) {
+    const petals = paramToCount(petalsParam, 3, 8);
+    const ang = Math.atan2(dy, dx);
+    const r = Math.hypot(dx, dy);
+    const wave = 0.55 + 0.45 * Math.cos(ang * petals);
+    return r - radius * wave;
+  }
+
+  function sdfForShape(dx, dy, rx, ry, shape, shapeParam) {
+    const id = normalizeShape(shape);
+    const p = clamp01(shapeParam, 0.5);
+    const r = Math.min(rx, ry);
+    switch (id) {
+      case "pill":
+        return sdfSuperellipse(dx, dy, rx, ry, 2);
+      case "squircle":
+        return sdfSuperellipse(dx, dy, rx, ry, squircleN(p));
+      case "ngon":
+        return sdfPolygon(dx, dy, r, paramToCount(p, 3, 12));
+      case "star":
+        return sdfStar(dx, dy, r, paramToCount(p, 3, 12), 0.42);
+      case "heart":
+        return sdfHeart(dx, dy, r, p);
+      case "trapezoid":
+        return sdfTrapezoid(dx, dy, rx, ry, p);
+      case "diamond":
+        return sdfDiamond(dx, dy, rx, ry, p);
+      case "cross":
+        return sdfCross(dx, dy, rx, ry, p);
+      case "ring":
+        return sdfRing(dx, dy, r, p);
+      case "teardrop":
+        return sdfTeardrop(dx, dy, r, p);
+      case "flower":
+        return sdfFlower(dx, dy, r, p);
+      case "circle":
+      default:
+        return sdfSuperellipse(dx, dy, rx, ry, 2);
+    }
+  }
+
+  function cacheKey(rx, ry, blur01, shape, shapeParam) {
     const x = quant(Math.max(1, Math.min(MAX_RADIUS, rx)), 0.25);
     const y = quant(Math.max(1, Math.min(MAX_RADIUS, ry)), 0.25);
     const b = quant(clamp01(blur01, 0), 1 / 64);
-    const s = quant(clamp01(squircle01, 0), 1 / 32);
-    return `${x.toFixed(2)}:${y.toFixed(2)}:${b.toFixed(4)}:${s.toFixed(4)}`;
+    const s = normalizeShape(shape);
+    const p = quant(clamp01(shapeParam, 0.5), 1 / 32);
+    return `${s}:${p.toFixed(4)}:${x.toFixed(2)}:${y.toFixed(2)}:${b.toFixed(4)}`;
   }
 
-  function bake(rx, ry, blur01, squircle01) {
-    const n = squircleN(squircle01);
+  function bake(rx, ry, blur01, shape, shapeParam) {
     const charR = Math.min(rx, ry);
     const { inner, outer } = innerOuter(charR, blur01);
     const extra = Math.max(0, outer - charR);
@@ -78,9 +225,11 @@
     const cx = halfW;
     const cy = halfH;
     const span = Math.max(1e-6, outer - inner);
+    const id = normalizeShape(shape);
+    const param = clamp01(shapeParam, 0.5);
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
-        const dist = sdfPx(x - cx, y - cy, rx, ry, n);
+        const dist = sdfForShape(x - cx, y - cy, rx, ry, id, param);
         const a = 1 - hermite((dist - (inner - charR)) / span);
         const v = Math.round(Math.max(0, Math.min(1, a)) * 255);
         const o = (y * width + x) * 4;
@@ -100,12 +249,14 @@
       ry,
       radius: charR,
       blur: clamp01(blur01, 0),
-      squircle: clamp01(squircle01, 0),
+      shape: id,
+      shapeParam: param,
+      squircle: id === "squircle" ? param : 0,
     };
   }
 
-  function ensure(rx, ry, blur01, squircle01) {
-    const key = cacheKey(rx, ry, blur01, squircle01);
+  function ensure(rx, ry, blur01, shape, shapeParam) {
+    const key = cacheKey(rx, ry, blur01, shape, shapeParam);
     let entry = cache.get(key);
     if (entry) {
       cache.delete(key);
@@ -114,7 +265,7 @@
     }
     const x = Math.max(1, Math.min(MAX_RADIUS, Number(rx) || 1));
     const y = Math.max(1, Math.min(MAX_RADIUS, Number(ry) || 1));
-    entry = bake(x, y, blur01, squircle01);
+    entry = bake(x, y, blur01, shape, shapeParam);
     if (!entry) {
       return null;
     }
@@ -189,19 +340,53 @@
     return tintScratch.getContext("2d");
   }
 
+  function resolveShapeOpts(style) {
+    const opts = style && typeof style === "object" ? style : {};
+    let shape = opts.shape;
+    let shapeParam = opts.shapeParam;
+    if (shape == null || shape === "") {
+      // Legacy dual sliders → exclusive shape.
+      if (typeof global.migratePillSquircleToShape === "function") {
+        const migrated = global.migratePillSquircleToShape(opts.pill, opts.squircle);
+        shape = migrated.shape;
+        shapeParam = migrated.shapeParam;
+      } else {
+        const pill = clamp01(opts.pill, 0);
+        const squircle = clamp01(opts.squircle, 0);
+        if (pill <= 1e-4 && squircle <= 1e-4) {
+          shape = "circle";
+          shapeParam = 0.5;
+        } else if (pill >= squircle) {
+          shape = "pill";
+          shapeParam = pill;
+        } else {
+          shape = "squircle";
+          shapeParam = squircle;
+        }
+      }
+    }
+    return {
+      shape: normalizeShape(shape),
+      shapeParam: clamp01(shapeParam, 0.5),
+    };
+  }
+
   function resolveExtents(radius, style) {
     const opts = style && typeof style === "object" ? style : {};
     const r = Math.max(0.5, Number(radius) || 0.5);
-    const rx = Number(opts.rx);
-    const ry = Number(opts.ry);
-    if (rx > 0.05 && ry > 0.05) {
-      return { rx, ry, squircle: clamp01(opts.squircle, 0) };
+    const { shape, shapeParam } = resolveShapeOpts(opts);
+    const rxIn = Number(opts.rx);
+    const ryIn = Number(opts.ry);
+    if (rxIn > 0.05 && ryIn > 0.05) {
+      return { rx: rxIn, ry: ryIn, shape, shapeParam };
     }
-    const pill = clamp01(opts.pill, 0);
+    // Pill stretch only when shape is pill (legacy pill also stretches).
+    const stretch = shape === "pill" ? shapeParam : 0;
     return {
-      rx: r * (1 + pill * 2),
+      rx: r * (1 + stretch * 2),
       ry: r,
-      squircle: clamp01(opts.squircle, 0),
+      shape,
+      shapeParam,
     };
   }
 
@@ -211,7 +396,7 @@
    * @param {number} cy
    * @param {number} radius
    * @param {number} blur01
-   * @param {string|{hue?:number,amount?:number,color?:string,colorAt?:function,pill?:number,squircle?:number,rx?:number,ry?:number}|undefined} style
+   * @param {string|{hue?:number,amount?:number,color?:string,colorAt?:function,shape?:string,shapeParam?:number,pill?:number,squircle?:number,rx?:number,ry?:number}|undefined} style
    * @param {number} [alpha01]
    */
   function draw(context, cx, cy, radius, blur01, style, alpha01 = 1) {
@@ -223,7 +408,7 @@
     if (a <= 0.001 || !(extents.rx > 0.05) || !(extents.ry > 0.05)) {
       return false;
     }
-    const sprite = ensure(extents.rx, extents.ry, blur01, extents.squircle);
+    const sprite = ensure(extents.rx, extents.ry, blur01, extents.shape, extents.shapeParam);
     if (!sprite) {
       return false;
     }
@@ -261,7 +446,13 @@
   }
 
   global.TraceDotSprite = {
-    ensure: (radius, blur01, squircle01 = 0) => ensure(radius, radius, blur01, squircle01),
+    ensure: (radius, blur01, shapeOrSquircle = "circle", shapeParam = 0.5) => {
+      // Back-compat: numeric 3rd arg was squircle01.
+      if (typeof shapeOrSquircle === "number") {
+        return ensure(radius, radius, blur01, "squircle", shapeOrSquircle);
+      }
+      return ensure(radius, radius, blur01, shapeOrSquircle, shapeParam);
+    },
     draw,
     innerOuter,
     extents: resolveExtents,

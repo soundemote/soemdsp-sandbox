@@ -1563,8 +1563,38 @@ function normalizeNodeGraphVectorDotSettings(settings = {}) {
           : ["combine", "lighter", "screen", "source-over", "multiply", "difference", "exclusion", "xor"];
         return ok.includes(raw) ? raw : "combine";
       })(),
-    pill: normalizeNodeGraphTraceDisplayNumber(source.pill, defaults.pill ?? 0, 0, 1),
-    squircle: normalizeNodeGraphTraceDisplayNumber(source.squircle, defaults.squircle ?? 0, 0, 1),
+    ...(function () {
+      const pill = normalizeNodeGraphTraceDisplayNumber(source.pill, defaults.pill ?? 0, 0, 1);
+      const squircle = normalizeNodeGraphTraceDisplayNumber(source.squircle, defaults.squircle ?? 0, 0, 1);
+      const hasShape = source.shape != null && String(source.shape).trim() !== "";
+      let shape;
+      let shapeParam;
+      if (hasShape && typeof normalizeTraceStampShape === "function") {
+        shape = normalizeTraceStampShape(source.shape, defaults.shape || "circle");
+        shapeParam = normalizeNodeGraphTraceDisplayNumber(
+          source.shapeParam,
+          defaults.shapeParam ?? 0.5,
+          0,
+          1,
+        );
+      } else if (typeof migratePillSquircleToShape === "function") {
+        const migrated = migratePillSquircleToShape(pill, squircle);
+        shape = migrated.shape;
+        shapeParam = migrated.shapeParam;
+      } else {
+        shape = "circle";
+        shapeParam = 0.5;
+      }
+      const legacy = typeof deriveLegacyPillSquircle === "function"
+        ? deriveLegacyPillSquircle(shape, shapeParam)
+        : { pill: shape === "pill" ? shapeParam : 0, squircle: shape === "squircle" ? shapeParam : 0 };
+      return {
+        shape,
+        shapeParam,
+        pill: legacy.pill,
+        squircle: legacy.squircle,
+      };
+    })(),
   };
 }
 

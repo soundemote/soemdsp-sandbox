@@ -145,6 +145,19 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Size";
     title = "Dot diameter as a fraction of the face min side.";
   }
+  if ((formType === "vectorDot" || formType === "pulseDot" || formType === "lcdDot") && key === "shapeParam") {
+    const live = document.getElementById("nodeTraceDisplaySettingsPopover")
+      ?.querySelector?.(`[data-trace-display-choice="shape"]`)?.value;
+    const shape = typeof normalizeTraceStampShape === "function"
+      ? normalizeTraceStampShape(live || "circle")
+      : String(live || "circle");
+    const meta = typeof traceStampShapeParamMeta === "function"
+      ? traceStampShapeParamMeta(shape)
+      : null;
+    label = meta?.label || "Shape";
+    title = meta?.title
+      || "Shape parameter 0…1. Meaning depends on Shape.";
+  }
   if (formType === "numberReadout" && key === "dot1Brightness") {
     const nodeType = typeof nodeGraphPatchNode === "function"
       && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
@@ -852,18 +865,24 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
   if (spriteKind && typeof TraceDotSprite !== "undefined" && typeof TraceDotSprite.draw === "function") {
     const amt = Number.isFinite(bright01) ? Math.max(0, Math.min(1, bright01)) : 0.5;
     if (kind === "vectorDot" || kind === "pulseDot" || kind === "lcdDot") {
-      const pill = Math.max(0, Math.min(1, Number(settings.pill) || 0));
-      const squircle = Math.max(0, Math.min(1, Number(settings.squircle) || 0));
+      const stampShape = typeof normalizeTraceStampShape === "function"
+        ? normalizeTraceStampShape(settings.shape)
+        : String(settings.shape || "circle");
+      const shapeParam = Math.max(0, Math.min(1, Number(
+        settings.shapeParam ?? (stampShape === "pill" ? settings.pill : settings.squircle),
+      ) || 0.5));
+      const stretch = stampShape === "pill" ? shapeParam : 0;
       const ext = typeof nodeGraphVectorDotStampExtents === "function"
-        ? nodeGraphVectorDotStampExtents(buf, buf, size, pill)
-        : { rx: radius * (1 + pill * 2), ry: radius };
+        ? nodeGraphVectorDotStampExtents(buf, buf, size, stretch)
+        : { rx: radius * (1 + stretch * 2), ry: radius };
       if (kind === "lcdDot") {
         TraceDotSprite.draw(scratchCtx, cx, cy, radius, blur01, {
           color,
           amount: 1,
           rx: ext.rx,
           ry: ext.ry,
-          squircle,
+          shape: stampShape,
+          shapeParam,
         }, amt);
       } else {
         const hue = typeof nodeGraphHueDegFromHex === "function"
@@ -874,7 +893,8 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
           amount: amt,
           rx: ext.rx,
           ry: ext.ry,
-          squircle,
+          shape: stampShape,
+          shapeParam,
         }, 1);
       }
     } else if (kind === "dot" && typeof nodeGraphPhosphorDotLutCss === "function") {
@@ -972,10 +992,59 @@ function paintNodeGraphStampPreview(root, settings = {}) {
   }
 }
 
+/** Hide Shape param for Circle; retitle Stretch/Corners/Sides/… from live Shape. */
+function syncNodeGraphStampShapeControls(root, settings = {}) {
+  const host = root?.querySelector?.(`[data-trace-display-choice="shape"]`)
+    ? root
+    : document.getElementById("nodeTraceDisplaySettingsPopover");
+  if (!host) {
+    return;
+  }
+  const shapeSelect = host.querySelector(`[data-trace-display-choice="shape"]`);
+  if (!shapeSelect) {
+    return;
+  }
+  const shape = typeof normalizeTraceStampShape === "function"
+    ? normalizeTraceStampShape(shapeSelect.value || settings.shape || "circle")
+    : String(shapeSelect.value || settings.shape || "circle");
+  const usesParam = typeof traceStampShapeUsesParam === "function"
+    ? traceStampShapeUsesParam(shape)
+    : shape !== "circle";
+  const meta = typeof traceStampShapeParamMeta === "function"
+    ? traceStampShapeParamMeta(shape)
+    : { label: "Shape", title: "" };
+  const field = host.querySelector(`[data-trace-display-field="shapeParam"]`);
+  const row = field?.closest?.("[data-trace-display-control-row]") || null;
+  if (row) {
+    row.hidden = !usesParam;
+    row.style.display = usesParam ? "" : "none";
+  }
+  if (!usesParam) {
+    return;
+  }
+  // Stepper rows: first child <span> is the field title.
+  const titleSpan = row?.querySelector?.(":scope > span:not(.metadata-stepper-control)");
+  if (titleSpan) {
+    titleSpan.textContent = meta.label;
+  }
+  if (row && meta.title) {
+    row.title = meta.title;
+  }
+  if (field) {
+    if (meta.title) {
+      field.title = meta.title;
+    }
+    field.setAttribute("aria-label", meta.label);
+  }
+}
+
 function syncNodeGraphStampPreview(root, settings) {
   const host = root?.querySelector?.("[data-stamp-preview]")
     ? root
     : document.getElementById("nodeTraceDisplaySettingsPopover");
+  if (typeof syncNodeGraphStampShapeControls === "function") {
+    syncNodeGraphStampShapeControls(host || root, settings);
+  }
   if (!host?.querySelector?.("[data-stamp-preview-canvas]")) {
     return;
   }

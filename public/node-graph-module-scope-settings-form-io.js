@@ -1326,6 +1326,10 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   if (formType === "knobFace" && typeof syncNodeGraphKnobFaceDisplaySettingsControls === "function") {
     syncNodeGraphKnobFaceDisplaySettingsControls(root);
   }
+  if ((formType === "vectorDot" || formType === "pulseDot" || formType === "lcdDot")
+    && typeof syncNodeGraphStampShapeControls === "function") {
+    syncNodeGraphStampShapeControls(root, normalized);
+  }
   if (typeof nodeGraphDisplaySettingsShowsStampPreview === "function"
     && nodeGraphDisplaySettingsShowsStampPreview(formType)
     && typeof syncNodeGraphStampPreview === "function") {
