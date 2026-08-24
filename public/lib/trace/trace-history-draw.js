@@ -257,8 +257,8 @@
   }
 
   /**
-   * N colored history strokes. Two-layer Meet uses strokeStereo.
-   * Three-or-more + combine uses additive (lighter) so R+G+B can mix to white.
+   * N colored history strokes. Two-layer R+B=G uses strokeStereo.
+   * Three-layer + combine uses TraceStroke.drawMeet (pairwise meet + triple screen).
    */
   function strokeLayers(context, layers, options = {}) {
     if (!context || !Array.isArray(layers) || !layers.length) {
@@ -269,6 +269,26 @@
       return 0;
     }
     const blend = normalizeBlend(options.blend, "source-over");
+    if (enabled.length >= 2 && typeof global.TraceStroke !== "undefined"
+      && typeof global.TraceStroke.drawMeet === "function") {
+      return global.TraceStroke.drawMeet(
+        context,
+        enabled.map((layer) => ({
+          points: layer.points,
+          size: layer.size ?? options.size,
+          blur: 0,
+          brightness: layer.brightness ?? options.brightness,
+          color: layer.color,
+          enabled: layer.enabled,
+          faceMinSide: options.faceMinSide,
+        })),
+        {
+          blend,
+          meetColor: options.meetColor || "auto",
+          faceMinSide: options.faceMinSide,
+        },
+      );
+    }
     if (enabled.length === 2) {
       return strokeStereo(
         context,

@@ -694,17 +694,50 @@
     return STEREO_BLEND_MODES.includes(m) ? m : "combine";
   }
 
+  function ensureMaskCanvas(host, key, w, h) {
+    let canvas = host[key];
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      host[key] = canvas;
+    }
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    return canvas;
+  }
+
+  function drawWhiteMask(ctx, points, options, face, cap) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    return draw(ctx, points, {
+      ...options,
+      blur: 0,
+      brightness: 1,
+      color: "#ffffff",
+      rgb: [255, 255, 255],
+      faceMinSide: face,
+      composite: "source-over",
+      lineCap: cap,
+    });
+  }
+
+  function maskCoverage(data, i) {
+    return Math.max(data[i], data[i + 1], data[i + 2]) / 255;
+  }
+
   /**
-   * Output stereo dual-trace.
+   * Stereo / XYZ dual-or-triple trace.
    *
-   * blend "combine" (default / Meet UI):
+   * blend "combine" (default / R+B=G UI):
    *   m = min(L, R)
    *   pixel = (L-m)·C_left + (R-m)·C_right + m·C_meet
-   * With C_left=red, C_right=blue, C_meet=green this is the original R/B→G.
+   * With C_left=red, C_right=blue, C_meet=green this is R+B=G.
    * C_meet defaults to max(0, 1-C_L-C_R) per channel (complement).
+   * Three layers: exclusive + pairwise meet + triple screen.
    * Caller fills plate under transparent holes (destination-over).
    *
-   * Other blends: draw Left then Right with that Canvas composite mode
+   * Other blends: draw each layer with that Canvas composite mode
    * (plate must already be filled by the caller).
    * Trace blur is ignored (always hard stroke).
    */
@@ -743,53 +776,18 @@
     const canvas = destCtx.canvas;
     const w = Math.max(1, canvas.width);
     const h = Math.max(1, canvas.height);
-    if (!canvas._traceStereoScratchL) {
-      canvas._traceStereoScratchL = document.createElement("canvas");
-      canvas._traceStereoScratchR = document.createElement("canvas");
-    }
-    const leftCanvas = canvas._traceStereoScratchL;
-    const rightCanvas = canvas._traceStereoScratchR;
-    if (leftCanvas.width !== w || leftCanvas.height !== h) {
-      leftCanvas.width = w;
-      leftCanvas.height = h;
-    }
-    if (rightCanvas.width !== w || rightCanvas.height !== h) {
-      rightCanvas.width = w;
-      rightCanvas.height = h;
-    }
+    const leftCanvas = ensureMaskCanvas(canvas, "_traceStereoScratchL", w, h);
+    const rightCanvas = ensureMaskCanvas(canvas, "_traceStereoScratchR", w, h);
     const leftCtx = leftCanvas.getContext("2d", { willReadFrequently: true });
     const rightCtx = rightCanvas.getContext("2d", { willReadFrequently: true });
     if (!leftCtx || !rightCtx) {
       return 0;
     }
 
-    leftCtx.setTransform(1, 0, 0, 1, 0, 0);
-    rightCtx.setTransform(1, 0, 0, 1, 0, 0);
-    leftCtx.clearRect(0, 0, w, h);
-    rightCtx.clearRect(0, 0, w, h);
-    // Transparent masks (not opaque black). Black fill + putImageData made a
-    // halo around every scroll stamp. Classic Meet: hard white ink, blur off.
+    // Transparent masks (not opaque black). Classic R+B=G: hard white ink, blur off.
     const cap = stereo.lineCap === "butt" ? "butt" : "round";
-    const leftCount = draw(leftCtx, leftPoints, {
-      ...leftOptions,
-      blur: 0,
-      brightness: 1,
-      color: "#ffffff",
-      rgb: [255, 255, 255],
-      faceMinSide: face,
-      composite: "source-over",
-      lineCap: cap,
-    });
-    const rightCount = draw(rightCtx, rightPoints, {
-      ...rightOptions,
-      blur: 0,
-      brightness: 1,
-      color: "#ffffff",
-      rgb: [255, 255, 255],
-      faceMinSide: face,
-      composite: "source-over",
-      lineCap: cap,
-    });
+    const leftCount = drawWhiteMask(leftCtx, leftPoints, leftOptions, face, cap);
+    const rightCount = drawWhiteMask(rightCtx, rightPoints, rightOptions, face, cap);
 
     const gainL = clamp01(leftOptions.brightness, 1);
     const gainR = clamp01(rightOptions.brightness, 1);
@@ -810,8 +808,8 @@
     const rd = rightData.data;
     const od = out.data;
     for (let i = 0; i < od.length; i += 4) {
-      const L = Math.max(ld[i], ld[i + 1], ld[i + 2]) / 255;
-      const Rch = Math.max(rd[i], rd[i + 1], rd[i + 2]) / 255;
+      const L = maskCoverage(ld, i);
+      const Rch = maskCoverage(rd, i);
       const m = L < Rch ? L : Rch;
       const leftOnly = L - m;
       const rightOnly = Rch - m;
@@ -838,6 +836,141 @@
     });
   }
 
+  /**
+   * 2-layer → drawStereo. 3-layer R+B=G: exclusive colors + pairwise meet +
+   * triple screen. Other blends: sequential canvas composites.
+   *
+   * layers: [{ points, size, brightness, color, enabled, faceMinSide }]
+   */
+  function drawMeet(destCtx, layers, stereo = {}) {
+    const list = (Array.isArray(layers) ? layers : []).filter(
+      (layer) => layer && layer.enabled !== false,
+    );
+    if (!destCtx?.canvas || !list.length) {
+      return 0;
+    }
+    const blend = normalizeStereoBlend(stereo.blend);
+    const faceFromOpts = Math.max(
+      1,
+      ...list.map((layer) => Number(layer.faceMinSide) || 0),
+      Number(stereo.faceMinSide) || 0,
+    );
+    const face = faceFromOpts > 1
+      ? faceFromOpts
+      : Math.min(
+        Math.max(1, destCtx.canvas.width),
+        Math.max(1, destCtx.canvas.height),
+      );
+    if (list.length === 1) {
+      return draw(destCtx, list[0].points, {
+        ...list[0],
+        faceMinSide: face,
+        composite: blend === "combine" || blend === "source-over" ? "source-over" : blend,
+        blur: 0,
+        lineCap: stereo.lineCap,
+      });
+    }
+    if (list.length === 2 || blend !== "combine") {
+      if (list.length === 2) {
+        return drawStereo(
+          destCtx,
+          list[0].points,
+          list[1].points,
+          { ...list[0], faceMinSide: face },
+          { ...list[1], faceMinSide: face },
+          {
+            blend,
+            leftColor: list[0].color,
+            rightColor: list[1].color,
+            meetColor: stereo.meetColor || "auto",
+            lineCap: stereo.lineCap,
+          },
+        );
+      }
+      let painted = 0;
+      const composite = blend === "combine" ? "lighter" : blend;
+      for (const layer of list) {
+        painted += draw(destCtx, layer.points, {
+          ...layer,
+          faceMinSide: face,
+          composite,
+          blur: 0,
+          lineCap: stereo.lineCap,
+        });
+      }
+      return painted;
+    }
+
+    const canvas = destCtx.canvas;
+    const w = Math.max(1, canvas.width);
+    const h = Math.max(1, canvas.height);
+    const keys = ["_traceStereoScratchL", "_traceStereoScratchR", "_traceStereoScratchZ"];
+    const masks = [];
+    const cap = stereo.lineCap === "butt" ? "butt" : "round";
+    let painted = 0;
+    for (let i = 0; i < 3; i += 1) {
+      const maskCanvas = ensureMaskCanvas(canvas, keys[i], w, h);
+      const ctx = maskCanvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) {
+        return 0;
+      }
+      painted += drawWhiteMask(ctx, list[i].points, list[i], face, cap);
+      masks.push(ctx.getImageData(0, 0, w, h).data);
+    }
+    const gains = list.map((layer) => clamp01(layer.brightness, 1));
+    const raw = list.map((layer, i) => parseRgb01(layer.color, i === 0 ? [1, 0, 0] : i === 1 ? [0, 0, 1] : [0, 1, 0]));
+    const rgb = raw.map((c, i) => [c[0] * gains[i], c[1] * gains[i], c[2] * gains[i]]);
+    const meetGain = Math.max(gains[0], gains[1], gains[2]);
+    const pair = (a, b) => {
+      const m = meetColorFromPair(raw[a], raw[b]);
+      return [m[0] * meetGain, m[1] * meetGain, m[2] * meetGain];
+    };
+    const cLR = pair(0, 1);
+    const cLZ = pair(0, 2);
+    const cRZ = pair(1, 2);
+    const cT = [
+      1 - (1 - rgb[0][0]) * (1 - rgb[1][0]) * (1 - rgb[2][0]),
+      1 - (1 - rgb[0][1]) * (1 - rgb[1][1]) * (1 - rgb[2][1]),
+      1 - (1 - rgb[0][2]) * (1 - rgb[1][2]) * (1 - rgb[2][2]),
+    ];
+    const out = destCtx.createImageData(w, h);
+    const od = out.data;
+    const A = masks[0];
+    const B = masks[1];
+    const C = masks[2];
+    for (let i = 0; i < od.length; i += 4) {
+      const a = maskCoverage(A, i);
+      const b = maskCoverage(B, i);
+      const c = maskCoverage(C, i);
+      const ab = a < b ? a : b;
+      const ac = a < c ? a : c;
+      const bc = b < c ? b : c;
+      const t = ab < c ? ab : c;
+      const lr = ab - t;
+      const lz = ac - t;
+      const rz = bc - t;
+      const onlyA = a - ab - ac + t;
+      const onlyB = b - ab - bc + t;
+      const onlyC = c - ac - bc + t;
+      od[i] = Math.round(Math.min(1,
+        onlyA * rgb[0][0] + onlyB * rgb[1][0] + onlyC * rgb[2][0]
+        + lr * cLR[0] + lz * cLZ[0] + rz * cRZ[0] + t * cT[0]) * 255);
+      od[i + 1] = Math.round(Math.min(1,
+        onlyA * rgb[0][1] + onlyB * rgb[1][1] + onlyC * rgb[2][1]
+        + lr * cLR[1] + lz * cLZ[1] + rz * cRZ[1] + t * cT[1]) * 255);
+      od[i + 2] = Math.round(Math.min(1,
+        onlyA * rgb[0][2] + onlyB * rgb[1][2] + onlyC * rgb[2][2]
+        + lr * cLR[2] + lz * cLZ[2] + rz * cRZ[2] + t * cT[2]) * 255);
+      od[i + 3] = Math.round(Math.min(1, Math.max(a, b, c)) * 255);
+    }
+    destCtx.save();
+    destCtx.setTransform(1, 0, 0, 1, 0, 0);
+    destCtx.globalCompositeOperation = "source-over";
+    destCtx.putImageData(out, 0, 0);
+    destCtx.restore();
+    return painted;
+  }
+
   global.TraceStroke = {
     clamp01,
     normalizeBlur,
@@ -848,6 +981,7 @@
     draw,
     drawStereo,
     drawStereoRedBlueGreen,
+    drawMeet,
     normalizeStereoBlend,
     STEREO_BLEND_MODES,
     meetColorFromPair,
