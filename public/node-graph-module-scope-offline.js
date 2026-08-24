@@ -538,7 +538,7 @@ function nodeGraphModuleDisplayTypeForSlot(slot) {
 }
 
 function nodeGraphModuleScopeSlotUsesWiredInputs(slot) {
-  return ["traceDisplay", "traceDisplayStereo", "traceDisplayXyz", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "scope2d", "scope2dTrace", "phosphorLight", "visualOscilloscope", "numberReadout", "valueLcd", "led", "vectorDot", "lcdDot", "vectorRgb", "rasterRgb", "gradientVectorscope", "traceXyz"].includes(slot?.type);
+  return ["traceDisplay", "traceDisplayStereo", "traceDisplayXyz", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "scope2d", "scope2dTrace", "phosphorLight", "visualOscilloscope", "numberReadout", "valueLcd", "led", "vectorDot", "lcdDot", "vectorRgb", "rasterRgb", "gradientVectorscope", "traceXyz", "traceRgb"].includes(slot?.type);
 }
 
 function nodeGraphModuleDisplaySourceForSlot(slot) {

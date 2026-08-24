@@ -798,7 +798,7 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   ) {
     return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings);
   }
-  if (settingsSchema === "trace" || settingsSchema === "traceXyz") {
+  if (settingsSchema === "trace" || settingsSchema === "traceXyz" || settingsSchema === "traceRgb") {
     return nodeGraphTraceDisplaySettingsForNode(node);
   }
   if (settingsSchema === "gradientVectorscopeFace") {

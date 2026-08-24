@@ -512,8 +512,10 @@ function updateNodeGraphGridHeatmap(options = {}) {
   // Phase-wrap into one cell. A raw origin of e.g. -3500 with a 4000px tile
   // puts the 1px line off-screen; Chrome then often skips the next tile, so
   // the line you zoomed in on vanishes once the cell exceeds the workspace.
-  const cell = applyNodeGraphGridVisualCellSize(workspace, heatmap, zoom)
-    || nodeGraphGridScreenCellPx(workspace, zoom);
+  const cell = options?.phaseOnly === true
+    ? nodeGraphGridScreenCellPx(workspace, zoom)
+    : (applyNodeGraphGridVisualCellSize(workspace, heatmap, zoom)
+      || nodeGraphGridScreenCellPx(workspace, zoom));
   const phaseX = nodeGraphGridBackgroundPhase(origin.x, cell.width);
   const phaseY = nodeGraphGridBackgroundPhase(origin.y, cell.height);
   heatmap.style.setProperty("--node-grid-heatmap-grid-position", `${phaseX}px ${phaseY}px`);
@@ -523,6 +525,7 @@ function updateNodeGraphGridHeatmap(options = {}) {
   // Pause only the O(modules) light/mask rebuild. Grid position already updated.
   if (
     options?.lite === true
+    || options?.phaseOnly === true
     || (gesturing && options?.force !== true)
   ) {
     return;

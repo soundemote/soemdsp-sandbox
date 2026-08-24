@@ -2027,6 +2027,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "1D Waterfall XYZ",
     notes: ["1D Waterfall", "xyz", "X", "Y", "Z", "waveform", "display testbed"],
   },
+  traceRgb: {
+    category: "rgb",
+    description: "1D waterfall with fixed R/G/B guns. Blur 0 = hard pixels; 1 = soft smoothstep. Bright scales ink.",
+    label: "1D Waterfall RGB",
+    notes: ["1D Waterfall", "rgb", "R", "G", "B", "blur", "waveform", "display testbed"],
+  },
   badvalMonitor: {
     category: "debug",
     description: "Watch for NaN/inf/explosions—show when the circuit goes invalid.",

@@ -5,6 +5,7 @@ function nodeGraphDisplaySettingsIsVectorTraceFormType(type) {
   const key = String(type || "").trim();
   return key === "trace"
     || key === "traceXyz"
+    || key === "traceRgb"
     || key === "scope2dTrace"
     || key === "gradientVectorscopeFace"
     || key === "value";
@@ -42,6 +43,7 @@ const nodeGraphInstantTraceDisplayFieldOrder = Object.freeze([
   "backgroundHue",
   "dot1Size",
   "lineThickness",
+  "stampDensity",
   "dot1Brightness",
   "ghost",
   "trail",
@@ -96,7 +98,7 @@ function nodeGraphDisplaySettingsClipboardFamily(formType) {
   if (!key) {
     return "";
   }
-  if (key === "trace" || key === "value") {
+  if (key === "trace" || key === "traceRgb" || key === "value") {
     return "trace1d";
   }
   if (key === "scope2dTrace" || key === "gradientVectorscopeFace" || key === "traceXyz") {
@@ -212,7 +214,8 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
 const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // 1D history plot (Output / Music Player). RGB stroke — no phosphor residual.
   // Fade is XYZ / vectorscope Instant Trace only (not 2D Trace).
-  // Output stereo: Left = Size/Blur, Right = secondary*.
+  // Output stereo: Left = Size, Right = secondary Size/Bright.
+  // Instant Trace waterfalls: shared stamp path (Size + Blur + Dot density).
   trace: Object.freeze({
     fields: Object.freeze([
       "scale",
@@ -222,11 +225,9 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "backgroundHue",
       "dot1Size",
       "lineThickness",
+      "stampDensity",
       "pixelDensity",
-      "dot1Brightness",
       "secondarySize",
-      "secondaryLineThickness",
-      "secondaryBrightness",
     ]),
     colors: Object.freeze(["dot1Color", "secondaryColor", "tertiaryColor", "backgroundColor"]),
     toggles: Object.freeze(["skipDiscontinuities", "sourceSync"]),
@@ -398,13 +399,31 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "fade",
       "dot1Size",
       "lineThickness",
+      "stampDensity",
       "pixelDensity",
-      "dot1Brightness",
       "dotBudget",
     ]),
     colors: Object.freeze(["backgroundColor"]),
     toggles: Object.freeze([]),
     choices: Object.freeze(["stereoBlend", "xyzLayout"]),
+  }),
+  // 1D Waterfall RGB — Size / Blur / Dot density / Bright; RGB Add or CMY Multiply.
+  traceRgb: Object.freeze({
+    fields: Object.freeze([
+      "scale",
+      "historySeconds",
+      "zoomSeconds",
+      "backgroundBrightness",
+      "backgroundHue",
+      "dot1Size",
+      "lineThickness",
+      "stampDensity",
+      "dot1Brightness",
+      "pixelDensity",
+    ]),
+    colors: Object.freeze(["backgroundColor"]),
+    toggles: Object.freeze(["cmyMode", "skipDiscontinuities", "sourceSync"]),
+    choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
     // Value LED: Digits → Decimals → Padding → Bright → Ghost → Trail → Burn.
@@ -1215,7 +1234,14 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "decimal",
     id: "nodeTraceDisplayLineThickness",
     title:
-      "Edge soft 0…1 (beam smoothstep). Phosphor stamps: soft radius. 0D Value: line + cap edge AA (draw floors ~0.12 so thin strokes stay anti-aliased).",
+      "1D Waterfall: 0 = hard pixel disc at Size; 1 = smoothstep center→edge (Size fixed). Phosphor / 0D Value: stamp or beam edge soft 0…1.",
+  }),
+  stampDensity: Object.freeze({
+    label: "Dot density",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayStampDensity",
+    title:
+      "Stamp packing 0…1. 0 = near-empty (~4000× default gap — path samples skipped); 0.5 = recommended; 1 = 2× recommended density. High values can wash soft blur into a hard core.",
   }),
   lineBlur: Object.freeze({
     label: "Line blur",
@@ -1308,6 +1334,12 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     id: "nodeTraceDisplaySourceSync",
     title:
       "1D Waterfall: Off = tape scrolls left, pen parked on the right. On = tape parked, pen walks left→right and waits off-screen until the next edge. 1D Phosphor: rising edges snap the pen (Reset jack still works).",
+  }),
+  cmyMode: Object.freeze({
+    label: "CMY",
+    id: "nodeTraceDisplayCmyMode",
+    title:
+      "Off = RGB additive guns (overlaps → white). On = CMY multiply guns on white (overlaps → black). R→Cyan, G→Magenta, B→Yellow.",
   }),
   skipDiscontinuities: Object.freeze({
     label: "Skip Discontinuity",
@@ -1693,6 +1725,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   scope2d: "2D",
   scope2dTrace: "Trace",
   traceXyz: "XYZ Trace",
+  traceRgb: "1D Waterfall RGB",
   vectorRgbFace: "Vector RGB",
   rasterRgbFace: "Pixel Grid",
   gradientVectorscopeFace: "Vectorscope",

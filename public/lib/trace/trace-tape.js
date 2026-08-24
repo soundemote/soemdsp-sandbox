@@ -98,6 +98,8 @@
     }
   `;
 
+  // Disc stamp. Size = outer radius R (never grows with blur).
+  // blur 0 = hard pixel disc; blur 1 = smoothstep center → edge at R.
   const STAMP_VERT = `
     precision highp float;
     attribute vec2 aCenter;
@@ -106,21 +108,19 @@
     uniform float uRadius;
     uniform float uBlur;
     varying vec2 vOffset;
-    varying vec2 vUv;
     varying float vRadius;
     varying float vBlur;
     void main() {
-      float softAmt = clamp(uBlur, 0.0, 1.0);
-      float pad = max(uRadius * mix(1.15, 3.2, softAmt), 1.25);
+      float R = max(uRadius, 0.35);
+      float pad = R + 1.0;
       vec2 cornerOffset = vec2(
         (aCorner == 0.0 || aCorner == 2.0) ? -1.0 : 1.0,
         (aCorner < 2.0) ? -1.0 : 1.0
       );
       vec2 position = aCenter + cornerOffset * pad;
       vOffset = position - aCenter;
-      vUv = cornerOffset * 0.5 + 0.5;
-      vRadius = max(uRadius, 0.35);
-      vBlur = softAmt;
+      vRadius = R;
+      vBlur = clamp(uBlur, 0.0, 1.0);
       vec2 clip = vec2(
         (position.x / uCanvasSize.x) * 2.0 - 1.0,
         1.0 - (position.y / uCanvasSize.y) * 2.0
@@ -133,63 +133,74 @@
     precision highp float;
     uniform vec3 uColor;
     uniform float uBrightness;
-    uniform sampler2D uStamp;
     varying vec2 vOffset;
-    varying vec2 vUv;
     varying float vRadius;
     varying float vBlur;
     void main() {
       float R = max(vRadius, 0.35);
-      float r = length(vOffset);
-      vec4 stamp = texture2D(uStamp, vUv);
-      float tex = max(stamp.r, max(stamp.g, stamp.b)) * stamp.a;
-      if (stamp.a < 0.001) {
-        tex = stamp.r;
-      }
-      float aa = max(0.55, min(1.25, R * 0.06));
-      float hard = 1.0 - smoothstep(R - aa, R + aa * 0.25, r);
       float soft = clamp(vBlur, 0.0, 1.0);
-      float profile = mix(hard * 0.92, tex * mix(0.78, 0.42, soft), pow(soft, 1.45));
-      float e = max(profile, 0.0) * uBrightness;
+      float t = length(vOffset) / R;
+      float e;
+      if (soft < 0.02) {
+        e = t < 0.999 ? 1.0 : 0.0;
+      } else {
+        // Knee pulls inward with blur; at 1.0 falloff starts at center.
+        float knee = (1.0 - soft) * (1.0 - soft) * 0.92;
+        if (t <= knee) e = 1.0;
+        else if (t >= 1.0) e = 0.0;
+        else {
+          float u = (t - knee) / max(1e-6, 1.0 - knee);
+          float s = u * u * (3.0 - 2.0 * u);
+          e = 1.0 - s;
+        }
+      }
+      e *= max(uBrightness, 0.0);
+      if (e <= 0.001) discard;
       gl_FragColor = vec4(uColor * e, e);
     }
   `;
 
-  function bakeGaussian(gl, size = 64) {
-    const n = Math.max(8, Math.min(256, Math.round(Number(size) || 64)));
-    const data = new Uint8Array(n * n * 4);
-    const cx = (n - 1) * 0.5;
-    const sigma = n * 0.18;
-    const inv = 1 / (2 * sigma * sigma);
-    for (let y = 0; y < n; y += 1) {
-      for (let x = 0; x < n; x += 1) {
-        const dx = x - cx;
-        const dy = y - cx;
-        const g = Math.exp(-(dx * dx + dy * dy) * inv);
-        const v = Math.round(Math.max(0, Math.min(1, g)) * 255);
-        const o = (y * n + x) * 4;
-        data[o] = v;
-        data[o + 1] = v;
-        data[o + 2] = v;
-        data[o + 3] = v;
-      }
+  // XYZ three-channel Meet (inclusion / complement pairs).
+  const MEET3_FRAG = `
+    precision mediump float;
+    varying vec2 vUv;
+    uniform sampler2D uA;
+    uniform sampler2D uB;
+    uniform sampler2D uC;
+    uniform vec3 uColorA;
+    uniform vec3 uColorB;
+    uniform vec3 uColorC;
+    uniform vec3 uMeetAB;
+    uniform vec3 uMeetAC;
+    uniform vec3 uMeetBC;
+    uniform vec3 uMeetAll;
+    float cov(vec4 t) { return max(t.r, max(t.g, t.b)); }
+    void main() {
+      float a = cov(texture2D(uA, vUv));
+      float b = cov(texture2D(uB, vUv));
+      float c = cov(texture2D(uC, vUv));
+      float ab = min(a, b);
+      float ac = min(a, c);
+      float bc = min(b, c);
+      float t = min(ab, c);
+      float onlyA = a - ab - ac + t;
+      float onlyB = b - ab - bc + t;
+      float onlyC = c - ac - bc + t;
+      vec3 rgb = onlyA * uColorA + onlyB * uColorB + onlyC * uColorC
+        + (ab - t) * uMeetAB + (ac - t) * uMeetAC + (bc - t) * uMeetBC
+        + t * uMeetAll;
+      float alpha = max(a, max(b, c));
+      if (alpha <= 0.001) discard;
+      gl_FragColor = vec4(rgb, alpha);
     }
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
-    gl.bindTexture(gl.TEXTURE_2D, null);
-    return texture;
-  }
+  `;
 
   function createSurface(gl, w, h) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    // NEAREST: integer-pixel scroll stays crisp (LINEAR smeared Sync-Off tape).
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
@@ -239,6 +250,7 @@
     const presentProgram = link(gl, VERT, PRESENT_FRAG);
     const stampProgram = link(gl, STAMP_VERT, STAMP_FRAG);
     const meetProgram = link(gl, VERT, MEET_FRAG);
+    const meet3Program = link(gl, VERT, MEET3_FRAG);
     if (!copyProgram || !presentProgram || !stampProgram) {
       return null;
     }
@@ -253,7 +265,6 @@
       gl,
       quad,
       stampBuffer,
-      stampTexture: bakeGaussian(gl),
       copy: {
         program: copyProgram,
         aPos: gl.getAttribLocation(copyProgram, "aPos"),
@@ -274,6 +285,20 @@
         uRightColor: gl.getUniformLocation(meetProgram, "uRightColor"),
         uMeetColor: gl.getUniformLocation(meetProgram, "uMeetColor"),
       } : null,
+      meet3: meet3Program ? {
+        program: meet3Program,
+        aPos: gl.getAttribLocation(meet3Program, "aPos"),
+        uA: gl.getUniformLocation(meet3Program, "uA"),
+        uB: gl.getUniformLocation(meet3Program, "uB"),
+        uC: gl.getUniformLocation(meet3Program, "uC"),
+        uColorA: gl.getUniformLocation(meet3Program, "uColorA"),
+        uColorB: gl.getUniformLocation(meet3Program, "uColorB"),
+        uColorC: gl.getUniformLocation(meet3Program, "uColorC"),
+        uMeetAB: gl.getUniformLocation(meet3Program, "uMeetAB"),
+        uMeetAC: gl.getUniformLocation(meet3Program, "uMeetAC"),
+        uMeetBC: gl.getUniformLocation(meet3Program, "uMeetBC"),
+        uMeetAll: gl.getUniformLocation(meet3Program, "uMeetAll"),
+      } : null,
       stamp: {
         program: stampProgram,
         aCenter: gl.getAttribLocation(stampProgram, "aCenter"),
@@ -283,7 +308,6 @@
         uBlur: gl.getUniformLocation(stampProgram, "uBlur"),
         uColor: gl.getUniformLocation(stampProgram, "uColor"),
         uBrightness: gl.getUniformLocation(stampProgram, "uBrightness"),
-        uStamp: gl.getUniformLocation(stampProgram, "uStamp"),
       },
       scratch: new Float32Array(0),
     };
@@ -330,45 +354,78 @@
       return true;
     };
     const raw = Array.isArray(pathPoints) ? pathPoints : [];
-    // Fuse discs along each segment (~radius/2). Column vertices alone
-    // were axis-aligned squares; 0.28px fullEconomy packing was the rAF stall.
-    const spacing = Math.max(
-      0.65,
-      Number(options.spacingPx) > 0
-        ? Number(options.spacingPx)
-        : Math.max(0.65, (Number(radius) || 2) * 0.4),
-    );
+    // Dot density: 0.5 = recommended (~0.65×R), 1.0 = 2× that (half spacing),
+    // 0 = near-empty (~4000× default gap; path samples skipped across frames).
+    let spacing;
+    if (Number(options.spacingPx) > 0) {
+      spacing = Math.max(0.25, Number(options.spacingPx));
+    } else {
+      const density = clamp01(options.stampDensity ?? options.dotDensity ?? 0.5, 0.5);
+      const r = Math.max(0.5, Number(radius) || 2);
+      const spacingDefault = Math.max(0.75, r * 0.65);
+      // relativeDensity: 0.5→1, 1→2, 0→1/4000.
+      const relativeDensity = Math.max(1 / 4000, density * 2);
+      spacing = Math.max(0.25, spacingDefault / relativeDensity);
+    }
+    // Accrue arc length; only stamp when traveled ≥ spacing.
+    // `stampContinue` + `stampCarry` let waterfall strips span frames without
+    // re-dabbing every strip's first sample (which made density 0 look dense).
     let prev = null;
+    let carry = Number(options.stampCarry);
+    if (!Number.isFinite(carry) || carry < 0) {
+      carry = 0;
+    }
+    let continuing = Boolean(options.stampContinue);
+    let full = false;
     for (let i = 0; i < raw.length; i += 1) {
       const p = raw[i];
       if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
         prev = null;
+        carry = 0;
+        continuing = false;
         continue;
       }
       if (!prev) {
-        if (!push(p.x, p.y)) {
-          break;
+        if (!continuing) {
+          if (!push(p.x, p.y)) {
+            full = true;
+            break;
+          }
+          carry = 0;
         }
-        prev = p;
+        continuing = true;
+        prev = { x: p.x, y: p.y };
         continue;
       }
       const dx = p.x - prev.x;
       const dy = p.y - prev.y;
       const dist = Math.hypot(dx, dy);
       if (dist < 1e-4) {
-        prev = p;
+        prev = { x: p.x, y: p.y };
         continue;
       }
-      const steps = Math.max(1, Math.ceil(dist / spacing));
-      for (let s = 1; s <= steps; s += 1) {
-        const t = s / steps;
-        if (!push(prev.x + dx * t, prev.y + dy * t)) {
-          return out;
+      let traveled = 0;
+      while (carry + (dist - traveled) >= spacing - 1e-6) {
+        const need = spacing - carry;
+        traveled += need;
+        const t = traveled / dist;
+        const x = prev.x + dx * t;
+        const y = prev.y + dy * t;
+        if (!push(x, y)) {
+          full = true;
+          carry = 0;
+          prev = { x, y };
+          break;
         }
+        carry = 0;
       }
-      prev = p;
+      if (full) {
+        break;
+      }
+      carry += dist - traveled;
+      prev = { x: p.x, y: p.y };
     }
-    return out;
+    return { vertices: out, stamps, carry, continuing: Boolean(prev), spacing };
   }
 
   /** Grow the shared GL canvas; never shrink (resize was ~frame-budget each present). */
@@ -435,6 +492,8 @@
       height: h,
       read,
       write,
+      stampCarry: 0,
+      stampContinue: false,
     };
     host[key] = tape;
     return tape;
@@ -455,6 +514,8 @@
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    tape.stampCarry = 0;
+    tape.stampContinue = false;
     return true;
   }
 
@@ -493,18 +554,25 @@
     }
     const pathPoints = options.pathPoints;
     const radius = Math.max(0.35, Number(options.radius) || 2);
-    const blur = clamp01(options.blur, 0.22);
-    const brightness = Math.max(0, Number(options.brightness) || 0);
+    const blur = clamp01(options.blur, 0);
+    const brightness = Math.max(0, Number(options.brightness) ?? 1);
     if (brightness < 1e-6) {
       return 0;
     }
-    const vertices = buildStampVertices(
+    const built = buildStampVertices(
       pathPoints,
       radius,
       blur,
       Math.max(8, Math.min(8192, Math.round(Number(options.maxDots) || 4096))),
-      options,
+      {
+        ...options,
+        stampCarry: tape.stampCarry,
+        stampContinue: tape.stampContinue,
+      },
     );
+    tape.stampCarry = built.carry;
+    tape.stampContinue = built.continuing;
+    const vertices = built.vertices;
     const vertexCount = Math.floor(vertices.length / 3);
     if (vertexCount <= 0) {
       return 0;
@@ -521,6 +589,7 @@
     gl.bindFramebuffer(gl.FRAMEBUFFER, tape.read.framebuffer);
     gl.viewport(0, 0, tape.width, tape.height);
     gl.enable(gl.BLEND);
+    // Premultiplied additive stamps (same for Add guns / coverage tapes).
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.useProgram(dev.stamp.program);
     gl.bindBuffer(gl.ARRAY_BUFFER, dev.stampBuffer);
@@ -535,11 +604,7 @@
     gl.uniform1f(dev.stamp.uBlur, blur);
     gl.uniform3f(dev.stamp.uColor, rgb[0], rgb[1], rgb[2]);
     gl.uniform1f(dev.stamp.uBrightness, brightness);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, dev.stampTexture);
-    gl.uniform1i(dev.stamp.uStamp, 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
-    gl.bindTexture(gl.TEXTURE_2D, null);
     gl.disable(gl.BLEND);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return vertexCount;
@@ -621,6 +686,73 @@
     return true;
   }
 
+  function meetPair(a, b) {
+    if (typeof global.TraceStroke?.meetColorFromPair === "function") {
+      return global.TraceStroke.meetColorFromPair(a, b);
+    }
+    return [
+      Math.max(0, 1 - a[0] - b[0]),
+      Math.max(0, 1 - a[1] - b[1]),
+      Math.max(0, 1 - a[2] - b[2]),
+    ];
+  }
+
+  function presentMeet3(tapeA, tapeB, tapeC, destCtx, options = {}) {
+    if (!tapeA?.alive || !tapeB?.alive || !tapeC?.alive || !destCtx) {
+      return false;
+    }
+    const dev = tapeA.device;
+    if (!dev?.meet3?.program) {
+      return false;
+    }
+    const gl = tapeA.gl;
+    const width = Math.max(1, Number(options.width) || tapeA.width);
+    const height = Math.max(1, Number(options.height) || tapeA.height);
+    const size = ensurePresentSize(dev, width, height);
+    const cA = Array.isArray(options.rgbA) ? options.rgbA : hexToRgb01(options.colorA, [1, 0, 0]);
+    const cB = Array.isArray(options.rgbB) ? options.rgbB : hexToRgb01(options.colorB, [0, 0, 1]);
+    const cC = Array.isArray(options.rgbC) ? options.rgbC : hexToRgb01(options.colorC, [0, 1, 0]);
+    const mAB = meetPair(cA, cB);
+    const mAC = meetPair(cA, cC);
+    const mBC = meetPair(cB, cC);
+    const mAll = [
+      1 - (1 - cA[0]) * (1 - cB[0]) * (1 - cC[0]),
+      1 - (1 - cA[1]) * (1 - cB[1]) * (1 - cC[1]),
+      1 - (1 - cA[2]) * (1 - cB[2]) * (1 - cC[2]),
+    ];
+    bindPresentViewport(gl, size.cw, size.ch, size.w, size.h);
+    gl.useProgram(dev.meet3.program);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tapeA.read.texture);
+    gl.uniform1i(dev.meet3.uA, 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, tapeB.read.texture);
+    gl.uniform1i(dev.meet3.uB, 1);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, tapeC.read.texture);
+    gl.uniform1i(dev.meet3.uC, 2);
+    gl.uniform3f(dev.meet3.uColorA, cA[0], cA[1], cA[2]);
+    gl.uniform3f(dev.meet3.uColorB, cB[0], cB[1], cB[2]);
+    gl.uniform3f(dev.meet3.uColorC, cC[0], cC[1], cC[2]);
+    gl.uniform3f(dev.meet3.uMeetAB, mAB[0], mAB[1], mAB[2]);
+    gl.uniform3f(dev.meet3.uMeetAC, mAC[0], mAC[1], mAC[2]);
+    gl.uniform3f(dev.meet3.uMeetBC, mBC[0], mBC[1], mBC[2]);
+    gl.uniform3f(dev.meet3.uMeetAll, mAll[0], mAll[1], mAll[2]);
+    drawQuad(dev, dev.meet3);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    destCtx.save();
+    destCtx.globalCompositeOperation = "source-over";
+    destCtx.imageSmoothingEnabled = options.smooth === true;
+    destCtx.drawImage(dev.canvas, 0, 0, size.w, size.h, 0, 0, size.w, size.h);
+    destCtx.restore();
+    return true;
+  }
+
   function radiusFromSize(faceMinSide, size01) {
     if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.radiusFromSize) {
       return PhosphorDrawer.radiusFromSize(faceMinSide, size01);
@@ -635,7 +767,9 @@
     stamp,
     presentTo,
     presentMeet,
+    presentMeet3,
     radiusFromSize,
     hexToRgb01,
+    meetPair,
   };
 })(typeof window !== "undefined" ? window : globalThis);

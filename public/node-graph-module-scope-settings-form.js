@@ -14,7 +14,10 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Span °";
     title = "Centered arc sweep across Bias 0…1 (degrees). Opens left and right together; gap stays opposite center.";
   }
-  if ((key === "zoomSeconds" || key === "historySeconds") && formType === "trace") {
+  if ((key === "zoomSeconds" || key === "historySeconds") && (
+    formType === "trace"
+    || formType === "traceRgb"
+  )) {
     label = "History";
     title = "Seconds of tape across the face. 0 = now (a full-width line). Off: scroll speed. Sync: time for the pen to walk left→right.";
   } else if ((key === "zoomSeconds" || key === "historySeconds") && (
@@ -26,14 +29,25 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   }
   if (key === "lineThickness" && (
     formType === "trace"
+    || formType === "traceRgb"
     || formType === "traceXyz"
-    || formType === "value"
   )) {
+    label = "Blur";
+    title = "0 = hard pixel disc at Size (no AA). 1 = smoothstep from center to that same edge (Size does not grow).";
+  } else if (key === "stampDensity" && (
+    formType === "trace"
+    || formType === "traceRgb"
+    || formType === "traceXyz"
+  )) {
+    label = "Dot density";
+    title = "0 = extremely sparse (~200× default gap); 0.5 = recommended; 1 = 2× recommended density.";
+  } else if (key === "lineThickness" && formType === "value") {
     label = "Blur";
     title = "0 = Size as a hard line. Raise to fatten a soft halo outward. Lower returns to the thin sharp line.";
   }
   if ((key === "dot1Size" || key === "secondarySize") && (
     formType === "trace"
+    || formType === "traceRgb"
     || formType === "traceXyz"
     || formType === "scope2dTrace"
     || formType === "gradientVectorscopeFace"
@@ -44,6 +58,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   }
   if ((key === "dot1Brightness" || key === "secondaryBrightness") && (
     formType === "trace"
+    || formType === "traceRgb"
     || formType === "traceXyz"
     || formType === "scope2dTrace"
     || formType === "gradientVectorscopeFace"
@@ -55,12 +70,13 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "\uD83D\uDCA1 Bright";
     title = formType === "scope2dTrace"
       ? "Beam brightness 0…1 (black → full hue at 0.5 → white). Drag the Trace title to change hue."
-      : formType === "trace" || formType === "traceXyz" || formType === "gradientVectorscopeFace" || formType === "value"
+      : formType === "trace" || formType === "traceRgb" || formType === "traceXyz" || formType === "gradientVectorscopeFace" || formType === "value"
       ? "Ink light 0…1 (1 = full)."
       : "Stamp brightness 0…1 (single source of truth). 1 = full ink. Preview matches the face.";
   }
   if (key === "pixelDensity" && (
     formType === "trace"
+    || formType === "traceRgb"
     || formType === "traceXyz"
     || formType === "scope2dTrace"
     || formType === "gradientVectorscopeFace"
@@ -78,6 +94,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   }
   if (key === "scale" && (
     formType === "trace"
+    || formType === "traceRgb"
     || formType === "traceXyz"
     || formType === "scope2dTrace"
     || formType === "gradientVectorscopeFace"
@@ -511,7 +528,7 @@ function nodeGraphDisplaySettingsShowsStampPreview(type) {
       && nodeGraphDisplaySettingsIsPhosphorFormType(type));
 }
 
-function nodeGraphStampPreviewHtml(stereo = false, kind = "trace", xyz = false) {
+function nodeGraphStampPreviewHtml(stereo = false, kind = "trace", xyz = false, rgb = false) {
   const canvas = (side, label) => `
       <div class="node-trace-display-preview-cell">
         ${side ? `<span class="node-trace-display-preview-side-label" data-preview-side-label="${side}">${label}</span>` : ""}
@@ -523,6 +540,16 @@ function nodeGraphStampPreviewHtml(stereo = false, kind = "trace", xyz = false) 
           height="96"
           aria-label="${side ? `${label} size, blur, and pixel density preview` : "Stamp size, blur, and pixel density preview"}"></canvas>
       </div>`;
+  if (rgb) {
+    // Labels follow CMY checkbox when the form has already loaded settings;
+    // paint path also remaps gun colors from settings.cmyMode.
+    return `
+    <div class="node-trace-display-preview-shell is-rgb" data-stamp-preview="${kind}" data-preview-rgb="1">
+      ${canvas("GunR", "R/C")}
+      ${canvas("GunG", "G/M")}
+      ${canvas("GunB", "B/Y")}
+    </div>`;
+  }
   if (xyz) {
     return `
     <div class="node-trace-display-preview-shell is-xyz" data-stamp-preview="${kind}" data-preview-xyz="1">
@@ -595,16 +622,53 @@ function nodeGraphStampPreviewExtent(radius, blur01, phosphor) {
   return r * (1 + 2 * blur);
 }
 
-/** Laid-out CSS plate in px. Always square so resize cannot oval-stretch the stamp. */
-function nodeGraphStampPreviewPlateSize(canvas) {
-  const width = Math.round(Number(canvas?.clientWidth) || 0)
-    || Math.round(Number(canvas?.parentElement?.clientWidth) || 0)
-    || 96;
-  const height = Math.round(Number(canvas?.clientHeight) || 0);
-  const side = Math.max(1, height > 0 ? Math.min(width, height) : width);
+/**
+ * Preview plate size — FIXED square.
+ * Stereo L/R and XYZ X/Y/Z must not shrink with column count (that made XYZ
+ * previews look like a different design than stereo).
+ */
+function nodeGraphStampPreviewPlateSize(_canvas) {
+  const side = 96;
+  return { width: side, height: side };
+}
+
+/** Channel color for Instant Trace stamp preview (same mapping as waterfall ink). */
+function nodeGraphStampPreviewTraceColor(settings, side, kind = "trace") {
+  // RGB waterfall: fixed guns (never reuse stereo "R" → blue mapping).
+  if (kind === "traceRgb" || side === "GunR" || side === "GunG" || side === "GunB") {
+    const cmy = settings?.cmyMode === true;
+    if (side === "GunG" || side === "G") return cmy ? "#ff00ff" : "#00ff00";
+    if (side === "GunB" || side === "B") return cmy ? "#ffff00" : "#0000ff";
+    return cmy ? "#00ffff" : "#ff0000";
+  }
+  if (side === "R" || side === "Y") {
+    return settings.secondaryColor || "#0000ff";
+  }
+  if (side === "Z") {
+    return settings.tertiaryColor || "#00ff00";
+  }
+  if (side === "L" || side === "X") {
+    return settings.dot1Color || settings.color || "#ff0000";
+  }
+  return settings.dot1Color || settings.color || "#ffffff";
+}
+
+/** Size + color + blur (+ bright for RGB guns) for Instant Trace stamp preview. */
+function nodeGraphStampPreviewTraceInk(settings, side, kind = "trace") {
+  const right = side === "R";
+  const rgb = kind === "traceRgb" || String(side || "").startsWith("Gun");
+  const instant = kind === "trace" || kind === "traceRgb" || kind === "traceXyz"
+    || rgb || side === "L" || side === "X" || side === "Y" || side === "Z";
   return {
-    width: side,
-    height: side,
+    size: nodeGraphStampPreviewUnit(
+      right ? (settings.secondarySize ?? settings.dot1Size ?? settings.size) : (settings.dot1Size ?? settings.size),
+      0,
+    ),
+    color: nodeGraphStampPreviewTraceColor(settings, side, kind),
+    blur: instant ? nodeGraphStampPreviewUnit(settings.lineThickness, 0) : 0,
+    bright: rgb
+      ? nodeGraphStampPreviewUnit(settings.dot1Brightness ?? settings.brightness, 1)
+      : 1,
   };
 }
 
@@ -624,9 +688,9 @@ function nodeGraphStampPreviewScratch(owner, size) {
   return scratch;
 }
 
-function nodeGraphStampPreviewBlit(plateCtx, plateW, plateH, scratch, bgHex = "#020405") {
+function nodeGraphStampPreviewBlit(plateCtx, plateW, plateH, scratch, bgHex = "#020405", smooth = false) {
   plateCtx.setTransform(1, 0, 0, 1, 0, 0);
-  plateCtx.imageSmoothingEnabled = false;
+  plateCtx.imageSmoothingEnabled = Boolean(smooth);
   plateCtx.globalCompositeOperation = "source-over";
   plateCtx.fillStyle = bgHex || "#020405";
   plateCtx.fillRect(0, 0, plateW, plateH);
@@ -659,28 +723,95 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
   const fillEmpty = () => {
     nodeGraphStampPreviewBlit(context, plate.width, plate.height, null, bgHex);
   };
+  // Instant Trace / RGB waterfall: same dab path as the face (hard or soft).
+  // Draw in plate space, scaled so the full stamp (core + blur) fits — never
+  // ClampPoint-shift into the right edge of a too-small scratch.
+  if (kind === "trace" || kind === "traceRgb") {
+    const ink = nodeGraphStampPreviewTraceInk(settings, side, kind);
+    if (!(ink.size > 0)) {
+      fillEmpty();
+      return;
+    }
+    const faceMin = nodeGraphStampPreviewFaceMinSide(settings);
+    const faceRadius = typeof nodeGraphWaterfallGlRadius === "function"
+      ? nodeGraphWaterfallGlRadius(faceMin, ink.size)
+      : (typeof TraceStroke !== "undefined" && typeof TraceStroke.radiusPx === "function"
+        ? TraceStroke.radiusPx(faceMin, ink.size)
+        : faceMin * ink.size * 0.5);
+    if (!(faceRadius > 0)) {
+      fillEmpty();
+      return;
+    }
+    const blur = Number(ink.blur) || 0;
+    const facePad = typeof nodeGraphWaterfallSoftPad === "function"
+      ? nodeGraphWaterfallSoftPad(faceRadius, blur)
+      : faceRadius * (1 + blur * 1.65) + 1;
+    const plateSide = Math.min(plate.width, plate.height);
+    const fit = Math.max(0.001, (plateSide * 0.5 - 1.5) / Math.max(facePad, faceRadius, 0.5));
+    const radius = Math.max(0.5, faceRadius * fit);
+    const cx = plate.width * 0.5;
+    const cy = plate.height * 0.5;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.globalCompositeOperation = "source-over";
+    context.globalAlpha = 1;
+    context.fillStyle = bgHex;
+    context.fillRect(0, 0, plate.width, plate.height);
+    let rgb = nodeGraphStampPreviewParseHex(ink.color);
+    if (typeof nodeGraphWaterfallScaleRgb === "function") {
+      rgb = nodeGraphWaterfallScaleRgb(rgb, ink.bright);
+    }
+    // Same dab as the face (smoothstep blur, no size growth). Scratch avoids clamp nudge.
+    if (typeof nodeGraphWaterfallDab === "function") {
+      const pad = typeof nodeGraphWaterfallSoftPad === "function"
+        ? nodeGraphWaterfallSoftPad(radius, blur)
+        : radius;
+      const buf = Math.max(plateSide, Math.ceil(pad * 2 + 4));
+      const scratch = nodeGraphStampPreviewScratch(canvas, buf);
+      const scratchCtx = scratch.getContext("2d");
+      if (!scratchCtx) {
+        fillEmpty();
+        return;
+      }
+      scratchCtx.setTransform(1, 0, 0, 1, 0, 0);
+      scratchCtx.clearRect(0, 0, buf, buf);
+      nodeGraphWaterfallDab(scratchCtx, buf * 0.5, buf * 0.5, radius, rgb, "source-over", blur);
+      context.imageSmoothingEnabled = blur >= 0.02 && density >= 0.999;
+      context.drawImage(
+        scratch,
+        buf * 0.5 - plate.width * 0.5,
+        buf * 0.5 - plate.height * 0.5,
+        plate.width,
+        plate.height,
+        0,
+        0,
+        plate.width,
+        plate.height,
+      );
+    } else {
+      context.imageSmoothingEnabled = false;
+      context.fillStyle = "rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")";
+      context.beginPath();
+      context.arc(cx, cy, radius, 0, Math.PI * 2);
+      context.fill();
+    }
+    canvas.style.imageRendering = density < 0.999 || blur < 0.02 ? "pixelated" : "";
+    return;
+  }
+
   const right = side === "R";
-  const xyzChannel = side === "X" || side === "Y" || side === "Z";
   const size = nodeGraphStampPreviewUnit(
-    (!xyzChannel && right) ? settings.secondarySize : (settings.dot1Size ?? settings.size),
+    right ? settings.secondarySize : (settings.dot1Size ?? settings.size),
     0,
   );
   if (!(size > 0)) {
     fillEmpty();
     return;
   }
-  const blur = Number((!xyzChannel && right) ? settings.secondaryLineThickness : settings.lineThickness);
+  const blur = Number(right ? settings.secondaryLineThickness : settings.lineThickness);
   const blur01 = kind === "scope2dTrace"
     ? 0
     : (Number.isFinite(blur) ? Math.max(0, Math.min(1, blur)) : 0);
-  let color = settings.dot1Color || settings.color || "#ffffff";
-  if (side === "R" || side === "Y") {
-    color = settings.secondaryColor || "#0000ff";
-  } else if (side === "Z") {
-    color = settings.tertiaryColor || "#00ff00";
-  } else if (side === "L" || side === "X") {
-    color = settings.dot1Color || settings.color || "#ff0000";
-  }
+  let color = nodeGraphStampPreviewTraceColor(settings, side);
   if (kind === "scope2dTrace" && typeof nodeGraphScope2dTraceInkHex === "function") {
     color = nodeGraphScope2dTraceInkHex(settings);
   }
@@ -923,15 +1054,19 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   const parts = [];
   const rows = [];
   const xyzInk = isXyzTraceNode && type === "trace";
+  const rgbInk = type === "traceRgb";
   const stereoInk = isStereoTraceNode && type === "trace" && !xyzInk;
   const inkHueTitle = type === "scope2dTrace";
-  const previewAfter = "dot1Brightness";
+  // Preview sits after Bright when present (RGB); otherwise after Size.
+  const previewAfter = orderedPrimary.includes("dot1Brightness")
+    ? "dot1Brightness"
+    : "dot1Size";
   let previewPlaced = false;
   const pushPreview = () => {
     if (previewPlaced) {
       return;
     }
-    rows.push(nodeGraphStampPreviewHtml(stereoInk, type, xyzInk));
+    rows.push(nodeGraphStampPreviewHtml(stereoInk, type, xyzInk, rgbInk));
     previewPlaced = true;
   };
   const usedChoices = new Set();
@@ -1282,6 +1417,8 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         || key === "secondaryLineThickness"
         || key === "secondaryEnabled"
         || key === "syncChannel"
+        // Waterfall XYZ ignores Bright — hard ink only.
+        || key === "dot1Brightness"
       ) {
         return false;
       }

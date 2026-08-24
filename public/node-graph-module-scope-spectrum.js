@@ -151,6 +151,7 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
     || slot?.type === "rasterRgb"
     || slot?.type === "gradientVectorscope"
     || slot?.type === "traceXyz"
+    || slot?.type === "traceRgb"
   ) {
     buffer = { length: 1 };
   } else if (renderer === "dot") {

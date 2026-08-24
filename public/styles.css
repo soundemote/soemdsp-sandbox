@@ -18734,18 +18734,36 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 }
 
 .node-trace-display-preview-shell.is-xyz,
+.node-trace-display-preview-shell.is-rgb,
 .node-trace-display-lr-pair.is-xyz {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
 }
 
+/* Cap plate size; shrink with the column so 3-up RGB/XYZ never clip the right edge. */
+.node-trace-display-preview-shell.is-stereo .node-trace-display-dot-preview,
+.node-trace-display-preview-shell.is-xyz .node-trace-display-dot-preview,
+.node-trace-display-preview-shell.is-rgb .node-trace-display-dot-preview,
+.node-trace-display-preview-shell .node-trace-display-dot-preview {
+  width: 100%;
+  height: auto;
+  max-width: 96px;
+  max-height: 96px;
+}
+
 .node-trace-display-preview-cell {
   display: grid;
+  grid-template-rows: auto auto;
   gap: 4px;
   min-width: 0;
+  justify-items: center;
+  justify-content: center;
 }
 
 .node-trace-display-preview-side-label {
+  display: block;
+  width: 100%;
+  text-align: center;
   color: rgba(210, 214, 218, 0.78);
   font: 700 0.62rem/1 inherit;
   letter-spacing: 0.04em;
@@ -18754,7 +18772,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-dot-preview {
   display: block;
   box-sizing: border-box;
-  width: min(100%, 96px);
+  width: 100%;
   height: auto;
   max-width: 96px;
   max-height: 96px;

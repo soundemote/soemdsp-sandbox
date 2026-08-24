@@ -516,6 +516,7 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
     // Temporarily not available per-node — read typed bags.
   }
   if (settingsSchema === "lineBurn" || settingsSchema === "value" || settingsSchema === "trace"
+    || settingsSchema === "traceRgb"
     || settingsSchema === "scope2d" || settingsSchema === "scope2dTrace"
     || settingsSchema === "numberReadout" || settingsSchema === "knobFace"
     || settingsSchema === "phosphorLight" || settingsSchema === "roundShapeFace"

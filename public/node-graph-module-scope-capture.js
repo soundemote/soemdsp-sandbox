@@ -330,6 +330,14 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
     };
     return pick(`${nodeId}:X`) || pick(`${nodeId}:Y`) || pick(`${nodeId}:Z`) || pick(nodeId);
   }
+  if (typeof nodeGraphModuleUsesRgbTraceDisplay === "function"
+    && nodeGraphModuleUsesRgbTraceDisplay(slot?.type)) {
+    const pick = (key) => {
+      const buf = nodeGraphModuleScopeState.buffers.get(key);
+      return buf && buf.length > 0 ? buf : null;
+    };
+    return pick(`${nodeId}:R`) || pick(`${nodeId}:G`) || pick(`${nodeId}:B`) || pick(nodeId);
+  }
   if (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "numberReadout", "valueLcd", "lineBurnOscilloscope", "led", "vectorDot", "lcdDot"].includes(slot?.type)) {
     return nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||

@@ -1289,6 +1289,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         this.gradientVectorscopeSample(mixInput, nodeId),
       traceXyz: (node, nodeId, frame, frames, frameValues, mixInput) =>
         this.traceXyzSample(mixInput, nodeId),
+      traceRgb: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.traceRgbSample(mixInput, nodeId),
       stepGrid: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const state = this.stepGridStates.get(nodeId) || this.createStepGridState();
         this.stepGridStates.set(nodeId, state);

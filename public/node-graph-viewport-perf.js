@@ -81,6 +81,12 @@ function flushNodeGraphViewportOnPointerUp(options = {}) {
       pan: options.pan !== false,
     });
   }
+  if (typeof syncNodeGraphWorldPositionReadout === "function") {
+    syncNodeGraphWorldPositionReadout();
+  }
+  if (typeof scheduleNodeGraphViewportCullRefresh === "function") {
+    scheduleNodeGraphViewportCullRefresh();
+  }
   flushNodeGraphViewportHeavyChrome({ full: true });
   if (options.persist !== false) {
     scheduleNodeGraphWorkspaceViewPersist();
@@ -161,7 +167,11 @@ function applyNodeGraphViewportCssLight(options = {}) {
       zoomResetButton.removeAttribute("title");
     }
   }
-  if (options.readouts !== false) {
+  const gesturing = typeof nodeGraphViewportGestureActive === "function"
+    && nodeGraphViewportGestureActive();
+  // Mid-pan/zoom: CSS vars only. Readouts / heatmap / cull force layout and
+  // were dropping pan to ~1fps even with scopes frozen.
+  if (!gesturing && options.readouts !== false) {
     if (typeof syncNodeGraphWorldPositionReadout === "function") {
       syncNodeGraphWorldPositionReadout();
     }
@@ -171,14 +181,19 @@ function applyNodeGraphViewportCssLight(options = {}) {
   }
   if (
     typeof scheduleNodeGraphRoomDimmerDraw === "function"
-    && !(typeof nodeGraphViewportGestureActive === "function" && nodeGraphViewportGestureActive())
+    && !gesturing
   ) {
     scheduleNodeGraphRoomDimmerDraw();
   }
-  if (typeof updateNodeGraphGridHeatmap === "function") {
+  if (!gesturing && typeof updateNodeGraphGridHeatmap === "function") {
     updateNodeGraphGridHeatmap({ lite: true });
+  } else if (gesturing && typeof updateNodeGraphGridHeatmap === "function") {
+    // Grid phase only — no cell-size / module light work.
+    updateNodeGraphGridHeatmap({ lite: true, phaseOnly: true });
   }
-  scheduleNodeGraphViewportCullRefresh();
+  if (!gesturing) {
+    scheduleNodeGraphViewportCullRefresh();
+  }
 }
 
 function nodeGraphWirePlanCacheKey() {

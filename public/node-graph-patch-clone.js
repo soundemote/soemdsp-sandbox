@@ -462,6 +462,7 @@ function cloneNodeGraphTypedDisplaySettings(node) {
     }
     case "trace":
     case "traceXyz":
+    case "traceRgb":
       return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(bag) };
     default:
       if (node?.traceDisplaySettings && typeof node.traceDisplaySettings === "object") {

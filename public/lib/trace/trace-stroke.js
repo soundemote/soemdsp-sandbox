@@ -151,11 +151,14 @@
     if (!finite.length) {
       return;
     }
-    if (blur < 0.04) {
+    const paint = (width, a) => {
+      if (!(width > 0) || !(a > 0.004)) {
+        return;
+      }
       const color = additive
-        ? `rgb(${Math.round(r * alpha)}, ${Math.round(g * alpha)}, ${Math.round(b * alpha)})`
-        : `rgba(${r}, ${g}, ${b}, ${Math.min(1, alpha)})`;
-      context.lineWidth = lineWidth;
+        ? `rgb(${Math.round(r * a)}, ${Math.round(g * a)}, ${Math.round(b * a)})`
+        : `rgba(${r}, ${g}, ${b}, ${Math.min(1, a)})`;
+      context.lineWidth = width;
       context.strokeStyle = color;
       context.fillStyle = color;
       if (finite.length === 1) {
@@ -163,45 +166,20 @@
           return;
         }
         context.beginPath();
-        context.arc(finite[0].x, finite[0].y, lineWidth * 0.5, 0, Math.PI * 2);
+        context.arc(finite[0].x, finite[0].y, width * 0.5, 0, Math.PI * 2);
         context.fill();
-      } else {
-        strokePath(context, pts);
+        return;
       }
+      strokePath(context, pts);
+    };
+    if (blur < 0.04) {
+      paint(lineWidth, alpha);
       return;
     }
+    // Cheap vector blur: one fat halo stroke, then the Size core.
     const expand = lineWidth * blur * 2;
-    const passes = 7;
-    const I = [];
-    const widths = [];
-    for (let i = 0; i < passes; i += 1) {
-      const t = 1 - i / (passes - 1);
-      widths.push(lineWidth + expand * t);
-      I.push(t <= 0 ? 1 : edgeProfile(Math.min(0.999, t), 1));
-    }
-    for (let i = 0; i < passes; i += 1) {
-      const a = (additive
-        ? Math.max(0, I[i] - (i > 0 ? I[i - 1] : 0))
-        : I[i]) * alpha;
-      if (a < 0.008) {
-        continue;
-      }
-      const w = widths[i];
-      if (!(w > 0)) {
-        continue;
-      }
-      const color = `rgba(${r}, ${g}, ${b}, ${Math.min(1, a)})`;
-      context.lineWidth = w;
-      context.strokeStyle = color;
-      context.fillStyle = color;
-      if (finite.length === 1) {
-        context.beginPath();
-        context.arc(finite[0].x, finite[0].y, w * 0.5, 0, Math.PI * 2);
-        context.fill();
-      } else {
-        strokePath(context, pts);
-      }
-    }
+    paint(lineWidth + expand, alpha * 0.28);
+    paint(lineWidth, alpha);
   }
 
   let fadeGl = null;
@@ -710,6 +688,8 @@
   function drawWhiteMask(ctx, points, options, face, cap) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    // Hard coverage only — soft blur makes min(L,R) mushy so Meet looks
+    // like opaque overlap instead of R+B=G.
     return draw(ctx, points, {
       ...options,
       blur: 0,
@@ -739,7 +719,6 @@
    *
    * Other blends: draw each layer with that Canvas composite mode
    * (plate must already be filled by the caller).
-   * Trace blur is ignored (always hard stroke).
    */
   function drawStereo(destCtx, leftPoints, rightPoints, leftOptions = {}, rightOptions = {}, stereo = {}) {
     if (!destCtx?.canvas) {
@@ -866,7 +845,7 @@
         ...list[0],
         faceMinSide: face,
         composite: blend === "combine" || blend === "source-over" ? "source-over" : blend,
-        blur: 0,
+        blur: Number.isFinite(Number(list[0].blur)) ? Number(list[0].blur) : 0,
         lineCap: stereo.lineCap,
       });
     }
@@ -894,7 +873,6 @@
           ...layer,
           faceMinSide: face,
           composite,
-          blur: 0,
           lineCap: stereo.lineCap,
         });
       }

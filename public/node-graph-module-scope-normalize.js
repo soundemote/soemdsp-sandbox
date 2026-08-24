@@ -768,6 +768,12 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
         0,
         1,
       ),
+    stampDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.stampDensity ?? source.dotDensity,
+      defaults.stampDensity ?? 0.5,
+      0,
+      1,
+    ),
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
       : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 2048))),
@@ -789,6 +795,17 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
         return false;
       }
       return defaults.skipDiscontinuities === true;
+    })(),
+    // RGB waterfall: CMY multiply darken mode (default off = RGB additive).
+    cmyMode: (() => {
+      const raw = source.cmyMode;
+      if (raw === true || raw === 1 || raw === "1" || raw === "true") {
+        return true;
+      }
+      if (raw === false || raw === 0 || raw === "0" || raw === "false") {
+        return false;
+      }
+      return false;
     })(),
     // Default OFF (matches defaults.sourceSync). Never use `!== false` here —
     // that treated missing settings as Sync-on and let multi-scope locks thrash.
@@ -1661,13 +1678,25 @@ function nodeGraphTraceDisplaySettingsForNode(node) {
     return normalizeNodeGraphValueOscilloscopeSettings(node.traceDisplaySettings);
   }
   // Instant Trace: seed from the global bucket until this module is edited.
-  if (settingsSchema === "trace") {
+  if (settingsSchema === "trace" || settingsSchema === "traceRgb") {
     const local = node.type === "lookaheadLimiter"
       ? nodeGraphMigrateLimiterGainFaceToTraceSettings(node.traceDisplaySettings)
       : node.traceDisplaySettings;
     const hasLocal = Boolean(local && typeof local === "object" && Object.keys(local).length);
     if (!hasLocal) {
-      return nodeGraphGlobalTraceSettings();
+      const seeded = nodeGraphGlobalTraceSettings();
+      // RGB waterfall defaults: hard pixels, full bright, additive guns.
+      if (settingsSchema === "traceRgb") {
+        return normalizeNodeGraphTraceDisplaySettings({
+          ...seeded,
+          lineThickness: 0,
+          brightness: 0.95,
+          dot1Brightness: 0.95,
+          stereoBlend: "lighter",
+          cmyMode: false,
+        });
+      }
+      return seeded;
     }
     return normalizeNodeGraphTraceDisplaySettings(local);
   }

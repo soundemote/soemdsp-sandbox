@@ -5,6 +5,10 @@ function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
   if (renderer === "phosphorWaveform") {
     return "phosphorWaveform";
   }
+  // Alias schemas used with renderer "trace" (Instant Trace family).
+  if (renderer === "traceRgb" || renderer === "traceXyz") {
+    return renderer;
+  }
   return nodeGraphDisplayModeRenderers.includes(renderer) ? renderer : "trace";
 }
 
@@ -170,6 +174,7 @@ function nodeGraphModuleDisplaySettingsSchemaForSlot(slot) {
 function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
   return [
     "trace",
+    "traceRgb",
     "dot",
     "vectorDot",
     "pulseDot",

@@ -1175,6 +1175,38 @@ function nodeGraphXyzTraceBuffers(nodeId, type) {
   return { X, Y, Z };
 }
 
+function nodeGraphModuleRgbTracePorts(type) {
+  const t = String(type || "").trim();
+  if (!t) return null;
+  const def = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[t]
+    : null;
+  const ports = def?.rgbTracePorts;
+  if (ports && ports.R != null && ports.G != null && ports.B != null) {
+    return { R: String(ports.R), G: String(ports.G), B: String(ports.B) };
+  }
+  return null;
+}
+
+function nodeGraphModuleUsesRgbTraceDisplay(type) {
+  return Boolean(nodeGraphModuleRgbTracePorts(type));
+}
+
+function nodeGraphRgbTraceBuffers(nodeId, type) {
+  const id = String(nodeId || "");
+  const ports = nodeGraphModuleRgbTracePorts(type);
+  if (!id || !ports || typeof nodeGraphModuleScopeState !== "object") {
+    return null;
+  }
+  const R = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.R}`);
+  const G = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.G}`);
+  const B = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.B}`);
+  if (!R?.length && !G?.length && !B?.length) {
+    return null;
+  }
+  return { R, G, B };
+}
+
 /** True when L or R jack is actually wired. Unwired L/R rings are silence. */
 function nodeGraphStereoTraceLrWired(nodeId, type) {
   const id = String(nodeId || "");
@@ -1909,9 +1941,18 @@ function nodeGraphTraceDisplayEnsureScratchCanvas(owner, key, width, height) {
   return canvas;
 }
 
-function nodeGraphTraceDisplayScratchContext(owner, key, width, height) {
-  const canvas = nodeGraphTraceDisplayEnsureScratchCanvas(owner, key, width, height);
-  const context = canvas?.getContext("2d");
+function nodeGraphTraceDisplayScratchContext(owner, key, width, height, options = null) {
+  // First getContext wins — use a separate store key for readback scratches so
+  // we never reuse a canvas that was opened without willReadFrequently.
+  const readOften = options && options.willReadFrequently === true;
+  const storeKey = readOften ? String(key || "") + "__read" : key;
+  const canvas = nodeGraphTraceDisplayEnsureScratchCanvas(owner, storeKey, width, height);
+  if (!canvas) {
+    return null;
+  }
+  const context = readOften
+    ? canvas.getContext("2d", { willReadFrequently: true })
+    : canvas.getContext("2d");
   if (!context) {
     return null;
   }
@@ -1997,7 +2038,10 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const stereoBuffers = nodeGraphModuleUsesStereoTraceDisplay(slot?.type)
     ? nodeGraphStereoTraceBuffers(slot.nodeId, slot.type)
     : null;
-  const xyzBuffers = (!stereoBuffers && nodeGraphModuleUsesXyzTraceDisplay(slot?.type))
+  const rgbBuffers = (!stereoBuffers && nodeGraphModuleUsesRgbTraceDisplay(slot?.type))
+    ? nodeGraphRgbTraceBuffers(slot.nodeId, slot.type)
+    : null;
+  const xyzBuffers = (!stereoBuffers && !rgbBuffers && nodeGraphModuleUsesXyzTraceDisplay(slot?.type))
     ? nodeGraphXyzTraceBuffers(slot.nodeId, slot.type)
     : null;
   return nodeGraphWaterfallPaint({
@@ -2010,6 +2054,7 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     bg,
     stereoBuffers,
     xyzBuffers,
+    rgbBuffers,
     density,
   });
 }

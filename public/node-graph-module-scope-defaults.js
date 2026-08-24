@@ -135,6 +135,8 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   cycles: 2,
   // Stroke softness 0…1 (hard → soft skirt). History plot, not phosphor burn.
   lineThickness: 0.15,
+  // Stamp packing along the path 0…1 (sparse → dense). Diagnoses soft-blur washout.
+  stampDensity: 0.5,
   // Max verts before the drawer switches to sparse dots.
   dotBudget: 2048,
   // Vector stroke into a density-scaled face buffer (lo-fi look when < 1).

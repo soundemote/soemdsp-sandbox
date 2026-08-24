@@ -905,9 +905,16 @@ function nodeGraphRgbColorInputMap(availablePorts = []) {
 }
 
 function nodeGraphRgbSourcePortForColor(type, availablePorts, color) {
-  const named = nodeGraphRgbPickNamedPort(availablePorts, color);
-  if (named) {
-    return named;
+  // Named R/G/B only on true RGB modules. SinCos4's "B" outlet is green chrome
+  // (phase tap B), not Blue — picking "B" for blue wired B→G and left C stranded.
+  const hasRgbNames = typeof nodeGraphModuleHasRgbColorPorts === "function"
+    ? nodeGraphModuleHasRgbColorPorts(type)
+    : false;
+  if (hasRgbNames) {
+    const named = nodeGraphRgbPickNamedPort(availablePorts, color);
+    if (named) {
+      return named;
+    }
   }
   const hits = [];
   for (const port of availablePorts || []) {
@@ -920,7 +927,8 @@ function nodeGraphRgbSourcePortForColor(type, availablePorts, color) {
   }
   const axis = hits.find((port) => {
     const token = String(port || "").trim().toLowerCase().split(/[\s/_-]+/).filter(Boolean).pop();
-    return token === "x" || token === "y" || token === "z";
+    return token === "x" || token === "y" || token === "z"
+      || token === "a" || token === "b" || token === "c";
   });
   return axis || hits[0];
 }

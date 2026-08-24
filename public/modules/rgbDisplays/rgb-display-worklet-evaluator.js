@@ -25,3 +25,11 @@ NodeLiveAudioProcessor.prototype.traceXyzSample = function traceXyzSample(mixInp
     Z: Number(mixInput(nodeId, "Z")) || 0,
   };
 };
+
+NodeLiveAudioProcessor.prototype.traceRgbSample = function traceRgbSample(mixInput, nodeId) {
+  return {
+    R: Number(mixInput(nodeId, "R")) || 0,
+    G: Number(mixInput(nodeId, "G")) || 0,
+    B: Number(mixInput(nodeId, "B")) || 0,
+  };
+};

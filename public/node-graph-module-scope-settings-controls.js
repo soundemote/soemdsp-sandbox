@@ -83,7 +83,7 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
     return 0.025;
   }
   // Fixed sub-unit fields that are not magnitude-stepped.
-  if (key === "pixelDensity") {
+  if (key === "pixelDensity" || key === "stampDensity") {
     return 0.05;
   }
   if (key === "sweepSeconds" || key === "sweepHz") {
@@ -179,6 +179,8 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "buttonStrokeBrightness",
     "hoverBrightness",
     "onBrightness",
+    "stampDensity",
+    "pixelDensity",
   ].includes(key) || /Brightness$/i.test(String(key || ""));
 }
 
@@ -434,6 +436,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   lineLength: nodeGraphTraceDisplayClampUnit,
   lineThickness: nodeGraphTraceDisplayClampNonNegative,
   lineBlur: (value) => clampNodeSliderValue(Number(value) || 0, 0, 8),
+  stampDensity: nodeGraphTraceDisplayClampUnit,
   pixelDensity: nodeGraphTraceDisplayClampPixelDensity,
   puckSize: (value) => clampNodeSliderValue(Number(value) || 0, 0.005, 0.25),
   scale: nodeGraphTraceDisplayClampNonNegative,
