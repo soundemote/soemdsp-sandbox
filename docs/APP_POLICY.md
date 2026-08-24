@@ -125,23 +125,6 @@ When feature-complete (or when explicitly chosen later): introduce migrations de
 
 ---
 
-## Quick “should I?” checklist
-
-| Idea | Usually |
-|------|---------|
-| Keep old param key so last week’s patch works | **No** (pre-feature-complete) |
-| JS noise if WASM not ready | **No** — silence / black |
-| CPU full-face fractal every frame | **No** — GPU / native grid |
-| Face noise ≠ jack kernel | **No** — WISIWIH |
-| Smooth scale scrub so it “sounds nice” | **No** unless product asks |
-| Probe reticles always on | **No** — debug only |
-| Dual path “just in case” | **No** — one path |
-| Second formula for offline/render | **No** — same core as live (§5) |
-| Re-sim graph for live video/scopes | **No** — observe worklet buffers (§5) |
-| JS twin of native “so render works” | **No** — silence until WASM (§2 / §5) |
-
----
-
 ## 13. Stereo jacks: M / L / R (not L / M / R)
 
 App-wide stack order and jack chrome. Names keep their color; **Mono is always first**.
@@ -159,6 +142,33 @@ Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled
 - RGB chrome on **inlets and outlets**. Analog inlets stay cyan; analog outlets gold.
 - Cables follow jack colors when UIDEV **wires follow port colors** is on (default). Dual-color gradient still matches both ends. Digital stays white. Off = gold analog / white digital.
 - Full write-up: [MODULE_LAYOUT_PLAN.md](./MODULE_LAYOUT_PLAN.md) §11.
+
+---
+
+## 14. Resize widgets: hover only
+
+- Floating-window SE grips (`.scene-context-resize-handle`), phone/condensed frame resize (`.node-graph-resize-handle`), and other app resize grips stay **visually hidden when idle**.
+- **Show** on parent hover, handle hover / focus, or while actively dragging (`.dragging` / workspace `.resizing`).
+- Hit targets may remain live under opacity `0` so the corner is still findable; locked windows stay non-interactive.
+- Do not leave always-on glowing resize chrome on idle panels.
+
+---
+
+## Quick “should I?” checklist
+
+| Idea | Usually |
+|------|---------|
+| Keep old param key so last week’s patch works | **No** (pre-feature-complete) |
+| JS noise if WASM not ready | **No** — silence / black |
+| CPU full-face fractal every frame | **No** — GPU / native grid |
+| Face noise ≠ jack kernel | **No** — WISIWIH |
+| Smooth scale scrub so it “sounds nice” | **No** unless product asks |
+| Probe reticles always on | **No** — debug only |
+| Dual path “just in case” | **No** — one path |
+| Second formula for offline/render | **No** — same core as live (§5) |
+| Re-sim graph for live video/scopes | **No** — observe worklet buffers (§5) |
+| JS twin of native “so render works” | **No** — silence until WASM (§2 / §5) |
+| Always-visible resize grip on panels | **No** — hover / drag only (§14) |
 
 ---
 

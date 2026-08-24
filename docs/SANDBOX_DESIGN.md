@@ -26,6 +26,7 @@ The sandbox should favor calm, stable surfaces and lead toward a minimal aesthet
 
 Required:
 - Dim always-visible utility controls when they are not active or hovered.
+- Resize grips (floating windows, condensed frame, shared SE corners) are idle-hidden and appear on hover or while dragging (APP_POLICY §14).
 - Reserve brighter button states for hover, selection, active, armed, saved, warning, or error states.
 - Keep UI layout stable as text, values, labels, and button states change.
 

@@ -6841,10 +6841,19 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   border-radius: 2px;
   background: rgba(17, 20, 24, 0.88);
   touch-action: none;
+  /* APP_POLICY §14: idle-hidden; panel/handle hover or drag reveals. */
+  opacity: 0;
+  transition: opacity 120ms ease;
 }
 
 .node-wiring-panel.modular-only-view .node-graph-resize-handle {
   display: block;
+}
+
+.node-wiring-panel.modular-only-view:hover .node-graph-resize-handle,
+#nodeGraphWorkspace.resizing .node-graph-resize-handle,
+.node-graph-resize-handle:is(:hover, :focus-visible, :active, .dragging) {
+  opacity: 1;
 }
 
 .node-graph-resize-handle::before,
@@ -9347,6 +9356,9 @@ body.node-graph-magnifying-active .node-graph-workspace * {
  * Position: absolute bottom-right on the window surface.
  * z-index must beat scroll bodies / form widgets so SE drag still works when
  * a control sits under the grip.
+ *
+ * APP_POLICY §14: idle-hidden; reveal on parent hover / handle hover / drag.
+ * Hit box stays live (opacity only) so the corner is still findable.
  */
 .scene-context-resize-handle {
   position: absolute;
@@ -9379,6 +9391,13 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   user-select: none;
   pointer-events: auto;
   cursor: se-resize;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+*:hover > .scene-context-resize-handle,
+.scene-context-resize-handle:is(:hover, :focus-visible, :active, .dragging) {
+  opacity: 1;
 }
 
 .scene-context-resize-handle:hover,
@@ -9392,8 +9411,9 @@ body.node-graph-magnifying-active .node-graph-workspace * {
 }
 
 .floating-window-locked .scene-context-resize-handle {
-  opacity: 0;
+  opacity: 0 !important;
   pointer-events: none;
+  transition: none;
 }
 
 /* Scrollable inspector bodies stay below the SE grip in the stacking order. */
