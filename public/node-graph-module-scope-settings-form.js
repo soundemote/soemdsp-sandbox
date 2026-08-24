@@ -19,7 +19,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "traceRgb"
   )) {
     label = "History";
-    title = "Seconds of tape across the face. 0 = now (a full-width line). Off: scroll speed. Sync: time for the pen to walk left→right.";
+    title = "Seconds of tape across the face. 0 = now (a full-width line). Sync Off: this sets scroll speed. Sync On: unused — face width locks to ~2 zero-crossing cycles.";
   } else if ((key === "zoomSeconds" || key === "historySeconds") && (
     formType === "traceXyz"
     || formType === "gradientVectorscopeFace"

@@ -78,8 +78,17 @@ function nodeGraphModuleScopeLowpassSyncTrace(buffer, start, end, periodSamples 
     return null;
   }
   const sampleRate = nodeGraphScopeSampleRate(buffer);
-  const fundamental = periodSamples > 0 ? sampleRate / periodSamples : 120;
-  const cutoff = clampNodeSliderValue(fundamental * 4, 20, sampleRate * 0.45);
+  // Light noise taming only — keep cutoff high so audio still yields rising
+  // zero-crossings. We do not need a clean fundamental (old default 120 Hz →
+  // 480 Hz cut killed ~1 kHz+ sines and left Sync stuck on a bad period).
+  const fundamental = periodSamples > 0 ? sampleRate / periodSamples : 0;
+  const cutoff = clampNodeSliderValue(
+    fundamental > 0
+      ? Math.max(fundamental * 4, sampleRate * 0.2)
+      : sampleRate * 0.35,
+    20,
+    sampleRate * 0.45,
+  );
   const alpha = clampNodeSliderValue(1 - Math.exp((-2 * Math.PI * cutoff) / Math.max(1, sampleRate)), 0.001, 1);
   const trace = new Float32Array(limit - first);
   let y1 = (Number(buffer[first]) || 0) - threshold;
@@ -369,8 +378,9 @@ function nodeGraphTraceDisplayPixelLockedView(view, canvasWidthPx) {
   };
 }
 
-// 1D Waterfall: Sync Off scrolls the dest tape; Sync On walks a pen L→R
-// and waits off-screen until the next rising edge (see paint waterfall).
+// 1D Waterfall: Sync Off scrolls with user History; Sync On phase-locks ~2
+// cycles to a rising zero-crossing (see paint waterfall). Newest-edge helper
+// kept for diagnostics / older callers.
 
 function nodeGraphWaterfallNewestEdgeAbs(syncBuffer) {
   if (!syncBuffer?.length) {
