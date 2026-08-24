@@ -300,7 +300,13 @@ function syncNodeGraphPhosphorWaveformPlaylistSettingsControls(nodeId) {
     const stored = typeof nodeGraphAudioPlayerLibraryStoredFolderPath === "function"
       ? nodeGraphAudioPlayerLibraryStoredFolderPath(pl.folderPath)
       : "";
-    pathBox.value = stored;
+    const current = String(pathBox.value || "").trim();
+    // Keep a Browse-folder label visible when there is no persisted OS path.
+    if (stored) {
+      pathBox.value = stored;
+    } else if (!(/\(\s*browser\s*\)\s*$/i.test(current) || current.startsWith("browser:"))) {
+      pathBox.value = "";
+    }
   }
 }
 

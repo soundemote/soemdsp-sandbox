@@ -1581,9 +1581,9 @@ function createNodeGraphSamplePhaseReadout(nodeId) {
   return { phase, phaseValue, copyPhaseButton };
 }
 
-// Path loader: sample modules get 📂 + path box; Music Player is paste-only
-// (the browser folder picker cannot give a C:\ path). Used by the module
-// body below and by Music Player Display Settings.
+// Path loader: sample modules get 📂 + path box. Music Player keeps paste C:\
+// for local server.py, plus Browse (📂) for soundemote.io / any host without
+// the audio-file API. Used by the module body and Music Player Display Settings.
 // `instance` namespaces the hidden file input's id so a second copy of the
 // loader for the same node cannot collide with the module's own.
 function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
@@ -1661,10 +1661,9 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
   pathInput.spellcheck = false;
   protectNodeGraphSampleControl(pathInput);
   if (isMusicPlayer) {
-    pathShell.classList.add("path-only");
     pathInput.dataset.samplePathForNode = nodeId;
-    pathInput.placeholder = "paste C:\\full\\path\\to\\folder";
-    pathInput.title = "Paste a full folder path, then Load";
+    pathInput.placeholder = "Browse 📂 or paste C:\\folder (local server)";
+    pathInput.title = "Online: Browse. Local python server.py: paste a full folder path, then Load";
     const stored = typeof nodeGraphAudioPlayerLibraryStoredFolderPath === "function"
       ? nodeGraphAudioPlayerLibraryStoredFolderPath(
         typeof nodeGraphAudioPlayerPlaylistForNode === "function"
@@ -1673,6 +1672,23 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
       )
       : "";
     pathInput.value = stored;
+    const pathButton = document.createElement("button");
+    pathButton.className = "node-sample-path-button";
+    pathButton.type = "button";
+    pathButton.textContent = "📂";
+    pathButton.setAttribute("aria-label", "Browse folder");
+    pathButton.title = "Browse a folder (works on soundemote.io/sandbox)";
+    protectNodeGraphSampleControl(pathButton);
+    pathButton.addEventListener("click", () => {
+      if (typeof nodeGraphAudioPlayerLibraryBrowseFolder === "function") {
+        nodeGraphAudioPlayerLibraryBrowseFolder(nodeId).catch((error) => {
+          const message = String(error?.message || error || "browse failed");
+          if (typeof setNodeGraphSampleStatus === "function") {
+            setNodeGraphSampleStatus(nodeId, message);
+          }
+        });
+      }
+    });
     pathInput.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         pathInput.blur();
@@ -1697,11 +1713,16 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
       if (!pl) {
         return;
       }
+      const typed = String(pathInput.value || "").trim();
+      // Keep a browser-folder label visible; only OS paths are persisted for reload.
+      if (/\(browser\)\s*$/i.test(typed) || typed.startsWith("browser:")) {
+        return;
+      }
       const next = typeof nodeGraphAudioPlayerLibraryStoredFolderPath === "function"
-        ? nodeGraphAudioPlayerLibraryStoredFolderPath(pathInput.value)
+        ? nodeGraphAudioPlayerLibraryStoredFolderPath(typed)
         : "";
       if (pl.folderPath === next) {
-        pathInput.value = next;
+        pathInput.value = next || typed;
         return;
       }
       pl.folderPath = next;
@@ -1711,8 +1732,8 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
         nodeGraphAudioPlayerPlaylistPersist(nodeId);
       }
     });
-    pathShell.append(pathInput);
-    return { fileInput: null, pathButton: null, pathInput, pathShell };
+    pathShell.append(pathButton, pathInput);
+    return { fileInput: null, pathButton, pathInput, pathShell };
   }
   pathInput.placeholder = "C:\\path\\music.mp3";
   pathInput.readOnly = true;
