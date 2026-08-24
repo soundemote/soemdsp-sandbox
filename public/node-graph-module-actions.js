@@ -1157,14 +1157,25 @@ function applyNodeGraphModuleSettingsSnapshot(targetNode, snapshot) {
  * snapshot use those values.
  */
 const nodeGraphPatchDefaultsWindowDefaultSize = Object.freeze({
-  width: 280,
-  height: 280,
-  minWidth: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
-    ? nodeGraphUnifiedWindowMinSize.minWidth
-    : 24,
-  minHeight: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
-    ? nodeGraphUnifiedWindowMinSize.minHeight
-    : 120,
+  width: typeof nodeGraphUnifiedWindowDefaultSize !== "undefined"
+    ? nodeGraphUnifiedWindowDefaultSize.width
+    : 380,
+  height: typeof nodeGraphUnifiedWindowDefaultSize !== "undefined"
+    ? nodeGraphUnifiedWindowDefaultSize.height
+    : 620,
+  minWidth: typeof nodeGraphUnifiedWindowDefaultSize !== "undefined"
+    ? nodeGraphUnifiedWindowDefaultSize.minWidth
+    : (typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+      ? nodeGraphUnifiedWindowMinSize.minWidth
+      : 24),
+  maxWidth: typeof nodeGraphUnifiedWindowDefaultSize !== "undefined"
+    ? nodeGraphUnifiedWindowDefaultSize.maxWidth
+    : 980,
+  minHeight: typeof nodeGraphUnifiedWindowDefaultSize !== "undefined"
+    ? nodeGraphUnifiedWindowDefaultSize.minHeight
+    : (typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+      ? nodeGraphUnifiedWindowMinSize.minHeight
+      : 120),
 });
 
 function applyNodeGraphPatchDefaultsWindowSize(size = {}, element = null) {

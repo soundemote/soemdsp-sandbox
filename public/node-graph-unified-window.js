@@ -123,16 +123,37 @@ function nodeGraphUnifiedWindowPageConfig(page = "") {
   return nodeGraphUnifiedWindowPages[String(page || "").trim()] || null;
 }
 
-// Shrink floor for every Command Center page. Match the main page
-// (nodeSceneContextWindowDefaultSize). CSS --node-unified-window-min-*
+// Shrink floor for every Command Center page. CSS --node-unified-window-min-*
 // is written from this object — do not invent per-page mins.
 const nodeGraphUnifiedWindowMinSize = Object.freeze({
   minWidth: 24,
   minHeight: 120,
 });
 
+// Singular seat default for the Command Center floating window and every
+// unified page (Modules, Module Settings, Display/Parameter Settings, UI
+// Settings / UIDEV, Ready, Visibility, Hotkeys, Emoji). Cold open / never
+// resized → this width. Per-page *DefaultSize objects must copy width/max
+// from here; do not invent competing widths.
+const nodeGraphUnifiedWindowDefaultSize = Object.freeze({
+  width: 380,
+  // Height is optional on Command Center (content-sized cold open). Pages that
+  // must pin a box before measure can fall back to this height.
+  height: 620,
+  minWidth: nodeGraphUnifiedWindowMinSize.minWidth,
+  minHeight: nodeGraphUnifiedWindowMinSize.minHeight,
+  maxWidth: 980,
+});
+
 function nodeGraphUnifiedWindowMinBox() {
   return nodeGraphUnifiedWindowMinSize;
+}
+
+function nodeGraphUnifiedWindowDefaultBox(overrides = {}) {
+  return Object.freeze({
+    ...nodeGraphUnifiedWindowDefaultSize,
+    ...(overrides && typeof overrides === "object" ? overrides : {}),
+  });
 }
 
 function nodeGraphUnifiedWindowSizeLooksReal(size = {}) {
@@ -156,21 +177,25 @@ function applyNodeGraphUnifiedWindowShellSize(element, size = {}) {
   if (!element) {
     return null;
   }
+  const defaults = nodeGraphUnifiedWindowDefaultSize;
   const mins = nodeGraphUnifiedWindowMinSize;
-  const rect = element.getBoundingClientRect?.();
+  const rect = element?.hidden ? null : element.getBoundingClientRect?.();
   const merged = {
-    width: Number(size.width) || Number(rect?.width) || mins.minWidth,
-    height: Number(size.height) || Number(rect?.height) || mins.minHeight,
+    width: Number(size.width)
+      || Number(nodeGraphMvp?.unifiedWindowSize?.width)
+      || Number(rect?.width)
+      || defaults.width
+      || mins.minWidth,
+    height: Number(size.height)
+      || Number(nodeGraphMvp?.unifiedWindowSize?.height)
+      || Number(rect?.height)
+      || defaults.height
+      || mins.minHeight,
   };
   const normalized = typeof normalizeNodeGraphFloatingWindowSize === "function"
     ? normalizeNodeGraphFloatingWindowSize(
       merged,
-      {
-        minWidth: mins.minWidth,
-        minHeight: mins.minHeight,
-        width: merged.width,
-        height: merged.height,
-      },
+      defaults,
       { element },
     )
     : {
@@ -204,6 +229,18 @@ function applyNodeGraphUnifiedWindowMinSizeCssVars() {
   }
   root.style.setProperty("--node-unified-window-min-width", `${nodeGraphUnifiedWindowMinSize.minWidth}px`);
   root.style.setProperty("--node-unified-window-min-height", `${nodeGraphUnifiedWindowMinSize.minHeight}px`);
+  root.style.setProperty(
+    "--node-unified-window-default-width",
+    `${nodeGraphUnifiedWindowDefaultSize.width}px`,
+  );
+  root.style.setProperty(
+    "--node-unified-window-default-height",
+    `${nodeGraphUnifiedWindowDefaultSize.height}px`,
+  );
+  root.style.setProperty(
+    "--node-unified-window-max-width",
+    `${nodeGraphUnifiedWindowDefaultSize.maxWidth}px`,
+  );
 }
 
 if (typeof document !== "undefined") {
@@ -1017,9 +1054,12 @@ function applyNodeGraphCommandCenterDockWidth(widthPx) {
   const limits = nodeGraphCommandCenterDockWidthLimits();
   const raw = Number(widthPx);
   const fallback = Number(nodeGraphMvp?.unifiedWindowSize?.width);
+  const defaultWidth = typeof nodeGraphUnifiedWindowDefaultSize !== "undefined"
+    ? nodeGraphUnifiedWindowDefaultSize.width
+    : 380;
   const next = Number.isFinite(raw)
     ? Math.max(limits.min, Math.min(limits.max, Math.round(raw)))
-    : Math.round(Math.min(limits.max, Number.isFinite(fallback) ? fallback : 320));
+    : Math.round(Math.min(limits.max, Number.isFinite(fallback) ? fallback : defaultWidth));
   if (nodeGraphMvp) {
     nodeGraphMvp.commandCenterDockWidth = next;
     const prevH = Number(nodeGraphMvp.unifiedWindowSize?.height);

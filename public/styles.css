@@ -949,6 +949,10 @@ button:disabled {
   --node-floating-window-button-height: 30px;
   --node-unified-window-min-width: 24px;
   --node-unified-window-min-height: 120px;
+  /* Singular Command Center floating seat — keep JS DefaultSize in sync. */
+  --node-unified-window-default-width: 380px;
+  --node-unified-window-default-height: 620px;
+  --node-unified-window-max-width: 980px;
   --node-front-button-hover-border: rgba(127, 199, 217, 0.18);
   --node-front-button-hover-color: rgba(190, 198, 208, 0.86);
   --node-front-button-hover-bg: rgba(17, 20, 24, 0.7);
@@ -2050,7 +2054,7 @@ button.scw-label:hover,
   top: 0;
   bottom: 0;
   z-index: 20;
-  width: var(--node-command-center-dock-width, 320px);
+  width: var(--node-command-center-dock-width, var(--node-unified-window-default-width, 380px));
   min-width: var(--node-unified-window-min-width, 24px);
   max-width: none;
   min-height: 0;
@@ -5050,8 +5054,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   align-items: stretch;
   justify-content: flex-start;
   box-sizing: border-box;
-  width: var(--node-user-ui-settings-width, min(360px, calc(100vw - 32px)));
-  height: var(--node-user-ui-settings-height, min(620px, calc(100vh - 124px)));
+  width: var(--node-user-ui-settings-width, min(var(--node-unified-window-default-width, 380px), calc(100vw - 32px)));
+  height: var(--node-user-ui-settings-height, min(var(--node-unified-window-default-height, 620px), calc(100vh - 124px)));
   min-width: var(--node-user-ui-settings-min-width, var(--node-unified-window-min-width, 24px));
   min-height: var(--node-user-ui-settings-min-height, var(--node-unified-window-min-height, 120px));
   max-width: var(--node-user-ui-settings-max-width, none);
@@ -9829,12 +9833,12 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   box-sizing: border-box;
   width: clamp(
     var(--node-module-shop-min-width, var(--node-unified-window-min-width, 24px)),
-    var(--node-module-shop-width, 520px),
-    min(var(--node-module-shop-max-width, 980px), calc(100vw - 28px))
+    var(--node-module-shop-width, var(--node-unified-window-default-width, 380px)),
+    min(var(--node-module-shop-max-width, var(--node-unified-window-max-width, 980px)), calc(100vw - 28px))
   );
   height: clamp(
     var(--node-module-shop-min-height, var(--node-unified-window-min-height, 120px)),
-    var(--node-module-shop-height, 620px),
+    var(--node-module-shop-height, var(--node-unified-window-default-height, 620px)),
     min(var(--node-module-shop-max-height, 100dvh), 100dvh)
   );
   min-width: var(--node-module-shop-min-width, var(--node-unified-window-min-width, 24px));
@@ -10966,10 +10970,10 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  width: var(--node-ui-dev-helper-width, min(360px, calc(100vw - 36px)));
-  height: var(--node-ui-dev-helper-height, min(520px, calc(100vh - 36px)));
-  min-width: var(--node-ui-dev-helper-min-width, 280px);
-  min-height: var(--node-ui-dev-helper-min-height, 200px);
+  width: var(--node-ui-dev-helper-width, min(var(--node-unified-window-default-width, 380px), calc(100vw - 36px)));
+  height: var(--node-ui-dev-helper-height, min(var(--node-unified-window-default-height, 620px), calc(100vh - 36px)));
+  min-width: var(--node-ui-dev-helper-min-width, var(--node-unified-window-min-width, 24px));
+  min-height: var(--node-ui-dev-helper-min-height, var(--node-unified-window-min-height, 120px));
   max-width: var(--node-ui-dev-helper-max-width, none);
   max-height: var(--node-ui-dev-helper-max-height, calc(100vh - 24px));
   border: 1px solid rgba(127, 199, 217, 0.32);
@@ -17159,8 +17163,8 @@ body.node-slider-dragging * {
   gap: 0;
   grid-template-columns: minmax(0, 1fr);
   grid-auto-rows: max-content;
-  width: var(--metadata-popover-width, 680px);
-  height: var(--metadata-popover-height, 620px);
+  width: var(--metadata-popover-width, var(--node-unified-window-default-width, 380px));
+  height: var(--metadata-popover-height, var(--node-unified-window-default-height, 620px));
   min-width: var(--node-unified-window-min-width, 24px);
   min-height: var(--node-unified-window-min-height, 120px);
   max-width: none;
@@ -19500,9 +19504,9 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   position: fixed;
   display: flex;
   flex-direction: column;
-  width: min(var(--node-scene-context-width, 215px), calc(100vw - 4px));
+  width: min(var(--node-scene-context-width, var(--node-unified-window-default-width, 380px)), calc(100vw - 4px));
   min-width: var(--node-scene-context-min-width, var(--node-unified-window-min-width, 24px));
-  max-width: min(var(--node-scene-context-max-width, 980px), calc(100vw - 4px));
+  max-width: min(var(--node-scene-context-max-width, var(--node-unified-window-max-width, 980px)), calc(100vw - 4px));
   /* Prefer explicit height var; cold open with no var = content height. */
   height: var(--node-scene-context-height, auto);
   min-height: var(--node-scene-context-min-height, var(--node-unified-window-min-height, 120px));
@@ -19646,13 +19650,13 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   display: flex;
   flex-direction: column;
   width: clamp(
-    var(--node-module-actions-min-width, 24px),
-    var(--node-module-actions-width, 140px),
-    min(var(--node-module-actions-max-width, 360px), calc(100vw - 28px))
+    var(--node-module-actions-min-width, var(--node-unified-window-min-width, 24px)),
+    var(--node-module-actions-width, var(--node-unified-window-default-width, 380px)),
+    min(var(--node-module-actions-max-width, var(--node-unified-window-max-width, 980px)), calc(100vw - 28px))
   );
   height: var(--node-module-actions-height, auto);
   min-width: var(--node-module-actions-min-width, var(--node-unified-window-min-width, 24px));
-  max-width: min(var(--node-module-actions-max-width, 980px), calc(100vw - 4px));
+  max-width: min(var(--node-module-actions-max-width, var(--node-unified-window-max-width, 980px)), calc(100vw - 4px));
   min-height: var(--node-module-actions-min-height, var(--node-unified-window-min-height, 120px));
   max-height: min(var(--node-module-actions-max-height, 100dvh), 100dvh);
   gap: 0;

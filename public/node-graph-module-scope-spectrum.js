@@ -177,16 +177,25 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
 }
 
 const nodeGraphTraceDisplaySettingsWindowSize = Object.freeze({
-  height: 620,
-  maxHeight: 820,
-  maxWidth: 760,
-  minHeight: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
-    ? nodeGraphUnifiedWindowMinSize.minHeight
-    : 120,
-  minWidth: typeof nodeGraphUnifiedWindowMinSize !== "undefined"
-    ? nodeGraphUnifiedWindowMinSize.minWidth
-    : 24,
-  width: 185,
+  height: typeof nodeGraphUnifiedWindowDefaultSize !== "undefined"
+    ? nodeGraphUnifiedWindowDefaultSize.height
+    : 620,
+  maxWidth: typeof nodeGraphUnifiedWindowDefaultSize !== "undefined"
+    ? nodeGraphUnifiedWindowDefaultSize.maxWidth
+    : 980,
+  minHeight: typeof nodeGraphUnifiedWindowDefaultSize !== "undefined"
+    ? nodeGraphUnifiedWindowDefaultSize.minHeight
+    : (typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+      ? nodeGraphUnifiedWindowMinSize.minHeight
+      : 120),
+  minWidth: typeof nodeGraphUnifiedWindowDefaultSize !== "undefined"
+    ? nodeGraphUnifiedWindowDefaultSize.minWidth
+    : (typeof nodeGraphUnifiedWindowMinSize !== "undefined"
+      ? nodeGraphUnifiedWindowMinSize.minWidth
+      : 24),
+  width: typeof nodeGraphUnifiedWindowDefaultSize !== "undefined"
+    ? nodeGraphUnifiedWindowDefaultSize.width
+    : 380,
 });
 
 const nodeGraphTraceDisplaySettingFields = Object.freeze([

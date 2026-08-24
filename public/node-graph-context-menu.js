@@ -35,25 +35,23 @@ function clearNodeSceneContextMenuDragState() {
   menu?.querySelector(".scene-context-drag-handle")?.classList.remove("dragging");
 }
 
+// Width/max/mins come from nodeGraphUnifiedWindowDefaultSize (singular seat).
 const nodeSceneContextWindowDefaultSize = Object.freeze({
-  width: 185,
+  width: nodeGraphUnifiedWindowDefaultSize.width,
   // Content-height cold open (no fixed tall box full of empty chrome).
   // User resize / unified seat still pin an explicit height when set.
   // height omitted → CSS height:auto from content.
-  minWidth: nodeGraphUnifiedWindowMinSize.minWidth,
-  // Match module-browser max so the unified floating window can keep one size
-  // when switching Command Center ↔ Modules without clamping narrower.
-  maxWidth: 980,
-  minHeight: nodeGraphUnifiedWindowMinSize.minHeight,
-  // Height max is available view space from the window top (no fixed ceiling).
+  minWidth: nodeGraphUnifiedWindowDefaultSize.minWidth,
+  maxWidth: nodeGraphUnifiedWindowDefaultSize.maxWidth,
+  minHeight: nodeGraphUnifiedWindowDefaultSize.minHeight,
 });
 
 const nodeModuleActionsWindowDefaultSize = Object.freeze({
-  width: 185,
-  height: 620,
-  minWidth: nodeGraphUnifiedWindowMinSize.minWidth,
-  maxWidth: 980,
-  minHeight: nodeGraphUnifiedWindowMinSize.minHeight,
+  width: nodeGraphUnifiedWindowDefaultSize.width,
+  height: nodeGraphUnifiedWindowDefaultSize.height,
+  minWidth: nodeGraphUnifiedWindowDefaultSize.minWidth,
+  maxWidth: nodeGraphUnifiedWindowDefaultSize.maxWidth,
+  minHeight: nodeGraphUnifiedWindowDefaultSize.minHeight,
 });
 
 // pulseNodeGraphFloatingWindowAttention moved to node-graph-floating-windows.js
