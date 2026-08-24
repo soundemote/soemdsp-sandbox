@@ -73,97 +73,31 @@ function textBoxWidgetWriteText(field, value) {
   field.textContent = next;
 }
 
-/**
- * Intrinsic glyph/content height for Vertical %.
- *
- * Do not use the live face's scrollHeight / Range rects: the input is
- * height:100%, and with newlines Range.getClientRects() often reports the
- * full face height → slack 0 → Vertical knob does nothing in Multi mode.
- * Probe off-DOM at the same width/typography with height:auto instead.
- */
-function textBoxWidgetMeasureContentHeight(field) {
-  if (!field) return 0;
-  const style = window.getComputedStyle(field);
-  const lineHeight = Number.parseFloat(style.lineHeight);
-  const fontSize = Number.parseFloat(style.fontSize);
-  const fallback = Number.isFinite(lineHeight) && lineHeight > 0
-    ? lineHeight
-    : (Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.2 : 0);
-  const width = Math.max(0, field.clientWidth);
-  if (!(width > 0)) {
-    return fallback;
-  }
-  const text = textBoxWidgetReadText(field);
-  try {
-    const probe = document.createElement("div");
-    probe.setAttribute("aria-hidden", "true");
-    probe.style.cssText = [
-      "position:absolute",
-      "left:-99999px",
-      "top:0",
-      "visibility:hidden",
-      "pointer-events:none",
-      `width:${width}px`,
-      "height:auto",
-      "min-height:0",
-      "max-height:none",
-      "overflow:visible",
-      "margin:0",
-      `padding:${style.paddingTop} ${style.paddingRight} ${style.paddingBottom} ${style.paddingLeft}`,
-      "border:0",
-      `box-sizing:${style.boxSizing || "border-box"}`,
-      `font-family:${style.fontFamily}`,
-      `font-size:${style.fontSize}`,
-      `font-weight:${style.fontWeight}`,
-      `font-style:${style.fontStyle}`,
-      `line-height:${style.lineHeight}`,
-      `letter-spacing:${style.letterSpacing}`,
-      `white-space:${style.whiteSpace}`,
-      `overflow-wrap:${style.overflowWrap}`,
-      `word-break:${style.wordBreak}`,
-      `text-align:${style.textAlign}`,
-    ].join(";");
-    // NBSP so an empty face still measures one line (Vertical still has slack).
-    probe.textContent = text.length ? text : "\u00a0";
-    document.body.appendChild(probe);
-    const height = Math.max(0, probe.scrollHeight || probe.offsetHeight || 0);
-    probe.remove();
-    if (height > 0) {
-      return height;
-    }
-  } catch (_error) {
-    // fall through
-  }
-  if (!text.length) {
-    return fallback;
-  }
-  const lines = Math.max(1, text.split(/\r\n|\r|\n/).length);
-  return fallback * lines;
-}
+/** Vertical slider range in face-heights: 0% = −N, 50% = 0, 100% = +N. */
+const TEXT_BOX_VERTICAL_RANGE = 2;
 
 function textBoxWidgetApplyAlign(field, layout) {
-  if (!field) return;
-  field.style.setProperty("--node-text-box-content-offset", "0px");
-  void field.offsetHeight;
-  // Face/window height — not the input (input is height:auto so text can
-  // extend past the window; only .node-text-box-body clips).
+  if (!field) return false;
   const face = field.parentElement;
-  const box = Math.max(0, face?.clientHeight || field.clientHeight);
-  const contentHeight = textBoxWidgetMeasureContentHeight(field);
+  const box = Math.max(0, face?.clientHeight || 0);
+  // Boot race: face may be 0 until chrome lays out — retry via scheduleVisual.
+  if (!(box > 0)) {
+    return false;
+  }
   const percent = textBoxWidgetNormalizeVertical(layout.verticalAlignPercent);
-  // Place the *center* of the full text block along the face:
-  // 0% = top edge, 50% = face center, 100% = bottom edge.
-  // Window overflow clips — never pre-clip the input then translate.
-  const offset = (box * percent) / 100 - contentHeight * 0.5;
+  // Plain translate — no content-height math. 50 = natural top; slide freely.
+  const t = (percent - 50) / 50;
+  const offset = t * box * TEXT_BOX_VERTICAL_RANGE;
   field.style.setProperty("--node-text-box-content-offset", `${offset.toFixed(2)}px`);
+  return true;
 }
 
 function textBoxWidgetApplyVisual(field, layout) {
-  if (!field) return;
+  if (!field) return false;
   field.scrollLeft = 0;
   field.scrollTop = 0;
   field.style.setProperty("--node-text-box-font-fit-scale", "1");
-  textBoxWidgetApplyAlign(field, layout);
+  return textBoxWidgetApplyAlign(field, layout);
 }
 
 function textBoxWidgetRangeFromPoint(x, y) {
@@ -241,6 +175,8 @@ function createTextBoxWidget(body, options = {}) {
   let commitTimer = 0;
   let applying = false;
   let observer = null;
+  let settleTimers = [];
+  let visualGen = 0;
 
   // Div, not textarea: CSS `zoom` on the workspace surface does not paint
   // textarea glyphs. Face is the live editor (settings field mirrors it).
@@ -357,14 +293,32 @@ function createTextBoxWidget(body, options = {}) {
     body.dataset.textHorizontalAlign = layout.horizontalAlign;
     body.dataset.textVerticalAlignPercent = String(layout.verticalAlignPercent);
     body.dataset.textBoxFont = layout.font;
+    void field.offsetHeight;
   }
 
   function scheduleVisual() {
+    visualGen += 1;
+    const gen = visualGen;
+    for (const timer of settleTimers) {
+      window.clearTimeout(timer);
+    }
+    settleTimers = [];
+
     const run = () => {
-      if (field.isConnected) textBoxWidgetApplyVisual(field, layout);
+      if (gen !== visualGen || !field.isConnected) {
+        return;
+      }
+      const ok = textBoxWidgetApplyVisual(field, layout);
+      // Face still 0 at boot — one short retry after chrome sizes.
+      if (!ok) {
+        settleTimers.push(window.setTimeout(() => {
+          if (gen !== visualGen) return;
+          requestAnimationFrame(run);
+        }, 50));
+      }
     };
+
     requestAnimationFrame(run);
-    document.fonts?.ready?.then(() => requestAnimationFrame(run));
   }
 
   function flushCommit() {
@@ -394,6 +348,11 @@ function createTextBoxWidget(body, options = {}) {
   if (window.ResizeObserver) {
     observer = new ResizeObserver(() => scheduleVisual());
     observer.observe(field);
+    observer.observe(body);
+    const host = body.closest?.(".dsp-node");
+    if (host) {
+      observer.observe(host);
+    }
   }
   scheduleVisual();
 
@@ -458,7 +417,12 @@ function createTextBoxWidget(body, options = {}) {
       commitFn = typeof fn === "function" ? fn : null;
     },
     destroy() {
+      visualGen += 1;
       if (commitTimer) window.clearTimeout(commitTimer);
+      for (const timer of settleTimers) {
+        window.clearTimeout(timer);
+      }
+      settleTimers = [];
       observer?.disconnect();
       field.remove();
     },

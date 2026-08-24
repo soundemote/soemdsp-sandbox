@@ -1,0 +1,32 @@
+<!doctype html><body><canvas id=c width=200 height=100></canvas><pre id=o></pre>
+<script>
+const c=document.getElementById('c');
+const ctx=c.getContext('2d');
+ctx.fillStyle='#000'; ctx.fillRect(0,0,200,100);
+// simulate two layers
+function layer(color, y){
+  const s=document.createElement('canvas'); s.width=200; s.height=100;
+  const g=s.getContext('2d');
+  g.clearRect(0,0,200,100);
+  g.fillStyle=color; g.beginPath(); g.arc(100,y,30,0,Math.PI*2); g.fill();
+  // binarize
+  const img=g.getImageData(0,0,200,100); const d=img.data;
+  for(let i=0;i<d.length;i+=4){ if(d[i+3]>127) d[i+3]=255; else {d[i]=d[i+1]=d[i+2]=d[i+3]=0;} }
+  g.putImageData(img,0,0);
+  return s;
+}
+const L=layer('#ff0000',40), R=layer('#0000ff',60);
+const out=ctx.createImageData(200,100); const od=out.data;
+const A=L.getContext('2d').getImageData(0,0,200,100).data;
+const B=R.getContext('2d').getImageData(0,0,200,100).data;
+for(let i=0;i<od.length;i+=4){
+  let r=0,g=0,b=0,hit=false;
+  if(A[i+3]>=128){hit=true;r+=A[i];g+=A[i+1];b+=A[i+2];}
+  if(B[i+3]>=128){hit=true;r+=B[i];g+=B[i+1];b+=B[i+2];}
+  if(!hit) continue;
+  od[i]=Math.min(255,r); od[i+1]=Math.min(255,g); od[i+2]=Math.min(255,b); od[i+3]=255;
+}
+ctx.putImageData(out,0,0);
+const mid=ctx.getImageData(100,50,1,1).data;
+document.getElementById('o').textContent='overlap rgba='+[...mid];
+</script></body>

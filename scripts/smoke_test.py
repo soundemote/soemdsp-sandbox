@@ -131,6 +131,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/patch/patch-register.js",
     "./public/node-graph-module-chrome.js",
     "./public/modules/led/led-register.js",
+    "./public/modules/lcdDot/lcd-dot-register.js",
     "./public/modules/rgbShape/rgb-shape-register.js",
     "./public/modules/rgbPicture/rgb-picture-register.js",
     "./public/modules/rgbFractal/rgb-fractal-register.js",
@@ -222,6 +223,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/lib/trace/trace-woscope.js",
     "./public/lib/trace/trace-waveform.js",
     "./public/lib/trace/trace-tape.js",
+    "./public/lib/trace/trace-shape.js",
+    "./public/lib/trace/trace-dot-sprite.js",
     "./public/node-graph-phosphor-gaussian-drawer.js",
     "./public/color-widget-boot.js",
     "./public/modules/spectrogram/spectrogram-gradient-editor.js",
@@ -265,7 +268,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/lib/trace/trace-history-draw.js",
     "./public/node-graph-module-scope-paint-helpers.js",
     "./public/node-graph-module-scope-waterfall.js",
-    "./public/modules/traceXyz/trace-xyz-display.js",
     "./public/node-graph-module-scope-draw-orchestrator.js",
     "./public/modules/lookaheadLimiter/lookahead-limiter-display.js",
     "./public/modules/patch/patch-ui.js",
@@ -278,8 +280,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-canvas-script.js",
     "./public/node-graph-module-factories.js",
     "./public/modules/led/led-ui.js",
-    "./public/modules/led/led-settings.js",
-    "./public/modules/led/led-display.js",
+    "./public/modules/lcdDot/lcd-dot-display.js",
+    "./public/modules/rgbShape/rgb-shape-math.js",
     "./public/modules/rgbShape/rgb-shape-ui.js",
     "./public/modules/rgbShape/rgb-shape-display.js",
     "./public/modules/rgbPicture/rgb-picture-ui.js",
@@ -604,6 +606,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/mixStereo/mix-stereo-live-evaluator.js",
     "./public/modules/sinc/sinc-live-evaluator.js",
     "./public/modules/led/led-live-evaluator.js",
+    "./public/modules/lcdDot/lcd-dot-live-evaluator.js",
     "./public/modules/rgbShape/rgb-shape-live-evaluator.js",
     "./public/modules/rgbPicture/rgb-picture-live-evaluator.js",
     "./public/modules/rgbFractal/rgb-fractal-math.js",
@@ -4015,6 +4018,7 @@ def require_chromeless_module_registry_contract() -> None:
         "groupInput",
         "groupOutput",
         "keypad",
+        "lcdDot",
         "led",
         "numberReadout",
         "patch",
@@ -4037,7 +4041,7 @@ def require_chromeless_module_registry_contract() -> None:
     # Each registered type needs a matching UI registration in the same
     # module folder — unless the face is fully shared (e.g. Value LCD reuses
     # the number-readout draw path and has no dedicated *-ui.js).
-    chromeless_ui_optional = {"valueLcd", "portalInlet", "portalOutlet", "simulationTime"}
+    chromeless_ui_optional = {"valueLcd", "portalInlet", "portalOutlet", "simulationTime", "lcdDot"}
     for register_path in register_paths:
         module_dir = register_path.parent
         module_type = chromeless_register_type(register_path, register_path.read_text(encoding="utf-8"))
@@ -4638,7 +4642,8 @@ def require_node_graph_mvp_contract() -> None:
         and 'return "Button"' in script_sources["./public/node-graph-module-scope-settings-form-io.js"]
         and 'return "Stroke"' in script_sources["./public/node-graph-module-scope-settings-form-io.js"]
         and "Background color" not in script_sources["./public/modules/keypad/keypad-settings.js"]
-        and 'id: "poiret-one"' in script_sources["./public/modules/keypad/keypad-math.js"]
+        and 'id: "poiret-one"' in script_sources["./public/node-graph-app-fonts.js"]
+        and "function nodeGraphKeypadFontCatalog" in script_sources["./public/modules/keypad/keypad-math.js"]
         and "nodeSceneKeypadButtonColor" not in (PUBLIC / "index.html").read_text(encoding="utf-8")
         and "nodeSceneKeypadTextColor" not in (PUBLIC / "index.html").read_text(encoding="utf-8")
         and "function nodeGraphFloatingWindowDragIsFromTitleBar" in script_sources["./public/node-graph-floating-windows.js"]
@@ -4713,7 +4718,7 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         'momentaryButton: "Momentary"' in script_sources["./public/node-graph-module-definitions.js"]
-        and "defaultWidthGu: 4" in script_sources["./public/node-graph-module-definitions.js"][
+        and "defaultWidthGu: 5" in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("momentaryButton: {"):
             script_sources["./public/node-graph-module-definitions.js"].index("pluginInput: {")
         ]
@@ -4721,7 +4726,7 @@ def require_node_graph_mvp_contract() -> None:
             script_sources["./public/node-graph-module-definitions.js"].index("momentaryButton: {"):
             script_sources["./public/node-graph-module-definitions.js"].index("pluginInput: {")
         ],
-        "Momentary should spawn 4gu wide with a 2gu face (3gu outer with title)",
+        "Momentary should spawn 5gu wide with a 2gu face (3gu outer with title)",
     )
     require(
         'vectorRgb: "Vector RGB"' in script_sources["./public/node-graph-module-definitions.js"]

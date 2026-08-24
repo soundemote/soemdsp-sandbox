@@ -976,10 +976,9 @@ function beginNodeGraphPhosphorWaveformSettingsDrag(event) {
 }
 
 // Gives every numeric control in the waveform display options window the same
-// modifier vocabulary as the module sliders -- ctrl/cmd+click resets to
-// default, shift/ctrl scale the step. See bindNodeGraphNativeSliderModifiers
-// in node-graph-slider-dragging.js; defaults come from the one settings
-// object, so they cannot drift from what normalize* actually falls back to.
+// modifier vocabulary as the module sliders -- ctrl/cmd+click reset, relative
+// drag + wheel/arrows via nodeGraphNumericDragMultiplier. See
+// bindNodeGraphNativeSliderModifiers in node-graph-slider-dragging.js.
 const nodeGraphPhosphorWaveformSettingInputs = Object.freeze([
   ["nodePhosphorWaveformTimeWindowInput", "timeWindowSeconds"],
   ["nodePhosphorWaveformLineWidthInput", "scrollLineWidth"],

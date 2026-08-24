@@ -106,7 +106,10 @@ function nodeGraphXyPadWritePosition(pad, x, y, options = {}) {
       if (!slider) {
         continue;
       }
+      // Keep domainValue in lockstep — commitNodeSliderDragValue reads it, and a
+      // stale 0.5 here was rewriting center on mouse-up (Return To Center Off).
       slider.value = String(value);
+      slider.dataset.domainValue = String(value);
       if (isDrag && typeof scheduleNodeSliderReadoutUpdate === "function") {
         scheduleNodeSliderReadoutUpdate(slider, value);
       } else if (typeof syncNodeSliderReadout === "function") {
@@ -1184,9 +1187,15 @@ function createNodeGraphXyPadBody(node, type) {
     // Keep _xyPadDragging true through finalize so syncFromParameters cannot
     // reconcile/mirror and nudge axes mid-commit.
     try {
-      nodeGraphXyPadSetGate(pad, false);
       const returnToCenter = nodeGraphXyPadParam(pad, "returnToCenter", 0) > 0.5;
       const pauseOnLift = nodeGraphXyPadParam(pad, "pauseOnLift", 0) > 0.5;
+      const lastX = Number.isFinite(completedDrag.lastX)
+        ? completedDrag.lastX
+        : (Number.isFinite(completedDrag.startX) ? completedDrag.startX : 0.5);
+      const lastY = Number.isFinite(completedDrag.lastY)
+        ? completedDrag.lastY
+        : (Number.isFinite(completedDrag.startY) ? completedDrag.startY : 0.5);
+
       if (completedDrag.resetToDefault && !completedDrag.moved) {
         const xSlider = nodeGraphXyPadSlider(pad, "x");
         const ySlider = nodeGraphXyPadSlider(pad, "y");
@@ -1198,19 +1207,25 @@ function createNodeGraphXyPadBody(node, type) {
           Number.isFinite(defaultY) ? defaultY : 0.5,
           { interaction: "drag", commit: true, commitStatus: "XY pad reset to default" },
         );
-        drawNodeGraphXyPad(pad);
-        return;
-      }
-      if (returnToCenter && !pauseOnLift) {
+      } else if (returnToCenter && !pauseOnLift) {
+        // Aim at bipolar 0 (unit 0.5).
         nodeGraphXyPadWritePosition(pad, 0.5, 0.5, {
           interaction: "drag",
           commit: true,
           commitStatus: "XY pad return to center",
         });
-        drawNodeGraphXyPad(pad);
-        return;
+      } else {
+        // Hold last XY as DC — do not write center/0 on lift.
+        nodeGraphXyPadWritePosition(pad, lastX, lastY, {
+          interaction: "drag",
+          commit: true,
+          commitStatus: "XY pad moved",
+        });
       }
-      nodeGraphXyPadCommitDrag(pad, completedDrag);
+      // Gate after position so a gate sync cannot wipe X/Y back to defaults.
+      nodeGraphXyPadSetGate(pad, false);
+      nodeGraphXyPadCancelScheduledDraw(pad);
+      drawNodeGraphXyPad(pad);
     } finally {
       pad._xyPadDragging = false;
     }

@@ -1,0 +1,41 @@
+﻿<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>waterfall full-dot check</title></head>
+<body>{
+  "pass": false,
+  "failed": 2,
+  "report": [
+    {
+      "name": "pad-fits-left-edge",
+      "pass": true,
+      "detail": "left rgba(255,0,0,232) pad=10"
+    },
+    {
+      "name": "pad-fits-right-edge",
+      "pass": false,
+      "detail": "right rgba(0,0,0,0)"
+    },
+    {
+      "name": "pad-core-red",
+      "pass": true,
+      "detail": "core rgba(255,0,0,255)"
+    },
+    {
+      "name": "unpadded-clips-dot",
+      "pass": false,
+      "detail": "inkCols=3 edgeA=255"
+    },
+    {
+      "name": "lighter-blends-brighter",
+      "pass": true,
+      "detail": "one=120 two=240"
+    },
+    {
+      "name": "meet-dots-green",
+      "pass": true,
+      "detail": "rgba(0,255,0,255)"
+    }
+  ]
+}
+
+
+</body></html>

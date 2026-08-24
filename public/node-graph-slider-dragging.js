@@ -500,23 +500,40 @@ function nodeSliderKeyboardStep(slider, event) {
 
 // ── Plain <input type="range"/"number"> modifier parity ──────────────────
 //
-// Module sliders are a custom widget (a .node-slider-readout surface driving a
-// hidden input, see beginNodeSliderDrag above) -- none of that machinery can
-// be pointed at a bare native input. What CAN be shared is the modifier
-// vocabulary, so native inputs elsewhere in the app (waveform display options,
-// etc.) behave the way the module sliders taught the user to expect:
+// Module face sliders are a custom widget (.node-slider-readout → hidden
+// input). Native Display Settings ranges cannot reuse that surface, but they
+// MUST share the same modifier vocabulary:
 //
-//   ctrl/cmd + click   reset to default
-//   shift              coarse   (10x step)
-//   ctrl/cmd           fine     (0.1x step)
-//   shift + ctrl/cmd   coarse and fine combined, i.e. 1x
+//   ctrl/cmd + click          reset to default
+//   alt + click (range)       jump thumb to pointer
+//   shift / ctrl / cmd        fine   (nodeGraphNumericDragMultiplier)
+//   alt                       coarse
+//   shift+ctrl, shift+ctrl+alt finer tiers (same helper)
 //
-// The step maths is nodeSliderKeyboardStep -- literally the same function the
-// module sliders use for arrow keys -- so the two can never drift apart.
-// Drag-with-modifiers is deliberately NOT reimplemented here: the browser owns
-// pointer tracking for a native range, and shadowing it would mean rebuilding
-// the whole drag path for a cosmetic gain. Wheel and arrow keys cover the same
-// ground on these controls.
+// Range drag is relative (like beginNodeSliderDrag), not browser thumb-jump,
+// so holding Ctrl while dragging fine-tunes instead of resetting / snapping.
+let nodeGraphNativeRangeDrag = null;
+
+function nodeGraphNativeRangeBaseStep(input) {
+  const declared = Number(input?.dataset?.step);
+  if (Number.isFinite(declared) && declared > 0) {
+    return declared;
+  }
+  const min = Number(input?.min);
+  const max = Number(input?.max);
+  const span = Number.isFinite(max - min) && max > min ? (max - min) : 1;
+  return span * 0.01;
+}
+
+function nodeGraphNativeRangeSpan(input) {
+  const min = Number(input?.min);
+  const max = Number(input?.max);
+  if (Number.isFinite(min) && Number.isFinite(max) && max > min) {
+    return { min, max, span: max - min };
+  }
+  return { min: 0, max: 1, span: 1 };
+}
+
 function bindNodeGraphNativeSliderModifiers(input, defaultValue) {
   if (!input || input.dataset.nativeSliderModifiersBound === "true") {
     return;
@@ -525,63 +542,179 @@ function bindNodeGraphNativeSliderModifiers(input, defaultValue) {
   const fallback = Number(defaultValue);
   if (Number.isFinite(fallback)) {
     input.dataset.default = String(fallback);
+  } else if (!Number.isFinite(Number(input.dataset.default))) {
+    const current = Number(input.value);
+    if (Number.isFinite(current)) {
+      input.dataset.default = String(current);
+    }
   }
-  // nodeSliderKeyboardStep reads dataset.step, not the attribute.
+  // Keep nominal step in dataset; range attribute becomes continuous so fine
+  // nudges are not snapped away (e.g. hue step="1" + ctrl 0.1).
   const declaredStep = Number(input.step);
   if (Number.isFinite(declaredStep) && declaredStep > 0) {
     input.dataset.step = String(declaredStep);
   }
   if (input.type === "range") {
-    // A range input SNAPS any assigned value onto its step grid, which would
-    // silently swallow every fine (ctrl) nudge -- 200 + 0.1 on a step="1" hue
-    // slider lands straight back on 200. The nominal step now lives in
-    // dataset.step (read above), so the attribute can go fully continuous.
     input.step = "any";
   }
 
   const clamp = (value) => {
-    const min = Number(input.min);
-    const max = Number(input.max);
+    const { min, max } = nodeGraphNativeRangeSpan(input);
     let next = value;
     if (Number.isFinite(min)) next = Math.max(min, next);
     if (Number.isFinite(max)) next = Math.min(max, next);
     return next;
   };
-  // Both events: "input" drives the live-preview handlers (hue, brightness),
-  // "change" drives the commit-on-change handlers (time window, line width).
-  const emit = (value) => {
+  const emit = (value, { inputOnly = false } = {}) => {
     input.value = String(value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
+    if (!inputOnly) {
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
   };
+  const fineScale = (event) => (
+    typeof nodeSliderFineTuneScale === "function"
+      ? nodeSliderFineTuneScale(event)
+      : (typeof nodeGraphNumericDragMultiplier === "function"
+        ? nodeGraphNumericDragMultiplier(event)
+        : 1)
+  );
   const nudge = (event, direction) => {
-    const step = nodeSliderKeyboardStep(input, event);
+    const step = nodeGraphNativeRangeBaseStep(input) * fineScale(event);
     const current = Number(input.value);
     if (!Number.isFinite(current) || !Number.isFinite(step)) {
       return;
     }
-    // Round to the step grid so repeated fine nudges do not accumulate float
-    // dust into values like 0.30000000000000004.
-    const next = clamp(current + step * direction);
-    emit(Number(next.toFixed(6)));
+    emit(Number(clamp(current + step * direction).toFixed(6)));
+  };
+  const endDrag = (event) => {
+    const drag = nodeGraphNativeRangeDrag;
+    if (!drag || drag.input !== input) {
+      return;
+    }
+    if (
+      drag.pointerId !== null
+      && event?.pointerId !== undefined
+      && drag.pointerId !== event.pointerId
+    ) {
+      return;
+    }
+    if (event?.pointerId !== undefined && input.hasPointerCapture?.(event.pointerId)) {
+      try { input.releasePointerCapture(event.pointerId); } catch (_error) { /* ignore */ }
+    }
+    // Final change event for commit-on-change listeners.
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    nodeGraphNativeRangeDrag = null;
+  };
+  const reanchorDrag = (drag, event) => {
+    drag.startX = event.clientX;
+    drag.startY = event.clientY;
+    drag.startValue = Number(input.value);
+    drag.fineScale = fineScale(event);
   };
 
   input.addEventListener("pointerdown", (event) => {
-    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) {
+    if (event.button > 0) {
       return;
     }
-    if (!Number.isFinite(Number(input.dataset.default))) {
+    if (typeof nodeGraphNumericModifierReserved === "function" && nodeGraphNumericModifierReserved(event)) {
+      event.preventDefault();
+      event.stopPropagation();
       return;
     }
-    emit(clamp(Number(input.dataset.default)));
-    // Stop the native range from also jumping to wherever the pointer landed.
+    // Ctrl/Cmd click = reset (same as module face sliders).
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
+      if (Number.isFinite(Number(input.dataset.default))) {
+        emit(clamp(Number(input.dataset.default)));
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return;
+    }
+    // Number fields keep native caret / select behavior.
+    if (input.type !== "range") {
+      return;
+    }
+    const { min, max, span } = nodeGraphNativeRangeSpan(input);
+    const rect = input.getBoundingClientRect();
+    const travelWidth = Math.max(48, rect.width || 0);
+    // Alt click = jump to pointer (same as module face sliders).
+    const jumpToPointer = event.altKey && !(event.shiftKey && (event.ctrlKey || event.metaKey));
+    if (jumpToPointer && travelWidth > 0) {
+      const t = Math.max(0, Math.min(1, (event.clientX - rect.left) / travelWidth));
+      emit(clamp(min + t * span), { inputOnly: true });
+    }
+    nodeGraphNativeRangeDrag = {
+      input,
+      pointerId: event.pointerId ?? null,
+      startX: event.clientX,
+      startY: event.clientY,
+      startValue: Number(input.value),
+      fineScale: fineScale(event),
+      travelWidth,
+      span,
+      min,
+    };
+    try {
+      input.focus({ preventScroll: true });
+    } catch (_error) {
+      input.focus?.();
+    }
+    if (event.pointerId !== undefined) {
+      try { input.setPointerCapture(event.pointerId); } catch (_error) { /* ignore */ }
+    }
+    // Own the drag — block browser thumb absolute jump.
     event.preventDefault();
     event.stopPropagation();
   });
 
+  input.addEventListener("pointermove", (event) => {
+    const drag = nodeGraphNativeRangeDrag;
+    if (!drag || drag.input !== input) {
+      return;
+    }
+    if (
+      drag.pointerId !== null
+      && event.pointerId !== undefined
+      && drag.pointerId !== event.pointerId
+    ) {
+      return;
+    }
+    const scale = fineScale(event);
+    if (scale !== drag.fineScale) {
+      reanchorDrag(drag, event);
+      event.preventDefault();
+      return;
+    }
+    const travelDelta = typeof nodeGraphPointerDragTravelDelta === "function"
+      ? nodeGraphPointerDragTravelDelta(
+        drag.startX,
+        drag.startY,
+        event.clientX,
+        event.clientY,
+        drag.travelWidth,
+        drag.fineScale,
+      )
+      : ((((event.clientX - drag.startX) + (drag.startY - event.clientY)) / drag.travelWidth)
+        * drag.fineScale);
+    const next = clamp(drag.startValue + travelDelta * drag.span);
+    emit(Number(next.toFixed(6)), { inputOnly: true });
+    if (next <= drag.min || next >= drag.min + drag.span) {
+      reanchorDrag(drag, event);
+    }
+    event.preventDefault();
+  });
+
+  input.addEventListener("pointerup", endDrag);
+  input.addEventListener("pointercancel", endDrag);
+  input.addEventListener("lostpointercapture", () => {
+    if (nodeGraphNativeRangeDrag?.input === input) {
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      nodeGraphNativeRangeDrag = null;
+    }
+  });
+
   input.addEventListener("wheel", (event) => {
-    // No hover/focus guard needed: a wheel event is only delivered to the
-    // element under the pointer in the first place.
     const delta = event.deltaY || event.deltaX;
     if (!delta) {
       return;
@@ -604,6 +737,29 @@ function bindNodeGraphNativeSliderModifiers(input, defaultValue) {
     event.stopPropagation();
     nudge(event, direction);
   });
+}
+
+/** Bind every native range/number under a Display Settings (or similar) host. */
+function bindNodeGraphNativeSliderModifiersIn(root, defaultsByKey = null) {
+  if (!root?.querySelectorAll) {
+    return;
+  }
+  for (const input of root.querySelectorAll('input[type="range"], input[type="number"]')) {
+    let fallback = Number(input.dataset.default);
+    if (!Number.isFinite(fallback) && defaultsByKey && typeof defaultsByKey === "object") {
+      for (const attr of input.getAttributeNames?.() || []) {
+        if (!attr.startsWith("data-") || attr === "data-default" || attr === "data-step") {
+          continue;
+        }
+        const key = input.getAttribute(attr);
+        if (key && Object.prototype.hasOwnProperty.call(defaultsByKey, key)) {
+          fallback = Number(defaultsByKey[key]);
+          break;
+        }
+      }
+    }
+    bindNodeGraphNativeSliderModifiers(input, fallback);
+  }
 }
 
 /** Circular hit for a knob dial (not the rectangular parent plate). */

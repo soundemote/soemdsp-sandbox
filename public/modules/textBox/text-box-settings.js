@@ -58,7 +58,7 @@ function buildNodeGraphTextBoxDisplaySettingsBodyHtml() {
       </label>
       <label class="node-led-settings-row">
         <span>Vertical</span>
-        <input type="range" min="0" max="100" step="1" data-textbox-field="verticalAlignPercent" aria-label="Vertical: 0 text-center at top, 50 centered, 100 text-center at bottom">
+        <input type="range" min="0" max="100" step="1" data-textbox-field="verticalAlignPercent" aria-label="Vertical position: 0 up, 50 natural, 100 down (±2 face heights)">
         <span>%</span>
       </label>
       <label class="node-led-settings-row">

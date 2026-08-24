@@ -1,0 +1,22 @@
+﻿<!doctype html><body>
+<script src="file:///C:/Users/argit/Documents/_PROGRAMMING/soemdsp-sandbox/public/lib/trace/trace-dot-sprite.js"></script>
+<script src="file:///C:/Users/argit/Documents/_PROGRAMMING/soemdsp-sandbox/public/lib/trace/trace-stroke.js"></script>
+<script src="file:///C:/Users/argit/Documents/_PROGRAMMING/soemdsp-sandbox/public/node-graph-module-scope-waterfall.js?v=wf-simple-1"></script>
+<script>
+const r=[]; const ok=(n,c,d)=>r.push({name:n,pass:!!c,detail:d||''});
+const c=document.createElement('canvas'); c.width=100; c.height=40;
+const ctx=c.getContext('2d',{willReadFrequently:true});
+ctx.clearRect(0,0,100,40);
+// Force dab at the RIGHT EDGE — clamp must pull it inward so full circle fits
+nodeGraphWaterfallDab(ctx, 99, 20, 10, [255,0,0], 'source-over');
+const edge=ctx.getImageData(99,20,1,1).data;
+const core=ctx.getImageData(100-10,20,1,1).data; // should be where center was clamped
+ok('edge-input-clamped-core', core[0]>200 && core[3]>200, 'coreA='+core[3]+' edgeA='+edge[3]);
+ok('rightmost-pixel-has-ink', edge[3]>20, 'edgeA='+edge[3]);
+// Continuous blend
+ctx.clearRect(0,0,100,40);
+nodeGraphWaterfallStampDots(ctx,[{x:20,y:20},{x:80,y:20}],10,'#00ff00','source-over');
+const mid=ctx.getImageData(50,20,1,1).data;
+ok('continuous-stroke', mid[3]>80, 'midA='+mid[3]);
+document.body.textContent=JSON.stringify({pass:r.every(x=>x.pass),report:r},null,2);
+</script></body></html>

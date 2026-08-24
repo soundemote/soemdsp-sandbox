@@ -499,3 +499,52 @@ function handleNodeGraphKeydown(event) {
     deleteSelectedNodeGraphItem();
   }
 }
+
+/**
+ * Tab shows the app-wide focus ring (`body.keyboard-nav`); any pointer down
+ * clears it so the ring does not stick after you go back to the mouse.
+ * Escape also clears the cue (and blurs non-text focus targets).
+ */
+function installNodeGraphKeyboardNavFocusCue() {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const body = document.body;
+  if (!body || body.dataset.keyboardNavFocusBound === "true") {
+    return;
+  }
+  body.dataset.keyboardNavFocusBound = "true";
+  const enable = () => body.classList.add("keyboard-nav");
+  const disable = () => body.classList.remove("keyboard-nav");
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Tab") {
+      enable();
+      return;
+    }
+    if (event.key !== "Escape" || !body.classList.contains("keyboard-nav")) {
+      return;
+    }
+    disable();
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || active === body || active === document.documentElement) {
+      return;
+    }
+    if (typeof nodeGraphEventTargetIsTextEditable === "function" && nodeGraphEventTargetIsTextEditable(active)) {
+      return;
+    }
+    try {
+      active.blur();
+    } catch {
+      // ignore
+    }
+  }, true);
+  document.addEventListener("pointerdown", disable, true);
+}
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", installNodeGraphKeyboardNavFocusCue, { once: true });
+  } else {
+    installNodeGraphKeyboardNavFocusCue();
+  }
+}

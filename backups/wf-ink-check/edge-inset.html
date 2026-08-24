@@ -1,0 +1,29 @@
+﻿<!doctype html><body><script src="file:///C:/Users/argit/Documents/_PROGRAMMING/soemdsp-sandbox/public/lib/trace/trace-dot-sprite.js"></script>
+<script src="file:///C:/Users/argit/Documents/_PROGRAMMING/soemdsp-sandbox/public/lib/trace/trace-stroke.js"></script>
+<script src="file:///C:/Users/argit/Documents/_PROGRAMMING/soemdsp-sandbox/public/node-graph-module-scope-waterfall.js?v=wf-edge-inset-1"></script>
+<script>
+const report=[];
+function ok(n,c,d){report.push({name:n,pass:!!c,detail:d||''})}
+// Simulate face clip: dab centered at width-0.5 is clipped; at width-pad is not.
+const width=80,height=40,r=10;
+const pad=nodeGraphWaterfallDotPadPx(r);
+const face=document.createElement('canvas');
+face.width=width;face.height=height;
+const fctx=face.getContext('2d',{willReadFrequently:true});
+fctx.fillStyle='#000';fctx.fillRect(0,0,width,height);
+// BAD: center on right edge
+fctx.save();
+nodeGraphWaterfallStampDots(fctx,[{x:width-0.5,y:20}],r,'#ff0000','source-over');
+fctx.restore();
+const badEdge=fctx.getImageData(width-1,20,1,1).data;
+const badInside=fctx.getImageData(width-1-Math.floor(r*0.7),20,1,1).data;
+// Clear and GOOD: center inset
+fctx.fillStyle='#000';fctx.fillRect(0,0,width,height);
+nodeGraphWaterfallStampDots(fctx,[{x:width-pad,y:20}],r,'#00ff00','source-over');
+const goodRight=fctx.getImageData(width-1,20,1,1).data;
+const goodCore=fctx.getImageData(width-pad,20,1,1).data;
+ok('edge-center-clips-left-half', badInside[0]<50 || badEdge[3]<250, `badInside=${badInside[0]} edgeA=${badEdge[3]}`);
+ok('inset-center-full-core', goodCore[1]>200 && goodCore[3]>200, `core rgba(${[...goodCore]})`);
+ok('inset-right-fringe-present', goodRight[3]>20, `rightA=${goodRight[3]} pad=${pad}`);
+document.body.textContent=JSON.stringify({pass:report.every(r=>r.pass),report},null,2);
+</script></body></html>

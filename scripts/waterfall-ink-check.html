@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>waterfall soft blend check</title></head>
+<body>
+<script src="../public/lib/trace/trace-dot-sprite.js"></script>
+<script src="../public/lib/trace/trace-stroke.js?v=wf-meet-hard-1"></script>
+<script src="../public/node-graph-module-scope-waterfall.js?v=wf-softblend-1"></script>
+<script>
+(function () {
+  const report = [];
+  function ok(name, cond, detail) {
+    report.push({ name, pass: !!cond, detail: detail || "" });
+  }
+
+  // Soft stamps along a line must NOT look like separate beads:
+  // mid-gap pixel between stamp centers should still have ink.
+  const c = document.createElement("canvas");
+  c.width = 120;
+  c.height = 40;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.clearRect(0, 0, 120, 40);
+  const r = 10;
+  nodeGraphWaterfallStampDots(
+    ctx,
+    [{ x: 20, y: 20 }, { x: 100, y: 20 }],
+    r,
+    "#ff0000",
+    "source-over",
+  );
+  const gap = ctx.getImageData(60, 20, 1, 1).data;
+  ok("stroke-is-continuous", gap[3] > 80, `mid rgba(${[...gap]})`);
+
+  // Pad fits soft disc fringe
+  const pad = nodeGraphWaterfallDotPadPx(r);
+  ok("pad-covers-soft-fringe", pad >= Math.ceil(r * 1.4), `pad=${pad}`);
+
+  const scratch = document.createElement("canvas");
+  const penW = 4 + pad * 2;
+  scratch.width = penW;
+  scratch.height = 40;
+  const sc = scratch.getContext("2d", { willReadFrequently: true });
+  sc.clearRect(0, 0, penW, 40);
+  nodeGraphWaterfallStampDots(sc, [{ x: pad, y: 20 }], r, "#00ff00", "source-over");
+  const left = sc.getImageData(Math.max(0, pad - Math.floor(r * 0.9)), 20, 1, 1).data;
+  ok("soft-dot-not-clipped", left[3] > 40, `leftA=${left[3]} pad=${pad}`);
+
+  // Overlapping soft dabs accumulate alpha (blend), not last-wins hole
+  const b = document.createElement("canvas");
+  b.width = 64;
+  b.height = 64;
+  const bc = b.getContext("2d", { willReadFrequently: true });
+  bc.clearRect(0, 0, 64, 64);
+  nodeGraphWaterfallStampDots(bc, [{ x: 32, y: 32 }], 12, "rgb(255,0,0)", "source-over");
+  const a1 = bc.getImageData(40, 32, 1, 1).data[3];
+  nodeGraphWaterfallStampDots(bc, [{ x: 36, y: 32 }], 12, "rgb(255,0,0)", "source-over");
+  const a2 = bc.getImageData(40, 32, 1, 1).data[3];
+  ok("overlap-accumulates-alpha", a2 >= a1, `a1=${a1} a2=${a2}`);
+
+  const failed = report.filter((r) => !r.pass);
+  document.body.textContent = JSON.stringify({ pass: failed.length === 0, failed: failed.length, report }, null, 2);
+})();
+</script>
+</body>
+</html>

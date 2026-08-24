@@ -214,6 +214,12 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
   syncNodeGraphTraceDisplayColorWidgets(popover);
   bindNodeGraphHueTitleSteppers(host);
   syncNodeGraphHueTitleSteppers(host);
+  // App-wide: Display Settings ranges share parameter-slider modifier drag
+  // (nodeGraphNumericDragMultiplier). Per-panel binds may already have run;
+  // this catches anything that forgot (idempotent via dataset flag).
+  if (typeof bindNodeGraphNativeSliderModifiersIn === "function") {
+    bindNodeGraphNativeSliderModifiersIn(host);
+  }
   // Packing latches (Full Dot Economy | Dots only | Clear): fit labels to cells.
   if (typeof AppLatchButton !== "undefined") {
     AppLatchButton.observeAll(host);

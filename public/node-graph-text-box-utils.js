@@ -38,10 +38,10 @@ function normalizeNodeGraphTextBoxHorizontalAlign(value) {
 }
 
 /**
- * Vertical % places the *center* of the text block along the face height:
- *   0   → text center on the top edge (half clips above)
- *   50  → text centered in the face (default)
- *   100 → text center on the bottom edge (half clips below)
+ * Vertical % is a plain face-relative translate (no content-height math):
+ *   0   → shift up by 2× face height
+ *   50  → no shift (natural top)
+ *   100 → shift down by 2× face height
  */
 const nodeGraphTextBoxVerticalAlignLimits = Object.freeze({
   maxPercent: 100,
