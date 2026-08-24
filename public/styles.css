@@ -14263,6 +14263,23 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   min-height: inherit;
 }
 
+/* RGB Shape face — LayoutA display row; vector canvas painted on rAF. */
+.dsp-node.rgb-shape-layout .node-rgb-shape-face,
+.dsp-node.rgb-shape-layout .node-module-scope-window.node-rgb-shape-face {
+  width: 100%;
+  height: var(--node-module-scope-height);
+  min-height: 0;
+  overflow: hidden;
+  background: #000000;
+}
+
+.node-rgb-shape-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
 .node-wall-room-display {
   position: relative;
   box-sizing: border-box;

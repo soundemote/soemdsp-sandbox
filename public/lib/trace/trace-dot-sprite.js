@@ -112,19 +112,20 @@
     return r - rim;
   }
 
-  function sdfHeart(dx, dy, radius, plump01) {
+  function sdfHeart(dx, dy, rx, ry, plump01) {
+    // SSOT parametric heart (trace-shape.js) — same silhouette as Shape module.
+    if (typeof global.traceStampHeartSdf === "function") {
+      return global.traceStampHeartSdf(dx, dy, rx, ry, plump01);
+    }
+    // Fallback if trace-shape.js not loaded: soft algebraic blob.
+    const radius = Math.min(rx, ry);
     const p = 0.75 + clamp01(plump01, 0.5) * 0.55;
     const x = dx / Math.max(1e-6, radius);
     const y = -dy / Math.max(1e-6, radius);
-    const x2 = x * x;
-    const y2 = y * y;
-    // Soft algebraic heart; plump scales x.
     const sx = x / p;
     const sx2 = sx * sx;
-    const a = sx2 + y2 - 1;
-    const val = a * a * a - sx2 * y2 * y;
-    // Convert implicit field to approx distance in px.
-    return val * radius * 0.55;
+    const a = sx2 + y * y - 1;
+    return (a * a * a - sx2 * y * y * y) * radius * 0.55;
   }
 
   function sdfTrapezoid(dx, dy, rx, ry, ratio01) {
@@ -204,7 +205,7 @@
       case "star":
         return sdfStar(dx, dy, r, paramToCount(p, 3, 12), 0.42);
       case "heart":
-        return sdfHeart(dx, dy, r, p);
+        return sdfHeart(dx, dy, rx, ry, p);
       case "trapezoid":
         return sdfTrapezoid(dx, dy, rx, ry, p);
       case "diamond":

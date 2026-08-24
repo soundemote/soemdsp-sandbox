@@ -518,7 +518,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=phase-hz0-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=center-square-pwm-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2940,7 +2940,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=wf-rate-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
-  "./public/node-live-audio-worklet-evaluators-sources.js?v=sincos4-1",
+  "./public/node-live-audio-worklet-evaluators-sources.js?v=rgb-shape-2",
   "./public/node-live-audio-worklet-evaluators-processors.js?v=lcd-dot-1",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=controller-smooth-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
@@ -2955,10 +2955,13 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",
-  "./public/modules/basicShape/basic-shape-worklet-evaluator.js?v=basic-shape-1",
+  "./public/modules/basicShape/basic-shape-worklet-evaluator.js?v=center-square-pwm-1",
+  "./public/lib/trace/trace-shape.js?v=heart-ssot-1",
+  "./public/modules/rgbShape/rgb-shape-math.js?v=heart-ssot-1",
+  "./public/modules/rgbShape/rgb-shape-worklet-evaluator.js?v=heart-ssot-1",
   "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=sincos4-1",
   "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-core-1",
-  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=one-core-native-20260803",
+  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=center-square-pwm-1",
   "./public/modules/noiseGenerator/noise-generator-worklet-evaluator.js?v=native-strip-1",
   // noise channel math lives in worklet methods; main-thread uses noise-generator-math.js
   "./public/modules/randomWalk/random-walk-math.js?v=random-walk-1",

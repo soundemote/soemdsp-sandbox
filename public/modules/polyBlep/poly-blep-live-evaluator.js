@@ -38,7 +38,7 @@ function nodeGraphMultiWaveNativeHandleMap(runtime, mapKey) {
   return runtime[mapKey];
 }
 
-function nodeGraphPolyBlepMainVectorSample(runtime, nodeId, phase, phaseIncrement, waveform, level, resetEdge) {
+function nodeGraphPolyBlepMainVectorSample(runtime, nodeId, phase, phaseIncrement, waveform, level, resetEdge, morph = 0.5) {
   nodeGraphMultiWaveLoadMainWasm("polyblep", "/native_modules/polyblep/polyblep.wasm");
   const wasm = nodeGraphMultiWaveMainWasm.polyblep.exports;
   if (!wasm?.soemdsp_polyblep_create || !wasm?.soemdsp_polyblep_sample) {
@@ -52,12 +52,14 @@ function nodeGraphPolyBlepMainVectorSample(runtime, nodeId, phase, phaseIncremen
   }
   if (!handle) return null;
   if (resetEdge) wasm.soemdsp_polyblep_reset?.(handle);
+  const morphVal = Number(morph);
   wasm.soemdsp_polyblep_sample(
     handle,
     Number(phase) || 0,
     Number(phaseIncrement) || 0,
     Math.round(Number(waveform) || 0),
     Number(level) || 0,
+    Number.isFinite(morphVal) ? morphVal : 0.5,
   );
   return {
     out: Number(wasm.soemdsp_polyblep_out(handle)) || 0,
@@ -210,12 +212,18 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
     frames,
     frameValues,
   );
+  const morph = readNodeGraphLiveEffectiveParam(runtime, node, "shape",
+    0.5,
+    frame,
+    frames,
+    frameValues,
+  );
 
   const ph = phase + phaseOffset;
   let vector = null;
   if (node?.type === "polyBlep") {
     vector = nodeGraphPolyBlepMainVectorSample(
-      runtime, nodeId, ph, phaseIncrement, waveform, level, resetEdge,
+      runtime, nodeId, ph, phaseIncrement, waveform, level, resetEdge, morph,
     );
   } else if (node?.type === "blit") {
     vector = nodeGraphBlitMainVectorSample(

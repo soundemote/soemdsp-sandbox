@@ -178,6 +178,89 @@
     return Math.round(lo + t * (hi - lo));
   }
 
+  // ── Heart SSOT (Dot stamps + Shape module face/outline) ──────────────────
+  // Classic parametric heart in unit space (−1…1). Plump widens lobes.
+  const heartPolyCache = new Map();
+
+  function traceStampHeartUnitPolyline(plump01) {
+    const plump = 0.75 + clamp01(plump01, 0.5) * 0.55;
+    const key = Math.round(plump * 64);
+    let poly = heartPolyCache.get(key);
+    if (poly) {
+      return poly;
+    }
+    const steps = 96;
+    poly = new Float64Array(steps * 2);
+    for (let i = 0; i < steps; i += 1) {
+      const t = (i / steps) * Math.PI * 2;
+      const x = 16 * Math.sin(t) ** 3;
+      const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+      poly[i * 2] = (x / 18) * plump;
+      poly[i * 2 + 1] = -y / 18;
+    }
+    heartPolyCache.set(key, poly);
+    return poly;
+  }
+
+  function distToSegment2(px, py, ax, ay, bx, by) {
+    const abx = bx - ax;
+    const aby = by - ay;
+    const apx = px - ax;
+    const apy = py - ay;
+    const ab2 = abx * abx + aby * aby;
+    const t = ab2 > 1e-12 ? Math.max(0, Math.min(1, (apx * abx + apy * aby) / ab2)) : 0;
+    const qx = ax + abx * t;
+    const qy = ay + aby * t;
+    const dx = px - qx;
+    const dy = py - qy;
+    return dx * dx + dy * dy;
+  }
+
+  function pointInClosedPolyline(px, py, poly) {
+    let inside = false;
+    const n = poly.length / 2;
+    for (let i = 0, j = n - 1; i < n; j = i, i += 1) {
+      const xi = poly[i * 2];
+      const yi = poly[i * 2 + 1];
+      const xj = poly[j * 2];
+      const yj = poly[j * 2 + 1];
+      if ((yi > py) !== (yj > py)
+        && px < ((xj - xi) * (py - yi)) / ((yj - yi) || 1e-30) + xi) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  /**
+   * Signed distance (px) to the canonical heart. Outside > 0 (matches disc SDFs).
+   * dx/dy are pixel offsets from center; rx/ry half-extents.
+   */
+  function traceStampHeartSdf(dx, dy, rx, ry, plump01) {
+    const hx = Math.max(1e-6, Number(rx) || 1);
+    const hy = Math.max(1e-6, Number(ry) || 1);
+    const ux = dx / hx;
+    const uy = dy / hy;
+    const poly = traceStampHeartUnitPolyline(plump01);
+    const n = poly.length / 2;
+    let best = Infinity;
+    for (let i = 0; i < n; i += 1) {
+      const i1 = (i + 1) % n;
+      const d2 = distToSegment2(
+        ux, uy,
+        poly[i * 2], poly[i * 2 + 1],
+        poly[i1 * 2], poly[i1 * 2 + 1],
+      );
+      if (d2 < best) {
+        best = d2;
+      }
+    }
+    const distUnit = Math.sqrt(Math.max(0, best));
+    const scale = Math.min(hx, hy);
+    const inside = pointInClosedPolyline(ux, uy, poly);
+    return (inside ? -distUnit : distUnit) * scale;
+  }
+
   global.TRACE_STAMP_SHAPE_IDS = TRACE_STAMP_SHAPE_IDS;
   global.TRACE_STAMP_SHAPES = TRACE_STAMP_SHAPES;
   global.normalizeTraceStampShape = normalizeTraceStampShape;
@@ -187,4 +270,6 @@
   global.deriveLegacyPillSquircle = deriveLegacyPillSquircle;
   global.migratePillSquircleToShape = migratePillSquircleToShape;
   global.traceStampParamToCount = traceStampParamToCount;
+  global.traceStampHeartUnitPolyline = traceStampHeartUnitPolyline;
+  global.traceStampHeartSdf = traceStampHeartSdf;
 })(typeof window !== "undefined" ? window : globalThis);

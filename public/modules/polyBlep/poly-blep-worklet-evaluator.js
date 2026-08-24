@@ -37,7 +37,7 @@ NodeLiveAudioProcessor.prototype.polyBlepSilentVector = function polyBlepSilentV
   return { out: 0, saw: 0, ramp: 0, square: 0, tri: 0, sine: 0 };
 };
 
-NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepNativeVectorSample(state, phase, phaseIncrement, waveform, level, resetEdge) {
+NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepNativeVectorSample(state, phase, phaseIncrement, waveform, level, resetEdge, morph = 0.5) {
   // Must not throw: process() runs as soon as the node is connected, often
   // before setNativeModuleWasm finishes instantiating. A throw becomes
   // onprocessorerror → muted host + dead scopes.
@@ -54,12 +54,14 @@ NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepN
     if (resetEdge) {
       this.nativePolyBlep.soemdsp_polyblep_reset?.(state.nativeHandle);
     }
+    const morphVal = Number(morph);
     this.nativePolyBlep.soemdsp_polyblep_sample(
       state.nativeHandle,
       Number(phase) || 0,
       Number(phaseIncrement) || 0,
       Math.round(Number(waveform) || 0),
       Number(level) || 0,
+      Number.isFinite(morphVal) ? morphVal : 0.5,
     );
     return {
       out: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_out(state.nativeHandle), null),
@@ -156,6 +158,7 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
     );
   const phaseIncrement = (effectiveFrequency / safeRate) + incrementInput;
   const level = this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues);
+  const morph = this.readEffectiveParameter(node, "shape", 0.5, frame, frames, frameValues);
 
   // Native-only DSP (APP_POLICY §2 / §5): hosts call one core; no JS twin.
   // polyBlep/blit → vector native module; osc (LFO) → basic_oscillator per tap.
@@ -171,6 +174,7 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
       waveform,
       level,
       resetEdge,
+      morph,
     );
     value = {
       Out: nativeVector.out,

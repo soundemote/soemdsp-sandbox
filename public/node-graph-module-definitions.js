@@ -881,7 +881,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Saw", "Ramp", "Square", "Tri", "Sine", "Wave Out"],
     parameters: [
       {
-        choices: ["Saw", "Ramp", "Square", "Triangle", "Sine", "Noise"],
+        choices: ["Saw", "Ramp", "Square", "Triangle", "Sine", "Noise", "Center Square", "Trisaw", "Pulse"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -889,7 +889,7 @@ const nodeGraphModuleDefinitions = (
         kind: "waveform",
         label: "Waveform",
         linearSmoothing: false,
-        max: "5",
+        max: "8",
         mid: "2",
         min: "0",
         step: "1"
@@ -918,6 +918,16 @@ const nodeGraphModuleDefinitions = (
         step: "0.01",
         unit: "cycle",
         wraparound: true
+      },
+      {
+        defaultValue: "0.5",
+        key: "shape",
+        label: "PWM",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "0.01",
+        tooltip: "Pulse width / morph for Center Square, Pulse, and Trisaw. Ignored by Saw / Ramp / Square / Tri / Sine / Noise."
       },
       {
         defaultValue: "1",
@@ -1512,12 +1522,12 @@ const nodeGraphModuleDefinitions = (
         key: "frequency",
         kind: "frequency",
         label: "Clock",
-        max: "20000",
+        max: "5000",
         mid: "20",
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Orbit rate in Hz. Slider 0…20 kHz. Negative values reverse the orbit.",
+        tooltip: "Orbit rate in Hz. Slider 0…5000 Hz. Negative values reverse the orbit.",
       },
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", step: "0.01", unit: "cycle", wraparound: true },
       {
@@ -1626,10 +1636,10 @@ const nodeGraphModuleDefinitions = (
     outputLabels: {
       "Wave Out": "Wave",
     },
-    outputs: ["Sine", "Tri", "Saw", "Square", "Wave Out"],
+    outputs: ["Sine", "Tri", "Saw", "Square", "Ramp", "Trisaw", "Center Square", "Wave Out"],
     parameters: [
       {
-        choices: ["Sine", "Triangle", "Saw", "Square"],
+        choices: ["Sine", "Triangle", "Saw", "Square", "Ramp", "Trisaw", "Center Square"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -1637,7 +1647,7 @@ const nodeGraphModuleDefinitions = (
         kind: "waveform",
         label: "Waveform",
         linearSmoothing: false,
-        max: "3",
+        max: "6",
         mid: "0",
         min: "0",
         step: "1",
@@ -1661,12 +1671,12 @@ const nodeGraphModuleDefinitions = (
         key: "frequency",
         kind: "frequency",
         label: "Clock",
-        max: "20000",
+        max: "5000",
         mid: "20",
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Rate in Hz. Slider 0…20 kHz. Negative values reverse.",
+        tooltip: "Rate in Hz. Slider 0…5000 Hz. Negative values reverse.",
       },
       {
         defaultValue: "0",
@@ -1688,7 +1698,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "0.01",
-        tooltip: "Square pulse width. 0.5 = 50%. Other waves ignore this.",
+        tooltip: "Pulse width / morph for Square, Center Square, and Trisaw. 0.5 = centered / 50%. Other waves ignore this.",
       },
       {
         defaultValue: "1",
@@ -3305,7 +3315,7 @@ const nodeGraphModuleDefinitions = (
         key: "rate",
         kind: "frequency",
         label: "Rate",
-        max: "40",
+        max: "100",
         maxDigits: 5,
         mid: "2",
         min: "0",

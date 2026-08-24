@@ -9,7 +9,7 @@ function readNodeGraphLiveParam(node, key, fallback = 0) {
 
 function readNodeGraphLiveSmoothedParam(runtime, node, key, fallback, frame, frames) {
   const smootherKey = nodeGraphParameterKey(node?.id, key);
-  const smoother = runtime.smoothers.get(smootherKey);
+  const smoother = runtime?.smoothers?.get?.(smootherKey);
   if (!smoother) {
     return readNodeGraphLiveParam(node, key, fallback);
   }

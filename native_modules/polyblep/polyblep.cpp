@@ -11,11 +11,11 @@ using namespace soemdsp_maths;
 
 constexpr int kMaxInstances = 16;
 // Slot 0 is the currently-selected waveform (driven by the Waveform
-// parameter); slots 1-5 are the always-on Saw/Ramp/Square/Tri/Sine taps that
-// mirror node-graph-oscillator-runtime.js's polyBlep implementation exactly,
-// including the (deliberate, matches the JS host) quirk that Reset only
-// zeroes slot 0's triangle integrator. Hz 0 still follows host phase.
+// parameter); slots 1-5 are the always-on Saw/Ramp/Square/Tri/Sine taps.
+// Waveform indices 0-5 stay stable for saved patches; 6-8 are PWM-family.
 constexpr int kSlotCount = 6;
+constexpr int kWaveformMax = 8;
+constexpr double k1z3 = 1.0 / 3.0;
 
 struct SlotState {
   double lastPhaseIncrement;
@@ -53,6 +53,7 @@ double sinApprox(double value) {
   return x * (1.0 + x2 * (-1.0 / 6.0 + x2 * (1.0 / 120.0 + x2 * (-1.0 / 5040.0 + x2 * (1.0 / 362880.0)))));
 }
 
+// Legacy sandbox BLEP (kept for Saw / Ramp / Square continuity).
 double polyBlep(double phaseCycle, double phaseIncrement) {
   const double dt = clampD(phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement, 1.0e-6, 0.5);
   if (phaseCycle < dt) {
@@ -66,11 +67,84 @@ double polyBlep(double phaseCycle, double phaseIncrement) {
   return 0.0;
 }
 
+// soemdsp::oscillator::PolyBLEP::blep / blamp (for Pulse / Center Square / Trisaw).
+double blepSoem(double t, double dt) {
+  const double d = clampD(dt < 0.0 ? -dt : dt, 1.0e-6, 0.5);
+  if (t < d) {
+    const double u = t / d - 1.0;
+    return -(u * u);
+  }
+  if (t > 1.0 - d) {
+    const double u = (t - 1.0) / d + 1.0;
+    return u * u;
+  }
+  return 0.0;
+}
+
+double blampSoem(double t, double dt) {
+  const double d = clampD(dt < 0.0 ? -dt : dt, 1.0e-6, 0.5);
+  if (t < d) {
+    const double u = t / d - 1.0;
+    return -k1z3 * u * u * u;
+  }
+  if (t > 1.0 - d) {
+    const double u = (t - 1.0) / d + 1.0;
+    return k1z3 * u * u * u;
+  }
+  return 0.0;
+}
+
 double polyBlepSquare(double phaseCycle, double phaseIncrement) {
   double value = phaseCycle < 0.5 ? 1.0 : -1.0;
   value += polyBlep(phaseCycle, phaseIncrement);
   value -= polyBlep(wrap01(phaseCycle + 0.5), phaseIncrement);
   return value;
+}
+
+// Left-aligned PWM pulse (soemdsp PolyBLEP::pulse).
+double polyBlepPulse(double t, double incrementAbs, double morph) {
+  const double pw = clampD(morph, 0.0, 1.0);
+  double t1 = wrap01(t + 1.0 - pw);
+  double y = -2.0 * pw;
+  if (t < pw) y += 2.0;
+  y += blepSoem(t, incrementAbs) - blepSoem(t1, incrementAbs);
+  return y;
+}
+
+// Centered PWM square (soemdsp PolyBLEP::pulseCenter).
+double polyBlepPulseCenter(double t, double incrementAbs, double morph) {
+  const double m = clampD(morph, 0.0, 1.0);
+  double t1 = wrap01(t + 0.875 + 0.25 * (m - 0.5));
+  double t2 = wrap01(t + 0.375 + 0.25 * (m - 0.5));
+
+  double y = t1 < 0.5 ? 1.0 : -1.0;
+  y += blepSoem(t1, incrementAbs) - blepSoem(t2, incrementAbs);
+
+  t1 = wrap01(t1 + 0.5 * (1.0 - m));
+  t2 = wrap01(t2 + 0.5 * (1.0 - m));
+
+  y += t1 < 0.5 ? 1.0 : -1.0;
+  y += blepSoem(t1, incrementAbs) - blepSoem(t2, incrementAbs);
+  return 0.5 * y;
+}
+
+// Bandlimited trisaw (soemdsp PolyBLEP::trisaw).
+double polyBlepTrisaw(double t, double incrementAbs, double morph) {
+  const double pw = clampD(morph, 0.0001, 0.9999);
+  double t1 = wrap01(t + 0.5 * pw);
+  double t2 = wrap01(t + 1.0 - 0.5 * pw);
+
+  double y = t * 2.0;
+  if (y >= 2.0 - pw) {
+    y = (y - 2.0) / pw;
+  } else if (y >= pw) {
+    y = 1.0 - (y - pw) / (1.0 - pw);
+  } else {
+    y /= pw;
+  }
+
+  y += incrementAbs / (pw - pw * pw) * (blampSoem(t1, incrementAbs) - blampSoem(t2, incrementAbs));
+  return y;
 }
 
 unsigned int nextNoiseSeed(unsigned int seed) {
@@ -81,13 +155,15 @@ double seedToBipolar(unsigned int seed) {
   return ((double)seed / 4294967295.0) * 2.0 - 1.0;
 }
 
-double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, int waveform) {
+double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, int waveform, double morph) {
   const double phaseDelta = phaseIncrement;
   const double absDelta = phaseDelta < 0.0 ? -phaseDelta : phaseDelta;
   const bool phaseStopped = absDelta <= 1.0e-12;
   // Hz 0 is not special: still evaluate at the host phase (Phase knob / PM).
   const double renderIncrement = phaseStopped ? 1.0e-6 : phaseDelta;
+  const double absInc = renderIncrement < 0.0 ? -renderIncrement : renderIncrement;
   const double phaseCycle = wrap01(phase / kTwoPi);
+  const double m = clampD(morph, 0.0, 1.0);
   double sample = 0.0;
   switch (waveform) {
     case 1:
@@ -126,6 +202,15 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
       }
       break;
     }
+    case 6:
+      sample = polyBlepPulseCenter(phaseCycle, absInc, m);
+      break;
+    case 7:
+      sample = polyBlepTrisaw(phaseCycle, absInc, m);
+      break;
+    case 8:
+      sample = polyBlepPulse(phaseCycle, absInc, m);
+      break;
     default:
       sample = 1.0 - phaseCycle * 2.0 + polyBlep(phaseCycle, renderIncrement);
       break;
@@ -164,17 +249,20 @@ extern "C" void soemdsp_polyblep_sample(
   double phase,
   double phaseIncrement,
   int waveform,
-  double level
+  double level,
+  double morph
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   PolyBlepState& s = gPool[handle - 1];
-  const int safeWaveform = waveform < 0 ? 0 : (waveform > 5 ? 5 : waveform);
-  const double selected = oscillatorSample(s.slots[0], phase, phaseIncrement, safeWaveform) * level;
-  s.saw    = oscillatorSample(s.slots[1], phase, phaseIncrement, 0) * level;
-  s.ramp   = oscillatorSample(s.slots[2], phase, phaseIncrement, 1) * level;
-  s.square = oscillatorSample(s.slots[3], phase, phaseIncrement, 2) * level;
-  s.tri    = oscillatorSample(s.slots[4], phase, phaseIncrement, 3) * level;
-  s.sine   = oscillatorSample(s.slots[5], phase, phaseIncrement, 4) * level;
+  const int safeWaveform = waveform < 0 ? 0 : (waveform > kWaveformMax ? kWaveformMax : waveform);
+  // NaN/missing morph (older 5-arg callers) → 0.5.
+  const double safeMorph = (morph == morph) ? morph : 0.5;
+  const double selected = oscillatorSample(s.slots[0], phase, phaseIncrement, safeWaveform, safeMorph) * level;
+  s.saw    = oscillatorSample(s.slots[1], phase, phaseIncrement, 0, 0.5) * level;
+  s.ramp   = oscillatorSample(s.slots[2], phase, phaseIncrement, 1, 0.5) * level;
+  s.square = oscillatorSample(s.slots[3], phase, phaseIncrement, 2, 0.5) * level;
+  s.tri    = oscillatorSample(s.slots[4], phase, phaseIncrement, 3, 0.5) * level;
+  s.sine   = oscillatorSample(s.slots[5], phase, phaseIncrement, 4, 0.5) * level;
   s.out = selected;
 }
 
@@ -209,5 +297,5 @@ extern "C" double soemdsp_polyblep_sine(int handle) {
 }
 
 extern "C" int soemdsp_polyblep_version() {
-  return 2;
+  return 3;
 }

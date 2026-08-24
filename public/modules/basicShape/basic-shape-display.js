@@ -91,14 +91,21 @@ function nodeGraphBasicShapeSample(phase01, waveform, pulseWidth, amplitude) {
     y = nodeGraphBasicShapeSelect(waves, waveform);
   } else {
     const cycle = (Number(phase01) || 0) - Math.floor(Number(phase01) || 0);
-    const i = Math.max(0, Math.min(3, Math.round(Number(waveform) || 0)));
+    const i = Math.max(0, Math.min(6, Math.round(Number(waveform) || 0)));
+    const width = Math.max(0, Math.min(1, Number(pulseWidth) || 0.5));
     if (i === 1) {
       y = 1 - 4 * Math.abs(cycle - 0.5);
     } else if (i === 2) {
       y = 1 - cycle * 2;
     } else if (i === 3) {
-      const width = Math.max(0, Math.min(1, Number(pulseWidth) || 0.5));
       y = cycle < width ? 1 : -1;
+    } else if (i === 4) {
+      y = cycle * 2 - 1;
+    } else if (i === 5) {
+      const w = Math.max(1e-4, Math.min(1 - 1e-4, width));
+      y = cycle < w ? (2 * (cycle / w) - 1) : (2 * ((1 - cycle) / (1 - w)) - 1);
+    } else if (i === 6 && typeof nodeGraphBasicShapeCenterSquare === "function") {
+      y = nodeGraphBasicShapeCenterSquare(cycle, width);
     } else {
       y = Math.sin(cycle * Math.PI * 2);
     }

@@ -79,6 +79,9 @@ const nodeGraphModuleScopeCustomRenderers = {
   portalFace: () => {},
   roundShapeFace: () => {},
   basicShapeFace: () => {},
+  // Shape paints its own canvas on rAF (rgb-shape-ui.js). Orchestrator no-op
+  // avoids double-draw; keep the key so typed dispatch does not fall through.
+  rgbShapeFace: () => {},
   textBoxFace: () => {},
   // oscilloscopeBankBurn self-registers from
   // public/modules/oscilloscopeBank/oscilloscope-bank-display.js

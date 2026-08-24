@@ -1,4 +1,4 @@
-// Shape face renderer (displayType rgbShapeFace): gradient fill + geometry.
+// Shape face renderer (displayType rgbShapeFace): gradient fill + silhouette.
 
 const nodeGraphRgbShapeSettingsDefaults = Object.freeze({
   background: "#000000",
@@ -61,63 +61,34 @@ function syncNodeGraphRgbShapeCanvas(canvas, face, pixelRatio) {
 }
 
 function nodeGraphRgbShapeReadParam(nodeId, key, fallback) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  // Same face-param path as RoundShape / BasicShape (patch + DOM). Do NOT call
+  // readNodeGraphLiveEffectiveParam from paint — it needs a live runtime and
+  // throws when smoothers is missing (black face + console spam).
+  if (typeof nodeGraphFilterCurveLiveParam === "function" && node) {
+    const live = Number(nodeGraphFilterCurveLiveParam(node, key, Number.NaN));
+    if (Number.isFinite(live)) {
+      return live;
+    }
+  }
   if (typeof nodeGraphReadNodeNumber === "function") {
-    const n = nodeGraphReadNodeNumber(nodeId, key);
+    const n = Number(nodeGraphReadNodeNumber(nodeId, key));
     if (Number.isFinite(n)) {
       return n;
     }
   }
-  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const raw = Number(node?.params?.[key]);
-  return Number.isFinite(raw) ? raw : fallback;
-}
-
-function nodeGraphRgbShapePath(ctx, shapeIndex, cx, cy, halfW, halfH) {
-  const kind = Math.max(0, Math.min(4, Math.round(Number(shapeIndex) || 0)));
-  ctx.beginPath();
-  if (kind === 1) {
-    // Circle (ellipse from half extents)
-    ctx.ellipse(cx, cy, Math.max(0.5, halfW), Math.max(0.5, halfH), 0, 0, Math.PI * 2);
-    return;
+  if (Number.isFinite(raw)) {
+    return raw;
   }
-  if (kind === 0) {
-    // Square / rect
-    ctx.rect(cx - halfW, cy - halfH, halfW * 2, halfH * 2);
-    return;
-  }
-  if (kind === 2) {
-    // Triangle (point up)
-    ctx.moveTo(cx, cy - halfH);
-    ctx.lineTo(cx + halfW, cy + halfH);
-    ctx.lineTo(cx - halfW, cy + halfH);
-    ctx.closePath();
-    return;
-  }
-  if (kind === 4) {
-    // Diamond
-    ctx.moveTo(cx, cy - halfH);
-    ctx.lineTo(cx + halfW, cy);
-    ctx.lineTo(cx, cy + halfH);
-    ctx.lineTo(cx - halfW, cy);
-    ctx.closePath();
-    return;
-  }
-  // Star (5-point), ellipse-scaled
-  const points = 5;
-  const outer = 1;
-  const inner = 0.42;
-  for (let i = 0; i < points * 2; i += 1) {
-    const r = i % 2 === 0 ? outer : inner;
-    const a = -Math.PI / 2 + (i * Math.PI) / points;
-    const px = cx + Math.cos(a) * halfW * r;
-    const py = cy + Math.sin(a) * halfH * r;
-    if (i === 0) {
-      ctx.moveTo(px, py);
-    } else {
-      ctx.lineTo(px, py);
+  // Migrate old "position" → brightness.
+  if (key === "brightness") {
+    const legacy = Number(node?.params?.position);
+    if (Number.isFinite(legacy)) {
+      return legacy;
     }
   }
-  ctx.closePath();
+  return fallback;
 }
 
 function paintNodeGraphRgbShapeFace(canvas, face, nodeId, buffer = null) {
@@ -143,38 +114,83 @@ function paintNodeGraphRgbShapeFace(canvas, face, nodeId, buffer = null) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
-  let position = nodeGraphRgbShapeReadParam(nodeId, "position", 0.5);
-  // Optional: live In can bias position slightly when a sample is present.
+  let brightness = nodeGraphRgbShapeReadParam(nodeId, "brightness", 0.5);
   if (buffer?.length && !buffer.nodeGraphScopeXy) {
     const sample = typeof nodeGraphOscilloscopeLatestSample === "function"
       ? nodeGraphOscilloscopeLatestSample(buffer, 0)
       : Number(buffer[buffer.length - 1]);
     if (Number.isFinite(sample)) {
-      // Soft drive: keep knob as base, add In as offset clamped.
-      position = Math.max(0, Math.min(1, position + sample * 0.5));
+      brightness = Math.max(0, Math.min(1, brightness + sample * 0.5));
     }
   }
-  const width = Math.max(0, nodeGraphRgbShapeReadParam(nodeId, "width", 0.5));
-  const height = Math.max(0, nodeGraphRgbShapeReadParam(nodeId, "height", 0.5));
+  const size = Math.max(0, nodeGraphRgbShapeReadParam(nodeId, "size", 1));
+  const width = Math.max(0, nodeGraphRgbShapeReadParam(nodeId, "width", 1));
+  const height = Math.max(0, nodeGraphRgbShapeReadParam(nodeId, "height", 1));
   const x = nodeGraphRgbShapeReadParam(nodeId, "x", 0);
   const y = nodeGraphRgbShapeReadParam(nodeId, "y", 0);
   const shape = nodeGraphRgbShapeReadParam(nodeId, "shape", 0);
+  const shapeParam = nodeGraphRgbShapeReadParam(nodeId, "shapeParam", 0.5);
+  const blur = Math.max(0, Math.min(1, nodeGraphRgbShapeReadParam(nodeId, "blur", 0.35)));
 
   const cx = w * 0.5 + (Math.max(-1, Math.min(1, x)) * w * 0.5);
-  // +Y is up in modular space → invert for canvas
   const cy = h * 0.5 - (Math.max(-1, Math.min(1, y)) * h * 0.5);
-  // Center-based: param 2 ≈ full face span
-  const halfW = Math.max(0.5, (width * 0.5) * (w * 0.5));
-  const halfH = Math.max(0.5, (height * 0.5) * (h * 0.5));
+  const minSide = Math.min(w, h);
+  // Size 1 ≈ half min-side radius; Width/Height multiply axes independently.
+  const halfW = Math.max(0.5, size * width * 0.5 * minSide);
+  const halfH = Math.max(0.5, size * height * 0.5 * minSide);
+  const shapeId = typeof RgbShapeMath !== "undefined" && typeof RgbShapeMath.shapeIdFromIndex === "function"
+    ? RgbShapeMath.shapeIdFromIndex(shape)
+    : (typeof normalizeTraceStampShape === "function"
+      ? normalizeTraceStampShape(shape)
+      : "circle");
 
   const peak = settings.gradientStops?.[settings.gradientStops.length - 1]?.color || "#f0f4ff";
   let rgb = [240, 244, 255];
   if (typeof nodeGraphSampleGradientStopsRgb === "function") {
-    rgb = nodeGraphSampleGradientStopsRgb(settings.gradientStops, position, peak);
+    rgb = nodeGraphSampleGradientStopsRgb(settings.gradientStops, brightness, peak);
   }
-  ctx.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-  nodeGraphRgbShapePath(ctx, shape, cx, cy, halfW, halfH);
-  ctx.fill();
+  const fillCss = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+  // Same soft-edge stamp path as LED Dot / LCD Dot (smoothstep blur 0…1).
+  let stamped = false;
+  if (typeof TraceDotSprite !== "undefined" && typeof TraceDotSprite.draw === "function") {
+    stamped = TraceDotSprite.draw(
+      ctx,
+      cx,
+      cy,
+      Math.max(halfW, halfH),
+      blur,
+      {
+        shape: shapeId,
+        shapeParam,
+        rx: halfW,
+        ry: halfH,
+        color: fillCss,
+        amount: 1,
+        flat: true,
+      },
+      1,
+    );
+  }
+  if (!stamped) {
+    ctx.fillStyle = fillCss;
+    if (typeof RgbShapeMath !== "undefined" && typeof RgbShapeMath.fillPath === "function") {
+      RgbShapeMath.fillPath(ctx, shape, shapeParam, cx, cy, halfW, halfH);
+    } else {
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, halfW, halfH, 0, 0, Math.PI * 2);
+    }
+    ctx.fill("evenodd");
+  }
+
+  // Phase cursor on the outline (when live X/Y available from buffer pair).
+  if (buffer?.nodeGraphScopeXy && Number.isFinite(buffer.x) && Number.isFinite(buffer.y)) {
+    const px = cx + buffer.x * halfW;
+    const py = cy - buffer.y * halfH;
+    ctx.beginPath();
+    ctx.arc(px, py, Math.max(2, minSide * 0.02), 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+  }
 
   if (face.dataset) {
     face.dataset.lightStrength = "1";
@@ -206,6 +222,5 @@ function drawNodeGraphRgbShapeFaceItem(renderer, item, pixelRatio) {
   paintNodeGraphRgbShapeFace(canvas, face, slot.nodeId, item?.buffer);
 }
 
-if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {
-  nodeGraphModuleScopeCustomRenderers.rgbShapeFace = drawNodeGraphRgbShapeFaceItem;
-}
+// Face paints on its own rAF (rgb-shape-ui.js), like RoundShape / BasicShape.
+// Do not override orchestrator stub — avoids double-draw and crash loops.
