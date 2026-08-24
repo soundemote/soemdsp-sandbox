@@ -1,9 +1,12 @@
 // App-wide stamp shape vocabulary (Dot family first; other faces can opt in).
 // shape = discrete silhouette; shapeParam = 0…1 continuous control (meaning per shape).
+// Pill matches Music Player / AsciiScope plate chrome: rounded square (CSS corner-shape: round
+// + border-radius). Oval is the axis-stretch ellipse. Squircle is superellipse boxiness.
 
 (function initTraceShape(global) {
   const TRACE_STAMP_SHAPE_IDS = Object.freeze([
     "circle",
+    "oval",
     "pill",
     "squircle",
     "ngon",
@@ -22,6 +25,7 @@
       id,
       label: ({
         circle: "Circle",
+        oval: "Oval",
         pill: "Pill",
         squircle: "Squircle",
         ngon: "N-gon",
@@ -39,21 +43,27 @@
 
   const PARAM_META = Object.freeze({
     circle: Object.freeze({ label: "Shape", title: "Circle has no shape parameter." }),
-    pill: Object.freeze({
+    oval: Object.freeze({
       label: "Stretch",
-      title: "Stretch along the long face axis. 0 = 1:1, 1 = capsule filling the face.",
+      title: "Ellipse stretch along the long face axis. 0 = circle, 1 = max oval filling the face.",
+    }),
+    // Same Rounding axis as Music Player / AsciiScope plate chrome:
+    // 0 = square, 1 = full round. Pill vs Squircle is only the corner curve.
+    pill: Object.freeze({
+      label: "Rounding",
+      title: "Corner rounding 0…1 (Music Player). 0 = square, 1 = full capsule/circle. Pill = circular corner arcs.",
     }),
     squircle: Object.freeze({
-      label: "Corners",
-      title: "Corner boxiness. 0 = circle/ellipse, 1 = square/rectangle.",
+      label: "Rounding",
+      title: "Corner rounding 0…1 (Music Player). 0 = square, 1 = full round. Squircle = superellipse corners.",
     }),
     ngon: Object.freeze({
       label: "Sides",
-      title: "Polygon side count. 0 ≈ triangle, 1 ≈ 12-gon.",
+      title: "Polygon side count. 0 = triangle (3), 1 = 12-gon.",
     }),
     star: Object.freeze({
       label: "Points",
-      title: "Star point count. 0 ≈ 3 points, 1 ≈ 12 points.",
+      title: "Star point count. 0 = 3 points, 1 = 12 points.",
     }),
     heart: Object.freeze({
       label: "Plump",
@@ -81,7 +91,7 @@
     }),
     flower: Object.freeze({
       label: "Petals",
-      title: "Petal count. 0 ≈ 3 petals, 1 ≈ 8 petals.",
+      title: "Petal count. 0 = 3 petals, 1 = 8 petals.",
     }),
   });
 
@@ -95,6 +105,8 @@
 
   function normalizeTraceStampShape(value, fallback = "circle") {
     const raw = String(value || "").trim().toLowerCase();
+    // Legacy: pre-oval "pill" meant axis stretch — callers that still pass stretch
+    // semantics should migrate via migratePillSquircleToShape, not here.
     if (TRACE_STAMP_SHAPE_IDS.includes(raw)) {
       return raw;
     }
@@ -119,17 +131,26 @@
   function deriveLegacyPillSquircle(shape, shapeParam) {
     const id = normalizeTraceStampShape(shape);
     const p = clamp01(shapeParam, 0.5);
-    if (id === "pill") {
+    // Legacy stretch axis was named "pill"; oval owns that now.
+    if (id === "oval") {
       return { pill: p, squircle: 0 };
     }
     if (id === "squircle") {
-      return { pill: 0, squircle: p };
+      // Legacy squircle axis was inverted (0=circle, 1=boxy).
+      return { pill: 0, squircle: 1 - p };
+    }
+    if (id === "pill") {
+      // New pill rounding has no legacy twin; leave stretch/squircle axes clear.
+      return { pill: 0, squircle: 0 };
     }
     return { pill: 0, squircle: 0 };
   }
 
   /**
-   * Migrate pre-shape patches. Exclusive dropdown: larger axis wins when both set.
+   * Migrate pre-shape patches.
+   * Old `pill` slider was axis stretch → Oval (not Music Player Pill).
+   * Old `squircle` was inverted (0=circle, 1=boxy) vs Music Player Rounding
+   * (0=square, 1=round) — invert when mapping onto shapeParam.
    */
   function migratePillSquircleToShape(pill01, squircle01) {
     const pill = clamp01(pill01, 0);
@@ -138,16 +159,22 @@
       return { shape: "circle", shapeParam: 0.5 };
     }
     if (pill >= squircle) {
-      return { shape: "pill", shapeParam: pill };
+      return { shape: "oval", shapeParam: pill };
     }
-    return { shape: "squircle", shapeParam: squircle };
+    return { shape: "squircle", shapeParam: 1 - squircle };
   }
 
-  /** Discrete counts from 0…1 (inclusive ends). */
+  /** Discrete counts from 0…1. 0 always maps to minCount (ngon: triangle). */
   function traceStampParamToCount(param01, minCount, maxCount) {
-    const lo = Math.max(2, Math.floor(Number(minCount) || 3));
+    const lo = Math.max(3, Math.floor(Number(minCount) || 3));
     const hi = Math.max(lo, Math.floor(Number(maxCount) || lo));
     const t = clamp01(param01, 0);
+    if (t <= 1e-9) {
+      return lo;
+    }
+    if (t >= 1 - 1e-9) {
+      return hi;
+    }
     return Math.round(lo + t * (hi - lo));
   }
 

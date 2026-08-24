@@ -43,9 +43,17 @@
     return Math.round(lo + clamp01(param01, 0) * (hi - lo));
   }
 
-  function squircleN(squircle01) {
-    const s = clamp01(squircle01, 0);
-    return 2 + s * s * 10;
+  /**
+   * Music Player Rounding on Squircle: 0 = sharp box, 1 = full soft squircle.
+   * (Previously inverted: 0=circle, 1=boxy.)
+   */
+  function squircleNFromRounding(rounding01) {
+    const p = clamp01(rounding01, 0);
+    // p=0 → very boxy; p=1 → iOS-ish squircle (n≈4), not a pure circle.
+    const boxy = 28;
+    const soft = 4;
+    const t = p * p;
+    return boxy + (soft - boxy) * t;
   }
 
   function innerOuter(radius, blur01) {
@@ -77,8 +85,14 @@
     return Math.hypot(ox, oy) + Math.min(Math.max(qx, qy), 0);
   }
 
+  /** Music Player Pill: rounded rectangle (circular corner arcs / CSS corner-shape: round). */
+  function sdfRoundedBox(dx, dy, hx, hy, cornerR) {
+    const r = Math.max(0, Math.min(cornerR, Math.min(hx, hy)));
+    return sdfBox(dx, dy, Math.max(0, hx - r), Math.max(0, hy - r)) - r;
+  }
+
   function sdfPolygon(dx, dy, radius, sides, rot = -Math.PI / 2) {
-    const n = Math.max(3, sides | 0);
+    const n = Math.max(3, Math.round(Number(sides) || 3));
     const ang = Math.atan2(dy, dx) - rot;
     const sector = (Math.PI * 2) / n;
     const a = ((ang % sector) + sector) % sector - sector * 0.5;
@@ -165,13 +179,26 @@
 
   function sdfForShape(dx, dy, rx, ry, shape, shapeParam) {
     const id = normalizeShape(shape);
-    const p = clamp01(shapeParam, 0.5);
+    const p = clamp01(shapeParam, 0);
     const r = Math.min(rx, ry);
     switch (id) {
-      case "pill":
+      case "oval":
+        // Ellipse — stretch comes from rx/ry extents.
         return sdfSuperellipse(dx, dy, rx, ry, 2);
-      case "squircle":
-        return sdfSuperellipse(dx, dy, rx, ry, squircleN(p));
+      case "pill": {
+        // Music Player Pill + Rounding: 0 = square, 1 = full round (circle when rx≈ry).
+        if (p <= 1e-4) {
+          return sdfBox(dx, dy, rx, ry);
+        }
+        return sdfRoundedBox(dx, dy, rx, ry, r * p);
+      }
+      case "squircle": {
+        // Music Player Squircle + Rounding: same 0=square…1=round axis as Pill.
+        if (p <= 1e-4) {
+          return sdfBox(dx, dy, rx, ry);
+        }
+        return sdfSuperellipse(dx, dy, rx, ry, squircleNFromRounding(p));
+      }
       case "ngon":
         return sdfPolygon(dx, dy, r, paramToCount(p, 3, 12));
       case "star":
@@ -380,8 +407,8 @@
     if (rxIn > 0.05 && ryIn > 0.05) {
       return { rx: rxIn, ry: ryIn, shape, shapeParam };
     }
-    // Pill stretch only when shape is pill (legacy pill also stretches).
-    const stretch = shape === "pill" ? shapeParam : 0;
+    // Oval stretch along the long axis. Pill stays square extents (rounded box).
+    const stretch = shape === "oval" ? shapeParam : 0;
     return {
       rx: r * (1 + stretch * 2),
       ry: r,

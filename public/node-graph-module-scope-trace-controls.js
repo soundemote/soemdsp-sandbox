@@ -834,17 +834,19 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
   }),
   // Stamp geometry/light — order matches shared phosphor stack (Bright → Size → Blur).
   // ghostBrightness sits next to Bright for Number Readout (min residual gradient stop).
+  // shape / shapeParam: Dot-family stamp silhouette (active set gates visibility).
   dot1: Object.freeze({
     fields: Object.freeze([
       "dot1Brightness",
       "dot1Size",
       "lineThickness",
+      "shapeParam",
       "ghostBrightness",
       "puckSize",
     ]),
     colors: Object.freeze(["dot1Color"]),
     toggles: Object.freeze(["bipolarBrightness"]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["shape"]),
   }),
   secondary: Object.freeze({
     fields: Object.freeze(["secondarySize", "secondaryLineThickness", "secondaryBrightness"]),
@@ -1654,6 +1656,7 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
         ? TRACE_STAMP_SHAPES
         : [
           { id: "circle", label: "Circle" },
+          { id: "oval", label: "Oval" },
           { id: "pill", label: "Pill" },
           { id: "squircle", label: "Squircle" },
           { id: "ngon", label: "N-gon" },

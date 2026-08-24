@@ -906,11 +906,11 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
     ? normalizeTraceStampShape(settings.shape)
     : String(settings.shape || "circle");
   const shapeParam = clampNodeSliderValue(
-    Number(settings.shapeParam ?? (stampShape === "pill" ? settings.pill : settings.squircle)) || 0.5,
+    Number(settings.shapeParam ?? (stampShape === "oval" ? settings.pill : settings.squircle)) || 0,
     0,
     1,
   );
-  const stretch = stampShape === "pill" ? shapeParam : 0;
+  const stretch = stampShape === "oval" ? shapeParam : 0;
   const extents = nodeGraphVectorDotStampExtents(width, height, size01, stretch);
   const radius = extents.radius;
   const blur = clampNodeSliderValue(

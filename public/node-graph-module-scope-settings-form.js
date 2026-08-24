@@ -869,9 +869,9 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
         ? normalizeTraceStampShape(settings.shape)
         : String(settings.shape || "circle");
       const shapeParam = Math.max(0, Math.min(1, Number(
-        settings.shapeParam ?? (stampShape === "pill" ? settings.pill : settings.squircle),
-      ) || 0.5));
-      const stretch = stampShape === "pill" ? shapeParam : 0;
+        settings.shapeParam ?? (stampShape === "oval" ? settings.pill : settings.squircle),
+      ) || 0));
+      const stretch = stampShape === "oval" ? shapeParam : 0;
       const ext = typeof nodeGraphVectorDotStampExtents === "function"
         ? nodeGraphVectorDotStampExtents(buf, buf, size, stretch)
         : { rx: radius * (1 + stretch * 2), ry: radius };
@@ -1600,6 +1600,26 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     let choiceKeys = (sectionControls.choices || []).filter(
       (key) => activeChoices.has(key) && allowKey("choices", key),
     );
+    // Dot family: Shape lives in activeChoices; ensure it appears in the Dot section
+    // even if an older section map omitted it.
+    if (section === "dot1"
+      && (type === "vectorDot" || type === "pulseDot" || type === "lcdDot")
+      && activeChoices.has("shape")
+      && !choiceKeys.includes("shape")) {
+      choiceKeys = ["shape", ...choiceKeys];
+    }
+    if (section === "dot1"
+      && (type === "vectorDot" || type === "pulseDot" || type === "lcdDot")
+      && activeFields.has("shapeParam")
+      && !fieldKeys.includes("shapeParam")) {
+      // After Size/Blur so silhouette tweaks sit with stamp geometry.
+      const blurIdx = fieldKeys.indexOf("lineThickness");
+      if (blurIdx >= 0) {
+        fieldKeys.splice(blurIdx + 1, 0, "shapeParam");
+      } else {
+        fieldKeys.push("shapeParam");
+      }
+    }
     if (type === "numberReadout" && section === "trace") {
       const nrNodeType = node?.type
         || (typeof nodeGraphPatchNode === "function"
