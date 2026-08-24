@@ -251,6 +251,7 @@ function nodeGraphModuleTypeHasCustomDisplayArea(type) {
     || layout === "macroControls"
     || layout === "filterCurve"
     || layout === "roundShape"
+    || layout === "basicShape"
     || layout === "envelopeCurve"
     || layout === "pulseCurve"
     || layout === "wallRoomDisplay";
@@ -451,6 +452,7 @@ function nodeGraphDefaultModuleGridWidthUnits(type) {
   if (
     nodeGraphModuleDefinitions[type]?.layout === "filterCurve"
     || nodeGraphModuleDefinitions[type]?.layout === "roundShape"
+    || nodeGraphModuleDefinitions[type]?.layout === "basicShape"
   ) {
     return 8;
   }
@@ -829,9 +831,18 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
   }
   const widgets = nodeGraphModuleHeightWidgetUnits(type, ui, node);
   const byId = new Map();
+  // Inset/cushion widgets canonicalize to "lip". Keep their gu as a floor so the
+  // grow lip cannot collapse to 2px when IO/params slightly overrun (BasicShape).
+  let lipFloorGu = 0;
   for (const widget of widgets) {
     const id = nodeGraphModuleCanonicalBandId(widget.id);
-    if (!id || id === "lip") {
+    if (!id) {
+      continue;
+    }
+    if (id === "lip") {
+      if (widget.visible !== false) {
+        lipFloorGu = Math.max(lipFloorGu, Math.max(0, Number(widget.heightGu) || 0));
+      }
       continue;
     }
     const heightGu = Math.max(0, Number(widget.heightGu) || 0);
@@ -905,7 +916,8 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
     const musicLip = type === "audioPlayer";
     bands.push({
       id: "lip",
-      heightGu: musicLip ? 1 : 0,
+      // Music Player: fixed 1gu cushion. Everyone else: plate inset floor + grow.
+      heightGu: musicLip ? 1 : lipFloorGu,
       visible: true,
       grow: !musicLip,
     });
@@ -950,6 +962,11 @@ function nodeGraphModuleBandTrackCss(band) {
   if (band.id === "lip") {
     if (band.heightGu > 0 && !band.grow) {
       return "var(--node-grid-height)";
+    }
+    // Honor inset floor when present so dense LayoutA IO/params cannot crush
+    // the bottom plate into a 2px hairline (seen on BasicShape vs RoundShape).
+    if (band.grow && band.heightGu > 0) {
+      return `minmax(calc(var(--node-grid-height) * ${band.heightGu}), 1fr)`;
     }
     return "var(--node-module-bottom-gap-track, minmax(2px, 1fr))";
   }
@@ -1382,10 +1399,11 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   if (
     nodeGraphModuleDefinitions[type]?.layout === "filterCurve"
     || nodeGraphModuleDefinitions[type]?.layout === "roundShape"
+    || nodeGraphModuleDefinitions[type]?.layout === "basicShape"
   ) {
     // LayoutA stack: header | face (display gu) | IO under | params.
     // Crossovers stay LayoutA so many band outs do not inflate the face height.
-    // RoundShape reuses the same stack (cheap static orbit face).
+    // RoundShape / BasicShape reuse the same stack (cheap static face).
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
