@@ -1503,7 +1503,12 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
-      if (name === "basic_oscillator" || targetType === "polyBlep" || targetType === "blit") {
+      // basic_oscillator only — do NOT match targetType polyBlep/blit here.
+      // Those have dedicated handlers below; matching them first left
+      // nativePolyBlepReady / nativeBlitReady permanently false (silent oscs).
+      // Catalog still labels this entry targetType "osc" (legacy LFO), but
+      // graph type "osc" is Open Sound Control — match by wasm name only.
+      if (name === "basic_oscillator") {
         for (const handle of this.basicOscillatorNativeHandles.values()) {
           if (this.nativeBasicOscillator?.soemdsp_basic_oscillator_destroy) {
             this.nativeBasicOscillator.soemdsp_basic_oscillator_destroy(handle);

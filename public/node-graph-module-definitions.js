@@ -897,9 +897,10 @@ const nodeGraphModuleDefinitions = (
   polyBlep: {
     planRole: "source",
     displayType: "lineBurn",
-    // New PolyBLEP faces start with Sync on (one cycle stretched full-width).
+    // New PolyBLEP faces start with Sync on + Sweep (c) = 1 (one cycle in view).
     defaultDisplaySettings: {
       sourceSync: true,
+      sweepSeconds: 1,
     },
     displayModes: [
       { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave Out" } },

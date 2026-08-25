@@ -1191,6 +1191,12 @@ function nodeGraphLiveRearmDisplaysAfterEngineStart() {
   } else if (typeof sendNodeGraphLiveSpeed === "function") {
     sendNodeGraphLiveSpeed();
   }
+  // Cold start often already has speed > 0 (lastPlaySpeed / direct assign),
+  // so the 0→positive edge in setNodeGraphLiveSpeed never runs and Output
+  // keeps a stamped pause banner. Always clear on rearm.
+  if (typeof nodeGraphOutputPauseBannerClearStampFlags === "function") {
+    nodeGraphOutputPauseBannerClearStampFlags();
+  }
   // Mark so the next few scope snapshots also force-paint value faces (rings
   // may still be empty on this call).
   nodeGraphMvp.live.needsValueFaceRearm = true;

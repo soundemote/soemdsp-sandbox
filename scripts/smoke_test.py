@@ -18432,6 +18432,19 @@ def require_native_module_contract(base_url: str) -> None:
         or "async setNativeModuleWasm(message)" in worklet_source,
         "native worklet loader missing",
     )
+    # Regression: basic_oscillator used to also match targetType polyBlep/blit,
+    # so combined wasm never armed nativePolyBlepReady / nativeBlitReady
+    # (PolyBLEP/BLIT stayed silent forever). Match by wasm name only.
+    _basic_osc_if = 'if (name === "basic_oscillator")'
+    require(
+        _basic_osc_if in worklet_source
+        and 'if (name === "polyblep" || targetType === "polyBlep")' in worklet_source
+        and 'if (name === "blit" || targetType === "blit")' in worklet_source
+        and "targetType === \"polyBlep\" || targetType === \"blit\"" not in worklet_source[
+            worklet_source.index(_basic_osc_if) : worklet_source.index(_basic_osc_if) + 220
+        ],
+        "basic_oscillator native apply must not steal polyBlep/blit targetTypes",
+    )
     require("nativeEllipsoidVectorSample(" in worklet_source, "native ellipsoid worklet path missing")
     require(
         'name === "soft_clipper" || targetType === "softClipper"' in worklet_source
