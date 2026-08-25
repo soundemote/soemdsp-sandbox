@@ -93,7 +93,7 @@ const nodeGraphPhosphorWaveformDefaultSettings = Object.freeze({
   // Zoom % / speed labels: CSS px inset from the canvas corner (no arc math).
   labelInsetPx: 6,
   // Playlist row fade. 0 = no fade, 1 = only the playing row is visible.
-  playlistFade: 0.1,
+  playlistFade: 0.25,
   playlistVisibleCount: 8,
 });
 
@@ -757,7 +757,7 @@ function buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml() {
       <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row" title="0 = no fade. Full = only the playing row stays visible.">
         <span>Playlist fade</span>
         <span class="node-phosphor-waveform-control-widgets">
-          <input id="nodePhosphorWaveformPlaylistFadeInput" type="range" min="0" max="1" step="0.01" value="0.1" aria-label="Playlist fade. 0 is no fade. Full shows only the playing track.">
+          <input id="nodePhosphorWaveformPlaylistFadeInput" type="range" min="0" max="1" step="0.01" value="0.25" aria-label="Playlist fade. 0 is no fade. Full shows only the playing track.">
         </span>
       </label>
       <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row" role="group" aria-label="Playlist items shown">

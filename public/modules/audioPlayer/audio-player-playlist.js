@@ -2173,7 +2173,7 @@ function nodeGraphAudioPlayerPlaylistPlayingIndex(nodeId, playingId = "") {
  * 0 = no fade. Slider up: fade over ~100 items, then tighten.
  * 1 = only the playing row is visible; everything else is fully faded.
  */
-function nodeGraphAudioPlayerPlaylistSlotFade(index, playingIndex, slotCount, playlistFade = 0.1) {
+function nodeGraphAudioPlayerPlaylistSlotFade(index, playingIndex, slotCount, playlistFade = 0.25) {
   const amount = Math.max(0, Math.min(1, Number(playlistFade) || 0));
   if (amount <= 0) {
     return 1;
