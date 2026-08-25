@@ -4439,6 +4439,7 @@ def require_node_graph_mvp_contract() -> None:
     default_preset_source = (PUBLIC / "presets" / "default.json").read_text(encoding="utf-8")
     default_ui_settings_source = (PUBLIC / "presets" / "useruisettings.json").read_text(encoding="utf-8")
     slider_values_source = script_sources["./public/node-graph-slider-values.js"]
+    module_store_source = script_sources["./public/node-graph-module-store.js"]
     require(
         "event?.shiftKey && (event.ctrlKey || event.metaKey)" in slider_values_source
         and "return 0.01;" in slider_values_source
@@ -4466,7 +4467,7 @@ def require_node_graph_mvp_contract() -> None:
     definitions_source = script_sources["./public/node-graph-module-definitions.js"]
     require(
         "function nodeGraphModuleIsRealtimeOscillatorType(type)" in definitions_source
-        and 'return type === "osc" || type === "polyBlep" || type === "sineWavetable" || type === "sinCos" || type === "blit";' in definitions_source,
+        and 'return type === "polyBlep" || type === "sineWavetable" || type === "sinCos" || type === "blit";' in definitions_source,
         "polyBlep should share the browser-side realtime oscillator type helper",
     )
     require(
@@ -4493,7 +4494,7 @@ def require_node_graph_mvp_contract() -> None:
         and "if (nodeGraphModuleIsRealtimeOscillatorType(node.type) && !runtime.oscResetStates.has(node.id))" in live_plan_runtime_source
         and "if (nodeGraphModuleIsRealtimeOscillatorType(node.type) && !runtime.triangleStates.has(node.id))" in live_plan_runtime_source
         and "if (nodeGraphModuleIsRealtimeOscillatorType(node.type) && !runtime.noiseSeeds.has(node.id))" in live_plan_runtime_source,
-        "polyBlep should share live-plan oscillator state initialization with osc and F/B PolyBLEP",
+        "polyBlep should share live-plan oscillator state initialization with F/B PolyBLEP voices",
     )
     node_graph_module_definitions_source = script_sources["./public/node-graph-module-definitions.js"]
     unsupported_source_start = execution_plan_source.index('nodeGraphModuleProducesOutputWithoutSignalInput(type)')
@@ -4593,29 +4594,68 @@ def require_node_graph_mvp_contract() -> None:
         "Noise Detector should be a stereo thru analyzer with NSDF fidelity + threshold gate",
     )
     rms_definition_start = node_graph_module_definitions_source.index("  rms: {")
-    rms_definition_end = node_graph_module_definitions_source.index("  lufs: {", rms_definition_start)
+    rms_definition_end = node_graph_module_definitions_source.index("  rmsStereo: {", rms_definition_start)
     rms_definition_source = node_graph_module_definitions_source[rms_definition_start:rms_definition_end]
+    rms_stereo_definition_start = node_graph_module_definitions_source.index("  rmsStereo: {")
+    rms_stereo_definition_end = node_graph_module_definitions_source.index("  lufs: {", rms_stereo_definition_start)
+    rms_stereo_definition_source = node_graph_module_definitions_source[
+        rms_stereo_definition_start:rms_stereo_definition_end
+    ]
     rms_math_source = (PUBLIC / "modules" / "rms" / "rms-math.js").read_text(encoding="utf-8")
+    rms_live_source = script_sources["./public/modules/rms/rms-live-evaluator.js"]
+    rms_worklet_processors = (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8")
     require(
-        'rms: "RMS"' in node_graph_module_definitions_source
-        and 'inputs: ["Mono", "Left", "Right"]' in rms_definition_source
-        and '"RMS Left D"' in rms_definition_source
-        and '"RMS Right D"' in rms_definition_source
-        and '"RMS Mono D"' in rms_definition_source
-        and 'digitalOutputs: ["Gate", "RMS", "RMS Left D", "RMS Right D", "RMS Mono D"]' in rms_definition_source
-        and 'xyzTracePorts: { X: "RMS Left", Y: "RMS Right", Z: "RMS Mono" }' in rms_definition_source
+        'rms: "RMS Mono"' in node_graph_module_definitions_source
+        and 'rmsStereo: "RMS Stereo"' in node_graph_module_definitions_source
+        and 'inputs: ["In"]' in rms_definition_source
+        and 'outputs: ["RMS A", "RMS D", "Gate"]' in rms_definition_source
+        and 'digitalOutputs: ["RMS D", "Gate"]' in rms_definition_source
+        and 'source: { value: "RMS A" }' in rms_definition_source
+        and "xyzTracePorts" not in rms_definition_source
         and "rmsDbGuides: true" in rms_definition_source
-        and 'key: "window"' in rms_definition_source
-        and 'key: "thresholdDb"' in rms_definition_source
+        and 'key: "ballistics"' not in node_graph_module_definitions_source
+        and 'key: "refDb"' not in node_graph_module_definitions_source
+        and 'key: "window"' in node_graph_module_definitions_source
+        and 'key: "attack"' in node_graph_module_definitions_source
+        and 'key: "release"' in node_graph_module_definitions_source
+        and 'key: "peakHold"' in node_graph_module_definitions_source
+        and 'key: "logMode"' in node_graph_module_definitions_source
+        and 'key: "minDb"' in node_graph_module_definitions_source
+        and 'key: "maxDb"' in node_graph_module_definitions_source
+        and 'defaultValue: "-48"' in node_graph_module_definitions_source
+        and 'min: "-48"' in node_graph_module_definitions_source
+        and 'inputs: ["Left", "Right"]' in rms_stereo_definition_source
+        and 'outputs: ["RMS A", "RMS D", "Gate"]' in rms_stereo_definition_source
+        and 'source: { value: "RMS A" }' in rms_stereo_definition_source
+        and '"RMS A Left"' in rms_stereo_definition_source
+        and "hiddenOutputs:" in rms_stereo_definition_source
+        and '"RMS A Left"' not in rms_stereo_definition_source.split("outputs:")[1].split("hiddenOutputs:")[0]
         and "function nodeGraphRmsSample" in rms_math_source
+        and "function nodeGraphRmsStereoSample" in rms_math_source
+        and "function nodeGraphRmsResolveBallisticsWindow" not in rms_math_source
+        and "function nodeGraphRmsResolveRefDb" not in rms_math_source
+        and "NODE_GRAPH_RMS_DB_DEFAULT_MIN = -48" in rms_math_source
+        and "function nodeGraphRmsLinearToDbLut" in rms_math_source
         and "NODE_GRAPH_RMS_DB_GUIDES" in rms_math_source
-        and '"RMS Left": lRms' in rms_math_source
-        and '"RMS Left D": lRms' in rms_math_source
-        and "RMS: mRms" in rms_math_source
-        and "nodeGraphLiveModuleEvaluators.rms" in script_sources["./public/modules/rms/rms-live-evaluator.js"]
-        and "rms:" in (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8")
-        and "ports?.X" in (PUBLIC / "node-graph-module-scope-capture.js").read_text(encoding="utf-8"),
-        "RMS should meter analog RMS L/R/M plus digital RMS L/R/M D with dB gate and XYZ waterfall guides",
+        and "mode: \"rmsDb\"" in rms_math_source
+        and "-48" in rms_math_source.split("NODE_GRAPH_RMS_DB_GUIDES")[1].split("];")[0]
+        and 'hidden: true' in node_graph_module_definitions_source[
+            node_graph_module_definitions_source.index('key: "logMode"') - 120:
+            node_graph_module_definitions_source.index('key: "logMode"')
+        ]
+        and '"RMS A": channel.amp' in rms_math_source
+        and '"RMS A": avgCh.amp' in rms_math_source
+        and '"RMS D": avgCh.db' in rms_math_source
+        and "0.5 * (lIn + rIn)" in rms_math_source
+        and "nodeGraphLiveModuleEvaluators.rms" in rms_live_source
+        and "nodeGraphLiveModuleEvaluators.rmsStereo" in rms_live_source
+        and "rmsStereo:" in rms_worklet_processors
+        and "RMS A" in (PUBLIC / "node-graph-module-scope-capture.js").read_text(encoding="utf-8")
+        and "nodeGraphRmsDbGuideLabel" in (PUBLIC / "node-graph-module-scope-paint-helpers.js").read_text(encoding="utf-8")
+        and "nodeGraphDeepCloneModuleField" in script_sources["./public/node-graph-module-actions.js"]
+        and "defaultWidthGu: 13" in node_graph_module_definitions_source
+        and "defaultHeightGu: 21" in node_graph_module_definitions_source,
+        "RMS Mono/Stereo share Window/Attack/Release; absolute dBFS; Stereo visible outs are RMS A/D",
     )
     lufs_definition_start = node_graph_module_definitions_source.index("  lufs: {")
     lufs_definition_end = node_graph_module_definitions_source.index("  slewLimiter: {", lufs_definition_start)
@@ -4634,11 +4674,14 @@ def require_node_graph_mvp_contract() -> None:
         and '"Momentary"' in lufs_definition_source
         and '"Short Term"' in lufs_definition_source
         and '"Integrated"' in lufs_definition_source
-        and '"rms"' in uc_sort_source
         and '"lufs"' in uc_sort_source
-        and 'rms: "Sliding RMS' in module_store_source
+        and '"rms"' not in uc_sort_source
+        and '"rms"' in module_store_source[
+            module_store_source.index("const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze(["):
+            module_store_source.index("]);", module_store_source.index("const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze(["))
+        ]
         and 'lufs: "Integrated / short-term' in module_store_source,
-        "RMS and LUFS should be Multimeter under-construction modules on the UC shelf",
+        "LUFS stays Multimeter UC; RMS is shipped and retired from the UC shelf",
     )
     require(
         'registerNodeGraphChromelessModule("keypad"' in script_sources["./public/modules/keypad/keypad-register.js"]
@@ -9967,6 +10010,8 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphVisualSinkActiveInPlan(node, options = {})",
         "return true;",
         "nodeGraphModuleDefinitions[node.type]?.monitorSink",
+        "const monitorPorts = nodeGraphModuleDefinitions[node.type]?.inputs || [\"In\"]",
+        "const hasMonitorInput = monitorPorts.some(",
         "function nodeGraphCompiledVisualSinks(graph, reachableNodes)",
         "const visualSinks = nodeGraphCompiledVisualSinks(graph, reachableNodes)",
         "function nodeGraphActiveVisualSinkExists(visualSinks = [])",
@@ -9979,7 +10024,7 @@ def require_node_graph_mvp_contract() -> None:
         "nodeGraphValidateRuntimeRoute(issues, {",
         '"canvas"',
         "function nodeGraphModuleIsRealtimeOscillatorType(type)",
-        'return type === "osc" || type === "polyBlep" || type === "sineWavetable"',
+        'return type === "polyBlep" || type === "sineWavetable" || type === "sinCos" || type === "blit";',
         "nodeGraphModuleIsRealtimeOscillatorType(type)",
         "nodeGraphModuleIsRealtimeOscillatorType(type) ||",
         "const nodeGraphMidiKeyboardMinOctave = -4",
@@ -12006,7 +12051,7 @@ def require_node_graph_mvp_contract() -> None:
         "bindNodeGraphModuleScopeWindowEvents(scopeElement)",
         "function nodeGraphModuleScopeSlots()",
         "function beginNodeGraphRenderedScopeCapture(options = {})",
-        'return type === "osc" || type === "polyBlep" || type === "sineWavetable" || type === "blit";',
+        'return type === "polyBlep" || type === "sineWavetable" || type === "sinCos" || type === "blit";',
         "function nodeGraphDefaultModuleScopeMonitors(patch = nodeGraphMvp?.patch)",
         "nodeGraphModuleScopeIsOscillatorType(node?.type)",
         'io: "output"',
@@ -14352,8 +14397,7 @@ def require_node_graph_mvp_contract() -> None:
         "Clock display should use the shared 0D Burn dot renderer path",
     )
     require(
-        'osc: {\n    displayType: "lineBurn"' in module_definitions_source
-        and 'polyBlep: {\n    displayType: "lineBurn"' in module_definitions_source
+        'polyBlep: {\n    displayType: "lineBurn"' in module_definitions_source
         and "return nodeGraphModuleDisplayModesForType(type)[0]?.renderer || nodeGraphModuleDeclaredDisplayTypeForType(type);" in node_graph_source,
         "Oscillator module faces should resolve to their declared typed renderers",
     )
@@ -15702,13 +15746,20 @@ def require_node_graph_mvp_contract() -> None:
         and "function toggleNodeGraphModularWindowedView()" in node_graph_source
         and "function setNodeGraphModularWindowedActive" in node_graph_source
         and "appChromeBarsVisible: true," in script_sources["./public/node-graph-state.js"]
-        and ".node-wiring-panel.app-chrome-bars-hidden > .node-view-toolbar," in style_source
+        and ".node-wiring-panel.app-chrome-bars-hidden > .node-view-toolbar" in style_source
+        and ".node-wiring-panel.app-chrome-top-hidden > .node-view-toolbar > :not(.node-floating-window-surface)" in style_source
+        and "display: contents" in style_source
+        and 'id="nodeVisibilityMenu"' in app_source
+        and "node-floating-window-surface" in app_source[
+            app_source.index('id="nodeVisibilityMenu"'):
+            app_source.index('id="nodeVisibilityMenu"') + 220
+        ]
         and ".scene-context-modular-view-controls {" in style_source
         and "toggleNodeGraphAppChromeBarsVisibility" in script_sources["./public/node-graph-keyboard-shortcuts.js"]
         and 'event.key.toLowerCase() === "v"' in script_sources["./public/node-graph-keyboard-shortcuts.js"]
         and "toggleNodeGraphModularWindowedView" in node_graph_source
         and 'event.key.toLowerCase() === "b"' not in script_sources["./public/node-graph-keyboard-shortcuts.js"],
-        "Modular chrome SSOT: Visibility/V toggles top+bottom bars; 💻 computer canvas; 📱 condensed frame",
+        "Modular chrome SSOT: V hides bars only (floating windows stay); 💻 infinite; 📱 condensed",
     )
 
     require(
@@ -16778,6 +16829,14 @@ def require_node_graph_mvp_contract() -> None:
         ".metadata-popover-grid",
         ".metadata-popover-grid {\n  display: grid;",
         ".metadata-popover-grid button.armed",
+        ".metadata-popover-grid .metadata-tooltip-label",
+        ".metadata-popover-grid .metadata-tooltip-label textarea",
+        "field-sizing: content",
+        "scheduleNodeMetadataTooltipTextareaSize",
+        "textarea.style.height = \"0px\"",
+        "--metadata-label-col: 6.75em",
+        "grid-template-columns: var(--metadata-label-col, 6.75em) minmax(0, 1fr)",
+        "--metadata-row-pad-y: 0px",
         ".metadata-script-panel",
         ".metadata-script-panel {\n  display: none;",
         ".node-parameter-metadata-popover.metadata-script-open .metadata-script-panel",
@@ -17136,15 +17195,19 @@ def require_node_graph_mvp_contract() -> None:
         "right-click parameter settings must keep the shared unified seat, not move Command Center to the click",
     )
     require(
-        '"osc",' not in script_sources["./public/node-graph-module-store.js"].split("nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([")[1].split("]);")[0]
-        and 'notes: ["osc", "BasicShape"' in script_sources["./public/node-graph-module-store.js"]
-        and "Placeholder Open Sound Control" not in script_sources["./public/node-graph-module-store.js"]
+        '"osc",' in script_sources["./public/node-graph-module-store.js"].split("nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([")[1].split("]);")[0]
+        and 'label: "Open Sound Control"' in script_sources["./public/node-graph-module-store.js"]
+        and 'category: "controller"' in script_sources["./public/node-graph-module-store.js"][
+            script_sources["./public/node-graph-module-store.js"].index("  osc: {"):
+            script_sources["./public/node-graph-module-store.js"].index("  osc: {") + 400
+        ]
+        and 'notes: ["osc", "BasicShape"' not in script_sources["./public/node-graph-module-store.js"]
         and "entry.visible && entry.implemented" not in script_sources["./public/node-graph-module-store.js"][
             script_sources["./public/node-graph-module-store.js"].index("function renderNodeGraphCommandCenterModuleSearch"):
             script_sources["./public/node-graph-module-store.js"].index("function nodeGraphModuleStoreDemoPatchAvailable")
         ]
         and 'mark.className = "scene-context-store-card-category"' in script_sources["./public/node-graph-module-store.js"],
-        "search should find the osc oscillator, include under-construction modules, and show category emoji",
+        "Open Sound Control (type osc) lives under Controller / under-construction; search still lists UC modules",
     )
     require(
         ".node-wiring-panel.modular-only-view .node-graph-resize-handle {\n  display: none;" not in style_source,
@@ -17393,7 +17456,7 @@ def require_node_graph_mvp_contract() -> None:
         "const steps = Math.max(1, Math.ceil(dt / 0.0007));",
         "this.triangleStates = new Map()",
         "function nodeLiveIsPolyBlepOscillatorType(type)",
-        'return type === "osc" || type === "polyBlep" || type === "sineWavetable"',
+        'return type === "polyBlep" || type === "sineWavetable" || type === "sinCos" || type === "blit";',
         "nodeLiveSineCosWavetableSample",
         "this.sineWavetableWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate)",
         "polyBlep(phaseCycle, phaseIncrement)",
@@ -18381,8 +18444,13 @@ def require_native_module_contract(base_url: str) -> None:
         'name === "gain" || targetType === "gain"' in worklet_source
         and "this.nativeGain?.soemdsp_gain_sample" in worklet_source
         and 'name === "lookahead_limiter" || targetType === "lookaheadLimiter"' in worklet_source
-        and "this.nativeLookaheadLimiter?.soemdsp_lookahead_limiter_sample" in worklet_source,
-        "Dynamics modules should apply native WASM exports in the worklet",
+        and "this.nativeLookaheadLimiter?.soemdsp_lookahead_limiter_sample" in worklet_source
+        and "function nodeGraphPumpingLimiterFrame" in (PUBLIC / "modules" / "lookaheadLimiter" / "lookahead-limiter-math.js").read_text(encoding="utf-8")
+        and "nodeGraphLiveModuleEvaluators.limiter" in (PUBLIC / "modules" / "lookaheadLimiter" / "lookahead-limiter-live-evaluator.js").read_text(encoding="utf-8")
+        and 'limiter: "Limiter"' in (PUBLIC / "node-graph-module-definitions.js").read_text(encoding="utf-8")
+        and 'lookaheadLimiter: "Brickwall"' in (PUBLIC / "node-graph-module-definitions.js").read_text(encoding="utf-8")
+        and 'label: "Brickwall"' in (PUBLIC / "node-graph-module-store.js").read_text(encoding="utf-8"),
+        "Brickwall keeps native peak ceiling; Limiter is the musical threshold/ratio fork",
     )
     require(
         '"soemdsp_soft_clipper_sample"' in native_build_source

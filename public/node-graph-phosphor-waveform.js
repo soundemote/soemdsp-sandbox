@@ -632,15 +632,18 @@ function handleNodeGraphPhosphorWaveformPlaylistVisibleCountChange(event) {
 function buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml() {
   return `
     <div class="node-led-display-settings-panel node-phosphor-waveform-display-settings-panel" data-phosphor-waveform-display-settings-panel>
-      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-load-row" role="group" aria-label="Load sample">
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-load-row" role="group" aria-label="Folder or file path">
         <div id="nodePhosphorWaveformSampleLoaderSlot" class="node-phosphor-waveform-loader-slot"></div>
       </div>
       <label class="node-led-settings-row node-phosphor-waveform-settings-row">
         <span>Recursive search</span>
         <input id="nodePhosphorWaveformRecursiveSearch" type="checkbox">
       </label>
-      <div class="node-led-settings-row node-phosphor-waveform-settings-row" role="group" aria-label="Formats">
-        <span>Formats</span>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-playlist-actions node-phosphor-waveform-load-actions" role="group" aria-label="Load path">
+        <button id="nodePhosphorWaveformLoadPlaylist" type="button" title="List audio from a pasted folder path (or the parent folder of a pasted file). Online with an empty path: Browse.">Load Folder</button>
+        <button id="nodePhosphorWaveformLoadFile" type="button" title="Pick one audio file (native browser), or load a pasted audio file path.">Load File</button>
+      </div>
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-formats-row" role="group" aria-label="Audio formats">
         <div id="nodePhosphorWaveformFormatChecks" class="node-phosphor-waveform-format-checks"></div>
       </div>
       <label class="node-led-settings-row node-phosphor-waveform-settings-row">
@@ -648,7 +651,6 @@ function buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml() {
         <input id="nodePhosphorWaveformRemoveAfterPlay" type="checkbox" checked>
       </label>
       <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-playlist-actions" role="group" aria-label="Playlist">
-        <button id="nodePhosphorWaveformLoadPlaylist" type="button">Load</button>
         <button id="nodePhosphorWaveformShufflePlaylist" type="button" title="Shuffle the unplayed list. Playing keeps its list number.">Shuffle</button>
         <button id="nodePhosphorWaveformClearPlaylist" type="button">Clear</button>
       </div>
@@ -858,6 +860,18 @@ function bindNodeGraphPhosphorWaveformDisplaySettingsBody(host) {
         nodeGraphPhosphorWaveformCommitPlaylistOptions();
         if (typeof nodeGraphAudioPlayerLibraryLoadPlaylist === "function") {
           nodeGraphAudioPlayerLibraryLoadPlaylist(id).catch((error) => {
+            const message = String(error?.message || error || "load failed");
+            if (typeof setNodeGraphSampleStatus === "function") {
+              setNodeGraphSampleStatus(id, message);
+            }
+          });
+        }
+      } else if (button.id === "nodePhosphorWaveformLoadFile") {
+        event.preventDefault();
+        const id = nodeGraphPhosphorWaveformSettingsTargetNodeId();
+        nodeGraphPhosphorWaveformCommitPlaylistOptions();
+        if (typeof nodeGraphAudioPlayerLibraryLoadFile === "function") {
+          nodeGraphAudioPlayerLibraryLoadFile(id).catch((error) => {
             const message = String(error?.message || error || "load failed");
             if (typeof setNodeGraphSampleStatus === "function") {
               setNodeGraphSampleStatus(id, message);

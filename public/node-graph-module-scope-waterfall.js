@@ -148,8 +148,20 @@ function nodeGraphWaterfallMeasureSync(syncBuffer, state, historyCycles = 0, sam
   return { periodSamples, edge, cycles, visibleSamples: visible };
 }
 
-function nodeGraphWaterfallY(raw, gain, offset, midY, halfHeight) {
-  const v = Math.max(-1, Math.min(1, (Number.isFinite(Number(raw)) ? Number(raw) : 0) * gain + offset));
+function nodeGraphWaterfallY(raw, gain, offset, midY, halfHeight, amp = null) {
+  let bipolar;
+  if (amp && typeof amp === "object" && amp.mode === "rmsDb") {
+    const useLut = amp.useLogLut !== false;
+    const db = typeof nodeGraphRmsLinearToDb === "function"
+      ? nodeGraphRmsLinearToDb(raw, useLut)
+      : (Number(raw) > 0 ? 20 * Math.log10(Math.max(Number(raw), 1e-10)) : -120);
+    bipolar = typeof nodeGraphRmsDbToFaceBipolar === "function"
+      ? nodeGraphRmsDbToFaceBipolar(db, amp.minDb, amp.maxDb)
+      : 0;
+  } else {
+    bipolar = (Number.isFinite(Number(raw)) ? Number(raw) : 0) * (Number(gain) || 1) + (Number(offset) || 0);
+  }
+  const v = Math.max(-1, Math.min(1, bipolar));
   return midY - v * halfHeight;
 }
 
@@ -170,14 +182,21 @@ function nodeGraphWaterfallVisualHz(buffer) {
 }
 
 function nodeGraphWaterfallAmp(buffer, slot) {
-  // RMS meter face: linear amplitude 0→bottom, 1 (0 dB)→mid, 2 (+6 dB)→top.
+  // RMS meter face: dB-linear, Min dB → bottom, Max dB → top (defaults −48…0).
   const def = typeof nodeGraphModuleDefinitions === "object"
     ? nodeGraphModuleDefinitions[slot?.type]
     : null;
   if (def?.rmsDbGuides) {
-    const gain = typeof NODE_GRAPH_RMS_FACE_GAIN === "number" ? NODE_GRAPH_RMS_FACE_GAIN : 1;
-    const offset = typeof NODE_GRAPH_RMS_FACE_OFFSET === "number" ? NODE_GRAPH_RMS_FACE_OFFSET : -1;
-    return { gain, offset };
+    if (typeof nodeGraphRmsFaceRangeFromSlot === "function") {
+      return nodeGraphRmsFaceRangeFromSlot(slot);
+    }
+    return {
+      mode: "rmsDb",
+      gain: 1,
+      offset: 0,
+      minDb: typeof NODE_GRAPH_RMS_DB_DEFAULT_MIN === "number" ? NODE_GRAPH_RMS_DB_DEFAULT_MIN : -48,
+      maxDb: typeof NODE_GRAPH_RMS_DB_CEIL === "number" ? NODE_GRAPH_RMS_DB_CEIL : 0,
+    };
   }
   const view = typeof nodeGraphTraceDisplayBufferView === "function"
     ? nodeGraphTraceDisplayBufferView(buffer, slot, { forceSyncOff: true })
@@ -214,7 +233,14 @@ function nodeGraphWaterfallLatestY(buffer, slot, settings, height) {
   const live = nodeGraphWaterfallPrepare(buffer, settings);
   if (!live?.length) return Number.NaN;
   const amp = nodeGraphWaterfallAmp(live, slot);
-  return nodeGraphWaterfallY(Number(live[live.length - 1]), amp.gain, amp.offset, height * 0.5, height * 0.42);
+  return nodeGraphWaterfallY(
+    Number(live[live.length - 1]),
+    amp.gain,
+    amp.offset,
+    height * 0.5,
+    height * 0.42,
+    amp,
+  );
 }
 
 /** Min/max envelope per new pixel column. */
@@ -249,8 +275,8 @@ function nodeGraphWaterfallColumnPath(buffer, slot, columns, height, prevY, sett
     }
     if (!(minV <= maxV)) continue;
     const x = c + 0.5;
-    const yMin = nodeGraphWaterfallY(minV, amp.gain, amp.offset, midY, halfHeight);
-    const yMax = nodeGraphWaterfallY(maxV, amp.gain, amp.offset, midY, halfHeight);
+    const yMin = nodeGraphWaterfallY(minV, amp.gain, amp.offset, midY, halfHeight, amp);
+    const yMax = nodeGraphWaterfallY(maxV, amp.gain, amp.offset, midY, halfHeight, amp);
     if (minI === maxI || Math.abs(yMin - yMax) < 0.5) points.push({ x, y: yMin });
     else if (minI < maxI) { points.push({ x, y: yMin }); points.push({ x, y: yMax }); }
     else { points.push({ x, y: yMax }); points.push({ x, y: yMin }); }
@@ -582,18 +608,103 @@ function nodeGraphWaterfallColor01(color) {
   return [rgb[0] / 255, rgb[1] / 255, rgb[2] / 255];
 }
 
+/**
+ * Persistent 2D plate that scrolls with the waterfall. New columns on the
+ * right are filled with the *current* background so bg color changes travel
+ * left with the ink (old canvas drawImage hold path).
+ */
+function nodeGraphWaterfallEnsureHold(canvas, width, height, bg) {
+  if (!canvas) {
+    return null;
+  }
+  let hold = canvas._waterfallHold;
+  if (!hold) {
+    hold = document.createElement("canvas");
+    canvas._waterfallHold = hold;
+  }
+  const w = Math.max(1, Math.floor(Number(width) || 1));
+  const h = Math.max(1, Math.floor(Number(height) || 1));
+  if (hold.width === w && hold.height === h) {
+    return hold;
+  }
+  const prevW = hold.width;
+  const prevH = hold.height;
+  let prev = null;
+  if (prevW > 0 && prevH > 0) {
+    prev = document.createElement("canvas");
+    prev.width = prevW;
+    prev.height = prevH;
+    prev.getContext("2d").drawImage(hold, 0, 0);
+  }
+  hold.width = w;
+  hold.height = h;
+  const ctx = hold.getContext("2d");
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (prev) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(prev, 0, 0, w, h);
+  } else {
+    ctx.fillStyle = bg || "#000000";
+    ctx.fillRect(0, 0, w, h);
+  }
+  return hold;
+}
+
+function nodeGraphWaterfallResetHold(canvas, bg) {
+  const hold = canvas?._waterfallHold;
+  if (!hold || hold.width <= 0 || hold.height <= 0) {
+    return;
+  }
+  const ctx = hold.getContext("2d");
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = bg || "#000000";
+  ctx.fillRect(0, 0, hold.width, hold.height);
+}
+
+function nodeGraphWaterfallScrollHold(hold, scrollPx, bg) {
+  const n = Math.max(0, Math.round(Number(scrollPx) || 0));
+  if (!hold || n <= 0 || hold.width <= 0 || hold.height <= 0) {
+    return;
+  }
+  const ctx = hold.getContext("2d");
+  const w = hold.width;
+  const h = hold.height;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.imageSmoothingEnabled = false;
+  // Content moves left; print current bg into the newly revealed right edge.
+  ctx.drawImage(hold, -n, 0);
+  ctx.fillStyle = bg || "#000000";
+  ctx.fillRect(Math.max(0, w - n), 0, n, h);
+}
+
 /** Present channel tapes onto the face plate. */
-function nodeGraphWaterfallPresentTapes(destCtx, destCanvas, tapes, meta, mode, bg) {
+function nodeGraphWaterfallPresentTapes(destCtx, destCanvas, tapes, meta, mode, bg, options = {}) {
   const w = destCanvas.width;
   const h = destCanvas.height;
   const meet = (mode === "combine" || mode === "meet") && tapes.length >= 2;
+  const plateBg = mode === "multiply" ? "#ffffff" : (bg || "#000000");
+  const scrollPx = Math.max(0, Math.round(Number(options.scrollPx) || 0));
+  const resetHold = options.resetHold === true;
+  const hold = nodeGraphWaterfallEnsureHold(destCanvas, w, h, plateBg);
+  if (hold) {
+    if (resetHold) {
+      nodeGraphWaterfallResetHold(destCanvas, plateBg);
+    } else if (scrollPx > 0) {
+      nodeGraphWaterfallScrollHold(hold, scrollPx, plateBg);
+    }
+    destCtx.save();
+    destCtx.setTransform(1, 0, 0, 1, 0, 0);
+    destCtx.globalCompositeOperation = "source-over";
+    destCtx.imageSmoothingEnabled = false;
+    destCtx.drawImage(hold, 0, 0);
+    destCtx.restore();
+  }
+
   // Mono defaults to stereoBlend "combine", but Meet needs ≥2 tapes. One tape
   // must source-over present or the face stays blank.
   if (meet) {
-    destCtx.save();
-    destCtx.setTransform(1, 0, 0, 1, 0, 0);
-    destCtx.clearRect(0, 0, w, h);
-    destCtx.restore();
     if (tapes.length >= 3 && typeof TraceTape.presentMeet3 === "function") {
       TraceTape.presentMeet3(tapes[0], tapes[1], tapes[2], destCtx, {
         width: w,
@@ -615,22 +726,8 @@ function nodeGraphWaterfallPresentTapes(destCtx, destCanvas, tapes, meta, mode, 
         rightRgb: nodeGraphWaterfallColor01(meta[1]?.color),
       });
     }
-    if (typeof nodeGraphFacePlateFillUnder === "function") {
-      nodeGraphFacePlateFillUnder(destCtx, destCanvas, bg);
-    }
+    // Hold stays bg-only — ink lives on TraceTape (already scrolled).
     return;
-  }
-
-  // Multiply/CMY needs a white underlay so overlaps go black (not invisible on black plate).
-  const plateBg = mode === "multiply" ? "#ffffff" : (bg || "#000000");
-  if (typeof nodeGraphFacePlateFillCanvas === "function") {
-    nodeGraphFacePlateFillCanvas(destCtx, destCanvas, plateBg);
-  } else {
-    destCtx.save();
-    destCtx.setTransform(1, 0, 0, 1, 0, 0);
-    destCtx.fillStyle = plateBg;
-    destCtx.fillRect(0, 0, w, h);
-    destCtx.restore();
   }
 
   let composite = "source-over";
@@ -640,7 +737,8 @@ function nodeGraphWaterfallPresentTapes(destCtx, destCanvas, tapes, meta, mode, 
   }
 
   for (let i = 0; i < tapes.length; i += 1) {
-    // Multiply: every layer multiplies into the white plate. Add: first source-over then lighter.
+    // Multiply: every layer multiplies into the (scrolled) plate. Add: first
+    // source-over then lighter — plate already carries scrolled bg history.
     const layerComposite = composite === "multiply"
       ? "multiply"
       : (i === 0 ? "source-over" : composite);
@@ -651,6 +749,8 @@ function nodeGraphWaterfallPresentTapes(destCtx, destCanvas, tapes, meta, mode, 
       smooth: false,
     });
   }
+  // Do not copy dest→hold: that would bake ink into the bg plate and
+  // double-scroll it next frame. Hold is background history only.
 }
 
 /**
@@ -735,7 +835,10 @@ function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampl
     meta.push({ color: ch.color, blur: ch.blur || 0, bright: ch.bright ?? 1 });
   }
 
-  nodeGraphWaterfallPresentTapes(destCtx, destCanvas, tapes, meta, mode, bg);
+  nodeGraphWaterfallPresentTapes(destCtx, destCanvas, tapes, meta, mode, bg, {
+    scrollPx,
+    resetHold: Boolean(options?.resetPath) && scrollPx <= 0,
+  });
   return n;
 }
 
@@ -757,6 +860,7 @@ function nodeGraphWaterfallAbandonTape(canvas) {
   if (!canvas) return;
   canvas._waterfall = null;
   canvas._traceScroll = null;
+  canvas._waterfallHold = null;
   delete canvas._waterfallLastY;
   delete canvas._waterfallLastLeftY;
   delete canvas._waterfallLastRightY;
@@ -816,9 +920,14 @@ function nodeGraphWaterfallState(canvas, width, height, syncOn, nowLine, bg, con
     delete canvas._waterfallLastGY;
     delete canvas._waterfallLastBY;
     nodeGraphWaterfallClearTapes(canvas);
+    // Fresh mode → fresh scrolled bg plate (filled with current bg).
+    nodeGraphWaterfallEnsureHold(canvas, width, height, bg);
+    nodeGraphWaterfallResetHold(canvas, bg);
   } else if (resized) {
     st.lastW = width;
     st.lastH = height;
+    // Scale-preserve hold + tapes (ensure recreates with stretch blit).
+    nodeGraphWaterfallEnsureHold(canvas, width, height, bg);
   }
   return st;
 }
@@ -888,7 +997,8 @@ function nodeGraphWaterfallPaintNowLine(spec, context, canvas, settings, width, 
     tapes.push(tape);
     meta.push({ color: ch.color });
   }
-  nodeGraphWaterfallPresentTapes(context, canvas, tapes, meta, mode, bg);
+  // Now-line replaces the plate; reset scrolled bg to current color.
+  nodeGraphWaterfallPresentTapes(context, canvas, tapes, meta, mode, bg, { resetHold: true });
   return true;
 }
 

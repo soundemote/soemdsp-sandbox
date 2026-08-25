@@ -116,7 +116,7 @@ function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
   const end = forceOff || syncChannel === "off"
     ? validEnd
     : Math.min(validEnd, start + visibleSamples);
-  if (slot?.type === "lookaheadLimiter") {
+  if (slot?.type === "lookaheadLimiter" || slot?.type === "limiter") {
     return {
       end,
       gain: scale * 2,

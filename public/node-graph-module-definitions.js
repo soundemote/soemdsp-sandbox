@@ -11,7 +11,6 @@ const nodeGraphNodeLabels = Object.freeze({
   moduleGroup: "Module Group",
   nextPatch: "Next Patch",
   previousPatch: "Previous Patch",
-  osc: "BasicShape",
   polyBlep: "PolyBLEP",
   blit: "BLIT",
   archimedes: "Archimedes",
@@ -168,7 +167,7 @@ const nodeGraphNodeLabels = Object.freeze({
   formantFilter: "Formant Filter",
   binaryClock: "Binary Clock",
   theremin: "Theremin",
-  osc: "OSC",
+  osc: "Open Sound Control",
   wavetable2d: "Wavetable2D",
   wavetable3d: "Wavetable3D",
   pixelGrid: "PixelGrid",
@@ -189,7 +188,8 @@ const nodeGraphNodeLabels = Object.freeze({
   pll: "PLL",
   helmholtzPitch: "Pitch Detector",
   noiseDetector: "Noise Detector",
-  rms: "RMS",
+  rms: "RMS Mono",
+  rmsStereo: "RMS Stereo",
   lufs: "LUFS",
   speedColorInertia: "Speed Color Inertia",
   slewLimiter: "Slew",
@@ -197,7 +197,8 @@ const nodeGraphNodeLabels = Object.freeze({
   midSideEncode: "Mid/Side",
   quadrature: "Hilbert Pair",
   hilbert: "Hilbert",
-  lookaheadLimiter: "Limiter",
+  lookaheadLimiter: "Brickwall",
+  limiter: "Limiter",
   sampleHold: "Sample & Hold",
   midiOut: "Midi Out",
   midiNotePitch: "Midi Note Pitch",
@@ -613,6 +614,113 @@ function nodeGraphControllerRangeSmoothingParameters() {
   ];
 }
 
+/** Shared params for RMS Mono / RMS Stereo (definitions load before rms-math.js). */
+const nodeGraphRmsModuleParameterDefs = Object.freeze([
+  {
+    defaultValue: "0.05",
+    key: "window",
+    kind: "time",
+    label: "Window",
+    max: "5",
+    maxDigits: 5,
+    mid: "0.05",
+    min: "0.001",
+    step: "any",
+    unit: "s",
+    tooltip: "RMS averaging time. ~0.05s = snappy. ~0.3s ≈ classic VU feel. ~1–3s = slow level match.",
+  },
+  {
+    defaultValue: "0",
+    key: "attack",
+    kind: "time",
+    label: "Attack",
+    max: "1",
+    maxDigits: 5,
+    mid: "0",
+    min: "0",
+    step: "any",
+    unit: "s",
+    tooltip: "Extra delay before the meter rises. Leave at 0 for normal metering. Raise (~0.01–0.05s) only if spikes look too twitchy and you want a softer climb.",
+  },
+  {
+    defaultValue: "0.15",
+    key: "release",
+    kind: "time",
+    label: "Release",
+    max: "2",
+    maxDigits: 5,
+    mid: "0.15",
+    min: "0",
+    step: "any",
+    unit: "s",
+    tooltip: "How slowly the meter falls after loudness drops. ~0.1–0.3s feels like a needle. 0 = drop instantly (harsh). Leave ~0.15 unless the fall is too fast or too sticky.",
+  },
+  {
+    defaultValue: "0",
+    key: "peakHold",
+    kind: "time",
+    label: "Peak Hold",
+    max: "10",
+    maxDigits: 4,
+    mid: "0",
+    min: "0",
+    step: "any",
+    unit: "s",
+    tooltip: "How long digital RMS D freezes at a loud peak. Off (0): live reading. ~1–2s: glance at transient peaks. ~3–5s: catch max during a phrase. Longer: park the peak while you tweak.",
+  },
+  {
+    choices: ["Exact log", "Fast LUT"],
+    defaultValue: "1",
+    displayChoices: true,
+    divideChoicesVisibly: true,
+    hidden: true,
+    key: "logMode",
+    label: "Log",
+    linearSmoothing: false,
+    max: "1",
+    mid: "1",
+    min: "0",
+    step: "1",
+    tooltip: "Waterfall dB math only (hidden). Fast LUT is default; digital outs always use exact log.",
+  },
+  {
+    defaultValue: "-48",
+    key: "minDb",
+    label: "Min dB",
+    max: "0",
+    mid: "-24",
+    min: "-48",
+    maxDigits: 4,
+    step: "any",
+    unit: "dB",
+    tooltip: "Bottom of the waterfall zoom (quiet end). Floor is −48 dB.",
+  },
+  {
+    defaultValue: "0",
+    key: "maxDb",
+    label: "Max dB",
+    max: "0",
+    mid: "-24",
+    min: "-48",
+    maxDigits: 4,
+    step: "any",
+    unit: "dB",
+    tooltip: "Top of the waterfall zoom. Range −48…0 dB FS (0 = full scale / clip).",
+  },
+  {
+    defaultValue: "-12",
+    key: "thresholdDb",
+    label: "Threshold",
+    max: "0",
+    mid: "-12",
+    min: "-48",
+    maxDigits: 4,
+    step: "any",
+    unit: "dB",
+    tooltip: "Gate goes high when measured RMS (absolute dBFS) crosses this level.",
+  },
+]);
+
 const nodeGraphModuleDefinitions = (
   typeof finalizeNodeGraphModuleDefinitionsChrome === "function"
     ? finalizeNodeGraphModuleDefinitionsChrome
@@ -779,80 +887,6 @@ const nodeGraphModuleDefinitions = (
     inputs: [],
     outputs: [],
     parameters: []
-  },
-  osc: {
-    planRole: "source",
-    displayType: "lineBurn",
-    displayModes: [
-      { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave Out" } },
-    ],
-    displaySignals: [
-      { key: "Wave Out", kind: "scalar" },
-    ],
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
-    inputLabels: {"0.1V/Oct": "0.1V",
-      Increment: "Inc.",
-      f: "ƒ"},
-    outputAliases: {
-      Out: "Wave Out",
-      Noise: "Wave Out"
-    },
-    outputLabels: {
-      "Wave Out": "Wave"
-    },
-    outputs: ["Saw", "Ramp", "Square", "Tri", "Sine", "Wave Out"],
-    parameters: [
-      {
-        choices: ["Saw", "Ramp", "Square", "Triangle", "Sine", "Noise"],
-        defaultValue: "0",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "waveform",
-        kind: "waveform",
-        label: "Waveform",
-        linearSmoothing: false,
-        max: "5",
-        mid: "2",
-        min: "0",
-        step: "1"
-      },
-      {
-        defaultValue: "100",
-        key: "frequency",
-        kind: "frequency",
-        label: "Frequency",
-        max: "20000",
-        mid: "440",
-        min: "0",
-        step: "any",
-        unit: "Hz",
-        tooltip:
-          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD). Domain min/max are slider guides."
-      },
-      {
-        defaultValue: "0",
-        key: "phase",
-        kind: "phase",
-        label: "Phase",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        step: "0.01",
-        unit: "cycle",
-        wraparound: true
-      },
-      {
-        defaultValue: "1",
-        key: "amplitude",
-        label: "Amplitude",
-        max: "1",
-        mid: "1",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        modClamp: false
-      },
-    ]
   },
   // Reference oscillator for port layout:
   //   inputs[]     = left jacks only (Reset / 0.1V / Increment)
@@ -6938,6 +6972,7 @@ const nodeGraphModuleDefinitions = (
     ]
   },
   // Under construction: Open Sound Control bridge (Controller shelf).
+  // Type id stays `osc` (Open Sound Control) — not an audio oscillator.
   osc: {
     planRole: "source",
     planFreeRun: true,
@@ -8978,9 +9013,9 @@ const nodeGraphModuleDefinitions = (
     ],
     inputs: ["In"],
     // Like badvalMonitor: an analysis/monitor tool should keep running and
-    // updating its outputs as soon as something is wired into "In", even if
-    // nothing downstream routes to Output -- that's the whole point of a
-    // meter you read directly off the node.
+    // updating its outputs as soon as any declared signal input is wired,
+    // even if nothing downstream routes to Output -- that's the whole point
+    // of a meter you read directly off the node.
     monitorSink: true,
     outputs: ["Frequency", "Fidelity", "Gate", "Detune"],
     parameters: [
@@ -9042,8 +9077,7 @@ const nodeGraphModuleDefinitions = (
       },
     ],
   },
-  // Sliding RMS meter. Analog outs = linear amplitude (0=−inf, 1=0 dB, >1 for +dB).
-  // Digital RMS = same as RMS Mono. Gate from threshold dB vs mono.
+  // RMS Mono — Window/Attack/Release meter. Face = waterfall of RMS A.
   rms: {
     planRole: "processor",
     planFreeRun: true,
@@ -9051,77 +9085,116 @@ const nodeGraphModuleDefinitions = (
     displayType: "trace",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      {
+        key: "trace",
+        label: "Waterfall",
+        renderer: "trace",
+        settingsSchema: "trace",
+        source: { value: "RMS A" },
+      },
     ],
     defaultDisplayMode: "trace",
-    // X=RMS Left (red), Y=RMS Right (blue), Z=RMS Mono (green).
-    xyzTracePorts: { X: "RMS Left", Y: "RMS Right", Z: "RMS Mono" },
+    displaySignals: [
+      { key: "RMS A", kind: "scalar" },
+      { key: "RMS D", kind: "scalar" },
+      { key: "Gate", kind: "scalar" },
+    ],
     rmsDbGuides: true,
-    digitalOutputs: ["Gate", "RMS", "RMS Left D", "RMS Right D", "RMS Mono D"],
-    inputAliases: { In: "Mono", L: "Left", R: "Right", M: "Mono" },
-    inputLabels: { Left: "Left", Mono: "Mono", Right: "Right" },
-    inputs: ["Mono", "Left", "Right"],
+    digitalOutputs: ["RMS D", "Gate"],
+    inputAliases: { Mono: "In", L: "In", R: "In", M: "In", Left: "In", Right: "In" },
+    inputLabels: { In: "In" },
+    inputTooltips: {
+      In: "Audio to measure. Mono input for the RMS meter and waterfall.",
+    },
+    inputs: ["In"],
     outputAliases: {
-      Out: "RMS Mono",
-      Mono: "RMS Mono",
-      Left: "RMS Left",
-      Right: "RMS Right",
-      L: "RMS Left",
-      R: "RMS Right",
-      M: "RMS Mono",
+      Out: "RMS A",
+      Mono: "RMS A",
+      A: "RMS A",
+      Ana: "RMS A",
+      D: "RMS D",
+      Dig: "RMS D",
+      rms: "RMS A",
       g: "Gate",
-      rms: "RMS",
-      "RMS L D": "RMS Left D",
-      "RMS R D": "RMS Right D",
-      "RMS M D": "RMS Mono D",
     },
     outputLabels: {
-      "RMS Left": "RMS L",
-      "RMS Right": "RMS R",
-      "RMS Mono": "RMS M",
-      "RMS Left D": "RMS L D",
-      "RMS Right D": "RMS R D",
-      "RMS Mono D": "RMS M D",
+      "RMS A": "RMS A",
+      "RMS D": "RMS D",
       Gate: "Gate",
-      RMS: "RMS",
     },
-    outputs: [
-      "RMS Mono",
-      "RMS Left",
-      "RMS Right",
-      "Gate",
-      "RMS",
-      "RMS Left D",
-      "RMS Right D",
-      "RMS Mono D",
-    ],
-    parameters: [
+    outputTooltips: {
+      "RMS A": "Analog RMS amplitude (gold). 0 = silence, 1 = 0 dB FS, >1 = above full scale.",
+      "RMS D": "Digital RMS level in absolute dBFS (white). Use for readouts / automation.",
+      Gate: "1 while measured RMS (absolute dBFS) is at or above Threshold.",
+    },
+    outputs: ["RMS A", "RMS D", "Gate"],
+    parameters: nodeGraphRmsModuleParameterDefs,
+  },
+  // RMS Stereo — Left/Right in, music RMS = (L+R)/2 (or the lone side). Face = RMS A.
+  // Per-channel outs still computed in DSP; listed in hiddenOutputs until port show/hide ships.
+  rmsStereo: {
+    planRole: "processor",
+    planFreeRun: true,
+    monitorSink: true,
+    displayType: "trace",
+    spectrumCompanion: false,
+    displayModes: [
       {
-        defaultValue: "0.05",
-        key: "window",
-        kind: "time",
-        label: "Time Window",
-        max: "2",
-        maxDigits: 5,
-        mid: "0.05",
-        min: "0.001",
-        step: "any",
-        unit: "s",
-        tooltip: "RMS integration time. Shorter = faster meter; longer = smoother.",
-      },
-      {
-        defaultValue: "-12",
-        key: "thresholdDb",
-        label: "Threshold",
-        max: "6",
-        mid: "-12",
-        min: "-60",
-        maxDigits: 4,
-        step: "any",
-        unit: "dB",
-        tooltip: "Gate goes high when Mono RMS (dB FS) is at or above this threshold.",
+        key: "trace",
+        label: "Waterfall",
+        renderer: "trace",
+        settingsSchema: "trace",
+        source: { value: "RMS A" },
       },
     ],
+    defaultDisplayMode: "trace",
+    displaySignals: [
+      { key: "RMS A", kind: "scalar" },
+      { key: "RMS D", kind: "scalar" },
+      { key: "Gate", kind: "scalar" },
+    ],
+    rmsDbGuides: true,
+    digitalOutputs: ["RMS D", "Gate"],
+    inputAliases: { In: "Left", L: "Left", R: "Right", Mono: "Left" },
+    inputLabels: { Left: "Left", Right: "Right" },
+    inputTooltips: {
+      Left: "Left channel audio (red). With Right, meter uses (L+R)/2. Alone = that side only.",
+      Right: "Right channel audio (blue). With Left, meter uses (L+R)/2. Alone = that side only.",
+    },
+    inputs: ["Left", "Right"],
+    outputAliases: {
+      Out: "RMS A",
+      Mono: "RMS A",
+      Avg: "RMS A",
+      "Avg A": "RMS A",
+      "RMS Avg A": "RMS A",
+      "Avg D": "RMS D",
+      "RMS Avg D": "RMS D",
+      A: "RMS A",
+      D: "RMS D",
+      g: "Gate",
+    },
+    outputLabels: {
+      "RMS A": "RMS A",
+      "RMS D": "RMS D",
+      Gate: "Gate",
+    },
+    outputTooltips: {
+      "RMS A": "Analog stereo music RMS amplitude (gold) — (L+R)/2 when both sides are wired. Drives the waterfall.",
+      "RMS D": "Digital stereo music RMS in absolute dBFS (white).",
+      Gate: "1 while measured music RMS (absolute dBFS) is at or above Threshold.",
+    },
+    outputs: ["RMS A", "RMS D", "Gate"],
+    // Parked jacks (engine still writes these keys). Future: per-port show/hide.
+    hiddenOutputs: [
+      "RMS A Left",
+      "RMS A Right",
+      "RMS D Left",
+      "RMS D Right",
+      "Gate Left",
+      "Gate Right",
+    ],
+    parameters: nodeGraphRmsModuleParameterDefs,
   },
   // Under construction — Multimeter loudness meter placeholder.
   lufs: {
@@ -9322,7 +9395,8 @@ const nodeGraphModuleDefinitions = (
       nodeGraphOutputAmplitudeParam,
     ]
   },
-  // Brickwall limiter. Look-ahead is optional (explicit delay, no host PDC).
+  // Protective brickwall. Look-ahead is optional (explicit delay, no host PDC).
+  // Musical squash / pump → type `limiter`.
   lookaheadLimiter: {
     planRole: "processor",
     displayHeightGu: 3,
@@ -9370,7 +9444,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "dB",
-        tooltip: "Brickwall ceiling in dBFS. Peaks are held to this level."
+        tooltip: "Hard brickwall ceiling in dBFS. Protective peak hold — not musical squash."
       },
       {
         choices: ["Off", "On"],
@@ -9453,6 +9527,151 @@ const nodeGraphModuleDefinitions = (
         unit: "x",
         tooltip:
           "Over-reduction after the exact brickwall cut. 1× = just enough for the Ceiling. 2× = twice the dB of dip. Slider min/max are yours in Parameter Settings — DSP does not clamp this. Hidden by default.",
+      },
+    ]
+  },
+  // Musical limiter — input gain / threshold / ratio GR, sidechain detect, Env out.
+  // Same look-ahead delay skeleton as Brickwall; no hard ceiling / no autogain.
+  limiter: {
+    planRole: "processor",
+    displayHeightGu: 3,
+    displayType: "trace",
+    defaultDisplayMode: "gain",
+    displayModes: [
+      {
+        key: "gain",
+        label: "Gain",
+        renderer: "trace",
+        settingsSchema: "trace",
+        source: { value: "Gain" },
+      },
+    ],
+    inputAliases: { Mono: "In", SC: "Sidechain", Key: "Sidechain" },
+    inputLabels: { In: "Mono", Sidechain: "SC" },
+    inputTooltips: {
+      Sidechain: "Optional detect key. When wired, GR follows Sidechain instead of the audio path.",
+    },
+    inputs: ["In", "Left", "Right", "Sidechain"],
+    outputAliases: { Mono: "Out", Envelope: "Env" },
+    outputLabels: { Out: "Mono", Env: "Env" },
+    outputTooltips: {
+      Env: "Detector envelope 0…1 (smoothed level used for gain reduction).",
+      Gain: "Instant gain reduction multiplier (1 = no GR).",
+    },
+    outputs: ["Out", "Left", "Right", "Gain", "Env"],
+    parameters: [
+      {
+        defaultValue: "0",
+        key: "inputGain",
+        label: "Input Gain",
+        max: "24",
+        mid: "0",
+        min: "-24",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "dB",
+        tooltip: "Drive into the limiter before detect/GR. Raise to hit Threshold harder (more pump).",
+      },
+      {
+        defaultValue: "-18",
+        key: "threshold",
+        label: "Threshold",
+        max: "0",
+        mid: "-18",
+        min: "-48",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "dB",
+        tooltip: "Level where gain reduction starts. Lower = more compression/pump on typical program.",
+      },
+      {
+        defaultValue: "8",
+        key: "ratio",
+        label: "Ratio",
+        max: "20",
+        mid: "8",
+        min: "1",
+        nonlinearSlider: false,
+        step: "any",
+        unit: ":1",
+        tooltip: "How hard GR climbs above Threshold. ~4–8 = firm. ~12–20 = heavy pump.",
+      },
+      {
+        choices: ["Off", "On"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "lookaheadEnabled",
+        label: "Look-ahead",
+        linearSmoothing: false,
+        max: "1",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "On = delay audio so GR can fall before hits (helps pump without zero-attack chatter).",
+      },
+      {
+        defaultValue: "5",
+        key: "lookaheadMs",
+        kind: "time",
+        label: "LA Time",
+        max: "50",
+        maxDigits: 5,
+        mid: "5",
+        min: "0",
+        step: "any",
+        unit: "ms",
+        tooltip: "Look-ahead delay in ms when Look-ahead is On. Part of the sound (not host-compensated).",
+      },
+      {
+        defaultValue: "0",
+        hidden: true,
+        key: "lookaheadSamples",
+        label: "LA Samples",
+        max: "16384",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Extra look-ahead in samples (added to LA Time). Hidden by default.",
+      },
+      {
+        defaultValue: "5",
+        key: "attack",
+        kind: "time",
+        label: "Attack",
+        max: "100",
+        maxDigits: 5,
+        mid: "5",
+        min: "0",
+        step: "any",
+        unit: "ms",
+        tooltip: "How fast GR engages on a hit. A few ms keeps punch while still pumping.",
+      },
+      {
+        defaultValue: "250",
+        key: "release",
+        kind: "time",
+        label: "Release",
+        max: "2000",
+        maxDigits: 5,
+        mid: "250",
+        min: "20",
+        step: "any",
+        unit: "ms",
+        tooltip: "How fast gain recovers after a hit — the main pump/breathe timing. Longer = slower swell back.",
+      },
+      {
+        defaultValue: "1",
+        key: "amplitude",
+        label: "Amplitude",
+        max: "1",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Final output trim after GR. 0…1. Lower if the bus is too hot; no autogain.",
       },
     ]
   },
@@ -9644,8 +9863,8 @@ const nodeGraphModuleDefinitions = (
   audioPlayer: {
     planRole: "source",
     layout: "phosphorWaveform",
-    defaultWidthGu: 11,
-    defaultHeightGu: 22,
+    defaultWidthGu: 13,
+    defaultHeightGu: 21,
     displayType: "customDisplay",
     displayModes: [
       {
@@ -11643,7 +11862,8 @@ function nodeGraphModuleIsGraphType(type) {
 }
 
 function nodeGraphModuleIsRealtimeOscillatorType(type) {
-  return type === "osc" || type === "polyBlep" || type === "sineWavetable" || type === "sinCos" || type === "blit";
+  // `osc` is Open Sound Control (controller), not a wave oscillator.
+  return type === "polyBlep" || type === "sineWavetable" || type === "sinCos" || type === "blit";
 }
 
 /**

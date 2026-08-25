@@ -819,8 +819,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           hasClockInput: hasInput(nodeId, "Clock"),
         });
       },
-      osc: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
-        this.polyBlepOscillatorWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
+      // `osc` Open Sound Control stub lives in processors (silent UC), not here.
       polyBlep: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
         this.polyBlepOscillatorWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
       blit: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>

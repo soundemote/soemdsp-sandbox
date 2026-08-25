@@ -825,14 +825,22 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         this.rmsStates.set(nodeId, state);
         return this.rmsSample(
           state,
+          mixInput(nodeId, "In"),
+          this.rmsReadOptions(node, frame, frames, frameValues),
+          safeRate,
+          hasInput(nodeId, "In"),
+        );
+      },
+      rmsStereo: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        const state = this.rmsStates.get(nodeId) || this.createRmsState();
+        this.rmsStates.set(nodeId, state);
+        return this.rmsStereoSample(
+          state,
           mixInput(nodeId, "Left"),
-          mixInput(nodeId, "Mono"),
           mixInput(nodeId, "Right"),
-          this.readEffectiveParameter(node, "window", 0.05, frame, frames, frameValues),
-          this.readEffectiveParameter(node, "thresholdDb", -12, frame, frames, frameValues),
+          this.rmsReadOptions(node, frame, frames, frameValues),
           safeRate,
           hasInput(nodeId, "Left"),
-          hasInput(nodeId, "Mono"),
           hasInput(nodeId, "Right"),
         );
       },
@@ -894,7 +902,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const shift = this.readEffectiveParameter(node, "shift", 0, frame, frames, frameValues);
         return this.hilbertFrame(state, mixInput(nodeId), shift);
       },
-      // Look-ahead brickwall limiter (delay = LA, no host PDC). Math: lookahead-limiter-math.js.
+      // Look-ahead Brickwall (protective). Math: lookahead-limiter-math.js.
       lookaheadLimiter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         if (!this.lookaheadLimiterStates) {
           this.lookaheadLimiterStates = new Map();
@@ -915,6 +923,33 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.readEffectiveParameter(node, "lookaheadEnabled", 1, frame, frames, frameValues),
           this.readEffectiveParameter(node, "gainCompensation", 0, frame, frames, frameValues),
           this.readEffectiveParameter(node, "dipGain", 1, frame, frames, frameValues),
+        );
+      },
+      // Musical Limiter (input gain / threshold / ratio, sidechain, Env). Same math file.
+      limiter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        if (!this.pumpingLimiterStates) {
+          this.pumpingLimiterStates = new Map();
+        }
+        const state = this.pumpingLimiterStates.get(nodeId) || this.createPumpingLimiterState();
+        this.pumpingLimiterStates.set(nodeId, state);
+        const mono = mixInput(nodeId);
+        const scWired = typeof hasInput === "function" ? hasInput(nodeId, "Sidechain") : false;
+        return this.pumpingLimiterFrame(
+          state,
+          mixInput(nodeId, "Left") + mono,
+          mixInput(nodeId, "Right") + mono,
+          scWired ? mixInput(nodeId, "Sidechain") : 0,
+          scWired,
+          this.readEffectiveParameter(node, "inputGain", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "threshold", -18, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "ratio", 8, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "lookaheadMs", 5, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "lookaheadSamples", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "attack", 5, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "release", 250, frame, frames, frameValues),
+          safeRate,
+          this.readEffectiveParameter(node, "lookaheadEnabled", 1, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues),
         );
       },
       inertialFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {

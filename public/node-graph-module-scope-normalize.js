@@ -1712,7 +1712,7 @@ function nodeGraphTraceDisplaySettingsForNode(node) {
   }
   // Instant Trace: seed from the global bucket until this module is edited.
   if (settingsSchema === "trace" || settingsSchema === "traceRgb") {
-    const local = node.type === "lookaheadLimiter"
+    const local = (node.type === "lookaheadLimiter" || node.type === "limiter")
       ? nodeGraphMigrateLimiterGainFaceToTraceSettings(node.traceDisplaySettings)
       : node.traceDisplaySettings;
     const hasLocal = Boolean(local && typeof local === "object" && Object.keys(local).length);

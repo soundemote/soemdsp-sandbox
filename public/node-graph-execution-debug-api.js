@@ -64,6 +64,8 @@ function nodeGraphRuntimeBoundaryDebug(plan) {
 function nodeGraphSoemdspObjectConcept(type) {
   switch (type) {
     case "osc":
+      return "caller-owned Open Sound Control bridge (under construction)";
+    case "polyBlep":
       return "caller-owned oscillator DSP object";
     case "spiral":
       return "caller-owned JerobeamSpiral DSP object";

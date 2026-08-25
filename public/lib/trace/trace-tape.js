@@ -465,25 +465,38 @@
     if (tape?.alive && tape.gl === dev.gl && tape.width === w && tape.height === h) {
       return tape;
     }
-    if (tape?.alive) {
-      destroySurface(dev.gl, tape.read);
-      destroySurface(dev.gl, tape.write);
-    }
+    const previous = (tape?.alive && tape.gl === dev.gl) ? tape : null;
     const read = createSurface(dev.gl, w, h);
     const write = createSurface(dev.gl, w, h);
     if (!read || !write) {
       destroySurface(dev.gl, read);
       destroySurface(dev.gl, write);
-      return null;
+      return previous || null;
     }
     const gl = dev.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, read.framebuffer);
     gl.viewport(0, 0, w, h);
+    gl.disable(gl.BLEND);
+    if (previous?.read?.texture) {
+      // Stretch prior ink into the new size — resize must not wipe history.
+      gl.useProgram(dev.present.program);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, previous.read.texture);
+      gl.uniform1i(dev.present.uTexture, 0);
+      drawQuad(dev, dev.present);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    } else {
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, write.framebuffer);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, write.framebuffer);
-    gl.clear(gl.COLOR_BUFFER_BIT);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (previous) {
+      destroySurface(dev.gl, previous.read);
+      destroySurface(dev.gl, previous.write);
+    }
     tape = {
       alive: true,
       gl,
@@ -492,8 +505,8 @@
       height: h,
       read,
       write,
-      stampCarry: 0,
-      stampContinue: false,
+      stampCarry: previous?.stampCarry || 0,
+      stampContinue: Boolean(previous?.stampContinue),
     };
     host[key] = tape;
     return tape;

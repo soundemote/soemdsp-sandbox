@@ -349,58 +349,60 @@
             <span data-build-token-value>{{BUILD_TOKEN}}</span>
           </span>
         </div>
-        <div
-          id="nodeVisibilityMenu"
-          class="node-visibility-menu node-unified-window"
-          role="menu"
-          aria-label="Workspace visibility"
-          hidden>
-          <div class="scene-context-heading">
-            <button
-              id="nodeVisibilityMenuDragHandle"
-              class="scene-context-drag-handle node-drag-handle"
-              type="button"
-              aria-label="Move visibility menu">&#x2725;</button>
-            <div class="scene-context-title">
-              <span>Visibility</span>
-            </div>
-            <button id="nodeVisibilityMenuClose" class="panel-close-button" type="button" aria-label="Close visibility menu">
-              <span class="panel-close-glyph" aria-hidden="true"></span>
-            </button>
-          </div>
-          <div id="nodeVisibilityUnifiedNavHost" class="node-unified-window-nav-host" aria-label="Floating window pages"></div>
-          <div class="node-visibility-menu-list">
-            <button id="nodeTooltipToggleButton" type="button" role="menuitem" aria-pressed="true" data-tooltip-mode="embedded">
-              <span class="node-tooltip-mode-label">📌 Tooltips docked</span>
-              <kbd>T</kbd>
-            </button>
-            <button id="nodeAppChromeBarsToggleButton" type="button" role="menuitem" aria-pressed="true">
-              <span>🪟 App Bars</span>
-              <kbd>V</kbd>
-            </button>
-            <button id="nodeGridToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Grid</button>
-            <button id="nodeGridLightToggleButton" type="button" role="menuitem" aria-pressed="true">💡 Grid Light</button>
-            <button id="nodeWireLengthsToggleButton" type="button" role="menuitem" aria-pressed="true">🧬 Wire Lengths</button>
-            <button id="nodeWiresAboveModulesToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Wires Above Modules</button>
-            <button id="nodeModuleButtonsToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Module Buttons</button>
-            <button id="nodeOscilloscopeToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Displays</button>
-            <button id="nodeModuleInterfaceControlsToggleButton" type="button" role="menuitem" aria-pressed="true">🔢 Control Surfaces</button>
-            <button id="nodeModuleSlidersToggleButton" type="button" role="menuitem" aria-pressed="true">📊 Sliders</button>
-            <button id="nodeSliderAmountToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Amount Slider</button>
-            <button id="nodeSliderPositionToggleButton" type="button" role="menuitem" aria-pressed="true">⬜ Position Slider</button>
-            <button id="nodeKeyboardDebugToggleButton" type="button" role="menuitem" aria-pressed="false"><span>⬛ Debug</span></button>
-          </div>
+      </div>
+
+      <!-- Floating windows live outside the hideable toolbar (V / phone chrome). -->
+      <div
+        id="nodeVisibilityMenu"
+        class="node-visibility-menu node-unified-window node-floating-window-surface"
+        role="menu"
+        aria-label="Workspace visibility"
+        hidden>
+        <div class="scene-context-heading">
           <button
-            id="nodeVisibilityMenuResizeHandle"
-            class="scene-context-resize-handle"
+            id="nodeVisibilityMenuDragHandle"
+            class="scene-context-drag-handle node-drag-handle"
             type="button"
-            aria-label="Resize visibility menu"></button>
+            aria-label="Move visibility menu">&#x2725;</button>
+          <div class="scene-context-title">
+            <span>Visibility</span>
+          </div>
+          <button id="nodeVisibilityMenuClose" class="panel-close-button" type="button" aria-label="Close visibility menu">
+            <span class="panel-close-glyph" aria-hidden="true"></span>
+          </button>
         </div>
+        <div id="nodeVisibilityUnifiedNavHost" class="node-unified-window-nav-host" aria-label="Floating window pages"></div>
+        <div class="node-visibility-menu-list">
+          <button id="nodeTooltipToggleButton" type="button" role="menuitem" aria-pressed="true" data-tooltip-mode="embedded">
+            <span class="node-tooltip-mode-label">📌 Tooltips docked</span>
+            <kbd>T</kbd>
+          </button>
+          <button id="nodeAppChromeBarsToggleButton" type="button" role="menuitem" aria-pressed="true">
+            <span>🪟 App Bars</span>
+            <kbd>V</kbd>
+          </button>
+          <button id="nodeGridToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Grid</button>
+          <button id="nodeGridLightToggleButton" type="button" role="menuitem" aria-pressed="true">💡 Grid Light</button>
+          <button id="nodeWireLengthsToggleButton" type="button" role="menuitem" aria-pressed="true">🧬 Wire Lengths</button>
+          <button id="nodeWiresAboveModulesToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Wires Above Modules</button>
+          <button id="nodeModuleButtonsToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Module Buttons</button>
+          <button id="nodeOscilloscopeToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Displays</button>
+          <button id="nodeModuleInterfaceControlsToggleButton" type="button" role="menuitem" aria-pressed="true">🔢 Control Surfaces</button>
+          <button id="nodeModuleSlidersToggleButton" type="button" role="menuitem" aria-pressed="true">📊 Sliders</button>
+          <button id="nodeSliderAmountToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Amount Slider</button>
+          <button id="nodeSliderPositionToggleButton" type="button" role="menuitem" aria-pressed="true">⬜ Position Slider</button>
+          <button id="nodeKeyboardDebugToggleButton" type="button" role="menuitem" aria-pressed="false"><span>⬛ Debug</span></button>
+        </div>
+        <button
+          id="nodeVisibilityMenuResizeHandle"
+          class="scene-context-resize-handle"
+          type="button"
+          aria-label="Resize visibility menu"></button>
       </div>
 
       <div
         id="nodeHotkeysPage"
-        class="node-hotkeys-page node-unified-window"
+        class="node-hotkeys-page node-unified-window node-floating-window-surface"
         role="dialog"
         aria-label="Hotkeys"
         hidden>
@@ -445,7 +447,7 @@
 
       <div
         id="nodeEmojiPage"
-        class="node-emoji-page node-unified-window"
+        class="node-emoji-page node-unified-window node-floating-window-surface"
         role="dialog"
         aria-label="Emojis"
         hidden>
@@ -3048,8 +3050,9 @@
             <span>TOOLTIP</span>
             <textarea
               id="metadataTooltipValue"
-              rows="4"
+              rows="3"
               spellcheck="false"
+              maxlength="2000"
               placeholder="Shown in docked tips when this parameter is hovered."></textarea>
           </label>
           <button
@@ -3962,8 +3965,8 @@
   <script src="./public/modules/keypad/keypad-live-evaluator.js?v=keypad-latch-1"></script>
   <script src="./public/modules/noiseDetector/noise-detector-math.js?v=noise-detector-1"></script>
   <script src="./public/modules/noiseDetector/noise-detector-live-evaluator.js?v=noise-detector-1"></script>
-  <script src="./public/modules/rms/rms-math.js?v=rms-5"></script>
-  <script src="./public/modules/rms/rms-live-evaluator.js?v=rms-5"></script>
+  <script src="./public/modules/rms/rms-math.js?v=rms-9"></script>
+  <script src="./public/modules/rms/rms-live-evaluator.js?v=rms-9"></script>
   <script src="./public/modules/slewLimiter/slew-limiter-math.js?v=slew-shape-1"></script>
   <script src="./public/modules/slewLimiter/slew-limiter-live-evaluator.js?v=slew-bias-1"></script>
   <script src="./public/modules/midSideEncode/mid-side-encode-math.js?v=dip-ms-db-1"></script>

@@ -16,6 +16,8 @@ registerNodeGraphChromelessModule("numberReadout", {
       In: "In",
     },
     inputs: ["In"],
+    // Digital inlet — white jack / white cable (numeric readout).
+    digitalInputs: ["In"],
     // Dry passthrough so the face can sit in-line (In → face + Thru).
     outputs: ["Thru"],
     outputLabels: { Thru: "←" },

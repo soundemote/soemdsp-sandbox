@@ -93,3 +93,57 @@ NodeLiveAudioProcessor.prototype.lookaheadLimiterFrame = function lookaheadLimit
   const r = this.safeFilterNumber(right, state) ?? 0;
   return { Out: 0.5 * (l + r), Left: l, Right: r, Gain: 1 };
 };
+
+NodeLiveAudioProcessor.prototype.createPumpingLimiterState = function createPumpingLimiterState() {
+  return typeof createNodeGraphPumpingLimiterState === "function"
+    ? createNodeGraphPumpingLimiterState()
+    : null;
+};
+
+NodeLiveAudioProcessor.prototype.pumpingLimiterFrame = function pumpingLimiterFrame(
+  state,
+  left,
+  right,
+  sidechain,
+  hasSidechain,
+  inputGainDb,
+  thresholdDb,
+  ratio,
+  lookaheadMs,
+  lookaheadSamples,
+  attackMs,
+  releaseMs,
+  sampleRate,
+  lookaheadEnabled,
+  amplitude,
+) {
+  if (typeof nodeGraphPumpingLimiterFrame === "function") {
+    const out = nodeGraphPumpingLimiterFrame(
+      state,
+      left,
+      right,
+      sidechain,
+      hasSidechain,
+      inputGainDb,
+      thresholdDb,
+      ratio,
+      lookaheadMs,
+      lookaheadSamples,
+      attackMs,
+      releaseMs,
+      sampleRate,
+      lookaheadEnabled,
+      amplitude,
+    );
+    return {
+      Out: this.safeFilterNumber(out.Out, state) ?? 0,
+      Left: this.safeFilterNumber(out.Left, state) ?? 0,
+      Right: this.safeFilterNumber(out.Right, state) ?? 0,
+      Gain: this.safeFilterNumber(out.Gain, state) ?? 1,
+      Env: this.safeFilterNumber(out.Env, state) ?? 0,
+    };
+  }
+  const l = this.safeFilterNumber(left, state) ?? 0;
+  const r = this.safeFilterNumber(right, state) ?? 0;
+  return { Out: 0.5 * (l + r), Left: l, Right: r, Gain: 1, Env: 0 };
+};

@@ -20,6 +20,8 @@ registerNodeGraphChromelessModule("led", {
     ],
     displayHeightGu: 2,
     inputs: ["In"],
+    // Digital inlet — white jack / white cable (readout/light energy, not audio CV).
+    digitalInputs: ["In"],
     outputs: ["Out"],
     parameters: [],
     visualInputs: [

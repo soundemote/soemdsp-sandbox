@@ -1503,7 +1503,7 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
-      if (name === "basic_oscillator" || targetType === "osc") {
+      if (name === "basic_oscillator" || targetType === "polyBlep" || targetType === "blit") {
         for (const handle of this.basicOscillatorNativeHandles.values()) {
           if (this.nativeBasicOscillator?.soemdsp_basic_oscillator_destroy) {
             this.nativeBasicOscillator.soemdsp_basic_oscillator_destroy(handle);

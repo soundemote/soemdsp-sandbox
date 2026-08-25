@@ -331,13 +331,15 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       const buf = nodeGraphModuleScopeState.buffers.get(key);
       return buf && buf.length > 0 ? buf : null;
     };
-    // Prefer def ports (e.g. RMS uses Left/Right/Mono, not X/Y/Z).
+    // Prefer def xyz ports when present; mono meters (e.g. RMS A) use nodeId.
     return pick(`${nodeId}:${ports?.X}`)
       || pick(`${nodeId}:${ports?.Y}`)
       || pick(`${nodeId}:${ports?.Z}`)
       || pick(`${nodeId}:X`)
       || pick(`${nodeId}:Y`)
       || pick(`${nodeId}:Z`)
+      || pick(`${nodeId}:RMS A`)
+      || pick(`${nodeId}:RMS Avg A`)
       || pick(nodeId);
   }
   if (typeof nodeGraphModuleUsesRgbTraceDisplay === "function"

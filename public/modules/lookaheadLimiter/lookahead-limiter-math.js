@@ -140,3 +140,121 @@ function nodeGraphLookaheadLimiterFrame(
     Gain: g,
   };
 }
+
+/**
+ * Musical Limiter — look-ahead delay + threshold/ratio GR.
+ * Detect from Sidechain when wired, else from the input-gained audio.
+ * Env out = detector envelope 0…1. Amplitude is a final output trim (no autogain).
+ */
+function createNodeGraphPumpingLimiterState() {
+  const state = createNodeGraphLookaheadLimiterState();
+  state.meanSquare = 0;
+  return state;
+}
+
+function nodeGraphPumpingLimiterFrame(
+  state,
+  left,
+  right,
+  sidechain,
+  hasSidechain,
+  inputGainDb,
+  thresholdDb,
+  ratio,
+  lookaheadMs,
+  lookaheadSamples,
+  attackMs,
+  releaseMs,
+  sampleRate,
+  lookaheadEnabled,
+  amplitude,
+) {
+  if (!state || !state.delayL) {
+    const x = Number(left) || 0;
+    const y = Number(right) || 0;
+    return { Out: 0.5 * (x + y), Left: x, Right: y, Gain: 1, Env: 0 };
+  }
+
+  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const inGain = nodeGraphLookaheadLimiterDbToGain(
+    Number.isFinite(Number(inputGainDb)) ? Number(inputGainDb) : 0,
+  );
+  const lIn = (Number(left) || 0) * inGain;
+  const rIn = (Number(right) || 0) * inGain;
+
+  const laOn = lookaheadEnabled == null ? true : Number(lookaheadEnabled) > 0.5;
+  const laFromMs = laOn ? Math.max(0, Number(lookaheadMs) || 0) * 0.001 * rate : 0;
+  const laFromSamples = laOn ? Math.max(0, Number(lookaheadSamples) || 0) : 0;
+  let la = Math.round(laFromMs + laFromSamples);
+  if (!Number.isFinite(la) || la < 0) la = 0;
+  if (la > state.cap - 1) la = state.cap - 1;
+
+  // Detect: sidechain when connected, else linked stereo from the gained input.
+  const detectPeak = hasSidechain
+    ? Math.abs(Number(sidechain) || 0)
+    : Math.max(Math.abs(lIn), Math.abs(rIn));
+  const instantPower = detectPeak * detectPeak;
+  const attMs = Math.max(0, Number(attackMs) || 0);
+  const relMs = Math.max(1, Number(releaseMs) || 250);
+  const attCoeff = attMs <= 0 ? 1 : 1 - Math.exp(-1 / Math.max(1, attMs * 0.001 * rate));
+  const relCoeff = 1 - Math.exp(-1 / Math.max(1, relMs * 0.001 * rate));
+  const ms = Number(state.meanSquare) || 0;
+  if (instantPower > ms) {
+    state.meanSquare = ms + attCoeff * (instantPower - ms);
+  } else {
+    state.meanSquare = ms + relCoeff * (instantPower - ms);
+  }
+  if (state.meanSquare < 1e-30) state.meanSquare = 0;
+  const env = Math.sqrt(state.meanSquare);
+  state.env = env;
+
+  const threshDb = Number.isFinite(Number(thresholdDb)) ? Number(thresholdDb) : -18;
+  const thresh = Math.max(1e-6, nodeGraphLookaheadLimiterDbToGain(threshDb));
+  let r = Number(ratio);
+  if (!Number.isFinite(r) || r < 1) r = 8;
+  if (r > 100) r = 100;
+
+  // Soft over-threshold GR: gain = (thresh/env)^((r-1)/r)
+  let targetGain = 1;
+  if (env > thresh) {
+    const exp = (r - 1) / r;
+    targetGain = Math.pow(thresh / env, exp);
+  }
+  if (!Number.isFinite(targetGain) || targetGain < 0) targetGain = 0;
+  if (targetGain > 1) targetGain = 1;
+
+  if (targetGain < state.gain) {
+    state.gain += attCoeff * (targetGain - state.gain);
+  } else {
+    state.gain += relCoeff * (targetGain - state.gain);
+  }
+  if (!Number.isFinite(state.gain) || state.gain < 0) state.gain = 0;
+  if (state.gain > 1) state.gain = 1;
+
+  const pos = state.pos;
+  state.delayL[pos] = lIn;
+  state.delayR[pos] = rIn;
+  let readPos = pos - la;
+  const cap = state.cap;
+  readPos %= cap;
+  if (readPos < 0) readPos += cap;
+  let dL = state.delayL[readPos];
+  let dR = state.delayR[readPos];
+  state.pos = (pos + 1) % cap;
+
+  const g = state.gain;
+  let amp = Number(amplitude);
+  if (!Number.isFinite(amp) || amp < 0) amp = 1;
+  dL *= g * amp;
+  dR *= g * amp;
+  if (!Number.isFinite(dL)) dL = 0;
+  if (!Number.isFinite(dR)) dR = 0;
+
+  return {
+    Out: 0.5 * (dL + dR),
+    Left: dL,
+    Right: dR,
+    Gain: g,
+    Env: env > 1 ? 1 : env,
+  };
+}

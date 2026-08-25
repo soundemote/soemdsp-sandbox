@@ -625,7 +625,10 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     if (node.type === "noiseDetector" && typeof createNodeGraphNoiseDetectorState === "function") {
       noiseDetectorStates.set(node.id, createNodeGraphNoiseDetectorState());
     }
-    if (node.type === "rms" && typeof createNodeGraphRmsState === "function") {
+    if (
+      (node.type === "rms" || node.type === "rmsStereo")
+      && typeof createNodeGraphRmsState === "function"
+    ) {
       rmsStates.set(node.id, createNodeGraphRmsState());
     }
     if (node.type === "speedColorInertia") {
@@ -1535,7 +1538,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       runtime.noiseDetectorStates.set(node.id, createNodeGraphNoiseDetectorState());
     }
     if (
-      node.type === "rms"
+      (node.type === "rms" || node.type === "rmsStereo")
       && typeof createNodeGraphRmsState === "function"
       && !runtime.rmsStates.has(node.id)
     ) {

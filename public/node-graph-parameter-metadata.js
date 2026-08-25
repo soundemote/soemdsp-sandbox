@@ -514,7 +514,12 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
     smoothingSeconds: normalizeNodeGraphMetadataSmoothingSeconds(parameter.smoothingSeconds),
     smoothingType,
     step: Number.isFinite(step) && step > 0 ? step : 0,
-    tooltip: String(parameter.tooltip || "").slice(0, 240),
+    tooltip: String(parameter.tooltip || "").slice(
+      0,
+      typeof NODE_GRAPH_METADATA_TOOLTIP_MAX_CHARS === "number"
+        ? NODE_GRAPH_METADATA_TOOLTIP_MAX_CHARS
+        : 2000,
+    ),
     // After MOD: hard re-clamp only when requested (default false).
     // Resource params use constraint cpu|gpu|ram; wraparound always wraps.
     modClamp: Object.hasOwn(parameter, "modClamp")
@@ -731,7 +736,12 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       return normalizeNodeGraphMetadataSmoothingType(fallback.smoothingType || "onePole");
     })(),
     step: Number.isFinite(step) && step > 0 ? step : 0,
-    tooltip: String(Object.hasOwn(source, "tooltip") ? source.tooltip ?? "" : fallback.tooltip || "").slice(0, 240),
+    tooltip: String(Object.hasOwn(source, "tooltip") ? source.tooltip ?? "" : fallback.tooltip || "").slice(
+      0,
+      typeof NODE_GRAPH_METADATA_TOOLTIP_MAX_CHARS === "number"
+        ? NODE_GRAPH_METADATA_TOOLTIP_MAX_CHARS
+        : 2000,
+    ),
     modClamp: (() => {
       if (Object.hasOwn(source, "modClamp")) {
         return Boolean(source.modClamp);

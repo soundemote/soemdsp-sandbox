@@ -140,8 +140,8 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "hypersaw",
   "bloomGlow",
   "gradientVectorscope",
-  "rms",
   "lufs",
+  "osc",
 ]);
 
 // Types that used to be on the UC shelf and are now shipped. Always strip
@@ -151,6 +151,7 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "output",
   "audioInput",
   "airClipper",
+  "rms",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
@@ -200,8 +201,8 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   groupOutput: "Group outlet portal. Parked until nested patches ship.",
   moduleGroup: "Nested patch box. Parked until grouping ships.",
   shootingStarTail: "Shooting-star trail events. Parked until that game trigger lands.",
-  rms: "Sliding RMS L/R/M meter + dB gate + XYZ waterfall. Parked on Multimeter until the face/readouts ship.",
   lufs: "Integrated / short-term / momentary loudness (LUFS). Parked on Multimeter until loudness metering lands.",
+  osc: "Open Sound Control (UDP ↔ CV). Parked on Controller until network send/receive lands.",
 });
 
 // Unified module department definitions — single source of truth for
@@ -392,10 +393,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["sinc", "sin(x)/x", "impulse", "oscillator"],
   },
   osc: {
-    category: "oscillator",
-    description: "Everyday multi-wave starter oscillator with pitch CV—default voice for quick patches.",
-    label: "BasicShape",
-    notes: ["osc", "BasicShape", "multi-waveform", "cv input", "LFO", "oscillator"],
+    category: "controller",
+    description: "Open Sound Control bridge (UDP send/receive ↔ patch CV). Under construction.",
+    label: "Open Sound Control",
+    notes: ["open sound control", "OSC", "UDP", "network", "controller", "under construction"],
   },
   aliasSine: {
     category: "oscillator",
@@ -1631,20 +1632,38 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   lookaheadLimiter: {
     category: "dynamics",
     description:
-      "Brickwall limiter with optional look-ahead and gain compensation (makeup −ceiling to 0 dBFS).",
-    label: "Limiter",
+      "Protective brickwall ceiling with optional look-ahead and gain compensation. Peak safety — not musical squash.",
+    label: "Brickwall",
     notes: [
-      "limiter",
+      "brickwall",
       "look-ahead",
       "lookahead",
-      "brickwall",
       "ceiling",
       "gain compensation",
       "makeup",
       "dynamics",
       "peak",
-      "compressor",
+      "protective",
       "native",
+    ],
+  },
+  limiter: {
+    category: "dynamics",
+    description:
+      "Musical limiter: input gain / threshold / ratio GR, sidechain key, Env out, amplitude trim. Look-ahead pump — not a hard ceiling.",
+    label: "Limiter",
+    notes: [
+      "limiter",
+      "pump",
+      "pumping",
+      "sidechain",
+      "threshold",
+      "ratio",
+      "envelope",
+      "look-ahead",
+      "dynamics",
+      "musical",
+      "gain reduction",
     ],
   },
   inertialFilter: {
@@ -1726,19 +1745,34 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   rms: {
     category: "multimeter",
-    description: "Sliding RMS meter for Mono/Left/Right with a dB threshold gate and XYZ waterfall (L/R/M).",
-    label: "RMS",
+    description: "Mono RMS meter with Window/Attack/Release, peak hold, and absolute-dBFS waterfall.",
+    label: "RMS Mono",
     notes: [
-      "under construction",
       "multimeter",
       "rms",
+      "mono",
       "level",
       "meter",
       "gate",
       "threshold",
       "dB",
       "waterfall",
-      "xyz",
+    ],
+  },
+  rmsStereo: {
+    category: "multimeter",
+    description: "Stereo RMS: Left/Right in, music RMS ((L+R)/2 or lone side) on RMS A/D. Face follows RMS A.",
+    label: "RMS Stereo",
+    notes: [
+      "multimeter",
+      "rms",
+      "stereo",
+      "left",
+      "right",
+      "level",
+      "meter",
+      "gate",
+      "waterfall",
     ],
   },
   lufs: {
@@ -2719,6 +2753,14 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/scientificIir/scientific-iir-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
   },
+  lookaheadLimiter: {
+    source: "public/modules/lookaheadLimiter/lookahead-limiter-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/lookaheadLimiter/lookahead-limiter-math.js",
+  },
+  limiter: {
+    source: "public/modules/lookaheadLimiter/lookahead-limiter-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/lookaheadLimiter/lookahead-limiter-math.js",
+  },
   logSpiral: {
     source: "public/modules/logSpiral/log-spiral-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/logSpiral/log-spiral-worklet-evaluator.js",
@@ -2787,6 +2829,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/rms/rms-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/rms/rms-math.js",
   },
+  rmsStereo: {
+    source: "public/modules/rms/rms-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/rms/rms-math.js",
+  },
   noiseGenerator: {
     source: "public/modules/noiseGenerator/noise-generator-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/noiseGenerator/noise-generator-math.js",
@@ -2804,8 +2850,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/nyquistShannon/nyquist-shannon-worklet-evaluator.js",
   },
   osc: {
-    source: "public/node-graph-oscillator-runtime.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/node-graph-oscillator-runtime.js",
+    source: "public/modules/scientificIir/scientific-iir-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-live-evaluator.js",
   },
   oscilloscopeBank: {
     source: "public/modules/oscilloscopeBank/oscilloscope-bank-display.js",

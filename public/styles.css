@@ -2212,6 +2212,18 @@ body.is-resizing-command-center-dock {
   display: none;
 }
 
+/* Modular view keeps .node-help-stack as a zero-height overlay so tips/meters
+   do not resize the workspace. On Script / Code Screen / Mapping pages that
+   overlay sat on the title bar and close control — give the stack real row
+   height here so Tooltips + Debug meters get room above the page chrome. */
+.node-wiring-panel.content-view-mode:not(.modular-only-view):not(.camera-view-visible) > .node-help-stack {
+  flex: 0 0 auto;
+  height: auto;
+  z-index: 5;
+  gap: 4px;
+  padding: 6px 8px 8px;
+}
+
 .node-wiring-panel.content-view-mode > .node-settings-view:not([hidden]) {
   flex: 1 1 auto;
   min-height: 0;
@@ -2249,13 +2261,23 @@ body.is-resizing-command-center-dock {
   --node-modular-only-inset: 0px;
 }
 
-/* V: hide top toolbar (first press). */
-.node-wiring-panel.app-chrome-top-hidden > .node-view-toolbar {
+/*
+ * V hides app chrome only — not floating windows.
+ * Visibility / Hotkeys / etc. must stay reachable with bars hidden.
+ * Same pattern as modular-only (phone): toolbar becomes contents, chrome
+ * children hide, `.node-floating-window-surface` children stay.
+ */
+.node-wiring-panel.app-chrome-top-hidden > .node-view-toolbar,
+.node-wiring-panel.app-chrome-bars-hidden > .node-view-toolbar {
+  display: contents;
+}
+
+.node-wiring-panel.app-chrome-top-hidden > .node-view-toolbar > :not(.node-floating-window-surface),
+.node-wiring-panel.app-chrome-bars-hidden > .node-view-toolbar > :not(.node-floating-window-surface) {
   display: none !important;
 }
 
-/* V second press / legacy both-hidden: also hide bottom transport. */
-.node-wiring-panel.app-chrome-bars-hidden > .node-view-toolbar,
+/* V second press / bottom hide: transport row (T can stick it back). */
 .node-wiring-panel.app-chrome-bars-hidden .node-graph-controls,
 .node-wiring-panel.app-chrome-bottom-hidden .node-graph-controls {
   display: none !important;
@@ -5637,29 +5659,43 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   color: var(--muted);
 }
 
-/* Waveform settings hosts the Music Player path box (paste-only) and the
-   sample-module 📂 loader. Row height matches the rest of the Display
-   Settings grid. */
+/* Waveform settings hosts the Music Player path box and the sample-module
+   📂 loader. Keep path box + folder button on one shared control height. */
 .node-phosphor-waveform-loader-slot,
 .node-phosphor-waveform-phase-slot {
-  --node-sample-control-height: 30px;
+  --node-sample-control-height: var(--ds-row-h, var(--metadata-control-row-height, 22px));
   --node-sample-control-line: rgba(0, 2, 4, 0.82);
   flex: 1 1 auto;
   width: 100%;
   min-width: 0;
+  display: flex;
+  align-items: center;
 }
 
 .node-phosphor-waveform-load-row {
-  align-items: stretch;
+  align-items: center;
+  min-height: var(--ds-row-h, var(--metadata-control-row-height, 22px));
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.node-phosphor-waveform-loader-slot .node-sample-path-loader {
+  width: 100%;
+  height: var(--node-sample-control-height);
+  align-self: center;
 }
 
 .node-phosphor-waveform-settings-row.node-phosphor-waveform-playlist-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
   gap: 0;
   padding: 0;
   margin: 0;
+}
+
+.node-phosphor-waveform-settings-row.node-phosphor-waveform-load-actions {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .node-phosphor-waveform-settings-row.node-phosphor-waveform-playlist-actions > button {
@@ -5711,17 +5747,28 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   text-align: left;
 }
 
+.node-phosphor-waveform-formats-row {
+  align-items: stretch;
+}
+
+.node-phosphor-waveform-formats-row .node-phosphor-waveform-format-checks {
+  flex: 1 1 auto;
+}
+
 .node-phosphor-waveform-format-checks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 10px;
   align-items: center;
+  width: 100%;
+  min-width: 0;
 }
 
 .node-phosphor-waveform-format-check {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
   font-size: 0.78rem;
   letter-spacing: 0.04em;
 }
@@ -5925,14 +5972,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   grid-template-columns: none !important;
   grid-template-rows: none !important;
   width: 100%;
   min-width: 0;
   min-height: 0;
   margin: 0;
-  padding: 3px 6px;
+  padding: 1px 3px;
   border: 0;
   border-top: 1px solid rgba(226, 168, 109, 0.16);
   border-radius: 0;
@@ -5952,10 +5999,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row.node-phosphor-waveform-tune-row,
 .node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel label.node-led-settings-row.node-phosphor-waveform-tune-row {
   display: grid !important;
-  grid-template-columns: minmax(7rem, 0.38fr) minmax(0, 1fr) !important;
+  grid-template-columns: minmax(6.25rem, 0.34fr) minmax(0, 1fr) !important;
   grid-template-rows: auto !important;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 /* Labels + trailing %: same as original first-span / unit span. */
@@ -6016,7 +6063,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-height: 0 !important;
   height: auto !important;
   margin: 0;
-  padding: 3px 8px !important;
+  padding: 2px 6px !important;
   border: 1px solid var(--line);
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.04);
@@ -6040,18 +6087,26 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-trace-display-settings-popover .node-phosphor-waveform-load-row,
 .node-trace-display-settings-popover .metadata-popover-grid .node-phosphor-waveform-load-row {
   display: flex !important;
-  align-items: stretch;
+  align-items: center !important;
   gap: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: var(--ds-row-h, var(--metadata-control-row-height, 22px));
 }
 
 .node-trace-display-settings-popover .node-phosphor-waveform-playlist-actions,
 .node-trace-display-settings-popover .metadata-popover-grid .node-phosphor-waveform-playlist-actions {
   display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
   gap: 0 !important;
   padding: 0 !important;
   margin: 0;
+}
+
+.node-trace-display-settings-popover .node-phosphor-waveform-load-actions,
+.node-trace-display-settings-popover .metadata-popover-grid .node-phosphor-waveform-load-actions {
+  grid-template-columns: minmax(0, 1fr) !important;
 }
 
 .node-trace-display-settings-popover .node-phosphor-waveform-history-reset,
@@ -17154,6 +17209,8 @@ body.node-slider-dragging * {
   --metadata-cell-pad-x: 2px;
   --metadata-cell-pad-l: 4px;
   --metadata-label-gap: 3px;
+  /* Shared name column so Range/Fields number widgets line up. */
+  --metadata-label-col: 6.75em;
   position: fixed;
   z-index: 20;
   box-sizing: border-box;
@@ -17587,12 +17644,12 @@ body.node-slider-dragging * {
   border-right: 0;
 }
 
-/* Range cells: keep short names (MAX/MID/MIN…) compact; give steppers the rest. */
+/* Range cells: fixed name column so steppers/number widgets share one edge. */
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
   > .metadata-popover-grid
   > .metadata-range-section
   > label {
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: var(--metadata-label-col, 6.75em) minmax(0, 1fr);
   column-gap: var(--metadata-label-gap, 3px);
   padding: 0 var(--metadata-cell-pad-x, 2px) 0 var(--metadata-cell-pad-l, 4px);
 }
@@ -17602,7 +17659,11 @@ body.node-slider-dragging * {
   > .metadata-range-section
   > label
   > span:first-child {
+  box-sizing: border-box;
+  width: 100%;
   max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: var(--metadata-field-name-size, 0.72rem);
   font-weight: 700;
   letter-spacing: 0;
@@ -17699,6 +17760,15 @@ body.node-slider-dragging * {
   grid-column: 1 / -1;
 }
 
+/* PARAMETER picker shares the same name/value column edge as Range/Fields. */
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
+  > .metadata-popover-grid
+  > .metadata-parameter-picker-row {
+  grid-template-columns: var(--metadata-label-col, 6.75em) minmax(0, 1fr);
+  column-gap: var(--metadata-label-gap, 3px);
+  padding: 0 var(--metadata-cell-pad-x, 2px) 0 var(--metadata-cell-pad-l, 4px);
+}
+
 /* Range + Fields identity: one column each (full width). Toggles flatten 2-col. */
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section,
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-identity-section {
@@ -17738,7 +17808,7 @@ body.node-slider-dragging * {
   > .metadata-popover-grid
   > .metadata-identity-section
   > label {
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: var(--metadata-label-col, 6.75em) minmax(0, 1fr);
   column-gap: var(--metadata-label-gap, 3px);
   padding: 0 var(--metadata-cell-pad-x, 2px) 0 var(--metadata-cell-pad-l, 4px);
 }
@@ -17748,7 +17818,11 @@ body.node-slider-dragging * {
   > .metadata-identity-section
   > label
   > span:first-child {
+  box-sizing: border-box;
+  width: 100%;
   max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: var(--metadata-field-name-size, 0.72rem);
   font-weight: 700;
   letter-spacing: 0;
@@ -17758,8 +17832,8 @@ body.node-slider-dragging * {
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section > .metadata-curve-sensitivity-label {
   grid-column: 1 / -1;
   border-right: 0;
-  /* 2-row layout: heading|stepper, then hint */
-  grid-template-columns: max-content minmax(0, 1fr);
+  /* 2-row layout: heading|stepper, then hint — same name column as Range. */
+  grid-template-columns: var(--metadata-label-col, 6.75em) minmax(0, 1fr);
   grid-template-rows: auto auto;
 }
 
@@ -17929,13 +18003,30 @@ body.node-slider-dragging * {
   border-left: 0;
 }
 
+/* Tip row grows with the textarea so .metadata-popover-grid scrollHeight updates. */
 .metadata-popover-grid .metadata-tooltip-label {
-  min-height: 92px;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  align-content: start;
+  align-items: stretch;
 }
 
+/* Grow with tip text; no inner scrollbar — the Parameter Settings body scrolls. */
 .metadata-popover-grid .metadata-tooltip-label textarea {
-  min-height: 72px;
+  box-sizing: border-box;
+  min-height: 4.5em;
+  max-height: none;
+  height: auto;
+  overflow: hidden;
+  resize: none;
+  padding: 8px 10px;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  field-sizing: content;
+  font-size: 1rem;
+  line-height: 1.4;
 }
 
 .metadata-popover-grid input[type="checkbox"] {
@@ -18105,10 +18196,19 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
  */
 .node-trace-display-settings-popover {
   /* Inherit shared Parameter/Display type scale from .node-parameter-metadata-popover. */
-  --ds-row-h: var(--metadata-control-row-height, 32px);
-  --ds-latch-h: var(--metadata-control-row-height, 32px);
+  /* Tighter chrome than Parameter Settings — reclaim pad, keep type readable. */
+  --metadata-row-pad-y: 0px;
+  --metadata-cell-pad-x: 1px;
+  --metadata-cell-pad-l: 3px;
+  --metadata-label-gap: 2px;
+  --metadata-field-name-size: 0.8rem;
+  --metadata-control-size: 0.9rem;
+  --metadata-label-size: 0.82rem;
+  --metadata-section-title-size: 0.82rem;
+  --ds-row-h: var(--metadata-control-row-height, 22px);
+  --ds-latch-h: var(--metadata-control-row-height, 22px);
   --ds-color-host-h: 168px;
-  --ds-label-col: minmax(52px, 0.34fr);
+  --ds-label-col: minmax(48px, 0.3fr);
   --ds-hairline: color-mix(in srgb, var(--accent) 14%, transparent);
   --ds-split: color-mix(in srgb, var(--accent) 18%, transparent);
   grid-template-rows: var(--node-floating-window-header-height) minmax(0, 1fr);
@@ -18136,14 +18236,14 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-settings-popover .metadata-popover-grid .metadata-choices-label {
   gap: 0;
   grid-template-columns: var(--ds-label-col) minmax(0, 1fr);
-  padding: var(--metadata-row-pad-y, 3px) 0;
+  padding: var(--metadata-row-pad-y, 0px) 0;
   box-sizing: border-box;
 }
 
 .node-trace-display-settings-popover .metadata-popover-grid label.node-trace-display-line-burn-row,
 .node-trace-display-settings-popover .metadata-popover-grid .node-trace-display-line-burn-row {
   grid-template-columns: var(--ds-label-col, 7.25em) minmax(0, 1fr);
-  column-gap: 6px;
+  column-gap: 3px;
   min-height: var(--ds-row-h);
   overflow: visible;
 }
@@ -18158,7 +18258,8 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 }
 
 .node-trace-display-settings-popover .node-trace-display-choice-grid .node-trace-display-line-burn-row {
-  grid-template-columns: 7.25em minmax(0, 1fr);
+  grid-template-columns: 6.5em minmax(0, 1fr);
+  column-gap: 3px;
   min-width: 0;
 }
 
@@ -18173,7 +18274,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   align-items: center;
-  column-gap: 8px;
+  column-gap: 4px;
   min-width: 0;
   pointer-events: auto;
 }
@@ -18204,10 +18305,10 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-settings-popover .metadata-popover-grid .metadata-checkbox-label {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  column-gap: 8px;
+  column-gap: 4px;
   min-height: var(--ds-row-h);
   overflow: visible;
-  padding: 0 8px;
+  padding: 0 3px;
   white-space: nowrap;
 }
 
@@ -18627,7 +18728,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   place-items: center;
   overflow: hidden;
   padding: 0;
-  font-size: 0.78rem;
+  font-size: var(--metadata-section-title-size, 0.82rem);
   line-height: 1;
   white-space: nowrap;
 }

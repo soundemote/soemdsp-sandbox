@@ -481,11 +481,17 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
     ) {
       markReachable(node.id);
     }
-    if (
-      nodeGraphModuleDefinitions[node.type]?.monitorSink &&
-      (graph.inputConnections.get(nodeGraphInputKey(node.id, "In")) || []).length > 0
-    ) {
-      markReachable(node.id);
+    // Meters/analyzers: stay live when any declared signal input is wired,
+    // even with nothing routed to Output. Do not hardcode "In" — RMS Stereo
+    // / Noise Detector / LUFS use Left/Right/Mono.
+    if (nodeGraphModuleDefinitions[node.type]?.monitorSink) {
+      const monitorPorts = nodeGraphModuleDefinitions[node.type]?.inputs || ["In"];
+      const hasMonitorInput = monitorPorts.some(
+        (port) => (graph.inputConnections.get(nodeGraphInputKey(node.id, port)) || []).length > 0,
+      );
+      if (hasMonitorInput) {
+        markReachable(node.id);
+      }
     }
   }
   const visualSinks = nodeGraphCompiledVisualSinks(graph, reachableNodes);

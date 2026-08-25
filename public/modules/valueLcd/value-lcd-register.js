@@ -15,6 +15,8 @@ registerNodeGraphChromelessModule("valueLcd", {
       In: "In",
     },
     inputs: ["In"],
+    // Digital inlet — white jack / white cable (numeric readout).
+    digitalInputs: ["In"],
     outputs: ["Thru"],
     outputLabels: { Thru: "←" },
     parameters: [],

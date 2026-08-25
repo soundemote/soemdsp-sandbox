@@ -1662,8 +1662,8 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
   protectNodeGraphSampleControl(pathInput);
   if (isMusicPlayer) {
     pathInput.dataset.samplePathForNode = nodeId;
-    pathInput.placeholder = "Browse 📂 or paste C:\\folder (local server)";
-    pathInput.title = "Online: Browse. Local python server.py: paste a full folder path, then Load";
+    pathInput.placeholder = "Browse or paste C:\\folder or file (local server)";
+    pathInput.title = "Online: use the folder button. Local python server.py: paste a full folder or audio file path, then Load Folder / Load File";
     const stored = typeof nodeGraphAudioPlayerLibraryStoredFolderPath === "function"
       ? nodeGraphAudioPlayerLibraryStoredFolderPath(
         typeof nodeGraphAudioPlayerPlaylistForNode === "function"

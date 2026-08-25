@@ -195,7 +195,7 @@ function createNodeGraphPatchNode(type, options = {}) {
 
 const nodeGraphDefaultNodeConfigs = Object.freeze([
   {
-    ...createNodeGraphPatchNode("audioPlayer", { id: "audioPlayer-1", gx: -9, gy: -9, widthGu: 11, heightGu: 22 }),
+    ...createNodeGraphPatchNode("audioPlayer", { id: "audioPlayer-1", gx: -9, gy: -9, widthGu: 13, heightGu: 21 }),
     params: { ...nodeGraphDefaultParamsForType("audioPlayer"), speed: 1, transport: 4 },
   },
   {

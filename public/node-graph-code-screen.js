@@ -580,10 +580,11 @@ function nodeGraphCodeScreenWorkspaceCircuitApi() {
       return addModule("gain", id, { amount: Number(amplitude) || 0 });
     },
     module(type, id, params = {}) {
-      return addModule(type, id, type === "osc" ? normalizeOscParams(params) : params);
+      // Wave helpers use polyBlep; type `osc` is Open Sound Control (UC).
+      return addModule(type, id, type === "polyBlep" ? normalizeOscParams(params) : params);
     },
     osc(id = "osc", params = {}) {
-      return addModule("osc", id, normalizeOscParams({
+      return addModule("polyBlep", id, normalizeOscParams({
         frequency: 220,
         waveform: "sine",
         ...(params && typeof params === "object" ? params : {}),

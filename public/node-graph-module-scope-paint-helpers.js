@@ -2170,42 +2170,89 @@ function nodeGraphTraceDisplayPaintWaterfall(spec) {
     : false;
 }
 
-/** Horizontal dB guide lines for RMS faces (linear amplitude outs). */
-function nodeGraphPaintRmsDbGuideOverlay(context, canvas) {
+/** Format a dB guide label (keep sign on non-zero). */
+function nodeGraphRmsDbGuideLabel(db) {
+  const value = Number(db);
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+  if (Math.abs(value) < 1e-9) {
+    return "0";
+  }
+  const rounded = Math.round(value * 10) / 10;
+  const text = Number.isInteger(rounded) ? String(rounded) : String(rounded);
+  return `${rounded > 0 ? "+" : ""}${text}`;
+}
+
+/** Horizontal dB guide lines + left-edge labels for RMS faces. */
+function nodeGraphPaintRmsDbGuideOverlay(context, canvas, slot = null) {
   if (!context || !canvas) {
     return;
   }
-  const guides = typeof NODE_GRAPH_RMS_DB_GUIDES !== "undefined"
-    ? NODE_GRAPH_RMS_DB_GUIDES
-    : [6, 3, 0, -1, -3, -6, -12, -18, -24, -48, -60];
+  const face = typeof nodeGraphRmsFaceRangeFromSlot === "function"
+    ? nodeGraphRmsFaceRangeFromSlot(slot)
+    : (typeof nodeGraphRmsFaceGainOffset === "function"
+      ? nodeGraphRmsFaceGainOffset(-48, 0)
+      : { mode: "rmsDb", minDb: -48, maxDb: 0, gain: 1, offset: 0 });
+  const levels = typeof nodeGraphRmsGuideLevels === "function"
+    ? nodeGraphRmsGuideLevels(face.minDb, face.maxDb)
+    : [{ db: face.maxDb, role: "max" }, { db: face.minDb, role: "min" }];
   const width = Math.max(1, canvas.width);
   const height = Math.max(1, canvas.height);
   const midY = height * 0.5;
   const halfHeight = height * 0.42;
-  const gain = typeof NODE_GRAPH_RMS_FACE_GAIN === "number" ? NODE_GRAPH_RMS_FACE_GAIN : 1;
-  const offset = typeof NODE_GRAPH_RMS_FACE_OFFSET === "number" ? NODE_GRAPH_RMS_FACE_OFFSET : -1;
+  const labelPad = Math.max(4, Math.round(width * 0.02));
+  const fontPx = Math.max(9, Math.min(13, Math.round(height * 0.045)));
+  const minLabelGap = fontPx * 1.15;
+  // Draw lines first, then labels with Y collision so dense guides don't stack.
+  const drawn = [];
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.globalCompositeOperation = "source-over";
   context.lineWidth = 1;
-  for (const db of guides) {
-    const amp = typeof nodeGraphRmsDbToLinear === "function"
-      ? nodeGraphRmsDbToLinear(db)
-      : (Number(db) <= -200 ? 0 : 10 ** (Number(db) / 20));
-    const y = typeof nodeGraphWaterfallY === "function"
-      ? nodeGraphWaterfallY(amp, gain, offset, midY, halfHeight)
-      : (midY - Math.max(-1, Math.min(1, amp * gain + offset)) * halfHeight);
+  context.font = `${fontPx}px "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace`;
+  context.textAlign = "left";
+  context.textBaseline = "middle";
+  for (const entry of levels) {
+    const db = Number(entry?.db);
+    const bipolar = typeof nodeGraphRmsDbToFaceBipolar === "function"
+      ? nodeGraphRmsDbToFaceBipolar(db, face.minDb, face.maxDb)
+      : 0;
+    const y = midY - Math.max(-1, Math.min(1, bipolar)) * halfHeight;
     if (!Number.isFinite(y)) {
       continue;
     }
-    const isZero = Number(db) === 0;
+    const isZero = Math.abs(db) < 1e-9;
+    const isExtreme = entry?.role === "min" || entry?.role === "max";
     context.strokeStyle = isZero
       ? "rgba(255,255,255,0.55)"
-      : "rgba(255,255,255,0.22)";
+      : (isExtreme ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.22)");
     context.beginPath();
     context.moveTo(0, y + 0.5);
     context.lineTo(width, y + 0.5);
     context.stroke();
+    drawn.push({ db, y, isZero, isExtreme });
+  }
+  // Prefer extremes and 0 dB when labels would collide.
+  drawn.sort((a, b) => {
+    const rank = (entry) => (entry.isExtreme ? 0 : (entry.isZero ? 1 : 2));
+    const d = rank(a) - rank(b);
+    return d !== 0 ? d : a.y - b.y;
+  });
+  const labeledYs = [];
+  for (const entry of drawn) {
+    const label = nodeGraphRmsDbGuideLabel(entry.db);
+    if (!label) {
+      continue;
+    }
+    if (labeledYs.some((prior) => Math.abs(prior - entry.y) < minLabelGap)) {
+      continue;
+    }
+    labeledYs.push(entry.y);
+    context.fillStyle = entry.isZero || entry.isExtreme
+      ? "rgba(255,255,255,0.82)"
+      : "rgba(255,255,255,0.55)";
+    context.fillText(label, labelPad, entry.y);
   }
   context.restore();
 }
@@ -2269,7 +2316,7 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     ? nodeGraphModuleDefinitions[slot?.type]
     : null;
   if (painted && def?.rmsDbGuides) {
-    nodeGraphPaintRmsDbGuideOverlay(context, canvas);
+    nodeGraphPaintRmsDbGuideOverlay(context, canvas, slot);
   }
   return painted;
 }

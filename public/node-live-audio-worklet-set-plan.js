@@ -348,7 +348,7 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "noiseDetector" && !this.noiseDetectorStates.has(id)) {
         this.noiseDetectorStates.set(id, this.createNoiseDetectorState());
       }
-      if (node?.type === "rms" && !this.rmsStates.has(id)) {
+      if ((node?.type === "rms" || node?.type === "rmsStereo") && !this.rmsStates.has(id)) {
         this.rmsStates.set(id, this.createRmsState());
       }
       if (node?.type === "speedColorInertia" && !this.speedColorInertiaStates.has(id)) {

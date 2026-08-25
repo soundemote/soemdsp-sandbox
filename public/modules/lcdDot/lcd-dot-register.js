@@ -14,6 +14,8 @@ registerNodeGraphChromelessModule("lcdDot", {
       { key: "lcdDot", label: "LCD Dot", renderer: "lcdDot", source: { value: "In" } },
     ],
     inputs: ["In"],
+    // Digital inlet — white jack / white cable.
+    digitalInputs: ["In"],
     outputs: ["Thru"],
     outputLabels: { Thru: "←" },
     parameters: [],

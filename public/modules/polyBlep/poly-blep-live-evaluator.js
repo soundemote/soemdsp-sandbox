@@ -280,6 +280,6 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
   );
   return value;
 }
-nodeGraphLiveModuleEvaluators.osc = nodeGraphPolyBlepOscillatorLiveEvaluator;
+// `osc` is Open Sound Control (controller stub elsewhere) — not this voice.
 nodeGraphLiveModuleEvaluators.polyBlep = nodeGraphPolyBlepOscillatorLiveEvaluator;
 nodeGraphLiveModuleEvaluators.blit = nodeGraphPolyBlepOscillatorLiveEvaluator;
