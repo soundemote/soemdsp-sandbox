@@ -116,10 +116,21 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           stages: this.readEffectiveParameter(node, "stages", 4, frame, frames, frameValues),
         };
         const ladderMono = mixInput(nodeId);
+        const outM = this.ladderFilterSample(state.mono, ladderMono, ladderParams, safeRate);
+        // Mono-only patches must not pay for three independent filter instances.
+        const hasL = typeof hasInput === "function" && hasInput(nodeId, "Left");
+        const hasR = typeof hasInput === "function" && hasInput(nodeId, "Right");
+        if (!hasL && !hasR) {
+          return { Out: outM, Left: outM, Right: outM };
+        }
         return {
-          Out: this.ladderFilterSample(state.mono, ladderMono, ladderParams, safeRate),
-          Left: this.ladderFilterSample(state.left, mixInput(nodeId, "Left") + ladderMono, ladderParams, safeRate),
-          Right: this.ladderFilterSample(state.right, mixInput(nodeId, "Right") + ladderMono, ladderParams, safeRate),
+          Out: outM,
+          Left: hasL
+            ? this.ladderFilterSample(state.left, mixInput(nodeId, "Left") + ladderMono, ladderParams, safeRate)
+            : outM,
+          Right: hasR
+            ? this.ladderFilterSample(state.right, mixInput(nodeId, "Right") + ladderMono, ladderParams, safeRate)
+            : outM,
         };
       },
       flowerChildFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
@@ -704,14 +715,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       pingPongDelay: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.pingPongDelayStates.get(nodeId) || this.createPingPongDelayState();
         this.pingPongDelayStates.set(nodeId, state);
-        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
-        return this.pingPongDelaySample(
-          state,
-          mixInput(nodeId) + mixInput(nodeId, "Left") + mixInput(nodeId, "Right"),
-          {
+        // Same pattern as Sabrina: resolve knobs once per quantum, not every sample.
+        if (frame === 0 || !state.cachedParams) {
+          const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+          state.cachedParams = {
             feedback: read("feedback", 0.35),
             hpfFrequency: read("hpfFrequency", 20),
-            // 0 = linear, 1 = hermite (default hermite).
             interpolation: read("interpolation", 0),
             level: read("level", 1),
             lfoRate: read("lfoRate", 0.35),
@@ -724,7 +733,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
             timeDenominator: read("timeDenominator", 4),
             timeNumerator: read("timeNumerator", 1),
             timingMode: read("timingMode", 0),
-          },
+          };
+        }
+        return this.pingPongDelaySample(
+          state,
+          mixInput(nodeId) + mixInput(nodeId, "Left") + mixInput(nodeId, "Right"),
+          state.cachedParams,
           safeRate,
         );
       },
@@ -1404,7 +1418,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       inv: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Out: this.invSample(mixInput(nodeId)),
       }),
-      softClipper: (node, nodeId, frame, frames, frameValues, mixInput) => {
+      softClipper: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.softClipperStates) this.softClipperStates = new Map();
         const state = this.softClipperStates.get(nodeId) || this.createSoftClipperState();
         this.softClipperStates.set(nodeId, state);
@@ -1416,10 +1430,21 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           ? nodeGraphClipperDbToLin(softClipperGainDb)
           : 10 ** ((Number(softClipperGainDb) || 0) / 20);
         const softClipperMono = mixInput(nodeId) * drive;
+        const outM = this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 0);
+        // Mono-only: do not run Left/Right clipper instances (was 3× WASM/sample).
+        const hasL = typeof hasInput === "function" && hasInput(nodeId, "Left");
+        const hasR = typeof hasInput === "function" && hasInput(nodeId, "Right");
+        if (!hasL && !hasR) {
+          return { Out: outM, Left: outM, Right: outM };
+        }
         return {
-          Out: this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 0),
-          Left: this.nativeSoftClipperSample(mixInput(nodeId, "Left") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 1),
-          Right: this.nativeSoftClipperSample(mixInput(nodeId, "Right") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 2),
+          Out: outM,
+          Left: hasL
+            ? this.nativeSoftClipperSample(mixInput(nodeId, "Left") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 1)
+            : outM,
+          Right: hasR
+            ? this.nativeSoftClipperSample(mixInput(nodeId, "Right") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 2)
+            : outM,
         };
       },
       speakerProtector2: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
