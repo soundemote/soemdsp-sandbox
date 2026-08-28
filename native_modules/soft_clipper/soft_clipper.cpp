@@ -25,9 +25,32 @@ struct Channel {
 struct State {
   bool active;
   Channel ch[kChannels];
+  // CONTROL: center/width → cached coeffs (Live: antialias, audio in)
+  bool coeffsValid;
+  double lastCenter;
+  double lastWidth;
+  double scaleX;
+  double shiftX;
+  double scaleY;
+  double shiftY;
 };
 
 static State gPool[kMaxInstances];
+
+static double tanh_approx(double value);
+static void coeffs(double center, double width, double* scaleX, double* shiftX, double* scaleY, double* shiftY);
+
+static void sync_clip_coeffs(State& s, double center, double width) {
+  if (s.coeffsValid && center == s.lastCenter && width == s.lastWidth) return;
+  coeffs(center, width, &s.scaleX, &s.shiftX, &s.scaleY, &s.shiftY);
+  s.lastCenter = center;
+  s.lastWidth = width;
+  s.coeffsValid = true;
+}
+
+static double shaped_cached(const State& s, double input) {
+  return s.shiftY + s.scaleY * tanh_approx(s.scaleX * input + s.shiftX);
+}
 
 static const char kMetadataJson[] =
   "{"
@@ -112,6 +135,9 @@ extern "C" int soemdsp_soft_clipper_create() {
         s.ch[c].F1 = tanh_antideriv(0.0);
         s.ch[c].n = 0;
       }
+      s.coeffsValid = false;
+      s.lastCenter = 0.0;
+      s.lastWidth = 2.0;
       s.active = true;
       return i + 1;
     }
@@ -140,19 +166,20 @@ extern "C" double soemdsp_soft_clipper_sample_aa(
   if (ch > 2) ch = 2;
   Channel& c = s.ch[ch];
 
+  // CONTROL: center/width. LIVE: antialias + audio.
+  sync_clip_coeffs(s, center, width);
+
   double aa = antialias;
   if (!(aa * 0.0 == 0.0) || aa < 0.0) aa = 0.0;
   if (aa > 1.0) aa = 1.0;
 
   if (aa <= 0.0) {
-    return shaped(input, center, width);
+    return shaped_cached(s, input);
   }
 
   c.n += 1;
   const double x = input + aa * 0.0005 * hash_bipolar(c.n, 0x51edu);
-  double scaleX, shiftX, scaleY, shiftY;
-  coeffs(center, width, &scaleX, &shiftX, &scaleY, &shiftY);
-  const double u = scaleX * x + shiftX;
+  const double u = s.scaleX * x + s.shiftX;
   const double Fu = tanh_antideriv(u);
   const double du = u - c.u1;
   double adaaF;
@@ -163,11 +190,11 @@ extern "C" double soemdsp_soft_clipper_sample_aa(
   }
   c.u1 = u;
   c.F1 = Fu;
-  const double adaaY = shiftY + scaleY * adaaF;
+  const double adaaY = s.shiftY + s.scaleY * adaaF;
   if (aa >= 1.0) {
     return adaaY;
   }
-  const double y = shiftY + scaleY * tanh_approx(u);
+  const double y = s.shiftY + s.scaleY * tanh_approx(u);
   return y + aa * (adaaY - y);
 }
 
