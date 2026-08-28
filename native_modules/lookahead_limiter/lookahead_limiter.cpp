@@ -4,6 +4,7 @@
 // soemdsp-native-kind: dynamics
 //
 // Matches public/modules/lookaheadLimiter/lookahead-limiter-math.js.
+// Control coeffs (db→gain, attack/release exp) rebuild only when inputs change.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -26,6 +27,23 @@ struct State {
   double lastLeft;
   double lastRight;
   double lastGain;
+
+  // Cached control inputs / derived coeffs (selective update).
+  double lastCeilingDb;
+  double lastAttackMs;
+  double lastReleaseMs;
+  double lastSampleRate;
+  double lastLookaheadMs;
+  double lastLookaheadSamples;
+  double lastLookaheadEnabled;
+  double lastDipGain;
+  bool controlsValid;
+
+  double ceiling;
+  double makeup;
+  double attCoeff;
+  double relCoeff;
+  int lookaheadSamplesResolved;
 };
 
 static State gPool[kMaxInstances];
@@ -42,6 +60,67 @@ static double db_to_gain(double db) {
   const double d = safe(db);
   if (!(d * 0.0 == 0.0)) return 1.0;
   return dsp_exp(d * 0.11512925464970229);
+}
+
+static void sync_controls(
+  State& st,
+  double ceilingDb,
+  double lookaheadMs,
+  double lookaheadSamples,
+  double attackMs,
+  double releaseMs,
+  double sampleRate,
+  double lookaheadEnabled,
+  double dipGain
+) {
+  const double rate = sampleRate > 1.0 ? sampleRate : 44100.0;
+  const double attMs = maxd(0.0, safe(attackMs));
+  double relMs = safe(releaseMs);
+  if (!(relMs * 0.0 == 0.0)) relMs = 100.0;
+  if (relMs < 0.0) relMs = 0.0;
+  const double ceilDb = safe(ceilingDb);
+  const double laMs = safe(lookaheadMs);
+  const double laSamp = safe(lookaheadSamples);
+  const double laEn = safe(lookaheadEnabled);
+  const double dip = safe(dipGain);
+
+  const bool dirty =
+    !st.controlsValid
+    || ceilDb != st.lastCeilingDb
+    || attMs != st.lastAttackMs
+    || relMs != st.lastReleaseMs
+    || rate != st.lastSampleRate
+    || laMs != st.lastLookaheadMs
+    || laSamp != st.lastLookaheadSamples
+    || laEn != st.lastLookaheadEnabled
+    || dip != st.lastDipGain;
+
+  if (!dirty) return;
+
+  st.lastCeilingDb = ceilDb;
+  st.lastAttackMs = attMs;
+  st.lastReleaseMs = relMs;
+  st.lastSampleRate = rate;
+  st.lastLookaheadMs = laMs;
+  st.lastLookaheadSamples = laSamp;
+  st.lastLookaheadEnabled = laEn;
+  st.lastDipGain = dip;
+  st.controlsValid = true;
+
+  st.ceiling = db_to_gain(ceilDb);
+  if (st.ceiling < 1e-6) st.ceiling = 1e-6;
+  st.makeup = 1.0 / st.ceiling;
+
+  st.attCoeff = attMs <= 0.0 ? 1.0 : 1.0 - dsp_exp(-1.0 / maxd(1.0, attMs * 0.001 * rate));
+  st.relCoeff = relMs <= 0.0 ? 1.0 : 1.0 - dsp_exp(-1.0 / maxd(1.0, relMs * 0.001 * rate));
+
+  const bool laOn = laEn > 0.5;
+  const double laFromMs = laOn ? maxd(0.0, laMs) * 0.001 * rate : 0.0;
+  const double laFromSamples = laOn ? maxd(0.0, laSamp) : 0.0;
+  int la = (int)(laFromMs + laFromSamples + 0.5);
+  if (la < 0) la = 0;
+  if (la > st.cap - 1) la = st.cap - 1;
+  st.lookaheadSamplesResolved = la;
 }
 
 }  // namespace
@@ -62,6 +141,13 @@ extern "C" int soemdsp_lookahead_limiter_create() {
       s.lastLeft = 0.0;
       s.lastRight = 0.0;
       s.lastGain = 1.0;
+      s.controlsValid = false;
+      s.ceiling = 1.0;
+      s.makeup = 1.0;
+      s.attCoeff = 1.0;
+      s.relCoeff = 1.0;
+      s.lookaheadSamplesResolved = 0;
+      s.lastDipGain = 1.0;
       s.active = true;
       return i + 1;
     }
@@ -94,26 +180,25 @@ extern "C" double soemdsp_lookahead_limiter_sample(
     return 0.5 * (x + y);
   }
   State& st = gPool[handle - 1];
-  const double rate = sampleRate > 1.0 ? sampleRate : 44100.0;
+  sync_controls(
+    st,
+    ceilingDb,
+    lookaheadMs,
+    lookaheadSamples,
+    attackMs,
+    releaseMs,
+    sampleRate,
+    lookaheadEnabled,
+    dipGain);
+
   const double lIn = safe(left);
   const double rIn = safe(right);
-  double ceiling = db_to_gain(ceilingDb);
-  if (ceiling < 1e-6) ceiling = 1e-6;
-
-  const bool laOn = lookaheadEnabled > 0.5;
-  const double laFromMs = laOn ? maxd(0.0, safe(lookaheadMs)) * 0.001 * rate : 0.0;
-  const double laFromSamples = laOn ? maxd(0.0, safe(lookaheadSamples)) : 0.0;
-  int la = (int)(laFromMs + laFromSamples + 0.5);
-  if (la < 0) la = 0;
-  if (la > st.cap - 1) la = st.cap - 1;
+  const double ceiling = st.ceiling;
+  const int la = st.lookaheadSamplesResolved;
+  const double attCoeff = st.attCoeff;
+  const double relCoeff = st.relCoeff;
 
   const double peak = maxd(dsp_fabs(lIn), dsp_fabs(rIn));
-  const double attMs = maxd(0.0, safe(attackMs));
-  double relMs = safe(releaseMs);
-  if (!(relMs * 0.0 == 0.0)) relMs = 100.0;
-  if (relMs < 0.0) relMs = 0.0;
-  const double attCoeff = attMs <= 0.0 ? 1.0 : 1.0 - dsp_exp(-1.0 / maxd(1.0, attMs * 0.001 * rate));
-  const double relCoeff = relMs <= 0.0 ? 1.0 : 1.0 - dsp_exp(-1.0 / maxd(1.0, relMs * 0.001 * rate));
   if (peak > st.env) st.env += attCoeff * (peak - st.env);
   else st.env += relCoeff * (peak - st.env);
   if (st.env < 1e-25) st.env = 0.0;
@@ -121,9 +206,8 @@ extern "C" double soemdsp_lookahead_limiter_sample(
   double targetGain = 1.0;
   if (st.env > ceiling) {
     targetGain = ceiling / st.env;
-    const double dip = safe(dipGain);
+    const double dip = st.lastDipGain;
     if (dip != 1.0 && targetGain < 1.0) {
-      // pow(target, dip) = exp(dip * ln(target))
       targetGain = dsp_exp(dip * dsp_ln(targetGain));
     }
   }
@@ -151,9 +235,8 @@ extern "C" double soemdsp_lookahead_limiter_sample(
   if (dR > ceiling) dR = ceiling;
   else if (dR < -ceiling) dR = -ceiling;
   if (gainCompensation > 0.5) {
-    const double makeup = 1.0 / ceiling;
-    dL *= makeup;
-    dR *= makeup;
+    dL *= st.makeup;
+    dR *= st.makeup;
   }
   if (!(dL * 0.0 == 0.0)) dL = 0.0;
   if (!(dR * 0.0 == 0.0)) dR = 0.0;
@@ -179,6 +262,6 @@ extern "C" double soemdsp_lookahead_limiter_gain(int handle) {
   return gPool[handle - 1].lastGain;
 }
 
-extern "C" int soemdsp_lookahead_limiter_version() { return 1; }
+extern "C" int soemdsp_lookahead_limiter_version() { return 2; }
 extern "C" const char* soemdsp_lookahead_limiter_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_lookahead_limiter_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

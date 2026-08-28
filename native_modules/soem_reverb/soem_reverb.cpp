@@ -347,7 +347,9 @@ struct ModulatedDelay {
     double c3 = 0.5 * (y2 - ym1) + 1.5 * (y0 - y1);
     return ((c3 * t + c2) * t + c1) * t + c0;
   }
-  double runDelay(double in) {
+  // LIVE feedback/lfoAmp: pass from parent each sample (Wire-style; no connect()).
+  double runDelay(double in, double liveLfoAmp) {
+    lfoAmp = liveLfoAmp;
     double lfo = runLfo();
     double bufferOffset = (delaySamples - (delaySamples * (lfo * lfoAmp))) + 1.0;
     bufferPos = (bufferPos + 1) % bufferSize;
@@ -356,7 +358,9 @@ struct ModulatedDelay {
     buffer[bufferPos] = (float)in;
     return out;
   }
-  double runDiffuse(double in) {
+  double runDiffuse(double in, double liveFeedback, double liveLfoAmp) {
+    feedback = liveFeedback;
+    lfoAmp = liveLfoAmp;
     double lfo = runLfo();
     double bufferOffset = (delaySamples - (delaySamples * (lfo * lfoAmp))) + 1.0;
     bufferPos = (bufferPos + 1) % bufferSize;
@@ -372,8 +376,10 @@ struct ModulatedDelay {
 struct DuckFollow {
   double env{1.0};
   double releaseSlew{0.01};
+  double releaseSeconds{0.04};
   double limit{1.0};
   void setRelease(double seconds, double sr) {
+    releaseSeconds = seconds;
     releaseSlew = 1.0 / (maxd(1.0, seconds * sr) + 1.0);
   }
   double run(double in) {
@@ -586,10 +592,14 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
   if (mode < 0) mode = 0;
   if (mode > 2) mode = 2;
 
-  // Echo L/R: parallel (same-side) or ping-pong (cross-feed delayed tails).
+  // LIVE (matches soemdsp::delay::Reverb): diffusionAmount / lfoAmp every sample.
+  const double liveFeedback = s.diffusionAmount;
+  const double liveLfoAmp = s.lfoAmp;
+  const double echoLfoAmp = s.doModulateEcho ? liveLfoAmp : 0.0;
+
   auto runEchoPair = [&](double inToL, double inToR, double& outL, double& outR) {
-    double dL = s.echoL.runDelay(inToL);
-    double dR = s.echoR.runDelay(inToR);
+    double dL = s.echoL.runDelay(inToL, echoLfoAmp);
+    double dR = s.echoR.runDelay(inToR, echoLfoAmp);
     if (s.pingPong) {
       outL = dR;
       outR = dL;
@@ -601,19 +611,16 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
 
   switch (mode) {
   case PostDelay: {
-    // echo: fb goes into delays; delayed out mixes with dry input
     double dL = 0.0, dR = 0.0;
     runEchoPair(s.fbL, s.fbR, dL, dR);
     s.fbL = inL + dL;
     s.fbR = inR + dR;
-    // reverberation
     for (int i = 0; i < s.numDelays; ++i) {
-      s.fbL = s.delaysL[i].runDiffuse(s.fbL);
-      s.fbR = s.delaysR[i].runDiffuse(s.fbR);
+      s.fbL = s.delaysL[i].runDiffuse(s.fbL, liveFeedback, liveLfoAmp);
+      s.fbR = s.delaysR[i].runDiffuse(s.fbR, liveFeedback, liveLfoAmp);
     }
     dryWet(s, inL, inR);
     feedbackFilter(s, false);
-    // feedback clipper
     s.fbL = s.clipL.run(s.fbL) * s.feedbackCompensation;
     s.fbR = s.clipR.run(s.fbR) * s.feedbackCompensation;
     break;
@@ -623,8 +630,8 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
     s.fbL = s.clipL.run(inL + s.fbL) * s.feedbackCompensation;
     s.fbR = s.clipR.run(inR + s.fbR) * s.feedbackCompensation;
     for (int i = 0; i < s.numDelays; ++i) {
-      s.fbL = s.delaysL[i].runDiffuse(s.fbL);
-      s.fbR = s.delaysR[i].runDiffuse(s.fbR);
+      s.fbL = s.delaysL[i].runDiffuse(s.fbL, liveFeedback, liveLfoAmp);
+      s.fbR = s.delaysR[i].runDiffuse(s.fbR, liveFeedback, liveLfoAmp);
     }
     double dL = 0.0, dR = 0.0;
     runEchoPair(s.fbL, s.fbR, dL, dR);
@@ -642,8 +649,8 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
     double L = inL * invN;
     double R = inR * invN;
     for (int i = 0; i < s.numDelays; ++i) {
-      s.fbL = s.delaysL[i].runDiffuse(L + s.fbL);
-      s.fbR = s.delaysR[i].runDiffuse(R + s.fbR);
+      s.fbL = s.delaysL[i].runDiffuse(L + s.fbL, liveFeedback, liveLfoAmp);
+      s.fbR = s.delaysR[i].runDiffuse(R + s.fbR, liveFeedback, liveLfoAmp);
     }
     dryWet(s, inL, inR);
     feedbackFilter(s, true);
@@ -754,6 +761,9 @@ extern "C" void soemdsp_soem_reverb_reset(int handle) {
   fullReset(gPool[handle - 1]);
 }
 
+// Mirrors soemdsp::delay::Reverb::syncControlParams — only run the *Changed
+// work owned by each field. Live reads (mix/volume/recycle/echoMode/pingPong)
+// never rebuild delay geometry or filter coeffs.
 extern "C" void soemdsp_soem_reverb_set_params(
   int handle,
   double mix,
@@ -784,51 +794,122 @@ extern "C" void soemdsp_soem_reverb_set_params(
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   SoEmReverbState& s = gPool[handle - 1];
-  int prevSeed = s.seed;
-  int prevNum = s.numDelays;
+
+  auto near = [](double a, double b) {
+    const double d = a - b;
+    return d < 1e-12 && d > -1e-12;
+  };
+
+  // Live Wire-style params: assign only.
   s.mix = clamp(mix, 0.0, 1.0);
   s.volume = maxd(0.0, volume);
-  s.echoTime = clamp(echoTime, 0.0001, kMaxDelaySeconds);
   s.recycle = clamp(recycle, 0.0, 2.0);
+  s.echoMode = (int)dsp_floor(echoMode + 0.5);
+  s.pingPong = (int)dsp_floor(pingPong + 0.5) != 0 ? 1 : 0;
+
+  const double nextEchoTime = clamp(echoTime, 0.0001, kMaxDelaySeconds);
   int nd = (int)dsp_floor(numDelays + 0.5);
   if (nd < 0) nd = 0;
   if (nd > kMaxDelays) nd = kMaxDelays;
-  s.numDelays = nd;
-  s.diffusionSize = clamp(diffusionSize, 0.0001, kMaxDelaySeconds);
-  s.diffusionAmount = clamp(diffusionAmount, 0.0, 0.98);
-  s.seed = (int)dsp_floor(seed + 0.5);
-  s.lfoAmp = clamp(lfoAmp, 0.0, 0.5);
-  s.lfoFrequency = clamp(lfoFrequency, 0.1, 90.0);
-  s.lfoVariation = clamp(lfoVariation, 0.0, 10.0);
-  {
-    int st = (int)dsp_floor(lfoStyle + 0.5);
-    if (st < 0) st = 0;
-    if (st > 2) st = 2;
-    s.lfoStyle = st;
-  }
-  s.echoMode = (int)dsp_floor(echoMode + 0.5);
-  s.pingPong = (int)dsp_floor(pingPong + 0.5) != 0 ? 1 : 0;
-  s.doModulateEcho = (int)dsp_floor(doModulateEcho + 0.5) != 0 ? 1 : 0;
-  s.saturate = maxd(0.01, saturate);
-  s.lpfL.freq = s.lpfR.freq = clamp(lpfFrequency, 20.0, 20000.0);
-  s.hpfL.frequency = s.hpfR.frequency = clamp(hpfFrequency, 1.0, 2000.0);
-  s.peakL.freq = s.peakR.freq = clamp(bandFrequency, 20.0, 20000.0);
-  s.peakL.gainDb = s.peakR.gainDb = clamp(bandDecibels, -24.0, 24.0);
-  s.peakL.q = s.peakR.q = clamp(bandQ, 0.1, 10.0);
-  s.lpfL.nStages = s.lpfR.nStages = (int)clamp(dsp_floor(lpfStages + 0.5), 0.0, 5.0);
-  s.peakL.nStages = s.peakR.nStages = (int)clamp(dsp_floor(bandStages + 0.5), 0.0, 5.0);
-  s.duck.limit = clamp(duckLimit, 0.01, 1.0);
-  s.duck.setRelease(maxd(0.001, duckRelease), s.sampleRate);
+  const double nextDiffusionSize = clamp(diffusionSize, 0.0001, kMaxDelaySeconds);
+  const double nextDiffusionAmount = clamp(diffusionAmount, 0.0, 0.98);
+  const int nextSeed = (int)dsp_floor(seed + 0.5);
+  const double nextLfoAmp = clamp(lfoAmp, 0.0, 0.5);
+  const double nextLfoFrequency = clamp(lfoFrequency, 0.1, 90.0);
+  const double nextLfoVariation = clamp(lfoVariation, 0.0, 10.0);
+  int nextStyle = (int)dsp_floor(lfoStyle + 0.5);
+  if (nextStyle < 0) nextStyle = 0;
+  if (nextStyle > 2) nextStyle = 2;
+  const int nextDoModulateEcho = (int)dsp_floor(doModulateEcho + 0.5) != 0 ? 1 : 0;
+  const double nextSaturate = maxd(0.01, saturate);
+  const double nextLpfFrequency = clamp(lpfFrequency, 20.0, 20000.0);
+  const double nextHpfFrequency = clamp(hpfFrequency, 1.0, 2000.0);
+  const double nextBandFrequency = clamp(bandFrequency, 20.0, 20000.0);
+  const double nextBandDecibels = clamp(bandDecibels, -24.0, 24.0);
+  const double nextBandQ = clamp(bandQ, 0.1, 10.0);
+  const int nextLpfStages = (int)clamp(dsp_floor(lpfStages + 0.5), 0.0, 5.0);
+  const int nextBandStages = (int)clamp(dsp_floor(bandStages + 0.5), 0.0, 5.0);
+  const double nextDuckLimit = clamp(duckLimit, 0.01, 1.0);
+  const double nextDuckRelease = maxd(0.001, duckRelease);
 
-  if (s.seed != prevSeed || s.numDelays != prevNum) {
-    reseedDiffusion(s);
-  } else {
+  // Match soemdsp::delay::Reverb *Changed split (SoEmReverbModule wiring):
+  // Live Wire (no *Changed): mix, volume, recycle, diffusionAmount, lfoAmp, echoMode, pingPong
+  // *Changed: echoTime, diffusionSize, seed, numDelays, lfoFrequency, lfoVariation,
+  //           doModulateEcho, saturate, filters
+  const bool seedChanged = nextSeed != s.seed;
+  const bool numDelaysChanged = nd != s.numDelays;
+  const bool diffusionSizeChanged = !near(nextDiffusionSize, s.diffusionSize);
+  const bool echoTimeChanged = !near(nextEchoTime, s.echoTime);
+  const bool lfoFrequencyChanged = !near(nextLfoFrequency, s.lfoFrequency) || nextStyle != s.lfoStyle;
+  const bool lfoVariationChanged = !near(nextLfoVariation, s.lfoVariation);
+  const bool doModulateEchoChanged = nextDoModulateEcho != s.doModulateEcho;
+  const bool saturateChanged = !near(nextSaturate, s.saturate);
+  const bool filterChanged =
+    !near(nextLpfFrequency, s.lpfL.freq)
+    || !near(nextHpfFrequency, s.hpfL.frequency)
+    || !near(nextBandFrequency, s.peakL.freq)
+    || !near(nextBandDecibels, s.peakL.gainDb)
+    || !near(nextBandQ, s.peakL.q)
+    || nextLpfStages != s.lpfL.nStages
+    || nextBandStages != s.peakL.nStages;
+  const bool duckChanged =
+    !near(nextDuckLimit, s.duck.limit)
+    || !near(nextDuckRelease, s.duck.releaseSeconds);
+
+  s.echoTime = nextEchoTime;
+  s.numDelays = nd;
+  s.diffusionSize = nextDiffusionSize;
+  s.diffusionAmount = nextDiffusionAmount;
+  s.seed = nextSeed;
+  s.lfoAmp = nextLfoAmp;
+  s.lfoFrequency = nextLfoFrequency;
+  s.lfoVariation = nextLfoVariation;
+  s.lfoStyle = nextStyle;
+  s.doModulateEcho = nextDoModulateEcho;
+  s.saturate = nextSaturate;
+  s.lpfL.freq = s.lpfR.freq = nextLpfFrequency;
+  s.hpfL.frequency = s.hpfR.frequency = nextHpfFrequency;
+  s.peakL.freq = s.peakR.freq = nextBandFrequency;
+  s.peakL.gainDb = s.peakR.gainDb = nextBandDecibels;
+  s.peakL.q = s.peakR.q = nextBandQ;
+  s.lpfL.nStages = s.lpfR.nStages = nextLpfStages;
+  s.peakL.nStages = s.peakR.nStages = nextBandStages;
+  s.duck.limit = nextDuckLimit;
+
+  // diffusionAmount / lfoAmp: live Wire — assign into lines every set (cheap), no rebuild.
+  for (int i = 0; i < s.numDelays; i++) {
+    s.delaysL[i].feedback = s.diffusionAmount;
+    s.delaysR[i].feedback = s.diffusionAmount;
+    s.delaysL[i].lfoAmp = s.lfoAmp;
+    s.delaysR[i].lfoAmp = s.lfoAmp;
+  }
+
+  if (seedChanged) {
+    reseedDiffusion(s); // diffusionSeedChanged only
+  }
+  if (numDelaysChanged && !seedChanged) {
+    // Original delayedCallback: seed notify then numDelaysChanged.
+    // Pool is fixed-size; re-apply times/LFO for the new active count.
     applyDiffusionTimes(s);
     applyLfoIncs(s);
   }
-  applyEchoTime(s);
-  updateClip(s);
-  configureFilters(s);
+  if (!seedChanged && diffusionSizeChanged) {
+    applyDiffusionTimes(s); // diffusionSizeChanged
+  }
+  if (lfoFrequencyChanged || lfoVariationChanged) {
+    applyLfoIncs(s); // lfoFrequencyChanged / lfoVariationChanged
+  }
+  // doModulateEchoChanged + live lfoAmp Wire on echo (pointTo / disconnect).
+  {
+    const double echoAmp = s.doModulateEcho ? s.lfoAmp : 0.0;
+    s.echoL.lfoAmp = echoAmp;
+    s.echoR.lfoAmp = echoAmp;
+    (void)doModulateEchoChanged;
+  }
+  if (echoTimeChanged) applyEchoTime(s);  // echoTimeChanged
+  if (saturateChanged) updateClip(s);     // clippingThresholdChanged
+  if (filterChanged) configureFilters(s);
+  if (duckChanged) s.duck.setRelease(nextDuckRelease, s.sampleRate);
 }
 
 // Process one sample pair. Applies input ducking like SoEmReverbModule::process:
