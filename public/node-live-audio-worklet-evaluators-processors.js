@@ -107,13 +107,21 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       ladderFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.ladderFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createLadderFilterState());
         this.ladderFilterStates.set(nodeId, state);
+        // Control knobs: only re-resolve when smoother/mod hasChanged.
+        const controls = this.resolveModuleControlParams(
+          node,
+          state,
+          { mode: 1, resonance: 0.2, stages: 4, frequency: 1000 },
+          frame,
+          frames,
+          frameValues,
+        );
+        // LIVE: audio-rate `f` jack overrides frequency every sample.
         const ladderParams = {
+          ...controls.params,
           frequency: (typeof hasInput === "function" && hasInput(nodeId, "f"))
             ? mixInput(nodeId, "f")
-            : this.readEffectiveParameter(node, "frequency", 1000, frame, frames, frameValues),
-          mode: this.readEffectiveParameter(node, "mode", 1, frame, frames, frameValues),
-          resonance: this.readEffectiveParameter(node, "resonance", 0.2, frame, frames, frameValues),
-          stages: this.readEffectiveParameter(node, "stages", 4, frame, frames, frameValues),
+            : controls.params.frequency,
         };
         const ladderMono = mixInput(nodeId);
         const outM = this.ladderFilterSample(state.mono, ladderMono, ladderParams, safeRate);
@@ -715,30 +723,34 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       pingPongDelay: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.pingPongDelayStates.get(nodeId) || this.createPingPongDelayState();
         this.pingPongDelayStates.set(nodeId, state);
-        // Same pattern as Sabrina: resolve knobs once per quantum, not every sample.
-        if (frame === 0 || !state.cachedParams) {
-          const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
-          state.cachedParams = {
-            feedback: read("feedback", 0.35),
-            hpfFrequency: read("hpfFrequency", 20),
-            interpolation: read("interpolation", 0),
-            level: read("level", 1),
-            lfoRate: read("lfoRate", 0.35),
-            lfoStyle: read("lfoStyle", 0),
-            lfoVariation: read("lfoVariation", 0.25),
-            lpfFrequency: read("lpfFrequency", 8000),
-            mix: read("mix", 0.35),
-            offsetMs: read("offsetMs", 0),
-            saturate: read("saturate", 1),
-            timeDenominator: read("timeDenominator", 4),
-            timeNumerator: read("timeNumerator", 1),
-            timingMode: read("timingMode", 0),
-          };
-        }
+        // hasChanged: only re-resolve while smoothing/modulated; idle knobs stay off the list.
+        const { params } = this.resolveModuleControlParams(
+          node,
+          state,
+          {
+            feedback: 0.35,
+            hpfFrequency: 20,
+            interpolation: 0,
+            level: 1,
+            lfoRate: 0.35,
+            lfoStyle: 0,
+            lfoVariation: 0.25,
+            lpfFrequency: 8000,
+            mix: 0.35,
+            offsetMs: 0,
+            saturate: 1,
+            timeDenominator: 4,
+            timeNumerator: 1,
+            timingMode: 0,
+          },
+          frame,
+          frames,
+          frameValues,
+        );
         return this.pingPongDelaySample(
           state,
           mixInput(nodeId) + mixInput(nodeId, "Left") + mixInput(nodeId, "Right"),
-          state.cachedParams,
+          params,
           safeRate,
         );
       },
@@ -771,23 +783,25 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       reverbEffect: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.reverbEffectStates.get(nodeId) || this.createSabrinaReverbState();
         this.reverbEffectStates.set(nodeId, state);
-        // Resolve the 8 Sabrina knobs once per worklet quantum. Unmodulated
-        // they barely move; reading them every sample (plus object alloc +
-        // set_params) was enough to miss the audio deadline.
-        if (frame === 0 || !state.cachedParams) {
-          const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
-          state.cachedParams = {
-            delaySize: read("delaySize", 0.02),
-            diffusionAmount: read("diffusionAmount", 0.70),
-            diffusionSize: read("diffusionSize", 0.35),
-            lfoAmplitude: read("lfoAmplitude", 0.07),
-            lfoBaseSpeed: read("lfoBaseSpeed", 0.83),
-            lfoVariation: read("lfoVariation", 0.001),
-            mix: read("mix", 0.43),
-            recycle: read("recycle", 0.70),
-            seed: read("seed", 0),
-          };
-        }
+        // hasChanged: idle unmodulated knobs stay cached (not re-read every sample/quantum).
+        const { params } = this.resolveModuleControlParams(
+          node,
+          state,
+          {
+            delaySize: 0.02,
+            diffusionAmount: 0.70,
+            diffusionSize: 0.35,
+            lfoAmplitude: 0.07,
+            lfoBaseSpeed: 0.83,
+            lfoVariation: 0.001,
+            mix: 0.43,
+            recycle: 0.70,
+            seed: 0,
+          },
+          frame,
+          frames,
+          frameValues,
+        );
         const monoInput = mixInput(nodeId, "In");
         const leftInput = mixInput(nodeId, "Left") + monoInput;
         const rightInput = mixInput(nodeId, "Right") + monoInput;
@@ -795,7 +809,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           state,
           leftInput,
           rightInput,
-          state.cachedParams,
+          params,
           safeRate,
           frame,
         );
@@ -1422,10 +1436,18 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         if (!this.softClipperStates) this.softClipperStates = new Map();
         const state = this.softClipperStates.get(nodeId) || this.createSoftClipperState();
         this.softClipperStates.set(nodeId, state);
-        const softClipperOs = this.readEffectiveParameter(node, "oversample", 2, frame, frames, frameValues);
-        const softClipperGainDb = this.readEffectiveParameter(node, "gainDb", 0, frame, frames, frameValues);
-        const softClipperCenter = this.readEffectiveParameter(node, "center", 0, frame, frames, frameValues);
-        const softClipperWidth = this.readEffectiveParameter(node, "width", 2, frame, frames, frameValues);
+        const controls = this.resolveModuleControlParams(
+          node,
+          state,
+          { oversample: 2, gainDb: 0, center: 0, width: 2 },
+          frame,
+          frames,
+          frameValues,
+        );
+        const softClipperOs = controls.params.oversample;
+        const softClipperGainDb = controls.params.gainDb;
+        const softClipperCenter = controls.params.center;
+        const softClipperWidth = controls.params.width;
         const drive = typeof nodeGraphClipperDbToLin === "function"
           ? nodeGraphClipperDbToLin(softClipperGainDb)
           : 10 ** ((Number(softClipperGainDb) || 0) / 20);

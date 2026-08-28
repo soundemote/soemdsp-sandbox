@@ -427,3 +427,59 @@ NodeLiveAudioProcessor.prototype.readEffectiveParameter = function readEffective
     return this.applyParameterModulation(base, sources.reduce((a, b) => a + b, 0), metadata);
 };
 
+// Dual dirty lists (soemdsp):
+//   1) activeSmoothers — only chases still moving; empty ⇒ no smoother CPU
+//   2) control hasChanged — Control knobs only re-resolve / *Changed when the
+//      effective value moved (smoother active, audio-rate mod, or first bind).
+// Idle unmodulated params are on NEITHER list and must not be recalculated.
+NodeLiveAudioProcessor.prototype.moduleControlNeedsRefresh = function moduleControlNeedsRefresh(node, state, keys) {
+    if (!state?.cachedParams) {
+      return true;
+    }
+    const list = keys || Object.keys(state.cachedParams);
+    for (let i = 0; i < list.length; i += 1) {
+      const key = list[i];
+      const smootherKey = this.parameterKey(node?.id, key);
+      if (this.activeSmootherKeys.has(smootherKey)) {
+        return true;
+      }
+      const mods = this.modulationConnections.get(smootherKey);
+      if (mods && mods.length) {
+        return true;
+      }
+    }
+    return false;
+};
+
+/**
+ * Resolve Control knobs only when hasChanged (smoother moving / modulated / unbound).
+ * Returns { params, changed }. Live audio-rate wires should NOT use this — read those every sample.
+ */
+NodeLiveAudioProcessor.prototype.resolveModuleControlParams = function resolveModuleControlParams(
+  node,
+  state,
+  spec,
+  frame,
+  frames,
+  frameValues,
+) {
+    const keys = Object.keys(spec || {});
+    if (!this.moduleControlNeedsRefresh(node, state, keys)) {
+      return { params: state.cachedParams, changed: false };
+    }
+    const params = Object.create(null);
+    let changed = !state.cachedParams;
+    const prev = state.cachedParams;
+    for (let i = 0; i < keys.length; i += 1) {
+      const key = keys[i];
+      const fallback = spec[key];
+      const value = this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+      params[key] = value;
+      if (!changed && prev && prev[key] !== value) {
+        changed = true;
+      }
+    }
+    state.cachedParams = params;
+    return { params, changed };
+};
+
