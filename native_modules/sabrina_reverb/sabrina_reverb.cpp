@@ -587,6 +587,10 @@ extern "C" void soemdsp_sabrina_reverb_reset(int handle, double sampleRate) {
   resetState(*state, sampleRate);
 }
 
+// Param ownership (soemdsp::delay::SabrinaReverb::kParams / DSP_ATOM_PARADIGM):
+//   LIVE:    mix, recycle, diffusionAmount
+//   CONTROL: diffusionSize, delaySize, lfo*, seed → geometry / reseed
+// Geometry glides via smoothed* + advanceSabrinaSmoothing (not every sample forever).
 extern "C" void soemdsp_sabrina_reverb_set_params(
   int handle,
   double mix,
@@ -603,10 +607,6 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
   if (!state) {
     return;
   }
-  // DirtyUpdater-style (soemdsp::DirtyUpdater + Reverb Wires): only run the
-  // work a field actually owns. Mix has no *Changed() in soemdsp::delay::Reverb
-  // -- it is a Wire read in drywet() -- so a mix poke must never rebuild
-  // delay geometry or rewrite diffusion feedback.
   auto near = [](double a, double b) { return near_planck(a, b); };
   auto assignIf = [&](double& dst, double next) {
     if (!near(dst, next)) {
@@ -616,15 +616,12 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
     return false;
   };
 
+  // LIVE — assign only (read in process / drywet).
   assignIf(state->mix, clamp(mix, 0.0, 1.0));
   assignIf(state->recycle, clamp(recycle, 0.0, 0.98));
+  assignIf(state->diffusionAmount, clamp(diffusionAmount, 0.0, 0.98));
 
-  if (assignIf(state->diffusionAmount, clamp(diffusionAmount, 0.0, 0.98))) {
-    for (int index = 0; index < kDiffusionCount; index += 1) {
-      state->delays[index].feedback = state->diffusionAmount;
-    }
-  }
-
+  // CONTROL — targets for smoothed geometry (*Changed ownership).
   assignIf(state->diffusionSize, clamp(diffusionSize, 0.0, 1.0));
   assignIf(state->delaySize, clamp(delaySize, 0.0, 1.0));
   assignIf(state->lfoAmplitude, clamp(lfoAmplitude, 0.0, 1.0));
@@ -633,7 +630,7 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
 
   const int seedInt = static_cast<int>(seed + 0.5);
   if (seedInt != state->seed) {
-    reseedDelays(*state, seedInt);
+    reseedDelays(*state, seedInt); // diffusionSeedChanged
     applyDelayGeometry(*state);
   }
 }
@@ -649,6 +646,11 @@ extern "C" void soemdsp_sabrina_reverb_process(int handle, double leftInput, dou
     return;
   }
   advanceSabrinaSmoothing(*state);
+  // LIVE diffusionAmount → feedback (Wire-style; do not wait for geometry step).
+  const double liveFeedback = state->diffusionAmount;
+  for (int index = 0; index < kDiffusionCount; index += 1) {
+    state->delays[index].feedback = liveFeedback;
+  }
   // Left and right channels are independent within this call (cross-feed
   // only happens via ch0/ch1 persisted from the *previous* call), so both
   // chains are processed together, one SIMD lane per channel, instead of

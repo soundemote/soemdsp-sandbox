@@ -26,6 +26,7 @@ static const int kMaxDelaySamples = 1536002; // 8s @ 192kHz
 
 enum LfoStyle { LfoParabol = 0, LfoRandomWalk = 1, LfoFbm = 2 };
 
+// SoftClip / one-poles: Control *Changed rebuilds coeffs; process uses cache.
 struct SoftClip {
   double width{2.0};
   double scaleX{1.0}, scaleY{1.0}, shiftX{0.0}, shiftY{0.0};
@@ -49,10 +50,13 @@ struct SoftClip {
 
 struct OnePoleLP {
   double z{0.0};
-  double run(double input, double freqHz, double sr) {
+  double a1{0.0};
+  void coeffsChanged(double freqHz, double sr) {
     double rate = maxd(1.0, sr);
     double w = mind(6.283185307179586 / rate, 0.000142475857) * maxd(0.0, freqHz);
-    double a1 = dsp_exp(-w);
+    a1 = dsp_exp(-w);
+  }
+  double run(double input) {
     z = (1.0 - a1) * input + a1 * z;
     return z;
   }
@@ -61,12 +65,15 @@ struct OnePoleLP {
 
 struct OnePoleHP {
   double x0{0.0}, y0{0.0};
-  double run(double input, double freqHz, double sr) {
+  double a1{0.0}, b0{1.0}, b1{0.0};
+  void coeffsChanged(double freqHz, double sr) {
     double rate = maxd(1.0, sr);
     double w = mind(6.283185307179586 / rate, 0.000142475857) * maxd(0.0, freqHz);
-    double a1 = dsp_exp(-w);
-    double b0 = 0.5 * (1.0 + a1);
-    double b1 = -b0;
+    a1 = dsp_exp(-w);
+    b0 = 0.5 * (1.0 + a1);
+    b1 = -b0;
+  }
+  double run(double input) {
     double y = b0 * input + b1 * x0 + a1 * y0;
     x0 = input;
     y0 = y;
@@ -171,6 +178,9 @@ struct LfoChannel {
 static float gBufferL[kMaxInstances][kMaxDelaySamples];
 static float gBufferR[kMaxInstances][kMaxDelaySamples];
 
+// Param ownership (mirrors soemdsp::delay::PingPongDelay::kParams):
+//   LIVE:    feedback, mix, level, offsetMs, lfoStyle, lfoRate, lfoVariation
+//   CONTROL: timing (num/den/mode/tempo/SR), saturate, lpf/hpf → *Changed
 struct PingPongDelayState {
   bool active;
   float* bufferL;
@@ -186,6 +196,17 @@ struct PingPongDelayState {
   SoftClip clip;
   OnePoleLP lpL, lpR;
   OnePoleHP hpL, hpR;
+  // Cached Control last-values
+  bool controlsValid;
+  double lastSaturate;
+  double lastLpfHz;
+  double lastHpfHz;
+  double lastSampleRate;
+  double lastNum;
+  double lastDen;
+  double lastTimingMode;
+  double lastTempoBpm;
+  double baseSeconds;
 };
 
 static PingPongDelayState gPool[kMaxInstances];
@@ -209,6 +230,12 @@ static void reset_delay(PingPongDelayState& s, int size) {
   s.hpL.reset();
   s.hpR.reset();
   s.clip.setSaturate(1.0);
+  s.controlsValid = false;
+  s.baseSeconds = 0.0;
+  s.lpL.coeffsChanged(8000.0, 44100.0);
+  s.lpR.coeffsChanged(8000.0, 44100.0);
+  s.hpL.coeffsChanged(20.0, 44100.0);
+  s.hpR.coeffsChanged(20.0, 44100.0);
 }
 
 static double timing_mode_multiplier(double mode) {
@@ -222,6 +249,65 @@ static double delay_fraction(double numerator, double denominator) {
   const double effectiveNumerator = maxd(0.0, numerator);
   if (effectiveNumerator == 0.0) return 0.0;
   return effectiveNumerator / maxd(1.0, denominator);
+}
+
+static void sync_ping_pong_controls(
+  PingPongDelayState& s,
+  double saturate,
+  double lpfHz,
+  double hpfHz,
+  double timeNumerator,
+  double timeDenominator,
+  double timingMode,
+  double tempoBpm,
+  double sampleRate
+) {
+  const double rate = maxd(1.0, safe(sampleRate));
+  const double sat = clamp(safe(saturate), 0.01, 4.0);
+  const double lpf = clamp(safe(lpfHz), 20.0, 20000.0);
+  const double hpf = clamp(safe(hpfHz), 1.0, 2000.0);
+  const double num = safe(timeNumerator);
+  const double den = safe(timeDenominator);
+  const double mode = safe(timingMode);
+  const double bpm = maxd(1.0, safe(tempoBpm));
+
+  const bool dirty =
+    !s.controlsValid
+    || sat != s.lastSaturate
+    || lpf != s.lastLpfHz
+    || hpf != s.lastHpfHz
+    || rate != s.lastSampleRate
+    || num != s.lastNum
+    || den != s.lastDen
+    || mode != s.lastTimingMode
+    || bpm != s.lastTempoBpm;
+
+  if (!dirty) return;
+
+  if (!s.controlsValid || sat != s.lastSaturate) {
+    s.clip.setSaturate(sat);
+    s.lastSaturate = sat;
+  }
+  if (!s.controlsValid || lpf != s.lastLpfHz || hpf != s.lastHpfHz || rate != s.lastSampleRate) {
+    s.lpL.coeffsChanged(lpf, rate);
+    s.lpR.coeffsChanged(lpf, rate);
+    s.hpL.coeffsChanged(hpf, rate);
+    s.hpR.coeffsChanged(hpf, rate);
+    s.lastLpfHz = lpf;
+    s.lastHpfHz = hpf;
+  }
+  if (!s.controlsValid || num != s.lastNum || den != s.lastDen || mode != s.lastTimingMode
+      || bpm != s.lastTempoBpm || rate != s.lastSampleRate) {
+    const double secondsPerWholeNote = 240.0 / bpm;
+    const double fraction = delay_fraction(num, den);
+    s.baseSeconds = maxd(0.0, secondsPerWholeNote * fraction * timing_mode_multiplier(mode));
+    s.lastNum = num;
+    s.lastDen = den;
+    s.lastTimingMode = mode;
+    s.lastTempoBpm = bpm;
+  }
+  s.lastSampleRate = rate;
+  s.controlsValid = true;
 }
 
 static double interpolate_linear(const float* buffer, int length, double where) {
@@ -288,9 +374,12 @@ extern "C" double soemdsp_ping_pong_delay_sample(
     reset_delay(s, requiredSize);
   }
 
+  sync_ping_pong_controls(
+    s, saturate, lpfFrequency, hpfFrequency,
+    timeNumerator, timeDenominator, timingMode, tempoBpm, rate);
+
+  // LIVE — read every sample (no *Changed).
   const double dry = safe(input);
-  // No hard feedback ceiling — soft-clip (saturate) is the loop limiter.
-  // Param UI min/max own the range (can be >1 for self-osc / tape cook).
   const double safeFeedback = safe(feedback);
   const double safeMix = clamp(safe(mix), 0.0, 1.0);
   const double safeLevel = clamp(safe(level), 0.0, 2.0);
@@ -298,23 +387,14 @@ extern "C" double soemdsp_ping_pong_delay_sample(
   const int style = (int)dsp_floor(safe(lfoStyle) + 0.5);
   const double hz = clamp(safe(lfoRate), 0.0, 40.0);
   const double vary = clamp(safe(lfoVariation), 0.0, 1.0);
-  const double sat = clamp(safe(saturate), 0.01, 4.0);
-  const double lpfHz = clamp(safe(lpfFrequency), 20.0, 20000.0);
-  const double hpfHz = clamp(safe(hpfFrequency), 1.0, 2000.0);
-
-  s.clip.setSaturate(sat);
-
-  const double secondsPerWholeNote = 240.0 / maxd(1.0, safe(tempoBpm));
-  const double fraction = delay_fraction(safe(timeNumerator), safe(timeDenominator));
-  const double baseSeconds = maxd(0.0, secondsPerWholeNote * fraction * timing_mode_multiplier(safe(timingMode)));
 
   const double rateL = hz * (1.0 + vary * 0.31);
   const double rateR = hz * (1.0 - vary * 0.27);
   const double modL = driftSec > 1e-9 ? s.lfoL.run(style, rateL, rate) : 0.0;
   const double modR = driftSec > 1e-9 ? s.lfoR.run(style, rateR, rate) : 0.0;
 
-  const double delaySamplesL = clamp((baseSeconds + driftSec * modL) * rate, 1.0, (double)(s.bufferSize - 2));
-  const double delaySamplesR = clamp((baseSeconds + driftSec * modR) * rate, 1.0, (double)(s.bufferSize - 2));
+  const double delaySamplesL = clamp((s.baseSeconds + driftSec * modL) * rate, 1.0, (double)(s.bufferSize - 2));
+  const double delaySamplesR = clamp((s.baseSeconds + driftSec * modR) * rate, 1.0, (double)(s.bufferSize - 2));
 
   s.position = (s.position + 1) % s.bufferSize;
   double readLRaw = (double)s.position + (double)s.bufferSize - delaySamplesL;
@@ -327,8 +407,8 @@ extern "C" double soemdsp_ping_pong_delay_sample(
 
   const double clippedL = s.clip.run(dry + readR * safeFeedback);
   const double clippedR = s.clip.run(readL * safeFeedback);
-  const double writeL = s.lpL.run(s.hpL.run(clippedL, hpfHz, rate), lpfHz, rate);
-  const double writeR = s.lpR.run(s.hpR.run(clippedR, hpfHz, rate), lpfHz, rate);
+  const double writeL = s.lpL.run(s.hpL.run(clippedL));
+  const double writeR = s.lpR.run(s.hpR.run(clippedR));
 
   s.bufferL[s.position] = (float)clamp(writeL, -8.0, 8.0);
   s.bufferR[s.position] = (float)clamp(writeR, -8.0, 8.0);
