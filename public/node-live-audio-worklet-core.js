@@ -74,6 +74,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.inputMeterSquareSum = 0;
     this.maxBlockProcessMs = 0;
     this.maxBlockBudgetRatio = 0;
+    this.audioThreadStressed = false;
     this.meterClipCount = 0;
     this.meterCounter = 0;
     this.meterOverrunCount = 0;

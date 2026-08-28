@@ -35,6 +35,8 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       return true;
     }
 
+    // Previous quantum was late → shed non-audio work this quantum (scopes/UI posts).
+    const audioStressed = Boolean(this.audioThreadStressed);
     for (let frame = 0; frame < frames; frame += 1) {
       const rawLeft = Number(input[0]?.[frame]);
       const rawRight = Number(input[1]?.[frame]);
@@ -64,20 +66,28 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
           leftSum += subframeOutput.left;
           rightSum += subframeOutput.right;
         }
-        this.captureModuleScopeFrame(this.currentFrameValues, engineFrame, engineFrames);
+        // Scope capture every sample is expensive; when audio is late, keep DSP
+        // and only refresh rings every 8th sample so the quantum can recover.
+        if (!audioStressed || (engineFrame & 7) === 0) {
+          this.captureModuleScopeFrame(this.currentFrameValues, engineFrame, engineFrames);
+        }
         this.scopeCounter += 1;
         const displayFps = Number(this.displayFps);
         if (displayFps > 0) {
           this.scopeSnapshotCounter = (Number(this.scopeSnapshotCounter) || 0) + 1;
           if (this.scopeSnapshotCounter >= Math.max(1, Math.floor(effectiveRate / displayFps))) {
             this.scopeSnapshotCounter = 0;
-            this.postModuleScopeSnapshot();
+            if (!audioStressed) {
+              this.postModuleScopeSnapshot();
+            }
           }
         }
         this.visualControlCounter += 1;
         if (this.visualControlCounter >= Math.max(1, Math.floor(effectiveRate / 30))) {
           this.visualControlCounter = 0;
-          this.postVisualControls();
+          if (!audioStressed) {
+            this.postVisualControls();
+          }
         }
       }
       const frameOutput = {
@@ -124,6 +134,8 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       const budgetRatio = blockBudgetMs > 0 ? elapsedMs / blockBudgetMs : 0;
       this.maxBlockProcessMs = Math.max(Number(this.maxBlockProcessMs) || 0, elapsedMs);
       this.maxBlockBudgetRatio = Math.max(Number(this.maxBlockBudgetRatio) || 0, budgetRatio);
+      // Latch stress for the *next* quantum's shedding policy.
+      this.audioThreadStressed = budgetRatio >= 0.85;
       if (budgetRatio >= 0.85) {
         this.meterOverrunCount += 1;
       }

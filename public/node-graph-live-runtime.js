@@ -1912,6 +1912,23 @@ function handleNodeGraphLiveWorkletMessage(event) {
       Number(message.maxBlockProcessMs) || 0,
       Number(message.maxBlockBudgetRatio) || 0,
     );
+    // Feed the constraint CPU chip with real audio-thread load (not UI rAF).
+    if (!nodeGraphMvp.constraintResourceMetrics) {
+      nodeGraphMvp.constraintResourceMetrics = {};
+    }
+    const audioRatio = Math.max(0, Number(message.maxBlockBudgetRatio) || 0);
+    nodeGraphMvp.constraintResourceMetrics.audioLoadPct = audioRatio * 100;
+    nodeGraphMvp.constraintResourceMetrics.audioOverrunCount = Math.max(
+      0,
+      Number(message.overrunCount) || 0,
+    );
+    nodeGraphMvp.constraintResourceMetrics.audioBlockMs = Math.max(
+      0,
+      Number(message.maxBlockProcessMs) || 0,
+    );
+    if (typeof syncNodeGraphCpuConstraintMetrics === "function") {
+      syncNodeGraphCpuConstraintMetrics();
+    }
     if (typeof syncNodeGraphAudioPlayerRuntimeStatus === "function") {
       syncNodeGraphAudioPlayerRuntimeStatus({
         nodeId: message.audioPlayerNodeId || "",
@@ -2933,7 +2950,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-graph-parameter-smoother-filters.js?v=unpark-types-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=t-series-1",
-  "./public/node-live-audio-worklet-core.js?v=phase-arm-1",
+  "./public/node-live-audio-worklet-core.js?v=audio-load-meter-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
   "./public/node-live-audio-worklet-smoother.js?v=smooth-time-live-1",
@@ -2957,7 +2974,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-scope-snapshot.js?v=engine-ring-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=out-vol-m3-1",
-  "./public/node-live-audio-worklet-process.js?v=mp-worklet-sid-1",
+  "./public/node-live-audio-worklet-process.js?v=audio-load-meter-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",
