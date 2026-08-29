@@ -1,6 +1,7 @@
-// MVEP GraphEngine host (PR-E3): setPlan → native compile; process → one
-// soemdsp_graph_process_block per quantum (full canonical circuit).
-// Efficient mode has no evaluateFrame fallback.
+// MVEP GraphEngine host (PR-E4): setPlan → native compile; process → one
+// soemdsp_graph_process_block per quantum. Control smoothers → set_param once
+// per quantum; Live ƒ / CV ports map into the native graph; scope taps from
+// node_port_ptr (no evaluateFrame).
 // Node id hashing: FNV-1a 32-bit (offset 2166136261, prime 16777619).
 
 NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
@@ -49,6 +50,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_HPF_FREQUENCY = 60;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TEMPO_BPM = 61;
 
 // Ports: 0 Mono/Out, 1 Left/Mix L, 2 Right/Mix R, 3 Saw/Dry L, 4 Ramp/Dry R, 5–7 taps.
+// Live SIGNAL IN (not audio buses): 16 ƒ, 17 0.1V/Oct, 18 Increment, 19 Reset.
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO = 0;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT = 1;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT = 2;
@@ -59,6 +61,10 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI = 6;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE = 7;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_DRY_L = 3;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_DRY_R = 4;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_F = 16;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PITCH_CV = 17;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_INCREMENT = 18;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RESET = 19;
 
 NodeLiveAudioProcessor.prototype.fnv1aHash32 = function fnv1aHash32(text) {
   let hash = 2166136261 >>> 0;
@@ -78,6 +84,19 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphTypeId = function mapNativeGraphT
 NodeLiveAudioProcessor.prototype.mapNativeGraphPortId = function mapNativeGraphPortId(port) {
   const raw = String(port || "").trim();
   const p = raw.toLowerCase();
+  // Live absolute-Hz jack (must not fall through to Mono — would inject CV into audio).
+  if (p === "f" || p === "ƒ" || p === "freq" || p === "frequency") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_F;
+  }
+  if (p === "0.1v/oct" || p === "0.1v" || p === "v/oct" || p === "pitch") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PITCH_CV;
+  }
+  if (p === "increment" || p === "inc." || p === "inc") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_INCREMENT;
+  }
+  if (p === "reset") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RESET;
+  }
   if (p === "left" || p === "l" || p === "mix l" || p === "wet l" || p === "left mix") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
@@ -127,6 +146,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphE
     && n?.soemdsp_graph_process_block
     && n?.soemdsp_graph_block_output_left_ptr
     && n?.soemdsp_graph_block_output_right_ptr
+    && n?.soemdsp_graph_node_port_ptr
     && n?.soemdsp_graph_max_block_frames
   );
 };
@@ -209,8 +229,11 @@ NodeLiveAudioProcessor.prototype.postNativeGraphStatus = function postNativeGrap
   } catch (_e) { /* ignore */ }
 };
 
-/** Push Control params for allowlisted nodes into a compiled native graph. */
-NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGraphParams() {
+/**
+ * Sample worklet smoothers (+ MOD) once and push into native set_param.
+ * Call after runActiveSmoothers each quantum so knobs ramp instead of step.
+ */
+NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGraphParams(frames = 128) {
   if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
     return;
   }
@@ -219,63 +242,77 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     return;
   }
   const P = NodeLiveAudioProcessor;
+  const safeFrames = Math.max(1, Number(frames) || 128);
+  // Previous-quantum nodeOutputs feed MOD; Live ƒ is handled inside C++.
+  const frameValues = this.nodeOutputs;
+  const read = (node, key, fallback) => {
+    if (typeof this.readEffectiveParameter === "function") {
+      const v = this.readEffectiveParameter(node, key, fallback, 0, safeFrames, frameValues);
+      return Number.isFinite(v) ? v : fallback;
+    }
+    if (typeof this.readSmoothedParameter === "function") {
+      const v = this.readSmoothedParameter(node, key, fallback, 0, safeFrames);
+      return Number.isFinite(v) ? v : fallback;
+    }
+    const raw = Number(node?.params?.[key]);
+    return Number.isFinite(raw) ? raw : fallback;
+  };
   for (const [id, node] of this.nodes) {
     const type = String(node?.type || "");
     if (!Object.prototype.hasOwnProperty.call(P.NATIVE_GRAPH_TYPE_IDS, type)) continue;
     const hash = this.fnv1aHash32(id);
-    const params = node.params || {};
     if (type === "output") {
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_VOLUME_DB, params.volume);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_PAN, params.pan);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_VOLUME_DB, read(node, "volume", -3));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_PAN, read(node, "pan", 0));
       continue;
     }
     if (type === "polyBlep") {
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_FREQUENCY, params.frequency);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_WAVEFORM, params.waveform);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_AMPLITUDE, params.amplitude);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_SHAPE, params.shape);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_PHASE, params.phase);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_FREQUENCY, read(node, "frequency", 220));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_WAVEFORM, read(node, "waveform", 0));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_AMPLITUDE, read(node, "amplitude", 1));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_SHAPE, read(node, "shape", 0.5));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_PHASE, read(node, "phase", 0));
       continue;
     }
     if (type === "ladderFilter") {
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_FREQUENCY, params.frequency);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_RESONANCE, params.resonance);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_MODE, params.mode);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_STAGES, params.stages);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_FREQUENCY, read(node, "frequency", 1000));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_RESONANCE, read(node, "resonance", 0.2));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_MODE, read(node, "mode", 1));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_STAGES, read(node, "stages", 4));
       continue;
     }
     if (type === "softClipper") {
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_CENTER, params.center);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_WIDTH, params.width);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_OVERSAMPLE, params.oversample);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_CENTER, read(node, "center", 0));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_WIDTH, read(node, "width", 2));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_OVERSAMPLE, read(node, "oversample", 2));
       continue;
     }
     if (type === "reverbEffect") {
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_MIX, params.mix);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, params.diffusionSize);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, params.diffusionAmount);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_DELAY_SIZE, params.delaySize);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_RECYCLE, params.recycle);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, params.lfoAmplitude);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, params.lfoBaseSpeed);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_VARIATION, params.lfoVariation);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_SEED, params.seed);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_MIX, read(node, "mix", 0.43));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, read(node, "diffusionSize", 0.35));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, read(node, "diffusionAmount", 0.7));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_DELAY_SIZE, read(node, "delaySize", 0.02));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_RECYCLE, read(node, "recycle", 0.7));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, read(node, "lfoAmplitude", 0.07));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, read(node, "lfoBaseSpeed", 0.83));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_VARIATION, read(node, "lfoVariation", 0.001));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_SEED, read(node, "seed", 0));
       continue;
     }
     if (type === "pingPongDelay") {
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_FEEDBACK, params.feedback);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_MIX, params.mix);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LEVEL, params.level);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, params.timeNumerator);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, params.timeDenominator);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_TIMING_MODE, params.timingMode);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_OFFSET_MS, params.offsetMs);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_STYLE, params.lfoStyle);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_RATE, params.lfoRate);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_VARIATION, params.lfoVariation);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_SATURATE, params.saturate);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, params.lpfFrequency);
-      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, params.hpfFrequency);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_FEEDBACK, read(node, "feedback", 0.35));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_MIX, read(node, "mix", 0.35));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LEVEL, read(node, "level", 1));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, read(node, "timeNumerator", 1));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, read(node, "timeDenominator", 4));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_TIMING_MODE, read(node, "timingMode", 0));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_OFFSET_MS, read(node, "offsetMs", 0));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_STYLE, read(node, "lfoStyle", 0));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_RATE, read(node, "lfoRate", 0.35));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_VARIATION, read(node, "lfoVariation", 0.25));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_SATURATE, read(node, "saturate", 1));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, read(node, "lpfFrequency", 8000));
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, read(node, "hpfFrequency", 20));
       const bpm = Number(this.timing?.tempoBpm);
       this.pushNativeGraphParam(
         native,
@@ -404,6 +441,185 @@ NodeLiveAudioProcessor.prototype.bindNativeGraphBlockViews = function bindNative
   return true;
 };
 
+/** Map native audio port id → face port name(s) for nodeOutputs / scopes. */
+NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPortNames(type, portId) {
+  const P = NodeLiveAudioProcessor;
+  if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
+    return type === "reverbEffect" || type === "pingPongDelay"
+      ? ["Left", "Mix L", "Wet L"]
+      : ["Left"];
+  }
+  if (portId === P.NATIVE_GRAPH_PORT_RIGHT) {
+    return type === "reverbEffect" || type === "pingPongDelay"
+      ? ["Right", "Mix R", "Wet R"]
+      : ["Right"];
+  }
+  if (portId === P.NATIVE_GRAPH_PORT_MONO) {
+    if (type === "polyBlep") return ["Out", "Wave Out", "Noise"];
+    return ["Out", "Mono", "In"];
+  }
+  if (portId === P.NATIVE_GRAPH_PORT_SAW) {
+    return type === "reverbEffect" ? ["Dry L"] : type === "pingPongDelay" ? ["Mod L", "Saw"] : ["Saw"];
+  }
+  if (portId === P.NATIVE_GRAPH_PORT_RAMP) {
+    return type === "reverbEffect" ? ["Dry R"] : type === "pingPongDelay" ? ["Mod R", "Ramp"] : ["Ramp"];
+  }
+  if (portId === P.NATIVE_GRAPH_PORT_SQUARE) return ["Square"];
+  if (portId === P.NATIVE_GRAPH_PORT_TRI) return ["Tri"];
+  if (portId === P.NATIVE_GRAPH_PORT_SINE) return ["Sine"];
+  return [];
+};
+
+NodeLiveAudioProcessor.prototype.bindNativeGraphNodePortView = function bindNativeGraphNodePortView(
+  hash,
+  portId,
+  frames,
+) {
+  const native = this.nativeGraph;
+  const memory = native?.memory;
+  if (!memory?.buffer || !this.nativeGraphHandle || !native.soemdsp_graph_node_port_ptr) {
+    return null;
+  }
+  let ptr = 0;
+  try {
+    ptr = native.soemdsp_graph_node_port_ptr(this.nativeGraphHandle, hash, portId) | 0;
+  } catch (_e) {
+    return null;
+  }
+  if (!ptr) return null;
+  return new Float64Array(memory.buffer, ptr, frames);
+};
+
+/**
+ * Publish last-sample port values + append block samples into scope rings.
+ * Observe-only — never walks JS DSP evaluators.
+ */
+NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishNativeGraphScopeTaps(
+  frames,
+  options = {},
+) {
+  if (!this.nativeGraphCompiled || !this.nativeGraphHandle || frames < 1) return;
+  const fillRings = options.fillRings !== false;
+  const stressed = Boolean(options.stressed);
+  const P = NodeLiveAudioProcessor;
+  const audioPorts = [
+    P.NATIVE_GRAPH_PORT_MONO,
+    P.NATIVE_GRAPH_PORT_LEFT,
+    P.NATIVE_GRAPH_PORT_RIGHT,
+    P.NATIVE_GRAPH_PORT_SAW,
+    P.NATIVE_GRAPH_PORT_RAMP,
+    P.NATIVE_GRAPH_PORT_SQUARE,
+    P.NATIVE_GRAPH_PORT_TRI,
+    P.NATIVE_GRAPH_PORT_SINE,
+  ];
+
+  for (const [id, node] of this.nodes) {
+    const type = String(node?.type || "");
+    if (!Object.prototype.hasOwnProperty.call(P.NATIVE_GRAPH_TYPE_IDS, type)) continue;
+    const hash = this.fnv1aHash32(id);
+    const out = Object.create(null);
+    let any = false;
+    for (let pi = 0; pi < audioPorts.length; pi += 1) {
+      const portId = audioPorts[pi];
+      const view = this.bindNativeGraphNodePortView(hash, portId, frames);
+      if (!view || !view.length) continue;
+      const last = Number(view[frames - 1]);
+      const sample = Number.isFinite(last) ? last : 0;
+      const names = this.nativeGraphPortNames(type, portId);
+      for (let ni = 0; ni < names.length; ni += 1) {
+        out[names[ni]] = sample;
+        any = true;
+      }
+    }
+    if (any) {
+      this.nodeOutputs.set(id, out);
+    }
+  }
+
+  // Speaker bus already ear-protected in processNativeGraphQuantum — keep last L/R.
+  const outputNodeId = this.outputNode || "output";
+  const existing = this.nodeOutputs.get(outputNodeId);
+  if (!existing || typeof existing !== "object") {
+    this.nodeOutputs.set(outputNodeId, { Left: 0, Right: 0, Mono: 0, Out: 0 });
+  }
+
+  if (!fillRings || typeof this.appendScopeBufferSample !== "function") {
+    return;
+  }
+  if (!Array.isArray(this.compiledVisualSinks) || !Array.isArray(this.compiledScopeNodes)) {
+    this.compileScopeCapture?.();
+  }
+
+  // Module face rings: one sample per quantum (last), unless stressed then skip.
+  if (!stressed && Array.isArray(this.compiledScopeNodes)) {
+    for (let i = 0; i < this.compiledScopeNodes.length; i += 1) {
+      const entry = this.compiledScopeNodes[i];
+      const nodeId = entry?.nodeId;
+      if (!nodeId || !this.nodeOutputs.has(nodeId)) continue;
+      this.captureModuleScopeOutput?.(nodeId, this.nodeOutputs.get(nodeId));
+    }
+  }
+
+  // Visual sinks (scope/monitor): append block samples from native port buffers.
+  const sinks = this.compiledVisualSinks;
+  if (!Array.isArray(sinks) || !sinks.length) return;
+  const stride = stressed ? 8 : 1;
+  const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
+  for (let s = 0; s < sinks.length; s += 1) {
+    const sink = sinks[s];
+    const inputs = sink?.inputs;
+    if (!Array.isArray(inputs) || !inputs.length) continue;
+    for (let frame = 0; frame < frames; frame += stride) {
+      let aggregate = 0;
+      for (let i = 0; i < inputs.length; i += 1) {
+        const input = inputs[i];
+        const connections = input?.connections;
+        let inputValue = 0;
+        if (Array.isArray(connections)) {
+          for (let c = 0; c < connections.length; c += 1) {
+            const connection = connections[c];
+            const portId = this.mapNativeGraphPortId(connection.sourcePort);
+            const hash = this.fnv1aHash32(connection.sourceNode);
+            const view = this.bindNativeGraphNodePortView(hash, portId, frames);
+            if (view && frame < view.length) {
+              const v = Number(view[frame]);
+              inputValue += Number.isFinite(v) ? v : 0;
+            } else {
+              inputValue += Number(this.readRuntimePortOutput?.(
+                this.nodeOutputs,
+                connection.sourceNode,
+                connection.sourcePort,
+                frame,
+                frames,
+              )) || 0;
+            }
+          }
+        }
+        aggregate += inputValue;
+        if (input.buffered && input.port) {
+          this.writeVisualInputBufferSample?.(
+            sink.nodeId,
+            input.port,
+            inputValue,
+            sink.bufferSampleLimit,
+            {
+              sampleStride: stride,
+              sourceSampleRate: engineRate,
+              writeSampleRate: engineRate / stride,
+            },
+          );
+        }
+        if (input.portId && !input.buffered) {
+          this.appendScopeBufferSample(input.portId, inputValue);
+        }
+      }
+      if (!sink.skipAggregate) {
+        this.appendScopeBufferSample(sink.nodeId, aggregate);
+      }
+    }
+  }
+};
+
 /**
  * Efficient-mode quantum: native process_block (chunked at max_block_frames),
  * copy to speakers + ear protect. Timing/meter posts stay in process().
@@ -438,9 +654,14 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
     return true;
   }
 
+  // Advance Control smoothers, then sample into native set_param (Issue 8).
+  this.runActiveSmoothers?.(frames);
+  this.syncNativeGraphParams?.(frames);
+
   const native = this.nativeGraph;
   const maxBlock = Math.max(1, Number(native.soemdsp_graph_max_block_frames()) || 128);
   let written = 0;
+  const stressed = Boolean(this.audioThreadStressed);
 
   while (written < frames) {
     const chunk = Math.min(maxBlock, frames - written);
@@ -506,10 +727,14 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
         output[channelIndex][frame] = 0;
       }
     }
+
+    // Scope taps from this chunk's native node buffers (no JS DSP walk).
+    this.publishNativeGraphScopeTaps(chunk, { fillRings: true, stressed });
+
     written += chunk;
   }
 
-  // Publish stereo bus for scopes (observe-only; no JS DSP walk).
+  // Publish ear-protected speaker bus for output observers.
   const outputNodeId = this.outputNode || "output";
   if (frames > 0) {
     const lastL = Number(output[0]?.[frames - 1]) || 0;

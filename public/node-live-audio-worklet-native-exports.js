@@ -10,7 +10,8 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
           && this.nativeGraph?.soemdsp_graph_compile
           && this.nativeGraph?.soemdsp_graph_process_block
           && this.nativeGraph?.soemdsp_graph_block_output_left_ptr
-          && this.nativeGraph?.soemdsp_graph_block_output_right_ptr,
+          && this.nativeGraph?.soemdsp_graph_block_output_right_ptr
+          && this.nativeGraph?.soemdsp_graph_node_port_ptr,
         );
         this.port.postMessage({
           type: "nativeModuleStatus",

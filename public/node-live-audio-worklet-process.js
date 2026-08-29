@@ -81,6 +81,30 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
 
     // Previous quantum was late → shed non-audio work this quantum (scopes/UI posts).
     const audioStressed = Boolean(this.audioThreadStressed);
+
+    // Efficient path: rings already filled from native taps in processNativeGraphQuantum.
+    // Throttled snapshot/visual posts only (never evaluateFrame).
+    if (usedNativeGraph) {
+      this.scopeCounter = (Number(this.scopeCounter) || 0) + frames;
+      const displayFps = Number(this.displayFps);
+      if (displayFps > 0) {
+        this.scopeSnapshotCounter = (Number(this.scopeSnapshotCounter) || 0) + frames;
+        if (this.scopeSnapshotCounter >= Math.max(1, Math.floor(effectiveRate / displayFps))) {
+          this.scopeSnapshotCounter = 0;
+          if (!audioStressed) {
+            this.postModuleScopeSnapshot?.();
+          }
+        }
+      }
+      this.visualControlCounter = (Number(this.visualControlCounter) || 0) + frames;
+      if (this.visualControlCounter >= Math.max(1, Math.floor(effectiveRate / 30))) {
+        this.visualControlCounter = 0;
+        if (!audioStressed) {
+          this.postVisualControls?.();
+        }
+      }
+    }
+
     if (!usedNativeGraph && !this.efficientProduct) {
       for (let frame = 0; frame < frames; frame += 1) {
         const rawLeft = Number(input[0]?.[frame]);

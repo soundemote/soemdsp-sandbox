@@ -3,10 +3,11 @@
 // soemdsp-native-target: graphEngine
 // soemdsp-native-kind: engine
 //
-// MVEP GraphEngine (PR-E3): orchestrates
+// MVEP GraphEngine (PR-E4): orchestrates
 // polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
-// inside soemdsp_graph_process_block. DSP lives in existing natives; this module
-// only creates instances, wires buffers, and walks topo order.
+// inside soemdsp_graph_process_block. Live ƒ jacks mix from wired buffers;
+// Control knobs arrive via set_param (host samples smoothers). Scope taps via
+// node_port_ptr. DSP lives in existing natives; this module is thin glue.
 
 #include "../sandbox_native_maths/exp_log.h"
 #include "../sandbox_native_maths/analog_filter_trig.h"
@@ -21,12 +22,26 @@ extern "C" void soemdsp_polyblep_process_block(
   int handle, int frameCount, double phase0, double phaseIncrement,
   int waveform, double level, double morph, int tapMask
 );
+extern "C" void soemdsp_polyblep_sample_masked(
+  int handle, double phase, double phaseIncrement,
+  int waveform, double level, double morph, int tapMask
+);
 extern "C" int soemdsp_polyblep_block_out_ptr(int handle, int tapIndex);
+extern "C" double soemdsp_polyblep_out(int handle);
+extern "C" double soemdsp_polyblep_saw(int handle);
+extern "C" double soemdsp_polyblep_ramp(int handle);
+extern "C" double soemdsp_polyblep_square(int handle);
+extern "C" double soemdsp_polyblep_tri(int handle);
+extern "C" double soemdsp_polyblep_sine(int handle);
 
 extern "C" int soemdsp_ladder_filter_create();
 extern "C" void soemdsp_ladder_filter_destroy(int handle);
 extern "C" void soemdsp_ladder_filter_set_params(
   int handle, double frequency, double resonance, int mode, int stages, double sampleRate
+);
+extern "C" double soemdsp_ladder_filter_sample(
+  int handle, double input, double frequency, double resonance,
+  int mode, int stages, double sampleRate
 );
 extern "C" void soemdsp_ladder_filter_process_block(int handle, int frameCount);
 extern "C" int soemdsp_ladder_filter_block_input_ptr(int handle);
@@ -108,6 +123,11 @@ static const int kPortTri = 6;
 static const int kPortSine = 7;
 static const int kPortDryL = 3; // reverb Dry L (shares Saw index)
 static const int kPortDryR = 4; // reverb Dry R (shares Ramp index)
+// Live SIGNAL IN ports — not audio output channels (not stored in Node.buf).
+static const int kPortF = 16;          // absolute Hz (ƒ)
+static const int kPortPitchCv = 17;    // 0.1V/Oct
+static const int kPortIncrement = 18;  // phase increment add (cycles/sample)
+static const int kPortReset = 19;      // reset gate
 
 // Param IDs (keep in sync with JS NATIVE_GRAPH_PARAM_*).
 static const int kParamVolumeDb = 0;
@@ -225,6 +245,10 @@ struct Circuit {
   double mixMono[kMaxBlockFrames];
   double mixLeft[kMaxBlockFrames];
   double mixRight[kMaxBlockFrames];
+  double mixF[kMaxBlockFrames];
+  double mixPitch[kMaxBlockFrames];
+  double mixIncrement[kMaxBlockFrames];
+  double mixReset[kMaxBlockFrames];
 };
 
 static Circuit gPool[kMaxInstances];
@@ -356,10 +380,25 @@ static int find_node(Circuit& g, unsigned int idHash) {
   return -1;
 }
 
-static int clamp_port(int port) {
+static bool is_live_dst_port(int port) {
+  return port == kPortF
+    || port == kPortPitchCv
+    || port == kPortIncrement
+    || port == kPortReset;
+}
+
+static int clamp_src_port(int port) {
   if (port < 0) return kPortMono;
   if (port >= kChannels) return kPortMono;
   return port;
+}
+
+// Destination may be audio bus (0..7) or Live SIGNAL IN (16+).
+static int clamp_dst_port(int port) {
+  if (port < 0) return kPortMono;
+  if (port < kChannels) return port;
+  if (is_live_dst_port(port)) return port;
+  return kPortMono;
 }
 
 static float db_to_lin(float db) {
@@ -389,11 +428,12 @@ static void mix_node_inputs(Circuit& g, const Node& node, int frames) {
   for (int ci = 0; ci < g.connCount; ci++) {
     const Conn& c = g.conns[ci];
     if (!c.used || c.dstHash != node.idHash) continue;
+    const int dp = clamp_dst_port(c.dstPort);
+    if (is_live_dst_port(dp)) continue; // Live ƒ / CV — not audio bus
     const int si = find_node(g, c.srcHash);
     if (si < 0) continue;
     Node& src = g.nodes[si];
-    const int sp = clamp_port(c.srcPort);
-    const int dp = clamp_port(c.dstPort);
+    const int sp = clamp_src_port(c.srcPort);
     double* dstAcc = g.mixMono;
     if (dp == kPortLeft) dstAcc = g.mixLeft;
     else if (dp == kPortRight) dstAcc = g.mixRight;
@@ -403,12 +443,32 @@ static void mix_node_inputs(Circuit& g, const Node& node, int frames) {
   }
 }
 
+// Mix Live destination port into dest[]; returns true if any cable present.
+static bool mix_live_port(Circuit& g, const Node& node, int livePort, int frames, double* dest) {
+  zero_buf(dest, frames);
+  bool any = false;
+  for (int ci = 0; ci < g.connCount; ci++) {
+    const Conn& c = g.conns[ci];
+    if (!c.used || c.dstHash != node.idHash) continue;
+    if (clamp_dst_port(c.dstPort) != livePort) continue;
+    const int si = find_node(g, c.srcHash);
+    if (si < 0) continue;
+    Node& src = g.nodes[si];
+    const int sp = clamp_src_port(c.srcPort);
+    for (int f = 0; f < frames; f++) {
+      dest[f] += src.buf[sp][f];
+    }
+    any = true;
+  }
+  return any;
+}
+
 static int polyblep_tap_mask(Circuit& g, const Node& node) {
   int mask = 0;
   for (int ci = 0; ci < g.connCount; ci++) {
     const Conn& c = g.conns[ci];
     if (!c.used || c.srcHash != node.idHash) continue;
-    const int sp = clamp_port(c.srcPort);
+    const int sp = clamp_src_port(c.srcPort);
     if (sp == kPortMono || sp == kPortLeft || sp == kPortRight) mask |= kTapOut;
     else if (sp == kPortSaw) mask |= kTapSaw;
     else if (sp == kPortRamp) mask |= kTapRamp;
@@ -417,6 +477,21 @@ static int polyblep_tap_mask(Circuit& g, const Node& node) {
     else if (sp == kPortSine) mask |= kTapSine;
   }
   return mask == 0 ? kTapOut : mask;
+}
+
+static double clamp_hz_nyquist(double freq, double sr) {
+  if (!(freq == freq)) return 0.0;
+  const double nyquist = 0.5 * sr;
+  if (freq > nyquist) return nyquist;
+  if (freq < -nyquist) return -nyquist;
+  return freq;
+}
+
+static double pitched_hz(double baseHz, double pitchCv, double referenceVoltage) {
+  // Same scale as JS nodeGraphPitchedFrequency: +0.1 CV → +1 octave.
+  const double out = baseHz * dsp_exp(((pitchCv - referenceVoltage) / 0.1) * 0.6931471805599453);
+  if (!(out == out)) return 0.0;
+  return out;
 }
 
 static void copy_tap_to_buf(double* dst, const double* src, int frames) {
@@ -430,13 +505,7 @@ static void copy_tap_to_buf(double* dst, const double* src, int frames) {
 static void process_polyblep(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
-  double freq = (double)node.frequency;
-  if (!(freq == freq) || freq < 0.0) freq = 0.0;
-  // Nyquist cap: |phaseInc| <= 0.5 cycles/sample.
-  const double nyquist = 0.5 * (double)sr;
-  if (freq > nyquist) freq = nyquist;
-  double phaseInc = freq / (double)sr;
-  if (phaseInc > 0.5) phaseInc = 0.5;
+  const double srD = (double)sr;
   int waveform = (int)(node.waveform + (node.waveform >= 0.0f ? 0.5f : -0.5f));
   if (waveform < 0) waveform = 0;
   if (waveform > 8) waveform = 8;
@@ -445,40 +514,94 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   double morph = (double)node.shape;
   if (!(morph == morph)) morph = 0.5;
   const int mask = polyblep_tap_mask(g, node);
-  // phaseParam is cycles 0..1 (JS phase knob); running node.phase is radians.
-  const double phase0 = wrap_phase_pi(node.phase + (double)node.phaseParam * kTwoPi);
-  soemdsp_polyblep_process_block(
-    node.nativeHandle, frames, phase0, phaseInc, waveform, level, morph, mask
-  );
-  double* outPtr = ptr_from_export(soemdsp_polyblep_block_out_ptr(node.nativeHandle, 0));
-  double* sawPtr = ptr_from_export(soemdsp_polyblep_block_out_ptr(node.nativeHandle, 1));
-  double* rampPtr = ptr_from_export(soemdsp_polyblep_block_out_ptr(node.nativeHandle, 2));
-  double* sqPtr = ptr_from_export(soemdsp_polyblep_block_out_ptr(node.nativeHandle, 3));
-  double* triPtr = ptr_from_export(soemdsp_polyblep_block_out_ptr(node.nativeHandle, 4));
-  double* sinePtr = ptr_from_export(soemdsp_polyblep_block_out_ptr(node.nativeHandle, 5));
-  if (mask & kTapOut) {
-    copy_tap_to_buf(node.buf[kPortMono], outPtr, frames);
-    // Stereo mirrors of Out when cabled as Left/Right sources.
-    copy_tap_to_buf(node.buf[kPortLeft], outPtr, frames);
-    copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
-  }
-  if (mask & kTapSaw) copy_tap_to_buf(node.buf[kPortSaw], sawPtr, frames);
-  if (mask & kTapRamp) copy_tap_to_buf(node.buf[kPortRamp], rampPtr, frames);
-  if (mask & kTapSquare) copy_tap_to_buf(node.buf[kPortSquare], sqPtr, frames);
-  if (mask & kTapTri) copy_tap_to_buf(node.buf[kPortTri], triPtr, frames);
-  if (mask & kTapSine) copy_tap_to_buf(node.buf[kPortSine], sinePtr, frames);
 
-  node.phase = wrap_phase_pi(node.phase + kTwoPi * phaseInc * (double)frames);
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool audioRatePitch = liveF || livePitch || liveInc || liveReset;
+
+  // Midi note 48 → 0.4 reference voltage (matches worklet default).
+  const double referenceVoltage = 48.0 / 120.0;
+
+  if (!audioRatePitch) {
+    double freq = clamp_hz_nyquist((double)node.frequency, srD);
+    double phaseInc = freq / srD;
+    if (phaseInc > 0.5) phaseInc = 0.5;
+    if (phaseInc < -0.5) phaseInc = -0.5;
+    const double phase0 = wrap_phase_pi(node.phase + (double)node.phaseParam * kTwoPi);
+    soemdsp_polyblep_process_block(
+      node.nativeHandle, frames, phase0, phaseInc, waveform, level, morph, mask
+    );
+    double* outPtr = ptr_from_export(soemdsp_polyblep_block_out_ptr(node.nativeHandle, 0));
+    double* sawPtr = ptr_from_export(soemdsp_polyblep_block_out_ptr(node.nativeHandle, 1));
+    double* rampPtr = ptr_from_export(soemdsp_polyblep_block_out_ptr(node.nativeHandle, 2));
+    double* sqPtr = ptr_from_export(soemdsp_polyblep_block_out_ptr(node.nativeHandle, 3));
+    double* triPtr = ptr_from_export(soemdsp_polyblep_block_out_ptr(node.nativeHandle, 4));
+    double* sinePtr = ptr_from_export(soemdsp_polyblep_block_out_ptr(node.nativeHandle, 5));
+    if (mask & kTapOut) {
+      copy_tap_to_buf(node.buf[kPortMono], outPtr, frames);
+      copy_tap_to_buf(node.buf[kPortLeft], outPtr, frames);
+      copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
+    }
+    if (mask & kTapSaw) copy_tap_to_buf(node.buf[kPortSaw], sawPtr, frames);
+    if (mask & kTapRamp) copy_tap_to_buf(node.buf[kPortRamp], rampPtr, frames);
+    if (mask & kTapSquare) copy_tap_to_buf(node.buf[kPortSquare], sqPtr, frames);
+    if (mask & kTapTri) copy_tap_to_buf(node.buf[kPortTri], triPtr, frames);
+    if (mask & kTapSine) copy_tap_to_buf(node.buf[kPortSine], sinePtr, frames);
+    node.phase = wrap_phase_pi(node.phase + kTwoPi * phaseInc * (double)frames);
+    return;
+  }
+
+  // Live ƒ / 0.1V / Inc / Reset: per-sample phaseInc (ƒ is absolute Hz when wired).
+  double phase = wrap_phase_pi(node.phase + (double)node.phaseParam * kTwoPi);
+  double lastReset = 0.0;
+  for (int f = 0; f < frames; f++) {
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (lastReset <= 0.0 && rv > 0.0) {
+        phase = (double)node.phaseParam * kTwoPi;
+      }
+      lastReset = rv;
+    }
+    double freq;
+    if (liveF) {
+      freq = g.mixF[f];
+    } else if (livePitch) {
+      freq = pitched_hz((double)node.frequency, g.mixPitch[f], referenceVoltage);
+    } else {
+      freq = (double)node.frequency;
+    }
+    freq = clamp_hz_nyquist(freq, srD);
+    double phaseInc = freq / srD;
+    if (liveInc) phaseInc += g.mixIncrement[f];
+    if (phaseInc > 0.5) phaseInc = 0.5;
+    if (phaseInc < -0.5) phaseInc = -0.5;
+    soemdsp_polyblep_sample_masked(
+      node.nativeHandle, phase, phaseInc, waveform, level, morph, mask
+    );
+    const double out = soemdsp_polyblep_out(node.nativeHandle);
+    if (mask & kTapOut) {
+      node.buf[kPortMono][f] = out;
+      node.buf[kPortLeft][f] = out;
+      node.buf[kPortRight][f] = out;
+    }
+    if (mask & kTapSaw) node.buf[kPortSaw][f] = soemdsp_polyblep_saw(node.nativeHandle);
+    if (mask & kTapRamp) node.buf[kPortRamp][f] = soemdsp_polyblep_ramp(node.nativeHandle);
+    if (mask & kTapSquare) node.buf[kPortSquare][f] = soemdsp_polyblep_square(node.nativeHandle);
+    if (mask & kTapTri) node.buf[kPortTri][f] = soemdsp_polyblep_tri(node.nativeHandle);
+    if (mask & kTapSine) node.buf[kPortSine][f] = soemdsp_polyblep_sine(node.nativeHandle);
+    phase = wrap_phase_pi(phase + kTwoPi * phaseInc);
+  }
+  // Store free-running phase without the Control phase offset (matches block path).
+  node.phase = wrap_phase_pi(phase - (double)node.phaseParam * kTwoPi);
 }
 
 static void process_ladder(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
-  double freq = (double)node.frequency;
-  if (!(freq == freq) || freq < 0.0) freq = 0.0;
-  const double nyquist = 0.5 * (double)sr;
-  if (freq > nyquist) freq = nyquist;
+  const double srD = (double)sr;
   double reso = (double)node.resonance;
   if (!(reso == reso)) reso = 0.0;
   if (reso < 0.0) reso = 0.0;
@@ -489,19 +612,38 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   int stages = (int)(node.stages + (node.stages >= 0.0f ? 0.5f : -0.5f));
   if (stages < 1) stages = 1;
   if (stages > 4) stages = 4;
-  soemdsp_ladder_filter_set_params(node.nativeHandle, freq, reso, mode, stages, (double)sr);
 
-  double* inPtr = ptr_from_export(soemdsp_ladder_filter_block_input_ptr(node.nativeHandle));
-  double* outPtr = ptr_from_export(soemdsp_ladder_filter_block_output_ptr(node.nativeHandle));
-  if (!inPtr || !outPtr) return;
-  // Mono bus + Left/Right summed into the mono ladder (matches mixInput default).
-  for (int f = 0; f < frames; f++) {
-    inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+
+  if (!liveF) {
+    double freq = clamp_hz_nyquist((double)node.frequency, srD);
+    if (freq < 0.0) freq = 0.0;
+    soemdsp_ladder_filter_set_params(node.nativeHandle, freq, reso, mode, stages, srD);
+    double* inPtr = ptr_from_export(soemdsp_ladder_filter_block_input_ptr(node.nativeHandle));
+    double* outPtr = ptr_from_export(soemdsp_ladder_filter_block_output_ptr(node.nativeHandle));
+    if (!inPtr || !outPtr) return;
+    for (int f = 0; f < frames; f++) {
+      inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    }
+    soemdsp_ladder_filter_process_block(node.nativeHandle, frames);
+    copy_tap_to_buf(node.buf[kPortMono], outPtr, frames);
+    copy_tap_to_buf(node.buf[kPortLeft], outPtr, frames);
+    copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
+    return;
   }
-  soemdsp_ladder_filter_process_block(node.nativeHandle, frames);
-  copy_tap_to_buf(node.buf[kPortMono], outPtr, frames);
-  copy_tap_to_buf(node.buf[kPortLeft], outPtr, frames);
-  copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
+
+  // Live ƒ: absolute Hz overrides Control cutoff every sample.
+  for (int f = 0; f < frames; f++) {
+    double freq = clamp_hz_nyquist(g.mixF[f], srD);
+    if (freq < 0.0) freq = 0.0;
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_ladder_filter_sample(
+      node.nativeHandle, in, freq, reso, mode, stages, srD
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
 }
 
 static void process_soft_clipper(Circuit& g, Node& node, int frames) {
@@ -522,7 +664,8 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
   bool hasMonoIn = false;
   for (int ci = 0; ci < g.connCount; ci++) {
     if (!g.conns[ci].used || g.conns[ci].dstHash != node.idHash) continue;
-    const int dp = clamp_port(g.conns[ci].dstPort);
+    const int dp = clamp_dst_port(g.conns[ci].dstPort);
+    if (is_live_dst_port(dp)) continue;
     if (dp == kPortLeft) hasLeftIn = true;
     else if (dp == kPortRight) hasRightIn = true;
     else hasMonoIn = true;
@@ -530,7 +673,7 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
   bool monoOutWired = false;
   for (int ci = 0; ci < g.connCount; ci++) {
     if (!g.conns[ci].used || g.conns[ci].srcHash != node.idHash) continue;
-    if (clamp_port(g.conns[ci].srcPort) == kPortMono) monoOutWired = true;
+    if (clamp_src_port(g.conns[ci].srcPort) == kPortMono) monoOutWired = true;
   }
   // Canonical chain is mono. Skip ch0 only when purely stereo-sided and Out unused.
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
@@ -782,9 +925,9 @@ extern "C" int soemdsp_graph_connect(
   Conn& c = g->conns[g->connCount];
   c.used = true;
   c.srcHash = srcHash;
-  c.srcPort = clamp_port(srcPort);
+  c.srcPort = clamp_src_port(srcPort);
   c.dstHash = dstHash;
-  c.dstPort = clamp_port(dstPort);
+  c.dstPort = clamp_dst_port(dstPort);
   g->connCount += 1;
   return 0;
 }
@@ -957,10 +1100,20 @@ extern "C" double* soemdsp_graph_block_output_right_ptr(int handle) {
   return g ? g->outR : nullptr;
 }
 
+// Observe-only: pointer to last process_block's node.buf[port] (audio ports 0..7).
+extern "C" double* soemdsp_graph_node_port_ptr(int handle, unsigned int nodeHash, int port) {
+  Circuit* g = get(handle);
+  if (!g) return nullptr;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return nullptr;
+  const int p = clamp_src_port(port);
+  return g->nodes[idx].buf[p];
+}
+
 extern "C" int soemdsp_graph_max_block_frames() {
   return kMaxBlockFrames;
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 5; // PR-E3 review: pingPong %0/Mod/SR reset
+  return 6; // PR-E4: Live ƒ wires + node_port_ptr scope taps
 }

@@ -37,6 +37,7 @@ $modules = @(
     "soemdsp_graph_add_node", "soemdsp_graph_connect", "soemdsp_graph_set_param",
     "soemdsp_graph_compile", "soemdsp_graph_process_block",
     "soemdsp_graph_block_output_left_ptr", "soemdsp_graph_block_output_right_ptr",
+    "soemdsp_graph_node_port_ptr",
     "soemdsp_graph_max_block_frames", "soemdsp_graph_version"
   ) }
   @{ Name = "fractal_brownian_noise"; Simd = $true; Exports = @("soemdsp_fbm_create", "soemdsp_fbm_destroy", "soemdsp_fbm_reset", "soemdsp_fbm_sample", "soemdsp_fbm_x", "soemdsp_fbm_y", "soemdsp_fbm_z", "soemdsp_fbm_x_raw", "soemdsp_fbm_y_raw", "soemdsp_fbm_z_raw", "soemdsp_fbm_version", "soemdsp_fbm_process_block", "soemdsp_fbm_block_output_x_ptr", "soemdsp_fbm_block_output_y_ptr", "soemdsp_fbm_block_output_z_ptr", "soemdsp_fbm_block_output_x_raw_ptr", "soemdsp_fbm_block_output_y_raw_ptr", "soemdsp_fbm_block_output_z_raw_ptr", "soemdsp_fbm_max_block_frames") }
