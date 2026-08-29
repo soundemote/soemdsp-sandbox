@@ -52,7 +52,9 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       ? Math.max(1, rawEngineSampleRate / speedMul)
       : 1;
     const engineFrames = frames;
-    // Speed 0 = pause: fill silence and return immediately.
+    // Speed 0 = pause: silence and return. Native process_block (and therefore
+    // Control smoothers) must not advance — freeze mid-ramps until unpause.
+    // Do not snap here; pause→play continues chasing from frozen outs.
     if (!(Number(this.speedMultiplier) > 0)) {
       for (const channel of output) {
         if (channel) {

@@ -39,6 +39,7 @@ $modules = @(
     "soemdsp_graph_set_smooth_type",
     "soemdsp_graph_set_global_smooth_time",
     "soemdsp_graph_set_bypassed",
+    "soemdsp_graph_snap_controls",
     "soemdsp_graph_compile", "soemdsp_graph_process_block",
     "soemdsp_graph_block_output_left_ptr", "soemdsp_graph_block_output_right_ptr",
     "soemdsp_graph_node_port_ptr",

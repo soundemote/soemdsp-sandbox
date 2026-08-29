@@ -716,6 +716,39 @@ static void smoother_run(Circuit& g, int n) {
   }
 }
 
+static void control_snap_to_target(Control& c) {
+  c.out = c.target;
+  c.stage1 = c.target;
+  c.stage2 = c.target;
+  c.active = false;
+  c.blockStepped = 0;
+  c.dirty = true;
+  if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, c.target);
+}
+
+// Jump every Control to its target and clear the chase list. Call after
+// initial param load / audio engine start so the first sample is on-target.
+static void smoother_snap_all(Circuit& g) {
+  for (int i = 0; i < g.nodeCount; i++) {
+    if (!g.nodes[i].used) continue;
+    Node& n = g.nodes[i];
+    Control* slots[] = {
+      &n.volumeDb, &n.pan, &n.frequency, &n.waveform, &n.amplitude, &n.shape,
+      &n.phaseParam, &n.resonance, &n.mode, &n.stages, &n.center, &n.width,
+      &n.oversample, &n.mix, &n.diffusionSize, &n.diffusionAmount, &n.delaySize,
+      &n.recycle, &n.lfoAmplitude, &n.lfoBaseSpeed, &n.lfoVariation, &n.seed,
+      &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
+      &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
+      &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow,
+      &n.outHigh
+    };
+    for (unsigned si = 0; si < sizeof(slots) / sizeof(slots[0]); si++) {
+      if (slots[si]) control_snap_to_target(*slots[si]);
+    }
+  }
+  g.toSmoothCount = 0;
+}
+
 // One sample of a node's continuous Controls (sample-accurate osc/filter path).
 static void smoother_step_node(Circuit& g, Node& node) {
   Control* slots[] = {
@@ -1537,6 +1570,13 @@ extern "C" int soemdsp_graph_set_bypassed(int handle, unsigned int nodeHash, int
   return 0;
 }
 
+extern "C" int soemdsp_graph_snap_controls(int handle) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  smoother_snap_all(*g);
+  return 0;
+}
+
 extern "C" int soemdsp_graph_set_param(int handle, unsigned int nodeHash, int paramId, float value) {
   Circuit* g = get(handle);
   if (!g) return -1;
@@ -1823,5 +1863,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 15; // inv / u2b / b2u inline wire maps
+  return 16; // soemdsp_graph_snap_controls (jump outs to targets on engine load)
 }

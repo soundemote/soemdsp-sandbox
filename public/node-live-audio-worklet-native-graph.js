@@ -156,6 +156,22 @@ NodeLiveAudioProcessor.prototype.pushNativeGraphParam = function pushNativeGraph
   } catch (_e) { /* ignore */ }
 };
 
+/**
+ * Jump every native Control out → target (clears chase list).
+ * Call after compile + initial param sync so the first audible sample is
+ * on-patch. Do NOT call on pause→play — frozen mid-ramps must resume.
+ */
+NodeLiveAudioProcessor.prototype.snapNativeGraphControls = function snapNativeGraphControls() {
+  if (!this.efficientProduct || !this.nativeGraphHandle) return false;
+  const native = this.nativeGraph;
+  if (typeof native?.soemdsp_graph_snap_controls !== "function") return false;
+  try {
+    return (native.soemdsp_graph_snap_controls(this.nativeGraphHandle) | 0) === 0;
+  } catch (_e) {
+    return false;
+  }
+};
+
 NodeLiveAudioProcessor.prototype.pushNativeGraphSmoothTime = function pushNativeGraphSmoothTime(
   native,
   hash,
@@ -676,6 +692,9 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     this.nativeGraphCompiled = true;
     this._nativeGraphTopologyKey = this.nativeGraphTopologyKey();
     this.syncNativeGraphParams();
+    // Graph recreate starts Controls at C++ defaults; after targets are
+    // written, snap so engine-start does not ramp from defaults → patch.
+    this.snapNativeGraphControls();
     this.syncNativeGraphBypass();
     this.postNativeGraphStatus("compiled", `nodes=${nodes.length}`);
     return true;
