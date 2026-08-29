@@ -1284,6 +1284,8 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     }
     // Bake evaluator refs for the sample loop (no per-sample type lookup).
     this.compileExecutionOrder();
+    // Bake scope capture node/sink lists (sample loop only writes rings).
+    this.compileScopeCapture();
 
     this.port.postMessage({
       connectionCount: Array.isArray(plan?.connections) ? plan.connections.length : 0,

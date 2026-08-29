@@ -56,66 +56,123 @@ NodeLiveAudioProcessor.prototype.visualWriteStride = function visualWriteStride(
     return Math.max(1, Math.floor(rate / fps));
 };
 
-NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModuleScopeFrame(frameValues = null, frame = 0, frames = 1) {
-    const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
-    this.scopeSampleStride = 1;
+// Bake scope capture lists on setPlan — sample loop must not walk plan objects.
+NodeLiveAudioProcessor.prototype.compileScopeCapture = function compileScopeCapture() {
     const rates = this.scopeCaptureRates || Object.create(null);
-    const captureNodeIds = Array.isArray(this.scopeCaptureNodeIds)
+    const captureNodeIds = Array.isArray(this.scopeCaptureNodeIds) && this.scopeCaptureNodeIds.length
       ? this.scopeCaptureNodeIds
-      : this.order;
-    for (const nodeId of captureNodeIds) {
-      if (!this.nodeOutputs.has(nodeId)) {
-        continue;
-      }
-      const stride = this.visualWriteStride(rates[nodeId], engineRate);
-      if (!(stride > 0) || (this.scopeCounter % stride) !== 0) {
-        continue;
-      }
+      : (this.order || []);
+    const nodes = [];
+    for (let i = 0; i < captureNodeIds.length; i += 1) {
+      const nodeId = captureNodeIds[i];
       const captureType = String(this.nodes.get(nodeId)?.type || "");
       // Output Instant Trace uses visual-sink L/R rings (same as 1D Stereo Trace).
-      // Dumping mixed speaker {Left,Right,Mono} into the same keys interleaved
-      // zeros with the live waveform.
       if (captureType === "output" || captureType === "pluginOutput") {
         continue;
       }
-      this.captureModuleScopeOutput(nodeId, this.nodeOutputs.get(nodeId));
+      nodes.push({ nodeId, writeHz: rates[nodeId] });
     }
+    this.compiledScopeNodes = nodes;
+
     const sinks = this.visualSinks || [];
-    if (!sinks.length) {
-      return;
-    }
-    for (const sink of sinks) {
+    const compiled = new Array(sinks.length);
+    let sinkCount = 0;
+    for (let s = 0; s < sinks.length; s += 1) {
+      const sink = sinks[s];
       const nodeId = String(sink?.nodeId || "");
       if (!nodeId) {
         continue;
       }
-      const visualStride = this.visualWriteStride(sink.visualWriteHz, engineRate);
+      const sinkType = String(sink.type || this.nodes.get(nodeId)?.type || "");
+      const multiBuffered = (sink.bufferedInputs || []).length > 1;
+      const rawInputs = sink.inputs || [];
+      const inputs = [];
+      for (let i = 0; i < rawInputs.length; i += 1) {
+        const input = rawInputs[i];
+        if (!input?.connected) {
+          continue;
+        }
+        const inputPort = String(input.port || "").trim();
+        const connections = input.connections || [];
+        const compiledConnections = new Array(connections.length);
+        for (let c = 0; c < connections.length; c += 1) {
+          compiledConnections[c] = {
+            sourceNode: connections[c].sourceNode,
+            sourcePort: connections[c].sourcePort,
+          };
+        }
+        inputs.push({
+          buffered: Boolean(input.buffered),
+          port: inputPort,
+          portId: inputPort ? `${nodeId}:${inputPort}` : "",
+          connections: compiledConnections,
+        });
+      }
+      compiled[sinkCount] = {
+        nodeId,
+        writeHz: sink.visualWriteHz,
+        bufferSampleLimit: sink.bufferSampleLimit,
+        skipAggregate: multiBuffered || sinkType === "output" || sinkType === "pluginOutput",
+        inputs,
+      };
+      sinkCount += 1;
+    }
+    compiled.length = sinkCount;
+    this.compiledVisualSinks = compiled;
+};
+
+NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModuleScopeFrame(frameValues = null, frame = 0, frames = 1) {
+    const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
+    this.scopeSampleStride = 1;
+    if (!Array.isArray(this.compiledScopeNodes) || !Array.isArray(this.compiledVisualSinks)) {
+      this.compileScopeCapture();
+    }
+    const scopeNodes = this.compiledScopeNodes;
+    if (Array.isArray(scopeNodes)) {
+      for (let i = 0; i < scopeNodes.length; i += 1) {
+        const entry = scopeNodes[i];
+        const nodeId = entry.nodeId;
+        if (!this.nodeOutputs.has(nodeId)) {
+          continue;
+        }
+        const stride = this.visualWriteStride(entry.writeHz, engineRate);
+        if (!(stride > 0) || (this.scopeCounter % stride) !== 0) {
+          continue;
+        }
+        this.captureModuleScopeOutput(nodeId, this.nodeOutputs.get(nodeId));
+      }
+    }
+    const sinks = this.compiledVisualSinks;
+    if (!Array.isArray(sinks) || !sinks.length) {
+      return;
+    }
+    for (let s = 0; s < sinks.length; s += 1) {
+      const sink = sinks[s];
+      const visualStride = this.visualWriteStride(sink.writeHz, engineRate);
       if (!(visualStride > 0) || (this.scopeCounter % visualStride) !== 0) {
         continue;
       }
       let value = 0;
-      let hasConnected = false;
-      for (const input of sink.inputs || []) {
-        if (!input?.connected) {
-          continue;
-        }
-        hasConnected = true;
-        const inputValue = (input.connections || []).reduce(
-          (connectionSum, connection) => connectionSum + this.readRuntimePortOutput(
+      const inputs = sink.inputs;
+      for (let i = 0; i < inputs.length; i += 1) {
+        const input = inputs[i];
+        let inputValue = 0;
+        const connections = input.connections;
+        for (let c = 0; c < connections.length; c += 1) {
+          const connection = connections[c];
+          inputValue += this.readRuntimePortOutput(
             frameValues,
             connection.sourceNode,
             connection.sourcePort,
             frame,
             frames,
-          ),
-          0,
-        );
+          );
+        }
         value += inputValue;
-        const inputPort = String(input.port || "").trim();
-        if (input?.buffered && inputPort) {
+        if (input.buffered && input.port) {
           this.writeVisualInputBufferSample(
-            nodeId,
-            inputPort,
+            sink.nodeId,
+            input.port,
             inputValue,
             sink.bufferSampleLimit,
             {
@@ -125,20 +182,12 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
             },
           );
         }
-        if (inputPort && !input?.buffered) {
-          const portId = `${nodeId}:${inputPort}`;
-          this.appendScopeBufferSample(portId, inputValue);
+        if (input.portId && !input.buffered) {
+          this.appendScopeBufferSample(input.portId, inputValue);
         }
       }
-      const sinkType = String(sink.type || this.nodes.get(nodeId)?.type || "");
-      const multiBuffered = (sink.bufferedInputs || []).length > 1;
-      if (
-        hasConnected
-        && !multiBuffered
-        && sinkType !== "output"
-        && sinkType !== "pluginOutput"
-      ) {
-        this.appendScopeBufferSample(nodeId, value);
+      if (inputs.length && !sink.skipAggregate) {
+        this.appendScopeBufferSample(sink.nodeId, value);
       }
     }
 };
