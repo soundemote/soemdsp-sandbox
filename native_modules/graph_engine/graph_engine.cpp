@@ -209,15 +209,23 @@ static const unsigned char kSmoothModeGlobal = 1;
 static const unsigned char kSmoothModeInternalGlobal = 2;
 static const unsigned char kSmoothModeOff = 3;
 
+// Filter kind (JS smoothingType). Papoulis maps to twoPole until a native Π lands.
+static const unsigned char kSmoothTypeOnePole = 0;
+static const unsigned char kSmoothTypeLinear = 1;
+static const unsigned char kSmoothTypeTwoPole = 2;
+static const unsigned char kSmoothTypeNone = 3; // instant
+
 // Freestanding Control slot: host writes target/time; DSP reads out.
 struct Control {
   double target;
   double timeSamples; // internal cell; <=0 → default seconds*sr when resolving
   double out;
-  double coeff; // one-pole b0 (cached); dirty recomputes from time/SR/mode
+  double coeff; // one/two-pole b0, or linear increment (cached)
+  double stage1; // two-pole first stage
   bool dirty;
   bool active;
   unsigned char mode;
+  unsigned char type; // kSmoothType*
   unsigned char snap; // discrete: out=target immediately, never on toSmooth_
   unsigned char blockStepped; // sample path already advanced this quantum
 };
@@ -349,9 +357,11 @@ static void init_control(Control& c, double value, bool snap) {
   c.out = value;
   c.timeSamples = 0.0; // resolve → default seconds * sr
   c.coeff = 1.0;
+  c.stage1 = value;
   c.dirty = true;
   c.active = false;
   c.mode = kSmoothModeInternal;
+  c.type = kSmoothTypeOnePole;
   c.snap = snap ? 1 : 0;
   c.blockStepped = 0;
 }
@@ -511,7 +521,7 @@ static double resolve_control_time_samples(const Control& c, const Circuit& g) {
 static void control_ensure_coeff(Control& c, Circuit& g) {
   if (!c.dirty) return;
   c.dirty = false;
-  if (c.snap) {
+  if (c.snap || c.type == kSmoothTypeNone) {
     c.coeff = 1.0;
     return;
   }
@@ -520,8 +530,13 @@ static void control_ensure_coeff(Control& c, Circuit& g) {
     c.coeff = 1.0;
     return;
   }
+  if (c.type == kSmoothTypeLinear) {
+    // Constant-rate lerp: delta per sample toward target (recomputed on dirty).
+    c.coeff = (c.target - c.out) / t;
+    return;
+  }
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  // Match JS onePole: frequencyHz = 1/seconds = sr/tSamples; w = min(2π/sr, k)*f
+  // Match JS onePole / twoPole: frequencyHz = 1/seconds = sr/tSamples
   const double frequencyValue = sr / t;
   double wUnit = kTwoPi / sr;
   if (wUnit > 0.000142475857) wUnit = 0.000142475857;
@@ -541,17 +556,21 @@ static void smoother_add(Circuit& g, Control& c) {
 
 static void control_set_target(Circuit& g, Control& c, double value) {
   c.target = value;
-  if (c.snap) {
+  c.dirty = true; // linear increment depends on (target - out)
+  if (c.snap || c.type == kSmoothTypeNone) {
     c.out = value;
+    c.stage1 = value;
     return;
   }
   control_ensure_coeff(c, g);
-  if (c.coeff >= 1.0 - 1e-15 || resolve_control_time_samples(c, g) <= 0.0) {
+  if (c.type != kSmoothTypeLinear && (c.coeff >= 1.0 - 1e-15 || resolve_control_time_samples(c, g) <= 0.0)) {
     c.out = value;
+    c.stage1 = value;
     return;
   }
   if (dsp_fabs(c.out - c.target) <= kPlanck) {
     c.out = value;
+    c.stage1 = value;
     return;
   }
   smoother_add(g, c);
@@ -567,11 +586,28 @@ static void control_set_time(Circuit& g, Control& c, double timeSamples) {
 
 static void control_step(Control& c, Circuit& g) {
   control_ensure_coeff(c, g);
-  if (c.snap || c.coeff >= 1.0 - 1e-15) {
+  if (c.snap || c.type == kSmoothTypeNone || c.coeff >= 1.0 - 1e-15) {
     c.out = c.target;
+    c.stage1 = c.target;
     return;
   }
-  // out += coeff * (target - out)
+  if (c.type == kSmoothTypeLinear) {
+    // coeff holds per-sample increment (set on dirty from target/out/time).
+    const double inc = c.coeff;
+    c.out += inc;
+    if ((inc > 0.0 && c.out > c.target) || (inc < 0.0 && c.out < c.target) || dsp_fabs(inc) < 1e-30) {
+      c.out = c.target;
+      c.stage1 = c.target;
+    }
+    return;
+  }
+  if (c.type == kSmoothTypeTwoPole) {
+    // Cascaded one-poles (same b0), matching JS twoPole.
+    c.stage1 += c.coeff * (c.target - c.stage1);
+    c.out += c.coeff * (c.stage1 - c.out);
+    return;
+  }
+  // onePole (default)
   c.out += c.coeff * (c.target - c.out);
 }
 
@@ -1393,7 +1429,37 @@ extern "C" int soemdsp_graph_set_smooth_mode(
   else if (mode == (int)kSmoothModeOff) m = kSmoothModeOff;
   c->mode = m;
   c->dirty = true;
-  if (!c->snap && dsp_fabs(c->out - c->target) > kPlanck) smoother_add(*g, *c);
+  if (!c->snap && c->type != kSmoothTypeNone && dsp_fabs(c->out - c->target) > kPlanck) {
+    smoother_add(*g, *c);
+  }
+  return 0;
+}
+
+extern "C" int soemdsp_graph_set_smooth_type(
+  int handle, unsigned int nodeHash, int paramId, int type
+) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return -2;
+  Control* c = control_for_param(g->nodes[idx], paramId);
+  if (!c) return 0;
+  unsigned char t = kSmoothTypeOnePole;
+  if (type == (int)kSmoothTypeLinear) t = kSmoothTypeLinear;
+  else if (type == (int)kSmoothTypeTwoPole) t = kSmoothTypeTwoPole;
+  else if (type == (int)kSmoothTypeNone) t = kSmoothTypeNone;
+  // Unknown / papoulis → twoPole (closest available until Π lands).
+  else if (type > (int)kSmoothTypeNone) t = kSmoothTypeTwoPole;
+  if (c->type == t) return 0;
+  c->type = t;
+  c->dirty = true;
+  c->stage1 = c->out;
+  if (t == kSmoothTypeNone || c->snap) {
+    c->out = c->target;
+    c->stage1 = c->target;
+    return 0;
+  }
+  if (dsp_fabs(c->out - c->target) > kPlanck) smoother_add(*g, *c);
   return 0;
 }
 
@@ -1588,5 +1654,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 11; // attenuverter + range types
+  return 12; // Control smooth types: onePole / linear / twoPole / none
 }

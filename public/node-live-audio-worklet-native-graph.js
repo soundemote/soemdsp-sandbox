@@ -181,6 +181,20 @@ NodeLiveAudioProcessor.prototype.pushNativeGraphSmoothMode = function pushNative
   } catch (_e) { /* ignore */ }
 };
 
+NodeLiveAudioProcessor.prototype.pushNativeGraphSmoothType = function pushNativeGraphSmoothType(
+  native,
+  hash,
+  paramId,
+  type,
+) {
+  if (!native?.soemdsp_graph_set_smooth_type || !this.nativeGraphHandle) return;
+  const t = Number(type);
+  if (!Number.isFinite(t)) return;
+  try {
+    native.soemdsp_graph_set_smooth_type(this.nativeGraphHandle, hash, paramId, t | 0);
+  } catch (_e) { /* ignore */ }
+};
+
 /** paramMeta.smoothingSeconds → samples (same rules as worklet smoother). */
 NodeLiveAudioProcessor.prototype.nativeGraphSmoothTimeSamplesFromMeta = function nativeGraphSmoothTimeSamplesFromMeta(
   metadata = {},
@@ -208,6 +222,23 @@ NodeLiveAudioProcessor.prototype.nativeGraphSmoothModeFromMeta = function native
   return 0; // internal (default)
 };
 
+/** Map patch smoothingType → native (0 onePole, 1 linear, 2 twoPole, 3 none). */
+NodeLiveAudioProcessor.prototype.nativeGraphSmoothTypeFromMeta = function nativeGraphSmoothTypeFromMeta(
+  metadata = {},
+) {
+  const raw = metadata?.smoothingType;
+  const type = typeof normalizeNodeGraphParameterSmootherFilterType === "function"
+    ? normalizeNodeGraphParameterSmootherFilterType(raw)
+    : (typeof this.smoothingTypeFromMetadata === "function"
+      ? this.smoothingTypeFromMetadata(metadata)
+      : String(raw || "onePole"));
+  if (type === "linear") return 1;
+  if (type === "twoPole") return 2;
+  if (type === "none" || type === "off" || type === "instant") return 3;
+  if (type === "papoulis") return 2; // closest until native Π
+  return 0; // onePole
+};
+
 NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphExportsReady() {
   const n = this.nativeGraph;
   return Boolean(
@@ -219,6 +250,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphE
     && n?.soemdsp_graph_set_param
     && n?.soemdsp_graph_set_smooth_time
     && n?.soemdsp_graph_set_smooth_mode
+    && n?.soemdsp_graph_set_smooth_type
     && n?.soemdsp_graph_set_global_smooth_time
     && n?.soemdsp_graph_set_bypassed
     && n?.soemdsp_graph_set_sample_rate
@@ -442,11 +474,17 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     const meta = node?.paramMeta?.[key];
     const timeKey = `${key}__smoothTime`;
     const modeKey = `${key}__smoothMode`;
+    const typeKey = `${key}__smoothType`;
     const timeSamples = this.nativeGraphSmoothTimeSamplesFromMeta?.(meta) || 0;
     const smoothMode = this.nativeGraphSmoothModeFromMeta?.(meta) ?? 0;
+    const smoothType = this.nativeGraphSmoothTypeFromMeta?.(meta) ?? 0;
     if (forceAll || cache[modeKey] !== smoothMode) {
       cache[modeKey] = smoothMode;
       this.pushNativeGraphSmoothMode(native, hash, paramId, smoothMode);
+    }
+    if (forceAll || cache[typeKey] !== smoothType) {
+      cache[typeKey] = smoothType;
+      this.pushNativeGraphSmoothType(native, hash, paramId, smoothType);
     }
     if (forceAll || cache[timeKey] !== timeSamples) {
       cache[timeKey] = timeSamples;
