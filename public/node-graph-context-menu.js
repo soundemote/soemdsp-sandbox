@@ -2103,27 +2103,27 @@ function configureNodeSceneContextMenu(mode) {
     const rangeUnipolarButton = document.getElementById("nodeSceneWireRangeUnipolar");
     if (rangeUnipolarButton) {
       rangeUnipolarButton.disabled = !canAttenuateWires;
-      rangeUnipolarButton.title = "Insert Range mapping 0…1 → 0…1000 on each selected wire.";
+      rangeUnipolarButton.title = "Range Unipolar: map 0…1 → 0…1000 on each selected wire.";
     }
     const rangeBipolarButton = document.getElementById("nodeSceneWireRangeBipolar");
     if (rangeBipolarButton) {
       rangeBipolarButton.disabled = !canAttenuateWires;
-      rangeBipolarButton.title = "Insert Range mapping −1…+1 → 0…1000 on each selected wire.";
+      rangeBipolarButton.title = "Range Bipolar: map −1…+1 → 0…1000 on each selected wire.";
     }
     const u2bButton = document.getElementById("nodeSceneWireU2b");
     if (u2bButton) {
       u2bButton.disabled = !canAttenuateWires;
-      u2bButton.title = "Insert U2B (0…1 → −1…1) on each selected wire.";
+      u2bButton.title = "to Bipolar: insert U2B (0…1 → −1…1) on each selected wire.";
     }
     const b2uButton = document.getElementById("nodeSceneWireB2u");
     if (b2uButton) {
       b2uButton.disabled = !canAttenuateWires;
-      b2uButton.title = "Insert B2U (−1…1 → 0…1) on each selected wire.";
+      b2uButton.title = "to Unipolar: insert B2U (−1…1 → 0…1) on each selected wire.";
     }
     const invButton = document.getElementById("nodeSceneWireInv");
     if (invButton) {
       invButton.disabled = !canAttenuateWires;
-      invButton.title = "Insert Inv (out = −in) on each selected wire.";
+      invButton.title = "Invert: insert Inv (out = −in) on each selected wire.";
     }
     deleteButton.disabled = !canDelete;
     deleteButton.title = canDelete
