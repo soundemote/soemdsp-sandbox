@@ -195,6 +195,7 @@ struct Control {
   bool active;
   unsigned char mode;
   unsigned char snap; // discrete: out=target immediately, never on toSmooth_
+  unsigned char blockStepped; // sample path already advanced this quantum
 };
 
 struct Node {
@@ -319,6 +320,7 @@ static void init_control(Control& c, double value, bool snap) {
   c.active = false;
   c.mode = kSmoothModeInternal;
   c.snap = snap ? 1 : 0;
+  c.blockStepped = 0;
 }
 
 static void init_node_defaults(Node& n, int typeId) {
@@ -529,9 +531,41 @@ static void smoother_run(Circuit& g, int n) {
   for (int f = 0; f < n; f++) {
     for (int i = 0; i < g.toSmoothCount; i++) {
       Control* c = g.toSmooth[i];
-      if (c) control_step(*c, g);
+      // Skip Controls already advanced sample-accurately this quantum.
+      if (c && !c->blockStepped) control_step(*c, g);
     }
   }
+}
+
+// One sample of a node's continuous Controls (sample-accurate osc/filter path).
+static void smoother_step_node(Circuit& g, Node& node) {
+  Control* slots[] = {
+    &node.volumeDb, &node.pan, &node.frequency, &node.amplitude, &node.shape,
+    &node.phaseParam, &node.resonance, &node.center, &node.width, &node.mix,
+    &node.diffusionSize, &node.diffusionAmount, &node.delaySize, &node.recycle,
+    &node.lfoAmplitude, &node.lfoBaseSpeed, &node.lfoVariation, &node.feedback,
+    &node.level, &node.timeNumerator, &node.timeDenominator, &node.offsetMs,
+    &node.lfoRate, &node.saturate, &node.lpfFrequency, &node.hpfFrequency,
+    &node.tempoBpm
+  };
+  for (unsigned i = 0; i < sizeof(slots) / sizeof(slots[0]); i++) {
+    Control* c = slots[i];
+    if (c && c->active && !c->snap) {
+      control_step(*c, g);
+      c->blockStepped = 1;
+    }
+  }
+}
+
+static bool node_control_smoothing(const Node& node) {
+  const Control* slots[] = {
+    &node.frequency, &node.amplitude, &node.shape, &node.phaseParam,
+    &node.resonance, &node.center, &node.width, &node.mix, &node.volumeDb, &node.pan
+  };
+  for (unsigned i = 0; i < sizeof(slots) / sizeof(slots[0]); i++) {
+    if (slots[i]->active && !slots[i]->snap) return true;
+  }
+  return false;
 }
 
 static void smoother_clean(Circuit& g) {
@@ -539,6 +573,7 @@ static void smoother_clean(Circuit& g) {
   for (int i = 0; i < g.toSmoothCount; i++) {
     Control* c = g.toSmooth[i];
     if (!c) continue;
+    c->blockStepped = 0;
     if (dsp_fabs(c->out - c->target) <= kPlanck) {
       c->out = c->target;
       c->active = false;
@@ -744,7 +779,8 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool audioRatePitch = liveF || livePitch || liveInc || liveReset;
+  const bool controlSmoothing = node_control_smoothing(node);
+  const bool audioRatePitch = liveF || livePitch || liveInc || liveReset || controlSmoothing;
 
   // Midi note 48 → 0.4 reference voltage (matches worklet default).
   const double referenceVoltage = 48.0 / 120.0;
@@ -785,12 +821,24 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
     node.lastReset = 0.0;
   }
   for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    // Re-read after step so Control ramps are sample-accurate.
+    level = node.amplitude.out;
+    if (!(level == level)) level = 0.0;
+    morph = node.shape.out;
+    if (!(morph == morph)) morph = 0.5;
+    const double phaseParamNow = node.phaseParam.out;
+    const double waveNow = node.waveform.out;
+    waveform = (int)(waveNow + (waveNow >= 0.0 ? 0.5 : -0.5));
+    if (waveform < 0) waveform = 0;
+    if (waveform > 8) waveform = 8;
+
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
         // Match JS: hard phase jump + clear native integrator / noise state.
         soemdsp_polyblep_reset(node.nativeHandle);
-        phase = phaseParam * kTwoPi;
+        phase = phaseParamNow * kTwoPi;
         node.phase = 0.0;
       }
       node.lastReset = rv;
@@ -825,7 +873,7 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
     phase = wrap_phase_pi(phase + kTwoPi * phaseInc);
   }
   // Store free-running phase without the Control phase offset (matches block path).
-  node.phase = wrap_phase_pi(phase - phaseParam * kTwoPi);
+  node.phase = wrap_phase_pi(phase - node.phaseParam.out * kTwoPi);
 }
 
 static void process_ladder(Circuit& g, Node& node, int frames) {
@@ -847,8 +895,9 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   if (stages > 4) stages = 4;
 
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool controlSmoothing = node.frequency.active || node.resonance.active;
 
-  if (!liveF) {
+  if (!liveF && !controlSmoothing) {
     double freq = clamp_hz_nyquist(node.frequency.out, srD);
     if (freq < 0.0) freq = 0.0;
     soemdsp_ladder_filter_set_params(node.nativeHandle, freq, reso, mode, stages, srD);
@@ -865,9 +914,15 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
     return;
   }
 
-  // Live ƒ: absolute Hz overrides Control cutoff every sample.
+  // Live ƒ and/or Control chase: per-sample cutoff / resonance.
   for (int f = 0; f < frames; f++) {
-    double freq = clamp_hz_nyquist(g.mixF[f], srD);
+    if (controlSmoothing) smoother_step_node(g, node);
+    reso = node.resonance.out;
+    if (!(reso == reso)) reso = 0.0;
+    if (reso < 0.0) reso = 0.0;
+    if (reso > 0.999) reso = 0.999;
+    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    freq = clamp_hz_nyquist(freq, srD);
     if (freq < 0.0) freq = 0.0;
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_ladder_filter_sample(
@@ -1360,9 +1415,9 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
   zero_buf(g->outL, frames);
   zero_buf(g->outR, frames);
 
-  // Chase Control outs for this quantum, then DSP reads smoothed values.
-  smoother_run(*g, frames);
-
+  // Block-rate Control: DSP reads current outs (start of quantum), then the
+  // chase advances for the next quantum. Matches "JS is interface / per block."
+  // Osc/filter sample paths may step their own Controls per sample instead.
   for (int oi = 0; oi < g->orderCount; oi++) {
     const int ni = g->order[oi];
     if (ni < 0 || ni >= g->nodeCount || !g->nodes[ni].used) continue;
@@ -1401,6 +1456,7 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     // unknown: silence
   }
 
+  smoother_run(*g, frames);
   smoother_clean(*g);
   return frames;
 }
@@ -1430,5 +1486,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 9; // native Control SmootherManager (set_param=target, DSP reads out)
+  return 10; // Control chase after DSP (block-rate); sample paths step locally
 }

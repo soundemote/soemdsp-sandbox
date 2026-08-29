@@ -159,6 +159,20 @@ NodeLiveAudioProcessor.prototype.pushNativeGraphSmoothTime = function pushNative
   } catch (_e) { /* ignore */ }
 };
 
+NodeLiveAudioProcessor.prototype.pushNativeGraphSmoothMode = function pushNativeGraphSmoothMode(
+  native,
+  hash,
+  paramId,
+  mode,
+) {
+  if (!native?.soemdsp_graph_set_smooth_mode || !this.nativeGraphHandle) return;
+  const m = Number(mode);
+  if (!Number.isFinite(m)) return;
+  try {
+    native.soemdsp_graph_set_smooth_mode(this.nativeGraphHandle, hash, paramId, m | 0);
+  } catch (_e) { /* ignore */ }
+};
+
 /** paramMeta.smoothingSeconds → samples (same rules as worklet smoother). */
 NodeLiveAudioProcessor.prototype.nativeGraphSmoothTimeSamplesFromMeta = function nativeGraphSmoothTimeSamplesFromMeta(
   metadata = {},
@@ -172,6 +186,20 @@ NodeLiveAudioProcessor.prototype.nativeGraphSmoothTimeSamplesFromMeta = function
   return Math.max(0, Math.round(value));
 };
 
+/** Map patch smoothingMode → native enum (0 internal, 1 global, 2 internalGlobal, 3 off). */
+NodeLiveAudioProcessor.prototype.nativeGraphSmoothModeFromMeta = function nativeGraphSmoothModeFromMeta(
+  metadata = {},
+) {
+  const raw = metadata?.smoothingMode;
+  const mode = typeof nodeSmoothingModeNormalize === "function"
+    ? nodeSmoothingModeNormalize(raw)
+    : String(raw || "internal");
+  if (mode === "global") return 1;
+  if (mode === "internalGlobal") return 2;
+  if (mode === "off") return 3;
+  return 0; // internal (default)
+};
+
 NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphExportsReady() {
   const n = this.nativeGraph;
   return Boolean(
@@ -182,6 +210,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphE
     && n?.soemdsp_graph_connect
     && n?.soemdsp_graph_set_param
     && n?.soemdsp_graph_set_smooth_time
+    && n?.soemdsp_graph_set_smooth_mode
+    && n?.soemdsp_graph_set_global_smooth_time
     && n?.soemdsp_graph_set_bypassed
     && n?.soemdsp_graph_set_sample_rate
     && n?.soemdsp_graph_compile
@@ -401,11 +431,19 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       this.pushNativeGraphParam(native, hash, paramId, v);
     }
     if (P.NATIVE_GRAPH_DISCRETE_PARAMS[key]) return;
+    const meta = node?.paramMeta?.[key];
     const timeKey = `${key}__smoothTime`;
-    const timeSamples = this.nativeGraphSmoothTimeSamplesFromMeta?.(node?.paramMeta?.[key]) || 0;
-    if (!forceAll && cache[timeKey] === timeSamples) return;
-    cache[timeKey] = timeSamples;
-    this.pushNativeGraphSmoothTime(native, hash, paramId, timeSamples);
+    const modeKey = `${key}__smoothMode`;
+    const timeSamples = this.nativeGraphSmoothTimeSamplesFromMeta?.(meta) || 0;
+    const smoothMode = this.nativeGraphSmoothModeFromMeta?.(meta) ?? 0;
+    if (forceAll || cache[modeKey] !== smoothMode) {
+      cache[modeKey] = smoothMode;
+      this.pushNativeGraphSmoothMode(native, hash, paramId, smoothMode);
+    }
+    if (forceAll || cache[timeKey] !== timeSamples) {
+      cache[timeKey] = timeSamples;
+      this.pushNativeGraphSmoothTime(native, hash, paramId, timeSamples);
+    }
   };
 
   for (const [id, node] of this.nodes) {

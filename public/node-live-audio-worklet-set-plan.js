@@ -554,6 +554,12 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
         }
       }
     }
+    // Efficient: drop any leftover JS smoother state (C++ owns the chase).
+    if (efficientProduct && this.smoothers?.size) {
+      this.smoothers.clear();
+      this.activeSmoothers = [];
+      this.activeSmootherKeys?.clear?.();
+    }
 
     for (const id of [...this.phases.keys()]) {
       if (!ids.has(id)) {

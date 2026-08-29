@@ -237,6 +237,11 @@ NodeLiveAudioProcessor.prototype.setParams = function setParams(nodes, message =
         }
       }
     }
+    if (this.efficientProduct && this.smoothers?.size) {
+      this.smoothers.clear();
+      this.activeSmoothers = [];
+      this.activeSmootherKeys?.clear?.();
+    }
     // Efficient mode: push Control targets into native graph (no recompile).
     if (this.efficientProduct && typeof this.syncNativeGraphParams === "function") {
       this.syncNativeGraphParams();
