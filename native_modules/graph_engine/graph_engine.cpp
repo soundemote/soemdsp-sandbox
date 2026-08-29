@@ -218,6 +218,7 @@ struct Node {
   float hpfFrequency;
   float tempoBpm;
   double phase; // polyBlep running phase (radians)
+  double lastReset; // Live Reset rising-edge latch (persists across blocks)
   double buf[kChannels][kMaxBlockFrames];
 };
 
@@ -325,6 +326,7 @@ static void init_node_defaults(Node& n, int typeId) {
   n.hpfFrequency = 20.0f;
   n.tempoBpm = 120.0f;
   n.phase = 0.0;
+  n.lastReset = 0.0;
 }
 
 // Reduce radians to (-π, π] with one floor — no open while spin.
@@ -555,14 +557,20 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
 
   // Live ƒ / 0.1V / Inc / Reset: per-sample phaseInc (ƒ is absolute Hz when wired).
   double phase = wrap_phase_pi(node.phase + (double)node.phaseParam * kTwoPi);
-  double lastReset = 0.0;
+  if (!liveReset) {
+    // Cable gone → clear latch so the next connect can rising-edge.
+    node.lastReset = 0.0;
+  }
   for (int f = 0; f < frames; f++) {
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (lastReset <= 0.0 && rv > 0.0) {
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        // Match JS: hard phase jump + clear native integrator / noise state.
+        soemdsp_polyblep_reset(node.nativeHandle);
         phase = (double)node.phaseParam * kTwoPi;
+        node.phase = 0.0;
       }
-      lastReset = rv;
+      node.lastReset = rv;
     }
     double freq;
     if (liveF) {
@@ -1115,5 +1123,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 6; // PR-E4: Live ƒ wires + node_port_ptr scope taps
+  return 7; // PR-E4 review: Reset edge latch + polyblep_reset
 }
