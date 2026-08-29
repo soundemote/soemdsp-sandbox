@@ -146,6 +146,7 @@ static const int kTypeRange = 8;
 static const int kTypeInv = 9;
 static const int kTypeU2b = 10;
 static const int kTypeB2u = 11;
+static const int kTypeBias = 12;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1403,6 +1404,18 @@ static void process_b2u(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Bias: out = in + offset (Control `offset`, same slot as attenuverter DC).
+static void process_bias(Circuit& g, Node& node, int frames) {
+  mix_node_inputs(g, node, frames);
+  const double bias = node.offset.out;
+  for (int f = 0; f < frames; f++) {
+    const double out = (g.mixMono[f] + g.mixLeft[f] + g.mixRight[f]) + bias;
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
 static void process_output(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   float gL = 1.0f, gR = 1.0f;
@@ -1826,6 +1839,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_b2u(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeBias) {
+      process_bias(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeOutput) {
       process_output(*g, node, frames);
       continue;
@@ -1863,5 +1880,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 16; // soemdsp_graph_snap_controls (jump outs to targets on engine load)
+  return 17; // bias wire util (Shape B: in + offset)
 }

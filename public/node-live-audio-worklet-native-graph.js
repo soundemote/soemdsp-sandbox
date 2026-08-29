@@ -16,6 +16,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   inv: 9,
   u2b: 10,
   b2u: 11,
+  bias: 12,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -587,6 +588,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "attenuverter") {
       push("amplitude", P.NATIVE_GRAPH_PARAM_ATT_AMPLITUDE, cont("amplitude", 0.5));
+      push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 0));
+      continue;
+    }
+    if (type === "bias") {
       push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 0));
       continue;
     }
