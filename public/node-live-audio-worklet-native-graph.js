@@ -1,5 +1,5 @@
-// MVEP GraphEngine host (PR-E2): setPlan → native compile; process → one
-// soemdsp_graph_process_block per quantum (polyBlep/ladder/softClip/output).
+// MVEP GraphEngine host (PR-E3): setPlan → native compile; process → one
+// soemdsp_graph_process_block per quantum (full canonical circuit).
 // Efficient mode has no evaluateFrame fallback.
 // Node id hashing: FNV-1a 32-bit (offset 2166136261, prime 16777619).
 
@@ -26,8 +26,29 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES = 22;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER = 30;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH = 31;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OVERSAMPLE = 32;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MIX = 40;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE = 41;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT = 42;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_DELAY_SIZE = 43;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_RECYCLE = 44;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE = 45;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED = 46;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_VARIATION = 47;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SEED = 48;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FEEDBACK = 50;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LEVEL = 51;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_NUMERATOR = 52;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR = 53;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIMING_MODE = 54;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OFFSET_MS = 55;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_STYLE = 56;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_RATE = 57;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SATURATE = 58;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LPF_FREQUENCY = 59;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_HPF_FREQUENCY = 60;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TEMPO_BPM = 61;
 
-// Ports: 0 Mono/Out, 1 Left, 2 Right, 3–7 polyBlep taps.
+// Ports: 0 Mono/Out, 1 Left/Mix L, 2 Right/Mix R, 3 Saw/Dry L, 4 Ramp/Dry R, 5–7 taps.
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO = 0;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT = 1;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT = 2;
@@ -36,6 +57,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP = 4;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE = 5;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI = 6;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE = 7;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_DRY_L = 3;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_DRY_R = 4;
 
 NodeLiveAudioProcessor.prototype.fnv1aHash32 = function fnv1aHash32(text) {
   let hash = 2166136261 >>> 0;
@@ -55,14 +78,24 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphTypeId = function mapNativeGraphT
 NodeLiveAudioProcessor.prototype.mapNativeGraphPortId = function mapNativeGraphPortId(port) {
   const raw = String(port || "").trim();
   const p = raw.toLowerCase();
-  if (p === "left" || p === "l") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
-  if (p === "right" || p === "r") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
-  if (p === "saw") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
-  if (p === "ramp") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+  if (p === "left" || p === "l" || p === "mix l" || p === "wet l" || p === "left mix" || p === "wet") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  }
+  if (p === "right" || p === "r" || p === "mix r" || p === "wet r" || p === "right mix") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
+  if (p === "dry l" || p === "left dry" || p === "mono dry") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_DRY_L;
+  }
+  if (p === "dry r" || p === "right dry") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_DRY_R;
+  }
+  if (p === "saw" || p === "mod l") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+  if (p === "ramp" || p === "mod r") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
   if (p === "square") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE;
   if (p === "tri" || p === "triangle") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI;
   if (p === "sine" || p === "sin") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE;
-  // Mono / Out / In / Wave Out / Noise / empty → mono bus
+  // Mono / Out / In / Wave Out / Noise / Mono Mix / empty → mono bus
   return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
 };
 
@@ -99,9 +132,9 @@ NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphE
 };
 
 /**
- * Efficient compile owns polyBlep/ladder/softClipper natives. Release any
- * leftover per-module evaluator handles so pools are not double-allocated
- * after full→efficient toggles without a session restart.
+ * Efficient compile owns allowlist natives. Release leftover per-module
+ * evaluator handles so pools are not double-allocated after full→efficient
+ * toggles without a session restart (sabrina pool is only 2).
  */
 NodeLiveAudioProcessor.prototype.releaseEfficientLegacyNativeHandles =
   function releaseEfficientLegacyNativeHandles() {
@@ -122,6 +155,16 @@ NodeLiveAudioProcessor.prototype.releaseEfficientLegacyNativeHandles =
     if (this.softClipperStates instanceof Map) {
       for (const state of this.softClipperStates.values()) {
         this.destroySoftClipperState?.(state);
+      }
+    }
+    if (this.reverbEffectStates instanceof Map) {
+      for (const state of this.reverbEffectStates.values()) {
+        this.destroySabrinaReverbState?.(state);
+      }
+    }
+    if (this.pingPongDelayStates instanceof Map) {
+      for (const state of this.pingPongDelayStates.values()) {
+        this.destroyPingPongDelayNativeState?.(state);
       }
     }
   };
@@ -200,6 +243,41 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_CENTER, params.center);
       this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_WIDTH, params.width);
       this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_OVERSAMPLE, params.oversample);
+      continue;
+    }
+    if (type === "reverbEffect") {
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_MIX, params.mix);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, params.diffusionSize);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, params.diffusionAmount);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_DELAY_SIZE, params.delaySize);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_RECYCLE, params.recycle);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, params.lfoAmplitude);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, params.lfoBaseSpeed);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_VARIATION, params.lfoVariation);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_SEED, params.seed);
+      continue;
+    }
+    if (type === "pingPongDelay") {
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_FEEDBACK, params.feedback);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_MIX, params.mix);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LEVEL, params.level);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, params.timeNumerator);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, params.timeDenominator);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_TIMING_MODE, params.timingMode);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_OFFSET_MS, params.offsetMs);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_STYLE, params.lfoStyle);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_RATE, params.lfoRate);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LFO_VARIATION, params.lfoVariation);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_SATURATE, params.saturate);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, params.lpfFrequency);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, params.hpfFrequency);
+      const bpm = Number(this.timing?.tempoBpm);
+      this.pushNativeGraphParam(
+        native,
+        hash,
+        P.NATIVE_GRAPH_PARAM_TEMPO_BPM,
+        Number.isFinite(bpm) && bpm > 0 ? bpm : 120,
+      );
     }
   }
 };

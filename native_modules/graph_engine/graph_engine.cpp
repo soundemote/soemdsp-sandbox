@@ -3,9 +3,10 @@
 // soemdsp-native-target: graphEngine
 // soemdsp-native-kind: engine
 //
-// MVEP GraphEngine (PR-E2): orchestrates polyBlep → ladderFilter → softClipper
-// (+ output) inside soemdsp_graph_process_block. DSP lives in existing natives;
-// this module only creates instances, wires buffers, and walks topo order.
+// MVEP GraphEngine (PR-E3): orchestrates
+// polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
+// inside soemdsp_graph_process_block. DSP lives in existing natives; this module
+// only creates instances, wires buffers, and walks topo order.
 
 #include "../sandbox_native_maths/exp_log.h"
 #include "../sandbox_native_maths/analog_filter_trig.h"
@@ -40,6 +41,36 @@ extern "C" void soemdsp_soft_clipper_process_block(int handle, int channel, int 
 extern "C" int soemdsp_soft_clipper_block_input_ptr(int handle, int channel);
 extern "C" int soemdsp_soft_clipper_block_output_ptr(int handle, int channel);
 
+extern "C" int soemdsp_sabrina_reverb_create(double sampleRate);
+extern "C" void soemdsp_sabrina_reverb_destroy(int handle);
+extern "C" void soemdsp_sabrina_reverb_reset(int handle, double sampleRate);
+extern "C" void soemdsp_sabrina_reverb_set_params(
+  int handle,
+  double mix, double diffusionSize, double diffusionAmount, double delaySize,
+  double recycle, double lfoAmplitude, double lfoBaseSpeed, double lfoVariation,
+  double seed
+);
+extern "C" void soemdsp_sabrina_reverb_process_block(int handle, int frameCount, int useSimd);
+extern "C" int soemdsp_sabrina_reverb_block_input_left_ptr(int handle);
+extern "C" int soemdsp_sabrina_reverb_block_input_right_ptr(int handle);
+extern "C" int soemdsp_sabrina_reverb_block_output_left_ptr(int handle);
+extern "C" int soemdsp_sabrina_reverb_block_output_right_ptr(int handle);
+
+extern "C" int soemdsp_ping_pong_delay_create();
+extern "C" void soemdsp_ping_pong_delay_destroy(int handle);
+extern "C" void soemdsp_ping_pong_delay_set_params(
+  int handle,
+  double feedback, double mix, double level,
+  double timeNumerator, double timeDenominator, double timingMode,
+  double offsetMs, double lfoStyle, double lfoRate, double lfoVariation,
+  double saturate, double lpfFrequency, double hpfFrequency,
+  double tempoBpm, double sampleRate
+);
+extern "C" void soemdsp_ping_pong_delay_process_block(int handle, int frameCount);
+extern "C" int soemdsp_ping_pong_delay_block_input_ptr(int handle);
+extern "C" int soemdsp_ping_pong_delay_block_output_left_ptr(int handle);
+extern "C" int soemdsp_ping_pong_delay_block_output_right_ptr(int handle);
+
 namespace {
 
 using soemdsp_maths::dsp_exp;
@@ -52,7 +83,8 @@ static const int kMaxConnections = 256;
 // Hard product invariant: AudioWorklet quantum and all orchestrated natives
 // use 128. Host must chunk if frames ever exceed this (see processNativeGraphQuantum).
 static const int kMaxBlockFrames = 128;
-// 0=Mono/Out, 1=Left, 2=Right, 3=Saw, 4=Ramp, 5=Square, 6=Tri, 7=Sine
+// 0=Mono/Out, 1=Left/Mix L, 2=Right/Mix R, 3=Saw/Dry L, 4=Ramp/Dry R,
+// 5=Square, 6=Tri, 7=Sine (polyBlep taps; Dry L/R share 3/4 on reverb).
 static const int kChannels = 8;
 
 static const int kTypeUnknown = 0;
@@ -71,6 +103,8 @@ static const int kPortRamp = 4;
 static const int kPortSquare = 5;
 static const int kPortTri = 6;
 static const int kPortSine = 7;
+static const int kPortDryL = 3; // reverb Dry L (shares Saw index)
+static const int kPortDryR = 4; // reverb Dry R (shares Ramp index)
 
 // Param IDs (keep in sync with JS NATIVE_GRAPH_PARAM_*).
 static const int kParamVolumeDb = 0;
@@ -86,6 +120,27 @@ static const int kParamStages = 22;      // ladder
 static const int kParamCenter = 30;      // softClipper
 static const int kParamWidth = 31;       // softClipper
 static const int kParamOversample = 32;  // softClipper
+static const int kParamMix = 40;               // reverb / pingPong
+static const int kParamDiffusionSize = 41;     // reverb
+static const int kParamDiffusionAmount = 42;   // reverb
+static const int kParamDelaySize = 43;         // reverb
+static const int kParamRecycle = 44;           // reverb
+static const int kParamLfoAmplitude = 45;      // reverb
+static const int kParamLfoBaseSpeed = 46;      // reverb
+static const int kParamLfoVariation = 47;      // reverb / pingPong
+static const int kParamSeed = 48;              // reverb
+static const int kParamFeedback = 50;          // pingPong
+static const int kParamLevel = 51;             // pingPong
+static const int kParamTimeNumerator = 52;     // pingPong
+static const int kParamTimeDenominator = 53;   // pingPong
+static const int kParamTimingMode = 54;        // pingPong
+static const int kParamOffsetMs = 55;          // pingPong LFO amp
+static const int kParamLfoStyle = 56;          // pingPong
+static const int kParamLfoRate = 57;           // pingPong
+static const int kParamSaturate = 58;          // pingPong
+static const int kParamLpfFrequency = 59;      // pingPong
+static const int kParamHpfFrequency = 60;      // pingPong
+static const int kParamTempoBpm = 61;          // pingPong
 
 static const int kTapOut = 1;
 static const int kTapSaw = 2;
@@ -116,6 +171,29 @@ struct Node {
   float center;
   float width;
   float oversample;
+  // reverbEffect
+  float mix;
+  float diffusionSize;
+  float diffusionAmount;
+  float delaySize;
+  float recycle;
+  float lfoAmplitude;
+  float lfoBaseSpeed;
+  float lfoVariation;
+  float seed;
+  // pingPongDelay
+  float feedback;
+  float level;
+  float timeNumerator;
+  float timeDenominator;
+  float timingMode;
+  float offsetMs;
+  float lfoStyle;
+  float lfoRate;
+  float saturate;
+  float lpfFrequency;
+  float hpfFrequency;
+  float tempoBpm;
   double phase; // polyBlep running phase (radians)
   double buf[kChannels][kMaxBlockFrames];
 };
@@ -171,6 +249,10 @@ static void destroy_node_native(Node& n) {
     soemdsp_ladder_filter_destroy(n.nativeHandle);
   } else if (kind == kTypeSoftClipper) {
     soemdsp_soft_clipper_destroy(n.nativeHandle);
+  } else if (kind == kTypeReverbEffect) {
+    soemdsp_sabrina_reverb_destroy(n.nativeHandle);
+  } else if (kind == kTypePingPongDelay) {
+    soemdsp_ping_pong_delay_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -193,6 +275,28 @@ static void init_node_defaults(Node& n, int typeId) {
   n.center = 0.0f;
   n.width = 2.0f;
   n.oversample = 2.0f;
+  // Module definition defaults (Control knobs).
+  n.mix = (typeId == kTypePingPongDelay) ? 0.35f : 0.43f;
+  n.diffusionSize = 0.35f;
+  n.diffusionAmount = 0.70f;
+  n.delaySize = 0.02f;
+  n.recycle = 0.70f;
+  n.lfoAmplitude = 0.07f;
+  n.lfoBaseSpeed = 0.83f;
+  n.lfoVariation = (typeId == kTypePingPongDelay) ? 0.25f : 0.001f;
+  n.seed = 0.0f;
+  n.feedback = 0.35f;
+  n.level = 1.0f;
+  n.timeNumerator = 1.0f;
+  n.timeDenominator = 4.0f;
+  n.timingMode = 0.0f;
+  n.offsetMs = 0.0f;
+  n.lfoStyle = 0.0f;
+  n.lfoRate = 0.35f;
+  n.saturate = 1.0f;
+  n.lpfFrequency = 8000.0f;
+  n.hpfFrequency = 20.0f;
+  n.tempoBpm = 120.0f;
   n.phase = 0.0;
 }
 
@@ -202,10 +306,15 @@ static double wrap_phase_pi(double x) {
   return x - kTwoPi * dsp_floor(x / kTwoPi + 0.5);
 }
 
-static int create_native_for_type(int typeId) {
+static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypePolyBlep) return soemdsp_polyblep_create();
   if (typeId == kTypeLadderFilter) return soemdsp_ladder_filter_create();
   if (typeId == kTypeSoftClipper) return soemdsp_soft_clipper_create();
+  if (typeId == kTypeReverbEffect) {
+    const double sr = sampleRate < 1.0f ? 44100.0 : (double)sampleRate;
+    return soemdsp_sabrina_reverb_create(sr);
+  }
+  if (typeId == kTypePingPongDelay) return soemdsp_ping_pong_delay_create();
   return 0;
 }
 
@@ -463,6 +572,89 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
   }
 }
 
+static void process_reverb(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+
+  soemdsp_sabrina_reverb_set_params(
+    node.nativeHandle,
+    (double)node.mix,
+    (double)node.diffusionSize,
+    (double)node.diffusionAmount,
+    (double)node.delaySize,
+    (double)node.recycle,
+    (double)node.lfoAmplitude,
+    (double)node.lfoBaseSpeed,
+    (double)node.lfoVariation,
+    (double)node.seed
+  );
+
+  double* inL = ptr_from_export(soemdsp_sabrina_reverb_block_input_left_ptr(node.nativeHandle));
+  double* inR = ptr_from_export(soemdsp_sabrina_reverb_block_input_right_ptr(node.nativeHandle));
+  double* outL = ptr_from_export(soemdsp_sabrina_reverb_block_output_left_ptr(node.nativeHandle));
+  double* outR = ptr_from_export(soemdsp_sabrina_reverb_block_output_right_ptr(node.nativeHandle));
+  if (!inL || !inR || !outL || !outR) return;
+
+  // Mono In folds into both sides; dedicated L/R add on top (JS mixInput).
+  for (int f = 0; f < frames; f++) {
+    const double mono = g.mixMono[f];
+    inL[f] = mono + g.mixLeft[f];
+    inR[f] = mono + g.mixRight[f];
+  }
+  soemdsp_sabrina_reverb_process_block(node.nativeHandle, frames, 1);
+
+  // Mix L/R = dry/wet blend from native block outs; Dry L/R = pre-FX input.
+  copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
+  copy_tap_to_buf(node.buf[kPortRight], outR, frames);
+  for (int f = 0; f < frames; f++) {
+    node.buf[kPortDryL][f] = inL[f];
+    node.buf[kPortDryR][f] = inR[f];
+    node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
+  }
+}
+
+static void process_ping_pong(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+
+  soemdsp_ping_pong_delay_set_params(
+    node.nativeHandle,
+    (double)node.feedback,
+    (double)node.mix,
+    (double)node.level,
+    (double)node.timeNumerator,
+    (double)node.timeDenominator,
+    (double)node.timingMode,
+    (double)node.offsetMs,
+    (double)node.lfoStyle,
+    (double)node.lfoRate,
+    (double)node.lfoVariation,
+    (double)node.saturate,
+    (double)node.lpfFrequency,
+    (double)node.hpfFrequency,
+    (double)node.tempoBpm,
+    (double)sr
+  );
+
+  double* inPtr = ptr_from_export(soemdsp_ping_pong_delay_block_input_ptr(node.nativeHandle));
+  double* outL = ptr_from_export(soemdsp_ping_pong_delay_block_output_left_ptr(node.nativeHandle));
+  double* outR = ptr_from_export(soemdsp_ping_pong_delay_block_output_right_ptr(node.nativeHandle));
+  if (!inPtr || !outL || !outR) return;
+
+  // Native ping-pong is mono-in; fold Mono+L+R like the worklet evaluator.
+  for (int f = 0; f < frames; f++) {
+    inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+  }
+  soemdsp_ping_pong_delay_process_block(node.nativeHandle, frames);
+
+  copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
+  copy_tap_to_buf(node.buf[kPortRight], outR, frames);
+  for (int f = 0; f < frames; f++) {
+    node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
+  }
+}
+
 static void process_output(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   float gL = 1.0f, gR = 1.0f;
@@ -518,6 +710,13 @@ extern "C" void soemdsp_graph_set_sample_rate(int handle, float sampleRate) {
   if (!g) return;
   if (!(sampleRate == sampleRate) || sampleRate < 1.0f) sampleRate = 44100.0f;
   g->sampleRate = sampleRate;
+  for (int i = 0; i < g->nodeCount; i++) {
+    Node& n = g->nodes[i];
+    if (!n.used || n.nativeHandle <= 0) continue;
+    if (n.nativeKind == kTypeReverbEffect) {
+      soemdsp_sabrina_reverb_reset(n.nativeHandle, (double)sampleRate);
+    }
+  }
 }
 
 extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int typeId) {
@@ -535,8 +734,14 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
   init_node_defaults(n, typeId);
   for (int c = 0; c < kChannels; c++) zero_buf(n.buf[c], kMaxBlockFrames);
 
-  if (typeId == kTypePolyBlep || typeId == kTypeLadderFilter || typeId == kTypeSoftClipper) {
-    n.nativeHandle = create_native_for_type(typeId);
+  const bool needsNative =
+    typeId == kTypePolyBlep
+    || typeId == kTypeLadderFilter
+    || typeId == kTypeSoftClipper
+    || typeId == kTypeReverbEffect
+    || typeId == kTypePingPongDelay;
+  if (needsNative) {
+    n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
       n.used = false;
       n.nativeKind = 0;
@@ -595,6 +800,27 @@ extern "C" int soemdsp_graph_set_param(int handle, unsigned int nodeHash, int pa
   if (paramId == kParamCenter) { n.center = value; return 0; }
   if (paramId == kParamWidth) { n.width = value; return 0; }
   if (paramId == kParamOversample) { n.oversample = value; return 0; }
+  if (paramId == kParamMix) { n.mix = value; return 0; }
+  if (paramId == kParamDiffusionSize) { n.diffusionSize = value; return 0; }
+  if (paramId == kParamDiffusionAmount) { n.diffusionAmount = value; return 0; }
+  if (paramId == kParamDelaySize) { n.delaySize = value; return 0; }
+  if (paramId == kParamRecycle) { n.recycle = value; return 0; }
+  if (paramId == kParamLfoAmplitude) { n.lfoAmplitude = value; return 0; }
+  if (paramId == kParamLfoBaseSpeed) { n.lfoBaseSpeed = value; return 0; }
+  if (paramId == kParamLfoVariation) { n.lfoVariation = value; return 0; }
+  if (paramId == kParamSeed) { n.seed = value; return 0; }
+  if (paramId == kParamFeedback) { n.feedback = value; return 0; }
+  if (paramId == kParamLevel) { n.level = value; return 0; }
+  if (paramId == kParamTimeNumerator) { n.timeNumerator = value; return 0; }
+  if (paramId == kParamTimeDenominator) { n.timeDenominator = value; return 0; }
+  if (paramId == kParamTimingMode) { n.timingMode = value; return 0; }
+  if (paramId == kParamOffsetMs) { n.offsetMs = value; return 0; }
+  if (paramId == kParamLfoStyle) { n.lfoStyle = value; return 0; }
+  if (paramId == kParamLfoRate) { n.lfoRate = value; return 0; }
+  if (paramId == kParamSaturate) { n.saturate = value; return 0; }
+  if (paramId == kParamLpfFrequency) { n.lpfFrequency = value; return 0; }
+  if (paramId == kParamHpfFrequency) { n.hpfFrequency = value; return 0; }
+  if (paramId == kParamTempoBpm) { n.tempoBpm = value; return 0; }
   return 0;
 }
 
@@ -693,11 +919,19 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_soft_clipper(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeReverbEffect) {
+      process_reverb(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypePingPongDelay) {
+      process_ping_pong(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeOutput) {
       process_output(*g, node, frames);
       continue;
     }
-    // reverb / pingPong / unknown: silence until PR-E3+
+    // unknown: silence
   }
 
   return frames;
@@ -718,5 +952,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 3; // PR-E2 review: pool/phase wrap/softclip mono/nativeKind
+  return 4; // PR-E3: sabrina reverb + pingPong delay orchestration
 }
