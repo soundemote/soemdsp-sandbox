@@ -9,16 +9,16 @@
     "interact": "interact for details"
   },
   "constraints": {
-    "cpu": "CPU overlay | highlight knobs and faces whose work runs on the audio/UI thread (voices, FFT, filter order, waterfall/trace path packing) | meter: Audio % is worklet block budget (this is what causes clicks) | UI % / fps is display only",
+    "cpu": "CPU overlay | highlight knobs and faces whose work runs on the audio/UI thread | DSP load % = worklet time inside each audio block | drops = missed/overloaded audio blocks (clicks) | UI stall/fps = display thread only",
     "ram": "RAM overlay | highlight knobs and faces that grow stored sample history (delay lines, scope rings, History seconds) | longer buffers use more memory | meter: JS heap used (MB)",
     "gpu": "GPU overlay. Highlights knobs and faces that spend fill-rate or extra drawing surfaces (phosphor stamps, shader faces, pixel density). Meter shows display FPS, surfaces, and stamps.",
     "gpuFps": "GPU display frame rate: how often scope faces present a new picture. Simulation FPS and draw cost both cap this.",
     "gpuSurfaces": "Surfaces: how many canvas/WebGL drawing faces are live in the modular view. Each 2D Trace, phosphor, or compositor face is one surface.",
     "gpuPoints": "Stamps: phosphor energy dabs plus 2D Trace / waterfall polyline points, averaged over about half a second so the meter is readable. Lorenz/phosphor should sit in the hundreds to thousands when Dot Budget is high. 0 means nothing was deposited in that window.",
-    "audioLoad": "Audio worklet load | percent of the render-quantum time budget used to compute the last reported window | ~100%+ means the audio thread is late and you will hear interrupts/clicks | this is not the UI FPS meter",
-    "audioOverruns": "Late audio blocks | how many render quanta in the last meter window used ≥85% of their time budget | rising while UI still shows 0% means the audio thread is overloaded, not the display thread",
-    "cpuBusy": "UI stall percent | 0 = display running at 60 fps | 100 = the main thread is not keeping a 60 fps budget | not audio-worklet DSP load",
-    "cpuFps": "UI frame rate | animation frames completed per second | drops when CPU or GPU draw work overruns",
+    "audioLoad": "DSP load | how much of each audio block’s time budget the worklet used to compute audio | ~100%+ means the DSP callback itself is too slow | 0% with clicks usually meant drops outside the timer (e.g. scope post/GC), not free DSP",
+    "audioOverruns": "Audio drops | count of overloaded blocks (≥85% budget) plus missed callbacks (browser skipped a quantum) | this is the interrupt counter — if it rises you should hear clicks/gaps",
+    "cpuBusy": "UI stall | how far the main/display thread is from a steady 60 fps budget | 0 = keeping up | not DSP load",
+    "cpuFps": "UI fps | animation frames per second on the main thread | independent of audio",
     "ramUsed": "JavaScript heap used | includes live scope capture rings | not the same as GPU VRAM"
   },
   "workspace": {
