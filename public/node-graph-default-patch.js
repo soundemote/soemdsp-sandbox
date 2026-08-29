@@ -193,20 +193,60 @@ function createNodeGraphPatchNode(type, options = {}) {
   return node;
 }
 
+// Efficient-product init: allowlisted C++ graph chain (no audioPlayer).
+// polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
 const nodeGraphDefaultNodeConfigs = Object.freeze([
   {
-    ...createNodeGraphPatchNode("audioPlayer", { id: "audioPlayer-1", gx: -9, gy: -9, widthGu: 13, heightGu: 21 }),
-    params: { ...nodeGraphDefaultParamsForType("audioPlayer"), speed: 1, transport: 4 },
+    ...createNodeGraphPatchNode("polyBlep", { id: "polyBlep-1", gx: -18, gy: -4 }),
+    params: {
+      ...nodeGraphDefaultParamsForType("polyBlep"),
+      frequency: 220,
+      waveform: 1, // Saw
+      amplitude: 0.5,
+    },
   },
   {
-    ...createNodeGraphPatchNode("output", { id: "output", gx: 2, gy: -5 }),
-    params: { ...nodeGraphDefaultParamsForType("output") },
+    ...createNodeGraphPatchNode("ladderFilter", { id: "ladderFilter-1", gx: -10, gy: -4 }),
+    params: {
+      ...nodeGraphDefaultParamsForType("ladderFilter"),
+      frequency: 1200,
+      resonance: 0.35,
+      mode: 1,
+    },
+  },
+  {
+    ...createNodeGraphPatchNode("softClipper", { id: "softClipper-1", gx: -2, gy: -4 }),
+    params: { ...nodeGraphDefaultParamsForType("softClipper") },
+  },
+  {
+    ...createNodeGraphPatchNode("reverbEffect", { id: "reverbEffect-1", gx: 6, gy: -4 }),
+    params: {
+      ...nodeGraphDefaultParamsForType("reverbEffect"),
+      mix: 0.35,
+    },
+  },
+  {
+    ...createNodeGraphPatchNode("pingPongDelay", { id: "pingPongDelay-1", gx: 14, gy: -4 }),
+    params: {
+      ...nodeGraphDefaultParamsForType("pingPongDelay"),
+      mix: 0.25,
+      feedback: 0.3,
+    },
+  },
+  {
+    ...createNodeGraphPatchNode("output", { id: "output", gx: 22, gy: -4 }),
+    params: { ...nodeGraphDefaultParamsForType("output"), volume: -6 },
   },
 ]);
 
 const nodeGraphDefaultConnections = Object.freeze([
-  { sourceNode: "audioPlayer-1", sourcePort: "Left", destinationNode: "output", destinationPort: "Left" },
-  { sourceNode: "audioPlayer-1", sourcePort: "Right", destinationNode: "output", destinationPort: "Right" },
+  { sourceNode: "polyBlep-1", sourcePort: "Wave Out", destinationNode: "ladderFilter-1", destinationPort: "In" },
+  { sourceNode: "ladderFilter-1", sourcePort: "Out", destinationNode: "softClipper-1", destinationPort: "In" },
+  { sourceNode: "softClipper-1", sourcePort: "Out", destinationNode: "reverbEffect-1", destinationPort: "In" },
+  { sourceNode: "reverbEffect-1", sourcePort: "Mix L", destinationNode: "pingPongDelay-1", destinationPort: "Left" },
+  { sourceNode: "reverbEffect-1", sourcePort: "Mix R", destinationNode: "pingPongDelay-1", destinationPort: "Right" },
+  { sourceNode: "pingPongDelay-1", sourcePort: "Left", destinationNode: "output", destinationPort: "Left" },
+  { sourceNode: "pingPongDelay-1", sourcePort: "Right", destinationNode: "output", destinationPort: "Right" },
 ]);
 
 const nodeGraphDefaultPatch = Object.freeze({
@@ -234,9 +274,9 @@ const nodeGraphDefaultPatch = Object.freeze({
   ],
   info: {
     author: "",
-    description: "",
-    name: "Init",
-    tags: "",
+    description: "Efficient C++ circuit: osc → filter → clip → reverb → delay → out",
+    name: "Efficient Init",
+    tags: "efficient,mvep",
   },
   visual: {
     background: {
@@ -260,7 +300,7 @@ const nodeGraphDefaultPatch = Object.freeze({
     moduleActions: { left: null, top: null },
   },
   grid: { ...nodeGraphGrid },
-  view: { widthGu: 20, heightGu: 20, zoom: 1 },
+  view: { widthGu: 48, heightGu: 24, zoom: 1 },
   nodes: nodeGraphDefaultNodeConfigs.map((node) => ({ ...node })),
   connections: nodeGraphDefaultConnections.map((connection) => ({ ...connection })),
   graphConnections: [],
