@@ -8,6 +8,23 @@ When in doubt: prefer **honesty, one path, and delete over compatibility**.
 
 ---
 
+## 0. Architecture north star
+
+**JS is the interface. C++ runs the circuit.**
+
+| Layer | Role |
+|-------|------|
+| **JS** | Authoring UI, patch document, cables/knobs, plan/serialize, scopes/faces as **observers**, host glue that talks to native |
+| **C++ (WASM)** | Interpret the patch / plan: allocate module instances, wire buffers, run the realtime graph |
+
+- The user writes a **patch in JS** (graph + params). That is not where audio is computed.
+- The engine **compiles/interprets that patch into a C++ circuit** and runs it (block processing preferred).
+- JS must not be a second DSP runtime that “also” evaluates the graph sample-by-sample. Transitional hosts that still dispatch per module from the worklet are **debt** toward this north star — migrate toward native graph execution, do not deepen JS DSP.
+
+Concrete rules for the current codebase follow in §2 / §2b / §5.
+
+---
+
 ## 1. No patch backwards compatibility (pre–feature-complete)
 
 While the product is not feature-complete:
@@ -20,17 +37,17 @@ When feature-complete (or when explicitly chosen later): introduce migrations de
 
 ---
 
-## 2. No JavaScript per-sample audio (C++ owns DSP)
+## 2. C++ owns the circuit; JS does not compute audio
 
-This app is a **C++ DSP engine with a JS interface**, not a JS audio program.
+This app is a **C++ DSP engine with a JS interface** (§0). JS authors and observes; C++ wires and runs.
 
-- **JS must not implement per-sample (or per-block) module audio.** No filters, delays, oscillators, clippers, reverbs, or other signal kernels in the AudioWorklet/JS hot path.
-- Module DSP lives in **native/WASM (C++)**. The worklet/host only: wires graph I/O, resolves Control/Live params, calls native `process` / `process_block`, and observes buffers for scopes/UI.
-- Prefer **`process_block` (quantum-sized)** over per-sample WASM exports when the module can take a block without breaking feedback rules.
-- Module audio/math that has a **native/WASM** path must **not** ship a parallel JS DSP implementation “in case native fails.”
-- If native is missing or not ready: **silence / black / inert** (and optional status), not a second algorithm.
-- Face/display may present native results (e.g. upload a mono grid) but must **not** re-implement the field/kernel in JS or GLSL for “looks only.”
-- Same rule offline: Render Sample must not use a JS twin of a native module (see §5).
+- **JS must not implement module audio** (per-sample or per-block kernels): no filters, delays, oscillators, clippers, reverbs, or other signal math in the AudioWorklet / offline “DSP” path.
+- **Module DSP lives in native/WASM (C++)** under `native_modules/…` (and soemdsp atoms where applicable).
+- Until the full graph runs in C++, the JS worklet is only a **host**: resolve Control/Live params, call native `process` / `process_block`, pass buffers, observe for scopes/UI — not a JS interpreter of the circuit.
+- Prefer **`process_block` (quantum-sized)** over per-sample WASM exports when feedback rules allow.
+- **No JS twin** “in case native fails.” If native is missing or cold: **silence / black / inert** (optional status), not a second algorithm.
+- Face/display may present native results but must **not** re-implement the audio kernel in JS or GLSL for “looks only.”
+- Same rule offline: Render Sample uses the **same native core** (see §5).
 
 ---
 
@@ -62,14 +79,15 @@ This app is a **C++ DSP engine with a JS interface**, not a JS audio program.
 
 ---
 
-## 5. Module DSP lives in one place
+## 5. Module DSP lives in one place (C++)
 
-**Hosts are not DSP.** Live AudioWorklet, offline/Render Sample, and any main-thread evaluation are **hosts** that call into a single module implementation. They must not each own a different formula for the same module type.
+**Hosts are not DSP.** Live AudioWorklet, offline/Render Sample, and main-thread code are **hosts** that call one C++ implementation. They must not each own a different formula for the same module type.
 
 ### Single core
 
-- **Module DSP lives in one place** — native/WASM (`native_modules/…`) and/or one pure shared helper (`*-math.js` / stdlib), not a worklet copy and a render copy that can drift.
-- Offline and realtime **reference that same core**. The only intentional difference is **scheduling** (device quantum vs bounce length / block size), not the waveshaper, filter, or feedback math.
+- **Module DSP lives in one place: native/WASM (C++)** (`native_modules/…` / soemdsp). Not a worklet JS copy and a render JS copy that can drift.
+- Legacy `*-math.js` helpers are **not** a second approved DSP home for new work; migrate them into C++ and delete the twin.
+- Offline and realtime **reference that same native core**. The only intentional difference is **scheduling** (device quantum vs bounce length / block size), not the waveshaper, filter, or feedback math.
 - Do **not** maintain diverging “worklet version” vs “render version” of the same module without a tracked, labeled reason (and fix the split rather than document it as normal).
 
 ### Live chaos and video (one universe)
@@ -185,7 +203,8 @@ Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled
 | Second formula for offline/render | **No** — same core as live (§5) |
 | Re-sim graph for live video/scopes | **No** — observe worklet buffers (§5) |
 | JS twin of native “so render works” | **No** — silence until WASM (§2 / §5) |
-| JS per-sample delay/filter/osc “just for now” | **No** — C++ only (§2) |
+| JS computes the audio graph / per-sample DSP | **No** — JS is interface; C++ runs the circuit (§0 / §2) |
+| New `*-math.js` audio kernel instead of C++ | **No** — native only (§5) |
 | Prefer `*_sample` WASM when `process_block` exists | **No** — use block boundary (§2) |
 | Reserve 8 s × N delay rings in BSS for empty slots | **No** — size to live delay (§2b) |
 | “Longer delay = more CPU” | **No** — same tap math (§2b) |
