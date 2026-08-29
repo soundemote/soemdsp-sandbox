@@ -6,14 +6,20 @@ function nodeGraphBuildLivePlan() {
     throw error;
   }
 
-  if (typeof nodeGraphEfficientProductAssertPlanAllowed === "function") {
+  // Efficient product: do not hard-block Live when a foreign module (e.g. audioPlayer)
+  // sits in the patch. Strip those types from the live schedule so allowlisted
+  // DSP still runs; surface the skip on the plan status pill.
+  let efficientForeignStripped = [];
+  if (typeof nodeGraphEfficientProductEnabled === "function"
+    && nodeGraphEfficientProductEnabled()
+    && typeof nodeGraphEfficientProductForeignTypesFromNodes === "function") {
     const planNodes = (compiled.order || [])
       .map((nodeId) => nodeGraphMvp.patch?.nodes?.find((node) => node.id === nodeId))
       .filter(Boolean);
     const fallbackNodes = planNodes.length
       ? planNodes
       : (Array.isArray(nodeGraphMvp.patch?.nodes) ? nodeGraphMvp.patch.nodes : []);
-    nodeGraphEfficientProductAssertPlanAllowed(fallbackNodes);
+    efficientForeignStripped = nodeGraphEfficientProductForeignTypesFromNodes(fallbackNodes);
   }
 
   const activeNodeIds = nodeGraphActiveNodeIds(compiled);
@@ -54,6 +60,20 @@ function nodeGraphBuildLivePlan() {
   plan.samples = typeof nodeGraphLiveSamplesForPlan === "function"
     ? nodeGraphLiveSamplesForPlan(plan, nodeGraphMvp.patch)
     : [];
+  if (efficientForeignStripped.length
+    && typeof nodeGraphEfficientProductStripForeignFromLivePlan === "function") {
+    const stripped = nodeGraphEfficientProductStripForeignFromLivePlan(plan);
+    if (stripped.foreignTypes.length && typeof setNodeGraphLivePlanStatus === "function") {
+      const msg = typeof nodeGraphEfficientProductRefuseMessage === "function"
+        ? nodeGraphEfficientProductRefuseMessage(stripped.foreignTypes)
+        : `skipped: ${stripped.foreignTypes.join(", ")}`;
+      setNodeGraphLivePlanStatus(`live skips ${stripped.foreignTypes.join(", ")}`, "warn");
+      if (typeof setNodeGraphLivePlanTitle === "function") {
+        setNodeGraphLivePlanTitle(msg);
+      }
+    }
+    return stripped.plan;
+  }
   return plan;
 }
 
@@ -64,11 +84,6 @@ function nodeGraphBuildLivePlanForPatch(patch) {
     const error = new Error(compiled.issues.join(", "));
     error.issues = [...compiled.issues];
     throw error;
-  }
-  if (typeof nodeGraphEfficientProductAssertPlanAllowed === "function") {
-    nodeGraphEfficientProductAssertPlanAllowed(
-      Array.isArray(normalizedPatch?.nodes) ? normalizedPatch.nodes : [],
-    );
   }
   const activeNodeIds = nodeGraphActiveNodeIds(compiled);
   const plan = {
@@ -95,6 +110,9 @@ function nodeGraphBuildLivePlanForPatch(patch) {
   plan.samples = typeof nodeGraphLiveSamplesForPlan === "function"
     ? nodeGraphLiveSamplesForPlan(plan, normalizedPatch)
     : [];
+  if (typeof nodeGraphEfficientProductStripForeignFromLivePlan === "function") {
+    return nodeGraphEfficientProductStripForeignFromLivePlan(plan).plan;
+  }
   return plan;
 }
 

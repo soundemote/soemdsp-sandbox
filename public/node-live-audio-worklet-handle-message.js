@@ -10,10 +10,20 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       return;
     }
     if (message.type === "setPlan") {
+      // Efficient path needs graph_engine exports before compile. Wasm instantiate
+      // is async — queue the plan until nativeGraphReady rather than compiling empty.
+      if (this.efficientProduct && !this.nativeGraphReady) {
+        this._pendingSetPlan = { plan: message.plan || message, message };
+        return;
+      }
       this.setPlan(message.plan, message);
       return;
     }
     if (message.type === "setConnections") {
+      if (this.efficientProduct && !this.nativeGraphReady) {
+        this._pendingSetConnections = { plan: message.plan || message, message };
+        return;
+      }
       this.setConnections(message.plan || message, message);
       return;
     }

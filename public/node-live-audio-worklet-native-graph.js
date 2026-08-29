@@ -646,11 +646,14 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
 
     const audioTypes = NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS;
     const nodes = [];
+    const skipped = [];
     for (const [id, node] of this.nodes) {
-      const typeId = this.mapNativeGraphTypeId(node?.type);
-      if (!typeId) continue;
-      // Skip non-allowlist DSP (observers/chrome never get typeIds here).
-      if (!Object.prototype.hasOwnProperty.call(audioTypes, String(node?.type || ""))) continue;
+      const type = String(node?.type || "");
+      const typeId = this.mapNativeGraphTypeId(type);
+      if (!typeId || !Object.prototype.hasOwnProperty.call(audioTypes, type)) {
+        if (type) skipped.push(type);
+        continue;
+      }
       const hash = this.fnv1aHash32(id);
       const rc = native.soemdsp_graph_add_node(this.nativeGraphHandle, hash, typeId) | 0;
       if (rc !== 0) {
@@ -661,6 +664,19 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         return false;
       }
       nodes.push({ id, hash, type: node.type, params: node.params || {} });
+    }
+
+    // Never mark compiled with an empty DSP graph — that raced ahead of setPlan
+    // (wasm apply while this.nodes was still empty) and left Live silent.
+    if (!nodes.length) {
+      this.nativeGraphCompiled = false;
+      this._nativeGraphTopologyKey = "";
+      const skipMsg = skipped.length ? ` skipped=${skipped.join(",")}` : "";
+      this.postNativeGraphStatus(
+        "idle",
+        `nodes=0 (workletNodes=${this.nodes.size}${skipMsg})`,
+      );
+      return false;
     }
 
     const idSet = new Set(nodes.map((n) => n.id));

@@ -18,9 +18,22 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
           name: "graph_engine",
           status: this.nativeGraphReady ? "ready" : "missing exports",
         });
-        // setPlan may have raced ahead of combined wasm — compile now if needed.
-        if (this.nativeGraphReady && this.efficientProduct && this.nodes?.size) {
+        // Flush plan/connections that arrived during async wasm instantiate.
+        if (this._pendingSetPlan) {
+          const pending = this._pendingSetPlan;
+          this._pendingSetPlan = null;
+          try {
+            this.setPlan?.(pending.plan, pending.message);
+          } catch (_e) { /* planRejected posted by setPlan wrapper */ }
+        } else if (this.nativeGraphReady && this.efficientProduct && this.nodes?.size) {
           this.compileNativeGraphFromPlan?.();
+        }
+        if (this._pendingSetConnections) {
+          const pendingConn = this._pendingSetConnections;
+          this._pendingSetConnections = null;
+          try {
+            this.setConnections?.(pendingConn.plan, pendingConn.message);
+          } catch (_e) { /* ignore */ }
         }
         return;
       }

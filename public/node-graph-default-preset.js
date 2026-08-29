@@ -1,5 +1,7 @@
 const nodeGraphDefaultPresetUrl = "./public/presets/default.json";
-const nodeGraphDefaultPresetStorageKey = "soemdsp-sandbox.defaultPatch.live.v3";
+// v4: Efficient Init (allowlist). Old v3 local presets often still carried audioPlayer
+// and hard-blocked Live under efficientProduct ("not in efficient build").
+const nodeGraphDefaultPresetStorageKey = "soemdsp-sandbox.defaultPatch.live.v4";
 
 async function nodeGraphDefaultPresetUrlToLoad() {
   const override = typeof nodeGraphResolveEmbedOverride === "function"
@@ -50,8 +52,25 @@ function nodeGraphDefaultPresetPatchIsUsable(patch) {
     return false;
   }
   const hasOutput = patch.nodes.some((node) => node?.id === "output" && node?.type === "output");
-  const visibleNodeCount = patch.nodes.filter((node) => nodeGraphModuleShouldBeVisible(node)).length;
-  return hasOutput && visibleNodeCount > 1;
+  const visibleNodeCount = patch.nodes.filter((node) => (
+    typeof nodeGraphModuleShouldBeVisible === "function"
+      ? nodeGraphModuleShouldBeVisible(node)
+      : Boolean(node)
+  )).length;
+  if (!(hasOutput && visibleNodeCount > 1)) {
+    return false;
+  }
+  // Efficient product default must not ship foreign DSP (audioPlayer, etc.) —
+  // those refuse the entire live plan and look like "engine on, no audio".
+  if (typeof nodeGraphEfficientProductEnabled === "function"
+    && nodeGraphEfficientProductEnabled()
+    && typeof nodeGraphEfficientProductForeignTypesFromNodes === "function") {
+    const foreign = nodeGraphEfficientProductForeignTypesFromNodes(patch.nodes);
+    if (foreign.length) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function nodeGraphLocalDefaultPresetAllowed() {

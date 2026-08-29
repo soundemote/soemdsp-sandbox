@@ -151,7 +151,7 @@ function nodeGraphEfficientProductRefuseIssues(foreignTypes = []) {
 
 /**
  * Throws when efficient product is on and the plan/patch has foreign audio (or other) types.
- * Used by host live-plan sync; worklet setPlan mirrors the same rule.
+ * Prefer strip-on-live-plan for host audio; worklet may still hard-refuse as a backstop.
  */
 function nodeGraphEfficientProductAssertPlanAllowed(nodes = [], options = {}) {
   if (options.enabled === false) {
@@ -171,4 +171,52 @@ function nodeGraphEfficientProductAssertPlanAllowed(nodes = [], options = {}) {
   error.efficientProduct = true;
   error.foreignTypes = foreign;
   throw error;
+}
+
+/**
+ * Drop foreign DSP from a live plan so allowlisted modules still run.
+ * Foreign types stay in the editor patch; they are simply not scheduled.
+ * Returns { plan, foreignTypes }.
+ */
+function nodeGraphEfficientProductStripForeignFromLivePlan(plan, options = {}) {
+  const enabled = options.enabled != null ? Boolean(options.enabled) : nodeGraphEfficientProductEnabled();
+  if (!enabled || !plan || typeof plan !== "object") {
+    return { plan, foreignTypes: [] };
+  }
+  const nodes = Array.isArray(plan.nodes) ? plan.nodes : [];
+  const foreignTypes = nodeGraphEfficientProductForeignTypesFromNodes(nodes);
+  if (!foreignTypes.length) {
+    return { plan, foreignTypes: [] };
+  }
+  const foreignSet = new Set(foreignTypes);
+  const keepId = new Set(
+    nodes.filter((n) => !foreignSet.has(String(n?.type || "").trim())).map((n) => String(n.id)),
+  );
+  const filterConn = (list) => (Array.isArray(list) ? list : []).filter((c) => (
+    keepId.has(String(c?.sourceNode || "")) && keepId.has(String(c?.destinationNode || ""))
+  ));
+  const filterMods = (list) => (Array.isArray(list) ? list : []).filter((m) => (
+    keepId.has(String(m?.sourceNode || "")) && keepId.has(String(m?.destinationNode || ""))
+  ));
+  const next = {
+    ...plan,
+    nodes: nodes.filter((n) => keepId.has(String(n?.id || ""))),
+    order: (Array.isArray(plan.order) ? plan.order : []).filter((id) => keepId.has(String(id))),
+    sourceNodes: (Array.isArray(plan.sourceNodes) ? plan.sourceNodes : [])
+      .filter((id) => keepId.has(String(id))),
+    bypassedNodes: (Array.isArray(plan.bypassedNodes) ? plan.bypassedNodes : [])
+      .filter((id) => keepId.has(String(id))),
+    connections: filterConn(plan.connections),
+    feedbackConnections: filterConn(plan.feedbackConnections),
+    graphConnections: filterConn(plan.graphConnections),
+    feedbackGraphConnections: filterConn(plan.feedbackGraphConnections),
+    modulations: filterMods(plan.modulations),
+    feedbackModulations: filterMods(plan.feedbackModulations),
+    scopeCaptureNodeIds: (Array.isArray(plan.scopeCaptureNodeIds) ? plan.scopeCaptureNodeIds : [])
+      .filter((id) => keepId.has(String(id))),
+    visualSinks: (Array.isArray(plan.visualSinks) ? plan.visualSinks : [])
+      .filter((s) => keepId.has(String(s?.nodeId || ""))),
+    efficientForeignStripped: foreignTypes.slice(),
+  };
+  return { plan: next, foreignTypes };
 }

@@ -2,13 +2,50 @@
 // Method: setPlan — load after core class, before registerProcessor.
 
 NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) {
+  try {
+    this._setPlanImpl(plan, message);
+  } catch (error) {
+    try {
+      this.port.postMessage({
+        type: "planRejected",
+        status: "setPlan threw",
+        message: String(error?.message || error || "setPlan threw"),
+        issues: [String(error?.message || error || "setPlan threw")],
+        planSerial: message?.planSerial || this.planSerial || 0,
+        sessionId: message?.sessionId || this.sessionId || 0,
+        patchFingerprint: message?.patchFingerprint || this.patchFingerprint || "",
+      });
+    } catch (_e) { /* ignore */ }
+  }
+};
+
+NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, message = {}) {
     const patchFingerprint = message.patchFingerprint || plan?.patchFingerprint || "";
     this.planSerial = message.planSerial || 0;
     const nextSessionId = message.sessionId || 0;
     // MVEP: refuse foreign types — no JS DSP fallback (docs/APP_POLICY.md §0b).
     const efficientProduct = message.efficientProduct !== false;
     this.efficientProduct = efficientProduct;
-    if (efficientProduct && typeof nodeGraphEfficientProductForeignTypesFromNodes === "function") {
+    // Strip foreign DSP (e.g. audioPlayer) instead of rejecting the whole plan —
+    // allowlisted modules must still run. Host usually strips first; this is the
+    // worklet backstop.
+    if (efficientProduct && typeof nodeGraphEfficientProductStripForeignFromLivePlan === "function") {
+      const stripped = nodeGraphEfficientProductStripForeignFromLivePlan(plan || {});
+      if (stripped.foreignTypes.length) {
+        plan = stripped.plan;
+        this.port.postMessage({
+          foreignTypes: stripped.foreignTypes,
+          message: typeof nodeGraphEfficientProductRefuseMessage === "function"
+            ? nodeGraphEfficientProductRefuseMessage(stripped.foreignTypes)
+            : `skipped: ${stripped.foreignTypes.join(", ")}`,
+          patchFingerprint,
+          planSerial: this.planSerial,
+          sessionId: nextSessionId,
+          status: "stripped",
+          type: "planForeignStripped",
+        });
+      }
+    } else if (efficientProduct && typeof nodeGraphEfficientProductForeignTypesFromNodes === "function") {
       const foreign = nodeGraphEfficientProductForeignTypesFromNodes(
         Array.isArray(plan?.nodes) ? plan.nodes : [],
       );
@@ -81,7 +118,10 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       // Bypassed modules keep wiring but evaluate via bypassSpec (pass / avg / silence).
       bypassSpec: node.bypassSpec && typeof node.bypassSpec === "object" ? node.bypassSpec : null,
       bypassed: Boolean(node.bypassed),
-      codeblock: this.normalizeCodeblock(node.codeblock),
+      // Efficient blob omits codeblock helpers — only normalize when present.
+      codeblock: typeof this.normalizeCodeblock === "function"
+        ? this.normalizeCodeblock(node.codeblock)
+        : (node.codeblock || null),
       // Phosphillator open-path samples (packed float64 XY). Plan builder puts
       // drawnPath on runtime nodes; without this copy the worklet always saw
       // an empty path and output silence (engine still ran).
