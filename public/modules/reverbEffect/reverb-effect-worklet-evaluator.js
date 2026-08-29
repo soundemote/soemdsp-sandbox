@@ -165,8 +165,12 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
       if (!state.idleIncrement || state.nativeSampleRate !== safeRate) {
         state.idleIncrement = 1 / safeRate;
       }
+      // Idle fast-path only when dry input is truly silent. The C++ idle
+      // clock is ~1s — taking this shortcut while dry is live desyncs the
+      // process_block cursor and clicks in a ~1s rhythm.
       const blockPending = (state.blockCache?.cursor || 0) > 0;
-      if (state.isIdle && state.nativeHandle && !blockPending) {
+      const drySilent = Math.abs(dryLeft) < 1e-7 && Math.abs(dryRight) < 1e-7;
+      if (state.isIdle && state.nativeHandle && !blockPending && drySilent) {
         this.sabrinaSilenceDetectorRun(
           state,
           dryLeft + dryRight + heldMixL + heldMixR + heldWet,
@@ -175,6 +179,13 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
           return this.sabrinaWriteOut(state, dryLeft, dryRight, heldMixL, heldMixR);
         }
       }
+      if (state._wasIdle && !state.isIdle) {
+        // Waking: drop partial block so we don't mix stale outs with new DSP.
+        if (state.blockCache) {
+          state.blockCache.cursor = 0;
+        }
+      }
+      state._wasIdle = Boolean(state.isIdle);
       if (!state.nativeHandle || state.nativeSampleRate !== safeRate) {
         if (state.nativeHandle && native.soemdsp_sabrina_reverb_destroy) {
           native.soemdsp_sabrina_reverb_destroy(state.nativeHandle);

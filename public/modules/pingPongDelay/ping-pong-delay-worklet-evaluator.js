@@ -57,10 +57,40 @@ NodeLiveAudioProcessor.prototype.bindPingPongBlockViews = function bindPingPongB
   return true;
 };
 
+NodeLiveAudioProcessor.prototype.invalidateAllNativeBlockViews = function invalidateAllNativeBlockViews() {
+  // memory.grow replaces the wasm ArrayBuffer — every Float64Array view dies.
+  const clear = (state) => {
+    if (!state?.blockCache) {
+      return;
+    }
+    state.blockCache.input = null;
+    state.blockCache.output = null;
+    state.blockCache.outL = null;
+    state.blockCache.outR = null;
+    state.blockCache.inL = null;
+    state.blockCache.inR = null;
+    state.blockCache.memory = null;
+    state.blockCache.size = 0;
+    // Keep cursor — rebind recreates views; cursor still indexes the native side.
+  };
+  for (const state of this.pingPongDelayStates?.values?.() || []) {
+    clear(state);
+  }
+  for (const state of this.reverbEffectStates?.values?.() || []) {
+    clear(state);
+  }
+  for (const stereo of this.ladderFilterStates?.values?.() || []) {
+    clear(stereo?.mono);
+    clear(stereo?.left);
+    clear(stereo?.right);
+  }
+};
+
 NodeLiveAudioProcessor.prototype.applyPingPongNativeParams = function applyPingPongNativeParams(native, state, params, safeRate) {
   if (!native?.soemdsp_ping_pong_delay_set_params || !state?.nativeHandle) {
     return;
   }
+  const genBefore = Number(native.soemdsp_ping_pong_delay_memory_generation?.() || 0);
   native.soemdsp_ping_pong_delay_set_params(
     state.nativeHandle,
     Number(params.feedback) || 0,
@@ -79,6 +109,10 @@ NodeLiveAudioProcessor.prototype.applyPingPongNativeParams = function applyPingP
     Math.max(1, Number(this.timing?.tempoBpm) || 120),
     Math.max(1, Number(safeRate) || 44100),
   );
+  const genAfter = Number(native.soemdsp_ping_pong_delay_memory_generation?.() || 0);
+  if (genAfter !== genBefore) {
+    this.invalidateAllNativeBlockViews();
+  }
 };
 
 /**

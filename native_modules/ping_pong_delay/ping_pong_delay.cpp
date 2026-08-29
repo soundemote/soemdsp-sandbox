@@ -199,6 +199,8 @@ static void delay_bump_init() {
   gBump = (uintptr_t)&__heap_base;
   gBumpInit = true;
 }
+static int gPingPongMemoryGeneration = 0;
+
 static float* delay_bump_alloc(int capacity) {
   delay_bump_init();
   if (capacity < 2) capacity = 2;
@@ -212,6 +214,7 @@ static float* delay_bump_alloc(int capacity) {
     if (__builtin_wasm_memory_grow(0, pages) < 0) {
       return nullptr;
     }
+    gPingPongMemoryGeneration += 1;
   }
   float* p = (float*)aligned;
   for (int i = 0; i < capacity; i += 1) {
@@ -451,6 +454,8 @@ extern "C" void soemdsp_ping_pong_delay_destroy(int handle) {
 }
 
 // Size rings to live delay need (+ offset headroom), not a fixed 8 s (§2b).
+// Never wipe an existing ring just to change length — that clicks.
+// Grow capacity with headroom so memory.grow is rare (grow detaches JS TypedArrays).
 static void ensure_buffer_size(PingPongDelayState& s, double sampleRate) {
   const double rate = maxd(1.0, safe(sampleRate));
   const double driftSec = maxd(0.0, safe(s.liveOffsetMs)) / 1000.0;
@@ -462,23 +467,42 @@ static void ensure_buffer_size(PingPongDelayState& s, double sampleRate) {
   if (need > kMaxDelaySamples) need = kMaxDelaySamples;
 
   if (s.bufferL && s.bufferR && s.bufferCap >= need) {
+    // Keep capacity; only update logical ring length. Do NOT zero memory.
     if (s.bufferSize != need) {
-      reset_delay_ring(s, need);
+      s.bufferSize = need;
+      if (s.position >= s.bufferSize) {
+        s.position %= s.bufferSize;
+      }
     }
     return;
   }
 
-  float* newL = delay_alloc_floats(need);
-  float* newR = delay_alloc_floats(need);
+  int newCap = need * 2;
+  if (newCap < need) newCap = need;
+  if (newCap > kMaxDelaySamples) newCap = kMaxDelaySamples;
+
+  float* newL = delay_alloc_floats(newCap);
+  float* newR = delay_alloc_floats(newCap);
   if (!newL || !newR) {
     return;
+  }
+  // Copy overlapping history if growing an existing ring.
+  if (s.bufferL && s.bufferR && s.bufferSize > 1) {
+    const int copy = s.bufferSize < need ? s.bufferSize : need;
+    for (int i = 0; i < copy; i += 1) {
+      newL[i] = s.bufferL[i];
+      newR[i] = s.bufferR[i];
+    }
   }
   delay_free_floats(s.bufferL, s.bufferCap);
   delay_free_floats(s.bufferR, s.bufferCap);
   s.bufferL = newL;
   s.bufferR = newR;
-  s.bufferCap = need;
-  reset_delay_ring(s, need);
+  s.bufferCap = newCap;
+  s.bufferSize = need;
+  if (s.position >= s.bufferSize) {
+    s.position = 0;
+  }
 }
 
 static void process_one(PingPongDelayState& s, double input) {
@@ -624,6 +648,10 @@ extern "C" double soemdsp_ping_pong_delay_right(int handle) {
   return gPool[handle - 1].outRight;
 }
 
+extern "C" int soemdsp_ping_pong_delay_memory_generation() {
+  return gPingPongMemoryGeneration;
+}
+
 extern "C" int soemdsp_ping_pong_delay_version() {
-  return 4; // process_block + growable per-instance rings (§2b)
+  return 5; // no ring-wipe on resize; grow headroom; memory generation
 }

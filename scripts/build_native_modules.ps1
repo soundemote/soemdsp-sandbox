@@ -126,7 +126,7 @@ $modules = @(
     "soemdsp_ping_pong_delay_set_params", "soemdsp_ping_pong_delay_process_block",
     "soemdsp_ping_pong_delay_block_input_ptr", "soemdsp_ping_pong_delay_block_output_left_ptr",
     "soemdsp_ping_pong_delay_block_output_right_ptr", "soemdsp_ping_pong_delay_max_block_frames",
-    "soemdsp_ping_pong_delay_version"
+    "soemdsp_ping_pong_delay_memory_generation", "soemdsp_ping_pong_delay_version"
   ) },
   @{ Name = "papoulis_filter"; Simd = $false; Exports = @("soemdsp_papoulis_filter_create", "soemdsp_papoulis_filter_destroy", "soemdsp_papoulis_filter_sample", "soemdsp_papoulis_filter_snap", "soemdsp_papoulis_filter_version") },
   @{ Name = "phosphillator"; Simd = $false; Exports = @("soemdsp_phosphillator_create", "soemdsp_phosphillator_destroy", "soemdsp_phosphillator_path_x_ptr", "soemdsp_phosphillator_path_y_ptr", "soemdsp_phosphillator_max_path_points", "soemdsp_phosphillator_set_path", "soemdsp_phosphillator_clear_path", "soemdsp_phosphillator_sample", "soemdsp_phosphillator_y", "soemdsp_phosphillator_version") },
