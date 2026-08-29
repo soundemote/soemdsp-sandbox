@@ -181,6 +181,8 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         this.nativeLadderFilter = exports;
         this.nativeLadderFilterReady = Boolean(
           this.nativeLadderFilter?.soemdsp_ladder_filter_create &&
+          this.nativeLadderFilter?.soemdsp_ladder_filter_set_params &&
+          this.nativeLadderFilter?.soemdsp_ladder_filter_process_block &&
           this.nativeLadderFilter?.soemdsp_ladder_filter_sample,
         );
         this.port.postMessage({

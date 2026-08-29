@@ -518,7 +518,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=ping-pong-grow-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=ladder-block-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2997,7 +2997,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-evaluators-processors.js?v=haschanged-2",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=controller-smooth-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
-  "./public/node-live-audio-worklet-native-exports.js?v=ping-pong-block-1",
+  "./public/node-live-audio-worklet-native-exports.js?v=ladder-block-1",
   "./public/node-live-audio-worklet-set-plan.js?v=interrupt-patch-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=engine-ring-1",
   "./public/node-live-audio-worklet-handle-message.js?v=sim-fps-lcd-1",
@@ -3065,7 +3065,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/papoulisFilter/papoulis-filter-worklet-evaluator.js?v=xy-pad-native-1",
   "./public/modules/phosphillator/phosphillator-worklet-evaluator.js?v=drawnpath-fix-1",
   "./public/modules/cookbookFilter/cookbook-filter-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/ladderFilter/ladder-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/ladderFilter/ladder-filter-worklet-evaluator.js?v=ladder-block-1",
   "./public/modules/flowerChildFilter/flower-child-filter-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/activeFilter/active-filter-math.js?v=active-no-freq-1",
   "./public/modules/activeFilter/active-filter-worklet-evaluator.js?v=bp-two-in-one-1",

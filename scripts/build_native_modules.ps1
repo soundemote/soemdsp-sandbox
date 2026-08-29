@@ -25,7 +25,14 @@ $modules = @(
   @{ Name = "soft_clipper"; Simd = $false; Exports = @("soemdsp_soft_clipper_sample", "soemdsp_soft_clipper_sample_aa", "soemdsp_soft_clipper_create", "soemdsp_soft_clipper_destroy", "soemdsp_soft_clipper_version", "soemdsp_soft_clipper_metadata_json", "soemdsp_soft_clipper_metadata_json_size") }
   @{ Name = "fractal_brownian_noise"; Simd = $true; Exports = @("soemdsp_fbm_create", "soemdsp_fbm_destroy", "soemdsp_fbm_reset", "soemdsp_fbm_sample", "soemdsp_fbm_x", "soemdsp_fbm_y", "soemdsp_fbm_z", "soemdsp_fbm_x_raw", "soemdsp_fbm_y_raw", "soemdsp_fbm_z_raw", "soemdsp_fbm_version", "soemdsp_fbm_process_block", "soemdsp_fbm_block_output_x_ptr", "soemdsp_fbm_block_output_y_ptr", "soemdsp_fbm_block_output_z_ptr", "soemdsp_fbm_block_output_x_raw_ptr", "soemdsp_fbm_block_output_y_raw_ptr", "soemdsp_fbm_block_output_z_raw_ptr", "soemdsp_fbm_max_block_frames") }
   @{ Name = "fbm_field"; Simd = $false; Exports = @("soemdsp_fbm_field_create", "soemdsp_fbm_field_destroy", "soemdsp_fbm_field_reset", "soemdsp_fbm_field_sample", "soemdsp_fbm_field_eval_at", "soemdsp_fbm_field_fill_grid", "soemdsp_fbm_field_grid_ptr", "soemdsp_fbm_field_grid_width", "soemdsp_fbm_field_grid_height", "soemdsp_fbm_field_grid_max_width", "soemdsp_fbm_field_grid_max_height", "soemdsp_fbm_field_x", "soemdsp_fbm_field_y", "soemdsp_fbm_field_z", "soemdsp_fbm_field_x_raw", "soemdsp_fbm_field_y_raw", "soemdsp_fbm_field_z_raw", "soemdsp_fbm_field_domain_time", "soemdsp_fbm_field_version") }
-  @{ Name = "ladder_filter"; Simd = $false; Exports = @("soemdsp_ladder_filter_create", "soemdsp_ladder_filter_destroy", "soemdsp_ladder_filter_sample", "soemdsp_ladder_filter_version", "soemdsp_ladder_filter_metadata_json", "soemdsp_ladder_filter_metadata_json_size") }
+  @{ Name = "ladder_filter"; Simd = $false; Exports = @(
+    "soemdsp_ladder_filter_create", "soemdsp_ladder_filter_destroy",
+    "soemdsp_ladder_filter_sample", "soemdsp_ladder_filter_set_params",
+    "soemdsp_ladder_filter_process_block", "soemdsp_ladder_filter_block_input_ptr",
+    "soemdsp_ladder_filter_block_output_ptr", "soemdsp_ladder_filter_max_block_frames",
+    "soemdsp_ladder_filter_version", "soemdsp_ladder_filter_metadata_json",
+    "soemdsp_ladder_filter_metadata_json_size"
+  ) }
   @{ Name = "flower_child_filter"; Simd = $false; Exports = @("soemdsp_flower_child_filter_create", "soemdsp_flower_child_filter_destroy", "soemdsp_flower_child_filter_sample", "soemdsp_flower_child_filter_version") }
   @{ Name = "active_filter"; Simd = $false; Exports = @("soemdsp_active_filter_create", "soemdsp_active_filter_destroy", "soemdsp_active_filter_sample", "soemdsp_active_filter_version", "soemdsp_active_filter_metadata_json", "soemdsp_active_filter_metadata_json_size") }
   @{ Name = "yellowjacket_filter"; Simd = $false; Exports = @("soemdsp_yellowjacket_filter_create", "soemdsp_yellowjacket_filter_destroy", "soemdsp_yellowjacket_filter_sample", "soemdsp_yellowjacket_filter_version") }

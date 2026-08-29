@@ -1,126 +1,138 @@
+// Ladder Filter — native/WASM only (APP_POLICY §2).
+// JS hosts graph I/O; C++ owns the ladder via process_block.
+
+NodeLiveAudioProcessor.LADDER_NATIVE_BLOCK_SIZE = 128;
+
 NodeLiveAudioProcessor.prototype.createLadderFilterState = function createLadderFilterState() {
-    return { y: [0, 0, 0, 0, 0], nativeHandle: 0 };
+  return {
+    nativeHandle: 0,
+    blockCache: {
+      cursor: 0,
+      size: 0,
+      input: null,
+      output: null,
+      memory: null,
+    },
   };
+};
 
-NodeLiveAudioProcessor.prototype.ladderFilterStageCount = function ladderFilterStageCount(stages) {
-    const value = Math.round(Number(stages));
-    return Number.isFinite(value) ? this.clampValue(value, 1, 4) : 4;
-  };
+NodeLiveAudioProcessor.prototype.resetLadderBlockCache = function resetLadderBlockCache(state) {
+  if (!state?.blockCache) {
+    return;
+  }
+  state.blockCache.cursor = 0;
+  state.blockCache.size = 0;
+  state.blockCache.input = null;
+  state.blockCache.output = null;
+  state.blockCache.memory = null;
+};
 
-NodeLiveAudioProcessor.prototype.ladderFilterMix = function ladderFilterMix(mode, stages) {
-    const safeMode = Math.round(this.clampValue(Number(mode) || 0, 0, 3));
-    const stageCount = this.ladderFilterStageCount(stages);
-    const c = [0, 0, 0, 0, 0];
-    let s = 1;
-    if (safeMode === 0) {
-      c[0] = 1;
-      s = 0.125;
-    } else if (safeMode === 1) {
-      c[stageCount] = 1;
-      s = stageCount * 0.25;
-    } else if (safeMode === 2) {
-      const coefficients = [
-        [1, -1],
-        [1, -2, 1],
-        [1, -3, 3, -1],
-        [1, -4, 6, -4, 1],
-      ][stageCount - 1];
-      for (let index = 0; index < coefficients.length; index += 1) {
-        c[index] = coefficients[index];
-      }
-      s = stageCount * 0.25;
-    } else {
-      const coefficients = stageCount <= 2
-        ? [0, 2, -2, 0, 0]
-        : stageCount === 3
-          ? [0, 0, 3, -3, 0]
-          : [0, 0, 4, -8, 4];
-      for (let index = 0; index < coefficients.length; index += 1) {
-        c[index] = coefficients[index];
-      }
-      s = 0.125;
-    }
-    return { c, mode: safeMode, s, stageCount };
-  };
+NodeLiveAudioProcessor.prototype.bindLadderBlockViews = function bindLadderBlockViews(native, state, blockSize) {
+  const memory = native?.memory;
+  if (!memory?.buffer || !state?.nativeHandle || blockSize < 1) {
+    return false;
+  }
+  const cache = state.blockCache || (state.blockCache = {});
+  if (cache.input && cache.memory === memory.buffer && cache.size === blockSize) {
+    return true;
+  }
+  const inPtr = native.soemdsp_ladder_filter_block_input_ptr?.(state.nativeHandle);
+  const outPtr = native.soemdsp_ladder_filter_block_output_ptr?.(state.nativeHandle);
+  if (!inPtr || !outPtr) {
+    return false;
+  }
+  cache.input = new Float64Array(memory.buffer, inPtr, blockSize);
+  cache.output = new Float64Array(memory.buffer, outPtr, blockSize);
+  cache.memory = memory.buffer;
+  cache.size = blockSize;
+  cache.output.fill(0);
+  cache.cursor = 0;
+  return true;
+};
 
-NodeLiveAudioProcessor.prototype.ladderFilterFeedbackFactor = function ladderFilterFeedbackFactor(feedback, cosWc, a) {
-    const b = 1 + a;
-    const denominator = Math.max(1e-12, 1 + a * a + 2 * a * cosWc);
-    const g2 = (b * b) / denominator;
-    return feedback / Math.max(1e-12, g2 * g2);
-  };
+NodeLiveAudioProcessor.prototype.applyLadderNativeParams = function applyLadderNativeParams(native, state, params, rate) {
+  if (!native?.soemdsp_ladder_filter_set_params || !state?.nativeHandle) {
+    return;
+  }
+  native.soemdsp_ladder_filter_set_params(
+    state.nativeHandle,
+    Math.max(0, this.safeFilterNumber(params.frequency, state)),
+    this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 0.999),
+    Math.max(0, Math.min(3, Math.round(Number(params.mode) || 0))),
+    Math.max(1, Math.min(4, Math.round(Number(params.stages) || 4))),
+    Math.max(1, Number(rate) || sampleRate || 44100),
+  );
+};
 
-NodeLiveAudioProcessor.prototype.ladderFilterCoefficients = function ladderFilterCoefficients(frequency, resonance, mode, stages, rate = sampleRate, state = null) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const frequencyValue = Math.max(0, this.safeFilterNumber(frequency, state));
-    const safeFrequency = this.clampValue(frequencyValue, 0.000001, Math.min(20000, safeRate * 0.49));
-    const feedback = this.clampValue(this.safeFilterNumber(resonance, state), 0, 0.999);
-    const wc = this.clampValue((2 * Math.PI * safeFrequency) / safeRate, 1e-9, Math.PI * 0.98);
-    const sine = Math.sin(wc);
-    const cosine = Math.cos(wc);
-    const tangent = Math.tan(0.25 * (wc - Math.PI));
-    let a = tangent / Math.max(1e-12, sine - cosine * tangent);
-    if (!Number.isFinite(a)) {
-      a = -1;
-    }
-    const mix = this.ladderFilterMix(mode, stages);
-    const k = this.ladderFilterFeedbackFactor(feedback, cosine, a);
-    const g = 1 + mix.s * k;
-    return { ...mix, a, g, k };
-  };
-
+/**
+ * One channel sample. Collects into native block; one WASM process_block per quantum.
+ * Silence if native cold — no JS ladder twin (APP_POLICY §2).
+ */
 NodeLiveAudioProcessor.prototype.ladderFilterSample = function ladderFilterSample(state, input, params, rate = sampleRate) {
-    if (this.nativeLadderFilterReady) {
-      try {
-        if (!state.nativeHandle) {
-          state.nativeHandle = this.nativeLadderFilter.soemdsp_ladder_filter_create();
-        }
-        if (state.nativeHandle) {
-          return this.safeFilterNumber(
-            this.nativeLadderFilter.soemdsp_ladder_filter_sample(
-              state.nativeHandle,
-              this.safeFilterNumber(input, state),
-              Math.max(0, this.safeFilterNumber(params.frequency, state)),
-              this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 0.999),
-              Math.max(0, Math.min(3, Math.round(Number(params.mode) || 0))),
-              Math.max(1, Math.min(4, Math.round(Number(params.stages) || 4))),
-              Math.max(1, Number(rate) || sampleRate || 44100),
-            ),
-            state,
-          );
-        }
-      } catch (error) {
-        this.nativeLadderFilterReady = false;
-        state.nativeHandle = 0;
-        this.port.postMessage({
-          type: "nativeModuleStatus",
-          name: "ladder_filter",
-          status: "disabled",
-          message: String(error?.message || error || "native Ladder Filter failed"),
-        });
-      }
-    }
-    const safeInput = this.safeFilterNumber(input, state);
-    const coeff = this.ladderFilterCoefficients(
-      params.frequency,
-      params.resonance,
-      params.mode,
-      params.stages,
-      rate,
-      state,
-    );
-    const y = Array.isArray(state.y) && state.y.length >= 5 ? state.y : [0, 0, 0, 0, 0];
-    state.y = y;
-    y[0] = coeff.g * safeInput - coeff.k * y[4];
-    y[0] = y[0] / (1 + y[0] * y[0]);
-    y[1] = y[0] + coeff.a * (y[0] - y[1]);
-    y[2] = y[1] + coeff.a * (y[1] - y[2]);
-    y[3] = y[2] + coeff.a * (y[2] - y[3]);
-    y[4] = y[3] + coeff.a * (y[3] - y[4]);
-    for (let index = 0; index < y.length; index += 1) {
-      y[index] = this.safeFilterNumber(y[index], state);
-    }
-    const output = coeff.c[0] * y[0] + coeff.c[1] * y[1] + coeff.c[2] * y[2] + coeff.c[3] * y[3] + coeff.c[4] * y[4];
-    return this.safeFilterNumber(output, state);
-  };
+  const native = this.nativeLadderFilter;
+  const nativeVer = Number(native?.soemdsp_ladder_filter_version?.() || 0);
+  if (
+    !this.nativeLadderFilterReady
+    || nativeVer < 2
+    || !native?.soemdsp_ladder_filter_create
+    || !native?.soemdsp_ladder_filter_process_block
+    || !native?.soemdsp_ladder_filter_set_params
+  ) {
+    return 0;
+  }
 
+  try {
+    if (!state.nativeHandle) {
+      state.nativeHandle = native.soemdsp_ladder_filter_create();
+      this.resetLadderBlockCache(state);
+    }
+    if (!state.nativeHandle) {
+      return 0;
+    }
+
+    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+    const blockSize = Math.min(
+      NodeLiveAudioProcessor.LADDER_NATIVE_BLOCK_SIZE,
+      Number(native.soemdsp_ladder_filter_max_block_frames?.()) || 128,
+    );
+
+    if (!this.bindLadderBlockViews(native, state, blockSize)) {
+      this.applyLadderNativeParams(native, state, params, safeRate);
+      return this.safeFilterNumber(
+        native.soemdsp_ladder_filter_sample(
+          state.nativeHandle,
+          this.safeFilterNumber(input, state),
+          Math.max(0, this.safeFilterNumber(params.frequency, state)),
+          this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 0.999),
+          Math.max(0, Math.min(3, Math.round(Number(params.mode) || 0))),
+          Math.max(1, Math.min(4, Math.round(Number(params.stages) || 4))),
+          safeRate,
+        ),
+        state,
+      );
+    }
+
+    const cache = state.blockCache;
+    const index = cache.cursor;
+    const out = cache.output[index] || 0;
+    cache.input[index] = this.safeFilterNumber(input, state);
+    cache.cursor += 1;
+    if (cache.cursor >= blockSize) {
+      this.applyLadderNativeParams(native, state, params, safeRate);
+      native.soemdsp_ladder_filter_process_block(state.nativeHandle, blockSize);
+      cache.cursor = 0;
+    }
+    return this.safeFilterNumber(out, state);
+  } catch (error) {
+    this.nativeLadderFilterReady = false;
+    state.nativeHandle = 0;
+    this.resetLadderBlockCache(state);
+    this.port.postMessage({
+      type: "nativeModuleStatus",
+      name: "ladder_filter",
+      status: "disabled",
+      message: String(error?.message || error || "native Ladder Filter failed"),
+    });
+    return 0;
+  }
+};

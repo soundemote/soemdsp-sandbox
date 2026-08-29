@@ -67,6 +67,8 @@ static const char kMetadataJson[] =
     "]"
   "}";
 
+static const int kMaxBlockFrames = 128;
+
 struct LadderState {
   double y[5];
   bool active;
@@ -83,6 +85,14 @@ struct LadderState {
   double mixS;
   double k;
   double g;
+  // Latched for process_block
+  double liveFrequency;
+  double liveResonance;
+  int liveMode;
+  int liveStages;
+  double liveSampleRate;
+  double blockIn[kMaxBlockFrames];
+  double blockOut[kMaxBlockFrames];
 };
 
 static LadderState gPool[kMaxInstances];
@@ -199,22 +209,7 @@ extern "C" void soemdsp_ladder_filter_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
-extern "C" double soemdsp_ladder_filter_sample(
-  int handle,
-  double input,
-  double frequency,
-  double resonance,
-  int mode,
-  int stages,
-  double sampleRate
-) {
-  if (handle < 1 || handle > kMaxInstances) return 0.0;
-  LadderState& s = gPool[handle - 1];
-
-  // CONTROL: freq/res/mode/stages/SR → sin/cos/tan + mix taps cached.
-  // LIVE: audio input only.
-  sync_ladder_coeffs(s, frequency, resonance, mode, stages, sampleRate);
-
+static void process_one(LadderState& s, double input) {
   const double a = s.a;
   const double k = s.k;
   const double g = s.g;
@@ -235,11 +230,68 @@ extern "C" double soemdsp_ladder_filter_sample(
 
   const double out = c[0]*s.y[0] + c[1]*s.y[1] + c[2]*s.y[2] + c[3]*s.y[3] + c[4]*s.y[4];
   s.lastOut = safe(out);
-  return s.lastOut;
+}
+
+extern "C" void soemdsp_ladder_filter_set_params(
+  int handle,
+  double frequency,
+  double resonance,
+  int mode,
+  int stages,
+  double sampleRate
+) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  LadderState& s = gPool[handle - 1];
+  sync_ladder_coeffs(s, frequency, resonance, mode, stages, sampleRate);
+  s.liveFrequency = frequency;
+  s.liveResonance = resonance;
+  s.liveMode = mode;
+  s.liveStages = stages;
+  s.liveSampleRate = sampleRate < 1.0 ? 44100.0 : sampleRate;
+}
+
+extern "C" double soemdsp_ladder_filter_sample(
+  int handle,
+  double input,
+  double frequency,
+  double resonance,
+  int mode,
+  int stages,
+  double sampleRate
+) {
+  if (handle < 1 || handle > kMaxInstances) return 0.0;
+  soemdsp_ladder_filter_set_params(handle, frequency, resonance, mode, stages, sampleRate);
+  process_one(gPool[handle - 1], input);
+  return gPool[handle - 1].lastOut;
+}
+
+extern "C" void soemdsp_ladder_filter_process_block(int handle, int frameCount) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  LadderState& s = gPool[handle - 1];
+  const int n = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
+  sync_ladder_coeffs(s, s.liveFrequency, s.liveResonance, s.liveMode, s.liveStages, s.liveSampleRate);
+  for (int i = 0; i < n; i += 1) {
+    process_one(s, s.blockIn[i]);
+    s.blockOut[i] = s.lastOut;
+  }
+}
+
+extern "C" int soemdsp_ladder_filter_block_input_ptr(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  return reinterpret_cast<int>(gPool[handle - 1].blockIn);
+}
+
+extern "C" int soemdsp_ladder_filter_block_output_ptr(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  return reinterpret_cast<int>(gPool[handle - 1].blockOut);
+}
+
+extern "C" int soemdsp_ladder_filter_max_block_frames() {
+  return kMaxBlockFrames;
 }
 
 extern "C" int soemdsp_ladder_filter_version() {
-  return 1;
+  return 2; // process_block + set_params
 }
 
 extern "C" const char* soemdsp_ladder_filter_metadata_json() {
