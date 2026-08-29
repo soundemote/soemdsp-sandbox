@@ -193,17 +193,25 @@ NodeLiveAudioProcessor.prototype.createStereoFilterState = function createStereo
 
 // Mono-only patches must not pay for three independent channel instances.
 // Always run Out; run Left/Right only when those jacks are wired.
+// Reuse one port object per nodeId — new {Out,Left,Right} every sample was GC fuel.
 NodeLiveAudioProcessor.prototype.stereoProcessPorts = function stereoProcessPorts(nodeId, hasInput, outM, processLeft, processRight) {
   const hasL = typeof hasInput === "function" && hasInput(nodeId, "Left");
   const hasR = typeof hasInput === "function" && hasInput(nodeId, "Right");
-  if (!hasL && !hasR) {
-    return { Out: outM, Left: outM, Right: outM };
+  const bucket = this._stereoPortBucket || (this._stereoPortBucket = new Map());
+  let out = bucket.get(nodeId);
+  if (!out) {
+    out = { Out: 0, Left: 0, Right: 0 };
+    bucket.set(nodeId, out);
   }
-  return {
-    Out: outM,
-    Left: hasL ? processLeft() : outM,
-    Right: hasR ? processRight() : outM,
-  };
+  out.Out = outM;
+  if (!hasL && !hasR) {
+    out.Left = outM;
+    out.Right = outM;
+    return out;
+  }
+  out.Left = hasL ? processLeft() : outM;
+  out.Right = hasR ? processRight() : outM;
+  return out;
 };
 
 NodeLiveAudioProcessor.prototype.createOscResetState = function createOscResetState() {

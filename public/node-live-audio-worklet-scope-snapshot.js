@@ -3,6 +3,7 @@
 
 NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleScopeSnapshot() {
     const values = [];
+    const transfer = [];
     const engineSampleRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
     const rates = this.scopeCaptureRates || Object.create(null);
     const captureRateForKey = (key) => {
@@ -21,46 +22,37 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
       };
     };
     for (const [nodeId, samples] of this.scopeBuffers) {
-      const length = samples instanceof Float32Array
-        ? Math.min(samples.length, Number(samples.nodeGraphScopeLength) || 0)
-        : samples?.length || 0;
-      if (!length) {
+      if (!(samples instanceof Float32Array)) {
         continue;
       }
-      if (samples instanceof Float32Array) {
-        const writeIndex = Number(samples.nodeGraphScopeWriteIndex) || 0;
-        const ordered = new Float32Array(length);
-        const start = (writeIndex - length + samples.length) % samples.length;
-        for (let index = 0; index < length; index += 1) {
-          ordered[index] = samples[(start + index) % samples.length] || 0;
-        }
-        // Monotonic absoluteFrame so main-thread Instant Trace / 1D Phosphor
-        // undrawn windows advance every post (not only when visual-input rings
-        // attach absoluteFrame).
-        const totalPosted = (Number(samples.nodeGraphScopeTotalPosted) || 0) + length;
-        samples.nodeGraphScopeTotalPosted = totalPosted;
-        const rateMeta = captureRateForKey(nodeId);
-        values.push([nodeId, ordered, {
-          absoluteFrame: totalPosted,
-          sampleRate: rateMeta.sampleRate,
-          sampleStride: rateMeta.sampleStride,
-          sourceSampleRate: engineSampleRate,
-          startFrame: Math.max(0, totalPosted - length),
-        }]);
-      } else {
-        const totalPosted = (Number(samples?.nodeGraphScopeTotalPosted) || 0) + length;
-        if (samples && typeof samples === "object") {
-          samples.nodeGraphScopeTotalPosted = totalPosted;
-        }
-        const rateMeta = captureRateForKey(nodeId);
-        values.push([nodeId, samples, {
-          absoluteFrame: totalPosted,
-          sampleRate: rateMeta.sampleRate,
-          sampleStride: rateMeta.sampleStride,
-          sourceSampleRate: engineSampleRate,
-          startFrame: Math.max(0, totalPosted - length),
-        }]);
+      const capacity = samples.length;
+      if (!capacity) {
+        continue;
       }
+      const writeIndex = Number(samples.nodeGraphScopeWriteIndex) || 0;
+      const totalWritten = Number(samples.nodeGraphScopeTotalWritten) || 0;
+      const totalPosted = Number(samples.nodeGraphScopeTotalPosted) || 0;
+      // Only ship samples written since the last post (was: full ring + wipe Map).
+      const freshCount = Math.min(capacity, Math.max(0, totalWritten - totalPosted));
+      if (freshCount <= 0) {
+        continue;
+      }
+      const ordered = new Float32Array(freshCount);
+      const start = (writeIndex - freshCount + capacity) % capacity;
+      for (let index = 0; index < freshCount; index += 1) {
+        ordered[index] = samples[(start + index) % capacity] || 0;
+      }
+      const nextPosted = totalPosted + freshCount;
+      samples.nodeGraphScopeTotalPosted = nextPosted;
+      const rateMeta = captureRateForKey(nodeId);
+      values.push([nodeId, ordered, {
+        absoluteFrame: nextPosted,
+        sampleRate: rateMeta.sampleRate,
+        sampleStride: rateMeta.sampleStride,
+        sourceSampleRate: engineSampleRate,
+        startFrame: Math.max(0, nextPosted - freshCount),
+      }]);
+      transfer.push(ordered.buffer);
     }
     for (const [key, state] of this.visualInputBuffers || []) {
       const length = Math.min(Number(state?.length) || 0, state?.capacity || state?.buffer?.length || 0);
@@ -102,6 +94,7 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
         sourceSampleRate,
         startFrame: absoluteFrame - count,
       }]);
+      transfer.push(ordered.buffer);
       state.postedFrame = absoluteFrame;
     }
     // Data-plane relay: any dataOutputs port (Hypersaw's Phases/
@@ -129,13 +122,19 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
     if (!values.length && !dataPorts.length) {
       return;
     }
-    this.port.postMessage({
+    const message = {
       ...(dataPorts.length ? { dataPorts } : {}),
       patchFingerprint: this.patchFingerprint,
       sampleRate: engineSampleRate,
       sessionId: this.sessionId,
       type: "scope",
       values,
-    });
-    this.scopeBuffers = new Map();
+    };
+    // Transfer sample buffers so the audio thread does not structured-clone them.
+    // Keep scopeBuffers Map + rings — wiping the Map every post was GC + dropout fuel.
+    if (transfer.length) {
+      this.port.postMessage(message, transfer);
+    } else {
+      this.port.postMessage(message);
+    }
 };

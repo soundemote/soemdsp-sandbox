@@ -211,6 +211,7 @@ NodeLiveAudioProcessor.prototype.appendScopeBufferSample = function appendScopeB
     samples[writeIndex] = this.scopeScalarValue(value);
     samples.nodeGraphScopeWriteIndex = (writeIndex + 1) % limit;
     samples.nodeGraphScopeLength = Math.min(limit, (Number(samples.nodeGraphScopeLength) || 0) + 1);
+    samples.nodeGraphScopeTotalWritten = (Number(samples.nodeGraphScopeTotalWritten) || 0) + 1;
 };
 
 NodeLiveAudioProcessor.prototype.createVisualInputBuffer = function createVisualInputBuffer(capacity = 262144) {

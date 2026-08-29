@@ -1917,10 +1917,12 @@ function handleNodeGraphLiveWorkletMessage(event) {
       nodeGraphMvp.constraintResourceMetrics = {};
     }
     const audioRatio = Math.max(0, Number(message.maxBlockBudgetRatio) || 0);
-    nodeGraphMvp.constraintResourceMetrics.audioLoadPct = audioRatio * 100;
+    // Hold peak load briefly so rare spikes are visible (meter window is ~16ms).
+    const prevPeak = Number(nodeGraphMvp.constraintResourceMetrics.audioLoadPct) || 0;
+    nodeGraphMvp.constraintResourceMetrics.audioLoadPct = Math.max(prevPeak * 0.85, audioRatio * 100);
     nodeGraphMvp.constraintResourceMetrics.audioOverrunCount = Math.max(
       0,
-      Number(message.overrunCount) || 0,
+      (Number(message.overrunCount) || 0) + (Number(message.missedQuantumCount) || 0),
     );
     nodeGraphMvp.constraintResourceMetrics.audioBlockMs = Math.max(
       0,
@@ -2958,23 +2960,23 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-destroy.js?v=block-scope-1",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
-  "./public/node-live-audio-worklet-dsp-state.js?v=mono-ports-1",
+  "./public/node-live-audio-worklet-dsp-state.js?v=interrupt-1",
   "./public/node-live-audio-worklet-events.js?v=phase-arm-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
-  "./public/node-live-audio-worklet-scope-io.js?v=scope-compile-1",
+  "./public/node-live-audio-worklet-scope-io.js?v=interrupt-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-evaluators-sources.js?v=snowflake-phase-1",
   "./public/node-live-audio-worklet-evaluators-processors.js?v=haschanged-2",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=controller-smooth-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=block-scope-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=scope-compile-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=interrupt-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=engine-ring-1",
   "./public/node-live-audio-worklet-handle-message.js?v=sim-fps-lcd-1",
-  "./public/node-live-audio-worklet-scope-snapshot.js?v=engine-ring-1",
+  "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=hotpath-1",
-  "./public/node-live-audio-worklet-process.js?v=audio-load-meter-1",
+  "./public/node-live-audio-worklet-process.js?v=interrupt-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",

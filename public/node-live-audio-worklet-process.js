@@ -6,6 +6,23 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
     const output = outputs[0] || [];
     const frames = output[0]?.length || 128;
     const input = inputs[0] || [];
+    // Missed quanta (browser skipped process) never show in wall-time Audio%.
+    // currentFrame jumps by more than `frames` when callbacks were dropped.
+    const frameCursor = typeof currentFrame === "number" ? currentFrame : -1;
+    if (frameCursor >= 0 && Number.isFinite(this._lastProcessFrame)) {
+      const delta = frameCursor - this._lastProcessFrame;
+      if (delta > frames) {
+        const missed = Math.floor(delta / frames) - 1;
+        if (missed > 0) {
+          this.meterOverrunCount = (Number(this.meterOverrunCount) || 0) + missed;
+          this.meterMissedQuantumCount = (Number(this.meterMissedQuantumCount) || 0) + missed;
+          this.audioThreadStressed = true;
+        }
+      }
+    }
+    if (frameCursor >= 0) {
+      this._lastProcessFrame = frameCursor;
+    }
     // Same buffer the Input / Plugin Input evaluators scale by Amplitude.
     this.externalInput = {
       left: input[0] || input[1] || null,
@@ -90,10 +107,9 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
           }
         }
       }
-      const frameOutput = {
-        left: useRaptEllipticDecimator ? decimatedLeft : leftSum / oversamplingRatio,
-        right: useRaptEllipticDecimator ? decimatedRight : rightSum / oversamplingRatio,
-      };
+      const frameOutput = this._frameOutput || (this._frameOutput = { left: 0, right: 0 });
+      frameOutput.left = useRaptEllipticDecimator ? decimatedLeft : leftSum / oversamplingRatio;
+      frameOutput.right = useRaptEllipticDecimator ? decimatedRight : rightSum / oversamplingRatio;
       if (this.outputSampleClipped(frameOutput.left)) {
         this.meterClipCount += 1;
       }
@@ -159,6 +175,7 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         inputRms: Math.sqrt(this.inputMeterSquareSum / Math.max(1, this.inputMeterSamples)),
         maxBlockBudgetRatio: this.maxBlockBudgetRatio,
         maxBlockProcessMs: this.maxBlockProcessMs,
+        missedQuantumCount: this.meterMissedQuantumCount,
         overrunCount: this.meterOverrunCount,
         peak: this.meterPeak,
         protectionNodeId: this.speakerProtectionNodeId || "",
@@ -184,6 +201,7 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       this.maxBlockProcessMs = 0;
       this.maxBlockBudgetRatio = 0;
       this.meterOverrunCount = 0;
+      this.meterMissedQuantumCount = 0;
       this.lastBadValueReason = "";
       this.lastBadValueNodeId = "";
       this.lastBadValueSource = "";
