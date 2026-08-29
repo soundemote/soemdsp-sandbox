@@ -3,9 +3,37 @@
 
 NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) {
     const patchFingerprint = message.patchFingerprint || plan?.patchFingerprint || "";
-    this.patchFingerprint = patchFingerprint;
     this.planSerial = message.planSerial || 0;
     const nextSessionId = message.sessionId || 0;
+    // MVEP: refuse foreign types — no JS DSP fallback (docs/APP_POLICY.md §0b).
+    const efficientProduct = message.efficientProduct !== false;
+    if (efficientProduct && typeof nodeGraphEfficientProductForeignTypesFromNodes === "function") {
+      const foreign = nodeGraphEfficientProductForeignTypesFromNodes(
+        Array.isArray(plan?.nodes) ? plan.nodes : [],
+      );
+      if (foreign.length) {
+        const status = typeof nodeGraphEfficientProductRefuseMessage === "function"
+          ? nodeGraphEfficientProductRefuseMessage(foreign)
+          : "not in efficient build";
+        if (typeof this.clearPlan === "function") {
+          this.clearPlan();
+        }
+        this.patchFingerprint = patchFingerprint;
+        this.sessionId = nextSessionId;
+        this.port.postMessage({
+          foreignTypes: foreign,
+          issues: foreign.map((type) => `${type}: not in efficient build`),
+          message: status,
+          patchFingerprint,
+          planSerial: this.planSerial,
+          sessionId: this.sessionId,
+          status,
+          type: "planRejected",
+        });
+        return;
+      }
+    }
+    this.patchFingerprint = patchFingerprint;
     // Engine Stop/Play bumps sessionId. Force oscillator phases to 0 so PolyBLEP
     // (and siblings) do not resume mid-cycle and sound randomly phased.
     const sessionRestarted = nextSessionId !== this.sessionId;

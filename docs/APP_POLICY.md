@@ -21,7 +21,42 @@ When in doubt: prefer **honesty, one path, and delete over compatibility**.
 - The engine **compiles/interprets that patch into a C++ circuit** and runs it (block processing preferred).
 - JS must not be a second DSP runtime that “also” evaluates the graph sample-by-sample. Transitional hosts that still dispatch per module from the worklet are **debt** toward this north star — migrate toward native graph execution, do not deepen JS DSP.
 
-Concrete rules for the current codebase follow in §2 / §2b / §5.
+Concrete rules for the current codebase follow in §0b / §2 / §2b / §5.
+
+---
+
+## 0b. Minimum Viable Efficient Product (hard cutover)
+
+The **efficient product** surface is the shippable MVEP build. Flag: `nodeGraphMvp.efficientProduct` (**default ON**). Escape hatch for full catalog: `?product=full`.
+
+### Live-audio allowlist (SSOT)
+
+Only these live-audio types exist in the efficient build:
+
+| Type | Role |
+|------|------|
+| `polyBlep` | Oscillator |
+| `ladderFilter` | Filter |
+| `softClipper` | Dynamics |
+| `reverbEffect` | Sabrina reverb |
+| `pingPongDelay` | Delay |
+| `output` | Sink |
+
+Canonical circuit:
+
+```text
+polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
+```
+
+**Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` may remain. `audioInput` is **not** on the allowlist unless a demo explicitly needs it (strip with other DSP for now).
+
+**SSOT:** `public/node-graph-efficient-product.js` — used by module shop / Add Module **and** live plan refuse (host + worklet `setPlan`).
+
+### Hard cutover rules
+
+- When `efficientProduct` is on, Add Module / shop catalog offer **only** the allowlist (+ observers).
+- Live plan apply / worklet `setPlan` **refuse** foreign types with status **`not in efficient build`**. Do **not** run JS DSP for missing natives or hidden types.
+- Dual JS+C++ audio paths are **not** the product. Convert the next type into the allowlist (native + catalog) — never reintroduce a JS twin to “make it work.”
 
 ---
 
@@ -204,6 +239,9 @@ Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled
 | Re-sim graph for live video/scopes | **No** — observe worklet buffers (§5) |
 | JS twin of native “so render works” | **No** — silence until WASM (§2 / §5) |
 | JS computes the audio graph / per-sample DSP | **No** — JS is interface; C++ runs the circuit (§0 / §2) |
+| Offer non-allowlisted DSP in efficient product shop | **No** — six live-audio types + observers (§0b) |
+| Apply plan with foreign audio types in efficient mode | **No** — refuse: `not in efficient build` (§0b) |
+| JS DSP fallback when type is off the efficient allowlist | **No** — hard cutover (§0b) |
 | New `*-math.js` audio kernel instead of C++ | **No** — native only (§5) |
 | Prefer `*_sample` WASM when `process_block` exists | **No** — use block boundary (§2) |
 | Reserve 8 s × N delay rings in BSS for empty slots | **No** — size to live delay (§2b) |

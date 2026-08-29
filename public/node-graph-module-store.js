@@ -3177,6 +3177,9 @@ function nodeGraphLibEntryForType(type) {
 }
 
 function nodeGraphModuleStoreEntries() {
+  const efficientOn = typeof nodeGraphEfficientProductEnabled === "function"
+    ? nodeGraphEfficientProductEnabled()
+    : true;
   return nodeGraphModuleStoreTypesList()
     .map((type) => {
       const nativeModules = nodeGraphNativeModulesForType(type);
@@ -3186,7 +3189,11 @@ function nodeGraphModuleStoreEntries() {
       const developerOnly = nodeGraphModuleStoreCatalog[type]?.developerOnly === true;
       const catalogHidden = nodeGraphModuleStoreCatalog[type]?.hidden === true
         || nodeGraphModuleStoreCategoryIsInvisible(nodeGraphModuleStoreCatalog[type]?.category);
-      const publicVisible = !developerOnly && !catalogHidden;
+      const efficientAllowed = !efficientOn
+        || (typeof nodeGraphModuleIsEfficientProductShopType === "function"
+          ? nodeGraphModuleIsEfficientProductShopType(type)
+          : true);
+      const publicVisible = !developerOnly && !catalogHidden && efficientAllowed;
       return {
         ...(nodeGraphModuleStoreCatalog[type] || {}),
         category: normalizeNodeGraphModuleStoreDepartment(nodeGraphModuleStoreCatalog[type]?.category || ""),
@@ -3194,8 +3201,9 @@ function nodeGraphModuleStoreEntries() {
         demoPatch: nodeGraphModuleStoreDemoPatchAvailable(type),
         demoListen: nodeGraphModuleStoreDemoListenAvailable(type),
         developerOnly,
-        developerVisible: !catalogHidden,
-        homeVisible: nodeGraphModuleIsStoreVisible(type, "home") && implemented && !catalogHidden,
+        developerVisible: !catalogHidden && efficientAllowed,
+        homeVisible: nodeGraphModuleIsStoreVisible(type, "home") && implemented && !catalogHidden
+          && efficientAllowed,
         implemented,
         label: nodeGraphModuleStoreCatalog[type]?.label || nodeGraphNodeLabels[type] || type,
         nativeAvailable: nativeModules.some((entry) => entry.wasmAvailable)

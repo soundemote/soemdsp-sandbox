@@ -6,6 +6,16 @@ function nodeGraphBuildLivePlan() {
     throw error;
   }
 
+  if (typeof nodeGraphEfficientProductAssertPlanAllowed === "function") {
+    const planNodes = (compiled.order || [])
+      .map((nodeId) => nodeGraphMvp.patch?.nodes?.find((node) => node.id === nodeId))
+      .filter(Boolean);
+    const fallbackNodes = planNodes.length
+      ? planNodes
+      : (Array.isArray(nodeGraphMvp.patch?.nodes) ? nodeGraphMvp.patch.nodes : []);
+    nodeGraphEfficientProductAssertPlanAllowed(fallbackNodes);
+  }
+
   const activeNodeIds = nodeGraphActiveNodeIds(compiled);
   const activeSignalConnections = nodeGraphActiveSignalConnections(compiled)
     .map((connection) => ({ ...connection }));
@@ -54,6 +64,11 @@ function nodeGraphBuildLivePlanForPatch(patch) {
     const error = new Error(compiled.issues.join(", "));
     error.issues = [...compiled.issues];
     throw error;
+  }
+  if (typeof nodeGraphEfficientProductAssertPlanAllowed === "function") {
+    nodeGraphEfficientProductAssertPlanAllowed(
+      Array.isArray(normalizedPatch?.nodes) ? normalizedPatch.nodes : [],
+    );
   }
   const activeNodeIds = nodeGraphActiveNodeIds(compiled);
   const plan = {
@@ -985,6 +1000,9 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
 }
 
 function updateNodeGraphLiveRuntimePlan(runtime, plan) {
+  if (typeof nodeGraphEfficientProductAssertPlanAllowed === "function") {
+    nodeGraphEfficientProductAssertPlanAllowed(Array.isArray(plan?.nodes) ? plan.nodes : []);
+  }
   runtime.nodes = new Map((plan.nodes || []).map((node) => [node.id, node]));
   runtime.samples = new Map((plan.samples || []).map((sample) => [sample.id, sample]));
   runtime.inputConnections = nodeGraphLiveInputConnectionMap(plan);

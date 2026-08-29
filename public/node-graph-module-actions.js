@@ -152,6 +152,19 @@ function showNodeGraphModule(node, point = null, options = {}) {
     }
     return "";
   }
+  if (typeof nodeGraphEfficientProductEnabled === "function"
+    && nodeGraphEfficientProductEnabled()) {
+    const shopOk = typeof nodeGraphModuleIsEfficientProductShopType === "function"
+      && nodeGraphModuleIsEfficientProductShopType(type);
+    const chromeOk = typeof nodeGraphModuleIsEfficientProductChromeType === "function"
+      && nodeGraphModuleIsEfficientProductChromeType(type);
+    if (!shopOk && !chromeOk) {
+      if (typeof setNodeInteractionHelp === "function") {
+        setNodeInteractionHelp("not in efficient build");
+      }
+      return "";
+    }
+  }
   if (typeof nodeGraphModuleTypeIsInvisible === "function"
     && nodeGraphModuleTypeIsInvisible(type)) {
     if (typeof setNodeInteractionHelp === "function") {
@@ -1029,6 +1042,15 @@ function nodeGraphCopiedModuleSizeOptions(sourceNode) {
 function copyNodeGraphModule(sourceNode) {
   if (typeof nodeGraphModuleTypeIsUniqueInPatch === "function"
     && nodeGraphModuleTypeIsUniqueInPatch(sourceNode?.type)) {
+    return;
+  }
+  if (typeof nodeGraphEfficientProductEnabled === "function"
+    && nodeGraphEfficientProductEnabled()
+    && typeof nodeGraphModuleIsEfficientProductPlanType === "function"
+    && !nodeGraphModuleIsEfficientProductPlanType(sourceNode?.type)) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("not in efficient build");
+    }
     return;
   }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);

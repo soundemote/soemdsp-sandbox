@@ -1,0 +1,185 @@
+// MVEP efficient-product surface (PR-E0). Single allowlist SSOT for shop UI + plan refuse.
+// Hard cutover: no JS DSP fallback for foreign types. See docs/APP_POLICY.md §0b.
+
+const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
+  "polyBlep",
+  "ladderFilter",
+  "softClipper",
+  "reverbEffect",
+  "pingPongDelay",
+  "output",
+]);
+
+const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPE_SET = new Set(NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES);
+
+// Scope / monitor faces that only observe engine buffers (non-DSP chrome).
+const NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPES = Object.freeze([
+  "asciiscope",
+  "badvalMonitor",
+  "bloomGlow",
+  "canvas",
+  "chromaColor",
+  "customDisplay",
+  "dotOscilloscope",
+  "gradientVectorscope",
+  "helmholtzPitch",
+  "lineBurnOscilloscope",
+  "lufs",
+  "matrixDisplay",
+  "noiseDetector",
+  "numberReadout",
+  "oscilloscopeBank",
+  "phosphorLight",
+  "pixelGrid",
+  "rasterRgb",
+  "rgbaHsla",
+  "rms",
+  "rmsStereo",
+  "sandboxVisuals",
+  "scope2d",
+  "scope2dTrace",
+  "screenSpaceShader",
+  "spectrogram",
+  "speedColorInertia",
+  "textStream",
+  "traceDisplay",
+  "traceDisplayStereo",
+  "traceDisplayXyz",
+  "traceRgb",
+  "traceXyz",
+  "valueLcd",
+  "valueOscilloscope",
+  "vectorDot",
+  "vectorRgb",
+  "videoscope",
+  "visualOscilloscope",
+]);
+
+const NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPE_SET = new Set(
+  NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPES,
+);
+
+// Non-DSP layout chrome that may remain in patches (not offered as DSP).
+const NODE_GRAPH_EFFICIENT_PRODUCT_CHROME_TYPES = Object.freeze([
+  "animatedTextBox",
+  "textBox",
+]);
+
+const NODE_GRAPH_EFFICIENT_PRODUCT_CHROME_TYPE_SET = new Set(
+  NODE_GRAPH_EFFICIENT_PRODUCT_CHROME_TYPES,
+);
+
+const NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS = "not in efficient build";
+
+function nodeGraphEfficientProductEnabled() {
+  if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp && typeof nodeGraphMvp === "object") {
+    if (Object.hasOwn(nodeGraphMvp, "efficientProduct")) {
+      return nodeGraphMvp.efficientProduct !== false;
+    }
+  }
+  return true;
+}
+
+function nodeGraphEfficientProductAudioTypeAllowed(type) {
+  return NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPE_SET.has(String(type || "").trim());
+}
+
+function nodeGraphModuleIsEfficientProductObserverType(type) {
+  const t = String(type || "").trim();
+  if (!t) {
+    return false;
+  }
+  if (NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPE_SET.has(t)) {
+    return true;
+  }
+  if (typeof nodeGraphModulePlanRole === "function" && nodeGraphModulePlanRole(t) === "monitor") {
+    return true;
+  }
+  const def = typeof nodeGraphModuleDefinitions === "object" ? nodeGraphModuleDefinitions[t] : null;
+  if (def?.visualSink || def?.monitorSink) {
+    return true;
+  }
+  const category = typeof nodeGraphModuleStoreCatalog === "object"
+    ? String(nodeGraphModuleStoreCatalog[t]?.category || "")
+    : "";
+  return category === "oscilloscope" || category === "multimeter" || category === "rgb";
+}
+
+function nodeGraphModuleIsEfficientProductChromeType(type) {
+  const t = String(type || "").trim();
+  if (!t) {
+    return false;
+  }
+  if (NODE_GRAPH_EFFICIENT_PRODUCT_CHROME_TYPE_SET.has(t)) {
+    return true;
+  }
+  const def = typeof nodeGraphModuleDefinitions === "object" ? nodeGraphModuleDefinitions[t] : null;
+  return Boolean(def?.layoutOnly);
+}
+
+/** Shop / Add Module: allowlisted live audio + observers only. */
+function nodeGraphModuleIsEfficientProductShopType(type) {
+  const t = String(type || "").trim();
+  if (!t) {
+    return false;
+  }
+  return nodeGraphEfficientProductAudioTypeAllowed(t)
+    || nodeGraphModuleIsEfficientProductObserverType(t);
+}
+
+/** Plan apply: allowlist + observers + layout chrome. Everything else is foreign. */
+function nodeGraphModuleIsEfficientProductPlanType(type) {
+  const t = String(type || "").trim();
+  if (!t) {
+    return false;
+  }
+  return nodeGraphEfficientProductAudioTypeAllowed(t)
+    || nodeGraphModuleIsEfficientProductObserverType(t)
+    || nodeGraphModuleIsEfficientProductChromeType(t);
+}
+
+function nodeGraphEfficientProductForeignTypesFromNodes(nodes = []) {
+  const foreign = [];
+  const seen = new Set();
+  for (const node of Array.isArray(nodes) ? nodes : []) {
+    const t = String(node?.type || "").trim();
+    if (!t || seen.has(t) || nodeGraphModuleIsEfficientProductPlanType(t)) {
+      continue;
+    }
+    seen.add(t);
+    foreign.push(t);
+  }
+  return foreign;
+}
+
+function nodeGraphEfficientProductRefuseMessage(foreignTypes = []) {
+  const types = (Array.isArray(foreignTypes) ? foreignTypes : []).filter(Boolean);
+  if (!types.length) {
+    return NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS;
+  }
+  return `${NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS}: ${types.join(", ")}`;
+}
+
+/**
+ * Throws when efficient product is on and the plan/patch has foreign audio (or other) types.
+ * Used by host live-plan sync; worklet setPlan mirrors the same rule.
+ */
+function nodeGraphEfficientProductAssertPlanAllowed(nodes = [], options = {}) {
+  if (options.enabled === false) {
+    return null;
+  }
+  const enabled = options.enabled != null ? Boolean(options.enabled) : nodeGraphEfficientProductEnabled();
+  if (!enabled) {
+    return null;
+  }
+  const foreign = nodeGraphEfficientProductForeignTypesFromNodes(nodes);
+  if (!foreign.length) {
+    return null;
+  }
+  const message = nodeGraphEfficientProductRefuseMessage(foreign);
+  const error = new Error(message);
+  error.issues = foreign.map((type) => `${type}: ${NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS}`);
+  error.efficientProduct = true;
+  error.foreignTypes = foreign;
+  throw error;
+}
