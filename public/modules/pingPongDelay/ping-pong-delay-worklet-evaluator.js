@@ -16,6 +16,18 @@ NodeLiveAudioProcessor.prototype.createPingPongDelayState = function createPingP
     lpR: { z: 0 },
     hpL: { x0: 0, y0: 0 },
     hpR: { x0: 0, y0: 0 },
+    // Cached one-pole / soft-clip coeffs — Math.exp every sample was tipping 2–3 instances.
+    coeffKey: "",
+    lpA1: 0,
+    lpB0: 1,
+    hpA1: 0,
+    hpB0: 0.5,
+    hpB1: -0.5,
+    clipScaleX: 1,
+    clipShiftX: 0,
+    clipScaleY: 1,
+    clipShiftY: 0,
+    outPorts: { Left: 0, Right: 0 },
   };
 };
 
@@ -121,40 +133,47 @@ NodeLiveAudioProcessor.prototype.pingPongRunLfoChannel = function pingPongRunLfo
   return this.pingPongParabolBipolar(ch.phase);
 };
 
-NodeLiveAudioProcessor.prototype.pingPongSoftClip = function pingPongSoftClip(v, saturate) {
-  const thr = Math.max(0.01, Number(saturate) || 1);
+NodeLiveAudioProcessor.prototype.pingPongEnsureCoeffs = function pingPongEnsureCoeffs(state, saturate, lpfHz, hpfHz, sampleRate) {
+  const rate = Math.max(1, sampleRate);
+  const sat = this.clampValue(Number(saturate) || 1, 0.01, 4);
+  const lp = this.clampValue(Number(lpfHz) || 8000, 20, 20000);
+  const hp = this.clampValue(Number(hpfHz) || 20, 1, 2000);
+  const key = `${rate}|${sat}|${lp}|${hp}`;
+  if (state.coeffKey === key) {
+    return;
+  }
+  state.coeffKey = key;
+  const thr = Math.max(0.01, sat);
   const width = Math.max(1e-6, thr * 2);
-  const scaleX = 2 / width;
-  const shiftX = -1 - scaleX * (0 - 0.5 * width);
-  const scaleY = 1 / scaleX;
-  const shiftY = -shiftX * scaleY;
-  const x = scaleX * (Number(v) || 0) + shiftX;
-  // freestanding-friendly tanh via exp
+  state.clipScaleX = 2 / width;
+  state.clipShiftX = -1 - state.clipScaleX * (0 - 0.5 * width);
+  state.clipScaleY = 1 / state.clipScaleX;
+  state.clipShiftY = -state.clipShiftX * state.clipScaleY;
+  const lpW = Math.min((Math.PI * 2) / rate, 0.000142475857) * lp;
+  state.lpA1 = Math.exp(-lpW);
+  state.lpB0 = 1 - state.lpA1;
+  const hpW = Math.min((Math.PI * 2) / rate, 0.000142475857) * hp;
+  state.hpA1 = Math.exp(-hpW);
+  state.hpB0 = 0.5 * (1 + state.hpA1);
+  state.hpB1 = -state.hpB0;
+};
+
+NodeLiveAudioProcessor.prototype.pingPongSoftClipCached = function pingPongSoftClipCached(state, v) {
+  const x = state.clipScaleX * (Number(v) || 0) + state.clipShiftX;
   const e2 = Math.exp(2 * Math.max(-20, Math.min(20, x)));
   const th = (e2 - 1) / (e2 + 1);
-  return shiftY + scaleY * th;
+  return state.clipShiftY + state.clipScaleY * th;
 };
 
-NodeLiveAudioProcessor.prototype.pingPongOnePoleLp = function pingPongOnePoleLp(state, input, freqHz, sampleRate) {
-  const rate = Math.max(1, sampleRate);
-  const f = Math.max(0, Number(freqHz) || 0);
-  const w = Math.min((Math.PI * 2) / rate, 0.000142475857) * f;
-  const a1 = Math.exp(-w);
-  const b0 = 1 - a1;
-  state.z = b0 * input + a1 * (state.z || 0);
-  return state.z;
+NodeLiveAudioProcessor.prototype.pingPongOnePoleLpCached = function pingPongOnePoleLpCached(pole, input, a1, b0) {
+  pole.z = b0 * input + a1 * (pole.z || 0);
+  return pole.z;
 };
 
-NodeLiveAudioProcessor.prototype.pingPongOnePoleHp = function pingPongOnePoleHp(state, input, freqHz, sampleRate) {
-  const rate = Math.max(1, sampleRate);
-  const f = Math.max(0, Number(freqHz) || 0);
-  const w = Math.min((Math.PI * 2) / rate, 0.000142475857) * f;
-  const a1 = Math.exp(-w);
-  const b0 = 0.5 * (1 + a1);
-  const b1 = -b0;
-  const y = b0 * input + b1 * (state.x0 || 0) + a1 * (state.y0 || 0);
-  state.x0 = input;
-  state.y0 = y;
+NodeLiveAudioProcessor.prototype.pingPongOnePoleHpCached = function pingPongOnePoleHpCached(pole, input, a1, b0, b1) {
+  const y = b0 * input + b1 * (pole.x0 || 0) + a1 * (pole.y0 || 0);
+  pole.x0 = input;
+  pole.y0 = y;
   return y;
 };
 
@@ -203,16 +222,6 @@ NodeLiveAudioProcessor.prototype.pingPongInterp = function pingPongInterp(buffer
 /** Pure JS tape ping-pong (always available). */
 NodeLiveAudioProcessor.prototype.pingPongDelaySampleJs = function pingPongDelaySampleJs(state, input, params, rateHz) {
   const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
-  const maxDelaySeconds = 8;
-  const requiredSize = Math.max(2, Math.ceil(safeRate * maxDelaySeconds) + 2);
-  if (!state.bufferL || state.bufferSize !== requiredSize) {
-    state.bufferL = new Float32Array(requiredSize);
-    state.bufferR = new Float32Array(requiredSize);
-    state.bufferSize = requiredSize;
-    state.position = 0;
-    state.wetL = 0;
-    state.wetR = 0;
-  }
   if (!state.lfoL) {
     state.lfoL = { phase: 0, fbmTime: 0, walkOut: 0, walkLpf: 0, walkTick: 0, seed: 0xA11CE };
     state.lfoR = { phase: 0.37, fbmTime: 0.17, walkOut: 0, walkLpf: 0, walkTick: 0, seed: 0xB0B5 };
@@ -233,11 +242,24 @@ NodeLiveAudioProcessor.prototype.pingPongDelaySampleJs = function pingPongDelayS
   const saturate = this.clampValue(Number(params.saturate) || 1, 0.01, 4);
   const lpfHz = this.clampValue(Number(params.lpfFrequency) || 8000, 20, 20000);
   const hpfHz = this.clampValue(Number(params.hpfFrequency) || 20, 1, 2000);
+  this.pingPongEnsureCoeffs(state, saturate, lpfHz, hpfHz, safeRate);
 
   const baseSeconds = Math.max(0, this.pingPongDelayBaseSeconds(params));
   const driftSec = offsetMs / 1000;
+  // Grow-only ring sized to this delay (was always 8s ≈ 350k samples ×2 — cache thrash).
+  const wantSeconds = Math.min(8, Math.max(0.25, baseSeconds + Math.max(driftSec, 0) + 0.05));
+  const requiredSize = Math.max(2, Math.ceil(safeRate * wantSeconds) + 2);
+  if (!state.bufferL || state.bufferSize < requiredSize) {
+    state.bufferL = new Float32Array(requiredSize);
+    state.bufferR = new Float32Array(requiredSize);
+    state.bufferSize = requiredSize;
+    state.position = 0;
+    state.wetL = 0;
+    state.wetR = 0;
+  }
   const rateL = lfoRate * (1 + lfoVariation * 0.31);
   const rateR = lfoRate * (1 - lfoVariation * 0.27);
+  // LFO only when offset creates audible modulation — otherwise zero work.
   const modL = driftSec > 1e-9 ? this.pingPongRunLfoChannel(state.lfoL, lfoStyle, rateL, safeRate) : 0;
   const modR = driftSec > 1e-9 ? this.pingPongRunLfoChannel(state.lfoR, lfoStyle, rateR, safeRate) : 0;
 
@@ -247,24 +269,33 @@ NodeLiveAudioProcessor.prototype.pingPongDelaySampleJs = function pingPongDelayS
   state.position = (state.position + 1) % state.bufferSize;
   const readPosL = (state.position + state.bufferSize - delaySamplesL) % state.bufferSize;
   const readPosR = (state.position + state.bufferSize - delaySamplesR) % state.bufferSize;
-  const interpMode = 0;
-  const readL = this.pingPongInterp(state.bufferL, readPosL, interpMode);
-  const readR = this.pingPongInterp(state.bufferR, readPosR, interpMode);
+  const readL = this.pingPongInterpLinear(state.bufferL, readPosL);
+  const readR = this.pingPongInterpLinear(state.bufferR, readPosR);
 
-  const clippedL = this.pingPongSoftClip(dry + readR * feedback, saturate);
-  const clippedR = this.pingPongSoftClip(readL * feedback, saturate);
-  const writeL = this.pingPongOnePoleLp(state.lpL, this.pingPongOnePoleHp(state.hpL, clippedL, hpfHz, safeRate), lpfHz, safeRate);
-  const writeR = this.pingPongOnePoleLp(state.lpR, this.pingPongOnePoleHp(state.hpR, clippedR, hpfHz, safeRate), lpfHz, safeRate);
+  const clippedL = this.pingPongSoftClipCached(state, dry + readR * feedback);
+  const clippedR = this.pingPongSoftClipCached(state, readL * feedback);
+  const writeL = this.pingPongOnePoleLpCached(
+    state.lpL,
+    this.pingPongOnePoleHpCached(state.hpL, clippedL, state.hpA1, state.hpB0, state.hpB1),
+    state.lpA1,
+    state.lpB0,
+  );
+  const writeR = this.pingPongOnePoleLpCached(
+    state.lpR,
+    this.pingPongOnePoleHpCached(state.hpR, clippedR, state.hpA1, state.hpB0, state.hpB1),
+    state.lpA1,
+    state.lpB0,
+  );
 
   state.bufferL[state.position] = Math.max(-8, Math.min(8, writeL));
   state.bufferR[state.position] = Math.max(-8, Math.min(8, writeR));
   state.wetL = readL;
   state.wetR = readR;
 
-  return {
-    Left: (dry * (1 - mix) + state.wetL * mix) * level,
-    Right: (dry * (1 - mix) + state.wetR * mix) * level,
-  };
+  const out = state.outPorts || (state.outPorts = { Left: 0, Right: 0 });
+  out.Left = (dry * (1 - mix) + state.wetL * mix) * level;
+  out.Right = (dry * (1 - mix) + state.wetR * mix) * level;
+  return out;
 };
 
 NodeLiveAudioProcessor.prototype.pingPongDelaySample = function pingPongDelaySample(state, input, params, rateHz = sampleRate) {
