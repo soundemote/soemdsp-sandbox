@@ -154,6 +154,118 @@ NodeLiveAudioProcessor.prototype.compileExecutionOrder = function compileExecuti
   this.compiledOrder = compiled;
 };
 
+// Which output ports are actually wired, and which nodes anyone listens to.
+// Unwired oscillators were still paying full WASM; polyBlep was fetching every wave tap.
+NodeLiveAudioProcessor.prototype.compileGraphLiveness = function compileGraphLiveness() {
+  const usedPorts = new Map(); // nodeId -> Set(port)
+  const audioConsumers = new Set();
+  const connections = this.inputConnections;
+  if (connections && typeof connections.forEach === "function") {
+    connections.forEach((list) => {
+      if (!list || !list.length) {
+        return;
+      }
+      for (let i = 0; i < list.length; i += 1) {
+        const connection = list[i];
+        const sourceNode = connection?.sourceNode;
+        if (!sourceNode) {
+          continue;
+        }
+        audioConsumers.add(sourceNode);
+        let ports = usedPorts.get(sourceNode);
+        if (!ports) {
+          ports = new Set();
+          usedPorts.set(sourceNode, ports);
+        }
+        ports.add(connection.sourcePort || "Out");
+      }
+    });
+  }
+  const modulations = this.modulationConnections;
+  if (modulations && typeof modulations.forEach === "function") {
+    modulations.forEach((list) => {
+      if (!list || !list.length) {
+        return;
+      }
+      for (let i = 0; i < list.length; i += 1) {
+        const sourceNode = list[i]?.sourceNode;
+        if (sourceNode) {
+          audioConsumers.add(sourceNode);
+        }
+      }
+    });
+  }
+  const scopeKeep = new Set(this.scopeCaptureNodeIds || []);
+  for (const sink of this.compiledVisualSinks || this.visualSinks || []) {
+    const sinkId = String(sink?.nodeId || "");
+    if (sinkId) {
+      scopeKeep.add(sinkId);
+    }
+  }
+  const mustRun = new Set(audioConsumers);
+  for (const nodeId of scopeKeep) {
+    mustRun.add(nodeId);
+  }
+  if (this.outputNode) {
+    mustRun.add(this.outputNode);
+  }
+  // Cost weights for meter when performance.now is blind inside process().
+  const weightFor = (type) => {
+    switch (type) {
+      case "polyBlep":
+      case "blit":
+        return 12;
+      case "reverbEffect":
+      case "sabrinaReverb":
+      case "soemReverb":
+        return 45;
+      case "pingPongDelay":
+        return 22;
+      case "softClipper":
+        return 7;
+      case "ladderFilter":
+        return 8;
+      case "output":
+      case "pluginOutput":
+        return 1;
+      default:
+        return 4;
+    }
+  };
+  let costUnits = 0;
+  let liveModules = 0;
+  const order = this.order || [];
+  for (let i = 0; i < order.length; i += 1) {
+    const nodeId = order[i];
+    const node = this.nodes.get(nodeId);
+    const type = node?.type || "";
+    if (!mustRun.has(nodeId) && type !== "audioInput" && type !== "output" && type !== "pluginOutput") {
+      continue;
+    }
+    liveModules += 1;
+    costUnits += weightFor(type);
+  }
+  this.nodeUsedOutputPorts = usedPorts;
+  this.nodeAudioConsumers = audioConsumers;
+  this.nodeMustEvaluate = mustRun;
+  this.dspCostUnits = costUnits;
+  this.dspLiveModuleCount = liveModules;
+};
+
+NodeLiveAudioProcessor.prototype.nodeNeedsEvaluate = function nodeNeedsEvaluate(nodeId, type) {
+  if (!nodeId) {
+    return true;
+  }
+  if (type === "audioInput" || type === "output" || type === "pluginOutput") {
+    return true;
+  }
+  const must = this.nodeMustEvaluate;
+  if (!must || !(must instanceof Set)) {
+    return true;
+  }
+  return must.has(nodeId);
+};
+
 NodeLiveAudioProcessor.prototype.evaluateFrame = function evaluateFrame(frame, frames, inputs = [], rate = this.engineSampleRate || sampleRate, inputFrame = frame) {
     const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
     // Advance free-running sample clock used by graph LFO Rate mode.
@@ -187,6 +299,9 @@ NodeLiveAudioProcessor.prototype.evaluateFrame = function evaluateFrame(frame, f
         value = typeof nodeGraphEvaluateBypassFrame === "function"
           ? nodeGraphEvaluateBypassFrame(node.bypassSpec || { mode: "silence" }, nodeId, mixInput)
           : 0;
+      } else if (!this.nodeNeedsEvaluate(nodeId, node?.type)) {
+        // No cable/mod/scope listener — do not run DSP (orphan polyBleps etc.).
+        value = 0;
       } else {
         const liveModuleEvaluator = useCompiled
           ? compiled[i].evaluator

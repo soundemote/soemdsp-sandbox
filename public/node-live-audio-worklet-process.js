@@ -23,6 +23,22 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
     if (frameCursor >= 0) {
       this._lastProcessFrame = frameCursor;
     }
+    // Wall clock between process() entries advances even when now() is frozen
+    // *inside* the callback — use gaps as a drop/pressure signal.
+    const callbackWall = globalThis.performance?.now?.() || 0;
+    const blockBudgetMsEarly = (frames / Math.max(1, sampleRate || this.hostSampleRate || 44100)) * 1000;
+    if (callbackWall > 0 && Number(this._prevProcessWall) > 0) {
+      const gap = callbackWall - this._prevProcessWall;
+      if (gap > blockBudgetMsEarly * 1.6) {
+        const lateUnits = Math.max(1, Math.round(gap / Math.max(1e-6, blockBudgetMsEarly)) - 1);
+        this.meterOverrunCount = (Number(this.meterOverrunCount) || 0) + lateUnits;
+        this.meterMissedQuantumCount = (Number(this.meterMissedQuantumCount) || 0) + lateUnits;
+        this.audioThreadStressed = true;
+      }
+    }
+    if (callbackWall > 0) {
+      this._prevProcessWall = callbackWall;
+    }
     // Same buffer the Input / Plugin Input evaluators scale by Amplitude.
     this.externalInput = {
       left: input[0] || input[1] || null,
@@ -187,7 +203,12 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       // Any completed quanta with a 0ms sum ⇒ timer did not resolve the callback.
       // That is NOT "0% load" / free headroom.
       const timedOut = realCount > 0 && !(sumMs > 0);
-      const moduleCount = Array.isArray(this.order) ? this.order.length : (this.nodes?.size || 0);
+      const moduleCount = Number.isFinite(this.dspLiveModuleCount)
+        ? this.dspLiveModuleCount
+        : (Array.isArray(this.order) ? this.order.length : (this.nodes?.size || 0));
+      // Relative cost when the timer is blind (weights from compileGraphLiveness).
+      const costUnits = Number(this.dspCostUnits) || 0;
+      const estimatedBudgetRatio = Math.max(0, Math.min(4, costUnits * 0.004));
       this.port.postMessage({
         audioPlayerNodeId: this.audioPlayerMeterNodeId || this.audioPlayerNodeIds[0] || "",
         audioPlayerNodeIds: [...this.audioPlayerNodeIds],
@@ -210,6 +231,8 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         meterTimedOut: timedOut,
         moduleCount,
         timerResMs,
+        estimatedBudgetRatio: timedOut ? estimatedBudgetRatio : 0,
+        dspCostUnits: costUnits,
         upperBoundBudgetRatio: timedOut && budgetMs > 0 ? (timerResMs / budgetMs) : 0,
         missedQuantumCount: this.meterMissedQuantumCount,
         overrunCount: this.meterOverrunCount,

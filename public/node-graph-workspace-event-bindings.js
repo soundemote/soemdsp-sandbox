@@ -252,8 +252,7 @@ function syncNodeGraphCpuConstraintMetrics() {
   const audioPct = Number.isFinite(audioPctRaw) ? Math.max(0, audioPctRaw) : null;
   const timedOutFlag = Boolean(metrics.audioMeterTimedOut);
   const moduleCount = Math.max(0, Math.floor(Number(metrics.audioModuleCount) || 0));
-  const upperBoundPct = Math.max(0, Number(metrics.audioUpperBoundPct) || 0);
-  const timerResMs = Math.max(0, Number(metrics.audioTimerResMs) || 0);
+  const estimatedPct = Math.max(0, Number(metrics.audioEstimatedPct) || 0);
   const overruns = Math.max(0, Math.floor(Number(metrics.audioOverrunCount) || 0));
   // UI-side belt-and-suspenders: a displayed 0.0% 0ms is the timer floor.
   const belowTimerFloor = timedOutFlag
@@ -285,10 +284,9 @@ function syncNodeGraphCpuConstraintMetrics() {
   const moduleLabel = moduleCount === 1 ? "1 module" : `${moduleCount} modules`;
   let dspText = "--";
   if (audioPct !== null && belowTimerFloor) {
-    const boundLabel = upperBoundPct > 0.05
-      ? `under ${formatDspLoad(upperBoundPct)}%`
-      : (timerResMs > 0 ? `under ${formatDspMs(timerResMs)}/block` : "too light to time");
-    dspText = `${boundLabel} · ${moduleLabel}`;
+    // Browser timer blind inside process() — show weighted estimate from the graph.
+    const est = estimatedPct > 0.5 ? estimatedPct : Math.max(moduleCount * 4, 1);
+    dspText = `est. ${formatDspLoad(est)}% · ${moduleLabel}`;
   } else if (audioPct !== null) {
     dspText = `${formatDspLoad(audioPct)}% ${formatDspMs(audioMsRaw)} · ${moduleLabel}`;
   }

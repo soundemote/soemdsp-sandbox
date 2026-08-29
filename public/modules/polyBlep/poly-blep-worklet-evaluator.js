@@ -37,7 +37,7 @@ NodeLiveAudioProcessor.prototype.polyBlepSilentVector = function polyBlepSilentV
   return { out: 0, saw: 0, ramp: 0, square: 0, tri: 0, sine: 0 };
 };
 
-NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepNativeVectorSample(state, phase, phaseIncrement, waveform, level, resetEdge, morph = 0.5) {
+NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepNativeVectorSample(state, phase, phaseIncrement, waveform, level, resetEdge, morph = 0.5, neededPorts = null) {
   // Must not throw: process() runs as soon as the node is connected, often
   // before setNativeModuleWasm finishes instantiating. A throw becomes
   // onprocessorerror → muted host + dead scopes.
@@ -63,13 +63,29 @@ NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepN
       Number(level) || 0,
       Number.isFinite(morphVal) ? morphVal : 0.5,
     );
+    // Only cross WASM for taps that are actually cabled (was 6 getters every sample).
+    const need = (portAliases) => {
+      if (!neededPorts || !(neededPorts instanceof Set) || neededPorts.size === 0) {
+        return true;
+      }
+      for (let i = 0; i < portAliases.length; i += 1) {
+        if (neededPorts.has(portAliases[i])) {
+          return true;
+        }
+      }
+      return false;
+    };
+    const handle = state.nativeHandle;
+    const out = need(["Out", "Wave Out", "Noise"])
+      ? this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_out(handle), null)
+      : 0;
     return {
-      out: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_out(state.nativeHandle), null),
-      saw: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_saw(state.nativeHandle), null),
-      ramp: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_ramp(state.nativeHandle), null),
-      square: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_square(state.nativeHandle), null),
-      tri: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_tri(state.nativeHandle), null),
-      sine: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_sine(state.nativeHandle), null),
+      out,
+      saw: need(["Saw"]) ? this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_saw(handle), null) : 0,
+      ramp: need(["Ramp"]) ? this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_ramp(handle), null) : 0,
+      square: need(["Square"]) ? this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_square(handle), null) : 0,
+      tri: need(["Tri"]) ? this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_tri(handle), null) : 0,
+      sine: need(["Sine"]) ? this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_sine(handle), null) : 0,
     };
   } catch (_error) {
     this.nativePolyBlepReady = false;
@@ -130,11 +146,31 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
   if (resetEdge) {
     this.triangleStates.set(nodeId, 0);
   }
-  const phaseOffset = this.phaseRadians(
-    this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues),
+  let controlState;
+  if (node?.type === "polyBlep") {
+    controlState = this.polyBlepStates.get(nodeId) || this.createPolyBlepState();
+    this.polyBlepStates.set(nodeId, controlState);
+  } else if (node?.type === "blit") {
+    controlState = this.blitStates.get(nodeId) || this.createBlitState();
+    this.blitStates.set(nodeId, controlState);
+  } else {
+    if (!this.oscControlStates) {
+      this.oscControlStates = new Map();
+    }
+    controlState = this.oscControlStates.get(nodeId) || {};
+    this.oscControlStates.set(nodeId, controlState);
+  }
+  const { params: controls } = this.resolveModuleControlParams(
+    node,
+    controlState,
+    { phase: 0, frequency: 220, waveform: 0, amplitude: 1, shape: 0.5 },
+    frame,
+    frames,
+    frameValues,
   );
-  const frequency = this.readEffectiveParameter(node, "frequency", 220, frame, frames, frameValues);
-  const waveform = this.readEffectiveParameter(node, "waveform", 0, frame, frames, frameValues);
+  const phaseOffset = this.phaseRadians(controls.phase);
+  const frequency = controls.frequency;
+  const waveform = controls.waveform;
   const incrementInput = this.safeFilterNumber(mixInput(nodeId, "Increment"), null);
   const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
   const referenceVoltage = referenceMidiNote / 120;
@@ -157,24 +193,24 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
         : frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))),
     );
   const phaseIncrement = (effectiveFrequency / safeRate) + incrementInput;
-  const level = this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues);
-  const morph = this.readEffectiveParameter(node, "shape", 0.5, frame, frames, frameValues);
+  const level = controls.amplitude;
+  const morph = controls.shape;
 
   // Native-only DSP (APP_POLICY §2 / §5): hosts call one core; no JS twin.
   // polyBlep/blit → vector native module; osc (LFO) → basic_oscillator per tap.
   // Missing WASM → silence (never throw — kills the worklet).
   let value;
   if (node?.type === "polyBlep") {
-    const polyBlepState = this.polyBlepStates.get(nodeId) || this.createPolyBlepState();
-    this.polyBlepStates.set(nodeId, polyBlepState);
+    const neededPorts = this.nodeUsedOutputPorts?.get(nodeId) || null;
     const nativeVector = this.polyBlepNativeVectorSample(
-      polyBlepState,
+      controlState,
       phase + phaseOffset,
       phaseIncrement,
       waveform,
       level,
       resetEdge,
       morph,
+      neededPorts,
     );
     value = {
       Out: nativeVector.out,
@@ -187,10 +223,8 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
       Noise: nativeVector.out,
     };
   } else if (node?.type === "blit") {
-    const blitState = this.blitStates.get(nodeId) || this.createBlitState();
-    this.blitStates.set(nodeId, blitState);
     const nativeVector = this.blitNativeVectorSample(
-      blitState,
+      controlState,
       phase + phaseOffset,
       phaseIncrement,
       waveform,

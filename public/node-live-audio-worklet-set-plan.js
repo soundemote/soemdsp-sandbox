@@ -1286,11 +1286,14 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     this.compileExecutionOrder();
     // Bake scope capture node/sink lists (sample loop only writes rings).
     this.compileScopeCapture();
+    // Which nodes/ports anyone listens to (skip orphan DSP; limit polyBlep WASM outs).
+    this.compileGraphLiveness();
     // Port-object reuse bucket is plan-scoped.
     if (this._stereoPortBucket) {
       this._stereoPortBucket.clear();
     }
     this._lastProcessFrame = undefined;
+    this._prevProcessWall = undefined;
 
     this.port.postMessage({
       connectionCount: Array.isArray(plan?.connections) ? plan.connections.length : 0,
