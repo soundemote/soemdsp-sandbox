@@ -281,7 +281,6 @@ function syncNodeGraphCpuConstraintMetrics() {
   };
   let dspText = "--";
   if (audioPct !== null && timedOut) {
-    const bound = upperBoundPct > 0 ? upperBoundPct : (timerResMs > 0 ? timerResMs : 0);
     const boundLabel = upperBoundPct > 0
       ? `<${formatDspLoad(upperBoundPct)}%`
       : (timerResMs > 0 ? `<${formatDspMs(timerResMs)}` : "unmeasured");
