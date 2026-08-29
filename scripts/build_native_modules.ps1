@@ -204,6 +204,10 @@ foreach ($module in $modules) {
   # sat right at that cap and instantiation OOM'd. 768 pages (48MB) covers
   # the largest module (ping_pong_delay, 752 initial pages).
   $clangArgs += "-Wl,--max-memory=50331648"
+  # graph_engine orchestrates other natives (resolved in combined link only).
+  if ($module.Name -eq "graph_engine") {
+    $clangArgs += "-Wl,--allow-undefined"
+  }
   $clangArgs += "-o"
   $clangArgs += "$root\native_modules\$($module.Name)\$($module.Name).wasm"
   $clangArgs += "$root\native_modules\$($module.Name)\$($module.Name).cpp"

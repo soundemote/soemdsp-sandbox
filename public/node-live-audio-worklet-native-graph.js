@@ -1,6 +1,7 @@
-// MVEP GraphEngine host (PR-E1): setPlan → native compile; process → one
-// soemdsp_graph_process_block per quantum. Efficient mode has no evaluateFrame
-// fallback. Node id hashing: FNV-1a 32-bit (offset 2166136261, prime 16777619).
+// MVEP GraphEngine host (PR-E2): setPlan → native compile; process → one
+// soemdsp_graph_process_block per quantum (polyBlep/ladder/softClip/output).
+// Efficient mode has no evaluateFrame fallback.
+// Node id hashing: FNV-1a 32-bit (offset 2166136261, prime 16777619).
 
 NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   polyBlep: 1,
@@ -11,8 +12,30 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   output: 6,
 });
 
+// Param IDs — keep in sync with graph_engine.cpp kParam*.
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_VOLUME_DB = 0;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PAN = 1;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FREQUENCY = 10;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WAVEFORM = 11;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE = 12;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE = 13;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PHASE = 14;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_RESONANCE = 20;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE = 21;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES = 22;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER = 30;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH = 31;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OVERSAMPLE = 32;
+
+// Ports: 0 Mono/Out, 1 Left, 2 Right, 3–7 polyBlep taps.
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO = 0;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT = 1;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT = 2;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW = 3;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP = 4;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE = 5;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI = 6;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE = 7;
 
 NodeLiveAudioProcessor.prototype.fnv1aHash32 = function fnv1aHash32(text) {
   let hash = 2166136261 >>> 0;
@@ -30,11 +53,31 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphTypeId = function mapNativeGraphT
 };
 
 NodeLiveAudioProcessor.prototype.mapNativeGraphPortId = function mapNativeGraphPortId(port) {
-  const p = String(port || "").trim().toLowerCase();
-  if (p === "left" || p === "l") return 1;
-  if (p === "right" || p === "r") return 2;
-  // Mono / Out / unknown → mono bus
-  return 0;
+  const raw = String(port || "").trim();
+  const p = raw.toLowerCase();
+  if (p === "left" || p === "l") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  if (p === "right" || p === "r") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  if (p === "saw") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+  if (p === "ramp") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+  if (p === "square") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE;
+  if (p === "tri" || p === "triangle") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI;
+  if (p === "sine" || p === "sin") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE;
+  // Mono / Out / In / Wave Out / Noise / empty → mono bus
+  return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+};
+
+NodeLiveAudioProcessor.prototype.pushNativeGraphParam = function pushNativeGraphParam(
+  native,
+  hash,
+  paramId,
+  value,
+) {
+  if (!native?.soemdsp_graph_set_param || !this.nativeGraphHandle) return;
+  const v = Number(value);
+  if (!Number.isFinite(v)) return;
+  try {
+    native.soemdsp_graph_set_param(this.nativeGraphHandle, hash, paramId, v);
+  } catch (_e) { /* ignore */ }
 };
 
 NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphExportsReady() {
@@ -96,30 +139,36 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
   if (!native?.soemdsp_graph_set_param) {
     return;
   }
+  const P = NodeLiveAudioProcessor;
   for (const [id, node] of this.nodes) {
-    if (node?.type !== "output") continue;
+    const type = String(node?.type || "");
+    if (!Object.prototype.hasOwnProperty.call(P.NATIVE_GRAPH_TYPE_IDS, type)) continue;
     const hash = this.fnv1aHash32(id);
-    const vol = Number(node.params?.volume);
-    const pan = Number(node.params?.pan);
-    if (Number.isFinite(vol)) {
-      try {
-        native.soemdsp_graph_set_param(
-          this.nativeGraphHandle,
-          hash,
-          NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_VOLUME_DB,
-          vol,
-        );
-      } catch (_e) { /* ignore */ }
+    const params = node.params || {};
+    if (type === "output") {
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_VOLUME_DB, params.volume);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_PAN, params.pan);
+      continue;
     }
-    if (Number.isFinite(pan)) {
-      try {
-        native.soemdsp_graph_set_param(
-          this.nativeGraphHandle,
-          hash,
-          NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PAN,
-          pan,
-        );
-      } catch (_e) { /* ignore */ }
+    if (type === "polyBlep") {
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_FREQUENCY, params.frequency);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_WAVEFORM, params.waveform);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_AMPLITUDE, params.amplitude);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_SHAPE, params.shape);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_PHASE, params.phase);
+      continue;
+    }
+    if (type === "ladderFilter") {
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_FREQUENCY, params.frequency);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_RESONANCE, params.resonance);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_MODE, params.mode);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_STAGES, params.stages);
+      continue;
+    }
+    if (type === "softClipper") {
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_CENTER, params.center);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_WIDTH, params.width);
+      this.pushNativeGraphParam(native, hash, P.NATIVE_GRAPH_PARAM_OVERSAMPLE, params.oversample);
     }
   }
 };
