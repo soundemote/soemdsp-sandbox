@@ -177,16 +177,16 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
     this.meterCounter += frames;
     // Level meters ~60Hz; DSP load averages over ~1s so sub-tick work can show.
     if (this.meterCounter >= sampleRate / 60) {
-      const count = Math.max(1, Number(this.blockProcessCount) || 0);
+      const realCount = Number(this.blockProcessCount) || 0;
+      const count = Math.max(1, realCount);
       const budgetMs = Math.max(1e-6, Number(this.meterBlockBudgetMs) || ((frames / Math.max(1, sampleRate || 44100)) * 1000));
       const sumMs = Number(this.sumBlockProcessMs) || 0;
       const avgMs = sumMs / count;
       const avgRatio = avgMs / budgetMs;
-      const zeroQuanta = Number(this.zeroElapsedQuanta) || 0;
       const timerResMs = Number(this._timerResMs) || 0;
-      // If nearly every quantum timed as 0, wall timer is too coarse — report an
-      // upper bound + module count so circuits stay comparable without faking %.
-      const timedOut = count > 0 && zeroQuanta / count >= 0.85 && !(avgMs > 0);
+      // Any completed quanta with a 0ms sum ⇒ timer did not resolve the callback.
+      // That is NOT "0% load" / free headroom.
+      const timedOut = realCount > 0 && !(sumMs > 0);
       const moduleCount = Array.isArray(this.order) ? this.order.length : (this.nodes?.size || 0);
       this.port.postMessage({
         audioPlayerNodeId: this.audioPlayerMeterNodeId || this.audioPlayerNodeIds[0] || "",

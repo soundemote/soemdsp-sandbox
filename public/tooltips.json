@@ -15,7 +15,7 @@
     "gpuFps": "GPU display frame rate: how often scope faces present a new picture. Simulation FPS and draw cost both cap this.",
     "gpuSurfaces": "Surfaces: how many canvas/WebGL drawing faces are live in the modular view. Each 2D Trace, phosphor, or compositor face is one surface.",
     "gpuPoints": "Stamps: phosphor energy dabs plus 2D Trace / waterfall polyline points, averaged over about half a second so the meter is readable. Lorenz/phosphor should sit in the hundreds to thousands when Dot Budget is high. 0 means nothing was deposited in that window.",
-    "audioLoad": "DSP load | measured share of each audio block’s time budget (and ms/block), plus module count | if it shows <N% · M mod, the browser timer could not resolve the callback — that is an upper bound, NOT proof you can run 100 copies | duplicate the chain until the % moves if you want a real reading | ~100%+ or rising drops means interrupts",
+    "audioLoad": "DSP load | how heavy this patch is on the audio thread | ‘modules’ = nodes in the graph (not modulation) | ‘too light to time / under X%’ means the browser timer cannot resolve the callback — compare module counts, or duplicate the chain until a real % appears | a real X% Yms reading is measured | rising drops means interrupts"
     "audioOverruns": "Audio drops | count of overloaded blocks (≥85% budget) plus missed callbacks (browser skipped a quantum) | this is the interrupt counter — if it rises you should hear clicks/gaps",
     "cpuBusy": "UI stall | how far the main/display thread is from a steady 60 fps budget | 0 = keeping up | not DSP load",
     "cpuFps": "UI fps | animation frames per second on the main thread | independent of audio",
