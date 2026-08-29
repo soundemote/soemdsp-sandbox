@@ -2026,6 +2026,15 @@ function handleNodeGraphLiveWorkletMessage(event) {
         },
       );
     }
+  } else if (message.type === "nativeGraphStatus") {
+    setNodeGraphLiveEvidence("native-graph", message);
+    const status = String(message.status || "");
+    const detail = String(message.message || status || "native graph");
+    if (status === "compiled") {
+      setNodeGraphLivePlanStatus(`native graph ${detail}`, "good");
+    } else if (status === "missing" || status === "error" || status === "idle") {
+      setNodeGraphLivePlanStatus(`native graph: ${detail}`, "warn");
+    }
   } else if (message.type === "nativeModuleStatus") {
     setNodeGraphLiveEvidence("native-module", message);
     if (message.status && message.status !== "ready") {
@@ -2269,8 +2278,17 @@ function nodeGraphShouldPreservePreviousLivePlanAfterError(error) {
 }
 
 function nodeGraphLivePlanShapeSignature(plan = {}) {
+  const connections = (Array.isArray(plan.connections) ? plan.connections : []).map((c) => [
+    String(c?.sourceNode || ""),
+    String(c?.sourcePort || ""),
+    String(c?.destinationNode || ""),
+    String(c?.destinationPort || ""),
+  ]);
+  connections.sort((a, b) => a.join("\0").localeCompare(b.join("\0")));
   return JSON.stringify({
     nodes: (Array.isArray(plan.nodes) ? plan.nodes : []).map((node) => [node.id, node.type]),
+    // Wires change native topology — must invalidate connection-only shortcut.
+    connections,
     order: Array.isArray(plan.order) ? plan.order : [],
     outputNode: plan.outputNode || "output",
     samples: (Array.isArray(plan.samples) ? plan.samples : []).map((sample) => sample?.id || ""),
@@ -3040,13 +3058,13 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=interrupt-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=graph-engine-16",
-  "./public/node-live-audio-worklet-native-graph.js?v=snap-controls-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=silence-fix-1",
   "./public/node-live-audio-worklet-set-plan.js?v=rip-legacy-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=graph-engine-6",
   "./public/node-live-audio-worklet-handle-message.js?v=sim-fps-lcd-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
-  "./public/node-live-audio-worklet-process.js?v=snap-controls-1",
+  "./public/node-live-audio-worklet-process.js?v=silence-fix-1",
 ];
 
 // Legacy JS DSP evaluators + evaluateFrame — loaded only for ?product=full.

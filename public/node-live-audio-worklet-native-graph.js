@@ -966,15 +966,27 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
   };
 
   if (!this.nativeGraphCompiled) {
-    // Honest silence — no JS evaluateFrame fallback in efficient mode.
-    fillSilence();
-    // postNativeGraphStatus dedupes identical status/message (no per-quantum spam).
+    // setPlan often races ahead of combined-wasm instantiate. Retry compile
+    // once exports land so we do not stay silent forever after a cold start.
     if (this.nativeGraphExportsReady()) {
-      this.postNativeGraphStatus("idle", "graph not compiled");
-    } else {
-      this.postNativeGraphStatus("missing", "graph_engine exports not loaded");
+      const now = Number(currentFrame) || 0;
+      if (!Number.isFinite(this._nativeGraphCompileRetryFrame)
+        || now - this._nativeGraphCompileRetryFrame >= 128) {
+        this._nativeGraphCompileRetryFrame = now;
+        try {
+          this.syncNativeGraphFromPlan?.() || this.compileNativeGraphFromPlan?.();
+        } catch (_e) { /* status posted by compile */ }
+      }
     }
-    return true;
+    if (!this.nativeGraphCompiled) {
+      fillSilence();
+      if (this.nativeGraphExportsReady()) {
+        this.postNativeGraphStatus("idle", "graph not compiled");
+      } else {
+        this.postNativeGraphStatus("missing", "graph_engine exports not loaded");
+      }
+      return true;
+    }
   }
 
   // Write targets only — native graph_engine SmootherManager chases outs.

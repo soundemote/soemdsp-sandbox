@@ -63,7 +63,10 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       }
       return true;
     }
-    if (!this.nodes.size || !this.order.length) {
+    // Efficient path owns scheduling in C++ (graph_engine order[]). Do not
+    // require JS this.order — an empty plan.order used to hard-silence Live
+    // even when natives were compiled and ready.
+    if (!this.nodes.size || (!(this.efficientProduct) && !this.order.length)) {
       for (const channel of output) {
         channel.fill(0);
       }
