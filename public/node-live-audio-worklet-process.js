@@ -144,15 +144,29 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       }
     }
     this.finishSmoothing();
+    // Probe timer tick size once. If every quantum finishes inside one tick,
+    // performance.now() deltas are 0 and a "0%" reading is NOT proof of headroom.
+    if (!(Number(this._timerResMs) > 0) && globalThis.performance?.now) {
+      const t0 = performance.now();
+      let t1 = t0;
+      let guard = 0;
+      while (t1 === t0 && guard < 5e6) {
+        t1 = performance.now();
+        guard += 1;
+      }
+      this._timerResMs = Math.max(1e-3, t1 - t0);
+    }
     if (blockStartedAt > 0) {
       const elapsedMs = Math.max(0, (globalThis.performance?.now?.() || blockStartedAt) - blockStartedAt);
       const blockBudgetMs = (frames / Math.max(1, sampleRate || this.hostSampleRate || 44100)) * 1000;
       const budgetRatio = blockBudgetMs > 0 ? elapsedMs / blockBudgetMs : 0;
       this.maxBlockProcessMs = Math.max(Number(this.maxBlockProcessMs) || 0, elapsedMs);
       this.maxBlockBudgetRatio = Math.max(Number(this.maxBlockBudgetRatio) || 0, budgetRatio);
-      // Window average — integer peak-% alone reads as 0 for light circuits.
       this.sumBlockProcessMs = (Number(this.sumBlockProcessMs) || 0) + elapsedMs;
       this.blockProcessCount = (Number(this.blockProcessCount) || 0) + 1;
+      if (!(elapsedMs > 0)) {
+        this.zeroElapsedQuanta = (Number(this.zeroElapsedQuanta) || 0) + 1;
+      }
       this.meterBlockBudgetMs = blockBudgetMs;
       // Latch stress for the *next* quantum's shedding policy.
       this.audioThreadStressed = budgetRatio >= 0.85;
@@ -161,7 +175,19 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       }
     }
     this.meterCounter += frames;
+    // Level meters ~60Hz; DSP load averages over ~1s so sub-tick work can show.
     if (this.meterCounter >= sampleRate / 60) {
+      const count = Math.max(1, Number(this.blockProcessCount) || 0);
+      const budgetMs = Math.max(1e-6, Number(this.meterBlockBudgetMs) || ((frames / Math.max(1, sampleRate || 44100)) * 1000));
+      const sumMs = Number(this.sumBlockProcessMs) || 0;
+      const avgMs = sumMs / count;
+      const avgRatio = avgMs / budgetMs;
+      const zeroQuanta = Number(this.zeroElapsedQuanta) || 0;
+      const timerResMs = Number(this._timerResMs) || 0;
+      // If nearly every quantum timed as 0, wall timer is too coarse — report an
+      // upper bound + module count so circuits stay comparable without faking %.
+      const timedOut = count > 0 && zeroQuanta / count >= 0.85 && !(avgMs > 0);
+      const moduleCount = Array.isArray(this.order) ? this.order.length : (this.nodes?.size || 0);
       this.port.postMessage({
         audioPlayerNodeId: this.audioPlayerMeterNodeId || this.audioPlayerNodeIds[0] || "",
         audioPlayerNodeIds: [...this.audioPlayerNodeIds],
@@ -177,15 +203,14 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         lastBadValueSource: this.lastBadValueSource,
         inputPeak: this.inputMeterPeak,
         inputRms: Math.sqrt(this.inputMeterSquareSum / Math.max(1, this.inputMeterSamples)),
-        avgBlockBudgetRatio: (Number(this.blockProcessCount) || 0) > 0
-          && (Number(this.meterBlockBudgetMs) || 0) > 0
-          ? ((Number(this.sumBlockProcessMs) || 0) / this.blockProcessCount) / this.meterBlockBudgetMs
-          : 0,
-        avgBlockProcessMs: (Number(this.blockProcessCount) || 0) > 0
-          ? (Number(this.sumBlockProcessMs) || 0) / this.blockProcessCount
-          : 0,
+        avgBlockBudgetRatio: avgRatio,
+        avgBlockProcessMs: avgMs,
         maxBlockBudgetRatio: this.maxBlockBudgetRatio,
         maxBlockProcessMs: this.maxBlockProcessMs,
+        meterTimedOut: timedOut,
+        moduleCount,
+        timerResMs,
+        upperBoundBudgetRatio: timedOut && budgetMs > 0 ? (timerResMs / budgetMs) : 0,
         missedQuantumCount: this.meterMissedQuantumCount,
         overrunCount: this.meterOverrunCount,
         peak: this.meterPeak,
@@ -209,10 +234,6 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       this.inputMeterSquareSum = 0;
       this.meterClipCount = 0;
       this.badNumberCount = 0;
-      this.maxBlockProcessMs = 0;
-      this.maxBlockBudgetRatio = 0;
-      this.sumBlockProcessMs = 0;
-      this.blockProcessCount = 0;
       this.meterOverrunCount = 0;
       this.meterMissedQuantumCount = 0;
       this.lastBadValueReason = "";
@@ -224,6 +245,16 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       this.speakerProtectionPeak = 0;
       this.meterSamples = 0;
       this.meterSquareSum = 0;
+      // Hold DSP timing averages ~1s (don't reset every level-meter tick).
+      this.dspMeterFrames = (Number(this.dspMeterFrames) || 0) + (sampleRate / 60);
+      if (this.dspMeterFrames >= sampleRate) {
+        this.dspMeterFrames = 0;
+        this.maxBlockProcessMs = 0;
+        this.maxBlockBudgetRatio = 0;
+        this.sumBlockProcessMs = 0;
+        this.blockProcessCount = 0;
+        this.zeroElapsedQuanta = 0;
+      }
     }
     if (this.gpuAdditiveStatusCounter >= sampleRate / 20) {
       this.gpuAdditiveStatusCounter = 0;

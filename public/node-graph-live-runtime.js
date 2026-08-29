@@ -1920,8 +1920,22 @@ function handleNodeGraphLiveWorkletMessage(event) {
     const avgRatio = Math.max(0, Number(message.avgBlockBudgetRatio) || 0);
     const peakRatio = Math.max(0, Number(message.maxBlockBudgetRatio) || 0);
     const audioRatio = avgRatio > 0 ? avgRatio : peakRatio;
+    const timedOut = Boolean(message.meterTimedOut);
     nodeGraphMvp.constraintResourceMetrics.audioLoadPct = audioRatio * 100;
     nodeGraphMvp.constraintResourceMetrics.audioLoadPeakPct = peakRatio * 100;
+    nodeGraphMvp.constraintResourceMetrics.audioMeterTimedOut = timedOut;
+    nodeGraphMvp.constraintResourceMetrics.audioModuleCount = Math.max(
+      0,
+      Math.floor(Number(message.moduleCount) || 0),
+    );
+    nodeGraphMvp.constraintResourceMetrics.audioTimerResMs = Math.max(
+      0,
+      Number(message.timerResMs) || 0,
+    );
+    nodeGraphMvp.constraintResourceMetrics.audioUpperBoundPct = Math.max(
+      0,
+      (Number(message.upperBoundBudgetRatio) || 0) * 100,
+    );
     nodeGraphMvp.constraintResourceMetrics.audioOverrunCount = Math.max(
       0,
       (Number(message.overrunCount) || 0) + (Number(message.missedQuantumCount) || 0),
@@ -2982,7 +2996,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=hotpath-1",
-  "./public/node-live-audio-worklet-process.js?v=dsp-load-res-1",
+  "./public/node-live-audio-worklet-process.js?v=dsp-timer-floor-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",
