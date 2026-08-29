@@ -244,18 +244,41 @@ function syncNodeGraphCpuConstraintMetrics() {
   const busyPct = frameRate > 0
     ? Math.min(100, Math.max(0, Math.round((1 - Math.min(frameRate, 60) / 60) * 100)))
     : Math.min(100, Math.max(0, Math.round((Number(metrics.mainThreadLagMs) || 0) / 10)));
-  // Audio % comes from the worklet meter (block wall time / quantum budget).
+  // DSP load: worklet block wall time / quantum budget (average over ~16ms window).
   const audioPctRaw = Number(metrics.audioLoadPct);
-  const audioPct = Number.isFinite(audioPctRaw)
-    ? Math.max(0, Math.round(audioPctRaw))
-    : null;
+  const audioMsRaw = Number(metrics.audioBlockMs);
+  const audioPct = Number.isFinite(audioPctRaw) ? Math.max(0, audioPctRaw) : null;
   const overruns = Math.max(0, Math.floor(Number(metrics.audioOverrunCount) || 0));
+  const formatDspLoad = (pct) => {
+    if (!Number.isFinite(pct)) {
+      return "--";
+    }
+    if (pct < 0.05) {
+      return "0.0";
+    }
+    if (pct < 10) {
+      return pct.toFixed(1);
+    }
+    return String(Math.round(pct));
+  };
+  const formatDspMs = (ms) => {
+    if (!Number.isFinite(ms) || ms <= 0) {
+      return "0ms";
+    }
+    if (ms < 0.1) {
+      return `${ms.toFixed(2)}ms`;
+    }
+    if (ms < 10) {
+      return `${ms.toFixed(1)}ms`;
+    }
+    return `${Math.round(ms)}ms`;
+  };
   setNodeGraphConstraintMetricText(root, "[data-scope-cpu-metric='fps']", formatNodeGraphConstraintMetricFps(frameRate));
   setNodeGraphConstraintMetricText(root, "[data-scope-cpu-metric='busy']", String(busyPct));
   setNodeGraphConstraintMetricText(
     root,
     "[data-scope-cpu-metric='audio']",
-    audioPct === null ? "--" : String(audioPct),
+    audioPct === null ? "--" : `${formatDspLoad(audioPct)}% ${formatDspMs(audioMsRaw)}`,
   );
   setNodeGraphConstraintMetricText(
     root,

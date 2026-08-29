@@ -150,6 +150,10 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       const budgetRatio = blockBudgetMs > 0 ? elapsedMs / blockBudgetMs : 0;
       this.maxBlockProcessMs = Math.max(Number(this.maxBlockProcessMs) || 0, elapsedMs);
       this.maxBlockBudgetRatio = Math.max(Number(this.maxBlockBudgetRatio) || 0, budgetRatio);
+      // Window average — integer peak-% alone reads as 0 for light circuits.
+      this.sumBlockProcessMs = (Number(this.sumBlockProcessMs) || 0) + elapsedMs;
+      this.blockProcessCount = (Number(this.blockProcessCount) || 0) + 1;
+      this.meterBlockBudgetMs = blockBudgetMs;
       // Latch stress for the *next* quantum's shedding policy.
       this.audioThreadStressed = budgetRatio >= 0.85;
       if (budgetRatio >= 0.85) {
@@ -173,6 +177,13 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         lastBadValueSource: this.lastBadValueSource,
         inputPeak: this.inputMeterPeak,
         inputRms: Math.sqrt(this.inputMeterSquareSum / Math.max(1, this.inputMeterSamples)),
+        avgBlockBudgetRatio: (Number(this.blockProcessCount) || 0) > 0
+          && (Number(this.meterBlockBudgetMs) || 0) > 0
+          ? ((Number(this.sumBlockProcessMs) || 0) / this.blockProcessCount) / this.meterBlockBudgetMs
+          : 0,
+        avgBlockProcessMs: (Number(this.blockProcessCount) || 0) > 0
+          ? (Number(this.sumBlockProcessMs) || 0) / this.blockProcessCount
+          : 0,
         maxBlockBudgetRatio: this.maxBlockBudgetRatio,
         maxBlockProcessMs: this.maxBlockProcessMs,
         missedQuantumCount: this.meterMissedQuantumCount,
@@ -200,6 +211,8 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       this.badNumberCount = 0;
       this.maxBlockProcessMs = 0;
       this.maxBlockBudgetRatio = 0;
+      this.sumBlockProcessMs = 0;
+      this.blockProcessCount = 0;
       this.meterOverrunCount = 0;
       this.meterMissedQuantumCount = 0;
       this.lastBadValueReason = "";

@@ -1916,15 +1916,21 @@ function handleNodeGraphLiveWorkletMessage(event) {
     if (!nodeGraphMvp.constraintResourceMetrics) {
       nodeGraphMvp.constraintResourceMetrics = {};
     }
-    const audioRatio = Math.max(0, Number(message.maxBlockBudgetRatio) || 0);
-    // Hold peak load briefly so rare spikes are visible (meter window is ~16ms).
-    const prevPeak = Number(nodeGraphMvp.constraintResourceMetrics.audioLoadPct) || 0;
-    nodeGraphMvp.constraintResourceMetrics.audioLoadPct = Math.max(prevPeak * 0.85, audioRatio * 100);
+    // Prefer window-average load for "how heavy is this circuit"; keep peak for stress.
+    const avgRatio = Math.max(0, Number(message.avgBlockBudgetRatio) || 0);
+    const peakRatio = Math.max(0, Number(message.maxBlockBudgetRatio) || 0);
+    const audioRatio = avgRatio > 0 ? avgRatio : peakRatio;
+    nodeGraphMvp.constraintResourceMetrics.audioLoadPct = audioRatio * 100;
+    nodeGraphMvp.constraintResourceMetrics.audioLoadPeakPct = peakRatio * 100;
     nodeGraphMvp.constraintResourceMetrics.audioOverrunCount = Math.max(
       0,
       (Number(message.overrunCount) || 0) + (Number(message.missedQuantumCount) || 0),
     );
     nodeGraphMvp.constraintResourceMetrics.audioBlockMs = Math.max(
+      0,
+      Number(message.avgBlockProcessMs) || Number(message.maxBlockProcessMs) || 0,
+    );
+    nodeGraphMvp.constraintResourceMetrics.audioBlockPeakMs = Math.max(
       0,
       Number(message.maxBlockProcessMs) || 0,
     );
@@ -2976,7 +2982,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=hotpath-1",
-  "./public/node-live-audio-worklet-process.js?v=interrupt-1",
+  "./public/node-live-audio-worklet-process.js?v=dsp-load-res-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",
