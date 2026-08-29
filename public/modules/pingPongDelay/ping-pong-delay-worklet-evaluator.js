@@ -84,6 +84,13 @@ NodeLiveAudioProcessor.prototype.invalidateAllNativeBlockViews = function invali
     clear(stereo?.left);
     clear(stereo?.right);
   }
+  for (const state of this.polyBlepStates?.values?.() || []) {
+    if (state?.blockCache) {
+      state.blockCache.views = null;
+      state.blockCache.memory = null;
+      state.blockCache.size = 0;
+    }
+  }
 };
 
 NodeLiveAudioProcessor.prototype.applyPingPongNativeParams = function applyPingPongNativeParams(native, state, params, safeRate) {

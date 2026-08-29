@@ -24,6 +24,16 @@ struct SlotState {
   bool hasNoiseSeed;
 };
 
+constexpr int kMaxBlockFrames = 128;
+// Tap mask bits for process_block / sample (only compute what is cabled).
+constexpr int kTapOut = 1;
+constexpr int kTapSaw = 2;
+constexpr int kTapRamp = 4;
+constexpr int kTapSquare = 8;
+constexpr int kTapTri = 16;
+constexpr int kTapSine = 32;
+constexpr int kTapAll = kTapOut | kTapSaw | kTapRamp | kTapSquare | kTapTri | kTapSine;
+
 struct PolyBlepState {
   bool active;
   SlotState slots[kSlotCount];
@@ -33,6 +43,8 @@ struct PolyBlepState {
   double square;
   double tri;
   double sine;
+  // Planar block outs: 0=selected Out, 1=Saw, 2=Ramp, 3=Square, 4=Tri, 5=Sine
+  double blockOut[kSlotCount][kMaxBlockFrames];
 };
 
 static PolyBlepState gPool[kMaxInstances];
@@ -262,6 +274,50 @@ extern "C" void soemdsp_polyblep_reset(int handle) {
   s.sine = 0.0;
 }
 
+static void render_taps(
+  PolyBlepState& s,
+  double phase,
+  double phaseIncrement,
+  int waveform,
+  double level,
+  double morph,
+  int tapMask
+) {
+  const int safeWaveform = waveform < 0 ? 0 : (waveform > kWaveformMax ? kWaveformMax : waveform);
+  const double safeMorph = (morph == morph) ? morph : 0.5;
+  const int mask = tapMask == 0 ? kTapAll : tapMask;
+  if (mask & kTapOut) {
+    s.out = oscillatorSample(s.slots[0], phase, phaseIncrement, safeWaveform, safeMorph) * level;
+  } else {
+    s.out = 0.0;
+  }
+  if (mask & kTapSaw) {
+    s.saw = oscillatorSample(s.slots[1], phase, phaseIncrement, 1, 0.5) * level;
+  } else {
+    s.saw = 0.0;
+  }
+  if (mask & kTapRamp) {
+    s.ramp = oscillatorSample(s.slots[2], phase, phaseIncrement, 2, 0.5) * level;
+  } else {
+    s.ramp = 0.0;
+  }
+  if (mask & kTapSquare) {
+    s.square = oscillatorSample(s.slots[3], phase, phaseIncrement, 3, 0.5) * level;
+  } else {
+    s.square = 0.0;
+  }
+  if (mask & kTapTri) {
+    s.tri = oscillatorSample(s.slots[4], phase, phaseIncrement, 4, 0.5) * level;
+  } else {
+    s.tri = 0.0;
+  }
+  if (mask & kTapSine) {
+    s.sine = oscillatorSample(s.slots[5], phase, phaseIncrement, 5, 0.5) * level;
+  } else {
+    s.sine = 0.0;
+  }
+}
+
 extern "C" void soemdsp_polyblep_sample(
   int handle,
   double phase,
@@ -271,17 +327,64 @@ extern "C" void soemdsp_polyblep_sample(
   double morph
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
+  render_taps(gPool[handle - 1], phase, phaseIncrement, waveform, level, morph, kTapAll);
+}
+
+// Same as sample but only computes taps in tapMask (bitfield).
+extern "C" void soemdsp_polyblep_sample_masked(
+  int handle,
+  double phase,
+  double phaseIncrement,
+  int waveform,
+  double level,
+  double morph,
+  int tapMask
+) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  render_taps(gPool[handle - 1], phase, phaseIncrement, waveform, level, morph, tapMask);
+}
+
+// One WASM crossing per quantum. phase/phaseIncrement in same units as sample()
+// (phase radians, increment cycles/sample). Advances phase by 2π·inc each frame.
+extern "C" void soemdsp_polyblep_process_block(
+  int handle,
+  int frameCount,
+  double phase0,
+  double phaseIncrement,
+  int waveform,
+  double level,
+  double morph,
+  int tapMask
+) {
+  if (handle < 1 || handle > kMaxInstances) return;
   PolyBlepState& s = gPool[handle - 1];
-  const int safeWaveform = waveform < 0 ? 0 : (waveform > kWaveformMax ? kWaveformMax : waveform);
-  // NaN/missing morph (older 5-arg callers) → 0.5.
-  const double safeMorph = (morph == morph) ? morph : 0.5;
-  const double selected = oscillatorSample(s.slots[0], phase, phaseIncrement, safeWaveform, safeMorph) * level;
-  s.saw    = oscillatorSample(s.slots[1], phase, phaseIncrement, 1, 0.5) * level;
-  s.ramp   = oscillatorSample(s.slots[2], phase, phaseIncrement, 2, 0.5) * level;
-  s.square = oscillatorSample(s.slots[3], phase, phaseIncrement, 3, 0.5) * level;
-  s.tri    = oscillatorSample(s.slots[4], phase, phaseIncrement, 4, 0.5) * level;
-  s.sine   = oscillatorSample(s.slots[5], phase, phaseIncrement, 5, 0.5) * level;
-  s.out = selected;
+  const int n = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
+  const int mask = tapMask == 0 ? kTapAll : tapMask;
+  double phase = phase0;
+  const double phaseStep = kTwoPi * phaseIncrement;
+  for (int i = 0; i < n; i += 1) {
+    render_taps(s, phase, phaseIncrement, waveform, level, morph, mask);
+    s.blockOut[0][i] = s.out;
+    s.blockOut[1][i] = s.saw;
+    s.blockOut[2][i] = s.ramp;
+    s.blockOut[3][i] = s.square;
+    s.blockOut[4][i] = s.tri;
+    s.blockOut[5][i] = s.sine;
+    phase += phaseStep;
+    // Keep phase bounded for sinApprox stability.
+    while (phase > kPi) phase -= kTwoPi;
+    while (phase < -kPi) phase += kTwoPi;
+  }
+}
+
+extern "C" int soemdsp_polyblep_block_out_ptr(int handle, int tapIndex) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  if (tapIndex < 0 || tapIndex >= kSlotCount) return 0;
+  return reinterpret_cast<int>(gPool[handle - 1].blockOut[tapIndex]);
+}
+
+extern "C" int soemdsp_polyblep_max_block_frames() {
+  return kMaxBlockFrames;
 }
 
 extern "C" double soemdsp_polyblep_out(int handle) {
@@ -315,5 +418,5 @@ extern "C" double soemdsp_polyblep_sine(int handle) {
 }
 
 extern "C" int soemdsp_polyblep_version() {
-  return 4;
+  return 5; // process_block + masked taps
 }

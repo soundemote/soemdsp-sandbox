@@ -45,7 +45,14 @@ $modules = @(
   @{ Name = "passive_filter"; Simd = $false; Exports = @("soemdsp_passive_filter_create", "soemdsp_passive_filter_destroy", "soemdsp_passive_filter_sample", "soemdsp_passive_filter_version", "soemdsp_passive_filter_metadata_json", "soemdsp_passive_filter_metadata_json_size") }
   @{ Name = "vactrol_envelope"; Simd = $false; Exports = @("soemdsp_vactrol_envelope_create", "soemdsp_vactrol_envelope_destroy", "soemdsp_vactrol_envelope_sample", "soemdsp_vactrol_envelope_version", "soemdsp_vactrol_envelope_metadata_json", "soemdsp_vactrol_envelope_metadata_json_size") }
   @{ Name = "shooting_star_explosion"; Simd = $false; Exports = @("soemdsp_shooting_star_explosion_power", "soemdsp_shooting_star_explosion_version", "soemdsp_shooting_star_explosion_metadata_json", "soemdsp_shooting_star_explosion_metadata_json_size") }
-  @{ Name = "polyblep"; Simd = $false; Exports = @("soemdsp_polyblep_create", "soemdsp_polyblep_destroy", "soemdsp_polyblep_reset", "soemdsp_polyblep_sample", "soemdsp_polyblep_out", "soemdsp_polyblep_saw", "soemdsp_polyblep_ramp", "soemdsp_polyblep_square", "soemdsp_polyblep_tri", "soemdsp_polyblep_sine", "soemdsp_polyblep_version") }
+  @{ Name = "polyblep"; Simd = $false; Exports = @(
+    "soemdsp_polyblep_create", "soemdsp_polyblep_destroy", "soemdsp_polyblep_reset",
+    "soemdsp_polyblep_sample", "soemdsp_polyblep_sample_masked",
+    "soemdsp_polyblep_process_block", "soemdsp_polyblep_block_out_ptr", "soemdsp_polyblep_max_block_frames",
+    "soemdsp_polyblep_out", "soemdsp_polyblep_saw", "soemdsp_polyblep_ramp",
+    "soemdsp_polyblep_square", "soemdsp_polyblep_tri", "soemdsp_polyblep_sine",
+    "soemdsp_polyblep_version"
+  ) }
   @{ Name = "logistic_map"; Simd = $false; Exports = @("soemdsp_logistic_map_create", "soemdsp_logistic_map_destroy", "soemdsp_logistic_map_sample", "soemdsp_logistic_map_version") }
   @{ Name = "pitch_quantizer"; Simd = $false; Exports = @("soemdsp_pitch_quantizer_create", "soemdsp_pitch_quantizer_destroy", "soemdsp_pitch_quantizer_sample", "soemdsp_pitch_quantizer_version") }
   @{ Name = "surge_oscillator"; Simd = $false; Exports = @("soemdsp_surge_oscillator_create", "soemdsp_surge_oscillator_destroy", "soemdsp_surge_oscillator_reset", "soemdsp_surge_oscillator_sample", "soemdsp_surge_oscillator_out", "soemdsp_surge_oscillator_saw", "soemdsp_surge_oscillator_square", "soemdsp_surge_oscillator_tri", "soemdsp_surge_oscillator_sine", "soemdsp_surge_oscillator_synced", "soemdsp_surge_oscillator_internal_sync", "soemdsp_surge_oscillator_version") }

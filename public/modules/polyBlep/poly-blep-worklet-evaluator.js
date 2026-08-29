@@ -32,64 +32,172 @@ NodeLiveAudioProcessor.prototype.oscillatorSample = function oscillatorSample(no
   }
 };
 
+NodeLiveAudioProcessor.POLYBLEP_NATIVE_BLOCK_SIZE = 128;
+NodeLiveAudioProcessor.POLYBLEP_TAP_OUT = 1;
+NodeLiveAudioProcessor.POLYBLEP_TAP_SAW = 2;
+NodeLiveAudioProcessor.POLYBLEP_TAP_RAMP = 4;
+NodeLiveAudioProcessor.POLYBLEP_TAP_SQUARE = 8;
+NodeLiveAudioProcessor.POLYBLEP_TAP_TRI = 16;
+NodeLiveAudioProcessor.POLYBLEP_TAP_SINE = 32;
+
 /** Silent vector while native wasm is still loading — never throw (throws kill the AudioWorklet). */
-NodeLiveAudioProcessor.prototype.polyBlepSilentVector = function polyBlepSilentVector() {
-  return { out: 0, saw: 0, ramp: 0, square: 0, tri: 0, sine: 0 };
+NodeLiveAudioProcessor.prototype.polyBlepSilentVector = function polyBlepSilentVector(into) {
+  const v = into || { out: 0, saw: 0, ramp: 0, square: 0, tri: 0, sine: 0 };
+  v.out = 0;
+  v.saw = 0;
+  v.ramp = 0;
+  v.square = 0;
+  v.tri = 0;
+  v.sine = 0;
+  return v;
 };
 
-NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepNativeVectorSample(state, phase, phaseIncrement, waveform, level, resetEdge, morph = 0.5, neededPorts = null) {
+NodeLiveAudioProcessor.prototype.polyBlepTapMaskFromPorts = function polyBlepTapMaskFromPorts(neededPorts) {
+  if (!neededPorts || !(neededPorts instanceof Set) || neededPorts.size === 0) {
+    return 63; // all taps
+  }
+  let mask = 0;
+  if (neededPorts.has("Out") || neededPorts.has("Wave Out") || neededPorts.has("Noise")) {
+    mask |= NodeLiveAudioProcessor.POLYBLEP_TAP_OUT;
+  }
+  if (neededPorts.has("Saw")) mask |= NodeLiveAudioProcessor.POLYBLEP_TAP_SAW;
+  if (neededPorts.has("Ramp")) mask |= NodeLiveAudioProcessor.POLYBLEP_TAP_RAMP;
+  if (neededPorts.has("Square")) mask |= NodeLiveAudioProcessor.POLYBLEP_TAP_SQUARE;
+  if (neededPorts.has("Tri")) mask |= NodeLiveAudioProcessor.POLYBLEP_TAP_TRI;
+  if (neededPorts.has("Sine")) mask |= NodeLiveAudioProcessor.POLYBLEP_TAP_SINE;
+  return mask || NodeLiveAudioProcessor.POLYBLEP_TAP_OUT;
+};
+
+NodeLiveAudioProcessor.prototype.bindPolyBlepBlockViews = function bindPolyBlepBlockViews(native, state, blockSize) {
+  const memory = native?.memory;
+  if (!memory?.buffer || !state?.nativeHandle || blockSize < 1) {
+    return false;
+  }
+  const cache = state.blockCache || (state.blockCache = {});
+  if (cache.views && cache.memory === memory.buffer && cache.size === blockSize) {
+    return true;
+  }
+  const views = [];
+  for (let tap = 0; tap < 6; tap += 1) {
+    const ptr = native.soemdsp_polyblep_block_out_ptr?.(state.nativeHandle, tap);
+    if (!ptr) {
+      return false;
+    }
+    views[tap] = new Float64Array(memory.buffer, ptr, blockSize);
+  }
+  cache.views = views;
+  cache.memory = memory.buffer;
+  cache.size = blockSize;
+  cache.cursor = 0;
+  return true;
+};
+
+NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepNativeVectorSample(
+  state,
+  phase,
+  phaseIncrement,
+  waveform,
+  level,
+  resetEdge,
+  morph = 0.5,
+  neededPorts = null,
+  useBlock = false,
+) {
   // Must not throw: process() runs as soon as the node is connected, often
   // before setNativeModuleWasm finishes instantiating. A throw becomes
   // onprocessorerror → muted host + dead scopes.
+  const outVec = state.outVec || (state.outVec = { out: 0, saw: 0, ramp: 0, square: 0, tri: 0, sine: 0 });
   if (!this.nativePolyBlepReady || !this.nativePolyBlep?.soemdsp_polyblep_create) {
-    return this.polyBlepSilentVector();
+    return this.polyBlepSilentVector(outVec);
   }
   try {
+    const native = this.nativePolyBlep;
     if (!state.nativeHandle) {
-      state.nativeHandle = this.nativePolyBlep.soemdsp_polyblep_create();
+      state.nativeHandle = native.soemdsp_polyblep_create();
+      state.blockCache = null;
     }
     if (!state.nativeHandle) {
-      return this.polyBlepSilentVector();
+      return this.polyBlepSilentVector(outVec);
     }
     if (resetEdge) {
-      this.nativePolyBlep.soemdsp_polyblep_reset?.(state.nativeHandle);
+      native.soemdsp_polyblep_reset?.(state.nativeHandle);
+      if (state.blockCache) {
+        state.blockCache.cursor = 0;
+      }
     }
-    const morphVal = Number(morph);
-    this.nativePolyBlep.soemdsp_polyblep_sample(
-      state.nativeHandle,
-      Number(phase) || 0,
-      Number(phaseIncrement) || 0,
-      Math.round(Number(waveform) || 0),
-      Number(level) || 0,
-      Number.isFinite(morphVal) ? morphVal : 0.5,
+    const morphVal = Number.isFinite(Number(morph)) ? Number(morph) : 0.5;
+    const tapMask = this.polyBlepTapMaskFromPorts(neededPorts);
+    const nativeVer = Number(native.soemdsp_polyblep_version?.() || 0);
+    const blockSize = Math.min(
+      NodeLiveAudioProcessor.POLYBLEP_NATIVE_BLOCK_SIZE,
+      Number(native.soemdsp_polyblep_max_block_frames?.()) || 128,
     );
-    // Only cross WASM for taps that are actually cabled (was 6 getters every sample).
-    const need = (portAliases) => {
-      if (!neededPorts || !(neededPorts instanceof Set) || neededPorts.size === 0) {
-        return true;
+
+    if (
+      useBlock
+      && nativeVer >= 5
+      && native.soemdsp_polyblep_process_block
+      && this.bindPolyBlepBlockViews(native, state, blockSize)
+    ) {
+      const cache = state.blockCache;
+      const index = cache.cursor;
+      outVec.out = (tapMask & 1) ? (cache.views[0][index] || 0) : 0;
+      outVec.saw = (tapMask & 2) ? (cache.views[1][index] || 0) : 0;
+      outVec.ramp = (tapMask & 4) ? (cache.views[2][index] || 0) : 0;
+      outVec.square = (tapMask & 8) ? (cache.views[3][index] || 0) : 0;
+      outVec.tri = (tapMask & 16) ? (cache.views[4][index] || 0) : 0;
+      outVec.sine = (tapMask & 32) ? (cache.views[5][index] || 0) : 0;
+      cache.cursor += 1;
+      if (cache.cursor >= blockSize) {
+        // Generate the *next* block starting at the phase after this sample.
+        const phaseStep = Math.PI * 2 * (Number(phaseIncrement) || 0);
+        const nextPhase0 = (Number(phase) || 0) + phaseStep;
+        native.soemdsp_polyblep_process_block(
+          state.nativeHandle,
+          blockSize,
+          nextPhase0,
+          Number(phaseIncrement) || 0,
+          Math.round(Number(waveform) || 0),
+          Number(level) || 0,
+          morphVal,
+          tapMask,
+        );
+        cache.cursor = 0;
       }
-      for (let i = 0; i < portAliases.length; i += 1) {
-        if (neededPorts.has(portAliases[i])) {
-          return true;
-        }
-      }
-      return false;
-    };
+      return outVec;
+    }
+
+    if (native.soemdsp_polyblep_sample_masked) {
+      native.soemdsp_polyblep_sample_masked(
+        state.nativeHandle,
+        Number(phase) || 0,
+        Number(phaseIncrement) || 0,
+        Math.round(Number(waveform) || 0),
+        Number(level) || 0,
+        morphVal,
+        tapMask,
+      );
+    } else {
+      native.soemdsp_polyblep_sample(
+        state.nativeHandle,
+        Number(phase) || 0,
+        Number(phaseIncrement) || 0,
+        Math.round(Number(waveform) || 0),
+        Number(level) || 0,
+        morphVal,
+      );
+    }
     const handle = state.nativeHandle;
-    const out = need(["Out", "Wave Out", "Noise"])
-      ? this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_out(handle), null)
-      : 0;
-    return {
-      out,
-      saw: need(["Saw"]) ? this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_saw(handle), null) : 0,
-      ramp: need(["Ramp"]) ? this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_ramp(handle), null) : 0,
-      square: need(["Square"]) ? this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_square(handle), null) : 0,
-      tri: need(["Tri"]) ? this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_tri(handle), null) : 0,
-      sine: need(["Sine"]) ? this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_sine(handle), null) : 0,
-    };
+    outVec.out = (tapMask & 1) ? this.safeFilterNumber(native.soemdsp_polyblep_out(handle), null) : 0;
+    outVec.saw = (tapMask & 2) ? this.safeFilterNumber(native.soemdsp_polyblep_saw(handle), null) : 0;
+    outVec.ramp = (tapMask & 4) ? this.safeFilterNumber(native.soemdsp_polyblep_ramp(handle), null) : 0;
+    outVec.square = (tapMask & 8) ? this.safeFilterNumber(native.soemdsp_polyblep_square(handle), null) : 0;
+    outVec.tri = (tapMask & 16) ? this.safeFilterNumber(native.soemdsp_polyblep_tri(handle), null) : 0;
+    outVec.sine = (tapMask & 32) ? this.safeFilterNumber(native.soemdsp_polyblep_sine(handle), null) : 0;
+    return outVec;
   } catch (_error) {
     this.nativePolyBlepReady = false;
-    return this.polyBlepSilentVector();
+    return this.polyBlepSilentVector(outVec);
   }
 };
 
@@ -202,6 +310,8 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
   let value;
   if (node?.type === "polyBlep") {
     const neededPorts = this.nodeUsedOutputPorts?.get(nodeId) || null;
+    // Block path when pitch/increment are Control-stable (no audio-rate wire).
+    const useBlock = !hasPitch && !(Math.abs(incrementInput) > 1e-12);
     const nativeVector = this.polyBlepNativeVectorSample(
       controlState,
       phase + phaseOffset,
@@ -211,6 +321,7 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
       resetEdge,
       morph,
       neededPorts,
+      useBlock,
     );
     value = {
       Out: nativeVector.out,

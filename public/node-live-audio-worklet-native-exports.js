@@ -1553,6 +1553,7 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
           this.nativePolyBlep?.soemdsp_polyblep_sample &&
           this.nativePolyBlep?.soemdsp_polyblep_out,
         );
+        // process_block / sample_masked are optional upgrades (v5+).
         this.port.postMessage({
           type: "nativeModuleStatus",
           name: "polyblep",
