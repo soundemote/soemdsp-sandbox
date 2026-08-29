@@ -1,7 +1,7 @@
 // MVEP GraphEngine host (PR-E4): setPlan → native compile; process → one
-// soemdsp_graph_process_block per quantum. Control smoothers → set_param once
-// per quantum; Live ƒ / CV ports map into the native graph; scope taps from
-// node_port_ptr (no evaluateFrame).
+// soemdsp_graph_process_block per quantum. Efficient path: write Control
+// targets (+ smooth times) only — native SmootherManager chases. Live ƒ / CV
+// ports map into the native graph; scope taps from node_port_ptr.
 // Node id hashing: FNV-1a 32-bit (offset 2166136261, prime 16777619).
 
 NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
@@ -145,6 +145,33 @@ NodeLiveAudioProcessor.prototype.pushNativeGraphParam = function pushNativeGraph
   } catch (_e) { /* ignore */ }
 };
 
+NodeLiveAudioProcessor.prototype.pushNativeGraphSmoothTime = function pushNativeGraphSmoothTime(
+  native,
+  hash,
+  paramId,
+  timeSamples,
+) {
+  if (!native?.soemdsp_graph_set_smooth_time || !this.nativeGraphHandle) return;
+  const t = Number(timeSamples);
+  if (!Number.isFinite(t) || t < 0) return;
+  try {
+    native.soemdsp_graph_set_smooth_time(this.nativeGraphHandle, hash, paramId, t);
+  } catch (_e) { /* ignore */ }
+};
+
+/** paramMeta.smoothingSeconds → samples (same rules as worklet smoother). */
+NodeLiveAudioProcessor.prototype.nativeGraphSmoothTimeSamplesFromMeta = function nativeGraphSmoothTimeSamplesFromMeta(
+  metadata = {},
+) {
+  const value = Number(metadata?.smoothingSeconds);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  const rate = Math.max(1, Number(this.engineSampleRate || sampleRate) || 44100);
+  if (value > 0 && value < 1) {
+    return Math.max(1, Math.round(value * rate));
+  }
+  return Math.max(0, Math.round(value));
+};
+
 NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphExportsReady() {
   const n = this.nativeGraph;
   return Boolean(
@@ -154,6 +181,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphE
     && n?.soemdsp_graph_add_node
     && n?.soemdsp_graph_connect
     && n?.soemdsp_graph_set_param
+    && n?.soemdsp_graph_set_smooth_time
     && n?.soemdsp_graph_set_bypassed
     && n?.soemdsp_graph_set_sample_rate
     && n?.soemdsp_graph_compile
@@ -324,11 +352,11 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
 });
 
 /**
- * Sample worklet smoothers (+ MOD) once and push into native set_param.
- * Call after runActiveSmoothers each quantum so knobs ramp instead of step.
- * Only pushes when the effective value changed (hasChanged / dirty cache).
+ * Write Control targets (+ smooth times from paramMeta) into native graph.
+ * Efficient path must not sample JS smoothers — native SmootherManager chases.
+ * Only pushes when the domain target / time changed (dirty cache).
  */
-NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGraphParams(frames = 128) {
+NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGraphParams(_frames = 128) {
   if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
     return;
   }
@@ -337,40 +365,47 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     return;
   }
   const P = NodeLiveAudioProcessor;
-  const safeFrames = Math.max(1, Number(frames) || 128);
-  const frameValues = this.nodeOutputs;
   const cacheById = this._nativeGraphParamCache || (this._nativeGraphParamCache = new Map());
   const forceAll = this._nativeGraphParamCachePlanSerial !== this.planSerial;
   this._nativeGraphParamCachePlanSerial = this.planSerial;
 
+  // Optional global time cell from worklet autoSmoothingSeconds.
+  if (native.soemdsp_graph_set_global_smooth_time) {
+    const rate = Math.max(1, Number(this.engineSampleRate || sampleRate) || 44100);
+    const seconds = Math.max(0, Number(this.autoSmoothingSeconds) || 0);
+    const globalSamples = seconds > 0 ? Math.max(1, Math.round(seconds * rate)) : 0;
+    if (forceAll || this._nativeGraphGlobalSmoothSamples !== globalSamples) {
+      this._nativeGraphGlobalSmoothSamples = globalSamples;
+      try {
+        native.soemdsp_graph_set_global_smooth_time(this.nativeGraphHandle, globalSamples);
+      } catch (_e) { /* ignore */ }
+    }
+  }
+
+  // Raw domain target — no JS chase / MOD sampling on the efficient path.
   const readContinuous = (node, key, fallback) => {
-    if (typeof this.readEffectiveParameter === "function") {
-      const v = this.readEffectiveParameter(node, key, fallback, 0, safeFrames, frameValues);
-      return Number.isFinite(v) ? v : fallback;
-    }
-    if (typeof this.readSmoothedParameter === "function") {
-      const v = this.readSmoothedParameter(node, key, fallback, 0, safeFrames);
-      return Number.isFinite(v) ? v : fallback;
-    }
     const raw = Number(node?.params?.[key]);
     return Number.isFinite(raw) ? raw : fallback;
   };
-  // Enum / choice knobs: domain target, snapped — never a mid-ramp fraction.
+  // Enum / choice knobs: snapped domain target.
   const readDiscrete = (node, key, fallback) => {
-    const sk = this.parameterKey(node?.id, key);
-    const smoother = this.smoothers?.get?.(sk);
-    let v = smoother && Number.isFinite(smoother.target)
-      ? smoother.target
-      : Number(node?.params?.[key]);
+    let v = Number(node?.params?.[key]);
     if (!Number.isFinite(v)) v = fallback;
     return Math.round(v);
   };
-  const pushChanged = (hash, cache, key, paramId, value) => {
+  const pushChanged = (hash, cache, key, paramId, value, node) => {
     const v = Number(value);
     if (!Number.isFinite(v)) return;
-    if (!forceAll && cache[key] === v) return;
-    cache[key] = v;
-    this.pushNativeGraphParam(native, hash, paramId, v);
+    if (forceAll || cache[key] !== v) {
+      cache[key] = v;
+      this.pushNativeGraphParam(native, hash, paramId, v);
+    }
+    if (P.NATIVE_GRAPH_DISCRETE_PARAMS[key]) return;
+    const timeKey = `${key}__smoothTime`;
+    const timeSamples = this.nativeGraphSmoothTimeSamplesFromMeta?.(node?.paramMeta?.[key]) || 0;
+    if (!forceAll && cache[timeKey] === timeSamples) return;
+    cache[timeKey] = timeSamples;
+    this.pushNativeGraphSmoothTime(native, hash, paramId, timeSamples);
   };
 
   for (const [id, node] of this.nodes) {
@@ -384,63 +419,62 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     const cont = (key, fallback) => readContinuous(node, key, fallback);
     const disc = (key, fallback) => readDiscrete(node, key, fallback);
+    const push = (key, paramId, value) => pushChanged(hash, cache, key, paramId, value, node);
 
     if (type === "output") {
-      pushChanged(hash, cache, "volume", P.NATIVE_GRAPH_PARAM_VOLUME_DB, cont("volume", -3));
-      pushChanged(hash, cache, "pan", P.NATIVE_GRAPH_PARAM_PAN, cont("pan", 0));
+      push("volume", P.NATIVE_GRAPH_PARAM_VOLUME_DB, cont("volume", -3));
+      push("pan", P.NATIVE_GRAPH_PARAM_PAN, cont("pan", 0));
       continue;
     }
     if (type === "polyBlep") {
-      pushChanged(hash, cache, "frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 220));
-      pushChanged(hash, cache, "waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
-      pushChanged(hash, cache, "amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
-      pushChanged(hash, cache, "shape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("shape", 0.5));
-      pushChanged(hash, cache, "phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 220));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      push("shape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("shape", 0.5));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       continue;
     }
     if (type === "ladderFilter") {
-      pushChanged(hash, cache, "frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1000));
-      pushChanged(hash, cache, "resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
-      pushChanged(hash, cache, "mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
-      pushChanged(hash, cache, "stages", P.NATIVE_GRAPH_PARAM_STAGES, disc("stages", 4));
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1000));
+      push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
+      push("stages", P.NATIVE_GRAPH_PARAM_STAGES, disc("stages", 4));
       continue;
     }
     if (type === "softClipper") {
-      pushChanged(hash, cache, "center", P.NATIVE_GRAPH_PARAM_CENTER, cont("center", 0));
-      pushChanged(hash, cache, "width", P.NATIVE_GRAPH_PARAM_WIDTH, cont("width", 2));
-      pushChanged(hash, cache, "oversample", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, disc("oversample", 2));
+      push("center", P.NATIVE_GRAPH_PARAM_CENTER, cont("center", 0));
+      push("width", P.NATIVE_GRAPH_PARAM_WIDTH, cont("width", 2));
+      push("oversample", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, disc("oversample", 2));
       continue;
     }
     if (type === "reverbEffect") {
-      pushChanged(hash, cache, "mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.43));
-      pushChanged(hash, cache, "diffusionSize", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("diffusionSize", 0.35));
-      pushChanged(hash, cache, "diffusionAmount", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("diffusionAmount", 0.7));
-      pushChanged(hash, cache, "delaySize", P.NATIVE_GRAPH_PARAM_DELAY_SIZE, cont("delaySize", 0.02));
-      pushChanged(hash, cache, "recycle", P.NATIVE_GRAPH_PARAM_RECYCLE, cont("recycle", 0.7));
-      pushChanged(hash, cache, "lfoAmplitude", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("lfoAmplitude", 0.07));
-      pushChanged(hash, cache, "lfoBaseSpeed", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("lfoBaseSpeed", 0.83));
-      pushChanged(hash, cache, "lfoVariation", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("lfoVariation", 0.001));
-      pushChanged(hash, cache, "seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 0));
+      push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.43));
+      push("diffusionSize", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("diffusionSize", 0.35));
+      push("diffusionAmount", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("diffusionAmount", 0.7));
+      push("delaySize", P.NATIVE_GRAPH_PARAM_DELAY_SIZE, cont("delaySize", 0.02));
+      push("recycle", P.NATIVE_GRAPH_PARAM_RECYCLE, cont("recycle", 0.7));
+      push("lfoAmplitude", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("lfoAmplitude", 0.07));
+      push("lfoBaseSpeed", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("lfoBaseSpeed", 0.83));
+      push("lfoVariation", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("lfoVariation", 0.001));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 0));
       continue;
     }
     if (type === "pingPongDelay") {
-      pushChanged(hash, cache, "feedback", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("feedback", 0.35));
-      pushChanged(hash, cache, "mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.35));
-      pushChanged(hash, cache, "level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
-      pushChanged(hash, cache, "timeNumerator", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("timeNumerator", 1));
-      pushChanged(hash, cache, "timeDenominator", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("timeDenominator", 4));
-      pushChanged(hash, cache, "timingMode", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("timingMode", 0));
-      pushChanged(hash, cache, "offsetMs", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("offsetMs", 0));
-      pushChanged(hash, cache, "lfoStyle", P.NATIVE_GRAPH_PARAM_LFO_STYLE, disc("lfoStyle", 0));
-      pushChanged(hash, cache, "lfoRate", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("lfoRate", 0.35));
-      pushChanged(hash, cache, "lfoVariation", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("lfoVariation", 0.25));
-      pushChanged(hash, cache, "saturate", P.NATIVE_GRAPH_PARAM_SATURATE, cont("saturate", 1));
-      pushChanged(hash, cache, "lpfFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("lpfFrequency", 8000));
-      pushChanged(hash, cache, "hpfFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("hpfFrequency", 20));
+      push("feedback", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("feedback", 0.35));
+      push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.35));
+      push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
+      push("timeNumerator", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("timeNumerator", 1));
+      push("timeDenominator", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("timeDenominator", 4));
+      push("timingMode", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("timingMode", 0));
+      push("offsetMs", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("offsetMs", 0));
+      push("lfoStyle", P.NATIVE_GRAPH_PARAM_LFO_STYLE, disc("lfoStyle", 0));
+      push("lfoRate", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("lfoRate", 0.35));
+      push("lfoVariation", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("lfoVariation", 0.25));
+      push("saturate", P.NATIVE_GRAPH_PARAM_SATURATE, cont("saturate", 1));
+      push("lpfFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("lpfFrequency", 8000));
+      push("hpfFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("hpfFrequency", 20));
       const bpm = Number(this.timing?.tempoBpm);
-      pushChanged(
-        hash,
-        cache,
+      push(
         "tempoBpm",
         P.NATIVE_GRAPH_PARAM_TEMPO_BPM,
         Number.isFinite(bpm) && bpm > 0 ? bpm : 120,
@@ -822,8 +856,7 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
     return true;
   }
 
-  // Advance Control smoothers, then sample into native set_param (Issue 8).
-  this.runActiveSmoothers?.(frames);
+  // Write targets only — native graph_engine SmootherManager chases outs.
   this.syncNativeGraphParams?.(frames);
 
   const native = this.nativeGraph;

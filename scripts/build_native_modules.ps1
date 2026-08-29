@@ -35,6 +35,8 @@ $modules = @(
     "soemdsp_graph_create", "soemdsp_graph_destroy", "soemdsp_graph_clear",
     "soemdsp_graph_set_sample_rate",
     "soemdsp_graph_add_node", "soemdsp_graph_connect", "soemdsp_graph_set_param",
+    "soemdsp_graph_set_smooth_time", "soemdsp_graph_set_smooth_mode",
+    "soemdsp_graph_set_global_smooth_time",
     "soemdsp_graph_set_bypassed",
     "soemdsp_graph_compile", "soemdsp_graph_process_block",
     "soemdsp_graph_block_output_left_ptr", "soemdsp_graph_block_output_right_ptr",

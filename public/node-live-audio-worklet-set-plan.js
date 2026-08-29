@@ -542,13 +542,16 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "moduleGroup" && node.moduleGroupPlan && !this.moduleGroupRuntimes.has(id)) {
         this.moduleGroupRuntimes.set(id, this.createNestedRuntime(node.moduleGroupPlan));
       }
-      for (const [key, value] of Object.entries(node?.params || {})) {
-        const smootherKey = this.parameterKey(id, key);
-        const metadata = node.paramMeta?.[key];
-        if (!this.smoothers.has(smootherKey)) {
-          this.smoothers.set(smootherKey, this.createSmoother(value, metadata));
+      // Legacy JS chase only for ?product=full — efficient path is write-only.
+      if (!efficientProduct) {
+        for (const [key, value] of Object.entries(node?.params || {})) {
+          const smootherKey = this.parameterKey(id, key);
+          const metadata = node.paramMeta?.[key];
+          if (!this.smoothers.has(smootherKey)) {
+            this.smoothers.set(smootherKey, this.createSmoother(value, metadata));
+          }
+          this.updateSmoother(this.smoothers.get(smootherKey), value, metadata, smootherKey);
         }
-        this.updateSmoother(this.smoothers.get(smootherKey), value, metadata, smootherKey);
       }
     }
 

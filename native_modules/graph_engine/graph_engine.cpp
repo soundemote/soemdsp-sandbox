@@ -3,11 +3,11 @@
 // soemdsp-native-target: graphEngine
 // soemdsp-native-kind: engine
 //
-// MVEP GraphEngine (PR-E4): orchestrates
+// MVEP GraphEngine: orchestrates
 // polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
 // inside soemdsp_graph_process_block. Live ƒ jacks mix from wired buffers;
-// Control knobs arrive via set_param (host samples smoothers). Scope taps via
-// node_port_ptr. DSP lives in existing natives; this module is thin glue.
+// Control knobs: set_param writes targets; native SmootherManager chases out.
+// Scope taps via node_port_ptr. DSP lives in existing natives; this is glue.
 
 #include "../sandbox_native_maths/exp_log.h"
 #include "../sandbox_native_maths/analog_filter_trig.h"
@@ -94,13 +94,18 @@ namespace {
 using soemdsp_maths::dsp_exp;
 using soemdsp_maths::dsp_cos;
 using soemdsp_maths::dsp_floor;
+using soemdsp_maths::dsp_fabs;
+using soemdsp_maths::kPlanck;
 
 static const int kMaxInstances = 4;
 static const int kMaxNodes = 64;
 static const int kMaxConnections = 256;
+static const int kMaxToSmooth = 256;
 // Hard product invariant: AudioWorklet quantum and all orchestrated natives
 // use 128. Host must chunk if frames ever exceed this (see processNativeGraphQuantum).
 static const int kMaxBlockFrames = 128;
+// Default Control chase (~JS nodeGraphModuleSmoothingDefaultSeconds).
+static const double kDefaultSmoothSeconds = 0.0333;
 // 0=Mono/Out, 1=Left/Mix L, 2=Right/Mix R, 3=Saw/Dry L, 4=Ramp/Dry R,
 // 5=Square, 6=Tri, 7=Sine (polyBlep taps; Dry L/R share 3/4 on reverb).
 static const int kChannels = 8;
@@ -175,6 +180,23 @@ static const int kTapSine = 32;
 static const double kTwoPi = 6.28318530717958647692;
 static const double kPi = 3.14159265358979323846;
 
+static const unsigned char kSmoothModeInternal = 0;
+static const unsigned char kSmoothModeGlobal = 1;
+static const unsigned char kSmoothModeInternalGlobal = 2;
+static const unsigned char kSmoothModeOff = 3;
+
+// Freestanding Control slot: host writes target/time; DSP reads out.
+struct Control {
+  double target;
+  double timeSamples; // internal cell; <=0 → default seconds*sr when resolving
+  double out;
+  double coeff; // one-pole b0 (cached); dirty recomputes from time/SR/mode
+  bool dirty;
+  bool active;
+  unsigned char mode;
+  unsigned char snap; // discrete: out=target immediately, never on toSmooth_
+};
+
 struct Node {
   unsigned int idHash;
   int typeId;
@@ -182,42 +204,40 @@ struct Node {
   bool bypassed; // dry/silence passthrough; DSP state kept (no recreate)
   int nativeHandle;
   int nativeKind; // type at create time — destroy keys off this, not typeId
-  float volumeDb;
-  float pan;
-  float frequency;
-  float waveform;
-  float amplitude;
-  float shape;
-  float phaseParam;
-  float resonance;
-  float mode;
-  float stages;
-  float center;
-  float width;
-  float oversample;
-  // reverbEffect
-  float mix;
-  float diffusionSize;
-  float diffusionAmount;
-  float delaySize;
-  float recycle;
-  float lfoAmplitude;
-  float lfoBaseSpeed;
-  float lfoVariation;
-  float seed;
-  // pingPongDelay
-  float feedback;
-  float level;
-  float timeNumerator;
-  float timeDenominator;
-  float timingMode;
-  float offsetMs;
-  float lfoStyle;
-  float lfoRate;
-  float saturate;
-  float lpfFrequency;
-  float hpfFrequency;
-  float tempoBpm;
+  Control volumeDb;
+  Control pan;
+  Control frequency;
+  Control waveform;
+  Control amplitude;
+  Control shape;
+  Control phaseParam;
+  Control resonance;
+  Control mode;
+  Control stages;
+  Control center;
+  Control width;
+  Control oversample;
+  Control mix;
+  Control diffusionSize;
+  Control diffusionAmount;
+  Control delaySize;
+  Control recycle;
+  Control lfoAmplitude;
+  Control lfoBaseSpeed;
+  Control lfoVariation;
+  Control seed;
+  Control feedback;
+  Control level;
+  Control timeNumerator;
+  Control timeDenominator;
+  Control timingMode;
+  Control offsetMs;
+  Control lfoStyle;
+  Control lfoRate;
+  Control saturate;
+  Control lpfFrequency;
+  Control hpfFrequency;
+  Control tempoBpm;
   double phase; // polyBlep running phase (radians)
   double lastReset; // Live Reset rising-edge latch (persists across blocks)
   double buf[kChannels][kMaxBlockFrames];
@@ -235,11 +255,14 @@ struct Circuit {
   bool active;
   bool compiled;
   float sampleRate;
+  double globalTimeSamples;
   int nodeCount;
   int connCount;
   int orderCount;
+  int toSmoothCount;
   int order[kMaxNodes];
   int outputNodeIndex;
+  Control* toSmooth[kMaxToSmooth];
   Node nodes[kMaxNodes];
   Conn conns[kMaxConnections];
   double outL[kMaxBlockFrames];
@@ -287,48 +310,243 @@ static void destroy_node_native(Node& n) {
   n.nativeKind = 0;
 }
 
+static void init_control(Control& c, double value, bool snap) {
+  c.target = value;
+  c.out = value;
+  c.timeSamples = 0.0; // resolve → default seconds * sr
+  c.coeff = 1.0;
+  c.dirty = true;
+  c.active = false;
+  c.mode = kSmoothModeInternal;
+  c.snap = snap ? 1 : 0;
+}
+
 static void init_node_defaults(Node& n, int typeId) {
   n.typeId = typeId;
   n.bypassed = false;
   n.nativeHandle = 0;
   n.nativeKind = 0;
-  n.volumeDb = -3.0f;
-  n.pan = 0.0f;
-  n.frequency = (typeId == kTypeLadderFilter) ? 1000.0f : 220.0f;
-  n.waveform = 0.0f;
-  n.amplitude = 1.0f;
-  n.shape = 0.5f;
-  n.phaseParam = 0.0f;
-  n.resonance = 0.2f;
-  n.mode = 1.0f;
-  n.stages = 4.0f;
-  n.center = 0.0f;
-  n.width = 2.0f;
-  n.oversample = 2.0f;
-  // Module definition defaults (Control knobs).
-  n.mix = (typeId == kTypePingPongDelay) ? 0.35f : 0.43f;
-  n.diffusionSize = 0.35f;
-  n.diffusionAmount = 0.70f;
-  n.delaySize = 0.02f;
-  n.recycle = 0.70f;
-  n.lfoAmplitude = 0.07f;
-  n.lfoBaseSpeed = 0.83f;
-  n.lfoVariation = (typeId == kTypePingPongDelay) ? 0.25f : 0.001f;
-  n.seed = 0.0f;
-  n.feedback = 0.35f;
-  n.level = 1.0f;
-  n.timeNumerator = 1.0f;
-  n.timeDenominator = 4.0f;
-  n.timingMode = 0.0f;
-  n.offsetMs = 0.0f;
-  n.lfoStyle = 0.0f;
-  n.lfoRate = 0.35f;
-  n.saturate = 1.0f;
-  n.lpfFrequency = 8000.0f;
-  n.hpfFrequency = 20.0f;
-  n.tempoBpm = 120.0f;
+  init_control(n.volumeDb, -3.0, false);
+  init_control(n.pan, 0.0, false);
+  init_control(n.frequency, (typeId == kTypeLadderFilter) ? 1000.0 : 220.0, false);
+  init_control(n.waveform, 0.0, true);
+  init_control(n.amplitude, 1.0, false);
+  init_control(n.shape, 0.5, false);
+  init_control(n.phaseParam, 0.0, false);
+  init_control(n.resonance, 0.2, false);
+  init_control(n.mode, 1.0, true);
+  init_control(n.stages, 4.0, true);
+  init_control(n.center, 0.0, false);
+  init_control(n.width, 2.0, false);
+  init_control(n.oversample, 2.0, true);
+  init_control(n.mix, (typeId == kTypePingPongDelay) ? 0.35 : 0.43, false);
+  init_control(n.diffusionSize, 0.35, false);
+  init_control(n.diffusionAmount, 0.70, false);
+  init_control(n.delaySize, 0.02, false);
+  init_control(n.recycle, 0.70, false);
+  init_control(n.lfoAmplitude, 0.07, false);
+  init_control(n.lfoBaseSpeed, 0.83, false);
+  init_control(n.lfoVariation, (typeId == kTypePingPongDelay) ? 0.25 : 0.001, false);
+  init_control(n.seed, 0.0, true);
+  init_control(n.feedback, 0.35, false);
+  init_control(n.level, 1.0, false);
+  init_control(n.timeNumerator, 1.0, false);
+  init_control(n.timeDenominator, 4.0, false);
+  init_control(n.timingMode, 0.0, true);
+  init_control(n.offsetMs, 0.0, false);
+  init_control(n.lfoStyle, 0.0, true);
+  init_control(n.lfoRate, 0.35, false);
+  init_control(n.saturate, 1.0, false);
+  init_control(n.lpfFrequency, 8000.0, false);
+  init_control(n.hpfFrequency, 20.0, false);
+  init_control(n.tempoBpm, 120.0, false);
   n.phase = 0.0;
   n.lastReset = 0.0;
+}
+
+static Control* control_for_param(Node& n, int paramId) {
+  if (paramId == kParamVolumeDb) return &n.volumeDb;
+  if (paramId == kParamPan) return &n.pan;
+  if (paramId == kParamFrequency) return &n.frequency;
+  if (paramId == kParamWaveform) return &n.waveform;
+  if (paramId == kParamAmplitude) return &n.amplitude;
+  if (paramId == kParamShape) return &n.shape;
+  if (paramId == kParamPhase) return &n.phaseParam;
+  if (paramId == kParamResonance) return &n.resonance;
+  if (paramId == kParamMode) return &n.mode;
+  if (paramId == kParamStages) return &n.stages;
+  if (paramId == kParamCenter) return &n.center;
+  if (paramId == kParamWidth) return &n.width;
+  if (paramId == kParamOversample) return &n.oversample;
+  if (paramId == kParamMix) return &n.mix;
+  if (paramId == kParamDiffusionSize) return &n.diffusionSize;
+  if (paramId == kParamDiffusionAmount) return &n.diffusionAmount;
+  if (paramId == kParamDelaySize) return &n.delaySize;
+  if (paramId == kParamRecycle) return &n.recycle;
+  if (paramId == kParamLfoAmplitude) return &n.lfoAmplitude;
+  if (paramId == kParamLfoBaseSpeed) return &n.lfoBaseSpeed;
+  if (paramId == kParamLfoVariation) return &n.lfoVariation;
+  if (paramId == kParamSeed) return &n.seed;
+  if (paramId == kParamFeedback) return &n.feedback;
+  if (paramId == kParamLevel) return &n.level;
+  if (paramId == kParamTimeNumerator) return &n.timeNumerator;
+  if (paramId == kParamTimeDenominator) return &n.timeDenominator;
+  if (paramId == kParamTimingMode) return &n.timingMode;
+  if (paramId == kParamOffsetMs) return &n.offsetMs;
+  if (paramId == kParamLfoStyle) return &n.lfoStyle;
+  if (paramId == kParamLfoRate) return &n.lfoRate;
+  if (paramId == kParamSaturate) return &n.saturate;
+  if (paramId == kParamLpfFrequency) return &n.lpfFrequency;
+  if (paramId == kParamHpfFrequency) return &n.hpfFrequency;
+  if (paramId == kParamTempoBpm) return &n.tempoBpm;
+  return nullptr;
+}
+
+static void dirty_node_control_coeffs(Node& n) {
+  n.volumeDb.dirty = true;
+  n.pan.dirty = true;
+  n.frequency.dirty = true;
+  n.waveform.dirty = true;
+  n.amplitude.dirty = true;
+  n.shape.dirty = true;
+  n.phaseParam.dirty = true;
+  n.resonance.dirty = true;
+  n.mode.dirty = true;
+  n.stages.dirty = true;
+  n.center.dirty = true;
+  n.width.dirty = true;
+  n.oversample.dirty = true;
+  n.mix.dirty = true;
+  n.diffusionSize.dirty = true;
+  n.diffusionAmount.dirty = true;
+  n.delaySize.dirty = true;
+  n.recycle.dirty = true;
+  n.lfoAmplitude.dirty = true;
+  n.lfoBaseSpeed.dirty = true;
+  n.lfoVariation.dirty = true;
+  n.seed.dirty = true;
+  n.feedback.dirty = true;
+  n.level.dirty = true;
+  n.timeNumerator.dirty = true;
+  n.timeDenominator.dirty = true;
+  n.timingMode.dirty = true;
+  n.offsetMs.dirty = true;
+  n.lfoStyle.dirty = true;
+  n.lfoRate.dirty = true;
+  n.saturate.dirty = true;
+  n.lpfFrequency.dirty = true;
+  n.hpfFrequency.dirty = true;
+  n.tempoBpm.dirty = true;
+}
+
+static void dirty_all_control_coeffs(Circuit& g) {
+  for (int i = 0; i < g.nodeCount; i++) {
+    if (g.nodes[i].used) dirty_node_control_coeffs(g.nodes[i]);
+  }
+}
+
+static double resolve_control_time_samples(const Control& c, const Circuit& g) {
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double defSamples = kDefaultSmoothSeconds * sr;
+  const double internal = c.timeSamples > 0.0 ? c.timeSamples : defSamples;
+  const double global = g.globalTimeSamples > 0.0 ? g.globalTimeSamples : defSamples;
+  if (c.mode == kSmoothModeOff) return 0.0;
+  if (c.mode == kSmoothModeGlobal) return global;
+  if (c.mode == kSmoothModeInternalGlobal) return internal + global;
+  // internal (default)
+  return internal;
+}
+
+static void control_ensure_coeff(Control& c, Circuit& g) {
+  if (!c.dirty) return;
+  c.dirty = false;
+  if (c.snap) {
+    c.coeff = 1.0;
+    return;
+  }
+  const double t = resolve_control_time_samples(c, g);
+  if (!(t > 0.0)) {
+    c.coeff = 1.0;
+    return;
+  }
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  // Match JS onePole: frequencyHz = 1/seconds = sr/tSamples; w = min(2π/sr, k)*f
+  const double frequencyValue = sr / t;
+  double wUnit = kTwoPi / sr;
+  if (wUnit > 0.000142475857) wUnit = 0.000142475857;
+  const double w = wUnit * frequencyValue;
+  const double a1 = dsp_exp(-w);
+  c.coeff = 1.0 - a1;
+  if (!(c.coeff == c.coeff) || c.coeff < 0.0) c.coeff = 1.0;
+  if (c.coeff > 1.0) c.coeff = 1.0;
+}
+
+static void smoother_add(Circuit& g, Control& c) {
+  if (c.snap || c.active) return;
+  if (g.toSmoothCount >= kMaxToSmooth) return;
+  c.active = true;
+  g.toSmooth[g.toSmoothCount++] = &c;
+}
+
+static void control_set_target(Circuit& g, Control& c, double value) {
+  c.target = value;
+  if (c.snap) {
+    c.out = value;
+    return;
+  }
+  control_ensure_coeff(c, g);
+  if (c.coeff >= 1.0 - 1e-15 || resolve_control_time_samples(c, g) <= 0.0) {
+    c.out = value;
+    return;
+  }
+  if (dsp_fabs(c.out - c.target) <= kPlanck) {
+    c.out = value;
+    return;
+  }
+  smoother_add(g, c);
+}
+
+static void control_set_time(Circuit& g, Control& c, double timeSamples) {
+  if (!(timeSamples == timeSamples) || timeSamples < 0.0) timeSamples = 0.0;
+  c.timeSamples = timeSamples;
+  c.dirty = true;
+  if (c.snap) return;
+  if (dsp_fabs(c.out - c.target) > kPlanck) smoother_add(g, c);
+}
+
+static void control_step(Control& c, Circuit& g) {
+  control_ensure_coeff(c, g);
+  if (c.snap || c.coeff >= 1.0 - 1e-15) {
+    c.out = c.target;
+    return;
+  }
+  // out += coeff * (target - out)
+  c.out += c.coeff * (c.target - c.out);
+}
+
+static void smoother_run(Circuit& g, int n) {
+  if (g.toSmoothCount <= 0 || n < 1) return;
+  for (int f = 0; f < n; f++) {
+    for (int i = 0; i < g.toSmoothCount; i++) {
+      Control* c = g.toSmooth[i];
+      if (c) control_step(*c, g);
+    }
+  }
+}
+
+static void smoother_clean(Circuit& g) {
+  int w = 0;
+  for (int i = 0; i < g.toSmoothCount; i++) {
+    Control* c = g.toSmooth[i];
+    if (!c) continue;
+    if (dsp_fabs(c->out - c->target) <= kPlanck) {
+      c->out = c->target;
+      c->active = false;
+      continue;
+    }
+    g.toSmooth[w++] = c;
+  }
+  g.toSmoothCount = w;
 }
 
 // Reduce radians to (-π, π] with one floor — no open while spin.
@@ -357,6 +575,7 @@ static void clear_graph_contents(Circuit& g) {
   g.nodeCount = 0;
   g.connCount = 0;
   g.orderCount = 0;
+  g.toSmoothCount = 0;
   g.outputNodeIndex = -1;
   for (int i = 0; i < kMaxNodes; i++) {
     g.nodes[i].used = false;
@@ -510,13 +729,15 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   const double srD = (double)sr;
-  int waveform = (int)(node.waveform + (node.waveform >= 0.0f ? 0.5f : -0.5f));
+  const double waveV = node.waveform.out;
+  int waveform = (int)(waveV + (waveV >= 0.0 ? 0.5 : -0.5));
   if (waveform < 0) waveform = 0;
   if (waveform > 8) waveform = 8;
-  double level = (double)node.amplitude;
+  double level = node.amplitude.out;
   if (!(level == level)) level = 0.0;
-  double morph = (double)node.shape;
+  double morph = node.shape.out;
   if (!(morph == morph)) morph = 0.5;
+  const double phaseParam = node.phaseParam.out;
   const int mask = polyblep_tap_mask(g, node);
 
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
@@ -529,11 +750,11 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   const double referenceVoltage = 48.0 / 120.0;
 
   if (!audioRatePitch) {
-    double freq = clamp_hz_nyquist((double)node.frequency, srD);
+    double freq = clamp_hz_nyquist(node.frequency.out, srD);
     double phaseInc = freq / srD;
     if (phaseInc > 0.5) phaseInc = 0.5;
     if (phaseInc < -0.5) phaseInc = -0.5;
-    const double phase0 = wrap_phase_pi(node.phase + (double)node.phaseParam * kTwoPi);
+    const double phase0 = wrap_phase_pi(node.phase + phaseParam * kTwoPi);
     soemdsp_polyblep_process_block(
       node.nativeHandle, frames, phase0, phaseInc, waveform, level, morph, mask
     );
@@ -558,7 +779,7 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   }
 
   // Live ƒ / 0.1V / Inc / Reset: per-sample phaseInc (ƒ is absolute Hz when wired).
-  double phase = wrap_phase_pi(node.phase + (double)node.phaseParam * kTwoPi);
+  double phase = wrap_phase_pi(node.phase + phaseParam * kTwoPi);
   if (!liveReset) {
     // Cable gone → clear latch so the next connect can rising-edge.
     node.lastReset = 0.0;
@@ -569,7 +790,7 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
       if (node.lastReset <= 0.0 && rv > 0.0) {
         // Match JS: hard phase jump + clear native integrator / noise state.
         soemdsp_polyblep_reset(node.nativeHandle);
-        phase = (double)node.phaseParam * kTwoPi;
+        phase = phaseParam * kTwoPi;
         node.phase = 0.0;
       }
       node.lastReset = rv;
@@ -578,9 +799,9 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz((double)node.frequency, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
     } else {
-      freq = (double)node.frequency;
+      freq = node.frequency.out;
     }
     freq = clamp_hz_nyquist(freq, srD);
     double phaseInc = freq / srD;
@@ -604,7 +825,7 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
     phase = wrap_phase_pi(phase + kTwoPi * phaseInc);
   }
   // Store free-running phase without the Control phase offset (matches block path).
-  node.phase = wrap_phase_pi(phase - (double)node.phaseParam * kTwoPi);
+  node.phase = wrap_phase_pi(phase - phaseParam * kTwoPi);
 }
 
 static void process_ladder(Circuit& g, Node& node, int frames) {
@@ -612,21 +833,23 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   const double srD = (double)sr;
-  double reso = (double)node.resonance;
+  double reso = node.resonance.out;
   if (!(reso == reso)) reso = 0.0;
   if (reso < 0.0) reso = 0.0;
   if (reso > 0.999) reso = 0.999;
-  int mode = (int)(node.mode + (node.mode >= 0.0f ? 0.5f : -0.5f));
+  const double modeV = node.mode.out;
+  int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
   if (mode > 3) mode = 3;
-  int stages = (int)(node.stages + (node.stages >= 0.0f ? 0.5f : -0.5f));
+  const double stagesV = node.stages.out;
+  int stages = (int)(stagesV + (stagesV >= 0.0 ? 0.5 : -0.5));
   if (stages < 1) stages = 1;
   if (stages > 4) stages = 4;
 
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
 
   if (!liveF) {
-    double freq = clamp_hz_nyquist((double)node.frequency, srD);
+    double freq = clamp_hz_nyquist(node.frequency.out, srD);
     if (freq < 0.0) freq = 0.0;
     soemdsp_ladder_filter_set_params(node.nativeHandle, freq, reso, mode, stages, srD);
     double* inPtr = ptr_from_export(soemdsp_ladder_filter_block_input_ptr(node.nativeHandle));
@@ -659,11 +882,12 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
 static void process_soft_clipper(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
-  double center = (double)node.center;
+  double center = node.center.out;
   if (!(center == center)) center = 0.0;
-  double width = (double)node.width;
+  double width = node.width.out;
   if (!(width == width) || width == 0.0) width = 2.0;
-  int os = (int)(node.oversample + (node.oversample >= 0.0f ? 0.5f : -0.5f));
+  const double osV = node.oversample.out;
+  int os = (int)(osV + (osV >= 0.0 ? 0.5 : -0.5));
   if (os < 0) os = 0;
   if (os > 2) os = 2;
   const double aa = os > 0 ? 1.0 : 0.0;
@@ -734,15 +958,15 @@ static void process_reverb(Circuit& g, Node& node, int frames) {
 
   soemdsp_sabrina_reverb_set_params(
     node.nativeHandle,
-    (double)node.mix,
-    (double)node.diffusionSize,
-    (double)node.diffusionAmount,
-    (double)node.delaySize,
-    (double)node.recycle,
-    (double)node.lfoAmplitude,
-    (double)node.lfoBaseSpeed,
-    (double)node.lfoVariation,
-    (double)node.seed
+    node.mix.out,
+    node.diffusionSize.out,
+    node.diffusionAmount.out,
+    node.delaySize.out,
+    node.recycle.out,
+    node.lfoAmplitude.out,
+    node.lfoBaseSpeed.out,
+    node.lfoVariation.out,
+    node.seed.out
   );
 
   double* inL = ptr_from_export(soemdsp_sabrina_reverb_block_input_left_ptr(node.nativeHandle));
@@ -776,20 +1000,20 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
 
   soemdsp_ping_pong_delay_set_params(
     node.nativeHandle,
-    (double)node.feedback,
-    (double)node.mix,
-    (double)node.level,
-    (double)node.timeNumerator,
-    (double)node.timeDenominator,
-    (double)node.timingMode,
-    (double)node.offsetMs,
-    (double)node.lfoStyle,
-    (double)node.lfoRate,
-    (double)node.lfoVariation,
-    (double)node.saturate,
-    (double)node.lpfFrequency,
-    (double)node.hpfFrequency,
-    (double)node.tempoBpm,
+    node.feedback.out,
+    node.mix.out,
+    node.level.out,
+    node.timeNumerator.out,
+    node.timeDenominator.out,
+    node.timingMode.out,
+    node.offsetMs.out,
+    node.lfoStyle.out,
+    node.lfoRate.out,
+    node.lfoVariation.out,
+    node.saturate.out,
+    node.lpfFrequency.out,
+    node.hpfFrequency.out,
+    node.tempoBpm.out,
     (double)sr
   );
 
@@ -819,8 +1043,8 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
 static void process_output(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   float gL = 1.0f, gR = 1.0f;
-  pan_gains(node.pan, &gL, &gR);
-  const float vol = db_to_lin(node.volumeDb);
+  pan_gains((float)node.pan.out, &gL, &gR);
+  const float vol = db_to_lin((float)node.volumeDb.out);
   for (int f = 0; f < frames; f++) {
     const double m = g.mixMono[f];
     const double l = (m + g.mixLeft[f]) * (double)vol * (double)gL;
@@ -866,7 +1090,9 @@ extern "C" int soemdsp_graph_create() {
     if (!gPool[i].active) {
       gPool[i].active = true;
       gPool[i].sampleRate = 44100.0f;
+      gPool[i].globalTimeSamples = kDefaultSmoothSeconds * 44100.0;
       gPool[i].nodeCount = 0;
+      gPool[i].toSmoothCount = 0;
       clear_graph_contents(gPool[i]);
       return i + 1;
     }
@@ -897,6 +1123,8 @@ extern "C" void soemdsp_graph_set_sample_rate(int handle, float sampleRate) {
   if (!g) return;
   if (!(sampleRate == sampleRate) || sampleRate < 1.0f) sampleRate = 44100.0f;
   g->sampleRate = sampleRate;
+  // Coeff depends on SR (and default time-in-samples resolution).
+  dirty_all_control_coeffs(*g);
   for (int i = 0; i < g->nodeCount; i++) {
     Node& n = g->nodes[i];
     if (!n.used || n.nativeHandle <= 0) continue;
@@ -982,43 +1210,76 @@ extern "C" int soemdsp_graph_set_param(int handle, unsigned int nodeHash, int pa
   if (!g) return -1;
   const int idx = find_node(*g, nodeHash);
   if (idx < 0) return -2;
-  Node& n = g->nodes[idx];
   if (!(value == value)) return 0;
+  Control* c = control_for_param(g->nodes[idx], paramId);
+  if (!c) return 0;
+  control_set_target(*g, *c, (double)value);
+  return 0;
+}
 
-  if (paramId == kParamVolumeDb) { n.volumeDb = value; return 0; }
-  if (paramId == kParamPan) { n.pan = value; return 0; }
-  if (paramId == kParamFrequency) { n.frequency = value; return 0; }
-  if (paramId == kParamWaveform) { n.waveform = value; return 0; }
-  if (paramId == kParamAmplitude) { n.amplitude = value; return 0; }
-  if (paramId == kParamShape) { n.shape = value; return 0; }
-  if (paramId == kParamPhase) { n.phaseParam = value; return 0; }
-  if (paramId == kParamResonance) { n.resonance = value; return 0; }
-  if (paramId == kParamMode) { n.mode = value; return 0; }
-  if (paramId == kParamStages) { n.stages = value; return 0; }
-  if (paramId == kParamCenter) { n.center = value; return 0; }
-  if (paramId == kParamWidth) { n.width = value; return 0; }
-  if (paramId == kParamOversample) { n.oversample = value; return 0; }
-  if (paramId == kParamMix) { n.mix = value; return 0; }
-  if (paramId == kParamDiffusionSize) { n.diffusionSize = value; return 0; }
-  if (paramId == kParamDiffusionAmount) { n.diffusionAmount = value; return 0; }
-  if (paramId == kParamDelaySize) { n.delaySize = value; return 0; }
-  if (paramId == kParamRecycle) { n.recycle = value; return 0; }
-  if (paramId == kParamLfoAmplitude) { n.lfoAmplitude = value; return 0; }
-  if (paramId == kParamLfoBaseSpeed) { n.lfoBaseSpeed = value; return 0; }
-  if (paramId == kParamLfoVariation) { n.lfoVariation = value; return 0; }
-  if (paramId == kParamSeed) { n.seed = value; return 0; }
-  if (paramId == kParamFeedback) { n.feedback = value; return 0; }
-  if (paramId == kParamLevel) { n.level = value; return 0; }
-  if (paramId == kParamTimeNumerator) { n.timeNumerator = value; return 0; }
-  if (paramId == kParamTimeDenominator) { n.timeDenominator = value; return 0; }
-  if (paramId == kParamTimingMode) { n.timingMode = value; return 0; }
-  if (paramId == kParamOffsetMs) { n.offsetMs = value; return 0; }
-  if (paramId == kParamLfoStyle) { n.lfoStyle = value; return 0; }
-  if (paramId == kParamLfoRate) { n.lfoRate = value; return 0; }
-  if (paramId == kParamSaturate) { n.saturate = value; return 0; }
-  if (paramId == kParamLpfFrequency) { n.lpfFrequency = value; return 0; }
-  if (paramId == kParamHpfFrequency) { n.hpfFrequency = value; return 0; }
-  if (paramId == kParamTempoBpm) { n.tempoBpm = value; return 0; }
+extern "C" int soemdsp_graph_set_smooth_time(
+  int handle, unsigned int nodeHash, int paramId, float timeSamples
+) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return -2;
+  Control* c = control_for_param(g->nodes[idx], paramId);
+  if (!c) return 0;
+  control_set_time(*g, *c, (double)timeSamples);
+  return 0;
+}
+
+extern "C" int soemdsp_graph_set_smooth_mode(
+  int handle, unsigned int nodeHash, int paramId, int mode
+) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return -2;
+  Control* c = control_for_param(g->nodes[idx], paramId);
+  if (!c) return 0;
+  unsigned char m = kSmoothModeInternal;
+  if (mode == (int)kSmoothModeGlobal) m = kSmoothModeGlobal;
+  else if (mode == (int)kSmoothModeInternalGlobal) m = kSmoothModeInternalGlobal;
+  else if (mode == (int)kSmoothModeOff) m = kSmoothModeOff;
+  c->mode = m;
+  c->dirty = true;
+  if (!c->snap && dsp_fabs(c->out - c->target) > kPlanck) smoother_add(*g, *c);
+  return 0;
+}
+
+extern "C" int soemdsp_graph_set_global_smooth_time(int handle, float timeSamples) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  double t = (double)timeSamples;
+  if (!(t == t) || t < 0.0) t = 0.0;
+  g->globalTimeSamples = t;
+  dirty_all_control_coeffs(*g);
+  for (int i = 0; i < g->toSmoothCount; i++) {
+    Control* c = g->toSmooth[i];
+    if (c) c->dirty = true;
+  }
+  // Wake controls that use global time and are not yet converged.
+  for (int i = 0; i < g->nodeCount; i++) {
+    if (!g->nodes[i].used) continue;
+    Node& n = g->nodes[i];
+    Control* slots[] = {
+      &n.volumeDb, &n.pan, &n.frequency, &n.waveform, &n.amplitude, &n.shape,
+      &n.phaseParam, &n.resonance, &n.mode, &n.stages, &n.center, &n.width,
+      &n.oversample, &n.mix, &n.diffusionSize, &n.diffusionAmount, &n.delaySize,
+      &n.recycle, &n.lfoAmplitude, &n.lfoBaseSpeed, &n.lfoVariation, &n.seed,
+      &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
+      &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
+      &n.hpfFrequency, &n.tempoBpm
+    };
+    for (unsigned si = 0; si < sizeof(slots) / sizeof(slots[0]); si++) {
+      Control* c = slots[si];
+      if (!c || c->snap) continue;
+      if (c->mode != kSmoothModeGlobal && c->mode != kSmoothModeInternalGlobal) continue;
+      if (dsp_fabs(c->out - c->target) > kPlanck) smoother_add(*g, *c);
+    }
+  }
   return 0;
 }
 
@@ -1099,6 +1360,9 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
   zero_buf(g->outL, frames);
   zero_buf(g->outR, frames);
 
+  // Chase Control outs for this quantum, then DSP reads smoothed values.
+  smoother_run(*g, frames);
+
   for (int oi = 0; oi < g->orderCount; oi++) {
     const int ni = g->order[oi];
     if (ni < 0 || ni >= g->nodeCount || !g->nodes[ni].used) continue;
@@ -1137,6 +1401,7 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     // unknown: silence
   }
 
+  smoother_clean(*g);
   return frames;
 }
 
@@ -1165,5 +1430,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 8; // bypass flag: dry passthrough without destroying DSP state
+  return 9; // native Control SmootherManager (set_param=target, DSP reads out)
 }

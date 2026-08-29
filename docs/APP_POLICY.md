@@ -57,6 +57,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
 - When `efficientProduct` is on, Add Module / shop catalog offer **only** the allowlist (+ observers).
 - Live plan apply / worklet `setPlan` **refuse** foreign types with status **`not in efficient build`**. Do **not** run JS DSP for missing natives or hidden types.
 - Dual JS+C++ audio paths are **not** the product. Convert the next type into the allowlist (native + catalog) — never reintroduce a JS twin to “make it work.”
+- **Smoother manager is audio/C++ only** on the efficient path. JS may write Control **targets** and **smoothing-time** into engine memory on change; JS must **not** own or step the smoother chase list. (Legacy `?product=full` JS smoothers are debt until removed.)
 
 ---
 

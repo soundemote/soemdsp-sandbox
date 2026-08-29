@@ -225,16 +225,19 @@ NodeLiveAudioProcessor.prototype.setParams = function setParams(nodes, message =
         current.samplePhaseSeek = Math.max(0, Math.round(Number(node.samplePhaseSeek)) || 0);
       }
       parameterCount += Object.keys(current.params || {}).length;
-      for (const [key, value] of Object.entries(current.params || {})) {
-        const smootherKey = this.parameterKey(node.id, key);
-        const metadata = current.paramMeta?.[key];
-        if (!this.smoothers.has(smootherKey)) {
-          this.smoothers.set(smootherKey, this.createSmoother(value, metadata));
+      // Legacy JS chase only for ?product=full — efficient path is write-only.
+      if (!this.efficientProduct) {
+        for (const [key, value] of Object.entries(current.params || {})) {
+          const smootherKey = this.parameterKey(node.id, key);
+          const metadata = current.paramMeta?.[key];
+          if (!this.smoothers.has(smootherKey)) {
+            this.smoothers.set(smootherKey, this.createSmoother(value, metadata));
+          }
+          this.updateSmoother(this.smoothers.get(smootherKey), value, metadata, smootherKey);
         }
-        this.updateSmoother(this.smoothers.get(smootherKey), value, metadata, smootherKey);
       }
     }
-    // Efficient mode: push Control params into native graph (no recompile).
+    // Efficient mode: push Control targets into native graph (no recompile).
     if (this.efficientProduct && typeof this.syncNativeGraphParams === "function") {
       this.syncNativeGraphParams();
     }
