@@ -7,6 +7,25 @@ function defaultNodeGraphModuleGridPoint(type) {
 }
 
 function ensureNodeGraphLiveInputModule() {
+  // audioInput is not on the MVEP allowlist — do not inject it in efficient product.
+  if (typeof nodeGraphEfficientProductEnabled === "function" && nodeGraphEfficientProductEnabled()) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp(NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS || "not in efficient build");
+    }
+    if (typeof setNodeGraphLiveInputStatus === "function") {
+      setNodeGraphLiveInputStatus(
+        "blocked",
+        NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS || "not in efficient build",
+      );
+    }
+    if (typeof setNodeGraphScriptStatus === "function") {
+      setNodeGraphScriptStatus(
+        NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS || "not in efficient build",
+        false,
+      );
+    }
+    return false;
+  }
   if (nodeGraphMvp.patch.nodes.some((node) => node.type === "audioInput")) {
     return false;
   }
@@ -922,6 +941,24 @@ function addNodeGraphModuleGroupFromBrowser(name) {
   if (!group?.nodes?.length && !group?.sourcePatch?.nodes?.length) {
     return;
   }
+  const efficientOn = typeof nodeGraphEfficientProductEnabled === "function"
+    && nodeGraphEfficientProductEnabled();
+  const refuseEfficient = (detail = "") => {
+    const status = detail
+      ? `${NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS || "not in efficient build"}: ${detail}`
+      : (NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS || "not in efficient build");
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp(status);
+    }
+    if (typeof setNodeGraphScriptStatus === "function") {
+      setNodeGraphScriptStatus(status, false);
+    }
+  };
+  // moduleGroup itself is not on the efficient allowlist / chrome set.
+  if (efficientOn && group.kind === "moduleGroup" && group.sourcePatch) {
+    refuseEfficient("moduleGroup");
+    return;
+  }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const counts = nextNodeGraphTypeCounts(patch.nodes);
   if (group.kind === "moduleGroup" && group.sourcePatch) {
@@ -944,6 +981,17 @@ function addNodeGraphModuleGroupFromBrowser(name) {
   const sourceNodes = group.nodes.filter((node) => Object.hasOwn(nodeGraphModuleDefinitions, node.type));
   if (!sourceNodes.length) {
     return;
+  }
+  if (efficientOn && typeof nodeGraphModuleIsEfficientProductPlanType === "function") {
+    const foreign = [...new Set(
+      sourceNodes
+        .map((node) => String(node.type || "").trim())
+        .filter((type) => type && !nodeGraphModuleIsEfficientProductPlanType(type)),
+    )];
+    if (foreign.length) {
+      refuseEfficient(foreign.join(", "));
+      return;
+    }
   }
   const minGx = Math.min(...sourceNodes.map((node) => Number(node.gx) || 0));
   const minGy = Math.min(...sourceNodes.map((node) => Number(node.gy) || 0));
@@ -3109,8 +3157,7 @@ function copySelectedNodeGraphModule() {
   if (!sourceNode || sourceNode.type === "output") {
     return false;
   }
-  copyNodeGraphModule(sourceNode);
-  return true;
+  return Boolean(copyNodeGraphModule(sourceNode));
 }
 
 function nodeGraphNativeModuleCodeEntryForNode(node) {

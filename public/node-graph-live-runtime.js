@@ -942,6 +942,14 @@ function stopNodeGraphMockInput() {
 }
 
 async function startNodeGraphMockInput(options = {}) {
+  if (typeof nodeGraphEfficientProductEnabled === "function" && nodeGraphEfficientProductEnabled()) {
+    nodeGraphMvp.live.inputActive = false;
+    if (typeof ensureNodeGraphLiveInputModule === "function") {
+      ensureNodeGraphLiveInputModule();
+    }
+    renderNodeGraphLiveControls();
+    return nodeGraphLiveDebug();
+  }
   setNodeGraphMockInputFactory(options);
   nodeGraphMvp.live.inputActive = true;
   ensureNodeGraphLiveInputModule();
@@ -989,7 +997,20 @@ function nodeGraphLiveInputIsUnderConstruction() {
 }
 
 function toggleNodeGraphLiveInput() {
-  nodeGraphMvp.live.inputActive = !nodeGraphMvp.live.inputActive;
+  const enabling = !nodeGraphMvp.live.inputActive;
+  if (
+    enabling
+    && typeof nodeGraphEfficientProductEnabled === "function"
+    && nodeGraphEfficientProductEnabled()
+  ) {
+    nodeGraphMvp.live.inputActive = false;
+    if (typeof ensureNodeGraphLiveInputModule === "function") {
+      ensureNodeGraphLiveInputModule();
+    }
+    renderNodeGraphLiveControls();
+    return;
+  }
+  nodeGraphMvp.live.inputActive = enabling;
   const addedInputModule = nodeGraphMvp.live.inputActive
     ? ensureNodeGraphLiveInputModule()
     : false;
@@ -2995,7 +3016,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-graph-parameter-smoother-filters.js?v=unpark-types-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=t-series-1",
-  "./public/node-graph-efficient-product.js?v=pr-e0-1",
+  "./public/node-graph-efficient-product.js?v=pr-e0-2",
   "./public/node-live-audio-worklet-core.js?v=hotpath-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
@@ -3014,7 +3035,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-evaluators-utility.js?v=controller-smooth-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=softclip-block-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=pr-e0-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=pr-e0-2",
   "./public/node-live-audio-worklet-clear-plan.js?v=engine-ring-1",
   "./public/node-live-audio-worklet-handle-message.js?v=sim-fps-lcd-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",

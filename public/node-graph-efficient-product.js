@@ -1,5 +1,6 @@
 // MVEP efficient-product surface (PR-E0). Single allowlist SSOT for shop UI + plan refuse.
 // Hard cutover: no JS DSP fallback for foreign types. See docs/APP_POLICY.md §0b.
+// Classification is frozen-set-only so host and worklet cannot diverge.
 
 const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "polyBlep",
@@ -13,6 +14,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
 const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPE_SET = new Set(NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES);
 
 // Scope / monitor faces that only observe engine buffers (non-DSP chrome).
+// Keep this list exhaustive — do not consult definitions/catalog at runtime.
 const NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPES = Object.freeze([
   "asciiscope",
   "badvalMonitor",
@@ -26,6 +28,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPES = Object.freeze([
   "lineBurnOscilloscope",
   "lufs",
   "matrixDisplay",
+  "matrixWaterfall",
   "noiseDetector",
   "numberReadout",
   "oscilloscopeBank",
@@ -85,39 +88,14 @@ function nodeGraphEfficientProductAudioTypeAllowed(type) {
 }
 
 function nodeGraphModuleIsEfficientProductObserverType(type) {
-  const t = String(type || "").trim();
-  if (!t) {
-    return false;
-  }
-  if (NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPE_SET.has(t)) {
-    return true;
-  }
-  if (typeof nodeGraphModulePlanRole === "function" && nodeGraphModulePlanRole(t) === "monitor") {
-    return true;
-  }
-  const def = typeof nodeGraphModuleDefinitions === "object" ? nodeGraphModuleDefinitions[t] : null;
-  if (def?.visualSink || def?.monitorSink) {
-    return true;
-  }
-  const category = typeof nodeGraphModuleStoreCatalog === "object"
-    ? String(nodeGraphModuleStoreCatalog[t]?.category || "")
-    : "";
-  return category === "oscilloscope" || category === "multimeter" || category === "rgb";
+  return NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPE_SET.has(String(type || "").trim());
 }
 
 function nodeGraphModuleIsEfficientProductChromeType(type) {
-  const t = String(type || "").trim();
-  if (!t) {
-    return false;
-  }
-  if (NODE_GRAPH_EFFICIENT_PRODUCT_CHROME_TYPE_SET.has(t)) {
-    return true;
-  }
-  const def = typeof nodeGraphModuleDefinitions === "object" ? nodeGraphModuleDefinitions[t] : null;
-  return Boolean(def?.layoutOnly);
+  return NODE_GRAPH_EFFICIENT_PRODUCT_CHROME_TYPE_SET.has(String(type || "").trim());
 }
 
-/** Shop / Add Module: allowlisted live audio + observers only. */
+/** Shop / Add Module: allowlisted live audio + frozen observers only. */
 function nodeGraphModuleIsEfficientProductShopType(type) {
   const t = String(type || "").trim();
   if (!t) {
@@ -160,6 +138,12 @@ function nodeGraphEfficientProductRefuseMessage(foreignTypes = []) {
   return `${NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS}: ${types.join(", ")}`;
 }
 
+function nodeGraphEfficientProductRefuseIssues(foreignTypes = []) {
+  return (Array.isArray(foreignTypes) ? foreignTypes : [])
+    .filter(Boolean)
+    .map((type) => `${type}: ${NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS}`);
+}
+
 /**
  * Throws when efficient product is on and the plan/patch has foreign audio (or other) types.
  * Used by host live-plan sync; worklet setPlan mirrors the same rule.
@@ -178,7 +162,7 @@ function nodeGraphEfficientProductAssertPlanAllowed(nodes = [], options = {}) {
   }
   const message = nodeGraphEfficientProductRefuseMessage(foreign);
   const error = new Error(message);
-  error.issues = foreign.map((type) => `${type}: ${NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS}`);
+  error.issues = nodeGraphEfficientProductRefuseIssues(foreign);
   error.efficientProduct = true;
   error.foreignTypes = foreign;
   throw error;

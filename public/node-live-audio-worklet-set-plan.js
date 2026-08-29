@@ -14,7 +14,16 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (foreign.length) {
         const status = typeof nodeGraphEfficientProductRefuseMessage === "function"
           ? nodeGraphEfficientProductRefuseMessage(foreign)
-          : "not in efficient build";
+          : (typeof NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS !== "undefined"
+            ? NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS
+            : "not in efficient build");
+        const issues = typeof nodeGraphEfficientProductRefuseIssues === "function"
+          ? nodeGraphEfficientProductRefuseIssues(foreign)
+          : foreign.map((type) => `${type}: ${
+            typeof NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS !== "undefined"
+              ? NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS
+              : "not in efficient build"
+          }`);
         if (typeof this.clearPlan === "function") {
           this.clearPlan();
         }
@@ -22,7 +31,7 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
         this.sessionId = nextSessionId;
         this.port.postMessage({
           foreignTypes: foreign,
-          issues: foreign.map((type) => `${type}: not in efficient build`),
+          issues,
           message: status,
           patchFingerprint,
           planSerial: this.planSerial,
