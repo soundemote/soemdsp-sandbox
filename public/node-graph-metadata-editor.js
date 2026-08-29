@@ -2462,19 +2462,9 @@ function readNodeMetadataEditorValues(slider) {
   const smoothingType = normalizeNodeGraphMetadataSmoothingType(
     document.getElementById("metadataSmoothingTypeGroup")?.dataset.type,
   );
-  let smoothingMode = normalizeNodeGraphMetadataSmoothingMode(
+  const smoothingMode = normalizeNodeGraphMetadataSmoothingMode(
     document.getElementById("metadataSmoothingModeGroup")?.dataset.mode,
   );
-  // Editing SMOOTH while SOURCE is Global does nothing (global ignores the
-  // field). Promote to Internal so the value the user typed actually applies.
-  const secondsFieldTouched = smoothingSecondsInput !== "";
-  if (secondsFieldTouched && smoothingMode === "global") {
-    smoothingMode = "internal";
-    const modeGroup = document.getElementById("metadataSmoothingModeGroup");
-    if (modeGroup) {
-      modeGroup.dataset.mode = "internal";
-    }
-  }
   return {
     alias: normalizeNodeGraphPatchMetadataAlias(document.getElementById("metadataAliasValue").value),
     tooltip: nodeGraphMetadataClampTooltipText(
@@ -2843,6 +2833,20 @@ function handleNodeMetadataEditorInput(event) {
   }
   if (target?.id === "metadataTooltipValue") {
     scheduleNodeMetadataTooltipTextareaSize(target);
+  }
+  // Only when the user edits SMOOTH time: Global ignores that field, so switch
+  // SOURCE to Internal. Do not do this on mode-button apply (field is always filled).
+  if (target?.id === "metadataSmoothingSecondsValue") {
+    const modeGroup = document.getElementById("metadataSmoothingModeGroup");
+    if (modeGroup && normalizeNodeGraphMetadataSmoothingMode(modeGroup.dataset.mode) === "global") {
+      modeGroup.dataset.mode = "internal";
+      syncMetadataSmoothingModeButtons({
+        smoothingMode: "internal",
+        smoothingSeconds: nodeGraphMetadataSmoothingSecondsToSamples(
+          parseNodeMetadataNumber(target.value, 0),
+        ),
+      });
+    }
   }
   syncNodeMetadataMidVisibility();
   syncNodeMetadataChoiceToggleAvailability();
