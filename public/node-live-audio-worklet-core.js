@@ -145,6 +145,15 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.expAdsrStates = new Map();
     this.attackDecayStates = new Map();
     this.ellipsoidOutputFrames = new Map();
+    // MVEP GraphEngine (PR-E1): efficientProduct → native process_block path.
+    this.efficientProduct = true;
+    this.nativeGraph = null;
+    this.nativeGraphReady = false;
+    this.nativeGraphHandle = 0;
+    this.nativeGraphCompiled = false;
+    this.nativeGraphStatus = "";
+    this.nativeGraphBlockViews = null;
+    this._planConnections = [];
     this.nativeEllipsoid = null;
     this.nativeEllipsoidReady = false;
     this.nativeU2b = null;

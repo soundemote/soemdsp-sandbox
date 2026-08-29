@@ -2,6 +2,27 @@
 // Method: applyNativeModuleExports — load after core class, before registerProcessor.
 
 NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNativeModuleExports(name, targetType, exports) {
+      if (name === "graph_engine" || targetType === "graphEngine") {
+        this.destroyNativeGraphHandle?.();
+        this.nativeGraph = exports;
+        this.nativeGraphReady = Boolean(
+          this.nativeGraph?.soemdsp_graph_create
+          && this.nativeGraph?.soemdsp_graph_compile
+          && this.nativeGraph?.soemdsp_graph_process_block
+          && this.nativeGraph?.soemdsp_graph_block_output_left_ptr
+          && this.nativeGraph?.soemdsp_graph_block_output_right_ptr,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "graph_engine",
+          status: this.nativeGraphReady ? "ready" : "missing exports",
+        });
+        // setPlan may have raced ahead of combined wasm — compile now if needed.
+        if (this.nativeGraphReady && this.efficientProduct && this.nodes?.size) {
+          this.compileNativeGraphFromPlan?.();
+        }
+        return;
+      }
       if (name === "ellipsoid" || targetType === "ellipsoid") {
         this.nativeEllipsoid = exports;
         this.nativeEllipsoidReady = Boolean(

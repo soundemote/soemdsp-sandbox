@@ -7,6 +7,7 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     const nextSessionId = message.sessionId || 0;
     // MVEP: refuse foreign types — no JS DSP fallback (docs/APP_POLICY.md §0b).
     const efficientProduct = message.efficientProduct !== false;
+    this.efficientProduct = efficientProduct;
     if (efficientProduct && typeof nodeGraphEfficientProductForeignTypesFromNodes === "function") {
       const foreign = nodeGraphEfficientProductForeignTypesFromNodes(
         Array.isArray(plan?.nodes) ? plan.nodes : [],
@@ -122,6 +123,7 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     this.syncVisualInputBuffers();
     const newInputConnections = this.buildInputConnectionMap(plan?.connections, ids);
     this.inputConnections = newInputConnections;
+    this._planConnections = Array.isArray(plan?.connections) ? plan.connections.slice() : [];
     this.graphInputConnections = this.buildGraphInputConnectionMap(plan?.graphConnections, ids);
     this.modulationConnections = this.buildModulationConnectionMap(plan?.modulations, ids);
     this.resetVisualControls();
@@ -1332,6 +1334,13 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     this._lastProcessFrame = undefined;
     this._prevProcessWall = undefined;
 
+    // MVEP: efficient mode compiles into native GraphEngine (no JS DSP walk).
+    if (this.efficientProduct) {
+      this.compileNativeGraphFromPlan?.();
+    } else {
+      this.nativeGraphCompiled = false;
+    }
+
     this.port.postMessage({
       connectionCount: Array.isArray(plan?.connections) ? plan.connections.length : 0,
       feedbackConnectionCount: Array.isArray(plan?.feedbackConnections) ? plan.feedbackConnections.length : 0,
@@ -1359,6 +1368,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
         (Array.isArray(plan?.feedbackModulations) ? plan.feedbackModulations.length : 0)
       ),
       type: "planApplied",
+      efficientProduct: Boolean(this.efficientProduct),
+      nativeGraphCompiled: Boolean(this.nativeGraphCompiled),
+      nativeGraphStatus: this.nativeGraphStatus || "",
       visualSinkCount: Array.isArray(plan?.visualSinks) ? plan.visualSinks.length : 0,
       visualSinks: Array.isArray(plan?.visualSinks) ? plan.visualSinks : [],
     });

@@ -31,6 +31,14 @@ $modules = @(
     "soemdsp_soft_clipper_version", "soemdsp_soft_clipper_metadata_json",
     "soemdsp_soft_clipper_metadata_json_size"
   ) }
+  @{ Name = "graph_engine"; Simd = $false; Exports = @(
+    "soemdsp_graph_create", "soemdsp_graph_destroy", "soemdsp_graph_clear",
+    "soemdsp_graph_set_sample_rate",
+    "soemdsp_graph_add_node", "soemdsp_graph_connect", "soemdsp_graph_set_param",
+    "soemdsp_graph_compile", "soemdsp_graph_process_block",
+    "soemdsp_graph_block_output_left_ptr", "soemdsp_graph_block_output_right_ptr",
+    "soemdsp_graph_max_block_frames", "soemdsp_graph_version"
+  ) }
   @{ Name = "fractal_brownian_noise"; Simd = $true; Exports = @("soemdsp_fbm_create", "soemdsp_fbm_destroy", "soemdsp_fbm_reset", "soemdsp_fbm_sample", "soemdsp_fbm_x", "soemdsp_fbm_y", "soemdsp_fbm_z", "soemdsp_fbm_x_raw", "soemdsp_fbm_y_raw", "soemdsp_fbm_z_raw", "soemdsp_fbm_version", "soemdsp_fbm_process_block", "soemdsp_fbm_block_output_x_ptr", "soemdsp_fbm_block_output_y_ptr", "soemdsp_fbm_block_output_z_ptr", "soemdsp_fbm_block_output_x_raw_ptr", "soemdsp_fbm_block_output_y_raw_ptr", "soemdsp_fbm_block_output_z_raw_ptr", "soemdsp_fbm_max_block_frames") }
   @{ Name = "fbm_field"; Simd = $false; Exports = @("soemdsp_fbm_field_create", "soemdsp_fbm_field_destroy", "soemdsp_fbm_field_reset", "soemdsp_fbm_field_sample", "soemdsp_fbm_field_eval_at", "soemdsp_fbm_field_fill_grid", "soemdsp_fbm_field_grid_ptr", "soemdsp_fbm_field_grid_width", "soemdsp_fbm_field_grid_height", "soemdsp_fbm_field_grid_max_width", "soemdsp_fbm_field_grid_max_height", "soemdsp_fbm_field_x", "soemdsp_fbm_field_y", "soemdsp_fbm_field_z", "soemdsp_fbm_field_x_raw", "soemdsp_fbm_field_y_raw", "soemdsp_fbm_field_z_raw", "soemdsp_fbm_field_domain_time", "soemdsp_fbm_field_version") }
   @{ Name = "ladder_filter"; Simd = $false; Exports = @(

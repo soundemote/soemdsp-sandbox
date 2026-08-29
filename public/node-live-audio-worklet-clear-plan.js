@@ -2,6 +2,8 @@
 // Method: clearPlan — load after core class, before registerProcessor.
 
 NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
+    this.destroyNativeGraphHandle?.();
+    this._planConnections = [];
     this.inputConnections = new Map();
     this.graphInputConnections = new Map();
     this.badNumberCount = 0;

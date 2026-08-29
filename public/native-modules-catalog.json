@@ -434,6 +434,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "graph_engine",
+      "label": "Graph Engine",
+      "targetType": "graphEngine",
+      "kind": "engine",
+      "source": "native_modules/graph_engine/graph_engine.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/graph_engine/graph_engine.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/graph_engine/graph_engine.wasm",
+      "wasmUrl": "native_modules/graph_engine/graph_engine.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "helmholtz",
       "label": "Helmholtz Pitch",
       "targetType": "helmholtzPitch",

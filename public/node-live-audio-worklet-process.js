@@ -68,8 +68,20 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       return true;
     }
 
+    // MVEP efficient product: one native graph_process_block per quantum.
+    // No evaluateFrame / JS DSP fallback when efficientProduct is on.
+    const usedNativeGraph = Boolean(this.efficientProduct)
+      && typeof this.processNativeGraphQuantum === "function"
+      && this.processNativeGraphQuantum(output, frames);
+    if (this.efficientProduct && !usedNativeGraph) {
+      for (const channel of output) {
+        if (channel) channel.fill(0);
+      }
+    }
+
     // Previous quantum was late → shed non-audio work this quantum (scopes/UI posts).
     const audioStressed = Boolean(this.audioThreadStressed);
+    if (!usedNativeGraph && !this.efficientProduct) {
     for (let frame = 0; frame < frames; frame += 1) {
       const rawLeft = Number(input[0]?.[frame]);
       const rawRight = Number(input[1]?.[frame]);
@@ -159,6 +171,7 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         output[channelIndex][frame] = channelIndex === 0 ? left : right;
       }
     }
+    } // end legacy evaluateFrame quantum loop
     this.finishSmoothing();
     // Probe timer tick size once. If every quantum finishes inside one tick,
     // performance.now() deltas are 0 and a "0%" reading is NOT proof of headroom.
