@@ -3003,7 +3003,8 @@ async function stopNodeGraphLiveAudio() {
 // call), then per-module chunks would go here as they migrate out of core,
 // then register.js calls registerProcessor last, once everything above it
 // has finished defining/registering.
-const nodeGraphLiveWorkletSourceFiles = [
+// Efficient AudioWorklet blob: host + native graph only (no JS DSP evaluators).
+const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Pure stdlib first so per-module worklet chunks can call nodeGraphWrap01 /
   // nodeGraphTrisaw / nodeGraphPitchedFrequency / nodeGraphAdvancePhase01.
   "./public/node-graph-semath.js?v=planck-1",
@@ -3017,7 +3018,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=t-series-1",
   "./public/node-graph-efficient-product.js?v=pr-e0-2",
-  "./public/node-live-audio-worklet-core.js?v=graph-engine-6",
+  "./public/node-live-audio-worklet-core.js?v=rip-legacy-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
   "./public/node-live-audio-worklet-smoother.js?v=smooth-3p-1",
@@ -3030,19 +3031,23 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=interrupt-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
-  "./public/node-live-audio-worklet-evaluators-sources.js?v=snowflake-phase-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=haschanged-2",
-  "./public/node-live-audio-worklet-evaluators-utility.js?v=controller-smooth-1",
-  "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=graph-engine-16",
   "./public/node-live-audio-worklet-native-graph.js?v=graph-engine-16",
-  "./public/node-live-audio-worklet-set-plan.js?v=bypass-no-rebuild-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=rip-legacy-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=graph-engine-6",
   "./public/node-live-audio-worklet-handle-message.js?v=sim-fps-lcd-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
+  "./public/node-live-audio-worklet-process.js?v=rip-legacy-1",
+];
+
+// Legacy JS DSP evaluators + evaluateFrame — loaded only for ?product=full.
+const nodeGraphLiveWorkletSourceFilesLegacy = [
+  "./public/node-live-audio-worklet-evaluators-sources.js?v=snowflake-phase-1",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=haschanged-2",
+  "./public/node-live-audio-worklet-evaluators-utility.js?v=controller-smooth-1",
+  "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=interrupt-patch-1",
-  "./public/node-live-audio-worklet-process.js?v=graph-engine-16",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",
@@ -3263,8 +3268,16 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/sinc/sinc-worklet-evaluator.js?v=native-core-1",
   "./public/modules/videoscope/videoscope-worklet-evaluator.js?v=videoscope-buffer-hold-1",
   "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=spec-overlap-batch-1",
+];
+
+const nodeGraphLiveWorkletSourceFilesRegister = [
   "./public/node-live-audio-worklet-register.js?v=blob-loader-20260711",
 ];
+
+// Full product = efficient core + legacy evaluators + register (register always last).
+const nodeGraphLiveWorkletSourceFiles = nodeGraphLiveWorkletSourceFilesEfficient
+  .concat(nodeGraphLiveWorkletSourceFilesLegacy)
+  .concat(nodeGraphLiveWorkletSourceFilesRegister);
 
 async function buildNodeGraphLiveWorkletBlobUrl(sourceFiles) {
   const sources = await Promise.all(sourceFiles.map(async (url) => {
@@ -3284,7 +3297,15 @@ async function createNodeGraphLiveWorkletNode(context, plan = null) {
   if (!context.audioWorklet || typeof AudioWorkletNode === "undefined") {
     throw new Error("AudioWorklet unavailable");
   }
-  const blobUrl = await buildNodeGraphLiveWorkletBlobUrl(nodeGraphLiveWorkletSourceFiles);
+  const efficient = typeof nodeGraphEfficientProductEnabled === "function"
+    ? nodeGraphEfficientProductEnabled()
+    : Boolean(nodeGraphMvp?.efficientProduct);
+  const files = efficient
+    ? nodeGraphLiveWorkletSourceFilesEfficient.concat(nodeGraphLiveWorkletSourceFilesRegister)
+    : nodeGraphLiveWorkletSourceFilesEfficient
+      .concat(nodeGraphLiveWorkletSourceFilesLegacy)
+      .concat(nodeGraphLiveWorkletSourceFilesRegister);
+  const blobUrl = await buildNodeGraphLiveWorkletBlobUrl(files);
   try {
     await nodeGraphLiveAwaitStartup(
       context.audioWorklet.addModule(blobUrl),

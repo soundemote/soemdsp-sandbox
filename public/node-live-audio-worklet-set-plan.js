@@ -168,6 +168,10 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (!this.nodeOutputs.has(id)) {
         this.nodeOutputs.set(id, 0);
       }
+      // Efficient: native GraphEngine owns DSP state — skip JS evaluator state maps.
+      if (efficientProduct) {
+        continue;
+      }
       const node = this.nodes.get(id);
       if (nodeLiveIsPolyBlepOscillatorType(node?.type) && (sessionRestarted || !this.phases.has(id))) {
         this.phases.set(id, 0);
@@ -1330,12 +1334,15 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
         this.smoothers.delete(key);
       }
     }
-    // Bake evaluator refs for the sample loop (no per-sample type lookup).
-    this.compileExecutionOrder();
-    // Bake scope capture node/sink lists (sample loop only writes rings).
-    this.compileScopeCapture();
-    // Which nodes/ports anyone listens to (skip orphan DSP; limit polyBlep WASM outs).
-    this.compileGraphLiveness();
+    // Legacy sample-loop bake only — efficient blob omits evaluate-frame.js.
+    if (!efficientProduct) {
+      this.compileExecutionOrder?.();
+      this.compileScopeCapture?.();
+      this.compileGraphLiveness?.();
+    } else {
+      // Scope rings still needed for native-tap observers.
+      this.compileScopeCapture?.();
+    }
     // Port-object reuse bucket is plan-scoped.
     if (this._stereoPortBucket) {
       this._stereoPortBucket.clear();

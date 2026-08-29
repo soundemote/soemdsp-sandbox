@@ -453,3 +453,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // worklet Blob (graph, smoother, events, dsp-state, evaluators, process, …).
 
 }
+
+// Efficient blob omits evaluator clusters; constructor still calls this.
+// ?product=full overrides via node-live-audio-worklet-evaluators.js.
+NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators = function buildLiveModuleEvaluators() {
+  return {};
+};

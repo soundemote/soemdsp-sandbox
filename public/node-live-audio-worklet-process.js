@@ -105,7 +105,130 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       }
     }
 
-    if (!usedNativeGraph && !this.efficientProduct) {
+    // Hard cutover: efficient never enters the sample loop / evaluateFrame.
+    // Timing + meter posts still run below (native-graph contract).
+    if (this.efficientProduct) {
+      this.finishSmoothing();
+      if (!(Number(this._timerResMs) > 0) && globalThis.performance?.now) {
+        const t0 = performance.now();
+        let t1 = t0;
+        let guard = 0;
+        while (t1 === t0 && guard < 5e6) {
+          t1 = performance.now();
+          guard += 1;
+        }
+        this._timerResMs = Math.max(1e-3, t1 - t0);
+      }
+      if (blockStartedAt > 0) {
+        const elapsedMs = Math.max(0, (globalThis.performance?.now?.() || blockStartedAt) - blockStartedAt);
+        const blockBudgetMs = (frames / Math.max(1, sampleRate || this.hostSampleRate || 44100)) * 1000;
+        const budgetRatio = blockBudgetMs > 0 ? elapsedMs / blockBudgetMs : 0;
+        this.maxBlockProcessMs = Math.max(Number(this.maxBlockProcessMs) || 0, elapsedMs);
+        this.maxBlockBudgetRatio = Math.max(Number(this.maxBlockBudgetRatio) || 0, budgetRatio);
+        this.sumBlockProcessMs = (Number(this.sumBlockProcessMs) || 0) + elapsedMs;
+        this.blockProcessCount = (Number(this.blockProcessCount) || 0) + 1;
+        if (!(elapsedMs > 0)) {
+          this.zeroElapsedQuanta = (Number(this.zeroElapsedQuanta) || 0) + 1;
+        }
+        this.meterBlockBudgetMs = blockBudgetMs;
+        this.audioThreadStressed = budgetRatio >= 0.85;
+        if (budgetRatio >= 0.85) {
+          this.meterOverrunCount += 1;
+        }
+      }
+      this.meterCounter += frames;
+      if (this.meterCounter >= sampleRate / 60) {
+        const realCount = Number(this.blockProcessCount) || 0;
+        const count = Math.max(1, realCount);
+        const budgetMs = Math.max(1e-6, Number(this.meterBlockBudgetMs) || ((frames / Math.max(1, sampleRate || 44100)) * 1000));
+        const sumMs = Number(this.sumBlockProcessMs) || 0;
+        const avgMs = sumMs / count;
+        const avgRatio = avgMs / budgetMs;
+        const timerResMs = Number(this._timerResMs) || 0;
+        const timedOut = realCount > 0 && !(sumMs > 0);
+        const moduleCount = Number.isFinite(this.dspLiveModuleCount)
+          ? this.dspLiveModuleCount
+          : (Array.isArray(this.order) ? this.order.length : (this.nodes?.size || 0));
+        const costUnits = Number(this.dspCostUnits) || 0;
+        const estimatedBudgetRatio = Math.max(0, Math.min(4, costUnits * 0.004));
+        this.port.postMessage({
+          audioPlayerNodeId: this.audioPlayerMeterNodeId || this.audioPlayerNodeIds[0] || "",
+          audioPlayerNodeIds: [...this.audioPlayerNodeIds],
+          audioPlayerPhase: this.audioPlayerMeterPhase,
+          audioPlayerSpeed: this.audioPlayerMeterSpeed,
+          audioPlayerSpeeds: this.audioPlayerMeterSpeeds || {},
+          audioPlayerReason: this.audioPlayerMeterReason,
+          audioPlayerSampleId: this.audioPlayerMeterSampleId || "",
+          clipCount: this.meterClipCount,
+          badNumberCount: this.badNumberCount,
+          lastBadValueReason: this.lastBadValueReason,
+          lastBadValueNodeId: this.lastBadValueNodeId,
+          lastBadValueSource: this.lastBadValueSource,
+          inputPeak: this.inputMeterPeak,
+          inputRms: Math.sqrt(this.inputMeterSquareSum / Math.max(1, this.inputMeterSamples)),
+          avgBlockBudgetRatio: avgRatio,
+          avgBlockProcessMs: avgMs,
+          maxBlockBudgetRatio: this.maxBlockBudgetRatio,
+          maxBlockProcessMs: this.maxBlockProcessMs,
+          meterTimedOut: timedOut,
+          moduleCount,
+          timerResMs,
+          estimatedBudgetRatio: timedOut ? estimatedBudgetRatio : 0,
+          dspCostUnits: costUnits,
+          upperBoundBudgetRatio: timedOut && budgetMs > 0 ? (timerResMs / budgetMs) : 0,
+          missedQuantumCount: this.meterMissedQuantumCount,
+          overrunCount: this.meterOverrunCount,
+          peak: this.meterPeak,
+          protectionNodeId: this.speakerProtectionNodeId || "",
+          protectionPeak: Number(this.speakerProtectionPeak) || 0,
+          protectionMuteCount: this.meterProtectionMuteCount,
+          protectionEngaged: Boolean(this.protectionEngaged),
+          protectionGain: Number.isFinite(Number(this.protectionGain)) ? Number(this.protectionGain) : 1,
+          sessionId: this.sessionId,
+          rms: Math.sqrt(this.meterSquareSum / Math.max(1, this.meterSamples)),
+          type: "meter",
+        });
+        this.meterCounter = 0;
+        this.inputMeterPeak = 0;
+        this.audioPlayerMeterNodeId = "";
+        this.audioPlayerMeterPhase = 0;
+        this.audioPlayerMeterSpeed = 0;
+        this.audioPlayerMeterSpeeds = Object.create(null);
+        this.audioPlayerMeterReason = "";
+        this.inputMeterSamples = 0;
+        this.inputMeterSquareSum = 0;
+        this.meterClipCount = 0;
+        this.badNumberCount = 0;
+        this.meterOverrunCount = 0;
+        this.meterMissedQuantumCount = 0;
+        this.lastBadValueReason = "";
+        this.lastBadValueNodeId = "";
+        this.lastBadValueSource = "";
+        this.meterPeak = 0;
+        this.meterProtectionMuteCount = 0;
+        this.speakerProtectionNodeId = "";
+        this.speakerProtectionPeak = 0;
+        this.meterSamples = 0;
+        this.meterSquareSum = 0;
+        this.dspMeterFrames = (Number(this.dspMeterFrames) || 0) + (sampleRate / 60);
+        if (this.dspMeterFrames >= sampleRate) {
+          this.dspMeterFrames = 0;
+          this.maxBlockProcessMs = 0;
+          this.maxBlockBudgetRatio = 0;
+          this.sumBlockProcessMs = 0;
+          this.blockProcessCount = 0;
+          this.zeroElapsedQuanta = 0;
+        }
+      }
+      if (this.gpuAdditiveStatusCounter >= sampleRate / 20) {
+        this.gpuAdditiveStatusCounter = 0;
+        this.postGpuAdditiveStatus?.();
+      }
+      return true;
+    }
+
+    // Legacy ?product=full sample loop (evaluateFrame). Unreachable when efficientProduct.
+    {
       for (let frame = 0; frame < frames; frame += 1) {
         const rawLeft = Number(input[0]?.[frame]);
         const rawRight = Number(input[1]?.[frame]);
