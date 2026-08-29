@@ -943,8 +943,8 @@ const nodeGraphModuleDefinitions = (
         max: "20000",
         mid: "440",
         min: "0",
-        // World time by default; self stash 0.0333 s + 1P when switched to Self.
-        smoothingMode: "global",
+        // Per-knob SMOOTH time (Internal). Global mode ignored the field.
+        smoothingMode: "internal",
         smoothingSeconds: 0.0333,
         smoothingType: "onePole",
         step: "any",

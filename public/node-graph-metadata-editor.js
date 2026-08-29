@@ -2462,6 +2462,19 @@ function readNodeMetadataEditorValues(slider) {
   const smoothingType = normalizeNodeGraphMetadataSmoothingType(
     document.getElementById("metadataSmoothingTypeGroup")?.dataset.type,
   );
+  let smoothingMode = normalizeNodeGraphMetadataSmoothingMode(
+    document.getElementById("metadataSmoothingModeGroup")?.dataset.mode,
+  );
+  // Editing SMOOTH while SOURCE is Global does nothing (global ignores the
+  // field). Promote to Internal so the value the user typed actually applies.
+  const secondsFieldTouched = smoothingSecondsInput !== "";
+  if (secondsFieldTouched && smoothingMode === "global") {
+    smoothingMode = "internal";
+    const modeGroup = document.getElementById("metadataSmoothingModeGroup");
+    if (modeGroup) {
+      modeGroup.dataset.mode = "internal";
+    }
+  }
   return {
     alias: normalizeNodeGraphPatchMetadataAlias(document.getElementById("metadataAliasValue").value),
     tooltip: nodeGraphMetadataClampTooltipText(
@@ -2490,9 +2503,7 @@ function readNodeMetadataEditorValues(slider) {
       ? nodeGraphMetadataLinearSmoothingFromType(smoothingType)
       : smoothingType !== "none",
     nonlinearSlider: document.getElementById("metadataSliderCurveValue").value !== "linear",
-    smoothingMode: normalizeNodeGraphMetadataSmoothingMode(
-      document.getElementById("metadataSmoothingModeGroup")?.dataset.mode,
-    ),
+    smoothingMode,
     smoothingType,
     smoothingSeconds,
     sliderCurve: normalizeNodeSliderCurve(document.getElementById("metadataSliderCurveValue").value),

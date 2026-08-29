@@ -154,6 +154,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphE
     && n?.soemdsp_graph_add_node
     && n?.soemdsp_graph_connect
     && n?.soemdsp_graph_set_param
+    && n?.soemdsp_graph_set_bypassed
     && n?.soemdsp_graph_set_sample_rate
     && n?.soemdsp_graph_compile
     && n?.soemdsp_graph_process_block
@@ -162,6 +163,72 @@ NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphE
     && n?.soemdsp_graph_node_port_ptr
     && n?.soemdsp_graph_max_block_frames
   );
+};
+
+/** Topology fingerprint — bypass-only changes must NOT rebuild natives. */
+NodeLiveAudioProcessor.prototype.nativeGraphTopologyKey = function nativeGraphTopologyKey() {
+  const audioTypes = NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS;
+  const nodeParts = [];
+  for (const [id, node] of this.nodes) {
+    const type = String(node?.type || "");
+    if (!Object.prototype.hasOwnProperty.call(audioTypes, type)) continue;
+    nodeParts.push(`${id}\0${type}`);
+  }
+  nodeParts.sort();
+  const connParts = [];
+  const connections = Array.isArray(this._planConnections) ? this._planConnections : [];
+  for (const c of connections) {
+    const src = String(c?.sourceNode || "");
+    const dst = String(c?.destinationNode || "");
+    if (!src || !dst) continue;
+    connParts.push(
+      `${src}\0${String(c?.sourcePort || "")}\0${dst}\0${String(c?.destinationPort || "")}`,
+    );
+  }
+  connParts.sort();
+  return `${nodeParts.join("|")}#${connParts.join("|")}`;
+};
+
+NodeLiveAudioProcessor.prototype.syncNativeGraphBypass = function syncNativeGraphBypass() {
+  if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+    return;
+  }
+  const native = this.nativeGraph;
+  if (!native?.soemdsp_graph_set_bypassed) return;
+  const audioTypes = NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS;
+  for (const [id, node] of this.nodes) {
+    const type = String(node?.type || "");
+    if (!Object.prototype.hasOwnProperty.call(audioTypes, type)) continue;
+    const hash = this.fnv1aHash32(id);
+    try {
+      native.soemdsp_graph_set_bypassed(
+        this.nativeGraphHandle,
+        hash,
+        node?.bypassed ? 1 : 0,
+      );
+    } catch (_e) { /* ignore */ }
+  }
+};
+
+/** Recompile only when nodes/wires change; bypass is a light flag sync. */
+NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlan = function syncNativeGraphFromPlan() {
+  if (!this.efficientProduct) return false;
+  const key = this.nativeGraphTopologyKey();
+  if (this.nativeGraphCompiled && key === this._nativeGraphTopologyKey) {
+    this.syncNativeGraphBypass();
+    if (typeof this.syncNativeGraphParams === "function") {
+      this.syncNativeGraphParams();
+    }
+    return true;
+  }
+  const ok = this.compileNativeGraphFromPlan();
+  if (ok) {
+    this._nativeGraphTopologyKey = key;
+    this.syncNativeGraphBypass();
+  } else {
+    this._nativeGraphTopologyKey = "";
+  }
+  return ok;
 };
 
 /**
@@ -388,6 +455,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
  */
 NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNativeGraphFromPlan() {
   this.nativeGraphCompiled = false;
+  this._nativeGraphTopologyKey = "";
   this.nativeGraphBlockViews = null;
   this.nativeGraphPortViewCache = null;
   this._nativeGraphParamCache = null;
@@ -470,11 +538,14 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     }
 
     this.nativeGraphCompiled = true;
+    this._nativeGraphTopologyKey = this.nativeGraphTopologyKey();
     this.syncNativeGraphParams();
+    this.syncNativeGraphBypass();
     this.postNativeGraphStatus("compiled", `nodes=${nodes.length}`);
     return true;
   } catch (error) {
     this.nativeGraphCompiled = false;
+    this._nativeGraphTopologyKey = "";
     this.postNativeGraphStatus("error", String(error?.message || error || "compile threw"));
     return false;
   }

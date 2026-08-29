@@ -176,9 +176,14 @@ NodeLiveAudioProcessor.prototype.setConnections = function setConnections(plan, 
     if (graphData) {
       this.setGraphData(graphData);
     }
-    // Efficient mode: keep native topology in sync when host skips full setPlan.
-    if (this.efficientProduct && typeof this.compileNativeGraphFromPlan === "function") {
-      this.compileNativeGraphFromPlan();
+    // Efficient mode: recompile only if wires/nodes changed. Bypass is a flag —
+    // never clear/recreate natives (that wiped reverb/delay tails).
+    if (this.efficientProduct) {
+      if (typeof this.syncNativeGraphFromPlan === "function") {
+        this.syncNativeGraphFromPlan();
+      } else if (typeof this.compileNativeGraphFromPlan === "function") {
+        this.compileNativeGraphFromPlan();
+      }
     }
 };
 

@@ -179,6 +179,7 @@ struct Node {
   unsigned int idHash;
   int typeId;
   bool used;
+  bool bypassed; // dry/silence passthrough; DSP state kept (no recreate)
   int nativeHandle;
   int nativeKind; // type at create time — destroy keys off this, not typeId
   float volumeDb;
@@ -288,6 +289,7 @@ static void destroy_node_native(Node& n) {
 
 static void init_node_defaults(Node& n, int typeId) {
   n.typeId = typeId;
+  n.bypassed = false;
   n.nativeHandle = 0;
   n.nativeKind = 0;
   n.volumeDb = -3.0f;
@@ -831,6 +833,32 @@ static void process_output(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Bypass: route dry audio (or silence for sources). Do NOT call native
+// process_block / reset — tails and filter state stay warm.
+static void process_bypass(Circuit& g, Node& node, int frames) {
+  if (node.typeId == kTypePolyBlep) {
+    return; // sources: silence
+  }
+  if (node.typeId == kTypeOutput) {
+    process_output(g, node, frames);
+    return;
+  }
+  mix_node_inputs(g, node, frames);
+  for (int f = 0; f < frames; f++) {
+    const double mono = g.mixMono[f];
+    const double left = mono + g.mixLeft[f];
+    const double right = mono + g.mixRight[f];
+    node.buf[kPortMono][f] = mono + g.mixLeft[f] + g.mixRight[f];
+    node.buf[kPortLeft][f] = left;
+    node.buf[kPortRight][f] = right;
+    if (node.typeId == kTypeReverbEffect) {
+      // Dry + Mix both carry dry while bypassed (JS reverb bypass policy).
+      node.buf[kPortDryL][f] = left;
+      node.buf[kPortDryR][f] = right;
+    }
+  }
+}
+
 }  // namespace
 
 extern "C" int soemdsp_graph_create() {
@@ -937,6 +965,15 @@ extern "C" int soemdsp_graph_connect(
   c.dstHash = dstHash;
   c.dstPort = clamp_dst_port(dstPort);
   g->connCount += 1;
+  return 0;
+}
+
+extern "C" int soemdsp_graph_set_bypassed(int handle, unsigned int nodeHash, int bypassed) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return -2;
+  g->nodes[idx].bypassed = bypassed != 0;
   return 0;
 }
 
@@ -1068,6 +1105,11 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     Node& node = g->nodes[ni];
     for (int c = 0; c < kChannels; c++) zero_buf(node.buf[c], frames);
 
+    if (node.bypassed) {
+      process_bypass(*g, node, frames);
+      continue;
+    }
+
     if (node.typeId == kTypePolyBlep) {
       process_polyblep(*g, node, frames);
       continue;
@@ -1123,5 +1165,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 7; // PR-E4 review: Reset edge latch + polyblep_reset
+  return 8; // bypass flag: dry passthrough without destroying DSP state
 }
