@@ -222,7 +222,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphSmoothModeFromMeta = function native
   return 0; // internal (default)
 };
 
-/** Map patch smoothingType → native (0 onePole, 1 linear, 2 twoPole, 3 none). */
+/** Map patch smoothingType → native (0 1P, 1 L, 2 2P, 3 none, 4 Π, 5 3P). */
 NodeLiveAudioProcessor.prototype.nativeGraphSmoothTypeFromMeta = function nativeGraphSmoothTypeFromMeta(
   metadata = {},
 ) {
@@ -236,6 +236,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphSmoothTypeFromMeta = function native
   if (type === "twoPole") return 2;
   if (type === "none" || type === "off" || type === "instant") return 3;
   if (type === "papoulis") return 4;
+  if (type === "threePole") return 5;
   return 0; // onePole
 };
 

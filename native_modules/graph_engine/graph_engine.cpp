@@ -223,14 +223,16 @@ static const unsigned char kSmoothTypeLinear = 1;
 static const unsigned char kSmoothTypeTwoPole = 2;
 static const unsigned char kSmoothTypeNone = 3; // instant
 static const unsigned char kSmoothTypePapoulis = 4;
+static const unsigned char kSmoothTypeThreePole = 5; // 3× real one-pole (no overshoot)
 
 // Freestanding Control slot: host writes target/time; DSP reads out.
 struct Control {
   double target;
   double timeSamples; // internal cell; <=0 → default seconds*sr when resolving
   double out;
-  double coeff; // one/two-pole b0, or linear increment (cached)
-  double stage1; // two-pole first stage
+  double coeff; // one/two/three-pole b0, or linear increment (cached)
+  double stage1; // multi-pole cascade stage
+  double stage2; // three-pole second stage
   int papHandle; // soemdsp_papoulis_filter_* instance (0 = none)
   bool dirty;
   bool active;
@@ -388,6 +390,7 @@ static void init_control(Control& c, double value, bool snap) {
   c.timeSamples = 0.0; // resolve → default seconds * sr
   c.coeff = 1.0;
   c.stage1 = value;
+  c.stage2 = value;
   c.papHandle = 0;
   c.dirty = true;
   c.active = false;
@@ -567,7 +570,7 @@ static void control_ensure_coeff(Control& c, Circuit& g) {
     return;
   }
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  // Match JS onePole / twoPole: frequencyHz = 1/seconds = sr/tSamples
+  // Match JS onePole / twoPole / threePole: frequencyHz = 1/seconds = sr/tSamples
   const double frequencyValue = sr / t;
   double wUnit = kTwoPi / sr;
   if (wUnit > 0.000142475857) wUnit = 0.000142475857;
@@ -591,6 +594,7 @@ static void control_set_target(Circuit& g, Control& c, double value) {
   if (c.snap || c.type == kSmoothTypeNone) {
     c.out = value;
     c.stage1 = value;
+    c.stage2 = value;
     if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, value);
     return;
   }
@@ -599,12 +603,14 @@ static void control_set_target(Circuit& g, Control& c, double value) {
     if (resolve_control_time_samples(c, g) <= 0.0) {
       c.out = value;
       c.stage1 = value;
+      c.stage2 = value;
       if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, value);
       return;
     }
     if (dsp_fabs(c.out - c.target) <= kPlanck) {
       c.out = value;
       c.stage1 = value;
+      c.stage2 = value;
       if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, value);
       return;
     }
@@ -615,11 +621,13 @@ static void control_set_target(Circuit& g, Control& c, double value) {
   if (c.type != kSmoothTypeLinear && (c.coeff >= 1.0 - 1e-15 || resolve_control_time_samples(c, g) <= 0.0)) {
     c.out = value;
     c.stage1 = value;
+    c.stage2 = value;
     return;
   }
   if (dsp_fabs(c.out - c.target) <= kPlanck) {
     c.out = value;
     c.stage1 = value;
+    c.stage2 = value;
     return;
   }
   smoother_add(g, c);
@@ -637,6 +645,7 @@ static void control_step(Control& c, Circuit& g) {
   if (c.snap || c.type == kSmoothTypeNone) {
     c.out = c.target;
     c.stage1 = c.target;
+    c.stage2 = c.target;
     if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, c.target);
     return;
   }
@@ -647,6 +656,7 @@ static void control_step(Control& c, Circuit& g) {
     if (c.papHandle <= 0 || !(t > 0.0)) {
       c.out = c.target;
       c.stage1 = c.target;
+      c.stage2 = c.target;
       if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, c.target);
       return;
     }
@@ -654,12 +664,14 @@ static void control_step(Control& c, Circuit& g) {
     const double cutoffHz = sr / t;
     c.out = soemdsp_papoulis_filter_sample(c.papHandle, c.target, cutoffHz, sr);
     c.stage1 = c.out;
+    c.stage2 = c.out;
     return;
   }
   control_ensure_coeff(c, g);
   if (c.coeff >= 1.0 - 1e-15) {
     c.out = c.target;
     c.stage1 = c.target;
+    c.stage2 = c.target;
     return;
   }
   if (c.type == kSmoothTypeLinear) {
@@ -669,6 +681,7 @@ static void control_step(Control& c, Circuit& g) {
     if ((inc > 0.0 && c.out > c.target) || (inc < 0.0 && c.out < c.target) || dsp_fabs(inc) < 1e-30) {
       c.out = c.target;
       c.stage1 = c.target;
+      c.stage2 = c.target;
     }
     return;
   }
@@ -676,6 +689,13 @@ static void control_step(Control& c, Circuit& g) {
     // Cascaded one-poles (same b0), matching JS twoPole.
     c.stage1 += c.coeff * (c.target - c.stage1);
     c.out += c.coeff * (c.stage1 - c.out);
+    return;
+  }
+  if (c.type == kSmoothTypeThreePole) {
+    // 3× real one-pole: steeper than 2P, never overshoots (unlike Π).
+    c.stage1 += c.coeff * (c.target - c.stage1);
+    c.stage2 += c.coeff * (c.stage1 - c.stage2);
+    c.out += c.coeff * (c.stage2 - c.out);
     return;
   }
   // onePole (default)
@@ -734,6 +754,7 @@ static void smoother_clean(Circuit& g) {
     if (dsp_fabs(c->out - c->target) <= kPlanck) {
       c->out = c->target;
       c->stage1 = c->target;
+      c->stage2 = c->target;
       c->active = false;
       if (c->papHandle > 0) soemdsp_papoulis_filter_snap(c->papHandle, c->target);
       continue;
@@ -1540,6 +1561,7 @@ extern "C" int soemdsp_graph_set_smooth_type(
   else if (type == (int)kSmoothTypeTwoPole) t = kSmoothTypeTwoPole;
   else if (type == (int)kSmoothTypeNone) t = kSmoothTypeNone;
   else if (type == (int)kSmoothTypePapoulis) t = kSmoothTypePapoulis;
+  else if (type == (int)kSmoothTypeThreePole) t = kSmoothTypeThreePole;
   if (c->type == t) return 0;
   if (c->type == kSmoothTypePapoulis && t != kSmoothTypePapoulis) {
     control_release_papoulis(*c);
@@ -1547,12 +1569,14 @@ extern "C" int soemdsp_graph_set_smooth_type(
   c->type = t;
   c->dirty = true;
   c->stage1 = c->out;
+  c->stage2 = c->out;
   if (t == kSmoothTypePapoulis) {
     control_ensure_papoulis(*c);
   }
   if (t == kSmoothTypeNone || c->snap) {
     c->out = c->target;
     c->stage1 = c->target;
+    c->stage2 = c->target;
     if (c->papHandle > 0) soemdsp_papoulis_filter_snap(c->papHandle, c->target);
     return 0;
   }
@@ -1751,5 +1775,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 13; // Control Papoulis via papoulis_filter native
+  return 14; // Control threePole (3× real one-pole)
 }

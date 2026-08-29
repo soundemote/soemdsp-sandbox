@@ -5,11 +5,12 @@
 //
 // Register new types with nodeGraphRegisterParameterSmootherFilter(...).
 // Types:
-//   linear   — time-based linear lerp (L): always takes the full smoothing time
-//   onePole  — exponential chase (1P)
-//   twoPole  — cascaded one-poles (2P)
-//   papoulis — Optimum-L order-3 (Π)
-//   none     — instant snap (legacy linearSmoothing=false; not a UI L button)
+//   linear    — time-based linear lerp (L): always takes the full smoothing time
+//   onePole   — exponential chase (1P)
+//   twoPole   — cascaded one-poles (2P)
+//   threePole — cascaded one-poles ×3 (3P): steeper than 2P, no overshoot
+//   papoulis  — Optimum-L order-3 (Π); can overshoot on steps
+//   none      — instant snap (legacy linearSmoothing=false; not a UI L button)
 //
 // Smoothing SOURCE (global / internal / off) still chooses the time constant.
 // SOURCE=off snaps. Unset / 0 per-module time uses the shared 0.0333 s default.
@@ -32,6 +33,7 @@ const nodeGraphParameterSmootherFilterTypes = Object.freeze([
   "linear",
   "onePole",
   "twoPole",
+  "threePole",
   "papoulis",
   "none",
 ]);
@@ -51,6 +53,9 @@ function normalizeNodeGraphParameterSmootherFilterType(value) {
   }
   if (lower === "twopole" || lower === "2p" || lower === "two-pole" || lower === "2pole") {
     return "twoPole";
+  }
+  if (lower === "threepole" || lower === "3p" || lower === "three-pole" || lower === "3pole") {
+    return "threePole";
   }
   if (lower === "papoulis" || lower === "pi" || lower === "π") {
     return "papoulis";
@@ -293,6 +298,32 @@ nodeGraphRegisterParameterSmootherFilter("twoPole", {
   snap(state, target) {
     const v = Number(target) || 0;
     state.stage1 = v;
+    state.outputBuffer = v;
+  },
+});
+
+// ── three-pole: cascaded one-poles (3× same coeff) ───────────────────────
+// Steeper than 2P; all-real poles ⇒ no step overshoot (unlike Papoulis).
+
+nodeGraphRegisterParameterSmootherFilter("threePole", {
+  createState(initial = 0) {
+    const v = Number(initial) || 0;
+    return {
+      stage1: v,
+      stage2: v,
+      outputBuffer: v,
+    };
+  },
+  process(state, input, frequency, rate) {
+    const s1 = nodeGraphParameterSmootherOnePoleStep("stage1", state, input, frequency, rate);
+    const s2 = nodeGraphParameterSmootherOnePoleStep("stage2", state, s1, frequency, rate);
+    const out = nodeGraphParameterSmootherOnePoleStep("outputBuffer", state, s2, frequency, rate);
+    return out;
+  },
+  snap(state, target) {
+    const v = Number(target) || 0;
+    state.stage1 = v;
+    state.stage2 = v;
     state.outputBuffer = v;
   },
 });

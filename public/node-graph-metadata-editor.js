@@ -2057,9 +2057,11 @@ function nodeGraphSmoothingTypeStatusText(type) {
       // Discrete / legacy instant. User-facing “no smooth” is SOURCE ❌.
       return "Instant (no filter). For continuous params use SOURCE ❌ Off.";
     case "twoPole":
-      return "2P Two-pole - cascaded one poles (more smooth and less expensive than papoulis)";
+      return "2P Two-pole — cascaded one poles (more smooth, no overshoot).";
+    case "threePole":
+      return "3P Three-pole — cascaded one poles ×3 (steeper than 2P, no overshoot).";
     case "papoulis":
-      return "Π Papoulis - 3rd-order Optimum-L lowpass (most smooth but higher cpu usage)";
+      return "Π Papoulis — 3rd-order Optimum-L (steep; can overshoot / wiggle on steps).";
     case "onePole":
     default:
       return "1P One-pole — classic exponential parameter chase.";
