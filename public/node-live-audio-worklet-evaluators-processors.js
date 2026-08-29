@@ -3,7 +3,7 @@
 
 NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function buildLiveModuleEvaluators_processors() {
   return {
-      passiveFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      passiveFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.passiveFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createPassiveFilterState());
         this.passiveFilterStates.set(nodeId, state);
         const passiveMode = this.readEffectiveParameter(node, "mode", 0, frame, frames, frameValues);
@@ -32,26 +32,24 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           )
           : null;
         if (passiveCoeff && typeof nodeGraphPassiveFilterProcess === "function") {
-          return {
-            Out: this.safeFilterNumber(
-              nodeGraphPassiveFilterProcess(state.mono, passiveMono, passiveCoeff, safeRate, null, ""),
-              state.mono,
-            ),
-            Left: this.safeFilterNumber(
+          const outM = this.safeFilterNumber(
+            nodeGraphPassiveFilterProcess(state.mono, passiveMono, passiveCoeff, safeRate, null, ""),
+            state.mono,
+          );
+          return this.stereoProcessPorts(nodeId, hasInput, outM,
+            () => this.safeFilterNumber(
               nodeGraphPassiveFilterProcess(state.left, mixInput(nodeId, "Left") + passiveMono, passiveCoeff, safeRate, null, ""),
               state.left,
             ),
-            Right: this.safeFilterNumber(
+            () => this.safeFilterNumber(
               nodeGraphPassiveFilterProcess(state.right, mixInput(nodeId, "Right") + passiveMono, passiveCoeff, safeRate, null, ""),
               state.right,
-            ),
-          };
+            ));
         }
-        return {
-          Out: this.passiveFilterSample(state.mono, passiveMono, passiveMode, passiveLowFrequency, passiveHighFrequency, safeRate, passiveSlope, passiveStagger, passiveGainComp),
-          Left: this.passiveFilterSample(state.left, mixInput(nodeId, "Left") + passiveMono, passiveMode, passiveLowFrequency, passiveHighFrequency, safeRate, passiveSlope, passiveStagger, passiveGainComp),
-          Right: this.passiveFilterSample(state.right, mixInput(nodeId, "Right") + passiveMono, passiveMode, passiveLowFrequency, passiveHighFrequency, safeRate, passiveSlope, passiveStagger, passiveGainComp),
-        };
+        const outM = this.passiveFilterSample(state.mono, passiveMono, passiveMode, passiveLowFrequency, passiveHighFrequency, safeRate, passiveSlope, passiveStagger, passiveGainComp);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.passiveFilterSample(state.left, mixInput(nodeId, "Left") + passiveMono, passiveMode, passiveLowFrequency, passiveHighFrequency, safeRate, passiveSlope, passiveStagger, passiveGainComp),
+          () => this.passiveFilterSample(state.right, mixInput(nodeId, "Right") + passiveMono, passiveMode, passiveLowFrequency, passiveHighFrequency, safeRate, passiveSlope, passiveStagger, passiveGainComp));
       },
       papoulisFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.papoulisFilterStates.get(nodeId) || this.createPapoulisFilterState();
@@ -98,11 +96,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const cookbookGain = this.readEffectiveParameter(node, "gain", 0, frame, frames, frameValues);
         const cookbookStages = this.readEffectiveParameter(node, "stages", 2, frame, frames, frameValues);
         const cookbookMono = mixInput(nodeId);
-        return {
-          Out: this.cookbookFilterSample(state.mono, cookbookMono, cookbookMode, cookbookFrequency, cookbookQ, cookbookGain, cookbookStages, safeRate),
-          Left: this.cookbookFilterSample(state.left, mixInput(nodeId, "Left") + cookbookMono, cookbookMode, cookbookFrequency, cookbookQ, cookbookGain, cookbookStages, safeRate),
-          Right: this.cookbookFilterSample(state.right, mixInput(nodeId, "Right") + cookbookMono, cookbookMode, cookbookFrequency, cookbookQ, cookbookGain, cookbookStages, safeRate),
-        };
+        const outM = this.cookbookFilterSample(state.mono, cookbookMono, cookbookMode, cookbookFrequency, cookbookQ, cookbookGain, cookbookStages, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.cookbookFilterSample(state.left, mixInput(nodeId, "Left") + cookbookMono, cookbookMode, cookbookFrequency, cookbookQ, cookbookGain, cookbookStages, safeRate),
+          () => this.cookbookFilterSample(state.right, mixInput(nodeId, "Right") + cookbookMono, cookbookMode, cookbookFrequency, cookbookQ, cookbookGain, cookbookStages, safeRate));
       },
       ladderFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.ladderFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createLadderFilterState());
@@ -125,23 +122,15 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         };
         const ladderMono = mixInput(nodeId);
         const outM = this.ladderFilterSample(state.mono, ladderMono, ladderParams, safeRate);
-        // Mono-only patches must not pay for three independent filter instances.
-        const hasL = typeof hasInput === "function" && hasInput(nodeId, "Left");
-        const hasR = typeof hasInput === "function" && hasInput(nodeId, "Right");
-        if (!hasL && !hasR) {
-          return { Out: outM, Left: outM, Right: outM };
-        }
-        return {
-          Out: outM,
-          Left: hasL
-            ? this.ladderFilterSample(state.left, mixInput(nodeId, "Left") + ladderMono, ladderParams, safeRate)
-            : outM,
-          Right: hasR
-            ? this.ladderFilterSample(state.right, mixInput(nodeId, "Right") + ladderMono, ladderParams, safeRate)
-            : outM,
-        };
+        return this.stereoProcessPorts(
+          nodeId,
+          hasInput,
+          outM,
+          () => this.ladderFilterSample(state.left, mixInput(nodeId, "Left") + ladderMono, ladderParams, safeRate),
+          () => this.ladderFilterSample(state.right, mixInput(nodeId, "Right") + ladderMono, ladderParams, safeRate),
+        );
       },
-      flowerChildFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      flowerChildFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.flowerChildFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createFlowerChildFilterState());
         this.flowerChildFilterStates.set(nodeId, state);
         const flowerChildParams = {
@@ -151,11 +140,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           resonance: this.readEffectiveParameter(node, "resonance", 0.2, frame, frames, frameValues),
         };
         const flowerChildMono = mixInput(nodeId);
-        return {
-          Out: this.flowerChildFilterSample(state.mono, flowerChildMono, flowerChildParams, safeRate),
-          Left: this.flowerChildFilterSample(state.left, mixInput(nodeId, "Left") + flowerChildMono, flowerChildParams, safeRate),
-          Right: this.flowerChildFilterSample(state.right, mixInput(nodeId, "Right") + flowerChildMono, flowerChildParams, safeRate),
-        };
+        const outM = this.flowerChildFilterSample(state.mono, flowerChildMono, flowerChildParams, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.flowerChildFilterSample(state.left, mixInput(nodeId, "Left") + flowerChildMono, flowerChildParams, safeRate),
+          () => this.flowerChildFilterSample(state.right, mixInput(nodeId, "Right") + flowerChildMono, flowerChildParams, safeRate));
       },
       activeFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.activeFilterStates) {
@@ -188,11 +176,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           sweep: this.readEffectiveParameter(node, "sweep", 0, frame, frames, frameValues),
         };
         const activeMono = mixInput(nodeId);
-        return {
-          Out: this.activeFilterProcess(state.mono, activeMono, activeParams, safeRate),
-          Left: this.activeFilterProcess(state.left, mixInput(nodeId, "Left") + activeMono, activeParams, safeRate),
-          Right: this.activeFilterProcess(state.right, mixInput(nodeId, "Right") + activeMono, activeParams, safeRate),
-        };
+        const outM = this.activeFilterProcess(state.mono, activeMono, activeParams, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.activeFilterProcess(state.left, mixInput(nodeId, "Left") + activeMono, activeParams, safeRate),
+          () => this.activeFilterProcess(state.right, mixInput(nodeId, "Right") + activeMono, activeParams, safeRate));
       },
       butterworth: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.butterworthStates) this.butterworthStates = new Map();
@@ -206,7 +193,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const bandwidth = this.readEffectiveParameter(node, "bandwidth", 1, frame, frames, frameValues);
         const mono = mixInput(nodeId);
         const run = (ch, x) => this.scientificIirSample("butterworth", 0, ch, x, mode, frequency, order, bandwidth, 1, safeRate);
-        return { Out: run(state.mono, mono), Left: run(state.left, mixInput(nodeId, "Left") + mono), Right: run(state.right, mixInput(nodeId, "Right") + mono) };
+        const outM = run(state.mono, mono);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => run(state.left, mixInput(nodeId, "Left") + mono),
+          () => run(state.right, mixInput(nodeId, "Right") + mono));
       },
       linkwitzRiley: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.linkwitzRileyStates) this.linkwitzRileyStates = new Map();
@@ -220,7 +210,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const bandwidth = this.readEffectiveParameter(node, "bandwidth", 1, frame, frames, frameValues);
         const mono = mixInput(nodeId);
         const run = (ch, x) => this.scientificIirSample("linkwitzRiley", 1, ch, x, mode, frequency, order, bandwidth, 1, safeRate);
-        return { Out: run(state.mono, mono), Left: run(state.left, mixInput(nodeId, "Left") + mono), Right: run(state.right, mixInput(nodeId, "Right") + mono) };
+        const outM = run(state.mono, mono);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => run(state.left, mixInput(nodeId, "Left") + mono),
+          () => run(state.right, mixInput(nodeId, "Right") + mono));
       },
       bessel: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.besselStates) this.besselStates = new Map();
@@ -234,7 +227,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const bandwidth = this.readEffectiveParameter(node, "bandwidth", 1, frame, frames, frameValues);
         const mono = mixInput(nodeId);
         const run = (ch, x) => this.scientificIirSample("bessel", 2, ch, x, mode, frequency, order, bandwidth, 1, safeRate);
-        return { Out: run(state.mono, mono), Left: run(state.left, mixInput(nodeId, "Left") + mono), Right: run(state.right, mixInput(nodeId, "Right") + mono) };
+        const outM = run(state.mono, mono);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => run(state.left, mixInput(nodeId, "Left") + mono),
+          () => run(state.right, mixInput(nodeId, "Right") + mono));
       },
       chebyshev: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.chebyshevStates) this.chebyshevStates = new Map();
@@ -249,7 +245,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const ripple = this.readEffectiveParameter(node, "ripple", 1, frame, frames, frameValues);
         const mono = mixInput(nodeId);
         const run = (ch, x) => this.scientificIirSample("chebyshev", 3, ch, x, mode, frequency, order, bandwidth, ripple, safeRate);
-        return { Out: run(state.mono, mono), Left: run(state.left, mixInput(nodeId, "Left") + mono), Right: run(state.right, mixInput(nodeId, "Right") + mono) };
+        const outM = run(state.mono, mono);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => run(state.left, mixInput(nodeId, "Left") + mono),
+          () => run(state.right, mixInput(nodeId, "Right") + mono));
       },
       elliptic: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.ellipticStates) this.ellipticStates = new Map();
@@ -264,9 +263,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const ripple = this.readEffectiveParameter(node, "ripple", 1, frame, frames, frameValues);
         const mono = mixInput(nodeId);
         const run = (ch, x) => this.scientificIirSample("elliptic", 4, ch, x, mode, frequency, order, bandwidth, ripple, safeRate);
-        return { Out: run(state.mono, mono), Left: run(state.left, mixInput(nodeId, "Left") + mono), Right: run(state.right, mixInput(nodeId, "Right") + mono) };
+        const outM = run(state.mono, mono);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => run(state.left, mixInput(nodeId, "Left") + mono),
+          () => run(state.right, mixInput(nodeId, "Right") + mono));
       },
-      bandpass: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      bandpass: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.bandpassStates) this.bandpassStates = new Map();
         const state = this.bandpassStates.get(nodeId) || this.createStereoBandpassState();
         this.bandpassStates.set(nodeId, state);
@@ -274,13 +276,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const frequency = this.resolveSoftpopOrBandpassHz(node, nodeId, baseFreq, frame, frames, frameValues, mixInput);
         const q = this.readEffectiveParameter(node, "q", 1, frame, frames, frameValues);
         const mono = mixInput(nodeId);
-        return {
-          Out: this.bandpassSample(state.mono, mono, frequency, q, safeRate),
-          Left: this.bandpassSample(state.left, mixInput(nodeId, "Left") + mono, frequency, q, safeRate),
-          Right: this.bandpassSample(state.right, mixInput(nodeId, "Right") + mono, frequency, q, safeRate),
-        };
+        const outM = this.bandpassSample(state.mono, mono, frequency, q, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.bandpassSample(state.left, mixInput(nodeId, "Left") + mono, frequency, q, safeRate),
+          () => this.bandpassSample(state.right, mixInput(nodeId, "Right") + mono, frequency, q, safeRate));
       },
-      allpass: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      allpass: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.allpassStates) this.allpassStates = new Map();
         const state = this.allpassStates.get(nodeId) || this.createStereoAllpassState();
         this.allpassStates.set(nodeId, state);
@@ -288,11 +289,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const frequency = this.resolveSoftpopOrBandpassHz(node, nodeId, baseFreq, frame, frames, frameValues, mixInput);
         const q = this.readEffectiveParameter(node, "q", 0.707, frame, frames, frameValues);
         const mono = mixInput(nodeId);
-        return {
-          Out: this.allpassSample(state.mono, mono, frequency, q, safeRate),
-          Left: this.allpassSample(state.left, mixInput(nodeId, "Left") + mono, frequency, q, safeRate),
-          Right: this.allpassSample(state.right, mixInput(nodeId, "Right") + mono, frequency, q, safeRate),
-        };
+        const outM = this.allpassSample(state.mono, mono, frequency, q, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.allpassSample(state.left, mixInput(nodeId, "Left") + mono, frequency, q, safeRate),
+          () => this.allpassSample(state.right, mixInput(nodeId, "Right") + mono, frequency, q, safeRate));
       },
       crossover2: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         return this.crossoverEvaluator(2, node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput);
@@ -439,29 +439,26 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const audioIn = this.safeFilterNumber(mixInput(nodeId), null) ?? 0;
         return this.bodeSample(state, audioIn, shift, fine, feedback, mix, safeRate);
       },
-      formantFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      formantFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const mono = mixInput(nodeId);
-        return {
-          Out: this.formantFilterSample(null, mono),
-          Left: this.formantFilterSample(null, mixInput(nodeId, "Left") + mono),
-          Right: this.formantFilterSample(null, mixInput(nodeId, "Right") + mono),
-        };
+        const outM = this.formantFilterSample(null, mono);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.formantFilterSample(null, mixInput(nodeId, "Left") + mono),
+          () => this.formantFilterSample(null, mixInput(nodeId, "Right") + mono));
       },
-      besselThomson: (node, nodeId, frame, frames, frameValues, mixInput) => {
+      besselThomson: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const mono = mixInput(nodeId);
-        return {
-          Out: this.besselThomsonSample(null, mono),
-          Left: this.besselThomsonSample(null, mixInput(nodeId, "Left") + mono),
-          Right: this.besselThomsonSample(null, mixInput(nodeId, "Right") + mono),
-        };
+        const outM = this.besselThomsonSample(null, mono);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.besselThomsonSample(null, mixInput(nodeId, "Left") + mono),
+          () => this.besselThomsonSample(null, mixInput(nodeId, "Right") + mono));
       },
-      massSpringDamper: (node, nodeId, frame, frames, frameValues, mixInput) => {
+      massSpringDamper: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const mono = mixInput(nodeId);
-        return {
-          Out: this.massSpringDamperSample(null, mono),
-          Left: this.massSpringDamperSample(null, mixInput(nodeId, "Left") + mono),
-          Right: this.massSpringDamperSample(null, mixInput(nodeId, "Right") + mono),
-        };
+        const outM = this.massSpringDamperSample(null, mono);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.massSpringDamperSample(null, mixInput(nodeId, "Left") + mono),
+          () => this.massSpringDamperSample(null, mixInput(nodeId, "Right") + mono));
       },
       binaryClock: () => this.binaryClockSample(),
       theremin: () => this.thereminSample(),
@@ -472,7 +469,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       wavetable2d: () => this.wavetable2dSample(),
       wavetable3d: () => this.wavetable3dSample(),
       pixelGrid: () => this.pixelGridSample(),
-      yellowjacketFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      yellowjacketFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.yellowjacketFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createYellowjacketFilterState());
         this.yellowjacketFilterStates.set(nodeId, state);
         const yellowjacketParams = {
@@ -481,13 +478,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           resonance: this.readEffectiveParameter(node, "resonance", 0.2, frame, frames, frameValues),
         };
         const yellowjacketMono = mixInput(nodeId);
-        return {
-          Out: this.yellowjacketFilterSample(state.mono, yellowjacketMono, yellowjacketParams, safeRate),
-          Left: this.yellowjacketFilterSample(state.left, mixInput(nodeId, "Left") + yellowjacketMono, yellowjacketParams, safeRate),
-          Right: this.yellowjacketFilterSample(state.right, mixInput(nodeId, "Right") + yellowjacketMono, yellowjacketParams, safeRate),
-        };
+        const outM = this.yellowjacketFilterSample(state.mono, yellowjacketMono, yellowjacketParams, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.yellowjacketFilterSample(state.left, mixInput(nodeId, "Left") + yellowjacketMono, yellowjacketParams, safeRate),
+          () => this.yellowjacketFilterSample(state.right, mixInput(nodeId, "Right") + yellowjacketMono, yellowjacketParams, safeRate));
       },
-      superloveFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      superloveFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.superloveFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createSuperloveFilterState());
         this.superloveFilterStates.set(nodeId, state);
         const superloveParams = {
@@ -497,13 +493,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           resonance: this.readEffectiveParameter(node, "resonance", 0.2, frame, frames, frameValues),
         };
         const superloveMono = mixInput(nodeId);
-        return {
-          Out: this.superloveFilterSample(state.mono, superloveMono, superloveParams, safeRate),
-          Left: this.superloveFilterSample(state.left, mixInput(nodeId, "Left") + superloveMono, superloveParams, safeRate),
-          Right: this.superloveFilterSample(state.right, mixInput(nodeId, "Right") + superloveMono, superloveParams, safeRate),
-        };
+        const outM = this.superloveFilterSample(state.mono, superloveMono, superloveParams, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.superloveFilterSample(state.left, mixInput(nodeId, "Left") + superloveMono, superloveParams, safeRate),
+          () => this.superloveFilterSample(state.right, mixInput(nodeId, "Right") + superloveMono, superloveParams, safeRate));
       },
-      chaoticPhaseLockingFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      chaoticPhaseLockingFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.chaoticPhaseLockingFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createChaoticPhaseLockingFilterState());
         this.chaoticPhaseLockingFilterStates.set(nodeId, state);
         const chaoticPhaseLockingParams = {
@@ -512,13 +507,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           resonance: this.readEffectiveParameter(node, "resonance", 0.2, frame, frames, frameValues),
         };
         const chaoticPhaseLockingMono = mixInput(nodeId);
-        return {
-          Out: this.chaoticPhaseLockingFilterSample(state.mono, chaoticPhaseLockingMono, chaoticPhaseLockingParams, safeRate),
-          Left: this.chaoticPhaseLockingFilterSample(state.left, mixInput(nodeId, "Left") + chaoticPhaseLockingMono, chaoticPhaseLockingParams, safeRate),
-          Right: this.chaoticPhaseLockingFilterSample(state.right, mixInput(nodeId, "Right") + chaoticPhaseLockingMono, chaoticPhaseLockingParams, safeRate),
-        };
+        const outM = this.chaoticPhaseLockingFilterSample(state.mono, chaoticPhaseLockingMono, chaoticPhaseLockingParams, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.chaoticPhaseLockingFilterSample(state.left, mixInput(nodeId, "Left") + chaoticPhaseLockingMono, chaoticPhaseLockingParams, safeRate),
+          () => this.chaoticPhaseLockingFilterSample(state.right, mixInput(nodeId, "Right") + chaoticPhaseLockingMono, chaoticPhaseLockingParams, safeRate));
       },
-      resonatorFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      resonatorFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.resonatorFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createResonatorFilterState());
         this.resonatorFilterStates.set(nodeId, state);
         const resonatorParams = {
@@ -528,13 +522,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           resonance: this.readEffectiveParameter(node, "resonance", 0.2, frame, frames, frameValues),
         };
         const resonatorMono = mixInput(nodeId);
-        return {
-          Out: this.resonatorFilterSample(state.mono, resonatorMono, resonatorParams, safeRate),
-          Left: this.resonatorFilterSample(state.left, mixInput(nodeId, "Left") + resonatorMono, resonatorParams, safeRate),
-          Right: this.resonatorFilterSample(state.right, mixInput(nodeId, "Right") + resonatorMono, resonatorParams, safeRate),
-        };
+        const outM = this.resonatorFilterSample(state.mono, resonatorMono, resonatorParams, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.resonatorFilterSample(state.left, mixInput(nodeId, "Left") + resonatorMono, resonatorParams, safeRate),
+          () => this.resonatorFilterSample(state.right, mixInput(nodeId, "Right") + resonatorMono, resonatorParams, safeRate));
       },
-      humanFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      humanFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.humanFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createHumanFilterState());
         this.humanFilterStates.set(nodeId, state);
         const humanFilterParams = {
@@ -544,11 +537,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           resonance: this.readEffectiveParameter(node, "resonance", 0.2, frame, frames, frameValues),
         };
         const humanFilterMono = mixInput(nodeId);
-        return {
-          Out: this.humanFilterSample(state.mono, humanFilterMono, humanFilterParams, safeRate),
-          Left: this.humanFilterSample(state.left, mixInput(nodeId, "Left") + humanFilterMono, humanFilterParams, safeRate),
-          Right: this.humanFilterSample(state.right, mixInput(nodeId, "Right") + humanFilterMono, humanFilterParams, safeRate),
-        };
+        const outM = this.humanFilterSample(state.mono, humanFilterMono, humanFilterParams, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.humanFilterSample(state.left, mixInput(nodeId, "Left") + humanFilterMono, humanFilterParams, safeRate),
+          () => this.humanFilterSample(state.right, mixInput(nodeId, "Right") + humanFilterMono, humanFilterParams, safeRate));
       },
       tb303Filter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.tb303FilterStates.get(nodeId) || this.createStereoFilterState(() => this.createTb303FilterState());
@@ -563,11 +555,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           resonance: read("resonance", 0),
         };
         const tb303Mono = mixInput(nodeId);
-        return {
-          Out: this.tb303FilterSample(state.mono, tb303Mono, tb303Params, safeRate),
-          Left: this.tb303FilterSample(state.left, mixInput(nodeId, "Left") + tb303Mono, tb303Params, safeRate),
-          Right: this.tb303FilterSample(state.right, mixInput(nodeId, "Right") + tb303Mono, tb303Params, safeRate),
-        };
+        const outM = this.tb303FilterSample(state.mono, tb303Mono, tb303Params, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.tb303FilterSample(state.left, mixInput(nodeId, "Left") + tb303Mono, tb303Params, safeRate),
+          () => this.tb303FilterSample(state.right, mixInput(nodeId, "Right") + tb303Mono, tb303Params, safeRate));
       },
       comparator: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.comparatorStates.get(nodeId) || this.createComparatorState();
@@ -887,7 +878,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           safeRate,
         );
       },
-      slewLimiter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      slewLimiter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.slewLimiterStates.get(nodeId) || this.createStereoSlewLimiterState();
         this.slewLimiterStates.set(nodeId, state);
         const slewUpTime = this.readEffectiveParameter(node, "upTime", 0.05, frame, frames, frameValues);
@@ -895,11 +886,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const slewShape = this.readEffectiveParameter(node, "shape", 0, frame, frames, frameValues);
         const slewBias = this.readEffectiveParameter(node, "bias", 0, frame, frames, frameValues);
         const slewMono = mixInput(nodeId) + slewBias;
-        return {
-          Out: this.slewLimiterSample(state.mono, slewMono, slewUpTime, slewDownTime, safeRate, slewShape),
-          Left: this.slewLimiterSample(state.left, mixInput(nodeId, "Left") + slewMono, slewUpTime, slewDownTime, safeRate, slewShape),
-          Right: this.slewLimiterSample(state.right, mixInput(nodeId, "Right") + slewMono, slewUpTime, slewDownTime, safeRate, slewShape),
-        };
+        const outM = this.slewLimiterSample(state.mono, slewMono, slewUpTime, slewDownTime, safeRate, slewShape);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.slewLimiterSample(state.left, mixInput(nodeId, "Left") + slewMono, slewUpTime, slewDownTime, safeRate, slewShape),
+          () => this.slewLimiterSample(state.right, mixInput(nodeId, "Right") + slewMono, slewUpTime, slewDownTime, safeRate, slewShape));
       },
       // Stereo → Mid/Side (0.5 matrix). Math: mid-side-encode-math.js.
       midSideEncode: (node, nodeId, frame, frames, frameValues, mixInput) =>
@@ -980,7 +970,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues),
         );
       },
-      inertialFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      inertialFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.inertialFilterStates) {
           this.inertialFilterStates = new Map();
         }
@@ -989,11 +979,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const attackHz = this.readEffectiveParameter(node, "attack", 20000, frame, frames, frameValues);
         const releaseHz = this.readEffectiveParameter(node, "release", 20, frame, frames, frameValues);
         const mono = mixInput(nodeId);
-        return {
-          Out: this.inertialFilterSample(state.mono, mono, attackHz, releaseHz, safeRate),
-          Left: this.inertialFilterSample(state.left, mixInput(nodeId, "Left") + mono, attackHz, releaseHz, safeRate),
-          Right: this.inertialFilterSample(state.right, mixInput(nodeId, "Right") + mono, attackHz, releaseHz, safeRate),
-        };
+        const outM = this.inertialFilterSample(state.mono, mono, attackHz, releaseHz, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.inertialFilterSample(state.left, mixInput(nodeId, "Left") + mono, attackHz, releaseHz, safeRate),
+          () => this.inertialFilterSample(state.right, mixInput(nodeId, "Right") + mono, attackHz, releaseHz, safeRate));
       },
       tiltFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.tiltFilterStates) {
@@ -1007,11 +996,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           ? mixInput(nodeId, "f")
           : knobHz;
         const mono = mixInput(nodeId);
-        return {
-          Out: this.tiltFilterSample(state.mono, mono, amount, pivot, safeRate),
-          Left: this.tiltFilterSample(state.left, mixInput(nodeId, "Left") + mono, amount, pivot, safeRate),
-          Right: this.tiltFilterSample(state.right, mixInput(nodeId, "Right") + mono, amount, pivot, safeRate),
-        };
+        const outM = this.tiltFilterSample(state.mono, mono, amount, pivot, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.tiltFilterSample(state.left, mixInput(nodeId, "Left") + mono, amount, pivot, safeRate),
+          () => this.tiltFilterSample(state.right, mixInput(nodeId, "Right") + mono, amount, pivot, safeRate));
       },
       eqFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.eqFilterStates) {
@@ -1027,11 +1015,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const q = this.readEffectiveParameter(node, "q", 0.707, frame, frames, frameValues);
         const gain = this.readEffectiveParameter(node, "gain", 0, frame, frames, frameValues);
         const mono = mixInput(nodeId);
-        return {
-          Out: this.eqFilterSample(state.mono, mono, mode, frequency, q, gain, safeRate),
-          Left: this.eqFilterSample(state.left, mixInput(nodeId, "Left") + mono, mode, frequency, q, gain, safeRate),
-          Right: this.eqFilterSample(state.right, mixInput(nodeId, "Right") + mono, mode, frequency, q, gain, safeRate),
-        };
+        const outM = this.eqFilterSample(state.mono, mono, mode, frequency, q, gain, safeRate);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.eqFilterSample(state.left, mixInput(nodeId, "Left") + mono, mode, frequency, q, gain, safeRate),
+          () => this.eqFilterSample(state.right, mixInput(nodeId, "Right") + mono, mode, frequency, q, gain, safeRate));
       },
       sampleHold: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.sampleHoldStates.get(nodeId) || this.createStereoSampleHoldState();
@@ -1041,11 +1028,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const sampleHoldFrequency = this.readEffectiveParameter(node, "sampleFrequency", 0, frame, frames, frameValues);
         const sampleHoldMonoHasIn = hasInput(nodeId, "In");
         const sampleHoldMono = mixInput(nodeId, "In");
-        return {
-          Out: this.sampleHoldSample(state.mono, sampleHoldMono, sampleHoldTrigger, sampleHoldThreshold, sampleHoldFrequency, safeRate, sampleHoldMonoHasIn, `${nodeId}:mono`),
-          Left: this.sampleHoldSample(state.left, mixInput(nodeId, "Left") + sampleHoldMono, sampleHoldTrigger, sampleHoldThreshold, sampleHoldFrequency, safeRate, sampleHoldMonoHasIn || hasInput(nodeId, "Left"), `${nodeId}:left`),
-          Right: this.sampleHoldSample(state.right, mixInput(nodeId, "Right") + sampleHoldMono, sampleHoldTrigger, sampleHoldThreshold, sampleHoldFrequency, safeRate, sampleHoldMonoHasIn || hasInput(nodeId, "Right"), `${nodeId}:right`),
-        };
+        const outM = this.sampleHoldSample(state.mono, sampleHoldMono, sampleHoldTrigger, sampleHoldThreshold, sampleHoldFrequency, safeRate, sampleHoldMonoHasIn, `${nodeId}:mono`);
+        return this.stereoProcessPorts(nodeId, hasInput, outM,
+          () => this.sampleHoldSample(state.left, mixInput(nodeId, "Left") + sampleHoldMono, sampleHoldTrigger, sampleHoldThreshold, sampleHoldFrequency, safeRate, sampleHoldMonoHasIn || hasInput(nodeId, "Left"), `${nodeId}:left`),
+          () => this.sampleHoldSample(state.right, mixInput(nodeId, "Right") + sampleHoldMono, sampleHoldTrigger, sampleHoldThreshold, sampleHoldFrequency, safeRate, sampleHoldMonoHasIn || hasInput(nodeId, "Right"), `${nodeId}:right`));
       },
       expAdsr: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.expAdsrStates.get(nodeId) || this.createExpAdsrState();
@@ -1453,21 +1439,13 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           : 10 ** ((Number(softClipperGainDb) || 0) / 20);
         const softClipperMono = mixInput(nodeId) * drive;
         const outM = this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 0);
-        // Mono-only: do not run Left/Right clipper instances (was 3× WASM/sample).
-        const hasL = typeof hasInput === "function" && hasInput(nodeId, "Left");
-        const hasR = typeof hasInput === "function" && hasInput(nodeId, "Right");
-        if (!hasL && !hasR) {
-          return { Out: outM, Left: outM, Right: outM };
-        }
-        return {
-          Out: outM,
-          Left: hasL
-            ? this.nativeSoftClipperSample(mixInput(nodeId, "Left") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 1)
-            : outM,
-          Right: hasR
-            ? this.nativeSoftClipperSample(mixInput(nodeId, "Right") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 2)
-            : outM,
-        };
+        return this.stereoProcessPorts(
+          nodeId,
+          hasInput,
+          outM,
+          () => this.nativeSoftClipperSample(mixInput(nodeId, "Left") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 1),
+          () => this.nativeSoftClipperSample(mixInput(nodeId, "Right") * drive + softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 2),
+        );
       },
       speakerProtector2: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         if (!this.speakerProtector2States) this.speakerProtector2States = new Map();

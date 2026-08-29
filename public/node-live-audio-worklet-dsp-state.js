@@ -191,6 +191,21 @@ NodeLiveAudioProcessor.prototype.createStereoFilterState = function createStereo
     return { left: createFn(), mono: createFn(), right: createFn() };
 };
 
+// Mono-only patches must not pay for three independent channel instances.
+// Always run Out; run Left/Right only when those jacks are wired.
+NodeLiveAudioProcessor.prototype.stereoProcessPorts = function stereoProcessPorts(nodeId, hasInput, outM, processLeft, processRight) {
+  const hasL = typeof hasInput === "function" && hasInput(nodeId, "Left");
+  const hasR = typeof hasInput === "function" && hasInput(nodeId, "Right");
+  if (!hasL && !hasR) {
+    return { Out: outM, Left: outM, Right: outM };
+  }
+  return {
+    Out: outM,
+    Left: hasL ? processLeft() : outM,
+    Right: hasR ? processRight() : outM,
+  };
+};
+
 NodeLiveAudioProcessor.prototype.createOscResetState = function createOscResetState() {
     return {
       lastReset: 0,
