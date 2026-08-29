@@ -17,6 +17,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   u2b: 10,
   b2u: 11,
   bias: 12,
+  gain: 13,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -60,6 +61,10 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_LOW = 80;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_HIGH = 81;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OUT_LOW = 82;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OUT_HIGH = 83;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_GAIN_DB = 90;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_GAIN_LEFT_DB = 91;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_GAIN_RIGHT_DB = 92;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_GAIN_MONO_SUM = 93;
 
 // Ports: 0 Mono/Out, 1 Left/Mix L, 2 Right/Mix R, 3 Saw/Dry L, 4 Ramp/Dry R, 5–7 taps.
 // Live SIGNAL IN (not audio buses): 16 ƒ, 17 0.1V/Oct, 18 Increment, 19 Reset.
@@ -440,6 +445,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   timingMode: true,
   lfoStyle: true,
   seed: true,
+  monoSum: true,
 });
 
 /**
@@ -592,6 +598,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "bias") {
+      push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 0));
+      continue;
+    }
+    if (type === "gain") {
+      push("gainDb", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("gainDb", 0));
+      push("leftDb", P.NATIVE_GRAPH_PARAM_GAIN_LEFT_DB, cont("leftDb", 0));
+      push("rightDb", P.NATIVE_GRAPH_PARAM_GAIN_RIGHT_DB, cont("rightDb", 0));
+      push("monoSum", P.NATIVE_GRAPH_PARAM_GAIN_MONO_SUM, disc("monoSum", 0));
       push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 0));
       continue;
     }

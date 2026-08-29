@@ -105,7 +105,14 @@ extern "C" void soemdsp_range_process_block(int handle, int frameCount);
 extern "C" int soemdsp_range_block_input_ptr(int handle);
 extern "C" int soemdsp_range_block_output_ptr(int handle);
 
-// Param-chase Papoulis (same kernel as legacy JS smoother host).
+// Free-function Gain (no instance) — matches native_modules/gain/gain.cpp.
+extern "C" double soemdsp_gain_sample(
+  double channel, double mono, double left, double right,
+  double masterDb, double leftDb, double rightDb,
+  double monoSum, double offset
+);
+
+// Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
 extern "C" void soemdsp_papoulis_filter_snap(int handle, double value);
@@ -147,6 +154,7 @@ static const int kTypeInv = 9;
 static const int kTypeU2b = 10;
 static const int kTypeB2u = 11;
 static const int kTypeBias = 12;
+static const int kTypeGain = 13;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -205,6 +213,10 @@ static const int kParamInLow = 80;             // range
 static const int kParamInHigh = 81;            // range
 static const int kParamOutLow = 82;            // range
 static const int kParamOutHigh = 83;           // range
+static const int kParamGainDb = 90;            // gain master (dB)
+static const int kParamGainLeftDb = 91;        // gain left (dB)
+static const int kParamGainRightDb = 92;       // gain right (dB)
+static const int kParamGainMonoSum = 93;       // gain mono-sum law (discrete)
 
 static const int kTapOut = 1;
 static const int kTapSaw = 2;
@@ -287,11 +299,15 @@ struct Node {
   Control lpfFrequency;
   Control hpfFrequency;
   Control tempoBpm;
-  Control offset; // attenuverter DC offset (amplitude Control reused for amp)
+  Control offset; // attenuverter / bias / gain DC offset
   Control inLow;  // range
   Control inHigh;
   Control outLow;
   Control outHigh;
+  Control gainDb;      // gain master (dB)
+  Control gainLeftDb;  // gain left (dB)
+  Control gainRightDb; // gain right (dB)
+  Control gainMonoSum; // gain mono-sum law (discrete)
   double phase; // polyBlep running phase (radians)
   double lastReset; // Live Reset rising-edge latch (persists across blocks)
   double buf[kChannels][kMaxBlockFrames];
@@ -448,6 +464,10 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.inHigh, (typeId == kTypeRange) ? 1.0 : 1.0, false);
   init_control(n.outLow, 0.0, false);
   init_control(n.outHigh, (typeId == kTypeRange) ? 1000.0 : 1.0, false);
+  init_control(n.gainDb, 0.0, false);
+  init_control(n.gainLeftDb, 0.0, false);
+  init_control(n.gainRightDb, 0.0, false);
+  init_control(n.gainMonoSum, 0.0, true); // discrete mono-sum law
   n.phase = 0.0;
   n.lastReset = 0.0;
 }
@@ -493,6 +513,10 @@ static Control* control_for_param(Node& n, int paramId) {
   if (paramId == kParamInHigh) return &n.inHigh;
   if (paramId == kParamOutLow) return &n.outLow;
   if (paramId == kParamOutHigh) return &n.outHigh;
+  if (paramId == kParamGainDb) return &n.gainDb;
+  if (paramId == kParamGainLeftDb) return &n.gainLeftDb;
+  if (paramId == kParamGainRightDb) return &n.gainRightDb;
+  if (paramId == kParamGainMonoSum) return &n.gainMonoSum;
   return nullptr;
 }
 
@@ -536,6 +560,10 @@ static void dirty_node_control_coeffs(Node& n) {
   n.inHigh.dirty = true;
   n.outLow.dirty = true;
   n.outHigh.dirty = true;
+  n.gainDb.dirty = true;
+  n.gainLeftDb.dirty = true;
+  n.gainRightDb.dirty = true;
+  n.gainMonoSum.dirty = true;
 }
 
 static void dirty_all_control_coeffs(Circuit& g) {
@@ -741,7 +769,7 @@ static void smoother_snap_all(Circuit& g) {
       &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
       &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
       &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow,
-      &n.outHigh
+      &n.outHigh, &n.gainDb, &n.gainLeftDb, &n.gainRightDb, &n.gainMonoSum
     };
     for (unsigned si = 0; si < sizeof(slots) / sizeof(slots[0]); si++) {
       if (slots[si]) control_snap_to_target(*slots[si]);
@@ -760,7 +788,7 @@ static void smoother_step_node(Circuit& g, Node& node) {
     &node.level, &node.timeNumerator, &node.timeDenominator, &node.offsetMs,
     &node.lfoRate, &node.saturate, &node.lpfFrequency, &node.hpfFrequency,
     &node.tempoBpm, &node.offset, &node.inLow, &node.inHigh, &node.outLow,
-    &node.outHigh
+    &node.outHigh, &node.gainDb, &node.gainLeftDb, &node.gainRightDb
   };
   for (unsigned i = 0; i < sizeof(slots) / sizeof(slots[0]); i++) {
     Control* c = slots[i];
@@ -829,7 +857,8 @@ static void release_node_papoulis_controls(Node& n) {
     &n.recycle, &n.lfoAmplitude, &n.lfoBaseSpeed, &n.lfoVariation, &n.seed,
     &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
     &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
-    &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow, &n.outHigh
+    &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow, &n.outHigh,
+    &n.gainDb, &n.gainLeftDb, &n.gainRightDb, &n.gainMonoSum
   };
   for (unsigned i = 0; i < sizeof(slots) / sizeof(slots[0]); i++) {
     if (slots[i]) control_release_papoulis(*slots[i]);
@@ -1416,6 +1445,30 @@ static void process_bias(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Gain: soemdsp_gain_sample (master/L/R dB, mono-sum law, offset).
+static void process_gain(Circuit& g, Node& node, int frames) {
+  mix_node_inputs(g, node, frames);
+  const double masterDb = node.gainDb.out;
+  const double leftDb = node.gainLeftDb.out;
+  const double rightDb = node.gainRightDb.out;
+  const double monoSum = node.gainMonoSum.out;
+  const double off = node.offset.out;
+  for (int f = 0; f < frames; f++) {
+    const double mono = g.mixMono[f];
+    const double left = g.mixLeft[f];
+    const double right = g.mixRight[f];
+    node.buf[kPortMono][f] = soemdsp_gain_sample(
+      0.0, mono, left, right, masterDb, leftDb, rightDb, monoSum, off
+    );
+    node.buf[kPortLeft][f] = soemdsp_gain_sample(
+      1.0, mono, left, right, masterDb, leftDb, rightDb, monoSum, off
+    );
+    node.buf[kPortRight][f] = soemdsp_gain_sample(
+      2.0, mono, left, right, masterDb, leftDb, rightDb, monoSum, off
+    );
+  }
+}
+
 static void process_output(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   float gL = 1.0f, gR = 1.0f;
@@ -1696,7 +1749,7 @@ extern "C" int soemdsp_graph_set_global_smooth_time(int handle, float timeSample
       &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
       &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
       &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow,
-      &n.outHigh
+      &n.outHigh, &n.gainDb, &n.gainLeftDb, &n.gainRightDb, &n.gainMonoSum
     };
     for (unsigned si = 0; si < sizeof(slots) / sizeof(slots[0]); si++) {
       Control* c = slots[si];
@@ -1843,6 +1896,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_bias(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeGain) {
+      process_gain(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeOutput) {
       process_output(*g, node, frames);
       continue;
@@ -1880,5 +1937,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 17; // bias wire util (Shape B: in + offset)
+  return 18; // gain (soemdsp_gain_sample: master/L/R dB + monoSum + offset)
 }

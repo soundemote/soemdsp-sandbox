@@ -46,13 +46,14 @@ Only these live-audio types exist in the efficient build:
 | `u2b` | Unipolar → bipolar |
 | `b2u` | Bipolar → unipolar |
 | `bias` | DC offset (`in + offset`) |
+| `gain` | Master/L/R dB + mono-sum + offset |
 | `output` | Sink |
 
 Canonical circuit:
 
 ```text
 polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
-(+ attenuverter / range / inv / u2b / b2u / bias as wire utilities)
+(+ attenuverter / range / inv / u2b / b2u / bias / gain as wire utilities)
 ```
 
 **Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` may remain. `audioInput` is **not** on the allowlist unless a demo explicitly needs it (strip with other DSP for now).
