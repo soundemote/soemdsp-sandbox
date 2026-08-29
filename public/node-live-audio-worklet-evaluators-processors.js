@@ -1522,6 +1522,14 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.readEffectiveParameter(node, "amplitude", 0.5, frame, frames, frameValues),
           this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues),
         ),
+      range: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.rangeFrame(
+          mixInput(nodeId),
+          this.readEffectiveParameter(node, "inLow", -1, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "inHigh", 1, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "outLow", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "outHigh", 1000, frame, frames, frameValues),
+        ),
       u2b: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Out: this.u2bSample(mixInput(nodeId)),
       }),

@@ -11,6 +11,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   reverbEffect: 4,
   pingPongDelay: 5,
   output: 6,
+  attenuverter: 7,
+  range: 8,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -48,6 +50,12 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SATURATE = 58;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LPF_FREQUENCY = 59;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_HPF_FREQUENCY = 60;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TEMPO_BPM = 61;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_AMPLITUDE = 70;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET = 71;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_LOW = 80;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_HIGH = 81;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OUT_LOW = 82;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OUT_HIGH = 83;
 
 // Ports: 0 Mono/Out, 1 Left/Mix L, 2 Right/Mix R, 3 Saw/Dry L, 4 Ramp/Dry R, 5–7 taps.
 // Live SIGNAL IN (not audio buses): 16 ƒ, 17 0.1V/Oct, 18 Increment, 19 Reset.
@@ -517,6 +525,18 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
         P.NATIVE_GRAPH_PARAM_TEMPO_BPM,
         Number.isFinite(bpm) && bpm > 0 ? bpm : 120,
       );
+      continue;
+    }
+    if (type === "attenuverter") {
+      push("amplitude", P.NATIVE_GRAPH_PARAM_ATT_AMPLITUDE, cont("amplitude", 0.5));
+      push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 0));
+      continue;
+    }
+    if (type === "range") {
+      push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", -1));
+      push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
+      push("outLow", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("outLow", 0));
+      push("outHigh", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("outHigh", 1000));
     }
   }
 };

@@ -898,6 +898,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Attenuverter",
     notes: ["attenuverter", "scale", "invert", "offset", "utility", "native"],
   },
+  range: {
+    category: "utility",
+    description: "Linear map from [In Low, In High] to [Out Low, Out High]. Default −1…+1 → 0…1000.",
+    label: "Range",
+    notes: ["range", "map", "scale", "remap", "utility", "dynamics", "native"],
+  },
   u2b: {
     category: "dynamics",
     description: "Unipolar 0…1 to bipolar −1…1 (out = 2·in − 1).",
@@ -2465,6 +2471,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   attenuverter: {
     source: "public/modules/attenuverter/attenuverter-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/attenuverter/attenuverter-math.js",
+  },
+  range: {
+    source: "native_modules/range/range.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/range/range.cpp",
   },
   u2b: {
     source: "native_modules/u2b/u2b.cpp",

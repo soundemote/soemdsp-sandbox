@@ -181,7 +181,24 @@ $modules = @(
   ) }
   @{ Name = "gain"; Simd = $false; Exports = @("soemdsp_gain_sample", "soemdsp_gain_version", "soemdsp_gain_metadata_json", "soemdsp_gain_metadata_json_size") }
   @{ Name = "bias"; Simd = $false; Exports = @("soemdsp_bias_sample", "soemdsp_bias_version", "soemdsp_bias_metadata_json", "soemdsp_bias_metadata_json_size") }
-  @{ Name = "attenuverter"; Simd = $false; Exports = @("soemdsp_attenuverter_sample", "soemdsp_attenuverter_version", "soemdsp_attenuverter_metadata_json", "soemdsp_attenuverter_metadata_json_size") }
+  @{ Name = "attenuverter"; Simd = $false; Exports = @(
+    "soemdsp_attenuverter_create", "soemdsp_attenuverter_destroy",
+    "soemdsp_attenuverter_set_params", "soemdsp_attenuverter_sample",
+    "soemdsp_attenuverter_sample_handle", "soemdsp_attenuverter_process_block",
+    "soemdsp_attenuverter_block_input_ptr", "soemdsp_attenuverter_block_output_ptr",
+    "soemdsp_attenuverter_max_block_frames",
+    "soemdsp_attenuverter_version", "soemdsp_attenuverter_metadata_json",
+    "soemdsp_attenuverter_metadata_json_size"
+  ) }
+  @{ Name = "range"; Simd = $false; Exports = @(
+    "soemdsp_range_create", "soemdsp_range_destroy",
+    "soemdsp_range_set_params", "soemdsp_range_sample",
+    "soemdsp_range_process_block",
+    "soemdsp_range_block_input_ptr", "soemdsp_range_block_output_ptr",
+    "soemdsp_range_max_block_frames",
+    "soemdsp_range_version", "soemdsp_range_metadata_json",
+    "soemdsp_range_metadata_json_size"
+  ) }
   @{ Name = "mix"; Simd = $false; Exports = @("soemdsp_mix_sample", "soemdsp_mix_version", "soemdsp_mix_metadata_json", "soemdsp_mix_metadata_json_size") }
   @{ Name = "mix_stereo"; Simd = $false; Exports = @("soemdsp_mix_stereo_sample", "soemdsp_mix_stereo_version", "soemdsp_mix_stereo_metadata_json", "soemdsp_mix_stereo_metadata_json_size") }
   @{ Name = "mid_side_encode"; Simd = $false; Exports = @("soemdsp_mid_side_encode_sample", "soemdsp_mid_side_encode_version", "soemdsp_mid_side_encode_metadata_json", "soemdsp_mid_side_encode_metadata_json_size") }

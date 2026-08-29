@@ -518,7 +518,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=graph-engine-11";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=graph-engine-12";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3026,7 +3026,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
   "./public/node-live-audio-worklet-dsp-state.js?v=interrupt-1",
-  "./public/node-live-audio-worklet-events.js?v=graph-engine-11",
+  "./public/node-live-audio-worklet-events.js?v=graph-engine-12",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=interrupt-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
@@ -3034,15 +3034,15 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-evaluators-processors.js?v=haschanged-2",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=controller-smooth-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
-  "./public/node-live-audio-worklet-native-exports.js?v=graph-engine-11",
-  "./public/node-live-audio-worklet-native-graph.js?v=graph-engine-11",
-  "./public/node-live-audio-worklet-set-plan.js?v=graph-engine-11",
+  "./public/node-live-audio-worklet-native-exports.js?v=graph-engine-12",
+  "./public/node-live-audio-worklet-native-graph.js?v=graph-engine-12",
+  "./public/node-live-audio-worklet-set-plan.js?v=graph-engine-12",
   "./public/node-live-audio-worklet-clear-plan.js?v=graph-engine-6",
   "./public/node-live-audio-worklet-handle-message.js?v=sim-fps-lcd-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=interrupt-patch-1",
-  "./public/node-live-audio-worklet-process.js?v=graph-engine-11",
+  "./public/node-live-audio-worklet-process.js?v=graph-engine-12",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",
@@ -3248,6 +3248,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/bias/bias-worklet-evaluator.js?v=bias-io-1",
   "./public/modules/attenuverter/attenuverter-math.js?v=attenuverter-1",
   "./public/modules/attenuverter/attenuverter-worklet-evaluator.js?v=attenuverter-1",
+  "./public/modules/range/range-math.js?v=range-1",
+  "./public/modules/range/range-worklet-evaluator.js?v=range-1",
   "./public/modules/u2b/u2b-worklet-evaluator.js?v=u2b-1",
   "./public/modules/b2u/b2u-worklet-evaluator.js?v=b2u-1",
   "./public/modules/inv/inv-worklet-evaluator.js?v=inv-1",

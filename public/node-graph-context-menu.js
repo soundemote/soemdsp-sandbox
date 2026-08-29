@@ -2100,6 +2100,16 @@ function configureNodeSceneContextMenu(mode) {
       attenuvertButton.title = nodeGraphTooltipText("actions.wireAttenuvert")
         || "Insert a bipolar attenuverter (−1…+1 amplitude and offset) on each selected wire.";
     }
+    const rangeUnipolarButton = document.getElementById("nodeSceneWireRangeUnipolar");
+    if (rangeUnipolarButton) {
+      rangeUnipolarButton.disabled = !canAttenuateWires;
+      rangeUnipolarButton.title = "Insert Range mapping 0…1 → 0…1000 on each selected wire.";
+    }
+    const rangeBipolarButton = document.getElementById("nodeSceneWireRangeBipolar");
+    if (rangeBipolarButton) {
+      rangeBipolarButton.disabled = !canAttenuateWires;
+      rangeBipolarButton.title = "Insert Range mapping −1…+1 → 0…1000 on each selected wire.";
+    }
     const u2bButton = document.getElementById("nodeSceneWireU2b");
     if (u2bButton) {
       u2bButton.disabled = !canAttenuateWires;
@@ -2176,6 +2186,14 @@ function configureNodeSceneContextMenu(mode) {
     const idleAttenuvert = document.getElementById("nodeSceneWireAttenuvert");
     if (idleAttenuvert) {
       idleAttenuvert.disabled = true;
+    }
+    const idleRangeUnipolar = document.getElementById("nodeSceneWireRangeUnipolar");
+    if (idleRangeUnipolar) {
+      idleRangeUnipolar.disabled = true;
+    }
+    const idleRangeBipolar = document.getElementById("nodeSceneWireRangeBipolar");
+    if (idleRangeBipolar) {
+      idleRangeBipolar.disabled = true;
     }
     copyButton.disabled = true;
     copyButton.title = nodeGraphTooltipText("actions.copyUnavailableModule");

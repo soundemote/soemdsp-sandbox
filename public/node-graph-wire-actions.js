@@ -385,6 +385,101 @@ function attenuateSelectedNodeGraphWires(mode = "attenuate") {
   return newIds.length;
 }
 
+function rangeSelectedNodeGraphWires(mode = "bipolar") {
+  const unipolar = mode === "unipolar";
+  const snapshots = nodeGraphSelectedWireSnapshots().filter((entry) => entry.kind !== "graph");
+  if (!snapshots.length) {
+    return 0;
+  }
+
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const drop = new Set(snapshots.map((entry) => nodeGraphAttenuateWireIdentity(entry.kind, entry.wire)));
+  patch.connections = (patch.connections || []).filter(
+    (wire) => !drop.has(nodeGraphAttenuateWireIdentity("signal", wire)),
+  );
+  patch.modulations = (patch.modulations || []).filter(
+    (wire) => !drop.has(nodeGraphAttenuateWireIdentity("modulation", wire)),
+  );
+
+  const counts = typeof nextNodeGraphTypeCounts === "function"
+    ? nextNodeGraphTypeCounts(patch.nodes)
+    : {};
+  const pairSlots = new Map();
+  const newIds = [];
+  const params = unipolar
+    ? { inLow: 0, inHigh: 1, outLow: 0, outHigh: 1000 }
+    : { inLow: -1, inHigh: 1, outLow: 0, outHigh: 1000 };
+  for (const entry of snapshots) {
+    const wire = entry.wire;
+    if (!wire?.sourceNode || !wire?.destinationNode) {
+      continue;
+    }
+    if (!patch.nodes.some((node) => node.id === wire.sourceNode)
+      || !patch.nodes.some((node) => node.id === wire.destinationNode)) {
+      continue;
+    }
+    const pairKey = `${wire.sourceNode}→${wire.destinationNode}`;
+    const slot = pairSlots.get(pairKey) || 0;
+    pairSlots.set(pairKey, slot + 1);
+    counts.range = (counts.range || 0) + 1;
+    const id = `range-${counts.range}`;
+    const point = nodeGraphAttenuateInsertGridPoint(patch, wire.sourceNode, wire.destinationNode, slot);
+    const alias = nodeGraphAttenuateWireAlias(patch, entry);
+    patch.nodes.push(createNodeGraphPatchNode("range", {
+      id,
+      gx: point.gx,
+      gy: point.gy,
+      alias,
+      ui: {
+        buttonsHidden: true,
+        oscilloscopeHidden: true,
+        ioHidden: false,
+      },
+      params,
+    }));
+    newIds.push(id);
+    const extras = nodeGraphWireOptionalPatchFields(wire);
+    patch.connections.push({
+      sourceNode: wire.sourceNode,
+      sourcePort: wire.sourcePort,
+      destinationNode: id,
+      destinationPort: "In",
+      ...extras,
+    });
+    if (entry.kind === "modulation") {
+      patch.modulations.push({
+        sourceNode: id,
+        sourcePort: "Out",
+        destinationNode: wire.destinationNode,
+        destinationParam: wire.destinationParam,
+        ...extras,
+      });
+    } else {
+      patch.connections.push({
+        sourceNode: id,
+        sourcePort: "Out",
+        destinationNode: wire.destinationNode,
+        destinationPort: wire.destinationPort,
+        ...extras,
+      });
+    }
+  }
+  if (!newIds.length) {
+    return 0;
+  }
+  const noun = unipolar ? "range (0…1)" : "range (−1…1)";
+  commitNodeGraphPatch(patch, {
+    status: newIds.length === 1 ? `${noun} inserted` : `${newIds.length} ${noun} inserted`,
+  });
+  if (typeof setNodeGraphNodeSelection === "function") {
+    setNodeGraphNodeSelection(newIds);
+  }
+  if (typeof configureNodeSceneContextMenu === "function") {
+    configureNodeSceneContextMenu("module");
+  }
+  return newIds.length;
+}
+
 function convertPolarityOnSelectedNodeGraphWires(type) {
   const kind = type === "b2u" ? "b2u" : (type === "inv" ? "inv" : "u2b");
   const snapshots = nodeGraphSelectedWireSnapshots().filter((entry) => entry.kind !== "graph");

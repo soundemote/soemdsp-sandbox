@@ -40,12 +40,15 @@ Only these live-audio types exist in the efficient build:
 | `softClipper` | Dynamics |
 | `reverbEffect` | Sabrina reverb |
 | `pingPongDelay` | Delay |
+| `attenuverter` | Scale / invert / offset |
+| `range` | Linear range map |
 | `output` | Sink |
 
 Canonical circuit:
 
 ```text
 polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
+(+ attenuverter / range as wire utilities)
 ```
 
 **Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` may remain. `audioInput` is **not** on the allowlist unless a demo explicitly needs it (strip with other DSP for now).
@@ -240,7 +243,7 @@ Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled
 | Re-sim graph for live video/scopes | **No** — observe worklet buffers (§5) |
 | JS twin of native “so render works” | **No** — silence until WASM (§2 / §5) |
 | JS computes the audio graph / per-sample DSP | **No** — JS is interface; C++ runs the circuit (§0 / §2) |
-| Offer non-allowlisted DSP in efficient product shop | **No** — six live-audio types + observers (§0b) |
+| Offer non-allowlisted DSP in efficient product shop | **No** — allowlisted live-audio types + observers (§0b) |
 | Apply plan with foreign audio types in efficient mode | **No** — refuse: `not in efficient build` (§0b) |
 | JS DSP fallback when type is off the efficient allowlist | **No** — hard cutover (§0b) |
 | New `*-math.js` audio kernel instead of C++ | **No** — native only (§5) |

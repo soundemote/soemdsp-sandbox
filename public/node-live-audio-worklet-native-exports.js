@@ -1633,6 +1633,16 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+      if (name === "range" || targetType === "range") {
+        this.nativeRange = exports;
+        this.nativeRangeReady = Boolean(this.nativeRange?.soemdsp_range_sample);
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "range",
+          status: this.nativeRangeReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "mix" || targetType === "mix" || targetType === "gainBiasMix") {
         this.nativeMix = exports;
         this.nativeMixReady = Boolean(this.nativeMix?.soemdsp_mix_sample);

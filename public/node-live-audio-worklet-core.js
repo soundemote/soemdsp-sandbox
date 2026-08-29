@@ -169,6 +169,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativeBiasReady = false;
     this.nativeAttenuverter = null;
     this.nativeAttenuverterReady = false;
+    this.nativeRange = null;
+    this.nativeRangeReady = false;
     this.nativeMix = null;
     this.nativeMixReady = false;
     this.nativeMixStereo = null;

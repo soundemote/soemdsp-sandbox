@@ -68,6 +68,16 @@ function bindNodeGraphSceneMenuEvents() {
       attenuateSelectedNodeGraphWires("attenuvert");
     }
   });
+  bindNodeGraphSceneElementEvent("nodeSceneWireRangeUnipolar", "click", () => {
+    if (typeof rangeSelectedNodeGraphWires === "function") {
+      rangeSelectedNodeGraphWires("unipolar");
+    }
+  });
+  bindNodeGraphSceneElementEvent("nodeSceneWireRangeBipolar", "click", () => {
+    if (typeof rangeSelectedNodeGraphWires === "function") {
+      rangeSelectedNodeGraphWires("bipolar");
+    }
+  });
   bindNodeGraphSceneElementEvent("nodeSceneWireU2b", "click", () => {
     if (typeof convertPolarityOnSelectedNodeGraphWires === "function") {
       convertPolarityOnSelectedNodeGraphWires("u2b");

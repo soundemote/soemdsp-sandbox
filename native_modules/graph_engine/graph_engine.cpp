@@ -3,11 +3,11 @@
 // soemdsp-native-target: graphEngine
 // soemdsp-native-kind: engine
 //
-// MVEP GraphEngine: orchestrates
-// polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
-// inside soemdsp_graph_process_block. Live ƒ jacks mix from wired buffers;
-// Control knobs: set_param writes targets; native SmootherManager chases out.
-// Scope taps via node_port_ptr. DSP lives in existing natives; this is glue.
+// MVEP GraphEngine: orchestrates efficient-product natives
+// (polyBlep, ladderFilter, softClipper, reverb, pingPong, attenuverter, range,
+// output) inside soemdsp_graph_process_block. Live ƒ jacks mix from wired
+// buffers; Control knobs: set_param writes targets; native SmootherManager
+// chases out. Scope taps via node_port_ptr. DSP lives in natives; this is glue.
 
 #include "../sandbox_native_maths/exp_log.h"
 #include "../sandbox_native_maths/analog_filter_trig.h"
@@ -89,6 +89,22 @@ extern "C" int soemdsp_ping_pong_delay_block_output_right_ptr(int handle);
 extern "C" int soemdsp_ping_pong_delay_block_output_mod_left_ptr(int handle);
 extern "C" int soemdsp_ping_pong_delay_block_output_mod_right_ptr(int handle);
 
+extern "C" int soemdsp_attenuverter_create();
+extern "C" void soemdsp_attenuverter_destroy(int handle);
+extern "C" void soemdsp_attenuverter_set_params(int handle, double amplitude, double offset);
+extern "C" void soemdsp_attenuverter_process_block(int handle, int frameCount);
+extern "C" int soemdsp_attenuverter_block_input_ptr(int handle);
+extern "C" int soemdsp_attenuverter_block_output_ptr(int handle);
+
+extern "C" int soemdsp_range_create();
+extern "C" void soemdsp_range_destroy(int handle);
+extern "C" void soemdsp_range_set_params(
+  int handle, double inLow, double inHigh, double outLow, double outHigh
+);
+extern "C" void soemdsp_range_process_block(int handle, int frameCount);
+extern "C" int soemdsp_range_block_input_ptr(int handle);
+extern "C" int soemdsp_range_block_output_ptr(int handle);
+
 namespace {
 
 using soemdsp_maths::dsp_exp;
@@ -117,6 +133,8 @@ static const int kTypeSoftClipper = 3;
 static const int kTypeReverbEffect = 4;
 static const int kTypePingPongDelay = 5;
 static const int kTypeOutput = 6;
+static const int kTypeAttenuverter = 7;
+static const int kTypeRange = 8;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -169,6 +187,12 @@ static const int kParamSaturate = 58;          // pingPong
 static const int kParamLpfFrequency = 59;      // pingPong
 static const int kParamHpfFrequency = 60;      // pingPong
 static const int kParamTempoBpm = 61;          // pingPong
+static const int kParamAttAmplitude = 70;      // attenuverter
+static const int kParamAttOffset = 71;         // attenuverter
+static const int kParamInLow = 80;             // range
+static const int kParamInHigh = 81;            // range
+static const int kParamOutLow = 82;            // range
+static const int kParamOutHigh = 83;           // range
 
 static const int kTapOut = 1;
 static const int kTapSaw = 2;
@@ -239,6 +263,11 @@ struct Node {
   Control lpfFrequency;
   Control hpfFrequency;
   Control tempoBpm;
+  Control offset; // attenuverter DC offset (amplitude Control reused for amp)
+  Control inLow;  // range
+  Control inHigh;
+  Control outLow;
+  Control outHigh;
   double phase; // polyBlep running phase (radians)
   double lastReset; // Live Reset rising-edge latch (persists across blocks)
   double buf[kChannels][kMaxBlockFrames];
@@ -306,6 +335,10 @@ static void destroy_node_native(Node& n) {
     soemdsp_sabrina_reverb_destroy(n.nativeHandle);
   } else if (kind == kTypePingPongDelay) {
     soemdsp_ping_pong_delay_destroy(n.nativeHandle);
+  } else if (kind == kTypeAttenuverter) {
+    soemdsp_attenuverter_destroy(n.nativeHandle);
+  } else if (kind == kTypeRange) {
+    soemdsp_range_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -332,7 +365,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.pan, 0.0, false);
   init_control(n.frequency, (typeId == kTypeLadderFilter) ? 1000.0 : 220.0, false);
   init_control(n.waveform, 0.0, true);
-  init_control(n.amplitude, 1.0, false);
+  init_control(n.amplitude, (typeId == kTypeAttenuverter) ? 0.5 : 1.0, false);
   init_control(n.shape, 0.5, false);
   init_control(n.phaseParam, 0.0, false);
   init_control(n.resonance, 0.2, false);
@@ -362,6 +395,11 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.lpfFrequency, 8000.0, false);
   init_control(n.hpfFrequency, 20.0, false);
   init_control(n.tempoBpm, 120.0, false);
+  init_control(n.offset, 0.0, false);
+  init_control(n.inLow, (typeId == kTypeRange) ? -1.0 : 0.0, false);
+  init_control(n.inHigh, (typeId == kTypeRange) ? 1.0 : 1.0, false);
+  init_control(n.outLow, 0.0, false);
+  init_control(n.outHigh, (typeId == kTypeRange) ? 1000.0 : 1.0, false);
   n.phase = 0.0;
   n.lastReset = 0.0;
 }
@@ -401,6 +439,12 @@ static Control* control_for_param(Node& n, int paramId) {
   if (paramId == kParamLpfFrequency) return &n.lpfFrequency;
   if (paramId == kParamHpfFrequency) return &n.hpfFrequency;
   if (paramId == kParamTempoBpm) return &n.tempoBpm;
+  if (paramId == kParamAttAmplitude) return &n.amplitude;
+  if (paramId == kParamAttOffset) return &n.offset;
+  if (paramId == kParamInLow) return &n.inLow;
+  if (paramId == kParamInHigh) return &n.inHigh;
+  if (paramId == kParamOutLow) return &n.outLow;
+  if (paramId == kParamOutHigh) return &n.outHigh;
   return nullptr;
 }
 
@@ -439,6 +483,11 @@ static void dirty_node_control_coeffs(Node& n) {
   n.lpfFrequency.dirty = true;
   n.hpfFrequency.dirty = true;
   n.tempoBpm.dirty = true;
+  n.offset.dirty = true;
+  n.inLow.dirty = true;
+  n.inHigh.dirty = true;
+  n.outLow.dirty = true;
+  n.outHigh.dirty = true;
 }
 
 static void dirty_all_control_coeffs(Circuit& g) {
@@ -546,7 +595,8 @@ static void smoother_step_node(Circuit& g, Node& node) {
     &node.lfoAmplitude, &node.lfoBaseSpeed, &node.lfoVariation, &node.feedback,
     &node.level, &node.timeNumerator, &node.timeDenominator, &node.offsetMs,
     &node.lfoRate, &node.saturate, &node.lpfFrequency, &node.hpfFrequency,
-    &node.tempoBpm
+    &node.tempoBpm, &node.offset, &node.inLow, &node.inHigh, &node.outLow,
+    &node.outHigh
   };
   for (unsigned i = 0; i < sizeof(slots) / sizeof(slots[0]); i++) {
     Control* c = slots[i];
@@ -599,6 +649,8 @@ static int create_native_for_type(int typeId, float sampleRate) {
     return soemdsp_sabrina_reverb_create(sr);
   }
   if (typeId == kTypePingPongDelay) return soemdsp_ping_pong_delay_create();
+  if (typeId == kTypeAttenuverter) return soemdsp_attenuverter_create();
+  if (typeId == kTypeRange) return soemdsp_range_create();
   return 0;
 }
 
@@ -1095,6 +1147,45 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Mono utility: fold Mono+L+R → process_block → fan Out to Mono/Left/Right.
+static void process_attenuverter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  soemdsp_attenuverter_set_params(node.nativeHandle, node.amplitude.out, node.offset.out);
+  double* inPtr = ptr_from_export(soemdsp_attenuverter_block_input_ptr(node.nativeHandle));
+  double* outPtr = ptr_from_export(soemdsp_attenuverter_block_output_ptr(node.nativeHandle));
+  if (!inPtr || !outPtr) return;
+  for (int f = 0; f < frames; f++) {
+    inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+  }
+  soemdsp_attenuverter_process_block(node.nativeHandle, frames);
+  copy_tap_to_buf(node.buf[kPortMono], outPtr, frames);
+  copy_tap_to_buf(node.buf[kPortLeft], outPtr, frames);
+  copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
+}
+
+static void process_range(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  soemdsp_range_set_params(
+    node.nativeHandle,
+    node.inLow.out,
+    node.inHigh.out,
+    node.outLow.out,
+    node.outHigh.out
+  );
+  double* inPtr = ptr_from_export(soemdsp_range_block_input_ptr(node.nativeHandle));
+  double* outPtr = ptr_from_export(soemdsp_range_block_output_ptr(node.nativeHandle));
+  if (!inPtr || !outPtr) return;
+  for (int f = 0; f < frames; f++) {
+    inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+  }
+  soemdsp_range_process_block(node.nativeHandle, frames);
+  copy_tap_to_buf(node.buf[kPortMono], outPtr, frames);
+  copy_tap_to_buf(node.buf[kPortLeft], outPtr, frames);
+  copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
+}
+
 static void process_output(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   float gL = 1.0f, gR = 1.0f;
@@ -1211,7 +1302,9 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeLadderFilter
     || typeId == kTypeSoftClipper
     || typeId == kTypeReverbEffect
-    || typeId == kTypePingPongDelay;
+    || typeId == kTypePingPongDelay
+    || typeId == kTypeAttenuverter
+    || typeId == kTypeRange;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -1326,7 +1419,8 @@ extern "C" int soemdsp_graph_set_global_smooth_time(int handle, float timeSample
       &n.recycle, &n.lfoAmplitude, &n.lfoBaseSpeed, &n.lfoVariation, &n.seed,
       &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
       &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
-      &n.hpfFrequency, &n.tempoBpm
+      &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow,
+      &n.outHigh
     };
     for (unsigned si = 0; si < sizeof(slots) / sizeof(slots[0]); si++) {
       Control* c = slots[si];
@@ -1449,6 +1543,14 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_ping_pong(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeAttenuverter) {
+      process_attenuverter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeRange) {
+      process_range(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeOutput) {
       process_output(*g, node, frames);
       continue;
@@ -1486,5 +1588,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 10; // Control chase after DSP (block-rate); sample paths step locally
+  return 11; // attenuverter + range types
 }
