@@ -7,10 +7,16 @@ NodeLiveAudioProcessor.prototype.destroySabrinaReverbState = function destroySab
       state.nativeBoundParams = null;
       state.cachedParams = null;
     }
-    if (!state?.nativeHandle || !this.nativeSabrinaReverb?.soemdsp_sabrina_reverb_destroy) {
+    if (!state?.nativeHandle) {
       return;
     }
-    this.nativeSabrinaReverb.soemdsp_sabrina_reverb_destroy(state.nativeHandle);
+    const destroy =
+      this.nativeSabrinaReverb?.soemdsp_sabrina_reverb_destroy
+      || this.nativeGraph?.soemdsp_sabrina_reverb_destroy;
+    if (!destroy) {
+      return;
+    }
+    destroy(state.nativeHandle);
     state.nativeHandle = 0;
 };
 
@@ -200,10 +206,17 @@ NodeLiveAudioProcessor.prototype.destroyRandomClockNativeState = function destro
 };
 
 NodeLiveAudioProcessor.prototype.destroyPingPongDelayNativeState = function destroyPingPongDelayNativeState(state) {
-    if (state.nativeHandle && this.nativePingPongDelay?.soemdsp_ping_pong_delay_destroy) {
-      this.nativePingPongDelay.soemdsp_ping_pong_delay_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
+    if (!state?.nativeHandle) {
+      return;
     }
+    const destroy =
+      this.nativePingPongDelay?.soemdsp_ping_pong_delay_destroy
+      || this.nativeGraph?.soemdsp_ping_pong_delay_destroy;
+    if (!destroy) {
+      return;
+    }
+    destroy(state.nativeHandle);
+    state.nativeHandle = 0;
 };
 
 NodeLiveAudioProcessor.prototype.destroyPapoulisFilterNativeState = function destroyPapoulisFilterNativeState(state) {

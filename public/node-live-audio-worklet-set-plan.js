@@ -1335,10 +1335,12 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     this._prevProcessWall = undefined;
 
     // MVEP: efficient mode compiles into native GraphEngine (no JS DSP walk).
+    // Leaving efficient must destroy graph-owned natives (sabrina pool=2) so
+    // full-mode evaluators can create into the same combined-wasm pools.
     if (this.efficientProduct) {
       this.compileNativeGraphFromPlan?.();
     } else {
-      this.nativeGraphCompiled = false;
+      this.destroyNativeGraphHandle?.();
     }
 
     this.port.postMessage({

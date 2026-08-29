@@ -301,6 +301,11 @@ struct PingPongDelayState {
   double blockIn[kMaxBlockFrames];
   double blockOutL[kMaxBlockFrames];
   double blockOutR[kMaxBlockFrames];
+  // Mod L/R traces: delay tap time / kMaxDelaySeconds (0..1).
+  double blockOutModL[kMaxBlockFrames];
+  double blockOutModR[kMaxBlockFrames];
+  double lastModL;
+  double lastModR;
 };
 
 static PingPongDelayState gPool[kMaxInstances];
@@ -431,6 +436,8 @@ extern "C" int soemdsp_ping_pong_delay_create() {
       s.position = 0;
       s.outLeft = 0.0;
       s.outRight = 0.0;
+      s.lastModL = 0.0;
+      s.lastModR = 0.0;
       s.liveOffsetMs = 0.0;
       s.liveSampleRate = 44100.0;
       reset_delay_dsp(s);
@@ -521,8 +528,23 @@ static void process_one(PingPongDelayState& s, double input) {
   const double modL = driftSec > 1e-9 ? s.lfoL.run(style, rateL, rate) : 0.0;
   const double modR = driftSec > 1e-9 ? s.lfoR.run(style, rateR, rate) : 0.0;
 
-  const double delaySamplesL = clamp((s.baseSeconds + driftSec * modL) * rate, 1.0, (double)(s.bufferSize - 2));
-  const double delaySamplesR = clamp((s.baseSeconds + driftSec * modR) * rate, 1.0, (double)(s.bufferSize - 2));
+  const double delaySecL = maxd(0.0, s.baseSeconds + driftSec * modL);
+  const double delaySecR = maxd(0.0, s.baseSeconds + driftSec * modR);
+  // Trace: 0 = no delay, ±1 spans ±kMaxDelaySeconds (module face contract).
+  s.lastModL = clamp(delaySecL / kMaxDelaySeconds, -1.0, 1.0);
+  s.lastModR = clamp(delaySecR / kMaxDelaySeconds, -1.0, 1.0);
+
+  // Grow failed / cold create: honest silence (no % 0).
+  if (!s.bufferL || !s.bufferR || s.bufferSize < 2) {
+    s.wetL = 0.0;
+    s.wetR = 0.0;
+    s.outLeft = dry * (1.0 - safeMix) * safeLevel;
+    s.outRight = dry * (1.0 - safeMix) * safeLevel;
+    return;
+  }
+
+  const double delaySamplesL = clamp(delaySecL * rate, 1.0, (double)(s.bufferSize - 2));
+  const double delaySamplesR = clamp(delaySecR * rate, 1.0, (double)(s.bufferSize - 2));
 
   s.position = (s.position + 1) % s.bufferSize;
   double readLRaw = (double)s.position + (double)s.bufferSize - delaySamplesL;
@@ -621,6 +643,26 @@ extern "C" void soemdsp_ping_pong_delay_process_block(int handle, int frameCount
     process_one(s, s.blockIn[i]);
     s.blockOutL[i] = s.outLeft;
     s.blockOutR[i] = s.outRight;
+    s.blockOutModL[i] = s.lastModL;
+    s.blockOutModR[i] = s.lastModR;
+  }
+}
+
+extern "C" void soemdsp_ping_pong_delay_reset(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  PingPongDelayState& s = gPool[handle - 1];
+  if (!s.active) return;
+  reset_delay_dsp(s);
+  s.position = 0;
+  s.outLeft = 0.0;
+  s.outRight = 0.0;
+  s.wetL = 0.0;
+  s.wetR = 0.0;
+  s.lastModL = 0.0;
+  s.lastModR = 0.0;
+  s.controlsValid = false;
+  if (s.bufferL && s.bufferR && s.bufferSize > 1) {
+    reset_delay_ring(s, s.bufferSize);
   }
 }
 
@@ -639,6 +681,16 @@ extern "C" int soemdsp_ping_pong_delay_block_output_right_ptr(int handle) {
   return reinterpret_cast<int>(gPool[handle - 1].blockOutR);
 }
 
+extern "C" int soemdsp_ping_pong_delay_block_output_mod_left_ptr(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  return reinterpret_cast<int>(gPool[handle - 1].blockOutModL);
+}
+
+extern "C" int soemdsp_ping_pong_delay_block_output_mod_right_ptr(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  return reinterpret_cast<int>(gPool[handle - 1].blockOutModR);
+}
+
 extern "C" int soemdsp_ping_pong_delay_max_block_frames() {
   return kMaxBlockFrames;
 }
@@ -653,5 +705,5 @@ extern "C" int soemdsp_ping_pong_delay_memory_generation() {
 }
 
 extern "C" int soemdsp_ping_pong_delay_version() {
-  return 5; // no ring-wipe on resize; grow headroom; memory generation
+  return 6; // %0 guard; Mod L/R block traces; reset for SR change
 }

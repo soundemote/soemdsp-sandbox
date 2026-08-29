@@ -78,7 +78,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphTypeId = function mapNativeGraphT
 NodeLiveAudioProcessor.prototype.mapNativeGraphPortId = function mapNativeGraphPortId(port) {
   const raw = String(port || "").trim();
   const p = raw.toLowerCase();
-  if (p === "left" || p === "l" || p === "mix l" || p === "wet l" || p === "left mix" || p === "wet") {
+  if (p === "left" || p === "l" || p === "mix l" || p === "wet l" || p === "left mix") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
   if (p === "right" || p === "r" || p === "mix r" || p === "wet r" || p === "right mix") {
@@ -143,6 +143,7 @@ NodeLiveAudioProcessor.prototype.releaseEfficientLegacyNativeHandles =
         this.destroyPolyBlepNativeState?.(state);
         if (state) state.blockCache = null;
       }
+      this.polyBlepStates.clear();
     }
     if (this.ladderFilterStates instanceof Map) {
       for (const state of this.ladderFilterStates.values()) {
@@ -151,21 +152,25 @@ NodeLiveAudioProcessor.prototype.releaseEfficientLegacyNativeHandles =
         this.resetLadderBlockCache?.(state?.left);
         this.resetLadderBlockCache?.(state?.right);
       }
+      this.ladderFilterStates.clear();
     }
     if (this.softClipperStates instanceof Map) {
       for (const state of this.softClipperStates.values()) {
         this.destroySoftClipperState?.(state);
       }
+      this.softClipperStates.clear();
     }
     if (this.reverbEffectStates instanceof Map) {
       for (const state of this.reverbEffectStates.values()) {
         this.destroySabrinaReverbState?.(state);
       }
+      this.reverbEffectStates.clear();
     }
     if (this.pingPongDelayStates instanceof Map) {
       for (const state of this.pingPongDelayStates.values()) {
         this.destroyPingPongDelayNativeState?.(state);
       }
+      this.pingPongDelayStates.clear();
     }
   };
 

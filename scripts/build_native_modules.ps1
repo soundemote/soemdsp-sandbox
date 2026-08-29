@@ -145,10 +145,14 @@ $modules = @(
   @{ Name = "random_clock"; Simd = $false; Exports = @("soemdsp_random_clock_create", "soemdsp_random_clock_destroy", "soemdsp_random_clock_sample", "soemdsp_random_clock_gate", "soemdsp_random_clock_version") },
   @{ Name = "ping_pong_delay"; Simd = $false; Exports = @(
     "soemdsp_ping_pong_delay_create", "soemdsp_ping_pong_delay_destroy",
+    "soemdsp_ping_pong_delay_reset",
     "soemdsp_ping_pong_delay_sample", "soemdsp_ping_pong_delay_right",
     "soemdsp_ping_pong_delay_set_params", "soemdsp_ping_pong_delay_process_block",
     "soemdsp_ping_pong_delay_block_input_ptr", "soemdsp_ping_pong_delay_block_output_left_ptr",
-    "soemdsp_ping_pong_delay_block_output_right_ptr", "soemdsp_ping_pong_delay_max_block_frames",
+    "soemdsp_ping_pong_delay_block_output_right_ptr",
+    "soemdsp_ping_pong_delay_block_output_mod_left_ptr",
+    "soemdsp_ping_pong_delay_block_output_mod_right_ptr",
+    "soemdsp_ping_pong_delay_max_block_frames",
     "soemdsp_ping_pong_delay_memory_generation", "soemdsp_ping_pong_delay_version"
   ) },
   @{ Name = "papoulis_filter"; Simd = $false; Exports = @("soemdsp_papoulis_filter_create", "soemdsp_papoulis_filter_destroy", "soemdsp_papoulis_filter_sample", "soemdsp_papoulis_filter_snap", "soemdsp_papoulis_filter_version") },

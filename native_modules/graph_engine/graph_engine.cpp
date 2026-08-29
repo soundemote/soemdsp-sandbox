@@ -58,6 +58,7 @@ extern "C" int soemdsp_sabrina_reverb_block_output_right_ptr(int handle);
 
 extern "C" int soemdsp_ping_pong_delay_create();
 extern "C" void soemdsp_ping_pong_delay_destroy(int handle);
+extern "C" void soemdsp_ping_pong_delay_reset(int handle);
 extern "C" void soemdsp_ping_pong_delay_set_params(
   int handle,
   double feedback, double mix, double level,
@@ -70,6 +71,8 @@ extern "C" void soemdsp_ping_pong_delay_process_block(int handle, int frameCount
 extern "C" int soemdsp_ping_pong_delay_block_input_ptr(int handle);
 extern "C" int soemdsp_ping_pong_delay_block_output_left_ptr(int handle);
 extern "C" int soemdsp_ping_pong_delay_block_output_right_ptr(int handle);
+extern "C" int soemdsp_ping_pong_delay_block_output_mod_left_ptr(int handle);
+extern "C" int soemdsp_ping_pong_delay_block_output_mod_right_ptr(int handle);
 
 namespace {
 
@@ -640,6 +643,8 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
   double* inPtr = ptr_from_export(soemdsp_ping_pong_delay_block_input_ptr(node.nativeHandle));
   double* outL = ptr_from_export(soemdsp_ping_pong_delay_block_output_left_ptr(node.nativeHandle));
   double* outR = ptr_from_export(soemdsp_ping_pong_delay_block_output_right_ptr(node.nativeHandle));
+  double* modL = ptr_from_export(soemdsp_ping_pong_delay_block_output_mod_left_ptr(node.nativeHandle));
+  double* modR = ptr_from_export(soemdsp_ping_pong_delay_block_output_mod_right_ptr(node.nativeHandle));
   if (!inPtr || !outL || !outR) return;
 
   // Native ping-pong is mono-in; fold Mono+L+R like the worklet evaluator.
@@ -650,6 +655,9 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
 
   copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
   copy_tap_to_buf(node.buf[kPortRight], outR, frames);
+  // Mod L/R = normalized delay tap times (module outputs / stereoTracePorts).
+  if (modL) copy_tap_to_buf(node.buf[kPortSaw], modL, frames);
+  if (modR) copy_tap_to_buf(node.buf[kPortRamp], modR, frames);
   for (int f = 0; f < frames; f++) {
     node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
   }
@@ -715,6 +723,8 @@ extern "C" void soemdsp_graph_set_sample_rate(int handle, float sampleRate) {
     if (!n.used || n.nativeHandle <= 0) continue;
     if (n.nativeKind == kTypeReverbEffect) {
       soemdsp_sabrina_reverb_reset(n.nativeHandle, (double)sampleRate);
+    } else if (n.nativeKind == kTypePingPongDelay) {
+      soemdsp_ping_pong_delay_reset(n.nativeHandle);
     }
   }
 }
@@ -952,5 +962,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 4; // PR-E3: sabrina reverb + pingPong delay orchestration
+  return 5; // PR-E3 review: pingPong %0/Mod/SR reset
 }
