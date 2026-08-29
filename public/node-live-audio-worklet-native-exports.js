@@ -124,8 +124,11 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         }
         this.nativeSoftClipper = exports;
         this.nativeSoftClipperReady = Boolean(
-          this.nativeSoftClipper?.soemdsp_soft_clipper_sample
-          || this.nativeSoftClipper?.soemdsp_soft_clipper_sample_aa,
+          this.nativeSoftClipper?.soemdsp_soft_clipper_create &&
+          this.nativeSoftClipper?.soemdsp_soft_clipper_set_params &&
+          this.nativeSoftClipper?.soemdsp_soft_clipper_process_block &&
+          (this.nativeSoftClipper?.soemdsp_soft_clipper_sample
+            || this.nativeSoftClipper?.soemdsp_soft_clipper_sample_aa),
         );
         this.port.postMessage({
           type: "nativeModuleStatus",

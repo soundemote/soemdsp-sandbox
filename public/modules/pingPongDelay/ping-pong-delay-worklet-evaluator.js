@@ -91,6 +91,9 @@ NodeLiveAudioProcessor.prototype.invalidateAllNativeBlockViews = function invali
       state.blockCache.size = 0;
     }
   }
+  for (const state of this.softClipperStates?.values?.() || []) {
+    clear(state);
+  }
 };
 
 NodeLiveAudioProcessor.prototype.applyPingPongNativeParams = function applyPingPongNativeParams(native, state, params, safeRate) {

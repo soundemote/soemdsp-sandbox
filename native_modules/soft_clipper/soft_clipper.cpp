@@ -15,11 +15,14 @@ using namespace soemdsp_maths;
 
 static const int kMaxInstances = 32;
 static const int kChannels = 3; // 0 mono, 1 left, 2 right
+static const int kMaxBlockFrames = 128;
 
 struct Channel {
   double u1;
   double F1;
   unsigned int n;
+  double x1;
+  bool hasX;
 };
 
 struct State {
@@ -33,6 +36,12 @@ struct State {
   double shiftX;
   double scaleY;
   double shiftY;
+  double liveCenter;
+  double liveWidth;
+  double liveAntialias;
+  int liveOsMode; // 0 = shaped only, 1 = ADAA, 2 = 2× ADAA average
+  double blockIn[kChannels][kMaxBlockFrames];
+  double blockOut[kChannels][kMaxBlockFrames];
 };
 
 static State gPool[kMaxInstances];
@@ -134,10 +143,16 @@ extern "C" int soemdsp_soft_clipper_create() {
         s.ch[c].u1 = 0.0;
         s.ch[c].F1 = tanh_antideriv(0.0);
         s.ch[c].n = 0;
+        s.ch[c].x1 = 0.0;
+        s.ch[c].hasX = false;
       }
       s.coeffsValid = false;
       s.lastCenter = 0.0;
       s.lastWidth = 2.0;
+      s.liveCenter = 0.0;
+      s.liveWidth = 2.0;
+      s.liveAntialias = 1.0;
+      s.liveOsMode = 2;
       s.active = true;
       return i + 1;
     }
@@ -150,25 +165,7 @@ extern "C" void soemdsp_soft_clipper_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
-extern "C" double soemdsp_soft_clipper_sample_aa(
-  int handle,
-  int channel,
-  double input,
-  double center,
-  double width,
-  double antialias
-) {
-  if (handle < 1 || handle > kMaxInstances) return shaped(input, center, width);
-  State& s = gPool[handle - 1];
-  if (!s.active) return shaped(input, center, width);
-  int ch = channel;
-  if (ch < 0) ch = 0;
-  if (ch > 2) ch = 2;
-  Channel& c = s.ch[ch];
-
-  // CONTROL: center/width. LIVE: antialias + audio.
-  sync_clip_coeffs(s, center, width);
-
+static double process_aa_one(State& s, Channel& c, double input, double antialias) {
   double aa = antialias;
   if (!(aa * 0.0 == 0.0) || aa < 0.0) aa = 0.0;
   if (aa > 1.0) aa = 1.0;
@@ -198,6 +195,97 @@ extern "C" double soemdsp_soft_clipper_sample_aa(
   return y + aa * (adaaY - y);
 }
 
-extern "C" int soemdsp_soft_clipper_version() { return 3; }
+extern "C" double soemdsp_soft_clipper_sample_aa(
+  int handle,
+  int channel,
+  double input,
+  double center,
+  double width,
+  double antialias
+) {
+  if (handle < 1 || handle > kMaxInstances) return shaped(input, center, width);
+  State& s = gPool[handle - 1];
+  if (!s.active) return shaped(input, center, width);
+  int ch = channel;
+  if (ch < 0) ch = 0;
+  if (ch > 2) ch = 2;
+  sync_clip_coeffs(s, center, width);
+  return process_aa_one(s, s.ch[ch], input, antialias);
+}
+
+extern "C" void soemdsp_soft_clipper_set_params(
+  int handle,
+  double center,
+  double width,
+  double antialias,
+  int oversampleMode
+) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  State& s = gPool[handle - 1];
+  sync_clip_coeffs(s, center, width);
+  s.liveCenter = center;
+  s.liveWidth = width;
+  double aa = antialias;
+  if (!(aa * 0.0 == 0.0) || aa < 0.0) aa = 0.0;
+  if (aa > 1.0) aa = 1.0;
+  s.liveAntialias = aa;
+  int os = oversampleMode;
+  if (os < 0) os = 0;
+  if (os > 2) os = 2;
+  s.liveOsMode = os;
+}
+
+extern "C" void soemdsp_soft_clipper_process_block(int handle, int channel, int frameCount) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  State& s = gPool[handle - 1];
+  if (!s.active) return;
+  int ch = channel;
+  if (ch < 0) ch = 0;
+  if (ch > 2) ch = 2;
+  Channel& c = s.ch[ch];
+  const int n = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
+  sync_clip_coeffs(s, s.liveCenter, s.liveWidth);
+  const int os = s.liveOsMode;
+  const double aa = s.liveAntialias;
+  for (int i = 0; i < n; i += 1) {
+    const double x = s.blockIn[ch][i];
+    double y;
+    if (os <= 0) {
+      y = shaped_cached(s, x);
+      c.x1 = x;
+      c.hasX = true;
+    } else if (os == 1) {
+      y = process_aa_one(s, c, x, aa);
+      c.x1 = x;
+      c.hasX = true;
+    } else {
+      const double mid = c.hasX ? (c.x1 + x) * 0.5 : x;
+      const double y0 = process_aa_one(s, c, mid, aa);
+      const double y1 = process_aa_one(s, c, x, aa);
+      c.x1 = x;
+      c.hasX = true;
+      y = (y0 + y1) * 0.5;
+    }
+    s.blockOut[ch][i] = y;
+  }
+}
+
+extern "C" int soemdsp_soft_clipper_block_input_ptr(int handle, int channel) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  int ch = channel < 0 ? 0 : (channel > 2 ? 2 : channel);
+  return reinterpret_cast<int>(gPool[handle - 1].blockIn[ch]);
+}
+
+extern "C" int soemdsp_soft_clipper_block_output_ptr(int handle, int channel) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  int ch = channel < 0 ? 0 : (channel > 2 ? 2 : channel);
+  return reinterpret_cast<int>(gPool[handle - 1].blockOut[ch]);
+}
+
+extern "C" int soemdsp_soft_clipper_max_block_frames() {
+  return kMaxBlockFrames;
+}
+
+extern "C" int soemdsp_soft_clipper_version() { return 4; }
 extern "C" const char* soemdsp_soft_clipper_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_soft_clipper_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

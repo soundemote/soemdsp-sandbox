@@ -518,7 +518,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=polyblep-block-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=softclip-block-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2997,7 +2997,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-evaluators-processors.js?v=haschanged-2",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=controller-smooth-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
-  "./public/node-live-audio-worklet-native-exports.js?v=polyblep-block-1",
+  "./public/node-live-audio-worklet-native-exports.js?v=softclip-block-1",
   "./public/node-live-audio-worklet-set-plan.js?v=interrupt-patch-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=engine-ring-1",
   "./public/node-live-audio-worklet-handle-message.js?v=sim-fps-lcd-1",
@@ -3086,7 +3086,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/robinSinusoid/robin-sinusoid-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/tb303Filter/tb303-filter-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/delayEffect/delay-effect-worklet-evaluator.js?v=linear-smooth-only-1",
-  "./public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js?v=polyblep-block-1",
+  "./public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js?v=softclip-block-1",
   "./public/modules/wallDelay/wall-delay-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/reverbEffect/reverb-effect-worklet-evaluator.js?v=click-rhythm-1",
   "./public/modules/soemReverb/soem-reverb-worklet-evaluator.js?v=5-ping-pong",
@@ -3185,7 +3185,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/stepGrid/step-grid-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/nextPatch/next-patch-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-os-1",
-  "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=soft-clipper-os-1",
+  "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=softclip-block-1",
   "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=planck-1",
   "./public/modules/speakerProtector2/speaker-protector-2-worklet-evaluator.js?v=speaker-protector-noclip-1",
   "./public/modules/clipperLimiter/clipper-limiter-math.js?v=clipper-order-1",
