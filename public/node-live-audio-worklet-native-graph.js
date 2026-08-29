@@ -13,6 +13,9 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   output: 6,
   attenuverter: 7,
   range: 8,
+  inv: 9,
+  u2b: 10,
+  b2u: 11,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -576,7 +579,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
       push("outLow", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("outLow", 0));
       push("outHigh", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("outHigh", 1000));
+      continue;
     }
+    // inv / u2b / b2u: no Control params
   }
 };
 

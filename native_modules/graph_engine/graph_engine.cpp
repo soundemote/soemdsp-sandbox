@@ -143,6 +143,9 @@ static const int kTypePingPongDelay = 5;
 static const int kTypeOutput = 6;
 static const int kTypeAttenuverter = 7;
 static const int kTypeRange = 8;
+static const int kTypeInv = 9;
+static const int kTypeU2b = 10;
+static const int kTypeB2u = 11;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1334,6 +1337,39 @@ static void process_range(Circuit& g, Node& node, int frames) {
   copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
 }
 
+// Stateless wire maps — no native instance (nativeHandle stays 0).
+static void process_inv(Circuit& g, Node& node, int frames) {
+  mix_node_inputs(g, node, frames);
+  for (int f = 0; f < frames; f++) {
+    const double out = -(g.mixMono[f] + g.mixLeft[f] + g.mixRight[f]);
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+static void process_u2b(Circuit& g, Node& node, int frames) {
+  mix_node_inputs(g, node, frames);
+  for (int f = 0; f < frames; f++) {
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = 2.0 * in - 1.0;
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+static void process_b2u(Circuit& g, Node& node, int frames) {
+  mix_node_inputs(g, node, frames);
+  for (int f = 0; f < frames; f++) {
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = (in + 1.0) * 0.5;
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
 static void process_output(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   float gL = 1.0f, gR = 1.0f;
@@ -1738,6 +1774,18 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_range(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeInv) {
+      process_inv(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeU2b) {
+      process_u2b(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeB2u) {
+      process_b2u(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeOutput) {
       process_output(*g, node, frames);
       continue;
@@ -1775,5 +1823,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 14; // Control threePole (3× real one-pole)
+  return 15; // inv / u2b / b2u inline wire maps
 }

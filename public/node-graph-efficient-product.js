@@ -10,6 +10,9 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "pingPongDelay",
   "attenuverter",
   "range",
+  "inv",
+  "u2b",
+  "b2u",
   "output",
 ]);
 

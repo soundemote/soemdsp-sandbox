@@ -42,13 +42,16 @@ Only these live-audio types exist in the efficient build:
 | `pingPongDelay` | Delay |
 | `attenuverter` | Scale / invert / offset |
 | `range` | Linear range map |
+| `inv` | Invert (`−in`) |
+| `u2b` | Unipolar → bipolar |
+| `b2u` | Bipolar → unipolar |
 | `output` | Sink |
 
 Canonical circuit:
 
 ```text
 polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
-(+ attenuverter / range as wire utilities)
+(+ attenuverter / range / inv / u2b / b2u as wire utilities)
 ```
 
 **Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` may remain. `audioInput` is **not** on the allowlist unless a demo explicitly needs it (strip with other DSP for now).
