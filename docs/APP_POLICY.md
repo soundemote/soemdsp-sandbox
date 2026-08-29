@@ -34,6 +34,18 @@ This app is a **C++ DSP engine with a JS interface**, not a JS audio program.
 
 ---
 
+## 2b. Delay / large buffers: pay for what you use
+
+- **Delay time does not add CPU.** A longer delay is the same per-sample work (write + read + any once-per-sample FX). Do not treat max delay as a CPU cost.
+- **RAM must match the live delay need**, not a worst-case slot reserved forever.
+  - If the delay is 1 s, hold about **1 s** of ring (plus small modulation/headroom margin), not 8 s “just in case.”
+  - Do **not** bake `kMaxInstances × kMaxDelaySeconds` stereo rings into BSS when most slots are empty.
+- Prefer **per-instance buffers** sized to that instance’s current max needed length; grow with `memory.grow` (or an equivalent arena) when the delay setting increases; release or recycle on destroy.
+- A single shared arena + offsets is optional packing — **not** required for speed. Correct sizing per live delay is the requirement; layout is secondary.
+- Hard caps (max delay seconds, max concurrent instances) may exist as safety limits, but unused capacity must not sit pre-reserved for idle instances.
+
+---
+
 ## 3. Prefer GPU for module display graphics
 
 - Module faces, scopes, fields, phosphor-style displays: **prefer GPU** (WebGL / existing scope GPU paths).
@@ -175,6 +187,8 @@ Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled
 | JS twin of native “so render works” | **No** — silence until WASM (§2 / §5) |
 | JS per-sample delay/filter/osc “just for now” | **No** — C++ only (§2) |
 | Prefer `*_sample` WASM when `process_block` exists | **No** — use block boundary (§2) |
+| Reserve 8 s × N delay rings in BSS for empty slots | **No** — size to live delay (§2b) |
+| “Longer delay = more CPU” | **No** — same tap math (§2b) |
 | Always-visible resize grip on panels | **No** — hover / drag only (§14) |
 
 ---

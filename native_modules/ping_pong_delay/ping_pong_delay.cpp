@@ -9,21 +9,25 @@
 //    (Parabol / Random Walk / FBM) swing −Offset…+Offset
 //  - Feedback path: soft clip → one-pole HPF → one-pole LPF
 //
-// Version 2 = tape path (extended sample arity).
+// Version 3 = process_block + set_params
+// Version 4 = growable per-instance rings (no BSS 8s×N pools; size to live delay).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
+
+#include <stddef.h>
+#include <stdint.h>
 
 namespace {
 
 using namespace soemdsp_maths;
 
-static const int kMaxInstances = 4; // BSS delay pools dominate wasm memory
+// Small state-slot pool only (no delay audio in BSS — §2b). Rings come from
+// memory.grow, sized to each instance's live delay need.
+static const int kMaxInstances = 32;
 static const int kMaxBlockFrames = 128;
 static const double kMaxDelaySeconds = 8.0;
-// 8s @ 192 kHz. Buffers live in a flat pool (not inside the state struct) so
-// freestanding wasm keeps them in BSS — nested arrays inside the struct were
-// being written into the .wasm as ~49MB of zeros and tanked combined load.
-static const int kMaxDelaySamples = 1536002; // 8s @ 192kHz
+static const int kMaxDelaySamples = 1536002; // hard cap @ 192 kHz × 8 s
+static const size_t kWasmPage = 65536;
 
 enum LfoStyle { LfoParabol = 0, LfoRandomWalk = 1, LfoFbm = 2 };
 
@@ -174,10 +178,82 @@ struct LfoChannel {
   }
 };
 
-// Flat delay-line pools (BSS). Do not nest these arrays inside PingPongDelayState
-// — clang/wasm-ld materializes large nested struct members as file-backed data.
-static float gBufferL[kMaxInstances][kMaxDelaySamples];
-static float gBufferR[kMaxInstances][kMaxDelaySamples];
+// Growable delay RAM (APP_POLICY §2b): per-instance L/R rings via memory.grow.
+// No kMaxInstances × 8 s BSS reservation.
+struct DelayFreeNode {
+  DelayFreeNode* next;
+  int capacity;
+  float* data;
+};
+
+static DelayFreeNode* gDelayFreeList = nullptr;
+static DelayFreeNode gDelayFreeNodes[64];
+static int gDelayFreeNodeUsed = 0;
+static uintptr_t gBump = 0;
+static bool gBumpInit = false;
+
+#if defined(__wasm__)
+extern "C" unsigned char __heap_base;
+static void delay_bump_init() {
+  if (gBumpInit) return;
+  gBump = (uintptr_t)&__heap_base;
+  gBumpInit = true;
+}
+static float* delay_bump_alloc(int capacity) {
+  delay_bump_init();
+  if (capacity < 2) capacity = 2;
+  const size_t bytes = (size_t)capacity * sizeof(float);
+  uintptr_t aligned = (gBump + 7u) & ~(uintptr_t)7u;
+  uintptr_t end = aligned + (uintptr_t)bytes;
+  const size_t memBytes = (size_t)__builtin_wasm_memory_size(0) * kWasmPage;
+  if (end > memBytes) {
+    const size_t need = (size_t)(end - memBytes);
+    const size_t pages = (need + kWasmPage - 1) / kWasmPage;
+    if (__builtin_wasm_memory_grow(0, pages) < 0) {
+      return nullptr;
+    }
+  }
+  float* p = (float*)aligned;
+  for (int i = 0; i < capacity; i += 1) {
+    p[i] = 0.0f;
+  }
+  gBump = end;
+  return p;
+}
+#else
+static void delay_bump_init() {}
+static float* delay_bump_alloc(int capacity) {
+  (void)capacity;
+  return nullptr;
+}
+#endif
+
+static float* delay_alloc_floats(int capacity) {
+  DelayFreeNode** cursor = &gDelayFreeList;
+  while (*cursor) {
+    DelayFreeNode* node = *cursor;
+    if (node->capacity >= capacity) {
+      *cursor = node->next;
+      float* data = node->data;
+      for (int i = 0; i < capacity; i += 1) {
+        data[i] = 0.0f;
+      }
+      return data;
+    }
+    cursor = &node->next;
+  }
+  return delay_bump_alloc(capacity);
+}
+
+static void delay_free_floats(float* data, int capacity) {
+  if (!data || capacity < 2) return;
+  if (gDelayFreeNodeUsed >= 64) return; // drop; peak RAM already paid
+  DelayFreeNode* node = &gDelayFreeNodes[gDelayFreeNodeUsed++];
+  node->next = gDelayFreeList;
+  node->capacity = capacity;
+  node->data = data;
+  gDelayFreeList = node;
+}
 
 // Param ownership (mirrors soemdsp::delay::PingPongDelay::kParams):
 //   LIVE:    feedback, mix, level, offsetMs, lfoStyle, lfoRate, lfoVariation
@@ -186,7 +262,8 @@ struct PingPongDelayState {
   bool active;
   float* bufferL;
   float* bufferR;
-  int bufferSize;
+  int bufferSize;  // active ring length (samples)
+  int bufferCap;   // allocated capacity (>= bufferSize)
   int position;
   double wetL;
   double wetR;
@@ -225,8 +302,8 @@ struct PingPongDelayState {
 
 static PingPongDelayState gPool[kMaxInstances];
 
-static void reset_delay(PingPongDelayState& s, int size) {
-  if (!s.bufferL || !s.bufferR) {
+static void reset_delay_ring(PingPongDelayState& s, int size) {
+  if (!s.bufferL || !s.bufferR || size < 2 || size > s.bufferCap) {
     return;
   }
   for (int i = 0; i < size; i++) {
@@ -237,6 +314,9 @@ static void reset_delay(PingPongDelayState& s, int size) {
   s.position = 0;
   s.wetL = 0.0;
   s.wetR = 0.0;
+}
+
+static void reset_delay_dsp(PingPongDelayState& s) {
   s.lfoL.reset(0xA11CEu, 0.0);
   s.lfoR.reset(0xB0B5u, 0.37);
   s.lpL.reset();
@@ -341,11 +421,16 @@ extern "C" int soemdsp_ping_pong_delay_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       PingPongDelayState& s = gPool[i];
-      s.bufferL = gBufferL[i];
-      s.bufferR = gBufferR[i];
-      reset_delay(s, 2);
+      s.bufferL = nullptr;
+      s.bufferR = nullptr;
+      s.bufferSize = 0;
+      s.bufferCap = 0;
+      s.position = 0;
       s.outLeft = 0.0;
       s.outRight = 0.0;
+      s.liveOffsetMs = 0.0;
+      s.liveSampleRate = 44100.0;
+      reset_delay_dsp(s);
       s.active = true;
       return i + 1;
     }
@@ -355,16 +440,45 @@ extern "C" int soemdsp_ping_pong_delay_create() {
 
 extern "C" void soemdsp_ping_pong_delay_destroy(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
-  gPool[handle - 1].active = false;
+  PingPongDelayState& s = gPool[handle - 1];
+  delay_free_floats(s.bufferL, s.bufferCap);
+  delay_free_floats(s.bufferR, s.bufferCap);
+  s.bufferL = nullptr;
+  s.bufferR = nullptr;
+  s.bufferSize = 0;
+  s.bufferCap = 0;
+  s.active = false;
 }
 
+// Size rings to live delay need (+ offset headroom), not a fixed 8 s (§2b).
 static void ensure_buffer_size(PingPongDelayState& s, double sampleRate) {
   const double rate = maxd(1.0, safe(sampleRate));
-  int requiredSize = (int)maxd(2.0, dsp_ceil(rate * kMaxDelaySeconds) + 2.0);
-  if (requiredSize > kMaxDelaySamples) requiredSize = kMaxDelaySamples;
-  if (s.bufferSize != requiredSize) {
-    reset_delay(s, requiredSize);
+  const double driftSec = maxd(0.0, safe(s.liveOffsetMs)) / 1000.0;
+  double needSec = s.baseSeconds + driftSec + 0.02;
+  if (needSec < 0.05) needSec = 0.05;
+  if (needSec > kMaxDelaySeconds) needSec = kMaxDelaySeconds;
+  int need = (int)dsp_ceil(needSec * rate) + 2;
+  if (need < 2) need = 2;
+  if (need > kMaxDelaySamples) need = kMaxDelaySamples;
+
+  if (s.bufferL && s.bufferR && s.bufferCap >= need) {
+    if (s.bufferSize != need) {
+      reset_delay_ring(s, need);
+    }
+    return;
   }
+
+  float* newL = delay_alloc_floats(need);
+  float* newR = delay_alloc_floats(need);
+  if (!newL || !newR) {
+    return;
+  }
+  delay_free_floats(s.bufferL, s.bufferCap);
+  delay_free_floats(s.bufferR, s.bufferCap);
+  s.bufferL = newL;
+  s.bufferR = newR;
+  s.bufferCap = need;
+  reset_delay_ring(s, need);
 }
 
 static void process_one(PingPongDelayState& s, double input) {
@@ -431,7 +545,6 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   if (handle < 1 || handle > kMaxInstances) return;
   PingPongDelayState& s = gPool[handle - 1];
   const double rate = maxd(1.0, safe(sampleRate));
-  ensure_buffer_size(s, rate);
   sync_ping_pong_controls(
     s, saturate, lpfFrequency, hpfFrequency,
     timeNumerator, timeDenominator, timingMode, tempoBpm, rate);
@@ -443,6 +556,8 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   s.liveLfoRate = lfoRate;
   s.liveLfoVariation = lfoVariation;
   s.liveSampleRate = rate;
+  // After Control timing + Live offset are known — size rings to need (§2b).
+  ensure_buffer_size(s, rate);
 }
 
 // Tape-style sample (kept for tools / offline). Prefer process_block in the host.
@@ -510,5 +625,5 @@ extern "C" double soemdsp_ping_pong_delay_right(int handle) {
 }
 
 extern "C" int soemdsp_ping_pong_delay_version() {
-  return 3; // 3 = process_block + set_params
+  return 4; // process_block + growable per-instance rings (§2b)
 }
