@@ -1,353 +1,182 @@
-// Worklet Ping Pong Delay — pure JS tape path (L/R LFO, passive HP/LP, soft clip).
-// Native is used only when exports support the tape-style arity (version >= 2).
+// Worklet Ping Pong Delay — native/WASM only (APP_POLICY §2).
+// JS hosts the graph; C++ owns per-sample DSP via process_block.
+
+NodeLiveAudioProcessor.PING_PONG_NATIVE_BLOCK_SIZE = 128;
 
 NodeLiveAudioProcessor.prototype.createPingPongDelayState = function createPingPongDelayState() {
   return {
-    bufferL: new Float32Array(1),
-    bufferR: new Float32Array(1),
-    bufferSize: 1,
-    position: 0,
-    wetL: 0,
-    wetR: 0,
     nativeHandle: 0,
-    lfoL: { phase: 0, fbmTime: 0, walkOut: 0, walkLpf: 0, walkTick: 0, seed: 0xA11CE },
-    lfoR: { phase: 0.37, fbmTime: 0.17, walkOut: 0, walkLpf: 0, walkTick: 0, seed: 0xB0B5 },
-    lpL: { z: 0 },
-    lpR: { z: 0 },
-    hpL: { x0: 0, y0: 0 },
-    hpR: { x0: 0, y0: 0 },
-    // Cached one-pole / soft-clip coeffs — Math.exp every sample was tipping 2–3 instances.
-    coeffKey: "",
-    lpA1: 0,
-    lpB0: 1,
-    hpA1: 0,
-    hpB0: 0.5,
-    hpB1: -0.5,
-    clipScaleX: 1,
-    clipShiftX: 0,
-    clipScaleY: 1,
-    clipShiftY: 0,
+    cachedParams: null,
     outPorts: { Left: 0, Right: 0 },
+    blockCache: {
+      cursor: 0,
+      size: 0,
+      input: null,
+      outL: null,
+      outR: null,
+      memory: null,
+    },
   };
 };
 
-NodeLiveAudioProcessor.prototype.pingPongTimingModeMultiplier = function pingPongTimingModeMultiplier(mode) {
-  const rounded = Math.round(Number(mode) || 0);
-  if (rounded === 1) return 1.5;
-  if (rounded === 2) return 2 / 3;
-  return 1;
-};
-
-NodeLiveAudioProcessor.prototype.pingPongDelayFraction = function pingPongDelayFraction(numerator, denominator) {
-  const effectiveNumerator = Math.max(0, Number(numerator) || 0);
-  if (effectiveNumerator === 0) return 0;
-  const effectiveDenominator = Math.max(1, Math.round(Number(denominator) || 0) || 1);
-  return effectiveNumerator / effectiveDenominator;
-};
-
-NodeLiveAudioProcessor.prototype.pingPongDelayBaseSeconds = function pingPongDelayBaseSeconds(params) {
-  const secondsPerWholeNote = 240 / Math.max(1, Number(this.timing?.tempoBpm) || 120);
-  const fraction = this.pingPongDelayFraction(params.timeNumerator, params.timeDenominator);
-  return secondsPerWholeNote * fraction * this.pingPongTimingModeMultiplier(params.timingMode);
-};
-
-NodeLiveAudioProcessor.prototype.pingPongHashBipolar = function pingPongHashBipolar(index, seed) {
-  let value = (Math.trunc(index) ^ Math.trunc(seed)) >>> 0;
-  value = Math.imul(value ^ (value >>> 16), 2246822507) >>> 0;
-  value = Math.imul(value ^ (value >>> 13), 3266489909) >>> 0;
-  value = (value ^ (value >>> 16)) >>> 0;
-  return (value / 0xffffffff) * 2 - 1;
-};
-
-NodeLiveAudioProcessor.prototype.pingPongSmoothNoise1d = function pingPongSmoothNoise1d(x, seed) {
-  const left = Math.floor(x);
-  const frac = x - left;
-  const smooth = frac * frac * (3 - 2 * frac);
-  const a = this.pingPongHashBipolar(left, seed);
-  const b = this.pingPongHashBipolar(left + 1, seed);
-  return a + (b - a) * smooth;
-};
-
-NodeLiveAudioProcessor.prototype.pingPongFbmUnipolar = function pingPongFbmUnipolar(time, seed) {
-  let total = 0;
-  let amplitude = 1;
-  let freq = 1;
-  let maxValue = 0;
-  for (let i = 0; i < 4; i += 1) {
-    total += this.pingPongSmoothNoise1d(time * freq, (seed + i * 1013) >>> 0) * amplitude;
-    maxValue += amplitude;
-    amplitude *= 0.5;
-    freq *= 2;
-  }
-  if (!(maxValue > 0)) return 0.5;
-  return (total / maxValue) * 0.5 + 0.5;
-};
-
-NodeLiveAudioProcessor.prototype.pingPongParabolBipolar = function pingPongParabolBipolar(phase01) {
-  let fit = (phase01 * 2) % 2;
-  if (fit < 0) fit += 2;
-  fit -= 1;
-  return 4 * fit * (1 - Math.abs(fit));
-};
-
-NodeLiveAudioProcessor.prototype.pingPongRationalCurve01 = function pingPongRationalCurve01(x, k) {
-  const v = Math.max(0, Math.min(1, Number(x) || 0));
-  const kk = Math.max(-0.999, Math.min(0.999, Number(k) || 0));
-  const denom = 2 * kk * v - kk - 1;
-  if (Math.abs(denom) < 1e-12) return v;
-  return (kk * v - v) / denom;
-};
-
-NodeLiveAudioProcessor.prototype.pingPongRunLfoChannel = function pingPongRunLfoChannel(ch, style, rateHz, sampleRate) {
-  const rate = Math.max(1, sampleRate);
-  const hz = Math.max(0, Number(rateHz) || 0);
-  const st = Math.round(Number(style) || 0);
-
-  if (st === 1) {
-    const noise = this.pingPongHashBipolar((ch.walkTick = (ch.walkTick + 1) | 0), ch.seed);
-    const increment = Math.max(0, Math.min(1, hz / rate));
-    const jitterInc = Math.max(0, Math.min(1, (hz * 0.37) / rate));
-    const stepSize = Math.max(0, Math.min(1, increment + this.pingPongRationalCurve01(jitterInc, 0.99)));
-    const averageIncrement = (jitterInc + increment) * 0.5;
-    const whiteNoiseMix = averageIncrement >= 0.9
-      ? this.pingPongRationalCurve01((averageIncrement - 0.9) / 0.1, -0.7)
-      : 0;
-    const randomMix = 1 - whiteNoiseMix;
-    const step = noise > 0 ? stepSize : -stepSize;
-    ch.walkOut = Math.max(-1, Math.min(1, (ch.walkOut || 0) + step));
-    const mixed = ch.walkOut * randomMix + noise * whiteNoiseMix;
-    const w = Math.min((Math.PI * 2) / rate, 0.000142475857) * Math.max(0, hz);
-    const a1 = Math.exp(-w);
-    ch.walkLpf = (1 - a1) * mixed + a1 * (ch.walkLpf || 0);
-    return Math.max(-1, Math.min(1, ch.walkLpf));
-  }
-
-  if (st === 2) {
-    ch.fbmTime = (ch.fbmTime || 0) + hz / rate;
-    const uni = this.pingPongFbmUnipolar(ch.fbmTime, ch.seed);
-    return Math.max(-1, Math.min(1, uni * 2 - 1));
-  }
-
-  ch.phase = ((ch.phase || 0) + hz / rate) % 1;
-  if (ch.phase < 0) ch.phase += 1;
-  return this.pingPongParabolBipolar(ch.phase);
-};
-
-NodeLiveAudioProcessor.prototype.pingPongEnsureCoeffs = function pingPongEnsureCoeffs(state, saturate, lpfHz, hpfHz, sampleRate) {
-  const rate = Math.max(1, sampleRate);
-  const sat = this.clampValue(Number(saturate) || 1, 0.01, 4);
-  const lp = this.clampValue(Number(lpfHz) || 8000, 20, 20000);
-  const hp = this.clampValue(Number(hpfHz) || 20, 1, 2000);
-  const key = `${rate}|${sat}|${lp}|${hp}`;
-  if (state.coeffKey === key) {
+NodeLiveAudioProcessor.prototype.resetPingPongBlockCache = function resetPingPongBlockCache(state) {
+  if (!state?.blockCache) {
     return;
   }
-  state.coeffKey = key;
-  const thr = Math.max(0.01, sat);
-  const width = Math.max(1e-6, thr * 2);
-  state.clipScaleX = 2 / width;
-  state.clipShiftX = -1 - state.clipScaleX * (0 - 0.5 * width);
-  state.clipScaleY = 1 / state.clipScaleX;
-  state.clipShiftY = -state.clipShiftX * state.clipScaleY;
-  const lpW = Math.min((Math.PI * 2) / rate, 0.000142475857) * lp;
-  state.lpA1 = Math.exp(-lpW);
-  state.lpB0 = 1 - state.lpA1;
-  const hpW = Math.min((Math.PI * 2) / rate, 0.000142475857) * hp;
-  state.hpA1 = Math.exp(-hpW);
-  state.hpB0 = 0.5 * (1 + state.hpA1);
-  state.hpB1 = -state.hpB0;
+  state.blockCache.cursor = 0;
+  state.blockCache.size = 0;
+  state.blockCache.input = null;
+  state.blockCache.outL = null;
+  state.blockCache.outR = null;
+  state.blockCache.memory = null;
 };
 
-NodeLiveAudioProcessor.prototype.pingPongSoftClipCached = function pingPongSoftClipCached(state, v) {
-  const x = state.clipScaleX * (Number(v) || 0) + state.clipShiftX;
-  const e2 = Math.exp(2 * Math.max(-20, Math.min(20, x)));
-  const th = (e2 - 1) / (e2 + 1);
-  return state.clipShiftY + state.clipScaleY * th;
-};
-
-NodeLiveAudioProcessor.prototype.pingPongOnePoleLpCached = function pingPongOnePoleLpCached(pole, input, a1, b0) {
-  pole.z = b0 * input + a1 * (pole.z || 0);
-  return pole.z;
-};
-
-NodeLiveAudioProcessor.prototype.pingPongOnePoleHpCached = function pingPongOnePoleHpCached(pole, input, a1, b0, b1) {
-  const y = b0 * input + b1 * (pole.x0 || 0) + a1 * (pole.y0 || 0);
-  pole.x0 = input;
-  pole.y0 = y;
-  return y;
-};
-
-NodeLiveAudioProcessor.prototype.pingPongInterpLinear = function pingPongInterpLinear(buffer, where) {
-  const length = buffer.length;
-  if (!length) return 0;
-  let w = where;
-  while (w < 0) w += length;
-  const before = Math.floor(w) % length;
-  const after = (before + 1) % length;
-  const mix = w - Math.floor(w);
-  return buffer[before] * (1 - mix) + buffer[after] * mix;
-};
-
-/** 4-point Hermite (Catmull-Rom). Prefer shared helper when present in the blob. */
-NodeLiveAudioProcessor.prototype.pingPongInterp = function pingPongInterp(buffer, where, interpolation = 0) {
-  if (typeof nodeGraphDelayInterpolate === "function") {
-    return nodeGraphDelayInterpolate(buffer, where, interpolation);
+NodeLiveAudioProcessor.prototype.bindPingPongBlockViews = function bindPingPongBlockViews(native, state, blockSize) {
+  const memory = native?.memory;
+  if (!memory?.buffer || !state?.nativeHandle || blockSize < 1) {
+    return false;
   }
-  const mode = Math.round(Number(interpolation) || 0);
-  if (mode < 1) {
-    return this.pingPongInterpLinear(buffer, where);
+  const cache = state.blockCache || (state.blockCache = {});
+  if (cache.input && cache.memory === memory.buffer && cache.size === blockSize) {
+    return true;
   }
-  const length = buffer?.length || 0;
-  if (!length) return 0;
-  let w = Number(where) || 0;
-  while (w < 0) w += length;
-  const whole = Math.floor(w);
-  const t = w - whole;
-  let i0 = whole % length;
-  if (i0 < 0) i0 += length;
-  const im1 = i0 === 0 ? length - 1 : i0 - 1;
-  const i1 = i0 + 1 >= length ? i0 + 1 - length : i0 + 1;
-  const i2 = i1 + 1 >= length ? i1 + 1 - length : i1 + 1;
-  const ym1 = buffer[im1] || 0;
-  const y0 = buffer[i0] || 0;
-  const y1 = buffer[i1] || 0;
-  const y2 = buffer[i2] || 0;
-  const c0 = y0;
-  const c1 = 0.5 * (y1 - ym1);
-  const c2 = ym1 - 2.5 * y0 + 2.0 * y1 - 0.5 * y2;
-  const c3 = 0.5 * (y2 - ym1) + 1.5 * (y0 - y1);
-  return ((c3 * t + c2) * t + c1) * t + c0;
+  const inPtr = native.soemdsp_ping_pong_delay_block_input_ptr?.(state.nativeHandle);
+  const outLPtr = native.soemdsp_ping_pong_delay_block_output_left_ptr?.(state.nativeHandle);
+  const outRPtr = native.soemdsp_ping_pong_delay_block_output_right_ptr?.(state.nativeHandle);
+  if (!inPtr || !outLPtr || !outRPtr) {
+    return false;
+  }
+  cache.input = new Float64Array(memory.buffer, inPtr, blockSize);
+  cache.outL = new Float64Array(memory.buffer, outLPtr, blockSize);
+  cache.outR = new Float64Array(memory.buffer, outRPtr, blockSize);
+  cache.memory = memory.buffer;
+  cache.size = blockSize;
+  cache.outL.fill(0);
+  cache.outR.fill(0);
+  cache.cursor = 0;
+  return true;
 };
 
-/** Pure JS tape ping-pong (always available). */
-NodeLiveAudioProcessor.prototype.pingPongDelaySampleJs = function pingPongDelaySampleJs(state, input, params, rateHz) {
-  const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
-  if (!state.lfoL) {
-    state.lfoL = { phase: 0, fbmTime: 0, walkOut: 0, walkLpf: 0, walkTick: 0, seed: 0xA11CE };
-    state.lfoR = { phase: 0.37, fbmTime: 0.17, walkOut: 0, walkLpf: 0, walkTick: 0, seed: 0xB0B5 };
-    state.lpL = { z: 0 };
-    state.lpR = { z: 0 };
-    state.hpL = { x0: 0, y0: 0 };
-    state.hpR = { x0: 0, y0: 0 };
+NodeLiveAudioProcessor.prototype.applyPingPongNativeParams = function applyPingPongNativeParams(native, state, params, safeRate) {
+  if (!native?.soemdsp_ping_pong_delay_set_params || !state?.nativeHandle) {
+    return;
   }
-
-  const dry = this.safeFilterNumber(input, null);
-  const feedback = this.clampValue(Number(params.feedback) || 0, 0, 0.95);
-  const mix = this.clampValue(Number(params.mix) || 0, 0, 1);
-  const level = this.clampValue(Number(params.level) || 0, 0, 2);
-  const offsetMs = Math.max(0, Number(params.offsetMs) || 0);
-  const lfoStyle = Math.round(Number(params.lfoStyle) || 0);
-  const lfoRate = this.clampValue(Number(params.lfoRate) || 0, 0, 40);
-  const lfoVariation = this.clampValue(Number(params.lfoVariation) || 0, 0, 1);
-  const saturate = this.clampValue(Number(params.saturate) || 1, 0.01, 4);
-  const lpfHz = this.clampValue(Number(params.lpfFrequency) || 8000, 20, 20000);
-  const hpfHz = this.clampValue(Number(params.hpfFrequency) || 20, 1, 2000);
-  this.pingPongEnsureCoeffs(state, saturate, lpfHz, hpfHz, safeRate);
-
-  const baseSeconds = Math.max(0, this.pingPongDelayBaseSeconds(params));
-  const driftSec = offsetMs / 1000;
-  // Grow-only ring sized to this delay (was always 8s ≈ 350k samples ×2 — cache thrash).
-  const wantSeconds = Math.min(8, Math.max(0.25, baseSeconds + Math.max(driftSec, 0) + 0.05));
-  const requiredSize = Math.max(2, Math.ceil(safeRate * wantSeconds) + 2);
-  if (!state.bufferL || state.bufferSize < requiredSize) {
-    state.bufferL = new Float32Array(requiredSize);
-    state.bufferR = new Float32Array(requiredSize);
-    state.bufferSize = requiredSize;
-    state.position = 0;
-    state.wetL = 0;
-    state.wetR = 0;
-  }
-  const rateL = lfoRate * (1 + lfoVariation * 0.31);
-  const rateR = lfoRate * (1 - lfoVariation * 0.27);
-  // LFO only when offset creates audible modulation — otherwise zero work.
-  const modL = driftSec > 1e-9 ? this.pingPongRunLfoChannel(state.lfoL, lfoStyle, rateL, safeRate) : 0;
-  const modR = driftSec > 1e-9 ? this.pingPongRunLfoChannel(state.lfoR, lfoStyle, rateR, safeRate) : 0;
-
-  const delaySamplesL = Math.min(state.bufferSize - 2, Math.max(1, (baseSeconds + driftSec * modL) * safeRate));
-  const delaySamplesR = Math.min(state.bufferSize - 2, Math.max(1, (baseSeconds + driftSec * modR) * safeRate));
-
-  state.position = (state.position + 1) % state.bufferSize;
-  const readPosL = (state.position + state.bufferSize - delaySamplesL) % state.bufferSize;
-  const readPosR = (state.position + state.bufferSize - delaySamplesR) % state.bufferSize;
-  const readL = this.pingPongInterpLinear(state.bufferL, readPosL);
-  const readR = this.pingPongInterpLinear(state.bufferR, readPosR);
-
-  const clippedL = this.pingPongSoftClipCached(state, dry + readR * feedback);
-  const clippedR = this.pingPongSoftClipCached(state, readL * feedback);
-  const writeL = this.pingPongOnePoleLpCached(
-    state.lpL,
-    this.pingPongOnePoleHpCached(state.hpL, clippedL, state.hpA1, state.hpB0, state.hpB1),
-    state.lpA1,
-    state.lpB0,
+  native.soemdsp_ping_pong_delay_set_params(
+    state.nativeHandle,
+    Number(params.feedback) || 0,
+    Number(params.mix) || 0,
+    Number(params.level) || 0,
+    Number(params.timeNumerator) || 0,
+    Number(params.timeDenominator) || 1,
+    Number(params.timingMode) || 0,
+    Math.max(0, Number(params.offsetMs) || 0),
+    Math.round(Number(params.lfoStyle) || 0),
+    Number(params.lfoRate) || 0,
+    Number(params.lfoVariation) || 0,
+    Number(params.saturate) || 1,
+    Number(params.lpfFrequency) || 8000,
+    Number(params.hpfFrequency) || 20,
+    Math.max(1, Number(this.timing?.tempoBpm) || 120),
+    Math.max(1, Number(safeRate) || 44100),
   );
-  const writeR = this.pingPongOnePoleLpCached(
-    state.lpR,
-    this.pingPongOnePoleHpCached(state.hpR, clippedR, state.hpA1, state.hpB0, state.hpB1),
-    state.lpA1,
-    state.lpB0,
-  );
-
-  state.bufferL[state.position] = Math.max(-8, Math.min(8, writeL));
-  state.bufferR[state.position] = Math.max(-8, Math.min(8, writeR));
-  state.wetL = readL;
-  state.wetR = readR;
-
-  const out = state.outPorts || (state.outPorts = { Left: 0, Right: 0 });
-  out.Left = (dry * (1 - mix) + state.wetL * mix) * level;
-  out.Right = (dry * (1 - mix) + state.wetR * mix) * level;
-  return out;
 };
 
+/**
+ * One output sample. Collects into a native block; one WASM process_block per quantum.
+ * Silence if native cold (no JS DSP twin — APP_POLICY §2).
+ */
 NodeLiveAudioProcessor.prototype.pingPongDelaySample = function pingPongDelaySample(state, input, params, rateHz = sampleRate) {
-  // Prefer pure JS so tape features work without a native rebuild.
-  // Native path only if version >= 2 and new sample arity is present.
   const native = this.nativePingPongDelay;
   const nativeVer = Number(native?.soemdsp_ping_pong_delay_version?.() || 0);
   if (
-    this.nativePingPongDelayReady
-    && nativeVer >= 2
-    && native?.soemdsp_ping_pong_delay_sample
+    !this.nativePingPongDelayReady
+    || nativeVer < 3
+    || !native?.soemdsp_ping_pong_delay_create
+    || !native?.soemdsp_ping_pong_delay_process_block
+    || !native?.soemdsp_ping_pong_delay_set_params
   ) {
-    try {
-      if (!state.nativeHandle) {
-        state.nativeHandle = native.soemdsp_ping_pong_delay_create();
-      }
-      if (state.nativeHandle) {
-        const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
-        const left = native.soemdsp_ping_pong_delay_sample(
-          state.nativeHandle,
-          this.safeFilterNumber(input, null),
-          this.clampValue(Number(params.feedback) || 0, 0, 0.95),
-          this.clampValue(Number(params.mix) || 0, 0, 1),
-          this.clampValue(Number(params.level) || 0, 0, 2),
-          this.safeFilterNumber(params.timeNumerator, null),
-          this.safeFilterNumber(params.timeDenominator, null),
-          this.safeFilterNumber(params.timingMode, null),
-          Math.max(0, Number(params.offsetMs) || 0),
-          Math.round(Number(params.lfoStyle) || 0),
-          this.clampValue(Number(params.lfoRate) || 0, 0, 40),
-          this.clampValue(Number(params.lfoVariation) || 0, 0, 1),
-          this.clampValue(Number(params.saturate) || 1, 0.01, 4),
-          this.clampValue(Number(params.lpfFrequency) || 8000, 20, 20000),
-          this.clampValue(Number(params.hpfFrequency) || 20, 1, 2000),
-          Math.max(1, Number(this.timing?.tempoBpm) || 120),
-          safeRate,
-        );
-        return {
-          Left: this.safeFilterNumber(left, null),
-          Right: this.safeFilterNumber(native.soemdsp_ping_pong_delay_right(state.nativeHandle), null),
-        };
-      }
-    } catch (error) {
-      this.nativePingPongDelayReady = false;
-      state.nativeHandle = 0;
-      this.port.postMessage({
-        type: "nativeModuleStatus",
-        name: "ping_pong_delay",
-        status: "disabled",
-        message: String(error?.message || error || "native Ping Pong Delay failed"),
-      });
-    }
+    const silent = state.outPorts || (state.outPorts = { Left: 0, Right: 0 });
+    silent.Left = 0;
+    silent.Right = 0;
+    return silent;
   }
-  return this.pingPongDelaySampleJs(state, input, params, rateHz);
+
+  try {
+    if (!state.nativeHandle) {
+      state.nativeHandle = native.soemdsp_ping_pong_delay_create();
+      this.resetPingPongBlockCache(state);
+    }
+    if (!state.nativeHandle) {
+      const silent = state.outPorts || (state.outPorts = { Left: 0, Right: 0 });
+      silent.Left = 0;
+      silent.Right = 0;
+      return silent;
+    }
+
+    const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
+    const blockSize = Math.min(
+      NodeLiveAudioProcessor.PING_PONG_NATIVE_BLOCK_SIZE,
+      Number(native.soemdsp_ping_pong_delay_max_block_frames?.()) || 128,
+    );
+
+    if (!this.bindPingPongBlockViews(native, state, blockSize)) {
+      // Fallback: single-sample native export (still C++, not JS).
+      this.applyPingPongNativeParams(native, state, params, safeRate);
+      const left = native.soemdsp_ping_pong_delay_sample(
+        state.nativeHandle,
+        this.safeFilterNumber(input, null),
+        Number(params.feedback) || 0,
+        Number(params.mix) || 0,
+        Number(params.level) || 0,
+        Number(params.timeNumerator) || 0,
+        Number(params.timeDenominator) || 1,
+        Number(params.timingMode) || 0,
+        Math.max(0, Number(params.offsetMs) || 0),
+        Math.round(Number(params.lfoStyle) || 0),
+        Number(params.lfoRate) || 0,
+        Number(params.lfoVariation) || 0,
+        Number(params.saturate) || 1,
+        Number(params.lpfFrequency) || 8000,
+        Number(params.hpfFrequency) || 20,
+        Math.max(1, Number(this.timing?.tempoBpm) || 120),
+        safeRate,
+      );
+      const out = state.outPorts || (state.outPorts = { Left: 0, Right: 0 });
+      out.Left = this.safeFilterNumber(left, null);
+      out.Right = this.safeFilterNumber(native.soemdsp_ping_pong_delay_right(state.nativeHandle), null);
+      return out;
+    }
+
+    const cache = state.blockCache;
+    const index = cache.cursor;
+    const outL = cache.outL[index] || 0;
+    const outR = cache.outR[index] || 0;
+    cache.input[index] = this.safeFilterNumber(input, null);
+    cache.cursor += 1;
+
+    if (cache.cursor >= blockSize) {
+      this.applyPingPongNativeParams(native, state, params, safeRate);
+      native.soemdsp_ping_pong_delay_process_block(state.nativeHandle, blockSize);
+      cache.cursor = 0;
+    }
+
+    const out = state.outPorts || (state.outPorts = { Left: 0, Right: 0 });
+    out.Left = outL;
+    out.Right = outR;
+    return out;
+  } catch (error) {
+    this.nativePingPongDelayReady = false;
+    state.nativeHandle = 0;
+    this.resetPingPongBlockCache(state);
+    this.port.postMessage({
+      type: "nativeModuleStatus",
+      name: "ping_pong_delay",
+      status: "disabled",
+      message: String(error?.message || error || "native Ping Pong Delay failed"),
+    });
+    const silent = state.outPorts || (state.outPorts = { Left: 0, Right: 0 });
+    silent.Left = 0;
+    silent.Right = 0;
+    return silent;
+  }
 };

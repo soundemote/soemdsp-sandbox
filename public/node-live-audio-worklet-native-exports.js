@@ -710,6 +710,8 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         this.nativePingPongDelay = exports;
         this.nativePingPongDelayReady = Boolean(
           this.nativePingPongDelay?.soemdsp_ping_pong_delay_create &&
+          this.nativePingPongDelay?.soemdsp_ping_pong_delay_set_params &&
+          this.nativePingPongDelay?.soemdsp_ping_pong_delay_process_block &&
           this.nativePingPongDelay?.soemdsp_ping_pong_delay_sample,
         );
         this.port.postMessage({

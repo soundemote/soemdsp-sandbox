@@ -20,8 +20,13 @@ When feature-complete (or when explicitly chosen later): introduce migrations de
 
 ---
 
-## 2. No JavaScript fallback modules for DSP
+## 2. No JavaScript per-sample audio (C++ owns DSP)
 
+This app is a **C++ DSP engine with a JS interface**, not a JS audio program.
+
+- **JS must not implement per-sample (or per-block) module audio.** No filters, delays, oscillators, clippers, reverbs, or other signal kernels in the AudioWorklet/JS hot path.
+- Module DSP lives in **native/WASM (C++)**. The worklet/host only: wires graph I/O, resolves Control/Live params, calls native `process` / `process_block`, and observes buffers for scopes/UI.
+- Prefer **`process_block` (quantum-sized)** over per-sample WASM exports when the module can take a block without breaking feedback rules.
 - Module audio/math that has a **native/WASM** path must **not** ship a parallel JS DSP implementation “in case native fails.”
 - If native is missing or not ready: **silence / black / inert** (and optional status), not a second algorithm.
 - Face/display may present native results (e.g. upload a mono grid) but must **not** re-implement the field/kernel in JS or GLSL for “looks only.”
@@ -168,6 +173,8 @@ Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled
 | Second formula for offline/render | **No** — same core as live (§5) |
 | Re-sim graph for live video/scopes | **No** — observe worklet buffers (§5) |
 | JS twin of native “so render works” | **No** — silence until WASM (§2 / §5) |
+| JS per-sample delay/filter/osc “just for now” | **No** — C++ only (§2) |
+| Prefer `*_sample` WASM when `process_block` exists | **No** — use block boundary (§2) |
 | Always-visible resize grip on panels | **No** — hover / drag only (§14) |
 
 ---

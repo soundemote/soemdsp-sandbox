@@ -518,7 +518,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=phase-reset-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=ping-pong-block-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2997,7 +2997,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-evaluators-processors.js?v=haschanged-2",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=controller-smooth-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
-  "./public/node-live-audio-worklet-native-exports.js?v=block-scope-1",
+  "./public/node-live-audio-worklet-native-exports.js?v=ping-pong-block-1",
   "./public/node-live-audio-worklet-set-plan.js?v=interrupt-patch-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=engine-ring-1",
   "./public/node-live-audio-worklet-handle-message.js?v=sim-fps-lcd-1",
@@ -3086,7 +3086,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/robinSinusoid/robin-sinusoid-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/tb303Filter/tb303-filter-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/delayEffect/delay-effect-worklet-evaluator.js?v=linear-smooth-only-1",
-  "./public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js?v=pp-coeff-cache-1",
+  "./public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js?v=native-block-1",
   "./public/modules/wallDelay/wall-delay-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/reverbEffect/reverb-effect-worklet-evaluator.js?v=planck-eps-1",
   "./public/modules/soemReverb/soem-reverb-worklet-evaluator.js?v=5-ping-pong",

@@ -113,7 +113,14 @@ $modules = @(
   @{ Name = "delayed_trigger"; Simd = $false; Exports = @("soemdsp_delayed_trigger_create", "soemdsp_delayed_trigger_destroy", "soemdsp_delayed_trigger_sample", "soemdsp_delayed_trigger_version") }
   @{ Name = "clock"; Simd = $false; Exports = @("soemdsp_clock_create", "soemdsp_clock_destroy", "soemdsp_clock_sample", "soemdsp_clock_analog_out", "soemdsp_clock_pulse", "soemdsp_clock_version") }
   @{ Name = "random_clock"; Simd = $false; Exports = @("soemdsp_random_clock_create", "soemdsp_random_clock_destroy", "soemdsp_random_clock_sample", "soemdsp_random_clock_gate", "soemdsp_random_clock_version") },
-  @{ Name = "ping_pong_delay"; Simd = $false; Exports = @("soemdsp_ping_pong_delay_create", "soemdsp_ping_pong_delay_destroy", "soemdsp_ping_pong_delay_sample", "soemdsp_ping_pong_delay_right", "soemdsp_ping_pong_delay_version") },
+  @{ Name = "ping_pong_delay"; Simd = $false; Exports = @(
+    "soemdsp_ping_pong_delay_create", "soemdsp_ping_pong_delay_destroy",
+    "soemdsp_ping_pong_delay_sample", "soemdsp_ping_pong_delay_right",
+    "soemdsp_ping_pong_delay_set_params", "soemdsp_ping_pong_delay_process_block",
+    "soemdsp_ping_pong_delay_block_input_ptr", "soemdsp_ping_pong_delay_block_output_left_ptr",
+    "soemdsp_ping_pong_delay_block_output_right_ptr", "soemdsp_ping_pong_delay_max_block_frames",
+    "soemdsp_ping_pong_delay_version"
+  ) },
   @{ Name = "papoulis_filter"; Simd = $false; Exports = @("soemdsp_papoulis_filter_create", "soemdsp_papoulis_filter_destroy", "soemdsp_papoulis_filter_sample", "soemdsp_papoulis_filter_snap", "soemdsp_papoulis_filter_version") },
   @{ Name = "phosphillator"; Simd = $false; Exports = @("soemdsp_phosphillator_create", "soemdsp_phosphillator_destroy", "soemdsp_phosphillator_path_x_ptr", "soemdsp_phosphillator_path_y_ptr", "soemdsp_phosphillator_max_path_points", "soemdsp_phosphillator_set_path", "soemdsp_phosphillator_clear_path", "soemdsp_phosphillator_sample", "soemdsp_phosphillator_y", "soemdsp_phosphillator_version") },
   @{ Name = "butterworth"; Simd = $false; Exports = @("soemdsp_butterworth_create", "soemdsp_butterworth_destroy", "soemdsp_butterworth_sample", "soemdsp_butterworth_version", "soemdsp_butterworth_metadata_json", "soemdsp_butterworth_metadata_json_size") },

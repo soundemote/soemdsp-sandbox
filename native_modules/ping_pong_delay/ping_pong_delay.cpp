@@ -17,7 +17,8 @@ namespace {
 
 using namespace soemdsp_maths;
 
-static const int kMaxInstances = 4;
+static const int kMaxInstances = 4; // BSS delay pools dominate wasm memory
+static const int kMaxBlockFrames = 128;
 static const double kMaxDelaySeconds = 8.0;
 // 8s @ 192 kHz. Buffers live in a flat pool (not inside the state struct) so
 // freestanding wasm keeps them in BSS — nested arrays inside the struct were
@@ -207,6 +208,19 @@ struct PingPongDelayState {
   double lastTimingMode;
   double lastTempoBpm;
   double baseSeconds;
+  // Live params latched by set_params / sample (used by process_block).
+  double liveFeedback;
+  double liveMix;
+  double liveLevel;
+  double liveOffsetMs;
+  double liveLfoStyle;
+  double liveLfoRate;
+  double liveLfoVariation;
+  double liveSampleRate;
+  // Block I/O (one JS↔WASM crossing per quantum).
+  double blockIn[kMaxBlockFrames];
+  double blockOutL[kMaxBlockFrames];
+  double blockOutR[kMaxBlockFrames];
 };
 
 static PingPongDelayState gPool[kMaxInstances];
@@ -344,49 +358,25 @@ extern "C" void soemdsp_ping_pong_delay_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
-// Tape-style sample (version 2 arity).
-extern "C" double soemdsp_ping_pong_delay_sample(
-  int    handle,
-  double input,
-  double feedback,
-  double mix,
-  double level,
-  double timeNumerator,
-  double timeDenominator,
-  double timingMode,
-  double offsetMs,
-  double lfoStyle,
-  double lfoRate,
-  double lfoVariation,
-  double saturate,
-  double lpfFrequency,
-  double hpfFrequency,
-  double tempoBpm,
-  double sampleRate
-) {
-  if (handle < 1 || handle > kMaxInstances) return 0.0;
-  PingPongDelayState& s = gPool[handle - 1];
-
+static void ensure_buffer_size(PingPongDelayState& s, double sampleRate) {
   const double rate = maxd(1.0, safe(sampleRate));
   int requiredSize = (int)maxd(2.0, dsp_ceil(rate * kMaxDelaySeconds) + 2.0);
   if (requiredSize > kMaxDelaySamples) requiredSize = kMaxDelaySamples;
   if (s.bufferSize != requiredSize) {
     reset_delay(s, requiredSize);
   }
+}
 
-  sync_ping_pong_controls(
-    s, saturate, lpfFrequency, hpfFrequency,
-    timeNumerator, timeDenominator, timingMode, tempoBpm, rate);
-
-  // LIVE — read every sample (no *Changed).
+static void process_one(PingPongDelayState& s, double input) {
+  const double rate = maxd(1.0, s.liveSampleRate);
   const double dry = safe(input);
-  const double safeFeedback = safe(feedback);
-  const double safeMix = clamp(safe(mix), 0.0, 1.0);
-  const double safeLevel = clamp(safe(level), 0.0, 2.0);
-  const double driftSec = maxd(0.0, safe(offsetMs)) / 1000.0;
-  const int style = (int)dsp_floor(safe(lfoStyle) + 0.5);
-  const double hz = clamp(safe(lfoRate), 0.0, 40.0);
-  const double vary = clamp(safe(lfoVariation), 0.0, 1.0);
+  const double safeFeedback = safe(s.liveFeedback);
+  const double safeMix = clamp(safe(s.liveMix), 0.0, 1.0);
+  const double safeLevel = clamp(safe(s.liveLevel), 0.0, 2.0);
+  const double driftSec = maxd(0.0, safe(s.liveOffsetMs)) / 1000.0;
+  const int style = (int)dsp_floor(safe(s.liveLfoStyle) + 0.5);
+  const double hz = clamp(safe(s.liveLfoRate), 0.0, 40.0);
+  const double vary = clamp(safe(s.liveLfoVariation), 0.0, 1.0);
 
   const double rateL = hz * (1.0 + vary * 0.31);
   const double rateR = hz * (1.0 - vary * 0.27);
@@ -417,7 +407,101 @@ extern "C" double soemdsp_ping_pong_delay_sample(
 
   s.outLeft = (dry * (1.0 - safeMix) + s.wetL * safeMix) * safeLevel;
   s.outRight = (dry * (1.0 - safeMix) + s.wetR * safeMix) * safeLevel;
-  return s.outLeft;
+}
+
+// Latch Control + Live params once per quantum (or when knobs move).
+extern "C" void soemdsp_ping_pong_delay_set_params(
+  int    handle,
+  double feedback,
+  double mix,
+  double level,
+  double timeNumerator,
+  double timeDenominator,
+  double timingMode,
+  double offsetMs,
+  double lfoStyle,
+  double lfoRate,
+  double lfoVariation,
+  double saturate,
+  double lpfFrequency,
+  double hpfFrequency,
+  double tempoBpm,
+  double sampleRate
+) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  PingPongDelayState& s = gPool[handle - 1];
+  const double rate = maxd(1.0, safe(sampleRate));
+  ensure_buffer_size(s, rate);
+  sync_ping_pong_controls(
+    s, saturate, lpfFrequency, hpfFrequency,
+    timeNumerator, timeDenominator, timingMode, tempoBpm, rate);
+  s.liveFeedback = feedback;
+  s.liveMix = mix;
+  s.liveLevel = level;
+  s.liveOffsetMs = offsetMs;
+  s.liveLfoStyle = lfoStyle;
+  s.liveLfoRate = lfoRate;
+  s.liveLfoVariation = lfoVariation;
+  s.liveSampleRate = rate;
+}
+
+// Tape-style sample (kept for tools / offline). Prefer process_block in the host.
+extern "C" double soemdsp_ping_pong_delay_sample(
+  int    handle,
+  double input,
+  double feedback,
+  double mix,
+  double level,
+  double timeNumerator,
+  double timeDenominator,
+  double timingMode,
+  double offsetMs,
+  double lfoStyle,
+  double lfoRate,
+  double lfoVariation,
+  double saturate,
+  double lpfFrequency,
+  double hpfFrequency,
+  double tempoBpm,
+  double sampleRate
+) {
+  if (handle < 1 || handle > kMaxInstances) return 0.0;
+  soemdsp_ping_pong_delay_set_params(
+    handle, feedback, mix, level, timeNumerator, timeDenominator, timingMode,
+    offsetMs, lfoStyle, lfoRate, lfoVariation, saturate, lpfFrequency, hpfFrequency,
+    tempoBpm, sampleRate);
+  process_one(gPool[handle - 1], input);
+  return gPool[handle - 1].outLeft;
+}
+
+extern "C" void soemdsp_ping_pong_delay_process_block(int handle, int frameCount) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  PingPongDelayState& s = gPool[handle - 1];
+  const int n = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
+  for (int i = 0; i < n; i += 1) {
+    process_one(s, s.blockIn[i]);
+    s.blockOutL[i] = s.outLeft;
+    s.blockOutR[i] = s.outRight;
+  }
+}
+
+extern "C" int soemdsp_ping_pong_delay_block_input_ptr(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  return reinterpret_cast<int>(gPool[handle - 1].blockIn);
+}
+
+extern "C" int soemdsp_ping_pong_delay_block_output_left_ptr(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  return reinterpret_cast<int>(gPool[handle - 1].blockOutL);
+}
+
+extern "C" int soemdsp_ping_pong_delay_block_output_right_ptr(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  return reinterpret_cast<int>(gPool[handle - 1].blockOutR);
+}
+
+extern "C" int soemdsp_ping_pong_delay_max_block_frames() {
+  return kMaxBlockFrames;
 }
 
 extern "C" double soemdsp_ping_pong_delay_right(int handle) {
@@ -426,5 +510,5 @@ extern "C" double soemdsp_ping_pong_delay_right(int handle) {
 }
 
 extern "C" int soemdsp_ping_pong_delay_version() {
-  return 2;
+  return 3; // 3 = process_block + set_params
 }
