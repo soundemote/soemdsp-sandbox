@@ -7,7 +7,13 @@
 // process one quantum via soemdsp_graph_process_block. This stub implements
 // output (+ silence for unimplemented types). PR-E2+ fills DSP nodes.
 
+#include "../sandbox_native_maths/exp_log.h"
+#include "../sandbox_native_maths/analog_filter_trig.h"
+
 namespace {
+
+using soemdsp_maths::dsp_exp;
+using soemdsp_maths::dsp_cos;
 
 static const int kMaxInstances = 4;
 static const int kMaxNodes = 64;
@@ -49,7 +55,7 @@ struct Conn {
   bool used;
 };
 
-struct Graph {
+struct Circuit {
   bool active;
   bool compiled;
   float sampleRate;
@@ -64,13 +70,13 @@ struct Graph {
   double outR[kMaxBlockFrames];
 };
 
-static Graph gPool[kMaxInstances];
+static Circuit gPool[kMaxInstances];
 
 static void zero_buf(double* p, int n) {
   for (int i = 0; i < n; i++) p[i] = 0.0;
 }
 
-static void clear_graph_contents(Graph& g) {
+static void clear_graph_contents(Circuit& g) {
   g.compiled = false;
   g.nodeCount = 0;
   g.connCount = 0;
@@ -91,13 +97,13 @@ static void clear_graph_contents(Graph& g) {
   zero_buf(g.outR, kMaxBlockFrames);
 }
 
-static Graph* get(int handle) {
+static Circuit* get(int handle) {
   if (handle < 1 || handle > kMaxInstances) return nullptr;
-  Graph& g = gPool[handle - 1];
+  Circuit& g = gPool[handle - 1];
   return g.active ? &g : nullptr;
 }
 
-static int find_node(Graph& g, unsigned int idHash) {
+static int find_node(Circuit& g, unsigned int idHash) {
   for (int i = 0; i < g.nodeCount; i++) {
     if (g.nodes[i].used && g.nodes[i].idHash == idHash) return i;
   }
@@ -110,33 +116,26 @@ static int clamp_port(int port) {
   return port;
 }
 
+// Match JS nodeGraphOutputVolumeDbToLin / 10^(db/20) via freestanding dsp_exp.
 static float db_to_lin(float db) {
   if (!(db == db) || db <= -140.0f) return 0.0f;
-  // 10^(db/20) approx via exp(db * ln(10)/20); freestanding: use pow2-ish poly.
-  // Simple exact-enough for Control: use series for 2^(db/6.0206).
-  // Prefer integer-friendly: return 1 for near-zero; otherwise stepwise.
-  // Use exp approximation: e^x ≈ 1+x+x^2/2 for small; else iterative.
-  const float x = db * 0.11512925464970229f; // ln(10)/20
-  // Padé-ish exp for audio gain range roughly [-140, +24]
-  float y = x;
-  float sum = 1.0f + y;
-  y *= x; sum += y * 0.5f;
-  y *= x; sum += y * (1.0f / 6.0f);
-  y *= x; sum += y * (1.0f / 24.0f);
-  y *= x; sum += y * (1.0f / 120.0f);
-  y *= x; sum += y * (1.0f / 720.0f);
-  if (sum < 0.0f) sum = 0.0f;
-  return sum;
+  return (float)dsp_exp((double)db * 0.11512925464970229); // ln(10)/20
 }
 
+// Match JS nodeGraphOutputPanGains equal-power law (cos(p * π/2)).
 static void pan_gains(float pan, float* left, float* right) {
   float p = pan;
   if (!(p == p)) p = 0.0f;
   if (p < -1.0f) p = -1.0f;
   if (p > 1.0f) p = 1.0f;
-  // Match typical equal-power-ish linear pan used by output sinks.
-  *left = (p <= 0.0f) ? 1.0f : (1.0f - p);
-  *right = (p >= 0.0f) ? 1.0f : (1.0f + p);
+  const double halfPi = 1.5707963267948966;
+  if (p <= 0.0f) {
+    *left = 1.0f;
+    *right = (float)dsp_cos((double)(-p) * halfPi);
+  } else {
+    *left = (float)dsp_cos((double)p * halfPi);
+    *right = 1.0f;
+  }
 }
 
 }  // namespace
@@ -154,7 +153,7 @@ extern "C" int soemdsp_graph_create() {
 }
 
 extern "C" void soemdsp_graph_destroy(int handle) {
-  Graph* g = get(handle);
+  Circuit* g = get(handle);
   if (!g) {
     if (handle >= 1 && handle <= kMaxInstances) {
       gPool[handle - 1].active = false;
@@ -166,20 +165,20 @@ extern "C" void soemdsp_graph_destroy(int handle) {
 }
 
 extern "C" void soemdsp_graph_clear(int handle) {
-  Graph* g = get(handle);
+  Circuit* g = get(handle);
   if (!g) return;
   clear_graph_contents(*g);
 }
 
 extern "C" void soemdsp_graph_set_sample_rate(int handle, float sampleRate) {
-  Graph* g = get(handle);
+  Circuit* g = get(handle);
   if (!g) return;
   if (!(sampleRate == sampleRate) || sampleRate < 1.0f) sampleRate = 44100.0f;
   g->sampleRate = sampleRate;
 }
 
 extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int typeId) {
-  Graph* g = get(handle);
+  Circuit* g = get(handle);
   if (!g) return -1;
   g->compiled = false;
   if (nodeIdHash == 0) return -2;
@@ -205,7 +204,7 @@ extern "C" int soemdsp_graph_connect(
   unsigned int dstHash,
   int dstPort
 ) {
-  Graph* g = get(handle);
+  Circuit* g = get(handle);
   if (!g) return -1;
   g->compiled = false;
   if (find_node(*g, srcHash) < 0 || find_node(*g, dstHash) < 0) return -2;
@@ -221,7 +220,7 @@ extern "C" int soemdsp_graph_connect(
 }
 
 extern "C" int soemdsp_graph_set_param(int handle, unsigned int nodeHash, int paramId, float value) {
-  Graph* g = get(handle);
+  Circuit* g = get(handle);
   if (!g) return -1;
   const int idx = find_node(*g, nodeHash);
   if (idx < 0) return -2;
@@ -240,7 +239,7 @@ extern "C" int soemdsp_graph_set_param(int handle, unsigned int nodeHash, int pa
 }
 
 extern "C" int soemdsp_graph_compile(int handle) {
-  Graph* g = get(handle);
+  Circuit* g = get(handle);
   if (!g) return -1;
   g->compiled = false;
   g->orderCount = 0;
@@ -310,7 +309,7 @@ extern "C" int soemdsp_graph_compile(int handle) {
 }
 
 extern "C" int soemdsp_graph_process_block(int handle, int n) {
-  Graph* g = get(handle);
+  Circuit* g = get(handle);
   if (!g || !g->compiled) return -1;
   int frames = n;
   if (frames < 1) return -2;
@@ -380,12 +379,12 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
 }
 
 extern "C" double* soemdsp_graph_block_output_left_ptr(int handle) {
-  Graph* g = get(handle);
+  Circuit* g = get(handle);
   return g ? g->outL : nullptr;
 }
 
 extern "C" double* soemdsp_graph_block_output_right_ptr(int handle) {
-  Graph* g = get(handle);
+  Circuit* g = get(handle);
   return g ? g->outR : nullptr;
 }
 

@@ -61,22 +61,67 @@ NodeLiveAudioProcessor.prototype.destroyNativeGraphHandle = function destroyNati
   this.nativeGraphHandle = 0;
   this.nativeGraphCompiled = false;
   this.nativeGraphStatus = "";
+  this.nativeGraphStatusMessage = "";
   this.nativeGraphBlockViews = null;
 };
 
 NodeLiveAudioProcessor.prototype.postNativeGraphStatus = function postNativeGraphStatus(status, message = "") {
-  this.nativeGraphStatus = String(status || "");
+  const next = String(status || "");
+  const msg = String(message || "");
+  // Skip no-op re-posts (idle silence path must not flood the message port).
+  if (next === this.nativeGraphStatus && msg === (this.nativeGraphStatusMessage || "")) {
+    return;
+  }
+  this.nativeGraphStatus = next;
+  this.nativeGraphStatusMessage = msg;
   try {
     this.port.postMessage({
       type: "nativeGraphStatus",
       status: this.nativeGraphStatus,
-      message: String(message || ""),
+      message: msg,
       compiled: Boolean(this.nativeGraphCompiled),
       handle: Number(this.nativeGraphHandle) || 0,
       planSerial: this.planSerial,
       sessionId: this.sessionId,
     });
   } catch (_e) { /* ignore */ }
+};
+
+/** Push Control params for allowlisted nodes into a compiled native graph. */
+NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGraphParams() {
+  if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+    return;
+  }
+  const native = this.nativeGraph;
+  if (!native?.soemdsp_graph_set_param) {
+    return;
+  }
+  for (const [id, node] of this.nodes) {
+    if (node?.type !== "output") continue;
+    const hash = this.fnv1aHash32(id);
+    const vol = Number(node.params?.volume);
+    const pan = Number(node.params?.pan);
+    if (Number.isFinite(vol)) {
+      try {
+        native.soemdsp_graph_set_param(
+          this.nativeGraphHandle,
+          hash,
+          NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_VOLUME_DB,
+          vol,
+        );
+      } catch (_e) { /* ignore */ }
+    }
+    if (Number.isFinite(pan)) {
+      try {
+        native.soemdsp_graph_set_param(
+          this.nativeGraphHandle,
+          hash,
+          NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PAN,
+          pan,
+        );
+      } catch (_e) { /* ignore */ }
+    }
+  }
 };
 
 /**
@@ -129,26 +174,6 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         return false;
       }
       nodes.push({ id, hash, type: node.type, params: node.params || {} });
-      if (node.type === "output") {
-        const vol = Number(node.params?.volume);
-        const pan = Number(node.params?.pan);
-        if (Number.isFinite(vol)) {
-          native.soemdsp_graph_set_param?.(
-            this.nativeGraphHandle,
-            hash,
-            NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_VOLUME_DB,
-            vol,
-          );
-        }
-        if (Number.isFinite(pan)) {
-          native.soemdsp_graph_set_param?.(
-            this.nativeGraphHandle,
-            hash,
-            NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PAN,
-            pan,
-          );
-        }
-      }
     }
 
     const idSet = new Set(nodes.map((n) => n.id));
@@ -178,6 +203,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     }
 
     this.nativeGraphCompiled = true;
+    this.syncNativeGraphParams();
     this.postNativeGraphStatus("compiled", `nodes=${nodes.length}`);
     return true;
   } catch (error) {
@@ -231,11 +257,11 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
   if (!this.nativeGraphCompiled) {
     // Honest silence — no JS evaluateFrame fallback in efficient mode.
     fillSilence();
-    if (this.nativeGraphStatus !== "missing" && this.nativeGraphStatus !== "error") {
-      this.postNativeGraphStatus(
-        this.nativeGraphExportsReady() ? "idle" : "missing",
-        this.nativeGraphExportsReady() ? "graph not compiled" : "graph_engine exports not loaded",
-      );
+    // postNativeGraphStatus dedupes identical status/message (no per-quantum spam).
+    if (this.nativeGraphExportsReady()) {
+      this.postNativeGraphStatus("idle", "graph not compiled");
+    } else {
+      this.postNativeGraphStatus("missing", "graph_engine exports not loaded");
     }
     return true;
   }

@@ -152,6 +152,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativeGraphHandle = 0;
     this.nativeGraphCompiled = false;
     this.nativeGraphStatus = "";
+    this.nativeGraphStatusMessage = "";
     this.nativeGraphBlockViews = null;
     this._planConnections = [];
     this.nativeEllipsoid = null;

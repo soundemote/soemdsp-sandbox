@@ -169,11 +169,16 @@ NodeLiveAudioProcessor.prototype.setConnections = function setConnections(plan, 
     }
     const ids = new Set([...this.nodes.keys()]);
     this.inputConnections = this.buildInputConnectionMap(plan?.connections, ids);
+    this._planConnections = Array.isArray(plan?.connections) ? plan.connections.slice() : [];
     this.graphInputConnections = this.buildGraphInputConnectionMap(plan?.graphConnections, ids);
     this.modulationConnections = this.buildModulationConnectionMap(plan?.modulations, ids);
     const graphData = message.graphData || plan?.graphData;
     if (graphData) {
       this.setGraphData(graphData);
+    }
+    // Efficient mode: keep native topology in sync when host skips full setPlan.
+    if (this.efficientProduct && typeof this.compileNativeGraphFromPlan === "function") {
+      this.compileNativeGraphFromPlan();
     }
 };
 
@@ -223,6 +228,10 @@ NodeLiveAudioProcessor.prototype.setParams = function setParams(nodes, message =
         }
         this.updateSmoother(this.smoothers.get(smootherKey), value, metadata, smootherKey);
       }
+    }
+    // Efficient mode: push Control params into native graph (no recompile).
+    if (this.efficientProduct && typeof this.syncNativeGraphParams === "function") {
+      this.syncNativeGraphParams();
     }
     this.port.postMessage({
       nodeCount: this.nodes.size,
