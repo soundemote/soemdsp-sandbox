@@ -471,7 +471,25 @@ function nodeGraphTransportHandleAction(action) {
     const transportState = typeof nodeGraphLiveTransportUiState === "function"
       ? nodeGraphLiveTransportUiState()
       : (hasEngine ? "playing" : "stopped");
-    if (transportState === "starting" || transportState === "playing") {
+    if (transportState === "starting") {
+      renderNodeGraphLiveControls();
+      return;
+    }
+    // Already "playing" on main can still mean worklet speed 0 (main default 1,
+    // worklet boots paused). Force-resync so Play heals silence + stuck pause bars.
+    if (transportState === "playing" && hasEngine) {
+      const resume = typeof nodeGraphLiveResumePlaySpeed === "function"
+        ? nodeGraphLiveResumePlaySpeed()
+        : 1;
+      if (typeof setNodeGraphLiveSpeed === "function") {
+        setNodeGraphLiveSpeed(resume, { force: true });
+      }
+      if (typeof nodeGraphOutputPauseBannerClearStampFlags === "function") {
+        nodeGraphOutputPauseBannerClearStampFlags();
+      }
+      if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+        scheduleNodeGraphModuleScopeDraw({ force: true });
+      }
       renderNodeGraphLiveControls();
       return;
     }
@@ -483,7 +501,12 @@ function nodeGraphTransportHandleAction(action) {
       }
     } else if (transportState === "paused") {
       if (typeof setNodeGraphLiveSpeed === "function") {
-        setNodeGraphLiveSpeed(1);
+        setNodeGraphLiveSpeed(
+          typeof nodeGraphLiveResumePlaySpeed === "function"
+            ? nodeGraphLiveResumePlaySpeed()
+            : 1,
+          { force: true },
+        );
       }
     }
     renderNodeGraphLiveControls();

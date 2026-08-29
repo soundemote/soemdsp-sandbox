@@ -1255,7 +1255,15 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
   const value = Number(speed);
   const clamped = Number.isFinite(value) ? Math.max(0, value) : 1;
   const force = options?.force === true;
-  if (nodeGraphMvp.live.speedMultiplier === clamped && !force) {
+  const unchanged = nodeGraphMvp.live.speedMultiplier === clamped;
+  // Main defaults to 1; a fresh worklet always boots at 0. Even when the host
+  // value is unchanged we must still post setSpeed + refresh host gain, or the
+  // UI can read Live/Play while process() stays paused (silence + stuck pause bars).
+  if (unchanged && !force) {
+    sendNodeGraphLiveSpeed();
+    if (typeof applyNodeGraphLiveOutputGain === "function") {
+      applyNodeGraphLiveOutputGain();
+    }
     return;
   }
   if (clamped > 0) {
@@ -3651,19 +3659,24 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     sendNodeGraphLiveMacroControls();
     sendNodeGraphLivePitchModWheelSignal();
     // Play must never hand the worklet speed 0. Stop leaves pause (0) alone;
-    // starting live audio is always "run" — unpause on main before the first
-    // setSpeed post so process() produces scope samples for Value LCD/LED.
-    if ((Number(nodeGraphMvp.live.speedMultiplier) || 0) <= 0) {
+    // starting live audio is always "run". Always go through setNodeGraphLiveSpeed
+    // (force) so a fresh worklet (boots at 0) receives setSpeed even when main
+    // already held lastPlaySpeed > 0 — never assign speedMultiplier directly.
+    {
       const resume = typeof nodeGraphLiveResumePlaySpeed === "function"
         ? nodeGraphLiveResumePlaySpeed()
         : 1;
-      nodeGraphMvp.live.speedMultiplier = resume;
-      if (!(Number(nodeGraphMvp.live.lastPlaySpeed) > 0)) {
-        nodeGraphMvp.live.lastPlaySpeed = resume;
+      if (typeof setNodeGraphLiveSpeed === "function") {
+        setNodeGraphLiveSpeed(resume, { force: true });
+      } else {
+        nodeGraphMvp.live.speedMultiplier = resume;
+        if (!(Number(nodeGraphMvp.live.lastPlaySpeed) > 0)) {
+          nodeGraphMvp.live.lastPlaySpeed = resume;
+        }
+        if (typeof sendNodeGraphLiveSpeed === "function") {
+          sendNodeGraphLiveSpeed();
+        }
       }
-    }
-    if (typeof sendNodeGraphLiveSpeed === "function") {
-      sendNodeGraphLiveSpeed();
     }
     if (typeof sendNodeGraphLiveSpeedLimit === "function") {
       sendNodeGraphLiveSpeedLimit();

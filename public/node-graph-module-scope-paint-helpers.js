@@ -1843,12 +1843,14 @@ function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, 
   // Play: dest is the tape. Previous dest pixels (last fade frame) already
   // scrolled left. Stamp bars in place at falling alpha so the new frame is
   // fainter and Instant Trace drifts the old frames leftward.
+  // If audio/scroll is dead (worklet still paused while UI says Live), still
+  // advance the fade on force or every ink frame so bars do not stick forever.
   if (!Number.isFinite(Number(canvas._outputPauseFadeBorn))) {
     canvas._outputPauseFadeBorn = now;
   }
   const born = Number(canvas._outputPauseFadeBorn);
   const fadeAlpha = Math.max(0, 1 - (now - born) / NODE_GRAPH_OUTPUT_INK_FADE_MS);
-  if (fadeAlpha > 0.001 && (scrolled || options.force === true)) {
+  if (fadeAlpha > 0.001 && (scrolled || options.force === true || options.fadeWithoutScroll === true)) {
     paintNodeGraphOutputPauseBars(destCtx, canvas, { density, alpha: fadeAlpha });
   }
 
@@ -1932,6 +1934,36 @@ function nodeGraphOutputPauseBannerClearStampFlags() {
   const clear = (canvas) => {
     if (!canvas) {
       return;
+    }
+    // Restore the pre-pause plate when present so pause bars do not stick on
+    // dest when Instant Trace is not scrolling (e.g. worklet still at speed 0).
+    if (canvas._outputPausePlateReady && canvas._outputPausePlate) {
+      try {
+        const ctx = canvas.getContext?.("2d");
+        if (ctx) {
+          ctx.save();
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.globalCompositeOperation = "copy";
+          ctx.drawImage(canvas._outputPausePlate, 0, 0);
+          ctx.restore();
+        }
+      } catch (_error) {
+        // Best-effort restore.
+      }
+    }
+    const ink = canvas._outputInkLayer;
+    if (ink) {
+      try {
+        const ictx = ink.getContext?.("2d") || canvas._outputInkCtx;
+        if (ictx) {
+          ictx.save();
+          ictx.setTransform(1, 0, 0, 1, 0, 0);
+          ictx.clearRect(0, 0, ink.width, ink.height);
+          ictx.restore();
+        }
+      } catch (_error) {
+        // Best-effort.
+      }
     }
     canvas._outputPauseBannerStamped = false;
     canvas._outputPausePlateReady = false;
