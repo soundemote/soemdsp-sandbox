@@ -88,12 +88,43 @@ NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphE
     && n?.soemdsp_graph_clear
     && n?.soemdsp_graph_add_node
     && n?.soemdsp_graph_connect
+    && n?.soemdsp_graph_set_param
+    && n?.soemdsp_graph_set_sample_rate
     && n?.soemdsp_graph_compile
     && n?.soemdsp_graph_process_block
     && n?.soemdsp_graph_block_output_left_ptr
     && n?.soemdsp_graph_block_output_right_ptr
+    && n?.soemdsp_graph_max_block_frames
   );
 };
+
+/**
+ * Efficient compile owns polyBlep/ladder/softClipper natives. Release any
+ * leftover per-module evaluator handles so pools are not double-allocated
+ * after full→efficient toggles without a session restart.
+ */
+NodeLiveAudioProcessor.prototype.releaseEfficientLegacyNativeHandles =
+  function releaseEfficientLegacyNativeHandles() {
+    if (this.polyBlepStates instanceof Map) {
+      for (const state of this.polyBlepStates.values()) {
+        this.destroyPolyBlepNativeState?.(state);
+        if (state) state.blockCache = null;
+      }
+    }
+    if (this.ladderFilterStates instanceof Map) {
+      for (const state of this.ladderFilterStates.values()) {
+        this.destroyStereoFilterNativeState?.(state, (s) => this.destroyLadderFilterNativeState?.(s));
+        this.resetLadderBlockCache?.(state?.mono);
+        this.resetLadderBlockCache?.(state?.left);
+        this.resetLadderBlockCache?.(state?.right);
+      }
+    }
+    if (this.softClipperStates instanceof Map) {
+      for (const state of this.softClipperStates.values()) {
+        this.destroySoftClipperState?.(state);
+      }
+    }
+  };
 
 NodeLiveAudioProcessor.prototype.destroyNativeGraphHandle = function destroyNativeGraphHandle() {
   if (this.nativeGraphHandle && this.nativeGraph?.soemdsp_graph_destroy) {
@@ -203,8 +234,11 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
   }
 
   try {
+    // Graph owns the only native DSP instances in efficient mode.
+    this.releaseEfficientLegacyNativeHandles();
+
     native.soemdsp_graph_clear(this.nativeGraphHandle);
-    native.soemdsp_graph_set_sample_rate?.(
+    native.soemdsp_graph_set_sample_rate(
       this.nativeGraphHandle,
       Number(this.engineSampleRate) || Number(this.hostSampleRate) || sampleRate || 44100,
     );
@@ -219,7 +253,10 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       const hash = this.fnv1aHash32(id);
       const rc = native.soemdsp_graph_add_node(this.nativeGraphHandle, hash, typeId) | 0;
       if (rc !== 0) {
-        this.postNativeGraphStatus("error", `add_node failed (${rc}) for ${id}`);
+        const poolMsg = rc === -5
+          ? `native instance pool exhausted for ${id}`
+          : `add_node failed (${rc}) for ${id}`;
+        this.postNativeGraphStatus("error", poolMsg);
         return false;
       }
       nodes.push({ id, hash, type: node.type, params: node.params || {} });
@@ -285,9 +322,12 @@ NodeLiveAudioProcessor.prototype.bindNativeGraphBlockViews = function bindNative
 };
 
 /**
- * Efficient-mode quantum: one native process_block, copy to speakers + ear protect.
- * Timing/meter posts stay in process(). Returns true when this path handled audio
- * (caller must not evaluateFrame).
+ * Efficient-mode quantum: native process_block (chunked at max_block_frames),
+ * copy to speakers + ear protect. Timing/meter posts stay in process().
+ * Returns true when this path handled audio (caller must not evaluateFrame).
+ *
+ * Contract: graph + orchestrated natives hard-cap at 128 frames. Host chunks
+ * larger quanta so the efficient path never trailing-silences mid-quantum.
  */
 NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNativeGraphQuantum(
   output,
@@ -316,71 +356,81 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
   }
 
   const native = this.nativeGraph;
-  const n = Math.min(
-    frames,
-    Number(native.soemdsp_graph_max_block_frames?.()) || 128,
-  );
-  let processed = 0;
-  try {
-    processed = native.soemdsp_graph_process_block(this.nativeGraphHandle, n) | 0;
-  } catch (_e) {
-    processed = -1;
-  }
-  if (processed < 1 || !this.bindNativeGraphBlockViews(n)) {
-    fillSilence();
-    this.nativeGraphCompiled = false;
-    this.postNativeGraphStatus("error", "process_block failed");
-    return true;
-  }
+  const maxBlock = Math.max(1, Number(native.soemdsp_graph_max_block_frames()) || 128);
+  let written = 0;
 
-  const leftView = this.nativeGraphBlockViews.left;
-  const rightView = this.nativeGraphBlockViews.right;
-  const outCount = Math.min(frames, n, leftView.length, rightView.length);
+  while (written < frames) {
+    const chunk = Math.min(maxBlock, frames - written);
+    let processed = 0;
+    try {
+      processed = native.soemdsp_graph_process_block(this.nativeGraphHandle, chunk) | 0;
+    } catch (_e) {
+      processed = -1;
+    }
+    // Invalidate view cache size when chunk length changes across iterations.
+    if (this.nativeGraphBlockViews) this.nativeGraphBlockViews.frames = -1;
+    if (processed < 1 || !this.bindNativeGraphBlockViews(chunk)) {
+      for (let frame = written; frame < frames; frame += 1) {
+        for (let channelIndex = 0; channelIndex < output.length; channelIndex += 1) {
+          output[channelIndex][frame] = 0;
+        }
+      }
+      this.nativeGraphCompiled = false;
+      this.postNativeGraphStatus("error", "process_block failed");
+      return true;
+    }
 
-  for (let frame = 0; frame < outCount; frame += 1) {
-    let left = Number(leftView[frame]);
-    let right = Number(rightView[frame]);
-    if (!Number.isFinite(left)) left = 0;
-    if (!Number.isFinite(right)) right = 0;
-    if (this.outputSampleClipped?.(left)) this.meterClipCount += 1;
-    if (this.outputSampleClipped?.(right)) this.meterClipCount += 1;
-    if (
-      this.outputSampleTripsEarProtection?.(left)
-      || this.outputSampleTripsEarProtection?.(right)
-    ) {
-      this.speakerProtectionPeak = Math.max(
-        Number(this.speakerProtectionPeak) || 0,
-        Math.abs(left),
-        Math.abs(right),
-      );
-      this.speakerProtectionNodeId = "output";
+    const leftView = this.nativeGraphBlockViews.left;
+    const rightView = this.nativeGraphBlockViews.right;
+    const outCount = Math.min(chunk, leftView.length, rightView.length);
+    for (let i = 0; i < outCount; i += 1) {
+      const frame = written + i;
+      let left = Number(leftView[i]);
+      let right = Number(rightView[i]);
+      if (!Number.isFinite(left)) left = 0;
+      if (!Number.isFinite(right)) right = 0;
+      if (this.outputSampleClipped?.(left)) this.meterClipCount += 1;
+      if (this.outputSampleClipped?.(right)) this.meterClipCount += 1;
+      if (
+        this.outputSampleTripsEarProtection?.(left)
+        || this.outputSampleTripsEarProtection?.(right)
+      ) {
+        this.speakerProtectionPeak = Math.max(
+          Number(this.speakerProtectionPeak) || 0,
+          Math.abs(left),
+          Math.abs(right),
+        );
+        this.speakerProtectionNodeId = "output";
+      }
+      const protectedFrame = this.earProtector.protect(left, right);
+      if (protectedFrame.engaged || protectedFrame.muted) {
+        this.meterProtectionMuteCount += 1;
+      }
+      this.protectionEngaged = Boolean(protectedFrame.engaged);
+      this.protectionGain = Number(protectedFrame.gain);
+      const pl = Number.isFinite(Number(protectedFrame.left)) ? Number(protectedFrame.left) : 0;
+      const pr = Number.isFinite(Number(protectedFrame.right)) ? Number(protectedFrame.right) : 0;
+      this.meterPeak = Math.max(this.meterPeak, Math.abs(pl), Math.abs(pr));
+      this.meterSquareSum += (pl * pl + pr * pr) * 0.5;
+      this.meterSamples += 1;
+      for (let channelIndex = 0; channelIndex < output.length; channelIndex += 1) {
+        output[channelIndex][frame] = channelIndex === 0 ? pl : pr;
+      }
     }
-    const protectedFrame = this.earProtector.protect(left, right);
-    if (protectedFrame.engaged || protectedFrame.muted) {
-      this.meterProtectionMuteCount += 1;
+    for (let i = outCount; i < chunk; i += 1) {
+      const frame = written + i;
+      for (let channelIndex = 0; channelIndex < output.length; channelIndex += 1) {
+        output[channelIndex][frame] = 0;
+      }
     }
-    this.protectionEngaged = Boolean(protectedFrame.engaged);
-    this.protectionGain = Number(protectedFrame.gain);
-    const pl = Number.isFinite(Number(protectedFrame.left)) ? Number(protectedFrame.left) : 0;
-    const pr = Number.isFinite(Number(protectedFrame.right)) ? Number(protectedFrame.right) : 0;
-    this.meterPeak = Math.max(this.meterPeak, Math.abs(pl), Math.abs(pr));
-    this.meterSquareSum += (pl * pl + pr * pr) * 0.5;
-    this.meterSamples += 1;
-    for (let channelIndex = 0; channelIndex < output.length; channelIndex += 1) {
-      output[channelIndex][frame] = channelIndex === 0 ? pl : pr;
-    }
-  }
-  for (let frame = outCount; frame < frames; frame += 1) {
-    for (let channelIndex = 0; channelIndex < output.length; channelIndex += 1) {
-      output[channelIndex][frame] = 0;
-    }
+    written += chunk;
   }
 
   // Publish stereo bus for scopes (observe-only; no JS DSP walk).
   const outputNodeId = this.outputNode || "output";
-  if (outCount > 0) {
-    const lastL = Number(output[0]?.[outCount - 1]) || 0;
-    const lastR = Number(output[1]?.[outCount - 1] ?? output[0]?.[outCount - 1]) || 0;
+  if (frames > 0) {
+    const lastL = Number(output[0]?.[frames - 1]) || 0;
+    const lastR = Number(output[1]?.[frames - 1] ?? output[0]?.[frames - 1]) || 0;
     this.nodeOutputs.set(outputNodeId, {
       Left: lastL,
       Right: lastR,

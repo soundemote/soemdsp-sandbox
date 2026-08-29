@@ -9,6 +9,7 @@
 
 #include "../sandbox_native_maths/exp_log.h"
 #include "../sandbox_native_maths/analog_filter_trig.h"
+#include "../sandbox_native_maths/scalar_helpers.h"
 
 // Combined wasm resolves these; standalone graph_engine.wasm links with
 // --allow-undefined (stubs unused — product loads soemdsp_combined.wasm).
@@ -43,10 +44,13 @@ namespace {
 
 using soemdsp_maths::dsp_exp;
 using soemdsp_maths::dsp_cos;
+using soemdsp_maths::dsp_floor;
 
 static const int kMaxInstances = 4;
 static const int kMaxNodes = 64;
 static const int kMaxConnections = 256;
+// Hard product invariant: AudioWorklet quantum and all orchestrated natives
+// use 128. Host must chunk if frames ever exceed this (see processNativeGraphQuantum).
 static const int kMaxBlockFrames = 128;
 // 0=Mono/Out, 1=Left, 2=Right, 3=Saw, 4=Ramp, 5=Square, 6=Tri, 7=Sine
 static const int kChannels = 8;
@@ -98,6 +102,7 @@ struct Node {
   int typeId;
   bool used;
   int nativeHandle;
+  int nativeKind; // type at create time — destroy keys off this, not typeId
   float volumeDb;
   float pan;
   float frequency;
@@ -155,21 +160,26 @@ static double* ptr_from_export(int addr) {
 static void destroy_node_native(Node& n) {
   if (n.nativeHandle <= 0) {
     n.nativeHandle = 0;
+    n.nativeKind = 0;
     return;
   }
-  if (n.typeId == kTypePolyBlep) {
+  // Key destroy off create-time kind so a later typeId retarget cannot leak.
+  const int kind = n.nativeKind != 0 ? n.nativeKind : n.typeId;
+  if (kind == kTypePolyBlep) {
     soemdsp_polyblep_destroy(n.nativeHandle);
-  } else if (n.typeId == kTypeLadderFilter) {
+  } else if (kind == kTypeLadderFilter) {
     soemdsp_ladder_filter_destroy(n.nativeHandle);
-  } else if (n.typeId == kTypeSoftClipper) {
+  } else if (kind == kTypeSoftClipper) {
     soemdsp_soft_clipper_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
+  n.nativeKind = 0;
 }
 
 static void init_node_defaults(Node& n, int typeId) {
   n.typeId = typeId;
   n.nativeHandle = 0;
+  n.nativeKind = 0;
   n.volumeDb = -3.0f;
   n.pan = 0.0f;
   n.frequency = (typeId == kTypeLadderFilter) ? 1000.0f : 220.0f;
@@ -184,6 +194,12 @@ static void init_node_defaults(Node& n, int typeId) {
   n.width = 2.0f;
   n.oversample = 2.0f;
   n.phase = 0.0;
+}
+
+// Reduce radians to (-π, π] with one floor — no open while spin.
+static double wrap_phase_pi(double x) {
+  if (!(x * 0.0 == 0.0)) return 0.0;
+  return x - kTwoPi * dsp_floor(x / kTwoPi + 0.5);
 }
 
 static int create_native_for_type(int typeId) {
@@ -304,7 +320,11 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   double freq = (double)node.frequency;
   if (!(freq == freq) || freq < 0.0) freq = 0.0;
-  const double phaseInc = freq / (double)sr;
+  // Nyquist cap: |phaseInc| <= 0.5 cycles/sample.
+  const double nyquist = 0.5 * (double)sr;
+  if (freq > nyquist) freq = nyquist;
+  double phaseInc = freq / (double)sr;
+  if (phaseInc > 0.5) phaseInc = 0.5;
   int waveform = (int)(node.waveform + (node.waveform >= 0.0f ? 0.5f : -0.5f));
   if (waveform < 0) waveform = 0;
   if (waveform > 8) waveform = 8;
@@ -314,7 +334,7 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   if (!(morph == morph)) morph = 0.5;
   const int mask = polyblep_tap_mask(g, node);
   // phaseParam is cycles 0..1 (JS phase knob); running node.phase is radians.
-  const double phase0 = node.phase + (double)node.phaseParam * kTwoPi;
+  const double phase0 = wrap_phase_pi(node.phase + (double)node.phaseParam * kTwoPi);
   soemdsp_polyblep_process_block(
     node.nativeHandle, frames, phase0, phaseInc, waveform, level, morph, mask
   );
@@ -336,9 +356,7 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   if (mask & kTapTri) copy_tap_to_buf(node.buf[kPortTri], triPtr, frames);
   if (mask & kTapSine) copy_tap_to_buf(node.buf[kPortSine], sinePtr, frames);
 
-  node.phase += kTwoPi * phaseInc * (double)frames;
-  while (node.phase > kPi) node.phase -= kTwoPi;
-  while (node.phase < -kPi) node.phase += kTwoPi;
+  node.phase = wrap_phase_pi(node.phase + kTwoPi * phaseInc * (double)frames);
 }
 
 static void process_ladder(Circuit& g, Node& node, int frames) {
@@ -347,6 +365,8 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   double freq = (double)node.frequency;
   if (!(freq == freq) || freq < 0.0) freq = 0.0;
+  const double nyquist = 0.5 * (double)sr;
+  if (freq > nyquist) freq = nyquist;
   double reso = (double)node.resonance;
   if (!(reso == reso)) reso = 0.0;
   if (reso < 0.0) reso = 0.0;
@@ -385,29 +405,40 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
   const double aa = os > 0 ? 1.0 : 0.0;
   soemdsp_soft_clipper_set_params(node.nativeHandle, center, width, aa, os);
 
-  bool hasLeft = false;
-  bool hasRight = false;
+  bool hasLeftIn = false;
+  bool hasRightIn = false;
+  bool hasMonoIn = false;
   for (int ci = 0; ci < g.connCount; ci++) {
     if (!g.conns[ci].used || g.conns[ci].dstHash != node.idHash) continue;
     const int dp = clamp_port(g.conns[ci].dstPort);
-    if (dp == kPortLeft) hasLeft = true;
-    if (dp == kPortRight) hasRight = true;
+    if (dp == kPortLeft) hasLeftIn = true;
+    else if (dp == kPortRight) hasRightIn = true;
+    else hasMonoIn = true;
   }
+  bool monoOutWired = false;
+  for (int ci = 0; ci < g.connCount; ci++) {
+    if (!g.conns[ci].used || g.conns[ci].srcHash != node.idHash) continue;
+    if (clamp_port(g.conns[ci].srcPort) == kPortMono) monoOutWired = true;
+  }
+  // Canonical chain is mono. Skip ch0 only when purely stereo-sided and Out unused.
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
 
-  double* in0 = ptr_from_export(soemdsp_soft_clipper_block_input_ptr(node.nativeHandle, 0));
-  double* out0 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 0));
-  if (!in0 || !out0) return;
-  for (int f = 0; f < frames; f++) {
-    in0[f] = g.mixMono[f];
-    if (!hasLeft && !hasRight) {
-      // Feed-forward mono: fold L/R mixes into mono channel.
-      in0[f] += g.mixLeft[f] + g.mixRight[f];
+  double* out0 = nullptr;
+  if (needMono) {
+    double* in0 = ptr_from_export(soemdsp_soft_clipper_block_input_ptr(node.nativeHandle, 0));
+    out0 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 0));
+    if (!in0 || !out0) return;
+    for (int f = 0; f < frames; f++) {
+      in0[f] = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) {
+        in0[f] += g.mixLeft[f] + g.mixRight[f];
+      }
     }
+    soemdsp_soft_clipper_process_block(node.nativeHandle, 0, frames);
+    copy_tap_to_buf(node.buf[kPortMono], out0, frames);
   }
-  soemdsp_soft_clipper_process_block(node.nativeHandle, 0, frames);
-  copy_tap_to_buf(node.buf[kPortMono], out0, frames);
 
-  if (hasLeft) {
+  if (hasLeftIn) {
     double* in1 = ptr_from_export(soemdsp_soft_clipper_block_input_ptr(node.nativeHandle, 1));
     double* out1 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 1));
     if (in1 && out1) {
@@ -415,10 +446,11 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
       soemdsp_soft_clipper_process_block(node.nativeHandle, 1, frames);
       copy_tap_to_buf(node.buf[kPortLeft], out1, frames);
     }
-  } else {
+  } else if (out0) {
     copy_tap_to_buf(node.buf[kPortLeft], out0, frames);
   }
-  if (hasRight) {
+
+  if (hasRightIn) {
     double* in2 = ptr_from_export(soemdsp_soft_clipper_block_input_ptr(node.nativeHandle, 2));
     double* out2 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 2));
     if (in2 && out2) {
@@ -426,7 +458,7 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
       soemdsp_soft_clipper_process_block(node.nativeHandle, 2, frames);
       copy_tap_to_buf(node.buf[kPortRight], out2, frames);
     }
-  } else {
+  } else if (out0) {
     copy_tap_to_buf(node.buf[kPortRight], out0, frames);
   }
 }
@@ -507,8 +539,10 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     n.nativeHandle = create_native_for_type(typeId);
     if (n.nativeHandle <= 0) {
       n.used = false;
-      return -5;
+      n.nativeKind = 0;
+      return -5; // native instance pool exhausted
     }
+    n.nativeKind = typeId;
     if (typeId == kTypePolyBlep) {
       soemdsp_polyblep_reset(n.nativeHandle);
     }
@@ -684,5 +718,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 2; // PR-E2: polyBlep + ladder + softClipper orchestration
+  return 3; // PR-E2 review: pool/phase wrap/softclip mono/nativeKind
 }

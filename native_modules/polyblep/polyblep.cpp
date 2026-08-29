@@ -9,7 +9,8 @@ namespace {
 
 using namespace soemdsp_maths;
 
-constexpr int kMaxInstances = 16;
+// Match graph_engine node capacity so efficient-mode graphs can own every osc.
+constexpr int kMaxInstances = 64;
 // Slot 0 is the currently-selected waveform (driven by the Waveform
 // parameter); slots 1-5 are the always-on Saw/Ramp/Square/Tri/Sine taps.
 // Waveform indices 0-5 stay stable for saved patches; 6-8 are PWM-family.
@@ -360,10 +361,17 @@ extern "C" void soemdsp_polyblep_process_block(
   PolyBlepState& s = gPool[handle - 1];
   const int n = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
   const int mask = tapMask == 0 ? kTapAll : tapMask;
+  // Cap |phaseInc| at Nyquist (0.5 cycles/sample) — unbounded Control Hz
+  // must not spin open while-wraps on the audio thread.
+  double inc = phaseIncrement;
+  if (!(inc == inc)) inc = 0.0;
+  if (inc > 0.5) inc = 0.5;
+  if (inc < -0.5) inc = -0.5;
   double phase = phase0;
-  const double phaseStep = kTwoPi * phaseIncrement;
+  if (!(phase == phase)) phase = 0.0;
+  const double phaseStep = kTwoPi * inc;
   for (int i = 0; i < n; i += 1) {
-    render_taps(s, phase, phaseIncrement, waveform, level, morph, mask);
+    render_taps(s, phase, inc, waveform, level, morph, mask);
     s.blockOut[0][i] = s.out;
     s.blockOut[1][i] = s.saw;
     s.blockOut[2][i] = s.ramp;
@@ -371,9 +379,8 @@ extern "C" void soemdsp_polyblep_process_block(
     s.blockOut[4][i] = s.tri;
     s.blockOut[5][i] = s.sine;
     phase += phaseStep;
-    // Keep phase bounded for sinApprox stability.
-    while (phase > kPi) phase -= kTwoPi;
-    while (phase < -kPi) phase += kTwoPi;
+    // Bounded reduce to (-π, π] via floor (no open while).
+    phase = phase - kTwoPi * dsp_floor(phase / kTwoPi + 0.5);
   }
 }
 
