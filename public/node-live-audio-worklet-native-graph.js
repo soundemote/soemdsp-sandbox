@@ -235,7 +235,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphSmoothTypeFromMeta = function native
   if (type === "linear") return 1;
   if (type === "twoPole") return 2;
   if (type === "none" || type === "off" || type === "instant") return 3;
-  if (type === "papoulis") return 2; // closest until native Π
+  if (type === "papoulis") return 4;
   return 0; // onePole
 };
 

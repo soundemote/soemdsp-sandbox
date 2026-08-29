@@ -105,6 +105,14 @@ extern "C" void soemdsp_range_process_block(int handle, int frameCount);
 extern "C" int soemdsp_range_block_input_ptr(int handle);
 extern "C" int soemdsp_range_block_output_ptr(int handle);
 
+// Param-chase Papoulis (same kernel as legacy JS smoother host).
+extern "C" int soemdsp_papoulis_filter_create();
+extern "C" void soemdsp_papoulis_filter_destroy(int handle);
+extern "C" void soemdsp_papoulis_filter_snap(int handle, double value);
+extern "C" double soemdsp_papoulis_filter_sample(
+  int handle, double input, double cutoffHz, double sampleRate
+);
+
 namespace {
 
 using soemdsp_maths::dsp_exp;
@@ -209,11 +217,12 @@ static const unsigned char kSmoothModeGlobal = 1;
 static const unsigned char kSmoothModeInternalGlobal = 2;
 static const unsigned char kSmoothModeOff = 3;
 
-// Filter kind (JS smoothingType). Papoulis maps to twoPole until a native Π lands.
+// Filter kind (JS smoothingType). Papoulis uses papoulis_filter native pool.
 static const unsigned char kSmoothTypeOnePole = 0;
 static const unsigned char kSmoothTypeLinear = 1;
 static const unsigned char kSmoothTypeTwoPole = 2;
 static const unsigned char kSmoothTypeNone = 3; // instant
+static const unsigned char kSmoothTypePapoulis = 4;
 
 // Freestanding Control slot: host writes target/time; DSP reads out.
 struct Control {
@@ -222,6 +231,7 @@ struct Control {
   double out;
   double coeff; // one/two-pole b0, or linear increment (cached)
   double stage1; // two-pole first stage
+  int papHandle; // soemdsp_papoulis_filter_* instance (0 = none)
   bool dirty;
   bool active;
   unsigned char mode;
@@ -352,12 +362,33 @@ static void destroy_node_native(Node& n) {
   n.nativeKind = 0;
 }
 
+static void control_release_papoulis(Control& c) {
+  if (c.papHandle > 0) {
+    soemdsp_papoulis_filter_destroy(c.papHandle);
+    c.papHandle = 0;
+  }
+}
+
+static void control_ensure_papoulis(Control& c) {
+  if (c.type != kSmoothTypePapoulis || c.snap) {
+    control_release_papoulis(c);
+    return;
+  }
+  if (c.papHandle <= 0) {
+    c.papHandle = soemdsp_papoulis_filter_create();
+    if (c.papHandle > 0) {
+      soemdsp_papoulis_filter_snap(c.papHandle, c.out);
+    }
+  }
+}
+
 static void init_control(Control& c, double value, bool snap) {
   c.target = value;
   c.out = value;
   c.timeSamples = 0.0; // resolve → default seconds * sr
   c.coeff = 1.0;
   c.stage1 = value;
+  c.papHandle = 0;
   c.dirty = true;
   c.active = false;
   c.mode = kSmoothModeInternal;
@@ -560,6 +591,24 @@ static void control_set_target(Circuit& g, Control& c, double value) {
   if (c.snap || c.type == kSmoothTypeNone) {
     c.out = value;
     c.stage1 = value;
+    if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, value);
+    return;
+  }
+  if (c.type == kSmoothTypePapoulis) {
+    control_ensure_papoulis(c);
+    if (resolve_control_time_samples(c, g) <= 0.0) {
+      c.out = value;
+      c.stage1 = value;
+      if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, value);
+      return;
+    }
+    if (dsp_fabs(c.out - c.target) <= kPlanck) {
+      c.out = value;
+      c.stage1 = value;
+      if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, value);
+      return;
+    }
+    smoother_add(g, c);
     return;
   }
   control_ensure_coeff(c, g);
@@ -585,8 +634,30 @@ static void control_set_time(Circuit& g, Control& c, double timeSamples) {
 }
 
 static void control_step(Control& c, Circuit& g) {
+  if (c.snap || c.type == kSmoothTypeNone) {
+    c.out = c.target;
+    c.stage1 = c.target;
+    if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, c.target);
+    return;
+  }
+  if (c.type == kSmoothTypePapoulis) {
+    control_ensure_papoulis(c);
+    const double t = resolve_control_time_samples(c, g);
+    const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+    if (c.papHandle <= 0 || !(t > 0.0)) {
+      c.out = c.target;
+      c.stage1 = c.target;
+      if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, c.target);
+      return;
+    }
+    // Same cutoff mapping as JS param smoother: frequencyHz = 1/seconds = sr/t.
+    const double cutoffHz = sr / t;
+    c.out = soemdsp_papoulis_filter_sample(c.papHandle, c.target, cutoffHz, sr);
+    c.stage1 = c.out;
+    return;
+  }
   control_ensure_coeff(c, g);
-  if (c.snap || c.type == kSmoothTypeNone || c.coeff >= 1.0 - 1e-15) {
+  if (c.coeff >= 1.0 - 1e-15) {
     c.out = c.target;
     c.stage1 = c.target;
     return;
@@ -662,7 +733,9 @@ static void smoother_clean(Circuit& g) {
     c->blockStepped = 0;
     if (dsp_fabs(c->out - c->target) <= kPlanck) {
       c->out = c->target;
+      c->stage1 = c->target;
       c->active = false;
+      if (c->papHandle > 0) soemdsp_papoulis_filter_snap(c->papHandle, c->target);
       continue;
     }
     g.toSmooth[w++] = c;
@@ -690,10 +763,28 @@ static int create_native_for_type(int typeId, float sampleRate) {
   return 0;
 }
 
+static void release_node_papoulis_controls(Node& n) {
+  Control* slots[] = {
+    &n.volumeDb, &n.pan, &n.frequency, &n.waveform, &n.amplitude, &n.shape,
+    &n.phaseParam, &n.resonance, &n.mode, &n.stages, &n.center, &n.width,
+    &n.oversample, &n.mix, &n.diffusionSize, &n.diffusionAmount, &n.delaySize,
+    &n.recycle, &n.lfoAmplitude, &n.lfoBaseSpeed, &n.lfoVariation, &n.seed,
+    &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
+    &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
+    &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow, &n.outHigh
+  };
+  for (unsigned i = 0; i < sizeof(slots) / sizeof(slots[0]); i++) {
+    if (slots[i]) control_release_papoulis(*slots[i]);
+  }
+}
+
 static void clear_graph_contents(Circuit& g) {
   g.compiled = false;
   for (int i = 0; i < g.nodeCount; i++) {
-    if (g.nodes[i].used) destroy_node_native(g.nodes[i]);
+    if (g.nodes[i].used) {
+      release_node_papoulis_controls(g.nodes[i]);
+      destroy_node_native(g.nodes[i]);
+    }
   }
   g.nodeCount = 0;
   g.connCount = 0;
@@ -1448,15 +1539,21 @@ extern "C" int soemdsp_graph_set_smooth_type(
   if (type == (int)kSmoothTypeLinear) t = kSmoothTypeLinear;
   else if (type == (int)kSmoothTypeTwoPole) t = kSmoothTypeTwoPole;
   else if (type == (int)kSmoothTypeNone) t = kSmoothTypeNone;
-  // Unknown / papoulis → twoPole (closest available until Π lands).
-  else if (type > (int)kSmoothTypeNone) t = kSmoothTypeTwoPole;
+  else if (type == (int)kSmoothTypePapoulis) t = kSmoothTypePapoulis;
   if (c->type == t) return 0;
+  if (c->type == kSmoothTypePapoulis && t != kSmoothTypePapoulis) {
+    control_release_papoulis(*c);
+  }
   c->type = t;
   c->dirty = true;
   c->stage1 = c->out;
+  if (t == kSmoothTypePapoulis) {
+    control_ensure_papoulis(*c);
+  }
   if (t == kSmoothTypeNone || c->snap) {
     c->out = c->target;
     c->stage1 = c->target;
+    if (c->papHandle > 0) soemdsp_papoulis_filter_snap(c->papHandle, c->target);
     return 0;
   }
   if (dsp_fabs(c->out - c->target) > kPlanck) smoother_add(*g, *c);
@@ -1654,5 +1751,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 12; // Control smooth types: onePole / linear / twoPole / none
+  return 13; // Control Papoulis via papoulis_filter native
 }
