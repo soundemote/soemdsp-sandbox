@@ -58,6 +58,15 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     // produced a flat 0 in Live Audio instead of running the envelope.
     this.liveModuleEvaluators.vactrolEnvelopeCustom = this.liveModuleEvaluators.vactrolEnvelopeSeries;
     this.inputConnections = new Map();
+    // Reused every sample in evaluateFrame (clear, don't alloc).
+    this.frameValues = new Map();
+    this.compiledOrder = [];
+    // Bound once — evaluators receive these instead of per-sample closures.
+    this.boundMixInput = (nodeId, port) => this.mixInputPort(nodeId, port);
+    this.boundHasInput = (nodeId, port) => this.hasInputPort(nodeId, port);
+    this.boundGraphInputValue = (nodeId, graphInput, x, fallback) =>
+      this.graphInputValueAt(nodeId, graphInput, x, fallback);
+    this.boundGraphOutputValue = (node, nodeId) => this.graphOutputValueAt(node, nodeId);
     this.badNumberCount = 0;
     this.lastBadValueReason = "";
     this.lastBadValueNodeId = "";

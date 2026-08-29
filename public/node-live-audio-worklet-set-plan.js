@@ -1282,6 +1282,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
         this.smoothers.delete(key);
       }
     }
+    // Bake evaluator refs for the sample loop (no per-sample type lookup).
+    this.compileExecutionOrder();
+
     this.port.postMessage({
       connectionCount: Array.isArray(plan?.connections) ? plan.connections.length : 0,
       feedbackConnectionCount: Array.isArray(plan?.feedbackConnections) ? plan.feedbackConnections.length : 0,

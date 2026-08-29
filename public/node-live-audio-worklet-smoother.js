@@ -433,7 +433,7 @@ NodeLiveAudioProcessor.prototype.readEffectiveParameter = function readEffective
 //      effective value moved (smoother active, audio-rate mod, or first bind).
 // Idle unmodulated params are on NEITHER list and must not be recalculated.
 NodeLiveAudioProcessor.prototype.moduleControlNeedsRefresh = function moduleControlNeedsRefresh(node, state, keys) {
-    if (!state?.cachedParams) {
+    if (!state?.cachedParams || state.cachedParamsPlanSerial !== this.planSerial) {
       return true;
     }
     const list = keys || Object.keys(state.cachedParams);
@@ -480,6 +480,7 @@ NodeLiveAudioProcessor.prototype.resolveModuleControlParams = function resolveMo
       }
     }
     state.cachedParams = params;
+    state.cachedParamsPlanSerial = this.planSerial;
     return { params, changed };
 };
 
