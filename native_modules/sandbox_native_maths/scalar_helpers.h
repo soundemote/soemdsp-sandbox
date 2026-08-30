@@ -83,3 +83,4 @@ static inline double hash_bipolar(unsigned int index, unsigned int seed) {
 }
 
 }  // namespace soemdsp_maths
+

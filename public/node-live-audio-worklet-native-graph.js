@@ -42,6 +42,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   lookaheadLimiter: 35,
   stepSequencer: 36,
   transport: 37,
+  aliasSine: 38,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -783,6 +784,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 440));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      continue;
+    }
+    if (type === "aliasSine") {
+      // frequency Control slot holds normFreq (0→sampleRate); amplitude = level.
+      push("normFreq", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("normFreq", 0.1));
+      push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
       continue;
     }
     if (type === "robinSupersaw") {

@@ -71,6 +71,7 @@ Only these live-audio types exist in the efficient build:
 | `lookaheadLimiter` | True-stereo brickwall (Out / L / R / Gain) |
 | `stepSequencer` | 8-step Trigger/Reset sequencer |
 | `transport` | Master Clock (−1..1 / 0..1 / Trigger / f Hz) |
+| `aliasSine` | Normalized-freq sine (aliases by design) |
 | `output` | Sink |
 
 Canonical circuit:
@@ -82,7 +83,8 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    sampleDelay / sampleHold / minMax / mix / mixStereo / clipperLimiter /
    midSideEncode / vectorscopeTransform / rotate3dTo2d /
    clock / triggerDivider / delayedTrigger / randomClock / triggerCounter /
-   metallicRatio / lutCell / lookaheadLimiter / stepSequencer / transport
+   metallicRatio / lutCell / lookaheadLimiter / stepSequencer / transport /
+   aliasSine
    as utilities)
 ```
 

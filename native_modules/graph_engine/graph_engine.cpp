@@ -300,6 +300,12 @@ extern "C" double soemdsp_transport_sample(
 extern "C" double soemdsp_transport_unipolar(int handle);
 extern "C" double soemdsp_transport_frequency(int handle);
 
+extern "C" int soemdsp_alias_sine_create();
+extern "C" void soemdsp_alias_sine_destroy(int handle);
+extern "C" double soemdsp_alias_sine_sample(
+  int handle, double normFreq, double level, double sampleRate
+);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -367,6 +373,7 @@ static const int kTypeLutCell = 34;
 static const int kTypeLookaheadLimiter = 35;
 static const int kTypeStepSequencer = 36;
 static const int kTypeTransport = 37;
+static const int kTypeAliasSine = 38;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -671,6 +678,8 @@ static void destroy_node_native(Node& n) {
     soemdsp_step_sequencer_destroy(n.nativeHandle);
   } else if (kind == kTypeTransport) {
     soemdsp_transport_destroy(n.nativeHandle);
+  } else if (kind == kTypeAliasSine) {
+    soemdsp_alias_sine_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -727,6 +736,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeRobinSinusoid) ? 440.0
       : (typeId == kTypeSampleHold) ? 0.0
       : (typeId == kTypeClock) ? 2.0
+      : (typeId == kTypeAliasSine) ? 0.1 // normFreq (0→sr)
       : 220.0,
     false
   );
@@ -1280,6 +1290,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeLookaheadLimiter) return soemdsp_lookahead_limiter_create();
   if (typeId == kTypeStepSequencer) return soemdsp_step_sequencer_create();
   if (typeId == kTypeTransport) return soemdsp_transport_create();
+  if (typeId == kTypeAliasSine) return soemdsp_alias_sine_create();
   return 0;
 }
 
@@ -2027,6 +2038,20 @@ static void process_trigger_divider(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Alias Sine: normFreq (frequency Control) × level (amplitude) → Mono/L/R.
+static void process_alias_sine(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double normFreq = node.frequency.out;
+  const double level = node.amplitude.out;
+  for (int f = 0; f < frames; f++) {
+    const double y = soemdsp_alias_sine_sample(node.nativeHandle, normFreq, level, sr);
+    node.buf[kPortMono][f] = y;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+  }
+}
+
 // Master Clock / transport: tempo square.
 // -1..1→Mono, 0..1→Left, Trigger→Right, f (Hz)→Saw.
 // Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
@@ -2637,6 +2662,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeRandomClock
     || node.typeId == kTypeMetallicRatio
     || node.typeId == kTypeTransport
+    || node.typeId == kTypeAliasSine
   ) {
     return; // sources: silence
   }
@@ -2753,7 +2779,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeLutCell
     || typeId == kTypeLookaheadLimiter
     || typeId == kTypeStepSequencer
-    || typeId == kTypeTransport;
+    || typeId == kTypeTransport
+    || typeId == kTypeAliasSine;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -3133,6 +3160,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_transport(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeAliasSine) {
+      process_alias_sine(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -3206,5 +3237,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 35; // transport Master Clock (+ digital f = BPM→Hz)
+  return 36; // aliasSine + maths phasor/dynamics/trigger
 }

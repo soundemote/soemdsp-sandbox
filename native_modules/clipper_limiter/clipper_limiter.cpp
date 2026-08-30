@@ -35,12 +35,6 @@ static const char kMetadataJson[] =
     "\"kind\":\"dynamics\""
   "}";
 
-static double db_to_lin(double db) {
-  const double n = safe(db);
-  if (!(n * 0.0 == 0.0)) return 1.0;
-  return dsp_exp(n * 0.11512925464970229);
-}
-
 static double tanh_approx(double value) {
   const double x = value;
   const double x2 = x * x;

@@ -78,11 +78,7 @@ extern "C" double soemdsp_alias_sine_sample(
 
   // normFreq maps 0->1 to frequency 0->sampleRate
   // phase increment per sample = frequency / sampleRate = normFreq
-  s.phase += safe(normFreq);
-
-  // wrap phase at 1.0 to keep it bounded
-  while (s.phase >= 1.0) s.phase -= 1.0;
-  while (s.phase < 0.0) s.phase += 1.0;
+  s.phase = phase_advance_wrap01(s.phase, safe(normFreq));
 
   // convert phase [0,1] to radians [0, 2*pi]
   double out = alias_sine_dsp_sin(s.phase * kTwoPi);

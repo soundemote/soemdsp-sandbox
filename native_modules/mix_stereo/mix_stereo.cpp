@@ -19,12 +19,6 @@ static const char kMetadataJson[] =
     "\"kind\":\"dynamics\""
   "}";
 
-static double db_to_lin(double db) {
-  const double x = safe(db);
-  if (x <= -140.0) return 0.0;
-  return dsp_exp(x * 0.11512925464970229);
-}
-
 static void pan_gains(double pan, double* left, double* right) {
   const double p = clamp(safe(pan), -1.0, 1.0);
   if (p <= 0.0) {

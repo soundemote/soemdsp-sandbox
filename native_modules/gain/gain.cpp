@@ -21,12 +21,6 @@ static const char kMetadataJson[] =
     "\"outputs\":[\"Out\",\"Left\",\"Right\"]"
   "}";
 
-static double db_to_lin(double db) {
-  const double x = safe(db);
-  if (x <= -140.0) return 0.0;
-  return dsp_exp(x * 0.11512925464970229);
-}
-
 static double mono_sum(double left, double right, int mode) {
   if (mode == 1) {
     const double energy = (left * left + right * right) * 0.5;

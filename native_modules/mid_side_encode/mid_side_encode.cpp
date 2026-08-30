@@ -19,13 +19,6 @@ static const char kMetadataJson[] =
     "\"kind\":\"dynamics\""
   "}";
 
-static double db_to_lin(double db) {
-  const double x = safe(db);
-  if (!(x * 0.0 == 0.0)) return 1.0;
-  if (x <= -140.0) return 0.0;
-  return dsp_exp(x * 0.11512925464970229);
-}
-
 }  // namespace
 
 extern "C" double soemdsp_mid_side_encode_sample(

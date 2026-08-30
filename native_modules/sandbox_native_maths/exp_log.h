@@ -8,6 +8,8 @@
 // tradeoffs, not just a faster version of the same function).
 #pragma once
 
+#include "scalar_helpers.h"
+
 namespace soemdsp_maths {
 
 // General-purpose exp(x) via range reduction: exp(x) = 2^n * exp(f*ln2),
@@ -47,4 +49,19 @@ static inline double dsp_ln(double x) {
   return 2.0*series + (double)e*LN2;
 }
 
+// Amplitude dB ↔ linear gain (20*log10). Floor ≤ −140 dB → 0.
+static inline double db_to_lin(double db) {
+  const double x = safe(db);
+  if (!(x * 0.0 == 0.0)) return 1.0;
+  if (x <= -140.0) return 0.0;
+  return dsp_exp(x * 0.11512925464970229); // ln(10)/20
+}
+
+static inline double lin_to_db(double lin) {
+  const double x = safe(lin);
+  if (!(x > 0.0)) return -120.0;
+  return dsp_ln(x) * 8.685889638065035; // 20/ln(10)
+}
+
 }  // namespace soemdsp_maths
+

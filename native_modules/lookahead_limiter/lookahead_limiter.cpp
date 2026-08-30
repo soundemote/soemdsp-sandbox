@@ -56,12 +56,6 @@ static const char kMetadataJson[] =
     "\"kind\":\"dynamics\""
   "}";
 
-static double db_to_gain(double db) {
-  const double d = safe(db);
-  if (!(d * 0.0 == 0.0)) return 1.0;
-  return dsp_exp(d * 0.11512925464970229);
-}
-
 static void sync_controls(
   State& st,
   double ceilingDb,
@@ -107,7 +101,7 @@ static void sync_controls(
   st.lastDipGain = dip;
   st.controlsValid = true;
 
-  st.ceiling = db_to_gain(ceilDb);
+  st.ceiling = db_to_lin(ceilDb);
   if (st.ceiling < 1e-6) st.ceiling = 1e-6;
   st.makeup = 1.0 / st.ceiling;
 
