@@ -6688,7 +6688,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-jack-green: #3ddc84;
   --node-jack-blue: #4d8dff;
   --node-jack-purple: #c44dff;
-  --node-jack-turquoise: #2ec4b6;
+  /* Distinct from mono green (#3ddc84) — cooler cyan for ZOH Morph CV. */
+  --node-jack-turquoise: #1ec8e0;
   --node-jack-magenta: #e040fb;
   --node-port-used-brightness: 85%;
   /* Match former hover stroke strength so unused jacks look “lit” permanently. */
@@ -6700,8 +6701,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-outlet-right-stroke: var(--node-jack-blue);
   --node-mod-input-fill: #b184ff;
   --node-mod-input-stroke: #b184ff;
-  --node-param-output-fill: #66e0a3;
-  --node-param-output-stroke: #66e0a3;
+  /* Parameter slider outs match parameter/mod inlet purple (not mono green). */
+  --node-param-output-fill: var(--node-mod-input-fill);
+  --node-param-output-stroke: var(--node-mod-input-stroke);
   --node-bypass-icon-size-ratio: 0.36;
   --node-bypass-icon-glow-spread-ratio: 0.4;
   --node-bypass-icon-glow-color: #f25d5d;

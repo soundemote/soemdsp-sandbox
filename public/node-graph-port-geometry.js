@@ -476,7 +476,7 @@ function nodeGraphPortWireColor(node, port, io) {
     return nodeGraphCssColor("--node-mod-input-fill", "#b184ff");
   }
   if (nodeGraphParameterOutputPort(nodeGraphPatchNode(node) || nodeGraphPatchNodeType(node), canonicalPort)) {
-    return nodeGraphCssColor("--node-param-output-fill", "#66e0a3");
+    return nodeGraphCssColor("--node-param-output-fill", "#b184ff");
   }
   return nodeGraphCssColor("--node-output-fill", "#e2a86d");
 }

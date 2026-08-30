@@ -142,8 +142,8 @@ function nodeGraphJackChannelCssColor(channel) {
   }
   if (channel === "turquoise") {
     return typeof nodeGraphCssColor === "function"
-      ? nodeGraphCssColor("--node-jack-turquoise", "#2ec4b6")
-      : "#2ec4b6";
+      ? nodeGraphCssColor("--node-jack-turquoise", "#1ec8e0")
+      : "#1ec8e0";
   }
   if (channel === "magenta") {
     return typeof nodeGraphCssColor === "function"
@@ -344,6 +344,14 @@ function nodeGraphJackChannel(type, port, io = "output") {
         return fromAliasChaos;
       }
       const fromAlias = nodeGraphJackStereoChannel(alias);
+      // Do not let legacy Out/In aliases recolor a non-In/Out port purple
+      // (e.g. polyBlep Out → Wave Out was painting Wave purple).
+      if (fromAlias === "purple") {
+        const aliasKey = String(alias || "").trim().toLowerCase();
+        if (aliasKey === "out" || aliasKey === "output" || aliasKey === "in" || aliasKey === "input") {
+          continue;
+        }
+      }
       if (fromAlias) {
         return fromAlias;
       }
