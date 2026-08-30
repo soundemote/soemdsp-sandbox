@@ -3063,6 +3063,10 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-handle-message.js?v=wasm-plan-race-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
+  // Magenta Graph additive chain (efficient Live sidecar until native Magenta).
+  "./public/modules/additiveGraph/additive-graph-math.js?v=magenta-graph-1",
+  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=magenta-graph-1",
+  "./public/modules/additiveGraph/additive-magenta-sidecar.js?v=magenta-sidecar-1",
   "./public/node-live-audio-worklet-process.js?v=silence-fix-1",
 ];
 

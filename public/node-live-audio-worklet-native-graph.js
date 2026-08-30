@@ -2383,10 +2383,22 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
   // Write targets only — native graph_engine SmootherManager chases outs.
   this.syncNativeGraphParams?.(frames);
 
+  // Magenta Graph chain (Generator→Effect→Out) is JS until native Magenta lands.
+  // Build Graph + scratch audio once per quantum; mix below before ear-protect.
+  if (typeof this.processAdditiveMagentaSidecar === "function") {
+    try {
+      this.processAdditiveMagentaSidecar(output, frames);
+    } catch (_e) {
+      // Keep native audio if Magenta sidecar throws.
+    }
+  }
+
   const native = this.nativeGraph;
   const maxBlock = Math.max(1, Number(native.soemdsp_graph_max_block_frames()) || 128);
   let written = 0;
   const stressed = Boolean(this.audioThreadStressed);
+  const addL = this._additiveScratchL;
+  const addR = this._additiveScratchR;
 
   while (written < frames) {
     const chunk = Math.min(maxBlock, frames - written);
@@ -2418,6 +2430,8 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
       let right = Number(rightView[i]);
       if (!Number.isFinite(left)) left = 0;
       if (!Number.isFinite(right)) right = 0;
+      if (addL && frame < addL.length) left += Number(addL[frame]) || 0;
+      if (addR && frame < addR.length) right += Number(addR[frame]) || 0;
       if (this.outputSampleClipped?.(left)) this.meterClipCount += 1;
       if (this.outputSampleClipped?.(right)) this.meterClipCount += 1;
       if (

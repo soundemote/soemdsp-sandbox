@@ -38,15 +38,16 @@ function createNodeGraphHarmonicLinesDisplay(nodeId, type = "additiveOut") {
 }
 
 function nodeGraphHarmonicLinesReadGraph(nodeId) {
-  if (typeof nodeGraphDataBus !== "undefined") {
-    const view = nodeGraphDataBus.get?.(`${nodeId}.GraphView`);
-    if (view?.ratio) return view;
-    const out = nodeGraphDataBus.get?.(`${nodeId}.Graph`);
-    if (out?.ratio) return out;
-  }
   if (typeof readNodeGraphDataInput === "function") {
     const g = readNodeGraphDataInput(nodeId, "Graph");
     if (g?.ratio) return g;
+  }
+  if (typeof nodeGraphDataBus !== "undefined") {
+    const view = nodeGraphDataBus.get?.(`${nodeId}.GraphView`);
+    if (view?.ratio) return view;
+    // Sidecar publishes the held view under GraphView; also accept Graph.
+    const out = nodeGraphDataBus.get?.(`${nodeId}.Graph`);
+    if (out?.ratio) return out;
   }
   return null;
 }
