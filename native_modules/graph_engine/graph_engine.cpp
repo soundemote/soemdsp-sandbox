@@ -213,6 +213,17 @@ extern "C" double soemdsp_clipper_limiter_sample(
   int handle, int channel, double input, double minDb, double maxDb, double gainDb, double antialias
 );
 
+extern "C" double soemdsp_mid_side_encode_sample(
+  double channel, double left, double right, double midGainDb, double sideGainDb
+);
+extern "C" double soemdsp_vectorscope_transform_sample(
+  double channel, double left, double right, double rotateDeg
+);
+extern "C" double soemdsp_rotate_3d_to_2d_sample(
+  double channel, double x, double y, double z,
+  double rotateXCycles, double rotateYCycles, double rotateZCycles
+);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -267,6 +278,9 @@ static const int kTypeMinMax = 21;
 static const int kTypeMix = 22;
 static const int kTypeMixStereo = 23;
 static const int kTypeClipperLimiter = 24;
+static const int kTypeMidSideEncode = 25;
+static const int kTypeVectorscopeTransform = 26;
+static const int kTypeRotate3dTo2d = 27;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1796,6 +1810,62 @@ static void process_mix(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Mid/Side encode: L/R in → Mid/Side out (true stereo matrix, free-function).
+static void process_mid_side_encode(Circuit& g, Node& node, int frames) {
+  double left[kMaxBlockFrames];
+  double right[kMaxBlockFrames];
+  mix_live_port(g, node, kPortLeft, frames, left);
+  mix_live_port(g, node, kPortRight, frames, right);
+  const double midGain = node.gainDb.out;
+  const double sideGain = node.gainLeftDb.out;
+  for (int f = 0; f < frames; f++) {
+    node.buf[kPortMono][f] = soemdsp_mid_side_encode_sample(
+      0.0, left[f], right[f], midGain, sideGain
+    );
+    node.buf[kPortLeft][f] = soemdsp_mid_side_encode_sample(
+      1.0, left[f], right[f], midGain, sideGain
+    );
+  }
+}
+
+// Vectorscope: L/R → X/Y after classic 45° + Rotate (degrees).
+static void process_vectorscope_transform(Circuit& g, Node& node, int frames) {
+  double left[kMaxBlockFrames];
+  double right[kMaxBlockFrames];
+  mix_live_port(g, node, kPortLeft, frames, left);
+  mix_live_port(g, node, kPortRight, frames, right);
+  const double rotateDeg = node.laneBias[0].out;
+  for (int f = 0; f < frames; f++) {
+    node.buf[kPortMono][f] = soemdsp_vectorscope_transform_sample(
+      0.0, left[f], right[f], rotateDeg
+    );
+    node.buf[kPortLeft][f] = soemdsp_vectorscope_transform_sample(
+      1.0, left[f], right[f], rotateDeg
+    );
+  }
+}
+
+// 3D rotate then project to 2D: X/Y/Z in → X/Y out. Angles in cycles.
+static void process_rotate_3d_to_2d(Circuit& g, Node& node, int frames) {
+  double xIn[kMaxBlockFrames];
+  double yIn[kMaxBlockFrames];
+  double zIn[kMaxBlockFrames];
+  mix_live_port(g, node, kPortMono, frames, xIn);
+  mix_live_port(g, node, kPortLeft, frames, yIn);
+  mix_live_port(g, node, kPortRight, frames, zIn);
+  const double rx = node.laneBias[0].out;
+  const double ry = node.laneBias[1].out;
+  const double rz = node.laneBias[2].out;
+  for (int f = 0; f < frames; f++) {
+    node.buf[kPortMono][f] = soemdsp_rotate_3d_to_2d_sample(
+      0.0, xIn[f], yIn[f], zIn[f], rx, ry, rz
+    );
+    node.buf[kPortLeft][f] = soemdsp_rotate_3d_to_2d_sample(
+      1.0, xIn[f], yIn[f], zIn[f], rx, ry, rz
+    );
+  }
+}
+
 // mixStereo: true stereo summer (native already L/R). Mono + 4 pairs; R4 on aux port 21.
 static void process_mix_stereo(Circuit& g, Node& node, int frames) {
   double mono[kMaxBlockFrames];
@@ -2561,6 +2631,18 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_clipper_limiter(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeMidSideEncode) {
+      process_mid_side_encode(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeVectorscopeTransform) {
+      process_vectorscope_transform(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeRotate3dTo2d) {
+      process_rotate_3d_to_2d(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -2634,5 +2716,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 28; // clipperLimiter (type 24)
+  return 29; // midSideEncode + vectorscopeTransform + rotate3dTo2d
 }

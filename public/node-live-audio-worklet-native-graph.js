@@ -29,6 +29,9 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   mix: 22,
   mixStereo: 23,
   clipperLimiter: 24,
+  midSideEncode: 25,
+  vectorscopeTransform: 26,
+  rotate3dTo2d: 27,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -192,6 +195,18 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "l4") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE;
     if (p === "r4") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MIX_STEREO_R4;
   }
+  // midSideEncode outs; vectorscope / rotate3d X/Y(/Z) outs.
+  if (p === "mid") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  if (p === "side") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  if (p === "x" && (t === "vectorscopeTransform" || t === "rotate3dTo2d")) {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  }
+  if (p === "y" && (t === "vectorscopeTransform" || t === "rotate3dTo2d")) {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  }
+  if (p === "z" && t === "rotate3dTo2d") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
   // Mono / Out / In / Wave Out / Noise / Frequency (MIDI out) / empty → mono bus
   return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
 };
@@ -219,9 +234,21 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   if (p === "trigger" || p === "trig") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
   }
+  const t = String(type || "").trim();
   // mixStereo R4 is destination-only (aux bus, not a Node.buf tap).
-  if (p === "r4" && String(type || "").trim() === "mixStereo") {
+  if (p === "r4" && t === "mixStereo") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MIX_STEREO_R4;
+  }
+  // vectorscope: X/Y aliases land on L/R inputs (not the X/Y output buses).
+  if (t === "vectorscopeTransform") {
+    if (p === "x" || p === "l") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "y" || p === "r") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
+  // rotate3dTo2d: X/Y/Z inputs on Mono/Left/Right.
+  if (t === "rotate3dTo2d") {
+    if (p === "x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "z") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
   }
   return this.mapNativeGraphSrcPortId(port, type);
 };
@@ -774,6 +801,21 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("oversample", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, disc("oversample", 2));
       continue;
     }
+    if (type === "midSideEncode") {
+      push("midGain", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("midGain", 0));
+      push("sideGain", P.NATIVE_GRAPH_PARAM_GAIN_LEFT_DB, cont("sideGain", 0));
+      continue;
+    }
+    if (type === "vectorscopeTransform") {
+      push("rotate", P.NATIVE_GRAPH_PARAM_LANE_BIAS1, cont("rotate", 0));
+      continue;
+    }
+    if (type === "rotate3dTo2d") {
+      push("rotateX", P.NATIVE_GRAPH_PARAM_LANE_BIAS1, cont("rotateX", 0));
+      push("rotateY", P.NATIVE_GRAPH_PARAM_LANE_BIAS2, cont("rotateY", 0));
+      push("rotateZ", P.NATIVE_GRAPH_PARAM_LANE_BIAS3, cont("rotateZ", 0));
+      continue;
+    }
     if (type === "range") {
       push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", -1));
       push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
@@ -938,11 +980,15 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "sampleDelay") return ["Delayed", "Out", "Mono"];
     if (type === "minMax") return ["Max"];
     if (type === "mix") return ["Out1"];
+    if (type === "midSideEncode") return ["Mid"];
+    if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["X"];
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
     if (type === "minMax") return ["Min"];
     if (type === "mix") return ["Out2"];
+    if (type === "midSideEncode") return ["Side"];
+    if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["Y"];
     if (type === "reverbEffect" || type === "pingPongDelay") {
       return ["Left", "Mix L", "Wet L"];
     }
