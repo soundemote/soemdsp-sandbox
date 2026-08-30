@@ -299,6 +299,24 @@ function additiveGraphPhaseColor(phase01) {
   };
 }
 
+/**
+ * Instantaneous Nyquist / speed-limit amp curve (not smoothed over time):
+ *   hz < 0.75·Nyquist → 1
+ *   0.75·Nyquist … Nyquist → linear 1→0
+ *   hz ≥ Nyquist → 0
+ * Phase still advances above Nyquist so harmonics stay coherent if they return.
+ */
+function additiveGraphNyquistAmpGain(hz, sampleRate) {
+  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const nyquist = 0.5 * sr;
+  const f = Math.abs(Number(hz) || 0);
+  if (!(nyquist > 0) || !(f >= 0)) return 0;
+  if (f >= nyquist) return 0;
+  const rampStart = 0.75 * nyquist;
+  if (f <= rampStart) return 1;
+  return 1 - (f - rampStart) / Math.max(1e-12, nyquist - rampStart);
+}
+
 function additiveGraphSumSample(graph, phaseAcc, frequencyHz, masterPhase, masterAmp, sampleRate) {
   if (!graph || !graph.harmonics) return { y: 0, phaseAcc };
   const H = graph.harmonics;
@@ -314,9 +332,12 @@ function additiveGraphSumSample(graph, phaseAcc, frequencyHz, masterPhase, maste
   for (let i = 0; i < H; i += 1) {
     const hz = graph.ratio[i] * f0;
     const inc = hz / sr;
+    // Always advance phase (even when muted above Nyquist).
     phaseAcc[i] = additiveGraphWrap01(phaseAcc[i] + inc);
+    const gain = additiveGraphNyquistAmpGain(hz, sr);
+    if (gain <= 0) continue;
     const p = additiveGraphWrap01(phaseAcc[i] + graph.phase[i] + mp);
-    y += Math.sin(twoPi * p) * graph.amplitude[i] * ma;
+    y += Math.sin(twoPi * p) * graph.amplitude[i] * ma * gain;
   }
   return { y, phaseAcc };
 }

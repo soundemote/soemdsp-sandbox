@@ -102,9 +102,18 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
 
   // X spans only the H harmonics (no empty Nyquist tail).
   const H = Math.max(1, graph.ratio.length | 0);
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const freqHz = Number(graph.frequencyHz ?? node?.params?.frequency ?? node?.parameters?.frequency) || 100;
+  const sr = Number(nodeGraphMvp?.sampleRate) || Number(nodeGraphMvp?.live?.sampleRate) || 44100;
   let maxAmp = 1e-6;
+  const effectiveAmp = new Float32Array(H);
   for (let i = 0; i < H; i += 1) {
-    const a = Math.abs(graph.amplitude[i] || 0);
+    const hz = (graph.ratio[i] || 0) * freqHz;
+    const nyqGain = typeof additiveGraphNyquistAmpGain === "function"
+      ? additiveGraphNyquistAmpGain(hz, sr)
+      : 1;
+    const a = Math.abs(graph.amplitude[i] || 0) * nyqGain;
+    effectiveAmp[i] = a;
     if (a > maxAmp) maxAmp = a;
   }
   const baseY = h * 0.92;
@@ -117,7 +126,7 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     // Even slots across the face: 1st harmonic at left, last at right.
     const t = H <= 1 ? 0.5 : i / (H - 1);
     const x = pad + t * span;
-    const amp = Math.abs(graph.amplitude[i] || 0) / maxAmp;
+    const amp = effectiveAmp[i] / maxAmp;
     const lineH = amp * maxH;
     const col = typeof additiveGraphPhaseColor === "function"
       ? additiveGraphPhaseColor(graph.phase[i] || 0)
