@@ -138,7 +138,15 @@ $modules = @(
   ) }
   @{ Name = "videoscope"; Simd = $false; Exports = @("soemdsp_videoscope_create", "soemdsp_videoscope_destroy", "soemdsp_videoscope_push", "soemdsp_videoscope_window_size", "soemdsp_videoscope_column_min", "soemdsp_videoscope_column_max", "soemdsp_videoscope_xy_a", "soemdsp_videoscope_xy_b", "soemdsp_videoscope_version") }
   @{ Name = "transport"; Simd = $false; Exports = @("soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar", "soemdsp_transport_version") }
-  @{ Name = "slew_limiter"; Simd = $false; Exports = @("soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample", "soemdsp_slew_limiter_version") }
+  @{ Name = "slew_limiter"; Simd = $false; Exports = @(
+    "soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample",
+    "soemdsp_slew_limiter_process_block",
+    "soemdsp_slew_limiter_block_input_mono_ptr", "soemdsp_slew_limiter_block_input_left_ptr",
+    "soemdsp_slew_limiter_block_input_right_ptr",
+    "soemdsp_slew_limiter_block_output_mono_ptr", "soemdsp_slew_limiter_block_output_left_ptr",
+    "soemdsp_slew_limiter_block_output_right_ptr",
+    "soemdsp_slew_limiter_max_block_frames", "soemdsp_slew_limiter_version"
+  ) }
   @{ Name = "sample_hold"; Simd = $false; Exports = @("soemdsp_sample_hold_create", "soemdsp_sample_hold_destroy", "soemdsp_sample_hold_sample", "soemdsp_sample_hold_version") }
   @{ Name = "chord_memory"; Simd = $false; Exports = @("soemdsp_chord_memory_create", "soemdsp_chord_memory_destroy", "soemdsp_chord_memory_sample", "soemdsp_chord_memory_note2", "soemdsp_chord_memory_note3", "soemdsp_chord_memory_note4", "soemdsp_chord_memory_arp", "soemdsp_chord_memory_gate", "soemdsp_chord_memory_version") }
   @{ Name = "turing_machine"; Simd = $false; Exports = @("soemdsp_turing_machine_create", "soemdsp_turing_machine_destroy", "soemdsp_turing_machine_sample", "soemdsp_turing_machine_scale", "soemdsp_turing_machine_gate", "soemdsp_turing_machine_version") }

@@ -21,6 +21,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   noiseGenerator: 14,
   robinSinusoid: 15,
   robinSupersaw: 16,
+  slewLimiter: 17,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -642,6 +643,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("detuneCents", P.NATIVE_GRAPH_PARAM_WIDTH, cont("detuneCents", 30));
       push("voices", P.NATIVE_GRAPH_PARAM_STAGES, disc("voices", 7));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "slewLimiter") {
+      // timeNumerator=upTime, timeDenominator=downTime, shape, offset=bias
+      push("upTime", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("upTime", 0.05));
+      push("downTime", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("downTime", 0.20));
+      push("shape", P.NATIVE_GRAPH_PARAM_SHAPE, disc("shape", 0));
+      push("bias", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("bias", 0));
       continue;
     }
     if (type === "range") {

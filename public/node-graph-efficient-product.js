@@ -18,6 +18,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "noiseGenerator",
   "robinSinusoid",
   "robinSupersaw",
+  "slewLimiter",
   "output",
 ]);
 

@@ -152,6 +152,19 @@ extern "C" int soemdsp_robin_supersaw_block_output_left_ptr(int handle);
 extern "C" int soemdsp_robin_supersaw_block_output_right_ptr(int handle);
 extern "C" int soemdsp_robin_supersaw_block_output_mono_ptr(int handle);
 
+extern "C" int soemdsp_slew_limiter_create();
+extern "C" void soemdsp_slew_limiter_destroy(int handle);
+extern "C" void soemdsp_slew_limiter_process_block(
+  int handle, double upTime, double downTime, double shape, double bias,
+  double sampleRate, int frameCount
+);
+extern "C" int soemdsp_slew_limiter_block_input_mono_ptr(int handle);
+extern "C" int soemdsp_slew_limiter_block_input_left_ptr(int handle);
+extern "C" int soemdsp_slew_limiter_block_input_right_ptr(int handle);
+extern "C" int soemdsp_slew_limiter_block_output_mono_ptr(int handle);
+extern "C" int soemdsp_slew_limiter_block_output_left_ptr(int handle);
+extern "C" int soemdsp_slew_limiter_block_output_right_ptr(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -198,6 +211,7 @@ static const int kTypeGain = 13;
 static const int kTypeNoiseGenerator = 14;
 static const int kTypeRobinSinusoid = 15;
 static const int kTypeRobinSupersaw = 16;
+static const int kTypeSlewLimiter = 17;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -428,6 +442,8 @@ static void destroy_node_native(Node& n) {
     soemdsp_robin_sinusoid_destroy(n.nativeHandle);
   } else if (kind == kTypeRobinSupersaw) {
     soemdsp_robin_supersaw_destroy(n.nativeHandle);
+  } else if (kind == kTypeSlewLimiter) {
+    soemdsp_slew_limiter_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -486,7 +502,11 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(n.waveform, 0.0, true);
   init_control(n.amplitude, (typeId == kTypeAttenuverter) ? 0.5 : 1.0, false);
-  init_control(n.shape, (typeId == kTypeNoiseGenerator) ? 0.0 : 0.5, false);
+  init_control(
+    n.shape,
+    (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter) ? 0.0 : 0.5,
+    (typeId == kTypeSlewLimiter) // discrete Lin/Log/Exp/Smooth
+  );
   init_control(n.phaseParam, 0.0, false);
   init_control(n.resonance, 0.2, false);
   init_control(n.mode, (typeId == kTypeNoiseGenerator) ? 0.0 : 1.0, true);
@@ -513,8 +533,9 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.seed, (typeId == kTypeNoiseGenerator) ? 1.0 : 0.0, true);
   init_control(n.feedback, 0.35, false);
   init_control(n.level, 1.0, false);
-  init_control(n.timeNumerator, 1.0, false);
-  init_control(n.timeDenominator, 4.0, false);
+  // Ping-pong time fraction defaults; slewLimiter reuses these as up/down seconds.
+  init_control(n.timeNumerator, (typeId == kTypeSlewLimiter) ? 0.05 : 1.0, false);
+  init_control(n.timeDenominator, (typeId == kTypeSlewLimiter) ? 0.20 : 4.0, false);
   init_control(n.timingMode, 0.0, true);
   init_control(n.offsetMs, 0.0, false);
   init_control(n.lfoStyle, 0.0, true);
@@ -913,6 +934,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeNoiseGenerator) return soemdsp_noise_generator_create();
   if (typeId == kTypeRobinSinusoid) return soemdsp_robin_sinusoid_create();
   if (typeId == kTypeRobinSupersaw) return soemdsp_robin_supersaw_create();
+  if (typeId == kTypeSlewLimiter) return soemdsp_slew_limiter_create();
   return 0;
 }
 
@@ -1500,6 +1522,39 @@ static void process_b2u(Circuit& g, Node& node, int frames) {
   }
 }
 
+static void process_slew_limiter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  double* inM = ptr_from_export(soemdsp_slew_limiter_block_input_mono_ptr(node.nativeHandle));
+  double* inL = ptr_from_export(soemdsp_slew_limiter_block_input_left_ptr(node.nativeHandle));
+  double* inR = ptr_from_export(soemdsp_slew_limiter_block_input_right_ptr(node.nativeHandle));
+  if (!inM || !inL || !inR) return;
+  for (int f = 0; f < frames; f++) {
+    const double m = g.mixMono[f];
+    inM[f] = m;
+    inL[f] = m + g.mixLeft[f];
+    inR[f] = m + g.mixRight[f];
+  }
+  // timeNumerator=upTime, timeDenominator=downTime, shape=shape, offset=bias
+  soemdsp_slew_limiter_process_block(
+    node.nativeHandle,
+    node.timeNumerator.out,
+    node.timeDenominator.out,
+    node.shape.out,
+    node.offset.out,
+    (double)sr,
+    frames
+  );
+  double* outM = ptr_from_export(soemdsp_slew_limiter_block_output_mono_ptr(node.nativeHandle));
+  double* outL = ptr_from_export(soemdsp_slew_limiter_block_output_left_ptr(node.nativeHandle));
+  double* outR = ptr_from_export(soemdsp_slew_limiter_block_output_right_ptr(node.nativeHandle));
+  if (!outM || !outL || !outR) return;
+  copy_tap_to_buf(node.buf[kPortMono], outM, frames);
+  copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
+  copy_tap_to_buf(node.buf[kPortRight], outR, frames);
+}
+
 // Bias: out = in + offset (Control `offset`, same slot as attenuverter DC).
 static void process_bias(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
@@ -1784,7 +1839,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeRange
     || typeId == kTypeNoiseGenerator
     || typeId == kTypeRobinSinusoid
-    || typeId == kTypeRobinSupersaw;
+    || typeId == kTypeRobinSupersaw
+    || typeId == kTypeSlewLimiter;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -2069,6 +2125,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_robin_supersaw(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeSlewLimiter) {
+      process_slew_limiter(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeLadderFilter) {
       process_ladder(*g, node, frames);
       continue;
@@ -2150,5 +2210,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 20; // robinSinusoid + robinSupersaw sources
+  return 21; // slewLimiter (stereo block + shape/bias)
 }
