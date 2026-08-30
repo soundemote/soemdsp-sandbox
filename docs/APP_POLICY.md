@@ -68,6 +68,7 @@ Only these live-audio types exist in the efficient build:
 | `triggerCounter` | Count triggers → Pulse + Count |
 | `metallicRatio` | Metallic mean (n → ratio) |
 | `lutCell` | 4-in LUT + flip-flop (Out / Q) |
+| `lookaheadLimiter` | True-stereo brickwall (Out / L / R / Gain) |
 | `output` | Sink |
 
 Canonical circuit:
@@ -79,7 +80,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    sampleDelay / sampleHold / minMax / mix / mixStereo / clipperLimiter /
    midSideEncode / vectorscopeTransform / rotate3dTo2d /
    clock / triggerDivider / delayedTrigger / randomClock / triggerCounter /
-   metallicRatio / lutCell as utilities)
+   metallicRatio / lutCell / lookaheadLimiter as utilities)
 ```
 
 **Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` may remain. `audioInput` is **not** on the allowlist unless a demo explicitly needs it (strip with other DSP for now).

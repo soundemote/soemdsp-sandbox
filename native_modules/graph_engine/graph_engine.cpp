@@ -272,6 +272,18 @@ extern "C" int soemdsp_lut_cell_sample(
 );
 extern "C" int soemdsp_lut_cell_q(int handle);
 
+extern "C" int soemdsp_lookahead_limiter_create();
+extern "C" void soemdsp_lookahead_limiter_destroy(int handle);
+extern "C" double soemdsp_lookahead_limiter_sample(
+  int handle, double left, double right,
+  double ceilingDb, double lookaheadMs, double lookaheadSamples,
+  double attackMs, double releaseMs, double sampleRate,
+  double lookaheadEnabled, double gainCompensation, double dipGain
+);
+extern "C" double soemdsp_lookahead_limiter_left(int handle);
+extern "C" double soemdsp_lookahead_limiter_right(int handle);
+extern "C" double soemdsp_lookahead_limiter_gain(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -336,6 +348,7 @@ static const int kTypeRandomClock = 31;
 static const int kTypeTriggerCounter = 32;
 static const int kTypeMetallicRatio = 33;
 static const int kTypeLutCell = 34;
+static const int kTypeLookaheadLimiter = 35;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -634,6 +647,8 @@ static void destroy_node_native(Node& n) {
     soemdsp_trigger_counter_destroy(n.nativeHandle);
   } else if (kind == kTypeLutCell) {
     soemdsp_lut_cell_destroy(n.nativeHandle);
+  } else if (kind == kTypeLookaheadLimiter) {
+    soemdsp_lookahead_limiter_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -682,6 +697,7 @@ static void init_node_defaults(Node& n, int typeId) {
   n.nativeKind = 0;
   init_control(n.volumeDb, (typeId == kTypeMixStereo) ? 0.0 : -3.0, false);
   init_control(n.pan, 0.0, false);
+  // lookaheadLimiter: mode = look-ahead on/off; timingMode = gainCompensation.
   init_control(
     n.frequency,
     (typeId == kTypeLadderFilter) ? 1000.0
@@ -701,7 +717,13 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(n.phaseParam, 0.0, false);
   init_control(n.resonance, 0.2, false);
-  init_control(n.mode, (typeId == kTypeNoiseGenerator) ? 0.0 : 1.0, true);
+  init_control(
+    n.mode,
+    (typeId == kTypeNoiseGenerator) ? 0.0
+      : (typeId == kTypeLookaheadLimiter) ? 1.0 // look-ahead On
+      : 1.0,
+    true
+  );
   // Ladder stages default 4; robinSupersaw = voices; triggerDivider = division;
   // triggerCounter = countMax.
   init_control(
@@ -751,6 +773,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeTriggerDivider || typeId == kTypeTriggerCounter) ? 0.01
       : (typeId == kTypeDelayedTrigger) ? 0.1
       : (typeId == kTypeRandomClock) ? 0.25
+      : (typeId == kTypeLookaheadLimiter) ? 5.0 // look-ahead ms
       : 1.0,
     false
   );
@@ -760,11 +783,18 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSampleDelay) ? 0.0
       : (typeId == kTypeDelayedTrigger) ? 0.01
       : (typeId == kTypeRandomClock) ? 1.0
+      : (typeId == kTypeLookaheadLimiter) ? 0.0 // look-ahead samples
       : 4.0,
     false
   );
-  init_control(n.timingMode, 0.0, true);
-  init_control(n.offsetMs, (typeId == kTypeRandomClock) ? 0.01 : 0.0, false);
+  init_control(n.timingMode, 0.0, true); // pingPong timing; lookaheadLimiter = gainCompensation
+  init_control(
+    n.offsetMs,
+    (typeId == kTypeRandomClock) ? 0.01
+      : (typeId == kTypeLookaheadLimiter) ? 0.2 // attack ms
+      : 0.0,
+    false
+  );
   init_control(n.lfoStyle, 0.0, true);
   init_control(n.lfoRate, 0.35, false);
   init_control(n.saturate, 1.0, false);
@@ -784,15 +814,21 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(n.outLow, 0.0, false);
   init_control(n.outHigh, (typeId == kTypeRange) ? 1000.0 : 1.0, false);
-  init_control(n.gainDb, 0.0, false);
+  init_control(n.gainDb, (typeId == kTypeLookaheadLimiter) ? -1.0 : 0.0, false); // ceiling dB
   init_control(n.gainLeftDb, 0.0, false);
   init_control(n.gainRightDb, 0.0, false);
   init_control(n.gainMonoSum, 0.0, true); // discrete mono-sum law
   // mix: linear volumes default 1; mixStereo: dB volumes default 0; pans/bias 0; bleeds 0
+  // lookaheadLimiter: laneBias[0]=release ms, laneBias[1]=dipGain
   const double laneVolDefault = (typeId == kTypeMix) ? 1.0 : 0.0;
   for (int i = 0; i < 4; i++) {
     init_control(n.laneVol[i], laneVolDefault, false);
-    init_control(n.laneBias[i], 0.0, false);
+    double biasDef = 0.0;
+    if (typeId == kTypeLookaheadLimiter) {
+      if (i == 0) biasDef = 100.0;
+      else if (i == 1) biasDef = 1.0;
+    }
+    init_control(n.laneBias[i], biasDef, false);
   }
   init_control(n.bleed2, 0.0, false);
   init_control(n.bleed3, 0.0, false);
@@ -1211,6 +1247,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeRandomClock) return soemdsp_random_clock_create();
   if (typeId == kTypeTriggerCounter) return soemdsp_trigger_counter_create();
   if (typeId == kTypeLutCell) return soemdsp_lut_cell_create();
+  if (typeId == kTypeLookaheadLimiter) return soemdsp_lookahead_limiter_create();
   return 0;
 }
 
@@ -1958,6 +1995,44 @@ static void process_trigger_divider(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Lookahead brickwall: true stereo L/R rings + linked GR. Mono In folds into both sides.
+// Out=mono avg, Left/Right wet, Gain on Saw tap.
+static void process_lookahead_limiter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double ceilingDb = node.gainDb.out;
+  const double lookaheadMs = node.timeNumerator.out;
+  const double lookaheadSamples = node.timeDenominator.out;
+  const double attackMs = node.offsetMs.out;
+  const double releaseMs = node.laneBias[0].out;
+  const double lookaheadEnabled = node.mode.out;
+  const double gainCompensation = node.timingMode.out;
+  const double dipGain = node.laneBias[1].out;
+  for (int f = 0; f < frames; f++) {
+    const double l = g.mixMono[f] + g.mixLeft[f];
+    const double r = g.mixMono[f] + g.mixRight[f];
+    const double monoOut = soemdsp_lookahead_limiter_sample(
+      node.nativeHandle,
+      l,
+      r,
+      ceilingDb,
+      lookaheadMs,
+      lookaheadSamples,
+      attackMs,
+      releaseMs,
+      sr,
+      lookaheadEnabled,
+      gainCompensation,
+      dipGain
+    );
+    node.buf[kPortMono][f] = monoOut;
+    node.buf[kPortLeft][f] = soemdsp_lookahead_limiter_left(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_lookahead_limiter_right(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_lookahead_limiter_gain(node.nativeHandle);
+  }
+}
+
 // Metallic mean: Ratio = (n + sqrt(n^2+4))/2. Free-function; fan M/L/R.
 static void process_metallic_ratio(Circuit& g, Node& node, int frames) {
   const double index = node.width.out;
@@ -2582,7 +2657,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeDelayedTrigger
     || typeId == kTypeRandomClock
     || typeId == kTypeTriggerCounter
-    || typeId == kTypeLutCell;
+    || typeId == kTypeLutCell
+    || typeId == kTypeLookaheadLimiter;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -2950,6 +3026,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_lut_cell(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeLookaheadLimiter) {
+      process_lookahead_limiter(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -3023,5 +3103,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 32; // metallicRatio + lutCell
+  return 33; // lookaheadLimiter (true stereo brickwall)
 }

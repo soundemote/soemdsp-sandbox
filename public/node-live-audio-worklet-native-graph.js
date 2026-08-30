@@ -39,6 +39,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   triggerCounter: 32,
   metallicRatio: 33,
   lutCell: 34,
+  lookaheadLimiter: 35,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -198,6 +199,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (p === "d") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
   if (p === "q") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   if (p === "ratio") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  if (p === "gain" && t === "lookaheadLimiter") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+  }
   // mixStereo pair jacks (L1/R1 share Left/Right; L2–L4/R2–R3 on taps; R4 aux).
   if (t === "mixStereo") {
     if (p === "l1") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
@@ -901,6 +905,17 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("truthTable", P.NATIVE_GRAPH_PARAM_SEED, disc("truthTable", 27030));
       continue;
     }
+    if (type === "lookaheadLimiter") {
+      push("ceiling", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("ceiling", -1));
+      push("lookaheadEnabled", P.NATIVE_GRAPH_PARAM_MODE, disc("lookaheadEnabled", 1));
+      push("lookaheadMs", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("lookaheadMs", 5));
+      push("lookaheadSamples", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("lookaheadSamples", 0));
+      push("attack", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("attack", 0.2));
+      push("release", P.NATIVE_GRAPH_PARAM_LANE_BIAS1, cont("release", 100));
+      push("gainCompensation", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("gainCompensation", 0));
+      push("dipGain", P.NATIVE_GRAPH_PARAM_LANE_BIAS2, cont("dipGain", 1));
+      continue;
+    }
     if (type === "range") {
       push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", -1));
       push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
@@ -1103,6 +1118,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "sampleDelay") return ["Thru"];
     if (type === "mix") return ["Out4"];
     if (type === "mixStereo") return ["L2"];
+    if (type === "lookaheadLimiter") return ["Gain"];
     return type === "reverbEffect" ? ["Dry L"] : type === "pingPongDelay" ? ["Mod L", "Saw"] : ["Saw"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RAMP) {
