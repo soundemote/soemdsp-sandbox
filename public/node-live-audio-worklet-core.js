@@ -423,7 +423,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.absoluteFrame = 0;
     this.slewLimiterStates = new Map();
     this.speakerProtector2States = new Map();
-    this.airClipperStates = new Map();
     this.smoothers = new Map();
     // Dirty list (soemdsp SmootherManager::toSmooth_): only moving chases run.
     this.activeSmoothers = [];

@@ -88,7 +88,6 @@ USE_CASES: dict[str, str] = {
   "gainBiasMix": "Retired alias of Mix—use Mix.",
   "bias": "Nudge a signal off center—steer bipolar CV into a new range.",
   "softClipper": "Gentle saturation/limiting when peaks need taming without hard digital clip.",
-  "airClipper": "Airwindows Density-style thickness—soft saturate or anti-density for body.",
   "rotate3dTo2d": "Spin X/Y/Z points then project to 2D for scope art and stereo transforms.",
   "vectorscopeTransform": "Rotate stereo so mono stands vertical—classic vectorscope / balance view.",
   "output": "Final stereo sink—patch here to hear (and meter) the mix.",

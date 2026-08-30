@@ -1600,25 +1600,6 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.readEffectiveParameter(node, "oversample", 2, frame, frames, frameValues),
         );
       },
-      // Airwindows Density3. Math: air-clipper-math.js.
-      airClipper: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
-        if (!this.airClipperStates) {
-          this.airClipperStates = new Map();
-        }
-        const state = this.airClipperStates.get(nodeId) || this.createAirClipperState();
-        this.airClipperStates.set(nodeId, state);
-        return this.airClipperFrame(
-          state,
-          mixInput(nodeId),
-          mixInput(nodeId, "Left"),
-          mixInput(nodeId, "Right"),
-          this.readEffectiveParameter(node, "density", 0, frame, frames, frameValues),
-          this.readEffectiveParameter(node, "highpass", 0, frame, frames, frameValues),
-          this.readEffectiveParameter(node, "output", 1, frame, frames, frameValues),
-          this.readEffectiveParameter(node, "wet", 1, frame, frames, frameValues),
-          safeRate,
-        );
-      },
       // 3D rotation → XY. Math: rotate-3d-to-2d-math.js.,
       rotate3dTo2d: (node, nodeId, frame, frames, frameValues, mixInput) =>
         this.rotate3dTo2dSample(

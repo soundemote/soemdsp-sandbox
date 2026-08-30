@@ -270,7 +270,6 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
       this.destroyStereoFilterNativeState(bundle, (s) => this.destroySlewLimiterNativeState(s));
     }
     this.slewLimiterStates = new Map();
-    this.airClipperStates = new Map();
     this.scopeBuffers = new Map();
     this.scopeCounter = 0;
     this.scopeSnapshotCounter = 0;

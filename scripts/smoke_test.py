@@ -627,8 +627,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/softClipper/soft-clipper-live-evaluator.js",
     "./public/modules/clipperLimiter/clipper-limiter-math.js",
     "./public/modules/clipperLimiter/clipper-limiter-live-evaluator.js",
-    "./public/modules/airClipper/air-clipper-math.js",
-    "./public/modules/airClipper/air-clipper-live-evaluator.js",
     "./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js",
     "./public/modules/rotate3dTo2d/rotate-3d-to-2d-live-evaluator.js",
     "./public/modules/vectorscopeTransform/vectorscope-transform-math.js",

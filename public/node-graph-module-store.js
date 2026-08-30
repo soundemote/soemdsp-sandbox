@@ -150,7 +150,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
 const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "output",
   "audioInput",
-  "airClipper",
   "rms",
 ]);
 
@@ -933,12 +932,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Drive with Gain, then Soft Clip last: below Min dB is dry; Min→Max is the shared Soft Clipper tanh knee (wider span = more gradual).",
     label: "Clipper Limiter",
     notes: ["soft clip", "limiter", "dB", "tanh", "ADAA", "dynamics", "native"],
-  },
-  airClipper: {
-    category: "invisible",
-    description: "Not listed. Holding pen — unsure about this module.",
-    label: "AirClipper",
-    notes: ["invisible", "airwindows", "Density3", "density", "soft clip"],
   },
   rotate3dTo2d: {
     category: "dynamics",
@@ -3046,10 +3039,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   clipperLimiter: {
     source: "public/modules/clipperLimiter/clipper-limiter-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/clipperLimiter/clipper-limiter-math.js",
-  },
-  airClipper: {
-    source: "public/modules/airClipper/air-clipper-math.js",
-    sourceUrl: "https://github.com/airwindows/airwindows/blob/master/plugins/WinVST/Density3/Density3Proc.cpp",
   },
   softpopOscillator: {
     source: "public/modules/softpopOscillator/softpop-oscillator-math.js",

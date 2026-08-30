@@ -213,13 +213,6 @@ extern "C" double soemdsp_clipper_limiter_sample(
   int handle, int channel, double input, double minDb, double maxDb, double gainDb, double antialias
 );
 
-extern "C" int soemdsp_air_clipper_create();
-extern "C" void soemdsp_air_clipper_destroy(int handle);
-extern "C" double soemdsp_air_clipper_sample(
-  int handle, int channel, double input,
-  double density, double highpass, double output, double wet, double sampleRate
-);
-
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -274,7 +267,6 @@ static const int kTypeMinMax = 21;
 static const int kTypeMix = 22;
 static const int kTypeMixStereo = 23;
 static const int kTypeClipperLimiter = 24;
-static const int kTypeAirClipper = 25;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -561,8 +553,6 @@ static void destroy_node_native(Node& n) {
     soemdsp_min_max_destroy(n.nativeHandle);
   } else if (kind == kTypeClipperLimiter) {
     soemdsp_clipper_limiter_destroy(n.nativeHandle);
-  } else if (kind == kTypeAirClipper) {
-    soemdsp_air_clipper_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -621,16 +611,10 @@ static void init_node_defaults(Node& n, int typeId) {
     false
   );
   init_control(n.waveform, 0.0, true);
-  init_control(
-    n.amplitude,
-    (typeId == kTypeAttenuverter) ? 0.5 : (typeId == kTypeAirClipper) ? 1.0 : 1.0,
-    false
-  );
+  init_control(n.amplitude, (typeId == kTypeAttenuverter) ? 0.5 : 1.0, false);
   init_control(
     n.shape,
-    (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter || typeId == kTypeAirClipper)
-      ? 0.0
-      : 0.5,
+    (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter) ? 0.0 : 0.5,
     (typeId == kTypeSlewLimiter) // discrete Lin/Log/Exp/Smooth
   );
   init_control(n.phaseParam, 0.0, false);
@@ -639,21 +623,16 @@ static void init_node_defaults(Node& n, int typeId) {
   // Ladder stages default 4; robinSupersaw reuses stages as voice count.
   init_control(n.stages, (typeId == kTypeRobinSupersaw) ? 7.0 : 4.0, true);
   init_control(n.center, 0.0, false);
-  // Soft-clipper width default 2; noise = deviation; supersaw = detune; airClipper = highpass.
+  // Soft-clipper width default 2; noise = deviation; supersaw = detune cents.
   init_control(
     n.width,
     (typeId == kTypeNoiseGenerator) ? 0.5
       : (typeId == kTypeRobinSupersaw) ? 30.0
-      : (typeId == kTypeAirClipper) ? 0.0
       : 2.0,
     false
   );
   init_control(n.oversample, 2.0, true); // softClipper / clipperLimiter antialias mode
-  init_control(
-    n.mix,
-    (typeId == kTypeAirClipper) ? 1.0 : (typeId == kTypePingPongDelay) ? 0.35 : 0.43,
-    false
-  );
+  init_control(n.mix, (typeId == kTypePingPongDelay) ? 0.35 : 0.43, false);
   init_control(n.diffusionSize, 0.35, false);
   init_control(n.diffusionAmount, 0.70, false);
   init_control(n.delaySize, 0.02, false);
@@ -1117,7 +1096,6 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeSampleHold) return soemdsp_sample_hold_create();
   if (typeId == kTypeMinMax) return soemdsp_min_max_create();
   if (typeId == kTypeClipperLimiter) return soemdsp_clipper_limiter_create();
-  if (typeId == kTypeAirClipper) return soemdsp_air_clipper_create();
   return 0;
 }
 
@@ -1477,7 +1455,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Shared M/L/R cable probe (softClipper / clipperLimiter / airClipper).
+// Shared M/L/R cable probe (softClipper / clipperLimiter).
 static void probe_mlr_cables(
   Circuit& g, const Node& node, bool* hasMonoIn, bool* hasLeftIn, bool* hasRightIn, bool* monoOutWired
 ) {
@@ -1536,44 +1514,6 @@ static void process_clipper_limiter(Circuit& g, Node& node, int frames) {
     if (hasRightIn) {
       node.buf[kPortRight][f] = soemdsp_clipper_limiter_sample(
         node.nativeHandle, 2, g.mixRight[f] + g.mixMono[f], minDb, maxDb, gainDb, aa
-      );
-    }
-  }
-}
-
-// airClipper: Density3 per-channel (native ch 0/1/2). SoftClipper-style wiring.
-static void process_air_clipper(Circuit& g, Node& node, int frames) {
-  if (node.nativeHandle <= 0) return;
-  mix_node_inputs(g, node, frames);
-  const double density = node.shape.out;
-  const double highpass = node.width.out;
-  const double output = node.amplitude.out;
-  const double wet = node.mix.out;
-  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-
-  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
-  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
-  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
-
-  for (int f = 0; f < frames; f++) {
-    if (needMono) {
-      double in = g.mixMono[f];
-      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
-      const double out = soemdsp_air_clipper_sample(
-        node.nativeHandle, 0, in, density, highpass, output, wet, sr
-      );
-      node.buf[kPortMono][f] = out;
-      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
-      if (!hasRightIn) node.buf[kPortRight][f] = out;
-    }
-    if (hasLeftIn) {
-      node.buf[kPortLeft][f] = soemdsp_air_clipper_sample(
-        node.nativeHandle, 1, g.mixLeft[f] + g.mixMono[f], density, highpass, output, wet, sr
-      );
-    }
-    if (hasRightIn) {
-      node.buf[kPortRight][f] = soemdsp_air_clipper_sample(
-        node.nativeHandle, 2, g.mixRight[f] + g.mixMono[f], density, highpass, output, wet, sr
       );
     }
   }
@@ -2293,8 +2233,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeSampleDelay
     || typeId == kTypeSampleHold
     || typeId == kTypeMinMax
-    || typeId == kTypeClipperLimiter
-    || typeId == kTypeAirClipper;
+    || typeId == kTypeClipperLimiter;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -2622,10 +2561,6 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_clipper_limiter(*g, node, frames);
       continue;
     }
-    if (node.typeId == kTypeAirClipper) {
-      process_air_clipper(*g, node, frames);
-      continue;
-    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -2699,5 +2634,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 27; // clipperLimiter + airClipper (Density3 native)
+  return 28; // clipperLimiter (type 24)
 }

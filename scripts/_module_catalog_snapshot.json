@@ -380,11 +380,6 @@
     "description": "Native soft clipper with center bias and clipping width controls."
   },
   {
-    "type": "airClipper",
-    "label": "AirClipper",
-    "description": "Airwindows Density3: density soft-saturation / anti-density, optional highpass, output and dry/wet. MIT (airwindows)."
-  },
-  {
     "type": "rotate3dTo2d",
     "label": "Rotation 3D to 2D",
     "description": "Rotates an X/Y/Z signal point in 3D and projects the result back to X/Y."

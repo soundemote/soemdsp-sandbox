@@ -387,7 +387,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const rmsStates = new Map();
   const speedColorInertiaStates = new Map();
   const inertialFilterStates = new Map();
-  const airClipperStates = new Map();
   const softClipperStates = new Map();
   const clipperLimiterStates = new Map();
   const speakerProtector2States = new Map();
@@ -670,9 +669,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     if (node.type === "inertialFilter") {
       inertialFilterStates.set(node.id, createNodeGraphStereoInertialFilterState());
     }
-    if (node.type === "airClipper" && typeof createNodeGraphAirClipperState === "function") {
-      airClipperStates.set(node.id, createNodeGraphAirClipperState());
-    }
     if (node.type === "softClipper" && typeof createNodeGraphSoftClipperState === "function") {
       softClipperStates.set(node.id, createNodeGraphSoftClipperState());
     }
@@ -889,7 +885,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     rmsStates,
     speedColorInertiaStates,
     inertialFilterStates,
-    airClipperStates,
     softClipperStates,
     clipperLimiterStates,
     speakerProtector2States,
@@ -1129,9 +1124,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.inertialFilterStates) {
     runtime.inertialFilterStates = new Map();
-  }
-  if (!runtime.airClipperStates) {
-    runtime.airClipperStates = new Map();
   }
   if (!runtime.softClipperStates) {
     runtime.softClipperStates = new Map();
@@ -1585,13 +1577,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "inertialFilter" && !runtime.inertialFilterStates.has(node.id)) {
       runtime.inertialFilterStates.set(node.id, createNodeGraphStereoInertialFilterState());
-    }
-    if (
-      node.type === "airClipper"
-      && typeof createNodeGraphAirClipperState === "function"
-      && !runtime.airClipperStates.has(node.id)
-    ) {
-      runtime.airClipperStates.set(node.id, createNodeGraphAirClipperState());
     }
     if (
       node.type === "softClipper"
@@ -2121,13 +2106,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     for (const id of [...runtime.inertialFilterStates.keys()]) {
       if (!nodeIds.has(id)) {
         runtime.inertialFilterStates.delete(id);
-      }
-    }
-  }
-  if (runtime.airClipperStates) {
-    for (const id of [...runtime.airClipperStates.keys()]) {
-      if (!nodeIds.has(id)) {
-        runtime.airClipperStates.delete(id);
       }
     }
   }

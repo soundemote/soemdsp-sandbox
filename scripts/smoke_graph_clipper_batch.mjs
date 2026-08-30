@@ -1,4 +1,4 @@
-// Headless Batch 5: clipperLimiter + airClipper through graph_engine.
+// Headless Batch 5: clipperLimiter through graph_engine.
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -31,7 +31,6 @@ const version = must("soemdsp_graph_version");
 
 const TYPE_POLY = 1;
 const TYPE_CLIP = 24;
-const TYPE_AIR = 25;
 const TYPE_OUT = 6;
 const PORT_MONO = 0;
 const PARAM_FREQ = 10;
@@ -40,9 +39,6 @@ const PARAM_GAIN_DB = 90;
 const PARAM_IN_LOW = 80;
 const PARAM_IN_HIGH = 81;
 const PARAM_OVERSAMPLE = 32;
-const PARAM_SHAPE = 13;
-const PARAM_WIDTH = 31;
-const PARAM_MIX = 40;
 
 function view(ptr, n) {
   return new Float64Array(mem.buffer, ptr, n);
@@ -86,30 +82,5 @@ function peakOf(g, hash, frames = 128, quanta = 30) {
   console.log(`clipperLimiter ok peak=${peak.toFixed(3)}`);
 }
 
-// airClipper: density>0 should keep signal finite and audible
-{
-  const g = create() | 0;
-  setSr(g, 48000);
-  const hOsc = 0x4201 >>> 0;
-  const hAir = 0x4202 >>> 0;
-  const hOut = 0x4203 >>> 0;
-  if ((add(g, hOsc, TYPE_POLY) | 0) !== 0) throw new Error("air add osc");
-  if ((add(g, hAir, TYPE_AIR) | 0) !== 0) throw new Error("air add");
-  if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("air add out");
-  if ((connect(g, hOsc, PORT_MONO, hAir, PORT_MONO) | 0) !== 0) throw new Error("air conn");
-  if ((connect(g, hAir, PORT_MONO, hOut, PORT_MONO) | 0) !== 0) throw new Error("air out");
-  setParam(g, hOsc, PARAM_FREQ, 110);
-  setParam(g, hOsc, PARAM_AMP, 1);
-  setParam(g, hAir, PARAM_SHAPE, 0.4); // density
-  setParam(g, hAir, PARAM_WIDTH, 0.0); // highpass
-  setParam(g, hAir, PARAM_AMP, 1.0); // output
-  setParam(g, hAir, PARAM_MIX, 1.0); // wet
-  if ((compile(g) | 0) !== 0) throw new Error("air compile");
-  snap(g);
-  const peak = peakOf(g, hAir);
-  if (!(peak > 0.2 && peak < 2.0)) throw new Error(`airClipper peak=${peak}`);
-  console.log(`airClipper ok peak=${peak.toFixed(3)}`);
-}
-
-if ((version() | 0) < 27) throw new Error(`graph version ${version()} expected >= 27`);
+if ((version() | 0) < 28) throw new Error(`graph version ${version()} expected >= 28`);
 console.log(`smoke_graph_clipper_batch ok: version=${version() | 0}`);

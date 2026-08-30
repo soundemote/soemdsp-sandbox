@@ -114,7 +114,6 @@ NodeLiveAudioProcessor.prototype.createNestedRuntime = function createNestedRunt
   runtime.scopeBuffers = new Map();
   runtime.scopeCounter = 0;
   runtime.slewLimiterStates = new Map();
-  runtime.airClipperStates = new Map();
   runtime.smoothers = new Map();
   runtime.activeSmoothers = [];
   runtime.activeSmootherKeys = new Set();
@@ -253,9 +252,6 @@ NodeLiveAudioProcessor.prototype.setNestedPlan = function setNestedPlan(plan) {
     }
     if (node?.type === "nextPatch" || node?.type === "previousPatch") this.patchCommandStates.set(id, this.createPatchCommandState());
     if (node?.type === "slewLimiter") this.slewLimiterStates.set(id, this.createStereoSlewLimiterState());
-    if (node?.type === "airClipper" && typeof this.createAirClipperState === "function") {
-      this.airClipperStates.set(id, this.createAirClipperState());
-    }
     if (node?.type === "expAdsr") this.expAdsrStates.set(id, this.createExpAdsrState());
     if (node?.type === "attackDecay") this.attackDecayStates.set(id, this.createAttackDecayState());
     if (node?.type === "linearEnvelope") this.linearEnvelopeStates.set(id, this.createLinearEnvelopeState());

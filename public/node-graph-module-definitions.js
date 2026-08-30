@@ -109,7 +109,6 @@ const nodeGraphNodeLabels = Object.freeze({
   inv: "Inv",
   softClipper: "Soft Clipper",
   clipperLimiter: "Clipper Limiter",
-  airClipper: "AirClipper",
   rotate3dTo2d: "Rotation 3D to 2D",
   vectorscopeTransform: "Vectorscope Rotation",
   knob: "Knob",
@@ -4396,58 +4395,6 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "dB",
         tooltip: "Ceiling the tanh curve approaches. A wider Min→Max span makes a more gradual clip."
-      },
-    ]
-  },
-  // Airwindows Density3 — density soft-clip / anti-density + highpass + wet.
-  airClipper: {
-    planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
-    outputAliases: { Mono: "Out" },
-    outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
-    parameters: [
-      {
-        defaultValue: "0",
-        key: "density",
-        label: "Density",
-        max: "1",
-        mid: "0.2",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any"
-      },
-      {
-        defaultValue: "0",
-        key: "highpass",
-        label: "Highpass",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: true,
-        step: "any"
-      },
-      {
-        defaultValue: "1",
-        key: "output",
-        label: "Output",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any"
-      },
-      {
-        defaultValue: "1",
-        key: "wet",
-        label: "Dry/Wet",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any"
       },
     ]
   },
