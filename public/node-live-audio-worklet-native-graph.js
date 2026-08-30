@@ -24,6 +24,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   slewLimiter: 17,
   comparator: 18,
   sampleDelay: 19,
+  sampleHold: 20,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -88,6 +89,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_F = 16;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PITCH_CV = 17;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_INCREMENT = 18;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RESET = 19;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER = 20;
 
 NodeLiveAudioProcessor.prototype.fnv1aHash32 = function fnv1aHash32(text) {
   let hash = 2166136261 >>> 0;
@@ -173,6 +175,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   }
   if (p === "reset") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RESET;
+  }
+  if (p === "trigger" || p === "trig") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
   }
   return this.mapNativeGraphSrcPortId(port, type);
 };
@@ -682,6 +687,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       // timeNumerator=time (s), timeDenominator=samples
       push("time", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("time", 0));
       push("samples", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("samples", 0));
+      continue;
+    }
+    if (type === "sampleHold") {
+      // center=threshold, frequency=sampleFrequency; noise seed = node id hash in C++.
+      push("threshold", P.NATIVE_GRAPH_PARAM_CENTER, cont("threshold", 0));
+      push("sampleFrequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("sampleFrequency", 0));
       continue;
     }
     if (type === "range") {

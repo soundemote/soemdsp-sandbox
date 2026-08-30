@@ -177,6 +177,13 @@ extern "C" double soemdsp_sample_delay_sample(
   int handle, double input, double timeSeconds, double samplesParam, double sampleRate
 );
 
+extern "C" int soemdsp_sample_hold_create();
+extern "C" void soemdsp_sample_hold_destroy(int handle);
+extern "C" double soemdsp_sample_hold_sample(
+  int handle, double input, double trigger, double threshold,
+  double sampleFrequency, double sampleRate, int hasInConnected, int seed
+);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -226,6 +233,7 @@ static const int kTypeRobinSupersaw = 16;
 static const int kTypeSlewLimiter = 17;
 static const int kTypeComparator = 18;
 static const int kTypeSampleDelay = 19;
+static const int kTypeSampleHold = 20;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -252,6 +260,7 @@ static const int kPortF = 16;          // absolute Hz (ƒ)
 static const int kPortPitchCv = 17;    // 0.1V/Oct
 static const int kPortIncrement = 18;  // phase increment add (cycles/sample)
 static const int kPortReset = 19;      // reset gate
+static const int kPortTrigger = 20;    // sampleHold Trigger (not an audio bus)
 
 // Param IDs (keep in sync with JS NATIVE_GRAPH_PARAM_*).
 static const int kParamVolumeDb = 0;
@@ -425,6 +434,7 @@ struct Circuit {
   double mixPitch[kMaxBlockFrames];
   double mixIncrement[kMaxBlockFrames];
   double mixReset[kMaxBlockFrames];
+  double mixTrigger[kMaxBlockFrames];
 };
 
 static Circuit gPool[kMaxInstances];
@@ -472,6 +482,8 @@ static void destroy_node_native(Node& n) {
     soemdsp_comparator_destroy(n.nativeHandle);
   } else if (kind == kTypeSampleDelay) {
     soemdsp_sample_delay_destroy(n.nativeHandle);
+  } else if (kind == kTypeSampleHold) {
+    soemdsp_sample_hold_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -525,6 +537,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeLadderFilter) ? 1000.0
       : (typeId == kTypeRobinSupersaw) ? 100.0
       : (typeId == kTypeRobinSinusoid) ? 440.0
+      : (typeId == kTypeSampleHold) ? 0.0
       : 220.0,
     false
   );
@@ -973,6 +986,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeSlewLimiter) return soemdsp_slew_limiter_create();
   if (typeId == kTypeComparator) return soemdsp_comparator_create();
   if (typeId == kTypeSampleDelay) return soemdsp_sample_delay_create();
+  if (typeId == kTypeSampleHold) return soemdsp_sample_hold_create();
   return 0;
 }
 
@@ -1035,7 +1049,8 @@ static bool is_live_dst_port(int port) {
   return port == kPortF
     || port == kPortPitchCv
     || port == kPortIncrement
-    || port == kPortReset;
+    || port == kPortReset
+    || port == kPortTrigger;
 }
 
 static int clamp_src_port(int port) {
@@ -1560,6 +1575,44 @@ static void process_b2u(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Mono sample & hold: fold Mono+L+R for In; Trigger is a live-style dest port.
+// One handle per node (not invented M/L/R inside native). Seed = node id hash.
+static void process_sample_hold(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double threshold = node.center.out;
+  const double sampleFreq = node.frequency.out;
+  const int seed = (int)node.idHash;
+  // hasInConnected: any audio bus cable (Trigger alone does not count).
+  bool hasIn = false;
+  for (int ci = 0; ci < g.connCount; ci++) {
+    const Conn& c = g.conns[ci];
+    if (!c.used || c.dstHash != node.idHash) continue;
+    if (is_live_dst_port(clamp_dst_port(c.dstPort))) continue;
+    hasIn = true;
+    break;
+  }
+  for (int f = 0; f < frames; f++) {
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
+    const double out = soemdsp_sample_hold_sample(
+      node.nativeHandle,
+      in,
+      trig,
+      threshold,
+      sampleFreq,
+      sr,
+      hasIn ? 1 : 0,
+      seed
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
 // Mono sample delay: fold Mono+L+R → ring → Delayed (fan M/L/R) + Thru (tap 3).
 // Native is mono-per-handle with a fixed ring — do not invent stereo rings.
 static void process_sample_delay(Circuit& g, Node& node, int frames) {
@@ -1912,7 +1965,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeRobinSupersaw
     || typeId == kTypeSlewLimiter
     || typeId == kTypeComparator
-    || typeId == kTypeSampleDelay;
+    || typeId == kTypeSampleDelay
+    || typeId == kTypeSampleHold;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -2209,6 +2263,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_sample_delay(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeSampleHold) {
+      process_sample_hold(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeLadderFilter) {
       process_ladder(*g, node, frames);
       continue;
@@ -2290,5 +2348,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 24; // sampleDelay (mono ring, Thru + Delayed)
+  return 25; // sampleHold (mono fold + Trigger dest port)
 }
