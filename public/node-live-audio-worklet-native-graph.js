@@ -56,6 +56,11 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   bradley2a: 49,
   ellipsoid: 50,
   snowflake: 51,
+  butterworth: 52,
+  linkwitzRiley: 53,
+  bessel: 54,
+  chebyshev: 55,
+  elliptic: 56,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -973,6 +978,20 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("spin", P.NATIVE_GRAPH_PARAM_CENTER, cont("spin", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (
+      type === "butterworth" || type === "linkwitzRiley" || type === "bessel"
+      || type === "chebyshev" || type === "elliptic"
+    ) {
+      // stages=order, width=bandwidth oct; resonance=ripple (cheby/elliptic).
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1000));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("order", P.NATIVE_GRAPH_PARAM_STAGES, disc("order", 4));
+      push("bandwidth", P.NATIVE_GRAPH_PARAM_WIDTH, cont("bandwidth", 1));
+      if (type === "chebyshev" || type === "elliptic") {
+        push("ripple", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("ripple", 1));
+      }
       continue;
     }
     if (type === "robinSupersaw") {

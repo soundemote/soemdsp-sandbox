@@ -489,6 +489,41 @@ extern "C" void soemdsp_snowflake_sample(
 extern "C" double soemdsp_snowflake_x(int handle);
 extern "C" double soemdsp_snowflake_y(int handle);
 
+extern "C" int soemdsp_butterworth_create();
+extern "C" void soemdsp_butterworth_destroy(int handle);
+extern "C" double soemdsp_butterworth_sample(
+  int handle, double input, int mode, double frequencyHz, int order,
+  double bandwidthOct, double rippleDb, double sampleRate
+);
+
+extern "C" int soemdsp_linkwitz_riley_create();
+extern "C" void soemdsp_linkwitz_riley_destroy(int handle);
+extern "C" double soemdsp_linkwitz_riley_sample(
+  int handle, double input, int mode, double frequencyHz, int order,
+  double bandwidthOct, double rippleDb, double sampleRate
+);
+
+extern "C" int soemdsp_bessel_create();
+extern "C" void soemdsp_bessel_destroy(int handle);
+extern "C" double soemdsp_bessel_sample(
+  int handle, double input, int mode, double frequencyHz, int order,
+  double bandwidthOct, double rippleDb, double sampleRate
+);
+
+extern "C" int soemdsp_chebyshev_create();
+extern "C" void soemdsp_chebyshev_destroy(int handle);
+extern "C" double soemdsp_chebyshev_sample(
+  int handle, double input, int mode, double frequencyHz, int order,
+  double bandwidthOct, double rippleDb, double sampleRate
+);
+
+extern "C" int soemdsp_elliptic_create();
+extern "C" void soemdsp_elliptic_destroy(int handle);
+extern "C" double soemdsp_elliptic_sample(
+  int handle, double input, int mode, double frequencyHz, int order,
+  double bandwidthOct, double rippleDb, double sampleRate
+);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -570,6 +605,11 @@ static const int kTypeSinc = 48;
 static const int kTypeBradley2a = 49;
 static const int kTypeEllipsoid = 50;
 static const int kTypeSnowflake = 51;
+static const int kTypeButterworth = 52;
+static const int kTypeLinkwitzRiley = 53;
+static const int kTypeBessel = 54;
+static const int kTypeChebyshev = 55;
+static const int kTypeElliptic = 56;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -898,6 +938,16 @@ static void destroy_node_native(Node& n) {
     soemdsp_bradley_2a_destroy(n.nativeHandle);
   } else if (kind == kTypeSnowflake) {
     soemdsp_snowflake_destroy(n.nativeHandle);
+  } else if (kind == kTypeButterworth) {
+    soemdsp_butterworth_destroy(n.nativeHandle);
+  } else if (kind == kTypeLinkwitzRiley) {
+    soemdsp_linkwitz_riley_destroy(n.nativeHandle);
+  } else if (kind == kTypeBessel) {
+    soemdsp_bessel_destroy(n.nativeHandle);
+  } else if (kind == kTypeChebyshev) {
+    soemdsp_chebyshev_destroy(n.nativeHandle);
+  } else if (kind == kTypeElliptic) {
+    soemdsp_elliptic_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -949,7 +999,10 @@ static void init_node_defaults(Node& n, int typeId) {
   // lookaheadLimiter: mode = look-ahead on/off; timingMode = gainCompensation.
   init_control(
     n.frequency,
-    (typeId == kTypeLadderFilter) ? 1000.0
+    (typeId == kTypeLadderFilter
+      || typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
+      || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic)
+      ? 1000.0
       : (typeId == kTypeRobinSupersaw) ? 100.0
       : (typeId == kTypeRobinSinusoid) ? 440.0
       : (typeId == kTypeSampleHold) ? 0.0
@@ -990,10 +1043,18 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeSlewLimiter) // discrete Lin/Log/Exp/Smooth
   );
   init_control(n.phaseParam, 0.0, false);
-  init_control(n.resonance, 0.2, false);
+  init_control(
+    n.resonance,
+    (typeId == kTypeChebyshev || typeId == kTypeElliptic) ? 1.0 // ripple dB
+      : 0.2,
+    false
+  );
   init_control(
     n.mode,
-    (typeId == kTypeNoiseGenerator) ? 0.0
+    (typeId == kTypeNoiseGenerator
+      || typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
+      || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic)
+      ? 0.0 // LP
       : (typeId == kTypeLookaheadLimiter) ? 1.0 // look-ahead On
       : (typeId == kTypeSineWavetable) ? 2.0 // sincos
       : (typeId == kTypeSinc) ? 1.0 // band-limit kernel
@@ -1045,6 +1106,9 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAdditiveOsc) ? 0.0 // harmonicPhaseMultiply
       : (typeId == kTypeBradley2a) ? 0.0 // freqOffset
       : (typeId == kTypeSnowflake) ? 60.0 // angle°
+      : (typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
+          || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic)
+        ? 1.0 // bandwidth octaves
       : 2.0,
     false
   );
@@ -1623,6 +1687,11 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeBradley2a) return soemdsp_bradley_2a_create();
   // kTypeEllipsoid: free-fn, no instance
   if (typeId == kTypeSnowflake) return soemdsp_snowflake_create();
+  if (typeId == kTypeButterworth) return soemdsp_butterworth_create();
+  if (typeId == kTypeLinkwitzRiley) return soemdsp_linkwitz_riley_create();
+  if (typeId == kTypeBessel) return soemdsp_bessel_create();
+  if (typeId == kTypeChebyshev) return soemdsp_chebyshev_create();
+  if (typeId == kTypeElliptic) return soemdsp_elliptic_create();
   return 0;
 }
 
@@ -3032,6 +3101,48 @@ static void process_snowflake(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Classical scientific IIR (butterworth / LR / bessel / cheby / elliptic).
+// No process_block on natives — per-sample cascade_process via sample().
+// stages=order, width=bandwidth oct, resonance=ripple dB (cheby/elliptic).
+typedef double (*ScientificIirSampleFn)(
+  int handle, double input, int mode, double frequencyHz, int order,
+  double bandwidthOct, double rippleDb, double sampleRate
+);
+
+static void process_scientific_iir(
+  Circuit& g, Node& node, int frames, ScientificIirSampleFn sampleFn
+) {
+  if (node.nativeHandle <= 0 || !sampleFn) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool controlSmoothing = node_control_smoothing(node);
+  const double modeV = node.mode.out;
+  int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+  if (mode < 0) mode = 0;
+  if (mode > 3) mode = 3;
+  int order = (int)(node.stages.out + (node.stages.out >= 0.0 ? 0.5 : -0.5));
+  if (order < 2) order = 2;
+  if (order > 8) order = 8;
+  if (order & 1) order += 1; // even only
+  const double bandwidth = node.width.out;
+  const double ripple = node.resonance.out;
+
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    freq = clamp_hz_nyquist(freq, sr);
+    if (freq < 0.0) freq = 0.0;
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = sampleFn(
+      node.nativeHandle, in, mode, freq, order, bandwidth, ripple, sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
 // Master Clock / transport: tempo square.
 // -1..1→Mono, 0..1→Left, Trigger→Right, f (Hz)→Saw.
 // Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
@@ -3784,7 +3895,12 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeHypersaw
     || typeId == kTypeSinc
     || typeId == kTypeBradley2a
-    || typeId == kTypeSnowflake;
+    || typeId == kTypeSnowflake
+    || typeId == kTypeButterworth
+    || typeId == kTypeLinkwitzRiley
+    || typeId == kTypeBessel
+    || typeId == kTypeChebyshev
+    || typeId == kTypeElliptic;
   // additiveOsc / ellipsoid are free-fn (no native handle).
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
@@ -4232,6 +4348,26 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_snowflake(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeButterworth) {
+      process_scientific_iir(*g, node, frames, soemdsp_butterworth_sample);
+      continue;
+    }
+    if (node.typeId == kTypeLinkwitzRiley) {
+      process_scientific_iir(*g, node, frames, soemdsp_linkwitz_riley_sample);
+      continue;
+    }
+    if (node.typeId == kTypeBessel) {
+      process_scientific_iir(*g, node, frames, soemdsp_bessel_sample);
+      continue;
+    }
+    if (node.typeId == kTypeChebyshev) {
+      process_scientific_iir(*g, node, frames, soemdsp_chebyshev_sample);
+      continue;
+    }
+    if (node.typeId == kTypeElliptic) {
+      process_scientific_iir(*g, node, frames, soemdsp_elliptic_sample);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -4305,5 +4441,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 42; // + bradley2a/ellipsoid/snowflake (49–51)
+  return 43; // + butterworth/linkwitzRiley/bessel/chebyshev/elliptic (52–56)
 }

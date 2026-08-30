@@ -85,6 +85,11 @@ Only these live-audio types exist in the efficient build:
 | `bradley2a` | Bradley Telcom jitter/hit impairment synth |
 | `ellipsoid` | RoundShape sine→square quadrature (Bi/Uni X/Y) |
 | `snowflake` | L-system fractal path walker (X/Y) |
+| `butterworth` | Classical Butterworth multipole (LP/HP/BP/BR) |
+| `linkwitzRiley` | Linkwitz–Riley (cascaded Butterworth half-order) |
+| `bessel` | Bessel multipole (flat group delay) |
+| `chebyshev` | Chebyshev Type I (equiripple passband) |
+| `elliptic` | Elliptic / Cauer multipole |
 | `output` | Sink |
 
 Canonical circuit:
@@ -99,7 +104,8 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    metallicRatio / lutCell / lookaheadLimiter / stepSequencer / transport /
    aliasSine / blit / sineWavetable / antisaw / archimedes /
    additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc /
-   bradley2a / ellipsoid / snowflake
+   bradley2a / ellipsoid / snowflake /
+   butterworth / linkwitzRiley / bessel / chebyshev / elliptic
    as utilities)
 ```
 
