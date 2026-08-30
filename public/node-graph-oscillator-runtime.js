@@ -233,7 +233,7 @@ function nodeGraphEllipsoidSineToSquare(
 
 function nodeGraphEllipsoidSineToSquareVector(phaseCycles, params = {}) {
   const level = Number(params.amplitude) || Number(params.level) || 0;
-  const shape = clampNodeSliderValue(Number(params.shape) || 0, 0, 1);
+  const shape = clampNodeSliderValue(Number(params.morph) || 0, 0, 1);
   const phase = Number(phaseCycles) || 0;
   const frequencyHz = Number(params.frequencyHz) || 0;
   const sampleRate = Number(params.sampleRate) || 44100;
@@ -278,8 +278,8 @@ function nodeGraphEllipsoidSample(phase, offset = 0, shape = 0, scale = 1, frequ
 }
 
 function nodeGraphEllipsoidVectorSample(phase, params = {}) {
-  // Prefer sine→square when `shape` is provided (RoundShape path).
-  if (params && Object.prototype.hasOwnProperty.call(params, "shape") && params.scaleX == null) {
+  // Prefer sine→square when `morph` is provided (RoundShape path).
+  if (params && Object.prototype.hasOwnProperty.call(params, "morph") && params.scaleX == null) {
     return nodeGraphEllipsoidSineToSquareVector(phase, params);
   }
   const level = Math.max(0, Number(params.amplitude) || Number(params.level) || 0);
@@ -464,7 +464,7 @@ function nodeGraphAdditiveOscillatorSample(runtime, nodeId, phase, params = {}, 
     Math.max(0, Number(params.frequency) || 0),
     Math.max(1, Math.min(nodeGraphAdditiveHardMaxHarmonics, Math.round(Number(params.harmonics) || 32))),
     Math.round(Number(params.waveform) || 0),
-    clampNodeSliderValue(Number(params.modA) || 0, 0, 1),
+    clampNodeSliderValue(Number(params.morph) || 0, 0, 1),
     clampNodeSliderValue(Number(params.harmonicPhaseAdd) || 0, 0, 1),
     clampNodeSliderValue(Number(params.harmonicPhaseMultiply) || 0, 0, 4),
     Math.max(0, Number(params.amplitude) || 0),

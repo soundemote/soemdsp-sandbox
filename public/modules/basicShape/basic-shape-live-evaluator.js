@@ -136,7 +136,7 @@ nodeGraphLiveModuleEvaluators.basicShape = ({
     runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate,
   });
   const waveform = ctx.read("waveform", 0);
-  const pulseWidth = ctx.read("shape", 0.5);
+  const pulseWidth = ctx.read("morph", 0.5);
   const level = ctx.read("amplitude", 1);
   let samplePhase;
   if (ctx.useSimTime) {

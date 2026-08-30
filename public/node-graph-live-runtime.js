@@ -1550,7 +1550,7 @@ function nodeGraphGpuAdditiveNodeVersion(node, sampleRate) {
     "harmonics",
     "level",
     "waveform",
-    "modA",
+    "morph",
     "harmonicPhaseAdd",
     "harmonicPhaseMultiply",
     "dampingFilterFrequency",
@@ -1598,7 +1598,7 @@ function nodeGraphGpuAdditiveParams(node) {
     harmonicPhaseMultiply: nodeGraphGpuAdditiveNodeParam(node, "harmonicPhaseMultiply", 0),
     harmonics: nodeGraphGpuAdditiveNodeParam(node, "harmonics", 256),
     level: nodeGraphGpuAdditiveNodeParam(node, "level", 0.35),
-    modA: nodeGraphGpuAdditiveNodeParam(node, "modA", 0.5),
+    morph: nodeGraphGpuAdditiveNodeParam(node, "morph", 0.5),
     phase: nodeGraphPhaseRadians(nodeGraphGpuAdditiveNodeParam(node, "phase", 0)),
     waveform: nodeGraphGpuAdditiveNodeParam(node, "waveform", 1),
   };

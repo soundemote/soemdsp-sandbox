@@ -951,7 +951,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 220));
       push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
-      push("shape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("shape", 0.5));
+      push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0.5));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       continue;
     }
@@ -1075,12 +1075,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "additiveOsc") {
-      // stages=harmonics, shape=modA, center=phaseAdd, width=phaseMul, lpf=damping.
+      // stages=harmonics, shape=morph, center=phaseAdd, width=phaseMul, lpf=damping.
       // waveform 0..16 = soemdsp AdditiveWaveform enum.
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
-      push("modA", P.NATIVE_GRAPH_PARAM_SHAPE, cont("modA", 0.5));
+      push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0.5));
       push("harmonicPhaseAdd", P.NATIVE_GRAPH_PARAM_CENTER, cont("harmonicPhaseAdd", 0));
       push("harmonicPhaseMultiply", P.NATIVE_GRAPH_PARAM_WIDTH, cont("harmonicPhaseMultiply", 0));
       push("harmonics", P.NATIVE_GRAPH_PARAM_STAGES, disc("harmonics", 32));
@@ -1157,11 +1157,11 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "ellipsoid") {
-      // mode=motion; shape=sine→square; free-fn host phase.
+      // mode=motion; shape=morph (sine→square); free-fn host phase.
       push("motion", P.NATIVE_GRAPH_PARAM_MODE, disc("motion", 1));
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
-      push("shape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("shape", 0));
+      push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }

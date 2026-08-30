@@ -83,7 +83,7 @@ function nodeGraphAdditiveOscLiveEvaluator({ runtime, node, nodeId, frame, frame
       harmonicPhaseAdd: readNodeGraphLiveEffectiveParam(runtime, node, "harmonicPhaseAdd", 0, frame, frames, frameValues),
       harmonicPhaseMultiply: readNodeGraphLiveEffectiveParam(runtime, node, "harmonicPhaseMultiply", 0, frame, frames, frameValues),
       level: readNodeGraphLiveEffectiveParam(runtime, node, "amplitude", 0.35, frame, frames, frameValues),
-      modA: readNodeGraphLiveEffectiveParam(runtime, node, "modA", 0.5, frame, frames, frameValues),
+      morph: readNodeGraphLiveEffectiveParam(runtime, node, "morph", 0.5, frame, frames, frameValues),
       waveform: readNodeGraphLiveEffectiveParam(runtime, node, "waveform", 1, frame, frames, frameValues),
     },
     sampleRate,

@@ -83,7 +83,7 @@ nodeGraphLiveModuleEvaluators.ellipsoid = ({
     runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate,
     defaultFrequency: 1,
   });
-  const shape = clampNodeSliderValue(ctx.read("shape", 0), 0, 1);
+  const morph = clampNodeSliderValue(ctx.read("morph", 0), 0, 1);
   const level = ctx.read("amplitude", 1);
   let samplePhase;
   if (ctx.useSimTime) {
@@ -98,7 +98,7 @@ nodeGraphLiveModuleEvaluators.ellipsoid = ({
   samplePhase -= Math.floor(samplePhase);
   const value = nodeGraphEllipsoidSineToSquareVector(samplePhase, {
     amplitude: level,
-    shape,
+    morph,
     frequencyHz: ctx.pitchedFrequency,
     sampleRate: ctx.sampleRate,
     phaseInc: ctx.phaseIncrement,

@@ -159,7 +159,7 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
   }
   const look = nodeGraphBasicShapeFaceLook(node);
   const waveform = nodeGraphBasicShapeLiveParam(node, "waveform", 0);
-  const pulseWidth = nodeGraphBasicShapeLiveParam(node, "shape", 0.5);
+  const pulseWidth = nodeGraphBasicShapeLiveParam(node, "morph", 0.5);
   const amplitude = nodeGraphBasicShapeLiveParam(node, "amplitude", 1);
   const strokeW = look.lineThickness;
   const dotW = look.dotThickness;

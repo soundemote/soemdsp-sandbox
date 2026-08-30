@@ -919,8 +919,8 @@ const nodeGraphModuleDefinitions = (
       {
         curveAmount: "-0.9",
         defaultValue: "0.5",
-        key: "shape",
-        label: "PWM",
+        key: "morph",
+        label: "Morph",
         max: "1",
         maxDigits: 5,
         mid: "0.5",
@@ -928,7 +928,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "bipolarRational",
         step: "0",
-        tooltip: "Pulse width / morph for Trisaw, Center Square, and Pulse. Ignored by Saw / Ramp / Square / Tri / Sine / Noise. Bipolar rational skew −0.9 (finer near center)."
+        tooltip: "Morph for Trisaw, Center Square, and Pulse (pulse width / wave shape). Ignored by Saw / Ramp / Square / Tri / Sine / Noise. Bipolar rational skew −0.9 (finer near center)."
       },
       {
         defaultValue: "1",
@@ -1427,7 +1427,7 @@ const nodeGraphModuleDefinitions = (
         unit: "cycle",
         wraparound: true
       },
-      { defaultValue: "0.5", key: "modA", label: "Mod A", max: "1", mid: "0.5", min: "0", step: "any" },
+      { defaultValue: "0.5", key: "morph", label: "Morph", max: "1", mid: "0.5", min: "0", step: "any" },
       { defaultValue: "0", key: "harmonicPhaseAdd", kind: "phase", label: "Phase Add", max: "1", mid: "0.5", min: "0", step: "any", unit: "cycle" },
       { defaultValue: "0", key: "harmonicPhaseMultiply", label: "Phase Multiply", max: "4", mid: "1", min: "0", step: "any" },
       { constraint: "cpu", defaultValue: "32", key: "harmonics", label: "Harmonics", max: "1024", mid: "32", min: "1", step: "1" },
@@ -1500,7 +1500,7 @@ const nodeGraphModuleDefinitions = (
         unit: "cycle",
         wraparound: true
       },
-      { defaultValue: "0.5", key: "modA", label: "Mod A", max: "1", mid: "0.5", min: "0", step: "any" },
+      { defaultValue: "0.5", key: "morph", label: "Morph", max: "1", mid: "0.5", min: "0", step: "any" },
       { defaultValue: "0", key: "harmonicPhaseAdd", kind: "phase", label: "Phase Add", max: "1", mid: "0.5", min: "0", step: "any", unit: "cycle" },
       { defaultValue: "0", key: "harmonicPhaseMultiply", label: "Phase Multiply", max: "4", mid: "1", min: "0", step: "any" },
       { constraint: "gpu", defaultValue: "256", key: "harmonics", label: "Harmonics", max: "4096", mid: "256", min: "1", step: "1" },
@@ -1569,13 +1569,13 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", step: "0.01", unit: "cycle", wraparound: true },
       {
         defaultValue: "0",
-        key: "shape",
-        label: "Sine → Square",
+        key: "morph",
+        label: "Morph",
         max: "1",
         mid: "0.5",
         min: "0",
         step: "0.01",
-        tooltip: "soemdsp Ellipsoid::getSineToSquare. 0 = sine, 1 = square. Limit AA always on (edge floor by f/sr)."
+        tooltip: "Morph (soemdsp Ellipsoid::getSineToSquare). 0 = sine, 1 = square. Limit AA always on (edge floor by f/sr)."
       },
       {
         defaultValue: "1",
@@ -1730,8 +1730,8 @@ const nodeGraphModuleDefinitions = (
       {
         curveAmount: "-0.9",
         defaultValue: "0.5",
-        key: "shape",
-        label: "PWM",
+        key: "morph",
+        label: "Morph",
         max: "1",
         maxDigits: 5,
         mid: "0.5",
@@ -1739,7 +1739,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "bipolarRational",
         step: "0",
-        tooltip: "Pulse width / morph for Square, Center Square, and Trisaw. 0.5 = centered / 50%. Other waves ignore this. Bipolar rational skew −0.9 (finer near center).",
+        tooltip: "Morph for Square, Center Square, and Trisaw (pulse width / wave shape). 0.5 = centered / 50%. Other waves ignore this. Bipolar rational skew −0.9 (finer near center).",
       },
       {
         defaultValue: "1",
@@ -2881,7 +2881,7 @@ const nodeGraphModuleDefinitions = (
       },
       {
         key: "morph",
-        label: "Harmonics",
+        label: "Morph",
         defaultValue: "1",
         min: "0",
         // Mid low so half the slider is the useful near-0 harmonic range.
@@ -2890,9 +2890,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         step: "0.001",
         tooltip:
-          "DSF harmonic richness. Nonlinear slider: more sensitivity near 0 (where most of the useful range is)."
+          "Morph / DSF harmonic richness. Nonlinear slider: more sensitivity near 0 (where most of the useful range is)."
       },
-      { key: "pulseWidth", label: "PWM", defaultValue: "0.5", min: "0.01", mid: "0.5", max: "0.99", step: "0.01" },
+      { key: "pulseWidth", label: "Pulse Width", defaultValue: "0.5", min: "0.01", mid: "0.5", max: "0.99", step: "0.01" },
       { key: "blend", label: "SquSaw", defaultValue: "0.5", min: "0", mid: "0.5", max: "1", step: "0.01" },
       {
         defaultValue: "1",

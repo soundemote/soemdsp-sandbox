@@ -226,7 +226,7 @@ NodeLiveAudioProcessor.prototype.ellipsoidWorkletEvaluate = function ellipsoidWo
     value = ellipsoidFrame;
   } else {
     const shape = this.clampValue(
-      this.readEffectiveParameter(node, "shape", 0, frame, frames, frameValues),
+      this.readEffectiveParameter(node, "morph", 0, frame, frames, frameValues),
       0,
       1,
     );

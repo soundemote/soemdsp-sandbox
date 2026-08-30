@@ -28,7 +28,7 @@ static const char kMetadataJson[] =
       "{\"key\":\"waveform\",\"label\":\"Waveform\",\"defaultValue\":0,\"min\":0,\"mid\":8,\"max\":16,\"step\":1},"
       "{\"key\":\"frequency\",\"label\":\"Frequency\",\"kind\":\"frequency\",\"defaultValue\":100,\"min\":0,\"mid\":440,\"max\":20000,\"step\":\"any\",\"unit\":\"Hz\"},"
       "{\"key\":\"phase\",\"label\":\"Phase\",\"kind\":\"phase\",\"defaultValue\":0,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":0.01,\"unit\":\"cycle\"},"
-      "{\"key\":\"modA\",\"label\":\"Mod A\",\"defaultValue\":0.5,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
+      "{\"key\":\"morph\",\"label\":\"Morph\",\"defaultValue\":0.5,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
       "{\"key\":\"harmonicPhaseAdd\",\"label\":\"Phase Add\",\"kind\":\"phase\",\"defaultValue\":0,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\",\"unit\":\"cycle\"},"
       "{\"key\":\"harmonicPhaseMultiply\",\"label\":\"Phase Multiply\",\"defaultValue\":0,\"min\":0,\"mid\":1,\"max\":4,\"step\":\"any\"},"
       "{\"key\":\"harmonics\",\"label\":\"Harmonics\",\"defaultValue\":32,\"min\":1,\"mid\":32,\"max\":1024,\"step\":1},"
@@ -67,11 +67,11 @@ enum AdditiveWaveformKind {
   kWfCount = 17
 };
 
-static HarmonicPartial waveform_harmonic(int waveform, double harmonic, double modA) {
+static HarmonicPartial waveform_harmonic(int waveform, double harmonic, double morph) {
   const long long n64 = (long long)maxd(1.0, dsp_floor(harmonic));
   const double h = (double)n64;
   const int odd = (n64 % 2 == 1) ? 1 : 0;
-  const double mod = clamp(modA, 0.0, 1.0);
+  const double mod = clamp(morph, 0.0, 1.0);
   HarmonicPartial out;
   out.amplitude = 0.0;
   out.phase = 0.0;
@@ -199,7 +199,7 @@ extern "C" double soemdsp_additive_osc_sample(
   double frequency,
   double harmonics,
   double waveform,
-  double modA,
+  double morph,
   double harmonicPhaseAdd,
   double harmonicPhaseMultiply,
   double level,
@@ -213,7 +213,7 @@ extern "C" double soemdsp_additive_osc_sample(
   int wf = (int)roundd(safe(waveform));
   if (wf < 0) wf = 0;
   if (wf >= kWfCount) wf = kWfSawtooth;
-  const double safeModA = clamp(safe(modA), 0.0, 1.0);
+  const double safeMorph = clamp(safe(morph), 0.0, 1.0);
   const double safeHarmonicPhaseAdd = clamp(safe(harmonicPhaseAdd), 0.0, 1.0);
   const double safeHarmonicPhaseMultiply = clamp(safe(harmonicPhaseMultiply), 0.0, 4.0);
   const double safeLevel = clamp(safe(level), 0.0, 1.0);
@@ -226,7 +226,7 @@ extern "C" double soemdsp_additive_osc_sample(
   double total = 0.0;
   double norm = 0.0;
   for (int harmonic = 1; harmonic <= harmonicLimit; harmonic++) {
-    const HarmonicPartial partial = waveform_harmonic(wf, (double)harmonic, safeModA);
+    const HarmonicPartial partial = waveform_harmonic(wf, (double)harmonic, safeMorph);
     const double dampingX = clamp((absFrequency * (double)harmonic) / safeDampingFilterFrequency, 0.0, 1.0);
     // No Damping Graph connected in the native path -> flat 1.0 response,
     // matching the JS fallback `() => 1` used when nothing is wired in.
@@ -251,7 +251,7 @@ extern "C" double soemdsp_additive_osc_sample(
 }
 
 extern "C" int soemdsp_additive_osc_version() {
-  return 2; // full soemdsp AdditiveWaveform set (17 shapes)
+  return 3; // morph param key/label (was modA / Mod A)
 }
 
 extern "C" const char* soemdsp_additive_osc_metadata_json() {

@@ -163,7 +163,7 @@ function nodeGraphModuleScopeOfflineSignalSample(context, nodeId, localTime, sam
         frequency,
         harmonics: nodeGraphModuleScopeNodeParam(node, "harmonics", 32),
         level: nodeGraphModuleScopeNodeParam(node, "level", 0.35),
-        modA: nodeGraphModuleScopeNodeParam(node, "modA", 0.5),
+        morph: nodeGraphModuleScopeNodeParam(node, "morph", 0.5),
         waveform: nodeGraphModuleScopeNodeParam(node, "waveform", 1),
       },
       Number(nodeGraphModuleScopeState.sampleRate) || nodeGraphMvp.sampleRate || 44100,

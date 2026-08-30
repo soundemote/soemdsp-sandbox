@@ -271,7 +271,7 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
   const { params: controls } = this.resolveModuleControlParams(
     node,
     controlState,
-    { phase: 0, frequency: 220, waveform: 0, amplitude: 1, shape: 0.5 },
+    { phase: 0, frequency: 220, waveform: 0, amplitude: 1, morph: 0.5 },
     frame,
     frames,
     frameValues,
@@ -302,7 +302,7 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
     );
   const phaseIncrement = (effectiveFrequency / safeRate) + incrementInput;
   const level = controls.amplitude;
-  const morph = controls.shape;
+  const morph = controls.morph;
 
   // Native-only DSP (APP_POLICY §2 / §5): hosts call one core; no JS twin.
   // polyBlep/blit → vector native module; osc (LFO) → basic_oscillator per tap.

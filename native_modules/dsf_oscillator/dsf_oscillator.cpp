@@ -222,7 +222,7 @@ extern "C" void soemdsp_dsf_oscillator_reset(int handle) {
 }
 
 // waveform: 0=Sine, 1=Saw, 2=Square (PWM), 3=Trimorph, 4=SquSaw
-// morph: 0..1 (Harmonics) -- 0 is an exact sine, 1 is the full
+// morph: 0..1 (Morph / harmonic richness) -- 0 is an exact sine, 1 is the full
 // Nyquist-safe harmonic count.
 // pulseWidth: 0..1 -- Square/Trimorph's duty cycle (0.5 = symmetric).
 // blend: 0..1 -- Saw/Square crossfade amount for the SquSaw waveform.

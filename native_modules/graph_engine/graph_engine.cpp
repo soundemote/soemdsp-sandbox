@@ -352,7 +352,7 @@ extern "C" double soemdsp_additive_osc_sample(
   double frequency,
   double harmonics,
   double waveform,
-  double modA,
+  double morph,
   double harmonicPhaseAdd,
   double harmonicPhaseMultiply,
   double level,
@@ -3569,7 +3569,7 @@ static void process_archimedes(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Additive Osc: free-fn. Host phase in radians. stages=harmonics, shape=modA,
+// Additive Osc: free-fn. Host phase in radians. stages=harmonics, shape=morph,
 // center=harmonicPhaseAdd, width=harmonicPhaseMultiply, lpf=dampingFilterFrequency.
 static void process_additive_osc(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;

@@ -20,7 +20,7 @@ struct Params {
   waveform: u32,
   frameCount: u32,
   harmonicPhaseAlgorithm: u32,
-  modA: f32,
+  morph: f32,
   harmonicPhaseAdd: f32,
   harmonicPhaseMultiply: f32,
   harmonicPhaseCurve: f32,
@@ -95,10 +95,10 @@ fn harmonicCurveAmount(harmonic: u32, maxHarmonics: u32, ratio: f32, curveValue:
   return clamp(1.0 - dampingAmplitude(harmonic, maxHarmonics, ratio, curveValue, algorithm), 0.0, 1.0);
 }
 
-fn harmonicAmplitude(harmonic: u32, waveform: u32, modA: f32) -> f32 {
+fn harmonicAmplitude(harmonic: u32, waveform: u32, morph: f32) -> f32 {
   let h = f32(harmonic);
   let n = harmonic;
-  let mod = clamp(modA, 0.0, 1.0);
+  let mod = clamp(morph, 0.0, 1.0);
   if (waveform == 0u) {
     let target = max(1u, u32(floor(99.0 * mod + 1.0)));
     return select(0.0, 1.0, n == target);
@@ -133,8 +133,8 @@ fn harmonicAmplitude(harmonic: u32, waveform: u32, modA: f32) -> f32 {
   return 1.0 / h;
 }
 
-fn harmonicBasePhase(harmonic: u32, waveform: u32, modA: f32) -> f32 {
-  let mod = clamp(modA, 0.0, 1.0);
+fn harmonicBasePhase(harmonic: u32, waveform: u32, morph: f32) -> f32 {
+  let mod = clamp(morph, 0.0, 1.0);
   if (waveform == 1u) {
     return select(0.0, 0.5, (harmonic % 2u) == 1u);
   }
@@ -166,11 +166,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let harmonicRatio = f32(harmonic - 1u) / max(1.0, f32(harmonicCount - 1u));
     let filterRatio = clamp((f32(harmonic) * safeFrequency) / filterFrequency, 0.0, 1.0);
     let damping = 1.0;
-    let amp = harmonicAmplitude(harmonic, params.waveform, params.modA) * damping;
+    let amp = harmonicAmplitude(harmonic, params.waveform, params.morph) * damping;
     if (amp != 0.0) {
       let phaseCurve = 0.0;
       let phaseMultiplier = 1.0 + phaseCurve * params.harmonicPhaseMultiply;
-      let phaseOffset = harmonicBasePhase(harmonic, params.waveform, params.modA) + phaseCurve * params.harmonicPhaseAdd;
+      let phaseOffset = harmonicBasePhase(harmonic, params.waveform, params.morph) + phaseCurve * params.harmonicPhaseAdd;
       total = total + sin(basePhase * f32(harmonic) * phaseMultiplier + phaseOffset * 6.28318530718) * amp;
       norm = norm + abs(amp);
     }
@@ -374,7 +374,7 @@ async function nodeGraphRenderGpuAdditiveChunk(params = {}, options = {}) {
   paramsUint[5] = Math.max(0, Math.min(7, Math.round(Number(params.waveform) || 1)));
   paramsUint[6] = frameCount;
   paramsUint[7] = 0;
-  paramsFloat[8] = clampNodeSliderValue(Number(params.modA) || 0, 0, 1);
+  paramsFloat[8] = clampNodeSliderValue(Number(params.morph) || 0, 0, 1);
   paramsFloat[9] = clampNodeSliderValue(Number(params.harmonicPhaseAdd) || 0, 0, 1);
   paramsFloat[10] = clampNodeSliderValue(Number(params.harmonicPhaseMultiply) || 0, 0, 4);
   paramsFloat[11] = 0;

@@ -212,7 +212,7 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
     frames,
     frameValues,
   );
-  const morph = readNodeGraphLiveEffectiveParam(runtime, node, "shape",
+  const morph = readNodeGraphLiveEffectiveParam(runtime, node, "morph",
     0.5,
     frame,
     frames,

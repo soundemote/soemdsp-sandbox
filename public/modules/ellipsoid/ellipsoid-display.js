@@ -66,7 +66,7 @@ function nodeGraphRoundShapeLivePlaying() {
 
 /** Unit-orbit cursor from live oscillator phase (same math as the stroke). */
 function nodeGraphRoundShapeLiveCursor(nodeId, node, section) {
-  const shape = Math.max(0, Math.min(1, Number(nodeGraphRoundShapeLiveParam(node, "shape", 0)) || 0));
+  const shape = Math.max(0, Math.min(1, Number(nodeGraphRoundShapeLiveParam(node, "morph", 0)) || 0));
   let phase = nodeGraphRoundShapeReadScopePort(nodeId, "__Phase");
   if (!Number.isFinite(phase) && typeof nodeGraphMvp !== "undefined") {
     const stored = nodeGraphMvp?.live?.runtime?.phases?.get?.(nodeId);
@@ -195,7 +195,7 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
   }
   const isKick = node.type === "kickEnvelope" || node.type === "sineKick";
   const isEllipsoidOsc = node.type === "ellipsoidOsc";
-  let shape = Number(nodeGraphRoundShapeLiveParam(node, isKick ? "sharpness" : "shape", 0));
+  let shape = Number(nodeGraphRoundShapeLiveParam(node, isKick ? "sharpness" : "morph", 0));
   if (isKick && !(shape > 0)) {
     const legacy = Number(nodeGraphRoundShapeLiveParam(node, "roundness", 0));
     if (legacy > 0) shape = legacy;
