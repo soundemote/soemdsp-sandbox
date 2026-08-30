@@ -25,7 +25,7 @@ static const char kMetadataJson[] =
     "\"inputs\":[\"Reset\",\"0.1V/Oct\",\"Increment\"],"
     "\"outputs\":[\"Out\"],"
     "\"parameters\":["
-      "{\"key\":\"waveform\",\"label\":\"Waveform\",\"defaultValue\":1,\"min\":0,\"mid\":3,\"max\":7,\"step\":1},"
+      "{\"key\":\"waveform\",\"label\":\"Waveform\",\"defaultValue\":0,\"min\":0,\"mid\":8,\"max\":16,\"step\":1},"
       "{\"key\":\"frequency\",\"label\":\"Frequency\",\"kind\":\"frequency\",\"defaultValue\":100,\"min\":0,\"mid\":440,\"max\":20000,\"step\":\"any\",\"unit\":\"Hz\"},"
       "{\"key\":\"phase\",\"label\":\"Phase\",\"kind\":\"phase\",\"defaultValue\":0,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":0.01,\"unit\":\"cycle\"},"
       "{\"key\":\"modA\",\"label\":\"Mod A\",\"defaultValue\":0.5,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
@@ -44,54 +44,149 @@ static inline double roundd(double a) { return dsp_floor(a + 0.5); }
 
 struct HarmonicPartial { double amplitude; double phase; };
 
+// Waveform indices match soemdsp::additive::AdditiveWaveform::Waveform
+// (include/soemdsp/additive/additive.hpp).
+enum AdditiveWaveformKind {
+  kWfSawtooth = 0,
+  kWfSawSquare = 1,
+  kWfDoubleSaw = 2,
+  kWfMultiSaw = 3,
+  kWfRoundedSquareDoubleSaw = 4,
+  kWfSquareDoubleSaw = 5,
+  kWfPulseCenter = 6,
+  kWfPulseLeft = 7,
+  kWfPulseRight = 8,
+  kWfMultiPulse1 = 9,
+  kWfMultiPulse2 = 10,
+  kWfSquare = 11,
+  kWfTriSaw = 12,
+  kWfTriangle = 13,
+  kWfRectifiedSine = 14,
+  kWfRectifiedSineTri = 15,
+  kWfOrgan = 16,
+  kWfCount = 17
+};
+
 static HarmonicPartial waveform_harmonic(int waveform, double harmonic, double modA) {
   const long long n64 = (long long)maxd(1.0, dsp_floor(harmonic));
   const double h = (double)n64;
+  const int odd = (n64 % 2 == 1) ? 1 : 0;
   const double mod = clamp(modA, 0.0, 1.0);
   HarmonicPartial out;
+  out.amplitude = 0.0;
+  out.phase = 0.0;
+
   switch (waveform) {
-    case 0: {
-      const long long target = (long long)maxd(1.0, dsp_floor(99.0 * mod + 1.0));
-      out.amplitude = (n64 == target) ? 1.0 : 0.0;
+    case kWfSawtooth:
+      out.amplitude = 1.0 / h;
+      out.phase = odd ? 0.5 : 0.0;
+      break;
+    case kWfSawSquare: {
+      // soemdsp switch calls sawsquare(1 - mod1); sawsquare then does mix = 1 - mix.
+      const double mix = mod;
+      out.amplitude = odd ? (1.0 / h) : ((1.0 / h) * mix);
       out.phase = 0.0;
       break;
     }
-    case 2:
-      out.amplitude = (n64 % 2 == 1) ? 1.0 / h : 0.0;
-      out.phase = mod * 0.5;
-      break;
-    case 3:
-      out.amplitude = (n64 % 2 == 1) ? 1.0 / (h * h) : 0.0;
-      out.phase = (n64 % 4 == 1) ? 0.0 : 0.5;
-      break;
-    case 4:
-      out.amplitude = (n64 % 2 == 1) ? 1.0 / h : (1.0 / h) * (1.0 - mod);
+    case kWfDoubleSaw: {
+      const double pwm = mod * 0.5;
+      out.amplitude = dsp_cos(h * pwm) / h;
       out.phase = 0.0;
       break;
-    case 5:
-      out.amplitude = dsp_cos(h * mod * 0.5) / h;
+    }
+    case kWfMultiSaw: {
+      const double pwm = mod * 0.5;
+      const double hh = h * h;
+      out.amplitude = dsp_cos(hh * 0.3 + pwm) / h;
       out.phase = 0.0;
       break;
-    case 6: {
+    }
+    case kWfRoundedSquareDoubleSaw: {
+      const double m = 0.125 + 0.75 * mod;
+      const double hh = h * h;
+      out.amplitude = dsp_sin(hh * 0.25 + m) / hh;
+      out.phase = 0.0;
+      break;
+    }
+    case kWfSquareDoubleSaw: {
+      const double m = 0.125 + 0.75 * mod;
+      const double hh = h * h;
+      out.amplitude = dsp_sin(hh * 0.25 + m) / h;
+      out.phase = 0.0;
+      break;
+    }
+    case kWfPulseCenter: {
+      const double pwm = mod * 0.5;
+      out.amplitude = dsp_sin(h * pwm) / h;
+      out.phase = 0.25;
+      break;
+    }
+    case kWfPulseLeft: {
+      const double pwm = mod * 0.5;
+      out.amplitude = dsp_sin(h * pwm) / h;
+      out.phase = h * pwm + 0.25;
+      break;
+    }
+    case kWfPulseRight: {
+      const double pwm = mod * 0.5;
+      out.amplitude = dsp_sin(h * pwm) / h;
+      out.phase = h * (-pwm) + 0.25;
+      break;
+    }
+    case kWfMultiPulse1: {
+      const double pwm = mod * 0.5;
+      const double hh = h * h;
+      out.amplitude = dsp_cos(hh * 0.45 + pwm) / h;
+      out.phase = 0.0;
+      break;
+    }
+    case kWfMultiPulse2: {
+      const double pwm = mod * 0.5;
+      const double hh = h * h;
+      out.amplitude = dsp_cos(hh * 0.475 + pwm) / h;
+      out.phase = 0.0;
+      break;
+    }
+    case kWfSquare:
+      out.amplitude = odd ? (1.0 / h) : 0.0;
+      out.phase = 0.0;
+      break;
+    case kWfTriSaw: {
       const double peak = clamp(mod, 0.001, 0.999);
       out.amplitude = (dsp_sin(0.5 * h * peak) / (peak * (1.0 - peak) * h * h)) * 0.2;
       out.phase = 0.0;
       break;
     }
-    case 7: {
-      long long octaves = (long long)maxd(2.0, dsp_floor(2.0 + mod * 11.0));
+    case kWfTriangle:
+      out.amplitude = odd ? (1.0 / (h * h)) : 0.0;
+      out.phase = (n64 % 4 == 1) ? 0.0 : 0.5;
+      break;
+    case kWfRectifiedSine:
+      out.amplitude = 1.0 / (h * h);
+      out.phase = odd ? 0.25 : 0.75;
+      break;
+    case kWfRectifiedSineTri: {
+      const double hh = h * h;
+      out.amplitude = dsp_sin(hh * 0.25 + mod) / hh;
+      out.phase = 0.25;
+      break;
+    }
+    case kWfOrgan: {
+      // Harmonics at 1, k, k^2, ... (soemdsp organ counter).
+      const long long octaves = (long long)maxd(2.0, dsp_floor(2.0 + mod * 11.0));
       long long target = 1;
       while (target < n64) {
-        target *= octaves;
+        const long long next = target * octaves;
+        if (next <= target) break; // overflow guard
+        target = next;
       }
-      out.amplitude = (target == n64) ? 1.0 / h : 0.0;
+      out.amplitude = (target == n64) ? (1.0 / h) : 0.0;
       out.phase = 0.0;
       break;
     }
-    case 1:
     default:
       out.amplitude = 1.0 / h;
-      out.phase = (n64 % 2 == 1) ? 0.5 : 0.0;
+      out.phase = odd ? 0.5 : 0.0;
       break;
   }
   return out;
@@ -115,7 +210,9 @@ extern "C" double soemdsp_additive_osc_sample(
   // Through-zero: signed frequency (negative reverses phase).
   const double safeFrequency = safe(frequency);
   const int maxHarmonics = (int)clamp(roundd(safe(harmonics)), 1.0, (double)kHardMaxHarmonics);
-  const int wf = (int)roundd(safe(waveform));
+  int wf = (int)roundd(safe(waveform));
+  if (wf < 0) wf = 0;
+  if (wf >= kWfCount) wf = kWfSawtooth;
   const double safeModA = clamp(safe(modA), 0.0, 1.0);
   const double safeHarmonicPhaseAdd = clamp(safe(harmonicPhaseAdd), 0.0, 1.0);
   const double safeHarmonicPhaseMultiply = clamp(safe(harmonicPhaseMultiply), 0.0, 4.0);
@@ -154,7 +251,7 @@ extern "C" double soemdsp_additive_osc_sample(
 }
 
 extern "C" int soemdsp_additive_osc_version() {
-  return 1;
+  return 2; // full soemdsp AdditiveWaveform set (17 shapes)
 }
 
 extern "C" const char* soemdsp_additive_osc_metadata_json() {

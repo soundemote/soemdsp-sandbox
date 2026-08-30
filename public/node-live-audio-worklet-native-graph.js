@@ -1075,8 +1075,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "additiveOsc") {
       // stages=harmonics, shape=modA, center=phaseAdd, width=phaseMul, lpf=damping.
+      // waveform 0..16 = soemdsp AdditiveWaveform enum.
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
-      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("modA", P.NATIVE_GRAPH_PARAM_SHAPE, cont("modA", 0.5));
       push("harmonicPhaseAdd", P.NATIVE_GRAPH_PARAM_CENTER, cont("harmonicPhaseAdd", 0));
