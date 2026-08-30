@@ -184,6 +184,29 @@ extern "C" double soemdsp_sample_hold_sample(
   double sampleFrequency, double sampleRate, int hasInConnected, int seed
 );
 
+extern "C" int soemdsp_min_max_create();
+extern "C" void soemdsp_min_max_destroy(int handle);
+extern "C" double soemdsp_min_max_sample(
+  int handle, double in1, double in2, double in3, double in4, int connectedMask
+);
+extern "C" double soemdsp_min_max_min(int handle);
+
+// Free-function Mix / MixStereo (no instance) — matches native mix*.cpp.
+extern "C" double soemdsp_mix_sample(
+  double channel,
+  double in1, double in2, double in3, double in4,
+  double volume1, double volume2, double volume3, double volume4,
+  double bias1, double bias2, double bias3, double bias4,
+  double bleed2to1, double bleed3to1, double bleed4to1
+);
+extern "C" double soemdsp_mix_stereo_sample(
+  double channel,
+  double l1, double r1, double l2, double r2, double l3, double r3, double l4, double r4,
+  double mono,
+  double vol1, double pan1, double vol2, double pan2, double vol3, double pan3, double vol4, double pan4,
+  double amplitude
+);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -234,6 +257,9 @@ static const int kTypeSlewLimiter = 17;
 static const int kTypeComparator = 18;
 static const int kTypeSampleDelay = 19;
 static const int kTypeSampleHold = 20;
+static const int kTypeMinMax = 21;
+static const int kTypeMix = 22;
+static const int kTypeMixStereo = 23;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -261,6 +287,19 @@ static const int kPortPitchCv = 17;    // 0.1V/Oct
 static const int kPortIncrement = 18;  // phase increment add (cycles/sample)
 static const int kPortReset = 19;      // reset gate
 static const int kPortTrigger = 20;    // sampleHold Trigger (not an audio bus)
+// mixStereo R4 (9th input); L1..L4/R1..R3 use audio buses 1..7, Mono=0.
+static const int kPortMixStereoR4 = 21;
+// Numbered multi-in aliases (minMax / mix): In1..In4 → buses 0..3.
+static const int kPortIn1 = 0;
+static const int kPortIn2 = 1;
+static const int kPortIn3 = 2;
+static const int kPortIn4 = 3;
+static const int kPortMax = 0; // minMax Max
+static const int kPortMin = 1; // minMax Min
+static const int kPortOut1 = 0;
+static const int kPortOut2 = 1;
+static const int kPortOut3 = 2;
+static const int kPortOut4 = 3;
 
 // Param IDs (keep in sync with JS NATIVE_GRAPH_PARAM_*).
 static const int kParamVolumeDb = 0;
@@ -307,6 +346,18 @@ static const int kParamGainDb = 90;            // gain master (dB)
 static const int kParamGainLeftDb = 91;        // gain left (dB)
 static const int kParamGainRightDb = 92;       // gain right (dB)
 static const int kParamGainMonoSum = 93;       // gain mono-sum law (discrete)
+// mix / mixStereo lane Controls (shared slots; meaning is type-local).
+static const int kParamLaneVol1 = 100;
+static const int kParamLaneVol2 = 101;
+static const int kParamLaneVol3 = 102;
+static const int kParamLaneVol4 = 103;
+static const int kParamLaneBias1 = 104; // mix bias1 OR mixStereo pan1
+static const int kParamLaneBias2 = 105;
+static const int kParamLaneBias3 = 106;
+static const int kParamLaneBias4 = 107;
+static const int kParamBleed2 = 108; // mix bleed2to1
+static const int kParamBleed3 = 109;
+static const int kParamBleed4 = 110;
 
 static const int kTapOut = 1;
 static const int kTapSaw = 2;
@@ -398,6 +449,13 @@ struct Node {
   Control gainLeftDb;  // gain left (dB)
   Control gainRightDb; // gain right (dB)
   Control gainMonoSum; // gain mono-sum law (discrete)
+  // mix volume1-4 / mixStereo volume1-4 (dB for stereo, linear for mix)
+  Control laneVol[4];
+  // mix bias1-4 / mixStereo pan1-4
+  Control laneBias[4];
+  Control bleed2; // mix bleed2to1
+  Control bleed3;
+  Control bleed4;
   double phase; // polyBlep running phase (radians)
   double lastReset; // Live Reset rising-edge latch (persists across blocks)
   double buf[kChannels][kMaxBlockFrames];
@@ -484,6 +542,8 @@ static void destroy_node_native(Node& n) {
     soemdsp_sample_delay_destroy(n.nativeHandle);
   } else if (kind == kTypeSampleHold) {
     soemdsp_sample_hold_destroy(n.nativeHandle);
+  } else if (kind == kTypeMinMax) {
+    soemdsp_min_max_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -530,7 +590,7 @@ static void init_node_defaults(Node& n, int typeId) {
   n.bypassed = false;
   n.nativeHandle = 0;
   n.nativeKind = 0;
-  init_control(n.volumeDb, -3.0, false);
+  init_control(n.volumeDb, (typeId == kTypeMixStereo) ? 0.0 : -3.0, false);
   init_control(n.pan, 0.0, false);
   init_control(
     n.frequency,
@@ -602,6 +662,15 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.gainLeftDb, 0.0, false);
   init_control(n.gainRightDb, 0.0, false);
   init_control(n.gainMonoSum, 0.0, true); // discrete mono-sum law
+  // mix: linear volumes default 1; mixStereo: dB volumes default 0; pans/bias 0; bleeds 0
+  const double laneVolDefault = (typeId == kTypeMix) ? 1.0 : 0.0;
+  for (int i = 0; i < 4; i++) {
+    init_control(n.laneVol[i], laneVolDefault, false);
+    init_control(n.laneBias[i], 0.0, false);
+  }
+  init_control(n.bleed2, 0.0, false);
+  init_control(n.bleed3, 0.0, false);
+  init_control(n.bleed4, 0.0, false);
   n.phase = 0.0;
   n.lastReset = 0.0;
 }
@@ -651,6 +720,17 @@ static Control* control_for_param(Node& n, int paramId) {
   if (paramId == kParamGainLeftDb) return &n.gainLeftDb;
   if (paramId == kParamGainRightDb) return &n.gainRightDb;
   if (paramId == kParamGainMonoSum) return &n.gainMonoSum;
+  if (paramId == kParamLaneVol1) return &n.laneVol[0];
+  if (paramId == kParamLaneVol2) return &n.laneVol[1];
+  if (paramId == kParamLaneVol3) return &n.laneVol[2];
+  if (paramId == kParamLaneVol4) return &n.laneVol[3];
+  if (paramId == kParamLaneBias1) return &n.laneBias[0];
+  if (paramId == kParamLaneBias2) return &n.laneBias[1];
+  if (paramId == kParamLaneBias3) return &n.laneBias[2];
+  if (paramId == kParamLaneBias4) return &n.laneBias[3];
+  if (paramId == kParamBleed2) return &n.bleed2;
+  if (paramId == kParamBleed3) return &n.bleed3;
+  if (paramId == kParamBleed4) return &n.bleed4;
   return nullptr;
 }
 
@@ -698,6 +778,13 @@ static void dirty_node_control_coeffs(Node& n) {
   n.gainLeftDb.dirty = true;
   n.gainRightDb.dirty = true;
   n.gainMonoSum.dirty = true;
+  for (int i = 0; i < 4; i++) {
+    n.laneVol[i].dirty = true;
+    n.laneBias[i].dirty = true;
+  }
+  n.bleed2.dirty = true;
+  n.bleed3.dirty = true;
+  n.bleed4.dirty = true;
 }
 
 static void dirty_all_control_coeffs(Circuit& g) {
@@ -903,7 +990,10 @@ static void smoother_snap_all(Circuit& g) {
       &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
       &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
       &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow,
-      &n.outHigh, &n.gainDb, &n.gainLeftDb, &n.gainRightDb, &n.gainMonoSum
+      &n.outHigh, &n.gainDb, &n.gainLeftDb, &n.gainRightDb, &n.gainMonoSum,
+      &n.laneVol[0], &n.laneVol[1], &n.laneVol[2], &n.laneVol[3],
+      &n.laneBias[0], &n.laneBias[1], &n.laneBias[2], &n.laneBias[3],
+      &n.bleed2, &n.bleed3, &n.bleed4
     };
     for (unsigned si = 0; si < sizeof(slots) / sizeof(slots[0]); si++) {
       if (slots[si]) control_snap_to_target(*slots[si]);
@@ -987,6 +1077,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeComparator) return soemdsp_comparator_create();
   if (typeId == kTypeSampleDelay) return soemdsp_sample_delay_create();
   if (typeId == kTypeSampleHold) return soemdsp_sample_hold_create();
+  if (typeId == kTypeMinMax) return soemdsp_min_max_create();
   return 0;
 }
 
@@ -999,7 +1090,10 @@ static void release_node_papoulis_controls(Node& n) {
     &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
     &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
     &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow, &n.outHigh,
-    &n.gainDb, &n.gainLeftDb, &n.gainRightDb, &n.gainMonoSum
+    &n.gainDb, &n.gainLeftDb, &n.gainRightDb, &n.gainMonoSum,
+    &n.laneVol[0], &n.laneVol[1], &n.laneVol[2], &n.laneVol[3],
+    &n.laneBias[0], &n.laneBias[1], &n.laneBias[2], &n.laneBias[3],
+    &n.bleed2, &n.bleed3, &n.bleed4
   };
   for (unsigned i = 0; i < sizeof(slots) / sizeof(slots[0]); i++) {
     if (slots[i]) control_release_papoulis(*slots[i]);
@@ -1050,7 +1144,8 @@ static bool is_live_dst_port(int port) {
     || port == kPortPitchCv
     || port == kPortIncrement
     || port == kPortReset
-    || port == kPortTrigger;
+    || port == kPortTrigger
+    || port == kPortMixStereoR4;
 }
 
 static int clamp_src_port(int port) {
@@ -1575,6 +1670,108 @@ static void process_b2u(Circuit& g, Node& node, int frames) {
   }
 }
 
+// minMax: four numbered Ins (buses 0–3), connected-mask, Max→0 Min→1.
+static void process_min_max(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  double in1[kMaxBlockFrames];
+  double in2[kMaxBlockFrames];
+  double in3[kMaxBlockFrames];
+  double in4[kMaxBlockFrames];
+  const bool c1 = mix_live_port(g, node, kPortIn1, frames, in1);
+  const bool c2 = mix_live_port(g, node, kPortIn2, frames, in2);
+  const bool c3 = mix_live_port(g, node, kPortIn3, frames, in3);
+  const bool c4 = mix_live_port(g, node, kPortIn4, frames, in4);
+  const int mask = (c1 ? 1 : 0) | (c2 ? 2 : 0) | (c3 ? 4 : 0) | (c4 ? 8 : 0);
+  for (int f = 0; f < frames; f++) {
+    const double mx = soemdsp_min_max_sample(
+      node.nativeHandle, in1[f], in2[f], in3[f], in4[f], mask
+    );
+    node.buf[kPortMax][f] = mx;
+    node.buf[kPortMin][f] = soemdsp_min_max_min(node.nativeHandle);
+  }
+}
+
+// mix: free-function 4-in/4-out; In/Out on buses 0–3. No invented stereo.
+static void process_mix(Circuit& g, Node& node, int frames) {
+  double in1[kMaxBlockFrames];
+  double in2[kMaxBlockFrames];
+  double in3[kMaxBlockFrames];
+  double in4[kMaxBlockFrames];
+  mix_live_port(g, node, kPortIn1, frames, in1);
+  mix_live_port(g, node, kPortIn2, frames, in2);
+  mix_live_port(g, node, kPortIn3, frames, in3);
+  mix_live_port(g, node, kPortIn4, frames, in4);
+  const double v1 = node.laneVol[0].out;
+  const double v2 = node.laneVol[1].out;
+  const double v3 = node.laneVol[2].out;
+  const double v4 = node.laneVol[3].out;
+  const double b1 = node.laneBias[0].out;
+  const double b2 = node.laneBias[1].out;
+  const double b3 = node.laneBias[2].out;
+  const double b4 = node.laneBias[3].out;
+  const double bl2 = node.bleed2.out;
+  const double bl3 = node.bleed3.out;
+  const double bl4 = node.bleed4.out;
+  for (int f = 0; f < frames; f++) {
+    node.buf[kPortOut1][f] = soemdsp_mix_sample(
+      1.0, in1[f], in2[f], in3[f], in4[f], v1, v2, v3, v4, b1, b2, b3, b4, bl2, bl3, bl4
+    );
+    node.buf[kPortOut2][f] = soemdsp_mix_sample(
+      2.0, in1[f], in2[f], in3[f], in4[f], v1, v2, v3, v4, b1, b2, b3, b4, bl2, bl3, bl4
+    );
+    node.buf[kPortOut3][f] = soemdsp_mix_sample(
+      3.0, in1[f], in2[f], in3[f], in4[f], v1, v2, v3, v4, b1, b2, b3, b4, bl2, bl3, bl4
+    );
+    node.buf[kPortOut4][f] = soemdsp_mix_sample(
+      4.0, in1[f], in2[f], in3[f], in4[f], v1, v2, v3, v4, b1, b2, b3, b4, bl2, bl3, bl4
+    );
+  }
+}
+
+// mixStereo: true stereo summer (native already L/R). Mono + 4 pairs; R4 on aux port 21.
+static void process_mix_stereo(Circuit& g, Node& node, int frames) {
+  double mono[kMaxBlockFrames];
+  double l1[kMaxBlockFrames], r1[kMaxBlockFrames];
+  double l2[kMaxBlockFrames], r2[kMaxBlockFrames];
+  double l3[kMaxBlockFrames], r3[kMaxBlockFrames];
+  double l4[kMaxBlockFrames], r4[kMaxBlockFrames];
+  mix_live_port(g, node, kPortMono, frames, mono);
+  mix_live_port(g, node, kPortLeft, frames, l1);
+  mix_live_port(g, node, kPortRight, frames, r1);
+  mix_live_port(g, node, 3, frames, l2);
+  mix_live_port(g, node, 4, frames, r2);
+  mix_live_port(g, node, 5, frames, l3);
+  mix_live_port(g, node, 6, frames, r3);
+  mix_live_port(g, node, 7, frames, l4);
+  mix_live_port(g, node, kPortMixStereoR4, frames, r4);
+  const double vol1 = node.laneVol[0].out;
+  const double vol2 = node.laneVol[1].out;
+  const double vol3 = node.laneVol[2].out;
+  const double vol4 = node.laneVol[3].out;
+  const double pan1 = node.laneBias[0].out;
+  const double pan2 = node.laneBias[1].out;
+  const double pan3 = node.laneBias[2].out;
+  const double pan4 = node.laneBias[3].out;
+  const double amp = node.volumeDb.out; // Amplitude (All) in dB
+  for (int f = 0; f < frames; f++) {
+    node.buf[kPortMono][f] = soemdsp_mix_stereo_sample(
+      0.0,
+      l1[f], r1[f], l2[f], r2[f], l3[f], r3[f], l4[f], r4[f], mono[f],
+      vol1, pan1, vol2, pan2, vol3, pan3, vol4, pan4, amp
+    );
+    node.buf[kPortLeft][f] = soemdsp_mix_stereo_sample(
+      1.0,
+      l1[f], r1[f], l2[f], r2[f], l3[f], r3[f], l4[f], r4[f], mono[f],
+      vol1, pan1, vol2, pan2, vol3, pan3, vol4, pan4, amp
+    );
+    node.buf[kPortRight][f] = soemdsp_mix_stereo_sample(
+      2.0,
+      l1[f], r1[f], l2[f], r2[f], l3[f], r3[f], l4[f], r4[f], mono[f],
+      vol1, pan1, vol2, pan2, vol3, pan3, vol4, pan4, amp
+    );
+  }
+}
+
 // Mono sample & hold: fold Mono+L+R for In; Trigger is a live-style dest port.
 // One handle per node (not invented M/L/R inside native). Seed = node id hash.
 static void process_sample_hold(Circuit& g, Node& node, int frames) {
@@ -1966,7 +2163,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeSlewLimiter
     || typeId == kTypeComparator
     || typeId == kTypeSampleDelay
-    || typeId == kTypeSampleHold;
+    || typeId == kTypeSampleHold
+    || typeId == kTypeMinMax;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -2132,7 +2330,10 @@ extern "C" int soemdsp_graph_set_global_smooth_time(int handle, float timeSample
       &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
       &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
       &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow,
-      &n.outHigh, &n.gainDb, &n.gainLeftDb, &n.gainRightDb, &n.gainMonoSum
+      &n.outHigh, &n.gainDb, &n.gainLeftDb, &n.gainRightDb, &n.gainMonoSum,
+      &n.laneVol[0], &n.laneVol[1], &n.laneVol[2], &n.laneVol[3],
+      &n.laneBias[0], &n.laneBias[1], &n.laneBias[2], &n.laneBias[3],
+      &n.bleed2, &n.bleed3, &n.bleed4
     };
     for (unsigned si = 0; si < sizeof(slots) / sizeof(slots[0]); si++) {
       Control* c = slots[si];
@@ -2267,6 +2468,18 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_sample_hold(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeMinMax) {
+      process_min_max(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeMix) {
+      process_mix(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeMixStereo) {
+      process_mix_stereo(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeLadderFilter) {
       process_ladder(*g, node, frames);
       continue;
@@ -2348,5 +2561,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 25; // sampleHold (mono fold + Trigger dest port)
+  return 26; // minMax + mix + mixStereo
 }

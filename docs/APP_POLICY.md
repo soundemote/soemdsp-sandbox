@@ -54,6 +54,9 @@ Only these live-audio types exist in the efficient build:
 | `comparator` | Edge detector (Up/Down/Change/Steady/Sign/Thru) |
 | `sampleDelay` | Fixed ring delay (Thru + Delayed) |
 | `sampleHold` | Sample & hold (Trigger + optional internal clock) |
+| `minMax` | 4-in Max/Min selector |
+| `mix` | 4-channel mix (volumes/bias/bleeds) |
+| `mixStereo` | Stereo pair mixer (true L/R) |
 | `output` | Sink |
 
 Canonical circuit:
@@ -62,7 +65,7 @@ Canonical circuit:
 polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
 (+ robinSinusoid / robinSupersaw / noiseGenerator;
    attenuverter / range / inv / u2b / b2u / bias / gain / slewLimiter / comparator /
-   sampleDelay / sampleHold as utilities)
+   sampleDelay / sampleHold / minMax / mix / mixStereo as utilities)
 ```
 
 **Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` may remain. `audioInput` is **not** on the allowlist unless a demo explicitly needs it (strip with other DSP for now).
