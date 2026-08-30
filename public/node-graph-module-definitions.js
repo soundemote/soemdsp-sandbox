@@ -8304,11 +8304,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
     inputLabels: { In: "Mono", f: "ƒ" },
-    inputs: ["In", "f"],
+    inputs: ["In", "Left", "Right", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out"],
+    outputs: ["Out", "Left", "Right"],
     parameters: [
       {
         choices: nodeGraphLadderFilterModes,
@@ -8365,11 +8365,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
     inputLabels: { In: "Mono", f: "ƒ" },
-    inputs: ["In", "f"],
+    inputs: ["In", "Left", "Right", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out"],
+    outputs: ["Out", "Left", "Right"],
     parameters: [
       {
         choices: nodeGraphTb303FilterModes,
