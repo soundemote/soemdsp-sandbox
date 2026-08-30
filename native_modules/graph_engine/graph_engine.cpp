@@ -777,6 +777,47 @@ extern "C" double soemdsp_turing_machine_sample(
 extern "C" double soemdsp_turing_machine_scale(int handle);
 extern "C" double soemdsp_turing_machine_gate(int handle);
 
+extern "C" int soemdsp_fbm_create();
+extern "C" void soemdsp_fbm_destroy(int handle);
+extern "C" void soemdsp_fbm_reset(int handle);
+extern "C" void soemdsp_fbm_sample(
+  int handle, int seedInt, int octaves, double persistence, double scale,
+  double frequency, double level, double sampleRate
+);
+extern "C" double soemdsp_fbm_x(int handle);
+extern "C" double soemdsp_fbm_y(int handle);
+extern "C" double soemdsp_fbm_z(int handle);
+
+extern "C" int soemdsp_pi_spigot_noise_create();
+extern "C" void soemdsp_pi_spigot_noise_destroy(int handle);
+extern "C" void soemdsp_pi_spigot_noise_reset_seed(int handle, double start, double stride);
+extern "C" void soemdsp_pi_spigot_noise_sample(int handle, double color, double smoothing, double level);
+extern "C" double soemdsp_pi_spigot_noise_left(int handle);
+extern "C" double soemdsp_pi_spigot_noise_right(int handle);
+extern "C" double soemdsp_pi_spigot_noise_hex(int handle);
+extern "C" double soemdsp_pi_spigot_noise_n(int handle);
+extern "C" double soemdsp_pi_spigot_noise_t(int handle);
+extern "C" double soemdsp_pi_spigot_noise_b3(int handle);
+extern "C" double soemdsp_pi_spigot_noise_b2(int handle);
+extern "C" double soemdsp_pi_spigot_noise_b1(int handle);
+extern "C" double soemdsp_pi_spigot_noise_b0(int handle);
+
+extern "C" int soemdsp_random_walk_create();
+extern "C" void soemdsp_random_walk_destroy(int handle);
+extern "C" void soemdsp_random_walk_reset_seed(int handle, double seed);
+extern "C" double soemdsp_random_walk_sample(
+  int handle, double method, double frequency, double jitter, double level, double sampleRate
+);
+
+extern "C" int soemdsp_pulse_explosion_create();
+extern "C" void soemdsp_pulse_explosion_destroy(int handle);
+extern "C" double soemdsp_pulse_explosion_sample(
+  int handle, double trigger, double startTime, double centerTime, double endTime,
+  double timeSpread, int numberOfPulses, double lowAmplitude, double highAmplitude,
+  double seed, double sampleRate
+);
+extern "C" double soemdsp_pulse_explosion_curve(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -894,6 +935,10 @@ static const int kTypeChordMemory = 83;
 static const int kTypeChordSequencer = 84;
 static const int kTypePitchQuantizer = 85;
 static const int kTypeTuringMachine = 86;
+static const int kTypeFractalBrownianNoise = 87;
+static const int kTypePiSpigotNoise = 88;
+static const int kTypeRandomWalk = 89;
+static const int kTypePulseExplosion = 90;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1292,6 +1337,14 @@ static void destroy_node_native(Node& n) {
     soemdsp_pitch_quantizer_destroy(n.nativeHandle);
   } else if (kind == kTypeTuringMachine) {
     soemdsp_turing_machine_destroy(n.nativeHandle);
+  } else if (kind == kTypeFractalBrownianNoise) {
+    soemdsp_fbm_destroy(n.nativeHandle);
+  } else if (kind == kTypePiSpigotNoise) {
+    soemdsp_pi_spigot_noise_destroy(n.nativeHandle);
+  } else if (kind == kTypeRandomWalk) {
+    soemdsp_random_walk_destroy(n.nativeHandle);
+  } else if (kind == kTypePulseExplosion) {
+    soemdsp_pulse_explosion_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -1375,6 +1428,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLorenzAttractor || typeId == kTypeChuaAttractor) ? 1.0 // speed
       : (typeId == kTypeLogisticMap || typeId == kTypeHenonMap
           || typeId == kTypeRayBouncer) ? 8.0 // rate/frequency
+      : (typeId == kTypeFractalBrownianNoise) ? 0.5
+      : (typeId == kTypeRandomWalk) ? 2.0
       : 220.0,
     false
   );
@@ -1411,6 +1466,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHenonMap) ? 1.4 // a
       : (typeId == kTypeChuaAttractor) ? 15.6 // alpha
       : (typeId == kTypeTuringMachine) ? 0.25 // probability
+      : (typeId == kTypeFractalBrownianNoise) ? 0.5 // persistence
+      : (typeId == kTypePiSpigotNoise) ? 0.0 // smoothing
       : 0.5,
     (typeId == kTypeSlewLimiter) // discrete Lin/Log/Exp/Smooth
   );
@@ -1449,6 +1506,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeEllipsoid) ? 1.0 // CounterClock(Ph)
       : (typeId == kTypeSnowflake) ? 1.0 // Koch Snowflake pattern
       : (typeId == kTypeChordSequencer) ? 0.0 // progression
+      : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
+      : (typeId == kTypePiSpigotNoise) ? 0.0 // color White
       : 1.0,
     true
   );
@@ -1463,6 +1522,9 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeTriggerDivider) ? 2.0
       : (typeId == kTypeTriggerCounter || typeId == kTypeStepSequencer
           || typeId == kTypeTuringMachine) ? 8.0
+      : (typeId == kTypeFractalBrownianNoise) ? 4.0 // octaves
+      : (typeId == kTypePiSpigotNoise) ? 1.0 // stride
+      : (typeId == kTypePulseExplosion) ? 20.0 // numberOfPulses
       : (typeId == kTypeTransport) ? 0.0
       : (typeId == kTypeAntisaw) ? 64.0
       : (typeId == kTypeArchimedes) ? 12.0
@@ -1487,6 +1549,9 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHenonMap) ? 0.1 // seedX
       : (typeId == kTypeChuaAttractor) ? -1.143 // m0
       : (typeId == kTypeRayBouncer) ? 1.5 // aspect
+      : (typeId == kTypeFractalBrownianNoise) ? 1.0 // scale
+      : (typeId == kTypePiSpigotNoise) ? 0.0 // start
+      : (typeId == kTypePulseExplosion) ? 0.5 // centerTime
       : 0.0,
     false
   );
@@ -1517,6 +1582,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHenonMap) ? 0.3 // b
       : (typeId == kTypeChuaAttractor) ? 28.0 // beta
       : (typeId == kTypeRayBouncer) ? 1.0 // size
+      : (typeId == kTypeRandomWalk) ? 0.25 // jitter
       : 2.0,
     false
   );
@@ -1532,6 +1598,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHenonMap) ? 0.1 // seedY
       : (typeId == kTypeChuaAttractor) ? -0.714 // m1
       : (typeId == kTypeRayBouncer) ? 0.0 // rotate deg
+      : (typeId == kTypePulseExplosion) ? 0.3 // timeSpread
       : 0.43,
     false
   );
@@ -1593,6 +1660,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLutCell) ? 27030.0 // default truth table
       : (typeId == kTypeSoemReverb) ? 500.0
       : (typeId == kTypePitchQuantizer) ? 2741.0 // major scale mask
+      : (typeId == kTypeFractalBrownianNoise || typeId == kTypeRandomWalk) ? 1.0
       : 0.0,
     true
   );
@@ -1613,7 +1681,8 @@ static void init_node_defaults(Node& n, int typeId) {
   // bradley2a = hitDuration.
   init_control(
     n.timeNumerator,
-    (typeId == kTypeSlewLimiter) ? 0.05
+    (typeId == kTypePulseExplosion) ? 0.0 // startTime
+      : (typeId == kTypeSlewLimiter) ? 0.05
       : (typeId == kTypeSampleDelay) ? 0.0
       : (typeId == kTypeTriggerDivider || typeId == kTypeTriggerCounter) ? 0.01
       : (typeId == kTypeDelayedTrigger) ? 0.1
@@ -1631,7 +1700,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.timeDenominator,
-    (typeId == kTypeSlewLimiter) ? 0.20
+    (typeId == kTypePulseExplosion) ? 1.0 // endTime
+      : (typeId == kTypeSlewLimiter) ? 0.20
       : (typeId == kTypeSampleDelay) ? 0.0
       : (typeId == kTypeDelayedTrigger) ? 0.01
       : (typeId == kTypeRandomClock) ? 1.0
@@ -1687,12 +1757,14 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.offset, (typeId == kTypePll) ? 5.0 : 0.0, false);
   init_control(
     n.inLow,
-    (typeId == kTypeRange) ? -1.0 : (typeId == kTypeClipperLimiter) ? -12.0 : 0.0,
+    (typeId == kTypePulseExplosion) ? 0.3 // lowAmplitude
+      : (typeId == kTypeRange) ? -1.0 : (typeId == kTypeClipperLimiter) ? -12.0 : 0.0,
     false
   );
   init_control(
     n.inHigh,
-    (typeId == kTypeRange) ? 1.0 : (typeId == kTypeClipperLimiter) ? 0.0 : 1.0,
+    (typeId == kTypePulseExplosion) ? 1.0 // highAmplitude
+      : (typeId == kTypeRange) ? 1.0 : (typeId == kTypeClipperLimiter) ? 0.0 : 1.0,
     false
   );
   init_control(n.outLow, 0.0, false);
@@ -2205,6 +2277,10 @@ static int create_native_for_type(int typeId, float sampleRate) {
     turingEntropy = turingEntropy * 1664525u + 1013904223u;
     return soemdsp_turing_machine_create(turingEntropy ? turingEntropy : 1u);
   }
+  if (typeId == kTypeFractalBrownianNoise) return soemdsp_fbm_create();
+  if (typeId == kTypePiSpigotNoise) return soemdsp_pi_spigot_noise_create();
+  if (typeId == kTypeRandomWalk) return soemdsp_random_walk_create();
+  if (typeId == kTypePulseExplosion) return soemdsp_pulse_explosion_create();
   return 0;
 }
 
@@ -4444,6 +4520,122 @@ static void process_turing_machine(Circuit& g, Node& node, int frames) {
   }
 }
 
+// fBm noise: Reset live. frequency/stages=octaves/shape=persistence/center=scale/
+// seed/amplitude. X→Mono Y→Left Z→Right.
+static void process_fractal_brownian_noise(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  bool wasHigh = node.lastReset > 0.5;
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const bool high = hasReset && g.mixReset[f] > 0.0;
+    if (high && !wasHigh) soemdsp_fbm_reset(node.nativeHandle);
+    wasHigh = high;
+    soemdsp_fbm_sample(
+      node.nativeHandle,
+      (int)(node.seed.out + 0.5),
+      (int)(node.stages.out + 0.5),
+      node.shape.out,
+      node.center.out,
+      node.frequency.out,
+      node.amplitude.out,
+      sr
+    );
+    node.buf[kPortMono][f] = soemdsp_fbm_x(node.nativeHandle);
+    node.buf[kPortLeft][f] = soemdsp_fbm_y(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_fbm_z(node.nativeHandle);
+  }
+  node.lastReset = wasHigh ? 1.0 : 0.0;
+}
+
+// Pi spigot: center=start, stages=stride, mode=color, shape=smoothing, amplitude.
+// Sum→Mono Term→Left Hex→Right N→Saw T→Ramp B3..B0→Square/Tri/Sine/DryR(Ramp+1?).
+// Buses: Square=B3 Tri=B2 Sine=B1 — B0 folds onto Saw alongside N? Prefer:
+// Hex→Right N→Saw T→Ramp B3→Square B2→Tri B1→Sine; B0 unused on 8th → overwrite
+// DryR share of Ramp is taken; put B0 on leftover — actually 8 buses 0..7:
+// Mono Sum, Left Term, Right Hex, Saw N, Ramp T, Square B3, Tri B2, Sine B1.
+// B0 omitted from graph taps (still computed in native).
+static void process_pi_spigot_noise(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool controlSmoothing = node_control_smoothing(node);
+  const double start = node.center.out;
+  const double stride = node.stages.out;
+  const double key = start * 1000.0 + stride;
+  if (key != node.lastReset) {
+    soemdsp_pi_spigot_noise_reset_seed(node.nativeHandle, start, stride);
+    node.lastReset = key;
+  }
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    soemdsp_pi_spigot_noise_sample(
+      node.nativeHandle, node.mode.out, node.shape.out, node.amplitude.out
+    );
+    node.buf[kPortMono][f] = soemdsp_pi_spigot_noise_left(node.nativeHandle);
+    node.buf[kPortLeft][f] = soemdsp_pi_spigot_noise_right(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_pi_spigot_noise_hex(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_pi_spigot_noise_n(node.nativeHandle);
+    node.buf[kPortRamp][f] = soemdsp_pi_spigot_noise_t(node.nativeHandle);
+    node.buf[kPortSquare][f] = soemdsp_pi_spigot_noise_b3(node.nativeHandle);
+    node.buf[kPortTri][f] = soemdsp_pi_spigot_noise_b2(node.nativeHandle);
+    node.buf[kPortSine][f] = soemdsp_pi_spigot_noise_b1(node.nativeHandle);
+  }
+}
+
+// Random walk: mode=method, frequency, width=jitter, seed, amplitude.
+static void process_random_walk(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  const double seed = node.seed.out;
+  if (seed != node.lastReset) {
+    soemdsp_random_walk_reset_seed(node.nativeHandle, seed);
+    node.lastReset = seed;
+  }
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double out = soemdsp_random_walk_sample(
+      node.nativeHandle,
+      node.mode.out,
+      node.frequency.out,
+      node.width.out,
+      node.amplitude.out,
+      sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Pulse explosion: Trigger live. Crowded timing/amp params. Out→Mono Curve→Left.
+static void process_pulse_explosion(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double out = soemdsp_pulse_explosion_sample(
+      node.nativeHandle,
+      hasTrig ? g.mixTrigger[f] : 0.0,
+      node.timeNumerator.out,   // startTime
+      node.center.out,          // centerTime
+      node.timeDenominator.out, // endTime
+      node.mix.out,             // timeSpread
+      (int)(node.stages.out + 0.5),
+      node.inLow.out,           // lowAmplitude
+      node.inHigh.out,          // highAmplitude
+      node.seed.out,
+      sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = soemdsp_pulse_explosion_curve(node.nativeHandle);
+    node.buf[kPortRight][f] = out;
+  }
+}
+
 // Master Clock / transport: tempo square.
 // -1..1→Mono, 0..1→Left, Trigger→Right, f (Hz)→Saw.
 // Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
@@ -5235,7 +5427,11 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeChordMemory
     || typeId == kTypeChordSequencer
     || typeId == kTypePitchQuantizer
-    || typeId == kTypeTuringMachine;
+    || typeId == kTypeTuringMachine
+    || typeId == kTypeFractalBrownianNoise
+    || typeId == kTypePiSpigotNoise
+    || typeId == kTypeRandomWalk
+    || typeId == kTypePulseExplosion;
   // additiveOsc / ellipsoid are free-fn (no native handle).
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
@@ -5823,6 +6019,22 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_turing_machine(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeFractalBrownianNoise) {
+      process_fractal_brownian_noise(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypePiSpigotNoise) {
+      process_pi_spigot_noise(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeRandomWalk) {
+      process_random_walk(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypePulseExplosion) {
+      process_pulse_explosion(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -5896,5 +6108,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 49; // + musical/sequencing CV 83–86
+  return 50; // + noise/modulators 87–90
 }

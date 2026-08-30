@@ -121,6 +121,10 @@ Only these live-audio types exist in the efficient build:
 | `chordSequencer` | Progression scale/root sequencer |
 | `pitchQuantizer` | 12-bit scale pitch quantizer |
 | `turingMachine` | Shift-register CV / scale / gate |
+| `fractalBrownianNoise` | fBm noise CV (X/Y/Z) |
+| `piSpigotNoise` | π-spigot BBP noise (sum/term/hex) |
+| `randomWalk` | Seeded random-walk CV |
+| `pulseExplosion` | Triggered pulse burst + density curve |
 | `output` | Sink |
 
 Canonical circuit:
@@ -145,7 +149,8 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    flowerChildEnvelopeFollower / vactrolEnvelopeCustom / vactrolEnvelopeSeries /
    delayEffect / soemReverb / pll /
    lorenzAttractor / logisticMap / henonMap / chuaAttractor / rayBouncer /
-   chordMemory / chordSequencer / pitchQuantizer / turingMachine
+   chordMemory / chordSequencer / pitchQuantizer / turingMachine /
+   fractalBrownianNoise / piSpigotNoise / randomWalk / pulseExplosion
    as utilities)
 ```
 

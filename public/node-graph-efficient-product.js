@@ -89,6 +89,10 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "chordSequencer",
   "pitchQuantizer",
   "turingMachine",
+  "fractalBrownianNoise",
+  "piSpigotNoise",
+  "randomWalk",
+  "pulseExplosion",
   "output",
 ]);
 

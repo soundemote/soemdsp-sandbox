@@ -93,6 +93,10 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   chordSequencer: 84,
   pitchQuantizer: 85,
   turingMachine: 86,
+  fractalBrownianNoise: 87,
+  piSpigotNoise: 88,
+  randomWalk: 89,
+  pulseExplosion: 90,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -371,6 +375,25 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "cv") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     if (p === "scale") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     if (p === "gate") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
+  if (t === "fractalBrownianNoise") {
+    if (p === "out x" || p === "x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "out y" || p === "y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "out z" || p === "z") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
+  if (t === "piSpigotNoise") {
+    if (p === "left out" || p === "sum") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "right out" || p === "term") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "hex") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+    if (p === "n") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+    if (p === "t") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+    if (p === "b3") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE;
+    if (p === "b2") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI;
+    if (p === "b1") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE;
+  }
+  if (t === "pulseExplosion") {
+    if (p === "out") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "curve") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
   // Mono / Out / In / Wave Out / Noise / Frequency (MIDI out) / empty → mono bus
   return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
@@ -1408,6 +1431,42 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("length", P.NATIVE_GRAPH_PARAM_STAGES, disc("length", 8));
       push("probability", P.NATIVE_GRAPH_PARAM_SHAPE, cont("probability", 0.25));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "fractalBrownianNoise") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
+      push("octaves", P.NATIVE_GRAPH_PARAM_STAGES, disc("octaves", 4));
+      push("persistence", P.NATIVE_GRAPH_PARAM_SHAPE, cont("persistence", 0.5));
+      push("scale", P.NATIVE_GRAPH_PARAM_CENTER, cont("scale", 1));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "piSpigotNoise") {
+      push("start", P.NATIVE_GRAPH_PARAM_CENTER, cont("start", 0));
+      push("stride", P.NATIVE_GRAPH_PARAM_STAGES, disc("stride", 1));
+      push("color", P.NATIVE_GRAPH_PARAM_MODE, disc("color", 0));
+      push("smoothing", P.NATIVE_GRAPH_PARAM_SHAPE, cont("smoothing", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "randomWalk") {
+      push("method", P.NATIVE_GRAPH_PARAM_MODE, disc("method", 3));
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 2));
+      push("jitter", P.NATIVE_GRAPH_PARAM_WIDTH, cont("jitter", 0.25));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "pulseExplosion") {
+      push("startTime", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("startTime", 0));
+      push("centerTime", P.NATIVE_GRAPH_PARAM_CENTER, cont("centerTime", 0.5));
+      push("endTime", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("endTime", 1));
+      push("timeSpread", P.NATIVE_GRAPH_PARAM_MIX, cont("timeSpread", 0.3));
+      push("numberOfPulses", P.NATIVE_GRAPH_PARAM_STAGES, disc("numberOfPulses", 20));
+      push("lowAmplitude", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("lowAmplitude", 0.3));
+      push("highAmplitude", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("highAmplitude", 1));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 0));
       continue;
     }
     if (type === "robinSupersaw") {
