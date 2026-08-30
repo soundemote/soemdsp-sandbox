@@ -109,6 +109,11 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   torus: 100,
   wirdoSpiral: 101,
   phosphillator: 102,
+  crossover2: 103,
+  crossover3: 104,
+  crossover4: 105,
+  crossover5: 106,
+  crossover6: 107,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -169,7 +174,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_BLEED3 = 109;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_BLEED4 = 110;
 
 // Ports: 0 Mono/Out, 1 Left/Mix L, 2 Right/Mix R, 3 Saw/Dry L, 4 Ramp/Dry R, 5–7 taps.
-// Live SIGNAL IN (not audio buses): 16 ƒ, 17 0.1V/Oct, 18 Increment, 19 Reset.
+// 8–11: crossover5/6 extra band taps. Live SIGNAL IN: 16 ƒ, 17 0.1V/Oct, 18 Inc, 19 Reset.
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO = 0;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT = 1;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT = 2;
@@ -410,6 +415,50 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (t === "pulseExplosion") {
     if (p === "out") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     if (p === "curve") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  }
+  // crossover2..6: sequential band L/R (band0=0/1, band1=2/3, …).
+  if (
+    t === "crossover2" || t === "crossover3" || t === "crossover4"
+    || t === "crossover5" || t === "crossover6"
+  ) {
+    if (p === "lfl") return 0;
+    if (p === "lfr") return 1;
+    if (t === "crossover2") {
+      if (p === "hfl") return 2;
+      if (p === "hfr") return 3;
+    } else if (t === "crossover3") {
+      if (p === "ml" || p === "l1") return 2;
+      if (p === "mr" || p === "r1") return 3;
+      if (p === "hfl") return 4;
+      if (p === "hfr") return 5;
+    } else if (t === "crossover4") {
+      if (p === "l1") return 2;
+      if (p === "r1") return 3;
+      if (p === "l2") return 4;
+      if (p === "r2") return 5;
+      if (p === "hfl") return 6;
+      if (p === "hfr") return 7;
+    } else if (t === "crossover5") {
+      if (p === "l1") return 2;
+      if (p === "r1") return 3;
+      if (p === "l2") return 4;
+      if (p === "r2") return 5;
+      if (p === "l3") return 6;
+      if (p === "r3") return 7;
+      if (p === "hfl") return 8;
+      if (p === "hfr") return 9;
+    } else {
+      if (p === "l1") return 2;
+      if (p === "r1") return 3;
+      if (p === "l2") return 4;
+      if (p === "r2") return 5;
+      if (p === "l3") return 6;
+      if (p === "r3") return 7;
+      if (p === "l4") return 8;
+      if (p === "r4") return 9;
+      if (p === "hfl") return 10;
+      if (p === "hfr") return 11;
+    }
   }
   // Mono / Out / In / Wave Out / Noise / Frequency (MIDI out) / empty → mono bus
   return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
@@ -1138,6 +1187,39 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("bandwidth", P.NATIVE_GRAPH_PARAM_WIDTH, cont("bandwidth", 1));
       if (type === "chebyshev" || type === "elliptic") {
         push("ripple", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("ripple", 1));
+      }
+      continue;
+    }
+    if (
+      type === "crossover2" || type === "crossover3" || type === "crossover4"
+      || type === "crossover5" || type === "crossover6"
+    ) {
+      // stages=LR order; splits on frequency/center/width/lpf/hpf.
+      push("order", P.NATIVE_GRAPH_PARAM_STAGES, disc("order", 4));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      if (type === "crossover2") {
+        push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1000));
+      } else {
+        const fDefaults = {
+          crossover3: [300, 3000],
+          crossover4: [200, 1000, 5000],
+          crossover5: [150, 500, 2000, 8000],
+          crossover6: [100, 300, 1000, 3000, 10000],
+        };
+        const fs = fDefaults[type] || [1000];
+        push("frequency1", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency1", fs[0]));
+        if (fs[1] != null) {
+          push("frequency2", P.NATIVE_GRAPH_PARAM_CENTER, cont("frequency2", fs[1]));
+        }
+        if (fs[2] != null) {
+          push("frequency3", P.NATIVE_GRAPH_PARAM_WIDTH, cont("frequency3", fs[2]));
+        }
+        if (fs[3] != null) {
+          push("frequency4", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("frequency4", fs[3]));
+        }
+        if (fs[4] != null) {
+          push("frequency5", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("frequency5", fs[4]));
+        }
       }
       continue;
     }

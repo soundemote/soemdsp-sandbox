@@ -105,6 +105,11 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "torus",
   "wirdoSpiral",
   "phosphillator",
+  "crossover2",
+  "crossover3",
+  "crossover4",
+  "crossover5",
+  "crossover6",
   "output",
 ]);
 

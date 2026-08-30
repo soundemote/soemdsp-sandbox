@@ -956,6 +956,26 @@ extern "C" double soemdsp_phosphillator_sample(
 );
 extern "C" double soemdsp_phosphillator_y(int handle);
 
+
+extern "C" int soemdsp_crossover_create(int bandCount);
+extern "C" void soemdsp_crossover_destroy(int handle);
+extern "C" void soemdsp_crossover_sample(
+  int handle,
+  double mono,
+  double leftIn,
+  double rightIn,
+  double f0,
+  double f1,
+  double f2,
+  double f3,
+  double f4,
+  int lrOrder,
+  double sampleRate
+);
+extern "C" double soemdsp_crossover_band_l(int handle, int bandIndex);
+extern "C" double soemdsp_crossover_band_r(int handle, int bandIndex);
+extern "C" int soemdsp_crossover_band_count(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -984,7 +1004,8 @@ static const int kMaxBlockFrames = 128;
 static const double kDefaultSmoothSeconds = 0.0333;
 // 0=Mono/Out, 1=Left/Mix L, 2=Right/Mix R, 3=Saw/Dry L, 4=Ramp/Dry R,
 // 5=Square, 6=Tri, 7=Sine (polyBlep taps; Dry L/R share 3/4 on reverb).
-static const int kChannels = 8;
+// 8–11: extra band taps (crossover5/6).
+static const int kChannels = 12;
 
 static const int kTypeUnknown = 0;
 static const int kTypePolyBlep = 1;
@@ -1090,6 +1111,11 @@ static const int kTypeRadar = 99;
 static const int kTypeTorus = 100;
 static const int kTypeWirdoSpiral = 101;
 static const int kTypePhosphillator = 102;
+static const int kTypeCrossover2 = 103;
+static const int kTypeCrossover3 = 104;
+static const int kTypeCrossover4 = 105;
+static const int kTypeCrossover5 = 106;
+static const int kTypeCrossover6 = 107;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1520,6 +1546,8 @@ static void destroy_node_native(Node& n) {
     soemdsp_jbwirdo_destroy(n.nativeHandle);
   } else if (kind == kTypePhosphillator) {
     soemdsp_phosphillator_destroy(n.nativeHandle);
+  } else if (kind >= kTypeCrossover2 && kind <= kTypeCrossover6) {
+    soemdsp_crossover_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -1612,6 +1640,11 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeBlubb || typeId == kTypeBoing || typeId == kTypeKeplerBouwkamp
           || typeId == kTypeMushroom || typeId == kTypeTorus
           || typeId == kTypeWirdoSpiral) ? 8.0
+      : (typeId == kTypeCrossover2) ? 1000.0
+      : (typeId == kTypeCrossover3) ? 300.0
+      : (typeId == kTypeCrossover4) ? 200.0
+      : (typeId == kTypeCrossover5) ? 150.0
+      : (typeId == kTypeCrossover6) ? 100.0
       : 220.0,
     false
   );
@@ -1726,6 +1759,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHypersaw) ? 8.0
       : (typeId == kTypeSinc) ? 4.0
       : (typeId == kTypeSnowflake) ? 3.0 // iterations
+      : (typeId >= kTypeCrossover2 && typeId <= kTypeCrossover6) ? 4.0 // LR order
       : (typeId == kTypeActiveFilter) ? 3.0 // feedbackCircuit Res+Clip
       : (typeId == kTypeCombResonator) ? 0.0 // invert Off
       : (typeId == kTypeSoemReverb) ? 10.0 // numDelays
@@ -1746,6 +1780,10 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeFractalBrownianNoise) ? 1.0 // scale
       : (typeId == kTypePiSpigotNoise) ? 0.0 // start
       : (typeId == kTypePulseExplosion) ? 0.5 // centerTime
+      : (typeId == kTypeCrossover3) ? 3000.0
+      : (typeId == kTypeCrossover4) ? 1000.0
+      : (typeId == kTypeCrossover5) ? 500.0
+      : (typeId == kTypeCrossover6) ? 300.0
       : 0.0,
     false
   );
@@ -1781,6 +1819,9 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeLogSpiral) ? 0.5 // size
       : (typeId == kTypeTorus || typeId == kTypeMushroom) ? 1.0 // size/width
       : (typeId == kTypeWirdoSpiral) ? 1.0 // length
+      : (typeId == kTypeCrossover4) ? 5000.0
+      : (typeId == kTypeCrossover5) ? 2000.0
+      : (typeId == kTypeCrossover6) ? 1000.0
       : 2.0,
     false
   );
@@ -1942,12 +1983,15 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeBradley2a) ? 2600.0 // interfFreq
       : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 1000.0 // highCut
       : (typeId == kTypeInertialFilter) ? 20.0 // release Hz
+      : (typeId == kTypeCrossover5) ? 8000.0
+      : (typeId == kTypeCrossover6) ? 3000.0
       : 8000.0,
     false
   );
   init_control(
     n.hpfFrequency,
     (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 200.0 // lowCut
+      : (typeId == kTypeCrossover6) ? 10000.0
       : 20.0,
     false
   );
@@ -2493,6 +2537,9 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypePhosphillator) {
     const int h = soemdsp_phosphillator_create();
     return h;
+  }
+  if (typeId >= kTypeCrossover2 && typeId <= kTypeCrossover6) {
+    return soemdsp_crossover_create(2 + (typeId - kTypeCrossover2));
   }
   return 0;
 }
@@ -5422,6 +5469,62 @@ static void process_rotate_3d_to_2d(Circuit& g, Node& node, int frames) {
   }
 }
 
+
+static bool is_crossover_type(int typeId) {
+  return typeId >= kTypeCrossover2 && typeId <= kTypeCrossover6;
+}
+
+static int crossover_band_count_for_type(int typeId) {
+  if (!is_crossover_type(typeId)) return 2;
+  return 2 + (typeId - kTypeCrossover2);
+}
+
+// Stereo LR crossover: Mono+L/R in; per-band L/R on sequential ports
+// (band0 L/R = 0/1, band1 L/R = 2/3, …). Splits: frequency,center,width,lpf,hpf.
+// stages = LR order (2/4/8). Live ƒ overrides first split when wired.
+static void process_crossover(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node)
+    || node.lpfFrequency.active || node.hpfFrequency.active;
+  const int bands = crossover_band_count_for_type(node.typeId);
+  const double amp = node.amplitude.out;
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double f0 = liveF ? g.mixF[f] : node.frequency.out;
+    double f1 = node.center.out;
+    double f2 = node.width.out;
+    double f3 = node.lpfFrequency.out;
+    double f4 = node.hpfFrequency.out;
+    if (!(f0 == f0) || f0 < 20.0) f0 = 20.0;
+    if (!(f1 == f1) || f1 < 20.0) f1 = 20.0;
+    if (!(f2 == f2) || f2 < 20.0) f2 = 20.0;
+    if (!(f3 == f3) || f3 < 20.0) f3 = 20.0;
+    if (!(f4 == f4) || f4 < 20.0) f4 = 20.0;
+    int order = (int)(node.stages.out + (node.stages.out >= 0.0 ? 0.5 : -0.5));
+    if (order <= 2) order = 2;
+    else if (order <= 4) order = 4;
+    else order = 8;
+    soemdsp_crossover_sample(
+      node.nativeHandle,
+      g.mixMono[f], g.mixLeft[f], g.mixRight[f],
+      f0, f1, f2, f3, f4, order, sr
+    );
+    for (int b = 0; b < bands; b++) {
+      const int pl = b * 2;
+      const int pr = pl + 1;
+      if (pl < kChannels) {
+        node.buf[pl][f] = soemdsp_crossover_band_l(node.nativeHandle, b) * amp;
+      }
+      if (pr < kChannels) {
+        node.buf[pr][f] = soemdsp_crossover_band_r(node.nativeHandle, b) * amp;
+      }
+    }
+  }
+}
+
 // mixStereo: true stereo summer (native already L/R). Mono + 4 pairs; R4 on aux port 21.
 static void process_mix_stereo(Circuit& g, Node& node, int frames) {
   double mono[kMaxBlockFrames];
@@ -5953,7 +6056,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeRadar
     || typeId == kTypeTorus
     || typeId == kTypeWirdoSpiral
-    || typeId == kTypePhosphillator;
+    || typeId == kTypePhosphillator
+    || (typeId >= kTypeCrossover2 && typeId <= kTypeCrossover6);
   // additiveOsc / ellipsoid are free-fn (no native handle).
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
@@ -6607,6 +6711,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_phosphillator(*g, node, frames);
       continue;
     }
+    if (node.typeId >= kTypeCrossover2 && node.typeId <= kTypeCrossover6) {
+      process_crossover(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -6680,5 +6788,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 51; // + OMS/Jerobeam + phosphillator 91–102
+  return 52; // + crossover2..6 (103–107); kChannels 12
 }

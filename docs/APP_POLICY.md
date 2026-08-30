@@ -137,6 +137,11 @@ Only these live-audio types exist in the efficient build:
 | `torus` | Jerobeam torus XY |
 | `wirdoSpiral` | Wirdo spiral XY |
 | `phosphillator` | Path-scan XY oscillator (default circle) |
+| `crossover2` | Stereo Linkwitz–Riley 2-way crossover |
+| `crossover3` | Stereo Linkwitz–Riley 3-way crossover |
+| `crossover4` | Stereo Linkwitz–Riley 4-way crossover |
+| `crossover5` | Stereo Linkwitz–Riley 5-way crossover |
+| `crossover6` | Stereo Linkwitz–Riley 6-way crossover |
 | `output` | Sink |
 
 Canonical circuit:
@@ -164,7 +169,8 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    chordMemory / chordSequencer / pitchQuantizer / turingMachine /
    fractalBrownianNoise / piSpigotNoise / randomWalk / pulseExplosion /
    spiral / fractalSpiral / logSpiral / blubb / boing / keplerBouwkamp /
-   mushroom / nyquistShannon / radar / torus / wirdoSpiral / phosphillator
+   mushroom / nyquistShannon / radar / torus / wirdoSpiral / phosphillator /
+   crossover2 / crossover3 / crossover4 / crossover5 / crossover6
    as utilities)
 ```
 
