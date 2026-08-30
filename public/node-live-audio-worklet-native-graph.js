@@ -960,6 +960,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
       push("stages", P.NATIVE_GRAPH_PARAM_STAGES, disc("stages", 4));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "softClipper") {
@@ -1229,6 +1230,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
       push("q", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("q", 0.707));
       push("gain", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("gain", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "activeFilter") {
@@ -1239,6 +1241,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
       push("feedbackCircuit", P.NATIVE_GRAPH_PARAM_STAGES, disc("feedbackCircuit", 3));
       push("gainCompensation", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("gainCompensation", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "passiveFilter") {
@@ -1246,14 +1249,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
       push("lowFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("lowFrequency", 200));
       push("highFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("highFrequency", 1000));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "tb303Filter") {
-      // frequency←cutoff Hz, gainDb←drive.
+      // frequency←cutoff Hz, gainDb←drive, amplitude←output scale.
       push("cutoff", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("cutoff", 1000));
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 4));
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0));
       push("drive", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("drive", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "flowerChildFilter") {
@@ -1261,12 +1266,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
       push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "yellowjacketFilter") {
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
       push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "superloveFilter") {
@@ -1274,6 +1281,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
       push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 0.5));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "humanFilter") {
@@ -1281,6 +1289,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
       push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "resonatorFilter") {
@@ -1288,6 +1297,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
       push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "combResonator") {
@@ -1314,6 +1324,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
       push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "inertialFilter") {

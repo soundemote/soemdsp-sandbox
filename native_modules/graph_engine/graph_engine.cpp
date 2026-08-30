@@ -2873,11 +2873,14 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   if (stages > 4) stages = 4;
 
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
-  const bool controlSmoothing = node.frequency.active || node.resonance.active;
+  const bool controlSmoothing =
+    node.frequency.active || node.resonance.active || node.amplitude.active;
 
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
+  double amp = node.amplitude.out;
+  if (!(amp == amp)) amp = 1.0;
 
   if (!liveF && !controlSmoothing) {
     double freq = clamp_hz_nyquist(node.frequency.out, srD);
@@ -2919,12 +2922,21 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
     } else if (out0) {
       copy_tap_to_buf(node.buf[kPortRight], out0, frames);
     }
+    if (amp != 1.0) {
+      for (int f = 0; f < frames; f++) {
+        node.buf[kPortMono][f] *= amp;
+        node.buf[kPortLeft][f] *= amp;
+        node.buf[kPortRight][f] *= amp;
+      }
+    }
     return;
   }
 
   // Live ƒ and/or Control chase: per-sample cutoff / resonance.
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
+    amp = node.amplitude.out;
+    if (!(amp == amp)) amp = 1.0;
     reso = node.resonance.out;
     if (!(reso == reso)) reso = 0.0;
     if (reso < 0.0) reso = 0.0;
@@ -2937,7 +2949,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
       const double out = soemdsp_ladder_filter_sample(
         node.nativeHandle, in, freq, reso, mode, stages, srD
-      );
+      ) * amp;
       node.buf[kPortMono][f] = out;
       if (!hasLeftIn) node.buf[kPortLeft][f] = out;
       if (!hasRightIn) node.buf[kPortRight][f] = out;
@@ -2945,12 +2957,12 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
     if (hasLeftIn && node.nativeHandleL > 0) {
       node.buf[kPortLeft][f] = soemdsp_ladder_filter_sample(
         node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], freq, reso, mode, stages, srD
-      );
+      ) * amp;
     }
     if (hasRightIn && node.nativeHandleR > 0) {
       node.buf[kPortRight][f] = soemdsp_ladder_filter_sample(
         node.nativeHandleR, g.mixRight[f] + g.mixMono[f], freq, reso, mode, stages, srD
-      );
+      ) * amp;
     }
   }
 }
@@ -4190,7 +4202,8 @@ static void process_tb303_filter(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
-  const bool controlSmoothing = node_control_smoothing(node) || node.gainDb.active;
+  const bool controlSmoothing =
+    node_control_smoothing(node) || node.gainDb.active || node.amplitude.active;
   const double modeV = node.mode.out;
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
@@ -4205,12 +4218,14 @@ static void process_tb303_filter(Circuit& g, Node& node, int frames) {
     if (freq < 0.0) freq = 0.0;
     const double reso = node.resonance.out;
     const double drive = node.gainDb.out;
+    double amp = node.amplitude.out;
+    if (!(amp == amp)) amp = 1.0;
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
       const double out = soemdsp_tb303_filter_sample(
         node.nativeHandle, in, freq, reso, mode, drive, sr
-      );
+      ) * amp;
       node.buf[kPortMono][f] = out;
       if (!hasLeftIn) node.buf[kPortLeft][f] = out;
       if (!hasRightIn) node.buf[kPortRight][f] = out;
@@ -4218,12 +4233,12 @@ static void process_tb303_filter(Circuit& g, Node& node, int frames) {
     if (hasLeftIn && node.nativeHandleL > 0) {
       node.buf[kPortLeft][f] = soemdsp_tb303_filter_sample(
         node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], freq, reso, mode, drive, sr
-      );
+      ) * amp;
     }
     if (hasRightIn && node.nativeHandleR > 0) {
       node.buf[kPortRight][f] = soemdsp_tb303_filter_sample(
         node.nativeHandleR, g.mixRight[f] + g.mixMono[f], freq, reso, mode, drive, sr
-      );
+      ) * amp;
     }
   }
 }
@@ -4237,7 +4252,7 @@ static void process_norm_chaos_filter(
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
   int mode = 0;
   if (hasMode) {
     const double modeV = node.mode.out;
@@ -4254,6 +4269,8 @@ static void process_norm_chaos_filter(
     if (freq > 1.0) freq = 1.0;
     const double reso = node.resonance.out;
     const double chaos = node.shape.out;
+    double amp = node.amplitude.out;
+    if (!(amp == amp)) amp = 1.0;
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
@@ -4263,6 +4280,7 @@ static void process_norm_chaos_filter(
       } else if (sample4) {
         out = sample4(node.nativeHandle, in, freq, reso, chaos, sr);
       }
+      out *= amp;
       node.buf[kPortMono][f] = out;
       if (!hasLeftIn) node.buf[kPortLeft][f] = out;
       if (!hasRightIn) node.buf[kPortRight][f] = out;
@@ -4272,11 +4290,11 @@ static void process_norm_chaos_filter(
       if (hasMode && sample5) {
         node.buf[kPortLeft][f] = sample5(
           node.nativeHandleL, inL, freq, reso, chaos, mode, sr
-        );
+        ) * amp;
       } else if (sample4) {
         node.buf[kPortLeft][f] = sample4(
           node.nativeHandleL, inL, freq, reso, chaos, sr
-        );
+        ) * amp;
       }
     }
     if (hasRightIn && node.nativeHandleR > 0) {
@@ -4284,11 +4302,11 @@ static void process_norm_chaos_filter(
       if (hasMode && sample5) {
         node.buf[kPortRight][f] = sample5(
           node.nativeHandleR, inR, freq, reso, chaos, mode, sr
-        );
+        ) * amp;
       } else if (sample4) {
         node.buf[kPortRight][f] = sample4(
           node.nativeHandleR, inR, freq, reso, chaos, sr
-        );
+        ) * amp;
       }
     }
   }
@@ -6907,5 +6925,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 54; // removed: vactrol envelope (type 74 gap retained)
+  return 55; // filter Amplitude Control applied on musical filters
 }
