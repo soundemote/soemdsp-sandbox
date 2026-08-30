@@ -128,7 +128,7 @@ const nodeGraphNodeLabels = Object.freeze({
   activeFilter: "Active Filter",
   yellowjacketFilter: "Yellowjacket Filter",
   superloveFilter: "SuperLove Filter",
-  chaoticPhaseLockingFilter: "Chaotic Phase Locking Filter",
+  chaoticPhaseLockingFilter: "Chaotic Phaselocking Filter",
   resonatorFilter: "Resonator Filter",
   modeResonator: "Mode Resonator",
   combResonator: "Comb Resonator",
@@ -7611,6 +7611,7 @@ const nodeGraphModuleDefinitions = (
   },
   chaoticPhaseLockingFilter: {
     planRole: "processor",
+    // True stereo: two independent filter states (L/R). Mono folds into both.
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -7621,7 +7622,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.5", key: "frequency", label: "Frequency", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "chaos", label: "Chaos", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-        nodeGraphOutputAmplitudeParam,
+      nodeGraphOutputAmplitudeParam,
     ]
   },
   // Complex 2-pole ring: ping-stable, decay in seconds, rings at Frequency. Not the character Resonator Filter.

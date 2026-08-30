@@ -28,7 +28,7 @@ NodeLiveAudioProcessor.prototype.chaoticPhaseLockingFilterSample = function chao
           type: "nativeModuleStatus",
           name: "chaotic_phase_locking_filter",
           status: "disabled",
-          message: String(error?.message || error || "native Chaotic Phase Locking Filter failed"),
+          message: String(error?.message || error || "native Chaotic Phaselocking Filter failed"),
         });
       }
     }

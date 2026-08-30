@@ -159,7 +159,7 @@
     },
     {
       "name": "chaotic_phase_locking_filter",
-      "label": "Chaotic Phase Locking Filter",
+      "label": "Chaotic Phaselocking Filter",
       "targetType": "chaoticPhaseLockingFilter",
       "kind": "filter",
       "source": "native_modules/chaotic_phase_locking_filter/chaotic_phase_locking_filter.cpp",

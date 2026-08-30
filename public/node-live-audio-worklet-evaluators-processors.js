@@ -578,11 +578,13 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const { params: chaoticPhaseLockingParams } = this.resolveModuleControlParams(
           node, state, { chaos: 1, frequency: 0.5, resonance: 0.2 }, frame, frames, frameValues,
         );
-        const chaoticPhaseLockingMono = mixInput(nodeId);
-        const outM = this.chaoticPhaseLockingFilterSample(state.mono, chaoticPhaseLockingMono, chaoticPhaseLockingParams, safeRate);
-        return this.stereoProcessPorts(nodeId, hasInput, outM,
-          () => this.chaoticPhaseLockingFilterSample(state.left, mixInput(nodeId, "Left") + chaoticPhaseLockingMono, chaoticPhaseLockingParams, safeRate),
-          () => this.chaoticPhaseLockingFilterSample(state.right, mixInput(nodeId, "Right") + chaoticPhaseLockingMono, chaoticPhaseLockingParams, safeRate));
+        // Always two independent engines; Mono In folds into both; Out = (L+R)/2.
+        const monoIn = (hasInput?.(nodeId, "In") ? mixInput(nodeId, "In") : mixInput(nodeId)) || 0;
+        const leftIn = (hasInput?.(nodeId, "Left") ? mixInput(nodeId, "Left") : 0) + monoIn;
+        const rightIn = (hasInput?.(nodeId, "Right") ? mixInput(nodeId, "Right") : 0) + monoIn;
+        const left = this.chaoticPhaseLockingFilterSample(state.left, leftIn, chaoticPhaseLockingParams, safeRate);
+        const right = this.chaoticPhaseLockingFilterSample(state.right, rightIn, chaoticPhaseLockingParams, safeRate);
+        return { Out: 0.5 * (left + right), Left: left, Right: right };
       },
       resonatorFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.resonatorFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createResonatorFilterState());

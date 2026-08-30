@@ -4376,10 +4376,47 @@ static void process_resonator_filter(Circuit& g, Node& node, int frames) {
   );
 }
 
+// Always dual-instance stereo: independent L/R native states (chaos diverges).
+// Mono In folds into both; Mono Out = (L+R)/2 when needed.
 static void process_chaotic_phase_locking_filter(Circuit& g, Node& node, int frames) {
-  process_norm_chaos_filter(
-    g, node, frames, false, soemdsp_chaotic_phase_locking_filter_sample, nullptr
-  );
+  if (node.nativeHandleL <= 0 || node.nativeHandleR <= 0) {
+    // Fallback: single-handle path if MLR pool failed.
+    process_norm_chaos_filter(
+      g, node, frames, false, soemdsp_chaotic_phase_locking_filter_sample, nullptr
+    );
+    return;
+  }
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double freq = node.frequency.out;
+    if (!(freq == freq)) freq = 0.5;
+    if (freq < 0.0) freq = 0.0;
+    if (freq > 1.0) freq = 1.0;
+    const double reso = node.resonance.out;
+    const double chaos = node.shape.out;
+    double amp = node.amplitude.out;
+    if (!(amp == amp)) amp = 1.0;
+    const double monoIn = g.mixMono[f];
+    const double inL = g.mixLeft[f] + monoIn;
+    const double inR = g.mixRight[f] + monoIn;
+    const double outL = soemdsp_chaotic_phase_locking_filter_sample(
+      node.nativeHandleL, inL, freq, reso, chaos, sr
+    ) * amp;
+    const double outR = soemdsp_chaotic_phase_locking_filter_sample(
+      node.nativeHandleR, inR, freq, reso, chaos, sr
+    ) * amp;
+    node.buf[kPortLeft][f] = outL;
+    node.buf[kPortRight][f] = outR;
+    if (needMono) {
+      node.buf[kPortMono][f] = 0.5 * (outL + outR);
+    }
+  }
 }
 
 // Mode resonator: timeNumerator=decay, timingMode=hold.
@@ -6959,5 +6996,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 57; // Morph turquoise ZOH: polyBlep/softwave/ellipsoid/dsf (+ additive)
+  return 58; // Chaotic Phaselocking Filter always dual L/R instances
 }

@@ -1462,7 +1462,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   chaoticPhaseLockingFilter: {
     category: "analogFilter",
     description: "Phase-locked chaotic feedback textures through LP/HP stages.",
-    label: "Chaotic Phase Locking Filter",
+    label: "Chaotic Phaselocking Filter",
     notes: ["ellipse waveshaper", "direct feedback", "phase locking", "analog"],
   },
   modeResonator: {

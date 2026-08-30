@@ -1,5 +1,5 @@
 // soemdsp-native-module: chaotic_phase_locking_filter
-// soemdsp-native-label: Chaotic Phase Locking Filter
+// soemdsp-native-label: Chaotic Phaselocking Filter
 // soemdsp-native-target: chaoticPhaseLockingFilter
 // soemdsp-native-kind: filter
 //

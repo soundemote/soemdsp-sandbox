@@ -38,10 +38,27 @@ nodeGraphLiveModuleEvaluators.chaoticPhaseLockingFilter = ({ runtime, node, node
     frequency: readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 0.5, frame, frames, frameValues),
     resonance: readNodeGraphLiveEffectiveParam(runtime, node, "resonance", 0.2, frame, frames, frameValues),
   };
-  const chaoticPhaseLockingMono = mixInput(nodeId);
+  // Always two independent engines (L/R). Mono In folds into both; Mono Out = (L+R)/2.
+  const monoIn = mixInput(nodeId, "In") || mixInput(nodeId) || 0;
+  const left = nodeGraphChaoticPhaseLockingFilterSample(
+    state.left,
+    (mixInput(nodeId, "Left") || 0) + monoIn,
+    chaoticPhaseLockingParams,
+    sampleRate,
+    runtime,
+    `${nodeId}:left`
+  );
+  const right = nodeGraphChaoticPhaseLockingFilterSample(
+    state.right,
+    (mixInput(nodeId, "Right") || 0) + monoIn,
+    chaoticPhaseLockingParams,
+    sampleRate,
+    runtime,
+    `${nodeId}:right`
+  );
   return {
-    Out: nodeGraphChaoticPhaseLockingFilterSample(state.mono, chaoticPhaseLockingMono, chaoticPhaseLockingParams, sampleRate, runtime, `${nodeId}:mono`),
-    Left: nodeGraphChaoticPhaseLockingFilterSample(state.left, mixInput(nodeId, "Left") + chaoticPhaseLockingMono, chaoticPhaseLockingParams, sampleRate, runtime, `${nodeId}:left`),
-    Right: nodeGraphChaoticPhaseLockingFilterSample(state.right, mixInput(nodeId, "Right") + chaoticPhaseLockingMono, chaoticPhaseLockingParams, sampleRate, runtime, `${nodeId}:right`),
+    Out: 0.5 * (left + right),
+    Left: left,
+    Right: right,
   };
 };
