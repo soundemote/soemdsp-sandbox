@@ -100,10 +100,8 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     return;
   }
 
-  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  const freqHz = Number(graph.frequencyHz ?? node?.params?.frequency ?? node?.parameters?.frequency) || 100;
-  const nyquist = 22050;
-  const H = graph.ratio.length;
+  // X spans only the H harmonics (no empty Nyquist tail).
+  const H = Math.max(1, graph.ratio.length | 0);
   let maxAmp = 1e-6;
   for (let i = 0; i < H; i += 1) {
     const a = Math.abs(graph.amplitude[i] || 0);
@@ -111,18 +109,21 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
   }
   const baseY = h * 0.92;
   const maxH = h * 0.82;
+  const pad = Math.max(2, w * 0.02);
+  const span = Math.max(1, w - pad * 2);
+  const lineW = Math.max(1, Math.min(4, span / Math.max(1, H * 1.25)));
 
   for (let i = 0; i < H; i += 1) {
-    const hz = (graph.ratio[i] || 0) * freqHz;
-    if (!(hz > 0) || hz > nyquist) continue;
-    const x = (hz / nyquist) * w;
+    // Even slots across the face: 1st harmonic at left, last at right.
+    const t = H <= 1 ? 0.5 : i / (H - 1);
+    const x = pad + t * span;
     const amp = Math.abs(graph.amplitude[i] || 0) / maxAmp;
     const lineH = amp * maxH;
     const col = typeof additiveGraphPhaseColor === "function"
       ? additiveGraphPhaseColor(graph.phase[i] || 0)
       : { r: 224, g: 64, b: 251 };
     ctx.strokeStyle = `rgb(${col.r},${col.g},${col.b})`;
-    ctx.lineWidth = Math.max(1, Math.min(3, w / Math.max(64, H * 2)));
+    ctx.lineWidth = lineW;
     ctx.beginPath();
     ctx.moveTo(x, baseY);
     ctx.lineTo(x, baseY - lineH);
