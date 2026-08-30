@@ -29,6 +29,9 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "midSideEncode",
   "vectorscopeTransform",
   "rotate3dTo2d",
+  "clock",
+  "triggerDivider",
+  "delayedTrigger",
   "output",
 ]);
 
