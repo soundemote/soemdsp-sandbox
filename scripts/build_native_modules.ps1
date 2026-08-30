@@ -141,10 +141,7 @@ $modules = @(
   @{ Name = "slew_limiter"; Simd = $false; Exports = @(
     "soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample",
     "soemdsp_slew_limiter_process_block",
-    "soemdsp_slew_limiter_block_input_mono_ptr", "soemdsp_slew_limiter_block_input_left_ptr",
-    "soemdsp_slew_limiter_block_input_right_ptr",
-    "soemdsp_slew_limiter_block_output_mono_ptr", "soemdsp_slew_limiter_block_output_left_ptr",
-    "soemdsp_slew_limiter_block_output_right_ptr",
+    "soemdsp_slew_limiter_block_input_ptr", "soemdsp_slew_limiter_block_output_ptr",
     "soemdsp_slew_limiter_max_block_frames", "soemdsp_slew_limiter_version"
   ) }
   @{ Name = "sample_hold"; Simd = $false; Exports = @("soemdsp_sample_hold_create", "soemdsp_sample_hold_destroy", "soemdsp_sample_hold_sample", "soemdsp_sample_hold_version") }

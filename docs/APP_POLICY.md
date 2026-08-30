@@ -98,6 +98,7 @@ This app is a **C++ DSP engine with a JS interface** (§0). JS authors and obser
 - **No JS twin** “in case native fails.” If native is missing or cold: **silence / black / inert** (optional status), not a second algorithm.
 - Face/display may present native results but must **not** re-implement the audio kernel in JS or GLSL for “looks only.”
 - Same rule offline: Render Sample uses the **same native core** (see §5).
+- **Match the module’s channel model — do not invent stereo inside natives.** A mono utility stays mono-per-handle (`process_block` on one buffer). The graph folds Mono+L+R and fans Out when the patch presents stereo jacks (same pattern as attenuverter / range / bias). True-stereo modules keep independent L/R state because the algorithm is stereo — not because the UI has Left/Right jacks.
 
 ---
 

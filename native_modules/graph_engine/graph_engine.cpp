@@ -158,12 +158,8 @@ extern "C" void soemdsp_slew_limiter_process_block(
   int handle, double upTime, double downTime, double shape, double bias,
   double sampleRate, int frameCount
 );
-extern "C" int soemdsp_slew_limiter_block_input_mono_ptr(int handle);
-extern "C" int soemdsp_slew_limiter_block_input_left_ptr(int handle);
-extern "C" int soemdsp_slew_limiter_block_input_right_ptr(int handle);
-extern "C" int soemdsp_slew_limiter_block_output_mono_ptr(int handle);
-extern "C" int soemdsp_slew_limiter_block_output_left_ptr(int handle);
-extern "C" int soemdsp_slew_limiter_block_output_right_ptr(int handle);
+extern "C" int soemdsp_slew_limiter_block_input_ptr(int handle);
+extern "C" int soemdsp_slew_limiter_block_output_ptr(int handle);
 
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
@@ -1522,19 +1518,16 @@ static void process_b2u(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Mono utility: fold Mono+L+R → one slew channel → fan Out to Mono/Left/Right.
+// Native is mono-per-handle (same as original); do not invent stereo inside C++.
 static void process_slew_limiter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
-  double* inM = ptr_from_export(soemdsp_slew_limiter_block_input_mono_ptr(node.nativeHandle));
-  double* inL = ptr_from_export(soemdsp_slew_limiter_block_input_left_ptr(node.nativeHandle));
-  double* inR = ptr_from_export(soemdsp_slew_limiter_block_input_right_ptr(node.nativeHandle));
-  if (!inM || !inL || !inR) return;
+  double* inPtr = ptr_from_export(soemdsp_slew_limiter_block_input_ptr(node.nativeHandle));
+  if (!inPtr) return;
   for (int f = 0; f < frames; f++) {
-    const double m = g.mixMono[f];
-    inM[f] = m;
-    inL[f] = m + g.mixLeft[f];
-    inR[f] = m + g.mixRight[f];
+    inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
   }
   // timeNumerator=upTime, timeDenominator=downTime, shape=shape, offset=bias
   soemdsp_slew_limiter_process_block(
@@ -1546,13 +1539,11 @@ static void process_slew_limiter(Circuit& g, Node& node, int frames) {
     (double)sr,
     frames
   );
-  double* outM = ptr_from_export(soemdsp_slew_limiter_block_output_mono_ptr(node.nativeHandle));
-  double* outL = ptr_from_export(soemdsp_slew_limiter_block_output_left_ptr(node.nativeHandle));
-  double* outR = ptr_from_export(soemdsp_slew_limiter_block_output_right_ptr(node.nativeHandle));
-  if (!outM || !outL || !outR) return;
-  copy_tap_to_buf(node.buf[kPortMono], outM, frames);
-  copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
-  copy_tap_to_buf(node.buf[kPortRight], outR, frames);
+  double* outPtr = ptr_from_export(soemdsp_slew_limiter_block_output_ptr(node.nativeHandle));
+  if (!outPtr) return;
+  copy_tap_to_buf(node.buf[kPortMono], outPtr, frames);
+  copy_tap_to_buf(node.buf[kPortLeft], outPtr, frames);
+  copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
 }
 
 // Bias: out = in + offset (Control `offset`, same slot as attenuverter DC).
@@ -2210,5 +2201,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 21; // slewLimiter (stereo block + shape/bias)
+  return 22; // slewLimiter mono process_block + shape/bias (not forced stereo)
 }
