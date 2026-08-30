@@ -76,6 +76,12 @@ Only these live-audio types exist in the efficient build:
 | `sineWavetable` | SinCos4 — native sin/cos → A/B/C/D by mode |
 | `antisaw` | Aliased-partial saw (fundamental / reflections / tilt) |
 | `archimedes` | Fixed-point quadrature sine + π / dither noise taps |
+| `additiveOsc` | Native additive partial bank (free-fn; host phase) |
+| `surgeOscillator` | Hard-sync PolyBLEP osc (internal or external Sync) |
+| `softwaveOsc` | Soft-shaped multi-wave morph oscillator |
+| `dsfOscillator` | Discrete Summation Formula oscillator |
+| `hypersaw` | Stereo PolyBLEP saw bank (spread / random / drift) |
+| `sinc` | Repeating sinc kernel (Ideal / Band Limit) |
 | `output` | Sink |
 
 Canonical circuit:
@@ -88,7 +94,8 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    midSideEncode / vectorscopeTransform / rotate3dTo2d /
    clock / triggerDivider / delayedTrigger / randomClock / triggerCounter /
    metallicRatio / lutCell / lookaheadLimiter / stepSequencer / transport /
-   aliasSine / blit / sineWavetable / antisaw / archimedes
+   aliasSine / blit / sineWavetable / antisaw / archimedes /
+   additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc
    as utilities)
 ```
 

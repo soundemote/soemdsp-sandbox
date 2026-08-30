@@ -44,6 +44,12 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "sineWavetable",
   "antisaw",
   "archimedes",
+  "additiveOsc",
+  "surgeOscillator",
+  "softwaveOsc",
+  "dsfOscillator",
+  "hypersaw",
+  "sinc",
   "output",
 ]);
 

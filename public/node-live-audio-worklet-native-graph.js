@@ -47,6 +47,12 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   sineWavetable: 40,
   antisaw: 41,
   archimedes: 42,
+  additiveOsc: 43,
+  surgeOscillator: 44,
+  softwaveOsc: 45,
+  dsfOscillator: 46,
+  hypersaw: 47,
+  sinc: 48,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -184,6 +190,10 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "noise below") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
     if (p === "noise above") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
   }
+  if (t === "surgeOscillator") {
+    if (p === "synced") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+    if (p === "internal sync") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
   if ((t === "sineWavetable" || t === "sinCos") && (p === "cos" || p === "cosine")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
@@ -302,6 +312,10 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
   }
   const t = String(type || "").trim();
+  // surgeOscillator Sync audio in (reuses Mono bus as destination-only).
+  if (p === "sync" && t === "surgeOscillator") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  }
   // mixStereo R4 is destination-only (aux bus, not a Node.buf tap).
   if (p === "r4" && t === "mixStereo") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MIX_STEREO_R4;
@@ -626,6 +640,9 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   monoSum: true,
   reflections: true,
   profile: true,
+  harmonics: true,
+  lobes: true,
+  bandLimit: true,
 });
 
 /**
@@ -841,6 +858,67 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("profile", P.NATIVE_GRAPH_PARAM_STAGES, disc("profile", 12));
       push("dither", P.NATIVE_GRAPH_PARAM_WIDTH, cont("dither", 3));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "additiveOsc") {
+      // stages=harmonics, shape=modA, center=phaseAdd, width=phaseMul, lpf=damping.
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("modA", P.NATIVE_GRAPH_PARAM_SHAPE, cont("modA", 0.5));
+      push("harmonicPhaseAdd", P.NATIVE_GRAPH_PARAM_CENTER, cont("harmonicPhaseAdd", 0));
+      push("harmonicPhaseMultiply", P.NATIVE_GRAPH_PARAM_WIDTH, cont("harmonicPhaseMultiply", 0));
+      push("harmonics", P.NATIVE_GRAPH_PARAM_STAGES, disc("harmonics", 32));
+      push("dampingFilterFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("dampingFilterFrequency", 20000));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0.35));
+      continue;
+    }
+    if (type === "surgeOscillator") {
+      // width = syncFrequency Hz.
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
+      push("syncFrequency", P.NATIVE_GRAPH_PARAM_WIDTH, cont("syncFrequency", 50));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "softwaveOsc") {
+      // shape=morph, center=antialias.
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
+      push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0.5));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("antialias", P.NATIVE_GRAPH_PARAM_CENTER, cont("antialias", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "dsfOscillator") {
+      // shape=morph/harmonics, width=PWM, mix=SquSaw blend.
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 1));
+      push("pulseWidth", P.NATIVE_GRAPH_PARAM_WIDTH, cont("pulseWidth", 0.5));
+      push("blend", P.NATIVE_GRAPH_PARAM_MIX, cont("blend", 0.5));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "hypersaw") {
+      // stages=voices, shape=spread, width=random, center=drift.
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("voices", P.NATIVE_GRAPH_PARAM_STAGES, disc("voices", 8));
+      push("spread", P.NATIVE_GRAPH_PARAM_SHAPE, cont("spread", 1));
+      push("random", P.NATIVE_GRAPH_PARAM_WIDTH, cont("random", 0.15));
+      push("drift", P.NATIVE_GRAPH_PARAM_CENTER, cont("drift", 0.1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0.35));
+      continue;
+    }
+    if (type === "sinc") {
+      // stages=lobes, mode=bandLimit; freq key matches module def.
+      push("freq", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("freq", 100));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("lobes", P.NATIVE_GRAPH_PARAM_STAGES, disc("lobes", 4));
+      push("bandLimit", P.NATIVE_GRAPH_PARAM_MODE, disc("bandLimit", 1));
       continue;
     }
     if (type === "robinSupersaw") {
