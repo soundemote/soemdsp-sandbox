@@ -97,6 +97,18 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   piSpigotNoise: 88,
   randomWalk: 89,
   pulseExplosion: 90,
+  spiral: 91,
+  fractalSpiral: 92,
+  logSpiral: 93,
+  blubb: 94,
+  boing: 95,
+  keplerBouwkamp: 96,
+  mushroom: 97,
+  nyquistShannon: 98,
+  radar: 99,
+  torus: 100,
+  wirdoSpiral: 101,
+  phosphillator: 102,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -352,6 +364,10 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (
     t === "lorenzAttractor" || t === "henonMap" || t === "chuaAttractor"
     || t === "rayBouncer" || t === "ellipsoid" || t === "snowflake"
+    || t === "spiral" || t === "fractalSpiral" || t === "logSpiral"
+    || t === "blubb" || t === "boing" || t === "keplerBouwkamp"
+    || t === "mushroom" || t === "nyquistShannon" || t === "radar"
+    || t === "torus" || t === "wirdoSpiral" || t === "phosphillator"
   ) {
     if (p === "x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     if (p === "y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
@@ -1467,6 +1483,187 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("lowAmplitude", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("lowAmplitude", 0.3));
       push("highAmplitude", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("highAmplitude", 1));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 0));
+      continue;
+    }
+    if (type === "spiral") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 440));
+      push("density", P.NATIVE_GRAPH_PARAM_SHAPE, cont("density", 1));
+      push("size", P.NATIVE_GRAPH_PARAM_WIDTH, cont("size", 0.5));
+      push("sharp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("sharp", 0.5));
+      push("sharpCurve", P.NATIVE_GRAPH_PARAM_MIX, cont("sharpCurve", 0));
+      push("sharpCurveMult", P.NATIVE_GRAPH_PARAM_CENTER, cont("sharpCurveMult", 1));
+      push("morph", P.NATIVE_GRAPH_PARAM_PHASE, cont("morph", 0));
+      push("position", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("position", 0));
+      push("rotX", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("rotX", 0));
+      push("rotY", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("rotY", 0));
+      push("zAmount", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("zAmount", 0));
+      push("zDepth", P.NATIVE_GRAPH_PARAM_LEVEL, cont("zDepth", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "fractalSpiral") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1));
+      push("spin", P.NATIVE_GRAPH_PARAM_PHASE, cont("spin", 0.05));
+      push("size", P.NATIVE_GRAPH_PARAM_WIDTH, cont("size", 0.5));
+      push("growth", P.NATIVE_GRAPH_PARAM_SHAPE, cont("growth", 1.5));
+      push("gain", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("gain", 0.5));
+      push("lacunarity", P.NATIVE_GRAPH_PARAM_CENTER, cont("lacunarity", 2));
+      push("octaves", P.NATIVE_GRAPH_PARAM_STAGES, disc("octaves", 5));
+      push("twist", P.NATIVE_GRAPH_PARAM_MIX, cont("twist", 0.381966));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "logSpiral") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1));
+      push("spin", P.NATIVE_GRAPH_PARAM_PHASE, cont("spin", 0.05));
+      push("size", P.NATIVE_GRAPH_PARAM_WIDTH, cont("size", 0.5));
+      push("growth", P.NATIVE_GRAPH_PARAM_SHAPE, cont("growth", 3));
+      push("turns", P.NATIVE_GRAPH_PARAM_STAGES, cont("turns", 4));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "blubb") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 8));
+      push("shape", P.NATIVE_GRAPH_PARAM_SHAPE, disc("shape", 0));
+      push("rotX", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("rotX", 0));
+      push("rotY", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("rotY", 0));
+      push("zDepth", P.NATIVE_GRAPH_PARAM_LEVEL, cont("zDepth", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "boing") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 8));
+      push("density", P.NATIVE_GRAPH_PARAM_SHAPE, cont("density", 1));
+      push("sharpness", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("sharpness", 0));
+      push("rotX", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("rotX", 0));
+      push("rotY", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("rotY", 0));
+      push("zDepth", P.NATIVE_GRAPH_PARAM_LEVEL, cont("zDepth", 0));
+      push("zAmount", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("zAmount", 0));
+      push("ends", P.NATIVE_GRAPH_PARAM_MIX, cont("ends", 0));
+      push("boing", P.NATIVE_GRAPH_PARAM_CENTER, cont("boing", 0));
+      push("boingStrength", P.NATIVE_GRAPH_PARAM_WIDTH, cont("boingStrength", 0));
+      push("dir", P.NATIVE_GRAPH_PARAM_MODE, cont("dir", 0));
+      push("shape", P.NATIVE_GRAPH_PARAM_PHASE, cont("shape", 0));
+      push("volume", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("volume", 1));
+      push("volumePreJump", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("volumePreJump", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "keplerBouwkamp") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 8));
+      push("start", P.NATIVE_GRAPH_PARAM_CENTER, disc("start", 3));
+      push("length", P.NATIVE_GRAPH_PARAM_STAGES, disc("length", 1));
+      push("circles", P.NATIVE_GRAPH_PARAM_SHAPE, cont("circles", 0.5));
+      push("zoom", P.NATIVE_GRAPH_PARAM_MIX, cont("zoom", 0));
+      push("rotation", P.NATIVE_GRAPH_PARAM_PHASE, cont("rotation", 0));
+      push("tri", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("tri", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "mushroom") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 8));
+      push("phaseOffset", P.NATIVE_GRAPH_PARAM_PHASE, cont("phaseOffset", 0));
+      push("numMushrooms", P.NATIVE_GRAPH_PARAM_STAGES, disc("numMushrooms", 1));
+      push("grow", P.NATIVE_GRAPH_PARAM_MIX, cont("grow", 1));
+      push("density", P.NATIVE_GRAPH_PARAM_SHAPE, cont("density", 3));
+      push("capRotation", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("capRotation", 0));
+      push("stemRotationSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("stemRotationSpeed", 0));
+      push("head", P.NATIVE_GRAPH_PARAM_CENTER, cont("head", 0.6667));
+      push("spread", P.NATIVE_GRAPH_PARAM_WIDTH, cont("spread", 0.5));
+      push("wobble", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("wobble", 0.0625));
+      push("clusterRotation", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("clusterRotation", 0));
+      push("clusterRotationSpeed", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("clusterRotationSpeed", 0));
+      push("sharp", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("sharp", 0));
+      push("width", P.NATIVE_GRAPH_PARAM_LEVEL, cont("width", 1));
+      push("stem", P.NATIVE_GRAPH_PARAM_MODE, cont("stem", 0));
+      push("apart", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, cont("apart", 0));
+      push("capStemTransition", P.NATIVE_GRAPH_PARAM_RECYCLE, cont("capStemTransition", 0.1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "nyquistShannon") {
+      push("frequencyA", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequencyA", 440));
+      push("midiNoteRaw", P.NATIVE_GRAPH_PARAM_SEED, disc("midiNoteRaw", 48));
+      push("rate", P.NATIVE_GRAPH_PARAM_CENTER, cont("rate", 20));
+      push("sampleDots", P.NATIVE_GRAPH_PARAM_MIX, cont("sampleDots", 0));
+      push("phaseOffset", P.NATIVE_GRAPH_PARAM_PHASE, cont("phaseOffset", 0));
+      push("frequencyB", P.NATIVE_GRAPH_PARAM_WIDTH, cont("frequencyB", 5));
+      push("subPhase", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("subPhase", 0));
+      push("subPhaseRotationSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("subPhaseRotationSpeed", 0));
+      push("tone", P.NATIVE_GRAPH_PARAM_SHAPE, cont("tone", 0));
+      push("toneSmoothTime", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("toneSmoothTime", 0.01));
+      push("artifact", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("artifact", 0));
+      push("enableToneModPitch", P.NATIVE_GRAPH_PARAM_MODE, disc("enableToneModPitch", 1));
+      push("enableToneModFreq", P.NATIVE_GRAPH_PARAM_STAGES, disc("enableToneModFreq", 0));
+      push("enableToneModNote", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, disc("enableToneModNote", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "radar") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1));
+      push("phaseOffset", P.NATIVE_GRAPH_PARAM_PHASE, cont("phaseOffset", 0));
+      push("density", P.NATIVE_GRAPH_PARAM_SHAPE, cont("density", 1));
+      push("sharp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("sharp", 0));
+      push("fade", P.NATIVE_GRAPH_PARAM_CENTER, cont("fade", 1));
+      push("rotation", P.NATIVE_GRAPH_PARAM_MIX, cont("rotation", 0));
+      push("direction", P.NATIVE_GRAPH_PARAM_MODE, cont("direction", 0));
+      push("shade", P.NATIVE_GRAPH_PARAM_WIDTH, cont("shade", 1));
+      push("lap", P.NATIVE_GRAPH_PARAM_LEVEL, cont("lap", 0));
+      push("length", P.NATIVE_GRAPH_PARAM_STAGES, cont("length", 1));
+      push("ratio", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("ratio", 0));
+      push("frontring", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("frontring", 0));
+      push("zoom", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("zoom", 0));
+      push("zDepth", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("zDepth", 0));
+      push("inner", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inner", 0));
+      push("x", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("x", 0));
+      push("y", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("y", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "torus") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 8));
+      push("density", P.NATIVE_GRAPH_PARAM_SHAPE, cont("density", 1));
+      push("quantizeDensity", P.NATIVE_GRAPH_PARAM_MODE, disc("quantizeDensity", 1));
+      push("subdensity", P.NATIVE_GRAPH_PARAM_CENTER, cont("subdensity", 0));
+      push("quantizeSubDensity", P.NATIVE_GRAPH_PARAM_STAGES, disc("quantizeSubDensity", 1));
+      push("sharp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("sharp", 0.5));
+      push("size", P.NATIVE_GRAPH_PARAM_WIDTH, cont("size", 1));
+      push("length", P.NATIVE_GRAPH_PARAM_MIX, cont("length", 0));
+      push("balance", P.NATIVE_GRAPH_PARAM_PHASE, cont("balance", 0));
+      push("wander", P.NATIVE_GRAPH_PARAM_LEVEL, cont("wander", 0));
+      push("darkAngle", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("darkAngle", 0));
+      push("darkIntensity", P.NATIVE_GRAPH_PARAM_SEED, disc("darkIntensity", 0));
+      push("rotX", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("rotX", 0));
+      push("rotY", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("rotY", 0));
+      push("rotZ", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("rotZ", 0));
+      push("zAngleX", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("zAngleX", 0));
+      push("zAngleY", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("zAngleY", 0));
+      push("zDepth", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("zDepth", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "wirdoSpiral") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 8));
+      push("sharp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("sharp", 0));
+      push("cross", P.NATIVE_GRAPH_PARAM_MIX, cont("cross", 0));
+      push("density", P.NATIVE_GRAPH_PARAM_SHAPE, cont("density", 0.8));
+      push("length", P.NATIVE_GRAPH_PARAM_WIDTH, cont("length", 1));
+      push("rotate", P.NATIVE_GRAPH_PARAM_PHASE, cont("rotate", 0));
+      push("splashDepth", P.NATIVE_GRAPH_PARAM_CENTER, cont("splashDepth", 0));
+      push("splashDensity", P.NATIVE_GRAPH_PARAM_LEVEL, cont("splashDensity", 0));
+      push("cut", P.NATIVE_GRAPH_PARAM_STAGES, disc("cut", 1000));
+      push("scrap", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("scrap", 1));
+      push("ringCut", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("ringCut", 10));
+      push("splashSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("splashSpeed", 0));
+      push("syncCut", P.NATIVE_GRAPH_PARAM_MODE, cont("syncCut", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "phosphillator") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 2));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("sharpness", P.NATIVE_GRAPH_PARAM_SHAPE, cont("sharpness", 0.5));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "robinSupersaw") {

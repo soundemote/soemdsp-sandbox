@@ -125,6 +125,18 @@ Only these live-audio types exist in the efficient build:
 | `piSpigotNoise` | π-spigot BBP noise (sum/term/hex) |
 | `randomWalk` | Seeded random-walk CV |
 | `pulseExplosion` | Triggered pulse burst + density curve |
+| `spiral` | Jerobeam spiral XY(Z) oscillator |
+| `fractalSpiral` | Fractal spiral XY(Z) |
+| `logSpiral` | Log spiral XY(Z) |
+| `blubb` | Jerobeam blubb XY |
+| `boing` | Jerobeam boing XY |
+| `keplerBouwkamp` | Kepler–Bouwkamp XY |
+| `mushroom` | Jerobeam mushroom XY |
+| `nyquistShannon` | Nyquist–Shannon XY |
+| `radar` | Jerobeam radar XY |
+| `torus` | Jerobeam torus XY |
+| `wirdoSpiral` | Wirdo spiral XY |
+| `phosphillator` | Path-scan XY oscillator (default circle) |
 | `output` | Sink |
 
 Canonical circuit:
@@ -150,7 +162,9 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    delayEffect / soemReverb / pll /
    lorenzAttractor / logisticMap / henonMap / chuaAttractor / rayBouncer /
    chordMemory / chordSequencer / pitchQuantizer / turingMachine /
-   fractalBrownianNoise / piSpigotNoise / randomWalk / pulseExplosion
+   fractalBrownianNoise / piSpigotNoise / randomWalk / pulseExplosion /
+   spiral / fractalSpiral / logSpiral / blubb / boing / keplerBouwkamp /
+   mushroom / nyquistShannon / radar / torus / wirdoSpiral / phosphillator
    as utilities)
 ```
 
