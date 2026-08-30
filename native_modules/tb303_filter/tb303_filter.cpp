@@ -77,7 +77,7 @@ static const char kMetadataJson[] =
     "]"
   "}";
 
-static const int    kMaxInstances = 64;
+static const int kMaxInstances = 256;
 static const double kHpCutoff     = 150.0;
 static const double kExpNeg3      = 0.049787068367863944;   // exp(-3), precomputed
 

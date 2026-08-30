@@ -1261,6 +1261,8 @@ struct Node {
   bool used;
   bool bypassed; // dry/silence passthrough; DSP state kept (no recreate)
   int nativeHandle;
+  int nativeHandleL; // independent L filter state (mono-native MLR types)
+  int nativeHandleR; // independent R filter state
   int nativeKind; // type at create time — destroy keys off this, not typeId
   Control volumeDb;
   Control pan;
@@ -1362,195 +1364,213 @@ static double* ptr_from_export(int addr) {
   return (double*)(unsigned)addr;
 }
 
-static void destroy_node_native(Node& n) {
-  if (n.nativeHandle <= 0) {
-    n.nativeHandle = 0;
-    n.nativeKind = 0;
-    return;
+static void destroy_native_kind_handle(int kind, int handle) {
+  if (handle <= 0) return;
+  if (kind == kTypePolyBlep) {
+    soemdsp_polyblep_destroy(handle);
+  } else if (kind == kTypeLadderFilter) {
+    soemdsp_ladder_filter_destroy(handle);
+  } else if (kind == kTypeSoftClipper) {
+    soemdsp_soft_clipper_destroy(handle);
+  } else if (kind == kTypeReverbEffect) {
+    soemdsp_sabrina_reverb_destroy(handle);
+  } else if (kind == kTypePingPongDelay) {
+    soemdsp_ping_pong_delay_destroy(handle);
+  } else if (kind == kTypeAttenuverter) {
+    soemdsp_attenuverter_destroy(handle);
+  } else if (kind == kTypeRange) {
+    soemdsp_range_destroy(handle);
+  } else if (kind == kTypeNoiseGenerator) {
+    soemdsp_noise_generator_destroy(handle);
+  } else if (kind == kTypeRobinSinusoid) {
+    soemdsp_robin_sinusoid_destroy(handle);
+  } else if (kind == kTypeRobinSupersaw) {
+    soemdsp_robin_supersaw_destroy(handle);
+  } else if (kind == kTypeSlewLimiter) {
+    soemdsp_slew_limiter_destroy(handle);
+  } else if (kind == kTypeComparator) {
+    soemdsp_comparator_destroy(handle);
+  } else if (kind == kTypeSampleDelay) {
+    soemdsp_sample_delay_destroy(handle);
+  } else if (kind == kTypeSampleHold) {
+    soemdsp_sample_hold_destroy(handle);
+  } else if (kind == kTypeMinMax) {
+    soemdsp_min_max_destroy(handle);
+  } else if (kind == kTypeClipperLimiter) {
+    soemdsp_clipper_limiter_destroy(handle);
+  } else if (kind == kTypeClock) {
+    soemdsp_clock_destroy(handle);
+  } else if (kind == kTypeTriggerDivider) {
+    soemdsp_trigger_divider_destroy(handle);
+  } else if (kind == kTypeDelayedTrigger) {
+    soemdsp_delayed_trigger_destroy(handle);
+  } else if (kind == kTypeRandomClock) {
+    soemdsp_random_clock_destroy(handle);
+  } else if (kind == kTypeTriggerCounter) {
+    soemdsp_trigger_counter_destroy(handle);
+  } else if (kind == kTypeLutCell) {
+    soemdsp_lut_cell_destroy(handle);
+  } else if (kind == kTypeLookaheadLimiter) {
+    soemdsp_lookahead_limiter_destroy(handle);
+  } else if (kind == kTypeStepSequencer) {
+    soemdsp_step_sequencer_destroy(handle);
+  } else if (kind == kTypeTransport) {
+    soemdsp_transport_destroy(handle);
+  } else if (kind == kTypeAliasSine) {
+    soemdsp_alias_sine_destroy(handle);
+  } else if (kind == kTypeBlit) {
+    soemdsp_blit_destroy(handle);
+  } else if (kind == kTypeSineWavetable) {
+    soemdsp_sine_wavetable_destroy(handle);
+  } else if (kind == kTypeAntisaw) {
+    soemdsp_antisaw_destroy(handle);
+  } else if (kind == kTypeArchimedes) {
+    soemdsp_archimedes_destroy(handle);
+  } else if (kind == kTypeSurgeOscillator) {
+    soemdsp_surge_oscillator_destroy(handle);
+  } else if (kind == kTypeSoftwaveOsc) {
+    soemdsp_softwave_destroy(handle);
+  } else if (kind == kTypeDsfOscillator) {
+    soemdsp_dsf_oscillator_destroy(handle);
+  } else if (kind == kTypeHypersaw) {
+    soemdsp_hypersaw_destroy(handle);
+  } else if (kind == kTypeSinc) {
+    soemdsp_sinc_destroy(handle);
+  } else if (kind == kTypeBradley2a) {
+    soemdsp_bradley_2a_destroy(handle);
+  } else if (kind == kTypeSnowflake) {
+    soemdsp_snowflake_destroy(handle);
+  } else if (kind == kTypeButterworth) {
+    soemdsp_butterworth_destroy(handle);
+  } else if (kind == kTypeLinkwitzRiley) {
+    soemdsp_linkwitz_riley_destroy(handle);
+  } else if (kind == kTypeBessel) {
+    soemdsp_bessel_destroy(handle);
+  } else if (kind == kTypeChebyshev) {
+    soemdsp_chebyshev_destroy(handle);
+  } else if (kind == kTypeElliptic) {
+    soemdsp_elliptic_destroy(handle);
+  } else if (kind == kTypeEqFilter) {
+    soemdsp_eq_filter_destroy(handle);
+  } else if (kind == kTypeActiveFilter) {
+    soemdsp_active_filter_destroy(handle);
+  } else if (kind == kTypePassiveFilter) {
+    soemdsp_passive_filter_destroy(handle);
+  } else if (kind == kTypeTb303Filter) {
+    soemdsp_tb303_filter_destroy(handle);
+  } else if (kind == kTypeFlowerChildFilter) {
+    soemdsp_flower_child_filter_destroy(handle);
+  } else if (kind == kTypeYellowjacketFilter) {
+    soemdsp_yellowjacket_filter_destroy(handle);
+  } else if (kind == kTypeSuperloveFilter) {
+    soemdsp_superlove_filter_destroy(handle);
+  } else if (kind == kTypeHumanFilter) {
+    soemdsp_human_filter_destroy(handle);
+  } else if (kind == kTypeResonatorFilter) {
+    soemdsp_resonator_filter_destroy(handle);
+  } else if (kind == kTypeCombResonator) {
+    soemdsp_comb_resonator_destroy(handle);
+  } else if (kind == kTypeModeResonator) {
+    soemdsp_mode_resonator_destroy(handle);
+  } else if (kind == kTypeChaoticPhaseLockingFilter) {
+    soemdsp_chaotic_phase_locking_filter_destroy(handle);
+  } else if (kind == kTypeInertialFilter) {
+    soemdsp_inertial_filter_destroy(handle);
+  } else if (kind == kTypeExpAdsr) {
+    soemdsp_exp_adsr_destroy(handle);
+  } else if (kind == kTypeLinearEnvelope) {
+    soemdsp_linear_envelope_destroy(handle);
+  } else if (kind == kTypePluckEnvelope) {
+    soemdsp_pluck_envelope_destroy(handle);
+  } else if (kind == kTypeFlowerChildEnvelopeFollower) {
+    soemdsp_flower_child_envelope_follower_destroy(handle);
+  } else if (kind == kTypeVactrolEnvelope) {
+    soemdsp_vactrol_envelope_destroy(handle);
+  } else if (kind == kTypeDelayEffect) {
+    soemdsp_delay_effect_destroy(handle);
+  } else if (kind == kTypeSoemReverb) {
+    soemdsp_soem_reverb_destroy(handle);
+  } else if (kind == kTypePll) {
+    soemdsp_pll_destroy(handle);
+  } else if (kind == kTypeLorenzAttractor) {
+    soemdsp_lorenz_attractor_destroy(handle);
+  } else if (kind == kTypeLogisticMap) {
+    soemdsp_logistic_map_destroy(handle);
+  } else if (kind == kTypeHenonMap) {
+    soemdsp_henon_map_destroy(handle);
+  } else if (kind == kTypeChuaAttractor) {
+    soemdsp_chua_attractor_destroy(handle);
+  } else if (kind == kTypeRayBouncer) {
+    soemdsp_ray_bouncer_destroy(handle);
+  } else if (kind == kTypeChordMemory) {
+    soemdsp_chord_memory_destroy(handle);
+  } else if (kind == kTypeChordSequencer) {
+    soemdsp_chord_sequencer_destroy(handle);
+  } else if (kind == kTypePitchQuantizer) {
+    soemdsp_pitch_quantizer_destroy(handle);
+  } else if (kind == kTypeTuringMachine) {
+    soemdsp_turing_machine_destroy(handle);
+  } else if (kind == kTypeFractalBrownianNoise) {
+    soemdsp_fbm_destroy(handle);
+  } else if (kind == kTypePiSpigotNoise) {
+    soemdsp_pi_spigot_noise_destroy(handle);
+  } else if (kind == kTypeRandomWalk) {
+    soemdsp_random_walk_destroy(handle);
+  } else if (kind == kTypePulseExplosion) {
+    soemdsp_pulse_explosion_destroy(handle);
+  } else if (kind == kTypeSpiral) {
+    soemdsp_jerobeam_spiral_destroy(handle);
+  } else if (kind == kTypeFractalSpiral) {
+    soemdsp_fractal_spiral_destroy(handle);
+  } else if (kind == kTypeLogSpiral) {
+    soemdsp_log_spiral_destroy(handle);
+  } else if (kind == kTypeBlubb) {
+    soemdsp_jbblubb_destroy(handle);
+  } else if (kind == kTypeBoing) {
+    soemdsp_jbboing_destroy(handle);
+  } else if (kind == kTypeKeplerBouwkamp) {
+    soemdsp_jbkepler_destroy(handle);
+  } else if (kind == kTypeMushroom) {
+    soemdsp_jbmushroom_destroy(handle);
+  } else if (kind == kTypeNyquistShannon) {
+    soemdsp_jbnyquist_destroy(handle);
+  } else if (kind == kTypeRadar) {
+    soemdsp_jbradar_destroy(handle);
+  } else if (kind == kTypeTorus) {
+    soemdsp_jbtorus_destroy(handle);
+  } else if (kind == kTypeWirdoSpiral) {
+    soemdsp_jbwirdo_destroy(handle);
+  } else if (kind == kTypePhosphillator) {
+    soemdsp_phosphillator_destroy(handle);
+  } else if (kind >= kTypeCrossover2 && kind <= kTypeCrossover6) {
+    soemdsp_crossover_destroy(handle);
   }
+}
+
+static void destroy_node_native(Node& n) {
   // Key destroy off create-time kind so a later typeId retarget cannot leak.
   const int kind = n.nativeKind != 0 ? n.nativeKind : n.typeId;
-  if (kind == kTypePolyBlep) {
-    soemdsp_polyblep_destroy(n.nativeHandle);
-  } else if (kind == kTypeLadderFilter) {
-    soemdsp_ladder_filter_destroy(n.nativeHandle);
-  } else if (kind == kTypeSoftClipper) {
-    soemdsp_soft_clipper_destroy(n.nativeHandle);
-  } else if (kind == kTypeReverbEffect) {
-    soemdsp_sabrina_reverb_destroy(n.nativeHandle);
-  } else if (kind == kTypePingPongDelay) {
-    soemdsp_ping_pong_delay_destroy(n.nativeHandle);
-  } else if (kind == kTypeAttenuverter) {
-    soemdsp_attenuverter_destroy(n.nativeHandle);
-  } else if (kind == kTypeRange) {
-    soemdsp_range_destroy(n.nativeHandle);
-  } else if (kind == kTypeNoiseGenerator) {
-    soemdsp_noise_generator_destroy(n.nativeHandle);
-  } else if (kind == kTypeRobinSinusoid) {
-    soemdsp_robin_sinusoid_destroy(n.nativeHandle);
-  } else if (kind == kTypeRobinSupersaw) {
-    soemdsp_robin_supersaw_destroy(n.nativeHandle);
-  } else if (kind == kTypeSlewLimiter) {
-    soemdsp_slew_limiter_destroy(n.nativeHandle);
-  } else if (kind == kTypeComparator) {
-    soemdsp_comparator_destroy(n.nativeHandle);
-  } else if (kind == kTypeSampleDelay) {
-    soemdsp_sample_delay_destroy(n.nativeHandle);
-  } else if (kind == kTypeSampleHold) {
-    soemdsp_sample_hold_destroy(n.nativeHandle);
-  } else if (kind == kTypeMinMax) {
-    soemdsp_min_max_destroy(n.nativeHandle);
-  } else if (kind == kTypeClipperLimiter) {
-    soemdsp_clipper_limiter_destroy(n.nativeHandle);
-  } else if (kind == kTypeClock) {
-    soemdsp_clock_destroy(n.nativeHandle);
-  } else if (kind == kTypeTriggerDivider) {
-    soemdsp_trigger_divider_destroy(n.nativeHandle);
-  } else if (kind == kTypeDelayedTrigger) {
-    soemdsp_delayed_trigger_destroy(n.nativeHandle);
-  } else if (kind == kTypeRandomClock) {
-    soemdsp_random_clock_destroy(n.nativeHandle);
-  } else if (kind == kTypeTriggerCounter) {
-    soemdsp_trigger_counter_destroy(n.nativeHandle);
-  } else if (kind == kTypeLutCell) {
-    soemdsp_lut_cell_destroy(n.nativeHandle);
-  } else if (kind == kTypeLookaheadLimiter) {
-    soemdsp_lookahead_limiter_destroy(n.nativeHandle);
-  } else if (kind == kTypeStepSequencer) {
-    soemdsp_step_sequencer_destroy(n.nativeHandle);
-  } else if (kind == kTypeTransport) {
-    soemdsp_transport_destroy(n.nativeHandle);
-  } else if (kind == kTypeAliasSine) {
-    soemdsp_alias_sine_destroy(n.nativeHandle);
-  } else if (kind == kTypeBlit) {
-    soemdsp_blit_destroy(n.nativeHandle);
-  } else if (kind == kTypeSineWavetable) {
-    soemdsp_sine_wavetable_destroy(n.nativeHandle);
-  } else if (kind == kTypeAntisaw) {
-    soemdsp_antisaw_destroy(n.nativeHandle);
-  } else if (kind == kTypeArchimedes) {
-    soemdsp_archimedes_destroy(n.nativeHandle);
-  } else if (kind == kTypeSurgeOscillator) {
-    soemdsp_surge_oscillator_destroy(n.nativeHandle);
-  } else if (kind == kTypeSoftwaveOsc) {
-    soemdsp_softwave_destroy(n.nativeHandle);
-  } else if (kind == kTypeDsfOscillator) {
-    soemdsp_dsf_oscillator_destroy(n.nativeHandle);
-  } else if (kind == kTypeHypersaw) {
-    soemdsp_hypersaw_destroy(n.nativeHandle);
-  } else if (kind == kTypeSinc) {
-    soemdsp_sinc_destroy(n.nativeHandle);
-  } else if (kind == kTypeBradley2a) {
-    soemdsp_bradley_2a_destroy(n.nativeHandle);
-  } else if (kind == kTypeSnowflake) {
-    soemdsp_snowflake_destroy(n.nativeHandle);
-  } else if (kind == kTypeButterworth) {
-    soemdsp_butterworth_destroy(n.nativeHandle);
-  } else if (kind == kTypeLinkwitzRiley) {
-    soemdsp_linkwitz_riley_destroy(n.nativeHandle);
-  } else if (kind == kTypeBessel) {
-    soemdsp_bessel_destroy(n.nativeHandle);
-  } else if (kind == kTypeChebyshev) {
-    soemdsp_chebyshev_destroy(n.nativeHandle);
-  } else if (kind == kTypeElliptic) {
-    soemdsp_elliptic_destroy(n.nativeHandle);
-  } else if (kind == kTypeEqFilter) {
-    soemdsp_eq_filter_destroy(n.nativeHandle);
-  } else if (kind == kTypeActiveFilter) {
-    soemdsp_active_filter_destroy(n.nativeHandle);
-  } else if (kind == kTypePassiveFilter) {
-    soemdsp_passive_filter_destroy(n.nativeHandle);
-  } else if (kind == kTypeTb303Filter) {
-    soemdsp_tb303_filter_destroy(n.nativeHandle);
-  } else if (kind == kTypeFlowerChildFilter) {
-    soemdsp_flower_child_filter_destroy(n.nativeHandle);
-  } else if (kind == kTypeYellowjacketFilter) {
-    soemdsp_yellowjacket_filter_destroy(n.nativeHandle);
-  } else if (kind == kTypeSuperloveFilter) {
-    soemdsp_superlove_filter_destroy(n.nativeHandle);
-  } else if (kind == kTypeHumanFilter) {
-    soemdsp_human_filter_destroy(n.nativeHandle);
-  } else if (kind == kTypeResonatorFilter) {
-    soemdsp_resonator_filter_destroy(n.nativeHandle);
-  } else if (kind == kTypeCombResonator) {
-    soemdsp_comb_resonator_destroy(n.nativeHandle);
-  } else if (kind == kTypeModeResonator) {
-    soemdsp_mode_resonator_destroy(n.nativeHandle);
-  } else if (kind == kTypeChaoticPhaseLockingFilter) {
-    soemdsp_chaotic_phase_locking_filter_destroy(n.nativeHandle);
-  } else if (kind == kTypeInertialFilter) {
-    soemdsp_inertial_filter_destroy(n.nativeHandle);
-  } else if (kind == kTypeExpAdsr) {
-    soemdsp_exp_adsr_destroy(n.nativeHandle);
-  } else if (kind == kTypeLinearEnvelope) {
-    soemdsp_linear_envelope_destroy(n.nativeHandle);
-  } else if (kind == kTypePluckEnvelope) {
-    soemdsp_pluck_envelope_destroy(n.nativeHandle);
-  } else if (kind == kTypeFlowerChildEnvelopeFollower) {
-    soemdsp_flower_child_envelope_follower_destroy(n.nativeHandle);
-  } else if (kind == kTypeVactrolEnvelope) {
-    soemdsp_vactrol_envelope_destroy(n.nativeHandle);
-  } else if (kind == kTypeDelayEffect) {
-    soemdsp_delay_effect_destroy(n.nativeHandle);
-  } else if (kind == kTypeSoemReverb) {
-    soemdsp_soem_reverb_destroy(n.nativeHandle);
-  } else if (kind == kTypePll) {
-    soemdsp_pll_destroy(n.nativeHandle);
-  } else if (kind == kTypeLorenzAttractor) {
-    soemdsp_lorenz_attractor_destroy(n.nativeHandle);
-  } else if (kind == kTypeLogisticMap) {
-    soemdsp_logistic_map_destroy(n.nativeHandle);
-  } else if (kind == kTypeHenonMap) {
-    soemdsp_henon_map_destroy(n.nativeHandle);
-  } else if (kind == kTypeChuaAttractor) {
-    soemdsp_chua_attractor_destroy(n.nativeHandle);
-  } else if (kind == kTypeRayBouncer) {
-    soemdsp_ray_bouncer_destroy(n.nativeHandle);
-  } else if (kind == kTypeChordMemory) {
-    soemdsp_chord_memory_destroy(n.nativeHandle);
-  } else if (kind == kTypeChordSequencer) {
-    soemdsp_chord_sequencer_destroy(n.nativeHandle);
-  } else if (kind == kTypePitchQuantizer) {
-    soemdsp_pitch_quantizer_destroy(n.nativeHandle);
-  } else if (kind == kTypeTuringMachine) {
-    soemdsp_turing_machine_destroy(n.nativeHandle);
-  } else if (kind == kTypeFractalBrownianNoise) {
-    soemdsp_fbm_destroy(n.nativeHandle);
-  } else if (kind == kTypePiSpigotNoise) {
-    soemdsp_pi_spigot_noise_destroy(n.nativeHandle);
-  } else if (kind == kTypeRandomWalk) {
-    soemdsp_random_walk_destroy(n.nativeHandle);
-  } else if (kind == kTypePulseExplosion) {
-    soemdsp_pulse_explosion_destroy(n.nativeHandle);
-  } else if (kind == kTypeSpiral) {
-    soemdsp_jerobeam_spiral_destroy(n.nativeHandle);
-  } else if (kind == kTypeFractalSpiral) {
-    soemdsp_fractal_spiral_destroy(n.nativeHandle);
-  } else if (kind == kTypeLogSpiral) {
-    soemdsp_log_spiral_destroy(n.nativeHandle);
-  } else if (kind == kTypeBlubb) {
-    soemdsp_jbblubb_destroy(n.nativeHandle);
-  } else if (kind == kTypeBoing) {
-    soemdsp_jbboing_destroy(n.nativeHandle);
-  } else if (kind == kTypeKeplerBouwkamp) {
-    soemdsp_jbkepler_destroy(n.nativeHandle);
-  } else if (kind == kTypeMushroom) {
-    soemdsp_jbmushroom_destroy(n.nativeHandle);
-  } else if (kind == kTypeNyquistShannon) {
-    soemdsp_jbnyquist_destroy(n.nativeHandle);
-  } else if (kind == kTypeRadar) {
-    soemdsp_jbradar_destroy(n.nativeHandle);
-  } else if (kind == kTypeTorus) {
-    soemdsp_jbtorus_destroy(n.nativeHandle);
-  } else if (kind == kTypeWirdoSpiral) {
-    soemdsp_jbwirdo_destroy(n.nativeHandle);
-  } else if (kind == kTypePhosphillator) {
-    soemdsp_phosphillator_destroy(n.nativeHandle);
-  } else if (kind >= kTypeCrossover2 && kind <= kTypeCrossover6) {
-    soemdsp_crossover_destroy(n.nativeHandle);
-  }
+  destroy_native_kind_handle(kind, n.nativeHandle);
+  destroy_native_kind_handle(kind, n.nativeHandleL);
+  destroy_native_kind_handle(kind, n.nativeHandleR);
   n.nativeHandle = 0;
+  n.nativeHandleL = 0;
+  n.nativeHandleR = 0;
   n.nativeKind = 0;
+}
+
+static bool type_wants_mlr_native_handles(int typeId) {
+  return typeId == kTypeLadderFilter
+    || typeId == kTypeEqFilter
+    || typeId == kTypeActiveFilter
+    || typeId == kTypePassiveFilter
+    || typeId == kTypeTb303Filter
+    || typeId == kTypeFlowerChildFilter
+    || typeId == kTypeYellowjacketFilter
+    || typeId == kTypeSuperloveFilter
+    || typeId == kTypeHumanFilter
+    || typeId == kTypeResonatorFilter
+    || typeId == kTypeChaoticPhaseLockingFilter;
 }
 
 static void control_release_papoulis(Control& c) {
@@ -1593,6 +1613,8 @@ static void init_node_defaults(Node& n, int typeId) {
   n.typeId = typeId;
   n.bypassed = false;
   n.nativeHandle = 0;
+  n.nativeHandleL = 0;
+  n.nativeHandleR = 0;
   n.nativeKind = 0;
   init_control(n.volumeDb, (typeId == kTypeMixStereo) ? 0.0 : -3.0, false);
   init_control(n.pan, 0.0, false);
@@ -2842,6 +2864,10 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   node.phase = wrap_phase_pi(phase - node.phaseParam.out * kTwoPi);
 }
 
+static void probe_mlr_cables(
+  Circuit& g, const Node& node, bool* hasMonoIn, bool* hasLeftIn, bool* hasRightIn, bool* monoOutWired
+);
+
 static void process_ladder(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -2863,20 +2889,50 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool controlSmoothing = node.frequency.active || node.resonance.active;
 
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
+
   if (!liveF && !controlSmoothing) {
     double freq = clamp_hz_nyquist(node.frequency.out, srD);
     if (freq < 0.0) freq = 0.0;
-    soemdsp_ladder_filter_set_params(node.nativeHandle, freq, reso, mode, stages, srD);
-    double* inPtr = ptr_from_export(soemdsp_ladder_filter_block_input_ptr(node.nativeHandle));
-    double* outPtr = ptr_from_export(soemdsp_ladder_filter_block_output_ptr(node.nativeHandle));
-    if (!inPtr || !outPtr) return;
-    for (int f = 0; f < frames; f++) {
-      inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    double* out0 = nullptr;
+    if (needMono) {
+      soemdsp_ladder_filter_set_params(node.nativeHandle, freq, reso, mode, stages, srD);
+      double* inPtr = ptr_from_export(soemdsp_ladder_filter_block_input_ptr(node.nativeHandle));
+      out0 = ptr_from_export(soemdsp_ladder_filter_block_output_ptr(node.nativeHandle));
+      if (!inPtr || !out0) return;
+      for (int f = 0; f < frames; f++) {
+        inPtr[f] = g.mixMono[f];
+        if (!hasLeftIn && !hasRightIn) inPtr[f] += g.mixLeft[f] + g.mixRight[f];
+      }
+      soemdsp_ladder_filter_process_block(node.nativeHandle, frames);
+      copy_tap_to_buf(node.buf[kPortMono], out0, frames);
     }
-    soemdsp_ladder_filter_process_block(node.nativeHandle, frames);
-    copy_tap_to_buf(node.buf[kPortMono], outPtr, frames);
-    copy_tap_to_buf(node.buf[kPortLeft], outPtr, frames);
-    copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
+    if (hasLeftIn && node.nativeHandleL > 0) {
+      soemdsp_ladder_filter_set_params(node.nativeHandleL, freq, reso, mode, stages, srD);
+      double* inL = ptr_from_export(soemdsp_ladder_filter_block_input_ptr(node.nativeHandleL));
+      double* outL = ptr_from_export(soemdsp_ladder_filter_block_output_ptr(node.nativeHandleL));
+      if (inL && outL) {
+        for (int f = 0; f < frames; f++) inL[f] = g.mixLeft[f] + g.mixMono[f];
+        soemdsp_ladder_filter_process_block(node.nativeHandleL, frames);
+        copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
+      }
+    } else if (out0) {
+      copy_tap_to_buf(node.buf[kPortLeft], out0, frames);
+    }
+    if (hasRightIn && node.nativeHandleR > 0) {
+      soemdsp_ladder_filter_set_params(node.nativeHandleR, freq, reso, mode, stages, srD);
+      double* inR = ptr_from_export(soemdsp_ladder_filter_block_input_ptr(node.nativeHandleR));
+      double* outR = ptr_from_export(soemdsp_ladder_filter_block_output_ptr(node.nativeHandleR));
+      if (inR && outR) {
+        for (int f = 0; f < frames; f++) inR[f] = g.mixRight[f] + g.mixMono[f];
+        soemdsp_ladder_filter_process_block(node.nativeHandleR, frames);
+        copy_tap_to_buf(node.buf[kPortRight], outR, frames);
+      }
+    } else if (out0) {
+      copy_tap_to_buf(node.buf[kPortRight], out0, frames);
+    }
     return;
   }
 
@@ -2890,13 +2946,26 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
     double freq = liveF ? g.mixF[f] : node.frequency.out;
     freq = clamp_hz_nyquist(freq, srD);
     if (freq < 0.0) freq = 0.0;
-    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
-    const double out = soemdsp_ladder_filter_sample(
-      node.nativeHandle, in, freq, reso, mode, stages, srD
-    );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
+    if (needMono) {
+      double in = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
+      const double out = soemdsp_ladder_filter_sample(
+        node.nativeHandle, in, freq, reso, mode, stages, srD
+      );
+      node.buf[kPortMono][f] = out;
+      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
+      if (!hasRightIn) node.buf[kPortRight][f] = out;
+    }
+    if (hasLeftIn && node.nativeHandleL > 0) {
+      node.buf[kPortLeft][f] = soemdsp_ladder_filter_sample(
+        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], freq, reso, mode, stages, srD
+      );
+    }
+    if (hasRightIn && node.nativeHandleR > 0) {
+      node.buf[kPortRight][f] = soemdsp_ladder_filter_sample(
+        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], freq, reso, mode, stages, srD
+      );
+    }
   }
 }
 
@@ -4000,18 +4069,36 @@ static void process_eq_filter(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool controlSmoothing = node_control_smoothing(node);
   const double modeV = node.mode.out;
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
     double freq = liveF ? g.mixF[f] : node.frequency.out;
     freq = clamp_hz_nyquist(freq, sr);
     if (freq < 0.0) freq = 0.0;
-    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
-    const double out = soemdsp_eq_filter_sample(
-      node.nativeHandle, in, modeV, freq, node.resonance.out, node.gainDb.out, sr
-    );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
+    const double q = node.resonance.out;
+    const double gain = node.gainDb.out;
+    if (needMono) {
+      double in = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
+      const double out = soemdsp_eq_filter_sample(
+        node.nativeHandle, in, modeV, freq, q, gain, sr
+      );
+      node.buf[kPortMono][f] = out;
+      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
+      if (!hasRightIn) node.buf[kPortRight][f] = out;
+    }
+    if (hasLeftIn && node.nativeHandleL > 0) {
+      node.buf[kPortLeft][f] = soemdsp_eq_filter_sample(
+        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], modeV, freq, q, gain, sr
+      );
+    }
+    if (hasRightIn && node.nativeHandleR > 0) {
+      node.buf[kPortRight][f] = soemdsp_eq_filter_sample(
+        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], modeV, freq, q, gain, sr
+      );
+    }
   }
 }
 
@@ -4032,6 +4119,9 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
   if (circuit < 0) circuit = 0;
   if (circuit > 3) circuit = 3;
   const int gainComp = (int)(node.timingMode.out + (node.timingMode.out >= 0.0 ? 0.5 : -0.5));
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
     double freq;
@@ -4045,13 +4135,27 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
     }
     freq = clamp_hz_nyquist(freq, sr);
     if (freq < 0.0) freq = 0.0;
-    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
-    const double out = soemdsp_active_filter_sample(
-      node.nativeHandle, in, freq, node.resonance.out, mode, circuit, gainComp, sr
-    );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
+    const double reso = node.resonance.out;
+    if (needMono) {
+      double in = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
+      const double out = soemdsp_active_filter_sample(
+        node.nativeHandle, in, freq, reso, mode, circuit, gainComp, sr
+      );
+      node.buf[kPortMono][f] = out;
+      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
+      if (!hasRightIn) node.buf[kPortRight][f] = out;
+    }
+    if (hasLeftIn && node.nativeHandleL > 0) {
+      node.buf[kPortLeft][f] = soemdsp_active_filter_sample(
+        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], freq, reso, mode, circuit, gainComp, sr
+      );
+    }
+    if (hasRightIn && node.nativeHandleR > 0) {
+      node.buf[kPortRight][f] = soemdsp_active_filter_sample(
+        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], freq, reso, mode, circuit, gainComp, sr
+      );
+    }
   }
 }
 
@@ -4066,15 +4170,33 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
   if (mode > 2) mode = 2;
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
-    const double out = soemdsp_passive_filter_sample(
-      node.nativeHandle, in, mode, node.hpfFrequency.out, node.lpfFrequency.out, sr
-    );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
+    const double lo = node.hpfFrequency.out;
+    const double hi = node.lpfFrequency.out;
+    if (needMono) {
+      double in = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
+      const double out = soemdsp_passive_filter_sample(
+        node.nativeHandle, in, mode, lo, hi, sr
+      );
+      node.buf[kPortMono][f] = out;
+      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
+      if (!hasRightIn) node.buf[kPortRight][f] = out;
+    }
+    if (hasLeftIn && node.nativeHandleL > 0) {
+      node.buf[kPortLeft][f] = soemdsp_passive_filter_sample(
+        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], mode, lo, hi, sr
+      );
+    }
+    if (hasRightIn && node.nativeHandleR > 0) {
+      node.buf[kPortRight][f] = soemdsp_passive_filter_sample(
+        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], mode, lo, hi, sr
+      );
+    }
   }
 }
 
@@ -4089,18 +4211,36 @@ static void process_tb303_filter(Circuit& g, Node& node, int frames) {
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
   if (mode > 14) mode = 14;
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
     double freq = liveF ? g.mixF[f] : node.frequency.out;
     freq = clamp_hz_nyquist(freq, sr);
     if (freq < 0.0) freq = 0.0;
-    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
-    const double out = soemdsp_tb303_filter_sample(
-      node.nativeHandle, in, freq, node.resonance.out, mode, node.gainDb.out, sr
-    );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
+    const double reso = node.resonance.out;
+    const double drive = node.gainDb.out;
+    if (needMono) {
+      double in = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
+      const double out = soemdsp_tb303_filter_sample(
+        node.nativeHandle, in, freq, reso, mode, drive, sr
+      );
+      node.buf[kPortMono][f] = out;
+      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
+      if (!hasRightIn) node.buf[kPortRight][f] = out;
+    }
+    if (hasLeftIn && node.nativeHandleL > 0) {
+      node.buf[kPortLeft][f] = soemdsp_tb303_filter_sample(
+        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], freq, reso, mode, drive, sr
+      );
+    }
+    if (hasRightIn && node.nativeHandleR > 0) {
+      node.buf[kPortRight][f] = soemdsp_tb303_filter_sample(
+        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], freq, reso, mode, drive, sr
+      );
+    }
   }
 }
 
@@ -4119,28 +4259,54 @@ static void process_norm_chaos_filter(
     const double modeV = node.mode.out;
     mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   }
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
     double freq = node.frequency.out;
     if (!(freq == freq)) freq = 0.5;
     if (freq < 0.0) freq = 0.0;
     if (freq > 1.0) freq = 1.0;
-    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
-    double out;
-    if (hasMode && sample5) {
-      out = sample5(
-        node.nativeHandle, in, freq, node.resonance.out, node.shape.out, mode, sr
-      );
-    } else if (sample4) {
-      out = sample4(
-        node.nativeHandle, in, freq, node.resonance.out, node.shape.out, sr
-      );
-    } else {
-      out = 0.0;
+    const double reso = node.resonance.out;
+    const double chaos = node.shape.out;
+    if (needMono) {
+      double in = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
+      double out = 0.0;
+      if (hasMode && sample5) {
+        out = sample5(node.nativeHandle, in, freq, reso, chaos, mode, sr);
+      } else if (sample4) {
+        out = sample4(node.nativeHandle, in, freq, reso, chaos, sr);
+      }
+      node.buf[kPortMono][f] = out;
+      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
+      if (!hasRightIn) node.buf[kPortRight][f] = out;
     }
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
+    if (hasLeftIn && node.nativeHandleL > 0) {
+      const double inL = g.mixLeft[f] + g.mixMono[f];
+      if (hasMode && sample5) {
+        node.buf[kPortLeft][f] = sample5(
+          node.nativeHandleL, inL, freq, reso, chaos, mode, sr
+        );
+      } else if (sample4) {
+        node.buf[kPortLeft][f] = sample4(
+          node.nativeHandleL, inL, freq, reso, chaos, sr
+        );
+      }
+    }
+    if (hasRightIn && node.nativeHandleR > 0) {
+      const double inR = g.mixRight[f] + g.mixMono[f];
+      if (hasMode && sample5) {
+        node.buf[kPortRight][f] = sample5(
+          node.nativeHandleR, inR, freq, reso, chaos, mode, sr
+        );
+      } else if (sample4) {
+        node.buf[kPortRight][f] = sample4(
+          node.nativeHandleR, inR, freq, reso, chaos, sr
+        );
+      }
+    }
   }
 }
 
@@ -6067,6 +6233,15 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
       return -5; // native instance pool exhausted
     }
     n.nativeKind = typeId;
+    if (type_wants_mlr_native_handles(typeId)) {
+      n.nativeHandleL = create_native_for_type(typeId, g->sampleRate);
+      n.nativeHandleR = create_native_for_type(typeId, g->sampleRate);
+      if (n.nativeHandleL <= 0 || n.nativeHandleR <= 0) {
+        destroy_node_native(n);
+        n.used = false;
+        return -5;
+      }
+    }
     if (typeId == kTypePolyBlep) {
       soemdsp_polyblep_reset(n.nativeHandle);
     } else if (typeId == kTypeRobinSinusoid) {
@@ -6788,5 +6963,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 52; // + crossover2..6 (103–107); kChannels 12
+  return 53; // + MLR dual native handles for mono-native filters (independent L/R state)
 }

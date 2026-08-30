@@ -15,7 +15,7 @@ namespace {
 
 using namespace soemdsp_maths;
 
-static const int kMaxInstances = 32;
+static const int kMaxInstances = 256;
 static double dsp_ln(double x) {
   if (x <= 0.0) return -700.0;
   DoubleBits bits;

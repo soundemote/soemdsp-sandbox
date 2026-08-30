@@ -26,7 +26,7 @@ namespace {
 
 using namespace soemdsp_maths;
 
-static const int kMaxInstances = 32;
+static const int kMaxInstances = 256;
 static inline double dsp_tan_0_halfpi(double x) {
   double s = dsp_sin_0_pi(x);
   double c = dsp_cos_0_pi(x);

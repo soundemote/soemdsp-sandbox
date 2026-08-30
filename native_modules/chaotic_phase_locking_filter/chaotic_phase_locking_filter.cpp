@@ -15,7 +15,7 @@ namespace {
 
 using namespace soemdsp_maths;
 
-static const int kMaxInstances = 32;
+static const int kMaxInstances = 256;
 
 static inline double dsp_sqrt(double x) {
   if (x <= 0.0) return 0.0;

@@ -18,7 +18,7 @@ namespace {
 
 using namespace soemdsp_maths;
 
-static const int kMaxInstances = 64;
+static const int kMaxInstances = 256;
 
 // feedbackCircuit: 0 Off, 1 Resonance only, 2 Clipping only, 3 Res + Clip
 static const char kMetadataJson[] =

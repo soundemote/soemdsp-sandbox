@@ -10,7 +10,7 @@ namespace {
 
 using namespace soemdsp_maths;
 
-static const int kMaxInstances = 64;
+static const int kMaxInstances = 256;
 
 static const char kMetadataJson[] =
   "{"

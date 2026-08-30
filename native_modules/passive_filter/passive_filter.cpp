@@ -62,7 +62,7 @@ static const char kMetadataJson[] =
     "]"
   "}";
 
-static const int kMaxInstances = 64;
+static const int kMaxInstances = 256;
 struct PassiveState {
   double lpOut;   // LP stage output
   double hpOut;   // HP stage output
