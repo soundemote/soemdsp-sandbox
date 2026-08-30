@@ -94,19 +94,23 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       const displayFps = Number(this.displayFps);
       if (displayFps > 0) {
         this.scopeSnapshotCounter = (Number(this.scopeSnapshotCounter) || 0) + frames;
-        if (this.scopeSnapshotCounter >= Math.max(1, Math.floor(effectiveRate / displayFps))) {
+        // Never fully starve scope posts when stressed — that freezes every face
+        // until the budget recovers (often never, with stereo supersaw + sinks).
+        // Stressed: post at ~1/4 display rate instead of skipping entirely.
+        const snapshotEvery = Math.max(
+          1,
+          Math.floor(effectiveRate / displayFps) * (audioStressed ? 4 : 1),
+        );
+        if (this.scopeSnapshotCounter >= snapshotEvery) {
           this.scopeSnapshotCounter = 0;
-          if (!audioStressed) {
-            this.postModuleScopeSnapshot?.();
-          }
+          this.postModuleScopeSnapshot?.();
         }
       }
       this.visualControlCounter = (Number(this.visualControlCounter) || 0) + frames;
-      if (this.visualControlCounter >= Math.max(1, Math.floor(effectiveRate / 30))) {
+      const visualEvery = Math.max(1, Math.floor(effectiveRate / 30) * (audioStressed ? 4 : 1));
+      if (this.visualControlCounter >= visualEvery) {
         this.visualControlCounter = 0;
-        if (!audioStressed) {
-          this.postVisualControls?.();
-        }
+        this.postVisualControls?.();
       }
     }
 

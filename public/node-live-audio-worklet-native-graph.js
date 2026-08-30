@@ -2258,8 +2258,12 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
     this.compileScopeCapture?.();
   }
 
-  // Module face rings: one sample per quantum (last), unless stressed then skip.
-  if (!stressed && Array.isArray(this.compiledScopeNodes)) {
+  // Module face rings: one sample per quantum (last). Under stress, still
+  // refresh faces every 8th quantum so Instant Trace / module plates do not
+  // freeze solid when robinSupersaw + stereo visual sinks overrun the budget.
+  const faceStride = stressed ? 8 : 1;
+  const facePhase = (Number(this.scopeCounter) || 0);
+  if (Array.isArray(this.compiledScopeNodes) && (facePhase % faceStride) === 0) {
     for (let i = 0; i < this.compiledScopeNodes.length; i += 1) {
       const entry = this.compiledScopeNodes[i];
       const nodeId = entry?.nodeId;
