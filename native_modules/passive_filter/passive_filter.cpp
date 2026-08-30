@@ -105,7 +105,7 @@ extern "C" double soemdsp_passive_filter_sample(
   PassiveState& s = gPool[handle - 1];
 
   const double rate = sampleRate < 1.0 ? 44100.0 : sampleRate;
-  const double maxW = kTwoPi / rate * 0.45;  // cap at ~0.45 * sample rate
+  const double maxW = kTwoPi * 0.45;  // cap ω at ~0.45 * fs (rad/sample)
 
   const double safeIn = safe(input);
 
