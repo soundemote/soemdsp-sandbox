@@ -860,10 +860,12 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Wave Out", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f", "Morph"],
     inputLabels: {"0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ"},
+    // Morph CV: once per quantum, zero-order hold (turquoise jack).
+    blockRateInputs: ["Morph"],
     outputAliases: {
       Out: "Wave Out",
       Noise: "Wave Out"
@@ -1521,10 +1523,12 @@ const nodeGraphModuleDefinitions = (
     displayType: "roundShapeFace",
     displayHeightGu: 4,
     spectrumCompanion: false,
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f", "Morph"],
     inputLabels: {"0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ"},
+    // Morph CV: once per quantum, zero-order hold (turquoise jack).
+    blockRateInputs: ["Morph"],
     // Legacy Mono/X/Y/Out → bipolar outs.
     outputAliases: {
       Mono: "Bi X",
@@ -2553,6 +2557,8 @@ const nodeGraphModuleDefinitions = (
       Phase: "Phase",
       Amplitude: "Amp",
       f: "ƒ"},
+    // Morph CV: once per quantum, zero-order hold (turquoise jack).
+    blockRateInputs: ["Morph"],
     outputs: ["Out"],
     parameters: [
       {
@@ -2848,11 +2854,14 @@ const nodeGraphModuleDefinitions = (
     // First attempt only put phase/level in parameters[] — user looking at
     // the left IO column correctly saw only 0.1V. See MODULE_PATTERN_REFERENCE
     // "Three control surfaces".
-    inputs: ["0.1V/Oct", "Phase", "Amplitude", "f"],
+    inputs: ["0.1V/Oct", "Morph", "Phase", "Amplitude", "f"],
     inputLabels: {"0.1V/Oct": "0.1V",
+      Morph: "Morph",
       Phase: "Phase",
       Amplitude: "Amp",
       f: "ƒ"},
+    // Morph CV: once per quantum, zero-order hold (turquoise jack).
+    blockRateInputs: ["Morph"],
     outputs: ["Out"],
     parameters: [
       {

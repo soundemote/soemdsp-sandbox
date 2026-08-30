@@ -1348,6 +1348,21 @@ struct Circuit {
   double mixMorph[kMaxBlockFrames];
 };
 
+// Morph ZOH: one sample per quantum. additiveCv = knob + Morph[0] (softwave-style);
+// otherwise Morph[0] replaces the Control (additiveOsc proving-ground style).
+static double morph_zoh_hold(Circuit& g, Node& node, bool liveMorph, bool additiveCv) {
+  double m = node.shape.out;
+  if (!(m == m)) m = 0.5;
+  if (liveMorph) {
+    double cv = g.mixMorph[0];
+    if (!(cv == cv)) cv = 0.0;
+    m = additiveCv ? (m + cv) : cv;
+  }
+  if (m < 0.0) m = 0.0;
+  if (m > 1.0) m = 1.0;
+  return m;
+}
+
 static Circuit gPool[kMaxInstances];
 
 static void zero_buf(double* p, int n) {
@@ -2741,26 +2756,28 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   const double srD = (double)sr;
-  const double waveV = node.waveform.out;
-  int waveform = (int)(waveV + (waveV >= 0.0 ? 0.5 : -0.5));
-  if (waveform < 0) waveform = 0;
-  if (waveform > 8) waveform = 8;
-  double level = node.amplitude.out;
-  if (!(level == level)) level = 0.0;
-  double morph = node.shape.out;
-  if (!(morph == morph)) morph = 0.5;
-  const double phaseParam = node.phaseParam.out;
-  const int mask = polyblep_tap_mask(g, node);
-
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const bool controlSmoothing = node_control_smoothing(node);
   const bool audioRatePitch = liveF || livePitch || liveInc || liveReset || controlSmoothing;
+  const int mask = polyblep_tap_mask(g, node);
 
   // Midi note 48 → 0.4 reference voltage (matches worklet default).
   const double referenceVoltage = 48.0 / 120.0;
+
+  // ZOH shape path: Morph / waveform / amplitude held once per quantum.
+  if (controlSmoothing) smoother_step_node(g, node);
+  const double phaseParam = node.phaseParam.out;
+  double level = node.amplitude.out;
+  if (!(level == level)) level = 0.0;
+  const double morph = morph_zoh_hold(g, node, liveMorph, true);
+  const double waveV = node.waveform.out;
+  int waveform = (int)(waveV + (waveV >= 0.0 ? 0.5 : -0.5));
+  if (waveform < 0) waveform = 0;
+  if (waveform > 8) waveform = 8;
 
   if (!audioRatePitch) {
     double freq = clamp_hz_nyquist(node.frequency.out, srD);
@@ -2792,23 +2809,15 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   }
 
   // Live ƒ / 0.1V / Inc / Reset: per-sample phaseInc (ƒ is absolute Hz when wired).
+  // Morph / waveform / amplitude stay ZOH for the block (smoothers may still step).
   double phase = wrap_phase_pi(node.phase + phaseParam * kTwoPi);
   if (!liveReset) {
     // Cable gone → clear latch so the next connect can rising-edge.
     node.lastReset = 0.0;
   }
   for (int f = 0; f < frames; f++) {
-    if (controlSmoothing) smoother_step_node(g, node);
-    // Re-read after step so Control ramps are sample-accurate.
-    level = node.amplitude.out;
-    if (!(level == level)) level = 0.0;
-    morph = node.shape.out;
-    if (!(morph == morph)) morph = 0.5;
+    if (f > 0 && controlSmoothing) smoother_step_node(g, node);
     const double phaseParamNow = node.phaseParam.out;
-    const double waveNow = node.waveform.out;
-    waveform = (int)(waveNow + (waveNow >= 0.0 ? 0.5 : -0.5));
-    if (waveform < 0) waveform = 0;
-    if (waveform > 8) waveform = 8;
 
     if (liveReset) {
       const double rv = g.mixReset[f];
@@ -3596,13 +3605,7 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
   const double heldHarmonics = node.stages.out;
   const double heldWaveform = node.waveform.out;
   // Morph CV (turquoise): one sample per quantum, zero-order held.
-  double heldMorph = node.shape.out;
-  if (liveMorph) {
-    heldMorph = g.mixMorph[0];
-    if (!(heldMorph == heldMorph)) heldMorph = node.shape.out;
-    if (heldMorph < 0.0) heldMorph = 0.0;
-    if (heldMorph > 1.0) heldMorph = 1.0;
-  }
+  const double heldMorph = morph_zoh_hold(g, node, liveMorph, false);
   const double heldPhaseAdd = node.center.out;
   const double heldPhaseMul = node.width.out;
   const double heldAmp = node.amplitude.out;
@@ -3703,13 +3706,15 @@ static void process_surge_oscillator(Circuit& g, Node& node, int frames) {
 }
 
 // Softwave: shape=morph, center=antialias, amplitude=level, phaseParam=phase.
+// Morph CV is turquoise ZOH (additive to knob, matches softwave JS SIGNAL IN).
 static void process_softwave_osc(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const double referenceVoltage = 48.0 / 120.0;
-  const double morph = node.shape.out;
+  const double morph = morph_zoh_hold(g, node, liveMorph, true);
   const double phaseOff = node.phaseParam.out;
   const double level = node.amplitude.out;
   const double antialias = node.center.out;
@@ -3735,13 +3740,15 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
 }
 
 // DSF: shape=morph/harmonics, width=pulseWidth, mix=blend, phaseParam=phase.
+// Morph CV is turquoise ZOH (additive to knob).
 static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const double referenceVoltage = 48.0 / 120.0;
-  const double morph = node.shape.out;
+  const double morph = morph_zoh_hold(g, node, liveMorph, true);
   const double pulseWidth = node.width.out;
   const double blend = node.mix.out;
   const double phase = node.phaseParam.out;
@@ -3910,15 +3917,17 @@ static void process_bradley2a(Circuit& g, Node& node, int frames) {
 // RoundShape ellipsoid: free-fn sine→square; Bi X/Y + Uni X/Y.
 // mode=motion (0 ClockPh, 1 CounterClockPh, 2 ClockT, 3 CounterClockT).
 // Ports: Left=Bi X, Right=Bi Y, Saw=Uni X, Ramp=Uni Y, Mono=Bi X.
+// Morph CV is turquoise ZOH (additive to knob).
 static void process_ellipsoid(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const double referenceVoltage = 48.0 / 120.0;
   const double phaseOff = node.phaseParam.out;
-  const double shape = node.shape.out;
+  const double shape = morph_zoh_hold(g, node, liveMorph, true);
   const double level = node.amplitude.out;
   int motion = (int)(node.mode.out + (node.mode.out >= 0.0 ? 0.5 : -0.5));
   if (motion < 0) motion = 0;
@@ -6950,5 +6959,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 56; // additiveOsc block-rate ZOH for Morph/tables (turquoise contract)
+  return 57; // Morph turquoise ZOH: polyBlep/softwave/ellipsoid/dsf (+ additive)
 }
