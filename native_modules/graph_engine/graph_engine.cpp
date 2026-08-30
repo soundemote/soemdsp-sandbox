@@ -263,6 +263,15 @@ extern "C" double soemdsp_trigger_counter_sample(
 );
 extern "C" double soemdsp_trigger_counter_count(int handle);
 
+extern "C" double soemdsp_metallic_ratio_sample(double index);
+
+extern "C" int soemdsp_lut_cell_create();
+extern "C" void soemdsp_lut_cell_destroy(int handle);
+extern "C" int soemdsp_lut_cell_sample(
+  int handle, double a, double b, double c, double d, double clock, double truthTable
+);
+extern "C" int soemdsp_lut_cell_q(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -325,6 +334,8 @@ static const int kTypeTriggerDivider = 29;
 static const int kTypeDelayedTrigger = 30;
 static const int kTypeRandomClock = 31;
 static const int kTypeTriggerCounter = 32;
+static const int kTypeMetallicRatio = 33;
+static const int kTypeLutCell = 34;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -621,6 +632,8 @@ static void destroy_node_native(Node& n) {
     soemdsp_random_clock_destroy(n.nativeHandle);
   } else if (kind == kTypeTriggerCounter) {
     soemdsp_trigger_counter_destroy(n.nativeHandle);
+  } else if (kind == kTypeLutCell) {
+    soemdsp_lut_cell_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -707,6 +720,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeNoiseGenerator) ? 0.5
       : (typeId == kTypeRobinSupersaw) ? 30.0
       : (typeId == kTypeTriggerCounter) ? 1.0
+      : (typeId == kTypeMetallicRatio) ? 1.0 // index n
       : 2.0,
     false
   );
@@ -721,7 +735,9 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.lfoVariation, (typeId == kTypePingPongDelay) ? 0.25 : 0.001, false);
   init_control(
     n.seed,
-    (typeId == kTypeNoiseGenerator || typeId == kTypeRandomClock) ? 1.0 : 0.0,
+    (typeId == kTypeNoiseGenerator || typeId == kTypeRandomClock) ? 1.0
+      : (typeId == kTypeLutCell) ? 27030.0 // default truth table
+      : 0.0,
     true
   );
   init_control(n.feedback, 0.35, false);
@@ -1194,6 +1210,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeDelayedTrigger) return soemdsp_delayed_trigger_create();
   if (typeId == kTypeRandomClock) return soemdsp_random_clock_create();
   if (typeId == kTypeTriggerCounter) return soemdsp_trigger_counter_create();
+  if (typeId == kTypeLutCell) return soemdsp_lut_cell_create();
   return 0;
 }
 
@@ -1941,6 +1958,40 @@ static void process_trigger_divider(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Metallic mean: Ratio = (n + sqrt(n^2+4))/2. Free-function; fan M/L/R.
+static void process_metallic_ratio(Circuit& g, Node& node, int frames) {
+  const double index = node.width.out;
+  const double ratio = soemdsp_metallic_ratio_sample(index);
+  for (int f = 0; f < frames; f++) {
+    node.buf[kPortMono][f] = ratio;
+    node.buf[kPortLeft][f] = ratio;
+    node.buf[kPortRight][f] = ratio;
+  }
+}
+
+// LUT cell: A/B/C/D on buses 0–3, Clock on Trigger dest; Out→Mono, Q→Left.
+static void process_lut_cell(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  double a[kMaxBlockFrames], b[kMaxBlockFrames], c[kMaxBlockFrames], d[kMaxBlockFrames];
+  mix_live_port(g, node, kPortMono, frames, a);
+  mix_live_port(g, node, kPortLeft, frames, b);
+  mix_live_port(g, node, kPortRight, frames, c);
+  mix_live_port(g, node, kPortSaw, frames, d);
+  const bool hasClk = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const double truth = node.seed.out;
+  for (int f = 0; f < frames; f++) {
+    const double clk = hasClk ? g.mixTrigger[f] : 0.0;
+    const int comb = soemdsp_lut_cell_sample(
+      node.nativeHandle, a[f], b[f], c[f], d[f], clk, truth
+    );
+    const double out = comb ? 1.0 : 0.0;
+    const double q = soemdsp_lut_cell_q(node.nativeHandle) ? 1.0 : 0.0;
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = q;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
 // Random clock: Reset live port; Trigger→Mono, Gate→Left (fan Right=Trigger).
 static void process_random_clock(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
@@ -2417,6 +2468,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeRobinSupersaw
     || node.typeId == kTypeClock
     || node.typeId == kTypeRandomClock
+    || node.typeId == kTypeMetallicRatio
   ) {
     return; // sources: silence
   }
@@ -2529,7 +2581,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeTriggerDivider
     || typeId == kTypeDelayedTrigger
     || typeId == kTypeRandomClock
-    || typeId == kTypeTriggerCounter;
+    || typeId == kTypeTriggerCounter
+    || typeId == kTypeLutCell;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -2889,6 +2942,14 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_trigger_counter(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeMetallicRatio) {
+      process_metallic_ratio(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeLutCell) {
+      process_lut_cell(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -2962,5 +3023,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 31; // randomClock + triggerCounter
+  return 32; // metallicRatio + lutCell
 }

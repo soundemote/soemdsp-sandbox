@@ -34,6 +34,8 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "delayedTrigger",
   "randomClock",
   "triggerCounter",
+  "metallicRatio",
+  "lutCell",
   "output",
 ]);
 
