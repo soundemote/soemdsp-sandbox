@@ -284,6 +284,14 @@ extern "C" double soemdsp_lookahead_limiter_left(int handle);
 extern "C" double soemdsp_lookahead_limiter_right(int handle);
 extern "C" double soemdsp_lookahead_limiter_gain(int handle);
 
+extern "C" int soemdsp_step_sequencer_create();
+extern "C" void soemdsp_step_sequencer_destroy(int handle);
+extern "C" double soemdsp_step_sequencer_sample(
+  int handle, double trigger, double reset, double threshold, double steps, double level,
+  double v0, double v1, double v2, double v3, double v4, double v5, double v6, double v7
+);
+extern "C" double soemdsp_step_sequencer_gate(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -349,6 +357,7 @@ static const int kTypeTriggerCounter = 32;
 static const int kTypeMetallicRatio = 33;
 static const int kTypeLutCell = 34;
 static const int kTypeLookaheadLimiter = 35;
+static const int kTypeStepSequencer = 36;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -649,6 +658,8 @@ static void destroy_node_native(Node& n) {
     soemdsp_lut_cell_destroy(n.nativeHandle);
   } else if (kind == kTypeLookaheadLimiter) {
     soemdsp_lookahead_limiter_destroy(n.nativeHandle);
+  } else if (kind == kTypeStepSequencer) {
+    soemdsp_step_sequencer_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -725,12 +736,12 @@ static void init_node_defaults(Node& n, int typeId) {
     true
   );
   // Ladder stages default 4; robinSupersaw = voices; triggerDivider = division;
-  // triggerCounter = countMax.
+  // triggerCounter = countMax; stepSequencer = step count.
   init_control(
     n.stages,
     (typeId == kTypeRobinSupersaw) ? 7.0
       : (typeId == kTypeTriggerDivider) ? 2.0
-      : (typeId == kTypeTriggerCounter) ? 8.0
+      : (typeId == kTypeTriggerCounter || typeId == kTypeStepSequencer) ? 8.0
       : 4.0,
     true
   );
@@ -820,13 +831,20 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.gainMonoSum, 0.0, true); // discrete mono-sum law
   // mix: linear volumes default 1; mixStereo: dB volumes default 0; pans/bias 0; bleeds 0
   // lookaheadLimiter: laneBias[0]=release ms, laneBias[1]=dipGain
+  // stepSequencer: laneVol[0..3]=step1..4, laneBias[0..3]=step5..8
   const double laneVolDefault = (typeId == kTypeMix) ? 1.0 : 0.0;
+  static const double kStepDefaults[8] = {
+    0.0, 0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25
+  };
   for (int i = 0; i < 4; i++) {
-    init_control(n.laneVol[i], laneVolDefault, false);
+    const double volDef = (typeId == kTypeStepSequencer) ? kStepDefaults[i] : laneVolDefault;
+    init_control(n.laneVol[i], volDef, false);
     double biasDef = 0.0;
     if (typeId == kTypeLookaheadLimiter) {
       if (i == 0) biasDef = 100.0;
       else if (i == 1) biasDef = 1.0;
+    } else if (typeId == kTypeStepSequencer) {
+      biasDef = kStepDefaults[i + 4];
     }
     init_control(n.laneBias[i], biasDef, false);
   }
@@ -1248,6 +1266,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeTriggerCounter) return soemdsp_trigger_counter_create();
   if (typeId == kTypeLutCell) return soemdsp_lut_cell_create();
   if (typeId == kTypeLookaheadLimiter) return soemdsp_lookahead_limiter_create();
+  if (typeId == kTypeStepSequencer) return soemdsp_step_sequencer_create();
   return 0;
 }
 
@@ -1995,6 +2014,39 @@ static void process_trigger_divider(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Step sequencer: Trigger+Reset → Out (Mono) + Gate (Left). Steps on laneVol/Bias.
+static void process_step_sequencer(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double threshold = node.center.out;
+  const double steps = node.stages.out;
+  const double level = node.amplitude.out;
+  const double v0 = node.laneVol[0].out;
+  const double v1 = node.laneVol[1].out;
+  const double v2 = node.laneVol[2].out;
+  const double v3 = node.laneVol[3].out;
+  const double v4 = node.laneBias[0].out;
+  const double v5 = node.laneBias[1].out;
+  const double v6 = node.laneBias[2].out;
+  const double v7 = node.laneBias[3].out;
+  for (int f = 0; f < frames; f++) {
+    const double out = soemdsp_step_sequencer_sample(
+      node.nativeHandle,
+      hasTrig ? g.mixTrigger[f] : 0.0,
+      hasReset ? g.mixReset[f] : 0.0,
+      threshold,
+      steps,
+      level,
+      v0, v1, v2, v3, v4, v5, v6, v7
+    );
+    const double gate = soemdsp_step_sequencer_gate(node.nativeHandle);
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = gate;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
 // Lookahead brickwall: true stereo L/R rings + linked GR. Mono In folds into both sides.
 // Out=mono avg, Left/Right wet, Gain on Saw tap.
 static void process_lookahead_limiter(Circuit& g, Node& node, int frames) {
@@ -2658,7 +2710,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeRandomClock
     || typeId == kTypeTriggerCounter
     || typeId == kTypeLutCell
-    || typeId == kTypeLookaheadLimiter;
+    || typeId == kTypeLookaheadLimiter
+    || typeId == kTypeStepSequencer;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -3030,6 +3083,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_lookahead_limiter(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeStepSequencer) {
+      process_step_sequencer(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -3103,5 +3160,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 33; // lookaheadLimiter (true stereo brickwall)
+  return 34; // stepSequencer (8-step Trigger/Reset)
 }

@@ -40,6 +40,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   metallicRatio: 33,
   lutCell: 34,
   lookaheadLimiter: 35,
+  stepSequencer: 36,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -916,6 +917,20 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("dipGain", P.NATIVE_GRAPH_PARAM_LANE_BIAS2, cont("dipGain", 1));
       continue;
     }
+    if (type === "stepSequencer") {
+      push("threshold", P.NATIVE_GRAPH_PARAM_CENTER, cont("threshold", 0));
+      push("steps", P.NATIVE_GRAPH_PARAM_STAGES, disc("steps", 8));
+      push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
+      push("step1", P.NATIVE_GRAPH_PARAM_LANE_VOL1, cont("step1", 0));
+      push("step2", P.NATIVE_GRAPH_PARAM_LANE_VOL2, cont("step2", 0.25));
+      push("step3", P.NATIVE_GRAPH_PARAM_LANE_VOL3, cont("step3", 0.5));
+      push("step4", P.NATIVE_GRAPH_PARAM_LANE_VOL4, cont("step4", 0.75));
+      push("step5", P.NATIVE_GRAPH_PARAM_LANE_BIAS1, cont("step5", 1));
+      push("step6", P.NATIVE_GRAPH_PARAM_LANE_BIAS2, cont("step6", 0.75));
+      push("step7", P.NATIVE_GRAPH_PARAM_LANE_BIAS3, cont("step7", 0.5));
+      push("step8", P.NATIVE_GRAPH_PARAM_LANE_BIAS4, cont("step8", 0.25));
+      continue;
+    }
     if (type === "range") {
       push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", -1));
       push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
@@ -1087,6 +1102,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "triggerCounter") return ["Pulse"];
     if (type === "metallicRatio") return ["Ratio"];
     if (type === "lutCell") return ["Out"];
+    if (type === "stepSequencer") return ["Out"];
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
@@ -1098,6 +1114,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "randomClock") return ["Gate"];
     if (type === "triggerCounter") return ["Count"];
     if (type === "lutCell") return ["Q"];
+    if (type === "stepSequencer") return ["Gate"];
     if (type === "reverbEffect" || type === "pingPongDelay") {
       return ["Left", "Mix L", "Wet L"];
     }
