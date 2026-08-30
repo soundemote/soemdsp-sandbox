@@ -11,6 +11,9 @@ function createNodeGraphHarmonicLinesDisplay(nodeId, type = "additiveOut") {
   section.dataset.parameterVisual = "true";
   section.dataset.lightSource = "screen";
   section.dataset.lightStrength = "0.7";
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(section, "face");
+  }
   section.syncFromParameters = () => {
     section._forceDraw = true;
     drawNodeGraphHarmonicLinesDisplay(section);
@@ -35,7 +38,6 @@ function createNodeGraphHarmonicLinesDisplay(nodeId, type = "additiveOut") {
 }
 
 function nodeGraphHarmonicLinesReadGraph(nodeId) {
-  // Prefer published view from Out (includes frequencyHz), else Graph IN.
   if (typeof nodeGraphDataBus !== "undefined") {
     const view = nodeGraphDataBus.get?.(`${nodeId}.GraphView`);
     if (view?.ratio) return view;
@@ -53,19 +55,35 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
   if (!section) return;
   const canvas = section.querySelector("canvas");
   if (!canvas) return;
-  const rect = section.getBoundingClientRect();
-  const w = Math.max(1, Math.floor(rect.width));
-  const h = Math.max(1, Math.floor(rect.height));
-  const dpr = window.devicePixelRatio || 1;
-  if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-    canvas.width = Math.floor(w * dpr);
-    canvas.height = Math.floor(h * dpr);
+
+  let ctx;
+  let w;
+  let h;
+  let pixelRatio = 1;
+  if (typeof nodeGraphSizeDisplayCanvas === "function") {
+    const metrics = nodeGraphSizeDisplayCanvas(section, canvas, { pixelDensity: 1 });
+    if (!metrics) return;
+    ctx = metrics.context;
+    w = metrics.cssWidth;
+    h = metrics.cssHeight;
+    pixelRatio = metrics.pixelRatio || 1;
+  } else {
+    const rawW = Number(section.clientWidth || section.offsetWidth) || 0;
+    const rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+    if (rawW < 8 || rawH < 8) return;
+    const dpr = window.devicePixelRatio || 1;
+    w = Math.max(1, Math.floor(rawW));
+    h = Math.max(1, Math.floor(rawH));
+    canvas.width = Math.max(1, Math.round(w * dpr));
+    canvas.height = Math.max(1, Math.round(h * dpr));
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
+    ctx = canvas.getContext("2d");
+    pixelRatio = dpr;
   }
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (!ctx || w < 8 || h < 8) return;
+
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   ctx.fillStyle = "#050508";
   ctx.fillRect(0, 0, w, h);
 
@@ -77,6 +95,7 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("no Graph", w * 0.5, h * 0.5);
+    section._forceDraw = false;
     return;
   }
 
@@ -108,6 +127,7 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     ctx.lineTo(x, baseY - lineH);
     ctx.stroke();
   }
+  section._forceDraw = false;
 }
 
 if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {

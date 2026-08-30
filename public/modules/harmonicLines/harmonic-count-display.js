@@ -11,6 +11,9 @@ function createNodeGraphHarmonicCountDisplay(nodeId, type = "additiveGenerator")
   section.dataset.parameterVisual = "true";
   section.dataset.lightSource = "screen";
   section.dataset.lightStrength = "0.5";
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(section, "face");
+  }
   section.syncFromParameters = () => {
     section._forceDraw = true;
     drawNodeGraphHarmonicCountDisplay(section);
@@ -42,10 +45,7 @@ function nodeGraphHarmonicCountReadH(nodeId, type) {
   }
   const graph = typeof readNodeGraphDataInput === "function"
     ? readNodeGraphDataInput(nodeId, "Graph")
-    : (typeof nodeGraphDataBus !== "undefined"
-      ? nodeGraphDataBus.get?.(`${nodeId}.Graph`)
-      : null);
-  // Generator publishes OUT; Effect may show incoming or outgoing.
+    : null;
   const published = typeof nodeGraphDataBus !== "undefined"
     ? nodeGraphDataBus.get?.(`${nodeId}.Graph`)
     : null;
@@ -59,19 +59,35 @@ function drawNodeGraphHarmonicCountDisplay(section) {
   if (!section) return;
   const canvas = section.querySelector("canvas");
   if (!canvas) return;
-  const rect = section.getBoundingClientRect();
-  const w = Math.max(1, Math.floor(rect.width));
-  const h = Math.max(1, Math.floor(rect.height));
-  const dpr = window.devicePixelRatio || 1;
-  if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-    canvas.width = Math.floor(w * dpr);
-    canvas.height = Math.floor(h * dpr);
+
+  let ctx;
+  let w;
+  let h;
+  let pixelRatio = 1;
+  if (typeof nodeGraphSizeDisplayCanvas === "function") {
+    const metrics = nodeGraphSizeDisplayCanvas(section, canvas, { pixelDensity: 1 });
+    if (!metrics) return;
+    ctx = metrics.context;
+    w = metrics.cssWidth;
+    h = metrics.cssHeight;
+    pixelRatio = metrics.pixelRatio || 1;
+  } else {
+    const rawW = Number(section.clientWidth || section.offsetWidth) || 0;
+    const rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+    if (rawW < 8 || rawH < 8) return;
+    const dpr = window.devicePixelRatio || 1;
+    w = Math.max(1, Math.floor(rawW));
+    h = Math.max(1, Math.floor(rawH));
+    canvas.width = Math.max(1, Math.round(w * dpr));
+    canvas.height = Math.max(1, Math.round(h * dpr));
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
+    ctx = canvas.getContext("2d");
+    pixelRatio = dpr;
   }
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (!ctx || w < 8 || h < 8) return;
+
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   ctx.fillStyle = "#0a0a12";
   ctx.fillRect(0, 0, w, h);
   const nodeId = section.dataset.node;
@@ -82,6 +98,7 @@ function drawNodeGraphHarmonicCountDisplay(section) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(H > 0 ? String(H) : "—", w * 0.5, h * 0.5);
+  section._forceDraw = false;
 }
 
 if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {

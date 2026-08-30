@@ -17034,11 +17034,12 @@ body.node-slider-dragging * {
   z-index: 1;
   grid-column: 1;
   min-width: 0;
+  max-width: 100%;
   color: var(--node-slider-value-color, #ffffff);
   overflow: hidden;
   text-align: left;
-  text-overflow: clip;
-  white-space: pre;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .node-slider-readout-unit {
@@ -24576,20 +24577,37 @@ code {
   display: none;
 }
 
+/* LayoutA face row: fixed display-height track (not height:100% of module). */
 .node-harmonic-count-display,
 .node-harmonic-lines-display {
   position: relative;
+  z-index: 2;
+  box-sizing: border-box;
   display: block;
   width: 100%;
-  min-height: 48px;
-  height: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: calc(var(--node-grid-height) * var(--node-module-display-height-units, 2));
+  min-height: calc(var(--node-grid-height) * 2);
+  align-self: stretch;
   overflow: hidden;
   background: #050508;
-  border-radius: 4px;
+  pointer-events: none;
 }
 .node-harmonic-count-canvas,
 .node-harmonic-lines-canvas {
   display: block;
   width: 100%;
   height: 100%;
+  min-height: inherit;
+}
+
+/* Choice names (Waveform / Effect) must not widen the module. */
+.dsp-node[data-node-type="additiveGenerator"] .node-slider-readout-value,
+.dsp-node[data-node-type="additiveEffect"] .node-slider-readout-value,
+.dsp-node[data-node-type="additiveOut"] .node-slider-readout-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }

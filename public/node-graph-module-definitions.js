@@ -1369,9 +1369,12 @@ const nodeGraphModuleDefinitions = (
   // (additiveOsc / gpuAdditiveOsc retired — dropped on patch load.)
   additiveGenerator: {
     planRole: "source",
+    chrome: "LayoutA",
     customDisplayArea: true,
     displayType: "harmonicCount",
     displayHeightGu: 2,
+    // Pin width so long Waveform choice names cannot thrash the stack.
+    defaultWidthGu: 8,
     displayModes: [
       { key: "harmonicCount", renderer: "harmonicCount" },
     ],
@@ -1416,9 +1419,11 @@ const nodeGraphModuleDefinitions = (
   },
   additiveEffect: {
     planRole: "processor",
+    chrome: "LayoutA",
     customDisplayArea: true,
     displayType: "harmonicCount",
     displayHeightGu: 2,
+    defaultWidthGu: 8,
     displayModes: [
       { key: "harmonicCount", renderer: "harmonicCount" },
     ],
@@ -1450,9 +1455,11 @@ const nodeGraphModuleDefinitions = (
   },
   additiveOut: {
     planRole: "source",
+    chrome: "LayoutA",
     customDisplayArea: true,
     displayType: "harmonicLines",
     displayHeightGu: 4,
+    defaultWidthGu: 10,
     displayModes: [
       { key: "harmonicLines", renderer: "harmonicLines" },
     ],

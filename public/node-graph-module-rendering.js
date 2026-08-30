@@ -983,7 +983,11 @@ function createNodeGraphModuleElement(type, node) {
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
       : !patchNodeUi.oscilloscopeHidden)
       && typeof createNodeGraphHarmonicCountDisplay === "function") {
-      article.append(createNodeGraphHarmonicCountDisplay(node, type));
+      const face = createNodeGraphHarmonicCountDisplay(node, type);
+      if (typeof tagNodeGraphModuleBand === "function") {
+        tagNodeGraphModuleBand(face, "face");
+      }
+      article.append(face);
     }
     appendNodeGraphModuleIoSection(
       article,
@@ -997,7 +1001,11 @@ function createNodeGraphModuleElement(type, node) {
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
       : !patchNodeUi.oscilloscopeHidden)
       && typeof createNodeGraphHarmonicLinesDisplay === "function") {
-      article.append(createNodeGraphHarmonicLinesDisplay(node, type));
+      const face = createNodeGraphHarmonicLinesDisplay(node, type);
+      if (typeof tagNodeGraphModuleBand === "function") {
+        tagNodeGraphModuleBand(face, "face");
+      }
+      article.append(face);
     }
     appendNodeGraphModuleIoSection(
       article,
