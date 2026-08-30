@@ -271,7 +271,7 @@ NodeLiveAudioProcessor.prototype.createWallDelayState = function createWallDelay
   };
 
 NodeLiveAudioProcessor.prototype.wallDelaySample = function wallDelaySample(state, input, params, rateHz = sampleRate) {
-    const safeRate = Math.max(1, Number(rateHz) || 44100);
+    const safeRate = Math.max(1, nodeGraphFiniteNumber(rateHz, 44100));
     const requiredSize = Math.max(2, Math.ceil(safeRate * this.wallDelayMaxTotalSeconds) + 2);
     if (!state.bufferL || state.bufferSize !== requiredSize) {
       state.bufferL = new Float32Array(requiredSize);

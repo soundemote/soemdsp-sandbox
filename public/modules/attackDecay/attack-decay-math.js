@@ -49,7 +49,7 @@ function nodeGraphAttackDecaySample(state, gate, params, sampleRate) {
   const rate = Math.max(1, Number(sampleRate) || 44100);
   const attack = Math.max(0, Number(params?.attack) || 0);
   const decay = Math.max(0, Number(params?.decay) || 0);
-  const curve = Math.max(0.001, Number(params?.curve) || 1);
+  const curve = Math.max(0.001, nodeGraphFiniteNumber(params?.curve, 1));
   const amplitude = Number(params?.amplitude);
   const level = Number.isFinite(amplitude) ? amplitude : 1;
   const inputMode = Math.max(0, Math.min(1, Math.round(Number(params?.inputMode) || 0)));

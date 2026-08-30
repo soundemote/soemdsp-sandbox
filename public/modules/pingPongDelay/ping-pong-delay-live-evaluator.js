@@ -131,7 +131,7 @@ function nodeGraphPingPongRunLfoChannel(ch, style, rateHz, sampleRate) {
 
 function nodeGraphPingPongSoftClip(v, saturate) {
   // SoEmReverb: width = saturate * 2, center = 0.
-  const thr = Math.max(0.01, Number(saturate) || 1);
+  const thr = Math.max(0.01, nodeGraphFiniteNumber(saturate, 1));
   if (typeof nodeGraphSoftClipperSample === "function") {
     return nodeGraphSoftClipperSample(v, 0, thr * 2);
   }

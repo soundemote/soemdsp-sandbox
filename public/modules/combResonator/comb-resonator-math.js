@@ -52,8 +52,8 @@ function nodeGraphCombResonatorEnsureBuffer(state, sampleRate) {
 function nodeGraphCombResonatorFeedbackGain(decaySec, delaySamples, sampleRate, hold) {
   if (hold) return 1 - 1e-12;
   const rate = Math.max(1, Number(sampleRate) || 44100);
-  const D = Math.max(1, Number(delaySamples) || 1);
-  const tau = Math.max(1e-6, Number(decaySec) || 1e-6);
+  const D = Math.max(1, nodeGraphFiniteNumber(delaySamples, 1));
+  const tau = Math.max(1e-6, nodeGraphFiniteNumber(decaySec, 1e-6));
   let g = Math.exp(-D / (tau * rate));
   if (!(g >= 0) || !Number.isFinite(g)) g = 0;
   if (g > 1 - 1e-12) g = 1 - 1e-12;

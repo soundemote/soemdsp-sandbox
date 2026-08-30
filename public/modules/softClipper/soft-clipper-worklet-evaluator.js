@@ -88,7 +88,7 @@ NodeLiveAudioProcessor.prototype.applySoftClipperNativeParams = function applySo
   native.soemdsp_soft_clipper_set_params(
     state.nativeHandle,
     Number(center) || 0,
-    Number(width) || 2,
+    nodeGraphFiniteNumber(width, 2),
     antialias,
     osMode,
   );
@@ -142,7 +142,7 @@ NodeLiveAudioProcessor.prototype.nativeSoftClipperSample = function nativeSoftCl
       const os = Math.round(Number(oversample));
       if (os <= 0) {
         return this.safeFilterNumber(
-          native.soemdsp_soft_clipper_sample(Number(input) || 0, Number(center) || 0, Number(width) || 2),
+          native.soemdsp_soft_clipper_sample(Number(input) || 0, Number(center) || 0, nodeGraphFiniteNumber(width, 2)),
           null,
         );
       }
@@ -152,7 +152,7 @@ NodeLiveAudioProcessor.prototype.nativeSoftClipperSample = function nativeSoftCl
           ch,
           Number(input) || 0,
           Number(center) || 0,
-          Number(width) || 2,
+          nodeGraphFiniteNumber(width, 2),
           1,
         ),
         null,

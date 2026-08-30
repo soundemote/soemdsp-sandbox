@@ -61,10 +61,14 @@ NodeLiveAudioProcessor.prototype.additiveGeneratorWorkletEvaluate = function add
   // Once per quantum (first frame of the block).
   if (frame !== 0) return;
   const p = node?.parameters || {};
+  const num = typeof nodeGraphFiniteNumber === "function" ? nodeGraphFiniteNumber : (v, fb) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fb;
+  };
   const graph = additiveGraphBuildFromWaveform(
-    Number(p.waveform) || 0,
-    Number(p.morph) || 0.5,
-    Number(p.harmonics) || 32
+    num(p.waveform, 0),
+    num(p.morph, 0.5),
+    num(p.harmonics, 32)
   );
   this.additiveGraphWrite(nodeId, graph);
 };
@@ -73,10 +77,14 @@ NodeLiveAudioProcessor.prototype.additiveGeneratorWorkletEvaluateBlock = functio
   node, nodeId, frames
 ) {
   const p = node?.parameters || {};
+  const num = typeof nodeGraphFiniteNumber === "function" ? nodeGraphFiniteNumber : (v, fb) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fb;
+  };
   const graph = additiveGraphBuildFromWaveform(
-    Number(p.waveform) || 0,
-    Number(p.morph) || 0.5,
-    Number(p.harmonics) || 32
+    num(p.waveform, 0),
+    num(p.morph, 0.5),
+    num(p.harmonics, 32)
   );
   this.additiveGraphWrite(nodeId, graph);
 };

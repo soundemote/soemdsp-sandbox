@@ -13,7 +13,7 @@ NodeLiveAudioProcessor.prototype.simulationTimeWorkletEvaluate = function simula
   void frames;
   void frameValues;
   void mixInput;
-  const sr = Math.max(1, Number(safeRate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(safeRate, 44100));
   const samples = Math.max(0, Number(this.absoluteFrame) || 0);
   if (typeof nodeGraphSimulationTimeCore === "function") {
     return nodeGraphSimulationTimeCore(samples, sr);

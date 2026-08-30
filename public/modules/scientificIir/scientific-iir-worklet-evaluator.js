@@ -53,7 +53,7 @@ NodeLiveAudioProcessor.prototype.scientificIirSample = function scientificIirSam
             Math.max(0, Math.min(3, Math.round(Number(mode) || 0))),
             Math.max(0, Number(frequency) || 0),
             Math.round(Number(order) || 4),
-            Math.max(0.05, Number(bandwidth) || 1),
+            Math.max(0.05, nodeGraphFiniteNumber(bandwidth, 1)),
             Math.max(0.01, Number(ripple) || 1),
             Math.max(1, Number(rate) || sampleRate || 44100),
           ),

@@ -22,7 +22,7 @@ NodeLiveAudioProcessor.prototype.tb303FilterSample = function tb303FilterSample(
       this.safeFilterNumber(input, state),
       Number.isFinite(cutoff) ? Math.max(0, cutoff) : 0,
       Math.max(0, Math.min(100, this.safeFilterNumber(params.resonance, state))),
-      Math.max(0, Math.min(14, Math.round(Number(params.mode) || 4))),
+      Math.max(0, Math.min(14, Math.round(nodeGraphFiniteNumber(params.mode, 4)))),
       Number(params.drive) || 0,
       Math.max(1, Number(rate) || sampleRate || 44100),
     ),

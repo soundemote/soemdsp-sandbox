@@ -16,7 +16,7 @@ function nodeGraphTriggerCounterCore(state, trigger, reset, params, sampleRate) 
   const safeTrigger = Number(trigger) || 0;
   const safeReset = Number(reset) || 0;
   const threshold = Number(params?.threshold) || 0;
-  const countMax = Math.max(1, Number(params?.countMax) || 1);
+  const countMax = Math.max(1, nodeGraphFiniteNumber(params?.countMax, 1));
   const increment = Math.max(0, Number(params?.increment) || 0);
   const pulseTime = Math.max(0, Number(params?.pulseTime) || 0);
   const level = Number(params?.level) || 0;

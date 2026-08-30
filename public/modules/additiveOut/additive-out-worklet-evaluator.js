@@ -12,7 +12,7 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
 
   let state = this.additiveOutStates.get(String(nodeId));
   if (!state) {
-    state = { phaseAcc: null, lastReset: 0, heldGraph: null, heldFreq: 100, heldPhase: 0, heldAmp: 0.35 };
+    state = { phaseAcc: null, lastReset: 0, heldGraph: null, heldFreq: 0, heldPhase: 0, heldAmp: 0.35 };
     this.additiveOutStates.set(String(nodeId), state);
   }
 
@@ -21,7 +21,8 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
     state.heldGraph = graph;
     const p = node?.parameters || {};
     const referenceVoltage = 48 / 120;
-    let frequencyHz = Number(p.frequency) || 100;
+    let frequencyHz = Number(p.frequency);
+    if (!Number.isFinite(frequencyHz)) frequencyHz = 100;
     const hasPitch = this.inputConnections?.has?.(this.inputKey(nodeId, "0.1V/Oct"));
     if (hasPitch) {
       const pitchCv = Number(mixInput(nodeId, "0.1V/Oct")) || 0;
@@ -63,7 +64,8 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
     if (Number.isFinite(fAbs)) freq = fAbs;
   } else if (livePitch) {
     const referenceVoltage = 48 / 120;
-    const base = Number(node?.parameters?.frequency) || 100;
+    let base = Number(node?.parameters?.frequency);
+    if (!Number.isFinite(base)) base = 100;
     const pitchCv = Number(mixInput(nodeId, "0.1V/Oct")) || 0;
     freq = typeof this.pitchedFrequency === "function"
       ? this.pitchedFrequency(base, pitchCv, referenceVoltage)

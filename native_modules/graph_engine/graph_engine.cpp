@@ -807,6 +807,10 @@ extern "C" void soemdsp_cheap_walk_destroy(int handle);
 extern "C" double soemdsp_cheap_walk_sample(
   int handle, double rateHz, double amplitude, double seedParam, double sampleRate
 );
+extern "C" void soemdsp_cheap_walk_sample_stereo(
+  int handle, double rateHz, double amplitude, double seedParam, double sampleRate,
+  double* outLeft, double* outRight
+);
 
 extern "C" int soemdsp_pulse_explosion_create();
 extern "C" void soemdsp_pulse_explosion_destroy(int handle);
@@ -5058,7 +5062,7 @@ static void process_pi_spigot_noise(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Random walk: mode=method, frequency, width=jitter, seed, amplitude.
+// Cheap walk: independent L/R reflecting walks (one Seed control).
 static void process_cheap_walk(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
@@ -5066,12 +5070,15 @@ static void process_cheap_walk(Circuit& g, Node& node, int frames) {
   // rate → frequency Control; seed → seed Control
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    const double out = soemdsp_cheap_walk_sample(
-      node.nativeHandle, node.frequency.out, node.amplitude.out, node.seed.out, sr
+    double left = 0.0;
+    double right = 0.0;
+    soemdsp_cheap_walk_sample_stereo(
+      node.nativeHandle, node.frequency.out, node.amplitude.out, node.seed.out, sr,
+      &left, &right
     );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
+    node.buf[kPortLeft][f] = left;
+    node.buf[kPortRight][f] = right;
+    node.buf[kPortMono][f] = (left + right) * 0.5;
   }
 }
 
@@ -5081,12 +5088,18 @@ static void process_random_walk(Circuit& g, Node& node, int frames) {
   const bool controlSmoothing = node_control_smoothing(node);
   const double seed = node.seed.out;
   if (seed != node.lastReset) {
-    soemdsp_random_walk_reset_seed(node.nativeHandle, seed);
+    const unsigned int seedU = (unsigned int)(seed < 1.0 ? 1.0 : seed);
+    soemdsp_random_walk_reset_seed(node.nativeHandle, (double)seedU);
+    if (node.nativeHandleR > 0) {
+      unsigned int rightSeed = seedU ^ 0x9E3779B9u;
+      if (rightSeed == 0u) rightSeed = 1u;
+      soemdsp_random_walk_reset_seed(node.nativeHandleR, (double)rightSeed);
+    }
     node.lastReset = seed;
   }
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    const double out = soemdsp_random_walk_sample(
+    const double left = soemdsp_random_walk_sample(
       node.nativeHandle,
       node.mode.out,
       node.frequency.out,
@@ -5094,9 +5107,20 @@ static void process_random_walk(Circuit& g, Node& node, int frames) {
       node.amplitude.out,
       sr
     );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
+    double right = left;
+    if (node.nativeHandleR > 0) {
+      right = soemdsp_random_walk_sample(
+        node.nativeHandleR,
+        node.mode.out,
+        node.frequency.out,
+        node.width.out,
+        node.amplitude.out,
+        sr
+      );
+    }
+    node.buf[kPortLeft][f] = left;
+    node.buf[kPortRight][f] = right;
+    node.buf[kPortMono][f] = (left + right) * 0.5;
   }
 }
 
@@ -6307,6 +6331,15 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
         return -5;
       }
     }
+    // Random Walk: second instance for independent Right lane.
+    if (typeId == kTypeRandomWalk) {
+      n.nativeHandleR = create_native_for_type(typeId, g->sampleRate);
+      if (n.nativeHandleR <= 0) {
+        destroy_node_native(n);
+        n.used = false;
+        return -5;
+      }
+    }
     if (typeId == kTypePolyBlep) {
       soemdsp_polyblep_reset(n.nativeHandle);
     } else if (typeId == kTypeRobinSinusoid) {
@@ -7028,5 +7061,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 59; // Cheap Walk source + Magenta Nyquist amp curve host
+  return 60; // Cheap/Random Walk stereo L/R; space Mono jack renames
 }

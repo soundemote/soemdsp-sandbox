@@ -82,7 +82,7 @@ function nodeGraphTb303FilterMagnitudeAt(params, frequency, sampleRate) {
   const coeff = nodeGraphTb303FilterCoefficients(params.cutoff, params.resonance, sampleRate);
   const drive = Number(params.drive) || 0;
   const driveFactor = 10 ** (Math.max(0, Math.min(24, drive)) / 20);
-  const mode = Math.max(0, Math.min(14, Math.round(Number(params.mode) || 4)));
+  const mode = Math.max(0, Math.min(14, Math.round(nodeGraphFiniteNumber(params.mode, 4))));
   const c = nodeGraphTb303FilterModesMix[mode] || nodeGraphTb303FilterModesMix[4];
   const omega = 2 * Math.PI * Math.max(0, Number(frequency) || 0) / Math.max(1, Number(sampleRate) || 44100);
   const zInv = { im: -Math.sin(omega), re: Math.cos(omega) };
@@ -153,7 +153,7 @@ function nodeGraphTb303FilterSample(state, input, params, sampleRate, runtime = 
   const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
   const drive = Number(params.drive) || 0;
   const driveFactor = 10 ** (Math.max(0, Math.min(24, drive)) / 20);
-  const safeMode = Math.max(0, Math.min(14, Math.round(Number(params.mode) || 4)));
+  const safeMode = Math.max(0, Math.min(14, Math.round(nodeGraphFiniteNumber(params.mode, 4))));
   const coeff = nodeGraphTb303FilterCoefficients(params.cutoff, params.resonance, rate);
   const a1 = coeff.a1;
   const k = coeff.k;

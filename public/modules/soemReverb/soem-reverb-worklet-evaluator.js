@@ -23,7 +23,7 @@ NodeLiveAudioProcessor.prototype.soemReverbNoteFraction = function soemReverbNot
 /** One echo base in seconds for both echo L/R. */
 NodeLiveAudioProcessor.prototype.soemReverbEchoSeconds = function soemReverbEchoSeconds(params) {
   const offsetSeconds = (Number(params.offsetMs) || 0) / 1000;
-  const freeSeconds = Math.max(0.0001, Number(params.echoTime) || 0.35);
+  const freeSeconds = Math.max(0.0001, nodeGraphFiniteNumber(params.echoTime, 0.35));
   if (Math.round(Number(params.echoTempoSync) || 0) === 0) {
     return freeSeconds + offsetSeconds;
   }

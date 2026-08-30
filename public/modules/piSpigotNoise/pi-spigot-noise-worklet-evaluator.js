@@ -159,8 +159,8 @@ NodeLiveAudioProcessor.prototype.piSpigotPortsFromState = function piSpigotPorts
   const sum = state.S * 2 - 1;
   const term = this.clampValue(state.lastTerm * 0.25, -1, 1);
   return {
-    "Left Out": this.applyPiSpigotSmoothing(state.sumCh, this.applyPiSpigotColor(state.sumCh, sum, color), smoothing) * level,
-    "Right Out": this.applyPiSpigotSmoothing(state.termCh, this.applyPiSpigotColor(state.termCh, term, color), smoothing) * level,
+    Left: this.applyPiSpigotSmoothing(state.sumCh, this.applyPiSpigotColor(state.sumCh, sum, color), smoothing) * level,
+    Right: this.applyPiSpigotSmoothing(state.termCh, this.applyPiSpigotColor(state.termCh, term, color), smoothing) * level,
     Hex: state.hex / 15,
     N: state.n / NODE_GRAPH_PI_SPIGOT_MAX_N,
     T: state.pulse ? 1 : 0,
@@ -196,8 +196,8 @@ NodeLiveAudioProcessor.prototype.piSpigotNoiseSample = function piSpigotNoiseSam
         const api = this.nativePiSpigotNoise;
         const h = state.nativeHandle;
         return {
-          "Left Out": this.safeFilterNumber(api.soemdsp_pi_spigot_noise_left(h), null),
-          "Right Out": this.safeFilterNumber(api.soemdsp_pi_spigot_noise_right(h), null),
+          Left: this.safeFilterNumber(api.soemdsp_pi_spigot_noise_left(h), null),
+          Right: this.safeFilterNumber(api.soemdsp_pi_spigot_noise_right(h), null),
           Hex: this.safeFilterNumber(api.soemdsp_pi_spigot_noise_hex?.(h), null) ?? 0,
           N: this.safeFilterNumber(api.soemdsp_pi_spigot_noise_n?.(h), null) ?? 0,
           T: this.safeFilterNumber(api.soemdsp_pi_spigot_noise_t?.(h), null) ?? 0,

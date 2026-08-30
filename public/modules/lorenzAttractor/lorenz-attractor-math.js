@@ -28,11 +28,11 @@ function nodeGraphLorenzAttractorCore(state, options = {}) {
 
   const sampleRate = Math.max(1, Number(options.sampleRate) || 44100);
   const speed = Math.max(0, Number(options.speed) || 0);
-  const sigma = Math.max(0, Number(options.sigma) || 10);
+  const sigma = Math.max(0, nodeGraphFiniteNumber(options.sigma, 10));
   const rho = Number.isFinite(Number(options.rho)) ? Number(options.rho) : 28;
-  const beta = Math.max(0, Number(options.beta) || 8 / 3);
+  const beta = Math.max(0, nodeGraphFiniteNumber(options.beta, 8) / 3);
   const rotate = Number(options.rotate) || 0;
-  const scale = Math.max(0, Number(options.scale) || 1);
+  const scale = Math.max(0, nodeGraphFiniteNumber(options.scale, 1));
   const zDepth = Math.max(0, Math.min(1, Number(options.zDepth) || 0));
 
   const dt = (0.75 * speed) / sampleRate;

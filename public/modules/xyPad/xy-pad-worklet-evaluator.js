@@ -47,7 +47,7 @@
           X: pair.held.X * ampX,
           Y: pair.held.Y * ampY,
           Gate: 0,
-          Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
+          Spike: pulseSamples > 0 ? (nodeGraphFiniteNumber(state.amplitude, 1)) : 0,
         };
       }
 
@@ -87,7 +87,7 @@
             : null,
         }),
         Gate: gate,
-        Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
+        Spike: pulseSamples > 0 ? (nodeGraphFiniteNumber(state.amplitude, 1)) : 0,
       };
       pair.held = { X: out.X, Y: out.Y };
       out.X *= ampX;

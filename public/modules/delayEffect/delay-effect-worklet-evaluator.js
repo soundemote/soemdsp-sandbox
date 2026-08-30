@@ -239,7 +239,7 @@ NodeLiveAudioProcessor.prototype.delayEffectSample = function delayEffectSample(
           state.nativeSeedKey = seedKey;
           state.nativeSeed = this.stableSeed(seedKey);
         }
-        const safeRateValue = Math.max(1, Number(rateHz) || 44100);
+        const safeRateValue = Math.max(1, nodeGraphFiniteNumber(rateHz, 44100));
         const inLevel = Number(params.inLevel);
         const scaledIn = (Number(input) || 0) * (Number.isFinite(inLevel) ? inLevel : 1);
         const outLevelRaw = params.outLevel != null ? params.outLevel : params.level;

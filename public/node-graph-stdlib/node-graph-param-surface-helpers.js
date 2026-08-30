@@ -261,6 +261,15 @@ function nodeGraphParamNormalizeModInput(value, _metadata = {}) {
 }
 
 /**
+ * Coerce to number; use fallback ONLY when non-finite.
+ * 0 is a real value — never write `Number(x) || default` for knobs/CV.
+ */
+function nodeGraphFiniteNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/**
  * |mod| ≤ this → treat as unit CV across [min,max] (linear, no skew).
  * |mod| above → domain-add absolute (Pitch Detector Hz, large Knob Bias, …).
  */

@@ -862,7 +862,8 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Wave Out", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f", "Morph"],
+    // ƒ absolute-Hz last among signal inlets (Morph / CV above it).
+    inputs: ["Reset", "0.1V/Oct", "Increment", "Morph", "f"],
     inputLabels: {"0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ"},
@@ -1463,6 +1464,7 @@ const nodeGraphModuleDefinitions = (
     displayModes: [
       { key: "harmonicLines", renderer: "harmonicLines" },
     ],
+    // Signal CV; Graph data inlet stacks above these (see nodeGraphPatchNodeInputPorts).
     inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: { "0.1V/Oct": "0.1V", Increment: "Inc.", f: "ƒ" },
     // Canonical Mono port → green jack (not purple In/Out bus).
@@ -1507,7 +1509,8 @@ const nodeGraphModuleDefinitions = (
     displayType: "roundShapeFace",
     displayHeightGu: 4,
     spectrumCompanion: false,
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f", "Morph"],
+    // ƒ absolute-Hz last among signal inlets (Morph / CV above it).
+    inputs: ["Reset", "0.1V/Oct", "Increment", "Morph", "f"],
     inputLabels: {"0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ"},
@@ -3015,7 +3018,20 @@ const nodeGraphModuleDefinitions = (
   },
   noiseGenerator: {
     planRole: "source",
-    outputs: ["Left Out", "Right Out"],
+    displayType: "trace",
+    spectrumCompanion: false,
+    displayModes: [
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+    ],
+    defaultDisplayMode: "trace",
+    stereoTracePorts: { left: "Left", right: "Right" },
+    displaySignals: [
+      { key: "Left", kind: "scalar" },
+      { key: "Right", kind: "scalar" },
+    ],
+    outputs: ["Left", "Right"],
+    outputAliases: { "Left Out": "Left", "Right Out": "Right", L: "Left", R: "Right", Out: "Left" },
+    outputLabels: { Left: "Left", Right: "Right" },
     parameters: [
       {
         choices: ["Uniform", "Gaussian", "Brown", "Pink", "Crackle"],
@@ -3090,7 +3106,20 @@ const nodeGraphModuleDefinitions = (
   },
   cheapWalk: {
     planRole: "source",
-    outputs: ["Out"],
+    displayType: "trace",
+    spectrumCompanion: false,
+    displayModes: [
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+    ],
+    defaultDisplayMode: "trace",
+    stereoTracePorts: { left: "Left", right: "Right" },
+    displaySignals: [
+      { key: "Left", kind: "scalar" },
+      { key: "Right", kind: "scalar" },
+    ],
+    outputs: ["Left", "Right"],
+    outputAliases: { Out: "Left", Mono: "Left", L: "Left", R: "Right" },
+    outputLabels: { Left: "Left", Right: "Right" },
     parameters: [
       {
         defaultValue: "8",
@@ -3129,7 +3158,20 @@ const nodeGraphModuleDefinitions = (
   },
   randomWalk: {
     planRole: "source",
-    outputs: ["Out"],
+    displayType: "trace",
+    spectrumCompanion: false,
+    displayModes: [
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+    ],
+    defaultDisplayMode: "trace",
+    stereoTracePorts: { left: "Left", right: "Right" },
+    displaySignals: [
+      { key: "Left", kind: "scalar" },
+      { key: "Right", kind: "scalar" },
+    ],
+    outputs: ["Left", "Right"],
+    outputAliases: { Out: "Left", Mono: "Left", L: "Left", R: "Right" },
+    outputLabels: { Left: "Left", Right: "Right" },
     parameters: [
       {
         choices: ["White", "Filtered", "Random Steps", "Fixed Steps"],
@@ -3200,22 +3242,25 @@ const nodeGraphModuleDefinitions = (
     displayType: "scope2d",
     defaultDisplayMode: "xyBurn",
     displaySignals: [
-      { key: "Left Out", label: "Sum", kind: "scalar" },
-      { key: "Right Out", label: "Term", kind: "scalar" },
+      { key: "Left", label: "Sum", kind: "scalar" },
+      { key: "Right", label: "Term", kind: "scalar" },
       { key: "Hex", kind: "scalar" },
       { key: "N", kind: "scalar" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "Sum/Term", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "Left Out", y: "Right Out" } },
+      { key: "xyBurn", label: "Sum/Term", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "Left", y: "Right" } },
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
-    outputs: ["Left Out", "Right Out", "Hex", "N", "T", "B3", "B2", "B1", "B0"],
+    stereoTracePorts: { left: "Left", right: "Right" },
+    outputs: ["Left", "Right", "Hex", "N", "T", "B3", "B2", "B1", "B0"],
+    outputAliases: { "Left Out": "Left", "Right Out": "Right" },
     outputLabels: {
-      "Left Out": "Sum",
-      "Right Out": "Term",
+      Left: "Sum",
+      Right: "Term",
     },
     outputTooltips: {
-      "Left Out": "Running BBP fractional sum {S} as bipolar audio.",
-      "Right Out": "This sample’s BBP term (one of the four series).",
+      Left: "Running BBP fractional sum {S} as bipolar audio.",
+      Right: "This sample’s BBP term (one of the four series).",
       Hex: "Last finished hex digit of π (0…15 as 0…1).",
       N: "Current hex-digit index into π.",
       T: "Pulse when a hex digit finishes.",
@@ -8497,23 +8542,22 @@ const nodeGraphModuleDefinitions = (
   },
   delayEffect: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
-    // Mix = Mix M mono sum of Mix L/R: (L+R)*0.5 (house convention).
-    // Legacy Dry/Wet/Out map to Mix so old wires keep a dry/wet blend signal.
+    // Stereo L/R only — mono is just Left (or wire Mono→Left). Legacy In/Mix kept as aliases.
+    inputAliases: { In: "Left", Mono: "Left" },
+    inputLabels: { Left: "Left", Right: "Right" },
+    inputs: ["Left", "Right"],
     outputAliases: {
-      Mono: "Mix",
-      Out: "Mix",
-      Wet: "Mix",
-      Dry: "Mix"
+      Mix: "Left",
+      Mono: "Left",
+      Out: "Left",
+      Wet: "Left",
+      Dry: "Left",
+      "Mix L": "Left",
+      "Mix R": "Right",
+      "Mix M": "Left",
     },
-    outputLabels: {
-      Mix: "Mix M",
-      Left: "Mix L",
-      Right: "Mix R"
-    },
-    outputs: ["Mix", "Left", "Right"],
+    outputLabels: { Left: "Left", Right: "Right" },
+    outputs: ["Left", "Right"],
     parameters: [
       { defaultValue: "0.18", key: "time", kind: "time", label: "Time", max: "4", maxDigits: 5, mid: "0.18", min: "0.001", step: "any", unit: "s" },
       {
@@ -8589,7 +8633,7 @@ const nodeGraphModuleDefinitions = (
   },
   pingPongDelay: {
     planRole: "processor",
-    // Stereo Trace face (Output-style L/R colors): Mod L/R = delay tap times
+    // Stereo Trace face (Output-style L/R colors): Mod Left/Right = delay tap times
     // normalized so ±1 spans the full max delay the module supports.
     displayType: "trace",
     spectrumCompanion: false,
@@ -8597,15 +8641,18 @@ const nodeGraphModuleDefinitions = (
       { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Mod L", right: "Mod R" },
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
-    // Audio L/R + modulator traces (scope / dual-connect friendly names).
-    outputs: ["Left", "Right", "Mod L", "Mod R"],
+    stereoTracePorts: { left: "Mod Left", right: "Mod Right" },
+    inputAliases: { In: "Mono" },
+    inputLabels: { Mono: "Mono", Left: "Left", Right: "Right" },
+    inputs: ["Mono", "Left", "Right"],
+    // Audio L/R + modulator traces.
+    outputs: ["Left", "Right", "Mod Left", "Mod Right"],
+    outputAliases: { "Mod L": "Mod Left", "Mod R": "Mod Right" },
     outputLabels: {
-      "Mod L": "Mod L",
-      "Mod R": "Mod R"
+      Left: "Left",
+      Right: "Right",
+      "Mod Left": "Mod Left",
+      "Mod Right": "Mod Right",
     },
     parameters: [
       // Tap = Numer/Denom × whole note (4 beats). Numer=1 Denom=16 → 1/16 note.
@@ -8797,8 +8844,11 @@ const nodeGraphModuleDefinitions = (
   wallDelay: {
     planRole: "processor",
     layout: "wallRoomDisplay",
-    inputs: ["In"],
+    inputAliases: { In: "Mono" },
+    inputs: ["Mono"],
+    inputLabels: { Mono: "Mono" },
     outputs: ["Left", "Right"],
+    outputLabels: { Left: "Left", Right: "Right" },
     parameters: [
       { choices: ["Squircle", "Random", "Fractal"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "roomPreset", label: "Room", linearSmoothing: false, max: "2", mid: "0", min: "0", nonlinearSlider: false, step: "1", tooltip: "Preset room shape sampled by the wireframe display below. Squircle blends continuously between an ellipsoid and a box via Roundness; Random and Fractal perturb that same elliptical base per direction using Seed." },
       { defaultValue: "1", key: "roomWidth", label: "Width", max: "2", mid: "1", min: "0.2", nonlinearSlider: false, step: "any", tooltip: "Room proportion along X/Z (the floor footprint), relative to Scale. Applies to all room presets, not just Squircle." },
@@ -8819,21 +8869,33 @@ const nodeGraphModuleDefinitions = (
     planFreeRun: true,
     displayType: "trace",
     // Dry = pure input; Mix = dry/wet blend (no wet-only jacks).
-    stereoTracePorts: { left: "Mix L", right: "Mix R" },
-    inputs: ["In", "Left", "Right"],
-    // Legacy Wet / Left Mix / … → Mix L/R.
+    stereoTracePorts: { left: "Mix Left", right: "Mix Right" },
+    inputAliases: { In: "Mono" },
+    inputs: ["Mono", "Left", "Right"],
+    inputLabels: { Mono: "Mono", Left: "Left", Right: "Right" },
+    // Legacy Wet / Mix L / … → Mix Left/Right (last token left/right → red/blue).
     outputAliases: {
-      "Wet L": "Mix L",
-      "Wet R": "Mix R",
-      "Left Mix": "Mix L",
-      "Right Mix": "Mix R",
-      "Mono Mix": "Mix L",
-      "Left Dry": "Dry L",
-      "Right Dry": "Dry R",
-      "Mono Dry": "Dry L"
+      "Mix L": "Mix Left",
+      "Mix R": "Mix Right",
+      "Dry L": "Dry Left",
+      "Dry R": "Dry Right",
+      "Wet L": "Mix Left",
+      "Wet R": "Mix Right",
+      "Left Mix": "Mix Left",
+      "Right Mix": "Mix Right",
+      "Mono Mix": "Mix Left",
+      "Left Dry": "Dry Left",
+      "Right Dry": "Dry Right",
+      "Mono Dry": "Dry Left",
     },
     // Dry before Mix (space FX outlet order).
-    outputs: ["Dry L", "Dry R", "Mix L", "Mix R"],
+    outputs: ["Dry Left", "Dry Right", "Mix Left", "Mix Right"],
+    outputLabels: {
+      "Dry Left": "Dry Left",
+      "Dry Right": "Dry Right",
+      "Mix Left": "Mix Left",
+      "Mix Right": "Mix Right",
+    },
     parameters: [
       { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", nonlinearSlider: false, step: "any", tooltip: "Dry/wet balance on the Mix outputs (not a wet-only path)." },
       { defaultValue: "0.35", key: "diffusionSize", label: "Size", max: "1", mid: "0.35", min: "0", nonlinearSlider: false, smoothingSeconds: 0.05, step: "any", tooltip: "Size of the diffusion network." },
@@ -8856,20 +8918,30 @@ const nodeGraphModuleDefinitions = (
       { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Mix L", right: "Mix R" },
+    stereoTracePorts: { left: "Mix Left", right: "Mix Right" },
     inputs: ["Mono", "Left", "Right"],
     // Dry = pure input; Mix = full dry/wet blend (no wet-only jacks).
     outputAliases: {
-      "Wet L": "Mix L",
-      "Wet R": "Mix R",
-      "Left Mix": "Mix L",
-      "Right Mix": "Mix R",
-      "Mono Mix": "Mix L",
-      "Left Dry": "Dry L",
-      "Right Dry": "Dry R",
-      "Mono Dry": "Dry L"
+      "Mix L": "Mix Left",
+      "Mix R": "Mix Right",
+      "Dry L": "Dry Left",
+      "Dry R": "Dry Right",
+      "Wet L": "Mix Left",
+      "Wet R": "Mix Right",
+      "Left Mix": "Mix Left",
+      "Right Mix": "Mix Right",
+      "Mono Mix": "Mix Left",
+      "Left Dry": "Dry Left",
+      "Right Dry": "Dry Right",
+      "Mono Dry": "Dry Left",
     },
-    outputs: ["Dry L", "Dry R", "Mix L", "Mix R"],
+    outputs: ["Dry Left", "Dry Right", "Mix Left", "Mix Right"],
+    outputLabels: {
+      "Dry Left": "Dry Left",
+      "Dry Right": "Dry Right",
+      "Mix Left": "Mix Left",
+      "Mix Right": "Mix Right",
+    },
     parameters: [
       { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", step: "any", tooltip: "Dry/wet balance on the Mix outputs." },
       { defaultValue: "1", key: "volume", label: "Volume", max: "4", mid: "1", min: "0", step: "any" },

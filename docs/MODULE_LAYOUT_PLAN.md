@@ -377,6 +377,11 @@ Rules:
 
 - **Order is M → L → R** in every `inputs` / `outputs` array that has those
   channels. Extra jacks (Trigger, 0.1V/Oct, …) come after the trio.
+- Oscillator-style stacks put absolute **ƒ** (`f`) **last** among signal inlets
+  (after Morph / Phase / Amplitude CV). Softwave / DSF already follow this;
+  PolyBLEP / Ellipsoid Morph sit above ƒ.
+- **Data-plane inlets** (`dataInputs`, e.g. Additive **Graph**) stack **above**
+  signal `inputs` in the IO strip (`nodeGraphPatchNodeInputPorts`).
 - Stereo-only (`Left` + `Right`, no Mono) stays Left then Right.
 - Channel chrome on **inlets and outlets** alike. Uncolored analog stays gold.
   Cables follow jack colors when UIDEV **wires follow port colors** is on

@@ -49,7 +49,7 @@ NodeLiveAudioProcessor.prototype.additiveOscillatorSample = function additiveOsc
       this.clampValue(Number(params.harmonicPhaseAdd) || 0, 0, 1),
       this.clampValue(Number(params.harmonicPhaseMultiply) || 0, 0, 4),
       this.clampValue(Number(params.amplitude) || 0, 0, 1),
-      Number(params.dampingFilterFrequency) || 20000,
+      nodeGraphFiniteNumber(params.dampingFilterFrequency, 20000),
       safeRateValue,
     );
   } catch (_error) {

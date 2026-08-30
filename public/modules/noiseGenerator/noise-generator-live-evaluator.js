@@ -18,7 +18,7 @@ nodeGraphLiveModuleEvaluators.noiseGenerator = ({ runtime, node, nodeId, frame, 
     nodeId,
   );
   return {
-    "Left Out": nodeGraphSafeFilterNumber(out["Left Out"], runtime, nodeId, null, "noise generator left out"),
-    "Right Out": nodeGraphSafeFilterNumber(out["Right Out"], runtime, nodeId, null, "noise generator right out"),
+    Left: nodeGraphSafeFilterNumber(out.Left ?? out["Left Out"], runtime, nodeId, null, "noise generator left"),
+    Right: nodeGraphSafeFilterNumber(out.Right ?? out["Right Out"], runtime, nodeId, null, "noise generator right"),
   };
 };

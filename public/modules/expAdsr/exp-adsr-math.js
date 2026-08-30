@@ -136,7 +136,7 @@ function nodeGraphExpAdsrPreviewCurve(params = {}, sampleRate = 2000, points = 1
   const decay = Math.max(0, Number(params.decay) || 0);
   const sustain = Math.max(0, Math.min(1, Number(params.sustain) || 0));
   const release = Math.max(0, Number(params.release) || 0);
-  const attackShape = Math.max(1e-9, Number(params.attackShape) || 0.3);
+  const attackShape = Math.max(1e-9, nodeGraphFiniteNumber(params.attackShape, 0.3));
   const releaseShape = Math.max(1e-9, Number(params.releaseShape) || 0.0001);
   // Brief sustain plateau so the knee is visible
   const sustainHold = Math.max(0.05, Math.min(0.4, (attack + decay + release) * 0.15 || 0.08));

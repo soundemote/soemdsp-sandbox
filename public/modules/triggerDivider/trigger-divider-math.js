@@ -18,7 +18,7 @@ function nodeGraphTriggerDividerCore(state, trigger, reset, params, sampleRate) 
   const safeTrigger = Number(trigger) || 0;
   const safeReset = Number(reset) || 0;
   const threshold = Number(params?.threshold) || 0;
-  const division = Math.max(1, Math.min(64, Math.round(Number(params?.division) || 1)));
+  const division = Math.max(1, Math.min(64, Math.round(nodeGraphFiniteNumber(params?.division, 1))));
   const pulseTime = Math.max(0, Number(params?.pulseTime) || 0);
   const level = Number(params?.level) || 0;
   const rate = Math.max(1, Number(sampleRate) || 44100);

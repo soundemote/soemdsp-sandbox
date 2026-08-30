@@ -119,7 +119,7 @@ function nodeGraphPulseExplosionSample(state, trigger, params, sampleRate, runti
   state.wasHigh = high;
   const safeStart = Number.isFinite(state.safeStart) ? state.safeStart : 0;
   const safeCenter = Number.isFinite(state.safeCenter) ? state.safeCenter : 0.5;
-  const safeEnd = Number.isFinite(state.safeEnd) ? state.safeEnd : Number(params.endTime) || 1;
+  const safeEnd = Number.isFinite(state.safeEnd) ? state.safeEnd : nodeGraphFiniteNumber(params.endTime, 1);
   const skew = Number.isFinite(state.skew) ? state.skew : 0;
 
   let output = 0;

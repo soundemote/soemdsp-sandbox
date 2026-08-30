@@ -32,7 +32,7 @@ function nodeGraphCrossoverButterworthQs(butterOrder) {
 }
 
 function nodeGraphCrossoverDesignBiquadLp(f0, Q, rate) {
-  const sr = Math.max(1, Number(rate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(rate, 44100));
   const f = Math.max(1e-9, Math.min(sr * 0.49, Number(f0) || 0));
   const q = Math.max(0.05, Math.min(100, Number(Q) || 0.707));
   const w0 = (2 * Math.PI * f) / sr;
@@ -55,7 +55,7 @@ function nodeGraphCrossoverDesignBiquadLp(f0, Q, rate) {
 }
 
 function nodeGraphCrossoverDesignBiquadHp(f0, Q, rate) {
-  const sr = Math.max(1, Number(rate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(rate, 44100));
   const f = Math.max(1e-9, Math.min(sr * 0.49, Number(f0) || 0));
   const q = Math.max(0.05, Math.min(100, Number(Q) || 0.707));
   const w0 = (2 * Math.PI * f) / sr;
@@ -86,7 +86,7 @@ function nodeGraphCrossoverBiquadProcess(s, x) {
 }
 
 function nodeGraphCrossoverOnePoleLpCoeff(f0, rate) {
-  const sr = Math.max(1, Number(rate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(rate, 44100));
   const f = Math.max(0, Math.min(sr * 0.49, Number(f0) || 0));
   const w = Math.min((2 * Math.PI * f) / sr, Math.PI * 0.999);
   // a = exp(-w); y = (1-a)*x + a*y
@@ -157,7 +157,7 @@ function nodeGraphCrossoverEnsureSplit(state, fc, lrOrder, rate) {
   const order = nodeGraphCrossoverClampLrOrder(lrOrder);
   // Floor tiny / non-finite fc so filters stay stable (UI min is 20 Hz).
   const f = Math.max(1e-3, Number.isFinite(Number(fc)) ? Number(fc) : 0);
-  const sr = Math.max(1, Number(rate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(rate, 44100));
   // Hysteresis: skip redesign for sub-threshold fc noise (CPU). Smoothed /
   // modulated fc still steps past this regularly — that path MUST keep z.
   const prevF = Number(state.lastFc);

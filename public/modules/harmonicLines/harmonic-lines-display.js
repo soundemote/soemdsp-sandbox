@@ -105,7 +105,8 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
   // Color rotates with phase[i] + master Phase.
   const H = Math.max(1, graph.ratio.length | 0);
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  const freqHz = Number(graph.frequencyHz ?? node?.params?.frequency ?? node?.parameters?.frequency) || 100;
+  let freqHz = Number(graph.frequencyHz ?? node?.params?.frequency ?? node?.parameters?.frequency);
+  if (!Number.isFinite(freqHz)) freqHz = 100;
   const masterPhase = Number(graph.masterPhase ?? node?.params?.phase ?? node?.parameters?.phase) || 0;
   const sr = Number(nodeGraphMvp?.sampleRate) || Number(nodeGraphMvp?.live?.sampleRate) || 44100;
   const xMaxHz = typeof nodeGraphProjectSpeedLimitHz === "function"

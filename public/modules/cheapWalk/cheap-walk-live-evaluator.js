@@ -12,7 +12,7 @@ nodeGraphLiveModuleEvaluators.cheapWalk = ({
   runtime.cheapWalkStates.set(nodeId, state);
   const read = (key, fallback) =>
     readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
-  const y = nodeGraphCheapWalkCore(
+  const out = nodeGraphCheapWalkCoreStereo(
     state,
     {
       rate: read("rate", 8),
@@ -21,9 +21,11 @@ nodeGraphLiveModuleEvaluators.cheapWalk = ({
     },
     sampleRate,
   );
+  const safe = (v, label) => (typeof nodeGraphSafeFilterNumber === "function"
+    ? nodeGraphSafeFilterNumber(v, runtime, nodeId, null, label)
+    : v);
   return {
-    Out: typeof nodeGraphSafeFilterNumber === "function"
-      ? nodeGraphSafeFilterNumber(y, runtime, nodeId, null, "cheap walk")
-      : y,
+    Left: safe(out.Left, "cheap walk left"),
+    Right: safe(out.Right, "cheap walk right"),
   };
 };

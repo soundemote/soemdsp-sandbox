@@ -146,7 +146,7 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   const params = node?.params || {};
 
   const winSize = this.spectrogramResolveFftSize(params);
-  const windowKind = Math.max(0, Math.min(4, Math.round(Number(params.window) || 1)));
+  const windowKind = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(params.window, 1))));
   const overlapIdx = Math.max(
     0,
     Math.min(SPECTROGRAM_HOP_FACTORS.length - 1, Math.round(Number(params.overlap) || 2)),

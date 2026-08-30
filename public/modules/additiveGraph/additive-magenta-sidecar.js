@@ -34,10 +34,14 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
   for (const [id, node] of nodes) {
     if (String(node?.type) !== "additiveGenerator") continue;
     const p = node.params || {};
+    const num = typeof nodeGraphFiniteNumber === "function" ? nodeGraphFiniteNumber : (v, fb) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fb;
+    };
     const graph = additiveGraphBuildFromWaveform(
-      Number(p.waveform) || 0,
-      Number(p.morph) || 0.5,
-      Number(p.harmonics) || 32,
+      num(p.waveform, 0),
+      num(p.morph, 0.5),
+      num(p.harmonics, 32),
     );
     this.additiveGraphBus.set(String(id), graph);
     this.additiveGraphPublish.set(String(id), graph);
@@ -58,13 +62,17 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
       const modes = ["LinearFilter", "AnalogFilter", "Growl", "Noisy"];
       const mode = modes[Math.max(0, Math.min(3, modeIdx))] || "LinearFilter";
       let state = this.additiveEffectStates.get(String(id));
+      const num = typeof nodeGraphFiniteNumber === "function" ? nodeGraphFiniteNumber : (v, fb) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : fb;
+      };
       const applied = additiveGraphApplyEffect(
         incoming,
         mode,
-        Number(p.parA) || 0.5,
-        Number(p.parB) || 1,
-        Number(p.parC) || 0,
-        Number(p.parD) || 0,
+        num(p.parA, 0.5),
+        num(p.parB, 1),
+        num(p.parC, 0),
+        num(p.parD, 0),
         state,
       );
       this.additiveEffectStates.set(String(id), applied.state);
@@ -102,7 +110,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
 
     const p = node.params || {};
     let frequencyHz = Number(p.frequency);
-    if (!(frequencyHz > 0)) frequencyHz = 100;
+    if (!Number.isFinite(frequencyHz)) frequencyHz = 100;
     const masterPhase = Number(p.phase) || 0;
     let masterAmp = Number(p.amplitude);
     if (!(masterAmp === masterAmp)) masterAmp = 0.35;

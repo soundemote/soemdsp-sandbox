@@ -1087,28 +1087,39 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         );
       },
       randomWalk: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
-        const state = this.randomWalkStates.get(nodeId) || this.createRandomWalkState();
-        this.randomWalkStates.set(nodeId, state);
+        let bundle = this.randomWalkStates.get(nodeId);
+        if (!bundle || !bundle.left || !bundle.right) {
+          bundle = {
+            left: this.createRandomWalkState(),
+            right: this.createRandomWalkState(),
+          };
+          this.randomWalkStates.set(nodeId, bundle);
+        }
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
-        return this.randomWalkSample(
-          state,
-          {
-            frequency: read("frequency", 2),
-            jitter: read("jitter", 0.25),
-            level: read("amplitude", 1),
-            method: read("method", 3),
-            seed: read("seed", 1),
-          },
+        const seed = read("seed", 1);
+        const params = {
+          frequency: read("frequency", 2),
+          jitter: read("jitter", 0.25),
+          level: read("amplitude", 1),
+          method: read("method", 3),
+          seed,
+        };
+        const left = this.randomWalkSample(bundle.left, params, safeRate, `${nodeId}:L`);
+        const rightSeed = ((Number(seed) >>> 0) ^ 0x9E3779B9) >>> 0 || 1;
+        const right = this.randomWalkSample(
+          bundle.right,
+          { ...params, seed: rightSeed },
           safeRate,
-          nodeId,
+          `${nodeId}:R`,
         );
+        return { Left: left, Right: right };
       },
       cheapWalk: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         if (!this.cheapWalkStates) this.cheapWalkStates = new Map();
         const state = this.cheapWalkStates.get(nodeId) || this.createCheapWalkState(1);
         this.cheapWalkStates.set(nodeId, state);
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
-        return this.cheapWalkSample(
+        return this.cheapWalkSampleStereo(
           state,
           {
             rate: read("rate", 8),

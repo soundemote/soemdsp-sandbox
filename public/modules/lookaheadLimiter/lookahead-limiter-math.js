@@ -56,7 +56,7 @@ function nodeGraphLookaheadLimiterSyncControls(
   const rate = Math.max(1, Number(sampleRate) || 44100);
   const ceilDb = Number(ceilingDb);
   const attMs = Math.max(0, Number(attackMs) || 0);
-  const relMs = Math.max(0, Number(releaseMs) || 100);
+  const relMs = Math.max(0, nodeGraphFiniteNumber(releaseMs, 100));
   const laMs = Number(lookaheadMs) || 0;
   const laSamp = Number(lookaheadSamples) || 0;
   const laEn = lookaheadEnabled == null ? 1 : Number(lookaheadEnabled);
@@ -271,7 +271,7 @@ function nodeGraphPumpingLimiterFrame(
     : Math.max(Math.abs(lIn), Math.abs(rIn));
   const instantPower = detectPeak * detectPeak;
   const attMs = Math.max(0, Number(attackMs) || 0);
-  const relMs = Math.max(1, Number(releaseMs) || 250);
+  const relMs = Math.max(1, nodeGraphFiniteNumber(releaseMs, 250));
   const attCoeff = attMs <= 0 ? 1 : 1 - Math.exp(-1 / Math.max(1, attMs * 0.001 * rate));
   const relCoeff = 1 - Math.exp(-1 / Math.max(1, relMs * 0.001 * rate));
   const ms = Number(state.meanSquare) || 0;

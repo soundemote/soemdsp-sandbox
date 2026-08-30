@@ -56,7 +56,7 @@ function nodeGraphNoiseGeneratorChannelSample(state, mode, mean, deviation, shap
 }
 
 /**
- * @returns {{ "Left Out": number, "Right Out": number }}
+ * @returns {{ Left: number, Right: number }}
  */
 function nodeGraphNoiseGeneratorCore(state, params, nodeId) {
   const mode = Math.max(0, Math.min(4, Math.round(Number(params?.mode) || 0)));
@@ -72,7 +72,7 @@ function nodeGraphNoiseGeneratorCore(state, params, nodeId) {
   const left = Math.max(-1, Math.min(1, nodeGraphNoiseGeneratorChannelSample(state.left, mode, mean, deviation, shape))) * level;
   const right = Math.max(-1, Math.min(1, nodeGraphNoiseGeneratorChannelSample(state.right, mode, mean, deviation, shape))) * level;
   return {
-    "Left Out": left,
-    "Right Out": right,
+    Left: left,
+    Right: right,
   };
 }

@@ -521,7 +521,10 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
         this.noiseGeneratorStates.set(id, this.createNoiseGeneratorState());
       }
       if (node?.type === "randomWalk" && !this.randomWalkStates.has(id)) {
-        this.randomWalkStates.set(id, this.createRandomWalkState());
+        this.randomWalkStates.set(id, {
+          left: this.createRandomWalkState(),
+          right: this.createRandomWalkState(),
+        });
       }
       if (node?.type === "cheapWalk" && !this.cheapWalkStates.has(id)) {
         if (!this.cheapWalkStates) this.cheapWalkStates = new Map();
@@ -1223,7 +1226,13 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
     }
     for (const id of [...this.randomWalkStates.keys()]) {
       if (!ids.has(id)) {
-        this.destroyRandomWalkNativeState(this.randomWalkStates.get(id));
+        const bundle = this.randomWalkStates.get(id);
+        if (bundle?.left || bundle?.right) {
+          this.destroyRandomWalkNativeState(bundle.left);
+          this.destroyRandomWalkNativeState(bundle.right);
+        } else {
+          this.destroyRandomWalkNativeState(bundle);
+        }
         this.randomWalkStates.delete(id);
       }
     }

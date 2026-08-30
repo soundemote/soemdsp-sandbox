@@ -175,8 +175,8 @@ function nodeGraphPiSpigotPortsFromState(state, color, smoothing, level) {
   const sum = state.S * 2 - 1;
   const term = clampNodeSliderValue(state.lastTerm * 0.25, -1, 1);
   return {
-    "Left Out": applyNodeGraphPiSpigotSmoothing(state.sumCh, applyNodeGraphPiSpigotColor(state.sumCh, sum, color), smoothing) * level,
-    "Right Out": applyNodeGraphPiSpigotSmoothing(state.termCh, applyNodeGraphPiSpigotColor(state.termCh, term, color), smoothing) * level,
+    Left: applyNodeGraphPiSpigotSmoothing(state.sumCh, applyNodeGraphPiSpigotColor(state.sumCh, sum, color), smoothing) * level,
+    Right: applyNodeGraphPiSpigotSmoothing(state.termCh, applyNodeGraphPiSpigotColor(state.termCh, term, color), smoothing) * level,
     Hex: state.hex / 15,
     N: state.n / NODE_GRAPH_PI_SPIGOT_MAX_N,
     T: state.pulse ? 1 : 0,
@@ -209,8 +209,8 @@ function nodeGraphPiSpigotNoiseSample(state, params, runtime = null, nodeId = ""
       wasm.soemdsp_pi_spigot_noise_sample(state.wasmHandle, color, smoothing, level);
       const h = state.wasmHandle;
       return {
-        "Left Out": nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_left(h), runtime, nodeId, null, "pi spigot sum"),
-        "Right Out": nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_right(h), runtime, nodeId, null, "pi spigot term"),
+        Left: nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_left(h), runtime, nodeId, null, "pi spigot sum"),
+        Right: nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_right(h), runtime, nodeId, null, "pi spigot term"),
         Hex: nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_hex?.(h) ?? 0, runtime, nodeId, null, "pi spigot hex"),
         N: nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_n?.(h) ?? 0, runtime, nodeId, null, "pi spigot n"),
         T: nodeGraphSafeFilterNumber(wasm.soemdsp_pi_spigot_noise_t?.(h) ?? 0, runtime, nodeId, null, "pi spigot t"),
@@ -225,8 +225,8 @@ function nodeGraphPiSpigotNoiseSample(state, params, runtime = null, nodeId = ""
   nodeGraphPiSpigotApplyStartStride(state, start, stride);
   const ports = nodeGraphPiSpigotPortsFromState(state, color, smoothing, level);
   return {
-    "Left Out": nodeGraphSafeFilterNumber(ports["Left Out"], runtime, nodeId, null, "pi spigot sum"),
-    "Right Out": nodeGraphSafeFilterNumber(ports["Right Out"], runtime, nodeId, null, "pi spigot term"),
+    Left: nodeGraphSafeFilterNumber(ports.Left ?? ports["Left Out"], runtime, nodeId, null, "pi spigot sum"),
+    Right: nodeGraphSafeFilterNumber(ports.Right ?? ports["Right Out"], runtime, nodeId, null, "pi spigot term"),
     Hex: ports.Hex,
     N: ports.N,
     T: ports.T,

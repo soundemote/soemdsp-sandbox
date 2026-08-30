@@ -1283,7 +1283,12 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
       }
       if (name === "random_walk" || targetType === "randomWalk") {
         for (const state of this.randomWalkStates.values()) {
-          this.destroyRandomWalkNativeState(state);
+          if (state?.left || state?.right) {
+            this.destroyRandomWalkNativeState(state.left);
+            this.destroyRandomWalkNativeState(state.right);
+          } else {
+            this.destroyRandomWalkNativeState(state);
+          }
         }
         this.nativeRandomWalk = exports;
         this.nativeRandomWalkReady = Boolean(

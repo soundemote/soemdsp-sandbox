@@ -517,7 +517,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=cheap-walk-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=stereo-walk-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3037,7 +3037,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=toggle-range-1",
   "./public/modules/portal/portal-lanes.js?v=portal-rename-4x2-1",
   "./public/modules/portal/portal-math.js?v=portal-lanes-1",
-  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=unit-mod-linear-1",
+  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=finite-number-1",
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
@@ -3064,9 +3064,9 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Magenta Graph additive chain (efficient Live sidecar until native Magenta).
-  "./public/modules/additiveGraph/additive-graph-math.js?v=magenta-graph-1",
-  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=magenta-graph-1",
-  "./public/modules/additiveGraph/additive-magenta-sidecar.js?v=magenta-scope-1",
+  "./public/modules/additiveGraph/additive-graph-math.js?v=zero-ok-1",
+  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=zero-ok-1",
+  "./public/modules/additiveGraph/additive-magenta-sidecar.js?v=zero-ok-1",
   "./public/node-live-audio-worklet-process.js?v=silence-fix-1",
 ];
 
@@ -3086,10 +3086,10 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/modules/rgbShape/rgb-shape-worklet-evaluator.js?v=heart-ssot-1",
   "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=sincos4-1",
   "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-core-1",
-  "./public/modules/additiveGraph/additive-graph-math.js?v=magenta-graph-1",
-  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=magenta-graph-1",
-  "./public/modules/additiveEffect/additive-effect-worklet-evaluator.js?v=magenta-graph-1",
-  "./public/modules/additiveOut/additive-out-worklet-evaluator.js?v=magenta-graph-1",
+  "./public/modules/additiveGraph/additive-graph-math.js?v=zero-ok-1",
+  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=zero-ok-1",
+  "./public/modules/additiveEffect/additive-effect-worklet-evaluator.js?v=zero-ok-1",
+  "./public/modules/additiveOut/additive-out-worklet-evaluator.js?v=zero-ok-1",
   "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=polyblep-block-1",
   "./public/modules/noiseGenerator/noise-generator-worklet-evaluator.js?v=native-strip-1",
   // noise channel math lives in worklet methods; main-thread uses noise-generator-math.js

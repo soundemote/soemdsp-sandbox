@@ -321,9 +321,10 @@ function nodeGraphPatchNodeInputPorts(node) {
   const definition = typeof nodeGraphModuleDefinition === "function"
     ? nodeGraphModuleDefinition(patchNode?.type)
     : nodeGraphModuleDefinitions[patchNode?.type];
+  // Data-plane inlets (e.g. Additive Graph) stack above signal CV so Graph stays on top.
   return [
-    ...(definition?.inputs || []),
     ...(definition?.dataInputs || []),
+    ...(definition?.inputs || []),
   ];
 }
 

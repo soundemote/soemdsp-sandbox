@@ -55,7 +55,7 @@ function nodeGraphSoftClipperHashBipolar(index, seed) {
 }
 
 function nodeGraphSoftClipperShaperCoeffs(center, width) {
-  const safeWidth = Math.max(0.000001, Math.abs(Number(width) || 2));
+  const safeWidth = Math.max(0.000001, Math.abs(nodeGraphFiniteNumber(width, 2)));
   const safeCenter = Number(center) || 0;
   const scaleX = 2 / safeWidth;
   const shiftX = -1 - (scaleX * (safeCenter - 0.5 * safeWidth));

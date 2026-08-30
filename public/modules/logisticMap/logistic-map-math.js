@@ -17,7 +17,7 @@ function nodeGraphLogisticMapCore(state, options = {}) {
   const reset = Number(options.reset) > 0;
   const rate = Math.max(0, Number(options.rate) || 0);
   const r = Math.max(0, Math.min(4, Number(options.r) || 0));
-  const seed = Math.max(0.0001, Math.min(0.9999, Number(options.seed) || 0.5));
+  const seed = Math.max(0.0001, Math.min(0.9999, nodeGraphFiniteNumber(options.seed, 0.5)));
   const level = Number(options.level) || 0;
   const sampleRate = Math.max(1, Number(options.sampleRate) || 44100);
 

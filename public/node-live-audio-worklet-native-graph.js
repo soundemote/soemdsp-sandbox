@@ -2095,10 +2095,15 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "lutCell") return ["Q"];
     if (type === "stepSequencer") return ["Gate"];
     if (type === "transport") return ["0..1"];
-    if (type === "reverbEffect" || type === "pingPongDelay") {
-      return ["Left", "Mix L", "Wet L"];
+    if (type === "reverbEffect" || type === "soemReverb") {
+      return ["Left", "Mix Left", "Mix L", "Wet L", "Dry Left", "Dry L"];
     }
-    if (type === "noiseGenerator") return ["Left", "Left Out"];
+    if (type === "pingPongDelay") {
+      return ["Left", "Mod Left", "Mod L"];
+    }
+    if (type === "noiseGenerator" || type === "cheapWalk" || type === "randomWalk") {
+      return ["Left", "Left Out"];
+    }
     return ["Left"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RIGHT) {
@@ -2109,10 +2114,15 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "snowflake") return ["Y"];
     if (type === "clock") return ["T", "Pulse", "Trigger"];
     if (type === "transport") return ["Trigger"];
-    if (type === "reverbEffect" || type === "pingPongDelay") {
-      return ["Right", "Mix R", "Wet R"];
+    if (type === "reverbEffect" || type === "soemReverb") {
+      return ["Right", "Mix Right", "Mix R", "Wet R", "Dry Right", "Dry R"];
     }
-    if (type === "noiseGenerator") return ["Right", "Right Out"];
+    if (type === "pingPongDelay") {
+      return ["Right", "Mod Right", "Mod R"];
+    }
+    if (type === "noiseGenerator" || type === "cheapWalk" || type === "randomWalk") {
+      return ["Right", "Right Out"];
+    }
     return ["Right"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_SAW) {

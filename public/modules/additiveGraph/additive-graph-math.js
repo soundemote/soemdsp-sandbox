@@ -140,7 +140,10 @@ function additiveGraphWaveformPartial(waveform, harmonic, morph) {
 }
 
 function additiveGraphCreatePayload(harmonics) {
-  const H = Math.max(1, Math.min(ADDITIVE_GRAPH_MAX_H, Math.round(Number(harmonics) || 1)));
+  // 0 harmonics = empty graph (valid). Fallback only when non-finite.
+  let hCount = Number(harmonics);
+  if (!Number.isFinite(hCount)) hCount = 1;
+  const H = Math.max(0, Math.min(ADDITIVE_GRAPH_MAX_H, Math.round(hCount)));
   return {
     harmonics: H,
     ratio: new Float32Array(H),
@@ -217,13 +220,16 @@ function additiveGraphApplyLinearFilter(graph, slopeSpan, cutoff01) {
 
 function additiveGraphApplyAnalogFilter(graph, cutoffRatio, slopeDbOct) {
   const H = graph.harmonics;
-  const cut = Math.max(1e-6, Number(cutoffRatio) || 1);
+  let cut = Number(cutoffRatio);
+  if (!Number.isFinite(cut)) cut = 1;
+  cut = Math.max(0, cut);
   // ParB 0..1 → 1..48 dB/oct
   const dbOct = 1 + additiveGraphClamp(slopeDbOct, 0, 1) * 47;
   for (let i = 0; i < H; i += 1) {
-    const r = Math.max(1e-9, graph.ratio[i]);
+    const r = Math.max(0, Number(graph.ratio[i]) || 0);
     if (r <= cut) continue;
-    const octaves = Math.log(r / cut) / Math.LN2;
+    // Floor only the log divisor — cutoff 0 still mutes everything above 0.
+    const octaves = Math.log(r / Math.max(cut, 1e-30)) / Math.LN2;
     const gainDb = -dbOct * octaves;
     graph.amplitude[i] *= Math.pow(10, gainDb / 20);
   }
@@ -250,7 +256,7 @@ function additiveGraphApplyNoisy(graph, amount, speed, walks) {
   while (walks.length < H) walks.push(cheapWalkCreate(walks.length * 97 + 13));
   for (let i = 0; i < H; i += 1) {
     const w = cheapWalkStep(walks[i], spd);
-    graph.ratio[i] = Math.max(0.01, graph.ratio[i] + w * amt * 0.5);
+    graph.ratio[i] = Math.max(0, graph.ratio[i] + w * amt * 0.5);
   }
   return { graph, walks };
 }

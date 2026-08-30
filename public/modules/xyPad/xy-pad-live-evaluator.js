@@ -27,7 +27,7 @@ nodeGraphLiveModuleEvaluators.xyPad = ({ runtime, node, nodeId, frame, frames, f
       X: held.X * ampX,
       Y: held.Y * ampY,
       Gate: 0,
-      Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
+      Spike: pulseSamples > 0 ? (nodeGraphFiniteNumber(state.amplitude, 1)) : 0,
     };
   }
 
@@ -59,7 +59,7 @@ nodeGraphLiveModuleEvaluators.xyPad = ({ runtime, node, nodeId, frame, frames, f
       filterSample: null,
     }),
     Gate: gate,
-    Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
+    Spike: pulseSamples > 0 ? (nodeGraphFiniteNumber(state.amplitude, 1)) : 0,
   };
   runtime.xyPadHoldStates.set(nodeId, { X: out.X, Y: out.Y });
   out.X *= ampX;

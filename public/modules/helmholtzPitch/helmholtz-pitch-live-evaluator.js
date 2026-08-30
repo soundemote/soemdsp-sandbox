@@ -60,7 +60,7 @@ function nodeGraphHelmholtzSample(state, input, params, inputConnected, sampleRa
     }
     if (!state.nativeHandle) return silent;
     const windowSize = Math.max(128, Math.min(4096, Math.round(Number(params.windowSize) || 1024)));
-    const threshold = Math.max(0, Math.min(1, Number(params.threshold) || 0.93));
+    const threshold = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.threshold, 0.93)));
     const nativeThreshold = Math.max(0, Math.min(0.999, threshold));
     const paramKey = `${windowSize}:${Math.round(nativeThreshold * 1000)}`;
     if (paramKey !== state.nativeParamKey && native.soemdsp_helmholtz_set_params) {

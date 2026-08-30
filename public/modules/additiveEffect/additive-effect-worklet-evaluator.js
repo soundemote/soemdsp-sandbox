@@ -15,13 +15,17 @@ NodeLiveAudioProcessor.prototype.additiveEffectWorkletEvaluate = function additi
   const modes = ["LinearFilter", "AnalogFilter", "Growl", "Noisy"];
   const mode = modes[Math.max(0, Math.min(3, modeIdx))] || "LinearFilter";
   let state = this.additiveEffectStates.get(String(nodeId));
+  const num = typeof nodeGraphFiniteNumber === "function" ? nodeGraphFiniteNumber : (v, fb) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fb;
+  };
   const applied = additiveGraphApplyEffect(
     incoming,
     mode,
-    Number(p.parA) || 0.5,
-    Number(p.parB) || 1,
-    Number(p.parC) || 0,
-    Number(p.parD) || 0,
+    num(p.parA, 0.5),
+    num(p.parB, 1),
+    num(p.parC, 0),
+    num(p.parD, 0),
     state
   );
   this.additiveEffectStates.set(String(nodeId), applied.state);

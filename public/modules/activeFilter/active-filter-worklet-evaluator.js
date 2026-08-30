@@ -28,7 +28,7 @@ NodeLiveAudioProcessor.prototype.activeFilterSample = function activeFilterSampl
             this.safeFilterNumber(input, state),
             frequencyHz,
             this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1),
-            Math.max(0, Math.min(9, Math.round(Number(params.mode) || 3))),
+            Math.max(0, Math.min(9, Math.round(nodeGraphFiniteNumber(params.mode, 3)))),
             Math.max(0, Math.min(3, Math.round(Number(params.feedbackCircuit) || 0))),
             Math.round(Number(params.gainCompensation)) !== 0 ? 1 : 0,
             Math.max(1, Number(rate) || sampleRate || 44100),

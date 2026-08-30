@@ -31,7 +31,7 @@ function createNodeGraphModeResonatorState() {
 function nodeGraphModeResonatorRadius(decaySec, sampleRate, hold) {
   if (hold) return 1;
   const rate = Math.max(1, Number(sampleRate) || 44100);
-  const tau = Math.max(1e-6, Number(decaySec) || 1e-6);
+  const tau = Math.max(1e-6, nodeGraphFiniteNumber(decaySec, 1e-6));
   // r = e^{−1/(τ fs)}  →  τ is 1/e envelope time
   let r = Math.exp(-1 / (tau * rate));
   if (!(r >= 0) || !Number.isFinite(r)) r = 0;

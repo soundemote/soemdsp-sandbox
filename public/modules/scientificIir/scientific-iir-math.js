@@ -76,7 +76,7 @@ function nodeGraphScientificIirEllipticQ(order, i, rippleDb) {
 }
 
 function nodeGraphScientificIirDesignSection(mode, f0, Q, rate) {
-  const sr = Math.max(1, Number(rate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(rate, 44100));
   let f = Math.max(1e-9, Math.min(sr * 0.49, Number(f0) || 0));
   const q = Math.max(0.05, Math.min(100, Number(Q) || 0.707));
   const w0 = (2 * Math.PI * f) / sr;
@@ -121,7 +121,7 @@ function nodeGraphScientificIirDesignSection(mode, f0, Q, rate) {
 function nodeGraphScientificIirSectionQs(kind, order, mode, bandwidthOct, rippleDb) {
   const n = nodeGraphScientificIirClampOrder(order);
   const m = n / 2;
-  const bw = Math.max(0.05, Number(bandwidthOct) || 1);
+  const bw = Math.max(0.05, nodeGraphFiniteNumber(bandwidthOct, 1));
   let bandQ = 1 / (2 * (bw * 0.5));
   bandQ = Math.max(0.2, Math.min(50, bandQ));
   const qs = [];
@@ -178,7 +178,7 @@ function nodeGraphScientificIirEnsure(state, kind, mode, order, freqHz, bandwidt
   const safeMode = Math.max(0, Math.min(3, Math.round(Number(mode) || 0)));
   const safeOrder = nodeGraphScientificIirClampOrder(order);
   const freq = Math.max(0, Number(freqHz) || 0);
-  const bw = Math.max(0.05, Number(bandwidthOct) || 1);
+  const bw = Math.max(0.05, nodeGraphFiniteNumber(bandwidthOct, 1));
   const ripple = Math.max(0.01, Number(rippleDb) || 0.01);
   if (
     state.lastKind === safeKind

@@ -21,10 +21,10 @@ function nodeGraphPllSample(state, signalIn, cvIn, cvConnected, params, sampleRa
       state.nativeParamKey = "";
     }
     if (!state.nativeHandle) return silent;
-    const range  = Math.max(0, Math.min(2, Math.round(Number(params.range)  || 1)));
-    const offset = Math.max(0, Math.min(10, Number(params.offset) || 5));
-    const type   = Math.max(0, Math.min(2, Math.round(Number(params.type)   || 1)));
-    const frequ  = Math.max(0.1, Number(params.frequ) || 10);
+    const range  = Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(params.range, 1))));
+    const offset = Math.max(0, Math.min(10, nodeGraphFiniteNumber(params.offset, 5)));
+    const type   = Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(params.type, 1))));
+    const frequ  = Math.max(0.1, nodeGraphFiniteNumber(params.frequ, 10));
     const paramKey = `${range}:${Math.round(offset * 1000)}:${type}:${Math.round(frequ * 1000)}`;
     if (paramKey !== state.nativeParamKey && native.soemdsp_pll_set_params) {
       state.nativeParamKey = paramKey;

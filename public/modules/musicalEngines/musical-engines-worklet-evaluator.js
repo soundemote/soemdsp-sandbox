@@ -265,7 +265,7 @@ NodeLiveAudioProcessor.prototype.chordMemoryJsSample = function chordMemoryJsSam
   const walk = Math.max(0, Math.min(2, Math.round(Number(options.walk) || 0)));
   const leap = this.clampValue(Number(options.leap) || 0, 0, 1);
   const octaves = Math.max(0, Math.min(3, Math.round(Number(options.octaves) || 0)));
-  const mutate = this.clampValue(Number(options.mutate) || 0.2, 0, 1);
+  const mutate = this.clampValue(nodeGraphFiniteNumber(options.mutate, 0.2), 0, 1);
   if (!state.bag) state.bag = [];
 
   if (clearHigh && !state.clearWasHigh) {

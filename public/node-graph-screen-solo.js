@@ -485,6 +485,80 @@ function handleNodeGraphScreenSoloResize() {
   }
 }
 
+/** Capture pre-solo inline grid placement (LayoutA bands use inline grid-row). */
+function nodeGraphScreenSoloCaptureFaceLayout(face) {
+  if (!(face instanceof Element)) {
+    return { gridColumn: "", gridRow: "" };
+  }
+  return {
+    gridColumn: face.style.gridColumn || "",
+    gridRow: face.style.gridRow || "",
+  };
+}
+
+function nodeGraphScreenSoloApplySavedFaceLayout(face, saved) {
+  if (!(face instanceof Element)) {
+    return;
+  }
+  if (saved?.gridColumn) {
+    face.style.gridColumn = saved.gridColumn;
+  } else {
+    face.style.removeProperty("grid-column");
+  }
+  if (saved?.gridRow) {
+    face.style.gridRow = saved.gridRow;
+  } else {
+    face.style.removeProperty("grid-row");
+  }
+}
+
+/**
+ * Put the face back where it lived. Prefer the placeholder; otherwise insert
+ * into the LayoutB shell center slot or the LayoutA stack before IO/params.
+ * Never append blindly — that parks LayoutB faces after the output column.
+ */
+function nodeGraphScreenSoloInsertFace(item) {
+  const face = item?.face;
+  const parent = item?.parent;
+  if (!(face instanceof Element)) {
+    return;
+  }
+  if (item.placeholder?.parentNode) {
+    item.placeholder.replaceWith(face);
+    return;
+  }
+  if (!(parent instanceof Element) || !parent.isConnected) {
+    return;
+  }
+  if (item.nextSibling?.parentNode === parent) {
+    parent.insertBefore(face, item.nextSibling);
+    return;
+  }
+  if (
+    parent.classList.contains("node-solid-module-shell")
+    || parent.classList.contains("node-module-chrome-layout-b-shell")
+  ) {
+    const outputCol = parent.querySelector(":scope > .node-io-column.output");
+    if (outputCol) {
+      parent.insertBefore(face, outputCol);
+      return;
+    }
+    const inputCol = parent.querySelector(":scope > .node-io-column.input");
+    if (inputCol) {
+      parent.insertBefore(face, inputCol.nextSibling);
+      return;
+    }
+  }
+  const before = parent.querySelector(
+    ":scope > .dsp-node-io-section, :scope > .dsp-node-body, :scope > .node-module-lip",
+  );
+  if (before) {
+    parent.insertBefore(face, before);
+    return;
+  }
+  parent.append(face);
+}
+
 function nodeGraphScreenSoloRestoreItem(item) {
   const face = item?.face;
   if (!face) {
@@ -492,18 +566,23 @@ function nodeGraphScreenSoloRestoreItem(item) {
   }
   face.classList.remove("node-screen-solo-face");
   face.removeAttribute("data-solo-fit");
-  face.style.removeProperty("grid-column");
-  face.style.removeProperty("grid-row");
   face.style.removeProperty("--node-screen-solo-item-w");
   face.style.removeProperty("--node-screen-solo-item-h");
-  if (item.placeholder?.parentNode) {
-    item.placeholder.replaceWith(face);
-  } else if (item.parent?.isConnected) {
-    item.parent.append(face);
-  }
+  nodeGraphScreenSoloApplySavedFaceLayout(face, item.savedLayout);
+  nodeGraphScreenSoloInsertFace(item);
   if (item.placeholder?.isConnected) {
     item.placeholder.remove();
   }
+}
+
+function nodeGraphScreenSoloRelayoutHost(host, nodeId) {
+  if (!(host instanceof Element) || typeof applyNodeGraphModuleLayout !== "function") {
+    return;
+  }
+  const patch = typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(nodeId)
+    : null;
+  applyNodeGraphModuleLayout(host, patch || undefined);
 }
 
 function nodeGraphScreenSoloCollectFaces(nodeIds) {
@@ -544,6 +623,9 @@ function beginNodeGraphScreenSoloGrid(nodeIds) {
       continue;
     }
     const sourceBox = entry.face.getBoundingClientRect();
+    // Capture band placement before solo overwrites inline grid-row/column.
+    const savedLayout = nodeGraphScreenSoloCaptureFaceLayout(entry.face);
+    const nextSibling = entry.face.nextSibling;
     const placeholder = document.createElement("div");
     placeholder.className = "node-screen-solo-placeholder";
     placeholder.setAttribute("aria-hidden", "true");
@@ -559,6 +641,8 @@ function beginNodeGraphScreenSoloGrid(nodeIds) {
       host: entry.host,
       parent,
       placeholder,
+      nextSibling,
+      savedLayout,
       sourceWidth: Math.max(1, sourceBox.width || entry.face.clientWidth || 1),
       sourceHeight: Math.max(1, sourceBox.height || entry.face.clientHeight || 1),
     });
@@ -621,9 +705,13 @@ function endNodeGraphScreenSolo(options = {}) {
   session.sourceHeight = 0;
   session.cols = 0;
   session.rows = 0;
+  const hostsToRelayout = [];
   for (const item of items) {
     item.host?.classList.remove("node-screen-solo-host");
     nodeGraphScreenSoloRestoreItem(item);
+    if (item.host) {
+      hostsToRelayout.push({ host: item.host, nodeId: item.nodeId });
+    }
   }
   session.items = [];
   session.face = null;
@@ -637,6 +725,10 @@ function endNodeGraphScreenSolo(options = {}) {
     stage.hidden = true;
   }
   document.body.classList.remove("node-screen-solo-active");
+  // Re-seal LayoutA band rows / plate clip after solo cleared inline grid.
+  for (const entry of hostsToRelayout) {
+    nodeGraphScreenSoloRelayoutHost(entry.host, entry.nodeId);
+  }
   if (!options.silent) {
     for (const node of document.querySelectorAll(".dsp-node")) {
       if (typeof nodeGraphViewportCullWakePainters === "function") {
