@@ -57,7 +57,7 @@ double trisaw(double phase, double warp) {
 }
 
 // Fast approximate pow(base, exponent) for base > 0, same pattern used in
-// native_modules/vactrol_envelope and jerobeam_boing.
+// jerobeam_boing.
 double dsp_pow(double base, double exponent) {
   if (base == 0.0) return 0.0;
   const double sign = base < 0.0 ? -1.0 : 1.0;

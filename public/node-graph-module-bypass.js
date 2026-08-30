@@ -86,8 +86,6 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   attackDecay: "silence",
   linearEnvelope: "silence",
   pluckEnvelope: "silence",
-  vactrolEnvelopeSeries: "silence",
-  vactrolEnvelopeCustom: "silence",
   flowerChildEnvelopeFollower: "silence",
   // Generators / sequencers → mute
   osc: "silence",

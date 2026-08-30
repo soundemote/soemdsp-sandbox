@@ -59,8 +59,7 @@ double dsp_asin(double x) {
   return clamp(guess, -kHalfPi, kHalfPi);
 }
 
-// Fast approximate pow(base, exponent) for base > 0, matching the
-// established pattern in native_modules/vactrol_envelope -- a curve-shaping
+// Fast approximate pow(base, exponent) for base > 0 — a curve-shaping
 // approximation, not precision-critical for a chaotic generator.
 double dsp_pow(double base, double exponent) {
   if (base <= 0.0) return 0.0;

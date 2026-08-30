@@ -57,8 +57,6 @@ const nodeGraphModuleScopeUnipolarTypes = new Set([
   "stepSequencer",
   "triggerCounter",
   "triggerDivider",
-  "vactrolEnvelopeSeries",
-  "vactrolEnvelopeCustom",
 ]);
 
 

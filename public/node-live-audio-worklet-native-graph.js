@@ -78,8 +78,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   linearEnvelope: 71,
   pluckEnvelope: 72,
   flowerChildEnvelopeFollower: 73,
-  vactrolEnvelopeCustom: 74,
-  vactrolEnvelopeSeries: 74, // shared native with custom
+  // removed: vactrol (was 74)
   delayEffect: 75,
   // wallDelay skipped — native placeholder only
   soemReverb: 76,
@@ -496,7 +495,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   if (p === "scale" && (type === "pitchQuantizer" || type === "turingMachine")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
-  // Envelope / vactrol audio-rate control jacks (fold via Mono+L+R mix).
+  // Envelope audio-rate control jacks (fold via Mono+L+R mix).
   if (p === "gate" || p === "light" || p === "release") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
@@ -1366,36 +1365,6 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("attack", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("attack", 0.001));
       push("hold", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("hold", 0.001));
       push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.001));
-      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
-      continue;
-    }
-    if (type === "vactrolEnvelopeCustom" || type === "vactrolEnvelopeSeries") {
-      // Series resolves Part → attack/release here (same native as custom).
-      let attack = cont("attack", 0.01);
-      let release = cont("release", 0.1);
-      if (type === "vactrolEnvelopeSeries") {
-        const specs = [
-          { attack: 0.0025, release: 0.035 },
-          { attack: 0.0035, release: 0.5 },
-          { attack: 0.0025, release: 0.035 },
-          { attack: 0.006, release: 1.5 },
-          { attack: 0.005, release: 0.2 },
-          { attack: 0.0035, release: 0.05 },
-          { attack: 0.006, release: 1.0 },
-          { attack: 0.004, release: 0.06 },
-          { attack: 0.004, release: 0.05 },
-          { attack: 0.001, release: 1.5 },
-        ];
-        const spec = specs[disc("part", 2)] || specs[0];
-        attack = spec.attack;
-        release = spec.release;
-      }
-      push("attack", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, attack);
-      push("release", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, release);
-      push("curve", P.NATIVE_GRAPH_PARAM_SHAPE, cont("curve", 1));
-      push("sensitivity", P.NATIVE_GRAPH_PARAM_WIDTH, cont("sensitivity", 1));
-      push("lightOffset", P.NATIVE_GRAPH_PARAM_CENTER, cont("lightOffset", 0));
-      push("darkCurrent", P.NATIVE_GRAPH_PARAM_MIX, cont("darkCurrent", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }

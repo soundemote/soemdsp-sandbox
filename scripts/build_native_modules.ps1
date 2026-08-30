@@ -65,7 +65,6 @@ $modules = @(
   @{ Name = "pulse_explosion"; Simd = $false; Exports = @("soemdsp_pulse_explosion_create", "soemdsp_pulse_explosion_destroy", "soemdsp_pulse_explosion_sample", "soemdsp_pulse_explosion_curve", "soemdsp_pulse_explosion_version") }
   @{ Name = "tb303_filter"; Simd = $false; Exports = @("soemdsp_tb303_filter_create", "soemdsp_tb303_filter_destroy", "soemdsp_tb303_filter_sample", "soemdsp_tb303_filter_version", "soemdsp_tb303_filter_metadata_json", "soemdsp_tb303_filter_metadata_json_size") }
   @{ Name = "passive_filter"; Simd = $false; Exports = @("soemdsp_passive_filter_create", "soemdsp_passive_filter_destroy", "soemdsp_passive_filter_sample", "soemdsp_passive_filter_version", "soemdsp_passive_filter_metadata_json", "soemdsp_passive_filter_metadata_json_size") }
-  @{ Name = "vactrol_envelope"; Simd = $false; Exports = @("soemdsp_vactrol_envelope_create", "soemdsp_vactrol_envelope_destroy", "soemdsp_vactrol_envelope_sample", "soemdsp_vactrol_envelope_version", "soemdsp_vactrol_envelope_metadata_json", "soemdsp_vactrol_envelope_metadata_json_size") }
   @{ Name = "shooting_star_explosion"; Simd = $false; Exports = @("soemdsp_shooting_star_explosion_power", "soemdsp_shooting_star_explosion_version", "soemdsp_shooting_star_explosion_metadata_json", "soemdsp_shooting_star_explosion_metadata_json_size") }
   @{ Name = "polyblep"; Simd = $false; Exports = @(
     "soemdsp_polyblep_create", "soemdsp_polyblep_destroy", "soemdsp_polyblep_reset",

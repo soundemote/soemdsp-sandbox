@@ -1832,7 +1832,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "lfo",
       "easy envelope",
       "default envelope",
-      "vactrol style",
       "one-pole",
       "exponential",
       "RC",
@@ -1855,16 +1854,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Fast pluck contour for picks, pings, and percussive decays.",
     label: "Pluck Envelope",
     notes: ["trigger input", "decay energy", "auto release", "native"],
-  },
-  vactrolEnvelopeSeries: {
-    category: "envelope",
-    description: "Named vactrol timings—optical lag character from real VTL parts.",
-    notes: ["light input", "part switch", "dark current", "native"],
-  },
-  vactrolEnvelopeCustom: {
-    category: "envelope",
-    description: "Roll-your-own optical lag envelope when no stock vactrol fits.",
-    notes: ["light input", "custom vactrol", "dark current", "native"],
   },
   sandboxVisuals: {
     category: "rgb",
@@ -2330,15 +2319,11 @@ function normalizeNodeGraphNativeModuleEntry(entry = {}) {
   });
 }
 
-const nodeGraphNativeModuleTargetAliases = Object.freeze({
-  vactrolEnvelope: Object.freeze(["vactrolEnvelopeSeries", "vactrolEnvelopeCustom"]),
-});
+const nodeGraphNativeModuleTargetAliases = Object.freeze({});
 
 const nodeGraphModuleStoreNativeLabelTypes = Object.freeze(new Set([
   "kickEnvelope",
   "attackDecay",
-  "vactrolEnvelopeSeries",
-  "vactrolEnvelopeCustom",
   "sineKick",
 ]));
 
@@ -3119,14 +3104,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   turingMachine: {
     source: "public/modules/turingMachine/turing-machine-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/turingMachine/turing-machine-worklet-evaluator.js",
-  },
-  vactrolEnvelope: {
-    source: "public/modules/vactrolEnvelope/vactrol-envelope-live-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/vactrolEnvelope/vactrol-envelope-live-evaluator.js",
-  },
-  vactrolEnvelopeSeries: {
-    source: "public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js",
   },
   vectorscopeTransform: {
     source: "public/modules/vectorscopeTransform/vectorscope-transform-math.js",

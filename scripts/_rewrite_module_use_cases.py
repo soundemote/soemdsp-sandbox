@@ -179,8 +179,6 @@ USE_CASES: dict[str, str] = {
   "flowerChildEnvelopeFollower": "Follow input loudness into CV—sidechain shapes and dynamics rides.",
   "linearEnvelope": "Predictable linear ramps for fades, gates, and simple motion.",
   "pluckEnvelope": "Fast pluck contour for picks, pings, and percussive decays.",
-  "vactrolEnvelopeSeries": "Named vactrol timings—optical lag character from real VTL parts.",
-  "vactrolEnvelopeCustom": "Roll-your-own optical lag envelope when no stock vactrol fits.",
   "sandboxVisuals": "Drive screen shake, dim, color, and scope pause from the patch.",
   "screenSpaceShader": "Script custom screen effects from declared inputs.",
   "bloomGlow": "Drive bloom/glow/dim of the screen wash from control signals.",

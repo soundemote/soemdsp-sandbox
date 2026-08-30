@@ -562,9 +562,6 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (node?.type === "triggerDivider" && !this.triggerDividerStates.has(id)) {
         this.triggerDividerStates.set(id, this.createTriggerDividerState());
       }
-      if ((node?.type === "vactrolEnvelopeSeries" || node?.type === "vactrolEnvelopeCustom") && !this.vactrolEnvelopeStates.has(id)) {
-        this.vactrolEnvelopeStates.set(id, this.createVactrolEnvelopeState());
-      }
       if (node?.type === "bugButton" && !this.bugButtonStates.has(id)) {
         this.bugButtonStates.set(id, this.createBugButtonState());
       }
@@ -1302,12 +1299,6 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (!ids.has(id)) {
         this.destroyTriggerDividerNativeState(this.triggerDividerStates.get(id));
         this.triggerDividerStates.delete(id);
-      }
-    }
-    for (const id of [...this.vactrolEnvelopeStates.keys()]) {
-      if (!ids.has(id)) {
-        this.destroyVactrolEnvelopeNativeState(this.vactrolEnvelopeStates.get(id));
-        this.vactrolEnvelopeStates.delete(id);
       }
     }
     for (const id of [...this.impulseButtonStates.keys()]) {

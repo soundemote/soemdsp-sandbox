@@ -343,8 +343,6 @@ var nodeGraphMvp = {
     triggerCounter: 0,
     triggerDivider: 0,
     knob: 0,
-    vactrolEnvelopeSeries: 0,
-    vactrolEnvelopeCustom: 0,
   },
   patch: cloneNodeGraphPatch(nodeGraphDefaultPatch),
   patchDirtyState: "untouched",

@@ -817,7 +817,7 @@
   {
     "type": "attackDecay",
     "label": "Attack Decay",
-    "description": "Default easy envelope: Attack, Decay, Curve, Amplitude. Input Gate|Trigger; Cycle Off|Loop|LFO. One-pole vactrol-style slew + \u03b3 curve. Canvas face preview."
+    "description": "Default easy envelope: Attack, Decay, Curve, Amplitude. Input Gate|Trigger; Cycle Off|Loop|LFO. One-pole exponential slew + \u03b3 curve. Canvas face preview."
   },
   {
     "type": "flowerChildEnvelopeFollower",
@@ -833,16 +833,6 @@
     "type": "pluckEnvelope",
     "label": "Pluck Envelope",
     "description": "Fast feedback pluck contour for struck, picked, pinged, and percussive behaviors. Native C++/WASM."
-  },
-  {
-    "type": "vactrolEnvelopeSeries",
-    "label": "vactrolEnvelopeSeries",
-    "description": "Optical-style control shaper with a 10-way Part switch selecting PerkinElmer VTL5C-series datasheet timing and resistance figures (VTL5C1 through VTL5C10), from the classic fast VTL5C3 to the ~40x-slower VTL5C4. Native C++/WASM."
-  },
-  {
-    "type": "vactrolEnvelopeCustom",
-    "label": "vactrolEnvelopeCustom",
-    "description": "Optical-style control shaper with the same attack/release/curve/sensitivity/light offset/dark current knobs as the VTL5C module, but not tied to a named real part -- roll your own hypothetical vactrol. Native C++/WASM."
   },
   {
     "type": "sandboxVisuals",

@@ -213,8 +213,6 @@ const nodeGraphNodeLabels = Object.freeze({
   flowerChildEnvelopeFollower: "Envelope Follower",
   linearEnvelope: "Linear Envelope",
   pluckEnvelope: "Pluck Envelope",
-  vactrolEnvelopeSeries: "VTL5C",
-  vactrolEnvelopeCustom: "Vactrol",
   sandboxVisuals: "Screen Visuals",
   screenSpaceShader: "Screen Space Shader",
   bloomGlow: "Bloom & Glow",
@@ -264,52 +262,6 @@ const nodeGraphTb303FilterModes = Object.freeze([
   "HP6", "HP12", "HP18", "HP24",
   "BP12/12", "BP6/18", "BP18/6", "BP6/12", "BP12/6", "BP6/6",
 ]);
-
-// The PerkinElmer VTL5C-series single-cell parts we have solid datasheet
-// figures for. attack/release are seconds; litKohm/darkKohm are the
-// R_ON@40mA / R_OFF(dark, min) figures used by vactrolEnvelopeSeries's
-// darkCurrent knob resistance readout. Index order matches that module's
-// "Part" choice parameter.
-//
-// Easter egg: VTL5C5 below is NOT a real PerkinElmer part -- there is no
-// C5 in the real catalog (the family table jumps C4 -> C6). As the story
-// goes: a dual-cell "medium" vactrol slotted between the slow C4 and the
-// fast, high-dark-resistance C6, meant to split the difference with a
-// ~200ms release. Reportedly reached pre-production samples in the early
-// '80s before PerkinElmer's optoelectronics division decided the gap
-// wasn't worth its own SKU, and the part number was quietly retired
-// rather than reassigned -- which is supposedly why old synth-DIY forum
-// posts occasionally mention "the mythical C5," usually turning out to be
-// a mislabeled C4. None of that is real. It's a hallucinated bedtime
-// story for a photoresistor, given its own row in the switch because it
-// was funnier to build than to explain. The numbers below just
-// interpolate between VTL5C4 and VTL5C6.
-const nodeGraphVactrolSeriesSpecs = Object.freeze([
-  { attack: 0.0025, darkKohm: 50000, label: "VTL5C1", litKohm: 0.2, release: 0.035 },
-  { attack: 0.0035, darkKohm: 1000, label: "VTL5C2", litKohm: 0.2, release: 0.5 },
-  { attack: 0.0025, darkKohm: 10000, label: "VTL5C3", litKohm: 0.0015, release: 0.035 },
-  { attack: 0.006, darkKohm: 400, label: "VTL5C4", litKohm: 0.075, release: 1.5 },
-  { attack: 0.005, darkKohm: 6000, label: "VTL5C5", litKohm: 0.4, release: 0.2 },
-  { attack: 0.0035, darkKohm: 100000, label: "VTL5C6", litKohm: 2, release: 0.05 },
-  { attack: 0.006, darkKohm: 1000, label: "VTL5C7", litKohm: 1.1, release: 1.0 },
-  { attack: 0.004, darkKohm: 10000, label: "VTL5C8", litKohm: 1, release: 0.06 },
-  { attack: 0.004, darkKohm: 50000, label: "VTL5C9", litKohm: 0.63, release: 0.05 },
-  { attack: 0.001, darkKohm: 400, label: "VTL5C10", litKohm: 0.4, release: 1.5 },
-]);
-
-function nodeGraphVactrolSeriesSpec(partIndex) {
-  const index = Math.round(Number(partIndex));
-  return nodeGraphVactrolSeriesSpecs[index] || nodeGraphVactrolSeriesSpecs[0];
-}
-
-// Reads another parameter's current live value on the same node -- used by
-// vactrolEnvelopeSeries's darkCurrent displayTransform so the resistance
-// readout reflects whichever "Part" is currently selected.
-function nodeGraphParameterSiblingValue(slider, key) {
-  const nodeId = slider?.closest?.(".dsp-node")?.dataset?.node;
-  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  return patchNode?.params?.[key];
-}
 
 // Module definition shape — three control surfaces (do not mix these up):
 //
@@ -10118,7 +10070,7 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  // Easy gate envelope: vactrol-style asymmetric one-pole A/D + curve.
+  // Easy gate envelope: asymmetric one-pole A/D + curve.
   attackDecay: {
     planRole: "processor",
     layout: "envelopeCurve",
@@ -10138,7 +10090,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Gate = follow high/low (vactrol AR). Trigger = rising edge fires one Attack→Decay."
+        tooltip: "Gate = follow high/low (AR). Trigger = rising edge fires one Attack→Decay."
       },
       {
         choices: ["Off", "Loop", "LFO"],
@@ -10179,7 +10131,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Fall time constant. Same family as vactrol release / photoconductive lag."
+        tooltip: "Fall time constant."
       },
       {
         defaultValue: "1",
@@ -10190,7 +10142,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.001",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Power-law after the one-pole (raw^Curve). 1 = linear; >1 digs in (vactrol gamma); <1 expands the middle."
+        tooltip: "Power-law after the one-pole (raw^Curve). 1 = linear; >1 digs in; <1 expands the middle."
       },
       {
         defaultValue: "1",
@@ -10240,97 +10192,6 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1", key: "velocity", label: "Velocity", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "velocitySensitivity", label: "Velocity Sens", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "level", label: "Amplitude", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-    ]
-  },
-  // Knobs stay normalized 0..1 (or their existing native ranges) for patching/automation;
-  // displayTransform only changes the readout text, mapping to real-world vactrol/LDR
-  // physics (photoconductive gamma, illuminance, dark resistance) so the numbers on
-  // screen mean something to a real vactrol datasheet reader. Reference assumptions:
-  // normalized Light input 1.0 == 1000 lux (bright close-range LED, the usual vactrol
-  // drive scenario).
-  vactrolEnvelopeSeries: {
-    planRole: "processor",
-    planFreeRun: true,
-    inputs: ["Light"],
-    outputs: ["Env"],
-    parameters: [
-      {
-        choices: nodeGraphVactrolSeriesSpecs.map((spec) => spec.label),
-        defaultValue: "2",
-        displayChoices: true,
-        key: "part",
-        label: "Part",
-        max: String(nodeGraphVactrolSeriesSpecs.length - 1),
-        mid: "2",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1",
-        tooltip: "Selects which real VTL5C-series datasheet timing/resistance figures drive this envelope."
-      },
-      {
-        defaultValue: "1", key: "curve", label: "Curve", max: "8", maxDigits: 5, mid: "1", min: "0.001", step: "any",
-        displayTransform: (value) => ({ maxDigits: 3, unit: "γ (LDR gamma)", value })
-      },
-      {
-        defaultValue: "1", key: "sensitivity", label: "Sensitivity", max: "4", maxDigits: 5, mid: "1", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => ({ maxDigits: 1, unit: "lux full-drive", value: 1000 / Math.max(value, 0.001) })
-      },
-      {
-        defaultValue: "0", key: "lightOffset", label: "Light Offset", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => ({ maxDigits: 1, unit: "lux bias", value: value * 1000 })
-      },
-      {
-        defaultValue: "0", key: "darkCurrent", label: "Dark Current", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value, slider) => {
-          const spec = nodeGraphVactrolSeriesSpec(nodeGraphParameterSiblingValue(slider, "part"));
-          const leak = Math.max(0, Math.min(1, value));
-          return { maxDigits: 1, unit: "kΩ dark R", value: spec.litKohm * Math.pow(spec.darkKohm / spec.litKohm, 1 - leak) };
-        }
-      },
-        nodeGraphOutputAmplitudeParam,
-    ]
-  },
-  // Same knobs as VTL5C Series (minus the part switch), same DSP, but not modeling
-  // one named real part -- a blank-slate vactrol for dialing in your own attack/
-  // release/curve/dark-resistance combination. Dark-current reference resistances
-  // (10 ohm lit / 1 megohm dark) are a generic mid-range CdS-cell figure, not tied
-  // to a specific datasheet.
-  vactrolEnvelopeCustom: {
-    planRole: "processor",
-    planFreeRun: true,
-    inputs: ["Light"],
-    outputs: ["Env"],
-    parameters: [
-      {
-        defaultValue: "0.01", key: "attack", kind: "time", label: "Attack", max: "2", maxDigits: 5, mid: "0.01", min: "0", step: "any", unit: "s",
-        displayTransform: (value) => ({ maxDigits: 1, unit: "ms", value: value * 1000 })
-      },
-      {
-        defaultValue: "0.1", key: "release", kind: "time", label: "Release", max: "5", maxDigits: 5, mid: "0.1", min: "0", step: "any", unit: "s",
-        displayTransform: (value) => ({ maxDigits: 1, unit: "ms", value: value * 1000 })
-      },
-      {
-        defaultValue: "1", key: "curve", label: "Curve", max: "8", maxDigits: 5, mid: "1", min: "0.001", step: "any",
-        displayTransform: (value) => ({ maxDigits: 3, unit: "γ (LDR gamma)", value })
-      },
-      {
-        defaultValue: "1", key: "sensitivity", label: "Sensitivity", max: "4", maxDigits: 5, mid: "1", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => ({ maxDigits: 1, unit: "lux full-drive", value: 1000 / Math.max(value, 0.001) })
-      },
-      {
-        defaultValue: "0", key: "lightOffset", label: "Light Offset", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => ({ maxDigits: 1, unit: "lux bias", value: value * 1000 })
-      },
-      {
-        defaultValue: "0", key: "darkCurrent", label: "Dark Current", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => {
-          const litKohm = 0.01;
-          const darkKohm = 1000;
-          const leak = Math.max(0, Math.min(1, value));
-          return { maxDigits: 1, unit: "kΩ dark R", value: litKohm * Math.pow(darkKohm / litKohm, 1 - leak) };
-        }
-      },
-        nodeGraphOutputAmplitudeParam,
     ]
   },
   flowerChildEnvelopeFollower: {

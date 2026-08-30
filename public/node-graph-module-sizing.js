@@ -141,7 +141,7 @@ function nodeGraphModuleDisplayHeightLimitsForType(_type = null) {
  * Policy is opt-out (same as pre–DISPLAY HIDE SSOT HasHideableOscilloscope):
  * any defined LayoutA processor gets a default scope face even with no
  * displayType/layout field. Requiring displayType/layout only stripped faces
- * from Vactrols, linear envelopes, pluck, and other plain defs.
+ * from linear envelopes, pluck, and other plain defs.
  * Hide still applies via nodeGraphModuleDisplayVisibleForUi when HasFace.
  */
 function nodeGraphModuleHasFace(type) {

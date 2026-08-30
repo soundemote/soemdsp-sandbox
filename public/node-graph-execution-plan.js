@@ -534,11 +534,6 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       if (!triggerCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} trigger`);
       }
-    } else if (type === "vactrolEnvelopeSeries" || type === "vactrolEnvelopeCustom") {
-      const lightCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Light")) || []).length;
-      if (!lightCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
-        issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} light`);
-      }
     } else if (type === "flowerChildEnvelopeFollower") {
       const inputCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "In")) || []).length;
       if (!inputCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {

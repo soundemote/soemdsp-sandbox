@@ -1,5 +1,5 @@
 // Attack Decay — easy gate envelope.
-// One-pole exponential approach (vactrol-style) + power-law Curve (γ).
+// One-pole exponential approach + power-law Curve (γ).
 //
 // inputMode: 0 Gate (follow) | 1 Trigger (rising edge starts AD)
 // cycle:     0 Off | 1 Loop | 2 LFO (free-run; Gate rising = sync/reset)
@@ -60,7 +60,7 @@ function nodeGraphAttackDecaySample(state, gate, params, sampleRate) {
   const falling = !gateOn && Number(state.lastGate) > 0.5;
   state.lastGate = gateOn ? 1 : 0;
 
-  // Pure Gate + Off: continuous asymmetric one-pole follower (classic vactrol-ish AR).
+  // Pure Gate + Off: continuous asymmetric one-pole follower (classic AR).
   const pureFollower = inputMode === 0 && cycle === 0;
   let target = 0;
 

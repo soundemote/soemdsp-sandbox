@@ -829,22 +829,6 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
-      if (name === "vactrol_envelope" || targetType === "vactrolEnvelopeSeries" || targetType === "vactrolEnvelopeCustom") {
-        for (const state of this.vactrolEnvelopeStates.values()) {
-          this.destroyVactrolEnvelopeNativeState(state);
-        }
-        this.nativeVactrolEnvelope = exports;
-        this.nativeVactrolEnvelopeReady = Boolean(
-          this.nativeVactrolEnvelope?.soemdsp_vactrol_envelope_create &&
-          this.nativeVactrolEnvelope?.soemdsp_vactrol_envelope_sample,
-        );
-        this.port.postMessage({
-          type: "nativeModuleStatus",
-          name: "vactrol_envelope",
-          status: this.nativeVactrolEnvelopeReady ? "ready" : "missing exports",
-        });
-        return;
-      }
       if (name === "logistic_map" || targetType === "logisticMap") {
         for (const state of this.logisticMapStates.values()) {
           this.destroyLogisticMapNativeState(state);

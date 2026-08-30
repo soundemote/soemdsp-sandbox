@@ -647,13 +647,6 @@ extern "C" double soemdsp_flower_child_envelope_follower_sample(
   double sampleRate
 );
 
-extern "C" int soemdsp_vactrol_envelope_create();
-extern "C" void soemdsp_vactrol_envelope_destroy(int handle);
-extern "C" double soemdsp_vactrol_envelope_sample(
-  int handle, double light, double attack, double release, double curve,
-  double sensitivity, double lightOffset, double darkCurrent, double sampleRate
-);
-
 extern "C" int soemdsp_delay_effect_create();
 extern "C" void soemdsp_delay_effect_destroy(int handle);
 extern "C" void soemdsp_delay_effect_sample(
@@ -1081,7 +1074,7 @@ static const int kTypeExpAdsr = 70;
 static const int kTypeLinearEnvelope = 71;
 static const int kTypePluckEnvelope = 72;
 static const int kTypeFlowerChildEnvelopeFollower = 73;
-static const int kTypeVactrolEnvelope = 74; // series + custom share native
+// removed: vactrol (was kTypeVactrolEnvelope = 74)
 static const int kTypeDelayEffect = 75;
 // wallDelay skipped — native is placeholder (version only).
 static const int kTypeSoemReverb = 76;
@@ -1484,8 +1477,6 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_pluck_envelope_destroy(handle);
   } else if (kind == kTypeFlowerChildEnvelopeFollower) {
     soemdsp_flower_child_envelope_follower_destroy(handle);
-  } else if (kind == kTypeVactrolEnvelope) {
-    soemdsp_vactrol_envelope_destroy(handle);
   } else if (kind == kTypeDelayEffect) {
     soemdsp_delay_effect_destroy(handle);
   } else if (kind == kTypeSoemReverb) {
@@ -1697,7 +1688,6 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHypersaw) ? 1.0 // spread
       : (typeId == kTypeSoftwaveOsc || typeId == kTypeSuperloveFilter) ? 0.5 // morph/chaos
       : (typeId == kTypeExpAdsr) ? 0.3 // attackShape
-      : (typeId == kTypeVactrolEnvelope) ? 1.0 // curve gamma
       : (typeId == kTypeLorenzAttractor) ? 10.0 // sigma
       : (typeId == kTypeLogisticMap) ? 3.9 // r
       : (typeId == kTypeHenonMap) ? 1.4 // a
@@ -1830,7 +1820,7 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic)
         ? 1.0 // bandwidth octaves
       : (typeId == kTypeCombResonator) ? 1.0 // depth
-      : (typeId == kTypePluckEnvelope || typeId == kTypeVactrolEnvelope) ? 1.0 // velocity/sensitivity
+      : (typeId == kTypePluckEnvelope) ? 1.0 // velocity
       : (typeId == kTypeSoemReverb) ? 2.0 // lpfStages
       : (typeId == kTypeLorenzAttractor) ? 2.6666666666666665 // beta
       : (typeId == kTypeHenonMap) ? 0.3 // b
@@ -1854,7 +1844,6 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDsfOscillator) ? 0.5 // SquSaw blend
       : (typeId == kTypeBradley2a) ? 0.0 // interfLevel
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.55 // sustain
-      : (typeId == kTypeVactrolEnvelope) ? 0.0 // darkCurrent
       : (typeId == kTypeLorenzAttractor) ? 0.4 // zDepth
       : (typeId == kTypeHenonMap) ? 0.1 // seedY
       : (typeId == kTypeChuaAttractor) ? -0.714 // m1
@@ -1954,7 +1943,6 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope
           || typeId == kTypePluckEnvelope) ? 0.0 // delay
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // attack
-      : (typeId == kTypeVactrolEnvelope) ? 0.01 // attack (custom default)
       : (typeId == kTypeDelayEffect) ? 0.18 // time s
       : 1.0,
     false
@@ -1970,7 +1958,6 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.08 // attack
       : (typeId == kTypePluckEnvelope) ? 0.002 // attackFeedback
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // hold
-      : (typeId == kTypeVactrolEnvelope) ? 0.1 // release (custom default)
       : 4.0,
     false
   );
@@ -2518,7 +2505,6 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeFlowerChildEnvelopeFollower) {
     return soemdsp_flower_child_envelope_follower_create();
   }
-  if (typeId == kTypeVactrolEnvelope) return soemdsp_vactrol_envelope_create();
   if (typeId == kTypeDelayEffect) return soemdsp_delay_effect_create();
   if (typeId == kTypeSoemReverb) {
     const double sr = sampleRate < 1.0f ? 44100.0 : (double)sampleRate;
@@ -4551,35 +4537,6 @@ static void process_flower_child_envelope_follower(Circuit& g, Node& node, int f
   }
 }
 
-// Vactrol (series+custom): timeNumerator=attack, timeDenominator=release,
-// shape=curve, width=sensitivity, center=lightOffset, mix=darkCurrent;
-// amplitude scales Out.
-static void process_vactrol_envelope(Circuit& g, Node& node, int frames) {
-  if (node.nativeHandle <= 0) return;
-  mix_node_inputs(g, node, frames);
-  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
-  for (int f = 0; f < frames; f++) {
-    if (controlSmoothing) smoother_step_node(g, node);
-    const double light = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
-    const double env = soemdsp_vactrol_envelope_sample(
-      node.nativeHandle,
-      light,
-      node.timeNumerator.out,
-      node.timeDenominator.out,
-      node.shape.out,
-      node.width.out,
-      node.center.out,
-      node.mix.out,
-      sr
-    );
-    const double out = env * node.amplitude.out;
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
-  }
-}
-
 // Mono delay: timeNumerator=time, feedback, mix, level=outLevel,
 // lfoAmplitude=modAmount, lfoRate=modRate, lfoVariation=modVariation;
 // mode invert unused (0). Mix→Mono/L/R; Wet→Saw.
@@ -6194,7 +6151,6 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeLinearEnvelope
     || typeId == kTypePluckEnvelope
     || typeId == kTypeFlowerChildEnvelopeFollower
-    || typeId == kTypeVactrolEnvelope
     || typeId == kTypeDelayEffect
     || typeId == kTypeSoemReverb
     || typeId == kTypePll
@@ -6770,10 +6726,6 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_flower_child_envelope_follower(*g, node, frames);
       continue;
     }
-    if (node.typeId == kTypeVactrolEnvelope) {
-      process_vactrol_envelope(*g, node, frames);
-      continue;
-    }
     if (node.typeId == kTypeDelayEffect) {
       process_delay_effect(*g, node, frames);
       continue;
@@ -6963,5 +6915,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 53; // + MLR dual native handles for mono-native filters (independent L/R state)
+  return 54; // removed: vactrol envelope (type 74 gap retained)
 }

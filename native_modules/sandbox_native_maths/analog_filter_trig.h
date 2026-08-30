@@ -156,7 +156,7 @@ static inline double dsp_exp_narrow(double x) {
 
 // exp(x) via x/4 then square twice -- accurate for |x| <= 4. A second,
 // independently-derived narrow-range exp approach, previously duplicated
-// identically in tb303_filter, vactrol_envelope, and passive_filter.
+// identically in tb303_filter and passive_filter.
 static inline double dsp_exp_squaring(double x) {
   double y = x * 0.25;
   double t = 1.0 + y*(1.0 + y*(0.5 + y*(1.0/6.0 + y*(1.0/24.0 + y*(1.0/120.0 + y*(1.0/720.0 + y/5040.0))))));

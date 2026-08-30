@@ -294,7 +294,6 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
     }
     this.triggerDividerStates = new Map();
     this.triangleStates = new Map();
-    this.vactrolEnvelopeStates = new Map();
     this.impulseButtonStates = new Map();
     this.bugButtonStates = new Map();
     this.keypadStates = new Map();

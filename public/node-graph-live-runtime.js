@@ -455,7 +455,6 @@ async function fetchNodeGraphLiveNativeModuleBytes(entry) {
 // per entry, so a patch using the aliased type would otherwise miss the
 // priority boost below.
 const nodeGraphLiveNativeModuleTypeAliases = Object.freeze({
-  vactrolEnvelopeSeries: ["vactrolEnvelopeCustom"],
   triggerDivider: ["clockDivider"],
   // One native module serves crossover2…6 (bandCount at create).
   crossover2: ["crossover3", "crossover4", "crossover5", "crossover6"],
@@ -3216,7 +3215,6 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/modules/linearEnvelope/linear-envelope-math.js?v=planck-eps-1",
   "./public/modules/linearEnvelope/linear-envelope-worklet-evaluator.js?v=linear-envelope-1",
   "./public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/bugButton/bug-button-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/keypad/keypad-math.js?v=fonts-globalthis-1",
   "./public/modules/keypad/keypad-worklet-evaluator.js?v=keypad-latch-1",

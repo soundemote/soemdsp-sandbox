@@ -122,21 +122,6 @@ const ENVELOPES = [
     },
     peakMax: 1.2,
   },
-  {
-    name: "vactrolEnvelope",
-    typeId: 74,
-    drive: "noise",
-    setup(g, h) {
-      setParam(g, h, PARAM_TIME_NUM, 0.0025);
-      setParam(g, h, PARAM_TIME_DEN, 0.035);
-      setParam(g, h, PARAM_SHAPE, 1);
-      setParam(g, h, PARAM_WIDTH, 1);
-      setParam(g, h, PARAM_CENTER, 0);
-      setParam(g, h, PARAM_MIX, 0);
-      setParam(g, h, PARAM_AMPLITUDE, 1);
-    },
-    peakMax: 1.2,
-  },
 ];
 
 function view(ptr, n) {

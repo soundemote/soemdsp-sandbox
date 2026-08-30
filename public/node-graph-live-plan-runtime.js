@@ -458,7 +458,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const triggerCounterStates = new Map();
   const triggerDividerStates = new Map();
   const triangleStates = new Map();
-  const vactrolEnvelopeStates = new Map();
   const impulseButtonStates = new Map();
   const bugButtonStates = new Map();
   const keypadStates = new Map();
@@ -811,9 +810,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     if (node.type === "triggerDivider") {
       triggerDividerStates.set(node.id, createNodeGraphTriggerDividerState());
     }
-    if (node.type === "vactrolEnvelopeSeries" || node.type === "vactrolEnvelopeCustom") {
-      vactrolEnvelopeStates.set(node.id, createNodeGraphVactrolEnvelopeState());
-    }
     if (node.type === "moduleGroup" && node.moduleGroup?.sourcePatch) {
       try {
         moduleGroupRuntimes.set(node.id, createNodeGraphLiveRuntime(nodeGraphBuildLivePlanForPatch(node.moduleGroup.sourcePatch)));
@@ -994,7 +990,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     triggerCounterStates,
     triggerDividerStates,
     triangleStates,
-    vactrolEnvelopeStates,
     impulseButtonStates,
     bugButtonStates,
     keypadStates,
@@ -1336,9 +1331,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.triangleStates) {
     runtime.triangleStates = new Map();
-  }
-  if (!runtime.vactrolEnvelopeStates) {
-    runtime.vactrolEnvelopeStates = new Map();
   }
   if (!runtime.impulseButtonStates) {
     runtime.impulseButtonStates = new Map();
@@ -1743,9 +1735,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "triggerCounter" && !runtime.triggerCounterStates.has(node.id)) {
       runtime.triggerCounterStates.set(node.id, createNodeGraphTriggerCounterState());
-    }
-    if ((node.type === "vactrolEnvelopeSeries" || node.type === "vactrolEnvelopeCustom") && !runtime.vactrolEnvelopeStates.has(node.id)) {
-      runtime.vactrolEnvelopeStates.set(node.id, createNodeGraphVactrolEnvelopeState());
     }
     if (node.type === "moduleGroup" && node.moduleGroup?.sourcePatch && !runtime.moduleGroupRuntimes.has(node.id)) {
       try {
@@ -2322,11 +2311,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.triggerDividerStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.triggerDividerStates.delete(id);
-    }
-  }
-  for (const id of [...runtime.vactrolEnvelopeStates.keys()]) {
-    if (!nodeIds.has(id)) {
-      runtime.vactrolEnvelopeStates.delete(id);
     }
   }
   for (const id of [...runtime.impulseButtonStates.keys()]) {

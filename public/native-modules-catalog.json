@@ -1262,18 +1262,6 @@
       "wasmAvailable": true
     },
     {
-      "name": "vactrol_envelope",
-      "label": "Vactrol Envelope",
-      "targetType": "vactrolEnvelope",
-      "kind": "envelope",
-      "source": "native_modules/vactrol_envelope/vactrol_envelope.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/vactrol_envelope/vactrol_envelope.cpp",
-      "libUrl": "",
-      "wasm": "native_modules/vactrol_envelope/vactrol_envelope.wasm",
-      "wasmUrl": "native_modules/vactrol_envelope/vactrol_envelope.wasm",
-      "wasmAvailable": true
-    },
-    {
       "name": "vectorscope_transform",
       "label": "Vectorscope Rotation",
       "targetType": "vectorscopeTransform",

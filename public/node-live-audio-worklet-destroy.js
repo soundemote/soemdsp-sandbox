@@ -280,13 +280,6 @@ NodeLiveAudioProcessor.prototype.destroyPassiveFilterNativeState = function dest
     }
 };
 
-NodeLiveAudioProcessor.prototype.destroyVactrolEnvelopeNativeState = function destroyVactrolEnvelopeNativeState(state) {
-    if (state?.nativeHandle && this.nativeVactrolEnvelope?.soemdsp_vactrol_envelope_destroy) {
-      this.nativeVactrolEnvelope.soemdsp_vactrol_envelope_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-};
-
 NodeLiveAudioProcessor.prototype.destroyLogisticMapNativeState = function destroyLogisticMapNativeState(state) {
     if (state?.nativeHandle && this.nativeLogisticMap?.soemdsp_logistic_map_destroy) {
       this.nativeLogisticMap.soemdsp_logistic_map_destroy(state.nativeHandle);

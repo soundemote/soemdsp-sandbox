@@ -43,8 +43,6 @@ const nodeGraphPostAmplitudeTypes = Object.freeze({
   phosphillator: true,
   // Envelopes that lacked Amplitude / Level.
   flowerChildEnvelopeFollower: true,
-  vactrolEnvelopeSeries: true,
-  vactrolEnvelopeCustom: true,
 });
 
 function nodeGraphScaleModuleOutputs(value, amplitude) {

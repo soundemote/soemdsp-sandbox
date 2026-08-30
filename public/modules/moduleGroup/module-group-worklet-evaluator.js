@@ -144,7 +144,6 @@ NodeLiveAudioProcessor.prototype.createNestedRuntime = function createNestedRunt
   runtime.triggerCounterStates = new Map();
   runtime.triggerDividerStates = new Map();
   runtime.triangleStates = new Map();
-  runtime.vactrolEnvelopeStates = new Map();
   runtime.impulseButtonStates = new Map();
   runtime.polyBlepStates = new Map();
   runtime.resetVisualControls();
@@ -267,7 +266,6 @@ NodeLiveAudioProcessor.prototype.setNestedPlan = function setNestedPlan(plan) {
     if (node?.type === "stepSequencer") this.stepSequencerStates.set(id, this.createStepSequencerState());
     if (node?.type === "triggerCounter") this.triggerCounterStates.set(id, this.createTriggerCounterState());
     if (node?.type === "triggerDivider") this.triggerDividerStates.set(id, this.createTriggerDividerState());
-    if (node?.type === "vactrolEnvelopeSeries" || node?.type === "vactrolEnvelopeCustom") this.vactrolEnvelopeStates.set(id, this.createVactrolEnvelopeState());
     if (node?.type === "polyBlep") this.polyBlepStates.set(id, this.createPolyBlepState());
     if (node?.type === "blit") this.blitStates.set(id, this.createBlitState());
     if (node?.type === "archimedes") this.archimedesStates.set(id, this.createArchimedesState());

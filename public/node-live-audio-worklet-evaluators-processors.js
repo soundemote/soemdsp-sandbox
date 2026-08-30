@@ -1231,26 +1231,6 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           safeRate,
         );
       },
-      vactrolEnvelopeSeries: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
-        const state = this.vactrolEnvelopeStates.get(nodeId) || this.createVactrolEnvelopeState();
-        this.vactrolEnvelopeStates.set(nodeId, state);
-        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
-        const isSeries = node?.type === "vactrolEnvelopeSeries";
-        const seriesSpec = isSeries ? nodeGraphVactrolSeriesSpec(read("part", 2)) : null;
-        return this.vactrolEnvelopeSample(
-          state,
-          mixInput(nodeId, "Light"),
-          {
-            attack: isSeries ? seriesSpec.attack : read("attack", 0.01),
-            curve: read("curve", 1),
-            darkCurrent: read("darkCurrent", 0),
-            lightOffset: read("lightOffset", 0),
-            release: isSeries ? seriesSpec.release : read("release", 0.1),
-            sensitivity: read("sensitivity", 1),
-          },
-          safeRate,
-        );
-      },
       flowerChildEnvelopeFollower: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.flowerChildEnvelopeFollowerStates.get(nodeId) ||
           this.createFlowerChildEnvelopeFollowerState();

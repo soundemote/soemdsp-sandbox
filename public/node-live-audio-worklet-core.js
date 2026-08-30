@@ -51,12 +51,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     super();
     this.liveModuleEvaluators = this.buildLiveModuleEvaluators();
     this.liveModuleEvaluators.previousPatch = this.liveModuleEvaluators.nextPatch;
-    // vactrolEnvelopeSeries and vactrolEnvelopeCustom share one implementation
-    // (see the isSeries branch inside it) -- the offline/render evaluator
-    // registers this same alias in vactrol-envelope-live-evaluator.js; this
-    // real-time path was missing it, so vactrolEnvelopeCustom nodes silently
-    // produced a flat 0 in Live Audio instead of running the envelope.
-    this.liveModuleEvaluators.vactrolEnvelopeCustom = this.liveModuleEvaluators.vactrolEnvelopeSeries;
     this.inputConnections = new Map();
     // Reused every sample in evaluateFrame (clear, don't alloc).
     this.frameValues = new Map();
@@ -236,8 +230,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativeTb303FilterReady = false;
     this.nativePassiveFilter = null;
     this.nativePassiveFilterReady = false;
-    this.nativeVactrolEnvelope = null;
-    this.nativeVactrolEnvelopeReady = false;
     this.nativeSoftClipper = null;
     this.nativeSoftClipperReady = false;
     this.nativePolyBlep = null;
@@ -436,7 +428,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.triggerCounterStates = new Map();
     this.triggerDividerStates = new Map();
     this.triangleStates = new Map();
-    this.vactrolEnvelopeStates = new Map();
     this.impulseButtonStates = new Map();
     this.bugButtonStates = new Map();
     this.keypadStates = new Map();
