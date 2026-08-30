@@ -15,6 +15,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "b2u",
   "bias",
   "gain",
+  "noiseGenerator",
   "output",
 ]);
 

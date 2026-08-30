@@ -112,6 +112,22 @@ extern "C" double soemdsp_gain_sample(
   double monoSum, double offset
 );
 
+extern "C" int soemdsp_noise_generator_create();
+extern "C" void soemdsp_noise_generator_destroy(int handle);
+extern "C" void soemdsp_noise_generator_process_block(
+  int handle,
+  double seedValue,
+  int mode,
+  double mean,
+  double deviation,
+  double shape,
+  double level,
+  int frameCount,
+  int useSimd
+);
+extern "C" int soemdsp_noise_generator_block_output_left_ptr(int handle);
+extern "C" int soemdsp_noise_generator_block_output_right_ptr(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -155,6 +171,7 @@ static const int kTypeU2b = 10;
 static const int kTypeB2u = 11;
 static const int kTypeBias = 12;
 static const int kTypeGain = 13;
+static const int kTypeNoiseGenerator = 14;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -379,6 +396,8 @@ static void destroy_node_native(Node& n) {
     soemdsp_attenuverter_destroy(n.nativeHandle);
   } else if (kind == kTypeRange) {
     soemdsp_range_destroy(n.nativeHandle);
+  } else if (kind == kTypeNoiseGenerator) {
+    soemdsp_noise_generator_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -430,13 +449,14 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.frequency, (typeId == kTypeLadderFilter) ? 1000.0 : 220.0, false);
   init_control(n.waveform, 0.0, true);
   init_control(n.amplitude, (typeId == kTypeAttenuverter) ? 0.5 : 1.0, false);
-  init_control(n.shape, 0.5, false);
+  init_control(n.shape, (typeId == kTypeNoiseGenerator) ? 0.0 : 0.5, false);
   init_control(n.phaseParam, 0.0, false);
   init_control(n.resonance, 0.2, false);
-  init_control(n.mode, 1.0, true);
+  init_control(n.mode, (typeId == kTypeNoiseGenerator) ? 0.0 : 1.0, true);
   init_control(n.stages, 4.0, true);
   init_control(n.center, 0.0, false);
-  init_control(n.width, 2.0, false);
+  // Soft-clipper "width" default 2; noiseGenerator reuses width as deviation.
+  init_control(n.width, (typeId == kTypeNoiseGenerator) ? 0.5 : 2.0, false);
   init_control(n.oversample, 2.0, true);
   init_control(n.mix, (typeId == kTypePingPongDelay) ? 0.35 : 0.43, false);
   init_control(n.diffusionSize, 0.35, false);
@@ -446,7 +466,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.lfoAmplitude, 0.07, false);
   init_control(n.lfoBaseSpeed, 0.83, false);
   init_control(n.lfoVariation, (typeId == kTypePingPongDelay) ? 0.25 : 0.001, false);
-  init_control(n.seed, 0.0, true);
+  init_control(n.seed, (typeId == kTypeNoiseGenerator) ? 1.0 : 0.0, true);
   init_control(n.feedback, 0.35, false);
   init_control(n.level, 1.0, false);
   init_control(n.timeNumerator, 1.0, false);
@@ -846,6 +866,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypePingPongDelay) return soemdsp_ping_pong_delay_create();
   if (typeId == kTypeAttenuverter) return soemdsp_attenuverter_create();
   if (typeId == kTypeRange) return soemdsp_range_create();
+  if (typeId == kTypeNoiseGenerator) return soemdsp_noise_generator_create();
   return 0;
 }
 
@@ -1445,6 +1466,32 @@ static void process_bias(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Noise generator source — stereo block outs; no audio inputs.
+static void process_noise_generator(Circuit& g, Node& node, int frames) {
+  (void)g;
+  if (node.nativeHandle <= 0) return;
+  const int mode = (int)(node.mode.out + (node.mode.out >= 0.0 ? 0.5 : -0.5));
+  soemdsp_noise_generator_process_block(
+    node.nativeHandle,
+    node.seed.out,
+    mode,
+    node.offset.out,   // mean
+    node.width.out,    // deviation
+    node.shape.out,
+    node.amplitude.out,
+    frames,
+    1
+  );
+  double* outL = ptr_from_export(soemdsp_noise_generator_block_output_left_ptr(node.nativeHandle));
+  double* outR = ptr_from_export(soemdsp_noise_generator_block_output_right_ptr(node.nativeHandle));
+  if (!outL || !outR) return;
+  copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
+  copy_tap_to_buf(node.buf[kPortRight], outR, frames);
+  for (int f = 0; f < frames; f++) {
+    node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
+  }
+}
+
 // Gain: soemdsp_gain_sample (master/L/R dB, mono-sum law, offset).
 static void process_gain(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
@@ -1489,7 +1536,7 @@ static void process_output(Circuit& g, Node& node, int frames) {
 // Bypass: route dry audio (or silence for sources). Do NOT call native
 // process_block / reset — tails and filter state stay warm.
 static void process_bypass(Circuit& g, Node& node, int frames) {
-  if (node.typeId == kTypePolyBlep) {
+  if (node.typeId == kTypePolyBlep || node.typeId == kTypeNoiseGenerator) {
     return; // sources: silence
   }
   if (node.typeId == kTypeOutput) {
@@ -1587,7 +1634,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeReverbEffect
     || typeId == kTypePingPongDelay
     || typeId == kTypeAttenuverter
-    || typeId == kTypeRange;
+    || typeId == kTypeRange
+    || typeId == kTypeNoiseGenerator;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -1856,6 +1904,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_polyblep(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeNoiseGenerator) {
+      process_noise_generator(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeLadderFilter) {
       process_ladder(*g, node, frames);
       continue;
@@ -1937,5 +1989,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 18; // gain (soemdsp_gain_sample: master/L/R dB + monoSum + offset)
+  return 19; // noiseGenerator source (process_block)
 }

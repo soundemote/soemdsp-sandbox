@@ -18,6 +18,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   b2u: 11,
   bias: 12,
   gain: 13,
+  noiseGenerator: 14,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -102,10 +103,16 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphTypeId = function mapNativeGraphT
 NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGraphSrcPortId(port) {
   const raw = String(port || "").trim();
   const p = raw.toLowerCase();
-  if (p === "left" || p === "l" || p === "mix l" || p === "wet l" || p === "left mix") {
+  if (
+    p === "left" || p === "l" || p === "mix l" || p === "wet l" || p === "left mix"
+    || p === "left out"
+  ) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
-  if (p === "right" || p === "r" || p === "mix r" || p === "wet r" || p === "right mix") {
+  if (
+    p === "right" || p === "r" || p === "mix r" || p === "wet r" || p === "right mix"
+    || p === "right out"
+  ) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
   }
   if (p === "dry l" || p === "left dry" || p === "mono dry") {
@@ -609,6 +616,17 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 0));
       continue;
     }
+    if (type === "noiseGenerator") {
+      // Reuse existing Control slots: mode, shape, offset=mean, width=deviation,
+      // seed, amplitude=level.
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("shape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("shape", 0));
+      push("mean", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("mean", 0));
+      push("deviation", P.NATIVE_GRAPH_PARAM_WIDTH, cont("deviation", 0.5));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
     if (type === "range") {
       push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", -1));
       push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
@@ -767,14 +785,18 @@ NodeLiveAudioProcessor.prototype.bindNativeGraphBlockViews = function bindNative
 NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPortNames(type, portId) {
   const P = NodeLiveAudioProcessor;
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
-    return type === "reverbEffect" || type === "pingPongDelay"
-      ? ["Left", "Mix L", "Wet L"]
-      : ["Left"];
+    if (type === "reverbEffect" || type === "pingPongDelay") {
+      return ["Left", "Mix L", "Wet L"];
+    }
+    if (type === "noiseGenerator") return ["Left", "Left Out"];
+    return ["Left"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RIGHT) {
-    return type === "reverbEffect" || type === "pingPongDelay"
-      ? ["Right", "Mix R", "Wet R"]
-      : ["Right"];
+    if (type === "reverbEffect" || type === "pingPongDelay") {
+      return ["Right", "Mix R", "Wet R"];
+    }
+    if (type === "noiseGenerator") return ["Right", "Right Out"];
+    return ["Right"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_MONO) {
     if (type === "polyBlep") return ["Out", "Wave Out", "Noise"];
