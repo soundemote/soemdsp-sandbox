@@ -832,6 +832,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         this.additiveOscWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate, graphInputValue),
       gpuAdditiveOsc: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue) =>
         this.additiveOscWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate, graphInputValue),
+      additiveGenerator: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
+        this.additiveGeneratorWorkletEvaluate(node, nodeId, frame, frames),
+      additiveEffect: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
+        this.additiveEffectWorkletEvaluate(node, nodeId, frame, frames),
+      additiveOut: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
+        this.additiveOutWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
       ellipsoid: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
         this.ellipsoidWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
       ellipsoidOsc: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>

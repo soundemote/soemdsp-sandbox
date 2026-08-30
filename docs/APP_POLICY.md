@@ -352,6 +352,7 @@ Hungry modules (additive series proving ground first) may take **control** jacks
 |------|--------|------|
 | Digital (ƒ reports, Scale, …) | White | Event / value |
 | Block-rate ZOH (Morph CV, …) | **Turquoise** | **1 sample per quantum, held** |
+| Graph chunk (harmonic Graph, …) | **Magenta** | **Data-plane payload once per quantum** |
 | Audio / sample-accurate CV | Gold / RGB / purple… | Every sample |
 
 **Smoothers vs turquoise jacks**
@@ -361,6 +362,12 @@ Hungry modules (additive series proving ground first) may take **control** jacks
 - Additive Morph / waveform / harmonic-count style knobs follow that ZOH read even when only the slider is used — expensive table work stays block-rate.
 
 List turquoise ports on the definition as `blockRateInputs` / `blockRateOutputs` (same pattern as `digitalInputs` / `digitalOutputs`).
+
+**Magenta Graph chunk ports**
+
+- Carry a **multidimensional** once-per-quantum payload on the data plane (`dataInputs` / `dataOutputs`), e.g. additive harmonic `{ phase[], ratio[], amplitude[] }`.
+- Not audio-rate sample packs. Port name **`Graph`** on both inlet and outlet sides is **magenta**.
+- Additive chain: Generator → Effect(s) → Out.
 
 ---
 

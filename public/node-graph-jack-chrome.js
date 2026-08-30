@@ -145,6 +145,11 @@ function nodeGraphJackChannelCssColor(channel) {
       ? nodeGraphCssColor("--node-jack-turquoise", "#2ec4b6")
       : "#2ec4b6";
   }
+  if (channel === "magenta") {
+    return typeof nodeGraphCssColor === "function"
+      ? nodeGraphCssColor("--node-jack-magenta", "#e040fb")
+      : "#e040fb";
+  }
   return "";
 }
 
@@ -275,8 +280,9 @@ function nodeGraphJackStereoChannel(value) {
 }
 
 /**
- * "" | "red" | "green" | "blue" | "purple" | "turquoise"
+ * "" | "red" | "green" | "blue" | "purple" | "turquoise" | "magenta"
  * Digital ports have no channel. Block-rate / ZOH ports are turquoise.
+ * Magenta Graph chunk ports (data-plane harmonic / Graph payloads) are magenta.
  */
 function nodeGraphJackChannel(type, port, io = "output") {
   const key = String(port || "");
@@ -285,6 +291,9 @@ function nodeGraphJackChannel(type, port, io = "output") {
   }
   if (nodeGraphJackSignalKind(type, key, io) === "digital") {
     return "";
+  }
+  if (typeof nodeGraphPortIsGraphChunkSignal === "function" && nodeGraphPortIsGraphChunkSignal(type, key, io)) {
+    return "magenta";
   }
   if (typeof nodeGraphPortIsBlockRateSignal === "function" && nodeGraphPortIsBlockRateSignal(type, key, io)) {
     return "turquoise";

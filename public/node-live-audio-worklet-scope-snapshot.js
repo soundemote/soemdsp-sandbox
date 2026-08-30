@@ -119,6 +119,32 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
     for (const [nodeId, state] of this.spectrogramStates) {
       this.spectrogramCollectDisplayData(nodeId, state, dataPorts);
     }
+    // Magenta Graph relay (Additive Generator / Effect / Out faces).
+    if (this.additiveGraphPublish && this.additiveGraphPublish.size) {
+      for (const [nodeId, graph] of this.additiveGraphPublish) {
+        if (!graph || !graph.ratio) continue;
+        dataPorts.push([nodeId, "Graph", {
+          harmonics: graph.harmonics,
+          ratio: Array.from(graph.ratio),
+          phase: Array.from(graph.phase || []),
+          amplitude: Array.from(graph.amplitude || []),
+          frequencyHz: graph.frequencyHz,
+          masterPhase: graph.masterPhase,
+          masterAmp: graph.masterAmp,
+        }]);
+        if (graph.frequencyHz != null) {
+          dataPorts.push([nodeId, "GraphView", {
+            harmonics: graph.harmonics,
+            ratio: Array.from(graph.ratio),
+            phase: Array.from(graph.phase || []),
+            amplitude: Array.from(graph.amplitude || []),
+            frequencyHz: graph.frequencyHz,
+            masterPhase: graph.masterPhase,
+            masterAmp: graph.masterAmp,
+          }]);
+        }
+      }
+    }
     if (!values.length && !dataPorts.length) {
       return;
     }

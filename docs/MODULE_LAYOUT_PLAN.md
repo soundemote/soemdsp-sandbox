@@ -353,10 +353,13 @@ hidden, and the way modules start drawing the same way every time.
 | **2nd** | **Left** | `Left`, `L` | **Red** |
 | **3rd** | **Right** | `Right`, `R` | **Blue** |
 | (any) | **Block-rate ZOH** | Listed in `blockRateInputs` / `blockRateOutputs` | **Turquoise** |
+| (any) | **Graph chunk** | `dataInputs` / `dataOutputs` port **`Graph`** | **Magenta** |
 
 Shared filter template (`In`/`Out` labeled Mono): chrome follows the **port name**, so **In/Out are purple** on both sides.
 
 **Turquoise** = zero-order-hold / once-per-quantum control jacks (additive Morph CV, etc.). Parameter smoothers may still emit sample packs; turquoise ports do not.
+
+**Magenta** = Graph chunk data-plane jacks (additive harmonic Graph, etc.). Not curve `graphInputs` (those stay mod-purple).
 
 Chaos XYZ uses RGB **by name**, not by stack index:
 

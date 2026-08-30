@@ -421,6 +421,24 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "GPU Additive",
     notes: ["additive synthesis", "gpu"],
   },
+  additiveGenerator: {
+    category: "additive",
+    description: "Magenta Graph source: Waveform + Morph + Harmonics. Patch Graph → Effect → Additive Out. v1: Render Sample + ?product=full Live (native Graph bus next).",
+    label: "Additive Generator",
+    notes: ["additive", "magenta graph", "harmonics"],
+  },
+  additiveEffect: {
+    category: "additive",
+    description: "Magenta Graph processor: LinearFilter, AnalogFilter, Growl, Noisy. v1: full product / offline.",
+    label: "Additive Effect",
+    notes: ["additive", "magenta graph", "filter", "growl"],
+  },
+  additiveOut: {
+    category: "additive",
+    description: "Renders Magenta Graph to audio. Frequency / Phase / Amplitude. Silent without Graph. v1: full product / offline.",
+    label: "Additive Out",
+    notes: ["additive", "magenta graph", "harmonic lines"],
+  },
   ellipsoid: {
     category: "modulator",
     description: "Sine→square ellipse shapes for soft-to-hard tones and dual uni/bi X/Y outs.",
@@ -2397,6 +2415,18 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   additiveOsc: {
     source: "public/modules/additiveOsc/additive-osc-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveOsc/additive-osc-worklet-evaluator.js",
+  },
+  additiveGenerator: {
+    source: "public/modules/additiveGenerator/additive-generator-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGenerator/additive-generator-worklet-evaluator.js",
+  },
+  additiveEffect: {
+    source: "public/modules/additiveEffect/additive-effect-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveEffect/additive-effect-worklet-evaluator.js",
+  },
+  additiveOut: {
+    source: "public/modules/additiveOut/additive-out-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveOut/additive-out-worklet-evaluator.js",
   },
   aliasSine: {
     source: "public/modules/aliasSine/alias-sine-worklet-evaluator.js",

@@ -377,6 +377,37 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
 }
 
 /**
+ * Magenta Graph chunk ports (data-plane). Carry a once-per-quantum payload
+ * (e.g. harmonic {phase,ratio,amp} arrays), not audio-rate samples.
+ * Listed in dataInputs / dataOutputs as "Graph", or graphChunkInputs/Outputs.
+ */
+function nodeGraphPortIsGraphChunkSignal(typeOrNode, port, io = null) {
+  const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
+    ? typeOrNode
+    : nodeGraphPatchNodeType(typeOrNode);
+  const definition = nodeGraphModuleDefinitions[type];
+  if (!definition || !port) {
+    return false;
+  }
+  const name = String(port || "").trim();
+  if (name === "Graph") {
+    if (io !== "output" && Array.isArray(definition.dataInputs) && definition.dataInputs.includes(name)) {
+      return true;
+    }
+    if (io !== "input" && Array.isArray(definition.dataOutputs) && definition.dataOutputs.includes(name)) {
+      return true;
+    }
+  }
+  if (io !== "output" && Array.isArray(definition.graphChunkInputs) && definition.graphChunkInputs.includes(name)) {
+    return true;
+  }
+  if (io !== "input" && Array.isArray(definition.graphChunkOutputs) && definition.graphChunkOutputs.includes(name)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Block-rate / zero-order-hold ports (turquoise). One value per quantum;
  * module holds it for the block. Listed in blockRateInputs / blockRateOutputs.
  * Parameter smoothers may still emit sample packs into Controls; these jacks
@@ -408,6 +439,15 @@ function nodeGraphPortWireColor(node, port, io) {
   // port tap color, and nodeGraphPortIsDigitalSignal for what qualifies.
   if (nodeGraphPortIsDigitalSignal(type, canonicalPort, io)) {
     return "#ffffff";
+  }
+  // Magenta Graph chunk (data-plane) before ZOH / generic follow-port colors.
+  if (typeof nodeGraphPortIsGraphChunkSignal === "function"
+    && nodeGraphPortIsGraphChunkSignal(type, canonicalPort, io)
+    && typeof nodeGraphJackChannelCssColor === "function") {
+    const chunk = nodeGraphJackChannelCssColor("magenta");
+    if (chunk) {
+      return chunk;
+    }
   }
   // Block-rate / ZOH (turquoise) before generic follow-port colors.
   if (typeof nodeGraphPortIsBlockRateSignal === "function"

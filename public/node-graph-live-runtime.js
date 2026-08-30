@@ -3082,6 +3082,10 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/modules/rgbShape/rgb-shape-worklet-evaluator.js?v=heart-ssot-1",
   "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=sincos4-1",
   "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-core-1",
+  "./public/modules/additiveGraph/additive-graph-math.js?v=magenta-graph-1",
+  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=magenta-graph-1",
+  "./public/modules/additiveEffect/additive-effect-worklet-evaluator.js?v=magenta-graph-1",
+  "./public/modules/additiveOut/additive-out-worklet-evaluator.js?v=magenta-graph-1",
   "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=polyblep-block-1",
   "./public/modules/noiseGenerator/noise-generator-worklet-evaluator.js?v=native-strip-1",
   // noise channel math lives in worklet methods; main-thread uses noise-generator-math.js
