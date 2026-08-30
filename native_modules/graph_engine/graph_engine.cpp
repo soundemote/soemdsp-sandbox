@@ -247,6 +247,22 @@ extern "C" double soemdsp_delayed_trigger_sample(
   double pulseTime, double level, double sampleRate
 );
 
+extern "C" int soemdsp_random_clock_create();
+extern "C" void soemdsp_random_clock_destroy(int handle);
+extern "C" double soemdsp_random_clock_sample(
+  int handle, double reset, double threshold, double minSeconds, double maxSeconds,
+  double duty, double triggerTime, double level, double sampleRate, int seedKey
+);
+extern "C" double soemdsp_random_clock_gate(int handle);
+
+extern "C" int soemdsp_trigger_counter_create();
+extern "C" void soemdsp_trigger_counter_destroy(int handle);
+extern "C" double soemdsp_trigger_counter_sample(
+  int handle, double trigger, double reset, double threshold, double countMax,
+  double increment, double pulseTime, double level, double sampleRate
+);
+extern "C" double soemdsp_trigger_counter_count(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -307,6 +323,8 @@ static const int kTypeRotate3dTo2d = 27;
 static const int kTypeClock = 28;
 static const int kTypeTriggerDivider = 29;
 static const int kTypeDelayedTrigger = 30;
+static const int kTypeRandomClock = 31;
+static const int kTypeTriggerCounter = 32;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -599,6 +617,10 @@ static void destroy_node_native(Node& n) {
     soemdsp_trigger_divider_destroy(n.nativeHandle);
   } else if (kind == kTypeDelayedTrigger) {
     soemdsp_delayed_trigger_destroy(n.nativeHandle);
+  } else if (kind == kTypeRandomClock) {
+    soemdsp_random_clock_destroy(n.nativeHandle);
+  } else if (kind == kTypeTriggerCounter) {
+    soemdsp_trigger_counter_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -667,20 +689,24 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.phaseParam, 0.0, false);
   init_control(n.resonance, 0.2, false);
   init_control(n.mode, (typeId == kTypeNoiseGenerator) ? 0.0 : 1.0, true);
-  // Ladder stages default 4; robinSupersaw = voices; triggerDivider = division.
+  // Ladder stages default 4; robinSupersaw = voices; triggerDivider = division;
+  // triggerCounter = countMax.
   init_control(
     n.stages,
     (typeId == kTypeRobinSupersaw) ? 7.0
       : (typeId == kTypeTriggerDivider) ? 2.0
+      : (typeId == kTypeTriggerCounter) ? 8.0
       : 4.0,
     true
   );
   init_control(n.center, 0.0, false);
-  // Soft-clipper width default 2; noise = deviation; supersaw = detune cents.
+  // Soft-clipper width default 2; noise = deviation; supersaw = detune;
+  // triggerCounter = increment.
   init_control(
     n.width,
     (typeId == kTypeNoiseGenerator) ? 0.5
       : (typeId == kTypeRobinSupersaw) ? 30.0
+      : (typeId == kTypeTriggerCounter) ? 1.0
       : 2.0,
     false
   );
@@ -693,7 +719,11 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.lfoAmplitude, 0.07, false);
   init_control(n.lfoBaseSpeed, 0.83, false);
   init_control(n.lfoVariation, (typeId == kTypePingPongDelay) ? 0.25 : 0.001, false);
-  init_control(n.seed, (typeId == kTypeNoiseGenerator) ? 1.0 : 0.0, true);
+  init_control(
+    n.seed,
+    (typeId == kTypeNoiseGenerator || typeId == kTypeRandomClock) ? 1.0 : 0.0,
+    true
+  );
   init_control(n.feedback, 0.35, false);
   init_control(n.level, 1.0, false);
   // Ping-pong beat fraction; slew = up/down; sampleDelay = time/samples;
@@ -702,8 +732,9 @@ static void init_node_defaults(Node& n, int typeId) {
     n.timeNumerator,
     (typeId == kTypeSlewLimiter) ? 0.05
       : (typeId == kTypeSampleDelay) ? 0.0
-      : (typeId == kTypeTriggerDivider) ? 0.01
+      : (typeId == kTypeTriggerDivider || typeId == kTypeTriggerCounter) ? 0.01
       : (typeId == kTypeDelayedTrigger) ? 0.1
+      : (typeId == kTypeRandomClock) ? 0.25
       : 1.0,
     false
   );
@@ -712,11 +743,12 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeSlewLimiter) ? 0.20
       : (typeId == kTypeSampleDelay) ? 0.0
       : (typeId == kTypeDelayedTrigger) ? 0.01
+      : (typeId == kTypeRandomClock) ? 1.0
       : 4.0,
     false
   );
   init_control(n.timingMode, 0.0, true);
-  init_control(n.offsetMs, 0.0, false);
+  init_control(n.offsetMs, (typeId == kTypeRandomClock) ? 0.01 : 0.0, false);
   init_control(n.lfoStyle, 0.0, true);
   init_control(n.lfoRate, 0.35, false);
   init_control(n.saturate, 1.0, false);
@@ -1160,6 +1192,8 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeClock) return soemdsp_clock_create();
   if (typeId == kTypeTriggerDivider) return soemdsp_trigger_divider_create();
   if (typeId == kTypeDelayedTrigger) return soemdsp_delayed_trigger_create();
+  if (typeId == kTypeRandomClock) return soemdsp_random_clock_create();
+  if (typeId == kTypeTriggerCounter) return soemdsp_trigger_counter_create();
   return 0;
 }
 
@@ -1907,6 +1941,67 @@ static void process_trigger_divider(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Random clock: Reset live port; Trigger→Mono, Gate→Left (fan Right=Trigger).
+static void process_random_clock(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double threshold = node.center.out;
+  const double minSec = node.timeNumerator.out;
+  const double maxSec = node.timeDenominator.out;
+  const double duty = node.shape.out;
+  const double triggerTime = node.offsetMs.out;
+  const double level = node.amplitude.out;
+  const int seedKey = (int)(node.seed.out + (node.seed.out >= 0.0 ? 0.5 : -0.5));
+  for (int f = 0; f < frames; f++) {
+    const double trig = soemdsp_random_clock_sample(
+      node.nativeHandle,
+      hasReset ? g.mixReset[f] : 0.0,
+      threshold,
+      minSec,
+      maxSec,
+      duty,
+      triggerTime,
+      level,
+      sr,
+      seedKey
+    );
+    const double gate = soemdsp_random_clock_gate(node.nativeHandle);
+    node.buf[kPortMono][f] = trig;
+    node.buf[kPortLeft][f] = gate;
+    node.buf[kPortRight][f] = trig;
+  }
+}
+
+// Trigger counter: Trigger+Reset → Pulse (Mono) + Count (Left).
+static void process_trigger_counter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double threshold = node.center.out;
+  const double countMax = node.stages.out;
+  const double increment = node.width.out;
+  const double pulseTime = node.timeNumerator.out;
+  const double level = node.amplitude.out;
+  for (int f = 0; f < frames; f++) {
+    const double pulse = soemdsp_trigger_counter_sample(
+      node.nativeHandle,
+      hasTrig ? g.mixTrigger[f] : 0.0,
+      hasReset ? g.mixReset[f] : 0.0,
+      threshold,
+      countMax,
+      increment,
+      pulseTime,
+      level,
+      sr
+    );
+    node.buf[kPortMono][f] = pulse;
+    node.buf[kPortLeft][f] = soemdsp_trigger_counter_count(node.nativeHandle);
+    node.buf[kPortRight][f] = pulse;
+  }
+}
+
 // Delayed trigger: Trigger + Reset → Out after delay (fan M/L/R).
 static void process_delayed_trigger(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
@@ -2321,6 +2416,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeRobinSinusoid
     || node.typeId == kTypeRobinSupersaw
     || node.typeId == kTypeClock
+    || node.typeId == kTypeRandomClock
   ) {
     return; // sources: silence
   }
@@ -2431,7 +2527,9 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeClipperLimiter
     || typeId == kTypeClock
     || typeId == kTypeTriggerDivider
-    || typeId == kTypeDelayedTrigger;
+    || typeId == kTypeDelayedTrigger
+    || typeId == kTypeRandomClock
+    || typeId == kTypeTriggerCounter;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -2783,6 +2881,14 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_delayed_trigger(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeRandomClock) {
+      process_random_clock(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeTriggerCounter) {
+      process_trigger_counter(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -2856,5 +2962,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 30; // clock + triggerDivider + delayedTrigger
+  return 31; // randomClock + triggerCounter
 }

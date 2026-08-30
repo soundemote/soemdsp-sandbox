@@ -35,6 +35,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   clock: 28,
   triggerDivider: 29,
   delayedTrigger: 30,
+  randomClock: 31,
+  triggerCounter: 32,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -206,9 +208,18 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (p === "analog out" || p === "analog" || p === "\u223f") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
-  if (p === "t" || p === "pulse" || p === "trigger") {
-    // clock Pulse/T as source; sampleHold Trigger is destination-only
-    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  if (p === "gate") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  if (p === "count") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  if (p === "pulse") {
+    return t === "triggerCounter"
+      ? NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO
+      : NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT; // clock T
+  }
+  if (p === "t" || p === "trigger") {
+    // randomClock Trigger → Mono; clock Pulse/T → Right; Trigger dest handled in dst map
+    return t === "randomClock"
+      ? NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO
+      : NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
   }
   if (p === "x" && (t === "vectorscopeTransform" || t === "rotate3dTo2d")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
@@ -850,6 +861,26 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
       continue;
     }
+    if (type === "randomClock") {
+      // timeNumerator=minSeconds, timeDenominator=maxSeconds, shape=duty,
+      // offsetMs=triggerTime (seconds), seed, center=threshold, amplitude=level
+      push("minSeconds", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("minSeconds", 0.25));
+      push("maxSeconds", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("maxSeconds", 1));
+      push("duty", P.NATIVE_GRAPH_PARAM_SHAPE, cont("duty", 0.5));
+      push("triggerTime", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("triggerTime", 0.01));
+      push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("threshold", P.NATIVE_GRAPH_PARAM_CENTER, cont("threshold", 0));
+      continue;
+    }
+    if (type === "triggerCounter") {
+      push("threshold", P.NATIVE_GRAPH_PARAM_CENTER, cont("threshold", 0));
+      push("countMax", P.NATIVE_GRAPH_PARAM_STAGES, disc("countMax", 8));
+      push("increment", P.NATIVE_GRAPH_PARAM_WIDTH, cont("increment", 1));
+      push("pulseTime", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("pulseTime", 0.01));
+      push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
+      continue;
+    }
     if (type === "range") {
       push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", -1));
       push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
@@ -1017,6 +1048,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "midSideEncode") return ["Mid"];
     if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["X"];
     if (type === "clock") return ["Digital Out", "Out", "Digital"];
+    if (type === "randomClock") return ["Trigger"];
+    if (type === "triggerCounter") return ["Pulse"];
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
@@ -1025,6 +1058,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "midSideEncode") return ["Side"];
     if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["Y"];
     if (type === "clock") return ["Analog Out", "Analog"];
+    if (type === "randomClock") return ["Gate"];
+    if (type === "triggerCounter") return ["Count"];
     if (type === "reverbEffect" || type === "pingPongDelay") {
       return ["Left", "Mix L", "Wet L"];
     }

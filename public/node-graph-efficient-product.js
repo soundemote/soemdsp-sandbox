@@ -32,6 +32,8 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "clock",
   "triggerDivider",
   "delayedTrigger",
+  "randomClock",
+  "triggerCounter",
   "output",
 ]);
 
