@@ -134,16 +134,36 @@ function validateNodeGraphPatch(patch) {
   }
 
   const retiredNodeTypes = nodeGraphRetiredNodeTypes;
-  const retiredNodeIds = new Set(
-    patch.nodes
-      .filter((node) => retiredNodeTypes.has(String(node.type || "").trim()))
-      .map((node) => String(node.id || "").trim())
-      .filter(Boolean),
-  );
+  // Dropped nodes = retired types + unknown types (pretend deleted). Wires that
+  // touched them are stripped below; load still succeeds with a warning dialog.
+  const loadWarnings = [];
+  const droppedNodeIds = new Set();
+  for (const rawNode of patch.nodes) {
+    const id = String(rawNode?.id || "").trim();
+    if (!id) {
+      continue;
+    }
+    const rawType = String(rawNode?.type || "").trim();
+    if (retiredNodeTypes.has(rawType)) {
+      droppedNodeIds.add(id);
+      continue;
+    }
+    const resolved = typeof nodeGraphResolveModuleTypeAlias === "function"
+      ? nodeGraphResolveModuleTypeAlias(rawType)
+      : rawType;
+    // phosphorLight migrates to scope2d — not unknown.
+    const probeType = resolved === "phosphorLight" ? "scope2d" : resolved;
+    if (!Object.hasOwn(nodeGraphModuleDefinitions, probeType)) {
+      droppedNodeIds.add(id);
+      loadWarnings.push(`unknown node type ${resolved || rawType || "(missing)"} (node id ${id})`);
+    }
+  }
+  // Alias used by connection/modulation filters below (was retiredNodeIds only).
+  const retiredNodeIds = droppedNodeIds;
   const ids = new Set();
   const uniqueTypesSeen = new Set();
   const nodes = patch.nodes
-    .filter((node) => !retiredNodeTypes.has(String(node.type || "").trim()))
+    .filter((node) => !droppedNodeIds.has(String(node.id || "").trim()))
     // phosphorLight → scope2d also runs inside migrateNodeGraphPatchToCurrent;
     // keep local map for boot if migrations.js is missing.
     .map((rawNode) => (
@@ -155,6 +175,9 @@ function validateNodeGraphPatch(patch) {
       const type = typeof nodeGraphResolveModuleTypeAlias === "function"
         ? nodeGraphResolveModuleTypeAlias(node.type)
         : String(node.type || "").trim();
+      if (!Object.hasOwn(nodeGraphModuleDefinitions, type)) {
+        return false;
+      }
       if (typeof nodeGraphModuleTypeIsUniqueInPatch === "function"
         && nodeGraphModuleTypeIsUniqueInPatch(type)) {
         if (uniqueTypesSeen.has(type)) {
@@ -174,9 +197,6 @@ function validateNodeGraphPatch(patch) {
     }
     if (ids.has(id)) {
       throw new Error(`duplicate node id ${id}`);
-    }
-    if (!Object.hasOwn(nodeGraphModuleDefinitions, type)) {
-      throw new Error(`unknown node type ${type}`);
     }
     if (type === "output" && id !== "output") {
       throw new Error("output module id must be output");
@@ -515,6 +535,10 @@ function validateNodeGraphPatch(patch) {
       throw new Error("bypassedNodes entry missing node id");
     }
     if (!ids.has(id)) {
+      // Dropped unknown/retired node — ignore stale bypass entry.
+      if (droppedNodeIds.has(id)) {
+        continue;
+      }
       throw new Error(`bypassed node missing: ${id}`);
     }
     if (id === "output") {
@@ -681,7 +705,7 @@ function validateNodeGraphPatch(patch) {
     throw new Error(`view.heightGu must be 0 or at least ${nodeGraphWorkspaceViewLimits.minHeightGu}`);
   }
 
-  return {
+  const normalized = {
     activeCameraId: cameraState.activeCameraId,
     audio: normalizeNodeGraphPatchAudio(patch.audio),
     bypassedNodes,
@@ -717,6 +741,11 @@ function validateNodeGraphPatch(patch) {
     visual: normalizeNodeGraphPatchVisual(patch.visual),
     windows: normalizeNodeGraphPatchWindows(patch.windows),
   };
+  if (loadWarnings.length) {
+    // Ephemeral — stripped before serialize / commit persistence.
+    normalized.loadWarnings = loadWarnings;
+  }
+  return normalized;
 }
 
 /**
@@ -844,7 +873,9 @@ function nodeGraphPatchThrowLoadFailure(sourceText, error) {
 }
 
 /**
- * Load + validate a patch from JSON text. Hard-fails with line context.
+ * Load + validate a patch from JSON text. Hard-fails with line context for
+ * parse / structural errors. Unknown module types are dropped (like delete)
+ * and reported via the patch-load fault dialog; the cleaned patch is returned.
  */
 function loadNodeGraphPatchFromScript(text) {
   const source = String(text ?? "");
@@ -855,7 +886,59 @@ function loadNodeGraphPatchFromScript(text) {
     nodeGraphPatchThrowLoadFailure(source, error);
   }
   try {
-    return validateNodeGraphPatch(data);
+    const patch = validateNodeGraphPatch(data);
+    const warnings = Array.isArray(patch.loadWarnings) ? patch.loadWarnings.slice() : [];
+    delete patch.loadWarnings;
+    if (warnings.length) {
+      let prettyClean = source;
+      try {
+        prettyClean = typeof serializeNodeGraphPatch === "function"
+          ? serializeNodeGraphPatch(patch)
+          : JSON.stringify(patch, null, 2);
+        if (typeof prettyClean !== "string") {
+          prettyClean = JSON.stringify(patch, null, 2);
+        }
+      } catch (_error) {
+        try {
+          prettyClean = JSON.stringify(patch, null, 2);
+        } catch (__error) {
+          prettyClean = source;
+        }
+      }
+      // Cite first unknown type line in the original pretty source when possible.
+      let prettySource = source;
+      try {
+        prettySource = JSON.stringify(data, null, 2);
+      } catch (_error) {
+        prettySource = source;
+      }
+      const firstDetail = warnings[0] || "unknown node type";
+      const typeMatch = firstDetail.match(/unknown node type\s+(\S+)/i);
+      const line = typeMatch
+        ? nodeGraphPatchFindLineNumber(prettySource, `"type": "${typeMatch[1]}"`)
+          || nodeGraphPatchFindLineNumber(prettySource, `"type":"${typeMatch[1]}"`)
+          || 1
+        : 1;
+      const message = [
+        nodeGraphPatchLoadFailureMessage(prettySource, line, firstDetail),
+        ...(warnings.length > 1 ? warnings.slice(1) : []),
+        "",
+        "Unknown modules were removed (as if deleted). Close to keep the cleaned patch in the script editor.",
+      ].join("\n");
+      if (typeof nodeGraphShowPatchLoadFault === "function") {
+        try {
+          nodeGraphShowPatchLoadFault({
+            message,
+            script: prettyClean,
+            title: "Unknown modules removed",
+            softRecovered: true,
+          });
+        } catch (_error) {
+          // Dialog optional.
+        }
+      }
+    }
+    return patch;
   } catch (error) {
     // Pretty-print so line numbers match readable patch JSON when possible.
     let pretty = source;

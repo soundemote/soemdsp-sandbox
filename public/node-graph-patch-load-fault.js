@@ -6,6 +6,8 @@
 
 let nodeGraphPatchLoadFaultScript = "";
 let nodeGraphPatchLoadFaultBound = false;
+/** When true, Close writes the cleaned script into the patch script editor. */
+let nodeGraphPatchLoadFaultSoftRecovered = false;
 
 function nodeGraphPatchLoadFaultIsOpen() {
   const fault = document.getElementById("nodePatchLoadFault");
@@ -44,14 +46,25 @@ function nodeGraphShowPatchLoadFault(options = {}) {
   const message = String(options.message || "failed to load patch").trim();
   const script = String(options.script ?? options.patchScript ?? "");
   nodeGraphPatchLoadFaultScript = script;
+  nodeGraphPatchLoadFaultSoftRecovered = Boolean(options.softRecovered);
 
   const detail = document.getElementById("nodePatchLoadFaultDetail");
   if (detail) {
     detail.textContent = message;
   }
   const title = document.getElementById("nodePatchLoadFaultTitle");
-  if (title && options.title) {
-    title.textContent = String(options.title);
+  if (title) {
+    title.textContent = String(options.title || (
+      nodeGraphPatchLoadFaultSoftRecovered
+        ? "Unknown modules removed"
+        : "Failed to load patch"
+    ));
+  }
+  const kicker = document.querySelector("#nodePatchLoadFault .node-patch-load-fault-kicker");
+  if (kicker) {
+    kicker.textContent = nodeGraphPatchLoadFaultSoftRecovered
+      ? "Patch Loaded With Removals"
+      : "Patch Load Failed";
   }
   const box = document.getElementById("nodePatchLoadFaultScript");
   if (box) {
@@ -98,6 +111,13 @@ function nodeGraphShowPatchLoadFault(options = {}) {
 }
 
 function nodeGraphClosePatchLoadFaultUi() {
+  const cleanedScript = nodeGraphPatchLoadFaultSoftRecovered
+    ? (document.getElementById("nodePatchLoadFaultScript")?.value
+      || nodeGraphPatchLoadFaultScript
+      || "")
+    : "";
+  const soft = nodeGraphPatchLoadFaultSoftRecovered;
+
   const fault = document.getElementById("nodePatchLoadFault");
   if (fault) {
     fault.hidden = true;
@@ -108,6 +128,35 @@ function nodeGraphClosePatchLoadFaultUi() {
     box.value = "";
   }
   nodeGraphPatchLoadFaultScript = "";
+  nodeGraphPatchLoadFaultSoftRecovered = false;
+
+  // Soft recovery: scene already has the cleaned patch; rewrite the script
+  // editor so the bad modules are gone for the next save/load.
+  if (soft) {
+    try {
+      let text = cleanedScript;
+      if ((!text || !text.trim()) && typeof serializeNodeGraphPatch === "function") {
+        text = serializeNodeGraphPatch();
+      }
+      if (text && typeof text === "string") {
+        // Prefer pretty JSON in the editor.
+        try {
+          text = JSON.stringify(JSON.parse(text), null, 2);
+        } catch (_error) {
+          // keep as-is
+        }
+        const editor = document.getElementById("nodePatchScript");
+        if (editor) {
+          editor.value = text;
+        }
+        if (typeof setNodeGraphScriptStatus === "function") {
+          setNodeGraphScriptStatus("unknown modules removed; script reformatted", true);
+        }
+      }
+    } catch (error) {
+      console.warn("[soemdsp] could not reformat patch script after soft recover", error);
+    }
+  }
 }
 
 function nodeGraphCopyPatchLoadFaultScript() {
