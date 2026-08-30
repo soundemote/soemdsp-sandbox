@@ -112,6 +112,11 @@ Only these live-audio types exist in the efficient build:
 | `delayEffect` | Modulated mono delay |
 | `soemReverb` | SoEm multi-tap reverb (≠ sabrina `reverbEffect`) |
 | `pll` | Phase-locked loop (VCO / PC / LPF / Locked) |
+| `lorenzAttractor` | Lorenz chaos CV (X/Y/Z) |
+| `logisticMap` | Logistic-map chaos CV |
+| `henonMap` | Hénon-map chaos CV (X/Y) |
+| `chuaAttractor` | Chua chaos CV (X/Y/Z) |
+| `rayBouncer` | Ellipse billiard chaos CV (X/Y) |
 | `output` | Sink |
 
 Canonical circuit:
@@ -134,7 +139,8 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    chaoticPhaseLockingFilter / inertialFilter /
    expAdsr / linearEnvelope / pluckEnvelope /
    flowerChildEnvelopeFollower / vactrolEnvelopeCustom / vactrolEnvelopeSeries /
-   delayEffect / soemReverb / pll
+   delayEffect / soemReverb / pll /
+   lorenzAttractor / logisticMap / henonMap / chuaAttractor / rayBouncer
    as utilities)
 ```
 

@@ -698,6 +698,53 @@ extern "C" double soemdsp_pll_pc_out(int handle);
 extern "C" double soemdsp_pll_lpf_out(int handle);
 extern "C" double soemdsp_pll_locked(int handle);
 
+extern "C" int soemdsp_lorenz_attractor_create();
+extern "C" void soemdsp_lorenz_attractor_destroy(int handle);
+extern "C" void soemdsp_lorenz_attractor_sample(
+  int handle, double reset, double speed, double sigma, double rho, double beta,
+  double rotate, double scale, double zDepth, double sampleRate
+);
+extern "C" double soemdsp_lorenz_attractor_x(int handle);
+extern "C" double soemdsp_lorenz_attractor_y(int handle);
+extern "C" double soemdsp_lorenz_attractor_z(int handle);
+
+extern "C" int soemdsp_logistic_map_create();
+extern "C" void soemdsp_logistic_map_destroy(int handle);
+extern "C" double soemdsp_logistic_map_sample(
+  int handle, double reset, double rate, double r, double seed, double level,
+  double sampleRate
+);
+
+extern "C" int soemdsp_henon_map_create();
+extern "C" void soemdsp_henon_map_destroy(int handle);
+extern "C" void soemdsp_henon_map_sample(
+  int handle, double reset, double rate, double a, double b, double seedX,
+  double seedY, double sampleRate
+);
+extern "C" double soemdsp_henon_map_x(int handle);
+extern "C" double soemdsp_henon_map_y(int handle);
+
+extern "C" int soemdsp_chua_attractor_create();
+extern "C" void soemdsp_chua_attractor_destroy(int handle);
+extern "C" void soemdsp_chua_attractor_sample(
+  int handle, double reset, double speed, double alpha, double beta,
+  double m0, double m1, double sampleRate
+);
+extern "C" double soemdsp_chua_attractor_x(int handle);
+extern "C" double soemdsp_chua_attractor_y(int handle);
+extern "C" double soemdsp_chua_attractor_z(int handle);
+
+extern "C" int soemdsp_ray_bouncer_create();
+extern "C" void soemdsp_ray_bouncer_destroy(int handle);
+extern "C" void soemdsp_ray_bouncer_sample(
+  int handle, double reset, double frequency, double launchAngleDeg,
+  double startX, double startY, double size, double aspect, double rotateDeg,
+  double centerX, double centerY, double maxDistance, double bend,
+  double xToY, double yToX, double sampleRate
+);
+extern "C" double soemdsp_ray_bouncer_x(int handle);
+extern "C" double soemdsp_ray_bouncer_y(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -806,6 +853,11 @@ static const int kTypeDelayEffect = 75;
 // wallDelay skipped — native is placeholder (version only).
 static const int kTypeSoemReverb = 76;
 static const int kTypePll = 77;
+static const int kTypeLorenzAttractor = 78;
+static const int kTypeLogisticMap = 79;
+static const int kTypeHenonMap = 80;
+static const int kTypeChuaAttractor = 81;
+static const int kTypeRayBouncer = 82;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1186,6 +1238,16 @@ static void destroy_node_native(Node& n) {
     soemdsp_soem_reverb_destroy(n.nativeHandle);
   } else if (kind == kTypePll) {
     soemdsp_pll_destroy(n.nativeHandle);
+  } else if (kind == kTypeLorenzAttractor) {
+    soemdsp_lorenz_attractor_destroy(n.nativeHandle);
+  } else if (kind == kTypeLogisticMap) {
+    soemdsp_logistic_map_destroy(n.nativeHandle);
+  } else if (kind == kTypeHenonMap) {
+    soemdsp_henon_map_destroy(n.nativeHandle);
+  } else if (kind == kTypeChuaAttractor) {
+    soemdsp_chua_attractor_destroy(n.nativeHandle);
+  } else if (kind == kTypeRayBouncer) {
+    soemdsp_ray_bouncer_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -1266,6 +1328,9 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePluckEnvelope) ? 1.5 // decayModFrequency
       : (typeId == kTypePll) ? 10.0 // LPF cutoff
       : (typeId == kTypeSoemReverb) ? 1000.0 // bandFrequency
+      : (typeId == kTypeLorenzAttractor || typeId == kTypeChuaAttractor) ? 1.0 // speed
+      : (typeId == kTypeLogisticMap || typeId == kTypeHenonMap
+          || typeId == kTypeRayBouncer) ? 8.0 // rate/frequency
       : 220.0,
     false
   );
@@ -1297,16 +1362,26 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSoftwaveOsc || typeId == kTypeSuperloveFilter) ? 0.5 // morph/chaos
       : (typeId == kTypeExpAdsr) ? 0.3 // attackShape
       : (typeId == kTypeVactrolEnvelope) ? 1.0 // curve gamma
+      : (typeId == kTypeLorenzAttractor) ? 10.0 // sigma
+      : (typeId == kTypeLogisticMap) ? 3.9 // r
+      : (typeId == kTypeHenonMap) ? 1.4 // a
+      : (typeId == kTypeChuaAttractor) ? 15.6 // alpha
       : 0.5,
     (typeId == kTypeSlewLimiter) // discrete Lin/Log/Exp/Smooth
   );
-  init_control(n.phaseParam, 0.0, false);
+  init_control(
+    n.phaseParam,
+    (typeId == kTypeRayBouncer) ? 30.0 // launchAngle deg
+      : 0.0,
+    false
+  );
   init_control(
     n.resonance,
     (typeId == kTypeChebyshev || typeId == kTypeElliptic) ? 1.0 // ripple dB
       : (typeId == kTypeEqFilter) ? 0.707 // Q
       : (typeId == kTypeTb303Filter) ? 0.0 // %
       : (typeId == kTypeSoemReverb) ? 1.0 // bandQ
+      : (typeId == kTypeLorenzAttractor) ? 28.0 // rho
       : 0.2,
     false
   );
@@ -1360,6 +1435,11 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeHypersaw) ? 0.1 // drift
       : (typeId == kTypeExpAdsr) ? 0.0001 // releaseShape
       : (typeId == kTypeSoemReverb) ? 2.0 // bandStages
+      : (typeId == kTypeLorenzAttractor) ? 1.0 // scale
+      : (typeId == kTypeLogisticMap) ? 0.5 // seed
+      : (typeId == kTypeHenonMap) ? 0.1 // seedX
+      : (typeId == kTypeChuaAttractor) ? -1.143 // m0
+      : (typeId == kTypeRayBouncer) ? 1.5 // aspect
       : 0.0,
     false
   );
@@ -1386,6 +1466,10 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCombResonator) ? 1.0 // depth
       : (typeId == kTypePluckEnvelope || typeId == kTypeVactrolEnvelope) ? 1.0 // velocity/sensitivity
       : (typeId == kTypeSoemReverb) ? 2.0 // lpfStages
+      : (typeId == kTypeLorenzAttractor) ? 2.6666666666666665 // beta
+      : (typeId == kTypeHenonMap) ? 0.3 // b
+      : (typeId == kTypeChuaAttractor) ? 28.0 // beta
+      : (typeId == kTypeRayBouncer) ? 1.0 // size
       : 2.0,
     false
   );
@@ -1397,6 +1481,10 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeBradley2a) ? 0.0 // interfLevel
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.55 // sustain
       : (typeId == kTypeVactrolEnvelope) ? 0.0 // darkCurrent
+      : (typeId == kTypeLorenzAttractor) ? 0.4 // zDepth
+      : (typeId == kTypeHenonMap) ? 0.1 // seedY
+      : (typeId == kTypeChuaAttractor) ? -0.714 // m1
+      : (typeId == kTypeRayBouncer) ? 0.0 // rotate deg
       : 0.43,
     false
   );
@@ -1560,7 +1648,11 @@ static void init_node_defaults(Node& n, int typeId) {
     false
   );
   init_control(n.outLow, 0.0, false);
-  init_control(n.outHigh, (typeId == kTypeRange) ? 1000.0 : 1.0, false);
+  init_control(
+    n.outHigh,
+    (typeId == kTypeRange) ? 1000.0 : 1.0,
+    false
+  );
   init_control(n.gainDb, (typeId == kTypeLookaheadLimiter) ? -1.0 : 0.0, false); // ceiling dB
   init_control(n.gainLeftDb, 0.0, false);
   init_control(n.gainRightDb, 0.0, false);
@@ -2052,6 +2144,11 @@ static int create_native_for_type(int typeId, float sampleRate) {
     const double sr = sampleRate < 1.0f ? 44100.0 : (double)sampleRate;
     return soemdsp_pll_create(sr);
   }
+  if (typeId == kTypeLorenzAttractor) return soemdsp_lorenz_attractor_create();
+  if (typeId == kTypeLogisticMap) return soemdsp_logistic_map_create();
+  if (typeId == kTypeHenonMap) return soemdsp_henon_map_create();
+  if (typeId == kTypeChuaAttractor) return soemdsp_chua_attractor_create();
+  if (typeId == kTypeRayBouncer) return soemdsp_ray_bouncer_create();
   return 0;
 }
 
@@ -4050,6 +4147,149 @@ static void process_pll(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Lorenz: Reset live. frequency=speed, shape=sigma, resonance=rho, width=beta,
+// phase=rotate, center=scale, mix=zDepth; amplitude scales outs.
+// X→Mono, Y→Left, Z→Right.
+static void process_lorenz_attractor(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    soemdsp_lorenz_attractor_sample(
+      node.nativeHandle,
+      hasReset ? g.mixReset[f] : 0.0,
+      node.frequency.out,
+      node.shape.out,
+      node.resonance.out,
+      node.width.out,
+      node.phaseParam.out,
+      node.center.out,
+      node.mix.out,
+      sr
+    );
+    const double amp = node.amplitude.out;
+    node.buf[kPortMono][f] = soemdsp_lorenz_attractor_x(node.nativeHandle) * amp;
+    node.buf[kPortLeft][f] = soemdsp_lorenz_attractor_y(node.nativeHandle) * amp;
+    node.buf[kPortRight][f] = soemdsp_lorenz_attractor_z(node.nativeHandle) * amp;
+  }
+}
+
+// Logistic: Reset live. frequency=rate, shape=r, center=seed, amplitude=level.
+// Out→Mono/L/R.
+static void process_logistic_map(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double out = soemdsp_logistic_map_sample(
+      node.nativeHandle,
+      hasReset ? g.mixReset[f] : 0.0,
+      node.frequency.out,
+      node.shape.out,
+      node.center.out,
+      node.amplitude.out,
+      sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Henon: Reset live. frequency=rate, shape=a, width=b, center=seedX, mix=seedY.
+// X→Mono, Y→Left (+Right).
+static void process_henon_map(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    soemdsp_henon_map_sample(
+      node.nativeHandle,
+      hasReset ? g.mixReset[f] : 0.0,
+      node.frequency.out,
+      node.shape.out,
+      node.width.out,
+      node.center.out,
+      node.mix.out,
+      sr
+    );
+    const double amp = node.amplitude.out;
+    const double x = soemdsp_henon_map_x(node.nativeHandle) * amp;
+    const double y = soemdsp_henon_map_y(node.nativeHandle) * amp;
+    node.buf[kPortMono][f] = x;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+  }
+}
+
+// Chua: Reset live. frequency=speed, shape=alpha, width=beta, center=m0, mix=m1.
+// X→Mono, Y→Left, Z→Right.
+static void process_chua_attractor(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    soemdsp_chua_attractor_sample(
+      node.nativeHandle,
+      hasReset ? g.mixReset[f] : 0.0,
+      node.frequency.out,
+      node.shape.out,
+      node.width.out,
+      node.center.out,
+      node.mix.out,
+      sr
+    );
+    const double amp = node.amplitude.out;
+    node.buf[kPortMono][f] = soemdsp_chua_attractor_x(node.nativeHandle) * amp;
+    node.buf[kPortLeft][f] = soemdsp_chua_attractor_y(node.nativeHandle) * amp;
+    node.buf[kPortRight][f] = soemdsp_chua_attractor_z(node.nativeHandle) * amp;
+  }
+}
+
+// Ray bouncer: Reset live. Crowded ellipse billiard params on spare Controls.
+// X→Mono, Y→Left (+Right). level scales.
+static void process_ray_bouncer(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    soemdsp_ray_bouncer_sample(
+      node.nativeHandle,
+      hasReset ? g.mixReset[f] : 0.0,
+      node.frequency.out,
+      node.phaseParam.out,
+      node.inLow.out,
+      node.inHigh.out,
+      node.width.out,
+      node.center.out,
+      node.mix.out,
+      node.outLow.out,
+      node.outHigh.out,
+      node.timeNumerator.out,
+      node.feedback.out,
+      node.diffusionSize.out,
+      node.diffusionAmount.out,
+      sr
+    );
+    const double amp = node.level.out;
+    const double x = soemdsp_ray_bouncer_x(node.nativeHandle) * amp;
+    const double y = soemdsp_ray_bouncer_y(node.nativeHandle) * amp;
+    node.buf[kPortMono][f] = x;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+  }
+}
+
 // Master Clock / transport: tempo square.
 // -1..1→Mono, 0..1→Left, Trigger→Right, f (Hz)→Saw.
 // Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
@@ -4832,7 +5072,12 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeVactrolEnvelope
     || typeId == kTypeDelayEffect
     || typeId == kTypeSoemReverb
-    || typeId == kTypePll;
+    || typeId == kTypePll
+    || typeId == kTypeLorenzAttractor
+    || typeId == kTypeLogisticMap
+    || typeId == kTypeHenonMap
+    || typeId == kTypeChuaAttractor
+    || typeId == kTypeRayBouncer;
   // additiveOsc / ellipsoid are free-fn (no native handle).
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
@@ -5384,6 +5629,26 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_pll(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeLorenzAttractor) {
+      process_lorenz_attractor(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeLogisticMap) {
+      process_logistic_map(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeHenonMap) {
+      process_henon_map(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeChuaAttractor) {
+      process_chua_attractor(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeRayBouncer) {
+      process_ray_bouncer(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -5457,5 +5722,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 47; // + delayEffect 75 / soemReverb 76 / pll 77 (wallDelay skipped)
+  return 48; // + chaos CV 78–82 (lorenz/logistic/henon/chua/rayBouncer)
 }

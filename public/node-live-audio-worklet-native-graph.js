@@ -84,6 +84,11 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   // wallDelay skipped — native placeholder only
   soemReverb: 76,
   pll: 77,
+  lorenzAttractor: 78,
+  logisticMap: 79,
+  henonMap: 80,
+  chuaAttractor: 81,
+  rayBouncer: 82,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -335,6 +340,14 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     return p === "wet"
       ? NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW
       : NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  }
+  if (
+    t === "lorenzAttractor" || t === "henonMap" || t === "chuaAttractor"
+    || t === "rayBouncer" || t === "ellipsoid" || t === "snowflake"
+  ) {
+    if (p === "x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "z") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
   }
   // Mono / Out / In / Wave Out / Noise / Frequency (MIDI out) / empty → mono bus
   return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
@@ -1295,6 +1308,59 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 5));
       push("type", P.NATIVE_GRAPH_PARAM_STAGES, disc("type", 1));
       push("frequ", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequ", 10));
+      continue;
+    }
+    if (type === "lorenzAttractor") {
+      push("speed", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("speed", 1));
+      push("sigma", P.NATIVE_GRAPH_PARAM_SHAPE, cont("sigma", 10));
+      push("rho", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("rho", 28));
+      push("beta", P.NATIVE_GRAPH_PARAM_WIDTH, cont("beta", 2.6667));
+      push("rotate", P.NATIVE_GRAPH_PARAM_PHASE, cont("rotate", 0));
+      push("scale", P.NATIVE_GRAPH_PARAM_CENTER, cont("scale", 1));
+      push("zDepth", P.NATIVE_GRAPH_PARAM_MIX, cont("zDepth", 0.4));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "logisticMap") {
+      push("rate", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("rate", 8));
+      push("r", P.NATIVE_GRAPH_PARAM_SHAPE, cont("r", 3.9));
+      push("seed", P.NATIVE_GRAPH_PARAM_CENTER, cont("seed", 0.5));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "henonMap") {
+      push("rate", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("rate", 8));
+      push("a", P.NATIVE_GRAPH_PARAM_SHAPE, cont("a", 1.4));
+      push("b", P.NATIVE_GRAPH_PARAM_WIDTH, cont("b", 0.3));
+      push("seedX", P.NATIVE_GRAPH_PARAM_CENTER, cont("seedX", 0.1));
+      push("seedY", P.NATIVE_GRAPH_PARAM_MIX, cont("seedY", 0.1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "chuaAttractor") {
+      push("speed", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("speed", 1));
+      push("alpha", P.NATIVE_GRAPH_PARAM_SHAPE, cont("alpha", 15.6));
+      push("beta", P.NATIVE_GRAPH_PARAM_WIDTH, cont("beta", 28));
+      push("m0", P.NATIVE_GRAPH_PARAM_CENTER, cont("m0", -1.143));
+      push("m1", P.NATIVE_GRAPH_PARAM_MIX, cont("m1", -0.714));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "rayBouncer") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 8));
+      push("launchAngle", P.NATIVE_GRAPH_PARAM_PHASE, cont("launchAngle", 30));
+      push("startX", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("startX", 0));
+      push("startY", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("startY", 0));
+      push("size", P.NATIVE_GRAPH_PARAM_WIDTH, cont("size", 1));
+      push("aspect", P.NATIVE_GRAPH_PARAM_CENTER, cont("aspect", 1.5));
+      push("rotate", P.NATIVE_GRAPH_PARAM_MIX, cont("rotate", 0));
+      push("centerX", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("centerX", 0));
+      push("centerY", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("centerY", 0));
+      push("maxDistance", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("maxDistance", 0));
+      push("bend", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("bend", 0));
+      push("xToY", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("xToY", 0));
+      push("yToX", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("yToX", 0));
+      push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
       continue;
     }
     if (type === "robinSupersaw") {

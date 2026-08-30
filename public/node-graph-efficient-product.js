@@ -80,6 +80,11 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "delayEffect",
   "soemReverb",
   "pll",
+  "lorenzAttractor",
+  "logisticMap",
+  "henonMap",
+  "chuaAttractor",
+  "rayBouncer",
   "output",
 ]);
 
