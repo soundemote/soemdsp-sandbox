@@ -346,11 +346,14 @@ hidden, and the way modules start drawing the same way every time.
 **Wrong (old):** L / M / R stack (Left first).  
 **Right:** **M, then L, then R** — always. Colors stay name-locked.
 
-| Slot | Channel | Jack names | Outlet RGB |
+| Slot | Channel | Jack names | Color (inlet **and** outlet) |
 | --- | --- | --- | --- |
-| **1st** | **Mono** | `Mono`, `M`, `In`/`Out` labeled Mono | **Green** |
+| **1st** | **Mono** | `Mono`, `M` | **Green** |
+| **1st** | **Thru / bus** | **`In` / `Out`** (`Input` / `Output`) | **Purple** |
 | **2nd** | **Left** | `Left`, `L` | **Red** |
 | **3rd** | **Right** | `Right`, `R` | **Blue** |
+
+Shared filter template (`In`/`Out` labeled Mono): chrome follows the **port name**, so **In/Out are purple** on both sides.
 
 Chaos XYZ uses RGB **by name**, not by stack index:
 
@@ -359,7 +362,7 @@ Chaos XYZ uses RGB **by name**, not by stack index:
 | X | Red (same as Left) |
 | Y | Blue |
 | Z | Green |
-| Out | Green (mono) |
+| Out | Purple (In/Out rule) |
 
 RGB module letters (`R`/`G`/`B`) are red / green / blue. **`R` is never Right.**
 
@@ -368,10 +371,9 @@ Rules:
 - **Order is M → L → R** in every `inputs` / `outputs` array that has those
   channels. Extra jacks (Trigger, 0.1V/Oct, …) come after the trio.
 - Stereo-only (`Left` + `Right`, no Mono) stays Left then Right.
-- RGB chrome on **inlets and outlets**. Analog inlets stay cyan; analog
-  outlets gold. Cables follow jack RGB when UIDEV **wires follow port
-  colors** is on (default); the gradient still matches both ends.
-  Digital stays white.
+- Channel chrome on **inlets and outlets** alike. Uncolored analog stays gold.
+  Cables follow jack colors when UIDEV **wires follow port colors** is on
+  (default); the gradient still matches both ends. Digital stays white.
 - SSOT for the speaker sink order: `nodeGraphOutputInputPorts`
   (`["Mono", "Left", "Right"]`).
 - Shared filter template: `inputs: ["In", "Left", "Right"]`,

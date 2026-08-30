@@ -6687,6 +6687,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-jack-red: #f25d5d;
   --node-jack-green: #3ddc84;
   --node-jack-blue: #4d8dff;
+  --node-jack-purple: #c44dff;
   --node-port-used-brightness: 85%;
   /* Match former hover stroke strength so unused jacks look “lit” permanently. */
   --node-port-unused-brightness: 68%;
@@ -16310,6 +16311,16 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   );
 }
 
+.dsp-node .node-port.output[data-jack-channel="purple"],
+.dsp-node .node-io-row.output[data-jack-channel="purple"] .node-port.output {
+  --node-output-stroke: var(--node-jack-purple);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-jack-purple) var(--node-port-paint-brightness),
+    transparent
+  );
+}
+
 /* Analog inlet — same gold as analog outlets. RGB inlets override. */
 .dsp-node .node-port.input:not(.node-param-port):not([data-jack-channel]),
 .dsp-node .node-io-row.input:not([data-digital-signal]) .node-port.input:not(.node-param-port):not([data-jack-channel]) {
@@ -16346,6 +16357,16 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   --node-port-crescent-stroke: color-mix(
     in srgb,
     var(--node-jack-blue) var(--node-port-paint-brightness),
+    transparent
+  );
+}
+
+.dsp-node .node-port.input[data-jack-channel="purple"]:not(.node-param-port),
+.dsp-node .node-io-row.input[data-jack-channel="purple"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
+  --node-input-stroke: var(--node-jack-purple);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-jack-purple) var(--node-port-paint-brightness),
     transparent
   );
 }

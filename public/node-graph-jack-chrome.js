@@ -1,4 +1,5 @@
-// Jack chrome SSOT — analog/digital + red/green/blue channel.
+// Jack chrome SSOT — analog/digital + red/green/blue/purple channel.
+// In/Out ports are purple on both inlet and outlet sides (APP_POLICY §13).
 // Cables never use this. Pairing (L↔R) stays in node-graph-wire-actions.js.
 
 const nodeGraphJackRgbTypeCache = new Map();
@@ -134,6 +135,11 @@ function nodeGraphJackChannelCssColor(channel) {
       ? nodeGraphCssColor("--node-jack-blue", "#4d8dff")
       : "#4d8dff";
   }
+  if (channel === "purple") {
+    return typeof nodeGraphCssColor === "function"
+      ? nodeGraphCssColor("--node-jack-purple", "#c44dff")
+      : "#c44dff";
+  }
   return "";
 }
 
@@ -253,8 +259,9 @@ function nodeGraphJackStereoChannel(value) {
   if (raw === "m" || raw === "mono" || first === "mono" || last === "mono") {
     return "green";
   }
+  // In/Out (and Input/Output) — purple on both inlet and outlet sides.
   if (raw === "in" || raw === "input" || raw === "out" || raw === "output") {
-    return "green";
+    return "purple";
   }
   if (/^r\d+$/.test(raw) || raw === "right" || first === "right" || last === "right" || raw === "toner") {
     return "blue";
@@ -263,7 +270,7 @@ function nodeGraphJackStereoChannel(value) {
 }
 
 /**
- * "" | "red" | "green" | "blue"
+ * "" | "red" | "green" | "blue" | "purple"
  * Digital ports have no channel.
  */
 function nodeGraphJackChannel(type, port, io = "output") {
@@ -334,7 +341,7 @@ function nodeGraphOutletChannelKind(type, port, io = "output") {
   if (channel === "red") {
     return "left";
   }
-  if (channel === "green") {
+  if (channel === "green" || channel === "purple") {
     return "mono";
   }
   if (channel === "blue") {
