@@ -1465,7 +1465,10 @@ const nodeGraphModuleDefinitions = (
     ],
     inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: { "0.1V/Oct": "0.1V", Increment: "Inc.", f: "ƒ" },
-    outputs: ["Out"],
+    // Canonical Mono port → green jack (not purple In/Out bus).
+    outputs: ["Mono"],
+    outputAliases: { Out: "Mono" },
+    outputLabels: { Mono: "Mono" },
     dataInputs: ["Graph"],
     parameters: [
       {

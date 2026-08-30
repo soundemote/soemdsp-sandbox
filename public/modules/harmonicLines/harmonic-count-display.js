@@ -37,6 +37,13 @@ function createNodeGraphHarmonicCountDisplay(nodeId, type = "additiveGenerator")
   return section;
 }
 
+const ADDITIVE_EFFECT_FACE_NAMES = Object.freeze([
+  "LinearFilter",
+  "AnalogFilter",
+  "Growl",
+  "Noisy",
+]);
+
 function nodeGraphHarmonicCountReadH(nodeId, type) {
   if (type === "additiveGenerator") {
     const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
@@ -53,6 +60,21 @@ function nodeGraphHarmonicCountReadH(nodeId, type) {
   if (g && Number.isFinite(g.harmonics)) return Math.round(g.harmonics);
   if (g?.ratio?.length) return g.ratio.length;
   return 0;
+}
+
+function nodeGraphAdditiveEffectFaceName(nodeId) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const raw = Number(node?.params?.effect ?? node?.parameters?.effect ?? 0);
+  const idx = Math.max(0, Math.min(ADDITIVE_EFFECT_FACE_NAMES.length - 1, Math.round(raw)));
+  return ADDITIVE_EFFECT_FACE_NAMES[idx] || "—";
+}
+
+function nodeGraphHarmonicCountFaceText(nodeId, type) {
+  if (type === "additiveEffect") {
+    return nodeGraphAdditiveEffectFaceName(nodeId);
+  }
+  const H = nodeGraphHarmonicCountReadH(nodeId, type);
+  return H > 0 ? String(H) : "—";
 }
 
 function drawNodeGraphHarmonicCountDisplay(section) {
@@ -92,12 +114,17 @@ function drawNodeGraphHarmonicCountDisplay(section) {
   ctx.fillRect(0, 0, w, h);
   const nodeId = section.dataset.node;
   const type = section.dataset.nodeType;
-  const H = nodeGraphHarmonicCountReadH(nodeId, type);
+  const text = nodeGraphHarmonicCountFaceText(nodeId, type);
   ctx.fillStyle = "#e040fb";
-  ctx.font = `600 ${Math.max(14, Math.floor(h * 0.45))}px ui-monospace, monospace`;
+  // Effect names need a smaller font than a single H digit.
+  const isName = type === "additiveEffect";
+  const fontPx = isName
+    ? Math.max(11, Math.min(18, Math.floor(Math.min(h * 0.42, w / Math.max(8, text.length) * 1.6))))
+    : Math.max(14, Math.floor(h * 0.45));
+  ctx.font = `600 ${fontPx}px ui-monospace, monospace`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(H > 0 ? String(H) : "—", w * 0.5, h * 0.5);
+  ctx.fillText(text, w * 0.5, h * 0.5);
   section._forceDraw = false;
 }
 

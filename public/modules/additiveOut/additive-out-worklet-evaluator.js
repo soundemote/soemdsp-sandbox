@@ -6,8 +6,8 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
   this.ensureAdditiveGraphBus();
   const graph = this.additiveGraphReadWired(nodeId, "Graph");
   if (!graph || !graph.ratio || !graph.harmonics) {
-    frameValues.Out = 0;
-    return { Out: 0 };
+    frameValues.Mono = 0;
+    return { Mono: 0 };
   }
 
   let state = this.additiveOutStates.get(String(nodeId));
@@ -88,6 +88,6 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
     }
   }
 
-  frameValues.Out = summed.y;
-  return { Out: summed.y };
+  frameValues.Mono = summed.y;
+  return { Mono: summed.y };
 };

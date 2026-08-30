@@ -15,7 +15,7 @@ function nodeGraphAdditiveOutLiveEvaluator({
     ? readNodeGraphDataInput(String(nodeId), "Graph")
     : undefined;
   if (!graph || !graph.ratio || !graph.harmonics) {
-    return { Out: 0 };
+    return { Mono: 0 };
   }
 
   const read = (key, fallback) => {
@@ -81,7 +81,7 @@ function nodeGraphAdditiveOutLiveEvaluator({
     }
   }
 
-  return { Out: summed.y };
+  return { Mono: summed.y };
 }
 
 nodeGraphLiveModuleEvaluators.additiveOut = nodeGraphAdditiveOutLiveEvaluator;
