@@ -61,6 +61,19 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   bessel: 54,
   chebyshev: 55,
   elliptic: 56,
+  eqFilter: 57,
+  activeFilter: 58,
+  passiveFilter: 59,
+  tb303Filter: 60,
+  flowerChildFilter: 61,
+  yellowjacketFilter: 62,
+  superloveFilter: 63,
+  humanFilter: 64,
+  resonatorFilter: 65,
+  combResonator: 66,
+  modeResonator: 67,
+  chaoticPhaseLockingFilter: 68,
+  inertialFilter: 69,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -661,6 +674,12 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   harmonics: true,
   lobes: true,
   bandLimit: true,
+  order: true,
+  feedbackCircuit: true,
+  gainCompensation: true,
+  hold: true,
+  topology: true,
+  invert: true,
 });
 
 /**
@@ -992,6 +1011,104 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       if (type === "chebyshev" || type === "elliptic") {
         push("ripple", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("ripple", 1));
       }
+      continue;
+    }
+    if (type === "eqFilter") {
+      // resonance=Q, gainDb=shelf/peak gain.
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1000));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
+      push("q", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("q", 0.707));
+      push("gain", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("gain", 0));
+      continue;
+    }
+    if (type === "activeFilter") {
+      // stages=feedbackCircuit, timingMode=gainCompensation; LP/BP→lpf, HP→hpf.
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 3));
+      push("highFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("highFrequency", 1000));
+      push("lowFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("lowFrequency", 200));
+      push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
+      push("feedbackCircuit", P.NATIVE_GRAPH_PARAM_STAGES, disc("feedbackCircuit", 3));
+      push("gainCompensation", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("gainCompensation", 1));
+      continue;
+    }
+    if (type === "passiveFilter") {
+      // Native is 1-pole; slope/stagger stay UI-only until native grows.
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("lowFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("lowFrequency", 200));
+      push("highFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("highFrequency", 1000));
+      continue;
+    }
+    if (type === "tb303Filter") {
+      // frequency←cutoff Hz, gainDb←drive.
+      push("cutoff", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("cutoff", 1000));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 4));
+      push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0));
+      push("drive", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("drive", 0));
+      continue;
+    }
+    if (type === "flowerChildFilter") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
+      push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 0));
+      continue;
+    }
+    if (type === "yellowjacketFilter") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
+      push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
+      push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 0));
+      continue;
+    }
+    if (type === "superloveFilter") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
+      push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 0.5));
+      continue;
+    }
+    if (type === "humanFilter") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
+      push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 0));
+      continue;
+    }
+    if (type === "resonatorFilter") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
+      push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 0));
+      continue;
+    }
+    if (type === "combResonator") {
+      // decay=timeNumerator, hold=timingMode, damping=shape, topology=mode,
+      // invert=stages, depth=width.
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 110));
+      push("decay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("decay", 1));
+      push("hold", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("hold", 0));
+      push("damping", P.NATIVE_GRAPH_PARAM_SHAPE, cont("damping", 0));
+      push("topology", P.NATIVE_GRAPH_PARAM_MODE, disc("topology", 0));
+      push("invert", P.NATIVE_GRAPH_PARAM_STAGES, disc("invert", 0));
+      push("depth", P.NATIVE_GRAPH_PARAM_WIDTH, cont("depth", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "modeResonator") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 440));
+      push("decay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("decay", 1));
+      push("hold", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("hold", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "chaoticPhaseLockingFilter") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
+      push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
+      push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 1));
+      continue;
+    }
+    if (type === "inertialFilter") {
+      push("attack", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("attack", 20000));
+      push("release", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("release", 20));
       continue;
     }
     if (type === "robinSupersaw") {

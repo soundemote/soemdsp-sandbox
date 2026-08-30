@@ -90,6 +90,19 @@ Only these live-audio types exist in the efficient build:
 | `bessel` | Bessel multipole (flat group delay) |
 | `chebyshev` | Chebyshev Type I (equiripple passband) |
 | `elliptic` | Elliptic / Cauer multipole |
+| `eqFilter` | ZDF SVF multi-mode EQ |
+| `activeFilter` | Active multipole ladder (LP/HP/BP) |
+| `passiveFilter` | Passive real-pole LP/BP/HP (native 6 dB/oct) |
+| `tb303Filter` | TB-303 diode-ladder style |
+| `flowerChildFilter` | Flower Child character filter |
+| `yellowjacketFilter` | Yellowjacket character filter |
+| `superloveFilter` | SuperLove character filter |
+| `humanFilter` | Human character filter |
+| `resonatorFilter` | Character resonator (sin/tri/saw) |
+| `combResonator` | Delay-loop comb resonator |
+| `modeResonator` | Complex 2-pole mode resonator |
+| `chaoticPhaseLockingFilter` | Chaotic phase-locking filter |
+| `inertialFilter` | Attack/release inertial smoother |
 | `output` | Sink |
 
 Canonical circuit:
@@ -105,7 +118,11 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    aliasSine / blit / sineWavetable / antisaw / archimedes /
    additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc /
    bradley2a / ellipsoid / snowflake /
-   butterworth / linkwitzRiley / bessel / chebyshev / elliptic
+   butterworth / linkwitzRiley / bessel / chebyshev / elliptic /
+   eqFilter / activeFilter / passiveFilter / tb303Filter /
+   flowerChildFilter / yellowjacketFilter / superloveFilter / humanFilter /
+   resonatorFilter / combResonator / modeResonator /
+   chaoticPhaseLockingFilter / inertialFilter
    as utilities)
 ```
 

@@ -524,6 +524,97 @@ extern "C" double soemdsp_elliptic_sample(
   double bandwidthOct, double rippleDb, double sampleRate
 );
 
+extern "C" int soemdsp_eq_filter_create();
+extern "C" void soemdsp_eq_filter_destroy(int handle);
+extern "C" double soemdsp_eq_filter_sample(
+  int handle, double input, double mode, double frequency, double q,
+  double gainDb, double sampleRate
+);
+
+extern "C" int soemdsp_active_filter_create();
+extern "C" void soemdsp_active_filter_destroy(int handle);
+extern "C" double soemdsp_active_filter_sample(
+  int handle, double input, double frequencyHz, double resonance, int mode,
+  int feedbackCircuit, int gainCompensation, double sampleRate
+);
+
+extern "C" int soemdsp_passive_filter_create();
+extern "C" void soemdsp_passive_filter_destroy(int handle);
+extern "C" double soemdsp_passive_filter_sample(
+  int handle, double input, int mode, double lowFrequency,
+  double highFrequency, double sampleRate
+);
+
+extern "C" int soemdsp_tb303_filter_create();
+extern "C" void soemdsp_tb303_filter_destroy(int handle);
+extern "C" double soemdsp_tb303_filter_sample(
+  int handle, double input, double cutoff, double resonance, int mode,
+  double drive, double sampleRate
+);
+
+extern "C" int soemdsp_flower_child_filter_create();
+extern "C" void soemdsp_flower_child_filter_destroy(int handle);
+extern "C" double soemdsp_flower_child_filter_sample(
+  int handle, double input, double frequency, double resonance,
+  double chaosAmount, int mode, double sampleRate
+);
+
+extern "C" int soemdsp_yellowjacket_filter_create();
+extern "C" void soemdsp_yellowjacket_filter_destroy(int handle);
+extern "C" double soemdsp_yellowjacket_filter_sample(
+  int handle, double input, double frequency, double resonance,
+  double chaosAmount, double sampleRate
+);
+
+extern "C" int soemdsp_superlove_filter_create();
+extern "C" void soemdsp_superlove_filter_destroy(int handle);
+extern "C" double soemdsp_superlove_filter_sample(
+  int handle, double input, double frequency, double resonance,
+  double chaosAmount, int mode, double sampleRate
+);
+
+extern "C" int soemdsp_human_filter_create();
+extern "C" void soemdsp_human_filter_destroy(int handle);
+extern "C" double soemdsp_human_filter_sample(
+  int handle, double input, double frequency, double resonance,
+  double chaosAmount, int mode, double sampleRate
+);
+
+extern "C" int soemdsp_resonator_filter_create();
+extern "C" void soemdsp_resonator_filter_destroy(int handle);
+extern "C" double soemdsp_resonator_filter_sample(
+  int handle, double input, double frequency, double resonance,
+  double chaosAmount, int mode, double sampleRate
+);
+
+extern "C" int soemdsp_comb_resonator_create();
+extern "C" void soemdsp_comb_resonator_destroy(int handle);
+extern "C" double soemdsp_comb_resonator_sample(
+  int handle, double input, double frequencyHz, double decaySec, int hold,
+  double damping, int topology, int invert, double depth, double amplitude,
+  double sampleRate
+);
+
+extern "C" int soemdsp_mode_resonator_create();
+extern "C" void soemdsp_mode_resonator_destroy(int handle);
+extern "C" double soemdsp_mode_resonator_sample(
+  int handle, double input, double frequencyHz, double decaySec, int hold,
+  double amplitude, double sampleRate
+);
+
+extern "C" int soemdsp_chaotic_phase_locking_filter_create();
+extern "C" void soemdsp_chaotic_phase_locking_filter_destroy(int handle);
+extern "C" double soemdsp_chaotic_phase_locking_filter_sample(
+  int handle, double input, double frequency, double resonance,
+  double chaosAmount, double sampleRate
+);
+
+extern "C" int soemdsp_inertial_filter_create();
+extern "C" void soemdsp_inertial_filter_destroy(int handle);
+extern "C" double soemdsp_inertial_filter_sample(
+  int handle, double input, double attackHz, double releaseHz, double sampleRate
+);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -610,6 +701,19 @@ static const int kTypeLinkwitzRiley = 53;
 static const int kTypeBessel = 54;
 static const int kTypeChebyshev = 55;
 static const int kTypeElliptic = 56;
+static const int kTypeEqFilter = 57;
+static const int kTypeActiveFilter = 58;
+static const int kTypePassiveFilter = 59;
+static const int kTypeTb303Filter = 60;
+static const int kTypeFlowerChildFilter = 61;
+static const int kTypeYellowjacketFilter = 62;
+static const int kTypeSuperloveFilter = 63;
+static const int kTypeHumanFilter = 64;
+static const int kTypeResonatorFilter = 65;
+static const int kTypeCombResonator = 66;
+static const int kTypeModeResonator = 67;
+static const int kTypeChaoticPhaseLockingFilter = 68;
+static const int kTypeInertialFilter = 69;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -948,6 +1052,32 @@ static void destroy_node_native(Node& n) {
     soemdsp_chebyshev_destroy(n.nativeHandle);
   } else if (kind == kTypeElliptic) {
     soemdsp_elliptic_destroy(n.nativeHandle);
+  } else if (kind == kTypeEqFilter) {
+    soemdsp_eq_filter_destroy(n.nativeHandle);
+  } else if (kind == kTypeActiveFilter) {
+    soemdsp_active_filter_destroy(n.nativeHandle);
+  } else if (kind == kTypePassiveFilter) {
+    soemdsp_passive_filter_destroy(n.nativeHandle);
+  } else if (kind == kTypeTb303Filter) {
+    soemdsp_tb303_filter_destroy(n.nativeHandle);
+  } else if (kind == kTypeFlowerChildFilter) {
+    soemdsp_flower_child_filter_destroy(n.nativeHandle);
+  } else if (kind == kTypeYellowjacketFilter) {
+    soemdsp_yellowjacket_filter_destroy(n.nativeHandle);
+  } else if (kind == kTypeSuperloveFilter) {
+    soemdsp_superlove_filter_destroy(n.nativeHandle);
+  } else if (kind == kTypeHumanFilter) {
+    soemdsp_human_filter_destroy(n.nativeHandle);
+  } else if (kind == kTypeResonatorFilter) {
+    soemdsp_resonator_filter_destroy(n.nativeHandle);
+  } else if (kind == kTypeCombResonator) {
+    soemdsp_comb_resonator_destroy(n.nativeHandle);
+  } else if (kind == kTypeModeResonator) {
+    soemdsp_mode_resonator_destroy(n.nativeHandle);
+  } else if (kind == kTypeChaoticPhaseLockingFilter) {
+    soemdsp_chaotic_phase_locking_filter_destroy(n.nativeHandle);
+  } else if (kind == kTypeInertialFilter) {
+    soemdsp_inertial_filter_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -1001,8 +1131,17 @@ static void init_node_defaults(Node& n, int typeId) {
     n.frequency,
     (typeId == kTypeLadderFilter
       || typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
-      || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic)
+      || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic
+      || typeId == kTypeEqFilter || typeId == kTypeActiveFilter
+      || typeId == kTypeTb303Filter)
       ? 1000.0
+      : (typeId == kTypeFlowerChildFilter || typeId == kTypeYellowjacketFilter
+          || typeId == kTypeSuperloveFilter || typeId == kTypeHumanFilter
+          || typeId == kTypeResonatorFilter || typeId == kTypeChaoticPhaseLockingFilter)
+        ? 0.5
+      : (typeId == kTypeModeResonator) ? 440.0
+      : (typeId == kTypeCombResonator) ? 110.0
+      : (typeId == kTypeInertialFilter) ? 20000.0 // attack Hz
       : (typeId == kTypeRobinSupersaw) ? 100.0
       : (typeId == kTypeRobinSinusoid) ? 440.0
       : (typeId == kTypeSampleHold) ? 0.0
@@ -1034,11 +1173,15 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.shape,
     (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter || typeId == kTypeAntisaw
-      || typeId == kTypeBradley2a || typeId == kTypeEllipsoid || typeId == kTypeSnowflake)
-      ? 0.0
+      || typeId == kTypeBradley2a || typeId == kTypeEllipsoid || typeId == kTypeSnowflake
+      || typeId == kTypeFlowerChildFilter || typeId == kTypeYellowjacketFilter
+      || typeId == kTypeHumanFilter || typeId == kTypeResonatorFilter
+      || typeId == kTypeCombResonator)
+      ? 0.0 // chaos/damping off
+      : (typeId == kTypeChaoticPhaseLockingFilter) ? 1.0 // chaos default
       : (typeId == kTypeDsfOscillator) ? 1.0 // harmonics
       : (typeId == kTypeHypersaw) ? 1.0 // spread
-      : (typeId == kTypeSoftwaveOsc) ? 0.5 // morph
+      : (typeId == kTypeSoftwaveOsc || typeId == kTypeSuperloveFilter) ? 0.5 // morph/chaos
       : 0.5,
     (typeId == kTypeSlewLimiter) // discrete Lin/Log/Exp/Smooth
   );
@@ -1046,6 +1189,8 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.resonance,
     (typeId == kTypeChebyshev || typeId == kTypeElliptic) ? 1.0 // ripple dB
+      : (typeId == kTypeEqFilter) ? 0.707 // Q
+      : (typeId == kTypeTb303Filter) ? 0.0 // %
       : 0.2,
     false
   );
@@ -1053,8 +1198,15 @@ static void init_node_defaults(Node& n, int typeId) {
     n.mode,
     (typeId == kTypeNoiseGenerator
       || typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
-      || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic)
-      ? 0.0 // LP
+      || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic
+      || typeId == kTypePassiveFilter
+      || typeId == kTypeFlowerChildFilter || typeId == kTypeSuperloveFilter
+      || typeId == kTypeHumanFilter || typeId == kTypeResonatorFilter
+      || typeId == kTypeCombResonator)
+      ? 0.0 // LP / Clean / BP6 / Feedback
+      : (typeId == kTypeEqFilter) ? 1.0 // HP12
+      : (typeId == kTypeActiveFilter) ? 3.0 // LP24
+      : (typeId == kTypeTb303Filter) ? 4.0 // LP_24
       : (typeId == kTypeLookaheadLimiter) ? 1.0 // look-ahead On
       : (typeId == kTypeSineWavetable) ? 2.0 // sincos
       : (typeId == kTypeSinc) ? 1.0 // band-limit kernel
@@ -1080,6 +1232,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHypersaw) ? 8.0
       : (typeId == kTypeSinc) ? 4.0
       : (typeId == kTypeSnowflake) ? 3.0 // iterations
+      : (typeId == kTypeActiveFilter) ? 3.0 // feedbackCircuit Res+Clip
+      : (typeId == kTypeCombResonator) ? 0.0 // invert Off
       : 4.0,
     true
   );
@@ -1109,6 +1263,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
           || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic)
         ? 1.0 // bandwidth octaves
+      : (typeId == kTypeCombResonator) ? 1.0 // depth
       : 2.0,
     false
   );
@@ -1179,6 +1334,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeRandomClock) ? 0.25
       : (typeId == kTypeLookaheadLimiter) ? 5.0 // look-ahead ms
       : (typeId == kTypeBradley2a) ? 0.005 // hitDuration
+      : (typeId == kTypeModeResonator || typeId == kTypeCombResonator) ? 1.0 // decay s
       : 1.0,
     false
   );
@@ -1192,7 +1348,12 @@ static void init_node_defaults(Node& n, int typeId) {
       : 4.0,
     false
   );
-  init_control(n.timingMode, 0.0, true); // pingPong timing; lookaheadLimiter = gainCompensation
+  init_control(
+    n.timingMode,
+    (typeId == kTypeActiveFilter) ? 1.0 // gainCompensation On
+      : 0.0, // also mode/comb resonator hold Off
+    true
+  ); // pingPong timing; lookaheadLimiter / activeFilter = gainCompensation
   init_control(
     n.offsetMs,
     (typeId == kTypeRandomClock) ? 0.01
@@ -1212,10 +1373,17 @@ static void init_node_defaults(Node& n, int typeId) {
     n.lpfFrequency,
     (typeId == kTypeAdditiveOsc) ? 20000.0 // dampingFilterFrequency
       : (typeId == kTypeBradley2a) ? 2600.0 // interfFreq
+      : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 1000.0 // highCut
+      : (typeId == kTypeInertialFilter) ? 20.0 // release Hz
       : 8000.0,
     false
   );
-  init_control(n.hpfFrequency, 20.0, false);
+  init_control(
+    n.hpfFrequency,
+    (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 200.0 // lowCut
+      : 20.0,
+    false
+  );
   init_control(n.tempoBpm, 120.0, false);
   init_control(n.offset, 0.0, false);
   init_control(
@@ -1692,6 +1860,19 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeBessel) return soemdsp_bessel_create();
   if (typeId == kTypeChebyshev) return soemdsp_chebyshev_create();
   if (typeId == kTypeElliptic) return soemdsp_elliptic_create();
+  if (typeId == kTypeEqFilter) return soemdsp_eq_filter_create();
+  if (typeId == kTypeActiveFilter) return soemdsp_active_filter_create();
+  if (typeId == kTypePassiveFilter) return soemdsp_passive_filter_create();
+  if (typeId == kTypeTb303Filter) return soemdsp_tb303_filter_create();
+  if (typeId == kTypeFlowerChildFilter) return soemdsp_flower_child_filter_create();
+  if (typeId == kTypeYellowjacketFilter) return soemdsp_yellowjacket_filter_create();
+  if (typeId == kTypeSuperloveFilter) return soemdsp_superlove_filter_create();
+  if (typeId == kTypeHumanFilter) return soemdsp_human_filter_create();
+  if (typeId == kTypeResonatorFilter) return soemdsp_resonator_filter_create();
+  if (typeId == kTypeCombResonator) return soemdsp_comb_resonator_create();
+  if (typeId == kTypeModeResonator) return soemdsp_mode_resonator_create();
+  if (typeId == kTypeChaoticPhaseLockingFilter) return soemdsp_chaotic_phase_locking_filter_create();
+  if (typeId == kTypeInertialFilter) return soemdsp_inertial_filter_create();
   return 0;
 }
 
@@ -3143,6 +3324,274 @@ static void process_scientific_iir(
   }
 }
 
+// EQ Filter (ZDF SVF): resonance=Q, gainDb=shelf/peak gain.
+static void process_eq_filter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool controlSmoothing = node_control_smoothing(node);
+  const double modeV = node.mode.out;
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    freq = clamp_hz_nyquist(freq, sr);
+    if (freq < 0.0) freq = 0.0;
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_eq_filter_sample(
+      node.nativeHandle, in, modeV, freq, node.resonance.out, node.gainDb.out, sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Active ladder: stages=feedbackCircuit, timingMode=gainCompensation.
+// Cutoff: live ƒ, else HP→hpfFrequency, LP/BP→lpfFrequency (fallback frequency).
+static void process_active_filter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool controlSmoothing = node_control_smoothing(node)
+    || node.hpfFrequency.active || node.lpfFrequency.active;
+  const double modeV = node.mode.out;
+  int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+  if (mode < 0) mode = 0;
+  if (mode > 9) mode = 9;
+  int circuit = (int)(node.stages.out + (node.stages.out >= 0.0 ? 0.5 : -0.5));
+  if (circuit < 0) circuit = 0;
+  if (circuit > 3) circuit = 3;
+  const int gainComp = (int)(node.timingMode.out + (node.timingMode.out >= 0.0 ? 0.5 : -0.5));
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double freq;
+    if (liveF) {
+      freq = g.mixF[f];
+    } else if (mode >= 4 && mode <= 7) {
+      freq = node.hpfFrequency.out;
+    } else {
+      freq = node.lpfFrequency.out;
+      if (!(freq == freq)) freq = node.frequency.out;
+    }
+    freq = clamp_hz_nyquist(freq, sr);
+    if (freq < 0.0) freq = 0.0;
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_active_filter_sample(
+      node.nativeHandle, in, freq, node.resonance.out, mode, circuit, gainComp, sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Passive 1-pole: hpfFrequency=lowCut, lpfFrequency=highCut (native slope=6 only).
+static void process_passive_filter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node)
+    || node.hpfFrequency.active || node.lpfFrequency.active;
+  const double modeV = node.mode.out;
+  int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+  if (mode < 0) mode = 0;
+  if (mode > 2) mode = 2;
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_passive_filter_sample(
+      node.nativeHandle, in, mode, node.hpfFrequency.out, node.lpfFrequency.out, sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// TB-303: frequency=cutoff Hz, gainDb=drive dB, resonance=%.
+static void process_tb303_filter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool controlSmoothing = node_control_smoothing(node) || node.gainDb.active;
+  const double modeV = node.mode.out;
+  int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+  if (mode < 0) mode = 0;
+  if (mode > 14) mode = 14;
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    freq = clamp_hz_nyquist(freq, sr);
+    if (freq < 0.0) freq = 0.0;
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_tb303_filter_sample(
+      node.nativeHandle, in, freq, node.resonance.out, mode, node.gainDb.out, sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Character filters with 0..1 normalized frequency; shape=chaos.
+static void process_norm_chaos_filter(
+  Circuit& g, Node& node, int frames, bool hasMode,
+  double (*sample4)(int, double, double, double, double, double),
+  double (*sample5)(int, double, double, double, double, int, double)
+) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  int mode = 0;
+  if (hasMode) {
+    const double modeV = node.mode.out;
+    mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+  }
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double freq = node.frequency.out;
+    if (!(freq == freq)) freq = 0.5;
+    if (freq < 0.0) freq = 0.0;
+    if (freq > 1.0) freq = 1.0;
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    double out;
+    if (hasMode && sample5) {
+      out = sample5(
+        node.nativeHandle, in, freq, node.resonance.out, node.shape.out, mode, sr
+      );
+    } else if (sample4) {
+      out = sample4(
+        node.nativeHandle, in, freq, node.resonance.out, node.shape.out, sr
+      );
+    } else {
+      out = 0.0;
+    }
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+static void process_flower_child_filter(Circuit& g, Node& node, int frames) {
+  process_norm_chaos_filter(
+    g, node, frames, true, nullptr, soemdsp_flower_child_filter_sample
+  );
+}
+
+static void process_yellowjacket_filter(Circuit& g, Node& node, int frames) {
+  process_norm_chaos_filter(
+    g, node, frames, false, soemdsp_yellowjacket_filter_sample, nullptr
+  );
+}
+
+static void process_superlove_filter(Circuit& g, Node& node, int frames) {
+  process_norm_chaos_filter(
+    g, node, frames, true, nullptr, soemdsp_superlove_filter_sample
+  );
+}
+
+static void process_human_filter(Circuit& g, Node& node, int frames) {
+  process_norm_chaos_filter(
+    g, node, frames, true, nullptr, soemdsp_human_filter_sample
+  );
+}
+
+static void process_resonator_filter(Circuit& g, Node& node, int frames) {
+  process_norm_chaos_filter(
+    g, node, frames, true, nullptr, soemdsp_resonator_filter_sample
+  );
+}
+
+static void process_chaotic_phase_locking_filter(Circuit& g, Node& node, int frames) {
+  process_norm_chaos_filter(
+    g, node, frames, false, soemdsp_chaotic_phase_locking_filter_sample, nullptr
+  );
+}
+
+// Mode resonator: timeNumerator=decay, timingMode=hold.
+static void process_mode_resonator(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node)
+    || node.timeNumerator.active || node.amplitude.active;
+  const int hold = (int)(node.timingMode.out + (node.timingMode.out >= 0.0 ? 0.5 : -0.5));
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    freq = clamp_hz_nyquist(freq, sr);
+    if (freq < 0.0) freq = 0.0;
+    double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    if (hasTrig) in += g.mixTrigger[f];
+    const double out = soemdsp_mode_resonator_sample(
+      node.nativeHandle, in, freq, node.timeNumerator.out, hold,
+      node.amplitude.out, sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Comb resonator: decay=timeNumerator, hold=timingMode, damping=shape,
+// topology=mode, invert=stages, depth=width.
+static void process_comb_resonator(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node)
+    || node.timeNumerator.active || node.amplitude.active;
+  const int hold = (int)(node.timingMode.out + (node.timingMode.out >= 0.0 ? 0.5 : -0.5));
+  const double modeV = node.mode.out;
+  int topology = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+  if (topology < 0) topology = 0;
+  if (topology > 1) topology = 1;
+  int invert = (int)(node.stages.out + (node.stages.out >= 0.0 ? 0.5 : -0.5));
+  if (invert < 0) invert = 0;
+  if (invert > 1) invert = 1;
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    freq = clamp_hz_nyquist(freq, sr);
+    if (freq < 0.0) freq = 0.0;
+    double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    if (hasTrig) in += g.mixTrigger[f];
+    const double out = soemdsp_comb_resonator_sample(
+      node.nativeHandle, in, freq, node.timeNumerator.out, hold,
+      node.shape.out, topology, invert, node.width.out, node.amplitude.out, sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Inertial: frequency=attack Hz, lpfFrequency=release Hz.
+static void process_inertial_filter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node) || node.lpfFrequency.active;
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_inertial_filter_sample(
+      node.nativeHandle, in, node.frequency.out, node.lpfFrequency.out, sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
 // Master Clock / transport: tempo square.
 // -1..1→Mono, 0..1→Left, Trigger→Right, f (Hz)→Saw.
 // Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
@@ -3900,7 +4349,20 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeLinkwitzRiley
     || typeId == kTypeBessel
     || typeId == kTypeChebyshev
-    || typeId == kTypeElliptic;
+    || typeId == kTypeElliptic
+    || typeId == kTypeEqFilter
+    || typeId == kTypeActiveFilter
+    || typeId == kTypePassiveFilter
+    || typeId == kTypeTb303Filter
+    || typeId == kTypeFlowerChildFilter
+    || typeId == kTypeYellowjacketFilter
+    || typeId == kTypeSuperloveFilter
+    || typeId == kTypeHumanFilter
+    || typeId == kTypeResonatorFilter
+    || typeId == kTypeCombResonator
+    || typeId == kTypeModeResonator
+    || typeId == kTypeChaoticPhaseLockingFilter
+    || typeId == kTypeInertialFilter;
   // additiveOsc / ellipsoid are free-fn (no native handle).
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
@@ -4368,6 +4830,58 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_scientific_iir(*g, node, frames, soemdsp_elliptic_sample);
       continue;
     }
+    if (node.typeId == kTypeEqFilter) {
+      process_eq_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeActiveFilter) {
+      process_active_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypePassiveFilter) {
+      process_passive_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeTb303Filter) {
+      process_tb303_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeFlowerChildFilter) {
+      process_flower_child_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeYellowjacketFilter) {
+      process_yellowjacket_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeSuperloveFilter) {
+      process_superlove_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeHumanFilter) {
+      process_human_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeResonatorFilter) {
+      process_resonator_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeCombResonator) {
+      process_comb_resonator(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeModeResonator) {
+      process_mode_resonator(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeChaoticPhaseLockingFilter) {
+      process_chaotic_phase_locking_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeInertialFilter) {
+      process_inertial_filter(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -4441,5 +4955,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 43; // + butterworth/linkwitzRiley/bessel/chebyshev/elliptic (52–56)
+  return 45; // + character filters 57–64 + resonator/comb/mode/chaotic/inertial 65–69
 }
