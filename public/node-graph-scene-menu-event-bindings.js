@@ -43,6 +43,7 @@ function bindNodeGraphSceneMenuEvents() {
   document.addEventListener("pointercancel", endNodeGraphGraphNodeDrag);
   bindNodeGraphSceneElementEvent("nodeSceneDeleteModule", "click", deleteNodeGraphSelectionFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneHistoryDeleteButton", "click", deleteSelectedNodeGraphItem);
+  bindNodeGraphSceneElementEvent("nodeSceneHistoryDisableButton", "click", toggleNodeGraphSelectedModulesEnabled);
   document
     .querySelectorAll("#nodeSceneWireTypeControl [data-wire-type]")
     .forEach((button) => {

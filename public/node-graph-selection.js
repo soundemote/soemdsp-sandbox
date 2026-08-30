@@ -701,6 +701,41 @@ function renderNodeGraphSelection() {
     button.title = deleteTitle;
   }
 
+  const disableButton = document.getElementById("nodeSceneHistoryDisableButton");
+  if (disableButton) {
+    const selectedIds = [...nodeGraphSelectedNodeIds()].filter((id) => nodeGraphPatchNode(id));
+    const canDisable = selectedIds.length > 0;
+    disableButton.disabled = !canDisable;
+    const labelEl = disableButton.querySelector(".scene-context-window-button-label");
+    if (!canDisable) {
+      disableButton.title = "Select one or more modules to disable or enable.";
+      if (labelEl) {
+        labelEl.textContent = "Disable";
+      }
+      disableButton.setAttribute("aria-pressed", "false");
+    } else {
+      const anyEnabled = selectedIds.some((id) => {
+        if (id === "output") {
+          return Boolean(nodeGraphMvp.live?.outputEnabled);
+        }
+        return typeof nodeGraphNodeDisplaysBypassed === "function"
+          ? !nodeGraphNodeDisplaysBypassed(id)
+          : true;
+      });
+      if (labelEl) {
+        labelEl.textContent = anyEnabled ? "Disable" : "Enable";
+      }
+      disableButton.setAttribute("aria-pressed", anyEnabled ? "false" : "true");
+      disableButton.title = anyEnabled
+        ? (selectedIds.length > 1
+          ? `Disable ${selectedIds.length} selected modules.`
+          : "Disable selected module.")
+        : (selectedIds.length > 1
+          ? `Enable ${selectedIds.length} selected modules.`
+          : "Enable selected module.");
+    }
+  }
+
   syncNodeGraphModuleActionTargetFromSelection();
   syncNodeGraphSharedInspectorTargetFromSelection();
   setNodeInteractionHelp(nodeInteractionHelpText(document.activeElement));

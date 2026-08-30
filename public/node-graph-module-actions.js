@@ -2720,23 +2720,24 @@ function toggleNodeGraphModuleButtonsFromContext() {
   configureNodeSceneContextMenu("module");
 }
 
-function toggleNodeGraphModuleEnabledFromContext() {
-  const targetNodeIds = nodeGraphModuleActionTargetNodeIds();
-  if (!targetNodeIds.length) {
-    return;
+/** If any selected/target module is enabled → disable all; if all disabled → enable. */
+function toggleNodeGraphModulesEnabledForIds(targetNodeIds, options = {}) {
+  const ids = [...new Set((targetNodeIds || []).map((id) => String(id || "")).filter(Boolean))];
+  if (!ids.length) {
+    return false;
   }
-  const sources = targetNodeIds
-    .map((id) => nodeGraphPatchNode(id))
-    .filter(Boolean);
+  const sources = ids.map((id) => nodeGraphPatchNode(id)).filter(Boolean);
   if (!sources.length) {
-    return;
+    return false;
   }
 
   // Single Output selection keeps the dedicated live-output toggle.
   if (sources.length === 1 && sources[0].id === "output") {
     toggleNodeGraphLiveOutput();
-    configureNodeSceneContextMenu("module");
-    return;
+    if (options.configureMenu !== false) {
+      configureNodeSceneContextMenu("module");
+    }
+    return true;
   }
 
   const isEnabled = (node) => {
@@ -2761,10 +2762,10 @@ function toggleNodeGraphModuleEnabledFromContext() {
     .filter((node) => node.id !== "output")
     .map((node) => node.id);
   if (!nonOutputIds.length) {
-    if (outputToggled) {
+    if (outputToggled && options.configureMenu !== false) {
       configureNodeSceneContextMenu("module");
     }
-    return;
+    return outputToggled;
   }
 
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
@@ -2782,7 +2783,25 @@ function toggleNodeGraphModuleEnabledFromContext() {
       ? (nonOutputIds.length > 1 ? "modules enabled" : "module enabled")
       : (nonOutputIds.length > 1 ? "modules disabled" : "module disabled"),
   });
-  configureNodeSceneContextMenu("module");
+  if (options.configureMenu !== false) {
+    configureNodeSceneContextMenu("module");
+  }
+  return true;
+}
+
+function toggleNodeGraphModuleEnabledFromContext() {
+  toggleNodeGraphModulesEnabledForIds(nodeGraphModuleActionTargetNodeIds());
+}
+
+/** Command-center Disable: selection only (no-op if nothing selected, like Delete). */
+function toggleNodeGraphSelectedModulesEnabled() {
+  const selectedIds = typeof nodeGraphSelectedNodeIds === "function"
+    ? [...nodeGraphSelectedNodeIds()]
+    : [];
+  if (!selectedIds.length) {
+    return;
+  }
+  toggleNodeGraphModulesEnabledForIds(selectedIds);
 }
 
 function toggleNodeGraphModuleTitleFromContext() {

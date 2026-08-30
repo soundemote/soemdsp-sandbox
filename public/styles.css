@@ -21072,8 +21072,13 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   text-align: center;
 }
 
-.scene-context-history-controls .scene-context-window-button + .scene-context-window-button {
+/* 2×2: Undo|Disable / Redo|Delete — column seam on even cells, row seam on bottom row. */
+.scene-context-history-controls .scene-context-window-button:nth-child(2n) {
   border-left: 1px solid rgba(127, 199, 217, 0.16);
+}
+
+.scene-context-history-controls .scene-context-window-button:nth-child(n + 3) {
+  border-top: 1px solid rgba(127, 199, 217, 0.16);
 }
 
 #nodeSceneContextMenu .scene-context-history-controls .scene-context-window-button-label,
