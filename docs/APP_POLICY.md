@@ -109,6 +109,9 @@ Only these live-audio types exist in the efficient build:
 | `flowerChildEnvelopeFollower` | Attack/hold/decay envelope follower |
 | `vactrolEnvelopeCustom` | Vactrol photoconductive envelope |
 | `vactrolEnvelopeSeries` | VTL5C-series preset vactrol (same native) |
+| `delayEffect` | Modulated mono delay |
+| `soemReverb` | SoEm multi-tap reverb (≠ sabrina `reverbEffect`) |
+| `pll` | Phase-locked loop (VCO / PC / LPF / Locked) |
 | `output` | Sink |
 
 Canonical circuit:
@@ -130,7 +133,8 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    resonatorFilter / combResonator / modeResonator /
    chaoticPhaseLockingFilter / inertialFilter /
    expAdsr / linearEnvelope / pluckEnvelope /
-   flowerChildEnvelopeFollower / vactrolEnvelopeCustom / vactrolEnvelopeSeries
+   flowerChildEnvelopeFollower / vactrolEnvelopeCustom / vactrolEnvelopeSeries /
+   delayEffect / soemReverb / pll
    as utilities)
 ```
 

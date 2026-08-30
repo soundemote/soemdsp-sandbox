@@ -77,6 +77,9 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "flowerChildEnvelopeFollower",
   "vactrolEnvelopeCustom",
   "vactrolEnvelopeSeries",
+  "delayEffect",
+  "soemReverb",
+  "pll",
   "output",
 ]);
 

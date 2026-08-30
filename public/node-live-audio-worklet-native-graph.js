@@ -80,6 +80,10 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   flowerChildEnvelopeFollower: 73,
   vactrolEnvelopeCustom: 74,
   vactrolEnvelopeSeries: 74, // shared native with custom
+  delayEffect: 75,
+  // wallDelay skipped — native placeholder only
+  soemReverb: 76,
+  pll: 77,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -319,6 +323,19 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (p === "z" && t === "rotate3dTo2d") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
   }
+  if (t === "pll") {
+    if (p === "vco out" || p === "vco") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "pc out" || p === "pc") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "lpf out" || p === "lfp out" || p === "lpf") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+    }
+    if (p === "locked") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+  }
+  if (t === "delayEffect" && (p === "wet" || p === "mix")) {
+    return p === "wet"
+      ? NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW
+      : NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  }
   // Mono / Out / In / Wave Out / Noise / Frequency (MIDI out) / empty → mono bus
   return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
 };
@@ -354,6 +371,14 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
   const t = String(type || "").trim();
+  if (t === "pll") {
+    if (p === "signal in" || p === "signal") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    }
+    if (p === "vco cv in" || p === "vco cv" || p === "cv") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    }
+  }
   // surgeOscillator Sync audio in (reuses Mono bus as destination-only).
   if (p === "sync" && t === "surgeOscillator") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
@@ -693,6 +718,15 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   invert: true,
   loop: true,
   part: true,
+  echoMode: true,
+  pingPong: true,
+  doModulateEcho: true,
+  numDelays: true,
+  lpfStages: true,
+  bandStages: true,
+  echoTempoSync: true,
+  range: true,
+  type: true,
 });
 
 /**
@@ -1200,6 +1234,67 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("lightOffset", P.NATIVE_GRAPH_PARAM_CENTER, cont("lightOffset", 0));
       push("darkCurrent", P.NATIVE_GRAPH_PARAM_MIX, cont("darkCurrent", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "delayEffect") {
+      // Native parabolic mod only; JS modStyle/interp/inLevel stay UI-side.
+      push("time", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("time", 0.18));
+      push("feedback", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("feedback", 0.25));
+      push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.35));
+      push("outLevel", P.NATIVE_GRAPH_PARAM_LEVEL, cont("outLevel", 1));
+      push("modAmount", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("modAmount", 0.02));
+      push("modRate", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("modRate", 0.1));
+      push("modVariation", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("modVariation", 0));
+      continue;
+    }
+    if (type === "soemReverb") {
+      // Tempo sync resolved here → delaySize/echoTime seconds.
+      let echoTime = cont("echoTime", 0.35);
+      if (disc("echoTempoSync", 0) >= 1) {
+        const bpm = Number(this.timing?.tempoBpm);
+        const safeBpm = Number.isFinite(bpm) && bpm > 0 ? bpm : 120;
+        const num = Math.max(0, cont("timeNumerator", 1));
+        const denRaw = cont("timeDenominator", 4);
+        const den = denRaw > 0 ? denRaw : 1;
+        const mode = disc("timingMode", 0);
+        const mult = mode === 1 ? 1.5 : mode === 2 ? 2 / 3 : 1;
+        const offsetSec = cont("offsetMs", 0) * 0.001;
+        echoTime = (num / den) * (240 / safeBpm) * mult + offsetSec;
+        if (!(echoTime > 0.0001)) echoTime = 0.0001;
+        if (echoTime > 1) echoTime = 1;
+      }
+      push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.43));
+      push("volume", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("volume", 1));
+      push("echoTime", P.NATIVE_GRAPH_PARAM_DELAY_SIZE, echoTime);
+      push("recycle", P.NATIVE_GRAPH_PARAM_RECYCLE, cont("recycle", 0.5));
+      push("numDelays", P.NATIVE_GRAPH_PARAM_STAGES, disc("numDelays", 10));
+      push("diffusionSize", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("diffusionSize", 0.35));
+      push("diffusionAmount", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("diffusionAmount", 0.7));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 500));
+      push("lfoAmp", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("lfoAmp", 0.002));
+      push("lfoFrequency", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("lfoFrequency", 0.5));
+      push("lfoVariation", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("lfoVariation", 1));
+      push("lfoStyle", P.NATIVE_GRAPH_PARAM_LFO_STYLE, disc("lfoStyle", 0));
+      push("echoMode", P.NATIVE_GRAPH_PARAM_MODE, disc("echoMode", 0));
+      push("pingPong", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("pingPong", 0));
+      push("doModulateEcho", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("doModulateEcho", 1));
+      push("saturate", P.NATIVE_GRAPH_PARAM_SATURATE, cont("saturate", 1));
+      push("lpfFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("lpfFrequency", 8000));
+      push("hpfFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("hpfFrequency", 20));
+      push("bandFrequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("bandFrequency", 1000));
+      push("bandDecibels", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("bandDecibels", 0));
+      push("bandQ", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("bandQ", 1));
+      push("lpfStages", P.NATIVE_GRAPH_PARAM_WIDTH, disc("lpfStages", 2));
+      push("bandStages", P.NATIVE_GRAPH_PARAM_CENTER, disc("bandStages", 2));
+      push("duckLimit", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("duckLimit", 1));
+      push("duckRelease", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("duckRelease", 0.04));
+      continue;
+    }
+    if (type === "pll") {
+      push("range", P.NATIVE_GRAPH_PARAM_MODE, disc("range", 1));
+      push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 5));
+      push("type", P.NATIVE_GRAPH_PARAM_STAGES, disc("type", 1));
+      push("frequ", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequ", 10));
       continue;
     }
     if (type === "robinSupersaw") {

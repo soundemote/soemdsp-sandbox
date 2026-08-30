@@ -654,6 +654,50 @@ extern "C" double soemdsp_vactrol_envelope_sample(
   double sensitivity, double lightOffset, double darkCurrent, double sampleRate
 );
 
+extern "C" int soemdsp_delay_effect_create();
+extern "C" void soemdsp_delay_effect_destroy(int handle);
+extern "C" void soemdsp_delay_effect_sample(
+  int handle, double input, double time, double feedback, double mix,
+  double level, double modAmount, double modRate, double modVariation,
+  double mode, unsigned int seed, double sampleRate
+);
+extern "C" double soemdsp_delay_effect_out(int handle);
+extern "C" double soemdsp_delay_effect_wet(int handle);
+
+extern "C" int soemdsp_soem_reverb_create(double sampleRate);
+extern "C" void soemdsp_soem_reverb_destroy(int handle);
+extern "C" void soemdsp_soem_reverb_reset(int handle);
+extern "C" void soemdsp_soem_reverb_set_params(
+  int handle,
+  double mix, double volume, double echoTime, double recycle, double numDelays,
+  double diffusionSize, double diffusionAmount, double seed, double lfoAmp,
+  double lfoFrequency, double lfoVariation, double lfoStyle, double echoMode,
+  double pingPong, double doModulateEcho, double saturate, double lpfFrequency,
+  double hpfFrequency, double bandFrequency, double bandDecibels, double bandQ,
+  double lpfStages, double bandStages, double duckLimit, double duckRelease
+);
+extern "C" void soemdsp_soem_reverb_process(int handle, double inL, double inR);
+extern "C" double soemdsp_soem_reverb_left(int handle);
+extern "C" double soemdsp_soem_reverb_right(int handle);
+extern "C" double soemdsp_soem_reverb_wet_left(int handle);
+extern "C" double soemdsp_soem_reverb_wet_right(int handle);
+extern "C" double soemdsp_soem_reverb_dry_left(int handle);
+extern "C" double soemdsp_soem_reverb_dry_right(int handle);
+
+extern "C" int soemdsp_pll_create(double sampleRate);
+extern "C" void soemdsp_pll_destroy(int handle);
+extern "C" void soemdsp_pll_reset(int handle, double sampleRate);
+extern "C" void soemdsp_pll_set_params(
+  int handle, double sampleRate, int range, double offset, int type, double frequ
+);
+extern "C" void soemdsp_pll_process(
+  int handle, double signalIn, double cvIn, double cvConnected
+);
+extern "C" double soemdsp_pll_vco_out(int handle);
+extern "C" double soemdsp_pll_pc_out(int handle);
+extern "C" double soemdsp_pll_lpf_out(int handle);
+extern "C" double soemdsp_pll_locked(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -758,6 +802,10 @@ static const int kTypeLinearEnvelope = 71;
 static const int kTypePluckEnvelope = 72;
 static const int kTypeFlowerChildEnvelopeFollower = 73;
 static const int kTypeVactrolEnvelope = 74; // series + custom share native
+static const int kTypeDelayEffect = 75;
+// wallDelay skipped — native is placeholder (version only).
+static const int kTypeSoemReverb = 76;
+static const int kTypePll = 77;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1132,6 +1180,12 @@ static void destroy_node_native(Node& n) {
     soemdsp_flower_child_envelope_follower_destroy(n.nativeHandle);
   } else if (kind == kTypeVactrolEnvelope) {
     soemdsp_vactrol_envelope_destroy(n.nativeHandle);
+  } else if (kind == kTypeDelayEffect) {
+    soemdsp_delay_effect_destroy(n.nativeHandle);
+  } else if (kind == kTypeSoemReverb) {
+    soemdsp_soem_reverb_destroy(n.nativeHandle);
+  } else if (kind == kTypePll) {
+    soemdsp_pll_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -1210,12 +1264,16 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSnowflake) ? 55.0
       : (typeId == kTypeAntisaw) ? 110.0
       : (typeId == kTypePluckEnvelope) ? 1.5 // decayModFrequency
+      : (typeId == kTypePll) ? 10.0 // LPF cutoff
+      : (typeId == kTypeSoemReverb) ? 1000.0 // bandFrequency
       : 220.0,
     false
   );
   init_control(
     n.waveform,
-    (typeId == kTypeAdditiveOsc || typeId == kTypeDsfOscillator) ? 1.0 : 0.0,
+    (typeId == kTypeAdditiveOsc || typeId == kTypeDsfOscillator) ? 1.0
+      : (typeId == kTypeSoemReverb) ? 1.0 // doModulateEcho On
+      : 0.0,
     true
   );
   init_control(
@@ -1248,6 +1306,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeChebyshev || typeId == kTypeElliptic) ? 1.0 // ripple dB
       : (typeId == kTypeEqFilter) ? 0.707 // Q
       : (typeId == kTypeTb303Filter) ? 0.0 // %
+      : (typeId == kTypeSoemReverb) ? 1.0 // bandQ
       : 0.2,
     false
   );
@@ -1291,6 +1350,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSnowflake) ? 3.0 // iterations
       : (typeId == kTypeActiveFilter) ? 3.0 // feedbackCircuit Res+Clip
       : (typeId == kTypeCombResonator) ? 0.0 // invert Off
+      : (typeId == kTypeSoemReverb) ? 10.0 // numDelays
+      : (typeId == kTypePll) ? 1.0 // PC type RS Flip
       : 4.0,
     true
   );
@@ -1298,6 +1359,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.center,
     (typeId == kTypeHypersaw) ? 0.1 // drift
       : (typeId == kTypeExpAdsr) ? 0.0001 // releaseShape
+      : (typeId == kTypeSoemReverb) ? 2.0 // bandStages
       : 0.0,
     false
   );
@@ -1323,13 +1385,14 @@ static void init_node_defaults(Node& n, int typeId) {
         ? 1.0 // bandwidth octaves
       : (typeId == kTypeCombResonator) ? 1.0 // depth
       : (typeId == kTypePluckEnvelope || typeId == kTypeVactrolEnvelope) ? 1.0 // velocity/sensitivity
+      : (typeId == kTypeSoemReverb) ? 2.0 // lpfStages
       : 2.0,
     false
   );
   init_control(n.oversample, 2.0, true); // softClipper / clipperLimiter antialias mode
   init_control(
     n.mix,
-    (typeId == kTypePingPongDelay) ? 0.35
+    (typeId == kTypePingPongDelay || typeId == kTypeDelayEffect) ? 0.35
       : (typeId == kTypeDsfOscillator) ? 0.5 // SquSaw blend
       : (typeId == kTypeBradley2a) ? 0.0 // interfLevel
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.55 // sustain
@@ -1354,6 +1417,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.delaySize,
     (typeId == kTypePluckEnvelope) ? 0.8 // endingDecay
+      : (typeId == kTypeSoemReverb) ? 0.35 // echoTime
       : 0.02,
     false
   );
@@ -1361,26 +1425,38 @@ static void init_node_defaults(Node& n, int typeId) {
     n.recycle,
     (typeId == kTypeBradley2a) ? 0.0 // impulseLevel
       : (typeId == kTypePluckEnvelope) ? 0.35 // releaseFeedback
+      : (typeId == kTypeSoemReverb) ? 0.5
       : 0.70,
     false
   );
   init_control(
     n.lfoAmplitude,
     (typeId == kTypeBradley2a) ? 0.0 // ampDepth
+      : (typeId == kTypeDelayEffect) ? 0.02 // modAmount
+      : (typeId == kTypeSoemReverb) ? 0.002 // lfoAmp
       : 0.07,
     false
   );
   init_control(
     n.lfoBaseSpeed,
     (typeId == kTypeBradley2a) ? 40.0 // ampRate
+      : (typeId == kTypeSoemReverb) ? 0.5 // lfoFrequency
       : 0.83,
     false
   );
-  init_control(n.lfoVariation, (typeId == kTypePingPongDelay) ? 0.25 : 0.001, false);
+  init_control(
+    n.lfoVariation,
+    (typeId == kTypePingPongDelay) ? 0.25
+      : (typeId == kTypeSoemReverb) ? 1.0
+      : (typeId == kTypeDelayEffect) ? 0.0
+      : 0.001,
+    false
+  );
   init_control(
     n.seed,
     (typeId == kTypeNoiseGenerator || typeId == kTypeRandomClock) ? 1.0
       : (typeId == kTypeLutCell) ? 27030.0 // default truth table
+      : (typeId == kTypeSoemReverb) ? 500.0
       : 0.0,
     true
   );
@@ -1390,6 +1466,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.22 // decay
       : (typeId == kTypePluckEnvelope) ? 0.35 // decay
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // decay
+      : (typeId == kTypeDelayEffect) ? 0.25
+      : (typeId == kTypeSoemReverb) ? 1.0 // duckLimit
       : 0.35,
     false
   );
@@ -1411,6 +1489,7 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypePluckEnvelope) ? 0.0 // delay
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // attack
       : (typeId == kTypeVactrolEnvelope) ? 0.01 // attack (custom default)
+      : (typeId == kTypeDelayEffect) ? 0.18 // time s
       : 1.0,
     false
   );
@@ -1440,6 +1519,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLookaheadLimiter) ? 0.2 // attack ms
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.45 // release s
       : (typeId == kTypePluckEnvelope) ? 0.08 // autoReleaseTime
+      : (typeId == kTypeSoemReverb) ? 0.04 // duckRelease
       : 0.0,
     false
   );
@@ -1447,6 +1527,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.lfoRate,
     (typeId == kTypeBradley2a) ? 60.0 // jitterRate
+      : (typeId == kTypeDelayEffect) ? 0.1 // modRate
       : 0.35,
     false
   );
@@ -1467,7 +1548,7 @@ static void init_node_defaults(Node& n, int typeId) {
     false
   );
   init_control(n.tempoBpm, 120.0, false);
-  init_control(n.offset, 0.0, false);
+  init_control(n.offset, (typeId == kTypePll) ? 5.0 : 0.0, false);
   init_control(
     n.inLow,
     (typeId == kTypeRange) ? -1.0 : (typeId == kTypeClipperLimiter) ? -12.0 : 0.0,
@@ -1962,6 +2043,15 @@ static int create_native_for_type(int typeId, float sampleRate) {
     return soemdsp_flower_child_envelope_follower_create();
   }
   if (typeId == kTypeVactrolEnvelope) return soemdsp_vactrol_envelope_create();
+  if (typeId == kTypeDelayEffect) return soemdsp_delay_effect_create();
+  if (typeId == kTypeSoemReverb) {
+    const double sr = sampleRate < 1.0f ? 44100.0 : (double)sampleRate;
+    return soemdsp_soem_reverb_create(sr);
+  }
+  if (typeId == kTypePll) {
+    const double sr = sampleRate < 1.0f ? 44100.0 : (double)sampleRate;
+    return soemdsp_pll_create(sr);
+  }
   return 0;
 }
 
@@ -3835,6 +3925,131 @@ static void process_vactrol_envelope(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Mono delay: timeNumerator=time, feedback, mix, level=outLevel,
+// lfoAmplitude=modAmount, lfoRate=modRate, lfoVariation=modVariation;
+// mode invert unused (0). Mix→Mono/L/R; Wet→Saw.
+static void process_delay_effect(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const unsigned int seed = node.idHash;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    soemdsp_delay_effect_sample(
+      node.nativeHandle,
+      in,
+      node.timeNumerator.out,
+      node.feedback.out,
+      node.mix.out,
+      node.level.out,
+      node.lfoAmplitude.out,
+      node.lfoRate.out,
+      node.lfoVariation.out,
+      0.0,
+      seed,
+      sr
+    );
+    const double mixOut = soemdsp_delay_effect_out(node.nativeHandle);
+    const double wet = soemdsp_delay_effect_wet(node.nativeHandle);
+    node.buf[kPortMono][f] = mixOut;
+    node.buf[kPortLeft][f] = mixOut;
+    node.buf[kPortRight][f] = mixOut;
+    node.buf[kPortSaw][f] = wet;
+  }
+}
+
+// SoEmReverb (distinct from sabrina reverbEffect).
+// mix, amplitude=volume, delaySize=echoTime, recycle, stages=numDelays,
+// diffusionSize/Amount, seed, lfoAmplitude=lfoAmp, lfoBaseSpeed=lfoFrequency,
+// lfoVariation, lfoStyle, mode=echoMode, timingMode=pingPong,
+// waveform=doModulateEcho, saturate, lpf/hpf, frequency=bandFrequency,
+// gainDb=bandDecibels, resonance=bandQ, width=lpfStages, center=bandStages,
+// feedback=duckLimit, offsetMs=duckRelease.
+static void process_soem_reverb(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  soemdsp_soem_reverb_set_params(
+    node.nativeHandle,
+    node.mix.out,
+    node.amplitude.out,
+    node.delaySize.out,
+    node.recycle.out,
+    node.stages.out,
+    node.diffusionSize.out,
+    node.diffusionAmount.out,
+    node.seed.out,
+    node.lfoAmplitude.out,
+    node.lfoBaseSpeed.out,
+    node.lfoVariation.out,
+    node.lfoStyle.out,
+    node.mode.out,
+    node.timingMode.out,
+    node.waveform.out,
+    node.saturate.out,
+    node.lpfFrequency.out,
+    node.hpfFrequency.out,
+    node.frequency.out,
+    node.gainDb.out,
+    node.resonance.out,
+    node.width.out,
+    node.center.out,
+    node.feedback.out,
+    node.offsetMs.out
+  );
+  for (int f = 0; f < frames; f++) {
+    const double mono = g.mixMono[f];
+    const double inL = mono + g.mixLeft[f];
+    const double inR = mono + g.mixRight[f];
+    soemdsp_soem_reverb_process(node.nativeHandle, inL, inR);
+    node.buf[kPortLeft][f] = soemdsp_soem_reverb_left(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_soem_reverb_right(node.nativeHandle);
+    node.buf[kPortDryL][f] = soemdsp_soem_reverb_dry_left(node.nativeHandle);
+    node.buf[kPortDryR][f] = soemdsp_soem_reverb_dry_right(node.nativeHandle);
+    node.buf[kPortMono][f] =
+      0.5 * (node.buf[kPortLeft][f] + node.buf[kPortRight][f]);
+  }
+}
+
+// PLL: Signal In→Mono, VCO CV In→Left (cvConnected if Left wired).
+// mode=range, offset=offset, stages=type, frequency=frequ.
+// VCO→Mono, PC→Left, LPF→Right, Locked→Saw.
+static void process_pll(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  bool cvConnected = false;
+  for (int ci = 0; ci < g.connCount; ci++) {
+    const Conn& c = g.conns[ci];
+    if (!c.used || c.dstHash != node.idHash) continue;
+    if (clamp_dst_port(c.dstPort) == kPortLeft) {
+      cvConnected = true;
+      break;
+    }
+  }
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  soemdsp_pll_set_params(
+    node.nativeHandle,
+    sr,
+    (int)(node.mode.out + 0.5),
+    node.offset.out,
+    (int)(node.stages.out + 0.5),
+    node.frequency.out
+  );
+  for (int f = 0; f < frames; f++) {
+    soemdsp_pll_process(
+      node.nativeHandle,
+      g.mixMono[f],
+      g.mixLeft[f],
+      cvConnected ? 1.0 : 0.0
+    );
+    node.buf[kPortMono][f] = soemdsp_pll_vco_out(node.nativeHandle);
+    node.buf[kPortLeft][f] = soemdsp_pll_pc_out(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_pll_lpf_out(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_pll_locked(node.nativeHandle);
+  }
+}
+
 // Master Clock / transport: tempo square.
 // -1..1→Mono, 0..1→Left, Trigger→Right, f (Hz)→Saw.
 // Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
@@ -4531,6 +4746,10 @@ extern "C" void soemdsp_graph_set_sample_rate(int handle, float sampleRate) {
       soemdsp_sabrina_reverb_reset(n.nativeHandle, (double)sampleRate);
     } else if (n.nativeKind == kTypePingPongDelay) {
       soemdsp_ping_pong_delay_reset(n.nativeHandle);
+    } else if (n.nativeKind == kTypeSoemReverb) {
+      soemdsp_soem_reverb_reset(n.nativeHandle);
+    } else if (n.nativeKind == kTypePll) {
+      soemdsp_pll_reset(n.nativeHandle, (double)sampleRate);
     }
   }
 }
@@ -4610,7 +4829,10 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeLinearEnvelope
     || typeId == kTypePluckEnvelope
     || typeId == kTypeFlowerChildEnvelopeFollower
-    || typeId == kTypeVactrolEnvelope;
+    || typeId == kTypeVactrolEnvelope
+    || typeId == kTypeDelayEffect
+    || typeId == kTypeSoemReverb
+    || typeId == kTypePll;
   // additiveOsc / ellipsoid are free-fn (no native handle).
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
@@ -5150,6 +5372,18 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_vactrol_envelope(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeDelayEffect) {
+      process_delay_effect(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeSoemReverb) {
+      process_soem_reverb(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypePll) {
+      process_pll(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -5223,5 +5457,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 46; // + envelopes 70–74 (expAdsr/linear/pluck/flowerFollower/vactrol)
+  return 47; // + delayEffect 75 / soemReverb 76 / pll 77 (wallDelay skipped)
 }
