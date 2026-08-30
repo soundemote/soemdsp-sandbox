@@ -328,18 +328,20 @@ This app is a **C++ DSP engine with a JS interface** (§0). JS authors and obser
 
 App-wide stack order and jack chrome. Names keep their color; **Mono is always first**.
 
-| Order | Channel | Jack RGB |
+| Order | Channel | Jack color |
 | --- | --- | --- |
-| 1st | Mono (`M`, `In`/`Out` labeled Mono) | Green |
+| 1st | Mono (`M`, `Mono`) | Green |
+| 1st | **`In` / `Out`** (and `Input` / `Output`) | **Purple — both inlet and outlet sides** |
 | 2nd | Left (`L`) | Red |
 | 3rd | Right (`R`) | Blue |
 
+Filter-style modules use `In`/`Out` labeled Mono: the **port name** wins for chrome, so those jacks are **purple**, not green.
+
 RGB modules: `R` red, `G` green, `B` blue (`R` is never Right).
 
-Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled `Out` stays green.
+Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled generic analog (no channel) stays gold by side.
 
-- RGB chrome on **inlets and outlets**. Analog inlets stay cyan; analog outlets gold.
-- Cables follow jack colors when UIDEV **wires follow port colors** is on (default). Dual-color gradient still matches both ends. Digital stays white. Off = gold analog / white digital.
+- Channel chrome on **inlets and outlets** the same way (In purple left = Out purple right). Uncolored analog stays gold. Cables follow jack colors when UIDEV **wires follow port colors** is on (default). Dual-color gradient still matches both ends. Digital stays white. Off = gold analog / white digital.
 - Full write-up: [MODULE_LAYOUT_PLAN.md](./MODULE_LAYOUT_PLAN.md) §11.
 
 ---
