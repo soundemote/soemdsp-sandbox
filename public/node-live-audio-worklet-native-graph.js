@@ -89,6 +89,10 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   henonMap: 80,
   chuaAttractor: 81,
   rayBouncer: 82,
+  chordMemory: 83,
+  chordSequencer: 84,
+  pitchQuantizer: 85,
+  turingMachine: 86,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -349,6 +353,25 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     if (p === "z") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
   }
+  if (t === "chordMemory") {
+    if (p === "note 1" || p === "note1") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "note 2" || p === "note2") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "note 3" || p === "note3") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+    if (p === "note 4" || p === "note4") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+    if (p === "arp") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+    if (p === "gate") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE;
+  }
+  if (t === "chordSequencer") {
+    if (p === "scale") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "root") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "gate") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+    if (p === "step") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+  }
+  if (t === "turingMachine") {
+    if (p === "cv") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "scale") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "gate") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
   // Mono / Out / In / Wave Out / Noise / Frequency (MIDI out) / empty → mono bus
   return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
 };
@@ -370,14 +393,20 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   if (p === "increment" || p === "inc." || p === "inc") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_INCREMENT;
   }
-  if (p === "reset") {
+  if (p === "reset" || (p === "clear" && type === "chordMemory")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RESET;
   }
-  if (p === "trigger" || p === "trig") {
+  if (p === "trigger" || p === "trig" || (p === "latch" && type === "chordMemory")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
   }
   if (p === "clock") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
+  }
+  if (p === "advance" && type === "chordMemory") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_INCREMENT;
+  }
+  if (p === "scale" && (type === "pitchQuantizer" || type === "turingMachine")) {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
   // Envelope / vactrol audio-rate control jacks (fold via Mono+L+R mix).
   if (p === "gate" || p === "light" || p === "release") {
@@ -1361,6 +1390,24 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("xToY", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("xToY", 0));
       push("yToX", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("yToX", 0));
       push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
+      continue;
+    }
+    if (type === "chordMemory") {
+      continue;
+    }
+    if (type === "chordSequencer") {
+      push("progression", P.NATIVE_GRAPH_PARAM_MODE, disc("progression", 0));
+      push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
+      continue;
+    }
+    if (type === "pitchQuantizer") {
+      push("scaleMask", P.NATIVE_GRAPH_PARAM_SEED, disc("scaleMask", 2741));
+      continue;
+    }
+    if (type === "turingMachine") {
+      push("length", P.NATIVE_GRAPH_PARAM_STAGES, disc("length", 8));
+      push("probability", P.NATIVE_GRAPH_PARAM_SHAPE, cont("probability", 0.25));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "robinSupersaw") {

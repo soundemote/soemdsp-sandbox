@@ -117,6 +117,10 @@ Only these live-audio types exist in the efficient build:
 | `henonMap` | Hénon-map chaos CV (X/Y) |
 | `chuaAttractor` | Chua chaos CV (X/Y/Z) |
 | `rayBouncer` | Ellipse billiard chaos CV (X/Y) |
+| `chordMemory` | 4-slot pitch latch / arp |
+| `chordSequencer` | Progression scale/root sequencer |
+| `pitchQuantizer` | 12-bit scale pitch quantizer |
+| `turingMachine` | Shift-register CV / scale / gate |
 | `output` | Sink |
 
 Canonical circuit:
@@ -140,7 +144,8 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    expAdsr / linearEnvelope / pluckEnvelope /
    flowerChildEnvelopeFollower / vactrolEnvelopeCustom / vactrolEnvelopeSeries /
    delayEffect / soemReverb / pll /
-   lorenzAttractor / logisticMap / henonMap / chuaAttractor / rayBouncer
+   lorenzAttractor / logisticMap / henonMap / chuaAttractor / rayBouncer /
+   chordMemory / chordSequencer / pitchQuantizer / turingMachine
    as utilities)
 ```
 

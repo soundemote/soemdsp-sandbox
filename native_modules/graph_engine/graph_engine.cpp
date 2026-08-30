@@ -745,6 +745,38 @@ extern "C" void soemdsp_ray_bouncer_sample(
 extern "C" double soemdsp_ray_bouncer_x(int handle);
 extern "C" double soemdsp_ray_bouncer_y(int handle);
 
+extern "C" int soemdsp_chord_memory_create();
+extern "C" void soemdsp_chord_memory_destroy(int handle);
+extern "C" double soemdsp_chord_memory_sample(
+  int handle, double latch, double clear, double advance, double pitch
+);
+extern "C" double soemdsp_chord_memory_note2(int handle);
+extern "C" double soemdsp_chord_memory_note3(int handle);
+extern "C" double soemdsp_chord_memory_note4(int handle);
+extern "C" double soemdsp_chord_memory_arp(int handle);
+extern "C" double soemdsp_chord_memory_gate(int handle);
+
+extern "C" int soemdsp_chord_sequencer_create();
+extern "C" void soemdsp_chord_sequencer_destroy(int handle);
+extern "C" void soemdsp_chord_sequencer_sample(
+  int handle, double clock, double reset, double progression
+);
+extern "C" int soemdsp_chord_sequencer_scale(int handle, double progression);
+extern "C" double soemdsp_chord_sequencer_root(int handle, double progression);
+extern "C" int soemdsp_chord_sequencer_step(int handle);
+
+extern "C" int soemdsp_pitch_quantizer_create();
+extern "C" void soemdsp_pitch_quantizer_destroy(int handle);
+extern "C" double soemdsp_pitch_quantizer_sample(int handle, double pitch, int scaleMask);
+
+extern "C" int soemdsp_turing_machine_create(unsigned int entropySeed);
+extern "C" void soemdsp_turing_machine_destroy(int handle);
+extern "C" double soemdsp_turing_machine_sample(
+  int handle, double clock, double reset, double length, double probability, double level
+);
+extern "C" double soemdsp_turing_machine_scale(int handle);
+extern "C" double soemdsp_turing_machine_gate(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -858,6 +890,10 @@ static const int kTypeLogisticMap = 79;
 static const int kTypeHenonMap = 80;
 static const int kTypeChuaAttractor = 81;
 static const int kTypeRayBouncer = 82;
+static const int kTypeChordMemory = 83;
+static const int kTypeChordSequencer = 84;
+static const int kTypePitchQuantizer = 85;
+static const int kTypeTuringMachine = 86;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1248,6 +1284,14 @@ static void destroy_node_native(Node& n) {
     soemdsp_chua_attractor_destroy(n.nativeHandle);
   } else if (kind == kTypeRayBouncer) {
     soemdsp_ray_bouncer_destroy(n.nativeHandle);
+  } else if (kind == kTypeChordMemory) {
+    soemdsp_chord_memory_destroy(n.nativeHandle);
+  } else if (kind == kTypeChordSequencer) {
+    soemdsp_chord_sequencer_destroy(n.nativeHandle);
+  } else if (kind == kTypePitchQuantizer) {
+    soemdsp_pitch_quantizer_destroy(n.nativeHandle);
+  } else if (kind == kTypeTuringMachine) {
+    soemdsp_turing_machine_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -1366,6 +1410,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLogisticMap) ? 3.9 // r
       : (typeId == kTypeHenonMap) ? 1.4 // a
       : (typeId == kTypeChuaAttractor) ? 15.6 // alpha
+      : (typeId == kTypeTuringMachine) ? 0.25 // probability
       : 0.5,
     (typeId == kTypeSlewLimiter) // discrete Lin/Log/Exp/Smooth
   );
@@ -1403,6 +1448,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSinc) ? 1.0 // band-limit kernel
       : (typeId == kTypeEllipsoid) ? 1.0 // CounterClock(Ph)
       : (typeId == kTypeSnowflake) ? 1.0 // Koch Snowflake pattern
+      : (typeId == kTypeChordSequencer) ? 0.0 // progression
       : 1.0,
     true
   );
@@ -1415,7 +1461,8 @@ static void init_node_defaults(Node& n, int typeId) {
     n.stages,
     (typeId == kTypeRobinSupersaw) ? 7.0
       : (typeId == kTypeTriggerDivider) ? 2.0
-      : (typeId == kTypeTriggerCounter || typeId == kTypeStepSequencer) ? 8.0
+      : (typeId == kTypeTriggerCounter || typeId == kTypeStepSequencer
+          || typeId == kTypeTuringMachine) ? 8.0
       : (typeId == kTypeTransport) ? 0.0
       : (typeId == kTypeAntisaw) ? 64.0
       : (typeId == kTypeArchimedes) ? 12.0
@@ -1545,6 +1592,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeNoiseGenerator || typeId == kTypeRandomClock) ? 1.0
       : (typeId == kTypeLutCell) ? 27030.0 // default truth table
       : (typeId == kTypeSoemReverb) ? 500.0
+      : (typeId == kTypePitchQuantizer) ? 2741.0 // major scale mask
       : 0.0,
     true
   );
@@ -2149,6 +2197,14 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeHenonMap) return soemdsp_henon_map_create();
   if (typeId == kTypeChuaAttractor) return soemdsp_chua_attractor_create();
   if (typeId == kTypeRayBouncer) return soemdsp_ray_bouncer_create();
+  if (typeId == kTypeChordMemory) return soemdsp_chord_memory_create();
+  if (typeId == kTypeChordSequencer) return soemdsp_chord_sequencer_create();
+  if (typeId == kTypePitchQuantizer) return soemdsp_pitch_quantizer_create();
+  if (typeId == kTypeTuringMachine) {
+    static unsigned int turingEntropy = 0xC0FFEEu;
+    turingEntropy = turingEntropy * 1664525u + 1013904223u;
+    return soemdsp_turing_machine_create(turingEntropy ? turingEntropy : 1u);
+  }
   return 0;
 }
 
@@ -4290,6 +4346,104 @@ static void process_ray_bouncer(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Chord memory: Latch→Trigger, Clear→Reset, Advance→Increment, Pitch→PitchCV.
+// Note1→Mono … Note4→Saw, Arp→Ramp, Gate→Square.
+static void process_chord_memory(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasLatch = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool hasClear = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool hasAdvance = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
+  const bool hasPitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  for (int f = 0; f < frames; f++) {
+    const double note1 = soemdsp_chord_memory_sample(
+      node.nativeHandle,
+      hasLatch ? g.mixTrigger[f] : 0.0,
+      hasClear ? g.mixReset[f] : 0.0,
+      hasAdvance ? g.mixIncrement[f] : 0.0,
+      hasPitch ? g.mixPitch[f] : 0.0
+    );
+    node.buf[kPortMono][f] = note1;
+    node.buf[kPortLeft][f] = soemdsp_chord_memory_note2(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_chord_memory_note3(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_chord_memory_note4(node.nativeHandle);
+    node.buf[kPortRamp][f] = soemdsp_chord_memory_arp(node.nativeHandle);
+    node.buf[kPortSquare][f] = soemdsp_chord_memory_gate(node.nativeHandle);
+  }
+}
+
+// Chord sequencer: Clock→Trigger, Reset→Reset. mode=progression, amplitude=level.
+// Scale→Mono, Root→Left, Gate→Right, Step→Saw.
+static void process_chord_sequencer(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double progression = node.mode.out;
+    const double clock = hasClock ? g.mixTrigger[f] : 0.0;
+    soemdsp_chord_sequencer_sample(
+      node.nativeHandle,
+      clock,
+      hasReset ? g.mixReset[f] : 0.0,
+      progression
+    );
+    const double scale = (double)soemdsp_chord_sequencer_scale(node.nativeHandle, progression);
+    const double root = soemdsp_chord_sequencer_root(node.nativeHandle, progression);
+    const double gate = (clock > 0.0 ? 1.0 : 0.0) * node.amplitude.out;
+    const double step = (double)soemdsp_chord_sequencer_step(node.nativeHandle);
+    node.buf[kPortMono][f] = scale;
+    node.buf[kPortLeft][f] = root;
+    node.buf[kPortRight][f] = gate;
+    node.buf[kPortSaw][f] = step;
+  }
+}
+
+// Pitch quantizer: PitchCV + optional Scale on Mono. seed=scaleMask (12-bit).
+static void process_pitch_quantizer(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasPitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool hasScale = mix_live_port(g, node, kPortMono, frames, g.mixMono);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double pitch = hasPitch ? g.mixPitch[f] : 0.0;
+    int mask;
+    if (hasScale) {
+      mask = (int)(g.mixMono[f] + (g.mixMono[f] >= 0.0 ? 0.5 : -0.5)) & 0xFFF;
+    } else {
+      mask = (int)(node.seed.out + 0.5) & 0xFFF;
+    }
+    const double out = soemdsp_pitch_quantizer_sample(node.nativeHandle, pitch, mask);
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Turing machine: Clock→Trigger, Reset→Reset.
+// stages=length, shape=probability, level=amplitude. CV→Mono, Scale→Left, Gate→Right.
+static void process_turing_machine(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double cv = soemdsp_turing_machine_sample(
+      node.nativeHandle,
+      hasClock ? g.mixTrigger[f] : 0.0,
+      hasReset ? g.mixReset[f] : 0.0,
+      node.stages.out,
+      node.shape.out,
+      node.amplitude.out
+    );
+    node.buf[kPortMono][f] = cv;
+    node.buf[kPortLeft][f] = soemdsp_turing_machine_scale(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_turing_machine_gate(node.nativeHandle);
+  }
+}
+
 // Master Clock / transport: tempo square.
 // -1..1→Mono, 0..1→Left, Trigger→Right, f (Hz)→Saw.
 // Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
@@ -5077,7 +5231,11 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeLogisticMap
     || typeId == kTypeHenonMap
     || typeId == kTypeChuaAttractor
-    || typeId == kTypeRayBouncer;
+    || typeId == kTypeRayBouncer
+    || typeId == kTypeChordMemory
+    || typeId == kTypeChordSequencer
+    || typeId == kTypePitchQuantizer
+    || typeId == kTypeTuringMachine;
   // additiveOsc / ellipsoid are free-fn (no native handle).
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
@@ -5649,6 +5807,22 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_ray_bouncer(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeChordMemory) {
+      process_chord_memory(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeChordSequencer) {
+      process_chord_sequencer(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypePitchQuantizer) {
+      process_pitch_quantizer(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeTuringMachine) {
+      process_turing_machine(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -5722,5 +5896,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 48; // + chaos CV 78–82 (lorenz/logistic/henon/chua/rayBouncer)
+  return 49; // + musical/sequencing CV 83–86
 }
