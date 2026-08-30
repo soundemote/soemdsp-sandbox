@@ -71,6 +71,12 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "modeResonator",
   "chaoticPhaseLockingFilter",
   "inertialFilter",
+  "expAdsr",
+  "linearEnvelope",
+  "pluckEnvelope",
+  "flowerChildEnvelopeFollower",
+  "vactrolEnvelopeCustom",
+  "vactrolEnvelopeSeries",
   "output",
 ]);
 

@@ -74,6 +74,12 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   modeResonator: 67,
   chaoticPhaseLockingFilter: 68,
   inertialFilter: 69,
+  expAdsr: 70,
+  linearEnvelope: 71,
+  pluckEnvelope: 72,
+  flowerChildEnvelopeFollower: 73,
+  vactrolEnvelopeCustom: 74,
+  vactrolEnvelopeSeries: 74, // shared native with custom
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -291,6 +297,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
   if (p === "gate") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  if (p === "env") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   if (p === "count") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   if (p === "pulse") {
     return t === "triggerCounter"
@@ -341,6 +348,10 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   }
   if (p === "clock") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
+  }
+  // Envelope / vactrol audio-rate control jacks (fold via Mono+L+R mix).
+  if (p === "gate" || p === "light" || p === "release") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
   const t = String(type || "").trim();
   // surgeOscillator Sync audio in (reuses Mono bus as destination-only).
@@ -680,6 +691,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   hold: true,
   topology: true,
   invert: true,
+  loop: true,
+  part: true,
 });
 
 /**
@@ -1109,6 +1122,84 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     if (type === "inertialFilter") {
       push("attack", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("attack", 20000));
       push("release", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("release", 20));
+      continue;
+    }
+    if (type === "expAdsr") {
+      // timeNum=delay, timeDen=attack, feedback=decay, mix=sustain,
+      // offsetMs=release s, shape=attackShape, center=releaseShape,
+      // mode=loop, level=level.
+      push("delay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delay", 0));
+      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.08));
+      push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.22));
+      push("sustain", P.NATIVE_GRAPH_PARAM_MIX, cont("sustain", 0.55));
+      push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.45));
+      push("attackShape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("attackShape", 0.3));
+      push("releaseShape", P.NATIVE_GRAPH_PARAM_CENTER, cont("releaseShape", 0.0001));
+      push("loop", P.NATIVE_GRAPH_PARAM_MODE, disc("loop", 0));
+      push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
+      continue;
+    }
+    if (type === "linearEnvelope") {
+      push("delay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delay", 0));
+      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.08));
+      push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.22));
+      push("sustain", P.NATIVE_GRAPH_PARAM_MIX, cont("sustain", 0.55));
+      push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.45));
+      push("loop", P.NATIVE_GRAPH_PARAM_MODE, disc("loop", 0));
+      push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
+      continue;
+    }
+    if (type === "pluckEnvelope") {
+      push("delayTime", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delayTime", 0));
+      push("attackFeedback", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attackFeedback", 0.002));
+      push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.35));
+      push("decayModStart", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("decayModStart", 0.08));
+      push("decayModEnd", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("decayModEnd", 0.55));
+      push("endingDecay", P.NATIVE_GRAPH_PARAM_DELAY_SIZE, cont("endingDecay", 0.8));
+      push("decayModCurve", P.NATIVE_GRAPH_PARAM_SHAPE, cont("decayModCurve", 0));
+      push("decayModFrequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("decayModFrequency", 1.5));
+      push("autoReleaseTime", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("autoReleaseTime", 0.08));
+      push("releaseFeedback", P.NATIVE_GRAPH_PARAM_RECYCLE, cont("releaseFeedback", 0.35));
+      push("velocity", P.NATIVE_GRAPH_PARAM_WIDTH, cont("velocity", 1));
+      push("velocitySensitivity", P.NATIVE_GRAPH_PARAM_CENTER, cont("velocitySensitivity", 0));
+      push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
+      continue;
+    }
+    if (type === "flowerChildEnvelopeFollower") {
+      push("attack", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("attack", 0.001));
+      push("hold", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("hold", 0.001));
+      push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.001));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "vactrolEnvelopeCustom" || type === "vactrolEnvelopeSeries") {
+      // Series resolves Part → attack/release here (same native as custom).
+      let attack = cont("attack", 0.01);
+      let release = cont("release", 0.1);
+      if (type === "vactrolEnvelopeSeries") {
+        const specs = [
+          { attack: 0.0025, release: 0.035 },
+          { attack: 0.0035, release: 0.5 },
+          { attack: 0.0025, release: 0.035 },
+          { attack: 0.006, release: 1.5 },
+          { attack: 0.005, release: 0.2 },
+          { attack: 0.0035, release: 0.05 },
+          { attack: 0.006, release: 1.0 },
+          { attack: 0.004, release: 0.06 },
+          { attack: 0.004, release: 0.05 },
+          { attack: 0.001, release: 1.5 },
+        ];
+        const spec = specs[disc("part", 2)] || specs[0];
+        attack = spec.attack;
+        release = spec.release;
+      }
+      push("attack", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, attack);
+      push("release", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, release);
+      push("curve", P.NATIVE_GRAPH_PARAM_SHAPE, cont("curve", 1));
+      push("sensitivity", P.NATIVE_GRAPH_PARAM_WIDTH, cont("sensitivity", 1));
+      push("lightOffset", P.NATIVE_GRAPH_PARAM_CENTER, cont("lightOffset", 0));
+      push("darkCurrent", P.NATIVE_GRAPH_PARAM_MIX, cont("darkCurrent", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "robinSupersaw") {

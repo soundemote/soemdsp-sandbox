@@ -103,6 +103,12 @@ Only these live-audio types exist in the efficient build:
 | `modeResonator` | Complex 2-pole mode resonator |
 | `chaoticPhaseLockingFilter` | Chaotic phase-locking filter |
 | `inertialFilter` | Attack/release inertial smoother |
+| `expAdsr` | Curve ADSR envelope |
+| `linearEnvelope` | Linear ADSR envelope |
+| `pluckEnvelope` | Pluck / decay-mod envelope |
+| `flowerChildEnvelopeFollower` | Attack/hold/decay envelope follower |
+| `vactrolEnvelopeCustom` | Vactrol photoconductive envelope |
+| `vactrolEnvelopeSeries` | VTL5C-series preset vactrol (same native) |
 | `output` | Sink |
 
 Canonical circuit:
@@ -122,7 +128,9 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    eqFilter / activeFilter / passiveFilter / tb303Filter /
    flowerChildFilter / yellowjacketFilter / superloveFilter / humanFilter /
    resonatorFilter / combResonator / modeResonator /
-   chaoticPhaseLockingFilter / inertialFilter
+   chaoticPhaseLockingFilter / inertialFilter /
+   expAdsr / linearEnvelope / pluckEnvelope /
+   flowerChildEnvelopeFollower / vactrolEnvelopeCustom / vactrolEnvelopeSeries
    as utilities)
 ```
 

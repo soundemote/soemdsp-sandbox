@@ -615,6 +615,45 @@ extern "C" double soemdsp_inertial_filter_sample(
   int handle, double input, double attackHz, double releaseHz, double sampleRate
 );
 
+extern "C" int soemdsp_exp_adsr_create();
+extern "C" void soemdsp_exp_adsr_destroy(int handle);
+extern "C" double soemdsp_exp_adsr_sample(
+  int handle, double gate, double delay, double attack, double attackShape,
+  double decay, double sustain, double release, double releaseShape,
+  double loop, double level, double sampleRate
+);
+
+extern "C" int soemdsp_linear_envelope_create();
+extern "C" void soemdsp_linear_envelope_destroy(int handle);
+extern "C" double soemdsp_linear_envelope_sample(
+  int handle, double gate, double delay, double attack, double decay,
+  double sustain, double release, double loop, double level, double sampleRate
+);
+
+extern "C" int soemdsp_pluck_envelope_create();
+extern "C" void soemdsp_pluck_envelope_destroy(int handle);
+extern "C" double soemdsp_pluck_envelope_sample(
+  int handle, double trigger, double release, double delayTime,
+  double attackFeedback, double decay, double decayModStart, double decayModEnd,
+  double endingDecay, double decayModCurve, double decayModFrequency,
+  double autoReleaseTime, double releaseFeedback, double velocity,
+  double velocitySensitivity, double level, double sampleRate
+);
+
+extern "C" int soemdsp_flower_child_envelope_follower_create();
+extern "C" void soemdsp_flower_child_envelope_follower_destroy(int handle);
+extern "C" double soemdsp_flower_child_envelope_follower_sample(
+  int handle, double input, double attack, double hold, double decay,
+  double sampleRate
+);
+
+extern "C" int soemdsp_vactrol_envelope_create();
+extern "C" void soemdsp_vactrol_envelope_destroy(int handle);
+extern "C" double soemdsp_vactrol_envelope_sample(
+  int handle, double light, double attack, double release, double curve,
+  double sensitivity, double lightOffset, double darkCurrent, double sampleRate
+);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -714,6 +753,11 @@ static const int kTypeCombResonator = 66;
 static const int kTypeModeResonator = 67;
 static const int kTypeChaoticPhaseLockingFilter = 68;
 static const int kTypeInertialFilter = 69;
+static const int kTypeExpAdsr = 70;
+static const int kTypeLinearEnvelope = 71;
+static const int kTypePluckEnvelope = 72;
+static const int kTypeFlowerChildEnvelopeFollower = 73;
+static const int kTypeVactrolEnvelope = 74; // series + custom share native
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1078,6 +1122,16 @@ static void destroy_node_native(Node& n) {
     soemdsp_chaotic_phase_locking_filter_destroy(n.nativeHandle);
   } else if (kind == kTypeInertialFilter) {
     soemdsp_inertial_filter_destroy(n.nativeHandle);
+  } else if (kind == kTypeExpAdsr) {
+    soemdsp_exp_adsr_destroy(n.nativeHandle);
+  } else if (kind == kTypeLinearEnvelope) {
+    soemdsp_linear_envelope_destroy(n.nativeHandle);
+  } else if (kind == kTypePluckEnvelope) {
+    soemdsp_pluck_envelope_destroy(n.nativeHandle);
+  } else if (kind == kTypeFlowerChildEnvelopeFollower) {
+    soemdsp_flower_child_envelope_follower_destroy(n.nativeHandle);
+  } else if (kind == kTypeVactrolEnvelope) {
+    soemdsp_vactrol_envelope_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -1155,6 +1209,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeEllipsoid) ? 1.0 // RoundShape clock Hz
       : (typeId == kTypeSnowflake) ? 55.0
       : (typeId == kTypeAntisaw) ? 110.0
+      : (typeId == kTypePluckEnvelope) ? 1.5 // decayModFrequency
       : 220.0,
     false
   );
@@ -1176,12 +1231,14 @@ static void init_node_defaults(Node& n, int typeId) {
       || typeId == kTypeBradley2a || typeId == kTypeEllipsoid || typeId == kTypeSnowflake
       || typeId == kTypeFlowerChildFilter || typeId == kTypeYellowjacketFilter
       || typeId == kTypeHumanFilter || typeId == kTypeResonatorFilter
-      || typeId == kTypeCombResonator)
-      ? 0.0 // chaos/damping off
+      || typeId == kTypeCombResonator || typeId == kTypePluckEnvelope)
+      ? 0.0 // chaos/damping/decayModCurve off
       : (typeId == kTypeChaoticPhaseLockingFilter) ? 1.0 // chaos default
       : (typeId == kTypeDsfOscillator) ? 1.0 // harmonics
       : (typeId == kTypeHypersaw) ? 1.0 // spread
       : (typeId == kTypeSoftwaveOsc || typeId == kTypeSuperloveFilter) ? 0.5 // morph/chaos
+      : (typeId == kTypeExpAdsr) ? 0.3 // attackShape
+      : (typeId == kTypeVactrolEnvelope) ? 1.0 // curve gamma
       : 0.5,
     (typeId == kTypeSlewLimiter) // discrete Lin/Log/Exp/Smooth
   );
@@ -1240,6 +1297,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.center,
     (typeId == kTypeHypersaw) ? 0.1 // drift
+      : (typeId == kTypeExpAdsr) ? 0.0001 // releaseShape
       : 0.0,
     false
   );
@@ -1264,6 +1322,7 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic)
         ? 1.0 // bandwidth octaves
       : (typeId == kTypeCombResonator) ? 1.0 // depth
+      : (typeId == kTypePluckEnvelope || typeId == kTypeVactrolEnvelope) ? 1.0 // velocity/sensitivity
       : 2.0,
     false
   );
@@ -1273,25 +1332,35 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypePingPongDelay) ? 0.35
       : (typeId == kTypeDsfOscillator) ? 0.5 // SquSaw blend
       : (typeId == kTypeBradley2a) ? 0.0 // interfLevel
+      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.55 // sustain
+      : (typeId == kTypeVactrolEnvelope) ? 0.0 // darkCurrent
       : 0.43,
     false
   );
   init_control(
     n.diffusionSize,
     (typeId == kTypeBradley2a) ? 0.0 // harm2
+      : (typeId == kTypePluckEnvelope) ? 0.08 // decayModStart
       : 0.35,
     false
   );
   init_control(
     n.diffusionAmount,
     (typeId == kTypeBradley2a) ? 0.0 // harm3
+      : (typeId == kTypePluckEnvelope) ? 0.55 // decayModEnd
       : 0.70,
     false
   );
-  init_control(n.delaySize, 0.02, false);
+  init_control(
+    n.delaySize,
+    (typeId == kTypePluckEnvelope) ? 0.8 // endingDecay
+      : 0.02,
+    false
+  );
   init_control(
     n.recycle,
     (typeId == kTypeBradley2a) ? 0.0 // impulseLevel
+      : (typeId == kTypePluckEnvelope) ? 0.35 // releaseFeedback
       : 0.70,
     false
   );
@@ -1318,6 +1387,9 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.feedback,
     (typeId == kTypeBradley2a) ? 1.0 // hitRate
+      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.22 // decay
+      : (typeId == kTypePluckEnvelope) ? 0.35 // decay
+      : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // decay
       : 0.35,
     false
   );
@@ -1335,6 +1407,10 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLookaheadLimiter) ? 5.0 // look-ahead ms
       : (typeId == kTypeBradley2a) ? 0.005 // hitDuration
       : (typeId == kTypeModeResonator || typeId == kTypeCombResonator) ? 1.0 // decay s
+      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope
+          || typeId == kTypePluckEnvelope) ? 0.0 // delay
+      : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // attack
+      : (typeId == kTypeVactrolEnvelope) ? 0.01 // attack (custom default)
       : 1.0,
     false
   );
@@ -1345,6 +1421,10 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDelayedTrigger) ? 0.01
       : (typeId == kTypeRandomClock) ? 1.0
       : (typeId == kTypeLookaheadLimiter) ? 0.0 // look-ahead samples
+      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.08 // attack
+      : (typeId == kTypePluckEnvelope) ? 0.002 // attackFeedback
+      : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // hold
+      : (typeId == kTypeVactrolEnvelope) ? 0.1 // release (custom default)
       : 4.0,
     false
   );
@@ -1358,6 +1438,8 @@ static void init_node_defaults(Node& n, int typeId) {
     n.offsetMs,
     (typeId == kTypeRandomClock) ? 0.01
       : (typeId == kTypeLookaheadLimiter) ? 0.2 // attack ms
+      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.45 // release s
+      : (typeId == kTypePluckEnvelope) ? 0.08 // autoReleaseTime
       : 0.0,
     false
   );
@@ -1873,6 +1955,13 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeModeResonator) return soemdsp_mode_resonator_create();
   if (typeId == kTypeChaoticPhaseLockingFilter) return soemdsp_chaotic_phase_locking_filter_create();
   if (typeId == kTypeInertialFilter) return soemdsp_inertial_filter_create();
+  if (typeId == kTypeExpAdsr) return soemdsp_exp_adsr_create();
+  if (typeId == kTypeLinearEnvelope) return soemdsp_linear_envelope_create();
+  if (typeId == kTypePluckEnvelope) return soemdsp_pluck_envelope_create();
+  if (typeId == kTypeFlowerChildEnvelopeFollower) {
+    return soemdsp_flower_child_envelope_follower_create();
+  }
+  if (typeId == kTypeVactrolEnvelope) return soemdsp_vactrol_envelope_create();
   return 0;
 }
 
@@ -3592,6 +3681,160 @@ static void process_inertial_filter(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Curve ADSR: Gate on Mono(+L/R).
+// timeNumerator=delay, timeDenominator=attack, feedback=decay, mix=sustain,
+// offsetMs=release (seconds), shape=attackShape, center=releaseShape,
+// mode=loop, level=level.
+static void process_exp_adsr(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_exp_adsr_sample(
+      node.nativeHandle,
+      gate,
+      node.timeNumerator.out,
+      node.timeDenominator.out,
+      node.shape.out,
+      node.feedback.out,
+      node.mix.out,
+      node.offsetMs.out,
+      node.center.out,
+      node.mode.out,
+      node.level.out,
+      sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Linear ADSR: same Control map as expAdsr minus shape knobs.
+static void process_linear_envelope(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_linear_envelope_sample(
+      node.nativeHandle,
+      gate,
+      node.timeNumerator.out,
+      node.timeDenominator.out,
+      node.feedback.out,
+      node.mix.out,
+      node.offsetMs.out,
+      node.mode.out,
+      node.level.out,
+      sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Pluck: Trigger→kPortTrigger, Release→Mono(+L/R).
+// timeNumerator=delayTime, timeDenominator=attackFeedback, feedback=decay,
+// diffusionSize/Amount=decayModStart/End, delaySize=endingDecay,
+// shape=decayModCurve, frequency=decayModFrequency, offsetMs=autoReleaseTime,
+// recycle=releaseFeedback, width=velocity, center=velocitySensitivity,
+// level=level.
+static void process_pluck_envelope(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double trigger = hasTrig ? g.mixTrigger[f] : 0.0;
+    const double release = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_pluck_envelope_sample(
+      node.nativeHandle,
+      trigger,
+      release,
+      node.timeNumerator.out,
+      node.timeDenominator.out,
+      node.feedback.out,
+      node.diffusionSize.out,
+      node.diffusionAmount.out,
+      node.delaySize.out,
+      node.shape.out,
+      node.frequency.out,
+      node.offsetMs.out,
+      node.recycle.out,
+      node.width.out,
+      node.center.out,
+      node.level.out,
+      sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Envelope follower: timeNumerator=attack, timeDenominator=hold,
+// feedback=decay; amplitude scales Out.
+static void process_flower_child_envelope_follower(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double env = soemdsp_flower_child_envelope_follower_sample(
+      node.nativeHandle,
+      in,
+      node.timeNumerator.out,
+      node.timeDenominator.out,
+      node.feedback.out,
+      sr
+    );
+    const double out = env * node.amplitude.out;
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Vactrol (series+custom): timeNumerator=attack, timeDenominator=release,
+// shape=curve, width=sensitivity, center=lightOffset, mix=darkCurrent;
+// amplitude scales Out.
+static void process_vactrol_envelope(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double light = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double env = soemdsp_vactrol_envelope_sample(
+      node.nativeHandle,
+      light,
+      node.timeNumerator.out,
+      node.timeDenominator.out,
+      node.shape.out,
+      node.width.out,
+      node.center.out,
+      node.mix.out,
+      sr
+    );
+    const double out = env * node.amplitude.out;
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
 // Master Clock / transport: tempo square.
 // -1..1→Mono, 0..1→Left, Trigger→Right, f (Hz)→Saw.
 // Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
@@ -4362,7 +4605,12 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeCombResonator
     || typeId == kTypeModeResonator
     || typeId == kTypeChaoticPhaseLockingFilter
-    || typeId == kTypeInertialFilter;
+    || typeId == kTypeInertialFilter
+    || typeId == kTypeExpAdsr
+    || typeId == kTypeLinearEnvelope
+    || typeId == kTypePluckEnvelope
+    || typeId == kTypeFlowerChildEnvelopeFollower
+    || typeId == kTypeVactrolEnvelope;
   // additiveOsc / ellipsoid are free-fn (no native handle).
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
@@ -4882,6 +5130,26 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_inertial_filter(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeExpAdsr) {
+      process_exp_adsr(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeLinearEnvelope) {
+      process_linear_envelope(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypePluckEnvelope) {
+      process_pluck_envelope(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeFlowerChildEnvelopeFollower) {
+      process_flower_child_envelope_follower(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeVactrolEnvelope) {
+      process_vactrol_envelope(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -4955,5 +5223,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 45; // + character filters 57–64 + resonator/comb/mode/chaotic/inertial 65–69
+  return 46; // + envelopes 70–74 (expAdsr/linear/pluck/flowerFollower/vactrol)
 }
