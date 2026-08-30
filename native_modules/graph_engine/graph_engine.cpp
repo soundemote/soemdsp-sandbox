@@ -128,6 +128,30 @@ extern "C" void soemdsp_noise_generator_process_block(
 extern "C" int soemdsp_noise_generator_block_output_left_ptr(int handle);
 extern "C" int soemdsp_noise_generator_block_output_right_ptr(int handle);
 
+extern "C" int soemdsp_robin_sinusoid_create();
+extern "C" void soemdsp_robin_sinusoid_destroy(int handle);
+extern "C" void soemdsp_robin_sinusoid_reset(int handle);
+extern "C" double soemdsp_robin_sinusoid_sample(
+  int handle, double frequencyHz, double amplitude, double sampleRate,
+  double startPhaseRadians, double reset
+);
+extern "C" void soemdsp_robin_sinusoid_process_block(
+  int handle, double frequencyHz, double amplitude, double sampleRate,
+  double startPhaseRadians, double reset, int frameCount
+);
+extern "C" int soemdsp_robin_sinusoid_block_output_ptr(int handle);
+
+extern "C" int soemdsp_robin_supersaw_create();
+extern "C" void soemdsp_robin_supersaw_destroy(int handle);
+extern "C" void soemdsp_robin_supersaw_reset(int handle);
+extern "C" void soemdsp_robin_supersaw_process_block(
+  int handle, double frequencyHz, double sampleRate, double detuneCents,
+  int voices, double level, int frameCount
+);
+extern "C" int soemdsp_robin_supersaw_block_output_left_ptr(int handle);
+extern "C" int soemdsp_robin_supersaw_block_output_right_ptr(int handle);
+extern "C" int soemdsp_robin_supersaw_block_output_mono_ptr(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -172,6 +196,8 @@ static const int kTypeB2u = 11;
 static const int kTypeBias = 12;
 static const int kTypeGain = 13;
 static const int kTypeNoiseGenerator = 14;
+static const int kTypeRobinSinusoid = 15;
+static const int kTypeRobinSupersaw = 16;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -398,6 +424,10 @@ static void destroy_node_native(Node& n) {
     soemdsp_range_destroy(n.nativeHandle);
   } else if (kind == kTypeNoiseGenerator) {
     soemdsp_noise_generator_destroy(n.nativeHandle);
+  } else if (kind == kTypeRobinSinusoid) {
+    soemdsp_robin_sinusoid_destroy(n.nativeHandle);
+  } else if (kind == kTypeRobinSupersaw) {
+    soemdsp_robin_supersaw_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -446,17 +476,31 @@ static void init_node_defaults(Node& n, int typeId) {
   n.nativeKind = 0;
   init_control(n.volumeDb, -3.0, false);
   init_control(n.pan, 0.0, false);
-  init_control(n.frequency, (typeId == kTypeLadderFilter) ? 1000.0 : 220.0, false);
+  init_control(
+    n.frequency,
+    (typeId == kTypeLadderFilter) ? 1000.0
+      : (typeId == kTypeRobinSupersaw) ? 100.0
+      : (typeId == kTypeRobinSinusoid) ? 440.0
+      : 220.0,
+    false
+  );
   init_control(n.waveform, 0.0, true);
   init_control(n.amplitude, (typeId == kTypeAttenuverter) ? 0.5 : 1.0, false);
   init_control(n.shape, (typeId == kTypeNoiseGenerator) ? 0.0 : 0.5, false);
   init_control(n.phaseParam, 0.0, false);
   init_control(n.resonance, 0.2, false);
   init_control(n.mode, (typeId == kTypeNoiseGenerator) ? 0.0 : 1.0, true);
-  init_control(n.stages, 4.0, true);
+  // Ladder stages default 4; robinSupersaw reuses stages as voice count.
+  init_control(n.stages, (typeId == kTypeRobinSupersaw) ? 7.0 : 4.0, true);
   init_control(n.center, 0.0, false);
-  // Soft-clipper "width" default 2; noiseGenerator reuses width as deviation.
-  init_control(n.width, (typeId == kTypeNoiseGenerator) ? 0.5 : 2.0, false);
+  // Soft-clipper width default 2; noise = deviation; supersaw = detune cents.
+  init_control(
+    n.width,
+    (typeId == kTypeNoiseGenerator) ? 0.5
+      : (typeId == kTypeRobinSupersaw) ? 30.0
+      : 2.0,
+    false
+  );
   init_control(n.oversample, 2.0, true);
   init_control(n.mix, (typeId == kTypePingPongDelay) ? 0.35 : 0.43, false);
   init_control(n.diffusionSize, 0.35, false);
@@ -867,6 +911,8 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeAttenuverter) return soemdsp_attenuverter_create();
   if (typeId == kTypeRange) return soemdsp_range_create();
   if (typeId == kTypeNoiseGenerator) return soemdsp_noise_generator_create();
+  if (typeId == kTypeRobinSinusoid) return soemdsp_robin_sinusoid_create();
+  if (typeId == kTypeRobinSupersaw) return soemdsp_robin_supersaw_create();
   return 0;
 }
 
@@ -1466,6 +1512,102 @@ static void process_bias(Circuit& g, Node& node, int frames) {
   }
 }
 
+static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  const double srD = (double)sr;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double amp = node.amplitude.out;
+  const double phase0 = node.phaseParam.out * kTwoPi;
+  if (!liveF && !liveReset) {
+    const double freq = clamp_hz_nyquist(node.frequency.out, srD);
+    soemdsp_robin_sinusoid_process_block(
+      node.nativeHandle, freq, amp, srD, phase0, 0.0, frames
+    );
+    double* outPtr = ptr_from_export(soemdsp_robin_sinusoid_block_output_ptr(node.nativeHandle));
+    if (!outPtr) return;
+    copy_tap_to_buf(node.buf[kPortMono], outPtr, frames);
+    copy_tap_to_buf(node.buf[kPortLeft], outPtr, frames);
+    copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
+    return;
+  }
+  if (!liveReset) node.lastReset = 0.0;
+  for (int f = 0; f < frames; f++) {
+    double resetGate = 0.0;
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
+      node.lastReset = rv;
+    }
+    const double freq = liveF
+      ? clamp_hz_nyquist(g.mixF[f], srD)
+      : clamp_hz_nyquist(node.frequency.out, srD);
+    const double y = soemdsp_robin_sinusoid_sample(
+      node.nativeHandle, freq, amp, srD, phase0, resetGate
+    );
+    node.buf[kPortMono][f] = y;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+  }
+}
+
+static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  const double srD = (double)sr;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const double amp = node.amplitude.out;
+  const double detune = node.width.out; // detune cents
+  int voices = (int)(node.stages.out + (node.stages.out >= 0.0 ? 0.5 : -0.5));
+  if (voices < 1) voices = 1;
+  if (voices > 9) voices = 9;
+  const double referenceVoltage = 48.0 / 120.0;
+
+  if (!liveF && !livePitch) {
+    const double freq = clamp_hz_nyquist(node.frequency.out, srD);
+    soemdsp_robin_supersaw_process_block(
+      node.nativeHandle, freq, srD, detune, voices, amp, frames
+    );
+    double* outL = ptr_from_export(soemdsp_robin_supersaw_block_output_left_ptr(node.nativeHandle));
+    double* outR = ptr_from_export(soemdsp_robin_supersaw_block_output_right_ptr(node.nativeHandle));
+    double* outM = ptr_from_export(soemdsp_robin_supersaw_block_output_mono_ptr(node.nativeHandle));
+    if (!outL || !outR) return;
+    copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
+    copy_tap_to_buf(node.buf[kPortRight], outR, frames);
+    if (outM) copy_tap_to_buf(node.buf[kPortMono], outM, frames);
+    else {
+      for (int f = 0; f < frames; f++) {
+        node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
+      }
+    }
+    return;
+  }
+
+  // Live ƒ / pitch: fall back to process_block with per-block freq from first
+  // live sample (block-rate). Full sample-accurate path can come later.
+  double freq = node.frequency.out;
+  if (liveF) freq = g.mixF[0];
+  else if (livePitch) freq = pitched_hz(node.frequency.out, g.mixPitch[0], referenceVoltage);
+  freq = clamp_hz_nyquist(freq, srD);
+  soemdsp_robin_supersaw_process_block(
+    node.nativeHandle, freq, srD, detune, voices, amp, frames
+  );
+  double* outL = ptr_from_export(soemdsp_robin_supersaw_block_output_left_ptr(node.nativeHandle));
+  double* outR = ptr_from_export(soemdsp_robin_supersaw_block_output_right_ptr(node.nativeHandle));
+  double* outM = ptr_from_export(soemdsp_robin_supersaw_block_output_mono_ptr(node.nativeHandle));
+  if (!outL || !outR) return;
+  copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
+  copy_tap_to_buf(node.buf[kPortRight], outR, frames);
+  if (outM) copy_tap_to_buf(node.buf[kPortMono], outM, frames);
+  else {
+    for (int f = 0; f < frames; f++) {
+      node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
+    }
+  }
+}
+
 // Noise generator source — stereo block outs; no audio inputs.
 static void process_noise_generator(Circuit& g, Node& node, int frames) {
   (void)g;
@@ -1536,7 +1678,12 @@ static void process_output(Circuit& g, Node& node, int frames) {
 // Bypass: route dry audio (or silence for sources). Do NOT call native
 // process_block / reset — tails and filter state stay warm.
 static void process_bypass(Circuit& g, Node& node, int frames) {
-  if (node.typeId == kTypePolyBlep || node.typeId == kTypeNoiseGenerator) {
+  if (
+    node.typeId == kTypePolyBlep
+    || node.typeId == kTypeNoiseGenerator
+    || node.typeId == kTypeRobinSinusoid
+    || node.typeId == kTypeRobinSupersaw
+  ) {
     return; // sources: silence
   }
   if (node.typeId == kTypeOutput) {
@@ -1635,7 +1782,9 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypePingPongDelay
     || typeId == kTypeAttenuverter
     || typeId == kTypeRange
-    || typeId == kTypeNoiseGenerator;
+    || typeId == kTypeNoiseGenerator
+    || typeId == kTypeRobinSinusoid
+    || typeId == kTypeRobinSupersaw;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -1646,6 +1795,10 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     n.nativeKind = typeId;
     if (typeId == kTypePolyBlep) {
       soemdsp_polyblep_reset(n.nativeHandle);
+    } else if (typeId == kTypeRobinSinusoid) {
+      soemdsp_robin_sinusoid_reset(n.nativeHandle);
+    } else if (typeId == kTypeRobinSupersaw) {
+      soemdsp_robin_supersaw_reset(n.nativeHandle);
     }
   }
 
@@ -1908,6 +2061,14 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_noise_generator(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeRobinSinusoid) {
+      process_robin_sinusoid(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeRobinSupersaw) {
+      process_robin_supersaw(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeLadderFilter) {
       process_ladder(*g, node, frames);
       continue;
@@ -1989,5 +2150,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 19; // noiseGenerator source (process_block)
+  return 20; // robinSinusoid + robinSupersaw sources
 }

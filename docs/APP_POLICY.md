@@ -36,6 +36,8 @@ Only these live-audio types exist in the efficient build:
 | Type | Role |
 |------|------|
 | `polyBlep` | Oscillator |
+| `robinSinusoid` | Recursive sine osc |
+| `robinSupersaw` | Detuned saw bank |
 | `noiseGenerator` | Noise source |
 | `ladderFilter` | Filter |
 | `softClipper` | Dynamics |
@@ -54,7 +56,8 @@ Canonical circuit:
 
 ```text
 polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
-(+ noiseGenerator; attenuverter / range / inv / u2b / b2u / bias / gain as utilities)
+(+ robinSinusoid / robinSupersaw / noiseGenerator;
+   attenuverter / range / inv / u2b / b2u / bias / gain as utilities)
 ```
 
 **Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` may remain. `audioInput` is **not** on the allowlist unless a demo explicitly needs it (strip with other DSP for now).

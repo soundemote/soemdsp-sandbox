@@ -19,6 +19,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   bias: 12,
   gain: 13,
   noiseGenerator: 14,
+  robinSinusoid: 15,
+  robinSupersaw: 16,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -448,6 +450,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   waveform: true,
   mode: true,
   stages: true,
+  voices: true,
   oversample: true,
   timingMode: true,
   lfoStyle: true,
@@ -624,6 +627,20 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("mean", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("mean", 0));
       push("deviation", P.NATIVE_GRAPH_PARAM_WIDTH, cont("deviation", 0.5));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "robinSinusoid") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 440));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      continue;
+    }
+    if (type === "robinSupersaw") {
+      // width = detuneCents, stages = voices
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("detuneCents", P.NATIVE_GRAPH_PARAM_WIDTH, cont("detuneCents", 30));
+      push("voices", P.NATIVE_GRAPH_PARAM_STAGES, disc("voices", 7));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
