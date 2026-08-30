@@ -57,6 +57,8 @@ Only these live-audio types exist in the efficient build:
 | `minMax` | 4-in Max/Min selector |
 | `mix` | 4-channel mix (volumes/bias/bleeds) |
 | `mixStereo` | Stereo pair mixer (true L/R) |
+| `clipperLimiter` | Soft-knee clipper (M/L/R channels) |
+| `airClipper` | Airwindows Density3 (M/L/R channels) |
 | `output` | Sink |
 
 Canonical circuit:
@@ -65,7 +67,8 @@ Canonical circuit:
 polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
 (+ robinSinusoid / robinSupersaw / noiseGenerator;
    attenuverter / range / inv / u2b / b2u / bias / gain / slewLimiter / comparator /
-   sampleDelay / sampleHold / minMax / mix / mixStereo as utilities)
+   sampleDelay / sampleHold / minMax / mix / mixStereo / clipperLimiter / airClipper
+   as utilities)
 ```
 
 **Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` may remain. `audioInput` is **not** on the allowlist unless a demo explicitly needs it (strip with other DSP for now).

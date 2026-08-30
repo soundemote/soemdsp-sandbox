@@ -28,6 +28,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   minMax: 21,
   mix: 22,
   mixStereo: 23,
+  clipperLimiter: 24,
+  airClipper: 25,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -763,6 +765,22 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("pan3", P.NATIVE_GRAPH_PARAM_LANE_BIAS3, cont("pan3", 0));
       push("pan4", P.NATIVE_GRAPH_PARAM_LANE_BIAS4, cont("pan4", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_VOLUME_DB, cont("amplitude", 0));
+      continue;
+    }
+    if (type === "clipperLimiter") {
+      // gainDb, minDb→inLow, maxDb→inHigh, oversample→antialias mode
+      push("gainDb", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("gainDb", 0));
+      push("minDb", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("minDb", -12));
+      push("maxDb", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("maxDb", 0));
+      push("oversample", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, disc("oversample", 2));
+      continue;
+    }
+    if (type === "airClipper") {
+      // shape=density, width=highpass, amplitude=output, mix=wet
+      push("density", P.NATIVE_GRAPH_PARAM_SHAPE, cont("density", 0));
+      push("highpass", P.NATIVE_GRAPH_PARAM_WIDTH, cont("highpass", 0));
+      push("output", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("output", 1));
+      push("wet", P.NATIVE_GRAPH_PARAM_MIX, cont("wet", 1));
       continue;
     }
     if (type === "range") {
