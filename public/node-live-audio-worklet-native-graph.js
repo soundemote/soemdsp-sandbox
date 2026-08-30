@@ -23,6 +23,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   robinSupersaw: 16,
   slewLimiter: 17,
   comparator: 18,
+  sampleDelay: 19,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -103,10 +104,16 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphTypeId = function mapNativeGraphT
   return Number.isFinite(id) ? id : 0;
 };
 
-/** Audio tap ports only (0–7). Never maps Live aliases — those are destination-only. */
-NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGraphSrcPortId(port) {
+/** Audio tap ports only (0–7). Never maps Live aliases — those are destination-only.
+ *  Optional `type` disambiguates module-local names that reuse tap slots (Thru, etc.).
+ */
+NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGraphSrcPortId(
+  port,
+  type,
+) {
   const raw = String(port || "").trim();
   const p = raw.toLowerCase();
+  const t = String(type || "").trim();
   if (
     p === "left" || p === "l" || p === "mix l" || p === "wet l" || p === "left mix"
     || p === "left out"
@@ -131,18 +138,27 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (p === "tri" || p === "triangle") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI;
   if (p === "sine" || p === "sin") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE;
   // Comparator named outs (reuse tap slots; see graph_engine kPortCmp*).
-  if (p === "thru") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   if (p === "up") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
   if (p === "down") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
   if (p === "change") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE;
   if (p === "steady") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI;
   if (p === "sign") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE;
+  if (p === "delayed") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  if (p === "thru") {
+    // comparator Thru → Mono; sampleDelay Thru → Dry L.
+    return t === "sampleDelay"
+      ? NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_DRY_L
+      : NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  }
   // Mono / Out / In / Wave Out / Noise / Frequency (MIDI out) / empty → mono bus
   return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
 };
 
 /** Destination ports: audio buses + Live SIGNAL IN (ƒ / 0.1V / Inc / Reset). */
-NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGraphDstPortId(port) {
+NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGraphDstPortId(
+  port,
+  type,
+) {
   const raw = String(port || "").trim();
   const p = raw.toLowerCase();
   // Live absolute-Hz jack (must not fall through to Mono — would inject CV into audio).
@@ -158,7 +174,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   if (p === "reset") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RESET;
   }
-  return this.mapNativeGraphSrcPortId(port);
+  return this.mapNativeGraphSrcPortId(port, type);
 };
 
 /** @deprecated Prefer mapNativeGraphSrcPortId / mapNativeGraphDstPortId. */
@@ -662,6 +678,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     // comparator: no Control params
+    if (type === "sampleDelay") {
+      // timeNumerator=time (s), timeDenominator=samples
+      push("time", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("time", 0));
+      push("samples", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("samples", 0));
+      continue;
+    }
     if (type === "range") {
       push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", -1));
       push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
@@ -753,6 +775,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
 
     const idSet = new Set(nodes.map((n) => n.id));
     const hashById = new Map(nodes.map((n) => [n.id, n.hash]));
+    const typeById = new Map(nodes.map((n) => [n.id, n.type]));
     const connections = Array.isArray(this._planConnections) ? this._planConnections : [];
     for (const c of connections) {
       const src = String(c?.sourceNode || "");
@@ -761,9 +784,9 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       const rc = native.soemdsp_graph_connect(
         this.nativeGraphHandle,
         hashById.get(src),
-        this.mapNativeGraphSrcPortId(c?.sourcePort),
+        this.mapNativeGraphSrcPortId(c?.sourcePort, typeById.get(src)),
         hashById.get(dst),
-        this.mapNativeGraphDstPortId(c?.destinationPort),
+        this.mapNativeGraphDstPortId(c?.destinationPort, typeById.get(dst)),
       ) | 0;
       if (rc !== 0) {
         this.postNativeGraphStatus("error", `connect failed (${rc}) ${src}->${dst}`);
@@ -836,10 +859,12 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
   if (portId === P.NATIVE_GRAPH_PORT_MONO) {
     if (type === "polyBlep") return ["Out", "Wave Out", "Noise"];
     if (type === "comparator") return ["Thru"];
+    if (type === "sampleDelay") return ["Delayed", "Out", "Mono"];
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_SAW) {
     if (type === "comparator") return ["Up"];
+    if (type === "sampleDelay") return ["Thru"];
     return type === "reverbEffect" ? ["Dry L"] : type === "pingPongDelay" ? ["Mod L", "Saw"] : ["Saw"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RAMP) {
@@ -970,7 +995,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
   const readSrcSample = (sourceNode, sourcePort, frame) => {
     const srcType = String(this.nodes.get(sourceNode)?.type || "");
     if (srcType === "output" && protectedLeft) {
-      const portId = this.mapNativeGraphSrcPortId(sourcePort);
+      const portId = this.mapNativeGraphSrcPortId(sourcePort, srcType);
       const idx = frameOffset + frame;
       if (portId === P.NATIVE_GRAPH_PORT_RIGHT) {
         return Number(protectedRight?.[idx] ?? protectedLeft[idx]) || 0;
@@ -982,7 +1007,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       const r = Number(protectedRight?.[idx] ?? l) || 0;
       return (l + r) * 0.5;
     }
-    const portId = this.mapNativeGraphSrcPortId(sourcePort);
+    const portId = this.mapNativeGraphSrcPortId(sourcePort, srcType);
     const hash = this.fnv1aHash32(sourceNode);
     const view = this.bindNativeGraphNodePortView(hash, portId, frames);
     if (view && frame < view.length) {

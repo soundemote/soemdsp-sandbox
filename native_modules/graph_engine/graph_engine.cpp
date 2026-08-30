@@ -171,6 +171,12 @@ extern "C" double soemdsp_comparator_steady(int handle);
 extern "C" double soemdsp_comparator_sign(int handle);
 extern "C" double soemdsp_comparator_thru(int handle);
 
+extern "C" int soemdsp_sample_delay_create();
+extern "C" void soemdsp_sample_delay_destroy(int handle);
+extern "C" double soemdsp_sample_delay_sample(
+  int handle, double input, double timeSeconds, double samplesParam, double sampleRate
+);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -219,6 +225,7 @@ static const int kTypeRobinSinusoid = 15;
 static const int kTypeRobinSupersaw = 16;
 static const int kTypeSlewLimiter = 17;
 static const int kTypeComparator = 18;
+static const int kTypeSampleDelay = 19;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -237,6 +244,9 @@ static const int kPortCmpDown = 4;    // Down
 static const int kPortCmpChange = 5;  // Change
 static const int kPortCmpSteady = 6;  // Steady
 static const int kPortCmpSign = 7;    // Sign
+// sampleDelay: Delayed on Mono (fan L/R); Thru on Dry L slot.
+static const int kPortDelayDelayed = 0;
+static const int kPortDelayThru = 3;
 // Live SIGNAL IN ports — not audio output channels (not stored in Node.buf).
 static const int kPortF = 16;          // absolute Hz (ƒ)
 static const int kPortPitchCv = 17;    // 0.1V/Oct
@@ -460,6 +470,8 @@ static void destroy_node_native(Node& n) {
     soemdsp_slew_limiter_destroy(n.nativeHandle);
   } else if (kind == kTypeComparator) {
     soemdsp_comparator_destroy(n.nativeHandle);
+  } else if (kind == kTypeSampleDelay) {
+    soemdsp_sample_delay_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -549,9 +561,17 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.seed, (typeId == kTypeNoiseGenerator) ? 1.0 : 0.0, true);
   init_control(n.feedback, 0.35, false);
   init_control(n.level, 1.0, false);
-  // Ping-pong time fraction defaults; slewLimiter reuses these as up/down seconds.
-  init_control(n.timeNumerator, (typeId == kTypeSlewLimiter) ? 0.05 : 1.0, false);
-  init_control(n.timeDenominator, (typeId == kTypeSlewLimiter) ? 0.20 : 4.0, false);
+  // Ping-pong beat fraction; slewLimiter = up/down seconds; sampleDelay = time/samples.
+  init_control(
+    n.timeNumerator,
+    (typeId == kTypeSlewLimiter) ? 0.05 : (typeId == kTypeSampleDelay) ? 0.0 : 1.0,
+    false
+  );
+  init_control(
+    n.timeDenominator,
+    (typeId == kTypeSlewLimiter) ? 0.20 : (typeId == kTypeSampleDelay) ? 0.0 : 4.0,
+    false
+  );
   init_control(n.timingMode, 0.0, true);
   init_control(n.offsetMs, 0.0, false);
   init_control(n.lfoStyle, 0.0, true);
@@ -952,6 +972,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeRobinSupersaw) return soemdsp_robin_supersaw_create();
   if (typeId == kTypeSlewLimiter) return soemdsp_slew_limiter_create();
   if (typeId == kTypeComparator) return soemdsp_comparator_create();
+  if (typeId == kTypeSampleDelay) return soemdsp_sample_delay_create();
   return 0;
 }
 
@@ -1539,6 +1560,26 @@ static void process_b2u(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Mono sample delay: fold Mono+L+R → ring → Delayed (fan M/L/R) + Thru (tap 3).
+// Native is mono-per-handle with a fixed ring — do not invent stereo rings.
+static void process_sample_delay(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double timeSec = node.timeNumerator.out;
+  const double samples = node.timeDenominator.out;
+  for (int f = 0; f < frames; f++) {
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double delayed = soemdsp_sample_delay_sample(
+      node.nativeHandle, in, timeSec, samples, sr
+    );
+    node.buf[kPortDelayDelayed][f] = delayed;
+    node.buf[kPortLeft][f] = delayed;
+    node.buf[kPortRight][f] = delayed;
+    node.buf[kPortDelayThru][f] = in;
+  }
+}
+
 // Mono edge detector: fold Mono+L+R → sample → named outs on tap slots.
 // Native is mono-per-handle; Thru on Mono, Up/Down/Change/Steady/Sign on 3–7.
 static void process_comparator(Circuit& g, Node& node, int frames) {
@@ -1870,7 +1911,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeRobinSinusoid
     || typeId == kTypeRobinSupersaw
     || typeId == kTypeSlewLimiter
-    || typeId == kTypeComparator;
+    || typeId == kTypeComparator
+    || typeId == kTypeSampleDelay;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -2163,6 +2205,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_comparator(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeSampleDelay) {
+      process_sample_delay(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeLadderFilter) {
       process_ladder(*g, node, frames);
       continue;
@@ -2244,5 +2290,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 23; // comparator (mono edge detector, named outs on tap slots)
+  return 24; // sampleDelay (mono ring, Thru + Delayed)
 }
