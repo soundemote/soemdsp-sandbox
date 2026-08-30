@@ -97,6 +97,7 @@ $modules = @(
   @{ Name = "pluck_envelope"; Simd = $false; Exports = @("soemdsp_pluck_envelope_create", "soemdsp_pluck_envelope_destroy", "soemdsp_pluck_envelope_sample", "soemdsp_pluck_envelope_version", "soemdsp_pluck_envelope_metadata_json", "soemdsp_pluck_envelope_metadata_json_size") }
   @{ Name = "exp_adsr"; Simd = $false; Exports = @("soemdsp_exp_adsr_create", "soemdsp_exp_adsr_destroy", "soemdsp_exp_adsr_sample", "soemdsp_exp_adsr_version", "soemdsp_exp_adsr_metadata_json", "soemdsp_exp_adsr_metadata_json_size") }
   @{ Name = "random_walk"; Simd = $false; Exports = @("soemdsp_random_walk_create", "soemdsp_random_walk_destroy", "soemdsp_random_walk_reset_seed", "soemdsp_random_walk_sample", "soemdsp_random_walk_version", "soemdsp_random_walk_metadata_json", "soemdsp_random_walk_metadata_json_size") }
+  @{ Name = "cheap_walk"; Simd = $false; Exports = @("soemdsp_cheap_walk_create", "soemdsp_cheap_walk_destroy", "soemdsp_cheap_walk_sample", "soemdsp_cheap_walk_version") }
   @{ Name = "pi_spigot_noise"; Simd = $false; Exports = @(
     "soemdsp_pi_spigot_noise_create", "soemdsp_pi_spigot_noise_destroy", "soemdsp_pi_spigot_noise_reset_seed",
     "soemdsp_pi_spigot_noise_sample", "soemdsp_pi_spigot_noise_left", "soemdsp_pi_spigot_noise_right",

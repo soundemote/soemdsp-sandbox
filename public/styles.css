@@ -6688,9 +6688,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-jack-green: #3ddc84;
   --node-jack-blue: #4d8dff;
   --node-jack-purple: #c44dff;
-  /* Distinct from mono green (#3ddc84) — cooler cyan for ZOH Morph CV. */
-  --node-jack-turquoise: #1ec8e0;
-  --node-jack-magenta: #e040fb;
+  /* CMYK additive non-realtime plane (distinct from gold analog #e2a86d). */
+  --node-jack-cyan: #00e5ff;     /* C — Parameter / block-rate ZOH in/out */
+  --node-jack-yellow: #ffe600;   /* Y — Graph chunk in/out */
+  --node-jack-magenta: #e040fb;  /* M — reserved unused */
+  --node-jack-black: #111111;    /* K — reserved unused */
+  /* Legacy turquoise → same ink as cyan (prefer data-jack-channel="cyan"). */
+  --node-jack-turquoise: var(--node-jack-cyan);
   --node-port-used-brightness: 85%;
   /* Match former hover stroke strength so unused jacks look “lit” permanently. */
   --node-port-unused-brightness: 68%;
@@ -16325,22 +16329,45 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   );
 }
 
+.dsp-node .node-port.output[data-jack-channel="cyan"],
+.dsp-node .node-io-row.output[data-jack-channel="cyan"] .node-port.output,
 .dsp-node .node-port.output[data-jack-channel="turquoise"],
 .dsp-node .node-io-row.output[data-jack-channel="turquoise"] .node-port.output {
-  --node-output-stroke: var(--node-jack-turquoise);
+  --node-output-stroke: var(--node-jack-cyan);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-jack-turquoise) var(--node-port-paint-brightness),
+    var(--node-jack-cyan) var(--node-port-paint-brightness),
     transparent
   );
 }
 
+.dsp-node .node-port.output[data-jack-channel="yellow"],
+.dsp-node .node-io-row.output[data-jack-channel="yellow"] .node-port.output {
+  --node-output-stroke: var(--node-jack-yellow);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-jack-yellow) var(--node-port-paint-brightness),
+    transparent
+  );
+}
+
+/* Magenta / black reserved (CMYK M/K) — unused in live assignment. */
 .dsp-node .node-port.output[data-jack-channel="magenta"],
 .dsp-node .node-io-row.output[data-jack-channel="magenta"] .node-port.output {
   --node-output-stroke: var(--node-jack-magenta);
   --node-port-crescent-stroke: color-mix(
     in srgb,
     var(--node-jack-magenta) var(--node-port-paint-brightness),
+    transparent
+  );
+}
+
+.dsp-node .node-port.output[data-jack-channel="black"],
+.dsp-node .node-io-row.output[data-jack-channel="black"] .node-port.output {
+  --node-output-stroke: var(--node-jack-black);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-jack-black) var(--node-port-paint-brightness),
     transparent
   );
 }
@@ -16395,12 +16422,24 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   );
 }
 
+.dsp-node .node-port.input[data-jack-channel="cyan"]:not(.node-param-port),
+.dsp-node .node-io-row.input[data-jack-channel="cyan"]:not([data-digital-signal]) .node-port.input:not(.node-param-port),
 .dsp-node .node-port.input[data-jack-channel="turquoise"]:not(.node-param-port),
 .dsp-node .node-io-row.input[data-jack-channel="turquoise"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
-  --node-input-stroke: var(--node-jack-turquoise);
+  --node-input-stroke: var(--node-jack-cyan);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-jack-turquoise) var(--node-port-paint-brightness),
+    var(--node-jack-cyan) var(--node-port-paint-brightness),
+    transparent
+  );
+}
+
+.dsp-node .node-port.input[data-jack-channel="yellow"]:not(.node-param-port),
+.dsp-node .node-io-row.input[data-jack-channel="yellow"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
+  --node-input-stroke: var(--node-jack-yellow);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-jack-yellow) var(--node-port-paint-brightness),
     transparent
   );
 }
@@ -16411,6 +16450,16 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   --node-port-crescent-stroke: color-mix(
     in srgb,
     var(--node-jack-magenta) var(--node-port-paint-brightness),
+    transparent
+  );
+}
+
+.dsp-node .node-port.input[data-jack-channel="black"]:not(.node-param-port),
+.dsp-node .node-io-row.input[data-jack-channel="black"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
+  --node-input-stroke: var(--node-jack-black);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-jack-black) var(--node-port-paint-brightness),
     transparent
   );
 }
@@ -22166,6 +22215,17 @@ body.node-slider-dragging .node-param-port {
     var(--node-param-hover-stroke) var(--node-port-paint-brightness),
     transparent
   );
+}
+
+/* Additive CMYK C — Parameter-row mod / slider-out jacks. */
+.dsp-node .node-param-port.modulation-input[data-jack-channel="cyan"],
+.dsp-node .node-param-port.parameter-output[data-jack-channel="cyan"] {
+  --node-mod-input-fill: var(--node-jack-cyan);
+  --node-mod-input-stroke: var(--node-jack-cyan);
+  --node-param-output-fill: var(--node-jack-cyan);
+  --node-param-output-stroke: var(--node-jack-cyan);
+  --node-param-hover-color: var(--node-jack-cyan);
+  --node-param-hover-stroke: var(--node-jack-cyan);
 }
 
 .node-param-port.graph-input {

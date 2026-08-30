@@ -99,6 +99,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "canvas",
   "humanFilter",
   "chaoticPhaseLockingFilter",
+  "metallicRatio",
   "oscilloscopeBank",
   "shootingStarTail",
   "wallDelay",
@@ -203,6 +204,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   shootingStarTail: "Shooting-star trail events. Parked until that game trigger lands.",
   lufs: "Integrated / short-term / momentary loudness (LUFS). Parked on Multimeter until loudness metering lands.",
   osc: "Open Sound Control (UDP ↔ CV). Parked on Controller until network send/receive lands.",
+  metallicRatio: "Metallic-mean Ratio CV (golden/silver/…). Useful for detune, delay ratios, and spacing — parked until the modulator shelf polish pass.",
 });
 
 // Unified module department definitions — single source of truth for
@@ -613,9 +615,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   metallicRatio: {
     category: "modulator",
-    description: "Golden/silver/bronze ratios for detune spreads, delay lengths, or harmonic spacing.",
+    description: "Closed-form metallic means (golden/silver/…) as a Ratio CV — (n+√(n²+4))/2. Detune, delays, spacing. Under construction.",
     label: "Metallic Ratio",
-    notes: ["RS-MET tribute", "metallic mean", "golden ratio", "Robin Schmidt"],
+    notes: ["RS-MET tribute", "metallic mean", "golden ratio", "Robin Schmidt", "under construction"],
+  },
+  cheapWalk: {
+    category: "noise",
+    description: "Tiny reflecting bipolar walk — LCG step + bounce at ±1. Cheaper than Random Walk.",
+    label: "Cheap Walk",
+    notes: ["reflecting walk", "LCG", "noise", "modulation"],
   },
   chordMemory: {
     category: "musical",
@@ -816,9 +824,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["stereo output", "uniform to gaussian", "seed control", "native"],
   },
   randomWalk: {
-    category: "modulator",
+    category: "noise",
     description: "Controlled wander CV—smooth drift, steps, or filtered noise motion for parameters.",
-    notes: ["bounded walk", "jitter walk", "one-pole smoothing", "native"],
+    label: "Random Walk",
+    notes: ["bounded walk", "jitter walk", "one-pole smoothing", "native", "noise"],
   },
   fractalBrownianNoise: {
     category: "noise",
@@ -2936,6 +2945,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   randomWalk: {
     source: "public/modules/randomWalk/random-walk-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/randomWalk/random-walk-math.js",
+  },
+  cheapWalk: {
+    source: "public/modules/cheapWalk/cheap-walk-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/cheapWalk/cheap-walk-math.js",
   },
   rayBouncer: {
     source: "public/modules/rayBouncer/ray-bouncer-worklet-evaluator.js",

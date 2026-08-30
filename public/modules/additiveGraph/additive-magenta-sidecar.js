@@ -1,6 +1,6 @@
 // Magenta Graph sidecar for efficient Live (native graph has no Magenta types yet).
 // Runs Generator → Effect → Out in JS once per quantum, publishes Graph for faces,
-// and mixes Out into the speaker buffers when wired to Output.
+// keeps per-Out Mono for scope taps, and mixes into speakers when wired to Output.
 
 NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function processAdditiveMagentaSidecar(
   output,
@@ -12,6 +12,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
   if (!this.additiveGraphPublish) this.additiveGraphPublish = new Map();
   if (!this.additiveEffectStates) this.additiveEffectStates = new Map();
   if (!this.additiveOutStates) this.additiveOutStates = new Map();
+  if (!this._additiveOutMono) this._additiveOutMono = new Map();
 
   const nodes = this.nodes;
   if (!nodes || !nodes.size) return;
@@ -72,7 +73,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
     }
   }
 
-  // 3) Outs → scratch audio (mixed into native before ear-protect) + face publish
+  // 3) Outs → per-node Mono (scopes) + speaker scratch when wired to Output
   const nFrames = Math.max(0, Number(frames) || 0);
   if (nFrames < 1) return;
   if (!this._additiveScratchL || this._additiveScratchL.length < nFrames) {
@@ -85,13 +86,17 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
   const leftBus = this._additiveScratchL;
   const rightBus = this._additiveScratchR;
   const sr = Number(this.engineSampleRate) || Number(sampleRate) || 44100;
+  const liveOutIds = new Set();
 
   for (const [id, node] of nodes) {
     if (String(node?.type) !== "additiveOut") continue;
-    const srcId = graphSrc(id, "Graph");
+    const outId = String(id);
+    const srcId = graphSrc(outId, "Graph");
     const graph = srcId ? this.additiveGraphBus.get(srcId) : null;
     if (!graph || !graph.ratio || !graph.harmonics) {
-      this.additiveGraphPublish.set(String(id), null);
+      this.additiveGraphPublish.set(outId, null);
+      this._additiveOutMono.delete(outId);
+      if (this.nodeOutputs) this.nodeOutputs.delete(outId);
       continue;
     }
 
@@ -102,7 +107,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
     let masterAmp = Number(p.amplitude);
     if (!(masterAmp === masterAmp)) masterAmp = 0.35;
 
-    this.additiveGraphPublish.set(String(id), {
+    this.additiveGraphPublish.set(outId, {
       harmonics: graph.harmonics,
       ratio: graph.ratio,
       phase: graph.phase,
@@ -112,13 +117,13 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
       masterAmp,
     });
 
-    // Where does this Out feed Output?
+    // Where does this Out feed Output? (speaker mix only)
     let toMono = false;
     let toLeft = false;
     let toRight = false;
     for (let i = 0; i < conns.length; i += 1) {
       const c = conns[i];
-      if (!c || String(c.sourceNode) !== String(id)) continue;
+      if (!c || String(c.sourceNode) !== outId) continue;
       const dstType = String(this.nodes.get(String(c.destinationNode))?.type || "");
       if (dstType !== "output") continue;
       const dp = String(c.destinationPort || "").toLowerCase();
@@ -127,17 +132,21 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
       else if (dp === "right" || dp === "r") toRight = true;
       else toMono = true;
     }
-    if (!toMono && !toLeft && !toRight) {
-      // Still publish Graph for face; no audio mix.
-      continue;
-    }
+    const mixToSpeakers = toMono || toLeft || toRight;
 
-    let state = this.additiveOutStates.get(String(id));
+    let state = this.additiveOutStates.get(outId);
     if (!state) {
       state = { phaseAcc: null };
-      this.additiveOutStates.set(String(id), state);
+      this.additiveOutStates.set(outId, state);
     }
 
+    let monoBuf = this._additiveOutMono.get(outId);
+    if (!monoBuf || monoBuf.length < nFrames) {
+      monoBuf = new Float32Array(nFrames);
+      this._additiveOutMono.set(outId, monoBuf);
+    }
+
+    let lastY = 0;
     for (let f = 0; f < nFrames; f += 1) {
       const summed = additiveGraphSumSample(
         graph,
@@ -149,6 +158,10 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
       );
       state.phaseAcc = summed.phaseAcc;
       const y = Number(summed.y) || 0;
+      lastY = y;
+      // Always keep Mono for efficient-mode scopes (native graph has no Magenta ports).
+      monoBuf[f] = y;
+      if (!mixToSpeakers) continue;
       if (toMono || (toLeft && toRight)) {
         leftBus[f] = (Number(leftBus[f]) || 0) + y;
         rightBus[f] = (Number(rightBus[f]) || 0) + y;
@@ -158,5 +171,15 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
         rightBus[f] = (Number(rightBus[f]) || 0) + y;
       }
     }
+
+    liveOutIds.add(outId);
+    if (this.nodeOutputs) {
+      this.nodeOutputs.set(outId, { Mono: lastY, Out: lastY });
+    }
+  }
+
+  // Drop stale Mono rings for removed / silent Outs.
+  for (const key of [...this._additiveOutMono.keys()]) {
+    if (!liveOutIds.has(key)) this._additiveOutMono.delete(key);
   }
 };

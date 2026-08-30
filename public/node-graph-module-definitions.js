@@ -93,6 +93,7 @@ const nodeGraphNodeLabels = Object.freeze({
   metallicRatio: "Metallic Ratio",
   noiseGenerator: "Noise Generator",
   randomWalk: "Random Walk",
+  cheapWalk: "Cheap Walk",
   piSpigotNoise: "Pi Spigot Noise",
   fractalBrownianNoise: "Fractal Brownian Motion",
   gain: "Gain",
@@ -865,8 +866,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: {"0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ"},
-    // Morph CV: once per quantum, zero-order hold (turquoise jack).
-    blockRateInputs: ["Morph"],
+    // Morph is sample-accurate gold analog (not CMYK cyan Parameter).
     outputAliases: {
       Out: "Wave Out",
       Noise: "Wave Out"
@@ -1511,8 +1511,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: {"0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ"},
-    // Morph CV: once per quantum, zero-order hold (turquoise jack).
-    blockRateInputs: ["Morph"],
+    // Morph is sample-accurate gold analog (not CMYK cyan Parameter).
     // Legacy Mono/X/Y/Out → bipolar outs.
     outputAliases: {
       Mono: "Bi X",
@@ -2541,8 +2540,7 @@ const nodeGraphModuleDefinitions = (
       Phase: "Phase",
       Amplitude: "Amp",
       f: "ƒ"},
-    // Morph CV: once per quantum, zero-order hold (turquoise jack).
-    blockRateInputs: ["Morph"],
+    // Morph is sample-accurate gold analog (not CMYK cyan Parameter).
     outputs: ["Out"],
     parameters: [
       {
@@ -2844,8 +2842,7 @@ const nodeGraphModuleDefinitions = (
       Phase: "Phase",
       Amplitude: "Amp",
       f: "ƒ"},
-    // Morph CV: once per quantum, zero-order hold (turquoise jack).
-    blockRateInputs: ["Morph"],
+    // Morph is sample-accurate gold analog (not CMYK cyan Parameter).
     outputs: ["Out"],
     parameters: [
       {
@@ -3090,6 +3087,45 @@ const nodeGraphModuleDefinitions = (
         modClamp: false
       },
     ]
+  },
+  cheapWalk: {
+    planRole: "source",
+    outputs: ["Out"],
+    parameters: [
+      {
+        defaultValue: "8",
+        key: "rate",
+        kind: "frequency",
+        label: "Rate",
+        max: "200",
+        maxDigits: 5,
+        mid: "8",
+        min: "0",
+        step: "any",
+        unit: "Hz",
+        tooltip: "How fast the reflecting walk steps (Hz). Higher = jumpy.",
+      },
+      {
+        defaultValue: "1",
+        key: "amplitude",
+        label: "Amplitude",
+        max: "1",
+        mid: "1",
+        min: "0",
+        step: "any",
+        modClamp: false,
+      },
+      {
+        defaultValue: "1",
+        key: "seed",
+        label: "Seed",
+        max: "2147483647",
+        mid: "1",
+        min: "1",
+        step: "1",
+        linearSmoothing: false,
+      },
+    ],
   },
   randomWalk: {
     planRole: "source",

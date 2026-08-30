@@ -95,6 +95,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   fractalBrownianNoise: 87,
   piSpigotNoise: 88,
   randomWalk: 89,
+  cheapWalk: 108,
   pulseExplosion: 90,
   spiral: 91,
   fractalSpiral: 92,
@@ -1541,6 +1542,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
+    if (type === "cheapWalk") {
+      // rate → frequency Control (process_cheap_walk reads node.frequency)
+      push("rate", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("rate", 8));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      continue;
+    }
     if (type === "pulseExplosion") {
       push("startTime", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("startTime", 0));
       push("centerTime", P.NATIVE_GRAPH_PARAM_CENTER, cont("centerTime", 0.5));
@@ -2271,6 +2279,16 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       const l = Number(protectedLeft[idx]) || 0;
       const r = Number(protectedRight?.[idx] ?? l) || 0;
       return (l + r) * 0.5;
+    }
+    // Magenta Additive Out is JS-sidecar only — tap its Mono ring for scopes.
+    if (srcType === "additiveOut") {
+      const buf = this._additiveOutMono?.get(String(sourceNode));
+      const idx = frameOffset + frame;
+      if (buf && idx >= 0 && idx < buf.length) {
+        const v = Number(buf[idx]);
+        return Number.isFinite(v) ? v : 0;
+      }
+      return Number(this.nodeOutputs?.get?.(String(sourceNode))?.Mono) || 0;
     }
     const portId = this.mapNativeGraphSrcPortId(sourcePort, srcType);
     const hash = this.fnv1aHash32(sourceNode);

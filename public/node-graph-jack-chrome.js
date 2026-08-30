@@ -140,15 +140,34 @@ function nodeGraphJackChannelCssColor(channel) {
       ? nodeGraphCssColor("--node-jack-purple", "#c44dff")
       : "#c44dff";
   }
-  if (channel === "turquoise") {
+  // CMYK additive plane: C=cyan Parameter, Y=yellow Graph. M/K reserved unused.
+  if (channel === "cyan") {
     return typeof nodeGraphCssColor === "function"
-      ? nodeGraphCssColor("--node-jack-turquoise", "#1ec8e0")
-      : "#1ec8e0";
+      ? nodeGraphCssColor("--node-jack-cyan", "#00e5ff")
+      : "#00e5ff";
+  }
+  if (channel === "yellow") {
+    return typeof nodeGraphCssColor === "function"
+      ? nodeGraphCssColor("--node-jack-yellow", "#ffe600")
+      : "#ffe600";
+  }
+  if (channel === "turquoise") {
+    // Legacy alias → cyan (block-rate Parameter). Prefer "cyan".
+    return typeof nodeGraphCssColor === "function"
+      ? nodeGraphCssColor("--node-jack-cyan", "#00e5ff")
+      : "#00e5ff";
   }
   if (channel === "magenta") {
+    // Reserved (CMYK M) — unused for live jack assignment.
     return typeof nodeGraphCssColor === "function"
       ? nodeGraphCssColor("--node-jack-magenta", "#e040fb")
       : "#e040fb";
+  }
+  if (channel === "black" || channel === "k") {
+    // Reserved (CMYK K) — unused for live jack assignment.
+    return typeof nodeGraphCssColor === "function"
+      ? nodeGraphCssColor("--node-jack-black", "#111111")
+      : "#111111";
   }
   return "";
 }
@@ -280,9 +299,14 @@ function nodeGraphJackStereoChannel(value) {
 }
 
 /**
- * "" | "red" | "green" | "blue" | "purple" | "turquoise" | "magenta"
- * Digital ports have no channel. Block-rate / ZOH ports are turquoise.
- * Magenta Graph chunk ports (data-plane harmonic / Graph payloads) are magenta.
+ * "" | "red" | "green" | "blue" | "purple" | "cyan" | "yellow"
+ * (+ reserved "magenta" / "black" unused)
+ *
+ * CMYK additive non-realtime plane (name “Magenta Graph” kept for now):
+ *   Yellow → Graph chunk in/out (data-plane, once per quantum)
+ *   Cyan   → Parameter / block-rate ZOH in/out (once per quantum, held)
+ *   Magenta / K → reserved unused
+ * Digital ports have no channel.
  */
 function nodeGraphJackChannel(type, port, io = "output") {
   const key = String(port || "");
@@ -293,10 +317,10 @@ function nodeGraphJackChannel(type, port, io = "output") {
     return "";
   }
   if (typeof nodeGraphPortIsGraphChunkSignal === "function" && nodeGraphPortIsGraphChunkSignal(type, key, io)) {
-    return "magenta";
+    return "yellow";
   }
   if (typeof nodeGraphPortIsBlockRateSignal === "function" && nodeGraphPortIsBlockRateSignal(type, key, io)) {
-    return "turquoise";
+    return "cyan";
   }
   const fromRgb = nodeGraphJackRgbLetterChannel(type, key);
   if (fromRgb) {

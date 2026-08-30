@@ -170,6 +170,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "cheap_walk",
+      "label": "Cheap Walk",
+      "targetType": "cheapWalk",
+      "kind": "noise",
+      "source": "native_modules/cheap_walk/cheap_walk.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/cheap_walk/cheap_walk.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/cheap_walk/cheap_walk.wasm",
+      "wasmUrl": "native_modules/cheap_walk/cheap_walk.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "chebyshev",
       "label": "Chebyshev Filter",
       "targetType": "chebyshev",
@@ -947,6 +959,18 @@
       "libUrl": "",
       "wasm": "native_modules/random_walk/random_walk.wasm",
       "wasmUrl": "native_modules/random_walk/random_walk.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "range",
+      "label": "Range",
+      "targetType": "range",
+      "kind": "utility",
+      "source": "native_modules/range/range.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/range/range.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/range/range.wasm",
+      "wasmUrl": "native_modules/range/range.wasm",
       "wasmAvailable": true
     },
     {

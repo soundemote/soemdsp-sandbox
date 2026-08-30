@@ -1297,6 +1297,24 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+      if (name === "cheap_walk" || targetType === "cheapWalk") {
+        if (this.cheapWalkStates) {
+          for (const state of this.cheapWalkStates.values()) {
+            this.destroyCheapWalkNativeState(state);
+          }
+        }
+        this.nativeCheapWalk = exports;
+        this.nativeCheapWalkReady = Boolean(
+          this.nativeCheapWalk?.soemdsp_cheap_walk_create &&
+          this.nativeCheapWalk?.soemdsp_cheap_walk_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "cheap_walk",
+          status: this.nativeCheapWalkReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "pi_spigot_noise" || targetType === "piSpigotNoise") {
         for (const state of this.piSpigotNoiseStates.values()) {
           this.destroyPiSpigotNoiseNativeState(state);

@@ -256,7 +256,18 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
       this.destroyHelmholtzState(state);
     }
     this.helmholtzStates = new Map();
+    if (this.randomWalkStates) {
+      for (const state of this.randomWalkStates.values()) {
+        this.destroyRandomWalkNativeState?.(state);
+      }
+    }
     this.randomWalkStates = new Map();
+    if (this.cheapWalkStates) {
+      for (const state of this.cheapWalkStates.values()) {
+        this.destroyCheapWalkNativeState?.(state);
+      }
+    }
+    this.cheapWalkStates = new Map();
     this.piSpigotNoiseStates = new Map();
     this.bradley2AStates = new Map();
     this.antisawStates = new Map();

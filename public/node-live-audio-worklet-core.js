@@ -399,6 +399,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.samplePlaybackStates = new Map();
     this.samples = new Map();
     this.randomWalkStates = new Map();
+    this.cheapWalkStates = new Map();
     this.piSpigotNoiseStates = new Map();
     this.bradley2AStates = new Map();
     this.antisawStates = new Map();

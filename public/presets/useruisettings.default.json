@@ -236,6 +236,8 @@
       "underconstructionsort": [
         "canvas",
         "humanFilter",
+        "metallicRatio",
+        "chaoticPhaseLockingFilter",
         "oscilloscopeBank",
         "shootingStarTail",
         "wallDelay",

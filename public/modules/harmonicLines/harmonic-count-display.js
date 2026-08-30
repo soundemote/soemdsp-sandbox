@@ -115,7 +115,8 @@ function drawNodeGraphHarmonicCountDisplay(section) {
   const nodeId = section.dataset.node;
   const type = section.dataset.nodeType;
   const text = nodeGraphHarmonicCountFaceText(nodeId, type);
-  ctx.fillStyle = "#e040fb";
+  // CMYK Y face ink (Graph plane) — was magenta.
+  ctx.fillStyle = "#ffe600";
   // Effect names need a smaller font than a single H digit.
   const isName = type === "additiveEffect";
   const fontPx = isName

@@ -227,6 +227,11 @@ function createNodeParameterModulationPort(node, type, parameter) {
   button.dataset.port = parameter.key;
   button.dataset.io = "modulation";
   button.dataset.alias = `${nodeGraphNodeDisplayName(node)}.${parameter.key} mod`;
+  // Additive CMYK C — Parameter mod jacks paint cyan (not purple).
+  if (typeof nodeGraphModuleUsesCmykParameterChrome === "function"
+    && nodeGraphModuleUsesCmykParameterChrome(type)) {
+    button.dataset.jackChannel = "cyan";
+  }
   const label = `${nodeGraphNodeLabels[type]} ${parameter.label} modulation input`;
   button.setAttribute("aria-label", label);
   return button;
@@ -241,6 +246,10 @@ function createNodeParameterOutputPort(node, type, parameter) {
   button.dataset.port = parameter.key;
   button.dataset.io = "output";
   button.dataset.alias = `${nodeGraphNodeDisplayName(node)}.${parameter.key} slider`;
+  if (typeof nodeGraphModuleUsesCmykParameterChrome === "function"
+    && nodeGraphModuleUsesCmykParameterChrome(type)) {
+    button.dataset.jackChannel = "cyan";
+  }
   const label = `${nodeGraphNodeLabels[type]} ${parameter.label} slider output`;
   button.setAttribute("aria-label", label);
   return button;

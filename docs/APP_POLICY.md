@@ -344,29 +344,33 @@ Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled
 - Channel chrome on **inlets and outlets** the same way (In purple left = Out purple right). Uncolored analog stays gold. Cables follow jack colors when UIDEV **wires follow port colors** is on (default). Dual-color gradient still matches both ends. Digital stays white. Off = gold analog / white digital.
 - Full write-up: [MODULE_LAYOUT_PLAN.md](./MODULE_LAYOUT_PLAN.md) §11.
 
-### Block-rate / zero-order-hold ports (turquoise)
+### CMYK non-realtime plane (additive proving ground)
 
-Hungry modules (additive series proving ground first) may take **control** jacks that update **once per audio quantum** and **hold** that value for the block (ZOH). Those jacks are **turquoise** on both inlet and outlet sides.
+Additive modules use a **CMYK** jack story for **non-realtime** ports (once per audio quantum). Product name **“Magenta Graph”** is kept for now; **live chrome uses Yellow + Cyan** (Magenta and K reserved unused).
 
-| Kind | Color | Rate |
-|------|--------|------|
-| Digital (ƒ reports, Scale, …) | White | Event / value |
-| Block-rate ZOH (Morph CV, …) | **Turquoise** | **1 sample per quantum, held** |
-| Graph chunk (harmonic Graph, …) | **Magenta** | **Data-plane payload once per quantum** |
-| Audio / sample-accurate CV | Gold / RGB / purple… | Every sample |
+| Ink | Role | Color | Rate |
+|-----|------|--------|------|
+| **C (Cyan)** | Parameter in/out (block-rate ZOH Morph CV, …) | **Cyan** (`#00e5ff`) — not turquoise | **1 sample per quantum, held** |
+| **M (Magenta)** | *Reserved unused* | — | — |
+| **Y (Yellow)** | Graph in/out (harmonic Graph chunk, …) | **Yellow** (`#ffe600`) | **Data-plane payload once per quantum** |
+| **K (Black)** | *Reserved unused* | — | — |
+| Digital (ƒ reports, Scale, …) | — | White | Event / value |
+| Audio / sample-accurate CV | — | Gold / RGB / purple… | Every sample |
 
-**Smoothers vs turquoise jacks**
+**Smoothers vs cyan Parameter jacks**
 
 - **Parameter smoothers** are allowed to emit a **sample pack** (Control chase can advance every sample into `Control.out`).
-- **Turquoise inlets** do **not**: the module reads the wired signal **once per block** (and/or reads the Control once per block) and **zero-order-holds** it.
+- **Cyan Parameter inlets** do **not**: the module reads the wired signal **once per block** (and/or reads the Control once per block) and **zero-order-holds** it.
 - Additive Morph / waveform / harmonic-count style knobs follow that ZOH read even when only the slider is used — expensive table work stays block-rate.
 
-List turquoise ports on the definition as `blockRateInputs` / `blockRateOutputs` (same pattern as `digitalInputs` / `digitalOutputs`).
+List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOutputs` (same pattern as `digitalInputs` / `digitalOutputs`). Ordinary Morph / CV inlets that are **sample-accurate** (PolyBLEP, Softwave, Ellipsoid, DSF, …) stay **unlisted** and paint **gold** — do not mark them block-rate just because the knob is named Morph.
 
-**Magenta Graph chunk ports**
+**Additive series exception:** parameter-row **mod jacks** (and matching slider-out jacks) on `additiveGenerator` / `additiveEffect` / `additiveOut` paint **cyan** even though they are modulation ports (not left-column IO). Graph cables follow jack color → **yellow** (not magenta).
+
+**Yellow Graph chunk ports** (still called Magenta Graph in product copy)
 
 - Carry a **multidimensional** once-per-quantum payload on the data plane (`dataInputs` / `dataOutputs`), e.g. additive harmonic `{ phase[], ratio[], amplitude[] }`.
-- Not audio-rate sample packs. Port name **`Graph`** on both inlet and outlet sides is **magenta**.
+- Not audio-rate sample packs. Port name **`Graph`** on both inlet and outlet sides is **yellow**.
 - Additive chain: Generator → Effect(s) → Out.
 
 ---

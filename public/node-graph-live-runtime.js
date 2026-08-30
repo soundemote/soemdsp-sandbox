@@ -517,7 +517,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=slew-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=cheap-walk-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3057,7 +3057,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=interrupt-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=wasm-plan-race-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=transport-f-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=magenta-scope-1",
   "./public/node-live-audio-worklet-set-plan.js?v=fix-normalizeCodeblock-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=graph-engine-6",
   "./public/node-live-audio-worklet-handle-message.js?v=wasm-plan-race-1",
@@ -3066,7 +3066,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Magenta Graph additive chain (efficient Live sidecar until native Magenta).
   "./public/modules/additiveGraph/additive-graph-math.js?v=magenta-graph-1",
   "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=magenta-graph-1",
-  "./public/modules/additiveGraph/additive-magenta-sidecar.js?v=magenta-sidecar-1",
+  "./public/modules/additiveGraph/additive-magenta-sidecar.js?v=magenta-scope-1",
   "./public/node-live-audio-worklet-process.js?v=silence-fix-1",
 ];
 
@@ -3095,6 +3095,8 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   // noise channel math lives in worklet methods; main-thread uses noise-generator-math.js
   "./public/modules/randomWalk/random-walk-math.js?v=random-walk-1",
   "./public/modules/randomWalk/random-walk-worklet-evaluator.js?v=random-walk-1",
+  "./public/modules/cheapWalk/cheap-walk-math.js?v=cheap-walk-1",
+  "./public/modules/cheapWalk/cheap-walk-worklet-evaluator.js?v=cheap-walk-1",
   "./public/modules/piSpigotNoise/pi-spigot-noise-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/bradley2a/bradley-2a-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/antisaw/antisaw-worklet-evaluator.js?v=native-strip-1",

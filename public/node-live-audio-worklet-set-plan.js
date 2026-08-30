@@ -523,6 +523,10 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (node?.type === "randomWalk" && !this.randomWalkStates.has(id)) {
         this.randomWalkStates.set(id, this.createRandomWalkState());
       }
+      if (node?.type === "cheapWalk" && !this.cheapWalkStates.has(id)) {
+        if (!this.cheapWalkStates) this.cheapWalkStates = new Map();
+        this.cheapWalkStates.set(id, this.createCheapWalkState(1));
+      }
       if (node?.type === "piSpigotNoise" && !this.piSpigotNoiseStates.has(id)) {
         this.piSpigotNoiseStates.set(id, this.createPiSpigotNoiseState());
       }
@@ -1221,6 +1225,14 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (!ids.has(id)) {
         this.destroyRandomWalkNativeState(this.randomWalkStates.get(id));
         this.randomWalkStates.delete(id);
+      }
+    }
+    if (this.cheapWalkStates) {
+      for (const id of [...this.cheapWalkStates.keys()]) {
+        if (!ids.has(id)) {
+          this.destroyCheapWalkNativeState?.(this.cheapWalkStates.get(id));
+          this.cheapWalkStates.delete(id);
+        }
       }
     }
     for (const id of [...this.piSpigotNoiseStates.keys()]) {

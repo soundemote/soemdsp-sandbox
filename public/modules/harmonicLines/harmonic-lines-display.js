@@ -100,18 +100,31 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     return;
   }
 
-  // X spans only the H harmonics (no empty Nyquist tail).
+  // Log-frequency X (20 Hz … speed limit) + log-amplitude heights (dB floor).
+  // Heights ignore Out Amplitude (masterAmp) — only per-partial amp + Nyquist curve.
+  // Color rotates with phase[i] + master Phase.
   const H = Math.max(1, graph.ratio.length | 0);
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const freqHz = Number(graph.frequencyHz ?? node?.params?.frequency ?? node?.parameters?.frequency) || 100;
+  const masterPhase = Number(graph.masterPhase ?? node?.params?.phase ?? node?.parameters?.phase) || 0;
   const sr = Number(nodeGraphMvp?.sampleRate) || Number(nodeGraphMvp?.live?.sampleRate) || 44100;
+  const xMaxHz = typeof nodeGraphProjectSpeedLimitHz === "function"
+    ? Math.max(1, nodeGraphProjectSpeedLimitHz())
+    : Math.max(1, Number(nodeGraphMvp?.live?.speedLimit) || 20000);
+  const xMinHz = Math.min(20, xMaxHz * 0.5);
+  const logXMin = Math.log(Math.max(1e-6, xMinHz));
+  const logXSpan = Math.max(1e-9, Math.log(Math.max(xMinHz * 1.0001, xMaxHz)) - logXMin);
+  const ampFloorDb = -60; // 0 height at −60 dB relative to loudest partial
   let maxAmp = 1e-6;
   const effectiveAmp = new Float32Array(H);
+  const hzAt = new Float32Array(H);
   for (let i = 0; i < H; i += 1) {
     const hz = (graph.ratio[i] || 0) * freqHz;
+    hzAt[i] = hz;
     const nyqGain = typeof additiveGraphNyquistAmpGain === "function"
       ? additiveGraphNyquistAmpGain(hz, sr)
       : 1;
+    // Intentionally omit masterAmp — volume must not squash the face.
     const a = Math.abs(graph.amplitude[i] || 0) * nyqGain;
     effectiveAmp[i] = a;
     if (a > maxAmp) maxAmp = a;
@@ -120,16 +133,23 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
   const maxH = h * 0.82;
   const pad = Math.max(2, w * 0.02);
   const span = Math.max(1, w - pad * 2);
-  const lineW = Math.max(1, Math.min(4, span / Math.max(1, H * 1.25)));
+  // Log X spreads lows; a few px wide is enough so dense highs stay readable.
+  const lineW = Math.max(1, Math.min(4, span / Math.max(48, H * 1.1)));
 
   for (let i = 0; i < H; i += 1) {
-    // Even slots across the face: 1st harmonic at left, last at right.
-    const t = H <= 1 ? 0.5 : i / (H - 1);
-    const x = pad + t * span;
-    const amp = effectiveAmp[i] / maxAmp;
-    const lineH = amp * maxH;
+    const hz = hzAt[i];
+    if (!(hz > 0) || !(effectiveAmp[i] > 0)) continue;
+    const clampedHz = Math.max(xMinHz, Math.min(xMaxHz, hz));
+    const t = (Math.log(clampedHz) - logXMin) / logXSpan;
+    const x = pad + Math.max(0, Math.min(1, t)) * span;
+    // Relative dB: loudest partial = full height; −60 dB = zero.
+    const db = 20 * Math.log10(Math.max(1e-12, effectiveAmp[i] / maxAmp));
+    const ampT = Math.max(0, Math.min(1, (db - ampFloorDb) / -ampFloorDb));
+    const lineH = ampT * maxH;
+    if (!(lineH > 0.5)) continue;
+    const phase01 = (graph.phase[i] || 0) + masterPhase;
     const col = typeof additiveGraphPhaseColor === "function"
-      ? additiveGraphPhaseColor(graph.phase[i] || 0)
+      ? additiveGraphPhaseColor(phase01)
       : { r: 224, g: 64, b: 251 };
     ctx.strokeStyle = `rgb(${col.r},${col.g},${col.b})`;
     ctx.lineWidth = lineW;

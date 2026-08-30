@@ -802,6 +802,12 @@ extern "C" double soemdsp_random_walk_sample(
   int handle, double method, double frequency, double jitter, double level, double sampleRate
 );
 
+extern "C" int soemdsp_cheap_walk_create();
+extern "C" void soemdsp_cheap_walk_destroy(int handle);
+extern "C" double soemdsp_cheap_walk_sample(
+  int handle, double rateHz, double amplitude, double seedParam, double sampleRate
+);
+
 extern "C" int soemdsp_pulse_explosion_create();
 extern "C" void soemdsp_pulse_explosion_destroy(int handle);
 extern "C" double soemdsp_pulse_explosion_sample(
@@ -1109,6 +1115,7 @@ static const int kTypeCrossover3 = 104;
 static const int kTypeCrossover4 = 105;
 static const int kTypeCrossover5 = 106;
 static const int kTypeCrossover6 = 107;
+static const int kTypeCheapWalk = 108;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1524,6 +1531,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_pi_spigot_noise_destroy(handle);
   } else if (kind == kTypeRandomWalk) {
     soemdsp_random_walk_destroy(handle);
+  } else if (kind == kTypeCheapWalk) {
+    soemdsp_cheap_walk_destroy(handle);
   } else if (kind == kTypePulseExplosion) {
     soemdsp_pulse_explosion_destroy(handle);
   } else if (kind == kTypeSpiral) {
@@ -1662,6 +1671,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLogisticMap || typeId == kTypeHenonMap
           || typeId == kTypeRayBouncer) ? 8.0 // rate/frequency
       : (typeId == kTypeFractalBrownianNoise) ? 0.5
+      : (typeId == kTypeCheapWalk) ? 8.0 // rate Hz
       : (typeId == kTypeRandomWalk) ? 2.0
       : (typeId == kTypeSpiral || typeId == kTypeNyquistShannon) ? 440.0
       : (typeId == kTypeFractalSpiral || typeId == kTypeLogSpiral
@@ -1927,7 +1937,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLutCell) ? 27030.0 // default truth table
       : (typeId == kTypeSoemReverb) ? 500.0
       : (typeId == kTypePitchQuantizer) ? 2741.0 // major scale mask
-      : (typeId == kTypeFractalBrownianNoise || typeId == kTypeRandomWalk) ? 1.0
+      : (typeId == kTypeFractalBrownianNoise || typeId == kTypeRandomWalk || typeId == kTypeCheapWalk) ? 1.0
       : 0.0,
     true
   );
@@ -2547,6 +2557,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeFractalBrownianNoise) return soemdsp_fbm_create();
   if (typeId == kTypePiSpigotNoise) return soemdsp_pi_spigot_noise_create();
   if (typeId == kTypeRandomWalk) return soemdsp_random_walk_create();
+  if (typeId == kTypeCheapWalk) return soemdsp_cheap_walk_create();
   if (typeId == kTypePulseExplosion) return soemdsp_pulse_explosion_create();
   if (typeId == kTypeSpiral) return soemdsp_jerobeam_spiral_create();
   if (typeId == kTypeFractalSpiral) return soemdsp_fractal_spiral_create();
@@ -5048,6 +5059,22 @@ static void process_pi_spigot_noise(Circuit& g, Node& node, int frames) {
 }
 
 // Random walk: mode=method, frequency, width=jitter, seed, amplitude.
+static void process_cheap_walk(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
+  // rate → frequency Control; seed → seed Control
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double out = soemdsp_cheap_walk_sample(
+      node.nativeHandle, node.frequency.out, node.amplitude.out, node.seed.out, sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
 static void process_random_walk(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
@@ -6247,6 +6274,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeFractalBrownianNoise
     || typeId == kTypePiSpigotNoise
     || typeId == kTypeRandomWalk
+    || typeId == kTypeCheapWalk
     || typeId == kTypePulseExplosion
     || typeId == kTypeSpiral
     || typeId == kTypeFractalSpiral
@@ -6867,6 +6895,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_random_walk(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeCheapWalk) {
+      process_cheap_walk(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypePulseExplosion) {
       process_pulse_explosion(*g, node, frames);
       continue;
@@ -6996,5 +7028,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 58; // Chaotic Phaselocking Filter always dual L/R instances
+  return 59; // Cheap Walk source + Magenta Nyquist amp curve host
 }

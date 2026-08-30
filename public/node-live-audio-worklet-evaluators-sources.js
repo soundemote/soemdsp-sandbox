@@ -1103,6 +1103,21 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           nodeId,
         );
       },
+      cheapWalk: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.cheapWalkStates) this.cheapWalkStates = new Map();
+        const state = this.cheapWalkStates.get(nodeId) || this.createCheapWalkState(1);
+        this.cheapWalkStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        return this.cheapWalkSample(
+          state,
+          {
+            rate: read("rate", 8),
+            amplitude: read("amplitude", 1),
+            seed: read("seed", 1),
+          },
+          safeRate,
+        );
+      },
       piSpigotNoise: (node, nodeId, frame, frames, frameValues) => {
         const state = this.piSpigotNoiseStates.get(nodeId) || this.createPiSpigotNoiseState();
         this.piSpigotNoiseStates.set(nodeId, state);

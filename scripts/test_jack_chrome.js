@@ -119,6 +119,29 @@ var sandbox = {
       outputs: ["Tone", "ToneL", "ToneR", "ƒ1", "ƒ2"],
       digitalOutputs: ["ƒ1", "ƒ2"],
     },
+    additiveGenerator: {
+      dataOutputs: ["Graph"],
+      outputs: [],
+    },
+    additiveEffect: {
+      dataInputs: ["Graph"],
+      dataOutputs: ["Graph"],
+      outputs: [],
+    },
+    additiveOut: {
+      dataInputs: ["Graph"],
+      outputs: ["Mono"],
+    },
+    // Hypothetical CMYK Parameter port — only listed types get cyan.
+    cmykParamDemo: {
+      inputs: ["Morph"],
+      blockRateInputs: ["Morph"],
+      outputs: ["Out"],
+    },
+    polyBlep: {
+      inputs: ["Morph"],
+      outputs: ["Wave Out"],
+    },
   },
   nodeGraphModuleStoreCatalog: {
     lorenzAttractor: { category: "chaos" },
@@ -148,6 +171,20 @@ var sandbox = {
     if (io !== "input" && def.digitalOutputs && def.digitalOutputs.indexOf(port) >= 0) return true;
     return false;
   },
+  nodeGraphPortIsGraphChunkSignal: function (type, port, io) {
+    var def = sandbox.nodeGraphModuleDefinitions[type];
+    if (!def || port !== "Graph") return false;
+    if (io !== "output" && def.dataInputs && def.dataInputs.indexOf(port) >= 0) return true;
+    if (io !== "input" && def.dataOutputs && def.dataOutputs.indexOf(port) >= 0) return true;
+    return false;
+  },
+  nodeGraphPortIsBlockRateSignal: function (type, port, io) {
+    var def = sandbox.nodeGraphModuleDefinitions[type];
+    if (!def) return false;
+    if (io !== "output" && def.blockRateInputs && def.blockRateInputs.indexOf(port) >= 0) return true;
+    if (io !== "input" && def.blockRateOutputs && def.blockRateOutputs.indexOf(port) >= 0) return true;
+    return false;
+  },
   nodeGraphFrequencyValuePortDisplayLabel: function (raw) { return raw; },
   nodeGraphModuleUsesLayoutB: function () { return false; },
 };
@@ -171,8 +208,8 @@ assert(ch("mixStereo", "R4", "input") === "blue", "MixStereo R4 is blue");
 assert(ch("mixStereo", "Mono", "output") === "green", "MixStereo Mono out is green");
 assert(ch("mixStereo", "Left", "output") === "red", "MixStereo Left is red");
 assert(ch("mixStereo", "Right", "output") === "blue", "MixStereo Right is blue");
-assert(ch("gain", "Out", "output") === "green", "gain Out is green");
-assert(ch("gain", "In", "input") === "green", "gain In is green");
+assert(ch("gain", "Out", "output") === "purple", "gain Out is purple (In/Out rule)");
+assert(ch("gain", "In", "input") === "purple", "gain In is purple (In/Out rule)");
 assert(ch("rasterRgb", "R", "output") === "red", "RGB R is red");
 assert(ch("rasterRgb", "G", "input") === "green", "RGB G is green");
 assert(ch("rasterRgb", "B", "output") === "blue", "RGB B is blue");
@@ -183,7 +220,7 @@ assert(ch("lorenzAttractor", "Z", "output") === "green", "chaos Z green");
 assert(ch("fbmField", "X", "output") === "red", "fBf X red");
 assert(ch("fbmField", "Y", "output") === "blue", "fBf Y blue");
 assert(ch("fbmField", "Z", "output") === "green", "fBf Z green");
-assert(ch("fbmField", "In", "input") === "green", "fBf In is mono green");
+assert(ch("fbmField", "In", "input") === "purple", "fBf In is purple (In/Out rule)");
 assert(ch("fractalBrownianNoise", "Out X", "output") === "red", "fBm Out X red");
 assert(ch("fractalBrownianNoise", "Out Y", "output") === "blue", "fBm Out Y blue");
 assert(ch("fractalBrownianNoise", "Out Z", "output") === "green", "fBm Out Z green");
@@ -199,6 +236,17 @@ assert(ch("audioPlayer", "End Time", "input") === "", "digital end time has no c
 assert(ch("audioPlayer", "Left", "output") === "red", "player Left red");
 assert(ch("audioPlayer", "Right", "output") === "blue", "player Right blue");
 assert(ch("audioPlayer", "Mono", "output") === "green", "player Mono green");
+
+// CMYK additive plane: Yellow Graph, Cyan Parameter only when blockRate-listed (M/K unused).
+assert(ch("additiveGenerator", "Graph", "output") === "yellow", "Graph out is yellow");
+assert(ch("additiveEffect", "Graph", "input") === "yellow", "Graph in is yellow");
+assert(ch("additiveEffect", "Graph", "output") === "yellow", "Graph thru out is yellow");
+assert(ch("additiveOut", "Graph", "input") === "yellow", "Out Graph in is yellow");
+assert(ch("cmykParamDemo", "Morph", "input") === "cyan", "listed Parameter Morph is cyan");
+assert(ch("polyBlep", "Morph", "input") === "", "PolyBLEP Morph is gold (no channel)");
+assert(sandbox.nodeGraphJackChannelCssColor("yellow") === "#ffe600", "yellow wire CSS");
+assert(sandbox.nodeGraphJackChannelCssColor("cyan") === "#00e5ff", "cyan wire CSS");
+assert(sandbox.nodeGraphJackChannelCssColor("turquoise") === "#00e5ff", "legacy turquoise aliases cyan");
 
 sandbox.nodeGraphMvp = { wiresFollowPortColors: true };
 assert(sandbox.nodeGraphWiresFollowPortColors() === true, "follow default on");
