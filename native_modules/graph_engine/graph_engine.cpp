@@ -4042,8 +4042,6 @@ static void process_scientific_iir(
       node.nativeHandle, in, mode, freq, order, bandwidth, ripple, sr
     );
     node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
   }
 }
 
@@ -4354,8 +4352,6 @@ static void process_mode_resonator(Circuit& g, Node& node, int frames) {
       node.amplitude.out, sr
     );
     node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
   }
 }
 
@@ -4389,8 +4385,6 @@ static void process_comb_resonator(Circuit& g, Node& node, int frames) {
       node.shape.out, topology, invert, node.width.out, node.amplitude.out, sr
     );
     node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
   }
 }
 
@@ -4407,8 +4401,6 @@ static void process_inertial_filter(Circuit& g, Node& node, int frames) {
       node.nativeHandle, in, node.frequency.out, node.lpfFrequency.out, sr
     );
     node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
   }
 }
 

@@ -335,6 +335,8 @@ App-wide stack order and jack chrome. Names keep their color; **Mono is always f
 
 Filter-style modules use `In`/`Out` labeled Mono: the **port name** wins for chrome, so those jacks are **purple**, not green.
 
+**Jack inventory must match engine capability — no stereo ports on mono-only modules.** Musical filters keep M+L+R (true independent L/R where the engine dual-handles). Scientific filters may be mono (`In`/`Out` only) until converted to real stereo.
+
 RGB modules: `R` red, `G` green, `B` blue (`R` is never Right).
 
 Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled generic analog (no channel) stays gold by side.

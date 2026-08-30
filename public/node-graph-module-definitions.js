@@ -5031,11 +5031,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
     inputLabels: { In: "Mono", f: "ƒ" },
-    inputs: ["In", "Left", "Right", "f"],
+    inputs: ["In", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Out"],
     parameters: [
       {
         choices: ["LP", "HP", "BP", "BR"],
@@ -5095,11 +5095,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
     inputLabels: { In: "Mono", f: "ƒ" },
-    inputs: ["In", "Left", "Right", "f"],
+    inputs: ["In", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Out"],
     parameters: [
       {
         choices: ["LP", "HP", "BP", "BR"],
@@ -5157,11 +5157,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
     inputLabels: { In: "Mono", f: "ƒ" },
-    inputs: ["In", "Left", "Right", "f"],
+    inputs: ["In", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Out"],
     parameters: [
       {
         choices: ["LP", "HP", "BP", "BR"],
@@ -5218,11 +5218,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
     inputLabels: { In: "Mono", f: "ƒ" },
-    inputs: ["In", "Left", "Right", "f"],
+    inputs: ["In", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Out"],
     parameters: [
       {
         choices: ["LP", "HP", "BP", "BR"],
@@ -5291,11 +5291,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
     inputLabels: { In: "Mono", f: "ƒ" },
-    inputs: ["In", "Left", "Right", "f"],
+    inputs: ["In", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Out"],
     parameters: [
       {
         choices: ["LP", "HP", "BP", "BR"],
@@ -6779,10 +6779,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
     inputLabels: { In: "Mono", f: "ƒ" },
-    inputs: ["In", "Left", "Right", "f"],
+    inputs: ["In", "f"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Out"],
     parameters: [
       {
         defaultValue: "1000",
@@ -7472,11 +7472,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
     inputLabels: { In: "Mono", f: "ƒ" },
-    inputs: ["In", "Left", "Right", "f"],
+    inputs: ["In", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Out"],
     parameters: [
       {
         choices: nodeGraphCookbookFilterModes,
@@ -8304,11 +8304,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
     inputLabels: { In: "Mono", f: "ƒ" },
-    inputs: ["In", "Left", "Right", "f"],
+    inputs: ["In", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Out"],
     parameters: [
       {
         choices: nodeGraphLadderFilterModes,
@@ -8365,11 +8365,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
     inputLabels: { In: "Mono", f: "ƒ" },
-    inputs: ["In", "Left", "Right", "f"],
+    inputs: ["In", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Out"],
     parameters: [
       {
         choices: nodeGraphTb303FilterModes,
@@ -9645,10 +9645,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["In"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    outputs: ["Out"],
     parameters: [
       {
         defaultValue: "20000",
