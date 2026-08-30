@@ -161,6 +161,16 @@ extern "C" void soemdsp_slew_limiter_process_block(
 extern "C" int soemdsp_slew_limiter_block_input_ptr(int handle);
 extern "C" int soemdsp_slew_limiter_block_output_ptr(int handle);
 
+extern "C" int soemdsp_comparator_create();
+extern "C" void soemdsp_comparator_destroy(int handle);
+extern "C" double soemdsp_comparator_sample(int handle, double signalIn);
+extern "C" double soemdsp_comparator_up(int handle);
+extern "C" double soemdsp_comparator_down(int handle);
+extern "C" double soemdsp_comparator_change(int handle);
+extern "C" double soemdsp_comparator_steady(int handle);
+extern "C" double soemdsp_comparator_sign(int handle);
+extern "C" double soemdsp_comparator_thru(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -208,6 +218,7 @@ static const int kTypeNoiseGenerator = 14;
 static const int kTypeRobinSinusoid = 15;
 static const int kTypeRobinSupersaw = 16;
 static const int kTypeSlewLimiter = 17;
+static const int kTypeComparator = 18;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -219,6 +230,13 @@ static const int kPortTri = 6;
 static const int kPortSine = 7;
 static const int kPortDryL = 3; // reverb Dry L (shares Saw index)
 static const int kPortDryR = 4; // reverb Dry R (shares Ramp index)
+// Comparator named outs reuse tap slots (module-local meaning, like Dry L/R):
+static const int kPortCmpThru = 0;    // Thru
+static const int kPortCmpUp = 3;      // Up
+static const int kPortCmpDown = 4;    // Down
+static const int kPortCmpChange = 5;  // Change
+static const int kPortCmpSteady = 6;  // Steady
+static const int kPortCmpSign = 7;    // Sign
 // Live SIGNAL IN ports — not audio output channels (not stored in Node.buf).
 static const int kPortF = 16;          // absolute Hz (ƒ)
 static const int kPortPitchCv = 17;    // 0.1V/Oct
@@ -440,6 +458,8 @@ static void destroy_node_native(Node& n) {
     soemdsp_robin_supersaw_destroy(n.nativeHandle);
   } else if (kind == kTypeSlewLimiter) {
     soemdsp_slew_limiter_destroy(n.nativeHandle);
+  } else if (kind == kTypeComparator) {
+    soemdsp_comparator_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -931,6 +951,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeRobinSinusoid) return soemdsp_robin_sinusoid_create();
   if (typeId == kTypeRobinSupersaw) return soemdsp_robin_supersaw_create();
   if (typeId == kTypeSlewLimiter) return soemdsp_slew_limiter_create();
+  if (typeId == kTypeComparator) return soemdsp_comparator_create();
   return 0;
 }
 
@@ -1518,6 +1539,23 @@ static void process_b2u(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Mono edge detector: fold Mono+L+R → sample → named outs on tap slots.
+// Native is mono-per-handle; Thru on Mono, Up/Down/Change/Steady/Sign on 3–7.
+static void process_comparator(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  for (int f = 0; f < frames; f++) {
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    soemdsp_comparator_sample(node.nativeHandle, in);
+    node.buf[kPortCmpThru][f] = soemdsp_comparator_thru(node.nativeHandle);
+    node.buf[kPortCmpUp][f] = soemdsp_comparator_up(node.nativeHandle);
+    node.buf[kPortCmpDown][f] = soemdsp_comparator_down(node.nativeHandle);
+    node.buf[kPortCmpChange][f] = soemdsp_comparator_change(node.nativeHandle);
+    node.buf[kPortCmpSteady][f] = soemdsp_comparator_steady(node.nativeHandle);
+    node.buf[kPortCmpSign][f] = soemdsp_comparator_sign(node.nativeHandle);
+  }
+}
+
 // Mono utility: fold Mono+L+R → one slew channel → fan Out to Mono/Left/Right.
 // Native is mono-per-handle (same as original); do not invent stereo inside C++.
 static void process_slew_limiter(Circuit& g, Node& node, int frames) {
@@ -1831,7 +1869,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeNoiseGenerator
     || typeId == kTypeRobinSinusoid
     || typeId == kTypeRobinSupersaw
-    || typeId == kTypeSlewLimiter;
+    || typeId == kTypeSlewLimiter
+    || typeId == kTypeComparator;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -2120,6 +2159,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_slew_limiter(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeComparator) {
+      process_comparator(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeLadderFilter) {
       process_ladder(*g, node, frames);
       continue;
@@ -2201,5 +2244,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 22; // slewLimiter mono process_block + shape/bias (not forced stereo)
+  return 23; // comparator (mono edge detector, named outs on tap slots)
 }

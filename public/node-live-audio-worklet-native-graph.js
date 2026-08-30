@@ -22,6 +22,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   robinSinusoid: 15,
   robinSupersaw: 16,
   slewLimiter: 17,
+  comparator: 18,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -129,6 +130,13 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (p === "square") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE;
   if (p === "tri" || p === "triangle") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI;
   if (p === "sine" || p === "sin") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE;
+  // Comparator named outs (reuse tap slots; see graph_engine kPortCmp*).
+  if (p === "thru") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  if (p === "up") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+  if (p === "down") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+  if (p === "change") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE;
+  if (p === "steady") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI;
+  if (p === "sign") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE;
   // Mono / Out / In / Wave Out / Noise / Frequency (MIDI out) / empty → mono bus
   return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
 };
@@ -653,6 +661,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("bias", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("bias", 0));
       continue;
     }
+    // comparator: no Control params
     if (type === "range") {
       push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", -1));
       push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
@@ -826,17 +835,26 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
   }
   if (portId === P.NATIVE_GRAPH_PORT_MONO) {
     if (type === "polyBlep") return ["Out", "Wave Out", "Noise"];
+    if (type === "comparator") return ["Thru"];
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_SAW) {
+    if (type === "comparator") return ["Up"];
     return type === "reverbEffect" ? ["Dry L"] : type === "pingPongDelay" ? ["Mod L", "Saw"] : ["Saw"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RAMP) {
+    if (type === "comparator") return ["Down"];
     return type === "reverbEffect" ? ["Dry R"] : type === "pingPongDelay" ? ["Mod R", "Ramp"] : ["Ramp"];
   }
-  if (portId === P.NATIVE_GRAPH_PORT_SQUARE) return ["Square"];
-  if (portId === P.NATIVE_GRAPH_PORT_TRI) return ["Tri"];
-  if (portId === P.NATIVE_GRAPH_PORT_SINE) return ["Sine"];
+  if (portId === P.NATIVE_GRAPH_PORT_SQUARE) {
+    return type === "comparator" ? ["Change"] : ["Square"];
+  }
+  if (portId === P.NATIVE_GRAPH_PORT_TRI) {
+    return type === "comparator" ? ["Steady"] : ["Tri"];
+  }
+  if (portId === P.NATIVE_GRAPH_PORT_SINE) {
+    return type === "comparator" ? ["Sign"] : ["Sine"];
+  }
   return [];
 };
 

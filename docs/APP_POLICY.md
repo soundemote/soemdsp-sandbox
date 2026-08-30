@@ -51,6 +51,7 @@ Only these live-audio types exist in the efficient build:
 | `bias` | DC offset (`in + offset`) |
 | `gain` | Master/L/R dB + mono-sum + offset |
 | `slewLimiter` | Rise/fall rate limiter |
+| `comparator` | Edge detector (Up/Down/Change/Steady/Sign/Thru) |
 | `output` | Sink |
 
 Canonical circuit:
@@ -58,7 +59,7 @@ Canonical circuit:
 ```text
 polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
 (+ robinSinusoid / robinSupersaw / noiseGenerator;
-   attenuverter / range / inv / u2b / b2u / bias / gain / slewLimiter as utilities)
+   attenuverter / range / inv / u2b / b2u / bias / gain / slewLimiter / comparator as utilities)
 ```
 
 **Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` may remain. `audioInput` is **not** on the allowlist unless a demo explicitly needs it (strip with other DSP for now).
