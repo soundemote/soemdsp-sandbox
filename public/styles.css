@@ -23191,15 +23191,6 @@ button[data-transport-action="stop"]:disabled {
   appearance: textfield;
   -moz-appearance: textfield;
   text-align: center;
-  /* Read-only until double-clicked -- see bindNodeGraphRenderRangeDoubleClick
-     in node-graph-render-settings.js, which adds .editing. */
-  cursor: var(--node-dot-cursor);
-  user-select: none;
-  caret-color: transparent;
-  pointer-events: none;
-}
-
-.node-render-duration-control .node-header-render-range-field.editing input {
   cursor: text;
   user-select: auto;
   caret-color: auto;

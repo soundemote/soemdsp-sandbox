@@ -75,6 +75,10 @@ function handleNodeGraphRenderRangeInput(event) {
   event?.stopPropagation?.();
 }
 
+/**
+ * Start/End render range fields: always clickable/typeable (no dblclick gate).
+ * Select-all on focus so a click replaces the value quickly; Enter commits.
+ */
 function bindNodeGraphRenderRangeDoubleClick() {
   for (const field of document.querySelectorAll(".node-header-render-range-field")) {
     if (field.dataset.dblClickBound) continue;
@@ -83,18 +87,26 @@ function bindNodeGraphRenderRangeDoubleClick() {
     const input = field.querySelector("input");
     if (!input) continue;
 
-    field.addEventListener("dblclick", () => {
-      field.classList.add("editing");
-      input.focus();
-      input.select();
-    });
+    // Drop legacy editing class if present from older CSS.
+    field.classList.remove("editing");
 
-    const finish = () => {
-      field.classList.remove("editing");
-    };
-    input.addEventListener("blur", finish);
+    input.addEventListener("focus", () => {
+      // Defer so the browser finishes focusing before select().
+      window.requestAnimationFrame(() => {
+        try {
+          input.select();
+        } catch (_error) {
+          // ignore
+        }
+      });
+    });
+    input.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { input.blur(); }
+      if (e.key === "Enter") {
+        input.blur();
+      }
       e.stopPropagation();
     });
   }
