@@ -69,6 +69,9 @@ const nodeGraphRetiredNodeTypes = new Set([
   "moduleHome",
   "moduleShop",
   "scriptBox",
+  // Replaced by Magenta Graph chain: Additive Generator → Effect → Out.
+  "additiveOsc",
+  "gpuAdditiveOsc",
 ]);
 
 /**

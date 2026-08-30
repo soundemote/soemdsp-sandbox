@@ -127,7 +127,7 @@ function nodeGraphModuleScopeIsOscillatorType(type) {
 }
 
 function nodeGraphModuleScopeIsAdditiveType(type) {
-  return type === "additiveOsc" || type === "gpuAdditiveOsc";
+  return type === "additiveOut" || type === "additiveGenerator";
 }
 
 function nodeGraphDefaultModuleScopeMonitors(patch = nodeGraphMvp?.patch) {

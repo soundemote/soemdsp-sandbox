@@ -409,33 +409,22 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "RobinSinusoid",
     notes: ["RS-MET", "rosic", "recursive sine", "self-oscillating", "sinusoid"],
   },
-  additiveOsc: {
-    category: "additive",
-    description: "Build timbres from harmonics—use for organ-ish, bell-ish, or carefully voiced spectra.",
-    label: "Additive Osc",
-    notes: ["additive synthesis", "harmonics", "native"],
-  },
-  gpuAdditiveOsc: {
-    category: "additive",
-    description: "GPU additive voice when you want heavy harmonic stacks without maxing the audio thread.",
-    label: "GPU Additive",
-    notes: ["additive synthesis", "gpu"],
-  },
+  // additiveOsc / gpuAdditiveOsc retired — Magenta Graph chain replaces them.
   additiveGenerator: {
     category: "additive",
-    description: "Magenta Graph source: Waveform + Morph + Harmonics. Patch Graph → Effect → Additive Out. v1: Render Sample + ?product=full Live (native Graph bus next).",
+    description: "Waveform + Morph + Harmonics → Magenta Graph. Patch to Additive Effect and/or Additive Out.",
     label: "Additive Generator",
-    notes: ["additive", "magenta graph", "harmonics"],
+    notes: ["additive", "magenta graph", "harmonics", "morph"],
   },
   additiveEffect: {
     category: "additive",
-    description: "Magenta Graph processor: LinearFilter, AnalogFilter, Growl, Noisy. v1: full product / offline.",
+    description: "Magenta Graph processor: LinearFilter, AnalogFilter, Growl, Noisy (CheapWalk).",
     label: "Additive Effect",
     notes: ["additive", "magenta graph", "filter", "growl"],
   },
   additiveOut: {
     category: "additive",
-    description: "Renders Magenta Graph to audio. Frequency / Phase / Amplitude. Silent without Graph. v1: full product / offline.",
+    description: "Renders Magenta Graph to audio. Frequency, Phase, Amplitude + harmonic lines face. Silent without Graph.",
     label: "Additive Out",
     notes: ["additive", "magenta graph", "harmonic lines"],
   },
@@ -2411,10 +2400,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   activeFilter: {
     source: "public/modules/activeFilter/active-filter-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/activeFilter/active-filter-math.js",
-  },
-  additiveOsc: {
-    source: "public/modules/additiveOsc/additive-osc-worklet-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveOsc/additive-osc-worklet-evaluator.js",
   },
   additiveGenerator: {
     source: "public/modules/additiveGenerator/additive-generator-worklet-evaluator.js",
