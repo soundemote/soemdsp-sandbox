@@ -98,6 +98,7 @@ const nodeGraphModuleCatalogShelfIdSet = Object.freeze(new Set(nodeGraphModuleCa
 const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "canvas",
   "humanFilter",
+  "chaoticPhaseLockingFilter",
   "oscilloscopeBank",
   "shootingStarTail",
   "wallDelay",
