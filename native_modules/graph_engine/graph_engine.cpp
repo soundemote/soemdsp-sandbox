@@ -1138,6 +1138,7 @@ static const int kPortReset = 19;      // reset gate
 static const int kPortTrigger = 20;    // sampleHold Trigger (not an audio bus)
 // mixStereo R4 (9th input); L1..L4/R1..R3 use audio buses 1..7, Mono=0.
 static const int kPortMixStereoR4 = 21;
+static const int kPortMorph = 22; // block-rate ZOH morph CV (turquoise)
 // Numbered multi-in aliases (minMax / mix): In1..In4 → buses 0..3.
 static const int kPortIn1 = 0;
 static const int kPortIn2 = 1;
@@ -1344,6 +1345,7 @@ struct Circuit {
   double mixIncrement[kMaxBlockFrames];
   double mixReset[kMaxBlockFrames];
   double mixTrigger[kMaxBlockFrames];
+  double mixMorph[kMaxBlockFrames];
 };
 
 static Circuit gPool[kMaxInstances];
@@ -2616,7 +2618,8 @@ static bool is_live_dst_port(int port) {
     || port == kPortIncrement
     || port == kPortReset
     || port == kPortTrigger
-    || port == kPortMixStereoR4;
+    || port == kPortMixStereoR4
+    || port == kPortMorph;
 }
 
 static int clamp_src_port(int port) {
@@ -3571,6 +3574,9 @@ static void process_archimedes(Circuit& g, Node& node, int frames) {
 
 // Additive Osc: free-fn. Host phase in radians. stages=harmonics, shape=morph,
 // center=harmonicPhaseAdd, width=harmonicPhaseMultiply, lpf=dampingFilterFrequency.
+// Proving ground for block-rate ZOH: Morph / waveform / harmonics / damping /
+// amplitude / phase-add/mul are sampled once per quantum (smoothers may still
+// advance every sample; we hold the values used for the expensive path).
 static void process_additive_osc(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   const double srD = (double)sr;
@@ -3578,13 +3584,32 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const bool controlSmoothing = node_control_smoothing(node);
   const double referenceVoltage = 48.0 / 120.0;
 
   double phase = wrap_phase_pi(node.phase + node.phaseParam.out * kTwoPi);
   if (!liveReset) node.lastReset = 0.0;
+
+  // ZOH capture after first smoother step so knob chase still moves over time.
+  if (controlSmoothing) smoother_step_node(g, node);
+  const double heldHarmonics = node.stages.out;
+  const double heldWaveform = node.waveform.out;
+  // Morph CV (turquoise): one sample per quantum, zero-order held.
+  double heldMorph = node.shape.out;
+  if (liveMorph) {
+    heldMorph = g.mixMorph[0];
+    if (!(heldMorph == heldMorph)) heldMorph = node.shape.out;
+    if (heldMorph < 0.0) heldMorph = 0.0;
+    if (heldMorph > 1.0) heldMorph = 1.0;
+  }
+  const double heldPhaseAdd = node.center.out;
+  const double heldPhaseMul = node.width.out;
+  const double heldAmp = node.amplitude.out;
+  const double heldDamp = node.lpfFrequency.out;
+
   for (int f = 0; f < frames; f++) {
-    if (controlSmoothing) smoother_step_node(g, node);
+    if (f > 0 && controlSmoothing) smoother_step_node(g, node);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -3610,13 +3635,13 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
     const double y = soemdsp_additive_osc_sample(
       phase,
       freq,
-      node.stages.out,
-      node.waveform.out,
-      node.shape.out,
-      node.center.out,
-      node.width.out,
-      node.amplitude.out,
-      node.lpfFrequency.out,
+      heldHarmonics,
+      heldWaveform,
+      heldMorph,
+      heldPhaseAdd,
+      heldPhaseMul,
+      heldAmp,
+      heldDamp,
       srD
     );
     node.buf[kPortMono][f] = y;
@@ -6925,5 +6950,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 55; // filter Amplitude Control applied on musical filters
+  return 56; // additiveOsc block-rate ZOH for Morph/tables (turquoise contract)
 }

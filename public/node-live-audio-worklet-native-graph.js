@@ -190,6 +190,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_INCREMENT = 18;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RESET = 19;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER = 20;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MIX_STEREO_R4 = 21;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MORPH = 22; // block-rate ZOH (turquoise)
 
 NodeLiveAudioProcessor.prototype.fnv1aHash32 = function fnv1aHash32(text) {
   let hash = 2166136261 >>> 0;
@@ -485,6 +486,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   }
   if (p === "trigger" || p === "trig" || (p === "latch" && type === "chordMemory")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
+  }
+  if (p === "morph") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MORPH;
   }
   if (p === "clock") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;

@@ -140,6 +140,11 @@ function nodeGraphJackChannelCssColor(channel) {
       ? nodeGraphCssColor("--node-jack-purple", "#c44dff")
       : "#c44dff";
   }
+  if (channel === "turquoise") {
+    return typeof nodeGraphCssColor === "function"
+      ? nodeGraphCssColor("--node-jack-turquoise", "#2ec4b6")
+      : "#2ec4b6";
+  }
   return "";
 }
 
@@ -270,8 +275,8 @@ function nodeGraphJackStereoChannel(value) {
 }
 
 /**
- * "" | "red" | "green" | "blue" | "purple"
- * Digital ports have no channel.
+ * "" | "red" | "green" | "blue" | "purple" | "turquoise"
+ * Digital ports have no channel. Block-rate / ZOH ports are turquoise.
  */
 function nodeGraphJackChannel(type, port, io = "output") {
   const key = String(port || "");
@@ -280,6 +285,9 @@ function nodeGraphJackChannel(type, port, io = "output") {
   }
   if (nodeGraphJackSignalKind(type, key, io) === "digital") {
     return "";
+  }
+  if (typeof nodeGraphPortIsBlockRateSignal === "function" && nodeGraphPortIsBlockRateSignal(type, key, io)) {
+    return "turquoise";
   }
   const fromRgb = nodeGraphJackRgbLetterChannel(type, key);
   if (fromRgb) {

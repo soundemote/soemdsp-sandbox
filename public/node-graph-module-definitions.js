@@ -1365,10 +1365,12 @@ const nodeGraphModuleDefinitions = (
   additiveOsc: {
     planRole: "source",
     graphInputs: ["Damping Graph", "Phase Graph"],
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f", "Morph"],
     inputLabels: {"0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ"},
+    // Morph CV: once per quantum, zero-order hold (turquoise jack).
+    blockRateInputs: ["Morph"],
     outputs: ["Out"],
     parameters: [
       {
@@ -1438,10 +1440,11 @@ const nodeGraphModuleDefinitions = (
   gpuAdditiveOsc: {
     planRole: "source",
     graphInputs: ["Damping Graph", "Phase Graph"],
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f", "Morph"],
     inputLabels: {"0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ"},
+    blockRateInputs: ["Morph"],
     outputs: ["Out"],
     parameters: [
       {

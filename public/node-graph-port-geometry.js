@@ -376,6 +376,30 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
   return false;
 }
 
+/**
+ * Block-rate / zero-order-hold ports (turquoise). One value per quantum;
+ * module holds it for the block. Listed in blockRateInputs / blockRateOutputs.
+ * Parameter smoothers may still emit sample packs into Controls; these jacks
+ * do not.
+ */
+function nodeGraphPortIsBlockRateSignal(typeOrNode, port, io = null) {
+  const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
+    ? typeOrNode
+    : nodeGraphPatchNodeType(typeOrNode);
+  const definition = nodeGraphModuleDefinitions[type];
+  if (!definition || !port) {
+    return false;
+  }
+  const name = String(port || "").trim();
+  if (io !== "output" && Array.isArray(definition.blockRateInputs) && definition.blockRateInputs.includes(name)) {
+    return true;
+  }
+  if (io !== "input" && Array.isArray(definition.blockRateOutputs) && definition.blockRateOutputs.includes(name)) {
+    return true;
+  }
+  return false;
+}
+
 function nodeGraphPortWireColor(node, port, io) {
   const canonicalPort = nodeGraphCanonicalPortForNode(node, port, io);
   const type = nodeGraphPatchNodeType(node);
@@ -384,6 +408,15 @@ function nodeGraphPortWireColor(node, port, io) {
   // port tap color, and nodeGraphPortIsDigitalSignal for what qualifies.
   if (nodeGraphPortIsDigitalSignal(type, canonicalPort, io)) {
     return "#ffffff";
+  }
+  // Block-rate / ZOH (turquoise) before generic follow-port colors.
+  if (typeof nodeGraphPortIsBlockRateSignal === "function"
+    && nodeGraphPortIsBlockRateSignal(type, canonicalPort, io)
+    && typeof nodeGraphJackChannelCssColor === "function") {
+    const zoh = nodeGraphJackChannelCssColor("turquoise");
+    if (zoh) {
+      return zoh;
+    }
   }
   // UIDEV "wires follow port colors": RGB / stereo / chaos / quad jacks
   // paint that end of the cable. Dual-color gradient still matches both ends.

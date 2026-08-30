@@ -344,6 +344,24 @@ Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled
 - Channel chrome on **inlets and outlets** the same way (In purple left = Out purple right). Uncolored analog stays gold. Cables follow jack colors when UIDEV **wires follow port colors** is on (default). Dual-color gradient still matches both ends. Digital stays white. Off = gold analog / white digital.
 - Full write-up: [MODULE_LAYOUT_PLAN.md](./MODULE_LAYOUT_PLAN.md) §11.
 
+### Block-rate / zero-order-hold ports (turquoise)
+
+Hungry modules (additive series proving ground first) may take **control** jacks that update **once per audio quantum** and **hold** that value for the block (ZOH). Those jacks are **turquoise** on both inlet and outlet sides.
+
+| Kind | Color | Rate |
+|------|--------|------|
+| Digital (ƒ reports, Scale, …) | White | Event / value |
+| Block-rate ZOH (Morph CV, …) | **Turquoise** | **1 sample per quantum, held** |
+| Audio / sample-accurate CV | Gold / RGB / purple… | Every sample |
+
+**Smoothers vs turquoise jacks**
+
+- **Parameter smoothers** are allowed to emit a **sample pack** (Control chase can advance every sample into `Control.out`).
+- **Turquoise inlets** do **not**: the module reads the wired signal **once per block** (and/or reads the Control once per block) and **zero-order-holds** it.
+- Additive Morph / waveform / harmonic-count style knobs follow that ZOH read even when only the slider is used — expensive table work stays block-rate.
+
+List turquoise ports on the definition as `blockRateInputs` / `blockRateOutputs` (same pattern as `digitalInputs` / `digitalOutputs`).
+
 ---
 
 ## 14. Resize widgets: hover only
