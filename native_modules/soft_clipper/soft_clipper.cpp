@@ -46,7 +46,6 @@ struct State {
 
 static State gPool[kMaxInstances];
 
-static double tanh_approx(double value);
 static void coeffs(double center, double width, double* scaleX, double* shiftX, double* scaleY, double* shiftY);
 
 static void sync_clip_coeffs(State& s, double center, double width) {
@@ -94,19 +93,6 @@ static const char kMetadataJson[] =
       "}"
     "]"
   "}";
-
-static double tanh_approx(double value) {
-  const double x = value;
-  const double x2 = x * x;
-  const double denominator = 27.0 + 9.0 * x2;
-  return (denominator <= 0.0) ? 0.0 : (x * (27.0 + x2)) / denominator;
-}
-
-// ∫ tanh_approx = x²/18 + (4/3) ln(x²+3)
-static double tanh_antideriv(double value) {
-  const double x = value;
-  return (x * x) / 18.0 + (4.0 / 3.0) * dsp_ln(x * x + 3.0);
-}
 
 static double shaped(double input, double center, double width) {
   const double safeWidth = dsp_fabs(width) > 1.0e-6 ? dsp_fabs(width) : 2.0;

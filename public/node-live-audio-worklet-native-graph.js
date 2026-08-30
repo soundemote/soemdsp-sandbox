@@ -43,6 +43,10 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   stepSequencer: 36,
   transport: 37,
   aliasSine: 38,
+  blit: 39,
+  sineWavetable: 40,
+  antisaw: 41,
+  archimedes: 42,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -168,7 +172,21 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (p === "ramp" || p === "mod r") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
   if (p === "square") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE;
   if (p === "tri" || p === "triangle") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI;
-  if (p === "sine" || p === "sin") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE;
+  if (p === "sine" || p === "sin") {
+    // Archimedes / sineWavetable primary → Mono; polyBlep/blit tap → Sine bus.
+    return (t === "archimedes" || t === "sineWavetable" || t === "sinCos")
+      ? NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO
+      : NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE;
+  }
+  if (t === "archimedes") {
+    if (p === "cosine" || p === "cos") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "pi") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+    if (p === "noise below") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+    if (p === "noise above") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+  }
+  if ((t === "sineWavetable" || t === "sinCos") && (p === "cos" || p === "cosine")) {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  }
   // Comparator named outs (reuse tap slots; see graph_engine kPortCmp*).
   if (p === "up") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
   if (p === "down") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
@@ -606,6 +624,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   lfoStyle: true,
   seed: true,
   monoSum: true,
+  reflections: true,
+  profile: true,
 });
 
 /**
@@ -790,6 +810,37 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       // frequency Control slot holds normFreq (0→sampleRate); amplitude = level.
       push("normFreq", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("normFreq", 0.1));
       push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
+      continue;
+    }
+    if (type === "blit") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      continue;
+    }
+    if (type === "sineWavetable") {
+      // freq/amp/phase keys match module defs; mode → A/B/C/D layout from sin/cos.
+      push("freq", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("freq", 100));
+      push("amp", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amp", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 2));
+      continue;
+    }
+    if (type === "antisaw") {
+      // stages = reflections, shape = tilt, amplitude → native level.
+      push("fundamental", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("fundamental", 110));
+      push("reflections", P.NATIVE_GRAPH_PARAM_STAGES, disc("reflections", 64));
+      push("tilt", P.NATIVE_GRAPH_PARAM_SHAPE, cont("tilt", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "archimedes") {
+      // stages = profile dtShift, width = dither bits.
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("profile", P.NATIVE_GRAPH_PARAM_STAGES, disc("profile", 12));
+      push("dither", P.NATIVE_GRAPH_PARAM_WIDTH, cont("dither", 3));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "robinSupersaw") {
@@ -1111,7 +1162,9 @@ NodeLiveAudioProcessor.prototype.bindNativeGraphBlockViews = function bindNative
 NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPortNames(type, portId) {
   const P = NodeLiveAudioProcessor;
   if (portId === P.NATIVE_GRAPH_PORT_MONO) {
-    if (type === "polyBlep") return ["Out", "Wave Out", "Noise"];
+    if (type === "polyBlep" || type === "blit") return ["Out", "Wave Out", "Noise"];
+    if (type === "sineWavetable") return ["A", "Out", "sin", "Sin"];
+    if (type === "archimedes") return ["Sine", "Out"];
     if (type === "comparator") return ["Thru"];
     if (type === "sampleDelay") return ["Delayed", "Out", "Mono"];
     if (type === "minMax") return ["Max"];
@@ -1128,6 +1181,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
+    if (type === "sineWavetable") return ["B", "cos", "Cos"];
+    if (type === "archimedes") return ["Cosine"];
     if (type === "minMax") return ["Min"];
     if (type === "mix") return ["Out2"];
     if (type === "midSideEncode") return ["Side"];
@@ -1145,6 +1200,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Left"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RIGHT) {
+    if (type === "sineWavetable") return ["C"];
+    if (type === "archimedes") return ["Pi"];
     if (type === "mix") return ["Out3"];
     if (type === "clock") return ["T", "Pulse", "Trigger"];
     if (type === "transport") return ["Trigger"];
@@ -1155,6 +1212,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Right"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_SAW) {
+    if (type === "sineWavetable") return ["D"];
+    if (type === "archimedes") return ["Noise Below"];
     if (type === "comparator") return ["Up"];
     if (type === "sampleDelay") return ["Thru"];
     if (type === "mix") return ["Out4"];
@@ -1164,6 +1223,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return type === "reverbEffect" ? ["Dry L"] : type === "pingPongDelay" ? ["Mod L", "Saw"] : ["Saw"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RAMP) {
+    if (type === "archimedes") return ["Noise Above"];
     if (type === "comparator") return ["Down"];
     if (type === "mixStereo") return ["R2"];
     return type === "reverbEffect" ? ["Dry R"] : type === "pingPongDelay" ? ["Mod R", "Ramp"] : ["Ramp"];

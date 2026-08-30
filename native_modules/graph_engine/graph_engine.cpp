@@ -306,6 +306,46 @@ extern "C" double soemdsp_alias_sine_sample(
   int handle, double normFreq, double level, double sampleRate
 );
 
+extern "C" int soemdsp_blit_create();
+extern "C" void soemdsp_blit_destroy(int handle);
+extern "C" void soemdsp_blit_reset(int handle);
+extern "C" void soemdsp_blit_sample(
+  int handle, double phase, double phaseIncrement, int waveform, double level
+);
+extern "C" double soemdsp_blit_out(int handle);
+extern "C" double soemdsp_blit_saw(int handle);
+extern "C" double soemdsp_blit_ramp(int handle);
+extern "C" double soemdsp_blit_square(int handle);
+extern "C" double soemdsp_blit_tri(int handle);
+extern "C" double soemdsp_blit_sine(int handle);
+
+extern "C" int soemdsp_sine_wavetable_create();
+extern "C" void soemdsp_sine_wavetable_destroy(int handle);
+extern "C" void soemdsp_sine_wavetable_sample(
+  int handle, double phaseOffsetRadians, double frequency, double amplitude, double sampleRate
+);
+extern "C" double soemdsp_sine_wavetable_sin(int handle);
+extern "C" double soemdsp_sine_wavetable_cos(int handle);
+
+extern "C" int soemdsp_antisaw_create();
+extern "C" void soemdsp_antisaw_destroy(int handle);
+extern "C" double soemdsp_antisaw_sample(
+  int handle, double fundamental, double reflections, double tilt, double level, double sampleRate
+);
+
+extern "C" int soemdsp_archimedes_create();
+extern "C" void soemdsp_archimedes_destroy(int handle);
+extern "C" void soemdsp_archimedes_reset(int handle);
+extern "C" void soemdsp_archimedes_reset_counters(int handle);
+extern "C" void soemdsp_archimedes_set_profile(int handle, int dtShift);
+extern "C" void soemdsp_archimedes_set_frequency(int handle, int freqHz);
+extern "C" double soemdsp_archimedes_step(int handle, int ditherBits);
+extern "C" double soemdsp_archimedes_sine(int handle);
+extern "C" double soemdsp_archimedes_cosine(int handle);
+extern "C" double soemdsp_archimedes_extract_pi(int handle);
+extern "C" double soemdsp_archimedes_noise_below(int handle);
+extern "C" double soemdsp_archimedes_noise_above(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -374,6 +414,10 @@ static const int kTypeLookaheadLimiter = 35;
 static const int kTypeStepSequencer = 36;
 static const int kTypeTransport = 37;
 static const int kTypeAliasSine = 38;
+static const int kTypeBlit = 39;
+static const int kTypeSineWavetable = 40;
+static const int kTypeAntisaw = 41;
+static const int kTypeArchimedes = 42;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -680,6 +724,14 @@ static void destroy_node_native(Node& n) {
     soemdsp_transport_destroy(n.nativeHandle);
   } else if (kind == kTypeAliasSine) {
     soemdsp_alias_sine_destroy(n.nativeHandle);
+  } else if (kind == kTypeBlit) {
+    soemdsp_blit_destroy(n.nativeHandle);
+  } else if (kind == kTypeSineWavetable) {
+    soemdsp_sine_wavetable_destroy(n.nativeHandle);
+  } else if (kind == kTypeAntisaw) {
+    soemdsp_antisaw_destroy(n.nativeHandle);
+  } else if (kind == kTypeArchimedes) {
+    soemdsp_archimedes_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -737,6 +789,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSampleHold) ? 0.0
       : (typeId == kTypeClock) ? 2.0
       : (typeId == kTypeAliasSine) ? 0.1 // normFreq (0→sr)
+      : (typeId == kTypeBlit || typeId == kTypeSineWavetable || typeId == kTypeArchimedes) ? 100.0
+      : (typeId == kTypeAntisaw) ? 110.0
       : 220.0,
     false
   );
@@ -744,7 +798,9 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.amplitude, (typeId == kTypeAttenuverter) ? 0.5 : 1.0, false);
   init_control(
     n.shape,
-    (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter) ? 0.0 : 0.5,
+    (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter || typeId == kTypeAntisaw)
+      ? 0.0
+      : 0.5,
     (typeId == kTypeSlewLimiter) // discrete Lin/Log/Exp/Smooth
   );
   init_control(n.phaseParam, 0.0, false);
@@ -753,29 +809,34 @@ static void init_node_defaults(Node& n, int typeId) {
     n.mode,
     (typeId == kTypeNoiseGenerator) ? 0.0
       : (typeId == kTypeLookaheadLimiter) ? 1.0 // look-ahead On
+      : (typeId == kTypeSineWavetable) ? 2.0 // sincos
       : 1.0,
     true
   );
   // Ladder stages default 4; robinSupersaw = voices; triggerDivider = division;
-  // triggerCounter/stepSequencer = counts; transport = divisions (can be ≤0).
+  // triggerCounter/stepSequencer = counts; transport = divisions (can be ≤0);
+  // antisaw = reflections; archimedes = profile dtShift.
   init_control(
     n.stages,
     (typeId == kTypeRobinSupersaw) ? 7.0
       : (typeId == kTypeTriggerDivider) ? 2.0
       : (typeId == kTypeTriggerCounter || typeId == kTypeStepSequencer) ? 8.0
       : (typeId == kTypeTransport) ? 0.0
+      : (typeId == kTypeAntisaw) ? 64.0
+      : (typeId == kTypeArchimedes) ? 12.0
       : 4.0,
     true
   );
   init_control(n.center, 0.0, false);
   // Soft-clipper width default 2; noise = deviation; supersaw = detune;
-  // triggerCounter = increment.
+  // triggerCounter = increment; archimedes = dither bits.
   init_control(
     n.width,
     (typeId == kTypeNoiseGenerator) ? 0.5
       : (typeId == kTypeRobinSupersaw) ? 30.0
       : (typeId == kTypeTriggerCounter) ? 1.0
       : (typeId == kTypeMetallicRatio) ? 1.0 // index n
+      : (typeId == kTypeArchimedes) ? 3.0
       : 2.0,
     false
   );
@@ -1291,6 +1352,10 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeStepSequencer) return soemdsp_step_sequencer_create();
   if (typeId == kTypeTransport) return soemdsp_transport_create();
   if (typeId == kTypeAliasSine) return soemdsp_alias_sine_create();
+  if (typeId == kTypeBlit) return soemdsp_blit_create();
+  if (typeId == kTypeSineWavetable) return soemdsp_sine_wavetable_create();
+  if (typeId == kTypeAntisaw) return soemdsp_antisaw_create();
+  if (typeId == kTypeArchimedes) return soemdsp_archimedes_create();
   return 0;
 }
 
@@ -2052,6 +2117,206 @@ static void process_alias_sine(Circuit& g, Node& node, int frames) {
   }
 }
 
+// BLIT: host-owned phase (radians) like polyBlep sample path; taps match polyBlep.
+static void process_blit(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  const double srD = (double)sr;
+  const int mask = polyblep_tap_mask(g, node);
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool controlSmoothing = node_control_smoothing(node);
+  const double referenceVoltage = 48.0 / 120.0;
+
+  double phase = wrap_phase_pi(node.phase + node.phaseParam.out * kTwoPi);
+  if (!liveReset) node.lastReset = 0.0;
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double level = node.amplitude.out;
+    if (!(level == level)) level = 0.0;
+    const double phaseParamNow = node.phaseParam.out;
+    const double waveNow = node.waveform.out;
+    int waveform = (int)(waveNow + (waveNow >= 0.0 ? 0.5 : -0.5));
+    if (waveform < 0) waveform = 0;
+    if (waveform > 4) waveform = 4;
+
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        soemdsp_blit_reset(node.nativeHandle);
+        phase = phaseParamNow * kTwoPi;
+        node.phase = 0.0;
+      }
+      node.lastReset = rv;
+    }
+
+    double freq;
+    if (liveF) {
+      freq = g.mixF[f];
+    } else if (livePitch) {
+      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+    } else {
+      freq = node.frequency.out;
+    }
+    freq = clamp_hz_nyquist(freq, srD);
+    double phaseInc = freq / srD;
+    if (liveInc) phaseInc += g.mixIncrement[f];
+    if (phaseInc > 0.5) phaseInc = 0.5;
+    if (phaseInc < -0.5) phaseInc = -0.5;
+
+    soemdsp_blit_sample(node.nativeHandle, phase, phaseInc, waveform, level);
+    const double out = soemdsp_blit_out(node.nativeHandle);
+    if (mask & kTapOut) {
+      node.buf[kPortMono][f] = out;
+      node.buf[kPortLeft][f] = out;
+      node.buf[kPortRight][f] = out;
+    }
+    if (mask & kTapSaw) node.buf[kPortSaw][f] = soemdsp_blit_saw(node.nativeHandle);
+    if (mask & kTapRamp) node.buf[kPortRamp][f] = soemdsp_blit_ramp(node.nativeHandle);
+    if (mask & kTapSquare) node.buf[kPortSquare][f] = soemdsp_blit_square(node.nativeHandle);
+    if (mask & kTapTri) node.buf[kPortTri][f] = soemdsp_blit_tri(node.nativeHandle);
+    if (mask & kTapSine) node.buf[kPortSine][f] = soemdsp_blit_sine(node.nativeHandle);
+    phase = wrap_phase_pi(phase + kTwoPi * phaseInc);
+  }
+  node.phase = wrap_phase_pi(phase - node.phaseParam.out * kTwoPi);
+}
+
+// SinCos4 / sineWavetable: native sin/cos pair → A/B/C/D via mode.
+static void sin_cos4_from_pair(
+  double sn, double cn, int mode, double* a, double* b, double* c, double* d
+) {
+  const int m = mode < 0 ? 0 : (mode > 5 ? 5 : mode);
+  if (m == 0) {
+    *a = sn; *b = 0.0; *c = 0.0; *d = 0.0;
+  } else if (m == 1) {
+    *a = cn; *b = 0.0; *c = 0.0; *d = 0.0;
+  } else if (m == 2) {
+    *a = sn; *b = cn; *c = 0.0; *d = 0.0;
+  } else if (m == 3) {
+    *a = sn; *b = -sn; *c = 0.0; *d = 0.0;
+  } else if (m == 4) {
+    const double k = 0.8660254037844386; // √3/2
+    *a = sn;
+    *b = sn * -0.5 + cn * k;
+    *c = sn * -0.5 - cn * k;
+    *d = 0.0;
+  } else {
+    *a = sn; *b = cn; *c = -sn; *d = -cn;
+  }
+}
+
+static void process_sine_wavetable(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const double referenceVoltage = 48.0 / 120.0;
+  const double phaseOff = node.phaseParam.out * kTwoPi;
+  const double amp = node.amplitude.out;
+  const double modeV = node.mode.out;
+  int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+  if (mode < 0) mode = 0;
+  if (mode > 5) mode = 5;
+
+  for (int f = 0; f < frames; f++) {
+    double freq;
+    if (liveF) {
+      freq = g.mixF[f];
+    } else if (livePitch) {
+      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+    } else {
+      freq = node.frequency.out;
+    }
+    freq = clamp_hz_nyquist(freq, sr);
+    soemdsp_sine_wavetable_sample(node.nativeHandle, phaseOff, freq, amp, sr);
+    const double sn = soemdsp_sine_wavetable_sin(node.nativeHandle);
+    const double cn = soemdsp_sine_wavetable_cos(node.nativeHandle);
+    double a = 0.0, b = 0.0, c = 0.0, d = 0.0;
+    sin_cos4_from_pair(sn, cn, mode, &a, &b, &c, &d);
+    node.buf[kPortMono][f] = a;
+    node.buf[kPortLeft][f] = b;
+    node.buf[kPortRight][f] = c;
+    node.buf[kPortSaw][f] = d;
+  }
+}
+
+// Antisaw: aliased-partial saw → Mono/L/R. frequency=fundamental, stages=reflections,
+// shape=tilt, amplitude=level.
+static void process_antisaw(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const double reflections = node.stages.out;
+  const double tilt = node.shape.out;
+  const double level = node.amplitude.out;
+  for (int f = 0; f < frames; f++) {
+    const double fundamental = liveF ? g.mixF[f] : node.frequency.out;
+    const double y = soemdsp_antisaw_sample(
+      node.nativeHandle, fundamental, reflections, tilt, level, sr
+    );
+    node.buf[kPortMono][f] = y;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+  }
+}
+
+// Archimedes: stages=profile, width=dither, amplitude scales sine/cosine outs.
+// Sine→Mono, Cosine→Left, Pi→Right, Noise Below→Saw, Noise Above→Ramp.
+static void process_archimedes(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double referenceVoltage = 48.0 / 120.0;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+
+  double profileV = node.stages.out;
+  int profile = (int)(profileV + (profileV >= 0.0 ? 0.5 : -0.5));
+  if (profile < 4) profile = 4;
+  if (profile > 24) profile = 24;
+  double ditherV = node.width.out;
+  int dither = (int)(ditherV + (ditherV >= 0.0 ? 0.5 : -0.5));
+  if (dither < 0) dither = 0;
+  if (dither > 63) dither = 63;
+  const double amp = node.amplitude.out;
+
+  soemdsp_archimedes_set_profile(node.nativeHandle, profile);
+  if (!liveReset) node.lastReset = 0.0;
+
+  for (int f = 0; f < frames; f++) {
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        soemdsp_archimedes_reset(node.nativeHandle);
+        soemdsp_archimedes_reset_counters(node.nativeHandle);
+      }
+      node.lastReset = rv;
+    }
+    double freq;
+    if (liveF) {
+      freq = g.mixF[f];
+    } else if (livePitch) {
+      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+    } else {
+      freq = node.frequency.out;
+    }
+    freq = clamp_hz_nyquist(freq, sr);
+    int freqHz = (int)(freq + (freq >= 0.0 ? 0.5 : -0.5));
+    if (freqHz < 0) freqHz = -freqHz;
+    soemdsp_archimedes_set_frequency(node.nativeHandle, freqHz);
+    soemdsp_archimedes_step(node.nativeHandle, dither);
+    const double sn = soemdsp_archimedes_sine(node.nativeHandle) * amp;
+    const double cn = soemdsp_archimedes_cosine(node.nativeHandle) * amp;
+    node.buf[kPortMono][f] = sn;
+    node.buf[kPortLeft][f] = cn;
+    node.buf[kPortRight][f] = soemdsp_archimedes_extract_pi(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_archimedes_noise_below(node.nativeHandle);
+    node.buf[kPortRamp][f] = soemdsp_archimedes_noise_above(node.nativeHandle);
+  }
+}
+
 // Master Clock / transport: tempo square.
 // -1..1→Mono, 0..1→Left, Trigger→Right, f (Hz)→Saw.
 // Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
@@ -2663,6 +2928,10 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeMetallicRatio
     || node.typeId == kTypeTransport
     || node.typeId == kTypeAliasSine
+    || node.typeId == kTypeBlit
+    || node.typeId == kTypeSineWavetable
+    || node.typeId == kTypeAntisaw
+    || node.typeId == kTypeArchimedes
   ) {
     return; // sources: silence
   }
@@ -2780,7 +3049,11 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeLookaheadLimiter
     || typeId == kTypeStepSequencer
     || typeId == kTypeTransport
-    || typeId == kTypeAliasSine;
+    || typeId == kTypeAliasSine
+    || typeId == kTypeBlit
+    || typeId == kTypeSineWavetable
+    || typeId == kTypeAntisaw
+    || typeId == kTypeArchimedes;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -2795,6 +3068,11 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
       soemdsp_robin_sinusoid_reset(n.nativeHandle);
     } else if (typeId == kTypeRobinSupersaw) {
       soemdsp_robin_supersaw_reset(n.nativeHandle);
+    } else if (typeId == kTypeBlit) {
+      soemdsp_blit_reset(n.nativeHandle);
+    } else if (typeId == kTypeArchimedes) {
+      soemdsp_archimedes_reset(n.nativeHandle);
+      soemdsp_archimedes_reset_counters(n.nativeHandle);
     }
   }
 
@@ -3164,6 +3442,22 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_alias_sine(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeBlit) {
+      process_blit(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeSineWavetable) {
+      process_sine_wavetable(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAntisaw) {
+      process_antisaw(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeArchimedes) {
+      process_archimedes(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -3237,5 +3531,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 36; // aliasSine + maths phasor/dynamics/trigger
+  return 40; // blit + sineWavetable + antisaw + archimedes
 }

@@ -40,6 +40,10 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "stepSequencer",
   "transport",
   "aliasSine",
+  "blit",
+  "sineWavetable",
+  "antisaw",
+  "archimedes",
   "output",
 ]);
 

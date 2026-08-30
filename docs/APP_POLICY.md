@@ -72,6 +72,10 @@ Only these live-audio types exist in the efficient build:
 | `stepSequencer` | 8-step Trigger/Reset sequencer |
 | `transport` | Master Clock (−1..1 / 0..1 / Trigger / f Hz) |
 | `aliasSine` | Normalized-freq sine (aliases by design) |
+| `blit` | Band-limited impulse-train oscillator (Saw/Ramp/Square/Tri/Sine) |
+| `sineWavetable` | SinCos4 — native sin/cos → A/B/C/D by mode |
+| `antisaw` | Aliased-partial saw (fundamental / reflections / tilt) |
+| `archimedes` | Fixed-point quadrature sine + π / dither noise taps |
 | `output` | Sink |
 
 Canonical circuit:
@@ -84,7 +88,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    midSideEncode / vectorscopeTransform / rotate3dTo2d /
    clock / triggerDivider / delayedTrigger / randomClock / triggerCounter /
    metallicRatio / lutCell / lookaheadLimiter / stepSequencer / transport /
-   aliasSine
+   aliasSine / blit / sineWavetable / antisaw / archimedes
    as utilities)
 ```
 
