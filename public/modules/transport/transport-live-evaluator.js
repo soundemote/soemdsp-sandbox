@@ -28,5 +28,6 @@ nodeGraphLiveModuleEvaluators.transport = ({
     "-1..1": nodeGraphSafeFilterNumber(out["-1..1"], runtime, nodeId, null, "transport bipolar"),
     "0..1": nodeGraphSafeFilterNumber(out["0..1"], runtime, nodeId, null, "transport unipolar"),
     Trigger: nodeGraphSafeFilterNumber(out.Trigger, runtime, nodeId, null, "transport trigger"),
+    f: nodeGraphSafeFilterNumber(out.f, runtime, nodeId, null, "transport f"),
   };
 };

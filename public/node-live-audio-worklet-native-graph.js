@@ -41,6 +41,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   lutCell: 34,
   lookaheadLimiter: 35,
   stepSequencer: 36,
+  transport: 37,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -202,6 +203,13 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (p === "ratio") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   if (p === "gain" && t === "lookaheadLimiter") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+  }
+  // transport outs
+  if (t === "transport") {
+    if (p === "-1..1" || p === "-1…1") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "0..1" || p === "0…1") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "trigger") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+    if (p === "f") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
   }
   // mixStereo pair jacks (L1/R1 share Left/Right; L2–L4/R2–R3 on taps; R4 aux).
   if (t === "mixStereo") {
@@ -931,6 +939,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("step8", P.NATIVE_GRAPH_PARAM_LANE_BIAS4, cont("step8", 0.25));
       continue;
     }
+    if (type === "transport") {
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      push("divisions", P.NATIVE_GRAPH_PARAM_STAGES, disc("divisions", 0));
+      push("bpm", P.NATIVE_GRAPH_PARAM_TEMPO_BPM, cont("bpm", 120));
+      continue;
+    }
     if (type === "range") {
       push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", -1));
       push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
@@ -1103,6 +1117,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "metallicRatio") return ["Ratio"];
     if (type === "lutCell") return ["Out"];
     if (type === "stepSequencer") return ["Out"];
+    if (type === "transport") return ["-1..1"];
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
@@ -1115,6 +1130,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "triggerCounter") return ["Count"];
     if (type === "lutCell") return ["Q"];
     if (type === "stepSequencer") return ["Gate"];
+    if (type === "transport") return ["0..1"];
     if (type === "reverbEffect" || type === "pingPongDelay") {
       return ["Left", "Mix L", "Wet L"];
     }
@@ -1124,6 +1140,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
   if (portId === P.NATIVE_GRAPH_PORT_RIGHT) {
     if (type === "mix") return ["Out3"];
     if (type === "clock") return ["T", "Pulse", "Trigger"];
+    if (type === "transport") return ["Trigger"];
     if (type === "reverbEffect" || type === "pingPongDelay") {
       return ["Right", "Mix R", "Wet R"];
     }
@@ -1136,6 +1153,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "mix") return ["Out4"];
     if (type === "mixStereo") return ["L2"];
     if (type === "lookaheadLimiter") return ["Gain"];
+    if (type === "transport") return ["f"];
     return type === "reverbEffect" ? ["Dry L"] : type === "pingPongDelay" ? ["Mod L", "Saw"] : ["Saw"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RAMP) {

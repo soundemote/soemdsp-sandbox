@@ -292,6 +292,14 @@ extern "C" double soemdsp_step_sequencer_sample(
 );
 extern "C" double soemdsp_step_sequencer_gate(int handle);
 
+extern "C" int soemdsp_transport_create();
+extern "C" void soemdsp_transport_destroy(int handle);
+extern "C" double soemdsp_transport_sample(
+  int handle, double amplitude, double divisions, double tempoBpm, double sampleRate
+);
+extern "C" double soemdsp_transport_unipolar(int handle);
+extern "C" double soemdsp_transport_frequency(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -358,6 +366,7 @@ static const int kTypeMetallicRatio = 33;
 static const int kTypeLutCell = 34;
 static const int kTypeLookaheadLimiter = 35;
 static const int kTypeStepSequencer = 36;
+static const int kTypeTransport = 37;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -660,6 +669,8 @@ static void destroy_node_native(Node& n) {
     soemdsp_lookahead_limiter_destroy(n.nativeHandle);
   } else if (kind == kTypeStepSequencer) {
     soemdsp_step_sequencer_destroy(n.nativeHandle);
+  } else if (kind == kTypeTransport) {
+    soemdsp_transport_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -736,12 +747,13 @@ static void init_node_defaults(Node& n, int typeId) {
     true
   );
   // Ladder stages default 4; robinSupersaw = voices; triggerDivider = division;
-  // triggerCounter = countMax; stepSequencer = step count.
+  // triggerCounter/stepSequencer = counts; transport = divisions (can be ≤0).
   init_control(
     n.stages,
     (typeId == kTypeRobinSupersaw) ? 7.0
       : (typeId == kTypeTriggerDivider) ? 2.0
       : (typeId == kTypeTriggerCounter || typeId == kTypeStepSequencer) ? 8.0
+      : (typeId == kTypeTransport) ? 0.0
       : 4.0,
     true
   );
@@ -1267,6 +1279,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeLutCell) return soemdsp_lut_cell_create();
   if (typeId == kTypeLookaheadLimiter) return soemdsp_lookahead_limiter_create();
   if (typeId == kTypeStepSequencer) return soemdsp_step_sequencer_create();
+  if (typeId == kTypeTransport) return soemdsp_transport_create();
   return 0;
 }
 
@@ -2014,6 +2027,33 @@ static void process_trigger_divider(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Master Clock / transport: tempo square.
+// -1..1→Mono, 0..1→Left, Trigger→Right, f (Hz)→Saw.
+// Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
+static void process_transport(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double amplitude = node.amplitude.out;
+  const double divisions = node.stages.out;
+  const double tempoBpm = node.tempoBpm.out;
+  bool wasHigh = node.lastReset > 0.5;
+  for (int f = 0; f < frames; f++) {
+    const double bipolar = soemdsp_transport_sample(
+      node.nativeHandle, amplitude, divisions, tempoBpm, sr
+    );
+    const double unipolar = soemdsp_transport_unipolar(node.nativeHandle);
+    const double freqHz = soemdsp_transport_frequency(node.nativeHandle);
+    const bool isHigh = unipolar > 0.0;
+    const double trigger = (isHigh && !wasHigh) ? amplitude : 0.0;
+    wasHigh = isHigh;
+    node.buf[kPortMono][f] = bipolar;
+    node.buf[kPortLeft][f] = unipolar;
+    node.buf[kPortRight][f] = trigger;
+    node.buf[kPortSaw][f] = freqHz;
+  }
+  node.lastReset = wasHigh ? 1.0 : 0.0;
+}
+
 // Step sequencer: Trigger+Reset → Out (Mono) + Gate (Left). Steps on laneVol/Bias.
 static void process_step_sequencer(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
@@ -2596,6 +2636,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeClock
     || node.typeId == kTypeRandomClock
     || node.typeId == kTypeMetallicRatio
+    || node.typeId == kTypeTransport
   ) {
     return; // sources: silence
   }
@@ -2711,7 +2752,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeTriggerCounter
     || typeId == kTypeLutCell
     || typeId == kTypeLookaheadLimiter
-    || typeId == kTypeStepSequencer;
+    || typeId == kTypeStepSequencer
+    || typeId == kTypeTransport;
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -3087,6 +3129,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_step_sequencer(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeTransport) {
+      process_transport(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -3160,5 +3206,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 34; // stepSequencer (8-step Trigger/Reset)
+  return 35; // transport Master Clock (+ digital f = BPM→Hz)
 }

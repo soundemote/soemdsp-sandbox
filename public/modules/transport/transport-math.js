@@ -22,7 +22,7 @@ function nodeGraphTransportWrap01(p) {
  * @param {number} absoluteFrame
  * @param {number} sampleRate
  * @param {number} tempoBpm
- * @returns {{ "-1..1": number, "0..1": number, Trigger: number }}
+ * @returns {{ "-1..1": number, "0..1": number, Trigger: number, f: number }}
  */
 function nodeGraphTransportCore(params, absoluteFrame, sampleRate, tempoBpm) {
   const rate = Math.max(1, Number(sampleRate) || 44100);
@@ -40,5 +40,6 @@ function nodeGraphTransportCore(params, absoluteFrame, sampleRate, tempoBpm) {
     "-1..1": high ? amplitude : -amplitude,
     "0..1": high ? amplitude : 0,
     Trigger: frequency > 0 && wrapped ? amplitude : 0,
+    f: frequency,
   };
 }

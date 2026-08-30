@@ -38,13 +38,17 @@ NodeLiveAudioProcessor.prototype.transportSample = function transportSample(stat
             this.nativeTransport.soemdsp_transport_unipolar?.(state.nativeHandle) || 0,
             state,
           );
+          const freqHz = this.safeFilterNumber(
+            this.nativeTransport.soemdsp_transport_frequency?.(state.nativeHandle) || 0,
+            state,
+          );
           state.elapsedSamples += 1;
           const trigger = this.transportTriggerSample(
             state,
             unipolar > 0,
             this.safeFilterNumber(params.amplitude, state),
           );
-          return { "-1..1": bipolar, "0..1": unipolar, Trigger: trigger };
+          return { "-1..1": bipolar, "0..1": unipolar, Trigger: trigger, f: freqHz };
         }
       } catch (error) {
         this.nativeTransportReady = false;
@@ -70,8 +74,9 @@ NodeLiveAudioProcessor.prototype.transportSample = function transportSample(stat
         "-1..1": this.safeFilterNumber(out["-1..1"], state),
         "0..1": this.safeFilterNumber(out["0..1"], state),
         Trigger: this.safeFilterNumber(out.Trigger, state),
+        f: this.safeFilterNumber(out.f, state),
       };
     }
-    return { "-1..1": 0, "0..1": 0, Trigger: 0 };
+    return { "-1..1": 0, "0..1": 0, Trigger: 0, f: 0 };
   };
 

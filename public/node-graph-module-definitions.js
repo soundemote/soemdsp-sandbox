@@ -3436,15 +3436,16 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "bpm", kind: "scalar" },
     ],
-    digitalOutputs: ["0..1", "-1..1", "Trigger"],
+    digitalOutputs: ["0..1", "-1..1", "Trigger", "f"],
     displayType: "transportBpm",
     inputs: [],
     outputLabels: {
       "-1..1": "-1..1",
       "0..1": "0..1",
-      Trigger: "Trigger"
+      Trigger: "Trigger",
+      f: "f",
     },
-    outputs: ["0..1", "-1..1", "Trigger"],
+    outputs: ["0..1", "-1..1", "Trigger", "f"],
     parameters: [
       {
         defaultValue: "1",

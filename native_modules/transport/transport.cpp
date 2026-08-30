@@ -29,6 +29,7 @@ struct TransportState {
   bool active;
   double phase;
   double lastUnipolar;
+  double lastFrequencyHz; // (bpm/60)*divisionFactor — CV out "f"
 };
 
 static TransportState gPool[kMaxInstances];
@@ -55,6 +56,7 @@ extern "C" int soemdsp_transport_create() {
       TransportState& s = gPool[i];
       s.phase = 0.0;
       s.lastUnipolar = 0.0;
+      s.lastFrequencyHz = 0.0;
       s.active = true;
       return i + 1;
     }
@@ -82,6 +84,7 @@ extern "C" double soemdsp_transport_sample(
   const double divisionFactor = transport_division_factor(safe(divisions));
   const double frequency = (safeTempo / 60.0) * divisionFactor;
   const double safeAmplitude = clamp(safe(amplitude), 0.0, 1.0);
+  s.lastFrequencyHz = frequency;
 
   if (frequency > 0.0) {
     double nextPhase = s.phase + frequency / rate;
@@ -99,6 +102,11 @@ extern "C" double soemdsp_transport_unipolar(int handle) {
   return gPool[handle - 1].lastUnipolar;
 }
 
+extern "C" double soemdsp_transport_frequency(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0.0;
+  return gPool[handle - 1].lastFrequencyHz;
+}
+
 extern "C" int soemdsp_transport_version() {
-  return 1;
+  return 2; // + frequency Hz accessor for digital "f" out
 }

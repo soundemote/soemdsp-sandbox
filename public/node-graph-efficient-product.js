@@ -38,6 +38,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "lutCell",
   "lookaheadLimiter",
   "stepSequencer",
+  "transport",
   "output",
 ]);
 

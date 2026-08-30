@@ -137,7 +137,7 @@ $modules = @(
     "soemdsp_soem_reverb_version", "soemdsp_soem_reverb_metadata_json", "soemdsp_soem_reverb_metadata_json_size"
   ) }
   @{ Name = "videoscope"; Simd = $false; Exports = @("soemdsp_videoscope_create", "soemdsp_videoscope_destroy", "soemdsp_videoscope_push", "soemdsp_videoscope_window_size", "soemdsp_videoscope_column_min", "soemdsp_videoscope_column_max", "soemdsp_videoscope_xy_a", "soemdsp_videoscope_xy_b", "soemdsp_videoscope_version") }
-  @{ Name = "transport"; Simd = $false; Exports = @("soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar", "soemdsp_transport_version") }
+  @{ Name = "transport"; Simd = $false; Exports = @("soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar", "soemdsp_transport_frequency", "soemdsp_transport_version") }
   @{ Name = "slew_limiter"; Simd = $false; Exports = @(
     "soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample",
     "soemdsp_slew_limiter_process_block",
