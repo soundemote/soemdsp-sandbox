@@ -830,8 +830,20 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         graphOutputValue(node, nodeId),
       additiveGenerator: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
         this.additiveGeneratorWorkletEvaluate(node, nodeId, frame, frames),
-      additiveEffect: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
-        this.additiveEffectWorkletEvaluate(node, nodeId, frame, frames),
+      additiveLinearFilter: (node, nodeId, frame, frames) =>
+        this.additiveLinearFilterWorkletEvaluate(node, nodeId, frame, frames),
+      additiveAnalogFilter: (node, nodeId, frame, frames) =>
+        this.additiveAnalogFilterWorkletEvaluate(node, nodeId, frame, frames),
+      additiveGrowl: (node, nodeId, frame, frames) =>
+        this.additiveGrowlWorkletEvaluate(node, nodeId, frame, frames),
+      additiveNoisyFreq: (node, nodeId, frame, frames) =>
+        this.additiveNoisyFreqWorkletEvaluate(node, nodeId, frame, frames),
+      additiveNoisyPhase: (node, nodeId, frame, frames) =>
+        this.additiveNoisyPhaseWorkletEvaluate(node, nodeId, frame, frames),
+      additiveNoisyPan: (node, nodeId, frame, frames) =>
+        this.additiveNoisyPanWorkletEvaluate(node, nodeId, frame, frames),
+      additiveNoisyAmp: (node, nodeId, frame, frames) =>
+        this.additiveNoisyAmpWorkletEvaluate(node, nodeId, frame, frames),
       additiveOut: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
         this.additiveOutWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
       ellipsoid: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>

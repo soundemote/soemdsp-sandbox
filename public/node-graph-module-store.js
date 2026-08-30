@@ -415,21 +415,57 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   // additiveOsc / gpuAdditiveOsc retired — Magenta Graph chain replaces them.
   additiveGenerator: {
     category: "additive",
-    description: "Waveform + Morph + Harmonics → Magenta Graph. Patch to Additive Effect and/or Additive Out.",
+    description: "Waveform + Morph + Harmonics → Magenta Graph. Patch through filters / Growl / Noisy* to Additive Out.",
     label: "Additive Generator",
     notes: ["additive", "magenta graph", "harmonics", "morph"],
   },
-  additiveEffect: {
+  additiveLinearFilter: {
     category: "additive",
-    description: "Magenta Graph processor: LinearFilter, AnalogFilter, Growl, Noisy (CheapWalk).",
-    label: "Additive Effect",
-    notes: ["additive", "magenta graph", "filter", "growl"],
+    description: "Linear slope→brickwall Magenta Graph filter with LP / BP / HP. Face shows the response curve.",
+    label: "Linear Filter",
+    notes: ["additive", "magenta graph", "filter", "brickwall", "LP", "BP", "HP"],
+  },
+  additiveAnalogFilter: {
+    category: "additive",
+    description: "Nonlinear (rational) slope→brickwall Magenta Graph filter with LP / BP / HP + Skew.",
+    label: "Analog Filter",
+    notes: ["additive", "magenta graph", "filter", "analog", "skew"],
+  },
+  additiveGrowl: {
+    category: "additive",
+    description: "PhaseRotation + PhaseSkew + PhaseSkewCurve on Magenta Graph harmonics (SoEmAdditive growl).",
+    label: "Growl",
+    notes: ["additive", "magenta graph", "phase", "growl"],
+  },
+  additiveNoisyFreq: {
+    category: "additive",
+    description: "Per-harmonic CheapWalk on Magenta Graph ratios (frequency / partial index).",
+    label: "NoisyFreq",
+    notes: ["additive", "magenta graph", "cheap walk", "noisy", "frequency"],
+  },
+  additiveNoisyPhase: {
+    category: "additive",
+    description: "Per-harmonic CheapWalk on Magenta Graph phase.",
+    label: "NoisyPhase",
+    notes: ["additive", "magenta graph", "cheap walk", "phase"],
+  },
+  additiveNoisyPan: {
+    category: "additive",
+    description: "Per-harmonic CheapWalk on Magenta Graph pan (−1…+1). Heard on Additive Out Left/Right.",
+    label: "NoisyPan",
+    notes: ["additive", "magenta graph", "cheap walk", "pan", "stereo"],
+  },
+  additiveNoisyAmp: {
+    category: "additive",
+    description: "Per-harmonic CheapWalk on Magenta Graph amplitude (clamped 0…1).",
+    label: "NoisyAmp",
+    notes: ["additive", "magenta graph", "cheap walk", "amplitude"],
   },
   additiveOut: {
     category: "additive",
-    description: "Renders Magenta Graph to audio. Frequency, Phase, Amplitude + harmonic lines face. Silent without Graph.",
+    description: "Renders Magenta Graph to Mono / Left / Right (pan[]). Frequency, Phase, Amplitude + harmonic lines face.",
     label: "Additive Out",
-    notes: ["additive", "magenta graph", "harmonic lines"],
+    notes: ["additive", "magenta graph", "harmonic lines", "stereo", "pan"],
   },
   ellipsoid: {
     category: "modulator",
@@ -2415,9 +2451,33 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/additiveGenerator/additive-generator-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGenerator/additive-generator-worklet-evaluator.js",
   },
-  additiveEffect: {
-    source: "public/modules/additiveEffect/additive-effect-worklet-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveEffect/additive-effect-worklet-evaluator.js",
+  additiveLinearFilter: {
+    source: "public/modules/additiveGraph/additive-graph-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
+  },
+  additiveAnalogFilter: {
+    source: "public/modules/additiveGraph/additive-graph-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
+  },
+  additiveGrowl: {
+    source: "public/modules/additiveGraph/additive-graph-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
+  },
+  additiveNoisyFreq: {
+    source: "public/modules/additiveGraph/additive-graph-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
+  },
+  additiveNoisyPhase: {
+    source: "public/modules/additiveGraph/additive-graph-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
+  },
+  additiveNoisyPan: {
+    source: "public/modules/additiveGraph/additive-graph-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
+  },
+  additiveNoisyAmp: {
+    source: "public/modules/additiveGraph/additive-graph-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
   },
   additiveOut: {
     source: "public/modules/additiveOut/additive-out-worklet-evaluator.js",

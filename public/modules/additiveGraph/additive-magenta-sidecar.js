@@ -10,13 +10,57 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
   this.ensureAdditiveGraphBus?.();
   if (!this.additiveGraphBus) this.additiveGraphBus = new Map();
   if (!this.additiveGraphPublish) this.additiveGraphPublish = new Map();
-  if (!this.additiveEffectStates) this.additiveEffectStates = new Map();
+  if (!this.additiveNoisyFreqStates) this.additiveNoisyFreqStates = new Map();
+  if (!this.additiveNoisyPhaseStates) this.additiveNoisyPhaseStates = new Map();
+  if (!this.additiveNoisyPanStates) this.additiveNoisyPanStates = new Map();
+  if (!this.additiveNoisyAmpStates) this.additiveNoisyAmpStates = new Map();
   if (!this.additiveOutStates) this.additiveOutStates = new Map();
   if (!this._additiveOutMono) this._additiveOutMono = new Map();
 
   const nodes = this.nodes;
   if (!nodes || !nodes.size) return;
   const conns = Array.isArray(this._planConnections) ? this._planConnections : [];
+  const num = typeof nodeGraphFiniteNumber === "function" ? nodeGraphFiniteNumber : (v, fb) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fb;
+  };
+
+  const ADDITIVE_EFFECT_TYPES = new Set([
+    "additiveLinearFilter",
+    "additiveAnalogFilter",
+    "additiveGrowl",
+    "additiveNoisyFreq",
+    "additiveNoisyPhase",
+    "additiveNoisyPan",
+    "additiveNoisyAmp",
+  ]);
+
+  const sr = Number(this.engineSampleRate) || Number(sampleRate) || 44100;
+  const blockFrames = Math.max(1, Number(frames) || 128);
+
+  const applyNoisy = (type, id, out, p) => {
+    const amount = num(p.amount, 0.25);
+    const speedHz = num(p.speed, 35);
+    let map;
+    let apply;
+    if (type === "additiveNoisyFreq") {
+      map = this.additiveNoisyFreqStates;
+      apply = additiveGraphApplyNoisyFreq;
+    } else if (type === "additiveNoisyPhase") {
+      map = this.additiveNoisyPhaseStates;
+      apply = additiveGraphApplyNoisyPhase;
+    } else if (type === "additiveNoisyPan") {
+      map = this.additiveNoisyPanStates;
+      apply = additiveGraphApplyNoisyPan;
+    } else {
+      map = this.additiveNoisyAmpStates;
+      apply = additiveGraphApplyNoisyAmp;
+    }
+    let state = map.get(String(id)) || {};
+    const applied = apply(out, amount, speedHz, state.walks, sr, blockFrames);
+    map.set(String(id), { walks: applied.walks });
+    return applied.graph;
+  };
 
   const graphSrc = (dstId, portName) => {
     const want = String(portName || "Graph");
@@ -34,10 +78,6 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
   for (const [id, node] of nodes) {
     if (String(node?.type) !== "additiveGenerator") continue;
     const p = node.params || {};
-    const num = typeof nodeGraphFiniteNumber === "function" ? nodeGraphFiniteNumber : (v, fb) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : fb;
-    };
     const graph = additiveGraphBuildFromWaveform(
       num(p.waveform, 0),
       num(p.morph, 0.5),
@@ -50,7 +90,8 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
   // 2) Effects (may chain; iterate a few passes for short chains)
   for (let pass = 0; pass < 4; pass += 1) {
     for (const [id, node] of nodes) {
-      if (String(node?.type) !== "additiveEffect") continue;
+      const type = String(node?.type || "");
+      if (!ADDITIVE_EFFECT_TYPES.has(type)) continue;
       const srcId = graphSrc(id, "Graph");
       const incoming = srcId ? this.additiveGraphBus.get(srcId) : null;
       if (!incoming || !incoming.ratio) {
@@ -58,26 +99,34 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
         continue;
       }
       const p = node.params || {};
-      const modeIdx = Math.round(Number(p.effect) || 0);
-      const modes = ["LinearFilter", "AnalogFilter", "Growl", "Noisy"];
-      const mode = modes[Math.max(0, Math.min(3, modeIdx))] || "LinearFilter";
-      let state = this.additiveEffectStates.get(String(id));
-      const num = typeof nodeGraphFiniteNumber === "function" ? nodeGraphFiniteNumber : (v, fb) => {
-        const n = Number(v);
-        return Number.isFinite(n) ? n : fb;
-      };
-      const applied = additiveGraphApplyEffect(
-        incoming,
-        mode,
-        num(p.parA, 0.5),
-        num(p.parB, 1),
-        num(p.parC, 0),
-        num(p.parD, 0),
-        state,
-      );
-      this.additiveEffectStates.set(String(id), applied.state);
-      this.additiveGraphBus.set(String(id), applied.graph);
-      this.additiveGraphPublish.set(String(id), applied.graph);
+      const out = additiveGraphClonePayload(incoming);
+      if (!out) {
+        this.additiveGraphBus.set(String(id), null);
+        continue;
+      }
+      if (type === "additiveLinearFilter") {
+        additiveGraphApplyLinearFilter(out, num(p.filter, 0), num(p.cutoff, 0.5), num(p.slope, 0.25));
+      } else if (type === "additiveAnalogFilter") {
+        additiveGraphApplyAnalogFilter(
+          out, num(p.filter, 0), num(p.cutoff, 0.5), num(p.slope, 0.25), num(p.skew, 0),
+        );
+      } else if (type === "additiveGrowl") {
+        additiveGraphApplyGrowl(
+          out, num(p.phaseRotation, 0), num(p.phaseSkew, 0), num(p.phaseSkewCurve, 0),
+        );
+      } else if (
+        type === "additiveNoisyFreq"
+        || type === "additiveNoisyPhase"
+        || type === "additiveNoisyPan"
+        || type === "additiveNoisyAmp"
+      ) {
+        const graph = applyNoisy(type, id, out, p);
+        this.additiveGraphBus.set(String(id), graph);
+        this.additiveGraphPublish.set(String(id), graph);
+        continue;
+      }
+      this.additiveGraphBus.set(String(id), out);
+      this.additiveGraphPublish.set(String(id), out);
     }
   }
 
@@ -93,7 +142,6 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
   }
   const leftBus = this._additiveScratchL;
   const rightBus = this._additiveScratchR;
-  const sr = Number(this.engineSampleRate) || Number(sampleRate) || 44100;
   const liveOutIds = new Set();
 
   for (const [id, node] of nodes) {
@@ -120,27 +168,31 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
       ratio: graph.ratio,
       phase: graph.phase,
       amplitude: graph.amplitude,
+      pan: graph.pan,
       frequencyHz,
       masterPhase,
       masterAmp,
     });
 
-    // Where does this Out feed Output? (speaker mix only)
-    let toMono = false;
-    let toLeft = false;
-    let toRight = false;
+    // Speaker routes: which Additive Out port → which Output channel.
+    // { src: "mono"|"left"|"right", dst: "mono"|"left"|"right" }
+    const speakerRoutes = [];
     for (let i = 0; i < conns.length; i += 1) {
       const c = conns[i];
       if (!c || String(c.sourceNode) !== outId) continue;
       const dstType = String(this.nodes.get(String(c.destinationNode))?.type || "");
       if (dstType !== "output") continue;
+      const sp = String(c.sourcePort || "").toLowerCase();
       const dp = String(c.destinationPort || "").toLowerCase();
-      if (dp === "mono" || dp === "in" || dp === "out") toMono = true;
-      else if (dp === "left" || dp === "l") toLeft = true;
-      else if (dp === "right" || dp === "r") toRight = true;
-      else toMono = true;
+      let src = "mono";
+      if (sp === "left" || sp === "l") src = "left";
+      else if (sp === "right" || sp === "r") src = "right";
+      let dst = "mono";
+      if (dp === "left" || dp === "l") dst = "left";
+      else if (dp === "right" || dp === "r") dst = "right";
+      speakerRoutes.push({ src, dst });
     }
-    const mixToSpeakers = toMono || toLeft || toRight;
+    const mixToSpeakers = speakerRoutes.length > 0;
 
     let state = this.additiveOutStates.get(outId);
     if (!state) {
@@ -154,7 +206,9 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
       this._additiveOutMono.set(outId, monoBuf);
     }
 
-    let lastY = 0;
+    let lastMono = 0;
+    let lastLeft = 0;
+    let lastRight = 0;
     for (let f = 0; f < nFrames; f += 1) {
       const summed = additiveGraphSumSample(
         graph,
@@ -165,24 +219,37 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
         sr,
       );
       state.phaseAcc = summed.phaseAcc;
-      const y = Number(summed.y) || 0;
-      lastY = y;
+      const mono = Number(summed.mono) || 0;
+      const left = Number(summed.left) || 0;
+      const right = Number(summed.right) || 0;
+      lastMono = mono;
+      lastLeft = left;
+      lastRight = right;
       // Always keep Mono for efficient-mode scopes (native graph has no Magenta ports).
-      monoBuf[f] = y;
+      monoBuf[f] = mono;
       if (!mixToSpeakers) continue;
-      if (toMono || (toLeft && toRight)) {
-        leftBus[f] = (Number(leftBus[f]) || 0) + y;
-        rightBus[f] = (Number(rightBus[f]) || 0) + y;
-      } else if (toLeft) {
-        leftBus[f] = (Number(leftBus[f]) || 0) + y;
-      } else if (toRight) {
-        rightBus[f] = (Number(rightBus[f]) || 0) + y;
+      for (let r = 0; r < speakerRoutes.length; r += 1) {
+        const route = speakerRoutes[r];
+        const sample = route.src === "left" ? left : route.src === "right" ? right : mono;
+        if (route.dst === "left") {
+          leftBus[f] = (Number(leftBus[f]) || 0) + sample;
+        } else if (route.dst === "right") {
+          rightBus[f] = (Number(rightBus[f]) || 0) + sample;
+        } else {
+          leftBus[f] = (Number(leftBus[f]) || 0) + sample;
+          rightBus[f] = (Number(rightBus[f]) || 0) + sample;
+        }
       }
     }
 
     liveOutIds.add(outId);
     if (this.nodeOutputs) {
-      this.nodeOutputs.set(outId, { Mono: lastY, Out: lastY });
+      this.nodeOutputs.set(outId, {
+        Mono: lastMono,
+        Out: lastMono,
+        Left: lastLeft,
+        Right: lastRight,
+      });
     }
   }
 

@@ -996,6 +996,24 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
+  } else if (definition.displayType === "additiveFilterCurve") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphAdditiveFilterCurveDisplay === "function") {
+      const face = createNodeGraphAdditiveFilterCurveDisplay(node, type);
+      if (typeof tagNodeGraphModuleBand === "function") {
+        tagNodeGraphModuleBand(face, "face");
+      }
+      article.append(face);
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.displayType === "harmonicLines") {
     if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)

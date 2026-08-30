@@ -365,13 +365,13 @@ Additive modules use a **CMYK** jack story for **non-realtime** ports (once per 
 
 List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOutputs` (same pattern as `digitalInputs` / `digitalOutputs`). Ordinary Morph / CV inlets that are **sample-accurate** (PolyBLEP, Softwave, Ellipsoid, DSF, …) stay **unlisted** and paint **gold** — do not mark them block-rate just because the knob is named Morph.
 
-**Additive series exception:** parameter-row **mod jacks** (and matching slider-out jacks) on `additiveGenerator` / `additiveEffect` / `additiveOut` paint **cyan** even though they are modulation ports (not left-column IO). Graph cables follow jack color → **yellow** (not magenta).
+**Additive series exception:** parameter-row **mod jacks** (and matching slider-out jacks) on `additiveGenerator` / filters / Growl / NoisyFreq|Phase|Pan|Amp / `additiveOut` paint **cyan** even though they are modulation ports (not left-column IO). Graph cables follow jack color → **yellow** (not magenta).
 
 **Yellow Graph chunk ports** (still called Magenta Graph in product copy)
 
-- Carry a **multidimensional** once-per-quantum payload on the data plane (`dataInputs` / `dataOutputs`), e.g. additive harmonic `{ phase[], ratio[], amplitude[] }`.
+- Carry a **multidimensional** once-per-quantum payload on the data plane (`dataInputs` / `dataOutputs`): `{ phase[], ratio[], amplitude[], pan[] }` (`pan` bipolar −1…+1; final plane consumed by Additive Out Left/Right).
 - Not audio-rate sample packs. Port name **`Graph`** on both inlet and outlet sides is **yellow**.
-- Additive chain: Generator → Effect(s) → Out.
+- Additive chain: Generator → Linear/Analog Filter, Growl, Noisy* → Out (Mono / Left / Right).
 
 ---
 

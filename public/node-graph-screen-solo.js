@@ -24,6 +24,7 @@ const NODE_GRAPH_SCREEN_SOLO_FACE_SEL = [
   ".node-raster-rgb-face",
   ".node-ray-bouncer-face",
   ".node-module-graph-display",
+  ".node-additive-filter-curve-display",
   ".node-text-box-body",
   ".node-module-face",
 ].join(", ");

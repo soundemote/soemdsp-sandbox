@@ -18,6 +18,8 @@ function nodeGraphResolveModuleTypeAlias(type) {
   if (t === "gainBias") return "gain";
   // GainBiasMix renamed to Mix.
   if (t === "gainBiasMix") return "mix";
+  // Noisy → NoisyFreq (ratio jitter).
+  if (t === "additiveNoisy") return "additiveNoisyFreq";
   return t;
 }
 

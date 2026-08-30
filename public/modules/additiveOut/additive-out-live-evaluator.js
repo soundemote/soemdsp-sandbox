@@ -1,4 +1,4 @@
-// Offline/render: Additive Out sums Magenta Graph → Out. Silence if unwired.
+// Offline/render: Additive Out sums Magenta Graph → Mono / Left / Right.
 
 const nodeGraphAdditiveOutStates = new Map();
 
@@ -15,7 +15,7 @@ function nodeGraphAdditiveOutLiveEvaluator({
     ? readNodeGraphDataInput(String(nodeId), "Graph")
     : undefined;
   if (!graph || !graph.ratio || !graph.harmonics) {
-    return { Mono: 0 };
+    return { Mono: 0, Left: 0, Right: 0 };
   }
 
   const read = (key, fallback) => {
@@ -81,7 +81,11 @@ function nodeGraphAdditiveOutLiveEvaluator({
     }
   }
 
-  return { Mono: summed.y };
+  return {
+    Mono: summed.mono,
+    Left: summed.left,
+    Right: summed.right,
+  };
 }
 
 nodeGraphLiveModuleEvaluators.additiveOut = nodeGraphAdditiveOutLiveEvaluator;

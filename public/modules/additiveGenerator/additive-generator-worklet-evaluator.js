@@ -2,7 +2,10 @@
 
 NodeLiveAudioProcessor.prototype.ensureAdditiveGraphBus = function ensureAdditiveGraphBus() {
   if (!this.additiveGraphBus) this.additiveGraphBus = new Map();
-  if (!this.additiveEffectStates) this.additiveEffectStates = new Map();
+  if (!this.additiveNoisyFreqStates) this.additiveNoisyFreqStates = new Map();
+  if (!this.additiveNoisyPhaseStates) this.additiveNoisyPhaseStates = new Map();
+  if (!this.additiveNoisyPanStates) this.additiveNoisyPanStates = new Map();
+  if (!this.additiveNoisyAmpStates) this.additiveNoisyAmpStates = new Map();
   if (!this.additiveOutStates) this.additiveOutStates = new Map();
   if (!this.additiveGraphPublish) this.additiveGraphPublish = new Map();
 };

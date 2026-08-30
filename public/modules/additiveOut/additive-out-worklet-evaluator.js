@@ -1,4 +1,4 @@
-// Worklet: Additive Out — Graph IN → audio Out. Silence if unwired.
+// Worklet: Additive Out — Graph IN → Mono / Left / Right. Silence if unwired.
 
 NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveOutWorkletEvaluate(
   node, nodeId, frame, frames, frameValues, mixInput, safeRate
@@ -7,7 +7,9 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
   const graph = this.additiveGraphReadWired(nodeId, "Graph");
   if (!graph || !graph.ratio || !graph.harmonics) {
     frameValues.Mono = 0;
-    return { Mono: 0 };
+    frameValues.Left = 0;
+    frameValues.Right = 0;
+    return { Mono: 0, Left: 0, Right: 0 };
   }
 
   let state = this.additiveOutStates.get(String(nodeId));
@@ -90,6 +92,8 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
     }
   }
 
-  frameValues.Mono = summed.y;
-  return { Mono: summed.y };
+  frameValues.Mono = summed.mono;
+  frameValues.Left = summed.left;
+  frameValues.Right = summed.right;
+  return { Mono: summed.mono, Left: summed.left, Right: summed.right };
 };

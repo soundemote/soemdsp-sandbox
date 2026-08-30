@@ -24630,7 +24630,8 @@ code {
 
 /* LayoutA face row: fixed display-height track (not height:100% of module). */
 .node-harmonic-count-display,
-.node-harmonic-lines-display {
+.node-harmonic-lines-display,
+.node-additive-filter-curve-display {
   position: relative;
   z-index: 2;
   box-sizing: border-box;
@@ -24646,16 +24647,23 @@ code {
   pointer-events: none;
 }
 .node-harmonic-count-canvas,
-.node-harmonic-lines-canvas {
+.node-harmonic-lines-canvas,
+.node-additive-filter-curve-canvas {
   display: block;
   width: 100%;
   height: 100%;
   min-height: inherit;
 }
 
-/* Choice names (Waveform / Effect) must not widen the module. */
+/* Choice names (Waveform / Filter) must not widen the module. */
 .dsp-node[data-node-type="additiveGenerator"] .node-slider-readout-value,
-.dsp-node[data-node-type="additiveEffect"] .node-slider-readout-value,
+.dsp-node[data-node-type="additiveLinearFilter"] .node-slider-readout-value,
+.dsp-node[data-node-type="additiveAnalogFilter"] .node-slider-readout-value,
+.dsp-node[data-node-type="additiveGrowl"] .node-slider-readout-value,
+.dsp-node[data-node-type="additiveNoisyFreq"] .node-slider-readout-value,
+.dsp-node[data-node-type="additiveNoisyPhase"] .node-slider-readout-value,
+.dsp-node[data-node-type="additiveNoisyPan"] .node-slider-readout-value,
+.dsp-node[data-node-type="additiveNoisyAmp"] .node-slider-readout-value,
 .dsp-node[data-node-type="additiveOut"] .node-slider-readout-value {
   overflow: hidden;
   text-overflow: ellipsis;

@@ -37,12 +37,13 @@ function createNodeGraphHarmonicCountDisplay(nodeId, type = "additiveGenerator")
   return section;
 }
 
-const ADDITIVE_EFFECT_FACE_NAMES = Object.freeze([
-  "LinearFilter",
-  "AnalogFilter",
-  "Growl",
-  "Noisy",
-]);
+const ADDITIVE_NAMED_FACE = Object.freeze({
+  additiveGrowl: "Growl",
+  additiveNoisyFreq: "NoisyFreq",
+  additiveNoisyPhase: "NoisyPhase",
+  additiveNoisyPan: "NoisyPan",
+  additiveNoisyAmp: "NoisyAmp",
+});
 
 function nodeGraphHarmonicCountReadH(nodeId, type) {
   if (type === "additiveGenerator") {
@@ -62,16 +63,9 @@ function nodeGraphHarmonicCountReadH(nodeId, type) {
   return 0;
 }
 
-function nodeGraphAdditiveEffectFaceName(nodeId) {
-  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  const raw = Number(node?.params?.effect ?? node?.parameters?.effect ?? 0);
-  const idx = Math.max(0, Math.min(ADDITIVE_EFFECT_FACE_NAMES.length - 1, Math.round(raw)));
-  return ADDITIVE_EFFECT_FACE_NAMES[idx] || "—";
-}
-
 function nodeGraphHarmonicCountFaceText(nodeId, type) {
-  if (type === "additiveEffect") {
-    return nodeGraphAdditiveEffectFaceName(nodeId);
+  if (ADDITIVE_NAMED_FACE[type]) {
+    return ADDITIVE_NAMED_FACE[type];
   }
   const H = nodeGraphHarmonicCountReadH(nodeId, type);
   return H > 0 ? String(H) : "—";
@@ -117,8 +111,8 @@ function drawNodeGraphHarmonicCountDisplay(section) {
   const text = nodeGraphHarmonicCountFaceText(nodeId, type);
   // CMYK Y face ink (Graph plane) — was magenta.
   ctx.fillStyle = "#ffe600";
-  // Effect names need a smaller font than a single H digit.
-  const isName = type === "additiveEffect";
+  // Named faces (Growl / Noisy) need a smaller font than a single H digit.
+  const isName = Boolean(ADDITIVE_NAMED_FACE[type]);
   const fontPx = isName
     ? Math.max(11, Math.min(18, Math.floor(Math.min(h * 0.42, w / Math.max(8, text.length) * 1.6))))
     : Math.max(14, Math.floor(h * 0.45));

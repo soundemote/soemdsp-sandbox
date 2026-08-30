@@ -123,14 +123,44 @@ var sandbox = {
       dataOutputs: ["Graph"],
       outputs: [],
     },
-    additiveEffect: {
+    additiveLinearFilter: {
+      dataInputs: ["Graph"],
+      dataOutputs: ["Graph"],
+      outputs: [],
+    },
+    additiveAnalogFilter: {
+      dataInputs: ["Graph"],
+      dataOutputs: ["Graph"],
+      outputs: [],
+    },
+    additiveGrowl: {
+      dataInputs: ["Graph"],
+      dataOutputs: ["Graph"],
+      outputs: [],
+    },
+    additiveNoisyFreq: {
+      dataInputs: ["Graph"],
+      dataOutputs: ["Graph"],
+      outputs: [],
+    },
+    additiveNoisyPhase: {
+      dataInputs: ["Graph"],
+      dataOutputs: ["Graph"],
+      outputs: [],
+    },
+    additiveNoisyPan: {
+      dataInputs: ["Graph"],
+      dataOutputs: ["Graph"],
+      outputs: [],
+    },
+    additiveNoisyAmp: {
       dataInputs: ["Graph"],
       dataOutputs: ["Graph"],
       outputs: [],
     },
     additiveOut: {
       dataInputs: ["Graph"],
-      outputs: ["Mono"],
+      outputs: ["Mono", "Left", "Right"],
     },
     // Hypothetical CMYK Parameter port — only listed types get cyan.
     cmykParamDemo: {
@@ -239,8 +269,12 @@ assert(ch("audioPlayer", "Mono", "output") === "green", "player Mono green");
 
 // CMYK additive plane: Yellow Graph, Cyan Parameter only when blockRate-listed (M/K unused).
 assert(ch("additiveGenerator", "Graph", "output") === "yellow", "Graph out is yellow");
-assert(ch("additiveEffect", "Graph", "input") === "yellow", "Graph in is yellow");
-assert(ch("additiveEffect", "Graph", "output") === "yellow", "Graph thru out is yellow");
+assert(ch("additiveLinearFilter", "Graph", "input") === "yellow", "Linear Filter Graph in is yellow");
+assert(ch("additiveLinearFilter", "Graph", "output") === "yellow", "Linear Filter Graph out is yellow");
+assert(ch("additiveGrowl", "Graph", "input") === "yellow", "Growl Graph in is yellow");
+assert(ch("additiveNoisyFreq", "Graph", "output") === "yellow", "NoisyFreq Graph out is yellow");
+assert(ch("additiveNoisyPan", "Graph", "input") === "yellow", "NoisyPan Graph in is yellow");
+assert(ch("additiveOut", "Left", "output") !== "yellow", "Additive Out Left is audio not Graph");
 assert(ch("additiveOut", "Graph", "input") === "yellow", "Out Graph in is yellow");
 assert(ch("cmykParamDemo", "Morph", "input") === "cyan", "listed Parameter Morph is cyan");
 assert(ch("polyBlep", "Morph", "input") === "", "PolyBLEP Morph is gold (no channel)");

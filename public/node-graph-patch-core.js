@@ -69,9 +69,11 @@ const nodeGraphRetiredNodeTypes = new Set([
   "moduleHome",
   "moduleShop",
   "scriptBox",
-  // Replaced by Magenta Graph chain: Additive Generator → Effect → Out.
+  // Replaced by Magenta Graph chain: Additive Generator → filters/Growl/Noisy → Out.
   "additiveOsc",
   "gpuAdditiveOsc",
+  // Split into additiveLinearFilter / AnalogFilter / Growl / Noisy.
+  "additiveEffect",
 ]);
 
 /**

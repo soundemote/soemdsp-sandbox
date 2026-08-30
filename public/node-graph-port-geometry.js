@@ -436,7 +436,15 @@ function nodeGraphPortIsBlockRateSignal(typeOrNode, port, io = null) {
 /** Additive CMYK Parameter chrome (mod jacks → cyan). */
 function nodeGraphModuleUsesCmykParameterChrome(type) {
   const key = String(type || "");
-  return key === "additiveGenerator" || key === "additiveEffect" || key === "additiveOut";
+  return key === "additiveGenerator"
+    || key === "additiveLinearFilter"
+    || key === "additiveAnalogFilter"
+    || key === "additiveGrowl"
+    || key === "additiveNoisyFreq"
+    || key === "additiveNoisyPhase"
+    || key === "additiveNoisyPan"
+    || key === "additiveNoisyAmp"
+    || key === "additiveOut";
 }
 
 function nodeGraphPortWireColor(node, port, io) {
