@@ -50,6 +50,9 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "dsfOscillator",
   "hypersaw",
   "sinc",
+  "bradley2a",
+  "ellipsoid",
+  "snowflake",
   "output",
 ]);
 

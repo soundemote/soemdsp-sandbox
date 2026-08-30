@@ -53,6 +53,9 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   dsfOscillator: 46,
   hypersaw: 47,
   sinc: 48,
+  bradley2a: 49,
+  ellipsoid: 50,
+  snowflake: 51,
 });
 
 // Param IDs — keep in sync with graph_engine.cpp kParam*.
@@ -196,6 +199,16 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   }
   if ((t === "sineWavetable" || t === "sinCos") && (p === "cos" || p === "cosine")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  }
+  if (t === "ellipsoid") {
+    if (p === "bi x" || p === "x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "bi y" || p === "y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+    if (p === "uni x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+    if (p === "uni y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+  }
+  if (t === "snowflake") {
+    if (p === "x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
   }
   // Comparator named outs (reuse tap slots; see graph_engine kPortCmp*).
   if (p === "up") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
@@ -921,6 +934,47 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("bandLimit", P.NATIVE_GRAPH_PARAM_MODE, disc("bandLimit", 1));
       continue;
     }
+    if (type === "bradley2a") {
+      // Remap crowded params onto spare Controls (see process_bradley2a).
+      push("carrierFreq", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("carrierFreq", 1004));
+      push("freqOffset", P.NATIVE_GRAPH_PARAM_WIDTH, cont("freqOffset", 0));
+      push("jitterDepth", P.NATIVE_GRAPH_PARAM_SHAPE, cont("jitterDepth", 0));
+      push("jitterRate", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterRate", 60));
+      push("ampDepth", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("ampDepth", 0));
+      push("ampRate", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("ampRate", 40));
+      push("interfLevel", P.NATIVE_GRAPH_PARAM_MIX, cont("interfLevel", 0));
+      push("interfFreq", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("interfFreq", 2600));
+      push("harm2", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("harm2", 0));
+      push("harm3", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("harm3", 0));
+      push("hitRate", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("hitRate", 1));
+      push("hitDuration", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("hitDuration", 0.005));
+      push("hitGain", P.NATIVE_GRAPH_PARAM_LEVEL, cont("hitGain", 1));
+      push("hitPhase", P.NATIVE_GRAPH_PARAM_PHASE, cont("hitPhase", 0));
+      push("impulseLevel", P.NATIVE_GRAPH_PARAM_RECYCLE, cont("impulseLevel", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "ellipsoid") {
+      // mode=motion; shape=sine→square; free-fn host phase.
+      push("motion", P.NATIVE_GRAPH_PARAM_MODE, disc("motion", 1));
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("shape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("shape", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "snowflake") {
+      // mode=pattern, stages=iterations, width=angle, shape=direction, center=spin.
+      push("pattern", P.NATIVE_GRAPH_PARAM_MODE, disc("pattern", 1));
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 55));
+      push("iterations", P.NATIVE_GRAPH_PARAM_STAGES, disc("iterations", 3));
+      push("angle", P.NATIVE_GRAPH_PARAM_WIDTH, cont("angle", 60));
+      push("direction", P.NATIVE_GRAPH_PARAM_SHAPE, cont("direction", 0));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("spin", P.NATIVE_GRAPH_PARAM_CENTER, cont("spin", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
     if (type === "robinSupersaw") {
       // width = detuneCents, stages = voices
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
@@ -1249,6 +1303,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "mix") return ["Out1"];
     if (type === "midSideEncode") return ["Mid"];
     if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["X"];
+    if (type === "ellipsoid") return ["Bi X", "Out", "Mono"];
+    if (type === "snowflake") return ["Out", "Mono"];
     if (type === "clock") return ["Digital Out", "Out", "Digital"];
     if (type === "randomClock") return ["Trigger"];
     if (type === "triggerCounter") return ["Pulse"];
@@ -1265,6 +1321,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "mix") return ["Out2"];
     if (type === "midSideEncode") return ["Side"];
     if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["Y"];
+    if (type === "ellipsoid") return ["Bi X", "X"];
+    if (type === "snowflake") return ["X"];
     if (type === "clock") return ["Analog Out", "Analog"];
     if (type === "randomClock") return ["Gate"];
     if (type === "triggerCounter") return ["Count"];
@@ -1281,6 +1339,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "sineWavetable") return ["C"];
     if (type === "archimedes") return ["Pi"];
     if (type === "mix") return ["Out3"];
+    if (type === "ellipsoid") return ["Bi Y", "Y"];
+    if (type === "snowflake") return ["Y"];
     if (type === "clock") return ["T", "Pulse", "Trigger"];
     if (type === "transport") return ["Trigger"];
     if (type === "reverbEffect" || type === "pingPongDelay") {
@@ -1292,6 +1352,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
   if (portId === P.NATIVE_GRAPH_PORT_SAW) {
     if (type === "sineWavetable") return ["D"];
     if (type === "archimedes") return ["Noise Below"];
+    if (type === "ellipsoid") return ["Uni X"];
     if (type === "comparator") return ["Up"];
     if (type === "sampleDelay") return ["Thru"];
     if (type === "mix") return ["Out4"];
@@ -1302,6 +1363,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
   }
   if (portId === P.NATIVE_GRAPH_PORT_RAMP) {
     if (type === "archimedes") return ["Noise Above"];
+    if (type === "ellipsoid") return ["Uni Y"];
     if (type === "comparator") return ["Down"];
     if (type === "mixStereo") return ["R2"];
     return type === "reverbEffect" ? ["Dry R"] : type === "pingPongDelay" ? ["Mod R", "Ramp"] : ["Ramp"];

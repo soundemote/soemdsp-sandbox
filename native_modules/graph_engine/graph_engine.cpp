@@ -438,6 +438,57 @@ extern "C" double soemdsp_sinc_sample(
   double sampleRate
 );
 
+extern "C" int soemdsp_bradley_2a_create();
+extern "C" void soemdsp_bradley_2a_destroy(int handle);
+extern "C" double soemdsp_bradley_2a_sample(
+  int handle,
+  double carrierFreq,
+  double freqOffset,
+  double jitterDepth,
+  double jitterRate,
+  double ampDepth,
+  double ampRate,
+  double interfLevel,
+  double interfFreq,
+  double harm2,
+  double harm3,
+  double hitRate,
+  double hitDuration,
+  double hitGain,
+  double hitPhase,
+  double impulseLevel,
+  double level,
+  double sampleRate
+);
+
+// ellipsoid RoundShape: free-fn (host owns phase in cycles).
+extern "C" double soemdsp_ellipsoid_sine_to_square_aa(
+  double phaseCycles,
+  double shape,
+  double frequencyHz,
+  double sampleRate,
+  int antialias
+);
+
+extern "C" int soemdsp_snowflake_create();
+extern "C" void soemdsp_snowflake_destroy(int handle);
+extern "C" void soemdsp_snowflake_sample(
+  int handle,
+  double frequencyHz,
+  double pattern,
+  double iterations,
+  double angleDeg,
+  double sizeArg,
+  double directionArg,
+  double spin,
+  double level,
+  double reset,
+  double phaseArg,
+  double sampleRate
+);
+extern "C" double soemdsp_snowflake_x(int handle);
+extern "C" double soemdsp_snowflake_y(int handle);
+
 // Param-chase Papoulis (Control smooth type Π).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
@@ -516,6 +567,9 @@ static const int kTypeSoftwaveOsc = 45;
 static const int kTypeDsfOscillator = 46;
 static const int kTypeHypersaw = 47;
 static const int kTypeSinc = 48;
+static const int kTypeBradley2a = 49;
+static const int kTypeEllipsoid = 50;
+static const int kTypeSnowflake = 51;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -840,6 +894,10 @@ static void destroy_node_native(Node& n) {
     soemdsp_hypersaw_destroy(n.nativeHandle);
   } else if (kind == kTypeSinc) {
     soemdsp_sinc_destroy(n.nativeHandle);
+  } else if (kind == kTypeBradley2a) {
+    soemdsp_bradley_2a_destroy(n.nativeHandle);
+  } else if (kind == kTypeSnowflake) {
+    soemdsp_snowflake_destroy(n.nativeHandle);
   }
   n.nativeHandle = 0;
   n.nativeKind = 0;
@@ -901,6 +959,9 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeAdditiveOsc || typeId == kTypeSurgeOscillator
           || typeId == kTypeSoftwaveOsc || typeId == kTypeDsfOscillator
           || typeId == kTypeHypersaw || typeId == kTypeSinc) ? 100.0
+      : (typeId == kTypeBradley2a) ? 1004.0 // carrier
+      : (typeId == kTypeEllipsoid) ? 1.0 // RoundShape clock Hz
+      : (typeId == kTypeSnowflake) ? 55.0
       : (typeId == kTypeAntisaw) ? 110.0
       : 220.0,
     false
@@ -919,7 +980,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.shape,
-    (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter || typeId == kTypeAntisaw)
+    (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter || typeId == kTypeAntisaw
+      || typeId == kTypeBradley2a || typeId == kTypeEllipsoid || typeId == kTypeSnowflake)
       ? 0.0
       : (typeId == kTypeDsfOscillator) ? 1.0 // harmonics
       : (typeId == kTypeHypersaw) ? 1.0 // spread
@@ -935,13 +997,16 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLookaheadLimiter) ? 1.0 // look-ahead On
       : (typeId == kTypeSineWavetable) ? 2.0 // sincos
       : (typeId == kTypeSinc) ? 1.0 // band-limit kernel
+      : (typeId == kTypeEllipsoid) ? 1.0 // CounterClock(Ph)
+      : (typeId == kTypeSnowflake) ? 1.0 // Koch Snowflake pattern
       : 1.0,
     true
   );
   // Ladder stages default 4; robinSupersaw = voices; triggerDivider = division;
   // triggerCounter/stepSequencer = counts; transport = divisions (can be ≤0);
   // antisaw = reflections; archimedes = profile dtShift;
-  // additiveOsc = harmonics; hypersaw = voices; sinc = lobes.
+  // additiveOsc = harmonics; hypersaw = voices; sinc = lobes;
+  // snowflake = iterations.
   init_control(
     n.stages,
     (typeId == kTypeRobinSupersaw) ? 7.0
@@ -953,6 +1018,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAdditiveOsc) ? 32.0
       : (typeId == kTypeHypersaw) ? 8.0
       : (typeId == kTypeSinc) ? 4.0
+      : (typeId == kTypeSnowflake) ? 3.0 // iterations
       : 4.0,
     true
   );
@@ -964,7 +1030,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   // Soft-clipper width default 2; noise = deviation; supersaw = detune;
   // triggerCounter = increment; archimedes = dither bits;
-  // surge = syncFrequency; dsf = pulseWidth; hypersaw = random.
+  // surge = syncFrequency; dsf = pulseWidth; hypersaw = random;
+  // bradley2a = freqOffset; snowflake = angle°.
   init_control(
     n.width,
     (typeId == kTypeNoiseGenerator) ? 0.5
@@ -976,6 +1043,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDsfOscillator) ? 0.5 // PWM
       : (typeId == kTypeHypersaw) ? 0.15 // random
       : (typeId == kTypeAdditiveOsc) ? 0.0 // harmonicPhaseMultiply
+      : (typeId == kTypeBradley2a) ? 0.0 // freqOffset
+      : (typeId == kTypeSnowflake) ? 60.0 // angle°
       : 2.0,
     false
   );
@@ -984,15 +1053,41 @@ static void init_node_defaults(Node& n, int typeId) {
     n.mix,
     (typeId == kTypePingPongDelay) ? 0.35
       : (typeId == kTypeDsfOscillator) ? 0.5 // SquSaw blend
+      : (typeId == kTypeBradley2a) ? 0.0 // interfLevel
       : 0.43,
     false
   );
-  init_control(n.diffusionSize, 0.35, false);
-  init_control(n.diffusionAmount, 0.70, false);
+  init_control(
+    n.diffusionSize,
+    (typeId == kTypeBradley2a) ? 0.0 // harm2
+      : 0.35,
+    false
+  );
+  init_control(
+    n.diffusionAmount,
+    (typeId == kTypeBradley2a) ? 0.0 // harm3
+      : 0.70,
+    false
+  );
   init_control(n.delaySize, 0.02, false);
-  init_control(n.recycle, 0.70, false);
-  init_control(n.lfoAmplitude, 0.07, false);
-  init_control(n.lfoBaseSpeed, 0.83, false);
+  init_control(
+    n.recycle,
+    (typeId == kTypeBradley2a) ? 0.0 // impulseLevel
+      : 0.70,
+    false
+  );
+  init_control(
+    n.lfoAmplitude,
+    (typeId == kTypeBradley2a) ? 0.0 // ampDepth
+      : 0.07,
+    false
+  );
+  init_control(
+    n.lfoBaseSpeed,
+    (typeId == kTypeBradley2a) ? 40.0 // ampRate
+      : 0.83,
+    false
+  );
   init_control(n.lfoVariation, (typeId == kTypePingPongDelay) ? 0.25 : 0.001, false);
   init_control(
     n.seed,
@@ -1001,10 +1096,16 @@ static void init_node_defaults(Node& n, int typeId) {
       : 0.0,
     true
   );
-  init_control(n.feedback, 0.35, false);
-  init_control(n.level, 1.0, false);
+  init_control(
+    n.feedback,
+    (typeId == kTypeBradley2a) ? 1.0 // hitRate
+      : 0.35,
+    false
+  );
+  init_control(n.level, 1.0, false); // bradley2a hitGain
   // Ping-pong beat fraction; slew = up/down; sampleDelay = time/samples;
-  // triggerDivider pulseTime; delayedTrigger delay/pulseTime.
+  // triggerDivider pulseTime; delayedTrigger delay/pulseTime;
+  // bradley2a = hitDuration.
   init_control(
     n.timeNumerator,
     (typeId == kTypeSlewLimiter) ? 0.05
@@ -1013,6 +1114,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDelayedTrigger) ? 0.1
       : (typeId == kTypeRandomClock) ? 0.25
       : (typeId == kTypeLookaheadLimiter) ? 5.0 // look-ahead ms
+      : (typeId == kTypeBradley2a) ? 0.005 // hitDuration
       : 1.0,
     false
   );
@@ -1035,11 +1137,17 @@ static void init_node_defaults(Node& n, int typeId) {
     false
   );
   init_control(n.lfoStyle, 0.0, true);
-  init_control(n.lfoRate, 0.35, false);
+  init_control(
+    n.lfoRate,
+    (typeId == kTypeBradley2a) ? 60.0 // jitterRate
+      : 0.35,
+    false
+  );
   init_control(n.saturate, 1.0, false);
   init_control(
     n.lpfFrequency,
     (typeId == kTypeAdditiveOsc) ? 20000.0 // dampingFilterFrequency
+      : (typeId == kTypeBradley2a) ? 2600.0 // interfFreq
       : 8000.0,
     false
   );
@@ -1512,6 +1620,9 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeDsfOscillator) return soemdsp_dsf_oscillator_create();
   if (typeId == kTypeHypersaw) return soemdsp_hypersaw_create();
   if (typeId == kTypeSinc) return soemdsp_sinc_create();
+  if (typeId == kTypeBradley2a) return soemdsp_bradley_2a_create();
+  // kTypeEllipsoid: free-fn, no instance
+  if (typeId == kTypeSnowflake) return soemdsp_snowflake_create();
   return 0;
 }
 
@@ -2727,6 +2838,200 @@ static void process_sinc(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Bradley 2A: many params remapped onto existing Controls (see JS push map).
+static void process_bradley2a(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const double referenceVoltage = 48.0 / 120.0;
+  const double freqOffset = node.width.out;
+  const double jitterDepth = node.shape.out;
+  const double jitterRate = node.lfoRate.out;
+  const double ampDepth = node.lfoAmplitude.out;
+  const double ampRate = node.lfoBaseSpeed.out;
+  const double interfLevel = node.mix.out;
+  const double interfFreq = node.lpfFrequency.out;
+  const double harm2 = node.diffusionSize.out;
+  const double harm3 = node.diffusionAmount.out;
+  const double hitRate = node.feedback.out;
+  const double hitDuration = node.timeNumerator.out;
+  const double hitGain = node.level.out;
+  const double hitPhase = node.phaseParam.out;
+  const double impulseLevel = node.recycle.out;
+  const double level = node.amplitude.out;
+
+  for (int f = 0; f < frames; f++) {
+    double freq;
+    if (liveF) {
+      freq = g.mixF[f];
+    } else if (livePitch) {
+      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+    } else {
+      freq = node.frequency.out;
+    }
+    freq = clamp_hz_nyquist(freq, sr);
+    const double y = soemdsp_bradley_2a_sample(
+      node.nativeHandle,
+      freq,
+      freqOffset,
+      jitterDepth,
+      jitterRate,
+      ampDepth,
+      ampRate,
+      interfLevel,
+      interfFreq,
+      harm2,
+      harm3,
+      hitRate,
+      hitDuration,
+      hitGain,
+      hitPhase,
+      impulseLevel,
+      level,
+      sr
+    );
+    node.buf[kPortMono][f] = y;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+  }
+}
+
+// RoundShape ellipsoid: free-fn sine→square; Bi X/Y + Uni X/Y.
+// mode=motion (0 ClockPh, 1 CounterClockPh, 2 ClockT, 3 CounterClockT).
+// Ports: Left=Bi X, Right=Bi Y, Saw=Uni X, Ramp=Uni Y, Mono=Bi X.
+static void process_ellipsoid(Circuit& g, Node& node, int frames) {
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double referenceVoltage = 48.0 / 120.0;
+  const double phaseOff = node.phaseParam.out;
+  const double shape = node.shape.out;
+  const double level = node.amplitude.out;
+  int motion = (int)(node.mode.out + (node.mode.out >= 0.0 ? 0.5 : -0.5));
+  if (motion < 0) motion = 0;
+  if (motion > 3) motion = 3;
+  const bool clockWise = (motion == 0 || motion == 2);
+  const bool useSimTime = motion >= 2;
+  const double dir = clockWise ? -1.0 : 1.0;
+
+  double phase = node.phase; // cycles 0..1
+  if (!liveReset) node.lastReset = 0.0;
+  for (int f = 0; f < frames; f++) {
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        phase = 0.0;
+        node.phase = 0.0;
+      }
+      node.lastReset = rv;
+    }
+    double freq;
+    if (liveF) {
+      freq = g.mixF[f];
+    } else if (livePitch) {
+      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+    } else {
+      freq = node.frequency.out;
+    }
+    // RoundShape allows negative Hz (reverse); do not clamp to +Nyquist only.
+    if (!(freq == freq)) freq = 0.0;
+    const double ny = 0.5 * sr;
+    if (freq > ny) freq = ny;
+    if (freq < -ny) freq = -ny;
+    double phaseInc = dir * (freq / sr);
+    if (liveInc) phaseInc += g.mixIncrement[f];
+
+    double samplePhase;
+    if (useSimTime) {
+      const double t = g.globalTimeSamples + (double)f;
+      samplePhase = phaseInc * t + phaseOff;
+    } else {
+      samplePhase = phase + phaseOff;
+    }
+    samplePhase -= dsp_floor(samplePhase);
+
+    const double biX = soemdsp_ellipsoid_sine_to_square_aa(
+      samplePhase, shape, freq < 0.0 ? -freq : freq, sr, 1
+    ) * level;
+    const double biY = soemdsp_ellipsoid_sine_to_square_aa(
+      samplePhase - 0.25, shape, freq < 0.0 ? -freq : freq, sr, 1
+    ) * level;
+    const double uniX = 0.5 * (biX + level);
+    const double uniY = 0.5 * (biY + level);
+
+    node.buf[kPortLeft][f] = biX;
+    node.buf[kPortRight][f] = biY;
+    node.buf[kPortSaw][f] = uniX;
+    node.buf[kPortRamp][f] = uniY;
+    node.buf[kPortMono][f] = biX;
+
+    if (!useSimTime) {
+      phase += phaseInc;
+      phase -= dsp_floor(phase);
+    }
+  }
+  if (!useSimTime) node.phase = phase;
+}
+
+// Snowflake: stereo X/Y path walk. mode=pattern, stages=iterations,
+// width=angle°, shape=direction, center=spin, phaseParam=phase.
+static void process_snowflake(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double referenceVoltage = 48.0 / 120.0;
+  const double pattern = node.mode.out;
+  const double iterations = node.stages.out;
+  const double angleDeg = node.width.out;
+  const double direction = node.shape.out;
+  const double spin = node.center.out;
+  const double phaseArg = node.phaseParam.out;
+  const double level = node.amplitude.out;
+  if (!liveReset) node.lastReset = 0.0;
+
+  for (int f = 0; f < frames; f++) {
+    double resetGate = 0.0;
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
+      node.lastReset = rv;
+    }
+    double freq;
+    if (liveF) {
+      freq = g.mixF[f];
+    } else if (livePitch) {
+      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+    } else {
+      freq = node.frequency.out;
+    }
+    freq = clamp_hz_nyquist(freq, sr);
+    soemdsp_snowflake_sample(
+      node.nativeHandle,
+      freq,
+      pattern,
+      iterations,
+      angleDeg,
+      1.0, // sizeArg ignored
+      direction,
+      spin,
+      level,
+      resetGate,
+      phaseArg,
+      sr
+    );
+    const double X = soemdsp_snowflake_x(node.nativeHandle);
+    const double Y = soemdsp_snowflake_y(node.nativeHandle);
+    node.buf[kPortLeft][f] = X;
+    node.buf[kPortRight][f] = Y;
+    node.buf[kPortMono][f] = 0.5 * (X + Y);
+  }
+}
+
 // Master Clock / transport: tempo square.
 // -1..1→Mono, 0..1→Left, Trigger→Right, f (Hz)→Saw.
 // Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
@@ -3348,6 +3653,9 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeDsfOscillator
     || node.typeId == kTypeHypersaw
     || node.typeId == kTypeSinc
+    || node.typeId == kTypeBradley2a
+    || node.typeId == kTypeEllipsoid
+    || node.typeId == kTypeSnowflake
   ) {
     return; // sources: silence
   }
@@ -3474,8 +3782,10 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeSoftwaveOsc
     || typeId == kTypeDsfOscillator
     || typeId == kTypeHypersaw
-    || typeId == kTypeSinc;
-  // additiveOsc is free-fn (no native handle).
+    || typeId == kTypeSinc
+    || typeId == kTypeBradley2a
+    || typeId == kTypeSnowflake;
+  // additiveOsc / ellipsoid are free-fn (no native handle).
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -3910,6 +4220,18 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_sinc(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeBradley2a) {
+      process_bradley2a(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeEllipsoid) {
+      process_ellipsoid(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeSnowflake) {
+      process_snowflake(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeReverbEffect) {
       process_reverb(*g, node, frames);
       continue;
@@ -3983,5 +4305,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 41; // + additiveOsc/surge/softwave/dsf/hypersaw/sinc (43–48)
+  return 42; // + bradley2a/ellipsoid/snowflake (49–51)
 }

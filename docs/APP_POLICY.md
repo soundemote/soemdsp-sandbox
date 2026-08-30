@@ -82,6 +82,9 @@ Only these live-audio types exist in the efficient build:
 | `dsfOscillator` | Discrete Summation Formula oscillator |
 | `hypersaw` | Stereo PolyBLEP saw bank (spread / random / drift) |
 | `sinc` | Repeating sinc kernel (Ideal / Band Limit) |
+| `bradley2a` | Bradley Telcom jitter/hit impairment synth |
+| `ellipsoid` | RoundShape sine→square quadrature (Bi/Uni X/Y) |
+| `snowflake` | L-system fractal path walker (X/Y) |
 | `output` | Sink |
 
 Canonical circuit:
@@ -95,7 +98,8 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    clock / triggerDivider / delayedTrigger / randomClock / triggerCounter /
    metallicRatio / lutCell / lookaheadLimiter / stepSequencer / transport /
    aliasSine / blit / sineWavetable / antisaw / archimedes /
-   additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc
+   additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc /
+   bradley2a / ellipsoid / snowflake
    as utilities)
 ```
 
