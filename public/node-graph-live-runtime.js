@@ -3057,16 +3057,16 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=interrupt-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=wasm-plan-race-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=magenta-scope-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=yellow-graph-scope-1",
   "./public/node-live-audio-worklet-set-plan.js?v=fix-normalizeCodeblock-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=graph-engine-6",
   "./public/node-live-audio-worklet-handle-message.js?v=wasm-plan-race-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
-  // Magenta Graph additive chain (efficient Live sidecar until native Magenta).
+  // Yellow Graph additive chain (efficient Live sidecar until native Yellow Graph).
   "./public/modules/additiveGraph/additive-graph-math.js?v=noisy-hz-1",
   "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=noisy-hz-1",
-  "./public/modules/additiveGraph/additive-magenta-sidecar.js?v=noisy-hz-1",
+  "./public/modules/additiveGraph/additive-yellow-graph-sidecar.js?v=noisy-hz-1",
   "./public/node-live-audio-worklet-process.js?v=silence-fix-1",
 ];
 

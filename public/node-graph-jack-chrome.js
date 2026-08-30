@@ -302,7 +302,7 @@ function nodeGraphJackStereoChannel(value) {
  * "" | "red" | "green" | "blue" | "purple" | "cyan" | "yellow"
  * (+ reserved "magenta" / "black" unused)
  *
- * CMYK additive non-realtime plane (name “Magenta Graph” kept for now):
+ * CMYK additive non-realtime plane (Yellow Graph):
  *   Yellow → Graph chunk in/out (data-plane, once per quantum)
  *   Cyan   → Parameter / block-rate ZOH in/out (once per quantum, held)
  *   Magenta / K → reserved unused

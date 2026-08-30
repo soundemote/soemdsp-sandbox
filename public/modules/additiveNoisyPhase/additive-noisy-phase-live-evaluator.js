@@ -1,4 +1,4 @@
-// Offline/render: NoisyPhase — CheapWalk jitter on Magenta Graph phase.
+// Offline/render: NoisyPhase — CheapWalk jitter on Yellow Graph phase.
 
 const nodeGraphAdditiveNoisyPhaseStates = new Map();
 

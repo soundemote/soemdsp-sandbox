@@ -101,6 +101,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   additiveNoisyPhase: "silence",
   additiveNoisyPan: "silence",
   additiveNoisyAmp: "silence",
+  additiveImage: "silence",
   additiveOut: "silence",
   aliasSine: "silence",
   robinSinusoid: "silence",

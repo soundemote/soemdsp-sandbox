@@ -377,7 +377,7 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
 }
 
 /**
- * Yellow Graph chunk ports (CMYK Y; product name still “Magenta Graph”).
+ * Yellow Graph chunk ports (CMYK Y).
  * Data-plane once-per-quantum payload (e.g. harmonic {phase,ratio,amp}),
  * not audio-rate samples. Listed in dataInputs / dataOutputs as "Graph",
  * or graphChunkInputs/Outputs.
@@ -444,6 +444,7 @@ function nodeGraphModuleUsesCmykParameterChrome(type) {
     || key === "additiveNoisyPhase"
     || key === "additiveNoisyPan"
     || key === "additiveNoisyAmp"
+    || key === "additiveImage"
     || key === "additiveOut";
 }
 

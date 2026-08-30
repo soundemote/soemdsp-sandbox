@@ -346,7 +346,7 @@ Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled
 
 ### CMYK non-realtime plane (additive proving ground)
 
-Additive modules use a **CMYK** jack story for **non-realtime** ports (once per audio quantum). Product name **“Magenta Graph”** is kept for now; **live chrome uses Yellow + Cyan** (Magenta and K reserved unused).
+Additive modules use a **CMYK** jack story for **non-realtime** ports (once per audio quantum). Product name **“Yellow Graph”** matches live chrome (**Yellow** Graph + **Cyan** Parameter). CMYK **M** and **K** stay reserved unused.
 
 | Ink | Role | Color | Rate |
 |-----|------|--------|------|
@@ -365,9 +365,9 @@ Additive modules use a **CMYK** jack story for **non-realtime** ports (once per 
 
 List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOutputs` (same pattern as `digitalInputs` / `digitalOutputs`). Ordinary Morph / CV inlets that are **sample-accurate** (PolyBLEP, Softwave, Ellipsoid, DSF, …) stay **unlisted** and paint **gold** — do not mark them block-rate just because the knob is named Morph.
 
-**Additive series exception:** parameter-row **mod jacks** (and matching slider-out jacks) on `additiveGenerator` / filters / Growl / NoisyFreq|Phase|Pan|Amp / `additiveOut` paint **cyan** even though they are modulation ports (not left-column IO). Graph cables follow jack color → **yellow** (not magenta).
+**Additive series exception:** parameter-row **mod jacks** (and matching slider-out jacks) on `additiveGenerator` / filters / Growl / NoisyFreq|Phase|Pan|Amp / `additiveOut` paint **cyan** even though they are modulation ports (not left-column IO). Graph cables follow jack color → **yellow** (YellowWire).
 
-**Yellow Graph chunk ports** (still called Magenta Graph in product copy)
+**Yellow Graph chunk ports**
 
 - Carry a **multidimensional** once-per-quantum payload on the data plane (`dataInputs` / `dataOutputs`): `{ phase[], ratio[], amplitude[], pan[] }` (`pan` bipolar −1…+1; final plane consumed by Additive Out Left/Right).
 - Not audio-rate sample packs. Port name **`Graph`** on both inlet and outlet sides is **yellow**.

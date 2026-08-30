@@ -144,6 +144,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "gradientVectorscope",
   "lufs",
   "osc",
+  "additiveImage",
 ]);
 
 // Types that used to be on the UC shelf and are now shipped. Always strip
@@ -205,6 +206,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   lufs: "Integrated / short-term / momentary loudness (LUFS). Parked on Multimeter until loudness metering lands.",
   osc: "Open Sound Control (UDP ↔ CV). Parked on Controller until network send/receive lands.",
   metallicRatio: "Metallic-mean Ratio CV (golden/silver/…). Useful for detune, delay ratios, and spacing — parked until the modulator shelf polish pass.",
+  additiveImage: "Image → Yellow Graph harmonics. Parked until the Additive image analysis pass.",
 });
 
 // Unified module department definitions — single source of truth for
@@ -412,60 +414,66 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "RobinSinusoid",
     notes: ["RS-MET", "rosic", "recursive sine", "self-oscillating", "sinusoid"],
   },
-  // additiveOsc / gpuAdditiveOsc retired — Magenta Graph chain replaces them.
+  // additiveOsc / gpuAdditiveOsc retired — Yellow Graph chain replaces them.
   additiveGenerator: {
     category: "additive",
-    description: "Waveform + Morph + Harmonics → Magenta Graph. Patch through filters / Growl / Noisy* to Additive Out.",
+    description: "Waveform + Morph + Harmonics → Yellow Graph. Patch through filters / Growl / Noisy* to Additive Out.",
     label: "Additive Generator",
-    notes: ["additive", "magenta graph", "harmonics", "morph"],
+    notes: ["additive", "yellow graph", "harmonics", "morph"],
   },
   additiveLinearFilter: {
     category: "additive",
-    description: "Linear slope→brickwall Magenta Graph filter with LP / BP / HP. Face shows the response curve.",
+    description: "Linear slope→brickwall Yellow Graph filter with LP / BP / HP. Face shows the response curve.",
     label: "Linear Filter",
-    notes: ["additive", "magenta graph", "filter", "brickwall", "LP", "BP", "HP"],
+    notes: ["additive", "yellow graph", "filter", "brickwall", "LP", "BP", "HP"],
   },
   additiveAnalogFilter: {
     category: "additive",
-    description: "Nonlinear (rational) slope→brickwall Magenta Graph filter with LP / BP / HP + Skew.",
+    description: "Nonlinear (rational) slope→brickwall Yellow Graph filter with LP / BP / HP + Skew.",
     label: "Analog Filter",
-    notes: ["additive", "magenta graph", "filter", "analog", "skew"],
+    notes: ["additive", "yellow graph", "filter", "analog", "skew"],
   },
   additiveGrowl: {
     category: "additive",
-    description: "PhaseRotation + PhaseSkew + PhaseSkewCurve on Magenta Graph harmonics (SoEmAdditive growl).",
+    description: "PhaseRotation + PhaseSkew + PhaseSkewCurve on Yellow Graph harmonics (SoEmAdditive growl).",
     label: "Growl",
-    notes: ["additive", "magenta graph", "phase", "growl"],
+    notes: ["additive", "yellow graph", "phase", "growl"],
   },
   additiveNoisyFreq: {
     category: "additive",
-    description: "Per-harmonic CheapWalk on Magenta Graph ratios (frequency / partial index).",
+    description: "Per-harmonic CheapWalk on Yellow Graph ratios (frequency / partial index).",
     label: "NoisyFreq",
-    notes: ["additive", "magenta graph", "cheap walk", "noisy", "frequency"],
+    notes: ["additive", "yellow graph", "cheap walk", "noisy", "frequency"],
   },
   additiveNoisyPhase: {
     category: "additive",
-    description: "Per-harmonic CheapWalk on Magenta Graph phase.",
+    description: "Per-harmonic CheapWalk on Yellow Graph phase.",
     label: "NoisyPhase",
-    notes: ["additive", "magenta graph", "cheap walk", "phase"],
+    notes: ["additive", "yellow graph", "cheap walk", "phase"],
   },
   additiveNoisyPan: {
     category: "additive",
-    description: "Per-harmonic CheapWalk on Magenta Graph pan (−1…+1). Heard on Additive Out Left/Right.",
+    description: "Per-harmonic CheapWalk on Yellow Graph pan (−1…+1). Heard on Additive Out Left/Right.",
     label: "NoisyPan",
-    notes: ["additive", "magenta graph", "cheap walk", "pan", "stereo"],
+    notes: ["additive", "yellow graph", "cheap walk", "pan", "stereo"],
   },
   additiveNoisyAmp: {
     category: "additive",
-    description: "Per-harmonic CheapWalk on Magenta Graph amplitude (clamped 0…1).",
+    description: "Per-harmonic CheapWalk on Yellow Graph amplitude (clamped 0…1).",
     label: "NoisyAmp",
-    notes: ["additive", "magenta graph", "cheap walk", "amplitude"],
+    notes: ["additive", "yellow graph", "cheap walk", "amplitude"],
+  },
+  additiveImage: {
+    category: "additive",
+    description: "Under construction. Image → Yellow Graph harmonics (parked).",
+    label: "AdditiveImage",
+    notes: ["additive", "yellow graph", "image", "under construction"],
   },
   additiveOut: {
     category: "additive",
-    description: "Renders Magenta Graph to Mono / Left / Right (pan[]). Frequency, Phase, Amplitude + harmonic lines face.",
+    description: "Renders Yellow Graph to Mono / Left / Right (pan[]). Frequency, Phase, Amplitude + harmonic lines face.",
     label: "Additive Out",
-    notes: ["additive", "magenta graph", "harmonic lines", "stereo", "pan"],
+    notes: ["additive", "yellow graph", "harmonic lines", "stereo", "pan"],
   },
   ellipsoid: {
     category: "modulator",
@@ -2478,6 +2486,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   additiveNoisyAmp: {
     source: "public/modules/additiveGraph/additive-graph-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
+  },
+  additiveImage: {
+    source: "public/modules/additiveImage/additive-image-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveImage/additive-image-live-evaluator.js",
   },
   additiveOut: {
     source: "public/modules/additiveOut/additive-out-worklet-evaluator.js",

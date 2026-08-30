@@ -1,4 +1,4 @@
-// Worklet: NoisyAmp — Magenta Graph amplitude walks once per quantum.
+// Worklet: NoisyAmp — Yellow Graph amplitude walks once per quantum.
 
 NodeLiveAudioProcessor.prototype.additiveNoisyAmpWorkletEvaluate = function additiveNoisyAmpWorkletEvaluate(
   node, nodeId, frame, frames,

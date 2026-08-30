@@ -630,7 +630,7 @@ function nodeGraphModuleIoRowCount(type) {
 
 function nodeGraphModuleTypeHasIoPorts(type) {
   const definition = nodeGraphModuleDefinitions[type];
-  // Include data-plane ports (Magenta Graph, Hypersaw Phases, …) — otherwise
+  // Include data-plane ports (Yellow Graph, Hypersaw Phases, …) — otherwise
   // modules with only dataInputs/dataOutputs get no IO band and the jack strip
   // shares a grid row with params (face left / params right).
   return Boolean(

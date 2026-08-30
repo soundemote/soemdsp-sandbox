@@ -1,8 +1,8 @@
-// Magenta Graph sidecar for efficient Live (native graph has no Magenta types yet).
+// Yellow Graph sidecar for efficient Live (native graph has no Yellow Graph types yet).
 // Runs Generator → Effect → Out in JS once per quantum, publishes Graph for faces,
 // keeps per-Out Mono for scope taps, and mixes into speakers when wired to Output.
 
-NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function processAdditiveMagentaSidecar(
+NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function processAdditiveYellowGraphSidecar(
   output,
   frames,
 ) {
@@ -33,6 +33,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
     "additiveNoisyPhase",
     "additiveNoisyPan",
     "additiveNoisyAmp",
+    "additiveImage", // UC — Graph passthrough until image analysis ships
   ]);
 
   const sr = Number(this.engineSampleRate) || Number(sampleRate) || 44100;
@@ -125,6 +126,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
         this.additiveGraphPublish.set(String(id), graph);
         continue;
       }
+      // additiveImage (UC) and any other effect type: passthrough clone
       this.additiveGraphBus.set(String(id), out);
       this.additiveGraphPublish.set(String(id), out);
     }
@@ -225,7 +227,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveMagentaSidecar = function proces
       lastMono = mono;
       lastLeft = left;
       lastRight = right;
-      // Always keep Mono for efficient-mode scopes (native graph has no Magenta ports).
+      // Always keep Mono for efficient-mode scopes (native graph has no Yellow Graph ports).
       monoBuf[f] = mono;
       if (!mixToSpeakers) continue;
       for (let r = 0; r < speakerRoutes.length; r += 1) {

@@ -1,4 +1,4 @@
-// Offline/render: Additive Generator publishes Magenta Graph (no audio).
+// Offline/render: Additive Generator publishes Yellow Graph (no audio).
 
 function nodeGraphAdditiveGeneratorLiveEvaluator({ node, nodeId }) {
   const read = (key, fallback) => {

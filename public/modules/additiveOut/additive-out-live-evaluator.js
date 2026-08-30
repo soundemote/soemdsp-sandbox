@@ -1,4 +1,4 @@
-// Offline/render: Additive Out sums Magenta Graph → Mono / Left / Right.
+// Offline/render: Additive Out sums Yellow Graph → Mono / Left / Right.
 
 const nodeGraphAdditiveOutStates = new Map();
 

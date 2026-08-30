@@ -1,4 +1,4 @@
-// Shared Magenta Graph payload + additive partial tables + Effect modes.
+// Shared Yellow Graph payload + additive partial tables + Effect modes.
 // Graph is once-per-quantum ZOH: parallel arrays length H.
 
 const ADDITIVE_GRAPH_MAX_H = 4096;
@@ -208,7 +208,7 @@ function cheapWalkStep(state, speed01) {
 }
 
 /**
- * Magenta Noisy Speed is Hz. Effects run once per quantum, so scale like
+ * Yellow Graph Noisy Speed is Hz. Effects run once per quantum, so scale like
  * Cheap Walk’s per-sample step accumulated over the block:
  *   speed01 = (Hz / sr) * blockFrames
  * Hz=0 → 0 (stopped). Hz≈20000 at 48k/128 → large step ≈ white-ish.
@@ -314,7 +314,7 @@ function additiveGraphApplyGrowl(graph, rotation, skew, skewCurve) {
   const rot = Number(rotation) || 0;
   const skewAmt = additiveGraphClamp(skew, 0, 1);
   const curve = additiveGraphClamp(Number(skewCurve) || 0, -0.9999, 0.9999);
-  // Old C scaled RationalS by ~300 (phase units). Magenta phase is cycles —
+  // Old C scaled RationalS by ~300 (phase units). Yellow Graph phase is cycles —
   // keep a few cycles of warp at full skew so the face/audio stay musical.
   const scale = 2;
   let skewRamp = 0;

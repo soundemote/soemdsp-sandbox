@@ -1,4 +1,4 @@
-// Offline/render: Additive Linear Filter — Magenta Graph LP/BP/HP slope→brickwall.
+// Offline/render: Additive Linear Filter — Yellow Graph LP/BP/HP slope→brickwall.
 
 function nodeGraphAdditiveLinearFilterLiveEvaluator({ node, nodeId }) {
   const incoming = typeof readNodeGraphDataInput === "function"

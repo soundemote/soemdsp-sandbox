@@ -1,4 +1,4 @@
-// Worklet: Additive Linear Filter — Magenta Graph once per quantum.
+// Worklet: Additive Linear Filter — Yellow Graph once per quantum.
 
 NodeLiveAudioProcessor.prototype.additiveLinearFilterWorkletEvaluate = function additiveLinearFilterWorkletEvaluate(
   node, nodeId, frame,

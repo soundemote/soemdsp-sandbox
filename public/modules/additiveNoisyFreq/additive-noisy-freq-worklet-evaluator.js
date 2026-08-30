@@ -1,4 +1,4 @@
-// Worklet: NoisyFreq — Magenta Graph ratio walks once per quantum.
+// Worklet: NoisyFreq — Yellow Graph ratio walks once per quantum.
 
 NodeLiveAudioProcessor.prototype.additiveNoisyFreqWorkletEvaluate = function additiveNoisyFreqWorkletEvaluate(
   node, nodeId, frame, frames,

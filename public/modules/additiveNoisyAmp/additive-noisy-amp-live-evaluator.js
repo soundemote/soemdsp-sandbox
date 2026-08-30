@@ -1,4 +1,4 @@
-// Offline/render: NoisyAmp — CheapWalk jitter on Magenta Graph amplitude (0…1).
+// Offline/render: NoisyAmp — CheapWalk jitter on Yellow Graph amplitude (0…1).
 
 const nodeGraphAdditiveNoisyAmpStates = new Map();
 

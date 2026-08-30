@@ -109,7 +109,7 @@ function drawNodeGraphHarmonicCountDisplay(section) {
   const nodeId = section.dataset.node;
   const type = section.dataset.nodeType;
   const text = nodeGraphHarmonicCountFaceText(nodeId, type);
-  // CMYK Y face ink (Graph plane) — was magenta.
+  // CMYK Y face ink (Yellow Graph plane).
   ctx.fillStyle = "#ffe600";
   // Named faces (Growl / Noisy) need a smaller font than a single H digit.
   const isName = Boolean(ADDITIVE_NAMED_FACE[type]);

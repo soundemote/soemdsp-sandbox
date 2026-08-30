@@ -1,4 +1,4 @@
-// Worklet: Growl — Magenta Graph phase warp once per quantum.
+// Worklet: Growl — Yellow Graph phase warp once per quantum.
 
 NodeLiveAudioProcessor.prototype.additiveGrowlWorkletEvaluate = function additiveGrowlWorkletEvaluate(
   node, nodeId, frame,

@@ -27,6 +27,7 @@ const nodeGraphNodeLabels = Object.freeze({
   additiveNoisyPhase: "NoisyPhase",
   additiveNoisyPan: "NoisyPan",
   additiveNoisyAmp: "NoisyAmp",
+  additiveImage: "AdditiveImage",
   additiveOut: "Additive Out",
   ellipsoid: "RoundShape",
   ellipsoidOsc: "Ellipsoid",
@@ -1372,7 +1373,7 @@ const nodeGraphModuleDefinitions = (
       },
     ],
   },
-  // Magenta Graph chain: Generator → Effect(s) → Out. Harmonics count lives on Generator only.
+  // Yellow Graph chain: Generator → Effect(s) → Out. Harmonics count lives on Generator only.
   // (additiveOsc / gpuAdditiveOsc retired — dropped on patch load.)
   additiveGenerator: {
     planRole: "source",
@@ -1743,6 +1744,19 @@ const nodeGraphModuleDefinitions = (
         tooltip: "CheapWalk rate. 0 = stopped; high (near 20 kHz) approaches white noise. Raise max if you want more — no code ceiling.",
       },
     ],
+  },
+  // Under construction — image→harmonic Yellow Graph source/processor (parked).
+  additiveImage: {
+    planRole: "processor",
+    chrome: "LayoutA",
+    customDisplayArea: true,
+    displayHeightGu: 2,
+    defaultWidthGu: 8,
+    inputs: [],
+    outputs: [],
+    dataInputs: ["Graph"],
+    dataOutputs: ["Graph"],
+    parameters: [],
   },
   additiveOut: {
     planRole: "source",

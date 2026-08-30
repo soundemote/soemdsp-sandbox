@@ -1,4 +1,4 @@
-// Offline/render: NoisyFreq — CheapWalk jitter on Magenta Graph ratios.
+// Offline/render: NoisyFreq — CheapWalk jitter on Yellow Graph ratios.
 
 const nodeGraphAdditiveNoisyFreqStates = new Map();
 

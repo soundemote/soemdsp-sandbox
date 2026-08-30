@@ -1,4 +1,4 @@
-// Worklet: Additive Generator — Magenta Graph OUT once per quantum.
+// Worklet: Additive Generator — Yellow Graph OUT once per quantum.
 
 NodeLiveAudioProcessor.prototype.ensureAdditiveGraphBus = function ensureAdditiveGraphBus() {
   if (!this.additiveGraphBus) this.additiveGraphBus = new Map();

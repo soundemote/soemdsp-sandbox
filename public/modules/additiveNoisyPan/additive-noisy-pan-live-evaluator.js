@@ -1,4 +1,4 @@
-// Offline/render: NoisyPan — CheapWalk jitter on Magenta Graph pan (−1…+1).
+// Offline/render: NoisyPan — CheapWalk jitter on Yellow Graph pan (−1…+1).
 
 const nodeGraphAdditiveNoisyPanStates = new Map();
 

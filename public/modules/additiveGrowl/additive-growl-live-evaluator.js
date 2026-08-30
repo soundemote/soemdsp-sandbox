@@ -1,4 +1,4 @@
-// Offline/render: Growl — PhaseRotation + PhaseSkew + PhaseSkewCurve on Magenta Graph.
+// Offline/render: Growl — PhaseRotation + PhaseSkew + PhaseSkewCurve on Yellow Graph.
 
 function nodeGraphAdditiveGrowlLiveEvaluator({ node, nodeId }) {
   const incoming = typeof readNodeGraphDataInput === "function"

@@ -360,7 +360,7 @@ Shared filter template (`In`/`Out` labeled Mono): chrome follows the **port name
 
 **Cyan** = non-realtime Parameter in/out — zero-order-hold / once-per-quantum control jacks (additive Morph CV, etc.). Parameter smoothers may still emit sample packs; cyan ports do not.
 
-**Yellow** = Graph chunk data-plane jacks (additive harmonic Graph, etc.). Product name may still say “Magenta Graph”; jack chrome is yellow. Not curve `graphInputs` (those stay mod-purple).
+**Yellow** = Graph chunk data-plane jacks (additive harmonic Graph, etc.). Product name **Yellow Graph**; jack chrome is yellow. Not curve `graphInputs` (those stay mod-purple).
 
 Chaos XYZ uses RGB **by name**, not by stack index:
 

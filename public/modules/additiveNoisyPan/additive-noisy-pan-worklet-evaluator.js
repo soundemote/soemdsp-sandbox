@@ -1,4 +1,4 @@
-// Worklet: NoisyPan — Magenta Graph pan walks once per quantum.
+// Worklet: NoisyPan — Yellow Graph pan walks once per quantum.
 
 NodeLiveAudioProcessor.prototype.additiveNoisyPanWorkletEvaluate = function additiveNoisyPanWorkletEvaluate(
   node, nodeId, frame, frames,

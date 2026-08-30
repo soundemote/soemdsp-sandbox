@@ -119,7 +119,7 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
     for (const [nodeId, state] of this.spectrogramStates) {
       this.spectrogramCollectDisplayData(nodeId, state, dataPorts);
     }
-    // Magenta Graph relay (Additive Generator / Effect / Out faces).
+    // Yellow Graph relay (Additive Generator / Effect / Out faces).
     if (this.additiveGraphPublish && this.additiveGraphPublish.size) {
       for (const [nodeId, graph] of this.additiveGraphPublish) {
         if (!graph || !graph.ratio) continue;

@@ -2290,7 +2290,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       const r = Number(protectedRight?.[idx] ?? l) || 0;
       return (l + r) * 0.5;
     }
-    // Magenta Additive Out is JS-sidecar only — tap its Mono ring for scopes.
+    // Yellow Graph Additive Out is JS-sidecar only — tap its Mono ring for scopes.
     if (srcType === "additiveOut") {
       const buf = this._additiveOutMono?.get(String(sourceNode));
       const idx = frameOffset + frame;
@@ -2411,13 +2411,13 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
   // Write targets only — native graph_engine SmootherManager chases outs.
   this.syncNativeGraphParams?.(frames);
 
-  // Magenta Graph chain (Generator→Effect→Out) is JS until native Magenta lands.
+  // Yellow Graph chain (Generator→Effect→Out) is JS until native Yellow Graph lands.
   // Build Graph + scratch audio once per quantum; mix below before ear-protect.
-  if (typeof this.processAdditiveMagentaSidecar === "function") {
+  if (typeof this.processAdditiveYellowGraphSidecar === "function") {
     try {
-      this.processAdditiveMagentaSidecar(output, frames);
+      this.processAdditiveYellowGraphSidecar(output, frames);
     } catch (_e) {
-      // Keep native audio if Magenta sidecar throws.
+      // Keep native audio if Yellow Graph sidecar throws.
     }
   }
 

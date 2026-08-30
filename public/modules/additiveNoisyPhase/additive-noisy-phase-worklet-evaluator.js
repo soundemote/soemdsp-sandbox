@@ -1,4 +1,4 @@
-// Worklet: NoisyPhase — Magenta Graph phase walks once per quantum.
+// Worklet: NoisyPhase — Yellow Graph phase walks once per quantum.
 
 NodeLiveAudioProcessor.prototype.additiveNoisyPhaseWorkletEvaluate = function additiveNoisyPhaseWorkletEvaluate(
   node, nodeId, frame, frames,
