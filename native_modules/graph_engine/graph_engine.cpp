@@ -298,6 +298,20 @@ extern "C" double soemdsp_pumping_limiter_right(int handle);
 extern "C" double soemdsp_pumping_limiter_gain(int handle);
 extern "C" double soemdsp_pumping_limiter_env(int handle);
 
+extern "C" int soemdsp_audio_player_create();
+extern "C" void soemdsp_audio_player_destroy(int handle);
+extern "C" double soemdsp_audio_player_sample(
+  int handle,
+  double reset, double speedCv, double phaseCv, int hasPhase,
+  double transportMode, double speedParam, double start, double end,
+  double amplitude, double phaseOffset, double phaseSkip, double playlistScrub,
+  double antialias, double engineSampleRate
+);
+extern "C" double soemdsp_audio_player_left(int handle);
+extern "C" double soemdsp_audio_player_right(int handle);
+extern "C" double soemdsp_audio_player_phase(int handle);
+extern "C" double soemdsp_audio_player_trigger(int handle);
+
 extern "C" int soemdsp_step_sequencer_create();
 extern "C" void soemdsp_step_sequencer_destroy(int handle);
 extern "C" double soemdsp_step_sequencer_sample(
@@ -1135,6 +1149,11 @@ static const int kTypeCrossover5 = 106;
 static const int kTypeCrossover6 = 107;
 static const int kTypeCheapWalk = 108;
 static const int kTypePumpLimiter = 109; // musical Pump Limiter (type `limiter`)
+static const int kTypeAudioPlayer = 110; // Music Player (PCM upload)
+// Yellow Graph (Additive) — A1 minimal chain (see additive_yellow_graph.h)
+static const int kTypeAdditiveGenerator = 111;
+static const int kTypeAdditiveBubble = 112;
+static const int kTypeAdditiveOut = 113;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1450,6 +1469,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_lookahead_limiter_destroy(handle);
   } else if (kind == kTypePumpLimiter) {
     soemdsp_pumping_limiter_destroy(handle);
+  } else if (kind == kTypeAudioPlayer) {
+    soemdsp_audio_player_destroy(handle);
   } else if (kind == kTypeStepSequencer) {
     soemdsp_step_sequencer_destroy(handle);
   } else if (kind == kTypeTransport) {
@@ -2527,6 +2548,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeLutCell) return soemdsp_lut_cell_create();
   if (typeId == kTypeLookaheadLimiter) return soemdsp_lookahead_limiter_create();
   if (typeId == kTypePumpLimiter) return soemdsp_pumping_limiter_create();
+  if (typeId == kTypeAudioPlayer) return soemdsp_audio_player_create();
   if (typeId == kTypeStepSequencer) return soemdsp_step_sequencer_create();
   if (typeId == kTypeTransport) return soemdsp_transport_create();
   if (typeId == kTypeAliasSine) return soemdsp_alias_sine_create();
@@ -5584,6 +5606,55 @@ static void process_pump_limiter(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Music Player — PCM-backed; host uploads via set_pcm + l_ptr/r_ptr.
+// Params: mode=transport, frequency≈speed, timeNum/Den=start/end,
+// amplitude, phaseParam=phaseOffset, shape=phase skip, seed=playlistScrub,
+// stages=antialias, level unused.
+static void process_audio_player(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixMorph);
+  const bool hasSpeed = mix_live_port(g, node, kPortF, frames, g.mixMono); // Speed on ƒ reuse? use PitchCv
+  (void)hasSpeed;
+  const bool hasPhase = mix_live_port(g, node, kPortIncrement, frames, g.mixLeft); // Phase jack
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double transport = node.mode.out;
+  const double speedParam = node.frequency.out;
+  const double start = node.timeNumerator.out;
+  const double end = node.timeDenominator.out;
+  const double amplitude = node.amplitude.out;
+  const double phaseOffset = node.phaseParam.out;
+  const double phaseSkip = node.shape.out;
+  const double playlistScrub = node.seed.out;
+  const double antialias = node.stages.out;
+  for (int f = 0; f < frames; f++) {
+    const double reset = hasReset ? g.mixMorph[f] : 0.0;
+    const double speedCv = 0.0; // Speed CV: wire via pitch later if needed
+    const double phaseCv = hasPhase ? g.mixLeft[f] : 0.0;
+    const double mono = soemdsp_audio_player_sample(
+      node.nativeHandle,
+      reset,
+      speedCv,
+      phaseCv,
+      hasPhase ? 1 : 0,
+      transport,
+      speedParam,
+      start,
+      end,
+      amplitude,
+      phaseOffset,
+      phaseSkip,
+      playlistScrub,
+      antialias,
+      sr
+    );
+    node.buf[kPortMono][f] = mono;
+    node.buf[kPortLeft][f] = soemdsp_audio_player_left(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_audio_player_right(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_audio_player_phase(node.nativeHandle);
+    node.buf[kPortRamp][f] = soemdsp_audio_player_trigger(node.nativeHandle);
+  }
+}
+
 // Lookahead brickwall: true stereo L/R rings + linked GR. Mono In folds into both sides.
 // Out=mono avg, Left/Right wet, Gain on Saw tap.
 static void process_lookahead_limiter(Circuit& g, Node& node, int frames) {
@@ -6324,6 +6395,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeLutCell
     || typeId == kTypeLookaheadLimiter
     || typeId == kTypePumpLimiter
+    || typeId == kTypeAudioPlayer
     || typeId == kTypeStepSequencer
     || typeId == kTypeTransport
     || typeId == kTypeAliasSine
@@ -6797,6 +6869,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_pump_limiter(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeAudioPlayer) {
+      process_audio_player(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeStepSequencer) {
       process_step_sequencer(*g, node, frames);
       continue;
@@ -7137,10 +7213,21 @@ extern "C" double* soemdsp_graph_node_port_ptr(int handle, unsigned int nodeHash
   return g->nodes[idx].buf[p];
 }
 
+// Upload glue for modules that need host→WASM buffer fill (Music Player PCM,
+// phosphillator path, future sample banks). Returns the node's nativeHandle
+// created at add_node time (0 if missing / free-fn type).
+extern "C" int soemdsp_graph_node_native_handle(int handle, unsigned int nodeHash) {
+  Circuit* g = get(handle);
+  if (!g) return 0;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return 0;
+  return g->nodes[idx].nativeHandle;
+}
+
 extern "C" int soemdsp_graph_max_block_frames() {
   return kMaxBlockFrames;
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 61; // Pump Limiter (type 109) native graph
+  return 62; // + soemdsp_graph_node_native_handle (PCM/path upload glue)
 }

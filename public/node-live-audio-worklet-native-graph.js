@@ -41,6 +41,10 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   lutCell: 34,
   lookaheadLimiter: 35,
   limiter: 109, // Pump Limiter
+  audioPlayer: 110, // Music Player (PCM upload)
+  additiveGenerator: 111, // Yellow Graph (native WIP)
+  additiveBubble: 112,
+  additiveOut: 113,
   stepSequencer: 36,
   transport: 37,
   aliasSine: 38,

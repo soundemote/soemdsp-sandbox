@@ -43,6 +43,7 @@ $modules = @(
     "soemdsp_graph_compile", "soemdsp_graph_process_block",
     "soemdsp_graph_block_output_left_ptr", "soemdsp_graph_block_output_right_ptr",
     "soemdsp_graph_node_port_ptr",
+    "soemdsp_graph_node_native_handle",
     "soemdsp_graph_max_block_frames", "soemdsp_graph_version"
   ) }
   @{ Name = "fractal_brownian_noise"; Simd = $true; Exports = @("soemdsp_fbm_create", "soemdsp_fbm_destroy", "soemdsp_fbm_reset", "soemdsp_fbm_sample", "soemdsp_fbm_x", "soemdsp_fbm_y", "soemdsp_fbm_z", "soemdsp_fbm_x_raw", "soemdsp_fbm_y_raw", "soemdsp_fbm_z_raw", "soemdsp_fbm_version", "soemdsp_fbm_process_block", "soemdsp_fbm_block_output_x_ptr", "soemdsp_fbm_block_output_y_ptr", "soemdsp_fbm_block_output_z_ptr", "soemdsp_fbm_block_output_x_raw_ptr", "soemdsp_fbm_block_output_y_raw_ptr", "soemdsp_fbm_block_output_z_raw_ptr", "soemdsp_fbm_max_block_frames") }
@@ -216,6 +217,17 @@ $modules = @(
   @{ Name = "inertial_filter"; Simd = $false; Exports = @("soemdsp_inertial_filter_create", "soemdsp_inertial_filter_destroy", "soemdsp_inertial_filter_sample", "soemdsp_inertial_filter_version", "soemdsp_inertial_filter_metadata_json", "soemdsp_inertial_filter_metadata_json_size") }
   @{ Name = "lookahead_limiter"; Simd = $false; Exports = @("soemdsp_lookahead_limiter_create", "soemdsp_lookahead_limiter_destroy", "soemdsp_lookahead_limiter_sample", "soemdsp_lookahead_limiter_left", "soemdsp_lookahead_limiter_right", "soemdsp_lookahead_limiter_gain", "soemdsp_lookahead_limiter_version", "soemdsp_lookahead_limiter_metadata_json", "soemdsp_lookahead_limiter_metadata_json_size") }
   @{ Name = "pumping_limiter"; Simd = $false; Exports = @("soemdsp_pumping_limiter_create", "soemdsp_pumping_limiter_destroy", "soemdsp_pumping_limiter_sample", "soemdsp_pumping_limiter_left", "soemdsp_pumping_limiter_right", "soemdsp_pumping_limiter_gain", "soemdsp_pumping_limiter_env", "soemdsp_pumping_limiter_version", "soemdsp_pumping_limiter_metadata_json", "soemdsp_pumping_limiter_metadata_json_size") }
+  @{ Name = "audio_player"; Simd = $false; Exports = @(
+    "soemdsp_audio_player_create", "soemdsp_audio_player_destroy",
+    "soemdsp_audio_player_clear_pcm", "soemdsp_audio_player_set_pcm",
+    "soemdsp_audio_player_l_ptr", "soemdsp_audio_player_r_ptr",
+    "soemdsp_audio_player_max_frames",
+    "soemdsp_audio_player_sample",
+    "soemdsp_audio_player_left", "soemdsp_audio_player_right",
+    "soemdsp_audio_player_phase", "soemdsp_audio_player_trigger",
+    "soemdsp_audio_player_version", "soemdsp_audio_player_metadata_json",
+    "soemdsp_audio_player_metadata_json_size"
+  ) }
 )
 
 foreach ($module in $modules) {
