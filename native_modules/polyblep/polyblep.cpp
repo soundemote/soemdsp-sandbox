@@ -114,9 +114,28 @@ double polyBlepSquare(double phaseCycle, double phaseIncrement) {
   return value;
 }
 
+// Morph is bipolar (−1…+1). 0 = unmorphed center for every morphing shape.
+// Pulse / Center Square: 0 = 50% duty; ±1 → ~0% / ~100% width.
+// Trisaw: 0 = saw; + → saw→tri; − → opposite-saw→tri (both poles land on triangle).
+
+double polyBlepPulseDutyFromMorph(double morph) {
+  // −1…+1 → ~0…1 duty (keep off exact 0/1).
+  const double m = clampD(morph, -1.0, 1.0);
+  return clampD(0.5 + 0.4999 * m, 0.0001, 0.9999);
+}
+
+double polyBlepTrisawPwFromMorph(double morph) {
+  // 0 → saw (pw≈0); +1 → tri (0.5) via saw skirt; −1 → tri (0.5) via opposite saw.
+  const double m = clampD(morph, -1.0, 1.0);
+  if (m >= 0.0) {
+    return clampD(0.0001 + 0.4999 * m, 0.0001, 0.9999);
+  }
+  return clampD(0.9999 + 0.4999 * m, 0.0001, 0.9999);
+}
+
 // Left-aligned PWM pulse (soemdsp PolyBLEP::pulse).
 double polyBlepPulse(double t, double incrementAbs, double morph) {
-  const double pw = clampD(morph, 0.0, 1.0);
+  const double pw = polyBlepPulseDutyFromMorph(morph);
   double t1 = wrap01(t + 1.0 - pw);
   double y = -2.0 * pw;
   if (t < pw) y += 2.0;
@@ -126,15 +145,17 @@ double polyBlepPulse(double t, double incrementAbs, double morph) {
 
 // Centered PWM square (soemdsp PolyBLEP::pulseCenter).
 double polyBlepPulseCenter(double t, double incrementAbs, double morph) {
-  const double m = clampD(morph, 0.0, 1.0);
-  double t1 = wrap01(t + 0.875 + 0.25 * (m - 0.5));
-  double t2 = wrap01(t + 0.375 + 0.25 * (m - 0.5));
+  // Bipolar m: 0 = old unipolar 0.5 center. (m_old - 0.5) = m / 2.
+  const double m = clampD(morph, -1.0, 1.0);
+  const double u = 0.5 + 0.5 * m; // recover old-style 0…1 width factor for internals
+  double t1 = wrap01(t + 0.875 + 0.125 * m);
+  double t2 = wrap01(t + 0.375 + 0.125 * m);
 
   double y = t1 < 0.5 ? 1.0 : -1.0;
   y += blepSoem(t1, incrementAbs) - blepSoem(t2, incrementAbs);
 
-  t1 = wrap01(t1 + 0.5 * (1.0 - m));
-  t2 = wrap01(t2 + 0.5 * (1.0 - m));
+  t1 = wrap01(t1 + 0.5 * (1.0 - u));
+  t2 = wrap01(t2 + 0.5 * (1.0 - u));
 
   y += t1 < 0.5 ? 1.0 : -1.0;
   y += blepSoem(t1, incrementAbs) - blepSoem(t2, incrementAbs);
@@ -143,7 +164,7 @@ double polyBlepPulseCenter(double t, double incrementAbs, double morph) {
 
 // Bandlimited trisaw (soemdsp PolyBLEP::trisaw).
 double polyBlepTrisaw(double t, double incrementAbs, double morph) {
-  const double pw = clampD(morph, 0.0001, 0.9999);
+  const double pw = polyBlepTrisawPwFromMorph(morph);
   double t1 = wrap01(t + 0.5 * pw);
   double t2 = wrap01(t + 1.0 - 0.5 * pw);
 
@@ -176,7 +197,8 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
   const double renderIncrement = phaseStopped ? 1.0e-6 : phaseDelta;
   const double absInc = renderIncrement < 0.0 ? -renderIncrement : renderIncrement;
   const double phaseCycle = wrap01(phase / kTwoPi);
-  const double m = clampD(morph, 0.0, 1.0);
+  // Morph bipolar (−1…+1) for Trisaw / Center Square / Pulse. Other shapes ignore it.
+  const double m = clampD(morph, -1.0, 1.0);
   double sample = 0.0;
   // Order matches UI choices:
   // 0 Trisaw, 1 Saw, 2 Ramp, 3 Square, 4 Triangle, 5 Sine,
@@ -285,7 +307,7 @@ static void render_taps(
   int tapMask
 ) {
   const int safeWaveform = waveform < 0 ? 0 : (waveform > kWaveformMax ? kWaveformMax : waveform);
-  const double safeMorph = (morph == morph) ? morph : 0.5;
+  const double safeMorph = (morph == morph) ? morph : 0.0;
   const int mask = tapMask == 0 ? kTapAll : tapMask;
   if (mask & kTapOut) {
     s.out = oscillatorSample(s.slots[0], phase, phaseIncrement, safeWaveform, safeMorph) * level;

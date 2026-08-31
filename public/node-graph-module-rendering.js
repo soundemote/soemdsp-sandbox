@@ -978,12 +978,48 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
+  } else if (definition.displayType === "additiveWaveform") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphAdditiveWaveformDisplay === "function") {
+      const face = createNodeGraphAdditiveWaveformDisplay(node, type);
+      if (typeof tagNodeGraphModuleBand === "function") {
+        tagNodeGraphModuleBand(face, "face");
+      }
+      article.append(face);
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.displayType === "harmonicCount") {
     if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
       : !patchNodeUi.oscilloscopeHidden)
       && typeof createNodeGraphHarmonicCountDisplay === "function") {
       const face = createNodeGraphHarmonicCountDisplay(node, type);
+      if (typeof tagNodeGraphModuleBand === "function") {
+        tagNodeGraphModuleBand(face, "face");
+      }
+      article.append(face);
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
+  } else if (definition.displayType === "additiveBubbleCascade") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphAdditiveBubbleDisplay === "function") {
+      const face = createNodeGraphAdditiveBubbleDisplay(node, type);
       if (typeof tagNodeGraphModuleBand === "function") {
         tagNodeGraphModuleBand(face, "face");
       }

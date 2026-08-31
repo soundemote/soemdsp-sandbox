@@ -215,6 +215,7 @@ $modules = @(
   @{ Name = "eq_filter"; Simd = $false; Exports = @("soemdsp_eq_filter_create", "soemdsp_eq_filter_destroy", "soemdsp_eq_filter_sample", "soemdsp_eq_filter_version", "soemdsp_eq_filter_metadata_json", "soemdsp_eq_filter_metadata_json_size") }
   @{ Name = "inertial_filter"; Simd = $false; Exports = @("soemdsp_inertial_filter_create", "soemdsp_inertial_filter_destroy", "soemdsp_inertial_filter_sample", "soemdsp_inertial_filter_version", "soemdsp_inertial_filter_metadata_json", "soemdsp_inertial_filter_metadata_json_size") }
   @{ Name = "lookahead_limiter"; Simd = $false; Exports = @("soemdsp_lookahead_limiter_create", "soemdsp_lookahead_limiter_destroy", "soemdsp_lookahead_limiter_sample", "soemdsp_lookahead_limiter_left", "soemdsp_lookahead_limiter_right", "soemdsp_lookahead_limiter_gain", "soemdsp_lookahead_limiter_version", "soemdsp_lookahead_limiter_metadata_json", "soemdsp_lookahead_limiter_metadata_json_size") }
+  @{ Name = "pumping_limiter"; Simd = $false; Exports = @("soemdsp_pumping_limiter_create", "soemdsp_pumping_limiter_destroy", "soemdsp_pumping_limiter_sample", "soemdsp_pumping_limiter_left", "soemdsp_pumping_limiter_right", "soemdsp_pumping_limiter_gain", "soemdsp_pumping_limiter_env", "soemdsp_pumping_limiter_version", "soemdsp_pumping_limiter_metadata_json", "soemdsp_pumping_limiter_metadata_json_size") }
 )
 
 foreach ($module in $modules) {

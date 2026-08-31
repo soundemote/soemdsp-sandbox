@@ -38,13 +38,23 @@ function nodeGraphGhostSliderControllerOutSample(nodeId, port) {
   const type = typeof nodeGraphPatchNodeType === "function"
     ? nodeGraphPatchNodeType(nodeId)
     : "";
-  if (type !== "toggleButton" && type !== "momentaryButton" && type !== "knob") {
+  if (
+    type !== "toggleButton"
+    && type !== "momentaryButton"
+    && type !== "knob"
+    && type !== "pluginSlider"
+  ) {
     return null;
   }
+  // Prefer live Bias/Out when scope has it (efficient peel / full JS).
   if (typeof nodeGraphModuleScopeLatestOutputValue === "function") {
     const live = Number(nodeGraphModuleScopeLatestOutputValue(nodeId, p, Number.NaN));
     if (Number.isFinite(live)) {
       return live;
+    }
+    if (p === "Out") {
+      const bias = Number(nodeGraphModuleScopeLatestOutputValue(nodeId, "Bias", Number.NaN));
+      if (Number.isFinite(bias)) return bias;
     }
   }
   const read = (key, fallback) => {
@@ -53,6 +63,23 @@ function nodeGraphGhostSliderControllerOutSample(nodeId, port) {
       : Number.NaN;
     return Number.isFinite(n) ? n : fallback;
   };
+  // Knob: hidden control is `offset` (domain). Plugin slider: `value`.
+  // Toggle/momentary: unit `value` mapped through Min/Max.
+  if (type === "knob" || type === "pluginSlider") {
+    const domain = type === "knob" ? read("offset", 0) : read("value", 0);
+    const rangeMin = read("rangeMin", type === "pluginSlider" ? -1 : 0);
+    const rangeMax = read("rangeMax", 1);
+    const polarity = read("polarity", 0);
+    if (typeof nodeGraphDspControllerRange === "function") {
+      const range = nodeGraphDspControllerRange(rangeMin, rangeMax, polarity);
+      const lo = Number(range.min);
+      const hi = Number(range.max);
+      if (Number.isFinite(lo) && Number.isFinite(hi)) {
+        return domain < lo ? lo : (domain > hi ? hi : domain);
+      }
+    }
+    return domain;
+  }
   const unit = read("value", 0);
   const rangeMin = read("rangeMin", 0);
   const rangeMax = read("rangeMax", 1);

@@ -136,12 +136,16 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
           ...(packNoise(graph.panNoise) ? { panNoise: packNoise(graph.panNoise) } : {}),
           ...(packNoise(graph.ampNoise) ? { ampNoise: packNoise(graph.ampNoise) } : {}),
         };
+        const displayPhaseArr = graph.displayPhase && graph.displayPhase.length
+          ? Array.from(graph.displayPhase)
+          : null;
         const payload = {
           harmonics: graph.harmonics,
           ratio: Array.from(graph.ratio),
           phase: Array.from(graph.phase || []),
           amplitude: Array.from(graph.amplitude || []),
           ...(panArr ? { pan: panArr } : {}),
+          ...(displayPhaseArr ? { displayPhase: displayPhaseArr } : {}),
           ...noisePack,
           frequencyHz: graph.frequencyHz,
           masterPhase: graph.masterPhase,

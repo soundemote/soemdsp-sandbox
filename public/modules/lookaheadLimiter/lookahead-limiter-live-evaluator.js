@@ -1,4 +1,4 @@
-// Look-ahead Brickwall + pumping Limiter — offline/render. Math: lookahead-limiter-math.js.
+// Brickwall Limiter + Pump Limiter — offline/render. Math: lookahead-limiter-math.js.
 
 nodeGraphLiveModuleEvaluators.lookaheadLimiter = ({
   runtime,

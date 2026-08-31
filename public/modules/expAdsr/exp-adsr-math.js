@@ -13,7 +13,43 @@ function createNodeGraphExpAdsrState() {
     out: 0,
     secondsPassed: 0,
     state: "off",
+    latchedParams: null,
   };
+}
+
+/** Snapshot of live envelope knobs (for UpdateOnTrigger). */
+function nodeGraphExpAdsrCopyParams(params = {}) {
+  return {
+    delay: Math.max(0, Number(params.delay) || 0),
+    attack: Math.max(0, Number(params.attack) || 0),
+    decay: Math.max(0, Number(params.decay) || 0),
+    sustain: Math.max(0, Math.min(1, Number(params.sustain) || 0)),
+    release: Math.max(0, Number(params.release) || 0),
+    attackShape: Math.max(0.000000001, Number(params.attackShape) || 0.000000001),
+    releaseShape: Math.max(0.000000001, Number(params.releaseShape) || 0.000000001),
+    level: Number(params.level) || 0,
+    loop: Number(params.loop) || 0,
+  };
+}
+
+/**
+ * UpdateOnTrigger On: freeze Delay/Attack/Decay/Sustain/Release/shapes/Loop/Level
+ * until the next Gate rising edge (then re-latch from live). Off: always live.
+ * Call BEFORE core/native so state.lastGate still reflects the previous sample.
+ */
+function nodeGraphExpAdsrParamsForSample(state, gate, liveParams, updateOnTrigger) {
+  const latch = Number(updateOnTrigger) >= 0.5;
+  if (!latch) {
+    if (state) state.latchedParams = null;
+    return liveParams;
+  }
+  const g = Number(gate) || 0;
+  const prev = Number(state?.lastGate) || 0;
+  const rising = prev <= 0 && g > 0;
+  if (!state.latchedParams || rising) {
+    state.latchedParams = nodeGraphExpAdsrCopyParams(liveParams);
+  }
+  return state.latchedParams;
 }
 
 function nodeGraphExpAdsrTriggerAttack(state, delay, attack, sampleRate) {

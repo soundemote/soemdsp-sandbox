@@ -1,7 +1,6 @@
-// Yellow Graph / Additive: quantum DOMAIN chase using existing smoother kernels.
-// GPU migration proof: one closed-form N-step advance per param per quantum
-// (not a JS for-loop of sample kernels). Unit travel internally, DOMAIN in/out.
-// Separate map from this.smoothers so efficient setParams clear does not wipe it.
+// Yellow Graph / Additive: quantum DOMAIN chase.
+// Smooths in DOMAIN (not unit 0…1) so missing min/max in paramMeta cannot
+// collapse every value to unit 0 and snap instantly (that broke Harmonics).
 
 /** Main-thread / offline: prefer live effective DOMAIN, else params/parameters. */
 function nodeGraphAdditiveReadParam(node, key, fallback, runtime, frame, frames, frameValues) {
@@ -22,9 +21,28 @@ NodeLiveAudioProcessor.prototype.ensureAdditiveParamSmoothers = function ensureA
   return this.additiveParamSmoothers;
 };
 
+/** Fill missing min/max so callers still have guides (not required for domain lerp). */
+NodeLiveAudioProcessor.prototype.additiveParamMetaWithDefaults = function additiveParamMetaWithDefaults(
+  node,
+  key,
+) {
+  const meta = { ...(node?.paramMeta?.[key] || {}) };
+  const min = Number(meta.min);
+  const max = Number(meta.max);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || !(max > min)) {
+    // Worklet may omit full meta on partial updates — keep Harmonics usable.
+    if (key === "harmonics") {
+      meta.min = Number.isFinite(min) ? min : 1;
+      meta.max = Number.isFinite(max) && max > meta.min ? max : 1024;
+      if (!Number.isFinite(Number(meta.mid))) meta.mid = 32;
+    }
+  }
+  return meta;
+};
+
 /**
  * Resolve one Additive param to effective DOMAIN for this quantum.
- * Mouse/unit mapping unchanged; chase uses existing filter sample kernels.
+ * Domain-space linear ramp over the resolved smoothing time.
  */
 NodeLiveAudioProcessor.prototype.additiveEffectiveParam = function additiveEffectiveParam(
   node,
@@ -33,36 +51,63 @@ NodeLiveAudioProcessor.prototype.additiveEffectiveParam = function additiveEffec
   blockFrames,
 ) {
   const raw = Number(node?.params?.[key]);
-  const target = Number.isFinite(raw) ? raw : fallback;
-  const metadata = node?.paramMeta?.[key] || {};
+  let target = Number.isFinite(raw) ? raw : fallback;
+  // Efficient path: fold Knob/Bias MOD (controllers published by controller peel).
+  if (typeof this.foldEfficientParamModulations === "function") {
+    target = this.foldEfficientParamModulations(node, key, target);
+  }
+
+  const metadata = this.additiveParamMetaWithDefaults
+    ? this.additiveParamMetaWithDefaults(node, key)
+    : (node?.paramMeta?.[key] || {});
+
   let smoothingType = typeof this.smoothingTypeFromMetadata === "function"
     ? this.smoothingTypeFromMetadata(metadata)
     : (metadata.linearSmoothing === false ? "none" : "linear");
-  // GPU-shaped path: Papoulis → 3P (no Π in GPU module set).
+  let mode = typeof this.smoothingModeFromMetadata === "function"
+    ? this.smoothingModeFromMetadata(metadata)
+    : String(metadata.smoothingMode || "global");
+
+  const map = this.ensureAdditiveParamSmoothers();
+  const smootherKey = `additive:${String(node?.id || "")}:${String(key || "")}`;
+
+  // Respect Off / none / instant — snap to target (no secret Additive override).
+  const typeOff = smoothingType === "none" || smoothingType === "off" || smoothingType === "instant";
+  const modeOff = mode === "off";
+  if (typeOff || modeOff) {
+    let state = map.get(smootherKey);
+    if (!state) {
+      state = {
+        value: target,
+        target,
+        rampFrom: target,
+        rampSamples: 0,
+        rampDuration: 0,
+        seconds: 0,
+      };
+      map.set(smootherKey, state);
+    } else {
+      state.value = target;
+      state.target = target;
+      state.rampFrom = target;
+      state.rampSamples = 0;
+      state.rampDuration = 0;
+      state.seconds = 0;
+    }
+    return target;
+  }
+
   if (typeof nodeGraphParameterSmootherGpuSafeType === "function") {
     smoothingType = nodeGraphParameterSmootherGpuSafeType(smoothingType);
   } else if (String(smoothingType || "").toLowerCase() === "papoulis") {
     smoothingType = "threePole";
   }
-  const usesFilter = typeof nodeGraphParameterSmootherUsesFilter === "function"
-    ? nodeGraphParameterSmootherUsesFilter(smoothingType)
-    : smoothingType !== "none";
 
-  if (!usesFilter) {
-    return target;
-  }
-
-  const mode = typeof this.smoothingModeFromMetadata === "function"
-    ? this.smoothingModeFromMetadata(metadata)
-    : String(metadata.smoothingMode || "global");
   const smoothingSamples = typeof this.smoothingSecondsFromMetadata === "function"
     ? this.smoothingSecondsFromMetadata(metadata)
     : 0;
   const frames = Math.max(1, Number(blockFrames) || 128);
   const rate = Math.max(1, Number(this.engineSampleRate) || Number(sampleRate) || 44100);
-  if (mode === "off") {
-    return target;
-  }
 
   let seconds = typeof this.resolveSmoothingSecondsForMode === "function"
     ? this.resolveSmoothingSecondsForMode(
@@ -76,94 +121,61 @@ NodeLiveAudioProcessor.prototype.additiveEffectiveParam = function additiveEffec
       ? nodeGraphModuleSmoothingDefaultSeconds()
       : 0.0333);
 
-  // Default Additive metadata is linear+global; if global auto-smooth is 0,
-  // still glide at the module default so Cutoff/Phase Skew do not click.
-  if (!(seconds > 0) && usesFilter) {
-    seconds = typeof nodeGraphModuleSmoothingDefaultSeconds === "function"
-      ? nodeGraphModuleSmoothingDefaultSeconds()
-      : 0.0333;
-  }
-
+  // Defaults only when smoothing is ON and time is unset.
+  const additiveDefault = 0.0333;
   if (!(seconds > 0)) {
+    seconds = typeof nodeGraphModuleSmoothingDefaultSeconds === "function"
+      ? Math.max(additiveDefault, nodeGraphModuleSmoothingDefaultSeconds())
+      : additiveDefault;
+  }
+
+  let state = map.get(smootherKey);
+  if (!state) {
+    state = {
+      value: target,
+      target,
+      rampFrom: target,
+      rampSamples: 0,
+      rampDuration: 0,
+      seconds,
+    };
+    map.set(smootherKey, state);
     return target;
   }
 
-  const map = this.ensureAdditiveParamSmoothers();
-  const smootherKey = `additive:${String(node?.id || "")}:${String(key || "")}`;
-  let smoother = map.get(smootherKey);
-  if (!smoother) {
-    smoother = this.createSmoother(target, metadata);
-    // createSmoother reads raw metadata (may be Π); force GPU-safe type.
-    if (smoother.smoothingType !== smoothingType) {
-      smoother.smoothingType = smoothingType;
-      smoother.filterState = null;
-      smoother.filterStateType = null;
-    }
-    map.set(smootherKey, smoother);
-  } else {
-    // Update target without touching the efficient-cleared this.smoothers dirty list.
-    const nextType = smoothingType;
-    if (target !== smoother.target || smoother.smoothingType !== nextType) {
-      smoother.target = target;
-      smoother.metadata = metadata;
-      smoother.min = Number.isFinite(Number(metadata?.min)) ? Number(metadata.min) : smoother.min;
-      smoother.max = Number.isFinite(Number(metadata?.max)) ? Number(metadata.max) : smoother.max;
-      if (smoother.smoothingType !== nextType) {
-        smoother.smoothingType = nextType;
-        smoother.filterState = null;
-        smoother.filterStateType = null;
-      }
-      smoother.linearSmoothing = usesFilter;
-      smoother.targetSignal = this.parameterValueToNormalizedSignal(target, metadata);
-      smoother.smoothingMode = mode;
-      smoother.smoothingSeconds = smoothingSamples;
-      smoother.wraparound = Boolean(metadata?.wraparound);
-    } else {
-      smoother.metadata = metadata;
-      smoother.smoothingMode = mode;
-      smoother.smoothingSeconds = smoothingSamples;
-    }
+  const eps = 1e-9;
+  const targetChanged = Math.abs(target - state.target) > eps;
+  const durationSamples = Math.max(1, Math.round(rate * seconds));
+
+  if (targetChanged) {
+    state.rampFrom = state.value;
+    state.target = target;
+    state.rampSamples = 0;
+    state.rampDuration = durationSamples;
+    state.seconds = seconds;
+  } else if (Math.abs((state.seconds || 0) - seconds) > 1e-6 && state.rampDuration > 0) {
+    // Smoothing time edited mid-ramp — keep progress, retarget duration.
+    const oldDur = Math.max(1, state.rampDuration);
+    const progress = Math.min(1, state.rampSamples / oldDur);
+    state.rampDuration = durationSamples;
+    state.rampSamples = Math.floor(progress * durationSamples);
+    state.seconds = seconds;
   }
 
-  if (!smoother.linearSmoothing) {
-    smoother.current = target;
-    smoother.lastValue = target;
-    smoother.outputBuffer = smoother.targetSignal;
-    return target;
+  if (state.rampDuration <= 0 || Math.abs(state.value - state.target) <= eps) {
+    state.value = state.target;
+    return state.value;
   }
 
-  const cutoff = typeof this.smoothingFrequencyFromSeconds === "function"
-    ? this.smoothingFrequencyFromSeconds(seconds)
-    : (seconds > 0 ? 1 / seconds : 0);
-
-  if (typeof this.smootherNeedsWork === "function" && !this.smootherNeedsWork(smoother)) {
-    if (typeof this.settleSmoother === "function") {
-      this.settleSmoother(smoother);
-    }
-    const settled = Number(smoother.lastValue);
-    return Number.isFinite(settled) ? settled : target;
+  state.rampSamples += frames;
+  if (state.rampSamples >= state.rampDuration) {
+    state.value = state.target;
+    state.rampFrom = state.target;
+    return state.value;
   }
-
-  const signal = typeof nodeGraphParameterSmootherFilterAdvance === "function"
-    ? nodeGraphParameterSmootherFilterAdvance(
-      smoother, smoother.targetSignal, cutoff, rate, frames,
-    )
-    : (typeof nodeGraphParameterSmootherFilterSample === "function"
-      ? nodeGraphParameterSmootherFilterSample(smoother, smoother.targetSignal, cutoff, rate)
-      : (smoother.outputBuffer = smoother.targetSignal));
-
-  if (typeof this.smootherNeedsWork === "function" && !this.smootherNeedsWork(smoother)) {
-    if (typeof this.settleSmoother === "function") {
-      this.settleSmoother(smoother);
-    }
-  }
-
-  const value = this.normalizedSignalToParameterValue(signal, smoother.metadata);
-  smoother.current = value;
-  smoother.lastValue = value;
-
-  const out = Number(smoother.lastValue);
-  return Number.isFinite(out) ? out : target;
+  const t = state.rampSamples / state.rampDuration;
+  state.value = state.rampFrom + (state.target - state.rampFrom) * t;
+  return state.value;
 };
 
 /** Drop chase state for removed Additive nodes (call after setPlan if desired). */

@@ -14,24 +14,62 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
   if (!this.additiveNoisyPhaseStates) this.additiveNoisyPhaseStates = new Map();
   if (!this.additiveNoisyPanStates) this.additiveNoisyPanStates = new Map();
   if (!this.additiveNoisyAmpStates) this.additiveNoisyAmpStates = new Map();
+  if (!this.additiveBubbleStates) this.additiveBubbleStates = new Map();
+  if (!this.additivePanStates) this.additivePanStates = new Map();
+  if (!this.additiveFrequencySkewStates) this.additiveFrequencySkewStates = new Map();
+  if (!this.additiveQuantizeFreqStates) this.additiveQuantizeFreqStates = new Map();
+  if (!this.additiveQuantizePhaseStates) this.additiveQuantizePhaseStates = new Map();
   if (!this.additiveOutStates) this.additiveOutStates = new Map();
   if (!this._additiveOutMono) this._additiveOutMono = new Map();
+  if (!this._additiveOutLeft) this._additiveOutLeft = new Map();
+  if (!this._additiveOutRight) this._additiveOutRight = new Map();
   this.ensureAdditiveParamSmoothers?.();
 
   const nodes = this.nodes;
-  if (!nodes || !nodes.size) return;
+  if (!nodes || !nodes.size) {
+    // No nodes — drop any leftover Yellow Graph audio / bus state.
+    this._additiveScratchL?.fill?.(0);
+    this._additiveScratchR?.fill?.(0);
+    this.additiveGraphBus?.clear?.();
+    this.additiveGraphPublish?.clear?.();
+    return;
+  }
   const conns = Array.isArray(this._planConnections) ? this._planConnections : [];
   const num = typeof nodeGraphFiniteNumber === "function" ? nodeGraphFiniteNumber : (v, fb) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : fb;
   };
+  // Prune bus / publish / Out state for deleted node ids (otherwise Gen→Effect→Out
+  // kept playing a stale Graph after the Generator was removed).
+  const liveIds = new Set([...nodes.keys()].map(String));
+  const pruneMap = (map) => {
+    if (!(map instanceof Map)) return;
+    for (const key of [...map.keys()]) {
+      if (!liveIds.has(String(key))) map.delete(key);
+    }
+  };
+  pruneMap(this.additiveGraphBus);
+  pruneMap(this.additiveGraphPublish);
+  pruneMap(this.additiveOutStates);
+  pruneMap(this._additiveOutMono);
+  pruneMap(this._additiveOutLeft);
+  pruneMap(this._additiveOutRight);
+  pruneMap(this._additiveBusQuantum);
 
   const ADDITIVE_EFFECT_TYPES = new Set([
     "additiveLinearFilter",
     "additiveAnalogFilter",
-    "additiveGrowl",
+    "additiveLadderFilter",
+    "additiveBubble",
+    "additiveFrequencySkew",
+    "additiveQuantizeFreq",
+    "additiveQuantizePhase",
+    "additiveHarmonicMath", // legacy → QuantizeFreq
+    "additiveFrequencyMath", // legacy → QuantizeFreq
+    "additiveFrequencySlope", // legacy → Skew
     "additiveNoisyFreq",
     "additiveNoisyPhase",
+    "additivePan",
     "additiveNoisyPan",
     "additiveNoisyAmp",
     "additiveImage", // UC — Graph passthrough until image analysis ships
@@ -56,7 +94,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     if (type === "additiveNoisyFreq") {
       map = this.additiveNoisyFreqStates;
       apply = additiveGraphApplyNoisyFreq;
-      // Prefer Add (ratio add). Legacy Amount was 0…1 with hidden ×0.5.
+      // Prefer Add. Legacy Amount was 0…1 with hidden ×0.5.
       if (node?.params?.add != null && Number.isFinite(Number(node.params.add))) {
         depth = eff(node, "add", 0.5);
       } else {
@@ -65,15 +103,27 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     } else if (type === "additiveNoisyPhase") {
       map = this.additiveNoisyPhaseStates;
       apply = additiveGraphApplyNoisyPhase;
-      depth = eff(node, "amount", 0.25);
+      if (node?.params?.add != null && Number.isFinite(Number(node.params.add))) {
+        depth = eff(node, "add", 0.25);
+      } else {
+        depth = eff(node, "amount", 0.25) * 0.5; // legacy Amount had hidden ×0.5
+      }
     } else if (type === "additiveNoisyPan") {
       map = this.additiveNoisyPanStates;
       apply = additiveGraphApplyNoisyPan;
-      depth = eff(node, "amount", 0.25);
+      if (node?.params?.add != null && Number.isFinite(Number(node.params.add))) {
+        depth = eff(node, "add", 0.25);
+      } else {
+        depth = eff(node, "amount", 0.25);
+      }
     } else {
       map = this.additiveNoisyAmpStates;
       apply = additiveGraphApplyNoisyAmp;
-      depth = eff(node, "amount", 0.25);
+      if (node?.params?.add != null && Number.isFinite(Number(node.params.add))) {
+        depth = eff(node, "add", 0.25);
+      } else {
+        depth = eff(node, "amount", 0.25) * 0.5; // legacy Amount had hidden ×0.5
+      }
     }
     let state = map.get(String(id)) || {};
     const noiseMode = num(node?.params?.noise, 0);
@@ -100,48 +150,97 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     return "";
   };
 
-  // 1) Generators — Waveform/Harmonics snap; Morph quantum-smoothed DOMAIN
+  // One token per quantum: Noisy* must apply once (re-entry advanced walks and
+  // collapsed panLerp/ratioLerp to a micro-step → crackle at block boundaries).
+  const quantum = (this._additiveQuantumToken = (this._additiveQuantumToken || 0) + 1);
+  if (!this._additiveBusQuantum) this._additiveBusQuantum = new Map();
+  const busQ = this._additiveBusQuantum;
+
+  // 1) Generators — Waveform snap; PWM + Harmonics + Phase Rotation (DOMAIN)
+  if (!this.additiveGeneratorStates) this.additiveGeneratorStates = new Map();
   for (const [id, node] of nodes) {
     if (String(node?.type) !== "additiveGenerator") continue;
     const p = node.params || {};
+    // Ensure id is set for additive smoother keying (Map key is authoritative).
+    if (!node.id) node.id = id;
+    const pwm = (p.pwm != null && Number.isFinite(Number(p.pwm)))
+      ? eff(node, "pwm", 0)
+      : eff(node, "morph", 0); // legacy Morph → PWM
     const graph = additiveGraphBuildFromWaveform(
       num(p.waveform, 0),
-      eff(node, "morph", 0.5),
-      num(p.harmonics, 32),
+      pwm,
+      eff(node, "harmonics", 32),
+      eff(node, "phaseRotation", 0),
     );
-    this.additiveGraphBus.set(String(id), graph);
-    this.additiveGraphPublish.set(String(id), graph);
+    const gid = String(id);
+    let genState = this.additiveGeneratorStates.get(gid);
+    if (!genState) {
+      genState = { lastH: -1 };
+      this.additiveGeneratorStates.set(gid, genState);
+    }
+    const H = graph.harmonics | 0;
+    if (genState.lastH >= 0 && genState.lastH !== H) {
+      graph.phaseReset = true;
+    }
+    genState.lastH = H;
+    this.additiveGraphBus.set(gid, graph);
+    this.additiveGraphPublish.set(gid, graph);
+    busQ.set(gid, quantum);
   }
 
-  // 2) Effects (may chain; iterate a few passes for short chains)
+  const NOISY_TYPES = new Set([
+    "additiveNoisyFreq",
+    "additiveNoisyPhase",
+    "additiveNoisyPan",
+    "additiveNoisyAmp",
+  ]);
+  // (additivePan handled below — deterministic, not noisy)
+
+  // 2) Effects — multi-pass for chain order; each node applies at most once / quantum
+  //    (Noisy* re-entry used to advance walks 4× and shrink panLerp to a micro-step → crackle).
   for (let pass = 0; pass < 4; pass += 1) {
     for (const [id, node] of nodes) {
       const type = String(node?.type || "");
       if (!ADDITIVE_EFFECT_TYPES.has(type)) continue;
+      const eid = String(id);
+      if (busQ.get(eid) === quantum) continue; // already published this quantum
       const srcId = graphSrc(id, "Graph");
-      const incoming = srcId ? this.additiveGraphBus.get(srcId) : null;
-      if (!incoming || !incoming.ratio) {
-        this.additiveGraphBus.set(String(id), null);
+      if (!srcId || busQ.get(srcId) !== quantum) {
+        // Upstream not published this quantum yet — wait for a later pass.
         continue;
       }
+      const incoming = this.additiveGraphBus.get(srcId);
+      if (!incoming || !incoming.ratio) {
+        this.additiveGraphBus.set(eid, null);
+        busQ.set(eid, quantum);
+        continue;
+      }
+
       // Bypass: Yellow Graph thru (no filter / growl / noisy mutate).
       if (node.bypassed) {
         const thru = additiveGraphClonePayload(incoming);
-        this.additiveGraphBus.set(String(id), thru);
-        this.additiveGraphPublish.set(String(id), thru);
+        this.additiveGraphBus.set(eid, thru);
+        this.additiveGraphPublish.set(eid, thru);
+        busQ.set(eid, quantum);
         continue;
       }
       const p = node.params || {};
       const out = additiveGraphClonePayload(incoming);
       if (!out) {
-        this.additiveGraphBus.set(String(id), null);
+        this.additiveGraphBus.set(eid, null);
+        busQ.set(eid, quantum);
         continue;
       }
-      if (type === "additiveLinearFilter" || type === "additiveAnalogFilter") {
+      if (
+        type === "additiveLinearFilter"
+        || type === "additiveAnalogFilter"
+        || type === "additiveLadderFilter"
+      ) {
         // Cutoff is absolute Hz. F jack = future nonrealtime Cutoff override (unimplemented).
         const cutoffHz = eff(node, "cutoff", 2000);
         const isLinear = type === "additiveLinearFilter";
-        // Linear: slope 0…1 brickwall→gradual. Butterworth: slope in dB/oct.
+        const isLadder = type === "additiveLadderFilter";
+        // Linear: slope 0…1 brickwall→gradual. Butterworth/Ladder: slope in dB/oct.
         const slope = eff(node, "slope", isLinear ? 0.25 : 12);
         const fundHz = typeof additiveGraphResolveFundamentalHz === "function"
           ? additiveGraphResolveFundamentalHz({
@@ -157,33 +256,122 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
           additiveGraphApplyLinearFilter(
             out, num(p.filter, 0), cutoffHz, slope, eff(node, "skew", 0), fundHz, sr,
           );
+        } else if (isLadder) {
+          additiveGraphApplyLadderFilter(
+            out,
+            num(p.filter, 0),
+            cutoffHz,
+            slope,
+            eff(node, "resonance", 0),
+            fundHz,
+            sr,
+          );
         } else {
           // additiveAnalogFilter = Butterworth Filter (dB/oct Slope)
           additiveGraphApplyButterworthFilter(
             out, num(p.filter, 0), cutoffHz, slope, eff(node, "skew", 0), fundHz, sr,
           );
         }
-      } else if (type === "additiveGrowl") {
-        additiveGraphApplyGrowl(
-          out,
-          eff(node, "phaseRotation", 0),
+      } else if (type === "additiveBubble") {
+        let bubbleState = this.additiveBubbleStates.get(eid) || {};
+        let cutoff = eff(node, "cutoff", NaN);
+        if (!(cutoff === cutoff)) {
+          // Old Harmonic Reducer was inverted (0=full). Map once if present.
+          const legacy = eff(node, "harmonicReduce", NaN);
+          cutoff = legacy === legacy ? 1 - legacy : 1;
+        }
+        const phaseSkew = additiveGraphBubbleEffectivePhaseSkew(
           eff(node, "phaseSkew", 0),
-          eff(node, "phaseSkewCurve", 0),
+          eff(node, "unskew", 0),
+          cutoff,
         );
+        const applied = additiveGraphApplyGrowl(
+          out,
+          0, // phase rotation removed
+          phaseSkew,
+          eff(node, "phaseSkewCurve", 0),
+          2, // Logarithmic
+          cutoff,
+          0,
+          bubbleState.lerpFrom || null,
+        );
+        this.additiveBubbleStates.set(eid, {
+          lerpFrom: applied?.lerpFrom || null,
+        });
+      } else if (type === "additiveFrequencySkew" || type === "additiveFrequencySlope") {
+        let skewState = this.additiveFrequencySkewStates.get(eid) || {};
+        // Legacy Slope used scale — map into stretch if low/high missing.
+        let lowStretch = eff(node, "lowStretch", NaN);
+        let highStretch = eff(node, "highStretch", NaN);
+        if (!(lowStretch === lowStretch) || !(highStretch === highStretch)) {
+          const scale = eff(node, "scale", 0);
+          const s = Number(scale) || 0;
+          if (!(lowStretch === lowStretch)) lowStretch = s < 0 ? 1 + Math.abs(s) * 23 : 1;
+          if (!(highStretch === highStretch)) highStretch = s > 0 ? 1 + Math.abs(s) * 23 : 1;
+        }
+        const appliedSkew = additiveGraphApplyFrequencySkew(
+          out,
+          lowStretch,
+          highStretch,
+          eff(node, "skew", 0),
+          num(p.curve, 0),
+          skewState.lerpFrom || null,
+        );
+        this.additiveFrequencySkewStates.set(eid, {
+          lerpFrom: appliedSkew?.lerpFrom || null,
+        });
       } else if (
-        type === "additiveNoisyFreq"
-        || type === "additiveNoisyPhase"
-        || type === "additiveNoisyPan"
-        || type === "additiveNoisyAmp"
+        type === "additiveQuantizeFreq"
+        || type === "additiveHarmonicMath"
+        || type === "additiveFrequencyMath"
       ) {
+        let freqState = this.additiveQuantizeFreqStates.get(eid) || {};
+        const qOn = p.quantizeFreq != null ? num(p.quantizeFreq, 0) : num(p.quantize, 0);
+        const appliedFreq = additiveGraphApplyQuantizeFreq(
+          out,
+          qOn,
+          eff(node, "randomFreqAmount", 0),
+          num(p.seed, 1),
+          freqState.lerpFrom || null,
+        );
+        this.additiveQuantizeFreqStates.set(eid, {
+          lerpFrom: appliedFreq?.lerpFrom || null,
+        });
+      } else if (type === "additiveQuantizePhase") {
+        let phaseState = this.additiveQuantizePhaseStates.get(eid) || {};
+        const appliedPhase = additiveGraphApplyQuantizePhase(
+          out,
+          num(p.quantizePhase, 0),
+          eff(node, "randomPhaseAmount", 0),
+          num(p.seed, 1),
+          phaseState.lerpFrom || null,
+        );
+        this.additiveQuantizePhaseStates.set(eid, {
+          lerpFrom: appliedPhase?.lerpFrom || null,
+        });
+      } else if (type === "additivePan") {
+        let panState = this.additivePanStates.get(eid) || {};
+        // Width (spread) then Pan (offset) — arg order is (panOffset, width).
+        const appliedPan = additiveGraphApplyPan(
+          out,
+          eff(node, "pan", 0),
+          eff(node, "width", 0),
+          panState.lerpFrom || null,
+        );
+        this.additivePanStates.set(eid, {
+          lerpFrom: appliedPan?.lerpFrom || null,
+        });
+      } else if (NOISY_TYPES.has(type)) {
         const graph = applyNoisy(type, id, node, out);
-        this.additiveGraphBus.set(String(id), graph);
-        this.additiveGraphPublish.set(String(id), graph);
+        this.additiveGraphBus.set(eid, graph);
+        this.additiveGraphPublish.set(eid, graph);
+        busQ.set(eid, quantum);
         continue;
       }
       // additiveImage (UC) and any other effect type: passthrough clone
-      this.additiveGraphBus.set(String(id), out);
-      this.additiveGraphPublish.set(String(id), out);
+      this.additiveGraphBus.set(eid, out);
+      this.additiveGraphPublish.set(eid, out);
+      busQ.set(eid, quantum);
     }
   }
 
@@ -205,31 +393,27 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     if (String(node?.type) !== "additiveOut") continue;
     const outId = String(id);
     const srcId = graphSrc(outId, "Graph");
-    const graph = srcId ? this.additiveGraphBus.get(srcId) : null;
+    // Require a Graph published THIS quantum — stale bus entries after upstream
+    // delete (Generator removed, Effect not republished) must not keep sounding.
+    const graph = srcId && busQ.get(srcId) === quantum
+      ? this.additiveGraphBus.get(srcId)
+      : null;
     if (!graph || !graph.ratio || !graph.harmonics) {
       this.additiveGraphPublish.set(outId, null);
       this._additiveOutMono.delete(outId);
+      this._additiveOutLeft.delete(outId);
+      this._additiveOutRight.delete(outId);
       if (this.nodeOutputs) this.nodeOutputs.delete(outId);
       continue;
     }
 
     let frequencyHz = eff(node, "frequency", 100);
     if (!Number.isFinite(frequencyHz)) frequencyHz = 100;
-    const masterPhase = eff(node, "phase", 0);
     let masterAmp = eff(node, "amplitude", 0.35);
     if (!(masterAmp === masterAmp)) masterAmp = 0.35;
+    // Phase Rotation lives on Additive Generator (baked into Graph phases).
+    const masterPhase = 0;
     const optimizeMode = num(node?.params?.optimize, 0);
-
-    this.additiveGraphPublish.set(outId, {
-      harmonics: graph.harmonics,
-      ratio: graph.ratio,
-      phase: graph.phase,
-      amplitude: graph.amplitude,
-      pan: graph.pan,
-      frequencyHz,
-      masterPhase,
-      masterAmp,
-    });
 
     // Speaker routes: which Additive Out port → which Output channel.
     // { src: "mono"|"left"|"right", dst: "mono"|"left"|"right" }
@@ -256,11 +440,23 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
       state = { phaseAcc: null };
       this.additiveOutStates.set(outId, state);
     }
+    // Generator Harmonics slot-count change → wipe free-running phases.
+    if (graph.phaseReset) state.phaseAcc = null;
 
     let monoBuf = this._additiveOutMono.get(outId);
     if (!monoBuf || monoBuf.length < nFrames) {
       monoBuf = new Float32Array(nFrames);
       this._additiveOutMono.set(outId, monoBuf);
+    }
+    let leftBuf = this._additiveOutLeft.get(outId);
+    if (!leftBuf || leftBuf.length < nFrames) {
+      leftBuf = new Float32Array(nFrames);
+      this._additiveOutLeft.set(outId, leftBuf);
+    }
+    let rightBuf = this._additiveOutRight.get(outId);
+    if (!rightBuf || rightBuf.length < nFrames) {
+      rightBuf = new Float32Array(nFrames);
+      this._additiveOutRight.set(outId, rightBuf);
     }
 
     let lastMono = 0;
@@ -279,14 +475,33 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
         optimizeMode,
       );
       state.phaseAcc = summed.phaseAcc;
+      if (f === nFrames - 1) {
+        // Publish Graph for harmonicLines (phase = Graph offsets, not free-running).
+        this.additiveGraphPublish.set(outId, {
+          harmonics: graph.harmonics,
+          ratio: graph.ratio,
+          phase: graph.phase,
+          amplitude: graph.amplitude,
+          pan: graph.pan,
+          ratioNoise: graph.ratioNoise,
+          phaseNoise: graph.phaseNoise,
+          panNoise: graph.panNoise,
+          ampNoise: graph.ampNoise,
+          frequencyHz,
+          masterAmp,
+          masterPhase,
+        });
+      }
       const mono = Number(summed.mono) || 0;
       const left = Number(summed.left) || 0;
       const right = Number(summed.right) || 0;
       lastMono = mono;
       lastLeft = left;
       lastRight = right;
-      // Always keep Mono for efficient-mode scopes (native graph has no Yellow Graph ports).
+      // Efficient-mode scopes: keep Mono / Left / Right rings (native has no Yellow Graph ports).
       monoBuf[f] = mono;
+      leftBuf[f] = left;
+      rightBuf[f] = right;
       if (!mixToSpeakers) continue;
       for (let r = 0; r < speakerRoutes.length; r += 1) {
         const route = speakerRoutes[r];
@@ -313,8 +528,12 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     }
   }
 
-  // Drop stale Mono rings for removed / silent Outs.
+  // Drop stale Mono/L/R rings for removed / silent Outs.
   for (const key of [...this._additiveOutMono.keys()]) {
-    if (!liveOutIds.has(key)) this._additiveOutMono.delete(key);
+    if (!liveOutIds.has(key)) {
+      this._additiveOutMono.delete(key);
+      this._additiveOutLeft.delete(key);
+      this._additiveOutRight.delete(key);
+    }
   }
 };

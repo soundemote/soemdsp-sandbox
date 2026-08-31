@@ -993,7 +993,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const shift = this.readEffectiveParameter(node, "shift", 0, frame, frames, frameValues);
         return this.hilbertFrame(state, mixInput(nodeId), shift);
       },
-      // Look-ahead Brickwall (protective). Math: lookahead-limiter-math.js.
+      // Brickwall Limiter (protective). Math: lookahead-limiter-math.js.
       lookaheadLimiter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         if (!this.lookaheadLimiterStates) {
           this.lookaheadLimiterStates = new Map();
@@ -1033,7 +1033,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           params.dipGain,
         );
       },
-      // Musical Limiter (input gain / threshold / ratio, sidechain, Env). Same math file.
+      // Pump Limiter (input gain / threshold / ratio, sidechain, Env). Same math file.
       limiter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.pumpingLimiterStates) {
           this.pumpingLimiterStates = new Map();
@@ -1177,6 +1177,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
             release: read("release", 0.45),
             releaseShape: read("releaseShape", 0.0001),
             sustain: read("sustain", 0.55),
+            updateOnTrigger: read("updateOnTrigger", 0),
           },
           safeRate,
         );

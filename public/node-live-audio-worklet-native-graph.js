@@ -40,6 +40,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   metallicRatio: 33,
   lutCell: 34,
   lookaheadLimiter: 35,
+  limiter: 109, // Pump Limiter
   stepSequencer: 36,
   transport: 37,
   aliasSine: 38,
@@ -302,8 +303,11 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (p === "d") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
   if (p === "q") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   if (p === "ratio") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
-  if (p === "gain" && t === "lookaheadLimiter") {
+  if (p === "gain" && (t === "lookaheadLimiter" || t === "limiter")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+  }
+  if (p === "env" && t === "limiter") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
   }
   // transport outs
   if (t === "transport") {
@@ -489,6 +493,10 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
   }
   if (p === "morph") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MORPH;
+  }
+  // Pump Limiter sidechain key — audio detect on Morph bus slot.
+  if ((p === "sidechain" || p === "sc" || p === "key") && type === "limiter") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MORPH;
   }
   if (p === "clock") {
@@ -894,15 +902,22 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
   }
 
-  // Raw domain target — no JS chase / MOD sampling on the efficient path.
+  // Domain target + MOD fold from controller Bias/Out (published by controller peel).
   const readContinuous = (node, key, fallback) => {
     const raw = Number(node?.params?.[key]);
-    return Number.isFinite(raw) ? raw : fallback;
+    const base = Number.isFinite(raw) ? raw : fallback;
+    if (typeof this.foldEfficientParamModulations === "function") {
+      return this.foldEfficientParamModulations(node, key, base);
+    }
+    return base;
   };
-  // Enum / choice knobs: snapped domain target.
+  // Enum / choice knobs: snapped domain target (MOD still folded, then rounded).
   const readDiscrete = (node, key, fallback) => {
     let v = Number(node?.params?.[key]);
     if (!Number.isFinite(v)) v = fallback;
+    if (typeof this.foldEfficientParamModulations === "function") {
+      v = this.foldEfficientParamModulations(node, key, v);
+    }
     return Math.round(v);
   };
   const pushChanged = (hash, cache, key, paramId, value, node) => {
@@ -1881,6 +1896,18 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("dipGain", P.NATIVE_GRAPH_PARAM_LANE_BIAS2, cont("dipGain", 1));
       continue;
     }
+    if (type === "limiter") {
+      push("inputGain", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("inputGain", 0));
+      push("threshold", P.NATIVE_GRAPH_PARAM_LANE_BIAS2, cont("threshold", -18));
+      push("ratio", P.NATIVE_GRAPH_PARAM_WIDTH, cont("ratio", 8));
+      push("lookaheadEnabled", P.NATIVE_GRAPH_PARAM_MODE, disc("lookaheadEnabled", 1));
+      push("lookaheadMs", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("lookaheadMs", 5));
+      push("lookaheadSamples", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("lookaheadSamples", 0));
+      push("attack", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("attack", 5));
+      push("release", P.NATIVE_GRAPH_PARAM_LANE_BIAS1, cont("release", 250));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
     if (type === "stepSequencer") {
       push("threshold", P.NATIVE_GRAPH_PARAM_CENTER, cont("threshold", 0));
       push("steps", P.NATIVE_GRAPH_PARAM_STAGES, disc("steps", 8));
@@ -2133,11 +2160,12 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "sampleDelay") return ["Thru"];
     if (type === "mix") return ["Out4"];
     if (type === "mixStereo") return ["L2"];
-    if (type === "lookaheadLimiter") return ["Gain"];
+    if (type === "lookaheadLimiter" || type === "limiter") return ["Gain"];
     if (type === "transport") return ["f"];
     return type === "reverbEffect" ? ["Dry L"] : type === "pingPongDelay" ? ["Mod L", "Saw"] : ["Saw"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RAMP) {
+    if (type === "limiter") return ["Env"];
     if (type === "archimedes") return ["Noise Above"];
     if (type === "ellipsoid") return ["Uni Y"];
     if (type === "comparator") return ["Down"];
@@ -2290,15 +2318,26 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       const r = Number(protectedRight?.[idx] ?? l) || 0;
       return (l + r) * 0.5;
     }
-    // Yellow Graph Additive Out is JS-sidecar only — tap its Mono ring for scopes.
+    // Yellow Graph Additive Out is JS-sidecar only — tap Mono / Left / Right rings.
+    // Sidecar buffers are this quantum only (0…frames-1), not the speaker ring offset.
     if (srcType === "additiveOut") {
-      const buf = this._additiveOutMono?.get(String(sourceNode));
-      const idx = frameOffset + frame;
-      if (buf && idx >= 0 && idx < buf.length) {
-        const v = Number(buf[idx]);
+      const port = String(sourcePort || "").toLowerCase();
+      let map = this._additiveOutMono;
+      let lastKey = "Mono";
+      if (port === "left" || port === "l") {
+        map = this._additiveOutLeft;
+        lastKey = "Left";
+      } else if (port === "right" || port === "r") {
+        map = this._additiveOutRight;
+        lastKey = "Right";
+      }
+      const buf = map?.get(String(sourceNode));
+      if (buf && frame >= 0 && frame < buf.length) {
+        const v = Number(buf[frame]);
         return Number.isFinite(v) ? v : 0;
       }
-      return Number(this.nodeOutputs?.get?.(String(sourceNode))?.Mono) || 0;
+      const last = this.nodeOutputs?.get?.(String(sourceNode));
+      return Number(last?.[lastKey] ?? last?.Mono) || 0;
     }
     const portId = this.mapNativeGraphSrcPortId(sourcePort, srcType);
     const hash = this.fnv1aHash32(sourceNode);
@@ -2406,6 +2445,13 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
       }
       return true;
     }
+  }
+
+  // Controllers (knob/slider/toggle) are not native — publish Bias/Out for MOD.
+  if (typeof this.processControllerEfficientSidecar === "function") {
+    try {
+      this.processControllerEfficientSidecar(frames);
+    } catch (_e) { /* keep audio */ }
   }
 
   // Write targets only — native graph_engine SmootherManager chases outs.

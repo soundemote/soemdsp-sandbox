@@ -213,6 +213,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "basicShapeFace",
     "harmonicCount",
     "harmonicLines",
+    "additiveWaveform",
     "limiterGainFace",
     // Patch identity plate — not Trace.
     "patchFace",

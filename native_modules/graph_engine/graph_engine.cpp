@@ -284,6 +284,20 @@ extern "C" double soemdsp_lookahead_limiter_left(int handle);
 extern "C" double soemdsp_lookahead_limiter_right(int handle);
 extern "C" double soemdsp_lookahead_limiter_gain(int handle);
 
+extern "C" int soemdsp_pumping_limiter_create();
+extern "C" void soemdsp_pumping_limiter_destroy(int handle);
+extern "C" double soemdsp_pumping_limiter_sample(
+  int handle, double left, double right, double sidechain, int hasSidechain,
+  double inputGainDb, double thresholdDb, double ratio,
+  double lookaheadMs, double lookaheadSamples,
+  double attackMs, double releaseMs, double sampleRate,
+  double lookaheadEnabled, double amplitude
+);
+extern "C" double soemdsp_pumping_limiter_left(int handle);
+extern "C" double soemdsp_pumping_limiter_right(int handle);
+extern "C" double soemdsp_pumping_limiter_gain(int handle);
+extern "C" double soemdsp_pumping_limiter_env(int handle);
+
 extern "C" int soemdsp_step_sequencer_create();
 extern "C" void soemdsp_step_sequencer_destroy(int handle);
 extern "C" double soemdsp_step_sequencer_sample(
@@ -1120,6 +1134,7 @@ static const int kTypeCrossover4 = 105;
 static const int kTypeCrossover5 = 106;
 static const int kTypeCrossover6 = 107;
 static const int kTypeCheapWalk = 108;
+static const int kTypePumpLimiter = 109; // musical Pump Limiter (type `limiter`)
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1433,6 +1448,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_lut_cell_destroy(handle);
   } else if (kind == kTypeLookaheadLimiter) {
     soemdsp_lookahead_limiter_destroy(handle);
+  } else if (kind == kTypePumpLimiter) {
+    soemdsp_pumping_limiter_destroy(handle);
   } else if (kind == kTypeStepSequencer) {
     soemdsp_step_sequencer_destroy(handle);
   } else if (kind == kTypeTransport) {
@@ -1703,6 +1720,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.amplitude,
     (typeId == kTypeAttenuverter) ? 0.5
       : (typeId == kTypeAdditiveOsc || typeId == kTypeHypersaw) ? 0.35
+      : (typeId == kTypePumpLimiter) ? 1.0 // output trim
       : 1.0,
     false
   );
@@ -1766,7 +1784,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeEqFilter) ? 1.0 // HP12
       : (typeId == kTypeActiveFilter) ? 3.0 // LP24
       : (typeId == kTypeTb303Filter) ? 4.0 // LP_24
-      : (typeId == kTypeLookaheadLimiter) ? 1.0 // look-ahead On
+      : (typeId == kTypeLookaheadLimiter || typeId == kTypePumpLimiter) ? 1.0 // look-ahead On
       : (typeId == kTypeSineWavetable) ? 2.0 // sincos
       : (typeId == kTypeSinc) ? 1.0 // band-limit kernel
       : (typeId == kTypeEllipsoid) ? 1.0 // CounterClock(Ph)
@@ -1839,6 +1857,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeNoiseGenerator) ? 0.5
       : (typeId == kTypeRobinSupersaw) ? 30.0
       : (typeId == kTypeTriggerCounter) ? 1.0
+      : (typeId == kTypePumpLimiter) ? 8.0 // ratio
       : (typeId == kTypeMetallicRatio) ? 1.0 // index n
       : (typeId == kTypeArchimedes) ? 3.0
       : (typeId == kTypeSurgeOscillator) ? 50.0 // syncFrequency Hz
@@ -1968,7 +1987,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeTriggerDivider || typeId == kTypeTriggerCounter) ? 0.01
       : (typeId == kTypeDelayedTrigger) ? 0.1
       : (typeId == kTypeRandomClock) ? 0.25
-      : (typeId == kTypeLookaheadLimiter) ? 5.0 // look-ahead ms
+      : (typeId == kTypeLookaheadLimiter || typeId == kTypePumpLimiter) ? 5.0 // look-ahead ms
       : (typeId == kTypeBradley2a) ? 0.005 // hitDuration
       : (typeId == kTypeModeResonator || typeId == kTypeCombResonator) ? 1.0 // decay s
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope
@@ -1985,7 +2004,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSampleDelay) ? 0.0
       : (typeId == kTypeDelayedTrigger) ? 0.01
       : (typeId == kTypeRandomClock) ? 1.0
-      : (typeId == kTypeLookaheadLimiter) ? 0.0 // look-ahead samples
+      : (typeId == kTypeLookaheadLimiter || typeId == kTypePumpLimiter) ? 0.0 // look-ahead samples
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.08 // attack
       : (typeId == kTypePluckEnvelope) ? 0.002 // attackFeedback
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // hold
@@ -2002,6 +2021,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.offsetMs,
     (typeId == kTypeRandomClock) ? 0.01
       : (typeId == kTypeLookaheadLimiter) ? 0.2 // attack ms
+      : (typeId == kTypePumpLimiter) ? 5.0 // attack ms
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.45 // release s
       : (typeId == kTypePluckEnvelope) ? 0.08 // autoReleaseTime
       : (typeId == kTypeSoemReverb) ? 0.04 // duckRelease
@@ -2055,12 +2075,19 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeRange) ? 1000.0 : 1.0,
     false
   );
-  init_control(n.gainDb, (typeId == kTypeLookaheadLimiter) ? -1.0 : 0.0, false); // ceiling dB
+  init_control(
+    n.gainDb,
+    (typeId == kTypeLookaheadLimiter) ? -1.0 // ceiling dB
+      : (typeId == kTypePumpLimiter) ? 0.0 // inputGain dB
+      : 0.0,
+    false
+  );
   init_control(n.gainLeftDb, 0.0, false);
   init_control(n.gainRightDb, 0.0, false);
   init_control(n.gainMonoSum, 0.0, true); // discrete mono-sum law
   // mix: linear volumes default 1; mixStereo: dB volumes default 0; pans/bias 0; bleeds 0
   // lookaheadLimiter: laneBias[0]=release ms, laneBias[1]=dipGain
+  // pumpLimiter: laneBias[0]=release ms, laneBias[1]=threshold dB
   // stepSequencer: laneVol[0..3]=step1..4, laneBias[0..3]=step5..8
   const double laneVolDefault = (typeId == kTypeMix) ? 1.0 : 0.0;
   static const double kStepDefaults[8] = {
@@ -2073,6 +2100,9 @@ static void init_node_defaults(Node& n, int typeId) {
     if (typeId == kTypeLookaheadLimiter) {
       if (i == 0) biasDef = 100.0;
       else if (i == 1) biasDef = 1.0;
+    } else if (typeId == kTypePumpLimiter) {
+      if (i == 0) biasDef = 250.0; // release ms
+      else if (i == 1) biasDef = -18.0; // threshold dB
     } else if (typeId == kTypeStepSequencer) {
       biasDef = kStepDefaults[i + 4];
     }
@@ -2496,6 +2526,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeTriggerCounter) return soemdsp_trigger_counter_create();
   if (typeId == kTypeLutCell) return soemdsp_lut_cell_create();
   if (typeId == kTypeLookaheadLimiter) return soemdsp_lookahead_limiter_create();
+  if (typeId == kTypePumpLimiter) return soemdsp_pumping_limiter_create();
   if (typeId == kTypeStepSequencer) return soemdsp_step_sequencer_create();
   if (typeId == kTypeTransport) return soemdsp_transport_create();
   if (typeId == kTypeAliasSine) return soemdsp_alias_sine_create();
@@ -5508,6 +5539,51 @@ static void process_step_sequencer(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Pump Limiter: look-ahead + threshold/ratio GR. Sidechain on Morph bus when wired.
+// Out=mono avg, L/R wet, Gain on Saw, Env on Ramp.
+static void process_pump_limiter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool hasSc = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double inputGainDb = node.gainDb.out;
+  const double thresholdDb = node.laneBias[1].out;
+  const double ratio = node.width.out;
+  const double lookaheadMs = node.timeNumerator.out;
+  const double lookaheadSamples = node.timeDenominator.out;
+  const double attackMs = node.offsetMs.out;
+  const double releaseMs = node.laneBias[0].out;
+  const double lookaheadEnabled = node.mode.out;
+  const double amplitude = node.amplitude.out;
+  for (int f = 0; f < frames; f++) {
+    const double l = g.mixMono[f] + g.mixLeft[f];
+    const double r = g.mixMono[f] + g.mixRight[f];
+    const double sc = hasSc ? g.mixMorph[f] : 0.0;
+    const double monoOut = soemdsp_pumping_limiter_sample(
+      node.nativeHandle,
+      l,
+      r,
+      sc,
+      hasSc ? 1 : 0,
+      inputGainDb,
+      thresholdDb,
+      ratio,
+      lookaheadMs,
+      lookaheadSamples,
+      attackMs,
+      releaseMs,
+      sr,
+      lookaheadEnabled,
+      amplitude
+    );
+    node.buf[kPortMono][f] = monoOut;
+    node.buf[kPortLeft][f] = soemdsp_pumping_limiter_left(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_pumping_limiter_right(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_pumping_limiter_gain(node.nativeHandle);
+    node.buf[kPortRamp][f] = soemdsp_pumping_limiter_env(node.nativeHandle);
+  }
+}
+
 // Lookahead brickwall: true stereo L/R rings + linked GR. Mono In folds into both sides.
 // Out=mono avg, Left/Right wet, Gain on Saw tap.
 static void process_lookahead_limiter(Circuit& g, Node& node, int frames) {
@@ -6247,6 +6323,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeTriggerCounter
     || typeId == kTypeLutCell
     || typeId == kTypeLookaheadLimiter
+    || typeId == kTypePumpLimiter
     || typeId == kTypeStepSequencer
     || typeId == kTypeTransport
     || typeId == kTypeAliasSine
@@ -6716,6 +6793,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_lookahead_limiter(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypePumpLimiter) {
+      process_pump_limiter(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeStepSequencer) {
       process_step_sequencer(*g, node, frames);
       continue;
@@ -7061,5 +7142,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 60; // Cheap/Random Walk stereo L/R; space Mono jack renames
+  return 61; // Pump Limiter (type 109) native graph
 }

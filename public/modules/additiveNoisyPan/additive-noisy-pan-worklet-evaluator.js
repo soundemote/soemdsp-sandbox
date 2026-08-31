@@ -17,9 +17,12 @@ NodeLiveAudioProcessor.prototype.additiveNoisyPanWorkletEvaluate = function addi
     return Number.isFinite(n) ? n : fb;
   };
   let state = this.additiveNoisyPanStates.get(String(nodeId)) || {};
+  const add = p.add != null && Number.isFinite(Number(p.add))
+    ? num(p.add, 0.25)
+    : num(p.amount, 0.25);
   const applied = additiveGraphApplyNoisyPan(
     additiveGraphClonePayload(incoming),
-    num(p.amount, 0.25),
+    add,
     num(p.speed, 35),
     state.walks,
     this.engineSampleRate || sampleRate,

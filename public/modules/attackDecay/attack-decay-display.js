@@ -39,7 +39,10 @@ function drawNodeGraphEnvelopeCurveDisplay(section) {
 
 function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
   const pts = Math.max(64, Math.floor(Number(width) || 128));
-  if (type === "expAdsr" && typeof nodeGraphExpAdsrPreviewCurve === "function") {
+  if (
+    (type === "expAdsr" || type === "additiveCurveEnvelope")
+    && typeof nodeGraphExpAdsrPreviewCurve === "function"
+  ) {
     const preview = nodeGraphExpAdsrPreviewCurve({
       delay: Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "delay", 0)),
       attack: Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "attack", 0.08)),
@@ -58,7 +61,7 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
       leftLabel: "A",
       rightLabel: "R",
       signature: {
-        type: "expAdsr",
+        type,
         delay: nodeGraphEnvelopeCurveLiveParam(node, "delay", 0),
         attack: nodeGraphEnvelopeCurveLiveParam(node, "attack", 0.08),
         decay: nodeGraphEnvelopeCurveLiveParam(node, "decay", 0.22),

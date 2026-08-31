@@ -68,7 +68,8 @@ Only these live-audio types exist in the efficient build:
 | `triggerCounter` | Count triggers → Pulse + Count |
 | `metallicRatio` | Metallic mean (n → ratio) |
 | `lutCell` | 4-in LUT + flip-flop (Out / Q) |
-| `lookaheadLimiter` | True-stereo brickwall (Out / L / R / Gain) |
+| `lookaheadLimiter` | Brickwall Limiter — true-stereo ceiling (Out / L / R / Gain) |
+| `limiter` | Pump Limiter — threshold/ratio GR, sidechain, Env (Out / L / R / Gain / Env) |
 | `stepSequencer` | 8-step Trigger/Reset sequencer |
 | `transport` | Master Clock (−1..1 / 0..1 / Trigger / f Hz) |
 | `aliasSine` | Normalized-freq sine (aliases by design) |
@@ -151,7 +152,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    sampleDelay / sampleHold / minMax / mix / mixStereo / clipperLimiter /
    midSideEncode / vectorscopeTransform / rotate3dTo2d /
    clock / triggerDivider / delayedTrigger / randomClock / triggerCounter /
-   metallicRatio / lutCell / lookaheadLimiter / stepSequencer / transport /
+   metallicRatio / lutCell / lookaheadLimiter / limiter / stepSequencer / transport /
    aliasSine / blit / sineWavetable / antisaw / archimedes /
    additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc /
    bradley2a / ellipsoid / snowflake /
@@ -183,6 +184,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
 - Dual JS+C++ audio paths are **not** the product. Convert the next type into the allowlist (native + catalog) — never reintroduce a JS twin to “make it work.”
 - **Smoother manager is audio/C++ only** on the efficient path. JS may write Control **targets** and **smoothing-time** into engine memory on change; JS must **not** own or step the smoother chase list. (Legacy `?product=full` JS smoothers are debt until removed.)
 - **Efficient AudioWorklet blob does not load JS DSP evaluators** (`node-live-audio-worklet-evaluators*`, `evaluate-frame.js`, or per-module `*-worklet-evaluator.js`). Audio is **native graph only** (`processNativeGraphQuantum`); `process()` early-returns after that path and never calls `evaluateFrame`. Legacy evaluator sources load only for `?product=full`.
+- **Temporary exception — Music Player (`audioPlayer`):** allowlisted with a **narrow JS peel** (decode stays main-thread; worklet plays planar L/R from `plan.samples` and mixes into the speaker bus after the native quantum). Do **not** broaden this carve-out to other JS twins. End state: native `audio_player` opcode + phosphillator-style buffer upload, then remove the peel.
 
 ---
 
@@ -324,25 +326,26 @@ This app is a **C++ DSP engine with a JS interface** (§0). JS authors and obser
 
 ## 13. Stereo jacks: M / L / R (not L / M / R)
 
-App-wide stack order and jack chrome. Names keep their color; **Mono is always first**.
+App-wide stack order and jack chrome. Names keep their color; **Mono is always first** when present.
 
 | Order | Channel | Jack color |
 | --- | --- | --- |
-| 1st | Mono (`M`, `Mono`) | Green |
-| 1st | **`In` / `Out`** (and `Input` / `Output`) | **Purple — both inlet and outlet sides** |
+| 1st | Mono (`M`, `Mono`) — **explicit** | **Green** |
+| — | Generic analog (`In` / `Out` / `Input` / `Output`, unlabeled CV) | **Gold** (uncolored) |
 | 2nd | Left (`L`) | Red |
 | 3rd | Right (`R`) | Blue |
 
-Filter-style modules use `In`/`Out` labeled Mono: the **port name** wins for chrome, so those jacks are **purple**, not green.
+**Gold = analog.** Bare `In`/`Out` are sample-accurate analog — **not** purple. **Green only when the port is explicitly Mono** (name or label `Mono` / `M`). Filters that mean mono should use port name `Mono` or label `In`→`Mono` (label path paints green).
 
-**Jack inventory must match engine capability — no stereo ports on mono-only modules.** Musical filters keep M+L+R (true independent L/R where the engine dual-handles). Scientific filters may be mono (`In`/`Out` only) until converted to real stereo.
+**Jack inventory must match engine capability — no stereo ports on mono-only modules.** Musical filters keep M+L+R (true independent L/R where the engine dual-handles). Scientific filters may be mono (`In`/`Out` only, gold) until converted to real stereo.
 
 RGB modules: `R` red, `G` green, `B` blue (`R` is never Right).
 
 Chaos XYZ is RGB **by name**, not by slot: **X red, Y blue, Z green**. Unlabeled generic analog (no channel) stays gold by side.
 
-- Channel chrome on **inlets and outlets** the same way (In purple left = Out purple right). Uncolored analog stays gold. Cables follow jack colors when UIDEV **wires follow port colors** is on (default). Dual-color gradient still matches both ends. Digital stays white. Off = gold analog / white digital.
+- Channel chrome on **inlets and outlets** the same way. Uncolored analog stays gold. Cables follow jack colors when UIDEV **wires follow port colors** is on (default). Dual-color gradient still matches both ends. Digital stays white. Off = gold analog / white digital.
 - Full write-up: [MODULE_LAYOUT_PLAN.md](./MODULE_LAYOUT_PLAN.md) §11.
+- SSOT: `public/node-graph-jack-chrome.js` (`nodeGraphJackStereoChannel` / `nodeGraphJackChannel`).
 
 ### CMYK non-realtime plane (additive proving ground)
 
@@ -355,7 +358,7 @@ Additive modules use a **CMYK** jack story for **non-realtime** ports (once per 
 | **Y (Yellow)** | Graph in/out (harmonic Graph chunk, …) | **Yellow** (`#ffe600`) | **Data-plane payload once per quantum** |
 | **K (Black)** | *Reserved unused* | — | — |
 | Digital (ƒ reports, Scale, …) | — | White | Event / value |
-| Audio / sample-accurate CV | — | Gold / RGB / purple… | Every sample |
+| Audio / sample-accurate CV | — | Gold / RGB (L/R/Mono)… | Every sample |
 
 **Smoothers vs cyan Parameter jacks**
 

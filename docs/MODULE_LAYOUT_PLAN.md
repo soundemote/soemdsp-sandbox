@@ -348,15 +348,15 @@ hidden, and the way modules start drawing the same way every time.
 
 | Slot | Channel | Jack names | Color (inlet **and** outlet) |
 | --- | --- | --- | --- |
-| **1st** | **Mono** | `Mono`, `M` | **Green** |
-| **1st** | **Thru / bus** | **`In` / `Out`** (`Input` / `Output`) | **Purple** |
+| **1st** | **Mono** (explicit) | `Mono`, `M` | **Green** |
+| — | **Generic analog** | **`In` / `Out`** (`Input` / `Output`), unlabeled CV | **Gold** (uncolored) |
 | **2nd** | **Left** | `Left`, `L` | **Red** |
 | **3rd** | **Right** | `Right`, `R` | **Blue** |
 | (any) | **Parameter / block-rate ZOH (CMYK C)** | Listed in `blockRateInputs` / `blockRateOutputs` | **Cyan** (not turquoise) |
 | (any) | **Graph chunk (CMYK Y)** | `dataInputs` / `dataOutputs` port **`Graph`** | **Yellow** |
 | — | **CMYK M / K** | — | **Reserved unused** |
 
-Shared filter template (`In`/`Out` labeled Mono): chrome follows the **port name**, so **In/Out are purple** on both sides.
+Shared filter template: use port name **`Mono`** or label `In`→`Mono` for green; bare `In`/`Out` stay **gold** analog.
 
 **Cyan** = non-realtime Parameter in/out — zero-order-hold / once-per-quantum control jacks (additive Morph CV, etc.). Parameter smoothers may still emit sample packs; cyan ports do not.
 
@@ -369,7 +369,7 @@ Chaos XYZ uses RGB **by name**, not by stack index:
 | X | Red (same as Left) |
 | Y | Blue |
 | Z | Green |
-| Out | Purple (In/Out rule) |
+| Out | Gold (generic analog) |
 
 RGB module letters (`R`/`G`/`B`) are red / green / blue. **`R` is never Right.**
 

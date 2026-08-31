@@ -83,6 +83,10 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         if (channel) channel.fill(0);
       }
     }
+    // Interim: Music Player JS peel mixes into hardware outs (native graph has no audioPlayer).
+    if (this.efficientProduct && typeof this.processAudioPlayerEfficientSidecar === "function") {
+      this.processAudioPlayerEfficientSidecar(output, frames);
+    }
 
     // Previous quantum was late → shed non-audio work this quantum (scopes/UI posts).
     const audioStressed = Boolean(this.audioThreadStressed);

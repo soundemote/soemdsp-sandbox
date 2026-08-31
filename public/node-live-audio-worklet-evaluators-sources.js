@@ -834,12 +834,28 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         this.additiveLinearFilterWorkletEvaluate(node, nodeId, frame, frames),
       additiveAnalogFilter: (node, nodeId, frame, frames) =>
         this.additiveAnalogFilterWorkletEvaluate(node, nodeId, frame, frames),
-      additiveGrowl: (node, nodeId, frame, frames) =>
-        this.additiveGrowlWorkletEvaluate(node, nodeId, frame, frames),
+      additiveLadderFilter: (node, nodeId, frame, frames) =>
+        this.additiveLadderFilterWorkletEvaluate(node, nodeId, frame, frames),
+      additiveBubble: (node, nodeId, frame, frames) =>
+        this.additiveBubbleWorkletEvaluate(node, nodeId, frame, frames),
+      additiveFrequencySkew: (node, nodeId, frame, frames) =>
+        this.additiveFrequencySkewWorkletEvaluate(node, nodeId, frame, frames),
+      additiveQuantizeFreq: (node, nodeId, frame, frames) =>
+        this.additiveQuantizeFreqWorkletEvaluate(node, nodeId, frame, frames),
+      additiveQuantizePhase: (node, nodeId, frame, frames) =>
+        this.additiveQuantizePhaseWorkletEvaluate(node, nodeId, frame, frames),
+      additiveHarmonicMath: (node, nodeId, frame, frames) =>
+        this.additiveQuantizeFreqWorkletEvaluate(node, nodeId, frame, frames),
+      additiveFrequencyMath: (node, nodeId, frame, frames) =>
+        this.additiveQuantizeFreqWorkletEvaluate(node, nodeId, frame, frames),
+      additiveFrequencySlope: (node, nodeId, frame, frames) =>
+        this.additiveFrequencySkewWorkletEvaluate(node, nodeId, frame, frames),
       additiveNoisyFreq: (node, nodeId, frame, frames) =>
         this.additiveNoisyFreqWorkletEvaluate(node, nodeId, frame, frames),
       additiveNoisyPhase: (node, nodeId, frame, frames) =>
         this.additiveNoisyPhaseWorkletEvaluate(node, nodeId, frame, frames),
+      additivePan: (node, nodeId, frame, frames) =>
+        this.additivePanWorkletEvaluate(node, nodeId, frame, frames),
       additiveNoisyPan: (node, nodeId, frame, frames) =>
         this.additiveNoisyPanWorkletEvaluate(node, nodeId, frame, frames),
       additiveNoisyAmp: (node, nodeId, frame, frames) =>

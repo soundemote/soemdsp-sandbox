@@ -133,7 +133,7 @@ var sandbox = {
       dataOutputs: ["Graph"],
       outputs: [],
     },
-    additiveGrowl: {
+    additiveBubble: {
       dataInputs: ["Graph"],
       dataOutputs: ["Graph"],
       outputs: [],
@@ -271,7 +271,7 @@ assert(ch("audioPlayer", "Mono", "output") === "green", "player Mono green");
 assert(ch("additiveGenerator", "Graph", "output") === "yellow", "Graph out is yellow");
 assert(ch("additiveLinearFilter", "Graph", "input") === "yellow", "Linear Filter Graph in is yellow");
 assert(ch("additiveLinearFilter", "Graph", "output") === "yellow", "Linear Filter Graph out is yellow");
-assert(ch("additiveGrowl", "Graph", "input") === "yellow", "Growl Graph in is yellow");
+assert(ch("additiveBubble", "Graph", "input") === "yellow", "Bubble Graph in is yellow");
 assert(ch("additiveNoisyFreq", "Graph", "output") === "yellow", "NoisyFreq Graph out is yellow");
 assert(ch("additiveNoisyPan", "Graph", "input") === "yellow", "NoisyPan Graph in is yellow");
 assert(ch("additiveOut", "Left", "output") !== "yellow", "Additive Out Left is audio not Graph");

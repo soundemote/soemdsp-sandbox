@@ -517,7 +517,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=stereo-walk-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=poly-morph-bipolar-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3042,7 +3042,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=t-series-1",
-  "./public/node-graph-efficient-product.js?v=transport-f-1",
+  "./public/node-graph-efficient-product.js?v=mp-eff-1",
   "./public/node-live-audio-worklet-core.js?v=rip-legacy-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
@@ -3057,24 +3057,31 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=interrupt-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=wasm-plan-race-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=yellow-graph-scope-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=ctrl-mod-1",
   "./public/node-live-audio-worklet-set-plan.js?v=fix-normalizeCodeblock-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=graph-engine-6",
   "./public/node-live-audio-worklet-handle-message.js?v=wasm-plan-race-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph additive chain (efficient Live sidecar until native Yellow Graph).
-  "./public/modules/additiveGraph/additive-graph-math.js?v=additive-smooth-1",
-  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=additive-smooth-1",
-  "./public/modules/additiveGraph/additive-param-smooth.js?v=additive-smooth-1",
-  "./public/modules/additiveGraph/additive-yellow-graph-sidecar.js?v=additive-smooth-1",
-  "./public/node-live-audio-worklet-process.js?v=silence-fix-1",
+  "./public/modules/additiveGraph/additive-graph-math.js?v=bubble-wave-1",
+  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=gen-int-harm-1",
+  "./public/modules/additiveGraph/additive-param-smooth.js?v=gen-int-harm-1",
+  "./public/modules/additiveGraph/additive-yellow-graph-sidecar.js?v=filter-hp-fix-1",
+  // Music Player interim JS peel (APP_POLICY §0b exception) until native PCM upload.
+  "./public/modules/audioPlayer/audio-player-math.js?v=mp-time-io-1",
+  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=mp-aa-1",
+  "./public/modules/audioPlayer/audio-player-efficient-sidecar.js?v=mp-eff-1",
+  // Additive Envelope (block-rate) reuses Curve Envelope math.
+  "./public/modules/expAdsr/exp-adsr-math.js?v=env-uot-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=env-uot-1",
+  "./public/node-live-audio-worklet-process.js?v=mp-eff-1",
 ];
 
 // Legacy JS DSP evaluators + evaluateFrame — loaded only for ?product=full.
 const nodeGraphLiveWorkletSourceFilesLegacy = [
-  "./public/node-live-audio-worklet-evaluators-sources.js?v=snowflake-phase-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=haschanged-2",
+  "./public/node-live-audio-worklet-evaluators-sources.js?v=freq-skew-math-1",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=env-uot-1",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=controller-smooth-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=interrupt-patch-1",
@@ -3087,17 +3094,22 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/modules/rgbShape/rgb-shape-worklet-evaluator.js?v=heart-ssot-1",
   "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=sincos4-1",
   "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-core-1",
-  "./public/modules/additiveGraph/additive-graph-math.js?v=growl-hydrus-1",
-  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=noisy-hz-1",
+  "./public/modules/additiveGraph/additive-graph-math.js?v=bubble-wave-1",
+  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=gen-int-harm-1",
   "./public/modules/additiveLinearFilter/additive-linear-filter-worklet-evaluator.js?v=noisy-hz-1",
-  "./public/modules/additiveAnalogFilter/additive-analog-filter-worklet-evaluator.js?v=noisy-hz-1",
-  "./public/modules/additiveGrowl/additive-growl-worklet-evaluator.js?v=noisy-hz-1",
-  "./public/modules/additiveNoisyFreq/additive-noisy-freq-worklet-evaluator.js?v=noisy-hz-1",
-  "./public/modules/additiveNoisyPhase/additive-noisy-phase-worklet-evaluator.js?v=noisy-hz-1",
-  "./public/modules/additiveNoisyPan/additive-noisy-pan-worklet-evaluator.js?v=noisy-hz-1",
-  "./public/modules/additiveNoisyAmp/additive-noisy-amp-worklet-evaluator.js?v=noisy-hz-1",
-  "./public/modules/additiveOut/additive-out-worklet-evaluator.js?v=noisy-hz-1",
-  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=polyblep-block-1",
+  "./public/modules/additiveAnalogFilter/additive-analog-filter-worklet-evaluator.js?v=filter-hp-fix-1",
+  "./public/modules/additiveLadderFilter/additive-ladder-filter-worklet-evaluator.js?v=filter-hp-fix-1",
+  "./public/modules/additiveGrowl/additive-growl-worklet-evaluator.js?v=bubble-unskew-2",
+  "./public/modules/additiveFrequencySkew/additive-frequency-skew-worklet-evaluator.js?v=freq-skew-math-1",
+  "./public/modules/additiveQuantizeFreq/additive-quantize-freq-worklet-evaluator.js?v=quantize-fp-1",
+  "./public/modules/additiveQuantizePhase/additive-quantize-phase-worklet-evaluator.js?v=quantize-fp-1",
+  "./public/modules/additiveNoisyFreq/additive-noisy-freq-worklet-evaluator.js?v=noisy-add-1",
+  "./public/modules/additiveNoisyPhase/additive-noisy-phase-worklet-evaluator.js?v=noisy-add-1",
+  "./public/modules/additivePan/additive-pan-worklet-evaluator.js?v=pan-morph-1",
+  "./public/modules/additiveNoisyPan/additive-noisy-pan-worklet-evaluator.js?v=noisy-add-1",
+  "./public/modules/additiveNoisyAmp/additive-noisy-amp-worklet-evaluator.js?v=noisy-add-1",
+  "./public/modules/additiveOut/additive-out-worklet-evaluator.js?v=gen-h-phase-reset-1",
+  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=poly-morph-bipolar-1",
   "./public/modules/noiseGenerator/noise-generator-worklet-evaluator.js?v=native-strip-1",
   // noise channel math lives in worklet methods; main-thread uses noise-generator-math.js
   "./public/modules/randomWalk/random-walk-math.js?v=random-walk-1",
@@ -3225,8 +3237,8 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/modules/sineKick/sine-kick-worklet-evaluator.js?v=kick-split-1",
   "./public/modules/sampleHold/sample-hold-math.js?v=sample-hold-ext-3",
   "./public/modules/sampleHold/sample-hold-worklet-evaluator.js?v=sample-hold-ext-3",
-  "./public/modules/expAdsr/exp-adsr-math.js?v=planck-eps-1",
-  "./public/modules/expAdsr/exp-adsr-worklet-evaluator.js?v=exp-adsr-1",
+  "./public/modules/expAdsr/exp-adsr-math.js?v=env-uot-1",
+  "./public/modules/expAdsr/exp-adsr-worklet-evaluator.js?v=env-uot-1",
   "./public/modules/attackDecay/attack-decay-math.js?v=attack-decay-1",
   "./public/modules/attackDecay/attack-decay-worklet-evaluator.js?v=attack-decay-1",
   "./public/modules/linearEnvelope/linear-envelope-math.js?v=planck-eps-1",

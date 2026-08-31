@@ -129,7 +129,6 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   let freqHz = Number(graph.frequencyHz ?? node?.params?.frequency ?? node?.parameters?.frequency);
   if (!Number.isFinite(freqHz)) freqHz = 100;
-  const masterPhase = Number(graph.masterPhase ?? node?.params?.phase ?? node?.parameters?.phase) || 0;
   const sr = Number(nodeGraphMvp?.sampleRate) || Number(nodeGraphMvp?.live?.sampleRate) || 44100;
 
   const axis = typeof additiveGraphDisplayFreqAxis === "function"
@@ -189,7 +188,7 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     if (ampWalks && typeof cheapWhiteNoiseStep === "function") {
       const w = cheapWhiteNoiseStep(ampWalks[i]);
       const add = Number(ampNoise.amount) || 0;
-      amp = Math.max(0, Math.min(1, amp + w * add * 0.5));
+      amp = Math.max(0, Math.min(1, amp + w * add));
     }
     const nyqGain = typeof additiveGraphNyquistAmpGain === "function"
       ? additiveGraphNyquistAmpGain(hz, sr)
@@ -197,22 +196,32 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     const a = amp * nyqGain;
     effectiveAmp[i] = a;
 
-    let phase = Number(graph.phase[i]) || 0;
+    // Color = Graph phase offsets (+ NoisyPhase WhiteNoise preview), not free-running phaseAcc.
+    let phase = typeof additiveGraphEffectivePhase === "function"
+      ? additiveGraphEffectivePhase(graph, i, 0, 1)
+      : (Number(graph.phase[i]) || 0);
     if (phaseWalks && typeof cheapWhiteNoiseStep === "function") {
       const w = cheapWhiteNoiseStep(phaseWalks[i]);
       const add = Number(phaseNoise.amount) || 0;
       phase = typeof additiveGraphWrap01 === "function"
-        ? additiveGraphWrap01(phase + w * add * 0.5)
-        : phase + w * add * 0.5;
+        ? additiveGraphWrap01(phase + w * add)
+        : phase + w * add;
     }
-    phaseAt[i] = phase;
+    phaseAt[i] = typeof additiveGraphWrap01 === "function"
+      ? additiveGraphWrap01(phase)
+      : phase;
 
-    let pan = hasPan && graph.pan ? Number(graph.pan[i]) || 0 : 0;
+    let pan = hasPan
+      ? (typeof additiveGraphEffectivePan === "function"
+        ? additiveGraphEffectivePan(graph, i, 0, 1)
+        : (Number(graph.pan?.[i]) || 0))
+      : 0;
     if (panWalks && typeof cheapWhiteNoiseStep === "function") {
       const w = cheapWhiteNoiseStep(panWalks[i]);
       const add = Number(panNoise.amount) || 0;
       pan = Math.max(-1, Math.min(1, pan + w * add));
     }
+    pan = Math.max(-1, Math.min(1, pan));
     const gains = typeof additiveGraphPanGains === "function"
       ? additiveGraphPanGains(pan)
       : { left: 0.5 * (1 - pan), right: 0.5 * (1 + pan) };
@@ -228,7 +237,8 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
   const span = Math.max(1, w - pad * 2);
   const lineW = Math.max(1, Math.min(4, span / Math.max(48, H * 1.1)));
 
-  ctx.strokeStyle = "rgba(255, 230, 0, 0.18)";
+  // Dim mid line — Left above, Right below.
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(pad, midY);
@@ -252,7 +262,7 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     const rightH = ampToHeight(rightAmp[i]);
     if (!(leftH > 0.5) && !(rightH > 0.5)) continue;
 
-    const phase01 = phaseAt[i] + masterPhase;
+    const phase01 = phaseAt[i];
     const col = typeof additiveGraphPhaseColor === "function"
       ? additiveGraphPhaseColor(phase01)
       : { r: 224, g: 64, b: 251 };

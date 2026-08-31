@@ -643,12 +643,23 @@ function renderNodeGraphPatchTimingControls() {
 function moveNodeGraphRenderRangeToDurationControl() {
   const dur = document.getElementById("nodeRenderDurationControl") || document.querySelector(".node-render-duration-control");
   if (!dur) return;
-  // Move Start/End inputs from header toolbar into the Render Sample row
+  // Toolbar rebuild can recreate Start/End while the previous pair still lives
+  // in the Render Sample row — duplicates then fight on change/blur (second
+  // edit looks broken). Keep a single field of each kind, mounted on `dur`.
   for (const cls of [".node-header-render-start-input", ".node-header-render-end-input"]) {
-    const input = document.querySelector(cls);
-    const field = input?.closest(".node-header-render-range-field");
-    if (field && field.parentElement !== dur) {
-      dur.appendChild(field);
+    const inputs = Array.from(document.querySelectorAll(cls));
+    let kept = null;
+    for (const input of inputs) {
+      const field = input?.closest(".node-header-render-range-field");
+      if (!field) continue;
+      if (!kept) {
+        kept = field;
+        if (field.parentElement !== dur) {
+          dur.appendChild(field);
+        }
+        continue;
+      }
+      field.remove();
     }
   }
   // These fields can be (re)created after the one-shot load-time binding in

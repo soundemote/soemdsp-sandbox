@@ -1,6 +1,6 @@
-// Jack chrome SSOT — analog/digital + red/green/blue/purple channel.
-// In/Out ports are purple on both inlet and outlet sides (APP_POLICY §13).
-// Cables never use this. Pairing (L↔R) stays in node-graph-wire-actions.js.
+// Jack chrome SSOT — analog/digital + red/green/blue channel (+ CMYK yellow/cyan).
+// Generic analog In/Out stay uncolored (gold). Explicit Mono = green; L/R = red/blue.
+// APP_POLICY §13. Cables never use this. Pairing (L↔R) stays in node-graph-wire-actions.js.
 
 const nodeGraphJackRgbTypeCache = new Map();
 const nodeGraphJackQuadTypeCache = new Map();
@@ -288,10 +288,8 @@ function nodeGraphJackStereoChannel(value) {
   if (raw === "m" || raw === "mono" || first === "mono" || last === "mono") {
     return "green";
   }
-  // In/Out (and Input/Output) — purple on both inlet and outlet sides.
-  if (raw === "in" || raw === "input" || raw === "out" || raw === "output") {
-    return "purple";
-  }
+  // Bare In/Out/Input/Output = generic analog → uncolored (gold). Not purple.
+  // Explicit Mono (name or label) is green above; Left/Right are red/blue.
   if (/^r\d+$/.test(raw) || raw === "right" || first === "right" || last === "right" || raw === "toner") {
     return "blue";
   }
@@ -368,11 +366,15 @@ function nodeGraphJackChannel(type, port, io = "output") {
         return fromAliasChaos;
       }
       const fromAlias = nodeGraphJackStereoChannel(alias);
-      // Do not let legacy Out/In aliases recolor a non-In/Out port purple
-      // (e.g. polyBlep Out → Wave Out was painting Wave purple).
-      if (fromAlias === "purple") {
+      // Legacy Out/In/Mono aliases must not recolor a renamed jack
+      // (e.g. polyBlep Out → Wave Out stays gold, not green-via-Mono).
+      if (fromAlias === "green" || fromAlias === "red" || fromAlias === "blue") {
         const aliasKey = String(alias || "").trim().toLowerCase();
-        if (aliasKey === "out" || aliasKey === "output" || aliasKey === "in" || aliasKey === "input") {
+        if (
+          aliasKey === "out" || aliasKey === "output"
+          || aliasKey === "in" || aliasKey === "input"
+          || aliasKey === "mono" || aliasKey === "m"
+        ) {
           continue;
         }
       }
@@ -390,7 +392,7 @@ function nodeGraphOutletChannelKind(type, port, io = "output") {
   if (channel === "red") {
     return "left";
   }
-  if (channel === "green" || channel === "purple") {
+  if (channel === "green") {
     return "mono";
   }
   if (channel === "blue") {

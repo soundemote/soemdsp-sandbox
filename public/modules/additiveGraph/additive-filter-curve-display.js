@@ -52,20 +52,24 @@ function nodeGraphAdditiveFilterCurveReadParams(nodeId, type) {
   const isLinear = type === "additiveLinearFilter";
   const slope = num(p.slope, isLinear ? 0.25 : 12);
   const skew = num(p.skew, 0);
+  const resonance = type === "additiveLadderFilter" ? num(p.resonance, 0) : 0;
   const sr = Math.max(
     1,
     Number(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.sampleRate : 0)
       || Number(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.sampleRate : 0)
       || 44100,
   );
+  let curveKind = "butterworth";
+  if (isLinear) curveKind = "rational";
+  else if (type === "additiveLadderFilter") curveKind = "ladder";
   return {
     mode: filter,
     cutoffHz,
     slope,
     skew,
+    resonance,
     sampleRate: sr,
-    // Linear = rational skirts; Analog type id = Butterworth (dB/oct).
-    curveKind: isLinear ? "rational" : "butterworth",
+    curveKind,
   };
 }
 
@@ -105,17 +109,27 @@ function drawNodeGraphAdditiveFilterCurveDisplay(section) {
   const type = section.dataset.nodeType;
   const params = nodeGraphAdditiveFilterCurveReadParams(nodeId, type);
   const samples = Math.max(32, Math.min(256, Math.round(w)));
-  const curve = typeof additiveGraphFilterResponseCurveLogHz === "function"
-    ? additiveGraphFilterResponseCurveLogHz(
+  const curve = params.curveKind === "ladder"
+    && typeof additiveGraphLadderResponseCurveLogHz === "function"
+    ? additiveGraphLadderResponseCurveLogHz(
       params.mode,
       params.cutoffHz,
       params.slope,
-      params.curveKind,
-      params.skew,
+      params.resonance,
       params.sampleRate,
       samples,
     )
-    : null;
+    : (typeof additiveGraphFilterResponseCurveLogHz === "function"
+      ? additiveGraphFilterResponseCurveLogHz(
+        params.mode,
+        params.cutoffHz,
+        params.slope,
+        params.curveKind,
+        params.skew,
+        params.sampleRate,
+        samples,
+      )
+      : null);
   const ys = curve?.ys || null;
   const cutoffT = Number.isFinite(curve?.cutoffT) ? curve.cutoffT : 0;
 
@@ -125,6 +139,7 @@ function drawNodeGraphAdditiveFilterCurveDisplay(section) {
     params.cutoffHz.toFixed(2),
     params.slope.toFixed(4),
     params.skew.toFixed(4),
+    Number(params.resonance || 0).toFixed(4),
     params.sampleRate,
     w,
     h,

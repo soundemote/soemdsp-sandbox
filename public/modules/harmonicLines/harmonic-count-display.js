@@ -38,9 +38,15 @@ function createNodeGraphHarmonicCountDisplay(nodeId, type = "additiveGenerator")
 }
 
 const ADDITIVE_NAMED_FACE = Object.freeze({
-  additiveGrowl: "Growl",
+  additiveFrequencySkew: "FreqSkew",
+  additiveQuantizeFreq: "QFreq",
+  additiveQuantizePhase: "QPhase",
+  additiveHarmonicMath: "QFreq",
+  additiveFrequencyMath: "QFreq",
+  additiveFrequencySlope: "FreqSkew",
   additiveNoisyFreq: "NoisyFreq",
   additiveNoisyPhase: "NoisyPhase",
+  additivePan: "Pan",
   additiveNoisyPan: "NoisyPan",
   additiveNoisyAmp: "NoisyAmp",
 });
@@ -49,7 +55,7 @@ function nodeGraphHarmonicCountReadH(nodeId, type) {
   if (type === "additiveGenerator") {
     const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
     const n = Number(node?.params?.harmonics ?? node?.parameters?.harmonics);
-    if (Number.isFinite(n) && n >= 1) return Math.round(n);
+    if (Number.isFinite(n) && n > 0) return n;
   }
   const graph = typeof readNodeGraphDataInput === "function"
     ? readNodeGraphDataInput(nodeId, "Graph")
@@ -58,7 +64,8 @@ function nodeGraphHarmonicCountReadH(nodeId, type) {
     ? nodeGraphDataBus.get?.(`${nodeId}.Graph`)
     : null;
   const g = published || graph;
-  if (g && Number.isFinite(g.harmonics)) return Math.round(g.harmonics);
+  if (g && Number.isFinite(g.harmonicsExact)) return g.harmonicsExact;
+  if (g && Number.isFinite(g.harmonics)) return g.harmonics;
   if (g?.ratio?.length) return g.ratio.length;
   return 0;
 }
@@ -68,7 +75,11 @@ function nodeGraphHarmonicCountFaceText(nodeId, type) {
     return ADDITIVE_NAMED_FACE[type];
   }
   const H = nodeGraphHarmonicCountReadH(nodeId, type);
-  return H > 0 ? String(H) : "—";
+  if (!(H > 0)) return "—";
+  // Show one decimal when fractional (30.5); integers stay clean ("32").
+  const rounded = Math.round(H);
+  if (Math.abs(H - rounded) < 1e-6) return String(rounded);
+  return H.toFixed(1);
 }
 
 function drawNodeGraphHarmonicCountDisplay(section) {
@@ -111,7 +122,7 @@ function drawNodeGraphHarmonicCountDisplay(section) {
   const text = nodeGraphHarmonicCountFaceText(nodeId, type);
   // CMYK Y face ink (Yellow Graph plane).
   ctx.fillStyle = "#ffe600";
-  // Named faces (Growl / Noisy) need a smaller font than a single H digit.
+  // Named faces (Bubble / Noisy) need a smaller font than a single H digit.
   const isName = Boolean(ADDITIVE_NAMED_FACE[type]);
   const fontPx = isName
     ? Math.max(11, Math.min(18, Math.floor(Math.min(h * 0.42, w / Math.max(8, text.length) * 1.6))))

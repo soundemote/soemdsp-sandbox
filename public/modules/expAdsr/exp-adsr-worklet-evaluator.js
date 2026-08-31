@@ -15,6 +15,10 @@ NodeLiveAudioProcessor.prototype.createExpAdsrState = function createExpAdsrStat
 };
 
 NodeLiveAudioProcessor.prototype.expAdsrSample = function expAdsrSample(state, gate, params, rate = sampleRate) {
+  const live = params || {};
+  const resolved = typeof nodeGraphExpAdsrParamsForSample === "function"
+    ? nodeGraphExpAdsrParamsForSample(state, gate, live, live.updateOnTrigger)
+    : live;
   if (
     this.nativeExpAdsrReady &&
     this.nativeExpAdsr?.soemdsp_exp_adsr_create &&
@@ -29,17 +33,19 @@ NodeLiveAudioProcessor.prototype.expAdsrSample = function expAdsrSample(state, g
         const out = this.nativeExpAdsr.soemdsp_exp_adsr_sample(
           state.nativeHandle,
           Number(gate) || 0,
-          Math.max(0, Number(params.delay) || 0),
-          Math.max(0, Number(params.attack) || 0),
-          Math.max(0.000000001, Number(params.attackShape) || 0),
-          Math.max(0, Number(params.decay) || 0),
-          this.clampValue(Number(params.sustain) || 0, 0, 1),
-          Math.max(0, Number(params.release) || 0),
-          Math.max(0.000000001, Number(params.releaseShape) || 0),
-          Number(params.loop) || 0,
-          Number(params.level) || 0,
+          Math.max(0, Number(resolved.delay) || 0),
+          Math.max(0, Number(resolved.attack) || 0),
+          Math.max(0.000000001, Number(resolved.attackShape) || 0),
+          Math.max(0, Number(resolved.decay) || 0),
+          this.clampValue(Number(resolved.sustain) || 0, 0, 1),
+          Math.max(0, Number(resolved.release) || 0),
+          Math.max(0.000000001, Number(resolved.releaseShape) || 0),
+          Number(resolved.loop) || 0,
+          Number(resolved.level) || 0,
           safeRate,
         );
+        // Keep JS lastGate in sync so UpdateOnTrigger rising-edge matches native.
+        state.lastGate = Number(gate) || 0;
         return this.safeFilterNumber(out, null);
       }
     } catch (error) {
@@ -54,7 +60,7 @@ NodeLiveAudioProcessor.prototype.expAdsrSample = function expAdsrSample(state, g
   }
   if (typeof nodeGraphExpAdsrCore === "function") {
     return this.safeFilterNumber(
-      nodeGraphExpAdsrCore(state, gate, params, Number(rate) > 1 ? Number(rate) : sampleRate),
+      nodeGraphExpAdsrCore(state, gate, resolved, Number(rate) > 1 ? Number(rate) : sampleRate),
       null,
     );
   }

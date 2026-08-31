@@ -24,117 +24,134 @@ function additiveGraphRationalCurve(t, c) {
   return (cv + x) / den;
 }
 
-/** Port of native additive_osc.cpp waveform_harmonic. */
-function additiveGraphWaveformPartial(waveform, harmonic, morph) {
+/** Exponential 0…1 map. c∈(−1…+1): + = slow start / fast end. */
+function additiveGraphExpCurve(t, c) {
+  const x = additiveGraphClamp(t, 0, 1);
+  const k = additiveGraphClamp(c, -0.9999, 0.9999) * 8;
+  if (Math.abs(k) < 1e-6) return x;
+  return (Math.exp(k * x) - 1) / (Math.exp(k) - 1);
+}
+
+/**
+ * FrequencySkew Exponential — tighter than the shared Bubble exp (*8)
+ * so |c|→1 approaches Rational extremity (k up to ~48).
+ */
+function additiveGraphExpCurveTight(t, c) {
+  const x = additiveGraphClamp(t, 0, 1);
+  const s = additiveGraphClamp(c, -0.9999, 0.9999);
+  if (Math.abs(s) < 1e-6) return x;
+  const k = s * (12 + 36 * s * s);
+  return (Math.exp(k * x) - 1) / (Math.exp(k) - 1);
+}
+
+/** FrequencySkew Curve: 0 Exponential, 1 Rational, 2 Logarithmic. */
+function additiveGraphNormalizeFrequencySkewCurveMode(mode) {
+  const n = Math.round(Number(mode));
+  if (n === 1 || n === 2) return n;
+  const s = String(mode ?? "").trim().toLowerCase();
+  if (s === "1" || s === "rat" || s === "rational") return 1;
+  if (s === "2" || s === "log" || s === "logarithmic") return 2;
+  return 0;
+}
+
+/**
+ * Logarithmic 0…1 map. c∈(−1…+1): + = fast start / slow end.
+ * Positive uses strength ×8. Negative mirrors via (1−t) so the full −1…0
+ * travel is usable (raw u=c×8 floors at c≈−0.125 and felt “dead” below that).
+ */
+function additiveGraphLogCurve(t, c) {
+  const x = additiveGraphClamp(t, 0, 1);
+  const s = additiveGraphClamp(c, -0.9999, 0.9999);
+  if (Math.abs(s) < 1e-6) return x;
+  if (s > 0) {
+    const u = s * 8;
+    return Math.log(1 + u * x) / Math.log(1 + u);
+  }
+  // Mirror positive log around the diagonal — endpoints stay 0/1.
+  const u = (-s) * 8;
+  return 1 - Math.log(1 + u * (1 - x)) / Math.log(1 + u);
+}
+
+/** Growl Skew Curve family: 0 Rational, 1 Exponential, 2 Logarithmic, 3 Linear. */
+function additiveGraphNormalizeSkewCurveMode(mode) {
+  const n = Math.round(Number(mode));
+  if (n === 1 || n === 2 || n === 3) return n;
+  const s = String(mode ?? "").trim().toLowerCase();
+  if (s === "1" || s === "exp" || s === "exponential") return 1;
+  if (s === "2" || s === "log" || s === "logarithmic") return 2;
+  if (s === "3" || s === "lin" || s === "linear") return 3;
+  return 0;
+}
+
+function additiveGraphSkewMap(t, curve, mode) {
+  const m = additiveGraphNormalizeSkewCurveMode(mode);
+  if (m === 3) return additiveGraphClamp(t, 0, 1);
+  // Exponential: flip skew so −1/+1 matches Rational / Log knob sense.
+  if (m === 1) return additiveGraphExpCurve(t, -curve);
+  if (m === 2) return additiveGraphLogCurve(t, curve);
+  return additiveGraphRationalCurve(t, curve);
+}
+
+/**
+ * Basic harmonic waveforms for Additive Generator (Yellow Graph).
+ * Indices: 0 Saw, 1 Square, 2 PulseCenter, 3 PulseLeft, 4 PulseRight,
+ *          5 Tri, 6 RectSine.
+ * PWM (−1…+1) applies only to Pulse*: 0 = 50% duty, ±1 → ~2%…~98%.
+ * Saw / Square / Tri / RectSine ignore PWM.
+ * Phase Rotation is on Additive Generator (baked into Graph phases).
+ */
+function additiveGraphWaveformPartial(waveform, harmonic, pwm = 0) {
   const n = Math.max(1, Math.floor(Number(harmonic) || 1));
   const h = n;
-  const odd = n % 2 === 1 ? 1 : 0;
-  const mod = additiveGraphClamp(morph, 0, 1);
+  const odd = n % 2 === 1;
+  const m = additiveGraphClamp(Number(pwm) || 0, -1, 1);
   let amplitude = 0;
   let phase = 0;
   const wf = Math.round(Number(waveform) || 0);
+
+  // Classic PWM: amp_n ∝ sin(π·n·duty) / n. Duty kept off 0/1 so partials stay alive.
+  const pulseDuty = 0.5 + m * 0.48;
+  const pulseAmp = Math.sin(Math.PI * h * pulseDuty) / h;
+
   switch (wf) {
-    case 0: // Sawtooth
+    case 0: // Saw — full odd+even 1/n
       amplitude = 1 / h;
       phase = odd ? 0.5 : 0;
       break;
-    case 1: // SawSquare
-      amplitude = odd ? 1 / h : (1 / h) * mod;
-      phase = 0;
+    case 1: // Square — odds only 1/n
+      amplitude = odd ? 1 / h : 0;
+      phase = 0.5;
       break;
-    case 2: { // DoubleSaw
-      const pwm = mod * 0.5;
-      amplitude = Math.cos(h * pwm) / h;
-      phase = 0;
-      break;
-    }
-    case 3: { // MultiSaw
-      const pwm = mod * 0.5;
-      amplitude = Math.cos(h * h * 0.3 + pwm) / h;
-      phase = 0;
-      break;
-    }
-    case 4: { // RoundedSquareDoubleSaw
-      const m = 0.125 + 0.75 * mod;
-      amplitude = Math.sin(h * h * 0.25 + m) / (h * h);
-      phase = 0;
-      break;
-    }
-    case 5: { // SquareDoubleSaw
-      const m = 0.125 + 0.75 * mod;
-      amplitude = Math.sin(h * h * 0.25 + m) / h;
-      phase = 0;
-      break;
-    }
-    case 6: { // PulseCenter
-      const pwm = mod * 0.5;
-      amplitude = Math.sin(h * pwm) / h;
+    case 2: // PulseCenter — PWM width
+      amplitude = pulseAmp;
       phase = 0.25;
       break;
-    }
-    case 7: { // PulseLeft
-      const pwm = mod * 0.5;
-      amplitude = Math.sin(h * pwm) / h;
-      phase = h * pwm + 0.25;
+    case 3: // PulseLeft — rising edge at cycle start
+      amplitude = pulseAmp;
+      phase = h * pulseDuty * 0.5;
       break;
-    }
-    case 8: { // PulseRight
-      const pwm = mod * 0.5;
-      amplitude = Math.sin(h * pwm) / h;
-      phase = h * (-pwm) + 0.25;
+    case 4: // PulseRight — falling edge at cycle end
+      amplitude = pulseAmp;
+      phase = 1 - (h * pulseDuty * 0.5);
       break;
-    }
-    case 9: { // MultiPulse1
-      const pwm = mod * 0.5;
-      amplitude = Math.cos(h * h * 0.45 + pwm) / h;
-      phase = 0;
-      break;
-    }
-    case 10: { // MultiPulse2
-      const pwm = mod * 0.5;
-      amplitude = Math.cos(h * h * 0.475 + pwm) / h;
-      phase = 0;
-      break;
-    }
-    case 11: // Square
-      amplitude = odd ? 1 / h : 0;
-      phase = 0;
-      break;
-    case 12: { // TriSaw
-      const peak = additiveGraphClamp(mod, 0.001, 0.999);
-      amplitude = (Math.sin(0.5 * h * peak) / (peak * (1 - peak) * h * h)) * 0.2;
-      phase = 0;
-      break;
-    }
-    case 13: // Triangle
+    case 5: // Tri — odds / n²
       amplitude = odd ? 1 / (h * h) : 0;
       phase = n % 4 === 1 ? 0 : 0.5;
       break;
-    case 14: // RectifiedSine
+    case 6: // RectSine — 1/n², odds @0.25 / evens @0.75
       amplitude = 1 / (h * h);
       phase = odd ? 0.25 : 0.75;
       break;
-    case 15: { // RectifiedSineTri
-      amplitude = Math.sin(h * h * 0.25 + mod) / (h * h);
-      phase = 0.25;
-      break;
-    }
-    case 16: { // Organ
-      const octaves = Math.max(2, Math.floor(2 + mod * 11));
-      let target = 1;
-      while (target < n) {
-        const next = target * octaves;
-        if (next <= target) break;
-        target = next;
-      }
-      amplitude = target === n ? 1 / h : 0;
-      phase = 0;
-      break;
-    }
     default:
       amplitude = 1 / h;
       phase = odd ? 0.5 : 0;
       break;
+  }
+  if (!(amplitude === amplitude)) amplitude = 0;
+  // Negative Fourier coeffs → positive amp + half-cycle phase flip.
+  if (amplitude < 0) {
+    amplitude = -amplitude;
+    phase += 0.5;
   }
   return { amplitude, phase: additiveGraphWrap01(phase), ratio: h };
 }
@@ -198,23 +215,287 @@ function additiveGraphClonePayload(src) {
   copyLerp("phaseLerp");
   copyLerp("panLerp");
   copyLerp("ampLerp");
+  if (src.harmonicsExact != null) out.harmonicsExact = src.harmonicsExact;
+  if (src.phaseReset) out.phaseReset = true;
   return out;
 }
 
-/** Build Generator Graph: relative ratios + waveform amps/phases; pan centered. */
-function additiveGraphBuildFromWaveform(waveform, morph, harmonics) {
-  const graph = additiveGraphCreatePayload(harmonics);
-  const H = graph.harmonics;
+/**
+ * Build Generator Graph: relative ratios + waveform amps/phases; pan centered.
+ * Harmonics is integer-only (decimals rounded). Fractional trailing fade lives
+ * on Bubble Cutoff via additiveGraphHarmonicCountGain.
+ */
+function additiveGraphBuildFromWaveform(waveform, pwm, harmonics, phaseRotation = 0) {
+  const hRaw = Number(harmonics);
+  const H = Number.isFinite(hRaw)
+    ? Math.max(0, Math.min(ADDITIVE_GRAPH_MAX_H, Math.round(hRaw)))
+    : 1;
+  const graph = additiveGraphCreatePayload(H);
   const wf = Number(waveform) || 0;
-  const m = additiveGraphClamp(morph, 0, 1);
+  const m = additiveGraphClamp(Number(pwm) || 0, -1, 1);
+  const rot = Number(phaseRotation) || 0;
   for (let i = 0; i < H; i += 1) {
     const partial = additiveGraphWaveformPartial(wf, i + 1, m);
     graph.ratio[i] = partial.ratio;
-    graph.phase[i] = partial.phase;
+    graph.phase[i] = additiveGraphWrap01(partial.phase + rot);
     graph.amplitude[i] = partial.amplitude;
     graph.pan[i] = 0;
   }
+  graph.harmonicsExact = H;
   return graph;
+}
+
+/**
+ * FrequencySkew — stretch ratio span + optional mid compression.
+ * Low/High Stretch + Skew ranges are owned by param min/max (not clamped here).
+ * Linear remap [r0,rHi]→[newLo,newHi], then Skew+Curve reshape middles (endpoints fixed).
+ * Curve: 0 Exponential (skew sense reversed vs Rational/Log), 1 Rational, 2 Log.
+ * |Skew|≥1 → middles hard-converge to fund or last. Stamps ratioLerp.
+ */
+function additiveGraphApplyFrequencySkew(
+  graph, lowStretch = 1, highStretch = 1, skew = 0, curveMode = 0, lerpFrom = null,
+) {
+  if (!graph || !graph.harmonics) return { graph, lerpFrom: null };
+  const H = graph.harmonics | 0;
+  if (H < 1) return { graph, lerpFrom: null };
+  const Lraw = Number(lowStretch);
+  const HsRaw = Number(highStretch);
+  const skewRaw = Number(skew);
+  const L = Number.isFinite(Lraw) ? Lraw : 1;
+  const Hs = Number.isFinite(HsRaw) ? HsRaw : 1;
+  const skewAmt = Number.isFinite(skewRaw) ? skewRaw : 0;
+  const idle = !(Math.abs(L - 1) > 1e-12)
+    && !(Math.abs(Hs - 1) > 1e-12)
+    && !(Math.abs(skewAmt) > 1e-12);
+  if (idle || H === 1) {
+    graph.ratioLerp = null;
+    graph.ratioNoise = null;
+    return { graph, lerpFrom: null };
+  }
+  const mode = additiveGraphNormalizeFrequencySkewCurveMode(curveMode);
+  const isExp = mode === 0;
+  // Soft map: Exp flips sign so +Skew piles toward last (same as Rational/Log).
+  const curveArg = isExp ? -skewAmt : skewAmt;
+  const r0 = Math.max(0, Number(graph.ratio[0]) || 0);
+  const rHi = Math.max(r0, Number(graph.ratio[H - 1]) || 0);
+  const span = rHi - r0;
+  const newLo = r0 / L;
+  const newHi = rHi * Hs;
+  const newSpan = newHi - newLo;
+  // Hard extremes keyed off Skew (all curves share knob sense).
+  const hardHi = skewAmt >= 1 - 1e-12;
+  const hardLo = skewAmt <= -1 + 1e-12;
+  // Curve kernels need |c|<1 for poles; only soft path (param should keep |skew|≤1).
+  const soft = !hardHi && !hardLo
+    ? additiveGraphClamp(curveArg, -0.9999, 0.9999)
+    : 0;
+  const to = new Float32Array(H);
+  for (let i = 0; i < H; i += 1) {
+    const r = Math.max(0, Number(graph.ratio[i]) || 0);
+    let t = span > 1e-12 ? (r - r0) / span : (H <= 1 ? 0 : i / (H - 1));
+    t = additiveGraphClamp(t, 0, 1);
+    let u;
+    if (hardHi) {
+      // +1: all but fund → last.
+      u = t <= 0 ? 0 : 1;
+    } else if (hardLo) {
+      // −1: all but last → fund.
+      u = t >= 1 ? 1 : 0;
+    } else if (isExp) {
+      u = additiveGraphExpCurveTight(t, soft);
+    } else if (mode === 2) {
+      u = additiveGraphLogCurve(t, soft);
+    } else {
+      u = additiveGraphRationalCurve(t, soft);
+    }
+    to[i] = Math.max(0, newLo + u * newSpan);
+  }
+  let from;
+  if (lerpFrom && lerpFrom.length === H) {
+    from = new Float32Array(lerpFrom);
+  } else {
+    from = new Float32Array(to);
+  }
+  graph.ratioLerp = { from, to };
+  graph.ratio.set(to);
+  graph.ratioNoise = null;
+  return { graph, lerpFrom: new Float32Array(to) };
+}
+
+/** @deprecated use additiveGraphApplyFrequencySkew */
+function additiveGraphApplyFrequencySlope(
+  graph, scale = 0, skew = 0, curveMode = 0, lerpFrom = null,
+) {
+  // Old Scale±1 ≈ mild high/low stretch toward collapse; keep patches from hard-failing.
+  const s = additiveGraphClamp(Number(scale) || 0, -1, 1);
+  const low = s < 0 ? 1 + Math.abs(s) * 23 : 1;
+  const high = s > 0 ? 1 + Math.abs(s) * 23 : 1;
+  return additiveGraphApplyFrequencySkew(graph, low, high, skew, curveMode, lerpFrom);
+}
+
+/**
+ * Snap x = r/r0 to nearest integer multiple (1,2,3,…) or dyadic division (1/2,1/4,…).
+ */
+function additiveGraphSnapHarmonicMultiple(x) {
+  const v = Number(x);
+  if (!(v > 0) || !Number.isFinite(v)) return 1;
+  let best = 1;
+  let bestDist = Math.abs(v - 1);
+  const nMax = Math.max(1, Math.ceil(v) + 2);
+  for (let n = 1; n <= nMax; n += 1) {
+    const d = Math.abs(v - n);
+    if (d < bestDist) {
+      bestDist = d;
+      best = n;
+    }
+  }
+  for (let k = 1; k <= 16; k += 1) {
+    const div = Math.pow(2, -k);
+    const d = Math.abs(v - div);
+    if (d < bestDist) {
+      bestDist = d;
+      best = div;
+    }
+  }
+  return best;
+}
+
+/**
+ * Stable per-harmonic unit random in [0,1). Avalanche-mix seed×index so
+ * consecutive harmonics are not linearly correlated (weak LCG sounded “grid-y”).
+ */
+function additiveGraphHarmonicUnitRandom(seed, index, salt = 1) {
+  let s = (Math.floor(Number(seed)) || 0) >>> 0;
+  s ^= Math.imul((index | 0) + 1, 0x9e3779b1);
+  s ^= Math.imul((salt | 0) || 1, 0x85ebca6b);
+  s = Math.imul(s ^ (s >>> 16), 0x7feb352d) >>> 0;
+  s = Math.imul(s ^ (s >>> 15), 0x846ca68b) >>> 0;
+  s ^= s >>> 16;
+  return (s >>> 0) / 4294967295;
+}
+
+/**
+ * QuantizePhase — optional lock to fundamental Graph phase, then random (last).
+ * quantize on: every partial phase ← fund phase.
+ * randomAmount: 0 = keep; (0,1) = morph toward independent random phase;
+ *   ≥1 = use randomPhaseValue · amount (1 = exact random in [0,1) cycles).
+ * Stamps phaseLerp. Returns { graph, lerpFrom }.
+ */
+function additiveGraphApplyQuantizePhase(
+  graph, quantize = 0, randomAmount = 0, seed = 1, lerpFrom = null,
+) {
+  if (!graph || !graph.harmonics) return { graph, lerpFrom: null };
+  const H = graph.harmonics | 0;
+  if (H < 1) return { graph, lerpFrom: null };
+  const doQuant = Math.round(Number(quantize) || 0) === 1;
+  const amtRaw = Number(randomAmount);
+  const amt = Number.isFinite(amtRaw) ? amtRaw : 0;
+  const seedN = Number(seed);
+  const seedUse = Number.isFinite(seedN) ? seedN : 1;
+  if (!doQuant && !(Math.abs(amt) > 1e-12)) {
+    graph.phaseLerp = null;
+    return { graph, lerpFrom: null };
+  }
+  const fundPhase = additiveGraphWrap01(Number(graph.phase[0]) || 0);
+  const to = new Float32Array(H);
+  for (let i = 0; i < H; i += 1) {
+    let p = additiveGraphWrap01(Number(graph.phase[i]) || 0);
+    if (doQuant) {
+      p = fundPhase;
+    }
+    // Random last — independent per partial for a diffuse bank.
+    if (Math.abs(amt) > 1e-12) {
+      const r = additiveGraphHarmonicUnitRandom(seedUse, i, 29); // [0,1)
+      if (amt >= 1) {
+        // 1 = exact random phase value; >1 scales that value (still wraps).
+        p = additiveGraphWrap01(r * amt);
+      } else {
+        // Partial morph from current phase toward independent random.
+        p = additiveGraphWrap01(p + (r - p) * amt);
+      }
+    }
+    to[i] = p;
+  }
+  let from;
+  if (lerpFrom && lerpFrom.length === H) {
+    from = new Float32Array(lerpFrom);
+  } else {
+    from = new Float32Array(to);
+  }
+  graph.phaseLerp = { from, to };
+  graph.phase.set(to);
+  graph.phaseNoise = null;
+  return { graph, lerpFrom: new Float32Array(to) };
+}
+
+/**
+ * QuantizeFreq — optional fund-relative ratio snap (overtones only), then random ratio offset (last).
+ * Fundamental never moves. quantize on: snap to r0·n or r0/2^k.
+ * randomAmount scales per-partial unit random added to overtone ratios.
+ * Stamps ratioLerp. Returns { graph, lerpFrom }.
+ */
+function additiveGraphApplyQuantizeFreq(
+  graph, quantize = 0, randomAmount = 0, seed = 1, lerpFrom = null,
+) {
+  if (!graph || !graph.harmonics) return { graph, lerpFrom: null };
+  const H = graph.harmonics | 0;
+  if (H < 1) return { graph, lerpFrom: null };
+  const doQuant = Math.round(Number(quantize) || 0) === 1;
+  const amtRaw = Number(randomAmount);
+  const amt = Number.isFinite(amtRaw) ? amtRaw : 0;
+  const seedN = Number(seed);
+  const seedUse = Number.isFinite(seedN) ? seedN : 1;
+  if (!doQuant && !(Math.abs(amt) > 1e-12)) {
+    graph.ratioLerp = null;
+    graph.ratioNoise = null;
+    return { graph, lerpFrom: null };
+  }
+  const fundIn = Number(graph.ratio[0]);
+  const fund = Number.isFinite(fundIn) ? fundIn : 0;
+  const qFund = Math.abs(fund) > 1e-12 ? fund : 1;
+  const to = new Float32Array(H);
+  to[0] = fund;
+  for (let i = 1; i < H; i += 1) {
+    let r = Number(graph.ratio[i]) || 0;
+    if (doQuant) {
+      r = additiveGraphSnapHarmonicMultiple(r / qFund) * qFund;
+    }
+    // Random last: independent per overtone (same hash family as QuantizePhase).
+    if (Math.abs(amt) > 1e-12) {
+      r += additiveGraphHarmonicUnitRandom(seedUse, i, 13) * amt;
+    }
+    to[i] = r;
+  }
+  let from;
+  if (lerpFrom && lerpFrom.length === H) {
+    from = new Float32Array(lerpFrom);
+  } else {
+    from = new Float32Array(to);
+  }
+  from[0] = fund;
+  to[0] = fund;
+  graph.ratioLerp = { from, to };
+  graph.ratio.set(to);
+  graph.ratioNoise = null;
+  return { graph, lerpFrom: new Float32Array(to) };
+}
+
+/** @deprecated use additiveGraphApplyQuantizeFreq */
+function additiveGraphApplyHarmonicMath(
+  graph,
+  multiplyDivide = 0,
+  addSubtract = 0,
+  quantize = 0,
+  smoothAmount = 0,
+  smoothStyle = 0,
+  lerpFrom = null,
+) {
+  return additiveGraphApplyQuantizeFreq(graph, quantize, 0, 1, lerpFrom);
+}
+
+/** @deprecated use additiveGraphApplyQuantizeFreq */
+function additiveGraphApplyFrequencyMath(graph, multiplyDivide = 0, addSubtract = 0, lerpFrom = null) {
+  return additiveGraphApplyQuantizeFreq(graph, 0, 0, 1, lerpFrom);
 }
 
 // --- Noisy modulation sources (once-per-quantum, GPU-friendly state machines) ---
@@ -438,8 +719,8 @@ function additiveGraphFilterResponseGainHz(
     if (!(order > 0)) return 1;
     if (curveKind === "analog" && fc > 0 && f > 0) {
       const r = additiveGraphFilterSkewedFreqRatio(f, fc, skew);
-      // HP uses fc/f — rebuild from skewed ratio.
-      const fEff = fc / Math.max(1e-12, r);
+      // Warped f/fc → effective freq; HP mag uses (fc/fEff)=1/r (was fc/r → LP bug).
+      const fEff = fc * Math.max(1e-12, r);
       return additiveGraphButterworthMag(fEff, fc, order, "hp");
     }
     return additiveGraphButterworthMag(f, fc, order, "hp");
@@ -453,6 +734,87 @@ function additiveGraphFilterResponseGainHz(
     return 1 / Math.sqrt(1 + Math.pow(Math.max(1e-12, r), 2 * order));
   }
   return additiveGraphButterworthMag(f, fc, order, "lp");
+}
+
+/**
+ * Warm ladder-style resonance bump (spectral, not IIR feedback).
+ * Soft Lorentzian; LP peaks slightly below fc, HP slightly above, BP at fc.
+ * Wider/warmer than a pure Q peak; depth 0…10.
+ * Returns { bump01, depth, fPeak } for Peak≈1 compensation.
+ */
+function additiveGraphLadderResonanceParts(freqHz, cutoffHz, resonance, slopeDbOct, mode) {
+  const res = Math.max(0, Number(resonance) || 0);
+  const slope = Number(slopeDbOct);
+  const order = additiveGraphFilterOrderFromSlopeDbOct(
+    Number.isFinite(slope) ? slope : 12,
+  );
+  const f = Math.max(1e-12, Number(freqHz) || 0);
+  const fc = Math.max(1e-12, Number(cutoffHz) || 0);
+  const m = additiveGraphNormalizeFilterMode(mode);
+  let fPeak = fc;
+  if (m === "lp") fPeak = fc * 0.92;
+  else if (m === "hp") fPeak = fc * 1.08;
+  if (!(res > 1e-12) || !(order > 0)) {
+    return { bump01: 0, depth: 0, fPeak, gain: 1 };
+  }
+  const oct = Math.log(f / Math.max(1e-12, fPeak)) / Math.LN2;
+  const bw = Math.max(0.08, 0.85 / Math.sqrt(1 + order * 0.35));
+  const bump01 = 1 / (1 + (oct * oct) / (bw * bw));
+  const depth = res / (1 + res * 0.08);
+  return { bump01, depth, fPeak, gain: 1 + depth * bump01 };
+}
+
+function additiveGraphLadderResonanceGain(freqHz, cutoffHz, resonance, slopeDbOct, mode) {
+  return additiveGraphLadderResonanceParts(
+    freqHz, cutoffHz, resonance, slopeDbOct, mode,
+  ).gain;
+}
+
+/**
+ * Ladder Filter response: Butterworth-ish skirts × warm resonance.
+ * Always Peak≈1 gain compensation (passband drops as Resonance rises).
+ */
+function additiveGraphLadderResponseGainHz(
+  freqHz, mode, cutoffHz, slopeDbOct, resonance,
+) {
+  const base = additiveGraphFilterResponseGainHz(
+    freqHz, mode, cutoffHz, slopeDbOct, "analog", 0,
+  );
+  const parts = additiveGraphLadderResonanceParts(
+    freqHz, cutoffHz, resonance, slopeDbOct, mode,
+  );
+  // No Resonance → plain filter skirts (no Peak≈1 rescale).
+  if (!(parts.depth > 1e-12)) return base;
+  // Peak≈1: normalize so resonant peak stays ~unity (passband drops).
+  let resGain = parts.gain / Math.max(1e-12, 1 + parts.depth);
+  let g = base * resGain;
+  const baseAtPeak = additiveGraphFilterResponseGainHz(
+    parts.fPeak, mode, cutoffHz, slopeDbOct, "analog", 0,
+  );
+  if (baseAtPeak > 1e-12) g /= baseAtPeak;
+  return g;
+}
+
+/** Apply Ladder Filter to Yellow Graph amplitudes. */
+function additiveGraphApplyLadderFilter(
+  graph, mode, cutoffHz, slopeDbOct, resonance, fundHz, sampleRate,
+) {
+  const H = graph.harmonics;
+  if (H <= 0) return graph;
+  const f0 = Math.max(0, Number(fundHz) || 0);
+  const fc = Number(cutoffHz) || 0;
+  const slope = Number(slopeDbOct);
+  const slopeSafe = Number.isFinite(slope) ? slope : 12;
+  const res = Number(resonance) || 0;
+  for (let i = 0; i < H; i += 1) {
+    const partialHz = Math.max(0, Number(graph.ratio[i]) || 0) * f0;
+    additiveGraphScaleHarmonicAmp(
+      graph,
+      i,
+      additiveGraphLadderResponseGainHz(partialHz, mode, fc, slopeSafe, res),
+    );
+  }
+  return graph;
 }
 
 /** @deprecated normalized API — prefer additiveGraphFilterResponseGainHz */
@@ -493,6 +855,26 @@ function additiveGraphFilterResponseCurveLogHz(
     ys[i] = rational
       ? additiveGraphFilterResponseGainRational(hz, mode, cutoffHz, slope, skew)
       : additiveGraphFilterResponseGainHz(hz, mode, cutoffHz, slope, "analog", skew);
+  }
+  return {
+    ys,
+    axis,
+    cutoffT: axis.hzToT(Number(cutoffHz) || 0),
+  };
+}
+
+/** Face curve for Additive Ladder Filter. */
+function additiveGraphLadderResponseCurveLogHz(
+  mode, cutoffHz, slopeDbOct, resonance, sampleRate, samples = 128,
+) {
+  const axis = additiveGraphDisplayFreqAxis(sampleRate);
+  const n = Math.max(2, Math.round(Number(samples) || 128));
+  const ys = new Float32Array(n);
+  for (let i = 0; i < n; i += 1) {
+    const t = n <= 1 ? 0 : i / (n - 1);
+    ys[i] = additiveGraphLadderResponseGainHz(
+      axis.tToHz(t), mode, cutoffHz, slopeDbOct, resonance,
+    );
   }
   return {
     ys,
@@ -590,6 +972,25 @@ function additiveGraphFilterResponseGainRational(freqHz, mode, cutoffHz, slope01
   return shape(1 - ((a - passOct) / edgeOct));
 }
 
+/**
+ * Scale harmonic amp by `gain`. Also scales ampLerp from/to when present —
+ * Additive Out plays ampLerp, while faces often read amplitude[]. Filtering
+ * only amplitude[] made Linear/Butterworth visible but silent after Bubble.
+ */
+function additiveGraphScaleHarmonicAmp(graph, index, gain) {
+  const i = index | 0;
+  const g = Number(gain);
+  const scale = Number.isFinite(g) ? g : 0;
+  if (graph.amplitude && i < graph.amplitude.length) {
+    graph.amplitude[i] = (Number(graph.amplitude[i]) || 0) * scale;
+  }
+  const lerp = graph.ampLerp;
+  if (lerp?.from && lerp?.to && i < lerp.from.length && i < lerp.to.length) {
+    lerp.from[i] = (Number(lerp.from[i]) || 0) * scale;
+    lerp.to[i] = (Number(lerp.to[i]) || 0) * scale;
+  }
+}
+
 /** Apply Butterworth-ish spectral filter (dB/oct Slope). */
 function additiveGraphApplyButterworthFilter(
   graph, mode, cutoffHz, slopeDbOct, skew, fundHz, sampleRate,
@@ -602,8 +1003,10 @@ function additiveGraphApplyButterworthFilter(
   const slopeSafe = Number.isFinite(slope) ? slope : 12;
   for (let i = 0; i < H; i += 1) {
     const partialHz = Math.max(0, Number(graph.ratio[i]) || 0) * f0;
-    graph.amplitude[i] *= additiveGraphFilterResponseGainHz(
-      partialHz, mode, fc, slopeSafe, "analog", skew,
+    additiveGraphScaleHarmonicAmp(
+      graph,
+      i,
+      additiveGraphFilterResponseGainHz(partialHz, mode, fc, slopeSafe, "analog", skew),
     );
   }
   return graph;
@@ -627,8 +1030,10 @@ function additiveGraphApplyLinearFilter(graph, mode, cutoffHz, slope01, skew, fu
   const sk = Number(skew) || 0;
   for (let i = 0; i < H; i += 1) {
     const partialHz = Math.max(0, Number(graph.ratio[i]) || 0) * f0;
-    graph.amplitude[i] *= additiveGraphFilterResponseGainRational(
-      partialHz, mode, fc, slopeSafe, sk,
+    additiveGraphScaleHarmonicAmp(
+      graph,
+      i,
+      additiveGraphFilterResponseGainRational(partialHz, mode, fc, slopeSafe, sk),
     );
   }
   return graph;
@@ -649,26 +1054,159 @@ function additiveGraphApplySlopeFilter(
 }
 
 /**
- * Growl — Hydrus SoEmAdditive Phase Skew (c/h Additive + SoEmAdditive.c):
- *   skewPhase[h] = rationalCurve(h / numHarmonics, curve) * skewAmount
- * Hydrus ranges: Phase Skew 0…1000, Curve −0.9999…+0.9999.
+ * Bubble Unskew: effective Phase Skew vs Cutoff.
+ * unskew≤0 → Phase Skew unchanged at every cutoff.
+ * unskew>0 → lerp phaseSkew→unskew as cutoff 0→1
+ *   (cutoff=1 → effective = unskew; cutoff=0 → effective = phaseSkew).
+ */
+function additiveGraphBubbleEffectivePhaseSkew(phaseSkew, unskew, cutoff) {
+  const base = Number(phaseSkew);
+  const skew = Number.isFinite(base) ? base : 0;
+  const u = Number(unskew);
+  if (!(u > 0)) return skew;
+  const cutRaw = Number(cutoff);
+  const cut = Number.isFinite(cutRaw) ? additiveGraphClamp(cutRaw, 0, 1) : 1;
+  return skew + (u - skew) * cut;
+}
+
+/**
+ * Face sample for Bubble: phase cascade vs harmonic index.
+ * Returns { ys, ysGhost, amps, cutoffT, yMax, effSkew, phaseSkew, unskew }.
+ * ys = current (Cutoff/Unskew); ysGhost = cascade at Cutoff=1 when Unskew>0.
+ * amps = Cutoff gate 0…1; cutoffT = edge/H on X.
+ */
+function additiveGraphBubbleCascadeCurve(
+  harmonics,
+  phaseSkew,
+  skewAmount,
+  cutoff,
+  unskew,
+  samples = 128,
+) {
+  const H = Math.max(1, Math.round(Number(harmonics) || 32));
+  const n = Math.max(2, Math.round(Number(samples) || 128));
+  const cutRaw = Number(cutoff);
+  const cut = Number.isFinite(cutRaw) ? additiveGraphClamp(cutRaw, 0, 1) : 1;
+  const curve = additiveGraphClamp(Number(skewAmount) || 0, -0.9999, 0.9999);
+  const skew0 = Number(phaseSkew);
+  const baseSkew = Number.isFinite(skew0) ? Math.max(0, skew0) : 0;
+  const uRaw = Number(unskew);
+  const u = Number.isFinite(uRaw) ? uRaw : 0;
+  const eff = additiveGraphBubbleEffectivePhaseSkew(baseSkew, u, cut);
+  const effFull = additiveGraphBubbleEffectivePhaseSkew(baseSkew, u, 1);
+  const edge = cut * H;
+  const H_eff = Math.max(1e-12, edge);
+  const ys = new Float32Array(n);
+  const ysGhost = new Float32Array(n);
+  const amps = new Float32Array(n);
+  const showGhost = u > 1e-12 && Math.abs(effFull - eff) > 1e-9;
+  for (let i = 0; i < n; i += 1) {
+    const harm = n <= 1 ? 0 : (i / (n - 1)) * Math.max(0, H - 1e-9);
+    const t = harm / H_eff;
+    const tFull = harm / Math.max(1e-12, H);
+    const map = additiveGraphSkewMap(t, curve, 2);
+    const mapFull = additiveGraphSkewMap(tFull, curve, 2);
+    ys[i] = (eff > 0 ? map * eff : 0);
+    ysGhost[i] = showGhost && effFull > 0 ? mapFull * effFull : 0;
+    // Continuous Cutoff gate for the face (integer gain is slot-based).
+    amps[i] = harm + 1e-9 < edge ? 1 : 0;
+  }
+  const yMax = Math.max(1e-6, baseSkew, u > 0 ? u : 0, eff, effFull);
+  return {
+    ys,
+    ysGhost: showGhost ? ysGhost : null,
+    amps,
+    cutoffT: cut,
+    yMax,
+    effSkew: eff,
+    phaseSkew: baseSkew,
+    unskew: u,
+    harmonics: H,
+  };
+}
+
+/**
+ * Bubble (ex-Growl) — Hydrus SoEmAdditive Phase Skew:
+ *   skewPhase[h] = curveMap(h / H_eff, skewCurve) * skewAmount
  * rotation = constant phase add (cycles) on every harmonic.
+ * curveMode: 0 Rational (Hydrus), 1 Exponential, 2 Logarithmic, 3 Linear.
+ * cutoff 0…1: fractional harmonic amp count + phase cascade over H_eff=cut·H.
+ * brickwall: unused (kept for call-site compat).
+ * Quantum phaseLerp + ampLerp (like Noisy*) so param moves do not zipper.
+ * lerpFrom = { phase, amp } from previous quantum; returns { graph, lerpFrom }.
  * No upper clamp on skewAmount — param max owns the range.
  */
-function additiveGraphApplyGrowl(graph, rotation, skew, skewCurve) {
+function additiveGraphApplyGrowl(
+  graph, rotation, skew, skewCurve, curveMode = 0, cutoff = 1,
+  brickwall = 0, lerpFrom = null,
+) {
   const H = graph.harmonics;
-  if (H <= 0) return graph;
+  if (H <= 0) return { graph, lerpFrom: null };
   const rot = Number(rotation) || 0;
   const skewAmt = Number(skew);
   const amount = Number.isFinite(skewAmt) && skewAmt > 0 ? skewAmt : 0;
   const curve = additiveGraphClamp(Number(skewCurve) || 0, -0.9999, 0.9999);
+  const mode = additiveGraphNormalizeSkewCurveMode(curveMode);
+  const cutRaw = Number(cutoff);
+  // Default open (1) when missing/non-finite — never treat NaN as silence.
+  const cut = Number.isFinite(cutRaw) ? additiveGraphClamp(cutRaw, 0, 1) : 1;
+  const edge = cut * H;
+  const H_eff = Math.max(1e-12, edge);
+  const applyAmp = cut < 1 - 1e-12;
+  const toPhase = new Float32Array(H);
+  const toAmp = applyAmp ? new Float32Array(H) : null;
   for (let i = 0; i < H; i += 1) {
-    // Hydrus: h / numHarmonics with h in [0, H).
-    const t = i / H;
-    const skewPhase = amount <= 0 ? 0 : additiveGraphRationalCurve(t, curve) * amount;
-    graph.phase[i] = additiveGraphWrap01(graph.phase[i] + rot + skewPhase);
+    if (applyAmp) {
+      const gain = additiveGraphHarmonicCountGain(i, edge);
+      const baseAmp = Number(graph.amplitude?.[i]) || 0;
+      toAmp[i] = baseAmp * gain;
+    }
+    // Remap cascade over audible edge.
+    const t = i / H_eff;
+    const skewPhase = amount <= 0 ? 0 : additiveGraphSkewMap(t, curve, mode) * amount;
+    toPhase[i] = additiveGraphWrap01((Number(graph.phase[i]) || 0) + rot + skewPhase);
   }
-  return graph;
+  let fromPhase;
+  let fromAmp = null;
+  if (lerpFrom?.phase && lerpFrom.phase.length === H) {
+    fromPhase = new Float32Array(lerpFrom.phase);
+  } else {
+    fromPhase = new Float32Array(toPhase);
+  }
+  graph.phaseLerp = { from: fromPhase, to: toPhase };
+  graph.phase.set(toPhase);
+
+  if (applyAmp && toAmp) {
+    if (lerpFrom?.amp && lerpFrom.amp.length === H) {
+      fromAmp = new Float32Array(lerpFrom.amp);
+    } else {
+      fromAmp = new Float32Array(toAmp);
+    }
+    graph.ampLerp = { from: fromAmp, to: toAmp };
+    if (graph.amplitude && graph.amplitude.length === H) {
+      graph.amplitude.set(toAmp);
+    }
+  } else {
+    // cut≥1: amplitudes untouched (no soft filter-like skirt).
+    graph.ampLerp = null;
+  }
+
+  return {
+    graph,
+    lerpFrom: {
+      phase: new Float32Array(toPhase),
+      amp: toAmp ? new Float32Array(toAmp) : null,
+    },
+  };
+}
+
+/** @deprecated alias — Bubble module uses additiveGraphApplyGrowl under the hood. */
+function additiveGraphApplyBubble(
+  graph, rotation, skew, skewCurve, curveMode, cutoff, brickwall, lerpFrom,
+) {
+  return additiveGraphApplyGrowl(
+    graph, rotation, skew, skewCurve, curveMode, cutoff, brickwall, lerpFrom,
+  );
 }
 
 /**
@@ -779,11 +1317,12 @@ function additiveGraphLerpPhase01(from, to, t) {
   return additiveGraphWrap01((Number(from) || 0) + d * t);
 }
 
-/** Shared: stamp WhiteNoise recipe; clear matching lerp. */
-function additiveGraphStampWhiteNoise(graph, key, amount, walks, seed = 1) {
+/** Shared: stamp WhiteNoise recipe; clear matching lerp. Depth uncapped — Out clamps. */
+function additiveGraphStampWhiteNoise(graph, key, add, walks, seed = 1) {
+  const depth = Number(add);
   graph[key] = {
     mode: 2,
-    amount: additiveGraphClamp(amount, 0, 1),
+    amount: Number.isFinite(depth) && depth > 0 ? depth : 0,
     speedHz: 0,
     walks,
     seed: (Math.floor(Number(seed)) || 0) >>> 0,
@@ -791,17 +1330,24 @@ function additiveGraphStampWhiteNoise(graph, key, amount, walks, seed = 1) {
 }
 
 /**
- * NoisyPhase — phase jitter (cycles).
- * 0/1 quantum + phaseLerp; 2 WhiteNoise → phaseNoise at Out.
+ * NoisyPhase — additive phase jitter (cycles): phase' = wrap(phase + noise×Add).
+ * 0/1 quantum + phaseLerp; 2 WhiteNoise → phaseNoise at Out. No hardcoded depth clamp.
  */
 function additiveGraphApplyNoisyPhase(
-  graph, amount, speedHz, walks, sampleRate, blockFrames, noiseMode = 0, lerpFrom = null,
+  graph, add, speedHz, walks, sampleRate, blockFrames, noiseMode = 0, lerpFrom = null,
   seed = 1,
 ) {
   const H = graph.harmonics;
-  const amt = additiveGraphClamp(amount, 0, 1);
+  const depth = Number(add);
+  const amt = Number.isFinite(depth) && depth > 0 ? depth : 0;
   const mode = additiveGraphNormalizeNoisyNoiseMode(noiseMode);
   walks = additiveGraphEnsureWalks(walks, H, 29, seed);
+  // Add≈0: phase unchanged — skip walks + phaseLerp so Out stays on direct phase[].
+  if (!(amt > 1e-12)) {
+    graph.phaseNoise = null;
+    graph.phaseLerp = null;
+    return { graph, walks, lerpFrom: null };
+  }
   if (mode === 2) {
     additiveGraphStampWhiteNoise(graph, "phaseNoise", amt, walks, seed);
     graph.phaseLerp = null;
@@ -814,7 +1360,7 @@ function additiveGraphApplyNoisyPhase(
     const w = mode === 1
       ? cheapFilteredNoiseStep(walks[i], spd)
       : cheapWalkStep(walks[i], spd);
-    to[i] = additiveGraphWrap01(graph.phase[i] + w * amt * 0.5);
+    to[i] = additiveGraphWrap01(graph.phase[i] + w * amt);
   }
   let from;
   if (lerpFrom && lerpFrom.length === H) {
@@ -840,18 +1386,68 @@ function additiveGraphEffectivePhase(graph, harmonicIndex, blockFrame = 0, block
 }
 
 /**
- * NoisyPan — pan jitter (−1…+1).
+ * Additive Pan — Width first (stereo spread), then Pan crossfades to one side.
+ * Width (−1…+1): odd/even spread. + = even→L / odd→R; − = reversed.
+ *   0 = mono; ±1 = hard alternating L/R. Amps untouched.
+ * Pan (−1…+1): morph from the Width image → all-hard-L or all-hard-R.
+ *   pan[i] = widthPan[i]·(1−|Pan|) + sign(Pan)·|Pan|
+ *   Pan=0 → Width image; |Pan|=1 → every harmonic hard that side.
+ *   Width=0 → pans the mono image (same formula). Never silences.
+ * Stamps panLerp only. lerpFrom = Float32Array | {pan}.
+ */
+function additiveGraphApplyPan(graph, panOffset = 0, width = 0, lerpFrom = null) {
+  if (!graph || !graph.harmonics) return { graph, lerpFrom: null };
+  const H = graph.harmonics | 0;
+  if (H < 1) return { graph, lerpFrom: null };
+  if (!graph.pan || graph.pan.length !== H) {
+    graph.pan = new Float32Array(H);
+  }
+  const offset = additiveGraphClamp(Number(panOffset) || 0, -1, 1);
+  const absPan = Math.abs(offset);
+  const signPan = offset > 1e-12 ? 1 : offset < -1e-12 ? -1 : 0;
+  const wRaw = Number(width) || 0;
+  const depth = Math.min(1, Math.abs(wRaw));
+  const flip = wRaw < 0;
+  const to = new Float32Array(H);
+  for (let i = 0; i < H; i += 1) {
+    let pW = 0;
+    if (depth > 1e-12) {
+      const side = (i % 2 === 0) ? -1 : 1; // even→L, odd→R when Width>0
+      pW = (flip ? -side : side) * depth;
+    }
+    // Crossfade Width image → mono hard pan (not an add — that left some at 0).
+    to[i] = additiveGraphClamp(pW * (1 - absPan) + signPan * absPan, -1, 1);
+  }
+  const prev = Array.isArray(lerpFrom) || (lerpFrom instanceof Float32Array)
+    ? lerpFrom
+    : lerpFrom?.pan;
+  let from;
+  if (prev && prev.length === H) {
+    from = new Float32Array(prev);
+  } else {
+    from = new Float32Array(to);
+  }
+  graph.panNoise = null;
+  graph.panLerp = { from, to };
+  graph.pan.set(to);
+  return { graph, lerpFrom: new Float32Array(to) };
+}
+
+/**
+ * NoisyPan — additive pan jitter: pan' = pan + noise×Add (no stagger/slope).
  * 0/1 quantum + panLerp; 2 WhiteNoise → panNoise at Out.
+ * Depth uncapped here; Additive Out clamps pan to −1…+1.
  */
 function additiveGraphApplyNoisyPan(
-  graph, amount, speedHz, walks, sampleRate, blockFrames, noiseMode = 0, lerpFrom = null,
+  graph, add, speedHz, walks, sampleRate, blockFrames, noiseMode = 0, lerpFrom = null,
   seed = 1,
 ) {
   const H = graph.harmonics;
   if (!graph.pan || graph.pan.length !== H) {
     graph.pan = new Float32Array(H);
   }
-  const amt = additiveGraphClamp(amount, 0, 1);
+  const depth = Number(add);
+  const amt = Number.isFinite(depth) && depth > 0 ? depth : 0;
   const mode = additiveGraphNormalizeNoisyNoiseMode(noiseMode);
   walks = additiveGraphEnsureWalks(walks, H, 47, seed);
   if (mode === 2) {
@@ -867,7 +1463,7 @@ function additiveGraphApplyNoisyPan(
       ? cheapFilteredNoiseStep(walks[i], spd)
       : cheapWalkStep(walks[i], spd);
     const p = Number(graph.pan[i]) || 0;
-    to[i] = additiveGraphClamp(p + w * amt, -1, 1);
+    to[i] = p + w * amt;
   }
   let from;
   if (lerpFrom && lerpFrom.length === H) {
@@ -880,7 +1476,7 @@ function additiveGraphApplyNoisyPan(
   return { graph, walks, lerpFrom: new Float32Array(to) };
 }
 
-/** Effective pan at block position (linear from→to when panLerp set). */
+/** Effective pan at block position (linear from→to when panLerp set). Unclamped — Out clamps. */
 function additiveGraphEffectivePan(graph, harmonicIndex, blockFrame = 0, blockFrames = 1) {
   const i = harmonicIndex | 0;
   const lerp = graph?.panLerp;
@@ -888,24 +1484,26 @@ function additiveGraphEffectivePan(graph, harmonicIndex, blockFrame = 0, blockFr
     const n = Math.max(1, Math.floor(Number(blockFrames) || 1));
     const f = Math.max(0, Math.floor(Number(blockFrame) || 0));
     const t = n <= 1 ? 1 : Math.min(1, f / (n - 1));
-    return additiveGraphClamp(lerp.from[i] + (lerp.to[i] - lerp.from[i]) * t, -1, 1);
+    return lerp.from[i] + (lerp.to[i] - lerp.from[i]) * t;
   }
   if (graph?.pan && i >= 0 && i < graph.pan.length) {
-    return additiveGraphClamp(Number(graph.pan[i]) || 0, -1, 1);
+    return Number(graph.pan[i]) || 0;
   }
   return 0;
 }
 
 /**
- * NoisyAmp — amplitude jitter (0…1).
+ * NoisyAmp — additive amp jitter: amp' = amp + noise×Add.
  * 0/1 quantum + ampLerp; 2 WhiteNoise → ampNoise at Out.
+ * Depth uncapped here; Additive Out clamps amp to 0…1.
  */
 function additiveGraphApplyNoisyAmp(
-  graph, amount, speedHz, walks, sampleRate, blockFrames, noiseMode = 0, lerpFrom = null,
+  graph, add, speedHz, walks, sampleRate, blockFrames, noiseMode = 0, lerpFrom = null,
   seed = 1,
 ) {
   const H = graph.harmonics;
-  const amt = additiveGraphClamp(amount, 0, 1);
+  const depth = Number(add);
+  const amt = Number.isFinite(depth) && depth > 0 ? depth : 0;
   const mode = additiveGraphNormalizeNoisyNoiseMode(noiseMode);
   walks = additiveGraphEnsureWalks(walks, H, 61, seed);
   if (mode === 2) {
@@ -920,7 +1518,7 @@ function additiveGraphApplyNoisyAmp(
     const w = mode === 1
       ? cheapFilteredNoiseStep(walks[i], spd)
       : cheapWalkStep(walks[i], spd);
-    to[i] = additiveGraphClamp(graph.amplitude[i] + w * amt * 0.5, 0, 1);
+    to[i] = (Number(graph.amplitude[i]) || 0) + w * amt;
   }
   let from;
   if (lerpFrom && lerpFrom.length === H) {
@@ -933,6 +1531,7 @@ function additiveGraphApplyNoisyAmp(
   return { graph, walks, lerpFrom: new Float32Array(to) };
 }
 
+/** Effective amp at block position. Unclamped — Out clamps to 0…1. */
 function additiveGraphEffectiveAmp(graph, harmonicIndex, blockFrame = 0, blockFrames = 1) {
   const i = harmonicIndex | 0;
   const lerp = graph?.ampLerp;
@@ -940,9 +1539,9 @@ function additiveGraphEffectiveAmp(graph, harmonicIndex, blockFrame = 0, blockFr
     const n = Math.max(1, Math.floor(Number(blockFrames) || 1));
     const f = Math.max(0, Math.floor(Number(blockFrame) || 0));
     const t = n <= 1 ? 1 : Math.min(1, f / (n - 1));
-    return additiveGraphClamp(lerp.from[i] + (lerp.to[i] - lerp.from[i]) * t, 0, 1);
+    return lerp.from[i] + (lerp.to[i] - lerp.from[i]) * t;
   }
-  return additiveGraphClamp(Number(graph?.amplitude?.[i]) || 0, 0, 1);
+  return Number(graph?.amplitude?.[i]) || 0;
 }
 
 /** Legacy combined Additive Effect dispatcher (retired module / tests). */
@@ -959,10 +1558,13 @@ function additiveGraphApplyEffect(graph, mode, parA, parB, parC, parD, effectSta
   } else if (m === "AnalogFilter" || m === "ButterworthFilter" || m === "1") {
     const skew = (Number(parD) || 0) * 2 - 1;
     additiveGraphApplyButterworthFilter(out, filterMode, parB, parA, skew, 100, 44100);
-  } else if (m === "Growl" || m === "2") {
+  } else if (m === "Growl" || m === "Bubble" || m === "2") {
     // parA=rotation, parB=skew amount, parC=skewCurve 0…1 → −1…+1
     const curve = (Number(parC) || 0) * 2 - 1;
-    additiveGraphApplyGrowl(out, parA, parB, curve);
+    const applied = additiveGraphApplyGrowl(out, parA, parB, curve);
+    if (applied?.graph) {
+      // Legacy path ignores lerp state.
+    }
   } else if (m === "Noisy" || m === "NoisyFreq" || m === "3") {
     const noisy = additiveGraphApplyNoisyFreq(out, parA, parB, state.walks);
     state.walks = noisy.walks;
@@ -1019,6 +1621,42 @@ function additiveGraphNyquistAmpGain(hz, sampleRate) {
   const rampStart = 0.75 * nyquist;
   if (f <= rampStart) return 1;
   return 1 - (f - rampStart) / Math.max(1e-12, nyquist - rampStart);
+}
+
+/**
+ * Cutoff amp edge on a unit axis. Silent at/above edge.
+ * brickwall 0…1: 0 = soft Nyquist-style (full until 0.75·edge, linear 1→0),
+ * 1 = hard brickwall (full until edge, then 0).
+ * Kept for Linear/Analog filter faces; Bubble Cutoff uses harmonicCountGain.
+ */
+function additiveGraphEdgeRampGain(position, edge, brickwall = 0) {
+  const f = Number(position) || 0;
+  const e = Number(edge) || 0;
+  if (!(e > 0) || !(f >= 0)) return 0;
+  if (f >= e) return 0;
+  const bw = additiveGraphClamp(Number(brickwall) || 0, 0, 1);
+  // Soft ramp width = 25% of edge at bw=0; shrinks to 0 at bw=1.
+  const rampFrac = 0.25 * (1 - bw);
+  if (rampFrac <= 1e-9) return 1;
+  const rampStart = (1 - rampFrac) * e;
+  if (f <= rampStart) return 1;
+  return 1 - (f - rampStart) / Math.max(1e-12, e - rampStart);
+}
+
+/**
+ * Fractional harmonic-count gain on a fixed slot list (Bubble Cutoff).
+ * edge = continuous count in index space (0…H). index 0-based.
+ * floor(edge) slots at 1, next slot ×frac, rest 0 — never shrinks H.
+ */
+function additiveGraphHarmonicCountGain(index, edge) {
+  const i = Number(index) || 0;
+  const e = Number(edge) || 0;
+  if (!(e > 0) || !(i >= 0)) return 0;
+  const full = Math.floor(e + 1e-9);
+  const frac = e - full;
+  if (i < full) return 1;
+  if (i === full && frac > 1e-9) return frac;
+  return 0;
 }
 
 /** One WhiteNoise sample for a stamped *Noise recipe (walks by ref). */
@@ -1085,7 +1723,7 @@ function additiveGraphSinTurn(phase01) {
   return -(a + (b - a) * f);
 }
 
-/** Optimize: 0 None, 1 Inaudible Harmonics (skip amp≤0 or hz≥Nyquist entirely). */
+/** Optimize: 0 None, 1 Inaudible Harmonics (skip amp≤0, below hearing, or hz≥Nyquist). */
 function additiveGraphNormalizeOptimizeMode(mode) {
   const n = Math.round(Number(mode));
   if (n === 1) return 1;
@@ -1096,10 +1734,50 @@ function additiveGraphNormalizeOptimizeMode(mode) {
   return 0;
 }
 
+/** Linear amp floor for Optimize Inaudible Harmonics (−60 dBFS ≈ 0.001). */
+const ADDITIVE_GRAPH_INAUDIBLE_AMP = Math.pow(10, -60 / 20);
+
+/**
+ * Bake one fundamental cycle of the Yellow Graph into `out` (length N).
+ * Cheap face preview: O(min(H,hCap)·N). Uses ratio/phase/amplitude only.
+ */
+function additiveGraphBakeWaveform(graph, out, hCap = 64) {
+  const N = out && out.length ? out.length | 0 : 0;
+  if (!graph || !graph.ratio || N < 2) return out;
+  const Hfull = Math.min(graph.ratio.length | 0, Math.max(1, graph.harmonics | 0));
+  const H = Math.min(Hfull, Math.max(1, hCap | 0));
+  out.fill(0);
+  for (let n = 0; n < N; n += 1) {
+    const t = n / N; // one fundamental cycle
+    let y = 0;
+    for (let i = 0; i < H; i += 1) {
+      const amp = Number(graph.amplitude?.[i]) || 0;
+      if (!(amp > 0)) continue;
+      const ratio = Number(graph.ratio[i]) || 0;
+      if (!(ratio > 0)) continue;
+      const ph = Number(graph.phase?.[i]) || 0;
+      y += amp * additiveGraphSinTurn(ratio * t + ph);
+    }
+    out[n] = y;
+  }
+  // Peak-normalize for face (keep silence as zeros).
+  let peak = 0;
+  for (let n = 0; n < N; n += 1) {
+    const a = Math.abs(out[n]);
+    if (a > peak) peak = a;
+  }
+  if (peak > 1e-12) {
+    const inv = 1 / peak;
+    for (let n = 0; n < N; n += 1) out[n] *= inv;
+  }
+  return out;
+}
+
 /**
  * Sum one sample. Mono = unpanned sum; Left/Right use pan (−1…+1).
  * *Lerp fields: linear from→to across the block. *Noise: WhiteNoise per sample.
- * optimizeMode 1: skip inaudible partials (amp≤0 or hz≥Nyquist) — no phase advance.
+ * optimizeMode 1: skip inaudible sin/pan work (amp≤0, below −60 dBFS, or hz≥Nyquist);
+ * phaseAcc still advances.
  */
 function additiveGraphSumSample(
   graph, phaseAcc, frequencyHz, masterPhase, masterAmp, sampleRate,
@@ -1114,10 +1792,12 @@ function additiveGraphSumSample(
   const f0 = Number(frequencyHz) || 0;
   const mp = Number(masterPhase) || 0;
   const ma = additiveGraphClamp(masterAmp, 0, 1);
+  // Harmonics count change → hard reset all free-running phases (Generator).
   if (!phaseAcc || phaseAcc.length !== H) {
     phaseAcc = new Float64Array(H);
   }
   const skipInaudible = additiveGraphNormalizeOptimizeMode(optimizeMode) === 1;
+  const hearFloor = skipInaudible ? ADDITIVE_GRAPH_INAUDIBLE_AMP : 0;
   const hasPan = Boolean(graph.pan && graph.pan.length === H)
     || Boolean(graph.panLerp)
     || Boolean(graph.panNoise);
@@ -1125,52 +1805,94 @@ function additiveGraphSumSample(
   const hasPhaseNoise = Boolean(graph.phaseNoise && Number(graph.phaseNoise.amount) > 0);
   const hasPanNoise = Boolean(graph.panNoise && Number(graph.panNoise.amount) > 0);
   const hasAmpNoise = Boolean(graph.ampNoise && Number(graph.ampNoise.amount) > 0);
+  const ampLerp = graph.ampLerp;
+  const ratioLerp = graph.ratioLerp;
+  const phaseLerp = graph.phaseLerp;
+  const panLerp = graph.panLerp;
+  const hasAmpLerp = Boolean(ampLerp?.from && ampLerp?.to);
+  const hasRatioLerp = Boolean(ratioLerp?.from && ratioLerp?.to);
+  const hasPhaseLerp = Boolean(phaseLerp?.from && phaseLerp?.to);
+  const hasPanLerp = Boolean(panLerp?.from && panLerp?.to);
+  const nBlock = Math.max(1, Math.floor(Number(blockFrames) || 1));
+  const fBlock = Math.max(0, Math.floor(Number(blockFrame) || 0));
+  const lerpT = nBlock <= 1 ? 1 : Math.min(1, fBlock / (nBlock - 1));
+  const ampArr = graph.amplitude;
+  const ratioArr = graph.ratio;
+  const phaseArr = graph.phase;
+  const panArr = graph.pan;
   let mono = 0;
   let left = 0;
   let right = 0;
+  let displayPhase = null;
+  if (graph._wantDisplayPhase) {
+    displayPhase = graph.displayPhase && graph.displayPhase.length === H
+      ? graph.displayPhase
+      : new Float32Array(H);
+    graph.displayPhase = displayPhase;
+  }
+
   for (let i = 0; i < H; i += 1) {
-    let partialAmp = additiveGraphEffectiveAmp(graph, i, blockFrame, blockFrames);
+    let partialAmp = hasAmpLerp && i < ampLerp.from.length && i < ampLerp.to.length
+      ? ampLerp.from[i] + (ampLerp.to[i] - ampLerp.from[i]) * lerpT
+      : Number(ampArr?.[i]) || 0;
     if (hasAmpNoise) {
       const w = additiveGraphWhiteNoiseSample(graph.ampNoise, i, 61);
-      const amt = additiveGraphClamp(graph.ampNoise.amount, 0, 1);
-      partialAmp = additiveGraphClamp(partialAmp + w * amt * 0.5, 0, 1);
+      const amt = Number(graph.ampNoise.amount) || 0;
+      partialAmp += w * amt;
     }
-    if (skipInaudible && !(partialAmp > 0)) continue;
+    partialAmp = additiveGraphClamp(partialAmp, 0, 1);
 
-    let baseRatio = additiveGraphEffectiveRatio(graph, i, blockFrame, blockFrames);
+    let baseRatio = hasRatioLerp && i < ratioLerp.from.length && i < ratioLerp.to.length
+      ? ratioLerp.from[i] + (ratioLerp.to[i] - ratioLerp.from[i]) * lerpT
+      : Number(ratioArr?.[i]) || 0;
     if (hasRatioNoise) {
       baseRatio = Math.max(0, baseRatio + additiveGraphRatioNoiseAddend(graph, i));
     }
     const hz = baseRatio * f0;
-    if (skipInaudible && hz >= nyquist) continue;
 
     const inc = hz / sr;
-    // None: always advance phase (coherent if partial returns from above Nyquist).
-    // Inaudible: skipped partials above don't advance (CPU); may click if pitch drops.
     phaseAcc[i] = additiveGraphWrap01(phaseAcc[i] + inc);
+
+    let partialPhase = hasPhaseLerp && i < phaseLerp.from.length && i < phaseLerp.to.length
+      ? additiveGraphLerpPhase01(phaseLerp.from[i], phaseLerp.to[i], lerpT)
+      : additiveGraphWrap01(Number(phaseArr?.[i]) || 0);
+    if (hasPhaseNoise) {
+      const w = additiveGraphWhiteNoiseSample(graph.phaseNoise, i, 29);
+      const amt = Number(graph.phaseNoise.amount) || 0;
+      partialPhase = additiveGraphWrap01(partialPhase + w * amt);
+    }
+    const p = additiveGraphWrap01(phaseAcc[i] + partialPhase + mp);
+    if (displayPhase) displayPhase[i] = p;
+
+    const heardAmp = partialAmp * ma;
+    const inaudible = skipInaudible && (
+      !(partialAmp > 0) || heardAmp < hearFloor || hz >= nyquist
+    );
+    if (inaudible) continue;
+
     const gain = additiveGraphNyquistAmpGain(hz, sr);
     if (gain <= 0) continue;
 
-    let partialPhase = additiveGraphEffectivePhase(graph, i, blockFrame, blockFrames);
-    if (hasPhaseNoise) {
-      const w = additiveGraphWhiteNoiseSample(graph.phaseNoise, i, 29);
-      const amt = additiveGraphClamp(graph.phaseNoise.amount, 0, 1);
-      partialPhase = additiveGraphWrap01(partialPhase + w * amt * 0.5);
-    }
-
-    const p = additiveGraphWrap01(phaseAcc[i] + partialPhase + mp);
     const s = additiveGraphSinTurn(p) * partialAmp * ma * gain;
     mono += s;
 
-    let pan = hasPan ? additiveGraphEffectivePan(graph, i, blockFrame, blockFrames) : 0;
+    let pan = 0;
+    if (hasPan) {
+      if (hasPanLerp && i < panLerp.from.length && i < panLerp.to.length) {
+        pan = panLerp.from[i] + (panLerp.to[i] - panLerp.from[i]) * lerpT;
+      } else {
+        pan = Number(panArr?.[i]) || 0;
+      }
+    }
     if (hasPanNoise) {
       const w = additiveGraphWhiteNoiseSample(graph.panNoise, i, 47);
-      const amt = additiveGraphClamp(graph.panNoise.amount, 0, 1);
-      pan = additiveGraphClamp(pan + w * amt, -1, 1);
+      const amt = Number(graph.panNoise.amount) || 0;
+      pan += w * amt;
     }
+    pan = additiveGraphClamp(pan, -1, 1);
     const gains = additiveGraphPanGains(pan);
     left += s * gains.left;
     right += s * gains.right;
   }
-  return { y: mono, mono, left, right, phaseAcc };
+  return { y: mono, mono, left, right, phaseAcc, displayPhase };
 }

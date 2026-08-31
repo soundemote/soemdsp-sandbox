@@ -419,7 +419,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   // additiveOsc / gpuAdditiveOsc retired — Yellow Graph chain replaces them.
   additiveGenerator: {
     category: "additive",
-    description: "Waveform + Morph + Harmonics → Yellow Graph. Patch through filters / Growl / Noisy* to Additive Out.",
+    description: "Saw / Square / Pulse* / Tri / RectSine + PWM (pulses) + Phase Rotation + Harmonics → Yellow Graph.",
     label: "Additive Generator",
     notes: ["additive", "yellow graph", "harmonics", "morph"],
   },
@@ -435,11 +435,41 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Butterworth Filter",
     notes: ["additive", "yellow graph", "filter", "butterworth", "dB/oct", "LP", "BP", "HP"],
   },
-  additiveGrowl: {
+  additiveLadderFilter: {
     category: "additive",
-    description: "PhaseRotation + PhaseSkew + PhaseSkewCurve on Yellow Graph harmonics (SoEmAdditive growl).",
-    label: "Growl",
-    notes: ["additive", "yellow graph", "phase", "growl"],
+    description: "Warm ladder-style spectral filter (LP/BP/HP). Cutoff, Slope dB/oct, Resonance peak — easy resonant tone without loading Butterworth.",
+    label: "Ladder Filter",
+    notes: ["additive", "yellow graph", "ladder", "resonance", "filter", "LP", "BP", "HP"],
+  },
+  additiveCurveEnvelope: {
+    category: "additive",
+    description: "Block-rate Curve Envelope for Additive CV: Gate → cyan Out (once per quantum). Drive Bubble/Butterworth cutoff mods.",
+    label: "Additive Envelope",
+    notes: ["additive", "envelope", "adsr", "block-rate", "cyan", "cv"],
+  },
+  additiveBubble: {
+    category: "additive",
+    description: "Phase cascade bubble: Skew depth + Exp/Log curve bend (no amp cutoff / rotation).",
+    label: "Bubble",
+    notes: ["additive", "yellow graph", "phase", "bubble", "growl"],
+  },
+  additiveFrequencySkew: {
+    category: "additive",
+    description: "Low/High Stretch expand the ratio span; Skew+Curve compress middles toward fund or last (endpoints fixed).",
+    label: "FrequencySkew",
+    notes: ["additive", "yellow graph", "ratio", "frequency", "skew", "stretch"],
+  },
+  additiveQuantizeFreq: {
+    category: "additive",
+    description: "Quantize overtone ratios to the fund (multiples/divisions), then optional random ratio offset.",
+    label: "QuantizeFreq",
+    notes: ["additive", "yellow graph", "ratio", "quantize", "random"],
+  },
+  additiveQuantizePhase: {
+    category: "additive",
+    description: "Quantize Graph phases to quarter-cycles, then optional random phase offset.",
+    label: "QuantizePhase",
+    notes: ["additive", "yellow graph", "phase", "quantize", "random"],
   },
   additiveNoisyFreq: {
     category: "additive",
@@ -452,6 +482,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Per-harmonic CheapWalk on Yellow Graph phase.",
     label: "NoisyPhase",
     notes: ["additive", "yellow graph", "cheap walk", "phase"],
+  },
+  additivePan: {
+    category: "additive",
+    description: "Deterministic stereo placement: Pan center + Width spread across harmonics.",
+    label: "Pan",
+    notes: ["additive", "yellow graph", "pan", "width", "stereo"],
   },
   additiveNoisyPan: {
     category: "additive",
@@ -473,7 +509,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   additiveOut: {
     category: "additive",
-    description: "Renders Yellow Graph to Mono / Left / Right (pan[]). Frequency, Phase, Amplitude + harmonic lines face.",
+    description: "Renders Yellow Graph to Mono / Left / Right (pan[]). Frequency, Amplitude + harmonic lines face.",
     label: "Additive Out",
     notes: ["additive", "yellow graph", "harmonic lines", "stereo", "pan"],
   },
@@ -1695,9 +1731,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "dynamics",
     description:
       "Protective brickwall ceiling with optional look-ahead and gain compensation. Peak safety — not musical squash.",
-    label: "Brickwall",
+    label: "Brickwall Limiter",
     notes: [
       "brickwall",
+      "brickwall limiter",
       "look-ahead",
       "lookahead",
       "ceiling",
@@ -1712,11 +1749,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   limiter: {
     category: "dynamics",
     description:
-      "Musical limiter: input gain / threshold / ratio GR, sidechain key, Env out, amplitude trim. Look-ahead pump — not a hard ceiling.",
-    label: "Limiter",
+      "Pump limiter: input gain / threshold / ratio GR, sidechain key, Env out, amplitude trim. Musical squash — not a hard ceiling.",
+    label: "Pump Limiter",
     notes: [
       "limiter",
       "pump",
+      "pump limiter",
       "pumping",
       "sidechain",
       "threshold",
@@ -1726,6 +1764,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "dynamics",
       "musical",
       "gain reduction",
+      "native",
     ],
   },
   inertialFilter: {
@@ -2469,7 +2508,19 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/additiveGraph/additive-graph-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
   },
-  additiveGrowl: {
+  additiveBubble: {
+    source: "public/modules/additiveGraph/additive-graph-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
+  },
+  additiveFrequencySkew: {
+    source: "public/modules/additiveGraph/additive-graph-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
+  },
+  additiveQuantizeFreq: {
+    source: "public/modules/additiveGraph/additive-graph-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
+  },
+  additiveQuantizePhase: {
     source: "public/modules/additiveGraph/additive-graph-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
   },
@@ -2480,6 +2531,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   additiveNoisyPhase: {
     source: "public/modules/additiveGraph/additive-graph-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveGraph/additive-graph-math.js",
+  },
+  additivePan: {
+    source: "public/modules/additivePan/additive-pan-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additivePan/additive-pan-live-evaluator.js",
   },
   additiveNoisyPan: {
     source: "public/modules/additiveGraph/additive-graph-math.js",
@@ -2845,8 +2900,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/lookaheadLimiter/lookahead-limiter-math.js",
   },
   limiter: {
-    source: "public/modules/lookaheadLimiter/lookahead-limiter-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/lookaheadLimiter/lookahead-limiter-math.js",
+    source: "native_modules/pumping_limiter/pumping_limiter.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/pumping_limiter/pumping_limiter.cpp",
   },
   logSpiral: {
     source: "public/modules/logSpiral/log-spiral-worklet-evaluator.js",

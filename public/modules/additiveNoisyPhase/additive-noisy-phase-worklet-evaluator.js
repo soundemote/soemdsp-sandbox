@@ -17,9 +17,12 @@ NodeLiveAudioProcessor.prototype.additiveNoisyPhaseWorkletEvaluate = function ad
     return Number.isFinite(n) ? n : fb;
   };
   let state = this.additiveNoisyPhaseStates.get(String(nodeId)) || {};
+  const add = p.add != null && Number.isFinite(Number(p.add))
+    ? num(p.add, 0.25)
+    : num(p.amount, 0.25) * 0.5; // legacy Amount had hidden ×0.5
   const applied = additiveGraphApplyNoisyPhase(
     additiveGraphClonePayload(incoming),
-    num(p.amount, 0.25),
+    add,
     num(p.speed, 35),
     state.walks,
     this.engineSampleRate || sampleRate,

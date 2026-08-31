@@ -1,4 +1,5 @@
 // Worklet: Additive Out — Graph IN → Mono / Left / Right. Silence if unwired.
+// Phase Rotation is on Additive Generator (baked into Graph phases).
 
 NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveOutWorkletEvaluate(
   node, nodeId, frame, frames, frameValues, mixInput, safeRate
@@ -14,13 +15,15 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
 
   let state = this.additiveOutStates.get(String(nodeId));
   if (!state) {
-    state = { phaseAcc: null, lastReset: 0, heldGraph: null, heldFreq: 0, heldPhase: 0, heldAmp: 0.35 };
+    state = { phaseAcc: null, lastReset: 0, heldGraph: null, heldFreq: 0, heldAmp: 0.35 };
     this.additiveOutStates.set(String(nodeId), state);
   }
 
   // ZOH capture on first frame of the quantum.
   if (frame === 0) {
     state.heldGraph = graph;
+    // Generator Harmonics slot-count change → wipe free-running phases.
+    if (graph.phaseReset) state.phaseAcc = null;
     const p = node?.params || node?.parameters || {};
     const referenceVoltage = 48 / 120;
     let frequencyHz = Number(p.frequency);
@@ -38,13 +41,11 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
       if (Number.isFinite(fAbs)) frequencyHz = fAbs;
     }
     state.heldFreq = frequencyHz;
-    state.heldPhase = Number(p.phase) || 0;
     state.heldAmp = Number(p.amplitude);
     if (!(state.heldAmp === state.heldAmp)) state.heldAmp = 0.35;
     this.additiveGraphPublish.set(String(nodeId), {
       ...graph,
       frequencyHz: state.heldFreq,
-      masterPhase: state.heldPhase,
       masterAmp: state.heldAmp,
     });
   }
@@ -75,11 +76,12 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
   }
 
   const optimizeMode = Number(node?.params?.optimize ?? node?.parameters?.optimize);
+  const masterPhase = 0;
   const summed = additiveGraphSumSample(
     g,
     state.phaseAcc,
     freq,
-    state.heldPhase,
+    masterPhase,
     state.heldAmp,
     safeRate || this.engineSampleRate || sampleRate,
     frame,

@@ -77,14 +77,16 @@ static HarmonicPartial waveform_harmonic(int waveform, double harmonic, double m
   out.phase = 0.0;
 
   switch (waveform) {
-    case kWfSawtooth:
+    case kWfSawtooth: {
+      const double phaseRotate = mod * 0.5;
       out.amplitude = 1.0 / h;
-      out.phase = odd ? 0.5 : 0.0;
+      out.phase = odd ? (0.5 + phaseRotate) : 0.0;
       break;
+    }
     case kWfSawSquare: {
-      // soemdsp switch calls sawsquare(1 - mod1); sawsquare then does mix = 1 - mix.
-      const double mix = mod;
-      out.amplitude = odd ? (1.0 / h) : ((1.0 / h) * mix);
+      // soemdsp: sawsquare(1 - mod1) then mix = 1 - mix → even amp ∝ morph.
+      // morph 0 = square, morph 1 = saw.
+      out.amplitude = odd ? (1.0 / h) : ((1.0 / h) * mod);
       out.phase = 0.0;
       break;
     }
@@ -147,24 +149,30 @@ static HarmonicPartial waveform_harmonic(int waveform, double harmonic, double m
       out.phase = 0.0;
       break;
     }
-    case kWfSquare:
+    case kWfSquare: {
+      const double phaseRotate = mod * 0.5;
       out.amplitude = odd ? (1.0 / h) : 0.0;
-      out.phase = 0.0;
+      out.phase = phaseRotate;
       break;
+    }
     case kWfTriSaw: {
       const double peak = clamp(mod, 0.001, 0.999);
       out.amplitude = (dsp_sin(0.5 * h * peak) / (peak * (1.0 - peak) * h * h)) * 0.2;
       out.phase = 0.0;
       break;
     }
-    case kWfTriangle:
+    case kWfTriangle: {
+      const double phaseRotate = mod * 0.5;
       out.amplitude = odd ? (1.0 / (h * h)) : 0.0;
-      out.phase = (n64 % 4 == 1) ? 0.0 : 0.5;
+      out.phase = ((n64 % 4 == 1) ? 0.0 : 0.5) + phaseRotate;
       break;
-    case kWfRectifiedSine:
+    }
+    case kWfRectifiedSine: {
+      const double phaseRotate = mod * 0.5;
       out.amplitude = 1.0 / (h * h);
-      out.phase = odd ? 0.25 : 0.75;
+      out.phase = (odd ? 0.25 : 0.75) + phaseRotate;
       break;
+    }
     case kWfRectifiedSineTri: {
       const double hh = h * h;
       out.amplitude = dsp_sin(hh * 0.25 + mod) / hh;

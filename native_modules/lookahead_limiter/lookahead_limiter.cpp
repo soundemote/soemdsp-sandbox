@@ -1,5 +1,5 @@
 // soemdsp-native-module: lookahead_limiter
-// soemdsp-native-label: Limiter
+// soemdsp-native-label: Brickwall Limiter
 // soemdsp-native-target: lookaheadLimiter
 // soemdsp-native-kind: dynamics
 //
@@ -51,7 +51,7 @@ static State gPool[kMaxInstances];
 static const char kMetadataJson[] =
   "{"
     "\"module\":\"lookahead_limiter\","
-    "\"label\":\"Limiter\","
+    "\"label\":\"Brickwall Limiter\","
     "\"targetType\":\"lookaheadLimiter\","
     "\"kind\":\"dynamics\""
   "}";

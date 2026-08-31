@@ -1,4 +1,5 @@
 // Offline/render: Additive Out sums Yellow Graph → Mono / Left / Right.
+// Phase Rotation is on Additive Generator (baked into Graph phases).
 
 const nodeGraphAdditiveOutStates = new Map();
 
@@ -42,6 +43,9 @@ function nodeGraphAdditiveOutLiveEvaluator({
     if (Number.isFinite(fAbs)) frequencyHz = fAbs;
   }
 
+  // Generator Harmonics slot-count change → wipe free-running phases.
+  if (graph.phaseReset) state.phaseAcc = null;
+
   if (hasInput?.(nodeId, "Reset")) {
     const rv = Number(mixInput(nodeId, "Reset")) || 0;
     if (state.lastReset <= 0 && rv > 0) {
@@ -50,18 +54,8 @@ function nodeGraphAdditiveOutLiveEvaluator({
     state.lastReset = rv;
   }
 
-  const masterPhase = read("phase", 0);
   const masterAmp = read("amplitude", 0.35);
-  // Publish Graph mirror for harmonicLines face (post-frequency placement hint).
-  if (typeof writeNodeGraphDataOutput === "function") {
-    writeNodeGraphDataOutput(String(nodeId), "GraphView", {
-      ...graph,
-      frequencyHz,
-      masterPhase,
-      masterAmp,
-    });
-  }
-
+  const masterPhase = 0;
   const optimizeMode = read("optimize", 0);
   const summed = additiveGraphSumSample(
     graph,
@@ -75,6 +69,14 @@ function nodeGraphAdditiveOutLiveEvaluator({
     optimizeMode,
   );
   state.phaseAcc = summed.phaseAcc;
+
+  if (typeof writeNodeGraphDataOutput === "function" && frame === frames - 1) {
+    writeNodeGraphDataOutput(String(nodeId), "GraphView", {
+      ...graph,
+      frequencyHz,
+      masterAmp,
+    });
+  }
 
   if (hasInput?.(nodeId, "Increment")) {
     const inc = Number(mixInput(nodeId, "Increment")) || 0;
