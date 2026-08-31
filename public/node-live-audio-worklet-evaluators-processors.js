@@ -1138,15 +1138,27 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       sampleHold: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.sampleHoldStates.get(nodeId) || this.createStereoSampleHoldState();
         this.sampleHoldStates.set(nodeId, state);
-        const sampleHoldTrigger = mixInput(nodeId, "Trigger");
-        const sampleHoldThreshold = this.readEffectiveParameter(node, "threshold", 0, frame, frames, frameValues);
-        const sampleHoldFrequency = this.readEffectiveParameter(node, "sampleFrequency", 0, frame, frames, frameValues);
-        const sampleHoldMonoHasIn = hasInput(nodeId, "In");
-        const sampleHoldMono = mixInput(nodeId, "In");
-        const outM = this.sampleHoldSample(state.mono, sampleHoldMono, sampleHoldTrigger, sampleHoldThreshold, sampleHoldFrequency, safeRate, sampleHoldMonoHasIn, `${nodeId}:mono`);
-        return this.stereoProcessPorts(nodeId, hasInput, outM,
-          () => this.sampleHoldSample(state.left, mixInput(nodeId, "Left") + sampleHoldMono, sampleHoldTrigger, sampleHoldThreshold, sampleHoldFrequency, safeRate, sampleHoldMonoHasIn || hasInput(nodeId, "Left"), `${nodeId}:left`),
-          () => this.sampleHoldSample(state.right, mixInput(nodeId, "Right") + sampleHoldMono, sampleHoldTrigger, sampleHoldThreshold, sampleHoldFrequency, safeRate, sampleHoldMonoHasIn || hasInput(nodeId, "Right"), `${nodeId}:right`));
+        const clock = mixInput(nodeId, "Clock");
+        const threshold = this.readEffectiveParameter(node, "threshold", 0, frame, frames, frameValues);
+        const sampleFrequency = this.readEffectiveParameter(node, "sampleFrequency", 0, frame, frames, frameValues);
+        const interpolate = this.readEffectiveParameter(node, "interpolate", 0, frame, frames, frameValues);
+        const hasExt = typeof hasInput === "function" && hasInput(nodeId, "Ext In");
+        // Ext In → Ext Out. Left/Right = internal noise. Same Clock / Sample Freq for all.
+        // Always advance Ext (hasIn=true) so phases stay locked; unwired Ext holds 0.
+        const extOut = this.sampleHoldSample(
+          state.ext,
+          hasExt ? mixInput(nodeId, "Ext In") : 0,
+          clock,
+          threshold,
+          sampleFrequency,
+          safeRate,
+          true,
+          `${nodeId}:ext`,
+          interpolate,
+        );
+        const left = this.sampleHoldSample(state.left, 0, clock, threshold, sampleFrequency, safeRate, false, `${nodeId}:left`, interpolate);
+        const right = this.sampleHoldSample(state.right, 0, clock, threshold, sampleFrequency, safeRate, false, `${nodeId}:right`, interpolate);
+        return { "Ext Out": extOut, Left: left, Right: right, Out: extOut };
       },
       expAdsr: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.expAdsrStates.get(nodeId) || this.createExpAdsrState();

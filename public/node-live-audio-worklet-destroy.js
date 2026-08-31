@@ -21,7 +21,7 @@ NodeLiveAudioProcessor.prototype.destroySabrinaReverbState = function destroySab
 };
 
 NodeLiveAudioProcessor.prototype.destroyStereoFilterNativeState = function destroyStereoFilterNativeState(bundle, destroyFn) {
-    for (const channelState of [bundle?.mono, bundle?.left, bundle?.right]) {
+    for (const channelState of [bundle?.mono, bundle?.ext, bundle?.left, bundle?.right]) {
       if (channelState) {
         destroyFn(channelState);
       }

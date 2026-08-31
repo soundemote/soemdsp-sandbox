@@ -1,4 +1,6 @@
 // Sample & Hold — offline/render. Pure core: sample-hold-math.js.
+// Ext In → Ext Out (external). Left/Right = internal noise. Same Clock for all.
+// Interpolate Off|Linear|Smoothstep. Trigger aliased to Clock.
 
 nodeGraphLiveModuleEvaluators.sampleHold = ({
   runtime,
@@ -13,7 +15,7 @@ nodeGraphLiveModuleEvaluators.sampleHold = ({
 }) => {
   const state = runtime.sampleHoldStates.get(nodeId) || createNodeGraphStereoSampleHoldState();
   runtime.sampleHoldStates.set(nodeId, state);
-  const trigger = mixInput(nodeId, "Trigger");
+  const clock = mixInput(nodeId, "Clock");
   const threshold = readNodeGraphLiveEffectiveParam(
     runtime,
     node,
@@ -32,8 +34,15 @@ nodeGraphLiveModuleEvaluators.sampleHold = ({
     frames,
     frameValues,
   );
-  const monoHasIn = hasInput(nodeId, "In");
-  const mono = mixInput(nodeId, "In");
+  const interpolate = readNodeGraphLiveEffectiveParam(
+    runtime,
+    node,
+    "interpolate",
+    0,
+    frame,
+    frames,
+    frameValues,
+  );
 
   const lane = (laneState, input, hasIn, seedTag) => {
     const safeIn = hasIn
@@ -42,30 +51,27 @@ nodeGraphLiveModuleEvaluators.sampleHold = ({
     const held = nodeGraphSampleHoldCore(
       laneState,
       safeIn,
-      nodeGraphSafeFilterNumber(trigger, runtime, nodeId, null, "sample hold trigger"),
+      nodeGraphSafeFilterNumber(clock, runtime, nodeId, null, "sample hold clock"),
       nodeGraphSafeFilterNumber(threshold, runtime, nodeId, null, "sample hold threshold"),
       sampleFrequency,
       sampleRate,
       hasIn,
       seedTag,
+      interpolate,
     );
     return nodeGraphSafeFilterNumber(held, runtime, nodeId, null, "sample hold output");
   };
 
-  return {
-    Out: lane(state.mono, mono, monoHasIn, `${nodeId}:mono`),
-    Left: lane(
-      state.left,
-      mixInput(nodeId, "Left") + mono,
-      monoHasIn || hasInput(nodeId, "Left"),
-      `${nodeId}:left`,
-    ),
-    Right: lane(
-      state.right,
-      mixInput(nodeId, "Right") + mono,
-      monoHasIn || hasInput(nodeId, "Right"),
-      `${nodeId}:right`,
-    ),
-  };
+  const hasExt = hasInput(nodeId, "Ext In");
+  // Always advance Ext lane so Sample Freq stays locked with Left/Right.
+  // hasIn=true avoids noise on Ext; unwired Ext holds 0.
+  const extOut = lane(
+    state.ext,
+    hasExt ? mixInput(nodeId, "Ext In") : 0,
+    true,
+    `${nodeId}:ext`,
+  );
+  const left = lane(state.left, 0, false, `${nodeId}:left`);
+  const right = lane(state.right, 0, false, `${nodeId}:right`);
+  return { "Ext Out": extOut, Left: left, Right: right };
 };
-

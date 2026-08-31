@@ -10303,13 +10303,37 @@ const nodeGraphModuleDefinitions = (
   },
   sampleHold: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right", "Trigger"],
-    outputAliases: { Mono: "Out" },
-    outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    // Ext In → Ext Out (external hold). Left/Right = internal noise holds.
+    // Same Clock / Sample Freq fires all three lanes together.
+    inputAliases: {
+      In: "Ext In",
+      Mono: "Ext In",
+      Left: "Ext In",
+      Right: "Ext In",
+      Trigger: "Clock",
+      Trig: "Clock",
+    },
+    inputLabels: { "Ext In": "Ext In", Clock: "Clock" },
+    inputs: ["Ext In", "Clock"],
+    outputAliases: { Out: "Ext Out", Mono: "Ext Out" },
+    outputLabels: { "Ext Out": "Ext Out" },
+    outputs: ["Ext Out", "Left", "Right"],
     parameters: [
+      {
+        choices: ["Off", "Linear", "Smoothstep"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "interpolate",
+        label: "Interpolate",
+        linearSmoothing: false,
+        smoothingType: "none",
+        max: "2",
+        mid: "0",
+        min: "0",
+        step: "1",
+        tooltip: "Off = classic hold. Linear / Smoothstep glide from previous hold to the new sample over the clock period (Sample Freq) or last Clock interval. Applies to Ext and internal Left/Right.",
+      },
       {
         defaultValue: "0",
         key: "threshold",
@@ -10318,7 +10342,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1",
         nonlinearSlider: false,
-        step: "any"
+        step: "any",
       },
       {
         defaultValue: "0",
@@ -10330,9 +10354,9 @@ const nodeGraphModuleDefinitions = (
         mid: "10",
         min: "0",
         step: "any",
-        unit: "Hz"
+        unit: "Hz",
       },
-    ]
+    ],
   },
   midiOut: {
     planRole: "source",

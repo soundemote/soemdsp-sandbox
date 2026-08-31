@@ -3,19 +3,19 @@
 // soemdsp-native-target: sampleHold
 // soemdsp-native-kind: utility
 //
-// Latches its input whenever the Trigger input crosses above threshold
+// Latches its input whenever the Clock input crosses above threshold
 // (rising edge), or on every internal-clock tick if sampleFrequency > 0.
-// When nothing is patched into In, the "input" fed to the latch is instead
-// a seeded LCG bipolar noise source -- same LCG as native_modules/
+// When nothing is patched into a channel In, the "input" fed to the latch is
+// instead a seeded LCG bipolar noise source -- same LCG as native_modules/
 // noise_generator (1664525*seed + 1013904223 mod 2^32), reseeded whenever
 // the caller passes a different `seed` integer (JS computes that integer
 // once via its own stableSeed(nodeId+salt) hash and only changes it if the
 // node identity changes -- same "precomputed seed, passed as a plain int"
 // split as delay_effect's variation seed).
 //
-// This module is stereo (independent left/mono/right instances bundled by
-// the JS caller) -- this native module itself is single-channel, one
-// handle per channel.
+// JS bundles independent left/right instances (no Mono jack). Interpolate
+// Linear/Smoothstep is JS-only; native path is classic hold (Off).
+// This native module itself is single-channel, one handle per channel.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 

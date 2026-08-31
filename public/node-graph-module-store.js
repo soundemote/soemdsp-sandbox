@@ -1871,8 +1871,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   sampleHold: {
     category: "modulator",
-    description: "Grab a value on trigger and freeze it—stepped random, stepped automation.",
-    notes: ["triggered capture", "held output", "stepped motion"],
+    description: "Grab on Clock: Ext In→Ext Out plus internal noise on Left/Right, same clock. Interpolate Off/Linear/Smoothstep.",
+    notes: ["clock capture", "ext in out", "internal noise", "left right", "interpolate"],
   },
   expAdsr: {
     category: "envelope",

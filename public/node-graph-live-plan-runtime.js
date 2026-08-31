@@ -737,7 +737,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
       randomClockStates.set(node.id, createNodeGraphRandomClockState());
     }
     if (node.type === "sampleHold") {
-      sampleHoldStates.set(node.id, createNodeGraphSampleHoldState());
+      sampleHoldStates.set(node.id, createNodeGraphStereoSampleHoldState());
     }
     if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
       samplePlaybackStates.set(node.id, createNodeGraphSamplePlaybackState());
@@ -1659,7 +1659,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       runtime.randomClockStates.set(node.id, createNodeGraphRandomClockState());
     }
     if (node.type === "sampleHold" && !runtime.sampleHoldStates.has(node.id)) {
-      runtime.sampleHoldStates.set(node.id, createNodeGraphSampleHoldState());
+      runtime.sampleHoldStates.set(node.id, createNodeGraphStereoSampleHoldState());
     }
     if ((node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") && !runtime.samplePlaybackStates.has(node.id)) {
       runtime.samplePlaybackStates.set(node.id, createNodeGraphSamplePlaybackState());
