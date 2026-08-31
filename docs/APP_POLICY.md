@@ -373,6 +373,13 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 - Not audio-rate sample packs. Port name **`Graph`** on both inlet and outlet sides is **yellow**.
 - Additive chain: Generator → Linear/Analog Filter, Growl, Noisy* → Out (Mono / Left / Right).
 
+**Yellow Graph parameters — real units (DOMAIN)**
+
+- Storage, slider readouts, effect math, and **parameter-out jacks** use **DOMAIN** (Hz, cycles, harmonic count, …) — **never** normalize to 0…1 for display or Graph-module communication.
+- Example: Growl **Phase Skew** is cycles **0…1000** (Hydrus); the value sent into DSP and out the cyan param jack is that number, not `skew/1000`.
+- Ordinary non-Graph modules may still emit unit 0…1 on param-out for Uni/Bi CV chaining (`nodeGraphParamDomainToModOutput`). Graph modules set `outputDomain: true` (auto for Additive / Graph types).
+- **Smoothing:** same surfaces as every module (mouse travel unit 0…1 → DOMAIN target → existing L/1P/… kernels). Efficient Yellow Graph sidecar advances that chase **once per quantum** (`dt = frames/sr`) then mutates Graph — interim until native Yellow Graph Controls exist (`§0b`).
+
 ---
 
 ## 14. Resize widgets: hover only

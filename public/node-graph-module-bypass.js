@@ -37,6 +37,8 @@ const NODE_GRAPH_BYPASS_AUDIO_OUT = new Set([
  */
 const NODE_GRAPH_BYPASS_OUT_ALIASES = Object.freeze({
   Out: ["In", "Mono"],
+  // Yellow Graph chunk: same-name Graph thru when bypassed.
+  Graph: ["Graph"],
   // Displays may thru primary In / In1 / X / A (XY and dual-channel scopes).
   Thru: ["In", "Mono", "In1", "X", "A"],
   Delayed: ["In", "Mono"],
@@ -94,14 +96,15 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   sineWavetable: "silence",
   sinCos: "silence",
   additiveGenerator: "silence",
-  additiveLinearFilter: "silence",
-  additiveAnalogFilter: "silence",
-  additiveGrowl: "silence",
-  additiveNoisyFreq: "silence",
-  additiveNoisyPhase: "silence",
-  additiveNoisyPan: "silence",
-  additiveNoisyAmp: "silence",
-  additiveImage: "silence",
+  // Yellow Graph processors: bypass = Graph in → Graph out (not silence).
+  additiveLinearFilter: "pass",
+  additiveAnalogFilter: "pass",
+  additiveGrowl: "pass",
+  additiveNoisyFreq: "pass",
+  additiveNoisyPhase: "pass",
+  additiveNoisyPan: "pass",
+  additiveNoisyAmp: "pass",
+  additiveImage: "pass",
   additiveOut: "silence",
   aliasSine: "silence",
   robinSinusoid: "silence",
@@ -205,9 +208,18 @@ function nodeGraphModuleBypassInputsOutputs(type) {
   const def = (typeof nodeGraphModuleDefinitions !== "undefined" && nodeGraphModuleDefinitions)
     ? nodeGraphModuleDefinitions[type]
     : null;
+  const inputs = Array.isArray(def?.inputs) ? def.inputs.slice() : [];
+  const outputs = Array.isArray(def?.outputs) ? def.outputs.slice() : [];
+  // Yellow Graph / data-plane ports participate in pass maps (Graph→Graph).
+  for (const port of Array.isArray(def?.dataInputs) ? def.dataInputs : []) {
+    if (port && !inputs.includes(port)) inputs.push(port);
+  }
+  for (const port of Array.isArray(def?.dataOutputs) ? def.dataOutputs : []) {
+    if (port && !outputs.includes(port)) outputs.push(port);
+  }
   return {
-    inputs: Array.isArray(def?.inputs) ? def.inputs : [],
-    outputs: Array.isArray(def?.outputs) ? def.outputs : [],
+    inputs,
+    outputs,
     declared: def?.bypass || null,
   };
 }
@@ -349,6 +361,44 @@ function nodeGraphModuleBypassSpec(type) {
 }
 
 /**
+ * When a Yellow Graph / data-plane module is bypassed, copy dataInputs→dataOutputs
+ * (typically Graph→Graph). Audio bypass still uses nodeGraphEvaluateBypassFrame.
+ */
+function nodeGraphEvaluateBypassDataPorts(type, nodeId) {
+  if (typeof readNodeGraphDataInput !== "function" || typeof writeNodeGraphDataOutput !== "function") {
+    return;
+  }
+  const def = (typeof nodeGraphModuleDefinitions !== "undefined" && nodeGraphModuleDefinitions)
+    ? nodeGraphModuleDefinitions[type]
+    : null;
+  const dataIns = Array.isArray(def?.dataInputs) ? def.dataInputs : [];
+  const dataOuts = Array.isArray(def?.dataOutputs) ? def.dataOutputs : [];
+  if (!dataIns.length || !dataOuts.length) {
+    return;
+  }
+  for (const outPort of dataOuts) {
+    let inPort = null;
+    if (dataIns.includes(outPort)) {
+      inPort = outPort;
+    } else if (outPort === "Graph" && dataIns.includes("Graph")) {
+      inPort = "Graph";
+    }
+    if (!inPort) {
+      continue;
+    }
+    const incoming = readNodeGraphDataInput(String(nodeId), inPort);
+    if (!incoming) {
+      writeNodeGraphDataOutput(String(nodeId), outPort, null);
+      continue;
+    }
+    const cloned = typeof additiveGraphClonePayload === "function" && incoming.ratio
+      ? additiveGraphClonePayload(incoming)
+      : incoming;
+    writeNodeGraphDataOutput(String(nodeId), outPort, cloned);
+  }
+}
+
+/**
  * Evaluate one bypassed frame from a plan-node bypassSpec (or legacy array map).
  * @param {object|Array|null} bypassSpec
  * @param {string} nodeId
@@ -418,19 +468,24 @@ function nodeGraphEvaluateBypassFrame(bypassSpec, nodeId, mixInput) {
     }
     return result;
   }
-  // pass
+  // pass — audio carriers only; Graph/data ports use nodeGraphEvaluateBypassDataPorts.
   const map = Array.isArray(bypassSpec.map) ? bypassSpec.map : [];
   if (!map.length) {
     return 0;
   }
   const result = {};
+  let wrote = false;
   for (const entry of map) {
     if (!entry?.out) {
       continue;
     }
+    if (entry.out === "Graph" || entry.in === "Graph") {
+      continue;
+    }
     result[entry.out] = Number(mixInput(nodeId, entry.in || "In")) || 0;
+    wrote = true;
   }
-  return result;
+  return wrote ? result : 0;
 }
 
 // Back-compat alias used by older call sites that only asked for a map.
@@ -447,4 +502,5 @@ if (typeof globalThis !== "undefined") {
   globalThis.nodeGraphModuleBypassPortMap = nodeGraphModuleBypassPortMap;
   globalThis.nodeGraphModuleBypassSpec = nodeGraphModuleBypassSpec;
   globalThis.nodeGraphEvaluateBypassFrame = nodeGraphEvaluateBypassFrame;
+  globalThis.nodeGraphEvaluateBypassDataPorts = nodeGraphEvaluateBypassDataPorts;
 }

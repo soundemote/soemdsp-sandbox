@@ -161,6 +161,9 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
     let value = 0;
 
     if (node?.bypassed) {
+      if (typeof nodeGraphEvaluateBypassDataPorts === "function") {
+        nodeGraphEvaluateBypassDataPorts(node.type, nodeId);
+      }
       value = typeof nodeGraphEvaluateBypassFrame === "function"
         ? nodeGraphEvaluateBypassFrame(node.bypassSpec || { mode: "silence" }, nodeId, mixInput)
         : 0;

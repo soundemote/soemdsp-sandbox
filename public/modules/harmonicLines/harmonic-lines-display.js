@@ -1,4 +1,7 @@
-// Harmonic lines face for Additive Out — X=freq, height=amp, color=phase.
+// Harmonic lines face for Additive Out —
+// X = log freq (shared Additive axis), color = phase, vertical center = balance:
+//   above center = Left amp, below center = Right amp (from pan[]).
+// WhiteNoise recipes (*Noise) animate locally each frame (display-only streams).
 
 function createNodeGraphHarmonicLinesDisplay(nodeId, type = "additiveOut") {
   const id = nodeId && typeof nodeId === "object"
@@ -45,11 +48,33 @@ function nodeGraphHarmonicLinesReadGraph(nodeId) {
   if (typeof nodeGraphDataBus !== "undefined") {
     const view = nodeGraphDataBus.get?.(`${nodeId}.GraphView`);
     if (view?.ratio) return view;
-    // Sidecar publishes the held view under GraphView; also accept Graph.
     const out = nodeGraphDataBus.get?.(`${nodeId}.Graph`);
     if (out?.ratio) return out;
   }
   return null;
+}
+
+/** Display-only walks for WhiteNoise face animation (does not touch audio state). */
+function nodeGraphHarmonicLinesDisplayWalks(section, key, H, salt, seed) {
+  if (!section._noiseVis) section._noiseVis = Object.create(null);
+  const slot = section._noiseVis;
+  const s0 = (Math.floor(Number(seed)) || 0) >>> 0;
+  const family = (Math.floor(Number(salt)) || 0) >>> 0;
+  let pack = slot[key];
+  if (
+    !pack
+    || pack.seed !== s0
+    || pack.salt !== family
+    || !Array.isArray(pack.walks)
+    || pack.walks.length !== H
+  ) {
+    const walks = typeof additiveGraphEnsureWalks === "function"
+      ? additiveGraphEnsureWalks(null, H, family, s0)
+      : [];
+    pack = { seed: s0, salt: family, walks };
+    slot[key] = pack;
+  }
+  return pack.walks;
 }
 
 function drawNodeGraphHarmonicLinesDisplay(section) {
@@ -100,42 +125,122 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     return;
   }
 
-  // Log-frequency X (20 Hz … speed limit) + log-amplitude heights (dB floor).
-  // Heights ignore Out Amplitude (masterAmp) — only per-partial amp + Nyquist curve.
-  // Color rotates with phase[i] + master Phase.
   const H = Math.max(1, graph.ratio.length | 0);
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   let freqHz = Number(graph.frequencyHz ?? node?.params?.frequency ?? node?.parameters?.frequency);
   if (!Number.isFinite(freqHz)) freqHz = 100;
   const masterPhase = Number(graph.masterPhase ?? node?.params?.phase ?? node?.parameters?.phase) || 0;
   const sr = Number(nodeGraphMvp?.sampleRate) || Number(nodeGraphMvp?.live?.sampleRate) || 44100;
-  const xMaxHz = typeof nodeGraphProjectSpeedLimitHz === "function"
-    ? Math.max(1, nodeGraphProjectSpeedLimitHz())
-    : Math.max(1, Number(nodeGraphMvp?.live?.speedLimit) || 20000);
-  const xMinHz = Math.min(20, xMaxHz * 0.5);
-  const logXMin = Math.log(Math.max(1e-6, xMinHz));
-  const logXSpan = Math.max(1e-9, Math.log(Math.max(xMinHz * 1.0001, xMaxHz)) - logXMin);
-  const ampFloorDb = -60; // 0 height at −60 dB relative to loudest partial
+
+  const axis = typeof additiveGraphDisplayFreqAxis === "function"
+    ? additiveGraphDisplayFreqAxis(sr)
+    : null;
+  const xMinHz = axis?.xMinHz ?? 20;
+  const xMaxHz = axis?.xMaxHz ?? 20000;
+  const logXMin = axis?.logXMin ?? Math.log(xMinHz);
+  const logXSpan = axis?.logXSpan ?? Math.log(xMaxHz) - logXMin;
+
+  const ratioNoise = graph.ratioNoise && Number(graph.ratioNoise.mode) === 2
+    ? graph.ratioNoise
+    : null;
+  const phaseNoise = graph.phaseNoise && Number(graph.phaseNoise.mode) === 2
+    ? graph.phaseNoise
+    : null;
+  const panNoise = graph.panNoise && Number(graph.panNoise.mode) === 2
+    ? graph.panNoise
+    : null;
+  const ampNoise = graph.ampNoise && Number(graph.ampNoise.mode) === 2
+    ? graph.ampNoise
+    : null;
+
+  const ratioWalks = ratioNoise
+    ? nodeGraphHarmonicLinesDisplayWalks(section, "ratio", H, 13, ratioNoise.seed)
+    : null;
+  const phaseWalks = phaseNoise
+    ? nodeGraphHarmonicLinesDisplayWalks(section, "phase", H, 29, phaseNoise.seed)
+    : null;
+  const panWalks = panNoise
+    ? nodeGraphHarmonicLinesDisplayWalks(section, "pan", H, 47, panNoise.seed)
+    : null;
+  const ampWalks = ampNoise
+    ? nodeGraphHarmonicLinesDisplayWalks(section, "amp", H, 61, ampNoise.seed)
+    : null;
+
+  const ampFloorDb = -60;
   let maxAmp = 1e-6;
   const effectiveAmp = new Float32Array(H);
+  const leftAmp = new Float32Array(H);
+  const rightAmp = new Float32Array(H);
   const hzAt = new Float32Array(H);
+  const phaseAt = new Float32Array(H);
+  const hasPan = (graph.pan && graph.pan.length >= H) || Boolean(panNoise);
+
   for (let i = 0; i < H; i += 1) {
-    const hz = (graph.ratio[i] || 0) * freqHz;
+    let ratio = Number(graph.ratio[i]) || 0;
+    if (ratioWalks && typeof cheapWhiteNoiseStep === "function") {
+      const w = cheapWhiteNoiseStep(ratioWalks[i]);
+      const add = Number(ratioNoise.amount) || 0;
+      ratio = Math.max(0, ratio + w * add);
+    }
+    const hz = ratio * freqHz;
     hzAt[i] = hz;
+
+    let amp = Math.abs(graph.amplitude[i] || 0);
+    if (ampWalks && typeof cheapWhiteNoiseStep === "function") {
+      const w = cheapWhiteNoiseStep(ampWalks[i]);
+      const add = Number(ampNoise.amount) || 0;
+      amp = Math.max(0, Math.min(1, amp + w * add * 0.5));
+    }
     const nyqGain = typeof additiveGraphNyquistAmpGain === "function"
       ? additiveGraphNyquistAmpGain(hz, sr)
       : 1;
-    // Intentionally omit masterAmp — volume must not squash the face.
-    const a = Math.abs(graph.amplitude[i] || 0) * nyqGain;
+    const a = amp * nyqGain;
     effectiveAmp[i] = a;
-    if (a > maxAmp) maxAmp = a;
+
+    let phase = Number(graph.phase[i]) || 0;
+    if (phaseWalks && typeof cheapWhiteNoiseStep === "function") {
+      const w = cheapWhiteNoiseStep(phaseWalks[i]);
+      const add = Number(phaseNoise.amount) || 0;
+      phase = typeof additiveGraphWrap01 === "function"
+        ? additiveGraphWrap01(phase + w * add * 0.5)
+        : phase + w * add * 0.5;
+    }
+    phaseAt[i] = phase;
+
+    let pan = hasPan && graph.pan ? Number(graph.pan[i]) || 0 : 0;
+    if (panWalks && typeof cheapWhiteNoiseStep === "function") {
+      const w = cheapWhiteNoiseStep(panWalks[i]);
+      const add = Number(panNoise.amount) || 0;
+      pan = Math.max(-1, Math.min(1, pan + w * add));
+    }
+    const gains = typeof additiveGraphPanGains === "function"
+      ? additiveGraphPanGains(pan)
+      : { left: 0.5 * (1 - pan), right: 0.5 * (1 + pan) };
+    leftAmp[i] = a * gains.left * 2;
+    rightAmp[i] = a * gains.right * 2;
+    if (leftAmp[i] > maxAmp) maxAmp = leftAmp[i];
+    if (rightAmp[i] > maxAmp) maxAmp = rightAmp[i];
   }
-  const baseY = h * 0.92;
-  const maxH = h * 0.82;
+
+  const midY = h * 0.5;
+  const maxH = h * 0.46;
   const pad = Math.max(2, w * 0.02);
   const span = Math.max(1, w - pad * 2);
-  // Log X spreads lows; a few px wide is enough so dense highs stay readable.
   const lineW = Math.max(1, Math.min(4, span / Math.max(48, H * 1.1)));
+
+  ctx.strokeStyle = "rgba(255, 230, 0, 0.18)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad, midY);
+  ctx.lineTo(pad + span, midY);
+  ctx.stroke();
+
+  const ampToHeight = (amp) => {
+    if (!(amp > 0) || !(maxAmp > 0)) return 0;
+    const db = 20 * Math.log10(Math.max(1e-12, amp / maxAmp));
+    const ampT = Math.max(0, Math.min(1, (db - ampFloorDb) / -ampFloorDb));
+    return ampT * maxH;
+  };
 
   for (let i = 0; i < H; i += 1) {
     const hz = hzAt[i];
@@ -143,21 +248,28 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     const clampedHz = Math.max(xMinHz, Math.min(xMaxHz, hz));
     const t = (Math.log(clampedHz) - logXMin) / logXSpan;
     const x = pad + Math.max(0, Math.min(1, t)) * span;
-    // Relative dB: loudest partial = full height; −60 dB = zero.
-    const db = 20 * Math.log10(Math.max(1e-12, effectiveAmp[i] / maxAmp));
-    const ampT = Math.max(0, Math.min(1, (db - ampFloorDb) / -ampFloorDb));
-    const lineH = ampT * maxH;
-    if (!(lineH > 0.5)) continue;
-    const phase01 = (graph.phase[i] || 0) + masterPhase;
+    const leftH = ampToHeight(leftAmp[i]);
+    const rightH = ampToHeight(rightAmp[i]);
+    if (!(leftH > 0.5) && !(rightH > 0.5)) continue;
+
+    const phase01 = phaseAt[i] + masterPhase;
     const col = typeof additiveGraphPhaseColor === "function"
       ? additiveGraphPhaseColor(phase01)
       : { r: 224, g: 64, b: 251 };
     ctx.strokeStyle = `rgb(${col.r},${col.g},${col.b})`;
     ctx.lineWidth = lineW;
-    ctx.beginPath();
-    ctx.moveTo(x, baseY);
-    ctx.lineTo(x, baseY - lineH);
-    ctx.stroke();
+    if (leftH > 0.5) {
+      ctx.beginPath();
+      ctx.moveTo(x, midY);
+      ctx.lineTo(x, midY - leftH);
+      ctx.stroke();
+    }
+    if (rightH > 0.5) {
+      ctx.beginPath();
+      ctx.moveTo(x, midY);
+      ctx.lineTo(x, midY + rightH);
+      ctx.stroke();
+    }
   }
   section._forceDraw = false;
 }

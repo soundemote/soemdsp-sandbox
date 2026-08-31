@@ -1294,6 +1294,15 @@ function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinat
     return false;
   }
 
+  // Data plane ↔ realtime is unsupported — refuse so the UI can wire-break.
+  if (typeof nodeGraphPortIsDataPlane === "function") {
+    const srcData = nodeGraphPortIsDataPlane(sourceNode, sourcePort, "output");
+    const dstData = nodeGraphPortIsDataPlane(destinationNode, destinationPort, "input");
+    if (srcData !== dstData) {
+      return false;
+    }
+  }
+
   const duplicateIndex = nodeGraphMvp.patch.connections.findIndex(
     (connection) =>
       connection.sourceNode === sourceNode &&
@@ -1369,6 +1378,14 @@ function connectNodeGraphModulation(sourceNode, sourcePort, destinationNode, des
   if (
     !nodeGraphMvp.activeNodes.has(sourceNode) ||
     !nodeGraphMvp.activeNodes.has(destinationNode)
+  ) {
+    return false;
+  }
+
+  // Graph / data-plane outs are not realtime MOD sources — refuse + wire-break.
+  if (
+    typeof nodeGraphPortIsDataPlane === "function"
+    && nodeGraphPortIsDataPlane(sourceNode, sourcePort, "output")
   ) {
     return false;
   }

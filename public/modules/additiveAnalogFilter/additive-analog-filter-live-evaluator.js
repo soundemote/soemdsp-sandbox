@@ -1,6 +1,8 @@
-// Offline/render: Additive Analog Filter — nonlinear slope→brickwall LP/BP/HP.
+// Offline/render: Butterworth Filter (additiveAnalogFilter) — dB/oct LP/BP/HP.
 
-function nodeGraphAdditiveAnalogFilterLiveEvaluator({ node, nodeId }) {
+function nodeGraphAdditiveAnalogFilterLiveEvaluator({
+  node, nodeId, runtime, frame, frames, frameValues, sampleRate,
+}) {
   const incoming = typeof readNodeGraphDataInput === "function"
     ? readNodeGraphDataInput(String(nodeId), "Graph")
     : undefined;
@@ -16,14 +18,28 @@ function nodeGraphAdditiveAnalogFilterLiveEvaluator({ node, nodeId }) {
       const n = Number(v);
       return Number.isFinite(n) ? n : fb;
     };
-  const p = node?.parameters || {};
+  const p = node?.params || node?.parameters || {};
+  const read = (key, fallback) => (typeof nodeGraphAdditiveReadParam === "function"
+    ? nodeGraphAdditiveReadParam(node, key, fallback, runtime, frame, frames, frameValues)
+    : num(p[key], fallback));
+  const sr = Math.max(1, Number(sampleRate) || Number(runtime?.sampleRate) || 44100);
+  // F jack reserved for nonrealtime Cutoff Hz override — unimplemented.
+  const cutoffHz = read("cutoff", 2000);
+  const fundHz = typeof additiveGraphResolveFundamentalHz === "function"
+    ? additiveGraphResolveFundamentalHz({
+      graph: incoming,
+      fallback: 100,
+    })
+    : 100;
   const out = additiveGraphClonePayload(incoming);
-  additiveGraphApplyAnalogFilter(
+  additiveGraphApplyButterworthFilter(
     out,
     num(p.filter, 0),
-    num(p.cutoff, 0.5),
-    num(p.slope, 0.25),
-    num(p.skew, 0),
+    cutoffHz,
+    read("slope", 12),
+    read("skew", 0),
+    fundHz,
+    sr,
   );
   if (typeof writeNodeGraphDataOutput === "function") {
     writeNodeGraphDataOutput(String(nodeId), "Graph", out);

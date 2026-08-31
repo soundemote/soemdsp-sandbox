@@ -657,6 +657,14 @@
       );
     }
 
+    /** Data plane (Graph/Phases/…) ↔ realtime (signal / MOD) — wire break. */
+    function endpointsAreDimensionMismatch(a, b) {
+      if (typeof nodeGraphWireEndpointsDimensionMismatch === "function") {
+        return nodeGraphWireEndpointsDimensionMismatch(a, b);
+      }
+      return false;
+    }
+
     function endpointsShareNode(a, b) {
       return Boolean(a && b && a.node === b.node);
     }
@@ -673,6 +681,7 @@
           ((a.io === "output" && b.io === "graph") && nodeGraphPatchNodeType(a.node) !== "graph") ||
           ((b.io === "output" && a.io === "graph") && nodeGraphPatchNodeType(b.node) !== "graph") ||
           endpointsAreParameterAudioMismatch(a, b) ||
+          endpointsAreDimensionMismatch(a, b) ||
           endpointsAreDuplicate(a, b)),
       );
     }

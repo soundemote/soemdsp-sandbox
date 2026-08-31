@@ -1,4 +1,4 @@
-// Offline/render: NoisyAmp — CheapWalk jitter on Yellow Graph amplitude (0…1).
+// Offline/render: NoisyAmp — CheapWalk / Filtered / WhiteNoise.
 
 const nodeGraphAdditiveNoisyAmpStates = new Map();
 
@@ -18,7 +18,7 @@ function nodeGraphAdditiveNoisyAmpLiveEvaluator({ node, nodeId, sampleRate, fram
       const n = Number(v);
       return Number.isFinite(n) ? n : fb;
     };
-  const p = node?.parameters || {};
+  const p = node?.params || node?.parameters || {};
   let state = nodeGraphAdditiveNoisyAmpStates.get(String(nodeId)) || {};
   const applied = additiveGraphApplyNoisyAmp(
     additiveGraphClonePayload(incoming),
@@ -27,8 +27,14 @@ function nodeGraphAdditiveNoisyAmpLiveEvaluator({ node, nodeId, sampleRate, fram
     state.walks,
     sampleRate,
     frames,
+    num(p.noise, 0),
+    state.lerpFrom,
+    num(p.seed, 1),
   );
-  nodeGraphAdditiveNoisyAmpStates.set(String(nodeId), { walks: applied.walks });
+  nodeGraphAdditiveNoisyAmpStates.set(String(nodeId), {
+    walks: applied.walks,
+    lerpFrom: applied.lerpFrom,
+  });
   if (typeof writeNodeGraphDataOutput === "function") {
     writeNodeGraphDataOutput(String(nodeId), "Graph", applied.graph);
   }

@@ -123,25 +123,33 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
     if (this.additiveGraphPublish && this.additiveGraphPublish.size) {
       for (const [nodeId, graph] of this.additiveGraphPublish) {
         if (!graph || !graph.ratio) continue;
-        dataPorts.push([nodeId, "Graph", {
+        const panArr = graph.pan && graph.pan.length
+          ? Array.from(graph.pan)
+          : null;
+        // WhiteNoise recipes for face animation (no walks — display reseeds locally).
+        const packNoise = (n) => (n && typeof n === "object"
+          ? { mode: n.mode, amount: n.amount, seed: n.seed ?? 1 }
+          : null);
+        const noisePack = {
+          ...(packNoise(graph.ratioNoise) ? { ratioNoise: packNoise(graph.ratioNoise) } : {}),
+          ...(packNoise(graph.phaseNoise) ? { phaseNoise: packNoise(graph.phaseNoise) } : {}),
+          ...(packNoise(graph.panNoise) ? { panNoise: packNoise(graph.panNoise) } : {}),
+          ...(packNoise(graph.ampNoise) ? { ampNoise: packNoise(graph.ampNoise) } : {}),
+        };
+        const payload = {
           harmonics: graph.harmonics,
           ratio: Array.from(graph.ratio),
           phase: Array.from(graph.phase || []),
           amplitude: Array.from(graph.amplitude || []),
+          ...(panArr ? { pan: panArr } : {}),
+          ...noisePack,
           frequencyHz: graph.frequencyHz,
           masterPhase: graph.masterPhase,
           masterAmp: graph.masterAmp,
-        }]);
+        };
+        dataPorts.push([nodeId, "Graph", payload]);
         if (graph.frequencyHz != null) {
-          dataPorts.push([nodeId, "GraphView", {
-            harmonics: graph.harmonics,
-            ratio: Array.from(graph.ratio),
-            phase: Array.from(graph.phase || []),
-            amplitude: Array.from(graph.amplitude || []),
-            frequencyHz: graph.frequencyHz,
-            masterPhase: graph.masterPhase,
-            masterAmp: graph.masterAmp,
-          }]);
+          dataPorts.push([nodeId, "GraphView", { ...payload }]);
         }
       }
     }

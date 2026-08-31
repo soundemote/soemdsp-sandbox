@@ -1,4 +1,4 @@
-// Offline/render: NoisyPan — CheapWalk jitter on Yellow Graph pan (−1…+1).
+// Offline/render: NoisyPan — CheapWalk / Filtered / WhiteNoise.
 
 const nodeGraphAdditiveNoisyPanStates = new Map();
 
@@ -18,7 +18,7 @@ function nodeGraphAdditiveNoisyPanLiveEvaluator({ node, nodeId, sampleRate, fram
       const n = Number(v);
       return Number.isFinite(n) ? n : fb;
     };
-  const p = node?.parameters || {};
+  const p = node?.params || node?.parameters || {};
   let state = nodeGraphAdditiveNoisyPanStates.get(String(nodeId)) || {};
   const applied = additiveGraphApplyNoisyPan(
     additiveGraphClonePayload(incoming),
@@ -27,8 +27,14 @@ function nodeGraphAdditiveNoisyPanLiveEvaluator({ node, nodeId, sampleRate, fram
     state.walks,
     sampleRate,
     frames,
+    num(p.noise, 0),
+    state.lerpFrom,
+    num(p.seed, 1),
   );
-  nodeGraphAdditiveNoisyPanStates.set(String(nodeId), { walks: applied.walks });
+  nodeGraphAdditiveNoisyPanStates.set(String(nodeId), {
+    walks: applied.walks,
+    lerpFrom: applied.lerpFrom,
+  });
   if (typeof writeNodeGraphDataOutput === "function") {
     writeNodeGraphDataOutput(String(nodeId), "Graph", applied.graph);
   }

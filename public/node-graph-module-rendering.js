@@ -816,7 +816,7 @@ function createNodeGraphModuleElement(type, node) {
     article.append(graphShell);
   } else if (definition.layout === "sliderWidget") {
     // LayoutB (XY Pad contract): slim I/O beside a large face; Bias/control under.
-    // Plugin shelf: Knob (knob), Slider, Toggle, Momentary each pick a face.
+    // Controller shelf: Knob, Slider, Toggle, Momentary each pick a face.
     let face = null;
     if (type === "pluginSlider" && typeof createNodeGraphPluginSliderFace === "function") {
       face = createNodeGraphPluginSliderFace(node, type);

@@ -3037,9 +3037,9 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=toggle-range-1",
   "./public/modules/portal/portal-lanes.js?v=portal-rename-4x2-1",
   "./public/modules/portal/portal-math.js?v=portal-lanes-1",
-  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=finite-number-1",
+  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=domain-out-1",
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
-  "./public/node-graph-parameter-smoother-filters.js?v=smooth-3p-1",
+  "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=t-series-1",
   "./public/node-graph-efficient-product.js?v=transport-f-1",
@@ -3064,9 +3064,10 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph additive chain (efficient Live sidecar until native Yellow Graph).
-  "./public/modules/additiveGraph/additive-graph-math.js?v=noisy-hz-1",
-  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=noisy-hz-1",
-  "./public/modules/additiveGraph/additive-yellow-graph-sidecar.js?v=noisy-hz-1",
+  "./public/modules/additiveGraph/additive-graph-math.js?v=additive-smooth-1",
+  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=additive-smooth-1",
+  "./public/modules/additiveGraph/additive-param-smooth.js?v=additive-smooth-1",
+  "./public/modules/additiveGraph/additive-yellow-graph-sidecar.js?v=additive-smooth-1",
   "./public/node-live-audio-worklet-process.js?v=silence-fix-1",
 ];
 
@@ -3086,7 +3087,7 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/modules/rgbShape/rgb-shape-worklet-evaluator.js?v=heart-ssot-1",
   "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=sincos4-1",
   "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-core-1",
-  "./public/modules/additiveGraph/additive-graph-math.js?v=noisy-hz-1",
+  "./public/modules/additiveGraph/additive-graph-math.js?v=growl-hydrus-1",
   "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=noisy-hz-1",
   "./public/modules/additiveLinearFilter/additive-linear-filter-worklet-evaluator.js?v=noisy-hz-1",
   "./public/modules/additiveAnalogFilter/additive-analog-filter-worklet-evaluator.js?v=noisy-hz-1",

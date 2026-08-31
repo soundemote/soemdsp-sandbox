@@ -62,13 +62,17 @@ function nodeGraphAdditiveOutLiveEvaluator({
     });
   }
 
+  const optimizeMode = read("optimize", 0);
   const summed = additiveGraphSumSample(
     graph,
     state.phaseAcc,
     frequencyHz,
     masterPhase,
     masterAmp,
-    sampleRate
+    sampleRate,
+    frame,
+    frames,
+    optimizeMode,
   );
   state.phaseAcc = summed.phaseAcc;
 

@@ -532,6 +532,8 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
       : (parameter.constraint ? String(parameter.constraint) : ""),
     unit: parameter.unit ?? "",
     wraparound: Boolean(parameter.wraparound),
+    // Yellow Graph / explicit: param-out jack emits DOMAIN, not unit 0…1.
+    outputDomain: Boolean(parameter.outputDomain),
     visible: nodeGraphParameterDefaultVisible(parameter),
   };
   if (nodeGraphParameterNeedsDefaultModuleSmoothing(defined, parameter)) {
@@ -618,6 +620,34 @@ function nodeGraphDefaultParamMetaForType(type) {
 }
 function normalizeNodeGraphPatchMetadataAlias(alias) {
   return String(alias ?? "").trim().slice(0, 64);
+}
+
+/** Yellow Graph modules: param-out / readouts / DSP use DOMAIN (real units). */
+function nodeGraphModuleUsesYellowGraphDomainParamOut(type) {
+  const t = String(type || "");
+  if (
+    t === "additiveGenerator"
+    || t === "additiveLinearFilter"
+    || t === "additiveAnalogFilter"
+    || t === "additiveGrowl"
+    || t === "additiveNoisyFreq"
+    || t === "additiveNoisyPhase"
+    || t === "additiveNoisyPan"
+    || t === "additiveNoisyAmp"
+    || t === "additiveImage"
+    || t === "additiveOut"
+  ) {
+    return true;
+  }
+  const def = typeof nodeGraphModuleDefinitions !== "undefined"
+    ? nodeGraphModuleDefinitions[t]
+    : null;
+  if (!def) {
+    return false;
+  }
+  const dataIns = Array.isArray(def.dataInputs) ? def.dataInputs : [];
+  const dataOuts = Array.isArray(def.dataOutputs) ? def.dataOutputs : [];
+  return dataIns.includes("Graph") || dataOuts.includes("Graph");
 }
 
 function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
@@ -792,6 +822,14 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
   // Input / Output volume: always 0.0333s linear. Saved paramMeta cannot change it.
   if (nodeGraphIsHardcodedIoVolumeParam(type, key)) {
     nodeGraphApplyHardcodedIoVolumeSmoothing(normalized);
+  }
+  // Yellow Graph: param-out jacks emit DOMAIN (e.g. Phase Skew 0…1000), not 0…1.
+  if (nodeGraphModuleUsesYellowGraphDomainParamOut(type)) {
+    normalized.outputDomain = true;
+  } else if (Object.hasOwn(source, "outputDomain")) {
+    normalized.outputDomain = Boolean(source.outputDomain);
+  } else {
+    normalized.outputDomain = Boolean(fallback.outputDomain);
   }
   return normalized;
 }

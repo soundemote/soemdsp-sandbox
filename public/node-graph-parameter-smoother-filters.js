@@ -3,6 +3,12 @@
 // Smoothing SOURCE (global / internal / off / …) chooses the time constant.
 // Smoothing TYPE chooses the filter that chases the target over that time.
 //
+// GPU migration proof: each type exposes processN(state, x, cutoff, rate, N) —
+// closed-form O(1) block advance for linear/1P/2P/3P (held target). Papoulis
+// stays CPU/wasm-only; GPU / Additive use nodeGraphParameterSmootherGpuSafeType
+// (Π → 3P). Quantum / Control block paths should call
+// nodeGraphParameterSmootherFilterAdvance, not a JS sample for-loop.
+//
 // Register new types with nodeGraphRegisterParameterSmootherFilter(...).
 // Types:
 //   linear    — time-based linear lerp (L): always takes the full smoothing time
@@ -71,6 +77,17 @@ function nodeGraphParameterSmootherUsesFilter(typeOrMetadata) {
   return type !== "none";
 }
 
+/**
+ * GPU / efficient Additive: Papoulis (Π) is wasm-only and not in the GPU set.
+ * Map Π → 3P (closest steeper real-pole chase). CPU Control rails keep real Π.
+ */
+function nodeGraphParameterSmootherGpuSafeType(typeOrMetadata) {
+  const type = typeof typeOrMetadata === "object" && typeOrMetadata
+    ? normalizeNodeGraphParameterSmootherFilterType(typeOrMetadata.smoothingType)
+    : normalizeNodeGraphParameterSmootherFilterType(typeOrMetadata);
+  return type === "papoulis" ? "threePole" : type;
+}
+
 // Legacy alias used in some metadata paths.
 function normalizeNodeGraphMetadataSmoothingType(value) {
   return normalizeNodeGraphParameterSmootherFilterType(value);
@@ -107,20 +124,45 @@ function nodeGraphEnsureParameterSmootherFilterState(smoother, type) {
 
 /**
  * Advance one sample of parameter-edit smoothing.
+ * Prefer nodeGraphParameterSmootherFilterAdvance for block/quantum jumps
+ * (GPU-shaped: one closed-form N-step update per param).
  * @returns {number} smoothed normalized signal (0..1-ish parameter space)
  */
 function nodeGraphParameterSmootherFilterSample(smoother, input, cutoffHz, sampleRate) {
+  return nodeGraphParameterSmootherFilterAdvance(smoother, input, cutoffHz, sampleRate, 1);
+}
+
+/**
+ * Advance N samples in one call (held target). GPU migration proof:
+ * linear / 1P / 2P / 3P use closed-form O(1); Papoulis uses native block
+ * advance when available, else N× sample (same end state as a Control buffer).
+ * @returns {number} end-of-block smoothed normalized signal
+ */
+function nodeGraphParameterSmootherFilterAdvance(smoother, input, cutoffHz, sampleRate, frames) {
   const type = normalizeNodeGraphParameterSmootherFilterType(
     smoother?.smoothingType || smoother?.metadata?.smoothingType,
   );
   const impl = nodeGraphParameterSmootherFilterImpl(type);
   const state = nodeGraphEnsureParameterSmootherFilterState(smoother, type);
   const target = Number(input) || 0;
-  if (!impl) {
-    smoother.outputBuffer = target;
-    return smoother.outputBuffer;
+  const n = Math.max(0, Math.floor(Number(frames) || 0));
+  if (!impl || n <= 0) {
+    if (!impl) {
+      smoother.outputBuffer = target;
+    }
+    return smoother.outputBuffer ?? target;
   }
-  let out = impl.process(state, target, Number(cutoffHz) || 0, Number(sampleRate) || 44100);
+  const cutoff = Number(cutoffHz) || 0;
+  const rate = Number(sampleRate) || 44100;
+  let out;
+  if (typeof impl.processN === "function") {
+    out = impl.processN(state, target, cutoff, rate, n);
+  } else {
+    out = Number(state.outputBuffer) || 0;
+    for (let i = 0; i < n; i += 1) {
+      out = impl.process(state, target, cutoff, rate);
+    }
+  }
   // Precision floor: non-linear filters never hit the target; snap when close.
   if (Math.abs(out - target) <= nodeGraphParameterSmootherConvergenceEpsilon) {
     if (impl.snap) {
@@ -130,7 +172,6 @@ function nodeGraphParameterSmootherFilterSample(smoother, input, cutoffHz, sampl
     }
     out = target;
   }
-  // Keep the legacy one-pole field in sync for needsWork / settle checks.
   smoother.outputBuffer = out;
   return out;
 }
@@ -156,6 +197,67 @@ function nodeGraphParameterSmootherFilterSnap(smoother, targetSignal) {
 // exactly `seconds` — independent of distance (0.01-range and full-range
 // moves both take the full smoothing time). Cheap and exact.
 
+/** Shared: retarget linear ramp state for a held target (0 samples advanced). */
+function nodeGraphParameterSmootherLinearPrepare(state, input, frequency, rate) {
+  const prev = Number(state.outputBuffer) || 0;
+  const target = Number.isFinite(Number(input)) ? Number(input) : prev;
+  const safeRate = Math.max(1, Number(rate) || 44100);
+  const freq = Math.max(0, Number(frequency) || 0);
+  if (freq <= 0) {
+    state.outputBuffer = target;
+    state.rampFrom = target;
+    state.rampTo = target;
+    state.rampSamples = 0;
+    state.rampDuration = 0;
+    return { target, done: true };
+  }
+  const durationSamples = Math.max(1, Math.round(safeRate / freq));
+  const prevTarget = Number(state.rampTo);
+  const targetChanged = !Number.isFinite(prevTarget)
+    || Math.abs(prevTarget - target) > nodeGraphParameterSmootherConvergenceEpsilon;
+  if (targetChanged) {
+    state.rampFrom = prev;
+    state.rampTo = target;
+    state.rampSamples = 0;
+    state.rampDuration = durationSamples;
+  } else if (
+    (Number(state.rampDuration) || 0) > 0
+    && (Number(state.rampDuration) || 0) !== durationSamples
+  ) {
+    const oldDur = Math.max(1, Number(state.rampDuration) || durationSamples);
+    const progress = Math.min(1, (Number(state.rampSamples) || 0) / oldDur);
+    state.rampDuration = durationSamples;
+    state.rampSamples = Math.floor(progress * durationSamples);
+  }
+  if (Math.abs(prev - target) <= nodeGraphParameterSmootherConvergenceEpsilon
+    && (Number(state.rampSamples) || 0) >= (Number(state.rampDuration) || 0)) {
+    state.outputBuffer = target;
+    return { target, done: true };
+  }
+  return { target, done: false, durationSamples };
+}
+
+/** Closed-form: jump rampSamples by N, emit end value (GPU-shaped). */
+function nodeGraphParameterSmootherLinearAdvanceN(state, input, frequency, rate, frames) {
+  const prep = nodeGraphParameterSmootherLinearPrepare(state, input, frequency, rate);
+  const target = prep.target;
+  if (prep.done || frames <= 0) {
+    return target;
+  }
+  const duration = Math.max(1, Number(state.rampDuration) || prep.durationSamples || 1);
+  state.rampSamples = (Number(state.rampSamples) || 0) + frames;
+  if (state.rampSamples >= duration) {
+    state.outputBuffer = target;
+    state.rampFrom = target;
+    state.rampTo = target;
+    return target;
+  }
+  const from = Number.isFinite(Number(state.rampFrom)) ? Number(state.rampFrom) : (Number(state.outputBuffer) || 0);
+  const out = from + (target - from) * (state.rampSamples / duration);
+  state.outputBuffer = out;
+  return out;
+}
+
 nodeGraphRegisterParameterSmootherFilter("linear", {
   createState(initial = 0) {
     const v = Number(initial) || 0;
@@ -168,59 +270,10 @@ nodeGraphRegisterParameterSmootherFilter("linear", {
     };
   },
   process(state, input, frequency, rate) {
-    const prev = Number(state.outputBuffer) || 0;
-    const target = Number.isFinite(Number(input)) ? Number(input) : prev;
-    const safeRate = Math.max(1, Number(rate) || 44100);
-    const freq = Math.max(0, Number(frequency) || 0);
-    if (freq <= 0) {
-      state.outputBuffer = target;
-      state.rampFrom = target;
-      state.rampTo = target;
-      state.rampSamples = 0;
-      state.rampDuration = 0;
-      return target;
-    }
-    // seconds = 1/freq → sample count for a complete move.
-    const durationSamples = Math.max(1, Math.round(safeRate / freq));
-    const prevTarget = Number(state.rampTo);
-    const targetChanged = !Number.isFinite(prevTarget)
-      || Math.abs(prevTarget - target) > nodeGraphParameterSmootherConvergenceEpsilon;
-    if (targetChanged) {
-      state.rampFrom = prev;
-      state.rampTo = target;
-      state.rampSamples = 0;
-      state.rampDuration = durationSamples;
-    } else if (
-      (Number(state.rampDuration) || 0) > 0
-      && (Number(state.rampDuration) || 0) !== durationSamples
-    ) {
-      // Smooth Time changed mid-ramp: keep progress ratio, retarget length.
-      const oldDur = Math.max(1, Number(state.rampDuration) || durationSamples);
-      const progress = Math.min(1, (Number(state.rampSamples) || 0) / oldDur);
-      state.rampDuration = durationSamples;
-      state.rampSamples = Math.floor(progress * durationSamples);
-    }
-
-    // Already at target (e.g. after settle).
-    if (Math.abs(prev - target) <= nodeGraphParameterSmootherConvergenceEpsilon
-      && (Number(state.rampSamples) || 0) >= (Number(state.rampDuration) || 0)) {
-      state.outputBuffer = target;
-      return target;
-    }
-
-    state.rampSamples = (Number(state.rampSamples) || 0) + 1;
-    const duration = Math.max(1, Number(state.rampDuration) || durationSamples);
-    if (state.rampSamples >= duration) {
-      state.outputBuffer = target;
-      state.rampFrom = target;
-      state.rampTo = target;
-      return target;
-    }
-    const t = state.rampSamples / duration;
-    const from = Number.isFinite(Number(state.rampFrom)) ? Number(state.rampFrom) : prev;
-    const out = from + (target - from) * t;
-    state.outputBuffer = out;
-    return out;
+    return nodeGraphParameterSmootherLinearAdvanceN(state, input, frequency, rate, 1);
+  },
+  processN(state, input, frequency, rate, frames) {
+    return nodeGraphParameterSmootherLinearAdvanceN(state, input, frequency, rate, frames);
   },
   snap(state, target) {
     const v = Number(target) || 0;
@@ -243,23 +296,79 @@ nodeGraphRegisterParameterSmootherFilter("none", {
     state.outputBuffer = x;
     return x;
   },
+  processN(state, input) {
+    const x = Number.isFinite(Number(input)) ? Number(input) : (state.outputBuffer || 0);
+    state.outputBuffer = x;
+    return x;
+  },
   snap(state, target) {
     state.outputBuffer = Number(target) || 0;
   },
 });
 
-/** Shared one-pole step used by 1P and cascaded 2P. */
-function nodeGraphParameterSmootherOnePoleStep(stateKey, state, input, frequency, rate) {
+/** Shared one-pole coeffs (must match historical worklet / Control path). */
+function nodeGraphParameterSmootherOnePoleCoeffs(frequency, rate) {
   const safeRate = Math.max(1, Number(rate) || 44100);
-  const prev = Number(state[stateKey]) || 0;
-  const safeInput = Number.isFinite(Number(input)) ? Number(input) : prev;
   const frequencyValue = Math.max(0, Number.isFinite(Number(frequency)) ? Number(frequency) : 0);
   const w = Math.min((Math.PI * 2) / safeRate, 0.000142475857) * frequencyValue;
   const a1 = Math.exp(-w);
-  const b0 = 1 - a1;
+  return { a1, b0: 1 - a1 };
+}
+
+/** Shared one-pole step used by 1P and cascaded 2P/3P. */
+function nodeGraphParameterSmootherOnePoleStep(stateKey, state, input, frequency, rate) {
+  const prev = Number(state[stateKey]) || 0;
+  const safeInput = Number.isFinite(Number(input)) ? Number(input) : prev;
+  const { a1, b0 } = nodeGraphParameterSmootherOnePoleCoeffs(frequency, rate);
   const out = b0 * safeInput + a1 * prev;
   state[stateKey] = out;
   return out;
+}
+
+/**
+ * Closed-form N-step advance for cascaded identical one-poles (step input).
+ * stages: mutable array [s1, s2, …, sOut]; last entry is the audible output.
+ * GPU-shaped: one pow + O(poles) arithmetic, not N sample loops.
+ */
+function nodeGraphParameterSmootherCascadedOnePoleAdvanceN(stages, input, frequency, rate, frames) {
+  const n = Math.max(0, Math.floor(Number(frames) || 0));
+  const x = Number.isFinite(Number(input)) ? Number(input) : (Number(stages[stages.length - 1]) || 0);
+  if (n <= 0) {
+    return Number(stages[stages.length - 1]) || 0;
+  }
+  const { a1 } = nodeGraphParameterSmootherOnePoleCoeffs(frequency, rate);
+  if (!(a1 > 0) || a1 >= 1) {
+    for (let i = 0; i < stages.length; i += 1) {
+      stages[i] = x;
+    }
+    return x;
+  }
+  const aN = Math.pow(a1, n);
+  const oneMinus = 1 - a1;
+  const errors = stages.map((s) => (Number(s) || 0) - x);
+  // Identical-pole cascade step responses (derived from the sample recurrence).
+  // 1P: e1' = e1 * a^n
+  // 2P: e2' = a^n * (e2 + n(1-a)e1)
+  // 3P: e3' = a^n * (e3 + n(1-a)e2 + n(n+1)/2 (1-a)^2 e1)
+  const next = new Array(errors.length);
+  if (errors.length >= 1) {
+    next[0] = errors[0] * aN;
+  }
+  if (errors.length >= 2) {
+    next[1] = aN * (errors[1] + n * oneMinus * errors[0]);
+  }
+  if (errors.length >= 3) {
+    next[2] = aN * (
+      errors[2]
+      + n * oneMinus * errors[1]
+      + (n * (n + 1) * 0.5) * oneMinus * oneMinus * errors[0]
+    );
+  }
+  // 4+ poles not used; fall back would be sample loop — keep stages ≤ 3.
+  for (let i = 0; i < stages.length; i += 1) {
+    stages[i] = x + (next[i] || 0);
+  }
+  return stages[stages.length - 1];
 }
 
 // ── one-pole (default, matches historical parameter smoothing) ───────────
@@ -269,9 +378,14 @@ nodeGraphRegisterParameterSmootherFilter("onePole", {
     return { outputBuffer: Number(initial) || 0 };
   },
   process(state, input, frequency, rate) {
-    // Same coefficient path as nodeGraphOnePoleParameterLowpassSample /
-    // worklet onePoleLowpassSample (edit-smoothing time → “frequency”).
-    const out = nodeGraphParameterSmootherOnePoleStep("outputBuffer", state, input, frequency, rate);
+    return nodeGraphParameterSmootherOnePoleStep("outputBuffer", state, input, frequency, rate);
+  },
+  processN(state, input, frequency, rate, frames) {
+    const stages = [Number(state.outputBuffer) || 0];
+    const out = nodeGraphParameterSmootherCascadedOnePoleAdvanceN(
+      stages, input, frequency, rate, frames,
+    );
+    state.outputBuffer = out;
     return out;
   },
   snap(state, target) {
@@ -292,7 +406,15 @@ nodeGraphRegisterParameterSmootherFilter("twoPole", {
   },
   process(state, input, frequency, rate) {
     const s1 = nodeGraphParameterSmootherOnePoleStep("stage1", state, input, frequency, rate);
-    const out = nodeGraphParameterSmootherOnePoleStep("outputBuffer", state, s1, frequency, rate);
+    return nodeGraphParameterSmootherOnePoleStep("outputBuffer", state, s1, frequency, rate);
+  },
+  processN(state, input, frequency, rate, frames) {
+    const stages = [Number(state.stage1) || 0, Number(state.outputBuffer) || 0];
+    const out = nodeGraphParameterSmootherCascadedOnePoleAdvanceN(
+      stages, input, frequency, rate, frames,
+    );
+    state.stage1 = stages[0];
+    state.outputBuffer = out;
     return out;
   },
   snap(state, target) {
@@ -317,7 +439,20 @@ nodeGraphRegisterParameterSmootherFilter("threePole", {
   process(state, input, frequency, rate) {
     const s1 = nodeGraphParameterSmootherOnePoleStep("stage1", state, input, frequency, rate);
     const s2 = nodeGraphParameterSmootherOnePoleStep("stage2", state, s1, frequency, rate);
-    const out = nodeGraphParameterSmootherOnePoleStep("outputBuffer", state, s2, frequency, rate);
+    return nodeGraphParameterSmootherOnePoleStep("outputBuffer", state, s2, frequency, rate);
+  },
+  processN(state, input, frequency, rate, frames) {
+    const stages = [
+      Number(state.stage1) || 0,
+      Number(state.stage2) || 0,
+      Number(state.outputBuffer) || 0,
+    ];
+    const out = nodeGraphParameterSmootherCascadedOnePoleAdvanceN(
+      stages, input, frequency, rate, frames,
+    );
+    state.stage1 = stages[0];
+    state.stage2 = stages[1];
+    state.outputBuffer = out;
     return out;
   },
   snap(state, target) {
@@ -392,6 +527,40 @@ nodeGraphRegisterParameterSmootherFilter("papoulis", {
     // No native host / failure: dry (no JS Papoulis).
     state.outputBuffer = x;
     return x;
+  },
+  // GPU path wants host.sampleN / block advance. Until that exists, N× sample
+  // matches Control-buffer truth (deterministic; not a JS filter reimpl).
+  processN(state, input, frequency, rate, frames) {
+    const n = Math.max(0, Math.floor(Number(frames) || 0));
+    const host = nodeGraphPapoulisParameterSmootherNativeHost;
+    const x = Number.isFinite(Number(input)) ? Number(input) : (state.outputBuffer || 0);
+    if (n <= 0) {
+      return Number(state.outputBuffer) || 0;
+    }
+    if (host?.ready && host.sampleN && host.create) {
+      try {
+        if (!state.nativeHandle) {
+          state.nativeHandle = host.create() || 0;
+        }
+        if (state.nativeHandle) {
+          const out = Number(host.sampleN(
+            state.nativeHandle, x, Math.max(0, Number(frequency) || 0),
+            Math.max(1, Number(rate) || 44100), n,
+          ));
+          if (Number.isFinite(out)) {
+            state.outputBuffer = out;
+            return out;
+          }
+        }
+      } catch (_error) {
+        nodeGraphDestroyPapoulisParameterSmootherNativeState(state);
+      }
+    }
+    let out = Number(state.outputBuffer) || 0;
+    for (let i = 0; i < n; i += 1) {
+      out = this.process(state, input, frequency, rate);
+    }
+    return out;
   },
   snap(state, target) {
     const v = Number(target) || 0;

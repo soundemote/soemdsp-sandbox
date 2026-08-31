@@ -1,4 +1,4 @@
-// Offline/render: NoisyPhase — CheapWalk jitter on Yellow Graph phase.
+// Offline/render: NoisyPhase — CheapWalk / Filtered / WhiteNoise.
 
 const nodeGraphAdditiveNoisyPhaseStates = new Map();
 
@@ -18,7 +18,7 @@ function nodeGraphAdditiveNoisyPhaseLiveEvaluator({ node, nodeId, sampleRate, fr
       const n = Number(v);
       return Number.isFinite(n) ? n : fb;
     };
-  const p = node?.parameters || {};
+  const p = node?.params || node?.parameters || {};
   let state = nodeGraphAdditiveNoisyPhaseStates.get(String(nodeId)) || {};
   const applied = additiveGraphApplyNoisyPhase(
     additiveGraphClonePayload(incoming),
@@ -27,8 +27,14 @@ function nodeGraphAdditiveNoisyPhaseLiveEvaluator({ node, nodeId, sampleRate, fr
     state.walks,
     sampleRate,
     frames,
+    num(p.noise, 0),
+    state.lerpFrom,
+    num(p.seed, 1),
   );
-  nodeGraphAdditiveNoisyPhaseStates.set(String(nodeId), { walks: applied.walks });
+  nodeGraphAdditiveNoisyPhaseStates.set(String(nodeId), {
+    walks: applied.walks,
+    lerpFrom: applied.lerpFrom,
+  });
   if (typeof writeNodeGraphDataOutput === "function") {
     writeNodeGraphDataOutput(String(nodeId), "Graph", applied.graph);
   }

@@ -1,4 +1,4 @@
-// Worklet: NoisyAmp — Yellow Graph amplitude walks once per quantum.
+// Worklet: NoisyAmp — CheapWalk / Filtered / WhiteNoise once per quantum.
 
 NodeLiveAudioProcessor.prototype.additiveNoisyAmpWorkletEvaluate = function additiveNoisyAmpWorkletEvaluate(
   node, nodeId, frame, frames,
@@ -11,7 +11,7 @@ NodeLiveAudioProcessor.prototype.additiveNoisyAmpWorkletEvaluate = function addi
     this.additiveGraphWrite(nodeId, null);
     return;
   }
-  const p = node?.parameters || {};
+  const p = node?.params || node?.parameters || {};
   const num = typeof nodeGraphFiniteNumber === "function" ? nodeGraphFiniteNumber : (v, fb) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : fb;
@@ -24,7 +24,13 @@ NodeLiveAudioProcessor.prototype.additiveNoisyAmpWorkletEvaluate = function addi
     state.walks,
     this.engineSampleRate || sampleRate,
     frames,
+    num(p.noise, 0),
+    state.lerpFrom,
+    num(p.seed, 1),
   );
-  this.additiveNoisyAmpStates.set(String(nodeId), { walks: applied.walks });
+  this.additiveNoisyAmpStates.set(String(nodeId), {
+    walks: applied.walks,
+    lerpFrom: applied.lerpFrom,
+  });
   this.additiveGraphWrite(nodeId, applied.graph);
 };

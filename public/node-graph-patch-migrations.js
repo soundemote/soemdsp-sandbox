@@ -113,6 +113,128 @@ function nodeGraphPatchMigrateSineWavetableDropAmplitudeJack(patch) {
 }
 
 /**
+ * Butterworth Filter (additiveAnalogFilter) Slope: old 0…1 → dB/oct.
+ * Linear Filter keeps 0…1; if it was wrongly migrated to dB (>1), map back.
+ */
+function nodeGraphPatchMigrateAdditiveFilterSlopeToDbOct(patch) {
+  if (!patch || !Array.isArray(patch.nodes)) {
+    return patch;
+  }
+  let changed = false;
+  const nodes = patch.nodes.map((node) => {
+    const type = node && String(node.type || "").trim();
+    if (type !== "additiveLinearFilter" && type !== "additiveAnalogFilter") {
+      return node;
+    }
+    const bump = (bag) => {
+      if (!bag || bag.slope == null) return bag;
+      const n = Number(bag.slope);
+      if (!Number.isFinite(n)) return bag;
+      if (type === "additiveAnalogFilter") {
+        if (n > 1) return bag; // already dB/oct
+        changed = true;
+        const db = n <= 0 ? 96 : Math.max(6, Math.min(96, 6 / n));
+        return { ...bag, slope: db };
+      }
+      // Linear: 0…1 rational slope. Undo mistaken dB values.
+      if (n > 1) {
+        changed = true;
+        return { ...bag, slope: Math.max(0, Math.min(1, 6 / n)) };
+      }
+      return bag;
+    };
+    const next = { ...node };
+    if (node.params && typeof node.params === "object") {
+      next.params = bump({ ...node.params });
+    }
+    if (node.parameters && typeof node.parameters === "object") {
+      next.parameters = bump({ ...node.parameters });
+    }
+    return next;
+  });
+  return changed ? { ...patch, nodes } : patch;
+}
+
+/**
+ * NoisyFreq Amount (0…1, hidden ×0.5) → Add (ratio add DOMAIN).
+ * add = amount * 0.5 so existing patches keep the same depth.
+ */
+function nodeGraphPatchMigrateNoisyFreqAmountToAdd(patch) {
+  if (!patch || !Array.isArray(patch.nodes)) {
+    return patch;
+  }
+  let changed = false;
+  const nodes = patch.nodes.map((node) => {
+    if (!node || String(node.type || "").trim() !== "additiveNoisyFreq") {
+      return node;
+    }
+    const params = node.params && typeof node.params === "object" ? { ...node.params } : {};
+    const parameters = node.parameters && typeof node.parameters === "object"
+      ? { ...node.parameters }
+      : null;
+    const hasAdd = (params.add != null && Number.isFinite(Number(params.add)))
+      || (parameters && parameters.add != null && Number.isFinite(Number(parameters.add)));
+    if (hasAdd) return node;
+    const src = params.amount != null ? params : parameters;
+    if (!src || src.amount == null) return node;
+    const n = Number(src.amount);
+    if (!Number.isFinite(n)) return node;
+    changed = true;
+    const add = n * 0.5;
+    const next = { ...node };
+    if (params.amount != null || Object.keys(params).length) {
+      const p = { ...params, add };
+      delete p.amount;
+      next.params = p;
+    }
+    if (parameters && (parameters.amount != null || parameters.add == null)) {
+      const p = { ...parameters, add };
+      delete p.amount;
+      next.parameters = p;
+    }
+    return next;
+  });
+  return changed ? { ...patch, nodes } : patch;
+}
+
+/**
+ * Additive Linear / Analog Filter Cutoff was harmonic-index 0…1.
+ * Now absolute Hz (kind frequency). Values in (0…1] remap → Hz via ×20000.
+ */
+function nodeGraphPatchMigrateAdditiveFilterCutoffToHz(patch) {
+  if (!patch || !Array.isArray(patch.nodes)) {
+    return patch;
+  }
+  let changed = false;
+  const nodes = patch.nodes.map((node) => {
+    const type = node && String(node.type || "").trim();
+    if (type !== "additiveLinearFilter" && type !== "additiveAnalogFilter") {
+      return node;
+    }
+    const params = node.params && typeof node.params === "object" ? { ...node.params } : {};
+    const parameters = node.parameters && typeof node.parameters === "object"
+      ? { ...node.parameters }
+      : null;
+    const src = params.cutoff != null ? params : parameters;
+    if (!src || src.cutoff == null) return node;
+    const n = Number(src.cutoff);
+    if (!Number.isFinite(n) || n <= 0 || n > 1) return node;
+    // Old normalized index → Hz (same span as Cutoff max).
+    const hz = n * 20000;
+    changed = true;
+    const next = { ...node };
+    if (params.cutoff != null) {
+      next.params = { ...params, cutoff: hz };
+    }
+    if (parameters && parameters.cutoff != null) {
+      next.parameters = { ...parameters, cutoff: hz };
+    }
+    return next;
+  });
+  return changed ? { ...patch, nodes } : patch;
+}
+
+/**
  * Output / Plugin Output Volume used to store 0…1 linear amplitude.
  * Stored value is now dB (DecibelsToAmplitude): DSP = 10^(dB/20), −∞ floor −140.
  * Old patches (kind not decibels, max ≤ 1, value in 0…1) are converted in place.
@@ -340,6 +462,9 @@ function migrateNodeGraphPatchToCurrent(patch) {
     next = nodeGraphPatchMigratePhosphorLightNodes(next);
     next = nodeGraphPatchMigrateValueSliderToKnob(next);
     next = nodeGraphPatchMigrateSineWavetableDropAmplitudeJack(next);
+    next = nodeGraphPatchMigrateAdditiveFilterCutoffToHz(next);
+    next = nodeGraphPatchMigrateAdditiveFilterSlopeToDbOct(next);
+    next = nodeGraphPatchMigrateNoisyFreqAmountToAdd(next);
     next = nodeGraphPatchMigrateOutputVolumeLinearToDb(next);
     next = nodeGraphPatchMigrateMidSideGainLinearToDb(next);
   }

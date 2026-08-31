@@ -154,6 +154,7 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "output",
   "audioInput",
   "rms",
+  "additiveLinearFilter",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
@@ -194,6 +195,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   ePiano: "GM electric piano. Parked until sample/MIDI voices exist.",
   percussion: "GM channel-10 kit. Parked until sample/MIDI voices exist.",
   theremin: "Proximity pitch/volume. Parked until that controller lands.",
+  additiveImage: "Image→partials. Parked until image analysis ships.",
   audioInput: "Live mic/line in. Parked until host capture is wired.",
   pluginInput: "Plugin stereo in. Parked until plugin I/O ships.",
   pluginOutput: "Plugin stereo out. Parked until plugin I/O ships.",
@@ -216,7 +218,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
 // strings and mismatched keys between them.
 const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "portal",       emoji: "🌐", label: "Portal",       symbol: "IO",  title: "Portals",   pitch: "Patch boundary portals for moving left, right, and mono signal lanes between rooms, templates, and larger circuits." },
-  { id: "controller",   emoji: "🕹️", label: "Controller",   symbol: "⌘",   title: "Controllers", pitch: "Input devices and control bridges for keyboards, MIDI, gamepads, and external gestures." },
+  { id: "controller",   emoji: "🕹️", label: "Controller",   symbol: "⌘",   title: "Controllers", pitch: "Face controls and input bridges: knobs, sliders, buttons, XY pads, MIDI, macros, and external gestures." },
   { id: "oscillator",   emoji: "〰️", label: "Oscillator",   symbol: "∿",   title: "Oscillator", pitch: "Voices and raw tones: classic waves, tables, sync, supersaws, and other things that start a sound." },
   { id: "modulator",    emoji: "♾️", label: "Modulator",    symbol: "⇄",   title: "Modulator", pitch: "Motion sources for pitch, amplitude, time, and texture. Small control engines that make patches move." },
   { id: "additive",     emoji: "📊", label: "Additive",     symbol: "∑",   title: "Additive",   pitch: "Harmonic-stack voices: build timbre from partials, not a single waveform." },
@@ -423,15 +425,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   additiveLinearFilter: {
     category: "additive",
-    description: "Linear slope→brickwall Yellow Graph filter with LP / BP / HP. Face shows the response curve.",
+    description: "Rational-curve spectral filter (LP/BP/HP). Cutoff Hz; Slope brickwall→gradual; Skew bends the skirt.",
     label: "Linear Filter",
-    notes: ["additive", "yellow graph", "filter", "brickwall", "LP", "BP", "HP"],
+    notes: ["additive", "yellow graph", "filter", "rational", "skew", "LP", "BP", "HP"],
   },
   additiveAnalogFilter: {
     category: "additive",
-    description: "Nonlinear (rational) slope→brickwall Yellow Graph filter with LP / BP / HP + Skew.",
-    label: "Analog Filter",
-    notes: ["additive", "yellow graph", "filter", "analog", "skew"],
+    description: "Butterworth spectral filter (LP/BP/HP). Cutoff Hz; Slope in dB/oct; Skew warps log(f/fc).",
+    label: "Butterworth Filter",
+    notes: ["additive", "yellow graph", "filter", "butterworth", "dB/oct", "LP", "BP", "HP"],
   },
   additiveGrowl: {
     category: "additive",

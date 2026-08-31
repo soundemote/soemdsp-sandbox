@@ -377,12 +377,11 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
 }
 
 /**
- * Yellow Graph chunk ports (CMYK Y).
- * Data-plane once-per-quantum payload (e.g. harmonic {phase,ratio,amp}),
- * not audio-rate samples. Listed in dataInputs / dataOutputs as "Graph",
- * or graphChunkInputs/Outputs.
+ * Data plane (non-realtime): whole values published once (arrays, Graph
+ * chunks, strings, …). Declared on dataInputs / dataOutputs, or
+ * graphChunkInputs / graphChunkOutputs. Not sample-accurate CV/audio.
  */
-function nodeGraphPortIsGraphChunkSignal(typeOrNode, port, io = null) {
+function nodeGraphPortIsDataPlane(typeOrNode, port, io = null) {
   const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
     ? typeOrNode
     : nodeGraphPatchNodeType(typeOrNode);
@@ -391,13 +390,48 @@ function nodeGraphPortIsGraphChunkSignal(typeOrNode, port, io = null) {
     return false;
   }
   const name = String(port || "").trim();
+  if (!name) {
+    return false;
+  }
+  if (io !== "output") {
+    if (Array.isArray(definition.dataInputs) && definition.dataInputs.includes(name)) {
+      return true;
+    }
+    if (Array.isArray(definition.graphChunkInputs) && definition.graphChunkInputs.includes(name)) {
+      return true;
+    }
+  }
+  if (io !== "input") {
+    if (Array.isArray(definition.dataOutputs) && definition.dataOutputs.includes(name)) {
+      return true;
+    }
+    if (Array.isArray(definition.graphChunkOutputs) && definition.graphChunkOutputs.includes(name)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Yellow Graph chunk ports (CMYK Y).
+ * Data-plane once-per-quantum payload (e.g. harmonic {phase,ratio,amp}),
+ * not audio-rate samples. Listed in dataInputs / dataOutputs as "Graph",
+ * or graphChunkInputs/Outputs.
+ */
+function nodeGraphPortIsGraphChunkSignal(typeOrNode, port, io = null) {
+  if (!nodeGraphPortIsDataPlane(typeOrNode, port, io)) {
+    return false;
+  }
+  const name = String(port || "").trim();
   if (name === "Graph") {
-    if (io !== "output" && Array.isArray(definition.dataInputs) && definition.dataInputs.includes(name)) {
-      return true;
-    }
-    if (io !== "input" && Array.isArray(definition.dataOutputs) && definition.dataOutputs.includes(name)) {
-      return true;
-    }
+    return true;
+  }
+  const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
+    ? typeOrNode
+    : nodeGraphPatchNodeType(typeOrNode);
+  const definition = nodeGraphModuleDefinitions[type];
+  if (!definition) {
+    return false;
   }
   if (io !== "output" && Array.isArray(definition.graphChunkInputs) && definition.graphChunkInputs.includes(name)) {
     return true;
@@ -406,6 +440,34 @@ function nodeGraphPortIsGraphChunkSignal(typeOrNode, port, io = null) {
     return true;
   }
   return false;
+}
+
+/** Wire endpoint on the data plane (Graph jack io, or data I/O port). */
+function nodeGraphWireEndpointIsDataPlane(endpoint) {
+  if (!endpoint) {
+    return false;
+  }
+  if (endpoint.io === "graph") {
+    return true;
+  }
+  if (endpoint.io === "modulation") {
+    return false;
+  }
+  if (endpoint.io === "input" || endpoint.io === "output") {
+    return nodeGraphPortIsDataPlane(endpoint.node, endpoint.port, endpoint.io);
+  }
+  return false;
+}
+
+/**
+ * Explicit cross-dimension: data plane ↔ realtime (signal / MOD).
+ * Same-plane (Graph→Graph, Mono→MOD) is fine; mismatch should wire-break.
+ */
+function nodeGraphWireEndpointsDimensionMismatch(a, b) {
+  if (!a || !b) {
+    return false;
+  }
+  return nodeGraphWireEndpointIsDataPlane(a) !== nodeGraphWireEndpointIsDataPlane(b);
 }
 
 /**

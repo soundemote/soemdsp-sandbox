@@ -21,7 +21,7 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
   // ZOH capture on first frame of the quantum.
   if (frame === 0) {
     state.heldGraph = graph;
-    const p = node?.parameters || {};
+    const p = node?.params || node?.parameters || {};
     const referenceVoltage = 48 / 120;
     let frequencyHz = Number(p.frequency);
     if (!Number.isFinite(frequencyHz)) frequencyHz = 100;
@@ -74,13 +74,17 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
       : base * Math.pow(2, (pitchCv - referenceVoltage) / 0.1);
   }
 
+  const optimizeMode = Number(node?.params?.optimize ?? node?.parameters?.optimize);
   const summed = additiveGraphSumSample(
     g,
     state.phaseAcc,
     freq,
     state.heldPhase,
     state.heldAmp,
-    safeRate || this.engineSampleRate || sampleRate
+    safeRate || this.engineSampleRate || sampleRate,
+    frame,
+    frames,
+    Number.isFinite(optimizeMode) ? optimizeMode : 0,
   );
   state.phaseAcc = summed.phaseAcc;
 

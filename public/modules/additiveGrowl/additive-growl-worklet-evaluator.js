@@ -10,7 +10,7 @@ NodeLiveAudioProcessor.prototype.additiveGrowlWorkletEvaluate = function additiv
     this.additiveGraphWrite(nodeId, null);
     return;
   }
-  const p = node?.parameters || {};
+  const p = node?.params || node?.parameters || {};
   const num = typeof nodeGraphFiniteNumber === "function" ? nodeGraphFiniteNumber : (v, fb) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : fb;

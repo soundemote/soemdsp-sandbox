@@ -1,6 +1,8 @@
-// Offline/render: Additive Linear Filter — Yellow Graph LP/BP/HP slope→brickwall.
+// Offline/render: Additive Linear Filter — rational-curve LP/BP/HP in absolute Hz.
 
-function nodeGraphAdditiveLinearFilterLiveEvaluator({ node, nodeId }) {
+function nodeGraphAdditiveLinearFilterLiveEvaluator({
+  node, nodeId, runtime, frame, frames, frameValues, sampleRate,
+}) {
   const incoming = typeof readNodeGraphDataInput === "function"
     ? readNodeGraphDataInput(String(nodeId), "Graph")
     : undefined;
@@ -16,13 +18,27 @@ function nodeGraphAdditiveLinearFilterLiveEvaluator({ node, nodeId }) {
       const n = Number(v);
       return Number.isFinite(n) ? n : fb;
     };
-  const p = node?.parameters || {};
+  const p = node?.params || node?.parameters || {};
+  const read = (key, fallback) => (typeof nodeGraphAdditiveReadParam === "function"
+    ? nodeGraphAdditiveReadParam(node, key, fallback, runtime, frame, frames, frameValues)
+    : num(p[key], fallback));
+  const sr = Math.max(1, Number(sampleRate) || Number(runtime?.sampleRate) || 44100);
+  const cutoffHz = read("cutoff", 2000);
+  const fundHz = typeof additiveGraphResolveFundamentalHz === "function"
+    ? additiveGraphResolveFundamentalHz({
+      graph: incoming,
+      fallback: 100,
+    })
+    : 100;
   const out = additiveGraphClonePayload(incoming);
   additiveGraphApplyLinearFilter(
     out,
     num(p.filter, 0),
-    num(p.cutoff, 0.5),
-    num(p.slope, 0.25),
+    cutoffHz,
+    read("slope", 0.25),
+    read("skew", 0),
+    fundHz,
+    sr,
   );
   if (typeof writeNodeGraphDataOutput === "function") {
     writeNodeGraphDataOutput(String(nodeId), "Graph", out);
