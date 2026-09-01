@@ -536,6 +536,10 @@ function additiveGraphApplyQuantizeFreq(
     graph.ratioNoise = null;
     return { graph, lerpFrom: null };
   }
+  // Prefer upstream quantum target if a ratio lerp plane is present.
+  if (graph.ratioLerp?.to && graph.ratioLerp.to.length === H) {
+    graph.ratio.set(graph.ratioLerp.to);
+  }
   const fundIn = Number(graph.ratio[0]);
   const fund = Number.isFinite(fundIn) ? fundIn : 0;
   const qFund = Math.abs(fund) > 1e-12 ? fund : 1;

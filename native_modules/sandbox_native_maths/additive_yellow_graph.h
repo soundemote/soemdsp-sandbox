@@ -1084,17 +1084,24 @@ inline void apply_frequency_skew(
     const float out = newLo + u * newSpan;
     g.ratio[i] = out > 0.0f ? out : 0.0f;
   }
+  // Replace any upstream ratio lerp (NoisyFreq) so Out hears the skew.
+  g.hasRatioLerp = 0;
+  noise_recipe_clear(g.ratioNoise);
 }
 
 // Random (bipolar) first, then optional snap. qFund reference is always the
 // pre-random fundamental. affectFundamental: Off = lock ratio[0]; On = random
 // may move ratio[0] but overtones still snap to the original fund reference.
+// Always stamps ratioLerp when active so Out does not keep an upstream
+// NoisyFreq/Skew hasRatioLerp plane and ignore the snapped ratios.
 inline void apply_quantize_freq(
   GraphPayload& g,
   float quantizeOn,
   float randomAmount,
   float seed,
-  float affectFundamental = 0.0f
+  float affectFundamental,
+  float* lerpFrom,
+  int& lerpFromLen
 ) {
   const int H = g.harmonics;
   if (H < 1 || H > kMaxHarmonics) return;
@@ -1103,29 +1110,47 @@ inline void apply_quantize_freq(
   const float amt = (randomAmount * 0.0f == 0.0f) ? randomAmount : 0.0f;
   const float seedN = (seed * 0.0f == 0.0f) ? seed : 1.0f;
   if (!doQuant && !(soemdsp_maths::dsp_fabs((double)amt) > 1e-12)) return;
+  // Prefer quantum target if an upstream module left a ratio lerp plane.
+  if (g.hasRatioLerp) {
+    for (int i = 0; i < H; i += 1) g.ratio[i] = g.ratioTo[i];
+  }
   float fund = g.ratio[0];
   if (!(fund * 0.0f == 0.0f)) fund = 0.0f;
   const float qFund = soemdsp_maths::dsp_fabs((double)fund) > 1e-12 ? fund : 1.0f;
   const unsigned int seedUse = (unsigned int)(long long)soemdsp_maths::dsp_floor((double)seedN);
+  const bool havePrev = lerpFrom && lerpFromLen == H;
   for (int i = 0; i < H; i += 1) {
+    float r;
     if (i == 0 && !affectFund) {
-      g.ratio[0] = fund;
-      continue;
+      r = fund;
+    } else {
+      r = g.ratio[i];
+      if (!(r * 0.0f == 0.0f)) r = 0.0f;
+      // 1) Bipolar random anywhere up/down (unit [0,1) → −1…+1).
+      if (soemdsp_maths::dsp_fabs((double)amt) > 1e-12) {
+        const float u = harmonic_unit_random(seedUse, i, 13u);
+        r += (u * 2.0f - 1.0f) * amt;
+      }
+      // 2) Quantize after random (overtones only — never snap the fund slot).
+      if (doQuant && i > 0) {
+        r = snap_harmonic_multiple(r / qFund) * qFund;
+      }
+      if (r < 0.0f) r = 0.0f;
     }
-    float r = g.ratio[i];
-    if (!(r * 0.0f == 0.0f)) r = 0.0f;
-    // 1) Bipolar random anywhere up/down (unit [0,1) → −1…+1).
-    if (soemdsp_maths::dsp_fabs((double)amt) > 1e-12) {
-      const float u = harmonic_unit_random(seedUse, i, 13u);
-      r += (u * 2.0f - 1.0f) * amt;
-    }
-    // 2) Quantize after random (overtones only — never snap the fund slot).
-    if (doQuant && i > 0) {
-      r = snap_harmonic_multiple(r / qFund) * qFund;
-    }
-    if (r < 0.0f) r = 0.0f;
+    g.ratioTo[i] = r;
+    g.ratioFrom[i] = havePrev ? lerpFrom[i] : r;
     g.ratio[i] = r;
+    if (lerpFrom) lerpFrom[i] = r;
   }
+  if (!affectFund) {
+    g.ratioFrom[0] = fund;
+    g.ratioTo[0] = fund;
+    g.ratio[0] = fund;
+    if (lerpFrom) lerpFrom[0] = fund;
+  }
+  g.hasRatioLerp = 1;
+  noise_recipe_clear(g.ratioNoise);
+  if (lerpFrom) lerpFromLen = H;
 }
 
 inline void apply_quantize_phase(GraphPayload& g, float quantizeOn, float randomAmount, float seed) {

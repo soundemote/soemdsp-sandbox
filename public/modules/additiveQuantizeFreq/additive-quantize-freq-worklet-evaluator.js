@@ -28,6 +28,7 @@ NodeLiveAudioProcessor.prototype.additiveQuantizeFreqWorkletEvaluate = function 
     eff("randomFreqAmount", 0),
     num(p.seed, 1),
     state.lerpFrom || null,
+    num(p.affectFundamental, 0),
   );
   this.additiveQuantizeFreqStates.set(id, { lerpFrom: applied?.lerpFrom || null });
   this.additiveGraphWrite(nodeId, applied?.graph || out);

@@ -37,6 +37,7 @@ function nodeGraphAdditiveQuantizeFreqLiveEvaluator({
     read("randomFreqAmount", 0),
     read("seed", 1),
     state.lerpFrom || null,
+    read("affectFundamental", 0),
   );
   const graph = applied?.graph || out;
   nodeGraphAdditiveQuantizeFreqStates.set(id, {

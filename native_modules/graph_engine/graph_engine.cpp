@@ -4117,7 +4117,7 @@ static void process_additive_frequency_skew(Circuit& g, Node& node, int frames) 
 }
 
 // quantizeFreq→mode, randomFreqAmount→width, seed→seed,
-// affectFundamental→timingMode
+// affectFundamental→timingMode. yellowLerpFrom = ratio lerp continuity.
 static void process_additive_quantize_freq(Circuit& g, Node& node, int frames) {
   (void)frames;
   if (!yellow_graph_copy_in(g, node)) return;
@@ -4127,7 +4127,9 @@ static void process_additive_quantize_freq(Circuit& g, Node& node, int frames) {
     (float)node.mode.out,
     (float)node.width.out,
     (float)node.seed.out,
-    (float)node.timingMode.out
+    (float)node.timingMode.out,
+    node.yellowLerpFrom,
+    node.yellowLerpFromLen
   );
 }
 
@@ -8126,5 +8128,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 96; // AutoPan: Width-first + wrap + HF shimmer + orbit
+  return 97; // QuantizeFreq stamps ratioLerp (fixes mute after Noisy/Skew)
 }
