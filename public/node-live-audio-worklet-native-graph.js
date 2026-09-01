@@ -40,6 +40,17 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   metallicRatio: 33,
   harmonicSeries: 128,
   phoneTone: 129,
+  // Chromeless portal lane family (all suffixes share one process).
+  portalOutlet: 130,
+  portalOutletMono: 130,
+  portalOutletLeft: 130,
+  portalOutletRight: 130,
+  portalOutletLeftRight: 130,
+  portalInlet: 131,
+  portalInletMono: 131,
+  portalInletLeft: 131,
+  portalInletRight: 131,
+  portalInletLeftRight: 131,
   lutCell: 34,
   lookaheadLimiter: 35,
   limiter: 109, // Pump Limiter

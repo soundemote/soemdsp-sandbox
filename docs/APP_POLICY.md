@@ -174,7 +174,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    as utilities)
 ```
 
-**Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` may remain. `audioInput` is **not** on the allowlist unless a demo explicitly needs it (strip with other DSP for now).
+**Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` and chromeless **Portal In/Out** lane modules (`portalInlet*` / `portalOutlet*`) may remain — outlets thru-mix into the speaker bus; inlets stay silent until a host mic bus is wired. Singleton `audioInput` is **not** on the allowlist unless a demo explicitly needs it (strip with other DSP for now).
 
 **SSOT:** `public/node-graph-efficient-product.js` — used by module shop / Add Module **and** live plan refuse (host + worklet `setPlan`).
 
