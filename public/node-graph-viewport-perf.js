@@ -417,12 +417,46 @@ function nodeGraphViewportCullSleepPainters(element) {
   }));
 }
 
+function nodeGraphViewportCullBootOrLayoutUnsafe() {
+  // During boot the shell is visibility:hidden. IntersectionObserver and a
+  // zero-sized workspace cull then mark every module viewport-asleep
+  // (display:none). After the loading screen fades, K still works (controller
+  // dock) but the graph stays black with no nodes. Never sleep while booting
+  // or when the workspace has no real layout box yet.
+  const body = document.body;
+  if (
+    body?.classList?.contains("node-boot-loading")
+    || body?.classList?.contains("node-boot-fading")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function nodeGraphViewportCullWakeAll(surface) {
+  const root = surface
+    || (typeof nodeGraphZoomSurface === "function"
+      ? nodeGraphZoomSurface()
+      : document.getElementById("nodeGraphZoomSurface"))
+    || document.getElementById("nodeGraphWorkspace");
+  if (!root) {
+    return;
+  }
+  for (const element of root.querySelectorAll(".dsp-node.viewport-asleep, .dsp-node:not(.removed)")) {
+    nodeGraphViewportCullApply(element, true);
+  }
+}
+
 function nodeGraphViewportCullRefresh() {
   const workspace = document.getElementById("nodeGraphWorkspace");
   const surface = typeof nodeGraphZoomSurface === "function"
     ? nodeGraphZoomSurface()
     : document.getElementById("nodeGraphZoomSurface");
   if (!workspace || !surface) {
+    return;
+  }
+  if (nodeGraphViewportCullBootOrLayoutUnsafe()) {
+    nodeGraphViewportCullWakeAll(surface);
     return;
   }
   const zoom = Math.max(
@@ -435,11 +469,18 @@ function nodeGraphViewportCullRefresh() {
   const box = typeof nodeGraphWorkspaceLayoutMetrics === "function"
     ? nodeGraphWorkspaceLayoutMetrics(workspace)
     : { width: workspace.clientWidth, height: workspace.clientHeight };
+  const boxW = Number(box.width) || 0;
+  const boxH = Number(box.height) || 0;
+  // Zero/tiny workspace (iframe not laid out yet) would cull the whole patch.
+  if (boxW < 32 || boxH < 32) {
+    nodeGraphViewportCullWakeAll(surface);
+    return;
+  }
   const margin = 96;
   const worldLeft = (0 - margin - (Number(origin.x) || 0)) / zoom;
   const worldTop = (0 - margin - (Number(origin.y) || 0)) / zoom;
-  const worldRight = ((Number(box.width) || 0) + margin - (Number(origin.x) || 0)) / zoom;
-  const worldBottom = ((Number(box.height) || 0) + margin - (Number(origin.y) || 0)) / zoom;
+  const worldRight = (boxW + margin - (Number(origin.x) || 0)) / zoom;
+  const worldBottom = (boxH + margin - (Number(origin.y) || 0)) / zoom;
   const selected = typeof nodeGraphSelectedNodeIds === "function"
     ? nodeGraphSelectedNodeIds()
     : new Set();
@@ -506,6 +547,17 @@ function ensureNodeGraphViewportModuleCull() {
     return nodeGraphViewportCull.observer;
   }
   nodeGraphViewportCull.observer = new IntersectionObserver((entries) => {
+    if (nodeGraphViewportCullBootOrLayoutUnsafe()) {
+      for (const entry of entries) {
+        const node = entry.target?.classList?.contains("dsp-node")
+          ? entry.target
+          : entry.target?.closest?.(".dsp-node");
+        if (node) {
+          nodeGraphViewportCullApply(node, true);
+        }
+      }
+      return;
+    }
     for (const entry of entries) {
       const node = entry.target?.classList?.contains("dsp-node")
         ? entry.target

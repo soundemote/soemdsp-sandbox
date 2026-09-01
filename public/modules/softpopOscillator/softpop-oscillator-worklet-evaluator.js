@@ -52,11 +52,10 @@ NodeLiveAudioProcessor.prototype.resolveSoftpopOrBandpassHz = function resolveSo
   frameValues,
   mixInput,
 ) {
-  if (this.inputConnections.has(this.inputKey(nodeId, "f"))) {
-    return mixInput(nodeId, "f");
-  }
-  if (this.inputConnections.has(this.inputKey(nodeId, "Freq"))) {
-    return mixInput(nodeId, "Freq");
+  const absHz = this.readFInputHz(mixInput, nodeId);
+  if (absHz != null) {
+    const n = Number(absHz);
+    return Number.isFinite(n) ? n : 0;
   }
   const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
   const referenceVoltage = referenceMidiNote / 120;

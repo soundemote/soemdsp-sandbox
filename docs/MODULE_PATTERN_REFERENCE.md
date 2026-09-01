@@ -188,31 +188,57 @@ const phaseCv = hasInput(nodeId, "Phase") ? mixInput(nodeId, "Phase") : 0;
 const phase = wrap01(phaseKnob + phaseCv);
 ```
 
-### Universal linear frequency jack `f`
+### Universal linear frequency jack `ƒ` / `f`
 
-Most oscillators expose a left-side jack named **`f`**: linear frequency
-drive (Hz scale, **signed**). Speed Limit is a header control next to Speed
-(default **20000**). When `f` is wired, effective pitch is **`f × Frequency`**
-(both may be signed; 0.1V/Oct is ignored on this path). When unwired, each
-module keeps Frequency / 0.1V/Oct (signed base × octave ratio).
+Most oscillators and pitched filters expose a left-side jack named **`f`**
+(label **ƒ**): absolute Hz (signed, through-zero). Project **Speed Limit**
+(header next to Speed, default **20000**) clamps final Hz.
 
-**Through-zero:** negative Hz reverses phase (phase increment is signed).
-Final Hz is clamped to `[−Speed Limit, +Speed Limit]`.
+**Wired ƒ cancels the Frequency / cutoff / pivot knob** (and ignores
+0.1V/Oct on that path). Unwired: keep the knob, optionally with 0.1V/Oct
+via `nodeGraphParamResolveOscPitchHz` / `nodeGraphPitchedFrequency`.
 
-Helpers (public/node-graph-module-controls.js + worklet methods):
+Do **not** multiply ƒ × Frequency — that legacy path was removed.
+
+Helpers (`public/node-graph-stdlib/node-graph-param-surface-helpers.js`,
+mirrors in `node-graph-module-controls.js` + worklet events):
 
 ```js
-// Offline
-const fHz = nodeGraphReadFInputHz(mixInput, hasInput, nodeId); // null if unwired
-const hz = nodeGraphResolveFrequencyHz(moduleSpecificBaseHz, fHz);
+// Offline / live evaluator — cancel pattern (filters, Harmonic Series, …)
+const hz = nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId);
+
+// Jack only (null if unwired)
+const fHz = nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId);
+// alias: nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
+
+// Osc with optional 0.1V/Oct (ƒ still wins when wired)
+const pitched = nodeGraphParamResolveOscPitchHz({
+  baseHz: frequency, hasInput, mixInput, nodeId, hasPitchCv, pitchCv, referenceVoltage,
+});
 
 // Worklet
-const hz = this.resolveFrequencyHz(moduleSpecificBaseHz, this.readFInputHz(mixInput, nodeId));
+const hz = this.frequencyHzFromKnobOrF(knobHz, mixInput, nodeId);
+const fHz = this.readFInputHz(mixInput, nodeId); // null if unwired
+const clamped = this.resolveFrequencyHz(hz); // ±Speed Limit only
 ```
 
 Optional `controls[]` on a definition expands into `inputs`/`parameters` via
 `nodeGraphModuleDefinition(type)` — use for new modules; old modules keep
 listing `inputs`/`parameters` directly.
+
+### LayoutA custom faces (displayType registry)
+
+Prefer registering a face creator instead of a `type === "…"` branch in
+`node-graph-module-rendering.js`:
+
+```js
+// In the module’s *-display.js (after createNodeGraph…Display is defined)
+registerNodeGraphModuleFaceCreator("harmonicSeriesFace", createNodeGraphHarmonicSeriesDisplay);
+```
+
+Set `displayType: "harmonicSeriesFace"` (and matching `displayModes`) on the
+definition. Rendering calls `appendNodeGraphRegisteredFaceIfAny` then the
+shared LayoutA IO strip.
 
 ## Parameter definition shape
 

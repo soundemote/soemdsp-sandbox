@@ -1997,11 +1997,16 @@ function stampNodeGraphOutputPauseBanners(options = {}) {
     if (!nodeGraphOutputProtectFaceSlot(slot)) {
       continue;
     }
-    const canvas = typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
-      ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
-      : null;
+    const canvas = typeof ensureNodeGraphModuleScopeFaceCanvas === "function"
+      ? ensureNodeGraphModuleScopeFaceCanvas(slot, { mode: "tape" })
+      : (typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
+        ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
+        : null);
     if (!canvas || !(canvas.width > 1) || !(canvas.height > 1)) {
       continue;
+    }
+    if (typeof tagNodeGraphModuleScopeFaceCanvas === "function") {
+      tagNodeGraphModuleScopeFaceCanvas(canvas, "tape");
     }
     let context = null;
     try {

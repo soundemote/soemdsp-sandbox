@@ -99,9 +99,30 @@ function createNodeGraphPhoneToneDisplay(nodeId, type = "phoneTone") {
   section.dataset.parameterVisual = "true";
   section.dataset.lightSource = "screen";
   section.dataset.lightStrength = "0.4";
+  const startLoop = () => {
+    if (section._raf) return;
+    const tick = () => {
+      section._raf = 0;
+      if (!section.isConnected) return;
+      const animate = typeof scopePaintFaceShouldAnimate === "function"
+        ? scopePaintFaceShouldAnimate(section)
+        : (typeof scopePaintIsLive === "function" ? scopePaintIsLive() : true);
+      if (!animate) {
+        if (section._forceDraw) {
+          drawNodeGraphPhoneToneFaceItem(section);
+        }
+        return;
+      }
+      drawNodeGraphPhoneToneFaceItem(section);
+      section._raf = requestAnimationFrame(tick);
+    };
+    section._raf = requestAnimationFrame(tick);
+  };
+  section._startFaceLoop = startLoop;
   section.syncFromParameters = () => {
-    section._phoneToneForceDraw = true;
+    section._forceDraw = true;
     drawNodeGraphPhoneToneFaceItem(section);
+    startLoop();
   };
   const canvas = document.createElement("canvas");
   canvas.className = "node-filter-curve-canvas node-phone-tone-canvas node-module-scope-vector-trace";
@@ -109,24 +130,20 @@ function createNodeGraphPhoneToneDisplay(nodeId, type = "phoneTone") {
   section.append(canvas);
   if (typeof ResizeObserver === "function") {
     const observer = new ResizeObserver(() => {
-      section._phoneToneForceDraw = true;
+      section._forceDraw = true;
       section._phoneToneLaidOut = false;
       drawNodeGraphPhoneToneFaceItem(section);
+      startLoop();
     });
     observer.observe(section);
     section._phoneToneResizeObserver = observer;
   }
-  const tick = () => {
-    if (!section.isConnected) {
-      section._phoneToneRaf = 0;
-      return;
-    }
-    if (!(typeof nodeGraphDisplaysFrozen === "function" && nodeGraphDisplaysFrozen())) {
-      drawNodeGraphPhoneToneFaceItem(section);
-    }
-    section._phoneToneRaf = requestAnimationFrame(tick);
-  };
-  section._phoneToneRaf = requestAnimationFrame(tick);
+  document.addEventListener("nodegraphfaceloops", startLoop);
+  section.addEventListener("nodegraphviewport", (event) => {
+    if (!event?.detail?.asleep) startLoop();
+  });
+  drawNodeGraphPhoneToneFaceItem(section);
+  startLoop();
   return section;
 }
 
@@ -169,7 +186,7 @@ function drawNodeGraphPhoneToneFaceItem(sectionOrRenderer, item) {
   const rawH = Number(section.clientHeight || section.offsetHeight) || 0;
   const signature = `${left}|${right}|${Math.round(rawW)}|${Math.round(rawH)}`;
   if (
-    !section._phoneToneForceDraw
+    !section._forceDraw
     && section._phoneToneSignature === signature
     && section._phoneToneLaidOut
   ) {
@@ -177,7 +194,7 @@ function drawNodeGraphPhoneToneFaceItem(sectionOrRenderer, item) {
   }
   if (rawW < 8 || rawH < 8) {
     section._phoneToneLaidOut = false;
-    section._phoneToneForceDraw = true;
+    section._forceDraw = true;
     return;
   }
 
@@ -210,7 +227,7 @@ function drawNodeGraphPhoneToneFaceItem(sectionOrRenderer, item) {
   }
 
   section._phoneToneSignature = signature;
-  section._phoneToneForceDraw = false;
+  section._forceDraw = false;
   section._phoneToneLaidOut = true;
   canvas.style.imageRendering = "auto";
   ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
@@ -241,4 +258,7 @@ function drawNodeGraphPhoneToneFaceItem(sectionOrRenderer, item) {
 
 if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {
   nodeGraphModuleScopeCustomRenderers.phoneToneFace = () => {};
+}
+if (typeof registerNodeGraphModuleFaceCreator === "function") {
+  registerNodeGraphModuleFaceCreator("phoneToneFace", createNodeGraphPhoneToneDisplay);
 }

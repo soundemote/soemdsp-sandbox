@@ -265,6 +265,7 @@ extern "C" double soemdsp_trigger_counter_sample(
 extern "C" double soemdsp_trigger_counter_count(int handle);
 
 extern "C" double soemdsp_metallic_ratio_sample(double index);
+extern "C" double soemdsp_harmonic_series_sample(double baseHz, double harmonic, double offset);
 
 extern "C" int soemdsp_lut_cell_create();
 extern "C" void soemdsp_lut_cell_destroy(int handle);
@@ -1169,6 +1170,7 @@ static const int kTypeAdditiveNoisyAmp = 124;
 static const int kTypeAdditivePhaseEntry = 125;
 static const int kTypeAdditiveBlaster = 126;
 static const int kTypeAdditiveDiffusor = 127;
+static const int kTypeHarmonicSeries = 128;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1746,6 +1748,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeEllipsoid) ? 1.0 // RoundShape clock Hz
       : (typeId == kTypeSnowflake) ? 55.0
       : (typeId == kTypeAntisaw) ? 110.0
+      : (typeId == kTypeHarmonicSeries) ? 100.0
       : (typeId == kTypePluckEnvelope) ? 1.5 // decayModFrequency
       : (typeId == kTypePll) ? 10.0 // LPF cutoff
       : (typeId == kTypeSoemReverb) ? 1000.0 // bandFrequency
@@ -1939,6 +1942,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeFractalBrownianNoise) ? 1.0 // scale
       : (typeId == kTypePiSpigotNoise) ? 0.0 // start
       : (typeId == kTypePulseExplosion) ? 0.5 // centerTime
+      : (typeId == kTypeHarmonicSeries) ? 0.0 // offset
       : (typeId == kTypeAdditiveBlaster) ? 0.44 // bias (PoC)
       : (typeId == kTypeAdditivePan) ? 0.35 // AutoPan shimmer amount
       : (typeId == kTypeCrossover3) ? 3000.0
@@ -1959,6 +1963,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeTriggerCounter) ? 1.0
       : (typeId == kTypePumpLimiter) ? 8.0 // ratio
       : (typeId == kTypeMetallicRatio) ? 1.0 // index n
+      : (typeId == kTypeHarmonicSeries) ? 0.0 // harmonic
       : (typeId == kTypeArchimedes) ? 3.0
       : (typeId == kTypeSurgeOscillator) ? 50.0 // syncFrequency Hz
       : (typeId == kTypeDsfOscillator) ? 0.5 // PWM
@@ -6438,6 +6443,31 @@ static void process_metallic_ratio(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Harmonic Series: ƒ = base × mult(harmonic + offset); ƒ0 = base unchanged.
+// Wired ƒ cancels Frequency. Mono=ƒ, Left=ƒ0, Right fans ƒ.
+static void process_harmonic_series(Circuit& g, Node& node, int frames) {
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const double harmonic = node.width.out;
+  const double offset = node.center.out;
+  const double knobHz = node.frequency.out;
+  if (!liveF) {
+    const double hz = soemdsp_harmonic_series_sample(knobHz, harmonic, offset);
+    for (int f = 0; f < frames; f++) {
+      node.buf[kPortMono][f] = hz;
+      node.buf[kPortLeft][f] = knobHz;
+      node.buf[kPortRight][f] = hz;
+    }
+    return;
+  }
+  for (int f = 0; f < frames; f++) {
+    const double base = g.mixF[f];
+    const double hz = soemdsp_harmonic_series_sample(base, harmonic, offset);
+    node.buf[kPortMono][f] = hz;
+    node.buf[kPortLeft][f] = base;
+    node.buf[kPortRight][f] = hz;
+  }
+}
+
 // LUT cell: A/B/C/D on buses 0–3, Clock on Trigger dest; Out→Mono, Q→Left.
 static void process_lut_cell(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
@@ -6995,6 +7025,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeClock
     || node.typeId == kTypeRandomClock
     || node.typeId == kTypeMetallicRatio
+    || node.typeId == kTypeHarmonicSeries
     || node.typeId == kTypeTransport
     || node.typeId == kTypeAliasSine
     || node.typeId == kTypeBlit
@@ -7662,6 +7693,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     }
     if (node.typeId == kTypeMetallicRatio) {
       process_metallic_ratio(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeHarmonicSeries) {
+      process_harmonic_series(*g, node, frames);
       continue;
     }
     if (node.typeId == kTypeLutCell) {

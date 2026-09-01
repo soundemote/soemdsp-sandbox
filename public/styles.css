@@ -2370,6 +2370,22 @@ html.soemdsp-hide-ui .status-strip {
   display: none;
 }
 
+/* Embed: never show Command Center / floating chrome even if UI settings restore them. */
+html.soemdsp-hide-ui #nodeSceneContextMenu,
+html.soemdsp-hide-ui .node-floating-window-surface,
+html.soemdsp-hide-ui .node-command-center-dock,
+html.soemdsp-hide-ui #nodeModuleShopView,
+html.soemdsp-hide-ui #nodeUserUiSettingsPanel,
+html.soemdsp-hide-ui #nodeVisibilityMenu,
+html.soemdsp-hide-ui #nodeModuleActionsWindow,
+html.soemdsp-hide-ui #nodeGlobalScopeMenu,
+html.soemdsp-hide-ui #nodePatchLoadFault,
+html.soemdsp-hide-ui.body.node-patch-load-fault-open #nodePatchLoadFault {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 .node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-graph-main-row):not(.node-view-toolbar):not(.node-floating-window-surface):not(.node-command-center-dock):not(.node-bottom-stack) {
   display: none;
 }

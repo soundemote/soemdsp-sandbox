@@ -19,9 +19,7 @@ nodeGraphLiveModuleEvaluators.tiltFilter = ({
   runtime.tiltFilterStates.set(nodeId, state);
   const amount = readNodeGraphLiveEffectiveParam(runtime, node, "amount", 0, frame, frames, frameValues);
   const knobHz = readNodeGraphLiveEffectiveParam(runtime, node, "pivot", 1000, frame, frames, frameValues);
-  const pivot = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-    ? mixInput(nodeId, "f")
-    : knobHz;
+  const pivot = nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId);
   const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
   const mono = mixInput(nodeId);
   return {

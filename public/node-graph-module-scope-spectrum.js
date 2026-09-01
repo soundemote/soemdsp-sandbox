@@ -142,6 +142,8 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
     buffer = nodeGraphModuleScopeTransportBpmBuffer(slot);
   } else if (renderer === "phoneToneFace" || slot?.type === "phoneTone") {
     buffer = { length: 1 };
+  } else if (renderer === "harmonicSeriesFace" || slot?.type === "harmonicSeries") {
+    buffer = { length: 1 };
   } else if (
     renderer === "vectorRgbFace"
     || renderer === "rasterRgbFace"

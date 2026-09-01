@@ -38,6 +38,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   randomClock: 31,
   triggerCounter: 32,
   metallicRatio: 33,
+  harmonicSeries: 128,
   lutCell: 34,
   lookaheadLimiter: 35,
   limiter: 109, // Pump Limiter
@@ -245,6 +246,10 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   // Yellow Graph chunk — never collapse to Mono.
   if (p === "graph") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_GRAPH;
+  }
+  // Harmonic Series: ƒ = harmonized (Mono), ƒ0 = base Hz unchanged (Left).
+  if (t === "harmonicSeries" && (p === "f0" || p === "ƒ0")) {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
   if (
     p === "left" || p === "l" || p === "mix l" || p === "mix left" || p === "wet l"
@@ -1955,6 +1960,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("index", P.NATIVE_GRAPH_PARAM_WIDTH, cont("index", 1));
       continue;
     }
+    if (type === "harmonicSeries") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("harmonic", P.NATIVE_GRAPH_PARAM_WIDTH, cont("harmonic", 0));
+      push("offset", P.NATIVE_GRAPH_PARAM_CENTER, cont("offset", 0));
+      continue;
+    }
     if (type === "lutCell") {
       push("truthTable", P.NATIVE_GRAPH_PARAM_SEED, disc("truthTable", 27030));
       continue;
@@ -2747,12 +2758,14 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "randomClock") return ["Trigger"];
     if (type === "triggerCounter") return ["Pulse"];
     if (type === "metallicRatio") return ["Ratio"];
+    if (type === "harmonicSeries") return ["f", "Out", "Mono", "ƒ"];
     if (type === "lutCell") return ["Out"];
     if (type === "stepSequencer") return ["Out"];
     if (type === "transport") return ["-1..1"];
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
+    if (type === "harmonicSeries") return ["f0", "ƒ0"];
     if (type === "sineWavetable") return ["B", "cos", "Cos"];
     if (type === "archimedes") return ["Cosine"];
     if (type === "minMax") return ["Min"];

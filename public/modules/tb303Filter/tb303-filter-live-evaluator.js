@@ -220,9 +220,7 @@ nodeGraphLiveModuleEvaluators.tb303Filter = ({ runtime, node, nodeId, frame, fra
   runtime.tb303FilterStates.set(nodeId, state);
   const read = (key, fallback) => readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
   const tb303Params = {
-    cutoff: (typeof hasInput === "function" && hasInput(nodeId, "f"))
-      ? mixInput(nodeId, "f")
-      : read("cutoff", 1000),
+    cutoff: nodeGraphFrequencyHzFromKnobOrF(read("cutoff", 1000), hasInput, mixInput, nodeId),
     drive: read("drive", 0),
     mode: read("mode", 4),
     resonance: read("resonance", 0),

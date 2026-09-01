@@ -9,9 +9,7 @@ nodeGraphLiveModuleEvaluators.antisaw = ({ runtime, node, nodeId, frame, frames,
   return nodeGraphAntisawSample(
     state,
     {
-      fundamental: (typeof hasInput === "function" && hasInput(nodeId, "f"))
-        ? mixInput(nodeId, "f")
-        : fundKnob,
+      fundamental: nodeGraphFrequencyHzFromKnobOrF(fundKnob, hasInput, mixInput, nodeId),
       reflections: read("reflections", 64),
       tilt: read("tilt", 0),
       level: read("amplitude", 1),

@@ -93,9 +93,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const { params } = this.resolveModuleControlParams(
           node, state, { cutoff: 1000 }, frame, frames, frameValues,
         );
-        const cutoff = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-          ? mixInput(nodeId, "f")
-          : params.cutoff;
+        const cutoff = this.frequencyHzFromKnobOrF(params.cutoff, mixInput, nodeId);
         return this.papoulisFilterSample(
           state,
           mixInput(nodeId),
@@ -134,9 +132,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           frameValues,
         );
         const cookbookMode = params.mode;
-        const cookbookFrequency = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-          ? mixInput(nodeId, "f")
-          : params.frequency;
+        const cookbookFrequency = this.frequencyHzFromKnobOrF(params.frequency, mixInput, nodeId);
         const cookbookQ = params.q;
         const cookbookGain = params.gain;
         const cookbookStages = params.stages;
@@ -161,9 +157,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         // LIVE: audio-rate `f` jack overrides frequency every sample.
         const ladderParams = {
           ...controls.params,
-          frequency: (typeof hasInput === "function" && hasInput(nodeId, "f"))
-            ? mixInput(nodeId, "f")
-            : controls.params.frequency,
+          frequency: this.frequencyHzFromKnobOrF(controls.params.frequency, mixInput, nodeId),
         };
         const ladderMono = mixInput(nodeId);
         const outM = this.ladderFilterSample(state.mono, ladderMono, ladderParams, safeRate);
@@ -217,8 +211,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           frameValues,
         );
         const activeMode = params.mode;
-        const activeFreqWired = typeof hasInput === "function" && hasInput(nodeId, "f");
-        const activeFreqJack = activeFreqWired ? mixInput(nodeId, "f") : null;
+        const activeFreqJack = typeof nodeGraphResolveAbsHzJack === "function"
+          ? nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId)
+          : (typeof hasInput === "function" && hasInput(nodeId, "f") ? mixInput(nodeId, "f") : null);
+        const activeFreqWired = activeFreqJack != null;
         const activeBandpass = typeof nodeGraphActiveFilterIsBandpass === "function"
           ? nodeGraphActiveFilterIsBandpass(activeMode)
           : Math.round(Number(activeMode) || 0) >= 8;
@@ -255,9 +251,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           frameValues,
         );
         const mode = params.mode;
-        const frequency = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-          ? mixInput(nodeId, "f")
-          : params.frequency;
+        const frequency = this.frequencyHzFromKnobOrF(params.frequency, mixInput, nodeId);
         const order = params.order;
         const bandwidth = params.bandwidth;
         const mono = mixInput(nodeId);
@@ -280,9 +274,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           frameValues,
         );
         const mode = params.mode;
-        const frequency = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-          ? mixInput(nodeId, "f")
-          : params.frequency;
+        const frequency = this.frequencyHzFromKnobOrF(params.frequency, mixInput, nodeId);
         const order = params.order;
         const bandwidth = params.bandwidth;
         const mono = mixInput(nodeId);
@@ -305,9 +297,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           frameValues,
         );
         const mode = params.mode;
-        const frequency = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-          ? mixInput(nodeId, "f")
-          : params.frequency;
+        const frequency = this.frequencyHzFromKnobOrF(params.frequency, mixInput, nodeId);
         const order = params.order;
         const bandwidth = params.bandwidth;
         const mono = mixInput(nodeId);
@@ -330,9 +320,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           frameValues,
         );
         const mode = params.mode;
-        const frequency = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-          ? mixInput(nodeId, "f")
-          : params.frequency;
+        const frequency = this.frequencyHzFromKnobOrF(params.frequency, mixInput, nodeId);
         const order = params.order;
         const bandwidth = params.bandwidth;
         const ripple = params.ripple;
@@ -356,9 +344,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           frameValues,
         );
         const mode = params.mode;
-        const frequency = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-          ? mixInput(nodeId, "f")
-          : params.frequency;
+        const frequency = this.frequencyHzFromKnobOrF(params.frequency, mixInput, nodeId);
         const order = params.order;
         const bandwidth = params.bandwidth;
         const ripple = params.ripple;
@@ -518,9 +504,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.phaseDisperseStates.set(nodeId, state);
         }
         const knobHz = this.readEffectiveParameter(node, "frequency", 100, frame, frames, frameValues);
-        const frequency = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-          ? mixInput(nodeId, "f")
-          : knobHz;
+        const frequency = this.frequencyHzFromKnobOrF(knobHz, mixInput, nodeId);
         // Filters = cascade depth (CPU). Legacy Amount 0…1 still accepted.
         let filters = this.readEffectiveParameter(node, "filters", NaN, frame, frames, frameValues);
         if (!Number.isFinite(Number(filters))) {
@@ -643,9 +627,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           node, state, { cutoff: 1000, drive: 0, mode: 4, resonance: 0 }, frame, frames, frameValues,
         );
         const tb303Params = {
-          cutoff: (typeof hasInput === "function" && hasInput(nodeId, "f"))
-            ? mixInput(nodeId, "f")
-            : params.cutoff,
+          cutoff: this.frequencyHzFromKnobOrF(params.cutoff, mixInput, nodeId),
           drive: params.drive,
           mode: params.mode,
           resonance: params.resonance,
@@ -734,11 +716,11 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         }
         const state = this.robinSinusoidStates.get(nodeId) || this.createRobinSinusoidState();
         this.robinSinusoidStates.set(nodeId, state);
-        const hasFreqInput = this.inputConnections.has(this.inputKey(nodeId, "f"));
+        const hasFreqInput = this.readFInputHz(mixInput, nodeId) != null;
         if (frame === 0 || !state.cachedParams || hasFreqInput) {
           const freqKnob = this.readEffectiveParameter(node, "frequency", 440, frame, frames, frameValues);
           state.cachedParams = {
-            frequency: hasFreqInput ? mixInput(nodeId, "f") : freqKnob,
+            frequency: this.frequencyHzFromKnobOrF(freqKnob, mixInput, nodeId),
             amp: this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues),
             startPhase: (Number(this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues)) || 0) * Math.PI * 2,
           };
@@ -1131,9 +1113,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           node, state, { amount: 0, pivot: 1000 }, frame, frames, frameValues,
         );
         const amount = params.amount;
-        const pivot = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-          ? mixInput(nodeId, "f")
-          : params.pivot;
+        const pivot = this.frequencyHzFromKnobOrF(params.pivot, mixInput, nodeId);
         const mono = mixInput(nodeId);
         const outM = this.tiltFilterSample(state.mono, mono, amount, pivot, safeRate);
         return this.stereoProcessPorts(nodeId, hasInput, outM,
@@ -1150,9 +1130,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           node, state, { mode: 1, frequency: 1000, q: 0.707, gain: 0 }, frame, frames, frameValues,
         );
         const mode = params.mode;
-        const frequency = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-          ? mixInput(nodeId, "f")
-          : params.frequency;
+        const frequency = this.frequencyHzFromKnobOrF(params.frequency, mixInput, nodeId);
         const q = params.q;
         const gain = params.gain;
         const mono = mixInput(nodeId);

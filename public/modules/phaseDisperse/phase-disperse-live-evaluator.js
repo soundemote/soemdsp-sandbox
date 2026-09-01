@@ -19,9 +19,7 @@ nodeGraphLiveModuleEvaluators.phaseDisperse = ({
   }
 
   const knobHz = readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 100, frame, frames, frameValues);
-  const frequency = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-    ? mixInput(nodeId, "f")
-    : knobHz;
+  const frequency = nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId);
   // Filters = stage count (CPU). Fall back to legacy Amount 0…1 if Filters absent.
   let filters = readNodeGraphLiveEffectiveParam(runtime, node, "filters", NaN, frame, frames, frameValues);
   if (!Number.isFinite(Number(filters))) {

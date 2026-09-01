@@ -34,132 +34,10 @@ function disposeNodeGraphScope2dBurnRendererForCanvas(canvas) {
 }
 
 
-/** True when the face can still take a 2D context (not WebGL-poisoned). */
-function nodeGraphScope2dFaceCanvasIsUsable(canvas) {
-  if (!(canvas instanceof HTMLCanvasElement)) {
-    return false;
-  }
-  try {
-    return Boolean(canvas.getContext("2d"));
-  } catch (_error) {
-    return false;
-  }
-}
-
-function nodeGraphScope2dBurnCanvasForSlot(slot) {
-  const screenElement = slot?.scopeElement;
-  const nodeId = slot?.nodeId;
-  if (!screenElement) {
-    return null;
-  }
-  let canvas = screenElement.querySelector(":scope > .node-module-scope-local-fallback-canvas");
-  // DOM rebuild may have detached the face — re-attach the persistent canvas
-  // so phosphor residual (_phosphorEnergyGl) survives add-module / re-render.
-  if (!canvas && nodeId && nodeGraphModuleScopePersistentCanvases.has(nodeId)) {
-    canvas = nodeGraphModuleScopePersistentCanvases.get(nodeId);
-    // Never reattach a canvas that lost 2D (e.g. after legacy WebGL dispose).
-    if (canvas && !nodeGraphScope2dFaceCanvasIsUsable(canvas)) {
-      try {
-        canvas.remove();
-      } catch (_error) { /* ignore */ }
-      nodeGraphModuleScopePersistentCanvases.delete(nodeId);
-      canvas = null;
-    } else if (canvas && canvas.parentNode !== screenElement) {
-      screenElement.appendChild(canvas);
-    }
-  }
-  if (canvas && canvas.dataset.scope2dRenderer !== nodeGraphScope2dBurnRendererVersion) {
-    disposeNodeGraphScope2dBurnRendererForCanvas(canvas);
-    if (typeof nodeGraphPhosphorEnergyGlDestroy === "function" && canvas._phosphorEnergyGl) {
-      try {
-        nodeGraphPhosphorEnergyGlDestroy(canvas._phosphorEnergyGl);
-      } catch (_) { /* ignore */ }
-      canvas._phosphorEnergyGl = null;
-    }
-    canvas.remove();
-    if (nodeId) {
-      nodeGraphModuleScopePersistentCanvases.delete(nodeId);
-    }
-    canvas = null;
-  }
-  // Live face also poisoned? Drop and recreate.
-  if (canvas && !nodeGraphScope2dFaceCanvasIsUsable(canvas)) {
-    disposeNodeGraphScope2dBurnRendererForCanvas(canvas);
-    if (canvas._phosphorEnergyGl && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
-      try {
-        nodeGraphPhosphorEnergyGlDestroy(canvas._phosphorEnergyGl);
-      } catch (_error) { /* ignore */ }
-      canvas._phosphorEnergyGl = null;
-    }
-    try {
-      canvas.remove();
-    } catch (_error) { /* ignore */ }
-    if (nodeId) {
-      nodeGraphModuleScopePersistentCanvases.delete(nodeId);
-    }
-    canvas = null;
-  }
-  if (!canvas) {
-    canvas = document.createElement("canvas");
-    canvas.className = "node-module-scope-local-fallback-canvas";
-    canvas.style.mixBlendMode = "normal";
-    canvas.dataset.scope2dRenderer = nodeGraphScope2dBurnRendererVersion;
-    canvas.setAttribute("aria-hidden", "true");
-    screenElement.appendChild(canvas);
-    if (nodeId) {
-      nodeGraphModuleScopePersistentCanvases.set(nodeId, canvas);
-    }
-  } else {
-    if (canvas.style.mixBlendMode !== "normal") {
-      canvas.style.mixBlendMode = "normal";
-    }
-    if (nodeId && !nodeGraphModuleScopePersistentCanvases.has(nodeId)) {
-      nodeGraphModuleScopePersistentCanvases.set(nodeId, canvas);
-    }
-  }
-  return canvas;
-}
-
-
-function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio, pixelDensity = 1) {
-  if (!canvas || !screenElement) {
-    return { resized: false, synced: false };
-  }
-  // Layout pixel grid × density — not screen-space getBoundingClientRect.
-  // Workspace zoom must not reallocate burn FBOs (that was the FPS cliff).
-  const size = nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio);
-  if (!size) {
-    return { resized: false, synced: false };
-  }
-  const density = typeof nodeGraphFacePlateDensity === "function"
-    ? nodeGraphFacePlateDensity({ pixelDensity }, 1)
-    : Math.max(0, Math.min(1, Number(pixelDensity) || 0));
-  const width = Math.max(1, Math.round(size.width * density));
-  const height = Math.max(1, Math.round(size.height * density));
-  const resized = canvas.width !== width || canvas.height !== height;
-  if (resized) {
-    canvas.width = width;
-    canvas.height = height;
-    // Pixel-space bridge point is invalid after a buffer resize (density /
-    // layout change). Leaving it in the old coordinate space draws a bright
-    // chord from the stale location to the new path — “lines out of place”
-    // on X/Y phosphor faces.
-    canvas._nodeGraphScope2dLastDrawnPoint = null;
-    canvas._phosphorLiveOverlayPoints = null;
-    canvas._phosphorLiveScratchInk = false;
-  }
-  // Below 1: intentional chunky CSS upscale. At/above 1: smooth scale.
-  if (density < 0.999) {
-    canvas.style.imageRendering = "pixelated";
-  } else if (canvas.style.imageRendering) {
-    canvas.style.imageRendering = "";
-  }
-  if (canvas.style.width || canvas.style.height) {
-    canvas.style.width = "";
-    canvas.style.height = "";
-  }
-  return { resized, synced: true, density };
-}
+// Face ensure/sync SSOT: node-graph-module-scope-face-canvas.js
+// (ensureNodeGraphModuleScopeFaceCanvas mode tape|burn, sync … policy).
+// Shims: nodeGraphScope2dBurnCanvasForSlot / syncNodeGraphScope2dBurnCanvas /
+// nodeGraphScope2dFaceCanvasIsUsable — defined there until call sites migrate.
 
 
 function nodeGraphScope2dBurnTextureFormats(gl) {
@@ -1367,7 +1245,9 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
     return;
   }
   renderNodeGraphModuleScopeAnalyzer(item.slot, buffer);
-  const canvas = nodeGraphModuleScopeLocalFallbackCanvas(item?.slot);
+  const canvas = typeof ensureNodeGraphModuleScopeFaceCanvas === "function"
+    ? ensureNodeGraphModuleScopeFaceCanvas(item?.slot, { mode: "tape" })
+    : nodeGraphModuleScopeLocalFallbackCanvas(item?.slot);
   if (typeof nodeGraphWaterfallAbandonTape === "function") {
     nodeGraphWaterfallAbandonTape(canvas);
   }
@@ -1375,13 +1255,16 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   const settings = nodeGraphScope2dTraceSettingsForNode(nodeGraphModuleScopeNodeForSlot(item.slot));
   // VECTOR polyline; density scales face buffer for lo-fi (default 1).
   const density = nodeGraphFacePlateDensity(settings, 1);
-  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(
-    canvas,
-    screenElement,
-    pixelRatio,
-    density,
-  )) {
+  const syncOk = typeof syncNodeGraphModuleScopeFaceCanvas === "function"
+    ? Boolean(syncNodeGraphModuleScopeFaceCanvas(
+      canvas, screenElement, pixelRatio, density, { policy: "tape" },
+    )?.synced)
+    : syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio, density);
+  if (!canvas || !syncOk) {
     return;
+  }
+  if (typeof tagNodeGraphModuleScopeFaceCanvas === "function") {
+    tagNodeGraphModuleScopeFaceCanvas(canvas, "tape");
   }
   // Vector class: normal blend. Density < 1 stays pixelated (sync); density ≥ 1
   // clears inline image-rendering so workspace.pixelated-canvas-zoom can crisp
@@ -1400,9 +1283,7 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   if ("imageSmoothingQuality" in context && density >= 0.999) {
     context.imageSmoothingQuality = "high";
   }
-  if (canvas.dataset.scope2dRenderer !== "sample-history-trace-1") {
-    canvas.dataset.scope2dRenderer = "sample-history-trace-1";
-  }
+  canvas.dataset.scope2dRenderer = "sample-history-trace-1";
   // Buffer-local square (layout×dpr). Never use item.scopeRect/screenRect —
   // those are workspace screen coords and grow with zoom, so the stroke would
   // walk out of the face and clip into the module chrome.

@@ -5,9 +5,7 @@ nodeGraphLiveModuleEvaluators.phosphillator = ({ runtime, node, nodeId, frame, f
   const state = runtime.phosphillatorPlaybackStates.get(nodeId) || createNodeGraphPhosphillatorPlaybackState();
   runtime.phosphillatorPlaybackStates.set(nodeId, state);
   const knobHz = readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 2, frame, frames, frameValues);
-  const frequency = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-    ? mixInput(nodeId, "f")
-    : knobHz;
+  const frequency = nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId);
   return nodeGraphPhosphillatorPlaybackSample(
     state,
     node,

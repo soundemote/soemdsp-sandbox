@@ -269,30 +269,26 @@ function nodeGraphClearCollectFaceCanvasesForNode(nodeId) {
     }
   }
 
-  // Scope slots → burn / fallback canvases (covers detached-then-reattached faces).
+  // Scope slots → existing face canvases only (peek; never ensure/recreate).
   if (typeof nodeGraphModuleScopeSlots === "function") {
     for (const slot of nodeGraphModuleScopeSlots() || []) {
       if (String(slot?.nodeId || "") !== id) {
         continue;
       }
-      if (typeof nodeGraphScope2dBurnCanvasForSlot === "function") {
-        try {
-          const burn = nodeGraphScope2dBurnCanvasForSlot(slot);
-          if (burn instanceof HTMLCanvasElement) {
-            canvases.add(burn);
-          }
-        } catch (_error) {
-          // Best-effort.
+      try {
+        const face = typeof peekNodeGraphModuleScopeFaceCanvas === "function"
+          ? peekNodeGraphModuleScopeFaceCanvas(slot)
+          : null;
+        if (face instanceof HTMLCanvasElement) {
+          canvases.add(face);
         }
+      } catch (_error) {
+        // Best-effort.
       }
-      if (typeof nodeGraphModuleScopeLocalFallbackCanvas === "function") {
-        try {
-          const local = nodeGraphModuleScopeLocalFallbackCanvas(slot);
-          if (local instanceof HTMLCanvasElement) {
-            canvases.add(local);
-          }
-        } catch (_error) {
-          // Best-effort.
+      if (id && typeof nodeGraphModuleScopePersistentCanvases !== "undefined") {
+        const cached = nodeGraphModuleScopePersistentCanvases.get?.(id);
+        if (cached instanceof HTMLCanvasElement) {
+          canvases.add(cached);
         }
       }
     }

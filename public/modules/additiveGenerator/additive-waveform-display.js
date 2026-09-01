@@ -15,10 +15,30 @@ function createNodeGraphAdditiveWaveformDisplay(nodeId, type = "additiveGenerato
   if (typeof tagNodeGraphModuleBand === "function") {
     tagNodeGraphModuleBand(section, "face");
   }
+  const startLoop = () => {
+    if (section._raf) return;
+    const tick = () => {
+      section._raf = 0;
+      const animate = typeof scopePaintFaceShouldAnimate === "function"
+        ? scopePaintFaceShouldAnimate(section)
+        : (typeof scopePaintIsLive === "function" ? scopePaintIsLive() : true);
+      if (!animate) {
+        if (section._forceDraw) {
+          drawNodeGraphAdditiveWaveformDisplay(section);
+        }
+        return;
+      }
+      drawNodeGraphAdditiveWaveformDisplay(section);
+      section._raf = requestAnimationFrame(tick);
+    };
+    section._raf = requestAnimationFrame(tick);
+  };
+  section._startFaceLoop = startLoop;
   section.syncFromParameters = () => {
     section._bakeKey = "";
     section._forceDraw = true;
     drawNodeGraphAdditiveWaveformDisplay(section);
+    startLoop();
   };
   const canvas = document.createElement("canvas");
   canvas.className = "node-additive-waveform-canvas";
@@ -27,15 +47,17 @@ function createNodeGraphAdditiveWaveformDisplay(nodeId, type = "additiveGenerato
     const ro = new ResizeObserver(() => {
       section._forceDraw = true;
       drawNodeGraphAdditiveWaveformDisplay(section);
+      startLoop();
     });
     ro.observe(section);
     section._ro = ro;
   }
-  const tick = () => {
-    drawNodeGraphAdditiveWaveformDisplay(section);
-    section._raf = requestAnimationFrame(tick);
-  };
-  section._raf = requestAnimationFrame(tick);
+  document.addEventListener("nodegraphfaceloops", startLoop);
+  section.addEventListener("nodegraphviewport", (event) => {
+    if (!event?.detail?.asleep) startLoop();
+  });
+  drawNodeGraphAdditiveWaveformDisplay(section);
+  startLoop();
   return section;
 }
 

@@ -53,8 +53,8 @@ function nodeGraphCrossoverLiveReadFreqs(runtime, node, nodeId, bandCount, frame
     const knobHz = readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
     // 2-crossover has one split: wired ƒ is that split in Hz. Multi-way stays knob-only.
     freqs.push(
-      splitCount === 1 && typeof hasInput === "function" && hasInput(nodeId, "f")
-        ? mixInput(nodeId, "f")
+      splitCount === 1
+        ? nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId)
         : knobHz,
     );
   }

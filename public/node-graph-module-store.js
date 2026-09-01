@@ -725,6 +725,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Metallic Ratio",
     notes: ["RS-MET tribute", "metallic mean", "golden ratio", "Robin Schmidt", "under construction"],
   },
+  harmonicSeries: {
+    category: "modulator",
+    description: "Map a base frequency onto the harmonic series (zero-based Harmonic + Offset). ƒ0 is the base unchanged. Wired ƒ cancels Frequency.",
+    label: "Harmonic Series",
+    notes: ["harmonic", "frequency", "modulator", "ƒ", "ƒ0", "offset"],
+  },
   cheapWalk: {
     category: "noise",
     description: "Tiny reflecting bipolar walk — LCG step + bounce at ±1. Cheaper than Random Walk.",
@@ -2954,6 +2960,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   metallicRatio: {
     source: "public/modules/metallicRatio/metallic-ratio-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/metallicRatio/metallic-ratio-math.js",
+  },
+  harmonicSeries: {
+    source: "public/modules/harmonicSeries/harmonic-series-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/harmonicSeries/harmonic-series-math.js",
   },
   midiNotePitch: {
     source: "public/modules/midiNotePitch/midi-note-pitch-live-evaluator.js",

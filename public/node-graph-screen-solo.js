@@ -9,6 +9,7 @@ const NODE_GRAPH_SCREEN_SOLO_FACE_SEL = [
   ".node-basic-shape-display",
   ".node-envelope-curve-display",
   ".node-phone-tone-display",
+  ".node-harmonic-series-display",
   ".node-pulse-curve-display",
   ".node-phosphor-waveform-display",
   ".node-wall-room-display",

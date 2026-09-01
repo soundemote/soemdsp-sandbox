@@ -1,3 +1,29 @@
+/** displayType → createFace(nodeId, type) for LayoutA custom faces (Phone Tone, Harmonic Series, …). */
+const nodeGraphModuleFaceCreatorsByDisplayType = Object.create(null);
+
+function registerNodeGraphModuleFaceCreator(displayType, createFn) {
+  const key = String(displayType || "").trim();
+  if (!key || typeof createFn !== "function") return;
+  nodeGraphModuleFaceCreatorsByDisplayType[key] = createFn;
+}
+
+/**
+ * If definition.displayType has a registered creator, optionally append the face
+ * and return true so the caller can share the LayoutA IO strip path.
+ */
+function appendNodeGraphRegisteredFaceIfAny(article, node, type, definition, patchNodeUi) {
+  const key = String(definition?.displayType || "").trim();
+  const create = key ? nodeGraphModuleFaceCreatorsByDisplayType[key] : null;
+  if (typeof create !== "function") return false;
+  const mountFace = typeof nodeGraphModuleShouldMountDisplayFace === "function"
+    ? nodeGraphModuleShouldMountDisplayFace(type, patchNodeUi)
+    : !patchNodeUi?.oscilloscopeHidden;
+  if (mountFace) {
+    article.append(create(node, type));
+  }
+  return true;
+}
+
 function ensureNodeGraphDragHandle(node) {
   const actions = node.querySelector(".node-header-actions");
   if (!actions || actions.querySelector(".node-drag-handle")) {
@@ -935,13 +961,7 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
-  } else if (type === "phoneTone") {
-    const mountFace = typeof nodeGraphModuleShouldMountDisplayFace === "function"
-      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
-      : !patchNodeUi.oscilloscopeHidden;
-    if (mountFace && typeof createNodeGraphPhoneToneDisplay === "function") {
-      article.append(createNodeGraphPhoneToneDisplay(node, type));
-    }
+  } else if (appendNodeGraphRegisteredFaceIfAny(article, node, type, definition, patchNodeUi)) {
     appendNodeGraphModuleIoSection(
       article,
       createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),

@@ -129,6 +129,7 @@ $modules = @(
   @{ Name = "chord_sequencer"; Simd = $false; Exports = @("soemdsp_chord_sequencer_create", "soemdsp_chord_sequencer_destroy", "soemdsp_chord_sequencer_sample", "soemdsp_chord_sequencer_scale", "soemdsp_chord_sequencer_root", "soemdsp_chord_sequencer_step", "soemdsp_chord_sequencer_version") }
   @{ Name = "lut_cell"; Simd = $false; Exports = @("soemdsp_lut_cell_create", "soemdsp_lut_cell_destroy", "soemdsp_lut_cell_sample", "soemdsp_lut_cell_q", "soemdsp_lut_cell_version") }
   @{ Name = "metallic_ratio"; Simd = $false; Exports = @("soemdsp_metallic_ratio_sample", "soemdsp_metallic_ratio_version", "soemdsp_metallic_ratio_metadata_json", "soemdsp_metallic_ratio_metadata_json_size") }
+  @{ Name = "harmonic_series"; Simd = $false; Exports = @("soemdsp_harmonic_series_sample", "soemdsp_harmonic_series_effective", "soemdsp_harmonic_series_version", "soemdsp_harmonic_series_metadata_json", "soemdsp_harmonic_series_metadata_json_size") }
   @{ Name = "u2b"; Simd = $false; Exports = @("soemdsp_u2b_sample", "soemdsp_u2b_version", "soemdsp_u2b_metadata_json", "soemdsp_u2b_metadata_json_size") }
   @{ Name = "b2u"; Simd = $false; Exports = @("soemdsp_b2u_sample", "soemdsp_b2u_version", "soemdsp_b2u_metadata_json", "soemdsp_b2u_metadata_json_size") }
   @{ Name = "inv"; Simd = $false; Exports = @("soemdsp_inv_sample", "soemdsp_inv_version", "soemdsp_inv_metadata_json", "soemdsp_inv_metadata_json_size") }

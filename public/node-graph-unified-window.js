@@ -653,6 +653,13 @@ function assertOnlyNodeGraphUnifiedWindowPageVisible(keepPage = "") {
 }
 
 function restoreNodeGraphUnifiedWindowAfterWorkspaceStates() {
+  // ?hideui=1 embeds (Hero) must not reopen Command Center from saved UI state.
+  if (typeof nodeGraphEmbedHideUiActive === "function" && nodeGraphEmbedHideUiActive()) {
+    return;
+  }
+  if (document.documentElement.classList.contains("soemdsp-hide-ui")) {
+    return;
+  }
   let page = String(nodeGraphMvp?.unifiedWindowPage || "").trim();
   if (!nodeGraphUnifiedWindowPageConfig(page)) {
     page = "";

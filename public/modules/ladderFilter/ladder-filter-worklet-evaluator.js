@@ -57,7 +57,7 @@ NodeLiveAudioProcessor.prototype.applyLadderNativeParams = function applyLadderN
   native.soemdsp_ladder_filter_set_params(
     state.nativeHandle,
     Math.max(0, this.safeFilterNumber(params.frequency, state)),
-    this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 0.999),
+    this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1),
     Math.max(0, Math.min(3, Math.round(Number(params.mode) || 0))),
     Math.max(1, Math.min(4, Math.round(Number(params.stages) || 4))),
     Math.max(1, Number(rate) || sampleRate || 44100),
@@ -103,7 +103,7 @@ NodeLiveAudioProcessor.prototype.ladderFilterSample = function ladderFilterSampl
           state.nativeHandle,
           this.safeFilterNumber(input, state),
           Math.max(0, this.safeFilterNumber(params.frequency, state)),
-          this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 0.999),
+          this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1),
           Math.max(0, Math.min(3, Math.round(Number(params.mode) || 0))),
           Math.max(1, Math.min(4, Math.round(Number(params.stages) || 4))),
           safeRate,

@@ -219,15 +219,23 @@ function nodeGraphModuleDefinitionInvalidateCache(type = null) {
 }
 
 /**
- * @deprecated Absolute-Hz f jack retired — always null (unwired).
- * Use domain-add MOD on Frequency instead.
+ * Absolute-Hz ƒ jack sample when wired; null if unwired.
+ * Delegates to nodeGraphResolveAbsHzJack (param-surface-helpers).
+ * Arg order kept as (mixInput, hasInput, nodeId) for older call sites.
  */
-function nodeGraphReadFInputHz(_mixInput, _hasInput, _nodeId, _options = {}) {
+function nodeGraphReadFInputHz(mixInput, hasInput, nodeId, _options = {}) {
+  if (typeof nodeGraphResolveAbsHzJack === "function") {
+    return nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId);
+  }
+  if (typeof hasInput === "function" && typeof mixInput === "function" && nodeId && hasInput(nodeId, "f")) {
+    return mixInput(nodeId, "f");
+  }
   return null;
 }
 
 /**
- * Clamp signed Hz to ±Speed Limit. Second arg ignored (legacy f mult removed).
+ * Clamp signed Hz to ±Speed Limit.
+ * Second arg ignored (legacy ƒ×Frequency multiply removed — wired ƒ cancels the knob).
  * Through-zero: negative Hz allowed (reverse phase) when base is bipolar MOD.
  */
 function nodeGraphResolveFrequencyHz(baseHz, _fHzOrNull, options = {}) {

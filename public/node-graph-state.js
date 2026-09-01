@@ -297,6 +297,7 @@ var nodeGraphMvp = {
     chordSequencer: 0,
     lutCell: 0,
     metallicRatio: 0,
+    harmonicSeries: 0,
     delayedTrigger: 0,
     expAdsr: 0,
     flowerChildEnvelopeFollower: 0,

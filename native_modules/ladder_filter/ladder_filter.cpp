@@ -50,7 +50,7 @@ static const char kMetadataJson[] =
         "\"defaultValue\":0.2,"
         "\"min\":0,"
         "\"mid\":0.2,"
-        "\"max\":0.999,"
+        "\"max\":1,"
         "\"step\":\"any\","
         "\"tooltip\":\"Sets the feedback amount near the cutoff frequency.\""
       "},"
@@ -110,7 +110,7 @@ static void sync_ladder_coeffs(
   const double safeRate = sampleRate < 1.0 ? 44100.0 : sampleRate;
   const double maxFreq  = safeRate * 0.49 < 20000.0 ? safeRate * 0.49 : 20000.0;
   const double safeFreq = frequency < 0.000001 ? 0.000001 : (frequency > maxFreq ? maxFreq : frequency);
-  const double feedback  = resonance < 0.0 ? 0.0 : (resonance > 0.999 ? 0.999 : resonance);
+  const double feedback  = resonance < 0.0 ? 0.0 : (resonance > 1.0 ? 1.0 : resonance);
   const int safeMode    = mode < 0 ? 0 : (mode > 3 ? 3 : mode);
   const int safeStages  = stages < 1 ? 1 : (stages > 4 ? 4 : stages);
 

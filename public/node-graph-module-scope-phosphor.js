@@ -38,14 +38,13 @@ function absorbNodeGraphModuleScopePhosphorDrawCursors() {
     if (!Number.isFinite(endFrame)) {
       continue;
     }
-    const burnCanvas = typeof nodeGraphScope2dBurnCanvasForSlot === "function"
-      ? nodeGraphScope2dBurnCanvasForSlot(slot)
-      : null;
-    absorbNodeGraphPhosphorDrawCursorOnCanvas(burnCanvas, endFrame);
-    const localCanvas = typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
-      ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
-      : null;
-    absorbNodeGraphPhosphorDrawCursorOnCanvas(localCanvas, endFrame);
+    // Peek only — never ensure/recreate on pause absorb (first-pause Output wipe).
+    const faceCanvas = typeof peekNodeGraphModuleScopeFaceCanvas === "function"
+      ? peekNodeGraphModuleScopeFaceCanvas(slot)
+      : (typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
+        ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
+        : null);
+    absorbNodeGraphPhosphorDrawCursorOnCanvas(faceCanvas, endFrame);
     const numberCanvas = typeof nodeGraphNumberReadoutCanvasForSlot === "function"
       ? nodeGraphNumberReadoutCanvasForSlot(slot)
       : null;

@@ -696,7 +696,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         const state = this.robinSupersawStates.get(nodeId) || this.createRobinSupersawState();
         this.robinSupersawStates.set(nodeId, state);
         const hasPitchInput = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"));
-        const hasFreqInput = this.inputConnections.has(this.inputKey(nodeId, "f"));
+        const hasFreqInput = this.readFInputHz(mixInput, nodeId) != null;
         const useBlock = !hasPitchInput && !hasFreqInput;
         if (frame === 0 || !state.cachedParams || !useBlock) {
           const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
@@ -879,6 +879,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           this.readEffectiveParameter(node, "index", 1, frame, frames, frameValues),
         ),
       }),
+      harmonicSeries: (node, nodeId, frame, frames, frameValues, mixInput, _safeRate, hasInput) =>
+        this.harmonicSeriesWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, hasInput),
       radar: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.radarStates.get(nodeId) || this.createRadarState();
         this.radarStates.set(nodeId, state);
@@ -1204,9 +1206,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         return this.antisawSample(
           state,
           {
-            fundamental: this.inputConnections.has(this.inputKey(nodeId, "f"))
-              ? mixInput(nodeId, "f")
-              : fundKnob,
+            fundamental: this.frequencyHzFromKnobOrF(fundKnob, mixInput, nodeId),
             reflections: read("reflections", 64),
             tilt: read("tilt", 0),
             level: read("amplitude", 1),

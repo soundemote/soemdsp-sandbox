@@ -1135,6 +1135,18 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+      if (name === "harmonic_series" || targetType === "harmonicSeries") {
+        this.nativeHarmonicSeries = exports;
+        this.nativeHarmonicSeriesReady = Boolean(
+          this.nativeHarmonicSeries?.soemdsp_harmonic_series_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "harmonic_series",
+          status: this.nativeHarmonicSeriesReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "surge_oscillator" || targetType === "surgeOscillator") {
         for (const state of this.surgeOscillatorStates.values()) {
           this.destroySurgeOscillatorNativeState(state);

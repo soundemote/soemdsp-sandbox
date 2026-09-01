@@ -634,9 +634,33 @@ function enforceNodeGraphWorkspaceClosedWindowStates(states = nodeGraphMvp.works
   }
 }
 
+function nodeGraphEmbedHideUiActive() {
+  try {
+    if (document.documentElement.classList.contains("soemdsp-hide-ui")) {
+      return true;
+    }
+    const raw = String(new URLSearchParams(window.location.search).get("hideui") || "")
+      .trim()
+      .toLowerCase();
+    return raw === "1" || raw === "true" || raw === "yes";
+  } catch (_error) {
+    return false;
+  }
+}
+
 function applyNodeGraphWorkspaceWindowStates() {
   if (typeof syncNodeGraphRegisteredFloatingWindowSurfaces === "function") {
     syncNodeGraphRegisteredFloatingWindowSurfaces();
+  }
+  // Hero / hideui embeds must stay chrome-free: never restore Command Center
+  // (or other floating windows) from persisted UI settings.
+  if (nodeGraphEmbedHideUiActive()) {
+    nodeGraphMvp.workspaceWindowStates = closeNodeGraphWorkspaceWindowStates(
+      nodeGraphMvp.workspaceWindowStates,
+    );
+    nodeGraphMvp.unifiedWindowPresentation = "closed";
+    nodeGraphMvp.unifiedWindowPage = "";
+    nodeGraphMvp.sharedInspectorActive = "";
   }
   nodeGraphMvp.workspaceWindowStates = normalizeNodeGraphWorkspaceWindowStates(
     nodeGraphMvp.workspaceWindowStates,
@@ -649,7 +673,10 @@ function applyNodeGraphWorkspaceWindowStates() {
     applyNodeGraphWorkspaceWindowStateToElement(key);
   }
   enforceNodeGraphWorkspaceClosedWindowStates(nodeGraphMvp.workspaceWindowStates);
-  if (typeof restoreNodeGraphUnifiedWindowAfterWorkspaceStates === "function") {
+  if (
+    !nodeGraphEmbedHideUiActive()
+    && typeof restoreNodeGraphUnifiedWindowAfterWorkspaceStates === "function"
+  ) {
     restoreNodeGraphUnifiedWindowAfterWorkspaceStates();
   }
   document
@@ -1543,9 +1570,21 @@ function applyNodeGraphUserSession(session, options = {}) {
     nodeGraphMvp.workspaceWindowStates,
     nodeGraphMvp.sharedInspectorActive,
   );
+  // ?autoframe=1 embeds (site home/sandbox): do not restore saved pan/zoom.
+  // Chrome keeps a separate localStorage from Edge; a bad saved view lands as
+  // an empty black workspace after boot autoframe is overwritten by session.
+  const skipSavedView = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get("autoframe") === "1";
+    } catch (_error) {
+      return false;
+    }
+  })();
   const workspaceView = normalizeNodeGraphWorkspaceViewState(normalized.workspaceView);
-  nodeGraphMvp.pan = { ...workspaceView.pan };
-  nodeGraphMvp.zoom = workspaceView.zoom;
+  if (!skipSavedView) {
+    nodeGraphMvp.pan = { ...workspaceView.pan };
+    nodeGraphMvp.zoom = workspaceView.zoom;
+  }
   nodeGraphMvp.moduleStoreDepartment = normalizeNodeGraphModuleStoreDepartmentState(
     normalized.moduleStoreDepartment,
   );
@@ -1618,6 +1657,19 @@ function applyNodeGraphUserSession(session, options = {}) {
   }
   if (typeof applyNodeGraphPan === "function") {
     applyNodeGraphPan();
+  }
+  if (skipSavedView && typeof nodeGraphExternalScheduleAutoFrame === "function") {
+    nodeGraphExternalScheduleAutoFrame({ padding: 0.08 });
+  } else if (skipSavedView && typeof window.nodeGraphAutoFrame === "function") {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.nodeGraphAutoFrame({ padding: 0.08 });
+      });
+    });
+  } else if (typeof nodeGraphRecoverViewportIfModulesOffscreen === "function") {
+    // Local debug (no ?autoframe): Chrome can restore a pan/zoom that leaves
+    // an empty workspace while Live Audio still plays the patch.
+    nodeGraphRecoverViewportIfModulesOffscreen();
   }
 }
 

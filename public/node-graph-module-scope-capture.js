@@ -543,7 +543,12 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   const xTotal = Math.max(0, Math.floor(Number(xBuffer.nodeGraphScopeTotalSampleCount) || 0));
   const yTotal = Math.max(0, Math.floor(Number(yBuffer.nodeGraphScopeTotalSampleCount) || 0));
   const absoluteFrame = Math.min(xTotal, yTotal);
-  const canvas = nodeGraphScope2dBurnCanvasForSlot(slot);
+  // Peek only — Instant Trace must not hit burn recreate via capture.
+  const canvas = typeof peekNodeGraphModuleScopeFaceCanvas === "function"
+    ? peekNodeGraphModuleScopeFaceCanvas(slot)
+    : (typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
+      ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
+      : null);
   const lastDrawnFrame = Number(canvas?._nodeGraphScope2dLastDrawnFrame);
   const newSinceLastDraw = Number.isFinite(lastDrawnFrame) && absoluteFrame > lastDrawnFrame
     ? absoluteFrame - lastDrawnFrame

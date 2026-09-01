@@ -3043,7 +3043,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=toggle-range-1",
   "./public/modules/portal/portal-lanes.js?v=portal-rename-4x2-1",
   "./public/modules/portal/portal-math.js?v=portal-lanes-1",
-  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=domain-out-1",
+  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=f-cancel-ssot-1",
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
@@ -3070,7 +3070,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
-  "./public/modules/additiveGraph/additive-param-smooth.js?v=gen-int-harm-1",
+  "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // CurveEnvelopeMod + sample-accurate mod packets (Bubble Cutoff proof).
   "./public/modules/expAdsr/exp-adsr-math.js?v=env-uot-1",
@@ -3166,7 +3166,7 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/modules/papoulisFilter/papoulis-filter-worklet-evaluator.js?v=xy-pad-native-1",
   "./public/modules/phosphillator/phosphillator-worklet-evaluator.js?v=drawnpath-fix-1",
   "./public/modules/cookbookFilter/cookbook-filter-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/ladderFilter/ladder-filter-worklet-evaluator.js?v=ladder-block-1",
+  "./public/modules/ladderFilter/ladder-filter-worklet-evaluator.js?v=res-max-1",
   "./public/modules/flowerChildFilter/flower-child-filter-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/activeFilter/active-filter-math.js?v=active-no-freq-1",
   "./public/modules/activeFilter/active-filter-worklet-evaluator.js?v=bp-two-in-one-1",
@@ -3294,6 +3294,8 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/modules/screenSpaceShader/screen-space-shader-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/metallicRatio/metallic-ratio-math.js?v=metallic-ratio-1",
   "./public/modules/metallicRatio/metallic-ratio-worklet-evaluator.js?v=metallic-ratio-1",
+  "./public/modules/harmonicSeries/harmonic-series-math.js?v=harmonic-series-f0-1",
+  "./public/modules/harmonicSeries/harmonic-series-worklet-evaluator.js?v=harmonic-series-f0-1",
   "./public/modules/speakerProtection/speaker-protection-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/radar/radar-worklet-evaluator.js?v=phasor-stdlib-1",

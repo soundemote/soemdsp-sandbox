@@ -5,7 +5,10 @@ function renderNodeBootSysinfo(parts) {
 }
 
 function probeWebGLVRAM(gl) {
-  // Safari/WebKit only extension
+  // Non-destructive only. The old path allocated 4096×4096 RGBA textures
+  // until OOM (up to ~8 GB) to estimate VRAM. That can exhaust GPU memory
+  // and leave later sandbox WebGL contexts unable to draw — boot screen
+  // looks fine (DOM), then the app reveals a black canvas.
   try {
     const ext = gl.getExtension("WEBKIT_WEBGL_memory_info");
     if (ext) {
@@ -13,21 +16,7 @@ function probeWebGLVRAM(gl) {
       if (kb > 0) return Math.round(kb / 1024);
     }
   } catch (_) {}
-  // Probe by allocating textures until OOM — each 4096×4096 RGBA = 64 MB
-  let mb = 0;
-  const textures = [];
-  try {
-    for (let i = 0; i < 128; i++) {
-      const tex = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 4096, 4096, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      if (gl.getError() !== gl.NO_ERROR) { gl.deleteTexture(tex); break; }
-      textures.push(tex);
-      mb += 64;
-    }
-  } catch (_) {}
-  textures.forEach((t) => gl.deleteTexture(t));
-  return mb || null;
+  return null;
 }
 
 async function populateNodeBootSysinfo() {
@@ -172,7 +161,97 @@ function finishNodeBootLoading() {
   window.setTimeout(() => {
     document.body.classList.remove("node-boot-fading");
     document.body.classList.add("node-boot-ready");
+    // Boot kept .shell visibility:hidden; cull may have put every module to
+    // sleep (display:none). Also a restored session can leave viewMode on
+    // settings/code/mapping (content-view-mode hides the graph) while K still
+    // toggles the controller dock — black workspace, keyboard works. Force a
+    // visible modular graph after reveal.
+    try {
+      recoverNodeGraphAfterBoot();
+    } catch (error) {
+      console.warn("Unable to recover graph after boot", error);
+    }
   }, 333);
+}
+
+function nodeGraphBootWantsResetView() {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const raw = String(params.get("resetview") || params.get("resetView") || "")
+      .trim()
+      .toLowerCase();
+    return raw === "1" || raw === "true" || raw === "yes";
+  } catch (_error) {
+    return false;
+  }
+}
+
+function recoverNodeGraphAfterBoot() {
+  if (nodeGraphBootWantsResetView()) {
+    try {
+      window.localStorage.removeItem("soemdsp-sandbox.userSession.startup.v1");
+    } catch (_error) {
+      /* ignore */
+    }
+  }
+
+  // Prefer modular workspace so the graph is not stuck behind Script/Code/UI.
+  if (typeof setNodeGraphViewMode === "function") {
+    const mode = String(window.nodeGraphMvp?.viewMode || "");
+    if (mode === "settings" || mode === "code" || mode === "mapping" || mode === "script") {
+      setNodeGraphViewMode("modular");
+    }
+  }
+
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  if (workspace) {
+    workspace.hidden = false;
+  }
+  document.getElementById("nodeWiringPanel")?.classList.remove("content-view-mode");
+
+  if (typeof nodeGraphViewportCullWakeAll === "function") {
+    nodeGraphViewportCullWakeAll();
+  } else {
+    document.querySelectorAll(".dsp-node.viewport-asleep").forEach((el) => {
+      el.classList.remove("viewport-asleep");
+    });
+  }
+  if (typeof scheduleNodeGraphViewportCullRefresh === "function") {
+    scheduleNodeGraphViewportCullRefresh();
+  }
+  if (typeof drawNodeGraphWires === "function") {
+    drawNodeGraphWires();
+  }
+
+  // If nothing is on screen (or resetview), reframe the patch.
+  const visibleModules = document.querySelectorAll(
+    ".dsp-node:not(.removed):not(.viewport-asleep)",
+  ).length;
+  const wantsAutoframe = (() => {
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      const raw = String(params.get("autoframe") || "").trim().toLowerCase();
+      return raw === "1" || raw === "true" || raw === "yes" || nodeGraphBootWantsResetView();
+    } catch (_error) {
+      return nodeGraphBootWantsResetView();
+    }
+  })();
+  if ((visibleModules === 0 || wantsAutoframe) && typeof window.nodeGraphAutoFrame === "function") {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.nodeGraphAutoFrame({ padding: 0.08 });
+        if (typeof nodeGraphViewportCullWakeAll === "function") {
+          nodeGraphViewportCullWakeAll();
+        }
+        if (typeof scheduleNodeGraphViewportCullRefresh === "function") {
+          scheduleNodeGraphViewportCullRefresh();
+        }
+        if (typeof drawNodeGraphWires === "function") {
+          drawNodeGraphWires();
+        }
+      });
+    });
+  }
 }
 
 window.addEventListener("nodeSandboxStartupProgress", (event) => {

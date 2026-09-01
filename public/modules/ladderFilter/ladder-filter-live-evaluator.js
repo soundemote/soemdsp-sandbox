@@ -104,9 +104,12 @@ nodeGraphLiveModuleEvaluators.ladderFilter = ({ runtime, node, nodeId, frame, fr
   const state = runtime.ladderFilterStates.get(nodeId) || createNodeGraphStereoFilterState(createNodeGraphLadderFilterState);
   runtime.ladderFilterStates.set(nodeId, state);
   const ladderParams = {
-    frequency: (typeof hasInput === "function" && hasInput(nodeId, "f"))
-      ? mixInput(nodeId, "f")
-      : readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 1000, frame, frames, frameValues),
+    frequency: nodeGraphFrequencyHzFromKnobOrF(
+      readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 1000, frame, frames, frameValues),
+      hasInput,
+      mixInput,
+      nodeId,
+    ),
     mode: readNodeGraphLiveEffectiveParam(runtime, node, "mode", 1, frame, frames, frameValues),
     resonance: readNodeGraphLiveEffectiveParam(runtime, node, "resonance", 0.2, frame, frames, frameValues),
     stages: readNodeGraphLiveEffectiveParam(runtime, node, "stages", 4, frame, frames, frameValues),

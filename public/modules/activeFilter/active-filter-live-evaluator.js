@@ -20,8 +20,10 @@ nodeGraphLiveModuleEvaluators.activeFilter = ({
       : createNodeGraphStereoFilterState(createNodeGraphActiveFilterState));
   runtime.activeFilterStates.set(nodeId, state);
   const mode = readNodeGraphLiveEffectiveParam(runtime, node, "mode", 3, frame, frames, frameValues);
-  const freqWired = typeof hasInput === "function" && hasInput(nodeId, "f");
-  const freqJack = freqWired ? mixInput(nodeId, "f") : null;
+  const freqJack = typeof nodeGraphResolveAbsHzJack === "function"
+    ? nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId)
+    : null;
+  const freqWired = freqJack != null;
   const bandpass = typeof nodeGraphActiveFilterIsBandpass === "function"
     ? nodeGraphActiveFilterIsBandpass(mode)
     : Math.round(Number(mode) || 0) >= 8;

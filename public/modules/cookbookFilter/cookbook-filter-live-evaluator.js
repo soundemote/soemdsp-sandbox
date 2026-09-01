@@ -6,9 +6,7 @@ nodeGraphLiveModuleEvaluators.cookbookFilter = ({ runtime, node, nodeId, frame, 
   runtime.cookbookFilterStates.set(nodeId, state);
   const cookbookMode = readNodeGraphLiveEffectiveParam(runtime, node, "mode", 1, frame, frames, frameValues);
   const cookbookKnobHz = readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 1000, frame, frames, frameValues);
-  const cookbookFrequency = (typeof hasInput === "function" && hasInput(nodeId, "f"))
-    ? mixInput(nodeId, "f")
-    : cookbookKnobHz;
+  const cookbookFrequency = nodeGraphFrequencyHzFromKnobOrF(cookbookKnobHz, hasInput, mixInput, nodeId);
   const cookbookQ = readNodeGraphLiveEffectiveParam(runtime, node, "q", 1, frame, frames, frameValues);
   const cookbookGain = readNodeGraphLiveEffectiveParam(runtime, node, "gain", 0, frame, frames, frameValues);
   const cookbookStages = readNodeGraphLiveEffectiveParam(runtime, node, "stages", 2, frame, frames, frameValues);

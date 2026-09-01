@@ -256,9 +256,64 @@ function nodeGraphCenterViewOnModules(options = {}) {
   return true;
 }
 
+/** True when at least one module rect intersects the viewport (with margin). */
+function nodeGraphModulesIntersectViewport() {
+  const els = typeof document !== "undefined"
+    ? [...document.querySelectorAll(".dsp-node")]
+    : [];
+  if (!els.length) {
+    return false;
+  }
+  const vw = window.innerWidth || 0;
+  const vh = window.innerHeight || 0;
+  return els.some((el) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 8 && r.height > 8
+      && r.bottom > 40 && r.right > 40
+      && r.top < vh - 40 && r.left < vw - 40;
+  });
+}
+
+/** If the live patch has modules but none are on-screen, autoframe once. */
+function nodeGraphRecoverViewportIfModulesOffscreen() {
+  const run = () => {
+    const patchNodes = Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes : [];
+    if (patchNodes.length < 1) {
+      return false;
+    }
+    if (nodeGraphModulesIntersectViewport()) {
+      return false;
+    }
+    if (typeof nodeGraphAutoFrame === "function") {
+      return Boolean(nodeGraphAutoFrame({ padding: 0.08 }));
+    }
+    return false;
+  };
+  // Try immediately (session restore often already has laid-out nodes).
+  if (run()) {
+    return true;
+  }
+  if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
+    return false;
+  }
+  // DOM may still be committing after session restore — short retries.
+  window.requestAnimationFrame(() => {
+    if (run()) {
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      if (!run()) {
+        window.setTimeout(run, 300);
+      }
+    });
+  });
+  return true;
+}
+
 if (typeof window !== "undefined") {
   window.nodeGraphAutoFrame = nodeGraphAutoFrame;
   window.nodeGraphCenterViewOnModules = nodeGraphCenterViewOnModules;
+  window.nodeGraphRecoverViewportIfModulesOffscreen = nodeGraphRecoverViewportIfModulesOffscreen;
 }
 
 function nodeGraphZoomRatioBySteps(steps, baseRatio = nodeGraphZoomLimits.wheelRatio) {

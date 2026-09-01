@@ -390,6 +390,7 @@ function nodeGraphParamSignalInAmplitude(domainLevel, ampSample, hasAmp) {
 
 /**
  * Absolute-Hz jack (ƒ / Freq) when wired. Returns null if unwired.
+ * SSOT for “is ƒ patched?” — prefer this over ad-hoc hasInput("f") checks.
  */
 function nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId) {
   if (typeof hasInput !== "function" || typeof mixInput !== "function" || !nodeId) {
@@ -402,6 +403,20 @@ function nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId) {
     return mixInput(nodeId, "Freq");
   }
   return null;
+}
+
+/**
+ * Wired ƒ / Freq cancels the Frequency (cutoff / pivot / …) knob.
+ * Returns jack Hz when wired; otherwise knobHz. Finite numbers only.
+ */
+function nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId) {
+  const jack = nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId);
+  if (jack != null) {
+    const n = Number(jack);
+    return Number.isFinite(n) ? n : 0;
+  }
+  const k = Number(knobHz);
+  return Number.isFinite(k) ? k : 0;
 }
 
 /**

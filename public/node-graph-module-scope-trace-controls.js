@@ -815,7 +815,7 @@ function nodeGraphTraceDisplayActiveControlsForType(type = nodeGraphTraceDisplay
   // Energy / *Burn faces → scope2d controls. Never default unknown types to
   // "trace" (Output stereo page) — that leaked syncChannel/stereoBlend onto
   // Videoscope and friends.
-  if (key.endsWith("Burn") || key === "transportBpm" || key === "clock" || key === "phoneToneFace" || key === "vectorRgbFace" || key === "rasterRgbFace" || key === "gradientVectorscopeFace") {
+  if (key.endsWith("Burn") || key === "transportBpm" || key === "clock" || key === "phoneToneFace" || key === "harmonicSeriesFace" || key === "vectorRgbFace" || key === "rasterRgbFace" || key === "gradientVectorscopeFace") {
     return nodeGraphTraceDisplayActiveControlsByType.scope2d;
   }
   return nodeGraphTraceDisplayActiveControlsByType.trace;

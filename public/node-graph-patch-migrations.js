@@ -283,10 +283,9 @@ function nodeGraphPatchMigrateAdditiveGeneratorWaveformsBasic(patch) {
   return changed ? { ...patch, nodes } : patch;
 }
 
-/**
- * v3 SawSquare/Pulse*/Tri/Rect + Morph → v4 Saw/Square/Pulse*/Tri/RectSine + PWM.
- * SawSquare @ |morph|≥0.5 → Square; else Saw. morph → pwm (Pulse* keep duty).
- */
+// v3 SawSquare / Pulse* / Tri / Rect + Morph → v4 Saw / Square / Pulse* / Tri / RectSine + PWM.
+// SawSquare @ |morph|≥0.5 → Square; else Saw. morph → pwm (Pulse* keep duty).
+// (Keep as // comments: a block comment cannot contain the sequence star-slash.)
 function nodeGraphPatchMigrateAdditiveGeneratorWaveformsPwm(patch) {
   if (!patch || !Array.isArray(patch.nodes)) return patch;
   // v3: 0 SawSquare, 1 PulseCenter, 2 PulseLeft, 3 PulseRight, 4 Triangle, 5 RectifiedSine

@@ -15,9 +15,29 @@ function createNodeGraphAdditiveFilterCurveDisplay(nodeId, type = "additiveLinea
   if (typeof tagNodeGraphModuleBand === "function") {
     tagNodeGraphModuleBand(section, "face");
   }
+  const startLoop = () => {
+    if (section._raf) return;
+    const tick = () => {
+      section._raf = 0;
+      const animate = typeof scopePaintFaceShouldAnimate === "function"
+        ? scopePaintFaceShouldAnimate(section)
+        : (typeof scopePaintIsLive === "function" ? scopePaintIsLive() : true);
+      if (!animate) {
+        if (section._forceDraw) {
+          drawNodeGraphAdditiveFilterCurveDisplay(section);
+        }
+        return;
+      }
+      drawNodeGraphAdditiveFilterCurveDisplay(section);
+      section._raf = requestAnimationFrame(tick);
+    };
+    section._raf = requestAnimationFrame(tick);
+  };
+  section._startFaceLoop = startLoop;
   section.syncFromParameters = () => {
     section._forceDraw = true;
     drawNodeGraphAdditiveFilterCurveDisplay(section);
+    startLoop();
   };
   const canvas = document.createElement("canvas");
   canvas.className = "node-additive-filter-curve-canvas";
@@ -26,15 +46,17 @@ function createNodeGraphAdditiveFilterCurveDisplay(nodeId, type = "additiveLinea
     const ro = new ResizeObserver(() => {
       section._forceDraw = true;
       drawNodeGraphAdditiveFilterCurveDisplay(section);
+      startLoop();
     });
     ro.observe(section);
     section._ro = ro;
   }
-  const tick = () => {
-    drawNodeGraphAdditiveFilterCurveDisplay(section);
-    section._raf = requestAnimationFrame(tick);
-  };
-  section._raf = requestAnimationFrame(tick);
+  document.addEventListener("nodegraphfaceloops", startLoop);
+  section.addEventListener("nodegraphviewport", (event) => {
+    if (!event?.detail?.asleep) startLoop();
+  });
+  drawNodeGraphAdditiveFilterCurveDisplay(section);
+  startLoop();
   return section;
 }
 

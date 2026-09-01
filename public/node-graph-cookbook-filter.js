@@ -263,6 +263,10 @@ function nodeGraphComplexScale(a, scalar) {
 }
 
 function nodeGraphLadderFilterMagnitudeAt(params, frequency, sampleRate) {
+  // Match ladder-filter-live-evaluator topology:
+  //   y0 = g*x - k*y4 ; yi = onePole(y{i-1}) ; out = Σ c[i]*yi
+  // Frequency response must close the feedback loop or Resonance only
+  // scales overall gain (no peak at cutoff on the module face).
   const coeff = nodeGraphLadderFilterCoefficients(
     params.frequency,
     params.resonance,
@@ -277,13 +281,40 @@ function nodeGraphLadderFilterMagnitudeAt(params, frequency, sampleRate) {
     { re: denominator.re, im: -denominator.im },
     (1 + coeff.a) / Math.max(1e-12, denominator.re * denominator.re + denominator.im * denominator.im),
   );
+  // taps[i] = S^i (relative to y0). Feedback always reads y4.
+  const taps = [{ re: 1, im: 0 }];
   let stagePower = { re: 1, im: 0 };
-  let sum = nodeGraphComplexScale(stagePower, coeff.c[0] || 0);
-  for (let index = 1; index < coeff.c.length; index += 1) {
+  for (let index = 1; index <= 4; index += 1) {
     stagePower = nodeGraphComplexMultiply(stagePower, stage);
-    sum = nodeGraphComplexAdd(sum, nodeGraphComplexScale(stagePower, coeff.c[index] || 0));
+    taps.push({ re: stagePower.re, im: stagePower.im });
   }
-  return Math.hypot(sum.re, sum.im) * coeff.g;
+  const s4 = taps[4];
+  const feedbackDen = nodeGraphComplexAdd(
+    { re: 1, im: 0 },
+    nodeGraphComplexScale(s4, Number(coeff.k) || 0),
+  );
+  const invDenMag2 = Math.max(
+    1e-12,
+    feedbackDen.re * feedbackDen.re + feedbackDen.im * feedbackDen.im,
+  );
+  const y0FromX = nodeGraphComplexScale(
+    { re: feedbackDen.re, im: -feedbackDen.im },
+    (Number(coeff.g) || 1) / invDenMag2,
+  );
+  let sum = { re: 0, im: 0 };
+  for (let index = 0; index < coeff.c.length; index += 1) {
+    const weight = Number(coeff.c[index]) || 0;
+    if (!weight) {
+      continue;
+    }
+    const tap = taps[index] || { re: 0, im: 0 };
+    sum = nodeGraphComplexAdd(
+      sum,
+      nodeGraphComplexScale(nodeGraphComplexMultiply(tap, y0FromX), weight),
+    );
+  }
+  const mag = Math.hypot(sum.re, sum.im);
+  return Number.isFinite(mag) && mag > 0 ? mag : 1e-6;
 }
 
 /**
@@ -1129,6 +1160,12 @@ function drawNodeGraphFilterCurveDisplays() {
     if (section.classList.contains("node-phone-tone-display")) {
       if (typeof drawNodeGraphPhoneToneFaceItem === "function") {
         drawNodeGraphPhoneToneFaceItem(section);
+      }
+      return;
+    }
+    if (section.classList.contains("node-harmonic-series-display")) {
+      if (typeof drawNodeGraphHarmonicSeriesFaceItem === "function") {
+        drawNodeGraphHarmonicSeriesFaceItem(section);
       }
       return;
     }

@@ -29,8 +29,12 @@ function nodeGraphCombResonatorLoadMainWasm() {
 function nodeGraphCombResonatorResolveFrequencyHz(
   runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput,
 ) {
-  if (typeof hasInput === "function" && hasInput(nodeId, "f")) {
-    return mixInput(nodeId, "f");
+  const absHz = typeof nodeGraphResolveAbsHzJack === "function"
+    ? nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId)
+    : null;
+  if (absHz != null) {
+    const n = Number(absHz);
+    return Number.isFinite(n) ? n : 0;
   }
   const frequency = readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 110, frame, frames, frameValues);
   const referenceVoltage = typeof normalizeNodeGraphPatchAudio === "function" && nodeGraphMvp?.patch?.audio

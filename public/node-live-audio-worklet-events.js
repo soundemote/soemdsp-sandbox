@@ -43,15 +43,47 @@ NodeLiveAudioProcessor.prototype.speedLimitHz = function speedLimitHz() {
 };
 
 /**
- * @deprecated Absolute-Hz f jack retired — use domain-add MOD on Frequency.
- * Still returns null (unwired) so any leftover call sites stay silent.
+ * Absolute-Hz ƒ jack when wired; null if unwired.
+ * Mirrors nodeGraphResolveAbsHzJack / nodeGraphReadFInputHz.
  */
-NodeLiveAudioProcessor.prototype.readFInputHz = function readFInputHz(_mixInput, _nodeId, _port = "f") {
+NodeLiveAudioProcessor.prototype.readFInputHz = function readFInputHz(mixInput, nodeId, _port = "f") {
+    const hasInput = this.boundHasInput
+      || ((id, port) => this.hasInputPort(id, port));
+    if (typeof nodeGraphResolveAbsHzJack === "function") {
+      return nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId);
+    }
+    if (typeof hasInput === "function" && typeof mixInput === "function" && nodeId && hasInput(nodeId, "f")) {
+      return mixInput(nodeId, "f");
+    }
     return null;
 };
 
 /**
- * Clamp signed Hz to ±Speed Limit. Second arg ignored (legacy f mult removed).
+ * Wired ƒ cancels the Frequency / cutoff knob. Worklet twin of
+ * nodeGraphFrequencyHzFromKnobOrF.
+ */
+NodeLiveAudioProcessor.prototype.frequencyHzFromKnobOrF = function frequencyHzFromKnobOrF(
+  knobHz,
+  mixInput,
+  nodeId,
+) {
+    if (typeof nodeGraphFrequencyHzFromKnobOrF === "function") {
+      const hasInput = this.boundHasInput
+        || ((id, port) => this.hasInputPort(id, port));
+      return nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId);
+    }
+    const jack = this.readFInputHz(mixInput, nodeId);
+    if (jack != null) {
+      const n = Number(jack);
+      return Number.isFinite(n) ? n : 0;
+    }
+    const k = Number(knobHz);
+    return Number.isFinite(k) ? k : 0;
+};
+
+/**
+ * Clamp signed Hz to ±Speed Limit.
+ * Second arg ignored (legacy ƒ×Frequency multiply removed — wired ƒ cancels the knob).
  */
 NodeLiveAudioProcessor.prototype.resolveFrequencyHz = function resolveFrequencyHz(baseHz, _fHzOrNull) {
     const maxHz = this.speedLimitHz();

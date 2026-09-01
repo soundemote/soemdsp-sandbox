@@ -137,8 +137,8 @@ NodeLiveAudioProcessor.prototype.crossoverEvaluator = function crossoverEvaluato
     const key = splitCount === 1 ? "frequency" : `frequency${i + 1}`;
     const knobHz = this.readEffectiveParameter(node, key, defaults[i] ?? 1000, frame, frames, frameValues);
     freqs.push(
-      splitCount === 1 && typeof hasInput === "function" && hasInput(nodeId, "f")
-        ? mixInput(nodeId, "f")
+      splitCount === 1
+        ? this.frequencyHzFromKnobOrF(knobHz, mixInput, nodeId)
         : knobHz,
     );
   }
