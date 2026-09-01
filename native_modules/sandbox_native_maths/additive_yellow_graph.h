@@ -39,8 +39,9 @@ static const int kDefaultHarmonics = 32;
 // Sample-accurate Bubble Cutoff strip (matches graph_engine kMaxBlockFrames).
 static const int kCutoffStripMax = 128;
 
-// Optimize Inaudible Harmonics: −60 dBFS linear floor (matches JS).
-static const float kInaudibleAmp = 0.001f; // 10^(-60/20)
+// Optimize Inaudible Harmonics: −80 dBFS linear floor (matches JS).
+// −60 was killing quiet upper partials that still add air/sparkle.
+static const float kInaudibleAmp = 0.0001f; // 10^(-80/20)
 
 // Per-harmonic CheapWalk / CheapFilteredNoise / WhiteNoise LCG state.
 // Lives on graph_engine Node (not wiped by graph_copy).
@@ -1526,7 +1527,7 @@ inline void apply_noisy_amp(
 
 // Sum one sample. phaseAcc length ≥ g.harmonics (caller-owned).
 // GraphPayload is non-const so WhiteNoise recipe LCGs advance each sample.
-// optimize!=0: skip sin/pan when amp≤0, below −60 dBFS after master, or hz≥Nyquist
+// optimize!=0: skip sin/pan when amp≤0, below −80 dBFS after master, or hz≥Nyquist
 // (phaseAcc still advances). Soft Nyquist skirt always applied on the audible path.
 // blockFrame/blockFrames: quantum lerp progress within the block.
 inline void sum_sample(

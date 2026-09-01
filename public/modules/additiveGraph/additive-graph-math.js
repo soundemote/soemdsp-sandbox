@@ -2103,8 +2103,8 @@ function additiveGraphNormalizeOptimizeMode(mode) {
   return 0;
 }
 
-/** Linear amp floor for Optimize Inaudible Harmonics (−60 dBFS ≈ 0.001). */
-const ADDITIVE_GRAPH_INAUDIBLE_AMP = Math.pow(10, -60 / 20);
+/** Linear amp floor for Optimize Inaudible Harmonics (−80 dBFS ≈ 0.0001). */
+const ADDITIVE_GRAPH_INAUDIBLE_AMP = Math.pow(10, -80 / 20);
 
 /**
  * Bake one fundamental cycle of the Yellow Graph into `out` (length N).
@@ -2145,7 +2145,7 @@ function additiveGraphBakeWaveform(graph, out, hCap = 64) {
 /**
  * Sum one sample. Mono = unpanned sum; Left/Right use pan (−1…+1).
  * *Lerp fields: linear from→to across the block. *Noise: WhiteNoise per sample.
- * optimizeMode 1: skip inaudible sin/pan work (amp≤0, below −60 dBFS, or hz≥Nyquist);
+ * optimizeMode 1: skip inaudible sin/pan work (amp≤0, below −80 dBFS, or hz≥Nyquist);
  * phaseAcc still advances.
  */
 function additiveGraphSumSample(

@@ -2799,7 +2799,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "None = full quality. Inaudible Harmonics = skip sin/pan for amp≤0, below −60 dBFS, or hz≥Nyquist (CPU). Phase accumulators still advance so partials stay coherent when they return.",
+        tooltip: "None = full quality. Inaudible Harmonics = skip sin/pan for amp≤0, below −80 dBFS after master, or hz≥Nyquist (CPU). Keeps quiet air/sparkle; phase accumulators still advance so partials stay coherent when they return.",
       },
       {
         defaultValue: "100",
