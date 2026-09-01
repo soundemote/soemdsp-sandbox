@@ -16588,6 +16588,10 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   color: var(--good);
 }
 
+.node-live-input-state-badge[data-mic-state="paused"] {
+  color: var(--transport-pause-fg);
+}
+
 .node-live-input-state-badge[data-mic-state="blocked"] {
   color: #ff9b9b;
 }
@@ -23833,6 +23837,11 @@ body.keyboard-debug-hidden .status-strip {
 
 .pill.warn {
   color: var(--warn);
+}
+
+/* Same gold as transport ⏸ (.is-paused / --transport-pause-fg). */
+.pill.paused {
+  color: var(--transport-pause-fg);
 }
 
 .pill.inspection-source.none {

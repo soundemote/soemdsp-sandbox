@@ -4,8 +4,12 @@ function syncNodeGraphInputModuleLiveState() {
     if (!badge) {
       continue;
     }
-    const state = nodeGraphMvp.live.inputActive ? nodeGraphMvp.live.micStatus : "off";
-    badge.textContent = nodeGraphLiveMicStatusText(state);
+    const micStatus = nodeGraphMvp.live.inputActive ? nodeGraphMvp.live.micStatus : "off";
+    const pausedConnected = micStatus === "connected"
+      && typeof nodeGraphLiveEngineIsPaused === "function"
+      && nodeGraphLiveEngineIsPaused();
+    const state = pausedConnected ? "paused" : micStatus;
+    badge.textContent = nodeGraphLiveMicStatusText(micStatus);
     badge.dataset.micState = state;
     const peak = Math.max(0, Math.min(1, Number(nodeGraphMvp.live.inputMeterPeak) || 0));
     badge.dataset.inputPeak = peak.toFixed(3);
@@ -33,7 +37,7 @@ function setNodeGraphLiveMicStatus(state, message = "") {
   const classByState = {
     armed: "warn",
     blocked: "error",
-    connected: pausedConnected ? "warn" : "good",
+    connected: pausedConnected ? "paused" : "good",
     off: "",
     requesting: "warn",
   };
