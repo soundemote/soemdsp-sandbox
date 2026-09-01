@@ -1,4 +1,4 @@
-// Worklet: Additive AutoPan — Rate/Depth/Spread swirl harmonics in stereo.
+// Worklet: Additive AutoPan — Width fan + wrap + swirl + HF shimmer + orbit.
 
 NodeLiveAudioProcessor.prototype.additivePanWorkletEvaluate = function additivePanWorkletEvaluate(
   node, nodeId, frame, frames,
@@ -16,28 +16,31 @@ NodeLiveAudioProcessor.prototype.additivePanWorkletEvaluate = function additiveP
     const n = Number(v);
     return Number.isFinite(n) ? n : fb;
   };
+  const eff = (key, fb) => (typeof this.additiveEffectiveParam === "function"
+    ? this.additiveEffectiveParam(node, key, fb, frames)
+    : num(p[key], fb));
   const out = additiveGraphClonePayload(incoming);
   const id = String(nodeId);
   let state = this.additivePanStates.get(id) || {};
-  const rate = typeof this.additiveEffectiveParam === "function"
-    ? this.additiveEffectiveParam(node, "rate", 0.25, frames)
-    : num(p.rate != null ? p.rate : 0.25, 0.25);
-  const depth = typeof this.additiveEffectiveParam === "function"
-    ? this.additiveEffectiveParam(node, "depth", 0.85, frames)
-    : num(p.depth != null ? p.depth : (p.width != null ? Math.abs(Number(p.width)) : 0.85), 0.85);
-  const spread = typeof this.additiveEffectiveParam === "function"
-    ? this.additiveEffectiveParam(node, "spread", 1, frames)
-    : num(p.spread, 1);
-  const bias = typeof this.additiveEffectiveParam === "function"
-    ? this.additiveEffectiveParam(node, "bias", 0, frames)
-    : num(p.bias != null ? p.bias : p.pan, 0);
+  const width = eff("width", 0.75);
+  const rate = eff("rate", 0.25);
+  const depth = eff("depth", 0.85);
+  const spread = eff("spread", 1);
+  const bias = eff("bias", 0);
+  const shimmer = eff("shimmer", 0.35);
+  const orbit = eff("orbit", 1);
+  const shimmerRate = eff("shimmerRate", 18);
   const sr = Number(this.engineSampleRate) || Number(sampleRate) || 44100;
   const applied = additiveGraphApplyPan(
     out,
+    width,
     rate,
     depth,
     spread,
     bias,
+    shimmer,
+    orbit,
+    shimmerRate,
     state,
     sr,
     frames,
@@ -46,6 +49,7 @@ NodeLiveAudioProcessor.prototype.additivePanWorkletEvaluate = function additiveP
   this.additivePanStates.set(id, {
     lerpFrom: applied?.lerpFrom || null,
     phase: applied?.phase || 0,
+    shimmerPhase: applied?.shimmerPhase || 0,
   });
   this.additiveGraphWrite(nodeId, applied?.graph || out);
 };

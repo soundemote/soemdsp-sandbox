@@ -1152,16 +1152,30 @@ inline void apply_quantize_phase(GraphPayload& g, float quantizeOn, float random
   }
 }
 
-// AutoPan / pan rotator — swirl harmonics around the stereo field.
-// phaseInOut: persistent LFO phase in cycles (advanced by rate*frames/sr).
-// spread: turns of phase offset across the bank (0 = unison).
+// Stereo wrap: past ±1 continues onto the other speaker.
+// Keeps hard ±1 as true hard L/R; only values outside fold by 2.
+static inline float wrap_stereo_pan(float pan) {
+  if (!(pan * 0.0f == 0.0f)) return 0.0f;
+  double x = (double)pan;
+  while (x > 1.0) x -= 2.0;
+  while (x < -1.0) x += 2.0;
+  return (float)x;
+}
+
+// AutoPan — Width-first chain: Width fan → rotator (orbit) → HF shimmer → wrap.
+// phaseInOut: rotator phase (cycles). shimmerPhaseInOut: shimmer LFO phase.
 inline void apply_pan(
   GraphPayload& g,
+  float width,
   float rateHz,
   float depth,
   float spread,
   float bias,
+  float shimmer,
+  float orbit,
+  float shimmerHz,
   double& phaseInOut,
+  double& shimmerPhaseInOut,
   float* lerpFrom,
   int& lerpFromLen,
   float sampleRate,
@@ -1171,10 +1185,17 @@ inline void apply_pan(
   if (H < 1 || H > kMaxHarmonics) return;
   const float sr = sampleRate > 1.0f ? sampleRate : 44100.0f;
   const int frames = blockFrames > 1 ? blockFrames : 1;
+  const float wRaw = (width * 0.0f == 0.0f) ? width : 0.0f;
+  const float wAbs = (float)soemdsp_maths::dsp_fabs((double)wRaw);
+  const bool wFlip = wRaw < 0.0f;
   float rate = (rateHz * 0.0f == 0.0f && rateHz > 0.0f) ? rateHz : 0.0f;
-  float depthAmt = clamp_f(depth, 0.0f, 1.0f);
+  float depthAmt = (depth * 0.0f == 0.0f && depth > 0.0f) ? depth : 0.0f;
   float spreadAmt = (spread * 0.0f == 0.0f && spread > 0.0f) ? spread : 0.0f;
-  float biasAmt = clamp_f(bias, -1.0f, 1.0f);
+  float biasAmt = (bias * 0.0f == 0.0f) ? bias : 0.0f;
+  float shimmerAmt = (shimmer * 0.0f == 0.0f && shimmer > 0.0f) ? shimmer : 0.0f;
+  float orbitAmt = (orbit * 0.0f == 0.0f && orbit > 0.0f) ? orbit : 0.0f;
+  float shRate = (shimmerHz * 0.0f == 0.0f && shimmerHz > 0.0f) ? shimmerHz : 0.0f;
+
   double phase = phaseInOut;
   if (!(phase * 0.0 == 0.0)) phase = 0.0;
   phase += (double)(rate / sr) * (double)frames;
@@ -1182,13 +1203,29 @@ inline void apply_pan(
   if (phase < 0.0) phase += 1.0;
   phaseInOut = phase;
 
+  double shPhase = shimmerPhaseInOut;
+  if (!(shPhase * 0.0 == 0.0)) shPhase = 0.0;
+  shPhase += (double)(shRate / sr) * (double)frames;
+  shPhase = shPhase - soemdsp_maths::dsp_floor(shPhase);
+  if (shPhase < 0.0) shPhase += 1.0;
+  shimmerPhaseInOut = shPhase;
+
   const bool havePrev = lerpFrom && lerpFromLen == H;
   const float denom = H > 1 ? (float)(H - 1) : 1.0f;
   const double twoPi = 6.283185307179586;
   for (int i = 0; i < H; i += 1) {
-    const double harmPhase = phase + (double)((float)i / denom) * (double)spreadAmt;
+    const float norm = (float)i / denom;
+    float side = ((i & 1) == 0) ? -1.0f : 1.0f;
+    if (wFlip) side = -side;
+    const float base = side * wAbs;
+    const double harmPhase =
+      phase * (1.0 + (double)orbitAmt * (double)norm) + (double)(norm * spreadAmt);
     const float swirl = (float)soemdsp_maths::dsp_sin(harmPhase * twoPi);
-    const float to = clamp_f(biasAmt + depthAmt * swirl, -1.0f, 1.0f);
+    const float hf = norm * norm;
+    const double shLocal = shPhase + (double)norm * 0.37 + (((i & 1) != 0) ? 0.5 : 0.0);
+    const float jump = soemdsp_maths::dsp_sin(shLocal * twoPi) >= 0.0 ? 1.0f : -1.0f;
+    const float raw = base + biasAmt + depthAmt * swirl + shimmerAmt * hf * jump;
+    const float to = wrap_stereo_pan(raw);
     g.panTo[i] = to;
     g.panFrom[i] = havePrev ? lerpFrom[i] : to;
     g.pan[i] = to;
@@ -1561,7 +1598,7 @@ inline void sum_sample(
     if (hasPanNoise) {
       pan += recipe_white_sample(g.panNoise.seeds[i]) * g.panNoise.amount;
     }
-    pan = clamp_f(pan, -1.0f, 1.0f);
+    pan = wrap_stereo_pan(pan);
     const float gL = 0.5f * (1.0f - pan);
     const float gR = 0.5f * (1.0f + pan);
     lOut += s * gL;

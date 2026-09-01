@@ -2069,11 +2069,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "additivePan") {
-      // AutoPan: frequency→rate, width→depth, shape→spread, pan→bias.
+      // AutoPan: width→Width, frequency→rate, amplitude→depth, shape→spread,
+      // pan→bias, center→shimmer, phaseParam→shimmerHz, mix→orbit.
+      push("width", P.NATIVE_GRAPH_PARAM_WIDTH, cont("width", 0.75));
       push("rate", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("rate", 0.25));
-      push("depth", P.NATIVE_GRAPH_PARAM_WIDTH, cont("depth", 0.85));
+      push("depth", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("depth", 0.85));
       push("spread", P.NATIVE_GRAPH_PARAM_SHAPE, cont("spread", 1));
       push("bias", P.NATIVE_GRAPH_PARAM_PAN, cont("bias", 0));
+      push("shimmer", P.NATIVE_GRAPH_PARAM_CENTER, cont("shimmer", 0.35));
+      push("shimmerRate", P.NATIVE_GRAPH_PARAM_PHASE, cont("shimmerRate", 18));
+      push("orbit", P.NATIVE_GRAPH_PARAM_MIX, cont("orbit", 1));
       continue;
     }
     if (type === "additivePhaseEntry") {

@@ -1681,47 +1681,88 @@ function additiveGraphEffectivePhase(graph, harmonicIndex, blockFrame = 0, block
  * Stamps panLerp only. lerpFrom = Float32Array | {pan}.
  */
 /**
- * AutoPan / pan rotator — swirl harmonics around the stereo field.
- * rateHz: rotation speed (0 freezes). depth: L↔R swing 0…1.
- * spread: turns of phase offset across the harmonic bank (0 = unison motion).
- * bias: static center offset −1…+1.
- * state.phase: persistent LFO phase in cycles; advanced by rate*block/sr.
+ * Stereo wrap: past ±1 continues onto the other speaker.
+ * Keeps hard ±1 as true hard L/R; only values outside (−∞,−1)∪(+1,+∞) fold by 2.
+ */
+function additiveGraphWrapStereoPan(pan) {
+  let x = Number(pan);
+  if (!Number.isFinite(x)) return 0;
+  while (x > 1) x -= 2;
+  while (x < -1) x += 2;
+  return x;
+}
+
+/**
+ * AutoPan — Width-first stereo chain with wrap, swirl, HF shimmer, orbit.
+ * 1) Width: odd/even hard L↔R fan (sign flips; |Width|>1 wraps past hard).
+ * 2) Rate/Depth/Spread/Bias/Orbit: rotator swirl (highs can orbit faster).
+ * 3) Shimmer: index-weighted hard L/R jumps on upper partials.
+ * 4) Wrap into [-1,1) so past-hard pans appear on the other speaker.
+ * state.phase / state.shimmerPhase: persistent LFO phases (cycles).
  */
 function additiveGraphApplyPan(
   graph,
+  width = 0.75,
   rateHz = 0.25,
   depth = 0.85,
   spread = 1,
   bias = 0,
+  shimmer = 0.35,
+  orbit = 1,
+  shimmerHz = 18,
   state = null,
   sampleRate = 44100,
   blockFrames = 128,
   lerpFrom = null,
 ) {
-  if (!graph || !graph.harmonics) return { graph, lerpFrom: null, phase: 0 };
+  if (!graph || !graph.harmonics) {
+    return { graph, lerpFrom: null, phase: 0, shimmerPhase: 0 };
+  }
   const H = graph.harmonics | 0;
-  if (H < 1) return { graph, lerpFrom: null, phase: 0 };
+  if (H < 1) return { graph, lerpFrom: null, phase: 0, shimmerPhase: 0 };
   if (!graph.pan || graph.pan.length !== H) {
     graph.pan = new Float32Array(H);
   }
   const sr = Math.max(1, Number(sampleRate) || 44100);
   const frames = Math.max(1, Number(blockFrames) || 128);
+  const wRaw = Number(width);
+  const wFinite = Number.isFinite(wRaw) ? wRaw : 0;
+  const wAbs = Math.abs(wFinite);
+  const wFlip = wFinite < 0;
   const rate = Math.max(0, Number(rateHz) || 0);
-  const depthAmt = additiveGraphClamp(Number(depth) || 0, 0, 1);
+  const depthAmt = Math.max(0, Number(depth) || 0);
   const spreadAmt = Math.max(0, Number(spread) || 0);
-  const biasAmt = additiveGraphClamp(Number(bias) || 0, -1, 1);
+  const biasAmt = Number.isFinite(Number(bias)) ? Number(bias) : 0;
+  const shimmerAmt = Math.max(0, Number(shimmer) || 0);
+  const orbitAmt = Math.max(0, Number(orbit) || 0);
+  const shRate = Math.max(0, Number(shimmerHz) || 0);
   let phase = Number(state?.phase);
   if (!Number.isFinite(phase)) phase = 0;
-  // Advance LFO for this quantum (cycles).
+  let shimmerPhase = Number(state?.shimmerPhase);
+  if (!Number.isFinite(shimmerPhase)) shimmerPhase = 0;
   phase += (rate / sr) * frames;
   phase = ((phase % 1) + 1) % 1;
+  shimmerPhase += (shRate / sr) * frames;
+  shimmerPhase = ((shimmerPhase % 1) + 1) % 1;
 
   const denom = H > 1 ? H - 1 : 1;
+  const twoPi = Math.PI * 2;
   const to = new Float32Array(H);
   for (let i = 0; i < H; i += 1) {
-    const harmPhase = phase + (i / denom) * spreadAmt;
-    const swirl = Math.sin(harmPhase * Math.PI * 2);
-    to[i] = additiveGraphClamp(biasAmt + depthAmt * swirl, -1, 1);
+    const norm = i / denom;
+    // 1) Width fan — even→L / odd→R (or flipped); |w|>1 wraps later.
+    let side = (i & 1) === 0 ? -1 : 1;
+    if (wFlip) side = -side;
+    const base = side * wAbs;
+    // 2) Orbit skew: highs spin faster than the fundamental.
+    const harmPhase = phase * (1 + orbitAmt * norm) + norm * spreadAmt;
+    const swirl = Math.sin(harmPhase * twoPi);
+    // 3) HF shimmer — hard square jumps, strongest on upper partials.
+    const hf = norm * norm;
+    const shLocal = shimmerPhase + norm * 0.37 + (i & 1) * 0.5;
+    const jump = Math.sin(shLocal * twoPi) >= 0 ? 1 : -1;
+    const raw = base + biasAmt + depthAmt * swirl + shimmerAmt * hf * jump;
+    to[i] = additiveGraphWrapStereoPan(raw);
   }
   const prev = Array.isArray(lerpFrom) || (lerpFrom instanceof Float32Array)
     ? lerpFrom
@@ -1735,7 +1776,12 @@ function additiveGraphApplyPan(
   graph.panNoise = null;
   graph.panLerp = { from, to };
   graph.pan.set(to);
-  return { graph, lerpFrom: new Float32Array(to), phase };
+  return {
+    graph,
+    lerpFrom: new Float32Array(to),
+    phase,
+    shimmerPhase,
+  };
 }
 
 /**
@@ -1877,9 +1923,9 @@ function additiveGraphApplyEffect(graph, mode, parA, parB, parC, parD, effectSta
   return { graph: out, state };
 }
 
-/** Linear pan −1…+1 → { left, right } gains (sum = 1). */
+/** Linear pan −1…+1 → { left, right } gains (sum = 1). Wraps past ±1. */
 function additiveGraphPanGains(pan) {
-  const p = additiveGraphClamp(Number(pan) || 0, -1, 1);
+  const p = additiveGraphWrapStereoPan(pan);
   return {
     left: 0.5 * (1 - p),
     right: 0.5 * (1 + p),
@@ -2219,7 +2265,7 @@ function additiveGraphSumSample(
       const amt = Number(graph.panNoise.amount) || 0;
       pan += w * amt;
     }
-    pan = additiveGraphClamp(pan, -1, 1);
+    pan = additiveGraphWrapStereoPan(pan);
     const gains = additiveGraphPanGains(pan);
     left += s * gains.left;
     right += s * gains.right;

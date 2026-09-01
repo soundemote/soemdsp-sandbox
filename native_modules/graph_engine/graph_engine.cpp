@@ -1792,6 +1792,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePumpLimiter) ? 1.0 // output trim
       : (typeId == kTypeAdditiveBlaster) ? 1.0757 // jump (PoC)
       : (typeId == kTypeAdditiveDiffusor) ? 1.0 // diffusion
+      : (typeId == kTypeAdditivePan) ? 0.85 // AutoPan depth
       : 1.0,
     false
   );
@@ -1839,6 +1840,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.phaseParam,
     (typeId == kTypeRayBouncer) ? 30.0 // launchAngle deg
       : (typeId == kTypeAdditiveBlaster) ? 145.84 // depth cycles (PoC)
+      : (typeId == kTypeAdditivePan) ? 18.0 // AutoPan shimmer Hz
       : 0.0,
     false
   );
@@ -1938,6 +1940,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePiSpigotNoise) ? 0.0 // start
       : (typeId == kTypePulseExplosion) ? 0.5 // centerTime
       : (typeId == kTypeAdditiveBlaster) ? 0.44 // bias (PoC)
+      : (typeId == kTypeAdditivePan) ? 0.35 // AutoPan shimmer amount
       : (typeId == kTypeCrossover3) ? 3000.0
       : (typeId == kTypeCrossover4) ? 1000.0
       : (typeId == kTypeCrossover5) ? 500.0
@@ -1962,7 +1965,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHypersaw) ? 0.15 // random
       : (typeId == kTypeAdditiveOsc) ? 0.0 // harmonicPhaseMultiply
       : (typeId == kTypeAdditiveQuantizeFreq) ? 0.0 // random
-      : (typeId == kTypeAdditivePan) ? 0.85 // AutoPan depth
+      : (typeId == kTypeAdditivePan) ? 0.75 // AutoPan Width (odd/even fan)
       : (typeId == kTypeAdditiveBlaster) ? 0.58 // offset (PoC)
       : (typeId == kTypeBradley2a) ? 0.0 // freqOffset
       : (typeId == kTypeSnowflake) ? 60.0 // angle°
@@ -1999,6 +2002,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeChuaAttractor) ? -0.714 // m1
       : (typeId == kTypeRayBouncer) ? 0.0 // rotate deg
       : (typeId == kTypePulseExplosion) ? 0.3 // timeSpread
+      : (typeId == kTypeAdditivePan) ? 1.0 // AutoPan orbit skew
       : 0.43,
     false
   );
@@ -4140,19 +4144,25 @@ static void process_additive_quantize_phase(Circuit& g, Node& node, int frames) 
   );
 }
 
-// AutoPan: frequency→rate, width→depth, shape→spread, pan→bias.
-// node.phase holds persistent rotator phase (cycles).
+// AutoPan: width→Width, frequency→rate, amplitude→depth, shape→spread,
+// pan→bias, center→shimmer, mix→orbit, phaseParam→shimmerHz.
+// node.phase = rotator phase; node.lastReset = shimmer phase (cycles).
 static void process_additive_pan(Circuit& g, Node& node, int frames) {
   if (!yellow_graph_copy_in(g, node)) return;
   if (node.bypassed) return;
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   soemdsp_yellow_graph::apply_pan(
     node.yellowGraph,
-    (float)node.frequency.out,
     (float)node.width.out,
+    (float)node.frequency.out,
+    (float)node.amplitude.out,
     (float)node.shape.out,
     (float)node.pan.out,
+    (float)node.center.out,
+    (float)node.mix.out,
+    (float)node.phaseParam.out,
     node.phase,
+    node.lastReset,
     node.yellowLerpFrom,
     node.yellowLerpFromLen,
     sr,
@@ -8116,5 +8126,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 95; // Additive Pan → AutoPan rotator (rate/depth/spread/bias)
+  return 96; // AutoPan: Width-first + wrap + HF shimmer + orbit
 }

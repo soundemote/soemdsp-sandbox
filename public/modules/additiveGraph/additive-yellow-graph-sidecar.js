@@ -434,10 +434,14 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
         let panState = this.additivePanStates.get(eid) || {};
         const appliedPan = additiveGraphApplyPan(
           out,
+          eff(node, "width", 0.75),
           eff(node, "rate", 0.25),
           eff(node, "depth", 0.85),
           eff(node, "spread", 1),
           eff(node, "bias", 0),
+          eff(node, "shimmer", 0.35),
+          eff(node, "orbit", 1),
+          eff(node, "shimmerRate", 18),
           panState,
           sr,
           blockFrames,
@@ -446,6 +450,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
         this.additivePanStates.set(eid, {
           lerpFrom: appliedPan?.lerpFrom || null,
           phase: appliedPan?.phase || 0,
+          shimmerPhase: appliedPan?.shimmerPhase || 0,
         });
       } else if (NOISY_TYPES.has(type)) {
         const graph = applyNoisy(type, id, node, out);
