@@ -145,6 +145,51 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "lufs",
   "osc",
   "additiveImage",
+  // Efficient-shop gaps: defined modules that are not on the live-audio /
+  // observer allowlist. Park them as UC cards so search does not silently omit them.
+  "allpass",
+  "attackDecay",
+  // audioInput: intentionally not shop-listed in efficient mode (APP_POLICY §0b).
+  "bandpass",
+  "basicShape",
+  "bitConverter",
+  "bode",
+  "buttonEvents",
+  "chordPad",
+  "clockDivider",
+  "codeblock",
+  "cookbookFilter",
+  "curveOsc",
+  "degreePhrase",
+  "degreeTuring",
+  "ellipsoidOsc",
+  "graph2",
+  "graphCopy",
+  "gravityWalker",
+  "hilbert",
+  "kickEnvelope",
+  "nextPatch",
+  "noteGlide",
+  "noteTranspose",
+  "papoulisFilter",
+  "phaseDisperse",
+  "previousPatch",
+  "quadrature",
+  "sampleLooper",
+  "samplePlayer",
+  "shootingStarExplosion",
+  "sinCos",
+  "sineKick",
+  "sinepulse",
+  "softpopOscillator",
+  "speakerProtection",
+  "speakerProtector2",
+  "stftBlur",
+  "tiltFilter",
+  "windowReopen",
+  "wireBreak",
+  "wireConnect",
+  "wireDisconnect",
 ]);
 
 // Types that used to be on the UC shelf and are now shipped. Always strip
@@ -3360,10 +3405,13 @@ function nodeGraphModuleStoreEntries() {
       const developerOnly = nodeGraphModuleStoreCatalog[type]?.developerOnly === true;
       const catalogHidden = nodeGraphModuleStoreCatalog[type]?.hidden === true
         || nodeGraphModuleStoreCategoryIsInvisible(nodeGraphModuleStoreCatalog[type]?.category);
-      const efficientAllowed = !efficientOn
-        || (typeof nodeGraphModuleIsEfficientProductShopType === "function"
-          ? nodeGraphModuleIsEfficientProductShopType(type)
-          : true);
+      // Efficient shop: allowlisted live-audio + observers, OR under-construction
+      // types (shown as disabled UC cards so nothing silently vanishes from search).
+      const efficientShopType = typeof nodeGraphModuleIsEfficientProductShopType === "function"
+        ? nodeGraphModuleIsEfficientProductShopType(type)
+        : true;
+      const underConstruction = nodeGraphModuleTypeIsUnderConstruction(type);
+      const efficientAllowed = !efficientOn || efficientShopType || underConstruction;
       const publicVisible = !developerOnly && !catalogHidden && efficientAllowed;
       return {
         ...(nodeGraphModuleStoreCatalog[type] || {}),
