@@ -491,9 +491,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   additivePan: {
     category: "additive",
-    description: "Deterministic stereo placement: Pan center + Width spread across harmonics.",
-    label: "Pan",
-    notes: ["additive", "yellow graph", "pan", "width", "stereo"],
+    description: "AutoPan / pan rotator: Rate spins harmonics around the stereo field; Depth sets swing; Spread fans each partial’s LFO phase.",
+    label: "AutoPan",
+    notes: ["additive", "yellow graph", "pan", "autopan", "rotate", "stereo", "swirl"],
   },
   additiveNoisyPan: {
     category: "additive",

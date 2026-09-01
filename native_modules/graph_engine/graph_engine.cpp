@@ -1741,6 +1741,7 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeAdditiveNoisyPan || typeId == kTypeAdditiveNoisyAmp
           || typeId == kTypeAdditiveDiffusor)
         ? 35.0 // speed Hz
+      : (typeId == kTypeAdditivePan) ? 0.25 // AutoPan rate Hz
       : (typeId == kTypeBradley2a) ? 1004.0 // carrier
       : (typeId == kTypeEllipsoid) ? 1.0 // RoundShape clock Hz
       : (typeId == kTypeSnowflake) ? 55.0
@@ -1796,7 +1797,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.shape,
-    (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter || typeId == kTypeAntisaw
+    (typeId == kTypeAdditivePan) ? 1.0 // AutoPan spread (turns across bank)
+      : (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter || typeId == kTypeAntisaw
       || typeId == kTypeBradley2a || typeId == kTypeEllipsoid || typeId == kTypeSnowflake
       || typeId == kTypeFlowerChildFilter || typeId == kTypeYellowjacketFilter
       || typeId == kTypeHumanFilter || typeId == kTypeResonatorFilter
@@ -1959,7 +1961,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDsfOscillator) ? 0.5 // PWM
       : (typeId == kTypeHypersaw) ? 0.15 // random
       : (typeId == kTypeAdditiveOsc) ? 0.0 // harmonicPhaseMultiply
-      : (typeId == kTypeAdditiveQuantizeFreq || typeId == kTypeAdditivePan) ? 0.0 // random/width
+      : (typeId == kTypeAdditiveQuantizeFreq) ? 0.0 // random
+      : (typeId == kTypeAdditivePan) ? 0.85 // AutoPan depth
       : (typeId == kTypeAdditiveBlaster) ? 0.58 // offset (PoC)
       : (typeId == kTypeBradley2a) ? 0.0 // freqOffset
       : (typeId == kTypeSnowflake) ? 60.0 // angle°
@@ -4137,15 +4140,23 @@ static void process_additive_quantize_phase(Circuit& g, Node& node, int frames) 
   );
 }
 
-// pan→pan, width→width
+// AutoPan: frequency→rate, width→depth, shape→spread, pan→bias.
+// node.phase holds persistent rotator phase (cycles).
 static void process_additive_pan(Circuit& g, Node& node, int frames) {
-  (void)frames;
   if (!yellow_graph_copy_in(g, node)) return;
   if (node.bypassed) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   soemdsp_yellow_graph::apply_pan(
     node.yellowGraph,
+    (float)node.frequency.out,
+    (float)node.width.out,
+    (float)node.shape.out,
     (float)node.pan.out,
-    (float)node.width.out
+    node.phase,
+    node.yellowLerpFrom,
+    node.yellowLerpFromLen,
+    sr,
+    frames
   );
 }
 
@@ -8105,5 +8116,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 94; // Additive Generator HarmonicFade Instant|Smoothed|Decimal
+  return 95; // Additive Pan → AutoPan rotator (rate/depth/spread/bias)
 }

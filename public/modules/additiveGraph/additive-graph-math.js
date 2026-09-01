@@ -1680,28 +1680,48 @@ function additiveGraphEffectivePhase(graph, harmonicIndex, blockFrame = 0, block
  *   Width=0 → pans the mono image (same formula). Never silences.
  * Stamps panLerp only. lerpFrom = Float32Array | {pan}.
  */
-function additiveGraphApplyPan(graph, panOffset = 0, width = 0, lerpFrom = null) {
-  if (!graph || !graph.harmonics) return { graph, lerpFrom: null };
+/**
+ * AutoPan / pan rotator — swirl harmonics around the stereo field.
+ * rateHz: rotation speed (0 freezes). depth: L↔R swing 0…1.
+ * spread: turns of phase offset across the harmonic bank (0 = unison motion).
+ * bias: static center offset −1…+1.
+ * state.phase: persistent LFO phase in cycles; advanced by rate*block/sr.
+ */
+function additiveGraphApplyPan(
+  graph,
+  rateHz = 0.25,
+  depth = 0.85,
+  spread = 1,
+  bias = 0,
+  state = null,
+  sampleRate = 44100,
+  blockFrames = 128,
+  lerpFrom = null,
+) {
+  if (!graph || !graph.harmonics) return { graph, lerpFrom: null, phase: 0 };
   const H = graph.harmonics | 0;
-  if (H < 1) return { graph, lerpFrom: null };
+  if (H < 1) return { graph, lerpFrom: null, phase: 0 };
   if (!graph.pan || graph.pan.length !== H) {
     graph.pan = new Float32Array(H);
   }
-  const offset = additiveGraphClamp(Number(panOffset) || 0, -1, 1);
-  const absPan = Math.abs(offset);
-  const signPan = offset > 1e-12 ? 1 : offset < -1e-12 ? -1 : 0;
-  const wRaw = Number(width) || 0;
-  const depth = Math.min(1, Math.abs(wRaw));
-  const flip = wRaw < 0;
+  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const frames = Math.max(1, Number(blockFrames) || 128);
+  const rate = Math.max(0, Number(rateHz) || 0);
+  const depthAmt = additiveGraphClamp(Number(depth) || 0, 0, 1);
+  const spreadAmt = Math.max(0, Number(spread) || 0);
+  const biasAmt = additiveGraphClamp(Number(bias) || 0, -1, 1);
+  let phase = Number(state?.phase);
+  if (!Number.isFinite(phase)) phase = 0;
+  // Advance LFO for this quantum (cycles).
+  phase += (rate / sr) * frames;
+  phase = ((phase % 1) + 1) % 1;
+
+  const denom = H > 1 ? H - 1 : 1;
   const to = new Float32Array(H);
   for (let i = 0; i < H; i += 1) {
-    let pW = 0;
-    if (depth > 1e-12) {
-      const side = (i % 2 === 0) ? -1 : 1; // even→L, odd→R when Width>0
-      pW = (flip ? -side : side) * depth;
-    }
-    // Crossfade Width image → mono hard pan (not an add — that left some at 0).
-    to[i] = additiveGraphClamp(pW * (1 - absPan) + signPan * absPan, -1, 1);
+    const harmPhase = phase + (i / denom) * spreadAmt;
+    const swirl = Math.sin(harmPhase * Math.PI * 2);
+    to[i] = additiveGraphClamp(biasAmt + depthAmt * swirl, -1, 1);
   }
   const prev = Array.isArray(lerpFrom) || (lerpFrom instanceof Float32Array)
     ? lerpFrom
@@ -1715,7 +1735,7 @@ function additiveGraphApplyPan(graph, panOffset = 0, width = 0, lerpFrom = null)
   graph.panNoise = null;
   graph.panLerp = { from, to };
   graph.pan.set(to);
-  return { graph, lerpFrom: new Float32Array(to) };
+  return { graph, lerpFrom: new Float32Array(to), phase };
 }
 
 /**

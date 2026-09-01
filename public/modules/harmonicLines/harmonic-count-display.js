@@ -46,7 +46,7 @@ const ADDITIVE_NAMED_FACE = Object.freeze({
   additiveFrequencySlope: "FreqSkew",
   additiveNoisyFreq: "NoisyFreq",
   additiveNoisyPhase: "NoisyPhase",
-  additivePan: "Pan",
+  additivePan: "AutoPan",
   additiveNoisyPan: "NoisyPan",
   additiveNoisyAmp: "NoisyAmp",
   additiveDiffusor: "Diffusor",

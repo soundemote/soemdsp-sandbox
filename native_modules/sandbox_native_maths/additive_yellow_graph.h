@@ -1152,25 +1152,50 @@ inline void apply_quantize_phase(GraphPayload& g, float quantizeOn, float random
   }
 }
 
-// Width first (odd/even spread), then Pan crossfade to one side.
-inline void apply_pan(GraphPayload& g, float panOffset, float width) {
+// AutoPan / pan rotator — swirl harmonics around the stereo field.
+// phaseInOut: persistent LFO phase in cycles (advanced by rate*frames/sr).
+// spread: turns of phase offset across the bank (0 = unison).
+inline void apply_pan(
+  GraphPayload& g,
+  float rateHz,
+  float depth,
+  float spread,
+  float bias,
+  double& phaseInOut,
+  float* lerpFrom,
+  int& lerpFromLen,
+  float sampleRate,
+  int blockFrames
+) {
   const int H = g.harmonics;
   if (H < 1 || H > kMaxHarmonics) return;
-  const float offset = clamp_f(panOffset, -1.0f, 1.0f);
-  const float absPan = (float)soemdsp_maths::dsp_fabs((double)offset);
-  const float signPan = offset > 1e-12f ? 1.0f : (offset < -1e-12f ? -1.0f : 0.0f);
-  const float wRaw = (width * 0.0f == 0.0f) ? width : 0.0f;
-  const float depth = (float)soemdsp_maths::dsp_fabs((double)wRaw);
-  const float depthC = depth < 1.0f ? depth : 1.0f;
-  const bool flip = wRaw < 0.0f;
+  const float sr = sampleRate > 1.0f ? sampleRate : 44100.0f;
+  const int frames = blockFrames > 1 ? blockFrames : 1;
+  float rate = (rateHz * 0.0f == 0.0f && rateHz > 0.0f) ? rateHz : 0.0f;
+  float depthAmt = clamp_f(depth, 0.0f, 1.0f);
+  float spreadAmt = (spread * 0.0f == 0.0f && spread > 0.0f) ? spread : 0.0f;
+  float biasAmt = clamp_f(bias, -1.0f, 1.0f);
+  double phase = phaseInOut;
+  if (!(phase * 0.0 == 0.0)) phase = 0.0;
+  phase += (double)(rate / sr) * (double)frames;
+  phase = phase - soemdsp_maths::dsp_floor(phase);
+  if (phase < 0.0) phase += 1.0;
+  phaseInOut = phase;
+
+  const bool havePrev = lerpFrom && lerpFromLen == H;
+  const float denom = H > 1 ? (float)(H - 1) : 1.0f;
+  const double twoPi = 6.283185307179586;
   for (int i = 0; i < H; i += 1) {
-    float pW = 0.0f;
-    if (depthC > 1e-12f) {
-      const float side = (i % 2 == 0) ? -1.0f : 1.0f;
-      pW = (flip ? -side : side) * depthC;
-    }
-    g.pan[i] = clamp_f(pW * (1.0f - absPan) + signPan * absPan, -1.0f, 1.0f);
+    const double harmPhase = phase + (double)((float)i / denom) * (double)spreadAmt;
+    const float swirl = (float)soemdsp_maths::dsp_sin(harmPhase * twoPi);
+    const float to = clamp_f(biasAmt + depthAmt * swirl, -1.0f, 1.0f);
+    g.panTo[i] = to;
+    g.panFrom[i] = havePrev ? lerpFrom[i] : to;
+    g.pan[i] = to;
+    if (lerpFrom) lerpFrom[i] = to;
   }
+  g.hasPanLerp = 1;
+  if (lerpFrom) lerpFromLen = H;
 }
 
 // A2 Noisy*: salts Freq=13, Phase=29, Pan=47, Amp=61.

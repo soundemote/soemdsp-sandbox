@@ -432,15 +432,20 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
         });
       } else if (type === "additivePan") {
         let panState = this.additivePanStates.get(eid) || {};
-        // Width (spread) then Pan (offset) — arg order is (panOffset, width).
         const appliedPan = additiveGraphApplyPan(
           out,
-          eff(node, "pan", 0),
-          eff(node, "width", 0),
+          eff(node, "rate", 0.25),
+          eff(node, "depth", 0.85),
+          eff(node, "spread", 1),
+          eff(node, "bias", 0),
+          panState,
+          sr,
+          blockFrames,
           panState.lerpFrom || null,
         );
         this.additivePanStates.set(eid, {
           lerpFrom: appliedPan?.lerpFrom || null,
+          phase: appliedPan?.phase || 0,
         });
       } else if (NOISY_TYPES.has(type)) {
         const graph = applyNoisy(type, id, node, out);
