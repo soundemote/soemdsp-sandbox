@@ -242,7 +242,7 @@ const nodeGraphDefaultNodeConfigs = Object.freeze([
 ]);
 
 const nodeGraphDefaultConnections = Object.freeze([
-  { sourceNode: "polyBlep-1", sourcePort: "Wave Out", destinationNode: "ladderFilter-1", destinationPort: "In" },
+  { sourceNode: "polyBlep-1", sourcePort: "Wave", destinationNode: "ladderFilter-1", destinationPort: "In" },
   { sourceNode: "ladderFilter-1", sourcePort: "Out", destinationNode: "softClipper-1", destinationPort: "In" },
   { sourceNode: "softClipper-1", sourcePort: "Out", destinationNode: "reverbEffect-1", destinationPort: "In" },
   { sourceNode: "reverbEffect-1", sourcePort: "Mix L", destinationNode: "pingPongDelay-1", destinationPort: "Left" },

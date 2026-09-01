@@ -646,12 +646,13 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
       : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 1024))),
-    // Shared packing toggles (same SSOT as scope2d / 2D Phosphor).
+    // Shared packing toggles. Fall back to lineBurn defaults (Full Dot Economy ON
+    // for c1091b42 fused CRT look). Explicit false stays off.
     fullDotEconomy: nodeGraphDisplaySettingsToggleIsOn(
-      source.fullDotEconomy ?? source.useFullDotEconomy,
+      source.fullDotEconomy ?? source.useFullDotEconomy ?? defaults.fullDotEconomy,
     ),
     dotsOnly: nodeGraphDisplaySettingsToggleIsOn(
-      source.dotsOnly ?? source.verticesOnly,
+      source.dotsOnly ?? source.verticesOnly ?? defaults.dotsOnly,
     ),
     // Auto-trigger: rising edge of In snaps pen left (Reset jack still works).
     sourceSync: nodeGraphDisplaySettingsToggleIsOn(

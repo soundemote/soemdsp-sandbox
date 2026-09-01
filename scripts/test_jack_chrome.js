@@ -170,7 +170,20 @@ var sandbox = {
     },
     polyBlep: {
       inputs: ["Morph"],
-      outputs: ["Wave Out"],
+      outputs: ["Wave", "Saw", "Ramp", "Square", "Tri", "Sine"],
+      outputChannels: { Wave: "green" },
+      outputAliases: { Out: "Wave", "Wave Out": "Wave", Noise: "Wave" },
+    },
+    aliasSine: { outputs: ["Out"], outputChannels: { Out: "green" } },
+    robinSinusoid: { outputs: ["Out"], outputChannels: { Out: "green" } },
+    antisaw: { outputs: ["Out"], outputChannels: { Out: "green" } },
+    sinc: { outputs: ["Out"], outputChannels: { Out: "green" } },
+    dsfOscillator: { outputs: ["Out"], outputChannels: { Out: "green" } },
+    softwaveOsc: { outputs: ["Out"], outputChannels: { Out: "green" } },
+    surgeOscillator: {
+      outputs: ["Wave", "Saw", "Square", "Tri", "Sine", "Synced", "Internal Sync"],
+      outputChannels: { Wave: "green" },
+      outputAliases: { Out: "Wave", "Wave Out": "Wave" },
     },
   },
   nodeGraphModuleStoreCatalog: {
@@ -238,8 +251,8 @@ assert(ch("mixStereo", "R4", "input") === "blue", "MixStereo R4 is blue");
 assert(ch("mixStereo", "Mono", "output") === "green", "MixStereo Mono out is green");
 assert(ch("mixStereo", "Left", "output") === "red", "MixStereo Left is red");
 assert(ch("mixStereo", "Right", "output") === "blue", "MixStereo Right is blue");
-assert(ch("gain", "Out", "output") === "purple", "gain Out is purple (In/Out rule)");
-assert(ch("gain", "In", "input") === "purple", "gain In is purple (In/Out rule)");
+assert(ch("gain", "Out", "output") === "", "gain Out is uncolored gold (bare Out)");
+assert(ch("gain", "In", "input") === "", "gain In is uncolored gold (bare In)");
 assert(ch("rasterRgb", "R", "output") === "red", "RGB R is red");
 assert(ch("rasterRgb", "G", "input") === "green", "RGB G is green");
 assert(ch("rasterRgb", "B", "output") === "blue", "RGB B is blue");
@@ -250,7 +263,7 @@ assert(ch("lorenzAttractor", "Z", "output") === "green", "chaos Z green");
 assert(ch("fbmField", "X", "output") === "red", "fBf X red");
 assert(ch("fbmField", "Y", "output") === "blue", "fBf Y blue");
 assert(ch("fbmField", "Z", "output") === "green", "fBf Z green");
-assert(ch("fbmField", "In", "input") === "purple", "fBf In is purple (In/Out rule)");
+assert(ch("fbmField", "In", "input") === "", "fBf In is uncolored gold (bare In)");
 assert(ch("fractalBrownianNoise", "Out X", "output") === "red", "fBm Out X red");
 assert(ch("fractalBrownianNoise", "Out Y", "output") === "blue", "fBm Out Y blue");
 assert(ch("fractalBrownianNoise", "Out Z", "output") === "green", "fBm Out Z green");
@@ -278,6 +291,16 @@ assert(ch("additiveOut", "Left", "output") !== "yellow", "Additive Out Left is a
 assert(ch("additiveOut", "Graph", "input") === "yellow", "Out Graph in is yellow");
 assert(ch("cmykParamDemo", "Morph", "input") === "cyan", "listed Parameter Morph is cyan");
 assert(ch("polyBlep", "Morph", "input") === "", "PolyBLEP Morph is gold (no channel)");
+assert(ch("polyBlep", "Wave", "output") === "green", "PolyBLEP Wave is green (explicit)");
+assert(ch("polyBlep", "Saw", "output") === "", "PolyBLEP Saw stays uncolored");
+assert(ch("aliasSine", "Out", "output") === "green", "Alias Sine Out is green");
+assert(ch("robinSinusoid", "Out", "output") === "green", "RobinSinusoid Out is green");
+assert(ch("antisaw", "Out", "output") === "green", "Antisaw Out is green");
+assert(ch("sinc", "Out", "output") === "green", "Sinc Out is green");
+assert(ch("dsfOscillator", "Out", "output") === "green", "DSF Out is green");
+assert(ch("softwaveOsc", "Out", "output") === "green", "Softwave Out is green");
+assert(ch("surgeOscillator", "Wave", "output") === "green", "Surge Wave is green");
+assert(ch("surgeOscillator", "Saw", "output") === "", "Surge Saw stays uncolored");
 assert(sandbox.nodeGraphJackChannelCssColor("yellow") === "#ffe600", "yellow wire CSS");
 assert(sandbox.nodeGraphJackChannelCssColor("cyan") === "#00e5ff", "cyan wire CSS");
 assert(sandbox.nodeGraphJackChannelCssColor("turquoise") === "#00e5ff", "legacy turquoise aliases cyan");

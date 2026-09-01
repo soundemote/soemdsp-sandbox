@@ -269,17 +269,33 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
   return node.traceDisplaySettings;
 }
 
+function nodeGraphPatchNodesList(patch = nodeGraphMvp?.patch) {
+  const nodes = patch?.nodes;
+  if (Array.isArray(nodes)) {
+    return nodes;
+  }
+  if (nodes && typeof nodes === "object") {
+    return Object.values(nodes);
+  }
+  return [];
+}
+
 function assignNodeGraphTypedDisplaySettingsEverywhere(node, displayType, settings) {
   if (!node?.id) {
     return null;
   }
-  const normalized = assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings);
-  const patchNode = nodeGraphMvp.patch?.nodes?.find((candidate) => candidate.id === node.id);
-  if (patchNode && patchNode !== node) {
-    assignNodeGraphTypedDisplaySettingsToNode(patchNode, displayType, settings);
+  const id = String(node.id);
+  // Always write the patch-array node first — live UI clones can diverge.
+  const patchList = nodeGraphPatchNodesList(nodeGraphMvp?.patch);
+  const patchNode = patchList.find((candidate) => candidate && String(candidate.id) === id) || null;
+  const primary = patchNode || node;
+  const normalized = assignNodeGraphTypedDisplaySettingsToNode(primary, displayType, settings);
+  if (node !== primary) {
+    assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings);
   }
-  const workingNode = nodeGraphMvp.workingPatch?.nodes?.find((candidate) => candidate.id === node.id);
-  if (workingNode && workingNode !== node && workingNode !== patchNode) {
+  const workingList = nodeGraphPatchNodesList(nodeGraphMvp?.workingPatch);
+  const workingNode = workingList.find((candidate) => candidate && String(candidate.id) === id) || null;
+  if (workingNode && workingNode !== primary && workingNode !== node) {
     assignNodeGraphTypedDisplaySettingsToNode(workingNode, displayType, settings);
   }
   return normalized;
@@ -872,26 +888,62 @@ function setNodeGraphTraceDisplaySettingsDefaults() {
   const formType = typeof nodeGraphTraceDisplaySettingsFormType === "function"
     ? nodeGraphTraceDisplaySettingsFormType()
     : "";
-  const defaults = typeof nodeGraphDisplaySettingsDefaultsForFormType === "function"
-    ? nodeGraphDisplaySettingsDefaultsForFormType(formType)
-    : {};
-  // Preserve live look from the open form (or current node settings).
-  const current = typeof readNodeGraphTraceDisplaySettingsForm === "function"
-    ? readNodeGraphTraceDisplaySettingsForm()
+  const primaryId = (typeof nodeGraphTraceDisplaySettingsActiveTargetIds === "function"
+    ? nodeGraphTraceDisplaySettingsActiveTargetIds()
+    : []).filter(Boolean)[0]
+    || (typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+      ? nodeGraphTraceDisplaySettingsTargetNodeId()
+      : "")
+    || String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
+  const primaryNode = typeof nodeGraphPatchNode === "function" && primaryId
+    ? nodeGraphPatchNode(primaryId)
     : null;
+  // Prefer the open module's face schema so an empty/stale formType still
+  // resolves to lineBurn (PolyBLEP / Instant Trace / etc.).
+  const schema = (primaryNode
+    && typeof nodeGraphModuleDisplaySettingsSchemaForNode === "function"
+    && nodeGraphModuleDisplaySettingsSchemaForNode(primaryNode))
+    || formType
+    || "lineBurn";
+
+  // Full factory bag — do not preserve live look/size/trail from the form.
+  const defaults = typeof nodeGraphDisplaySettingsDefaultsForFormType === "function"
+    ? nodeGraphDisplaySettingsDefaultsForFormType(schema)
+    : {};
   const merged = { ...(defaults && typeof defaults === "object" ? defaults : {}) };
-  if (current && typeof current === "object") {
-    for (const key of NODE_GRAPH_DISPLAY_SETTINGS_PRESERVE_LOOK_KEYS) {
-      if (current[key] != null) {
-        merged[key] = current[key];
-      }
-    }
+  // Module definition overrides (e.g. PolyBLEP Sync on).
+  const defDisp = primaryNode?.type
+    && typeof nodeGraphModuleDefinitions !== "undefined"
+    && nodeGraphModuleDefinitions[primaryNode.type]?.defaultDisplaySettings;
+  if (defDisp && typeof defDisp === "object") {
+    Object.assign(merged, defDisp);
   }
-  writeNodeGraphTraceDisplaySettingsForm(merged);
-  // Defaults is an explicit edit of numeric fields (look preserved in merge).
-  markNodeGraphTraceDisplaySettingsDirty("*");
-  applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true, forceAll: true });
-  clearNodeGraphTraceDisplaySettingsDirty();
+
+  if (typeof nodeGraphTraceDisplaySettingsEditingTraceDefaults === "function"
+    && nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
+    nodeGraphMvp.traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
+      ? normalizeNodeGraphTraceDisplaySettings(merged)
+      : merged;
+  }
+
+  // Same path as Paste: seed form → force-apply to every live/patch copy → draw.
+  if (typeof writeNodeGraphTraceDisplaySettingsForm === "function") {
+    writeNodeGraphTraceDisplaySettingsForm(merged);
+  }
+  if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+    markNodeGraphTraceDisplaySettingsDirty("*");
+  }
+  if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
+    applyNodeGraphTraceDisplaySettingsForm({
+      persist: "immediate",
+      record: true,
+      forceAll: true,
+      commit: true,
+    });
+  }
+  if (typeof clearNodeGraphTraceDisplaySettingsDirty === "function") {
+    clearNodeGraphTraceDisplaySettingsDirty();
+  }
 }
 
 function nodeGraphTraceDisplaySettingsDirtyKeysFromEvent(event) {

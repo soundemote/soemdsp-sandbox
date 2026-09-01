@@ -130,7 +130,7 @@
     if (!Number.isFinite(brightness) || options.useDepositGain) {
       const raw = Number.isFinite(Number(options.dotBrightness))
         ? Number(options.dotBrightness)
-        : Number(options.brightness) || 0.92;
+        : Number(options.brightness) || 1;
       brightness = depositGain(raw, size01);
     }
     return global.nodeGraphPhosphorEnergyGlStepBeams(face, {

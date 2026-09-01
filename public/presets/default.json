@@ -34,7 +34,7 @@
   "connections": [
     {
       "sourceNode": "polyBlep-1",
-      "sourcePort": "Wave Out",
+      "sourcePort": "Wave",
       "destinationNode": "ladderFilter-1",
       "destinationPort": "In",
       "tracePoints": []
@@ -283,21 +283,21 @@
       "traceDisplaySettings": {
         "backgroundHue": 0,
         "backgroundBrightness": 0,
-        "background": "#ff0000",
-        "backgroundColor": "#ff0000",
+        "background": "#000000",
+        "backgroundColor": "#000000",
         "burn": 0,
         "burnAmount": 1,
         "residualSchema": 3,
-        "decay": 0.8199,
-        "ghost": 0,
-        "trail": 0.1801,
-        "dot1Brightness": 0.5091,
+        "decay": 0.3,
+        "ghost": 0.35,
+        "trail": 0.7,
+        "dot1Brightness": 1,
         "dot1Color": "#75ebff",
         "dot1Enabled": true,
-        "dot1Size": 0.0325,
-        "dotBudget": 1024,
-        "fullDotEconomy": false,
-        "dotsOnly": false,
+        "dot1Size": 0.07,
+        "dotBudget": 2048,
+        "fullDotEconomy": true,
+        "dotsOnly": true,
         "sourceSync": true,
         "skipDiscontinuities": true,
         "gradientStops": [
@@ -318,10 +318,10 @@
             "color": "#75ebff"
           }
         ],
-        "lineThickness": 0,
+        "lineThickness": 0.2,
         "pixelDensity": 1,
         "scale": 1,
-        "sweepSeconds": 1
+        "sweepSeconds": 2
       }
     },
     {

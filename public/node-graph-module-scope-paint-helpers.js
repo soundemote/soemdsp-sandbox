@@ -585,12 +585,14 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
 
 function nodeGraphOneDimensionalBurnPointBudget(canvas) {
   const width = Math.max(1, Number(canvas?.width) || 1);
-  return Math.max(64, Math.min(2048, Math.ceil(width * 4)));
+  // Dense control points for continuous beam ribbons (lineBurn / PolyBLEP).
+  // Even thinning keeps the true waveform; min/max buckets made envelope zigzags.
+  return Math.max(512, Math.min(8192, Math.ceil(width * 12)));
 }
 
 /**
  * Thin a 1D burn subpath with even index spacing (not min/max envelope).
- * Min/max buckets turn continuous waves into jagged zigzags.
+ * Min/max buckets turn continuous waves into jagged zigzags — never reintroduce.
  */
 function reduceNodeGraphOneDimensionalBurnSubpath(points, start, end, budget, output) {
   const length = end - start;
@@ -603,39 +605,16 @@ function reduceNodeGraphOneDimensionalBurnSubpath(points, start, end, budget, ou
     }
     return;
   }
-  const bucketCount = Math.max(1, Math.floor(budget / 4));
-  const bucketStep = length / bucketCount;
-  let lastPushedIndex = -1;
-  const pushUnique = (index) => {
-    if (index < start || index >= end || index === lastPushedIndex) {
-      return;
+  const cap = Math.max(2, Math.floor(Number(budget) || 2));
+  const last = end - 1;
+  let prev = -1;
+  for (let i = 0; i < cap; i += 1) {
+    const index = Math.min(last, start + Math.round((i * (length - 1)) / (cap - 1)));
+    if (index === prev) {
+      continue;
     }
     output.push(points[index]);
-    lastPushedIndex = index;
-  };
-  for (let bucket = 0; bucket < bucketCount; bucket += 1) {
-    const bucketStart = start + Math.floor(bucket * bucketStep);
-    const bucketEnd = Math.min(end, start + Math.max(1, Math.floor((bucket + 1) * bucketStep)));
-    let minIndex = bucketStart;
-    let maxIndex = bucketStart;
-    for (let index = bucketStart + 1; index < bucketEnd; index += 1) {
-      const y = Number(points[index]?.y);
-      if (!Number.isFinite(y)) {
-        continue;
-      }
-      if (y < Number(points[minIndex]?.y)) {
-        minIndex = index;
-      }
-      if (y > Number(points[maxIndex]?.y)) {
-        maxIndex = index;
-      }
-    }
-    const important = [bucketStart, minIndex, maxIndex, bucketEnd - 1]
-      .filter((index) => index >= bucketStart && index < bucketEnd)
-      .sort((a, b) => a - b);
-    for (const index of important) {
-      pushUnique(index);
-    }
+    prev = index;
   }
 }
 

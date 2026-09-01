@@ -164,7 +164,13 @@ function nodeGraphDefaultModuleScopeMonitors(patch = nodeGraphMvp?.patch) {
 
 function nodeGraphOscillatorSelectedOutputPort(node) {
   const outputs = nodeGraphPatchNodeOutputPorts(node);
-  return outputs.includes("Wave Out") ? "Wave Out" : outputs[0] || "Out";
+  if (outputs.includes("Wave")) {
+    return "Wave";
+  }
+  if (outputs.includes("Wave Out")) {
+    return "Wave Out";
+  }
+  return outputs[0] || "Out";
 }
 
 // nodeGraphModuleScopeCaptureMonitors → node-graph-module-scope-capture.js

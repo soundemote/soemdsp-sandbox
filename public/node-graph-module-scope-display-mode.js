@@ -38,12 +38,11 @@ function nodeGraphModuleOutputPortsForType(type) {
 
 function nodeGraphModuleDefaultScalarDisplayPort(type) {
   const outputs = nodeGraphModuleOutputPortsForType(type);
-  // Prefer the selected-waveform port used by LFO/PolyBLEP/BLIT (Wave Out)
-  // before falling back to a fixed shape port like Saw.
-  return outputs.find((port) => port === "Out") ||
+  // Prefer the selected-waveform main jack (Wave) before fixed shape taps.
+  return outputs.find((port) => port === "Wave") ||
+    outputs.find((port) => port === "Out") ||
     outputs.find((port) => port === "Wave Out") ||
     outputs.find((port) => port === "Mono") ||
-    outputs.find((port) => port === "Wave") ||
     outputs[0] ||
     "";
 }

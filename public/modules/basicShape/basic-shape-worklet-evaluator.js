@@ -112,6 +112,7 @@ NodeLiveAudioProcessor.prototype.basicShapeWorkletEvaluate = function basicShape
     "Center Square": waves.centerSquare * amp,
     Tri: waves.tri * amp,
     Trisaw: waves.trisaw * amp,
+    Wave: selected,
     "Wave Out": selected,
     __Phase: samplePhase,
   };

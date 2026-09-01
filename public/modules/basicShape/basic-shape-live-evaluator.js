@@ -1,6 +1,6 @@
 // BasicShape (modulator): naive sine / tri / saw / square / ramp / trisaw /
 // center-square. No anti-aliasing. PWM (`shape`) drives Square, Trisaw, and
-// Center Square (and Wave Out when one of those is selected).
+// Center Square (and Wave when one of those is selected).
 
 function nodeGraphBasicShapeWrap01(phase01) {
   const p = Number(phase01) || 0;
@@ -163,6 +163,7 @@ nodeGraphLiveModuleEvaluators.basicShape = ({
     "Center Square": waves.centerSquare * level,
     Tri: waves.tri * level,
     Trisaw: waves.trisaw * level,
+    Wave: selected,
     "Wave Out": selected,
     __Phase: samplePhase,
   };

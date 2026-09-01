@@ -504,7 +504,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
       if (p === "hfr") return 11;
     }
   }
-  // Mono / Out / In / Wave Out / Noise / Frequency (MIDI out) / empty → mono bus
+  // Mono / Out / In / Wave / Wave Out / Noise / Frequency (MIDI out) / empty → mono bus
   return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
 };
 
@@ -2743,7 +2743,8 @@ NodeLiveAudioProcessor.prototype.bindNativeGraphBlockViews = function bindNative
 NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPortNames(type, portId) {
   const P = NodeLiveAudioProcessor;
   if (portId === P.NATIVE_GRAPH_PORT_MONO) {
-    if (type === "polyBlep" || type === "blit") return ["Out", "Wave Out", "Noise"];
+    if (type === "polyBlep" || type === "blit") return ["Wave", "Out", "Wave Out", "Noise"];
+    if (type === "surgeOscillator") return ["Wave", "Out"];
     if (type === "sineWavetable") return ["A", "Out", "sin", "Sin"];
     if (type === "archimedes") return ["Sine", "Out"];
     if (type === "comparator") return ["Thru"];

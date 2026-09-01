@@ -869,16 +869,15 @@ const nodeGraphModuleDefinitions = (
   polyBlep: {
     planRole: "source",
     displayType: "lineBurn",
-    // New PolyBLEP faces start with Sync on + Sweep (c) = 1 (one cycle in view).
+    // Sync on for new PolyBLEP; size/bright/trail come from c1091b42 lineBurn defaults.
     defaultDisplaySettings: {
       sourceSync: true,
-      sweepSeconds: 1,
     },
     displayModes: [
-      { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave Out" } },
+      { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave" } },
     ],
     displaySignals: [
-      { key: "Wave Out", kind: "scalar" },
+      { key: "Wave", kind: "scalar" },
     ],
     // ƒ absolute-Hz last among signal inlets (Morph / CV above it).
     inputs: ["Reset", "0.1V/Oct", "Increment", "Morph", "f"],
@@ -886,14 +885,17 @@ const nodeGraphModuleDefinitions = (
       Increment: "Inc.",
       f: "ƒ"},
     // Morph is sample-accurate gold analog (not CMYK cyan Parameter).
+    // Legacy Wave Out / Out / Noise → Wave (outlet list already implies "out").
     outputAliases: {
-      Out: "Wave Out",
-      Noise: "Wave Out"
+      Out: "Wave",
+      "Wave Out": "Wave",
+      Noise: "Wave",
     },
-    outputLabels: {
-      "Wave Out": "Wave"
+    // Main Wave jack first + green (not RGB/XYZ — those keep natural axis order).
+    outputChannels: {
+      Wave: "green",
     },
-    outputs: ["Saw", "Ramp", "Square", "Tri", "Sine", "Wave Out"],
+    outputs: ["Wave", "Saw", "Ramp", "Square", "Tri", "Sine"],
     parameters: [
       {
         choices: ["Trisaw", "Saw", "Ramp", "Square", "Triangle", "Sine", "Center Square", "Pulse", "Noise"],
@@ -973,22 +975,23 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     displayType: "lineBurn",
     displayModes: [
-      { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave Out" } },
+      { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave" } },
     ],
     displaySignals: [
-      { key: "Wave Out", kind: "scalar" },
+      { key: "Wave", kind: "scalar" },
     ],
     inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {"0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ"},
     outputAliases: {
-      Out: "Wave Out"
+      Out: "Wave",
+      "Wave Out": "Wave",
     },
-    outputLabels: {
-      "Wave Out": "Wave"
+    outputChannels: {
+      Wave: "green",
     },
-    outputs: ["Saw", "Ramp", "Square", "Tri", "Sine", "Wave Out"],
+    outputs: ["Wave", "Saw", "Ramp", "Square", "Tri", "Sine"],
     parameters: [
       {
         choices: ["Saw", "Ramp", "Square", "Triangle", "Sine"],
@@ -1216,6 +1219,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     inputs: [],
     inputLabels: { },
+    outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
       { defaultValue: "0.1", key: "normFreq", label: "Norm Freq", max: "1.5", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
@@ -1225,11 +1229,11 @@ const nodeGraphModuleDefinitions = (
   // RS-MET rosic::SineOscillator — free-running 2nd-order recursive sine (no sin() per sample).
   robinSinusoid: {
     planRole: "source",
-    defaultAlias: "Osc",
     displayType: "trace",
     inputs: ["Reset", "f"],
     inputLabels: {Reset: "Reset",
       f: "ƒ"},
+    outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
       {
@@ -2977,13 +2981,13 @@ const nodeGraphModuleDefinitions = (
       f: "ƒ",
     },
     outputAliases: {
-      Out: "Wave Out",
-      Wave: "Wave Out",
-    },
-    outputLabels: {
+      Out: "Wave",
       "Wave Out": "Wave",
     },
-    outputs: ["Sine", "Tri", "Saw", "Square", "Ramp", "Trisaw", "Center Square", "Wave Out"],
+    outputChannels: {
+      Wave: "green",
+    },
+    outputs: ["Wave", "Sine", "Tri", "Saw", "Square", "Ramp", "Trisaw", "Center Square"],
     parameters: [
       {
         choices: ["Sine", "Triangle", "Saw", "Square", "Ramp", "Trisaw", "Center Square"],
@@ -3200,6 +3204,7 @@ const nodeGraphModuleDefinitions = (
     inputAliases: { Freq: "f", Frequency: "f", F: "f", "ƒ": "f" },
     inputLabels: { f: "ƒ" },
     inputs: ["f"],
+    outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
       { key: "fundamental", label: "Fundamental", kind: "frequency", defaultValue: "110", min: "0", mid: "1000", max: "20000", step: "any", unit: "Hz" },
@@ -3829,9 +3834,16 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     inputs: ["0.1V/Oct", "Sync", "f"],
     inputLabels: {"0.1V/Oct": "0.1V",
-      f: "ƒ",
       f: "ƒ"},
-    outputs: ["Out", "Saw", "Square", "Tri", "Sine", "Synced", "Internal Sync"],
+    // Multi-wave taps → selected bus is Wave (not bare Out).
+    outputAliases: {
+      Out: "Wave",
+      "Wave Out": "Wave",
+    },
+    outputChannels: {
+      Wave: "green",
+    },
+    outputs: ["Wave", "Saw", "Square", "Tri", "Sine", "Synced", "Internal Sync"],
     parameters: [
       {
         choices: ["Saw", "Square", "Tri", "Sine"],
@@ -3862,6 +3874,7 @@ const nodeGraphModuleDefinitions = (
       Amplitude: "Amp",
       f: "ƒ"},
     // Morph is sample-accurate gold analog (not CMYK cyan Parameter).
+    outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
       {
@@ -4164,6 +4177,7 @@ const nodeGraphModuleDefinitions = (
       Amplitude: "Amp",
       f: "ƒ"},
     // Morph is sample-accurate gold analog (not CMYK cyan Parameter).
+    outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
       {
@@ -13156,6 +13170,7 @@ const nodeGraphModuleDefinitions = (
       "ƒ": "Freq",
     },
     inputLabels: { "0.1V/Oct": "0.1V", Freq: "ƒ" },
+    outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
       {

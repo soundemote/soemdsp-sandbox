@@ -57,7 +57,12 @@ NodeLiveAudioProcessor.prototype.polyBlepTapMaskFromPorts = function polyBlepTap
     return 63; // all taps
   }
   let mask = 0;
-  if (neededPorts.has("Out") || neededPorts.has("Wave Out") || neededPorts.has("Noise")) {
+  if (
+    neededPorts.has("Out")
+    || neededPorts.has("Wave")
+    || neededPorts.has("Wave Out")
+    || neededPorts.has("Noise")
+  ) {
     mask |= NodeLiveAudioProcessor.POLYBLEP_TAP_OUT;
   }
   if (neededPorts.has("Saw")) mask |= NodeLiveAudioProcessor.POLYBLEP_TAP_SAW;
@@ -325,6 +330,7 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
     );
     value = {
       Out: nativeVector.out,
+      Wave: nativeVector.out,
       Saw: nativeVector.saw,
       Ramp: nativeVector.ramp,
       Square: nativeVector.square,
@@ -344,6 +350,7 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
     );
     value = {
       Out: nativeVector.out,
+      Wave: nativeVector.out,
       Saw: nativeVector.saw,
       Ramp: nativeVector.ramp,
       Square: nativeVector.square,
@@ -359,6 +366,7 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
     const selected = sample(nodeId, waveform);
     value = {
       Out: selected,
+      Wave: selected,
       Saw: sample(`${nodeId}:saw`, 0),
       Ramp: sample(`${nodeId}:ramp`, 1),
       Square: sample(`${nodeId}:square`, 2),

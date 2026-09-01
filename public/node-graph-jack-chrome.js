@@ -306,6 +306,26 @@ function nodeGraphJackStereoChannel(value) {
  *   Magenta / K → reserved unused
  * Digital ports have no channel.
  */
+/** Explicit module jack channel: "" | red | green | blue | purple | cyan | yellow. */
+function nodeGraphJackExplicitChannel(def, port, io = "output") {
+  if (!def || typeof def !== "object") {
+    return "";
+  }
+  const map = io === "input" ? def.inputChannels : def.outputChannels;
+  if (!map || typeof map !== "object") {
+    return "";
+  }
+  const raw = String(map[port] || "").trim().toLowerCase();
+  if (
+    raw === "red" || raw === "green" || raw === "blue"
+    || raw === "purple" || raw === "cyan" || raw === "yellow"
+    || raw === "magenta" || raw === "black"
+  ) {
+    return raw;
+  }
+  return "";
+}
+
 function nodeGraphJackChannel(type, port, io = "output") {
   const key = String(port || "");
   if (!key.trim()) {
@@ -320,11 +340,17 @@ function nodeGraphJackChannel(type, port, io = "output") {
   if (typeof nodeGraphPortIsBlockRateSignal === "function" && nodeGraphPortIsBlockRateSignal(type, key, io)) {
     return "cyan";
   }
+  const def = nodeGraphJackTypeDefinition(type);
+  // Module-declared channel (e.g. polyBlep Wave → green). Wins over name heuristics.
+  // RGB/XYZ stacks still use letter/axis rules — do not put green first there.
+  const fromExplicit = nodeGraphJackExplicitChannel(def, key, io);
+  if (fromExplicit) {
+    return fromExplicit;
+  }
   const fromRgb = nodeGraphJackRgbLetterChannel(type, key);
   if (fromRgb) {
     return fromRgb;
   }
-  const def = nodeGraphJackTypeDefinition(type);
   const labelMap = io === "input" ? def?.inputLabels : def?.outputLabels;
   const label = labelMap?.[key];
   const fromLabelRgb = nodeGraphJackRgbLetterChannel(type, label);
@@ -367,7 +393,7 @@ function nodeGraphJackChannel(type, port, io = "output") {
       }
       const fromAlias = nodeGraphJackStereoChannel(alias);
       // Legacy Out/In/Mono aliases must not recolor a renamed jack
-      // (e.g. polyBlep Out → Wave Out stays gold, not green-via-Mono).
+      // (use outputChannels/inputChannels when a main out should be green).
       if (fromAlias === "green" || fromAlias === "red" || fromAlias === "blue") {
         const aliasKey = String(alias || "").trim().toLowerCase();
         if (

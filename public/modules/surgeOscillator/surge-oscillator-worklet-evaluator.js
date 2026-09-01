@@ -39,8 +39,10 @@ NodeLiveAudioProcessor.prototype.surgeOscillatorSample = function surgeOscillato
             waveform,
             level,
           );
+          const main = Number(this.nativeSurgeOscillator.soemdsp_surge_oscillator_out(state.nativeHandle)) || 0;
           return {
-            Out: Number(this.nativeSurgeOscillator.soemdsp_surge_oscillator_out(state.nativeHandle)) || 0,
+            Wave: main,
+            Out: main,
             Saw: Number(this.nativeSurgeOscillator.soemdsp_surge_oscillator_saw(state.nativeHandle)) || 0,
             Square: Number(this.nativeSurgeOscillator.soemdsp_surge_oscillator_square(state.nativeHandle)) || 0,
             Tri: Number(this.nativeSurgeOscillator.soemdsp_surge_oscillator_tri(state.nativeHandle)) || 0,
@@ -59,6 +61,6 @@ NodeLiveAudioProcessor.prototype.surgeOscillatorSample = function surgeOscillato
         });
       }
     }
-    return { Out: 0, Saw: 0, Square: 0, Tri: 0, Sine: 0, Synced: 0, 1: 0, "Internal Sync": 0 };
+    return { Wave: 0, Out: 0, Saw: 0, Square: 0, Tri: 0, Sine: 0, Synced: 0, 1: 0, "Internal Sync": 0 };
   };
 

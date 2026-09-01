@@ -235,6 +235,7 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
   if (vector) {
     value = {
       Out: vector.out,
+      Wave: vector.out,
       Saw: vector.saw,
       Ramp: vector.ramp,
       Square: vector.square,
@@ -248,6 +249,7 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
     const silent = nodeGraphSilentMultiWaveVector();
     value = {
       Out: silent.out,
+      Wave: silent.out,
       Saw: silent.saw,
       Ramp: silent.ramp,
       Square: silent.square,
@@ -264,6 +266,7 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
     const selected = sample(nodeId, waveform);
     value = {
       Out: selected,
+      Wave: selected,
       Saw: sample(`${nodeId}:saw`, 0),
       Ramp: sample(`${nodeId}:ramp`, 1),
       Square: sample(`${nodeId}:square`, 2),

@@ -76,6 +76,7 @@ function nodeGraphSurgeOscillatorSample(state, options = {}) {
   const out = [saw, square, tri, sine][waveform];
 
   return {
+    Wave: out,
     Out: out,
     Saw: saw,
     Square: square,

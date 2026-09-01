@@ -81,8 +81,8 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
     Object.freeze({ t: 0.8, color: "#fe9f6d" }),
     Object.freeze({ t: 1, color: "#fcfdbf" }),
   ]),
-  // Bright 0…1 (1 = full deposit / tip). c1091b4 scope2d used ~0.92.
-  brightness: 0.92,
+  // Bright 0…1 (1 = full deposit / tip).
+  brightness: 1,
   // Ghost/Trail match c1091b4 burn/decay after rename:
   //   decay 0.12 → trail = 1 - 0.12 = 0.88
   //   burn 0.45  → ghost = 0.45
@@ -158,37 +158,41 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
 
 
 /**
- * 1D phosphor (line burn) — from polyBlep face on Desktop/init.json.
- * Applied to all 1D oscillators with a 1D oscilloscope (polyBlep, osc, blit, …).
+ * 1D phosphor (line burn) — c1091b42 best-model defaults.
+ * Soft circular dots fat enough to fuse into a continuous CRT line (not beams,
+ * not thrifty beads). Applied to polyBlep / osc / blit / … 1D phosphor faces.
  */
 const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   background: "#000000",
   backgroundHue: 0,
   backgroundBrightness: 0,
-  // Sticky Burn off; decay is legacy 1−trail only.
   burn: 0,
   burnAmount: 1,
   residualSchema: 3,
-  decay: 0.8199,
-  ghost: 0,
-  trail: 0.1801,
+  // c1091b42: decay 0.3 → trail = 1 − 0.3; burn 0.35 → ghost.
+  decay: 0.3,
+  ghost: 0.35,
+  trail: 0.7,
   scale: 1,
-  // Bright / Size / Blur from tuned PolyBLEP face.
-  dot1Brightness: 0.5091,
+  // c1091b42 deposit used brightness 2 on a 0…2 scale → 1 on today's 0…1 scale.
+  dot1Brightness: 1,
   dot1Color: "#75ebff",
   dot1Enabled: true,
-  dot1Size: 0.0325,
-  lineThickness: 0,
+  dot1Size: 0.07,
+  lineThickness: 0.2,
   pixelDensity: 1,
-  dotBudget: 1024,
-  fullDotEconomy: false,
-  dotsOnly: false,
+  dotBudget: 2048,
+  // Full Dot Economy densifies 2D chord packing; 1D stamps true samples only
+  // (no chord fill — that caused low-freq facets + brightness dips).
+  fullDotEconomy: true,
+  // 1D: stamp real samples only (matches draw path samplesOnly).
+  dotsOnly: true,
   // Rising-edge auto-trigger on In (snaps pen left). Off unless the user
   // turns Sync on — same default as Instant Trace / other 1D faces.
   sourceSync: false,
   // Saw / square / pulse wrap jumps look like ink spikes without this.
   skipDiscontinuities: true,
-  sweepSeconds: 0.01,
+  sweepSeconds: 2,
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),
     Object.freeze({ t: 0.18, color: "#214247" }),
@@ -543,7 +547,7 @@ const nodeGraphScope2dKeplerJerobeamDisplayDefaults = Object.freeze({
   burnAmount: 1,
   residualSchema: 3,
   decay: 0.4155,
-  dot1Brightness: 0.92,
+  dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
   dot1Size: 0.009,
   dotBudget: 1024,
   fullDotEconomy: false,

@@ -696,13 +696,22 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   if (frozen) {
     // Present only (below). No residual step, no bleed, no deposit.
   } else if (layer) {
-    // c1091b4 energy burn deposit: dots only, maxDots ceiling, no fullEconomy flag
-    // (thrifty ideal spacing; under load skip evenly across the path).
+    // c1091b42 best-model deposit (locked):
+    // Soft circular DOTS that fuse into a CRT line. Never beam segments.
+    // 1D lineBurn passes samplesOnly (no chord fill) — chord packing between
+    // sparse points is what made low-freq faceted strokes + brightness dips.
+    // 2D orbits may chord-pack; Full Dot Economy densifies that packing.
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
       layer.brightness,
       size01,
     );
+    const fullEconomy = settings?.fullDotEconomy === true
+      || settings?.useFullDotEconomy === true
+      || options.forceFullDotEconomy === true;
+    const samplesOnly = options.samplesOnly === true
+      || settings?.dotsOnly === true
+      || settings?.verticesOnly === true;
     const stepped = nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       trail,
       ghost,
@@ -711,19 +720,25 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       brightness: beamBrightness,
       blur: nodeGraphTraceDisplayClampStampBlur(layer.blur),
       mode: "dots",
-      // User / face ceiling. Under load: even skips across full path (not head-only).
+      // 1D: budget must cover undrawn samples so we do not stride-skip into beads.
       maxDots: Math.max(
         64,
         Math.min(
           8192,
-          Math.round(Number(settings?.dotBudget) || nodeGraphScope2dMaxSamplesPerFrame(canvas)),
+          Math.round(
+            Number(settings?.dotBudget)
+            || (samplesOnly
+              ? Math.max(points.length, nodeGraphScope2dMaxSamplesPerFrame(canvas))
+              : nodeGraphScope2dMaxSamplesPerFrame(canvas))
+            || 2048,
+          ),
         ),
       ),
-      // Only pass fullEconomy when explicitly true (c1091b4 default: off).
-      fullEconomy: settings?.fullDotEconomy === true,
-      fullDotEconomy: settings?.fullDotEconomy === true,
-      // Dots only: sample hits only — no fuse packing between points.
-      dotsOnly: settings?.dotsOnly === true || settings?.verticesOnly === true,
+      fullEconomy,
+      fullDotEconomy: fullEconomy,
+      dotsOnly: samplesOnly,
+      samplesOnly,
+      verticesOnly: samplesOnly,
     });
     void stepped;
     const stamps = Math.max(
@@ -943,9 +958,14 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
   // Undrawn-window path draws every sample since lastDrawn (not just the
   // latest post) so skipped RAF / multi-post gaps no longer Y-jump the pen.
   // Match online: no spatial bridge (that glued stale lastPoint across gaps).
-  const pathPoints = reduceNodeGraphOneDimensionalBurnPoints(
-    nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetBuffer),
-    nodeGraphOneDimensionalBurnPointBudget(canvas),
+  // Do NOT thin then chord-pack: that is the low-freq faceted stroke with
+  // brightness dips at joints (Full Dot Economy cannot fix it — it only packs
+  // denser along the same straight chords). Pass every undrawn sample.
+  const pathPoints = nodeGraphOneDimensionalBurnFramePoints(
+    canvas,
+    buffer,
+    settings,
+    resetBuffer,
   );
   // Prefer buffer absolute frame; fall back to undrawn-window end so the
   // cursor still advances when metadata is partial.
@@ -956,7 +976,11 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
       cursorEnd = Number(w.endFrame);
     }
   }
-  drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, { endFrame: cursorEnd });
+  drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, {
+    endFrame: cursorEnd,
+    // Stamp true samples only — no connective chord fill between points.
+    samplesOnly: true,
+  });
 }
 
 
