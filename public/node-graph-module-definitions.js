@@ -11179,11 +11179,16 @@ const nodeGraphModuleDefinitions = (
     digitalOutputs: ["Held Keys"],
     inputs: ["MIDI Note", "Gate", "Velocity", "Octave", "Reset", "Hold", "X", "Y"],
     layout: "keyboardController",
+    outputAliases: {
+      "1 Sample Gate": "Trigger",
+      MIDI: "NoteNumber",
+    },
     outputLabels: {
       "0.1V/Oct": "0.1V",
-      Increment: "Inc."
+      Increment: "Inc.",
+      NoteNumber: "Note#",
     },
-    outputs: ["Gate", "1 Sample Gate", "Key", "Q", "MIDI", "Double", "0.1V/Oct", "Increment", "Frequency", "Pitch", "X", "Y", "Held Keys"],
+    outputs: ["Gate", "Trigger", "Key", "Q", "NoteNumber", "Double", "0.1V/Oct", "Increment", "Frequency", "Pitch", "X", "Y", "Held Keys"],
     parameters: []
   },
   samplePlayer: {

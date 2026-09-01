@@ -796,11 +796,11 @@ function createNodeGraphKeyboardControllerBody(node = null) {
   signalBar.setAttribute("aria-live", "polite");
   const signals = [
     ["gate", "gate", "0"],
-    ["gatePulse", "1s gate", "0"],
+    ["gatePulse", "trig", "0"],
     ["key", "key", "-"],
     ["quantized", "q", "-"],
     ["octave", "oct", "+0"],
-    ["midi", "midi", "-"],
+    ["midi", "note#", "-"],
     ["double", "double", "-"],
     ["tenthVoltPerOctave", ".1v/oct", "-"],
     ["increment", "inc", "-"],

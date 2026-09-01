@@ -58,14 +58,14 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
           }
         }
         return {
-          "1 Sample Gate": hasInput(nodeId, "Gate") ? gate : gatePulse,
+          Trigger: hasInput(nodeId, "Gate") ? gate : gatePulse,
           "0.1V/Oct": this.clampValue(midi / 120, 0, 1),
           Double: this.clampValue(midi / 127, 0, 1),
           Frequency: outputFrequency,
           Gate: Math.max(gate, hold),
           Increment: increment,
           Key: key,
-          MIDI: midi,
+          NoteNumber: midi,
           Pitch: midi,
           Q: q,
           X: x,

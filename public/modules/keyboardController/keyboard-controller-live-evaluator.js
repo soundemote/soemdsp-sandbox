@@ -43,14 +43,14 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({ runtime, nodeId, frame, fr
   const keyboardRate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
   const increment = Math.max(0, frequency / keyboardRate);
   return {
-    "1 Sample Gate": hasInput(nodeId, "Gate") ? gate : (Number(signal?.gatePulse) > 0 ? 1 : 0),
+    Trigger: hasInput(nodeId, "Gate") ? gate : (Number(signal?.gatePulse) > 0 ? 1 : 0),
     "0.1V/Oct": Math.max(0, Math.min(1, midi / 120)),
     Double: Math.max(0, Math.min(1, midi / 127)),
     Frequency: frequency,
     Gate: Math.max(gate, hold),
     Increment: increment,
     Key: key,
-    MIDI: midi,
+    NoteNumber: midi,
     Pitch: midi,
     Q: q,
     X: x,
