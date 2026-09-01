@@ -11003,7 +11003,9 @@ def require_node_graph_mvp_contract() -> None:
         "navigator.mediaDevices.getUserMedia",
         "context.createMediaStreamSource(stream)",
         "function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputToggleSerial)",
-        "function nodeGraphLiveOutputStartCancelled(serial)",
+        "function refreshNodeGraphLiveMicStatusDisplay()",
+        "function nodeGraphLiveMicIsPausedDisplay(",
+        "function nodeGraphLiveMicStatusPillClass(",
         "function stopNodeGraphLiveAudio()",
         'typeof clearNodeGraphModuleScopeBuffers === "function"',
         "clearNodeGraphModuleScopeBuffers();",
@@ -12893,7 +12895,7 @@ def require_node_graph_mvp_contract() -> None:
     )
     for snippet in [
         "start live OUTPUT | press Space to toggle",
-        "live OUTPUT is running | press Space to stop",
+        "live OUTPUT is running | press Space to pause/play",
     ]:
         require(snippet in tooltip_source, f"tooltip source missing {snippet}")
     require(

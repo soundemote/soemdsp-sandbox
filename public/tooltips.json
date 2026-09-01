@@ -227,12 +227,12 @@
     "playBlockedScript": "play blocked: fix script before render",
     "playBlockedIssues": "play blocked: {issues}",
     "renderBlocked": "render blocked: {issues}",
-    "liveOutputRunningWithInput": "live OUTPUT is running with microphone INPUT connected | press Space to stop",
-    "liveOutputRunning": "live OUTPUT is running | press Space to stop",
-    "liveOutputPermissionPending": "live OUTPUT requested | browser microphone permission may be pending | press Space to stop",
-    "liveOutputRequested": "live OUTPUT requested | graph may be blocked | press Space to stop",
-    "liveOutputWithInput": "start live OUTPUT and request browser microphone permission | press Space to toggle",
-    "liveOutputStart": "start live OUTPUT | press Space to toggle"
+    "liveOutputRunningWithInput": "live OUTPUT is running with microphone INPUT connected | press Space to pause/play",
+    "liveOutputRunning": "live OUTPUT is running | press Space to pause/play",
+    "liveOutputPermissionPending": "live OUTPUT requested | browser microphone permission may be pending | press Space to pause/play",
+    "liveOutputRequested": "live OUTPUT requested | graph may be blocked | press Space to pause/play",
+    "liveOutputWithInput": "start live OUTPUT | Input and Output arm the engine independently | press Space to pause/play",
+    "liveOutputStart": "start live OUTPUT | press Space to pause/play"
   },
   "actions": {
     "addModule": "click to add or show module",

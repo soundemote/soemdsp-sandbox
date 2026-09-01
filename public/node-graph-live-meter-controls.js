@@ -157,20 +157,42 @@ function setNodeGraphLiveInputStatus(state, message = "") {
   updateNodeGraphLiveInputTestStatus();
 }
 
+function nodeGraphLiveMicIsPausedDisplay(state = nodeGraphMvp.live.micStatus) {
+  return state === "connected"
+    && typeof nodeGraphLiveEngineIsPaused === "function"
+    && nodeGraphLiveEngineIsPaused();
+}
+
+/** Chrome pill + Input badge label SSOT (connected → mic paused while transport paused). */
 function nodeGraphLiveMicStatusText(state = nodeGraphMvp.live.micStatus) {
   switch (state) {
     case "armed":
-      return "mic waits";
+      return "mic armed";
     case "blocked":
       return "mic blocked";
     case "connected":
-      return typeof nodeGraphLiveEngineIsPaused === "function" && nodeGraphLiveEngineIsPaused()
-        ? "mic paused"
-        : "mic live";
+      return nodeGraphLiveMicIsPausedDisplay(state) ? "mic paused" : "mic live";
     case "requesting":
       return "mic asking";
     default:
       return "mic off";
+  }
+}
+
+function nodeGraphLiveMicStatusPillClass(state = nodeGraphMvp.live.micStatus) {
+  if (nodeGraphLiveMicIsPausedDisplay(state)) {
+    return "paused";
+  }
+  switch (state) {
+    case "armed":
+    case "requesting":
+      return "warn";
+    case "blocked":
+      return "error";
+    case "connected":
+      return "good";
+    default:
+      return "";
   }
 }
 

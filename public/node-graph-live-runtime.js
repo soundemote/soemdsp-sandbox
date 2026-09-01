@@ -993,11 +993,6 @@ function nodeGraphLiveEngineStartCancelled(serial) {
   return serial !== nodeGraphMvp.live.outputToggleSerial || !nodeGraphLiveEngineWanted();
 }
 
-/** @deprecated Use nodeGraphLiveEngineStartCancelled — kept name for call-site greps. */
-function nodeGraphLiveOutputStartCancelled(serial) {
-  return nodeGraphLiveEngineStartCancelled(serial);
-}
-
 function nodeGraphLiveInputIsUnderConstruction() {
   return false;
 }
@@ -3642,7 +3637,7 @@ async function nodeGraphLiveOutputDisposeCancelledStart(outputSerial, localConte
 }
 
 async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputToggleSerial) {
-  if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
+  if (nodeGraphLiveEngineStartCancelled(outputSerial)) {
     nodeGraphLiveOutputAbortStart("stopped");
     return;
   }
@@ -3663,7 +3658,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     }
     if (nodeGraphMvp.live.node || nodeGraphMvp.live.context) {
       await stopNodeGraphLiveAudio();
-      if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
+      if (nodeGraphLiveEngineStartCancelled(outputSerial)) {
         nodeGraphLiveOutputAbortStart("stopped");
         return;
       }
@@ -3682,7 +3677,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     if (context.state === "suspended") {
       await context.resume();
     }
-    if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
+    if (nodeGraphLiveEngineStartCancelled(outputSerial)) {
       try {
         await context.close();
       } catch (_error) {
@@ -3714,7 +3709,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       setNodeGraphLiveEngineStatus("engine fallback", "warn");
       setNodeGraphLiveEngineTitle(message);
     }
-    if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
+    if (nodeGraphLiveEngineStartCancelled(outputSerial)) {
       await nodeGraphLiveOutputDisposeCancelledStart(outputSerial, context, liveNode);
       nodeGraphLiveOutputAbortStart("stopped");
       return;
@@ -3746,7 +3741,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       return;
     }
     const planOk = await sendNodeGraphLivePlan();
-    if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
+    if (nodeGraphLiveEngineStartCancelled(outputSerial)) {
       await nodeGraphLiveOutputDisposeCancelledStart(outputSerial, context, liveNode);
       nodeGraphLiveOutputAbortStart("stopped");
       return;
@@ -3805,7 +3800,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       setNodeGraphLiveEngineTitle();
     }
     await context.resume();
-    if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
+    if (nodeGraphLiveEngineStartCancelled(outputSerial)) {
       await nodeGraphLiveOutputDisposeCancelledStart(outputSerial, context, liveNode);
       nodeGraphLiveOutputAbortStart("stopped");
       return;

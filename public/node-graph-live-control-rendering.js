@@ -189,11 +189,9 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
       : inputActive
         ? nodeGraphTooltipText("audio.liveInputVisible")
         : nodeGraphTooltipText("audio.liveInputShow");
-    // Refresh mic pill text (mic live ↔ mic paused) without changing micStatus.
-    if (typeof setNodeGraphLiveMicStatus === "function" && nodeGraphMvp.live.micStatus) {
-      const micPill = document.getElementById("nodeLiveMicStatus");
-      const keepTitle = micPill?.getAttribute("title") || "";
-      setNodeGraphLiveMicStatus(nodeGraphMvp.live.micStatus, keepTitle);
+    // Refresh mic pill text (mic live ↔ mic paused) without rewriting micStatus.
+    if (typeof refreshNodeGraphLiveMicStatusDisplay === "function" && nodeGraphMvp.live.micStatus) {
+      refreshNodeGraphLiveMicStatusDisplay();
     }
   }
   if (outputButton) {

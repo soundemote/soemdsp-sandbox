@@ -5,17 +5,38 @@ function syncNodeGraphInputModuleLiveState() {
       continue;
     }
     const micStatus = nodeGraphMvp.live.inputActive ? nodeGraphMvp.live.micStatus : "off";
-    const pausedConnected = micStatus === "connected"
-      && typeof nodeGraphLiveEngineIsPaused === "function"
-      && nodeGraphLiveEngineIsPaused();
-    const state = pausedConnected ? "paused" : micStatus;
+    const displayState = typeof nodeGraphLiveMicIsPausedDisplay === "function"
+      && nodeGraphLiveMicIsPausedDisplay(micStatus)
+      ? "paused"
+      : micStatus;
     badge.textContent = nodeGraphLiveMicStatusText(micStatus);
-    badge.dataset.micState = state;
+    badge.dataset.micState = displayState;
     const peak = Math.max(0, Math.min(1, Number(nodeGraphMvp.live.inputMeterPeak) || 0));
     badge.dataset.inputPeak = peak.toFixed(3);
     badge.style.setProperty("--node-live-input-peak", `${Math.round(peak * 100)}%`);
     badge.setAttribute("title", document.getElementById("nodeLiveMicStatus")?.title || "");
   }
+}
+
+/** Update chrome mic pill text/class only (live ↔ paused) without resetting status. */
+function refreshNodeGraphLiveMicStatusDisplay() {
+  const status = document.getElementById("nodeLiveMicStatus");
+  if (!status) {
+    return;
+  }
+  const state = nodeGraphMvp.live.micStatus || "off";
+  const permissionText = state === "armed" || state === "off"
+    ? nodeGraphLivePermissionStatusText()
+    : "";
+  const label = typeof nodeGraphLiveMicStatusText === "function"
+    ? nodeGraphLiveMicStatusText(state)
+    : "mic off";
+  const pillClass = typeof nodeGraphLiveMicStatusPillClass === "function"
+    ? nodeGraphLiveMicStatusPillClass(state)
+    : "";
+  status.textContent = permissionText || label || "mic off";
+  status.className = `pill ${pillClass}`.trim();
+  syncNodeGraphInputModuleLiveState();
 }
 
 function setNodeGraphLiveMicStatus(state, message = "") {
@@ -24,34 +45,12 @@ function setNodeGraphLiveMicStatus(state, message = "") {
   if (!status) {
     return;
   }
-  const pausedConnected = state === "connected"
-    && typeof nodeGraphLiveEngineIsPaused === "function"
-    && nodeGraphLiveEngineIsPaused();
-  const textByState = {
-    armed: "mic armed",
-    blocked: "mic blocked",
-    connected: pausedConnected ? "mic paused" : "mic live",
-    off: "mic off",
-    requesting: "mic asking",
-  };
-  const classByState = {
-    armed: "warn",
-    blocked: "error",
-    connected: pausedConnected ? "paused" : "good",
-    off: "",
-    requesting: "warn",
-  };
-  const permissionText = state === "armed" || state === "off"
-    ? nodeGraphLivePermissionStatusText()
-    : "";
-  status.textContent = permissionText || textByState[state] || "mic off";
-  status.className = `pill ${classByState[state] || ""}`.trim();
   if (message) {
     status.title = message;
   } else {
     status.removeAttribute("title");
   }
-  syncNodeGraphInputModuleLiveState();
+  refreshNodeGraphLiveMicStatusDisplay();
   updateNodeGraphLiveInputTestStatus();
 }
 
