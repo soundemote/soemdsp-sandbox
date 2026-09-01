@@ -1,0 +1,720 @@
+(function (settings) {
+  window.nodeUiDevBundledDefaultSettings = settings;
+  document.documentElement.dataset.nodeUiDevBundledDefaultSettings = JSON.stringify(settings);
+})({
+  "format": {
+    "kind": "soemdsp-sandbox-user-ui-settings",
+    "version": 3
+  },
+  "controls": {
+    "mouseLightEnabled": true,
+    "showOriginMarker": false,
+    "modularShaderEnabled": true,
+    "scopeBloomEnabled": false,
+    "settingsHeaderTextSize": 100,
+    "uiDevButtonTextSize": 50,
+    "liveToggleTextSize": 76,
+    "modularHeaderButtonBackground": 62,
+    "tooltipTextSize": 14,
+    "minimumGridBrightness": 0,
+    "moduleLightSpread": 78,
+    "textGlowLevel": 18,
+    "moduleGridInset": 6,
+    "moduleRoundness": 10,
+    "gridColor": "#ffffff",
+    "workspaceBackgroundColor": "#0d0d0d",
+    "settingsHeaderTopRatio": 62,
+    "settingsHeaderPadding": 2,
+    "floatingWindowHeaderHeight": 30,
+    "sliderDotSize": 4,
+    "moduleTitleFont": "cascadia",
+    "moduleTitleHeight": 26,
+    "moduleTitleTextFill": 62,
+    "moduleIoSectionHeight": 24,
+    "moduleNodeSize": 57,
+    "sliderWidth": 100,
+    "sliderHeight": 28,
+    "sliderLabelColor": "#cfdde5",
+    "sliderValueColor": "#ffffff",
+    "sliderUnitColor": "#7fc7d9",
+    "sliderFillHoverColor": "#7fc7d9",
+    "sliderFillHoverAlpha": 28,
+    "nodeGlowSize": 50,
+    "wirePatchPointSize": 36,
+    "wireThickness": 19,
+    "traceWireThickness": 1,
+    "choiceSlideEmptyBorder": 2,
+    "choiceDividerHeight": 35,
+    "choiceSlideDebugBoxes": false,
+    "bypassIconSize": 36,
+    "bypassIconGlowSpread": 40,
+    "bypassIconGlowColor": "#f25d5d",
+    "bypassIconOnColor": "#f7b758",
+    "bypassOnBackgroundColor": "#5c1818",
+    "bypassOffBackgroundColor": "#000000",
+    "moveSymbolSize": 60,
+    "closeIconSize": 50,
+    "settingsHeaderHighlights": false
+  },
+  "exposedControls": {
+    "mouseLightEnabled": true,
+    "showOriginMarker": false,
+    "modularShaderEnabled": true,
+    "scopeBloomEnabled": true,
+    "settingsHeaderTextSize": false,
+    "uiDevButtonTextSize": false,
+    "liveToggleTextSize": true,
+    "modularHeaderButtonBackground": true,
+    "tooltipTextSize": true,
+    "minimumGridBrightness": true,
+    "moduleLightSpread": true,
+    "textGlowLevel": true,
+    "moduleGridInset": true,
+    "moduleRoundness": true,
+    "gridColor": true,
+    "workspaceBackgroundColor": true,
+    "settingsHeaderTopRatio": false,
+    "settingsHeaderPadding": false,
+    "floatingWindowHeaderHeight": true,
+    "sliderDotSize": true,
+    "moduleTitleFont": true,
+    "moduleTitleHeight": true,
+    "moduleTitleTextFill": true,
+    "moduleIoSectionHeight": true,
+    "moduleNodeSize": true,
+    "sliderWidth": true,
+    "sliderHeight": true,
+    "sliderLabelColor": true,
+    "sliderValueColor": true,
+    "sliderUnitColor": true,
+    "sliderFillHoverColor": true,
+    "sliderFillHoverAlpha": true,
+    "nodeGlowSize": true,
+    "wirePatchPointSize": true,
+    "wireThickness": true,
+    "traceWireThickness": true,
+    "choiceSlideEmptyBorder": false,
+    "choiceDividerHeight": true,
+    "choiceSlideDebugBoxes": false,
+    "bypassIconSize": false,
+    "bypassIconGlowSpread": false,
+    "bypassIconGlowColor": false,
+    "bypassIconOnColor": false,
+    "bypassOnBackgroundColor": false,
+    "bypassOffBackgroundColor": false,
+    "moveSymbolSize": false,
+    "closeIconSize": false,
+    "settingsHeaderHighlights": false
+  },
+  "nodeColors": {
+    "--node-module-fill": "#171a1f",
+    "--node-module-stroke": "#f3f1ec",
+    "--node-module-selected-stroke": "#e2a86d",
+    "--node-module-drag-stroke": "#e2a86d",
+    "--node-port-idle-fill": "#000000",
+    "--node-port-idle-stroke": "#f3f1ec",
+    "--node-port-hover-fill": "#f3f1ec",
+    "--node-port-hover-stroke": "#f3f1ec",
+    "--node-input-fill": "#7fc7d9",
+    "--node-input-stroke": "#7fc7d9",
+    "--node-output-fill": "#e2a86d",
+    "--node-output-stroke": "#e2a86d",
+    "--node-mod-input-fill": "#b184ff",
+    "--node-mod-input-stroke": "#b184ff",
+    "--node-param-output-fill": "#66e0a3",
+    "--node-param-output-stroke": "#66e0a3"
+  },
+  "view": {
+    "gridVisible": true,
+    "moduleButtonsVisible": true,
+    "moduleInterfaceControlsVisible": true,
+    "moduleOscilloscopesVisible": true,
+    "moduleSlidersVisible": true,
+    "moduleScopeBackgroundColor": "#000000",
+    "globalSmoothingSeconds": 0.08796052045679338,
+    "globalSmoothingManual": false,
+    "moduleScopeDotCore1Enabled": true,
+    "moduleScopeDotCore1Size": 1.94,
+    "moduleScopeDotCore1Brightness": 33.5,
+    "moduleScopeDotCore1Color": "#ffffff",
+    "moduleScopeDotCore2Enabled": true,
+    "moduleScopeDotCore2Size": 4.79,
+    "moduleScopeDotCore2Brightness": 1.23,
+    "moduleScopeDotCore2Color": "#5c0000",
+    "moduleScopeFramesPerSecond": 60,
+    "moduleScopePointBudget": 4096,
+    "moduleScopeLineThickness": 1,
+    "moduleScopeDiscontinuitySkipSamples": 1,
+    "traceSettings": {
+      "brightness": 0.92,
+      "color": "#75ebff",
+      "dot1Enabled": true,
+      "dot1Size": 0.0175,
+      "dot2Brightness": 0.93,
+      "dot2Color": "#184fff",
+      "dot2Enabled": false,
+      "dot2Size": 0.1,
+      "dot2LineThickness": 0,
+      "cycles": 2,
+      "lineThickness": 0.2,
+      "padding": 0,
+      "skipSamples": 1,
+      "sourceSync": false,
+      "zoomSeconds": 0.2625
+    },
+    "sliderLayout": "text-inside",
+    "sliderAmountVisible": false,
+    "sliderPositionVisible": true,
+    "hideMouseWhileDragging": true,
+    "moduleCatalogVisibility": {
+      "osc": {
+        "developer": true,
+        "home": false
+      },
+      "additiveOsc": {
+        "developer": true,
+        "home": false
+      },
+      "gpuAdditiveOsc": {
+        "developer": true,
+        "home": false
+      },
+      "distortionOscillator": {
+        "developer": true,
+        "home": false
+      },
+      "dsfOscillator": {
+        "developer": true,
+        "home": false
+      },
+      "ellipsoid": {
+        "developer": true,
+        "home": false
+      },
+      "polyBlep": {
+        "developer": true,
+        "home": false
+      },
+      "fbPolyBlepOsc": {
+        "developer": true,
+        "home": false
+      },
+      "sineWavetable": {
+        "developer": true,
+        "home": false
+      },
+      "jerobeamNyqistShannon": {
+        "developer": true,
+        "home": false
+      },
+      "drumMachine": {
+        "developer": true,
+        "home": false
+      },
+      "kickDrum": {
+        "developer": true,
+        "home": false
+      },
+      "snareDrum": {
+        "developer": true,
+        "home": false
+      },
+      "clock": {
+        "developer": true,
+        "home": false
+      },
+      "transport": {
+        "developer": true,
+        "home": false
+      },
+      "clockDivider": {
+        "developer": true,
+        "home": false
+      },
+      "delayedTrigger": {
+        "developer": true,
+        "home": false
+      },
+      "buttonEvents": {
+        "developer": true,
+        "home": false
+      },
+      "wireBreak": {
+        "developer": true,
+        "home": false
+      },
+      "wireConnect": {
+        "developer": true,
+        "home": false
+      },
+      "wireDisconnect": {
+        "developer": true,
+        "home": false
+      },
+      "windowReopen": {
+        "developer": true,
+        "home": false
+      },
+      "shootingStarTail": {
+        "developer": true,
+        "home": false
+      },
+      "shootingStarExplosion": {
+        "developer": true,
+        "home": false
+      },
+      "nextPatch": {
+        "developer": true,
+        "home": false
+      },
+      "previousPatch": {
+        "developer": true,
+        "home": false
+      },
+      "randomClock": {
+        "developer": true,
+        "home": false
+      },
+      "triggerCounter": {
+        "developer": true,
+        "home": false
+      },
+      "triggerDivider": {
+        "developer": true,
+        "home": false
+      },
+      "stepSequencer": {
+        "developer": true,
+        "home": false
+      },
+      "melodySequencer": {
+        "developer": true,
+        "home": false
+      },
+      "chordSequencer": {
+        "developer": true,
+        "home": false
+      },
+      "arpeggiator": {
+        "developer": true,
+        "home": false
+      },
+      "spiral": {
+        "developer": true,
+        "home": false
+      },
+      "lorenzAttractor": {
+        "developer": true,
+        "home": false
+      },
+      "rosslerAttractor": {
+        "developer": true,
+        "home": false
+      },
+      "chuaAttractor": {
+        "developer": true,
+        "home": false
+      },
+      "aizawaAttractor": {
+        "developer": true,
+        "home": false
+      },
+      "thomasAttractor": {
+        "developer": true,
+        "home": false
+      },
+      "halvorsenAttractor": {
+        "developer": true,
+        "home": false
+      },
+      "noise": {
+        "developer": true,
+        "home": false
+      },
+      "stereoNoise": {
+        "developer": true,
+        "home": false
+      },
+      "noiseGenerator": {
+        "developer": true,
+        "home": false
+      },
+      "randomWalk": {
+        "developer": true,
+        "home": false
+      },
+      "fractalBrownianNoise": {
+        "developer": true,
+        "home": false
+      },
+      "clapPlugin": {
+        "developer": true,
+        "home": false
+      },
+      "codeblock": {
+        "developer": true,
+        "home": false
+      },
+      "graph": {
+        "developer": true,
+        "home": false
+      },
+      "graph2": {
+        "developer": true,
+        "home": false
+      },
+      "gain": {
+        "developer": true,
+        "home": false
+      },
+      "bias": {
+        "developer": true,
+        "home": false
+      },
+      "softClipper": {
+        "developer": true,
+        "home": false
+      },
+      "rotate3dTo2d": {
+        "developer": true,
+        "home": false
+      },
+      "output": {
+        "developer": true,
+        "home": false
+      },
+      "macroKnob": {
+        "developer": true,
+        "home": false
+      },
+      "bipolarKnob": {
+        "developer": true,
+        "home": false
+      },
+      "valueSlider": {
+        "developer": true,
+        "home": false
+      },
+      "rangeSlider": {
+        "developer": true,
+        "home": false
+      },
+      "midiOut": {
+        "developer": true,
+        "home": false
+      },
+      "midiNotePitch": {
+        "developer": true,
+        "home": false
+      },
+      "midiController": {
+        "developer": true,
+        "home": false
+      },
+      "keyboardController": {
+        "developer": true,
+        "home": false
+      },
+      "macroControls": {
+        "developer": true,
+        "home": false
+      },
+      "pitchModWheel": {
+        "developer": true,
+        "home": false
+      },
+      "xyPad": {
+        "developer": true,
+        "home": false
+      },
+      "portalInLeft": {
+        "developer": true,
+        "home": false
+      },
+      "portalInRight": {
+        "developer": true,
+        "home": false
+      },
+      "portalInMono": {
+        "developer": true,
+        "home": false
+      },
+      "portalOutLeft": {
+        "developer": true,
+        "home": false
+      },
+      "portalOutRight": {
+        "developer": true,
+        "home": false
+      },
+      "portalOutMono": {
+        "developer": true,
+        "home": false
+      },
+      "portalGenericInput": {
+        "developer": true,
+        "home": false
+      },
+      "portalGenericOutput": {
+        "developer": true,
+        "home": false
+      },
+      "groupInput": {
+        "developer": true,
+        "home": false
+      },
+      "groupOutput": {
+        "developer": true,
+        "home": false
+      },
+      "audioPlayer": {
+        "developer": true,
+        "home": false
+      },
+      "samplePlayer": {
+        "developer": true,
+        "home": false
+      },
+      "sampleLooper": {
+        "developer": true,
+        "home": false
+      },
+      "highpass": {
+        "developer": true,
+        "home": false
+      },
+      "lowpass": {
+        "developer": true,
+        "home": false
+      },
+      "bandpass": {
+        "developer": true,
+        "home": false
+      },
+      "cookbookFilter": {
+        "developer": true,
+        "home": false
+      },
+      "ladderFilter": {
+        "developer": true,
+        "home": false
+      },
+      "slewLimiter": {
+        "developer": true,
+        "home": false
+      },
+      "delayEffect": {
+        "developer": true,
+        "home": false
+      },
+      "reverbEffect": {
+        "developer": true,
+        "home": false
+      },
+      "distortionEffect": {
+        "developer": true,
+        "home": false
+      },
+      "sampleHold": {
+        "developer": true,
+        "home": false
+      },
+      "digitalCurveEnvelope": {
+        "developer": true,
+        "home": false
+      },
+      "expAdsr": {
+        "developer": true,
+        "home": false
+      },
+      "flowerChildEnvelopeFollower": {
+        "developer": true,
+        "home": false
+      },
+      "linearEnvelope": {
+        "developer": true,
+        "home": false
+      },
+      "pluckEnvelope": {
+        "developer": true,
+        "home": false
+      },
+      "vactrolEnvelope": {
+        "developer": true,
+        "home": false
+      },
+      "sandboxVisuals": {
+        "developer": true,
+        "home": false
+      },
+      "screenSpaceShader": {
+        "developer": true,
+        "home": false
+      },
+      "bloomGlow": {
+        "developer": true,
+        "home": false
+      },
+      "rgbaHsla": {
+        "developer": true,
+        "home": false
+      },
+      "chromaColor": {
+        "developer": true,
+        "home": false
+      },
+      "image": {
+        "developer": true,
+        "home": false
+      },
+      "canvas": {
+        "developer": true,
+        "home": false
+      },
+      "led": {
+        "developer": true,
+        "home": false
+      },
+      "visualOscilloscope": {
+        "developer": true,
+        "home": false
+      },
+      "traceDisplay": {
+        "developer": true,
+        "home": false
+      },
+      "dotOscilloscope": {
+        "developer": true,
+        "home": false
+      },
+      "valueOscilloscope": {
+        "developer": true,
+        "home": false
+      },
+      "lineBurnOscilloscope": {
+        "developer": true,
+        "home": false
+      },
+      "scope2d": {
+        "developer": true,
+        "home": false
+      },
+      "scope2dTrace": {
+        "developer": true,
+        "home": false
+      },
+      "parabol": {
+        "developer": true,
+        "home": false
+      },
+      "vibratoGenerator": {
+        "developer": true,
+        "home": false
+      },
+      "wowAndFlutter": {
+        "developer": true,
+        "home": false
+      },
+      "speakerProtection": {
+        "developer": true,
+        "home": false
+      },
+      "badvalMonitor": {
+        "developer": true,
+        "home": false
+      },
+      "textBox": {
+        "developer": true,
+        "home": false
+      }
+    },
+    "sceneContextWindowSize": {
+      "width": 140
+    },
+    "moduleActionWindowSize": {
+      "width": 208,
+      "height": 616
+    },
+    "workspaceWindowStatesVersion": 1,
+    "workspaceWindowStates": {
+      "commandCenter": {
+        "open": false,
+        "position": {
+          "left": 62,
+          "top": 123
+        }
+      },
+      "moduleActions": {
+        "open": false
+      },
+      "metaparameters": {
+        "open": false
+      },
+      "oscilloscopeSettings": {
+        "open": false
+      },
+      "patchExplorer": {
+        "open": false,
+        "position": {
+          "left": 233,
+          "top": 216
+        },
+        "size": {
+          "width": 240,
+          "height": 617
+        }
+      },
+      "moduleBrowser": {
+        "open": false,
+        "position": {
+          "left": 1531,
+          "top": 122
+        },
+        "size": {
+          "width": 179,
+          "height": 716
+        }
+      },
+      "visibilityMenu": {
+        "open": false,
+        "position": {
+          "left": 1553,
+          "top": 116
+        },
+        "size": {
+          "width": 136
+        }
+      },
+      "uiSettings": {
+        "open": false,
+        "position": {
+          "left": 477,
+          "top": 96
+        }
+      },
+      "uiDev": {
+        "open": false
+      },
+      "traceDisplaySettings": {
+        "open": false,
+        "locked": true
+      }
+    },
+    "sharedInspectorActive": "",
+    "sharedInspectorWindowState": {},
+    "workspaceView": {
+      "pan": {
+        "x": -82.42857142857136,
+        "y": -20.241071428571473
+      },
+      "zoom": 0.3519460776993532
+    },
+    "moduleStoreDepartment": "",
+    "savedPatchBankIndex": 0,
+    "savedPatchBankName": "chaos",
+    "savedPatchGridColumns": 3,
+    "savedPatchExplorerView": "banks",
+    "currentSavedPatchFilename": "bank000-program000-lorenz-demonstration-chaos--lorenz--attractor--strange.json",
+    "patchDirtyState": "untouched"
+  }
+});

@@ -74,6 +74,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "audio_player",
+      "label": "Music Player",
+      "targetType": "audioPlayer",
+      "kind": "player",
+      "source": "native_modules/audio_player/audio_player.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/audio_player/audio_player.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/audio_player/audio_player.wasm",
+      "wasmUrl": "native_modules/audio_player/audio_player.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "b2u",
       "label": "B2U",
       "targetType": "b2u",
@@ -710,18 +722,6 @@
       "wasmAvailable": true
     },
     {
-      "name": "pumping_limiter",
-      "label": "Pump Limiter",
-      "targetType": "limiter",
-      "kind": "dynamics",
-      "source": "native_modules/pumping_limiter/pumping_limiter.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/pumping_limiter/pumping_limiter.cpp",
-      "libUrl": "",
-      "wasm": "native_modules/pumping_limiter/pumping_limiter.wasm",
-      "wasmUrl": "native_modules/pumping_limiter/pumping_limiter.wasm",
-      "wasmAvailable": true
-    },
-    {
       "name": "lorenz_attractor",
       "label": "Lorenz Attractor",
       "targetType": "lorenzAttractor",
@@ -947,6 +947,18 @@
       "libUrl": "",
       "wasm": "native_modules/pulse_explosion/pulse_explosion.wasm",
       "wasmUrl": "native_modules/pulse_explosion/pulse_explosion.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "pumping_limiter",
+      "label": "Pump Limiter",
+      "targetType": "limiter",
+      "kind": "dynamics",
+      "source": "native_modules/pumping_limiter/pumping_limiter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/pumping_limiter/pumping_limiter.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/pumping_limiter/pumping_limiter.wasm",
+      "wasmUrl": "native_modules/pumping_limiter/pumping_limiter.wasm",
       "wasmAvailable": true
     },
     {

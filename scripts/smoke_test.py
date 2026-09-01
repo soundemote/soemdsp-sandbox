@@ -67,7 +67,6 @@ def read_bundled_default_ui_settings_script_payload() -> dict:
 PUBLIC_SCRIPT_PATHS = (
     "./public/boot-loading.js",
     "./public/app-state.js",
-    "./public/latch-button.js",
     "./public/format-utils.js",
     "./public/inspection-utils.js",
     "./public/audio-utils.js",
@@ -121,6 +120,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-wires.js",
     "./public/node-graph-floating-windows.js",
     "./public/node-graph-unified-window.js",
+    "./public/node-graph-emoji-page.js",
     "./public/node-graph-file-actions.js",
     "./public/node-graph-default-buttons.js",
     "./public/node-graph-cookbook-filter.js",
@@ -128,7 +128,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-phosphor-draw-sample.js",
     "./public/node-graph-color-standards.js",
     "./public/node-graph-chromeless-module-registry.js",
-    "./public/modules/patch/patch-register.js",
     "./public/node-graph-module-chrome.js",
     "./public/modules/led/led-register.js",
     "./public/modules/lcdDot/lcd-dot-register.js",
@@ -141,29 +140,20 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/xyPad/xy-pad-dsp.js",
     "./public/modules/xyPad/xy-pad-register.js",
     "./public/modules/numberReadout/number-readout-register.js",
+    "./public/modules/valueLcd/value-lcd-register.js",
     "./public/modules/rayBouncer/ray-bouncer-register.js",
     "./public/modules/stepGrid/step-grid-register.js",
     "./public/modules/keypad/keypad-register.js",
-    "./public/modules/keypad/keypad-math.js",
-    "./public/modules/keypad/keypad-settings.js",
-    "./public/modules/keypad/keypad-live-evaluator.js",
-    "./public/modules/phoneTone/phone-tone-math.js",
-    "./public/modules/phoneTone/phone-tone-live-evaluator.js",
-    "./public/modules/phoneTone/phone-tone-display.js",
-    "./public/modules/tSeries/t-series-math.js",
-    "./public/modules/tSeries/t-series-live-evaluator.js",
-    "./public/modules/vectorRgb/vector-rgb-display.js",
-    "./public/modules/rasterRgb/raster-rgb-math.js",
-    "./public/modules/rasterRgb/raster-rgb-display.js",
-    "./public/modules/rasterRgb/raster-rgb-live-evaluator.js",
-    "./public/modules/gradientVectorscope/gradient-vectorscope-display.js",
+    "./public/modules/groupInput/group-input-register.js",
+    "./public/modules/groupOutput/group-output-register.js",
     "./public/modules/portal/portal-lanes.js",
     "./public/modules/portal/portal-inlet-register.js",
     "./public/modules/portal/portal-outlet-register.js",
-    "./public/modules/groupInput/group-input-register.js",
-    "./public/modules/groupOutput/group-output-register.js",
+    "./public/modules/simulationTime/simulation-time-register.js",
+    "./public/modules/patch/patch-register.js",
     "./public/node-graph-module-definitions.js",
     "./public/node-graph-plan-roles.js",
+    "./public/node-graph-efficient-product.js",
     "./public/node-graph-module-controls.js",
     "./public/node-graph-data-bus.js",
     "./public/node-graph-module-store.js",
@@ -172,14 +162,14 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-parameter-smoother-filters.js",
     "./public/node-graph-parameter-metadata.js",
     "./public/node-graph-metadata-defaults.js",
+    "./public/node-graph-app-fonts.js",
     "./public/node-graph-text-box-utils.js",
     "./public/node-graph-port-script.js",
     "./public/node-graph-image-utils.js",
     "./public/node-graph-graph-utils.js",
     "./public/node-graph-samples.js",
-    "./public/modules/audioPlayer/audio-player-playlist.js",
     "./public/modules/audioPlayer/audio-player-library.js",
-    "./public/modules/audioPlayer/audio-player-math.js",
+    "./public/modules/audioPlayer/audio-player-playlist.js",
     "./public/node-graph-phosphor-waveform.js",
     "./public/node-graph-stdlib/node-graph-phasor-helpers.js",
     "./public/node-graph-stdlib/node-graph-param-surface-helpers.js",
@@ -198,6 +188,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-patch-runtime.js",
     "./public/node-graph-code-screen-model.js",
     "./public/node-graph-code-screen-loader.js",
+    "./public/node-graph-code-screen.js",
     "./public/node-graph-patch-serialization.js",
     "./public/node-graph-settings-fields.js",
     "./public/node-graph-settings-view.js",
@@ -222,6 +213,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/lib/trace/trace-stroke.js",
     "./public/lib/trace/trace-woscope.js",
     "./public/lib/trace/trace-waveform.js",
+    "./public/lib/trace/trace-history-draw.js",
     "./public/lib/trace/trace-tape.js",
     "./public/lib/trace/trace-shape.js",
     "./public/lib/trace/trace-dot-sprite.js",
@@ -232,14 +224,14 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-module-scope-normalize.js",
     "./public/node-graph-module-scope-display-mode.js",
     "./public/node-graph-module-scope-phosphor.js",
+    "./public/latch-button.js",
     "./public/node-graph-module-scope-settings-form.js",
+    "./public/node-graph-module-scope-settings-controls.js",
     "./public/node-graph-module-scope-settings-form-io.js",
     "./public/node-graph-module-scope-settings-field-edit.js",
-    "./public/node-graph-module-scope-settings-controls.js",
     "./public/node-graph-module-scope-settings-apply.js",
     "./public/node-graph-module-scope-settings-window.js",
     "./public/node-graph-module-scope-settings-ui.js",
-    "./public/node-graph-module-scope-paint-gate.js",
     "./public/node-graph-module-scope-capture.js",
     "./public/node-graph-module-scope-number-readout.js",
     "./public/node-graph-module-scope-draw-basic.js",
@@ -264,26 +256,29 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-module-scope-graph-query.js",
     "./public/node-graph-module-scope-settings.js",
     "./public/node-graph-module-scope-lifecycle.js",
+    "./public/node-graph-module-scope-paint-gate.js",
     "./public/node-graph-module-scope-canvas.js",
-    "./public/lib/trace/trace-history-draw.js",
-    "./public/node-graph-module-scope-paint-helpers.js",
     "./public/node-graph-module-scope-waterfall.js",
+    "./public/node-graph-module-scope-paint-helpers.js",
     "./public/node-graph-module-scope-draw-orchestrator.js",
     "./public/modules/lookaheadLimiter/lookahead-limiter-display.js",
-    "./public/modules/patch/patch-ui.js",
     "./public/modules/phosphorLight/phosphor-light-display.js",
     "./public/modules/oscilloscopeBank/oscilloscope-bank-display.js",
     "./public/modules/videoscope/videoscope-display.js",
     "./public/modules/spectrogram/spectrogram-display.js",
     "./public/modules/transport/transport-display.js",
+    "./public/modules/vectorRgb/vector-rgb-display.js",
+    "./public/modules/rasterRgb/raster-rgb-math.js",
+    "./public/modules/rasterRgb/raster-rgb-display.js",
+    "./public/modules/gradientVectorscope/gradient-vectorscope-display.js",
     "./public/node-graph-room-dimmer.js",
     "./public/node-graph-canvas-script.js",
     "./public/node-graph-module-factories.js",
     "./public/modules/led/led-ui.js",
     "./public/modules/lcdDot/lcd-dot-display.js",
     "./public/modules/rgbShape/rgb-shape-math.js",
-    "./public/modules/rgbShape/rgb-shape-ui.js",
     "./public/modules/rgbShape/rgb-shape-display.js",
+    "./public/modules/rgbShape/rgb-shape-ui.js",
     "./public/modules/rgbPicture/rgb-picture-ui.js",
     "./public/modules/rgbPicture/rgb-picture-display.js",
     "./public/modules/rgbFractal/rgb-fractal-gl.js",
@@ -299,12 +294,17 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/bugButton/bug-button-ui.js",
     "./public/modules/xyPad/xy-pad-ui.js",
     "./public/modules/numberReadout/number-readout-ui.js",
-    "./public/modules/valueLcd/value-lcd-register.js",
     "./public/modules/rayBouncer/ray-bouncer-ui.js",
     "./public/modules/stepGrid/step-grid-ui.js",
+    "./public/modules/keypad/keypad-math.js",
+    "./public/modules/keypad/keypad-settings.js",
     "./public/modules/keypad/keypad-ui.js",
     "./public/modules/groupInput/group-input-ui.js",
+    "./public/modules/patch/patch-ui.js",
     "./public/modules/groupOutput/group-output-ui.js",
+    "./public/modules/portal/portal-math.js",
+    "./public/modules/portal/portal-settings.js",
+    "./public/modules/portal/portal-ui.js",
     "./public/node-graph-module-header-rendering.js",
     "./public/node-graph-module-rendering.js",
     "./public/node-graph-module-frame.js",
@@ -319,10 +319,9 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-port-geometry.js",
     "./public/node-graph-jack-chrome.js",
     "./public/node-graph-slider-readout.js",
-    "./public/node-graph-app-fonts.js",
     "./public/modules/knob/knob-face.js",
-    "./public/modules/plugin/plugin-controls-ui.js",
     "./public/modules/plugin/plugin-button-settings.js",
+    "./public/modules/plugin/plugin-controls-ui.js",
     "./public/node-graph-slider-readout-controls.js",
     "./public/node-graph-ghost-sliders.js",
     "./public/node-code-settings-editor.js",
@@ -331,7 +330,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-semath.js",
     "./public/modules/speakerProtector2/speaker-protector-2-math.js",
     "./public/node-graph-ear-protection.js",
-    "./public/node-graph-emoji-page.js",
     "./public/node-graph-patch-load-fault.js",
     "./public/node-graph-debug-console.js",
     "./public/node-graph-module-diagnostics.js",
@@ -340,8 +338,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-rendered-visual-output.js",
     "./public/node-graph-rendered-output-canvases.js",
     "./public/node-graph-execution-wires.js",
-    "./public/node-graph-execution-plan.js",
     "./public/node-graph-module-bypass.js",
+    "./public/node-graph-execution-plan.js",
     "./public/node-graph-execution-summary.js",
     "./public/node-graph-wire-actions.js",
     "./public/node-graph-trace-router.js",
@@ -427,11 +425,11 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-stdlib/node-graph-control-bus-helpers.js",
     "./public/node-graph-stdlib/node-graph-shared-app-helpers.js",
     "./public/node-graph-stdlib/node-graph-sinc-kernel.js",
+    "./public/modules/_shared/output-amplitude.js",
     "./public/node-graph-live-frame-evaluator.js",
     "./public/modules/spectrogram/spectrogram-live-evaluator.js",
-    "./public/modules/_shared/output-amplitude.js",
     "./public/modules/_shared/display-thru-live-evaluators.js",
-    "./public/modules/basicShape/basic-shape-live-evaluator.js",
+    "./public/modules/rasterRgb/raster-rgb-live-evaluator.js",
     "./public/modules/logisticMap/logistic-map-math.js",
     "./public/modules/logisticMap/logistic-map-live-evaluator.js",
     "./public/modules/turingMachine/turing-machine-live-evaluator.js",
@@ -491,6 +489,11 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/aliasSine/alias-sine-live-evaluator.js",
     "./public/modules/robinSinusoid/robin-sinusoid-math.js",
     "./public/modules/robinSinusoid/robin-sinusoid-live-evaluator.js",
+    "./public/modules/phoneTone/phone-tone-math.js",
+    "./public/modules/phoneTone/phone-tone-live-evaluator.js",
+    "./public/modules/phoneTone/phone-tone-display.js",
+    "./public/modules/tSeries/t-series-math.js",
+    "./public/modules/tSeries/t-series-live-evaluator.js",
     "./public/modules/tb303Filter/tb303-filter-live-evaluator.js",
     "./public/modules/delayEffect/delay-effect-live-evaluator.js",
     "./public/modules/pingPongDelay/ping-pong-delay-live-evaluator.js",
@@ -500,7 +503,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/soemReverb/soem-reverb-live-evaluator.js",
     "./public/modules/pll/pll-live-evaluator.js",
     "./public/modules/helmholtzPitch/helmholtz-pitch-live-evaluator.js",
-    "./public/modules/helmholtzPitch/helmholtz-pitch-ui.js",
+    "./public/modules/keypad/keypad-live-evaluator.js",
     "./public/modules/noiseDetector/noise-detector-math.js",
     "./public/modules/noiseDetector/noise-detector-live-evaluator.js",
     "./public/modules/rms/rms-math.js",
@@ -541,6 +544,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/sampleHold/sample-hold-math.js",
     "./public/modules/sampleHold/sample-hold-live-evaluator.js",
     "./public/modules/expAdsr/exp-adsr-math.js",
+    "./public/modules/additiveGraph/additive-mod-control.js",
     "./public/modules/expAdsr/exp-adsr-live-evaluator.js",
     "./public/modules/attackDecay/attack-decay-math.js",
     "./public/modules/attackDecay/attack-decay-display.js",
@@ -548,10 +552,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/linearEnvelope/linear-envelope-math.js",
     "./public/modules/linearEnvelope/linear-envelope-live-evaluator.js",
     "./public/modules/pluckEnvelope/pluck-envelope-live-evaluator.js",
-    "./public/modules/kickEnvelope/kick-envelope-math.js",
-    "./public/modules/kickEnvelope/kick-envelope-live-evaluator.js",
-    "./public/modules/sineKick/sine-kick-math.js",
-    "./public/modules/sineKick/sine-kick-live-evaluator.js",
     "./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-live-evaluator.js",
     "./public/modules/spiral/spiral-live-evaluator.js",
     "./public/modules/fractalSpiral/fractal-spiral-live-evaluator.js",
@@ -564,8 +564,14 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/softpopOscillator/softpop-oscillator-live-evaluator.js",
     "./public/modules/sinepulse/sinepulse-math.js",
     "./public/modules/sinepulse/sinepulse-live-evaluator.js",
+    "./public/modules/kickEnvelope/kick-envelope-math.js",
+    "./public/modules/kickEnvelope/kick-envelope-live-evaluator.js",
+    "./public/modules/sineKick/sine-kick-math.js",
+    "./public/modules/sineKick/sine-kick-live-evaluator.js",
     "./public/modules/randomWalk/random-walk-math.js",
     "./public/modules/randomWalk/random-walk-live-evaluator.js",
+    "./public/modules/cheapWalk/cheap-walk-math.js",
+    "./public/modules/cheapWalk/cheap-walk-live-evaluator.js",
     "./public/modules/piSpigotNoise/pi-spigot-noise-live-evaluator.js",
     "./public/modules/bradley2a/bradley-2a-live-evaluator.js",
     "./public/modules/antisaw/antisaw-live-evaluator.js",
@@ -575,7 +581,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/clock/clock-live-evaluator.js",
     "./public/modules/simulationTime/simulation-time-math.js",
     "./public/modules/simulationTime/simulation-time-live-evaluator.js",
-    "./public/modules/simulationTime/simulation-time-register.js",
     "./public/modules/transport/transport-math.js",
     "./public/modules/transport/transport-live-evaluator.js",
     "./public/modules/randomClock/random-clock-math.js",
@@ -619,6 +624,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/bias/bias-live-evaluator.js",
     "./public/modules/attenuverter/attenuverter-math.js",
     "./public/modules/attenuverter/attenuverter-live-evaluator.js",
+    "./public/modules/range/range-math.js",
+    "./public/modules/range/range-live-evaluator.js",
     "./public/modules/u2b/u2b-live-evaluator.js",
     "./public/modules/b2u/b2u-live-evaluator.js",
     "./public/modules/inv/inv-live-evaluator.js",
@@ -641,26 +648,50 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/chromaColor/chroma-color-live-evaluator.js",
     "./public/modules/badvalMonitor/badval-monitor-ui.js",
     "./public/modules/badvalMonitor/badval-monitor-live-evaluator.js",
+    "./public/modules/helmholtzPitch/helmholtz-pitch-ui.js",
     "./public/modules/speakerProtection/speaker-protection-live-evaluator.js",
     "./public/modules/speakerProtector2/speaker-protector-2-live-evaluator.js",
     "./public/modules/groupOutput/group-output-live-evaluator.js",
     "./public/modules/output/output-live-evaluator.js",
     "./public/modules/groupInput/group-input-live-evaluator.js",
+    "./public/modules/portal/portal-live-evaluator.js",
     "./public/modules/audioInput/audio-input-live-evaluator.js",
     "./public/lib/sample-interpolate.js",
+    "./public/modules/audioPlayer/audio-player-math.js",
     "./public/modules/audioPlayer/audio-player-live-evaluator.js",
     "./public/modules/moduleGroup/module-group-live-evaluator.js",
     "./public/modules/codeblock/codeblock-live-evaluator.js",
     "./public/modules/sineWavetable/sine-wavetable-live-evaluator.js",
-    "./public/modules/basicShape/basic-shape-display.js",
     "./public/modules/ellipsoid/ellipsoid-live-evaluator.js",
-    "./public/modules/ellipsoid/ellipsoid-display.js",
+    "./public/modules/basicShape/basic-shape-live-evaluator.js",
+    "./public/modules/basicShape/basic-shape-display.js",
     "./public/modules/ellipsoid/ellipsoid-settings.js",
-    "./public/modules/portal/portal-math.js",
-    "./public/modules/portal/portal-settings.js",
-    "./public/modules/portal/portal-ui.js",
-    "./public/modules/portal/portal-live-evaluator.js",
+    "./public/modules/ellipsoid/ellipsoid-display.js",
     "./public/modules/additiveOsc/additive-osc-live-evaluator.js",
+    "./public/modules/additiveGraph/additive-graph-math.js",
+    "./public/modules/additiveGraph/additive-param-smooth.js",
+    "./public/modules/additiveGraph/additive-filter-curve-display.js",
+    "./public/modules/additiveGenerator/additive-generator-live-evaluator.js",
+    "./public/modules/additiveLinearFilter/additive-linear-filter-live-evaluator.js",
+    "./public/modules/additiveAnalogFilter/additive-analog-filter-live-evaluator.js",
+    "./public/modules/additiveLadderFilter/additive-ladder-filter-live-evaluator.js",
+    "./public/modules/curveEnvelopeMod/curve-envelope-mod-live-evaluator.js",
+    "./public/modules/additiveGrowl/additive-growl-live-evaluator.js",
+    "./public/modules/additiveFrequencySkew/additive-frequency-skew-live-evaluator.js",
+    "./public/modules/additiveQuantizeFreq/additive-quantize-freq-live-evaluator.js",
+    "./public/modules/additiveQuantizePhase/additive-quantize-phase-live-evaluator.js",
+    "./public/modules/additiveNoisyFreq/additive-noisy-freq-live-evaluator.js",
+    "./public/modules/additiveNoisyPhase/additive-noisy-phase-live-evaluator.js",
+    "./public/modules/additivePan/additive-pan-live-evaluator.js",
+    "./public/modules/additiveNoisyPan/additive-noisy-pan-live-evaluator.js",
+    "./public/modules/additiveNoisyAmp/additive-noisy-amp-live-evaluator.js",
+    "./public/modules/additiveImage/additive-image-live-evaluator.js",
+    "./public/modules/additiveOut/additive-out-live-evaluator.js",
+    "./public/modules/harmonicLines/harmonic-count-display.js",
+    "./public/modules/additiveGrowl/additive-bubble-display.js",
+    "./public/modules/additiveBlaster/additive-blaster-display.js",
+    "./public/modules/harmonicLines/harmonic-lines-display.js",
+    "./public/modules/additiveGenerator/additive-waveform-display.js",
     "./public/modules/graph/graph-live-evaluator.js",
     "./public/modules/polyBlep/poly-blep-live-evaluator.js",
     "./public/node-graph-pulse-explosion-display.js",
@@ -679,28 +710,37 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-bootstrap.js",
     "./public/app-event-bindings.js",
     "./public/app.js",
-    "./public/node-graph-code-screen.js",
 )
 
 
-# Derived from nodeGraphLiveWorkletSourceFiles in node-graph-live-runtime.js
-# (the ordered Blob loader list). Parsed at read time so smoke does not lag
-# when worklet fragments are split or new module evaluators are added.
+# Derived from worklet Blob source arrays in node-graph-live-runtime.js.
+# Release uses Efficient+Register; Full also concatenates Legacy. Smoke unions
+# all three so static-asset + assembled-source contracts stay complete.
 def worklet_blob_source_files() -> tuple[str, ...]:
     runtime = (PUBLIC / "node-graph-live-runtime.js").read_text(encoding="utf-8")
-    marker = "const nodeGraphLiveWorkletSourceFiles = ["
-    start = runtime.find(marker)
-    if start < 0:
-        raise AssertionError("nodeGraphLiveWorkletSourceFiles missing from live-runtime")
-    end = runtime.find("];", start)
-    if end < 0:
-        raise AssertionError("nodeGraphLiveWorkletSourceFiles list not closed")
-    block = runtime[start:end]
+    markers = (
+        "const nodeGraphLiveWorkletSourceFilesEfficient = [",
+        "const nodeGraphLiveWorkletSourceFilesLegacy = [",
+        "const nodeGraphLiveWorkletSourceFilesRegister = [",
+    )
     paths: list[str] = []
-    for match in re.finditer(r'"./public/([^"?]+)(?:\?[^"]*)?"', block):
-        paths.append(match.group(1))
+    seen: set[str] = set()
+    for marker in markers:
+        start = runtime.find(marker)
+        if start < 0:
+            raise AssertionError(f"{marker[:-4]} missing from live-runtime")
+        end = runtime.find("];", start)
+        if end < 0:
+            raise AssertionError(f"{marker[:-4]} list not closed")
+        block = runtime[start:end]
+        for match in re.finditer(r'"./public/([^"?]+)(?:\?[^"]*)?"', block):
+            rel = match.group(1)
+            if rel in seen:
+                continue
+            seen.add(rel)
+            paths.append(rel)
     if not paths:
-        raise AssertionError("nodeGraphLiveWorkletSourceFiles produced no paths")
+        raise AssertionError("worklet blob source arrays produced no paths")
     return tuple(paths)
 
 
@@ -4770,7 +4810,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'Tone: "Tone"' in script_sources["./public/node-graph-module-definitions.js"]
         and "LayoutA" in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("phoneTone: {"):
-            script_sources["./public/node-graph-module-definitions.js"].index("additiveOsc: {")
+            script_sources["./public/node-graph-module-definitions.js"].index("additiveGenerator: {")
         ]
         and "function nodeGraphPortIsFrequencyValue" in script_sources["./public/node-graph-port-geometry.js"]
         and "hasGate" in script_sources["./public/modules/phoneTone/phone-tone-math.js"]
@@ -7894,18 +7934,17 @@ def require_node_graph_mvp_contract() -> None:
         '"Wave Out": "Wave"',
         'outputs: ["Saw", "Ramp", "Square", "Tri", "Sine", "Wave Out"]',
         "polyBlep: {",
-        "additiveOsc: \"Additive Osc\"",
-        "additiveOsc: {",
-        'choices: ["Sine", "Sawtooth", "Square", "Triangle", "SawSquare", "DoubleSaw", "TriSaw", "Organ"]',
-        'outputs: ["Out"]',
+        "additiveGenerator: \"Additive Generator\"",
+        "additiveGenerator: {",
+        'choices: ["Saw", "Square", "PulseCenter", "PulseLeft", "PulseRight", "Tri", "RectSine"]',
+        'choices: ["Instant", "Smoothed", "Decimal"]',
+        'key: "harmonicFade"',
         'key: "harmonics"',
         'constraint: "cpu"',
         'max: "1024"',
-        'key: "dampingFilterFrequency"',
-        'label: "Filter Frequency"',
-        'label: "Morph"',
-        'key: "harmonicPhaseAdd"',
-        'label: "Phase Multiply"',
+        'key: "pwm"',
+        'key: "phaseRotation"',
+        'dataOutputs: ["Graph"]',
         "ellipsoid: \"RoundShape\"",
         "ellipsoid: {",
         'inputs: ["Reset", "0.1V/Oct", "Increment"]',
@@ -9628,8 +9667,7 @@ def require_node_graph_mvp_contract() -> None:
         "function addNodeGraphModuleFromContext(event)",
         "function addNodeGraphModuleFromShop(button)",
         "const nodeGraphModuleStoreTypes = Object.freeze(Object.keys(nodeGraphModuleDefinitions));",
-        "\"additiveOsc\"",
-        "\"gpuAdditiveOsc\"",
+        "\"additiveGenerator\"",
         "\"ellipsoid\"",
         "\"polyBlep\"",
         "Anti-aliased PolyBLEP oscillator for clean saw, ramp, square, triangle, sine, and noise waveform outputs.",
@@ -10531,8 +10569,8 @@ def require_node_graph_mvp_contract() -> None:
         "feedbackGraphConnections: (compiled.feedbackGraphConnections || []).map",
         "feedbackModulations: compiled.feedbackModulations.map",
         "order: [...compiled.order]",
-        '"additiveOsc"',
-        'type === "additiveOsc"',
+        '"additiveGenerator"',
+        'type === "additiveGenerator"',
         "function createNodeGraphLiveRuntime(plan)",
         "function nodeGraphConnectionMapFromList(items = [], keyForItem)",
         "const modulationConnections = nodeGraphLiveModulationConnectionMap(plan)",
@@ -11642,7 +11680,7 @@ def require_node_graph_mvp_contract() -> None:
         "Out: selected",
         '"Wave Out": selected',
         "Noise: selected",
-        "nodeGraphLiveModuleEvaluators.additiveOsc = nodeGraphAdditiveOscLiveEvaluator",
+        "nodeGraphLiveModuleEvaluators.additiveGenerator = nodeGraphAdditiveGeneratorLiveEvaluator",
         "const additiveSample = nodeGraphAdditiveOscillatorSample(",
         '"additive osc 0.1v/oct input"',
         '"additive osc increment input"',
@@ -17374,7 +17412,7 @@ def require_node_graph_mvp_contract() -> None:
         "const phaseMultiplier = 1 + phaseCurve * harmonicPhaseMultiply",
         "const phaseOffset = (Number(partial.phase) || 0) + phaseCurve * harmonicPhaseAdd",
         "Math.sin((phase * harmonic * phaseMultiplier) + phaseOffset * Math.PI * 2)",
-        "additiveOsc: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue) =>",
+        "additiveGeneratorBuildAndStamp",
         "const additiveSample = queuedAdditiveSample !== null",
         ": this.additiveOscillatorSample(",
         'dampingFilterFrequency: this.readEffectiveParameter(node, "dampingFilterFrequency", 20000, frame, frames, frameValues)',
@@ -18266,6 +18304,36 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_video_synth_raster_process_block",
             "soemdsp_video_synth_raster_output_ptr",
         ],
+        "audio_player": [
+            "soemdsp_audio_player_create",
+            "soemdsp_audio_player_destroy",
+            "soemdsp_audio_player_sample",
+            "soemdsp_audio_player_version",
+        ],
+        "cheap_walk": [
+            "soemdsp_cheap_walk_create",
+            "soemdsp_cheap_walk_destroy",
+            "soemdsp_cheap_walk_sample",
+            "soemdsp_cheap_walk_version",
+        ],
+        "graph_engine": [
+            "soemdsp_graph_create",
+            "soemdsp_graph_destroy",
+            "soemdsp_graph_process_block",
+            "soemdsp_graph_version",
+        ],
+        "pumping_limiter": [
+            "soemdsp_pumping_limiter_create",
+            "soemdsp_pumping_limiter_destroy",
+            "soemdsp_pumping_limiter_sample",
+            "soemdsp_pumping_limiter_version",
+        ],
+        "range": [
+            "soemdsp_range_create",
+            "soemdsp_range_destroy",
+            "soemdsp_range_sample",
+            "soemdsp_range_version",
+        ],
         "raster_rgb": [
             "soemdsp_raster_rgb_create",
             "soemdsp_raster_rgb_destroy",
@@ -18423,7 +18491,8 @@ def require_native_module_contract(base_url: str) -> None:
     require(
         'name === "soft_clipper" || targetType === "softClipper"' in worklet_source
         and "this.nativeSoftClipper?.soemdsp_soft_clipper_sample" in worklet_source
-        and "Out: this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 0)" in worklet_source
+        and "this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 0)" in worklet_source
+        and "softClipperGainDb" in worklet_source
         and "softClipperSample(input, center = 0, width = 2)" not in worklet_source,
         "native Soft Clipper should be worklet-backed with old JS worklet DSP removed",
     )
@@ -18434,10 +18503,10 @@ def require_native_module_contract(base_url: str) -> None:
         and "this.nativeLookaheadLimiter?.soemdsp_lookahead_limiter_sample" in worklet_source
         and "function nodeGraphPumpingLimiterFrame" in (PUBLIC / "modules" / "lookaheadLimiter" / "lookahead-limiter-math.js").read_text(encoding="utf-8")
         and "nodeGraphLiveModuleEvaluators.limiter" in (PUBLIC / "modules" / "lookaheadLimiter" / "lookahead-limiter-live-evaluator.js").read_text(encoding="utf-8")
-        and 'limiter: "Limiter"' in (PUBLIC / "node-graph-module-definitions.js").read_text(encoding="utf-8")
-        and 'lookaheadLimiter: "Brickwall"' in (PUBLIC / "node-graph-module-definitions.js").read_text(encoding="utf-8")
-        and 'label: "Brickwall"' in (PUBLIC / "node-graph-module-store.js").read_text(encoding="utf-8"),
-        "Brickwall keeps native peak ceiling; Limiter is the musical threshold/ratio fork",
+        and 'limiter: "Pump Limiter"' in (PUBLIC / "node-graph-module-definitions.js").read_text(encoding="utf-8")
+        and 'lookaheadLimiter: "Brickwall Limiter"' in (PUBLIC / "node-graph-module-definitions.js").read_text(encoding="utf-8")
+        and 'label: "Brickwall Limiter"' in (PUBLIC / "node-graph-module-store.js").read_text(encoding="utf-8"),
+        "Brickwall Limiter keeps native peak ceiling; Pump Limiter is the musical threshold/ratio fork",
     )
     require(
         '"soemdsp_soft_clipper_sample"' in native_build_source
@@ -18449,7 +18518,7 @@ def require_native_module_contract(base_url: str) -> None:
         and "this.nativeLadderFilter?.soemdsp_ladder_filter_create" in worklet_source
         and "this.nativeLadderFilter?.soemdsp_ladder_filter_sample" in worklet_source
         and "native Ladder Filter failed" in worklet_source
-        and "this.safeFilterNumber(\n            this.nativeLadderFilter.soemdsp_ladder_filter_sample(" in worklet_source,
+        and "soemdsp_ladder_filter_sample(" in worklet_source,
         "native Ladder Filter should be worklet-backed and guarded against native failures",
     )
 
