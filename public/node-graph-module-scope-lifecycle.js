@@ -33,7 +33,6 @@ function syncNodeGraphModuleScopeHeartbeat() {
     return;
   }
   nodeGraphModuleScopeState.drawFrameHeartbeat = window.setInterval(() => {
-    syncNodeGraphScopeGpuDebugDisplay();
     if (!nodeGraphModuleScopeHasDrawableSlots()) {
       return;
     }
@@ -43,17 +42,19 @@ function syncNodeGraphModuleScopeHeartbeat() {
         ? nodeGraphModuleScopeLivePaintActive()
         : !nodeGraphModuleScopePaused());
     if (!livePaint) {
-      // While frozen/stopped, do not touch display buffers or energy.
-      // Absorb is a no-op when capture maps are empty (typical after Stop).
-      if (nodeGraphModuleScopeState.buffers?.size) {
-        absorbNodeGraphModuleScopePhosphorDrawCursors();
-      }
-      if (typeof scopePaintIsFrozen === "function" && scopePaintIsFrozen()
-        && typeof holdNodeGraphScope2dTraceFaces === "function") {
-        holdNodeGraphScope2dTraceFaces();
+      // Stopped/cold: skip GPU debug sync and buffer churn. Only hold residual
+      // while intentionally frozen (pause with engine still up).
+      if (typeof scopePaintIsFrozen === "function" && scopePaintIsFrozen()) {
+        if (nodeGraphModuleScopeState.buffers?.size) {
+          absorbNodeGraphModuleScopePhosphorDrawCursors();
+        }
+        if (typeof holdNodeGraphScope2dTraceFaces === "function") {
+          holdNodeGraphScope2dTraceFaces();
+        }
       }
       return;
     }
+    syncNodeGraphScopeGpuDebugDisplay();
     const pendingFrame = Number(nodeGraphModuleScopeState.drawFrame) || 0;
     const requestedAt = Number(nodeGraphModuleScopeState.drawFrameRequestedAt) || 0;
     const now = (performance.now?.() || Date.now());

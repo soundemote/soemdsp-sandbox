@@ -17,9 +17,29 @@ function createNodeGraphHarmonicLinesDisplay(nodeId, type = "additiveOut") {
   if (typeof tagNodeGraphModuleBand === "function") {
     tagNodeGraphModuleBand(section, "face");
   }
+  const startLoop = () => {
+    if (section._raf) return;
+    const tick = () => {
+      section._raf = 0;
+      const animate = typeof scopePaintFaceShouldAnimate === "function"
+        ? scopePaintFaceShouldAnimate(section)
+        : (typeof scopePaintIsLive === "function" ? scopePaintIsLive() : true);
+      if (!animate) {
+        if (section._forceDraw) {
+          drawNodeGraphHarmonicLinesDisplay(section);
+        }
+        return;
+      }
+      drawNodeGraphHarmonicLinesDisplay(section);
+      section._raf = requestAnimationFrame(tick);
+    };
+    section._raf = requestAnimationFrame(tick);
+  };
+  section._startFaceLoop = startLoop;
   section.syncFromParameters = () => {
     section._forceDraw = true;
     drawNodeGraphHarmonicLinesDisplay(section);
+    startLoop();
   };
   const canvas = document.createElement("canvas");
   canvas.className = "node-harmonic-lines-canvas";
@@ -28,15 +48,18 @@ function createNodeGraphHarmonicLinesDisplay(nodeId, type = "additiveOut") {
     const ro = new ResizeObserver(() => {
       section._forceDraw = true;
       drawNodeGraphHarmonicLinesDisplay(section);
+      startLoop();
     });
     ro.observe(section);
     section._ro = ro;
   }
-  const tick = () => {
-    drawNodeGraphHarmonicLinesDisplay(section);
-    section._raf = requestAnimationFrame(tick);
-  };
-  section._raf = requestAnimationFrame(tick);
+  document.addEventListener("nodegraphfaceloops", startLoop);
+  section.addEventListener("nodegraphviewport", (event) => {
+    if (!event?.detail?.asleep) startLoop();
+  });
+  // One paint now; continuous RAF only while live + on-screen.
+  drawNodeGraphHarmonicLinesDisplay(section);
+  startLoop();
   return section;
 }
 

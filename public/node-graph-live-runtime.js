@@ -1096,6 +1096,9 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
     if (typeof nodeGraphLiveRearmDisplaysAfterEngineStart === "function") {
       nodeGraphLiveRearmDisplaysAfterEngineStart();
     }
+    if (typeof scopePaintNotifyFaceLoops === "function") {
+      scopePaintNotifyFaceLoops();
+    }
     renderNodeGraphExecutionPlanDebug();
   }
 }
@@ -1281,6 +1284,9 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
   }
   if (typeof nodeGraphExternalNotifyLiveOutputChanged === "function") {
     nodeGraphExternalNotifyLiveOutputChanged();
+  }
+  if (clamped > 0 && typeof scopePaintNotifyFaceLoops === "function") {
+    scopePaintNotifyFaceLoops();
   }
   // Speed 0 = simulation pause: stop phosphor energy steps immediately so
   // trails do not keep decaying on the main-thread draw loop.

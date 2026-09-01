@@ -14,9 +14,29 @@ function createNodeGraphHarmonicCountDisplay(nodeId, type = "additiveGenerator")
   if (typeof tagNodeGraphModuleBand === "function") {
     tagNodeGraphModuleBand(section, "face");
   }
+  const startLoop = () => {
+    if (section._raf) return;
+    const tick = () => {
+      section._raf = 0;
+      const animate = typeof scopePaintFaceShouldAnimate === "function"
+        ? scopePaintFaceShouldAnimate(section)
+        : (typeof scopePaintIsLive === "function" ? scopePaintIsLive() : true);
+      if (!animate) {
+        if (section._forceDraw) {
+          drawNodeGraphHarmonicCountDisplay(section);
+        }
+        return;
+      }
+      drawNodeGraphHarmonicCountDisplay(section);
+      section._raf = requestAnimationFrame(tick);
+    };
+    section._raf = requestAnimationFrame(tick);
+  };
+  section._startFaceLoop = startLoop;
   section.syncFromParameters = () => {
     section._forceDraw = true;
     drawNodeGraphHarmonicCountDisplay(section);
+    startLoop();
   };
   const canvas = document.createElement("canvas");
   canvas.className = "node-harmonic-count-canvas";
@@ -25,15 +45,17 @@ function createNodeGraphHarmonicCountDisplay(nodeId, type = "additiveGenerator")
     const ro = new ResizeObserver(() => {
       section._forceDraw = true;
       drawNodeGraphHarmonicCountDisplay(section);
+      startLoop();
     });
     ro.observe(section);
     section._ro = ro;
   }
-  const tick = () => {
-    drawNodeGraphHarmonicCountDisplay(section);
-    section._raf = requestAnimationFrame(tick);
-  };
-  section._raf = requestAnimationFrame(tick);
+  document.addEventListener("nodegraphfaceloops", startLoop);
+  section.addEventListener("nodegraphviewport", (event) => {
+    if (!event?.detail?.asleep) startLoop();
+  });
+  drawNodeGraphHarmonicCountDisplay(section);
+  startLoop();
   return section;
 }
 

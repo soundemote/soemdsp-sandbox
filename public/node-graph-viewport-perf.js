@@ -381,6 +381,13 @@ function nodeGraphViewportCullWakePainters(element) {
       nodeGraphFbmFieldStartLoop(face, nodeId || face.dataset?.node);
     }
   }
+  for (const face of element.querySelectorAll(
+    ".node-harmonic-lines-display, .node-harmonic-count-display",
+  )) {
+    if (typeof face._startFaceLoop === "function") {
+      face._startFaceLoop();
+    }
+  }
   element.dispatchEvent(new CustomEvent("nodegraphviewport", {
     bubbles: false,
     detail: { asleep: false },
@@ -394,6 +401,14 @@ function nodeGraphViewportCullSleepPainters(element) {
   for (const face of element.querySelectorAll(".node-fbm-field-face")) {
     if (typeof nodeGraphFbmFieldStopLoop === "function") {
       nodeGraphFbmFieldStopLoop(face);
+    }
+  }
+  for (const face of element.querySelectorAll(
+    ".node-harmonic-lines-display, .node-harmonic-count-display",
+  )) {
+    if (face._raf) {
+      window.cancelAnimationFrame(face._raf);
+      face._raf = 0;
     }
   }
   element.dispatchEvent(new CustomEvent("nodegraphviewport", {

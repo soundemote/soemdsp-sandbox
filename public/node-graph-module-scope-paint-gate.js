@@ -50,6 +50,34 @@ function scopePaintIsLive() {
 }
 
 /**
+ * Per-module face RAF: animate only while engine is live and the host node
+ * is on-screen. When false, faces should paint at most once (idle plate) and
+ * not reschedule requestAnimationFrame.
+ */
+function scopePaintFaceShouldAnimate(faceOrNode) {
+  if (!scopePaintIsLive()) {
+    return false;
+  }
+  if (
+    typeof nodeGraphModuleIsViewportAsleep === "function"
+    && nodeGraphModuleIsViewportAsleep(faceOrNode)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Wake stopped face loops after Play / speed>0 / viewport wake. */
+function scopePaintNotifyFaceLoops() {
+  if (typeof document === "undefined" || typeof document.dispatchEvent !== "function") {
+    return;
+  }
+  try {
+    document.dispatchEvent(new CustomEvent("nodegraphfaceloops", { bubbles: false }));
+  } catch (_e) { /* ignore */ }
+}
+
+/**
  * Phosphor residual hold: no new deposits / no Instant Trace rewrite.
  * Intentional pause only — never "AudioContext suspended" or missing circuit flag.
  *
@@ -180,6 +208,9 @@ function scopePaintOnSampleSnapshot() {
   }
   if (!silent && nodeGraphModuleScopeState) {
     nodeGraphModuleScopeState.idleHold = false;
+  }
+  if (typeof scopePaintNotifyFaceLoops === "function") {
+    scopePaintNotifyFaceLoops();
   }
   scheduleNodeGraphModuleScopeDraw();
 }
