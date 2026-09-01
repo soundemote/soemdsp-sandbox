@@ -103,8 +103,9 @@ function nodeGraphModuleHeightLimitsForType(_type) {
 }
 
 /**
- * LayoutC: title + I/O only. Minimum height = title strip + port-row strip
- * (max(in,out) rows). No face, no param rows.
+ * LayoutC: title + I/O only. Content height = header + port-row strip
+ * (max(in,out) rows), snapped up to whole gu. No face, no params.
+ * Never use a hand-set defaultHeightGu — content is the SSOT.
  */
 function nodeGraphLayoutCMinContentHeightGu(type, ui = {}) {
   const headerGu = typeof nodeGraphModuleHeaderHeightUnits === "function"
@@ -116,15 +117,15 @@ function nodeGraphLayoutCMinContentHeightGu(type, ui = {}) {
   return Math.max(nodeGraphModuleGuPolicy.minGu, Math.ceil(headerGu + ioGu));
 }
 
-/** LayoutC total module height (bounds = gu). Clamp floor is the app-wide 1gu policy. */
+/**
+ * LayoutC outer height. Spawn (null heightGu) = content min.
+ * Manual heightGu may grow above content, never shrink below it.
+ */
 function nodeGraphLayoutCGridHeightUnits(type, ui = {}, heightGu = null) {
   const limits = nodeGraphModuleGuPolicy;
-  const declared = Number(nodeGraphModuleDefinitions[type]?.defaultHeightGu);
-  const fallback = Number.isFinite(declared)
-    ? Math.round(declared)
-    : nodeGraphLayoutCMinContentHeightGu(type, ui);
-  const raw = Number.isFinite(Number(heightGu)) ? Math.round(Number(heightGu)) : fallback;
-  return Math.max(limits.minGu, Math.min(limits.maxGu, raw));
+  const contentMin = nodeGraphLayoutCMinContentHeightGu(type, ui);
+  const raw = Number.isFinite(Number(heightGu)) ? Math.round(Number(heightGu)) : contentMin;
+  return Math.max(limits.minGu, Math.min(limits.maxGu, Math.max(contentMin, raw)));
 }
 
 /** Shared face/display-height limits for every type (min 1gu). Do not raise per-layout. */
@@ -507,6 +508,9 @@ function normalizeNodeGraphModuleHeightUnits(type, heightGu, ui = {}) {
   const limits = nodeGraphModuleGuPolicy;
   const value = Math.round(Number(heightGu));
   if (Number.isFinite(value)) {
+    if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
+      return nodeGraphLayoutCGridHeightUnits(type, ui, value);
+    }
     return Math.max(limits.minGu, Math.min(limits.maxGu, value));
   }
   return nodeGraphModuleGridHeightUnitsForUi(type, ui);
@@ -1602,9 +1606,13 @@ function nodeGraphPatchNodeGridHeightUnits(node) {
 }
 
 /**
- * App-wide outer floor is 1gu. Height − stays enabled until the box is 1gu.
+ * Outer height floor. LayoutC floors at content (header + I/O), snapped to gu.
+ * Everything else: app-wide 1gu.
  */
-function nodeGraphModuleMinOuterHeightGu(_type, _ui = {}) {
+function nodeGraphModuleMinOuterHeightGu(type, ui = {}) {
+  if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
+    return nodeGraphLayoutCMinContentHeightGu(type, ui);
+  }
   return nodeGraphModuleGuPolicy.minGu;
 }
 

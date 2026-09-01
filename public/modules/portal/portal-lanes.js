@@ -14,7 +14,6 @@ const NODE_GRAPH_PORTAL_LANE_SPECS = Object.freeze([
     hasMono: true,
     hasLeft: false,
     hasRight: false,
-    heightGu: 2,
   }),
   Object.freeze({
     key: "left",
@@ -24,7 +23,6 @@ const NODE_GRAPH_PORTAL_LANE_SPECS = Object.freeze([
     hasMono: false,
     hasLeft: true,
     hasRight: false,
-    heightGu: 2,
   }),
   Object.freeze({
     key: "right",
@@ -34,7 +32,6 @@ const NODE_GRAPH_PORTAL_LANE_SPECS = Object.freeze([
     hasMono: false,
     hasLeft: false,
     hasRight: true,
-    heightGu: 2,
   }),
   Object.freeze({
     key: "leftRight",
@@ -44,7 +41,6 @@ const NODE_GRAPH_PORTAL_LANE_SPECS = Object.freeze([
     hasMono: false,
     hasLeft: true,
     hasRight: true,
-    heightGu: 3,
   }),
   Object.freeze({
     key: "trio",
@@ -54,7 +50,6 @@ const NODE_GRAPH_PORTAL_LANE_SPECS = Object.freeze([
     hasMono: true,
     hasLeft: true,
     hasRight: true,
-    heightGu: 4,
   }),
 ]);
 
@@ -126,21 +121,22 @@ function nodeGraphPortalLaneLetters(spec) {
 
 function nodeGraphPortalLaneDefinition(kind, spec) {
   const ports = spec.ports.slice();
-  // → = into the module (in), ← = thru out of the module.
+  const letters = nodeGraphPortalLaneLetters(spec);
+  // Convenience thru jacks use arrows; primary lane jacks stay M / L / R.
+  // In portal: outs = MLR (into patch), ins = → (convenience mix-in).
+  // Out portal: ins = MLR (from patch), outs = ← (convenience thru / feedback).
   const inArrow = "\u2192";
-  const outLabels = {};
-  const inLabels = {};
-  if (spec.hasMono) {
-    outLabels.Mono = NODE_GRAPH_THRU_SYMBOL;
-    inLabels.Mono = inArrow;
-  }
-  if (spec.hasLeft) {
-    outLabels.Left = NODE_GRAPH_THRU_SYMBOL;
-    inLabels.Left = inArrow;
-  }
-  if (spec.hasRight) {
-    outLabels.Right = NODE_GRAPH_THRU_SYMBOL;
-    inLabels.Right = inArrow;
+  const isInlet = kind !== "outlet";
+  const inputLabels = {};
+  const outputLabels = {};
+  for (const port of ports) {
+    if (isInlet) {
+      inputLabels[port] = inArrow;
+      outputLabels[port] = letters[port] || port;
+    } else {
+      inputLabels[port] = letters[port] || port;
+      outputLabels[port] = NODE_GRAPH_THRU_SYMBOL;
+    }
   }
   const aliases = {};
   if (spec.hasMono) {
@@ -157,22 +153,19 @@ function nodeGraphPortalLaneDefinition(kind, spec) {
   if (spec.hasRight) {
     aliases.R = "Right";
   }
-  const isInlet = kind !== "outlet";
   return {
-    // LayoutC keeps inlet + outlet columns so → / ← thru jacks stay visible.
+    // LayoutC: title + I/O. Height comes from content calc (no hand defaultHeightGu).
     chrome: "LayoutC",
     planRole: isInlet ? "source" : "sink",
     planFreeRun: true,
     defaultWidthGu: 4,
-    defaultHeightGu: spec.heightGu || (ports.length === 1 ? 2 : Math.max(2, ports.length + 1)),
     defaultUi: { buttonsHidden: true, titleHidden: true },
     hasFace: false,
-    // Both sides: in (→) and thru (←) for every portal lane module.
     inputAliases: aliases,
-    inputLabels: inLabels,
+    inputLabels,
     inputs: ports.slice(),
     outputAliases: aliases,
-    outputLabels: outLabels,
+    outputLabels,
     outputs: ports.slice(),
     parameters: [],
   };

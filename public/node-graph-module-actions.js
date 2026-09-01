@@ -2817,6 +2817,17 @@ function toggleNodeGraphModuleTitleFromContext() {
     }
     ui.titleHidden = wantHidden;
     applyNodeGraphPatchNodeUi(targetNode, ui);
+    // LayoutC height is content-derived: raise stored heightGu if title needs more room.
+    if (
+      typeof nodeGraphModuleUsesLayoutC === "function"
+      && nodeGraphModuleUsesLayoutC(targetNode.type)
+      && typeof nodeGraphLayoutCGridHeightUnits === "function"
+    ) {
+      const nextHeight = nodeGraphLayoutCGridHeightUnits(targetNode.type, ui, targetNode.heightGu);
+      if (Number.isFinite(nextHeight)) {
+        targetNode.heightGu = nextHeight;
+      }
+    }
     changedCount += 1;
   }
   if (changedCount) {
