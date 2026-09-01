@@ -66,7 +66,6 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
           Increment: increment,
           Key: key,
           NoteNumber: midi,
-          Pitch: midi,
           Q: q,
           X: x,
           Y: velocity,

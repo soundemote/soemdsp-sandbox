@@ -51,7 +51,6 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({ runtime, nodeId, frame, fr
     Increment: increment,
     Key: key,
     NoteNumber: midi,
-    Pitch: midi,
     Q: q,
     X: x,
     Y: velocity,
