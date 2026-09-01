@@ -29,16 +29,21 @@ function nodeGraphLiveEngineIsPaused() {
 function nodeGraphLiveTransportUiState() {
   const statusText = String(document.getElementById("nodeLiveStatus")?.textContent || "").trim();
   const outputOn = Boolean(nodeGraphMvp?.live?.outputEnabled);
+  const inputOn = Boolean(nodeGraphMvp?.live?.inputActive);
+  const engineWanted = typeof nodeGraphLiveEngineWanted === "function"
+    ? nodeGraphLiveEngineWanted()
+    : (inputOn || outputOn);
   const engineUp = nodeGraphLiveEngineIsUp();
   const contextUp = Boolean(nodeGraphMvp?.live?.context);
   const speed = Number(nodeGraphMvp?.live?.speedMultiplier ?? 1);
   const paused = Number.isFinite(speed) && speed <= 0;
 
   // Live graph present always wins for transport chrome. Status pill may still
-  // say "error" (plan/processor issue) but we must not paint red-stop / Output
-  // (Off) while a worklet is connected — that was the green-flash → red-stop
-  // + silence bug when plan errors muted host gain without tearing down.
-  if (engineUp || (contextUp && outputOn)) {
+  // say "error" (plan/processor issue) but we must not paint red-stop while a
+  // worklet is connected — that was the green-flash → red-stop + silence bug
+  // when plan errors muted host gain without tearing down.
+  // Engine may be Input-only (outputOn false) — still "playing"/"paused".
+  if (engineUp || (contextUp && engineWanted)) {
     return paused ? "paused" : "playing";
   }
 
@@ -46,9 +51,9 @@ function nodeGraphLiveTransportUiState() {
     return "stopped";
   }
 
-  // Mid-start: output requested (or status says so) but worklet not mounted yet.
+  // Mid-start: Input and/or Output requested but worklet not mounted yet.
   if (
-    outputOn
+    engineWanted
     || statusText === "starting"
     || statusText === "priming"
   ) {
@@ -131,6 +136,9 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
     }
     const inputActive = Boolean(nodeGraphMvp.live.inputActive);
     const inputStreaming = Boolean(nodeGraphMvp.live.inputStream);
+    const inputPaused = inputActive && transportState === "paused";
+    const inputStarting = inputActive && transportState === "starting";
+    const inputLive = inputActive && (transportState === "playing" || inputStarting);
     if (!inputActive && !["blocked", "off"].includes(nodeGraphMvp.live.inputStatus)) {
       setNodeGraphLiveInputStatus("off");
     } else if (
@@ -154,13 +162,22 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
       !nodeGraphMvp.live.node &&
       !["blocked", "requesting"].includes(nodeGraphMvp.live.micStatus)
     ) {
-      setNodeGraphLiveMicStatus("armed", "Start OUTPUT to request browser microphone permission.");
+      setNodeGraphLiveMicStatus("armed", "Allow microphone access when the browser prompts.");
     }
-    inputButton.classList.toggle("active", inputActive);
+    inputButton.classList.toggle("active", inputLive);
+    inputButton.classList.toggle("paused", inputPaused);
     inputButton.setAttribute("aria-pressed", inputActive ? "true" : "false");
     inputButton.disabled = false;
     inputButton.setAttribute("aria-disabled", "false");
-    labelLiveToggle(inputButton, "Input", inputActive);
+    labelLiveToggle(
+      inputButton,
+      "Input",
+      inputActive,
+      inputPaused ? "Paused"
+        : inputStarting ? "Starting"
+        : inputLive ? "Live"
+        : null,
+    );
     inputButton.title = inputStreaming
       ? nodeGraphTooltipText("audio.liveInputConnected")
       : inputActive
@@ -168,27 +185,24 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
         : nodeGraphTooltipText("audio.liveInputShow");
   }
   if (outputButton) {
-    // Engine on = live worklet up with output requested (playing or paused).
-    const engineOn = (
-      transportState === "playing"
-      || transportState === "paused"
-      || transportState === "starting"
-    );
-    const isPaused = transportState === "paused";
-    const isLive = transportState === "playing" || transportState === "starting";
-    outputButton.disabled = starting || transportState === "starting";
-    outputButton.classList.toggle("active", engineOn && !isPaused);
+    // Output chrome follows outputEnabled, not bare engine presence (Input-only
+    // must leave Output grey/off while the worklet stays up).
+    const outputArmed = outputEnabled;
+    const isPaused = outputArmed && transportState === "paused";
+    const isStarting = outputArmed && transportState === "starting";
+    const isLive = outputArmed && (transportState === "playing" || isStarting);
+    outputButton.disabled = false;
+    outputButton.classList.toggle("active", isLive && !isPaused);
     outputButton.classList.toggle("paused", isPaused);
     outputButton.classList.remove("node-under-construction-control");
-    outputButton.setAttribute("aria-pressed", engineOn ? "true" : "false");
+    outputButton.setAttribute("aria-pressed", outputArmed ? "true" : "false");
     outputButton.setAttribute("aria-disabled", "false");
-    // Labels must match transport: Live / Paused / Off — never "Paused" when stopped.
     labelLiveToggle(
       outputButton,
       "Output",
-      engineOn,
+      outputArmed,
       isPaused ? "Paused"
-        : transportState === "starting" ? "Starting"
+        : isStarting ? "Starting"
         : isLive ? "Live"
         : null,
     );
@@ -544,18 +558,22 @@ function nodeGraphTransportHandleAction(action) {
     return;
   }
   if (key === "stop") {
-    // Always full stop (never toggle). Same path as red Output when on.
-    if (typeof setNodeGraphLiveOutputEnabled === "function") {
+    // Always full stop: clear both Input and Output arms, tear down engine.
+    // Pause must not use this path — pause only zeros speed.
+    if (typeof stopNodeGraphLiveEngineFully === "function") {
+      Promise.resolve(stopNodeGraphLiveEngineFully()).then(() => {
+        renderNodeGraphLiveControls(false);
+      });
+    } else if (typeof setNodeGraphLiveOutputEnabled === "function") {
+      if (nodeGraphMvp?.live) {
+        nodeGraphMvp.live.inputActive = false;
+      }
       setNodeGraphLiveOutputEnabled(false);
+      renderNodeGraphLiveControls();
     } else if (typeof soemdspSandboxSetLiveOutput === "function") {
       soemdspSandboxSetLiveOutput(false);
-    } else if (typeof soemdspSandboxToggleLiveOutput === "function") {
-      const outputActive = nodeGraphLiveOutputIsActive(Boolean(nodeGraphMvp.live.node));
-      if (outputActive) {
-        soemdspSandboxToggleLiveOutput();
-      }
+      renderNodeGraphLiveControls();
     }
-    renderNodeGraphLiveControls();
     return;
   }
   if (key === "restart") {

@@ -21,7 +21,7 @@ function setNodeGraphLiveMicStatus(state, message = "") {
     return;
   }
   const textByState = {
-    armed: "mic waits output",
+    armed: "mic armed",
     blocked: "mic blocked",
     connected: "mic live",
     off: "mic off",
@@ -55,7 +55,6 @@ function updateNodeGraphLiveInputTestStatus() {
   }
   const inputActive = Boolean(nodeGraphMvp.live.inputActive);
   const inputRouteState = nodeGraphLiveInputRouteState();
-  const outputEnabled = Boolean(nodeGraphMvp.live.outputEnabled);
   const micStatus = nodeGraphMvp.live.micStatus || "off";
   const permissionStatus = nodeGraphMvp.live.inputPermissionStatus || "unknown";
   const peak = Number(nodeGraphMvp.live.inputMeterPeak) || 0;
@@ -71,14 +70,6 @@ function updateNodeGraphLiveInputTestStatus() {
     state = "error";
     title = document.getElementById("nodeLiveMicStatus")?.title ||
       "Microphone permission is blocked in the browser.";
-  } else if (inputActive && !outputEnabled) {
-    text = permissionStatus === "granted"
-      ? "start output"
-      : nodeGraphLivePermissionStatusText(permissionStatus);
-    state = permissionStatus === "granted" ? "good" : "warn";
-    title = permissionStatus === "granted"
-      ? "Microphone permission is already allowed. Press Output to start live input."
-      : "Press Output to start live audio and request microphone permission.";
   } else if (micStatus === "requesting") {
     text = "allow mic";
     state = "warn";
@@ -94,7 +85,7 @@ function updateNodeGraphLiveInputTestStatus() {
   } else if (inputActive) {
     text = "ready";
     state = "warn";
-    title = inputRouteState.message || "Input is visible. Start Output to request microphone permission.";
+    title = inputRouteState.message || "Input is armed. Allow microphone access when prompted.";
   }
   status.textContent = text;
   status.className = `pill ${state}`.trim();

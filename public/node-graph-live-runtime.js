@@ -35,11 +35,20 @@ function nodeGraphLiveOutputTargetGain() {
   if (nodeGraphMvp.live.outputMuted) {
     return 0;
   }
+  // Input-only: keep the worklet for mic/portals, but mute the speaker.
+  if (!nodeGraphMvp.live.outputEnabled) {
+    return 0;
+  }
   // Pause (speed 0) must not leak the last worklet block through the host.
   if (nodeGraphMvp.live.node && !(Number(nodeGraphMvp.live.speedMultiplier) > 0)) {
     return 0;
   }
   return 1;
+}
+
+/** Engine should stay up while Input and/or Output is armed. */
+function nodeGraphLiveEngineWanted() {
+  return Boolean(nodeGraphMvp.live.inputActive || nodeGraphMvp.live.outputEnabled);
 }
 
 function applyNodeGraphLiveOutputGain() {
@@ -798,8 +807,8 @@ async function refreshNodeGraphLiveMicrophonePermissionState() {
         setNodeGraphLiveMicStatus(
           "armed",
           permission.state === "granted"
-            ? "Microphone permission is allowed. Start OUTPUT to connect it."
-            : "Start OUTPUT to request browser microphone permission.",
+            ? "Microphone permission is allowed. Connecting live input."
+            : "Allow microphone access when the browser prompts.",
         );
       } else {
         updateNodeGraphLiveInputTestStatus();
@@ -866,7 +875,7 @@ async function handleNodeGraphLiveInputDeviceChange(event) {
 function nodeGraphLiveInputErrorMessage(error) {
   const name = error?.name || "";
   if (name === "NotAllowedError" || name === "SecurityError") {
-    return "Microphone permission was blocked. Allow microphone access in the browser, then press Output again.";
+    return "Microphone permission was blocked. Allow microphone access in the browser, then press Input again.";
   }
   if (name === "NotFoundError" || name === "DevicesNotFoundError") {
     return "No browser audio input device was found.";
@@ -941,20 +950,13 @@ function stopNodeGraphMockInput() {
 }
 
 async function startNodeGraphMockInput(options = {}) {
-  if (typeof nodeGraphEfficientProductEnabled === "function" && nodeGraphEfficientProductEnabled()) {
-    nodeGraphMvp.live.inputActive = false;
-    if (typeof ensureNodeGraphLiveInputModule === "function") {
-      ensureNodeGraphLiveInputModule();
-    }
-    renderNodeGraphLiveControls();
-    return nodeGraphLiveDebug();
-  }
   setNodeGraphMockInputFactory(options);
   nodeGraphMvp.live.inputActive = true;
   ensureNodeGraphLiveInputModule();
   if (!nodeGraphMvp.live.node || !nodeGraphMvp.live.context) {
-    nodeGraphMvp.live.outputEnabled = true;
-    await startNodeGraphLiveAudio();
+    const serial = nodeGraphMvp.live.outputToggleSerial + 1;
+    nodeGraphMvp.live.outputToggleSerial = serial;
+    await startNodeGraphLiveAudio(serial);
   } else {
     await syncNodeGraphLiveInputSource();
   }
@@ -987,8 +989,13 @@ async function requestNodeGraphLiveInputStream(deviceId = nodeGraphMvp.live.inpu
   });
 }
 
+function nodeGraphLiveEngineStartCancelled(serial) {
+  return serial !== nodeGraphMvp.live.outputToggleSerial || !nodeGraphLiveEngineWanted();
+}
+
+/** @deprecated Use nodeGraphLiveEngineStartCancelled — kept name for call-site greps. */
 function nodeGraphLiveOutputStartCancelled(serial) {
-  return serial !== nodeGraphMvp.live.outputToggleSerial || !nodeGraphMvp.live.outputEnabled;
+  return nodeGraphLiveEngineStartCancelled(serial);
 }
 
 function nodeGraphLiveInputIsUnderConstruction() {
@@ -997,18 +1004,6 @@ function nodeGraphLiveInputIsUnderConstruction() {
 
 function toggleNodeGraphLiveInput() {
   const enabling = !nodeGraphMvp.live.inputActive;
-  if (
-    enabling
-    && typeof nodeGraphEfficientProductEnabled === "function"
-    && nodeGraphEfficientProductEnabled()
-  ) {
-    nodeGraphMvp.live.inputActive = false;
-    if (typeof ensureNodeGraphLiveInputModule === "function") {
-      ensureNodeGraphLiveInputModule();
-    }
-    renderNodeGraphLiveControls();
-    return;
-  }
   nodeGraphMvp.live.inputActive = enabling;
   const addedInputModule = nodeGraphMvp.live.inputActive
     ? ensureNodeGraphLiveInputModule()
@@ -1018,6 +1013,7 @@ function toggleNodeGraphLiveInput() {
     setNodeGraphLiveInputStatus(routeState.state, routeState.message);
     refreshNodeGraphLiveMicrophonePermissionState();
   } else {
+    stopNodeGraphLiveInputSource();
     setNodeGraphLiveInputStatus("off");
     setNodeGraphLiveMicStatus("off");
   }
@@ -1027,17 +1023,49 @@ function toggleNodeGraphLiveInput() {
     scheduleNodeGraphLivePlanSync();
   }
   renderNodeGraphLiveControls();
-  if (nodeGraphMvp.live.context && nodeGraphMvp.live.node) {
-    syncNodeGraphLiveInputSource().catch((error) => {
-      nodeGraphMvp.live.inputActive = false;
-      stopNodeGraphLiveInputSource();
-      setNodeGraphLiveInputStatus("blocked", error.message);
-      applyNodeGraphPatchToDom();
-      drawNodeGraphWires();
-      renderNodeGraphLiveControls();
-      setNodeGraphLiveBlockedError("input", error, { schedule: false });
-    });
+
+  if (!enabling) {
+    // Input off: tear down only when Output is also off.
+    if (!nodeGraphMvp.live.outputEnabled) {
+      const serial = nodeGraphMvp.live.outputToggleSerial + 1;
+      nodeGraphMvp.live.outputToggleSerial = serial;
+      stopNodeGraphLiveAudio().then(() => {
+        renderNodeGraphLiveControls(false);
+        renderNodeGraphExecutionPlanDebug();
+      }).catch(() => {
+        renderNodeGraphLiveControls(false);
+      });
+    }
+    return;
   }
+
+  const startOrSync = (!nodeGraphMvp.live.context || !nodeGraphMvp.live.node)
+    ? (() => {
+      const serial = nodeGraphMvp.live.outputToggleSerial + 1;
+      nodeGraphMvp.live.outputToggleSerial = serial;
+      return startNodeGraphLiveAudio(serial);
+    })()
+    : syncNodeGraphLiveInputSource();
+
+  Promise.resolve(startOrSync).catch((error) => {
+    // Mic/permission failures leave Input armed (blocked badge); only clear the
+    // arm when the engine itself failed to start and nothing else wants it.
+    const inputOnly = Boolean(error?.nodeGraphInputError);
+    if (inputOnly) {
+      setNodeGraphLiveInputStatus("blocked", error?.message || String(error));
+      setNodeGraphLiveMicStatus("blocked", error?.message || String(error));
+      setNodeGraphLiveBlockedError("input", error, { schedule: false });
+      renderNodeGraphLiveControls(Boolean(nodeGraphMvp.live.node));
+      return;
+    }
+    nodeGraphMvp.live.inputActive = false;
+    stopNodeGraphLiveInputSource();
+    setNodeGraphLiveInputStatus("blocked", error?.message || String(error));
+    applyNodeGraphPatchToDom();
+    drawNodeGraphWires();
+    renderNodeGraphLiveControls();
+    setNodeGraphLiveBlockedError("input", error, { schedule: false });
+  });
 }
 
 async function setNodeGraphLiveOutputEnabled(enabled) {
@@ -1048,6 +1076,7 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
   // even though audio came up (or a cancelled start tore the winner down).
   if (outputEnabled) {
     if (nodeGraphMvp.live.outputEnabled && nodeGraphMvp.live.node) {
+      applyNodeGraphLiveOutputGain();
       renderNodeGraphLiveControls(true);
       renderNodeGraphExecutionPlanDebug();
       return;
@@ -1060,33 +1089,51 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
         return;
       }
     }
-  } else if (!nodeGraphMvp.live.outputEnabled && !nodeGraphMvp.live.node && !nodeGraphMvp.live.context) {
+  } else if (
+    !nodeGraphMvp.live.outputEnabled
+    && !nodeGraphMvp.live.node
+    && !nodeGraphMvp.live.context
+  ) {
     renderNodeGraphLiveControls(false);
+    renderNodeGraphExecutionPlanDebug();
+    return;
+  }
+
+  nodeGraphMvp.live.outputEnabled = outputEnabled;
+  renderNodeGraphLiveControls(Boolean(nodeGraphMvp.live.node));
+  renderNodeGraphExecutionPlanDebug();
+
+  if (!outputEnabled) {
+    // Output off does not clear Input. Tear down only when both are off.
+    applyNodeGraphLiveOutputGain();
+    if (nodeGraphMvp.live.inputActive && (nodeGraphMvp.live.node || nodeGraphMvp.live.context)) {
+      renderNodeGraphExecutionPlanDebug();
+      return;
+    }
+    const serial = nodeGraphMvp.live.outputToggleSerial + 1;
+    nodeGraphMvp.live.outputToggleSerial = serial;
+    await stopNodeGraphLiveAudio();
+    renderNodeGraphExecutionPlanDebug();
+    return;
+  }
+
+  // Enabling Output while engine already up (e.g. Input-only): unmute speaker.
+  if (nodeGraphMvp.live.node && nodeGraphMvp.live.context) {
+    applyNodeGraphLiveOutputGain();
+    renderNodeGraphLiveControls(true);
     renderNodeGraphExecutionPlanDebug();
     return;
   }
 
   const serial = nodeGraphMvp.live.outputToggleSerial + 1;
   nodeGraphMvp.live.outputToggleSerial = serial;
-  nodeGraphMvp.live.outputEnabled = outputEnabled;
-  renderNodeGraphLiveControls(Boolean(nodeGraphMvp.live.node));
-  renderNodeGraphExecutionPlanDebug();
-
-  if (!outputEnabled) {
-    // Full stop (same as transport ⏹): tear down audio, wipe screens.
-    // Do NOT touch simulation speed — pause leaves speed at 0; Play unpauses.
-    await stopNodeGraphLiveAudio();
-    renderNodeGraphExecutionPlanDebug();
-    return;
-  }
-
   // Stop does not change speed. Play always rearms: unpause if speed is 0 and
   // force Value LCD/LED paint even when speed is already non-zero (user may
   // have unpaused before stop — pause→play→stop still poisons hold state).
   if (nodeGraphMvp.live.node || nodeGraphMvp.live.context) {
     await stopNodeGraphLiveAudio();
   }
-  if (serial !== nodeGraphMvp.live.outputToggleSerial || !nodeGraphMvp.live.outputEnabled) {
+  if (nodeGraphLiveEngineStartCancelled(serial)) {
     return;
   }
   renderNodeGraphLiveControls();
@@ -1101,6 +1148,23 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
     }
     renderNodeGraphExecutionPlanDebug();
   }
+}
+
+/**
+ * Transport Stop (⏹): clear both Input and Output arms and tear down the engine.
+ * Pause must not call this — pause only zeros speed.
+ */
+async function stopNodeGraphLiveEngineFully() {
+  const serial = nodeGraphMvp.live.outputToggleSerial + 1;
+  nodeGraphMvp.live.outputToggleSerial = serial;
+  nodeGraphMvp.live.inputActive = false;
+  nodeGraphMvp.live.outputEnabled = false;
+  stopNodeGraphLiveInputSource();
+  setNodeGraphLiveInputStatus("off");
+  setNodeGraphLiveMicStatus("off");
+  await stopNodeGraphLiveAudio();
+  renderNodeGraphLiveControls(false);
+  renderNodeGraphExecutionPlanDebug();
 }
 
 /**
@@ -1166,17 +1230,11 @@ async function restartNodeGraphLiveSimulation() {
 }
 
 /**
- * Red Output button / bypass: if the engine is on (running or paused), always
- * full stop. If off, start. Pause is transport-only until we have a timeline.
+ * Output chrome toggle: arm/disarm speaker independently of Input.
+ * Engine stays up while either Input or Output remains armed.
  */
 function toggleNodeGraphLiveOutput() {
-  const engineUp = Boolean(nodeGraphMvp.live.node || nodeGraphMvp.live.context);
-  const outputOn = Boolean(nodeGraphMvp.live.outputEnabled);
-  if (outputOn || engineUp) {
-    setNodeGraphLiveOutputEnabled(false);
-    return;
-  }
-  setNodeGraphLiveOutputEnabled(true);
+  setNodeGraphLiveOutputEnabled(!nodeGraphMvp.live.outputEnabled);
 }
 
 /**
@@ -3445,7 +3503,7 @@ function stopNodeGraphLiveInputSource() {
   setNodeGraphLiveMicStatus(
     nodeGraphMvp.live.inputActive ? "armed" : "off",
     nodeGraphMvp.live.inputActive
-      ? "Start OUTPUT to request browser microphone permission."
+      ? "Allow microphone access when the browser prompts."
       : ""
   );
 }
@@ -3592,6 +3650,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     if (!nodeGraphScriptReadyForGraphAction("live audio")) {
       markNodeGraphLiveScriptBlocked();
       nodeGraphMvp.live.outputEnabled = false;
+      nodeGraphMvp.live.inputActive = false;
       renderNodeGraphLiveControls(false);
       return;
     }
@@ -3669,8 +3728,18 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     outputGain.connect(context.destination);
     // Fresh session is never muted — clear any sticky mute from a prior error.
     setNodeGraphLiveOutputMuted(false);
-    await syncNodeGraphLiveInputSource();
-    if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
+    // Mic is best-effort: a blocked/unavailable microphone must not abort the
+    // engine. Input can stay armed with mic blocked; Output can still speak.
+    try {
+      await syncNodeGraphLiveInputSource();
+    } catch (inputError) {
+      if (inputError?.nodeGraphInputError) {
+        setNodeGraphLiveBlockedError("input", inputError, { schedule: false });
+      } else {
+        throw inputError;
+      }
+    }
+    if (nodeGraphLiveEngineStartCancelled(outputSerial)) {
       // Superseded: dispose only if we still own live (never kill the winner).
       await nodeGraphLiveOutputDisposeCancelledStart(outputSerial, context, liveNode);
       nodeGraphLiveOutputAbortStart("stopped");
@@ -3689,6 +3758,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       const errPlan = document.getElementById("nodeLivePlanStatus")?.textContent || "";
       const errPlanTitle = document.getElementById("nodeLivePlanStatus")?.title || "";
       nodeGraphMvp.live.outputEnabled = false;
+      nodeGraphMvp.live.inputActive = false;
       await stopNodeGraphLiveAudio();
       if (typeof setNodeGraphLiveStatus === "function") {
         setNodeGraphLiveStatus("error", "warn");
@@ -3744,9 +3814,9 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     if (typeof setNodeGraphLiveStatus === "function") {
       setNodeGraphLiveStatus("running", "good");
     }
-    // Keep the arming flag honest once the worklet is up.
-    nodeGraphMvp.live.outputEnabled = true;
+    // Do not force outputEnabled — Input-only starts must leave Output grey/off.
     setNodeGraphLiveOutputMuted(false);
+    applyNodeGraphLiveOutputGain();
     // Pause→stop wipes faces and kills RAF; pause also freezes hold state.
     // Always rearm LCD/LED paint after a successful cold start.
     if (typeof nodeGraphLiveRearmDisplaysAfterEngineStart === "function") {
@@ -3754,9 +3824,9 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     } else {
       renderNodeGraphLiveControls(true);
     }
-    // One more frame after layout/status pills settle — guarantee green Live.
+    // One more frame after layout/status pills settle — guarantee Live chrome.
     window.requestAnimationFrame(() => {
-      if (nodeGraphMvp.live.node && nodeGraphMvp.live.outputEnabled) {
+      if (nodeGraphMvp.live.node && nodeGraphLiveEngineWanted()) {
         if (typeof nodeGraphLiveRearmDisplaysAfterEngineStart === "function") {
           nodeGraphLiveRearmDisplaysAfterEngineStart();
         } else {
@@ -3767,17 +3837,21 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
   } catch (error) {
     const inputError = Boolean(error.nodeGraphInputError);
     const inputErrorMessage = inputError ? nodeGraphLiveInputErrorMessage(error) : "";
-    // Do not tear down a newer successful start from this failed serial.
+    // Mic errors are handled at the sync call site and must not reach here.
+    // Plan/engine failures: tear down and clear both arms.
     if (outputSerial === nodeGraphMvp.live.outputToggleSerial) {
-      await stopNodeGraphLiveAudio();
-      nodeGraphMvp.live.outputEnabled = false;
       if (inputError) {
         setNodeGraphLiveInputStatus("blocked", inputErrorMessage);
         setNodeGraphLiveMicStatus("blocked", inputErrorMessage);
         setNodeGraphLiveBlockedError("input", error, { schedule: false });
-      } else {
-        setNodeGraphLiveBlockedError("plan", error);
+        // Keep whatever engine state we already mounted; do not clear arms.
+        renderNodeGraphLiveControls(Boolean(nodeGraphMvp.live.node));
+        return;
       }
+      await stopNodeGraphLiveAudio();
+      nodeGraphMvp.live.outputEnabled = false;
+      nodeGraphMvp.live.inputActive = false;
+      setNodeGraphLiveBlockedError("plan", error);
       renderNodeGraphLiveControls(false);
     }
   }
