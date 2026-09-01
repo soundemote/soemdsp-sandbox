@@ -470,6 +470,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "harmonic_series",
+      "label": "Harmonic Series",
+      "targetType": "harmonicSeries",
+      "kind": "math",
+      "source": "native_modules/harmonic_series/harmonic_series.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/harmonic_series/harmonic_series.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/harmonic_series/harmonic_series.wasm",
+      "wasmUrl": "native_modules/harmonic_series/harmonic_series.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "helmholtz",
       "label": "Helmholtz Pitch",
       "targetType": "helmholtzPitch",
@@ -851,6 +863,18 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET",
       "wasm": "native_modules/passive_filter/passive_filter.wasm",
       "wasmUrl": "native_modules/passive_filter/passive_filter.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "phone_tone",
+      "label": "Phone Tone",
+      "targetType": "phoneTone",
+      "kind": "oscillator",
+      "source": "native_modules/phone_tone/phone_tone.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/phone_tone/phone_tone.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/phone_tone/phone_tone.wasm",
+      "wasmUrl": "native_modules/phone_tone/phone_tone.wasm",
       "wasmAvailable": true
     },
     {

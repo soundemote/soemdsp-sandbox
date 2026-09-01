@@ -336,6 +336,32 @@ extern "C" double soemdsp_alias_sine_sample(
   int handle, double normFreq, double level, double sampleRate
 );
 
+extern "C" int soemdsp_phone_tone_create();
+extern "C" void soemdsp_phone_tone_destroy(int handle);
+extern "C" double soemdsp_phone_tone_sample(
+  int handle,
+  double sampleRate,
+  double amplitude,
+  double pitchOffsetOctaves,
+  double freqOffsetHz,
+  double pitchCv,
+  double hasPitchCv,
+  double analog,
+  double hasAnalog,
+  double digital,
+  double hasDigital,
+  double gate,
+  double hasGate,
+  double referenceVoltage
+);
+extern "C" double soemdsp_phone_tone_tone(int handle);
+extern "C" double soemdsp_phone_tone_tone_l(int handle);
+extern "C" double soemdsp_phone_tone_tone_r(int handle);
+extern "C" double soemdsp_phone_tone_f1(int handle);
+extern "C" double soemdsp_phone_tone_f2(int handle);
+extern "C" double soemdsp_phone_tone_analog_thru(int handle);
+extern "C" double soemdsp_phone_tone_digital_thru(int handle);
+
 extern "C" int soemdsp_blit_create();
 extern "C" void soemdsp_blit_destroy(int handle);
 extern "C" void soemdsp_blit_reset(int handle);
@@ -1171,6 +1197,7 @@ static const int kTypeAdditivePhaseEntry = 125;
 static const int kTypeAdditiveBlaster = 126;
 static const int kTypeAdditiveDiffusor = 127;
 static const int kTypeHarmonicSeries = 128;
+static const int kTypePhoneTone = 129;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1510,6 +1537,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_transport_destroy(handle);
   } else if (kind == kTypeAliasSine) {
     soemdsp_alias_sine_destroy(handle);
+  } else if (kind == kTypePhoneTone) {
+    soemdsp_phone_tone_destroy(handle);
   } else if (kind == kTypeBlit) {
     soemdsp_blit_destroy(handle);
   } else if (kind == kTypeSineWavetable) {
@@ -1731,6 +1760,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSampleHold) ? 0.0
       : (typeId == kTypeClock) ? 2.0
       : (typeId == kTypeAliasSine) ? 0.1 // normFreq (0→sr)
+      : (typeId == kTypePhoneTone) ? 0.0 // freqOffset Hz
       : (typeId == kTypeBlit || typeId == kTypeSineWavetable || typeId == kTypeArchimedes
           || typeId == kTypeAdditiveOsc || typeId == kTypeSurgeOscillator
           || typeId == kTypeSoftwaveOsc || typeId == kTypeDsfOscillator
@@ -1787,6 +1817,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.amplitude,
     (typeId == kTypeAttenuverter) ? 0.5
+      : (typeId == kTypePhoneTone) ? 0.5
       : (typeId == kTypeAdditiveOsc || typeId == kTypeHypersaw
           || typeId == kTypeAdditiveOut) ? 0.35
       : (typeId == kTypeAdditiveNoisyFreq) ? 0.5 // add
@@ -2685,6 +2716,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeStepSequencer) return soemdsp_step_sequencer_create();
   if (typeId == kTypeTransport) return soemdsp_transport_create();
   if (typeId == kTypeAliasSine) return soemdsp_alias_sine_create();
+  if (typeId == kTypePhoneTone) return soemdsp_phone_tone_create();
   if (typeId == kTypeBlit) return soemdsp_blit_create();
   if (typeId == kTypeSineWavetable) return soemdsp_sine_wavetable_create();
   if (typeId == kTypeAntisaw) return soemdsp_antisaw_create();
@@ -3595,6 +3627,53 @@ static void process_alias_sine(Circuit& g, Node& node, int frames) {
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
     node.buf[kPortRight][f] = y;
+  }
+}
+
+// Phone Tone: Tone→Mono, ToneL→Left, ToneR→Right;
+// ƒ1/ƒ2→Saw/Ramp; Analog/Digital Thru→Square/Tri (module-local taps).
+static void process_phone_tone(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveAnalog = mix_live_port(g, node, kPortMono, frames, g.mixMono);
+  const bool liveDigital = mix_live_port(g, node, kPortLeft, frames, g.mixLeft);
+  const bool liveGate = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool controlSmoothing = node_control_smoothing(node);
+  const double referenceVoltage = 48.0 / 120.0;
+  for (int f = 0; f < frames; f++) {
+    if (f > 0 && controlSmoothing) smoother_step_node(g, node);
+    double amp = node.amplitude.out;
+    if (!(amp == amp)) amp = 0.0;
+    const double pitchOff = node.shape.out;
+    const double freqOff = node.frequency.out;
+    const double analog = liveAnalog ? g.mixMono[f] : 0.0;
+    const double digital = liveDigital ? g.mixLeft[f] : 0.0;
+    const double gate = liveGate ? g.mixTrigger[f] : 0.0;
+    const double pitchCv = livePitch ? g.mixPitch[f] : referenceVoltage;
+    soemdsp_phone_tone_sample(
+      node.nativeHandle,
+      sr,
+      amp,
+      pitchOff,
+      freqOff,
+      pitchCv,
+      livePitch ? 1.0 : 0.0,
+      analog,
+      liveAnalog ? 1.0 : 0.0,
+      digital,
+      liveDigital ? 1.0 : 0.0,
+      gate,
+      liveGate ? 1.0 : 0.0,
+      referenceVoltage
+    );
+    node.buf[kPortMono][f] = soemdsp_phone_tone_tone(node.nativeHandle);
+    node.buf[kPortLeft][f] = soemdsp_phone_tone_tone_l(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_phone_tone_tone_r(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_phone_tone_f1(node.nativeHandle);
+    node.buf[kPortRamp][f] = soemdsp_phone_tone_f2(node.nativeHandle);
+    node.buf[kPortSquare][f] = soemdsp_phone_tone_analog_thru(node.nativeHandle);
+    node.buf[kPortTri][f] = soemdsp_phone_tone_digital_thru(node.nativeHandle);
   }
 }
 
@@ -7028,6 +7107,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeHarmonicSeries
     || node.typeId == kTypeTransport
     || node.typeId == kTypeAliasSine
+    || node.typeId == kTypePhoneTone
     || node.typeId == kTypeBlit
     || node.typeId == kTypeSineWavetable
     || node.typeId == kTypeAntisaw
@@ -7167,6 +7247,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeStepSequencer
     || typeId == kTypeTransport
     || typeId == kTypeAliasSine
+    || typeId == kTypePhoneTone
     || typeId == kTypeBlit
     || typeId == kTypeSineWavetable
     || typeId == kTypeAntisaw
@@ -7725,6 +7806,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     }
     if (node.typeId == kTypeAliasSine) {
       process_alias_sine(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypePhoneTone) {
+      process_phone_tone(*g, node, frames);
       continue;
     }
     if (node.typeId == kTypeBlit) {

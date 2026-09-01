@@ -21,6 +21,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "momentaryButton",
   "xyPad",
   "keypad",
+  "phoneTone",
   "macroControls",
   "keyboardController",
   "pitchModWheel",

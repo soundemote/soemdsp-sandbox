@@ -84,6 +84,7 @@ Only these live-audio types exist in the efficient build:
 | `hypersaw` | Stereo PolyBLEP saw bank (spread / random / drift) |
 | `sinc` | Repeating sinc kernel (Ideal / Band Limit) |
 | `bradley2a` | Bradley Telcom jitter/hit impairment synth |
+| `phoneTone` | DTMF Phone Tone (Analog/Digital/Gate; Tone/ToneL/ToneR) |
 | `ellipsoid` | RoundShape sine→square quadrature (Bi/Uni X/Y) |
 | `snowflake` | L-system fractal path walker (X/Y) |
 | `butterworth` | Classical Butterworth multipole (LP/HP/BP/BR) |
@@ -155,7 +156,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    metallicRatio / lutCell / lookaheadLimiter / limiter / stepSequencer / transport /
    aliasSine / blit / sineWavetable / antisaw / archimedes /
    additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc /
-   bradley2a / ellipsoid / snowflake /
+   bradley2a / phoneTone / ellipsoid / snowflake /
    butterworth / linkwitzRiley / bessel / chebyshev / elliptic /
    eqFilter / activeFilter / passiveFilter / tb303Filter /
    flowerChildFilter / yellowjacketFilter / superloveFilter / humanFilter /

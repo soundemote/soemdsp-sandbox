@@ -1323,6 +1323,9 @@ const nodeGraphModuleDefinitions = (
       f2: "ƒ2",
       Df2: "ƒ2",
     },
+    outputChannels: {
+      Tone: "green",
+    },
     inputs: ["Analog", "Digital", "Gate", "0.1V/Oct"],
     outputs: ["Tone", "ToneL", "ToneR", "ƒ1", "ƒ2", "Analog Thru", "Digital Thru"],
     outputLabels: {

@@ -2256,7 +2256,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "object",
     description: "DTMF phone tones from Analog 0–1 and/or Digital slot (same 12-key map as Keypad). Gate opens the tone. Pitch Offset + 0.1V/Oct transpose both tones. Tone = sum. ƒ1/ƒ2 = pitched Hz. Analog/Digital Thru pass the ins.",
     label: "Phone Tone",
-    notes: ["dtmf", "phone", "tone", "keypad", "robin", "object", "pitch", "0.1v"],
+    notes: ["dtmf", "phone", "tone", "keypad", "robin", "object", "pitch", "0.1v", "native"],
   },
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
   // their own catalog entry instead of it being hardcoded here -- see

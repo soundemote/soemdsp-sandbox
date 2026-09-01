@@ -39,6 +39,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   triggerCounter: 32,
   metallicRatio: 33,
   harmonicSeries: 128,
+  phoneTone: 129,
   lutCell: 34,
   lookaheadLimiter: 35,
   limiter: 109, // Pump Limiter
@@ -270,6 +271,17 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   }
   if (p === "dry r" || p === "dry right" || p === "right dry") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_DRY_R;
+  }
+  if (t === "phoneTone") {
+    if (p === "tone" || p === "out" || p === "mono" || p === "m") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    }
+    if (p === "tonel" || p === "x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "toner" || p === "z") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+    if (p === "ƒ1" || p === "f1" || p === "df1") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+    if (p === "ƒ2" || p === "f2" || p === "df2") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+    if (p === "analog thru") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE;
+    if (p === "digital thru") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI;
   }
   if (p === "saw" || p === "mod l") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
   if (p === "ramp" || p === "mod r") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
@@ -557,9 +569,18 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   }
   // Envelope audio-rate control jacks (fold via Mono+L+R mix).
   if (p === "gate" || p === "light" || p === "release") {
+    // Phone Tone: Gate is separate from Analog (Mono) / Digital (Left).
+    if (String(type || "").trim() === "phoneTone") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
+    }
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
   const t = String(type || "").trim();
+  if (t === "phoneTone") {
+    if (p === "analog") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "digital") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "gate") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
+  }
   if (t === "pll") {
     if (p === "signal in" || p === "signal") {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
@@ -1140,6 +1161,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       // frequency Control slot holds normFreq (0→sampleRate); amplitude = level.
       push("normFreq", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("normFreq", 0.1));
       push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
+      continue;
+    }
+    if (type === "phoneTone") {
+      // frequency = Frequency Offset Hz; shape = Pitch Offset octaves.
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0.5));
+      push("pitchOffset", P.NATIVE_GRAPH_PARAM_SHAPE, cont("pitchOffset", 0));
+      push("freqOffset", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("freqOffset", 0));
       continue;
     }
     if (type === "blit") {
@@ -2745,6 +2773,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
   if (portId === P.NATIVE_GRAPH_PORT_MONO) {
     if (type === "polyBlep" || type === "blit") return ["Wave", "Out", "Wave Out", "Noise"];
     if (type === "surgeOscillator") return ["Wave", "Out"];
+    if (type === "phoneTone") return ["Tone", "Out", "Mono"];
     if (type === "sineWavetable") return ["A", "Out", "sin", "Sin"];
     if (type === "archimedes") return ["Sine", "Out"];
     if (type === "comparator") return ["Thru"];
@@ -2766,6 +2795,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
+    if (type === "phoneTone") return ["ToneL", "X"];
     if (type === "harmonicSeries") return ["f0", "ƒ0"];
     if (type === "sineWavetable") return ["B", "cos", "Cos"];
     if (type === "archimedes") return ["Cosine"];
@@ -2793,6 +2823,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Left"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RIGHT) {
+    if (type === "phoneTone") return ["ToneR", "Z"];
     if (type === "sineWavetable") return ["C"];
     if (type === "archimedes") return ["Pi"];
     if (type === "mix") return ["Out3"];
@@ -2812,6 +2843,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Right"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_SAW) {
+    if (type === "phoneTone") return ["ƒ1", "f1", "Df1"];
     if (type === "sineWavetable") return ["D"];
     if (type === "archimedes") return ["Noise Below"];
     if (type === "ellipsoid") return ["Uni X"];
@@ -2829,6 +2861,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Saw"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RAMP) {
+    if (type === "phoneTone") return ["ƒ2", "f2", "Df2"];
     if (type === "limiter") return ["Env"];
     if (type === "archimedes") return ["Noise Above"];
     if (type === "ellipsoid") return ["Uni Y"];
@@ -2842,11 +2875,13 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Ramp"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_SQUARE) {
+    if (type === "phoneTone") return ["Analog Thru"];
     if (type === "comparator") return ["Change"];
     if (type === "mixStereo") return ["L3"];
     return ["Square"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_TRI) {
+    if (type === "phoneTone") return ["Digital Thru"];
     if (type === "comparator") return ["Steady"];
     if (type === "mixStereo") return ["R3"];
     return ["Tri"];
