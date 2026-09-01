@@ -21,6 +21,8 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "momentaryButton",
   "xyPad",
   "keypad",
+  // Object: DTMF face (same 12-key map as Keypad).
+  "phoneTone",
   "macroControls",
   "keyboardController",
   "pitchModWheel",
