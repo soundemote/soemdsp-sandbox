@@ -1,7 +1,7 @@
 // Self-contained glue for the ray_bouncer native module (RS-MET Ray Bouncer).
 // Same pattern as node-graph-antisaw.js / node-graph-bradley-2a.js:
 // no pure-JS reimplementation of the ellipse billiard — lazy fetch+instantiate
-// of ray_bouncer.wasm on the main thread (offline render / module groups) and
+// of ray_bouncer.wasm on the main thread (offline render) and
 // a thin call into it. Silent (0,0) until the wasm finishes loading.
 //
 // Live Audio uses the worklet path (also native-only; silence if wasm not ready).

@@ -468,9 +468,6 @@ function validateNodeGraphPatch(patch) {
     if (Object.hasOwn(node, "scopeShader")) {
       normalizedNode.scopeShader = normalizeNodeGraphScopeShader(node.scopeShader);
     }
-    if (type === "moduleGroup") {
-      normalizedNode.moduleGroup = normalizeNodeGraphModuleGroup(node.moduleGroup);
-    }
     if (
       (type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer") &&
       node.sample

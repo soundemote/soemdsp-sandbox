@@ -8,7 +8,6 @@ const nodeGraphNodeLabels = Object.freeze({
   graph2: "Smooth Graph",
   graphCopy: "Step Graph",
   animatedTextBox: "Animated Text Box",
-  moduleGroup: "Module Group",
   nextPatch: "Next Patch",
   previousPatch: "Previous Patch",
   polyBlep: "PolyBLEP",
@@ -135,10 +134,6 @@ const nodeGraphNodeLabels = Object.freeze({
   pluginSlider: "Slider",
   toggleButton: "Toggle",
   momentaryButton: "Momentary",
-  pluginInput: "Plugin Input",
-  pluginOutput: "Plugin Output",
-  pluginMidiIn: "Plugin MIDI In",
-  pluginMidiOut: "Plugin MIDI Out",
   passiveFilter: "Passive Filter",
   tiltFilter: "Tilt Filter",
   eqFilter: "EQ Filter",
@@ -220,8 +215,6 @@ const nodeGraphNodeLabels = Object.freeze({
   lookaheadLimiter: "Brickwall Limiter",
   limiter: "Pump Limiter",
   sampleHold: "Sample & Hold",
-  midiOut: "Midi Out",
-  midiNotePitch: "Midi Note Pitch",
   keyboardController: "MIDI",
   samplePlayer: "Sample Player",
   sampleLooper: "Sample Looper",
@@ -854,12 +847,6 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0", key: "outputMin", label: "Out Min", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "outputMax", label: "Out Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
     ]
-  },
-  moduleGroup: {
-    planRole: "source",
-    inputs: [],
-    outputs: [],
-    parameters: []
   },
   // Reference oscillator for port layout:
   //   inputs[]     = left jacks only (Reset / 0.1V / Increment)
@@ -6180,118 +6167,6 @@ const nodeGraphModuleDefinitions = (
       ...nodeGraphControllerRangeSmoothingParameters(),
     ]
   },
-  pluginInput: {
-    planRole: "source",
-    outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
-    outputLabels: { Mono: "M", Left: "L", Right: "R" },
-    outputs: ["Mono", "Left", "Right"],
-    parameters: [
-      {
-        defaultValue: "1",
-        key: "amplitude",
-        label: "Amplitude",
-        max: "1",
-        mid: "1",
-        min: "0",
-        step: "0.01",
-        linearSmoothing: true,
-        smoothingType: "linear",
-        smoothingMode: "internal",
-        smoothingSeconds: 0.0333,
-        modClamp: false
-      },
-    ]
-  },
-  pluginOutput: {
-    planRole: "sink",
-    displayType: "trace",
-    spectrumCompanion: false,
-    displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
-    ],
-    defaultDisplayMode: "trace",
-    bufferedInputs: ["Mono", "Left", "Right"],
-    stereoTracePorts: { left: "Left", right: "Right" },
-    inputs: ["Mono", "Left", "Right"],
-    inputLabels: { Mono: "\u2192", Left: "\u2192", Right: "\u2192" },
-    outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
-    outputLabels: {
-      Mono: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
-      Left: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
-      Right: typeof NODE_GRAPH_THRU_SYMBOL === "string" ? NODE_GRAPH_THRU_SYMBOL : "\u2190",
-    },
-    outputs: ["Mono", "Left", "Right"],
-    output: true,
-    parameters: [
-      {
-        defaultValue: "-20",
-        key: "volume",
-        kind: "decibels",
-        label: "Volume",
-        max: "12",
-        mid: "-20",
-        min: "-140",
-        minusInf: true,
-        nonlinearSlider: true,
-        linearSmoothing: true,
-        smoothingType: "linear",
-        smoothingMode: "internal",
-        smoothingSeconds: 0.0333,
-        step: "any",
-        unit: "dB",
-        tooltip: "Speaker level (−∞…+12 dB). 0 dB is unity. Old patches that stored 0…1 linear Volume are converted on load."
-      },
-      {
-        defaultValue: "0",
-        key: "pan",
-        label: "Pan",
-        max: "1",
-        mid: "0",
-        min: "-1",
-        nonlinearSlider: false,
-        step: "any",
-        tooltip: "Stereo balance after Mono is summed in. 0 = unchanged. −1 = left only. +1 = right only."
-      },
-    ]
-  },
-  pluginMidiIn: {
-    planRole: "source",
-    outputs: ["Gate", "MIDI", "Velocity", "0.1V/Oct", "Frequency"],
-    outputLabels: {
-      "0.1V/Oct": "0.1V"
-    },
-    parameters: [
-      {
-        defaultValue: "60",
-        key: "defaultNote",
-        label: "Default Note",
-        max: "127",
-        maxDigits: 3,
-        mid: "60",
-        min: "0",
-        step: "1",
-        tooltip: "Note used when no live MIDI is active (sandbox preview)."
-      },
-    ]
-  },
-  pluginMidiOut: {
-    planRole: "source",
-    inputs: ["MIDI Number", "Gate"],
-    outputs: ["Normalized", "Full Value", "Gate"],
-    parameters: [
-      {
-        defaultValue: "60",
-        key: "midiNumber",
-        label: "MIDI Number",
-        max: "127",
-        maxDigits: 3,
-        mid: "64",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1"
-      },
-    ]
-  },
   passiveFilter: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
@@ -11298,35 +11173,6 @@ const nodeGraphModuleDefinitions = (
         step: "any",
       },
     ],
-  },
-  midiOut: {
-    planRole: "source",
-    inputs: ["MIDI Number"],
-    outputs: ["Normalized", "Full Value"],
-    parameters: [
-      {
-        defaultValue: "60",
-        key: "midiNumber",
-        label: "MIDI Number",
-        max: "127",
-        maxDigits: 3,
-        mid: "64",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1"
-      },
-    ]
-  },
-  midiNotePitch: {
-    planRole: "processor",
-    inputs: ["MIDI Note", "Octave Offset", "Pitch Offset"],
-    inputAliases: {
-      Note: "MIDI Note",
-      "Midi Note": "MIDI Note",
-      "Semitone Offset": "Pitch Offset"
-    },
-    outputs: ["Pitch 0-1", "Pitch 0-127", "Frequency"],
-    parameters: []
   },
   keyboardController: {
     planRole: "source",

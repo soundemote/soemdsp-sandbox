@@ -598,8 +598,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/stepSequencer/step-sequencer-math.js",
     "./public/modules/stepSequencer/step-sequencer-live-evaluator.js",
     "./public/modules/stepGrid/step-grid-live-evaluator.js",
-    "./public/modules/midiOut/midi-out-live-evaluator.js",
-    "./public/modules/midiNotePitch/midi-note-pitch-live-evaluator.js",
     "./public/modules/keyboardController/keyboard-controller-live-evaluator.js",
     "./public/modules/keyboardController/keyboard-layout-settings.js",
     "./public/modules/buttonEvents/button-events-live-evaluator.js",
@@ -662,7 +660,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/lib/sample-interpolate.js",
     "./public/modules/audioPlayer/audio-player-math.js",
     "./public/modules/audioPlayer/audio-player-live-evaluator.js",
-    "./public/modules/moduleGroup/module-group-live-evaluator.js",
     "./public/modules/codeblock/codeblock-live-evaluator.js",
     "./public/modules/sineWavetable/sine-wavetable-live-evaluator.js",
     "./public/modules/ellipsoid/ellipsoid-live-evaluator.js",
@@ -1043,14 +1040,11 @@ REQUIRED_SHELL_IDS = {
     "nodeModuleDepartmentSearch",
     "nodeModuleDepartmentSearchShell",
     "nodeModuleDepartmentList",
-    "nodeModuleGroups",
-    "nodeModuleGroupList",
     "nodeSceneCloseMenu",
     "nodeSceneCodeblockOpenCodeScreen",
     "nodeSceneContextMenu",
     "nodeSceneDragHandle",
     "nodeScopeContextMenu",
-    "nodeSceneAddToGroup",
     "nodeSignalPlotCanvas",
     "nodeLiveInputButton",
     "nodeLiveOutputButton",
@@ -4853,11 +4847,11 @@ def require_node_graph_mvp_contract() -> None:
         'momentaryButton: "Momentary"' in script_sources["./public/node-graph-module-definitions.js"]
         and "defaultWidthGu: 5" in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("momentaryButton: {"):
-            script_sources["./public/node-graph-module-definitions.js"].index("pluginInput: {")
+            script_sources["./public/node-graph-module-definitions.js"].index("knob: {")
         ]
         and "displayHeightGu: 2" in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("momentaryButton: {"):
-            script_sources["./public/node-graph-module-definitions.js"].index("pluginInput: {")
+            script_sources["./public/node-graph-module-definitions.js"].index("knob: {")
         ],
         "Momentary should spawn 5gu wide with a 2gu face (3gu outer with title)",
     )
@@ -6796,15 +6790,11 @@ def require_node_graph_mvp_contract() -> None:
         "nodeModuleHomeShelfShell",
         "nodeModuleHomeShelf",
         "nodeModuleDepartmentList",
-        "nodeModuleGroups",
-        "nodeModuleGroupList",
         "Search modules",
         "nodeSceneOpenModuleBrowser",
         "scene-context-window-button",
         "Patch Explorer",
         "nodeSceneCopyModule",
-        "nodeSceneAddToGroup",
-        "Add to group under construction",
         "Copy",
         "Ctrl+C",
         "nodeSceneAliasControl",
@@ -7209,14 +7199,6 @@ def require_node_graph_mvp_contract() -> None:
         and "beginNodeSceneContextMenuResize" not in script_sources["./public/node-graph-context-menu.js"]
         and 'bindNodeGraphSceneElementEvent("nodeSceneResizeHandle"' not in script_sources["./public/node-graph-scene-menu-event-bindings.js"],
         "command center should not expose width resize dragging",
-    )
-    require(
-        'bindNodeGraphSceneElementEvent("nodeSceneAddToGroup", "click", saveNodeGraphSelectionAsModuleGroup)'
-        in script_sources["./public/node-graph-scene-menu-event-bindings.js"]
-        and "addToGroupButton.disabled = true" in script_sources["./public/node-graph-context-menu.js"]
-        and 'addToGroupButton.title = "Add to group under construction. Module grouping is under construction."' in script_sources["./public/node-graph-context-menu.js"]
-        and 'setNodeGraphScriptStatus("module grouping is under construction", false);' in script_sources["./public/node-graph-module-actions.js"],
-        "add to group should be wired but disabled as an under-construction Module Settings action",
     )
     require(
         'id="nodeModuleActionsWindowBody"' in module_actions_window_source
@@ -8038,22 +8020,9 @@ def require_node_graph_mvp_contract() -> None:
         'key: "resonance"',
         "sampleHold: \"Sample & Hold\"",
         "sampleHold: {",
-        "midiOut: \"Midi Out\"",
-        "midiOut: {",
-        'inputs: ["MIDI Number"]',
-        'outputs: ["Normalized", "Full Value"]',
-        "key: \"midiNumber\"",
-        "label: \"MIDI Number\"",
-        "max: \"127\"",
-        "step: \"1\"",
-        "midiNotePitch: \"Midi Note Pitch\"",
         "keyboardController: \"MIDI\"",
         "macroControls: \"Macro Controls\"",
         "pitchModWheel: \"Pitch Mod Wheel\"",
-        "midiNotePitch: {",
-        'inputs: ["MIDI Note", "Octave Offset", "Pitch Offset"]',
-        '"Semitone Offset": "Pitch Offset"',
-        'outputs: ["Pitch 0-1", "Pitch 0-127", "Frequency"]',
         "keyboardController: {",
         'inputs: ["MIDI Note", "Gate", "Velocity", "Octave", "Reset", "Hold", "X", "Y"]',
         'layout: "keyboardController"',
@@ -9718,8 +9687,6 @@ def require_node_graph_mvp_contract() -> None:
         "\"visualOscilloscope\"",
         "\"sandboxVisuals\"",
         "\"valueSlider\"",
-        "\"midiOut\"",
-        "\"midiNotePitch\"",
         "External page button event source.",
         "buttonEvents: \"Button Events\"",
         'outputs: ["Click", "Hover", "Down", "Up", "Enter", "Leave"]',
@@ -9775,9 +9742,6 @@ def require_node_graph_mvp_contract() -> None:
         "trace texture",
         "square display",
         "function renderNodeGraphModuleStoreCatalog()",
-        "kind: \"moduleGroup\"",
-        "function normalizeNodeGraphModuleGroup(value = {})",
-        "function nodeGraphEvaluateModuleGroup(runtime, node, mixInput, sampleRate, frame, frames)",
         "function nodeGraphExternalButtonEventPulse(runtime, name)",
         "nodeGraphLiveModuleEvaluators.buttonEvents = (",
         'Click: nodeGraphExternalButtonEventPulse(runtime, "click")',
@@ -9825,9 +9789,7 @@ def require_node_graph_mvp_contract() -> None:
         'type: "windowReopenEvent"',
         'type: "shootingStarExplosionEvent"',
         "function nodeGraphBuildLivePlanForPatch(patch)",
-        "moduleGroupPlan",
         "nodeGraphLiveModuleEvaluators.groupInput = (",
-        "nodeGraphLiveModuleEvaluators.moduleGroup = (",
         "nodeGraphLiveModuleEvaluators.groupOutput = (",
         "function normalizeNodeGraphModuleStoreDepartment(department = \"\")",
         "function setNodeGraphModuleStoreDepartment(department = \"\")",
@@ -9857,8 +9819,6 @@ def require_node_graph_mvp_contract() -> None:
         "function beginNodeGraphModuleShopViewDrag(event)",
         "function dragNodeGraphModuleShopView(event)",
         "function endNodeGraphModuleShopViewDrag(event)",
-        "function saveNodeGraphSelectionAsModuleGroup()",
-        "function addNodeGraphModuleGroupFromBrowser(name)",
         "output: {",
         'label: "Output"',
         'symbol: "OUT"',
@@ -9869,7 +9829,6 @@ def require_node_graph_mvp_contract() -> None:
         "function beginNodeGraphCameraFrameDrag(event)",
         "function dragNodeGraphCameraFrame(event)",
         "function endNodeGraphCameraFrameDrag(event)",
-        "const nodeGraphModuleGroupStorageKey",
         "const nodeGraphModuleCatalogVisibilityStorageKey",
         "soemdsp-sandbox.moduleCatalogVisibility.v3",
         "soemdsp-sandbox.moduleCatalogVisibility.v2",
@@ -10078,8 +10037,6 @@ def require_node_graph_mvp_contract() -> None:
         '"chromaColor"',
         '"keyboardController"',
         '"led"',
-        '"midiNotePitch"',
-        '"midiOut"',
         '"rgbaHsla"',
         '"sandboxVisuals"',
         'type === "keyboardController"',
@@ -10375,8 +10332,6 @@ def require_node_graph_mvp_contract() -> None:
         "nodeGraphLiveModuleEvaluators.randomClock = (",
         "nodeGraphLiveModuleEvaluators.delayedTrigger = (",
         "nodeGraphLiveModuleEvaluators.sampleHold = (",
-        "nodeGraphLiveModuleEvaluators.midiOut = (",
-        "nodeGraphLiveModuleEvaluators.midiNotePitch = (",
         "nodeGraphLiveModuleEvaluators.keyboardController = (",
         'hasInput(nodeId, "MIDI Note")',
         'hasInput(nodeId, "Velocity")',
@@ -10431,9 +10386,7 @@ def require_node_graph_mvp_contract() -> None:
         "nodeGraphLiveModuleEvaluators.randomWalk = (",
         "nodeGraphLiveModuleEvaluators.fractalBrownianNoise = (",
         "nodeGraphLiveModuleEvaluators.groupInput = (",
-        "nodeGraphLiveModuleEvaluators.moduleGroup = (",
         "nodeGraphLiveModuleEvaluators.groupOutput = (",
-        "moduleGroupPlan",
         "nodeGraphLiveModuleEvaluators.badvalMonitor = (",
         "BADVAL Monitor input",
         "function nodeGraphSpeakerProtectionSample(value, runtime, nodeId)",
@@ -15496,7 +15449,7 @@ def require_node_graph_mvp_contract() -> None:
         "module width, module height, display height, and Text Box height should share the 60 GU ceiling",
     )
     require(
-        index_source.index('id="nodeSceneAliasControl"') < index_source.index('id="nodeSceneAddToGroup"')
+        "nodeSceneAliasControl" in index_source
         and "nodeSceneWidthLabel" in index_source
         and "nodeSceneTextBoxHeightLabel" in index_source
         and "function configureNodeGraphModuleSettingsSizeRow({" in context_menu_source
@@ -15506,7 +15459,7 @@ def require_node_graph_mvp_contract() -> None:
         and "controls: textBoxHeightControls," in context_menu_source
         and "controls: displayHeightControls," in context_menu_source
         and ".scene-context-width-controls .scene-context-gu-label" in style_source,
-        "module settings should show Alias before Add to group and configure GU adjustment rows through the shared size-row helper",
+        "module settings should show Alias and configure GU adjustment rows through the shared size-row helper",
     )
     require(
         'target.closest("#nodeGraphWorkspace, #nodeSceneContextMenu, #nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeScopeContextMenu, #nodeGlobalScopeMenu, #nodeParameterMetadataPopover")'
@@ -17630,8 +17583,6 @@ def require_node_graph_mvp_contract() -> None:
         'node?.type === "clockDivider"',
         'node?.type === "delayedTrigger"',
         'node?.type === "sampleHold"',
-        "midiOut: (node, nodeId, frame, frames, frameValues, mixInput) => {",
-        "midiNotePitch: (node, nodeId, frame, frames, frameValues, mixInput) => {",
         "keyboardController: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {",
         'hasInput(nodeId, "MIDI Note")',
         'hasInput(nodeId, "Velocity")',
@@ -17683,11 +17634,7 @@ def require_node_graph_mvp_contract() -> None:
         'node?.type === "randomWalk"',
         'node?.type === "fractalBrownianNoise"',
         "groupInput: (node, nodeId) => ({",
-        'node?.type === "moduleGroup"',
         "groupOutput: (node, nodeId, frame, frames, frameValues, mixInput) => ({",
-        "createNestedRuntime(plan)",
-        "evaluateModuleGroup(node, mixInput, frame, frames, rate, inputFrame)",
-        "moduleGroupPlan",
         "badvalMonitor: (node, nodeId, frame, frames, frameValues, mixInput) => this.monitorBadValueSample(",
         "this.monitorBadValueSample(mixInput(nodeId), nodeId)",
         "speakerProtectionSample(value, nodeId)",

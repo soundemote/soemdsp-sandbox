@@ -67,7 +67,7 @@ NodeLiveAudioProcessor.prototype.compileScopeCapture = function compileScopeCapt
       const nodeId = captureNodeIds[i];
       const captureType = String(this.nodes.get(nodeId)?.type || "");
       // Output Instant Trace uses visual-sink L/R rings (same as 1D Stereo Trace).
-      if (captureType === "output" || captureType === "pluginOutput") {
+      if (captureType === "output") {
         continue;
       }
       nodes.push({ nodeId, writeHz: rates[nodeId] });
@@ -112,7 +112,7 @@ NodeLiveAudioProcessor.prototype.compileScopeCapture = function compileScopeCapt
         nodeId,
         writeHz: sink.visualWriteHz,
         bufferSampleLimit: sink.bufferSampleLimit,
-        skipAggregate: multiBuffered || sinkType === "output" || sinkType === "pluginOutput",
+        skipAggregate: multiBuffered || sinkType === "output",
         inputs,
       };
       sinkCount += 1;

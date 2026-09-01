@@ -207,16 +207,9 @@ function showNodeGraphModule(node, point = null, options = {}) {
   counts[type] = (counts[type] || 0) + 1;
   const id = `${type}-${counts[type]}`;
   const gridPoint = point ? nodeGraphPixelToGrid(point) : defaultNodeGraphModuleGridPoint(type);
-  // Group Input/Output are meaningless until named (their name becomes the
-  // matching port's name on the outer group box, see
-  // nodeGraphModuleGroupEndpointName) -- default to "Input N"/"Output N"
-  // right at creation, counted against the patch actually being edited
-  // (counts[type], already computed above from patch.nodes), so a fresh
-  // one is never left blank/generic until someone remembers to rename it.
-  // Only this fresh-creation path gets it: duplicate/copy and group-expand
-  // explicitly pass through the source node's own alias instead of calling
-  // showNodeGraphModule, so a copy keeps its original name rather than
-  // being renumbered.
+  // Group Input/Output default to "Input N"/"Output N" at creation so a
+  // fresh portal is never left blank until renamed. Duplicate/copy keeps
+  // the source alias instead of calling showNodeGraphModule.
   const defaultAlias = type === "groupInput" ? `Input ${counts[type]}`
     : type === "groupOutput" ? `Output ${counts[type]}`
     : undefined;
@@ -783,18 +776,6 @@ function handleNodeGraphModuleStoreClick(event) {
     event.stopPropagation();
     return;
   }
-  const deleteGroupButton = event.target.closest("[data-delete-group]");
-  if (deleteGroupButton) {
-    event.preventDefault();
-    event.stopPropagation();
-    deleteNodeGraphModuleGroupLocal(deleteGroupButton.dataset.deleteGroup);
-    return;
-  }
-  const groupButton = event.target.closest("[data-context-group]");
-  if (groupButton) {
-    addNodeGraphModuleGroupFromBrowser(groupButton.dataset.contextGroup);
-    return;
-  }
   const toggleButton = event.target.closest("[data-store-toggle-module]");
   if (toggleButton) {
     setNodeGraphModuleCatalogVisibility(
@@ -817,218 +798,11 @@ function handleNodeGraphModuleStoreKeydown(event) {
   addNodeGraphModuleFromShop(addButton);
 }
 
-function nodeGraphModuleGroupSelection() {
+function nodeGraphModuleActionTargetNodeIds() {
   const targetNodeId = nodeGraphModuleActionTargetNodeId();
   const selectedIds = [...nodeGraphSelectedNodeIds()].filter((id) => nodeGraphPatchNode(id));
-  return selectedIds.length ? selectedIds : targetNodeId ? [targetNodeId] : [];
-}
-
-function nodeGraphModuleActionTargetNodeIds() {
-  return [...new Set(nodeGraphModuleGroupSelection())].filter((id) => nodeGraphPatchNode(id));
-}
-
-function saveNodeGraphSelectionAsModuleGroup() {
-  setNodeGraphScriptStatus("module grouping is under construction", false);
-  if (typeof setNodeInteractionHelp === "function") {
-    setNodeInteractionHelp("Add to group under construction. Module grouping is under construction.");
-  }
-  return;
-  const selectedIds = new Set(nodeGraphModuleGroupSelection());
-  const selectionActive = selectedIds.size > 0;
-  const sourceNodes = nodeGraphMvp.patch.nodes.filter((node) =>
-    (selectionActive ? selectedIds.has(node.id) : node.type !== "output") &&
-    node.type !== "output"
-  );
-  if (!sourceNodes.length) {
-    return;
-  }
-  if (!sourceNodes.some((node) => node.type === "groupInput") || !sourceNodes.some((node) => node.type === "groupOutput")) {
-    setNodeGraphScriptStatus("module group needs Group Input and Group Output", false);
-    return;
-  }
-  const names = sourceNodes.map((node) => nodeGraphNodeDisplayName(node.id)).join(" + ");
-  const groupName = names.length > 48 ? `${names.slice(0, 45)}...` : names;
-  const sourceNodeIds = new Set(sourceNodes.map((node) => node.id));
-  const sourcePatch = validateNodeGraphPatch({
-    ...cloneNodeGraphPatch(nodeGraphMvp.patch),
-    bypassedNodes: (nodeGraphMvp.patch.bypassedNodes || []).filter((nodeId) => sourceNodeIds.has(nodeId)),
-    connections: nodeGraphMvp.patch.connections
-      .filter((connection) => sourceNodeIds.has(connection.sourceNode) && sourceNodeIds.has(connection.destinationNode))
-      .map((connection) => ({ ...connection })),
-    modulations: nodeGraphMvp.patch.modulations
-      .filter((modulation) => sourceNodeIds.has(modulation.sourceNode) && sourceNodeIds.has(modulation.destinationNode))
-      .map((modulation) => ({ ...modulation })),
-    nodes: sourceNodes,
-    uiItems: [],
-  });
-  const inferred = nodeGraphModuleGroupInterfaceFromPatch(sourcePatch);
-  const groups = loadNodeGraphModuleGroupsLocal();
-  // groupName is auto-derived from the selected nodes' display names, so
-  // two DIFFERENT selections (e.g. plain default-labeled Group Input +
-  // Group Output pairs from separate test runs) can easily produce the
-  // exact same string and silently clobber an unrelated saved group with
-  // zero indication anything happened -- no new card, no overwrite
-  // warning. De-duping here means "Add to group" always produces a new,
-  // distinct entry; nothing is ever silently replaced. Explicit deletion
-  // (deleteNodeGraphModuleGroupLocal) is the only way to remove one.
-  let finalName = groupName;
-  let suffix = 2;
-  while (Object.hasOwn(groups, finalName)) {
-    finalName = `${groupName} (${suffix})`;
-    suffix += 1;
-  }
-  groups[finalName] = {
-    createdAt: new Date().toISOString(),
-    defaultSize: { heightGu: 6, widthGu: 8 },
-    description: "",
-    id: `group-${nodeGraphStableSeed(`${finalName}:${Date.now()}`).toString(16)}`,
-    inputs: inferred.inputs,
-    kind: "moduleGroup",
-    name: finalName,
-    outputs: inferred.outputs,
-    parameters: [],
-    sourcePatch,
-    // Legacy expansion fields stay for compatibility with older saved circuit UI code.
-    nodes: sourceNodes.map((node) => ({
-      ...node,
-      paramMeta: cloneNodeGraphParamMeta(node.paramMeta),
-      params: { ...(node.params || {}) },
-    })),
-    connections: nodeGraphMvp.patch.connections
-      .filter((connection) => selectedIds.has(connection.sourceNode) && selectedIds.has(connection.destinationNode))
-      .map((connection) => ({ ...connection })),
-    modulations: nodeGraphMvp.patch.modulations
-      .filter((modulation) => selectedIds.has(modulation.sourceNode) && selectedIds.has(modulation.destinationNode))
-      .map((modulation) => ({ ...modulation })),
-  };
-  saveNodeGraphModuleGroupsLocal(groups);
-  renderNodeGraphModuleStoreCatalog();
-  configureNodeSceneContextMenu("module");
-  setNodeGraphScriptStatus(`saved module group "${finalName}" -- find it in the Module Browser's Portals section to add it to the scene`, true);
-}
-
-function deleteNodeGraphModuleGroupLocal(name) {
-  const groups = loadNodeGraphModuleGroupsLocal();
-  if (!Object.hasOwn(groups, name)) {
-    return;
-  }
-  delete groups[name];
-  saveNodeGraphModuleGroupsLocal(groups);
-  renderNodeGraphModuleStoreCatalog();
-  setNodeGraphScriptStatus(`deleted module group "${name}"`, true);
-}
-
-function addNodeGraphModuleGroupFromBrowser(name) {
-  const group = loadNodeGraphModuleGroupsLocal()[name];
-  if (!group?.nodes?.length && !group?.sourcePatch?.nodes?.length) {
-    return;
-  }
-  const efficientOn = typeof nodeGraphEfficientProductEnabled === "function"
-    && nodeGraphEfficientProductEnabled();
-  const refuseEfficient = (detail = "") => {
-    const status = detail
-      ? `${NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS || "not in efficient build"}: ${detail}`
-      : (NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS || "not in efficient build");
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp(status);
-    }
-    if (typeof setNodeGraphScriptStatus === "function") {
-      setNodeGraphScriptStatus(status, false);
-    }
-  };
-  // moduleGroup itself is not on the efficient allowlist / chrome set.
-  if (efficientOn && group.kind === "moduleGroup" && group.sourcePatch) {
-    refuseEfficient("moduleGroup");
-    return;
-  }
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const counts = nextNodeGraphTypeCounts(patch.nodes);
-  if (group.kind === "moduleGroup" && group.sourcePatch) {
-    counts.moduleGroup = (counts.moduleGroup || 0) + 1;
-    const moduleGroup = normalizeNodeGraphModuleGroup(group);
-    const anchor = nodeGraphMvp.sceneContextPoint
-      ? nodeGraphPixelToGrid(nodeGraphMvp.sceneContextPoint)
-      : defaultNodeGraphModuleGridPoint("moduleGroup");
-    patch.nodes.push(createNodeGraphPatchNode("moduleGroup", {
-      gx: anchor.gx,
-      gy: anchor.gy,
-      id: `moduleGroup-${counts.moduleGroup}`,
-      moduleGroup,
-      widthGu: moduleGroup.defaultSize.widthGu,
-    }));
-    setNodeGraphViewMode("modular");
-    commitNodeGraphPatch(patch, { status: "module group added" });
-    return;
-  }
-  const sourceNodes = group.nodes.filter((node) => Object.hasOwn(nodeGraphModuleDefinitions, node.type));
-  if (!sourceNodes.length) {
-    return;
-  }
-  if (efficientOn && typeof nodeGraphModuleIsEfficientProductPlanType === "function") {
-    const foreign = [...new Set(
-      sourceNodes
-        .map((node) => String(node.type || "").trim())
-        .filter((type) => type && !nodeGraphModuleIsEfficientProductPlanType(type)),
-    )];
-    if (foreign.length) {
-      refuseEfficient(foreign.join(", "));
-      return;
-    }
-  }
-  const minGx = Math.min(...sourceNodes.map((node) => Number(node.gx) || 0));
-  const minGy = Math.min(...sourceNodes.map((node) => Number(node.gy) || 0));
-  const anchor = nodeGraphMvp.sceneContextPoint
-    ? nodeGraphPixelToGrid(nodeGraphMvp.sceneContextPoint)
-    : defaultNodeGraphModuleGridPoint(sourceNodes[0].type);
-  const idMap = {};
-  for (const sourceNode of sourceNodes) {
-    if (typeof nodeGraphModuleTypeIsUniqueInPatch === "function"
-      && nodeGraphModuleTypeIsUniqueInPatch(sourceNode.type)
-      && patch.nodes.some((node) => node.type === sourceNode.type)) {
-      continue;
-    }
-    counts[sourceNode.type] = (counts[sourceNode.type] || 0) + 1;
-    const id = `${sourceNode.type}-${counts[sourceNode.type]}`;
-    idMap[sourceNode.id] = id;
-    const sizingOptions = nodeGraphCopiedModuleSizeOptions(sourceNode);
-    patch.nodes.push({
-      ...createNodeGraphPatchNode(sourceNode.type, {
-        alias: sourceNode.alias,
-        gx: anchor.gx + ((Number(sourceNode.gx) || 0) - minGx),
-        gy: anchor.gy + ((Number(sourceNode.gy) || 0) - minGy),
-        id,
-        layout: sourceNode.layout,
-        graph: sourceNode.graph,
-        codeblock: sourceNode.codeblock,
-        ui: sourceNode.ui,
-        ...sizingOptions,
-      }),
-      ...(nodeGraphModuleIsGraphType(sourceNode.type)
-        ? { graph: nodeGraphGraphForNode(sourceNode) }
-        : {}),
-      ...(sourceNode.type === "codeblock"
-        ? { codeblock: normalizeNodeGraphCodeblock(sourceNode.codeblock) }
-        : {}),
-      paramMeta: cloneNodeGraphParamMeta(sourceNode.paramMeta),
-      params: { ...(sourceNode.params || {}) },
-    });
-  }
-  patch.connections.push(...(group.connections || [])
-    .filter((connection) => idMap[connection.sourceNode] && idMap[connection.destinationNode])
-    .map((connection) => ({
-      ...connection,
-      destinationNode: idMap[connection.destinationNode],
-      sourceNode: idMap[connection.sourceNode],
-    })));
-  patch.modulations.push(...(group.modulations || [])
-    .filter((modulation) => idMap[modulation.sourceNode] && idMap[modulation.destinationNode])
-    .map((modulation) => ({
-      ...modulation,
-      destinationNode: idMap[modulation.destinationNode],
-      sourceNode: idMap[modulation.sourceNode],
-    })));
-  setNodeGraphViewMode("modular");
-  commitNodeGraphPatch(patch, { status: "group added" });
+  const ids = selectedIds.length ? selectedIds : targetNodeId ? [targetNodeId] : [];
+  return [...new Set(ids)].filter((id) => nodeGraphPatchNode(id));
 }
 
 function nodeGraphDeepCloneModuleField(value) {
@@ -1143,9 +917,7 @@ function copyNodeGraphModuleFromContext() {
 
 // The subset of a node's fields that count as "settings" for the Copy
 // Settings / Paste Settings / Save to Default actions -- everything about a
-// module except its grid position/id/type. Deliberately excludes
-// `moduleGroup` (a full nested sub-patch) since that isn't meaningfully
-// "default-able" per module type.
+// module except its grid position/id/type.
 const nodeGraphModuleSettingsFields = Object.freeze([
   "alias",
   "widthGu",

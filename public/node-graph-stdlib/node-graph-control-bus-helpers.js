@@ -1,8 +1,8 @@
 // Pure control/bus DSP primitives shared by live evaluators and the worklet.
 // No DOM, no nodeGraphMvp — safe to load into the AudioWorklet Blob.
 //
-// Used by: knob, pluginSlider, toggle/momentary, audioInput/pluginInput,
-// output/pluginOutput, pluginMidiIn, midiOut/pluginMidiOut (and similar).
+// Used by: knob, pluginSlider, toggle/momentary, audioInput,
+// output (and similar).
 
 function nodeGraphDspClamp(n, lo, hi) {
   const x = Number(n);
@@ -203,7 +203,7 @@ function nodeGraphDspSandboxIoFrame(liveStereo, mono, left, right) {
   });
 }
 
-/** Input / Plugin Input loudness: Amplitude (current) or leftover `level`. */
+/** Input loudness: Amplitude (current) or leftover `level`. */
 function nodeGraphReadIoInputAmplitude(params, fallback = 1) {
   const amp = Number(params?.amplitude);
   if (Number.isFinite(amp)) {

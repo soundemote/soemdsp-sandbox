@@ -91,7 +91,7 @@ function nodeGraphModuleScopeFaceKindForSlot(slot) {
     return NODE_GRAPH_FACE_KIND_TAPE;
   }
   const type = String(slot?.type || "");
-  if (type === "output" || type === "pluginOutput") {
+  if (type === "output") {
     return NODE_GRAPH_FACE_KIND_TAPE;
   }
   // Conservative: unknown → tape (never auto-recreate).

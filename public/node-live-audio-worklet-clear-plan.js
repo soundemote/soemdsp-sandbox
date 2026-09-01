@@ -31,7 +31,6 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
     this.midiKeyboardHeldKeysLowBitmask = 0;
     this.midiKeyboardHeldKeysHighBitmask = 0;
     this.midiKeyboardHeldKeysPhase = 0;
-    this.moduleGroupRuntimes = new Map();
     this.modulationConnections = new Map();
     this.nodeOutputs = new Map();
     this.nodes = new Map();

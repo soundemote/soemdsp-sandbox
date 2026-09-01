@@ -217,7 +217,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   sampleDelay: "pass",
   output: "pass",
   // Nested graph: silence for now (passthrough later)
-  moduleGroup: "silence",
+
 });
 
 function nodeGraphModuleBypassInputsOutputs(type) {

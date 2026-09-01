@@ -226,7 +226,6 @@ NodeLiveAudioProcessor.prototype.compileGraphLiveness = function compileGraphLiv
       case "ladderFilter":
         return 8;
       case "output":
-      case "pluginOutput":
         return 1;
       default:
         return 4;
@@ -239,7 +238,7 @@ NodeLiveAudioProcessor.prototype.compileGraphLiveness = function compileGraphLiv
     const nodeId = order[i];
     const node = this.nodes.get(nodeId);
     const type = node?.type || "";
-    if (!mustRun.has(nodeId) && type !== "audioInput" && type !== "output" && type !== "pluginOutput") {
+    if (!mustRun.has(nodeId) && type !== "audioInput" && type !== "output") {
       continue;
     }
     liveModules += 1;
@@ -256,7 +255,7 @@ NodeLiveAudioProcessor.prototype.nodeNeedsEvaluate = function nodeNeedsEvaluate(
   if (!nodeId) {
     return true;
   }
-  if (type === "audioInput" || type === "output" || type === "pluginOutput") {
+  if (type === "audioInput" || type === "output") {
     return true;
   }
   const must = this.nodeMustEvaluate;

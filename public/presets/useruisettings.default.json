@@ -241,10 +241,6 @@
         "oscilloscopeBank",
         "shootingStarTail",
         "wallDelay",
-        "pluginInput",
-        "pluginOutput",
-        "pluginMidiIn",
-        "pluginMidiOut",
         "groupInput",
         "groupOutput",
         "evolveField",
@@ -276,7 +272,6 @@
         "percussion",
         "phosphillator",
         "hypersaw",
-        "moduleGroup",
         "gravity",
         "bloomGlow"
       ]

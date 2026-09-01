@@ -62,7 +62,6 @@ function nodeGraphNativeModuleRefIsUnderConstruction(ref = {}) {
   return Boolean(fromName && nodeGraphModuleTypeIsUnderConstruction(fromName));
 }
 
-const nodeGraphModuleGroupStorageKey = "soemdsp-sandbox.moduleGroups.v1";
 const nodeGraphModuleCatalogVisibilityStorageKey = "soemdsp-sandbox.moduleCatalogVisibility.v3";
 const nodeGraphModuleCatalogVisibilityLegacyStorageKey = "soemdsp-sandbox.moduleCatalogVisibility.v2";
 const nodeGraphModuleCatalogShelfIds = Object.freeze([
@@ -103,13 +102,8 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "oscilloscopeBank",
   "shootingStarTail",
   "wallDelay",
-  "pluginInput",
-  "pluginOutput",
-  "pluginMidiIn",
-  "pluginMidiOut",
   "groupInput",
   "groupOutput",
-  "moduleGroup",
   "evolveField",
   "asciiscope",
   "formantFilter",
@@ -239,16 +233,11 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   gravity: "Few-body Newtonian orbits on phosphor. First Doppler puzzle piece. Parked — write pairwise + leapfrog ourselves.",
   ePiano: "GM electric piano. Parked until sample/MIDI voices exist.",
   percussion: "GM channel-10 kit. Parked until sample/MIDI voices exist.",
-  theremin: "Proximity pitch/volume. Parked until that controller lands.",
+  theremin: "Proximity pitch/volume. Parked on Object until that controller lands.",
   additiveImage: "Image→partials. Parked until image analysis ships.",
   audioInput: "Live mic/line in. Parked until host capture is wired.",
-  pluginInput: "Plugin stereo in. Parked until plugin I/O ships.",
-  pluginOutput: "Plugin stereo out. Parked until plugin I/O ships.",
-  pluginMidiIn: "Host MIDI in. Parked until plugin MIDI ships.",
-  pluginMidiOut: "Host MIDI out. Parked until plugin MIDI ships.",
   groupInput: "Group inlet portal. Parked until nested patches ship.",
   groupOutput: "Group outlet portal. Parked until nested patches ship.",
-  moduleGroup: "Nested patch box. Parked until grouping ships.",
   shootingStarTail: "Shooting-star trail events. Parked until that game trigger lands.",
   lufs: "Integrated / short-term / momentary loudness (LUFS). Parked on Multimeter until loudness metering lands.",
   osc: "Open Sound Control (UDP ↔ CV). Parked on Controller until network send/receive lands.",
@@ -263,7 +252,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
 // strings and mismatched keys between them.
 const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "portal",       emoji: "🌐", label: "Portal",       symbol: "IO",  title: "Portals",   pitch: "Patch boundary portals for moving left, right, and mono signal lanes between rooms, templates, and larger circuits." },
-  { id: "controller",   emoji: "🕹️", label: "Controller",   symbol: "⌘",   title: "Controllers", pitch: "Face controls and input bridges: knobs, sliders, buttons, XY pads, MIDI, macros, and external gestures." },
+  { id: "controller",   emoji: "🕹️", label: "Controller",   symbol: "⌘",   title: "Controllers", pitch: "Face controls and input bridges: knobs, sliders, buttons, XY pads, macros, and external gestures." },
   { id: "oscillator",   emoji: "〰️", label: "Oscillator",   symbol: "∿",   title: "Oscillator", pitch: "Voices and raw tones: classic waves, tables, sync, supersaws, and other things that start a sound." },
   { id: "oms",          emoji: "♻️", label: "Oscillator 2D", symbol: "2D",  title: "Oscillator 2D", pitch: "2D motion oscillators: spirals, orbits, and ornamental X/Y voices." },
   { id: "modulator",    emoji: "♾️", label: "Modulator",    symbol: "⇄",   title: "Modulator", pitch: "Motion sources for pitch, amplitude, time, and texture. Small control engines that make patches move." },
@@ -1156,12 +1145,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "mic",
     ],
   },
-  moduleGroup: {
-    category: "portal",
-    description: "Under construction. Nested patch box — grouping is not ready to spawn.",
-    label: "Module Group",
-    notes: ["under construction", "group", "nested patch", "portal"],
-  },
   knob: {
     category: "controller",
     description: "Macro face control for one Bias value you want always visible and tweakable.",
@@ -1198,40 +1181,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Press-and-hold gate for triggers, rolls, and temporary enables.",
     label: "Momentary",
     notes: ["plugin", "momentary", "gate", "button"],
-  },
-  pluginInput: {
-    category: "portal",
-    description: "Clear stereo audio entry point when designing a plugin-style front end.",
-    label: "Plugin Input",
-    notes: ["plugin", "audio input", "stereo"],
-  },
-  pluginOutput: {
-    category: "portal",
-    description: "Clear stereo exit next to classic Output for host/plugin boundaries.",
-    label: "Plugin Output",
-    notes: ["plugin", "audio output", "stereo"],
-  },
-  pluginMidiIn: {
-    category: "portal",
-    description: "Keyboard/MIDI → gate, note, velocity, and 0.1V/oct for playable patches.",
-    label: "Plugin MIDI In",
-    notes: ["plugin", "midi input", "note", "gate"],
-  },
-  pluginMidiOut: {
-    category: "portal",
-    description: "Send/monitor MIDI note+gate for external gear or host MIDI outs.",
-    label: "Plugin MIDI Out",
-    notes: ["plugin", "midi output"],
-  },
-  midiOut: {
-    category: "controller",
-    description: "Dial a fixed MIDI number as CV—static note sources and test pitches.",
-    notes: ["midi number", "normalized output", "full value output"],
-  },
-  midiNotePitch: {
-    category: "controller",
-    description: "Convert MIDI with octave/offset into pitch CV and frequency Hz.",
-    notes: ["midi note input", "frequency output", "pitch conversion"],
   },
   buttonEvents: {
     category: "gametrigger",
@@ -1288,10 +1237,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["patch navigation", "trigger input", "music player"],
   },
   keyboardController: {
-    category: "controller",
-    description: "Hardware MIDI in: pick a device and listen channel. Gate, note, velocity, and pitch CV.",
+    category: "portal",
+    description: "Hardware MIDI in (Portal): pick a device and listen channel. Gate, note, velocity, and pitch CV.",
     label: "MIDI",
-    notes: ["midi input", "midi channel", "note", "gate", "velocity"],
+    notes: ["midi input", "midi channel", "note", "gate", "velocity", "portal"],
   },
   macroControls: {
     category: "controller",
@@ -1611,10 +1560,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["under construction", "sample", "percussion", "drums", "GM", "channel 10", "midi", "soundfont"],
   },
   theremin: {
-    category: "controller",
+    category: "object",
     description: "Placeholder space-controlled pitch/volume controller.",
     label: "Theremin",
-    notes: ["under construction", "theremin", "controller", "proximity", "pitch", "performance"],
+    notes: ["under construction", "theremin", "object", "proximity", "pitch", "performance"],
   },
   // --- Analog Filter: character / named circuits ---
   yellowjacketFilter: {
@@ -3013,14 +2962,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/harmonicSeries/harmonic-series-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/harmonicSeries/harmonic-series-math.js",
   },
-  midiNotePitch: {
-    source: "public/modules/midiNotePitch/midi-note-pitch-live-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/midiNotePitch/midi-note-pitch-live-evaluator.js",
-  },
-  midiOut: {
-    source: "public/modules/midiOut/midi-out-live-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/midiOut/midi-out-live-evaluator.js",
-  },
   minMax: {
     source: "public/modules/minMax/min-max-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/minMax/min-max-math.js",
@@ -3028,10 +2969,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   modeResonator: {
     source: "native_modules/mode_resonator/mode_resonator.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/mode_resonator/mode_resonator.cpp",
-  },
-  moduleGroup: {
-    source: "public/modules/moduleGroup/module-group-worklet-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/moduleGroup/module-group-worklet-evaluator.js",
   },
   mushroom: {
     source: "public/modules/mushroom/mushroom-worklet-evaluator.js",
@@ -3891,7 +3828,7 @@ function renderNodeGraphCommandCenterModuleSearch() {
 function nodeGraphModuleStoreDemoPatchAvailable(type) {
   return Boolean(
     Object.hasOwn(nodeGraphModuleDefinitions, type) &&
-    !["audioInput", "groupInput", "groupOutput", "moduleGroup", "output"].includes(type)
+    !["audioInput", "groupInput", "groupOutput", "output"].includes(type)
   );
 }
 
@@ -4123,85 +4060,6 @@ function renderNodeGraphModuleStoreDepartmentGroup(target, groupLabel, departmen
   }
 }
 
-function loadNodeGraphModuleGroupsLocal() {
-  if (!nodeGraphLocalDefaultPresetAllowed()) {
-    return {};
-  }
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(nodeGraphModuleGroupStorageKey) || "{}");
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
-    }
-    return parsed;
-  } catch {
-    return {};
-  }
-}
-
-function saveNodeGraphModuleGroupsLocal(groups) {
-  if (!nodeGraphLocalDefaultPresetAllowed()) {
-    return false;
-  }
-  try {
-    window.localStorage.setItem(nodeGraphModuleGroupStorageKey, JSON.stringify(groups));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function createNodeGraphModuleGroupButton(name, group) {
-  // A real <button>, not a <div> -- nodeGraphDialogDragTargetIsInteractive
-  // (node-graph-view-controls.js) only recognizes button/[role='button']/
-  // [data-context-module]/etc. as "don't start dragging the panel" targets.
-  // A bare div here meant every click's pointerdown got captured by the
-  // floating-window drag handler first, which retargets the resulting
-  // click event's target away from this card -- so clicks silently never
-  // reached handleNodeGraphModuleStoreClick's [data-context-group] lookup,
-  // even though that handler and this card's dataset already matched.
-  const card = document.createElement("button");
-  card.type = "button";
-  card.className = "scene-context-store-card";
-  card.dataset.moduleGroup = name;
-  card.dataset.contextGroup = name;
-  card.title = `Add "${name}" to the scene`;
-  card.setAttribute("aria-label", `Add module group ${name} to the scene`);
-  const label = document.createElement("strong");
-  label.textContent = name;
-  card.append(label);
-
-  // Separate sibling button, not nested inside `card` -- a <button> can't
-  // contain another interactive <button> (invalid HTML, unreliable click
-  // targeting), so a wrapping, non-interactive container holds both.
-  const deleteButton = document.createElement("button");
-  deleteButton.type = "button";
-  deleteButton.className = "scene-context-store-card-delete";
-  deleteButton.textContent = "×";
-  deleteButton.title = `Delete saved group "${name}"`;
-  deleteButton.setAttribute("aria-label", `Delete saved module group ${name}`);
-  deleteButton.dataset.deleteGroup = name;
-
-  const wrap = document.createElement("div");
-  wrap.className = "scene-context-store-card-wrap";
-  wrap.append(card, deleteButton);
-  return wrap;
-}
-
-function renderNodeGraphModuleGroupCatalog() {
-  const shell = document.getElementById("nodeModuleGroups");
-  const target = document.getElementById("nodeModuleGroupList");
-  if (!shell || !target) {
-    return;
-  }
-  const groups = loadNodeGraphModuleGroupsLocal();
-  const names = Object.keys(groups).sort((a, b) => a.localeCompare(b));
-  target.innerHTML = "";
-  for (const name of names) {
-    target.append(createNodeGraphModuleGroupButton(name, groups[name]));
-  }
-  shell.hidden = names.length === 0;
-}
-
 function nodeGraphModuleStoreScrollFrame(available = document.getElementById("nodeModuleDepartmentList")) {
   return available?.closest?.(".node-module-shop-scroll-frame") || available || null;
 }
@@ -4244,7 +4102,6 @@ function renderNodeGraphModuleStoreCatalog() {
 
   const departmentSearch = nodeGraphMvp.moduleStoreDepartmentSearch || "";
   if (available.childElementCount && nodeGraphMvp._moduleStoreCatalogKey === departmentSearch) {
-    renderNodeGraphModuleGroupCatalog();
     return;
   }
 
@@ -4291,7 +4148,6 @@ function renderNodeGraphModuleStoreCatalog() {
     available.append(empty);
   }
   nodeGraphMvp._moduleStoreCatalogKey = departmentSearch;
-  renderNodeGraphModuleGroupCatalog();
   bindNodeGraphModuleStoreScrollAffordance();
   requestAnimationFrame(updateNodeGraphModuleStoreScrollAffordance);
   if (typeof installNodeGraphModuleTitleTextFitObserver === "function") {

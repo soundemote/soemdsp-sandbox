@@ -204,7 +204,7 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
             || selfPaint === "value"
             || selfPaint === "lineBurn"
             || slot?.type === "output"
-            || slot?.type === "pluginOutput"
+           
           ) {
             // Idle plate with Display Settings background — never clearRect to
             // transparent (that left Output pure black under the room dimmer,

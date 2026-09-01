@@ -27,8 +27,6 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "macroControls",
   "keyboardController",
   "pitchModWheel",
-  "midiOut",
-  "midiNotePitch",
   "gain",
   "noiseGenerator",
   "robinSinusoid",

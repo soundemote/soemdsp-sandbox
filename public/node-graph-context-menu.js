@@ -804,7 +804,6 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneModuleVisibilitySection",
   "nodeSceneAddToUi",
   "nodeSceneWireTypeControl",
-  "nodeSceneAddToGroup",
   // Width + Height (display gu) stay paired — app-wide policy for every module.
   "nodeSceneWidthControls",
   "nodeSceneDisplayHeightControls",
@@ -1133,7 +1132,6 @@ function configureNodeSceneContextMenu(mode) {
   if (knobTextInput) {
     knobTextInput.disabled = true;
   }
-  const addToGroupButton = document.getElementById("nodeSceneAddToGroup");
   const widthControls = document.getElementById("nodeSceneWidthControls");
   const widthDecrease = document.getElementById("nodeSceneWidthDecrease");
   const widthIncrease = document.getElementById("nodeSceneWidthIncrease");
@@ -1343,17 +1341,6 @@ function configureNodeSceneContextMenu(mode) {
   if (copyButton) {
     // Visible only in module mode (lives in the settings action group row).
     copyButton.hidden = !moduleMode || multiModuleMode;
-  }
-  if (addToGroupButton) {
-    // Grouping selected modules isn't built yet (see
-    // saveNodeGraphSelectionAsModuleGroup's early return in
-    // node-graph-module-actions.js) -- the button is shown alongside the
-    // other Module Settings actions, matching where it'll live once the
-    // feature ships, but stays permanently disabled with an explanatory
-    // tooltip rather than being hidden entirely.
-    addToGroupButton.hidden = !moduleMode;
-    addToGroupButton.disabled = true;
-    addToGroupButton.title = "Add to group under construction. Module grouping is under construction.";
   }
   if (moduleSettingsActionGroup) {
     moduleSettingsActionGroup.hidden = !moduleMode || multiModuleMode;

@@ -8,8 +8,8 @@
 // intentionally-aliasing first-pass model with 16 interacting parameters,
 // not worth hand-duplicating in JS. Instead it lazily fetches and
 // instantiates bradley_2a.wasm itself (this runs on the main thread --
-// module groups / offline render -- which has fetch, unlike the audio
-// worklet's restricted scope; see node-graph-live-frame-evaluator.js's
+// offline render -- which has fetch, unlike the audio worklet's
+// restricted scope; see node-graph-live-frame-evaluator.js's
 // nodeGraphPiSpigotNoiseLoadWasm for the same pattern) and calls straight
 // into it. Silent (0) output until the wasm finishes loading.
 //

@@ -116,11 +116,7 @@ NodeLiveAudioProcessor.prototype.smoothingFrequencyFromSeconds = function smooth
 };
 
 NodeLiveAudioProcessor.prototype.syncNestedAutoSmoothingSeconds = function syncNestedAutoSmoothingSeconds(seconds = this.autoSmoothingSeconds) {
-    const normalized = this.clampAutoSmoothingSeconds(seconds);
-    for (const runtime of this.moduleGroupRuntimes?.values?.() || []) {
-      runtime.autoSmoothingSeconds = normalized;
-      runtime.syncNestedAutoSmoothingSeconds?.(normalized);
-    }
+    this.clampAutoSmoothingSeconds(seconds);
 };
 
 NodeLiveAudioProcessor.prototype.smootherNeedsWork = function smootherNeedsWork(smoother) {
@@ -331,9 +327,6 @@ NodeLiveAudioProcessor.prototype.finishSmoothing = function finishSmoothing() {
         write += 1;
       }
       list.length = write;
-    }
-    for (const runtime of this.moduleGroupRuntimes?.values?.() || []) {
-      runtime.finishSmoothing();
     }
 };
 

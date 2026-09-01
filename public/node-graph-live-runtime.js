@@ -3143,7 +3143,6 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=interrupt-patch-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=robin-native-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",
   "./public/modules/basicShape/basic-shape-worklet-evaluator.js?v=wave-port-1",
   "./public/lib/trace/trace-shape.js?v=heart-ssot-1",

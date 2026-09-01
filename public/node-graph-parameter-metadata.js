@@ -129,66 +129,6 @@ function nodeGraphPatchNodeParameterDefinitions(node) {
   });
   return parameters;
 }
-function nodeGraphModuleGroupEndpointName(node, fallback, used = new Set()) {
-  const base = normalizeNodeGraphPatchNodeAlias(node?.alias) ||
-    String(node?.label || "").trim() ||
-    fallback;
-  let name = base || fallback;
-  let index = 2;
-  while (used.has(name)) {
-    name = `${base || fallback} ${index}`;
-    index += 1;
-  }
-  used.add(name);
-  return name;
-}
-
-function nodeGraphModuleGroupInterfaceFromPatch(sourcePatch = {}) {
-  const inputs = [];
-  const outputs = [];
-  const inputNames = new Set();
-  const outputNames = new Set();
-  for (const node of sourcePatch.nodes || []) {
-    if (node.type === "groupInput") {
-      inputs.push({
-        name: nodeGraphModuleGroupEndpointName(node, inputs.length ? `In ${inputs.length + 1}` : "In", inputNames),
-        nodeId: node.id,
-        port: "Out",
-      });
-    } else if (node.type === "groupOutput") {
-      outputs.push({
-        name: nodeGraphModuleGroupEndpointName(node, outputs.length ? `Out ${outputs.length + 1}` : "Out", outputNames),
-        nodeId: node.id,
-        port: "Out",
-      });
-    }
-  }
-  return { inputs, outputs };
-}
-
-function normalizeNodeGraphModuleGroup(value = {}) {
-  const source = value && typeof value === "object" ? value : {};
-  const sourcePatch = source.sourcePatch && typeof source.sourcePatch === "object"
-    ? cloneNodeGraphPatch(source.sourcePatch)
-    : null;
-  const inferred = nodeGraphModuleGroupInterfaceFromPatch(sourcePatch || {});
-  return {
-    defaultSize: {
-      heightGu: Math.max(4, Number(source.defaultSize?.heightGu) || 6),
-      widthGu: Math.max(5, Number(source.defaultSize?.widthGu) || 8),
-    },
-    description: String(source.description || ""),
-    id: String(source.id || `group-${nodeGraphStableSeed(source.name || "module-group").toString(16)}`),
-    inputs: Array.isArray(source.inputs) && source.inputs.length ? source.inputs.map((input) => ({ ...input })) : inferred.inputs,
-    kind: "moduleGroup",
-    name: String(source.name || "Module Group"),
-    outputs: Array.isArray(source.outputs) && source.outputs.length ? source.outputs.map((output) => ({ ...output })) : inferred.outputs,
-    parameters: Array.isArray(source.parameters) ? source.parameters.map((parameter) => ({ ...parameter })) : [],
-    preview: source.preview && typeof source.preview === "object" ? { ...source.preview } : {},
-    sourcePatch,
-  };
-}
-
 const nodeGraphCodeblockDefaultCode = "Out1 = In1;";
 const nodeGraphCodeblockPortNamePattern = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const nodeGraphCodeblockShadowedGlobals = Object.freeze([
@@ -309,9 +249,6 @@ function nodeGraphPatchNodeInputPorts(node) {
   if (patchNode?.type === "customDisplay") {
     return normalizeNodeGraphCustomDisplay(patchNode.customDisplay).inputs;
   }
-  if (patchNode?.type === "moduleGroup") {
-    return normalizeNodeGraphModuleGroup(patchNode.moduleGroup).inputs.map((input) => input.name);
-  }
   if (patchNode?.type === "canvas") {
     return normalizeNodeGraphCanvasScript(patchNode.canvasScript).inputs;
   }
@@ -335,9 +272,6 @@ function nodeGraphPatchNodeOutputPorts(node) {
   }
   if (patchNode?.type === "customDisplay") {
     return [];
-  }
-  if (patchNode?.type === "moduleGroup") {
-    return normalizeNodeGraphModuleGroup(patchNode.moduleGroup).outputs.map((output) => output.name);
   }
   return nodeGraphModuleOutputPorts(patchNode?.type);
 }
@@ -848,10 +782,10 @@ const NODE_GRAPH_IO_VOLUME_SMOOTHING_SECONDS = typeof nodeGraphModuleSmoothingDe
 function nodeGraphIsHardcodedIoVolumeParam(type, key) {
   const t = String(type || "");
   const k = String(key || "");
-  if ((t === "output" || t === "pluginOutput") && k === "volume") {
+  if ((t === "output") && k === "volume") {
     return true;
   }
-  if ((t === "audioInput" || t === "pluginInput") && (k === "amplitude" || k === "level")) {
+  if ((t === "audioInput") && (k === "amplitude" || k === "level")) {
     return true;
   }
   return false;

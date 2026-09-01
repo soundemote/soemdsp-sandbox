@@ -195,7 +195,7 @@ function paintNodeGraphModuleScopeColdPlatesOnly(pixelRatio = window.devicePixel
       && renderer !== "value"
       && renderer !== "lineBurn"
       && slot?.type !== "output"
-      && slot?.type !== "pluginOutput"
+     
     ) {
       continue;
     }

@@ -95,13 +95,6 @@ function bindNodeGraphSceneMenuEvents() {
     }
   });
   bindNodeGraphSceneElementEvent("nodeSceneCopyModule", "click", copyNodeGraphModuleFromContext);
-  // Wired but disabled -- module grouping itself is under construction (see
-  // saveNodeGraphSelectionAsModuleGroup's early return in
-  // node-graph-module-actions.js and configureNodeSceneContextMenu's
-  // addToGroupButton.disabled = true in node-graph-context-menu.js). The
-  // button exists now so the rest of the UI plumbing (menu placement,
-  // disabled/tooltip state) is in place ahead of building the feature out.
-  bindNodeGraphSceneElementEvent("nodeSceneAddToGroup", "click", saveNodeGraphSelectionAsModuleGroup);
   bindNodeGraphSceneElementEvent("nodeSceneCopyModuleSettings", "click", copyNodeGraphModuleSettingsFromContext);
   bindNodeGraphSceneElementEvent("nodeScenePasteModuleSettings", "click", pasteNodeGraphModuleSettingsFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneSetModuleSettingsAsDefault", "click", setNodeGraphModuleSettingsAsDefaultFromButton);

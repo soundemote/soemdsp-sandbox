@@ -177,9 +177,6 @@ function createNodeGraphPatchNode(type, options = {}) {
   if (Object.hasOwn(opts, "scopeShader")) {
     node.scopeShader = normalizeNodeGraphScopeShader(opts.scopeShader);
   }
-  if (resolvedType === "moduleGroup") {
-    node.moduleGroup = normalizeNodeGraphModuleGroup(options.moduleGroup);
-  }
   if (resolvedType === "knob" && typeof normalizeNodeGraphKnobFace === "function") {
     const face = normalizeNodeGraphKnobFace(opts.knobFace);
     if (typeof nodeGraphKnobFaceIsNonDefault === "function"

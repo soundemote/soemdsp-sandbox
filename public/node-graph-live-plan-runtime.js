@@ -188,16 +188,6 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
       if (node.type === "codeblock") {
         runtimeNode.codeblock = normalizeNodeGraphCodeblock(node.codeblock);
       }
-      if (node.type === "moduleGroup") {
-        runtimeNode.moduleGroup = normalizeNodeGraphModuleGroup(node.moduleGroup);
-        if (runtimeNode.moduleGroup.sourcePatch) {
-          try {
-            runtimeNode.moduleGroupPlan = nodeGraphBuildLivePlanForPatch(runtimeNode.moduleGroup.sourcePatch);
-          } catch (_error) {
-            runtimeNode.moduleGroupPlan = null;
-          }
-        }
-      }
       if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
         runtimeNode.sample = typeof normalizeNodeGraphNodeSamplePointer === "function"
           ? normalizeNodeGraphNodeSamplePointer(node.sample)
@@ -257,16 +247,6 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
       }
       if (node.type === "codeblock") {
         runtimeNode.codeblock = normalizeNodeGraphCodeblock(node.codeblock);
-      }
-      if (node.type === "moduleGroup") {
-        runtimeNode.moduleGroup = normalizeNodeGraphModuleGroup(node.moduleGroup);
-        if (runtimeNode.moduleGroup.sourcePatch) {
-          try {
-            runtimeNode.moduleGroupPlan = nodeGraphBuildLivePlanForPatch(runtimeNode.moduleGroup.sourcePatch);
-          } catch (_error) {
-            runtimeNode.moduleGroupPlan = null;
-          }
-        }
       }
       if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
         runtimeNode.sample = typeof normalizeNodeGraphNodeSamplePointer === "function"
@@ -428,7 +408,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const chordSequencerStates = new Map();
   const lutCellStates = new Map();
   const lorenzAttractorStates = new Map();
-  const moduleGroupRuntimes = new Map();
   const noiseGeneratorStates = new Map();
   const oscillatorLastPhaseIncrements = new Map();
   const oscillatorStoppedSamples = new Map();
@@ -810,13 +789,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     if (node.type === "triggerDivider") {
       triggerDividerStates.set(node.id, createNodeGraphTriggerDividerState());
     }
-    if (node.type === "moduleGroup" && node.moduleGroup?.sourcePatch) {
-      try {
-        moduleGroupRuntimes.set(node.id, createNodeGraphLiveRuntime(nodeGraphBuildLivePlanForPatch(node.moduleGroup.sourcePatch)));
-      } catch (_error) {
-        moduleGroupRuntimes.delete(node.id);
-      }
-    }
     for (const [key, value] of Object.entries(node.params || {})) {
       smoothers.set(
         nodeGraphParameterKey(node.id, key),
@@ -942,7 +914,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     // port so downstream modules (envelopes, sample+hold, etc.) feel a poke
     // when their signal supply is cut, instead of just dropping to silence.
     inputWireBreakTriggers: new Map(),
-    moduleGroupRuntimes,
     pitchModWheelSignal: {
       mod: Math.max(0, Math.min(1, Number(nodeGraphMvp?.modWheelSignal) || 0)),
       pitch: Math.max(-1, Math.min(1, Number(nodeGraphMvp?.pitchWheelSignal) || 0)),
@@ -1070,9 +1041,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.phosphillatorPlaybackStates) {
     runtime.phosphillatorPlaybackStates = new Map();
-  }
-  if (!runtime.moduleGroupRuntimes) {
-    runtime.moduleGroupRuntimes = new Map();
   }
   if (!runtime.ladderFilterStates) {
     runtime.ladderFilterStates = new Map();
@@ -1736,13 +1704,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     if (node.type === "triggerCounter" && !runtime.triggerCounterStates.has(node.id)) {
       runtime.triggerCounterStates.set(node.id, createNodeGraphTriggerCounterState());
     }
-    if (node.type === "moduleGroup" && node.moduleGroup?.sourcePatch && !runtime.moduleGroupRuntimes.has(node.id)) {
-      try {
-        runtime.moduleGroupRuntimes.set(node.id, createNodeGraphLiveRuntime(nodeGraphBuildLivePlanForPatch(node.moduleGroup.sourcePatch)));
-      } catch (_error) {
-        runtime.moduleGroupRuntimes.delete(node.id);
-      }
-    }
     for (const [key, value] of Object.entries(node.params || {})) {
       const smootherKey = nodeGraphParameterKey(node.id, key);
       const metadata = node.paramMeta?.[key];
@@ -1984,11 +1945,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     if (!nodeIds.has(id)) {
       runtime.phosphillatorPlaybackStates.delete(id);
       nodeGraphPhosphillatorDecodedPathCache.delete(id);
-    }
-  }
-  for (const id of [...runtime.moduleGroupRuntimes.keys()]) {
-    if (!nodeIds.has(id)) {
-      runtime.moduleGroupRuntimes.delete(id);
     }
   }
   for (const id of [...runtime.linearEnvelopeStates.keys()]) {

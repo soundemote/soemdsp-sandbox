@@ -238,11 +238,6 @@ function nodeGraphModuleChromeTitle(node) {
     const type = typeof nodeGraphNodeType === "function" ? nodeGraphNodeType(node) : "";
     return nodeGraphNodeLabels?.[type] || String(node || type || "");
   }
-  if (patchNode.type === "moduleGroup") {
-    return normalizeNodeGraphModuleGroup(patchNode.moduleGroup).name
-      || nodeGraphNodeLabels.moduleGroup
-      || "Module Group";
-  }
   return normalizeNodeGraphPatchNodeAlias(patchNode.alias)
     || nodeGraphDefaultNodeTitle(patchNode.type, patchNode.id);
 }
@@ -251,11 +246,6 @@ function nodeGraphPatchNodeTitle(node) {
   const patchNode = typeof node === "string" ? nodeGraphPatchNode(node) : node;
   if (!patchNode) {
     return nodeGraphNodeLabels[nodeGraphNodeType(node)] || String(node || "");
-  }
-  if (patchNode.type === "moduleGroup") {
-    return normalizeNodeGraphPatchNodeAlias(patchNode.alias) ||
-      normalizeNodeGraphModuleGroup(patchNode.moduleGroup).name ||
-      nodeGraphNodeLabels.moduleGroup;
   }
   return normalizeNodeGraphPatchNodeAlias(patchNode.alias) || nodeGraphDefaultNodeTitle(patchNode.type, patchNode.id);
 }
@@ -578,9 +568,6 @@ function cloneNodeGraphPatch(patch) {
         ...cloneNodeGraphTypedDisplaySettings(node),
         ...(Object.hasOwn(node, "scopeShader")
           ? { scopeShader: normalizeNodeGraphScopeShader(node.scopeShader) }
-          : {}),
-        ...(node.type === "moduleGroup"
-          ? { moduleGroup: normalizeNodeGraphModuleGroup(node.moduleGroup) }
           : {}),
         ...((node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") && node.sample
           ? (() => {

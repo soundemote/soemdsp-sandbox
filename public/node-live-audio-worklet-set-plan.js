@@ -127,8 +127,6 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       // an empty path and output silence (engine still ran).
       drawnPath: node.drawnPath || null,
       graph: node.graph || null,
-      moduleGroup: node.moduleGroup || null,
-      moduleGroupPlan: node.moduleGroupPlan || null,
       paramMeta: node.paramMeta || {},
       params: node.params || {},
       sample: node.sample || null,
@@ -586,9 +584,6 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       }
       if (node?.type === "archimedes" && !this.archimedesStates.has(id)) {
         this.archimedesStates.set(id, this.createArchimedesState());
-      }
-      if (node?.type === "moduleGroup" && node.moduleGroupPlan && !this.moduleGroupRuntimes.has(id)) {
-        this.moduleGroupRuntimes.set(id, this.createNestedRuntime(node.moduleGroupPlan));
       }
       // Legacy JS chase only for ?product=full — efficient path is write-only.
       if (!efficientProduct) {
@@ -1379,11 +1374,6 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (!ids.has(id)) {
         this.destroyArchimedesNativeState(this.archimedesStates.get(id));
         this.archimedesStates.delete(id);
-      }
-    }
-    for (const id of [...this.moduleGroupRuntimes.keys()]) {
-      if (!ids.has(id)) {
-        this.moduleGroupRuntimes.delete(id);
       }
     }
     for (const key of [...this.smoothers.keys()]) {

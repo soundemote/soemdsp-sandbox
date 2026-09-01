@@ -3,33 +3,6 @@
 
 NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function buildLiveModuleEvaluators_utility() {
   const map = {
-      midiOut: (node, nodeId, frame, frames, frameValues, mixInput) => {
-        const hasMidiInput = this.inputConnections.has(this.inputKey(nodeId, "MIDI Number"));
-        const midiNumber = this.readEffectiveParameter(node, "midiNumber", 60, frame, frames, frameValues);
-        const resolved = typeof nodeGraphDspResolveMidiNumber === "function"
-          ? nodeGraphDspResolveMidiNumber(midiNumber, mixInput(nodeId, "MIDI Number"), hasMidiInput)
-          : (hasMidiInput
-            ? this.clampValue(Math.round(Number(mixInput(nodeId, "MIDI Number")) || 0), 0, 127)
-            : this.clampValue(Math.round(midiNumber), 0, 127));
-        return typeof nodeGraphDspMidiNumberPorts === "function"
-          ? nodeGraphDspMidiNumberPorts(resolved)
-          : { "Full Value": resolved, Normalized: resolved / 127 };
-      },
-      midiNotePitch: (node, nodeId, frame, frames, frameValues, mixInput) => {
-        const pitch = this.clampValue((
-          Number(mixInput(nodeId, "MIDI Note")) +
-          Number(mixInput(nodeId, "Octave Offset")) * 12 +
-          Number(mixInput(nodeId, "Pitch Offset"))
-        ) || 0, 0, 127);
-        const hz = typeof nodeGraphDspMidiNoteToHz === "function"
-          ? nodeGraphDspMidiNoteToHz(pitch)
-          : 440 * (2 ** ((pitch - 69) / 12));
-        return {
-          Frequency: hz,
-          "Pitch 0-1": pitch / 127,
-          "Pitch 0-127": pitch,
-        };
-      },
       keyboardController: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const signal = this.midiKeyboardSignal || {};
         const resetActive = hasInput(nodeId, "Reset") && Number(mixInput(nodeId, "Reset")) > 0;
@@ -242,55 +215,6 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
             mixInput(nodeId, "Right"),
           )
           : live;
-      },
-      pluginInput: (node, nodeId, frame, frames, frameValues, mixInput, _safeRate, _hasInput, inputFrame) => {
-        const amplitude = this.readEffectiveParameter(node, "amplitude", NaN, frame, frames, frameValues);
-        const level = Number.isFinite(amplitude)
-          ? amplitude
-          : this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues);
-        const live = nodeGraphDspExternalStereoFrame(
-          this.externalInput,
-          inputFrame ?? frame,
-          level,
-        );
-        return typeof nodeGraphDspSandboxIoFrame === "function"
-          ? nodeGraphDspSandboxIoFrame(
-            live,
-            mixInput(nodeId, "Mono"),
-            mixInput(nodeId, "Left"),
-            mixInput(nodeId, "Right"),
-          )
-          : live;
-      },
-      pluginOutput: (node, nodeId, frame, frames, frameValues, mixInput) => {
-        const mix = nodeGraphDspStereoMix(
-          mixInput(nodeId, "Mono"),
-          mixInput(nodeId, "Left"),
-          mixInput(nodeId, "Right"),
-        );
-        return typeof nodeGraphDspSandboxIoTrio === "function"
-          ? nodeGraphDspSandboxIoTrio(mix)
-          : { Left: mix.Left, Mono: mix.Out, Out: mix.Out, Right: mix.Right };
-      },
-      pluginMidiIn: (node, nodeId, frame, frames, frameValues) =>
-        nodeGraphDspMidiKeyboardPorts(
-          this.midiKeyboardSignal || {},
-          this.readEffectiveParameter(node, "defaultNote", 60, frame, frames, frameValues),
-        ),
-      pluginMidiOut: (node, nodeId, frame, frames, frameValues, mixInput) => {
-        const hasMidiInput = this.inputConnections.has(this.inputKey(nodeId, "MIDI Number"));
-        const midiNumber = this.readEffectiveParameter(node, "midiNumber", 60, frame, frames, frameValues);
-        const midi = nodeGraphDspResolveMidiNumber(
-          midiNumber,
-          mixInput(nodeId, "MIDI Number"),
-          hasMidiInput,
-        );
-        const hasGate = this.inputConnections.has(this.inputKey(nodeId, "Gate"));
-        return nodeGraphDspMidiNumberPorts(midi, {
-          includeGate: true,
-          hasGate,
-          gate: mixInput(nodeId, "Gate"),
-        });
       },
       sandboxVisuals: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const screenShake = this.smoothVisualControl(
@@ -526,7 +450,6 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
           safeRate,
         );
       },
-      moduleGroup: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame) => this.evaluateModuleGroup(node, mixInput, frame, frames, safeRate, inputFrame),
       codeblock: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame) => this.evaluateCodeblock(node, mixInput, frame, frames, safeRate, inputFrame),
   };
   const inletEval = (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame) =>

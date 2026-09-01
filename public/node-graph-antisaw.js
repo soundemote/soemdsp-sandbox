@@ -7,8 +7,8 @@
 // Same pattern as node-graph-bradley-2a.js: no pure-JS reimplementation
 // (up to 256 independent phase accumulators isn't worth hand-duplicating
 // in JS), just a lazy fetch+instantiate of antisaw.wasm on the main
-// thread (module groups / offline render -- has fetch, unlike the audio
-// worklet's restricted scope) and a thin call straight into it. Silent
+// thread (offline render -- has fetch, unlike the audio worklet's
+// restricted scope) and a thin call straight into it. Silent
 // (0) output until the wasm finishes loading.
 //
 // Gotcha: like bradley_2a, "level" is applied inside the wasm --

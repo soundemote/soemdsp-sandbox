@@ -774,9 +774,8 @@ function nodeGraphCodeScreenWorkspaceEnvelopeRecipe({ circuit, tags, visual }) {
     const curve = String(value.curve || "analog").trim() || "analog";
     circuit.create(name);
     // expAdsr's Gate input and the final gain's Out are left unwired --
-    // applied at the top level (not inside a Module Group) there's no
-    // "the" gate source or downstream consumer to guess at, so those two
-    // ports are exposed for whoever applies this plan to wire by hand.
+    // there's no single gate source or downstream consumer to guess at,
+    // so those two ports stay exposed for hand-wiring.
     const envelope = circuit.module("expAdsr", "env-shape", { attack, decay, release, sustain });
     const amp = circuit.gain("env-level", level);
     circuit.connect(envelope.out("Out"), amp.in("In"));

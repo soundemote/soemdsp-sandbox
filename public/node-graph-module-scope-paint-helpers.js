@@ -1268,7 +1268,7 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
   context.restore();
 }
 
-// Stereo Trace (Output / pluginOutput / modules with stereoTracePorts):
+// Stereo Trace (Output / modules with stereoTracePorts):
 // L/R colors + blend modes. Meet (combine): m=min(L,R);
 // pixel=(L-m)·C_L+(R-m)·C_R+m·C_meet (complement → red+blue→green).
 
@@ -1520,7 +1520,7 @@ const NODE_GRAPH_OUTPUT_PROTECT_FONT =
 
 function nodeGraphOutputProtectFaceSlot(slot) {
   const type = String(slot?.type || "");
-  return type === "output" || type === "pluginOutput";
+  return type === "output";
 }
 
 function nodeGraphOutputTransportIsPaused() {

@@ -322,8 +322,7 @@ var nodeGraphMvp = {
     logisticMap: 0,
     lorenzAttractor: 0,
     lowpass: 0,
-    midiNotePitch: 0,
-    midiOut: 0,
+
     nextPatch: 0,
     previousPatch: 0,
     noise: 1,

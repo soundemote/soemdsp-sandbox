@@ -38,7 +38,7 @@ function nodeGraphModulePlanRole(type) {
     return declared;
   }
   // Fallbacks for unannotated types (new modules should declare planRole).
-  if (def?.output || t === "output" || t === "pluginOutput") {
+  if (def?.output || t === "output") {
     return NODE_GRAPH_PLAN_ROLES.sink;
   }
   if (def?.monitorSink || def?.visualSink) {
@@ -78,7 +78,7 @@ function nodeGraphModuleIsPlanSinkType(type) {
   if (def?.planRole === NODE_GRAPH_PLAN_ROLES.sink || def?.planSink === true) {
     return true;
   }
-  return Boolean(def?.output) || t === "output" || t === "pluginOutput";
+  return Boolean(def?.output) || t === "output";
 }
 
 /**

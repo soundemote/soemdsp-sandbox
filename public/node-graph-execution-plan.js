@@ -437,29 +437,20 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   if (hasOutputNode) {
     markReachable(outputNode);
   }
-  // Plugin Output nodes are audio sinks; keep them reachable so upstream evaluates.
+  // Portal outlet sinks stay reachable so upstream evaluates.
   for (const node of graph.nodes) {
     if (
-      (node?.type === "pluginOutput"
-        || node?.type === "portalOutlet"
+      (node?.type === "portalOutlet"
         || (typeof nodeGraphPortalIsOutletType === "function" && nodeGraphPortalIsOutletType(node?.type)))
       && !bypassedNodes.has(node.id)
     ) {
       markReachable(node.id);
     }
   }
-  // groupOutput nodes only need forced reachability when this compile IS a
-  // moduleGroup's own inner sourcePatch -- which, by construction
-  // (saveNodeGraphSelectionAsModuleGroup excludes type "output"), never has
-  // a real "output" node, so !hasOutputNode is exactly that signal. Forcing
-  // this unconditionally used to also run for the actual top-level patch,
-  // where a Group Output sitting around mid-build (not yet part of any
-  // built group, doing nothing real) would drag its whole upstream chain
-  // into strict validation and could invalidate the ENTIRE patch compile --
-  // muting all audio -- over an in-progress wire that has no bearing on
-  // anything the speaker route actually depends on. Elsewhere in this
-  // compiler, an unreached/dangling node is simply inert, never validated;
-  // this restores that same invariant for groupOutput on the top-level patch.
+  // groupOutput only needs forced reachability when the compile has no
+  // speaker/plugin output sink (!hasOutputNode). Forcing it on a normal
+  // top-level patch would drag dangling Group Output upstream into strict
+  // validation and could mute audio over in-progress wires.
   const groupOutputNodes = hasOutputNode
     ? []
     : graph.nodes.filter((node) => node.type === "groupOutput");
@@ -733,7 +724,7 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
       reachableNodes.has(node.id) &&
       !bypassedNodes.has(node.id) &&
       node.type !== "output" &&
-      node.type !== "pluginOutput" &&
+      
       (
         // Graph editor playhead reads "__GraphPhase" from scope buffers -- always
         // capture graph modules even when they have no separate oscilloscope face.

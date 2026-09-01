@@ -961,7 +961,7 @@ function nodeGraphPatchMigrateOutputVolumeLinearToDb(patch) {
   }
   let changed = false;
   const nodes = patch.nodes.map((node) => {
-    if (!node || (node.type !== "output" && node.type !== "pluginOutput")) {
+    if (!node || (node.type !== "output")) {
       return node;
     }
     const meta = node.paramMeta && typeof node.paramMeta === "object"

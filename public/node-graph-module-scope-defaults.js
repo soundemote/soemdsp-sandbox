@@ -47,8 +47,7 @@ const nodeGraphModuleScopeUnipolarTypes = new Set([
   "kickEnvelope",
   "sineKick",
   "linearEnvelope",
-  "midiNotePitch",
-  "midiOut",
+
   "pluckEnvelope",
   "bloomGlow",
   "chromaColor",

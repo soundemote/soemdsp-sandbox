@@ -10005,9 +10005,6 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   grid-row: 3;
 }
 
-.node-module-shop-column > #nodeModuleGroups {
-  grid-row: 4;
-}
 
 /*
  * Unified window chrome SSOT.
@@ -20247,41 +20244,6 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 .scene-context-store-card span {
   color: rgb(127 199 217 / 0.76);
   font-size: 0.76em;
-}
-
-/* Saved module group cards (createNodeGraphModuleGroupButton) are the
-   only .scene-context-store-card with a delete affordance -- a plain
-   card button can't nest another button, so a wrapping div holds the
-   spawn button and a small corner delete button as siblings instead. */
-.scene-context-store-card-wrap {
-  position: relative;
-  min-width: 0;
-}
-
-.scene-context-store-card-wrap .scene-context-store-card {
-  width: 100%;
-  padding-left: 28px;
-}
-
-.scene-context-store-card-delete {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: rgba(17, 21, 24, 0.9);
-  color: var(--muted);
-  font: 700 0.9rem/1 var(--mono);
-  line-height: 1;
-}
-
-.scene-context-store-card-delete:hover,
-.scene-context-store-card-delete:focus-visible {
-  border-color: rgba(255, 122, 122, 0.6);
-  color: rgb(255 148 148);
 }
 
 .scene-context-store-empty {
