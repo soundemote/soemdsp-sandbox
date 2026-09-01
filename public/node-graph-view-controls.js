@@ -3182,15 +3182,7 @@ function renderNodeGraphMidiKeyboardSignal(signal = null) {
     const key = field.dataset.keyboardSignal;
     field.textContent = values[key] ?? "-";
   });
-  document.querySelectorAll(".node-midi-keyboard-module [data-midi]").forEach((key) => {
-    const activeMidi = nextSignal ? nodeGraphMidiKeyboardRawMidiFromSignal(nextSignal) : NaN;
-    const active = Boolean(
-      nextSignal &&
-      Number(key.dataset.midi) === activeMidi &&
-      nextSignal.gate > 0,
-    );
-    key.classList.toggle("active", active);
-  });
+  renderNodeGraphMidiKeyboardActiveKeys(nextSignal);
   sendNodeGraphMidiKeyboardSignalToLive(nodeGraphMvp.midiKeyboardSignal);
   if (nextSignal?.gatePulse > 0) {
     clearNodeGraphMidiKeyboardPulseDisplay(nodeGraphMvp.midiKeyboardPulseSerial);
@@ -3522,6 +3514,8 @@ function disableNodeGraphMidiKeyboardInput() {
   nodeGraphMvp.midiKeyboardStatus = "midi off";
   renderNodeGraphMidiKeyboardInputControls();
   renderNodeGraphMidiToggleButton();
+  // Drop poly .active lights that were driven by hardware held notes.
+  renderNodeGraphMidiKeyboardActiveKeys(nodeGraphMvp.midiKeyboardSignal);
 }
 
 async function toggleNodeGraphMidiInput() {
@@ -3595,6 +3589,26 @@ function handleNodeGraphMidiKeyboardInputChange(event) {
   }
 }
 
+/**
+ * Light every currently sounding key. Hardware MIDI can hold a chord in
+ * midiKeyboardHeldNotes (poly .active). Pointer / last-note signal still
+ * lights its single key when gate is high.
+ */
+function renderNodeGraphMidiKeyboardActiveKeys(nextSignal = nodeGraphMvp.midiKeyboardSignal) {
+  const heldNotes = nodeGraphMvp.midiKeyboardHeldNotes instanceof Map
+    ? nodeGraphMvp.midiKeyboardHeldNotes
+    : null;
+  const signalMidi = nextSignal && Number(nextSignal.gate) > 0
+    ? nodeGraphMidiKeyboardRawMidiFromSignal(nextSignal)
+    : NaN;
+  document.querySelectorAll(".node-midi-keyboard-module [data-midi]").forEach((key) => {
+    const midi = Number(key.dataset.midi);
+    const fromHardware = Boolean(heldNotes?.has(midi));
+    const fromSignal = Number.isFinite(signalMidi) && midi === signalMidi;
+    key.classList.toggle("active", fromHardware || fromSignal);
+  });
+}
+
 function handleNodeGraphMidiKeyboardMessage(event) {
   const input = event.currentTarget;
   if (!nodeGraphMvp.midiKeyboardInputId || input?.id !== nodeGraphMvp.midiKeyboardInputId) {
@@ -3630,6 +3644,7 @@ function handleNodeGraphMidiKeyboardMessage(event) {
   if (noteOn) {
     nodeGraphMvp.midiKeyboardHeldNotes.set(midi, velocity);
     nodeGraphMvp.midiKeyboardStatus = `ch ${channel} ${nodeGraphMidiKeyboardPitchLabel(midi)} vel ${velocity}`;
+    // Last note still drives mono CV outs; active-key paint is polyphonic.
     renderNodeGraphMidiKeyboardSignal(nodeGraphMidiKeyboardSignalFromMidi(midi, velocity, 1, 1));
     return;
   }
