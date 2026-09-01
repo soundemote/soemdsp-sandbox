@@ -223,7 +223,7 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "modulator",    emoji: "♾️", label: "Modulator",    symbol: "⇄",   title: "Modulator", pitch: "Motion sources for pitch, amplitude, time, and texture. Small control engines that make patches move." },
   { id: "additive",     emoji: "📊", label: "Additive",     symbol: "∑",   title: "Additive",   pitch: "Harmonic-stack voices: build timbre from partials, not a single waveform." },
   { id: "chaos",        emoji: "🌌", label: "Chaos",        symbol: "∞",   title: "Chaos",     pitch: "All the various attractors and strange motion systems. The wild shelf where math starts looking back." },
-  { id: "oms",          emoji: "♻️", label: "OMS",          symbol: "OMS", title: "OMS",       pitch: "Spiral and orbit motion systems. Spiral Generator lives here." },
+  { id: "oms",          emoji: "♻️", label: "Oscillator 2D", symbol: "2D",  title: "Oscillator 2D", pitch: "2D motion oscillators: spirals, orbits, and ornamental X/Y voices." },
   { id: "noise",        emoji: "🌧️", label: "Noise",        symbol: "✦",   title: "Noise",     pitch: "Noise, dust, instability, sparks, and all the useful mess a clean machine secretly needs." },
   { id: "drum",         emoji: "🥁", label: "Drum",         symbol: "▥",   title: "Drum",      pitch: "Rhythm machines, drum voices, pattern engines, and percussion control surfaces." },
   { id: "dynamics",     emoji: "⚡", label: "Dynamics",     symbol: "⚡",   title: "Dynamics",  pitch: "Power routing, level control, offsets, and response shaping for keeping a circuit alive under pressure." },
@@ -289,10 +289,13 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   Harmony:           "musical",
   Media:             "sample",
   media:             "sample",
-  // Legacy shelf name; catalog id is now oms.
+  // Legacy shelf names; catalog id stays oms.
   Jerobeam:          "oms",
   jerobeam:          "oms",
   OMS:               "oms",
+  oms:               "oms",
+  "Oscillator 2D":   "oms",
+  Oscillator2D:      "oms",
   // "LED" was this department's own name before it widened to Object; keep the
   // alias so stored settings and old patches still resolve.
   LED:               "object",
@@ -804,10 +807,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["2d to 1d", "project", "lissajous", "rose", "butterfly", "superformula", "parametric", "xy"],
   },
   snowflake: {
-    category: "oscillator",
+    category: "oms",
     description: "Fractal turtle paths as stereo X/Y—ornamental motion and strange stereo voices.",
     label: "Snowflake",
-    notes: ["L-system", "turtle", "Koch", "fractal pattern synthesis", "RS-MET", "X/Y", "native", "wasm"],
+    notes: ["L-system", "turtle", "Koch", "fractal pattern synthesis", "RS-MET", "X/Y", "native", "wasm", "oms"],
   },
   dsfOscillator: {
     category: "oscillator",
