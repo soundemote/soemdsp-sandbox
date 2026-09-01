@@ -101,6 +101,14 @@ function commitNodeGraphHeaderNumberInput(input) {
   if (!input) {
     return;
   }
+  // Render Sample Start/End stay always-typeable — never lock them readOnly.
+  if (
+    input.classList?.contains("node-header-render-start-input")
+    || input.classList?.contains("node-header-render-end-input")
+    || input.closest?.(".node-header-render-range-field")
+  ) {
+    return;
+  }
   if (input.dataset.timingField) {
     updateNodeGraphPatchTimingFromHeader(input);
   } else if (input.dataset.audioField) {
@@ -127,6 +135,15 @@ function commitNodeGraphHeaderNumberInput(input) {
 function bindNodeGraphHeaderTimingWidgets(root = document) {
   for (const input of root.querySelectorAll(".node-header-timing-input")) {
     if (input.dataset.timingBound === "true") {
+      continue;
+    }
+    // Render Sample Start/End: own handlers in createNodeGraphHeaderRenderRangeInput
+    // + bindNodeGraphRenderRangeDoubleClick. Must not get drag-mode readOnly lock.
+    if (
+      input.classList.contains("node-header-render-start-input")
+      || input.classList.contains("node-header-render-end-input")
+      || input.closest(".node-header-render-range-field")
+    ) {
       continue;
     }
     // Global smoothing has its own drag/edit handlers (same as Command Center).
@@ -514,6 +531,7 @@ function createNodeGraphHeaderRenderRangeInput(className, label, defaultValue, o
   // be user-visible too.
   input.step = "any";
   input.type = "number";
+  input.readOnly = false;
   input.value = formatNodeSliderCompactNumber(defaultValue);
   input.setAttribute("aria-label", options.ariaLabel || label);
   input.addEventListener("keydown", (event) => {
@@ -645,10 +663,19 @@ function moveNodeGraphRenderRangeToDurationControl() {
   if (!dur) return;
   // Toolbar rebuild can recreate Start/End while the previous pair still lives
   // in the Render Sample row — duplicates then fight on change/blur (second
-  // edit looks broken). Keep a single field of each kind, mounted on `dur`.
+  // edit looks broken). Prefer the field already on `dur`; otherwise keep the
+  // first and mount it there. Drop the rest.
   for (const cls of [".node-header-render-start-input", ".node-header-render-end-input"]) {
     const inputs = Array.from(document.querySelectorAll(cls));
     let kept = null;
+    for (const input of inputs) {
+      const field = input?.closest(".node-header-render-range-field");
+      if (!field) continue;
+      if (field.parentElement === dur) {
+        kept = field;
+        break;
+      }
+    }
     for (const input of inputs) {
       const field = input?.closest(".node-header-render-range-field");
       if (!field) continue;
@@ -657,9 +684,15 @@ function moveNodeGraphRenderRangeToDurationControl() {
         if (field.parentElement !== dur) {
           dur.appendChild(field);
         }
+        // Undo any accidental readOnly lock from timing-widget binding.
+        input.readOnly = false;
         continue;
       }
-      field.remove();
+      if (field !== kept) {
+        field.remove();
+      } else {
+        input.readOnly = false;
+      }
     }
   }
   // These fields can be (re)created after the one-shot load-time binding in
