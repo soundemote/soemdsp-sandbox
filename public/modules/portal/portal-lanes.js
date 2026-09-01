@@ -126,7 +126,22 @@ function nodeGraphPortalLaneLetters(spec) {
 
 function nodeGraphPortalLaneDefinition(kind, spec) {
   const ports = spec.ports.slice();
-  const letters = nodeGraphPortalLaneLetters(spec);
+  // → = into the module (in), ← = thru out of the module.
+  const inArrow = "\u2192";
+  const outLabels = {};
+  const inLabels = {};
+  if (spec.hasMono) {
+    outLabels.Mono = NODE_GRAPH_THRU_SYMBOL;
+    inLabels.Mono = inArrow;
+  }
+  if (spec.hasLeft) {
+    outLabels.Left = NODE_GRAPH_THRU_SYMBOL;
+    inLabels.Left = inArrow;
+  }
+  if (spec.hasRight) {
+    outLabels.Right = NODE_GRAPH_THRU_SYMBOL;
+    inLabels.Right = inArrow;
+  }
   const aliases = {};
   if (spec.hasMono) {
     aliases.In = "Mono";
@@ -134,7 +149,7 @@ function nodeGraphPortalLaneDefinition(kind, spec) {
     aliases.Out = "Mono";
     aliases.Thru = "Mono";
     aliases[NODE_GRAPH_THRU_SYMBOL] = "Mono";
-    aliases["\u2192"] = "Mono";
+    aliases[inArrow] = "Mono";
   }
   if (spec.hasLeft) {
     aliases.L = "Left";
@@ -143,24 +158,21 @@ function nodeGraphPortalLaneDefinition(kind, spec) {
     aliases.R = "Right";
   }
   const isInlet = kind !== "outlet";
-  const single = ports.length === 1;
   return {
-    chrome: single ? "LayoutA" : "LayoutC",
+    // LayoutC keeps inlet + outlet columns so → / ← thru jacks stay visible.
+    chrome: "LayoutC",
     planRole: isInlet ? "source" : "sink",
     planFreeRun: true,
-    defaultWidthGu: single ? 2 : 4,
-    defaultHeightGu: spec.heightGu || (single ? 2 : 4),
-    defaultUi: {
-      buttonsHidden: true,
-      titleHidden: true,
-      ...(single ? { ioHidden: true } : {}),
-    },
-    hasFace: single,
-    inputAliases: isInlet ? {} : aliases,
-    inputLabels: isInlet ? {} : letters,
-    inputs: isInlet ? [] : ports.slice(),
+    defaultWidthGu: 4,
+    defaultHeightGu: spec.heightGu || (ports.length === 1 ? 2 : Math.max(2, ports.length + 1)),
+    defaultUi: { buttonsHidden: true, titleHidden: true },
+    hasFace: false,
+    // Both sides: in (→) and thru (←) for every portal lane module.
+    inputAliases: aliases,
+    inputLabels: inLabels,
+    inputs: ports.slice(),
     outputAliases: aliases,
-    outputLabels: isInlet ? letters : letters,
+    outputLabels: outLabels,
     outputs: ports.slice(),
     parameters: [],
   };
@@ -173,32 +185,38 @@ function registerNodeGraphPortalLaneFamily(kind) {
   const isOutlet = kind === "outlet";
   const noun = isOutlet ? "Out" : "In";
   for (const spec of NODE_GRAPH_PORTAL_LANE_SPECS) {
-    registerNodeGraphChromelessModule(nodeGraphPortalTypeName(kind, spec), {
-      label: `${noun} ${spec.label}`,
-      compactTile: spec.ports.length === 1,
-      customDisplayArea: spec.ports.length === 1,
-      definition: nodeGraphPortalLaneDefinition(kind, spec),
-      catalog: {
-        category: "portal",
-        description: isOutlet
-          ? `Patch ${spec.label} out of the graph.`
-          : `Live input ${spec.label} into the patch.`,
-        notes: [
-          "portal",
-          isOutlet ? "outlet" : "inlet",
-          "input",
-          "in",
-          spec.key,
-          spec.label,
-          `in ${spec.label}`,
-          "mono",
-          "left",
-          "right",
-          "m",
-          "l",
-          "r",
-        ],
-      },
-    });
+    registerNodeGraphPortalLaneFamilyEntry(kind, noun, spec);
   }
+}
+
+function registerNodeGraphPortalLaneFamilyEntry(kind, noun, spec) {
+  const isOutlet = kind === "outlet";
+  registerNodeGraphChromelessModule(nodeGraphPortalTypeName(kind, spec), {
+    label: `${noun} ${spec.label}`,
+    compactTile: false,
+    customDisplayArea: false,
+    definition: nodeGraphPortalLaneDefinition(kind, spec),
+    catalog: {
+      category: "portal",
+      description: isOutlet
+        ? `Patch ${spec.label} out of the graph (→ in, ← thru to speakers).`
+        : `Live input ${spec.label} into the patch (→ in, ← thru).`,
+      notes: [
+        "portal",
+        isOutlet ? "outlet" : "inlet",
+        "input",
+        "in",
+        "thru",
+        spec.key,
+        spec.label,
+        `in ${spec.label}`,
+        "mono",
+        "left",
+        "right",
+        "m",
+        "l",
+        "r",
+      ],
+    },
+  });
 }

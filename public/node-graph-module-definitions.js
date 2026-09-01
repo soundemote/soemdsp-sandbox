@@ -703,6 +703,7 @@ const nodeGraphModuleDefinitions = (
     chrome: NodeGraphModuleChromeLayout.LayoutA,
     customDisplayArea: true,
     displayHeightGu: 2,
+    uniqueInPatch: true,
     outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
     outputLabels: { Mono: "Mono", Left: "Left", Right: "Right" },
     outputs: ["Mono", "Left", "Right"],
@@ -13105,6 +13106,7 @@ const nodeGraphModuleDefinitions = (
   output: {
     planRole: "sink",
     displayType: "trace",
+    uniqueInPatch: true,
     // Capture Mono/Left/Right for stereo Trace (scope rings). Without this the
     // worklet only stored a scalar 0 for the speaker sink and the face stayed blank.
     visualSink: true,

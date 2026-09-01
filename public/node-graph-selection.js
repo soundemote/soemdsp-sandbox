@@ -564,11 +564,19 @@ function nodeGraphWireSelectionLabel(selection = nodeGraphMvp.selected) {
 }
 
 function nodeGraphNodeCanBeDeleted(node) {
-  return Boolean(node && node.type !== "output" && node.id !== "home");
+  if (!node) {
+    return false;
+  }
+  // Singleton app I/O — unique, always present, never deleted (APP_POLICY).
+  if (node.type === "output" || node.type === "audioInput" || node.id === "home") {
+    return false;
+  }
+  return true;
 }
 
 function nodeGraphNodeDeleteHidesOnly(node) {
-  return node?.type === "audioInput";
+  // Input used to "hide" on delete; it is undeleteable now (same as Output).
+  return false && node?.type === "audioInput";
 }
 
 function nodeGraphSelectionCanDelete(selection = nodeGraphMvp.selected) {

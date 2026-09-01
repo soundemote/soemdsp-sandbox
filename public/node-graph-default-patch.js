@@ -199,6 +199,10 @@ function createNodeGraphPatchNode(type, options = {}) {
 // polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
 const nodeGraphDefaultNodeConfigs = Object.freeze([
   {
+    ...createNodeGraphPatchNode("audioInput", { id: "audioInput", gx: -26, gy: -4 }),
+    params: { ...nodeGraphDefaultParamsForType("audioInput") },
+  },
+  {
     ...createNodeGraphPatchNode("polyBlep", { id: "polyBlep-1", gx: -18, gy: -4 }),
     params: {
       ...nodeGraphDefaultParamsForType("polyBlep"),

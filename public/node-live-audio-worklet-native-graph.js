@@ -51,6 +51,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   portalInletLeft: 131,
   portalInletRight: 131,
   portalInletLeftRight: 131,
+  // Singleton live Input (mic/line) — host capture bus TBD; native silence stub for plan.
+  audioInput: 132,
   lutCell: 34,
   lookaheadLimiter: 35,
   limiter: 109, // Pump Limiter

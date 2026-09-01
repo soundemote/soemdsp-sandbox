@@ -22,6 +22,8 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "xyPad",
   "keypad",
   "phoneTone",
+  // Singleton live Input — unique, undeleteable, shop-visible (APP_POLICY).
+  "audioInput",
   "macroControls",
   "keyboardController",
   "pitchModWheel",

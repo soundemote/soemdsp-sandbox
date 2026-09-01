@@ -1201,6 +1201,7 @@ static const int kTypePhoneTone = 129;
 // Chromeless patch portals (all lane variants share one process).
 static const int kTypePortalOutlet = 130;
 static const int kTypePortalInlet = 131;
+static const int kTypeAudioInput = 132;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -7128,13 +7129,33 @@ static void process_portal_outlet(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Portal inlet: live mic bus not wired into graph_engine yet → silence (+ future host bus).
+// Portal inlet: wired →/← thru mix; live mic bus not in graph_engine yet (silence addend).
 static void process_portal_inlet(Circuit& g, Node& node, int frames) {
-  (void)g;
+  mix_node_inputs(g, node, frames);
+  bool hasMonoIn = false, hasLeftIn = false, hasRightIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  (void)monoOutWired;
   for (int f = 0; f < frames; f++) {
-    node.buf[kPortMono][f] = 0.0;
-    node.buf[kPortLeft][f] = 0.0;
-    node.buf[kPortRight][f] = 0.0;
+    const double m = hasMonoIn ? g.mixMono[f] : 0.0;
+    const double lIn = hasLeftIn ? g.mixLeft[f] : 0.0;
+    const double rIn = hasRightIn ? g.mixRight[f] : 0.0;
+    const double left = (hasMonoIn ? m : 0.0) + (hasLeftIn ? lIn : 0.0);
+    const double right = (hasMonoIn ? m : 0.0) + (hasRightIn ? rIn : 0.0);
+    double mid = 0.0;
+    if (hasMonoIn && hasLeftIn && hasRightIn) {
+      mid = m + (lIn + rIn) * 0.5;
+    } else if (hasLeftIn && hasRightIn) {
+      mid = (left + right) * 0.5;
+    } else if (hasMonoIn) {
+      mid = m;
+    } else if (hasLeftIn) {
+      mid = left;
+    } else {
+      mid = right;
+    }
+    node.buf[kPortMono][f] = mid;
+    node.buf[kPortLeft][f] = left;
+    node.buf[kPortRight][f] = right;
   }
 }
 
@@ -7153,6 +7174,8 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeTransport
     || node.typeId == kTypeAliasSine
     || node.typeId == kTypePhoneTone
+    || node.typeId == kTypeAudioInput
+    || node.typeId == kTypePortalInlet
     || node.typeId == kTypeBlit
     || node.typeId == kTypeSineWavetable
     || node.typeId == kTypeAntisaw
@@ -8163,6 +8186,15 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     }
     if (node.typeId == kTypePortalInlet) {
       process_portal_inlet(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAudioInput) {
+      // Host mic bus not in graph_engine yet — silence (module stays plan-legal).
+      for (int f = 0; f < frames; f++) {
+        node.buf[kPortMono][f] = 0.0;
+        node.buf[kPortLeft][f] = 0.0;
+        node.buf[kPortRight][f] = 0.0;
+      }
       continue;
     }
     // unknown: silence

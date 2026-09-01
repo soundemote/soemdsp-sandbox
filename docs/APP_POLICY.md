@@ -142,7 +142,8 @@ Only these live-audio types exist in the efficient build:
 | `crossover4` | Stereo Linkwitz–Riley 4-way crossover |
 | `crossover5` | Stereo Linkwitz–Riley 5-way crossover |
 | `crossover6` | Stereo Linkwitz–Riley 6-way crossover |
-| `output` | Sink |
+| `output` | Sink (singleton — unique, undeleteable) |
+| `audioInput` | Live mic/line Input (singleton — unique, undeleteable; host capture bus TBD) |
 
 Canonical circuit:
 
@@ -174,7 +175,9 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    as utilities)
 ```
 
-**Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` and chromeless **Portal In/Out** lane modules (`portalInlet*` / `portalOutlet*`) may remain — outlets thru-mix into the speaker bus; inlets stay silent until a host mic bus is wired. Singleton `audioInput` is **not** on the allowlist unless a demo explicitly needs it (strip with other DSP for now).
+**Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` and chromeless **Portal In/Out** lane modules (`portalInlet*` / `portalOutlet*`) may remain — each lane shows → in and ← thru jacks; outlets also thru-mix into the speaker bus.
+
+**Singleton app I/O:** exactly one `output` and one `audioInput` may exist in a patch. Both are shop-visible, `uniqueInPatch`, and **must not be deleted**. Day-to-day routing should prefer Portal In/Out modules; the singletons stay as the app-wide mic/speaker endpoints.
 
 **SSOT:** `public/node-graph-efficient-product.js` — used by module shop / Add Module **and** live plan refuse (host + worklet `setPlan`).
 

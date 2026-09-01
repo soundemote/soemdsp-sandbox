@@ -7,25 +7,7 @@ function defaultNodeGraphModuleGridPoint(type) {
 }
 
 function ensureNodeGraphLiveInputModule() {
-  // audioInput is not on the MVEP allowlist — do not inject it in efficient product.
-  if (typeof nodeGraphEfficientProductEnabled === "function" && nodeGraphEfficientProductEnabled()) {
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp(NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS || "not in efficient build");
-    }
-    if (typeof setNodeGraphLiveInputStatus === "function") {
-      setNodeGraphLiveInputStatus(
-        "blocked",
-        NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS || "not in efficient build",
-      );
-    }
-    if (typeof setNodeGraphScriptStatus === "function") {
-      setNodeGraphScriptStatus(
-        NODE_GRAPH_EFFICIENT_PRODUCT_FOREIGN_STATUS || "not in efficient build",
-        false,
-      );
-    }
-    return false;
-  }
+  // Singleton Input — always allowed; unique in patch (APP_POLICY).
   if (nodeGraphMvp.patch.nodes.some((node) => node.type === "audioInput")) {
     return false;
   }
