@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
 # Human-readable ship label (date + short codename). Prefer dotted dates over
 # opaque timestamps so the toolbar readout stays demystified for users.
-BUILD_NUMBER = "2026.8.24.1"
+BUILD_NUMBER = "2026.9.1.1"
 VERSION_FILE = ROOT / "VERSION"
 SANDBOX_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "0.0.0"
 # Per-build stamp: random A–Z/0–9, re-rolled when the server starts OR when
