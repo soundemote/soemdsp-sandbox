@@ -2704,6 +2704,8 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
     gatePulse: options.preserveGatePulse ? (Number(signal.gatePulse) > 0 ? 1 : 0) : 0,
     x: nodeGraphMidiKeyboardClamp01(signal.x ?? keyQuantized),
     y: nodeGraphMidiKeyboardClamp01(signal.y ?? 0),
+    // 0–1 MIDI/pointer velocity; separate from mouse Y.
+    velocity: nodeGraphMidiKeyboardClamp01(signal.velocity ?? 0),
     keyIndex,
     keyQuantized,
     rawMidi,
@@ -2991,6 +2993,7 @@ function nodeGraphMidiKeyboardSignalFromRaw(rawMidi, options = {}) {
     gatePulse: options.gatePulse ? 1 : 0,
     x: nodeGraphMidiKeyboardClamp01(options.x ?? keyQuantized),
     y: nodeGraphMidiKeyboardClamp01(options.y ?? 0),
+    velocity: nodeGraphMidiKeyboardClamp01(options.velocity ?? 0),
     keyIndex: rawKeyIndex,
     keyQuantized,
     rawMidi: Math.round(Number(rawMidi) || 0),
@@ -3035,17 +3038,23 @@ function nodeGraphMidiKeyboardSignalFromPointer(event, surface) {
     gate,
     x,
     y,
+    // Pointer does not invent MIDI velocity; keep last velocity if any.
+    velocity: nodeGraphMvp.midiKeyboardSignal?.velocity ?? 0,
   });
 }
 
 function nodeGraphMidiKeyboardSignalFromMidi(midiValue, velocityValue = 0, gateValue = 0, pulseValue = 0) {
   const rawMidi = Math.max(0, Math.min(127, Math.round(Number(midiValue) || 0)));
   const velocity = Math.max(0, Math.min(127, Math.round(Number(velocityValue) || 0)));
+  const prev = nodeGraphMvp.midiKeyboardSignal;
   return nodeGraphMidiKeyboardSignalFromRaw(rawMidi, {
     source: "midi",
     gate: gateValue ? 1 : 0,
     gatePulse: pulseValue ? 1 : 0,
-    y: velocity / 127,
+    // Keep last mouse X/Y; velocity is separate from Y.
+    x: prev?.x,
+    y: prev?.y ?? 0,
+    velocity: velocity / 127,
   });
 }
 
@@ -3175,7 +3184,7 @@ function renderNodeGraphMidiKeyboardSignal(signal = null) {
       ? nodeGraphMidiKeyboardFixedDecimal(nextSignal.y, { decimalPlaces: 3, maxDigits: 4, width: 5 })
       : nodeGraphMidiKeyboardFixedDecimal(0, { decimalPlaces: 3, maxDigits: 4, width: 5 }),
     velocity: nextSignal
-      ? nodeGraphMidiKeyboardFixedInteger(Math.round(nodeGraphMidiKeyboardClamp01(nextSignal.y) * 127), 3, "0")
+      ? nodeGraphMidiKeyboardFixedInteger(Math.round(nodeGraphMidiKeyboardClamp01(nextSignal.velocity ?? 0) * 127), 3, "0")
       : nodeGraphMidiKeyboardFixedText("-", 3),
   };
   document.querySelectorAll(".node-midi-keyboard-module [data-keyboard-signal]").forEach((field) => {

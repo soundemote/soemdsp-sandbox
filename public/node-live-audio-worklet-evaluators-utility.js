@@ -30,6 +30,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
         const x = resetActive ? 0.5 : (hasInput(nodeId, "X")
           ? this.clampValue(Number(mixInput(nodeId, "X")) || 0, 0, 1)
           : this.clampValue(Number(signal.x) || q, 0, 1));
+        // Y is mouse/pointer vertical position only — not MIDI velocity.
         const y = resetActive ? 0 : (hasInput(nodeId, "Y")
           ? this.clampValue(Number(mixInput(nodeId, "Y")) || 0, 0, 1)
           : this.clampValue(Number(signal.y) || 0, 0, 1));
@@ -37,9 +38,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
           ? (Number(mixInput(nodeId, "Gate")) > 0 ? 1 : 0)
           : (Number(signal.gate) > 0 ? 1 : 0));
         const hold = hasInput(nodeId, "Hold") && Number(mixInput(nodeId, "Hold")) > 0 ? 1 : 0;
-        const velocity = hasInput(nodeId, "Velocity")
+        const velocity01 = hasInput(nodeId, "Velocity")
           ? this.clampValue(Number(mixInput(nodeId, "Velocity")) || 0, 0, 1)
-          : y;
+          : this.clampValue(Number(signal.velocity) || 0, 0, 1);
+        const velocityNumber = Math.round(velocity01 * 127);
         const gatePulse = this.midiKeyboardGatePulseSamples > 0 ? 1 : 0;
         this.midiKeyboardGatePulseSamples = Math.max(0, this.midiKeyboardGatePulseSamples - 1);
         // Held Keys phase-bit multiplexing -- see the design note on
@@ -59,16 +61,18 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
         }
         return {
           Trigger: hasInput(nodeId, "Gate") ? gate : gatePulse,
-          "0.1V/Oct": this.clampValue(midi / 120, 0, 1),
-          Double: this.clampValue(midi / 127, 0, 1),
+          "0.1v/Oct": this.clampValue(midi / 120, 0, 1),
+          "Note#/127": this.clampValue(midi / 127, 0, 1),
           Frequency: outputFrequency,
           Gate: Math.max(gate, hold),
           Increment: increment,
-          Key: key,
+          KeyboardKey: key,
           NoteNumber: midi,
-          Q: q,
+          KeyboardNorm: q,
+          "Velocity#": velocityNumber,
+          "Velocity#/127": velocity01,
           X: x,
-          Y: velocity,
+          Y: y,
           "Held Keys": heldKeysTransmitValue,
         };
       },

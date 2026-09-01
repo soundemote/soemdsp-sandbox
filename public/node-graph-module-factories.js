@@ -798,11 +798,12 @@ function createNodeGraphKeyboardControllerBody(node = null) {
     ["gate", "gate", "0"],
     ["gatePulse", "trig", "0"],
     ["key", "key", "-"],
-    ["quantized", "q", "-"],
+    ["quantized", "norm", "-"],
     ["octave", "oct", "+0"],
     ["midi", "note#", "-"],
-    ["double", "double", "-"],
-    ["tenthVoltPerOctave", ".1v/oct", "-"],
+    ["double", "note#/127", "-"],
+    ["velocity", "vel#", "-"],
+    ["tenthVoltPerOctave", "0.1v/oct", "-"],
     ["increment", "inc", "-"],
   ];
   for (const [key, labelText, valueText] of signals) {
