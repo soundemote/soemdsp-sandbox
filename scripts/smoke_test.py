@@ -10920,6 +10920,7 @@ def require_node_graph_mvp_contract() -> None:
         "mic armed",
         "mic asking",
         "mic live",
+        "mic paused",
         "mic blocked",
         "function setNodeGraphLiveInputMeter(",
         "function updateNodeGraphLiveInputTestStatus()",

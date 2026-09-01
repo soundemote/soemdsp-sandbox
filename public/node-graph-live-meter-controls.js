@@ -164,7 +164,9 @@ function nodeGraphLiveMicStatusText(state = nodeGraphMvp.live.micStatus) {
     case "blocked":
       return "mic blocked";
     case "connected":
-      return "mic live";
+      return typeof nodeGraphLiveEngineIsPaused === "function" && nodeGraphLiveEngineIsPaused()
+        ? "mic paused"
+        : "mic live";
     case "requesting":
       return "mic asking";
     default:

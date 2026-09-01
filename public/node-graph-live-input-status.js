@@ -20,17 +20,20 @@ function setNodeGraphLiveMicStatus(state, message = "") {
   if (!status) {
     return;
   }
+  const pausedConnected = state === "connected"
+    && typeof nodeGraphLiveEngineIsPaused === "function"
+    && nodeGraphLiveEngineIsPaused();
   const textByState = {
     armed: "mic armed",
     blocked: "mic blocked",
-    connected: "mic live",
+    connected: pausedConnected ? "mic paused" : "mic live",
     off: "mic off",
     requesting: "mic asking",
   };
   const classByState = {
     armed: "warn",
     blocked: "error",
-    connected: "good",
+    connected: pausedConnected ? "warn" : "good",
     off: "",
     requesting: "warn",
   };
