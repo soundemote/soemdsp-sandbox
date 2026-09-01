@@ -1865,7 +1865,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "On: after random, snap each overtone to the nearest multiple of the fundamental reference (1×,2×,3×,…) or division (½×,¼×,…). Fund slot is never snapped.",
+        tooltip: "On: hard harmonic grid. Random is applied first, then each overtone snaps to the nearest fund multiple (1×,2×,3×,…) or dyadic (½×,¼×,…). No glide between slots. Fund slot is never snapped.",
       },
       {
         defaultValue: "0",
@@ -1876,7 +1876,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         outputDomain: true,
-        tooltip: "Before quantize: bipolar per-partial random × amount (±). Spreads ratios up and down around the current value.",
+        tooltip: "Bipolar per-partial random × amount (±) before snap. With Quantize On, moving this jumps between harmonic slots (not a continuous slide). Off: free detune.",
       },
       {
         choices: ["Off", "On"],

@@ -519,14 +519,23 @@ function additiveGraphApplyQuantizePhase(
  * still snap to the original fund reference (fund slot itself is never snapped).
  * Stamps ratioLerp. Returns { graph, lerpFrom }.
  */
+function additiveGraphNormalizeQuantizeOn(value) {
+  if (value === true || value === 1 || value === "1") return 1;
+  const n = Number(value);
+  if (Number.isFinite(n)) return n >= 0.5 ? 1 : 0;
+  const s = String(value ?? "").trim().toLowerCase();
+  if (s === "on" || s === "true" || s === "yes") return 1;
+  return 0;
+}
+
 function additiveGraphApplyQuantizeFreq(
   graph, quantize = 0, randomAmount = 0, seed = 1, lerpFrom = null, affectFundamental = 0,
 ) {
   if (!graph || !graph.harmonics) return { graph, lerpFrom: null };
   const H = graph.harmonics | 0;
   if (H < 1) return { graph, lerpFrom: null };
-  const doQuant = Math.round(Number(quantize) || 0) === 1;
-  const affectFund = Math.round(Number(affectFundamental) || 0) === 1;
+  const doQuant = additiveGraphNormalizeQuantizeOn(quantize) === 1;
+  const affectFund = additiveGraphNormalizeQuantizeOn(affectFundamental) === 1;
   const amtRaw = Number(randomAmount);
   const amt = Number.isFinite(amtRaw) ? amtRaw : 0;
   const seedN = Number(seed);
@@ -561,19 +570,24 @@ function additiveGraphApplyQuantizeFreq(
     }
     to[i] = Math.max(0, r);
   }
+  if (!affectFund) {
+    to[0] = fund;
+  }
+  graph.ratio.set(to);
+  graph.ratioNoise = null;
+  if (doQuant) {
+    // Hard grid — no quantum glide between snap slots (that sounded continuous).
+    graph.ratioLerp = null;
+    return { graph, lerpFrom: null };
+  }
   let from;
   if (lerpFrom && lerpFrom.length === H) {
     from = new Float32Array(lerpFrom);
   } else {
     from = new Float32Array(to);
   }
-  if (!affectFund) {
-    from[0] = fund;
-    to[0] = fund;
-  }
+  if (!affectFund) from[0] = fund;
   graph.ratioLerp = { from, to };
-  graph.ratio.set(to);
-  graph.ratioNoise = null;
   return { graph, lerpFrom: new Float32Array(to) };
 }
 

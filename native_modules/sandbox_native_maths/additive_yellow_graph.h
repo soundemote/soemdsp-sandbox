@@ -1092,8 +1092,10 @@ inline void apply_frequency_skew(
 // Random (bipolar) first, then optional snap. qFund reference is always the
 // pre-random fundamental. affectFundamental: Off = lock ratio[0]; On = random
 // may move ratio[0] but overtones still snap to the original fund reference.
-// Always stamps ratioLerp when active so Out does not keep an upstream
-// NoisyFreq/Skew hasRatioLerp plane and ignore the snapped ratios.
+//
+// Quantize On → hard grid: write ratio[] and CLEAR hasRatioLerp so Out cannot
+// glide between snap slots (quantum lerp made RandomAmt sound continuous).
+// Random-only → keep ratioLerp for click-free amount changes.
 inline void apply_quantize_freq(
   GraphPayload& g,
   float quantizeOn,
@@ -1105,8 +1107,9 @@ inline void apply_quantize_freq(
 ) {
   const int H = g.harmonics;
   if (H < 1 || H > kMaxHarmonics) return;
-  const int doQuant = (int)(quantizeOn + (quantizeOn >= 0.0f ? 0.5f : -0.5f)) == 1;
-  const int affectFund = (int)(affectFundamental + (affectFundamental >= 0.0f ? 0.5f : -0.5f)) == 1;
+  // Treat any value clearly above half as On (choice knobs / smoothed leftovers).
+  const int doQuant = quantizeOn >= 0.5f ? 1 : 0;
+  const int affectFund = affectFundamental >= 0.5f ? 1 : 0;
   const float amt = (randomAmount * 0.0f == 0.0f) ? randomAmount : 0.0f;
   const float seedN = (seed * 0.0f == 0.0f) ? seed : 1.0f;
   if (!doQuant && !(soemdsp_maths::dsp_fabs((double)amt) > 1e-12)) return;
@@ -1118,7 +1121,7 @@ inline void apply_quantize_freq(
   if (!(fund * 0.0f == 0.0f)) fund = 0.0f;
   const float qFund = soemdsp_maths::dsp_fabs((double)fund) > 1e-12 ? fund : 1.0f;
   const unsigned int seedUse = (unsigned int)(long long)soemdsp_maths::dsp_floor((double)seedN);
-  const bool havePrev = lerpFrom && lerpFromLen == H;
+  const bool havePrev = !doQuant && lerpFrom && lerpFromLen == H;
   for (int i = 0; i < H; i += 1) {
     float r;
     if (i == 0 && !affectFund) {
@@ -1137,20 +1140,30 @@ inline void apply_quantize_freq(
       }
       if (r < 0.0f) r = 0.0f;
     }
-    g.ratioTo[i] = r;
-    g.ratioFrom[i] = havePrev ? lerpFrom[i] : r;
     g.ratio[i] = r;
-    if (lerpFrom) lerpFrom[i] = r;
+    if (!doQuant) {
+      g.ratioTo[i] = r;
+      g.ratioFrom[i] = havePrev ? lerpFrom[i] : r;
+      if (lerpFrom) lerpFrom[i] = r;
+    }
   }
   if (!affectFund) {
-    g.ratioFrom[0] = fund;
-    g.ratioTo[0] = fund;
     g.ratio[0] = fund;
-    if (lerpFrom) lerpFrom[0] = fund;
+    if (!doQuant) {
+      g.ratioFrom[0] = fund;
+      g.ratioTo[0] = fund;
+      if (lerpFrom) lerpFrom[0] = fund;
+    }
   }
-  g.hasRatioLerp = 1;
   noise_recipe_clear(g.ratioNoise);
-  if (lerpFrom) lerpFromLen = H;
+  if (doQuant) {
+    // Hard grid — Out must read ratio[], not a glide plane.
+    g.hasRatioLerp = 0;
+    if (lerpFrom) lerpFromLen = 0;
+  } else {
+    g.hasRatioLerp = 1;
+    if (lerpFrom) lerpFromLen = H;
+  }
 }
 
 inline void apply_quantize_phase(GraphPayload& g, float quantizeOn, float randomAmount, float seed) {

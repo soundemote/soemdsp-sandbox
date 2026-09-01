@@ -975,7 +975,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
   };
   // Enum / choice knobs: snapped domain target (MOD still folded, then rounded).
   const readDiscrete = (node, key, fallback) => {
-    let v = Number(node?.params?.[key]);
+    const bag = node?.params || node?.parameters || {};
+    let raw = bag[key];
+    if (raw === true) raw = 1;
+    if (raw === false) raw = 0;
+    if (typeof raw === "string") {
+      const s = raw.trim().toLowerCase();
+      if (s === "on" || s === "true" || s === "yes") raw = 1;
+      else if (s === "off" || s === "false" || s === "no") raw = 0;
+    }
+    let v = Number(raw);
     if (!Number.isFinite(v)) v = fallback;
     if (typeof this.foldEfficientParamModulations === "function") {
       v = this.foldEfficientParamModulations(node, key, v);
@@ -2053,10 +2062,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       || type === "additiveHarmonicMath"
       || type === "additiveFrequencyMath"
     ) {
-      const qKey = Object.prototype.hasOwnProperty.call(node?.params || {}, "quantizeFreq")
+      const bag = node?.params || node?.parameters || {};
+      const qKey = Object.prototype.hasOwnProperty.call(bag, "quantizeFreq")
+        || bag.quantizeFreq != null
         ? "quantizeFreq"
-        : "quantize";
-      push(qKey, P.NATIVE_GRAPH_PARAM_MODE, disc(qKey, 0));
+        : (bag.quantize != null ? "quantize" : "quantizeFreq");
+      // Always write MODE from the active choice key (On must reach native).
+      push("quantizeFreq", P.NATIVE_GRAPH_PARAM_MODE, disc(qKey, 0));
       push("randomFreqAmount", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomFreqAmount", 0));
       push("affectFundamental", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("affectFundamental", 0));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));

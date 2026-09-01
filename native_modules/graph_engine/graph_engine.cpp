@@ -8128,5 +8128,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 97; // QuantizeFreq stamps ratioLerp (fixes mute after Noisy/Skew)
+  return 98; // QuantizeFreq hard grid (no quantum glide when On)
 }
