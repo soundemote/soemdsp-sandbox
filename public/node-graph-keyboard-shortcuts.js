@@ -268,6 +268,22 @@ function handleNodeGraphKeydown(event) {
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.code === "Space") {
     event.preventDefault();
     event.stopPropagation();
+    // If Input/Output (or another toolbar toggle) still has focus after a click,
+    // blur it so Space cannot also synthesize a button click / toggle-off.
+    const active = document.activeElement;
+    if (
+      active
+      && active !== document.body
+      && typeof active.blur === "function"
+      && (
+        active.id === "nodeLiveInputButton"
+        || active.id === "nodeLiveOutputButton"
+        || active.classList?.contains("node-live-toggle")
+        || active.closest?.(".node-live-toggle-palette")
+      )
+    ) {
+      active.blur();
+    }
     // Space is play/pause, not the dedicated Play button (play never pauses).
     if (typeof nodeGraphTransportHandleAction === "function") {
       nodeGraphTransportHandleAction("playpause");

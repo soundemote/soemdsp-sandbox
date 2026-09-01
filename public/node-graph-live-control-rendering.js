@@ -136,9 +136,13 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
     }
     const inputActive = Boolean(nodeGraphMvp.live.inputActive);
     const inputStreaming = Boolean(nodeGraphMvp.live.inputStream);
-    const inputPaused = inputActive && transportState === "paused";
-    const inputStarting = inputActive && transportState === "starting";
-    const inputLive = inputActive && (transportState === "playing" || inputStarting);
+    // Prefer speed+engine for pause so a transient transport string cannot
+    // drop both .active and .paused (grey flash) while Input stays armed.
+    const enginePaused = typeof nodeGraphLiveEngineIsPaused === "function"
+      ? nodeGraphLiveEngineIsPaused()
+      : transportState === "paused";
+    const inputPaused = inputActive && (enginePaused || transportState === "paused");
+    const inputStarting = inputActive && transportState === "starting" && !inputPaused;
     if (!inputActive && !["blocked", "off"].includes(nodeGraphMvp.live.inputStatus)) {
       setNodeGraphLiveInputStatus("off");
     } else if (
@@ -164,7 +168,9 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
     ) {
       setNodeGraphLiveMicStatus("armed", "Allow microphone access when the browser prompts.");
     }
-    inputButton.classList.toggle("active", inputLive);
+    // Armed Input is always red (.active or .paused). Never leave an armed
+    // control with neither class (reads as grey Off).
+    inputButton.classList.toggle("active", inputActive && !inputPaused);
     inputButton.classList.toggle("paused", inputPaused);
     inputButton.setAttribute("aria-pressed", inputActive ? "true" : "false");
     inputButton.disabled = false;
@@ -175,7 +181,7 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
       inputActive,
       inputPaused ? "Paused"
         : inputStarting ? "Starting"
-        : inputLive ? "Live"
+        : inputActive ? "Live"
         : null,
     );
     inputButton.title = inputStreaming

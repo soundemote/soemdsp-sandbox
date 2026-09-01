@@ -87,14 +87,13 @@ function fitNodeLiveToggleText() {
   const spans = document.querySelectorAll(
     ".node-live-toggle-palette .node-live-toggle span, #nodeRenderButton span",
   );
-  for (const span of spans) {
-    span.style.fontSize = "1px";
-  }
-
+  // Do not blank labels to 0/1px before measuring. Pause/Live label swaps
+  // retrigger this via ResizeObserver; zeroing fontSize made Input/Output look
+  // grey/empty until a later layout pass restored text (often seconds later).
   for (const span of spans) {
     const maxSize = Math.max(0, span.clientHeight - 1);
     if (maxSize <= 0 || textScale <= 0) {
-      span.style.fontSize = "0px";
+      // Keep the previous size until the button has a real content box.
       continue;
     }
 
@@ -108,7 +107,8 @@ function fitNodeLiveToggleText() {
         high = mid;
       }
     }
-    span.style.fontSize = `${Math.max(0, low * textScale).toFixed(3)}px`;
+    const next = Math.max(1, low * textScale);
+    span.style.fontSize = `${next.toFixed(3)}px`;
   }
 }
 

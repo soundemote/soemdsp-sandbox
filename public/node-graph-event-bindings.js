@@ -22,7 +22,7 @@ async function bindNodeGraphMvpEvents() {
     // already prevents this for events that reach it, but a focused scrollable
     // element can scroll first -- so guard Space in the capture phase too,
     // except inside real text-editing fields where a space is legitimate.
-    document.addEventListener("keydown", (event) => {
+    const preventSpaceDefault = (event) => {
       if (event.code !== "Space" && event.key !== " ") {
         return;
       }
@@ -44,8 +44,12 @@ async function bindNodeGraphMvpEvents() {
           return;
         }
       }
+      // keydown + keyup: cancel default so a focused Input/Output button does
+      // not synthesize a click when Space is used for transport pause/play.
       event.preventDefault();
-    }, true);
+    };
+    document.addEventListener("keydown", preventSpaceDefault, true);
+    document.addEventListener("keyup", preventSpaceDefault, true);
     // Capture-phase: release text focus when the user works the patch.
     // Module drag / slider handlers call preventDefault on pointerdown, which
     // blocks the browser's normal "click outside blurs input" behavior — so
