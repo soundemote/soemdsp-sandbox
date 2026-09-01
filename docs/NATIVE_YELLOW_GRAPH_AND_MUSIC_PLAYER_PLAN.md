@@ -21,8 +21,9 @@ Parked (not this cut): sample-accurate Additive mod packets (`docs/ADDITIVE_SAMP
 
 ## Checkpoint
 
-- Local commit `8f0d03b8` (Additive JS work + docs). **Push still failing** (HTTP 408) — retry separately.
-- Efficient Live already native for most allowlisted types; these two peels are the audio-thread blockers.
+- **Music Player:** native done (id 110); efficient peel removed.
+- **Yellow Graph A1+A2:** opcodes **111–124** native; Yellow JS sidecar **removed** from efficient worklet blob.
+- Local commits may still be ahead of origin (push 408 historically) — retry separately.
 
 ---
 

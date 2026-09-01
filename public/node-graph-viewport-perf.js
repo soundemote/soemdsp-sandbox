@@ -332,7 +332,7 @@ var NODE_GRAPH_VIEWPORT_ASLEEP_SKIP_SEL = [
 /**
  * True when measuring this node would force-render a content-visibility:hidden
  * band (Chrome: "Rendering was performed in a subtree hidden by content-visibility").
- * I/O columns stay painted on asleep modules — only face / params / custom UI skip.
+ * Asleep modules use display:none (whole node). Jack census skips them.
  */
 function nodeGraphElementInSkippedContentVisibility(element) {
   if (!element?.closest) {

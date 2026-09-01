@@ -1299,6 +1299,15 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
         this.pluckEnvelopeStates.delete(id);
       }
     }
+    if (this.pluckEnvelopeModStates) {
+      for (const id of [...this.pluckEnvelopeModStates.keys()]) {
+        if (!ids.has(id)) {
+          this.destroyPluckEnvelopeNativeState(this.pluckEnvelopeModStates.get(id));
+          this.pluckEnvelopeModStates.delete(id);
+          this.additiveModStrips?.delete?.(id);
+        }
+      }
+    }
     for (const id of [...this.stepSequencerStates.keys()]) {
       if (!ids.has(id)) {
         this.destroyStepSequencerNativeState(this.stepSequencerStates.get(id));

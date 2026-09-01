@@ -255,7 +255,7 @@ registerNodeGraphChromelessModule("fbmField", {
         label: "Seed",
         linearSmoothing: false,
         max: "99999",
-        maxDigits: 5,
+        maxDigits: 0,
         mid: "1",
         min: "0",
         step: "1",

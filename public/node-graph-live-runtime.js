@@ -3063,18 +3063,16 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-handle-message.js?v=wasm-plan-race-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
-  // Yellow Graph additive chain (efficient Live sidecar until native Yellow Graph).
-  "./public/modules/additiveGraph/additive-graph-math.js?v=bubble-wave-1",
-  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=gen-int-harm-1",
+  // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
   "./public/modules/additiveGraph/additive-param-smooth.js?v=gen-int-harm-1",
-  "./public/modules/additiveGraph/additive-yellow-graph-sidecar.js?v=filter-hp-fix-1",
-  // Music Player interim JS peel (APP_POLICY §0b exception) until native PCM upload.
-  "./public/modules/audioPlayer/audio-player-math.js?v=mp-time-io-1",
-  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=mp-aa-1",
-  "./public/modules/audioPlayer/audio-player-efficient-sidecar.js?v=mp-eff-1",
-  // Additive Envelope (block-rate) reuses Curve Envelope math.
+
+  // CurveEnvelopeMod + sample-accurate mod packets (Bubble Cutoff proof).
   "./public/modules/expAdsr/exp-adsr-math.js?v=env-uot-1",
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=env-uot-1",
+  "./public/modules/additiveGraph/additive-mod-control.js?v=mod-proof-4",
+  // Do NOT load pluck-envelope-live-evaluator.js here — it registers into
+  // nodeGraphLiveModuleEvaluators (main-thread / full only). PluckEnvelopeMod
+  // bakes strips via native soemdsp_pluck_envelope_* (C++), not JS DSP.
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=mod-proof-4",
   "./public/node-live-audio-worklet-process.js?v=mp-eff-1",
 ];
 

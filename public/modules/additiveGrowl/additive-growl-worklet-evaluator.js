@@ -20,21 +20,22 @@ NodeLiveAudioProcessor.prototype.additiveBubbleWorkletEvaluate = function additi
   const out = additiveGraphClonePayload(incoming);
   const id = String(nodeId);
   let state = this.additiveBubbleStates.get(id) || {};
-  let cutoff = num(p.cutoff, NaN);
-  if (!(cutoff === cutoff)) {
-    const legacy = num(p.harmonicReduce, NaN);
-    cutoff = legacy === legacy ? 1 - legacy : 1;
-  }
+  const cutoff = num(p.cutoff, 1);
   const phaseSkew = additiveGraphBubbleEffectivePhaseSkew(
     num(p.phaseSkew, 0),
-    num(p.unskew, 0),
+    num(p.unskew, 481.53),
     cutoff,
   );
+  let bubble = Math.max(0, Math.min(1, num(p.bubble, 0)));
+  const invert = num(p.invertBubble, 0) >= 0.5;
+  let curveAmt = invert ? -bubble : bubble;
+  if (curveAmt > 0.9999) curveAmt = 0.9999;
+  if (curveAmt < -0.9999) curveAmt = -0.9999;
   const applied = additiveGraphApplyGrowl(
     out,
-    0, // phase rotation removed
+    0,
     phaseSkew,
-    num(p.phaseSkewCurve, 0),
+    curveAmt,
     2, // Logarithmic
     cutoff,
     0,
@@ -44,6 +45,3 @@ NodeLiveAudioProcessor.prototype.additiveBubbleWorkletEvaluate = function additi
   this.additiveGraphWrite(nodeId, applied?.graph || out);
 };
 
-// Legacy name kept so older worklet bundles still resolve during hot reload.
-NodeLiveAudioProcessor.prototype.additiveGrowlWorkletEvaluate =
-  NodeLiveAudioProcessor.prototype.additiveBubbleWorkletEvaluate;

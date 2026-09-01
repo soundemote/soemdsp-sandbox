@@ -1253,6 +1253,11 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         for (const state of this.pluckEnvelopeStates.values()) {
           this.destroyPluckEnvelopeNativeState(state);
         }
+        if (this.pluckEnvelopeModStates) {
+          for (const state of this.pluckEnvelopeModStates.values()) {
+            this.destroyPluckEnvelopeNativeState(state);
+          }
+        }
         this.nativePluckEnvelope = exports;
         this.nativePluckEnvelopeReady = Boolean(
           this.nativePluckEnvelope?.soemdsp_pluck_envelope_create &&

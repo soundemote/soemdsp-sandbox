@@ -19,7 +19,6 @@ function nodeGraphAdditiveBubbleLiveEvaluator({ node, nodeId, runtime, frame, fr
       const n = Number(p[key]);
       return Number.isFinite(n) ? n : fallback;
     })());
-  // Once per offline block (frame 0) — match worklet quantum behavior.
   if (frame !== 0 && frame != null) {
     const held = nodeGraphAdditiveBubbleStates.get(String(nodeId))?.graph;
     if (held && typeof writeNodeGraphDataOutput === "function") {
@@ -30,21 +29,22 @@ function nodeGraphAdditiveBubbleLiveEvaluator({ node, nodeId, runtime, frame, fr
   const out = additiveGraphClonePayload(incoming);
   const id = String(nodeId);
   let state = nodeGraphAdditiveBubbleStates.get(id) || {};
-  let cutoff = read("cutoff", NaN);
-  if (!(cutoff === cutoff)) {
-    const legacy = read("harmonicReduce", NaN);
-    cutoff = legacy === legacy ? 1 - legacy : 1;
-  }
+  const cutoff = read("cutoff", 1);
   const phaseSkew = additiveGraphBubbleEffectivePhaseSkew(
     read("phaseSkew", 0),
-    read("unskew", 0),
+    read("unskew", 481.53),
     cutoff,
   );
+  let bubble = Math.max(0, Math.min(1, Number(read("bubble", 0)) || 0));
+  const invert = Number(read("invertBubble", 0)) >= 0.5;
+  let curveAmt = invert ? -bubble : bubble;
+  if (curveAmt > 0.9999) curveAmt = 0.9999;
+  if (curveAmt < -0.9999) curveAmt = -0.9999;
   const applied = additiveGraphApplyGrowl(
     out,
-    0, // phase rotation removed
+    0,
     phaseSkew,
-    read("phaseSkewCurve", 0),
+    curveAmt,
     2, // Logarithmic
     cutoff,
     0,
@@ -61,6 +61,6 @@ function nodeGraphAdditiveBubbleLiveEvaluator({ node, nodeId, runtime, frame, fr
   return {};
 }
 
-nodeGraphLiveModuleEvaluators.additiveBubble = nodeGraphAdditiveBubbleLiveEvaluator;
-// Patches may still resolve the old type briefly before migration.
-nodeGraphLiveModuleEvaluators.additiveGrowl = nodeGraphAdditiveBubbleLiveEvaluator;
+if (typeof nodeGraphLiveModuleEvaluators !== "undefined" && nodeGraphLiveModuleEvaluators) {
+  nodeGraphLiveModuleEvaluators.additiveBubble = nodeGraphAdditiveBubbleLiveEvaluator;
+}

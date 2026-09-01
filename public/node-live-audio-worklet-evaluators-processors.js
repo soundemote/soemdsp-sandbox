@@ -2,6 +2,32 @@
 // Behavior must match the prior monolith bit-for-bit.
 
 NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function buildLiveModuleEvaluators_processors() {
+  const pluckEnvelopeEvaluate = (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+    const state = this.pluckEnvelopeStates.get(nodeId) || this.createPluckEnvelopeState();
+    this.pluckEnvelopeStates.set(nodeId, state);
+    const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+    return this.pluckEnvelopeSample(
+      state,
+      mixInput(nodeId, "Trigger"),
+      mixInput(nodeId, "Release"),
+      {
+        attackFeedback: read("attackFeedback", 0.002),
+        autoReleaseTime: read("autoReleaseTime", 0.08),
+        decay: read("decay", 0.35),
+        decayModCurve: read("decayModCurve", 0),
+        decayModEnd: read("decayModEnd", 0.55),
+        decayModFrequency: read("decayModFrequency", 1.5),
+        decayModStart: read("decayModStart", 0.08),
+        delayTime: read("delayTime", 0),
+        endingDecay: read("endingDecay", 0.8),
+        level: read("level", 1),
+        releaseFeedback: read("releaseFeedback", 0.35),
+        velocity: read("velocity", 1),
+        velocitySensitivity: read("velocitySensitivity", 0),
+      },
+      safeRate,
+    );
+  };
   return {
       passiveFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.passiveFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createPassiveFilterState());
@@ -1220,32 +1246,9 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           safeRate,
         );
       },
-      pluckEnvelope: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
-        const state = this.pluckEnvelopeStates.get(nodeId) || this.createPluckEnvelopeState();
-        this.pluckEnvelopeStates.set(nodeId, state);
-        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
-        return this.pluckEnvelopeSample(
-          state,
-          mixInput(nodeId, "Trigger"),
-          mixInput(nodeId, "Release"),
-          {
-            attackFeedback: read("attackFeedback", 0.002),
-            autoReleaseTime: read("autoReleaseTime", 0.08),
-            decay: read("decay", 0.35),
-            decayModCurve: read("decayModCurve", 0),
-            decayModEnd: read("decayModEnd", 0.55),
-            decayModFrequency: read("decayModFrequency", 1.5),
-            decayModStart: read("decayModStart", 0.08),
-            delayTime: read("delayTime", 0),
-            endingDecay: read("endingDecay", 0.8),
-            level: read("level", 1),
-            releaseFeedback: read("releaseFeedback", 0.35),
-            velocity: read("velocity", 1),
-            velocitySensitivity: read("velocitySensitivity", 0),
-          },
-          safeRate,
-        );
-      },
+      pluckEnvelope: pluckEnvelopeEvaluate,
+      // Same DSP as pluckEnvelope; sample-accurate strip on efficient path.
+      pluckEnvelopeMod: pluckEnvelopeEvaluate,
       flowerChildEnvelopeFollower: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.flowerChildEnvelopeFollowerStates.get(nodeId) ||
           this.createFlowerChildEnvelopeFollowerState();

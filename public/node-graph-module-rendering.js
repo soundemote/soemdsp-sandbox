@@ -1014,6 +1014,24 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
+  } else if (definition.displayType === "additiveBlasterBlocks") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphAdditiveBlasterDisplay === "function") {
+      const face = createNodeGraphAdditiveBlasterDisplay(node, type);
+      if (typeof tagNodeGraphModuleBand === "function") {
+        tagNodeGraphModuleBand(face, "face");
+      }
+      article.append(face);
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.displayType === "additiveBubbleCascade") {
     if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)

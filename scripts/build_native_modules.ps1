@@ -44,6 +44,13 @@ $modules = @(
     "soemdsp_graph_block_output_left_ptr", "soemdsp_graph_block_output_right_ptr",
     "soemdsp_graph_node_port_ptr",
     "soemdsp_graph_node_native_handle",
+    "soemdsp_graph_yellow_harmonics",
+    "soemdsp_graph_yellow_ratio_ptr",
+    "soemdsp_graph_yellow_phase_ptr",
+    "soemdsp_graph_yellow_amplitude_ptr",
+    "soemdsp_graph_yellow_pan_ptr",
+    "soemdsp_graph_set_yellow_cutoff_strip",
+    "soemdsp_graph_yellow_cutoff_strip_ptr",
     "soemdsp_graph_max_block_frames", "soemdsp_graph_version"
   ) }
   @{ Name = "fractal_brownian_noise"; Simd = $true; Exports = @("soemdsp_fbm_create", "soemdsp_fbm_destroy", "soemdsp_fbm_reset", "soemdsp_fbm_sample", "soemdsp_fbm_x", "soemdsp_fbm_y", "soemdsp_fbm_z", "soemdsp_fbm_x_raw", "soemdsp_fbm_y_raw", "soemdsp_fbm_z_raw", "soemdsp_fbm_version", "soemdsp_fbm_process_block", "soemdsp_fbm_block_output_x_ptr", "soemdsp_fbm_block_output_y_ptr", "soemdsp_fbm_block_output_z_ptr", "soemdsp_fbm_block_output_x_raw_ptr", "soemdsp_fbm_block_output_y_raw_ptr", "soemdsp_fbm_block_output_z_raw_ptr", "soemdsp_fbm_max_block_frames") }
@@ -322,12 +329,13 @@ $responseLines = foreach ($module in $modules) {
 }
 Set-Content -LiteralPath $responseFile -Value $responseLines -Encoding ascii
 
-# 160MB max: combined static pools (delay lines, reverb, wavetables, snowflake
-# path buffers, …) need ~130MB+; a bounded max keeps V8's reservation small.
+# 512MB max: static pools (~130MB+) plus Music Player full-song PCM via
+# memory.grow (a few minutes of stereo float). Bounded so V8's reservation
+# stays finite; raise again only if longer multi-player banks need it.
 $ldArgs = @(
   "--no-entry",
   "--export-memory",
-  "--max-memory=167772160",
+  "--max-memory=536870912",
   "@$responseFile",
   "-o", "$combinedDir\soemdsp_combined.wasm"
 ) + $objFiles

@@ -419,9 +419,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   // additiveOsc / gpuAdditiveOsc retired — Yellow Graph chain replaces them.
   additiveGenerator: {
     category: "additive",
-    description: "Saw / Square / Pulse* / Tri / RectSine + PWM (pulses) + Phase Rotation + Harmonics → Yellow Graph.",
+    description: "Saw / Square / Pulse* / Tri / RectSine + PWM + Phase Rotation + Harmonics (Instant/Smoothed/Decimal fade) → Yellow Graph.",
     label: "Additive Generator",
-    notes: ["additive", "yellow graph", "harmonics", "morph"],
+    notes: ["additive", "yellow graph", "harmonics", "morph", "decimal"],
   },
   additiveLinearFilter: {
     category: "additive",
@@ -441,11 +441,17 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Ladder Filter",
     notes: ["additive", "yellow graph", "ladder", "resonance", "filter", "LP", "BP", "HP"],
   },
-  additiveCurveEnvelope: {
+  curveEnvelopeMod: {
     category: "additive",
     description: "Block-rate Curve Envelope for Additive CV: Gate → cyan Out (once per quantum). Drive Bubble/Butterworth cutoff mods.",
-    label: "Additive Envelope",
+    label: "CurveEnvelopeMod",
     notes: ["additive", "envelope", "adsr", "block-rate", "cyan", "cv"],
+  },
+  pluckEnvelopeMod: {
+    category: "additive",
+    description: "Pluck envelope mod publisher: Trigger → sample-accurate mod strip for Bubble Cutoff (no quantum staircase).",
+    label: "PluckEnvelopeMod",
+    notes: ["additive", "pluck", "envelope", "sample-accurate", "cyan", "cv", "bubble"],
   },
   additiveBubble: {
     category: "additive",
@@ -500,6 +506,24 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Per-harmonic CheapWalk on Yellow Graph amplitude (clamped 0…1).",
     label: "NoisyAmp",
     notes: ["additive", "yellow graph", "cheap walk", "amplitude"],
+  },
+  additivePhaseEntry: {
+    category: "additive",
+    description: "How new harmonics enter phase at Additive Out: Lock (in-phase), Free (phase 0 shimmer), or Random.",
+    label: "Phase Entry",
+    notes: ["additive", "yellow graph", "phase", "harmonics", "lock", "free", "random"],
+  },
+  additiveDiffusor: {
+    category: "additive",
+    description: "Hard random phase scramble + CheapWalk Speed animation.",
+    label: "Diffusor",
+    notes: ["additive", "yellow graph", "phase", "diffuse", "cheapwalk", "speed"],
+  },
+  additiveBlaster: {
+    category: "additive",
+    description: "Index bins with Stagger (Bubble-like phase jumps) or Random cohort phases. Depth / Log Curve / Jump / Bias / Invert.",
+    label: "Blaster",
+    notes: ["additive", "yellow graph", "phase", "stagger", "bubble", "bins", "log curve", "jump"],
   },
   additiveImage: {
     category: "additive",

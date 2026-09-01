@@ -49,6 +49,8 @@ const ADDITIVE_NAMED_FACE = Object.freeze({
   additivePan: "Pan",
   additiveNoisyPan: "NoisyPan",
   additiveNoisyAmp: "NoisyAmp",
+  additiveDiffusor: "Diffusor",
+  additivePhaseEntry: "PhaseEntry",
 });
 
 function nodeGraphHarmonicCountReadH(nodeId, type) {

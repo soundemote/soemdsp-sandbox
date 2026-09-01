@@ -9,6 +9,7 @@
 // buffers; Control knobs: set_param writes targets; native SmootherManager
 // chases out. Scope taps via node_port_ptr. DSP lives in natives; this is glue.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
 #include "../sandbox_native_maths/exp_log.h"
 #include "../sandbox_native_maths/analog_filter_trig.h"
 #include "../sandbox_native_maths/scalar_helpers.h"
@@ -1150,10 +1151,24 @@ static const int kTypeCrossover6 = 107;
 static const int kTypeCheapWalk = 108;
 static const int kTypePumpLimiter = 109; // musical Pump Limiter (type `limiter`)
 static const int kTypeAudioPlayer = 110; // Music Player (PCM upload)
-// Yellow Graph (Additive) — A1 minimal chain (see additive_yellow_graph.h)
+// Yellow Graph (Additive) — A1+A2 (see additive_yellow_graph.h)
 static const int kTypeAdditiveGenerator = 111;
 static const int kTypeAdditiveBubble = 112;
 static const int kTypeAdditiveOut = 113;
+static const int kTypeAdditiveLinearFilter = 114;
+static const int kTypeAdditiveAnalogFilter = 115; // Butterworth
+static const int kTypeAdditiveLadderFilter = 116;
+static const int kTypeAdditiveFrequencySkew = 117;
+static const int kTypeAdditiveQuantizeFreq = 118;
+static const int kTypeAdditiveQuantizePhase = 119;
+static const int kTypeAdditivePan = 120;
+static const int kTypeAdditiveNoisyFreq = 121;
+static const int kTypeAdditiveNoisyPhase = 122;
+static const int kTypeAdditiveNoisyPan = 123;
+static const int kTypeAdditiveNoisyAmp = 124;
+static const int kTypeAdditivePhaseEntry = 125;
+static const int kTypeAdditiveBlaster = 126;
+static const int kTypeAdditiveDiffusor = 127;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1184,6 +1199,7 @@ static const int kPortTrigger = 20;    // sampleHold Trigger (not an audio bus)
 // mixStereo R4 (9th input); L1..L4/R1..R3 use audio buses 1..7, Mono=0.
 static const int kPortMixStereoR4 = 21;
 static const int kPortMorph = 22; // block-rate ZOH morph CV (turquoise)
+static const int kPortGraph = 23; // Yellow Graph data-plane (not sample audio)
 // Numbered multi-in aliases (minMax / mix): In1..In4 → buses 0..3.
 static const int kPortIn1 = 0;
 static const int kPortIn2 = 1;
@@ -1355,6 +1371,21 @@ struct Node {
   Control bleed4;
   double phase; // polyBlep running phase (radians)
   double lastReset; // Live Reset rising-edge latch (persists across blocks)
+  // Yellow Graph (Additive): processors publish GraphPayload; Out sums.
+  soemdsp_yellow_graph::GraphPayload yellowGraph;
+  double yellowPhaseAcc[soemdsp_yellow_graph::kMaxHarmonics];
+  int yellowPhaseAccLen;
+  int yellowLastHarmonics; // Generator H-change → phaseReset
+  // Noisy* persistent walk + quantum lerpFrom (not wiped by graph_copy).
+  soemdsp_yellow_graph::YellowWalk yellowWalks[soemdsp_yellow_graph::kMaxHarmonics];
+  int yellowWalkCount;
+  unsigned int yellowWalkSeed;
+  unsigned int yellowWalkSalt;
+  float yellowLerpFrom[soemdsp_yellow_graph::kMaxHarmonics];
+  int yellowLerpFromLen;
+  // Host-uploaded Bubble Cutoff strip (0…1). Frames>0 → sample-accurate amp gate at Out.
+  float yellowCutoffStrip[kMaxBlockFrames];
+  int yellowCutoffStripFrames;
   double buf[kChannels][kMaxBlockFrames];
 };
 
@@ -1701,7 +1732,15 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeBlit || typeId == kTypeSineWavetable || typeId == kTypeArchimedes
           || typeId == kTypeAdditiveOsc || typeId == kTypeSurgeOscillator
           || typeId == kTypeSoftwaveOsc || typeId == kTypeDsfOscillator
-          || typeId == kTypeHypersaw || typeId == kTypeSinc) ? 100.0
+          || typeId == kTypeHypersaw || typeId == kTypeSinc
+          || typeId == kTypeAdditiveOut) ? 100.0
+      : (typeId == kTypeAdditiveBubble) ? 1.0 // cutoff 0..1 (settled default)
+      : (typeId == kTypeAdditiveLinearFilter || typeId == kTypeAdditiveAnalogFilter
+          || typeId == kTypeAdditiveLadderFilter) ? 2000.0 // cutoff Hz
+      : (typeId == kTypeAdditiveNoisyFreq || typeId == kTypeAdditiveNoisyPhase
+          || typeId == kTypeAdditiveNoisyPan || typeId == kTypeAdditiveNoisyAmp
+          || typeId == kTypeAdditiveDiffusor)
+        ? 35.0 // speed Hz
       : (typeId == kTypeBradley2a) ? 1004.0 // carrier
       : (typeId == kTypeEllipsoid) ? 1.0 // RoundShape clock Hz
       : (typeId == kTypeSnowflake) ? 55.0
@@ -1727,6 +1766,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCrossover4) ? 200.0
       : (typeId == kTypeCrossover5) ? 150.0
       : (typeId == kTypeCrossover6) ? 100.0
+      : (typeId == kTypeAudioPlayer) ? 1.0 // speed ×
       : 220.0,
     false
   );
@@ -1734,14 +1774,23 @@ static void init_node_defaults(Node& n, int typeId) {
     n.waveform,
     (typeId == kTypeAdditiveOsc || typeId == kTypeDsfOscillator) ? 1.0
       : (typeId == kTypeSoemReverb) ? 1.0 // doModulateEcho On
+      : (typeId == kTypeAdditiveGenerator) ? 0.0 // Saw
+      : (typeId == kTypeAdditiveBlaster) ? 1.0 // curveKind Exponential (PoC)
+      : (typeId == kTypeAdditiveDiffusor) ? 0.0 // curveKind Rational
       : 0.0,
     true
   );
   init_control(
     n.amplitude,
     (typeId == kTypeAttenuverter) ? 0.5
-      : (typeId == kTypeAdditiveOsc || typeId == kTypeHypersaw) ? 0.35
+      : (typeId == kTypeAdditiveOsc || typeId == kTypeHypersaw
+          || typeId == kTypeAdditiveOut) ? 0.35
+      : (typeId == kTypeAdditiveNoisyFreq) ? 0.5 // add
+      : (typeId == kTypeAdditiveNoisyPhase || typeId == kTypeAdditiveNoisyPan
+          || typeId == kTypeAdditiveNoisyAmp) ? 0.25 // add
       : (typeId == kTypePumpLimiter) ? 1.0 // output trim
+      : (typeId == kTypeAdditiveBlaster) ? 1.0757 // jump (PoC)
+      : (typeId == kTypeAdditiveDiffusor) ? 1.0 // diffusion
       : 1.0,
     false
   );
@@ -1751,8 +1800,15 @@ static void init_node_defaults(Node& n, int typeId) {
       || typeId == kTypeBradley2a || typeId == kTypeEllipsoid || typeId == kTypeSnowflake
       || typeId == kTypeFlowerChildFilter || typeId == kTypeYellowjacketFilter
       || typeId == kTypeHumanFilter || typeId == kTypeResonatorFilter
-      || typeId == kTypeCombResonator || typeId == kTypePluckEnvelope)
-      ? 0.0 // chaos/damping/decayModCurve off
+      || typeId == kTypeCombResonator || typeId == kTypePluckEnvelope
+      || typeId == kTypeAdditiveBubble || typeId == kTypeAdditiveGenerator
+      || typeId == kTypeAdditiveFrequencySkew)
+      ? 0.0 // chaos/damping/pwm/bubble/freqSkew off
+      : (typeId == kTypeAdditiveBlaster) ? 179.0 // quantization (PoC default)
+      : (typeId == kTypeAdditiveDiffusor) ? 0.0 // skew (rational)
+      : (typeId == kTypeAdditiveLinearFilter) ? 0.25 // slope 0..1
+      : (typeId == kTypeAdditiveAnalogFilter || typeId == kTypeAdditiveLadderFilter)
+        ? 12.0 // slope dB/oct
       : (typeId == kTypeChaoticPhaseLockingFilter) ? 1.0 // chaos default
       : (typeId == kTypeDsfOscillator) ? 1.0 // harmonics
       : (typeId == kTypeHypersaw) ? 1.0 // spread
@@ -1773,22 +1829,27 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeRadar) ? 1.0 // density
       : (typeId == kTypeKeplerBouwkamp) ? 0.5 // circles
       : (typeId == kTypePhosphillator) ? 0.5 // sharpness
+      : (typeId == kTypeAudioPlayer) ? 0.0 // Scratch
       : 0.5,
     (typeId == kTypeSlewLimiter) // discrete Lin/Log/Exp/Smooth
   );
   init_control(
     n.phaseParam,
     (typeId == kTypeRayBouncer) ? 30.0 // launchAngle deg
+      : (typeId == kTypeAdditiveBlaster) ? 145.84 // depth cycles (PoC)
       : 0.0,
     false
   );
   init_control(
     n.resonance,
-    (typeId == kTypeChebyshev || typeId == kTypeElliptic) ? 1.0 // ripple dB
+    (typeId == kTypeAdditiveBlaster) ? -0.2 // curve bend (PoC)
+      : (typeId == kTypeChebyshev || typeId == kTypeElliptic) ? 1.0 // ripple dB
       : (typeId == kTypeEqFilter) ? 0.707 // Q
       : (typeId == kTypeTb303Filter) ? 0.0 // %
       : (typeId == kTypeSoemReverb) ? 1.0 // bandQ
       : (typeId == kTypeLorenzAttractor) ? 28.0 // rho
+      : (typeId == kTypeAdditiveBubble) ? 481.53 // unskew (settled default)
+      : (typeId == kTypeAdditiveLadderFilter) ? 0.0 // resonance
       : 0.2,
     false
   );
@@ -1800,8 +1861,15 @@ static void init_node_defaults(Node& n, int typeId) {
       || typeId == kTypePassiveFilter
       || typeId == kTypeFlowerChildFilter || typeId == kTypeSuperloveFilter
       || typeId == kTypeHumanFilter || typeId == kTypeResonatorFilter
-      || typeId == kTypeCombResonator)
-      ? 0.0 // LP / Clean / BP6 / Feedback
+      || typeId == kTypeCombResonator
+      || typeId == kTypeAdditiveLinearFilter || typeId == kTypeAdditiveAnalogFilter
+      || typeId == kTypeAdditiveLadderFilter || typeId == kTypeAdditiveFrequencySkew
+      || typeId == kTypeAdditiveQuantizeFreq || typeId == kTypeAdditiveQuantizePhase
+      || typeId == kTypeAdditiveNoisyFreq || typeId == kTypeAdditiveNoisyPhase
+      || typeId == kTypeAdditiveNoisyPan || typeId == kTypeAdditiveNoisyAmp
+      || typeId == kTypeAdditiveBubble) // invertBubble Off
+      ? 0.0 // LP / Clean / BP6 / Feedback / filter / curve / quantize / noise / invert
+
       : (typeId == kTypeEqFilter) ? 1.0 // HP12
       : (typeId == kTypeActiveFilter) ? 3.0 // LP24
       : (typeId == kTypeTb303Filter) ? 4.0 // LP_24
@@ -1813,6 +1881,9 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeChordSequencer) ? 0.0 // progression
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
       : (typeId == kTypePiSpigotNoise) ? 0.0 // color White
+      : (typeId == kTypeAudioPlayer) ? 4.0 // Play
+      : (typeId == kTypeAdditiveOut) ? 0.0 // optimize Inaudible off
+      : (typeId == kTypeAdditiveGenerator) ? 1.0 // HarmonicFade Smoothed
       : 1.0,
     true
   );
@@ -1837,7 +1908,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeTransport) ? 0.0
       : (typeId == kTypeAntisaw) ? 64.0
       : (typeId == kTypeArchimedes) ? 12.0
-      : (typeId == kTypeAdditiveOsc) ? 32.0
+      : (typeId == kTypeAdditiveOsc || typeId == kTypeAdditiveGenerator) ? 32.0
       : (typeId == kTypeHypersaw) ? 8.0
       : (typeId == kTypeSinc) ? 4.0
       : (typeId == kTypeSnowflake) ? 3.0 // iterations
@@ -1846,8 +1917,10 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCombResonator) ? 0.0 // invert Off
       : (typeId == kTypeSoemReverb) ? 10.0 // numDelays
       : (typeId == kTypePll) ? 1.0 // PC type RS Flip
+      : (typeId == kTypeAdditiveDiffusor) ? 0.0 // quantize off
       : 4.0,
-    true
+    // Generator Harmonics must stay continuous for Decimal trailing amp.
+    (typeId != kTypeAdditiveGenerator)
   );
   init_control(
     n.center,
@@ -1862,6 +1935,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeFractalBrownianNoise) ? 1.0 // scale
       : (typeId == kTypePiSpigotNoise) ? 0.0 // start
       : (typeId == kTypePulseExplosion) ? 0.5 // centerTime
+      : (typeId == kTypeAdditiveBlaster) ? 0.44 // bias (PoC)
       : (typeId == kTypeCrossover3) ? 3000.0
       : (typeId == kTypeCrossover4) ? 1000.0
       : (typeId == kTypeCrossover5) ? 500.0
@@ -1885,6 +1959,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDsfOscillator) ? 0.5 // PWM
       : (typeId == kTypeHypersaw) ? 0.15 // random
       : (typeId == kTypeAdditiveOsc) ? 0.0 // harmonicPhaseMultiply
+      : (typeId == kTypeAdditiveQuantizeFreq || typeId == kTypeAdditivePan) ? 0.0 // random/width
+      : (typeId == kTypeAdditiveBlaster) ? 0.58 // offset (PoC)
       : (typeId == kTypeBradley2a) ? 0.0 // freqOffset
       : (typeId == kTypeSnowflake) ? 60.0 // angle°
       : (typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
@@ -1982,8 +2058,12 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSoemReverb) ? 500.0
       : (typeId == kTypePitchQuantizer) ? 2741.0 // major scale mask
       : (typeId == kTypeFractalBrownianNoise || typeId == kTypeRandomWalk || typeId == kTypeCheapWalk) ? 1.0
+      : (typeId == kTypeAdditiveQuantizeFreq || typeId == kTypeAdditiveQuantizePhase
+          || typeId == kTypeAdditiveNoisyFreq || typeId == kTypeAdditiveNoisyPhase
+          || typeId == kTypeAdditiveNoisyPan || typeId == kTypeAdditiveNoisyAmp) ? 1.0
       : 0.0,
-    true
+    // Music Player playlistScrub is continuous on this Control — do not snap.
+    (typeId == kTypeAudioPlayer) ? false : true
   );
   init_control(
     n.feedback,
@@ -2015,6 +2095,7 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypePluckEnvelope) ? 0.0 // delay
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // attack
       : (typeId == kTypeDelayEffect) ? 0.18 // time s
+      : (typeId == kTypeAudioPlayer) ? 0.0 // start phase
       : 1.0,
     false
   );
@@ -2029,6 +2110,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.08 // attack
       : (typeId == kTypePluckEnvelope) ? 0.002 // attackFeedback
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // hold
+      : (typeId == kTypeAudioPlayer) ? 1.0 // end phase
       : 4.0,
     false
   );
@@ -2081,12 +2163,14 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.inLow,
     (typeId == kTypePulseExplosion) ? 0.3 // lowAmplitude
+      : (typeId == kTypeAdditiveFrequencySkew) ? 1.0 // lowStretch
       : (typeId == kTypeRange) ? -1.0 : (typeId == kTypeClipperLimiter) ? -12.0 : 0.0,
     false
   );
   init_control(
     n.inHigh,
     (typeId == kTypePulseExplosion) ? 1.0 // highAmplitude
+      : (typeId == kTypeAdditiveFrequencySkew) ? 1.0 // highStretch
       : (typeId == kTypeRange) ? 1.0 : (typeId == kTypeClipperLimiter) ? 0.0 : 1.0,
     false
   );
@@ -2134,6 +2218,43 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.bleed4, 0.0, false);
   n.phase = 0.0;
   n.lastReset = 0.0;
+  n.yellowPhaseAccLen = 0;
+  n.yellowLastHarmonics = -1;
+  n.yellowWalkCount = 0;
+  n.yellowWalkSeed = 0xFFFFFFFFu;
+  n.yellowWalkSalt = 0;
+  n.yellowLerpFromLen = 0;
+  n.yellowCutoffStripFrames = 0;
+  if (
+    typeId == kTypeAdditiveGenerator
+    || typeId == kTypeAdditiveBubble
+    || typeId == kTypeAdditiveOut
+    || typeId == kTypeAdditiveLinearFilter
+    || typeId == kTypeAdditiveAnalogFilter
+    || typeId == kTypeAdditiveLadderFilter
+    || typeId == kTypeAdditiveFrequencySkew
+    || typeId == kTypeAdditiveQuantizeFreq
+    || typeId == kTypeAdditiveQuantizePhase
+    || typeId == kTypeAdditivePan
+    || typeId == kTypeAdditiveNoisyFreq
+    || typeId == kTypeAdditiveNoisyPhase
+    || typeId == kTypeAdditiveNoisyPan
+    || typeId == kTypeAdditiveNoisyAmp
+    || typeId == kTypeAdditivePhaseEntry
+    || typeId == kTypeAdditiveBlaster
+    || typeId == kTypeAdditiveDiffusor
+  ) {
+    soemdsp_yellow_graph::graph_clear(n.yellowGraph);
+    for (int i = 0; i < soemdsp_yellow_graph::kMaxHarmonics; i += 1) {
+      n.yellowPhaseAcc[i] = 0.0;
+      n.yellowWalks[i].seed = 0;
+      n.yellowWalks[i].x = 0.0f;
+      n.yellowWalks[i].y = 0.0f;
+      n.yellowWalks[i].out = 0.0f;
+      n.yellowLerpFrom[i] = 0.0f;
+    }
+    for (int i = 0; i < kMaxBlockFrames; i += 1) n.yellowCutoffStrip[i] = 1.0f;
+  }
 }
 
 static Control* control_for_param(Node& n, int paramId) {
@@ -2556,7 +2677,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeSineWavetable) return soemdsp_sine_wavetable_create();
   if (typeId == kTypeAntisaw) return soemdsp_antisaw_create();
   if (typeId == kTypeArchimedes) return soemdsp_archimedes_create();
-  // kTypeAdditiveOsc: free-fn, no instance
+  // kTypeAdditiveOsc / Yellow Graph 111–124: free-fn, no instance
   if (typeId == kTypeSurgeOscillator) return soemdsp_surge_oscillator_create();
   if (typeId == kTypeSoftwaveOsc) return soemdsp_softwave_create();
   if (typeId == kTypeDsfOscillator) return soemdsp_dsf_oscillator_create();
@@ -2705,17 +2826,23 @@ static bool is_live_dst_port(int port) {
     || port == kPortMorph;
 }
 
+static bool is_graph_port(int port) {
+  return port == kPortGraph;
+}
+
 static int clamp_src_port(int port) {
+  if (is_graph_port(port)) return kPortGraph;
   if (port < 0) return kPortMono;
   if (port >= kChannels) return kPortMono;
   return port;
 }
 
-// Destination may be audio bus (0..7) or Live SIGNAL IN (16+).
+// Destination may be audio bus (0..7), Live SIGNAL IN (16+), or Yellow Graph (23).
 static int clamp_dst_port(int port) {
   if (port < 0) return kPortMono;
   if (port < kChannels) return port;
   if (is_live_dst_port(port)) return port;
+  if (is_graph_port(port)) return kPortGraph;
   return kPortMono;
 }
 
@@ -2748,10 +2875,12 @@ static void mix_node_inputs(Circuit& g, const Node& node, int frames) {
     if (!c.used || c.dstHash != node.idHash) continue;
     const int dp = clamp_dst_port(c.dstPort);
     if (is_live_dst_port(dp)) continue; // Live ƒ / CV — not audio bus
+    if (is_graph_port(dp)) continue; // Yellow Graph data-plane
     const int si = find_node(g, c.srcHash);
     if (si < 0) continue;
     Node& src = g.nodes[si];
     const int sp = clamp_src_port(c.srcPort);
+    if (is_graph_port(sp)) continue;
     double* dstAcc = g.mixMono;
     if (dp == kPortLeft) dstAcc = g.mixLeft;
     else if (dp == kPortRight) dstAcc = g.mixRight;
@@ -3060,6 +3189,7 @@ static void probe_mlr_cables(
     if (g.conns[ci].dstHash == node.idHash) {
       const int dp = clamp_dst_port(g.conns[ci].dstPort);
       if (is_live_dst_port(dp)) continue;
+      if (is_graph_port(dp)) continue;
       if (dp == kPortLeft) *hasLeftIn = true;
       else if (dp == kPortRight) *hasRightIn = true;
       else *hasMonoIn = true;
@@ -3117,7 +3247,9 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
   double center = node.center.out;
   if (!(center == center)) center = 0.0;
   double width = node.width.out;
-  if (!(width == width) || width == 0.0) width = 2.0;
+  // Width 0 is valid (hardest knee) — only replace non-finite.
+  if (!(width == width)) width = 2.0;
+  const double drive = (double)db_to_lin((float)node.gainDb.out);
   const double osV = node.oversample.out;
   int os = (int)(osV + (osV >= 0.0 ? 0.5 : -0.5));
   if (os < 0) os = 0;
@@ -3136,10 +3268,11 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
     out0 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 0));
     if (!in0 || !out0) return;
     for (int f = 0; f < frames; f++) {
-      in0[f] = g.mixMono[f];
+      double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) {
-        in0[f] += g.mixLeft[f] + g.mixRight[f];
+        in += g.mixLeft[f] + g.mixRight[f];
       }
+      in0[f] = in * drive;
     }
     soemdsp_soft_clipper_process_block(node.nativeHandle, 0, frames);
     copy_tap_to_buf(node.buf[kPortMono], out0, frames);
@@ -3149,7 +3282,9 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
     double* in1 = ptr_from_export(soemdsp_soft_clipper_block_input_ptr(node.nativeHandle, 1));
     double* out1 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 1));
     if (in1 && out1) {
-      for (int f = 0; f < frames; f++) in1[f] = g.mixLeft[f] + g.mixMono[f];
+      for (int f = 0; f < frames; f++) {
+        in1[f] = (g.mixLeft[f] + g.mixMono[f]) * drive;
+      }
       soemdsp_soft_clipper_process_block(node.nativeHandle, 1, frames);
       copy_tap_to_buf(node.buf[kPortLeft], out1, frames);
     }
@@ -3161,7 +3296,9 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
     double* in2 = ptr_from_export(soemdsp_soft_clipper_block_input_ptr(node.nativeHandle, 2));
     double* out2 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 2));
     if (in2 && out2) {
-      for (int f = 0; f < frames; f++) in2[f] = g.mixRight[f] + g.mixMono[f];
+      for (int f = 0; f < frames; f++) {
+        in2[f] = (g.mixRight[f] + g.mixMono[f]) * drive;
+      }
       soemdsp_soft_clipper_process_block(node.nativeHandle, 2, frames);
       copy_tap_to_buf(node.buf[kPortRight], out2, frames);
     }
@@ -3721,6 +3858,573 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
     phase = wrap_phase_pi(phase + kTwoPi * phaseInc);
   }
   node.phase = wrap_phase_pi(phase - node.phaseParam.out * kTwoPi);
+}
+
+// Yellow Graph upstream: first used connection with dstPort==Graph.
+static int find_graph_src_index(Circuit& g, unsigned int dstHash) {
+  for (int i = 0; i < g.connCount; i += 1) {
+    const Conn& c = g.conns[i];
+    if (!c.used) continue;
+    if (c.dstHash != dstHash) continue;
+    if (c.dstPort != kPortGraph) continue;
+    return find_node(g, c.srcHash);
+  }
+  return -1;
+}
+
+// A1 Additive Generator: builds GraphPayload (no audio outs).
+// HarmonicFade (mode): 0 Instant / 1 Smoothed (1-quantum ampLerp) / 2 Decimal.
+// Out must only init *new* phaseAcc slots (not wipe all).
+static void process_additive_generator(Circuit& g, Node& node, int frames) {
+  (void)g;
+  (void)frames;
+  if (node.bypassed) {
+    soemdsp_yellow_graph::graph_clear(node.yellowGraph);
+    return;
+  }
+  const int prevH = node.yellowLastHarmonics;
+  float prevAmp[soemdsp_yellow_graph::kMaxHarmonics];
+  float prevRatio[soemdsp_yellow_graph::kMaxHarmonics];
+  float prevPhase[soemdsp_yellow_graph::kMaxHarmonics];
+  const int saveH = (prevH > 0 && prevH <= soemdsp_yellow_graph::kMaxHarmonics)
+    ? prevH
+    : 0;
+  if (saveH > 0) {
+    for (int i = 0; i < saveH; i += 1) {
+      prevAmp[i] = node.yellowGraph.amplitude[i];
+      prevRatio[i] = node.yellowGraph.ratio[i];
+      prevPhase[i] = node.yellowGraph.phase[i];
+    }
+  }
+  int waveform = (int)(node.waveform.out + (node.waveform.out >= 0.0 ? 0.5 : -0.5));
+  if (waveform < 0) waveform = 0;
+  if (waveform > 6) waveform = 6;
+  const float pwm = (float)node.shape.out;
+  const float harmonics = (float)node.stages.out;
+  const float phaseRotation = (float)node.phaseParam.out;
+  const float harmonicFade = (float)node.mode.out;
+  soemdsp_yellow_graph::build_from_waveform(
+    node.yellowGraph, waveform, pwm, harmonics, phaseRotation, harmonicFade
+  );
+  const int newH = node.yellowGraph.harmonics;
+  const int fade = soemdsp_yellow_graph::normalize_harmonic_fade(harmonicFade);
+  if (prevH >= 0 && prevH != newH) {
+    // Face: stamp phaseReset so publish/fingerprint refreshes immediately.
+    node.yellowGraph.phaseReset = 1;
+    // Smoothed only — Instant hard-cuts; Decimal trailing amp is the fade.
+    if (fade == 1 && (saveH > 0 || newH > 0)) {
+      soemdsp_yellow_graph::apply_generator_harmonics_count_lerp(
+        node.yellowGraph,
+        saveH > 0 ? prevAmp : nullptr,
+        saveH > 0 ? prevRatio : nullptr,
+        saveH > 0 ? prevPhase : nullptr,
+        saveH,
+        newH
+      );
+    }
+  }
+  // Remember target slot count (not the temporary lerp width).
+  node.yellowLastHarmonics = newH;
+}
+
+// A1 Additive Bubble: Graph in → skew/cutoff/unskew → Graph out.
+// Host param map: phaseSkew→phaseParam, bubble→shape (0…1),
+// invertBubble→mode, cutoff→frequency, unskew→resonance.
+// Keeps previous quantum To planes for phase/amp lerp into Out.
+static void process_additive_bubble(Circuit& g, Node& node, int frames) {
+  (void)frames;
+  const int srcIdx = find_graph_src_index(g, node.idHash);
+  if (srcIdx < 0) {
+    soemdsp_yellow_graph::graph_clear(node.yellowGraph);
+    return;
+  }
+  // Snapshot previous To before upstream copy overwrites the payload.
+  const int prevH = node.yellowGraph.harmonics;
+  const bool hadPhase = node.yellowGraph.hasPhaseLerp != 0;
+  const bool hadAmp = node.yellowGraph.hasAmpLerp != 0;
+  float prevPhase[soemdsp_yellow_graph::kMaxHarmonics];
+  float prevAmp[soemdsp_yellow_graph::kMaxHarmonics];
+  const int copyH = (prevH > 0 && prevH <= soemdsp_yellow_graph::kMaxHarmonics) ? prevH : 0;
+  if (hadPhase && copyH > 0) {
+    for (int i = 0; i < copyH; i += 1) prevPhase[i] = node.yellowGraph.phaseTo[i];
+  }
+  if (hadAmp && copyH > 0) {
+    for (int i = 0; i < copyH; i += 1) prevAmp[i] = node.yellowGraph.ampTo[i];
+  }
+  soemdsp_yellow_graph::graph_copy(node.yellowGraph, g.nodes[srcIdx].yellowGraph);
+  if (node.bypassed) {
+    node.yellowGraph.hasPhaseLerp = 0;
+    node.yellowGraph.hasAmpLerp = 0;
+    return;
+  }
+  // Same Control ownership as Pan / filters / Quantize: do NOT step here.
+  // process_block's smoother_run advances knobs for the full quantum. A lone
+  // smoother_step_node() marked blockStepped after 1 sample and starved the
+  // rest of the chase (~frames× too slow). Stamp Growl from Control.out
+  // (end of previous quantum) + plane lerp across this block — like Pan.
+  // Host-uploaded yellowCutoffStrip → defer amp bake; Out gates per sample.
+  const bool deferCutoffAmp = node.yellowCutoffStripFrames > 0;
+  // Bubble 0…1 + Invert Bubble → signed log-curve amount (−1…+1).
+  float bubble01 = (float)node.shape.out;
+  if (!(bubble01 * 0.0f == 0.0f)) bubble01 = 0.0f;
+  if (bubble01 < 0.0f) bubble01 = 0.0f;
+  if (bubble01 > 1.0f) bubble01 = 1.0f;
+  const bool invertBubble = node.mode.out >= 0.5;
+  float curveAmt = invertBubble ? -bubble01 : bubble01;
+  if (curveAmt > 0.9999f) curveAmt = 0.9999f;
+  if (curveAmt < -0.9999f) curveAmt = -0.9999f;
+  soemdsp_yellow_graph::apply_bubble(
+    node.yellowGraph,
+    (float)node.phaseParam.out, // phaseSkew
+    curveAmt,                   // Bubble ± Invert → log curve
+    (float)node.frequency.out,  // cutoff 0..1
+    (float)node.resonance.out,  // unskew
+    hadPhase ? prevPhase : nullptr,
+    hadAmp ? prevAmp : nullptr,
+    hadPhase ? copyH : 0,
+    deferCutoffAmp
+  );
+  if (deferCutoffAmp) {
+    int n = node.yellowCutoffStripFrames;
+    if (n > kMaxBlockFrames) n = kMaxBlockFrames;
+    if (n > soemdsp_yellow_graph::kCutoffStripMax) n = soemdsp_yellow_graph::kCutoffStripMax;
+    node.yellowGraph.hasCutoffStrip = 1;
+    node.yellowGraph.cutoffStripFrames = (unsigned short)n;
+    for (int i = 0; i < n; i += 1) {
+      node.yellowGraph.cutoffStrip[i] = node.yellowCutoffStrip[i];
+    }
+  } else {
+    node.yellowGraph.hasCutoffStrip = 0;
+    node.yellowGraph.cutoffStripFrames = 0;
+  }
+}
+
+// Resolve fund Hz for spectral filters: walk Graph downstream to AdditiveOut,
+// else any AdditiveOut in the circuit, else 100.
+static float resolve_yellow_fund_hz(Circuit& g, unsigned int fromHash) {
+  unsigned int queue[64];
+  int qn = 0;
+  unsigned char seen[kMaxNodes];
+  for (int i = 0; i < kMaxNodes; i += 1) seen[i] = 0;
+  queue[qn++] = fromHash;
+  while (qn > 0) {
+    const unsigned int id = queue[--qn];
+    const int ni = find_node(g, id);
+    if (ni < 0) continue;
+    if (seen[ni]) continue;
+    seen[ni] = 1;
+    if (g.nodes[ni].typeId == kTypeAdditiveOut) {
+      const double hz = g.nodes[ni].frequency.out;
+      if (hz * 0.0 == 0.0 && hz > 0.0) return (float)hz;
+      return 100.0f;
+    }
+    for (int c = 0; c < g.connCount; c += 1) {
+      const Conn& conn = g.conns[c];
+      if (!conn.used) continue;
+      if (conn.srcHash != id) continue;
+      if (conn.dstPort != kPortGraph) continue;
+      if (qn < 64) queue[qn++] = conn.dstHash;
+    }
+  }
+  for (int i = 0; i < g.nodeCount; i += 1) {
+    if (!g.nodes[i].used) continue;
+    if (g.nodes[i].typeId != kTypeAdditiveOut) continue;
+    const double hz = g.nodes[i].frequency.out;
+    if (hz * 0.0 == 0.0 && hz > 0.0) return (float)hz;
+  }
+  return 100.0f;
+}
+
+static bool yellow_graph_copy_in(Circuit& g, Node& node) {
+  const int srcIdx = find_graph_src_index(g, node.idHash);
+  if (srcIdx < 0) {
+    soemdsp_yellow_graph::graph_clear(node.yellowGraph);
+    return false;
+  }
+  soemdsp_yellow_graph::graph_copy(node.yellowGraph, g.nodes[srcIdx].yellowGraph);
+  return true;
+}
+
+// filter→mode, cutoff→frequency, slope→shape, skew→phaseParam
+static void process_additive_linear_filter(Circuit& g, Node& node, int frames) {
+  (void)frames;
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  soemdsp_yellow_graph::apply_linear_filter(
+    node.yellowGraph,
+    (float)node.mode.out,
+    (float)node.frequency.out,
+    (float)node.shape.out,
+    (float)node.phaseParam.out,
+    resolve_yellow_fund_hz(g, node.idHash),
+    sr
+  );
+}
+
+static void process_additive_analog_filter(Circuit& g, Node& node, int frames) {
+  (void)frames;
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  soemdsp_yellow_graph::apply_butterworth_filter(
+    node.yellowGraph,
+    (float)node.mode.out,
+    (float)node.frequency.out,
+    (float)node.shape.out,
+    (float)node.phaseParam.out,
+    resolve_yellow_fund_hz(g, node.idHash),
+    sr
+  );
+}
+
+// filter→mode, cutoff→frequency, slope→shape, resonance→resonance
+static void process_additive_ladder_filter(Circuit& g, Node& node, int frames) {
+  (void)frames;
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  soemdsp_yellow_graph::apply_ladder_filter(
+    node.yellowGraph,
+    (float)node.mode.out,
+    (float)node.frequency.out,
+    (float)node.shape.out,
+    (float)node.resonance.out,
+    resolve_yellow_fund_hz(g, node.idHash),
+    sr
+  );
+}
+
+// curve→mode, lowStretch→inLow, highStretch→inHigh, skew→shape
+static void process_additive_frequency_skew(Circuit& g, Node& node, int frames) {
+  (void)frames;
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  soemdsp_yellow_graph::apply_frequency_skew(
+    node.yellowGraph,
+    (float)node.inLow.out,
+    (float)node.inHigh.out,
+    (float)node.shape.out,
+    (float)node.mode.out
+  );
+}
+
+// quantizeFreq→mode, randomFreqAmount→width, seed→seed,
+// affectFundamental→timingMode
+static void process_additive_quantize_freq(Circuit& g, Node& node, int frames) {
+  (void)frames;
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  soemdsp_yellow_graph::apply_quantize_freq(
+    node.yellowGraph,
+    (float)node.mode.out,
+    (float)node.width.out,
+    (float)node.seed.out,
+    (float)node.timingMode.out
+  );
+}
+
+// quantizePhase→mode, randomPhaseAmount→phaseParam, seed→seed
+static void process_additive_quantize_phase(Circuit& g, Node& node, int frames) {
+  (void)frames;
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  soemdsp_yellow_graph::apply_quantize_phase(
+    node.yellowGraph,
+    (float)node.mode.out,
+    (float)node.phaseParam.out,
+    (float)node.seed.out
+  );
+}
+
+// pan→pan, width→width
+static void process_additive_pan(Circuit& g, Node& node, int frames) {
+  (void)frames;
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  soemdsp_yellow_graph::apply_pan(
+    node.yellowGraph,
+    (float)node.pan.out,
+    (float)node.width.out
+  );
+}
+
+// Phase Entry: mode→mode (0 Lock / 1 Free / 2 Random). Stamps Graph.phaseEntryMode
+// so Out seeds newly added harmonics accordingly. Pass-through otherwise.
+static void process_additive_phase_entry(Circuit& g, Node& node, int frames) {
+  (void)frames;
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  soemdsp_yellow_graph::apply_phase_entry(node.yellowGraph, (float)node.mode.out);
+}
+
+// Blaster Control map:
+// shape→quantization, phaseParam→depth, resonance→curve, waveform→curveKind,
+// width→offset, timingMode→phaseMode, oversample→invert, center→bias,
+// amplitude→jump. (Layout/Seed removed — face is always index columns.)
+static void process_additive_blaster(Circuit& g, Node& node, int frames) {
+  (void)frames;
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  soemdsp_yellow_graph::apply_blaster(
+    node.yellowGraph,
+    (float)node.shape.out,
+    0.0f,
+    100.0f,
+    44100.0f,
+    1.0f, // fixed seed if Phase=Random
+    (float)node.phaseParam.out,
+    (float)node.resonance.out,
+    (float)node.waveform.out,
+    (float)node.width.out,
+    (float)node.timingMode.out,
+    (float)node.oversample.out,
+    (float)node.center.out,
+    (float)node.amplitude.out
+  );
+}
+
+// Diffusor: amplitude→diffusion, frequency→speed, seed→seed.
+static void process_additive_diffusor(Circuit& g, Node& node, int frames) {
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  soemdsp_yellow_graph::apply_diffusor(
+    node.yellowGraph,
+    (float)node.amplitude.out,
+    (float)node.seed.out,
+    (float)node.frequency.out,
+    node.yellowWalks,
+    node.yellowWalkCount,
+    node.yellowWalkSeed,
+    node.yellowWalkSalt,
+    node.yellowLerpFrom,
+    node.yellowLerpFromLen,
+    sr,
+    frames
+  );
+}
+
+// noise→mode, add→amplitude, speed→frequency, seed→seed
+static void process_additive_noisy_freq(Circuit& g, Node& node, int frames) {
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  soemdsp_yellow_graph::apply_noisy_freq(
+    node.yellowGraph,
+    (float)node.mode.out,
+    (float)node.amplitude.out,
+    (float)node.frequency.out,
+    (float)node.seed.out,
+    node.yellowWalks,
+    node.yellowWalkCount,
+    node.yellowWalkSeed,
+    node.yellowWalkSalt,
+    node.yellowLerpFrom,
+    node.yellowLerpFromLen,
+    sr,
+    frames
+  );
+}
+
+static void process_additive_noisy_phase(Circuit& g, Node& node, int frames) {
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  soemdsp_yellow_graph::apply_noisy_phase(
+    node.yellowGraph,
+    (float)node.mode.out,
+    (float)node.amplitude.out,
+    (float)node.frequency.out,
+    (float)node.seed.out,
+    node.yellowWalks,
+    node.yellowWalkCount,
+    node.yellowWalkSeed,
+    node.yellowWalkSalt,
+    node.yellowLerpFrom,
+    node.yellowLerpFromLen,
+    sr,
+    frames
+  );
+}
+
+static void process_additive_noisy_pan(Circuit& g, Node& node, int frames) {
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  soemdsp_yellow_graph::apply_noisy_pan(
+    node.yellowGraph,
+    (float)node.mode.out,
+    (float)node.amplitude.out,
+    (float)node.frequency.out,
+    (float)node.seed.out,
+    node.yellowWalks,
+    node.yellowWalkCount,
+    node.yellowWalkSeed,
+    node.yellowWalkSalt,
+    node.yellowLerpFrom,
+    node.yellowLerpFromLen,
+    sr,
+    frames
+  );
+}
+
+static void process_additive_noisy_amp(Circuit& g, Node& node, int frames) {
+  if (!yellow_graph_copy_in(g, node)) return;
+  if (node.bypassed) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  soemdsp_yellow_graph::apply_noisy_amp(
+    node.yellowGraph,
+    (float)node.mode.out,
+    (float)node.amplitude.out,
+    (float)node.frequency.out,
+    (float)node.seed.out,
+    node.yellowWalks,
+    node.yellowWalkCount,
+    node.yellowWalkSeed,
+    node.yellowWalkSalt,
+    node.yellowLerpFrom,
+    node.yellowLerpFromLen,
+    sr,
+    frames
+  );
+}
+
+// WhiteNoise LCGs advance on Out's GraphPayload copy — push seeds upstream so
+// the owning Noisy* node's yellowWalks stay continuous across quanta (JS shared ref).
+static void sync_yellow_noise_seeds_upstream(
+  Circuit& g, int idx, const soemdsp_yellow_graph::GraphPayload& advanced
+) {
+  int guard = 0;
+  int cur = idx;
+  while (cur >= 0 && guard < kMaxNodes) {
+    guard += 1;
+    Node& n = g.nodes[cur];
+    soemdsp_yellow_graph::GraphPayload& yg = n.yellowGraph;
+    const int H = advanced.harmonics < soemdsp_yellow_graph::kMaxHarmonics
+      ? advanced.harmonics
+      : soemdsp_yellow_graph::kMaxHarmonics;
+    soemdsp_yellow_graph::noise_recipe_copy(yg.ratioNoise, advanced.ratioNoise, H);
+    soemdsp_yellow_graph::noise_recipe_copy(yg.phaseNoise, advanced.phaseNoise, H);
+    soemdsp_yellow_graph::noise_recipe_copy(yg.panNoise, advanced.panNoise, H);
+    soemdsp_yellow_graph::noise_recipe_copy(yg.ampNoise, advanced.ampNoise, H);
+    if (n.typeId == kTypeAdditiveNoisyFreq) {
+      soemdsp_yellow_graph::sync_walk_seeds_from_recipe(
+        n.yellowWalks, n.yellowWalkCount, advanced.ratioNoise, H
+      );
+    } else if (n.typeId == kTypeAdditiveNoisyPhase) {
+      soemdsp_yellow_graph::sync_walk_seeds_from_recipe(
+        n.yellowWalks, n.yellowWalkCount, advanced.phaseNoise, H
+      );
+    } else if (n.typeId == kTypeAdditiveNoisyPan) {
+      soemdsp_yellow_graph::sync_walk_seeds_from_recipe(
+        n.yellowWalks, n.yellowWalkCount, advanced.panNoise, H
+      );
+    } else if (n.typeId == kTypeAdditiveNoisyAmp) {
+      soemdsp_yellow_graph::sync_walk_seeds_from_recipe(
+        n.yellowWalks, n.yellowWalkCount, advanced.ampNoise, H
+      );
+    }
+    cur = find_graph_src_index(g, n.idHash);
+  }
+}
+
+// A1 Additive Out: Graph in → sum_sample → Mono/Left/Right.
+static void process_additive_out(Circuit& g, Node& node, int frames) {
+  const int srcIdx = find_graph_src_index(g, node.idHash);
+  if (srcIdx < 0 || node.bypassed) {
+    soemdsp_yellow_graph::graph_clear(node.yellowGraph);
+    return; // audio bufs already zeroed by process_block
+  }
+  soemdsp_yellow_graph::graph_copy(node.yellowGraph, g.nodes[srcIdx].yellowGraph);
+  soemdsp_yellow_graph::GraphPayload& local = node.yellowGraph;
+  const int H = local.harmonics < soemdsp_yellow_graph::kMaxHarmonics
+    ? local.harmonics
+    : soemdsp_yellow_graph::kMaxHarmonics;
+  // Slot-count / phaseReset: only init *new* accumulators. Default lock-seeds
+  // from fund so the bank stays in phase; Phase Entry can select Free/Random.
+  if (node.yellowPhaseAccLen != H) {
+    if (H > node.yellowPhaseAccLen) {
+      const int oldLen = node.yellowPhaseAccLen;
+      const double fundPhase = oldLen > 0 ? node.yellowPhaseAcc[0] : 0.0;
+      unsigned int rng = node.yellowWalkSeed;
+      if (rng == 0 || rng == 0xFFFFFFFFu) rng = node.idHash ? node.idHash : 0xA5A5A5A5u;
+      for (int i = oldLen; i < H; i += 1) {
+        node.yellowPhaseAcc[i] = soemdsp_yellow_graph::seed_new_phase_acc(
+          local, i, fundPhase, local.phaseEntryMode, rng
+        );
+      }
+      node.yellowWalkSeed = rng;
+    }
+    node.yellowPhaseAccLen = H;
+  }
+  local.phaseReset = 0;
+
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  const double srD = (double)sr;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool controlSmoothing = node_control_smoothing(node);
+  const double referenceVoltage = 48.0 / 120.0;
+  const int optimize = (int)(node.mode.out + (node.mode.out >= 0.0 ? 0.5 : -0.5));
+  if (!liveReset) node.lastReset = 0.0;
+
+  if (controlSmoothing) smoother_step_node(g, node);
+
+  for (int f = 0; f < frames; f += 1) {
+    if (f > 0 && controlSmoothing) smoother_step_node(g, node);
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        for (int i = 0; i < H; i += 1) node.yellowPhaseAcc[i] = 0.0;
+      }
+      node.lastReset = rv;
+    }
+    double freq;
+    if (liveF) {
+      freq = g.mixF[f];
+    } else if (livePitch) {
+      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+    } else {
+      freq = node.frequency.out;
+    }
+    freq = clamp_hz_nyquist(freq, srD);
+    if (liveInc) {
+      // Increment is cycles/sample add on fundamental; convert to Hz offset.
+      freq += g.mixIncrement[f] * srD;
+      freq = clamp_hz_nyquist(freq, srD);
+    }
+    float mono = 0.0f;
+    float left = 0.0f;
+    float right = 0.0f;
+    soemdsp_yellow_graph::sum_sample(
+      local,
+      node.yellowPhaseAcc,
+      (float)freq,
+      (float)node.amplitude.out,
+      sr,
+      &mono,
+      &left,
+      &right,
+      optimize,
+      f,
+      frames
+    );
+    node.buf[kPortMono][f] = (double)mono;
+    node.buf[kPortLeft][f] = (double)left;
+    node.buf[kPortRight][f] = (double)right;
+  }
+
+  if (
+    local.ratioNoise.active
+    || local.phaseNoise.active
+    || local.panNoise.active
+    || local.ampNoise.active
+  ) {
+    sync_yellow_noise_seeds_upstream(g, srcIdx, local);
+  }
 }
 
 // Surge hard-sync osc. width=syncFrequencyHz. Sync audio in → Mono dst.
@@ -5612,39 +6316,46 @@ static void process_pump_limiter(Circuit& g, Node& node, int frames) {
 // stages=antialias, level unused.
 static void process_audio_player(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
-  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixMorph);
-  const bool hasSpeed = mix_live_port(g, node, kPortF, frames, g.mixMono); // Speed on ƒ reuse? use PitchCv
-  (void)hasSpeed;
-  const bool hasPhase = mix_live_port(g, node, kPortIncrement, frames, g.mixLeft); // Phase jack
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool hasSpeed = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool hasPhase = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double transport = node.mode.out;
-  const double speedParam = node.frequency.out;
-  const double start = node.timeNumerator.out;
-  const double end = node.timeDenominator.out;
-  const double amplitude = node.amplitude.out;
-  const double phaseOffset = node.phaseParam.out;
-  const double phaseSkip = node.shape.out;
-  const double playlistScrub = node.seed.out;
-  const double antialias = node.stages.out;
+  // Sample-accurate Internal glides for ◀◀▶▶ / Scratch / playlist scrub.
+  const bool controlSmoothing = node.phaseParam.active || node.shape.active
+    || node.seed.active || node.frequency.active || node.amplitude.active
+    || node.timeNumerator.active || node.timeDenominator.active;
   for (int f = 0; f < frames; f++) {
-    const double reset = hasReset ? g.mixMorph[f] : 0.0;
-    const double speedCv = 0.0; // Speed CV: wire via pitch later if needed
-    const double phaseCv = hasPhase ? g.mixLeft[f] : 0.0;
+    if (controlSmoothing) {
+      Control* chase[] = {
+        &node.phaseParam, &node.shape, &node.seed, &node.frequency, &node.amplitude,
+        &node.timeNumerator, &node.timeDenominator
+      };
+      for (unsigned ci = 0; ci < sizeof(chase) / sizeof(chase[0]); ci += 1) {
+        Control* c = chase[ci];
+        if (c && c->active && !c->snap) {
+          control_step(*c, g);
+          c->blockStepped = 1;
+        }
+      }
+    }
+    const double reset = hasReset ? g.mixReset[f] : 0.0;
+    const double speedCv = hasSpeed ? g.mixPitch[f] : 0.0;
+    const double phaseCv = hasPhase ? g.mixIncrement[f] : 0.0;
     const double mono = soemdsp_audio_player_sample(
       node.nativeHandle,
       reset,
       speedCv,
       phaseCv,
       hasPhase ? 1 : 0,
-      transport,
-      speedParam,
-      start,
-      end,
-      amplitude,
-      phaseOffset,
-      phaseSkip,
-      playlistScrub,
-      antialias,
+      node.mode.out,
+      node.frequency.out,
+      node.timeNumerator.out,
+      node.timeDenominator.out,
+      node.amplitude.out,
+      node.phaseParam.out,
+      node.shape.out,
+      node.seed.out,
+      node.stages.out,
       sr
     );
     node.buf[kPortMono][f] = mono;
@@ -5986,7 +6697,8 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
   for (int ci = 0; ci < g.connCount; ci++) {
     const Conn& c = g.conns[ci];
     if (!c.used || c.dstHash != node.idHash) continue;
-    if (is_live_dst_port(clamp_dst_port(c.dstPort))) continue;
+    const int dp = clamp_dst_port(c.dstPort);
+    if (is_live_dst_port(dp) || is_graph_port(dp)) continue;
     hasIn = true;
     break;
   }
@@ -6267,6 +6979,8 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeAntisaw
     || node.typeId == kTypeArchimedes
     || node.typeId == kTypeAdditiveOsc
+    || node.typeId == kTypeAdditiveGenerator
+    || node.typeId == kTypeAdditiveOut
     || node.typeId == kTypeSurgeOscillator
     || node.typeId == kTypeSoftwaveOsc
     || node.typeId == kTypeDsfOscillator
@@ -6462,7 +7176,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeWirdoSpiral
     || typeId == kTypePhosphillator
     || (typeId >= kTypeCrossover2 && typeId <= kTypeCrossover6);
-  // additiveOsc / ellipsoid are free-fn (no native handle).
+  // additiveOsc / ellipsoid / Yellow Graph A1 are free-fn (no native handle).
   if (needsNative) {
     n.nativeHandle = create_native_for_type(typeId, g->sampleRate);
     if (n.nativeHandle <= 0) {
@@ -6759,6 +7473,76 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     if (ni < 0 || ni >= g->nodeCount || !g->nodes[ni].used) continue;
     Node& node = g->nodes[ni];
     for (int c = 0; c < kChannels; c++) zero_buf(node.buf[c], frames);
+
+    // Yellow Graph: handle before generic bypass so Graph copy-thru / clear works.
+    if (node.typeId == kTypeAdditiveGenerator) {
+      process_additive_generator(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveBubble) {
+      process_additive_bubble(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveLinearFilter) {
+      process_additive_linear_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveAnalogFilter) {
+      process_additive_analog_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveLadderFilter) {
+      process_additive_ladder_filter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveFrequencySkew) {
+      process_additive_frequency_skew(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveQuantizeFreq) {
+      process_additive_quantize_freq(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveQuantizePhase) {
+      process_additive_quantize_phase(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditivePan) {
+      process_additive_pan(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditivePhaseEntry) {
+      process_additive_phase_entry(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveBlaster) {
+      process_additive_blaster(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveDiffusor) {
+      process_additive_diffusor(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveNoisyFreq) {
+      process_additive_noisy_freq(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveNoisyPhase) {
+      process_additive_noisy_phase(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveNoisyPan) {
+      process_additive_noisy_pan(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveNoisyAmp) {
+      process_additive_noisy_amp(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeAdditiveOut) {
+      process_additive_out(*g, node, frames);
+      continue;
+    }
 
     if (node.bypassed) {
       process_bypass(*g, node, frames);
@@ -7209,6 +7993,8 @@ extern "C" double* soemdsp_graph_node_port_ptr(int handle, unsigned int nodeHash
   if (!g) return nullptr;
   const int idx = find_node(*g, nodeHash);
   if (idx < 0) return nullptr;
+  // Graph is a data-plane port (no sample buffer).
+  if (is_graph_port(port)) return nullptr;
   const int p = clamp_src_port(port);
   return g->nodes[idx].buf[p];
 }
@@ -7224,10 +8010,100 @@ extern "C" int soemdsp_graph_node_native_handle(int handle, unsigned int nodeHas
   return g->nodes[idx].nativeHandle;
 }
 
+// Yellow Graph face publish: host copies planar arrays for data-bus relay.
+static int yellow_node_index(Circuit* g, unsigned int nodeHash) {
+  if (!g) return -1;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return -1;
+  const int t = g->nodes[idx].typeId;
+  if (
+    t == kTypeAdditiveGenerator || t == kTypeAdditiveBubble || t == kTypeAdditiveOut
+    || t == kTypeAdditiveLinearFilter || t == kTypeAdditiveAnalogFilter
+    || t == kTypeAdditiveLadderFilter || t == kTypeAdditiveFrequencySkew
+    || t == kTypeAdditiveQuantizeFreq || t == kTypeAdditiveQuantizePhase
+    || t == kTypeAdditivePan || t == kTypeAdditivePhaseEntry || t == kTypeAdditiveBlaster
+    || t == kTypeAdditiveDiffusor
+    || t == kTypeAdditiveNoisyFreq || t == kTypeAdditiveNoisyPhase
+    || t == kTypeAdditiveNoisyPan || t == kTypeAdditiveNoisyAmp
+  ) {
+    return idx;
+  }
+  return -1;
+}
+
+extern "C" int soemdsp_graph_yellow_harmonics(int handle, unsigned int nodeHash) {
+  Circuit* g = get(handle);
+  const int idx = yellow_node_index(g, nodeHash);
+  if (idx < 0) return 0;
+  const int H = g->nodes[idx].yellowGraph.harmonics;
+  if (H < 0) return 0;
+  if (H > soemdsp_yellow_graph::kMaxHarmonics) return soemdsp_yellow_graph::kMaxHarmonics;
+  return H;
+}
+
+extern "C" float* soemdsp_graph_yellow_ratio_ptr(int handle, unsigned int nodeHash) {
+  Circuit* g = get(handle);
+  const int idx = yellow_node_index(g, nodeHash);
+  if (idx < 0 || g->nodes[idx].yellowGraph.harmonics < 1) return nullptr;
+  return g->nodes[idx].yellowGraph.ratio;
+}
+
+extern "C" float* soemdsp_graph_yellow_phase_ptr(int handle, unsigned int nodeHash) {
+  Circuit* g = get(handle);
+  const int idx = yellow_node_index(g, nodeHash);
+  if (idx < 0 || g->nodes[idx].yellowGraph.harmonics < 1) return nullptr;
+  return g->nodes[idx].yellowGraph.phase;
+}
+
+extern "C" float* soemdsp_graph_yellow_amplitude_ptr(int handle, unsigned int nodeHash) {
+  Circuit* g = get(handle);
+  const int idx = yellow_node_index(g, nodeHash);
+  if (idx < 0 || g->nodes[idx].yellowGraph.harmonics < 1) return nullptr;
+  return g->nodes[idx].yellowGraph.amplitude;
+}
+
+extern "C" float* soemdsp_graph_yellow_pan_ptr(int handle, unsigned int nodeHash) {
+  Circuit* g = get(handle);
+  const int idx = yellow_node_index(g, nodeHash);
+  if (idx < 0 || g->nodes[idx].yellowGraph.harmonics < 1) return nullptr;
+  return g->nodes[idx].yellowGraph.pan;
+}
+
+// Bubble Cutoff sample-accurate strip: host writes Float32[0..frames) then set.
+// Returns 1 on success. frames<=0 clears the strip (quantum cutoff path).
+extern "C" int soemdsp_graph_set_yellow_cutoff_strip(
+  int handle, unsigned int nodeHash, int frames
+) {
+  Circuit* g = get(handle);
+  if (!g) return 0;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return 0;
+  Node& node = g->nodes[idx];
+  if (node.typeId != kTypeAdditiveBubble) return 0;
+  if (frames <= 0) {
+    node.yellowCutoffStripFrames = 0;
+    return 1;
+  }
+  int n = frames;
+  if (n > kMaxBlockFrames) n = kMaxBlockFrames;
+  node.yellowCutoffStripFrames = n;
+  return 1;
+}
+
+extern "C" float* soemdsp_graph_yellow_cutoff_strip_ptr(int handle, unsigned int nodeHash) {
+  Circuit* g = get(handle);
+  if (!g) return nullptr;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return nullptr;
+  Node& node = g->nodes[idx];
+  if (node.typeId != kTypeAdditiveBubble) return nullptr;
+  return node.yellowCutoffStrip;
+}
+
 extern "C" int soemdsp_graph_max_block_frames() {
   return kMaxBlockFrames;
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 62; // + soemdsp_graph_node_native_handle (PCM/path upload glue)
+  return 94; // Additive Generator HarmonicFade Instant|Smoothed|Decimal
 }

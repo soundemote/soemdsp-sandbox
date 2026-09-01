@@ -1,6 +1,6 @@
 // Worklet: Additive Generator — Yellow Graph OUT once per quantum.
-// Integer Harmonics only (no fractional trailing). Bubble Cutoff owns that.
-// Harmonics slot-count change stamps phaseReset so Out clears phaseAcc.
+// HarmonicFade: Instant (hard H), Smoothed (1-quantum ampLerp), Decimal (trailing frac).
+// Out must only init new phaseAcc slots (not wipe all — that clicked).
 
 NodeLiveAudioProcessor.prototype.ensureAdditiveGraphBus = function ensureAdditiveGraphBus() {
   if (!this.additiveGraphBus) this.additiveGraphBus = new Map();
@@ -75,26 +75,85 @@ NodeLiveAudioProcessor.prototype.additiveGeneratorBuildAndStamp = function addit
   const harmonics = typeof this.additiveEffectiveParam === "function"
     ? this.additiveEffectiveParam(node, "harmonics", 32, frames)
     : num(p.harmonics, 32);
+  const harmonicFade = num(p.harmonicFade, 1);
   const phaseRotation = typeof this.additiveEffectiveParam === "function"
     ? this.additiveEffectiveParam(node, "phaseRotation", 0, frames)
     : num(p.phaseRotation, 0);
+  const id = String(nodeId);
+  let genState = this.additiveGeneratorStates.get(id);
+  if (!genState) {
+    genState = { lastH: -1, prevAmp: null, prevRatio: null, prevPhase: null };
+    this.additiveGeneratorStates.set(id, genState);
+  }
+  const prevH = genState.lastH | 0;
+  const prevAmp = genState.prevAmp;
+  const prevRatio = genState.prevRatio;
+  const prevPhase = genState.prevPhase;
+  const fade = typeof additiveGraphNormalizeHarmonicFade === "function"
+    ? additiveGraphNormalizeHarmonicFade(harmonicFade)
+    : 1;
   const graph = additiveGraphBuildFromWaveform(
     num(p.waveform, 0),
     pwm,
     harmonics,
     phaseRotation,
+    fade,
   );
-  const id = String(nodeId);
-  let genState = this.additiveGeneratorStates.get(id);
-  if (!genState) {
-    genState = { lastH: -1 };
-    this.additiveGeneratorStates.set(id, genState);
-  }
-  const H = graph.harmonics | 0;
-  if (genState.lastH >= 0 && genState.lastH !== H) {
+  const newH = graph.harmonics | 0;
+  if (prevH >= 0 && prevH !== newH) {
     graph.phaseReset = true;
+    // Smoothed only: Instant hard-cuts; Decimal trailing amp is the fade.
+    if (fade === 1 && typeof additiveGraphApplyGeneratorHarmonicsCountLerp === "function") {
+      additiveGraphApplyGeneratorHarmonicsCountLerp(
+        graph, prevAmp, prevRatio, prevPhase, prevH, newH,
+      );
+    } else if (fade === 1) {
+      const Hlerp = Math.max(prevH, newH);
+      if (Hlerp > (graph.ratio?.length | 0)) {
+        const ratio = new Float32Array(Hlerp);
+        const phase = new Float32Array(Hlerp);
+        const amplitude = new Float32Array(Hlerp);
+        const pan = new Float32Array(Hlerp);
+        if (graph.ratio) ratio.set(graph.ratio);
+        if (graph.phase) phase.set(graph.phase);
+        if (graph.amplitude) amplitude.set(graph.amplitude);
+        if (graph.pan) pan.set(graph.pan);
+        graph.ratio = ratio;
+        graph.phase = phase;
+        graph.amplitude = amplitude;
+        graph.pan = pan;
+      }
+      const from = new Float32Array(Hlerp);
+      const to = new Float32Array(Hlerp);
+      for (let i = 0; i < Hlerp; i += 1) {
+        from[i] = prevAmp && i < prevH ? Number(prevAmp[i]) || 0 : 0;
+        if (i < newH) {
+          to[i] = Number(graph.amplitude[i]) || 0;
+        } else {
+          to[i] = 0;
+          if (prevRatio && i < prevH) graph.ratio[i] = Number(prevRatio[i]) || 0;
+          if (prevPhase && i < prevH) graph.phase[i] = Number(prevPhase[i]) || 0;
+          graph.amplitude[i] = 0;
+          graph.pan[i] = 0;
+        }
+      }
+      graph.harmonics = Hlerp;
+      graph.ampLerp = { from, to };
+    }
   }
-  genState.lastH = H;
+  genState.lastH = newH;
+  // Remember *target* planes (newH), not temporary lerp width.
+  const storeH = Math.max(0, newH);
+  genState.prevAmp = new Float32Array(storeH);
+  genState.prevRatio = new Float32Array(storeH);
+  genState.prevPhase = new Float32Array(storeH);
+  for (let i = 0; i < storeH; i += 1) {
+    genState.prevAmp[i] = graph.ampLerp?.to
+      ? Number(graph.ampLerp.to[i]) || 0
+      : Number(graph.amplitude?.[i]) || 0;
+    genState.prevRatio[i] = Number(graph.ratio?.[i]) || 0;
+    genState.prevPhase[i] = Number(graph.phase?.[i]) || 0;
+  }
   this.additiveGraphWrite(nodeId, graph);
 };
 

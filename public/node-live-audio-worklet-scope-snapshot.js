@@ -119,6 +119,10 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
     for (const [nodeId, state] of this.spectrogramStates) {
       this.spectrogramCollectDisplayData(nodeId, state, dataPorts);
     }
+    // Pull Yellow Graph planes from native WASM for face relay.
+    if (typeof this.syncNativeYellowGraphPublish === "function") {
+      try { this.syncNativeYellowGraphPublish(); } catch (_e) { /* keep prior publish */ }
+    }
     // Yellow Graph relay (Additive Generator / Effect / Out faces).
     if (this.additiveGraphPublish && this.additiveGraphPublish.size) {
       for (const [nodeId, graph] of this.additiveGraphPublish) {

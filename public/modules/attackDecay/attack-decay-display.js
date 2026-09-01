@@ -40,7 +40,7 @@ function drawNodeGraphEnvelopeCurveDisplay(section) {
 function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
   const pts = Math.max(64, Math.floor(Number(width) || 128));
   if (
-    (type === "expAdsr" || type === "additiveCurveEnvelope")
+    (type === "expAdsr" || type === "curveEnvelopeMod")
     && typeof nodeGraphExpAdsrPreviewCurve === "function"
   ) {
     const preview = nodeGraphExpAdsrPreviewCurve({

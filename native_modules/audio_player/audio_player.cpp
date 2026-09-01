@@ -4,24 +4,26 @@
 // soemdsp-native-kind: player
 //
 // Port of public/modules/audioPlayer/audio-player-worklet-evaluator.js
-// audioPlayerSample. PCM is planar float L/R in a malloc/free arena
-// (max 60 s @ 44.1 kHz); JS fills via l_ptr/r_ptr after set_pcm, like
-// phosphillator. Transport 0–5: Reset / Stop / Pause / Loop / Play /
-// Loop All (5 is play-once at this kernel; playlist wrap is host-side).
+// audioPlayerSample. PCM is planar float L/R; JS fills via l_ptr/r_ptr after
+// set_pcm (phosphillator-style). Full tracks allocate with memory.grow
+// (APP_POLICY §2b) — same as JS peel holding the whole file in RAM.
+// Transport 0–5: Reset / Stop / Pause / Loop / Play / Loop All
+// (5 is play-once at this kernel; playlist wrap is host-side).
 // Readout is linear interpolation (antialias kept on the ABI only).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
+
+#include <stddef.h>
+#include <stdint.h>
 
 namespace {
 
 using namespace soemdsp_maths;
 
-// Demo-friendly cap: 4 players × ~30 s mono-equivalent arena (grows via
-// bump allocator; stereo uses 2× floats per frame). Keeps combined wasm small.
 static const int kMaxInstances = 4;
-static const int kMaxFrames = 44100 * 30;
-static const int kArenaFloats = kMaxFrames * 2; // shared pool (~10 MB floats)
-
+// Safety refuse only — ~30 min @ 48 kHz. Actual RAM is sized to the loaded file.
+static const int kMaxFrames = 48000 * 60 * 30;
+static const size_t kWasmPage = 65536;
 static const int kMaxFreeNodes = 32;
 static const double kMinSpan = 0.000001;
 
@@ -53,8 +55,6 @@ struct State {
 };
 
 static State gPool[kMaxInstances];
-static float gArena[kArenaFloats];
-static int gBump = 0;
 static FreeNode gFreeNodes[kMaxFreeNodes];
 static int gFreeNodeUsed = 0;
 static FreeNode* gFreeList = nullptr;
@@ -66,6 +66,27 @@ static const char kMetadataJson[] =
     "\"targetType\":\"audioPlayer\","
     "\"kind\":\"player\""
   "}";
+
+// Grow from the current end of linear memory so this does not share the
+// ping_pong __heap_base bump cursor. Freelist recycles prior uploads.
+#if defined(__wasm__)
+static float* pcm_grow_alloc(int floats) {
+  if (floats < 1) return nullptr;
+  const size_t bytes = (size_t)floats * sizeof(float);
+  const size_t pages = (bytes + kWasmPage - 1) / kWasmPage;
+  if (pages < 1) return nullptr;
+  const size_t oldBytes = (size_t)__builtin_wasm_memory_size(0) * kWasmPage;
+  if (__builtin_wasm_memory_grow(0, pages) < 0) return nullptr;
+  float* data = (float*)oldBytes;
+  for (int i = 0; i < floats; i += 1) data[i] = 0.0f;
+  return data;
+}
+#else
+static float* pcm_grow_alloc(int floats) {
+  (void)floats;
+  return nullptr;
+}
+#endif
 
 static float* pcm_malloc(int floats) {
   if (floats < 1) return nullptr;
@@ -88,16 +109,12 @@ static float* pcm_malloc(int floats) {
     }
     cursor = &node->next;
   }
-  if (gBump > kArenaFloats - floats) return nullptr;
-  float* data = gArena + gBump;
-  gBump += floats;
-  for (int i = 0; i < floats; i += 1) data[i] = 0.0f;
-  return data;
+  return pcm_grow_alloc(floats);
 }
 
 static void pcm_free(float* data, int floats) {
   if (!data || floats < 1) return;
-  if (gFreeNodeUsed >= kMaxFreeNodes) return;
+  if (gFreeNodeUsed >= kMaxFreeNodes) return; // drop; peak RAM already paid
   FreeNode* node = &gFreeNodes[gFreeNodeUsed++];
   node->next = gFreeList;
   node->floats = floats;

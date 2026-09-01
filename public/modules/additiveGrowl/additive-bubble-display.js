@@ -61,11 +61,15 @@ function nodeGraphAdditiveBubbleReadParams(nodeId) {
       const n = Number(v);
       return Number.isFinite(n) ? n : fb;
     };
+  const bubble = Math.max(0, Math.min(1, num(p.bubble, 0)));
+  const invert = num(p.invertBubble, 0) >= 0.5;
   return {
     phaseSkew: num(p.phaseSkew, 0),
-    skewAmount: num(p.phaseSkewCurve, 0),
+    bubble,
+    invertBubble: invert ? 1 : 0,
+    skewAmount: invert ? -bubble : bubble,
     cutoff: num(p.cutoff, 1),
-    unskew: num(p.unskew, 0),
+    unskew: num(p.unskew, 481.53),
   };
 }
 
@@ -79,8 +83,8 @@ function nodeGraphAdditiveBubbleFingerprint(graph, params) {
     h += `${(Number(graph.amplitude?.[i]) || 0).toFixed(3)},`;
     h += `${(Number(graph.phase?.[i]) || 0).toFixed(3)};`;
   }
-  h += `|${params.phaseSkew.toFixed(3)}|${params.skewAmount.toFixed(4)}`;
-  h += `|${params.cutoff.toFixed(4)}|${params.unskew.toFixed(3)}`;
+  h += `|${params.phaseSkew.toFixed(3)}|${(Number(params.bubble) || 0).toFixed(4)}`;
+  h += `|${params.invertBubble ? 1 : 0}|${params.cutoff.toFixed(4)}|${params.unskew.toFixed(3)}`;
   return h;
 }
 

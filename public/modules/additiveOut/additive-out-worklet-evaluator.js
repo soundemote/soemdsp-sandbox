@@ -22,8 +22,8 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
   // ZOH capture on first frame of the quantum.
   if (frame === 0) {
     state.heldGraph = graph;
-    // Generator Harmonics slot-count change → wipe free-running phases.
-    if (graph.phaseReset) state.phaseAcc = null;
+    // Harmonics grow: init only *new* phase slots. Do not null the whole
+    // phaseAcc on phaseReset — that clicked; face still refreshes via H.
     const p = node?.params || node?.parameters || {};
     const referenceVoltage = 48 / 120;
     let frequencyHz = Number(p.frequency);

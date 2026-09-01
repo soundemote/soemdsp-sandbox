@@ -774,6 +774,28 @@ function nodeGraphPatchMigrateBubbleSlimParams(patch) {
 }
 
 /**
+ * additiveCurveEnvelope → curveEnvelopeMod; additivePluckEnvelope → pluckEnvelopeMod.
+ * Display rename only at the type-id layer; params unchanged.
+ */
+function nodeGraphPatchMigrateAdditiveEnvelopeMods(patch) {
+  if (!patch || !Array.isArray(patch.nodes)) return patch;
+  const map = Object.freeze({
+    additiveCurveEnvelope: "curveEnvelopeMod",
+    additivePluckEnvelope: "pluckEnvelopeMod",
+  });
+  let changed = false;
+  const nodes = patch.nodes.map((node) => {
+    if (!node) return node;
+    const type = String(node.type || "").trim();
+    const nextType = map[type];
+    if (!nextType) return node;
+    changed = true;
+    return { ...node, type: nextType };
+  });
+  return changed ? { ...patch, nodes } : patch;
+}
+
+/**
  * additiveFrequencySlope → additiveFrequencySkew.
  * Drops Scale; seeds Low/High Stretch (1…24) from old Scale sign when missing.
  */
@@ -1170,6 +1192,7 @@ function migrateNodeGraphPatchToCurrent(patch) {
     next = nodeGraphPatchMigrateGrowlToBubble(next);
     next = nodeGraphPatchMigrateBubbleBrickwallToDampen(next);
     next = nodeGraphPatchMigrateBubbleSlimParams(next);
+    next = nodeGraphPatchMigrateAdditiveEnvelopeMods(next);
     next = nodeGraphPatchMigrateFrequencySlopeToSkew(next);
     next = nodeGraphPatchMigrateFrequencySkewCurveExpRational(next);
     next = nodeGraphPatchMigrateFrequencyMathBipolar(next);

@@ -220,16 +220,52 @@ function additiveGraphClonePayload(src) {
   return out;
 }
 
+/** HarmonicFade: 0 Instant / 1 Smoothed / 2 Decimal. */
+function additiveGraphNormalizeHarmonicFade(mode) {
+  const n = Math.round(Number(mode));
+  if (n === 0 || n === 2) return n;
+  const s = String(mode ?? "").trim().toLowerCase();
+  if (s === "0" || s === "instant") return 0;
+  if (s === "2" || s === "decimal") return 2;
+  return 1;
+}
+
+/**
+ * Resolve allocated slot count + trailing frac from Harmonics + HarmonicFade.
+ * Instant/Smoothed: round to integer (frac=0). Decimal: ceil + trailing frac.
+ */
+function additiveGraphResolveHarmonicSlots(harmonics, harmonicFade = 1) {
+  const fade = additiveGraphNormalizeHarmonicFade(harmonicFade);
+  let exact = Number(harmonics);
+  if (!Number.isFinite(exact) || exact < 0) exact = 0;
+  if (exact > ADDITIVE_GRAPH_MAX_H) exact = ADDITIVE_GRAPH_MAX_H;
+  if (fade !== 2) {
+    const H = Math.max(0, Math.min(ADDITIVE_GRAPH_MAX_H, Math.round(exact)));
+    return { exact: H, H, lastFrac: 0, fade };
+  }
+  if (!(exact > 0)) return { exact: 0, H: 0, lastFrac: 0, fade };
+  const full = Math.floor(exact + 1e-9);
+  let frac = exact - full;
+  let H;
+  if (frac > 1e-9) {
+    H = Math.min(ADDITIVE_GRAPH_MAX_H, full + 1);
+  } else {
+    H = Math.min(ADDITIVE_GRAPH_MAX_H, full);
+    frac = 0;
+  }
+  return { exact, H, lastFrac: frac, fade };
+}
+
 /**
  * Build Generator Graph: relative ratios + waveform amps/phases; pan centered.
- * Harmonics is integer-only (decimals rounded). Fractional trailing fade lives
- * on Bubble Cutoff via additiveGraphHarmonicCountGain.
+ * HarmonicFade Instant/Smoothed: integer slots. Decimal: trailing partial amp.
+ * Bubble Cutoff may still apply its own harmonic_count_gain skirt.
  */
-function additiveGraphBuildFromWaveform(waveform, pwm, harmonics, phaseRotation = 0) {
-  const hRaw = Number(harmonics);
-  const H = Number.isFinite(hRaw)
-    ? Math.max(0, Math.min(ADDITIVE_GRAPH_MAX_H, Math.round(hRaw)))
-    : 1;
+function additiveGraphBuildFromWaveform(
+  waveform, pwm, harmonics, phaseRotation = 0, harmonicFade = 1,
+) {
+  const slots = additiveGraphResolveHarmonicSlots(harmonics, harmonicFade);
+  const H = slots.H;
   const graph = additiveGraphCreatePayload(H);
   const wf = Number(waveform) || 0;
   const m = additiveGraphClamp(Number(pwm) || 0, -1, 1);
@@ -238,10 +274,58 @@ function additiveGraphBuildFromWaveform(waveform, pwm, harmonics, phaseRotation 
     const partial = additiveGraphWaveformPartial(wf, i + 1, m);
     graph.ratio[i] = partial.ratio;
     graph.phase[i] = additiveGraphWrap01(partial.phase + rot);
-    graph.amplitude[i] = partial.amplitude;
+    let amp = partial.amplitude;
+    if (slots.lastFrac > 0 && i === H - 1) amp *= slots.lastFrac;
+    graph.amplitude[i] = amp;
     graph.pan[i] = 0;
   }
-  graph.harmonicsExact = H;
+  graph.harmonicsExact = slots.exact;
+  graph.harmonicFade = slots.fade;
+  return graph;
+}
+
+/**
+ * One-quantum amp crossfade when Generator slot count changes (HarmonicFade=Smoothed).
+ * Grows: new partials from=0. Shrinks: keep old ratio/phase one quantum, to=0.
+ */
+function additiveGraphApplyGeneratorHarmonicsCountLerp(
+  graph, prevAmp, prevRatio, prevPhase, prevH, newH,
+) {
+  if (!graph || prevH < 0 || newH < 0 || prevH === newH) return graph;
+  const pH = Math.min(ADDITIVE_GRAPH_MAX_H, Math.max(0, prevH | 0));
+  const nH = Math.min(ADDITIVE_GRAPH_MAX_H, Math.max(0, newH | 0));
+  const Hlerp = Math.max(pH, nH);
+  if (Hlerp <= 0) return graph;
+  if (Hlerp > (graph.ratio?.length | 0)) {
+    const ratio = new Float32Array(Hlerp);
+    const phase = new Float32Array(Hlerp);
+    const amplitude = new Float32Array(Hlerp);
+    const pan = new Float32Array(Hlerp);
+    if (graph.ratio) ratio.set(graph.ratio);
+    if (graph.phase) phase.set(graph.phase);
+    if (graph.amplitude) amplitude.set(graph.amplitude);
+    if (graph.pan) pan.set(graph.pan);
+    graph.ratio = ratio;
+    graph.phase = phase;
+    graph.amplitude = amplitude;
+    graph.pan = pan;
+  }
+  const from = new Float32Array(Hlerp);
+  const to = new Float32Array(Hlerp);
+  for (let i = 0; i < Hlerp; i += 1) {
+    from[i] = prevAmp && i < pH ? Number(prevAmp[i]) || 0 : 0;
+    if (i < nH) {
+      to[i] = Number(graph.amplitude[i]) || 0;
+    } else {
+      to[i] = 0;
+      if (prevRatio && i < pH) graph.ratio[i] = Number(prevRatio[i]) || 0;
+      if (prevPhase && i < pH) graph.phase[i] = Number(prevPhase[i]) || 0;
+      graph.amplitude[i] = 0;
+      graph.pan[i] = 0;
+    }
+  }
+  graph.harmonics = Hlerp;
+  graph.ampLerp = { from, to };
   return graph;
 }
 
@@ -429,18 +513,20 @@ function additiveGraphApplyQuantizePhase(
 }
 
 /**
- * QuantizeFreq — optional fund-relative ratio snap (overtones only), then random ratio offset (last).
- * Fundamental never moves. quantize on: snap to r0·n or r0/2^k.
- * randomAmount scales per-partial unit random added to overtone ratios.
+ * QuantizeFreq — bipolar random ratio offset first, then optional fund-relative snap.
+ * qFund reference is always the pre-random fundamental.
+ * affectFundamental Off: ratio[0] locked. On: fund may move via random; overtones
+ * still snap to the original fund reference (fund slot itself is never snapped).
  * Stamps ratioLerp. Returns { graph, lerpFrom }.
  */
 function additiveGraphApplyQuantizeFreq(
-  graph, quantize = 0, randomAmount = 0, seed = 1, lerpFrom = null,
+  graph, quantize = 0, randomAmount = 0, seed = 1, lerpFrom = null, affectFundamental = 0,
 ) {
   if (!graph || !graph.harmonics) return { graph, lerpFrom: null };
   const H = graph.harmonics | 0;
   if (H < 1) return { graph, lerpFrom: null };
   const doQuant = Math.round(Number(quantize) || 0) === 1;
+  const affectFund = Math.round(Number(affectFundamental) || 0) === 1;
   const amtRaw = Number(randomAmount);
   const amt = Number.isFinite(amtRaw) ? amtRaw : 0;
   const seedN = Number(seed);
@@ -454,17 +540,22 @@ function additiveGraphApplyQuantizeFreq(
   const fund = Number.isFinite(fundIn) ? fundIn : 0;
   const qFund = Math.abs(fund) > 1e-12 ? fund : 1;
   const to = new Float32Array(H);
-  to[0] = fund;
-  for (let i = 1; i < H; i += 1) {
+  for (let i = 0; i < H; i += 1) {
+    if (i === 0 && !affectFund) {
+      to[0] = fund;
+      continue;
+    }
     let r = Number(graph.ratio[i]) || 0;
-    if (doQuant) {
+    // 1) Bipolar random anywhere up/down.
+    if (Math.abs(amt) > 1e-12) {
+      const u = additiveGraphHarmonicUnitRandom(seedUse, i, 13);
+      r += (u * 2 - 1) * amt;
+    }
+    // 2) Quantize after random (overtones only).
+    if (doQuant && i > 0) {
       r = additiveGraphSnapHarmonicMultiple(r / qFund) * qFund;
     }
-    // Random last: independent per overtone (same hash family as QuantizePhase).
-    if (Math.abs(amt) > 1e-12) {
-      r += additiveGraphHarmonicUnitRandom(seedUse, i, 13) * amt;
-    }
-    to[i] = r;
+    to[i] = Math.max(0, r);
   }
   let from;
   if (lerpFrom && lerpFrom.length === H) {
@@ -472,8 +563,10 @@ function additiveGraphApplyQuantizeFreq(
   } else {
     from = new Float32Array(to);
   }
-  from[0] = fund;
-  to[0] = fund;
+  if (!affectFund) {
+    from[0] = fund;
+    to[0] = fund;
+  }
   graph.ratioLerp = { from, to };
   graph.ratio.set(to);
   graph.ratioNoise = null;
@@ -1210,6 +1303,198 @@ function additiveGraphApplyBubble(
 }
 
 /**
+ * Diffusor — hard scramble (±4 wraps) + CheapWalk animation only.
+ */
+function additiveGraphApplyDiffusor(
+  graph,
+  diffusion = 1,
+  seed = 1,
+  speedHz = 35,
+  walks = null,
+  sampleRate = 44100,
+  blockFrames = 128,
+  lerpFrom = null,
+) {
+  if (!graph || !graph.phase) return graph;
+  const H = graph.harmonics | 0;
+  if (H <= 0) return graph;
+  let diff = Number(diffusion);
+  if (!(diff === diff) || diff < 0) diff = 0;
+  const phase0 = Number(graph.phase[0]) || 0;
+  let rng = (Math.floor(Number(seed)) || 1) >>> 0;
+  if (!rng) rng = 1;
+  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const frames = Math.max(1, Number(blockFrames) || 128);
+  const speed01 = Math.max(0, (Number(speedHz) || 0) / sr) * frames;
+  const havePrev = Array.isArray(lerpFrom) || (lerpFrom && lerpFrom.length === H);
+  const fromPhase = new Float32Array(H);
+  const toPhase = new Float32Array(H);
+  for (let i = 0; i < H; i += 1) {
+    rng = (Math.imul(rng, 1664525) + 1013904223 + Math.imul(i, 747796405)) >>> 0;
+    const rnd = ((rng >>> 8) & 0xffffff) / 16777216;
+    const scramble = (rnd - 0.5) * 2 * diff * 4;
+    let base = phase0 + scramble;
+    base = typeof additiveGraphWrap01 === "function" ? additiveGraphWrap01(base) : ((base % 1) + 1) % 1;
+    // Always apply CheapWalk position. Speed only advances x — Speed=0 freezes the
+    // same offset as a tiny Speed (never zero the offset just because speed===0).
+    let walk = 0;
+    if (diff > 0 && walks && walks[i]) {
+      rng = (Math.imul(rng, 1664525) + 1013904223) >>> 0;
+      const bip = ((rng >>> 8) & 0xffffff) / 16777216 * 2 - 1;
+      const step = speed01 * 0.35;
+      let x = (Number(walks[i].x) || 0) + bip * step;
+      if (x > 1) x = 2 - x;
+      if (x < -1) x = -2 - x;
+      walks[i].x = x;
+      walk = x * diff * 2;
+    }
+    let to = base + walk;
+    to = typeof additiveGraphWrap01 === "function" ? additiveGraphWrap01(to) : ((to % 1) + 1) % 1;
+    toPhase[i] = to;
+    fromPhase[i] = havePrev ? Number(lerpFrom[i]) || to : to;
+    graph.phase[i] = to;
+  }
+  graph.phaseLerp = { from: fromPhase, to: toPhase };
+  return graph;
+}
+
+/**
+ * Blaster — shared phase per index bin.
+ * phaseMode 0 Stagger (Bubble-like curve staircase + jump), 1 Random.
+ * Always bins by harmonic index (stable under fund sweep).
+ */
+function additiveGraphApplyBlaster(
+  graph,
+  quantization = 0,
+  layout = 0,
+  fundHz = 100,
+  sampleRate = 44100,
+  seed = 1,
+  depth = 1,
+  curve = 0,
+  curveKind = 2,
+  offset = 0,
+  phaseMode = 0,
+  invert = 0,
+  bias = 0,
+  jump = 0,
+) {
+  if (!graph || !graph.phase) return graph;
+  const H = graph.harmonics | 0;
+  if (H <= 0) return graph;
+  let bins = Math.round(Number(quantization) || 0);
+  if (!(bins >= 1)) return graph;
+  if (bins > H) bins = H;
+  void layout;
+  void fundHz;
+  void sampleRate;
+
+  const mode = Math.round(Number(phaseMode) || 0) >= 1 ? 1 : 0;
+  const kind = Math.max(0, Math.min(3, Math.round(Number(curveKind) || 0)));
+  const doInvert = Number(invert) >= 0.5;
+  const depthAmt = Number(depth) || 0;
+  const curveAmt = additiveGraphClamp(Number(curve) || 0, -0.9999, 0.9999);
+  const offsetAmt = Number(offset) || 0;
+  const biasAmt = Number(bias) || 0;
+  const jumpAmt = Number(jump) || 0;
+  const binPhase = new Float32Array(bins);
+
+  if (mode === 1) {
+    let rng = (Math.floor(Number(seed)) || 1) >>> 0;
+    if (!rng) rng = 1;
+    for (let b = 0; b < bins; b += 1) {
+      rng = (Math.imul(rng, 1664525) + 1013904223 + Math.imul(b, 747796405)) >>> 0;
+      binPhase[b] = ((rng >>> 8) & 0xffffff) / 16777216;
+    }
+  } else {
+    const denom = bins > 1 ? bins - 1 : 1;
+    for (let b = 0; b < bins; b += 1) {
+      let t = bins > 1 ? b / denom : 0;
+      t = additiveGraphClamp(t + biasAmt, 0, 1);
+      if (doInvert) t = 1 - t;
+      const mapped = typeof additiveGraphSkewMap === "function"
+        ? additiveGraphSkewMap(t, curveAmt, kind)
+        : t;
+      const ph = mapped * depthAmt + offsetAmt + b * jumpAmt;
+      binPhase[b] = typeof additiveGraphWrap01 === "function"
+        ? additiveGraphWrap01(ph)
+        : ((ph % 1) + 1) % 1;
+    }
+  }
+
+  for (let i = 0; i < H; i += 1) {
+    let bin = Math.floor((i * bins) / H);
+    if (bin >= bins) bin = bins - 1;
+    graph.phase[i] = binPhase[bin] || 0;
+  }
+  graph.phaseLerp = null;
+  return graph;
+}
+
+/**
+ * Face bins — always index membership (same as DSP).
+ * layout 0: t0/t1 = equal columns.
+ * layout 1: t0/t1 = log-Hz span of that index bin (slides with fund, no rebin).
+ */
+function additiveGraphBlasterBins(H, quantization, layout = 0, graph = null, fundHz = 100, sampleRate = 44100) {
+  const h = Math.max(0, H | 0);
+  let bins = Math.round(Number(quantization) || 0);
+  if (!(h > 0)) return [];
+  if (!(bins >= 1)) return [{ start: 0, end: h, phase: 0, t0: 0, t1: 1 }];
+  if (bins > h) bins = h;
+  const layoutMode = Math.round(Number(layout) || 0) >= 1 ? 1 : 0;
+
+  const axis = typeof additiveGraphDisplayFreqAxis === "function"
+    ? additiveGraphDisplayFreqAxis(sampleRate)
+    : null;
+  const xMin = axis?.xMinHz ?? 20;
+  const xMax = axis?.xMaxHz ?? Math.max(40, 0.45 * (Number(sampleRate) || 44100));
+  const logMin = Math.log(xMin);
+  const logSpan = Math.log(xMax) - logMin;
+  const f0 = Number(fundHz) > 0 ? Number(fundHz) : 100;
+
+  const hzToT = (hz) => {
+    let f = Number(hz);
+    if (!(f > 0)) f = xMin;
+    if (f < xMin) f = xMin;
+    if (f > xMax) f = xMax;
+    let t = (Math.log(f) - logMin) / logSpan;
+    if (t < 0) t = 0;
+    if (t > 1) t = 1;
+    return t;
+  };
+
+  const out = [];
+  for (let b = 0; b < bins; b += 1) {
+    const start = Math.floor((b * h) / bins);
+    const end = Math.floor(((b + 1) * h) / bins);
+    if (!(end > start)) continue;
+    let t0 = b / bins;
+    let t1 = (b + 1) / bins;
+    if (layoutMode === 1) {
+      const r0 = Number(graph?.ratio?.[start]) || (start + 1);
+      const r1 = Number(graph?.ratio?.[end - 1]) || end;
+      t0 = hzToT(r0 * f0);
+      t1 = hzToT(r1 * f0);
+      if (t1 < t0) {
+        const tmp = t0;
+        t0 = t1;
+        t1 = tmp;
+      }
+      if (t1 - t0 < 1e-4) t1 = Math.min(1, t0 + 1e-3);
+    }
+    out.push({
+      start,
+      end,
+      phase: Number(graph?.phase?.[start]) || 0,
+      t0,
+      t1,
+    });
+  }
+  return out;
+}
+
+/**
  * Per-harmonic CheapWalk / noise states.
  * `seed` = module Seed; `salt` = family (freq/phase/pan/amp).
  * Changing Seed rebuilds all streams; growing H appends new harmonics only.
@@ -1793,8 +2078,33 @@ function additiveGraphSumSample(
   const mp = Number(masterPhase) || 0;
   const ma = additiveGraphClamp(masterAmp, 0, 1);
   // Harmonics count change → hard reset all free-running phases (Generator).
+  // Grow/shrink without wiping running phases. New slots lock to fund by default
+  // (phaseEntryMode 0); Free=0 / Random=uniform when Phase Entry stamps the Graph.
   if (!phaseAcc || phaseAcc.length !== H) {
-    phaseAcc = new Float64Array(H);
+    const oldLen = phaseAcc && phaseAcc.length ? phaseAcc.length : 0;
+    const next = new Float64Array(H);
+    if (phaseAcc && oldLen) {
+      next.set(phaseAcc.subarray(0, Math.min(oldLen, H)));
+    }
+    if (H > oldLen) {
+      const fund = oldLen > 0 ? next[0] : 0;
+      const mode = Number(graph.phaseEntryMode) | 0;
+      const r0 = Number(graph.ratio?.[0]) || 1;
+      let rng = (Number(graph._phaseEntryRng) >>> 0) || 0xA5A5A5A5;
+      for (let i = oldLen; i < H; i += 1) {
+        if (mode === 1) {
+          next[i] = 0;
+        } else if (mode === 2) {
+          rng = (Math.imul(rng, 1664525) + 1013904223) >>> 0;
+          next[i] = ((rng >>> 8) & 0xffffff) / 16777216;
+        } else {
+          const ri = Number(graph.ratio?.[i]) || (i + 1);
+          next[i] = r0 > 1e-12 ? additiveGraphWrap01(fund * (ri / r0)) : fund;
+        }
+      }
+      graph._phaseEntryRng = rng;
+    }
+    phaseAcc = next;
   }
   const skipInaudible = additiveGraphNormalizeOptimizeMode(optimizeMode) === 1;
   const hearFloor = skipInaudible ? ADDITIVE_GRAPH_INAUDIBLE_AMP : 0;

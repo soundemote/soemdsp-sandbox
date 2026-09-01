@@ -1,4 +1,4 @@
-// Offline/render: Additive Curve Envelope — block-rate cyan Out (last sample).
+// Offline/render: CurveEnvelopeMod — block-rate cyan Out (last sample).
 
 const nodeGraphAdditiveCurveEnvelopeStates = new Map();
 
@@ -58,4 +58,6 @@ function nodeGraphAdditiveCurveEnvelopeLiveEvaluator({
   return { Out: out };
 }
 
+nodeGraphLiveModuleEvaluators.curveEnvelopeMod = nodeGraphAdditiveCurveEnvelopeLiveEvaluator;
+// Load-time migrator rewrites old type ids; keep alias if anything bypasses migrate.
 nodeGraphLiveModuleEvaluators.additiveCurveEnvelope = nodeGraphAdditiveCurveEnvelopeLiveEvaluator;

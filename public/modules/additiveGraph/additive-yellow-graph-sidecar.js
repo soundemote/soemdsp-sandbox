@@ -14,6 +14,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
   if (!this.additiveNoisyPhaseStates) this.additiveNoisyPhaseStates = new Map();
   if (!this.additiveNoisyPanStates) this.additiveNoisyPanStates = new Map();
   if (!this.additiveNoisyAmpStates) this.additiveNoisyAmpStates = new Map();
+  if (!this.additiveDiffusorStates) this.additiveDiffusorStates = new Map();
   if (!this.additiveBubbleStates) this.additiveBubbleStates = new Map();
   if (!this.additivePanStates) this.additivePanStates = new Map();
   if (!this.additiveFrequencySkewStates) this.additiveFrequencySkewStates = new Map();
@@ -61,6 +62,9 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     "additiveAnalogFilter",
     "additiveLadderFilter",
     "additiveBubble",
+    "additiveBlaster",
+    "additiveDiffusor",
+    "additivePhaseEntry",
     "additiveFrequencySkew",
     "additiveQuantizeFreq",
     "additiveQuantizePhase",
@@ -166,23 +170,44 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     const pwm = (p.pwm != null && Number.isFinite(Number(p.pwm)))
       ? eff(node, "pwm", 0)
       : eff(node, "morph", 0); // legacy Morph → PWM
+    const fade = typeof additiveGraphNormalizeHarmonicFade === "function"
+      ? additiveGraphNormalizeHarmonicFade(num(p.harmonicFade, 1))
+      : 1;
     const graph = additiveGraphBuildFromWaveform(
       num(p.waveform, 0),
       pwm,
       eff(node, "harmonics", 32),
       eff(node, "phaseRotation", 0),
+      fade,
     );
     const gid = String(id);
     let genState = this.additiveGeneratorStates.get(gid);
     if (!genState) {
-      genState = { lastH: -1 };
+      genState = { lastH: -1, prevAmp: null, prevRatio: null, prevPhase: null };
       this.additiveGeneratorStates.set(gid, genState);
     }
-    const H = graph.harmonics | 0;
-    if (genState.lastH >= 0 && genState.lastH !== H) {
+    const prevH = genState.lastH | 0;
+    const newH = graph.harmonics | 0;
+    if (prevH >= 0 && prevH !== newH) {
       graph.phaseReset = true;
+      if (fade === 1 && typeof additiveGraphApplyGeneratorHarmonicsCountLerp === "function") {
+        additiveGraphApplyGeneratorHarmonicsCountLerp(
+          graph, genState.prevAmp, genState.prevRatio, genState.prevPhase, prevH, newH,
+        );
+      }
     }
-    genState.lastH = H;
+    genState.lastH = newH;
+    const storeH = Math.max(0, newH);
+    genState.prevAmp = new Float32Array(storeH);
+    genState.prevRatio = new Float32Array(storeH);
+    genState.prevPhase = new Float32Array(storeH);
+    for (let i = 0; i < storeH; i += 1) {
+      genState.prevAmp[i] = graph.ampLerp?.to
+        ? Number(graph.ampLerp.to[i]) || 0
+        : Number(graph.amplitude?.[i]) || 0;
+      genState.prevRatio[i] = Number(graph.ratio?.[i]) || 0;
+      genState.prevPhase[i] = Number(graph.phase?.[i]) || 0;
+    }
     this.additiveGraphBus.set(gid, graph);
     this.additiveGraphPublish.set(gid, graph);
     busQ.set(gid, quantum);
@@ -274,22 +299,22 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
         }
       } else if (type === "additiveBubble") {
         let bubbleState = this.additiveBubbleStates.get(eid) || {};
-        let cutoff = eff(node, "cutoff", NaN);
-        if (!(cutoff === cutoff)) {
-          // Old Harmonic Reducer was inverted (0=full). Map once if present.
-          const legacy = eff(node, "harmonicReduce", NaN);
-          cutoff = legacy === legacy ? 1 - legacy : 1;
-        }
+        const cutoff = eff(node, "cutoff", 1);
         const phaseSkew = additiveGraphBubbleEffectivePhaseSkew(
           eff(node, "phaseSkew", 0),
-          eff(node, "unskew", 0),
+          eff(node, "unskew", 481.53),
           cutoff,
         );
+        let bubble = Math.max(0, Math.min(1, Number(eff(node, "bubble", 0)) || 0));
+        const invert = num(p.invertBubble, 0) >= 0.5;
+        let curveAmt = invert ? -bubble : bubble;
+        if (curveAmt > 0.9999) curveAmt = 0.9999;
+        if (curveAmt < -0.9999) curveAmt = -0.9999;
         const applied = additiveGraphApplyGrowl(
           out,
-          0, // phase rotation removed
+          0,
           phaseSkew,
-          eff(node, "phaseSkewCurve", 0),
+          curveAmt,
           2, // Logarithmic
           cutoff,
           0,
@@ -298,6 +323,61 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
         this.additiveBubbleStates.set(eid, {
           lerpFrom: applied?.lerpFrom || null,
         });
+      } else if (type === "additiveBlaster") {
+        if (typeof additiveGraphApplyBlaster === "function") {
+          const fund = typeof this.resolveYellowFundHz === "function"
+            ? this.resolveYellowFundHz(eid)
+            : 100;
+          additiveGraphApplyBlaster(
+            out,
+            eff(node, "quantization", 179),
+            0,
+            fund,
+            sr,
+            1,
+            eff(node, "depth", 145.84),
+            eff(node, "curve", -0.2),
+            num(p.curveKind, 1),
+            eff(node, "offset", 0.58),
+            num(p.phaseMode, 0),
+            num(p.invert, 0),
+            eff(node, "bias", 0.44),
+            eff(node, "jump", 1.0757),
+          );
+        }
+      } else if (type === "additiveDiffusor") {
+        if (typeof additiveGraphApplyDiffusor === "function") {
+          let dState = this.additiveDiffusorStates.get(eid) || {};
+          if (typeof additiveGraphEnsureWalks === "function") {
+            dState.walks = additiveGraphEnsureWalks(
+              dState.walks || null,
+              out?.harmonics | 0,
+              71,
+              num(p.seed, 1),
+            );
+          }
+          additiveGraphApplyDiffusor(
+            out,
+            eff(node, "diffusion", 1),
+            num(p.seed, 1),
+            eff(node, "speed", 35),
+            dState.walks || null,
+            sr,
+            blockFrames,
+            dState.lerpFrom || null,
+          );
+          this.additiveDiffusorStates.set(eid, {
+            walks: dState.walks || null,
+            lerpFrom: out?.phaseLerp?.to
+              ? new Float32Array(out.phaseLerp.to)
+              : (dState.lerpFrom || null),
+          });
+        }
+      } else if (type === "additivePhaseEntry") {
+        // Stamp only — Out reads phaseEntryMode. Sidecar has no Out phaseAcc.
+        if (out && typeof out === "object") {
+          out.phaseEntryMode = Math.max(0, Math.min(2, Math.round(num(p.mode, 0))));
+        }
       } else if (type === "additiveFrequencySkew" || type === "additiveFrequencySlope") {
         let skewState = this.additiveFrequencySkewStates.get(eid) || {};
         // Legacy Slope used scale — map into stretch if low/high missing.
@@ -333,6 +413,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
           eff(node, "randomFreqAmount", 0),
           num(p.seed, 1),
           freqState.lerpFrom || null,
+          num(p.affectFundamental, 0),
         );
         this.additiveQuantizeFreqStates.set(eid, {
           lerpFrom: appliedFreq?.lerpFrom || null,
