@@ -11186,8 +11186,8 @@ const nodeGraphModuleDefinitions = (
       "0.1v/Oct": "0.1v/Oct",
       "Velocity#": "Vel#",
       "Velocity#/127": "Vel#/127",
-      KeyboardKey: "Key",
-      KeyboardNorm: "Norm",
+      KeyboardKey: "KeyboardKey",
+      KeyboardNorm: "KeyboardNorm",
     },
     outputs: [
       "Gate",
