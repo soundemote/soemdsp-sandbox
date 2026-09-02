@@ -929,6 +929,7 @@ const nodeGraphModuleDefinitions = (
         wraparound: true
       },
       {
+        curveAmount: "-0.9",
         defaultValue: "0.5",
         key: "morph",
         label: "Morph",
@@ -936,8 +937,9 @@ const nodeGraphModuleDefinitions = (
         maxDigits: 5,
         mid: "0.5",
         min: "0",
-        nonlinearSlider: false,
-        step: "any",
+        nonlinearSlider: true,
+        sliderCurve: "bipolarRational",
+        step: "0",
         tooltip: "Unipolar 0…1, default 0.5. Trisaw: 0 left-edge saw, 0.5 triangle, 1 right-edge saw. Pulse / Center Square: duty / width (0.5 = 50%). Ignored by Saw / Ramp / Square / Tri / Sine / Noise."
       },
       {
@@ -3031,6 +3033,7 @@ const nodeGraphModuleDefinitions = (
         wraparound: true,
       },
       {
+        curveAmount: "-0.9",
         defaultValue: "0.5",
         key: "morph",
         label: "Morph",
@@ -3038,8 +3041,9 @@ const nodeGraphModuleDefinitions = (
         maxDigits: 5,
         mid: "0.5",
         min: "0",
-        nonlinearSlider: false,
-        step: "any",
+        nonlinearSlider: true,
+        sliderCurve: "bipolarRational",
+        step: "0",
         tooltip: "Unipolar 0…1, default 0.5. Square / Trisaw / Center Square: pulse width / wave shape (0.5 = centered / 50%). Other waves ignore this.",
       },
       {
