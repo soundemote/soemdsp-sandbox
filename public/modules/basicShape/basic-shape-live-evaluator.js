@@ -7,15 +7,9 @@ function nodeGraphBasicShapeWrap01(phase01) {
   return p - Math.floor(p);
 }
 
-/** Morph knob −1…+1 → internal 0…1 width/duty (0 → 0.5 center). */
-function nodeGraphBasicShapeMorphWidth(morph) {
-  const m = Number.isFinite(Number(morph)) ? Math.max(-1, Math.min(1, Number(morph))) : 0;
-  return Math.max(1e-4, Math.min(1 - 1e-4, 0.5 + 0.5 * m));
-}
-
-/** Naive center-square (soemdsp PolyBLEP::pulseCenter without BLEP). `width` is 0…1. */
-function nodeGraphBasicShapeCenterSquare(cycle, width) {
-  const m = Number.isFinite(width) ? Math.max(0, Math.min(1, width)) : 0.5;
+/** Naive center-square (soemdsp PolyBLEP::pulseCenter without BLEP). */
+function nodeGraphBasicShapeCenterSquare(cycle, morph) {
+  const m = Number.isFinite(morph) ? Math.max(0, Math.min(1, morph)) : 0.5;
   let t1 = nodeGraphBasicShapeWrap01(cycle + 0.875 + 0.25 * (m - 0.5));
   let t2 = nodeGraphBasicShapeWrap01(cycle + 0.375 + 0.25 * (m - 0.5));
   let y = (t1 < 0.5 ? 1 : -1);
@@ -25,20 +19,21 @@ function nodeGraphBasicShapeCenterSquare(cycle, width) {
   return 0.5 * y;
 }
 
-/** Bipolar trisaw (soemdsp::oscillator::bipolar::trisaw). `warp` is 0…1. */
+/** Bipolar trisaw (soemdsp::oscillator::bipolar::trisaw). */
 function nodeGraphBasicShapeTrisaw(cycle, warp) {
   const w = Number.isFinite(warp) ? Math.max(1e-4, Math.min(1 - 1e-4, warp)) : 0.5;
   if (cycle < w) return 2 * (cycle / w) - 1;
   return 2 * ((1 - cycle) / (1 - w)) - 1;
 }
 
-function nodeGraphBasicShapeNaiveWaves(phase01, morph) {
+function nodeGraphBasicShapeNaiveWaves(phase01, pulseWidth) {
   const cycle = nodeGraphBasicShapeWrap01(phase01);
   const sine = Math.sin(cycle * Math.PI * 2);
   const tri = 1 - 4 * Math.abs(cycle - 0.5);
   const saw = 1 - cycle * 2;
   const ramp = cycle * 2 - 1;
-  const width = nodeGraphBasicShapeMorphWidth(morph);
+  const pw = Number(pulseWidth);
+  const width = Number.isFinite(pw) ? Math.max(0, Math.min(1, pw)) : 0.5;
   const square = cycle < width ? 1 : -1;
   const trisaw = nodeGraphBasicShapeTrisaw(cycle, width);
   const centerSquare = nodeGraphBasicShapeCenterSquare(cycle, width);
@@ -141,7 +136,7 @@ nodeGraphLiveModuleEvaluators.basicShape = ({
     runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate,
   });
   const waveform = ctx.read("waveform", 0);
-  const pulseWidth = ctx.read("morph", 0);
+  const pulseWidth = ctx.read("morph", 0.5);
   const level = ctx.read("amplitude", 1);
   let samplePhase;
   if (ctx.useSimTime) {

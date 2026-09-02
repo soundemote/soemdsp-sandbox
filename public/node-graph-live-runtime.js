@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=morph-bipolar-half-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=morph-unipolar-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3144,7 +3144,7 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/node-live-audio-worklet-evaluate-frame.js?v=interrupt-patch-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",
-  "./public/modules/basicShape/basic-shape-worklet-evaluator.js?v=morph-bipolar-1",
+  "./public/modules/basicShape/basic-shape-worklet-evaluator.js?v=morph-unipolar-1",
   "./public/lib/trace/trace-shape.js?v=heart-ssot-1",
   "./public/modules/rgbShape/rgb-shape-math.js?v=heart-ssot-1",
   "./public/modules/rgbShape/rgb-shape-worklet-evaluator.js?v=heart-ssot-1",
