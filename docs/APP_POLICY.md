@@ -93,6 +93,10 @@ Only these live-audio types exist in the efficient build:
 | `papoulisFilter` | Papoulis / optimum-L 3-pole lowpass |
 | `speakerProtection` | Hard mute if \|x\|>1 / non-finite |
 | `speakerProtector2` | Stereo-linked slew VCA + HP trip |
+| `attackDecay` | Attack/Decay envelope (Gate/Trigger/Loop/LFO) |
+| `bandpass` | EQ SVF bandpass Peak (fixed mode 4) |
+| `allpass` | EQ SVF allpass (fixed mode 6) |
+| `basicShape` | Naive multi-wave LFO (no AA) |
 | `chebyshev` | Chebyshev Type I (equiripple passband) |
 | `elliptic` | Elliptic / Cauer multipole |
 | `eqFilter` | ZDF SVF multi-mode EQ |
@@ -162,7 +166,9 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc /
    bradley2a / phoneTone / ellipsoid / snowflake /
    butterworth / linkwitzRiley / bessel / papoulisFilter /
-   speakerProtection / speakerProtector2 / chebyshev / elliptic /
+   speakerProtection / speakerProtector2 /
+   attackDecay / bandpass / allpass / basicShape /
+   chebyshev / elliptic /
    eqFilter / activeFilter / passiveFilter / tb303Filter /
    flowerChildFilter / yellowjacketFilter / superloveFilter / humanFilter /
    resonatorFilter / combResonator / modeResonator /

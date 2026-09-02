@@ -141,11 +141,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "additiveImage",
   // Efficient-shop gaps: defined modules that are not on the live-audio /
   // observer allowlist. Park them as UC cards so search does not silently omit them.
-  "allpass",
-  "attackDecay",
   // audioInput: intentionally not shop-listed in efficient mode (APP_POLICY §0b).
-  "bandpass",
-  "basicShape",
   "bitConverter",
   "bode",
   "buttonEvents",
@@ -194,6 +190,10 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "papoulisFilter",
   "speakerProtection",
   "speakerProtector2",
+  "attackDecay",
+  "bandpass",
+  "allpass",
+  "basicShape",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */

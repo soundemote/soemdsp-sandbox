@@ -56,6 +56,10 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   papoulisFilter: 133,
   speakerProtection: 134,
   speakerProtector2: 135,
+  attackDecay: 136,
+  bandpass: 137,
+  allpass: 138,
+  basicShape: 139,
   lutCell: 34,
   lookaheadLimiter: 35,
   limiter: 109, // Pump Limiter
@@ -318,6 +322,10 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (t === "surgeOscillator") {
     if (p === "synced") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
     if (p === "internal sync") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
+  if (t === "basicShape") {
+    if (p === "trisaw") return 8;
+    if (p === "center square") return 9;
   }
   if ((t === "sineWavetable" || t === "sinCos") && (p === "cos" || p === "cosine")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
@@ -1349,6 +1357,39 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("dropSeconds", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("dropSeconds", 0.008));
       push("holdSeconds", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("holdSeconds", 0.333));
       push("riseSeconds", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("riseSeconds", 0.75));
+      continue;
+    }
+    if (type === "attackDecay") {
+      // timeDen=attack, feedback=decay, shape=curve, mode=inputMode,
+      // timingMode=cycle, amplitude=amplitude.
+      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.01));
+      push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.25));
+      push("curve", P.NATIVE_GRAPH_PARAM_SHAPE, cont("curve", 1));
+      push("inputMode", P.NATIVE_GRAPH_PARAM_MODE, disc("inputMode", 0));
+      push("cycle", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("cycle", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "bandpass") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, freqCont( 1000));
+      push("q", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("q", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "allpass") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, freqCont( 1000));
+      push("q", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("q", 0.707));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "basicShape") {
+      // mode=motion, shape=morph.
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, freqCont( 1));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
+      push("motion", P.NATIVE_GRAPH_PARAM_MODE, disc("motion", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0.5));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (
