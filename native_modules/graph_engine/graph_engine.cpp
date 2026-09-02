@@ -3092,7 +3092,10 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
 
   // Live ƒ / 0.1V / Inc / Reset: per-sample phaseInc (ƒ is absolute Hz when wired).
   // Morph / waveform / amplitude stay ZOH for the block (smoothers may still step).
-  double phase = wrap_phase_pi(node.phase + phaseParam * kTwoPi);
+  // PhaseOffset = free-running phase + Control phase (cycles→radians). Re-apply
+  // offset every sample while the smoother chases — locking render phase to the
+  // block-start offset made Hz=0 Phase scrubbing appear broken.
+  double freePhase = node.phase;
   if (!liveReset) {
     // Cable gone → clear latch so the next connect can rising-edge.
     node.lastReset = 0.0;
@@ -3106,8 +3109,7 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
       if (node.lastReset <= 0.0 && rv > 0.0) {
         // Match JS: hard phase jump + clear native integrator / noise state.
         soemdsp_polyblep_reset(node.nativeHandle);
-        phase = phaseParamNow * kTwoPi;
-        node.phase = 0.0;
+        freePhase = 0.0;
       }
       node.lastReset = rv;
     }
@@ -3124,8 +3126,9 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
     if (liveInc) phaseInc += g.mixIncrement[f];
     if (phaseInc > 0.5) phaseInc = 0.5;
     if (phaseInc < -0.5) phaseInc = -0.5;
+    const double renderPhase = wrap_phase_pi(freePhase + phaseParamNow * kTwoPi);
     soemdsp_polyblep_sample_masked(
-      node.nativeHandle, phase, phaseInc, waveform, level, morph, mask
+      node.nativeHandle, renderPhase, phaseInc, waveform, level, morph, mask
     );
     const double out = soemdsp_polyblep_out(node.nativeHandle);
     if (mask & kTapOut) {
@@ -3138,10 +3141,9 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
     if (mask & kTapSquare) node.buf[kPortSquare][f] = soemdsp_polyblep_square(node.nativeHandle);
     if (mask & kTapTri) node.buf[kPortTri][f] = soemdsp_polyblep_tri(node.nativeHandle);
     if (mask & kTapSine) node.buf[kPortSine][f] = soemdsp_polyblep_sine(node.nativeHandle);
-    phase = wrap_phase_pi(phase + kTwoPi * phaseInc);
+    freePhase = wrap_phase_pi(freePhase + kTwoPi * phaseInc);
   }
-  // Store free-running phase without the Control phase offset (matches block path).
-  node.phase = wrap_phase_pi(phase - node.phaseParam.out * kTwoPi);
+  node.phase = freePhase;
 }
 
 static void probe_mlr_cables(
@@ -3731,7 +3733,8 @@ static void process_blit(Circuit& g, Node& node, int frames) {
   const bool controlSmoothing = node_control_smoothing(node);
   const double referenceVoltage = 48.0 / 120.0;
 
-  double phase = wrap_phase_pi(node.phase + node.phaseParam.out * kTwoPi);
+  // PhaseOffset = freePhase + Control phase; re-apply offset every sample.
+  double freePhase = node.phase;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
@@ -3747,8 +3750,7 @@ static void process_blit(Circuit& g, Node& node, int frames) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
         soemdsp_blit_reset(node.nativeHandle);
-        phase = phaseParamNow * kTwoPi;
-        node.phase = 0.0;
+        freePhase = 0.0;
       }
       node.lastReset = rv;
     }
@@ -3767,7 +3769,8 @@ static void process_blit(Circuit& g, Node& node, int frames) {
     if (phaseInc > 0.5) phaseInc = 0.5;
     if (phaseInc < -0.5) phaseInc = -0.5;
 
-    soemdsp_blit_sample(node.nativeHandle, phase, phaseInc, waveform, level);
+    const double renderPhase = wrap_phase_pi(freePhase + phaseParamNow * kTwoPi);
+    soemdsp_blit_sample(node.nativeHandle, renderPhase, phaseInc, waveform, level);
     const double out = soemdsp_blit_out(node.nativeHandle);
     if (mask & kTapOut) {
       node.buf[kPortMono][f] = out;
@@ -3779,9 +3782,9 @@ static void process_blit(Circuit& g, Node& node, int frames) {
     if (mask & kTapSquare) node.buf[kPortSquare][f] = soemdsp_blit_square(node.nativeHandle);
     if (mask & kTapTri) node.buf[kPortTri][f] = soemdsp_blit_tri(node.nativeHandle);
     if (mask & kTapSine) node.buf[kPortSine][f] = soemdsp_blit_sine(node.nativeHandle);
-    phase = wrap_phase_pi(phase + kTwoPi * phaseInc);
+    freePhase = wrap_phase_pi(freePhase + kTwoPi * phaseInc);
   }
-  node.phase = wrap_phase_pi(phase - node.phaseParam.out * kTwoPi);
+  node.phase = freePhase;
 }
 
 // SinCos4 / sineWavetable: native sin/cos pair → A/B/C/D via mode.
@@ -3934,7 +3937,8 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
   const bool controlSmoothing = node_control_smoothing(node);
   const double referenceVoltage = 48.0 / 120.0;
 
-  double phase = wrap_phase_pi(node.phase + node.phaseParam.out * kTwoPi);
+  // PhaseOffset = freePhase + Control phase; re-apply offset every sample.
+  double freePhase = node.phase;
   if (!liveReset) node.lastReset = 0.0;
 
   // ZOH capture after first smoother step so knob chase still moves over time.
@@ -3953,8 +3957,7 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
-        phase = node.phaseParam.out * kTwoPi;
-        node.phase = 0.0;
+        freePhase = 0.0;
       }
       node.lastReset = rv;
     }
@@ -3972,8 +3975,9 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
     if (phaseInc > 0.5) phaseInc = 0.5;
     if (phaseInc < -0.5) phaseInc = -0.5;
 
+    const double renderPhase = wrap_phase_pi(freePhase + node.phaseParam.out * kTwoPi);
     const double y = soemdsp_additive_osc_sample(
-      phase,
+      renderPhase,
       freq,
       heldHarmonics,
       heldWaveform,
@@ -3987,9 +3991,9 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
     node.buf[kPortRight][f] = y;
-    phase = wrap_phase_pi(phase + kTwoPi * phaseInc);
+    freePhase = wrap_phase_pi(freePhase + kTwoPi * phaseInc);
   }
-  node.phase = wrap_phase_pi(phase - node.phaseParam.out * kTwoPi);
+  node.phase = freePhase;
 }
 
 // Yellow Graph upstream: first used connection with dstPort==Graph.

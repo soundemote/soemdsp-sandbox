@@ -857,9 +857,9 @@ const nodeGraphModuleDefinitions = (
   polyBlep: {
     planRole: "source",
     displayType: "lineBurn",
-    // Sync on for new PolyBLEP; size/bright/trail come from c1091b42 lineBurn defaults.
+    // Sync off by default — at Hz=0 Phase scrubbing must stay visible (no ZC → Sync freezes).
     defaultDisplaySettings: {
-      sourceSync: true,
+      sourceSync: false,
     },
     displayModes: [
       { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave" } },
