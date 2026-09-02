@@ -33,3 +33,4 @@
 #include "analog_filter_trig.h"
 #include "scientific_iir.h"
 #include "additive_yellow_graph.h"
+#include "musical_pitch.h"

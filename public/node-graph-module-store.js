@@ -145,22 +145,16 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "bitConverter",
   "bode",
   "buttonEvents",
-  "chordPad",
   "clockDivider",
   "codeblock",
   "cookbookFilter",
   "curveOsc",
-  "degreePhrase",
-  "degreeTuring",
   "ellipsoidOsc",
   "graph2",
   "graphCopy",
-  "gravityWalker",
   "hilbert",
   "kickEnvelope",
   "nextPatch",
-  "noteGlide",
-  "noteTranspose",
   "phaseDisperse",
   "previousPatch",
   "quadrature",
@@ -194,6 +188,12 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "bandpass",
   "allpass",
   "basicShape",
+  "chordPad",
+  "noteGlide",
+  "noteTranspose",
+  "degreeTuring",
+  "degreePhrase",
+  "gravityWalker",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
@@ -1697,12 +1697,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "TB-303 Filter",
     notes: ["feedback highpass", "resonance skewed", "15 modes", "character", "Robin Schmidt", "analog"],
   },
-  // Rate limiters live with Dynamics (not spectral filters).
+  // Rate limiters live with Dynamics (CV response shaping — not spectral filters).
   slewLimiter: {
     category: "dynamics",
-    description: "Hard up/down rate limit with Lin / Log / Exp / Smooth curves for steps and CV glides.",
-    label: "Slew",
-    notes: ["up time", "down time", "asymmetric glide", "rate limit", "slew", "portamento", "dynamics", "log", "exp", "smooth"],
+    description: "Mono gold In→Out hard up/down rate limit with Lin / Log / Exp / Smooth curves for steps and CV glides.",
+    label: "Up/Down Slew",
+    notes: ["up time", "down time", "asymmetric glide", "rate limit", "slew", "portamento", "dynamics", "log", "exp", "smooth", "mono", "gold", "quick connect"],
   },
   midSideEncode: {
     category: "dynamics",

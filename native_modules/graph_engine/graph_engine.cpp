@@ -849,6 +849,65 @@ extern "C" double soemdsp_turing_machine_sample(
 extern "C" double soemdsp_turing_machine_scale(int handle);
 extern "C" double soemdsp_turing_machine_gate(int handle);
 
+extern "C" int soemdsp_chord_pad_create();
+extern "C" void soemdsp_chord_pad_destroy(int handle);
+extern "C" double soemdsp_chord_pad_sample(
+  int handle, double select, double hasSelect, double key, double mode,
+  double degree, double level
+);
+extern "C" double soemdsp_chord_pad_root(int handle);
+extern "C" double soemdsp_chord_pad_gate(int handle);
+
+extern "C" int soemdsp_note_glide_create();
+extern "C" void soemdsp_note_glide_destroy(int handle);
+extern "C" double soemdsp_note_glide_sample(
+  int handle, double pitch, double timeSeconds, double sampleRate
+);
+
+extern "C" int soemdsp_note_transpose_create();
+extern "C" void soemdsp_note_transpose_destroy(int handle);
+extern "C" double soemdsp_note_transpose_sample(
+  int handle, double pitch, double semitones, double octaves
+);
+
+extern "C" int soemdsp_degree_turing_create(unsigned int entropySeed);
+extern "C" void soemdsp_degree_turing_destroy(int handle);
+extern "C" double soemdsp_degree_turing_sample(
+  int handle, double clock, double reset, double length, double probability,
+  double octaves, double level, double scaleIn, double hasScale, double root,
+  double scaleChoice
+);
+extern "C" double soemdsp_degree_turing_gate(int handle);
+extern "C" double soemdsp_degree_turing_trigger(int handle);
+extern "C" double soemdsp_degree_turing_degree(int handle);
+extern "C" double soemdsp_degree_turing_cv(int handle);
+
+extern "C" int soemdsp_degree_phrase_create(unsigned int entropySeed);
+extern "C" void soemdsp_degree_phrase_destroy(int handle);
+extern "C" double soemdsp_degree_phrase_sample(
+  int handle, double clock, double reset, double stepsIn, double mutateIn,
+  double octaves, double level, double scaleIn, double hasScale, double root,
+  double scaleChoice,
+  double step1, double step2, double step3, double step4,
+  double step5, double step6, double step7, double step8,
+  double rest1, double rest2, double rest3, double rest4,
+  double rest5, double rest6, double rest7, double rest8
+);
+extern "C" double soemdsp_degree_phrase_gate(int handle);
+extern "C" double soemdsp_degree_phrase_trigger(int handle);
+extern "C" double soemdsp_degree_phrase_phase(int handle);
+
+extern "C" int soemdsp_gravity_walker_create(unsigned int entropySeed);
+extern "C" void soemdsp_gravity_walker_destroy(int handle);
+extern "C" double soemdsp_gravity_walker_sample(
+  int handle, double clock, double reset, double gravityIn, double leapIn,
+  double leapCv, double octaves, double level, double scaleIn, double hasScale,
+  double root, double scaleChoice
+);
+extern "C" double soemdsp_gravity_walker_gate(int handle);
+extern "C" double soemdsp_gravity_walker_trigger(int handle);
+extern "C" double soemdsp_gravity_walker_degree(int handle);
+
 extern "C" int soemdsp_fbm_create();
 extern "C" void soemdsp_fbm_destroy(int handle);
 extern "C" void soemdsp_fbm_reset(int handle);
@@ -1253,6 +1312,12 @@ static const int kTypeAttackDecay = 136;
 static const int kTypeBandpass = 137;
 static const int kTypeAllpass = 138;
 static const int kTypeBasicShape = 139;
+static const int kTypeChordPad = 140;
+static const int kTypeNoteGlide = 141;
+static const int kTypeNoteTranspose = 142;
+static const int kTypeDegreeTuring = 143;
+static const int kTypeDegreePhrase = 144;
+static const int kTypeGravityWalker = 145;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1637,6 +1702,18 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_eq_filter_destroy(handle);
   } else if (kind == kTypeBasicShape) {
     soemdsp_basic_shape_destroy(handle);
+  } else if (kind == kTypeChordPad) {
+    soemdsp_chord_pad_destroy(handle);
+  } else if (kind == kTypeNoteGlide) {
+    soemdsp_note_glide_destroy(handle);
+  } else if (kind == kTypeNoteTranspose) {
+    soemdsp_note_transpose_destroy(handle);
+  } else if (kind == kTypeDegreeTuring) {
+    soemdsp_degree_turing_destroy(handle);
+  } else if (kind == kTypeDegreePhrase) {
+    soemdsp_degree_phrase_destroy(handle);
+  } else if (kind == kTypeGravityWalker) {
+    soemdsp_gravity_walker_destroy(handle);
   } else if (kind == kTypeChebyshev) {
     soemdsp_chebyshev_destroy(handle);
   } else if (kind == kTypeElliptic) {
@@ -1932,6 +2009,9 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHenonMap) ? 1.4 // a
       : (typeId == kTypeChuaAttractor) ? 15.6 // alpha
       : (typeId == kTypeTuringMachine) ? 0.25 // probability
+      : (typeId == kTypeDegreeTuring) ? 0.18 // probability
+      : (typeId == kTypeDegreePhrase) ? 0.08 // mutate
+      : (typeId == kTypeGravityWalker) ? 0.65 // gravity
       : (typeId == kTypeFractalBrownianNoise) ? 0.5 // persistence
       : (typeId == kTypePiSpigotNoise) ? 0.0 // smoothing
       : (typeId == kTypeSpiral || typeId == kTypeTorus) ? 1.0 // density
@@ -1997,6 +2077,10 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeEllipsoid || typeId == kTypeBasicShape) ? 1.0 // CounterClock(Ph)
       : (typeId == kTypeSnowflake) ? 1.0 // Koch Snowflake pattern
       : (typeId == kTypeChordSequencer) ? 0.0 // progression
+      : (typeId == kTypeChordPad) ? 0.0 // key C
+      : (typeId == kTypeNoteTranspose) ? 0.0 // octaves
+      : (typeId == kTypeDegreeTuring || typeId == kTypeDegreePhrase
+          || typeId == kTypeGravityWalker) ? 1.0 // octaves
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
       : (typeId == kTypePiSpigotNoise) ? 0.0 // color White
       : (typeId == kTypeAudioPlayer) ? 4.0 // Play
@@ -2015,7 +2099,9 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeRobinSupersaw) ? 7.0
       : (typeId == kTypeTriggerDivider) ? 2.0
       : (typeId == kTypeTriggerCounter || typeId == kTypeStepSequencer
-          || typeId == kTypeTuringMachine) ? 8.0
+          || typeId == kTypeTuringMachine || typeId == kTypeDegreeTuring
+          || typeId == kTypeDegreePhrase) ? 8.0
+      : (typeId == kTypeChordPad || typeId == kTypeNoteTranspose) ? 0.0 // degree / semis
       : (typeId == kTypeFractalBrownianNoise) ? 4.0 // octaves
       : (typeId == kTypePiSpigotNoise) ? 1.0 // stride
       : (typeId == kTypePulseExplosion) ? 20.0 // numberOfPulses
@@ -2096,6 +2182,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeChuaAttractor) ? 28.0 // beta
       : (typeId == kTypeRayBouncer) ? 1.0 // size
       : (typeId == kTypeRandomWalk) ? 0.25 // jitter
+      : (typeId == kTypeGravityWalker) ? 0.15 // leap
       : (typeId == kTypeSpiral || typeId == kTypeFractalSpiral
           || typeId == kTypeLogSpiral) ? 0.5 // size
       : (typeId == kTypeTorus || typeId == kTypeMushroom) ? 1.0 // size/width
@@ -2180,6 +2267,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLutCell) ? 27030.0 // default truth table
       : (typeId == kTypeSoemReverb) ? 500.0
       : (typeId == kTypePitchQuantizer) ? 2741.0 // major scale mask
+      : (typeId == kTypeDegreeTuring || typeId == kTypeDegreePhrase
+          || typeId == kTypeGravityWalker) ? 1.0 // Major scale choice
       : (typeId == kTypeFractalBrownianNoise || typeId == kTypeRandomWalk || typeId == kTypeCheapWalk) ? 1.0
       : (typeId == kTypeAdditiveQuantizeFreq || typeId == kTypeAdditiveQuantizePhase
           || typeId == kTypeAdditiveNoisyFreq || typeId == kTypeAdditiveNoisyPhase
@@ -2208,6 +2297,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.timeNumerator,
     (typeId == kTypePulseExplosion) ? 0.0 // startTime
       : (typeId == kTypeSlewLimiter) ? 0.05
+      : (typeId == kTypeNoteGlide) ? 0.05
       : (typeId == kTypeSampleDelay) ? 0.0
       : (typeId == kTypeTriggerDivider || typeId == kTypeTriggerCounter) ? 0.01
       : (typeId == kTypeDelayedTrigger) ? 0.1
@@ -2288,26 +2378,30 @@ static void init_node_defaults(Node& n, int typeId) {
     false
   );
   init_control(n.tempoBpm, 120.0, false);
-  init_control(n.offset, (typeId == kTypePll) ? 5.0 : 0.0, false);
+  init_control(n.offset, (typeId == kTypePll) ? 5.0 : 0.0, false); // degreePhrase rest8
   init_control(
     n.inLow,
     (typeId == kTypePulseExplosion) ? 0.3 // lowAmplitude
       : (typeId == kTypeAdditiveFrequencySkew) ? 1.0 // lowStretch
+      : (typeId == kTypeDegreePhrase) ? 0.0 // rest1
       : (typeId == kTypeRange) ? -1.0 : (typeId == kTypeClipperLimiter) ? -12.0 : 0.0,
-    false
+    (typeId == kTypeDegreePhrase)
   );
   init_control(
     n.inHigh,
     (typeId == kTypePulseExplosion) ? 1.0 // highAmplitude
       : (typeId == kTypeAdditiveFrequencySkew) ? 1.0 // highStretch
+      : (typeId == kTypeDegreePhrase) ? 0.0 // rest2
       : (typeId == kTypeRange) ? 1.0 : (typeId == kTypeClipperLimiter) ? 0.0 : 1.0,
-    false
+    (typeId == kTypeDegreePhrase)
   );
-  init_control(n.outLow, 0.0, false);
+  init_control(n.outLow, 0.0, (typeId == kTypeDegreePhrase)); // rest3
   init_control(
     n.outHigh,
-    (typeId == kTypeRange) ? 1000.0 : 1.0,
-    false
+    (typeId == kTypeRange) ? 1000.0
+      : (typeId == kTypeDegreePhrase) ? 1.0 // rest4
+      : 1.0,
+    (typeId == kTypeDegreePhrase)
   );
   init_control(
     n.gainDb,
@@ -2323,12 +2417,18 @@ static void init_node_defaults(Node& n, int typeId) {
   // lookaheadLimiter: laneBias[0]=release ms, laneBias[1]=dipGain
   // pumpLimiter: laneBias[0]=release ms, laneBias[1]=threshold dB
   // stepSequencer: laneVol[0..3]=step1..4, laneBias[0..3]=step5..8
+  // degreePhrase: same lanes for Deg 1..8; rests on in*/out*/bleed*/offset
   const double laneVolDefault = (typeId == kTypeMix) ? 1.0 : 0.0;
   static const double kStepDefaults[8] = {
     0.0, 0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25
   };
+  static const double kDegreePhraseSteps[8] = {
+    0.0, 0.25, 0.5, 0.15, 0.75, 0.4, 0.6, 0.0
+  };
   for (int i = 0; i < 4; i++) {
-    const double volDef = (typeId == kTypeStepSequencer) ? kStepDefaults[i] : laneVolDefault;
+    double volDef = laneVolDefault;
+    if (typeId == kTypeStepSequencer) volDef = kStepDefaults[i];
+    else if (typeId == kTypeDegreePhrase) volDef = kDegreePhraseSteps[i];
     init_control(n.laneVol[i], volDef, false);
     double biasDef = 0.0;
     if (typeId == kTypeLookaheadLimiter) {
@@ -2339,12 +2439,15 @@ static void init_node_defaults(Node& n, int typeId) {
       else if (i == 1) biasDef = -18.0; // threshold dB
     } else if (typeId == kTypeStepSequencer) {
       biasDef = kStepDefaults[i + 4];
+    } else if (typeId == kTypeDegreePhrase) {
+      biasDef = kDegreePhraseSteps[i + 4];
     }
     init_control(n.laneBias[i], biasDef, false);
   }
-  init_control(n.bleed2, 0.0, false);
-  init_control(n.bleed3, 0.0, false);
-  init_control(n.bleed4, 0.0, false);
+  // degreePhrase rests: rest4=1, rest7=1
+  init_control(n.bleed2, 0.0, false); // rest5
+  init_control(n.bleed3, 0.0, false); // rest6
+  init_control(n.bleed4, (typeId == kTypeDegreePhrase) ? 1.0 : 0.0, true); // rest7
   n.phase = 0.0;
   n.lastReset = 0.0;
   n.yellowPhaseAccLen = 0;
@@ -2824,6 +2927,24 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeSpeakerProtector2) return soemdsp_speaker_protector2_create();
   if (typeId == kTypeAttackDecay) return soemdsp_attack_decay_create();
   if (typeId == kTypeBasicShape) return soemdsp_basic_shape_create();
+  if (typeId == kTypeChordPad) return soemdsp_chord_pad_create();
+  if (typeId == kTypeNoteGlide) return soemdsp_note_glide_create();
+  if (typeId == kTypeNoteTranspose) return soemdsp_note_transpose_create();
+  if (typeId == kTypeDegreeTuring) {
+    static unsigned int degreeTuringEntropy = 0xD3A7EEu;
+    degreeTuringEntropy = degreeTuringEntropy * 1664525u + 1013904223u;
+    return soemdsp_degree_turing_create(degreeTuringEntropy ? degreeTuringEntropy : 1u);
+  }
+  if (typeId == kTypeDegreePhrase) {
+    static unsigned int degreePhraseEntropy = 0xBEEF01u;
+    degreePhraseEntropy = degreePhraseEntropy * 1664525u + 1013904223u;
+    return soemdsp_degree_phrase_create(degreePhraseEntropy ? degreePhraseEntropy : 1u);
+  }
+  if (typeId == kTypeGravityWalker) {
+    static unsigned int gravityWalkerEntropy = 0xA11CEEu;
+    gravityWalkerEntropy = gravityWalkerEntropy * 1664525u + 1013904223u;
+    return soemdsp_gravity_walker_create(gravityWalkerEntropy ? gravityWalkerEntropy : 1u);
+  }
   if (typeId == kTypeChebyshev) return soemdsp_chebyshev_create();
   if (typeId == kTypeElliptic) return soemdsp_elliptic_create();
   if (typeId == kTypeEqFilter || typeId == kTypeBandpass || typeId == kTypeAllpass) {
@@ -6178,6 +6299,171 @@ static void process_turing_machine(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Chord pad: Select→Mono. mode=key, waveform=mode, stages=degree, amplitude=level.
+// Scale→Mono, Root→Left, Gate→Right.
+static void process_chord_pad(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasSelect = mix_live_port(g, node, kPortMono, frames, g.mixMono);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double scale = soemdsp_chord_pad_sample(
+      node.nativeHandle,
+      hasSelect ? g.mixMono[f] : 0.0,
+      hasSelect ? 1.0 : 0.0,
+      node.mode.out,
+      node.waveform.out,
+      node.stages.out,
+      node.amplitude.out
+    );
+    node.buf[kPortMono][f] = scale;
+    node.buf[kPortLeft][f] = soemdsp_chord_pad_root(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_chord_pad_gate(node.nativeHandle);
+  }
+}
+
+// Note glide: PitchCV in, one-pole time on timeNumerator. Pitch→Mono/L/R.
+static void process_note_glide(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasPitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double out = soemdsp_note_glide_sample(
+      node.nativeHandle,
+      hasPitch ? g.mixPitch[f] : 0.0,
+      node.timeNumerator.out,
+      sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Note transpose: PitchCV in; stages=semitones, mode=octaves.
+static void process_note_transpose(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasPitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double out = soemdsp_note_transpose_sample(
+      node.nativeHandle,
+      hasPitch ? g.mixPitch[f] : 0.0,
+      node.stages.out,
+      node.mode.out
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Degree Turing: Clock→Trigger, Reset→Reset, Scale→Mono, Root→PitchCV.
+// stages=length, shape=prob, mode=octaves, seed=scaleChoice, amplitude=level.
+// Pitch→Mono, Gate→Left, Trigger→Right, Degree→Saw, CV→Ramp.
+static void process_degree_turing(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool hasScale = mix_live_port(g, node, kPortMono, frames, g.mixMono);
+  const bool hasRoot = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double pitch = soemdsp_degree_turing_sample(
+      node.nativeHandle,
+      hasClock ? g.mixTrigger[f] : 0.0,
+      hasReset ? g.mixReset[f] : 0.0,
+      node.stages.out,
+      node.shape.out,
+      node.mode.out,
+      node.amplitude.out,
+      hasScale ? g.mixMono[f] : 0.0,
+      hasScale ? 1.0 : 0.0,
+      hasRoot ? g.mixPitch[f] : (60.0 / 120.0),
+      node.seed.out
+    );
+    node.buf[kPortMono][f] = pitch;
+    node.buf[kPortLeft][f] = soemdsp_degree_turing_gate(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_degree_turing_trigger(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_degree_turing_degree(node.nativeHandle);
+    node.buf[kPortRamp][f] = soemdsp_degree_turing_cv(node.nativeHandle);
+  }
+}
+
+// Degree Phrase: same Scale/Root/Clock/Reset wiring as degreeTuring.
+// stages=steps, shape=mutate, mode=octaves, seed=scaleChoice.
+// laneVol/Bias=step1..8; inLow/High/outLow/High/bleed2/3/4/offset=rest1..8.
+// Pitch→Mono, Gate→Left, Trigger→Right, Phase→Saw.
+static void process_degree_phrase(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool hasScale = mix_live_port(g, node, kPortMono, frames, g.mixMono);
+  const bool hasRoot = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double pitch = soemdsp_degree_phrase_sample(
+      node.nativeHandle,
+      hasClock ? g.mixTrigger[f] : 0.0,
+      hasReset ? g.mixReset[f] : 0.0,
+      node.stages.out,
+      node.shape.out,
+      node.mode.out,
+      node.amplitude.out,
+      hasScale ? g.mixMono[f] : 0.0,
+      hasScale ? 1.0 : 0.0,
+      hasRoot ? g.mixPitch[f] : (60.0 / 120.0),
+      node.seed.out,
+      node.laneVol[0].out, node.laneVol[1].out, node.laneVol[2].out, node.laneVol[3].out,
+      node.laneBias[0].out, node.laneBias[1].out, node.laneBias[2].out, node.laneBias[3].out,
+      node.inLow.out, node.inHigh.out, node.outLow.out, node.outHigh.out,
+      node.bleed2.out, node.bleed3.out, node.bleed4.out, node.offset.out
+    );
+    node.buf[kPortMono][f] = pitch;
+    node.buf[kPortLeft][f] = soemdsp_degree_phrase_gate(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_degree_phrase_trigger(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_degree_phrase_phase(node.nativeHandle);
+  }
+}
+
+// Gravity Walker: Leap CV→Morph. shape=gravity, width=leap, mode=octaves, seed=scale.
+// Pitch→Mono, Gate→Left, Trigger→Right, Degree→Saw.
+static void process_gravity_walker(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool hasScale = mix_live_port(g, node, kPortMono, frames, g.mixMono);
+  const bool hasRoot = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool hasLeap = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double pitch = soemdsp_gravity_walker_sample(
+      node.nativeHandle,
+      hasClock ? g.mixTrigger[f] : 0.0,
+      hasReset ? g.mixReset[f] : 0.0,
+      node.shape.out,
+      node.width.out,
+      hasLeap ? g.mixMorph[f] : 0.0,
+      node.mode.out,
+      node.amplitude.out,
+      hasScale ? g.mixMono[f] : 0.0,
+      hasScale ? 1.0 : 0.0,
+      hasRoot ? g.mixPitch[f] : (60.0 / 120.0),
+      node.seed.out
+    );
+    node.buf[kPortMono][f] = pitch;
+    node.buf[kPortLeft][f] = soemdsp_gravity_walker_gate(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_gravity_walker_trigger(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_gravity_walker_degree(node.nativeHandle);
+  }
+}
+
 // fBm noise: Reset live. frequency/stages=octaves/shape=persistence/center=scale/
 // seed/amplitude. X→Mono Y→Left Z→Right.
 static void process_fractal_brownian_noise(Circuit& g, Node& node, int frames) {
@@ -7648,6 +7934,12 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeBandpass
     || typeId == kTypeAllpass
     || typeId == kTypeBasicShape
+    || typeId == kTypeChordPad
+    || typeId == kTypeNoteGlide
+    || typeId == kTypeNoteTranspose
+    || typeId == kTypeDegreeTuring
+    || typeId == kTypeDegreePhrase
+    || typeId == kTypeGravityWalker
     || typeId == kTypeChebyshev
     || typeId == kTypeElliptic
     || typeId == kTypeEqFilter
@@ -8290,6 +8582,30 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_basic_shape(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeChordPad) {
+      process_chord_pad(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeNoteGlide) {
+      process_note_glide(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeNoteTranspose) {
+      process_note_transpose(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeDegreeTuring) {
+      process_degree_turing(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeDegreePhrase) {
+      process_degree_phrase(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeGravityWalker) {
+      process_gravity_walker(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeChebyshev) {
       process_scientific_iir(*g, node, frames, soemdsp_chebyshev_sample);
       continue;
@@ -8679,6 +8995,7 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  // 102: attackDecay(136) + bandpass(137) + allpass(138) + basicShape(139)
-  return 102;
+  // 103: chordPad(140) + noteGlide(141) + noteTranspose(142)
+  //      + degreeTuring(143) + degreePhrase(144) + gravityWalker(145)
+  return 103;
 }

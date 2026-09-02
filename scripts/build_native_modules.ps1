@@ -187,6 +187,36 @@ $modules = @(
     "soemdsp_basic_shape_trisaw", "soemdsp_basic_shape_center_square",
     "soemdsp_basic_shape_version"
   ) },
+  @{ Name = "chord_pad"; Simd = $false; Exports = @(
+    "soemdsp_chord_pad_create", "soemdsp_chord_pad_destroy", "soemdsp_chord_pad_sample",
+    "soemdsp_chord_pad_root", "soemdsp_chord_pad_gate", "soemdsp_chord_pad_version"
+  ) },
+  @{ Name = "note_glide"; Simd = $false; Exports = @(
+    "soemdsp_note_glide_create", "soemdsp_note_glide_destroy", "soemdsp_note_glide_sample",
+    "soemdsp_note_glide_version"
+  ) },
+  @{ Name = "note_transpose"; Simd = $false; Exports = @(
+    "soemdsp_note_transpose_create", "soemdsp_note_transpose_destroy",
+    "soemdsp_note_transpose_sample", "soemdsp_note_transpose_version"
+  ) },
+  @{ Name = "degree_turing"; Simd = $false; Exports = @(
+    "soemdsp_degree_turing_create", "soemdsp_degree_turing_destroy",
+    "soemdsp_degree_turing_sample", "soemdsp_degree_turing_gate",
+    "soemdsp_degree_turing_trigger", "soemdsp_degree_turing_degree",
+    "soemdsp_degree_turing_cv", "soemdsp_degree_turing_version"
+  ) },
+  @{ Name = "degree_phrase"; Simd = $false; Exports = @(
+    "soemdsp_degree_phrase_create", "soemdsp_degree_phrase_destroy",
+    "soemdsp_degree_phrase_sample", "soemdsp_degree_phrase_gate",
+    "soemdsp_degree_phrase_trigger", "soemdsp_degree_phrase_phase",
+    "soemdsp_degree_phrase_version"
+  ) },
+  @{ Name = "gravity_walker"; Simd = $false; Exports = @(
+    "soemdsp_gravity_walker_create", "soemdsp_gravity_walker_destroy",
+    "soemdsp_gravity_walker_sample", "soemdsp_gravity_walker_gate",
+    "soemdsp_gravity_walker_trigger", "soemdsp_gravity_walker_degree",
+    "soemdsp_gravity_walker_version"
+  ) },
   @{ Name = "phosphillator"; Simd = $false; Exports = @("soemdsp_phosphillator_create", "soemdsp_phosphillator_destroy", "soemdsp_phosphillator_path_x_ptr", "soemdsp_phosphillator_path_y_ptr", "soemdsp_phosphillator_max_path_points", "soemdsp_phosphillator_set_path", "soemdsp_phosphillator_clear_path", "soemdsp_phosphillator_sample", "soemdsp_phosphillator_y", "soemdsp_phosphillator_version") },
   @{ Name = "butterworth"; Simd = $false; Exports = @("soemdsp_butterworth_create", "soemdsp_butterworth_destroy", "soemdsp_butterworth_sample", "soemdsp_butterworth_version", "soemdsp_butterworth_metadata_json", "soemdsp_butterworth_metadata_json_size") },
   @{ Name = "linkwitz_riley"; Simd = $false; Exports = @("soemdsp_linkwitz_riley_create", "soemdsp_linkwitz_riley_destroy", "soemdsp_linkwitz_riley_sample", "soemdsp_linkwitz_riley_version", "soemdsp_linkwitz_riley_metadata_json", "soemdsp_linkwitz_riley_metadata_json_size") },

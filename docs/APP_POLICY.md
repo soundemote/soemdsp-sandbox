@@ -97,6 +97,12 @@ Only these live-audio types exist in the efficient build:
 | `bandpass` | EQ SVF bandpass Peak (fixed mode 4) |
 | `allpass` | EQ SVF allpass (fixed mode 6) |
 | `basicShape` | Naive multi-wave LFO (no AA) |
+| `chordPad` | Diatonic triad → Scale / Root / Gate |
+| `noteGlide` | One-pole portamento on 0.1V/Oct |
+| `noteTranspose` | Semitone / octave offset on 0.1V/Oct |
+| `degreeTuring` | Shift-register degree sequencer |
+| `degreePhrase` | 8-step degree phrase + mutate |
+| `gravityWalker` | Inertia / leap degree walker |
 | `chebyshev` | Chebyshev Type I (equiripple passband) |
 | `elliptic` | Elliptic / Cauer multipole |
 | `eqFilter` | ZDF SVF multi-mode EQ |
@@ -168,6 +174,8 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    butterworth / linkwitzRiley / bessel / papoulisFilter /
    speakerProtection / speakerProtector2 /
    attackDecay / bandpass / allpass / basicShape /
+   chordPad / noteGlide / noteTranspose /
+   degreeTuring / degreePhrase / gravityWalker /
    chebyshev / elliptic /
    eqFilter / activeFilter / passiveFilter / tb303Filter /
    flowerChildFilter / yellowjacketFilter / superloveFilter / humanFilter /

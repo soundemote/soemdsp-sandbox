@@ -48,8 +48,18 @@ const PARAM_SEED = 48;
 const PARAM_FREQUENCY = 10;
 
 const ver = version() | 0;
-if (ver < 49) throw new Error(`graph version ${ver} < 49`);
+if (ver < 103) throw new Error(`graph version ${ver} < 103`);
 console.log(`graph version ${ver}`);
+
+const TYPE_CHORD_PAD = 140;
+const TYPE_NOTE_GLIDE = 141;
+const TYPE_NOTE_TRANSPOSE = 142;
+const TYPE_DEGREE_TURING = 143;
+const TYPE_DEGREE_PHRASE = 144;
+const TYPE_GRAVITY_WALKER = 145;
+const PARAM_WAVEFORM = 11;
+const PARAM_TIME_NUM = 52;
+const PARAM_WIDTH = 31;
 
 function view(ptr, n) {
   return new Float64Array(mem.buffer, ptr, n);
@@ -200,6 +210,215 @@ function peakOf(ptr, n) {
   }
   if (!(peak > 0.01 && peak <= 1.01)) throw new Error(`turingMachine peak=${peak}`);
   console.log(`turingMachine ok peak=${peak.toFixed(4)}`);
+  destroy(g);
+}
+
+// --- chordPad: Scale / Root / Gate ---
+{
+  const g = create() | 0;
+  setSr(g, 48000);
+  const hPad = 0x8c01;
+  const hOut = 0x8c02;
+  if ((add(g, hPad, TYPE_CHORD_PAD) | 0) !== 0) throw new Error("chordPad add");
+  if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("chordPad out");
+  setParam(g, hPad, PARAM_MODE, 0); // key C
+  setParam(g, hPad, PARAM_SHAPE, 0); // unused
+  setParam(g, hPad, PARAM_WAVEFORM, 0); // major
+  setParam(g, hPad, PARAM_STAGES, 0); // I
+  setParam(g, hPad, PARAM_AMPLITUDE, 1);
+  if ((connect(g, hPad, PORT_MONO, hOut, PORT_MONO) | 0) !== 0) {
+    throw new Error("chordPad scale conn");
+  }
+  if ((compile(g) | 0) !== 0) throw new Error("chordPad compile");
+  snap(g);
+  process(g, 128);
+  const scale = view(portPtr(g, hPad, PORT_MONO) | 0, 128)[0];
+  const root = view(portPtr(g, hPad, PORT_LEFT) | 0, 128)[0];
+  const gate = view(portPtr(g, hPad, PORT_RIGHT) | 0, 128)[0];
+  // C major triad mask 0x91, Root MIDI 60 → 0.5, Gate 1
+  if ((scale | 0) !== 0x91) throw new Error(`chordPad scale=${scale}`);
+  if (!(Math.abs(root - 0.5) < 1e-9)) throw new Error(`chordPad root=${root}`);
+  if (!(Math.abs(gate - 1) < 1e-9)) throw new Error(`chordPad gate=${gate}`);
+  console.log(`chordPad ok scale=${scale | 0} root=${root.toFixed(4)} gate=${gate}`);
+  destroy(g);
+}
+
+// --- noteTranspose: +12 semitones ---
+{
+  const g = create() | 0;
+  setSr(g, 48000);
+  const hT = 0x8d01;
+  const hSrc = 0x8d02;
+  const hOut = 0x8d03;
+  if ((add(g, hT, TYPE_NOTE_TRANSPOSE) | 0) !== 0) throw new Error("noteTranspose add");
+  if ((add(g, hSrc, 33) | 0) !== 0) throw new Error("noteTranspose src"); // metallicRatio
+  if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("noteTranspose out");
+  setParam(g, hT, PARAM_STAGES, 12); // +1 octave in semis
+  setParam(g, hT, PARAM_MODE, 0);
+  setParam(g, hSrc, PARAM_WIDTH, 1);
+  if ((connect(g, hSrc, PORT_MONO, hT, PORT_PITCH) | 0) !== 0) {
+    throw new Error("noteTranspose pitch conn");
+  }
+  if ((connect(g, hT, PORT_MONO, hOut, PORT_MONO) | 0) !== 0) {
+    throw new Error("noteTranspose out conn");
+  }
+  if ((compile(g) | 0) !== 0) throw new Error("noteTranspose compile");
+  snap(g);
+  process(g, 128);
+  const src = view(portPtr(g, hSrc, PORT_MONO) | 0, 128)[0];
+  const out = view(portPtr(g, hT, PORT_MONO) | 0, 128)[0];
+  const expected = src + 12 / 120;
+  if (!(Math.abs(out - expected) < 1e-9)) {
+    throw new Error(`noteTranspose out=${out} expected=${expected}`);
+  }
+  console.log(`noteTranspose ok out=${out.toFixed(6)}`);
+  destroy(g);
+}
+
+// --- noteGlide: settles toward pitch ---
+{
+  const g = create() | 0;
+  setSr(g, 48000);
+  const hG = 0x8e01;
+  const hSrc = 0x8e02;
+  const hOut = 0x8e03;
+  if ((add(g, hG, TYPE_NOTE_GLIDE) | 0) !== 0) throw new Error("noteGlide add");
+  if ((add(g, hSrc, 33) | 0) !== 0) throw new Error("noteGlide src");
+  if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("noteGlide out");
+  setParam(g, hG, PARAM_TIME_NUM, 0.001);
+  setParam(g, hSrc, PARAM_WIDTH, 1);
+  if ((connect(g, hSrc, PORT_MONO, hG, PORT_PITCH) | 0) !== 0) {
+    throw new Error("noteGlide pitch conn");
+  }
+  if ((connect(g, hG, PORT_MONO, hOut, PORT_MONO) | 0) !== 0) {
+    throw new Error("noteGlide out conn");
+  }
+  if ((compile(g) | 0) !== 0) throw new Error("noteGlide compile");
+  snap(g);
+  let last = 0;
+  for (let q = 0; q < 40; q++) {
+    process(g, 128);
+    last = view(portPtr(g, hG, PORT_MONO) | 0, 128)[127];
+  }
+  const target = view(portPtr(g, hSrc, PORT_MONO) | 0, 128)[0];
+  if (!(Math.abs(last - target) < 0.02)) {
+    throw new Error(`noteGlide last=${last} target=${target}`);
+  }
+  console.log(`noteGlide ok last=${last.toFixed(6)} target=${target.toFixed(6)}`);
+  destroy(g);
+}
+
+// --- degreeTuring: clocked pitch ---
+{
+  const g = create() | 0;
+  setSr(g, 48000);
+  const hD = 0x8f01;
+  const hClk = 0x8f02;
+  const hOut = 0x8f03;
+  if ((add(g, hD, TYPE_DEGREE_TURING) | 0) !== 0) throw new Error("degreeTuring add");
+  if ((add(g, hClk, TYPE_CLOCK) | 0) !== 0) throw new Error("degreeTuring clock");
+  if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("degreeTuring out");
+  setParam(g, hClk, PARAM_FREQUENCY, 32);
+  setParam(g, hClk, PARAM_AMPLITUDE, 1);
+  setParam(g, hD, PARAM_STAGES, 8);
+  setParam(g, hD, PARAM_SHAPE, 0.5);
+  setParam(g, hD, PARAM_MODE, 1);
+  setParam(g, hD, PARAM_AMPLITUDE, 1);
+  setParam(g, hD, PARAM_SEED, 1);
+  if ((connect(g, hClk, PORT_MONO, hD, PORT_TRIGGER) | 0) !== 0) {
+    throw new Error("degreeTuring clock conn");
+  }
+  if ((connect(g, hD, PORT_MONO, hOut, PORT_MONO) | 0) !== 0) {
+    throw new Error("degreeTuring out conn");
+  }
+  if ((compile(g) | 0) !== 0) throw new Error("degreeTuring compile");
+  snap(g);
+  let peak = 0;
+  let trigPeak = 0;
+  for (let q = 0; q < 120; q++) {
+    process(g, 128);
+    peak = Math.max(peak, peakOf(portPtr(g, hD, PORT_MONO) | 0, 128));
+    trigPeak = Math.max(trigPeak, peakOf(portPtr(g, hD, PORT_RIGHT) | 0, 128));
+  }
+  if (!(peak > 0.2 && peak < 2)) throw new Error(`degreeTuring peak=${peak}`);
+  if (!(trigPeak > 0.5)) throw new Error(`degreeTuring trigPeak=${trigPeak}`);
+  console.log(`degreeTuring ok peak=${peak.toFixed(4)} trig=${trigPeak.toFixed(4)}`);
+  destroy(g);
+}
+
+// --- degreePhrase: clocked phrase ---
+{
+  const g = create() | 0;
+  setSr(g, 48000);
+  const hP = 0x9001;
+  const hClk = 0x9002;
+  const hOut = 0x9003;
+  if ((add(g, hP, TYPE_DEGREE_PHRASE) | 0) !== 0) throw new Error("degreePhrase add");
+  if ((add(g, hClk, TYPE_CLOCK) | 0) !== 0) throw new Error("degreePhrase clock");
+  if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("degreePhrase out");
+  setParam(g, hClk, PARAM_FREQUENCY, 24);
+  setParam(g, hClk, PARAM_AMPLITUDE, 1);
+  setParam(g, hP, PARAM_STAGES, 8);
+  setParam(g, hP, PARAM_SHAPE, 0);
+  setParam(g, hP, PARAM_MODE, 1);
+  setParam(g, hP, PARAM_AMPLITUDE, 1);
+  setParam(g, hP, PARAM_SEED, 1);
+  if ((connect(g, hClk, PORT_MONO, hP, PORT_TRIGGER) | 0) !== 0) {
+    throw new Error("degreePhrase clock conn");
+  }
+  if ((connect(g, hP, PORT_MONO, hOut, PORT_MONO) | 0) !== 0) {
+    throw new Error("degreePhrase out conn");
+  }
+  if ((compile(g) | 0) !== 0) throw new Error("degreePhrase compile");
+  snap(g);
+  let peak = 0;
+  let gatePeak = 0;
+  for (let q = 0; q < 160; q++) {
+    process(g, 128);
+    peak = Math.max(peak, peakOf(portPtr(g, hP, PORT_MONO) | 0, 128));
+    gatePeak = Math.max(gatePeak, peakOf(portPtr(g, hP, PORT_LEFT) | 0, 128));
+  }
+  if (!(peak > 0.2 && peak < 2)) throw new Error(`degreePhrase peak=${peak}`);
+  if (!(gatePeak > 0.5)) throw new Error(`degreePhrase gatePeak=${gatePeak}`);
+  console.log(`degreePhrase ok peak=${peak.toFixed(4)} gate=${gatePeak.toFixed(4)}`);
+  destroy(g);
+}
+
+// --- gravityWalker: clocked walk ---
+{
+  const g = create() | 0;
+  setSr(g, 48000);
+  const hW = 0x9101;
+  const hClk = 0x9102;
+  const hOut = 0x9103;
+  if ((add(g, hW, TYPE_GRAVITY_WALKER) | 0) !== 0) throw new Error("gravityWalker add");
+  if ((add(g, hClk, TYPE_CLOCK) | 0) !== 0) throw new Error("gravityWalker clock");
+  if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("gravityWalker out");
+  setParam(g, hClk, PARAM_FREQUENCY, 28);
+  setParam(g, hClk, PARAM_AMPLITUDE, 1);
+  setParam(g, hW, PARAM_SHAPE, 0.7);
+  setParam(g, hW, PARAM_WIDTH, 0.1);
+  setParam(g, hW, PARAM_MODE, 1);
+  setParam(g, hW, PARAM_AMPLITUDE, 1);
+  setParam(g, hW, PARAM_SEED, 1);
+  if ((connect(g, hClk, PORT_MONO, hW, PORT_TRIGGER) | 0) !== 0) {
+    throw new Error("gravityWalker clock conn");
+  }
+  if ((connect(g, hW, PORT_MONO, hOut, PORT_MONO) | 0) !== 0) {
+    throw new Error("gravityWalker out conn");
+  }
+  if ((compile(g) | 0) !== 0) throw new Error("gravityWalker compile");
+  snap(g);
+  let peak = 0;
+  let trigPeak = 0;
+  for (let q = 0; q < 120; q++) {
+    process(g, 128);
+    peak = Math.max(peak, peakOf(portPtr(g, hW, PORT_MONO) | 0, 128));
+    trigPeak = Math.max(trigPeak, peakOf(portPtr(g, hW, PORT_RIGHT) | 0, 128));
+  }
+  if (!(peak > 0.2 && peak < 2)) throw new Error(`gravityWalker peak=${peak}`);
+  if (!(trigPeak > 0.5)) throw new Error(`gravityWalker trigPeak=${trigPeak}`);
+  console.log(`gravityWalker ok peak=${peak.toFixed(4)} trig=${trigPeak.toFixed(4)}`);
   destroy(g);
 }
 
