@@ -1043,6 +1043,26 @@ extern "C" double soemdsp_papoulis_filter_sample(
   int handle, double input, double cutoffHz, double sampleRate
 );
 
+// Speaker Protection (hard mute) + Speaker Protector 2.0 (slew VCA).
+extern "C" int soemdsp_speaker_protection_create();
+extern "C" void soemdsp_speaker_protection_destroy(int handle);
+extern "C" double soemdsp_speaker_protection_sample(int handle, double input);
+
+extern "C" int soemdsp_speaker_protector2_create();
+extern "C" void soemdsp_speaker_protector2_destroy(int handle);
+extern "C" void soemdsp_speaker_protector2_sample(
+  int handle,
+  double leftIn,
+  double rightIn,
+  double sampleRate,
+  double dropSeconds,
+  double holdSeconds,
+  double riseSeconds,
+  double* outLeft,
+  double* outRight,
+  double* outMono
+);
+
 namespace {
 
 using soemdsp_maths::dsp_exp;
@@ -1204,6 +1224,8 @@ static const int kTypePortalInlet = 131;
 static const int kTypeAudioInput = 132;
 // Shop Papoulis Filter node (shares WASM pool with Control papHandle smoothers).
 static const int kTypePapoulisFilter = 133;
+static const int kTypeSpeakerProtection = 134;
+static const int kTypeSpeakerProtector2 = 135;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1575,6 +1597,10 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_bessel_destroy(handle);
   } else if (kind == kTypePapoulisFilter) {
     soemdsp_papoulis_filter_destroy(handle);
+  } else if (kind == kTypeSpeakerProtection) {
+    soemdsp_speaker_protection_destroy(handle);
+  } else if (kind == kTypeSpeakerProtector2) {
+    soemdsp_speaker_protector2_destroy(handle);
   } else if (kind == kTypeChebyshev) {
     soemdsp_chebyshev_destroy(handle);
   } else if (kind == kTypeElliptic) {
@@ -2148,6 +2174,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // attack
       : (typeId == kTypeDelayEffect) ? 0.18 // time s
       : (typeId == kTypeAudioPlayer) ? 0.0 // start phase
+      : (typeId == kTypeSpeakerProtector2) ? 0.008 // dropSeconds
       : 1.0,
     false
   );
@@ -2163,6 +2190,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePluckEnvelope) ? 0.002 // attackFeedback
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // hold
       : (typeId == kTypeAudioPlayer) ? 1.0 // end phase
+      : (typeId == kTypeSpeakerProtector2) ? 0.333 // holdSeconds
       : 4.0,
     false
   );
@@ -2180,6 +2208,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.45 // release s
       : (typeId == kTypePluckEnvelope) ? 0.08 // autoReleaseTime
       : (typeId == kTypeSoemReverb) ? 0.04 // duckRelease
+      : (typeId == kTypeSpeakerProtector2) ? 0.75 // riseSeconds
       : 0.0,
     false
   );
@@ -2743,6 +2772,8 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeLinkwitzRiley) return soemdsp_linkwitz_riley_create();
   if (typeId == kTypeBessel) return soemdsp_bessel_create();
   if (typeId == kTypePapoulisFilter) return soemdsp_papoulis_filter_create();
+  if (typeId == kTypeSpeakerProtection) return soemdsp_speaker_protection_create();
+  if (typeId == kTypeSpeakerProtector2) return soemdsp_speaker_protector2_create();
   if (typeId == kTypeChebyshev) return soemdsp_chebyshev_create();
   if (typeId == kTypeElliptic) return soemdsp_elliptic_create();
   if (typeId == kTypeEqFilter) return soemdsp_eq_filter_create();
@@ -4937,6 +4968,65 @@ static void process_snowflake(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = X;
     node.buf[kPortRight][f] = Y;
     node.buf[kPortMono][f] = 0.5 * (X + Y);
+  }
+}
+
+// Speaker Protection: hard mute per channel if !finite or |x| > 1.
+static void process_speaker_protection(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
+  for (int f = 0; f < frames; f++) {
+    if (needMono) {
+      double in = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
+      const double out = soemdsp_speaker_protection_sample(node.nativeHandle, in);
+      node.buf[kPortMono][f] = out;
+      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
+      if (!hasRightIn) node.buf[kPortRight][f] = out;
+    }
+    if (hasLeftIn) {
+      node.buf[kPortLeft][f] = soemdsp_speaker_protection_sample(
+        node.nativeHandle, g.mixLeft[f] + g.mixMono[f]
+      );
+    }
+    if (hasRightIn) {
+      node.buf[kPortRight][f] = soemdsp_speaker_protection_sample(
+        node.nativeHandle, g.mixRight[f] + g.mixMono[f]
+      );
+    }
+  }
+}
+
+// Speaker Protector 2.0: stereo-linked slew VCA + HP trip.
+static void process_speaker_protector2(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  // drop/hold/rise reused on timeNumerator / timeDenominator / offsetMs.
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double l = g.mixLeft[f] + g.mixMono[f];
+    const double r = g.mixRight[f] + g.mixMono[f];
+    double outL = 0.0, outR = 0.0, outM = 0.0;
+    soemdsp_speaker_protector2_sample(
+      node.nativeHandle,
+      l,
+      r,
+      sr,
+      node.timeNumerator.out,
+      node.timeDenominator.out,
+      node.offsetMs.out,
+      &outL,
+      &outR,
+      &outM
+    );
+    node.buf[kPortLeft][f] = outL;
+    node.buf[kPortRight][f] = outR;
+    node.buf[kPortMono][f] = outM;
   }
 }
 
@@ -7358,6 +7448,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeLinkwitzRiley
     || typeId == kTypeBessel
     || typeId == kTypePapoulisFilter
+    || typeId == kTypeSpeakerProtection
+    || typeId == kTypeSpeakerProtector2
     || typeId == kTypeChebyshev
     || typeId == kTypeElliptic
     || typeId == kTypeEqFilter
@@ -7976,6 +8068,14 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_papoulis_filter(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeSpeakerProtection) {
+      process_speaker_protection(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeSpeakerProtector2) {
+      process_speaker_protector2(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeChebyshev) {
       process_scientific_iir(*g, node, frames, soemdsp_chebyshev_sample);
       continue;
@@ -8365,5 +8465,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 100; // Papoulis Filter shop node (kTypePapoulisFilter = 133)
+  return 101; // Speaker Protection pair (134/135) + Papoulis (133)
 }

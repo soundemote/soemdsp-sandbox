@@ -54,6 +54,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   // Singleton live Input (mic/line) — host capture bus TBD; native silence stub for plan.
   audioInput: 132,
   papoulisFilter: 133,
+  speakerProtection: 134,
+  speakerProtector2: 135,
   lutCell: 34,
   lookaheadLimiter: 35,
   limiter: 109, // Pump Limiter
@@ -1336,6 +1338,17 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       // Face param is cutoff Hz (not frequency); live ƒ also drives cutoff.
       push("cutoff", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("cutoff", 1000));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "speakerProtection") {
+      // No face params — hard mute only.
+      continue;
+    }
+    if (type === "speakerProtector2") {
+      // drop/hold/rise seconds on reused time Control slots.
+      push("dropSeconds", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("dropSeconds", 0.008));
+      push("holdSeconds", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("holdSeconds", 0.333));
+      push("riseSeconds", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("riseSeconds", 0.75));
       continue;
     }
     if (

@@ -175,8 +175,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "sineKick",
   "sinepulse",
   "softpopOscillator",
-  "speakerProtection",
-  "speakerProtector2",
   "stftBlur",
   "tiltFilter",
   "windowReopen",
@@ -194,6 +192,8 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "rms",
   "additiveLinearFilter",
   "papoulisFilter",
+  "speakerProtection",
+  "speakerProtector2",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */

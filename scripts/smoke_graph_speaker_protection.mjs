@@ -1,0 +1,100 @@
+// Headless: polyBlep → speakerProtection / speakerProtector2 → output.
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(__dirname, "..");
+const wasmPath = path.join(root, "native_modules", "combined", "soemdsp_combined.wasm");
+
+const { instance } = await WebAssembly.instantiate(fs.readFileSync(wasmPath), {});
+const e = instance.exports;
+const mem = e.memory;
+if (!mem) throw new Error("wasm memory export missing");
+
+function must(name) {
+  const fn = e[name];
+  if (typeof fn !== "function") throw new Error(`missing export ${name}`);
+  return fn;
+}
+
+const create = must("soemdsp_graph_create");
+const destroy = must("soemdsp_graph_destroy");
+const add = must("soemdsp_graph_add_node");
+const connect = must("soemdsp_graph_connect");
+const setParam = must("soemdsp_graph_set_param");
+const compile = must("soemdsp_graph_compile");
+const process = must("soemdsp_graph_process_block");
+const setSr = must("soemdsp_graph_set_sample_rate");
+const snap = must("soemdsp_graph_snap_controls");
+const portPtr = must("soemdsp_graph_node_port_ptr");
+const version = must("soemdsp_graph_version");
+
+const TYPE_POLYBLEP = 1;
+const TYPE_OUT = 6;
+const TYPE_SP1 = 134;
+const TYPE_SP2 = 135;
+const PORT_MONO = 0;
+const PARAM_FREQUENCY = 10;
+const PARAM_AMPLITUDE = 12;
+const PARAM_TIME_NUM = 52;
+const PARAM_TIME_DEN = 53;
+const PARAM_OFFSET_MS = 55;
+
+const ver = version() | 0;
+if (ver < 101) {
+  throw new Error(`graph version ${ver} < 101 (speaker protection pair missing)`);
+}
+
+function view(ptr, n) {
+  return new Float64Array(mem.buffer, ptr, n);
+}
+
+function peakOf(g, hNode) {
+  let peak = 0;
+  for (let q = 0; q < 40; q++) {
+    process(g, 128);
+    const buf = view(portPtr(g, hNode, PORT_MONO) | 0, 128);
+    for (let i = 0; i < 128; i++) {
+      const a = Math.abs(buf[i]);
+      if (a > peak) peak = a;
+    }
+  }
+  return peak;
+}
+
+function runType(typeId, name, setup) {
+  const g = create() | 0;
+  setSr(g, 48000);
+  const hOsc = (0xf000 + typeId) >>> 0;
+  const hProt = (0xf100 + typeId) >>> 0;
+  const hOut = (0xf200 + typeId) >>> 0;
+  if ((add(g, hOsc, TYPE_POLYBLEP) | 0) !== 0) throw new Error(`${name}: osc add`);
+  if ((add(g, hProt, typeId) | 0) !== 0) throw new Error(`${name}: prot add`);
+  if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error(`${name}: out add`);
+  if ((connect(g, hOsc, PORT_MONO, hProt, PORT_MONO) | 0) !== 0) {
+    throw new Error(`${name}: osc→prot`);
+  }
+  if ((connect(g, hProt, PORT_MONO, hOut, PORT_MONO) | 0) !== 0) {
+    throw new Error(`${name}: prot→out`);
+  }
+  setParam(g, hOsc, PARAM_FREQUENCY, 220);
+  setParam(g, hOsc, PARAM_AMPLITUDE, 0.5); // safe under unity
+  if (setup) setup(g, hProt);
+  if ((compile(g) | 0) !== 0) throw new Error(`${name}: compile`);
+  snap(g);
+  const peak = peakOf(g, hProt);
+  destroy(g);
+  if (!(peak > 1e-4) || !(peak <= 1.0 + 1e-3)) {
+    throw new Error(`${name} peak ${peak} out of safe range`);
+  }
+  console.log(`ok ${name} type=${typeId} peak=${peak.toFixed(4)}`);
+}
+
+runType(TYPE_SP1, "speakerProtection");
+runType(TYPE_SP2, "speakerProtector2", (g, h) => {
+  setParam(g, h, PARAM_TIME_NUM, 0.008);
+  setParam(g, h, PARAM_TIME_DEN, 0.333);
+  setParam(g, h, PARAM_OFFSET_MS, 0.75);
+});
+console.log(`ok speaker protection pair version=${ver}`);

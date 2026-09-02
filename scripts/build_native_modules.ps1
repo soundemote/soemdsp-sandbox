@@ -177,6 +177,8 @@ $modules = @(
     "soemdsp_ping_pong_delay_memory_generation", "soemdsp_ping_pong_delay_version"
   ) },
   @{ Name = "papoulis_filter"; Simd = $false; Exports = @("soemdsp_papoulis_filter_create", "soemdsp_papoulis_filter_destroy", "soemdsp_papoulis_filter_sample", "soemdsp_papoulis_filter_snap", "soemdsp_papoulis_filter_version") },
+  @{ Name = "speaker_protection"; Simd = $false; Exports = @("soemdsp_speaker_protection_create", "soemdsp_speaker_protection_destroy", "soemdsp_speaker_protection_sample", "soemdsp_speaker_protection_version") },
+  @{ Name = "speaker_protector2"; Simd = $false; Exports = @("soemdsp_speaker_protector2_create", "soemdsp_speaker_protector2_destroy", "soemdsp_speaker_protector2_sample", "soemdsp_speaker_protector2_version") },
   @{ Name = "phosphillator"; Simd = $false; Exports = @("soemdsp_phosphillator_create", "soemdsp_phosphillator_destroy", "soemdsp_phosphillator_path_x_ptr", "soemdsp_phosphillator_path_y_ptr", "soemdsp_phosphillator_max_path_points", "soemdsp_phosphillator_set_path", "soemdsp_phosphillator_clear_path", "soemdsp_phosphillator_sample", "soemdsp_phosphillator_y", "soemdsp_phosphillator_version") },
   @{ Name = "butterworth"; Simd = $false; Exports = @("soemdsp_butterworth_create", "soemdsp_butterworth_destroy", "soemdsp_butterworth_sample", "soemdsp_butterworth_version", "soemdsp_butterworth_metadata_json", "soemdsp_butterworth_metadata_json_size") },
   @{ Name = "linkwitz_riley"; Simd = $false; Exports = @("soemdsp_linkwitz_riley_create", "soemdsp_linkwitz_riley_destroy", "soemdsp_linkwitz_riley_sample", "soemdsp_linkwitz_riley_version", "soemdsp_linkwitz_riley_metadata_json", "soemdsp_linkwitz_riley_metadata_json_size") },

@@ -92,6 +92,8 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "linkwitzRiley",
   "bessel",
   "papoulisFilter",
+  "speakerProtection",
+  "speakerProtector2",
   "chebyshev",
   "elliptic",
   "eqFilter",
