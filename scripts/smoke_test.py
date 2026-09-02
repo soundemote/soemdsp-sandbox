@@ -188,6 +188,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-patch-runtime.js",
     "./public/node-graph-code-screen-model.js",
     "./public/node-graph-code-screen-loader.js",
+    # Lazy-loaded by code-screen-loader; still in PUBLIC_SCRIPT_PATHS for contract reads.
+    "./public/node-graph-code-screen.js",
     "./public/node-graph-patch-serialization.js",
     "./public/node-graph-settings-fields.js",
     "./public/node-graph-settings-view.js",
@@ -4844,15 +4846,17 @@ def require_node_graph_mvp_contract() -> None:
         "t-series should be transistor paths t…10t with no gateN leftovers",
     )
     require(
-        'momentaryButton: "Momentary"' in script_sources["./public/node-graph-module-definitions.js"]
-        and "defaultWidthGu: 5" in script_sources["./public/node-graph-module-definitions.js"][
-            script_sources["./public/node-graph-module-definitions.js"].index("momentaryButton: {"):
-            script_sources["./public/node-graph-module-definitions.js"].index("knob: {")
-        ]
-        and "displayHeightGu: 2" in script_sources["./public/node-graph-module-definitions.js"][
-            script_sources["./public/node-graph-module-definitions.js"].index("momentaryButton: {"):
-            script_sources["./public/node-graph-module-definitions.js"].index("knob: {")
-        ],
+        (lambda defs: (
+            'momentaryButton: "Momentary"' in defs
+            and "defaultWidthGu: 5" in defs[
+                defs.index("momentaryButton: {"):
+                defs.index("passiveFilter: {", defs.index("momentaryButton: {"))
+            ]
+            and "displayHeightGu: 2" in defs[
+                defs.index("momentaryButton: {"):
+                defs.index("passiveFilter: {", defs.index("momentaryButton: {"))
+            ]
+        ))(script_sources["./public/node-graph-module-definitions.js"]),
         "Momentary should spawn 5gu wide with a 2gu face (3gu outer with title)",
     )
     require(
@@ -18309,6 +18313,108 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_raster_rgb_version",
             "soemdsp_raster_rgb_metadata_json",
             "soemdsp_raster_rgb_metadata_json_size",
+        ],
+        "attack_decay": [
+            "soemdsp_attack_decay_create",
+            "soemdsp_attack_decay_destroy",
+            "soemdsp_attack_decay_sample",
+            "soemdsp_attack_decay_version",
+        ],
+        "basic_shape": [
+            "soemdsp_basic_shape_create",
+            "soemdsp_basic_shape_destroy",
+            "soemdsp_basic_shape_sample",
+            "soemdsp_basic_shape_out",
+            "soemdsp_basic_shape_sine",
+            "soemdsp_basic_shape_tri",
+            "soemdsp_basic_shape_saw",
+            "soemdsp_basic_shape_ramp",
+            "soemdsp_basic_shape_square",
+            "soemdsp_basic_shape_trisaw",
+            "soemdsp_basic_shape_center_square",
+            "soemdsp_basic_shape_version",
+        ],
+        "chord_pad": [
+            "soemdsp_chord_pad_create",
+            "soemdsp_chord_pad_destroy",
+            "soemdsp_chord_pad_sample",
+            "soemdsp_chord_pad_root",
+            "soemdsp_chord_pad_gate",
+            "soemdsp_chord_pad_version",
+        ],
+        "degree_phrase": [
+            "soemdsp_degree_phrase_create",
+            "soemdsp_degree_phrase_destroy",
+            "soemdsp_degree_phrase_sample",
+            "soemdsp_degree_phrase_gate",
+            "soemdsp_degree_phrase_trigger",
+            "soemdsp_degree_phrase_phase",
+            "soemdsp_degree_phrase_version",
+        ],
+        "degree_turing": [
+            "soemdsp_degree_turing_create",
+            "soemdsp_degree_turing_destroy",
+            "soemdsp_degree_turing_sample",
+            "soemdsp_degree_turing_gate",
+            "soemdsp_degree_turing_trigger",
+            "soemdsp_degree_turing_degree",
+            "soemdsp_degree_turing_cv",
+            "soemdsp_degree_turing_version",
+        ],
+        "gravity_walker": [
+            "soemdsp_gravity_walker_create",
+            "soemdsp_gravity_walker_destroy",
+            "soemdsp_gravity_walker_sample",
+            "soemdsp_gravity_walker_gate",
+            "soemdsp_gravity_walker_trigger",
+            "soemdsp_gravity_walker_degree",
+            "soemdsp_gravity_walker_version",
+        ],
+        "harmonic_series": [
+            "soemdsp_harmonic_series_sample",
+            "soemdsp_harmonic_series_effective",
+            "soemdsp_harmonic_series_version",
+            "soemdsp_harmonic_series_metadata_json",
+            "soemdsp_harmonic_series_metadata_json_size",
+        ],
+        "note_glide": [
+            "soemdsp_note_glide_create",
+            "soemdsp_note_glide_destroy",
+            "soemdsp_note_glide_sample",
+            "soemdsp_note_glide_version",
+        ],
+        "note_transpose": [
+            "soemdsp_note_transpose_create",
+            "soemdsp_note_transpose_destroy",
+            "soemdsp_note_transpose_sample",
+            "soemdsp_note_transpose_version",
+        ],
+        "phone_tone": [
+            "soemdsp_phone_tone_create",
+            "soemdsp_phone_tone_destroy",
+            "soemdsp_phone_tone_sample",
+            "soemdsp_phone_tone_tone",
+            "soemdsp_phone_tone_tone_l",
+            "soemdsp_phone_tone_tone_r",
+            "soemdsp_phone_tone_f1",
+            "soemdsp_phone_tone_f2",
+            "soemdsp_phone_tone_analog_thru",
+            "soemdsp_phone_tone_digital_thru",
+            "soemdsp_phone_tone_version",
+            "soemdsp_phone_tone_metadata_json",
+            "soemdsp_phone_tone_metadata_json_size",
+        ],
+        "speaker_protection": [
+            "soemdsp_speaker_protection_create",
+            "soemdsp_speaker_protection_destroy",
+            "soemdsp_speaker_protection_sample",
+            "soemdsp_speaker_protection_version",
+        ],
+        "speaker_protector2": [
+            "soemdsp_speaker_protector2_create",
+            "soemdsp_speaker_protector2_destroy",
+            "soemdsp_speaker_protector2_sample",
+            "soemdsp_speaker_protector2_version",
         ],
     }
     for source_path in native_sources:
