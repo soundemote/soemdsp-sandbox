@@ -114,9 +114,9 @@ double polyBlepSquare(double phaseCycle, double phaseIncrement) {
   return value;
 }
 
-// Morph is bipolar (−1…+1). 0 = unmorphed center for every morphing shape.
-// Pulse / Center Square: 0 = 50% duty; ±1 → ~0% / ~100% width.
-// Trisaw: 0 = saw; + → saw→tri; − → opposite-saw→tri (both poles land on triangle).
+// Morph is bipolar (−1…+1). 0 = center for every morphing shape.
+// Pulse / Center Square PWM: −1 → ~0% width, 0 → 50%, +1 → ~100%.
+// Trisaw: −1 → left-edge saw, 0 → triangle, +1 → right-edge saw.
 
 double polyBlepPulseDutyFromMorph(double morph) {
   // −1…+1 → ~0…1 duty (keep off exact 0/1).
@@ -125,12 +125,9 @@ double polyBlepPulseDutyFromMorph(double morph) {
 }
 
 double polyBlepTrisawPwFromMorph(double morph) {
-  // 0 → saw (pw≈0); +1 → tri (0.5) via saw skirt; −1 → tri (0.5) via opposite saw.
+  // Same bipolar span as PWM: −1 left saw, 0 triangle, +1 right saw.
   const double m = clampD(morph, -1.0, 1.0);
-  if (m >= 0.0) {
-    return clampD(0.0001 + 0.4999 * m, 0.0001, 0.9999);
-  }
-  return clampD(0.9999 + 0.4999 * m, 0.0001, 0.9999);
+  return clampD(0.5 + 0.4999 * m, 0.0001, 0.9999);
 }
 
 // Left-aligned PWM pulse (soemdsp PolyBLEP::pulse).

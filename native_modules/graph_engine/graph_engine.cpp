@@ -2000,8 +2000,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeChaoticPhaseLockingFilter) ? 1.0 // chaos default
       : (typeId == kTypeDsfOscillator) ? 1.0 // harmonics
       : (typeId == kTypeHypersaw) ? 1.0 // spread
-      : (typeId == kTypeSoftwaveOsc || typeId == kTypeSuperloveFilter
-          || typeId == kTypeBasicShape) ? 0.5 // morph/chaos
+      : (typeId == kTypeSoftwaveOsc || typeId == kTypeSuperloveFilter) ? 0.5 // morph/chaos
+      : (typeId == kTypePolyBlep || typeId == kTypeBasicShape) ? 0.0 // bipolar morph center
       : (typeId == kTypeExpAdsr) ? 0.3 // attackShape
       : (typeId == kTypeAttackDecay) ? 1.0 // curve γ
       : (typeId == kTypeLorenzAttractor) ? 10.0 // sigma

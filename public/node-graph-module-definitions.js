@@ -940,7 +940,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "bipolarRational",
         step: "0",
-        tooltip: "Bipolar (−1…+1), 0 = center. Trisaw: 0=saw, ±1→triangle (left/right skirts). Center Square / Pulse: 0=50% duty, ±1→width extremes. Ignored by Saw / Ramp / Square / Tri / Sine / Noise."
+        tooltip: "Bipolar (−1…+1), default 0. Trisaw: −1 left-edge saw, 0 triangle, +1 right-edge saw. Pulse / Center Square PWM: −1≈0% width, 0=50%, +1≈100%. Ignored by Saw / Ramp / Square / Tri / Sine / Noise."
       },
       {
         defaultValue: "1",
@@ -3034,17 +3034,17 @@ const nodeGraphModuleDefinitions = (
       },
       {
         curveAmount: "-0.9",
-        defaultValue: "0.5",
+        defaultValue: "0",
         key: "morph",
         label: "Morph",
         max: "1",
         maxDigits: 5,
-        mid: "0.5",
-        min: "0",
+        mid: "0",
+        min: "-1",
         nonlinearSlider: true,
         sliderCurve: "bipolarRational",
         step: "0",
-        tooltip: "Morph for Square, Center Square, and Trisaw (pulse width / wave shape). 0.5 = centered / 50%. Other waves ignore this. Bipolar rational skew −0.9 (finer near center).",
+        tooltip: "Bipolar (−1…+1), default 0. Square / Trisaw / Center Square: −1 left-edge (narrow / left saw), 0 center (50% / triangle), +1 right-edge. Other waves ignore this.",
       },
       {
         defaultValue: "1",

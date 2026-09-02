@@ -18025,6 +18025,15 @@ def require_native_module_contract(base_url: str) -> None:
         "worklet native-exports should generic-ack graph-hosted modules via export probe",
     )
 
+    polyblep_src = (ROOT / "native_modules" / "polyblep" / "polyblep.cpp").read_text(encoding="utf-8")
+    require(
+        "left-edge saw" in polyblep_src
+        and "0.5 + 0.4999 * m" in polyblep_src
+        and "polyBlepTrisawPwFromMorph" in polyblep_src
+        and "polyBlepPulseDutyFromMorph" in polyblep_src,
+        "PolyBLEP morph must be bipolar: -1 left saw / 0 tri / +1 right saw (PWM same span)",
+    )
+
     expected_native_exports = {
         "transport": ["soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar"],
         "slew_limiter": ["soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample"],

@@ -5,8 +5,13 @@ NodeLiveAudioProcessor.prototype.basicShapeWrap01 = function basicShapeWrap01(ph
   return p - Math.floor(p);
 };
 
-NodeLiveAudioProcessor.prototype.basicShapeCenterSquare = function basicShapeCenterSquare(cycle, morph) {
-  const m = Number.isFinite(morph) ? Math.max(0, Math.min(1, morph)) : 0.5;
+NodeLiveAudioProcessor.prototype.basicShapeMorphWidth = function basicShapeMorphWidth(morph) {
+  const m = Number.isFinite(Number(morph)) ? Math.max(-1, Math.min(1, Number(morph))) : 0;
+  return Math.max(1e-4, Math.min(1 - 1e-4, 0.5 + 0.5 * m));
+};
+
+NodeLiveAudioProcessor.prototype.basicShapeCenterSquare = function basicShapeCenterSquare(cycle, width) {
+  const m = Number.isFinite(width) ? Math.max(0, Math.min(1, width)) : 0.5;
   let t1 = this.basicShapeWrap01(cycle + 0.875 + 0.25 * (m - 0.5));
   let t2 = this.basicShapeWrap01(cycle + 0.375 + 0.25 * (m - 0.5));
   let y = (t1 < 0.5 ? 1 : -1);
@@ -22,14 +27,13 @@ NodeLiveAudioProcessor.prototype.basicShapeTrisaw = function basicShapeTrisaw(cy
   return 2 * ((1 - cycle) / (1 - w)) - 1;
 };
 
-NodeLiveAudioProcessor.prototype.basicShapeNaiveWaves = function basicShapeNaiveWaves(phase01, pulseWidth) {
+NodeLiveAudioProcessor.prototype.basicShapeNaiveWaves = function basicShapeNaiveWaves(phase01, morph) {
   const cycle = this.basicShapeWrap01(phase01);
   const sine = Math.sin(cycle * Math.PI * 2);
   const tri = 1 - 4 * Math.abs(cycle - 0.5);
   const saw = 1 - cycle * 2;
   const ramp = cycle * 2 - 1;
-  const pw = Number(pulseWidth);
-  const width = Number.isFinite(pw) ? Math.max(0, Math.min(1, pw)) : 0.5;
+  const width = this.basicShapeMorphWidth(morph);
   const square = cycle < width ? 1 : -1;
   const trisaw = this.basicShapeTrisaw(cycle, width);
   const centerSquare = this.basicShapeCenterSquare(cycle, width);
@@ -59,7 +63,7 @@ NodeLiveAudioProcessor.prototype.basicShapeWorkletEvaluate = function basicShape
   const phaseOffset = this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues);
   const frequency = this.readEffectiveParameter(node, "frequency", 1, frame, frames, frameValues);
   const waveform = this.readEffectiveParameter(node, "waveform", 0, frame, frames, frameValues);
-  const pulseWidth = this.readEffectiveParameter(node, "morph", 0.5, frame, frames, frameValues);
+  const pulseWidth = this.readEffectiveParameter(node, "morph", 0, frame, frames, frameValues);
   const amp = this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues);
   const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
   const referenceVoltage = referenceMidiNote / 120;

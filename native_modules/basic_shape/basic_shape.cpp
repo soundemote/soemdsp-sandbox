@@ -30,9 +30,21 @@ struct State {
 
 static State gPool[kMaxInstances];
 
+// Morph knob is bipolar (−1…+1). Internals still use 0…1 width/duty.
+static double morph_to_width(double morph) {
+  double m = (morph * 0.0 == 0.0) ? morph : 0.0;
+  if (m < -1.0) m = -1.0;
+  if (m > 1.0) m = 1.0;
+  double w = 0.5 + 0.5 * m;
+  if (w < 1.0e-4) w = 1.0e-4;
+  if (w > 1.0 - 1.0e-4) w = 1.0 - 1.0e-4;
+  return w;
+}
+
 // Exact port of basicShapeCenterSquare (JS mutates t2 but adds with t1).
-static double center_square_exact(double cycle, double morph) {
-  double m = (morph * 0.0 == 0.0) ? morph : 0.5;
+// `width` is 0…1 (already remapped from bipolar morph).
+static double center_square_exact(double cycle, double width) {
+  double m = (width * 0.0 == 0.0) ? width : 0.5;
   if (m < 0.0) m = 0.0;
   if (m > 1.0) m = 1.0;
   double t1 = wrap01(cycle + 0.875 + 0.25 * (m - 0.5));
@@ -113,11 +125,11 @@ extern "C" double soemdsp_basic_shape_sample(
   const double sr = sampleRate < 1.0 ? 44100.0 : sampleRate;
   double freq = safe(frequencyHz);
   const double phaseOff = safe(phaseOffset);
-  double pulse = safe(morph);
-  if (!(pulse * 0.0 == 0.0)) pulse = 0.5;
   const double amp = (amplitude * 0.0 == 0.0) ? amplitude : 1.0;
   const double incIn = safe(increment);
   const double rv = safe(reset);
+  // −1 left edge / narrow, 0 center (50% / triangle), +1 right edge / wide.
+  const double width = morph_to_width(safe(morph));
 
   int waveI = (int)(safe(waveform) + (safe(waveform) >= 0.0 ? 0.5 : -0.5));
   if (waveI < 0) waveI = 0;
@@ -150,9 +162,6 @@ extern "C" double soemdsp_basic_shape_sample(
   const double tri = 1.0 - 4.0 * dsp_fabs(cycle - 0.5);
   const double saw = 1.0 - cycle * 2.0;
   const double ramp = cycle * 2.0 - 1.0;
-  double width = pulse;
-  if (width < 0.0) width = 0.0;
-  if (width > 1.0) width = 1.0;
   const double square = cycle < width ? 1.0 : -1.0;
   const double trisawV = trisaw(cycle, width);
   const double centerSq = center_square_exact(cycle, width);

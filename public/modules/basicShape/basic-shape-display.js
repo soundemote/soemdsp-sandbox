@@ -92,7 +92,9 @@ function nodeGraphBasicShapeSample(phase01, waveform, pulseWidth, amplitude) {
   } else {
     const cycle = (Number(phase01) || 0) - Math.floor(Number(phase01) || 0);
     const i = Math.max(0, Math.min(6, Math.round(Number(waveform) || 0)));
-    const width = Math.max(0, Math.min(1, Number(pulseWidth) || 0.5));
+    const width = typeof nodeGraphBasicShapeMorphWidth === "function"
+      ? nodeGraphBasicShapeMorphWidth(pulseWidth)
+      : Math.max(1e-4, Math.min(1 - 1e-4, 0.5 + 0.5 * (Number.isFinite(Number(pulseWidth)) ? Math.max(-1, Math.min(1, Number(pulseWidth))) : 0)));
     if (i === 1) {
       y = 1 - 4 * Math.abs(cycle - 0.5);
     } else if (i === 2) {
@@ -159,7 +161,7 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
   }
   const look = nodeGraphBasicShapeFaceLook(node);
   const waveform = nodeGraphBasicShapeLiveParam(node, "waveform", 0);
-  const pulseWidth = nodeGraphBasicShapeLiveParam(node, "morph", 0.5);
+  const pulseWidth = nodeGraphBasicShapeLiveParam(node, "morph", 0);
   const amplitude = nodeGraphBasicShapeLiveParam(node, "amplitude", 1);
   const strokeW = look.lineThickness;
   const dotW = look.dotThickness;
