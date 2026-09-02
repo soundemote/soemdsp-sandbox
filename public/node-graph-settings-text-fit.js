@@ -81,22 +81,24 @@ function fitNodeLiveToggleText() {
     return;
   }
 
-  // Render Sample's two lines are fitted alongside the Input/Output/MIDI
-  // toggles so all four buttons in that row share one type size and one
-  // setting (UI Dev "live toggle text size").
-  const spans = document.querySelectorAll(
-    ".node-live-toggle-palette .node-live-toggle span, #nodeRenderButton span",
-  );
-  // Do not blank labels to 0/1px before measuring. Pause/Live label swaps
-  // retrigger this via ResizeObserver; zeroing fontSize made Input/Output look
-  // grey/empty until a later layout pass restored text (often seconds later).
+  // Input / Output / MIDI / Render Sample share ONE type size (longest label
+  // wins). Per-span fitting made MIDI text jump whenever another toggle's
+  // label changed or commit/delete re-ran live-controls paint.
+  const spans = [
+    ...document.querySelectorAll(
+      ".node-live-toggle-palette .node-live-toggle span, #nodeRenderButton span",
+    ),
+  ];
+  if (!spans.length || textScale <= 0) {
+    return;
+  }
+
+  let shared = Infinity;
   for (const span of spans) {
     const maxSize = Math.max(0, span.clientHeight - 1);
-    if (maxSize <= 0 || textScale <= 0) {
-      // Keep the previous size until the button has a real content box.
+    if (maxSize <= 0) {
       continue;
     }
-
     let low = 0;
     let high = maxSize;
     for (let i = 0; i < 12; ++i) {
@@ -107,8 +109,16 @@ function fitNodeLiveToggleText() {
         high = mid;
       }
     }
-    const next = Math.max(1, low * textScale);
-    span.style.fontSize = `${next.toFixed(3)}px`;
+    shared = Math.min(shared, low);
+  }
+  if (!Number.isFinite(shared) || shared <= 0) {
+    return;
+  }
+  const nextCss = `${Math.max(1, shared * textScale).toFixed(3)}px`;
+  for (const span of spans) {
+    if (span.style.fontSize !== nextCss) {
+      span.style.fontSize = nextCss;
+    }
   }
 }
 

@@ -3565,11 +3565,21 @@ function renderNodeGraphMidiToggleButton() {
   const on = Boolean(nodeGraphMvp.midiInputEnabled);
   button.classList.toggle("active", on);
   button.setAttribute("aria-pressed", on ? "true" : "false");
-  button.replaceChildren();
-  for (const text of ["MIDI", on ? "(On)" : "(Off)"]) {
-    const line = document.createElement("span");
-    line.textContent = text;
-    button.append(line);
+  const stateText = on ? "(On)" : "(Off)";
+  const nextLabel = `MIDI\n${stateText}`;
+  // Skip DOM rebuild when unchanged — replaceChildren was thrashing text-fit
+  // (and ResizeObserver) on every unrelated live-controls paint.
+  if (button.dataset.liveToggleLabel !== nextLabel) {
+    button.dataset.liveToggleLabel = nextLabel;
+    button.replaceChildren();
+    for (const text of ["MIDI", stateText]) {
+      const line = document.createElement("span");
+      line.textContent = text;
+      button.append(line);
+    }
+    if (typeof scheduleNodeLiveToggleTextFit === "function") {
+      scheduleNodeLiveToggleTextFit();
+    }
   }
   button.title = on
     ? `MIDI input on -- ${nodeGraphMvp.midiKeyboardStatus || "ready"}. Click to stop receiving MIDI.`

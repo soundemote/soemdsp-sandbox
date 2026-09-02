@@ -128,6 +128,10 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
       line.textContent = text;
       button.append(line);
     }
+    // Refit only when a chrome toggle label actually changes.
+    if (typeof scheduleNodeLiveToggleTextFit === "function") {
+      scheduleNodeLiveToggleTextFit();
+    }
   };
   if (inputButton) {
     const deviceSelect = document.getElementById("nodeLiveInputDeviceSelect");
@@ -221,7 +225,9 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
   syncNodeGraphOutputBypassButton(outputEnabled);
   syncNodeGraphInputModuleLiveState();
   updateNodeGraphLiveInputTestStatus();
-  scheduleNodeLiveToggleTextFit();
+  // Do not scheduleNodeLiveToggleTextFit here — commit/delete/patch paints
+  // call this constantly. Label changes schedule fit; ResizeObserver covers
+  // real palette size changes.
   if (typeof nodeGraphExternalNotifyLiveOutputChanged === "function") {
     nodeGraphExternalNotifyLiveOutputChanged();
   }
