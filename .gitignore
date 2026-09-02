@@ -15,6 +15,24 @@ backups/native_cpp_stage.tgz
 
 # Local debug leftovers (never commit)
 backups/jack-visibility-probe.png
+backups/*.png
+_debug_*/
+_debug_black/
+
+# One-off agent / session scratch scripts
+scripts/_diag_*
+scripts/_add_missing_native_exports.py
+scripts/_list_missing_native_exports.py
+scripts/_insert_code_screen_path.js
+scripts/_insert_code_screen_path.py
+scripts/_patch_smoke_additive_retire.py
+scripts/_patch_smoke_additive_retire2.py
+scripts/_sync_public_script_paths.js
+scripts/_diag_brickwall.py
+scripts/_diag_ladder.py
+
+# Dependencies (install locally; never commit)
+node_modules/
 
 # Local staging / crash leftovers (never commit)
 _to_delete/
