@@ -1611,7 +1611,12 @@ function beginNodeGraphControllerDockResize(event) {
   watchNodeGraphSectionResizeDrag(event, {
     handle,
     onMove: (point) => {
+      // chromeSectionResizing suppresses nested layout in apply…DockHeight;
+      // still reflow black-key px heights here or they stay long and clip.
       applyNodeGraphControllerDockHeight(startHeight - (point.y - startY), { layout: false });
+      if (typeof applyNodeGraphMidiKeyboardLayout === "function") {
+        applyNodeGraphMidiKeyboardLayout();
+      }
     },
     onEnd: () => {
       document.body.classList.remove("is-resizing-controller-dock");

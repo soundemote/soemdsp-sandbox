@@ -78,6 +78,18 @@ function applyNodeGraphMidiKeyboardLayout(settings = null) {
   }
 }
 
+/** Black keys must leave a white-key front lip — never meet the bottom wall. */
+function nodeGraphMidiKeyboardBlackKeyHeightPx(surfaceHeight, blackHeightPercent) {
+  const h = Math.max(0, Number(surfaceHeight) || 0);
+  if (h <= 0) {
+    return 0;
+  }
+  const pct = Math.max(28, Math.min(82, Number(blackHeightPercent) || 62));
+  const lip = Math.max(12, Math.round(h * 0.24));
+  const desired = h * (pct / 100);
+  return Math.max(6, Math.min(desired, h - lip));
+}
+
 function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
   const s = settings || nodeGraphMidiKeyboardLayoutSettings();
   if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
@@ -88,6 +100,7 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
     : { blackKeys: [], totalWhite: 0 };
   const totalWhite = generated.totalWhite || 0;
   const blackByIndex = new Map((generated.blackKeys || []).map((key) => [key.index, key]));
+  let needsSecondPass = false;
   document.querySelectorAll(".node-midi-keyboard-module .node-midi-keyboard-surface").forEach((surface) => {
     const available = nodeGraphMidiKeyboardLayoutHostWidth(surface);
     const desired = totalWhite * s.whiteKeyWidth;
@@ -100,16 +113,23 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
     surface.dataset.keyLabels = s.keyLabels;
     surface.style.setProperty("--midi-white-key-width", `${whiteW}px`);
     surface.style.setProperty("--midi-black-key-width", `${blackW}px`);
-    surface.style.setProperty("--midi-black-key-height", `${s.blackKeyHeight}%`);
     const docked = Boolean(surface.closest(".node-standalone-midi-keyboard-dock"));
     if (docked) {
       surface.style.removeProperty("--midi-keyboard-piano-height");
       surface.style.height = "100%";
+      surface.style.minHeight = "0";
+      surface.style.maxHeight = "100%";
       // Keep natural piano width (whiteCount × key width) and center in the
       // controller row — stretching to 100% packed keys hard left.
     } else {
-      surface.style.setProperty("--midi-keyboard-piano-height", `${s.keyboardHeight}px`);
-      surface.style.height = `${s.keyboardHeight}px`;
+      // Fit the requested piano height into whatever the module face allows.
+      const host = surface.closest(".dsp-node, .node-midi-keyboard-module");
+      const hostH = Math.max(0, host?.clientHeight || 0);
+      const fittedH = hostH > 0 ? Math.min(s.keyboardHeight, hostH) : s.keyboardHeight;
+      surface.style.setProperty("--midi-keyboard-piano-height", `${fittedH}px`);
+      surface.style.height = `${fittedH}px`;
+      surface.style.minHeight = "0";
+      surface.style.maxHeight = "100%";
     }
     const whiteRow = surface.querySelector(".node-midi-keyboard-white-row");
     if (whiteRow) {
@@ -118,6 +138,14 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
         : "";
     }
     installNodeGraphMidiKeyboardLayoutResizeObserver();
+    // Measure after width/height assignment so %→px black keys track the
+    // live surface. A 0-height first pass (grid not settled) schedules retry.
+    const surfaceH = Math.max(0, surface.clientHeight || 0);
+    if (surfaceH < 8) {
+      needsSecondPass = true;
+    }
+    const blackH = nodeGraphMidiKeyboardBlackKeyHeightPx(surfaceH, s.blackKeyHeight);
+    surface.style.setProperty("--midi-black-key-height", blackH > 0 ? `${blackH}px` : `${s.blackKeyHeight}%`);
     surface.querySelectorAll(".node-midi-keyboard-black-row [data-key-index]").forEach((span) => {
       const key = blackByIndex.get(Number(span.dataset.keyIndex));
       if (!key) {
@@ -127,12 +155,22 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
       const left = (Number(key.leftWhiteIndex) + 1) * whiteW - blackW / 2;
       span.style.left = `${left}px`;
       span.style.width = `${blackW}px`;
-      span.style.height = `${s.blackKeyHeight}%`;
+      if (blackH > 0) {
+        span.style.height = `${blackH}px`;
+        span.style.maxHeight = `${blackH}px`;
+      } else {
+        span.style.height = `${s.blackKeyHeight}%`;
+        span.style.removeProperty("max-height");
+      }
     });
     const module = surface.closest(".node-midi-keyboard-module");
     if (module) {
       module.style.setProperty("--midi-keyboard-piano-width", `${pianoW}px`);
-      module.style.setProperty("--midi-keyboard-piano-height", `${s.keyboardHeight}px`);
+      if (!docked) {
+        module.style.setProperty("--midi-keyboard-piano-height", `${s.keyboardHeight}px`);
+      } else {
+        module.style.removeProperty("--midi-keyboard-piano-height");
+      }
     }
     const dock = surface.closest(".node-standalone-midi-keyboard-dock");
     if (dock) {
@@ -143,6 +181,11 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
   });
   if (typeof renderNodeGraphMidiKeyboardKeyLabels === "function") {
     renderNodeGraphMidiKeyboardKeyLabels();
+  }
+  if (needsSecondPass && typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => applyNodeGraphMidiKeyboardLayout());
+    });
   }
 }
 
@@ -158,7 +201,9 @@ function installNodeGraphMidiKeyboardLayoutResizeObserver() {
     });
     window.addEventListener("resize", () => applyNodeGraphMidiKeyboardLayout());
   }
-  document.querySelectorAll(".node-standalone-midi-keyboard-dock, .dsp-node .node-midi-keyboard-module").forEach((el) => {
+  document.querySelectorAll(
+    ".node-standalone-midi-keyboard-dock, .dsp-node .node-midi-keyboard-module, .node-midi-keyboard-module .node-midi-keyboard-surface",
+  ).forEach((el) => {
     nodeGraphMidiKeyboardLayoutResizeObserver.observe(el);
   });
 }

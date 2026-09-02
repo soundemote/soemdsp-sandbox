@@ -2821,28 +2821,19 @@ body.is-resizing-controller-dock {
   border-radius: 0;
   background: none;
   box-shadow: none;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  /* heading | piano only — signal/bitmask are display:none in the dock */
+  grid-template-rows: auto minmax(0, 1fr);
   align-content: stretch;
   justify-items: stretch;
   gap: 2px;
 }
 
-/* Current-value strip (freq/pitch/x/y…): flush to dock bottom edge, not
-   clipped by an inset padding box or a max-height fight with the piano. */
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-signal-bar {
-  max-height: none;
-  overflow: visible;
-  flex-wrap: wrap;
-  gap: 3px;
-  margin: 0;
-  padding: 3px 6px 4px;
-  border-top: 1px solid rgba(243, 241, 236, 0.1);
-  background: rgba(5, 6, 7, 0.35);
-}
-
+/* Dock piano already shows freq/pitch/x/y/vel in the heading live-readouts.
+   A second Frequency strip under the white keys steals vertical space and
+   makes the keys clip into the dock wall — keep that chrome off the dock. */
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-signal-bar,
 .node-standalone-midi-keyboard-dock .node-midi-keyboard-bitmask-row {
-  margin: 0;
-  padding: 2px 6px 4px;
+  display: none !important;
 }
 
 /* Wheels hug the left edge of the piano and fill the keyboard column. */
@@ -3727,7 +3718,9 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   box-sizing: border-box;
   width: var(--midi-black-key-width, 10px);
   max-width: none;
+  /* Prefer layout JS px; % fallback still leaves a white-key lip. */
   height: var(--midi-black-key-height, 62%);
+  max-height: calc(100% - 12px);
   padding: 0 1px 5px;
   overflow: hidden;
   border: 1px solid rgba(127, 199, 217, 0.25);
@@ -3740,7 +3733,7 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   white-space: nowrap;
   background:
     linear-gradient(180deg, #20252a 0%, #090b0e 100%);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
   pointer-events: auto;
 }
 
@@ -3883,12 +3876,11 @@ body.keyboard-debug-hidden:not(.constraint-guide-visible) .node-constraint-color
   display: none;
 }
 
-/* The signal bar itself stays visible -- Freq/Pitch/X/Y aren't just
-   debug readouts, they're the keyboard's actual current output values,
-   so Hide Debug only hides the other (genuinely diagnostic) fields
-   inside it: gate/1s gate/key/q/oct/midi/double/.1v/oct/inc. */
-body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-keyboard-signal="frequency"])):not(:has([data-keyboard-signal="pitch"])):not(:has([data-keyboard-signal="x"])):not(:has([data-keyboard-signal="y"])) {
-  display: none;
+/* Hide Debug: drop the whole under-key signal strip. Live freq/pitch/x/y
+   already live in the heading readouts; keeping Frequency under the white
+   keys only stole piano height and invited clipping. */
+body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
+  display: none !important;
 }
 
 .node-patch-community-control {
