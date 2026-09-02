@@ -696,21 +696,14 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   if (frozen) {
     // Present only (below). No residual step, no bleed, no deposit.
   } else if (layer) {
-    // c1091b4 / 8bc05d90 best-model deposit:
-    // Soft circular DOTS packed along chords between samples so the trail
-    // reads continuous (not sample-only beads). Never beam segments.
-    // samplesOnly/dotsOnly is opt-in only — default packs the path.
+    // Continuous CRT trail only: always pack stamps along chords between
+    // samples (c1091b4 / 8bc05d90). Dots Only / Full Dot Economy are retired —
+    // they produced beads or over-fat solid mush; ignore sticky patch flags.
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
       layer.brightness,
       size01,
     );
-    const fullEconomy = settings?.fullDotEconomy === true
-      || settings?.useFullDotEconomy === true
-      || options.forceFullDotEconomy === true;
-    const samplesOnly = options.samplesOnly === true
-      || settings?.dotsOnly === true
-      || settings?.verticesOnly === true;
     const stepped = nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       trail,
       ghost,
@@ -730,12 +723,11 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
           ),
         ),
       ),
-      // Only pass fullEconomy when explicitly true (c1091b4 default: off).
-      fullEconomy,
-      fullDotEconomy: fullEconomy,
-      dotsOnly: samplesOnly,
-      samplesOnly,
-      verticesOnly: samplesOnly,
+      fullEconomy: false,
+      fullDotEconomy: false,
+      dotsOnly: false,
+      samplesOnly: false,
+      verticesOnly: false,
     });
     void stepped;
     const stamps = Math.max(

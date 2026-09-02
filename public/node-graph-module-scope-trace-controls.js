@@ -184,8 +184,6 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "bipolarBrightness",
     "secondaryEnabled",
     "capEnabled",
-    "fullDotEconomy",
-    "dotsOnly",
     "digitBins",
     "decimalBudget",
     "removeTrailingZeros",
@@ -299,8 +297,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       ]),
     ]),
     colors: Object.freeze([]),
-    // Skip at top; packing row: Sync | Full Dots | Dots only | Clear
-    toggles: Object.freeze(["skipDiscontinuities", "sourceSync", "fullDotEconomy", "dotsOnly"]),
+    // Skip at top; packing row: Sync | Clear (continuous packing always on)
+    toggles: Object.freeze(["skipDiscontinuities", "sourceSync"]),
     choices: Object.freeze([]),
   }),
   // 0D Value: WebGL beam (no face bitmap / pixelDensity / residual).
@@ -338,8 +336,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    // Skip at top. Packing row: Full Dots | Dots only | Clear (no Sync — 2D has no sweep).
-    toggles: Object.freeze(["skipDiscontinuities", "fullDotEconomy", "dotsOnly"]),
+    // Skip at top. Packing row: Clear (no Sync — 2D has no sweep).
+    toggles: Object.freeze(["skipDiscontinuities"]),
     choices: Object.freeze([]),
   }),
   // 2D Trace = woscope XY beam. Ink is hue + plausible brightness.
@@ -567,7 +565,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "puckSize",
     ]),
     colors: Object.freeze([]),
-    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
+    toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
   // Same controls as scope2d — leftover formType="phosphorLight".
@@ -587,7 +585,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
+    toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
   // Spectrogram: FFT + analysis choices. History / Min·Max Freq are module sliders.
@@ -616,7 +614,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
+    toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
   oscilloscopeBankBurn: Object.freeze({
@@ -634,7 +632,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
+    toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
   hypersawBurn: Object.freeze({
@@ -652,7 +650,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
+    toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
   // Knob face: macro dial look + image layers + arc geometry (Display Settings only).
@@ -903,8 +901,6 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     toggles: Object.freeze([
       "sourceSync",
       "skipDiscontinuities",
-      "fullDotEconomy",
-      "dotsOnly",
       "digitBins",
       "decimalBudget",
       "removeTrailingZeros",

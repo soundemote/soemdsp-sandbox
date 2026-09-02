@@ -88,18 +88,19 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
   burn: 0,
   burnAmount: 1,
   residualSchema: 3,
-  // Size 0…1 linear diameter map (c1091b4 scope2d default 0.08).
-  size: 0.08,
+  // Size 0…1 linear diameter map — thin usable CRT line (not a fat sausage).
+  size: 0.02,
   // Stamp blur 0 hard … 1 soft (aesthetic; continuity comes from path packing).
   blur: 0.35,
   // Max phosphor stamps / frame (economy spreads when over).
-  dotBudget: 1024,
+  dotBudget: 2048,
   // Face buffer scale (1 = native layout×dpr; <1 pixelated).
   pixelDensity: 1,
   // Amplitude zoom.
   scale: 1,
-  // Thrifty packing by default (Full Dot Economy ON for dense).
+  // Retired packing toggles — deposit path always chord-packs (never beads).
   fullDotEconomy: false,
+  dotsOnly: false,
 });
 
 /** Shared cyan energy LUT for 1D line-burn + 2D scope2d phosphor faces. */

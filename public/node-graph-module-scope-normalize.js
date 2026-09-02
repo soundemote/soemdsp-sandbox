@@ -649,12 +649,9 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
       : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 1024))),
     // Shared packing toggles. Fall back to lineBurn defaults (Full Dot Economy ON
     // for c1091b42 fused CRT look). Explicit false stays off.
-    fullDotEconomy: nodeGraphDisplaySettingsToggleIsOn(
-      source.fullDotEconomy ?? source.useFullDotEconomy ?? defaults.fullDotEconomy,
-    ),
-    dotsOnly: nodeGraphDisplaySettingsToggleIsOn(
-      source.dotsOnly ?? source.verticesOnly ?? defaults.dotsOnly,
-    ),
+    // Packing toggles retired — always chord-pack continuous trails.
+    fullDotEconomy: false,
+    dotsOnly: false,
     // Auto-trigger: rising edge of In snaps pen left (Reset jack still works).
     sourceSync: nodeGraphDisplaySettingsToggleIsOn(
       source.sourceSync ?? source.sync ?? defaults.sourceSync,
@@ -1397,12 +1394,9 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
       : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 1024))),
     // Full Dots / Dots only — shared phosphor packing (scope2d SSOT).
     // Accept bool true and common form/patch coercions (1 / "1" / "true" / "on").
-    fullDotEconomy: nodeGraphDisplaySettingsToggleIsOn(
-      source.fullDotEconomy ?? source.useFullDotEconomy,
-    ),
-    dotsOnly: nodeGraphDisplaySettingsToggleIsOn(
-      source.dotsOnly ?? source.verticesOnly,
-    ),
+    // Packing toggles retired — always chord-pack continuous trails.
+    fullDotEconomy: false,
+    dotsOnly: false,
     // Latch present for packing-row UI consistency; 2D deposit path freeruns.
     sourceSync: nodeGraphDisplaySettingsToggleIsOn(
       source.sourceSync ?? source.sync,

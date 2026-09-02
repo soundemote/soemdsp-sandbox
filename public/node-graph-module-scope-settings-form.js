@@ -365,16 +365,13 @@ function nodeGraphDisplaySettingsBuildToggleRowHtml(key) {
     </label>`;
 }
 
-/** Packing latches share one horizontal row on phosphor faces (+ Clear). */
+/** Packing row on phosphor faces: Sync (1D) + Clear only. */
 const NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS = Object.freeze([
   "sourceSync",
-  "fullDotEconomy",
-  "dotsOnly",
 ]);
 
 /**
- * Sync | Full Dots | Dots only | Clear — app-wide latch buttons (full cell,
- * fit-to-box title, on=highlight / off=dim). Clear wipes phosphor residual.
+ * Sync | Clear — continuous packing is always on (no Full Dots / Dots only).
  */
 function nodeGraphDisplaySettingsBuildPackingToggleRowHtml(keys) {
   const latch = typeof AppLatchButton !== "undefined" ? AppLatchButton : null;
@@ -1443,9 +1440,8 @@ function buildNodeGraphPhosphorDisplaySettingsBodyHtml(type, node, allowKey) {
       : fieldList);
   const ordered = order.filter((key) => fieldList.includes(key));
   const leftover = fieldList.filter((key) => !order.includes(key));
-  const packingKeys = NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS.filter(
-    (key) => toggleKeys.includes(key) && key !== "sourceSync",
-  );
+  // Clear always; Sync is placed above as its own checkbox when present.
+  const packingKeys = [];
   const packingKeySet = new Set(packingKeys);
   const usedToggles = new Set();
   const usedChoices = new Set();
@@ -1488,9 +1484,7 @@ function buildNodeGraphPhosphorDisplaySettingsBodyHtml(type, node, allowKey) {
     }
     rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml(key));
   }
-  if (packingKeys.length) {
-    rows.push(nodeGraphDisplaySettingsBuildPackingToggleRowHtml(packingKeys));
-  }
+  rows.push(nodeGraphDisplaySettingsBuildPackingToggleRowHtml(packingKeys));
   for (const key of colorKeys) {
     rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type));
   }
@@ -1819,16 +1813,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     }
 
     const rows = [];
-    // Packing toggles (Sync | Full Dots | Dots only) sit *below* Dot Budget.
-    // Sync only rides this row when a phosphor packing toggle is also active
-    // (otherwise Trace keeps the ordinary Sync checkbox).
+    // Sync | Clear sit *below* Dot Budget on phosphor faces.
     const packingCandidates = NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS.filter((key) => toggleKeys.includes(key));
-    const hasPhosphorPacking = packingCandidates.some(
-      (key) => key === "fullDotEconomy" || key === "dotsOnly",
-    );
-    const packingKeys = hasPhosphorPacking
-      ? packingCandidates
-      : packingCandidates.filter((key) => key !== "sourceSync");
+    const packingKeys = packingCandidates;
     const packingKeySet = new Set(packingKeys);
     // Preferred order: choices → toggles (except packing) → fields → packing → colors.
     // Spectrogram: one column, one row per control (label | dropdown).
@@ -1959,8 +1946,8 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       }
       rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
     }
-    // Sync | Full Dots | Dots only | Clear — one row under Dot Budget (1D + 2D phosphor).
-    if (packingKeys.length) {
+    // Sync | Clear — one row under Dot Budget (1D + 2D phosphor).
+    if (packingKeys.length || type === "lineBurn" || type === "scope2d" || type === "xyPad") {
       rows.push(nodeGraphDisplaySettingsBuildPackingToggleRowHtml(packingKeys));
     }
     for (const key of colorKeys) {
