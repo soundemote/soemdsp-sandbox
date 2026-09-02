@@ -25,6 +25,27 @@ function ensureNodeGraphLiveInputModule() {
   return true;
 }
 
+/** Spawn the Portal MIDI (keyboardController) module if the patch has none. */
+function ensureNodeGraphMidiModule() {
+  if (nodeGraphMvp.patch.nodes.some((node) => node.type === "keyboardController")) {
+    return false;
+  }
+
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const counts = nextNodeGraphTypeCounts(patch.nodes);
+  const id = counts.keyboardController > 0
+    ? `keyboardController-${counts.keyboardController + 1}`
+    : "keyboardController";
+  const gridPoint = nodeGraphFindFreeModuleGridPoint("keyboardController", patch.nodes, { gx: 2, gy: 1 });
+  patch.nodes.push(createNodeGraphPatchNode("keyboardController", {
+    id,
+    gx: gridPoint.gx,
+    gy: gridPoint.gy,
+  }));
+  commitNodeGraphPatch(patch, { status: "MIDI module shown" });
+  return true;
+}
+
 function nodeGraphFindFreeModuleGridPoint(type, nodes = nodeGraphMvp.patch.nodes, preferred = null) {
   const start = preferred || defaultNodeGraphModuleGridPoint(type);
   for (let rowOffset = 0; rowOffset < 200; rowOffset += 1) {

@@ -3534,6 +3534,9 @@ async function toggleNodeGraphMidiInput() {
     setNodeInteractionHelp("MIDI input off.");
     return;
   }
+  // Turning MIDI on: ensure a MIDI module exists so outs are wireable.
+  const spawnedMidi = typeof ensureNodeGraphMidiModule === "function"
+    && ensureNodeGraphMidiModule();
   nodeGraphMvp.midiInputEnabled = true;
   renderNodeGraphMidiToggleButton();
   await enableNodeGraphMidiKeyboardInput();
@@ -3544,10 +3547,13 @@ async function toggleNodeGraphMidiInput() {
     nodeGraphMvp.midiInputEnabled = false;
   }
   renderNodeGraphMidiToggleButton();
+  const status = nodeGraphMvp.midiKeyboardStatus || "ready";
   setNodeInteractionHelp(
     nodeGraphMvp.midiInputEnabled
-      ? `MIDI input on -- ${nodeGraphMvp.midiKeyboardStatus || "ready"}.`
-      : `MIDI input unavailable: ${nodeGraphMvp.midiKeyboardStatus || "blocked"}.`,
+      ? (spawnedMidi
+        ? `MIDI input on -- ${status}. MIDI module added to patch.`
+        : `MIDI input on -- ${status}.`)
+      : `MIDI input unavailable: ${status}.`,
   );
 }
 
