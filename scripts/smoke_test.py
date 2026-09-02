@@ -18019,12 +18019,10 @@ def require_native_module_contract(base_url: str) -> None:
     # fall through to "unsupported native module" when sample/process exist.
     native_exports_worklet = (PUBLIC / "node-live-audio-worklet-native-exports.js").read_text(encoding="utf-8")
     require(
-        "typeof exports[`${prefix}sample`]" in native_exports_worklet,
+        "const hasEngine = typeof exports" in native_exports_worklet
+        and "${prefix}sample" in native_exports_worklet
+        and "unsupported native module" in native_exports_worklet,
         "worklet native-exports should generic-ack graph-hosted modules via export probe",
-    )
-    require(
-        "hasEngine" in native_exports_worklet,
-        "worklet native-exports generic graph-hosted path should post ready when hasEngine",
     )
 
     expected_native_exports = {
