@@ -67,7 +67,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
           Gate: Math.max(gate, hold),
           Increment: increment,
           KeyboardKey: key,
-          NoteNumber: midi,
+          "Note#": midi,
           KeyboardNorm: q,
           "Velocity#": velocityNumber,
           "Velocity#/127": velocity01,

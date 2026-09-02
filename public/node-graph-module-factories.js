@@ -800,7 +800,7 @@ function createNodeGraphKeyboardControllerBody(node = null) {
     ["key", "KeyboardKey", "-"],
     ["quantized", "KeyboardNorm", "-"],
     ["octave", "Octave", "+0"],
-    ["midi", "NoteNumber", "-"],
+    ["midi", "Note#", "-"],
     ["double", "Note#/127", "-"],
     ["velocity", "Velocity#", "-"],
     ["tenthVoltPerOctave", "0.1v/Oct", "-"],

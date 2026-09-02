@@ -8030,7 +8030,7 @@ def require_node_graph_mvp_contract() -> None:
         '"Trigger"',
         '"KeyboardKey"',
         '"KeyboardNorm"',
-        '"NoteNumber"',
+        '"Note#"',
         '"Note#/127"',
         '"0.1v/Oct"',
         '"Velocity#"',
