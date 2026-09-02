@@ -255,8 +255,8 @@
       // Soft ribbon (blur 1): wide gaussian energy skirt.
       float sigma = max(R * mix(0.34, 1.15, soft), 0.45);
       float softProfile = exp(-(d * d) / (2.0 * sigma * sigma));
-      // Morph hard capsule → soft beam. soft^1.4 keeps mid range painterly.
-      float softMix = pow(soft, 1.4);
+      // Morph hard capsule → soft beam. Match dot softMix so mid Blur is soft.
+      float softMix = pow(soft, 0.55);
       float hardPeak = 0.88;
       float softPeak = mix(0.78, 0.42, soft);
       float profile = mix(hard * hardPeak, softProfile * softPeak, softMix);
@@ -267,10 +267,10 @@
     }
   `;
 
-  // Soft phosphor dabs — blur is 0..1 UX (hard → soft):
-  //   blur 0 → hard disc + ~1px AA (crisp edge, almost no skirt)
-  //   blur ~0.35 → painterly core + light outer skirt
-  //   blur 1 → full soft wide gaussian (airbrush / bleed when hits stack)
+  // Soft phosphor dabs — blur is 0..1 UX (hard → soft), aesthetic only:
+  //   blur 0 → hard disc + ~1px AA
+  //   blur 1 → full soft wide gaussian
+  // Continuity of the trail comes from path packing, not from raising Blur.
   // Size (uRadius) = geometric footprint. aCorner: 0=BL,1=BR,2=TL,3=TR.
   const DOT_VERT = `
     precision highp float;
@@ -329,9 +329,11 @@
         return;
       }
       // Built-in: Blur 0 = hard disc; Blur 1 = baked gaussian texture.
+      // soft^0.55 so mid Blur (0.2–0.4) actually reads soft — soft^1.45 kept
+      // ~80% hard discs and looked like stacked circles / lost gaussian.
       float aa = max(0.55, min(1.25, R * 0.06));
       float hard = 1.0 - smoothstep(R - aa, R + aa * 0.25, r);
-      float softMix = pow(soft, 1.45);
+      float softMix = pow(soft, 0.55);
       float profile = mix(hard * 0.92, tex * mix(0.78, 0.42, soft), softMix);
       float e = max(profile, 0.0) * uBrightness;
       gl_FragColor = vec4(e, e, e, e);

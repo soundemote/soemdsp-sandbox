@@ -696,11 +696,10 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   if (frozen) {
     // Present only (below). No residual step, no bleed, no deposit.
   } else if (layer) {
-    // c1091b42 best-model deposit (locked):
-    // Soft circular DOTS that fuse into a CRT line. Never beam segments.
-    // 1D lineBurn passes samplesOnly (no chord fill) — chord packing between
-    // sparse points is what made low-freq faceted strokes + brightness dips.
-    // 2D orbits may chord-pack; Full Dot Economy densifies that packing.
+    // c1091b4 / 8bc05d90 best-model deposit:
+    // Soft circular DOTS packed along chords between samples so the trail
+    // reads continuous (not sample-only beads). Never beam segments.
+    // samplesOnly/dotsOnly is opt-in only — default packs the path.
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
       layer.brightness,
@@ -720,20 +719,18 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       brightness: beamBrightness,
       blur: nodeGraphTraceDisplayClampStampBlur(layer.blur),
       mode: "dots",
-      // 1D: budget must cover undrawn samples so we do not stride-skip into beads.
       maxDots: Math.max(
         64,
         Math.min(
           8192,
           Math.round(
             Number(settings?.dotBudget)
-            || (samplesOnly
-              ? Math.max(points.length, nodeGraphScope2dMaxSamplesPerFrame(canvas))
-              : nodeGraphScope2dMaxSamplesPerFrame(canvas))
+            || nodeGraphScope2dMaxSamplesPerFrame(canvas)
             || 2048,
           ),
         ),
       ),
+      // Only pass fullEconomy when explicitly true (c1091b4 default: off).
       fullEconomy,
       fullDotEconomy: fullEconomy,
       dotsOnly: samplesOnly,
@@ -978,8 +975,8 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
   }
   drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, {
     endFrame: cursorEnd,
-    // Stamp true samples only — no connective chord fill between points.
-    samplesOnly: true,
+    // Continuity from chord packing between samples (c1091b4 / 8bc05d90).
+    // Do not force samplesOnly — that left sparse beads / stacked discs.
   });
 }
 

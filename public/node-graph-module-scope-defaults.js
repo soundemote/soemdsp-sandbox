@@ -92,7 +92,7 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
   residualSchema: 3,
   // Size 0…1 linear diameter map (c1091b4 scope2d default 0.08).
   size: 0.08,
-  // Stamp blur 0 hard … 1 soft.
+  // Stamp blur 0 hard … 1 soft (aesthetic; continuity comes from path packing).
   blur: 0.35,
   // Max phosphor stamps / frame (economy spreads when over).
   dotBudget: 1024,
@@ -178,14 +178,15 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   dot1Color: "#75ebff",
   dot1Enabled: true,
   dot1Size: 0.07,
+  // c1091b4 / 8bc05d90: blur aesthetic; continuous trail from chord packing.
   lineThickness: 0.2,
   pixelDensity: 1,
   dotBudget: 2048,
-  // Full Dot Economy densifies 2D chord packing; 1D stamps true samples only
-  // (no chord fill — that caused low-freq facets + brightness dips).
-  fullDotEconomy: true,
-  // 1D: stamp real samples only (matches draw path samplesOnly).
-  dotsOnly: true,
+  // Thrifty path packing (c1091b4). Full Dot Economy is optional densify.
+  fullDotEconomy: false,
+  // false = pack stamps along chords between samples (continuous CRT line).
+  // true = sample vertices only (beads / stacked discs when samples are sparse).
+  dotsOnly: false,
   // Rising-edge auto-trigger on In (snaps pen left). Off unless the user
   // turns Sync on — same default as Instant Trace / other 1D faces.
   sourceSync: false,
@@ -517,8 +518,8 @@ const nodeGraphScope2dSnowflakeDisplayDefaults = Object.freeze({
   dot1Brightness: 0.0818,
   dot1Size: 0.032,
   dotBudget: 1024,
-  fullDotEconomy: true,
-  dotsOnly: true,
+  fullDotEconomy: false,
+  dotsOnly: false,
   lineThickness: 0.225,
   gradientStops: nodeGraphScope2dInitGradientStops,
 });
