@@ -1,6 +1,9 @@
 // Viewport (zoom/pan) performance: light CSS every event, heavy chrome
 // (wires / heatmap / scopes) coalesced to rAF; full fidelity + settings
 // persist after the gesture settles.
+// Camera is compositor translate3d+scale (not CSS zoom). Mid-gesture cull
+// keeps off-screen modules asleep so zoomed pan does not composite a
+// growing trail of awake nodes. Scopes on visible modules keep drawing.
 
 const nodeGraphViewportPerf = {
   heavyRaf: 0,
@@ -188,12 +191,17 @@ function applyNodeGraphViewportCssLight(options = {}) {
   if (!gesturing && typeof updateNodeGraphGridHeatmap === "function") {
     updateNodeGraphGridHeatmap({ lite: true });
   } else if (gesturing && typeof updateNodeGraphGridHeatmap === "function") {
-    // Grid phase only — no cell-size / module light work.
-    updateNodeGraphGridHeatmap({ lite: true, phaseOnly: true });
+    // Coalesce grid phase to one rAF — sync style writes every pointermove
+    // were keeping the zoomed layer dirty while panning.
+    scheduleNodeGraphViewportGestureHeatmapPhase();
   }
-  if (!gesturing) {
-    scheduleNodeGraphViewportCullRefresh();
-  }
+  // Cull must keep running while zoomed-in pan: otherwise modules that leave
+  // the view stay awake (display:block) and the composited layer keeps growing
+  // → "I'm zoomed in and pan is laggy for no reason." Use cached sizes only.
+  scheduleNodeGraphViewportCullRefresh({
+    cacheSizesOnly: gesturing,
+    minIntervalMs: gesturing ? 48 : 0,
+  });
 }
 
 function nodeGraphWirePlanCacheKey() {
@@ -447,7 +455,7 @@ function nodeGraphViewportCullWakeAll(surface) {
   }
 }
 
-function nodeGraphViewportCullRefresh() {
+function nodeGraphViewportCullRefresh(options = {}) {
   const workspace = document.getElementById("nodeGraphWorkspace");
   const surface = typeof nodeGraphZoomSurface === "function"
     ? nodeGraphZoomSurface()
@@ -484,10 +492,15 @@ function nodeGraphViewportCullRefresh() {
   const selected = typeof nodeGraphSelectedNodeIds === "function"
     ? nodeGraphSelectedNodeIds()
     : new Set();
+  const cacheSizesOnly = Boolean(options.cacheSizesOnly);
   for (const element of surface.querySelectorAll(".dsp-node:not(.removed)")) {
     const id = String(element.dataset?.node || "");
-    let width = Number(element.offsetWidth) || 0;
-    let height = Number(element.offsetHeight) || 0;
+    let width = 0;
+    let height = 0;
+    if (!cacheSizesOnly) {
+      width = Number(element.offsetWidth) || 0;
+      height = Number(element.offsetHeight) || 0;
+    }
     if (width > 1 && height > 1) {
       element._viewportCullW = width;
       element._viewportCullH = height;
@@ -505,13 +518,54 @@ function nodeGraphViewportCullRefresh() {
   }
 }
 
-function scheduleNodeGraphViewportCullRefresh() {
-  if (nodeGraphViewportPerf.cullRaf) {
+function scheduleNodeGraphViewportGestureHeatmapPhase() {
+  if (nodeGraphViewportPerf.gestureHeatmapRaf) {
     return;
   }
+  nodeGraphViewportPerf.gestureHeatmapRaf = window.requestAnimationFrame(() => {
+    nodeGraphViewportPerf.gestureHeatmapRaf = 0;
+    if (typeof updateNodeGraphGridHeatmap === "function") {
+      updateNodeGraphGridHeatmap({ lite: true, phaseOnly: true });
+    }
+  });
+}
+
+function scheduleNodeGraphViewportCullRefresh(options = {}) {
+  const cacheSizesOnly = Boolean(options.cacheSizesOnly);
+  const minIntervalMs = Math.max(0, Number(options.minIntervalMs) || 0);
+  const now = performance.now?.() || Date.now();
+  if (
+    minIntervalMs > 0
+    && nodeGraphViewportPerf.cullLastAt
+    && (now - nodeGraphViewportPerf.cullLastAt) < minIntervalMs
+  ) {
+    // Still coalesce a trailing refresh so the last pan sample gets culled.
+    if (!nodeGraphViewportPerf.cullTrailingTimer) {
+      const wait = Math.max(0, minIntervalMs - (now - nodeGraphViewportPerf.cullLastAt));
+      nodeGraphViewportPerf.cullTrailingTimer = window.setTimeout(() => {
+        nodeGraphViewportPerf.cullTrailingTimer = 0;
+        scheduleNodeGraphViewportCullRefresh({
+          cacheSizesOnly,
+          minIntervalMs: 0,
+        });
+      }, wait);
+    }
+    return;
+  }
+  if (nodeGraphViewportPerf.cullRaf) {
+    nodeGraphViewportPerf.cullPendingOptions = {
+      cacheSizesOnly: cacheSizesOnly
+        || Boolean(nodeGraphViewportPerf.cullPendingOptions?.cacheSizesOnly),
+    };
+    return;
+  }
+  const pending = { cacheSizesOnly };
   nodeGraphViewportPerf.cullRaf = window.requestAnimationFrame(() => {
     nodeGraphViewportPerf.cullRaf = 0;
-    nodeGraphViewportCullRefresh();
+    const opts = nodeGraphViewportPerf.cullPendingOptions || pending;
+    nodeGraphViewportPerf.cullPendingOptions = null;
+    nodeGraphViewportPerf.cullLastAt = performance.now?.() || Date.now();
+    nodeGraphViewportCullRefresh(opts);
   });
 }
 
