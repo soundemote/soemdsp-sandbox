@@ -2795,6 +2795,16 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "mix") return ["Out1"];
     if (type === "midSideEncode") return ["Mid"];
     if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["X"];
+    // Lorenz/Chua/…: native X lives on MONO (see mapNativeGraphSrcPortId).
+    // Face source is DisplayX/DisplayY — publish both logical + Display aliases.
+    if (
+      type === "lorenzAttractor"
+      || type === "chuaAttractor"
+      || type === "henonMap"
+      || type === "rayBouncer"
+    ) {
+      return ["X", "DisplayX", "Out", "Mono"];
+    }
     if (type === "ellipsoid") return ["Bi X", "Out", "Mono"];
     if (type === "snowflake") return ["Out", "Mono"];
     if (type === "clock") return ["Digital Out", "Out", "Digital"];
@@ -2816,6 +2826,14 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "mix") return ["Out2"];
     if (type === "midSideEncode") return ["Side"];
     if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["Y"];
+    if (
+      type === "lorenzAttractor"
+      || type === "chuaAttractor"
+      || type === "henonMap"
+      || type === "rayBouncer"
+    ) {
+      return ["Y", "DisplayY", "Left"];
+    }
     if (type === "ellipsoid") return ["Bi X", "X"];
     if (type === "snowflake") return ["X"];
     if (type === "clock") return ["Analog Out", "Analog"];
@@ -2840,6 +2858,14 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "sineWavetable") return ["C"];
     if (type === "archimedes") return ["Pi"];
     if (type === "mix") return ["Out3"];
+    if (
+      type === "lorenzAttractor"
+      || type === "chuaAttractor"
+      || type === "henonMap"
+      || type === "rayBouncer"
+    ) {
+      return ["Z", "Right"];
+    }
     if (type === "ellipsoid") return ["Bi Y", "Y"];
     if (type === "snowflake") return ["Y"];
     if (type === "clock") return ["T", "Pulse", "Trigger"];

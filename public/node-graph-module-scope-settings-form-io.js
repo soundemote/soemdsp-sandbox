@@ -264,13 +264,11 @@ function nodeGraphDisplaySettingsWriteToggleElement(el, on) {
 }
 
 function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDisplaySettingsFormType()) {
-  // When editing a specific module, apply per-type scope2d overrides (e.g. Lorenz size).
-  const targetNode = !nodeGraphTraceDisplaySettingsEditingTraceDefaults()
-    && !nodeGraphTraceDisplaySettingsEditingGlobal()
-    ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())
-    : null;
+  // scope2d / phosphorLight Defaults: one schema SSOT for every module that
+  // shares that face type (Lorenz, snowflake, Jerobeam, standalone scope2d…).
+  // Stamp look comes from nodeGraphScopePhosphorLookDefaults via scope2d bag.
   const scope2dDefaults = typeof nodeGraphScope2dSettingsDefaultsForModuleType === "function"
-    ? nodeGraphScope2dSettingsDefaultsForModuleType(targetNode?.type)
+    ? nodeGraphScope2dSettingsDefaultsForModuleType(null)
     : nodeGraphScope2dSettingsDefaults;
   if (type === "dot") {
     return normalizeNodeGraphZeroDBurnSettings(nodeGraphZeroDBurnSettingsDefaults);

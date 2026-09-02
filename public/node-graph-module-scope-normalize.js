@@ -24,9 +24,10 @@ function nodeGraphDisplaySettingsNormalizePlateLook(source = {}, defaults = {}) 
     ? Number(defs.backgroundBrightness)
     : 0;
   const rawHex = src.background ?? src.backgroundColor ?? defs.background;
+  // Plate fallback is black — Instant Trace red must not leak into phosphor faces.
   const hex = typeof normalizeNodeGraphTraceDisplayColor === "function"
-    ? normalizeNodeGraphTraceDisplayColor(rawHex, defs.background || "#ff0000")
-    : String(rawHex || "#ff0000");
+    ? normalizeNodeGraphTraceDisplayColor(rawHex, defs.background || "#000000")
+    : String(rawHex || "#000000");
   const mapped = typeof nodeGraphHueBrightnessFromHex === "function"
     ? nodeGraphHueBrightnessFromHex(hex, fallbackHue, fallbackBright)
     : { hue: fallbackHue, brightness: fallbackBright };
