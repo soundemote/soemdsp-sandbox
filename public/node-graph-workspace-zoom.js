@@ -313,6 +313,7 @@ function nodeGraphRecoverViewportIfModulesOffscreen() {
 if (typeof window !== "undefined") {
   window.nodeGraphAutoFrame = nodeGraphAutoFrame;
   window.nodeGraphCenterViewOnModules = nodeGraphCenterViewOnModules;
+  window.nodeGraphModulesIntersectViewport = nodeGraphModulesIntersectViewport;
   window.nodeGraphRecoverViewportIfModulesOffscreen = nodeGraphRecoverViewportIfModulesOffscreen;
 }
 

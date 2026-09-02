@@ -186,6 +186,52 @@ function nodeGraphBootWantsResetView() {
   }
 }
 
+function nodeGraphBootWantsAutoframe() {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const raw = String(params.get("autoframe") || "").trim().toLowerCase();
+    return raw === "1" || raw === "true" || raw === "yes" || nodeGraphBootWantsResetView();
+  } catch (_error) {
+    return nodeGraphBootWantsResetView();
+  }
+}
+
+function nodeGraphBootReframeWorkspace(reason = "boot") {
+  if (typeof nodeGraphViewportCullWakeAll === "function") {
+    nodeGraphViewportCullWakeAll();
+  } else {
+    document.querySelectorAll(".dsp-node.viewport-asleep").forEach((el) => {
+      el.classList.remove("viewport-asleep");
+    });
+  }
+
+  const force = nodeGraphBootWantsAutoframe() || reason === "resetview";
+  let framed = false;
+  if (force && typeof window.nodeGraphAutoFrame === "function") {
+    framed = Boolean(window.nodeGraphAutoFrame({ padding: 0.08 }));
+  }
+  // Chrome can restore a pan/zoom that leaves modules in the DOM but off-screen
+  // while the top chrome still paints — empty black workspace. Always recover.
+  if (!framed && typeof window.nodeGraphRecoverViewportIfModulesOffscreen === "function") {
+    window.nodeGraphRecoverViewportIfModulesOffscreen();
+  } else if (!framed && typeof window.nodeGraphAutoFrame === "function") {
+    const visibleOnScreen = typeof window.nodeGraphModulesIntersectViewport === "function"
+      ? window.nodeGraphModulesIntersectViewport()
+      : false;
+    const moduleCount = document.querySelectorAll(".dsp-node:not(.removed)").length;
+    if (moduleCount > 0 && !visibleOnScreen) {
+      window.nodeGraphAutoFrame({ padding: 0.08 });
+    }
+  }
+
+  if (typeof scheduleNodeGraphViewportCullRefresh === "function") {
+    scheduleNodeGraphViewportCullRefresh();
+  }
+  if (typeof drawNodeGraphWires === "function") {
+    drawNodeGraphWires();
+  }
+}
+
 function recoverNodeGraphAfterBoot() {
   if (nodeGraphBootWantsResetView()) {
     try {
@@ -203,54 +249,29 @@ function recoverNodeGraphAfterBoot() {
     }
   }
 
+  const shell = document.querySelector(".shell");
+  if (shell) {
+    shell.style.visibility = "";
+  }
   const workspace = document.getElementById("nodeGraphWorkspace");
   if (workspace) {
     workspace.hidden = false;
   }
   document.getElementById("nodeWiringPanel")?.classList.remove("content-view-mode");
 
-  if (typeof nodeGraphViewportCullWakeAll === "function") {
-    nodeGraphViewportCullWakeAll();
-  } else {
-    document.querySelectorAll(".dsp-node.viewport-asleep").forEach((el) => {
-      el.classList.remove("viewport-asleep");
-    });
-  }
-  if (typeof scheduleNodeGraphViewportCullRefresh === "function") {
-    scheduleNodeGraphViewportCullRefresh();
-  }
-  if (typeof drawNodeGraphWires === "function") {
-    drawNodeGraphWires();
-  }
-
-  // If nothing is on screen (or resetview), reframe the patch.
-  const visibleModules = document.querySelectorAll(
-    ".dsp-node:not(.removed):not(.viewport-asleep)",
-  ).length;
-  const wantsAutoframe = (() => {
+  const reframe = (reason) => {
     try {
-      const params = new URLSearchParams(window.location.search || "");
-      const raw = String(params.get("autoframe") || "").trim().toLowerCase();
-      return raw === "1" || raw === "true" || raw === "yes" || nodeGraphBootWantsResetView();
-    } catch (_error) {
-      return nodeGraphBootWantsResetView();
+      nodeGraphBootReframeWorkspace(reason);
+    } catch (error) {
+      console.warn("Unable to reframe workspace after boot", error);
     }
-  })();
-  if ((visibleModules === 0 || wantsAutoframe) && typeof window.nodeGraphAutoFrame === "function") {
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        window.nodeGraphAutoFrame({ padding: 0.08 });
-        if (typeof nodeGraphViewportCullWakeAll === "function") {
-          nodeGraphViewportCullWakeAll();
-        }
-        if (typeof scheduleNodeGraphViewportCullRefresh === "function") {
-          scheduleNodeGraphViewportCullRefresh();
-        }
-        if (typeof drawNodeGraphWires === "function") {
-          drawNodeGraphWires();
-        }
-      });
-    });
+  };
+
+  // Immediate + delayed passes: first paint / session apply / cull can race,
+  // especially in Chrome with a restored localStorage view.
+  reframe(nodeGraphBootWantsResetView() ? "resetview" : "boot");
+  for (const delay of [120, 450, 1100, 2200]) {
+    window.setTimeout(() => reframe("retry"), delay);
   }
 }
 
