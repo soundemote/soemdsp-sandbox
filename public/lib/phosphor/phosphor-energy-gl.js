@@ -498,7 +498,7 @@
       return global.PhosphorResidual.trailFadeAmount(trail);
     }
     // Fallback if residual lib not loaded: Trail high = long = low erase.
-    const t = Math.max(0, Math.min(1, Number(trail) || 0.88));
+    const t = Math.max(0, Math.min(1, Number(trail) || (global.PhosphorResidual?.DEFAULT_TRAIL ?? 0.3)));
     const d = 1 - t;
     if (d <= 0.001) {
       return 0;
@@ -1387,7 +1387,7 @@
       ? Number(options.trail)
       : (Number.isFinite(Number(options.decay))
         ? 1 - Math.max(0, Math.min(1, Number(options.decay)))
-        : (global.PhosphorResidual?.DEFAULT_TRAIL ?? 0.88));
+        : (global.PhosphorResidual?.DEFAULT_TRAIL ?? 0.3));
     const ghostAmt = Number.isFinite(Number(options.ghost))
       ? Math.max(0, Math.min(1, Number(options.ghost)))
       : (Number.isFinite(Number(options.burn))

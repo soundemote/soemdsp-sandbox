@@ -199,7 +199,13 @@ NodeLiveAudioProcessor.prototype.appendScopeBufferSample = function appendScopeB
     }
     const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
     const fps = Math.max(1, Number(this.displayFps) || 60);
-    const limit = Math.max(4096, Math.ceil(engineRate / fps) + 256);
+    // Waveform / phosphor faces write near engine rate (full quantum). Keep at
+    // least ~0.5 s so a slow paint cannot wrap away undrawn high-speed path.
+    const limit = Math.max(
+      4096,
+      Math.ceil(engineRate / fps) + 256,
+      Math.ceil(engineRate * 0.5),
+    );
     let samples = this.scopeBuffers.get(key);
     if (!(samples instanceof Float32Array)) {
       samples = new Float32Array(limit);

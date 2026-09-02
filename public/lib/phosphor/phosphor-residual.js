@@ -16,8 +16,8 @@
 // Used by energy-GL, drawer, matrix, asciiscope.
 
 (function initPhosphorResidual(global) {
-  const DEFAULT_TRAIL = 0.88; // was decay 0.12
-  const DEFAULT_GHOST = 0.45; // was burn 0.45
+  const DEFAULT_TRAIL = 0.3;
+  const DEFAULT_GHOST = 0.25;
 
   function clamp01(value, fallback = 0) {
     const n = Number(value);

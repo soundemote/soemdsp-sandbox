@@ -3032,17 +3032,63 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
     this.compileScopeCapture?.();
   }
 
-  // Module face rings: one sample per quantum (last). Under stress, still
-  // refresh faces every 8th quantum so Instant Trace / module plates do not
-  // freeze solid when robinSupersaw + stereo visual sinks overrun the budget.
-  const faceStride = stressed ? 8 : 1;
-  const facePhase = (Number(this.scopeCounter) || 0);
-  if (Array.isArray(this.compiledScopeNodes) && (facePhase % faceStride) === 0) {
+  // Module face rings: full-quantum samples at (near) engine rate.
+  // c1091b4 / pre-native path stamped every evaluated sample. Publishing only
+  // the quantum's last sample (~375 Hz @ 128-frame blocks) made high-speed
+  // Lorenz/attractors look like sparse downsampled polylines.
+  // Only MONO/LEFT/RIGHT — enough for X/Y/Z + Wave/Out; skip SAW…SINE junk
+  // slots that blew the audio budget and forced stress hop-8 (~6 kHz).
+  const engineRateForFaces = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
+  const facePorts = [
+    P.NATIVE_GRAPH_PORT_MONO,
+    P.NATIVE_GRAPH_PORT_LEFT,
+    P.NATIVE_GRAPH_PORT_RIGHT,
+  ];
+  if (Array.isArray(this.compiledScopeNodes)) {
     for (let i = 0; i < this.compiledScopeNodes.length; i += 1) {
       const entry = this.compiledScopeNodes[i];
       const nodeId = entry?.nodeId;
-      if (!nodeId || !this.nodeOutputs.has(nodeId)) continue;
-      this.captureModuleScopeOutput?.(nodeId, this.nodeOutputs.get(nodeId));
+      if (!nodeId) continue;
+      const type = String(this.nodes.get(nodeId)?.type || "");
+      if (!Object.prototype.hasOwnProperty.call(P.NATIVE_GRAPH_TYPE_IDS, type)) continue;
+      if (type === "output") continue;
+      const hash = this.fnv1aHash32(nodeId);
+      const writeHz = Number(entry.writeHz);
+      // writeHz 0 / unset = every engine sample (waveform / phosphor faces).
+      // Never stress-hop those — hop-2/8 was the high-speed Lorenz downsample.
+      let hop = 1;
+      if (Number.isFinite(writeHz) && writeHz > 0 && writeHz < engineRateForFaces) {
+        hop = Math.max(1, Math.floor(engineRateForFaces / writeHz));
+        if (stressed) {
+          hop = Math.max(hop, 2);
+        }
+      }
+      const bindings = [];
+      for (let pi = 0; pi < facePorts.length; pi += 1) {
+        const portId = facePorts[pi];
+        const view = this.bindNativeGraphNodePortView(hash, portId, frames);
+        if (!view || !view.length) continue;
+        const names = this.nativeGraphPortNames(type, portId);
+        if (!names.length) continue;
+        bindings.push({ names, view });
+      }
+      if (!bindings.length) continue;
+      for (let frame = 0; frame < frames; frame += hop) {
+        const out = Object.create(null);
+        let any = false;
+        for (let bi = 0; bi < bindings.length; bi += 1) {
+          const binding = bindings[bi];
+          const raw = Number(binding.view[Math.min(frame, binding.view.length - 1)]);
+          const sample = Number.isFinite(raw) ? raw : 0;
+          for (let ni = 0; ni < binding.names.length; ni += 1) {
+            out[binding.names[ni]] = sample;
+            any = true;
+          }
+        }
+        if (any) {
+          this.captureModuleScopeOutput?.(nodeId, out);
+        }
+      }
     }
   }
 

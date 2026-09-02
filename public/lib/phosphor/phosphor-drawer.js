@@ -14,8 +14,8 @@
 
 (function initPhosphorDrawer(global) {
   const DEFAULT_BLUR = 0.35;
-  const DEFAULT_TRAIL = global.PhosphorResidual?.DEFAULT_TRAIL ?? 0.88;
-  const DEFAULT_GHOST = global.PhosphorResidual?.DEFAULT_GHOST ?? 0.45;
+  const DEFAULT_TRAIL = global.PhosphorResidual?.DEFAULT_TRAIL ?? 0.3;
+  const DEFAULT_GHOST = global.PhosphorResidual?.DEFAULT_GHOST ?? 0.25;
   const DEFAULT_EXPOSURE = 2.9;
   const DEPOSIT_SCALE = 0.1;
 

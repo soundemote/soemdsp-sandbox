@@ -678,10 +678,10 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   }
 
   const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
-    ? PhosphorResidual.migrateTrail(settings || {}, 0.88)
-    : clampNodeSliderValue(Number(settings?.trail ?? (Number.isFinite(Number(settings?.decay)) ? 1 - Number(settings.decay) : 0.88)), 0, 1);
+    ? PhosphorResidual.migrateTrail(settings || {}, PhosphorResidual.DEFAULT_TRAIL ?? 0.3)
+    : clampNodeSliderValue(Number(settings?.trail ?? (Number.isFinite(Number(settings?.decay)) ? 1 - Number(settings.decay) : 0.3)), 0, 1);
   const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
-    ? PhosphorResidual.migrateGhost(settings || {}, 0.45)
+    ? PhosphorResidual.migrateGhost(settings || {}, PhosphorResidual.DEFAULT_GHOST ?? 0.25)
     : clampNodeSliderValue(Number(settings?.ghost ?? settings?.burn) || 0, 0, 1);
   const dotSpace = nodeGraphScope2dStrokeSpace(canvas);
   const layers = nodeGraphScope2dBurnLayers(settings, dotSpace);
@@ -803,23 +803,21 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
   }
   // Deposit only samples since last draw (+ bridge). Phosphor residual is the
   // lagging trail — do not re-stamp the full history every frame.
+  // c1091b4 / 8bc05d90: keep the newest consecutive window (clamp), do NOT
+  // even-subsample across a long undrawn gap — that made high-speed Lorenz
+  // look like a downsampled polyline of sparse chords.
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
   const budget = nodeGraphScope2dMaxSamplesPerFrame(canvas);
   const rawStart = nodeGraphScope2dDrawStartIndex(canvas, buffer, count);
-  // Cover the whole undrawn window. Clamping to the newest `budget` samples
-  // dropped the middle of the orbit (random gaps on sincos circles).
-  const undrawn = Math.max(0, count - rawStart);
-  let pathPoints = [];
-  if (undrawn > 0 && rawStart < count) {
-    const even = undrawn > budget && typeof nodeGraphScope2dEvenSampleIndices === "function"
-      ? nodeGraphScope2dEvenSampleIndices(undrawn, budget).map((i) => rawStart + i)
-      : null;
-    pathPoints = buildNodeGraphScope2dPathPoints(canvasSquare, buffer, rawStart, {
+  const drawStartIndex = typeof nodeGraphScope2dClampDrawStartIndex === "function"
+    ? nodeGraphScope2dClampDrawStartIndex(rawStart, count, budget)
+    : rawStart;
+  let pathPoints = drawStartIndex < count
+    ? buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, {
       interpolate: false,
       settings,
-      indices: even,
-    });
-  }
+    })
+    : [];
   // Adjacent-frame bridge (soundemote.io): short residual gap only; one vertex.
   pathPoints = bridgeNodeGraphScope2dAdjacentFramePath(
     canvas,

@@ -82,11 +82,9 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
   ]),
   // Bright 0…1 (1 = full deposit / tip).
   brightness: 1,
-  // Ghost/Trail match c1091b4 burn/decay after rename:
-  //   decay 0.12 → trail = 1 - 0.12 = 0.88
-  //   burn 0.45  → ghost = 0.45
-  ghost: 0.45,
-  trail: 0.88,
+  // Shared phosphor drawer hang (all 1D/2D phosphor faces).
+  ghost: 0.25,
+  trail: 0.3,
   burn: 0,
   burnAmount: 1,
   residualSchema: 3,
@@ -268,10 +266,9 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   brightness: 0.5,
   // Live digit “light” — single solid color (not the residual gradient).
   color: nodeGraphScopePhosphorLookDefaults.peakColor,
-  // Trail 0…1 — linear residual blend (PhosphorResidual.trail).
-  trail: 0.88,
-  // Ghost 0…1 — extreme analog (super-exp) hang (NOT brightness).
-  ghost: 0.45,
+  // Trail / Ghost — same phosphor drawer SSOT as 1D/2D scopes.
+  trail: nodeGraphScopePhosphorLookDefaults.trail,
+  ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   // Burn 0…1 — sticky residual floor (0 = off).
   burn: 0,
   burnAmount: 1,
@@ -279,8 +276,8 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   burnAmount: 1,
   residualSchema: 3,
   // Legacy aliases (normalize keeps trail/ghost aliases in sync).
-  residual: 0.88,
-  ghostBrightness: 0.45,
+  residual: nodeGraphScopePhosphorLookDefaults.trail,
+  ghostBrightness: nodeGraphScopePhosphorLookDefaults.ghost,
   // Total digit budget (whole + fractional) for limit_decimals / GROW-off bins.
   // Default 8 ≈ former hard-coded 6 integer slots + 2 decimals.
   digits: 8,
@@ -552,8 +549,12 @@ const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
     : nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
-  ghost: typeof PhosphorResidual !== "undefined" ? PhosphorResidual.DEFAULT_GHOST : 0.45,
-  trail: typeof PhosphorResidual !== "undefined" ? PhosphorResidual.DEFAULT_TRAIL : 0.88,
+  ghost: typeof PhosphorResidual !== "undefined"
+    ? PhosphorResidual.DEFAULT_GHOST
+    : nodeGraphScopePhosphorLookDefaults.ghost,
+  trail: typeof PhosphorResidual !== "undefined"
+    ? PhosphorResidual.DEFAULT_TRAIL
+    : nodeGraphScopePhosphorLookDefaults.trail,
   // Vector stroke; density scales face buffer for lo-fi/chunky look (default 1).
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   scale: nodeGraphScopePhosphorLookDefaults.scale,
