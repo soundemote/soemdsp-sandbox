@@ -90,6 +90,7 @@ Only these live-audio types exist in the efficient build:
 | `butterworth` | Classical Butterworth multipole (LP/HP/BP/BR) |
 | `linkwitzRiley` | Linkwitz–Riley (cascaded Butterworth half-order) |
 | `bessel` | Bessel multipole (flat group delay) |
+| `papoulisFilter` | Papoulis / optimum-L 3-pole lowpass |
 | `chebyshev` | Chebyshev Type I (equiripple passband) |
 | `elliptic` | Elliptic / Cauer multipole |
 | `eqFilter` | ZDF SVF multi-mode EQ |
@@ -158,7 +159,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    aliasSine / blit / sineWavetable / antisaw / archimedes /
    additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc /
    bradley2a / phoneTone / ellipsoid / snowflake /
-   butterworth / linkwitzRiley / bessel / chebyshev / elliptic /
+   butterworth / linkwitzRiley / bessel / papoulisFilter / chebyshev / elliptic /
    eqFilter / activeFilter / passiveFilter / tb303Filter /
    flowerChildFilter / yellowjacketFilter / superloveFilter / humanFilter /
    resonatorFilter / combResonator / modeResonator /

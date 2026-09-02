@@ -165,7 +165,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "nextPatch",
   "noteGlide",
   "noteTranspose",
-  "papoulisFilter",
   "phaseDisperse",
   "previousPatch",
   "quadrature",
@@ -194,6 +193,7 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "audioInput",
   "rms",
   "additiveLinearFilter",
+  "papoulisFilter",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */

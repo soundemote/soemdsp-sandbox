@@ -1202,6 +1202,8 @@ static const int kTypePhoneTone = 129;
 static const int kTypePortalOutlet = 130;
 static const int kTypePortalInlet = 131;
 static const int kTypeAudioInput = 132;
+// Shop Papoulis Filter node (shares WASM pool with Control papHandle smoothers).
+static const int kTypePapoulisFilter = 133;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1571,6 +1573,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_linkwitz_riley_destroy(handle);
   } else if (kind == kTypeBessel) {
     soemdsp_bessel_destroy(handle);
+  } else if (kind == kTypePapoulisFilter) {
+    soemdsp_papoulis_filter_destroy(handle);
   } else if (kind == kTypeChebyshev) {
     soemdsp_chebyshev_destroy(handle);
   } else if (kind == kTypeElliptic) {
@@ -1750,7 +1754,8 @@ static void init_node_defaults(Node& n, int typeId) {
       || typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
       || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic
       || typeId == kTypeEqFilter || typeId == kTypeActiveFilter
-      || typeId == kTypeTb303Filter)
+      || typeId == kTypeTb303Filter
+      || typeId == kTypePapoulisFilter)
       ? 1000.0
       : (typeId == kTypeFlowerChildFilter || typeId == kTypeYellowjacketFilter
           || typeId == kTypeSuperloveFilter || typeId == kTypeHumanFilter
@@ -2737,6 +2742,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeButterworth) return soemdsp_butterworth_create();
   if (typeId == kTypeLinkwitzRiley) return soemdsp_linkwitz_riley_create();
   if (typeId == kTypeBessel) return soemdsp_bessel_create();
+  if (typeId == kTypePapoulisFilter) return soemdsp_papoulis_filter_create();
   if (typeId == kTypeChebyshev) return soemdsp_chebyshev_create();
   if (typeId == kTypeElliptic) return soemdsp_elliptic_create();
   if (typeId == kTypeEqFilter) return soemdsp_eq_filter_create();
@@ -4931,6 +4937,27 @@ static void process_snowflake(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = X;
     node.buf[kPortRight][f] = Y;
     node.buf[kPortMono][f] = 0.5 * (X + Y);
+  }
+}
+
+// Shop Papoulis Filter (3-pole optimum-L). Distinct from Control papHandle
+// smoothers — uses Node.nativeHandle from the same 256-slot pool.
+static void process_papoulis_filter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    freq = clamp_hz_nyquist(freq, sr);
+    if (freq < 0.0) freq = 0.0;
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_papoulis_filter_sample(
+      node.nativeHandle, in, freq, sr
+    );
+    node.buf[kPortMono][f] = out * node.amplitude.out;
   }
 }
 
@@ -7330,6 +7357,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeButterworth
     || typeId == kTypeLinkwitzRiley
     || typeId == kTypeBessel
+    || typeId == kTypePapoulisFilter
     || typeId == kTypeChebyshev
     || typeId == kTypeElliptic
     || typeId == kTypeEqFilter
@@ -7944,6 +7972,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_scientific_iir(*g, node, frames, soemdsp_bessel_sample);
       continue;
     }
+    if (node.typeId == kTypePapoulisFilter) {
+      process_papoulis_filter(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeChebyshev) {
       process_scientific_iir(*g, node, frames, soemdsp_chebyshev_sample);
       continue;
@@ -8333,5 +8365,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  return 99; // Optimize Inaudible floor −80 dBFS (keep quiet highs)
+  return 100; // Papoulis Filter shop node (kTypePapoulisFilter = 133)
 }

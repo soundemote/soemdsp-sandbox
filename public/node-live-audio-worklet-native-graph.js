@@ -53,6 +53,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   portalInletLeftRight: 131,
   // Singleton live Input (mic/line) — host capture bus TBD; native silence stub for plan.
   audioInput: 132,
+  papoulisFilter: 133,
   lutCell: 34,
   lookaheadLimiter: 35,
   limiter: 109, // Pump Limiter
@@ -1329,6 +1330,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       if (type === "chebyshev" || type === "elliptic") {
         push("ripple", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("ripple", 1));
       }
+      continue;
+    }
+    if (type === "papoulisFilter") {
+      // Face param is cutoff Hz (not frequency); live ƒ also drives cutoff.
+      push("cutoff", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("cutoff", 1000));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (
