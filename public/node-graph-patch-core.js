@@ -1288,9 +1288,11 @@ function applyNodeGraphPatchToDom(options = {}) {
     emptyButton.hidden = true;
   }
 
+  let liveControlsDomMutated = false;
   for (const element of [...container.querySelectorAll(".dsp-node")]) {
     if (!nodeGraphPatchNode(element.dataset.node)) {
       element.remove();
+      liveControlsDomMutated = true;
     }
   }
 
@@ -1299,6 +1301,9 @@ function applyNodeGraphPatchToDom(options = {}) {
     const syncThis = skipExistingSync
       ? !existing
       : (paramSyncIds ? paramSyncIds.has(patchNode.id) : true);
+    if (!existing) {
+      liveControlsDomMutated = true;
+    }
     const element = applyNodeGraphModuleElementFromPatch(patchNode, {
       paramSync: syncThis,
       skipExistingChrome: Boolean(existing) && (skipExistingSync || (paramSyncIds && !syncThis)),
@@ -1306,6 +1311,11 @@ function applyNodeGraphPatchToDom(options = {}) {
     if (element && typeof nodeGraphViewportCullObserve === "function") {
       nodeGraphViewportCullObserve(element);
     }
+  }
+  // Only invalidate live-chrome paint skip-cache when module nodes were
+  // added/removed (bypass/mic badges need reattach). Param-only syncs keep the cache.
+  if (liveControlsDomMutated && typeof invalidateNodeGraphLiveControlsPaintCache === "function") {
+    invalidateNodeGraphLiveControlsPaintCache();
   }
   syncNodeGraphInputModuleLiveState();
   if (typeof bindNodeGraphMacroControlModuleEvents === "function") {

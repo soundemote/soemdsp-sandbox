@@ -9,12 +9,28 @@ function syncNodeGraphInputModuleLiveState() {
       && nodeGraphLiveMicIsPausedDisplay(micStatus)
       ? "paused"
       : micStatus;
-    badge.textContent = nodeGraphLiveMicStatusText(micStatus);
-    badge.dataset.micState = displayState;
+    const label = nodeGraphLiveMicStatusText(micStatus);
     const peak = Math.max(0, Math.min(1, Number(nodeGraphMvp.live.inputMeterPeak) || 0));
-    badge.dataset.inputPeak = peak.toFixed(3);
-    badge.style.setProperty("--node-live-input-peak", `${Math.round(peak * 100)}%`);
-    badge.setAttribute("title", document.getElementById("nodeLiveMicStatus")?.title || "");
+    const peakText = peak.toFixed(3);
+    const peakPct = `${Math.round(peak * 100)}%`;
+    const title = document.getElementById("nodeLiveMicStatus")?.title || "";
+    if (badge.textContent !== label) {
+      badge.textContent = label;
+    }
+    if (badge.dataset.micState !== displayState) {
+      badge.dataset.micState = displayState;
+    }
+    if (badge.dataset.inputPeak !== peakText) {
+      badge.dataset.inputPeak = peakText;
+      badge.style.setProperty("--node-live-input-peak", peakPct);
+    }
+    if ((badge.getAttribute("title") || "") !== title) {
+      if (title) {
+        badge.setAttribute("title", title);
+      } else {
+        badge.removeAttribute("title");
+      }
+    }
   }
 }
 
@@ -34,8 +50,14 @@ function refreshNodeGraphLiveMicStatusDisplay() {
   const pillClass = typeof nodeGraphLiveMicStatusPillClass === "function"
     ? nodeGraphLiveMicStatusPillClass(state)
     : "";
-  status.textContent = permissionText || label || "mic off";
-  status.className = `pill ${pillClass}`.trim();
+  const nextText = permissionText || label || "mic off";
+  const nextClass = `pill ${pillClass}`.trim();
+  if (status.textContent !== nextText) {
+    status.textContent = nextText;
+  }
+  if (status.className !== nextClass) {
+    status.className = nextClass;
+  }
   syncNodeGraphInputModuleLiveState();
 }
 
@@ -93,9 +115,16 @@ function updateNodeGraphLiveInputTestStatus() {
     state = "warn";
     title = inputRouteState.message || "Input is armed. Allow microphone access when prompted.";
   }
-  status.textContent = text;
-  status.className = `pill ${state}`.trim();
-  status.title = title;
+  const nextClass = `pill ${state}`.trim();
+  if (status.textContent !== text) {
+    status.textContent = text;
+  }
+  if (status.className !== nextClass) {
+    status.className = nextClass;
+  }
+  if (status.title !== title) {
+    status.title = title;
+  }
 }
 
 function nodeGraphLiveInputRouteState() {
