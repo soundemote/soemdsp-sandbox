@@ -18025,6 +18025,23 @@ def require_native_module_contract(base_url: str) -> None:
         "worklet native-exports should generic-ack graph-hosted modules via export probe",
     )
 
+    flower_child_host = (ROOT / "native_modules" / "graph_engine" / "graph_engine.cpp").read_text(encoding="utf-8")
+    require(
+        "process_flower_child_filter" in flower_child_host
+        and "nativeHandleL" in flower_child_host[flower_child_host.find("process_flower_child_filter"):flower_child_host.find("process_flower_child_filter") + 1800]
+        and "nativeHandleR" in flower_child_host[flower_child_host.find("process_flower_child_filter"):flower_child_host.find("process_flower_child_filter") + 1800]
+        and "0.5 * (outL + outR)" in flower_child_host[flower_child_host.find("process_flower_child_filter"):flower_child_host.find("process_flower_child_filter") + 1800],
+        "Flower Child Filter must always run dual L/R native instances so chaos noise is stereo",
+    )
+    flower_child_worklet = (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8")
+    fc = flower_child_worklet.find("flowerChildFilter:")
+    require(
+        fc >= 0
+        and "Always two independent engines" in flower_child_worklet[fc:fc + 900]
+        and "0.5 * (left + right)" in flower_child_worklet[fc:fc + 900],
+        "Flower Child worklet path must always run independent L/R engines",
+    )
+
     expected_native_exports = {
         "transport": ["soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar"],
         "slew_limiter": ["soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample"],

@@ -5585,10 +5585,49 @@ static void process_norm_chaos_filter(
   }
 }
 
+// Always dual-instance stereo: independent L/R native states so chaos noise
+// diverges. Mono In folds into both; Mono Out = (L+R)/2 when needed.
 static void process_flower_child_filter(Circuit& g, Node& node, int frames) {
-  process_norm_chaos_filter(
-    g, node, frames, true, nullptr, soemdsp_flower_child_filter_sample
-  );
+  if (node.nativeHandleL <= 0 || node.nativeHandleR <= 0) {
+    // Fallback: single-handle path if MLR pool failed.
+    process_norm_chaos_filter(
+      g, node, frames, true, nullptr, soemdsp_flower_child_filter_sample
+    );
+    return;
+  }
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double freq = node.frequency.out;
+    if (!(freq == freq)) freq = 0.5;
+    if (freq < 0.0) freq = 0.0;
+    if (freq > 1.0) freq = 1.0;
+    const double reso = node.resonance.out;
+    const double chaos = node.shape.out;
+    double amp = node.amplitude.out;
+    if (!(amp == amp)) amp = 1.0;
+    const double modeV = node.mode.out;
+    const int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+    const double monoIn = g.mixMono[f];
+    const double inL = g.mixLeft[f] + monoIn;
+    const double inR = g.mixRight[f] + monoIn;
+    const double outL = soemdsp_flower_child_filter_sample(
+      node.nativeHandleL, inL, freq, reso, chaos, mode, sr
+    ) * amp;
+    const double outR = soemdsp_flower_child_filter_sample(
+      node.nativeHandleR, inR, freq, reso, chaos, mode, sr
+    ) * amp;
+    node.buf[kPortLeft][f] = outL;
+    node.buf[kPortRight][f] = outR;
+    if (needMono) {
+      node.buf[kPortMono][f] = 0.5 * (outL + outR);
+    }
+  }
 }
 
 static void process_yellowjacket_filter(Circuit& g, Node& node, int frames) {

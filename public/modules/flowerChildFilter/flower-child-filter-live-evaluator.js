@@ -256,10 +256,28 @@ nodeGraphLiveModuleEvaluators.flowerChildFilter = ({ runtime, node, nodeId, fram
     mode: readNodeGraphLiveEffectiveParam(runtime, node, "mode", 0, frame, frames, frameValues),
     resonance: readNodeGraphLiveEffectiveParam(runtime, node, "resonance", 0.2, frame, frames, frameValues),
   };
-  const flowerChildMono = mixInput(nodeId);
+  // Always two independent engines (own filter + chaos noise each).
+  // Mono In folds into both; Mono Out = (L+R)/2.
+  const monoIn = mixInput(nodeId, "In") || mixInput(nodeId) || 0;
+  const left = nodeGraphFlowerChildFilterSample(
+    state.left,
+    (mixInput(nodeId, "Left") || 0) + monoIn,
+    flowerChildParams,
+    sampleRate,
+    runtime,
+    `${nodeId}:left`,
+  );
+  const right = nodeGraphFlowerChildFilterSample(
+    state.right,
+    (mixInput(nodeId, "Right") || 0) + monoIn,
+    flowerChildParams,
+    sampleRate,
+    runtime,
+    `${nodeId}:right`,
+  );
   return {
-    Out: nodeGraphFlowerChildFilterSample(state.mono, flowerChildMono, flowerChildParams, sampleRate, runtime, `${nodeId}:mono`),
-    Left: nodeGraphFlowerChildFilterSample(state.left, mixInput(nodeId, "Left") + flowerChildMono, flowerChildParams, sampleRate, runtime, `${nodeId}:left`),
-    Right: nodeGraphFlowerChildFilterSample(state.right, mixInput(nodeId, "Right") + flowerChildMono, flowerChildParams, sampleRate, runtime, `${nodeId}:right`),
+    Out: 0.5 * (left + right),
+    Left: left,
+    Right: right,
   };
 };

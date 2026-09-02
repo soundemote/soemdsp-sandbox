@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=morph-unipolar-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=flower-child-stereo-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3138,7 +3138,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
 // Legacy JS DSP evaluators + evaluateFrame — loaded only for ?product=full.
 const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/node-live-audio-worklet-evaluators-sources.js?v=freq-skew-math-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=slew-mono-1",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=flower-child-stereo-1",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=midi-freq-host-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=interrupt-patch-1",
@@ -3219,7 +3219,7 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/modules/phosphillator/phosphillator-worklet-evaluator.js?v=drawnpath-fix-1",
   "./public/modules/cookbookFilter/cookbook-filter-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/ladderFilter/ladder-filter-worklet-evaluator.js?v=res-max-1",
-  "./public/modules/flowerChildFilter/flower-child-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/flowerChildFilter/flower-child-filter-worklet-evaluator.js?v=stereo-chaos-1",
   "./public/modules/activeFilter/active-filter-math.js?v=active-no-freq-1",
   "./public/modules/activeFilter/active-filter-worklet-evaluator.js?v=bp-two-in-one-1",
   "./public/modules/yellowjacketFilter/yellowjacket-filter-worklet-evaluator.js?v=native-strip-1",

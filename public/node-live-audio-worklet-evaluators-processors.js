@@ -180,11 +180,14 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           frames,
           frameValues,
         );
-        const flowerChildMono = mixInput(nodeId);
-        const outM = this.flowerChildFilterSample(state.mono, flowerChildMono, flowerChildParams, safeRate);
-        return this.stereoProcessPorts(nodeId, hasInput, outM,
-          () => this.flowerChildFilterSample(state.left, mixInput(nodeId, "Left") + flowerChildMono, flowerChildParams, safeRate),
-          () => this.flowerChildFilterSample(state.right, mixInput(nodeId, "Right") + flowerChildMono, flowerChildParams, safeRate));
+        // Always two independent engines (own filter + chaos noise each).
+        // Mono In folds into both; Out = (L+R)/2.
+        const monoIn = (hasInput?.(nodeId, "In") ? mixInput(nodeId, "In") : mixInput(nodeId)) || 0;
+        const leftIn = (hasInput?.(nodeId, "Left") ? mixInput(nodeId, "Left") : 0) + monoIn;
+        const rightIn = (hasInput?.(nodeId, "Right") ? mixInput(nodeId, "Right") : 0) + monoIn;
+        const left = this.flowerChildFilterSample(state.left, leftIn, flowerChildParams, safeRate);
+        const right = this.flowerChildFilterSample(state.right, rightIn, flowerChildParams, safeRate);
+        return { Out: 0.5 * (left + right), Left: left, Right: right };
       },
       activeFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.activeFilterStates) {
