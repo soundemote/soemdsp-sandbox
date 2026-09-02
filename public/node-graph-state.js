@@ -94,7 +94,7 @@ var nodeGraphMvp = {
   midiListenChannel: 0,
   midiKeyboardMemoryLoaded: false,
   midiKeyboardLayout: null,
-  midiKeyboardMode: "press",
+  midiKeyboardMode: "slide",
   midiKeyboardOctave: 0,
   midiKeyboardPointerHeldSignal: null,
   midiKeyboardPreviousGate: 0,

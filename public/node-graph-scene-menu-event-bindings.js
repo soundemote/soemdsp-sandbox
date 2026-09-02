@@ -94,6 +94,11 @@ function bindNodeGraphSceneMenuEvents() {
       convertPolarityOnSelectedNodeGraphWires("inv");
     }
   });
+  bindNodeGraphSceneElementEvent("nodeSceneWireSlew", "click", () => {
+    if (typeof slewSelectedNodeGraphWires === "function") {
+      slewSelectedNodeGraphWires();
+    }
+  });
   bindNodeGraphSceneElementEvent("nodeSceneCopyModule", "click", copyNodeGraphModuleFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneCopyModuleSettings", "click", copyNodeGraphModuleSettingsFromContext);
   bindNodeGraphSceneElementEvent("nodeScenePasteModuleSettings", "click", pasteNodeGraphModuleSettingsFromContext);

@@ -58,20 +58,25 @@ function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
     ? Math.max(0, validEnd - Math.min(validEnd, availableSamples))
     : 0;
   const validSamples = Math.max(0, validEnd - validStart);
+  const syncEligibleProbe = !forceOff && syncChannel !== "off" && !zoomEditActive;
+  const estimatedCycleProbe = syncEligibleProbe
+    ? nodeGraphModuleScopeEstimatedCycle(syncBuffer || syncSourceBuffer)
+    : null;
   const historySamples = typeof nodeGraphTraceDisplayHistorySampleCount === "function"
-    ? nodeGraphTraceDisplayHistorySampleCount(buffer, settings)
+    ? nodeGraphTraceDisplayHistorySampleCount(buffer, settings, {
+      syncOn: syncEligibleProbe,
+      periodSamples: estimatedCycleProbe?.periodSamples,
+    })
     : nodeGraphTraceDisplayVisibleSamples(buffer, settings);
   const visibleSamples = Math.min(validSamples, historySamples);
-  // Freerun: span is always History seconds (start may be < 0). Mapping
+  // Freerun: span is History (Hz) → 1/Hz seconds (start may be < 0). Mapping
   // only the samples we have across the full width is the "zoom out while
   // the ring fills" effect. Right-align so new ink walks left at constant spp.
   let start = forceOff || syncChannel === "off"
     ? validEnd - historySamples
     : Math.max(validStart, validEnd - visibleSamples);
-  const syncEligible = !forceOff && !zoomEditActive && visibleSamples < validSamples;
-  const estimatedCycle = syncEligible
-    ? nodeGraphModuleScopeEstimatedCycle(syncBuffer || syncSourceBuffer)
-    : null;
+  const syncEligible = syncEligibleProbe && visibleSamples < validSamples;
+  const estimatedCycle = syncEligible ? estimatedCycleProbe : null;
   if (syncEligible && estimatedCycle) {
     const lockKey = nodeGraphTraceDisplaySyncLockKey(
       slot,

@@ -31,12 +31,98 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     return sum;
   };
 
+  // Publish MIDI Keyboard once per quantum (not a native graph type).
+  // Frequency / Gate / 0.1V/Oct must exist in nodeOutputs before host→native
+  // live-port folds (ƒ, pitch CV) run in syncNativeGraphParams.
+  let keyboardGatePulseLatched = this.midiKeyboardGatePulseSamples > 0 ? 1 : 0;
+  for (const [id, node] of this.nodes) {
+    if (String(node?.type || "") !== "keyboardController") continue;
+    const nid = String(id);
+    const signal = this.midiKeyboardSignal || {};
+    const hasIn = (port) => {
+      const key = typeof this.inputKey === "function"
+        ? this.inputKey(nid, port)
+        : `${nid}.${port}`;
+      const conns = this.inputConnections?.get?.(key);
+      return Array.isArray(conns) && conns.length > 0;
+    };
+    const resetActive = hasIn("Reset") && mixIn(nid, "Reset") > 0;
+    const manualRawMidi = Number.isFinite(Number(signal.rawMidi))
+      ? Number(signal.rawMidi)
+      : num(signal.midi, 60);
+    const manualOctave = num(signal.octave, 0);
+    const octave = hasIn("Octave")
+      ? Math.max(-6, Math.min(6, Math.round(mixIn(nid, "Octave") || 0)))
+      : manualOctave;
+    const rawMidi = resetActive
+      ? 60
+      : (hasIn("MIDI Note") ? (mixIn(nid, "MIDI Note") || 0) : manualRawMidi);
+    const midi = Math.max(0, Math.min(127, Math.round(rawMidi + octave * 12)));
+    const automatedPitch = resetActive || hasIn("MIDI Note") || hasIn("Octave");
+    const key = automatedPitch
+      ? Math.max(0, Math.min(24, Math.round(rawMidi) - 48))
+      : Math.max(0, Math.min(24, Math.round(num(signal.keyIndex, 12))));
+    const frequency = Math.max(0, 440 * (2 ** ((midi - 69) / 12)));
+    const safeRate = Math.max(1, Number(this.engineSampleRate) || Number(sampleRate) || 44100);
+    const increment = Math.max(0, frequency / safeRate);
+    const q = automatedPitch
+      ? key / 24
+      : Math.max(0, Math.min(1, num(signal.keyQuantized, key / 24)));
+    const x = resetActive ? 0.5 : (hasIn("X")
+      ? Math.max(0, Math.min(1, mixIn(nid, "X") || 0))
+      : Math.max(0, Math.min(1, num(signal.x, q))));
+    const y = resetActive ? 0 : (hasIn("Y")
+      ? Math.max(0, Math.min(1, mixIn(nid, "Y") || 0))
+      : Math.max(0, Math.min(1, num(signal.y, 0))));
+    const gate = resetActive ? 0 : (hasIn("Gate")
+      ? (mixIn(nid, "Gate") > 0 ? 1 : 0)
+      : (num(signal.gate, 0) > 0 ? 1 : 0));
+    const hold = hasIn("Hold") && mixIn(nid, "Hold") > 0 ? 1 : 0;
+    const velocity01 = hasIn("Velocity")
+      ? Math.max(0, Math.min(1, mixIn(nid, "Velocity") || 0))
+      : Math.max(0, Math.min(1, num(signal.velocity, 0)));
+    const velocityNumber = Math.round(velocity01 * 127);
+    let heldKeysTransmitValue = this.midiKeyboardHeldKeysLowBitmask || 0;
+    if (this.midiKeyboardHeldKeysHighBitmask) {
+      this.midiKeyboardHeldKeysPhase = this.midiKeyboardHeldKeysPhase ? 0 : 1;
+      if (this.midiKeyboardHeldKeysPhase) {
+        heldKeysTransmitValue = (2 ** 49) + this.midiKeyboardHeldKeysHighBitmask;
+      }
+    }
+    const tenth = Math.max(0, Math.min(1, midi / 120));
+    this.nodeOutputs.set(nid, {
+      Trigger: hasIn("Gate") ? gate : keyboardGatePulseLatched,
+      "0.1V/Oct": tenth,
+      "0.1v/Oct": tenth,
+      "Note#/127": Math.max(0, Math.min(1, midi / 127)),
+      Frequency: frequency,
+      Gate: Math.max(gate, hold),
+      "Inc.": increment,
+      Increment: increment,
+      KeyboardKey: key,
+      "Note#": midi,
+      KeyboardNorm: q,
+      "Velocity#": velocityNumber,
+      "Velocity#/127": velocity01,
+      X: x,
+      Y: y,
+      "Held Keys": heldKeysTransmitValue,
+    });
+  }
+  if (keyboardGatePulseLatched) {
+    this.midiKeyboardGatePulseSamples = Math.max(0, (this.midiKeyboardGatePulseSamples || 0) - 1);
+  }
+
   // Two passes so controller→controller In chains resolve.
   for (let pass = 0; pass < 2; pass += 1) {
     for (const [id, node] of this.nodes) {
       const type = String(node?.type || "");
       const p = node?.params || node?.parameters || {};
       const nid = String(id);
+
+      if (type === "keyboardController") {
+        continue;
+      }
 
       if (type === "knob") {
         const offset = num(p.offset, 0);

@@ -207,7 +207,7 @@ const nodeGraphNodeLabels = Object.freeze({
   rmsStereo: "RMS Stereo",
   lufs: "LUFS",
   speedColorInertia: "Speed Color Inertia",
-  slewLimiter: "Slew",
+  slewLimiter: "Up/Down Slew",
   inertialFilter: "Inertial Filter",
   midSideEncode: "Mid/Side",
   quadrature: "Hilbert Pair",
@@ -10646,14 +10646,17 @@ const nodeGraphModuleDefinitions = (
   },
   // Hard rate limit: max |Δ| per sample from up/down times in seconds.
   // Shape: Lin (constant rate) / Log (fast start) / Exp (slow start) / Smooth (ease both ends).
+  // Mono gold CV utility (In → Out) — not a stereo audio processor.
   slewLimiter: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
-    outputAliases: { Mono: "Out" },
-    outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right"],
+    inputAliases: { Mono: "In", Left: "In", Right: "In" },
+    inputs: ["In"],
+    outputAliases: { Mono: "Out", Left: "Out", Right: "Out" },
+    outputs: ["Out"],
+    defaultUi: {
+      buttonsHidden: true,
+      oscilloscopeHidden: true,
+    },
     parameters: [
       {
         defaultValue: "0.05",
@@ -10666,20 +10669,20 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Seconds to climb full scale (+1). 0 = unlimited rise rate."
+        tooltip: "Seconds to reach a higher target from the current value (any amplitude — Hz, CV, audio). 0 = instant."
       },
       {
-        defaultValue: "0.20",
+        defaultValue: "0.05",
         key: "downTime",
         kind: "time",
         label: "Down Time",
         max: "5",
         maxDigits: 5,
-        mid: "0.20",
+        mid: "0.05",
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Seconds to fall full scale (−1). 0 = unlimited fall rate."
+        tooltip: "Seconds to reach a lower target from the current value (any amplitude). 0 = instant."
       },
       {
         choices: ["Lin", "Log", "Exp", "Smooth"],
@@ -11177,19 +11180,26 @@ const nodeGraphModuleDefinitions = (
   keyboardController: {
     planRole: "source",
     digitalOutputs: ["Held Keys"],
-    inputs: ["MIDI Note", "Gate", "Velocity", "Octave", "Reset", "Hold", "X", "Y"],
+    // Inputs hidden for now (face + MIDI/device drive pitch/gate). Evaluator
+    // still accepts the old jack names if a patch somehow feeds them.
+    inputs: [],
     layout: "keyboardController",
     outputAliases: {
       NoteNumber: "Note#",
       MIDI: "Note#",
       Pitch: "Note#",
+      // Legacy lowercase-v pitch CV label (matches PolyBLEP / osc 0.1V/Oct).
+      "0.1v/Oct": "0.1V/Oct",
+      Increment: "Inc.",
+      Inc: "Inc.",
     },
     outputLabels: {
       KeyboardKey: "KeyboardKey",
       KeyboardNorm: "KeyboardNorm",
       "Note#": "Note#",
       "Note#/127": "Note#/127",
-      "0.1v/Oct": "0.1v/Oct",
+      "0.1V/Oct": "0.1V/Oct",
+      "Inc.": "Inc.",
       "Velocity#": "Velocity#",
       "Velocity#/127": "Velocity#/127",
     },
@@ -11200,8 +11210,8 @@ const nodeGraphModuleDefinitions = (
       "KeyboardNorm",
       "Note#",
       "Note#/127",
-      "0.1v/Oct",
-      "Increment",
+      "0.1V/Oct",
+      "Inc.",
       "Frequency",
       "Velocity#",
       "Velocity#/127",
@@ -11402,7 +11412,7 @@ const nodeGraphModuleDefinitions = (
       },
     ],
     defaultDisplayMode: "face",
-    inputs: ["M1 In", "M2 In", "M3 In", "M4 In", "M5 In", "M6 In", "M7 In", "M8 In", "Reset"],
+    inputs: ["M1 In", "M2 In", "M3 In", "M4 In", "M5 In", "M6 In", "M7 In", "M8 In"],
     layout: "macroControls",
     outputs: ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"],
     parameters: []

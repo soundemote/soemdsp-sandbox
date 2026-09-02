@@ -469,8 +469,16 @@ function stepNodeGraphTraceDisplaySetting(event) {
     typeof nodeGraphSpectrogramStepFftSize === "function"
   ) {
     nextValue = nodeGraphSpectrogramStepFftSize(baseValue, direction);
-  } else if (key === "historySeconds" || key === "zoomSeconds") {
-    // Exponential control-space steps (fine near short history, coarser at long).
+  } else if (
+    key === "historySeconds"
+    || key === "zoomSeconds"
+    || key === "historyHz"
+    || key === "historyCycles"
+    || key === "sweepHz"
+    || key === "sweepCycles"
+    || key === "sweepSeconds"
+  ) {
+    // Exponential control-space steps (fine near short/slow, coarser at long/fast).
     const quantum = nodeGraphTraceDisplayStepperQuantum(input, baseValue, direction);
     nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(
       key,

@@ -570,6 +570,98 @@ function convertPolarityOnSelectedNodeGraphWires(type) {
   return newIds.length;
 }
 
+/** Quick-connect: insert mono gold Up/Down Slew (In→Out) on each selected wire. */
+function slewSelectedNodeGraphWires() {
+  const snapshots = nodeGraphSelectedWireSnapshots().filter((entry) => entry.kind !== "graph");
+  if (!snapshots.length) {
+    return 0;
+  }
+
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const drop = new Set(snapshots.map((entry) => nodeGraphAttenuateWireIdentity(entry.kind, entry.wire)));
+  patch.connections = (patch.connections || []).filter(
+    (wire) => !drop.has(nodeGraphAttenuateWireIdentity("signal", wire)),
+  );
+  patch.modulations = (patch.modulations || []).filter(
+    (wire) => !drop.has(nodeGraphAttenuateWireIdentity("modulation", wire)),
+  );
+
+  const counts = typeof nextNodeGraphTypeCounts === "function"
+    ? nextNodeGraphTypeCounts(patch.nodes)
+    : {};
+  const pairSlots = new Map();
+  const newIds = [];
+  for (const entry of snapshots) {
+    const wire = entry.wire;
+    if (!wire?.sourceNode || !wire?.destinationNode) {
+      continue;
+    }
+    if (!patch.nodes.some((node) => node.id === wire.sourceNode)
+      || !patch.nodes.some((node) => node.id === wire.destinationNode)) {
+      continue;
+    }
+    const pairKey = `${wire.sourceNode}→${wire.destinationNode}`;
+    const slot = pairSlots.get(pairKey) || 0;
+    pairSlots.set(pairKey, slot + 1);
+    counts.slewLimiter = (counts.slewLimiter || 0) + 1;
+    const id = `slewLimiter-${counts.slewLimiter}`;
+    const point = nodeGraphAttenuateInsertGridPoint(patch, wire.sourceNode, wire.destinationNode, slot);
+    const alias = typeof nodeGraphAttenuateWireAlias === "function"
+      ? nodeGraphAttenuateWireAlias(patch, entry)
+      : "Up/Down Slew";
+    patch.nodes.push(createNodeGraphPatchNode("slewLimiter", {
+      id,
+      gx: point.gx,
+      gy: point.gy,
+      alias: alias || "Up/Down Slew",
+      ui: {
+        buttonsHidden: true,
+        oscilloscopeHidden: true,
+        ioHidden: false,
+      },
+    }));
+    newIds.push(id);
+    const extras = nodeGraphWireOptionalPatchFields(wire);
+    patch.connections.push({
+      sourceNode: wire.sourceNode,
+      sourcePort: wire.sourcePort,
+      destinationNode: id,
+      destinationPort: "In",
+      ...extras,
+    });
+    if (entry.kind === "modulation") {
+      patch.modulations.push({
+        sourceNode: id,
+        sourcePort: "Out",
+        destinationNode: wire.destinationNode,
+        destinationParam: wire.destinationParam,
+        ...extras,
+      });
+    } else {
+      patch.connections.push({
+        sourceNode: id,
+        sourcePort: "Out",
+        destinationNode: wire.destinationNode,
+        destinationPort: wire.destinationPort,
+        ...extras,
+      });
+    }
+  }
+  if (!newIds.length) {
+    return 0;
+  }
+  commitNodeGraphPatch(patch, {
+    status: newIds.length === 1 ? "Up/Down Slew inserted" : `${newIds.length} Up/Down Slews inserted`,
+  });
+  if (typeof setNodeGraphNodeSelection === "function") {
+    setNodeGraphNodeSelection(newIds);
+  }
+  if (typeof configureNodeSceneContextMenu === "function") {
+    configureNodeSceneContextMenu("module");
+  }
+  return newIds.length;
+}
+
 function disconnectNodeGraphConnection(index, kind = "signal") {
   disconnectNodeGraphConnections([{ kind, index }]);
 }

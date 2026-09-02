@@ -3688,12 +3688,10 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   text-shadow: 0 0 7px rgba(234, 248, 255, 0.84);
 }
 
-/* Ctrl+click "held keys" bitmask toggle -- distinct from .active (the
-   transient pointer-press/currently-sounding state) since a key can be
-   both at once: amber instead of .active's blue, so the two states
-   stay visually distinguishable. Placed after .active so a key that's
-   both shows the held look, since held is the more persistent/
-   intentional state of the two. */
+/* Ctrl+click GOLD Held Keys bitmask (poly / digital mask cable) —
+   distinct from .active BLUE (pointer press, MIDI note-on, or
+   Shift+click mono sustain latch). A key can be both: amber wins so
+   the mask state stays visible over transient/mono blue. */
 .node-midi-keyboard-white-row span.held {
   color: #1a1200;
   background:

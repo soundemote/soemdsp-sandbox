@@ -2112,6 +2112,11 @@ function configureNodeSceneContextMenu(mode) {
       invButton.disabled = !canAttenuateWires;
       invButton.title = "Invert: insert Inv (out = −in) on each selected wire.";
     }
+    const slewButton = document.getElementById("nodeSceneWireSlew");
+    if (slewButton) {
+      slewButton.disabled = !canAttenuateWires;
+      slewButton.title = "Up/Down Slew: insert mono gold In→Out rate limiter on each selected wire.";
+    }
     deleteButton.disabled = !canDelete;
     deleteButton.title = canDelete
       ? nodeGraphTooltipText("actions.deleteWire")
@@ -2181,6 +2186,10 @@ function configureNodeSceneContextMenu(mode) {
     const idleRangeBipolar = document.getElementById("nodeSceneWireRangeBipolar");
     if (idleRangeBipolar) {
       idleRangeBipolar.disabled = true;
+    }
+    const idleSlew = document.getElementById("nodeSceneWireSlew");
+    if (idleSlew) {
+      idleSlew.disabled = true;
     }
     copyButton.disabled = true;
     copyButton.title = nodeGraphTooltipText("actions.copyUnavailableModule");

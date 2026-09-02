@@ -316,7 +316,9 @@ function spectrogramCreateState(faceW, faceH) {
     // View settings frozen into already-painted pixels; only new ink uses new settings.
     paintFreqScale: 0,
     paintSampleRate: 44100,
-    historySeconds: 2,
+    historyHz: 4,
+    historyCycles: 4,
+    historySeconds: 0.25,
   };
 }
 

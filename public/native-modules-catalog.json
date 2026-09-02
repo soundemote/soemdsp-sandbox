@@ -1226,6 +1226,30 @@
       "wasmAvailable": true
     },
     {
+      "name": "speaker_protection",
+      "label": "Speaker Protection",
+      "targetType": "speakerProtection",
+      "kind": "dynamics",
+      "source": "native_modules/speaker_protection/speaker_protection.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/speaker_protection/speaker_protection.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/speaker_protection/speaker_protection.wasm",
+      "wasmUrl": "native_modules/speaker_protection/speaker_protection.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "speaker_protector2",
+      "label": "Speaker Protector 2.0",
+      "targetType": "speakerProtector2",
+      "kind": "dynamics",
+      "source": "native_modules/speaker_protector2/speaker_protector2.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/speaker_protector2/speaker_protector2.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/speaker_protector2/speaker_protector2.wasm",
+      "wasmUrl": "native_modules/speaker_protector2/speaker_protector2.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "step_sequencer",
       "label": "Step Sequencer",
       "targetType": "stepSequencer",

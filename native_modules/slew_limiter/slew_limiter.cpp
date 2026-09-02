@@ -4,9 +4,10 @@
 // soemdsp-native-kind: utility
 //
 // Mono rate limiter: one handle = one channel. Stereo patches use separate
-// handles (or graph folds M/L/R). Times are seconds for a full-scale (±1)
-// move. Shape: 0 Lin / 1 Log / 2 Exp / 3 Smooth. Bias added before slew.
-// First sample snaps to target.
+// handles (or graph folds M/L/R). Up/Down times are seconds to reach the
+// current target (amplitude-independent — not “per unit of 1”). Shape:
+// 0 Lin / 1 Log / 2 Exp / 3 Smooth. Bias added before slew. First sample
+// snaps to target.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -29,6 +30,7 @@ struct SlewLimiterState {
   bool rising;
   double from;
   double out;
+  double target;
   double blockIn[kMaxBlockFrames];
   double blockOut[kMaxBlockFrames];
 };
@@ -86,6 +88,7 @@ static double chanSample(
     s.slewActive = false;
     s.from = target;
     s.out = target;
+    s.target = target;
     s.rising = true;
     return target;
   }
@@ -99,29 +102,24 @@ static double chanSample(
     s.slewActive = false;
     s.from = target;
     s.out = target;
+    s.target = target;
     s.rising = rising;
     return target;
   }
 
-  if (shape == kShapeLin) {
-    const double maxStep = 1.0 / maxd(1.0, seconds * rate);
-    s.out = s.out + maxd(-maxStep, mind(maxStep, delta));
-    s.slewActive = dsp_fabs(target - s.out) > 1e-12;
-    s.rising = rising;
-    if (!s.slewActive) s.from = s.out;
-    return s.out;
-  }
-
-  if (!s.slewActive || rising != s.rising) {
+  const bool targetMoved = dsp_fabs(target - s.target) > 1e-9;
+  if (!s.slewActive || rising != s.rising || targetMoved) {
     s.from = s.out;
+    s.target = target;
     s.rising = rising;
     s.slewActive = true;
   }
-  const double span = target - s.from;
+  const double span = s.target - s.from;
   if (!(span * 0.0 == 0.0) || dsp_fabs(span) < 1e-12) {
     s.slewActive = false;
     s.from = target;
     s.out = target;
+    s.target = target;
     return target;
   }
 
@@ -129,16 +127,17 @@ static double chanSample(
   if (!(u * 0.0 == 0.0)) u = 0.0;
   if (u < 0.0) u = 0.0;
   if (u > 1.0) u = 1.0;
-  double t = invertShape(u, shape);
+  // Lin + curves share fixed glide time (seconds to target, any amplitude).
+  double t = invertShape(u, shape == kShapeLin ? kShapeLin : shape);
   const double dt = 1.0 / maxd(1.0, seconds * rate);
   t = t + dt;
   if (t >= 1.0) {
     s.slewActive = false;
-    s.from = target;
-    s.out = target;
-    return target;
+    s.from = s.target;
+    s.out = s.target;
+    return s.target;
   }
-  s.out = s.from + span * applyShape(t, shape);
+  s.out = s.from + span * applyShape(t, shape == kShapeLin ? kShapeLin : shape);
   return s.out;
 }
 

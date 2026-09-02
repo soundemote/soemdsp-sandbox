@@ -317,21 +317,45 @@ function nodeGraphModuleScopeVisibleSamples(buffer, settings, cycleEstimate) {
     : buffer.length;
 }
 
-function nodeGraphTraceDisplayHistorySampleCount(buffer, settings) {
+function nodeGraphTraceDisplayHistorySampleCount(buffer, settings, options = {}) {
   const safeSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(settings)
     : (settings || {});
-  const windowSeconds = Number(safeSettings.historySeconds ?? safeSettings.zoomSeconds);
-  if (!Number.isFinite(windowSeconds) || windowSeconds <= 0) {
-    return Math.max(1, buffer?.length || 1);
-  }
   const sampleRate = typeof nodeGraphScopeSampleRate === "function"
     ? nodeGraphScopeSampleRate(buffer)
     : 0;
-  const hz = sampleRate > 0
+  const sr = sampleRate > 0
     ? sampleRate
     : (Number(nodeGraphModuleScopeState?.sampleRate) || Number(nodeGraphMvp?.sampleRate) || 44100);
-  return Math.max(1, Math.round(windowSeconds * hz));
+  const syncOn = options.syncOn === true
+    || (typeof nodeGraphDisplaySyncIsOn === "function" && options.syncOn !== false
+      ? nodeGraphDisplaySyncIsOn(safeSettings)
+      : false);
+  // Sync on: History (c) = cycles in view → samples = period × cycles.
+  if (syncOn) {
+    const cycles = typeof nodeGraphTraceDisplayClampHistoryCycles === "function"
+      ? nodeGraphTraceDisplayClampHistoryCycles(
+        safeSettings.historyCycles,
+        nodeGraphTraceDisplaySettingsDefaults?.historyCycles ?? 4,
+      )
+      : Math.max(0.05, Number(safeSettings.historyCycles) || 4);
+    const period = Number(options.periodSamples);
+    if (Number.isFinite(period) && period >= 2) {
+      return Math.max(1, Math.round(period * cycles));
+    }
+    // No period lock yet — fall back to free-run Hz window so the face isn't empty.
+  }
+  // Sync off: History (Hz) → window seconds = 1/Hz.
+  const historyHz = typeof nodeGraphTraceDisplayClampHistoryHz === "function"
+    ? nodeGraphTraceDisplayClampHistoryHz(
+      safeSettings.historyHz,
+      nodeGraphTraceDisplaySettingsDefaults?.historyHz ?? 4,
+    )
+    : Math.max(0.01, Number(safeSettings.historyHz) || 4);
+  if (!(historyHz > 0)) {
+    return Math.max(1, buffer?.length || 1);
+  }
+  return Math.max(1, Math.round(sr / historyHz));
 }
 
 function nodeGraphTraceDisplayVisibleSamples(buffer, settings) {

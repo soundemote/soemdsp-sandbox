@@ -86,7 +86,8 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
   if (key === "pixelDensity" || key === "stampDensity") {
     return 0.05;
   }
-  if (key === "sweepSeconds" || key === "sweepHz") {
+  if (key === "sweepSeconds" || key === "sweepHz" || key === "sweepCycles"
+    || key === "historyHz" || key === "historyCycles") {
     return 0.05;
   }
   if (key === "backgroundHue" || key === "hue") {
@@ -135,7 +136,13 @@ function nodeGraphTraceDisplayInstantTraceBlurField(key) {
 
 /** History window fields (seconds) — use exponential control mapping. */
 function nodeGraphTraceDisplayHistoryControlField(key) {
-  return key === "historySeconds" || key === "zoomSeconds";
+  return key === "historySeconds"
+    || key === "zoomSeconds"
+    || key === "historyHz"
+    || key === "historyCycles"
+    || key === "sweepHz"
+    || key === "sweepCycles"
+    || key === "sweepSeconds";
 }
 
 /**
@@ -446,8 +453,18 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   secondarySize: nodeGraphTraceDisplayClampUnit,
   // 1D Phosphor: seconds for one left→right pass.
   sweepSeconds: nodeGraphTraceDisplayClampSweepSeconds,
-  // Legacy Hz field (migrated on load); keep clamp if old UI still posts it.
-  sweepHz: (value) => clampNodeSliderValue(Number(value) || 0, 0.01, 100),
+  sweepHz: (value) => (typeof nodeGraphTraceDisplayClampSweepHz === "function"
+    ? nodeGraphTraceDisplayClampSweepHz(value, 4)
+    : clampNodeSliderValue(Number(value) || 4, 0, 100)),
+  sweepCycles: (value) => (typeof nodeGraphTraceDisplayClampSweepCycles === "function"
+    ? nodeGraphTraceDisplayClampSweepCycles(value, 4)
+    : clampNodeSliderValue(Number(value) || 4, 0.05, 100)),
+  historyHz: (value) => (typeof nodeGraphTraceDisplayClampHistoryHz === "function"
+    ? nodeGraphTraceDisplayClampHistoryHz(value, 4)
+    : clampNodeSliderValue(Number(value) || 4, 0.01, 100)),
+  historyCycles: (value) => (typeof nodeGraphTraceDisplayClampHistoryCycles === "function"
+    ? nodeGraphTraceDisplayClampHistoryCycles(value, 4)
+    : clampNodeSliderValue(Number(value) || 4, 0.05, 100)),
   fftSize: (value) => (typeof nodeGraphSpectrogramSnapFftSize === "function"
     ? nodeGraphSpectrogramSnapFftSize(value)
     : 1024),

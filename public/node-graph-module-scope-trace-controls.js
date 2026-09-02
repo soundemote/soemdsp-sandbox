@@ -18,9 +18,10 @@ function nodeGraphDisplaySettingsIsVectorTraceFormType(type) {
  */
 const nodeGraphDisplaySettingsSharedStackOrder = Object.freeze([
   "scale",
-  "historySeconds",
-  "zoomSeconds",
-  "sweepSeconds",
+  "historyHz",
+  "historyCycles",
+  "sweepHz",
+  "sweepCycles",
   "backgroundBrightness",
   "backgroundHue",
   "dot1Size",
@@ -37,8 +38,7 @@ const nodeGraphDisplaySettingsSharedStackOrder = Object.freeze([
 /** Instant Trace stack (subset of the shared order + 2D fade). */
 const nodeGraphInstantTraceDisplayFieldOrder = Object.freeze([
   "scale",
-  "historySeconds",
-  "zoomSeconds",
+  "historyHz",
   "backgroundBrightness",
   "backgroundHue",
   "dot1Size",
@@ -219,8 +219,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   trace: Object.freeze({
     fields: Object.freeze([
       "scale",
-      "historySeconds",
-      "zoomSeconds",
+      "historyHz",
       "backgroundBrightness",
       "backgroundHue",
       "dot1Size",
@@ -279,8 +278,9 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   lineBurn: Object.freeze({
     // Heart-monitor phosphor: Sweep first, then shared phosphor stack.
+    // Form swaps sweepHz ↔ sweepCycles when Sync toggles (see syncNodeGraphLineBurnSweepLabel).
     fields: Object.freeze([
-      "sweepSeconds",
+      "sweepHz",
       ...nodeGraphPhosphorDisplayFieldsFor([
         "backgroundBrightness",
         "backgroundHue",
@@ -376,7 +376,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   gradientVectorscopeFace: Object.freeze({
     fields: Object.freeze([
       "scale",
-      "historySeconds",
+      "historyHz",
       "backgroundBrightness",
       "backgroundHue",
       "dot1Size",
@@ -391,7 +391,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   traceXyz: Object.freeze({
     fields: Object.freeze([
       "scale",
-      "zoomSeconds",
+      "historyHz",
       "backgroundBrightness",
       "backgroundHue",
       "fade",
@@ -409,8 +409,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   traceRgb: Object.freeze({
     fields: Object.freeze([
       "scale",
-      "historySeconds",
-      "zoomSeconds",
+      "historyHz",
       "backgroundBrightness",
       "backgroundHue",
       "dot1Size",
@@ -1066,7 +1065,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "History (s)",
     inputmode: "decimal",
     id: "nodeTraceDisplayHistorySeconds",
-    title: "Sync Off: seconds of tape across the face (0 = now-line). Sync On: becomes History (c) — cycles in view (smooth), stretched full-width; rising zero-crossing locks phase.",
+    title: "Legacy seconds field — prefer History (Hz).",
   }),
   fftSize: Object.freeze({
     label: "FFT size",
@@ -1115,7 +1114,31 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Sweep (s)",
     inputmode: "decimal",
     id: "nodeTraceDisplaySweepSeconds",
-    title: "Sync Off: seconds for one left→right pass (0–10). Sync On: becomes Sweep (c) — cycles in view (smooth — e.g. 1.5 = 1½ periods); pass restarts on the next rising zero-crossing. 0 = collapsed full-width burn.",
+    title: "Legacy seconds field — prefer Sweep (Hz).",
+  }),
+  sweepHz: Object.freeze({
+    label: "Sweep (Hz)",
+    inputmode: "decimal",
+    id: "nodeTraceDisplaySweepHz",
+    title: "Sync Off: left→right passes per second (0.01–100). 0 = collapsed full-width burn. Sync On uses Sweep (c) instead.",
+  }),
+  sweepCycles: Object.freeze({
+    label: "Sweep (c)",
+    inputmode: "decimal",
+    id: "nodeTraceDisplaySweepCycles",
+    title: "Sync On: cycles in view (smooth — e.g. 1.5 = 1½ periods). Pass restarts on the next rising zero-crossing.",
+  }),
+  historyHz: Object.freeze({
+    label: "History (Hz)",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayHistoryHz",
+    title: "Sync Off: history window rate in Hz (seconds = 1/Hz). Sync On uses History (c) instead.",
+  }),
+  historyCycles: Object.freeze({
+    label: "History (c)",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayHistoryCycles",
+    title: "Sync On: cycles in view across the face. Rising zero-crossing locks phase.",
   }),
   cycles: Object.freeze({ label: "Cycles", inputmode: "decimal", id: "nodeTraceDisplayCycles" }),
   digits: Object.freeze({

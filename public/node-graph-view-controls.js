@@ -2463,12 +2463,14 @@ function renderNodeGraphMidiKeyboardKeys() {
   renderNodeGraphMidiKeyboardHeldKeys();
 }
 
-// Ctrl/shift+click "held keys" bitmask -- bit i = "the key currently at
-// screen position i is toggled held." Positional, not absolute pitch:
-// stable across octave transpose (transpose only shifts output pitch,
-// never which screen position a key occupies), only shifts meaning if
-// key count itself changes. See docs/plan for the full design
-// discussion this came out of.
+// Ctrl+click GOLD "Held Keys" bitmask (poly / digital mask cable) —
+// bit i = "the key currently at screen position i is toggled held."
+// Positional, not absolute pitch: stable across octave transpose
+// (transpose only shifts output pitch, never which screen position a
+// key occupies), only shifts meaning if key count itself changes.
+//
+// Distinct from Shift+click BLUE mono sustain (pointerHold): that is a
+// convenience latch for monophonic Gate/Frequency, not the mask cable.
 //
 // Bit index can reach 87 (nodeGraphMidiKeyboardMaxKeyCount - 1), but
 // JS's native bitwise operators (<<, |, &, >>>) coerce to 32-bit
@@ -2946,18 +2948,19 @@ function nodeGraphMidiKeyboardOctaveLabel(value = nodeGraphMidiKeyboardOctaveOff
   return `${octave >= 0 ? "+" : ""}${octave}`;
 }
 
-const nodeGraphMidiKeyboardModes = Object.freeze(["press", "hold", "toggle"]);
+const nodeGraphMidiKeyboardModes = Object.freeze(["slide", "press", "hold", "toggle"]);
 
 function nodeGraphMidiKeyboardMode(value = nodeGraphMvp.midiKeyboardMode) {
-  return nodeGraphMidiKeyboardModes.includes(value) ? value : "press";
+  return nodeGraphMidiKeyboardModes.includes(value) ? value : "slide";
 }
 
 function nodeGraphMidiKeyboardModeLabel(value = nodeGraphMidiKeyboardMode()) {
   return {
+    slide: "Slide",
     press: "Press",
     hold: "Hold",
     toggle: "Toggle",
-  }[nodeGraphMidiKeyboardMode(value)] || "Press";
+  }[nodeGraphMidiKeyboardMode(value)] || "Slide";
 }
 
 function nodeGraphMidiKeyboardRawMidiFromSignal(signal) {
@@ -3018,7 +3021,8 @@ function nodeGraphMidiKeyboardFallbackSignal() {
   });
 }
 
-function nodeGraphMidiKeyboardSignalFromPointer(event, surface) {
+/** Pointer X/Y only — pitch / gate / vel commit on pointerdown or MIDI note-on. */
+function nodeGraphMidiKeyboardPointerXY(event, surface) {
   const rect = surface.getBoundingClientRect();
   const x = nodeGraphMidiKeyboardClamp01((event.clientX - rect.left) / Math.max(1, rect.width));
   const target = event.target?.closest?.("[data-midi]");
@@ -3026,21 +3030,53 @@ function nodeGraphMidiKeyboardSignalFromPointer(event, surface) {
   const keyRect = key?.getBoundingClientRect?.();
   const yRect = keyRect && keyRect.height > 0 ? keyRect : rect;
   const y = nodeGraphMidiKeyboardClamp01(1 - (event.clientY - yRect.top) / Math.max(1, yRect.height));
+  return { x, y, key };
+}
+
+function nodeGraphMidiKeyboardSignalFromPointer(event, surface) {
+  const { x, y, key } = nodeGraphMidiKeyboardPointerXY(event, surface);
   const targetMidi = key ? Number(key.dataset.midi) : NaN;
   const fallbackKeyIndex = Math.min(
     nodeGraphMidiKeyboardKeyCount() - 1,
     Math.max(0, Math.floor(x * nodeGraphMidiKeyboardKeyCount())),
   );
   const rawMidi = Number.isFinite(targetMidi) ? targetMidi : nodeGraphMidiKeyboardStartMidi + fallbackKeyIndex;
-  const gate = event.buttons > 0 ? 1 : 0;
+  const gate = event.buttons > 0 || event.type === "pointerdown" ? 1 : 0;
   return nodeGraphMidiKeyboardSignalFromRaw(rawMidi, {
     source: "pointer",
     gate,
+    gatePulse: gate ? 1 : 0,
     x,
     y,
     // Pointer does not invent MIDI velocity; keep last velocity if any.
+    // Velocity only refreshes on mouse-down / MIDI note-on (not move).
     velocity: nodeGraphMvp.midiKeyboardSignal?.velocity ?? 0,
   });
+}
+
+/**
+ * Scrub X/Y without retuning Frequency / Note# / 0.1V/Oct / Gate / etc.
+ * Pitch CV commits only on pointerdown or hardware MIDI note-on.
+ */
+function updateNodeGraphMidiKeyboardPointerPosition(event, surface) {
+  const { x, y } = nodeGraphMidiKeyboardPointerXY(event, surface);
+  const monoHold = nodeGraphMidiKeyboardHeldPointerSignal();
+  const base = monoHold
+    || nodeGraphMvp.midiKeyboardSignal
+    || nodeGraphMidiKeyboardFallbackSignal();
+  const next = {
+    ...base,
+    x,
+    y,
+    gatePulse: 0,
+    source: monoHold ? "pointerHold" : (base.source || "pointer"),
+  };
+  if (monoHold) {
+    next.gate = 1;
+  } else if (event.buttons <= 0) {
+    next.gate = 0;
+  }
+  renderNodeGraphMidiKeyboardSignal(next);
 }
 
 function nodeGraphMidiKeyboardSignalFromMidi(midiValue, velocityValue = 0, gateValue = 0, pulseValue = 0) {
@@ -3350,9 +3386,9 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     return;
   }
   const mode = nodeGraphMidiKeyboardMode();
-  // Ctrl+click builds the "held keys" bitmask -- checked before the
-  // existing shift/hold-mode branch below so plain shift+click (no
-  // ctrl) still falls through unchanged to that existing behavior.
+  // Ctrl+click: GOLD Held Keys bitmask (poly / digital mask). Checked
+  // before shift/hold-mode so plain shift+click (BLUE mono sustain)
+  // still falls through unchanged.
   if (event.type === "pointerdown" && event.ctrlKey) {
     const target = event.target?.closest?.("[data-key-index]");
     if (target && surface.contains(target)) {
@@ -3435,24 +3471,73 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     event.preventDefault();
     return;
   }
+  // Shift+click / hold-mode: blue mono sustain (convenience latch). Distinct
+  // from ctrl+click gold Held Keys bitmask (poly / digital mask cable).
   if (event.type === "pointerdown" && (event.shiftKey || mode === "hold")) {
     toggleNodeGraphMidiKeyboardPointerHold(event, surface);
+    try {
+      surface.setPointerCapture?.(event.pointerId);
+    } catch (_e) { /* ignore */ }
     return;
   }
   const held = nodeGraphMidiKeyboardHeldPointerSignal();
-  if (event.type === "pointerup" && (event.shiftKey || mode === "hold") && !held) {
-    renderNodeGraphMidiKeyboardSignal(null);
+  // Move: Press keeps pitch fixed (X/Y only). Slide retunes while dragged.
+  if (event.type === "pointermove") {
+    if (mode === "slide" && event.buttons > 0 && !held) {
+      const next = nodeGraphMidiKeyboardSignalFromPointer(event, surface);
+      next.gate = 1;
+      const prevMidi = nodeGraphMidiKeyboardRawMidiFromSignal(nodeGraphMvp.midiKeyboardSignal);
+      const nextMidi = nodeGraphMidiKeyboardRawMidiFromSignal(next);
+      // Trigger only when the key under the pointer changes — not every move sample.
+      next.gatePulse = Number.isFinite(prevMidi) && prevMidi !== nextMidi ? 1 : 0;
+      renderNodeGraphMidiKeyboardSignal(next);
+      return;
+    }
+    updateNodeGraphMidiKeyboardPointerPosition(event, surface);
     return;
   }
-  if (held && event.buttons <= 0) {
-    renderNodeGraphMidiKeyboardSignal(held);
+  if (event.type === "pointerup" || event.type === "pointercancel") {
+    try {
+      surface.releasePointerCapture?.(event.pointerId);
+    } catch (_e) { /* ignore */ }
+    if (held) {
+      const { x, y } = nodeGraphMidiKeyboardPointerXY(event, surface);
+      renderNodeGraphMidiKeyboardSignal({ ...held, x, y, gate: 1, gatePulse: 0 });
+      return;
+    }
+    const { x, y } = nodeGraphMidiKeyboardPointerXY(event, surface);
+    const current = nodeGraphMvp.midiKeyboardSignal || nodeGraphMidiKeyboardFallbackSignal();
+    renderNodeGraphMidiKeyboardSignal({
+      ...current,
+      x,
+      y,
+      gate: 0,
+      gatePulse: 0,
+    });
+    return;
+  }
+  // pointerdown: commit pitch / gate / trigger / velocity-family outlets.
+  if (event.type === "pointerdown") {
+    try {
+      surface.setPointerCapture?.(event.pointerId);
+    } catch (_e) { /* ignore */ }
+    renderNodeGraphMidiKeyboardSignal(nodeGraphMidiKeyboardSignalFromPointer(event, surface));
     return;
   }
   renderNodeGraphMidiKeyboardSignal(nodeGraphMidiKeyboardSignalFromPointer(event, surface));
 }
 
 function handleNodeGraphMidiKeyboardPointerLeave() {
-  renderNodeGraphMidiKeyboardSignal(nodeGraphMidiKeyboardHeldPointerSignal());
+  const held = nodeGraphMidiKeyboardHeldPointerSignal();
+  if (held) {
+    renderNodeGraphMidiKeyboardSignal(held);
+    return;
+  }
+  // Leave does not retune — only drops gate if nothing is mono-sustained.
+  const current = nodeGraphMvp.midiKeyboardSignal;
+  if (current) {
+    renderNodeGraphMidiKeyboardSignal({ ...current, gate: 0, gatePulse: 0 });
+  }
 }
 
 function renderNodeGraphMidiKeyboardInputControls() {
@@ -3615,16 +3700,24 @@ function handleNodeGraphMidiKeyboardInputChange(event) {
 }
 
 /**
- * Light every currently sounding key. Hardware MIDI can hold a chord in
- * midiKeyboardHeldNotes (poly .active). Pointer / last-note signal still
- * lights its single key when gate is high.
+ * Light every currently sounding / mono-sustained key in BLUE (.active).
+ * Hardware MIDI can hold a chord in midiKeyboardHeldNotes. Pointer /
+ * last-note signal and Shift+click mono latch (pointerHold) light their
+ * single key while gate is high.
+ *
+ * GOLD (.held) is separate — ctrl+click Held Keys bitmask for poly /
+ * digital mask cables (see renderNodeGraphMidiKeyboardHeldKeys).
  */
 function renderNodeGraphMidiKeyboardActiveKeys(nextSignal = nodeGraphMvp.midiKeyboardSignal) {
   const heldNotes = nodeGraphMvp.midiKeyboardHeldNotes instanceof Map
     ? nodeGraphMvp.midiKeyboardHeldNotes
     : null;
-  const signalMidi = nextSignal && Number(nextSignal.gate) > 0
-    ? nodeGraphMidiKeyboardRawMidiFromSignal(nextSignal)
+  const monoHold = nodeGraphMidiKeyboardHeldPointerSignal();
+  const activeSignal = (nextSignal && Number(nextSignal.gate) > 0)
+    ? nextSignal
+    : (monoHold || null);
+  const signalMidi = activeSignal
+    ? nodeGraphMidiKeyboardRawMidiFromSignal(activeSignal)
     : NaN;
   document.querySelectorAll(".node-midi-keyboard-module [data-midi]").forEach((key) => {
     const midi = Number(key.dataset.midi);
@@ -3694,6 +3787,7 @@ function bindNodeGraphKeyboardControllerModuleEvents() {
     surface.addEventListener("pointermove", updateNodeGraphMidiKeyboardSignal);
     surface.addEventListener("pointerdown", updateNodeGraphMidiKeyboardSignal);
     surface.addEventListener("pointerup", updateNodeGraphMidiKeyboardSignal);
+    surface.addEventListener("pointercancel", updateNodeGraphMidiKeyboardSignal);
     surface.addEventListener("pointerleave", handleNodeGraphMidiKeyboardPointerLeave);
   });
   document.querySelectorAll("[data-performance-wheel]").forEach((wheel) => {

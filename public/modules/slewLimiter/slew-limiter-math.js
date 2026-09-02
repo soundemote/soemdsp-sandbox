@@ -1,8 +1,9 @@
 // Slew Limiter — pure math (main thread JS path).
 //
-// Shape (0 Lin / 1 Log / 2 Exp / 3 Smooth) remaps progress through the
-// current up or down segment. Times are still seconds for a full-scale (1.0)
-// move. Lin keeps the classic constant |Δ| cap.
+// Up/Down times are seconds to reach the *current target* from the current
+// value — amplitude-independent. A jump of 1 or 1000 takes the same time.
+// (Sandbox signals are not normalized; only clippers / speaker protect care.)
+// Shape: 0 Lin / 1 Log / 2 Exp / 3 Smooth remaps progress through the glide.
 
 const NODE_GRAPH_SLEW_SHAPE_LIN = 0;
 const NODE_GRAPH_SLEW_SHAPE_LOG = 1;
@@ -17,6 +18,7 @@ function createNodeGraphSlewLimiterState() {
     initialized: false,
     out: 0,
     rising: true,
+    target: 0,
   };
 }
 
@@ -40,15 +42,12 @@ function nodeGraphSlewLimiterNormalizeShape(shape) {
 function nodeGraphSlewLimiterApplyShape(t, shape) {
   const x = t <= 0 ? 0 : t >= 1 ? 1 : t;
   if (shape === NODE_GRAPH_SLEW_SHAPE_LOG) {
-    // Fast start, eases into the target.
     return 1 - Math.pow(1 - x, NODE_GRAPH_SLEW_CURVE_K);
   }
   if (shape === NODE_GRAPH_SLEW_SHAPE_EXP) {
-    // Slow start, finishes quickly.
     return Math.pow(x, NODE_GRAPH_SLEW_CURVE_K);
   }
   if (shape === NODE_GRAPH_SLEW_SHAPE_SMOOTH) {
-    // Slow start and end (cosine ease-in-out).
     return 0.5 - 0.5 * Math.cos(Math.PI * x);
   }
   return x;
@@ -69,7 +68,8 @@ function nodeGraphSlewLimiterInvertShape(u, shape) {
 }
 
 /**
- * Rate-limit a bipolar signal toward target (seconds for full-scale rise/fall).
+ * Rate-limit toward target. upTime/downTime = seconds to finish the glide
+ * (not “seconds per unit of 1”).
  * @param {number} [shape] 0 Lin / 1 Log / 2 Exp / 3 Smooth
  */
 function nodeGraphSlewLimiterSample(state, input, upTime, downTime, sampleRate, shape) {
@@ -80,6 +80,7 @@ function nodeGraphSlewLimiterSample(state, input, upTime, downTime, sampleRate, 
     state.active = false;
     state.from = target;
     state.out = target;
+    state.target = target;
     state.rising = true;
     return target;
   }
@@ -92,42 +93,35 @@ function nodeGraphSlewLimiterSample(state, input, upTime, downTime, sampleRate, 
     state.active = false;
     state.from = target;
     state.out = target;
+    state.target = target;
     state.rising = rising;
     return target;
   }
 
   const mode = nodeGraphSlewLimiterNormalizeShape(shape);
-  if (mode === NODE_GRAPH_SLEW_SHAPE_LIN) {
-    const maxStep = 1 / Math.max(1, seconds * rate);
-    state.out = state.out + Math.max(-maxStep, Math.min(maxStep, delta));
-    state.active = Math.abs(target - state.out) > 1e-12;
-    state.rising = rising;
-    if (!state.active) {
-      state.from = state.out;
-    }
-    return state.out;
-  }
-
-  if (!state.active || rising !== state.rising) {
+  const targetMoved = Math.abs(target - (Number(state.target) || 0)) > 1e-9;
+  if (!state.active || rising !== state.rising || targetMoved) {
     state.from = state.out;
+    state.target = target;
     state.rising = rising;
     state.active = true;
   }
-  const span = target - state.from;
+  const span = state.target - state.from;
   if (!Number.isFinite(span) || Math.abs(span) < 1e-12) {
     state.active = false;
     state.from = target;
     state.out = target;
+    state.target = target;
     return target;
   }
   const linearU = (state.out - state.from) / span;
   const tau = nodeGraphSlewLimiterInvertShape(linearU, mode);
-  const duration = Math.max(1e-9, Math.abs(span) * seconds);
-  const nextTau = Math.min(1, tau + 1 / Math.max(1, duration * rate));
+  // Fixed glide time — same for Δ=1 or Δ=1000.
+  const nextTau = Math.min(1, tau + 1 / Math.max(1, seconds * rate));
   state.out = state.from + span * nodeGraphSlewLimiterApplyShape(nextTau, mode);
-  if (nextTau >= 1 - 1e-9 || Math.abs(target - state.out) <= 1e-12) {
-    state.out = target;
-    state.from = target;
+  if (nextTau >= 1 - 1e-9 || Math.abs(state.target - state.out) <= 1e-12) {
+    state.out = state.target;
+    state.from = state.target;
     state.active = false;
   }
   return state.out;

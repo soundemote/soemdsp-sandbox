@@ -61,10 +61,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
         }
         return {
           Trigger: hasInput(nodeId, "Gate") ? gate : gatePulse,
+          "0.1V/Oct": this.clampValue(midi / 120, 0, 1),
           "0.1v/Oct": this.clampValue(midi / 120, 0, 1),
           "Note#/127": this.clampValue(midi / 127, 0, 1),
           Frequency: outputFrequency,
           Gate: Math.max(gate, hold),
+          "Inc.": increment,
           Increment: increment,
           KeyboardKey: key,
           "Note#": midi,
@@ -100,15 +102,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
         );
       },
       macroControls: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
-        const resetActive = hasInput(nodeId, "Reset") && Number(mixInput(nodeId, "Reset")) > 0;
         const value = {};
         for (let index = 0; index < 8; index += 1) {
           const port = `M${index + 1} In`;
-          value[`M${index + 1}`] = resetActive
-            ? 0
-            : this.clampValue(hasInput(nodeId, port)
-              ? Number(mixInput(nodeId, port)) || 0
-              : Number(this.macroControls?.[index]) || 0, 0, 1);
+          value[`M${index + 1}`] = this.clampValue(hasInput(nodeId, port)
+            ? Number(mixInput(nodeId, port)) || 0
+            : Number(this.macroControls?.[index]) || 0, 0, 1);
         }
         return value;
       },

@@ -101,15 +101,15 @@ const nodeGraphLineBurnResetThreshold = 0.5;
  * Position is NOT derived from absoluteFrame / duration (that jumps when you
  * change Sweep). Each face keeps canvas._lineBurnPhasor in [0, 1) and advances
  * it sample-by-sample:
- *   phasor += 1 / (sweepSeconds * sampleRate)
- * so changing duration mid-sweep continues from the current X.
- * Sweep 0 = collapsed sweep: each sample burns one solid full-width horizontal
- * at its Y (limit of Sweep→0). Fuse spacing is preserved; under Dot Budget we
- * skip samples, never thin a line into dots. Reset (≥ 0.5) still snaps state.
- * Sync on: Sweep is cycles-in-view (smooth — 1.5 = one and a half periods
- * across the face). Mid-sweep rising edges only retune period. When the pen
- * finishes that window it parks and restarts on the next rising zero-crossing.
- * Reset jack still snaps to the left immediately. Sync Off: Sweep is seconds.
+ *   phasor += sweepHz / sampleRate
+ * so changing rate mid-sweep continues from the current X.
+ * Sweep 0 Hz = collapsed sweep: each sample burns one solid full-width horizontal
+ * at its Y. Fuse spacing is preserved; under Dot Budget we skip samples, never
+ * thin a line into dots. Reset (≥ 0.5) still snaps state.
+ * Sync on: Sweep (c) = cycles-in-view (separate dial from free-run Hz).
+ * Mid-sweep rising edges only retune period. When the pen finishes that window
+ * it parks and restarts on the next rising zero-crossing. Reset jack still
+ * snaps left immediately. Sync Off: Sweep (Hz).
  */
 function nodeGraphOneDimensionalBurnBufferFrameInfo(buffer, count) {
   const endFrame = Number(buffer?.nodeGraphScopeAbsoluteFrame);
@@ -288,21 +288,25 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
   }
   const start = Math.max(0, buffer.length - count);
   const sampleRate = Math.max(1, Number(nodeGraphScopeSampleRate(buffer)) || 44100);
-  // Seconds to cross the face → phase advance per sample.
-  // 0 = collapsed sweep: solid full-width horizontal per sample at fuse density.
-  let sweepSeconds = Number(settings?.sweepSeconds);
-  if (!Number.isFinite(sweepSeconds)) {
-    const legacyHz = Number(settings?.sweepHz);
-    sweepSeconds = Number.isFinite(legacyHz) && legacyHz > 0
-      ? 1 / legacyHz
-      : nodeGraphLineBurnSettingsDefaults.sweepSeconds;
+  // Sync off: Sweep (Hz) = left→right passes per second.
+  // Sync on: Sweep (c) = cycles in view (separate dial — see sweepCycles).
+  // 0 Hz = collapsed sweep: solid full-width horizontal per sample at fuse density.
+  const sweepPair = typeof normalizeNodeGraphLineBurnSweepPair === "function"
+    ? normalizeNodeGraphLineBurnSweepPair(settings, nodeGraphLineBurnSettingsDefaults)
+    : null;
+  let sweepHz = Number(sweepPair?.sweepHz ?? settings?.sweepHz);
+  if (!Number.isFinite(sweepHz)) {
+    const legacySec = Number(settings?.sweepSeconds);
+    sweepHz = Number.isFinite(legacySec) && legacySec > 0
+      ? 1 / legacySec
+      : Number(nodeGraphLineBurnSettingsDefaults.sweepHz) || 4;
   }
-  if (sweepSeconds < 0) {
-    sweepSeconds = 0;
+  if (sweepHz < 0) {
+    sweepHz = 0;
   }
-  sweepSeconds = Math.min(10, sweepSeconds);
-  const horizontalBurn = sweepSeconds <= 0;
-  const sweepPhaseInc = horizontalBurn ? 0 : 1 / (sweepSeconds * sampleRate);
+  sweepHz = Math.min(100, sweepHz);
+  const horizontalBurn = sweepHz <= 0;
+  const sweepPhaseInc = horizontalBurn ? 0 : sweepHz / sampleRate;
   const width = canvas.width;
   const height = canvas.height;
 
@@ -339,14 +343,14 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     samplesSinceSync = 0;
   }
   let syncAwaitingRestart = canvas._lineBurnSyncAwaitingRestart === true;
-  // Sync reuses the Sweep control as a cycle count (not seconds).
+  // Sync uses its own Sweep (c) dial — not the free-run Hz value.
   const syncCyclesInView = (() => {
     if (horizontalBurn) {
       return 1;
     }
-    const raw = Number(sweepSeconds);
+    const raw = Number(sweepPair?.sweepCycles ?? settings?.sweepCycles);
     if (!Number.isFinite(raw) || raw <= 0) {
-      return 1;
+      return Number(nodeGraphLineBurnSettingsDefaults.sweepCycles) || 4;
     }
     return Math.max(0.05, Math.min(100, raw));
   })();

@@ -2317,7 +2317,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.timeDenominator,
     (typeId == kTypePulseExplosion) ? 1.0 // endTime
-      : (typeId == kTypeSlewLimiter) ? 0.20
+      : (typeId == kTypeSlewLimiter) ? 0.05
       : (typeId == kTypeSampleDelay) ? 0.0
       : (typeId == kTypeDelayedTrigger) ? 0.01
       : (typeId == kTypeRandomClock) ? 1.0

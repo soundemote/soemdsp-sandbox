@@ -2075,7 +2075,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     if (type === "slewLimiter") {
       // timeNumerator=upTime, timeDenominator=downTime, shape, offset=bias
       push("upTime", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("upTime", 0.05));
-      push("downTime", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("downTime", 0.20));
+      push("downTime", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("downTime", 0.05));
       push("shape", P.NATIVE_GRAPH_PARAM_SHAPE, disc("shape", 0));
       push("bias", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("bias", 0));
       continue;

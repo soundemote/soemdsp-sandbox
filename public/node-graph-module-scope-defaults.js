@@ -154,8 +154,13 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   // Non-output single traces treat any non-off as "sync on" for that buffer.
   sourceSync: false,
   syncChannel: "off",
-  zoomSeconds: 2,
-  historySeconds: 2,
+  // Sync off: history window rate (Hz → seconds = 1/Hz). Sync on: cycles in view.
+  // Stored separately so toggling Sync keeps both dials.
+  historyHz: 4,
+  historyCycles: 4,
+  // Legacy aliases kept for older callers / capture paths (derived from Hz).
+  zoomSeconds: 0.25,
+  historySeconds: 0.25,
   // Lengthwise history fade: 0 = even ink, 1 = oldest gone / newest full.
   fade: 0,
   // XYZ Trace: stack all three on one plot, or split the face into three bands.
@@ -195,7 +200,10 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   sourceSync: false,
   // Saw / square / pulse wrap jumps look like ink spikes without this.
   skipDiscontinuities: true,
-  sweepSeconds: 2,
+  // Sync off: left→right passes per second. Sync on: cycles in view.
+  // Stored separately so toggling Sync keeps both dials.
+  sweepHz: 4,
+  sweepCycles: 4,
   gradientStops: nodeGraphScopeCyanGradientStops,
 });
 
@@ -448,7 +456,9 @@ const nodeGraphSpectrogramFftSizes = Object.freeze([
 
 const nodeGraphSpectrogramSettingsDefaults = Object.freeze({
   fftSize: 1024,
-  historySeconds: 2,
+  historyHz: 4,
+  historyCycles: 4,
+  historySeconds: 0.25,
   // Choice indices (match worklet tables).
   window: 1, // Hann
   // Time hop index into [1,2,4,8]: default 4× (hop N/4). 0 = none (hop N).

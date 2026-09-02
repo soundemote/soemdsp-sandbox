@@ -203,10 +203,13 @@ const nodeGraphTraceDisplaySettingsWindowSize = Object.freeze({
 const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["zoomSeconds", "History (s)"],
   ["historySeconds", "History (s)"],
+  ["historyHz", "History (Hz)"],
+  ["historyCycles", "History (c)"],
   ["fade", "Fade"],
   ["scale", "Scale"],
   ["sweepSeconds", "Sweep (s)"],
   ["sweepHz", "Sweep (Hz)"],
+  ["sweepCycles", "Sweep (c)"],
   ["fftSize", "FFT size"],
   ["minFreq", "Min freq (Hz)"],
   ["maxFreq", "Max freq (Hz)"],

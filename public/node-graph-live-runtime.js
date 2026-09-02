@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=phase-offset-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=slew-defaults-005";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3111,12 +3111,12 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
   "./public/node-live-audio-worklet-dsp-state.js?v=interrupt-1",
-  "./public/node-live-audio-worklet-events.js?v=graph-engine-16",
+  "./public/node-live-audio-worklet-events.js?v=midi-freq-host-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=face-full-quantum-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=audio-pump-ready-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=face-full-quantum-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=host-cv-feeder-1",
   "./public/node-live-audio-worklet-set-plan.js?v=fix-normalizeCodeblock-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=graph-engine-6",
   "./public/node-live-audio-worklet-handle-message.js?v=wasm-plan-race-1",
@@ -3131,15 +3131,15 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Do NOT load pluck-envelope-live-evaluator.js here — it registers into
   // nodeGraphLiveModuleEvaluators (main-thread / full only). PluckEnvelopeMod
   // bakes strips via native soemdsp_pluck_envelope_* (C++), not JS DSP.
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=mod-proof-4",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=slew-native-1",
   "./public/node-live-audio-worklet-process.js?v=mp-eff-1",
 ];
 
 // Legacy JS DSP evaluators + evaluateFrame — loaded only for ?product=full.
 const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/node-live-audio-worklet-evaluators-sources.js?v=freq-skew-math-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=env-uot-1",
-  "./public/node-live-audio-worklet-evaluators-utility.js?v=controller-smooth-1",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=slew-mono-1",
+  "./public/node-live-audio-worklet-evaluators-utility.js?v=midi-freq-host-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-evaluate-frame.js?v=interrupt-patch-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
@@ -3249,8 +3249,8 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/modules/noiseDetector/noise-detector-worklet-evaluator.js?v=noise-detector-1",
   "./public/modules/rms/rms-math.js?v=rms-9",
   "./public/modules/rms/rms-worklet-evaluator.js?v=rms-9",
-  "./public/modules/slewLimiter/slew-limiter-math.js?v=slew-shape-1",
-  "./public/modules/slewLimiter/slew-limiter-worklet-evaluator.js?v=slew-shape-1",
+  "./public/modules/slewLimiter/slew-limiter-math.js?v=slew-abs-time-1",
+  "./public/modules/slewLimiter/slew-limiter-worklet-evaluator.js?v=slew-abs-time-1",
   "./public/modules/midSideEncode/mid-side-encode-math.js?v=dip-ms-db-1",
   "./public/modules/midSideEncode/mid-side-encode-worklet-evaluator.js?v=dip-ms-db-1",
   "./public/modules/quadrature/quadrature-math.js?v=ms-quad-lim-1",

@@ -956,21 +956,19 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           safeRate,
         );
       },
-      slewLimiter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
-        const state = this.slewLimiterStates.get(nodeId) || this.createStereoSlewLimiterState();
-        this.slewLimiterStates.set(nodeId, state);
+      slewLimiter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        // Mono gold In→Out. Migrate any leftover stereo state bags.
+        let state = this.slewLimiterStates.get(nodeId);
+        if (!state || state.mono) {
+          state = this.createSlewLimiterState();
+          this.slewLimiterStates.set(nodeId, state);
+        }
         const { params } = this.resolveModuleControlParams(
-          node, state, { upTime: 0.05, downTime: 0.20, shape: 0, bias: 0 }, frame, frames, frameValues,
+          node, state, { upTime: 0.05, downTime: 0.05, shape: 0, bias: 0 }, frame, frames, frameValues,
         );
-        const slewUpTime = params.upTime;
-        const slewDownTime = params.downTime;
-        const slewShape = params.shape;
-        const slewBias = params.bias;
-        const slewMono = mixInput(nodeId) + slewBias;
-        const outM = this.slewLimiterSample(state.mono, slewMono, slewUpTime, slewDownTime, safeRate, slewShape);
-        return this.stereoProcessPorts(nodeId, hasInput, outM,
-          () => this.slewLimiterSample(state.left, mixInput(nodeId, "Left") + slewMono, slewUpTime, slewDownTime, safeRate, slewShape),
-          () => this.slewLimiterSample(state.right, mixInput(nodeId, "Right") + slewMono, slewUpTime, slewDownTime, safeRate, slewShape));
+        const slewIn = mixInput(nodeId, "In") + mixInput(nodeId) + params.bias;
+        const out = this.slewLimiterSample(state, slewIn, params.upTime, params.downTime, safeRate, params.shape);
+        return { Out: out, Mono: out };
       },
       // Stereo → Mid/Side (0.5 matrix). Math: mid-side-encode-math.js.
       midSideEncode: (node, nodeId, frame, frames, frameValues, mixInput) =>
