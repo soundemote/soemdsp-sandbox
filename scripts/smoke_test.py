@@ -18028,7 +18028,7 @@ def require_native_module_contract(base_url: str) -> None:
     polyblep_src = (ROOT / "native_modules" / "polyblep" / "polyblep.cpp").read_text(encoding="utf-8")
     require(
         "left-edge saw" in polyblep_src
-        and "0.5 + 0.4999 * m" in polyblep_src
+        and "0.5 + 0.5 * m" in polyblep_src
         and "polyBlepTrisawPwFromMorph" in polyblep_src
         and "polyBlepPulseDutyFromMorph" in polyblep_src,
         "PolyBLEP morph must be bipolar: -1 left saw / 0 tri / +1 right saw (PWM same span)",

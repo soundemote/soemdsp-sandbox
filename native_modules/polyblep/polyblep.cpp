@@ -119,15 +119,15 @@ double polyBlepSquare(double phaseCycle, double phaseIncrement) {
 // Trisaw: −1 → left-edge saw, 0 → triangle, +1 → right-edge saw.
 
 double polyBlepPulseDutyFromMorph(double morph) {
-  // −1…+1 → ~0…1 duty (keep off exact 0/1).
+  // −1…+1 → 0…1 duty. Clamp ends off exact 0/1 (PWM / trisaw denominators).
   const double m = clampD(morph, -1.0, 1.0);
-  return clampD(0.5 + 0.4999 * m, 0.0001, 0.9999);
+  return clampD(0.5 + 0.5 * m, 0.0001, 0.9999);
 }
 
 double polyBlepTrisawPwFromMorph(double morph) {
   // Same bipolar span as PWM: −1 left saw, 0 triangle, +1 right saw.
   const double m = clampD(morph, -1.0, 1.0);
-  return clampD(0.5 + 0.4999 * m, 0.0001, 0.9999);
+  return clampD(0.5 + 0.5 * m, 0.0001, 0.9999);
 }
 
 // Left-aligned PWM pulse (soemdsp PolyBLEP::pulse).
