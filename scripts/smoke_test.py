@@ -18035,10 +18035,12 @@ def require_native_module_contract(base_url: str) -> None:
     )
     flower_child_worklet = (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8")
     fc = flower_child_worklet.find("flowerChildFilter:")
+    fc_chunk = flower_child_worklet[fc:fc + 2000] if fc >= 0 else ""
     require(
         fc >= 0
-        and "Always two independent engines" in flower_child_worklet[fc:fc + 900]
-        and "0.5 * (left + right)" in flower_child_worklet[fc:fc + 900],
+        and "Always two independent engines" in fc_chunk
+        and "0.5 * (left + right)" in fc_chunk
+        and "stereoProcessPorts" not in fc_chunk.split("activeFilter:")[0],
         "Flower Child worklet path must always run independent L/R engines",
     )
 
