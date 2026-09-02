@@ -795,16 +795,16 @@ function createNodeGraphKeyboardControllerBody(node = null) {
   signalBar.dataset.midiKeyboardSignalBar = "true";
   signalBar.setAttribute("aria-live", "polite");
   const signals = [
-    ["gate", "gate", "0"],
-    ["gatePulse", "trig", "0"],
-    ["key", "key", "-"],
-    ["quantized", "keyboardNorm", "-"],
-    ["octave", "oct", "+0"],
-    ["midi", "note#", "-"],
-    ["double", "note#/127", "-"],
-    ["velocity", "vel#", "-"],
-    ["tenthVoltPerOctave", "0.1v/oct", "-"],
-    ["increment", "inc", "-"],
+    ["gate", "Gate", "0"],
+    ["gatePulse", "Trigger", "0"],
+    ["key", "KeyboardKey", "-"],
+    ["quantized", "KeyboardNorm", "-"],
+    ["octave", "Octave", "+0"],
+    ["midi", "NoteNumber", "-"],
+    ["double", "Note#/127", "-"],
+    ["velocity", "Velocity#", "-"],
+    ["tenthVoltPerOctave", "0.1v/Oct", "-"],
+    ["increment", "Increment", "-"],
   ];
   for (const [key, labelText, valueText] of signals) {
     const item = document.createElement("span");
