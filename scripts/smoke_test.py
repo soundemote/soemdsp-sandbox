@@ -18014,6 +18014,19 @@ def require_native_module_contract(base_url: str) -> None:
     # to it yet (see the file's own header comment), so it's exempted from
     # expected_native_exports and the wasm-must-exist checks below rather
     # than added to either.
+    # Combined-wasm catalog apply walks every eligible module through
+    # applyNativeModuleExports. Graph-engine-hosted musical natives must not
+    # fall through to "unsupported native module" when sample/process exist.
+    native_exports_worklet = (PUBLIC / "node-live-audio-worklet-native-exports.js").read_text(encoding="utf-8")
+    require(
+        "typeof exports[`${prefix}sample`]" in native_exports_worklet,
+        "worklet native-exports should generic-ack graph-hosted modules via export probe",
+    )
+    require(
+        "hasEngine" in native_exports_worklet,
+        "worklet native-exports generic graph-hosted path should post ready when hasEngine",
+    )
+
     expected_native_exports = {
         "transport": ["soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar"],
         "slew_limiter": ["soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample"],

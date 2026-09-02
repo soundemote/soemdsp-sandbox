@@ -1855,6 +1855,24 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+      // Graph-engine-hosted natives (musical / newer catalog entries): processed
+      // via graph opcodes, but combined-wasm catalog apply still calls here for
+      // every entry. If standard process exports exist on the combined instance,
+      // ack ready instead of spamming "unsupported native module".
+      if (name && exports) {
+        const prefix = `soemdsp_${name}_`;
+        const hasEngine = typeof exports[`${prefix}sample`] === "function"
+          || typeof exports[`${prefix}process`] === "function"
+          || typeof exports[`${prefix}process_block`] === "function";
+        if (hasEngine) {
+          this.port.postMessage({
+            type: "nativeModuleStatus",
+            name,
+            status: "ready",
+          });
+          return;
+        }
+      }
       this.port.postMessage({
         type: "nativeModuleStatus",
         name,
