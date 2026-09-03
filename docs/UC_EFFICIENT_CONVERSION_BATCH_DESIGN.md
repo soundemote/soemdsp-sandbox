@@ -27,7 +27,7 @@ Selected Under-Construction (UC) shop modules already have real JavaScript DSP, 
 - UC parking list: `nodeGraphModuleCatalogUnderConstructionSort` in `public/node-graph-module-store.js` (includes all CONVERT targets).
 - Retired list today is thin: `output`, `audioInput`, `rms`, `additiveLinearFilter`.
 - Highest allocated graph type ID: **`kTypeStepGraph = 147`** in `native_modules/graph_engine/graph_engine.cpp` (mirrored in `NATIVE_GRAPH_TYPE_IDS`). Next free ID is **148**.
-- Graph WASM version currently returns **104** (`soemdsp_graph_version`) — includes `smoothGraph`/`stepGraph` native opcodes (still UC / off allowlist).
+- Graph WASM version currently returns **104** (`soemdsp_graph_version`) — includes `smoothGraph`/`stepGraph` native opcodes (efficient allowlist + retired from UC).
 - Yellow Graph / Additive bus opcodes **111–127** are unrelated to Smooth/Step Graph (`smoothGraph` / `stepGraph`) — do not conflate. (`APP_POLICY.md` §0b still says **111–124**; PRs that edit policy must bump the documented range to **111–127**, not “fix” code down to 124.)
 - UC sort also still lists some types that are **already** efficient-allowlisted / natived (e.g. `hypersaw`, `phosphillator`, `humanFilter`, `chaoticPhaseLockingFilter`, `metallicRatio`). Those “UC ghosts” are **out of scope** for this conversion batch (see Non-Goals / PR10).
 
@@ -178,8 +178,8 @@ Mirror `eqFilter` / `slewLimiter`:
 | 143 | `degreeTuring` | Musical **PR8b** |
 | 144 | `degreePhrase` | Musical **PR8b** |
 | 145 | `gravityWalker` | Musical **PR8b** |
-| 146 | `smoothGraph` | Smooth Graph — **native wired, still UC / off allowlist** |
-| 147 | `stepGraph` | Step Graph — **native wired, still UC / off allowlist** |
+| 146 | `smoothGraph` | Smooth Graph — native + efficient allowlist |
+| 147 | `stepGraph` | Step Graph — native + efficient allowlist |
 
 **Landed allocation (as of graph version 104):** musical block is **140–145**; Smooth/Step Graph took **146–147** (not the earlier draft 150–151). Face editing stays JS; do **not** add either key to `NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES` or `RetiredFromUnderConstruction` until unlock PR.
 
@@ -585,7 +585,7 @@ Staged order matches **PR Plan** below (protection and papoulis first → musica
 - **Title:** Native Smooth Graph curve engine (infrastructure + `smoothGraph`)
 - **Files/components:** `native_modules/smooth_graph/`, `graph_engine.cpp` type **146**, host curve sync from patch face, `smoke_graph_smooth_step_graph.mjs` — **allowlist off (A5b)**; remain in UC sort
 - **Dependencies:** none
-- **Description:** Largest risk slice; implement `normalizeSmoothGraphSmoothingMode` + `graphValueAt` parity (linear/catmull/quadratic/cubic); max 32 points; do not conflate with Yellow Graph 111–127. **Status:** native wired at ID **146** / graph version **104**; still UC / off allowlist until unlock.
+- **Description:** Largest risk slice; implement `normalizeSmoothGraphSmoothingMode` + `graphValueAt` parity (linear/catmull/quadratic/cubic); max 32 points; do not conflate with Yellow Graph 111–127. **Status:** native at ID **146** / graph version **104**; on efficient allowlist; retired from UC.
 
 ### PR9b — Step Graph (`stepGraph`) parity + efficient allowlist for both
 

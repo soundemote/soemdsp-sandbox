@@ -103,6 +103,8 @@ Only these live-audio types exist in the efficient build:
 | `degreeTuring` | Shift-register degree sequencer |
 | `degreePhrase` | 8-step degree phrase + mutate |
 | `gravityWalker` | Inertia / leap degree walker |
+| `smoothGraph` | Free-dot global curve modulator (Input · LFO · Phasor) |
+| `stepGraph` | Segment / step-grid curve modulator |
 | `chebyshev` | Chebyshev Type I (equiripple passband) |
 | `elliptic` | Elliptic / Cauer multipole |
 | `eqFilter` | ZDF SVF multi-mode EQ |
@@ -176,6 +178,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    attackDecay / bandpass / allpass / basicShape /
    chordPad / noteGlide / noteTranspose /
    degreeTuring / degreePhrase / gravityWalker /
+   smoothGraph / stepGraph /
    chebyshev / elliptic /
    eqFilter / activeFilter / passiveFilter / tb303Filter /
    flowerChildFilter / yellowjacketFilter / superloveFilter / humanFilter /

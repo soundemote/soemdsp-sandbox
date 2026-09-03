@@ -150,8 +150,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "cookbookFilter",
   "curveOsc",
   "ellipsoidOsc",
-  "smoothGraph",
-  "stepGraph",
   "hilbert",
   "kickEnvelope",
   "nextPatch",
@@ -194,6 +192,8 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "degreeTuring",
   "degreePhrase",
   "gravityWalker",
+  "smoothGraph",
+  "stepGraph",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
