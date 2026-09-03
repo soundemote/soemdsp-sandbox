@@ -148,6 +148,20 @@ body.node-boot-fading .shell {
   box-sizing: border-box;
 }
 
+.node-boot-secure-context-banner {
+  max-width: min(92vw, 40rem);
+  margin: 0 auto;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid rgba(255, 140, 90, 0.55);
+  border-radius: 0.65rem;
+  background: rgba(255, 95, 81, 0.14);
+  color: rgba(255, 210, 190, 0.95);
+  font-size: clamp(0.85rem, 2.2vw, 1.05rem);
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+}
+
 .node-boot-start-button {
   appearance: none;
   border: 1px solid rgba(127, 199, 217, 0.45);

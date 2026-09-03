@@ -33,6 +33,44 @@ function nodeGraphBootIsRelease() {
   return nodeGraphBootBuildMode() === "release";
 }
 
+/** AudioWorklet / Live need HTTPS or localhost — not http://169.254.* / LAN IPs. */
+function nodeGraphBootSecureContextOk() {
+  try {
+    if (window.isSecureContext) return true;
+  } catch (_e) { /* ignore */ }
+  const host = String(window.location?.hostname || "").toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1";
+}
+
+function nodeGraphBootSecureContextMessage() {
+  const host = String(window.location?.hostname || "");
+  const port = String(window.location?.port || "");
+  const portPart = port ? `:${port}` : "";
+  return `Live audio needs HTTPS or localhost. This page is http://${host}${portPart} — open http://127.0.0.1${portPart}/ (or https) instead of a LAN / link-local address.`;
+}
+
+function ensureNodeBootSecureContextBanner() {
+  if (nodeGraphBootSecureContextOk()) return;
+  let banner = document.getElementById("nodeBootSecureContextBanner");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "nodeBootSecureContextBanner";
+    banner.className = "node-boot-secure-context-banner";
+    banner.setAttribute("role", "alert");
+    const panel = document.querySelector(".node-boot-loading-panel");
+    const startBtn = document.getElementById("nodeBootStartButton");
+    if (panel && startBtn) {
+      panel.insertBefore(banner, startBtn);
+    } else if (panel) {
+      panel.prepend(banner);
+    } else {
+      document.body.prepend(banner);
+    }
+  }
+  banner.textContent = nodeGraphBootSecureContextMessage();
+  banner.hidden = false;
+}
+
 function renderNodeBootSysinfo(parts) {
   const el = document.getElementById("nodeBootSysinfo");
   if (!el) return;
@@ -368,8 +406,11 @@ window.addEventListener("nodeSandboxStartupProgress", (event) => {
 window.addEventListener("nodeSandboxInterfaceReady", finishNodeBootLoading, { once: true });
 
 document.getElementById("nodeBootStartButton")?.addEventListener("click", () => {
+  ensureNodeBootSecureContextBanner();
   beginNodeBootLoadSequence();
 });
+
+ensureNodeBootSecureContextBanner();
 
 // Sysinfo only in debug builds (hidden entirely for --release).
 if (!nodeGraphBootIsRelease()) {

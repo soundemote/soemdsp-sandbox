@@ -3160,7 +3160,11 @@ async function buildNodeGraphLiveWorkletBlobUrl(sourceFiles) {
 
 async function createNodeGraphLiveWorkletNode(context, plan = null) {
   if (!context.audioWorklet || typeof AudioWorkletNode === "undefined") {
-    throw new Error("AudioWorklet unavailable");
+    const host = String(window.location?.hostname || "");
+    const insecureHint = window.isSecureContext
+      ? "AudioWorklet missing in this browser."
+      : `AudioWorklet needs a secure context (HTTPS or localhost). This page is http://${host || "…"} — open http://127.0.0.1:8080/ or https:// instead of a LAN/link-local IP.`;
+    throw new Error(`AudioWorklet unavailable. ${insecureHint}`);
   }
   const efficient = typeof nodeGraphEfficientProductEnabled === "function"
     ? nodeGraphEfficientProductEnabled()
