@@ -117,7 +117,7 @@ $modules = @(
     "soemdsp_pi_spigot_noise_version", "soemdsp_pi_spigot_noise_metadata_json", "soemdsp_pi_spigot_noise_metadata_json_size"
   ) }
   @{ Name = "lorenz_attractor"; Simd = $false; Exports = @("soemdsp_lorenz_attractor_create", "soemdsp_lorenz_attractor_destroy", "soemdsp_lorenz_attractor_sample", "soemdsp_lorenz_attractor_x", "soemdsp_lorenz_attractor_y", "soemdsp_lorenz_attractor_z", "soemdsp_lorenz_attractor_version", "soemdsp_lorenz_attractor_metadata_json", "soemdsp_lorenz_attractor_metadata_json_size") }
-  @{ Name = "sine_wavetable"; Simd = $false; Exports = @("soemdsp_sine_wavetable_create", "soemdsp_sine_wavetable_destroy", "soemdsp_sine_wavetable_sample", "soemdsp_sine_wavetable_sin", "soemdsp_sine_wavetable_cos", "soemdsp_sine_wavetable_version", "soemdsp_sine_wavetable_metadata_json", "soemdsp_sine_wavetable_metadata_json_size") }
+  @{ Name = "sine_wavetable"; Simd = $false; Exports = @("soemdsp_sine_wavetable_create", "soemdsp_sine_wavetable_destroy", "soemdsp_sine_wavetable_reset", "soemdsp_sine_wavetable_set_method", "soemdsp_sine_wavetable_sample", "soemdsp_sine_wavetable_sin", "soemdsp_sine_wavetable_cos", "soemdsp_sine_wavetable_version", "soemdsp_sine_wavetable_metadata_json", "soemdsp_sine_wavetable_metadata_json_size") }
   @{ Name = "log_spiral"; Simd = $false; Exports = @("soemdsp_log_spiral_create", "soemdsp_log_spiral_destroy", "soemdsp_log_spiral_sample", "soemdsp_log_spiral_x", "soemdsp_log_spiral_y", "soemdsp_log_spiral_z", "soemdsp_log_spiral_version", "soemdsp_log_spiral_metadata_json", "soemdsp_log_spiral_metadata_json_size") }
   @{ Name = "snowflake"; Simd = $false; Exports = @("soemdsp_snowflake_create", "soemdsp_snowflake_destroy", "soemdsp_snowflake_sample", "soemdsp_snowflake_x", "soemdsp_snowflake_y", "soemdsp_snowflake_out", "soemdsp_snowflake_version", "soemdsp_snowflake_metadata_json", "soemdsp_snowflake_metadata_json_size") }
   @{ Name = "fractal_spiral"; Simd = $false; Exports = @("soemdsp_fractal_spiral_create", "soemdsp_fractal_spiral_destroy", "soemdsp_fractal_spiral_sample", "soemdsp_fractal_spiral_x", "soemdsp_fractal_spiral_y", "soemdsp_fractal_spiral_z", "soemdsp_fractal_spiral_version", "soemdsp_fractal_spiral_metadata_json", "soemdsp_fractal_spiral_metadata_json_size") }
@@ -169,6 +169,7 @@ $modules = @(
     "soemdsp_ping_pong_delay_create", "soemdsp_ping_pong_delay_destroy",
     "soemdsp_ping_pong_delay_reset",
     "soemdsp_ping_pong_delay_sample", "soemdsp_ping_pong_delay_right",
+    "soemdsp_ping_pong_delay_mod_left", "soemdsp_ping_pong_delay_mod_right",
     "soemdsp_ping_pong_delay_set_params", "soemdsp_ping_pong_delay_process_block",
     "soemdsp_ping_pong_delay_block_input_ptr", "soemdsp_ping_pong_delay_block_output_left_ptr",
     "soemdsp_ping_pong_delay_block_output_right_ptr",

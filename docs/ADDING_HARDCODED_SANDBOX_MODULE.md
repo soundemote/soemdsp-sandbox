@@ -61,7 +61,10 @@ Use the existing modules as the template: `osc`, `noise`, `gain`, and `bias`.
    the new file in `public/index.html`, anywhere after
    `node-graph-live-frame-evaluator.js`'s own tag.
 
-5. Add matching Live Audio (realtime AudioWorklet) behavior if the module
+5. **Do NOT add JS AudioWorklet / live-evaluator DSP.** Efficient product is
+   native graph only (`graph_engine` opcode + `NATIVE_GRAPH_TYPE_IDS`).
+   JS is interface (plan, params, faces). Historical note — old docs said:
+   Add matching Live Audio (realtime AudioWorklet) behavior if the module
    should sound the same while Live Audio is running.
 
    File: `public/modules/<Type>/<kebab-name>-worklet-evaluator.js`.

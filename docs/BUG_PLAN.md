@@ -79,7 +79,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-026 | see | wip | Pause → stop → play leaves value faces dark |
 | B-027 | hear | fixed | Header Speed 2.0 slows the patch |
 | B-028 | hear | open | Chebyshev / Elliptic / high-order BP are RBJ stand-ins |
-| B-029 | hear | open | Offline/Render JS twins ≠ live native (~60 types) |
+| B-029 | hear | wip | Offline/Render JS twins ≠ live native (~60 types) |
 | B-030 | hear | fixed | dsp_floor via long long UB for huge \|x\| |
 | B-031 | see | fixed | Text Box settings: each character tanks framerate |
 | B-032 | see | verify | Text Box resize / text clips into window |
@@ -359,13 +359,13 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Fix shape: Real analog prototype → bilinear, **or** rename tooltips to “RBJ cascade (Cheby/elliptic-ish Q)”.
 
 ### B-029 — Offline/Render JS twins ≠ live native (~60 types)
-- Status: open
+- Status: wip
 - Severity: hear
 - Source: hunt-2026-08-12 (also `docs/POLICY_COMPLIANCE_AUDIT.md`)
-- Files: see that audit
-- What: APP_POLICY §5: one core. Live worklet is mostly WASM. Render Sample still runs JS twins for most native types. Bounce ≠ live.
+- Files: `node-graph-render-output.js`, worklet native graph, index.html
+- What: APP_POLICY §5: one core. **2026-09-03:** Render uses OfflineAudioContext + native graph; legacy worklet JS DSP blob emptied; live-evaluator script tags stripped from index; ScriptProcessor JS fallback banned. Remaining: delete orphan `*-live-evaluator.js` / `*-worklet-evaluator.js` files from disk.
 - Repro: Render Sample a native filter/osc; compare to live.
-- Fix shape: Main-thread WASM like polyBlep. Silence until ready. Delete JS audio twins.
+- Fix shape: Done for product path; disk cleanup follow-up.
 
 ### B-030 — dsp_floor via long long UB for huge |x|
 - Status: open

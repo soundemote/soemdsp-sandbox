@@ -51,6 +51,51 @@ function nodeLiveSineCosWavetableSample(phaseRadians, frequency, amplitude, samp
   };
 }
 
+/** Additive half-sine LUT (2^15) — same table Yellow Graph uses. */
+const nodeLiveAdditiveSinLutHalf = 32768;
+let nodeLiveAdditiveSinLut = null;
+function nodeLiveEnsureAdditiveSinLut() {
+  if (nodeLiveAdditiveSinLut && nodeLiveAdditiveSinLut.length === nodeLiveAdditiveSinLutHalf + 1) {
+    return nodeLiveAdditiveSinLut;
+  }
+  const n = nodeLiveAdditiveSinLutHalf;
+  const lut = new Float32Array(n + 1);
+  for (let i = 0; i <= n; i += 1) {
+    lut[i] = Math.sin(Math.PI * (i / n));
+  }
+  nodeLiveAdditiveSinLut = lut;
+  return lut;
+}
+function nodeLiveAdditiveSinTurn(phase01) {
+  const lut = nodeLiveEnsureAdditiveSinLut();
+  const n = nodeLiveAdditiveSinLutHalf;
+  let p = Number(phase01) || 0;
+  p -= Math.floor(p);
+  if (p < 0) p += 1;
+  if (p < 0.5) {
+    const x = p * 2 * n;
+    const i = x | 0;
+    const f = x - i;
+    const a = lut[i];
+    const b = lut[i + 1 < lut.length ? i + 1 : i];
+    return a + (b - a) * f;
+  }
+  const x = (p - 0.5) * 2 * n;
+  const i = x | 0;
+  const f = x - i;
+  const a = lut[i];
+  const b = lut[i + 1 < lut.length ? i + 1 : i];
+  return -(a + (b - a) * f);
+}
+function nodeLiveSineCosAdditiveLutSample(phaseRadians, frequency, amplitude, sampleRate) {
+  const level = Math.max(0, Number(amplitude) || 0) * nodeLiveNyquistFadeAmplitude(frequency, sampleRate);
+  const turns = (Number(phaseRadians) || 0) / (Math.PI * 2);
+  return {
+    sin: nodeLiveAdditiveSinTurn(turns) * level,
+    cos: nodeLiveAdditiveSinTurn(turns + 0.25) * level,
+  };
+}
+
 function nodeLiveSinCos4FromPair(sin, cos, mode) {
   const s = Number(sin) || 0;
   const c = Number(cos) || 0;
@@ -129,6 +174,10 @@ NodeLiveAudioProcessor.prototype.sineWavetableAdvancePair = function sineWavetab
         : Math.max(0, baseWithFreqJack * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
     );
   const phaseIncrement = (effectiveFrequency / safeRate) + (Number(incrementInput) || 0);
+  const method = Math.round(
+    Number(this.readEffectiveParameter(node, "method", 0, frame, frames, frameValues)) || 0,
+  );
+  const useAdditiveLut = method >= 1;
   let pair;
   if (
     this.nativeSineWavetableReady &&
@@ -142,6 +191,15 @@ NodeLiveAudioProcessor.prototype.sineWavetableAdvancePair = function sineWavetab
         nativeState.nativeHandle = this.nativeSineWavetable.soemdsp_sine_wavetable_create();
       }
       if (nativeState.nativeHandle) {
+        if (typeof this.nativeSineWavetable.soemdsp_sine_wavetable_set_method === "function") {
+          this.nativeSineWavetable.soemdsp_sine_wavetable_set_method(
+            nativeState.nativeHandle,
+            useAdditiveLut ? 1 : 0,
+          );
+        }
+        if (resetEdge && typeof this.nativeSineWavetable.soemdsp_sine_wavetable_reset === "function") {
+          this.nativeSineWavetable.soemdsp_sine_wavetable_reset(nativeState.nativeHandle);
+        }
         this.nativeSineWavetable.soemdsp_sine_wavetable_sample(
           nativeState.nativeHandle,
           phaseOffset,
@@ -167,7 +225,9 @@ NodeLiveAudioProcessor.prototype.sineWavetableAdvancePair = function sineWavetab
     }
   }
   if (!pair) {
-    pair = nodeLiveSineCosWavetableSample(freePhase + phaseOffset, effectiveFrequency, amplitude, safeRate);
+    pair = useAdditiveLut
+      ? nodeLiveSineCosAdditiveLutSample(freePhase + phaseOffset, effectiveFrequency, amplitude, safeRate)
+      : nodeLiveSineCosWavetableSample(freePhase + phaseOffset, effectiveFrequency, amplitude, safeRate);
   }
   this.phases.set(
     nodeId,

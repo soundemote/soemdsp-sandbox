@@ -119,6 +119,61 @@ static inline void dsp_sin_cos(double x, double* sOut, double* cOut) {
   dsp_sin_cos_turns(turns, sOut, cOut);
 }
 
+// ---------------------------------------------------------------------------
+// Additive half-sine wavetable (matches public additiveGraphSinTurn).
+// Half-cycle 0…π, 2^15 samples + 1 for lerp; second half = −reverse.
+// Lazy-filled (no static ctor — freestanding wasm friendly). ~128 KB/TU.
+// Prefer for dense partial banks / CPU switch on SinCos; poly is more exact.
+// ---------------------------------------------------------------------------
+static const int kAdditiveSinLutHalf = 32768; // 2^15
+
+static inline float* dsp_additive_sin_lut() {
+  static float lut[kAdditiveSinLutHalf + 1];
+  static int ready = 0;
+  if (!ready) {
+    for (int i = 0; i <= kAdditiveSinLutHalf; i += 1) {
+      lut[i] = (float)dsp_sin_0_pi(kPi * ((double)i / (double)kAdditiveSinLutHalf));
+    }
+    ready = 1;
+  }
+  return lut;
+}
+
+// sin(2π · turns) via linear-interpolated half-sine LUT (additive path).
+static inline double dsp_sin_turns_lut(double turns) {
+  const float* lut = dsp_additive_sin_lut();
+  const int n = kAdditiveSinLutHalf;
+  double p = turns - dsp_floor(turns);
+  if (p < 0.0) p += 1.0;
+  if (p < 0.5) {
+    const double x = p * 2.0 * (double)n;
+    const int i = (int)x;
+    const double f = x - (double)i;
+    const double a = (double)lut[i];
+    const double b = (double)lut[i + 1 <= n ? i + 1 : i];
+    return a + (b - a) * f;
+  }
+  const double x = (p - 0.5) * 2.0 * (double)n;
+  const int i = (int)x;
+  const double f = x - (double)i;
+  const double a = (double)lut[i];
+  const double b = (double)lut[i + 1 <= n ? i + 1 : i];
+  return -(a + (b - a) * f);
+}
+
+static inline double dsp_cos_turns_lut(double turns) {
+  return dsp_sin_turns_lut(turns + 0.25);
+}
+
+static inline void dsp_sin_cos_turns_lut(double turns, double* sOut, double* cOut) {
+  *sOut = dsp_sin_turns_lut(turns);
+  *cOut = dsp_sin_turns_lut(turns + 0.25);
+}
+
+static inline void dsp_sin_cos_lut(double x, double* sOut, double* cOut) {
+  dsp_sin_cos_turns_lut(x * (1.0 / kTwoPi), sOut, cOut);
+}
+
 // 2^f for f in [0,1), truncated Taylor series of e^(f*ln2) -- accurate to
 // better than 1e-5 relative error, which is far more precision than a
 // musical pitch-to-frequency conversion needs.

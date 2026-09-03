@@ -3,13 +3,9 @@
 // soemdsp-native-target: sineWavetable
 // soemdsp-native-kind: oscillator
 //
-// The JS original looked up a linearly-interpolated 2048-point precomputed
-// sine table. A freestanding wasm32 module can't run a static-initializer
-// table fill reliably (no --no-entry-friendly global ctor pass here), so
-// this computes sin/cos directly via the same range-reduced polynomial
-// already used in chaotic_phase_locking_filter.cpp and lorenz_attractor.cpp
-// -- strictly more accurate than the table's linear-interpolation
-// quantization, not less.
+// Shared by SinCos4 (sineWavetable) and SinCos (sinCos). Two sin paths:
+//   method 0 = Exact poly (dsp_sin_cos) — default, matches prior native.
+//   method 1 = Fast wavetable — same half-sine LUT additive uses (2^15).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -28,7 +24,8 @@ static const char kMetadataJson[] =
     "\"parameters\":["
       "{\"key\":\"phase\",\"label\":\"Phase\",\"kind\":\"phase\",\"defaultValue\":0,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":0.01,\"unit\":\"cycle\"},"
       "{\"key\":\"freq\",\"label\":\"Freq\",\"kind\":\"frequency\",\"defaultValue\":100,\"min\":0,\"mid\":220,\"max\":20000,\"step\":\"any\",\"unit\":\"Hz\"},"
-      "{\"key\":\"amp\",\"label\":\"Amp\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"}"
+      "{\"key\":\"amp\",\"label\":\"Amp\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
+      "{\"key\":\"method\",\"label\":\"Method\",\"defaultValue\":0,\"min\":0,\"mid\":0,\"max\":1,\"step\":1}"
     "]"
   "}";
 
@@ -53,7 +50,8 @@ struct SineWavetableState {
   double phase;
   double outSin;
   double outCos;
-  bool   active;
+  int method; // 0 = poly, 1 = additive half-sine LUT
+  bool active;
 };
 
 static SineWavetableState gPool[kMaxInstances];
@@ -67,6 +65,7 @@ extern "C" int soemdsp_sine_wavetable_create() {
       s.phase = 0.0;
       s.outSin = 0.0;
       s.outCos = 0.0;
+      s.method = 0;
       s.active = true;
       return i + 1;
     }
@@ -77,6 +76,16 @@ extern "C" int soemdsp_sine_wavetable_create() {
 extern "C" void soemdsp_sine_wavetable_destroy(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   gPool[handle - 1].active = false;
+}
+
+extern "C" void soemdsp_sine_wavetable_reset(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  gPool[handle - 1].phase = 0.0;
+}
+
+extern "C" void soemdsp_sine_wavetable_set_method(int handle, int method) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  gPool[handle - 1].method = method ? 1 : 0;
 }
 
 extern "C" void soemdsp_sine_wavetable_sample(
@@ -94,10 +103,14 @@ extern "C" void soemdsp_sine_wavetable_sample(
   const double level = maxd(0.0, safe(amplitude)) * nyquist_fade_amplitude(safeFrequency, rate);
   const double samplePhase = s.phase + safe(phaseOffsetRadians);
 
-  // One range-reduce + two polys (joint), not two full dsp_sin paths.
   double sn = 0.0;
   double cn = 0.0;
-  dsp_sin_cos(samplePhase, &sn, &cn);
+  if (s.method != 0) {
+    dsp_sin_cos_lut(samplePhase, &sn, &cn);
+  } else {
+    // One range-reduce + two polys (joint), not two full dsp_sin paths.
+    dsp_sin_cos(samplePhase, &sn, &cn);
+  }
   s.outSin = sn * level;
   s.outCos = cn * level;
 
@@ -119,7 +132,7 @@ extern "C" double soemdsp_sine_wavetable_cos(int handle) {
 }
 
 extern "C" int soemdsp_sine_wavetable_version() {
-  return 1;
+  return 2;
 }
 
 extern "C" const char* soemdsp_sine_wavetable_metadata_json() {

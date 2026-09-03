@@ -244,76 +244,105 @@ async function renderNodeGraphAudio() {
   const stateReadCount = nodeGraphStateReadCount(plan);
   renderStatus.textContent = "rendering";
   renderStatus.className = "pill";
-  // Wait for offline native hosts (polyBlep / blit / osc, …) before bouncing.
-  // Lazy fetch otherwise returns silence for the whole Render Sample pass.
-  if (typeof nodeGraphWarmMultiWaveMainWasmForTypes === "function") {
-    const types = Array.isArray(plan?.nodes)
-      ? plan.nodes.map((node) => node?.type).filter(Boolean)
-      : [];
-    try {
-      await nodeGraphWarmMultiWaveMainWasmForTypes(types);
-    } catch (_e) { /* failed loads stay silent per host */ }
-  }
-  const runtime = createNodeGraphLiveRuntime(plan);
-  const scopeCapture = beginNodeGraphRenderedScopeCapture({
-    frames: engineFrames,
-    patch: nodeGraphMvp.patch,
-    patchFingerprint,
-    sampleRate: engineSampleRate,
-  });
-  const earProtector = createNodeGraphEarProtector(engineSampleRate);
+  // APP_POLICY §0b / §2 / §5: Render Sample uses the same native graph as Live.
+  // Never evaluateNodeGraphPlanFrame / JS live-evaluators.
   let clipCount = 0;
   let protectionMuteCount = 0;
-
-  for (let blockStart = 0; blockStart < engineFrames; blockStart += nodeGraphAudioBlockSize) {
-    const blockFrames = Math.min(nodeGraphAudioBlockSize, engineFrames - blockStart);
-    for (let blockFrame = 0; blockFrame < blockFrames; blockFrame += 1) {
-      const frame = blockStart + blockFrame;
-      runtime.absoluteFrame = frame;
-      const frameOutput = evaluateNodeGraphPlanFrame(
-        runtime,
-        engineSampleRate,
-        blockFrame,
-        blockFrames,
-      );
-      captureNodeGraphRenderedScopeFrame(
-        scopeCapture,
-        runtime,
-        frameOutput.frameValues,
-        frame,
-        blockFrame,
-        blockFrames,
-      );
-      if (nodeGraphOutputSampleClipped(frameOutput.left)) {
-        clipCount += 1;
-      }
-      if (nodeGraphOutputSampleClipped(frameOutput.right)) {
-        clipCount += 1;
-      }
+  let badNumberCount = 0;
+  try {
+    const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!Offline || typeof createNodeGraphLiveWorkletNode !== "function") {
+      throw new Error("native Render requires OfflineAudioContext + AudioWorklet");
+    }
+    const offlineCtx = new Offline(2, engineFrames, engineSampleRate);
+    const workletNode = await createNodeGraphLiveWorkletNode(offlineCtx, plan);
+    workletNode.connect(offlineCtx.destination);
+    const planSerial = (Number(nodeGraphMvp?.live?.planSerial) || 0) + 1;
+    if (nodeGraphMvp?.live) nodeGraphMvp.live.planSerial = planSerial;
+    workletNode.port.postMessage({
+      type: "setPlan",
+      plan,
+      planSerial,
+      patchFingerprint,
+      sampleRate: engineSampleRate,
+      engineSampleRate,
+      oversamplingRatio: audio.oversamplingRatio,
+      pitchReferenceHz: Number(nodeGraphMvp?.pitchReferenceHz) || 440,
+      pitchReferenceMidiNote: Number(nodeGraphMvp?.pitchReferenceMidiNote) || 69,
+      sessionId: Number(nodeGraphMvp?.live?.sessionId) || 1,
+      timing: nodeGraphMvp?.patch?.timing || null,
+    });
+    // Wait until native graph compiled (or timeout).
+    await new Promise((resolve, reject) => {
+      const timeoutMs = 15000;
+      const t0 = performance.now();
+      const onMsg = (event) => {
+        const msg = event?.data;
+        if (!msg || typeof msg !== "object") return;
+        if (msg.type === "nativeGraphStatus" && msg.status === "compiled") {
+          cleanup();
+          resolve();
+        }
+        if (msg.type === "nativeGraphStatus" && msg.status === "error") {
+          cleanup();
+          reject(new Error(String(msg.detail || msg.message || "native graph compile failed")));
+        }
+      };
+      const cleanup = () => {
+        try { workletNode.port.removeEventListener("message", onMsg); } catch (_e) { /* */ }
+        window.clearInterval(poll);
+      };
+      workletNode.port.addEventListener("message", onMsg);
+      const poll = window.setInterval(() => {
+        if (performance.now() - t0 > timeoutMs) {
+          cleanup();
+          // Fall through: startRendering may still have audio if setPlan applied.
+          resolve();
+        }
+      }, 50);
+    });
+    // Brief settle so first quantum is not silent.
+    await new Promise((r) => window.setTimeout(r, 50));
+    const renderedBuf = await offlineCtx.startRendering();
+    const ch0 = renderedBuf.getChannelData(0);
+    const ch1 = renderedBuf.numberOfChannels > 1
+      ? renderedBuf.getChannelData(1)
+      : ch0;
+    const earProtector = createNodeGraphEarProtector(engineSampleRate);
+    for (let frame = 0; frame < engineFrames; frame += 1) {
+      const rawL = Number(ch0[frame]) || 0;
+      const rawR = Number(ch1[frame]) || 0;
+      if (nodeGraphOutputSampleClipped(rawL)) clipCount += 1;
+      if (nodeGraphOutputSampleClipped(rawR)) clipCount += 1;
       if (
-        nodeGraphOutputSampleTripsEarProtection(frameOutput.left) ||
-        nodeGraphOutputSampleTripsEarProtection(frameOutput.right)
+        nodeGraphOutputSampleTripsEarProtection(rawL)
+        || nodeGraphOutputSampleTripsEarProtection(rawR)
       ) {
         protectionMuteCount += 1;
-        runtime.speakerProtectionPeak = Math.max(
-          Number(runtime.speakerProtectionPeak) || 0,
-          Number.isFinite(Number(frameOutput.left)) ? Math.abs(Number(frameOutput.left)) : Infinity,
-          Number.isFinite(Number(frameOutput.right)) ? Math.abs(Number(frameOutput.right)) : Infinity,
-        );
       }
-      const protectedFrame = earProtector.protect(frameOutput.left, frameOutput.right);
-      if (protectedFrame.muted) {
-        protectionMuteCount += 1;
-      }
-      const left = nodeGraphClampOutputSample(protectedFrame.left);
-      const right = nodeGraphClampOutputSample(protectedFrame.right);
-      engineLeftSamples[frame] = left;
-      engineRightSamples[frame] = right;
+      const protectedFrame = earProtector.protect(rawL, rawR);
+      if (protectedFrame.muted) protectionMuteCount += 1;
+      engineLeftSamples[frame] = nodeGraphClampOutputSample(protectedFrame.left);
+      engineRightSamples[frame] = nodeGraphClampOutputSample(protectedFrame.right);
     }
-    finishNodeGraphParameterSmoothing(runtime.smoothers, runtime);
+    try { workletNode.disconnect(); } catch (_e) { /* */ }
+  } catch (error) {
+    const message = String(error?.message || error || "native Render failed");
+    if (typeof window.SE?.ERROR === "function") {
+      window.SE.ERROR(`Render Sample (native only): ${message}`);
+    } else {
+      console.error("[render] native bounce failed", error);
+    }
+    nodeGraphMvp.rendered = null;
+    clearNodeGraphModuleScopeBuffers();
+    clearNodeGraphRenderedAudioElement();
+    labelPrimaryAudioTitle("Native render failed", false);
+    renderStatus.textContent = "native render failed";
+    renderStatus.className = "pill warn";
+    setNodeGraphAudioStats();
+    drawNodeRenderedAudio();
+    return;
   }
-  finishNodeGraphRenderedScopeCapture(scopeCapture);
-  protectionMuteCount += Number(runtime.speakerProtectionMuteCount) || 0;
 
   const leftSamples = nodeGraphResampleRenderedChannel(
     engineLeftSamples,
@@ -364,12 +393,12 @@ async function renderNodeGraphAudio() {
     protectionMuteCount,
     sourceNodes: validation.sourceNodes,
     stateReadCount,
-    badNumberCount: runtime.badNumberCount || 0,
+    badNumberCount,
   };
   if (protectionMuteCount > 0 && typeof nodeGraphSetEarProtectionEngaged === "function") {
     nodeGraphSetEarProtectionEngaged(false, {
-      nodeId: runtime.lastSpeakerProtection?.nodeId || "",
-      protectionPeak: Number(runtime.speakerProtectionPeak) || 0,
+      nodeId: "",
+      protectionPeak: 0,
       source: "render",
       protectionMuteCount,
     });
@@ -385,7 +414,7 @@ async function renderNodeGraphAudio() {
     oversamplingRatio: audio.oversamplingRatio,
     protectionMuteCount,
     stateReadCount,
-    badNumberCount: runtime.badNumberCount || 0,
+    badNumberCount,
   });
   renderNodeGraphExecutionPlanDebug();
   const outputSummary = document.getElementById("nodeOutputSummary");

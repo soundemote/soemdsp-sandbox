@@ -74,7 +74,8 @@ Only these live-audio types exist in the efficient build:
 | `transport` | Master Clock (−1..1 / 0..1 / Trigger / f Hz) |
 | `aliasSine` | Normalized-freq sine (aliases by design) |
 | `blit` | Band-limited impulse-train oscillator (Saw/Ramp/Square/Tri/Sine) |
-| `sineWavetable` | SinCos4 — native sin/cos → A/B/C/D by mode |
+| `sineWavetable` | SinCos4 — native sin/cos → A/B/C/D by mode; Method poly/wavetable |
+| `sinCos` | SinCos — native sin/cos pair; Method poly or additive half-sine LUT |
 | `antisaw` | Aliased-partial saw (fundamental / reflections / tilt) |
 | `archimedes` | Fixed-point quadrature sine + π / dither noise taps |
 | `additiveOsc` | Native additive partial bank (free-fn; host phase) |
@@ -175,7 +176,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    midSideEncode / vectorscopeTransform / rotate3dTo2d /
    clock / binaryClock / triggerDivider / delayedTrigger / randomClock / triggerCounter /
    metallicRatio / lutCell / lookaheadLimiter / limiter / stepSequencer / transport /
-   aliasSine / blit / sineWavetable / antisaw / archimedes /
+   aliasSine / blit / sineWavetable / sinCos / antisaw / archimedes /
    additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc /
    bradley2a / phoneTone / ellipsoid / snowflake /
    butterworth / linkwitzRiley / bessel / papoulisFilter /
@@ -184,7 +185,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    chordPad / noteGlide / noteTranspose /
    degreeTuring / degreePhrase / gravityWalker /
    smoothGraph / stepGraph /
-   phaseDisperse / quadrature / arp / hilbert / binaryClock /
+   phaseDisperse / quadrature / arp / hilbert / binaryClock / sinCos /
    chebyshev / elliptic /
    eqFilter / activeFilter / passiveFilter / tb303Filter /
    flowerChildFilter / yellowjacketFilter / superloveFilter / humanFilter /
@@ -216,6 +217,9 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
 - **Smoother manager is audio/C++ only** on the efficient path. JS may write Control **targets** and **smoothing-time** into engine memory on change; JS must **not** own or step the smoother chase list. (Legacy `?product=full` JS smoothers are debt until removed.)
 - **MOD is not a smoother target.** `set_param` writes the **knob** only; `set_param_mod` writes MOD accumulators; DSP reads `control_effective` = applyMod(`Control.out`, MOD). Smoother and MOD run alongside — never fold MOD into `target`, and never disable the smoother because a cable is present.
 - **Efficient AudioWorklet blob does not load JS DSP evaluators** (`node-live-audio-worklet-evaluators*`, `evaluate-frame.js`, or per-module `*-worklet-evaluator.js`). Audio is **native graph only** (`processNativeGraphQuantum`); `process()` early-returns after that path and never calls `evaluateFrame`. Legacy evaluator sources load only for `?product=full`.
+- **No ScriptProcessor JS DSP fallback under efficient.** If AudioWorklet fails, Live start **errors** — it must not call `evaluateNodeGraphPlanFrame` / live-evaluator kernels. JS audio path = bug.
+- **No JS DSP evaluator blob on any product path.** `nodeGraphLiveWorkletSourceFilesLegacy` is retired (empty). Worklet loads native-graph host only.
+- **Render Sample = same native graph as Live** (OfflineAudioContext + efficient worklet / `soemdsp_graph_*`). Never `evaluateNodeGraphPlanFrame` for product bounce.
 - **Music Player (`audioPlayer`):** native `audio_player` opcode + phosphillator-style PCM upload (`set_pcm` / `l_ptr` / `r_ptr`). Decode stays main-thread; playlist UI stays JS. Full tracks allocate with `memory.grow` (same idea as holding the file in JS RAM).
 - **Yellow Graph:** native opcodes **111–124** (Generator, Bubble, Out, Linear/Analog/Ladder filters, FrequencySkew, Quantize Freq/Phase, Pan, Noisy*). Graph port **23**. Efficient Live blob does **not** load the Yellow JS sidecar; DSP is native only. `additiveImage` stays out of the efficient allowlist until analysis ships.
 

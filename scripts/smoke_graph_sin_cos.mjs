@@ -1,4 +1,4 @@
-// Headless: sineWavetable → output (100 Hz, mode=sincos, amp=1).
+// Headless: sinCos (153) + sineWavetable method LUT path.
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -19,6 +19,7 @@ function must(name) {
 }
 
 const create = must("soemdsp_graph_create");
+const destroy = must("soemdsp_graph_destroy");
 const add = must("soemdsp_graph_add_node");
 const connect = must("soemdsp_graph_connect");
 const setParam = must("soemdsp_graph_set_param");
@@ -29,29 +30,37 @@ const snap = must("soemdsp_graph_snap_controls");
 const portPtr = must("soemdsp_graph_node_port_ptr");
 const version = must("soemdsp_graph_version");
 
+const TYPE_SIN_COS = 153;
 const TYPE_SINE_WT = 40;
 const TYPE_OUT = 6;
-const PORT_MONO = 0; // A = sin
-const PORT_LEFT = 1; // B = cos
+const PORT_MONO = 0;
+const PORT_LEFT = 1;
 const PARAM_FREQUENCY = 10;
 const PARAM_AMPLITUDE = 12;
+const PARAM_SHAPE = 13; // method
 const PARAM_MODE = 21;
+
+const ver = version() | 0;
+if (ver < 109) {
+  throw new Error(`graph version ${ver} < 109 (sinCos / method switch not in this WASM)`);
+}
 
 function view(ptr, n) {
   return new Float64Array(mem.buffer, ptr, n);
 }
 
-{
+function peakPair(typeId, method, mode) {
   const g = create() | 0;
   setSr(g, 48000);
-  const hOsc = 0xb401 >>> 0;
-  const hOut = 0xb402 >>> 0;
-  if ((add(g, hOsc, TYPE_SINE_WT) | 0) !== 0) throw new Error("sineWavetable add");
+  const hOsc = (0xc401 + typeId + method * 17) >>> 0;
+  const hOut = (0xc501 + typeId + method * 17) >>> 0;
+  if ((add(g, hOsc, typeId) | 0) !== 0) throw new Error(`add type=${typeId}`);
   if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("out add");
   if ((connect(g, hOsc, PORT_MONO, hOut, PORT_MONO) | 0) !== 0) throw new Error("conn");
   setParam(g, hOsc, PARAM_FREQUENCY, 100);
   setParam(g, hOsc, PARAM_AMPLITUDE, 1);
-  setParam(g, hOsc, PARAM_MODE, 2); // sincos
+  setParam(g, hOsc, PARAM_SHAPE, method);
+  if (mode != null) setParam(g, hOsc, PARAM_MODE, mode);
   if ((compile(g) | 0) !== 0) throw new Error("compile");
   snap(g);
 
@@ -72,12 +81,28 @@ function view(ptr, n) {
       n += 1;
     }
   }
-  const rms = Math.sqrt(sumSq / n);
-  if (!(peakSin > 0.5 && peakSin <= 1.0001)) throw new Error(`sineWavetable sin peak=${peakSin}`);
-  if (!(peakCos > 0.5 && peakCos <= 1.0001)) throw new Error(`sineWavetable cos peak=${peakCos}`);
-  if (!(rms > 0.3 && rms < 0.9)) throw new Error(`sineWavetable rms=${rms}`);
-  console.log(`sineWavetable ok sinPeak=${peakSin.toFixed(4)} cosPeak=${peakCos.toFixed(4)} rms=${rms.toFixed(4)}`);
+  destroy(g);
+  return { peakSin, peakCos, rms: Math.sqrt(sumSq / n) };
 }
 
-if ((version() | 0) < 109) throw new Error(`graph version ${version()} expected >= 109`);
-console.log(`smoke_graph_sine_wavetable ok: version=${version() | 0}`);
+function assertOk(label, r) {
+  if (!(r.peakSin > 0.5 && r.peakSin <= 1.0001)) {
+    throw new Error(`${label} sin peak=${r.peakSin}`);
+  }
+  if (!(r.peakCos > 0.5 && r.peakCos <= 1.0001)) {
+    throw new Error(`${label} cos peak=${r.peakCos}`);
+  }
+  if (!(r.rms > 0.3 && r.rms < 0.9)) {
+    throw new Error(`${label} rms=${r.rms}`);
+  }
+  console.log(
+    `${label} ok sinPeak=${r.peakSin.toFixed(4)} cosPeak=${r.peakCos.toFixed(4)} rms=${r.rms.toFixed(4)}`,
+  );
+}
+
+assertOk("sinCos poly", peakPair(TYPE_SIN_COS, 0, null));
+assertOk("sinCos wavetable", peakPair(TYPE_SIN_COS, 1, null));
+assertOk("sineWavetable poly", peakPair(TYPE_SINE_WT, 0, 2));
+assertOk("sineWavetable wavetable", peakPair(TYPE_SINE_WT, 1, 2));
+
+console.log(`smoke_graph_sin_cos ok: version=${ver}`);
