@@ -1097,6 +1097,18 @@ extern "C" double soemdsp_phosphillator_sample(
 );
 extern "C" double soemdsp_phosphillator_y(int handle);
 
+// Smooth / Step Graph curve modulators (points uploaded by host).
+extern "C" int soemdsp_smooth_graph_create();
+extern "C" void soemdsp_smooth_graph_destroy(int handle);
+extern "C" double soemdsp_smooth_graph_sample(
+  int handle, double x, double smoothingMode, double tension
+);
+extern "C" int soemdsp_step_graph_create();
+extern "C" void soemdsp_step_graph_destroy(int handle);
+extern "C" double soemdsp_step_graph_sample(
+  int handle, double x, double segmentShape, double curveOffset
+);
+
 
 extern "C" int soemdsp_crossover_create(int bandCount);
 extern "C" void soemdsp_crossover_destroy(int handle);
@@ -1152,6 +1164,7 @@ using soemdsp_maths::dsp_cos;
 using soemdsp_maths::dsp_sin_cos_turns;
 using soemdsp_maths::dsp_floor;
 using soemdsp_maths::dsp_fabs;
+using soemdsp_maths::wrap01;
 using soemdsp_maths::kPlanck;
 
 static const int kMaxInstances = 4;
@@ -1318,6 +1331,8 @@ static const int kTypeNoteTranspose = 142;
 static const int kTypeDegreeTuring = 143;
 static const int kTypeDegreePhrase = 144;
 static const int kTypeGravityWalker = 145;
+static const int kTypeSmoothGraph = 146;
+static const int kTypeStepGraph = 147;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1714,6 +1729,10 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_degree_phrase_destroy(handle);
   } else if (kind == kTypeGravityWalker) {
     soemdsp_gravity_walker_destroy(handle);
+  } else if (kind == kTypeSmoothGraph) {
+    soemdsp_smooth_graph_destroy(handle);
+  } else if (kind == kTypeStepGraph) {
+    soemdsp_step_graph_destroy(handle);
   } else if (kind == kTypeChebyshev) {
     soemdsp_chebyshev_destroy(handle);
   } else if (kind == kTypeElliptic) {
@@ -1927,6 +1946,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAdditivePan) ? 0.25 // AutoPan rate Hz
       : (typeId == kTypeBradley2a) ? 1004.0 // carrier
       : (typeId == kTypeEllipsoid || typeId == kTypeBasicShape) ? 1.0 // RoundShape / LFO clock Hz
+      : (typeId == kTypeSmoothGraph || typeId == kTypeStepGraph) ? 1.0 // rate Hz
       : (typeId == kTypeSnowflake) ? 55.0
       : (typeId == kTypeAntisaw) ? 110.0
       : (typeId == kTypeHarmonicSeries) ? 100.0
@@ -1962,6 +1982,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAdditiveGenerator) ? 0.0 // Saw
       : (typeId == kTypeAdditiveBlaster) ? 1.0 // curveKind Exponential (PoC)
       : (typeId == kTypeAdditiveDiffusor) ? 0.0 // curveKind Rational
+      : (typeId == kTypeStepGraph) ? 0.0 // segmentShape Linear
       : 0.0,
     true
   );
@@ -2002,6 +2023,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHypersaw) ? 1.0 // spread
       : (typeId == kTypeSoftwaveOsc || typeId == kTypeSuperloveFilter
           || typeId == kTypeBasicShape) ? 0.5 // morph/chaos
+      : (typeId == kTypeSmoothGraph) ? 1.0 // tension
       : (typeId == kTypeExpAdsr) ? 0.3 // attackShape
       : (typeId == kTypeAttackDecay) ? 1.0 // curve γ
       : (typeId == kTypeLorenzAttractor) ? 10.0 // sigma
@@ -2023,6 +2045,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeKeplerBouwkamp) ? 0.5 // circles
       : (typeId == kTypePhosphillator) ? 0.5 // sharpness
       : (typeId == kTypeAudioPlayer) ? 0.0 // Scratch
+      : (typeId == kTypeStepGraph) ? 0.0 // curveOffset (CENTER used; shape unused)
       : 0.5,
     (typeId == kTypeSlewLimiter) // discrete Lin/Log/Exp/Smooth
   );
@@ -2081,6 +2104,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeNoteTranspose) ? 0.0 // octaves
       : (typeId == kTypeDegreeTuring || typeId == kTypeDegreePhrase
           || typeId == kTypeGravityWalker) ? 1.0 // octaves
+      : (typeId == kTypeSmoothGraph || typeId == kTypeStepGraph) ? 0.0 // Input mode
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
       : (typeId == kTypePiSpigotNoise) ? 0.0 // color White
       : (typeId == kTypeAudioPlayer) ? 4.0 // Play
@@ -2102,6 +2126,7 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeTuringMachine || typeId == kTypeDegreeTuring
           || typeId == kTypeDegreePhrase) ? 8.0
       : (typeId == kTypeChordPad || typeId == kTypeNoteTranspose) ? 0.0 // degree / semis
+      : (typeId == kTypeSmoothGraph) ? 1.0 // smoothingMode Catmull
       : (typeId == kTypeFractalBrownianNoise) ? 4.0 // octaves
       : (typeId == kTypePiSpigotNoise) ? 1.0 // stride
       : (typeId == kTypePulseExplosion) ? 20.0 // numberOfPulses
@@ -2141,6 +2166,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePulseExplosion) ? 0.5 // centerTime
       : (typeId == kTypeHarmonicSeries) ? 0.0 // offset
       : (typeId == kTypeAdditiveBlaster) ? 0.44 // bias (PoC)
+      : (typeId == kTypeStepGraph) ? 0.0 // curveOffset
       : (typeId == kTypeAdditivePan) ? 0.35 // AutoPan shimmer amount
       : (typeId == kTypeCrossover3) ? 3000.0
       : (typeId == kTypeCrossover4) ? 1000.0
@@ -2945,6 +2971,8 @@ static int create_native_for_type(int typeId, float sampleRate) {
     gravityWalkerEntropy = gravityWalkerEntropy * 1664525u + 1013904223u;
     return soemdsp_gravity_walker_create(gravityWalkerEntropy ? gravityWalkerEntropy : 1u);
   }
+  if (typeId == kTypeSmoothGraph) return soemdsp_smooth_graph_create();
+  if (typeId == kTypeStepGraph) return soemdsp_step_graph_create();
   if (typeId == kTypeChebyshev) return soemdsp_chebyshev_create();
   if (typeId == kTypeElliptic) return soemdsp_elliptic_create();
   if (typeId == kTypeEqFilter || typeId == kTypeBandpass || typeId == kTypeAllpass) {
@@ -6503,6 +6531,96 @@ static void process_gravity_walker(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Shared X drive for Smooth/Step Graph — ports graphSampleXAt:
+// mode 0 Input | 1 LFO (wall-clock samples) | 2 Phasor (accumulate).
+// node.phase: LFO sample counter, or Phasor phase in [0,1).
+// Controls: mode→MODE, rate→FREQUENCY, phase→PHASE,
+// inputMin/Max→inLow/inHigh, outputMin/Max→outLow/outHigh.
+static double graph_curve_sample_x(
+  Circuit& g,
+  Node& node,
+  int f,
+  bool hasIn,
+  double inSample
+) {
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double modeV = node.mode.out;
+  int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+  if (mode < 0) mode = 0;
+  if (mode > 2) mode = 2;
+  const double phaseOff = node.phaseParam.out;
+  const double inLo = node.inLow.out;
+  const double inHi = node.inHigh.out;
+  double inputUnit = 0.0;
+  if (hasIn) {
+    const double span = inHi - inLo;
+    inputUnit = (dsp_fabs(span) < 1.0e-12) ? 0.0 : (inSample - inLo) / span;
+  }
+
+  if (mode <= 0) {
+    return wrap01(inputUnit + phaseOff);
+  }
+
+  double rate = node.frequency.out;
+  if (!(rate == rate) || rate < 0.0) rate = 0.0;
+
+  if (mode >= 2) {
+    double phasor = node.phase;
+    if (!(phasor == phasor)) phasor = 0.0;
+    phasor += rate / sr;
+    phasor -= dsp_floor(phasor);
+    node.phase = phasor;
+    return wrap01(phasor + phaseOff + inputUnit);
+  }
+
+  // LFO: absolute sample index stored in node.phase.
+  double samples = node.phase;
+  if (!(samples == samples) || samples < 0.0) samples = 0.0;
+  const double x = wrap01((samples / sr) * rate + phaseOff + inputUnit);
+  node.phase = samples + 1.0;
+  (void)f;
+  return x;
+}
+
+static void process_smooth_graph(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool controlSmoothing = node_control_smoothing(node);
+  // smoothingMode→STAGES, tension→SHAPE
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double inSample = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const bool hasIn = true; // mix may be silent; map still applies when mode=Input
+    const double x = graph_curve_sample_x(g, node, f, hasIn, inSample);
+    const double y = soemdsp_smooth_graph_sample(
+      node.nativeHandle, x, node.stages.out, node.shape.out
+    );
+    const double out = node.outLow.out + y * (node.outHigh.out - node.outLow.out);
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+static void process_step_graph(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool controlSmoothing = node_control_smoothing(node);
+  // segmentShape→WAVEFORM, curveOffset→CENTER
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double inSample = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double x = graph_curve_sample_x(g, node, f, true, inSample);
+    const double y = soemdsp_step_graph_sample(
+      node.nativeHandle, x, node.waveform.out, node.center.out
+    );
+    const double out = node.outLow.out + y * (node.outHigh.out - node.outLow.out);
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
 // fBm noise: Reset live. frequency/stages=octaves/shape=persistence/center=scale/
 // seed/amplitude. X→Mono Y→Left Z→Right.
 static void process_fractal_brownian_noise(Circuit& g, Node& node, int frames) {
@@ -7979,6 +8097,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeDegreeTuring
     || typeId == kTypeDegreePhrase
     || typeId == kTypeGravityWalker
+    || typeId == kTypeSmoothGraph
+    || typeId == kTypeStepGraph
     || typeId == kTypeChebyshev
     || typeId == kTypeElliptic
     || typeId == kTypeEqFilter
@@ -8645,6 +8765,14 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_gravity_walker(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeSmoothGraph) {
+      process_smooth_graph(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeStepGraph) {
+      process_step_graph(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeChebyshev) {
       process_scientific_iir(*g, node, frames, soemdsp_chebyshev_sample);
       continue;
@@ -9034,7 +9162,6 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  // 103: chordPad(140) + noteGlide(141) + noteTranspose(142)
-  //      + degreeTuring(143) + degreePhrase(144) + gravityWalker(145)
-  return 103;
+  // 104: smoothGraph(146) + stepGraph(147) — native wired, still UC / off allowlist
+  return 104;
 }

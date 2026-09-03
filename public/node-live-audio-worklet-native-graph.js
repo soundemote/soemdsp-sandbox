@@ -66,6 +66,9 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   degreeTuring: 143,
   degreePhrase: 144,
   gravityWalker: 145,
+  // Native wired; remain UC / off NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES until unlock.
+  smoothGraph: 146,
+  stepGraph: 147,
   lutCell: 34,
   lookaheadLimiter: 35,
   limiter: 109, // Pump Limiter
@@ -987,6 +990,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   waveform: true,
   mode: true,
   stages: true,
+  smoothingMode: true,
+  segmentShape: true,
   voices: true,
   oversample: true,
   timingMode: true,
@@ -1517,6 +1522,36 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("octaves", P.NATIVE_GRAPH_PARAM_MODE, disc("octaves", 1));
       push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
       push("scale", P.NATIVE_GRAPH_PARAM_SEED, disc("scale", 1));
+      continue;
+    }
+    if (type === "smoothGraph") {
+      // mode→MODE, rate→FREQUENCY, phase→PHASE, tension→SHAPE,
+      // smoothingMode→STAGES, inputMin/Max→inLow/inHigh, outputMin/Max→outLow/outHigh.
+      // Curve points uploaded separately (syncNativeGraphCurvePoints).
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("rate", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("rate", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("tension", P.NATIVE_GRAPH_PARAM_SHAPE, cont("tension", 1));
+      push("smoothingMode", P.NATIVE_GRAPH_PARAM_STAGES, disc("smoothingMode", 1));
+      push("inputMin", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inputMin", 0));
+      push("inputMax", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inputMax", 1));
+      push("outputMin", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("outputMin", 0));
+      push("outputMax", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("outputMax", 1));
+      continue;
+    }
+    if (type === "stepGraph") {
+      // mode→MODE, rate→FREQUENCY, phase→PHASE, curveOffset→CENTER,
+      // segmentShape→WAVEFORM, inputMin/Max→inLow/inHigh, outputMin/Max→outLow/outHigh.
+      // `steps` is face-only (grid snap); curve points uploaded separately.
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("rate", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("rate", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("curveOffset", P.NATIVE_GRAPH_PARAM_CENTER, cont("curveOffset", 0));
+      push("segmentShape", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("segmentShape", 0));
+      push("inputMin", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inputMin", 0));
+      push("inputMax", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inputMax", 1));
+      push("outputMin", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("outputMin", 0));
+      push("outputMax", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("outputMax", 1));
       continue;
     }
     if (
@@ -2707,6 +2742,135 @@ NodeLiveAudioProcessor.prototype.ensureNativeAudioPlayerInternalSmoothing =
   };
 
 /**
+ * Upload Smooth/Step Graph face points into native curve kernels (≤32).
+ * Mirrors phosphillator path / audioPlayer PCM: write SoA floats, set_points,
+ * re-read memory.buffer after any grow. Face editing stays JS.
+ */
+NodeLiveAudioProcessor.prototype.syncNativeGraphCurvePoints = function syncNativeGraphCurvePoints() {
+  if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+    return;
+  }
+  const native = this.nativeGraph;
+  if (!native?.soemdsp_graph_node_native_handle || !native.memory?.buffer) return;
+
+  const cache = this._nativeGraphCurveCache || (this._nativeGraphCurveCache = new Map());
+  const shapeIndex = (value) => {
+    const shapes = ["linear", "rational", "exponential", "log", "smoothstep", "hold"];
+    if (Number.isFinite(Number(value)) && String(value).trim() !== "") {
+      return Math.max(0, Math.min(shapes.length - 1, Math.round(Number(value))));
+    }
+    let s = String(value || "").trim().toLowerCase();
+    if (s === "logarithmic") s = "log";
+    if (s === "smooth") s = "smoothstep";
+    const idx = shapes.indexOf(s);
+    return idx >= 0 ? idx : 1;
+  };
+  const normalizeNode = (value, index) => {
+    const source = value && typeof value === "object" ? value : {};
+    const fallback = index <= 0
+      ? { c: 0, shape: "linear", x: 0, y: 0 }
+      : { c: 0, shape: "rational", x: 1, y: 1 };
+    const num = (v, fb, lo = -Infinity, hi = Infinity) => {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return fb;
+      return Math.max(lo, Math.min(hi, n));
+    };
+    return {
+      c: num(source.c, fallback.c, -1, 1),
+      shape: shapeIndex(source.shape ?? fallback.shape),
+      x: num(source.x, fallback.x, 0, 1),
+      y: num(source.y, fallback.y, 0, 1),
+    };
+  };
+  const nodesForUpload = (node) => {
+    const raw = Array.isArray(node?.graph?.nodes) && node.graph.nodes.length >= 2
+      ? node.graph.nodes
+      : [{ c: 0, shape: "linear", x: 0, y: 0 }, { c: 0, shape: "rational", x: 1, y: 1 }];
+    let pts = raw.slice(0, 32).map((p, i) => normalizeNode(p, i));
+    pts.sort((a, b) => a.x - b.x);
+    if (Number(node?.params?.lockEndpointY) >= 0.5 && pts.length >= 2) {
+      const anchorY = pts[0].y;
+      pts[0] = { ...pts[0], y: anchorY };
+      pts[pts.length - 1] = { ...pts[pts.length - 1], y: anchorY };
+    }
+    return pts;
+  };
+  const fingerprint = (pts) => pts.map((p) => `${p.x},${p.y},${p.c},${p.shape}`).join(";");
+
+  for (const [nodeId, node] of this.nodes) {
+    const type = String(node?.type || "");
+    const isSmooth = type === "smoothGraph";
+    const isStep = type === "stepGraph";
+    if (!isSmooth && !isStep) continue;
+
+    const hash = this.fnv1aHash32(nodeId);
+    let handle = 0;
+    try {
+      handle = native.soemdsp_graph_node_native_handle(this.nativeGraphHandle, hash) | 0;
+    } catch (_e) {
+      handle = 0;
+    }
+    if (!(handle > 0)) continue;
+
+    const pts = nodesForUpload(node);
+    const fp = fingerprint(pts);
+    const prev = cache.get(nodeId);
+    if (prev && prev.fp === fp && prev.type === type) continue;
+
+    const setPoints = isSmooth
+      ? native.soemdsp_smooth_graph_set_points
+      : native.soemdsp_step_graph_set_points;
+    const xPtrFn = isSmooth
+      ? native.soemdsp_smooth_graph_points_x_ptr
+      : native.soemdsp_step_graph_points_x_ptr;
+    const yPtrFn = isSmooth
+      ? native.soemdsp_smooth_graph_points_y_ptr
+      : native.soemdsp_step_graph_points_y_ptr;
+    if (typeof setPoints !== "function" || typeof xPtrFn !== "function") continue;
+
+    let xPtr = 0;
+    let yPtr = 0;
+    let cPtr = 0;
+    let shapePtr = 0;
+    try {
+      xPtr = xPtrFn(handle) | 0;
+      yPtr = yPtrFn(handle) | 0;
+      if (isStep) {
+        cPtr = native.soemdsp_step_graph_points_c_ptr?.(handle) | 0;
+        shapePtr = native.soemdsp_step_graph_points_shape_ptr?.(handle) | 0;
+      }
+    } catch (_e) {
+      xPtr = 0;
+    }
+    if (!(xPtr > 0) || !(yPtr > 0)) continue;
+
+    const n = pts.length;
+    // memory.grow detaches old buffers — always re-read memory.buffer.
+    const xs = new Float32Array(native.memory.buffer, xPtr, n);
+    const ys = new Float32Array(native.memory.buffer, yPtr, n);
+    for (let i = 0; i < n; i += 1) {
+      xs[i] = pts[i].x;
+      ys[i] = pts[i].y;
+    }
+    if (isStep && cPtr > 0 && shapePtr > 0) {
+      const cs = new Float32Array(native.memory.buffer, cPtr, n);
+      const ss = new Float32Array(native.memory.buffer, shapePtr, n);
+      for (let i = 0; i < n; i += 1) {
+        cs[i] = pts[i].c;
+        ss[i] = pts[i].shape;
+      }
+    }
+    let ok = 0;
+    try {
+      ok = setPoints(handle, n) | 0;
+    } catch (_e) {
+      ok = 0;
+    }
+    if (ok) cache.set(nodeId, { fp, type });
+  }
+};
+
+/**
  * Copy Music Player planar PCM from this.samples into native audio_player
  * buffers (set_pcm + l_ptr/r_ptr). Re-binds TypedArrays after memory.grow.
  * Full tracks stay supported — same data the JS peel already held.
@@ -2974,14 +3138,16 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
 
     this.nativeGraphCompiled = true;
     this._nativeGraphTopologyKey = this.nativeGraphTopologyKey();
-    // New native handles — force PCM re-upload.
+    // New native handles — force PCM / curve re-upload.
     this._nativeAudioPlayerPcmCache = new Map();
+    this._nativeGraphCurveCache = new Map();
     this.syncNativeGraphParams();
     // Graph recreate starts Controls at C++ defaults; after targets are
     // written, snap so engine-start does not ramp from defaults → patch.
     this.snapNativeGraphControls();
     this.syncNativeGraphBypass();
     this.syncNativeAudioPlayerPcm?.();
+    this.syncNativeGraphCurvePoints?.();
     this.postNativeGraphStatus("compiled", `nodes=${nodes.length}`);
     return true;
   } catch (error) {
@@ -3487,6 +3653,8 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
   this.syncNativeYellowCutoffStrips?.(frames);
   // Upload / refresh Music Player PCM when sample id or length changes.
   this.syncNativeAudioPlayerPcm?.();
+  // Upload Smooth/Step Graph curve points when face nodes change.
+  this.syncNativeGraphCurvePoints?.();
 
   // Yellow Graph: skip JS sidecar when all additive* DSP nodes are native A1+A2.
   const useYellowSidecar = typeof this.processAdditiveYellowGraphSidecar === "function"
