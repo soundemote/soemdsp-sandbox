@@ -10,9 +10,12 @@ setlocal enabledelayedexpansion
 ::    it runs alongside the local sandbox server instead of blocking this
 ::    window).
 :: 2) Starts THIS local sandbox server in RELEASE mode (BUILD_MODE=release --
-::    the debug console's bug button renders neutral instead of red; see
-::    node-graph-debug-console.js).
+::    bug button neutral; boot OS/GPU/RAM sysinfo hidden; START SANDBOX gate
+::    still required before deferred scripts load).
 :: 3) Launches soundemote-site's own npm dev server in its own window.
+::    Sync hardcodes BUILD_MODE=release into the vendored site copy, omits
+::    personal useruisettings / examples / workbenches, and writes
+::    RELEASE_MANIFEST.json (wasm sha256) for deploy review.
 ::
 :: You end up with two windows: the local sandbox (port 8765, this repo's
 :: own server.py), and soundemote-site's dev server (port 8080) -- both

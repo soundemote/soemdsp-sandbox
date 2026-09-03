@@ -80,8 +80,44 @@ $buildToken = ($sandboxVersion -replace "[^A-Za-z0-9]", "").ToUpper()
 if ($buildToken.Length -gt 4) { $buildToken = $buildToken.Substring(0, 4) }
 if (-not $buildToken) { $buildToken = "LIVE" }
 $indexHtml = $indexRaw.Replace("{{SANDBOX_VERSION}}", $sandboxVersion).Replace("{{BUILD_NUMBER}}", $buildNumber).Replace("{{BUILD_MODE}}", $buildMode).Replace("{{BUILD_TOKEN}}", $buildToken)
+# Drop debug-only deferred script tags from the static release shell so START
+# does not fetch evidence/debug chrome. Keep node-graph-debug-console.js (bug
+# button stays available; release only changes its color via BUILD_MODE).
+$releaseOmitScriptSubstrings = @(
+  "node-graph-execution-debug-api.js",
+  "node-graph-execution-debug-view.js",
+  "node-graph-debug-copy.js",
+  "legacy-evidence-checklist-view.js",
+  "legacy-evidence-proof-view.js",
+  "legacy-evidence-views.js",
+  "hands-on-readiness-waveform-labels.js",
+  "hands-on-readiness-primary-labels.js",
+  "hands-on-readiness-artifact-labels.js",
+  "hands-on-readiness-signal-inspection-labels.js",
+  "hands-on-readiness-phase-parameter-labels.js",
+  "hands-on-readiness-probe-labels.js",
+  "hands-on-readiness.js",
+  "artifact-report-utils.js",
+  "artifact-report-reports.js",
+  "artifact-list-view.js",
+  "artifact-coverage-view.js",
+  "manifest-source-view.js",
+  "legacy-evidence"
+)
+$omitCount = 0
+$indexHtml = [regex]::Replace($indexHtml, '<script\b[^>]*>\s*</script>\s*', {
+  param($m)
+  $tag = $m.Value
+  foreach ($frag in $releaseOmitScriptSubstrings) {
+    if ($tag -like "*$frag*") {
+      $script:omitCount++
+      return ""
+    }
+  }
+  return $tag
+})
 [System.IO.File]::WriteAllText((Join-Path $dst "index.html"), $indexHtml, (New-Object System.Text.UTF8Encoding($false)))
-Write-Host "  index.html (v$sandboxVersion, build $buildNumber, mode $buildMode -- placeholders filled)"
+Write-Host "  index.html (v$sandboxVersion, build $buildNumber, mode $buildMode -- placeholders filled; omitted $omitCount debug script tags)"
 Copy-Item -LiteralPath (Join-Path $srcPublic "native-modules-catalog.json") -Destination (Join-Path $dst "native-modules-catalog.json") -Force
 
 # --- native_modules/: mirror ONLY the combined binary, not the ~78 individual
@@ -106,8 +142,14 @@ if (!(Test-Path -LiteralPath $dstCombinedDir)) { New-Item -ItemType Directory -P
 Copy-Item -LiteralPath $srcCombinedWasm -Destination (Join-Path $dstCombinedDir "soemdsp_combined.wasm") -Force
 Write-Host "  native_modules\combined\soemdsp_combined.wasm"
 
-# --- public/: full mirror, excluding the two files already handled above ---
-$excludeTop = @("index.html", "native-modules-catalog.json")
+# --- public/: mirror for release embed ---
+# Always omit local-dev / personal / example trees. The site copy is release-only.
+$excludeTop = @(
+  "index.html",
+  "native-modules-catalog.json",
+  "examples",       # local HTML demos
+  "workbenches"     # experimental local benches
+)
 $dstPublic = Join-Path $dst "public"
 
 function Sync-Dir([string]$SrcDir, [string]$DstDir, [string[]]$ExcludeNames = @()) {
@@ -129,6 +171,8 @@ function Sync-Dir([string]$SrcDir, [string]$DstDir, [string[]]$ExcludeNames = @(
     if ($entry.PSIsContainer) {
       Sync-Dir -SrcDir $entry.FullName -DstDir $dstPath
     } else {
+      # Never ship source maps or editor junk into the public embed.
+      if ($entry.Extension -in @(".map", ".tmp", ".bak")) { continue }
       $needsCopy = $true
       if (Test-Path -LiteralPath $dstPath) {
         $dstItem = Get-Item -LiteralPath $dstPath
@@ -145,5 +189,84 @@ function Sync-Dir([string]$SrcDir, [string]$DstDir, [string[]]$ExcludeNames = @(
 
 Sync-Dir -SrcDir $srcPublic -DstDir $dstPublic -ExcludeNames $excludeTop
 
-Write-Host "Sync complete."
+# Personal UI prefs must not ship. Rebuild bundled defaults from the template.
+$presetsDir = Join-Path $dstPublic "presets"
+$defaultUiTemplate = Join-Path $srcPublic "presets\useruisettings.default.json"
+if (!(Test-Path -LiteralPath $defaultUiTemplate)) {
+  throw "Missing public/presets/useruisettings.default.json -- cannot build release UI settings."
+}
+$defaultUiJson = [System.IO.File]::ReadAllText($defaultUiTemplate, [System.Text.Encoding]::UTF8)
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText((Join-Path $presetsDir "useruisettings.default.json"), $defaultUiJson, $utf8NoBom)
+[System.IO.File]::WriteAllText((Join-Path $presetsDir "useruisettings.json"), $defaultUiJson, $utf8NoBom)
+$bundledJs = @"
+(function (settings) {
+  window.nodeUiDevBundledDefaultSettings = settings;
+  document.documentElement.dataset.nodeUiDevBundledDefaultSettings = JSON.stringify(settings);
+})($defaultUiJson);
+"@
+[System.IO.File]::WriteAllText((Join-Path $presetsDir "useruisettings.js"), $bundledJs, $utf8NoBom)
+Write-Host "  presets/useruisettings.* rebuilt from default template (personal prefs not shipped)"
+
+# --- Release tree integrity (fail loud before site deploy) ---
+$dstIndex = Join-Path $dst "index.html"
+$dstIndexText = [System.IO.File]::ReadAllText($dstIndex, [System.Text.Encoding]::UTF8)
+$dstWasm = Join-Path $dstCombinedDir "soemdsp_combined.wasm"
+$wasmBytes = [System.IO.File]::ReadAllBytes($dstWasm)
+if ($wasmBytes.Length -lt 100000) {
+  throw "Release combined wasm looks too small ($($wasmBytes.Length) bytes)."
+}
+if ($wasmBytes[0] -ne 0 -or [char]$wasmBytes[1] -ne 'a' -or [char]$wasmBytes[2] -ne 's' -or [char]$wasmBytes[3] -ne 'm') {
+  throw "Release combined wasm missing \0asm magic."
+}
+foreach ($needle in @("{{SANDBOX_VERSION}}", "{{BUILD_NUMBER}}", "{{BUILD_MODE}}", "{{BUILD_TOKEN}}")) {
+  if ($dstIndexText.Contains($needle)) {
+    throw "Release index still contains unsubstituted placeholder $needle"
+  }
+}
+if ($dstIndexText -notmatch 'data-build-mode-value="release"') {
+  throw "Release index missing data-build-mode-value=`"release`""
+}
+if ($dstIndexText -notmatch "START SANDBOX") {
+  throw "Release index missing START SANDBOX boot gate"
+}
+if ($dstIndexText -notmatch "data-boot-defer") {
+  throw "Release index missing data-boot-defer script gate (would auto-load everything)"
+}
+$forbiddenTwinGlobs = @(
+  (Join-Path $dstPublic "modules\pingPongDelay\*-live-evaluator.js"),
+  (Join-Path $dstPublic "modules\pingPongDelay\*-worklet-evaluator.js")
+)
+foreach ($glob in $forbiddenTwinGlobs) {
+  $hits = @(Get-Item -Path $glob -ErrorAction SilentlyContinue)
+  if ($hits.Count -gt 0) {
+    throw "Release tree still contains nuked JS twin: $($hits[0].FullName)"
+  }
+}
+if (Test-Path -LiteralPath (Join-Path $dstPublic "examples")) {
+  throw "Release tree must not include public/examples"
+}
+if (Test-Path -LiteralPath (Join-Path $dstPublic "workbenches")) {
+  throw "Release tree must not include public/workbenches"
+}
+
+# SHA-256 of the shipped wasm for deploy review / drift checks.
+$sha = [System.BitConverter]::ToString(
+  [System.Security.Cryptography.SHA256]::Create().ComputeHash($wasmBytes)
+).Replace("-", "").ToLowerInvariant()
+$manifest = @{
+  kind = "soemdsp-sandbox-release-tree"
+  version = 1
+  sandboxVersion = $sandboxVersion
+  buildNumber = $buildNumber
+  buildMode = $buildMode
+  buildToken = $buildToken
+  combinedWasmBytes = $wasmBytes.Length
+  combinedWasmSha256 = $sha
+  syncedUtc = [DateTime]::UtcNow.ToString("o")
+} | ConvertTo-Json -Depth 4
+[System.IO.File]::WriteAllText((Join-Path $dst "RELEASE_MANIFEST.json"), $manifest + "`n", $utf8NoBom)
+Write-Host "  RELEASE_MANIFEST.json (wasm sha256=$sha)"
+
+Write-Host "Release sync OK (BUILD_MODE=release, START gate present, personal prefs omitted)."
 Write-Host "Review with: git -C `"$($siteRootResolved.Path)`" status, then commit + push from soundemote-site."
