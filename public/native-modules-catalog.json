@@ -62,6 +62,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "arp",
+      "label": "Arp",
+      "targetType": "arp",
+      "kind": "pitch",
+      "source": "native_modules/arp/arp.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/arp/arp.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/arp/arp.wasm",
+      "wasmUrl": "native_modules/arp/arp.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "attack_decay",
       "label": "Attack Decay",
       "targetType": "attackDecay",
@@ -155,6 +167,18 @@
       "libUrl": "",
       "wasm": "native_modules/bias/bias.wasm",
       "wasmUrl": "native_modules/bias/bias.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "binary_clock",
+      "label": "Binary Clock",
+      "targetType": "binaryClock",
+      "kind": "utility",
+      "source": "native_modules/binary_clock/binary_clock.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/binary_clock/binary_clock.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/binary_clock/binary_clock.wasm",
+      "wasmUrl": "native_modules/binary_clock/binary_clock.wasm",
       "wasmAvailable": true
     },
     {
@@ -962,6 +986,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "phase_disperse",
+      "label": "Phase Disperse",
+      "targetType": "phaseDisperse",
+      "kind": "filter",
+      "source": "native_modules/phase_disperse/phase_disperse.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/phase_disperse/phase_disperse.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/phase_disperse/phase_disperse.wasm",
+      "wasmUrl": "native_modules/phase_disperse/phase_disperse.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "phone_tone",
       "label": "Phone Tone",
       "targetType": "phoneTone",
@@ -1079,6 +1115,18 @@
       "libUrl": "",
       "wasm": "native_modules/pumping_limiter/pumping_limiter.wasm",
       "wasmUrl": "native_modules/pumping_limiter/pumping_limiter.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "quadrature",
+      "label": "Hilbert Pair",
+      "targetType": "quadrature",
+      "kind": "filter",
+      "source": "native_modules/quadrature/quadrature.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/quadrature/quadrature.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/quadrature/quadrature.wasm",
+      "wasmUrl": "native_modules/quadrature/quadrature.wasm",
       "wasmAvailable": true
     },
     {
@@ -1274,6 +1322,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "smooth_graph",
+      "label": "Smooth Graph",
+      "targetType": "smoothGraph",
+      "kind": "modulator",
+      "source": "native_modules/smooth_graph/smooth_graph.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/smooth_graph/smooth_graph.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/smooth_graph/smooth_graph.wasm",
+      "wasmUrl": "native_modules/smooth_graph/smooth_graph.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "snowflake",
       "label": "Snowflake",
       "targetType": "snowflake",
@@ -1343,6 +1403,18 @@
       "libUrl": "",
       "wasm": "native_modules/speaker_protector2/speaker_protector2.wasm",
       "wasmUrl": "native_modules/speaker_protector2/speaker_protector2.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "step_graph",
+      "label": "Step Graph",
+      "targetType": "stepGraph",
+      "kind": "modulator",
+      "source": "native_modules/step_graph/step_graph.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/step_graph/step_graph.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/step_graph/step_graph.wasm",
+      "wasmUrl": "native_modules/step_graph/step_graph.wasm",
       "wasmAvailable": true
     },
     {
