@@ -134,7 +134,7 @@ function nodeGraphTraceDisplayInstantTraceBlurField(key) {
     && nodeGraphDisplaySettingsIsVectorTraceFormType(type);
 }
 
-/** History window fields (seconds) — use exponential control mapping. */
+/** History / sweep dials — exponential control mapping (units depend on key). */
 function nodeGraphTraceDisplayHistoryControlField(key) {
   return key === "historySeconds"
     || key === "zoomSeconds"
@@ -255,6 +255,14 @@ function nodeGraphTraceDisplayHistoryControlRange(key) {
   const formType = typeof nodeGraphTraceDisplaySettingsFormType === "function"
     ? nodeGraphTraceDisplaySettingsFormType()
     : "";
+  // Hz dials: Hz domain (0 allowed = freeze). Never reuse the seconds 0…10 range.
+  if (key === "historyHz" || key === "sweepHz") {
+    return { min: 0, max: 100 };
+  }
+  // Cycles dials.
+  if (key === "historyCycles" || key === "sweepCycles") {
+    return { min: 0.05, max: 100 };
+  }
   if (key === "historySeconds" && formType === "spectrogramBurn") {
     return { min: 0.1, max: 30 };
   }
@@ -307,7 +315,7 @@ function nodeGraphTraceDisplayControlToSizeValue(value, max = 1) {
 }
 
 function adjustNodeGraphTraceDisplaySettingByControlDelta(key, startValue, delta) {
-  // History (s): exp control-space so most useful short windows sit near 0.
+  // History/Sweep dials: exp control-space in the key's own units (s, Hz, or cycles).
   if (nodeGraphTraceDisplayHistoryControlField(key)) {
     const { min, max } = nodeGraphTraceDisplayHistoryControlRange(key);
     return nodeGraphTraceDisplayControlToSecondsValue(
@@ -461,7 +469,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
     : clampNodeSliderValue(Number(value) || 4, 0.05, 100)),
   historyHz: (value) => (typeof nodeGraphTraceDisplayClampHistoryHz === "function"
     ? nodeGraphTraceDisplayClampHistoryHz(value, 4)
-    : clampNodeSliderValue(Number(value) || 4, 0.01, 100)),
+    : Math.max(0, Math.min(100, Number(value) || 4))),
   historyCycles: (value) => (typeof nodeGraphTraceDisplayClampHistoryCycles === "function"
     ? nodeGraphTraceDisplayClampHistoryCycles(value, 4)
     : clampNodeSliderValue(Number(value) || 4, 0.05, 100)),

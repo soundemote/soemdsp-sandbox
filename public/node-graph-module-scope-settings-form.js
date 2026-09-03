@@ -22,7 +22,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = syncOn ? "History (c)" : "History (Hz)";
     title = syncOn
       ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods), stretched across the full face. Rising zero-crossing locks phase."
-      : "History window rate in Hz (seconds = 1/Hz). Higher = shorter / faster scroll.";
+      : "History window rate in Hz (seconds = 1/Hz). Higher = shorter / faster scroll. 0 = freeze / now-line.";
   } else if ((key === "historyHz" || key === "historyCycles" || key === "zoomSeconds" || key === "historySeconds") && (
     formType === "traceXyz"
     || formType === "gradientVectorscopeFace"

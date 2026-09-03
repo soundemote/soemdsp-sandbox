@@ -351,7 +351,7 @@ function nodeGraphTraceDisplayHistorySampleCount(buffer, settings, options = {})
       safeSettings.historyHz,
       nodeGraphTraceDisplaySettingsDefaults?.historyHz ?? 4,
     )
-    : Math.max(0.01, Number(safeSettings.historyHz) || 4);
+    : Math.max(0, Number(safeSettings.historyHz) || 4);
   if (!(historyHz > 0)) {
     return Math.max(1, buffer?.length || 1);
   }

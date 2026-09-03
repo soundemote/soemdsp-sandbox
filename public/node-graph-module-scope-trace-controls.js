@@ -1132,7 +1132,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "History (Hz)",
     inputmode: "decimal",
     id: "nodeTraceDisplayHistoryHz",
-    title: "Sync Off: history window rate in Hz (seconds = 1/Hz). Sync On uses History (c) instead.",
+    title: "Sync Off: history window rate in Hz (seconds = 1/Hz). 0 = freeze / now-line. Sync On uses History (c) instead.",
   }),
   historyCycles: Object.freeze({
     label: "History (c)",

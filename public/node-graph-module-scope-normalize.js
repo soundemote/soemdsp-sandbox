@@ -654,17 +654,18 @@ function normalizeNodeGraphLineBurnSweepSeconds(source, defaults) {
   return pair.sweepHz > 0 ? 1 / pair.sweepHz : 0;
 }
 
-/** Sync-off History: window rate in Hz (seconds = 1/Hz). */
+/** Sync-off History: window rate in Hz (seconds = 1/Hz). 0 = freeze / now-line. */
 function nodeGraphTraceDisplayClampHistoryHz(value, fallback = 4) {
   const n = Number(value);
   if (!Number.isFinite(n)) {
     const fb = Number(fallback);
-    return Number.isFinite(fb) ? Math.max(0.01, fb) : 4;
+    return Number.isFinite(fb) ? Math.max(0, fb) : 4;
   }
   if (n <= 0) {
-    return 0.01;
+    return 0;
   }
-  return clampNodeSliderValue(n, 0.01, 100);
+  // Soft upper only — no seconds floor. Phosphor Sweep has its own 0 = burn.
+  return Math.min(100, n);
 }
 
 /** Sync-on History: cycles in view. */
@@ -696,14 +697,15 @@ function normalizeNodeGraphTraceHistoryPair(source, defaults = {}) {
       cycles = Number.isFinite(defCycles) ? defCycles : 4;
     }
   }
-  const sweepHz = nodeGraphTraceDisplayClampHistoryHz(hz, defHz);
-  const sweepCycles = nodeGraphTraceDisplayClampHistoryCycles(cycles, defCycles);
+  const historyHz = nodeGraphTraceDisplayClampHistoryHz(hz, defHz);
+  const historyCycles = nodeGraphTraceDisplayClampHistoryCycles(cycles, defCycles);
   return {
-    historyHz: sweepHz,
-    historyCycles: sweepCycles,
+    historyHz,
+    historyCycles,
     // Derived for capture / older callers that still read seconds.
-    historySeconds: sweepHz > 0 ? 1 / sweepHz : 0.25,
-    zoomSeconds: sweepHz > 0 ? 1 / sweepHz : 0.25,
+    // 0 Hz → 0 s (waterfall now-line / freeze), not a fake 0.25 s window.
+    historySeconds: historyHz > 0 ? 1 / historyHz : 0,
+    zoomSeconds: historyHz > 0 ? 1 / historyHz : 0,
   };
 }
 

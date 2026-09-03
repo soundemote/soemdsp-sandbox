@@ -1019,6 +1019,10 @@ function readNodeGraphTraceDisplaySettingsForm() {
         if (Number.isFinite(hz) && hz > 0) {
           next.historySeconds = String(1 / hz);
           next.zoomSeconds = String(1 / hz);
+        } else if (Number.isFinite(hz) && hz <= 0) {
+          // 0 Hz = freeze / now-line (not a leftover seconds window).
+          next.historySeconds = "0";
+          next.zoomSeconds = "0";
         }
       }
       if (key === "sweepHz") {
