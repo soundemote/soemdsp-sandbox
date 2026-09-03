@@ -1447,6 +1447,10 @@ function startNodeGraphModuleTitleEdit(primaryInput, pointerEvent = null) {
   if (primaryInput.dataset.titleLocked === "1") {
     return;
   }
+  // Already in edit on this field — do not PlaceCaretAtPoint (kills word select).
+  if (primaryInput.dataset.titleEditing === "1") {
+    return;
+  }
   const primaryId = String(primaryInput.dataset.node || "");
   if (!primaryId) {
     return;

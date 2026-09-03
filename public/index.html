@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=JetBrains+Mono:wght@400;500;600;700&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=keyboard-no-clip-1">
+  <link rel="stylesheet" href="./public/styles.css?v=edit-dblclick-word-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=portal-thru-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -139,6 +139,26 @@
     </div>
   </div>
   <script src="./public/boot-loading.js?v=boot-chrome-workspace-recover-3"></script>
+  <script>
+    // Stub before the bulk of classic scripts. node-graph-state.js replaces this
+    // with the real object; without a stub, any early rAF/handler that touches
+    // zoom/patch/rendered/live throws and aborts sandbox startup.
+    window.nodeGraphMvp = window.nodeGraphMvp || {
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      rendered: null,
+      live: {},
+      patch: { nodes: [], connections: [], modulations: [], graphConnections: [] },
+      connections: [],
+      graphConnections: [],
+      activeNodes: new Set(),
+      sliderDragging: null,
+      tooltips: {},
+      macroKnobArcThickness: 7,
+      midiKeyboardKeyCount: 25,
+      efficientProduct: true,
+    };
+  </script>
   <main class="shell">
     <section class="status-strip" aria-label="Sandbox status">
       <div>
@@ -3627,7 +3647,7 @@
   <script src="./public/node-graph-text-box-utils.js?v=textbox-vertical-simple-1"></script>
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-image-utils.js?v=keypad-bgi-1"></script>
-  <script src="./public/node-graph-graph-utils.js?v=graph-settings-list-1"></script>
+  <script src="./public/node-graph-graph-utils.js?v=contour-planck-soft-1"></script>
   <script src="./public/node-graph-samples.js?v=mp-stutter-1"></script>
   <script src="./public/modules/audioPlayer/audio-player-library.js?v=mp-stutter-1"></script>
   <script src="./public/modules/audioPlayer/audio-player-playlist.js?v=mp-ignore-info-1"></script>
@@ -3638,7 +3658,7 @@
   <script src="./public/node-graph-phosphillator.js?v=phasor-stdlib-1"></script>
   <script src="./public/node-graph-embed-config.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-resources.js?v=embed-config-20260701"></script>
-  <script src="./public/modules/textBox/text-box-widget.js?v=textbox-vertical-simple-1"></script>
+  <script src="./public/modules/textBox/text-box-widget.js?v=edit-dblclick-word-1"></script>
   <script src="./public/modules/textBox/text-box-animated.js?v=title-label-1"></script>
   <script src="./public/modules/textBox/text-box-host.js?v=textbox-lineheight-fix-1"></script>
   <script src="./public/modules/textBox/text-box-settings.js?v=textbox-vertical-simple-1"></script>
@@ -3663,10 +3683,10 @@
   <script src="./public/node-graph-workspace-view.js?v=pan-log-1"></script>
   <script src="./public/node-graph-camera-view.js?v=mag-trace-2"></script>
   <script src="./public/node-graph-marquee-selection.js?v=snake-shift-ink-1"></script>
-  <script src="./public/node-graph-node-dragging.js?v=plugin-btn-hit-1"></script>
-  <script src="./public/node-graph-context-menu.js?v=wire-labels-1"></script>
+  <script src="./public/node-graph-node-dragging.js?v=title-restore-1"></script>
+  <script src="./public/node-graph-context-menu.js?v=title-restore-1"></script>
   <script src="./public/node-graph-magnifier.js?v=mag-trace-2"></script>
-  <script src="./public/node-graph-module-actions.js?v=portal-mlr-1"></script>
+  <script src="./public/node-graph-module-actions.js?v=edit-dblclick-word-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
   <script src="./public/lib/phosphor/phosphor-residual.js?v=ghost-trail-1"></script>
   <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=ghost-trail-1"></script>
@@ -3683,15 +3703,15 @@
   <script type="module" src="./public/color-widget-boot.js?v=hue-reset-red-1"></script>
   <script src="./public/modules/spectrogram/spectrogram-gradient-editor.js?v=grad-no-highlight-1"></script>
   <script src="./public/node-graph-module-scope-defaults.js?v=good-trace-1"></script>
-  <script src="./public/=history-hz-0-1"></script>
+  <script src="./public/node-graph-module-scope-normalize.js?v=history-hz-0-1"></script>
   <script src="./public/node-graph-module-scope-display-mode.js?v=wave-port-1"></script>
   <script src="./public/node-graph-module-scope-face-canvas.js?v=face-ssot-1"></script>
   <script src="./public/node-graph-module-scope-phosphor.js?v=face-ssot-1"></script>
   <script src="./public/latch-button.js?v=ui-improvements-1"></script>
-  <script src="./public/=history-hz-0-1"></script>
-  <script src="./public/=history-hz-0-1"></script>
+  <script src="./public/node-graph-module-scope-settings-form.js?v=history-hz-0-1"></script>
+  <script src="./public/node-graph-module-scope-settings-controls.js?v=history-hz-0-1"></script>
   <!-- Display Settings peel: form-io → field-edit → apply → window → thin ui anchor -->
-  <script src="./public/=history-hz-0-1"></script>
+  <script src="./public/node-graph-module-scope-settings-form-io.js?v=history-hz-0-1"></script>
   <script src="./public/node-graph-module-scope-settings-field-edit.js?v=mp-fix-2"></script>
   <script src="./public/node-graph-module-scope-settings-apply.js?v=defaults-factory-apply-1"></script>
   <script src="./public/node-graph-module-scope-settings-window.js?v=cc-seat-ssot-1"></script>
@@ -3703,7 +3723,7 @@
   <script src="./public/node-graph-module-scopes.js?v=clear-pause-bright-1"></script>
   <script src="./public/node-graph-module-scope-spectrum.js?v=wf-rgb-1"></script>
   <script src="./public/node-graph-module-scope-buffer-io.js?v=pause-hold-1"></script>
-  <script src="./public/=history-hz-0-1"></script>
+  <script src="./public/node-graph-module-scope-sync.js?v=history-hz-0-1"></script>
   <script src="./public/node-graph-module-scope-metrics.js?v=gpu-stamps-2"></script>
   <script src="./public/node-graph-module-scope-geometry.js?v=scope-paint-loop-1"></script>
   <script src="./public/node-graph-module-scope-webgl.js?v=trace-line-1"></script>
@@ -3715,14 +3735,14 @@
   <script src="./public/node-graph-module-scope-monitors.js?v=scope-monitors-1"></script>
   <script src="./public/node-graph-module-scope-scene-controls.js?v=screen-solo-1"></script>
   <script src="./public/node-graph-module-scope-shader-settings.js?v=scope-shader-settings-1"></script>
-  <script src="./public/=history-hz-0-1"></script>
+  <script src="./public/node-graph-module-scope-trace-controls.js?v=history-hz-0-1"></script>
   <script src="./public/node-graph-module-scope-wipe.js?v=ui-improvements-1"></script>
   <script src="./public/node-graph-module-scope-graph-query.js?v=fps-1-no-double-1"></script>
   <script src="./public/node-graph-module-scope-settings.js?v=scope-sync-off-1"></script>
   <script src="./public/node-graph-module-scope-lifecycle.js?v=pause-hold-3"></script>
   <script src="./public/node-graph-module-scope-paint-gate.js?v=face-idle-1"></script>
   <script src="./public/node-graph-module-scope-canvas.js?v=paint-gate-1"></script>
-  <script src="./public/=history-hz-0-1"></script>
+  <script src="./public/node-graph-module-scope-waterfall.js?v=history-hz-0-1"></script>
   <script src="./public/node-graph-module-scope-paint-helpers.js?v=even-thin-1"></script>
   <script src="./public/node-graph-module-scope-draw-orchestrator.js?v=rgb-shape-3"></script>
   <script src="./public/modules/lookaheadLimiter/lookahead-limiter-display.js?v=limiter-gain-face-1"></script>
@@ -3770,8 +3790,8 @@
   <script src="./public/modules/portal/portal-math.js?v=portal-lanes-1"></script>
   <script src="./public/modules/portal/portal-settings.js?v=portal-lanes-1"></script>
   <script src="./public/modules/portal/portal-ui.js?v=portal-thru-1"></script>
-  <script src="./public/node-graph-module-header-rendering.js?v=render-end-ro-1"></script>
-  <script src="./public/node-graph-module-rendering.js?v=face-registry-1"></script>
+  <script src="./public/node-graph-module-header-rendering.js?v=edit-dblclick-word-1"></script>
+  <script src="./public/node-graph-module-rendering.js?v=edit-dblclick-word-1"></script>
   <script src="./public/node-graph-module-frame.js?v=port-io-half-slot-1"></script>
   <script src="./public/node-graph-history.js?v=book-ui-script-1"></script>
   <script src="./public/node-graph-visual-utils.js?v=eq-curve-4"></script>
@@ -3829,11 +3849,11 @@
   <script src="./public/node-graph-live-input-status.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-evidence.js?v=badval-face-1"></script>
   <script src="./public/node-graph-live-control-rendering.js?v=transport-sync-1"></script>
-  <script src="./public/node-graph-default-patch.js?v=portal-thru-1"></script>
-  <script src="./public/node-graph-state.js?v=pr-e0-1"></script>
+  <script src="./public/node-graph-default-patch.js?v=graph-rename-alias-1"></script>
+  <script src="./public/node-graph-state.js?v=mvp-boot-guard-1"></script>
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
   <script src="./public/node-graph-patch-migrations.js?v=pulse-comment-fix-1"></script>
-  <script src="./public/node-graph-patch-core.js?v=input-outlet-1"></script>
+  <script src="./public/node-graph-patch-core.js?v=graph-rename-alias-1"></script>
   <script src="./public/node-graph-live-plan-runtime.js?v=strip-foreign-1"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=rgb-shape-3"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=sincos4-1"></script>

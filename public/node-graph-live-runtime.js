@@ -48,7 +48,7 @@ function nodeGraphLiveOutputTargetGain() {
 
 /** Engine should stay up while Input and/or Output is armed. */
 function nodeGraphLiveEngineWanted() {
-  return Boolean(nodeGraphMvp.live.inputActive || nodeGraphMvp.live.outputEnabled);
+  return Boolean(nodeGraphMvp?.live?.inputActive || nodeGraphMvp?.live?.outputEnabled);
 }
 
 function applyNodeGraphLiveOutputGain() {

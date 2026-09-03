@@ -245,7 +245,7 @@ $modules = @(
   @{ Name = "arp"; Simd = $false; Exports = @(
     "soemdsp_arp_create", "soemdsp_arp_destroy", "soemdsp_arp_sample",
     "soemdsp_arp_gate", "soemdsp_arp_trigger", "soemdsp_arp_step",
-    "soemdsp_arp_version"
+    "soemdsp_arp_frequency", "soemdsp_arp_version"
   ) },
   @{ Name = "binary_clock"; Simd = $false; Exports = @(
     "soemdsp_binary_clock_create", "soemdsp_binary_clock_destroy",

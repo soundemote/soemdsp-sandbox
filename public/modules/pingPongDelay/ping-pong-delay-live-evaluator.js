@@ -267,9 +267,15 @@ function nodeGraphPingPongDelaySample(state, input, params, sampleRate, runtime 
   state.wetL = readL;
   state.wetR = readR;
 
+  const left = (dry * (1 - mix) + state.wetL * mix) * level;
+  const right = (dry * (1 - mix) + state.wetR * mix) * level;
+  // Canonical outs are Mix L/R (def + default patch wires). Keep Left/Right
+  // as aliases for older readers.
   return {
-    Left: (dry * (1 - mix) + state.wetL * mix) * level,
-    Right: (dry * (1 - mix) + state.wetR * mix) * level,
+    "Mix L": left,
+    "Mix R": right,
+    Left: left,
+    Right: right,
   };
 }
 

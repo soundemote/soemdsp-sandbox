@@ -96,7 +96,7 @@ function scheduleNodeGraphWorkspaceOriginSync() {
 }
 
 function nodeGraphZoom() {
-  return Number.isFinite(nodeGraphMvp.zoom) ? nodeGraphMvp.zoom : 1;
+  return Number.isFinite(nodeGraphMvp?.zoom) ? nodeGraphMvp.zoom : 1;
 }
 
 function nodeGraphZoomLabel() {

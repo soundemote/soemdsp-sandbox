@@ -2012,7 +2012,7 @@ function nodeGraphMacroKnobArcThicknessPxToPercent(px) {
 // into a full circle at 100%. The percent fraction is always correct
 // relative to whatever radius a given knob actually has.
 function applyNodeGraphMacroKnobArcThickness() {
-  const thickness = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness);
+  const thickness = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp?.macroKnobArcThickness);
   const percentOfRadius = thickness / nodeGraphMacroKnobArcThicknessMaxPx;
   document.documentElement?.style?.setProperty("--macro-knob-arc-thickness", `${thickness}px`);
   document.documentElement?.style?.setProperty("--macro-knob-arc-thickness-percent", String(percentOfRadius));
@@ -2396,7 +2396,7 @@ const nodeGraphMidiKeyboardSampleRate = 44100;
 // midiKeyboardOctave -- every rendered .node-midi-keyboard-module surface
 // shows the same span). Anchor note (nodeGraphMidiKeyboardStartMidi, C0)
 // stays fixed; only how many keys are visible from there changes.
-function nodeGraphMidiKeyboardKeyCount(value = nodeGraphMvp.midiKeyboardKeyCount) {
+function nodeGraphMidiKeyboardKeyCount(value = nodeGraphMvp?.midiKeyboardKeyCount) {
   const count = Math.round(Number(value));
   return Number.isFinite(count)
     ? Math.max(nodeGraphMidiKeyboardMinKeyCount, Math.min(nodeGraphMidiKeyboardMaxKeyCount, count))

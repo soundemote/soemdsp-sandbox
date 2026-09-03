@@ -16,8 +16,11 @@ const nodeGraphMultiWaveMainWasm = {
 
 function nodeGraphMultiWaveLoadMainWasm(name, urlPath) {
   const slot = nodeGraphMultiWaveMainWasm[name];
-  if (!slot || slot.promise || typeof fetch !== "function" || typeof WebAssembly === "undefined") {
-    return;
+  if (!slot || typeof fetch !== "function" || typeof WebAssembly === "undefined") {
+    return null;
+  }
+  if (slot.promise) {
+    return slot.promise;
   }
   slot.promise = fetch(urlPath)
     .then((response) => {
@@ -31,6 +34,31 @@ function nodeGraphMultiWaveLoadMainWasm(name, urlPath) {
     .catch(() => {
       slot.failed = true;
     });
+  return slot.promise;
+}
+
+/**
+ * Kick + await main-thread multi-wave WASM used by Render Sample.
+ * Without this, the bounce finishes while fetch is still in flight and every
+ * frame is silence (APP_POLICY §5: no JS twin — hosts must wait for native).
+ */
+async function nodeGraphWarmMultiWaveMainWasmForTypes(types) {
+  const set = new Set(Array.isArray(types) ? types : []);
+  const promises = [];
+  if (set.has("polyBlep")) {
+    promises.push(nodeGraphMultiWaveLoadMainWasm("polyblep", "/native_modules/polyblep/polyblep.wasm"));
+  }
+  if (set.has("blit")) {
+    promises.push(nodeGraphMultiWaveLoadMainWasm("blit", "/native_modules/blit/blit.wasm"));
+  }
+  if (set.has("osc")) {
+    promises.push(
+      nodeGraphMultiWaveLoadMainWasm("basic_oscillator", "/native_modules/basic_oscillator/basic_oscillator.wasm"),
+    );
+  }
+  const pending = promises.filter(Boolean);
+  if (!pending.length) return;
+  await Promise.all(pending.map((p) => Promise.resolve(p).catch(() => {})));
 }
 
 function nodeGraphMultiWaveNativeHandleMap(runtime, mapKey) {

@@ -8717,22 +8717,26 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  // Held-keys arpeggiator (Musical shelf). Clocked pattern over MIDI keyboard bitmask.
+  // Held-keys arpeggiator. Free-run Internal Clock when Trigger unconnected.
   arp: {
     planRole: "processor",
     planFreeRun: true,
     displayType: "trace",
     displaySignals: [
       { key: "0.1V/Oct", kind: "scalar" },
+      { key: "f", kind: "scalar" },
     ],
     displayModes: [
       { key: "trace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "0.1V/Oct" } },
     ],
     defaultDisplayMode: "trace",
     digitalInputs: ["Held Keys"],
-    inputs: ["Held Keys", "Clock", "Reset"],
-    outputs: ["0.1V/Oct", "Gate", "Trigger", "Step"],
-    outputLabels: { "0.1V/Oct": "0.1V" },
+    inputs: ["Held Keys", "Trigger", "Reset", "f"],
+    inputLabels: { f: "ƒ", Trigger: "Trig" },
+    inputAliases: { Clock: "Trigger", Trig: "Trigger", Frequency: "f", Freq: "f", "ƒ": "f" },
+    outputs: ["0.1V/Oct", "f", "Gate", "Trigger", "Step"],
+    outputLabels: { "0.1V/Oct": "0.1V", f: "ƒ", Trigger: "Trig" },
+    outputAliases: { Pitch: "0.1V/Oct", Frequency: "f", Freq: "f", "ƒ": "f", Trig: "Trigger" },
     parameters: [
       {
         choices: ["up", "dn", "up/dn", "dn/up", "random"],
@@ -8747,7 +8751,20 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Pattern direction: up, dn, up/dn, dn/up, or random over held keys."
+        tooltip: "Pattern: up, dn, up/dn, dn/up, or random over Held Keys."
+      },
+      {
+        defaultValue: "8",
+        key: "rate",
+        kind: "frequency",
+        label: "Internal Clock",
+        max: "64",
+        maxDigits: 5,
+        mid: "8",
+        min: "0",
+        step: "any",
+        unit: "Hz",
+        tooltip: "Free-run step rate when Trigger is unconnected. 0 = external Trigger only."
       },
       {
         defaultValue: "8",
@@ -8759,7 +8776,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Clock steps before pattern restart (esp. Random). 0 = natural wrap / free-run RNG."
+        tooltip: "Steps before pattern restart (esp. Random). 0 = natural wrap / free-run RNG."
       },
       {
         defaultValue: "1",
@@ -8773,7 +8790,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "RNG seed for Random mode. Reset re-seeds from this value."
+        tooltip: "RNG seed for Random. Reset re-seeds from this value."
       },
     ]
   },

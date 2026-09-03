@@ -99,7 +99,7 @@ function nodeGraphTooltipTemplate(key) {
     return "";
   }
   const parts = String(key).split(".");
-  let value = nodeGraphMvp.tooltips;
+  let value = nodeGraphMvp?.tooltips;
   for (const part of parts) {
     value = value?.[part];
   }
@@ -174,10 +174,10 @@ async function loadNodeGraphTooltips() {
     if (!response.ok) {
       throw new Error(`tooltip document HTTP ${response.status}`);
     }
-    nodeGraphMvp.tooltips = await response.json();
+    if (nodeGraphMvp) nodeGraphMvp.tooltips = await response.json();
   } catch (error) {
     console.warn("Unable to load tooltip document", error);
-    nodeGraphMvp.tooltips = {};
+    if (nodeGraphMvp) nodeGraphMvp.tooltips = {};
   }
   applyNodeGraphStaticTooltips();
   installSandboxNativeTooltipBan();

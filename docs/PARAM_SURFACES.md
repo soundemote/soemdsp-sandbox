@@ -25,25 +25,23 @@ Typing Amplitude `8000` or Frequency outside the slider mid-band must stick.
 
 ## MOD apply rules
 
-Sum all mod sources after `nodeGraphParamNormalizeModInput` (clamp to [−1, 1] each).
+Order is always **`effective = applyMod(smooth(knob), MOD)`** — never smooth the
+already-modulated value. Full/live JS does that in `readEffectiveParameter` /
+`readNodeGraphLiveEffectiveParam`. Efficient native: knob → `set_param` →
+`Control.target` → smoother → `Control.out`; MOD → `set_param_mod`; DSP reads
+`control_effective(out, MOD)`.
 
-Then `nodeGraphParamApplyMod(domainBase, modSum, metadata)`:
+Per-source classify (`nodeGraphParamModAccumulators` / `nodeGraphParamFoldModSources`):
 
-1. **`kind: "frequency"`** (pitch knobs)  
-   `effectiveHz = baseHz * 2^(modSum / 0.1)`  
-   Same scale as **0.1V/Oct** jacks: +0.1 → +1 octave.
+1. **Unit-band** (`|mod| ≤ 1`): linear map across param min…max (no slider skew),
+   add to base unit, map back to domain.
+2. **Absolute** (`|mod| > 1`): domain-add `base + mod` (exact Hz sources, large Bias).
 
-2. **Everything else**  
-   Map domain → unit [0, 1] (mid skew if `sliderCurve: "skew"`, custom sensitivity
-   skew if `"custom"`; edge S-curve and bipolar rational are UI-drag only),  
-   add `modSum`, map back to domain; hard min/max only per policy above.
+Pitch exponential is **not** param MOD — use the **0.1V/Oct** SIGNAL IN jack.
 
 **Behavior change vs older live path:** non-frequency mod was often treated as
 **unipolar [0, 1]** (negative LFOs clipped). It is now **bipolar [−1, 1]** so
 through-zero LFOs work on level, morph, etc.
-
-**Behavior change vs older worklet path:** frequency mod no longer requires
-`nonlinearSlider` to get V/Oct-style apply — any `kind: "frequency"` param uses it.
 
 ## SIGNAL IN (examples, module-owned)
 
@@ -75,6 +73,7 @@ nodeGraphParamDomainToUnit(value, metadata)
 nodeGraphParamUnitToDomain(unit, metadata)
 nodeGraphParamNormalizeModInput(value, metadata)  // → [-1, 1]
 nodeGraphParamApplyMod(base, modSum, metadata)
+nodeGraphParamModAccumulators(sources, metadata)  // → { unitAdd, domainAdd }
 nodeGraphParamApplyDomainBounds(value, metadata)
 nodeGraphParamSignalInAdditive(domain, inSample)
 nodeGraphParamSignalInMultiply(domain, scale, defaultScale=1)

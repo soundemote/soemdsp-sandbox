@@ -58,11 +58,8 @@ const nodeGraphRetiredNodeTypes = new Set([
   "bipolarKnob",
   "clapPlugin",
   "formulaVisual",
-  // Old single "graph" module — replaced by smoothGraph / stepGraph.
-  "graph",
-  // Pre-rename type keys (patches using these drop until re-saved under new keys).
-  "graph2",
-  "graphCopy",
+  // graph / graph2 / graphCopy rename via nodeGraphResolveModuleTypeAlias
+  // (smoothGraph / stepGraph) — not retired-drop.
   "impulseButton",
   "macroKnob",
   "moduleHome",

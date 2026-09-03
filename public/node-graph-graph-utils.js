@@ -1,6 +1,9 @@
 // Step Graph segment Shape keys (global Shape param + per-node `shape`).
 //   linear / rational / exponential / log / smoothstep / hold
 //
+// Contour / Curve Offset domain is always −1…+1. Rational / exp / log evaluate
+// continuous with a Planck soft-cap (±(1 − 1e−7)) so kernels never see exact ±1.
+//
 // smoothGraph vs stepGraph:
 //   Smooth: one global curve through free dots (smoothingMode + tension).
 //   Step:   global Shape + Curve Offset; per-node contour `c` still local
@@ -33,7 +36,8 @@ const nodeGraphDefaultGraphData = Object.freeze({
   cursorX: 0.5,
   nodes: Object.freeze([
     Object.freeze({ c: 0, shape: "linear", x: 0, y: 1 }),
-    Object.freeze({ c: 0, shape: "rational", x: 1, y: 0 }),
+    // Shape is global on Step Graph; keep node shape linear so face matches Shape=Linear.
+    Object.freeze({ c: 0, shape: "linear", x: 1, y: 0 }),
   ]),
 });
 
@@ -336,11 +340,11 @@ function nodeGraphGraphUsesPerNodeContour(type) {
 }
 
 /**
- * Step Graph: per-node shape select in the node list.
- * Smooth Graph uses the global Curve param instead.
+ * Per-node shape select in the node list.
+ * Step Graph Shape is global (matches native / worklet); Smooth Graph uses Curve.
  */
-function nodeGraphGraphUsesPerNodeShapeSelect(type) {
-  return type === "stepGraph";
+function nodeGraphGraphUsesPerNodeShapeSelect(_type) {
+  return false;
 }
 
 function nodeGraphGraphUsesGlobalSmoothing(type) {
@@ -375,82 +379,54 @@ function nodeGraphGraphSegmentOptionsForNode(patchNode) {
   };
 }
 
-/**
- * Full-scale contour |c| = 1 → perfect step (square edge).
- * Polarity matches the continuous rational map as |c|→1:
- *   +1: jump to right immediately (mid rides high on a rising segment)
- *   −1: hold left until end (mid stays low on a rising segment)
- */
-function nodeGraphGraphHardStepShape(position, contourSign) {
-  const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
-  if (contourSign >= 0) {
-    // Jump to right as soon as the segment starts.
-    return p <= 0 ? 0 : 1;
-  }
-  // Hold left until the segment end.
-  return p >= 1 ? 1 : 0;
-}
-
-/** Contour domain for segment shapes: −1..1 inclusive (extremes = hard step). */
+/** Contour / skew domain for all segment shapes: hard clamp −1…+1. */
 function nodeGraphGraphNormalizeContour(value, fallback = 0) {
   return normalizeNodeGraphGraphNumber(value, fallback, -1, 1);
 }
 
-/**
- * Blend continuous curve → shared hard square by |contour|.
- * So rational / exp / log all hit full square at the same |c| (and same Curve Offset).
- * Weight is linear in |c|: 0 = pure continuous, 1 = pure hard step.
- */
-function nodeGraphGraphBlendContourTowardHardStep(position, contour, continuousValue) {
-  const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
+/** Planck soft-cap for continuous kernels (±1 would div0 / explode). Same as kPlanck. */
+const NODE_GRAPH_GRAPH_CONTOUR_PLANCK = (
+  typeof NODE_GRAPH_PLANCK === "number" && Number.isFinite(NODE_GRAPH_PLANCK)
+)
+  ? NODE_GRAPH_PLANCK
+  : 1e-7;
+const NODE_GRAPH_GRAPH_CONTOUR_SOFT_MAX = 1 - NODE_GRAPH_GRAPH_CONTOUR_PLANCK; // 0.9999999
+
+/** Soft-cap |c| for continuous eval; domain stays −1…+1, kernels never see exact ±1. */
+function nodeGraphGraphContourSoftCap(contour) {
   const c = nodeGraphGraphNormalizeContour(contour, 0);
-  const a = Math.abs(c);
-  if (a < 1e-9) {
-    return continuousValue;
-  }
-  if (a >= 1 - 1e-12) {
-    return nodeGraphGraphHardStepShape(p, c);
-  }
-  const hard = nodeGraphGraphHardStepShape(p, c);
-  const cont = Number.isFinite(continuousValue) ? continuousValue : p;
-  return cont * (1 - a) + hard * a;
+  if (c > NODE_GRAPH_GRAPH_CONTOUR_SOFT_MAX) return NODE_GRAPH_GRAPH_CONTOUR_SOFT_MAX;
+  if (c < -NODE_GRAPH_GRAPH_CONTOUR_SOFT_MAX) return -NODE_GRAPH_GRAPH_CONTOUR_SOFT_MAX;
+  return c;
 }
 
 function nodeGraphGraphRationalCurveContinuous(position, contour = 0) {
   const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
-  const c = nodeGraphGraphNormalizeContour(contour, 0);
-  if (Math.abs(c) < 0.000001) {
+  const c = nodeGraphGraphContourSoftCap(contour);
+  if (Math.abs(c) < NODE_GRAPH_GRAPH_CONTOUR_PLANCK) {
     return p;
   }
-  // Avoid singularity at ±1 — continuous form used only for |c| < 1.
-  const cSafe = Math.max(-0.999999, Math.min(0.999999, c));
-  return cSafe < 0
-    ? (p * (1 + cSafe)) / (1 + cSafe * p)
-    : p / (1 - cSafe + cSafe * p);
+  return c < 0
+    ? (p * (1 + c)) / (1 + c * p)
+    : p / (1 - c + c * p);
 }
 
 function nodeGraphGraphRationalCurve(position, contour = 0) {
-  const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
-  const c = nodeGraphGraphNormalizeContour(contour, 0);
-  return nodeGraphGraphBlendContourTowardHardStep(
-    p,
-    c,
-    nodeGraphGraphRationalCurveContinuous(p, c),
-  );
+  return nodeGraphGraphRationalCurveContinuous(position, contour);
 }
 
 /**
  * Exponential ease: (e^{k p} − 1) / (e^k − 1).
- * Contour 0 → line. |contour| → 1 blends to the same hard square as rational/log.
+ * Contour domain −1…+1; soft-capped for the kernel.
  */
 function nodeGraphGraphExponentialCurveContinuous(position, contour = 0) {
   const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
-  const t = nodeGraphGraphNormalizeContour(contour, 0);
-  if (Math.abs(t) < 0.000001) {
+  const t = nodeGraphGraphContourSoftCap(contour);
+  if (Math.abs(t) < NODE_GRAPH_GRAPH_CONTOUR_PLANCK) {
     return p;
   }
-  // |k| from ~1.2 (mild) → large as |t|→1 so the continuous form also tightens.
-  const a = Math.min(0.999999, Math.abs(t));
+  // |k| from ~1.2 (mild) → large as |t|→soft-max.
+  const a = Math.abs(t);
   const mag = 1.2 + 6.8 * (a / (1 - a * 0.85));
   const k = t < 0 ? -mag : mag;
   if (Math.abs(k) < 0.05) {
@@ -458,40 +434,33 @@ function nodeGraphGraphExponentialCurveContinuous(position, contour = 0) {
   }
   const ek = Math.exp(k);
   const denom = ek - 1;
-  if (Math.abs(denom) < 1e-9) {
+  if (Math.abs(denom) < NODE_GRAPH_GRAPH_CONTOUR_PLANCK) {
     return p;
   }
   return (Math.exp(k * p) - 1) / denom;
 }
 
 function nodeGraphGraphExponentialCurve(position, contour = 0) {
-  const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
-  const t = nodeGraphGraphNormalizeContour(contour, 0);
-  return nodeGraphGraphBlendContourTowardHardStep(
-    p,
-    t,
-    nodeGraphGraphExponentialCurveContinuous(p, t),
-  );
+  return nodeGraphGraphExponentialCurveContinuous(position, contour);
 }
 
 /**
  * Log ease: log(1 + p (b − 1)) / log(b) — complement family to exponential.
- * Contour 0 → line. |contour| → 1 blends to the same hard square as rational/exp.
+ * Contour domain −1…+1; soft-capped for the kernel.
  */
 function nodeGraphGraphLogarithmicCurveContinuous(position, contour = 0) {
   const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
-  const t = nodeGraphGraphNormalizeContour(contour, 0);
-  if (Math.abs(t) < 0.000001) {
+  const t = nodeGraphGraphContourSoftCap(contour);
+  if (Math.abs(t) < NODE_GRAPH_GRAPH_CONTOUR_PLANCK) {
     return p;
   }
-  const a = Math.min(0.999999, Math.abs(t));
-  // Stronger log as |t|→1.
+  const a = Math.abs(t);
   const b = Math.exp(1.2 + 5.5 * (a / (1 - a * 0.85)));
-  if (!Number.isFinite(b) || b <= 1.000001) {
+  if (!Number.isFinite(b) || b <= 1 + NODE_GRAPH_GRAPH_CONTOUR_PLANCK) {
     return p;
   }
   const denom = Math.log(b);
-  if (!Number.isFinite(denom) || Math.abs(denom) < 1e-9) {
+  if (!Number.isFinite(denom) || Math.abs(denom) < NODE_GRAPH_GRAPH_CONTOUR_PLANCK) {
     return p;
   }
   const y = Math.log(1 + p * (b - 1)) / denom;
@@ -499,13 +468,7 @@ function nodeGraphGraphLogarithmicCurveContinuous(position, contour = 0) {
 }
 
 function nodeGraphGraphLogarithmicCurve(position, contour = 0) {
-  const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
-  const t = nodeGraphGraphNormalizeContour(contour, 0);
-  return nodeGraphGraphBlendContourTowardHardStep(
-    p,
-    t,
-    nodeGraphGraphLogarithmicCurveContinuous(p, t),
-  );
+  return nodeGraphGraphLogarithmicCurveContinuous(position, contour);
 }
 
 function normalizeNodeGraphSmoothGraphSmoothingMode(value) {
@@ -952,7 +915,7 @@ function nodeGraphGraphSegmentChordMidpoint(graph, rightIndex) {
  * Vertical offset from the chord midpoint drives amount; sign follows segment slope
  * so dragging the handle UP always increases contour the same visual way the
  * continuous rational curve bows (handle follows the pointer).
- * Extremes (±1) are hard steps for rational / exponential / log.
+ * Extremes (±1) are full skew (Planck soft-cap in continuous kernels).
  */
 function nodeGraphGraphContourFromPoint(graph, rightIndex, point) {
   const midpoint = nodeGraphGraphSegmentChordMidpoint(graph, rightIndex);
@@ -995,13 +958,13 @@ function nodeGraphGraphModeCurve(position, mode, index = 0) {
  */
 function nodeGraphGraphLegacySegmentShape(p, right, options = {}) {
   const offset = normalizeNodeGraphGraphNumber(options.curveOffset, 0, -1, 1);
-  // Per-node c + global Curve Offset, clamped to ±1 (extremes = hard step).
+  // Per-node c + global Curve Offset, clamped to ±1 (Planck soft-cap in kernels).
   const contour = nodeGraphGraphNormalizeContour((Number(right?.c) || 0) + offset, 0);
-  // Prefer per-node shape (list UI); fall back to global Shape module param.
-  const shape = right?.shape != null && String(right.shape).trim() !== ""
-    ? normalizeNodeGraphGraphShape(right.shape)
-    : (options.segmentShape != null && options.segmentShape !== ""
-      ? normalizeNodeGraphGraphShape(options.segmentShape)
+  // Global Shape wins (same as worklet + native step_graph). Per-node shape is legacy only.
+  const shape = options.segmentShape != null && String(options.segmentShape).trim() !== ""
+    ? normalizeNodeGraphGraphShape(options.segmentShape)
+    : (right?.shape != null && String(right.shape).trim() !== ""
+      ? normalizeNodeGraphGraphShape(right.shape)
       : "linear");
   if (shape === "exponential") {
     return nodeGraphGraphExponentialCurve(p, contour);
@@ -2414,10 +2377,18 @@ function dragNodeGraphGraphNode(event) {
     const point = nodeGraphGraphSvgToGraphPoint(drag.svg, event.clientX, event.clientY);
     const nodes = [...(drag.graph.nodes || [])];
     const current = nodes[drag.index] || normalizeNodeGraphGraphNode({}, drag.index);
-    // Shape is global on Step Graph — only edit per-node contour.
+    // Handle is drawn at effective contour (c + curveOffset). Store residual c
+    // so nonzero Curve Offset does not double-apply / slam to hard step.
+    const curveOffset = normalizeNodeGraphGraphNumber(
+      faceRenderOptions?.segmentOptions?.curveOffset,
+      0,
+      -1,
+      1,
+    );
+    const effective = nodeGraphGraphContourFromPoint(drag.graph, drag.index, point);
     nodes[drag.index] = normalizeNodeGraphGraphNode({
       ...current,
-      c: nodeGraphGraphContourFromPoint(drag.graph, drag.index, point),
+      c: nodeGraphGraphNormalizeContour(effective - curveOffset, 0),
     }, drag.index);
     drag.graph = normalizeNodeGraphGraph({ ...drag.graph, nodes });
     drag.lastClientX = event.clientX;

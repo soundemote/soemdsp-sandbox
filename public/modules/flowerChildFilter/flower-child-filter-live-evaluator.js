@@ -2,6 +2,21 @@
 // offline/render-time algorithm, now living next to the rest of its
 // per-module code instead of the shared file.
 
+function createNodeGraphFlowerChildFilterState() {
+  return {
+    phase: 0,
+    phaseOffset: 0,
+    stage1: 0,
+    stage2: 0,
+    selfMod: 0,
+    rev3Feedback: 0,
+    rev3Lpf1Y1: 0,
+    rev3Lpf2Y1: 0,
+    dsPhase: 0,
+    dsHeld: 0,
+  };
+}
+
 function nodeGraphFlowerChildFilterRationalCurve(p, skew) {
   return ((1 + skew) * p) / (1 - skew + 2 * skew * p);
 }

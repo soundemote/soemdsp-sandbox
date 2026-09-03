@@ -1,12 +1,26 @@
+// Guard deps so a missing helper cannot skip the var nodeGraphMvp assignment
+// (that leaves boot reading undefined.zoom / .patch / .rendered / .live).
 let nodeMetadataKindTemplates = Object.freeze(Object.fromEntries(
-  Object.entries(fallbackNodeMetadataKindTemplates).map(([kind, template]) => [
+  Object.entries(
+    (typeof fallbackNodeMetadataKindTemplates === "object" && fallbackNodeMetadataKindTemplates)
+      ? fallbackNodeMetadataKindTemplates
+      : {},
+  ).map(([kind, template]) => [
     kind,
-    normalizeNodeMetadataKindTemplate(template, kind),
+    typeof normalizeNodeMetadataKindTemplate === "function"
+      ? normalizeNodeMetadataKindTemplate(template, kind)
+      : template,
   ]),
 ));
 
+const __nodeGraphStateDefaultPatch = (
+  typeof nodeGraphDefaultPatch === "object" && nodeGraphDefaultPatch
+)
+  ? nodeGraphDefaultPatch
+  : { nodes: [], connections: [], graphConnections: [], modulations: [] };
+
 var nodeGraphMvp = {
-  activeNodes: new Set(nodeGraphDefaultPatch.nodes.map((node) => node.id)),
+  activeNodes: new Set((__nodeGraphStateDefaultPatch.nodes || []).map((node) => node.id)),
   // MVEP hard cutover (PR-E0). Default ON; ?product=full disables catalog/plan gate.
   efficientProduct: !(typeof location !== "undefined"
     && /(?:^|[?&])product=full(?:&|$)/.test(String(location.search || ""))),
@@ -17,8 +31,12 @@ var nodeGraphMvp = {
     serial: 0,
   },
   bufferSource: null,
-  connections: nodeGraphDefaultPatch.connections.map((connection) => ({ ...connection })),
-  graphConnections: normalizeNodeGraphGraphConnections(nodeGraphDefaultPatch.graphConnections),
+  connections: (__nodeGraphStateDefaultPatch.connections || []).map((connection) => ({ ...connection })),
+  graphConnections: typeof normalizeNodeGraphGraphConnections === "function"
+    ? normalizeNodeGraphGraphConnections(__nodeGraphStateDefaultPatch.graphConnections)
+    : (Array.isArray(__nodeGraphStateDefaultPatch.graphConnections)
+      ? __nodeGraphStateDefaultPatch.graphConnections
+      : []),
   codeScreenAutocompleteIndex: 0,
   codeScreenAutocompleteItems: [],
   codeScreenAutocompleteOpen: false,
@@ -46,7 +64,9 @@ var nodeGraphMvp = {
   codeScreenWorkspaceWatchSearch: "",
   codeScreenWorkspaceWatches: [],
   codeScreenWorkspaceScriptStatus: "script ready",
-  defaultPatch: cloneNodeGraphPatch(nodeGraphDefaultPatch),
+  defaultPatch: typeof cloneNodeGraphPatch === "function"
+    ? cloneNodeGraphPatch(__nodeGraphStateDefaultPatch)
+    : __nodeGraphStateDefaultPatch,
   historyIndex: -1,
   historyLimit: 100,
   historySnapshots: [],
@@ -261,7 +281,7 @@ var nodeGraphMvp = {
   resourcePathMap: new Map(),
   pendingFileGridResources: [],
   resourceManifestError: "",
-  modulations: nodeGraphDefaultPatch.modulations.map((modulation) => ({ ...modulation })),
+  modulations: (__nodeGraphStateDefaultPatch.modulations || []).map((modulation) => ({ ...modulation })),
   graphNodeDragging: null,
   graphClipboard: null,
   graphSelectedNodeIndices: new Map(),
@@ -344,7 +364,9 @@ var nodeGraphMvp = {
     triggerDivider: 0,
     knob: 0,
   },
-  patch: cloneNodeGraphPatch(nodeGraphDefaultPatch),
+  patch: typeof cloneNodeGraphPatch === "function"
+    ? cloneNodeGraphPatch(__nodeGraphStateDefaultPatch)
+    : __nodeGraphStateDefaultPatch,
   patchDirtyState: "untouched",
   rendered: null,
   renderedAudioUrl: "",

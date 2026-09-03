@@ -29,7 +29,7 @@ function nodeGraphRenderedPlayerFormatTime(seconds) {
 // Mono min/max column pairs over the rendered sample -- same reduction the
 // Music Player's phosphor waveform performs, sized to the seek surface.
 function nodeGraphRenderedPlayerWaveColumns(width) {
-  const rendered = nodeGraphMvp.rendered;
+  const rendered = nodeGraphMvp?.rendered;
   const left = rendered?.leftSamples || rendered?.samples;
   const right = rendered?.rightSamples || null;
   const frames = Number(rendered?.frames) || (left?.length || 0);

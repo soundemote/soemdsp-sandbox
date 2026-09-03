@@ -39,7 +39,9 @@ struct State {
   int direction; // +1 up, -1 down (bounce modes)
   int clocksSinceRestart;
   unsigned int rngState;
+  double phase; // free-run Internal Clock phasor 0..1
   double lastPitch;
+  double lastFreqHz;
   double lastGate;
   double lastTrigger;
   double lastStep;
@@ -175,7 +177,9 @@ extern "C" int soemdsp_arp_create() {
       s.direction = 1;
       s.clocksSinceRestart = 0;
       s.rngState = 1u;
+      s.phase = 0.0;
       s.lastPitch = 0.0;
+      s.lastFreqHz = 0.0;
       s.lastGate = 0.0;
       s.lastTrigger = 0.0;
       s.lastStep = 0.0;
@@ -191,15 +195,37 @@ extern "C" void soemdsp_arp_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
+static void capture_note(State& s, int playIndex, int steps) {
+  const int midi = s.notes[playIndex];
+  s.lastPitch = (double)midi / 120.0;
+  // A4=440, MIDI 69.
+  s.lastFreqHz = 440.0 * dsp_exp2(((double)midi - 69.0) / 12.0);
+  s.lastStep = (steps > 0) ? (double)s.clocksSinceRestart : (double)playIndex;
+}
+
+static void do_step(State& s, int mode, int steps, unsigned int seed) {
+  if (s.noteCount <= 0) return;
+  if (steps > 0 && s.clocksSinceRestart >= steps) {
+    restart_pattern(s, mode, seed);
+  }
+  const int playIndex = s.index;
+  capture_note(s, playIndex, steps);
+  s.clocksSinceRestart += 1;
+  advance(s, mode);
+}
+
 extern "C" double soemdsp_arp_sample(
   int handle,
   double heldKeys,
   double hasHeldKeys,
-  double clock,
+  double trigger,
+  double hasTrigger,
   double reset,
+  double rateHz,
   double modeIn,
   double stepsIn,
-  double seedIn
+  double seedIn,
+  double sampleRate
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   State& s = gPool[handle - 1];
@@ -207,6 +233,9 @@ extern "C" double soemdsp_arp_sample(
   const int mode = clamp_mode(modeIn);
   const int steps = clamp_steps(stepsIn);
   const unsigned int seed = seed_u32(seedIn);
+  const double sr = sampleRate < 1.0 ? 44100.0 : sampleRate;
+  const double rate = safe(rateHz);
+  const bool trigConnected = safe(hasTrigger) > 0.5;
 
   if (safe(hasHeldKeys) > 0.5) {
     demux_held_keys(s, heldKeys);
@@ -216,26 +245,34 @@ extern "C" double soemdsp_arp_sample(
   const bool resetHigh = safe(reset) > 0.0;
   if (resetHigh && !s.resetWasHigh) {
     restart_pattern(s, mode, seed);
+    s.phase = 0.0;
   }
   s.resetWasHigh = resetHigh;
 
-  double trig = 0.0;
-  const bool clockHigh = safe(clock) > 0.0;
-  if (clockHigh && !s.clockWasHigh && s.noteCount > 0) {
-    if (steps > 0 && s.clocksSinceRestart >= steps) {
-      restart_pattern(s, mode, seed);
+  double trigOut = 0.0;
+  if (s.noteCount > 0) {
+    if (trigConnected) {
+      const bool trigHigh = safe(trigger) > 0.0;
+      if (trigHigh && !s.clockWasHigh) {
+        do_step(s, mode, steps, seed);
+        trigOut = 1.0;
+      }
+      s.clockWasHigh = trigHigh;
+    } else if (rate > 0.0) {
+      // Internal Clock free-run when Trigger unconnected.
+      s.phase += rate / sr;
+      if (s.phase >= 1.0) {
+        s.phase -= dsp_floor(s.phase);
+        do_step(s, mode, steps, seed);
+        trigOut = 1.0;
+      }
+      s.clockWasHigh = false;
+    } else {
+      s.clockWasHigh = false;
     }
-    // Play current index, then advance for the next clock.
-    trig = 1.0;
-    const int playIndex = s.index;
-    s.lastPitch = (double)s.notes[playIndex] / 120.0;
-    s.lastStep = (steps > 0)
-      ? (double)s.clocksSinceRestart
-      : (double)playIndex;
-    s.clocksSinceRestart += 1;
-    advance(s, mode);
+  } else {
+    s.clockWasHigh = safe(trigger) > 0.0;
   }
-  s.clockWasHigh = clockHigh;
 
   if (s.noteCount <= 0) {
     s.lastGate = 0.0;
@@ -243,14 +280,12 @@ extern "C" double soemdsp_arp_sample(
     return s.lastPitch;
   }
 
-  // Before the first clock, preview notes[index]. After a clock edge, hold the
-  // pitch captured above (index already points at the next step).
-  if (trig < 0.5 && s.clocksSinceRestart == 0) {
-    s.lastPitch = (double)s.notes[s.index] / 120.0;
-    s.lastStep = (double)s.index;
+  // Before first step, preview notes[index].
+  if (trigOut < 0.5 && s.clocksSinceRestart == 0) {
+    capture_note(s, s.index, steps);
   }
   s.lastGate = 1.0;
-  s.lastTrigger = trig;
+  s.lastTrigger = trigOut;
   return s.lastPitch;
 }
 
@@ -269,6 +304,11 @@ extern "C" double soemdsp_arp_step(int handle) {
   return gPool[handle - 1].lastStep;
 }
 
+extern "C" double soemdsp_arp_frequency(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0.0;
+  return gPool[handle - 1].lastFreqHz;
+}
+
 extern "C" int soemdsp_arp_version() {
-  return 1;
+  return 2;
 }

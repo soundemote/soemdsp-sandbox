@@ -1156,12 +1156,14 @@ extern "C" void soemdsp_quadrature_process_mono(
 extern "C" int soemdsp_arp_create();
 extern "C" void soemdsp_arp_destroy(int handle);
 extern "C" double soemdsp_arp_sample(
-  int handle, double heldKeys, double hasHeldKeys, double clock, double reset,
-  double mode, double steps, double seed
+  int handle, double heldKeys, double hasHeldKeys,
+  double trigger, double hasTrigger, double reset,
+  double rateHz, double mode, double steps, double seed, double sampleRate
 );
 extern "C" double soemdsp_arp_gate(int handle);
 extern "C" double soemdsp_arp_trigger(int handle);
 extern "C" double soemdsp_arp_step(int handle);
+extern "C" double soemdsp_arp_frequency(int handle);
 
 extern "C" int soemdsp_binary_clock_create();
 extern "C" void soemdsp_binary_clock_destroy(int handle);
@@ -2046,6 +2048,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeRobinSinusoid) ? 440.0
       : (typeId == kTypeSampleHold) ? 0.0
       : (typeId == kTypeClock || typeId == kTypeBinaryClock) ? 2.0
+      : (typeId == kTypeArp) ? 8.0 // Internal Clock Hz
       : (typeId == kTypeAliasSine) ? 0.1 // normFreq (0→sr)
       : (typeId == kTypePhoneTone) ? 0.0 // freqOffset Hz
       : (typeId == kTypeBlit || typeId == kTypeSineWavetable || typeId == kTypeArchimedes
@@ -6726,31 +6729,37 @@ static void process_degree_phrase(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Arp: Held Keys→Mono, Clock→Trigger, Reset→Reset.
-// mode=mode, stages=steps, seed=seed.
-// Pitch→Mono, Gate→Left, Trigger→Right, Step→Saw.
+// Arp: Held Keys→Mono, Trigger→Trigger, Reset→Reset, f→F (thru / future use).
+// frequency=Internal Clock Hz, mode=mode, stages=steps, seed=seed.
+// 0.1V/Oct→Mono, Gate→Left, Trigger→Right, Step→Saw, f Hz→Ramp.
 static void process_arp(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasHeld = mix_live_port(g, node, kPortMono, frames, g.mixMono);
-  const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  mix_live_port(g, node, kPortF, frames, g.mixF); // ƒ in present for patching / future CV
   const bool controlSmoothing = node_control_smoothing(node);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
     const double pitch = soemdsp_arp_sample(
       node.nativeHandle,
       hasHeld ? g.mixMono[f] : 0.0,
       hasHeld ? 1.0 : 0.0,
-      hasClock ? g.mixTrigger[f] : 0.0,
+      hasTrig ? g.mixTrigger[f] : 0.0,
+      hasTrig ? 1.0 : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
+      control_effective(node.frequency),
       control_effective(node.mode),
       control_effective(node.stages),
-      control_effective(node.seed)
+      control_effective(node.seed),
+      sr
     );
     node.buf[kPortMono][f] = pitch;
     node.buf[kPortLeft][f] = soemdsp_arp_gate(node.nativeHandle);
     node.buf[kPortRight][f] = soemdsp_arp_trigger(node.nativeHandle);
     node.buf[kPortSaw][f] = soemdsp_arp_step(node.nativeHandle);
+    node.buf[kPortRamp][f] = soemdsp_arp_frequency(node.nativeHandle);
   }
 }
 
@@ -9478,6 +9487,6 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  // 107: hilbert(151) mono Q wrapper + binaryClock(152) counter
-  return 107;
+  // 108: arp Trigger + Internal Clock + ƒ Hz out
+  return 108;
 }

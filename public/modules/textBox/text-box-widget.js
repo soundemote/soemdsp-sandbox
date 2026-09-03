@@ -221,7 +221,8 @@ function createTextBoxWidget(body, options = {}) {
     const dy = event.clientY - pointerStart.y;
     const dragged = (dx * dx) + (dy * dy) > 16;
     pointerStart = null;
-    if (dragged || event.shiftKey) {
+    // Second click of a double-click: leave the native word selection alone.
+    if (dragged || event.shiftKey || Number(event.detail) > 1) {
       return;
     }
     const selected = String(window.getSelection?.()?.toString() || "");
@@ -232,12 +233,18 @@ function createTextBoxWidget(body, options = {}) {
   });
   field.addEventListener("click", (event) => event.stopPropagation());
   field.addEventListener("dblclick", (event) => {
-    // Stay on the face. Native dblclick selects the whole nowrap line.
-    event.preventDefault();
+    // Keep the gesture on the face (no module settings / drag).
     event.stopPropagation();
-    if (editable) {
-      textBoxWidgetPlaceCaretAtPoint(field, event.clientX, event.clientY);
+    if (!editable) {
+      return;
     }
+    // Already focused: native word/line select. preventDefault + PlaceCaret
+    // was why the highlight appeared then vanished.
+    if (document.activeElement === field) {
+      return;
+    }
+    event.preventDefault();
+    textBoxWidgetPlaceCaretAtPoint(field, event.clientX, event.clientY);
   });
   field.addEventListener("contextmenu", (event) => {
     const nodeId = body.dataset?.node;

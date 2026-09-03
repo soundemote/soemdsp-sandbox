@@ -49,7 +49,7 @@ if (typeof NodeLiveAudioProcessor === "function") {
 
   /**
    * Resolve one Additive param to effective DOMAIN for this quantum.
-   * Domain-space linear ramp over the resolved smoothing time.
+   * Smooth the knob only; apply MOD after (same order as full product / native).
    */
   NodeLiveAudioProcessor.prototype.additiveEffectiveParam = function additiveEffectiveParam(
     node,
@@ -58,15 +58,18 @@ if (typeof NodeLiveAudioProcessor === "function") {
     blockFrames,
   ) {
     const raw = Number(node?.params?.[key]);
-    let target = Number.isFinite(raw) ? raw : fallback;
-    // Efficient path: fold Knob/Bias MOD (controllers published by controller peel).
-    if (typeof this.foldEfficientParamModulations === "function") {
-      target = this.foldEfficientParamModulations(node, key, target);
-    }
+    const target = Number.isFinite(raw) ? raw : fallback;
 
     const metadata = this.additiveParamMetaWithDefaults
       ? this.additiveParamMetaWithDefaults(node, key)
       : (node?.paramMeta?.[key] || {});
+
+    const applyModAfterSmooth = (smoothed) => {
+      if (typeof this.foldEfficientParamModulations === "function") {
+        return this.foldEfficientParamModulations(node, key, smoothed);
+      }
+      return smoothed;
+    };
 
     let smoothingType = typeof this.smoothingTypeFromMetadata === "function"
       ? this.smoothingTypeFromMetadata(metadata)
@@ -100,7 +103,7 @@ if (typeof NodeLiveAudioProcessor === "function") {
         state.rampSamples = 0;
         state.rampDuration = 0;
       }
-      return target;
+      return applyModAfterSmooth(target);
     }
 
     if (typeof nodeGraphParameterSmootherGpuSafeType === "function") {
@@ -146,7 +149,7 @@ if (typeof NodeLiveAudioProcessor === "function") {
         seconds,
       };
       map.set(smootherKey, state);
-      return target;
+      return applyModAfterSmooth(target);
     }
 
     const eps = 1e-9;
@@ -170,17 +173,17 @@ if (typeof NodeLiveAudioProcessor === "function") {
 
     if (state.rampDuration <= 0 || Math.abs(state.value - state.target) <= eps) {
       state.value = state.target;
-      return state.value;
+      return applyModAfterSmooth(state.value);
     }
 
     state.rampSamples += frames;
     if (state.rampSamples >= state.rampDuration) {
       state.value = state.target;
       state.rampFrom = state.target;
-      return state.value;
+      return applyModAfterSmooth(state.value);
     }
     const t = state.rampSamples / state.rampDuration;
     state.value = state.rampFrom + (state.target - state.rampFrom) * t;
-    return state.value;
+    return applyModAfterSmooth(state.value);
   };
 }

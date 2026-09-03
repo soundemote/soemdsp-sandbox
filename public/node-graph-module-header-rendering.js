@@ -729,8 +729,13 @@ function createNodeGraphModuleHeader(type, node, definition) {
     }
   });
   titleText.addEventListener("dblclick", (event) => {
-    event.preventDefault();
+    // Already editing: let the browser select the word. preventDefault +
+    // PlaceCaretAtPoint was why the highlight flashed then vanished.
     event.stopPropagation();
+    if (titleText.dataset.titleEditing === "1") {
+      return;
+    }
+    event.preventDefault();
     if (typeof startNodeGraphModuleTitleEdit === "function") {
       startNodeGraphModuleTitleEdit(titleText, event);
     }

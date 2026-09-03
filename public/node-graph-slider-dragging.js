@@ -451,7 +451,7 @@ function clearNodeSliderDragCursorState() {
 // the one that was mid-drag. Force-clearing on blur/tab-hide turns that
 // unrecoverable, session-wide failure into, at worst, one cancelled drag.
 function forceEndNodeSliderDrag(reason) {
-  const drag = nodeGraphMvp.sliderDragging;
+  const drag = nodeGraphMvp?.sliderDragging;
   if (!drag) {
     return;
   }

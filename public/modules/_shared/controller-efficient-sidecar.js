@@ -377,14 +377,13 @@ NodeLiveAudioProcessor.prototype.readEfficientModSourceSample = function readEff
   return Number.isFinite(n) ? n : 0;
 };
 
-/** Fold patch modulations onto a DOMAIN base (efficient path; no frameValues). */
-NodeLiveAudioProcessor.prototype.foldEfficientParamModulations = function foldEfficientParamModulations(
+/** Sample MOD sources for one param (efficient path; no frameValues). */
+NodeLiveAudioProcessor.prototype.readEfficientParamModSources = function readEfficientParamModSources(
   node,
   key,
-  base,
 ) {
   const mods = this.modulationConnections?.get?.(this.parameterKey(node?.id, key));
-  if (!mods || !mods.length) return base;
+  if (!mods || !mods.length) return [];
   const metadata = node?.paramMeta?.[key] || {};
   const sources = [];
   for (let i = 0; i < mods.length; i += 1) {
@@ -399,6 +398,41 @@ NodeLiveAudioProcessor.prototype.foldEfficientParamModulations = function foldEf
       sources.push(sample);
     }
   }
+  return sources;
+};
+
+/**
+ * Unit/domain MOD accumulators for native set_param_mod.
+ * @returns {{ unitAdd: number, domainAdd: number }}
+ */
+NodeLiveAudioProcessor.prototype.efficientParamModAccumulators = function efficientParamModAccumulators(
+  node,
+  key,
+) {
+  const sources = this.readEfficientParamModSources(node, key);
+  if (!sources.length) return { unitAdd: 0, domainAdd: 0 };
+  const metadata = node?.paramMeta?.[key] || {};
+  if (typeof nodeGraphParamModAccumulators === "function") {
+    return nodeGraphParamModAccumulators(sources, metadata);
+  }
+  // Fallback: treat every source as domain-add if helper missing.
+  let domainAdd = 0;
+  for (let i = 0; i < sources.length; i += 1) {
+    const n = Number(sources[i]);
+    if (Number.isFinite(n)) domainAdd += n;
+  }
+  return { unitAdd: 0, domainAdd };
+};
+
+/** Fold patch modulations onto a DOMAIN base (after smooth; never into Control.target). */
+NodeLiveAudioProcessor.prototype.foldEfficientParamModulations = function foldEfficientParamModulations(
+  node,
+  key,
+  base,
+) {
+  const sources = this.readEfficientParamModSources(node, key);
+  if (!sources.length) return base;
+  const metadata = node?.paramMeta?.[key] || {};
   if (typeof nodeGraphParamFoldModSources === "function") {
     return nodeGraphParamFoldModSources(base, sources, metadata);
   }

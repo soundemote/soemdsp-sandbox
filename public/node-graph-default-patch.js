@@ -20,6 +20,9 @@ function nodeGraphResolveModuleTypeAlias(type) {
   if (t === "gainBiasMix") return "mix";
   // Noisy → NoisyFreq (ratio jitter).
   if (t === "additiveNoisy") return "additiveNoisyFreq";
+  // Pre-rename graph modules (keep patches; do not retire-drop).
+  if (t === "graph2" || t === "graph") return "smoothGraph";
+  if (t === "graphCopy") return "stepGraph";
   return t;
 }
 

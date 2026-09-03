@@ -87,7 +87,7 @@ function nodeGraphFormatOversamplingRatio(ratio) {
   return `x${Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}`;
 }
 
-function nodeGraphAudioDerivation(patch = nodeGraphMvp.patch) {
+function nodeGraphAudioDerivation(patch = nodeGraphMvp?.patch) {
   const currentSampleRate = nodeGraphBaseSampleRate();
   // Keep patch target for future OS work; live/render engine always 1× while disabled.
   const targetSampleRate = nodeGraphTargetSampleRate(patch);

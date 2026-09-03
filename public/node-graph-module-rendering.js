@@ -80,9 +80,13 @@ function attachNodeGraphNodeEvents(node) {
       event.stopPropagation();
       return;
     }
-    event.preventDefault();
     event.stopPropagation();
     const titleField = node.querySelector(".node-header-title");
+    // Already renaming → native word select (do not preventDefault).
+    if (titleField?.dataset?.titleEditing === "1") {
+      return;
+    }
+    event.preventDefault();
     if (typeof startNodeGraphModuleTitleEdit === "function" && titleField) {
       startNodeGraphModuleTitleEdit(titleField, event);
     }

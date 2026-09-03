@@ -12,7 +12,14 @@ function nodeGraphClipperDbToLin(db) {
 }
 
 function createNodeGraphSoftClipperChannelState() {
-  return { u1: 0, F1: 0, n: 0, x1: 0, hasX: false };
+  // F1 must start at ∫tanhApprox(0)=(4/3)ln(3) so the first ADAA step is not (F-0)/du.
+  return {
+    u1: 0,
+    F1: (4 / 3) * Math.log(3),
+    n: 0,
+    x1: 0,
+    hasX: false,
+  };
 }
 
 function nodeGraphSoftClipperOversampleMode(value) {

@@ -296,9 +296,12 @@ function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
  * Combine one or more MOD samples onto DOMAIN base.
  * Each source: |mod| ≤ 1 → unit-map contribution; |mod| > 1 → domain-add.
  */
-function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
-  const baseN = Number(base);
-  const b = Number.isFinite(baseN) ? baseN : 0;
+/**
+ * Classify MOD sources into unit-band vs domain-add accumulators.
+ * Same per-source rules as fold — used by efficient native set_param_mod.
+ * @returns {{ unitAdd: number, domainAdd: number }}
+ */
+function nodeGraphParamModAccumulators(sources, metadata = {}) {
   const min = Number(metadata.min);
   const max = Number(metadata.max);
   const range = max - min;
@@ -320,6 +323,16 @@ function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
       domainAdd += mod;
     }
   }
+  return { unitAdd, domainAdd };
+}
+
+function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
+  const baseN = Number(base);
+  const b = Number.isFinite(baseN) ? baseN : 0;
+  const { unitAdd, domainAdd } = nodeGraphParamModAccumulators(sources, metadata);
+  const min = Number(metadata.min);
+  const max = Number(metadata.max);
+  const range = max - min;
   let result = b + domainAdd;
   if (Number.isFinite(range) && range > 0 && unitAdd !== 0) {
     const baseUnit = nodeGraphParamDomainToUnitLinear(b, metadata);

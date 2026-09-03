@@ -12624,25 +12624,40 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   opacity: 1;
 }
 
-/* Dim painted faces under the veil so they read as inactive, not “still live”.
-   Do not greyscale the Layout B shell — jacks live inside it. */
-.dsp-node.bypassed > .dsp-node-body,
-.dsp-node.bypassed > .node-module-scope-window,
-.dsp-node.bypassed > .node-pitch-detector-face,
-.dsp-node.bypassed > .node-filter-curve-display,
-.dsp-node.bypassed > .node-envelope-curve-display,
-.dsp-node.bypassed > .node-phosphor-waveform-display,
-.dsp-node.bypassed > .node-phosphillator-draw-display,
-.dsp-node.bypassed > .node-pulse-curve-display,
-.dsp-node.bypassed > .node-wall-room-display,
+/* Hide painted displays under the OFF wallpaper (keep layout so size holds).
+   Band tag + common face classes. Do not hide Layout B I/O columns. */
+.dsp-node.bypassed [data-module-band="face"],
+.dsp-node.bypassed .node-module-face,
+.dsp-node.bypassed .node-module-graph-display,
 .dsp-node.bypassed .node-module-scope-window,
+.dsp-node.bypassed .node-module-display-face,
+.dsp-node.bypassed .node-module-display-placeholder,
+.dsp-node.bypassed .node-pitch-detector-face,
+.dsp-node.bypassed .node-filter-curve-display,
+.dsp-node.bypassed .node-envelope-curve-display,
+.dsp-node.bypassed .node-phosphor-waveform-display,
+.dsp-node.bypassed .node-phosphillator-draw-display,
+.dsp-node.bypassed .node-pulse-curve-display,
+.dsp-node.bypassed .node-wall-room-display,
 .dsp-node.bypassed .node-number-readout-face,
 .dsp-node.bypassed .node-lcd-dot-face,
 .dsp-node.bypassed .node-led-face,
-.dsp-node.bypassed .node-knob-face,
-.dsp-node.bypassed .node-param-row {
-  filter: grayscale(0.72) brightness(0.58) saturate(0.35);
-  opacity: 0.88;
+.dsp-node.bypassed .node-solid-module-custom-ui {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Param sliders / control knobs above the OFF construction texture. */
+.dsp-node.bypassed > .dsp-node-body,
+.dsp-node.bypassed .dsp-node-body,
+.dsp-node.bypassed .node-param-row,
+.dsp-node.bypassed .node-knob-face {
+  position: relative;
+  z-index: 50;
+  visibility: visible;
+  filter: none;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Jacks + labels stay readable on top of the OFF wallpaper.
@@ -16019,9 +16034,17 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   cursor: text;
 }
 
-.node-header-title::selection,
-.node-header-title::-moz-selection {
+/* Hide accidental selection while dragging by the title (not editing). */
+.node-header-title:not([data-title-editing="1"])::selection,
+.node-header-title:not([data-title-editing="1"])::-moz-selection {
   background: transparent;
+  color: inherit;
+}
+
+/* While renaming, word/line select must be visible. */
+.node-header-title[data-title-editing="1"]::selection,
+.node-header-title[data-title-editing="1"]::-moz-selection {
+  background: color-mix(in srgb, var(--node-module-primary-text-color) 35%, transparent);
   color: inherit;
 }
 

@@ -2,6 +2,12 @@
 // offline/render-time algorithm, now living next to the rest of its
 // per-module code instead of the shared file.
 
+function createNodeGraphLadderFilterState() {
+  return {
+    y: [0, 0, 0, 0, 0],
+  };
+}
+
 function nodeGraphLadderFilterMix(mode, stages) {
   const safeMode = Math.round(clampNodeSliderValue(Number(mode) || 0, 0, 3));
   const stageCount = nodeGraphLadderFilterStageCount(stages);

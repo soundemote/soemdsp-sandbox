@@ -66,66 +66,51 @@ static void ensure_sorted(State& st) {
 static void ensure_default_ramp(State& st) {
   if (st.count >= 2) return;
   st.points[0] = { 0.0f, 0.0f, 0.0f, (float)kShapeLinear };
-  st.points[1] = { 1.0f, 1.0f, 0.0f, (float)kShapeRational };
+  st.points[1] = { 1.0f, 1.0f, 0.0f, (float)kShapeLinear };
   st.count = 2;
 }
 
-static double hard_step(double p, double contourSign) {
-  if (contourSign >= 0.0) return p <= 0.0 ? 0.0 : 1.0;
-  return p >= 1.0 ? 1.0 : 0.0;
-}
-
-static double blend_hard_step(double p, double contour, double continuous) {
-  const double a = dsp_fabs(contour);
-  if (a < 1.0e-9) return continuous;
-  if (a >= 1.0 - 1.0e-12) return hard_step(p, contour);
-  const double hard = hard_step(p, contour);
-  const double cont = continuous * 0.0 == 0.0 ? continuous : p;
-  return cont * (1.0 - a) + hard * a;
+// Contour domain is −1…+1. Continuous kernels soft-cap at ±(1 − kPlanck)
+// so rational / exp / log never hit exact ±1 (div0 / overflow).
+static double contour_soft_cap(double contour) {
+  const double c = clamp(safe(contour), -1.0, 1.0);
+  const double softMax = 1.0 - kPlanck;
+  if (c > softMax) return softMax;
+  if (c < -softMax) return -softMax;
+  return c;
 }
 
 static double rational_curve(double p, double contour) {
-  double continuous = p;
-  if (dsp_fabs(contour) >= 1.0e-6) {
-    const double cSafe = clamp(contour, -0.999999, 0.999999);
-    continuous = cSafe < 0.0
-      ? (p * (1.0 + cSafe)) / (1.0 + cSafe * p)
-      : p / (1.0 - cSafe + cSafe * p);
-  }
-  return blend_hard_step(p, contour, continuous);
+  const double c = contour_soft_cap(contour);
+  if (dsp_fabs(c) < kPlanck) return p;
+  return c < 0.0
+    ? (p * (1.0 + c)) / (1.0 + c * p)
+    : p / (1.0 - c + c * p);
 }
 
 static double exponential_curve(double p, double contour) {
-  double continuous = p;
-  if (dsp_fabs(contour) >= 1.0e-6) {
-    const double a = mind(0.999999, dsp_fabs(contour));
-    const double mag = 1.2 + 6.8 * (a / (1.0 - a * 0.85));
-    const double k = contour < 0.0 ? -mag : mag;
-    if (dsp_fabs(k) >= 0.05) {
-      const double denom = dsp_exp(k) - 1.0;
-      if (dsp_fabs(denom) >= 1.0e-9) {
-        continuous = (dsp_exp(k * p) - 1.0) / denom;
-      }
-    }
-  }
-  return blend_hard_step(p, contour, continuous);
+  const double t = contour_soft_cap(contour);
+  if (dsp_fabs(t) < kPlanck) return p;
+  const double a = dsp_fabs(t);
+  const double mag = 1.2 + 6.8 * (a / (1.0 - a * 0.85));
+  const double k = t < 0.0 ? -mag : mag;
+  if (dsp_fabs(k) < 0.05) return p;
+  const double denom = dsp_exp(k) - 1.0;
+  if (dsp_fabs(denom) < kPlanck) return p;
+  return (dsp_exp(k * p) - 1.0) / denom;
 }
 
 static double logarithmic_curve(double p, double contour) {
-  double continuous = p;
-  if (dsp_fabs(contour) >= 1.0e-6) {
-    const double a = mind(0.999999, dsp_fabs(contour));
-    const double b = dsp_exp(1.2 + 5.5 * (a / (1.0 - a * 0.85)));
-    if (b * 0.0 == 0.0 && b > 1.000001) {
-      const double denom = dsp_ln(b);
-      if (denom * 0.0 == 0.0 && dsp_fabs(denom) >= 1.0e-9) {
-        continuous = contour < 0.0
-          ? 1.0 - dsp_ln(1.0 + (1.0 - p) * (b - 1.0)) / denom
-          : dsp_ln(1.0 + p * (b - 1.0)) / denom;
-      }
-    }
-  }
-  return blend_hard_step(p, contour, continuous);
+  const double t = contour_soft_cap(contour);
+  if (dsp_fabs(t) < kPlanck) return p;
+  const double a = dsp_fabs(t);
+  const double b = dsp_exp(1.2 + 5.5 * (a / (1.0 - a * 0.85)));
+  if (!(b * 0.0 == 0.0) || b <= 1.0 + kPlanck) return p;
+  const double denom = dsp_ln(b);
+  if (!(denom * 0.0 == 0.0) || dsp_fabs(denom) < kPlanck) return p;
+  return t < 0.0
+    ? 1.0 - dsp_ln(1.0 + (1.0 - p) * (b - 1.0)) / denom
+    : dsp_ln(1.0 + p * (b - 1.0)) / denom;
 }
 
 static double smoothstep_curve(double p) {

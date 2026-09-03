@@ -169,7 +169,7 @@ var sandbox = {
       outputs: ["Out"],
     },
     polyBlep: {
-      inputs: ["Morph"],
+      inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
       outputs: ["Wave", "Saw", "Ramp", "Square", "Tri", "Sine"],
       outputChannels: { Wave: "green" },
       outputAliases: { Out: "Wave", "Wave Out": "Wave", Noise: "Wave" },
@@ -290,7 +290,10 @@ assert(ch("additiveNoisyPan", "Graph", "input") === "yellow", "NoisyPan Graph in
 assert(ch("additiveOut", "Left", "output") !== "yellow", "Additive Out Left is audio not Graph");
 assert(ch("additiveOut", "Graph", "input") === "yellow", "Out Graph in is yellow");
 assert(ch("cmykParamDemo", "Morph", "input") === "cyan", "listed Parameter Morph is cyan");
-assert(ch("polyBlep", "Morph", "input") === "", "PolyBLEP Morph is gold (no channel)");
+assert(
+  sandbox.nodeGraphModuleDefinitions.polyBlep.inputs.indexOf("Morph") < 0,
+  "PolyBLEP has no Morph SIGNAL IN (use Morph parameter / MOD)",
+);
 assert(ch("polyBlep", "Wave", "output") === "green", "PolyBLEP Wave is green (explicit)");
 assert(ch("polyBlep", "Saw", "output") === "", "PolyBLEP Saw stays uncolored");
 assert(ch("aliasSine", "Out", "output") === "green", "Alias Sine Out is green");

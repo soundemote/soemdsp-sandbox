@@ -244,6 +244,16 @@ async function renderNodeGraphAudio() {
   const stateReadCount = nodeGraphStateReadCount(plan);
   renderStatus.textContent = "rendering";
   renderStatus.className = "pill";
+  // Wait for offline native hosts (polyBlep / blit / osc, …) before bouncing.
+  // Lazy fetch otherwise returns silence for the whole Render Sample pass.
+  if (typeof nodeGraphWarmMultiWaveMainWasmForTypes === "function") {
+    const types = Array.isArray(plan?.nodes)
+      ? plan.nodes.map((node) => node?.type).filter(Boolean)
+      : [];
+    try {
+      await nodeGraphWarmMultiWaveMainWasmForTypes(types);
+    } catch (_e) { /* failed loads stay silent per host */ }
+  }
   const runtime = createNodeGraphLiveRuntime(plan);
   const scopeCapture = beginNodeGraphRenderedScopeCapture({
     frames: engineFrames,
