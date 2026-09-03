@@ -101,15 +101,17 @@ NodeLiveAudioProcessor.prototype.applyPingPongNativeParams = function applyPingP
     return;
   }
   const genBefore = Number(native.soemdsp_ping_pong_delay_memory_generation?.() || 0);
+  // ABI only (native DSP). offset = bipolar trim; lfoAmp = depth.
   native.soemdsp_ping_pong_delay_set_params(
     state.nativeHandle,
     Number(params.feedback) || 0,
     Number(params.mix) || 0,
-    Number(params.level) || 0,
+    Number(params.amplitude) || 0,
     Number(params.timeNumerator) || 0,
     nodeGraphFiniteNumber(params.timeDenominator, 1),
     Number(params.timingMode) || 0,
-    Math.max(0, Number(params.offsetMs) || 0),
+    Number(params.offset) || 0,
+    Math.max(0, Number(params.lfoAmp) || 0),
     Math.round(Number(params.lfoStyle) || 0),
     Number(params.lfoRate) || 0,
     Number(params.lfoVariation) || 0,
@@ -171,11 +173,12 @@ NodeLiveAudioProcessor.prototype.pingPongDelaySample = function pingPongDelaySam
         this.safeFilterNumber(input, null),
         Number(params.feedback) || 0,
         Number(params.mix) || 0,
-        Number(params.level) || 0,
+        Number(params.amplitude) || 0,
         Number(params.timeNumerator) || 0,
         nodeGraphFiniteNumber(params.timeDenominator, 1),
         Number(params.timingMode) || 0,
-        Math.max(0, Number(params.offsetMs) || 0),
+        Number(params.offset) || 0,
+        Math.max(0, Number(params.lfoAmp) || 0),
         Math.round(Number(params.lfoStyle) || 0),
         Number(params.lfoRate) || 0,
         Number(params.lfoVariation) || 0,

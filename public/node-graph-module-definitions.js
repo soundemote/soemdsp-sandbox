@@ -1059,6 +1059,22 @@ const nodeGraphModuleDefinitions = (
           "How many phase taps. sine / cosine: A only. sincos: A=sin B=cos. antiphase: A and −A. 3-phase: 0°/120°/240°. 4-phase: 0°/90°/180°/270°. Unused A–D sit at 0.",
       },
       {
+        choices: ["Polynomial", "Wavetable"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "method",
+        label: "Method",
+        linearSmoothing: false,
+        smoothingType: "none",
+        max: "1",
+        mid: "0",
+        min: "0",
+        step: "1",
+        tooltip:
+          "Polynomial = exact joint sin/cos (default). Wavetable = additive’s half-sine LUT (2¹⁵) for lower CPU.",
+      },
+      {
         defaultValue: "0",
         key: "phase",
         kind: "phase",
@@ -1111,6 +1127,22 @@ const nodeGraphModuleDefinitions = (
       cos: "Cos",
     },
     parameters: [
+      {
+        choices: ["Polynomial", "Wavetable"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "method",
+        label: "Method",
+        linearSmoothing: false,
+        smoothingType: "none",
+        max: "1",
+        mid: "0",
+        min: "0",
+        step: "1",
+        tooltip:
+          "Polynomial = exact joint sin/cos (default). Wavetable = additive’s half-sine LUT (2¹⁵) for lower CPU.",
+      },
       {
         defaultValue: "0",
         key: "phase",
@@ -9937,39 +9969,46 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
+  // Ping Pong: Mix L/R = audio; LFO L/R = gold CV (raw bipolar LFO before Amp).
   pingPongDelay: {
     planRole: "processor",
-    // Stereo Trace face (Output-style L/R colors): Mod L/R = delay tap times
-    // normalized so ±1 spans the full max delay the module supports.
     displayType: "trace",
     spectrumCompanion: false,
     displayModes: [
       { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Mod L", right: "Mod R" },
+    stereoTracePorts: { left: "LFO L", right: "LFO R" },
     inputAliases: { In: "Mono" },
     inputLabels: { Mono: "Mono", Left: "Left", Right: "Right" },
     inputs: ["Mono", "Left", "Right"],
-    // Audio Mix L/R + modulator traces.
-    outputs: ["Mix L", "Mix R", "Mod L", "Mod R"],
+    outputs: ["Mix L", "Mix R", "LFO L", "LFO R"],
     outputAliases: {
       Left: "Mix L",
       Right: "Mix R",
-      "Mix Left": "Mix L",
-      "Mix Right": "Mix R",
-      "Mod Left": "Mod L",
-      "Mod Right": "Mod R",
     },
     outputLabels: {
       "Mix L": "Mix L",
       "Mix R": "Mix R",
-      "Mod L": "Mod L",
-      "Mod R": "Mod R",
+      "LFO L": "LFO L",
+      "LFO R": "LFO R",
     },
     parameters: [
-      // Tap = Numer/Denom × whole note (4 beats). Numer=1 Denom=16 → 1/16 note.
-      // Keys stay timeNumerator/timeDenominator (same math); labels were X/Y and hid that.
+      {
+        choices: ["Linear"],
+        defaultValue: "0",
+        displayChoices: true,
+        hidden: true,
+        key: "interpolation",
+        label: "Interpolate",
+        linearSmoothing: false,
+        max: "0",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Delay-line fractional read. Linear (default). Hidden — enable from the parameter visibility menu.",
+      },
       {
         control: "number",
         defaultValue: "1",
@@ -9983,7 +10022,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Numerator of Numer/Denom × whole note. Numer=0 → no delay. Examples with Denom: 1/4 note = 1÷4, 1/8 = 1÷8, 1/16 = 1÷16, 1/32 = 1÷32."
+          "Numerator of Numer/Denom × whole note. Numer=0 → no delay. Examples: 1/4, 1/8, 1/16, 1/32.",
       },
       {
         control: "number",
@@ -9998,7 +10037,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Denominator of Numer/Denom × whole note. Denom=0 is treated as 1 in DSP. At Numer=1: Denom 4=¼, 8=⅛, 16=1/16, 32=1/32, 64=1/64."
+          "Denominator of Numer/Denom × whole note. At Numer=1: Denom 4=¼, 8=⅛, 16=1/16, 32=1/32.",
       },
       {
         choices: ["Normal", "Dotted", "Triplet"],
@@ -10014,39 +10053,24 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Normal = Numer/Denom as written. Dotted = 1.5× that length. Triplet = 2/3× (three fit in two normals)."
+          "Normal = Numer/Denom as written. Dotted = 1.5×. Triplet = 2/3×.",
       },
       {
+        bipolar: true,
         defaultValue: "0",
-        key: "tapOffsetMs",
+        key: "offset",
         kind: "time",
         label: "Offset",
         max: "500",
         maxDigits: 5,
-        // Nonlinear: more throw near 0 (fine stereo skew / small time offsets).
-        mid: "20",
-        min: "0",
+        mid: "0",
+        min: "-500",
         nonlinearSlider: true,
         step: "any",
         unit: "ms",
         tooltip:
-          "Static stereo offset (ms): adds to the Right tap relative to the tempo base (Left stays on base + LFO). "
-          + "0 = L/R share the same base time. Nonlinear near 0 for fine control."
-      },
-      {
-        defaultValue: "0",
-        key: "offsetMs",
-        kind: "time",
-        label: "LFO Amp",
-        max: "500",
-        maxDigits: 5,
-        mid: "25",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        unit: "ms",
-        tooltip:
-          "LFO depth: max L/R delay drift (ms) around each side’s base (base + Offset on R). Independent LFO on each side swings −amp…+amp. 0 = no LFO motion."
+          "Modulates the tempo-base delay (ms) on both taps: delay = base + Offset + LFO. "
+          + "Negative shortens, positive lengthens. Sample-accurate — pitches when swept or MOD’d.",
       },
       {
         choices: ["Parabol", "Random Walk", "FBM"],
@@ -10062,19 +10086,35 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Independent L and R delay-time modulators. Parabol = smooth cyclic wow. Random Walk = filtered stepped drift. FBM = fractal Brownian organic flutter."
+          "Shape of the built-in modulator of delay time. Parabol / Random Walk / FBM.",
       },
       {
         defaultValue: "0.35",
         key: "lfoRate",
-        kind: "frequency",
         label: "LFO Rate",
         max: "20",
         mid: "0.35",
         min: "0",
+        nonlinearSlider: false,
         step: "any",
         unit: "Hz",
-        tooltip: "How fast each side’s delay drifts within Offset. 0 freezes current L/R times."
+        tooltip:
+          "LFO speed in Hz (0…20). Modulates delay time; not depth — depth is LFO Amp.",
+      },
+      {
+        defaultValue: "25",
+        key: "lfoAmp",
+        kind: "time",
+        label: "LFO Amp",
+        max: "500",
+        maxDigits: 5,
+        mid: "25",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "ms",
+        tooltip:
+          "How far the LFO moves delay time (ms) around (tempo base + Offset). 0 = base+Offset only.",
       },
       {
         defaultValue: "0.25",
@@ -10084,18 +10124,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.25",
         min: "0",
         step: "any",
-        tooltip: "Detunes L vs R LFO rates so the two delays don’t lock together."
-      },
-      {
-        defaultValue: "1",
-        key: "saturate",
-        label: "Saturate",
-        max: "4",
-        mid: "1",
-        min: "0.01",
-        step: "any",
-        tooltip:
-          "SoEm-style soft clip in the feedback path (tape grunge). Lower = harder saturation; higher = cleaner."
+        tooltip: "Detunes L vs R LFO rates so the two delays don’t lock together.",
       },
       {
         defaultValue: "8000",
@@ -10107,7 +10136,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Passive one-pole lowpass in the feedback loop (darkens repeats)."
+        tooltip: "Passive one-pole lowpass in the feedback loop (darkens repeats).",
       },
       {
         defaultValue: "20",
@@ -10119,9 +10148,8 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         step: "any",
         unit: "Hz",
-        tooltip: "Passive one-pole highpass in the feedback loop (thins mud / DC)."
+        tooltip: "Passive one-pole highpass in the feedback loop (thins mud / DC).",
       },
-      // No code clamp below this — soft clip (Saturate) is the limiter. >1 = self-osc / tape cook.
       {
         defaultValue: "0.35",
         key: "feedback",
@@ -10132,25 +10160,40 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Feedback amount into the saturated tape loop. Not hard-capped in DSP — Saturate soft-clips the path. >1 can self-oscillate."
+          "Feedback into the saturated tape loop. Saturate soft-clips. >1 can self-oscillate.",
       },
-      { defaultValue: "0.35", key: "mix", label: "Mix", max: "1", mid: "0.35", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       {
-        choices: ["Linear", "Hermite"],
-        defaultValue: "0",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "interpolation",
-        label: "Interp",
-        linearSmoothing: false,
+        defaultValue: "1",
+        key: "saturate",
+        label: "Saturate",
+        max: "4",
+        mid: "1",
+        min: "0.01",
+        step: "any",
+        tooltip:
+          "Soft clip in the feedback path (tape grunge). Lower = harder saturation; higher = cleaner.",
+      },
+      {
+        defaultValue: "0.35",
+        key: "mix",
+        label: "Mix",
         max: "1",
-        mid: "0",
+        mid: "0.35",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
-        tooltip:
-          "Delay-line fractional read. Linear only for now (Hermite parked — CPU experiment)."
+        step: "any",
+        tooltip: "Dry/wet mix on Mix L / Mix R.",
+      },
+      {
+        defaultValue: "1",
+        key: "amplitude",
+        label: "Amplitude",
+        max: "2",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Output amplitude after dry/wet mix.",
       },
     ]
   },

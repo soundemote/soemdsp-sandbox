@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=morph-plain-01-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=pingpong-lfo-persist-14";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3116,7 +3116,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=face-full-quantum-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=graph-hosted-ready-ack-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=host-cv-feeder-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=pingpong-vs-delay-1",
   "./public/node-live-audio-worklet-set-plan.js?v=fix-normalizeCodeblock-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=graph-engine-6",
   "./public/node-live-audio-worklet-handle-message.js?v=wasm-plan-race-1",
@@ -3125,267 +3125,23 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
-  // CurveEnvelopeMod + sample-accurate mod packets (Bubble Cutoff proof).
-  "./public/modules/expAdsr/exp-adsr-math.js?v=env-uot-1",
-  "./public/modules/additiveGraph/additive-mod-control.js?v=mod-proof-4",
-  // Do NOT load pluck-envelope-live-evaluator.js here — it registers into
-  // nodeGraphLiveModuleEvaluators (main-thread / full only). PluckEnvelopeMod
-  // bakes strips via native soemdsp_pluck_envelope_* (C++), not JS DSP.
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=slew-native-1",
+  // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=no-js-env-mod-1",
   "./public/node-live-audio-worklet-process.js?v=mp-eff-1",
 ];
 
-// Legacy JS DSP evaluators + evaluateFrame — loaded only for ?product=full.
+// Legacy JS DSP evaluators + evaluateFrame — RETIRED. Never load on any product.
+// Kept as empty list so old references do not crash; do not reintroduce kernels.
 const nodeGraphLiveWorkletSourceFilesLegacy = [
-  "./public/node-live-audio-worklet-evaluators-sources.js?v=freq-skew-math-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=flower-child-stereo-1",
-  "./public/node-live-audio-worklet-evaluators-utility.js?v=midi-freq-host-1",
-  "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
-  "./public/node-live-audio-worklet-evaluate-frame.js?v=interrupt-patch-1",
-  "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=motion-1",
-  "./public/modules/basicShape/basic-shape-worklet-evaluator.js?v=morph-unipolar-1",
-  "./public/lib/trace/trace-shape.js?v=heart-ssot-1",
-  "./public/modules/rgbShape/rgb-shape-math.js?v=heart-ssot-1",
-  "./public/modules/rgbShape/rgb-shape-worklet-evaluator.js?v=heart-ssot-1",
-  "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=sincos4-1",
-  "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-core-1",
-  "./public/modules/additiveGraph/additive-graph-math.js?v=opt-80db-1",
-  "./public/modules/additiveGenerator/additive-generator-worklet-evaluator.js?v=gen-int-harm-1",
-  "./public/modules/additiveLinearFilter/additive-linear-filter-worklet-evaluator.js?v=noisy-hz-1",
-  "./public/modules/additiveAnalogFilter/additive-analog-filter-worklet-evaluator.js?v=filter-hp-fix-1",
-  "./public/modules/additiveLadderFilter/additive-ladder-filter-worklet-evaluator.js?v=filter-hp-fix-1",
-  "./public/modules/additiveGrowl/additive-growl-worklet-evaluator.js?v=bubble-unskew-2",
-  "./public/modules/additiveFrequencySkew/additive-frequency-skew-worklet-evaluator.js?v=freq-skew-math-1",
-  "./public/modules/additiveQuantizeFreq/additive-quantize-freq-worklet-evaluator.js?v=qfreq-hard-1",
-  "./public/modules/additiveQuantizePhase/additive-quantize-phase-worklet-evaluator.js?v=quantize-fp-1",
-  "./public/modules/additiveNoisyFreq/additive-noisy-freq-worklet-evaluator.js?v=noisy-add-1",
-  "./public/modules/additiveNoisyPhase/additive-noisy-phase-worklet-evaluator.js?v=noisy-add-1",
-  "./public/modules/additivePan/additive-pan-worklet-evaluator.js?v=autopan-2",
-  "./public/modules/additiveNoisyPan/additive-noisy-pan-worklet-evaluator.js?v=noisy-add-1",
-  "./public/modules/additiveNoisyAmp/additive-noisy-amp-worklet-evaluator.js?v=noisy-add-1",
-  "./public/modules/additiveOut/additive-out-worklet-evaluator.js?v=gen-h-phase-reset-1",
-  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=morph-plain-01-1",
-  "./public/modules/noiseGenerator/noise-generator-worklet-evaluator.js?v=native-strip-1",
-  // noise channel math lives in worklet methods; main-thread uses noise-generator-math.js
-  "./public/modules/randomWalk/random-walk-math.js?v=random-walk-1",
-  "./public/modules/randomWalk/random-walk-worklet-evaluator.js?v=random-walk-1",
-  "./public/modules/cheapWalk/cheap-walk-math.js?v=cheap-walk-1",
-  "./public/modules/cheapWalk/cheap-walk-worklet-evaluator.js?v=cheap-walk-1",
-  "./public/modules/piSpigotNoise/pi-spigot-noise-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/bradley2a/bradley-2a-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/antisaw/antisaw-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/fractalBrownianNoise/fractal-brownian-noise-worklet-evaluator.js?v=fbm-amp-1",
-  "./public/modules/fbmField/fbm-field-worklet-evaluator.js?v=fbf-amp-1",
-  "./public/modules/rgbFractal/rgb-fractal-math.js?v=orbit-speed-1",
-  "./public/modules/rgbFractal/rgb-fractal-worklet-evaluator.js?v=orbit-speed-1",
-  "./public/modules/logisticMap/logistic-map-math.js?v=logistic-map-1",
-  "./public/modules/logisticMap/logistic-map-worklet-evaluator.js?v=logistic-map-1",
-  "./public/modules/turingMachine/turing-machine-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/henonMap/henon-map-math.js?v=henon-map-1",
-  "./public/modules/henonMap/henon-map-worklet-evaluator.js?v=henon-map-1",
-  "./public/modules/rayBouncer/ray-bouncer-worklet-evaluator.js?v=ray-bouncer-native-only-1",
-  "./public/modules/chuaAttractor/chua-attractor-math.js?v=chua-1",
-  "./public/modules/chuaAttractor/chua-attractor-worklet-evaluator.js?v=chua-1",
-  "./public/modules/chordMemory/chord-memory-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/pitchQuantizer/pitch-quantizer-worklet-evaluator.js?v=pitch-quantizer-face-1",
-  "./public/modules/wirdoSpiral/wirdo-spiral-worklet-evaluator.js?v=phasor-stdlib-1",
-  "./public/modules/blubb/blubb-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/mushroom/mushroom-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/boing/boing-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/torus/torus-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/keplerBouwkamp/kepler-bouwkamp-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/nyquistShannon/nyquist-shannon-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/surgeOscillator/surge-oscillator-worklet-evaluator.js?v=wave-green-1",
-  "./public/modules/softwaveOsc/softwave-osc-worklet-evaluator.js?v=native-core-1",
-  // Pure curve math before worklet glue (createNodeGraphCurveOscState / sample).
-  "./public/modules/curveOsc/curve-osc-math.js?v=curve-osc-1",
-  "./public/modules/curveOsc/curve-osc-worklet-evaluator.js?v=curve-osc-1",
-  // RS-MET-style L-system turtle oscillator (pure JS).
-  "./public/modules/snowflake/snowflake-math.js?v=snowflake-iter-bufs-1",
-  "./public/modules/snowflake/snowflake-worklet-evaluator.js?v=snowflake-iter-bufs-1",
-  "./public/modules/textStream/text-stream-worklet-evaluator.js?v=text-stream-1",
-  "./public/modules/dsfOscillator/dsf-oscillator-worklet-evaluator.js?v=native-core-1",
-  "./public/modules/robinSupersaw/robin-supersaw-worklet-evaluator.js?v=process-block-1",
-  "./public/modules/hypersaw/hypersaw-worklet-evaluator.js?v=phasor-stdlib-1",
-  "./public/modules/chordSequencer/chord-sequencer-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/chordPad/chord-pad-worklet-evaluator.js?v=chord-pad-1",
-  // Musical engines last among musical/chord chunks so JS spruces override native-only stubs.
-  "./public/modules/musicalEngines/musical-engines-worklet-evaluator.js?v=musical-engines-1",
-  "./public/modules/lutCell/lut-cell-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/passiveFilter/passive-filter-math.js?v=stagger-cache-1",
-  "./public/modules/passiveFilter/passive-filter-worklet-evaluator.js?v=passive-slope-1",
-  "./public/modules/papoulisFilter/papoulis-filter-worklet-evaluator.js?v=xy-pad-native-1",
-  "./public/modules/phosphillator/phosphillator-worklet-evaluator.js?v=drawnpath-fix-1",
-  "./public/modules/cookbookFilter/cookbook-filter-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/ladderFilter/ladder-filter-worklet-evaluator.js?v=res-max-1",
-  "./public/modules/flowerChildFilter/flower-child-filter-worklet-evaluator.js?v=stereo-chaos-1",
-  "./public/modules/activeFilter/active-filter-math.js?v=active-no-freq-1",
-  "./public/modules/activeFilter/active-filter-worklet-evaluator.js?v=bp-two-in-one-1",
-  "./public/modules/yellowjacketFilter/yellowjacket-filter-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/superloveFilter/superlove-filter-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/chaoticPhaseLockingFilter/chaotic-phase-locking-filter-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/resonatorFilter/resonator-filter-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/humanFilter/human-filter-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/pulseExplosion/pulse-explosion-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/comparator/comparator-math.js?v=comparator-1",
-  "./public/modules/comparator/comparator-worklet-evaluator.js?v=comparator-1",
-  "./public/modules/sampleDelay/sample-delay-math.js?v=sample-delay-1",
-  "./public/modules/sampleDelay/sample-delay-worklet-evaluator.js?v=sample-delay-1",
-  "./public/modules/minMax/min-max-math.js?v=min-max-1",
-  "./public/modules/minMax/min-max-worklet-evaluator.js?v=min-max-1",
-  "./public/modules/aliasSine/alias-sine-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/robinSinusoid/robin-sinusoid-math.js?v=robin-sin-fm-1",
-  "./public/modules/robinSinusoid/robin-sinusoid-worklet-evaluator.js?v=robin-native-1",
-  "./public/modules/tb303Filter/tb303-filter-worklet-evaluator.js?v=native-no-fallback-1",
-  "./public/modules/delayEffect/delay-effect-worklet-evaluator.js?v=linear-smooth-only-1",
-  "./public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js?v=softclip-block-1",
-  "./public/modules/wallDelay/wall-delay-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/reverbEffect/reverb-effect-worklet-evaluator.js?v=click-rhythm-1",
-  "./public/modules/soemReverb/soem-reverb-worklet-evaluator.js?v=5-ping-pong",
-  "./public/modules/pll/pll-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js?v=pitch-display-1",
-  "./public/modules/noiseDetector/noise-detector-math.js?v=noise-detector-1",
-  "./public/modules/noiseDetector/noise-detector-worklet-evaluator.js?v=noise-detector-1",
-  "./public/modules/rms/rms-math.js?v=rms-9",
-  "./public/modules/rms/rms-worklet-evaluator.js?v=rms-9",
-  "./public/modules/slewLimiter/slew-limiter-math.js?v=slew-abs-time-1",
-  "./public/modules/slewLimiter/slew-limiter-worklet-evaluator.js?v=slew-abs-time-1",
-  "./public/modules/midSideEncode/mid-side-encode-math.js?v=dip-ms-db-1",
-  "./public/modules/midSideEncode/mid-side-encode-worklet-evaluator.js?v=dip-ms-db-1",
-  "./public/modules/quadrature/quadrature-math.js?v=ms-quad-lim-1",
-  "./public/modules/quadrature/quadrature-worklet-evaluator.js?v=ms-quad-lim-1",
-  "./public/modules/hilbert/hilbert-math.js?v=hilbert-0-1",
-  "./public/modules/hilbert/hilbert-worklet-evaluator.js?v=hilbert-0-1",
-  "./public/modules/lookaheadLimiter/lookahead-limiter-math.js?v=coeff-cache-1",
-  "./public/modules/lookaheadLimiter/lookahead-limiter-worklet-evaluator.js?v=coeff-cache-1",
-  "./public/modules/inertialFilter/inertial-filter-math.js?v=inertial-hz-1",
-  "./public/modules/inertialFilter/inertial-filter-worklet-evaluator.js?v=inertial-hz-1",
-  "./public/modules/tiltFilter/tilt-filter-math.js?v=tilt-eq-1",
-  "./public/modules/tiltFilter/tilt-filter-worklet-evaluator.js?v=tilt-eq-1",
-  "./public/modules/eqFilter/eq-filter-math.js?v=eq-zero-hz-1",
-  "./public/modules/eqFilter/eq-filter-worklet-evaluator.js?v=eq-zero-hz-1",
-  "./public/modules/scientificIir/scientific-iir-math.js?v=scientific-iir-1",
-  "./public/modules/scientificIir/scientific-iir-worklet-evaluator.js?v=bt-msd-uc-1",
-  "./public/modules/crossover/crossover-math.js?v=xo-native-1",
-  "./public/modules/crossover/crossover-worklet-evaluator.js?v=xo-native-create-1",
-  "./public/modules/modeResonator/mode-resonator-math.js?v=mode-resonator-clip-1",
-  "./public/modules/modeResonator/mode-resonator-worklet-evaluator.js?v=mode-resonator-native-1",
-  "./public/modules/combResonator/comb-resonator-math.js?v=comb-resonator-clip-1",
-  "./public/modules/combResonator/comb-resonator-worklet-evaluator.js?v=comb-resonator-native-1",
-  "./public/modules/waveguide/waveguide-math.js?v=waveguide-stub-1",
-  "./public/modules/waveguide/waveguide-worklet-evaluator.js?v=waveguide-stub-1",
-  "./public/modules/classicFxStubs/classic-fx-stubs-worklet-evaluator.js?v=classic-fx-stubs-1",
-  "./public/modules/phaseDisperse/phase-disperse-math.js?v=phase-disperse-filters-1",
-  "./public/modules/phaseDisperse/phase-disperse-worklet-evaluator.js?v=phase-disperse-filters-1",
-  "./public/modules/bode/bode-math.js?v=bode-1",
-  "./public/modules/bode/bode-worklet-evaluator.js?v=bode-1",
-  "./public/modules/stftBlur/stft-blur-math.js?v=stft-blur-1",
-  "./public/modules/stftBlur/stft-blur-worklet-evaluator.js?v=stft-blur-1",
-  "./public/modules/noiseGenerator/noise-generator-math.js?v=softpop-1",
-  "./public/modules/softpopOscillator/softpop-oscillator-math.js?v=softpop-1",
-  "./public/modules/softpopOscillator/softpop-oscillator-worklet-evaluator.js?v=softpop-1",
-  "./public/modules/sinepulse/sinepulse-math.js?v=sinepulse-24",
-  "./public/modules/sinepulse/sinepulse-worklet-evaluator.js?v=sinepulse-24",
-  "./public/modules/kickEnvelope/kick-envelope-math.js?v=kick-split-1",
-  "./public/modules/kickEnvelope/kick-envelope-worklet-evaluator.js?v=kick-split-1",
-  "./public/modules/sineKick/sine-kick-math.js?v=kick-split-1",
-  "./public/modules/sineKick/sine-kick-worklet-evaluator.js?v=kick-split-1",
-  "./public/modules/sampleHold/sample-hold-math.js?v=sample-hold-ext-3",
-  "./public/modules/sampleHold/sample-hold-worklet-evaluator.js?v=sample-hold-ext-3",
-  "./public/modules/expAdsr/exp-adsr-math.js?v=env-uot-1",
-  "./public/modules/expAdsr/exp-adsr-worklet-evaluator.js?v=env-uot-1",
-  "./public/modules/attackDecay/attack-decay-math.js?v=attack-decay-1",
-  "./public/modules/attackDecay/attack-decay-worklet-evaluator.js?v=attack-decay-1",
-  "./public/modules/linearEnvelope/linear-envelope-math.js?v=planck-eps-1",
-  "./public/modules/linearEnvelope/linear-envelope-worklet-evaluator.js?v=linear-envelope-1",
-  "./public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/bugButton/bug-button-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/keypad/keypad-math.js?v=fonts-globalthis-1",
-  "./public/modules/keypad/keypad-worklet-evaluator.js?v=keypad-latch-1",
-  "./public/modules/tSeries/t-series-math.js?v=t-series-1",
-  "./public/modules/tSeries/t-series-worklet-evaluator.js?v=t-series-1",
-  "./public/modules/rasterRgb/raster-rgb-math.js?v=bipolar-grade-1",
-  "./public/modules/rasterRgb/raster-rgb-worklet-evaluator.js?v=bipolar-grade-1",
-  "./public/modules/rgbDisplays/rgb-display-worklet-evaluator.js?v=trace-rgb-1",
-  "./public/modules/phoneTone/phone-tone-math.js?v=tone-lr-1",
-  "./public/modules/phoneTone/phone-tone-worklet-evaluator.js?v=phone-tone-layout-a-1",
-  "./public/modules/xyPad/xy-pad-dsp.js?v=xy-amp-xy-1",
-  "./public/modules/xyPad/xy-pad-worklet-evaluator.js?v=xy-amp-xy-1",
-  "./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/spiral/spiral-worklet-evaluator.js?v=phasor-stdlib-1",
-  "./public/modules/fractalSpiral/fractal-spiral-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/logSpiral/log-spiral-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/lorenzAttractor/lorenz-attractor-math.js?v=lorenz-1",
-  "./public/modules/lorenzAttractor/lorenz-attractor-worklet-evaluator.js?v=lorenz-1",
-  "./public/modules/clock/clock-math.js?v=master-clock-t-1",
-  "./public/modules/clock/clock-worklet-evaluator.js?v=master-clock-t-1",
-  "./public/modules/simulationTime/simulation-time-math.js?v=sim-time-1",
-  "./public/modules/simulationTime/simulation-time-worklet-evaluator.js?v=sim-time-1",
-  "./public/modules/transport/transport-math.js?v=transport-f-1",
-  "./public/modules/transport/transport-worklet-evaluator.js?v=transport-f-1",
-  "./public/modules/randomClock/random-clock-math.js?v=random-clock-range-1",
-  "./public/modules/randomClock/random-clock-worklet-evaluator.js?v=random-clock-range-1",
-  "./public/modules/triggerDivider/trigger-divider-math.js?v=trigger-divider-1",
-  "./public/modules/triggerDivider/trigger-divider-worklet-evaluator.js?v=trigger-divider-1",
-  "./public/modules/delayedTrigger/delayed-trigger-math.js?v=delayed-trigger-1",
-  "./public/modules/delayedTrigger/delayed-trigger-worklet-evaluator.js?v=delayed-trigger-1",
-  "./public/modules/triggerCounter/trigger-counter-math.js?v=trigger-counter-1",
-  "./public/modules/triggerCounter/trigger-counter-worklet-evaluator.js?v=trigger-counter-1",
-  "./public/modules/stepSequencer/step-sequencer-math.js?v=step-sequencer-1",
-  "./public/modules/stepSequencer/step-sequencer-worklet-evaluator.js?v=step-sequencer-1",
-  "./public/modules/stepGrid/step-grid-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/nextPatch/next-patch-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-os-1",
-  "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=softclip-block-1",
-  "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=planck-1",
-  "./public/modules/speakerProtector2/speaker-protector-2-worklet-evaluator.js?v=speaker-protector-noclip-1",
-  "./public/modules/clipperLimiter/clipper-limiter-math.js?v=clipper-order-1",
-  "./public/modules/clipperLimiter/clipper-limiter-worklet-evaluator.js?v=clipper-order-1",
-  "./public/modules/rgbaHsla/rgba-hsla-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/screenSpaceShader/screen-space-shader-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/metallicRatio/metallic-ratio-math.js?v=metallic-ratio-1",
-  "./public/modules/metallicRatio/metallic-ratio-worklet-evaluator.js?v=metallic-ratio-1",
-  "./public/modules/harmonicSeries/harmonic-series-math.js?v=harmonic-series-f0-1",
-  "./public/modules/harmonicSeries/harmonic-series-worklet-evaluator.js?v=harmonic-series-f0-1",
-  "./public/modules/speakerProtection/speaker-protection-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/radar/radar-worklet-evaluator.js?v=phasor-stdlib-1",
-  "./public/modules/audioPlayer/audio-player-math.js?v=mp-time-io-1",
-  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=mp-aa-1",
-  "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/gain/gain-math.js?v=output-db-1",
-  "./public/modules/gain/gain-worklet-evaluator.js?v=gain-db-1",
-  "./public/modules/mixStereo/mix-stereo-math.js?v=mix-stereo-mono-1",
-  "./public/modules/mixStereo/mix-stereo-worklet-evaluator.js?v=mix-stereo-mono-1",
-  "./public/modules/bias/bias-math.js?v=bias-io-1",
-  "./public/modules/bias/bias-worklet-evaluator.js?v=bias-io-1",
-  "./public/modules/attenuverter/attenuverter-math.js?v=attenuverter-1",
-  "./public/modules/attenuverter/attenuverter-worklet-evaluator.js?v=attenuverter-1",
-  "./public/modules/range/range-math.js?v=range-1",
-  "./public/modules/range/range-worklet-evaluator.js?v=range-1",
-  "./public/modules/u2b/u2b-worklet-evaluator.js?v=u2b-1",
-  "./public/modules/b2u/b2u-worklet-evaluator.js?v=b2u-1",
-  "./public/modules/inv/inv-worklet-evaluator.js?v=inv-1",
-
-  "./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js?v=rotate-3d-to-2d-1",
-  "./public/modules/rotate3dTo2d/rotate-3d-to-2d-worklet-evaluator.js?v=rotate-3d-to-2d-1",
-  "./public/modules/vectorscopeTransform/vectorscope-transform-math.js?v=vs-rotate-param-1",
-  "./public/modules/vectorscopeTransform/vectorscope-transform-worklet-evaluator.js?v=vs-rotate-param-1",
-  "./public/modules/speedColorInertia/speed-color-inertia-math.js?v=speed-color-inertia-2",
-  "./public/modules/speedColorInertia/speed-color-inertia-worklet-evaluator.js?v=speed-color-inertia-2",
-  "./public/modules/sinc/sinc-worklet-evaluator.js?v=native-core-1",
-  "./public/modules/videoscope/videoscope-worklet-evaluator.js?v=videoscope-buffer-hold-1",
-  "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=spec-overlap-batch-1",
+  // Retired: JS DSP evaluators must never load (APP_POLICY §0b / §2).
 ];
 
 const nodeGraphLiveWorkletSourceFilesRegister = [
   "./public/node-live-audio-worklet-register.js?v=blob-loader-20260711",
 ];
 
-// Full product = efficient core + legacy evaluators + register (register always last).
+// Product worklet blob = native graph host only (no JS DSP evaluators).
 const nodeGraphLiveWorkletSourceFiles = nodeGraphLiveWorkletSourceFilesEfficient
-  .concat(nodeGraphLiveWorkletSourceFilesLegacy)
   .concat(nodeGraphLiveWorkletSourceFilesRegister);
 
 async function buildNodeGraphLiveWorkletBlobUrl(sourceFiles) {
@@ -3409,11 +3165,7 @@ async function createNodeGraphLiveWorkletNode(context, plan = null) {
   const efficient = typeof nodeGraphEfficientProductEnabled === "function"
     ? nodeGraphEfficientProductEnabled()
     : Boolean(nodeGraphMvp?.efficientProduct);
-  const files = efficient
-    ? nodeGraphLiveWorkletSourceFilesEfficient.concat(nodeGraphLiveWorkletSourceFilesRegister)
-    : nodeGraphLiveWorkletSourceFilesEfficient
-      .concat(nodeGraphLiveWorkletSourceFilesLegacy)
-      .concat(nodeGraphLiveWorkletSourceFilesRegister);
+  const files = nodeGraphLiveWorkletSourceFilesEfficient.concat(nodeGraphLiveWorkletSourceFilesRegister); // never load JS DSP evaluators
   const blobUrl = await buildNodeGraphLiveWorkletBlobUrl(files);
   try {
     await nodeGraphLiveAwaitStartup(
@@ -3699,14 +3451,15 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       usesWorklet = true;
     } catch (error) {
       const message = String(error?.message || error || "AudioWorklet failed");
+      // APP_POLICY §0b / §2: never ScriptProcessor → evaluateNodeGraphPlanFrame.
       if (typeof window.SE?.ERROR === "function") {
-        window.SE.ERROR(`AudioWorklet failed → ScriptProcessor fallback: ${message}`);
+        window.SE.ERROR(`AudioWorklet required (no JS audio fallback): ${message}`);
       } else {
-        console.error("[live] AudioWorklet failed", error);
+        console.error("[live] AudioWorklet required — no JS audio fallback", error);
       }
-      liveNode = createNodeGraphLiveScriptProcessorNode(context, plan);
-      setNodeGraphLiveEngineStatus("engine fallback", "warn");
+      setNodeGraphLiveEngineStatus("worklet required", "error");
       setNodeGraphLiveEngineTitle(message);
+      throw error;
     }
     if (nodeGraphLiveEngineStartCancelled(outputSerial)) {
       await nodeGraphLiveOutputDisposeCancelledStart(outputSerial, context, liveNode);

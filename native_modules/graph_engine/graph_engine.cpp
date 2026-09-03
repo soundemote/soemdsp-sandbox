@@ -77,12 +77,23 @@ extern "C" void soemdsp_ping_pong_delay_destroy(int handle);
 extern "C" void soemdsp_ping_pong_delay_reset(int handle);
 extern "C" void soemdsp_ping_pong_delay_set_params(
   int handle,
-  double feedback, double mix, double level,
+  double feedback, double mix, double amplitude,
   double timeNumerator, double timeDenominator, double timingMode,
-  double offsetMs, double lfoStyle, double lfoRate, double lfoVariation,
+  double offsetMs, double lfoAmpMs, double lfoStyle, double lfoRate, double lfoVariation,
   double saturate, double lpfFrequency, double hpfFrequency,
   double tempoBpm, double sampleRate
 );
+extern "C" double soemdsp_ping_pong_delay_sample(
+  int handle, double input,
+  double feedback, double mix, double amplitude,
+  double timeNumerator, double timeDenominator, double timingMode,
+  double offsetMs, double lfoAmpMs, double lfoStyle, double lfoRate, double lfoVariation,
+  double saturate, double lpfFrequency, double hpfFrequency,
+  double tempoBpm, double sampleRate
+);
+extern "C" double soemdsp_ping_pong_delay_right(int handle);
+extern "C" double soemdsp_ping_pong_delay_mod_left(int handle);
+extern "C" double soemdsp_ping_pong_delay_mod_right(int handle);
 extern "C" void soemdsp_ping_pong_delay_process_block(int handle, int frameCount);
 extern "C" int soemdsp_ping_pong_delay_block_input_ptr(int handle);
 extern "C" int soemdsp_ping_pong_delay_block_output_left_ptr(int handle);
@@ -377,6 +388,8 @@ extern "C" double soemdsp_blit_sine(int handle);
 
 extern "C" int soemdsp_sine_wavetable_create();
 extern "C" void soemdsp_sine_wavetable_destroy(int handle);
+extern "C" void soemdsp_sine_wavetable_reset(int handle);
+extern "C" void soemdsp_sine_wavetable_set_method(int handle, int method);
 extern "C" void soemdsp_sine_wavetable_sample(
   int handle, double phaseOffsetRadians, double frequency, double amplitude, double sampleRate
 );
@@ -1380,6 +1393,7 @@ static const int kTypeQuadrature = 149;
 static const int kTypeArp = 150;
 static const int kTypeHilbert = 151;
 static const int kTypeBinaryClock = 152;
+static const int kTypeSinCos = 153;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1454,13 +1468,14 @@ static const int kParamLevel = 51;             // pingPong
 static const int kParamTimeNumerator = 52;     // pingPong
 static const int kParamTimeDenominator = 53;   // pingPong
 static const int kParamTimingMode = 54;        // pingPong
-static const int kParamOffsetMs = 55;          // pingPong LFO amp
+static const int kParamOffsetMs = 55;          // pingPong bipolar timing Offset (ms)
 static const int kParamLfoStyle = 56;          // pingPong
 static const int kParamLfoRate = 57;           // pingPong
 static const int kParamSaturate = 58;          // pingPong
 static const int kParamLpfFrequency = 59;      // pingPong
 static const int kParamHpfFrequency = 60;      // pingPong
 static const int kParamTempoBpm = 61;          // pingPong
+static const int kParamTapOffsetMs = 62;       // unused (kept for id stability)
 static const int kParamAttAmplitude = 70;      // attenuverter
 static const int kParamAttOffset = 71;         // attenuverter
 static const int kParamInLow = 80;             // range
@@ -1569,6 +1584,7 @@ struct Node {
   Control timeDenominator;
   Control timingMode;
   Control offsetMs;
+  Control tapOffsetMs; // pingPong static R-tap skew (ms)
   Control lfoStyle;
   Control lfoRate;
   Control saturate;
@@ -1734,7 +1750,7 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_phone_tone_destroy(handle);
   } else if (kind == kTypeBlit) {
     soemdsp_blit_destroy(handle);
-  } else if (kind == kTypeSineWavetable) {
+  } else if (kind == kTypeSineWavetable || kind == kTypeSinCos) {
     soemdsp_sine_wavetable_destroy(handle);
   } else if (kind == kTypeAntisaw) {
     soemdsp_antisaw_destroy(handle);
@@ -2051,7 +2067,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeArp) ? 8.0 // Internal Clock Hz
       : (typeId == kTypeAliasSine) ? 0.1 // normFreq (0→sr)
       : (typeId == kTypePhoneTone) ? 0.0 // freqOffset Hz
-      : (typeId == kTypeBlit || typeId == kTypeSineWavetable || typeId == kTypeArchimedes
+      : (typeId == kTypeBlit || typeId == kTypeSineWavetable || typeId == kTypeSinCos
+          || typeId == kTypeArchimedes
           || typeId == kTypeAdditiveOsc || typeId == kTypeSurgeOscillator
           || typeId == kTypeSoftwaveOsc || typeId == kTypeDsfOscillator
           || typeId == kTypeHypersaw || typeId == kTypeSinc
@@ -2132,8 +2149,9 @@ static void init_node_defaults(Node& n, int typeId) {
       || typeId == kTypeHumanFilter || typeId == kTypeResonatorFilter
       || typeId == kTypeCombResonator || typeId == kTypePluckEnvelope
       || typeId == kTypeAdditiveBubble || typeId == kTypeAdditiveGenerator
-      || typeId == kTypeAdditiveFrequencySkew)
-      ? 0.0 // chaos/damping/pwm/bubble/freqSkew off
+      || typeId == kTypeAdditiveFrequencySkew
+      || typeId == kTypeSineWavetable || typeId == kTypeSinCos)
+      ? 0.0 // chaos/damping/pwm/bubble/freqSkew off; SinCos method=Polynomial
       : (typeId == kTypeAdditiveBlaster) ? 179.0 // quantization (PoC default)
       : (typeId == kTypeAdditiveDiffusor) ? 0.0 // skew (rational)
       : (typeId == kTypeAdditiveLinearFilter) ? 0.25 // slope 0..1
@@ -2168,7 +2186,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAudioPlayer) ? 0.0 // Scratch
       : (typeId == kTypeStepGraph) ? 0.0 // curveOffset (CENTER used; shape unused)
       : 0.5,
-    (typeId == kTypeSlewLimiter) // discrete Lin/Log/Exp/Smooth
+    (typeId == kTypeSlewLimiter || typeId == kTypeSineWavetable || typeId == kTypeSinCos)
   );
   init_control(
     n.phaseParam,
@@ -2396,6 +2414,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeBradley2a) ? 0.0 // ampDepth
       : (typeId == kTypeDelayEffect) ? 0.02 // modAmount
       : (typeId == kTypeSoemReverb) ? 0.002 // lfoAmp
+      : (typeId == kTypePingPongDelay) ? 25.0 // lfoAmp ms (audible like Delay modAmount)
       : 0.07,
     false
   );
@@ -2504,6 +2523,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : 0.0,
     false
   );
+  init_control(n.tapOffsetMs, 0.0, false); // pingPong Offset (R skew ms)
   init_control(n.lfoStyle, 0.0, true);
   init_control(
     n.lfoRate,
@@ -2672,6 +2692,7 @@ static Control* control_for_param(Node& n, int paramId) {
   if (paramId == kParamTimeDenominator) return &n.timeDenominator;
   if (paramId == kParamTimingMode) return &n.timingMode;
   if (paramId == kParamOffsetMs) return &n.offsetMs;
+  if (paramId == kParamTapOffsetMs) return &n.tapOffsetMs;
   if (paramId == kParamLfoStyle) return &n.lfoStyle;
   if (paramId == kParamLfoRate) return &n.lfoRate;
   if (paramId == kParamSaturate) return &n.saturate;
@@ -2731,6 +2752,7 @@ static void dirty_node_control_coeffs(Node& n) {
   n.timeDenominator.dirty = true;
   n.timingMode.dirty = true;
   n.offsetMs.dirty = true;
+  n.tapOffsetMs.dirty = true;
   n.lfoStyle.dirty = true;
   n.lfoRate.dirty = true;
   n.saturate.dirty = true;
@@ -2956,7 +2978,7 @@ static void smoother_snap_all(Circuit& g) {
       &n.oversample, &n.mix, &n.diffusionSize, &n.diffusionAmount, &n.delaySize,
       &n.recycle, &n.lfoAmplitude, &n.lfoBaseSpeed, &n.lfoVariation, &n.seed,
       &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
-      &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
+      &n.offsetMs, &n.tapOffsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
       &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow,
       &n.outHigh, &n.gainDb, &n.gainLeftDb, &n.gainRightDb, &n.gainMonoSum,
       &n.laneVol[0], &n.laneVol[1], &n.laneVol[2], &n.laneVol[3],
@@ -2978,7 +3000,7 @@ static void smoother_step_node(Circuit& g, Node& node) {
     &node.diffusionSize, &node.diffusionAmount, &node.delaySize, &node.recycle,
     &node.lfoAmplitude, &node.lfoBaseSpeed, &node.lfoVariation, &node.feedback,
     &node.level, &node.timeNumerator, &node.timeDenominator, &node.offsetMs,
-    &node.lfoRate, &node.saturate, &node.lpfFrequency, &node.hpfFrequency,
+    &node.tapOffsetMs, &node.lfoRate, &node.saturate, &node.lpfFrequency, &node.hpfFrequency,
     &node.tempoBpm, &node.offset, &node.inLow, &node.inHigh, &node.outLow,
     &node.outHigh, &node.gainDb, &node.gainLeftDb, &node.gainRightDb
   };
@@ -3061,7 +3083,9 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeAliasSine) return soemdsp_alias_sine_create();
   if (typeId == kTypePhoneTone) return soemdsp_phone_tone_create();
   if (typeId == kTypeBlit) return soemdsp_blit_create();
-  if (typeId == kTypeSineWavetable) return soemdsp_sine_wavetable_create();
+  if (typeId == kTypeSineWavetable || typeId == kTypeSinCos) {
+    return soemdsp_sine_wavetable_create();
+  }
   if (typeId == kTypeAntisaw) return soemdsp_antisaw_create();
   if (typeId == kTypeArchimedes) return soemdsp_archimedes_create();
   // kTypeAdditiveOsc / Yellow Graph 111–124: free-fn, no instance
@@ -3185,7 +3209,7 @@ static void release_node_papoulis_controls(Node& n) {
     &n.oversample, &n.mix, &n.diffusionSize, &n.diffusionAmount, &n.delaySize,
     &n.recycle, &n.lfoAmplitude, &n.lfoBaseSpeed, &n.lfoVariation, &n.seed,
     &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
-    &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
+    &n.offsetMs, &n.tapOffsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
     &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow, &n.outHigh,
     &n.gainDb, &n.gainLeftDb, &n.gainRightDb, &n.gainMonoSum,
     &n.laneVol[0], &n.laneVol[1], &n.laneVol[2], &n.laneVol[3],
@@ -3773,47 +3797,41 @@ static void process_reverb(Circuit& g, Node& node, int frames) {
 static void process_ping_pong(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
-  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
-
-  soemdsp_ping_pong_delay_set_params(
-    node.nativeHandle,
-    control_effective(node.feedback),
-    control_effective(node.mix),
-    control_effective(node.level),
-    control_effective(node.timeNumerator),
-    control_effective(node.timeDenominator),
-    control_effective(node.timingMode),
-    control_effective(node.offsetMs),
-    control_effective(node.lfoStyle),
-    control_effective(node.lfoRate),
-    control_effective(node.lfoVariation),
-    control_effective(node.saturate),
-    control_effective(node.lpfFrequency),
-    control_effective(node.hpfFrequency),
-    control_effective(node.tempoBpm),
-    (double)sr
-  );
-
-  double* inPtr = ptr_from_export(soemdsp_ping_pong_delay_block_input_ptr(node.nativeHandle));
-  double* outL = ptr_from_export(soemdsp_ping_pong_delay_block_output_left_ptr(node.nativeHandle));
-  double* outR = ptr_from_export(soemdsp_ping_pong_delay_block_output_right_ptr(node.nativeHandle));
-  double* modL = ptr_from_export(soemdsp_ping_pong_delay_block_output_mod_left_ptr(node.nativeHandle));
-  double* modR = ptr_from_export(soemdsp_ping_pong_delay_block_output_mod_right_ptr(node.nativeHandle));
-  if (!inPtr || !outL || !outR) return;
-
-  // Native ping-pong is mono-in; fold Mono+L+R like the worklet evaluator.
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  // Same slot wiring as Delay: Amp → lfoAmplitude, Rate → lfoRate.
+  // delay = tempoBase + Offset + LFO_Amp * lfo.
   for (int f = 0; f < frames; f++) {
-    inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
-  }
-  soemdsp_ping_pong_delay_process_block(node.nativeHandle, frames);
-
-  copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
-  copy_tap_to_buf(node.buf[kPortRight], outR, frames);
-  // Mod L/R = normalized delay tap times (module outputs / stereoTracePorts).
-  if (modL) copy_tap_to_buf(node.buf[kPortSaw], modL, frames);
-  if (modR) copy_tap_to_buf(node.buf[kPortRamp], modR, frames);
-  for (int f = 0; f < frames; f++) {
-    node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
+    smoother_step_node(g, node);
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double offsetMs = control_effective(node.offsetMs);
+    const double lfoAmpMs = control_effective(node.lfoAmplitude);
+    const double lfoRateHz = control_effective(node.lfoRate);
+    const double left = soemdsp_ping_pong_delay_sample(
+      node.nativeHandle,
+      in,
+      control_effective(node.feedback),
+      control_effective(node.mix),
+      control_effective(node.level),
+      control_effective(node.timeNumerator),
+      control_effective(node.timeDenominator),
+      control_effective(node.timingMode),
+      offsetMs,
+      lfoAmpMs,
+      control_effective(node.lfoStyle),
+      lfoRateHz,
+      control_effective(node.lfoVariation),
+      control_effective(node.saturate),
+      control_effective(node.lpfFrequency),
+      control_effective(node.hpfFrequency),
+      control_effective(node.tempoBpm),
+      sr
+    );
+    const double right = soemdsp_ping_pong_delay_right(node.nativeHandle);
+    node.buf[kPortLeft][f] = left;
+    node.buf[kPortRight][f] = right;
+    node.buf[kPortMono][f] = 0.5 * (left + right);
+    node.buf[kPortSaw][f] = soemdsp_ping_pong_delay_mod_left(node.nativeHandle);
+    node.buf[kPortRamp][f] = soemdsp_ping_pong_delay_mod_right(node.nativeHandle);
   }
 }
 
@@ -4146,20 +4164,41 @@ static void sin_cos4_from_pair(
   }
 }
 
-static void process_sine_wavetable(Circuit& g, Node& node, int frames) {
+// Shared SinCos / SinCos4 advance. method (shape): 0=poly, 1=additive LUT.
+// Returns sin/cos pair; caller maps to face ports.
+static void sin_cos_pair_advance(
+  Circuit& g, Node& node, int frames, bool applyMode4
+) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double referenceVoltage = 48.0 / 120.0;
   const double phaseOff = control_effective(node.phaseParam) * kTwoPi;
   const double amp = control_effective(node.amplitude);
-  const double modeV = control_effective(node.mode);
-  int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
-  if (mode < 0) mode = 0;
-  if (mode > 5) mode = 5;
+  const double methodV = control_effective(node.shape);
+  const int method = (methodV >= 0.5) ? 1 : 0;
+  soemdsp_sine_wavetable_set_method(node.nativeHandle, method);
 
+  int mode = 2;
+  if (applyMode4) {
+    const double modeV = control_effective(node.mode);
+    mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+    if (mode < 0) mode = 0;
+    if (mode > 5) mode = 5;
+  }
+
+  if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        soemdsp_sine_wavetable_reset(node.nativeHandle);
+      }
+      node.lastReset = rv;
+    }
     double freq;
     if (liveF) {
       freq = g.mixF[f];
@@ -4169,16 +4208,34 @@ static void process_sine_wavetable(Circuit& g, Node& node, int frames) {
       freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, sr);
+    if (liveInc) {
+      // Increment is cycles/sample → Hz contribution.
+      freq += g.mixIncrement[f] * sr;
+      freq = clamp_hz_nyquist(freq, sr);
+    }
     soemdsp_sine_wavetable_sample(node.nativeHandle, phaseOff, freq, amp, sr);
     const double sn = soemdsp_sine_wavetable_sin(node.nativeHandle);
     const double cn = soemdsp_sine_wavetable_cos(node.nativeHandle);
-    double a = 0.0, b = 0.0, c = 0.0, d = 0.0;
-    sin_cos4_from_pair(sn, cn, mode, &a, &b, &c, &d);
-    node.buf[kPortMono][f] = a;
-    node.buf[kPortLeft][f] = b;
-    node.buf[kPortRight][f] = c;
-    node.buf[kPortSaw][f] = d;
+    if (applyMode4) {
+      double a = 0.0, b = 0.0, c = 0.0, d = 0.0;
+      sin_cos4_from_pair(sn, cn, mode, &a, &b, &c, &d);
+      node.buf[kPortMono][f] = a;
+      node.buf[kPortLeft][f] = b;
+      node.buf[kPortRight][f] = c;
+      node.buf[kPortSaw][f] = d;
+    } else {
+      node.buf[kPortMono][f] = sn;
+      node.buf[kPortLeft][f] = cn;
+    }
   }
+}
+
+static void process_sine_wavetable(Circuit& g, Node& node, int frames) {
+  sin_cos_pair_advance(g, node, frames, true);
+}
+
+static void process_sin_cos(Circuit& g, Node& node, int frames) {
+  sin_cos_pair_advance(g, node, frames, false);
 }
 
 // Antisaw: aliased-partial saw → Mono/L/R. frequency=fundamental, stages=reflections,
@@ -7882,9 +7939,14 @@ static void process_sample_delay(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double timeSec = control_effective(node.timeNumerator);
-  const double samples = control_effective(node.timeDenominator);
+  const bool controlSmoothing =
+    node_control_smoothing(node)
+    || (node.timeNumerator.active && !node.timeNumerator.snap)
+    || (node.timeDenominator.active && !node.timeDenominator.snap);
   for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double timeSec = control_effective(node.timeNumerator);
+    const double samples = control_effective(node.timeDenominator);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double delayed = soemdsp_sample_delay_sample(
       node.nativeHandle, in, timeSec, samples, sr
@@ -8198,6 +8260,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypePortalInlet
     || node.typeId == kTypeBlit
     || node.typeId == kTypeSineWavetable
+    || node.typeId == kTypeSinCos
     || node.typeId == kTypeAntisaw
     || node.typeId == kTypeArchimedes
     || node.typeId == kTypeAdditiveOsc
@@ -8338,6 +8401,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypePhoneTone
     || typeId == kTypeBlit
     || typeId == kTypeSineWavetable
+    || typeId == kTypeSinCos
     || typeId == kTypeAntisaw
     || typeId == kTypeArchimedes
     || typeId == kTypeSurgeOscillator
@@ -8648,7 +8712,7 @@ extern "C" int soemdsp_graph_set_global_smooth_time(int handle, float timeSample
       &n.oversample, &n.mix, &n.diffusionSize, &n.diffusionAmount, &n.delaySize,
       &n.recycle, &n.lfoAmplitude, &n.lfoBaseSpeed, &n.lfoVariation, &n.seed,
       &n.feedback, &n.level, &n.timeNumerator, &n.timeDenominator, &n.timingMode,
-      &n.offsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
+      &n.offsetMs, &n.tapOffsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
       &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh, &n.outLow,
       &n.outHigh, &n.gainDb, &n.gainLeftDb, &n.gainRightDb, &n.gainMonoSum,
       &n.laneVol[0], &n.laneVol[1], &n.laneVol[2], &n.laneVol[3],
@@ -8960,6 +9024,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     }
     if (node.typeId == kTypeSineWavetable) {
       process_sine_wavetable(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeSinCos) {
+      process_sin_cos(*g, node, frames);
       continue;
     }
     if (node.typeId == kTypeAntisaw) {
@@ -9487,6 +9555,6 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  // 108: arp Trigger + Internal Clock + ƒ Hz out
-  return 108;
+  // 109: sinCos(153) + Method poly/wavetable switch on SinCos + SinCos4
+  return 109;
 }

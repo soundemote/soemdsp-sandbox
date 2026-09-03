@@ -3632,7 +3632,7 @@
   <script src="./public/modules/portal/portal-outlet-register.js?v=portal-mlr-1"></script>
   <script src="./public/modules/simulationTime/simulation-time-register.js?v=sim-time-1"></script>
   <script src="./public/modules/patch/patch-register.js?v=patch-buttons-on-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=morph-plain-01-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=pingpong-mod-delay-1"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script src="./public/node-graph-efficient-product.js?v=portal-thru-1"></script>
   <script src="./public/node-graph-module-controls.js?v=f-cancel-ssot-1"></script>
@@ -3829,7 +3829,7 @@
   <script src="./public/node-graph-wire-actions.js?v=dimension-break-1"></script>
   <script src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
   <script src="./public/node-graph-wire-rendering.js?v=eff-pass-1"></script>
-  <script src="./public/node-graph-render-output.js?v=planck-1"></script>
+  <script src="./public/node-graph-render-output.js?v=no-js-audio-1"></script>
   <script src="./public/node-graph-debug-copy.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-execution-debug-api.js?v=noise-generator-stereo-20260630"></script>
   <script src="./public/node-graph-execution-debug-view.js?v=slider-unit-color-1780307400000"></script>
@@ -3912,276 +3912,93 @@
   <script src="./public/node-graph-stdlib/node-graph-shared-app-helpers.js?v=stdlib-app-helpers-20260725"></script>
   <script src="./public/node-graph-stdlib/node-graph-sinc-kernel.js?v=sinc-bandlimit-20260725"></script>
   <script src="./public/modules/_shared/output-amplitude.js?v=bt-msd-uc-1"></script>
-  <script src="./public/node-graph-live-frame-evaluator.js?v=graph-thru-1"></script>
-  <script src="./public/modules/spectrogram/spectrogram-live-evaluator.js?v=spec-tv-1"></script>
   <script src="./public/modules/_shared/display-thru-live-evaluators.js?v=wf-rgb-1"></script>
-  <script src="./public/modules/rasterRgb/raster-rgb-live-evaluator.js?v=bipolar-grade-1"></script>
   <script src="./public/modules/logisticMap/logistic-map-math.js?v=logistic-map-1"></script>
-  <script src="./public/modules/logisticMap/logistic-map-live-evaluator.js?v=logistic-map-1"></script>
-  <script src="./public/modules/turingMachine/turing-machine-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/henonMap/henon-map-math.js?v=henon-map-1"></script>
-  <script src="./public/modules/henonMap/henon-map-live-evaluator.js?v=henon-map-1"></script>
-  <script src="./public/modules/rayBouncer/ray-bouncer-live-evaluator.js?v=ray-bouncer-native-only-1"></script>
   <script src="./public/modules/chuaAttractor/chua-attractor-math.js?v=chua-1"></script>
-  <script src="./public/modules/chuaAttractor/chua-attractor-live-evaluator.js?v=chua-1"></script>
-  <script src="./public/modules/chordMemory/chord-memory-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/pitchQuantizer/pitch-quantizer-live-evaluator.js?v=pitch-quantizer-face-1"></script>
-  <script src="./public/modules/chordPad/chord-pad-live-evaluator.js?v=chord-pad-1"></script>
-  <script src="./public/modules/softwaveOsc/softwave-osc-live-evaluator.js?v=native-core-1"></script>
-  <script src="./public/modules/curveOsc/curve-osc-live-evaluator.js?v=curve-osc-1"></script>
-  <script src="./public/modules/snowflake/snowflake-live-evaluator.js?v=snowflake-phase-1"></script>
-  <script src="./public/modules/asciiscope/asciiscope-live-evaluator.js?v=mw-jacks-1"></script>
-  <script src="./public/modules/matrixDisplay/matrix-display-live-evaluator.js?v=display-thru-1"></script>
-  <script src="./public/modules/textStream/text-stream-live-evaluator.js?v=text-stream-1"></script>
-  <script src="./public/modules/wirdoSpiral/wirdo-spiral-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/blubb/blubb-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/mushroom/mushroom-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/boing/boing-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/torus/torus-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/keplerBouwkamp/kepler-bouwkamp-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/nyquistShannon/nyquist-shannon-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/radar/radar-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/surgeOscillator/surge-oscillator-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/dsfOscillator/dsf-oscillator-live-evaluator.js?v=native-core-1"></script>
-  <script src="./public/modules/robinSupersaw/robin-supersaw-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/hypersaw/hypersaw-live-evaluator.js?v=native-core-1"></script>
-  <script src="./public/modules/chordSequencer/chord-sequencer-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/musicalEngines/musical-engines-live-evaluator.js?v=musical-engines-1"></script>
-  <script src="./public/modules/lutCell/lut-cell-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/metallicRatio/metallic-ratio-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/harmonicSeries/harmonic-series-live-evaluator.js?v=harmonic-series-f0-1"></script>
   <script src="./public/modules/harmonicSeries/harmonic-series-display.js?v=harmonic-series-f0-1"></script>
   <script src="./public/modules/passiveFilter/passive-filter-math.js?v=stagger-cache-1"></script>
-  <script src="./public/modules/passiveFilter/passive-filter-live-evaluator.js?v=stagger-cache-1"></script>
-  <script src="./public/modules/papoulisFilter/papoulis-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/phosphillator/phosphillator-live-evaluator.js?v=phasor-stdlib-1"></script>
-  <script src="./public/modules/cookbookFilter/cookbook-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/ladderFilter/ladder-filter-live-evaluator.js?v=res-max-1"></script>
-  <script src="./public/modules/flowerChildFilter/flower-child-filter-live-evaluator.js?v=stereo-chaos-1"></script>
   <script src="./public/modules/activeFilter/active-filter-math.js?v=active-no-freq-1"></script>
-  <script src="./public/modules/activeFilter/active-filter-live-evaluator.js?v=active-no-freq-1"></script>
-  <script src="./public/modules/yellowjacketFilter/yellowjacket-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/superloveFilter/superlove-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/chaoticPhaseLockingFilter/chaotic-phase-locking-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/resonatorFilter/resonator-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/humanFilter/human-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/pulseExplosion/pulse-explosion-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/comparator/comparator-math.js?v=comparator-1"></script>
-  <script src="./public/modules/comparator/comparator-live-evaluator.js?v=comparator-1"></script>
   <script src="./public/modules/sampleDelay/sample-delay-math.js?v=sample-delay-1"></script>
-  <script src="./public/modules/sampleDelay/sample-delay-live-evaluator.js?v=sample-delay-1"></script>
   <script src="./public/modules/minMax/min-max-math.js?v=min-max-1"></script>
-  <script src="./public/modules/minMax/min-max-live-evaluator.js?v=min-max-1"></script>
   <script src="./public/modules/bitConverter/bit-converter-math.js?v=bit-converter-1"></script>
-  <script src="./public/modules/bitConverter/bit-converter-live-evaluator.js?v=bit-converter-1"></script>
-  <script src="./public/modules/aliasSine/alias-sine-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/robinSinusoid/robin-sinusoid-math.js?v=robin-sin-fm-1"></script>
-  <script src="./public/modules/robinSinusoid/robin-sinusoid-live-evaluator.js?v=robin-sin-fm-1"></script>
   <script src="./public/modules/phoneTone/phone-tone-math.js?v=tone-lr-1"></script>
-  <script src="./public/modules/phoneTone/phone-tone-live-evaluator.js?v=phone-tone-layout-a-1"></script>
   <script src="./public/modules/phoneTone/phone-tone-display.js?v=face-idle-1"></script>
   <script src="./public/modules/tSeries/t-series-math.js?v=t-series-1"></script>
-  <script src="./public/modules/tSeries/t-series-live-evaluator.js?v=t-series-1"></script>
-  <script src="./public/modules/tb303Filter/tb303-filter-live-evaluator.js?v=tb303-stable-1"></script>
-  <script src="./public/modules/delayEffect/delay-effect-live-evaluator.js?v=delay-mixm-1"></script>
-  <script src="./public/modules/pingPongDelay/ping-pong-delay-live-evaluator.js?v=tape-lfo-1"></script>
-  <script src="./public/modules/wallDelay/wall-delay-live-evaluator.js?v=wall-delay-nudge-helper-20260718"></script>
   <script src="./public/modules/wallDelay/wall-delay-room-display.js?v=wall-delay-nudge-helper-20260718"></script>
-  <script src="./public/modules/reverbEffect/reverb-effect-live-evaluator.js?v=port-pair-expand-1"></script>
-  <script src="./public/modules/soemReverb/soem-reverb-live-evaluator.js?v=5-ping-pong"></script>
-  <script src="./public/modules/pll/pll-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/helmholtzPitch/helmholtz-pitch-live-evaluator.js?v=light-led-1"></script>
-  <script src="./public/modules/keypad/keypad-live-evaluator.js?v=keypad-latch-1"></script>
   <script src="./public/modules/noiseDetector/noise-detector-math.js?v=noise-detector-1"></script>
-  <script src="./public/modules/noiseDetector/noise-detector-live-evaluator.js?v=noise-detector-1"></script>
   <script src="./public/modules/rms/rms-math.js?v=rms-9"></script>
-  <script src="./public/modules/rms/rms-live-evaluator.js?v=rms-9"></script>
   <script src="./public/modules/slewLimiter/slew-limiter-math.js?v=slew-shape-1"></script>
-  <script src="./public/modules/slewLimiter/slew-limiter-live-evaluator.js?v=slew-bias-1"></script>
   <script src="./public/modules/midSideEncode/mid-side-encode-math.js?v=dip-ms-db-1"></script>
-  <script src="./public/modules/midSideEncode/mid-side-encode-live-evaluator.js?v=dip-ms-db-1"></script>
   <script src="./public/modules/quadrature/quadrature-math.js?v=ms-quad-lim-1"></script>
-  <script src="./public/modules/quadrature/quadrature-live-evaluator.js?v=ms-quad-lim-1"></script>
   <script src="./public/modules/hilbert/hilbert-math.js?v=hilbert-0-1"></script>
-  <script src="./public/modules/hilbert/hilbert-live-evaluator.js?v=hilbert-0-1"></script>
   <script src="./public/modules/lookaheadLimiter/lookahead-limiter-math.js?v=dip-no-clamp-1"></script>
-  <script src="./public/modules/lookaheadLimiter/lookahead-limiter-live-evaluator.js?v=dip-no-clamp-1"></script>
   <script src="./public/modules/inertialFilter/inertial-filter-math.js?v=inertial-hz-1"></script>
-  <script src="./public/modules/inertialFilter/inertial-filter-live-evaluator.js?v=inertial-hz-1"></script>
   <script src="./public/modules/tiltFilter/tilt-filter-math.js?v=tilt-eq-1"></script>
-  <script src="./public/modules/tiltFilter/tilt-filter-live-evaluator.js?v=tilt-eq-1"></script>
   <script src="./public/modules/eqFilter/eq-filter-math.js?v=eq-zero-hz-1"></script>
-  <script src="./public/modules/eqFilter/eq-filter-live-evaluator.js?v=eq-f-1"></script>
   <script src="./public/modules/scientificIir/scientific-iir-math.js?v=scientific-iir-1"></script>
-  <script src="./public/modules/scientificIir/scientific-iir-live-evaluator.js?v=bt-msd-uc-1"></script>
   <script src="./public/modules/crossover/crossover-math.js?v=xo-native-1"></script>
-  <script src="./public/modules/crossover/crossover-live-evaluator.js?v=xo-native-1"></script>
   <script src="./public/modules/modeResonator/mode-resonator-math.js?v=mode-resonator-clip-1"></script>
-  <script src="./public/modules/modeResonator/mode-resonator-live-evaluator.js?v=mode-resonator-clip-1"></script>
   <script src="./public/modules/combResonator/comb-resonator-math.js?v=comb-resonator-clip-1"></script>
-  <script src="./public/modules/combResonator/comb-resonator-live-evaluator.js?v=comb-resonator-clip-1"></script>
   <script src="./public/modules/waveguide/waveguide-math.js?v=waveguide-stub-1"></script>
-  <script src="./public/modules/waveguide/waveguide-live-evaluator.js?v=waveguide-stub-1"></script>
-  <script src="./public/modules/classicFxStubs/classic-fx-stubs-live-evaluator.js?v=classic-fx-stubs-1"></script>
   <script src="./public/modules/phaseDisperse/phase-disperse-math.js?v=phase-disperse-1"></script>
-  <script src="./public/modules/phaseDisperse/phase-disperse-live-evaluator.js?v=phase-disperse-1"></script>
   <script src="./public/modules/bode/bode-math.js?v=bode-1"></script>
-  <script src="./public/modules/bode/bode-live-evaluator.js?v=bode-1"></script>
   <script src="./public/modules/stftBlur/stft-blur-math.js?v=stft-blur-1"></script>
-  <script src="./public/modules/stftBlur/stft-blur-live-evaluator.js?v=stft-blur-1"></script>
   <script src="./public/modules/sampleHold/sample-hold-math.js?v=sample-hold-ext-3"></script>
-  <script src="./public/modules/sampleHold/sample-hold-live-evaluator.js?v=sample-hold-ext-3"></script>
   <script src="./public/modules/expAdsr/exp-adsr-math.js?v=env-uot-1"></script>
   <script src="./public/modules/additiveGraph/additive-mod-control.js?v=mod-proof-2"></script>
-  <script src="./public/modules/expAdsr/exp-adsr-live-evaluator.js?v=env-uot-1"></script>
   <script src="./public/modules/attackDecay/attack-decay-math.js?v=attack-decay-1"></script>
   <script src="./public/modules/attackDecay/attack-decay-display.js?v=add-env-res-1"></script>
-  <script src="./public/modules/attackDecay/attack-decay-live-evaluator.js?v=attack-decay-1"></script>
   <script src="./public/modules/linearEnvelope/linear-envelope-math.js?v=planck-eps-1"></script>
-  <script src="./public/modules/linearEnvelope/linear-envelope-live-evaluator.js?v=linear-envelope-1"></script>
-  <script src="./public/modules/pluckEnvelope/pluck-envelope-live-evaluator.js?v=mod-proof-3"></script>
-  <script src="./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/spiral/spiral-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/fractalSpiral/fractal-spiral-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/logSpiral/log-spiral-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/lorenzAttractor/lorenz-attractor-math.js?v=lorenz-1"></script>
-  <script src="./public/modules/lorenzAttractor/lorenz-attractor-live-evaluator.js?v=lorenz-1"></script>
   <script src="./public/modules/noiseGenerator/noise-generator-math.js?v=noise-generator-1"></script>
-  <script src="./public/modules/noiseGenerator/noise-generator-live-evaluator.js?v=noise-generator-1"></script>
   <script src="./public/modules/softpopOscillator/softpop-oscillator-math.js?v=edge-fill-1"></script>
-  <script src="./public/modules/softpopOscillator/softpop-oscillator-live-evaluator.js?v=softpop-1"></script>
   <script src="./public/modules/sinepulse/sinepulse-math.js?v=sinepulse-24"></script>
-  <script src="./public/modules/sinepulse/sinepulse-live-evaluator.js?v=sinepulse-24"></script>
   <script src="./public/modules/kickEnvelope/kick-envelope-math.js?v=kick-split-1"></script>
-  <script src="./public/modules/kickEnvelope/kick-envelope-live-evaluator.js?v=kick-split-1"></script>
   <script src="./public/modules/sineKick/sine-kick-math.js?v=kick-split-1"></script>
-  <script src="./public/modules/sineKick/sine-kick-live-evaluator.js?v=kick-split-1"></script>
   <script src="./public/modules/randomWalk/random-walk-math.js?v=random-walk-1"></script>
-  <script src="./public/modules/randomWalk/random-walk-live-evaluator.js?v=random-walk-1"></script>
   <script src="./public/modules/cheapWalk/cheap-walk-math.js?v=cheap-walk-1"></script>
-  <script src="./public/modules/cheapWalk/cheap-walk-live-evaluator.js?v=cheap-walk-1"></script>
-  <script src="./public/modules/piSpigotNoise/pi-spigot-noise-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/bradley2a/bradley-2a-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/antisaw/antisaw-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/fractalBrownianNoise/fractal-brownian-noise-live-evaluator.js?v=fbm-amp-1"></script>
-  <script src="./public/modules/fbmField/fbm-field-live-evaluator.js?v=fbf-amp-1"></script>
   <script src="./public/modules/clock/clock-math.js?v=master-clock-t-1"></script>
-  <script src="./public/modules/clock/clock-live-evaluator.js?v=master-clock-t-1"></script>
   <script src="./public/modules/simulationTime/simulation-time-math.js?v=sim-time-1"></script>
-  <script src="./public/modules/simulationTime/simulation-time-live-evaluator.js?v=sim-time-1"></script>
   <script src="./public/modules/transport/transport-math.js?v=transport-f-1"></script>
-  <script src="./public/modules/transport/transport-live-evaluator.js?v=transport-f-1"></script>
   <script src="./public/modules/randomClock/random-clock-math.js?v=random-clock-range-1"></script>
-  <script src="./public/modules/randomClock/random-clock-live-evaluator.js?v=random-clock-range-1"></script>
-  <script src="./public/modules/clockDivider/clock-divider-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/delayedTrigger/delayed-trigger-math.js?v=delayed-trigger-1"></script>
-  <script src="./public/modules/delayedTrigger/delayed-trigger-live-evaluator.js?v=delayed-trigger-1"></script>
   <script src="./public/modules/triggerCounter/trigger-counter-math.js?v=trigger-counter-1"></script>
-  <script src="./public/modules/triggerCounter/trigger-counter-live-evaluator.js?v=trigger-counter-1"></script>
   <script src="./public/modules/triggerDivider/trigger-divider-math.js?v=trigger-divider-1"></script>
-  <script src="./public/modules/triggerDivider/trigger-divider-live-evaluator.js?v=trigger-divider-1"></script>
   <script src="./public/modules/stepSequencer/step-sequencer-math.js?v=step-sequencer-1"></script>
-  <script src="./public/modules/stepSequencer/step-sequencer-live-evaluator.js?v=step-sequencer-1"></script>
-  <script src="./public/modules/stepGrid/step-grid-live-evaluator.js?v=stepgrid-variable-steps-20260715"></script>
-  <script src="./public/modules/keyboardController/keyboard-controller-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/keyboardController/keyboard-layout-settings.js?v=keyboard-no-clip-2"></script>
-  <script src="./public/modules/buttonEvents/button-events-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/wireEvents/wire-events-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/shootingStarExplosion/shooting-star-explosion-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/patchCommand/patch-command-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/macroControls/macro-controls-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/macroControls/macro-controls-settings.js?v=macro-knob-size-1"></script>
-  <script src="./public/modules/pitchModWheel/pitch-mod-wheel-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/gain/gain-math.js?v=output-db-1"></script>
-  <script src="./public/modules/gain/gain-live-evaluator.js?v=gain-db-1"></script>
   <script src="./public/modules/mixStereo/mix-stereo-math.js?v=mix-stereo-mono-1"></script>
-  <script src="./public/modules/mixStereo/mix-stereo-live-evaluator.js?v=mix-stereo-mono-1"></script>
-  <script src="./public/modules/sinc/sinc-live-evaluator.js?v=native-core-1"></script>
-  <script src="./public/modules/led/led-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/lcdDot/lcd-dot-live-evaluator.js?v=lcd-dot-1"></script>
-  <script src="./public/modules/rgbShape/rgb-shape-live-evaluator.js?v=rgb-shape-2"></script>
-  <script src="./public/modules/rgbPicture/rgb-picture-live-evaluator.js?v=rgb-picture-1"></script>
   <script src="./public/modules/rgbFractal/rgb-fractal-math.js?v=orbit-speed-1"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-live-evaluator.js?v=orbit-speed-1"></script>
-  <script src="./public/modules/evolveField/evolve-field-live-evaluator.js?v=evolve-field-uc-1"></script>
-  <script src="./public/modules/bugButton/bug-button-live-evaluator.js?v=solid-module-shell-2-20260723"></script>
-  <script src="./public/modules/xyPad/xy-pad-live-evaluator.js?v=xy-amp-xy-1"></script>
 
   <script src="./public/modules/bias/bias-math.js?v=bias-io-1"></script>
-  <script src="./public/modules/bias/bias-live-evaluator.js?v=bias-io-1"></script>
   <script src="./public/modules/attenuverter/attenuverter-math.js?v=attenuverter-1"></script>
-  <script src="./public/modules/attenuverter/attenuverter-live-evaluator.js?v=attenuverter-1"></script>
   <script src="./public/modules/range/range-math.js?v=range-1"></script>
-  <script src="./public/modules/range/range-live-evaluator.js?v=range-1"></script>
-  <script src="./public/modules/u2b/u2b-live-evaluator.js?v=u2b-1"></script>
-  <script src="./public/modules/b2u/b2u-live-evaluator.js?v=b2u-1"></script>
-  <script src="./public/modules/inv/inv-live-evaluator.js?v=inv-1"></script>
   <script src="./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-os-1"></script>
-  <script src="./public/modules/softClipper/soft-clipper-live-evaluator.js?v=soft-clipper-os-1"></script>
   <script src="./public/modules/clipperLimiter/clipper-limiter-math.js?v=clipper-order-1"></script>
-  <script src="./public/modules/clipperLimiter/clipper-limiter-live-evaluator.js?v=clipper-order-1"></script>
   <script src="./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js?v=rotate-3d-to-2d-1"></script>
-  <script src="./public/modules/rotate3dTo2d/rotate-3d-to-2d-live-evaluator.js?v=rotate-3d-to-2d-1"></script>
   <script src="./public/modules/vectorscopeTransform/vectorscope-transform-math.js?v=vs-rotate-param-1"></script>
-  <script src="./public/modules/vectorscopeTransform/vectorscope-transform-live-evaluator.js?v=vs-rotate-param-1"></script>
   <script src="./public/modules/speedColorInertia/speed-color-inertia-math.js?v=speed-color-inertia-2"></script>
-  <script src="./public/modules/speedColorInertia/speed-color-inertia-live-evaluator.js?v=speed-color-inertia-2"></script>
-  <script src="./public/modules/knob/knob-live-evaluator.js?v=controller-smooth-1"></script>
-  <script src="./public/modules/plugin/plugin-controls-live-evaluator.js?v=controller-smooth-1"></script>
-  <script src="./public/modules/sandboxVisuals/sandbox-visuals-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/screenSpaceShader/screen-space-shader-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/bloomGlow/bloom-glow-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/rgbaHsla/rgba-hsla-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/chromaColor/chroma-color-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/badvalMonitor/badval-monitor-ui.js?v=badval-face-1"></script>
-  <script src="./public/modules/badvalMonitor/badval-monitor-live-evaluator.js?v=badval-face-1"></script>
   <script src="./public/modules/helmholtzPitch/helmholtz-pitch-ui.js?v=pitch-lcd-ghost-1"></script>
-  <script src="./public/modules/speakerProtection/speaker-protection-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/speakerProtector2/speaker-protector-2-live-evaluator.js?v=speaker-protector-noclip-1"></script>
-  <script src="./public/modules/groupOutput/group-output-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/output/output-live-evaluator.js?v=io3-1"></script>
-  <script src="./public/modules/groupInput/group-input-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/portal/portal-live-evaluator.js?v=portal-lanes-1"></script>
-  <script src="./public/modules/audioInput/audio-input-live-evaluator.js?v=input-amp-1"></script>
   <script src="./public/lib/sample-interpolate.js?v=mp-aa-1"></script>
   <script src="./public/modules/audioPlayer/audio-player-math.js?v=mp-time-io-1"></script>
-  <script src="./public/modules/audioPlayer/audio-player-live-evaluator.js?v=mp-aa-1"></script>
-  <script src="./public/modules/codeblock/codeblock-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/sineWavetable/sine-wavetable-live-evaluator.js?v=sincos4-1"></script>
-  <script src="./public/modules/ellipsoid/ellipsoid-live-evaluator.js?v=motion-1"></script>
-  <script src="./public/modules/basicShape/basic-shape-live-evaluator.js?v=morph-unipolar-1"></script>
   <script src="./public/modules/basicShape/basic-shape-display.js?v=morph-unipolar-1"></script>
   <script src="./public/modules/ellipsoid/ellipsoid-settings.js?v=round-look-1"></script>
   <script src="./public/modules/ellipsoid/ellipsoid-display.js?v=round-raf-1"></script>
-  <script src="./public/modules/additiveOsc/additive-osc-live-evaluator.js?v=native-core-1"></script>
   <script src="./public/modules/additiveGraph/additive-graph-math.js?v=opt-80db-1"></script>
   <script src="./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1"></script>
   <script src="./public/modules/additiveGraph/additive-filter-curve-display.js?v=face-idle-1"></script>
-  <script src="./public/modules/additiveGenerator/additive-generator-live-evaluator.js?v=gen-h-phase-reset-1"></script>
-  <script src="./public/modules/additiveLinearFilter/additive-linear-filter-live-evaluator.js?v=effect-split-1"></script>
-  <script src="./public/modules/additiveAnalogFilter/additive-analog-filter-live-evaluator.js?v=ladder-1"></script>
-  <script src="./public/modules/additiveLadderFilter/additive-ladder-filter-live-evaluator.js?v=filter-hp-fix-1"></script>
-  <script src="./public/modules/curveEnvelopeMod/curve-envelope-mod-live-evaluator.js?v=env-uot-1"></script>
-  <script src="./public/modules/additiveGrowl/additive-growl-live-evaluator.js?v=bubble-unskew-2"></script>
-  <script src="./public/modules/additiveFrequencySkew/additive-frequency-skew-live-evaluator.js?v=freq-skew-math-1"></script>
-  <script src="./public/modules/additiveQuantizeFreq/additive-quantize-freq-live-evaluator.js?v=qfreq-hard-1"></script>
-  <script src="./public/modules/additiveQuantizePhase/additive-quantize-phase-live-evaluator.js?v=quantize-fp-1"></script>
-  <script src="./public/modules/additiveNoisyFreq/additive-noisy-freq-live-evaluator.js?v=noisy-add-1"></script>
-  <script src="./public/modules/additiveNoisyPhase/additive-noisy-phase-live-evaluator.js?v=noisy-add-1"></script>
-  <script src="./public/modules/additivePan/additive-pan-live-evaluator.js?v=autopan-2"></script>
-  <script src="./public/modules/additiveNoisyPan/additive-noisy-pan-live-evaluator.js?v=noisy-add-1"></script>
-  <script src="./public/modules/additiveNoisyAmp/additive-noisy-amp-live-evaluator.js?v=noisy-add-1"></script>
-  <script src="./public/modules/additiveImage/additive-image-live-evaluator.js?v=uc-1"></script>
-  <script src="./public/modules/additiveOut/additive-out-live-evaluator.js?v=gen-h-phase-reset-1"></script>
   <script src="./public/modules/harmonicLines/harmonic-count-display.js?v=face-idle-1"></script>
   <script src="./public/modules/additiveGrowl/additive-bubble-display.js?v=face-idle-1"></script>
   <script src="./public/modules/additiveBlaster/additive-blaster-display.js?v=face-idle-1"></script>
   <script src="./public/modules/harmonicLines/harmonic-lines-display.js?v=face-idle-1"></script>
   <script src="./public/modules/additiveGenerator/additive-waveform-display.js?v=face-idle-1"></script>
-  <script src="./public/modules/graph/graph-live-evaluator.js?v=retire-graph-type-20260724"></script>
-  <script src="./public/modules/polyBlep/poly-blep-live-evaluator.js?v=morph-plain-01-1"></script>
   <script src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
-  <script src="./public/node-graph-live-runtime.js?v=morph-plain-01-1"></script>
+  <script src="./public/node-graph-live-runtime.js?v=no-js-audio-1"></script>
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-screen-solo.js?v=f-grid-layout-1"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=interrupt-patch-1"></script>

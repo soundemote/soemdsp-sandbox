@@ -1,6 +1,6 @@
-// Ping Pong Delay — tempo-synced base time + independent L/R LFO drift
-// (Parabol / Random Walk / FBM), passive HPF/LPF in the feedback loop,
-// and SoEm-style soft clip for tape grunge.
+// Ping Pong Delay — tempo-synced base + Offset + LFO_Amp×lfo (same idea as Delay mod).
+// Independent L/R LFOs (Parabol / Random Walk / FBM); soft clip → HPF → LPF in feedback.
+// Prefer native/WASM in Live; this evaluator is a last-resort twin of the C++ formula.
 
 function nodeGraphPingPongDelayTimingModeMultiplier(mode) {
   const rounded = Math.round(Number(mode) || 0);
@@ -177,6 +177,8 @@ function createNodeGraphPingPongDelayState() {
     position: 0,
     wetL: 0,
     wetR: 0,
+    lastModL: 0,
+    lastModR: 0,
     lfoL: { phase: 0, fbmTime: 0, walkOut: 0, walkLpf: 0, walkTick: 0, seed: 0xA11CE },
     lfoR: { phase: 0.37, fbmTime: 0.17, walkOut: 0, walkLpf: 0, walkTick: 0, seed: 0xB0B5 },
     lpL: { z: 0 },
@@ -210,10 +212,13 @@ function nodeGraphPingPongDelaySample(state, input, params, sampleRate, runtime 
   const dry = nodeGraphSafeFilterNumber(input, runtime, nodeId, null, "ping pong delay input");
   const feedback = Math.max(0, Math.min(0.95, nodeGraphSafeFilterNumber(params.feedback, runtime, nodeId, null, "ping pong delay feedback")));
   const mix = Math.max(0, Math.min(1, nodeGraphSafeFilterNumber(params.mix, runtime, nodeId, null, "ping pong delay mix")));
-  const level = Math.max(0, Math.min(2, nodeGraphSafeFilterNumber(params.level, runtime, nodeId, null, "ping pong delay level")));
-  const offsetMs = Math.max(0, nodeGraphSafeFilterNumber(params.offsetMs, runtime, nodeId, null, "ping pong delay offset"));
+  const level = Math.max(0, Math.min(2, nodeGraphSafeFilterNumber(params.amplitude ?? params.level, runtime, nodeId, null, "ping pong delay amplitude")));
+  // Bipolar Offset (ms) — static trim of the tempo base.
+  const offsetMs = nodeGraphSafeFilterNumber(params.offset ?? params.offsetMs, runtime, nodeId, null, "ping pong delay offset");
+  // LFO Amp (ms) — depth around (tempo base + Offset). Same role as Delay modAmount.
+  const lfoAmpMs = Math.max(0, Math.min(500, nodeGraphSafeFilterNumber(params.lfoAmp, runtime, nodeId, null, "ping pong lfo amp")));
   const lfoStyle = Math.round(nodeGraphSafeFilterNumber(params.lfoStyle, runtime, nodeId, null, "ping pong lfo style") || 0);
-  const lfoRate = Math.max(0, Math.min(40, nodeGraphSafeFilterNumber(params.lfoRate, runtime, nodeId, null, "ping pong lfo rate")));
+  const lfoRate = Math.max(0, Math.min(20, nodeGraphSafeFilterNumber(params.lfoRate, runtime, nodeId, null, "ping pong lfo rate")));
   const lfoVariation = Math.max(0, Math.min(1, nodeGraphSafeFilterNumber(params.lfoVariation, runtime, nodeId, null, "ping pong lfo vary")));
   const saturate = Math.max(0.01, Math.min(4, nodeGraphSafeFilterNumber(params.saturate, runtime, nodeId, null, "ping pong saturate")));
   const lpfHz = Math.max(20, Math.min(20000, nodeGraphSafeFilterNumber(params.lpfFrequency, runtime, nodeId, null, "ping pong lpf")));
@@ -221,19 +226,22 @@ function nodeGraphPingPongDelaySample(state, input, params, sampleRate, runtime 
 
   const baseSeconds = nodeGraphPingPongDelayBaseSeconds(params, runtime);
   const safeBase = Number.isFinite(baseSeconds) ? Math.max(0, baseSeconds) : 0;
-  // Offset = max |drift| in ms, centered on base: L/R each get independent bipolar LFO.
-  const driftSec = (Number.isFinite(offsetMs) ? offsetMs : 0) / 1000;
+  const offsetSec = (Number.isFinite(offsetMs) ? offsetMs : 0) / 1000;
+  const lfoAmpSec = lfoAmpMs / 1000;
   const rateL = lfoRate * (1 + lfoVariation * 0.31);
   const rateR = lfoRate * (1 - lfoVariation * 0.27);
-  const modL = driftSec > 1e-9
+  // Always advance LFOs when Rate > 0 (gold outs move); Amp scales delay depth.
+  const modL = lfoRate > 1e-12
     ? nodeGraphPingPongRunLfoChannel(state.lfoL, lfoStyle, rateL, safeRate)
     : 0;
-  const modR = driftSec > 1e-9
+  const modR = lfoRate > 1e-12
     ? nodeGraphPingPongRunLfoChannel(state.lfoR, lfoStyle, rateR, safeRate)
     : 0;
 
-  const delaySecL = Math.max(0, safeBase + driftSec * modL);
-  const delaySecR = Math.max(0, safeBase + driftSec * modR);
+  const delaySecL = Math.max(0, safeBase + offsetSec + lfoAmpSec * modL);
+  const delaySecR = Math.max(0, safeBase + offsetSec + lfoAmpSec * modR);
+  state.lastModL = Math.max(-1, Math.min(1, modL));
+  state.lastModR = Math.max(-1, Math.min(1, modR));
   const delaySamplesL = Math.min(state.bufferSize - 2, Math.max(1, delaySecL * safeRate));
   const delaySamplesR = Math.min(state.bufferSize - 2, Math.max(1, delaySecR * safeRate));
 
@@ -269,13 +277,14 @@ function nodeGraphPingPongDelaySample(state, input, params, sampleRate, runtime 
 
   const left = (dry * (1 - mix) + state.wetL * mix) * level;
   const right = (dry * (1 - mix) + state.wetR * mix) * level;
-  // Canonical outs are Mix L/R (def + default patch wires). Keep Left/Right
-  // as aliases for older readers.
+  // Canonical outs are Mix L/R; LFO L/R = raw bipolar LFO (before Amp).
   return {
     "Mix L": left,
     "Mix R": right,
     Left: left,
     Right: right,
+    "LFO L": state.lastModL || 0,
+    "LFO R": state.lastModR || 0,
   };
 }
 
@@ -289,15 +298,15 @@ nodeGraphLiveModuleEvaluators.pingPongDelay = ({ runtime, node, nodeId, frame, f
     {
       feedback: read("feedback", 0.35),
       hpfFrequency: read("hpfFrequency", 20),
-      // 0 = linear, 1 = hermite (default hermite).
       interpolation: read("interpolation", 0),
-      level: read("level", 1),
+      amplitude: read("amplitude", 1),
+      lfoAmp: read("lfoAmp", 25),
       lfoRate: read("lfoRate", 0.35),
       lfoStyle: read("lfoStyle", 0),
       lfoVariation: read("lfoVariation", 0.25),
       lpfFrequency: read("lpfFrequency", 8000),
       mix: read("mix", 0.35),
-      offsetMs: read("offsetMs", 0),
+      offset: read("offset", 0),
       saturate: read("saturate", 1),
       timeDenominator: read("timeDenominator", 4),
       timeNumerator: read("timeNumerator", 1),

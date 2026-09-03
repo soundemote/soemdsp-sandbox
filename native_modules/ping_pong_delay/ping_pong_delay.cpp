@@ -3,10 +3,12 @@
 // soemdsp-native-target: pingPongDelay
 // soemdsp-native-kind: effect
 //
-// Tape-style stereo ping-pong:
+// Tape-style stereo ping-pong (modulated delay, tempo-sync time base):
+//   delay = max(0, tempoBase + Offset_ms + LFO_Amp_ms × lfoBipolar)
 //  - Tempo base: Numer/Denom × whole note × Normal|Dotted|Triplet
-//  - Offset (ms): max |drift| around base; independent L/R LFOs
-//    (Parabol / Random Walk / FBM) swing −Offset…+Offset
+//  - Offset (ms, bipolar): static trim of the tempo base
+//  - LFO Amp (ms): depth; LFO Rate (Hz): speed — same roles as Delay modAmount/modRate
+//  - Independent L/R LFOs (Parabol / Random Walk / FBM); gold outs = raw bipolar LFO
 //  - Feedback path: soft clip → one-pole HPF → one-pole LPF
 //
 // Version 3 = process_block + set_params
@@ -87,14 +89,9 @@ struct OnePoleHP {
   void reset() { x0 = y0 = 0.0; }
 };
 
-struct LfoChannel {
-  double phase{0.0};
-  double fbmTime{0.0};
-  double walkOut{0.0};
-  double walkLpf{0.0};
-  int walkTick{0};
-  unsigned int seed{1};
-
+// Stateless LFO helpers. Instance timing lives as plain doubles on
+// PingPongDelayState (nested-member stores did not persist across wasm calls).
+struct LfoOps {
   static double rationalCurve01(double x, double k) {
     double v = clamp(x, 0.0, 1.0);
     double kk = clamp(k, -0.999, 0.999);
@@ -135,12 +132,23 @@ struct LfoChannel {
     return 4.0 * fit * (1.0 - dsp_fabs(fit));
   }
 
-  double run(int style, double rateHz, double sr) {
+  static double runFields(
+    double* phase,
+    double* fbmTime,
+    double* walkOut,
+    double* walkLpf,
+    int* walkTick,
+    unsigned int seed,
+    int style,
+    double rateHz,
+    double sr
+  ) {
     double rate = maxd(1.0, sr);
     double hz = maxd(0.0, rateHz);
     if (style == LfoRandomWalk) {
-      walkTick += 1;
-      double noise = hash_bipolar((unsigned int)walkTick, seed);
+      const int tick = (*walkTick) + 1;
+      *walkTick = tick;
+      double noise = hash_bipolar((unsigned int)tick, seed);
       double increment = clamp(hz / rate, 0.0, 1.0);
       double jitterInc = clamp((hz * 0.37) / rate, 0.0, 1.0);
       double stepSize = clamp(increment + rationalCurve01(jitterInc, 0.99), 0.0, 1.0);
@@ -150,31 +158,26 @@ struct LfoChannel {
         : 0.0;
       double randomMix = 1.0 - whiteNoiseMix;
       double step = noise > 0.0 ? stepSize : -stepSize;
-      walkOut = clamp(walkOut + step, -1.0, 1.0);
-      double mixed = walkOut * randomMix + noise * whiteNoiseMix;
+      const double nextWalk = clamp((*walkOut) + step, -1.0, 1.0);
+      *walkOut = nextWalk;
+      double mixed = nextWalk * randomMix + noise * whiteNoiseMix;
       double w = mind(6.283185307179586 / rate, 0.000142475857) * hz;
       double a1 = dsp_exp(-w);
-      walkLpf = (1.0 - a1) * mixed + a1 * walkLpf;
-      return clamp(walkLpf, -1.0, 1.0);
+      const double nextLpf = (1.0 - a1) * mixed + a1 * (*walkLpf);
+      *walkLpf = nextLpf;
+      return clamp(nextLpf, -1.0, 1.0);
     }
     if (style == LfoFbm) {
-      fbmTime += hz / rate;
-      double uni = fbmUnipolar(fbmTime, seed);
+      double t = (*fbmTime) + hz / rate;
+      *fbmTime = t;
+      double uni = fbmUnipolar(t, seed);
       return clamp(uni * 2.0 - 1.0, -1.0, 1.0);
     }
-    phase += hz / rate;
-    phase = phase - dsp_floor(phase);
-    if (phase < 0.0) phase += 1.0;
-    return parabolBipolar(phase);
-  }
-
-  void reset(unsigned int s, double phase0) {
-    seed = s ? s : 1u;
-    phase = phase0;
-    fbmTime = phase0 * 0.5;
-    walkOut = 0.0;
-    walkLpf = 0.0;
-    walkTick = 0;
+    double p = (*phase) + hz / rate;
+    p = p - dsp_floor(p);
+    if (p < 0.0) p += 1.0;
+    *phase = p;
+    return parabolBipolar(p);
   }
 };
 
@@ -258,8 +261,9 @@ static void delay_free_floats(float* data, int capacity) {
   gDelayFreeList = node;
 }
 
-// Param ownership (mirrors soemdsp::delay::PingPongDelay::kParams):
-//   LIVE:    feedback, mix, level, offsetMs, lfoStyle, lfoRate, lfoVariation
+// Param ownership:
+//   LIVE:    feedback, mix, amplitude, offset (bipolar ms), lfoAmp,
+//            lfoStyle, lfoRate, lfoVariation
 //   CONTROL: timing (num/den/mode/tempo/SR), saturate, lpf/hpf → *Changed
 struct PingPongDelayState {
   bool active;
@@ -272,8 +276,20 @@ struct PingPongDelayState {
   double wetR;
   double outLeft;
   double outRight;
-  LfoChannel lfoL;
-  LfoChannel lfoR;
+  // LFO timing lives as plain doubles on the instance (Delay-style). Nested
+  // LfoChannel::phase stores were not surviving across wasm export calls.
+  double lfoPhaseL;
+  double lfoPhaseR;
+  double lfoFbmL;
+  double lfoFbmR;
+  double lfoWalkOutL;
+  double lfoWalkOutR;
+  double lfoWalkLpfL;
+  double lfoWalkLpfR;
+  int lfoWalkTickL;
+  int lfoWalkTickR;
+  unsigned int lfoSeedL;
+  unsigned int lfoSeedR;
   SoftClip clip;
   OnePoleLP lpL, lpR;
   OnePoleHP hpL, hpR;
@@ -291,24 +307,26 @@ struct PingPongDelayState {
   // Live params latched by set_params / sample (used by process_block).
   double liveFeedback;
   double liveMix;
-  double liveLevel;
-  double liveOffsetMs;
+  double liveAmplitude;
+  double liveOffsetMs;   // bipolar timing trim (ms) on both taps
+  double liveLfoAmpMs;   // LFO depth (ms)
   double liveLfoStyle;
   double liveLfoRate;
   double liveLfoVariation;
   double liveSampleRate;
-  // Block I/O (one JS↔WASM crossing per quantum).
-  double blockIn[kMaxBlockFrames];
-  double blockOutL[kMaxBlockFrames];
-  double blockOutR[kMaxBlockFrames];
-  // Mod L/R traces: delay tap time / kMaxDelaySeconds (0..1).
-  double blockOutModL[kMaxBlockFrames];
-  double blockOutModR[kMaxBlockFrames];
   double lastModL;
   double lastModR;
 };
 
 static PingPongDelayState gPool[kMaxInstances];
+// Block I/O lives OUTSIDE PingPongDelayState. Taking &state.blockIn escapes the
+// whole struct under wasm LTO and historically let phase be optimized as if it
+// were local to each process_block/sample call (LFO never advanced across calls).
+static double gBlockIn[kMaxInstances][kMaxBlockFrames];
+static double gBlockOutL[kMaxInstances][kMaxBlockFrames];
+static double gBlockOutR[kMaxInstances][kMaxBlockFrames];
+static double gBlockOutModL[kMaxInstances][kMaxBlockFrames];
+static double gBlockOutModR[kMaxInstances][kMaxBlockFrames];
 
 static void reset_delay_ring(PingPongDelayState& s, int size) {
   if (!s.bufferL || !s.bufferR || size < 2 || size > s.bufferCap) {
@@ -325,8 +343,18 @@ static void reset_delay_ring(PingPongDelayState& s, int size) {
 }
 
 static void reset_delay_dsp(PingPongDelayState& s) {
-  s.lfoL.reset(0xA11CEu, 0.0);
-  s.lfoR.reset(0xB0B5u, 0.37);
+  s.lfoPhaseL = 0.0;
+  s.lfoPhaseR = 0.37;
+  s.lfoFbmL = 0.0;
+  s.lfoFbmR = 0.37 * 0.5;
+  s.lfoWalkOutL = 0.0;
+  s.lfoWalkOutR = 0.0;
+  s.lfoWalkLpfL = 0.0;
+  s.lfoWalkLpfR = 0.0;
+  s.lfoWalkTickL = 0;
+  s.lfoWalkTickR = 0;
+  s.lfoSeedL = 0xA11CEu;
+  s.lfoSeedR = 0xB0B5u;
   s.lpL.reset();
   s.lpR.reset();
   s.hpL.reset();
@@ -439,6 +467,8 @@ extern "C" int soemdsp_ping_pong_delay_create() {
       s.lastModL = 0.0;
       s.lastModR = 0.0;
       s.liveOffsetMs = 0.0;
+      s.liveLfoAmpMs = 0.0;
+      s.liveAmplitude = 1.0;
       s.liveSampleRate = 44100.0;
       reset_delay_dsp(s);
       s.active = true;
@@ -465,8 +495,9 @@ extern "C" void soemdsp_ping_pong_delay_destroy(int handle) {
 // Grow capacity with headroom so memory.grow is rare (grow detaches JS TypedArrays).
 static void ensure_buffer_size(PingPongDelayState& s, double sampleRate) {
   const double rate = maxd(1.0, safe(sampleRate));
-  const double driftSec = maxd(0.0, safe(s.liveOffsetMs)) / 1000.0;
-  double needSec = s.baseSeconds + driftSec + 0.02;
+  const double offsetSec = safe(s.liveOffsetMs) / 1000.0;
+  const double driftSec = maxd(0.0, safe(s.liveLfoAmpMs)) / 1000.0;
+  double needSec = s.baseSeconds + dsp_fabs(offsetSec) + driftSec + 0.02;
   if (needSec < 0.05) needSec = 0.05;
   if (needSec > kMaxDelaySeconds) needSec = kMaxDelaySeconds;
   int need = (int)dsp_ceil(needSec * rate) + 2;
@@ -512,34 +543,58 @@ static void ensure_buffer_size(PingPongDelayState& s, double sampleRate) {
   }
 }
 
+// One delay time (seconds): tempo base, then modulate that same timing.
+//   delay = max(0, tempoBase + offset + lfoAmp * lfoBipolar)
+static inline double ping_pong_delay_seconds(
+  double tempoBaseSec,
+  double offsetSec,
+  double lfoAmpSec,
+  double lfoBipolar
+) {
+  return maxd(0.0, tempoBaseSec + offsetSec + lfoAmpSec * lfoBipolar);
+}
+
 static void process_one(PingPongDelayState& s, double input) {
   const double rate = maxd(1.0, s.liveSampleRate);
   const double dry = safe(input);
   const double safeFeedback = safe(s.liveFeedback);
   const double safeMix = clamp(safe(s.liveMix), 0.0, 1.0);
-  const double safeLevel = clamp(safe(s.liveLevel), 0.0, 2.0);
-  const double driftSec = maxd(0.0, safe(s.liveOffsetMs)) / 1000.0;
+  const double safeAmp = clamp(safe(s.liveAmplitude), 0.0, 2.0);
+  // Modulation of the tempo base (same idea as Delay's time + mod).
+  const double offsetSec = safe(s.liveOffsetMs) / 1000.0;
+  // Amp = milliseconds of delay modulation (never treat as Hz).
+  const double lfoAmpSec = clamp(safe(s.liveLfoAmpMs), 0.0, 500.0) / 1000.0;
   const int style = (int)dsp_floor(safe(s.liveLfoStyle) + 0.5);
-  const double hz = clamp(safe(s.liveLfoRate), 0.0, 40.0);
+  // Rate = Hz only (0…20). Values in the tens/hundreds are Amp mistaken for Rate.
+  const double hz = clamp(safe(s.liveLfoRate), 0.0, 20.0);
   const double vary = clamp(safe(s.liveLfoVariation), 0.0, 1.0);
 
   const double rateL = hz * (1.0 + vary * 0.31);
   const double rateR = hz * (1.0 - vary * 0.27);
-  const double modL = driftSec > 1e-9 ? s.lfoL.run(style, rateL, rate) : 0.0;
-  const double modR = driftSec > 1e-9 ? s.lfoR.run(style, rateR, rate) : 0.0;
+  // Always advance LFOs when rate > 0 so outs move; depth scales the delay.
+  const double lfoL = hz > 1e-12
+    ? LfoOps::runFields(
+        &s.lfoPhaseL, &s.lfoFbmL, &s.lfoWalkOutL, &s.lfoWalkLpfL, &s.lfoWalkTickL,
+        s.lfoSeedL, style, rateL, rate)
+    : 0.0;
+  const double lfoR = hz > 1e-12
+    ? LfoOps::runFields(
+        &s.lfoPhaseR, &s.lfoFbmR, &s.lfoWalkOutR, &s.lfoWalkLpfR, &s.lfoWalkTickR,
+        s.lfoSeedR, style, rateR, rate)
+    : 0.0;
 
-  const double delaySecL = maxd(0.0, s.baseSeconds + driftSec * modL);
-  const double delaySecR = maxd(0.0, s.baseSeconds + driftSec * modR);
-  // Trace: 0 = no delay, ±1 spans ±kMaxDelaySeconds (module face contract).
-  s.lastModL = clamp(delaySecL / kMaxDelaySeconds, -1.0, 1.0);
-  s.lastModR = clamp(delaySecR / kMaxDelaySeconds, -1.0, 1.0);
+  const double delaySecL = ping_pong_delay_seconds(s.baseSeconds, offsetSec, lfoAmpSec, lfoL);
+  const double delaySecR = ping_pong_delay_seconds(s.baseSeconds, offsetSec, lfoAmpSec, lfoR);
+  // Gold outs: raw bipolar LFO (−1…+1), before Amp depth.
+  s.lastModL = clamp(lfoL, -1.0, 1.0);
+  s.lastModR = clamp(lfoR, -1.0, 1.0);
 
   // Grow failed / cold create: honest silence (no % 0).
   if (!s.bufferL || !s.bufferR || s.bufferSize < 2) {
     s.wetL = 0.0;
     s.wetR = 0.0;
-    s.outLeft = dry * (1.0 - safeMix) * safeLevel;
-    s.outRight = dry * (1.0 - safeMix) * safeLevel;
+    s.outLeft = dry * (1.0 - safeMix) * safeAmp;
+    s.outRight = dry * (1.0 - safeMix) * safeAmp;
     return;
   }
 
@@ -565,8 +620,8 @@ static void process_one(PingPongDelayState& s, double input) {
   s.wetL = readL;
   s.wetR = readR;
 
-  s.outLeft = (dry * (1.0 - safeMix) + s.wetL * safeMix) * safeLevel;
-  s.outRight = (dry * (1.0 - safeMix) + s.wetR * safeMix) * safeLevel;
+  s.outLeft = (dry * (1.0 - safeMix) + s.wetL * safeMix) * safeAmp;
+  s.outRight = (dry * (1.0 - safeMix) + s.wetR * safeMix) * safeAmp;
 }
 
 // Latch Control + Live params once per quantum (or when knobs move).
@@ -574,11 +629,12 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   int    handle,
   double feedback,
   double mix,
-  double level,
+  double amplitude,
   double timeNumerator,
   double timeDenominator,
   double timingMode,
   double offsetMs,
+  double lfoAmpMs,
   double lfoStyle,
   double lfoRate,
   double lfoVariation,
@@ -596,27 +652,29 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
     timeNumerator, timeDenominator, timingMode, tempoBpm, rate);
   s.liveFeedback = feedback;
   s.liveMix = mix;
-  s.liveLevel = level;
+  s.liveAmplitude = amplitude;
   s.liveOffsetMs = offsetMs;
+  s.liveLfoAmpMs = clamp(safe(lfoAmpMs), 0.0, 500.0);
   s.liveLfoStyle = lfoStyle;
-  s.liveLfoRate = lfoRate;
+  s.liveLfoRate = clamp(safe(lfoRate), 0.0, 20.0);
   s.liveLfoVariation = lfoVariation;
-  s.liveSampleRate = rate;
-  // After Control timing + Live offset are known — size rings to need (§2b).
-  ensure_buffer_size(s, rate);
+  // Never allow broken SR (would make phase += hz/sr ≈ hz per sample → FM).
+  s.liveSampleRate = (rate >= 1000.0 && rate <= 384000.0) ? rate : 44100.0;
+  ensure_buffer_size(s, s.liveSampleRate);
 }
 
-// Tape-style sample (kept for tools / offline). Prefer process_block in the host.
+// Tape-style sample (tools / per-sample host). Prefer process_block when possible.
 extern "C" double soemdsp_ping_pong_delay_sample(
   int    handle,
   double input,
   double feedback,
   double mix,
-  double level,
+  double amplitude,
   double timeNumerator,
   double timeDenominator,
   double timingMode,
   double offsetMs,
+  double lfoAmpMs,
   double lfoStyle,
   double lfoRate,
   double lfoVariation,
@@ -628,23 +686,29 @@ extern "C" double soemdsp_ping_pong_delay_sample(
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   soemdsp_ping_pong_delay_set_params(
-    handle, feedback, mix, level, timeNumerator, timeDenominator, timingMode,
-    offsetMs, lfoStyle, lfoRate, lfoVariation, saturate, lpfFrequency, hpfFrequency,
-    tempoBpm, sampleRate);
+    handle, feedback, mix, amplitude, timeNumerator, timeDenominator, timingMode,
+    offsetMs, lfoAmpMs, lfoStyle, lfoRate, lfoVariation, saturate, lpfFrequency,
+    hpfFrequency, tempoBpm, sampleRate);
   process_one(gPool[handle - 1], input);
   return gPool[handle - 1].outLeft;
 }
 
 extern "C" void soemdsp_ping_pong_delay_process_block(int handle, int frameCount) {
   if (handle < 1 || handle > kMaxInstances) return;
-  PingPongDelayState& s = gPool[handle - 1];
+  const int idx = handle - 1;
+  PingPongDelayState& s = gPool[idx];
   const int n = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
+  double* in = gBlockIn[idx];
+  double* outL = gBlockOutL[idx];
+  double* outR = gBlockOutR[idx];
+  double* outModL = gBlockOutModL[idx];
+  double* outModR = gBlockOutModR[idx];
   for (int i = 0; i < n; i += 1) {
-    process_one(s, s.blockIn[i]);
-    s.blockOutL[i] = s.outLeft;
-    s.blockOutR[i] = s.outRight;
-    s.blockOutModL[i] = s.lastModL;
-    s.blockOutModR[i] = s.lastModR;
+    process_one(s, in[i]);
+    outL[i] = s.outLeft;
+    outR[i] = s.outRight;
+    outModL[i] = s.lastModL;
+    outModR[i] = s.lastModR;
   }
 }
 
@@ -668,27 +732,27 @@ extern "C" void soemdsp_ping_pong_delay_reset(int handle) {
 
 extern "C" int soemdsp_ping_pong_delay_block_input_ptr(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0;
-  return reinterpret_cast<int>(gPool[handle - 1].blockIn);
+  return reinterpret_cast<int>(gBlockIn[handle - 1]);
 }
 
 extern "C" int soemdsp_ping_pong_delay_block_output_left_ptr(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0;
-  return reinterpret_cast<int>(gPool[handle - 1].blockOutL);
+  return reinterpret_cast<int>(gBlockOutL[handle - 1]);
 }
 
 extern "C" int soemdsp_ping_pong_delay_block_output_right_ptr(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0;
-  return reinterpret_cast<int>(gPool[handle - 1].blockOutR);
+  return reinterpret_cast<int>(gBlockOutR[handle - 1]);
 }
 
 extern "C" int soemdsp_ping_pong_delay_block_output_mod_left_ptr(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0;
-  return reinterpret_cast<int>(gPool[handle - 1].blockOutModL);
+  return reinterpret_cast<int>(gBlockOutModL[handle - 1]);
 }
 
 extern "C" int soemdsp_ping_pong_delay_block_output_mod_right_ptr(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0;
-  return reinterpret_cast<int>(gPool[handle - 1].blockOutModR);
+  return reinterpret_cast<int>(gBlockOutModR[handle - 1]);
 }
 
 extern "C" int soemdsp_ping_pong_delay_max_block_frames() {
@@ -700,10 +764,20 @@ extern "C" double soemdsp_ping_pong_delay_right(int handle) {
   return gPool[handle - 1].outRight;
 }
 
+extern "C" double soemdsp_ping_pong_delay_mod_left(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0.0;
+  return gPool[handle - 1].lastModL;
+}
+
+extern "C" double soemdsp_ping_pong_delay_mod_right(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0.0;
+  return gPool[handle - 1].lastModR;
+}
+
 extern "C" int soemdsp_ping_pong_delay_memory_generation() {
   return gPingPongMemoryGeneration;
 }
 
 extern "C" int soemdsp_ping_pong_delay_version() {
-  return 6; // %0 guard; Mod L/R block traces; reset for SR change
+  return 14; // flat LFO phase on state (persists); default Amp 25 ms
 }
