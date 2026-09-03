@@ -129,7 +129,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "chaosfly",
   "gravity",
   "drummer",
-  "arp",
   "ePiano",
   "percussion",
   "phosphillator",
@@ -194,6 +193,7 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "stepGraph",
   "phaseDisperse",
   "quadrature",
+  "arp",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
@@ -226,7 +226,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   electroSnare: "Electro snare voice. Parked until the drum shelf ships.",
   electroHat: "Electro hat voice. Parked until the drum shelf ships.",
   drummer: "Pattern/rhythm engine. Parked until Sequence drummer lands.",
-  arp: "Held-chord arpeggiator. Parked until Musical arp lands.",
+
   binaryClock: "Binary bit counter. Parked until Sequence bits land.",
   flexGrid: "Multi-point CV morph grid. Parked until the modulator surface lands.",
   chaosfly: "Fly-like X/Y/Z chaos. Parked until that attractor lands.",
@@ -1543,9 +1543,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   arp: {
     category: "musical",
-    description: "Placeholder Arp — classic note arpeggiator for held chords / pitch CV (under construction).",
+    description: "Clocked arpeggiator over the MIDI keyboard Held Keys bitmask (up / dn / bounce / random).",
     label: "Arp",
-    notes: ["under construction", "arp", "arpeggiator", "musical", "sequence", "pitch", "hold"],
+    notes: ["arp", "arpeggiator", "musical", "sequence", "held keys", "pitch", "clock"],
   },
   ePiano: {
     category: "sample",

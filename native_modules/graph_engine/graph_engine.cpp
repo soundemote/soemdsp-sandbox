@@ -1150,6 +1150,16 @@ extern "C" void soemdsp_quadrature_process_sample(
   double* outI, double* outQ, double* outMidI, double* outSideQ
 );
 
+extern "C" int soemdsp_arp_create();
+extern "C" void soemdsp_arp_destroy(int handle);
+extern "C" double soemdsp_arp_sample(
+  int handle, double heldKeys, double hasHeldKeys, double clock, double reset,
+  double mode, double steps, double seed
+);
+extern "C" double soemdsp_arp_gate(int handle);
+extern "C" double soemdsp_arp_trigger(int handle);
+extern "C" double soemdsp_arp_step(int handle);
+
 // Speaker Protection (hard mute) + Speaker Protector 2.0 (slew VCA).
 extern "C" int soemdsp_speaker_protection_create();
 extern "C" void soemdsp_speaker_protection_destroy(int handle);
@@ -1350,6 +1360,7 @@ static const int kTypeSmoothGraph = 146;
 static const int kTypeStepGraph = 147;
 static const int kTypePhaseDisperse = 148;
 static const int kTypeQuadrature = 149;
+static const int kTypeArp = 150;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1762,6 +1773,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_phase_disperse_destroy(handle);
   } else if (kind == kTypeQuadrature) {
     soemdsp_quadrature_destroy(handle);
+  } else if (kind == kTypeArp) {
+    soemdsp_arp_destroy(handle);
   } else if (kind == kTypeChebyshev) {
     soemdsp_chebyshev_destroy(handle);
   } else if (kind == kTypeElliptic) {
@@ -2192,6 +2205,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDegreeTuring || typeId == kTypeDegreePhrase
           || typeId == kTypeGravityWalker) ? 1.0 // octaves
       : (typeId == kTypeSmoothGraph || typeId == kTypeStepGraph) ? 0.0 // Input mode
+      : (typeId == kTypeArp) ? 0.0 // up
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
       : (typeId == kTypePiSpigotNoise) ? 0.0 // color White
       : (typeId == kTypeAudioPlayer) ? 4.0 // Play
@@ -2215,6 +2229,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeChordPad || typeId == kTypeNoteTranspose) ? 0.0 // degree / semis
       : (typeId == kTypeSmoothGraph) ? 1.0 // smoothingMode Catmull
       : (typeId == kTypePhaseDisperse) ? 32.0 // cascade depth
+      : (typeId == kTypeArp) ? 8.0 // steps
       : (typeId == kTypeFractalBrownianNoise) ? 4.0 // octaves
       : (typeId == kTypePiSpigotNoise) ? 1.0 // stride
       : (typeId == kTypePulseExplosion) ? 20.0 // numberOfPulses
@@ -2383,6 +2398,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePitchQuantizer) ? 2741.0 // major scale mask
       : (typeId == kTypeDegreeTuring || typeId == kTypeDegreePhrase
           || typeId == kTypeGravityWalker) ? 1.0 // Major scale choice
+      : (typeId == kTypeArp) ? 1.0 // RNG seed
       : (typeId == kTypeFractalBrownianNoise || typeId == kTypeRandomWalk || typeId == kTypeCheapWalk) ? 1.0
       : (typeId == kTypeAdditiveQuantizeFreq || typeId == kTypeAdditiveQuantizePhase
           || typeId == kTypeAdditiveNoisyFreq || typeId == kTypeAdditiveNoisyPhase
@@ -3063,6 +3079,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeStepGraph) return soemdsp_step_graph_create();
   if (typeId == kTypePhaseDisperse) return soemdsp_phase_disperse_create();
   if (typeId == kTypeQuadrature) return soemdsp_quadrature_create();
+  if (typeId == kTypeArp) return soemdsp_arp_create();
   if (typeId == kTypeChebyshev) return soemdsp_chebyshev_create();
   if (typeId == kTypeElliptic) return soemdsp_elliptic_create();
   if (typeId == kTypeEqFilter || typeId == kTypeBandpass || typeId == kTypeAllpass) {
@@ -6638,6 +6655,34 @@ static void process_degree_phrase(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Arp: Held Keys→Mono, Clock→Trigger, Reset→Reset.
+// mode=mode, stages=steps, seed=seed.
+// Pitch→Mono, Gate→Left, Trigger→Right, Step→Saw.
+static void process_arp(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasHeld = mix_live_port(g, node, kPortMono, frames, g.mixMono);
+  const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double pitch = soemdsp_arp_sample(
+      node.nativeHandle,
+      hasHeld ? g.mixMono[f] : 0.0,
+      hasHeld ? 1.0 : 0.0,
+      hasClock ? g.mixTrigger[f] : 0.0,
+      hasReset ? g.mixReset[f] : 0.0,
+      control_effective(node.mode),
+      control_effective(node.stages),
+      control_effective(node.seed)
+    );
+    node.buf[kPortMono][f] = pitch;
+    node.buf[kPortLeft][f] = soemdsp_arp_gate(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_arp_trigger(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_arp_step(node.nativeHandle);
+  }
+}
+
 // Gravity Walker: Leap CV→Morph. shape=gravity, width=leap, mode=octaves, seed=scale.
 // Pitch→Mono, Gate→Left, Trigger→Right, Degree→Saw.
 static void process_gravity_walker(Circuit& g, Node& node, int frames) {
@@ -8241,6 +8286,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeStepGraph
     || typeId == kTypePhaseDisperse
     || typeId == kTypeQuadrature
+    || typeId == kTypeArp
     || typeId == kTypeChebyshev
     || typeId == kTypeElliptic
     || typeId == kTypeEqFilter
@@ -8957,6 +9003,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_quadrature(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeArp) {
+      process_arp(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeChebyshev) {
       process_scientific_iir(*g, node, frames, soemdsp_chebyshev_sample);
       continue;
@@ -9346,6 +9396,6 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  // 105: phaseDisperse(148) + quadrature(149) native + efficient allowlist
-  return 105;
+  // 106: arp(150) held-keys arpeggiator + efficient allowlist
+  return 106;
 }

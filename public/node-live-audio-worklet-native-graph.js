@@ -70,6 +70,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   stepGraph: 147,
   phaseDisperse: 148,
   quadrature: 149,
+  arp: 150,
   lutCell: 34,
   lookaheadLimiter: 35,
   limiter: 109, // Pump Limiter
@@ -504,13 +505,13 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "scale") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     if (p === "gate") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
   }
-  if (t === "degreeTuring" || t === "degreePhrase" || t === "gravityWalker") {
+  if (t === "degreeTuring" || t === "degreePhrase" || t === "gravityWalker" || t === "arp") {
     if (p === "0.1v/oct" || p === "0.1v" || p === "v/oct" || p === "pitch") {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     }
     if (p === "gate") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     if (p === "trigger" || p === "t") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
-    if (p === "degree" || p === "phase") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+    if (p === "degree" || p === "phase" || p === "step") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
     if (p === "cv") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
   }
   if (t === "fractalBrownianNoise") {
@@ -631,6 +632,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
       || type === "degreeTuring" || type === "degreePhrase" || type === "gravityWalker"
     )
   ) {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  }
+  if (p === "held keys" && type === "arp") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
   if (
@@ -1608,6 +1612,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("octaves", P.NATIVE_GRAPH_PARAM_MODE, disc("octaves", 1));
       push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
       push("scale", P.NATIVE_GRAPH_PARAM_SEED, disc("scale", 1));
+      continue;
+    }
+    if (type === "arp") {
+      // mode→MODE, steps→STAGES, seed→SEED.
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("steps", P.NATIVE_GRAPH_PARAM_STAGES, disc("steps", 8));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
       continue;
     }
     if (type === "smoothGraph") {
@@ -3293,6 +3304,12 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "mix") return ["Out1"];
     if (type === "midSideEncode") return ["Mid"];
     if (type === "quadrature") return ["I", "Out", "Mono"];
+    if (
+      type === "arp" || type === "degreeTuring" || type === "degreePhrase"
+      || type === "gravityWalker"
+    ) {
+      return ["0.1V/Oct", "0.1v/Oct", "Out", "Mono"];
+    }
     if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["X"];
     // Lorenz/Chua/…: native X lives on MONO (see mapNativeGraphSrcPortId).
     // Face source is DisplayX/DisplayY — publish both logical + Display aliases.
@@ -3325,6 +3342,12 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "mix") return ["Out2"];
     if (type === "midSideEncode") return ["Side"];
     if (type === "quadrature") return ["Q", "Left"];
+    if (
+      type === "arp" || type === "degreeTuring" || type === "degreePhrase"
+      || type === "gravityWalker"
+    ) {
+      return ["Gate", "Left"];
+    }
     if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["Y"];
     if (
       type === "lorenzAttractor"
@@ -3359,6 +3382,12 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "archimedes") return ["Pi"];
     if (type === "mix") return ["Out3"];
     if (type === "quadrature") return ["MidI", "Right"];
+    if (
+      type === "arp" || type === "degreeTuring" || type === "degreePhrase"
+      || type === "gravityWalker"
+    ) {
+      return ["Trigger", "Right"];
+    }
     if (
       type === "lorenzAttractor"
       || type === "chuaAttractor"
@@ -3395,6 +3424,9 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "transport") return ["f"];
     if (type === "audioPlayer") return ["Phase"];
     if (type === "quadrature") return ["SideQ", "Saw"];
+    if (type === "arp") return ["Step", "Saw"];
+    if (type === "degreeTuring" || type === "gravityWalker") return ["Degree", "Saw"];
+    if (type === "degreePhrase") return ["Phase", "Saw"];
     if (type === "reverbEffect" || type === "soemReverb") {
       return ["Dry L", "Dry Left"];
     }

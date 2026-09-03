@@ -866,12 +866,11 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Wave", kind: "scalar" },
     ],
-    // ƒ absolute-Hz last among signal inlets (Morph / CV above it).
-    inputs: ["Reset", "0.1V/Oct", "Increment", "Morph", "f"],
+    // ƒ absolute-Hz last among signal inlets. Morph is the parameter (+ MOD), not a jack.
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {"0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ"},
-    // Morph is sample-accurate gold analog (not CMYK cyan Parameter).
     // Legacy Wave Out / Out / Noise → Wave (outlet list already implies "out").
     outputAliases: {
       Out: "Wave",
@@ -939,7 +938,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "bipolarRational",
         step: "0",
-        tooltip: "0…1 width/duty. 0.5 = center (triangle / 50% PWM). Trisaw & Pulse / Center Square only."
+        tooltip: "0…1 width/duty. 0.5 = center (triangle / 50% PWM). Trisaw & Pulse / Center Square only. Modulate via the Morph param-row MOD jack."
       },
       {
         defaultValue: "1",
@@ -8714,24 +8713,25 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  // Under construction: Arp (Musical shelf).
+  // Held-keys arpeggiator (Musical shelf). Clocked pattern over MIDI keyboard bitmask.
   arp: {
-    planRole: "source",
+    planRole: "processor",
     planFreeRun: true,
     displayType: "trace",
-    displayModes: [
-      { key: "trace", renderer: "trace", source: { value: "Pitch" } },
-    ],
     displaySignals: [
-      { key: "Pitch", kind: "scalar" },
-      { key: "Gate", kind: "scalar" },
-      { key: "Out", kind: "scalar" },
+      { key: "0.1V/Oct", kind: "scalar" },
     ],
-    inputs: ["Pitch", "Gate", "Clock", "Reset"],
-    outputs: ["Out", "Pitch", "Gate"],
+    displayModes: [
+      { key: "trace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "0.1V/Oct" } },
+    ],
+    defaultDisplayMode: "trace",
+    digitalInputs: ["Held Keys"],
+    inputs: ["Held Keys", "Clock", "Reset"],
+    outputs: ["0.1V/Oct", "Gate", "Trigger", "Step"],
+    outputLabels: { "0.1V/Oct": "0.1V" },
     parameters: [
       {
-        choices: ["Up", "Down", "Up/Down", "Order", "Random"],
+        choices: ["up", "dn", "up/dn", "dn/up", "random"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -8743,29 +8743,33 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Under construction — planned arpeggiator pattern mode."
+        tooltip: "Pattern direction: up, dn, up/dn, dn/up, or random over held keys."
       },
       {
         defaultValue: "8",
-        key: "rate",
-        label: "Rate",
-        max: "64",
+        key: "steps",
+        label: "Steps",
+        max: "128",
+        maxDigits: 0,
         mid: "8",
-        min: "0.25",
-        step: "any",
-        unit: "Hz",
-        tooltip: "Under construction — planned arp step rate (or clock divide)."
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Clock steps before pattern restart (esp. Random). 0 = natural wrap / free-run RNG."
       },
       {
         defaultValue: "1",
-        key: "octaves",
-        label: "Octaves",
-        max: "4",
+        key: "seed",
+        kind: "seed",
+        label: "Seed",
+        linearSmoothing: false,
+        smoothingType: "none",
+        max: "2147483647",
+        maxDigits: 0,
         mid: "1",
-        min: "1",
-        nonlinearSlider: false,
+        min: "0",
         step: "1",
-        tooltip: "Under construction — planned octave range of the arpeggio."
+        tooltip: "RNG seed for Random mode. Reset re-seeds from this value."
       },
     ]
   },
