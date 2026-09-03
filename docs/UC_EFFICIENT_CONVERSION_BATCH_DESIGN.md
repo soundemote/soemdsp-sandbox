@@ -28,7 +28,7 @@ Selected Under-Construction (UC) shop modules already have real JavaScript DSP, 
 - Retired list today is thin: `output`, `audioInput`, `rms`, `additiveLinearFilter`.
 - Highest allocated graph type ID: **`kTypeAudioInput = 132`** in `native_modules/graph_engine/graph_engine.cpp` (mirrored in `NATIVE_GRAPH_TYPE_IDS`). Next free ID is **133**.
 - Graph WASM version currently returns **99** (`soemdsp_graph_version`).
-- Yellow Graph / Additive bus opcodes **111–127** are unrelated to Smooth/Step Graph (`graph2` / `graphCopy`) — do not conflate. (`APP_POLICY.md` §0b still says **111–124**; PRs that edit policy must bump the documented range to **111–127**, not “fix” code down to 124.)
+- Yellow Graph / Additive bus opcodes **111–127** are unrelated to Smooth/Step Graph (`smoothGraph` / `stepGraph`) — do not conflate. (`APP_POLICY.md` §0b still says **111–124**; PRs that edit policy must bump the documented range to **111–127**, not “fix” code down to 124.)
 - UC sort also still lists some types that are **already** efficient-allowlisted / natived (e.g. `hypersaw`, `phosphillator`, `humanFilter`, `chaoticPhaseLockingFilter`, `metallicRatio`). Those “UC ghosts” are **out of scope** for this conversion batch (see Non-Goals / PR10).
 
 ### Pain points
@@ -78,8 +78,8 @@ Selected Under-Construction (UC) shop modules already have real JavaScript DSP, 
 | `speakerProtection` | Speaker Protection | **CONVERT** | `speaker-protection-worklet-evaluator.js` | Hard mute if \|x\|>1 / non-finite |
 | `speakerProtector2` | Speaker Protector 2 | **CONVERT** | `speaker-protector-2-math.js` | Slew VCA drop/hold/rise + HP trip |
 | `basicShape` | BasicShape | **CONVERT** | `public/modules/basicShape/` | Naive multi-wave LFO, no AA |
-| `graph2` | Smooth Graph | **CONVERT** | `public/modules/graph/`, `node-graph-graph-utils.js`, `node-live-audio-worklet-graph.js` | Curve LFO/phasor/mapper |
-| `graphCopy` | Step Graph | **CONVERT** | same family | Per-segment shapes + hold |
+| `smoothGraph` | Smooth Graph | **CONVERT** | `public/modules/graph/`, `node-graph-graph-utils.js`, `node-live-audio-worklet-graph.js` | Curve LFO/phasor/mapper |
+| `stepGraph` | Step Graph | **CONVERT** | same family | Per-segment shapes + hold |
 | `allpass` | Allpass Filter | **CONVERT** | JS locks EQ SVF **mode 6** via `eq-filter-math.js` | Distinct type ID; reuse `soemdsp_eq_filter_*` |
 | `bandpass` | Bandpass Filter | **CONVERT** | JS locks EQ SVF **mode 4** (BP12 Peak) | Distinct type ID; reuse `soemdsp_eq_filter_*` |
 | `tiltFilter` | Tilt Filter | **CONVERT** | `tilt-filter-math.js` | Own 1-pole shelf kernel |
@@ -182,8 +182,8 @@ Mirror `eqFilter` / `slewLimiter`:
 | 147 | `degreeTuring` | Musical **PR8b** |
 | 148 | `degreePhrase` | Musical **PR8b** |
 | 149 | `gravityWalker` | Musical **PR8b** |
-| 150 | `graph2` | Smooth Graph (complex) |
-| 151 | `graphCopy` | Step Graph (complex) |
+| 150 | `smoothGraph` | Smooth Graph (complex) |
+| 151 | `stepGraph` | Step Graph (complex) |
 
 **Musical IDs follow PR8a→PR8b merge order** (144–146 then 147–149) so PR8a does not leave holes. Do not leave gaps unless an ID is **explicitly reserved in the landing PR**. If a non-musical PR must land out of order, document the key→ID map in that PR and update this table.
 
@@ -243,16 +243,16 @@ RNG: `degreeTuring` / phrase mutate currently use `Math.random()` in JS — nati
 #### 5) Modulators
 
 - **`basicShape`:** phasor + naive waveforms (sine/tri/saw/ramp/square/trisaw/centerSquare) + morph/PW; Reset edge; 0.1V/Oct via existing osc pitch helpers. No AA by design.
-- **`graph2` / `graphCopy`:** largest risk (see Risks). Audio path needs:
+- **`smoothGraph` / `stepGraph`:** largest risk (see Risks). Audio path needs:
   - Curve table or incremental evaluator from control points.
   - Modes: LFO / phasor / mapper (match `node-live-audio-worklet-graph.js`).
   - Host must upload curve payloads (points, shapes, smoothingMode) into WASM memory — likely new graph API (`set_curve` / blob param), analogous to phosphillator path upload (`soemdsp_phosphillator_set_path`).
-  - Face editing stays JS (`node-graph-graph-utils.js`); efficient audio must not call `nodeGraphLiveModuleEvaluators.graph2`.
-  - **JS audio reference (must port):** `normalizeGraph2SmoothingMode`, `graphValueAt`, and segment options in `public/node-live-audio-worklet-graph.js` (~513 lines), plus face/normalize limits in `public/node-graph-graph-utils.js`. Smooth modes: `linear` / `catmull` / `quadratic` / `cubic` (legacy six-label collapse already in JS). Step Graph: per-segment shapes (`linear`, `rational`, `exponential`, `log`, `smoothstep`, `hold`) + curve offset.
+  - Face editing stays JS (`node-graph-graph-utils.js`); efficient audio must not call `nodeGraphLiveModuleEvaluators.smoothGraph`.
+  - **JS audio reference (must port):** `normalizeSmoothGraphSmoothingMode`, `graphValueAt`, and segment options in `public/node-live-audio-worklet-graph.js` (~513 lines), plus face/normalize limits in `public/node-graph-graph-utils.js`. Smooth modes: `linear` / `catmull` / `quadratic` / `cubic` (legacy six-label collapse already in JS). Step Graph: per-segment shapes (`linear`, `rational`, `exponential`, `log`, `smoothstep`, `hold`) + curve offset.
   - **Point cap:** JS refuses adds at **`graph.nodes.length >= 32`** (`node-graph-graph-utils.js`). Native must enforce the same **max 32 points**.
   - **Do not reuse `native_modules/sandbox_native_maths/graph.h`.** That header is a **different** breakpoint curve (LINEAR / RATIONAL / EXPONENTIAL only, `kMaxNodes = 32`) for analog-filter-family nonlinearities — not Smooth Graph catmull/quadratic/cubic and not Step Graph’s full segment set. Reusing it would ship wrong semantics.
 
-Recommended split: **PR9a** native curve evaluator + `graph2` LFO-only subset (**allowlist off**); **PR9b** Step Graph shapes + mapper/phasor parity + **allowlist both** once smoke passes (**A5b** resolved — no early `graph2`-only allowlist).
+Recommended split: **PR9a** native curve evaluator + `smoothGraph` LFO-only subset (**allowlist off**); **PR9b** Step Graph shapes + mapper/phasor parity + **allowlist both** once smoke passes (**A5b** resolved — no early `smoothGraph`-only allowlist).
 
 #### 6) Scientific filters (non-EQ)
 
@@ -308,7 +308,7 @@ sequenceDiagram
 ### New / extended graph bindings
 
 - New `kType*` constants and `NATIVE_GRAPH_TYPE_IDS` entries (table above).
-- **Graph curve upload** (for `graph2`/`graphCopy` only): new exports, e.g. `soemdsp_graph_node_set_curve(handle, nodeId, ptr, bytes)` or module-local `soemdsp_smooth_graph_set_points(...)`. Exact shape TBD in Graph PRs; must be sample-accurate safe (copy on compile or double-buffer). Cap ≤32 points. Implement against `graphValueAt` / `normalizeGraph2SmoothingMode` — **not** `sandbox_native_maths/graph.h`.
+- **Graph curve upload** (for `smoothGraph`/`stepGraph` only): new exports, e.g. `soemdsp_graph_node_set_curve(handle, nodeId, ptr, bytes)` or module-local `soemdsp_smooth_graph_set_points(...)`. Exact shape TBD in Graph PRs; must be sample-accurate safe (copy on compile or double-buffer). Cap ≤32 points. Implement against `graphValueAt` / `normalizeSmoothGraphSmoothingMode` — **not** `sandbox_native_maths/graph.h`.
 
 ### Param ID strategy
 
@@ -334,7 +334,7 @@ In `graph_engine.cpp`, every live scalar param is a **`Control` field on `struct
 | `basicShape` | frequency, waveform, morph, phase, amplitude | `FREQUENCY`, `WAVEFORM`, `SHAPE`, `PHASE`, `AMPLITUDE` |
 | Musical | key/mode/degree/level/probability/length/… | `MODE`, `LEVEL`, `SEED`, `STAGES`, `SHAPE`; triad/degree ints → reuse first; **200+** only if crowded **and** with full Node wiring |
 | `hilbert` | shift | `MODE` (21) |
-| `graph2`/`graphCopy` | smoothingMode, tension, rate, … | `MODE`, `SHAPE`, `LFO_RATE` / `FREQUENCY`; curve blob is **not** a scalar param |
+| `smoothGraph`/`stepGraph` | smoothingMode, tension, rate, … | `MODE`, `SHAPE`, `LFO_RATE` / `FREQUENCY`; curve blob is **not** a scalar param |
 
 Document each PR’s exact map in the PR description; update this table if a new ID is minted.
 
@@ -351,8 +351,8 @@ Before/after (illustrative append):
 "bandpass",
 "allpass",
 // ... remaining convert keys ...
-"graph2",
-"graphCopy",
+"smoothGraph",
+"stepGraph",
 ```
 
 Update `docs/APP_POLICY.md` §0b live-audio table in the same PRs that flip allowlist bits.
@@ -373,7 +373,7 @@ nodeGraphModuleCatalogRetiredFromUnderConstruction = [
 
 ## Data Model Changes
 
-- **Patch JSON:** type keys unchanged (`bandpass`, `graph2`, …). No migrator required for keys.
+- **Patch JSON:** type keys unchanged (`bandpass`, `smoothGraph`, …). No migrator required for keys.
 - **Optional migrators:** only if param enums differ after native port (e.g. Graph smoothingMode legacy six→four already handled in JS — keep identical normalization in C++).
 - **WASM:** combined module grows by new `.o` links; Papoulis already linked. Estimate: ~2–15 KB per small kernel; Graph curve tables dominate RAM per instance (**max 32 points**, same as JS face).
 - **No DB / network schema.**
@@ -410,10 +410,10 @@ nodeGraphModuleCatalogRetiredFromUnderConstruction = [
 
 | Option | Pros | Cons |
 |--------|------|------|
-| **A5a — Allowlist `graph2` after PR9a (LFO/phasor subset only)** | Earlier shop unlock for Smooth Graph; validates curve upload in production-shaped patches | Incomplete mapper/Step parity; docs must warn; `graphCopy` still UC; support burden for “why Step missing?” |
+| **A5a — Allowlist `smoothGraph` after PR9a (LFO/phasor subset only)** | Earlier shop unlock for Smooth Graph; validates curve upload in production-shaped patches | Incomplete mapper/Step parity; docs must warn; `stepGraph` still UC; support burden for “why Step missing?” |
 | **A5b — Hold both off allowlist until PR9b** | Single coherent Graph story; no half-face efficient product; fewer policy footnotes | Longer wait for any Graph on MVEP surface |
 
-- **Resolved: A5b** (product owner). Keep both `graph2` and `graphCopy` off the efficient allowlist until PR9b parity smokes pass. A5a is rejected for this batch. Editor/observer-only Graph without audio allowlist remains useless under §0b.
+- **Resolved: A5b** (product owner). Keep both `smoothGraph` and `stepGraph` off the efficient allowlist until PR9b parity smokes pass. A5a is rejected for this batch. Editor/observer-only Graph without audio allowlist remains useless under §0b.
 
 ---
 
@@ -443,7 +443,7 @@ Threat model remains local DSP in-browser; no new trust boundaries beyond existi
 
 1. Land kernel + graph opcode behind efficient allowlist **off** until smoke green (full product can exercise natives early if desired).
 2. Flip allowlist + APP_POLICY + UC retire atomically per cluster PR.
-3. Feature flag: existing `nodeGraphMvp.efficientProduct` (default ON). No new flag required unless Graph ships incomplete — then keep `graph2`/`graphCopy` off allowlist until parity PR.
+3. Feature flag: existing `nodeGraphMvp.efficientProduct` (default ON). No new flag required unless Graph ships incomplete — then keep `smoothGraph`/`stepGraph` off allowlist until parity PR.
 4. **Rollback:** revert allowlist entries + UC retirement; leave natives linked (harmless) or revert opcode PR. Patches with new types refuse with `not in efficient build` if rolled back — acceptable.
 
 Staged order matches **PR Plan** below (protection and papoulis first → musical → graphs last).
@@ -454,7 +454,7 @@ Staged order matches **PR Plan** below (protection and papoulis first → musica
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| `graph2`/`graphCopy` complexity (curve upload, modes, Step vs Smooth) | **High** | Multi-PR; allowlist last (A5b); parity vs `graphValueAt` / `normalizeGraph2SmoothingMode`; **never** reuse `sandbox_native_maths/graph.h` |
+| `smoothGraph`/`stepGraph` complexity (curve upload, modes, Step vs Smooth) | **High** | Multi-PR; allowlist last (A5b); parity vs `graphValueAt` / `normalizeSmoothGraphSmoothingMode`; **never** reuse `sandbox_native_maths/graph.h` |
 | `graph_engine.cpp` / param-constant merge conflicts | Medium | Serialize type **and** param (`200–299`) allocation; small ordered PRs; dual-file sync |
 | Musical RNG / scale helper drift vs JS | Medium | Shared tests: feed known clocks/masks; compare MIDI/pitch within epsilon |
 | `phaseDisperse` CPU at 64 stages | Medium | Cap default stages; smoke at max; document |
@@ -472,7 +472,7 @@ Staged order matches **PR Plan** below (protection and papoulis first → musica
 4. **SKIP** `arp`, `binaryClock`, `besselThomson` for this batch; do not touch `bessel` (54).
 5. **Shared musical pitch helpers** land only in **PR8a** (`musical_pitch.h`); seeded PRNG for stochastic musical modules. **`chordPad` is Scale/Root/Gate (bitmask triad helper), not chord_memory poly outs.**
 6. **`hilbert` shares `quadrature` kernel**; Hilbert Pair implements the full In/Mid/Side → I/Q/MidI/SideQ contract (dual nets; `SideQ = Q`); mono Hilbert is In→Out with `shift` ∈ {+90,−90,0}.
-7. **`graph2` / `graphCopy` are multi-PR** and stay off the efficient allowlist until PR9b audio parity smokes pass (**A5b** — product owner resolved); port `graphValueAt` semantics; **do not reuse `sandbox_native_maths/graph.h`**; max **32** points; Yellow Graph **111–127** remain unrelated.
+7. **`smoothGraph` / `stepGraph` are multi-PR** and stay off the efficient allowlist until PR9b audio parity smokes pass (**A5b** — product owner resolved); port `graphValueAt` semantics; **do not reuse `sandbox_native_maths/graph.h`**; max **32** points; Yellow Graph **111–127** remain unrelated.
 8. **Policy hard cutover stands:** no JS audio twin on the efficient path; face math JS may remain for UI.
 9. **Batch by shared kernels** (EQ wrappers together, musical **8a→8c**, Hilbert pair together, graphs last) for independently mergeable PRs.
 10. **Bump `soemdsp_graph_version`** when process dispatch gains types so smokes can assert a floor.
@@ -485,7 +485,7 @@ Staged order matches **PR Plan** below (protection and papoulis first → musica
 
 1. **Graph curve upload API:** module-local exports vs `soemdsp_graph_node_set_curve`? Product preference for phosphillator-like path upload vs generic blob param?
 2. **`speakerProtection` metering:** should efficient Output continue to own peak/mute counters, or does the module node need dedicated readbacks?
-3. **Allowlist staging for Graph (A5):** **Resolved: A5b** — hold both `graph2` and `graphCopy` off the efficient allowlist until PR9b. (A5a rejected.)
+3. **Allowlist staging for Graph (A5):** **Resolved: A5b** — hold both `smoothGraph` and `stepGraph` off the efficient allowlist until PR9b. (A5a rejected.)
 4. **Default `phaseDisperse` stage cap in efficient shop:** keep JS max 64, or lower default for MVEP CPU budget?
 
 ---
@@ -506,8 +506,8 @@ Staged order matches **PR Plan** below (protection and papoulis first → musica
 - `public/modules/speakerProtector2/speaker-protector-2-math.js`
 - `public/modules/musicalEngines/`, `public/node-graph-musical-engines.js`
 - `public/modules/quadrature/quadrature-math.js`, `quadrature-live-evaluator.js` — In+Side / Mid contract
-- `public/node-graph-graph-utils.js` (max 32 nodes), `public/node-live-audio-worklet-graph.js` (`graphValueAt`, `normalizeGraph2SmoothingMode`)
-- `native_modules/sandbox_native_maths/graph.h` — **analog-filter breakpoint curve only; not for graph2/graphCopy**
+- `public/node-graph-graph-utils.js` (max 32 nodes), `public/node-live-audio-worklet-graph.js` (`graphValueAt`, `normalizeSmoothGraphSmoothingMode`)
+- `native_modules/sandbox_native_maths/graph.h` — **analog-filter breakpoint curve only; not for smoothGraph/stepGraph**
 - `public/modules/scientificIir/scientific-iir-worklet-evaluator.js` — bandpass/allpass → EQ modes 4/6
 - `scripts/build_native_modules.ps1`, `scripts/smoke_graph_*.mjs`
 
@@ -584,19 +584,19 @@ Staged order matches **PR Plan** below (protection and papoulis first → musica
 - **Dependencies:** PR8a, PR8b
 - **Description:** Catch-all so 8a/8b stay reviewably sized; not a dumping ground for new modules.
 
-### PR9a — Graph infrastructure + Smooth Graph audio (`graph2`)
+### PR9a — Graph infrastructure + Smooth Graph audio (`smoothGraph`)
 
-- **Title:** Native Smooth Graph curve engine (infrastructure + `graph2`)
+- **Title:** Native Smooth Graph curve engine (infrastructure + `smoothGraph`)
 - **Files/components:** curve upload API, dedicated smooth/step curve implementation (**not** `sandbox_native_maths/graph.h`), `graph_engine.cpp` type 150, host curve sync from patch face, smokes for LFO/phasor subset — **allowlist off by default (A5b)**
 - **Dependencies:** none
-- **Description:** Largest risk slice; implement `normalizeGraph2SmoothingMode` + `graphValueAt` parity (linear/catmull/quadratic/cubic); max 32 points; do not conflate with Yellow Graph 111–127.
+- **Description:** Largest risk slice; implement `normalizeSmoothGraphSmoothingMode` + `graphValueAt` parity (linear/catmull/quadratic/cubic); max 32 points; do not conflate with Yellow Graph 111–127.
 
-### PR9b — Step Graph (`graphCopy`) parity + efficient allowlist for both
+### PR9b — Step Graph (`stepGraph`) parity + efficient allowlist for both
 
-- **Title:** Native Step Graph + efficient allowlist for `graph2`/`graphCopy`
+- **Title:** Native Step Graph + efficient allowlist for `smoothGraph`/`stepGraph`
 - **Files/components:** extend curve engine for per-segment shapes/hold; type 151; allowlist both; UC retire; APP_POLICY; full smoke vs JS reference vectors
 - **Dependencies:** PR9a
-- **Description:** Complete modulator/mapper parity; **only PR9b** flips efficient allowlist for both `graph2` and `graphCopy` (**A5b**).
+- **Description:** Complete modulator/mapper parity; **only PR9b** flips efficient allowlist for both `smoothGraph` and `stepGraph` (**A5b**).
 
 ### PR10 — Policy / catalog sweep (this batch only)
 

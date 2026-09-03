@@ -150,8 +150,8 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "cookbookFilter",
   "curveOsc",
   "ellipsoidOsc",
-  "graph2",
-  "graphCopy",
+  "smoothGraph",
+  "stepGraph",
   "hilbert",
   "kickEnvelope",
   "nextPatch",
@@ -1000,17 +1000,17 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Draw a custom face with JS for patch-specific meters, art, or debug visuals.",
     notes: ["custom draw", "JavaScript display", "visual sink"],
   },
-  graph2: {
+  smoothGraph: {
     category: "modulator",
-    description: "Shape a control curve by points—map phasors/LFOs into custom response shapes.",
+    description: "Draw free dots; one global Curve (Linear/Catmull/Quadratic/Cubic) maps Input · LFO · Phasor.",
     label: "Smooth Graph",
-    notes: ["curve", "per-point shape", "contour", "Input · LFO · Phasor", "rate without jumps in Phasor"],
+    notes: ["smoothGraph", "global curve", "tension", "Input · LFO · Phasor"],
   },
-  graphCopy: {
+  stepGraph: {
     category: "modulator",
-    description: "Stepped or free control graph when you want quantized X and shared curve tools.",
+    description: "Segment path with Shape + optional step grid; per-node contour bends each span.",
     label: "Step Graph",
-    notes: ["curve", "step grid (0 = free)", "global shape", "per-node curve", "Input · LFO · Phasor"],
+    notes: ["stepGraph", "step grid (0 = free)", "segment shape", "per-node contour", "Input · LFO · Phasor"],
   },
   flexGrid: {
     category: "modulator",

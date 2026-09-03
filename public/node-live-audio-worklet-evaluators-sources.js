@@ -824,9 +824,9 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         this.polyBlepOscillatorWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
       blit: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
         this.polyBlepOscillatorWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
-      graph2: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue, graphOutputValue) =>
+      smoothGraph: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue, graphOutputValue) =>
         graphOutputValue(node, nodeId),
-      graphCopy: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue, graphOutputValue) =>
+      stepGraph: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue, graphOutputValue) =>
         graphOutputValue(node, nodeId),
       additiveGenerator: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
         this.additiveGeneratorWorkletEvaluate(node, nodeId, frame, frames),

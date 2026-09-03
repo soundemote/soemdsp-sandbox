@@ -53,17 +53,16 @@ function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
     : clampNodeSliderValue(candidate, min, max);
 }
 
-// "graph" (per-point curve shape/contour) is retired in favor of "graph2"
-// (one global smoothing mode for the whole curve) -- both modules produced
-// effectively the same result in practice, and graph2's approach was the
-// one working well. Old patches with a "graph" node just drop it, same as
-// any other retired type below, rather than crashing on load.
+// Retired module types are dropped on load (unknown-type would crash).
 const nodeGraphRetiredNodeTypes = new Set([
   "bipolarKnob",
-  // Legacy host module type; drop silently so old patches don't throw unknown-type.
   "clapPlugin",
   "formulaVisual",
+  // Old single "graph" module — replaced by smoothGraph / stepGraph.
   "graph",
+  // Pre-rename type keys (patches using these drop until re-saved under new keys).
+  "graph2",
+  "graphCopy",
   "impulseButton",
   "macroKnob",
   "moduleHome",
@@ -337,14 +336,14 @@ function validateNodeGraphPatch(patch) {
             : (n <= 0 ? 0 : -44100 * Math.log(1 - n) / (2 * Math.PI));
         }
       }
-      if (type === "graph2" && parameter.key === "smoothingMode") {
+      if (type === "smoothGraph" && parameter.key === "smoothingMode") {
         const sourceMax = Number(node.paramMeta?.[parameter.key]?.max);
         const n = Math.round(Number(value));
         const looksLegacySix = (Number.isFinite(sourceMax) && sourceMax >= 5)
           || n === 4
           || n === 5;
-        if (looksLegacySix && typeof nodeGraphGraph2SmoothingModeFourIndexFromLegacy === "function") {
-          value = nodeGraphGraph2SmoothingModeFourIndexFromLegacy(value);
+        if (looksLegacySix && typeof nodeGraphSmoothGraphSmoothingModeFourIndexFromLegacy === "function") {
+          value = nodeGraphSmoothGraphSmoothingModeFourIndexFromLegacy(value);
         } else if (looksLegacySix) {
           // Fallback if graph-utils not loaded yet (plan/worklet paths).
           const six = [0, 1, 1, 2, 3, 1];

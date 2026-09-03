@@ -1,18 +1,11 @@
-// Segment curve styles (Step Graph global Shape param; stored on nodes for legacy).
-//   linear      — straight; contour ignored
-//   rational    — contour bends the chord (0 = straight)
-//   exponential — always curved; contour sets amount / direction
-//   log         — always curved (complement family); contour sets amount
-//   smoothstep  — hermite S-curve (p²(3−2p)); contour ignored
-//   hold        — step until next point; contour ignored
-// Legacy "smooth" still normalizes → smoothstep.
+// Step Graph segment Shape keys (global Shape param + per-node `shape`).
+//   linear / rational / exponential / log / smoothstep / hold
 //
-// Step Graph (graphCopy) vs Smooth Graph (graph2):
-//   Smooth: one global curve through free dots (smoothingMode + tension params).
-//   Step:   global Shape + Curve Offset params; per-node curve `c` still local
-//           (effective contour = c + curveOffset). Empty circle: normal drag =
-//           curve bend; Shift+drag = raise/lower prev+next bar points.
-//           Normal node drag snaps X; Ctrl = free point.
+// smoothGraph vs stepGraph:
+//   Smooth: one global curve through free dots (smoothingMode + tension).
+//   Step:   global Shape + Curve Offset; per-node contour `c` still local
+//           (effective contour = c + curveOffset). Empty-circle handles edit bend;
+//           node drag snaps X to the step grid (Ctrl = free X).
 const nodeGraphGraphShapes = Object.freeze([
   "linear",
   "rational",
@@ -21,13 +14,11 @@ const nodeGraphGraphShapes = Object.freeze([
   "smoothstep",
   "hold",
 ]);
-// Smooth Graph global curve modes (canonical keys).
-// "catmull" = guide-tension curve through the free dots (start/end on-curve;
-// interior points pull the path; tension scales the pull).
-// Legacy labels smooth / bezier / catmullRom all map → "catmull".
-const nodeGraphGraph2SmoothingModes = Object.freeze(["linear", "catmull", "quadratic", "cubic"]);
-// Pre-collapse Curve param indices: Linear, Smooth, Bezier, Quadratic, Cubic, Catmull.
-const nodeGraphGraph2SmoothingModeLegacySix = Object.freeze([
+// Smooth Graph Curve modes.
+// catmull = guide-tension curve (ends on-curve; interiors pull; tension scales).
+const nodeGraphSmoothGraphSmoothingModes = Object.freeze(["linear", "catmull", "quadratic", "cubic"]);
+// Older six-choice Curve indices collapse onto the four modes above.
+const nodeGraphSmoothGraphSmoothingModeLegacySix = Object.freeze([
   "linear",
   "catmull",
   "catmull",
@@ -334,28 +325,26 @@ function nodeGraphGraphSmoothCurve(position) {
   return p * p * (3 - 2 * p);
 }
 
-// Step Graph (and legacy "graph"): legacy segment evaluation path.
-// Smooth Graph (graph2): one global curve through dots — no per-node UI.
+/** Step Graph: per-segment shape evaluation path. */
 function nodeGraphGraphUsesPerNodeShapes(type) {
-  return type === "graphCopy" || type === "graph";
+  return type === "stepGraph";
 }
 
-/** Per-node contour (`c`) UI — Step Graph (and legacy graph). */
+/** Step Graph: per-node contour (`c`) handles. */
 function nodeGraphGraphUsesPerNodeContour(type) {
-  return type === "graphCopy" || type === "graph";
+  return type === "stepGraph";
 }
 
 /**
- * Per-node shape select in the node list (same row as curve).
- * Step Graph + legacy graph. Smooth Graph uses a global Curve param instead.
- * Module Shape param still seeds new nodes / acts as eval fallback.
+ * Step Graph: per-node shape select in the node list.
+ * Smooth Graph uses the global Curve param instead.
  */
 function nodeGraphGraphUsesPerNodeShapeSelect(type) {
-  return type === "graphCopy" || type === "graph";
+  return type === "stepGraph";
 }
 
 function nodeGraphGraphUsesGlobalSmoothing(type) {
-  return type === "graph2" || (nodeGraphModuleIsGraphType(type) && !nodeGraphGraphUsesPerNodeShapes(type));
+  return type === "smoothGraph";
 }
 
 /** Resolve Step Graph global Shape param (choice index or name) → shape key. */
@@ -519,16 +508,16 @@ function nodeGraphGraphLogarithmicCurve(position, contour = 0) {
   );
 }
 
-function normalizeNodeGraphGraph2SmoothingMode(value) {
-  if (value === "legacy") {
-    return "legacy";
+function normalizeNodeGraphSmoothGraphSmoothingMode(value) {
+  if (value === "segment") {
+    return "segment";
   }
   const raw = String(value ?? "").trim().toLowerCase();
   // Old Curve labels that all used the same guide-tension path.
   if (raw === "smooth" || raw === "bezier" || raw === "catmullrom" || raw === "catmull") {
     return "catmull";
   }
-  if (nodeGraphGraph2SmoothingModes.includes(raw)) {
+  if (nodeGraphSmoothGraphSmoothingModes.includes(raw)) {
     return raw;
   }
   if (Number.isFinite(Number(value))) {
@@ -540,8 +529,8 @@ function normalizeNodeGraphGraph2SmoothingMode(value) {
     if (n === 5) {
       return "catmull";
     }
-    return nodeGraphGraph2SmoothingModes[Math.max(0, Math.min(
-      nodeGraphGraph2SmoothingModes.length - 1,
+    return nodeGraphSmoothGraphSmoothingModes[Math.max(0, Math.min(
+      nodeGraphSmoothGraphSmoothingModes.length - 1,
       n,
     ))];
   }
@@ -549,19 +538,19 @@ function normalizeNodeGraphGraph2SmoothingMode(value) {
 }
 
 /** Map old 6-choice Curve index → current 4-choice index (Linear/Catmull/Quadratic/Cubic). */
-function nodeGraphGraph2SmoothingModeFourIndexFromLegacy(value) {
+function nodeGraphSmoothGraphSmoothingModeFourIndexFromLegacy(value) {
   const raw = String(value ?? "").trim().toLowerCase();
   if (raw === "smooth" || raw === "bezier" || raw === "catmullrom" || raw === "catmull") {
     return 1;
   }
-  if (nodeGraphGraph2SmoothingModes.includes(raw)) {
-    return nodeGraphGraph2SmoothingModes.indexOf(raw);
+  if (nodeGraphSmoothGraphSmoothingModes.includes(raw)) {
+    return nodeGraphSmoothGraphSmoothingModes.indexOf(raw);
   }
   if (Number.isFinite(Number(value))) {
     const n = Math.round(Number(value));
-    if (n >= 0 && n < nodeGraphGraph2SmoothingModeLegacySix.length) {
-      const legacyMode = nodeGraphGraph2SmoothingModeLegacySix[n];
-      return Math.max(0, nodeGraphGraph2SmoothingModes.indexOf(legacyMode));
+    if (n >= 0 && n < nodeGraphSmoothGraphSmoothingModeLegacySix.length) {
+      const legacyMode = nodeGraphSmoothGraphSmoothingModeLegacySix[n];
+      return Math.max(0, nodeGraphSmoothGraphSmoothingModes.indexOf(legacyMode));
     }
   }
   return 1;
@@ -860,7 +849,7 @@ function nodeGraphGraphControlPolygonPath(graphValue) {
 }
 
 function nodeGraphGraphIsStepGraphType(type) {
-  return String(type || "").trim() === "graphCopy";
+  return String(type || "").trim() === "stepGraph";
 }
 
 /** Step Graph only: empty-circle handles that edit per-segment curvature (`c`). */
@@ -935,7 +924,7 @@ function nodeGraphGraphApplyStepBarHeight(graphValue, rightIndex, yValue) {
  * Contour is stored on the RIGHT node of a segment (outgoing from left → right).
  * Handle sits at the segment mid-x on the actual curve so it tracks the bow.
  */
-function nodeGraphGraphContourHandlePoint(graph, rightIndex, smoothingMode = "legacy", segmentOptions = {}) {
+function nodeGraphGraphContourHandlePoint(graph, rightIndex, smoothingMode = "segment", segmentOptions = {}) {
   const left = graph.nodes[rightIndex - 1];
   const right = graph.nodes[rightIndex];
   if (!left || !right) {
@@ -991,7 +980,7 @@ function nodeGraphGraphContourEditableShape(value) {
 }
 
 function nodeGraphGraphModeCurve(position, mode, index = 0) {
-  const normalizedMode = normalizeNodeGraphGraph2SmoothingMode(mode);
+  const normalizedMode = normalizeNodeGraphSmoothGraphSmoothingMode(mode);
   if (normalizedMode === "linear") {
     return normalizeNodeGraphGraphNumber(position, 0, 0, 1);
   }
@@ -1040,7 +1029,7 @@ function nodeGraphGraphSegmentValue(graph, x, index, smoothingMode, segmentOptio
     return 0.5 * (left.y + right.y);
   }
   const p = normalizeNodeGraphGraphNumber((x - left.x) / dx, 0, 0, 1);
-  if (smoothingMode === "legacy") {
+  if (smoothingMode === "segment") {
     return left.y + (right.y - left.y) * nodeGraphGraphLegacySegmentShape(p, right, segmentOptions);
   }
   const shaped = nodeGraphGraphModeCurve(p, smoothingMode, index);
@@ -1053,8 +1042,8 @@ function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode, tension = 1, s
   if (!graph.nodes.length) {
     return 0;
   }
-  const normalizedMode = normalizeNodeGraphGraph2SmoothingMode(smoothingMode);
-  if (normalizedMode === "legacy") {
+  const normalizedMode = normalizeNodeGraphSmoothGraphSmoothingMode(smoothingMode);
+  if (normalizedMode === "segment") {
     if (x < graph.nodes[0].x) {
       return graph.nodes[0].y;
     }
@@ -1064,7 +1053,7 @@ function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode, tension = 1, s
     for (let index = 0; index < graph.nodes.length - 1; index += 1) {
       if (x <= graph.nodes[index + 1].x) {
         return normalizeNodeGraphGraphNumber(
-          nodeGraphGraphSegmentValue(graph, x, index, "legacy", segmentOptions),
+          nodeGraphGraphSegmentValue(graph, x, index, "segment", segmentOptions),
           0,
           -Infinity,
           Infinity,
@@ -1229,8 +1218,8 @@ function normalizeNodeGraphStepCount(value) {
 }
 
 function nodeGraphGraphStepCountForNode(patchNode) {
-  // Step grid is Step Graph (graphCopy) only.
-  if (String(patchNode?.type || "").trim() !== "graphCopy") {
+  // Step grid is Step Graph (stepGraph) only.
+  if (String(patchNode?.type || "").trim() !== "stepGraph") {
     return 0;
   }
   const raw = Number(patchNode?.params?.steps);
@@ -1286,10 +1275,9 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
     return;
   }
   const graph = normalizeNodeGraphGraph(graphValue);
-  // Prefer the owning module's type for curve mode. Point-to-point graphs
-  // (Smooth Graph / Step Graph) must use "legacy" segment shapes. Falling
-  // through to the default global catmull guide curve makes hold/step
-  // curves look like a flat line through the endpoints (often y=0 → y=0).
+  // Prefer the owning module's type for curve mode. Step Graph must use
+  // "segment" shapes. Falling through to the default global catmull guide
+  // curve makes hold/step curves look flat through the endpoints.
   const nodeId = String(
     element.dataset.graphNode
     || element.closest?.(".dsp-node")?.dataset?.node
@@ -1307,7 +1295,7 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
   let segmentOptions = options.segmentOptions;
   if (ownerNode && typeof nodeGraphModuleIsGraphType === "function" && nodeGraphModuleIsGraphType(ownerNode.type)) {
     if (typeof nodeGraphGraphUsesPerNodeShapes === "function" && nodeGraphGraphUsesPerNodeShapes(ownerNode.type)) {
-      smoothingMode = "legacy";
+      smoothingMode = "segment";
     } else if (smoothingMode == null || smoothingMode === "") {
       smoothingMode = nodeGraphGraphSmoothingModeForNode(ownerNode);
     }
@@ -1321,7 +1309,7 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
       segmentOptions = nodeGraphGraphSegmentOptionsForNode(ownerNode);
     }
   }
-  smoothingMode = normalizeNodeGraphGraph2SmoothingMode(smoothingMode);
+  smoothingMode = normalizeNodeGraphSmoothGraphSmoothingMode(smoothingMode);
   stepCount = normalizeNodeGraphStepCount(stepCount);
   tension = Number.isFinite(Number(tension)) ? Number(tension) : 1;
   segmentOptions = segmentOptions && typeof segmentOptions === "object" ? segmentOptions : {};
@@ -1641,12 +1629,12 @@ function bindNodeGraphGraphFaceHover(display) {
 }
 
 function nodeGraphGraphSmoothingModeForNode(patchNode) {
-  // Step Graph / legacy graph: per-segment hold/shape path.
+  // Step Graph: per-segment hold/shape path.
   if (nodeGraphGraphUsesPerNodeShapes(patchNode?.type)) {
-    return "legacy";
+    return "segment";
   }
   // Smooth Graph: one global smoothing algorithm through the dots.
-  return normalizeNodeGraphGraph2SmoothingMode(patchNode?.params?.smoothingMode);
+  return normalizeNodeGraphSmoothGraphSmoothingMode(patchNode?.params?.smoothingMode);
 }
 
 function syncNodeGraphGraphElement(moduleElement, patchNode) {

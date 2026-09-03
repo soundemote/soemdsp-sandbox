@@ -678,8 +678,13 @@
         b &&
         (((a.io === "output" && b.io === "output") ||
           (a.io === "input" && b.io === "input")) ||
-          ((a.io === "output" && b.io === "graph") && nodeGraphPatchNodeType(a.node) !== "graph") ||
-          ((b.io === "output" && a.io === "graph") && nodeGraphPatchNodeType(b.node) !== "graph") ||
+          // Graph-face In is only valid on smoothGraph / stepGraph (layout "graph").
+          ((a.io === "output" && b.io === "graph") &&
+            !(typeof nodeGraphModuleIsGraphType === "function" &&
+              nodeGraphModuleIsGraphType(nodeGraphPatchNodeType(b.node)))) ||
+          ((b.io === "output" && a.io === "graph") &&
+            !(typeof nodeGraphModuleIsGraphType === "function" &&
+              nodeGraphModuleIsGraphType(nodeGraphPatchNodeType(a.node)))) ||
           endpointsAreParameterAudioMismatch(a, b) ||
           endpointsAreDimensionMismatch(a, b) ||
           endpointsAreDuplicate(a, b)),

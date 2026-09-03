@@ -125,7 +125,7 @@ NodeLiveAudioProcessor.prototype.graphOutputValueAt = function graphOutputValueA
 NodeLiveAudioProcessor.prototype.graphInputValueAt = function graphInputValueAt(nodeId, graphInput, x, fallback) {
   const connection = (this.graphInputConnections.get(this.graphInputKey(nodeId, graphInput)) || [])[0];
   const source = connection ? this.nodes.get(connection.sourceNode) : null;
-  if (!source || (source.type !== "graph2" && source.type !== "graphCopy")) {
+  if (!source || (source.type !== "smoothGraph" && source.type !== "stepGraph")) {
     return fallback;
   }
   return this.graphValueAt(

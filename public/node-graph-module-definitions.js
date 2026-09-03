@@ -2,11 +2,10 @@ const nodeGraphNodeLabels = Object.freeze({
   audioInput: "Input",
   codeblock: "Codeblock",
   customDisplay: "Custom Display",
-  // graph2: point-to-point segments (shape + contour per control point).
-  // graphCopy: same as graph2 (kept as an alias-style twin).
-  // (The old "graph" type was retired -- see nodeGraphRetiredNodeTypes.)
-  graph2: "Smooth Graph",
-  graphCopy: "Step Graph",
+  // smoothGraph: one global curve through free dots (Curve + Tension).
+  // stepGraph: stepped/segment path (Shape + optional step grid + per-node contour).
+  smoothGraph: "Smooth Graph",
+  stepGraph: "Step Graph",
   animatedTextBox: "Animated Text Box",
   nextPatch: "Next Patch",
   previousPatch: "Previous Patch",
@@ -740,7 +739,7 @@ const nodeGraphModuleDefinitions = (
     ],
     visualSink: true
   },
-  graph2: {
+  smoothGraph: {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
     // Default face height (was hardcoded 4×moduleScopeHeightGu = 8). Min is 1gu app-wide.
@@ -789,9 +788,9 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1", key: "outputMax", label: "Out Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
     ]
   },
-  // Point-to-point segments + step grid. Shape is global; per-node curve (`c`)
-  // is still individual, with curveOffset added as a global bias.
-  graphCopy: {
+  // Step Graph: segment path + optional X grid. Global Shape + Curve Offset;
+  // per-node contour `c` still local (effective = c + curveOffset).
+  stepGraph: {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
     displayHeightGu: 8,

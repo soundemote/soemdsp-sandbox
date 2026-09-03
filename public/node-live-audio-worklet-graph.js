@@ -60,7 +60,7 @@ NodeLiveAudioProcessor.prototype.normalizeGraph = function normalizeGraph(value 
 };
 
 NodeLiveAudioProcessor.prototype.graphEndpointYLockEnabledForNode = function graphEndpointYLockEnabledForNode(node) {
-    return (node?.type === "graph2" || node?.type === "graphCopy") &&
+    return (node?.type === "smoothGraph" || node?.type === "stepGraph") &&
       Number(node?.params?.lockEndpointY) >= 0.5;
 };
 
@@ -163,9 +163,9 @@ NodeLiveAudioProcessor.prototype.graphSmoothCurve = function graphSmoothCurve(po
     return p * p * (3 - 2 * p);
 };
 
-NodeLiveAudioProcessor.prototype.normalizeGraph2SmoothingMode = function normalizeGraph2SmoothingMode(value) {
-    if (value === "legacy") {
-      return "legacy";
+NodeLiveAudioProcessor.prototype.normalizeSmoothGraphSmoothingMode = function normalizeSmoothGraphSmoothingMode(value) {
+    if (value === "segment") {
+      return "segment";
     }
     const modes = ["linear", "catmull", "quadratic", "cubic"];
     const raw = String(value ?? "").trim().toLowerCase();
@@ -190,7 +190,7 @@ NodeLiveAudioProcessor.prototype.normalizeGraph2SmoothingMode = function normali
 };
 
 NodeLiveAudioProcessor.prototype.graphModeCurve = function graphModeCurve(position, mode, index = 0) {
-    const normalizedMode = this.normalizeGraph2SmoothingMode(mode);
+    const normalizedMode = this.normalizeSmoothGraphSmoothingMode(mode);
     if (normalizedMode === "linear") {
       return this.normalizeGraphNumber(position, 0, 0, 1);
     }
@@ -442,12 +442,12 @@ NodeLiveAudioProcessor.prototype.graphCatmullRomValueAt = function graphCatmullR
 };
 
 NodeLiveAudioProcessor.prototype.graphSmoothingModeForNode = function graphSmoothingModeForNode(node) {
-    // Step Graph / legacy graph: segment evaluation path.
-    if (node?.type === "graphCopy" || node?.type === "graph") {
-      return "legacy";
+    // Step Graph: per-segment evaluation path.
+    if (node?.type === "stepGraph") {
+      return "segment";
     }
-    // Smooth Graph (graph2): one global smoothing algorithm through the dots.
-    return this.normalizeGraph2SmoothingMode(node?.params?.smoothingMode);
+    // Smooth Graph: one global smoothing algorithm through the dots.
+    return this.normalizeSmoothGraphSmoothingMode(node?.params?.smoothingMode);
 };
 
 NodeLiveAudioProcessor.prototype.graphSegmentShapeFromParam = function graphSegmentShapeFromParam(value) {
@@ -459,7 +459,7 @@ NodeLiveAudioProcessor.prototype.graphSegmentShapeFromParam = function graphSegm
 };
 
 NodeLiveAudioProcessor.prototype.graphSegmentOptionsForNode = function graphSegmentOptionsForNode(node) {
-    if (node?.type !== "graphCopy" && node?.type !== "graph") {
+    if (node?.type !== "stepGraph") {
       return {};
     }
     const params = node?.params || {};
@@ -473,7 +473,7 @@ NodeLiveAudioProcessor.prototype.graphSegmentOptionsForNode = function graphSegm
     };
 };
 
-NodeLiveAudioProcessor.prototype.graphSegmentValue = function graphSegmentValue(graph, x, index, smoothingMode = "legacy", segmentOptions = {}) {
+NodeLiveAudioProcessor.prototype.graphSegmentValue = function graphSegmentValue(graph, x, index, smoothingMode = "segment", segmentOptions = {}) {
     const left = graph.nodes[index];
     const right = graph.nodes[index + 1];
     const dx = right.x - left.x;
@@ -481,7 +481,7 @@ NodeLiveAudioProcessor.prototype.graphSegmentValue = function graphSegmentValue(
       return 0.5 * (left.y + right.y);
     }
     const p = this.normalizeGraphNumber((x - left.x) / dx, 0, 0, 1);
-    if (smoothingMode !== "legacy") {
+    if (smoothingMode !== "segment") {
       const shaped = this.graphModeCurve(p, smoothingMode, index);
       return left.y + (right.y - left.y) * shaped;
     }
@@ -508,13 +508,13 @@ NodeLiveAudioProcessor.prototype.graphSegmentValue = function graphSegmentValue(
     return left.y + (right.y - left.y) * shaped;
 };
 
-NodeLiveAudioProcessor.prototype.graphValueAt = function graphValueAt(graphValue, xValue, smoothingMode = "legacy", tension = 1, segmentOptions = {}) {
+NodeLiveAudioProcessor.prototype.graphValueAt = function graphValueAt(graphValue, xValue, smoothingMode = "segment", tension = 1, segmentOptions = {}) {
     const graph = this.normalizeGraph(graphValue);
     const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
     if (!graph.nodes.length) {
       return 0;
     }
-    const normalizedMode = this.normalizeGraph2SmoothingMode(smoothingMode);
+    const normalizedMode = this.normalizeSmoothGraphSmoothingMode(smoothingMode);
     // Catmull = guide-tension curve (old smooth/bezier aliases map here).
     if (normalizedMode === "catmull") {
       return this.graphGuideBezierValueAt(graph, x, tension);

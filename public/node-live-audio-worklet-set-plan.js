@@ -456,7 +456,7 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (node?.type === "clock" && !this.clockStates.has(id)) {
         this.clockStates.set(id, this.createClockState());
       }
-      if ((node?.type === "graph2" || node?.type === "graphCopy") && !this.graphLfoStates.has(id)) {
+      if ((node?.type === "smoothGraph" || node?.type === "stepGraph") && !this.graphLfoStates.has(id)) {
         this.graphLfoStates.set(id, this.createGraphLfoState());
       }
       if (node?.type === "clockDivider" && !this.clockDividerStates.has(id)) {

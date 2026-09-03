@@ -85,7 +85,7 @@ var sandbox = {
       inputs: ["Reset", "Spawn", "Speed"],
       parameters: [{ key: "density" }, { key: "speed" }],
     },
-    graph2: {
+    smoothGraph: {
       chrome: "LayoutB",
       layout: "graph",
       customDisplayArea: true,
@@ -164,7 +164,7 @@ var cases = [
   { type: "kickEnvelope", layout: "A", face: true, sliders: true, io: true },
   { type: "activeFilter", layout: "A", face: true, sliders: true, io: true },
   { type: "matrixWaterfall", layout: "A", face: true, sliders: true, io: true },
-  { type: "graph2", layout: "B", face: true, sliders: true, io: false },
+  { type: "smoothGraph", layout: "B", face: true, sliders: true, io: false },
   { type: "vectorscopeTransform", layout: "C", face: false, sliders: false, io: true },
 ];
 
