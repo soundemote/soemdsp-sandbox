@@ -109,7 +109,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "formantFilter",
   "besselThomson",
   "massSpringDamper",
-  "binaryClock",
   "theremin",
   "wavetable2d",
   "wavetable3d",
@@ -149,7 +148,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "cookbookFilter",
   "curveOsc",
   "ellipsoidOsc",
-  "hilbert",
   "kickEnvelope",
   "nextPatch",
   "previousPatch",
@@ -194,6 +192,8 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "phaseDisperse",
   "quadrature",
   "arp",
+  "hilbert",
+  "binaryClock",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
@@ -227,7 +227,6 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   electroHat: "Electro hat voice. Parked until the drum shelf ships.",
   drummer: "Pattern/rhythm engine. Parked until Sequence drummer lands.",
 
-  binaryClock: "Binary bit counter. Parked until Sequence bits land.",
   flexGrid: "Multi-point CV morph grid. Parked until the modulator surface lands.",
   chaosfly: "Fly-like X/Y/Z chaos. Parked until that attractor lands.",
   gravity: "Few-body Newtonian orbits on phosphor. First Doppler puzzle piece. Parked — write pairwise + leapfrog ourselves.",
@@ -1531,9 +1530,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   binaryClock: {
     category: "clock",
-    description: "Placeholder binary counter with bit outs.",
+    description:
+      "Free-run or clocked binary counter (1–4 bits). Bit outs, Gate (half-period free-run / 1-sample pulse when clocked), Out = count/2^bits.",
     label: "Binary Clock",
-    notes: ["under construction", "binary", "counter", "clock", "sequence", "bits"],
+    notes: ["binary", "counter", "clock", "sequence", "bits", "gate", "native"],
   },
   drummer: {
     category: "clock",

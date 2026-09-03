@@ -8240,6 +8240,9 @@ const nodeGraphModuleDefinitions = (
   },
   binaryClock: {
     planRole: "source",
+    planFreeRun: true,
+    digitalOutputs: ["Bit0", "Bit1", "Bit2", "Bit3", "Gate"],
+    inputs: ["Clock", "Reset"],
     outputs: ["Out", "Bit0", "Bit1", "Bit2", "Bit3", "Gate"],
     parameters: [
       {
@@ -8252,7 +8255,8 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction — binary counter clock rate."
+        tooltip:
+          "Free-run rate when Clock is unconnected. Ignored while Clock is wired (external rising edges advance).",
       },
       {
         defaultValue: "4",
@@ -8263,7 +8267,7 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Under construction — number of bit outputs."
+        tooltip: "Active bit width (1–4). Count wraps at 2^bits.",
       },
     ]
   },

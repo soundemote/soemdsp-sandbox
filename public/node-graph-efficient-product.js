@@ -109,6 +109,8 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "phaseDisperse",
   "quadrature",
   "arp",
+  "hilbert",
+  "binaryClock",
   "chebyshev",
   "elliptic",
   "eqFilter",

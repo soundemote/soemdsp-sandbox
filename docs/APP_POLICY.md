@@ -107,6 +107,9 @@ Only these live-audio types exist in the efficient build:
 | `stepGraph` | Segment / step-grid curve modulator |
 | `phaseDisperse` | Cascaded APF group-delay smear (≤64 stages; CPU ∝ filters) |
 | `quadrature` | Hilbert Pair IIR (In/Mid/Side → I/Q/MidI/SideQ) |
+| `arp` | Clocked arpeggiator over Held Keys bitmask |
+| `hilbert` | Mono +90° / −90° / 0° (shared quadrature net) |
+| `binaryClock` | Free-run or clocked 1–4 bit counter (Out / Bit0–3 / Gate) |
 | `chebyshev` | Chebyshev Type I (equiripple passband) |
 | `elliptic` | Elliptic / Cauer multipole |
 | `eqFilter` | ZDF SVF multi-mode EQ |
@@ -170,7 +173,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    attenuverter / range / inv / u2b / b2u / bias / gain / slewLimiter / comparator /
    sampleDelay / sampleHold / minMax / mix / mixStereo / clipperLimiter /
    midSideEncode / vectorscopeTransform / rotate3dTo2d /
-   clock / triggerDivider / delayedTrigger / randomClock / triggerCounter /
+   clock / binaryClock / triggerDivider / delayedTrigger / randomClock / triggerCounter /
    metallicRatio / lutCell / lookaheadLimiter / limiter / stepSequencer / transport /
    aliasSine / blit / sineWavetable / antisaw / archimedes /
    additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc /
@@ -181,7 +184,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    chordPad / noteGlide / noteTranspose /
    degreeTuring / degreePhrase / gravityWalker /
    smoothGraph / stepGraph /
-   phaseDisperse / quadrature /
+   phaseDisperse / quadrature / arp / hilbert / binaryClock /
    chebyshev / elliptic /
    eqFilter / activeFilter / passiveFilter / tb303Filter /
    flowerChildFilter / yellowjacketFilter / superloveFilter / humanFilter /

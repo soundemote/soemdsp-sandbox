@@ -239,12 +239,20 @@ $modules = @(
   ) },
   @{ Name = "quadrature"; Simd = $false; Exports = @(
     "soemdsp_quadrature_create", "soemdsp_quadrature_destroy",
-    "soemdsp_quadrature_process_sample", "soemdsp_quadrature_version"
+    "soemdsp_quadrature_process_sample", "soemdsp_quadrature_process_mono",
+    "soemdsp_quadrature_version"
   ) },
   @{ Name = "arp"; Simd = $false; Exports = @(
     "soemdsp_arp_create", "soemdsp_arp_destroy", "soemdsp_arp_sample",
     "soemdsp_arp_gate", "soemdsp_arp_trigger", "soemdsp_arp_step",
     "soemdsp_arp_version"
+  ) },
+  @{ Name = "binary_clock"; Simd = $false; Exports = @(
+    "soemdsp_binary_clock_create", "soemdsp_binary_clock_destroy",
+    "soemdsp_binary_clock_sample",
+    "soemdsp_binary_clock_bit0", "soemdsp_binary_clock_bit1",
+    "soemdsp_binary_clock_bit2", "soemdsp_binary_clock_bit3",
+    "soemdsp_binary_clock_gate", "soemdsp_binary_clock_version"
   ) },
   @{ Name = "phosphillator"; Simd = $false; Exports = @("soemdsp_phosphillator_create", "soemdsp_phosphillator_destroy", "soemdsp_phosphillator_path_x_ptr", "soemdsp_phosphillator_path_y_ptr", "soemdsp_phosphillator_max_path_points", "soemdsp_phosphillator_set_path", "soemdsp_phosphillator_clear_path", "soemdsp_phosphillator_sample", "soemdsp_phosphillator_y", "soemdsp_phosphillator_version") },
   @{ Name = "butterworth"; Simd = $false; Exports = @("soemdsp_butterworth_create", "soemdsp_butterworth_destroy", "soemdsp_butterworth_sample", "soemdsp_butterworth_version", "soemdsp_butterworth_metadata_json", "soemdsp_butterworth_metadata_json_size") },

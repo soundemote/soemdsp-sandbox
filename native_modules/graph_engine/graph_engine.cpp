@@ -1149,6 +1149,9 @@ extern "C" void soemdsp_quadrature_process_sample(
   int handle, double in, double mid, double side,
   double* outI, double* outQ, double* outMidI, double* outSideQ
 );
+extern "C" void soemdsp_quadrature_process_mono(
+  int handle, double in, int mode, double* out
+);
 
 extern "C" int soemdsp_arp_create();
 extern "C" void soemdsp_arp_destroy(int handle);
@@ -1159,6 +1162,18 @@ extern "C" double soemdsp_arp_sample(
 extern "C" double soemdsp_arp_gate(int handle);
 extern "C" double soemdsp_arp_trigger(int handle);
 extern "C" double soemdsp_arp_step(int handle);
+
+extern "C" int soemdsp_binary_clock_create();
+extern "C" void soemdsp_binary_clock_destroy(int handle);
+extern "C" double soemdsp_binary_clock_sample(
+  int handle, double clock, double hasClock, double reset,
+  double rate, double bits, double sampleRate
+);
+extern "C" double soemdsp_binary_clock_bit0(int handle);
+extern "C" double soemdsp_binary_clock_bit1(int handle);
+extern "C" double soemdsp_binary_clock_bit2(int handle);
+extern "C" double soemdsp_binary_clock_bit3(int handle);
+extern "C" double soemdsp_binary_clock_gate(int handle);
 
 // Speaker Protection (hard mute) + Speaker Protector 2.0 (slew VCA).
 extern "C" int soemdsp_speaker_protection_create();
@@ -1361,6 +1376,8 @@ static const int kTypeStepGraph = 147;
 static const int kTypePhaseDisperse = 148;
 static const int kTypeQuadrature = 149;
 static const int kTypeArp = 150;
+static const int kTypeHilbert = 151;
+static const int kTypeBinaryClock = 152;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1771,10 +1788,12 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_step_graph_destroy(handle);
   } else if (kind == kTypePhaseDisperse) {
     soemdsp_phase_disperse_destroy(handle);
-  } else if (kind == kTypeQuadrature) {
+  } else if (kind == kTypeQuadrature || kind == kTypeHilbert) {
     soemdsp_quadrature_destroy(handle);
   } else if (kind == kTypeArp) {
     soemdsp_arp_destroy(handle);
+  } else if (kind == kTypeBinaryClock) {
+    soemdsp_binary_clock_destroy(handle);
   } else if (kind == kTypeChebyshev) {
     soemdsp_chebyshev_destroy(handle);
   } else if (kind == kTypeElliptic) {
@@ -2026,7 +2045,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeRobinSupersaw) ? 100.0
       : (typeId == kTypeRobinSinusoid) ? 440.0
       : (typeId == kTypeSampleHold) ? 0.0
-      : (typeId == kTypeClock) ? 2.0
+      : (typeId == kTypeClock || typeId == kTypeBinaryClock) ? 2.0
       : (typeId == kTypeAliasSine) ? 0.1 // normFreq (0→sr)
       : (typeId == kTypePhoneTone) ? 0.0 // freqOffset Hz
       : (typeId == kTypeBlit || typeId == kTypeSineWavetable || typeId == kTypeArchimedes
@@ -2206,6 +2225,7 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeGravityWalker) ? 1.0 // octaves
       : (typeId == kTypeSmoothGraph || typeId == kTypeStepGraph) ? 0.0 // Input mode
       : (typeId == kTypeArp) ? 0.0 // up
+      : (typeId == kTypeHilbert) ? 0.0 // +90°
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
       : (typeId == kTypePiSpigotNoise) ? 0.0 // color White
       : (typeId == kTypeAudioPlayer) ? 4.0 // Play
@@ -2230,6 +2250,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSmoothGraph) ? 1.0 // smoothingMode Catmull
       : (typeId == kTypePhaseDisperse) ? 32.0 // cascade depth
       : (typeId == kTypeArp) ? 8.0 // steps
+      : (typeId == kTypeBinaryClock) ? 4.0 // bits
       : (typeId == kTypeFractalBrownianNoise) ? 4.0 // octaves
       : (typeId == kTypePiSpigotNoise) ? 1.0 // stride
       : (typeId == kTypePulseExplosion) ? 20.0 // numberOfPulses
@@ -3078,8 +3099,11 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeSmoothGraph) return soemdsp_smooth_graph_create();
   if (typeId == kTypeStepGraph) return soemdsp_step_graph_create();
   if (typeId == kTypePhaseDisperse) return soemdsp_phase_disperse_create();
-  if (typeId == kTypeQuadrature) return soemdsp_quadrature_create();
+  if (typeId == kTypeQuadrature || typeId == kTypeHilbert) {
+    return soemdsp_quadrature_create();
+  }
   if (typeId == kTypeArp) return soemdsp_arp_create();
+  if (typeId == kTypeBinaryClock) return soemdsp_binary_clock_create();
   if (typeId == kTypeChebyshev) return soemdsp_chebyshev_create();
   if (typeId == kTypeElliptic) return soemdsp_elliptic_create();
   if (typeId == kTypeEqFilter || typeId == kTypeBandpass || typeId == kTypeAllpass) {
@@ -5553,6 +5577,53 @@ static void process_quadrature(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = q * amp;
     node.buf[kPortRight][f] = midI * amp;
     node.buf[kPortSaw][f] = sideQ * amp;
+  }
+}
+
+// Mono Hilbert: In→Mono Out; mode=shift (+90/−90/0); amplitude scale.
+static void process_hilbert(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double modeV = control_effective(node.mode);
+    int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+    if (mode < 0) mode = 0;
+    if (mode > 2) mode = 2;
+    double out = 0.0;
+    soemdsp_quadrature_process_mono(
+      node.nativeHandle, g.mixMono[f] + g.mixLeft[f] + g.mixRight[f], mode, &out
+    );
+    node.buf[kPortMono][f] = out * control_effective(node.amplitude);
+  }
+}
+
+// Binary Clock: Clock→Trigger, Reset→Reset; rate=frequency, bits=stages.
+// Out→Mono, Bit0..3→Left/Right/Saw/Ramp, Gate→Square.
+static void process_binary_clock(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double out = soemdsp_binary_clock_sample(
+      node.nativeHandle,
+      hasClock ? g.mixTrigger[f] : 0.0,
+      hasClock ? 1.0 : 0.0,
+      hasReset ? g.mixReset[f] : 0.0,
+      control_effective(node.frequency),
+      control_effective(node.stages),
+      sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = soemdsp_binary_clock_bit0(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_binary_clock_bit1(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_binary_clock_bit2(node.nativeHandle);
+    node.buf[kPortRamp][f] = soemdsp_binary_clock_bit3(node.nativeHandle);
+    node.buf[kPortSquare][f] = soemdsp_binary_clock_gate(node.nativeHandle);
   }
 }
 
@@ -8107,6 +8178,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeRobinSinusoid
     || node.typeId == kTypeRobinSupersaw
     || node.typeId == kTypeClock
+    || node.typeId == kTypeBinaryClock
     || node.typeId == kTypeRandomClock
     || node.typeId == kTypeMetallicRatio
     || node.typeId == kTypeHarmonicSeries
@@ -8287,6 +8359,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypePhaseDisperse
     || typeId == kTypeQuadrature
     || typeId == kTypeArp
+    || typeId == kTypeHilbert
+    || typeId == kTypeBinaryClock
     || typeId == kTypeChebyshev
     || typeId == kTypeElliptic
     || typeId == kTypeEqFilter
@@ -9007,6 +9081,14 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_arp(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeHilbert) {
+      process_hilbert(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeBinaryClock) {
+      process_binary_clock(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeChebyshev) {
       process_scientific_iir(*g, node, frames, soemdsp_chebyshev_sample);
       continue;
@@ -9396,6 +9478,6 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  // 106: arp(150) held-keys arpeggiator + efficient allowlist
-  return 106;
+  // 107: hilbert(151) mono Q wrapper + binaryClock(152) counter
+  return 107;
 }

@@ -144,6 +144,29 @@ extern "C" void soemdsp_quadrature_process_sample(
   if (outSideQ) *outSideQ = q;
 }
 
+// Mono Hilbert: one net (side), mid unused. mode 0=+Q, 1=-Q, 2=I.
+extern "C" void soemdsp_quadrature_process_mono(
+  int handle,
+  double in,
+  int mode,
+  double* out
+) {
+  if (out) *out = 0.0;
+  if (handle < 1 || handle > kMaxInstances) return;
+  QuadratureState& s = gPool[handle - 1];
+  if (!s.active) return;
+
+  double i = 0.0, q = 0.0;
+  net_process(s.side, safe(in), &i, &q);
+  int m = mode;
+  if (m < 0) m = 0;
+  if (m > 2) m = 2;
+  if (!out) return;
+  if (m >= 2) *out = i;
+  else if (m == 1) *out = -q;
+  else *out = q;
+}
+
 extern "C" int soemdsp_quadrature_version() {
   return 1;
 }
