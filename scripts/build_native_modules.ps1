@@ -36,6 +36,7 @@ $modules = @(
     "soemdsp_graph_create", "soemdsp_graph_destroy", "soemdsp_graph_clear",
     "soemdsp_graph_set_sample_rate",
     "soemdsp_graph_add_node", "soemdsp_graph_connect", "soemdsp_graph_set_param",
+    "soemdsp_graph_set_param_mod", "soemdsp_graph_set_param_domain",
     "soemdsp_graph_set_smooth_time", "soemdsp_graph_set_smooth_mode",
     "soemdsp_graph_set_smooth_type",
     "soemdsp_graph_set_global_smooth_time",
@@ -231,6 +232,14 @@ $modules = @(
     "soemdsp_step_graph_points_c_ptr", "soemdsp_step_graph_points_shape_ptr",
     "soemdsp_step_graph_set_points", "soemdsp_step_graph_clear_points",
     "soemdsp_step_graph_sample", "soemdsp_step_graph_version"
+  ) },
+  @{ Name = "phase_disperse"; Simd = $false; Exports = @(
+    "soemdsp_phase_disperse_create", "soemdsp_phase_disperse_destroy",
+    "soemdsp_phase_disperse_sample", "soemdsp_phase_disperse_version"
+  ) },
+  @{ Name = "quadrature"; Simd = $false; Exports = @(
+    "soemdsp_quadrature_create", "soemdsp_quadrature_destroy",
+    "soemdsp_quadrature_process_sample", "soemdsp_quadrature_version"
   ) },
   @{ Name = "phosphillator"; Simd = $false; Exports = @("soemdsp_phosphillator_create", "soemdsp_phosphillator_destroy", "soemdsp_phosphillator_path_x_ptr", "soemdsp_phosphillator_path_y_ptr", "soemdsp_phosphillator_max_path_points", "soemdsp_phosphillator_set_path", "soemdsp_phosphillator_clear_path", "soemdsp_phosphillator_sample", "soemdsp_phosphillator_y", "soemdsp_phosphillator_version") },
   @{ Name = "butterworth"; Simd = $false; Exports = @("soemdsp_butterworth_create", "soemdsp_butterworth_destroy", "soemdsp_butterworth_sample", "soemdsp_butterworth_version", "soemdsp_butterworth_metadata_json", "soemdsp_butterworth_metadata_json_size") },

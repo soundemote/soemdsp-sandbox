@@ -106,6 +106,8 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "gravityWalker",
   "smoothGraph",
   "stepGraph",
+  "phaseDisperse",
+  "quadrature",
   "chebyshev",
   "elliptic",
   "eqFilter",

@@ -6,7 +6,7 @@
 // MVEP GraphEngine: orchestrates efficient-product natives
 // (polyBlep, ladderFilter, softClipper, reverb, pingPong, attenuverter, range,
 // output) inside soemdsp_graph_process_block. Live ƒ jacks mix from wired
-// buffers; Control knobs: set_param writes targets; native SmootherManager
+// buffers; Control knobs: set_param writes knob targets; set_param_mod writes MOD; native SmootherManager
 // chases out. Scope taps via node_port_ptr. DSP lives in natives; this is glue.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
@@ -1137,6 +1137,19 @@ extern "C" double soemdsp_papoulis_filter_sample(
   int handle, double input, double cutoffHz, double sampleRate
 );
 
+extern "C" int soemdsp_phase_disperse_create();
+extern "C" void soemdsp_phase_disperse_destroy(int handle);
+extern "C" double soemdsp_phase_disperse_sample(
+  int handle, double input, double freqHz, double stages, double qOrPinch, double sampleRate
+);
+
+extern "C" int soemdsp_quadrature_create();
+extern "C" void soemdsp_quadrature_destroy(int handle);
+extern "C" void soemdsp_quadrature_process_sample(
+  int handle, double in, double mid, double side,
+  double* outI, double* outQ, double* outMidI, double* outSideQ
+);
+
 // Speaker Protection (hard mute) + Speaker Protector 2.0 (slew VCA).
 extern "C" int soemdsp_speaker_protection_create();
 extern "C" void soemdsp_speaker_protection_destroy(int handle);
@@ -1166,6 +1179,8 @@ using soemdsp_maths::dsp_floor;
 using soemdsp_maths::dsp_fabs;
 using soemdsp_maths::wrap01;
 using soemdsp_maths::kPlanck;
+using soemdsp_maths::safe;
+using soemdsp_maths::clamp;
 
 static const int kMaxInstances = 4;
 static const int kMaxNodes = 64;
@@ -1333,6 +1348,8 @@ static const int kTypeDegreePhrase = 144;
 static const int kTypeGravityWalker = 145;
 static const int kTypeSmoothGraph = 146;
 static const int kTypeStepGraph = 147;
+static const int kTypePhaseDisperse = 148;
+static const int kTypeQuadrature = 149;
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1460,11 +1477,16 @@ static const unsigned char kSmoothTypeNone = 3; // instant
 static const unsigned char kSmoothTypePapoulis = 4;
 static const unsigned char kSmoothTypeThreePole = 5; // 3× real one-pole (no overshoot)
 
-// Freestanding Control slot: host writes target/time; DSP reads out.
+// Freestanding Control slot: host writes knob target + MOD cells; smoother
+// chases target→out; DSP reads control_effective (MOD applied after smooth).
 struct Control {
   double target;
   double timeSamples; // internal cell; <=0 → default seconds*sr when resolving
-  double out;
+  double out; // smoothed knob only (never includes MOD)
+  double modUnit; // unit-band MOD accumulator (|mod|≤1 sources), applied after out
+  double modDomain; // absolute DOMAIN MOD accumulator (|mod|>1 sources)
+  double domainMin; // paramMeta min for unit-band map
+  double domainMax; // paramMeta max (max<=min → no unit map)
   double coeff; // one/two/three-pole b0, or linear increment (cached)
   double stage1; // multi-pole cascade stage
   double stage2; // three-pole second stage
@@ -1475,7 +1497,10 @@ struct Control {
   unsigned char type; // kSmoothType*
   unsigned char snap; // discrete: out=target immediately, never on toSmooth_
   unsigned char blockStepped; // sample path already advanced this quantum
+  unsigned char modFlags; // bit0 wraparound, bit1 modClamp (post-MOD bounds)
 };
+
+static inline double control_effective(const Control& c);
 
 struct Node {
   unsigned int idHash;
@@ -1594,7 +1619,7 @@ struct Circuit {
 // Morph ZOH: one sample per quantum. additiveCv = knob + Morph[0] (softwave-style);
 // otherwise Morph[0] replaces the Control (additiveOsc proving-ground style).
 static double morph_zoh_hold(Circuit& g, Node& node, bool liveMorph, bool additiveCv) {
-  double m = node.shape.out;
+  double m = control_effective(node.shape);
   if (!(m == m)) m = 0.5;
   if (liveMorph) {
     double cv = g.mixMorph[0];
@@ -1733,6 +1758,10 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_smooth_graph_destroy(handle);
   } else if (kind == kTypeStepGraph) {
     soemdsp_step_graph_destroy(handle);
+  } else if (kind == kTypePhaseDisperse) {
+    soemdsp_phase_disperse_destroy(handle);
+  } else if (kind == kTypeQuadrature) {
+    soemdsp_quadrature_destroy(handle);
   } else if (kind == kTypeChebyshev) {
     soemdsp_chebyshev_destroy(handle);
   } else if (kind == kTypeElliptic) {
@@ -1885,6 +1914,10 @@ static void control_ensure_papoulis(Control& c) {
 static void init_control(Control& c, double value, bool snap) {
   c.target = value;
   c.out = value;
+  c.modUnit = 0.0;
+  c.modDomain = 0.0;
+  c.domainMin = 0.0;
+  c.domainMax = 0.0; // max<=min → no unit-band map
   c.timeSamples = 0.0; // resolve → default seconds * sr
   c.coeff = 1.0;
   c.stage1 = value;
@@ -1896,6 +1929,58 @@ static void init_control(Control& c, double value, bool snap) {
   c.type = kSmoothTypeOnePole;
   c.snap = snap ? 1 : 0;
   c.blockStepped = 0;
+  c.modFlags = 0;
+}
+
+// Match nodeGraphParamFoldModSources onto base=out (unit-band + domain-add).
+static inline double control_effective(const Control& c) {
+  const double base = c.out;
+  const double unitAdd = c.modUnit;
+  const double domainAdd = c.modDomain;
+  if (unitAdd == 0.0 && domainAdd == 0.0) {
+    if (!c.snap) return base;
+    return (double)(int)(base >= 0.0 ? base + 0.5 : base - 0.5);
+  }
+  const double minV = c.domainMin;
+  const double maxV = c.domainMax;
+  const double range = maxV - minV;
+  const bool haveRange = (minV == minV) && (maxV == maxV) && range > 0.0;
+  const bool wrap = (c.modFlags & 1u) != 0;
+  const bool modClamp = (c.modFlags & 2u) != 0;
+  double result = base + domainAdd;
+  if (haveRange && unitAdd != 0.0) {
+    double b = base;
+    if (wrap) {
+      double w = b - minV;
+      w = w - range * dsp_floor(w / range);
+      if (w < 0.0) w += range;
+      b = minV + w;
+    }
+    const double baseUnit = (b - minV) / range;
+    double u = baseUnit + unitAdd;
+    if (wrap) {
+      u = u - dsp_floor(u);
+      if (u < 0.0) u += 1.0;
+    }
+    result = minV + u * range + domainAdd;
+  }
+  if (!(result == result)) result = 0.0;
+  if (haveRange && (wrap || modClamp)) {
+    if (wrap) {
+      double w = result - minV;
+      w = w - range * dsp_floor(w / range);
+      if (w < 0.0) w += range;
+      result = minV + w;
+    } else if (result < minV) {
+      result = minV;
+    } else if (result > maxV) {
+      result = maxV;
+    }
+  }
+  if (c.snap) {
+    result = (double)(int)(result >= 0.0 ? result + 0.5 : result - 0.5);
+  }
+  return result;
 }
 
 static void init_node_defaults(Node& n, int typeId) {
@@ -1947,6 +2032,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeBradley2a) ? 1004.0 // carrier
       : (typeId == kTypeEllipsoid || typeId == kTypeBasicShape) ? 1.0 // RoundShape / LFO clock Hz
       : (typeId == kTypeSmoothGraph || typeId == kTypeStepGraph) ? 1.0 // rate Hz
+      : (typeId == kTypePhaseDisperse) ? 100.0 // APF corner Hz
       : (typeId == kTypeSnowflake) ? 55.0
       : (typeId == kTypeAntisaw) ? 110.0
       : (typeId == kTypeHarmonicSeries) ? 100.0
@@ -2063,6 +2149,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeChebyshev || typeId == kTypeElliptic) ? 1.0 // ripple dB
       : (typeId == kTypeEqFilter || typeId == kTypeAllpass) ? 0.707 // Q
       : (typeId == kTypeBandpass) ? 1.0 // Q
+      : (typeId == kTypePhaseDisperse) ? 0.5 // pinch 0..1
       : (typeId == kTypeTb303Filter) ? 0.0 // %
       : (typeId == kTypeSoemReverb) ? 1.0 // bandQ
       : (typeId == kTypeLorenzAttractor) ? 28.0 // rho
@@ -2127,6 +2214,7 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeDegreePhrase) ? 8.0
       : (typeId == kTypeChordPad || typeId == kTypeNoteTranspose) ? 0.0 // degree / semis
       : (typeId == kTypeSmoothGraph) ? 1.0 // smoothingMode Catmull
+      : (typeId == kTypePhaseDisperse) ? 32.0 // cascade depth
       : (typeId == kTypeFractalBrownianNoise) ? 4.0 // octaves
       : (typeId == kTypePiSpigotNoise) ? 1.0 // stride
       : (typeId == kTypePulseExplosion) ? 20.0 // numberOfPulses
@@ -2973,6 +3061,8 @@ static int create_native_for_type(int typeId, float sampleRate) {
   }
   if (typeId == kTypeSmoothGraph) return soemdsp_smooth_graph_create();
   if (typeId == kTypeStepGraph) return soemdsp_step_graph_create();
+  if (typeId == kTypePhaseDisperse) return soemdsp_phase_disperse_create();
+  if (typeId == kTypeQuadrature) return soemdsp_quadrature_create();
   if (typeId == kTypeChebyshev) return soemdsp_chebyshev_create();
   if (typeId == kTypeElliptic) return soemdsp_elliptic_create();
   if (typeId == kTypeEqFilter || typeId == kTypeBandpass || typeId == kTypeAllpass) {
@@ -3243,7 +3333,6 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const bool controlSmoothing = node_control_smoothing(node);
   const bool audioRatePitch = liveF || livePitch || liveInc || liveReset || controlSmoothing;
   const int mask = polyblep_tap_mask(g, node);
@@ -3251,19 +3340,20 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   // Midi note 48 → 0.4 reference voltage (matches worklet default).
   const double referenceVoltage = 48.0 / 120.0;
 
-  // ZOH shape path: Morph / waveform / amplitude held once per quantum.
+  // ZOH shape path: Morph param (+ MOD via control_effective) / waveform / amplitude.
+  // No Morph SIGNAL IN — that jack was redundant with the Morph parameter.
   if (controlSmoothing) smoother_step_node(g, node);
-  const double phaseParam = node.phaseParam.out;
-  double level = node.amplitude.out;
+  const double phaseParam = control_effective(node.phaseParam);
+  double level = control_effective(node.amplitude);
   if (!(level == level)) level = 0.0;
-  const double morph = morph_zoh_hold(g, node, liveMorph, true);
-  const double waveV = node.waveform.out;
+  const double morph = morph_zoh_hold(g, node, false, false);
+  const double waveV = control_effective(node.waveform);
   int waveform = (int)(waveV + (waveV >= 0.0 ? 0.5 : -0.5));
   if (waveform < 0) waveform = 0;
   if (waveform > 8) waveform = 8;
 
   if (!audioRatePitch) {
-    double freq = clamp_hz_nyquist(node.frequency.out, srD);
+    double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
     double phaseInc = freq / srD;
     if (phaseInc > 0.5) phaseInc = 0.5;
     if (phaseInc < -0.5) phaseInc = -0.5;
@@ -3303,7 +3393,7 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   }
   for (int f = 0; f < frames; f++) {
     if (f > 0 && controlSmoothing) smoother_step_node(g, node);
-    const double phaseParamNow = node.phaseParam.out;
+    const double phaseParamNow = control_effective(node.phaseParam);
 
     if (liveReset) {
       const double rv = g.mixReset[f];
@@ -3318,9 +3408,9 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, srD);
     double phaseInc = freq / srD;
@@ -3356,15 +3446,15 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   const double srD = (double)sr;
-  double reso = node.resonance.out;
+  double reso = control_effective(node.resonance);
   if (!(reso == reso)) reso = 0.0;
   if (reso < 0.0) reso = 0.0;
   if (reso > 0.999) reso = 0.999;
-  const double modeV = node.mode.out;
+  const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
   if (mode > 3) mode = 3;
-  const double stagesV = node.stages.out;
+  const double stagesV = control_effective(node.stages);
   int stages = (int)(stagesV + (stagesV >= 0.0 ? 0.5 : -0.5));
   if (stages < 1) stages = 1;
   if (stages > 4) stages = 4;
@@ -3376,11 +3466,11 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
-  double amp = node.amplitude.out;
+  double amp = control_effective(node.amplitude);
   if (!(amp == amp)) amp = 1.0;
 
   if (!liveF && !controlSmoothing) {
-    double freq = clamp_hz_nyquist(node.frequency.out, srD);
+    double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
     if (freq < 0.0) freq = 0.0;
     double* out0 = nullptr;
     if (needMono) {
@@ -3432,13 +3522,13 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   // Live ƒ and/or Control chase: per-sample cutoff / resonance.
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    amp = node.amplitude.out;
+    amp = control_effective(node.amplitude);
     if (!(amp == amp)) amp = 1.0;
-    reso = node.resonance.out;
+    reso = control_effective(node.resonance);
     if (!(reso == reso)) reso = 0.0;
     if (reso < 0.0) reso = 0.0;
     if (reso > 0.999) reso = 0.999;
-    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    double freq = liveF ? g.mixF[f] : control_effective(node.frequency);
     freq = clamp_hz_nyquist(freq, srD);
     if (freq < 0.0) freq = 0.0;
     if (needMono) {
@@ -3492,10 +3582,10 @@ static void probe_mlr_cables(
 static void process_clipper_limiter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
-  const double minDb = node.inLow.out;
-  const double maxDb = node.inHigh.out;
-  const double gainDb = node.gainDb.out;
-  const double osV = node.oversample.out;
+  const double minDb = control_effective(node.inLow);
+  const double maxDb = control_effective(node.inHigh);
+  const double gainDb = control_effective(node.gainDb);
+  const double osV = control_effective(node.oversample);
   int os = (int)(osV + (osV >= 0.0 ? 0.5 : -0.5));
   if (os < 0) os = 0;
   if (os > 2) os = 2;
@@ -3532,13 +3622,13 @@ static void process_clipper_limiter(Circuit& g, Node& node, int frames) {
 static void process_soft_clipper(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
-  double center = node.center.out;
+  double center = control_effective(node.center);
   if (!(center == center)) center = 0.0;
-  double width = node.width.out;
+  double width = control_effective(node.width);
   // Width 0 is valid (hardest knee) — only replace non-finite.
   if (!(width == width)) width = 2.0;
-  const double drive = (double)db_to_lin((float)node.gainDb.out);
-  const double osV = node.oversample.out;
+  const double drive = (double)db_to_lin((float)control_effective(node.gainDb));
+  const double osV = control_effective(node.oversample);
   int os = (int)(osV + (osV >= 0.0 ? 0.5 : -0.5));
   if (os < 0) os = 0;
   if (os > 2) os = 2;
@@ -3601,15 +3691,15 @@ static void process_reverb(Circuit& g, Node& node, int frames) {
 
   soemdsp_sabrina_reverb_set_params(
     node.nativeHandle,
-    node.mix.out,
-    node.diffusionSize.out,
-    node.diffusionAmount.out,
-    node.delaySize.out,
-    node.recycle.out,
-    node.lfoAmplitude.out,
-    node.lfoBaseSpeed.out,
-    node.lfoVariation.out,
-    node.seed.out
+    control_effective(node.mix),
+    control_effective(node.diffusionSize),
+    control_effective(node.diffusionAmount),
+    control_effective(node.delaySize),
+    control_effective(node.recycle),
+    control_effective(node.lfoAmplitude),
+    control_effective(node.lfoBaseSpeed),
+    control_effective(node.lfoVariation),
+    control_effective(node.seed)
   );
 
   double* inL = ptr_from_export(soemdsp_sabrina_reverb_block_input_left_ptr(node.nativeHandle));
@@ -3643,20 +3733,20 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
 
   soemdsp_ping_pong_delay_set_params(
     node.nativeHandle,
-    node.feedback.out,
-    node.mix.out,
-    node.level.out,
-    node.timeNumerator.out,
-    node.timeDenominator.out,
-    node.timingMode.out,
-    node.offsetMs.out,
-    node.lfoStyle.out,
-    node.lfoRate.out,
-    node.lfoVariation.out,
-    node.saturate.out,
-    node.lpfFrequency.out,
-    node.hpfFrequency.out,
-    node.tempoBpm.out,
+    control_effective(node.feedback),
+    control_effective(node.mix),
+    control_effective(node.level),
+    control_effective(node.timeNumerator),
+    control_effective(node.timeDenominator),
+    control_effective(node.timingMode),
+    control_effective(node.offsetMs),
+    control_effective(node.lfoStyle),
+    control_effective(node.lfoRate),
+    control_effective(node.lfoVariation),
+    control_effective(node.saturate),
+    control_effective(node.lpfFrequency),
+    control_effective(node.hpfFrequency),
+    control_effective(node.tempoBpm),
     (double)sr
   );
 
@@ -3687,7 +3777,7 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
 static void process_attenuverter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
-  soemdsp_attenuverter_set_params(node.nativeHandle, node.amplitude.out, node.offset.out);
+  soemdsp_attenuverter_set_params(node.nativeHandle, control_effective(node.amplitude), control_effective(node.offset));
   double* inPtr = ptr_from_export(soemdsp_attenuverter_block_input_ptr(node.nativeHandle));
   double* outPtr = ptr_from_export(soemdsp_attenuverter_block_output_ptr(node.nativeHandle));
   if (!inPtr || !outPtr) return;
@@ -3705,10 +3795,10 @@ static void process_range(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   soemdsp_range_set_params(
     node.nativeHandle,
-    node.inLow.out,
-    node.inHigh.out,
-    node.outLow.out,
-    node.outHigh.out
+    control_effective(node.inLow),
+    control_effective(node.inHigh),
+    control_effective(node.outLow),
+    control_effective(node.outHigh)
   );
   double* inPtr = ptr_from_export(soemdsp_range_block_input_ptr(node.nativeHandle));
   double* outPtr = ptr_from_export(soemdsp_range_block_output_ptr(node.nativeHandle));
@@ -3786,17 +3876,17 @@ static void process_mix(Circuit& g, Node& node, int frames) {
   mix_live_port(g, node, kPortIn2, frames, in2);
   mix_live_port(g, node, kPortIn3, frames, in3);
   mix_live_port(g, node, kPortIn4, frames, in4);
-  const double v1 = node.laneVol[0].out;
-  const double v2 = node.laneVol[1].out;
-  const double v3 = node.laneVol[2].out;
-  const double v4 = node.laneVol[3].out;
-  const double b1 = node.laneBias[0].out;
-  const double b2 = node.laneBias[1].out;
-  const double b3 = node.laneBias[2].out;
-  const double b4 = node.laneBias[3].out;
-  const double bl2 = node.bleed2.out;
-  const double bl3 = node.bleed3.out;
-  const double bl4 = node.bleed4.out;
+  const double v1 = control_effective(node.laneVol[0]);
+  const double v2 = control_effective(node.laneVol[1]);
+  const double v3 = control_effective(node.laneVol[2]);
+  const double v4 = control_effective(node.laneVol[3]);
+  const double b1 = control_effective(node.laneBias[0]);
+  const double b2 = control_effective(node.laneBias[1]);
+  const double b3 = control_effective(node.laneBias[2]);
+  const double b4 = control_effective(node.laneBias[3]);
+  const double bl2 = control_effective(node.bleed2);
+  const double bl3 = control_effective(node.bleed3);
+  const double bl4 = control_effective(node.bleed4);
   for (int f = 0; f < frames; f++) {
     node.buf[kPortOut1][f] = soemdsp_mix_sample(
       1.0, in1[f], in2[f], in3[f], in4[f], v1, v2, v3, v4, b1, b2, b3, b4, bl2, bl3, bl4
@@ -3818,10 +3908,10 @@ static void process_clock(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double rate = node.frequency.out;
-  const double phaseOff = node.phaseParam.out;
-  const double duty = node.shape.out;
-  const double level = node.amplitude.out;
+  const double rate = control_effective(node.frequency);
+  const double phaseOff = control_effective(node.phaseParam);
+  const double duty = control_effective(node.shape);
+  const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
     const double reset = hasReset ? g.mixReset[f] : 0.0;
     const double digital = soemdsp_clock_sample(
@@ -3839,10 +3929,10 @@ static void process_trigger_divider(Circuit& g, Node& node, int frames) {
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double threshold = node.center.out;
-  const double division = node.stages.out;
-  const double pulseTime = node.timeNumerator.out;
-  const double level = node.amplitude.out;
+  const double threshold = control_effective(node.center);
+  const double division = control_effective(node.stages);
+  const double pulseTime = control_effective(node.timeNumerator);
+  const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
     const double out = soemdsp_trigger_divider_sample(
       node.nativeHandle,
@@ -3864,8 +3954,8 @@ static void process_trigger_divider(Circuit& g, Node& node, int frames) {
 static void process_alias_sine(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double normFreq = node.frequency.out;
-  const double level = node.amplitude.out;
+  const double normFreq = control_effective(node.frequency);
+  const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
     const double y = soemdsp_alias_sine_sample(node.nativeHandle, normFreq, level, sr);
     node.buf[kPortMono][f] = y;
@@ -3887,10 +3977,10 @@ static void process_phone_tone(Circuit& g, Node& node, int frames) {
   const double referenceVoltage = 48.0 / 120.0;
   for (int f = 0; f < frames; f++) {
     if (f > 0 && controlSmoothing) smoother_step_node(g, node);
-    double amp = node.amplitude.out;
+    double amp = control_effective(node.amplitude);
     if (!(amp == amp)) amp = 0.0;
-    const double pitchOff = node.shape.out;
-    const double freqOff = node.frequency.out;
+    const double pitchOff = control_effective(node.shape);
+    const double freqOff = control_effective(node.frequency);
     const double analog = liveAnalog ? g.mixMono[f] : 0.0;
     const double digital = liveDigital ? g.mixLeft[f] : 0.0;
     const double gate = liveGate ? g.mixTrigger[f] : 0.0;
@@ -3939,10 +4029,10 @@ static void process_blit(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    double level = node.amplitude.out;
+    double level = control_effective(node.amplitude);
     if (!(level == level)) level = 0.0;
-    const double phaseParamNow = node.phaseParam.out;
-    const double waveNow = node.waveform.out;
+    const double phaseParamNow = control_effective(node.phaseParam);
+    const double waveNow = control_effective(node.waveform);
     int waveform = (int)(waveNow + (waveNow >= 0.0 ? 0.5 : -0.5));
     if (waveform < 0) waveform = 0;
     if (waveform > 4) waveform = 4;
@@ -3960,9 +4050,9 @@ static void process_blit(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, srD);
     double phaseInc = freq / srD;
@@ -4018,9 +4108,9 @@ static void process_sine_wavetable(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
-  const double phaseOff = node.phaseParam.out * kTwoPi;
-  const double amp = node.amplitude.out;
-  const double modeV = node.mode.out;
+  const double phaseOff = control_effective(node.phaseParam) * kTwoPi;
+  const double amp = control_effective(node.amplitude);
+  const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
   if (mode > 5) mode = 5;
@@ -4030,9 +4120,9 @@ static void process_sine_wavetable(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, sr);
     soemdsp_sine_wavetable_sample(node.nativeHandle, phaseOff, freq, amp, sr);
@@ -4053,11 +4143,11 @@ static void process_antisaw(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
-  const double reflections = node.stages.out;
-  const double tilt = node.shape.out;
-  const double level = node.amplitude.out;
+  const double reflections = control_effective(node.stages);
+  const double tilt = control_effective(node.shape);
+  const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-    const double fundamental = liveF ? g.mixF[f] : node.frequency.out;
+    const double fundamental = liveF ? g.mixF[f] : control_effective(node.frequency);
     const double y = soemdsp_antisaw_sample(
       node.nativeHandle, fundamental, reflections, tilt, level, sr
     );
@@ -4077,15 +4167,15 @@ static void process_archimedes(Circuit& g, Node& node, int frames) {
   const double referenceVoltage = 48.0 / 120.0;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
 
-  double profileV = node.stages.out;
+  double profileV = control_effective(node.stages);
   int profile = (int)(profileV + (profileV >= 0.0 ? 0.5 : -0.5));
   if (profile < 4) profile = 4;
   if (profile > 24) profile = 24;
-  double ditherV = node.width.out;
+  double ditherV = control_effective(node.width);
   int dither = (int)(ditherV + (ditherV >= 0.0 ? 0.5 : -0.5));
   if (dither < 0) dither = 0;
   if (dither > 63) dither = 63;
-  const double amp = node.amplitude.out;
+  const double amp = control_effective(node.amplitude);
 
   soemdsp_archimedes_set_profile(node.nativeHandle, profile);
   if (!liveReset) node.lastReset = 0.0;
@@ -4103,9 +4193,9 @@ static void process_archimedes(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, sr);
     int freqHz = (int)(freq + (freq >= 0.0 ? 0.5 : -0.5));
@@ -4144,14 +4234,14 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
 
   // ZOH capture after first smoother step so knob chase still moves over time.
   if (controlSmoothing) smoother_step_node(g, node);
-  const double heldHarmonics = node.stages.out;
-  const double heldWaveform = node.waveform.out;
+  const double heldHarmonics = control_effective(node.stages);
+  const double heldWaveform = control_effective(node.waveform);
   // Morph CV (turquoise): one sample per quantum, zero-order held.
   const double heldMorph = morph_zoh_hold(g, node, liveMorph, false);
-  const double heldPhaseAdd = node.center.out;
-  const double heldPhaseMul = node.width.out;
-  const double heldAmp = node.amplitude.out;
-  const double heldDamp = node.lpfFrequency.out;
+  const double heldPhaseAdd = control_effective(node.center);
+  const double heldPhaseMul = control_effective(node.width);
+  const double heldAmp = control_effective(node.amplitude);
+  const double heldDamp = control_effective(node.lpfFrequency);
 
   for (int f = 0; f < frames; f++) {
     if (f > 0 && controlSmoothing) smoother_step_node(g, node);
@@ -4166,9 +4256,9 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, srD);
     double phaseInc = freq / srD;
@@ -4176,7 +4266,7 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
     if (phaseInc > 0.5) phaseInc = 0.5;
     if (phaseInc < -0.5) phaseInc = -0.5;
 
-    const double renderPhase = wrap_phase_pi(freePhase + node.phaseParam.out * kTwoPi);
+    const double renderPhase = wrap_phase_pi(freePhase + control_effective(node.phaseParam) * kTwoPi);
     const double y = soemdsp_additive_osc_sample(
       renderPhase,
       freq,
@@ -4233,13 +4323,13 @@ static void process_additive_generator(Circuit& g, Node& node, int frames) {
       prevPhase[i] = node.yellowGraph.phase[i];
     }
   }
-  int waveform = (int)(node.waveform.out + (node.waveform.out >= 0.0 ? 0.5 : -0.5));
+  int waveform = (int)(control_effective(node.waveform) + (control_effective(node.waveform) >= 0.0 ? 0.5 : -0.5));
   if (waveform < 0) waveform = 0;
   if (waveform > 6) waveform = 6;
-  const float pwm = (float)node.shape.out;
-  const float harmonics = (float)node.stages.out;
-  const float phaseRotation = (float)node.phaseParam.out;
-  const float harmonicFade = (float)node.mode.out;
+  const float pwm = (float)control_effective(node.shape);
+  const float harmonics = (float)control_effective(node.stages);
+  const float phaseRotation = (float)control_effective(node.phaseParam);
+  const float harmonicFade = (float)control_effective(node.mode);
   soemdsp_yellow_graph::build_from_waveform(
     node.yellowGraph, waveform, pwm, harmonics, phaseRotation, harmonicFade
   );
@@ -4302,20 +4392,20 @@ static void process_additive_bubble(Circuit& g, Node& node, int frames) {
   // Host-uploaded yellowCutoffStrip → defer amp bake; Out gates per sample.
   const bool deferCutoffAmp = node.yellowCutoffStripFrames > 0;
   // Bubble 0…1 + Invert Bubble → signed log-curve amount (−1…+1).
-  float bubble01 = (float)node.shape.out;
+  float bubble01 = (float)control_effective(node.shape);
   if (!(bubble01 * 0.0f == 0.0f)) bubble01 = 0.0f;
   if (bubble01 < 0.0f) bubble01 = 0.0f;
   if (bubble01 > 1.0f) bubble01 = 1.0f;
-  const bool invertBubble = node.mode.out >= 0.5;
+  const bool invertBubble = control_effective(node.mode) >= 0.5;
   float curveAmt = invertBubble ? -bubble01 : bubble01;
   if (curveAmt > 0.9999f) curveAmt = 0.9999f;
   if (curveAmt < -0.9999f) curveAmt = -0.9999f;
   soemdsp_yellow_graph::apply_bubble(
     node.yellowGraph,
-    (float)node.phaseParam.out, // phaseSkew
+    (float)control_effective(node.phaseParam), // phaseSkew
     curveAmt,                   // Bubble ± Invert → log curve
-    (float)node.frequency.out,  // cutoff 0..1
-    (float)node.resonance.out,  // unskew
+    (float)control_effective(node.frequency),  // cutoff 0..1
+    (float)control_effective(node.resonance),  // unskew
     hadPhase ? prevPhase : nullptr,
     hadAmp ? prevAmp : nullptr,
     hadPhase ? copyH : 0,
@@ -4390,10 +4480,10 @@ static void process_additive_linear_filter(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   soemdsp_yellow_graph::apply_linear_filter(
     node.yellowGraph,
-    (float)node.mode.out,
-    (float)node.frequency.out,
-    (float)node.shape.out,
-    (float)node.phaseParam.out,
+    (float)control_effective(node.mode),
+    (float)control_effective(node.frequency),
+    (float)control_effective(node.shape),
+    (float)control_effective(node.phaseParam),
     resolve_yellow_fund_hz(g, node.idHash),
     sr
   );
@@ -4406,10 +4496,10 @@ static void process_additive_analog_filter(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   soemdsp_yellow_graph::apply_butterworth_filter(
     node.yellowGraph,
-    (float)node.mode.out,
-    (float)node.frequency.out,
-    (float)node.shape.out,
-    (float)node.phaseParam.out,
+    (float)control_effective(node.mode),
+    (float)control_effective(node.frequency),
+    (float)control_effective(node.shape),
+    (float)control_effective(node.phaseParam),
     resolve_yellow_fund_hz(g, node.idHash),
     sr
   );
@@ -4423,10 +4513,10 @@ static void process_additive_ladder_filter(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   soemdsp_yellow_graph::apply_ladder_filter(
     node.yellowGraph,
-    (float)node.mode.out,
-    (float)node.frequency.out,
-    (float)node.shape.out,
-    (float)node.resonance.out,
+    (float)control_effective(node.mode),
+    (float)control_effective(node.frequency),
+    (float)control_effective(node.shape),
+    (float)control_effective(node.resonance),
     resolve_yellow_fund_hz(g, node.idHash),
     sr
   );
@@ -4439,10 +4529,10 @@ static void process_additive_frequency_skew(Circuit& g, Node& node, int frames) 
   if (node.bypassed) return;
   soemdsp_yellow_graph::apply_frequency_skew(
     node.yellowGraph,
-    (float)node.inLow.out,
-    (float)node.inHigh.out,
-    (float)node.shape.out,
-    (float)node.mode.out
+    (float)control_effective(node.inLow),
+    (float)control_effective(node.inHigh),
+    (float)control_effective(node.shape),
+    (float)control_effective(node.mode)
   );
 }
 
@@ -4454,10 +4544,10 @@ static void process_additive_quantize_freq(Circuit& g, Node& node, int frames) {
   if (node.bypassed) return;
   soemdsp_yellow_graph::apply_quantize_freq(
     node.yellowGraph,
-    (float)node.mode.out,
-    (float)node.width.out,
-    (float)node.seed.out,
-    (float)node.timingMode.out,
+    (float)control_effective(node.mode),
+    (float)control_effective(node.width),
+    (float)control_effective(node.seed),
+    (float)control_effective(node.timingMode),
     node.yellowLerpFrom,
     node.yellowLerpFromLen
   );
@@ -4470,9 +4560,9 @@ static void process_additive_quantize_phase(Circuit& g, Node& node, int frames) 
   if (node.bypassed) return;
   soemdsp_yellow_graph::apply_quantize_phase(
     node.yellowGraph,
-    (float)node.mode.out,
-    (float)node.phaseParam.out,
-    (float)node.seed.out
+    (float)control_effective(node.mode),
+    (float)control_effective(node.phaseParam),
+    (float)control_effective(node.seed)
   );
 }
 
@@ -4485,14 +4575,14 @@ static void process_additive_pan(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   soemdsp_yellow_graph::apply_pan(
     node.yellowGraph,
-    (float)node.width.out,
-    (float)node.frequency.out,
-    (float)node.amplitude.out,
-    (float)node.shape.out,
-    (float)node.pan.out,
-    (float)node.center.out,
-    (float)node.mix.out,
-    (float)node.phaseParam.out,
+    (float)control_effective(node.width),
+    (float)control_effective(node.frequency),
+    (float)control_effective(node.amplitude),
+    (float)control_effective(node.shape),
+    (float)control_effective(node.pan),
+    (float)control_effective(node.center),
+    (float)control_effective(node.mix),
+    (float)control_effective(node.phaseParam),
     node.phase,
     node.lastReset,
     node.yellowLerpFrom,
@@ -4508,7 +4598,7 @@ static void process_additive_phase_entry(Circuit& g, Node& node, int frames) {
   (void)frames;
   if (!yellow_graph_copy_in(g, node)) return;
   if (node.bypassed) return;
-  soemdsp_yellow_graph::apply_phase_entry(node.yellowGraph, (float)node.mode.out);
+  soemdsp_yellow_graph::apply_phase_entry(node.yellowGraph, (float)control_effective(node.mode));
 }
 
 // Blaster Control map:
@@ -4521,19 +4611,19 @@ static void process_additive_blaster(Circuit& g, Node& node, int frames) {
   if (node.bypassed) return;
   soemdsp_yellow_graph::apply_blaster(
     node.yellowGraph,
-    (float)node.shape.out,
+    (float)control_effective(node.shape),
     0.0f,
     100.0f,
     44100.0f,
     1.0f, // fixed seed if Phase=Random
-    (float)node.phaseParam.out,
-    (float)node.resonance.out,
-    (float)node.waveform.out,
-    (float)node.width.out,
-    (float)node.timingMode.out,
-    (float)node.oversample.out,
-    (float)node.center.out,
-    (float)node.amplitude.out
+    (float)control_effective(node.phaseParam),
+    (float)control_effective(node.resonance),
+    (float)control_effective(node.waveform),
+    (float)control_effective(node.width),
+    (float)control_effective(node.timingMode),
+    (float)control_effective(node.oversample),
+    (float)control_effective(node.center),
+    (float)control_effective(node.amplitude)
   );
 }
 
@@ -4544,9 +4634,9 @@ static void process_additive_diffusor(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   soemdsp_yellow_graph::apply_diffusor(
     node.yellowGraph,
-    (float)node.amplitude.out,
-    (float)node.seed.out,
-    (float)node.frequency.out,
+    (float)control_effective(node.amplitude),
+    (float)control_effective(node.seed),
+    (float)control_effective(node.frequency),
     node.yellowWalks,
     node.yellowWalkCount,
     node.yellowWalkSeed,
@@ -4565,10 +4655,10 @@ static void process_additive_noisy_freq(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   soemdsp_yellow_graph::apply_noisy_freq(
     node.yellowGraph,
-    (float)node.mode.out,
-    (float)node.amplitude.out,
-    (float)node.frequency.out,
-    (float)node.seed.out,
+    (float)control_effective(node.mode),
+    (float)control_effective(node.amplitude),
+    (float)control_effective(node.frequency),
+    (float)control_effective(node.seed),
     node.yellowWalks,
     node.yellowWalkCount,
     node.yellowWalkSeed,
@@ -4586,10 +4676,10 @@ static void process_additive_noisy_phase(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   soemdsp_yellow_graph::apply_noisy_phase(
     node.yellowGraph,
-    (float)node.mode.out,
-    (float)node.amplitude.out,
-    (float)node.frequency.out,
-    (float)node.seed.out,
+    (float)control_effective(node.mode),
+    (float)control_effective(node.amplitude),
+    (float)control_effective(node.frequency),
+    (float)control_effective(node.seed),
     node.yellowWalks,
     node.yellowWalkCount,
     node.yellowWalkSeed,
@@ -4607,10 +4697,10 @@ static void process_additive_noisy_pan(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   soemdsp_yellow_graph::apply_noisy_pan(
     node.yellowGraph,
-    (float)node.mode.out,
-    (float)node.amplitude.out,
-    (float)node.frequency.out,
-    (float)node.seed.out,
+    (float)control_effective(node.mode),
+    (float)control_effective(node.amplitude),
+    (float)control_effective(node.frequency),
+    (float)control_effective(node.seed),
     node.yellowWalks,
     node.yellowWalkCount,
     node.yellowWalkSeed,
@@ -4628,10 +4718,10 @@ static void process_additive_noisy_amp(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   soemdsp_yellow_graph::apply_noisy_amp(
     node.yellowGraph,
-    (float)node.mode.out,
-    (float)node.amplitude.out,
-    (float)node.frequency.out,
-    (float)node.seed.out,
+    (float)control_effective(node.mode),
+    (float)control_effective(node.amplitude),
+    (float)control_effective(node.frequency),
+    (float)control_effective(node.seed),
     node.yellowWalks,
     node.yellowWalkCount,
     node.yellowWalkSeed,
@@ -4721,7 +4811,7 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool controlSmoothing = node_control_smoothing(node);
   const double referenceVoltage = 48.0 / 120.0;
-  const int optimize = (int)(node.mode.out + (node.mode.out >= 0.0 ? 0.5 : -0.5));
+  const int optimize = (int)(control_effective(node.mode) + (control_effective(node.mode) >= 0.0 ? 0.5 : -0.5));
   if (!liveReset) node.lastReset = 0.0;
 
   if (controlSmoothing) smoother_step_node(g, node);
@@ -4739,9 +4829,9 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, srD);
     if (liveInc) {
@@ -4756,7 +4846,7 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
       local,
       node.yellowPhaseAcc,
       (float)freq,
-      (float)node.amplitude.out,
+      (float)control_effective(node.amplitude),
       sr,
       &mono,
       &left,
@@ -4790,9 +4880,9 @@ static void process_surge_oscillator(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool hasSync = mix_live_port(g, node, kPortMono, frames, g.mixMono);
   const double referenceVoltage = 48.0 / 120.0;
-  const double syncFreq = node.width.out;
-  const double level = node.amplitude.out;
-  const double waveV = node.waveform.out;
+  const double syncFreq = control_effective(node.width);
+  const double level = control_effective(node.amplitude);
+  const double waveV = control_effective(node.waveform);
   int waveform = (int)(waveV + (waveV >= 0.0 ? 0.5 : -0.5));
   if (waveform < 0) waveform = 0;
   if (waveform > 3) waveform = 3;
@@ -4802,9 +4892,9 @@ static void process_surge_oscillator(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, sr);
     const double syncIn = hasSync ? g.mixMono[f] : 0.0;
@@ -4840,19 +4930,19 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
   const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const double referenceVoltage = 48.0 / 120.0;
   const double morph = morph_zoh_hold(g, node, liveMorph, true);
-  const double phaseOff = node.phaseParam.out;
-  const double level = node.amplitude.out;
-  const double antialias = node.center.out;
-  const double waveV = node.waveform.out;
+  const double phaseOff = control_effective(node.phaseParam);
+  const double level = control_effective(node.amplitude);
+  const double antialias = control_effective(node.center);
+  const double waveV = control_effective(node.waveform);
 
   for (int f = 0; f < frames; f++) {
     double freq;
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, sr);
     const double y = soemdsp_softwave_sample(
@@ -4874,11 +4964,11 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
   const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const double referenceVoltage = 48.0 / 120.0;
   const double morph = morph_zoh_hold(g, node, liveMorph, true);
-  const double pulseWidth = node.width.out;
-  const double blend = node.mix.out;
-  const double phase = node.phaseParam.out;
-  const double level = node.amplitude.out;
-  const double waveV = node.waveform.out;
+  const double pulseWidth = control_effective(node.width);
+  const double blend = control_effective(node.mix);
+  const double phase = control_effective(node.phaseParam);
+  const double level = control_effective(node.amplitude);
+  const double waveV = control_effective(node.waveform);
   int waveform = (int)(waveV + (waveV >= 0.0 ? 0.5 : -0.5));
   if (waveform < 0) waveform = 0;
   if (waveform > 4) waveform = 4;
@@ -4888,9 +4978,9 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, sr);
     soemdsp_dsf_oscillator_sample(
@@ -4912,12 +5002,12 @@ static void process_hypersaw(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double referenceVoltage = 48.0 / 120.0;
-  const double phaseOff = node.phaseParam.out;
-  const double spread = node.shape.out;
-  const double randomAmt = node.width.out;
-  const double driftAmt = node.center.out;
-  const double level = node.amplitude.out;
-  int voices = (int)(node.stages.out + (node.stages.out >= 0.0 ? 0.5 : -0.5));
+  const double phaseOff = control_effective(node.phaseParam);
+  const double spread = control_effective(node.shape);
+  const double randomAmt = control_effective(node.width);
+  const double driftAmt = control_effective(node.center);
+  const double level = control_effective(node.amplitude);
+  int voices = (int)(control_effective(node.stages) + (control_effective(node.stages) >= 0.0 ? 0.5 : -0.5));
   if (voices < 1) voices = 1;
   if (voices > 32) voices = 32;
   if (!liveReset) node.lastReset = 0.0;
@@ -4934,9 +5024,9 @@ static void process_hypersaw(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, sr);
     soemdsp_hypersaw_sample(
@@ -4957,18 +5047,18 @@ static void process_sinc(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
-  const double phaseOff = node.phaseParam.out;
-  const double lobes = node.stages.out;
-  const double bandLimit = node.mode.out;
+  const double phaseOff = control_effective(node.phaseParam);
+  const double lobes = control_effective(node.stages);
+  const double bandLimit = control_effective(node.mode);
 
   for (int f = 0; f < frames; f++) {
     double freq;
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, sr);
     const double y = soemdsp_sinc_sample(
@@ -4987,30 +5077,30 @@ static void process_bradley2a(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
-  const double freqOffset = node.width.out;
-  const double jitterDepth = node.shape.out;
-  const double jitterRate = node.lfoRate.out;
-  const double ampDepth = node.lfoAmplitude.out;
-  const double ampRate = node.lfoBaseSpeed.out;
-  const double interfLevel = node.mix.out;
-  const double interfFreq = node.lpfFrequency.out;
-  const double harm2 = node.diffusionSize.out;
-  const double harm3 = node.diffusionAmount.out;
-  const double hitRate = node.feedback.out;
-  const double hitDuration = node.timeNumerator.out;
-  const double hitGain = node.level.out;
-  const double hitPhase = node.phaseParam.out;
-  const double impulseLevel = node.recycle.out;
-  const double level = node.amplitude.out;
+  const double freqOffset = control_effective(node.width);
+  const double jitterDepth = control_effective(node.shape);
+  const double jitterRate = control_effective(node.lfoRate);
+  const double ampDepth = control_effective(node.lfoAmplitude);
+  const double ampRate = control_effective(node.lfoBaseSpeed);
+  const double interfLevel = control_effective(node.mix);
+  const double interfFreq = control_effective(node.lpfFrequency);
+  const double harm2 = control_effective(node.diffusionSize);
+  const double harm3 = control_effective(node.diffusionAmount);
+  const double hitRate = control_effective(node.feedback);
+  const double hitDuration = control_effective(node.timeNumerator);
+  const double hitGain = control_effective(node.level);
+  const double hitPhase = control_effective(node.phaseParam);
+  const double impulseLevel = control_effective(node.recycle);
+  const double level = control_effective(node.amplitude);
 
   for (int f = 0; f < frames; f++) {
     double freq;
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, sr);
     const double y = soemdsp_bradley_2a_sample(
@@ -5051,10 +5141,10 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const double referenceVoltage = 48.0 / 120.0;
-  const double phaseOff = node.phaseParam.out;
+  const double phaseOff = control_effective(node.phaseParam);
   const double shape = morph_zoh_hold(g, node, liveMorph, true);
-  const double level = node.amplitude.out;
-  int motion = (int)(node.mode.out + (node.mode.out >= 0.0 ? 0.5 : -0.5));
+  const double level = control_effective(node.amplitude);
+  int motion = (int)(control_effective(node.mode) + (control_effective(node.mode) >= 0.0 ? 0.5 : -0.5));
   if (motion < 0) motion = 0;
   if (motion > 3) motion = 3;
   const bool clockWise = (motion == 0 || motion == 2);
@@ -5076,9 +5166,9 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     // RoundShape allows negative Hz (reverse); do not clamp to +Nyquist only.
     if (!(freq == freq)) freq = 0.0;
@@ -5129,13 +5219,13 @@ static void process_snowflake(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double referenceVoltage = 48.0 / 120.0;
-  const double pattern = node.mode.out;
-  const double iterations = node.stages.out;
-  const double angleDeg = node.width.out;
-  const double direction = node.shape.out;
-  const double spin = node.center.out;
-  const double phaseArg = node.phaseParam.out;
-  const double level = node.amplitude.out;
+  const double pattern = control_effective(node.mode);
+  const double iterations = control_effective(node.stages);
+  const double angleDeg = control_effective(node.width);
+  const double direction = control_effective(node.shape);
+  const double spin = control_effective(node.center);
+  const double phaseArg = control_effective(node.phaseParam);
+  const double level = control_effective(node.amplitude);
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
@@ -5149,9 +5239,9 @@ static void process_snowflake(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, sr);
     soemdsp_snowflake_sample(
@@ -5222,9 +5312,9 @@ static void process_speaker_protector2(Circuit& g, Node& node, int frames) {
       l,
       r,
       sr,
-      node.timeNumerator.out,
-      node.timeDenominator.out,
-      node.offsetMs.out,
+      control_effective(node.timeNumerator),
+      control_effective(node.timeDenominator),
+      control_effective(node.offsetMs),
       &outL,
       &outR,
       &outM
@@ -5245,14 +5335,14 @@ static void process_papoulis_filter(Circuit& g, Node& node, int frames) {
   const bool controlSmoothing = node_control_smoothing(node);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    double freq = liveF ? g.mixF[f] : control_effective(node.frequency);
     freq = clamp_hz_nyquist(freq, sr);
     if (freq < 0.0) freq = 0.0;
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_papoulis_filter_sample(
       node.nativeHandle, in, freq, sr
     );
-    node.buf[kPortMono][f] = out * node.amplitude.out;
+    node.buf[kPortMono][f] = out * control_effective(node.amplitude);
   }
 }
 
@@ -5272,20 +5362,20 @@ static void process_scientific_iir(
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool controlSmoothing = node_control_smoothing(node);
-  const double modeV = node.mode.out;
+  const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
   if (mode > 3) mode = 3;
-  int order = (int)(node.stages.out + (node.stages.out >= 0.0 ? 0.5 : -0.5));
+  int order = (int)(control_effective(node.stages) + (control_effective(node.stages) >= 0.0 ? 0.5 : -0.5));
   if (order < 2) order = 2;
   if (order > 8) order = 8;
   if (order & 1) order += 1; // even only
-  const double bandwidth = node.width.out;
-  const double ripple = node.resonance.out;
+  const double bandwidth = control_effective(node.width);
+  const double ripple = control_effective(node.resonance);
 
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    double freq = liveF ? g.mixF[f] : control_effective(node.frequency);
     freq = clamp_hz_nyquist(freq, sr);
     if (freq < 0.0) freq = 0.0;
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
@@ -5303,17 +5393,17 @@ static void process_eq_filter(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool controlSmoothing = node_control_smoothing(node);
-  const double modeV = node.mode.out;
+  const double modeV = control_effective(node.mode);
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    double freq = liveF ? g.mixF[f] : control_effective(node.frequency);
     freq = clamp_hz_nyquist(freq, sr);
     if (freq < 0.0) freq = 0.0;
-    const double q = node.resonance.out;
-    const double gain = node.gainDb.out;
+    const double q = control_effective(node.resonance);
+    const double gain = control_effective(node.gainDb);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
@@ -5360,14 +5450,14 @@ static void process_eq_filter_fixed_mode(
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, sr);
     if (freq < 0.0) freq = 0.0;
-    const double q = node.resonance.out;
-    const double amp = node.amplitude.out;
+    const double q = control_effective(node.resonance);
+    const double amp = control_effective(node.amplitude);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
@@ -5399,6 +5489,56 @@ static void process_allpass(Circuit& g, Node& node, int frames) {
   process_eq_filter_fixed_mode(g, node, frames, 6.0);
 }
 
+// pinch 0..1 → Q ≈ 0.35…~18 (matches phase-disperse-math.js).
+static double phase_disperse_pinch_to_q(double pinch) {
+  const double p = clamp(safe(pinch), 0.0, 1.0);
+  return 0.35 * dsp_exp(p * 3.912023005428146); // ln(50)
+}
+
+static void process_phase_disperse(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    double freq = liveF ? g.mixF[f] : control_effective(node.frequency);
+    freq = clamp_hz_nyquist(freq, sr);
+    if (freq < 0.0) freq = 0.0;
+    const double stages = control_effective(node.stages);
+    const double q = phase_disperse_pinch_to_q(control_effective(node.resonance));
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_phase_disperse_sample(
+      node.nativeHandle, in, freq, stages, q, sr
+    );
+    node.buf[kPortMono][f] = out * control_effective(node.amplitude);
+  }
+}
+
+// In→Mono, Side→Left, Mid→Right; outs I/Q/MidI/SideQ on Mono/Left/Right/Saw.
+static void process_quadrature(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double amp = control_effective(node.amplitude);
+    double i = 0.0, q = 0.0, midI = 0.0, sideQ = 0.0;
+    soemdsp_quadrature_process_sample(
+      node.nativeHandle,
+      g.mixMono[f],
+      g.mixRight[f],
+      g.mixLeft[f],
+      &i, &q, &midI, &sideQ
+    );
+    node.buf[kPortMono][f] = i * amp;
+    node.buf[kPortLeft][f] = q * amp;
+    node.buf[kPortRight][f] = midI * amp;
+    node.buf[kPortSaw][f] = sideQ * amp;
+  }
+}
+
 // Active ladder: stages=feedbackCircuit, timingMode=gainCompensation.
 // Cutoff: live ƒ, else HP→hpfFrequency, LP/BP→lpfFrequency (fallback frequency).
 static void process_active_filter(Circuit& g, Node& node, int frames) {
@@ -5408,14 +5548,14 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool controlSmoothing = node_control_smoothing(node)
     || node.hpfFrequency.active || node.lpfFrequency.active;
-  const double modeV = node.mode.out;
+  const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
   if (mode > 9) mode = 9;
-  int circuit = (int)(node.stages.out + (node.stages.out >= 0.0 ? 0.5 : -0.5));
+  int circuit = (int)(control_effective(node.stages) + (control_effective(node.stages) >= 0.0 ? 0.5 : -0.5));
   if (circuit < 0) circuit = 0;
   if (circuit > 3) circuit = 3;
-  const int gainComp = (int)(node.timingMode.out + (node.timingMode.out >= 0.0 ? 0.5 : -0.5));
+  const int gainComp = (int)(control_effective(node.timingMode) + (control_effective(node.timingMode) >= 0.0 ? 0.5 : -0.5));
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
@@ -5425,14 +5565,14 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (mode >= 4 && mode <= 7) {
-      freq = node.hpfFrequency.out;
+      freq = control_effective(node.hpfFrequency);
     } else {
-      freq = node.lpfFrequency.out;
-      if (!(freq == freq)) freq = node.frequency.out;
+      freq = control_effective(node.lpfFrequency);
+      if (!(freq == freq)) freq = control_effective(node.frequency);
     }
     freq = clamp_hz_nyquist(freq, sr);
     if (freq < 0.0) freq = 0.0;
-    const double reso = node.resonance.out;
+    const double reso = control_effective(node.resonance);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
@@ -5463,7 +5603,7 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool controlSmoothing = node_control_smoothing(node)
     || node.hpfFrequency.active || node.lpfFrequency.active;
-  const double modeV = node.mode.out;
+  const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
   if (mode > 2) mode = 2;
@@ -5472,8 +5612,8 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    const double lo = node.hpfFrequency.out;
-    const double hi = node.lpfFrequency.out;
+    const double lo = control_effective(node.hpfFrequency);
+    const double hi = control_effective(node.lpfFrequency);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
@@ -5505,7 +5645,7 @@ static void process_tb303_filter(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool controlSmoothing =
     node_control_smoothing(node) || node.gainDb.active || node.amplitude.active;
-  const double modeV = node.mode.out;
+  const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
   if (mode > 14) mode = 14;
@@ -5514,12 +5654,12 @@ static void process_tb303_filter(Circuit& g, Node& node, int frames) {
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    double freq = liveF ? g.mixF[f] : control_effective(node.frequency);
     freq = clamp_hz_nyquist(freq, sr);
     if (freq < 0.0) freq = 0.0;
-    const double reso = node.resonance.out;
-    const double drive = node.gainDb.out;
-    double amp = node.amplitude.out;
+    const double reso = control_effective(node.resonance);
+    const double drive = control_effective(node.gainDb);
+    double amp = control_effective(node.amplitude);
     if (!(amp == amp)) amp = 1.0;
     if (needMono) {
       double in = g.mixMono[f];
@@ -5556,7 +5696,7 @@ static void process_norm_chaos_filter(
   const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
   int mode = 0;
   if (hasMode) {
-    const double modeV = node.mode.out;
+    const double modeV = control_effective(node.mode);
     mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   }
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
@@ -5564,13 +5704,13 @@ static void process_norm_chaos_filter(
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    double freq = node.frequency.out;
+    double freq = control_effective(node.frequency);
     if (!(freq == freq)) freq = 0.5;
     if (freq < 0.0) freq = 0.0;
     if (freq > 1.0) freq = 1.0;
-    const double reso = node.resonance.out;
-    const double chaos = node.shape.out;
-    double amp = node.amplitude.out;
+    const double reso = control_effective(node.resonance);
+    const double chaos = control_effective(node.shape);
+    double amp = control_effective(node.amplitude);
     if (!(amp == amp)) amp = 1.0;
     if (needMono) {
       double in = g.mixMono[f];
@@ -5631,15 +5771,15 @@ static void process_flower_child_filter(Circuit& g, Node& node, int frames) {
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    double freq = node.frequency.out;
+    double freq = control_effective(node.frequency);
     if (!(freq == freq)) freq = 0.5;
     if (freq < 0.0) freq = 0.0;
     if (freq > 1.0) freq = 1.0;
-    const double reso = node.resonance.out;
-    const double chaos = node.shape.out;
-    double amp = node.amplitude.out;
+    const double reso = control_effective(node.resonance);
+    const double chaos = control_effective(node.shape);
+    double amp = control_effective(node.amplitude);
     if (!(amp == amp)) amp = 1.0;
-    const double modeV = node.mode.out;
+    const double modeV = control_effective(node.mode);
     const int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
     const double monoIn = g.mixMono[f];
     const double inL = g.mixLeft[f] + monoIn;
@@ -5700,13 +5840,13 @@ static void process_chaotic_phase_locking_filter(Circuit& g, Node& node, int fra
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    double freq = node.frequency.out;
+    double freq = control_effective(node.frequency);
     if (!(freq == freq)) freq = 0.5;
     if (freq < 0.0) freq = 0.0;
     if (freq > 1.0) freq = 1.0;
-    const double reso = node.resonance.out;
-    const double chaos = node.shape.out;
-    double amp = node.amplitude.out;
+    const double reso = control_effective(node.resonance);
+    const double chaos = control_effective(node.shape);
+    double amp = control_effective(node.amplitude);
     if (!(amp == amp)) amp = 1.0;
     const double monoIn = g.mixMono[f];
     const double inL = g.mixLeft[f] + monoIn;
@@ -5734,17 +5874,17 @@ static void process_mode_resonator(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool controlSmoothing = node_control_smoothing(node)
     || node.timeNumerator.active || node.amplitude.active;
-  const int hold = (int)(node.timingMode.out + (node.timingMode.out >= 0.0 ? 0.5 : -0.5));
+  const int hold = (int)(control_effective(node.timingMode) + (control_effective(node.timingMode) >= 0.0 ? 0.5 : -0.5));
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    double freq = liveF ? g.mixF[f] : control_effective(node.frequency);
     freq = clamp_hz_nyquist(freq, sr);
     if (freq < 0.0) freq = 0.0;
     double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     if (hasTrig) in += g.mixTrigger[f];
     const double out = soemdsp_mode_resonator_sample(
-      node.nativeHandle, in, freq, node.timeNumerator.out, hold,
-      node.amplitude.out, sr
+      node.nativeHandle, in, freq, control_effective(node.timeNumerator), hold,
+      control_effective(node.amplitude), sr
     );
     node.buf[kPortMono][f] = out;
   }
@@ -5760,24 +5900,24 @@ static void process_comb_resonator(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool controlSmoothing = node_control_smoothing(node)
     || node.timeNumerator.active || node.amplitude.active;
-  const int hold = (int)(node.timingMode.out + (node.timingMode.out >= 0.0 ? 0.5 : -0.5));
-  const double modeV = node.mode.out;
+  const int hold = (int)(control_effective(node.timingMode) + (control_effective(node.timingMode) >= 0.0 ? 0.5 : -0.5));
+  const double modeV = control_effective(node.mode);
   int topology = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (topology < 0) topology = 0;
   if (topology > 1) topology = 1;
-  int invert = (int)(node.stages.out + (node.stages.out >= 0.0 ? 0.5 : -0.5));
+  int invert = (int)(control_effective(node.stages) + (control_effective(node.stages) >= 0.0 ? 0.5 : -0.5));
   if (invert < 0) invert = 0;
   if (invert > 1) invert = 1;
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    double freq = liveF ? g.mixF[f] : node.frequency.out;
+    double freq = liveF ? g.mixF[f] : control_effective(node.frequency);
     freq = clamp_hz_nyquist(freq, sr);
     if (freq < 0.0) freq = 0.0;
     double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     if (hasTrig) in += g.mixTrigger[f];
     const double out = soemdsp_comb_resonator_sample(
-      node.nativeHandle, in, freq, node.timeNumerator.out, hold,
-      node.shape.out, topology, invert, node.width.out, node.amplitude.out, sr
+      node.nativeHandle, in, freq, control_effective(node.timeNumerator), hold,
+      control_effective(node.shape), topology, invert, control_effective(node.width), control_effective(node.amplitude), sr
     );
     node.buf[kPortMono][f] = out;
   }
@@ -5793,7 +5933,7 @@ static void process_inertial_filter(Circuit& g, Node& node, int frames) {
     if (controlSmoothing) smoother_step_node(g, node);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_inertial_filter_sample(
-      node.nativeHandle, in, node.frequency.out, node.lpfFrequency.out, sr
+      node.nativeHandle, in, control_effective(node.frequency), control_effective(node.lpfFrequency), sr
     );
     node.buf[kPortMono][f] = out;
   }
@@ -5814,15 +5954,15 @@ static void process_exp_adsr(Circuit& g, Node& node, int frames) {
     const double out = soemdsp_exp_adsr_sample(
       node.nativeHandle,
       gate,
-      node.timeNumerator.out,
-      node.timeDenominator.out,
-      node.shape.out,
-      node.feedback.out,
-      node.mix.out,
-      node.offsetMs.out,
-      node.center.out,
-      node.mode.out,
-      node.level.out,
+      control_effective(node.timeNumerator),
+      control_effective(node.timeDenominator),
+      control_effective(node.shape),
+      control_effective(node.feedback),
+      control_effective(node.mix),
+      control_effective(node.offsetMs),
+      control_effective(node.center),
+      control_effective(node.mode),
+      control_effective(node.level),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -5845,12 +5985,12 @@ static void process_attack_decay(Circuit& g, Node& node, int frames) {
     const double out = soemdsp_attack_decay_sample(
       node.nativeHandle,
       gate,
-      node.timeDenominator.out,
-      node.feedback.out,
-      node.shape.out,
-      node.amplitude.out,
-      node.mode.out,
-      node.timingMode.out,
+      control_effective(node.timeDenominator),
+      control_effective(node.feedback),
+      control_effective(node.shape),
+      control_effective(node.amplitude),
+      control_effective(node.mode),
+      control_effective(node.timingMode),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -5869,11 +6009,11 @@ static void process_basic_shape(Circuit& g, Node& node, int frames) {
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double referenceVoltage = 48.0 / 120.0;
-  const double phaseOff = node.phaseParam.out;
-  const double morph = node.shape.out;
-  const double amp = node.amplitude.out;
-  const double waveV = node.waveform.out;
-  const double motion = node.mode.out;
+  const double phaseOff = control_effective(node.phaseParam);
+  const double morph = control_effective(node.shape);
+  const double amp = control_effective(node.amplitude);
+  const double waveV = control_effective(node.waveform);
+  const double motion = control_effective(node.mode);
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
@@ -5881,9 +6021,9 @@ static void process_basic_shape(Circuit& g, Node& node, int frames) {
     if (liveF) {
       freq = g.mixF[f];
     } else if (livePitch) {
-      freq = pitched_hz(node.frequency.out, g.mixPitch[f], referenceVoltage);
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
     } else {
-      freq = node.frequency.out;
+      freq = control_effective(node.frequency);
     }
     if (!(freq == freq)) freq = 0.0;
     const double ny = 0.5 * sr;
@@ -5919,13 +6059,13 @@ static void process_linear_envelope(Circuit& g, Node& node, int frames) {
     const double out = soemdsp_linear_envelope_sample(
       node.nativeHandle,
       gate,
-      node.timeNumerator.out,
-      node.timeDenominator.out,
-      node.feedback.out,
-      node.mix.out,
-      node.offsetMs.out,
-      node.mode.out,
-      node.level.out,
+      control_effective(node.timeNumerator),
+      control_effective(node.timeDenominator),
+      control_effective(node.feedback),
+      control_effective(node.mix),
+      control_effective(node.offsetMs),
+      control_effective(node.mode),
+      control_effective(node.level),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -5954,19 +6094,19 @@ static void process_pluck_envelope(Circuit& g, Node& node, int frames) {
       node.nativeHandle,
       trigger,
       release,
-      node.timeNumerator.out,
-      node.timeDenominator.out,
-      node.feedback.out,
-      node.diffusionSize.out,
-      node.diffusionAmount.out,
-      node.delaySize.out,
-      node.shape.out,
-      node.frequency.out,
-      node.offsetMs.out,
-      node.recycle.out,
-      node.width.out,
-      node.center.out,
-      node.level.out,
+      control_effective(node.timeNumerator),
+      control_effective(node.timeDenominator),
+      control_effective(node.feedback),
+      control_effective(node.diffusionSize),
+      control_effective(node.diffusionAmount),
+      control_effective(node.delaySize),
+      control_effective(node.shape),
+      control_effective(node.frequency),
+      control_effective(node.offsetMs),
+      control_effective(node.recycle),
+      control_effective(node.width),
+      control_effective(node.center),
+      control_effective(node.level),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -5988,12 +6128,12 @@ static void process_flower_child_envelope_follower(Circuit& g, Node& node, int f
     const double env = soemdsp_flower_child_envelope_follower_sample(
       node.nativeHandle,
       in,
-      node.timeNumerator.out,
-      node.timeDenominator.out,
-      node.feedback.out,
+      control_effective(node.timeNumerator),
+      control_effective(node.timeDenominator),
+      control_effective(node.feedback),
       sr
     );
-    const double out = env * node.amplitude.out;
+    const double out = env * control_effective(node.amplitude);
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
@@ -6015,13 +6155,13 @@ static void process_delay_effect(Circuit& g, Node& node, int frames) {
     soemdsp_delay_effect_sample(
       node.nativeHandle,
       in,
-      node.timeNumerator.out,
-      node.feedback.out,
-      node.mix.out,
-      node.level.out,
-      node.lfoAmplitude.out,
-      node.lfoRate.out,
-      node.lfoVariation.out,
+      control_effective(node.timeNumerator),
+      control_effective(node.feedback),
+      control_effective(node.mix),
+      control_effective(node.level),
+      control_effective(node.lfoAmplitude),
+      control_effective(node.lfoRate),
+      control_effective(node.lfoVariation),
       0.0,
       seed,
       sr
@@ -6047,31 +6187,31 @@ static void process_soem_reverb(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   soemdsp_soem_reverb_set_params(
     node.nativeHandle,
-    node.mix.out,
-    node.amplitude.out,
-    node.delaySize.out,
-    node.recycle.out,
-    node.stages.out,
-    node.diffusionSize.out,
-    node.diffusionAmount.out,
-    node.seed.out,
-    node.lfoAmplitude.out,
-    node.lfoBaseSpeed.out,
-    node.lfoVariation.out,
-    node.lfoStyle.out,
-    node.mode.out,
-    node.timingMode.out,
-    node.waveform.out,
-    node.saturate.out,
-    node.lpfFrequency.out,
-    node.hpfFrequency.out,
-    node.frequency.out,
-    node.gainDb.out,
-    node.resonance.out,
-    node.width.out,
-    node.center.out,
-    node.feedback.out,
-    node.offsetMs.out
+    control_effective(node.mix),
+    control_effective(node.amplitude),
+    control_effective(node.delaySize),
+    control_effective(node.recycle),
+    control_effective(node.stages),
+    control_effective(node.diffusionSize),
+    control_effective(node.diffusionAmount),
+    control_effective(node.seed),
+    control_effective(node.lfoAmplitude),
+    control_effective(node.lfoBaseSpeed),
+    control_effective(node.lfoVariation),
+    control_effective(node.lfoStyle),
+    control_effective(node.mode),
+    control_effective(node.timingMode),
+    control_effective(node.waveform),
+    control_effective(node.saturate),
+    control_effective(node.lpfFrequency),
+    control_effective(node.hpfFrequency),
+    control_effective(node.frequency),
+    control_effective(node.gainDb),
+    control_effective(node.resonance),
+    control_effective(node.width),
+    control_effective(node.center),
+    control_effective(node.feedback),
+    control_effective(node.offsetMs)
   );
   for (int f = 0; f < frames; f++) {
     const double mono = g.mixMono[f];
@@ -6106,10 +6246,10 @@ static void process_pll(Circuit& g, Node& node, int frames) {
   soemdsp_pll_set_params(
     node.nativeHandle,
     sr,
-    (int)(node.mode.out + 0.5),
-    node.offset.out,
-    (int)(node.stages.out + 0.5),
-    node.frequency.out
+    (int)(control_effective(node.mode) + 0.5),
+    control_effective(node.offset),
+    (int)(control_effective(node.stages) + 0.5),
+    control_effective(node.frequency)
   );
   for (int f = 0; f < frames; f++) {
     soemdsp_pll_process(
@@ -6138,16 +6278,16 @@ static void process_lorenz_attractor(Circuit& g, Node& node, int frames) {
     soemdsp_lorenz_attractor_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
-      node.frequency.out,
-      node.shape.out,
-      node.resonance.out,
-      node.width.out,
-      node.phaseParam.out,
-      node.center.out,
-      node.mix.out,
+      control_effective(node.frequency),
+      control_effective(node.shape),
+      control_effective(node.resonance),
+      control_effective(node.width),
+      control_effective(node.phaseParam),
+      control_effective(node.center),
+      control_effective(node.mix),
       sr
     );
-    const double amp = node.amplitude.out;
+    const double amp = control_effective(node.amplitude);
     node.buf[kPortMono][f] = soemdsp_lorenz_attractor_x(node.nativeHandle) * amp;
     node.buf[kPortLeft][f] = soemdsp_lorenz_attractor_y(node.nativeHandle) * amp;
     node.buf[kPortRight][f] = soemdsp_lorenz_attractor_z(node.nativeHandle) * amp;
@@ -6166,10 +6306,10 @@ static void process_logistic_map(Circuit& g, Node& node, int frames) {
     const double out = soemdsp_logistic_map_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
-      node.frequency.out,
-      node.shape.out,
-      node.center.out,
-      node.amplitude.out,
+      control_effective(node.frequency),
+      control_effective(node.shape),
+      control_effective(node.center),
+      control_effective(node.amplitude),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -6190,14 +6330,14 @@ static void process_henon_map(Circuit& g, Node& node, int frames) {
     soemdsp_henon_map_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
-      node.frequency.out,
-      node.shape.out,
-      node.width.out,
-      node.center.out,
-      node.mix.out,
+      control_effective(node.frequency),
+      control_effective(node.shape),
+      control_effective(node.width),
+      control_effective(node.center),
+      control_effective(node.mix),
       sr
     );
-    const double amp = node.amplitude.out;
+    const double amp = control_effective(node.amplitude);
     const double x = soemdsp_henon_map_x(node.nativeHandle) * amp;
     const double y = soemdsp_henon_map_y(node.nativeHandle) * amp;
     node.buf[kPortMono][f] = x;
@@ -6218,14 +6358,14 @@ static void process_chua_attractor(Circuit& g, Node& node, int frames) {
     soemdsp_chua_attractor_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
-      node.frequency.out,
-      node.shape.out,
-      node.width.out,
-      node.center.out,
-      node.mix.out,
+      control_effective(node.frequency),
+      control_effective(node.shape),
+      control_effective(node.width),
+      control_effective(node.center),
+      control_effective(node.mix),
       sr
     );
-    const double amp = node.amplitude.out;
+    const double amp = control_effective(node.amplitude);
     node.buf[kPortMono][f] = soemdsp_chua_attractor_x(node.nativeHandle) * amp;
     node.buf[kPortLeft][f] = soemdsp_chua_attractor_y(node.nativeHandle) * amp;
     node.buf[kPortRight][f] = soemdsp_chua_attractor_z(node.nativeHandle) * amp;
@@ -6244,22 +6384,22 @@ static void process_ray_bouncer(Circuit& g, Node& node, int frames) {
     soemdsp_ray_bouncer_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
-      node.frequency.out,
-      node.phaseParam.out,
-      node.inLow.out,
-      node.inHigh.out,
-      node.width.out,
-      node.center.out,
-      node.mix.out,
-      node.outLow.out,
-      node.outHigh.out,
-      node.timeNumerator.out,
-      node.feedback.out,
-      node.diffusionSize.out,
-      node.diffusionAmount.out,
+      control_effective(node.frequency),
+      control_effective(node.phaseParam),
+      control_effective(node.inLow),
+      control_effective(node.inHigh),
+      control_effective(node.width),
+      control_effective(node.center),
+      control_effective(node.mix),
+      control_effective(node.outLow),
+      control_effective(node.outHigh),
+      control_effective(node.timeNumerator),
+      control_effective(node.feedback),
+      control_effective(node.diffusionSize),
+      control_effective(node.diffusionAmount),
       sr
     );
-    const double amp = node.level.out;
+    const double amp = control_effective(node.level);
     const double x = soemdsp_ray_bouncer_x(node.nativeHandle) * amp;
     const double y = soemdsp_ray_bouncer_y(node.nativeHandle) * amp;
     node.buf[kPortMono][f] = x;
@@ -6302,7 +6442,7 @@ static void process_chord_sequencer(Circuit& g, Node& node, int frames) {
   const bool controlSmoothing = node_control_smoothing(node);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    const double progression = node.mode.out;
+    const double progression = control_effective(node.mode);
     const double clock = hasClock ? g.mixTrigger[f] : 0.0;
     soemdsp_chord_sequencer_sample(
       node.nativeHandle,
@@ -6312,7 +6452,7 @@ static void process_chord_sequencer(Circuit& g, Node& node, int frames) {
     );
     const double scale = (double)soemdsp_chord_sequencer_scale(node.nativeHandle, progression);
     const double root = soemdsp_chord_sequencer_root(node.nativeHandle, progression);
-    const double gate = (clock > 0.0 ? 1.0 : 0.0) * node.amplitude.out;
+    const double gate = (clock > 0.0 ? 1.0 : 0.0) * control_effective(node.amplitude);
     const double step = (double)soemdsp_chord_sequencer_step(node.nativeHandle);
     node.buf[kPortMono][f] = scale;
     node.buf[kPortLeft][f] = root;
@@ -6334,7 +6474,7 @@ static void process_pitch_quantizer(Circuit& g, Node& node, int frames) {
     if (hasScale) {
       mask = (int)(g.mixMono[f] + (g.mixMono[f] >= 0.0 ? 0.5 : -0.5)) & 0xFFF;
     } else {
-      mask = (int)(node.seed.out + 0.5) & 0xFFF;
+      mask = (int)(control_effective(node.seed) + 0.5) & 0xFFF;
     }
     const double out = soemdsp_pitch_quantizer_sample(node.nativeHandle, pitch, mask);
     node.buf[kPortMono][f] = out;
@@ -6356,9 +6496,9 @@ static void process_turing_machine(Circuit& g, Node& node, int frames) {
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
-      node.stages.out,
-      node.shape.out,
-      node.amplitude.out
+      control_effective(node.stages),
+      control_effective(node.shape),
+      control_effective(node.amplitude)
     );
     node.buf[kPortMono][f] = cv;
     node.buf[kPortLeft][f] = soemdsp_turing_machine_scale(node.nativeHandle);
@@ -6378,10 +6518,10 @@ static void process_chord_pad(Circuit& g, Node& node, int frames) {
       node.nativeHandle,
       hasSelect ? g.mixMono[f] : 0.0,
       hasSelect ? 1.0 : 0.0,
-      node.mode.out,
-      node.waveform.out,
-      node.stages.out,
-      node.amplitude.out
+      control_effective(node.mode),
+      control_effective(node.waveform),
+      control_effective(node.stages),
+      control_effective(node.amplitude)
     );
     node.buf[kPortMono][f] = scale;
     node.buf[kPortLeft][f] = soemdsp_chord_pad_root(node.nativeHandle);
@@ -6400,7 +6540,7 @@ static void process_note_glide(Circuit& g, Node& node, int frames) {
     const double out = soemdsp_note_glide_sample(
       node.nativeHandle,
       hasPitch ? g.mixPitch[f] : 0.0,
-      node.timeNumerator.out,
+      control_effective(node.timeNumerator),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -6419,8 +6559,8 @@ static void process_note_transpose(Circuit& g, Node& node, int frames) {
     const double out = soemdsp_note_transpose_sample(
       node.nativeHandle,
       hasPitch ? g.mixPitch[f] : 0.0,
-      node.stages.out,
-      node.mode.out
+      control_effective(node.stages),
+      control_effective(node.mode)
     );
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
@@ -6444,14 +6584,14 @@ static void process_degree_turing(Circuit& g, Node& node, int frames) {
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
-      node.stages.out,
-      node.shape.out,
-      node.mode.out,
-      node.amplitude.out,
+      control_effective(node.stages),
+      control_effective(node.shape),
+      control_effective(node.mode),
+      control_effective(node.amplitude),
       hasScale ? g.mixMono[f] : 0.0,
       hasScale ? 1.0 : 0.0,
       hasRoot ? g.mixPitch[f] : (60.0 / 120.0),
-      node.seed.out
+      control_effective(node.seed)
     );
     node.buf[kPortMono][f] = pitch;
     node.buf[kPortLeft][f] = soemdsp_degree_turing_gate(node.nativeHandle);
@@ -6478,18 +6618,18 @@ static void process_degree_phrase(Circuit& g, Node& node, int frames) {
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
-      node.stages.out,
-      node.shape.out,
-      node.mode.out,
-      node.amplitude.out,
+      control_effective(node.stages),
+      control_effective(node.shape),
+      control_effective(node.mode),
+      control_effective(node.amplitude),
       hasScale ? g.mixMono[f] : 0.0,
       hasScale ? 1.0 : 0.0,
       hasRoot ? g.mixPitch[f] : (60.0 / 120.0),
-      node.seed.out,
-      node.laneVol[0].out, node.laneVol[1].out, node.laneVol[2].out, node.laneVol[3].out,
-      node.laneBias[0].out, node.laneBias[1].out, node.laneBias[2].out, node.laneBias[3].out,
-      node.inLow.out, node.inHigh.out, node.outLow.out, node.outHigh.out,
-      node.bleed2.out, node.bleed3.out, node.bleed4.out, node.offset.out
+      control_effective(node.seed),
+      control_effective(node.laneVol[0]), control_effective(node.laneVol[1]), control_effective(node.laneVol[2]), control_effective(node.laneVol[3]),
+      control_effective(node.laneBias[0]), control_effective(node.laneBias[1]), control_effective(node.laneBias[2]), control_effective(node.laneBias[3]),
+      control_effective(node.inLow), control_effective(node.inHigh), control_effective(node.outLow), control_effective(node.outHigh),
+      control_effective(node.bleed2), control_effective(node.bleed3), control_effective(node.bleed4), control_effective(node.offset)
     );
     node.buf[kPortMono][f] = pitch;
     node.buf[kPortLeft][f] = soemdsp_degree_phrase_gate(node.nativeHandle);
@@ -6514,15 +6654,15 @@ static void process_gravity_walker(Circuit& g, Node& node, int frames) {
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
-      node.shape.out,
-      node.width.out,
+      control_effective(node.shape),
+      control_effective(node.width),
       hasLeap ? g.mixMorph[f] : 0.0,
-      node.mode.out,
-      node.amplitude.out,
+      control_effective(node.mode),
+      control_effective(node.amplitude),
       hasScale ? g.mixMono[f] : 0.0,
       hasScale ? 1.0 : 0.0,
       hasRoot ? g.mixPitch[f] : (60.0 / 120.0),
-      node.seed.out
+      control_effective(node.seed)
     );
     node.buf[kPortMono][f] = pitch;
     node.buf[kPortLeft][f] = soemdsp_gravity_walker_gate(node.nativeHandle);
@@ -6544,13 +6684,13 @@ static double graph_curve_sample_x(
   double inSample
 ) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double modeV = node.mode.out;
+  const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
   if (mode > 2) mode = 2;
-  const double phaseOff = node.phaseParam.out;
-  const double inLo = node.inLow.out;
-  const double inHi = node.inHigh.out;
+  const double phaseOff = control_effective(node.phaseParam);
+  const double inLo = control_effective(node.inLow);
+  const double inHi = control_effective(node.inHigh);
   double inputUnit = 0.0;
   if (hasIn) {
     const double span = inHi - inLo;
@@ -6561,7 +6701,7 @@ static double graph_curve_sample_x(
     return wrap01(inputUnit + phaseOff);
   }
 
-  double rate = node.frequency.out;
+  double rate = control_effective(node.frequency);
   if (!(rate == rate) || rate < 0.0) rate = 0.0;
 
   if (mode >= 2) {
@@ -6593,9 +6733,9 @@ static void process_smooth_graph(Circuit& g, Node& node, int frames) {
     const bool hasIn = true; // mix may be silent; map still applies when mode=Input
     const double x = graph_curve_sample_x(g, node, f, hasIn, inSample);
     const double y = soemdsp_smooth_graph_sample(
-      node.nativeHandle, x, node.stages.out, node.shape.out
+      node.nativeHandle, x, control_effective(node.stages), control_effective(node.shape)
     );
-    const double out = node.outLow.out + y * (node.outHigh.out - node.outLow.out);
+    const double out = control_effective(node.outLow) + y * (control_effective(node.outHigh) - control_effective(node.outLow));
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
@@ -6612,9 +6752,9 @@ static void process_step_graph(Circuit& g, Node& node, int frames) {
     const double inSample = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double x = graph_curve_sample_x(g, node, f, true, inSample);
     const double y = soemdsp_step_graph_sample(
-      node.nativeHandle, x, node.waveform.out, node.center.out
+      node.nativeHandle, x, control_effective(node.waveform), control_effective(node.center)
     );
-    const double out = node.outLow.out + y * (node.outHigh.out - node.outLow.out);
+    const double out = control_effective(node.outLow) + y * (control_effective(node.outHigh) - control_effective(node.outLow));
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
@@ -6636,12 +6776,12 @@ static void process_fractal_brownian_noise(Circuit& g, Node& node, int frames) {
     wasHigh = high;
     soemdsp_fbm_sample(
       node.nativeHandle,
-      (int)(node.seed.out + 0.5),
-      (int)(node.stages.out + 0.5),
-      node.shape.out,
-      node.center.out,
-      node.frequency.out,
-      node.amplitude.out,
+      (int)(control_effective(node.seed) + 0.5),
+      (int)(control_effective(node.stages) + 0.5),
+      control_effective(node.shape),
+      control_effective(node.center),
+      control_effective(node.frequency),
+      control_effective(node.amplitude),
       sr
     );
     node.buf[kPortMono][f] = soemdsp_fbm_x(node.nativeHandle);
@@ -6661,8 +6801,8 @@ static void process_fractal_brownian_noise(Circuit& g, Node& node, int frames) {
 static void process_pi_spigot_noise(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool controlSmoothing = node_control_smoothing(node);
-  const double start = node.center.out;
-  const double stride = node.stages.out;
+  const double start = control_effective(node.center);
+  const double stride = control_effective(node.stages);
   const double key = start * 1000.0 + stride;
   if (key != node.lastReset) {
     soemdsp_pi_spigot_noise_reset_seed(node.nativeHandle, start, stride);
@@ -6671,7 +6811,7 @@ static void process_pi_spigot_noise(Circuit& g, Node& node, int frames) {
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
     soemdsp_pi_spigot_noise_sample(
-      node.nativeHandle, node.mode.out, node.shape.out, node.amplitude.out
+      node.nativeHandle, control_effective(node.mode), control_effective(node.shape), control_effective(node.amplitude)
     );
     node.buf[kPortMono][f] = soemdsp_pi_spigot_noise_left(node.nativeHandle);
     node.buf[kPortLeft][f] = soemdsp_pi_spigot_noise_right(node.nativeHandle);
@@ -6695,7 +6835,7 @@ static void process_cheap_walk(Circuit& g, Node& node, int frames) {
     double left = 0.0;
     double right = 0.0;
     soemdsp_cheap_walk_sample_stereo(
-      node.nativeHandle, node.frequency.out, node.amplitude.out, node.seed.out, sr,
+      node.nativeHandle, control_effective(node.frequency), control_effective(node.amplitude), control_effective(node.seed), sr,
       &left, &right
     );
     node.buf[kPortLeft][f] = left;
@@ -6708,7 +6848,7 @@ static void process_random_walk(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool controlSmoothing = node_control_smoothing(node);
-  const double seed = node.seed.out;
+  const double seed = control_effective(node.seed);
   if (seed != node.lastReset) {
     const unsigned int seedU = (unsigned int)(seed < 1.0 ? 1.0 : seed);
     soemdsp_random_walk_reset_seed(node.nativeHandle, (double)seedU);
@@ -6723,20 +6863,20 @@ static void process_random_walk(Circuit& g, Node& node, int frames) {
     if (controlSmoothing) smoother_step_node(g, node);
     const double left = soemdsp_random_walk_sample(
       node.nativeHandle,
-      node.mode.out,
-      node.frequency.out,
-      node.width.out,
-      node.amplitude.out,
+      control_effective(node.mode),
+      control_effective(node.frequency),
+      control_effective(node.width),
+      control_effective(node.amplitude),
       sr
     );
     double right = left;
     if (node.nativeHandleR > 0) {
       right = soemdsp_random_walk_sample(
         node.nativeHandleR,
-        node.mode.out,
-        node.frequency.out,
-        node.width.out,
-        node.amplitude.out,
+        control_effective(node.mode),
+        control_effective(node.frequency),
+        control_effective(node.width),
+        control_effective(node.amplitude),
         sr
       );
     }
@@ -6757,14 +6897,14 @@ static void process_pulse_explosion(Circuit& g, Node& node, int frames) {
     const double out = soemdsp_pulse_explosion_sample(
       node.nativeHandle,
       hasTrig ? g.mixTrigger[f] : 0.0,
-      node.timeNumerator.out,   // startTime
-      node.center.out,          // centerTime
-      node.timeDenominator.out, // endTime
-      node.mix.out,             // timeSpread
-      (int)(node.stages.out + 0.5),
-      node.inLow.out,           // lowAmplitude
-      node.inHigh.out,          // highAmplitude
-      node.seed.out,
+      control_effective(node.timeNumerator),   // startTime
+      control_effective(node.center),          // centerTime
+      control_effective(node.timeDenominator), // endTime
+      control_effective(node.mix),             // timeSpread
+      (int)(control_effective(node.stages) + 0.5),
+      control_effective(node.inLow),           // lowAmplitude
+      control_effective(node.inHigh),          // highAmplitude
+      control_effective(node.seed),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -6774,7 +6914,7 @@ static void process_pulse_explosion(Circuit& g, Node& node, int frames) {
 }
 
 static void xy_amp(Node& node, int f, double x, double y, double z = 0.0, bool hasZ = false) {
-  const double amp = node.amplitude.out;
+  const double amp = control_effective(node.amplitude);
   node.buf[kPortMono][f] = x * amp;
   node.buf[kPortLeft][f] = y * amp;
   node.buf[kPortRight][f] = hasZ ? (z * amp) : (y * amp);
@@ -6795,10 +6935,10 @@ static void process_jerobeam_spiral(Circuit& g, Node& node, int frames) {
     if (controlSmoothing) smoother_step_node(g, node);
     soemdsp_jerobeam_spiral_sample(
       node.nativeHandle,
-      node.frequency.out, node.shape.out, node.width.out, node.resonance.out,
-      node.mix.out, node.center.out, node.phaseParam.out, 0.0,
-      node.offset.out, 0.0, node.inLow.out, 0.0, node.inHigh.out, 0.0,
-      node.feedback.out, node.level.out, sr
+      control_effective(node.frequency), control_effective(node.shape), control_effective(node.width), control_effective(node.resonance),
+      control_effective(node.mix), control_effective(node.center), control_effective(node.phaseParam), 0.0,
+      control_effective(node.offset), 0.0, control_effective(node.inLow), 0.0, control_effective(node.inHigh), 0.0,
+      control_effective(node.feedback), control_effective(node.level), sr
     );
     xy_amp(node, f,
       soemdsp_jerobeam_spiral_x(node.nativeHandle),
@@ -6815,8 +6955,8 @@ static void process_fractal_spiral(Circuit& g, Node& node, int frames) {
     if (controlSmoothing) smoother_step_node(g, node);
     soemdsp_fractal_spiral_sample(
       node.nativeHandle,
-      node.frequency.out, node.phaseParam.out, node.width.out, node.shape.out,
-      node.resonance.out, node.center.out, node.stages.out, node.mix.out, sr
+      control_effective(node.frequency), control_effective(node.phaseParam), control_effective(node.width), control_effective(node.shape),
+      control_effective(node.resonance), control_effective(node.center), control_effective(node.stages), control_effective(node.mix), sr
     );
     xy_amp(node, f,
       soemdsp_fractal_spiral_x(node.nativeHandle),
@@ -6833,8 +6973,8 @@ static void process_log_spiral(Circuit& g, Node& node, int frames) {
     if (controlSmoothing) smoother_step_node(g, node);
     soemdsp_log_spiral_sample(
       node.nativeHandle,
-      node.frequency.out, node.phaseParam.out, node.width.out, node.shape.out,
-      node.stages.out, sr
+      control_effective(node.frequency), control_effective(node.phaseParam), control_effective(node.width), control_effective(node.shape),
+      control_effective(node.stages), sr
     );
     xy_amp(node, f,
       soemdsp_log_spiral_x(node.nativeHandle),
@@ -6856,8 +6996,8 @@ static void process_blubb(Circuit& g, Node& node, int frames) {
     }
     soemdsp_jbblubb_sample(
       node.nativeHandle,
-      node.frequency.out, node.shape.out, node.inLow.out, node.inHigh.out,
-      node.level.out, sr
+      control_effective(node.frequency), control_effective(node.shape), control_effective(node.inLow), control_effective(node.inHigh),
+      control_effective(node.level), sr
     );
     xy_amp(node, f, soemdsp_jbblubb_x(node.nativeHandle), soemdsp_jbblubb_y(node.nativeHandle));
   }
@@ -6877,11 +7017,11 @@ static void process_boing(Circuit& g, Node& node, int frames) {
     }
     soemdsp_jbboing_sample(
       node.nativeHandle,
-      node.frequency.out, node.shape.out, node.resonance.out,
-      node.inLow.out, node.inHigh.out, node.level.out, node.feedback.out,
-      node.mix.out, node.center.out, node.width.out, node.mode.out,
-      node.phaseParam.out, node.offset.out > 0.0 ? node.offset.out : 1.0,
-      node.timingMode.out, sr
+      control_effective(node.frequency), control_effective(node.shape), control_effective(node.resonance),
+      control_effective(node.inLow), control_effective(node.inHigh), control_effective(node.level), control_effective(node.feedback),
+      control_effective(node.mix), control_effective(node.center), control_effective(node.width), control_effective(node.mode),
+      control_effective(node.phaseParam), control_effective(node.offset) > 0.0 ? control_effective(node.offset) : 1.0,
+      control_effective(node.timingMode), sr
     );
     xy_amp(node, f, soemdsp_jbboing_x(node.nativeHandle), soemdsp_jbboing_y(node.nativeHandle));
   }
@@ -6901,8 +7041,8 @@ static void process_kepler_bouwkamp(Circuit& g, Node& node, int frames) {
     }
     soemdsp_jbkepler_sample(
       node.nativeHandle,
-      node.frequency.out, node.center.out, node.stages.out, node.shape.out,
-      node.mix.out, node.phaseParam.out, node.resonance.out, sr
+      control_effective(node.frequency), control_effective(node.center), control_effective(node.stages), control_effective(node.shape),
+      control_effective(node.mix), control_effective(node.phaseParam), control_effective(node.resonance), sr
     );
     xy_amp(node, f, soemdsp_jbkepler_x(node.nativeHandle), soemdsp_jbkepler_y(node.nativeHandle));
   }
@@ -6923,11 +7063,11 @@ static void process_mushroom(Circuit& g, Node& node, int frames) {
     // Face defaults for lesser-used visual knobs when not chased separately.
     soemdsp_jbmushroom_sample(
       node.nativeHandle,
-      node.frequency.out, node.phaseParam.out, node.stages.out, node.mix.out,
-      node.shape.out, node.inLow.out, node.lfoRate.out, node.center.out,
-      node.width.out, node.resonance.out, node.inHigh.out, node.offsetMs.out,
-      node.feedback.out, node.level.out, node.mode.out, node.oversample.out,
-      node.recycle.out, sr
+      control_effective(node.frequency), control_effective(node.phaseParam), control_effective(node.stages), control_effective(node.mix),
+      control_effective(node.shape), control_effective(node.inLow), control_effective(node.lfoRate), control_effective(node.center),
+      control_effective(node.width), control_effective(node.resonance), control_effective(node.inHigh), control_effective(node.offsetMs),
+      control_effective(node.feedback), control_effective(node.level), control_effective(node.mode), control_effective(node.oversample),
+      control_effective(node.recycle), sr
     );
     xy_amp(node, f, soemdsp_jbmushroom_x(node.nativeHandle), soemdsp_jbmushroom_y(node.nativeHandle));
   }
@@ -6947,10 +7087,10 @@ static void process_nyquist_shannon(Circuit& g, Node& node, int frames) {
     }
     soemdsp_jbnyquist_sample(
       node.nativeHandle,
-      node.frequency.out, node.seed.out, node.center.out, node.mix.out,
-      node.phaseParam.out, node.width.out, node.inLow.out, node.lfoRate.out,
-      node.shape.out, node.timeNumerator.out, node.resonance.out,
-      node.mode.out, node.stages.out, node.oversample.out, sr
+      control_effective(node.frequency), control_effective(node.seed), control_effective(node.center), control_effective(node.mix),
+      control_effective(node.phaseParam), control_effective(node.width), control_effective(node.inLow), control_effective(node.lfoRate),
+      control_effective(node.shape), control_effective(node.timeNumerator), control_effective(node.resonance),
+      control_effective(node.mode), control_effective(node.stages), control_effective(node.oversample), sr
     );
     xy_amp(node, f, soemdsp_jbnyquist_x(node.nativeHandle), soemdsp_jbnyquist_y(node.nativeHandle));
   }
@@ -6971,11 +7111,11 @@ static void process_radar(Circuit& g, Node& node, int frames) {
     // Discrete visual flags default off (0); core shape/audio Controls mapped.
     soemdsp_jbradar_sample(
       node.nativeHandle,
-      node.frequency.out, node.phaseParam.out, node.shape.out, node.resonance.out,
-      node.center.out, node.mix.out, node.mode.out, node.width.out, node.level.out,
+      control_effective(node.frequency), control_effective(node.phaseParam), control_effective(node.shape), control_effective(node.resonance),
+      control_effective(node.center), control_effective(node.mix), control_effective(node.mode), control_effective(node.width), control_effective(node.level),
       0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      node.stages.out, node.feedback.out, node.offset.out, node.diffusionSize.out,
-      node.inHigh.out, node.inLow.out, node.outLow.out, node.outHigh.out, sr
+      control_effective(node.stages), control_effective(node.feedback), control_effective(node.offset), control_effective(node.diffusionSize),
+      control_effective(node.inHigh), control_effective(node.inLow), control_effective(node.outLow), control_effective(node.outHigh), sr
     );
     xy_amp(node, f, soemdsp_jbradar_x(node.nativeHandle), soemdsp_jbradar_y(node.nativeHandle));
   }
@@ -6995,11 +7135,11 @@ static void process_torus(Circuit& g, Node& node, int frames) {
     }
     soemdsp_jbtorus_sample(
       node.nativeHandle,
-      node.frequency.out, node.shape.out, node.mode.out, node.center.out,
-      node.stages.out, node.resonance.out, node.width.out, node.mix.out,
-      node.phaseParam.out, node.level.out, node.offset.out, node.seed.out,
-      node.inLow.out, node.inHigh.out, node.outLow.out, node.outHigh.out,
-      node.feedback.out, node.diffusionSize.out, sr
+      control_effective(node.frequency), control_effective(node.shape), control_effective(node.mode), control_effective(node.center),
+      control_effective(node.stages), control_effective(node.resonance), control_effective(node.width), control_effective(node.mix),
+      control_effective(node.phaseParam), control_effective(node.level), control_effective(node.offset), control_effective(node.seed),
+      control_effective(node.inLow), control_effective(node.inHigh), control_effective(node.outLow), control_effective(node.outHigh),
+      control_effective(node.feedback), control_effective(node.diffusionSize), sr
     );
     xy_amp(node, f, soemdsp_jbtorus_x(node.nativeHandle), soemdsp_jbtorus_y(node.nativeHandle));
   }
@@ -7019,10 +7159,10 @@ static void process_wirdo_spiral(Circuit& g, Node& node, int frames) {
     }
     soemdsp_jbwirdo_sample(
       node.nativeHandle,
-      node.frequency.out, node.resonance.out, node.mix.out, node.shape.out,
-      node.width.out, node.phaseParam.out, node.center.out, node.level.out,
-      node.stages.out, node.feedback.out, node.offset.out, node.lfoRate.out,
-      node.mode.out, sr
+      control_effective(node.frequency), control_effective(node.resonance), control_effective(node.mix), control_effective(node.shape),
+      control_effective(node.width), control_effective(node.phaseParam), control_effective(node.center), control_effective(node.level),
+      control_effective(node.stages), control_effective(node.feedback), control_effective(node.offset), control_effective(node.lfoRate),
+      control_effective(node.mode), sr
     );
     xy_amp(node, f, soemdsp_jbwirdo_x(node.nativeHandle), soemdsp_jbwirdo_y(node.nativeHandle));
   }
@@ -7059,11 +7199,11 @@ static void process_phosphillator(Circuit& g, Node& node, int frames) {
     const double x = soemdsp_phosphillator_sample(
       node.nativeHandle,
       hasPitch ? g.mixPitch[f] : 0.0,
-      node.frequency.out,
-      node.phaseParam.out,
+      control_effective(node.frequency),
+      control_effective(node.phaseParam),
       hasReset ? g.mixReset[f] : 0.0,
       sr,
-      node.shape.out
+      control_effective(node.shape)
     );
     const double y = soemdsp_phosphillator_y(node.nativeHandle);
     xy_amp(node, f, x, y);
@@ -7076,9 +7216,9 @@ static void process_phosphillator(Circuit& g, Node& node, int frames) {
 static void process_transport(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double amplitude = node.amplitude.out;
-  const double divisions = node.stages.out;
-  const double tempoBpm = node.tempoBpm.out;
+  const double amplitude = control_effective(node.amplitude);
+  const double divisions = control_effective(node.stages);
+  const double tempoBpm = control_effective(node.tempoBpm);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
     const double bipolar = soemdsp_transport_sample(
@@ -7102,17 +7242,17 @@ static void process_step_sequencer(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const double threshold = node.center.out;
-  const double steps = node.stages.out;
-  const double level = node.amplitude.out;
-  const double v0 = node.laneVol[0].out;
-  const double v1 = node.laneVol[1].out;
-  const double v2 = node.laneVol[2].out;
-  const double v3 = node.laneVol[3].out;
-  const double v4 = node.laneBias[0].out;
-  const double v5 = node.laneBias[1].out;
-  const double v6 = node.laneBias[2].out;
-  const double v7 = node.laneBias[3].out;
+  const double threshold = control_effective(node.center);
+  const double steps = control_effective(node.stages);
+  const double level = control_effective(node.amplitude);
+  const double v0 = control_effective(node.laneVol[0]);
+  const double v1 = control_effective(node.laneVol[1]);
+  const double v2 = control_effective(node.laneVol[2]);
+  const double v3 = control_effective(node.laneVol[3]);
+  const double v4 = control_effective(node.laneBias[0]);
+  const double v5 = control_effective(node.laneBias[1]);
+  const double v6 = control_effective(node.laneBias[2]);
+  const double v7 = control_effective(node.laneBias[3]);
   for (int f = 0; f < frames; f++) {
     const double out = soemdsp_step_sequencer_sample(
       node.nativeHandle,
@@ -7137,15 +7277,15 @@ static void process_pump_limiter(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const bool hasSc = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double inputGainDb = node.gainDb.out;
-  const double thresholdDb = node.laneBias[1].out;
-  const double ratio = node.width.out;
-  const double lookaheadMs = node.timeNumerator.out;
-  const double lookaheadSamples = node.timeDenominator.out;
-  const double attackMs = node.offsetMs.out;
-  const double releaseMs = node.laneBias[0].out;
-  const double lookaheadEnabled = node.mode.out;
-  const double amplitude = node.amplitude.out;
+  const double inputGainDb = control_effective(node.gainDb);
+  const double thresholdDb = control_effective(node.laneBias[1]);
+  const double ratio = control_effective(node.width);
+  const double lookaheadMs = control_effective(node.timeNumerator);
+  const double lookaheadSamples = control_effective(node.timeDenominator);
+  const double attackMs = control_effective(node.offsetMs);
+  const double releaseMs = control_effective(node.laneBias[0]);
+  const double lookaheadEnabled = control_effective(node.mode);
+  const double amplitude = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
     const double l = g.mixMono[f] + g.mixLeft[f];
     const double r = g.mixMono[f] + g.mixRight[f];
@@ -7212,15 +7352,15 @@ static void process_audio_player(Circuit& g, Node& node, int frames) {
       speedCv,
       phaseCv,
       hasPhase ? 1 : 0,
-      node.mode.out,
-      node.frequency.out,
-      node.timeNumerator.out,
-      node.timeDenominator.out,
-      node.amplitude.out,
-      node.phaseParam.out,
-      node.shape.out,
-      node.seed.out,
-      node.stages.out,
+      control_effective(node.mode),
+      control_effective(node.frequency),
+      control_effective(node.timeNumerator),
+      control_effective(node.timeDenominator),
+      control_effective(node.amplitude),
+      control_effective(node.phaseParam),
+      control_effective(node.shape),
+      control_effective(node.seed),
+      control_effective(node.stages),
       sr
     );
     node.buf[kPortMono][f] = mono;
@@ -7237,14 +7377,14 @@ static void process_lookahead_limiter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double ceilingDb = node.gainDb.out;
-  const double lookaheadMs = node.timeNumerator.out;
-  const double lookaheadSamples = node.timeDenominator.out;
-  const double attackMs = node.offsetMs.out;
-  const double releaseMs = node.laneBias[0].out;
-  const double lookaheadEnabled = node.mode.out;
-  const double gainCompensation = node.timingMode.out;
-  const double dipGain = node.laneBias[1].out;
+  const double ceilingDb = control_effective(node.gainDb);
+  const double lookaheadMs = control_effective(node.timeNumerator);
+  const double lookaheadSamples = control_effective(node.timeDenominator);
+  const double attackMs = control_effective(node.offsetMs);
+  const double releaseMs = control_effective(node.laneBias[0]);
+  const double lookaheadEnabled = control_effective(node.mode);
+  const double gainCompensation = control_effective(node.timingMode);
+  const double dipGain = control_effective(node.laneBias[1]);
   for (int f = 0; f < frames; f++) {
     const double l = g.mixMono[f] + g.mixLeft[f];
     const double r = g.mixMono[f] + g.mixRight[f];
@@ -7271,7 +7411,7 @@ static void process_lookahead_limiter(Circuit& g, Node& node, int frames) {
 
 // Metallic mean: Ratio = (n + sqrt(n^2+4))/2. Free-function; fan M/L/R.
 static void process_metallic_ratio(Circuit& g, Node& node, int frames) {
-  const double index = node.width.out;
+  const double index = control_effective(node.width);
   const double ratio = soemdsp_metallic_ratio_sample(index);
   for (int f = 0; f < frames; f++) {
     node.buf[kPortMono][f] = ratio;
@@ -7284,9 +7424,9 @@ static void process_metallic_ratio(Circuit& g, Node& node, int frames) {
 // Wired ƒ cancels Frequency. Mono=ƒ, Left=ƒ0, Right fans ƒ.
 static void process_harmonic_series(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
-  const double harmonic = node.width.out;
-  const double offset = node.center.out;
-  const double knobHz = node.frequency.out;
+  const double harmonic = control_effective(node.width);
+  const double offset = control_effective(node.center);
+  const double knobHz = control_effective(node.frequency);
   if (!liveF) {
     const double hz = soemdsp_harmonic_series_sample(knobHz, harmonic, offset);
     for (int f = 0; f < frames; f++) {
@@ -7314,7 +7454,7 @@ static void process_lut_cell(Circuit& g, Node& node, int frames) {
   mix_live_port(g, node, kPortRight, frames, c);
   mix_live_port(g, node, kPortSaw, frames, d);
   const bool hasClk = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
-  const double truth = node.seed.out;
+  const double truth = control_effective(node.seed);
   for (int f = 0; f < frames; f++) {
     const double clk = hasClk ? g.mixTrigger[f] : 0.0;
     const int comb = soemdsp_lut_cell_sample(
@@ -7333,13 +7473,13 @@ static void process_random_clock(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double threshold = node.center.out;
-  const double minSec = node.timeNumerator.out;
-  const double maxSec = node.timeDenominator.out;
-  const double duty = node.shape.out;
-  const double triggerTime = node.offsetMs.out;
-  const double level = node.amplitude.out;
-  const int seedKey = (int)(node.seed.out + (node.seed.out >= 0.0 ? 0.5 : -0.5));
+  const double threshold = control_effective(node.center);
+  const double minSec = control_effective(node.timeNumerator);
+  const double maxSec = control_effective(node.timeDenominator);
+  const double duty = control_effective(node.shape);
+  const double triggerTime = control_effective(node.offsetMs);
+  const double level = control_effective(node.amplitude);
+  const int seedKey = (int)(control_effective(node.seed) + (control_effective(node.seed) >= 0.0 ? 0.5 : -0.5));
   for (int f = 0; f < frames; f++) {
     const double trig = soemdsp_random_clock_sample(
       node.nativeHandle,
@@ -7366,11 +7506,11 @@ static void process_trigger_counter(Circuit& g, Node& node, int frames) {
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double threshold = node.center.out;
-  const double countMax = node.stages.out;
-  const double increment = node.width.out;
-  const double pulseTime = node.timeNumerator.out;
-  const double level = node.amplitude.out;
+  const double threshold = control_effective(node.center);
+  const double countMax = control_effective(node.stages);
+  const double increment = control_effective(node.width);
+  const double pulseTime = control_effective(node.timeNumerator);
+  const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
     const double pulse = soemdsp_trigger_counter_sample(
       node.nativeHandle,
@@ -7395,10 +7535,10 @@ static void process_delayed_trigger(Circuit& g, Node& node, int frames) {
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double threshold = node.center.out;
-  const double delay = node.timeNumerator.out;
-  const double pulseTime = node.timeDenominator.out;
-  const double level = node.amplitude.out;
+  const double threshold = control_effective(node.center);
+  const double delay = control_effective(node.timeNumerator);
+  const double pulseTime = control_effective(node.timeDenominator);
+  const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
     const double out = soemdsp_delayed_trigger_sample(
       node.nativeHandle,
@@ -7422,8 +7562,8 @@ static void process_mid_side_encode(Circuit& g, Node& node, int frames) {
   double right[kMaxBlockFrames];
   mix_live_port(g, node, kPortLeft, frames, left);
   mix_live_port(g, node, kPortRight, frames, right);
-  const double midGain = node.gainDb.out;
-  const double sideGain = node.gainLeftDb.out;
+  const double midGain = control_effective(node.gainDb);
+  const double sideGain = control_effective(node.gainLeftDb);
   for (int f = 0; f < frames; f++) {
     node.buf[kPortMono][f] = soemdsp_mid_side_encode_sample(
       0.0, left[f], right[f], midGain, sideGain
@@ -7440,7 +7580,7 @@ static void process_vectorscope_transform(Circuit& g, Node& node, int frames) {
   double right[kMaxBlockFrames];
   mix_live_port(g, node, kPortLeft, frames, left);
   mix_live_port(g, node, kPortRight, frames, right);
-  const double rotateDeg = node.laneBias[0].out;
+  const double rotateDeg = control_effective(node.laneBias[0]);
   for (int f = 0; f < frames; f++) {
     node.buf[kPortMono][f] = soemdsp_vectorscope_transform_sample(
       0.0, left[f], right[f], rotateDeg
@@ -7459,9 +7599,9 @@ static void process_rotate_3d_to_2d(Circuit& g, Node& node, int frames) {
   mix_live_port(g, node, kPortMono, frames, xIn);
   mix_live_port(g, node, kPortLeft, frames, yIn);
   mix_live_port(g, node, kPortRight, frames, zIn);
-  const double rx = node.laneBias[0].out;
-  const double ry = node.laneBias[1].out;
-  const double rz = node.laneBias[2].out;
+  const double rx = control_effective(node.laneBias[0]);
+  const double ry = control_effective(node.laneBias[1]);
+  const double rz = control_effective(node.laneBias[2]);
   for (int f = 0; f < frames; f++) {
     node.buf[kPortMono][f] = soemdsp_rotate_3d_to_2d_sample(
       0.0, xIn[f], yIn[f], zIn[f], rx, ry, rz
@@ -7493,20 +7633,20 @@ static void process_crossover(Circuit& g, Node& node, int frames) {
   const bool controlSmoothing = node_control_smoothing(node)
     || node.lpfFrequency.active || node.hpfFrequency.active;
   const int bands = crossover_band_count_for_type(node.typeId);
-  const double amp = node.amplitude.out;
+  const double amp = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    double f0 = liveF ? g.mixF[f] : node.frequency.out;
-    double f1 = node.center.out;
-    double f2 = node.width.out;
-    double f3 = node.lpfFrequency.out;
-    double f4 = node.hpfFrequency.out;
+    double f0 = liveF ? g.mixF[f] : control_effective(node.frequency);
+    double f1 = control_effective(node.center);
+    double f2 = control_effective(node.width);
+    double f3 = control_effective(node.lpfFrequency);
+    double f4 = control_effective(node.hpfFrequency);
     if (!(f0 == f0) || f0 < 20.0) f0 = 20.0;
     if (!(f1 == f1) || f1 < 20.0) f1 = 20.0;
     if (!(f2 == f2) || f2 < 20.0) f2 = 20.0;
     if (!(f3 == f3) || f3 < 20.0) f3 = 20.0;
     if (!(f4 == f4) || f4 < 20.0) f4 = 20.0;
-    int order = (int)(node.stages.out + (node.stages.out >= 0.0 ? 0.5 : -0.5));
+    int order = (int)(control_effective(node.stages) + (control_effective(node.stages) >= 0.0 ? 0.5 : -0.5));
     if (order <= 2) order = 2;
     else if (order <= 4) order = 4;
     else order = 8;
@@ -7544,15 +7684,15 @@ static void process_mix_stereo(Circuit& g, Node& node, int frames) {
   mix_live_port(g, node, 6, frames, r3);
   mix_live_port(g, node, 7, frames, l4);
   mix_live_port(g, node, kPortMixStereoR4, frames, r4);
-  const double vol1 = node.laneVol[0].out;
-  const double vol2 = node.laneVol[1].out;
-  const double vol3 = node.laneVol[2].out;
-  const double vol4 = node.laneVol[3].out;
-  const double pan1 = node.laneBias[0].out;
-  const double pan2 = node.laneBias[1].out;
-  const double pan3 = node.laneBias[2].out;
-  const double pan4 = node.laneBias[3].out;
-  const double amp = node.volumeDb.out; // Amplitude (All) in dB
+  const double vol1 = control_effective(node.laneVol[0]);
+  const double vol2 = control_effective(node.laneVol[1]);
+  const double vol3 = control_effective(node.laneVol[2]);
+  const double vol4 = control_effective(node.laneVol[3]);
+  const double pan1 = control_effective(node.laneBias[0]);
+  const double pan2 = control_effective(node.laneBias[1]);
+  const double pan3 = control_effective(node.laneBias[2]);
+  const double pan4 = control_effective(node.laneBias[3]);
+  const double amp = control_effective(node.volumeDb); // Amplitude (All) in dB
   for (int f = 0; f < frames; f++) {
     node.buf[kPortMono][f] = soemdsp_mix_stereo_sample(
       0.0,
@@ -7579,8 +7719,8 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double threshold = node.center.out;
-  const double sampleFreq = node.frequency.out;
+  const double threshold = control_effective(node.center);
+  const double sampleFreq = control_effective(node.frequency);
   const int seed = (int)node.idHash;
   // hasInConnected: any audio bus cable (Trigger alone does not count).
   bool hasIn = false;
@@ -7617,8 +7757,8 @@ static void process_sample_delay(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double timeSec = node.timeNumerator.out;
-  const double samples = node.timeDenominator.out;
+  const double timeSec = control_effective(node.timeNumerator);
+  const double samples = control_effective(node.timeDenominator);
   for (int f = 0; f < frames; f++) {
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double delayed = soemdsp_sample_delay_sample(
@@ -7662,10 +7802,10 @@ static void process_slew_limiter(Circuit& g, Node& node, int frames) {
   // timeNumerator=upTime, timeDenominator=downTime, shape=shape, offset=bias
   soemdsp_slew_limiter_process_block(
     node.nativeHandle,
-    node.timeNumerator.out,
-    node.timeDenominator.out,
-    node.shape.out,
-    node.offset.out,
+    control_effective(node.timeNumerator),
+    control_effective(node.timeDenominator),
+    control_effective(node.shape),
+    control_effective(node.offset),
     (double)sr,
     frames
   );
@@ -7679,7 +7819,7 @@ static void process_slew_limiter(Circuit& g, Node& node, int frames) {
 // Bias: out = in + offset (Control `offset`, same slot as attenuverter DC).
 static void process_bias(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
-  const double bias = node.offset.out;
+  const double bias = control_effective(node.offset);
   for (int f = 0; f < frames; f++) {
     const double out = (g.mixMono[f] + g.mixLeft[f] + g.mixRight[f]) + bias;
     node.buf[kPortMono][f] = out;
@@ -7694,10 +7834,10 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const double amp = node.amplitude.out;
-  const double phase0 = node.phaseParam.out * kTwoPi;
+  const double amp = control_effective(node.amplitude);
+  const double phase0 = control_effective(node.phaseParam) * kTwoPi;
   if (!liveF && !liveReset) {
-    const double freq = clamp_hz_nyquist(node.frequency.out, srD);
+    const double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
     soemdsp_robin_sinusoid_process_block(
       node.nativeHandle, freq, amp, srD, phase0, 0.0, frames
     );
@@ -7718,7 +7858,7 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
     }
     const double freq = liveF
       ? clamp_hz_nyquist(g.mixF[f], srD)
-      : clamp_hz_nyquist(node.frequency.out, srD);
+      : clamp_hz_nyquist(control_effective(node.frequency), srD);
     const double y = soemdsp_robin_sinusoid_sample(
       node.nativeHandle, freq, amp, srD, phase0, resetGate
     );
@@ -7734,15 +7874,15 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double amp = node.amplitude.out;
-  const double detune = node.width.out; // detune cents
-  int voices = (int)(node.stages.out + (node.stages.out >= 0.0 ? 0.5 : -0.5));
+  const double amp = control_effective(node.amplitude);
+  const double detune = control_effective(node.width); // detune cents
+  int voices = (int)(control_effective(node.stages) + (control_effective(node.stages) >= 0.0 ? 0.5 : -0.5));
   if (voices < 1) voices = 1;
   if (voices > 9) voices = 9;
   const double referenceVoltage = 48.0 / 120.0;
 
   if (!liveF && !livePitch) {
-    const double freq = clamp_hz_nyquist(node.frequency.out, srD);
+    const double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
     soemdsp_robin_supersaw_process_block(
       node.nativeHandle, freq, srD, detune, voices, amp, frames
     );
@@ -7763,9 +7903,9 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
 
   // Live ƒ / pitch: fall back to process_block with per-block freq from first
   // live sample (block-rate). Full sample-accurate path can come later.
-  double freq = node.frequency.out;
+  double freq = control_effective(node.frequency);
   if (liveF) freq = g.mixF[0];
-  else if (livePitch) freq = pitched_hz(node.frequency.out, g.mixPitch[0], referenceVoltage);
+  else if (livePitch) freq = pitched_hz(control_effective(node.frequency), g.mixPitch[0], referenceVoltage);
   freq = clamp_hz_nyquist(freq, srD);
   soemdsp_robin_supersaw_process_block(
     node.nativeHandle, freq, srD, detune, voices, amp, frames
@@ -7788,15 +7928,15 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
 static void process_noise_generator(Circuit& g, Node& node, int frames) {
   (void)g;
   if (node.nativeHandle <= 0) return;
-  const int mode = (int)(node.mode.out + (node.mode.out >= 0.0 ? 0.5 : -0.5));
+  const int mode = (int)(control_effective(node.mode) + (control_effective(node.mode) >= 0.0 ? 0.5 : -0.5));
   soemdsp_noise_generator_process_block(
     node.nativeHandle,
-    node.seed.out,
+    control_effective(node.seed),
     mode,
-    node.offset.out,   // mean
-    node.width.out,    // deviation
-    node.shape.out,
-    node.amplitude.out,
+    control_effective(node.offset),   // mean
+    control_effective(node.width),    // deviation
+    control_effective(node.shape),
+    control_effective(node.amplitude),
     frames,
     1
   );
@@ -7813,11 +7953,11 @@ static void process_noise_generator(Circuit& g, Node& node, int frames) {
 // Gain: soemdsp_gain_sample (master/L/R dB, mono-sum law, offset).
 static void process_gain(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
-  const double masterDb = node.gainDb.out;
-  const double leftDb = node.gainLeftDb.out;
-  const double rightDb = node.gainRightDb.out;
-  const double monoSum = node.gainMonoSum.out;
-  const double off = node.offset.out;
+  const double masterDb = control_effective(node.gainDb);
+  const double leftDb = control_effective(node.gainLeftDb);
+  const double rightDb = control_effective(node.gainRightDb);
+  const double monoSum = control_effective(node.gainMonoSum);
+  const double off = control_effective(node.offset);
   for (int f = 0; f < frames; f++) {
     const double mono = g.mixMono[f];
     const double left = g.mixLeft[f];
@@ -7837,8 +7977,8 @@ static void process_gain(Circuit& g, Node& node, int frames) {
 static void process_output(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   float gL = 1.0f, gR = 1.0f;
-  pan_gains((float)node.pan.out, &gL, &gR);
-  const float vol = db_to_lin((float)node.volumeDb.out);
+  pan_gains((float)control_effective(node.pan), &gL, &gR);
+  const float vol = db_to_lin((float)control_effective(node.volumeDb));
   for (int f = 0; f < frames; f++) {
     const double m = g.mixMono[f];
     const double l = (m + g.mixLeft[f]) * (double)vol * (double)gL;
@@ -8099,6 +8239,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeGravityWalker
     || typeId == kTypeSmoothGraph
     || typeId == kTypeStepGraph
+    || typeId == kTypePhaseDisperse
+    || typeId == kTypeQuadrature
     || typeId == kTypeChebyshev
     || typeId == kTypeElliptic
     || typeId == kTypeEqFilter
@@ -8248,6 +8390,40 @@ extern "C" int soemdsp_graph_set_param(int handle, unsigned int nodeHash, int pa
   Control* c = control_for_param(g->nodes[idx], paramId);
   if (!c) return 0;
   control_set_target(*g, *c, (double)value);
+  return 0;
+}
+
+// MOD accumulators only — never written into target/smoother.
+extern "C" int soemdsp_graph_set_param_mod(
+  int handle, unsigned int nodeHash, int paramId, float unitAdd, float domainAdd
+) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return -2;
+  Control* c = control_for_param(g->nodes[idx], paramId);
+  if (!c) return 0;
+  const double u = (unitAdd == unitAdd) ? (double)unitAdd : 0.0;
+  const double d = (domainAdd == domainAdd) ? (double)domainAdd : 0.0;
+  c->modUnit = u;
+  c->modDomain = d;
+  return 0;
+}
+
+// Domain guides + post-MOD bound flags for control_effective unit-band map.
+// flags: bit0 wraparound, bit1 modClamp.
+extern "C" int soemdsp_graph_set_param_domain(
+  int handle, unsigned int nodeHash, int paramId, float min, float max, int flags
+) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return -2;
+  Control* c = control_for_param(g->nodes[idx], paramId);
+  if (!c) return 0;
+  c->domainMin = (min == min) ? (double)min : 0.0;
+  c->domainMax = (max == max) ? (double)max : 0.0;
+  c->modFlags = (unsigned char)(flags & 3);
   return 0;
 }
 
@@ -8773,6 +8949,14 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_step_graph(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypePhaseDisperse) {
+      process_phase_disperse(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeQuadrature) {
+      process_quadrature(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeChebyshev) {
       process_scientific_iir(*g, node, frames, soemdsp_chebyshev_sample);
       continue;
@@ -9162,6 +9346,6 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  // 104: smoothGraph(146) + stepGraph(147) — native wired, still UC / off allowlist
-  return 104;
+  // 105: phaseDisperse(148) + quadrature(149) native + efficient allowlist
+  return 105;
 }

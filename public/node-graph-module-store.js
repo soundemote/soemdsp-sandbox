@@ -153,9 +153,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "hilbert",
   "kickEnvelope",
   "nextPatch",
-  "phaseDisperse",
   "previousPatch",
-  "quadrature",
   "sampleLooper",
   "samplePlayer",
   "shootingStarExplosion",
@@ -194,6 +192,8 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "gravityWalker",
   "smoothGraph",
   "stepGraph",
+  "phaseDisperse",
+  "quadrature",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */

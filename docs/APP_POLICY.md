@@ -105,6 +105,8 @@ Only these live-audio types exist in the efficient build:
 | `gravityWalker` | Inertia / leap degree walker |
 | `smoothGraph` | Free-dot global curve modulator (Input · LFO · Phasor) |
 | `stepGraph` | Segment / step-grid curve modulator |
+| `phaseDisperse` | Cascaded APF group-delay smear (≤64 stages; CPU ∝ filters) |
+| `quadrature` | Hilbert Pair IIR (In/Mid/Side → I/Q/MidI/SideQ) |
 | `chebyshev` | Chebyshev Type I (equiripple passband) |
 | `elliptic` | Elliptic / Cauer multipole |
 | `eqFilter` | ZDF SVF multi-mode EQ |
@@ -179,6 +181,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    chordPad / noteGlide / noteTranspose /
    degreeTuring / degreePhrase / gravityWalker /
    smoothGraph / stepGraph /
+   phaseDisperse / quadrature /
    chebyshev / elliptic /
    eqFilter / activeFilter / passiveFilter / tb303Filter /
    flowerChildFilter / yellowjacketFilter / superloveFilter / humanFilter /
@@ -208,6 +211,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
 - Live plan apply / worklet `setPlan` **refuse** foreign types with status **`not in efficient build`**. Do **not** run JS DSP for missing natives or hidden types.
 - Dual JS+C++ audio paths are **not** the product. Convert the next type into the allowlist (native + catalog) — never reintroduce a JS twin to “make it work.”
 - **Smoother manager is audio/C++ only** on the efficient path. JS may write Control **targets** and **smoothing-time** into engine memory on change; JS must **not** own or step the smoother chase list. (Legacy `?product=full` JS smoothers are debt until removed.)
+- **MOD is not a smoother target.** `set_param` writes the **knob** only; `set_param_mod` writes MOD accumulators; DSP reads `control_effective` = applyMod(`Control.out`, MOD). Smoother and MOD run alongside — never fold MOD into `target`, and never disable the smoother because a cable is present.
 - **Efficient AudioWorklet blob does not load JS DSP evaluators** (`node-live-audio-worklet-evaluators*`, `evaluate-frame.js`, or per-module `*-worklet-evaluator.js`). Audio is **native graph only** (`processNativeGraphQuantum`); `process()` early-returns after that path and never calls `evaluateFrame`. Legacy evaluator sources load only for `?product=full`.
 - **Music Player (`audioPlayer`):** native `audio_player` opcode + phosphillator-style PCM upload (`set_pcm` / `l_ptr` / `r_ptr`). Decode stays main-thread; playlist UI stays JS. Full tracks allocate with `memory.grow` (same idea as holding the file in JS RAM).
 - **Yellow Graph:** native opcodes **111–124** (Generator, Bubble, Out, Linear/Analog/Ladder filters, FrequencySkew, Quantize Freq/Phase, Pan, Noisy*). Graph port **23**. Efficient Live blob does **not** load the Yellow JS sidecar; DSP is native only. `additiveImage` stays out of the efficient allowlist until analysis ships.
