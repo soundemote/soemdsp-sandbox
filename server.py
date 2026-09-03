@@ -89,14 +89,12 @@ def current_build_token() -> str:
 # Initial roll at import / process start.
 BUILD_TOKEN = roll_build_token(force=True)
 
-# "debug" (default) vs "release". Purely a labeling/UI signal -- it does not
-# gate any behavior server-side -- consumed client-side to color the debug
-# console's bug button (red for a debug build, neutral for a release build;
-# the button stays visible either way — see node-graph-debug-console.js).
-# Override with the SOEMDSP_BUILD_MODE env var or --release on the command
-# line. Anything other than exactly "release" is treated as "debug" so an
-# unrecognized/misconfigured value fails toward the more-alarming, more-honest
-# label rather than silently looking like a vetted release build.
+# "debug" (default) vs "release". Labeling/UI signal stamped into the shell
+# (data-build-mode-value). Client uses it to: color the debug console bug
+# button (red vs neutral — always visible); hide boot-screen OS/GPU/RAM
+# sysinfo in release. Does not gate server DSP. Override with
+# SOEMDSP_BUILD_MODE=release or --release. Anything other than exactly
+# "release" is treated as "debug" (fail toward the more-honest label).
 BUILD_MODE = "release" if os.environ.get("SOEMDSP_BUILD_MODE", "").strip().lower() == "release" else "debug"
 DEFAULT_PRESET = PUBLIC / "presets" / "default.json"
 DEFAULT_UI_SETTINGS = PUBLIC / "presets" / "useruisettings.json"
