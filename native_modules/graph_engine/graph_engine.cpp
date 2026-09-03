@@ -3798,8 +3798,9 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  // Same slot wiring as Delay: Amp → lfoAmplitude, Rate → lfoRate.
-  // delay = tempoBase + Offset + LFO_Amp * lfo.
+  // Control slots match Delay (Amp→lfoAmplitude, Rate→lfoRate); depth is ms
+  // (Delay modAmount is a fraction of delay time). Formula:
+  // delay = tempoBase + Offset_ms + LFO_Amp_ms * lfoBipolar.
   for (int f = 0; f < frames; f++) {
     smoother_step_node(g, node);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];

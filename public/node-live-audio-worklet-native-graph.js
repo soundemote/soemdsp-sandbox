@@ -1034,12 +1034,6 @@ NodeLiveAudioProcessor.prototype.releaseEfficientLegacyNativeHandles =
       }
       this.reverbEffectStates.clear();
     }
-    if (this.pingPongDelayStates instanceof Map) {
-      for (const state of this.pingPongDelayStates.values()) {
-        this.destroyPingPongDelayNativeState?.(state);
-      }
-      this.pingPongDelayStates.clear();
-    }
   };
 
 NodeLiveAudioProcessor.prototype.destroyNativeGraphHandle = function destroyNativeGraphHandle() {
@@ -1324,7 +1318,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "pingPongDelay") {
-      // Same Control slots as Delay: Amp → LFO_AMPLITUDE, Rate → LFO_RATE.
+      // Control slots match Delay (Amp→45, Rate→57); depth units differ:
+      // Delay modAmount = fraction of delay time; Ping Pong lfoAmp = absolute ms.
       const ppAmp = Number(node?.params?.amplitude);
       const ppOffset = Number(node?.params?.offset);
       const ppLfoAmp = Number(node?.params?.lfoAmp);

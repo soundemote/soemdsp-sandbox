@@ -792,40 +792,6 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           Right: mixR,
         };
       },
-      pingPongDelay: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
-        const state = this.pingPongDelayStates.get(nodeId) || this.createPingPongDelayState();
-        this.pingPongDelayStates.set(nodeId, state);
-        // hasChanged: only re-resolve while smoothing/modulated; idle knobs stay off the list.
-        const { params } = this.resolveModuleControlParams(
-          node,
-          state,
-          {
-            feedback: 0.35,
-            hpfFrequency: 20,
-            interpolation: 0,
-            level: 1,
-            lfoRate: 0.35,
-            lfoStyle: 0,
-            lfoVariation: 0.25,
-            lpfFrequency: 8000,
-            mix: 0.35,
-            offsetMs: 0,
-            saturate: 1,
-            timeDenominator: 4,
-            timeNumerator: 1,
-            timingMode: 0,
-          },
-          frame,
-          frames,
-          frameValues,
-        );
-        return this.pingPongDelaySample(
-          state,
-          mixInput(nodeId) + mixInput(nodeId, "Left") + mixInput(nodeId, "Right"),
-          params,
-          safeRate,
-        );
-      },
       wallDelay: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.wallDelayStates.get(nodeId) || this.createWallDelayState();
         this.wallDelayStates.set(nodeId, state);

@@ -69,10 +69,6 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
     }
     this.delayedTriggerStates = new Map();
     this.delayEffectStates = new Map();
-    for (const state of this.pingPongDelayStates.values()) {
-      this.destroyPingPongDelayNativeState(state);
-    }
-    this.pingPongDelayStates = new Map();
     this.wallDelayStates = new Map();
     this.expAdsrStates = new Map();
     this.attackDecayStates = new Map();

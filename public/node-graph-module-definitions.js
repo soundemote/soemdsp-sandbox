@@ -10069,7 +10069,8 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "ms",
         tooltip:
-          "Modulates the tempo-base delay (ms) on both taps: delay = base + Offset + LFO. "
+          "Static trim (ms) of the tempo-base delay on both taps: "
+          + "delay = tempoBase + Offset + LFO_Amp×lfo. Not LFO depth — that is LFO Amp. "
           + "Negative shortens, positive lengthens. Sample-accurate — pitches when swept or MOD’d.",
       },
       {
@@ -10086,7 +10087,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Shape of the built-in modulator of delay time. Parabol / Random Walk / FBM.",
+          "Shape of the built-in delay-time modulator. Parabol / Random Walk / FBM.",
       },
       {
         defaultValue: "0.35",
@@ -10099,7 +10100,8 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "LFO speed in Hz (0…20). Modulates delay time; not depth — depth is LFO Amp.",
+          "LFO speed in Hz (0…20). Speed only — depth is LFO Amp (ms). "
+          + "Gold LFO L/R outs move whenever Rate > 0, even if Amp is 0.",
       },
       {
         defaultValue: "25",
@@ -10114,7 +10116,9 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "ms",
         tooltip:
-          "How far the LFO moves delay time (ms) around (tempo base + Offset). 0 = base+Offset only.",
+          "How far the LFO moves delay time (ms) around (tempoBase + Offset). "
+          + "Default 25 ms is audible wow; 0 = tempoBase+Offset only (Rate still drives gold LFO outs). "
+          + "Unlike Delay Mod (fraction of delay time), this depth is absolute milliseconds.",
       },
       {
         defaultValue: "0.25",

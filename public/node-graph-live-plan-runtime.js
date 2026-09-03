@@ -326,7 +326,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const clockDividerStates = new Map();
   const delayedTriggerStates = new Map();
   const delayEffectStates = new Map();
-  const pingPongDelayStates = new Map();
   const wallDelayStates = new Map();
   const expAdsrStates = new Map();
   const attackDecayStates = new Map();
@@ -697,9 +696,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
           : createNodeGraphDelayEffectState(),
       );
     }
-    if (node.type === "pingPongDelay") {
-      pingPongDelayStates.set(node.id, createNodeGraphPingPongDelayState());
-    }
     if (node.type === "wallDelay") {
       wallDelayStates.set(node.id, createNodeGraphWallDelayState());
     }
@@ -812,7 +808,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     cookbookFilterStates,
     delayedTriggerStates,
     delayEffectStates,
-    pingPongDelayStates,
     wallDelayStates,
     expAdsrStates,
     attackDecayStates,
@@ -1219,9 +1214,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.delayEffectStates) {
     runtime.delayEffectStates = new Map();
   }
-  if (!runtime.pingPongDelayStates) {
-    runtime.pingPongDelayStates = new Map();
-  }
   if (!runtime.wallDelayStates) {
     runtime.wallDelayStates = new Map();
   }
@@ -1604,9 +1596,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
           ? createNodeGraphStereoDelayEffectState()
           : createNodeGraphDelayEffectState(),
       );
-    }
-    if (node.type === "pingPongDelay" && !runtime.pingPongDelayStates.has(node.id)) {
-      runtime.pingPongDelayStates.set(node.id, createNodeGraphPingPongDelayState());
     }
     if (node.type === "wallDelay" && !runtime.wallDelayStates.has(node.id)) {
       runtime.wallDelayStates.set(node.id, createNodeGraphWallDelayState());
@@ -2131,11 +2120,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.delayEffectStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.delayEffectStates.delete(id);
-    }
-  }
-  for (const id of [...runtime.pingPongDelayStates.keys()]) {
-    if (!nodeIds.has(id)) {
-      runtime.pingPongDelayStates.delete(id);
     }
   }
   for (const id of [...runtime.wallDelayStates.keys()]) {

@@ -205,20 +205,6 @@ NodeLiveAudioProcessor.prototype.destroyRandomClockNativeState = function destro
     }
 };
 
-NodeLiveAudioProcessor.prototype.destroyPingPongDelayNativeState = function destroyPingPongDelayNativeState(state) {
-    if (!state?.nativeHandle) {
-      return;
-    }
-    const destroy =
-      this.nativePingPongDelay?.soemdsp_ping_pong_delay_destroy
-      || this.nativeGraph?.soemdsp_ping_pong_delay_destroy;
-    if (!destroy) {
-      return;
-    }
-    destroy(state.nativeHandle);
-    state.nativeHandle = 0;
-};
-
 NodeLiveAudioProcessor.prototype.destroyPapoulisFilterNativeState = function destroyPapoulisFilterNativeState(state) {
     if (state.nativeHandle && this.nativePapoulisFilter?.soemdsp_papoulis_filter_destroy) {
       this.nativePapoulisFilter.soemdsp_papoulis_filter_destroy(state.nativeHandle);

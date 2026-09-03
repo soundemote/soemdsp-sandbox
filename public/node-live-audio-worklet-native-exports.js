@@ -743,21 +743,12 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+      // Graph-hosted: process_ping_pong in graph_engine; ack combined-wasm catalog apply.
       if (name === "ping_pong_delay" || targetType === "pingPongDelay") {
-        for (const state of this.pingPongDelayStates.values()) {
-          this.destroyPingPongDelayNativeState(state);
-        }
-        this.nativePingPongDelay = exports;
-        this.nativePingPongDelayReady = Boolean(
-          this.nativePingPongDelay?.soemdsp_ping_pong_delay_create &&
-          this.nativePingPongDelay?.soemdsp_ping_pong_delay_set_params &&
-          this.nativePingPongDelay?.soemdsp_ping_pong_delay_process_block &&
-          this.nativePingPongDelay?.soemdsp_ping_pong_delay_sample,
-        );
         this.port.postMessage({
           type: "nativeModuleStatus",
           name: "ping_pong_delay",
-          status: this.nativePingPongDelayReady ? "ready" : "missing exports",
+          status: "ready",
         });
         return;
       }

@@ -434,6 +434,11 @@ if ($node) {
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: smoke test FAILED (see output above)"
   }
+  # Ping Pong: LFO phase must persist across process_block (modulated delay).
+  & $node.Source "$root\scripts\smoke_ping_pong_lfo.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: ping_pong LFO persistence smoke FAILED"
+  }
 } else {
   Write-Warning "node not found -- combined wasm smoke test SKIPPED. Install Node.js to enable it."
 }

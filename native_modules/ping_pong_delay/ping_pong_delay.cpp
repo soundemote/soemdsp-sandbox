@@ -3,16 +3,20 @@
 // soemdsp-native-target: pingPongDelay
 // soemdsp-native-kind: effect
 //
-// Tape-style stereo ping-pong (modulated delay, tempo-sync time base):
-//   delay = max(0, tempoBase + Offset_ms + LFO_Amp_ms × lfoBipolar)
-//  - Tempo base: Numer/Denom × whole note × Normal|Dotted|Triplet
-//  - Offset (ms, bipolar): static trim of the tempo base
-//  - LFO Amp (ms): depth; LFO Rate (Hz): speed — same roles as Delay modAmount/modRate
-//  - Independent L/R LFOs (Parabol / Random Walk / FBM); gold outs = raw bipolar LFO
-//  - Feedback path: soft clip → one-pole HPF → one-pole LPF
+// Modulated stereo ping-pong delay (tempo-sync time base). No JS DSP twin.
 //
-// Version 3 = process_block + set_params
-// Version 4 = growable per-instance rings (no BSS 8s×N pools; size to live delay).
+//   delaySec = max(0, tempoBase + Offset_ms/1000 + LFO_Amp_ms/1000 × lfoBipolar)
+//
+//  - tempoBase: Numer/Denom × whole note × Normal|Dotted|Triplet at BPM
+//  - Offset (ms, bipolar): static trim of the tempo base (not LFO depth)
+//  - LFO Amp (ms): modulation depth around (tempoBase + Offset); default audible
+//  - LFO Rate (Hz): LFO speed — shares Control slots with Delay modAmount/modRate
+//    but depth units differ (Delay = fraction of delay time; this = absolute ms)
+//  - Gold LFO L/R outs: raw bipolar LFO (−1…+1), not scaled by Amp
+//  - Feedback: soft clip → one-pole HPF → one-pole LPF
+//
+// LFO phase/walk/FBM state is plain doubles on the instance (Delay-style).
+// Block I/O buffers are separate static arrays (not fields of the state struct).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -89,97 +93,94 @@ struct OnePoleHP {
   void reset() { x0 = y0 = 0.0; }
 };
 
-// Stateless LFO helpers. Instance timing lives as plain doubles on
-// PingPongDelayState (nested-member stores did not persist across wasm calls).
-struct LfoOps {
-  static double rationalCurve01(double x, double k) {
-    double v = clamp(x, 0.0, 1.0);
-    double kk = clamp(k, -0.999, 0.999);
-    double denom = 2.0 * kk * v - kk - 1.0;
-    if (dsp_fabs(denom) < 1e-12) return v;
-    return (kk * v - v) / denom;
-  }
+static double lfo_rational_curve01(double x, double k) {
+  double v = clamp(x, 0.0, 1.0);
+  double kk = clamp(k, -0.999, 0.999);
+  double denom = 2.0 * kk * v - kk - 1.0;
+  if (dsp_fabs(denom) < 1e-12) return v;
+  return (kk * v - v) / denom;
+}
 
-  static double smoothNoise1d(double x, unsigned int s) {
-    int left = (int)x;
-    if (x < 0.0 && x != (double)left) left -= 1;
-    double frac = x - (double)left;
-    double smooth = frac * frac * (3.0 - 2.0 * frac);
-    double a = hash_bipolar((unsigned int)left, s);
-    double b = hash_bipolar((unsigned int)(left + 1), s);
-    return a + (b - a) * smooth;
-  }
+static double lfo_smooth_noise1d(double x, unsigned int s) {
+  int left = (int)x;
+  if (x < 0.0 && x != (double)left) left -= 1;
+  double frac = x - (double)left;
+  double smooth = frac * frac * (3.0 - 2.0 * frac);
+  double a = hash_bipolar((unsigned int)left, s);
+  double b = hash_bipolar((unsigned int)(left + 1), s);
+  return a + (b - a) * smooth;
+}
 
-  static double fbmUnipolar(double time, unsigned int s) {
-    double total = 0.0;
-    double amplitude = 1.0;
-    double freq = 1.0;
-    double maxValue = 0.0;
-    for (int i = 0; i < 4; i++) {
-      total += smoothNoise1d(time * freq, s + (unsigned int)(i * 1013)) * amplitude;
-      maxValue += amplitude;
-      amplitude *= 0.5;
-      freq *= 2.0;
-    }
-    if (maxValue <= 0.0) return 0.5;
-    return (total / maxValue) * 0.5 + 0.5;
+static double lfo_fbm_unipolar(double time, unsigned int s) {
+  double total = 0.0;
+  double amplitude = 1.0;
+  double freq = 1.0;
+  double maxValue = 0.0;
+  for (int i = 0; i < 4; i++) {
+    total += lfo_smooth_noise1d(time * freq, s + (unsigned int)(i * 1013)) * amplitude;
+    maxValue += amplitude;
+    amplitude *= 0.5;
+    freq *= 2.0;
   }
+  if (maxValue <= 0.0) return 0.5;
+  return (total / maxValue) * 0.5 + 0.5;
+}
 
-  static double parabolBipolar(double phase01) {
-    double fit = phase01 * 2.0;
-    fit = fit - 2.0 * dsp_floor(fit * 0.5);
-    fit = fit - 1.0;
-    return 4.0 * fit * (1.0 - dsp_fabs(fit));
-  }
+static double lfo_parabol_bipolar(double phase01) {
+  double fit = phase01 * 2.0;
+  fit = fit - 2.0 * dsp_floor(fit * 0.5);
+  fit = fit - 1.0;
+  return 4.0 * fit * (1.0 - dsp_fabs(fit));
+}
 
-  static double runFields(
-    double* phase,
-    double* fbmTime,
-    double* walkOut,
-    double* walkLpf,
-    int* walkTick,
-    unsigned int seed,
-    int style,
-    double rateHz,
-    double sr
-  ) {
-    double rate = maxd(1.0, sr);
-    double hz = maxd(0.0, rateHz);
-    if (style == LfoRandomWalk) {
-      const int tick = (*walkTick) + 1;
-      *walkTick = tick;
-      double noise = hash_bipolar((unsigned int)tick, seed);
-      double increment = clamp(hz / rate, 0.0, 1.0);
-      double jitterInc = clamp((hz * 0.37) / rate, 0.0, 1.0);
-      double stepSize = clamp(increment + rationalCurve01(jitterInc, 0.99), 0.0, 1.0);
-      double averageIncrement = (jitterInc + increment) * 0.5;
-      double whiteNoiseMix = averageIncrement >= 0.9
-        ? rationalCurve01((averageIncrement - 0.9) / 0.1, -0.7)
-        : 0.0;
-      double randomMix = 1.0 - whiteNoiseMix;
-      double step = noise > 0.0 ? stepSize : -stepSize;
-      const double nextWalk = clamp((*walkOut) + step, -1.0, 1.0);
-      *walkOut = nextWalk;
-      double mixed = nextWalk * randomMix + noise * whiteNoiseMix;
-      double w = mind(6.283185307179586 / rate, 0.000142475857) * hz;
-      double a1 = dsp_exp(-w);
-      const double nextLpf = (1.0 - a1) * mixed + a1 * (*walkLpf);
-      *walkLpf = nextLpf;
-      return clamp(nextLpf, -1.0, 1.0);
-    }
-    if (style == LfoFbm) {
-      double t = (*fbmTime) + hz / rate;
-      *fbmTime = t;
-      double uni = fbmUnipolar(t, seed);
-      return clamp(uni * 2.0 - 1.0, -1.0, 1.0);
-    }
-    double p = (*phase) + hz / rate;
-    p = p - dsp_floor(p);
-    if (p < 0.0) p += 1.0;
-    *phase = p;
-    return parabolBipolar(p);
+// Advance one channel; fields are plain doubles on PingPongDelayState.
+static double lfo_run(
+  double* phase,
+  double* fbmTime,
+  double* walkOut,
+  double* walkLpf,
+  int* walkTick,
+  unsigned int seed,
+  int style,
+  double rateHz,
+  double sr
+) {
+  double rate = maxd(1.0, sr);
+  double hz = maxd(0.0, rateHz);
+  if (style == LfoRandomWalk) {
+    const int tick = (*walkTick) + 1;
+    *walkTick = tick;
+    double noise = hash_bipolar((unsigned int)tick, seed);
+    double increment = clamp(hz / rate, 0.0, 1.0);
+    double jitterInc = clamp((hz * 0.37) / rate, 0.0, 1.0);
+    double stepSize = clamp(increment + lfo_rational_curve01(jitterInc, 0.99), 0.0, 1.0);
+    double averageIncrement = (jitterInc + increment) * 0.5;
+    double whiteNoiseMix = averageIncrement >= 0.9
+      ? lfo_rational_curve01((averageIncrement - 0.9) / 0.1, -0.7)
+      : 0.0;
+    double randomMix = 1.0 - whiteNoiseMix;
+    double step = noise > 0.0 ? stepSize : -stepSize;
+    const double nextWalk = clamp((*walkOut) + step, -1.0, 1.0);
+    *walkOut = nextWalk;
+    double mixed = nextWalk * randomMix + noise * whiteNoiseMix;
+    double w = mind(6.283185307179586 / rate, 0.000142475857) * hz;
+    double a1 = dsp_exp(-w);
+    const double nextLpf = (1.0 - a1) * mixed + a1 * (*walkLpf);
+    *walkLpf = nextLpf;
+    return clamp(nextLpf, -1.0, 1.0);
   }
-};
+  if (style == LfoFbm) {
+    double t = (*fbmTime) + hz / rate;
+    *fbmTime = t;
+    double uni = lfo_fbm_unipolar(t, seed);
+    return clamp(uni * 2.0 - 1.0, -1.0, 1.0);
+  }
+  double p = (*phase) + hz / rate;
+  p = p - dsp_floor(p);
+  if (p < 0.0) p += 1.0;
+  *phase = p;
+  return lfo_parabol_bipolar(p);
+}
 
 // Growable delay RAM (APP_POLICY §2b): per-instance L/R rings via memory.grow.
 // No kMaxInstances × 8 s BSS reservation.
@@ -276,8 +277,7 @@ struct PingPongDelayState {
   double wetR;
   double outLeft;
   double outRight;
-  // LFO timing lives as plain doubles on the instance (Delay-style). Nested
-  // LfoChannel::phase stores were not surviving across wasm export calls.
+  // LFO timing: plain doubles on the instance (must persist across exports).
   double lfoPhaseL;
   double lfoPhaseR;
   double lfoFbmL;
@@ -319,9 +319,7 @@ struct PingPongDelayState {
 };
 
 static PingPongDelayState gPool[kMaxInstances];
-// Block I/O lives OUTSIDE PingPongDelayState. Taking &state.blockIn escapes the
-// whole struct under wasm LTO and historically let phase be optimized as if it
-// were local to each process_block/sample call (LFO never advanced across calls).
+// Block I/O outside the state struct (keep export pointers off instance fields).
 static double gBlockIn[kMaxInstances][kMaxBlockFrames];
 static double gBlockOutL[kMaxInstances][kMaxBlockFrames];
 static double gBlockOutR[kMaxInstances][kMaxBlockFrames];
@@ -573,12 +571,12 @@ static void process_one(PingPongDelayState& s, double input) {
   const double rateR = hz * (1.0 - vary * 0.27);
   // Always advance LFOs when rate > 0 so outs move; depth scales the delay.
   const double lfoL = hz > 1e-12
-    ? LfoOps::runFields(
+    ? lfo_run(
         &s.lfoPhaseL, &s.lfoFbmL, &s.lfoWalkOutL, &s.lfoWalkLpfL, &s.lfoWalkTickL,
         s.lfoSeedL, style, rateL, rate)
     : 0.0;
   const double lfoR = hz > 1e-12
-    ? LfoOps::runFields(
+    ? lfo_run(
         &s.lfoPhaseR, &s.lfoFbmR, &s.lfoWalkOutR, &s.lfoWalkLpfR, &s.lfoWalkTickR,
         s.lfoSeedR, style, rateR, rate)
     : 0.0;
@@ -779,5 +777,5 @@ extern "C" int soemdsp_ping_pong_delay_memory_generation() {
 }
 
 extern "C" int soemdsp_ping_pong_delay_version() {
-  return 14; // flat LFO phase on state (persists); default Amp 25 ms
+  return 15; // free-fn LFO helpers; no JS twin; Amp default 25 ms
 }

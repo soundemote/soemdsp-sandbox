@@ -19,8 +19,8 @@ const e = instance.exports;
 
 const ver = e.soemdsp_ping_pong_delay_version();
 console.log("ping_pong_delay version", ver);
-if (ver < 14) {
-  console.error("FAIL: expected version >= 14 (flat LFO phase persistence)");
+if (ver < 15) {
+  console.error("FAIL: expected version >= 15 (flat LFO; no JS twin)");
   process.exit(1);
 }
 

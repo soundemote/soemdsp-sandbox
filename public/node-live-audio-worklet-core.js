@@ -133,7 +133,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.cookbookFilterStates = new Map();
     this.delayedTriggerStates = new Map();
     this.delayEffectStates = new Map();
-    this.pingPongDelayStates = new Map();
     this.wallDelayStates = new Map();
     this.expAdsrStates = new Map();
     this.attackDecayStates = new Map();
@@ -265,8 +264,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativeClockReady = false;
     this.nativeRandomClock = null;
     this.nativeRandomClockReady = false;
-    this.nativePingPongDelay = null;
-    this.nativePingPongDelayReady = false;
     this.nativePapoulisFilter = null;
     this.nativePapoulisFilterReady = false;
     this.nativePhosphillator = null;

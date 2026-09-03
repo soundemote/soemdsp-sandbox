@@ -468,9 +468,6 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (node?.type === "delayEffect" && !this.delayEffectStates.has(id)) {
         this.delayEffectStates.set(id, this.createStereoDelayEffectState());
       }
-      if (node?.type === "pingPongDelay" && !this.pingPongDelayStates.has(id)) {
-        this.pingPongDelayStates.set(id, this.createPingPongDelayState());
-      }
       if (node?.type === "wallDelay" && !this.wallDelayStates.has(id)) {
         this.wallDelayStates.set(id, this.createWallDelayState());
       }
@@ -1131,12 +1128,6 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (!ids.has(id)) {
         this.destroyDelayEffectNativeState(this.delayEffectStates.get(id));
         this.delayEffectStates.delete(id);
-      }
-    }
-    for (const id of [...this.pingPongDelayStates.keys()]) {
-      if (!ids.has(id)) {
-        this.destroyPingPongDelayNativeState(this.pingPongDelayStates.get(id));
-        this.pingPongDelayStates.delete(id);
       }
     }
     for (const id of [...this.wallDelayStates.keys()]) {

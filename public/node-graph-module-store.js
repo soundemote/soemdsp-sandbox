@@ -3051,8 +3051,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/piSpigotNoise/pi-spigot-noise-worklet-evaluator.js",
   },
   pingPongDelay: {
-    source: "public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js",
+    source: "native_modules/ping_pong_delay/ping_pong_delay.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/ping_pong_delay/ping_pong_delay.cpp",
   },
   pitchModWheel: {
     source: "public/modules/pitchModWheel/pitch-mod-wheel-live-evaluator.js",
