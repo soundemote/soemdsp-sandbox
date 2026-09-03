@@ -4784,8 +4784,9 @@ def require_node_graph_mvp_contract() -> None:
     require(default_ui_view.get("sharedInspectorWindowState", {}) == {}, "default ui settings should not pin shared inspector geometry on first load")
 
     require(
-        '<script src="./public/node-graph-color-standards.js?v=color-standards-1"></script>' in index_source,
-        "color standards script tag missing from index",
+        "node-graph-color-standards.js" in index_source
+        and "data-boot-defer" in index_source,
+        "color standards script tag missing from index (boot-deferred)",
     )
     for snippet in [
         'parsed.path == "/api/shader-script/to-desktop"',
@@ -6715,14 +6716,17 @@ def require_node_graph_mvp_contract() -> None:
         "nodeRenderButton",
         "Render Sample",
         "toggleDebugButton",
-        '<body class="debug-collapsed node-boot-loading">',
-        '<script src="./public/boot-loading.js?v=hide-cpu-sysinfo-20260701"></script>',
+        'node-boot-waiting node-boot-loading',
+        'data-build-mode-value="{{BUILD_MODE}}"',
+        "boot-loading.js",
         "node-boot-loading-screen",
-        'aria-label="loading"',
+        "nodeBootStartButton",
+        "START SANDBOX",
         "nodeBootLoadingLabel",
         "nodeBootLoadingBarFill",
         'role="progressbar"',
-        'aria-valuenow="4"',
+        "nodeBootSysinfo",
+
         "nodeEarProtectionFault",
         "Ear Protection Tripped",
         "Audio output was muted for safety.",
@@ -7367,7 +7371,7 @@ def require_node_graph_mvp_contract() -> None:
         "default preset should start Music Player with the official startup music in Play mode",
     )
     require(
-        '<script src="./public/node-graph-resources.js?v=embed-config-20260701"></script>' in index_source
+        "node-graph-resources.js" in index_source
         and "await loadNodeGraphResourceManifest();" in script_sources["./public/node-graph-bootstrap.js"]
         and "resources: { resources: [], version: 1 }" in script_sources["./public/node-graph-state.js"]
         and "resourceMap: new Map()" in script_sources["./public/node-graph-state.js"],
@@ -15937,12 +15941,17 @@ def require_node_graph_mvp_contract() -> None:
         and 'document.body.classList.add("node-boot-ready")' in boot_loading_source
         and "}, 333);" in boot_loading_source
         and "function setNodeBootLoadingProgress(value, label = \"\")" in boot_loading_source
+        and "function beginNodeBootLoadSequence()" in boot_loading_source
+        and "function nodeGraphBootActivateDeferredScripts()" in boot_loading_source
+        and "function nodeGraphBootBuildMode()" in boot_loading_source
+        and "nodeGraphBootIsRelease()" in boot_loading_source
         and 'document.body.dataset.nodeBootFinished = "watchdog";' in boot_loading_source
         and "}, 10000);" in boot_loading_source
         and 'window.addEventListener("nodeSandboxStartupProgress"' in boot_loading_source
         and 'window.addEventListener("nodeSandboxInterfaceReady", finishNodeBootLoading, { once: true });' in boot_loading_source
-        and 'document.body.dataset.nodeBootFinished = "interface-ready";' in boot_loading_source,
-        "boot loading veil should fade after the interface ready event or watchdog timeout",
+        and 'document.body.dataset.nodeBootFinished = "interface-ready";' in boot_loading_source
+        and 'document.getElementById("nodeBootStartButton")' in boot_loading_source,
+        "boot screen should wait for START SANDBOX, then fade after ready/watchdog; sysinfo debug-only",
     )
     require(
         "--node-module-primary-text-color: rgba(243, 241, 236, 0.76);" in style_source
@@ -15998,16 +16007,20 @@ def require_node_graph_mvp_contract() -> None:
         "scrollbar-gutter: auto",
         "overflow: hidden",
         "body.node-boot-loading",
+        "body.node-boot-waiting",
         "body.node-boot-fading",
         "body.node-boot-loading .shell",
         ".node-boot-loading-screen",
         ".node-boot-loading-panel",
+        ".node-boot-start-button",
         ".node-boot-loading-bar",
         ".node-boot-loading-bar span",
         "transition: opacity 333ms ease",
         "body.node-boot-loading .node-boot-loading-screen",
         "body.node-boot-fading .node-boot-loading-screen",
         "body.node-boot-ready .node-boot-loading-screen",
+        "body.node-boot-waiting .node-boot-loading-bar",
+        "body:not(.node-boot-waiting) .node-boot-start-button",
         "body.node-ear-protection-tripped",
         ".node-ear-protection-fault",
         "body.node-ear-protection-tripped .node-ear-protection-fault",

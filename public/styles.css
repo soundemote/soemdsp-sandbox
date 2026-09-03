@@ -148,6 +148,45 @@ body.node-boot-fading .shell {
   box-sizing: border-box;
 }
 
+.node-boot-start-button {
+  appearance: none;
+  border: 1px solid rgba(127, 199, 217, 0.45);
+  border-radius: 0.85rem;
+  background: linear-gradient(180deg, rgba(127, 199, 217, 0.22), rgba(127, 199, 217, 0.08));
+  color: rgba(243, 241, 236, 0.96);
+  font-family: inherit;
+  font-size: clamp(1.65rem, 4.5vw, 3.1rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  padding: 1.15rem 2.4rem;
+  min-width: min(90vw, 28rem);
+  cursor: pointer;
+  box-shadow: 0 0 28px rgba(127, 199, 217, 0.18);
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.node-boot-start-button:hover,
+.node-boot-start-button:focus-visible {
+  border-color: rgba(243, 241, 236, 0.7);
+  background: linear-gradient(180deg, rgba(127, 199, 217, 0.34), rgba(127, 199, 217, 0.14));
+  outline: none;
+}
+
+.node-boot-start-button:active {
+  transform: translateY(1px);
+}
+
+body.node-boot-waiting .node-boot-loading-label,
+body.node-boot-waiting .node-boot-loading-bar,
+body.node-boot-waiting .node-boot-loading-messages {
+  display: none;
+}
+
+body:not(.node-boot-waiting) .node-boot-start-button {
+  display: none;
+}
+
 .node-boot-loading-label {
   font-size: clamp(2.8rem, 7vw, 6rem);
   font-weight: 700;
