@@ -1,3 +1,23 @@
+// Stub before the bulk of classic scripts. node-graph-state.js replaces this
+// with the real object; without a stub, any early rAF/handler that touches
+// zoom/patch/rendered/live throws and aborts sandbox startup.
+// Must stay in an external file — smoke_test shell contract forbids inline <script>.
+window.nodeGraphMvp = window.nodeGraphMvp || {
+  zoom: 1,
+  pan: { x: 0, y: 0 },
+  rendered: null,
+  live: {},
+  patch: { nodes: [], connections: [], modulations: [], graphConnections: [] },
+  connections: [],
+  graphConnections: [],
+  activeNodes: new Set(),
+  sliderDragging: null,
+  tooltips: {},
+  macroKnobArcThickness: 7,
+  midiKeyboardKeyCount: 25,
+  efficientProduct: true,
+};
+
 function renderNodeBootSysinfo(parts) {
   const el = document.getElementById("nodeBootSysinfo");
   if (!el) return;
