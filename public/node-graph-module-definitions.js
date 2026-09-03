@@ -940,7 +940,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "bipolarRational",
         step: "0",
-        tooltip: "Unipolar 0…1, default 0.5. Trisaw: 0 left-edge saw, 0.5 triangle, 1 right-edge saw. Pulse / Center Square: duty / width (0.5 = 50%). Ignored by Saw / Ramp / Square / Tri / Sine / Noise."
+        tooltip: "0…1 width/duty. 0.5 = center (triangle / 50% PWM). Trisaw & Pulse / Center Square only."
       },
       {
         defaultValue: "1",
@@ -3044,7 +3044,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "bipolarRational",
         step: "0",
-        tooltip: "Unipolar 0…1, default 0.5. Square / Trisaw / Center Square: pulse width / wave shape (0.5 = centered / 50%). Other waves ignore this.",
+        tooltip: "0…1 width/duty. 0.5 = center (triangle / 50%). Square / Trisaw / Center Square only.",
       },
       {
         defaultValue: "1",

@@ -104,7 +104,7 @@ NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepN
   waveform,
   level,
   resetEdge,
-  morph = 0,
+  morph = 0.5,
   neededPorts = null,
   useBlock = false,
 ) {
@@ -130,7 +130,7 @@ NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepN
         state.blockCache.cursor = 0;
       }
     }
-    const morphVal = Number.isFinite(Number(morph)) ? Number(morph) : 0;
+    const morphVal = Number.isFinite(Number(morph)) ? Number(morph) : 0.5;
     const tapMask = this.polyBlepTapMaskFromPorts(neededPorts);
     const nativeVer = Number(native.soemdsp_polyblep_version?.() || 0);
     const blockSize = Math.min(
@@ -276,7 +276,7 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
   const { params: controls } = this.resolveModuleControlParams(
     node,
     controlState,
-    { phase: 0, frequency: 220, waveform: 0, amplitude: 1, morph: 0 },
+    { phase: 0, frequency: 220, waveform: 0, amplitude: 1, morph: 0.5 },
     frame,
     frames,
     frameValues,

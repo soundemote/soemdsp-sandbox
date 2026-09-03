@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=flower-child-stereo-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=morph-plain-01-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3165,7 +3165,7 @@ const nodeGraphLiveWorkletSourceFilesLegacy = [
   "./public/modules/additiveNoisyPan/additive-noisy-pan-worklet-evaluator.js?v=noisy-add-1",
   "./public/modules/additiveNoisyAmp/additive-noisy-amp-worklet-evaluator.js?v=noisy-add-1",
   "./public/modules/additiveOut/additive-out-worklet-evaluator.js?v=gen-h-phase-reset-1",
-  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=wave-port-1",
+  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=morph-plain-01-1",
   "./public/modules/noiseGenerator/noise-generator-worklet-evaluator.js?v=native-strip-1",
   // noise channel math lives in worklet methods; main-thread uses noise-generator-math.js
   "./public/modules/randomWalk/random-walk-math.js?v=random-walk-1",
