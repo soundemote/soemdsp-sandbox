@@ -167,8 +167,17 @@ function attachNodeGraphNodeEvents(node) {
   for (const slider of node.querySelectorAll('input[type="range"]')) {
     createNodeSliderReadout(slider);
     slider.addEventListener("input", () => {
+      // Native range updates .value but not domainValue. Preferring a stale
+      // domainValue in syncNodeGraphPatchParameterFromSlider would keep the
+      // old patch value (e.g. LPF stuck at 8000 after dragging toward 20).
+      const nativeValue = Number(slider.value);
+      if (Number.isFinite(nativeValue)) {
+        slider.dataset.domainValue = String(nativeValue);
+      }
       syncNodeSliderReadout(slider);
-      syncNodeGraphPatchParameterFromSlider(slider);
+      syncNodeGraphPatchParameterFromSlider(slider, {
+        domainValue: Number.isFinite(nativeValue) ? nativeValue : undefined,
+      });
       syncNodeGraphGhostSliders();
       markNodeGraphRenderPending();
       scheduleNodeGraphModuleScopeDraw();

@@ -37,61 +37,62 @@ static const size_t kWasmPage = 65536;
 
 enum LfoStyle { LfoParabol = 0, LfoRandomWalk = 1, LfoFbm = 2 };
 
-// SoftClip / one-poles: Control *Changed rebuilds coeffs; process uses cache.
-struct SoftClip {
-  double width{2.0};
-  double scaleX{1.0}, scaleY{1.0}, shiftX{0.0}, shiftY{0.0};
-  void setSaturate(double saturate) {
-    double thr = maxd(0.01, saturate);
-    width = maxd(1e-6, thr * 2.0);
-    scaleX = 2.0 / width;
-    shiftX = -1.0 - (scaleX * (0.0 - 0.5 * width));
-    scaleY = 1.0 / scaleX;
-    shiftY = -shiftX * scaleY;
-  }
-  double run(double v) const {
-    double x = scaleX * v + shiftX;
-    if (x > 20.0) x = 20.0;
-    if (x < -20.0) x = -20.0;
-    double e2 = dsp_exp(2.0 * x);
-    double th = (e2 - 1.0) / (e2 + 1.0);
-    return shiftY + scaleY * th;
-  }
-};
+// Soft-clip coeffs as flat doubles (same persistence rule as one-poles below).
+static void soft_clip_set(
+  double saturate, double& scaleX, double& scaleY, double& shiftX, double& shiftY
+) {
+  double thr = maxd(0.01, saturate);
+  double width = maxd(1e-6, thr * 2.0);
+  scaleX = 2.0 / width;
+  shiftX = -1.0 - (scaleX * (0.0 - 0.5 * width));
+  scaleY = 1.0 / scaleX;
+  shiftY = -shiftX * scaleY;
+}
+static double soft_clip_run(
+  double v, double scaleX, double scaleY, double shiftX, double shiftY
+) {
+  double x = scaleX * v + shiftX;
+  if (x > 20.0) x = 20.0;
+  if (x < -20.0) x = -20.0;
+  double e2 = dsp_exp(2.0 * x);
+  double th = (e2 - 1.0) / (e2 + 1.0);
+  return shiftY + scaleY * th;
+}
 
-struct OnePoleLP {
-  double z{0.0};
-  double a1{0.0};
-  void coeffsChanged(double freqHz, double sr) {
-    double rate = maxd(1.0, sr);
-    double w = mind(6.283185307179586 / rate, 0.000142475857) * maxd(0.0, freqHz);
-    a1 = dsp_exp(-w);
+// Flat filter state (not nested structs): nested OnePole members were not
+// reliably persisting in the instance pool across set_params/ensure_buffer
+// while adjacent plain doubles on PingPongDelayState did.
+static double one_pole_lp_coeff(double freqHz, double sr) {
+  const double rate = maxd(1.0, sr);
+  double f = maxd(0.0, safe(freqHz));
+  const double nyquist = 0.5 * rate;
+  if (f > nyquist) f = nyquist;
+  // a1 = exp(-2π f / sr); f=0 → 1 (hold/closed). Avoid silent pass-through if exp fails.
+  double w = 6.283185307179586 * f / rate;
+  if (w > 80.0) w = 80.0;
+  double a1 = dsp_exp(-w);
+  if (!(a1 > 0.0) || a1 > 1.0) {
+    a1 = 1.0 / (1.0 + w);
   }
-  double run(double input) {
-    z = (1.0 - a1) * input + a1 * z;
-    return z;
-  }
-  void reset() { z = 0.0; }
-};
-
-struct OnePoleHP {
-  double x0{0.0}, y0{0.0};
-  double a1{0.0}, b0{1.0}, b1{0.0};
-  void coeffsChanged(double freqHz, double sr) {
-    double rate = maxd(1.0, sr);
-    double w = mind(6.283185307179586 / rate, 0.000142475857) * maxd(0.0, freqHz);
-    a1 = dsp_exp(-w);
-    b0 = 0.5 * (1.0 + a1);
-    b1 = -b0;
-  }
-  double run(double input) {
-    double y = b0 * input + b1 * x0 + a1 * y0;
-    x0 = input;
-    y0 = y;
-    return y;
-  }
-  void reset() { x0 = y0 = 0.0; }
-};
+  return a1;
+}
+static double one_pole_lp_run(double& z, double a1, double input) {
+  z = (1.0 - a1) * input + a1 * z;
+  return z;
+}
+static void one_pole_hp_coeffs(double freqHz, double sr, double& a1, double& b0, double& b1) {
+  a1 = one_pole_lp_coeff(freqHz, sr);
+  b0 = 0.5 * (1.0 + a1);
+  b1 = -b0;
+}
+static double one_pole_hp_run(
+  double& x0, double& y0, double a1, double b0, double b1, double input
+) {
+  double y = b0 * input + b1 * x0 + a1 * y0;
+  x0 = input;
+  y0 = y;
+  return y;
+}
 
 static double lfo_rational_curve01(double x, double k) {
   double v = clamp(x, 0.0, 1.0);
@@ -194,13 +195,23 @@ static DelayFreeNode* gDelayFreeList = nullptr;
 static DelayFreeNode gDelayFreeNodes[64];
 static int gDelayFreeNodeUsed = 0;
 static uintptr_t gBump = 0;
+static uintptr_t gBumpFloor = 0; // raised to end of instance BSS before first alloc
 static bool gBumpInit = false;
 
 #if defined(__wasm__)
 extern "C" unsigned char __heap_base;
+// Ring alloc must start above instance BSS. If gBump begins at a too-low
+// __heap_base, the first zero-fill of a delay ring wipes SoftClip / one-pole
+// coeffs in gPool (a1→0 = pass-through). That made LPF/HPF/Saturate look like
+// they only worked while params were moving (coeffs rewritten each update).
+static void delay_bump_note_bss_end(uintptr_t endAddr) {
+  if (endAddr > gBumpFloor) gBumpFloor = endAddr;
+}
 static void delay_bump_init() {
   if (gBumpInit) return;
-  gBump = (uintptr_t)&__heap_base;
+  uintptr_t heap = (uintptr_t)&__heap_base;
+  uintptr_t floor = gBumpFloor > heap ? gBumpFloor : heap;
+  gBump = (floor + 7u) & ~(uintptr_t)7u;
   gBumpInit = true;
 }
 static int gPingPongMemoryGeneration = 0;
@@ -228,6 +239,9 @@ static float* delay_bump_alloc(int capacity) {
   return p;
 }
 #else
+static void delay_bump_note_bss_end(uintptr_t endAddr) {
+  if (endAddr > gBumpFloor) gBumpFloor = endAddr;
+}
 static void delay_bump_init() {}
 static float* delay_bump_alloc(int capacity) {
   (void)capacity;
@@ -290,9 +304,12 @@ struct PingPongDelayState {
   int lfoWalkTickR;
   unsigned int lfoSeedL;
   unsigned int lfoSeedR;
-  SoftClip clip;
-  OnePoleLP lpL, lpR;
-  OnePoleHP hpL, hpR;
+  // Soft-clip + feedback one-poles as flat doubles (nested structs did not
+  // persist coeff writes in the instance pool; plain doubles next to lastLpfHz do).
+  double clipScaleX, clipScaleY, clipShiftX, clipShiftY;
+  double lpL_z, lpL_a1, lpR_z, lpR_a1;
+  double hpL_x0, hpL_y0, hpL_a1, hpL_b0, hpL_b1;
+  double hpR_x0, hpR_y0, hpR_a1, hpR_b0, hpR_b1;
   // Cached Control last-values
   bool controlsValid;
   double lastSaturate;
@@ -353,17 +370,14 @@ static void reset_delay_dsp(PingPongDelayState& s) {
   s.lfoWalkTickR = 0;
   s.lfoSeedL = 0xA11CEu;
   s.lfoSeedR = 0xB0B5u;
-  s.lpL.reset();
-  s.lpR.reset();
-  s.hpL.reset();
-  s.hpR.reset();
-  s.clip.setSaturate(1.0);
+  s.lpL_z = s.lpR_z = 0.0;
+  s.hpL_x0 = s.hpL_y0 = s.hpR_x0 = s.hpR_y0 = 0.0;
+  soft_clip_set(1.0, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
   s.controlsValid = false;
   s.baseSeconds = 0.0;
-  s.lpL.coeffsChanged(8000.0, 44100.0);
-  s.lpR.coeffsChanged(8000.0, 44100.0);
-  s.hpL.coeffsChanged(20.0, 44100.0);
-  s.hpR.coeffsChanged(20.0, 44100.0);
+  s.lpL_a1 = s.lpR_a1 = one_pole_lp_coeff(8000.0, 44100.0);
+  one_pole_hp_coeffs(20.0, 44100.0, s.hpL_a1, s.hpL_b0, s.hpL_b1);
+  one_pole_hp_coeffs(20.0, 44100.0, s.hpR_a1, s.hpR_b0, s.hpR_b1);
 }
 
 static double timing_mode_multiplier(double mode) {
@@ -392,8 +406,9 @@ static void sync_ping_pong_controls(
 ) {
   const double rate = maxd(1.0, safe(sampleRate));
   const double sat = clamp(safe(saturate), 0.01, 4.0);
-  const double lpf = clamp(safe(lpfHz), 20.0, 20000.0);
-  const double hpf = clamp(safe(hpfHz), 1.0, 2000.0);
+  // No product-range clamp — coeffsChanged floors at 0 and caps at Nyquist.
+  const double lpf = safe(lpfHz);
+  const double hpf = safe(hpfHz);
   const double num = safe(timeNumerator);
   const double den = safe(timeDenominator);
   const double mode = safe(timingMode);
@@ -413,14 +428,13 @@ static void sync_ping_pong_controls(
   if (!dirty) return;
 
   if (!s.controlsValid || sat != s.lastSaturate) {
-    s.clip.setSaturate(sat);
+    soft_clip_set(sat, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
     s.lastSaturate = sat;
   }
   if (!s.controlsValid || lpf != s.lastLpfHz || hpf != s.lastHpfHz || rate != s.lastSampleRate) {
-    s.lpL.coeffsChanged(lpf, rate);
-    s.lpR.coeffsChanged(lpf, rate);
-    s.hpL.coeffsChanged(hpf, rate);
-    s.hpR.coeffsChanged(hpf, rate);
+    s.lpL_a1 = s.lpR_a1 = one_pole_lp_coeff(lpf, rate);
+    one_pole_hp_coeffs(hpf, rate, s.hpL_a1, s.hpL_b0, s.hpL_b1);
+    one_pole_hp_coeffs(hpf, rate, s.hpR_a1, s.hpR_b0, s.hpR_b1);
     s.lastLpfHz = lpf;
     s.lastHpfHz = hpf;
   }
@@ -452,6 +466,8 @@ static double interpolate_linear(const float* buffer, int length, double where) 
 }  // namespace
 
 extern "C" int soemdsp_ping_pong_delay_create() {
+  // Keep ring bump above the whole instance pool (see delay_bump_note_bss_end).
+  delay_bump_note_bss_end((uintptr_t)(void*)&gPool[kMaxInstances]);
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       PingPongDelayState& s = gPool[i];
@@ -608,10 +624,16 @@ static void process_one(PingPongDelayState& s, double input) {
   const double readL = interpolate_linear(s.bufferL, s.bufferSize, readLRaw);
   const double readR = interpolate_linear(s.bufferR, s.bufferSize, readRRaw);
 
-  const double clippedL = s.clip.run(dry + readR * safeFeedback);
-  const double clippedR = s.clip.run(readL * safeFeedback);
-  const double writeL = s.lpL.run(s.hpL.run(clippedL));
-  const double writeR = s.lpR.run(s.hpR.run(clippedR));
+  const double clippedL = soft_clip_run(
+    dry + readR * safeFeedback, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
+  const double clippedR = soft_clip_run(
+    readL * safeFeedback, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
+  const double hpL = one_pole_hp_run(
+    s.hpL_x0, s.hpL_y0, s.hpL_a1, s.hpL_b0, s.hpL_b1, clippedL);
+  const double hpR = one_pole_hp_run(
+    s.hpR_x0, s.hpR_y0, s.hpR_a1, s.hpR_b0, s.hpR_b1, clippedR);
+  const double writeL = one_pole_lp_run(s.lpL_z, s.lpL_a1, hpL);
+  const double writeR = one_pole_lp_run(s.lpR_z, s.lpR_a1, hpR);
 
   s.bufferL[s.position] = (float)clamp(writeL, -8.0, 8.0);
   s.bufferR[s.position] = (float)clamp(writeR, -8.0, 8.0);

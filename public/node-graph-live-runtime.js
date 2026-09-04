@@ -2964,9 +2964,19 @@ function endNodeGraphGlobalSmoothingSecondsDrag(event) {
 }
 
 function scheduleNodeGraphLiveSync(mode = "plan") {
-  if (!nodeGraphMvp.live.node || nodeGraphMvp.live.syncFrame || nodeGraphMvp.live.syncTimer) {
+  // No worklet yet — drop. Patch still holds the value for the next plan.
+  if (!nodeGraphMvp.live.node) {
+    return;
+  }
+  // Coalesce onto an in-flight flush. Plan upgrades params; params must not
+  // clear an already-scheduled plan. If syncMode was emptied while timers
+  // still run, defaulting flush to "plan" would skip a pending params push
+  // (Ping Pong LPF fell back to 8000 / fully open).
+  if (nodeGraphMvp.live.syncFrame || nodeGraphMvp.live.syncTimer) {
     if (mode === "plan") {
       nodeGraphMvp.live.syncMode = "plan";
+    } else if (!nodeGraphMvp.live.syncMode) {
+      nodeGraphMvp.live.syncMode = "params";
     }
     return;
   }

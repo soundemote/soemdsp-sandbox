@@ -1049,7 +1049,8 @@ NodeLiveAudioProcessor.prototype.destroyNativeGraphHandle = function destroyNati
   this.nativeGraphBlockViews = null;
   this.nativeGraphPortViewCache = null;
   this._nativeGraphParamCache = null;
-  this._nativeGraphParamCachePlanSerial = undefined;
+  // Next syncNativeGraphParams must re-push every Control after a destroy/clear.
+  this._nativeGraphParamCacheCold = true;
 };
 
 NodeLiveAudioProcessor.prototype.postNativeGraphStatus = function postNativeGraphStatus(status, message = "") {
@@ -1164,8 +1165,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
   }
   const P = NodeLiveAudioProcessor;
   const cacheById = this._nativeGraphParamCache || (this._nativeGraphParamCache = new Map());
-  const forceAll = this._nativeGraphParamCachePlanSerial !== this.planSerial;
-  this._nativeGraphParamCachePlanSerial = this.planSerial;
+  // Cold after compile/destroy only. Do NOT tie force-push to planSerial:
+  // setParams bumps planSerial every gesture frame, which used to wipe the
+  // dirty cache and re-push every smooth/domain cell on every move — fighting
+  // the Control chase for every continuous knob (not an LPF special case).
+  const forceAll = this._nativeGraphParamCacheCold === true;
+  this._nativeGraphParamCacheCold = false;
 
   // Optional global time cell from worklet autoSmoothingSeconds.
   if (native.soemdsp_graph_set_global_smooth_time) {
@@ -1221,6 +1226,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       cache[modKey] = modToken;
       this.pushNativeGraphParamMod(native, hash, paramId, unitAdd, domainAdd);
     }
+    // Domain guides for unit-band MOD. Skip when meta has no real range —
+    // pushing 0…0 used to look like a valid domain and broke unit-band MOD
+    // mapping for any continuous param whose paramMeta had not arrived yet.
     const min = Number(meta.min);
     const max = Number(meta.max);
     let flags = 0;
@@ -1231,17 +1239,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       const c = String(meta.constraint || "").trim().toLowerCase();
       if (c === "cpu" || c === "gpu" || c === "ram" || c === "memory") flags |= 2;
     }
-    const domainToken = `${Number.isFinite(min) ? min : 0}\0${Number.isFinite(max) ? max : 0}\0${flags}`;
-    if (forceAll || cache[domainKey] !== domainToken) {
-      cache[domainKey] = domainToken;
-      this.pushNativeGraphParamDomain(
-        native,
-        hash,
-        paramId,
-        Number.isFinite(min) ? min : 0,
-        Number.isFinite(max) ? max : 0,
-        flags,
-      );
+    if (Number.isFinite(min) && Number.isFinite(max) && max > min) {
+      const domainToken = `${min}\0${max}\0${flags}`;
+      if (forceAll || cache[domainKey] !== domainToken) {
+        cache[domainKey] = domainToken;
+        this.pushNativeGraphParamDomain(native, hash, paramId, min, max, flags);
+      }
     }
     if (P.NATIVE_GRAPH_DISCRETE_PARAMS[key]) return;
     const timeKey = `${key}__smoothTime`;
@@ -3170,7 +3173,8 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
   this.nativeGraphBlockViews = null;
   this.nativeGraphPortViewCache = null;
   this._nativeGraphParamCache = null;
-  this._nativeGraphParamCachePlanSerial = undefined;
+  // Compile rebuilds native Controls at C++ defaults — next param sync is cold.
+  this._nativeGraphParamCacheCold = true;
 
   if (!this.efficientProduct) {
     return false;

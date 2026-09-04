@@ -68,7 +68,9 @@ function beginNodeSliderReadoutEdit(readout) {
   input.type = "text";
   input.className = "node-slider-readout-input";
   input.inputMode = "text";
-  const editValue = Number(slider.value);
+  // Prefer domainValue (may exceed HTML thumb min/max); slider.value is clamped.
+  const domainRaw = Number(slider.dataset?.domainValue);
+  const editValue = Number.isFinite(domainRaw) ? domainRaw : Number(slider.value);
   input.value = nodeSliderChoiceLabel(slider) ?? formatNodeSliderNumber(editValue, {
     kind: slider.dataset.kind,
     maxDigits: slider.dataset.maxDigits,
