@@ -472,6 +472,61 @@ function handleNodeGraphPatchPresetSelectChange(event) {
 }
 
 /**
+ * Filename for a static site page patch download.
+ * When embedded on soundemote.io/{slug}, use `{slug}.json` so it drops straight
+ * into soemdsp-sandbox/patches/. Otherwise fall back to the normal patch file name.
+ */
+function nodeGraphStaticPagePatchFileName() {
+  try {
+    if (window.parent && window.parent !== window) {
+      const path = String(window.parent.location.pathname || "").replace(/^\/+|\/+$/g, "");
+      if (!path || path === "sandbox") {
+        return "init.json";
+      }
+      if (/^[a-z0-9][a-z0-9-]*$/i.test(path)) {
+        return `${path.toLowerCase()}.json`;
+      }
+    }
+  } catch (_error) {
+    // Cross-origin parent — ignore.
+  }
+  if (typeof nodeGraphPatchFileName === "function") {
+    return nodeGraphPatchFileName();
+  }
+  return "patch.json";
+}
+
+/**
+ * Download the current graph as JSON for soemdsp-sandbox/patches/{name}.json.
+ * No login — drop the file next to the sandbox embed and deploy.
+ */
+function downloadNodeGraphStaticPagePatch() {
+  const payload = nodeGraphPatchExportPayload();
+  if (!payload) {
+    if (typeof setNodeGraphScriptStatus === "function") {
+      setNodeGraphScriptStatus("Share Patch: fix script / graph before exporting", false);
+    }
+    return;
+  }
+  const filename = nodeGraphStaticPagePatchFileName();
+  const blob = new Blob([payload.text], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  if (typeof setNodeGraphScriptStatus === "function") {
+    setNodeGraphScriptStatus(
+      `Share Patch: downloaded ${filename} — put it in soemdsp-sandbox/patches/ and deploy`,
+      true,
+    );
+  }
+}
+
+/**
  * Build current patch JSON for export (header fields + live patch).
  * Returns { text, filename, patch } or null if not ready.
  */

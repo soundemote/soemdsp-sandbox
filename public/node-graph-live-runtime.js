@@ -2181,9 +2181,7 @@ function handleNodeGraphLiveWorkletMessage(event) {
     if (typeof updateNodeGraphPitchDetectorFacesFromScopeValues === "function") {
       updateNodeGraphPitchDetectorFacesFromScopeValues(scopeValues);
     }
-    if (typeof drawNodeGraphRoundShapeDisplays === "function") {
-      drawNodeGraphRoundShapeDisplays();
-    }
+    // RoundShape / BasicShape paint from their own Simulation FPS face pumps.
     if (Array.isArray(message.dataPorts) && message.dataPorts.length) {
       for (const [nodeId, port, value] of message.dataPorts) {
         writeNodeGraphDataOutput(String(nodeId), port, value);
@@ -3125,7 +3123,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=face-full-quantum-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
-  "./public/node-live-audio-worklet-native-exports.js?v=graph-hosted-ready-ack-1",
+  "./public/node-live-audio-worklet-native-exports.js?v=quad-process-sample-1",
   "./public/node-live-audio-worklet-native-graph.js?v=pingpong-vs-delay-1",
   "./public/node-live-audio-worklet-set-plan.js?v=fix-normalizeCodeblock-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=graph-engine-6",

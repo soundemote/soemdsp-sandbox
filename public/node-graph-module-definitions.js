@@ -215,6 +215,7 @@ const nodeGraphNodeLabels = Object.freeze({
   limiter: "Pump Limiter",
   sampleHold: "Sample & Hold",
   keyboardController: "MIDI",
+  keyboard: "Keyboard",
   samplePlayer: "Sample Player",
   sampleLooper: "Sample Looper",
   audioPlayer: "Music Player",
@@ -11294,6 +11295,50 @@ const nodeGraphModuleDefinitions = (
     ],
     parameters: []
   },
+  // Controller face: same piano widget / global state as the K Controllers
+  // dock keyboard (held gold + press blue). Not the Portal MIDI listen module.
+  keyboard: {
+    planRole: "source",
+    digitalOutputs: ["Held Keys"],
+    inputs: [],
+    layout: "keyboard",
+    displayHeightGu: 8,
+    outputAliases: {
+      NoteNumber: "Note#",
+      MIDI: "Note#",
+      Pitch: "Note#",
+      "0.1v/Oct": "0.1V/Oct",
+      Increment: "Inc.",
+      Inc: "Inc.",
+    },
+    outputLabels: {
+      KeyboardKey: "KeyboardKey",
+      KeyboardNorm: "KeyboardNorm",
+      "Note#": "Note#",
+      "Note#/127": "Note#/127",
+      "0.1V/Oct": "0.1V/Oct",
+      "Inc.": "Inc.",
+      "Velocity#": "Velocity#",
+      "Velocity#/127": "Velocity#/127",
+    },
+    outputs: [
+      "Gate",
+      "Trigger",
+      "KeyboardKey",
+      "KeyboardNorm",
+      "Note#",
+      "Note#/127",
+      "0.1V/Oct",
+      "Inc.",
+      "Frequency",
+      "Velocity#",
+      "Velocity#/127",
+      "X",
+      "Y",
+      "Held Keys",
+    ],
+    parameters: []
+  },
   samplePlayer: {
     planRole: "processor",
     displayType: "trace",
@@ -11495,7 +11540,11 @@ const nodeGraphModuleDefinitions = (
     displayHeightGu: 5,
     inputs: ["Pitch", "Mod", "Reset"],
     layout: "pitchModWheel",
-    outputs: ["Pitch Wheel", "Mod Wheel"],
+    outputAliases: {
+      "Pitch Wheel": "Pitch",
+      "Mod Wheel": "Mod",
+    },
+    outputs: ["Pitch", "Mod"],
     parameters: []
   },
   // Full shapeable DADSR — formerly "Exponential Envelope" / Exp ADSR.

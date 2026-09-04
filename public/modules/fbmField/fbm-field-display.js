@@ -51,6 +51,13 @@ function nodeGraphFbmFieldReadParam(nodeId, key, fallback) {
 }
 
 function nodeGraphFbmFieldCircuitRunning() {
+  // Realtime field drawer (always changing) — same bar as phosphor / Instant
+  // Trace: needs Live Output so the sample/domain stream is actually pumping.
+  try {
+    if (typeof scopePaintIsRealtimeSampleLive === "function") {
+      return scopePaintIsRealtimeSampleLive();
+    }
+  } catch (_) { /* fall through */ }
   try {
     if (typeof nodeGraphModuleScopeCircuitRunning === "function") {
       return nodeGraphModuleScopeCircuitRunning();
@@ -58,7 +65,9 @@ function nodeGraphFbmFieldCircuitRunning() {
   } catch (_) { /* fall through */ }
   try {
     const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live : null;
-    return Boolean(live?.outputEnabled && live?.node);
+    const speed = Number(live?.speedMultiplier);
+    const playing = Number.isFinite(speed) ? speed > 0 : true;
+    return Boolean(live?.node && live?.outputEnabled && playing);
   } catch (_) {
     return false;
   }

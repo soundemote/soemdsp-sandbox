@@ -36,7 +36,8 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
   // live-port folds (ƒ, pitch CV) run in syncNativeGraphParams.
   let keyboardGatePulseLatched = this.midiKeyboardGatePulseSamples > 0 ? 1 : 0;
   for (const [id, node] of this.nodes) {
-    if (String(node?.type || "") !== "keyboardController") continue;
+    const nodeType = String(node?.type || "");
+    if (nodeType !== "keyboardController" && nodeType !== "keyboard") continue;
     const nid = String(id);
     const signal = this.midiKeyboardSignal || {};
     const hasIn = (port) => {
@@ -120,7 +121,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       const p = node?.params || node?.parameters || {};
       const nid = String(id);
 
-      if (type === "keyboardController") {
+      if (type === "keyboardController" || type === "keyboard") {
         continue;
       }
 

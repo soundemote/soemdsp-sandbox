@@ -97,6 +97,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/manifest-processing-contracts.js",
     "./public/manifest-phase-contracts.js",
     "./public/manifest-contracts.js",
+    "./public/release-debug-stubs.js",
     "./public/legacy-evidence-checklist-view.js",
     "./public/legacy-evidence-proof-view.js",
     "./public/legacy-evidence-views.js",
@@ -121,6 +122,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-floating-windows.js",
     "./public/node-graph-unified-window.js",
     "./public/node-graph-emoji-page.js",
+    "./public/node-graph-pages.js",
     "./public/node-graph-file-actions.js",
     "./public/node-graph-default-buttons.js",
     "./public/node-graph-cookbook-filter.js",
@@ -6831,7 +6833,7 @@ def require_node_graph_mvp_contract() -> None:
         "<span>Make Plugin</span><span>(in development)</span>",
         "<span>Make Module</span><span>(in development)</span>",
         "<span>Make Widget</span><span>(in development)</span>",
-        "<span>Share Patch</span><span>With Community</span>",
+        ">Share Patch</button>",
     ]:
         require(snippet in index_source, f"node graph shell missing {snippet}")
 

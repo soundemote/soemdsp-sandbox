@@ -187,6 +187,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   binaryClock: "silence",
   theremin: "silence",
   keyboardController: "silence",
+  keyboard: "silence",
   // Crossovers: average In/L/R onto every band out
   crossover2: "crossover-avg",
   crossover3: "crossover-avg",

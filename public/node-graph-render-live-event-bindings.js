@@ -150,25 +150,36 @@ function bindNodeGraphRenderedSampleDownloadDrag() {
 }
 
 function bindNodeGraphRenderLiveControlEvents() {
-  document.getElementById("nodeRenderButton").addEventListener("click", renderNodeGraphAudio);
+  document.getElementById("nodeRenderButton")?.addEventListener("click", renderNodeGraphAudio);
   bindNodeGraphRenderedSampleDownloadDrag();
-document.getElementById("nodeCopyRuntimeSketchButton").addEventListener("click", copyNodeGraphRuntimeSketch);
-  document.getElementById("nodeCopyExecutionJsonButton").addEventListener("click", copyNodeGraphExecutionJson);
-  document.getElementById("nodeExportLivePlanButton").addEventListener("click", downloadNodeGraphLivePlanJson);
-  document.getElementById("nodeBadValueMonitorButton").addEventListener("click", toggleNodeGraphBadValueMonitor);
+  // Debug-only copy/export/mock controls — optional in release (stubs or omitted).
+  if (typeof copyNodeGraphRuntimeSketch === "function") {
+    document.getElementById("nodeCopyRuntimeSketchButton")?.addEventListener("click", copyNodeGraphRuntimeSketch);
+  }
+  if (typeof copyNodeGraphExecutionJson === "function") {
+    document.getElementById("nodeCopyExecutionJsonButton")?.addEventListener("click", copyNodeGraphExecutionJson);
+  }
+  if (typeof downloadNodeGraphLivePlanJson === "function") {
+    document.getElementById("nodeExportLivePlanButton")?.addEventListener("click", downloadNodeGraphLivePlanJson);
+  }
+  document.getElementById("nodeBadValueMonitorButton")?.addEventListener("click", toggleNodeGraphBadValueMonitor);
   document.getElementById("nodeTripEarProtectionButton")
-    .addEventListener("click", () => nodeGraphTripEarProtection({ source: "manual", protectionMuteCount: 1 }));
-  document.getElementById("nodeLiveInputButton").addEventListener("click", toggleNodeGraphLiveInput);
-  document
-    .getElementById("nodeStartMockInputDebugButton")
-    .addEventListener("click", () => startNodeGraphMockInputDebug());
-  document
-    .getElementById("nodeStopMockInputDebugButton")
-    .addEventListener("click", stopNodeGraphMockInputDebug);
+    ?.addEventListener("click", () => nodeGraphTripEarProtection({ source: "manual", protectionMuteCount: 1 }));
+  document.getElementById("nodeLiveInputButton")?.addEventListener("click", toggleNodeGraphLiveInput);
+  if (typeof startNodeGraphMockInputDebug === "function") {
+    document
+      .getElementById("nodeStartMockInputDebugButton")
+      ?.addEventListener("click", () => startNodeGraphMockInputDebug());
+  }
+  if (typeof stopNodeGraphMockInputDebug === "function") {
+    document
+      .getElementById("nodeStopMockInputDebugButton")
+      ?.addEventListener("click", stopNodeGraphMockInputDebug);
+  }
   document
     .getElementById("nodeLiveInputDeviceSelect")
-    .addEventListener("change", handleNodeGraphLiveInputDeviceChange);
-  document.getElementById("nodeLiveOutputButton").addEventListener("click", toggleNodeGraphLiveOutput);
+    ?.addEventListener("change", handleNodeGraphLiveInputDeviceChange);
+  document.getElementById("nodeLiveOutputButton")?.addEventListener("click", toggleNodeGraphLiveOutput);
   document.getElementById("nodeLiveMidiButton")?.addEventListener("click", () => {
     toggleNodeGraphMidiInput();
   });

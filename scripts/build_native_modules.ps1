@@ -439,6 +439,27 @@ if ($node) {
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: ping_pong LFO persistence smoke FAILED"
   }
+  # Stickiness: set cutoff once, process_block many times — must stay filtered.
+  & $node.Source "$root\scripts\smoke_ping_pong_param_stick.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: ping_pong param stickiness smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_soft_clipper_param_stick.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: soft_clipper param stickiness smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_soem_reverb_param_stick.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: soem_reverb param stickiness smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_ladder_param_stick.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: ladder_filter param stickiness smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_pll_param_stick.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: pll param stickiness smoke FAILED"
+  }
 } else {
   Write-Warning "node not found -- combined wasm smoke test SKIPPED. Install Node.js to enable it."
 }

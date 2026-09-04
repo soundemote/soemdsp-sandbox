@@ -15,8 +15,10 @@
 //  - Gold LFO L/R outs: raw bipolar LFO (−1…+1), not scaled by Amp
 //  - Feedback: soft clip → one-pole HPF → one-pole LPF
 //
-// LFO phase/walk/FBM state is plain doubles on the instance (Delay-style).
-// Block I/O buffers are separate static arrays (not fields of the state struct).
+// Instance state (LFO + soft-clip + feedback filter coeffs) is plain fields on
+// the pool slot so a written param stays put across set_params / buffer grow
+// (APP_POLICY stickiness). Block I/O buffers are separate static arrays.
+
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -37,7 +39,9 @@ static const size_t kWasmPage = 65536;
 
 enum LfoStyle { LfoParabol = 0, LfoRandomWalk = 1, LfoFbm = 2 };
 
-// Soft-clip coeffs as flat doubles (same persistence rule as one-poles below).
+// Soft-clip / one-pole coeffs are plain fields on the instance (not nested
+// DSP objects). Instance state must survive set_params + buffer grow so a
+// written Control target stays audible until the next write (APP_POLICY).
 static void soft_clip_set(
   double saturate, double& scaleX, double& scaleY, double& shiftX, double& shiftY
 ) {
@@ -59,9 +63,6 @@ static double soft_clip_run(
   return shiftY + scaleY * th;
 }
 
-// Flat filter state (not nested structs): nested OnePole members were not
-// reliably persisting in the instance pool across set_params/ensure_buffer
-// while adjacent plain doubles on PingPongDelayState did.
 static double one_pole_lp_coeff(double freqHz, double sr) {
   const double rate = maxd(1.0, sr);
   double f = maxd(0.0, safe(freqHz));
@@ -200,10 +201,9 @@ static bool gBumpInit = false;
 
 #if defined(__wasm__)
 extern "C" unsigned char __heap_base;
-// Ring alloc must start above instance BSS. If gBump begins at a too-low
-// __heap_base, the first zero-fill of a delay ring wipes SoftClip / one-pole
-// coeffs in gPool (a1→0 = pass-through). That made LPF/HPF/Saturate look like
-// they only worked while params were moving (coeffs rewritten each update).
+// Ring bump must start above instance BSS so the first zero-fill of a delay
+// ring cannot wipe live coeffs on the instance (stickiness: written params
+// must survive buffer setup).
 static void delay_bump_note_bss_end(uintptr_t endAddr) {
   if (endAddr > gBumpFloor) gBumpFloor = endAddr;
 }
@@ -304,8 +304,6 @@ struct PingPongDelayState {
   int lfoWalkTickR;
   unsigned int lfoSeedL;
   unsigned int lfoSeedR;
-  // Soft-clip + feedback one-poles as flat doubles (nested structs did not
-  // persist coeff writes in the instance pool; plain doubles next to lastLpfHz do).
   double clipScaleX, clipScaleY, clipShiftX, clipShiftY;
   double lpL_z, lpL_a1, lpR_z, lpR_a1;
   double hpL_x0, hpL_y0, hpL_a1, hpL_b0, hpL_b1;

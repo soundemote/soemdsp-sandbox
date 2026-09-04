@@ -13,26 +13,24 @@ function createNodeGraphRoundShapeDisplay(nodeId, type = "ellipsoid") {
   section.dataset.parameterVisual = "true";
   section.dataset.lightSource = "screen";
   section.dataset.lightStrength = "0.66";
-  section.syncFromParameters = () => {
-    section._roundShapeForceDraw = true;
-    drawNodeGraphRoundShapeDisplay(section);
-  };
   const canvas = document.createElement("canvas");
   canvas.className = "node-filter-curve-canvas node-round-shape-canvas";
   canvas.dataset.lightSource = "screen";
   canvas.dataset.lightStrength = "0.66";
   section.append(canvas);
-  if (typeof ResizeObserver === "function") {
-    const ro = new ResizeObserver(() => {
-      section._roundShapeForceDraw = true;
-      section._roundShapeLaidOut = false;
-      drawNodeGraphRoundShapeDisplay(section);
-    });
-    ro.observe(section);
-    section._roundShapeResizeObserver = ro;
-  }
+  nodeGraphInstallDrawingFacePump(section, {
+    clockKey: (el) => `roundShape:${el.dataset?.node || ""}`,
+    forceKey: "_roundShapeForceDraw",
+    rafKey: "_roundShapePlayheadRaf",
+    paint: drawNodeGraphRoundShapeDisplay,
+    onResize: (el) => { el._roundShapeLaidOut = false; },
+    paintOnCreate: false,
+  });
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => drawNodeGraphRoundShapeDisplay(section));
+    requestAnimationFrame(() => {
+      drawNodeGraphRoundShapeDisplay(section);
+      section._startFaceLoop?.();
+    });
   });
   return section;
 }
@@ -54,8 +52,9 @@ function nodeGraphRoundShapeReadScopePort(nodeId, port) {
 }
 
 function nodeGraphRoundShapeLivePlaying() {
-  if (typeof nodeGraphDisplaysFrozen === "function" && nodeGraphDisplaysFrozen()) {
-    return false;
+  // Same transport gate as scopePaintIsDrawingLive (speed>0 + worklet up).
+  if (typeof scopePaintIsDrawingLive === "function") {
+    return scopePaintIsDrawingLive();
   }
   if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp?.live?.node) {
     return false;
@@ -510,43 +509,6 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
     context.arc(px, py, Math.max(0.5, dotW * 0.5), 0, Math.PI * 2);
     context.fill();
   }
-  if (livePlaying) {
-    scheduleNodeGraphRoundShapePlayhead(section);
-  }
-}
-
-function nodeGraphRoundShapeScopeFps() {
-  if (typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function") {
-    return normalizeNodeGraphModuleScopeFramesPerSecond(
-      nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60,
-    );
-  }
-  const n = Math.round(Number(nodeGraphMvp?.moduleScopeFramesPerSecond) || 60);
-  return Number.isFinite(n) ? Math.max(0, Math.min(240, n)) : 60;
-}
-
-function scheduleNodeGraphRoundShapePlayhead(section) {
-  if (!section || section._roundShapePlayheadRaf) {
-    return;
-  }
-  if (!nodeGraphRoundShapeLivePlaying()) {
-    return;
-  }
-  const nodeId = section.dataset?.node || "";
-  if (typeof nodeGraphModuleIsViewportAsleep === "function"
-    && nodeGraphModuleIsViewportAsleep(section)) {
-    return;
-  }
-  if (typeof nodeGraphScreenSoloIsActive === "function"
-    && nodeGraphScreenSoloIsActive()
-    && typeof nodeGraphScreenSoloAllowsNode === "function"
-    && !nodeGraphScreenSoloAllowsNode(nodeId)) {
-    return;
-  }
-  section._roundShapePlayheadRaf = requestAnimationFrame(() => {
-    section._roundShapePlayheadRaf = 0;
-    drawNodeGraphRoundShapeDisplay(section);
-  });
 }
 
 function drawNodeGraphRoundShapeDisplays() {

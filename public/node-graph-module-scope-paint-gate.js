@@ -10,7 +10,7 @@
 
 /**
  * Engine transport is playing (speed > 0) and a live audio node exists.
- * Does not require AudioContext.state === "running" — suspended can lag resume.
+ * Does not require Live Output or AudioContext.state === "running".
  */
 function scopePaintIsEnginePlaying() {
   const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live : null;
@@ -23,6 +23,12 @@ function scopePaintIsEnginePlaying() {
     return speed > 0;
   }
   return true;
+}
+
+/** Live Output is on (sample stream / speaker path). */
+function scopePaintIsLiveOutputOn() {
+  const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live : null;
+  return Boolean(live?.outputEnabled);
 }
 
 /** Display Settings / patch overlay: scopes frozen without stopping audio. */
@@ -42,7 +48,12 @@ function nodeGraphDisplaysFrozen() {
   return false;
 }
 
-function scopePaintIsLive() {
+/**
+ * Drawing faces (basicShape, roundShape, filter curves, …) may animate from
+ * transport alone — Live Output is not required. Not for realtime field
+ * drawers (FBM field) or phosphor / Instant Trace.
+ */
+function scopePaintIsDrawingLive() {
   if (scopePaintIsVisualPaused()) {
     return false;
   }
@@ -50,12 +61,32 @@ function scopePaintIsLive() {
 }
 
 /**
- * Per-module face RAF: animate only while engine is live and the host node
- * is on-screen. When false, faces should paint at most once (idle plate) and
- * not reschedule requestAnimationFrame.
+ * Heavy realtime screens (phosphor, Instant Trace / strip traces, FBM field).
+ * Need Live Output so the sample / domain stream is actually pumping.
+ */
+function scopePaintIsRealtimeSampleLive() {
+  if (scopePaintIsVisualPaused()) {
+    return false;
+  }
+  return scopePaintIsEnginePlaying() && scopePaintIsLiveOutputOn();
+}
+
+/**
+ * @deprecated Prefer scopePaintIsDrawingLive / scopePaintIsRealtimeSampleLive.
+ * Kept as drawing-live (no Live Output) for shape / curve face RAF helpers.
+ */
+function scopePaintIsLive() {
+  return scopePaintIsDrawingLive();
+}
+
+/**
+ * Per-module face RAF for drawing faces (shapes / curves). Live Output not
+ * required. Realtime drawers (FBM field) use scopePaintIsRealtimeSampleLive.
+ * Paint cadence inside the loop is Simulation FPS via nodeGraphSimFpsShouldPaint
+ * — not every vsync. Mouse / param / resize call paint() immediately (force).
  */
 function scopePaintFaceShouldAnimate(faceOrNode) {
-  if (!scopePaintIsLive()) {
+  if (!scopePaintIsDrawingLive()) {
     return false;
   }
   if (
@@ -64,7 +95,136 @@ function scopePaintFaceShouldAnimate(faceOrNode) {
   ) {
     return false;
   }
+  const nodeId = faceOrNode?.dataset?.node
+    || (typeof faceOrNode === "string" ? faceOrNode : "")
+    || "";
+  if (
+    nodeId
+    && typeof nodeGraphScreenSoloIsActive === "function"
+    && nodeGraphScreenSoloIsActive()
+    && typeof nodeGraphScreenSoloAllowsNode === "function"
+    && !nodeGraphScreenSoloAllowsNode(nodeId)
+  ) {
+    return false;
+  }
   return true;
+}
+
+/**
+ * Shared rAF pump for drawing faces. Keeps the loop alive while animate;
+ * paints only when Simulation FPS says so (or host force flag is set).
+ * Prefer immediate paint() from syncFromParameters / resize / slider drag,
+ * then arm this loop — do not wait a frame for UI feedback.
+ */
+function nodeGraphArmDrawingFaceLoop(host, options = {}) {
+  if (!host) {
+    return;
+  }
+  const paint = options.paint;
+  if (typeof paint !== "function") {
+    return;
+  }
+  const rafKey = options.rafKey || "_raf";
+  const forceKey = options.forceKey || "_forceDraw";
+  if (host[rafKey]) {
+    return;
+  }
+  const clockKeyFor = typeof options.clockKey === "function"
+    ? options.clockKey
+    : () => String(options.clockKey || host.dataset?.nodeType || "face");
+  const stillAnimate = typeof options.shouldAnimate === "function"
+    ? () => options.shouldAnimate(host)
+    : () => (
+      typeof scopePaintFaceShouldAnimate === "function"
+        ? scopePaintFaceShouldAnimate(host)
+        : (typeof scopePaintIsLive === "function" ? scopePaintIsLive() : true)
+    );
+  const tick = () => {
+    host[rafKey] = 0;
+    if (host.isConnected === false) {
+      return;
+    }
+    const force = Boolean(host[forceKey]);
+    if (!stillAnimate()) {
+      if (force) {
+        paint(host);
+      }
+      return;
+    }
+    if (
+      typeof nodeGraphSimFpsShouldPaint === "function"
+      && !nodeGraphSimFpsShouldPaint(clockKeyFor(host), force)
+    ) {
+      // FPS ≤ 0 freezes — do not spin waiting for a tick that never comes.
+      if (typeof nodeGraphSimFpsRate === "function" && !(nodeGraphSimFpsRate() > 0)) {
+        return;
+      }
+      host[rafKey] = requestAnimationFrame(tick);
+      return;
+    }
+    paint(host);
+    if (stillAnimate()) {
+      host[rafKey] = requestAnimationFrame(tick);
+    }
+  };
+  host[rafKey] = requestAnimationFrame(tick);
+}
+
+/**
+ * Wire Simulation-FPS pump + param sync + resize + wake listeners on a face.
+ * Returns startLoop. Call after canvas is appended.
+ */
+function nodeGraphInstallDrawingFacePump(section, options = {}) {
+  if (!section || typeof options.paint !== "function") {
+    return () => {};
+  }
+  const paint = options.paint;
+  const forceKey = options.forceKey || "_forceDraw";
+  const startLoop = () => {
+    nodeGraphArmDrawingFaceLoop(section, {
+      paint,
+      clockKey: options.clockKey,
+      forceKey,
+      rafKey: options.rafKey || "_raf",
+      shouldAnimate: options.shouldAnimate,
+    });
+  };
+  section._startFaceLoop = startLoop;
+  if (options.ownSync !== false) {
+    section.syncFromParameters = () => {
+      section[forceKey] = true;
+      if (typeof options.onSync === "function") {
+        options.onSync(section);
+      }
+      paint(section);
+      startLoop();
+    };
+  }
+  if (options.observeResize !== false && typeof ResizeObserver === "function") {
+    const ro = new ResizeObserver(() => {
+      section[forceKey] = true;
+      if (typeof options.onResize === "function") {
+        options.onResize(section);
+      }
+      paint(section);
+      startLoop();
+    });
+    ro.observe(section);
+    section._drawingFaceResizeObserver = ro;
+  }
+  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+    document.addEventListener("nodegraphfaceloops", startLoop);
+  }
+  section.addEventListener?.("nodegraphviewport", (event) => {
+    if (!event?.detail?.asleep) {
+      startLoop();
+    }
+  });
+  if (options.paintOnCreate !== false) {
+    paint(section);
+    startLoop();
+  }
+  return startLoop;
 }
 
 /** Wake stopped face loops after Play / speed>0 / viewport wake. */
@@ -108,9 +268,8 @@ function scopePaintIsPaused() {
 }
 
 /**
- * Should this draw entry run the full collect + face paint path?
- * force=true (Clear, Settings, sample snapshot) always allowed for cold plate /
- * rebound even while paused.
+ * Full compositor draw (phosphor deposits + Instant Trace / sample faces).
+ * Requires Live Output. force=true still allowed for Clear / Settings plates.
  */
 function scopePaintShouldFullDraw(force = false) {
   if (force === true) {
@@ -119,7 +278,7 @@ function scopePaintShouldFullDraw(force = false) {
   if (typeof nodeGraphOutputInkWantsFrames === "function" && nodeGraphOutputInkWantsFrames()) {
     return true;
   }
-  return scopePaintIsLive();
+  return scopePaintIsRealtimeSampleLive();
 }
 
 /**
@@ -132,7 +291,7 @@ function scopePaintShouldKeepLoop() {
     }
     return true;
   }
-  if (!scopePaintIsLive()) {
+  if (!scopePaintIsRealtimeSampleLive()) {
     return false;
   }
   if (typeof nodeGraphModuleScopeState !== "undefined" && nodeGraphModuleScopeState?.idleHold) {
@@ -145,11 +304,11 @@ function scopePaintShouldKeepLoop() {
 }
 
 /**
- * Instant Trace signature skip: never while live (strip chart must repaint).
- * When idle, callers may still use signature caching for static frames.
+ * Instant Trace signature skip: never while realtime sample stream is live.
+ * When idle / Live Output off, callers may cache static frames.
  */
 function scopePaintShouldSkipUnchangedTrace() {
-  return !scopePaintIsLive();
+  return !scopePaintIsRealtimeSampleLive();
 }
 
 /**
@@ -230,7 +389,7 @@ function scopePaintKeepLoopAlive() {
 // --- Compatibility shims (existing names) ---------------------------------
 
 function nodeGraphModuleScopeLivePaintActive() {
-  return scopePaintIsLive();
+  return scopePaintIsRealtimeSampleLive();
 }
 
 function nodeGraphModuleScopeEnginePaused() {

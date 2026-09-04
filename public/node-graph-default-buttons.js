@@ -21,6 +21,10 @@ function clearNodeGraphConfirmDefaultButton(button = nodeGraphMvp.confirmDefault
   if (button?.id === "nodeToolbarPastePatchButton" || button?.dataset?.pendingPasteClear === "true") {
     delete nodeGraphMvp._pendingPastePatchText;
   }
+  if (button?.classList?.contains("node-pages-entry") || button?.dataset?.pageSlug) {
+    delete nodeGraphMvp._pendingPagePatchText;
+    delete nodeGraphMvp._pendingPagePatchSlug;
+  }
 }
 
 function nodeGraphDefaultButtonLabel(button) {

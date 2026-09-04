@@ -696,7 +696,9 @@ function renderNodeGraphSelection() {
     );
     item.classList.toggle("selected", selectedWireKeys.has(key));
   }
-  renderNodeGraphExecutionSummarySelection();
+  if (typeof renderNodeGraphExecutionSummarySelection === "function") {
+    renderNodeGraphExecutionSummarySelection();
+  }
 
   const canDelete = nodeGraphSelectionCanDelete();
   const deleteTitle = nodeGraphDeleteTitle();

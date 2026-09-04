@@ -195,15 +195,15 @@ function createNodeGraphPatchNode(type, options = {}) {
   return node;
 }
 
-// Efficient-product init: allowlisted C++ graph chain (no audioPlayer).
-// polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
+// Offline fallback for Init. Live Clear Startup / boot prefer patches/init.json
+// (then presets/default.json). Keep this aligned when Init changes.
 const nodeGraphDefaultNodeConfigs = Object.freeze([
   {
-    ...createNodeGraphPatchNode("audioInput", { id: "audioInput", gx: -26, gy: -4 }),
-    params: { ...nodeGraphDefaultParamsForType("audioInput") },
+    ...createNodeGraphPatchNode("output", { id: "output", gx: 5, gy: -9 }),
+    params: { ...nodeGraphDefaultParamsForType("output"), volume: -3 },
   },
   {
-    ...createNodeGraphPatchNode("polyBlep", { id: "polyBlep-1", gx: -18, gy: -4 }),
+    ...createNodeGraphPatchNode("polyBlep", { id: "polyBlep-1", gx: -2, gy: -9 }),
     params: {
       ...nodeGraphDefaultParamsForType("polyBlep"),
       frequency: 220,
@@ -211,48 +211,10 @@ const nodeGraphDefaultNodeConfigs = Object.freeze([
       amplitude: 0.5,
     },
   },
-  {
-    ...createNodeGraphPatchNode("ladderFilter", { id: "ladderFilter-1", gx: -10, gy: -4 }),
-    params: {
-      ...nodeGraphDefaultParamsForType("ladderFilter"),
-      frequency: 1200,
-      resonance: 0.35,
-      mode: 1,
-    },
-  },
-  {
-    ...createNodeGraphPatchNode("softClipper", { id: "softClipper-1", gx: -2, gy: -4 }),
-    params: { ...nodeGraphDefaultParamsForType("softClipper") },
-  },
-  {
-    ...createNodeGraphPatchNode("reverbEffect", { id: "reverbEffect-1", gx: 6, gy: -4 }),
-    params: {
-      ...nodeGraphDefaultParamsForType("reverbEffect"),
-      mix: 0.35,
-    },
-  },
-  {
-    ...createNodeGraphPatchNode("pingPongDelay", { id: "pingPongDelay-1", gx: 14, gy: -4 }),
-    params: {
-      ...nodeGraphDefaultParamsForType("pingPongDelay"),
-      mix: 0.25,
-      feedback: 0.3,
-    },
-  },
-  {
-    ...createNodeGraphPatchNode("output", { id: "output", gx: 22, gy: -4 }),
-    params: { ...nodeGraphDefaultParamsForType("output"), volume: -6 },
-  },
 ]);
 
 const nodeGraphDefaultConnections = Object.freeze([
-  { sourceNode: "polyBlep-1", sourcePort: "Wave", destinationNode: "ladderFilter-1", destinationPort: "In" },
-  { sourceNode: "ladderFilter-1", sourcePort: "Out", destinationNode: "softClipper-1", destinationPort: "In" },
-  { sourceNode: "softClipper-1", sourcePort: "Out", destinationNode: "reverbEffect-1", destinationPort: "In" },
-  { sourceNode: "reverbEffect-1", sourcePort: "Mix L", destinationNode: "pingPongDelay-1", destinationPort: "Left" },
-  { sourceNode: "reverbEffect-1", sourcePort: "Mix R", destinationNode: "pingPongDelay-1", destinationPort: "Right" },
-  { sourceNode: "pingPongDelay-1", sourcePort: "Left", destinationNode: "output", destinationPort: "Left" },
-  { sourceNode: "pingPongDelay-1", sourcePort: "Right", destinationNode: "output", destinationPort: "Right" },
+  { sourceNode: "polyBlep-1", sourcePort: "Wave", destinationNode: "output", destinationPort: "Mono" },
 ]);
 
 const nodeGraphDefaultPatch = Object.freeze({
@@ -280,9 +242,9 @@ const nodeGraphDefaultPatch = Object.freeze({
   ],
   info: {
     author: "",
-    description: "Efficient C++ circuit: osc → filter → clip → reverb → delay → out",
-    name: "Efficient Init",
-    tags: "efficient,mvep",
+    description: "Init — PolyBLEP into Output (same as patches/init.json)",
+    name: "Init",
+    tags: "init,default",
   },
   visual: {
     background: {

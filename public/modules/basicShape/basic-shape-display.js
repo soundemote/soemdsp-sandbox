@@ -12,26 +12,24 @@ function createNodeGraphBasicShapeDisplay(nodeId, type = "basicShape") {
   section.dataset.parameterVisual = "true";
   section.dataset.lightSource = "screen";
   section.dataset.lightStrength = "0.66";
-  section.syncFromParameters = () => {
-    section._basicShapeForceDraw = true;
-    drawNodeGraphBasicShapeDisplay(section);
-  };
   const canvas = document.createElement("canvas");
   canvas.className = "node-filter-curve-canvas node-basic-shape-canvas";
   canvas.dataset.lightSource = "screen";
   canvas.dataset.lightStrength = "0.66";
   section.append(canvas);
-  if (typeof ResizeObserver === "function") {
-    const ro = new ResizeObserver(() => {
-      section._basicShapeForceDraw = true;
-      section._basicShapeLaidOut = false;
-      drawNodeGraphBasicShapeDisplay(section);
-    });
-    ro.observe(section);
-    section._basicShapeResizeObserver = ro;
-  }
+  nodeGraphInstallDrawingFacePump(section, {
+    clockKey: (el) => `basicShape:${el.dataset?.node || ""}`,
+    forceKey: "_basicShapeForceDraw",
+    rafKey: "_basicShapePlayheadRaf",
+    paint: drawNodeGraphBasicShapeDisplay,
+    onResize: (el) => { el._basicShapeLaidOut = false; },
+    paintOnCreate: false,
+  });
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => drawNodeGraphBasicShapeDisplay(section));
+    requestAnimationFrame(() => {
+      drawNodeGraphBasicShapeDisplay(section);
+      section._startFaceLoop?.();
+    });
   });
   return section;
 }
@@ -324,33 +322,6 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
     context.arc(px, py, Math.max(0.5, dotW * 0.5), 0, Math.PI * 2);
     context.fill();
   }
-  if (livePlaying) {
-    scheduleNodeGraphBasicShapePlayhead(section);
-  }
-}
-
-function scheduleNodeGraphBasicShapePlayhead(section) {
-  if (!section || section._basicShapePlayheadRaf) {
-    return;
-  }
-  if (typeof nodeGraphRoundShapeLivePlaying === "function" && !nodeGraphRoundShapeLivePlaying()) {
-    return;
-  }
-  const nodeId = section.dataset?.node || "";
-  if (typeof nodeGraphModuleIsViewportAsleep === "function"
-    && nodeGraphModuleIsViewportAsleep(section)) {
-    return;
-  }
-  if (typeof nodeGraphScreenSoloIsActive === "function"
-    && nodeGraphScreenSoloIsActive()
-    && typeof nodeGraphScreenSoloAllowsNode === "function"
-    && !nodeGraphScreenSoloAllowsNode(nodeId)) {
-    return;
-  }
-  section._basicShapePlayheadRaf = requestAnimationFrame(() => {
-    section._basicShapePlayheadRaf = 0;
-    drawNodeGraphBasicShapeDisplay(section);
-  });
 }
 
 function applyNodeGraphBasicShapeDisplaySettingsToFace(node) {

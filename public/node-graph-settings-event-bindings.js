@@ -95,6 +95,9 @@ function bindNodeGraphSettingsFormEvents() {
     field.addEventListener("input", handleNodeGraphSettingsInput);
     field.addEventListener("change", commitNodeGraphSettingsHistory);
   }
-  document.getElementById("toggleDebugButton").addEventListener("click", toggleDebugSections);
+  const toggleDebug = document.getElementById("toggleDebugButton");
+  if (toggleDebug && typeof toggleDebugSections === "function") {
+    toggleDebug.addEventListener("click", toggleDebugSections);
+  }
   bindNodeGraphMetadataPopoverEvents();
 }

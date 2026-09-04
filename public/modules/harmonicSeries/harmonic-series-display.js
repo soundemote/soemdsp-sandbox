@@ -90,51 +90,15 @@ function createNodeGraphHarmonicSeriesDisplay(nodeId, type = "harmonicSeries") {
   section.dataset.parameterVisual = "true";
   section.dataset.lightSource = "screen";
   section.dataset.lightStrength = "0.4";
-  const startLoop = () => {
-    if (section._raf) return;
-    const tick = () => {
-      section._raf = 0;
-      if (!section.isConnected) return;
-      const animate = typeof scopePaintFaceShouldAnimate === "function"
-        ? scopePaintFaceShouldAnimate(section)
-        : (typeof scopePaintIsLive === "function" ? scopePaintIsLive() : true);
-      if (!animate) {
-        if (section._forceDraw) {
-          drawNodeGraphHarmonicSeriesFaceItem(section);
-        }
-        return;
-      }
-      drawNodeGraphHarmonicSeriesFaceItem(section);
-      section._raf = requestAnimationFrame(tick);
-    };
-    section._raf = requestAnimationFrame(tick);
-  };
-  section._startFaceLoop = startLoop;
-  section.syncFromParameters = () => {
-    section._forceDraw = true;
-    drawNodeGraphHarmonicSeriesFaceItem(section);
-    startLoop();
-  };
   const canvas = document.createElement("canvas");
   canvas.className = "node-filter-curve-canvas node-harmonic-series-canvas node-module-scope-vector-trace";
   canvas.setAttribute("aria-hidden", "true");
   section.append(canvas);
-  if (typeof ResizeObserver === "function") {
-    const observer = new ResizeObserver(() => {
-      section._forceDraw = true;
-      section._harmonicSeriesLaidOut = false;
-      drawNodeGraphHarmonicSeriesFaceItem(section);
-      startLoop();
-    });
-    observer.observe(section);
-    section._harmonicSeriesResizeObserver = observer;
-  }
-  document.addEventListener("nodegraphfaceloops", startLoop);
-  section.addEventListener("nodegraphviewport", (event) => {
-    if (!event?.detail?.asleep) startLoop();
+  nodeGraphInstallDrawingFacePump(section, {
+    clockKey: (el) => `harmonicSeries:${el.dataset?.node || ""}`,
+    paint: drawNodeGraphHarmonicSeriesFaceItem,
+    onResize: (el) => { el._harmonicSeriesLaidOut = false; },
   });
-  drawNodeGraphHarmonicSeriesFaceItem(section);
-  startLoop();
   return section;
 }
 

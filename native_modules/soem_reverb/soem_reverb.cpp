@@ -63,107 +63,131 @@ static const char kMetadataJson[] =
     "]"
   "}";
 
-// --- SoftClipper (SoftClipper.hpp) ---
-struct SoftClip {
-  double width{2.0};
-  double center{0.0};
-  double scaleX{1.0}, scaleY{1.0}, shiftX{0.0}, shiftY{0.0};
-  void updateCoeffs() {
-    double w = width > 1e-9 ? width : 2.0;
-    scaleX = 2.0 / w;
-    shiftX = -1.0 - (scaleX * (center - 0.5 * w));
-    scaleY = 1.0 / scaleX;
-    shiftY = -shiftX * scaleY;
-  }
-  double run(double v) const {
-    // freestanding tanh via exp
-    double x = scaleX * v + shiftX;
-    double e2 = dsp_exp(2.0 * x);
-    double th = (e2 - 1.0) / (e2 + 1.0);
-    return shiftY + scaleY * th;
-  }
-};
+// Stickiness: clip / HP / multi-biquad latches are plain POD on the instance
+// + free functions (APP_POLICY). No method-bearing nested DSP objects — those
+// lost written coeffs across set_params (same class of bug as ping_pong LPF).
 
-// --- OnePole HP (OnePoleFilter.hpp IIT) ---
-struct OnePoleHP {
-  double b0{1.0}, b1{0.0}, a1{0.0};
-  double buf0{0.0}, buf1{0.0};
-  double frequency{20.0};
-  void sampleRateChanged(double sr) {
-    const double tauZ = 6.283185307179586 / maxd(1.0, sr);
-    double w = mind(tauZ, 0.000142475857) * frequency;
-    a1 = dsp_exp(-w);
-    b0 = 0.5 * (1.0 + a1);
-    b1 = -b0;
-  }
-  void reset() { buf0 = buf1 = 0.0; }
-  double run(double input) {
-    buf1 = b0 * input + b1 * buf0 + a1 * buf1;
-    buf0 = input;
-    return buf1;
-  }
-};
-
-// --- RBJ biquad (cookbook-style) multi-stage ---
-struct Biquad {
+struct BiquadPod {
   double b0{1}, b1{0}, b2{0}, a1{0}, a2{0};
   double z1{0}, z2{0};
-  void reset() { z1 = z2 = 0; }
-  double run(double x) {
-    double y = b0 * x + z1;
-    z1 = b1 * x - a1 * y + z2;
-    z2 = b2 * x - a2 * y;
-    return y;
-  }
-  void setLowpass(double freq, double q, double sr) {
-    double w0 = kTwoPi * clamp(freq, 1.0, sr * 0.45) / sr;
-    double cosw = dsp_cos(w0);
-    double sinw = dsp_sin(w0);
-    double alpha = sinw / (2.0 * maxd(0.05, q));
-    double a0 = 1.0 + alpha;
-    b0 = ((1.0 - cosw) * 0.5) / a0;
-    b1 = (1.0 - cosw) / a0;
-    b2 = b0;
-    a1 = (-2.0 * cosw) / a0;
-    a2 = (1.0 - alpha) / a0;
-  }
-  void setPeak(double freq, double gainDb, double q, double sr) {
-    double A = dsp_exp(gainDb * (0.11512925464970229)); // ln(10)/20
-    double w0 = kTwoPi * clamp(freq, 1.0, sr * 0.45) / sr;
-    double cosw = dsp_cos(w0);
-    double sinw = dsp_sin(w0);
-    double alpha = sinw / (2.0 * maxd(0.05, q));
-    double a0 = 1.0 + alpha / A;
-    b0 = (1.0 + alpha * A) / a0;
-    b1 = (-2.0 * cosw) / a0;
-    b2 = (1.0 - alpha * A) / a0;
-    a1 = b1;
-    a2 = (1.0 - alpha / A) / a0;
-  }
 };
 
-struct MultiStage {
-  Biquad stages[5];
-  int nStages{2};
-  int mode{0}; // 0=LP, 1=Peak
-  double freq{1000}, q{1}, gainDb{0};
-  void reset() {
-    for (int i = 0; i < 5; i++) stages[i].reset();
-  }
-  void update(double sr) {
-    for (int i = 0; i < 5; i++) {
-      if (mode == 0) stages[i].setLowpass(freq, q, sr);
-      else stages[i].setPeak(freq, gainDb, q, sr);
-    }
-  }
-  double run(double x) {
-    if (nStages <= 0) return x;
-    double y = x;
-    int n = nStages > 5 ? 5 : nStages;
-    for (int i = 0; i < n; i++) y = stages[i].run(y);
-    return y;
-  }
-};
+static void soft_clip_set(
+  double saturate, double& scaleX, double& scaleY, double& shiftX, double& shiftY
+) {
+  double thr = maxd(0.01, saturate);
+  double width = maxd(1e-6, thr * 2.0);
+  scaleX = 2.0 / width;
+  shiftX = -1.0 - (scaleX * (0.0 - 0.5 * width));
+  scaleY = 1.0 / scaleX;
+  shiftY = -shiftX * scaleY;
+}
+
+static double soft_clip_run(
+  double v, double scaleX, double scaleY, double shiftX, double shiftY
+) {
+  double x = scaleX * v + shiftX;
+  if (x > 20.0) x = 20.0;
+  if (x < -20.0) x = -20.0;
+  double e2 = dsp_exp(2.0 * x);
+  double th = (e2 - 1.0) / (e2 + 1.0);
+  return shiftY + scaleY * th;
+}
+
+// OnePoleFilter.hpp IIT high-pass (preserve original tau mapping).
+static void one_pole_hp_set(
+  double freqHz, double sr, double& a1, double& b0, double& b1
+) {
+  const double rate = maxd(1.0, sr);
+  double f = maxd(0.0, safe(freqHz));
+  const double nyquist = 0.5 * rate;
+  if (f > nyquist) f = nyquist;
+  const double tauZ = 6.283185307179586 / rate;
+  double w = mind(tauZ, 0.000142475857) * f;
+  a1 = dsp_exp(-w);
+  b0 = 0.5 * (1.0 + a1);
+  b1 = -b0;
+}
+
+static double one_pole_hp_run(
+  double& x0, double& y0, double a1, double b0, double b1, double input
+) {
+  double y = b0 * input + b1 * x0 + a1 * y0;
+  x0 = input;
+  y0 = y;
+  return y;
+}
+
+static void biquad_reset(BiquadPod& b) { b.z1 = b.z2 = 0.0; }
+
+static double biquad_run(BiquadPod& b, double x) {
+  double y = b.b0 * x + b.z1;
+  b.z1 = b.b1 * x - b.a1 * y + b.z2;
+  b.z2 = b.b2 * x - b.a2 * y;
+  return y;
+}
+
+// DSP floor 0 / cap Nyquist only (no product 20…20k clamps).
+static double biquad_safe_freq(double freq, double sr) {
+  const double rate = maxd(1.0, sr);
+  double f = maxd(0.0, safe(freq));
+  const double nyquist = 0.5 * rate;
+  if (f > nyquist) f = nyquist;
+  // RBJ needs a tiny positive ω; 0 Hz → near-DC (closed for LPF).
+  if (f < 1e-9) f = 1e-9;
+  return f;
+}
+
+static void biquad_set_lowpass(BiquadPod& b, double freq, double q, double sr) {
+  double w0 = kTwoPi * biquad_safe_freq(freq, sr) / maxd(1.0, sr);
+  double cosw = dsp_cos(w0);
+  double sinw = dsp_sin(w0);
+  double alpha = sinw / (2.0 * maxd(0.05, q));
+  double a0 = 1.0 + alpha;
+  b.b0 = ((1.0 - cosw) * 0.5) / a0;
+  b.b1 = (1.0 - cosw) / a0;
+  b.b2 = b.b0;
+  b.a1 = (-2.0 * cosw) / a0;
+  b.a2 = (1.0 - alpha) / a0;
+}
+
+static void biquad_set_peak(
+  BiquadPod& b, double freq, double gainDb, double q, double sr
+) {
+  double A = dsp_exp(gainDb * (0.11512925464970229)); // ln(10)/20
+  double w0 = kTwoPi * biquad_safe_freq(freq, sr) / maxd(1.0, sr);
+  double cosw = dsp_cos(w0);
+  double sinw = dsp_sin(w0);
+  double alpha = sinw / (2.0 * maxd(0.05, q));
+  double a0 = 1.0 + alpha / A;
+  b.b0 = (1.0 + alpha * A) / a0;
+  b.b1 = (-2.0 * cosw) / a0;
+  b.b2 = (1.0 - alpha * A) / a0;
+  b.a1 = b.b1;
+  b.a2 = (1.0 - alpha / A) / a0;
+}
+
+static void multi_biquad_reset(BiquadPod stages[5]) {
+  for (int i = 0; i < 5; i++) biquad_reset(stages[i]);
+}
+
+static void multi_lpf_update(BiquadPod stages[5], double freq, double sr) {
+  for (int i = 0; i < 5; i++) biquad_set_lowpass(stages[i], freq, 1.0, sr);
+}
+
+static void multi_peak_update(
+  BiquadPod stages[5], double freq, double gainDb, double q, double sr
+) {
+  for (int i = 0; i < 5; i++) biquad_set_peak(stages[i], freq, gainDb, q, sr);
+}
+
+static double multi_biquad_run(BiquadPod stages[5], int nStages, double x) {
+  if (nStages <= 0) return x;
+  double y = x;
+  int n = nStages > 5 ? 5 : nStages;
+  for (int i = 0; i < n; i++) y = biquad_run(stages[i], y);
+  return y;
+}
 
 // --- SilenceDetector ---
 struct SilenceDetector {
@@ -421,10 +445,19 @@ struct SoEmReverbState {
   int doModulateEcho{1};
   double saturate{1.0};
   unsigned int rng{1};
-  SoftClip clipL, clipR;
-  OnePoleHP hpfL, hpfR;
-  MultiStage lpfL, lpfR;
-  MultiStage peakL, peakR;
+  // Soft-clip latches (shared L/R — same saturate).
+  double clipScaleX{1.0}, clipScaleY{1.0}, clipShiftX{0.0}, clipShiftY{0.0};
+  // One-pole HP latches + history.
+  double hpfFrequency{20.0};
+  double hpfL_a1{0.0}, hpfL_b0{1.0}, hpfL_b1{0.0}, hpfL_x0{0.0}, hpfL_y0{0.0};
+  double hpfR_a1{0.0}, hpfR_b0{1.0}, hpfR_b1{0.0}, hpfR_x0{0.0}, hpfR_y0{0.0};
+  // Multi-stage LPF / peak (plain POD stages).
+  double lpfFrequency{8000.0};
+  int lpfStages{2};
+  BiquadPod lpfL[5], lpfR[5];
+  double bandFrequency{1000.0}, bandDecibels{0.0}, bandQ{1.0};
+  int bandStages{2};
+  BiquadPod peakL[5], peakR[5];
   SilenceDetector silence;
   DuckFollow duck;
   // Delay line control only (sample storage in gDelayPool).
@@ -527,46 +560,44 @@ static void reseedDiffusion(SoEmReverbState& s) {
 }
 
 static void updateClip(SoEmReverbState& s) {
-  s.clipL.width = s.saturate > 1e-6 ? s.saturate * 2.0 : 2.0; // width maps from threshold
-  // SoftClipper width_ is clippingThreshold; center 0
-  s.clipL.width = maxd(1e-6, s.saturate * 2.0);
-  s.clipL.center = 0.0;
-  s.clipL.updateCoeffs();
-  s.clipR = s.clipL;
-  // feedbackCompensation_ = db_to_amp(abs(min(amp_to_db(clippingThreshold_), 0)))
+  soft_clip_set(s.saturate, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
+  // When thr>=1, compensation=1; when thr<1, thr itself.
   double thr = maxd(1e-9, s.saturate);
-  double db = 20.0 * (dsp_ln(thr) * 0.4342944819032518); // log10
-  double cdb = mind(db, 0.0);
-  if (cdb < 0.0) cdb = -cdb;
-  s.feedbackCompensation = dsp_exp(cdb * (-0.11512925464970229) * (db < 0 ? 1.0 : 0.0));
-  // When thr>=1, compensation=1; when thr<1, thr itself:
   s.feedbackCompensation = thr >= 1.0 ? 1.0 : thr;
 }
 
 static void configureFilters(SoEmReverbState& s) {
-  s.hpfL.sampleRateChanged(s.sampleRate);
-  s.hpfR.sampleRateChanged(s.sampleRate);
-  s.lpfL.mode = 0;
-  s.lpfR.mode = 0;
-  s.lpfL.update(s.sampleRate);
-  s.lpfR.update(s.sampleRate);
-  s.peakL.mode = 1;
-  s.peakR.mode = 1;
-  s.peakL.update(s.sampleRate);
-  s.peakR.update(s.sampleRate);
+  one_pole_hp_set(
+    s.hpfFrequency, s.sampleRate, s.hpfL_a1, s.hpfL_b0, s.hpfL_b1
+  );
+  s.hpfR_a1 = s.hpfL_a1;
+  s.hpfR_b0 = s.hpfL_b0;
+  s.hpfR_b1 = s.hpfL_b1;
+  multi_lpf_update(s.lpfL, s.lpfFrequency, s.sampleRate);
+  multi_lpf_update(s.lpfR, s.lpfFrequency, s.sampleRate);
+  multi_peak_update(
+    s.peakL, s.bandFrequency, s.bandDecibels, s.bandQ, s.sampleRate
+  );
+  multi_peak_update(
+    s.peakR, s.bandFrequency, s.bandDecibels, s.bandQ, s.sampleRate
+  );
 }
 
 static void feedbackFilter(SoEmReverbState& s, bool reverseStereo) {
-  s.fbL = s.hpfL.run(s.fbL);
-  s.fbR = s.hpfR.run(s.fbR);
+  s.fbL = one_pole_hp_run(
+    s.hpfL_x0, s.hpfL_y0, s.hpfL_a1, s.hpfL_b0, s.hpfL_b1, s.fbL
+  );
+  s.fbR = one_pole_hp_run(
+    s.hpfR_x0, s.hpfR_y0, s.hpfR_a1, s.hpfR_b0, s.hpfR_b1, s.fbR
+  );
   if (reverseStereo) {
-    double ol = s.lpfL.run(s.fbL);
-    double orr = s.lpfR.run(s.fbR);
+    double ol = multi_biquad_run(s.lpfL, s.lpfStages, s.fbL);
+    double orr = multi_biquad_run(s.lpfR, s.lpfStages, s.fbR);
     s.fbR = ol;
     s.fbL = orr;
   } else {
-    s.fbL = s.lpfL.run(s.fbL);
-    s.fbR = s.lpfR.run(s.fbR);
+    s.fbL = multi_biquad_run(s.lpfL, s.lpfStages, s.fbL);
+    s.fbR = multi_biquad_run(s.lpfR, s.lpfStages, s.fbR);
   }
 }
 
@@ -575,8 +606,8 @@ static void dryWet(SoEmReverbState& s, double inL, double inR) {
   const double wetGain = s.mix * s.volume;
   s.dryL = inL * dryGain;
   s.dryR = inR * dryGain;
-  s.wetL = s.peakL.run(s.fbL * wetGain);
-  s.wetR = s.peakR.run(s.fbR * wetGain);
+  s.wetL = multi_biquad_run(s.peakL, s.bandStages, s.fbL * wetGain);
+  s.wetR = multi_biquad_run(s.peakR, s.bandStages, s.fbR * wetGain);
   s.outL = s.dryL + s.wetL;
   s.outR = s.dryR + s.wetR;
 }
@@ -621,14 +652,22 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
     }
     dryWet(s, inL, inR);
     feedbackFilter(s, false);
-    s.fbL = s.clipL.run(s.fbL) * s.feedbackCompensation;
-    s.fbR = s.clipR.run(s.fbR) * s.feedbackCompensation;
+    s.fbL = soft_clip_run(
+      s.fbL, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
+    ) * s.feedbackCompensation;
+    s.fbR = soft_clip_run(
+      s.fbR, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
+    ) * s.feedbackCompensation;
     break;
   }
   case PreDelay: {
     feedbackFilter(s, false);
-    s.fbL = s.clipL.run(inL + s.fbL) * s.feedbackCompensation;
-    s.fbR = s.clipR.run(inR + s.fbR) * s.feedbackCompensation;
+    s.fbL = soft_clip_run(
+      inL + s.fbL, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
+    ) * s.feedbackCompensation;
+    s.fbR = soft_clip_run(
+      inR + s.fbR, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
+    ) * s.feedbackCompensation;
     for (int i = 0; i < s.numDelays; ++i) {
       s.fbL = s.delaysL[i].runDiffuse(s.fbL, liveFeedback, liveLfoAmp);
       s.fbR = s.delaysR[i].runDiffuse(s.fbR, liveFeedback, liveLfoAmp);
@@ -654,8 +693,12 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
     }
     dryWet(s, inL, inR);
     feedbackFilter(s, true);
-    s.fbL = s.clipL.run(s.fbL) * s.feedbackCompensation;
-    s.fbR = s.clipR.run(s.fbR) * s.feedbackCompensation;
+    s.fbL = soft_clip_run(
+      s.fbL, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
+    ) * s.feedbackCompensation;
+    s.fbR = soft_clip_run(
+      s.fbR, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
+    ) * s.feedbackCompensation;
     break;
   }
   }
@@ -678,12 +721,12 @@ static void fullReset(SoEmReverbState& s) {
     s.delaysL[i].clear();
     s.delaysR[i].clear();
   }
-  s.hpfL.reset();
-  s.hpfR.reset();
-  s.lpfL.reset();
-  s.lpfR.reset();
-  s.peakL.reset();
-  s.peakR.reset();
+  s.hpfL_x0 = s.hpfL_y0 = 0.0;
+  s.hpfR_x0 = s.hpfR_y0 = 0.0;
+  multi_biquad_reset(s.lpfL);
+  multi_biquad_reset(s.lpfR);
+  multi_biquad_reset(s.peakL);
+  multi_biquad_reset(s.peakR);
   s.silence.counter = 0;
   s.silence.isSilent = true;
   s.duck.env = 1.0;
@@ -729,16 +772,13 @@ extern "C" int soemdsp_soem_reverb_create(double sampleRate) {
       s.doModulateEcho = 1;
       s.saturate = 1.0;
       s.numDelays = 10;
-      s.hpfL.frequency = 20.0;
-      s.hpfR.frequency = 20.0;
-      s.lpfL.freq = 8000;
-      s.lpfR.freq = 8000;
-      s.lpfL.nStages = 2;
-      s.lpfR.nStages = 2;
-      s.peakL.freq = 1000;
-      s.peakR.freq = 1000;
-      s.peakL.nStages = 2;
-      s.peakR.nStages = 2;
+      s.hpfFrequency = 20.0;
+      s.lpfFrequency = 8000.0;
+      s.lpfStages = 2;
+      s.bandFrequency = 1000.0;
+      s.bandDecibels = 0.0;
+      s.bandQ = 1.0;
+      s.bandStages = 2;
       bindDelayStorage(s, i);
       s.silence.sampleRateChanged(s.sampleRate);
       s.duck.setRelease(0.04, s.sampleRate);
@@ -822,11 +862,12 @@ extern "C" void soemdsp_soem_reverb_set_params(
   if (nextStyle > 2) nextStyle = 2;
   const int nextDoModulateEcho = (int)dsp_floor(doModulateEcho + 0.5) != 0 ? 1 : 0;
   const double nextSaturate = maxd(0.01, saturate);
-  const double nextLpfFrequency = clamp(lpfFrequency, 20.0, 20000.0);
-  const double nextHpfFrequency = clamp(hpfFrequency, 1.0, 2000.0);
-  const double nextBandFrequency = clamp(bandFrequency, 20.0, 20000.0);
+  // Freq params: no product clamps — DSP floors 0 / caps Nyquist in coeff setters.
+  const double nextLpfFrequency = maxd(0.0, safe(lpfFrequency));
+  const double nextHpfFrequency = maxd(0.0, safe(hpfFrequency));
+  const double nextBandFrequency = maxd(0.0, safe(bandFrequency));
   const double nextBandDecibels = clamp(bandDecibels, -24.0, 24.0);
-  const double nextBandQ = clamp(bandQ, 0.1, 10.0);
+  const double nextBandQ = maxd(0.05, safe(bandQ));
   const int nextLpfStages = (int)clamp(dsp_floor(lpfStages + 0.5), 0.0, 5.0);
   const int nextBandStages = (int)clamp(dsp_floor(bandStages + 0.5), 0.0, 5.0);
   const double nextDuckLimit = clamp(duckLimit, 0.01, 1.0);
@@ -845,13 +886,13 @@ extern "C" void soemdsp_soem_reverb_set_params(
   const bool doModulateEchoChanged = nextDoModulateEcho != s.doModulateEcho;
   const bool saturateChanged = !near(nextSaturate, s.saturate);
   const bool filterChanged =
-    !near(nextLpfFrequency, s.lpfL.freq)
-    || !near(nextHpfFrequency, s.hpfL.frequency)
-    || !near(nextBandFrequency, s.peakL.freq)
-    || !near(nextBandDecibels, s.peakL.gainDb)
-    || !near(nextBandQ, s.peakL.q)
-    || nextLpfStages != s.lpfL.nStages
-    || nextBandStages != s.peakL.nStages;
+    !near(nextLpfFrequency, s.lpfFrequency)
+    || !near(nextHpfFrequency, s.hpfFrequency)
+    || !near(nextBandFrequency, s.bandFrequency)
+    || !near(nextBandDecibels, s.bandDecibels)
+    || !near(nextBandQ, s.bandQ)
+    || nextLpfStages != s.lpfStages
+    || nextBandStages != s.bandStages;
   const bool duckChanged =
     !near(nextDuckLimit, s.duck.limit)
     || !near(nextDuckRelease, s.duck.releaseSeconds);
@@ -867,13 +908,13 @@ extern "C" void soemdsp_soem_reverb_set_params(
   s.lfoStyle = nextStyle;
   s.doModulateEcho = nextDoModulateEcho;
   s.saturate = nextSaturate;
-  s.lpfL.freq = s.lpfR.freq = nextLpfFrequency;
-  s.hpfL.frequency = s.hpfR.frequency = nextHpfFrequency;
-  s.peakL.freq = s.peakR.freq = nextBandFrequency;
-  s.peakL.gainDb = s.peakR.gainDb = nextBandDecibels;
-  s.peakL.q = s.peakR.q = nextBandQ;
-  s.lpfL.nStages = s.lpfR.nStages = nextLpfStages;
-  s.peakL.nStages = s.peakR.nStages = nextBandStages;
+  s.lpfFrequency = nextLpfFrequency;
+  s.hpfFrequency = nextHpfFrequency;
+  s.bandFrequency = nextBandFrequency;
+  s.bandDecibels = nextBandDecibels;
+  s.bandQ = nextBandQ;
+  s.lpfStages = nextLpfStages;
+  s.bandStages = nextBandStages;
   s.duck.limit = nextDuckLimit;
 
   // diffusionAmount / lfoAmp: live Wire — assign into lines every set (cheap), no rebuild.
@@ -956,7 +997,7 @@ extern "C" double soemdsp_soem_reverb_dry_right(int handle) {
   return gPool[handle - 1].dryR;
 }
 
-extern "C" int soemdsp_soem_reverb_version() { return 1; }
+extern "C" int soemdsp_soem_reverb_version() { return 2; }
 extern "C" const char* soemdsp_soem_reverb_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_soem_reverb_metadata_json_size() {
   return (int)(sizeof(kMetadataJson) - 1);

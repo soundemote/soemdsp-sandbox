@@ -604,6 +604,12 @@ function createNodeGraphControllerRow(kind, children = [], options = {}) {
   return row;
 }
 
+/**
+ * K Controllers dock — controller faces (shared global state), not module faces.
+ * Each widget factory is also used by the matching patch module:
+ *   macros → macroControls, wheels → pitchModWheel, piano → keyboard.
+ * Portal MIDI listen UI is separate (keyboardController / createNodeGraphMidiModuleBody).
+ */
 function mountNodeGraphControllerRows(host) {
   if (!host) {
     return host;
@@ -723,8 +729,8 @@ function createNodeGraphMidiModuleBody(node = null) {
   return section;
 }
 
-// Standalone dock piano. The placed keyboardController module is the official
-// MIDI module (createNodeGraphMidiModuleBody) — this body is only the dock.
+// Controller-face piano (K dock + Keyboard module). Shared global state on
+// nodeGraphMvp — not the Portal MIDI listen module (createNodeGraphMidiModuleBody).
 function createNodeGraphKeyboardControllerBody(node = null) {
   const section = document.createElement("section");
   section.className = "node-midi-keyboard-panel node-midi-keyboard-module";

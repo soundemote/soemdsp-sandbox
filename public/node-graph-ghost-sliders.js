@@ -252,6 +252,18 @@ function scheduleNodeGraphGhostSlidersFromLive() {
   }
   nodeGraphGhostSliderLiveFrame = window.requestAnimationFrame(() => {
     nodeGraphGhostSliderLiveFrame = 0;
+    // Live mod ghosts share Simulation FPS. Mouse drag / input call
+    // syncNodeGraphGhostSliders() directly (ungated) for immediate feedback.
+    if (
+      typeof nodeGraphSimFpsShouldPaint === "function"
+      && !nodeGraphSimFpsShouldPaint("__ghost-sliders", false)
+    ) {
+      if (typeof nodeGraphSimFpsRate === "function" && !(nodeGraphSimFpsRate() > 0)) {
+        return;
+      }
+      scheduleNodeGraphGhostSlidersFromLive();
+      return;
+    }
     syncNodeGraphGhostSliders();
   });
 }

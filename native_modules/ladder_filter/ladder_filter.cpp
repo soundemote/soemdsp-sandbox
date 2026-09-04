@@ -108,8 +108,10 @@ static void sync_ladder_coeffs(
   double sampleRate
 ) {
   const double safeRate = sampleRate < 1.0 ? 44100.0 : sampleRate;
-  const double maxFreq  = safeRate * 0.49 < 20000.0 ? safeRate * 0.49 : 20000.0;
-  const double safeFreq = frequency < 0.000001 ? 0.000001 : (frequency > maxFreq ? maxFreq : frequency);
+  // Floor 0 / cap ~Nyquist only — no product 20 kHz clamp (APP_POLICY).
+  const double maxFreq = safeRate * 0.49;
+  const double safeFreq = frequency < 0.0 ? 0.0 : (frequency > maxFreq ? maxFreq : frequency);
+  const double coeffFreq = safeFreq < 1e-9 ? 1e-9 : safeFreq;
   const double feedback  = resonance < 0.0 ? 0.0 : (resonance > 1.0 ? 1.0 : resonance);
   const int safeMode    = mode < 0 ? 0 : (mode > 3 ? 3 : mode);
   const int safeStages  = stages < 1 ? 1 : (stages > 4 ? 4 : stages);
@@ -123,7 +125,7 @@ static void sync_ladder_coeffs(
     return;
   }
 
-  const double rawWc    = 2.0 * kPi * safeFreq / safeRate;
+  const double rawWc    = 2.0 * kPi * coeffFreq / safeRate;
   const double wc       = rawWc < 1e-9 ? 1e-9 : (rawWc > kPi * 0.98 ? kPi * 0.98 : rawWc);
   const double sine    = dsp_sin_0_pi(wc);
   const double cosine  = dsp_cos_0_pi(wc);

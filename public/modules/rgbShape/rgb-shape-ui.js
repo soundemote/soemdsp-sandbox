@@ -1,5 +1,5 @@
 // Shape face: canvas in the LayoutB cell; paint path is rgb-shape-display.js.
-// Frame-rate vector redraw (same idea as RoundShape / BasicShape).
+// Simulation-FPS vector redraw (same family as RoundShape / BasicShape).
 
 function createNodeGraphRgbShapeBody(node, type) {
   const face = document.createElement("div");
@@ -16,65 +16,34 @@ function createNodeGraphRgbShapeBody(node, type) {
   canvas.setAttribute("aria-hidden", "true");
   face.append(canvas);
 
-  face.syncFromParameters = () => {
-    face._rgbShapeForceDraw = true;
-    drawNodeGraphRgbShapeFaceLoop(face);
+  const paint = (el) => {
+    const target = el.querySelector?.(".node-rgb-shape-canvas");
+    if (target && typeof paintNodeGraphRgbShapeFace === "function") {
+      try {
+        paintNodeGraphRgbShapeFace(target, el, el.dataset?.node || "", null);
+      } catch (error) {
+        console.warn("[rgb-shape] draw failed", el.dataset?.node, error);
+      }
+    }
+    el._rgbShapeForceDraw = false;
   };
 
-  if (typeof ResizeObserver === "function") {
-    const ro = new ResizeObserver(() => {
-      face._rgbShapeForceDraw = true;
-      face._rgbShapeLaidOut = false;
-      drawNodeGraphRgbShapeFaceLoop(face);
-    });
-    ro.observe(face);
-    face._rgbShapeResizeObserver = ro;
-  }
-
+  nodeGraphInstallDrawingFacePump(face, {
+    rafKey: "_rgbShapeRaf",
+    forceKey: "_rgbShapeForceDraw",
+    clockKey: (el) => `rgbShape:${el.dataset?.node || ""}`,
+    paint,
+    onResize: (el) => { el._rgbShapeLaidOut = false; },
+    paintOnCreate: false,
+  });
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => drawNodeGraphRgbShapeFaceLoop(face));
+    requestAnimationFrame(() => {
+      face._rgbShapeForceDraw = true;
+      paint(face);
+      face._startFaceLoop?.();
+    });
   });
   return face;
-}
-
-function drawNodeGraphRgbShapeFaceLoop(face) {
-  if (!face?.isConnected) {
-    face._rgbShapeRaf = 0;
-    return;
-  }
-  const nodeId = face.dataset?.node || "";
-  if (typeof nodeGraphModuleIsViewportAsleep === "function"
-    && nodeGraphModuleIsViewportAsleep(face)) {
-    face._rgbShapeRaf = requestAnimationFrame(() => {
-      face._rgbShapeRaf = 0;
-      drawNodeGraphRgbShapeFaceLoop(face);
-    });
-    return;
-  }
-  if (typeof nodeGraphScreenSoloIsActive === "function"
-    && nodeGraphScreenSoloIsActive()
-    && typeof nodeGraphScreenSoloAllowsNode === "function"
-    && !nodeGraphScreenSoloAllowsNode(nodeId)) {
-    face._rgbShapeRaf = requestAnimationFrame(() => {
-      face._rgbShapeRaf = 0;
-      drawNodeGraphRgbShapeFaceLoop(face);
-    });
-    return;
-  }
-
-  const canvas = face.querySelector?.(".node-rgb-shape-canvas");
-  if (canvas && typeof paintNodeGraphRgbShapeFace === "function") {
-    try {
-      paintNodeGraphRgbShapeFace(canvas, face, nodeId, null);
-    } catch (error) {
-      console.warn("[rgb-shape] draw failed", nodeId, error);
-    }
-  }
-
-  face._rgbShapeRaf = requestAnimationFrame(() => {
-    face._rgbShapeRaf = 0;
-    drawNodeGraphRgbShapeFaceLoop(face);
-  });
 }
 
 registerNodeGraphChromelessModuleUi("rgbShape", {

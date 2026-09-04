@@ -215,6 +215,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
 - Live plan apply / worklet `setPlan` **refuse** foreign types with status **`not in efficient build`**. Do **not** run JS DSP for missing natives or hidden types.
 - Dual JS+C++ audio paths are **not** the product. Convert the next type into the allowlist (native + catalog) — never reintroduce a JS twin to “make it work.”
 - **Smoother manager is audio/C++ only** on the efficient path. JS may write Control **targets** and **smoothing-time** into engine memory on change; JS must **not** own or step the smoother chase list. (Legacy `?product=full` JS smoothers are debt until removed.)
+- **Parameter stickiness (non-negotiable):** when the host writes a Control **target**, that target (and any DSP coeffs derived from it inside a module) must **remain in effect until the host writes a new target**. Do not wipe / re-push / re-default every gesture frame. Do not store live coeffs where the next `set_params` / buffer grow silently zeroes them. “Works while dragging, reverts when released” = this contract is broken.
 - **MOD is not a smoother target.** `set_param` writes the **knob** only; `set_param_mod` writes MOD accumulators; DSP reads `control_effective` = applyMod(`Control.out`, MOD). Smoother and MOD run alongside — never fold MOD into `target`, and never disable the smoother because a cable is present.
 - **Efficient AudioWorklet blob does not load JS DSP evaluators** (`node-live-audio-worklet-evaluators*`, `evaluate-frame.js`, or per-module `*-worklet-evaluator.js`). Audio is **native graph only** (`processNativeGraphQuantum`); `process()` early-returns after that path and never calls `evaluateFrame`. Legacy evaluator sources load only for `?product=full`.
 - **No ScriptProcessor JS DSP fallback under efficient.** If AudioWorklet fails, Live start **errors** — it must not call `evaluateNodeGraphPlanFrame` / live-evaluator kernels. JS audio path = bug.
@@ -454,9 +455,13 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 | Reserve 8 s × N delay rings in BSS for empty slots | **No** — size to live delay (§2b) |
 | “Longer delay = more CPU” | **No** — same tap math (§2b) |
 | Always-visible resize grip on panels | **No** — hover / drag only (§14) |
+| Wipe Control dirty-cache / re-push all knobs every `setParams` | **No** — stickiness (§0b); cold push only after compile/destroy |
+| Nested DSP coeff objects in instance pools that lose writes | **No** — flat fields on the instance; smoke “set once, process many” |
 
 ---
 
 ## Amendments
 
 Add new rules here when the same class of mistake happens twice. Keep this file short and enforceable.
+
+- **2026-09-03 — Parameter stickiness:** A continuous knob must chase to the written target and **stay**. Two failures of the same class: (1) JS tied `forceAll` param sync to `planSerial` so every gesture frame wiped the dirty cache and re-stormed `set_param` / smooth / domain cells, fighting Control chase; (2) ping-pong feedback coeffs lived in nested structs whose writes did not survive across `set_params` / buffer setup, so the DSP ran pass-through until the next write (sounded correct only while dragging). Fix: cold force-push only after graph compile/destroy; store live coeffs as plain fields on the instance; build smoke must **set once then `process_block` many times** without rewriting params.

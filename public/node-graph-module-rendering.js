@@ -449,6 +449,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     graph: "graph-node-layout",
     image: "image-node-layout",
     keyboardController: "keyboard-controller-layout",
+    keyboard: "keyboard-layout",
     pitchQuantizer: "pitch-quantizer-layout",
     chordPad: "chord-pad-layout",
     asciiscope: "asciiscope-layout",
@@ -890,9 +891,18 @@ function createNodeGraphModuleElement(type, node) {
       renderNodeGraphKnobFace(face, node);
     }
     face?.syncFromParameters?.();
-  } else if (definition.layout === "keyboardController" || definition.layout === "macroControls" || definition.layout === "pitchModWheel") {
+  } else if (
+    definition.layout === "keyboardController"
+    || definition.layout === "keyboard"
+    || definition.layout === "macroControls"
+    || definition.layout === "pitchModWheel"
+  ) {
+    // Controller faces: embed the same widgets as the K Controllers dock.
+    // State is global on nodeGraphMvp; dock + modules mirror each other.
     if (definition.layout === "keyboardController") {
       article.append(createNodeGraphMidiModuleBody(node));
+    } else if (definition.layout === "keyboard") {
+      article.append(createNodeGraphKeyboardControllerBody(node));
     } else if (definition.layout === "macroControls") {
       article.append(createNodeGraphMacroControlsBody(node));
     } else {

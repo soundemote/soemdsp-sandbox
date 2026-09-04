@@ -16,14 +16,29 @@ function nodeGraphFbmFieldMotionMode(value) {
 }
 
 function nodeGraphFbmFieldWasmCandidateUrls() {
-  // Local sandbox serves per-module files at /native_modules/…
-  // Release site sync ships ONLY combined wasm (relative to the page).
+  // Prefer combined wasm next to the embed (/soemdsp-sandbox/… on the site;
+  // ./native_modules/… when the sandbox is served from its own root).
+  let embedBase = "";
+  try {
+    const path = String(window.location.pathname || "");
+    const idx = path.indexOf("/soemdsp-sandbox");
+    if (idx >= 0) {
+      embedBase = `${path.slice(0, idx)}/soemdsp-sandbox/`;
+    }
+  } catch (_error) {
+    embedBase = "";
+  }
+  const combined = "native_modules/combined/soemdsp_combined.wasm";
+  const single = "native_modules/fbm_field/fbm_field.wasm";
   return [
-    "/native_modules/fbm_field/fbm_field.wasm",
-    "native_modules/fbm_field/fbm_field.wasm",
-    "/native_modules/combined/soemdsp_combined.wasm",
-    "native_modules/combined/soemdsp_combined.wasm?v=fbf-face-1",
-  ];
+    embedBase ? `${embedBase}${combined}` : "",
+    embedBase ? `${embedBase}${single}` : "",
+    `./${combined}`,
+    `./${single}`,
+    `/${combined}`,
+    `/${single}`,
+    "/soemdsp-sandbox/native_modules/combined/soemdsp_combined.wasm",
+  ].filter(Boolean);
 }
 
 function nodeGraphFbmFieldLoadWasm() {

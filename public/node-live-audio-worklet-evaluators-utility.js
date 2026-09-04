@@ -119,9 +119,14 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
         const modWheel = resetActive ? 0 : (hasInput(nodeId, "Mod")
           ? Number(mixInput(nodeId, "Mod")) || 0
           : Number(this.pitchModWheelSignal?.mod) || 0);
+        const pitch = this.clampValue(Number.isFinite(pitchWheel) ? pitchWheel : 0, -1, 1);
+        const mod = this.clampValue(modWheel, 0, 1);
         return {
-          "Mod Wheel": this.clampValue(modWheel, 0, 1),
-          "Pitch Wheel": this.clampValue(Number.isFinite(pitchWheel) ? pitchWheel : 0, -1, 1),
+          Pitch: pitch,
+          Mod: mod,
+          // Legacy jack names (pre Pitch/Mod rename).
+          "Pitch Wheel": pitch,
+          "Mod Wheel": mod,
         };
       },
       led: (node, nodeId, frame, frames, frameValues, mixInput) => ({
@@ -470,6 +475,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
   for (const type of outletTypes) {
     map[type] = outletEval;
   }
+  // Keyboard controller-face module — same global piano SSOT as MIDI outs.
+  map.keyboard = map.keyboardController;
   return map;
 };
 

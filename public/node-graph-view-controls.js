@@ -434,14 +434,19 @@ function normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(value) {
   return Number.isFinite(number) ? clampNodeSliderValue(Math.round(number), 0, 2) : 1;
 }
 
+/** Product default Simulation FPS when unset / non-finite. */
+const nodeGraphDefaultSimulationFps = 120;
+
 function normalizeNodeGraphModuleScopeFramesPerSecond(value) {
   const number = Number(value);
-  return Number.isFinite(number) ? clampNodeSliderValue(Math.round(number), 0, 240) : 60;
+  return Number.isFinite(number)
+    ? clampNodeSliderValue(Math.round(number), 0, 240)
+    : nodeGraphDefaultSimulationFps;
 }
 
 function nodeGraphSimulationDisplayFps() {
   return normalizeNodeGraphModuleScopeFramesPerSecond(
-    nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60,
+    nodeGraphMvp?.moduleScopeFramesPerSecond ?? nodeGraphDefaultSimulationFps,
   );
 }
 
@@ -519,7 +524,9 @@ function renderNodeGraphModuleScopeBrightnessControl() {
   const dotCore1Size = normalizeNodeGraphModuleScopeDotCoreSize(nodeGraphMvp.moduleScopeDotCore1Size ?? 2, 2);
   const dotCore1Brightness = normalizeNodeGraphModuleScopeDotCoreBrightness(nodeGraphMvp.moduleScopeDotCore1Brightness ?? 0.23, 0.23);
   const dotCore1Color = normalizeNodeGraphModuleScopeDotCoreColor(nodeGraphMvp.moduleScopeDotCore1Color ?? "#ffffff", "#ffffff");
-  const framesPerSecond = normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60);
+  const framesPerSecond = normalizeNodeGraphModuleScopeFramesPerSecond(
+    nodeGraphMvp.moduleScopeFramesPerSecond ?? nodeGraphDefaultSimulationFps,
+  );
   const pointBudget = normalizeNodeGraphModuleScopePointBudget(nodeGraphMvp.moduleScopePointBudget ?? 4096);
   const lineThickness = normalizeNodeGraphModuleScopeLineThickness(nodeGraphMvp.moduleScopeLineThickness ?? 1);
   const discontinuitySkipSamples = normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
@@ -3419,21 +3426,13 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     event.preventDefault();
     return;
   }
-  // A plain click on a key that's already held -- however it got held,
-  // ctrl+click/toggle-mode's bitmask or shift+click's single-note latch
-  // -- releases it, instead of requiring the exact gesture that held it
-  // in the first place (shift+click again, or another ctrl+click).
-  // Checked before mode-specific behavior below so this takes priority
-  // in every mode.
+  // Gold Held Keys (ctrl+click bitmask) only toggles via ctrl+click (or
+  // Toggle mode). Plain click must NOT clear gold — play blue `.active`
+  // on top while the pointer is down; gold stays for arpeggiation.
+  // Blue mono latch (shift+click / Hold mode) still clears on plain click.
   if (event.type === "pointerdown" && !event.ctrlKey && !event.shiftKey && !event.altKey) {
     const target = event.target?.closest?.("[data-key-index]");
     if (target && surface.contains(target)) {
-      const index = Number(target.dataset.keyIndex);
-      if (nodeGraphMidiKeyboardHeldKeyBitIsSet(index)) {
-        nodeGraphMidiKeyboardToggleHeldKeyBit(index);
-        event.preventDefault();
-        return;
-      }
       const heldPointer = nodeGraphMidiKeyboardHeldPointerSignal();
       const targetMidi = Number(target.dataset.midi);
       if (heldPointer && heldPointer.midi === targetMidi) {

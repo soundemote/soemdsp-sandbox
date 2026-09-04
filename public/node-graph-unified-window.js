@@ -46,6 +46,14 @@ const nodeGraphUnifiedWindowPages = Object.freeze({
     icon: "🎛️",
     showInNav: true,
   }),
+  pages: Object.freeze({
+    key: "pages",
+    elementId: "nodePagesPage",
+    workspaceKey: "pages",
+    label: "Pages",
+    icon: "📄",
+    showInNav: true,
+  }),
   moduleActions: Object.freeze({
     key: "moduleActions",
     elementId: "nodeModuleActionsWindow",
@@ -109,6 +117,7 @@ const nodeGraphUnifiedWindowPages = Object.freeze({
 const nodeGraphUnifiedWindowPageOrder = Object.freeze([
   "commandCenter",
   "moduleBrowser",
+  "pages",
   "moduleActions",
   "traceDisplaySettings",
   "metaparameters",
@@ -601,6 +610,11 @@ function closeNodeGraphUnifiedWindowPage(page = "", options = {}) {
           setNodeGraphEmojiPageOpen(false);
         }
         break;
+      case "pages":
+        if (typeof setNodeGraphPagesPageOpen === "function") {
+          setNodeGraphPagesPageOpen(false);
+        }
+        break;
       default:
         break;
     }
@@ -887,6 +901,11 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
       case "emoji":
         if (typeof setNodeGraphEmojiPageOpen === "function") {
           setNodeGraphEmojiPageOpen(true);
+        }
+        break;
+      case "pages":
+        if (typeof setNodeGraphPagesPageOpen === "function") {
+          setNodeGraphPagesPageOpen(true);
         }
         break;
       default:
@@ -1548,6 +1567,17 @@ function syncNodeGraphUnifiedWindowNavBars() {
       page: "hotkeys",
       prepare(element) {
         const existing = element.querySelector("#nodeHotkeysUnifiedNavHost, :scope > .node-unified-window-nav-host");
+        if (existing) {
+          return existing;
+        }
+        return ensureNodeGraphUnifiedWindowNavHost(element);
+      },
+    },
+    {
+      elementId: "nodePagesPage",
+      page: "pages",
+      prepare(element) {
+        const existing = element.querySelector("#nodePagesUnifiedNavHost, :scope > .node-unified-window-nav-host");
         if (existing) {
           return existing;
         }

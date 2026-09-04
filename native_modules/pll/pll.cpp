@@ -71,32 +71,23 @@ struct Vco {
   }
 };
 
-// ── One-pole LP (MZT, DC-coupled) ─────────────────────────────────────────
-// a1 = exp(-2π·fc/sr),  b0 = 1 - a1
-// Works at any frequency down to DC.
+// ── One-pole LP (MZT, DC-coupled) — plain fields on PllState (APP_POLICY) ──
+// a1 = exp(-2π·fc/sr),  b0 = 1 - a1. Floor 0 / cap ~Nyquist only.
 
-struct OnePoleLpf {
-  double a1;
-  double b0;
-  double buf;
+static void one_pole_lp_set(double fc, double sr, double& a1, double& b0) {
+  const double rate = sr > 0.0 ? sr : 44100.0;
+  double f = fc < 0.0 ? 0.0 : fc;
+  const double nyquist = rate * 0.49;
+  if (f > nyquist) f = nyquist;
+  const double w = 6.283185307179586 * f / rate;
+  a1 = pll_exp(-w);
+  b0 = 1.0 - a1;
+}
 
-  void reset() {
-    a1 = 0.0;
-    b0 = 1.0;
-    buf = 0.0;
-  }
-
-  void setCutoff(double fc, double sr) {
-    const double w = 6.283185307179586 * clamp(fc, 0.001, sr * 0.49) / sr;
-    a1 = pll_exp(-w);
-    b0 = 1.0 - a1;
-  }
-
-  double process(double in) {
-    buf = b0 * in + a1 * buf;
-    return buf;
-  }
-};
+static double one_pole_lp_run(double& buf, double a1, double b0, double in) {
+  buf = b0 * in + a1 * buf;
+  return buf;
+}
 
 // ── Phase comparators ──────────────────────────────────────────────────────
 // All inputs are audio-range signals; binarize at 0 (> 0 = high).
@@ -255,12 +246,16 @@ static double vcoFrequency(double cv, int range, double offset) {
 struct PllState {
   bool active;
 
-  // sub-modules
+  // sub-modules (z-state machines; LPF coeffs are flat below)
   Vco vco;
-  OnePoleLpf lpf;
   Pc2 pc2;
   Pc3 pc3;
   LockDetector lockDet;
+
+  // Loop-filter latches (plain fields — stickiness / APP_POLICY)
+  double lpfA1;
+  double lpfB0;
+  double lpfBuf;
 
   // params
   double sampleRate;
@@ -290,9 +285,8 @@ struct PllState {
     pc2.reset();
     pc3.reset();
     lockDet.reset();
-    lpf.reset();
-    lpf.setCutoff(frequ, sampleRate);
-    lpf.buf = 0.5; // start mid-range so VCO begins near centre frequency
+    one_pole_lp_set(frequ, sampleRate, lpfA1, lpfB0);
+    lpfBuf = 0.5; // start mid-range so VCO begins near centre frequency
   }
 };
 
@@ -317,7 +311,7 @@ static PllState* get(int handle) {
 
 // ── Public C API ───────────────────────────────────────────────────────────
 
-extern "C" int soemdsp_pll_version() { return 1; }
+extern "C" int soemdsp_pll_version() { return 2; }
 
 extern "C" int soemdsp_pll_create(double sampleRate) {
   ensurePool();
@@ -360,8 +354,8 @@ extern "C" void soemdsp_pll_set_params(
   s->range  = range  < 0 ? 0 : (range  > 2  ? 2  : range);
   s->offset = offset < 0.0 ? 0.0 : (offset > 10.0 ? 10.0 : offset);
   s->type   = type   < 0 ? 0 : (type   > 2  ? 2  : type);
-  s->frequ  = frequ  > 0.0 ? frequ : 1.0;
-  s->lpf.setCutoff(s->frequ, sr);
+  s->frequ = frequ < 0.0 ? 0.0 : frequ;
+  one_pole_lp_set(s->frequ, sr, s->lpfA1, s->lpfB0);
 }
 
 // signalIn:    external audio signal to track (PC In 2), audio range -1..+1
@@ -399,7 +393,7 @@ extern "C" void soemdsp_pll_process(
   s->pcOut = pc;
 
   // loop filter: smooth PC output → VCO CV for next sample
-  s->lpfOut = s->lpf.process(pc);
+  s->lpfOut = one_pole_lp_run(s->lpfBuf, s->lpfA1, s->lpfB0, pc);
 
   // lock detection (meaningful for PC2; show for PC3 as well)
   if (s->type != 0) {

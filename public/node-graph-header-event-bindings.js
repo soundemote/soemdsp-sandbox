@@ -1,5 +1,15 @@
 function bindNodeGraphHeaderControlEvents() {
   bindNodeGraphEarProtectionFaultUi();
+  const sharePatchButton = document.getElementById("sharePatchCommunityButton");
+  if (sharePatchButton) {
+    sharePatchButton.removeAttribute("aria-disabled");
+    sharePatchButton.setAttribute("aria-disabled", "false");
+    sharePatchButton.addEventListener("click", () => {
+      if (typeof downloadNodeGraphStaticPagePatch === "function") {
+        downloadNodeGraphStaticPagePatch();
+      }
+    });
+  }
   document
     .getElementById("nodeCheckAllModulesButton")
     ?.addEventListener("click", runNodeGraphModuleSelfTest);

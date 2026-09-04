@@ -3734,8 +3734,7 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
 
 /* Ctrl+click GOLD Held Keys bitmask (poly / digital mask cable) —
    distinct from .active BLUE (pointer press, MIDI note-on, or
-   Shift+click mono sustain latch). A key can be both: amber wins so
-   the mask state stays visible over transient/mono blue. */
+   Shift+click mono sustain latch). Both classes can be set at once. */
 .node-midi-keyboard-white-row span.held {
   color: #1a1200;
   background:
@@ -3747,6 +3746,21 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
     0 0 14px rgba(241, 184, 75, 0.68),
     0 0 34px rgba(224, 138, 30, 0.38);
   text-shadow: 0 0 7px rgba(255, 236, 200, 0.84);
+}
+
+/* Plain press on a gold-held key: show blue while down; .held stays set. */
+.node-midi-keyboard-white-row span.held.active {
+  color: #eaf8ff;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(213, 247, 255, 0.92), transparent 28%),
+    linear-gradient(180deg, #7edcff 0%, #1e85ff 74%, #0a3f9a 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(207, 246, 255, 0.82),
+    inset 0 0 22px rgba(17, 102, 255, 0.48),
+    0 0 14px rgba(35, 162, 255, 0.68),
+    0 0 34px rgba(35, 112, 255, 0.38),
+    0 0 0 2px rgba(241, 184, 75, 0.55);
+  text-shadow: 0 0 7px rgba(234, 248, 255, 0.84);
 }
 
 .node-midi-keyboard-white-row span:last-child {
@@ -3834,6 +3848,27 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   .node-midi-keyboard-black-row span.held {
     color: #1a1200;
     text-shadow: 0 0 7px rgba(255, 236, 200, 0.84);
+  }
+}
+
+.node-midi-keyboard-black-row span.held.active {
+  border-color: rgba(118, 215, 255, 0.96);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(151, 230, 255, 0.7), transparent 30%),
+    linear-gradient(180deg, #236ec9 0%, #081a43 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(184, 239, 255, 0.72),
+    inset 0 0 18px rgba(35, 139, 255, 0.48),
+    0 8px 18px rgba(0, 0, 0, 0.45),
+    0 0 18px rgba(35, 162, 255, 0.72),
+    0 0 36px rgba(35, 112, 255, 0.42),
+    0 0 0 2px rgba(241, 184, 75, 0.55);
+}
+
+@container midi-keys (min-width: 520px) {
+  .node-midi-keyboard-black-row span.held.active {
+    color: #eaf8ff;
+    text-shadow: 0 0 7px rgba(234, 248, 255, 0.84);
   }
 }
 
@@ -3938,13 +3973,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
 
 .node-patch-community-control {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: stretch;
-  justify-items: stretch;
+  place-items: center;
   min-width: 0;
   min-height: 44px;
-  padding: 0;
-  padding-right: 10px;
+  padding: 0 12px;
   border-color: rgba(127, 199, 217, 0.12);
   border-radius: 4px;
   border-right: 1px solid var(--line);
@@ -3959,15 +3991,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   font-size: clamp(0.68rem, 1vw, 0.86rem);
   line-height: 1;
   text-align: center;
-}
-
-.node-patch-community-control span {
-  display: grid;
-  place-items: center;
-  min-width: 0;
-  padding: 0 8px;
-  overflow: hidden;
-  text-overflow: clip;
   white-space: nowrap;
 }
 
@@ -4848,6 +4871,104 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
 
 .node-hotkeys-page[hidden] {
   display: none !important;
+}
+
+.node-pages-page {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: var(--node-unified-window-min-width, 24px);
+  min-height: var(--node-unified-window-min-height, 120px);
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid rgba(127, 199, 217, 0.42);
+  border-radius: var(--node-module-frame-radius);
+  corner-shape: var(--node-module-corner-shape, squircle);
+  background: rgba(9, 12, 15, 0.96);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36);
+}
+
+.node-pages-page[hidden] {
+  display: none !important;
+}
+
+.node-pages-page > .scene-context-heading,
+.node-pages-page > .node-unified-window-nav-host {
+  flex: 0 0 auto;
+}
+
+.node-pages-page-body {
+  position: relative;
+  z-index: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* Clear the SE resize grip so rows do not stack under / clip into it. */
+  padding: 8px 10px 28px;
+  display: flex;
+  flex-direction: column;
+  align-content: start;
+  gap: 6px;
+}
+
+.node-command-center-dock > .node-pages-page > .node-pages-page-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.node-pages-status {
+  flex: 0 0 auto;
+  color: rgba(160, 167, 176, 0.78);
+  font-size: 0.78rem;
+  padding: 8px 4px;
+}
+
+.node-pages-entry {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid rgba(127, 199, 217, 0.22);
+  border-radius: 6px;
+  background: rgba(17, 20, 24, 0.72);
+  color: rgba(243, 241, 236, 0.92);
+  cursor: pointer;
+  font: inherit;
+}
+
+.node-pages-entry:hover,
+.node-pages-entry:focus-visible {
+  border-color: rgba(127, 199, 217, 0.55);
+  background: rgba(24, 32, 38, 0.92);
+}
+
+.node-pages-entry.confirming-default {
+  border-color: rgba(251, 191, 36, 0.65);
+  color: rgba(253, 230, 138, 0.95);
+}
+
+.node-pages-entry-title {
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.node-pages-entry-path {
+  color: rgba(127, 199, 217, 0.78);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.72rem;
 }
 
 .node-emoji-page {

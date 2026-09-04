@@ -1165,10 +1165,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
   }
   const P = NodeLiveAudioProcessor;
   const cacheById = this._nativeGraphParamCache || (this._nativeGraphParamCache = new Map());
-  // Cold after compile/destroy only. Do NOT tie force-push to planSerial:
-  // setParams bumps planSerial every gesture frame, which used to wipe the
-  // dirty cache and re-push every smooth/domain cell on every move — fighting
-  // the Control chase for every continuous knob (not an LPF special case).
+  // APP_POLICY stickiness: cold push ONLY after compile/destroy.
+  // Never key this off planSerial — setParams bumps serial every gesture frame;
+  // wiping the dirty cache then re-pushing every target/smooth/domain cell
+  // fights Control chase ("moves while dragging, won't stay").
   const forceAll = this._nativeGraphParamCacheCold === true;
   this._nativeGraphParamCacheCold = false;
 

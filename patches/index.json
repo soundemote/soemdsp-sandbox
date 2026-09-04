@@ -1,0 +1,242 @@
+{
+  "kind": "soundemote-page-patches",
+  "version": 1,
+  "base": "/soemdsp-sandbox/patches",
+  "patches": [
+    {
+      "slug": "alarm",
+      "label": "alarm",
+      "url": "/soemdsp-sandbox/patches/alarm.json"
+    },
+    {
+      "slug": "analogcomputer",
+      "label": "analogcomputer",
+      "url": "/soemdsp-sandbox/patches/analogcomputer.json"
+    },
+    {
+      "slug": "analogdream",
+      "label": "analogdream",
+      "url": "/soemdsp-sandbox/patches/analogdream.json"
+    },
+    {
+      "slug": "analoghorror",
+      "label": "analoghorror",
+      "url": "/soemdsp-sandbox/patches/analoghorror.json"
+    },
+    {
+      "slug": "arp",
+      "label": "arp",
+      "url": "/soemdsp-sandbox/patches/arp.json"
+    },
+    {
+      "slug": "callnow",
+      "label": "callnow",
+      "url": "/soemdsp-sandbox/patches/callnow.json"
+    },
+    {
+      "slug": "crossover",
+      "label": "crossover",
+      "url": "/soemdsp-sandbox/patches/crossover.json"
+    },
+    {
+      "slug": "deathwhistle",
+      "label": "deathwhistle",
+      "url": "/soemdsp-sandbox/patches/deathwhistle.json"
+    },
+    {
+      "slug": "feedbackdetector",
+      "label": "feedbackdetector",
+      "url": "/soemdsp-sandbox/patches/feedbackdetector.json"
+    },
+    {
+      "slug": "filteredsawtooth",
+      "label": "filteredsawtooth",
+      "url": "/soemdsp-sandbox/patches/filteredsawtooth.json"
+    },
+    {
+      "slug": "flowerchild",
+      "label": "flowerchild",
+      "url": "/soemdsp-sandbox/patches/flowerchild.json"
+    },
+    {
+      "slug": "flowerchildfilter",
+      "label": "flowerchildfilter",
+      "url": "/soemdsp-sandbox/patches/flowerchildfilter.json"
+    },
+    {
+      "slug": "init",
+      "label": "init",
+      "url": "/soemdsp-sandbox/patches/init.json"
+    },
+    {
+      "slug": "lcd",
+      "label": "lcd",
+      "url": "/soemdsp-sandbox/patches/lcd.json"
+    },
+    {
+      "slug": "led",
+      "label": "led",
+      "url": "/soemdsp-sandbox/patches/led.json"
+    },
+    {
+      "slug": "lpf",
+      "label": "lpf",
+      "url": "/soemdsp-sandbox/patches/lpf.json"
+    },
+    {
+      "slug": "marker",
+      "label": "marker",
+      "url": "/soemdsp-sandbox/patches/marker.json"
+    },
+    {
+      "slug": "meditation",
+      "label": "meditation",
+      "url": "/soemdsp-sandbox/patches/meditation.json"
+    },
+    {
+      "slug": "motm485",
+      "label": "motm485",
+      "url": "/soemdsp-sandbox/patches/motm485.json"
+    },
+    {
+      "slug": "musicalplayer",
+      "label": "musicalplayer",
+      "url": "/soemdsp-sandbox/patches/musicalplayer.json"
+    },
+    {
+      "slug": "musicaltapeplayer",
+      "label": "musicaltapeplayer",
+      "url": "/soemdsp-sandbox/patches/musicaltapeplayer.json"
+    },
+    {
+      "slug": "musicplayer",
+      "label": "musicplayer",
+      "url": "/soemdsp-sandbox/patches/musicplayer.json"
+    },
+    {
+      "slug": "noisealarm",
+      "label": "noisealarm",
+      "url": "/soemdsp-sandbox/patches/noisealarm.json"
+    },
+    {
+      "slug": "overdrive",
+      "label": "overdrive",
+      "url": "/soemdsp-sandbox/patches/overdrive.json"
+    },
+    {
+      "slug": "particle",
+      "label": "particle",
+      "url": "/soemdsp-sandbox/patches/particle.json"
+    },
+    {
+      "slug": "phone",
+      "label": "phone",
+      "url": "/soemdsp-sandbox/patches/phone.json"
+    },
+    {
+      "slug": "phonetone",
+      "label": "phonetone",
+      "url": "/soemdsp-sandbox/patches/phonetone.json"
+    },
+    {
+      "slug": "pixelgrid",
+      "label": "pixelgrid",
+      "url": "/soemdsp-sandbox/patches/pixelgrid.json"
+    },
+    {
+      "slug": "prettyscope",
+      "label": "prettyscope",
+      "url": "/soemdsp-sandbox/patches/prettyscope.json"
+    },
+    {
+      "slug": "raybouncer",
+      "label": "raybouncer",
+      "url": "/soemdsp-sandbox/patches/raybouncer.json"
+    },
+    {
+      "slug": "resonator",
+      "label": "resonator",
+      "url": "/soemdsp-sandbox/patches/resonator.json"
+    },
+    {
+      "slug": "reverb",
+      "label": "reverb",
+      "url": "/soemdsp-sandbox/patches/reverb.json"
+    },
+    {
+      "slug": "reverbinput",
+      "label": "reverbinput",
+      "url": "/soemdsp-sandbox/patches/reverbinput.json"
+    },
+    {
+      "slug": "rgb",
+      "label": "rgb",
+      "url": "/soemdsp-sandbox/patches/rgb.json"
+    },
+    {
+      "slug": "ringtone",
+      "label": "ringtone",
+      "url": "/soemdsp-sandbox/patches/ringtone.json"
+    },
+    {
+      "slug": "robot",
+      "label": "robot",
+      "url": "/soemdsp-sandbox/patches/robot.json"
+    },
+    {
+      "slug": "rubberband",
+      "label": "rubberband",
+      "url": "/soemdsp-sandbox/patches/rubberband.json"
+    },
+    {
+      "slug": "sawtoothalarm",
+      "label": "sawtoothalarm",
+      "url": "/soemdsp-sandbox/patches/sawtoothalarm.json"
+    },
+    {
+      "slug": "scanlines",
+      "label": "scanlines",
+      "url": "/soemdsp-sandbox/patches/scanlines.json"
+    },
+    {
+      "slug": "shapedresonator",
+      "label": "shapedresonator",
+      "url": "/soemdsp-sandbox/patches/shapedresonator.json"
+    },
+    {
+      "slug": "sinc",
+      "label": "sinc",
+      "url": "/soemdsp-sandbox/patches/sinc.json"
+    },
+    {
+      "slug": "sinusoidalarm",
+      "label": "sinusoidalarm",
+      "url": "/soemdsp-sandbox/patches/sinusoidalarm.json"
+    },
+    {
+      "slug": "starwarsalarm",
+      "label": "starwarsalarm",
+      "url": "/soemdsp-sandbox/patches/starwarsalarm.json"
+    },
+    {
+      "slug": "starwarsalarm2",
+      "label": "starwarsalarm2",
+      "url": "/soemdsp-sandbox/patches/starwarsalarm2.json"
+    },
+    {
+      "slug": "starwarsalarm3",
+      "label": "starwarsalarm3",
+      "url": "/soemdsp-sandbox/patches/starwarsalarm3.json"
+    },
+    {
+      "slug": "superlove",
+      "label": "superlove",
+      "url": "/soemdsp-sandbox/patches/superlove.json"
+    },
+    {
+      "slug": "videoscope",
+      "label": "videoscope",
+      "url": "/soemdsp-sandbox/patches/videoscope.json"
+    }
+  ]
+}

@@ -1,7 +1,12 @@
-// Registers the offline/render-time dispatch handler for keyboardController into
-// nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
-// Extracted from the inline if/else-if branch that used to live in that file.
-nodeGraphLiveModuleEvaluators.keyboardController = ({ runtime, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate }) => {
+// Shared live evaluator for Portal MIDI (keyboardController) and the Keyboard
+// controller-face module. Both read the same global midiKeyboardSignal / Held
+// Keys bitmasks (K Controllers dock + Keyboard module are one SSOT).
+nodeGraphLiveModuleEvaluators.keyboardController = ({
+  runtime, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate,
+}) => {
+  void runtime;
+  void frames;
+  void frameValues;
   const signal = nodeGraphMvp?.midiKeyboardSignal || (
     typeof nodeGraphMidiKeyboardFallbackSignal === "function"
       ? nodeGraphMidiKeyboardFallbackSignal()
@@ -67,3 +72,5 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({ runtime, nodeId, frame, fr
     ),
   };
 };
+
+nodeGraphLiveModuleEvaluators.keyboard = nodeGraphLiveModuleEvaluators.keyboardController;

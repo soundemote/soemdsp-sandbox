@@ -857,7 +857,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
     "#ffffff",
   );
   const moduleScopeFramesPerSecond = normalizeNodeGraphModuleScopeFramesPerSecond(
-    view.moduleScopeFramesPerSecond ?? nodeGraphMvp.moduleScopeFramesPerSecond ?? 60,
+    view.moduleScopeFramesPerSecond ?? nodeGraphMvp.moduleScopeFramesPerSecond ?? (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 120),
   );
   const moduleScopePointBudget = normalizeNodeGraphModuleScopePointBudget(
     view.moduleScopePointBudget ?? nodeGraphMvp.moduleScopePointBudget ?? 4096,
@@ -1091,7 +1091,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       moduleScopeDotCore1Size: normalizeNodeGraphModuleScopeDotCoreSize(nodeGraphMvp.moduleScopeDotCore1Size ?? 2, 2),
       moduleScopeDotCore1Brightness: normalizeNodeGraphModuleScopeDotCoreBrightness(nodeGraphMvp.moduleScopeDotCore1Brightness ?? 0.23, 0.23),
       moduleScopeDotCore1Color: normalizeNodeGraphModuleScopeDotCoreColor(nodeGraphMvp.moduleScopeDotCore1Color ?? "#ffffff", "#ffffff"),
-      moduleScopeFramesPerSecond: normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60),
+      moduleScopeFramesPerSecond: normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 120)),
       moduleScopePointBudget: normalizeNodeGraphModuleScopePointBudget(nodeGraphMvp.moduleScopePointBudget ?? 4096),
       moduleScopeLineThickness: normalizeNodeGraphModuleScopeLineThickness(nodeGraphMvp.moduleScopeLineThickness ?? 1),
       moduleScopeDiscontinuitySkipSamples: normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
@@ -1511,8 +1511,8 @@ function readNodeGraphUserSessionFromState() {
       }
       : null,
     moduleScopeFramesPerSecond: typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
-      ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60)
-      : Math.max(0, Math.min(240, Math.round(Number(nodeGraphMvp.moduleScopeFramesPerSecond) || 60))),
+      ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 120))
+      : Math.max(0, Math.min(240, Math.round(Number(nodeGraphMvp.moduleScopeFramesPerSecond) || (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 120)))),
     traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
       ? normalizeNodeGraphTraceDisplaySettings(nodeGraphMvp.traceSettings)
       : nodeGraphMvp.traceSettings,
@@ -1630,7 +1630,7 @@ function applyNodeGraphUserSession(session, options = {}) {
   if (normalized.moduleScopeFramesPerSecond != null) {
     nodeGraphMvp.moduleScopeFramesPerSecond = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
       ? normalizeNodeGraphModuleScopeFramesPerSecond(normalized.moduleScopeFramesPerSecond)
-      : Math.max(0, Math.min(240, Math.round(Number(normalized.moduleScopeFramesPerSecond) || 60)));
+      : Math.max(0, Math.min(240, Math.round(Number(normalized.moduleScopeFramesPerSecond) || (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 120))));
     if (typeof renderNodeGraphModuleScopeBrightnessControl === "function") {
       renderNodeGraphModuleScopeBrightnessControl();
     }
@@ -2107,10 +2107,24 @@ function resetNodeUiDevControlsToDeclaredDefaults() {
   }
 }
 
-function clearNodeUserStartupRuntimeState() {
+async function clearNodeUserStartupRuntimeState() {
   resetNodeUiDevControlsToDeclaredDefaults();
-  if (typeof cloneNodeGraphPatch === "function" && typeof nodeGraphDefaultPatch !== "undefined") {
-    nodeGraphMvp.patch = cloneNodeGraphPatch(nodeGraphDefaultPatch);
+  // Load Init from disk (patches/init.json → presets/default.json → hardcoded).
+  // Do not trust an in-memory defaultPatch that may predate the user's edit.
+  let initPatch = null;
+  if (typeof loadNodeGraphDefaultPresetPatch === "function") {
+    try {
+      initPatch = await loadNodeGraphDefaultPresetPatch();
+    } catch (_error) {
+      initPatch = null;
+    }
+  }
+  if (!initPatch && typeof cloneNodeGraphPatch === "function" && typeof nodeGraphDefaultPatch !== "undefined") {
+    initPatch = cloneNodeGraphPatch(nodeGraphDefaultPatch);
+  }
+  if (initPatch && typeof cloneNodeGraphPatch === "function") {
+    nodeGraphMvp.defaultPatch = cloneNodeGraphPatch(initPatch);
+    nodeGraphMvp.patch = cloneNodeGraphPatch(initPatch);
   }
   nodeGraphMvp.workingPatch = null;
   nodeGraphMvp.currentSavedPatchFilename = "";
@@ -2210,9 +2224,9 @@ function clearNodeUserStartupRuntimeState() {
   }
 }
 
-function clearNodeUserStartupState() {
+async function clearNodeUserStartupState() {
   const removed = clearNodeUserStartupLocalStorage();
-  clearNodeUserStartupRuntimeState();
+  await clearNodeUserStartupRuntimeState();
   const text = typeof serializeNodeUiDevSettings === "function"
     ? serializeNodeUiDevSettings()
     : "";
@@ -2540,9 +2554,9 @@ async function handleSaveNodeUserUiSettingsDefaultClick(event) {
   }
 }
 
-function handleClearNodeUserStartupStateClick(event) {
+async function handleClearNodeUserStartupStateClick(event) {
   if (!confirmNodeGraphDefaultButtonClick(event.currentTarget)) {
     return;
   }
-  clearNodeUserStartupState();
+  await clearNodeUserStartupState();
 }

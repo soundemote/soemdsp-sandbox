@@ -10,6 +10,9 @@ nodeGraphLiveModuleEvaluators.pitchModWheel = ({ nodeId, mixInput, hasInput }) =
     ? Number(mixInput(nodeId, "Mod")) || 0
     : Number(nodeGraphMvp?.modWheelSignal) || 0));
   return {
+    Mod: mod,
+    Pitch: pitch,
+    // Legacy jack names (pre Pitch/Mod rename).
     "Mod Wheel": mod,
     "Pitch Wheel": pitch,
   };

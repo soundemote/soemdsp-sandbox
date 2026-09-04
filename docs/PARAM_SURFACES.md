@@ -23,6 +23,22 @@ Hard clamp/wrap of stored or post-MOD effective values only when:
 
 Typing Amplitude `8000` or Frequency outside the slider mid-band must stick.
 
+## Stickiness (host → Control → DSP)
+
+Contract for every continuous parameter:
+
+1. UI / patch writes a **DOMAIN** value.
+2. Host pushes it once as `Control.target` (`set_param`) when it **changes**.
+3. Native smoother chases `target → out` (and may keep chasing across blocks).
+4. Module DSP reads `control_effective` (and may latch derived coeffs on change).
+5. That target / those coeffs **remain** until the host writes a **new** DOMAIN value.
+
+Illegal:
+
+- Re-pushing every knob on every coalesced `setParams` just because a serial bumped.
+- Pushing domain `0…0` when `paramMeta` is missing (pretends to be a range).
+- Storing derived coeffs where the next buffer grow / `set_params` path silently clears them, so audio only matches the knob while the knob is moving.
+
 ## MOD apply rules
 
 Order is always **`effective = applyMod(smooth(knob), MOD)`** — never smooth the

@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
 # Human-readable ship label (date + short codename). Prefer dotted dates over
 # opaque timestamps so the toolbar readout stays demystified for users.
-BUILD_NUMBER = "2026.9.1.1"
+BUILD_NUMBER = "2026.9.4.1"
 VERSION_FILE = ROOT / "VERSION"
 SANDBOX_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "0.0.0"
 # Per-build stamp: random A–Z/0–9, re-rolled when the server starts OR when
@@ -100,6 +100,8 @@ DEFAULT_PRESET = PUBLIC / "presets" / "default.json"
 DEFAULT_UI_SETTINGS = PUBLIC / "presets" / "useruisettings.json"
 DEFAULT_UI_SETTINGS_SCRIPT = PUBLIC / "presets" / "useruisettings.js"
 DEFAULT_UI_SETTINGS_TEMPLATE = PUBLIC / "presets" / "useruisettings.default.json"
+# Site / Clear Startup Init — keep in sync with DEFAULT_PRESET on save.
+PAGE_INIT_PATCH = ROOT / "patches" / "init.json"
 NATIVE_MODULES = ROOT / "native_modules"
 SAVED_PATCHES = ROOT / "saved-patches"
 MAX_PRESET_BYTES = 512 * 1024
@@ -662,15 +664,17 @@ class SandboxServer(BaseHTTPRequestHandler):
         if not self.validate_node_patch_payload(payload, "preset"):
             return
 
+        body = f"{json.dumps(payload, indent=2, sort_keys=False)}\n"
         DEFAULT_PRESET.parent.mkdir(parents=True, exist_ok=True)
-        DEFAULT_PRESET.write_text(
-            f"{json.dumps(payload, indent=2, sort_keys=False)}\n",
-            encoding="utf-8",
-        )
+        DEFAULT_PRESET.write_text(body, encoding="utf-8")
+        # Keep page Init (Clear Startup / site home) identical to the preset.
+        PAGE_INIT_PATCH.parent.mkdir(parents=True, exist_ok=True)
+        PAGE_INIT_PATCH.write_text(body, encoding="utf-8")
         self.send_json(
             {
                 "ok": True,
                 "path": str(DEFAULT_PRESET),
+                "initPath": str(PAGE_INIT_PATCH),
                 "bytes": DEFAULT_PRESET.stat().st_size,
             },
         )

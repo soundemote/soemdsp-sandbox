@@ -944,6 +944,17 @@ const nodeGraphFloatingWindowRegistryEntries = Object.freeze([
     resizeAriaLabel: "Resize hotkeys",
   }),
   Object.freeze({
+    workspaceKey: "pages",
+    elementId: "nodePagesPage",
+    dragStateKey: "pagesPageDragging",
+    resizeStateKey: "pagesPageResizing",
+    applySizeName: "applyNodeGraphPagesPageSize",
+    sizeAxes: Object.freeze({ width: true, height: true }),
+    headingDragClass: true,
+    resizeHandleId: "nodePagesPageResizeHandle",
+    resizeAriaLabel: "Resize pages",
+  }),
+  Object.freeze({
     workspaceKey: "emoji",
     elementId: "nodeEmojiPage",
     dragStateKey: "emojiPageDragging",

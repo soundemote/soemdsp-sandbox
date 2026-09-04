@@ -99,51 +99,15 @@ function createNodeGraphPhoneToneDisplay(nodeId, type = "phoneTone") {
   section.dataset.parameterVisual = "true";
   section.dataset.lightSource = "screen";
   section.dataset.lightStrength = "0.4";
-  const startLoop = () => {
-    if (section._raf) return;
-    const tick = () => {
-      section._raf = 0;
-      if (!section.isConnected) return;
-      const animate = typeof scopePaintFaceShouldAnimate === "function"
-        ? scopePaintFaceShouldAnimate(section)
-        : (typeof scopePaintIsLive === "function" ? scopePaintIsLive() : true);
-      if (!animate) {
-        if (section._forceDraw) {
-          drawNodeGraphPhoneToneFaceItem(section);
-        }
-        return;
-      }
-      drawNodeGraphPhoneToneFaceItem(section);
-      section._raf = requestAnimationFrame(tick);
-    };
-    section._raf = requestAnimationFrame(tick);
-  };
-  section._startFaceLoop = startLoop;
-  section.syncFromParameters = () => {
-    section._forceDraw = true;
-    drawNodeGraphPhoneToneFaceItem(section);
-    startLoop();
-  };
   const canvas = document.createElement("canvas");
   canvas.className = "node-filter-curve-canvas node-phone-tone-canvas node-module-scope-vector-trace";
   canvas.setAttribute("aria-hidden", "true");
   section.append(canvas);
-  if (typeof ResizeObserver === "function") {
-    const observer = new ResizeObserver(() => {
-      section._forceDraw = true;
-      section._phoneToneLaidOut = false;
-      drawNodeGraphPhoneToneFaceItem(section);
-      startLoop();
-    });
-    observer.observe(section);
-    section._phoneToneResizeObserver = observer;
-  }
-  document.addEventListener("nodegraphfaceloops", startLoop);
-  section.addEventListener("nodegraphviewport", (event) => {
-    if (!event?.detail?.asleep) startLoop();
+  nodeGraphInstallDrawingFacePump(section, {
+    clockKey: (el) => `phoneTone:${el.dataset?.node || ""}`,
+    paint: drawNodeGraphPhoneToneFaceItem,
+    onResize: (el) => { el._phoneToneLaidOut = false; },
   });
-  drawNodeGraphPhoneToneFaceItem(section);
-  startLoop();
   return section;
 }
 

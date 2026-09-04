@@ -83,6 +83,8 @@ $indexHtml = $indexRaw.Replace("{{SANDBOX_VERSION}}", $sandboxVersion).Replace("
 # Drop debug-only deferred script tags from the static release shell so START
 # does not fetch evidence/debug chrome. Keep node-graph-debug-console.js (bug
 # button stays available; release only changes its color via BUILD_MODE).
+# Keep release-debug-stubs.js — it supplies no-ops for omitted APIs so core
+# boot (selection / manifest / live bindings) never ReferenceErrors.
 $releaseOmitScriptSubstrings = @(
   "node-graph-execution-debug-api.js",
   "node-graph-execution-debug-view.js",
@@ -189,6 +191,27 @@ function Sync-Dir([string]$SrcDir, [string]$DstDir, [string[]]$ExcludeNames = @(
 
 Sync-Dir -SrcDir $srcPublic -DstDir $dstPublic -ExcludeNames $excludeTop
 
+# Page patches live at repo-root patches/ and ship next to the embed so URLs
+# are /soemdsp-sandbox/patches/{slug}.json (same path locally and on soundemote.io).
+$srcPatches = Join-Path $root "patches"
+$dstPatches = Join-Path $dst "patches"
+if (!(Test-Path -LiteralPath $srcPatches)) {
+  throw "Missing patches/ at $srcPatches -- page routes need static JSON here."
+}
+if (Test-Path -LiteralPath $dstPatches) {
+  Remove-Item -LiteralPath $dstPatches -Recurse -Force
+}
+New-Item -ItemType Directory -Path $dstPatches | Out-Null
+Copy-Item -Path (Join-Path $srcPatches "*") -Destination $dstPatches -Recurse -Force
+$patchCount = @(Get-ChildItem -LiteralPath $dstPatches -Filter "*.json" -File).Count
+Write-Host "  patches\ ($patchCount json files)"
+if (!(Test-Path -LiteralPath (Join-Path $dstPatches "init.json"))) {
+  throw "Release patches missing init.json"
+}
+if (!(Test-Path -LiteralPath (Join-Path $dstPatches "index.json"))) {
+  throw "Release patches missing index.json (Pages picker catalog)"
+}
+
 # Personal UI prefs must not ship. Rebuild bundled defaults from the template.
 $presetsDir = Join-Path $dstPublic "presets"
 $defaultUiTemplate = Join-Path $srcPublic "presets\useruisettings.default.json"
@@ -248,6 +271,16 @@ if (Test-Path -LiteralPath (Join-Path $dstPublic "examples")) {
 }
 if (Test-Path -LiteralPath (Join-Path $dstPublic "workbenches")) {
   throw "Release tree must not include public/workbenches"
+}
+# Core boot calls debug/evidence APIs; stubs must ship so release never ReferenceErrors.
+if ($dstIndexText -notmatch "release-debug-stubs\.js") {
+  throw "Release index missing release-debug-stubs.js (required no-ops for omitted debug scripts)"
+}
+if (!(Test-Path -LiteralPath (Join-Path $dstPublic "release-debug-stubs.js"))) {
+  throw "Release public/ missing release-debug-stubs.js"
+}
+if ($dstIndexText -match "node-graph-execution-debug-view\.js") {
+  throw "Release index still includes omitted node-graph-execution-debug-view.js"
 }
 
 # SHA-256 of the shipped wasm for deploy review / drift checks.

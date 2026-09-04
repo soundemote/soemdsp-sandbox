@@ -740,12 +740,17 @@ window.addEventListener("message", (event) => {
           typeof cloneNodeGraphPatch === "function"
             ? cloneNodeGraphPatch(loadedPatch)
             : loadedPatch;
-        commitNodeGraphPatch(clonedPatch, { status: "shared patch loaded" });
+        commitNodeGraphPatch(clonedPatch, {
+          autosaveWorkingPatch: false,
+          patchDirtyState: "untouched",
+          status: "shared patch loaded",
+        });
         // Flag that an external patch was applied so the boot sequence's own
         // startup-patch commit (which can still be in flight -- it awaits an
         // async default-preset fetch) doesn't unconditionally overwrite it
         // if this message arrives mid-boot.
         nodeGraphMvp.externalStartupPatchApplied = true;
+        nodeGraphMvp.workingPatch = null;
         nodeGraphExternalAutoFrameAfterLoad();
       }
     } catch (error) {
