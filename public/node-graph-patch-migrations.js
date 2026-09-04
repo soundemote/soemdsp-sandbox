@@ -547,37 +547,36 @@ function nodeGraphPatchMigrateFrequencySkewCurveExpRational(patch) {
 }
 
 /**
- * PolyBLEP Morph 0…1 → bipolar −1…+1 (0 = center).
- * Old 0.5 (PWM center / trisaw mid) → 0; old 0→−1; old 1→+1.
+ * PolyBLEP Morph stays 0…1 like every other parameter (0.5 = center).
+ * Undo the old bipolar remap (2m−1) that turned saved 0.5 into 0 on reload.
  */
 function nodeGraphPatchMigratePolyBlepMorphBipolar(patch) {
   if (!patch || !Array.isArray(patch.nodes)) return patch;
   let changed = false;
   const nodes = patch.nodes.map((node) => {
     if (!node || String(node.type || "").trim() !== "polyBlep") return node;
-    const params = node.params && typeof node.params === "object" ? { ...node.params } : {};
+    const params = node.params && typeof node.params === "object" ? { ...node.params } : null;
     const parameters = node.parameters && typeof node.parameters === "object"
       ? { ...node.parameters }
       : null;
-    const stamp = Number(params._polyMorphBipolar ?? parameters?._polyMorphBipolar) || 0;
-    if (stamp >= 1) return node;
-    const apply = (obj) => {
-      if (!obj) return null;
-      const out = { ...obj, _polyMorphBipolar: 1 };
-      if (out.morph == null || !Number.isFinite(Number(out.morph))) {
-        out.morph = 0;
-        return out;
-      }
+    const stamped = (Number(params?._polyMorphBipolar) || 0) >= 1
+      || (Number(parameters?._polyMorphBipolar) || 0) >= 1;
+    if (!stamped) return node;
+    const undo = (obj) => {
+      if (!obj || !Object.hasOwn(obj, "_polyMorphBipolar")) return obj;
+      const out = { ...obj };
+      delete out._polyMorphBipolar;
       const m = Number(out.morph);
-      // Already bipolar (outside old 0…1) — just stamp.
-      if (m < -1e-9 || m > 1 + 1e-9) return out;
-      out.morph = 2 * m - 1;
+      if (Number.isFinite(m) && m >= -1 && m <= 1) {
+        // Reverse 2m−1 → unipolar 0…1.
+        out.morph = (m + 1) / 2;
+      }
       return out;
     };
     changed = true;
     const next = { ...node };
-    next.params = apply(params) || { morph: 0, _polyMorphBipolar: 1 };
-    if (parameters) next.parameters = apply(parameters);
+    if (params) next.params = undo(params);
+    if (parameters) next.parameters = undo(parameters);
     return next;
   });
   return changed ? { ...patch, nodes } : patch;
@@ -659,44 +658,31 @@ function nodeGraphPatchMigratePhaseRotationOutToGenerator(patch) {
 }
 
 /**
- * Additive Generator Morph 0…1 → bipolar −1…+1 (0 = unmorphed).
- * SawSquare: old 0=sq…1=saw → new m−1 (sq at −1, saw at 0).
- * Pulse* / others: old 0.5 center → 2m−1.
+ * Additive Generator dropped Morph for PWM. Do not remap morph values.
+ * Only strip a leftover _morphBipolar stamp if present.
  */
 function nodeGraphPatchMigrateAdditiveGeneratorMorphBipolar(patch) {
   if (!patch || !Array.isArray(patch.nodes)) return patch;
   let changed = false;
   const nodes = patch.nodes.map((node) => {
     if (!node || String(node.type || "").trim() !== "additiveGenerator") return node;
-    const params = node.params && typeof node.params === "object" ? { ...node.params } : {};
+    const params = node.params && typeof node.params === "object" ? { ...node.params } : null;
     const parameters = node.parameters && typeof node.parameters === "object"
       ? { ...node.parameters }
       : null;
-    const stamp = Number(params._morphBipolar ?? parameters?._morphBipolar) || 0;
-    if (stamp >= 1) return node;
-    const apply = (obj) => {
-      if (!obj) return null;
-      const out = { ...obj, _morphBipolar: 1 };
-      if (out.morph == null || !Number.isFinite(Number(out.morph))) {
-        out.morph = 0;
-        return out;
-      }
-      const m = Number(out.morph);
-      // Already looks bipolar (outside old 0…1) — just stamp.
-      if (m < -1e-9 || m > 1 + 1e-9) return out;
-      const wf = Math.round(Number(out.waveform) || 0);
-      if (wf === 0) {
-        // SawSquare unipolar → prefer negative half: 0→−1 (sq), 1→0 (saw).
-        out.morph = m - 1;
-      } else {
-        out.morph = 2 * m - 1;
-      }
+    const hasStamp = (params && Object.hasOwn(params, "_morphBipolar"))
+      || (parameters && Object.hasOwn(parameters, "_morphBipolar"));
+    if (!hasStamp) return node;
+    const strip = (obj) => {
+      if (!obj || !Object.hasOwn(obj, "_morphBipolar")) return obj;
+      const out = { ...obj };
+      delete out._morphBipolar;
       return out;
     };
     changed = true;
     const next = { ...node };
-    next.params = apply(params) || { morph: 0, _morphBipolar: 1 };
-    if (parameters) next.parameters = apply(parameters);
+    if (params) next.params = strip(params);
+    if (parameters) next.parameters = strip(parameters);
     return next;
   });
   return changed ? { ...patch, nodes } : patch;
