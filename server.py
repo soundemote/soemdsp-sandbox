@@ -100,8 +100,9 @@ DEFAULT_PRESET = PUBLIC / "presets" / "default.json"
 DEFAULT_UI_SETTINGS = PUBLIC / "presets" / "useruisettings.json"
 DEFAULT_UI_SETTINGS_SCRIPT = PUBLIC / "presets" / "useruisettings.js"
 DEFAULT_UI_SETTINGS_TEMPLATE = PUBLIC / "presets" / "useruisettings.default.json"
-# Site / Clear Startup Init — keep in sync with DEFAULT_PRESET on save.
-PAGE_INIT_PATCH = ROOT / "patches" / "init.json"
+# Sole Init SSOT. Confirm Init writes here; default.json is only a legacy mirror.
+PAGE_PATCHES = ROOT / "patches"
+PAGE_INIT_PATCH = PAGE_PATCHES / "init.json"
 NATIVE_MODULES = ROOT / "native_modules"
 SAVED_PATCHES = ROOT / "saved-patches"
 MAX_PRESET_BYTES = 512 * 1024
@@ -490,6 +491,18 @@ class SandboxServer(BaseHTTPRequestHandler):
             self.serve_public(relative, send_body=send_body)
             return
 
+        # Page patches (Init SSOT at patches/init.json). Same paths as the site
+        # embed: /patches/{slug}.json and /soemdsp-sandbox/patches/{slug}.json.
+        if parsed.path.startswith("/patches/"):
+            self.serve_page_patch(parsed.path.removeprefix("/patches/"), send_body=send_body)
+            return
+        if parsed.path.startswith("/soemdsp-sandbox/patches/"):
+            self.serve_page_patch(
+                parsed.path.removeprefix("/soemdsp-sandbox/patches/"),
+                send_body=send_body,
+            )
+            return
+
         if parsed.path.startswith("/native_modules/"):
             relative = parsed.path.removeprefix("/native_modules/")
             self.serve_native_module_file(relative, send_body=send_body)
@@ -540,6 +553,16 @@ class SandboxServer(BaseHTTPRequestHandler):
         path = (PUBLIC / unquote(relative)).resolve()
         if not path.is_relative_to(PUBLIC):
             self.send_error(403, "Forbidden")
+            return
+        self.serve_file(path, send_body=send_body)
+
+    def serve_page_patch(self, relative: str, send_body: bool) -> None:
+        path = (PAGE_PATCHES / unquote(relative)).resolve()
+        if not path.is_relative_to(PAGE_PATCHES.resolve()):
+            self.send_error(403, "Forbidden")
+            return
+        if not path.is_file():
+            self.send_error(404, "Not found")
             return
         self.serve_file(path, send_body=send_body)
 
@@ -665,17 +688,18 @@ class SandboxServer(BaseHTTPRequestHandler):
             return
 
         body = f"{json.dumps(payload, indent=2, sort_keys=False)}\n"
-        DEFAULT_PRESET.parent.mkdir(parents=True, exist_ok=True)
-        DEFAULT_PRESET.write_text(body, encoding="utf-8")
-        # Keep page Init (Clear Startup / site home) identical to the preset.
         PAGE_INIT_PATCH.parent.mkdir(parents=True, exist_ok=True)
         PAGE_INIT_PATCH.write_text(body, encoding="utf-8")
+        # Legacy mirror only — boot loads patches/init.json, not this file.
+        DEFAULT_PRESET.parent.mkdir(parents=True, exist_ok=True)
+        DEFAULT_PRESET.write_text(body, encoding="utf-8")
         self.send_json(
             {
                 "ok": True,
-                "path": str(DEFAULT_PRESET),
+                "path": str(PAGE_INIT_PATCH),
                 "initPath": str(PAGE_INIT_PATCH),
-                "bytes": DEFAULT_PRESET.stat().st_size,
+                "legacyPresetPath": str(DEFAULT_PRESET),
+                "bytes": PAGE_INIT_PATCH.stat().st_size,
             },
         )
 

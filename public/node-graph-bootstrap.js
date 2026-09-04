@@ -12,9 +12,8 @@ async function initNodeGraphMvp() {
     await loadNodeGraphResourceManifest();
   }
   setNodeSandboxStartupProgress(58, "loading patch");
-  // Factory default is always Init (patches/init.json). Working/autosaved
-  // session patch wins only when present and usable — never a divergent
-  // localStorage "defaultPatch.live.*" blob.
+  // Factory default is always patches/init.json. Working/autosaved session
+  // patch wins only when present and usable.
   nodeGraphMvp.defaultPatch = await loadNodeGraphDefaultPresetPatch();
   setNodeSandboxStartupProgress(72, "building interface");
   const workingStartup = nodeGraphMvp.workingPatch;
@@ -229,9 +228,9 @@ function ensureNodeGraphStartupModulesVisible() {
     return;
   }
   clearNodeGraphStartupPatchRecoveryStorage();
-  // Default only when there truly is no patch — never write that back as the
-  // working-patch autosave (would lock the user into the default on refresh).
-  commitNodeGraphPatch(cloneNodeGraphPatch(nodeGraphDefaultPatch), {
+  // Prefer in-memory Init (from patches/init.json). Hardcoded patch is last resort.
+  const recoveryPatch = nodeGraphMvp?.defaultPatch || nodeGraphDefaultPatch;
+  commitNodeGraphPatch(cloneNodeGraphPatch(recoveryPatch), {
     autosaveWorkingPatch: false,
     markPending: false,
     record: false,

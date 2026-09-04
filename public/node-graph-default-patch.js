@@ -195,8 +195,8 @@ function createNodeGraphPatchNode(type, options = {}) {
   return node;
 }
 
-// Offline fallback for Init. Live Clear Startup / boot prefer patches/init.json
-// (then presets/default.json). Keep this aligned when Init changes.
+// Offline last-resort only (file:// / fetch failure). Live boot and Clear
+// Startup always load patches/init.json — do not treat this as Init SSOT.
 const nodeGraphDefaultNodeConfigs = Object.freeze([
   {
     ...createNodeGraphPatchNode("output", { id: "output", gx: 5, gy: -9 }),
@@ -207,7 +207,8 @@ const nodeGraphDefaultNodeConfigs = Object.freeze([
     params: {
       ...nodeGraphDefaultParamsForType("polyBlep"),
       frequency: 220,
-      waveform: 1, // Saw
+      waveform: 0,
+      morph: 0.5,
       amplitude: 0.5,
     },
   },
@@ -242,7 +243,7 @@ const nodeGraphDefaultPatch = Object.freeze({
   ],
   info: {
     author: "",
-    description: "Init — PolyBLEP into Output (same as patches/init.json)",
+    description: "Offline fallback — live Init is patches/init.json",
     name: "Init",
     tags: "init,default",
   },

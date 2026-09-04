@@ -345,10 +345,10 @@
         }
       },
       "params": {
-        "waveform": 1,
+        "waveform": 0,
         "frequency": 220,
         "phase": 0,
-        "morph": -1,
+        "morph": 0.5,
         "amplitude": 0.5
       },
       "type": "polyBlep",

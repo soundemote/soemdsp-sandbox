@@ -2109,8 +2109,7 @@ function resetNodeUiDevControlsToDeclaredDefaults() {
 
 async function clearNodeUserStartupRuntimeState() {
   resetNodeUiDevControlsToDeclaredDefaults();
-  // Load Init from disk (patches/init.json → presets/default.json → hardcoded).
-  // Do not trust an in-memory defaultPatch that may predate the user's edit.
+  // Load Init from disk (patches/init.json). Do not trust a stale in-memory defaultPatch.
   let initPatch = null;
   if (typeof loadNodeGraphDefaultPresetPatch === "function") {
     try {

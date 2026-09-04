@@ -1,47 +1,41 @@
-// Factory / Clear-Startup / no-working-patch boot always resolves to Init
-// (patches/init.json ≡ presets/default.json ≡ nodeGraphDefaultPatch).
-// Local "Update Default Preset" may rewrite those files via /api, but boot
-// never prefers a separate localStorage graph over Init when there is no
-// working/autosaved patch.
+// Init is patches/init.json on disk. The display name "Init" may be hardcoded
+// in UI labels; the patch graph itself is never hardcoded as a peer source.
+// presets/default.json is not Init.
 
 const nodeGraphInitPatchUrls = Object.freeze([
   "./patches/init.json",
   "/soemdsp-sandbox/patches/init.json",
-  "./public/presets/default.json",
 ]);
 
 // Legacy key — still cleared on Clear Startup; no longer read for boot.
 const nodeGraphDefaultPresetStorageKey = "soemdsp-sandbox.defaultPatch.live.v6";
 
-async function nodeGraphDefaultPresetUrlToLoad() {
-  const override = typeof nodeGraphResolveEmbedOverride === "function"
-    ? await nodeGraphResolveEmbedOverride("defaultPresetUrl", "defaultPreset")
-    : null;
-  return override || "./public/presets/default.json";
-}
-
-function nodeGraphHardcodedInitPatch() {
+function nodeGraphOfflineInitFallbackPatch() {
   if (typeof nodeGraphDefaultPatch !== "undefined" && nodeGraphDefaultPatch) {
     return cloneNodeGraphPatch(nodeGraphDefaultPatch);
   }
-  return { nodes: [], connections: [], format: { kind: "soemdsp-sandbox-node-patch", version: 2 } };
+  return {
+    nodes: [],
+    connections: [],
+    format: { kind: "soemdsp-sandbox-node-patch", version: 2 },
+  };
 }
 
 /**
- * Sole factory default when there is no working/autosaved patch.
- * Always Init — never a divergent localStorage "defaultPatch.live.*" blob.
+ * Factory / Clear Startup / no-working-patch boot: load patches/init.json.
+ * Never prefers presets/default.json or a localStorage "defaultPatch.live.*" blob.
  */
 async function loadNodeGraphDefaultPresetPatch() {
-  const urls = [];
+  const urls = [...nodeGraphInitPatchUrls];
   try {
-    urls.push(await nodeGraphDefaultPresetUrlToLoad());
+    const override = typeof nodeGraphResolveEmbedOverride === "function"
+      ? await nodeGraphResolveEmbedOverride("defaultPresetUrl", "defaultPreset")
+      : null;
+    if (override && !urls.includes(override)) {
+      urls.unshift(override);
+    }
   } catch (_error) {
     // ignore override failure
-  }
-  for (const url of nodeGraphInitPatchUrls) {
-    if (!urls.includes(url)) {
-      urls.push(url);
-    }
   }
   for (const url of urls) {
     try {
@@ -77,7 +71,7 @@ async function loadNodeGraphDefaultPresetPatch() {
       // try next URL
     }
   }
-  return normalizeNodeGraphDefaultPresetScopeShaders(nodeGraphHardcodedInitPatch());
+  return normalizeNodeGraphDefaultPresetScopeShaders(nodeGraphOfflineInitFallbackPatch());
 }
 
 function normalizeNodeGraphDefaultPresetScopeShaders(patch) {
