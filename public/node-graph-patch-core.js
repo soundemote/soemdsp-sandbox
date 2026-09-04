@@ -354,6 +354,15 @@ function validateNodeGraphPatch(patch) {
         metadata,
       );
     }
+    // Keep `_…` migration stamps (e.g. _wfBasic, _freqSkewCurve). They are not
+    // module parameters, but must survive normalize/save so one-shot migrators
+    // do not rewrite real parameter values on every load.
+    for (const [stampKey, stampValue] of Object.entries(rawParams)) {
+      if (!stampKey.startsWith("_") || Object.hasOwn(params, stampKey)) {
+        continue;
+      }
+      params[stampKey] = stampValue;
+    }
     ids.add(id);
     const normalizedNode = {
       gx,

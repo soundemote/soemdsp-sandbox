@@ -127,21 +127,33 @@ function nodeGraphPatchMigrateAdditiveFilterSlopeToDbOct(patch) {
       return node;
     }
     const bump = (bag) => {
-      if (!bag || bag.slope == null) return bag;
+      if (!bag) return bag;
+      if ((Number(bag._slopeUnit) || 0) >= 1) return bag;
+      if (bag.slope == null) {
+        changed = true;
+        return { ...bag, _slopeUnit: 1 };
+      }
       const n = Number(bag.slope);
-      if (!Number.isFinite(n)) return bag;
+      if (!Number.isFinite(n)) {
+        changed = true;
+        return { ...bag, _slopeUnit: 1 };
+      }
       if (type === "additiveAnalogFilter") {
-        if (n > 1) return bag; // already dB/oct
+        if (n > 1) {
+          changed = true;
+          return { ...bag, _slopeUnit: 1 }; // already dB/oct
+        }
         changed = true;
         const db = n <= 0 ? 96 : Math.max(6, Math.min(96, 6 / n));
-        return { ...bag, slope: db };
+        return { ...bag, slope: db, _slopeUnit: 1 };
       }
-      // Linear: 0…1 rational slope. Undo mistaken dB values.
+      // Linear: 0…1 rational slope. Undo mistaken dB values once.
       if (n > 1) {
         changed = true;
-        return { ...bag, slope: Math.max(0, Math.min(1, 6 / n)) };
+        return { ...bag, slope: Math.max(0, Math.min(1, 6 / n)), _slopeUnit: 1 };
       }
-      return bag;
+      changed = true;
+      return { ...bag, _slopeUnit: 1 };
     };
     const next = { ...node };
     if (node.params && typeof node.params === "object") {
@@ -258,20 +270,12 @@ function nodeGraphPatchMigrateAdditiveGeneratorWaveformsBasic(patch) {
       v2 = 0;
     }
     const nextWf = (v2 >= 0 && v2 < fromV2ToV3.length) ? fromV2ToV3[v2] : 0;
-    // Pure Saw (v2=0) → morph 0 (bipolar center saw); Square (v2=1) → morph −1.
-    let nextMorph = null;
-    if (stamp < 3 && (v2 === 0 || v2 === 1)) {
-      nextMorph = v2 === 0 ? 0 : -1;
-    }
+    // Waveform index only. Never invent/rewrite Morph — Morph is a normal
+    // parameter (and Additive Generator uses pwm now, not morph).
     changed = true;
     const apply = (obj) => {
       if (!obj) return null;
-      const out = { ...obj, waveform: nextWf, _wfBasic: 3 };
-      if (nextMorph != null && (out.morph == null || stamp < 3)) {
-        // Only force morph when migrating from dedicated Saw/Square entries.
-        if (v2 === 0 || v2 === 1) out.morph = nextMorph;
-      }
-      return out;
+      return { ...obj, waveform: nextWf, _wfBasic: 3 };
     };
     const next = { ...node };
     if (Object.keys(params).length || params.waveform != null) {
@@ -547,42 +551,6 @@ function nodeGraphPatchMigrateFrequencySkewCurveExpRational(patch) {
 }
 
 /**
- * PolyBLEP Morph stays 0…1 like every other parameter (0.5 = center).
- * Undo the old bipolar remap (2m−1) that turned saved 0.5 into 0 on reload.
- */
-function nodeGraphPatchMigratePolyBlepMorphBipolar(patch) {
-  if (!patch || !Array.isArray(patch.nodes)) return patch;
-  let changed = false;
-  const nodes = patch.nodes.map((node) => {
-    if (!node || String(node.type || "").trim() !== "polyBlep") return node;
-    const params = node.params && typeof node.params === "object" ? { ...node.params } : null;
-    const parameters = node.parameters && typeof node.parameters === "object"
-      ? { ...node.parameters }
-      : null;
-    const stamped = (Number(params?._polyMorphBipolar) || 0) >= 1
-      || (Number(parameters?._polyMorphBipolar) || 0) >= 1;
-    if (!stamped) return node;
-    const undo = (obj) => {
-      if (!obj || !Object.hasOwn(obj, "_polyMorphBipolar")) return obj;
-      const out = { ...obj };
-      delete out._polyMorphBipolar;
-      const m = Number(out.morph);
-      if (Number.isFinite(m) && m >= -1 && m <= 1) {
-        // Reverse 2m−1 → unipolar 0…1.
-        out.morph = (m + 1) / 2;
-      }
-      return out;
-    };
-    changed = true;
-    const next = { ...node };
-    if (params) next.params = undo(params);
-    if (parameters) next.parameters = undo(parameters);
-    return next;
-  });
-  return changed ? { ...patch, nodes } : patch;
-}
-
-/**
  * Move Phase Rotation from Additive Out back onto the upstream Additive Generator.
  * Walks Graph wires through Yellow Graph effects. Clears Out.phaseRotation.
  */
@@ -654,37 +622,6 @@ function nodeGraphPatchMigratePhaseRotationOutToGenerator(patch) {
     nodes[genHit.index] = gen;
     byId.set(String(gen.id), { node: gen, index: genHit.index });
   }
-  return changed ? { ...patch, nodes } : patch;
-}
-
-/**
- * Additive Generator dropped Morph for PWM. Do not remap morph values.
- * Only strip a leftover _morphBipolar stamp if present.
- */
-function nodeGraphPatchMigrateAdditiveGeneratorMorphBipolar(patch) {
-  if (!patch || !Array.isArray(patch.nodes)) return patch;
-  let changed = false;
-  const nodes = patch.nodes.map((node) => {
-    if (!node || String(node.type || "").trim() !== "additiveGenerator") return node;
-    const params = node.params && typeof node.params === "object" ? { ...node.params } : null;
-    const parameters = node.parameters && typeof node.parameters === "object"
-      ? { ...node.parameters }
-      : null;
-    const hasStamp = (params && Object.hasOwn(params, "_morphBipolar"))
-      || (parameters && Object.hasOwn(parameters, "_morphBipolar"));
-    if (!hasStamp) return node;
-    const strip = (obj) => {
-      if (!obj || !Object.hasOwn(obj, "_morphBipolar")) return obj;
-      const out = { ...obj };
-      delete out._morphBipolar;
-      return out;
-    };
-    changed = true;
-    const next = { ...node };
-    if (params) next.params = strip(params);
-    if (parameters) next.parameters = strip(parameters);
-    return next;
-  });
   return changed ? { ...patch, nodes } : patch;
 }
 
@@ -917,19 +854,38 @@ function nodeGraphPatchMigrateAdditiveFilterCutoffToHz(patch) {
     const parameters = node.parameters && typeof node.parameters === "object"
       ? { ...node.parameters }
       : null;
+    if ((Number(params._cutoffHz) || 0) >= 1 || (Number(parameters?._cutoffHz) || 0) >= 1) {
+      return node;
+    }
     const src = params.cutoff != null ? params : parameters;
-    if (!src || src.cutoff == null) return node;
+    if (!src || src.cutoff == null) {
+      // Already on Hz-era patches with no legacy value — stamp and leave.
+      if (Object.keys(params).length) {
+        changed = true;
+        return { ...node, params: { ...params, _cutoffHz: 1 } };
+      }
+      return node;
+    }
     const n = Number(src.cutoff);
-    if (!Number.isFinite(n) || n <= 0 || n > 1) return node;
+    if (!Number.isFinite(n) || n <= 0 || n > 1) {
+      changed = true;
+      const next = { ...node, params: { ...params, _cutoffHz: 1 } };
+      if (parameters) next.parameters = { ...parameters, _cutoffHz: 1 };
+      return next;
+    }
     // Old normalized index → Hz (same span as Cutoff max).
     const hz = n * 20000;
     changed = true;
     const next = { ...node };
     if (params.cutoff != null) {
-      next.params = { ...params, cutoff: hz };
+      next.params = { ...params, cutoff: hz, _cutoffHz: 1 };
+    } else {
+      next.params = { ...params, _cutoffHz: 1 };
     }
     if (parameters && parameters.cutoff != null) {
-      next.parameters = { ...parameters, cutoff: hz };
+      next.parameters = { ...parameters, cutoff: hz, _cutoffHz: 1 };
+    } else if (parameters) {
+      next.parameters = { ...parameters, _cutoffHz: 1 };
     }
     return next;
   });
@@ -1169,9 +1125,7 @@ function migrateNodeGraphPatchToCurrent(patch) {
     next = nodeGraphPatchMigrateNoisyFreqAmountToAdd(next);
     next = nodeGraphPatchMigrateNoisyAmountToAdd(next);
     next = nodeGraphPatchMigrateAdditiveGeneratorWaveformsBasic(next);
-    next = nodeGraphPatchMigrateAdditiveGeneratorMorphBipolar(next);
     next = nodeGraphPatchMigrateAdditiveGeneratorWaveformsPwm(next);
-    next = nodeGraphPatchMigratePolyBlepMorphBipolar(next);
     next = nodeGraphPatchMigratePhaseRotationOutToGenerator(next);
     next = nodeGraphPatchMigrateGrowlHarmonicReduceToCutoff(next);
     next = nodeGraphPatchMigrateGrowlToBubble(next);
