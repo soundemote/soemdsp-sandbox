@@ -584,7 +584,8 @@
 
   /** Contain-fit stamp rect in UV (same math as 2D dest rect). */
   function imageRectUv(renderer, imageSize) {
-    const size = Math.max(0, Math.min(4, Number(imageSize) || 1));
+    // Soft layout guard only — Size dial range is owned by param metadata.
+    const size = Math.max(0, Math.min(64, Number(imageSize) || 1));
     const faceW = Math.max(1, renderer.width || 1);
     const faceH = Math.max(1, renderer.height || 1);
     const natW = Math.max(1, renderer.imageNatW || 1);

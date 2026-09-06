@@ -503,17 +503,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
-  // Image Burn: custom body (image row) + residual field set below.
-  // contrast must be listed or form read/apply ignores the dial.
+  // Image Burn: asset + Image blacks + Hang + plate. Live look knobs are module params.
   imageBurnFace: Object.freeze({
     fields: Object.freeze([
-      "imageSize",
-      "image",
-      "send",
-      "hang",
-      "burn",
       "contrast",
-      "blur",
+      "hang",
       "backgroundBrightness",
     ]),
     colors: Object.freeze(["backgroundColor"]),

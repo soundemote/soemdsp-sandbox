@@ -444,7 +444,7 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "imageBurnFace") {
     return typeof normalizeNodeGraphImageBurnSettings === "function"
       ? normalizeNodeGraphImageBurnSettings()
-      : { background: "#000000", dataUrl: "", fileName: "", imageSize: 1 };
+      : { background: "#000000", dataUrl: "", fileName: "", hang: 0.55, contrast: 0 };
   }
   if (type === "rgbFractalFace") {
     return typeof normalizeNodeGraphRgbFractalSettings === "function"

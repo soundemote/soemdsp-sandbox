@@ -616,18 +616,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     backgroundBrightness: nodeGraphTraceDisplayClampUnit,
   }),
   imageBurnFace: Object.freeze({
-    imageSize: (value) => {
-      const n = Number(value);
-      if (!Number.isFinite(n)) {
-        return 1;
-      }
-      return clampNodeSliderValue(n, 0, 4);
-    },
-    image: nodeGraphTraceDisplayClampBrightness,
-    send: nodeGraphTraceDisplayClampBrightness,
-    ink: nodeGraphTraceDisplayClampBrightness,
     hang: nodeGraphTraceDisplayClampUnit,
-    burn: nodeGraphTraceDisplayClampUnit,
     contrast: (value) => {
       const n = Number(value);
       if (!Number.isFinite(n)) {
@@ -635,8 +624,6 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
       }
       return clampNodeSliderValue(n, 0, 2);
     },
-    blur: nodeGraphTraceDisplayClampUnit,
-    dot1Brightness: nodeGraphTraceDisplayClampBrightness,
     backgroundBrightness: nodeGraphTraceDisplayClampUnit,
   }),
   pulseDot: Object.freeze({

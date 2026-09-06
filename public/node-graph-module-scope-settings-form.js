@@ -155,33 +155,13 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Size";
     title = "Dot diameter as a fraction of the face min side.";
   }
-  if (formType === "imageBurnFace" && key === "imageSize") {
-    label = "Image Size";
-    title = "Zoom 0…4 (exp). Fine near 0; 1 = fit face; >1 = zoom past edges.";
-  }
-  if (formType === "imageBurnFace" && key === "image") {
-    label = "Image";
-    title = "Gain on In energy for the flashing dry image (brightness = energy × Image).";
-  }
-  if (formType === "imageBurnFace" && key === "send") {
-    label = "Send";
-    title = "How much of that lit brightness is stamped into the burn circuit.";
-  }
   if (formType === "imageBurnFace" && key === "hang") {
     label = "Hang";
-    title = "Residual persistence. 0 = wipe fast; 1 = freeze.";
-  }
-  if (formType === "imageBurnFace" && key === "burn") {
-    label = "Burn";
-    title = "Highlights outlast darks. 0 = whole image fades together; 1 = darks die, peaks stick.";
+    title = "Residual persistence. 0 = wipe fast; 1 = freeze. Independent of Feedback.";
   }
   if (formType === "imageBurnFace" && key === "contrast") {
-    label = "Contrast";
-    title = "Source blacks first (dry + burn). 0 = unchanged; 2 = crush mid/lows to black (highs protected). Full dial is usable.";
-  }
-  if (formType === "imageBurnFace" && key === "blur") {
-    label = "Blur";
-    title = "Bloom recirculation. Exp dial — fine near 0; high = soft glow.";
+    label = "Image blacks";
+    title = "Fine-tune source blacks (dry + burn). 0 = unchanged; 2 = crush mid/lows to black (highs protected).";
   }
   if ((formType === "vectorDot" || formType === "pulseDot" || formType === "lcdDot") && key === "shapeParam") {
     const live = document.getElementById("nodeTraceDisplaySettingsPopover")

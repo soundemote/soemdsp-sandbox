@@ -2,13 +2,11 @@
 //
 // GL residual (image-burn-gl.js); Canvas2D fallback if GL unavailable.
 //
-//   Image / Send     — dry flash gain; how much of that flash stamps the burn
-//   Hang             — residual persistence (1 = freeze)
-//   Burn             — highlights outlast darks
-//   Contrast         — first on source (0 unchanged … 2 crush mid/lows; highs safe)
-//   Blur             — bloom recirculation
+// Module params: Size, Brightness, Feedback (−1…+1), Burn, Blur
+// Display: image asset, Image blacks, Hang, background, Clear residual
 //
-// Buffered In: this frame's peak energy lights the image; that stamp goes to burn.
+// lit = peak(|In|) × Brightness (dry flash).
+// Feedback 0 = hang only (no deposit). >0 accumulate. <0 dimmer stamp.
 
 const nodeGraphImageBurnSettingsDefaults = Object.freeze({
   background: "#000000",
@@ -16,22 +14,18 @@ const nodeGraphImageBurnSettingsDefaults = Object.freeze({
   backgroundColor: "#000000",
   dataUrl: "",
   fileName: "",
-  imageSize: 1,
-  /** Gain on In energy for the flashing dry image (and base for Send). */
-  image: 1,
-  /** How much of that lit brightness is sent into the burn circuit. */
-  send: 1,
   hang: 0.55,
-  burn: 0.75,
-  /** Source black crush: 0 = unchanged, 2 = max mid/low → black (highs protected). */
+  /** Image blacks: 0 = unchanged, 2 = max mid/low → black (highs protected). */
   contrast: 0,
-  blur: 0.45,
 });
 
-const NODE_GRAPH_IMAGE_BURN_SIZE_MAX = 4;
+/** Soft UV/layout guard only — param metadata owns the dial range. */
+const NODE_GRAPH_IMAGE_BURN_SIZE_SAFE_MAX = 64;
 // Residual matches face pixels; only shrink uniformly on huge faces.
 const NODE_GRAPH_IMAGE_BURN_RESIDUAL_MAX_SIDE = 4096;
 const NODE_GRAPH_IMAGE_BURN_COMPRESS = 1.3;
+/** Negative Feedback: stamp RGB scale at |feedback| = 1. */
+const NODE_GRAPH_IMAGE_BURN_FEEDBACK_DIM_MIN = 0.35;
 
 function normalizeNodeGraphImageBurnDataUrl(value) {
   if (typeof normalizeNodeGraphImageDataUrl === "function") {
@@ -44,9 +38,10 @@ function normalizeNodeGraphImageBurnDataUrl(value) {
 function clampNodeGraphImageBurnSize(value, fallback = 1) {
   const n = Number(value);
   if (!Number.isFinite(n)) {
-    return Math.max(0, Math.min(NODE_GRAPH_IMAGE_BURN_SIZE_MAX, Number(fallback) || 1));
+    const fb = Number(fallback);
+    return Math.max(0, Number.isFinite(fb) ? fb : 1);
   }
-  return Math.max(0, Math.min(NODE_GRAPH_IMAGE_BURN_SIZE_MAX, n));
+  return Math.max(0, Math.min(NODE_GRAPH_IMAGE_BURN_SIZE_SAFE_MAX, n));
 }
 
 function clampNodeGraphImageBurnUnit(value, fallback = 0) {
@@ -57,7 +52,7 @@ function clampNodeGraphImageBurnUnit(value, fallback = 0) {
   return Math.max(0, Math.min(1, n));
 }
 
-/** Contrast 0…2 (0 = unchanged, 2 = max black crush). */
+/** Image blacks 0…2 (0 = unchanged, 2 = max black crush). */
 function clampNodeGraphImageBurnContrast(value, fallback = 0) {
   const n = Number(value);
   if (!Number.isFinite(n)) {
@@ -75,14 +70,11 @@ function normalizeNodeGraphImageBurnSettings(settings = {}) {
       defaults.background,
     )
     : String(source.background || source.backgroundColor || defaults.background);
-  const dataUrl = normalizeNodeGraphImageBurnDataUrl(source.dataUrl || source.image || "");
+  // dataUrl only — do not treat legacy "image" gain as an asset URL.
+  const dataUrl = normalizeNodeGraphImageBurnDataUrl(source.dataUrl || "");
   const fileName = String(source.fileName || source.name || "").trim().slice(0, 160);
   const hangRaw = source.hang ?? source.trail ?? source.persist;
-  const burnRaw = source.burn ?? source.ghost;
   const contrastRaw = source.contrast ?? source.split ?? source.threshold;
-  const blurRaw = source.blur ?? source.bleed;
-  const sendRaw = source.send ?? source.ink ?? source.dot1Brightness ?? source.brightness;
-  const imageRaw = source.image ?? source.dry ?? source.imageBright;
   return {
     background,
     backgroundColor: background,
@@ -92,16 +84,8 @@ function normalizeNodeGraphImageBurnSettings(settings = {}) {
     ),
     dataUrl,
     fileName: dataUrl ? (fileName || "image") : "",
-    imageSize: clampNodeGraphImageBurnSize(source.imageSize, defaults.imageSize),
-    image: clampNodeGraphImageBurnUnit(imageRaw, defaults.image),
-    send: clampNodeGraphImageBurnUnit(sendRaw, defaults.send),
     hang: clampNodeGraphImageBurnUnit(hangRaw, defaults.hang),
-    burn: clampNodeGraphImageBurnUnit(burnRaw, defaults.burn),
     contrast: clampNodeGraphImageBurnContrast(contrastRaw, defaults.contrast),
-    blur: clampNodeGraphImageBurnUnit(blurRaw, defaults.blur),
-    // Legacy aliases for form round-trip
-    ink: clampNodeGraphImageBurnUnit(sendRaw, defaults.send),
-    dot1Brightness: clampNodeGraphImageBurnUnit(sendRaw, defaults.send),
   };
 }
 
@@ -124,18 +108,84 @@ function nodeGraphImageBurnToPatch(settings) {
     background: n.background,
     backgroundBrightness: n.backgroundBrightness,
     backgroundColor: n.backgroundColor,
-    imageSize: n.imageSize,
-    image: n.image,
-    send: n.send,
     hang: n.hang,
-    burn: n.burn,
     contrast: n.contrast,
-    blur: n.blur,
-    ink: n.send,
-    dot1Brightness: n.send,
     dataUrl: n.dataUrl || "",
     fileName: n.fileName || "",
   };
+}
+
+function nodeGraphImageBurnReadParam(nodeId, key, fallback) {
+  if (typeof nodeGraphReadNodeNumber === "function") {
+    const n = nodeGraphReadNodeNumber(nodeId, key);
+    if (Number.isFinite(n)) {
+      return n;
+    }
+  }
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const raw = Number(node?.params?.[key]);
+  return Number.isFinite(raw) ? raw : fallback;
+}
+
+/** One-shot: seed module params from legacy display bag keys. */
+function nodeGraphImageBurnMigrateParamsFromDisplay(node) {
+  if (!node || node.type !== "imageBurn") {
+    return;
+  }
+  if (!node.params || typeof node.params !== "object") {
+    node.params = {};
+  }
+  // Patch normalize fills new param defaults before draw — stamp so we only
+  // prefer legacy display Send/Image/Size/Burn/Blur once.
+  if (Number(node.params._imageBurnParamMig) === 1) {
+    return;
+  }
+  const bag = {
+    ...(node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+      ? node.traceDisplaySettings
+      : {}),
+    ...(node.imageBurn && typeof node.imageBurn === "object" ? node.imageBurn : {}),
+  };
+  const sizeRaw = Number(bag.imageSize);
+  if (Number.isFinite(sizeRaw)) {
+    node.params.size = sizeRaw;
+  }
+  const brightRaw = Number(bag.image ?? bag.dry ?? bag.imageBright);
+  if (Number.isFinite(brightRaw)) {
+    node.params.brightness = brightRaw;
+  }
+  const sendRaw = Number(bag.send ?? bag.ink ?? bag.dot1Brightness);
+  if (Number.isFinite(sendRaw)) {
+    // Legacy send was 0…1 unipolar → positive Feedback.
+    node.params.feedback = Math.max(0, Math.min(1, sendRaw));
+  }
+  const burnRaw = Number(bag.burn ?? bag.ghost);
+  if (Number.isFinite(burnRaw)) {
+    node.params.burn = burnRaw;
+  }
+  const blurRaw = Number(bag.blur ?? bag.bleed);
+  if (Number.isFinite(blurRaw)) {
+    node.params.blur = blurRaw;
+  }
+  node.params._imageBurnParamMig = 1;
+}
+
+/**
+ * Feedback → deposit gain + stamp dim.
+ * 0 = no print; >0 accumulate; <0 dimmer stamp into hang.
+ */
+function nodeGraphImageBurnFeedbackDeposit(lit, feedback) {
+  const fb = Number(feedback);
+  const light = Math.max(0, Number(lit) || 0);
+  if (!Number.isFinite(fb) || fb === 0 || light <= 0) {
+    return { deposit: 0, dim: 1 };
+  }
+  if (fb > 0) {
+    return { deposit: light * fb, dim: 1 };
+  }
+  const mag = Math.min(1, Math.abs(fb));
+  const dim = 1 - mag * (1 - NODE_GRAPH_IMAGE_BURN_FEEDBACK_DIM_MIN);
+  return { deposit: light * mag * dim, dim };
 }
 
 function nodeGraphImageBurnCanvasForSlot(slot) {
@@ -722,7 +772,21 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
   const node = typeof nodeGraphModuleScopeNodeForSlot === "function"
     ? nodeGraphModuleScopeNodeForSlot(slot)
     : (typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(slot.nodeId) : null);
+  if (node) {
+    nodeGraphImageBurnMigrateParamsFromDisplay(node);
+  }
   const settings = nodeGraphImageBurnSettingsForNode(node);
+  const nodeId = slot.nodeId;
+  const size = clampNodeGraphImageBurnSize(
+    nodeGraphImageBurnReadParam(nodeId, "size", 1),
+    1,
+  );
+  const brightness = Math.max(0, nodeGraphImageBurnReadParam(nodeId, "brightness", 1));
+  const feedback = nodeGraphImageBurnReadParam(nodeId, "feedback", 0);
+  const burn = Math.max(0, nodeGraphImageBurnReadParam(nodeId, "burn", 0.75));
+  const blur = Math.max(0, nodeGraphImageBurnReadParam(nodeId, "blur", 0.45));
+  const hang = clampNodeGraphImageBurnUnit(settings.hang, 0);
+  const contrast = clampNodeGraphImageBurnContrast(settings.contrast, 0);
   const buffer = item?.buffer;
   const w = canvas.width;
   const h = canvas.height;
@@ -752,21 +816,14 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     () => nodeGraphImageBurnScheduleRepaint(slot),
   );
 
-  const imageGain = clampNodeGraphImageBurnUnit(settings.image, 1);
-  const send = clampNodeGraphImageBurnUnit(settings.send ?? settings.ink, 1);
-  const hang = clampNodeGraphImageBurnUnit(settings.hang, 0);
-  const burn = clampNodeGraphImageBurnUnit(settings.burn, 0);
-  const contrast = clampNodeGraphImageBurnContrast(settings.contrast, 0);
-  const blur = clampNodeGraphImageBurnUnit(settings.blur, 0);
-
-  // This frame's buffered In peak → light the image → Send into burn.
+  // This frame's buffered In peak × Brightness → dry; Feedback gates deposit.
   const energy = nodeGraphImageBurnBufferedEnergy(face, buffer);
   const energy01 = energy.dry;
 
   const imageFailed = Boolean(img?._imageBurnFailed);
   const imageReady = Boolean(
     settings.dataUrl
-    && settings.imageSize > 0
+    && size > 0
     && img
     && !imageFailed
     && img.complete
@@ -774,7 +831,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
   );
   const imagePending = Boolean(
     settings.dataUrl
-    && settings.imageSize > 0
+    && size > 0
     && img
     && !imageFailed
     && !imageReady,
@@ -787,6 +844,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
   }
 
   // One-shot after load so something appears before In is wired.
+  // Only seeds deposit when Feedback ≠ 0 (default 0 = hang-only, no auto-stack).
   if (imageReady && !face._imageBurnSeenReady) {
     face._imageBurnSeenReady = true;
     face._imageBurnSeedFrames = 12;
@@ -798,25 +856,26 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
   if (seedLeft > 0) {
     face._imageBurnSeedFrames = seedLeft - 1;
   }
-  // lit = frame energy × Image; deposit = that same lit image × Send.
-  const lit = Math.max(energy01 * imageGain, seedLeft > 0 ? imageGain * 0.85 : 0);
-  const deposit = send > 0
-    ? Math.max(lit * send, seedLeft > 0 ? imageGain * send * 0.85 : 0)
-    : 0;
+  const lit = Math.max(energy01 * brightness, seedLeft > 0 ? brightness * 0.85 : 0);
+  let deposit = nodeGraphImageBurnFeedbackDeposit(lit, feedback).deposit;
+  if (seedLeft > 0 && feedback !== 0 && Number.isFinite(feedback)) {
+    const seeded = nodeGraphImageBurnFeedbackDeposit(brightness * 0.85, feedback);
+    deposit = Math.max(deposit, seeded.deposit);
+  }
 
   const paused = typeof nodeGraphModuleScopePaused === "function"
     && nodeGraphModuleScopePaused();
 
-  // Residual via GL; dry flash screened in 2D after (Image never hides burn).
+  // Residual via GL; dry flash screened in 2D after (Brightness never hides burn).
   const usedGl = nodeGraphImageBurnDrawGl(face, ctx, w, h, {
     hang,
     burn,
     contrast,
     blur,
     deposit: imageReady ? deposit : 0,
-    lit: imageReady ? Math.min(1, lit) : 0,
+    lit: imageReady ? lit : 0,
     img: imageReady ? img : null,
-    imageSize: settings.imageSize,
+    imageSize: size,
     dataUrl: settings.dataUrl,
     paused,
   });
@@ -826,8 +885,8 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
       nodeGraphImageBurnDrawDry(
         ctx,
         img,
-        settings.imageSize,
-        Math.min(1, lit),
+        size,
+        lit,
         "screen",
         contrast,
       );
@@ -839,11 +898,11 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
 
     if (colorCtx && emberCtx && !paused) {
       const colorKeep = hang >= 1 ? 1 : (1 - Math.pow(1 - hang, 3));
-      nodeGraphImageBurnFadeByLuma(buf.color, colorKeep, burn * 0.45);
-      nodeGraphImageBurnFadeByLuma(buf.ember, colorKeep, burn);
+      nodeGraphImageBurnFadeByLuma(buf.color, colorKeep, Math.min(1, burn) * 0.45);
+      nodeGraphImageBurnFadeByLuma(buf.ember, colorKeep, Math.min(1, burn));
 
-      nodeGraphImageBurnBlurBuf(buf.color, buf.scratch, blur * 0.85);
-      nodeGraphImageBurnBlurBuf(buf.ember, buf.scratch, blur);
+      nodeGraphImageBurnBlurBuf(buf.color, buf.scratch, Math.min(1, blur) * 0.85);
+      nodeGraphImageBurnBlurBuf(buf.ember, buf.scratch, Math.min(1, blur));
 
       if (imageReady && deposit > 1e-5) {
         nodeGraphImageBurnStampCompressed(
@@ -851,7 +910,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
           colorCtx,
           buf.scratch,
           img,
-          settings.imageSize,
+          size,
           deposit,
           "color",
           burn,
@@ -862,8 +921,8 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
           emberCtx,
           buf.scratch,
           img,
-          settings.imageSize,
-          deposit * (0.55 + burn * 0.75),
+          size,
+          deposit * (0.55 + Math.min(1, burn) * 0.75),
           "ember",
           burn,
           contrast,
@@ -877,15 +936,15 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     ctx.globalAlpha = 1;
     ctx.drawImage(buf.color, 0, 0, w, h);
     ctx.globalCompositeOperation = "screen";
-    ctx.globalAlpha = 0.35 + burn * 0.5;
+    ctx.globalAlpha = 0.35 + Math.min(1, burn) * 0.5;
     ctx.drawImage(buf.ember, 0, 0, w, h);
 
     if (imageReady && lit > 1e-4) {
       nodeGraphImageBurnDrawDry(
         ctx,
         img,
-        settings.imageSize,
-        Math.min(1, lit),
+        size,
+        lit,
         "screen",
         contrast,
       );
@@ -1023,19 +1082,11 @@ function buildNodeGraphImageBurnDisplaySettingsBodyHtml() {
         ${(typeof nodeGraphBuildImageAssetRowHtml === "function"
           ? nodeGraphBuildImageAssetRowHtml({ key: "burn", label: "Image" })
           : "")}
-        ${stepper ? stepper("imageSize", "imageBurnFace") : ""}
-      </div>
-      <div class="metadata-field-section">
-        <div class="metadata-section-title">LAYERS</div>
-        ${stepper ? stepper("image", "imageBurnFace") : ""}
-        ${stepper ? stepper("send", "imageBurnFace") : ""}
-      </div>
-      <div class="metadata-field-section">
-        <div class="metadata-section-title">BURN</div>
-        ${stepper ? stepper("hang", "imageBurnFace") : ""}
-        ${stepper ? stepper("burn", "imageBurnFace") : ""}
         ${stepper ? stepper("contrast", "imageBurnFace") : ""}
-        ${stepper ? stepper("blur", "imageBurnFace") : ""}
+      </div>
+      <div class="metadata-field-section">
+        <div class="metadata-section-title">HANG</div>
+        ${stepper ? stepper("hang", "imageBurnFace") : ""}
         ${hueRow
           ? hueRow({
             title: "Background",
