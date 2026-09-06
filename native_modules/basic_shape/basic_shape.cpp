@@ -15,6 +15,7 @@ static const int kMaxInstances = 64;
 
 struct State {
   double phase;
+  double samplePhase; // last render phase (includes Phase knob) for face sync
   double lastReset;
   double simSamples;
   double out;
@@ -76,6 +77,7 @@ extern "C" int soemdsp_basic_shape_create() {
     if (!gPool[i].active) {
       State& s = gPool[i];
       s.phase = 0.0;
+      s.samplePhase = 0.0;
       s.lastReset = 0.0;
       s.simSamples = 0.0;
       s.out = 0.0;
@@ -149,6 +151,7 @@ extern "C" double soemdsp_basic_shape_sample(
     samplePhase = s.phase + phaseOff;
   }
   samplePhase = wrap01(samplePhase);
+  s.samplePhase = samplePhase;
 
   const double cycle = samplePhase;
   const double sine = dsp_sin(cycle * kPi * 2.0);
@@ -217,6 +220,11 @@ extern "C" double soemdsp_basic_shape_center_square(int handle) {
   return gPool[handle - 1].centerSquare;
 }
 
+extern "C" double soemdsp_basic_shape_phase(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0.0;
+  return gPool[handle - 1].samplePhase;
+}
+
 extern "C" int soemdsp_basic_shape_version() {
-  return 2;
+  return 3; // publish samplePhase for face playhead sync
 }

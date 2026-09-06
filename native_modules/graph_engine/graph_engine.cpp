@@ -84,7 +84,7 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   double tempoBpm, double sampleRate
 );
 extern "C" double soemdsp_ping_pong_delay_sample(
-  int handle, double input,
+  int handle, double inputL, double inputR,
   double feedback, double mix, double amplitude,
   double timeNumerator, double timeDenominator, double timingMode,
   double offsetMs, double lfoAmpMs, double lfoStyle, double lfoRate, double lfoVariation,
@@ -419,6 +419,7 @@ extern "C" void soemdsp_sine_wavetable_sample(
 );
 extern "C" double soemdsp_sine_wavetable_sin(int handle);
 extern "C" double soemdsp_sine_wavetable_cos(int handle);
+extern "C" double soemdsp_sine_wavetable_phase(int handle);
 
 extern "C" int soemdsp_antisaw_create();
 extern "C" void soemdsp_antisaw_destroy(int handle);
@@ -553,6 +554,7 @@ extern "C" void soemdsp_hypersaw2_sample(
   double jitterDistance,
   double jitterSpeed,
   double jitterPitchSt,
+  double distanceSlewMs,
   double centerSide,
   double waveform,
   double morph,
@@ -819,6 +821,7 @@ extern "C" double soemdsp_basic_shape_ramp(int handle);
 extern "C" double soemdsp_basic_shape_square(int handle);
 extern "C" double soemdsp_basic_shape_trisaw(int handle);
 extern "C" double soemdsp_basic_shape_center_square(int handle);
+extern "C" double soemdsp_basic_shape_phase(int handle);
 
 extern "C" int soemdsp_linear_envelope_create();
 extern "C" void soemdsp_linear_envelope_destroy(int handle);
@@ -1044,6 +1047,9 @@ extern "C" void soemdsp_fbm_sample(
 extern "C" double soemdsp_fbm_x(int handle);
 extern "C" double soemdsp_fbm_y(int handle);
 extern "C" double soemdsp_fbm_z(int handle);
+extern "C" double soemdsp_fbm_x_raw(int handle);
+extern "C" double soemdsp_fbm_y_raw(int handle);
+extern "C" double soemdsp_fbm_z_raw(int handle);
 
 extern "C" int soemdsp_pi_spigot_noise_create();
 extern "C" void soemdsp_pi_spigot_noise_destroy(int handle);
@@ -1527,6 +1533,7 @@ static const int kPortSine = 7;
 // basicShape extra taps (crossover5/6 also use 8–11).
 static const int kPortTrisaw = 8;
 static const int kPortCenterSquare = 9;
+static const int kPortPhase01 = 10; // BasicShape / RoundShape face __Phase (0…1)
 static const int kPortDryL = 3; // reverb Dry L (shares Saw index)
 static const int kPortDryR = 4; // reverb Dry R (shares Ramp index)
 // Comparator named outs reuse tap slots (module-local meaning, like Dry L/R):
@@ -2295,6 +2302,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeAdditivePan) ? 1.0 // AutoPan spread (turns across bank)
       : (typeId == kTypePluckEnvelope) ? -0.5 // EnvelopeCurve
       : (typeId == kTypeRobinSupersaw) ? 1.0 // Random Phase (live offset scale)
+      : (typeId == kTypeSineWavetable) ? 1.0 // SinCos4 method=Wavetable (additive LUT)
       : (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter || typeId == kTypeAntisaw
       || typeId == kTypeBradley2a || typeId == kTypeEllipsoid || typeId == kTypeSnowflake
       || typeId == kTypeFlowerChildFilter || typeId == kTypeYellowjacketFilter
@@ -2302,7 +2310,7 @@ static void init_node_defaults(Node& n, int typeId) {
       || typeId == kTypeCombResonator
       || typeId == kTypeAdditiveBubble || typeId == kTypeAdditiveGenerator
       || typeId == kTypeAdditiveFrequencySkew
-      || typeId == kTypeSineWavetable || typeId == kTypeSinCos)
+      || typeId == kTypeSinCos)
       ? 0.0 // chaos/damping/pwm/bubble/freqSkew off; SinCos method=Polynomial
       : (typeId == kTypeAdditiveBlaster) ? 179.0 // quantization (PoC default)
       : (typeId == kTypeAdditiveDiffusor) ? 0.0 // skew (rational)
@@ -2738,6 +2746,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.hpfFrequency,
     (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 200.0 // lowCut
       : (typeId == kTypeCrossover6) ? 10000.0
+      : (typeId == kTypeHypersaw2) ? 8.0 // distanceSlew ms (old hardcoded)
       : 20.0,
     false
   );
@@ -4034,15 +4043,18 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
   // Control slots match Delay (Amp→lfoAmplitude, Rate→lfoRate); depth is ms
   // (Delay modAmount is a fraction of delay time). Formula:
   // delay = tempoBase + Offset_ms + LFO_Amp_ms * lfoBipolar.
+  // Keep stereo: Mono folds into both; Left/Right stay separate (no L+R sum).
   for (int f = 0; f < frames; f++) {
     smoother_step_node(g, node);
-    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double dryL = g.mixMono[f] + g.mixLeft[f];
+    const double dryR = g.mixMono[f] + g.mixRight[f];
     const double offsetMs = control_effective(node.offsetMs);
     const double lfoAmpMs = control_effective(node.lfoAmplitude);
     const double lfoRateHz = control_effective(node.lfoRate);
     const double left = soemdsp_ping_pong_delay_sample(
       node.nativeHandle,
-      in,
+      dryL,
+      dryR,
       control_effective(node.feedback),
       control_effective(node.mix),
       control_effective(node.level),
@@ -4561,6 +4573,8 @@ static void sin_cos_pair_advance(
       node.buf[kPortMono][f] = sn;
       node.buf[kPortLeft][f] = cn;
     }
+    // Face playhead (cycles 0…1).
+    node.buf[kPortPhase01][f] = soemdsp_sine_wavetable_phase(node.nativeHandle);
   }
 }
 
@@ -5534,7 +5548,8 @@ static void process_hypersaw(Circuit& g, Node& node, int frames) {
 // resonance=vibratoAmp, lfoBaseSpeed=vibratoSpeed, mix=phaseMultiplier,
 // lfoAmplitude=vibratoFreqVary, lfoVariation=vibratoPhaseVary,
 // center=jitterDistance, lfoRate=jitterSpeed, lpfFrequency=jitterPitch,
-// pan=centerSide, feedback=morph/PWM, phaseParam=phase, seed=seed, amplitude=level.
+// hpfFrequency=distanceSlewMs, pan=centerSide, feedback=morph/PWM,
+// phaseParam=phase, seed=seed, amplitude=level.
 static void process_hypersaw2(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
@@ -5554,6 +5569,7 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
   const double jitterDistance = control_effective(node.center);
   const double jitterSpeed = control_effective(node.lfoRate);
   const double jitterPitch = control_effective(node.lpfFrequency);
+  const double distanceSlewMs = control_effective(node.hpfFrequency);
   const double centerSide = control_effective(node.pan);
   const double morph = control_effective(node.feedback);
   const double level = control_effective(node.amplitude);
@@ -5597,6 +5613,7 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
       jitterDistance,
       jitterSpeed,
       jitterPitch,
+      distanceSlewMs,
       centerSide,
       waveform,
       morph,
@@ -6686,6 +6703,7 @@ static void process_basic_shape(Circuit& g, Node& node, int frames) {
     node.buf[kPortSquare][f] = soemdsp_basic_shape_square(node.nativeHandle);
     node.buf[kPortTrisaw][f] = soemdsp_basic_shape_trisaw(node.nativeHandle);
     node.buf[kPortCenterSquare][f] = soemdsp_basic_shape_center_square(node.nativeHandle);
+    node.buf[kPortPhase01][f] = soemdsp_basic_shape_phase(node.nativeHandle);
   }
 }
 
@@ -7467,7 +7485,7 @@ static void process_step_graph(Circuit& g, Node& node, int frames) {
 }
 
 // fBm noise: Reset live. frequency/stages=octaves/shape=persistence/center=scale/
-// seed/amplitude. X→Mono Y→Left Z→Right.
+// seed/amplitude. Out X/Y/Z → Mono/Left/Right; Out * Raw → Saw/Ramp/Square.
 static void process_fractal_brownian_noise(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
@@ -7492,6 +7510,10 @@ static void process_fractal_brownian_noise(Circuit& g, Node& node, int frames) {
     node.buf[kPortMono][f] = soemdsp_fbm_x(node.nativeHandle);
     node.buf[kPortLeft][f] = soemdsp_fbm_y(node.nativeHandle);
     node.buf[kPortRight][f] = soemdsp_fbm_z(node.nativeHandle);
+    // Pre-level probes for X/Y Phosphor (display ignores Amplitude).
+    node.buf[kPortSaw][f] = soemdsp_fbm_x_raw(node.nativeHandle);
+    node.buf[kPortRamp][f] = soemdsp_fbm_y_raw(node.nativeHandle);
+    node.buf[kPortSquare][f] = soemdsp_fbm_z_raw(node.nativeHandle);
   }
   node.lastReset = wasHigh ? 1.0 : 0.0;
 }

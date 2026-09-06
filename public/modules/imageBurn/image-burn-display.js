@@ -377,9 +377,9 @@ function nodeGraphImageBurnResidualSide(faceW, faceH) {
 }
 
 /**
- * Buffered In for this display frame: peak |sample| among new scope samples
- * since the last paint. That energy lights the image; the same lit image is
- * what Send stamps into the burn. No pulse detection, no extra hold windows.
+ * Buffered In for this display frame. Prefer the newest sample so the ghost
+ * tracks the wire (and Output) without a lagging history-window peak.
+ * Cap the lookback so a mis-tagged sampleRate cannot light from seconds ago.
  */
 function nodeGraphImageBurnBufferedEnergy(face, buffer) {
   const empty = { peak: 0, dry: 0, deposit: 0 };
@@ -392,6 +392,12 @@ function nodeGraphImageBurnBufferedEnergy(face, buffer) {
     Math.floor(Number(buffer.nodeGraphScopeTotalSampleCount || buffer.nodeGraphScopeAbsoluteFrame) || 0),
   );
   const prevAbs = Math.max(0, Number(face._imageBurnEnergyAbs) || 0);
+  const writeRate = typeof nodeGraphScopeSampleRate === "function"
+    ? nodeGraphScopeSampleRate(buffer)
+    : (Number(buffer.nodeGraphScopeSampleRate) || 60);
+  // At most ~two display frames of hopped samples — never a multi-second peak hold.
+  const maxWindow = Math.max(1, Math.ceil(Math.max(1, writeRate) / 30));
+
   let n = 0;
   if (prevAbs > 0 && abs > prevAbs) {
     n = Math.min(buffer.length, abs - prevAbs);
@@ -402,15 +408,14 @@ function nodeGraphImageBurnBufferedEnergy(face, buffer) {
     }
   }
   if (!(n > 0)) {
-    const sr = typeof nodeGraphScopeSampleRate === "function"
-      ? nodeGraphScopeSampleRate(buffer)
-      : 44100;
-    n = Math.min(buffer.length, Math.max(1, Math.ceil(Math.max(1, sr) / 60)));
+    n = Math.min(buffer.length, Math.max(1, Math.ceil(Math.max(1, writeRate) / 60)));
   }
+  n = Math.min(n, maxWindow, buffer.length);
   face._imageBurnEnergyAbs = abs || prevAbs;
 
-  // Peak (not mean) so a tiny flash in the frame still prints at full height.
-  let peak = 0;
+  // Newest sample is authoritative for "now"; short-window peak catches a
+  // hop that landed between paints without dragging older modulation.
+  let peak = Math.abs(Number(buffer[buffer.length - 1]) || 0);
   const start = Math.max(0, buffer.length - n);
   for (let i = start; i < buffer.length; i += 1) {
     const sample = Number(buffer[i]);
@@ -568,10 +573,12 @@ function nodeGraphImageBurnContrastStamp(canvas, contrast02) {
   return canvas;
 }
 
-/** Canvas 2D blur radius — pure curve, 0 → 0. */
-function nodeGraphImageBurnBlurRadiusPx(blur01) {
+/** Canvas 2D blur radius — 8px at 256 reference, scales with buffer size (F solo). */
+function nodeGraphImageBurnBlurRadiusPx(blur01, width, height) {
   const a = Math.max(0, Math.min(1, Number(blur01) || 0));
-  return Math.pow(a, 1.15) * 8.0;
+  const refPx = Math.pow(a, 1.15) * 8.0;
+  const minSide = Math.max(1, Math.min(Number(width) || 256, Number(height) || 256));
+  return refPx * (minSide / 256);
 }
 
 /** Recirculate src through Gaussian blur; mix from curve (0 → leave src). */
@@ -581,9 +588,9 @@ function nodeGraphImageBurnBlurBuf(src, scratch, blur01) {
     return;
   }
   const mixAmt = Math.pow(amt, 0.9);
-  const px = nodeGraphImageBurnBlurRadiusPx(amt);
   const w = src.width;
   const h = src.height;
+  const px = nodeGraphImageBurnBlurRadiusPx(amt, w, h);
   const sctx = scratch.getContext("2d");
   const rctx = src.getContext("2d");
   if (!sctx || !rctx) {
@@ -931,10 +938,9 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     paused,
   });
 
-  // Dry screen only while accumulating (Feedback > 0). At Feedback ≤ 0 the
-  // residual max-blend IS the lit image — screening dry on top made the flash
-  // look brighter than Hang, then dimmer the instant energy dropped.
-  const drawDry = accumulate && imageReady && lit > 1e-4;
+  // Always draw dry for current In energy so the face tracks the wire / Output
+  // in time. Hang residual is the trailing ghost underneath (Feedback path).
+  const drawDry = imageReady && lit > 1e-4;
 
   if (usedGl) {
     if (drawDry) {

@@ -19,7 +19,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "traceRgb"
   )) {
     const syncOn = options.syncOn === true || key === "historyCycles";
-    label = syncOn ? "History (c)" : "History (Hz)";
+    label = syncOn ? "Cycles" : "History (Hz)";
     title = syncOn
       ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods), stretched across the full face. Rising zero-crossing locks phase."
       : "History window rate in Hz (seconds = 1/Hz). Higher = shorter / faster scroll. 0 = freeze / now-line.";
@@ -27,8 +27,8 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     formType === "traceXyz"
     || formType === "gradientVectorscopeFace"
   )) {
-    label = key === "historyCycles" ? "History (c)" : "History (Hz)";
-    title = "Live history window (Hz when free-run; cycles when synced).";
+    label = key === "historyCycles" ? "Cycles" : "History (Hz)";
+    title = "Live history window (Hz when free-run; Cycles when synced).";
   }
   if (key === "sweepHz" || key === "sweepCycles" || key === "sweepSeconds") {
     const syncOn = options.syncOn === true || key === "sweepCycles";
@@ -37,7 +37,10 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
       ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods). Pass restarts on the next rising zero-crossing."
       : "Left→right passes per second (0.01–100). 0 = collapsed full-width burn.";
   }
-  if (key === "lineThickness" && (
+  if (key === "lineThickness" && formType === "hypersawBurn") {
+    label = "Line thickness";
+    title = "Phase-stem beam soft/hard 0…1 (Hypersaw / RobinSupersaw face).";
+  } else if (key === "lineThickness" && (
     formType === "trace"
     || formType === "traceRgb"
     || formType === "traceXyz"
@@ -509,6 +512,9 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}
   } else if (formType === "textBoxFace" && key === "backgroundColor") {
     aria = "Text Box background color";
     base = { ...base, defaultValue: "#020407" };
+  } else if (formType === "rasterRgbFace" && key === "backgroundColor") {
+    aria = "Pixel Grid background color";
+    base = { ...base, defaultValue: "#000000" };
   } else if (formType === "trace" && options.xyz && key === "dot1Color") {
     aria = "X";
     base = { ...base, defaultValue: "#ff0000" };
@@ -1048,6 +1054,9 @@ function syncNodeGraphLineBurnSweepLabel(root, settings = {}) {
     field.setAttribute("data-trace-display-field", key);
     field.title = title;
     field.setAttribute("aria-label", `${label} amount`);
+    // Same as History: Sync retargets the live key off the activeFields list.
+    field.readOnly = true;
+    field.classList.toggle("trace-display-field-editing", false);
     const stepBtns = row?.querySelectorAll?.("[data-trace-display-step-target]");
     if (stepBtns) {
       for (const btn of stepBtns) {
@@ -1064,7 +1073,7 @@ function syncNodeGraphLineBurnSweepLabel(root, settings = {}) {
 }
 
 /**
- * History (Hz) ↔ History (c) when Waterfall Sync is toggled.
+ * History (Hz) ↔ Cycles when Waterfall Sync is toggled.
  * Retargets the stepper to historyHz or historyCycles so both values stay stored.
  */
 function syncNodeGraphWaterfallHistoryLabel(root, settings = {}) {
@@ -1090,7 +1099,7 @@ function syncNodeGraphWaterfallHistoryLabel(root, settings = {}) {
       ? nodeGraphDisplaySettingsToggleIsOn(settings?.sourceSync ?? settings?.sync)
       : Boolean(settings?.sourceSync));
   const key = syncOn ? "historyCycles" : "historyHz";
-  const label = syncOn ? "History (c)" : "History (Hz)";
+  const label = syncOn ? "Cycles" : "History (Hz)";
   const title = syncOn
     ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods), stretched across the full face. Rising zero-crossing locks phase."
     : "History window rate in Hz (seconds = 1/Hz). Higher = shorter / faster scroll.";
@@ -1106,6 +1115,10 @@ function syncNodeGraphWaterfallHistoryLabel(root, settings = {}) {
     field.setAttribute("data-trace-display-field", key);
     field.title = title;
     field.setAttribute("aria-label", `${label} amount`);
+    // Drag requires readOnly; writeForm only seeds keys listed in activeFields
+    // (historyHz), so Sync-on Cycles must re-arm readOnly here or the dial sticks.
+    field.readOnly = true;
+    field.classList.toggle("trace-display-field-editing", false);
     const stepBtns = row?.querySelectorAll?.("[data-trace-display-step-target]");
     if (stepBtns) {
       for (const btn of stepBtns) {

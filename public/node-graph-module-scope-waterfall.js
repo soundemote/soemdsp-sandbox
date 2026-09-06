@@ -1,6 +1,6 @@
 // 1D Waterfall — strip chart (mono / stereo / XYZ / RGB).
 // Sync Off: scroll left, pen on the right; History (Hz) → window seconds = 1/Hz (0 = now-line).
-// Sync On: phase-lock to a rising zero-crossing; History is cycles in view
+// Sync On: phase-lock to a rising zero-crossing; Cycles is cycles in view
 // (smooth — e.g. 1.5 = 1½ periods), always stretched across the full face width.
 // History 0: now-line. Ink: TraceTape WebGL discs. Meet/Add on GPU. Canvas2D plate only.
 

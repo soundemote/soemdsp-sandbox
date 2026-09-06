@@ -331,7 +331,7 @@ function nodeGraphTraceDisplayHistorySampleCount(buffer, settings, options = {})
     || (typeof nodeGraphDisplaySyncIsOn === "function" && options.syncOn !== false
       ? nodeGraphDisplaySyncIsOn(safeSettings)
       : false);
-  // Sync on: History (c) = cycles in view → samples = period × cycles.
+  // Sync on: Cycles = cycles in view → samples = period × cycles.
   if (syncOn) {
     const cycles = typeof nodeGraphTraceDisplayClampHistoryCycles === "function"
       ? nodeGraphTraceDisplayClampHistoryCycles(

@@ -2459,13 +2459,7 @@ function openNodeScopeContextMenu(event) {
   nodeGraphMvp.sceneContextTargetWire = null;
   nodeGraphMvp.scopeContextTargetNode = nodeId;
 
-  // Hypersaw family phase-stem faces: Module Settings only (no phosphor Display Settings).
-  const type = String(patchNode.type || "");
-  if (type === "hypersaw" || type === "hypersaw2" || type === "robinSupersaw") {
-    const nodeEl = contextScope?.closest?.(".dsp-node") || null;
-    return openNodeGraphModuleSettingsFromContextEvent(event, nodeEl);
-  }
-
+  // Hypersaw / RobinSupersaw: open Hypersaw Display Settings (line thickness).
   // LED uses Vector Dot Display Settings.
   if (typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
     return true;

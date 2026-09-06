@@ -1353,7 +1353,18 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", formType);
   const activeToggles = nodeGraphTraceDisplayActiveControlSet("toggles", formType);
   const activeChoices = nodeGraphTraceDisplayActiveControlSet("choices", formType);
-  for (const key of activeFields) {
+  // Sync retargets History/Sweep to *Cycles in the live DOM; activeFields only
+  // lists *Hz. Include both so Cycles stays seeded + readOnly (drag/type).
+  const fieldKeysToWrite = new Set(activeFields);
+  if (activeFields.has("historyHz") || activeFields.has("historyCycles")) {
+    fieldKeysToWrite.add("historyHz");
+    fieldKeysToWrite.add("historyCycles");
+  }
+  if (activeFields.has("sweepHz") || activeFields.has("sweepCycles")) {
+    fieldKeysToWrite.add("sweepHz");
+    fieldKeysToWrite.add("sweepCycles");
+  }
+  for (const key of fieldKeysToWrite) {
     const input = root?.querySelector?.(`[data-trace-display-field="${key}"]`);
     if (input) {
       input.value = formatNodeGraphTraceDisplaySetting(nodeGraphDisplaySettingsFormValue(normalized, key));

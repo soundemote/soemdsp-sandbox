@@ -213,7 +213,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["zoomSeconds", "History (s)"],
   ["historySeconds", "History (s)"],
   ["historyHz", "History (Hz)"],
-  ["historyCycles", "History (c)"],
+  ["historyCycles", "Cycles"],
   ["fade", "Fade"],
   ["scale", "Scale"],
   ["sweepSeconds", "Sweep (s)"],

@@ -566,9 +566,11 @@ static inline double ping_pong_delay_seconds(
   return maxd(0.0, tempoBaseSec + offsetSec + lfoAmpSec * lfoBipolar);
 }
 
-static void process_one(PingPongDelayState& s, double input) {
+// Stereo dry + cross-feedback ping-pong. Mono hosts pass the same sample as L and R.
+static void process_one(PingPongDelayState& s, double inputL, double inputR) {
   const double rate = maxd(1.0, s.liveSampleRate);
-  const double dry = safe(input);
+  const double dryL = safe(inputL);
+  const double dryR = safe(inputR);
   const double safeFeedback = safe(s.liveFeedback);
   const double safeMix = clamp(safe(s.liveMix), 0.0, 1.0);
   const double safeAmp = clamp(safe(s.liveAmplitude), 0.0, 2.0);
@@ -605,8 +607,8 @@ static void process_one(PingPongDelayState& s, double input) {
   if (!s.bufferL || !s.bufferR || s.bufferSize < 2) {
     s.wetL = 0.0;
     s.wetR = 0.0;
-    s.outLeft = dry * (1.0 - safeMix) * safeAmp;
-    s.outRight = dry * (1.0 - safeMix) * safeAmp;
+    s.outLeft = dryL * (1.0 - safeMix) * safeAmp;
+    s.outRight = dryR * (1.0 - safeMix) * safeAmp;
     return;
   }
 
@@ -622,10 +624,11 @@ static void process_one(PingPongDelayState& s, double input) {
   const double readL = interpolate_linear(s.bufferL, s.bufferSize, readLRaw);
   const double readR = interpolate_linear(s.bufferR, s.bufferSize, readRRaw);
 
+  // Stereo inject + cross-feedback (do not sum L+R before the delay circuit).
   const double clippedL = soft_clip_run(
-    dry + readR * safeFeedback, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
+    dryL + readR * safeFeedback, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
   const double clippedR = soft_clip_run(
-    readL * safeFeedback, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
+    dryR + readL * safeFeedback, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
   const double hpL = one_pole_hp_run(
     s.hpL_x0, s.hpL_y0, s.hpL_a1, s.hpL_b0, s.hpL_b1, clippedL);
   const double hpR = one_pole_hp_run(
@@ -638,8 +641,8 @@ static void process_one(PingPongDelayState& s, double input) {
   s.wetL = readL;
   s.wetR = readR;
 
-  s.outLeft = (dry * (1.0 - safeMix) + s.wetL * safeMix) * safeAmp;
-  s.outRight = (dry * (1.0 - safeMix) + s.wetR * safeMix) * safeAmp;
+  s.outLeft = (dryL * (1.0 - safeMix) + s.wetL * safeMix) * safeAmp;
+  s.outRight = (dryR * (1.0 - safeMix) + s.wetR * safeMix) * safeAmp;
 }
 
 // Latch Control + Live params once per quantum (or when knobs move).
@@ -681,10 +684,12 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   ensure_buffer_size(s, s.liveSampleRate);
 }
 
-// Tape-style sample (tools / per-sample host). Prefer process_block when possible.
+// Stereo sample (tools / per-sample host). Pass the same value as left+right for mono.
+// Prefer process_block when possible.
 extern "C" double soemdsp_ping_pong_delay_sample(
   int    handle,
-  double input,
+  double inputL,
+  double inputR,
   double feedback,
   double mix,
   double amplitude,
@@ -707,7 +712,7 @@ extern "C" double soemdsp_ping_pong_delay_sample(
     handle, feedback, mix, amplitude, timeNumerator, timeDenominator, timingMode,
     offsetMs, lfoAmpMs, lfoStyle, lfoRate, lfoVariation, saturate, lpfFrequency,
     hpfFrequency, tempoBpm, sampleRate);
-  process_one(gPool[handle - 1], input);
+  process_one(gPool[handle - 1], inputL, inputR);
   return gPool[handle - 1].outLeft;
 }
 
@@ -716,13 +721,14 @@ extern "C" void soemdsp_ping_pong_delay_process_block(int handle, int frameCount
   const int idx = handle - 1;
   PingPongDelayState& s = gPool[idx];
   const int n = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
+  // Block path still has one input buffer (mono hosts); duplicate to L/R.
   double* in = gBlockIn[idx];
   double* outL = gBlockOutL[idx];
   double* outR = gBlockOutR[idx];
   double* outModL = gBlockOutModL[idx];
   double* outModR = gBlockOutModR[idx];
   for (int i = 0; i < n; i += 1) {
-    process_one(s, in[i]);
+    process_one(s, in[i], in[i]);
     outL[i] = s.outLeft;
     outR[i] = s.outRight;
     outModL[i] = s.lastModL;

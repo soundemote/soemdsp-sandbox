@@ -10,7 +10,12 @@
 // SoEm leaves unit 0's vibInput unconnected (0) — center gets no LFO on the scale.
 // +0.5 face center is sandbox-only. Jitter walkOut after the multiply.
 //
-// Waveforms (soemdsp PolyBLEP): Trisaw, Saw, Ramp, Pulse, Pulse Center,
+// Shared locked master phase (SoEm slaveIncrement). Relative positions come
+// only from phaseOffset. Rising Reset re-zeros master + re-rolls seeds.
+// Distance compensation (|f|/100 Hz) keeps jitter/vibrato temporal depth even
+// across pitch; Distance Slew (ms) controls how fast that gain tracks Frequency.
+//
+// Waveforms (soemdsp PolyBLEP): Trisaw, Saw, Pulse Center, Ramp, Pulse,
 // RectifiedSin, Trapezoid. Morph = PWM/width for Trisaw / Pulse / Pulse Center.
 //
 // Display: soemdsp_hypersaw2_voice_phase → wrap01(phaseOffset).
@@ -85,7 +90,7 @@ static inline double morphWidth01(double morph) {
 }
 
 // Waveform indices (UI order):
-// 0 Trisaw, 1 Saw, 2 Ramp, 3 Pulse, 4 Pulse Center, 5 RectifiedSin, 6 Trapezoid
+// 0 Trisaw, 1 Saw, 2 Pulse Center, 3 Ramp, 4 Pulse, 5 RectifiedSin, 6 Trapezoid
 double polyBlepTrisaw(double t, double dt, double morph) {
   const double pw = morphWidth01(morph);
   const double t1 = wrap01(t + 0.5 * pw);
@@ -169,9 +174,9 @@ double hypersaw2WaveSample(int waveform, double phase, double dt, double morph) 
   switch (waveform) {
     case 0: return polyBlepTrisaw(phase, d, morph);
     case 1: return polyBlepSaw(phase, d);
-    case 2: return polyBlepRamp(phase, d);
-    case 3: return polyBlepPulse(phase, d, morph);
-    case 4: return polyBlepPulseCenter(phase, d, morph);
+    case 2: return polyBlepPulseCenter(phase, d, morph);
+    case 3: return polyBlepRamp(phase, d);
+    case 4: return polyBlepPulse(phase, d, morph);
     case 5: return polyBlepRectSin(phase, d);
     case 6: return polyBlepTrapezoid(phase, d);
     default: return polyBlepSaw(phase, d);
@@ -210,7 +215,7 @@ static inline void jitter_reset(JitterState& j) {
 }
 
 // Exact Hypersaw drift_walk_run Random Steps path, then × Distance × distComp.
-// distComp is |f|/ref (possibly slewed by caller) — not the carrier frequency.
+// distComp is |f|/ref (possibly slewed by Distance Slew) — not the carrier.
 static inline double hypersaw_random_steps(
   JitterState& j,
   double distance,       // Drift Amp
@@ -364,6 +369,7 @@ extern "C" void soemdsp_hypersaw2_sample(
   double jitterDistance,
   double jitterSpeed,
   double jitterPitchSt,
+  double distanceSlewMs,
   double centerSide,
   double waveform,
   double morph,
@@ -445,27 +451,40 @@ extern "C" void soemdsp_hypersaw2_sample(
     s.lastVoiceCount = voiceCount;
   }
 
-  const double ampCenter = (2.0 - cs * 2.0) < 1.0 ? (2.0 - cs * 2.0) : 1.0;
-  const double ampSides = (cs * 2.0) < 1.0 ? (cs * 2.0) : 1.0;
+  // Center/Side balances center vs L/R sides. With only one oscillator (always
+  // the center) ignore it so √N mix still yields full level — not silence.
+  double ampCenter = (2.0 - cs * 2.0) < 1.0 ? (2.0 - cs * 2.0) : 1.0;
+  double ampSides = (cs * 2.0) < 1.0 ? (cs * 2.0) : 1.0;
+  if (voiceCount < 2) {
+    ampCenter = 1.0;
+    ampSides = 0.0;
+  }
 
   const double phaseIncrement = freq / sr;
   const double blepDt = phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement;
 
-  // Distance law Δφ ∝ |f|: slew only the PM-depth gain so Frequency sweeps
-  // don't zipper phase offsets. Carrier advance still uses raw freq above.
+  // Distance law Δφ ∝ |f|: slew the PM-depth gain so Frequency sweeps don't
+  // zipper phase offsets. Carrier advance still uses raw freq above.
+  // Distance Slew = one-pole time constant in ms (0 = instant).
   double oscAbs = freq < 0.0 ? -freq : freq;
   const double distCompTarget = (oscAbs > 1.0e-12) ? (oscAbs / kDistanceRefHz) : 0.0;
-  // ~8 ms one-pole on the compensation gain (not on pitch).
-  const double distCompA = dsp_exp(-1.0 / (0.008 * sr));
-  s.distCompSmooth = (1.0 - distCompA) * distCompTarget + distCompA * s.distCompSmooth;
+  // Range comes from param meta (min/max); only guard NaN and 0 = instant.
+  const double slewMs = (distanceSlewMs == distanceSlewMs) ? distanceSlewMs : 8.0;
+  if (!(slewMs > 1.0e-9)) {
+    s.distCompSmooth = distCompTarget;
+  } else {
+    const double distCompA = dsp_exp(-1.0 / ((slewMs * 0.001) * sr));
+    s.distCompSmooth = (1.0 - distCompA) * distCompTarget + distCompA * s.distCompSmooth;
+  }
   if (!(s.distCompSmooth * 0.0 == 0.0)) s.distCompSmooth = distCompTarget;
   const double distComp = s.distCompSmooth;
   const double vibAmpDist = vibAmp * distComp;
 
   double leftSum = 0.0;
   double rightSum = 0.0;
-  int leftCount = 0;
-  int rightCount = 0;
+  // Amp weights for √N mix (RobinSupersaw bankMixScale) — /N was too quiet as voices rise.
+  double leftWeight = 0.0;
+  double rightWeight = 0.0;
   int sideCh = 0;
 
   for (int i = 0; i < voiceCount; i++) {
@@ -498,24 +517,28 @@ extern "C" void soemdsp_hypersaw2_sample(
     // Exact locked phase: shared master + offset (not per-voice free-run).
     const double renderPhase = wrap01(s.masterPhase + phaseG + phaseOffset);
     double saw = hypersaw2WaveSample(wave, renderPhase, blepDt, morphAmt);
-    if (lastFrac > 0.0 && i == voiceCount - 1) saw *= lastFrac;
+    double voiceAmp = 1.0;
+    if (lastFrac > 0.0 && i == voiceCount - 1) voiceAmp = lastFrac;
+    saw *= voiceAmp;
 
     // One center (green/mono) only — voice 0. Remaining alternate L/R.
     const bool isCenter = (i == 0);
     if (isCenter) {
+      const double w = ampCenter * voiceAmp;
       const double c = saw * ampCenter;
       leftSum += c;
       rightSum += c;
-      leftCount += 1;
-      rightCount += 1;
+      leftWeight += w;
+      rightWeight += w;
     } else {
+      const double w = ampSides * voiceAmp;
       const double side = saw * ampSides;
       if ((sideCh % 2) == 0) {
         leftSum += side;
-        leftCount += 1;
+        leftWeight += w;
       } else {
         rightSum += side;
-        rightCount += 1;
+        rightWeight += w;
       }
       sideCh += 1;
     }
@@ -524,8 +547,11 @@ extern "C" void soemdsp_hypersaw2_sample(
   // Advance the single shared free-phase once (all saws stay exactly locked).
   s.masterPhase = wrap01(s.masterPhase + phaseIncrement);
 
-  double left = leftCount > 0 ? leftSum / static_cast<double>(leftCount) : 0.0;
-  double right = rightCount > 0 ? rightSum / static_cast<double>(rightCount) : 0.0;
+  // Detuned/phased saws are partly uncorrelated — √Σamp (not /N) like RobinSupersaw.
+  const double leftScale = leftWeight > 0.0 ? (1.0 / __builtin_sqrt(leftWeight)) : 0.0;
+  const double rightScale = rightWeight > 0.0 ? (1.0 / __builtin_sqrt(rightWeight)) : 0.0;
+  double left = leftSum * leftScale;
+  double right = rightSum * rightScale;
   if (!(left * 0.0 == 0.0)) left = 0.0;
   if (!(right * 0.0 == 0.0)) right = 0.0;
 
@@ -564,5 +590,5 @@ extern "C" int soemdsp_hypersaw2_max_voices() {
 }
 
 extern "C" int soemdsp_hypersaw2_version() {
-  return 19;
+  return 22; // solo oscillator ignores Center/Side mute
 }

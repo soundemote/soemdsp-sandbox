@@ -623,12 +623,22 @@
     ];
   }
 
+  /**
+   * Blur amount → separable 5-tap (±4) kernel.
+   * Reference: at 256px face, Blur 1 ≈ 8px radius. Scale step (not only sigma)
+   * with min(faceW, faceH) so fullscreen F-mode keeps the same on-screen bloom;
+   * sigma alone cannot widen a fixed ±4 texel kernel.
+   */
   function blurParams(blur01, width, height) {
     const a = clamp01(blur01);
-    const px = Math.pow(a, 1.15) * 8.0;
+    const refPx = Math.pow(a, 1.15) * 8.0;
     const minSide = Math.max(1, Math.min(width, height));
+    const radiusTexels = refPx * (minSide / 256);
+    // Outer tap at ~radius; sigma in tap-index units keeps a soft falloff.
+    const stepTexels = Math.max(1e-4, radiusTexels / 4);
     return {
-      sigma: Math.max(1e-4, px * (minSide / 256)),
+      stepTexels,
+      sigma: 1.5,
       mix: Math.pow(a, 0.9),
     };
   }
@@ -670,10 +680,17 @@
       g.uniform1f(p.uBurn, burn);
     });
 
-    // 2) Blur
+    // 2) Blur — step scales with residual size so F fullscreen matches module bloom
     {
-      const { sigma, mix: mixAmt } = blurParams(blur, renderer.width, renderer.height);
-      const texel = [1 / renderer.width, 1 / renderer.height];
+      const { stepTexels, sigma, mix: mixAmt } = blurParams(
+        blur,
+        renderer.width,
+        renderer.height,
+      );
+      const texel = [
+        (1 / renderer.width) * stepTexels,
+        (1 / renderer.height) * stepTexels,
+      ];
       drawPass(renderer, device.blur, (g, p) => {
         g.disable(g.BLEND);
         g.activeTexture(g.TEXTURE0);

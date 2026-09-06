@@ -34,6 +34,8 @@ function normalizeNodeGraphRasterRgbSettings(settings = {}) {
   const screenShape = shapeRaw === "squircle" ? "squircle" : "pill";
   return {
     background,
+    // Alias for Display Settings color widgets (data-trace-display-color=backgroundColor).
+    backgroundColor: background,
     squareRatio,
     screenPadding: Number.isFinite(pad) ? Math.max(0, Math.min(1, pad)) : 0,
     rounding: Number.isFinite(rounding) ? Math.max(0, Math.min(100, rounding)) : 0,
@@ -71,19 +73,48 @@ function nodeGraphRasterRgbSettingsForNode(node) {
   return normalizeNodeGraphRasterRgbSettings(node?.traceDisplaySettings);
 }
 
+/** Logical (fractional) grid axis — 0 hides; otherwise keep the exact param. */
 function nodeGraphRasterRgbDim(value, fallback) {
-  const n = Math.round(Number(value));
+  const n = Number(value);
   if (!Number.isFinite(n)) {
-    return Math.max(0, Math.round(Number(fallback) || 0));
+    const fb = Number(fallback);
+    return Number.isFinite(fb) && fb > 0 ? fb : 0;
   }
   return n > 0 ? n : 0;
 }
 
+/**
+ * Integer storage size for a logical axis.
+ * ceil so fractional Width (e.g. 96.3) still has a column for the partial step;
+ * write mapping uses the exact logical period so high-rate RGB can line up.
+ */
+function nodeGraphRasterRgbBufferDim(logical) {
+  const n = Number(logical);
+  if (!Number.isFinite(n) || n <= 0) {
+    return 0;
+  }
+  return Math.max(1, Math.ceil(n - 1e-12));
+}
+
+function nodeGraphRasterRgbPosMod(pos, period) {
+  const p = Number(period);
+  if (!(p > 0)) {
+    return 0;
+  }
+  const n = Number(pos) || 0;
+  const m = n % p;
+  return m < 0 ? m + p : m;
+}
+
 function nodeGraphRasterRgbGridSize(node) {
   const params = node?.params || {};
+  const width = nodeGraphRasterRgbDim(params.width, 96);
+  const height = nodeGraphRasterRgbDim(params.height, 54);
   return {
-    width: nodeGraphRasterRgbDim(params.width, 96),
-    height: nodeGraphRasterRgbDim(params.height, 54),
+    width,
+    height,
+    bufferWidth: nodeGraphRasterRgbBufferDim(width),
+    bufferHeight: nodeGraphRasterRgbBufferDim(height),
   };
 }
 
@@ -233,15 +264,20 @@ function nodeGraphRasterRgbApplyGrade(state, grade) {
   return dst;
 }
 
-function nodeGraphRasterRgbState(nodeId, width, height) {
+function nodeGraphRasterRgbState(nodeId, width, height, logicalWidth = width, logicalHeight = height) {
   const key = String(nodeId || "");
   let state = key ? nodeGraphRasterRgbBuffers.get(key) : null;
+  const lw = Math.max(1e-9, Number(logicalWidth) || width);
+  const lh = Math.max(1e-9, Number(logicalHeight) || height);
   if (!state || state.width !== width || state.height !== height) {
     state = {
       height,
+      logicalHeight: lh,
+      logicalWidth: lw,
       pixels: new Uint8ClampedArray(width * height * 4),
       width,
-      write: 0,
+      // Continuous sample index — X wraps every logicalWidth (fractional OK).
+      writePos: 0,
     };
     const pix = state.pixels;
     for (let i = 0; i < pix.length; i += 4) {
@@ -250,6 +286,13 @@ function nodeGraphRasterRgbState(nodeId, width, height) {
     if (key) {
       nodeGraphRasterRgbBuffers.set(key, state);
     }
+  } else if (
+    Math.abs((Number(state.logicalWidth) || 0) - lw) > 1e-9
+    || Math.abs((Number(state.logicalHeight) || 0) - lh) > 1e-9
+  ) {
+    // Same ceil buffer, new line period — retune without wiping the plate.
+    state.logicalWidth = lw;
+    state.logicalHeight = lh;
   }
   return state;
 }
@@ -281,6 +324,7 @@ function nodeGraphRasterRgbClearState(state) {
     pix[i + 3] = 255;
   }
   state.write = 0;
+  state.writePos = 0;
 }
 
 function nodeGraphRasterRgbUnlightFace(face) {
@@ -405,9 +449,8 @@ function nodeGraphRasterRgbBufferFromKey(nodeId, port) {
 
 function nodeGraphRasterRgbPickChannel(slot, port) {
   const nodeId = slot?.nodeId;
-  // Follow the inlet wire. Never prefer this node's own R/G/B output capture —
-  // those rings are post-FX analog outs (often zeros) and they starved invert
-  // plus hid the SinCos picture behind a richer empty local buffer.
+  // 1) Follow the inlet wire to the upstream face-capture rings (e.g. SinCos4 A/B/C).
+  //    Prefer these when the source face is on and publishing.
   const conns = typeof nodeGraphModuleScopeConnectionsTo === "function"
     ? nodeGraphModuleScopeConnectionsTo(nodeId, port)
     : [];
@@ -422,6 +465,14 @@ function nodeGraphRasterRgbPickChannel(slot, port) {
     if (connected?.length) {
       return connected;
     }
+  }
+  // 2) This module's visual-sink inlet ring (worklet wrote connected audio here
+  //    via bufferedInputs). Required when the upstream face is hidden — that
+  //    drops the source from scopeCapture, so step 1 is empty even though the
+  //    wire still carries signal (Pixel Grid frozen until SinCos4 display on).
+  const inlet = nodeGraphRasterRgbBufferFromKey(nodeId, port);
+  if (inlet?.length) {
+    return inlet;
   }
   return null;
 }
@@ -543,7 +594,9 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
   const frozen = (typeof scopePaintIsFrozen === "function" && scopePaintIsFrozen())
     || (typeof nodeGraphModuleScopePhosphorFrozen === "function"
       && nodeGraphModuleScopePhosphorFrozen());
-  const sizeKey = `${cw}x${ch}|${grid.width}x${grid.height}`;
+  const bufW = grid.bufferWidth || 0;
+  const bufH = grid.bufferHeight || 0;
+  const sizeKey = `${cw}x${ch}|${grid.width}x${grid.height}|${bufW}x${bufH}`;
   // Pause/speed 0: keep the last frame. Do not fill-wipe then early-return
   // (that left a blank plate while the pixel buffer still existed).
   if (frozen && canvas._rasterRgbBlit && canvas._rasterRgbHoldKey === sizeKey) {
@@ -567,14 +620,14 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
     canvas._rasterRgbHoldKey = "";
     return;
   }
-  if (!(grid.width > 0) || !(grid.height > 0)) {
+  if (!(grid.width > 0) || !(grid.height > 0) || !(bufW > 0) || !(bufH > 0)) {
     canvas._rasterRgbBlit = true;
     canvas._rasterRgbHoldKey = sizeKey;
     return;
   }
   let state;
   try {
-    state = nodeGraphRasterRgbState(nodeId, grid.width, grid.height);
+    state = nodeGraphRasterRgbState(nodeId, bufW, bufH, grid.width, grid.height);
     canvas._rasterRgb = state;
   } catch (_err) {
     canvas._rasterRgbBlit = true;
@@ -584,6 +637,9 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
   const captured = nodeGraphRasterRgbTakeChannels(paintSlot);
   const cellCount = state.width * state.height;
   const wired = Boolean(captured.length);
+  const logicalW = Math.max(1e-9, Number(state.logicalWidth) || grid.width || state.width);
+  const logicalH = Math.max(1e-9, Number(state.logicalHeight) || grid.height || state.height);
+  const frameSamples = logicalW * logicalH;
   // New pixels only when the shared Simulation FPS tick arms ingest.
   // Extra paints (pump, collect, slider) re-present grade without a second write.
   if (wired && cellCount > 0 && !frozen && nodeGraphRasterRgbShouldIngest()) {
@@ -593,23 +649,39 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
     const redLen = red?.length || 0;
     const greenLen = green?.length || 0;
     const blueLen = blue?.length || 0;
-    const take = Math.min(captured.length, cellCount);
+    // Newest chunk this Simulation-FPS tick. Cap near one logical frame so we
+    // don't replay the whole ring; ceil(frameSamples) lets fractional W×H fit.
+    const take = Math.min(
+      captured.length,
+      Math.max(cellCount, Math.ceil(frameSamples)),
+    );
     const redStart = Math.max(0, redLen - take);
     const greenStart = Math.max(0, greenLen - take);
     const blueStart = Math.max(0, blueLen - take);
     const redBi = nodeGraphRasterRgbRingLooksBipolar(red, redStart, take);
     const greenBi = nodeGraphRasterRgbRingLooksBipolar(green, greenStart, take);
     const blueBi = nodeGraphRasterRgbRingLooksBipolar(blue, blueStart, take);
+    let writePos = Number(state.writePos) || 0;
     for (let i = 0; i < take; i += 1) {
-      const o = state.write * 4;
+      // Fractional Width/Height = samples per line / lines per frame.
+      // x = pos % logicalW, y = floor(pos / logicalW) % logicalH (storage ceil).
+      const x = Math.min(state.width - 1, Math.floor(nodeGraphRasterRgbPosMod(writePos, logicalW)));
+      const line = Math.floor(writePos / logicalW);
+      const y = Math.min(state.height - 1, Math.floor(nodeGraphRasterRgbPosMod(line, logicalH)));
+      const o = (y * state.width + x) * 4;
       state.pixels[o] = nodeGraphRasterRgbByte(redLen ? red[redStart + i] : 0, redBi);
       state.pixels[o + 1] = nodeGraphRasterRgbByte(greenLen ? green[greenStart + i] : 0, greenBi);
       state.pixels[o + 2] = nodeGraphRasterRgbByte(blueLen ? blue[blueStart + i] : 0, blueBi);
       state.pixels[o + 3] = 255;
-      state.write = (state.write + 1) % cellCount;
+      writePos += 1;
     }
+    // Keep writePos bounded without disturbing phase within a frame.
+    if (writePos >= frameSamples * 4096) {
+      writePos = nodeGraphRasterRgbPosMod(writePos, frameSamples);
+    }
+    state.writePos = writePos;
   }
-  const gradeKey = `${grade.invert}|${grade.contrast}|${grade.brightness}|${grade.hue}|${grade.blur}|${grade.glow}|${grid.width}x${grid.height}|${wired ? captured.length : 0}`;
+  const gradeKey = `${grade.invert}|${grade.contrast}|${grade.brightness}|${grade.hue}|${grade.blur}|${grade.glow}|${grid.width}x${grid.height}|${bufW}x${bufH}|${wired ? captured.length : 0}`;
   const graded = nodeGraphRasterRgbApplyGrade(state, grade);
   canvas.style.imageRendering = "pixelated";
   ctx.imageSmoothingEnabled = false;
@@ -629,9 +701,11 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
     let dx = 0;
     let dy = 0;
     if (settings.squareRatio) {
-      const scale = Math.min(cw / state.width, ch / state.height);
-      dw = Math.max(1, Math.floor(state.width * scale));
-      dh = Math.max(1, Math.floor(state.height * scale));
+      // Logical (fractional) size drives on-screen cell size so fine Width/Height
+      // nudges are visible between whole-pixel buffer snaps.
+      const scale = Math.min(cw / grid.width, ch / grid.height);
+      dw = Math.max(1, Math.floor(grid.width * scale));
+      dh = Math.max(1, Math.floor(grid.height * scale));
       dx = Math.floor((cw - dw) * 0.5);
       dy = Math.floor((ch - dh) * 0.5);
     }

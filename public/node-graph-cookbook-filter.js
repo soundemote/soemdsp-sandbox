@@ -818,6 +818,7 @@ function nodeGraphFilterCurveIsPersistentScreen(el) {
     || cls?.contains("node-envelope-curve-display")
     || cls?.contains("node-round-shape-display")
     || cls?.contains("node-basic-shape-display")
+    || cls?.contains("node-sincos4-display")
     || cls?.contains("node-pulse-curve-display")
   ) {
     return true;
@@ -827,6 +828,7 @@ function nodeGraphFilterCurveIsPersistentScreen(el) {
     || el.closest?.(".node-envelope-curve-display")
     || el.closest?.(".node-round-shape-display")
     || el.closest?.(".node-basic-shape-display")
+    || el.closest?.(".node-sincos4-display")
     || el.closest?.(".node-pulse-curve-display")
   );
 }
@@ -1129,8 +1131,9 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
 
 function drawNodeGraphFilterCurveDisplays() {
   document.querySelectorAll(".node-filter-curve-display").forEach((section) => {
-    // RoundShape / BasicShape reuse the filter-curve plate class but own drawers.
-    // Calling the generic filter-curve painter on them flashes a second UI.
+    // RoundShape / BasicShape / SinCos4 reuse the filter-curve plate class but
+    // own drawers. Calling the generic filter-curve painter on them flashes a
+    // second UI (especially visible when scrubbing Mode on SinCos4).
     if (section.classList.contains("node-round-shape-display")) {
       if (typeof drawNodeGraphRoundShapeDisplay === "function") {
         drawNodeGraphRoundShapeDisplay(section);
@@ -1140,6 +1143,12 @@ function drawNodeGraphFilterCurveDisplays() {
     if (section.classList.contains("node-basic-shape-display")) {
       if (typeof drawNodeGraphBasicShapeDisplay === "function") {
         drawNodeGraphBasicShapeDisplay(section);
+      }
+      return;
+    }
+    if (section.classList.contains("node-sincos4-display")) {
+      if (typeof drawNodeGraphSinCos4Display === "function") {
+        drawNodeGraphSinCos4Display(section);
       }
       return;
     }
@@ -1186,6 +1195,7 @@ function scheduleNodeGraphFilterCurveDraw() {
         || section.classList.contains("node-phone-tone-display")
         || section.classList.contains("node-harmonic-series-display")
         || section.classList.contains("node-basic-shape-display")
+        || section.classList.contains("node-sincos4-display")
       ) {
         continue;
       }

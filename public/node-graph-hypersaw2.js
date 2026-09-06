@@ -61,6 +61,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
   const jitterDistance = Number(options.jitterDistance);
   const jitterSpeed = Number(options.jitterSpeed ?? options.jitterSpeedHz);
   const jitterPitch = Number(options.jitterPitch ?? options.driftPitch);
+  const distanceSlew = Number(options.distanceSlew);
   const centerSide = Number(options.centerSide);
   const waveform = Number(options.waveform);
   const morph = Number(options.morph);
@@ -82,6 +83,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     Number.isFinite(jitterDistance) ? jitterDistance : 0.1,
     Number.isFinite(jitterSpeed) ? jitterSpeed : 1,
     Number.isFinite(jitterPitch) ? jitterPitch : 0,
+    Number.isFinite(distanceSlew) ? distanceSlew : 8,
     Number.isFinite(centerSide) ? centerSide : 0.5,
     Number.isFinite(waveform) ? waveform : 1,
     Number.isFinite(morph) ? morph : 0.5,

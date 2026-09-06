@@ -56,6 +56,7 @@ nodeGraphLiveModuleEvaluators.hypersaw2 = ({ runtime, node, nodeId, frame, frame
     jitterDistance: read("jitterDistance", 0.1),
     jitterSpeed: read("jitterSpeed", 1),
     jitterPitch: read("jitterPitch", 0),
+    distanceSlew: read("distanceSlew", 8),
     centerSide: read("centerSide", 0.5),
     waveform: read("waveform", 1),
     morph: read("morph", 0.5),

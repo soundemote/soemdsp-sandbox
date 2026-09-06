@@ -310,6 +310,21 @@ function validateNodeGraphPatch(patch) {
         const offset = Number(value);
         value = Math.max(0, Math.round((Number.isFinite(offset) ? offset : 0) + squares));
       }
+      // Hypersaw / Hypersaw2 waveform: Pulse Center moved to sit after Saw.
+      // Old: 0 Trisaw, 1 Saw, 2 Ramp, 3 Pulse, 4 Pulse Center, 5 RectSin, 6 Trap
+      // New: 0 Trisaw, 1 Saw, 2 Pulse Center, 3 Ramp, 4 Pulse, 5 RectSin, 6 Trap
+      if ((type === "hypersaw" || type === "hypersaw2") && parameter.key === "waveform") {
+        if (Number(rawParams._hypersawWaveOrder) !== 2) {
+          if (Object.hasOwn(rawParams, "waveform")) {
+            const n = Math.round(Number(value));
+            const map = [0, 1, 3, 4, 2, 5, 6];
+            if (Number.isFinite(n) && n >= 0 && n < map.length) {
+              value = map[n];
+            }
+          }
+          rawParams._hypersawWaveOrder = 2;
+        }
+      }
       // Smooth Graph Curve: collapse old 6-choice layout (Linear/Smooth/Bezier/
       // Quadratic/Cubic/Catmull) where Smooth/Bezier/Catmull were one path.
       // Detect old layout via saved max≥5 or orphan indices 4–5.

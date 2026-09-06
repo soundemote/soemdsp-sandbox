@@ -369,7 +369,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   rasterRgbFace: Object.freeze({
     fields: Object.freeze(["screenPadding", "rounding"]),
-    colors: Object.freeze([]),
+    colors: Object.freeze(["backgroundColor"]),
     toggles: Object.freeze(["squareRatio"]),
     choices: Object.freeze(["screenShape"]),
   }),
@@ -643,20 +643,9 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  // Hypersaw / RobinSupersaw: stem thickness only (no full phosphor stack).
   hypersawBurn: Object.freeze({
-    fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
-      "backgroundBrightness",
-      "backgroundHue",
-      "dot1Size",
-      "lineThickness",
-      "dot1Brightness",
-      "ghost",
-      "trail",
-      "burn",
-      "burnAmount",
-      "pixelDensity",
-      "dotBudget",
-    ])),
+    fields: Object.freeze(["lineThickness"]),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
@@ -1183,10 +1172,10 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "History (Hz)",
     inputmode: "decimal",
     id: "nodeTraceDisplayHistoryHz",
-    title: "Sync Off: history window rate in Hz (seconds = 1/Hz). 0 = freeze / now-line. Sync On uses History (c) instead.",
+    title: "Sync Off: history window rate in Hz (seconds = 1/Hz). 0 = freeze / now-line. Sync On uses Cycles instead.",
   }),
   historyCycles: Object.freeze({
-    label: "History (c)",
+    label: "Cycles",
     inputmode: "decimal",
     id: "nodeTraceDisplayHistoryCycles",
     title: "Sync On: cycles in view across the face. Rising zero-crossing locks phase.",
@@ -1408,7 +1397,7 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     label: "Sync",
     id: "nodeTraceDisplaySourceSync",
     title:
-      "1D Waterfall: Off = History in seconds (scroll). On = History is cycles in view (smooth), stretched full-width to a rising zero-crossing. 1D Phosphor: Sync Off = Sweep in seconds; Sync On = Sweep is cycles in view (smooth), restart each pass on a rising zero-crossing; Reset jack still snaps.",
+      "1D Waterfall: Off = History (Hz) scroll window. On = Cycles in view (smooth), stretched full-width to a rising zero-crossing. 1D Phosphor: Sync Off = Sweep (Hz); Sync On = Sweep (c) cycles in view, restart each pass on a rising zero-crossing; Reset jack still snaps.",
   }),
   cmyMode: Object.freeze({
     label: "CMY",

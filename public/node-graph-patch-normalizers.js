@@ -855,6 +855,14 @@ function normalizeNodeGraphPatchView(view = {}) {
   const flag = (key, fallback) => (
     Object.hasOwn(source, key) ? Boolean(source[key]) : fallback
   );
+  const fpsRaw = source.moduleScopeFramesPerSecond;
+  const fpsNumber = Number(fpsRaw);
+  const moduleScopeFramesPerSecond = Object.hasOwn(source, "moduleScopeFramesPerSecond")
+    && Number.isFinite(fpsNumber)
+    ? (typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
+      ? normalizeNodeGraphModuleScopeFramesPerSecond(fpsNumber)
+      : Math.max(0, Math.min(240, Math.round(fpsNumber))))
+    : undefined;
   return {
     heightGu: Number.isFinite(heightGu)
       ? Math.max(0, heightGu)
@@ -876,6 +884,7 @@ function normalizeNodeGraphPatchView(view = {}) {
     tooltipEmbedded: flag("tooltipEmbedded", true),
     locked: flag("locked", false),
     hideUnusedPorts: flag("hideUnusedPorts", false),
+    ...(moduleScopeFramesPerSecond != null ? { moduleScopeFramesPerSecond } : {}),
   };
 }
 

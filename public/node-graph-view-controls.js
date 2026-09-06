@@ -203,6 +203,9 @@ function persistNodeGraphPatchVisibilityView() {
   view.sliderAmountVisible = nodeGraphMvp.sliderAmountVisible === true;
   view.sliderPositionVisible = nodeGraphMvp.sliderPositionVisible !== false;
   view.tooltipEmbedded = nodeGraphMvp.tooltipEmbedded !== false;
+  view.moduleScopeFramesPerSecond = normalizeNodeGraphModuleScopeFramesPerSecond(
+    nodeGraphMvp.moduleScopeFramesPerSecond ?? nodeGraphDefaultSimulationFps,
+  );
   nodeGraphMvp.patch.view = view;
   if (nodeGraphMvp.workingPatch) {
     nodeGraphMvp.workingPatch.view = {
@@ -237,6 +240,17 @@ function applyNodeGraphPatchVisibilityView() {
   if (Object.hasOwn(view, "sliderAmountVisible")) nodeGraphMvp.sliderAmountVisible = view.sliderAmountVisible === true;
   if (Object.hasOwn(view, "sliderPositionVisible")) nodeGraphMvp.sliderPositionVisible = view.sliderPositionVisible !== false;
   if (Object.hasOwn(view, "tooltipEmbedded")) nodeGraphMvp.tooltipEmbedded = view.tooltipEmbedded !== false;
+  if (Object.hasOwn(view, "moduleScopeFramesPerSecond")) {
+    nodeGraphMvp.moduleScopeFramesPerSecond = normalizeNodeGraphModuleScopeFramesPerSecond(
+      view.moduleScopeFramesPerSecond,
+    );
+    if (typeof sendNodeGraphLiveDisplayFps === "function") {
+      sendNodeGraphLiveDisplayFps();
+    }
+    if (typeof renderNodeGraphModuleScopeBrightnessControl === "function") {
+      renderNodeGraphModuleScopeBrightnessControl();
+    }
+  }
   const wantTooltipsShown = nodeGraphMvp.tooltipEmbedded !== false;
   if (
     typeof applyNodeGraphTooltipEmbed === "function"
@@ -950,8 +964,11 @@ function renderNodeGraphModularViewModeButtons() {
 }
 
 function persistNodeGraphModuleScopeFramesPerSecondSetting() {
-  // Header FPS hydrates from user UI settings (`view.moduleScopeFramesPerSecond`),
-  // not the session blob. Session persist alone left refresh at the old value.
+  // Patch blob carries FPS so save/reload/share restores it with the patch.
+  // Also mirror into user UI settings (machine default) and the session blob.
+  if (typeof persistNodeGraphPatchVisibilityView === "function") {
+    persistNodeGraphPatchVisibilityView();
+  }
   if (typeof scheduleNodeUiDevSettingsAutosave === "function") {
     scheduleNodeUiDevSettingsAutosave();
   } else if (

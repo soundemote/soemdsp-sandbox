@@ -472,6 +472,18 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
     ) {
       markReachable(node.id);
     }
+    // On-module faces (fBm X/Y phosphor, attractors, …): keep reachable so
+    // scope capture publishes even before the module is wired to Output.
+    // Native graph already processes every allowlisted node; this only gates
+    // plan order + face rings.
+    if (
+      !bypassedNodes.has(node.id)
+      && typeof nodeGraphModuleDisplayRendererForNode === "function"
+      && nodeGraphModuleDisplayRendererForNode(node) !== "legacy"
+      && nodeGraphPatchNodeDisplayVisibleInPlan(node, { bypassedNodes })
+    ) {
+      markReachable(node.id);
+    }
     // Meters/analyzers: stay live when any declared signal input is wired,
     // even with nothing routed to Output. Do not hardcode "In" — RMS Stereo
     // / Noise Detector / LUFS use Left/Right/Mono.
@@ -724,6 +736,33 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
       modulationSources.add(String(modulation.sourceNode));
     }
   }
+  // Upstream of a live visual sink (Pixel Grid, Trace RGB, …) must keep
+  // publishing port rings even when its own face is hidden — faces like
+  // Pixel Grid read `sourceNode:sourcePort` scope buffers, not only audio.
+  const visualFeedSources = new Set();
+  for (const node of graph.nodes) {
+    if (
+      bypassedNodes.has(node.id)
+      || !reachableNodes.has(node.id)
+      || !nodeGraphVisualSinkNeedsAudioCapture(node, { bypassedNodes })
+    ) {
+      continue;
+    }
+    const ports = [
+      ...(nodeGraphModuleDefinitions[node.type]?.inputs || []),
+      ...(typeof nodeGraphPatchNodeBufferedInputs === "function"
+        ? nodeGraphPatchNodeBufferedInputs(node)
+        : []),
+    ];
+    for (const port of ports) {
+      const conns = graph.inputConnections.get(nodeGraphInputKey(node.id, port)) || [];
+      for (const connection of conns) {
+        if (connection?.sourceNode) {
+          visualFeedSources.add(String(connection.sourceNode));
+        }
+      }
+    }
+  }
   return graph.nodes
     .filter((node) =>
       reachableNodes.has(node.id) &&
@@ -735,6 +774,7 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
         // capture graph modules even when they have no separate oscilloscope face.
         nodeGraphModuleIsGraphType(node.type) ||
         modulationSources.has(String(node.id)) ||
+        visualFeedSources.has(String(node.id)) ||
         (
           typeof nodeGraphChromelessModuleUsesSolidShell === "function"
           && nodeGraphChromelessModuleUsesSolidShell(node.type)

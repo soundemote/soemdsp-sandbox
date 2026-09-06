@@ -457,6 +457,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     envelopeCurve: "filter-curve-layout",
     roundShape: "filter-curve-layout",
     basicShape: "filter-curve-layout",
+    sinCos4: "filter-curve-layout",
     graph: "graph-node-layout",
     image: "image-node-layout",
     keyboardController: "keyboard-controller-layout",
@@ -1009,6 +1010,20 @@ function createNodeGraphModuleElement(type, node) {
       : !patchNodeUi.oscilloscopeHidden)
       && typeof createNodeGraphBasicShapeDisplay === "function") {
       article.append(createNodeGraphBasicShapeDisplay(node, type));
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
+  } else if (definition.layout === "sinCos4") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphSinCos4Display === "function") {
+      article.append(createNodeGraphSinCos4Display(node, type));
     }
     appendNodeGraphModuleIoSection(
       article,

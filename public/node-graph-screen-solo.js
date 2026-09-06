@@ -279,6 +279,20 @@ function nodeGraphScreenSoloWakeFace(face) {
       drawNodeGraphBasicShapeDisplay(face);
     }
   }
+  if (face.classList.contains("node-sincos4-display")) {
+    face._sinCos4ForceDraw = true;
+    face._sinCos4LaidOut = false;
+    if (typeof drawNodeGraphSinCos4Display === "function") {
+      drawNodeGraphSinCos4Display(face);
+    }
+  }
+  if (face.classList.contains("node-image-burn-face")
+    || face.querySelector?.(".node-image-burn-canvas")) {
+    if (typeof requestNodeGraphModuleScopeRepaint === "function") {
+      const nodeId = face.dataset?.node;
+      if (nodeId) requestNodeGraphModuleScopeRepaint(nodeId);
+    }
+  }
   if (face.classList.contains("node-filter-curve-display")) {
     face._filterCurveForceDraw = true;
     face._filterCurveLaidOut = false;

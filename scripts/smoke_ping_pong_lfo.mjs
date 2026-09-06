@@ -83,7 +83,7 @@ const modBlock2First = modL[0];
 let sampleMods = [];
 for (let i = 0; i < 256; i++) {
   e.soemdsp_ping_pong_delay_sample(
-    h, 0, 0.35, 1, 1, 1, 4, 0, 0, 25, 0, 1, 0.25, 1, 8000, 20, 120, sr,
+    h, 0, 0, 0.35, 1, 1, 1, 4, 0, 0, 25, 0, 1, 0.25, 1, 8000, 20, 120, sr,
   );
   sampleMods.push(e.soemdsp_ping_pong_delay_mod_left(h));
 }

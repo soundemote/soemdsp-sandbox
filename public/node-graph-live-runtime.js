@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=robin-porta-style-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=sincos4-phase-face-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3126,7 +3126,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=face-full-quantum-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=basicshape-polarity-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=sincos4-wavetable-1",
   "./public/node-live-audio-worklet-set-plan.js?v=hypersaw2-smooth-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
   "./public/node-live-audio-worklet-handle-message.js?v=wasm-plan-race-1",

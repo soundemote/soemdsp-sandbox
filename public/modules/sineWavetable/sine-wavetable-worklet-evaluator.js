@@ -175,7 +175,7 @@ NodeLiveAudioProcessor.prototype.sineWavetableAdvancePair = function sineWavetab
     );
   const phaseIncrement = (effectiveFrequency / safeRate) + (Number(incrementInput) || 0);
   const method = Math.round(
-    Number(this.readEffectiveParameter(node, "method", 0, frame, frames, frameValues)) || 0,
+    Number(this.readEffectiveParameter(node, "method", 1, frame, frames, frameValues)) || 0,
   );
   const useAdditiveLut = method >= 1;
   let pair;

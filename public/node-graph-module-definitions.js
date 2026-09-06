@@ -1024,7 +1024,29 @@ const nodeGraphModuleDefinitions = (
   },
   sineWavetable: {
     planRole: "source",
-    displayType: "trace",
+    layout: "sinCos4",
+    chrome: "LayoutA",
+    customDisplayArea: true,
+    displayType: "sinCos4Face",
+    displayHeightGu: 4,
+    spectrumCompanion: false,
+    displayModes: [
+      {
+        key: "face",
+        label: "Phases",
+        renderer: "sinCos4Face",
+        settingsSchema: "sinCos4Face",
+        source: { value: "A" },
+      },
+      {
+        key: "aTrace",
+        label: "A Trace",
+        renderer: "trace",
+        settingsSchema: "trace",
+        source: { value: "A" },
+      },
+    ],
+    defaultDisplayMode: "face",
     // Same left-column jacks as PolyBLEP / BLIT (Phase + Amp are knobs only).
     inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {
@@ -1051,7 +1073,7 @@ const nodeGraphModuleDefinitions = (
       },
       {
         choices: ["Polynomial", "Wavetable"],
-        defaultValue: "0",
+        defaultValue: "1",
         displayChoices: true,
         divideChoicesVisibly: true,
         key: "method",
@@ -1059,11 +1081,11 @@ const nodeGraphModuleDefinitions = (
         linearSmoothing: false,
         smoothingType: "none",
         max: "1",
-        mid: "0",
+        mid: "1",
         min: "0",
         step: "1",
         tooltip:
-          "Polynomial = exact joint sin/cos (default). Wavetable = additive’s half-sine LUT (2¹⁵) for lower CPU.",
+          "Wavetable = additive’s half-sine LUT (2¹⁵, default). Polynomial = exact joint sin/cos.",
       },
       {
         defaultValue: "0",
@@ -4270,7 +4292,13 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     displayType: "hypersawBurn",
     displayModes: [
-      { key: "hypersawBurn", renderer: "hypersawBurn", source: { value: "Left" } },
+      {
+        key: "hypersawBurn",
+        label: "Hypersaw",
+        renderer: "hypersawBurn",
+        settingsSchema: "hypersawBurn",
+        source: { value: "Left" },
+      },
     ],
     displaySignals: [
       { key: "Left", kind: "scalar" },
@@ -4391,7 +4419,13 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     displayType: "hypersawBurn",
     displayModes: [
-      { key: "hypersawBurn", renderer: "hypersawBurn", source: { value: "Left" } },
+      {
+        key: "hypersawBurn",
+        label: "Hypersaw",
+        renderer: "hypersawBurn",
+        settingsSchema: "hypersawBurn",
+        source: { value: "Left" },
+      },
     ],
     displaySignals: [
       { key: "Left", kind: "scalar" },
@@ -4434,7 +4468,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         max: "6",
         step: "1",
-        choices: ["Trisaw", "Saw", "Ramp", "Pulse", "Pulse Center", "RectifiedSin", "Trapezoid"],
+        choices: ["Trisaw", "Saw", "Pulse Center", "Ramp", "Pulse", "RectifiedSin", "Trapezoid"],
         displayChoices: true,
         linearSmoothing: false,
         smoothingType: "none",
@@ -4485,6 +4519,7 @@ const nodeGraphModuleDefinitions = (
         key: "centerSide",
         label: "Center/Side",
         defaultValue: "0.5",
+        hidden: true,
         min: "0",
         mid: "0.5",
         max: "1",
@@ -4496,6 +4531,7 @@ const nodeGraphModuleDefinitions = (
         key: "distributePhase",
         label: "Distribute Phase",
         defaultValue: "1",
+        hidden: true,
         min: "0",
         mid: "1",
         max: "2",
@@ -4507,6 +4543,7 @@ const nodeGraphModuleDefinitions = (
         key: "randomizePhase",
         label: "Randomize Phase",
         defaultValue: "0.10",
+        hidden: true,
         min: "0",
         mid: "0.5",
         max: "1",
@@ -4626,7 +4663,13 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     displayType: "hypersawBurn",
     displayModes: [
-      { key: "hypersawBurn", renderer: "hypersawBurn", source: { value: "Left" } },
+      {
+        key: "hypersawBurn",
+        label: "Hypersaw",
+        renderer: "hypersawBurn",
+        settingsSchema: "hypersawBurn",
+        source: { value: "Left" },
+      },
     ],
     displaySignals: [
       { key: "Left", kind: "scalar" },
@@ -4669,7 +4712,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         max: "6",
         step: "1",
-        choices: ["Trisaw", "Saw", "Ramp", "Pulse", "Pulse Center", "RectifiedSin", "Trapezoid"],
+        choices: ["Trisaw", "Saw", "Pulse Center", "Ramp", "Pulse", "RectifiedSin", "Trapezoid"],
         displayChoices: true,
         linearSmoothing: false,
         smoothingType: "none",
@@ -4720,6 +4763,7 @@ const nodeGraphModuleDefinitions = (
         key: "centerSide",
         label: "Center/Side",
         defaultValue: "0.5",
+        hidden: true,
         min: "0",
         mid: "0.5",
         max: "1",
@@ -4730,6 +4774,7 @@ const nodeGraphModuleDefinitions = (
         key: "distributePhase",
         label: "Distribute Phase",
         defaultValue: "1",
+        hidden: true,
         min: "0",
         mid: "0.5",
         max: "1",
@@ -4740,6 +4785,7 @@ const nodeGraphModuleDefinitions = (
         key: "randomizePhase",
         label: "Randomize Phase",
         defaultValue: "0.10",
+        hidden: true,
         min: "0",
         mid: "0.5",
         max: "1",
@@ -4758,7 +4804,7 @@ const nodeGraphModuleDefinitions = (
         tooltip:
           "Hypersaw Drift Amp — phase-modulation depth from the Random Steps walk. "
           + "Mid skew at 0.1 for fine control near small distances. "
-          + "Scaled by oscillator frequency so low and high notes jitter the same temporal distance.",
+          + "Scaled by oscillator frequency (|f|/100 Hz) so low and high notes keep the same temporal distance.",
       },
       {
         key: "jitterSpeed",
@@ -4788,6 +4834,21 @@ const nodeGraphModuleDefinitions = (
           + "Overall motion without the stepped character of Jitter Speed.",
       },
       {
+        key: "distanceSlew",
+        label: "Distance Slew",
+        kind: "time",
+        defaultValue: "8",
+        min: "0",
+        mid: "8",
+        max: "500",
+        step: "any",
+        unit: "ms",
+        tooltip:
+          "How fast Jitter Distance / Vibrato Amp depth tracks Frequency (|f|/100 Hz compensation). "
+          + "0 = instant (pitch changes leave frozen jitter unmoved). "
+          + "8 ms = previous default. Higher = slower chase when you twist Frequency.",
+      },
+      {
         key: "vibratoAmp",
         label: "Vibrato Amp",
         defaultValue: "0",
@@ -4799,7 +4860,7 @@ const nodeGraphModuleDefinitions = (
         tooltip:
           "HypersawUnit vibAmp — phaseOffset = phase × (vibOsc×Amp + PhaseMultiplier) + jitter. "
           + "With Multiplier 1: scale swings around 1. Amp is distance-compensated (|f|/100 Hz) "
-          + "like Jitter Distance so vibrato stays even across pitch. "
+          + "like Jitter Distance; Distance Slew sets how fast that tracks pitch. "
           + "Center oscillator has no vibOsc feed in SoEm.",
       },
       {
@@ -13875,14 +13936,14 @@ const nodeGraphModuleDefinitions = (
         key: "width",
         label: "Width",
         max: "512",
-        maxDigits: 0,
+        maxDigits: 2,
         mid: "96",
         min: "0",
         modClamp: false,
         nonlinearSlider: true,
         sliderCurve: "custom",
-        step: "1",
-        tooltip: "Grid width in pixels. Integer. Slider is finer near 0 (Parameter Settings → Sensitivity).",
+        step: "any",
+        tooltip: "Samples per line (fractional OK). Write head wraps every Width samples — tune to lock high-rate RGB to the raster. Storage uses ceil(Width). Slider is finer near 0 (Parameter Settings → Sensitivity).",
       },
       {
         curveAmount: "0.55",
@@ -13890,14 +13951,14 @@ const nodeGraphModuleDefinitions = (
         key: "height",
         label: "Height",
         max: "512",
-        maxDigits: 0,
+        maxDigits: 2,
         mid: "54",
         min: "0",
         modClamp: false,
         nonlinearSlider: true,
         sliderCurve: "custom",
-        step: "1",
-        tooltip: "Grid height in pixels. Integer. Slider is finer near 0 (Parameter Settings → Sensitivity).",
+        step: "any",
+        tooltip: "Lines per frame (fractional OK). Pairs with Width for raster period. Storage uses ceil(Height). Slider is finer near 0 (Parameter Settings → Sensitivity).",
       },
       {
         bipolar: true,

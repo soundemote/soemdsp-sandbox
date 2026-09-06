@@ -4731,10 +4731,15 @@ def require_node_graph_mvp_contract() -> None:
             script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
             script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
         ]
-        and "maxDigits: 0" in script_sources["./public/node-graph-module-definitions.js"][
+        and "maxDigits: 2" in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
             script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
         ]
+        and 'step: "any"' in script_sources["./public/node-graph-module-definitions.js"][
+            script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
+            script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
+        ]
+        and "nodeGraphRasterRgbBufferDim" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
         and "nodeGraphRasterRgbGridSize" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
         and 'Object.hasOwn(rawParams, "squares")' in script_sources["./public/node-graph-patch-core.js"]
         and '"rgba"' in script_sources["./public/node-graph-module-definitions.js"]
@@ -8488,6 +8493,8 @@ def require_node_graph_mvp_contract() -> None:
         "function normalizeNodeGraphPatchView(view = {})",
         "function normalizeNodeGraphPatchViewZoom(value)",
         "zoom: normalizeNodeGraphPatchViewZoom(view?.zoom)",
+        "moduleScopeFramesPerSecond",
+        "view.moduleScopeFramesPerSecond = normalizeNodeGraphModuleScopeFramesPerSecond",
         "function normalizeNodeGraphPatchGrid(grid = {})",
         "grid: normalizeNodeGraphPatchGrid(patch.grid)",
         "patch.grid = readNodeGraphGridSettingsView()",
@@ -13256,7 +13263,7 @@ def require_node_graph_mvp_contract() -> None:
     require(
         'fractalBrownianNoise: {' in module_definitions_source
         and 'displaySignals:' in module_definitions_source
-        and 'key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "Out X Raw", y: "Out Y Raw" }' in module_definitions_source
+        and 'key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "Out X Raw", y: "Out Y Raw" }' in module_definitions_source
         and 'key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "Out X Raw", y: "Out Y Raw" }' in module_definitions_source
         and 'key: "zTrace", label: "Z Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out Z Raw" }' in module_definitions_source,
         "Fractal Brownian Motion should declare explicit display modes for the pre-level Out X/Y/Z Raw signals",

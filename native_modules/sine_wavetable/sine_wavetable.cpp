@@ -48,6 +48,7 @@ static double nyquist_fade_amplitude(double frequency, double sampleRate) {
 
 struct SineWavetableState {
   double phase;
+  double samplePhase01; // last render phase in cycles (incl. offset) for face
   double outSin;
   double outCos;
   int method; // 0 = poly, 1 = additive half-sine LUT
@@ -63,6 +64,7 @@ extern "C" int soemdsp_sine_wavetable_create() {
     if (!gPool[i].active) {
       SineWavetableState& s = gPool[i];
       s.phase = 0.0;
+      s.samplePhase01 = 0.0;
       s.outSin = 0.0;
       s.outCos = 0.0;
       s.method = 0;
@@ -102,6 +104,7 @@ extern "C" void soemdsp_sine_wavetable_sample(
   const double safeFrequency = safe(frequency);
   const double level = maxd(0.0, safe(amplitude)) * nyquist_fade_amplitude(safeFrequency, rate);
   const double samplePhase = s.phase + safe(phaseOffsetRadians);
+  s.samplePhase01 = wrap01(samplePhase / kTwoPi);
 
   double sn = 0.0;
   double cn = 0.0;
@@ -131,8 +134,13 @@ extern "C" double soemdsp_sine_wavetable_cos(int handle) {
   return gPool[handle - 1].outCos;
 }
 
+extern "C" double soemdsp_sine_wavetable_phase(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0.0;
+  return gPool[handle - 1].samplePhase01;
+}
+
 extern "C" int soemdsp_sine_wavetable_version() {
-  return 2;
+  return 3; // samplePhase01 for SinCos4 face
 }
 
 extern "C" const char* soemdsp_sine_wavetable_metadata_json() {

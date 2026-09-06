@@ -1,5 +1,14 @@
 function serializeNodeGraphPatch(patch = nodeGraphMvp.patch, options = {}) {
   const cameraState = normalizeNodeGraphPatchCameras(patch.cameras, patch.activeCameraId);
+  // Prefer live header FPS when serializing the active patch so save/share
+  // always carries the value even if patch.view was not synced yet.
+  const viewSource = (patch === nodeGraphMvp?.patch || patch === nodeGraphMvp?.workingPatch)
+    && typeof nodeGraphMvp?.moduleScopeFramesPerSecond !== "undefined"
+    ? {
+      ...(patch.view || {}),
+      moduleScopeFramesPerSecond: nodeGraphMvp.moduleScopeFramesPerSecond,
+    }
+    : patch.view;
   const payload = {
     activeCameraId: cameraState.activeCameraId,
     audio: normalizeNodeGraphPatchAudio(patch.audio),
@@ -34,7 +43,7 @@ function serializeNodeGraphPatch(patch = nodeGraphMvp.patch, options = {}) {
         : []),
     timing: normalizeNodeGraphPatchTiming(patch.timing),
     uiItems: normalizeNodeGraphPatchUiItems(patch.uiItems),
-    view: normalizeNodeGraphPatchView(patch.view),
+    view: normalizeNodeGraphPatchView(viewSource),
     visual: normalizeNodeGraphPatchVisual(patch.visual),
     windows: typeof normalizeNodeGraphPatchWindows === "function"
       ? normalizeNodeGraphPatchWindows(patch.windows)

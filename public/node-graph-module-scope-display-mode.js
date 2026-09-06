@@ -188,8 +188,8 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "spectrogramBurn",
     "videoscopeBurn",
     "oscilloscopeBankBurn",
-    // hypersawBurn (Hypersaw / Hypersaw2 / RobinSupersaw): no phosphor Display
-    // Settings — right-click opens Module Settings instead.
+    // Hypersaw / Hypersaw2 / RobinSupersaw face — line thickness only.
+    "hypersawBurn",
     "matrixFace",
     "matrixWaterfallFace",
     "matrixDisplayFace",
@@ -214,6 +214,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "portalFace",
     "roundShapeFace",
     "basicShapeFace",
+    "sinCos4Face",
     "harmonicCount",
     "harmonicLines",
     "additiveWaveform",
