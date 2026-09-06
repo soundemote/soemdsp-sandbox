@@ -143,8 +143,8 @@
     }
   `;
 
-  // Deposit: residual + image×Send. Contrast = tonal curve on the stamp
-  // (0 → mid-grey, 1 → unchanged, 2 → soft-clip expand).
+  // Deposit: residual + image×Send.
+  // Contrast is first on the source: 0→unchanged, 2→crush mid/lows (protect highs).
   const DEPOSIT_FRAG = `
     precision highp float;
     varying vec2 vUv;
@@ -154,13 +154,19 @@
     uniform float uGain;
     uniform float uContrast;
     vec3 applyContrast(vec3 c, float contrast) {
-      float k = clamp(contrast, 0.0, 2.0);
-      if (k <= 1.0) {
-        return mix(vec3(0.5), c, k);
+      // Full 0…2 dial: 0 = unchanged, 2 = max mid/low → black (highs protected).
+      float amt = clamp(contrast, 0.0, 2.0) * 0.5;
+      if (amt < 1e-6) {
+        return c;
       }
-      float drive = 1.0 + (k - 1.0) * 4.0;
-      vec3 x = (c - 0.5) * drive;
-      return 0.5 + x / (1.0 + abs(x));
+      float luma = max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.0);
+      if (luma < 1e-6) {
+        return vec3(0.0);
+      }
+      float protect = smoothstep(0.28, 0.83, luma);
+      float crushed = pow(luma, 1.0 + amt * 4.5);
+      float newL = mix(crushed, luma, protect * protect);
+      return c * (newL / luma);
     }
     void main() {
       vec3 prev = max(texture2D(uResidual, vUv).rgb, 0.0);
@@ -635,7 +641,7 @@
     const hangKeep = hangToKeep(options.hang);
     const burn = clamp01(options.burn);
     const contrast = Math.max(0, Math.min(2, Number(options.contrast)));
-    const contrastAmt = Number.isFinite(contrast) ? contrast : 1;
+    const contrastAmt = Number.isFinite(contrast) ? contrast : 0;
     const blur = clamp01(options.blur);
     const deposit = Math.max(0, Number(options.deposit) || 0);
     const img = options.image;

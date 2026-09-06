@@ -5,7 +5,7 @@
 //   Image / Send     — dry flash gain; how much of that flash stamps the burn
 //   Hang             — residual persistence (1 = freeze)
 //   Burn             — highlights outlast darks
-//   Contrast         — stamp tone (0 grey … 1 flat … 2 soft-clip contrast)
+//   Contrast         — first on source (0 unchanged … 2 crush mid/lows; highs safe)
 //   Blur             — bloom recirculation
 //
 // Buffered In: this frame's peak energy lights the image; that stamp goes to burn.
@@ -23,8 +23,8 @@ const nodeGraphImageBurnSettingsDefaults = Object.freeze({
   send: 1,
   hang: 0.55,
   burn: 0.75,
-  /** Tonal contrast on the stamp: 0 = grey, 1 = unchanged, 2 = soft-clip contrast. */
-  contrast: 1,
+  /** Source black crush: 0 = unchanged, 2 = max mid/low → black (highs protected). */
+  contrast: 0,
   blur: 0.45,
 });
 
@@ -57,11 +57,11 @@ function clampNodeGraphImageBurnUnit(value, fallback = 0) {
   return Math.max(0, Math.min(1, n));
 }
 
-/** Contrast 0…2 (1 = unchanged). */
-function clampNodeGraphImageBurnContrast(value, fallback = 1) {
+/** Contrast 0…2 (0 = unchanged, 2 = max black crush). */
+function clampNodeGraphImageBurnContrast(value, fallback = 0) {
   const n = Number(value);
   if (!Number.isFinite(n)) {
-    return Math.max(0, Math.min(2, Number(fallback) || 1));
+    return Math.max(0, Math.min(2, Number(fallback) || 0));
   }
   return Math.max(0, Math.min(2, n));
 }
@@ -415,24 +415,27 @@ function nodeGraphImageBurnFadeBuf(ctx, w, h, keep) {
 
 /** Smoothstep 0…1. */
 /**
- * Stamp tonal contrast: 0 → mid-grey, 1 → unchanged, 2 → soft-clip expand.
+ * First-stage source contrast (dry + burn send the same toned image).
+ * Full dial 0…2 is usable: 0 = unchanged, 2 = crush mid/lows to black (highs safe).
  */
 function nodeGraphImageBurnApplyContrastRgb(r, g, b, contrast02) {
-  const k = clampNodeGraphImageBurnContrast(contrast02, 1);
-  if (k <= 1) {
-    const t = k;
-    return {
-      r: 0.5 + (r - 0.5) * t,
-      g: 0.5 + (g - 0.5) * t,
-      b: 0.5 + (b - 0.5) * t,
-    };
+  const amt = clampNodeGraphImageBurnContrast(contrast02, 0) / 2; // 0…1
+  if (amt < 1e-6) {
+    return { r, g, b };
   }
-  const drive = 1 + (k - 1) * 4;
-  const soft = (x) => {
-    const y = (x - 0.5) * drive;
-    return 0.5 + y / (1 + Math.abs(y));
+  const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  if (luma < 1e-6) {
+    return { r: 0, g: 0, b: 0 };
+  }
+  const protect = Math.max(0, Math.min(1, (luma - 0.28) / 0.55));
+  const crushed = Math.pow(Math.max(0, luma), 1 + amt * 4.5);
+  const newL = crushed + (luma - crushed) * protect * protect;
+  const s = newL / luma;
+  return {
+    r: Math.max(0, Math.min(1, r * s)),
+    g: Math.max(0, Math.min(1, g * s)),
+    b: Math.max(0, Math.min(1, b * s)),
   };
-  return { r: soft(r), g: soft(g), b: soft(b) };
 }
 
 /** Burn fade: Hang persistence + Burn highlight bias (Contrast is stamp-only). */
@@ -474,8 +477,8 @@ function nodeGraphImageBurnContrastStamp(canvas, contrast02) {
   if (!canvas) {
     return canvas;
   }
-  const contrast = clampNodeGraphImageBurnContrast(contrast02, 1);
-  if (Math.abs(contrast - 1) < 1e-6) {
+  const contrast = clampNodeGraphImageBurnContrast(contrast02, 0);
+  if (contrast < 1e-6) {
     return canvas;
   }
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -601,7 +604,7 @@ function nodeGraphImageBurnStampInto(ctx, img, imageSize, alpha) {
 }
 
 /** Draw the dry source image at a given opacity / composite mode. */
-function nodeGraphImageBurnDrawDry(ctx, img, imageSize, alpha, composite = "source-over") {
+function nodeGraphImageBurnDrawDry(ctx, img, imageSize, alpha, composite = "source-over", contrast02 = 0) {
   if (!ctx || !img?.complete || !(img.naturalWidth > 0)) {
     return false;
   }
@@ -615,11 +618,38 @@ function nodeGraphImageBurnDrawDry(ctx, img, imageSize, alpha, composite = "sour
   if (!rect) {
     return false;
   }
+  const contrast = clampNodeGraphImageBurnContrast(contrast02, 0);
+  // Contrast is first: build the toned source, then display (burn uses same curve).
+  let src = img;
+  if (contrast > 1e-6) {
+    let scratch = ctx.canvas._imageBurnDryScratch;
+    if (!scratch || scratch.width !== w || scratch.height !== h) {
+      scratch = document.createElement("canvas");
+      scratch.width = w;
+      scratch.height = h;
+      ctx.canvas._imageBurnDryScratch = scratch;
+    }
+    const sctx = scratch.getContext("2d");
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, w, h);
+      sctx.globalAlpha = 1;
+      sctx.globalCompositeOperation = "source-over";
+      sctx.imageSmoothingEnabled = true;
+      sctx.drawImage(img, rect.x, rect.y, rect.w, rect.h);
+      nodeGraphImageBurnContrastStamp(scratch, contrast);
+      src = scratch;
+    }
+  }
   ctx.save();
   ctx.globalCompositeOperation = composite || "source-over";
   ctx.globalAlpha = a;
   ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h);
+  if (src === img) {
+    ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h);
+  } else {
+    ctx.drawImage(src, 0, 0);
+  }
   ctx.restore();
   return true;
 }
@@ -726,7 +756,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
   const send = clampNodeGraphImageBurnUnit(settings.send ?? settings.ink, 1);
   const hang = clampNodeGraphImageBurnUnit(settings.hang, 0);
   const burn = clampNodeGraphImageBurnUnit(settings.burn, 0);
-  const contrast = clampNodeGraphImageBurnContrast(settings.contrast, 1);
+  const contrast = clampNodeGraphImageBurnContrast(settings.contrast, 0);
   const blur = clampNodeGraphImageBurnUnit(settings.blur, 0);
 
   // This frame's buffered In peak → light the image → Send into burn.
@@ -799,6 +829,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
         settings.imageSize,
         Math.min(1, lit),
         "screen",
+        contrast,
       );
     }
   } else {
@@ -856,6 +887,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
         settings.imageSize,
         Math.min(1, lit),
         "screen",
+        contrast,
       );
     }
     ctx.globalCompositeOperation = "source-over";

@@ -503,7 +503,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
-  // Image Burn: custom body (image row) + phosphor field set below.
+  // Image Burn: custom body (image row) + residual field set below.
+  // contrast must be listed or form read/apply ignores the dial.
   imageBurnFace: Object.freeze({
     fields: Object.freeze([
       "imageSize",
@@ -511,6 +512,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "send",
       "hang",
       "burn",
+      "contrast",
       "blur",
       "backgroundBrightness",
     ]),

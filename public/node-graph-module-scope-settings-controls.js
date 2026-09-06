@@ -229,14 +229,9 @@ function nodeGraphTraceDisplayUnitDragRange(key) {
   if (key === "innerShadowOffsetX" || key === "innerShadowOffsetY") {
     return { min: -1, max: 1 };
   }
-  // Image Burn Contrast: 0 = grey, 1 = unchanged, 2 = soft-clip contrast.
+  // Image Burn Contrast: 0 = unchanged, 2 = max black crush (only this form uses it).
   if (key === "contrast") {
-    const type = typeof nodeGraphTraceDisplaySettingsFormType === "function"
-      ? nodeGraphTraceDisplaySettingsFormType()
-      : "";
-    if (type === "imageBurnFace") {
-      return { min: 0, max: 2 };
-    }
+    return { min: 0, max: 2 };
   }
   // Value LED/LCD padding: negative grows digits toward plate walls.
   if (key === "facePadding") {
@@ -459,6 +454,14 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   ink: nodeGraphTraceDisplayClampBrightness,
   hang: nodeGraphTraceDisplayClampUnit,
   blur: nodeGraphTraceDisplayClampUnit,
+  // Image Burn: 0 = unchanged, 2 = crush lows (must not inherit 0…1 unit clamp).
+  contrast: (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+      return 0;
+    }
+    return clampNodeSliderValue(n, 0, 2);
+  },
   ghost: nodeGraphTraceDisplayClampUnit,
   capLength: nodeGraphTraceDisplayClampUnit,
   capPadding: nodeGraphTraceDisplayClampUnit,
@@ -628,7 +631,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     contrast: (value) => {
       const n = Number(value);
       if (!Number.isFinite(n)) {
-        return 1;
+        return 0;
       }
       return clampNodeSliderValue(n, 0, 2);
     },

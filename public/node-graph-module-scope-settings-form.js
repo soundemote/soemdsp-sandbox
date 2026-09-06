@@ -177,7 +177,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   }
   if (formType === "imageBurnFace" && key === "contrast") {
     label = "Contrast";
-    title = "Stamp tone 0…2. 0 = mid-grey; 1 = unchanged; 2 = soft-clip contrast.";
+    title = "Source blacks first (dry + burn). 0 = unchanged; 2 = crush mid/lows to black (highs protected). Full dial is usable.";
   }
   if (formType === "imageBurnFace" && key === "blur") {
     label = "Blur";
