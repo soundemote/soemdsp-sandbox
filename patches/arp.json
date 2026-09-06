@@ -2118,7 +2118,7 @@
       },
       {
         "sourceNode": "transport-1",
-        "sourcePort": "0..1",
+        "sourcePort": "Gate 0-1",
         "tracePoints": [],
         "destinationNode": "degreePhrase-1",
         "destinationPort": "Clock"

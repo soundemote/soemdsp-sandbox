@@ -2685,12 +2685,71 @@ html.soemdsp-hide-ui.body.node-patch-load-fault-open #nodePatchLoadFault {
 }
 
 .node-midi-keyboard-module {
-  /* heading | piano | signal bar | bitmask — four children, four tracks.
-     Old 3-track grid left signal/bitmask fighting the piano for space. */
+  /* Default (non-dock / non-module-face hosts): fixed piano track + signal rows. */
   grid-template-rows: auto var(--midi-keyboard-piano-height, 112px) auto auto;
   height: auto;
   min-height: 0;
   margin: 0;
+  border-radius: 0;
+}
+
+/* Keyboard module face: same layout as K Controllers dock piano column —
+   compact controls on top, piano fills remaining vertical space. */
+.dsp-node.keyboard-layout > .node-midi-keyboard-module.node-module-face {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  justify-items: stretch;
+  align-self: stretch;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px 4px 4px;
+  gap: 2px;
+  overflow: hidden;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-signal-bar,
+.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-bitmask-row {
+  display: none !important;
+}
+
+.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-heading {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  padding: 2px 2px 0;
+  gap: 4px;
+}
+
+.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 4px;
+}
+
+.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-performance {
+  justify-content: stretch;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-surface {
+  flex: 1 1 auto;
+  width: 100% !important;
+  max-width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin-inline: 0;
   border-radius: 0;
 }
 

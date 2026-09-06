@@ -4,6 +4,28 @@
 NodeLiveAudioProcessor.prototype.setInputWireBreakTrigger = function setInputWireBreakTrigger(nodeId, port) {
     if (!nodeId || !port) return;
     this.inputWireBreakTriggers.set(this.inputKey(nodeId, port), 1);
+    // Efficient native graph: mixInputPort is skipped, so also queue a one-shot
+    // live-port poke consumed on the next process_block.
+    if (
+      this.efficientProduct
+      && this.nativeGraphCompiled
+      && this.nativeGraphHandle
+      && this.nativeGraph?.soemdsp_graph_poke_input
+    ) {
+      try {
+        const hash = this.fnv1aHash32(String(nodeId));
+        const node = this.nodes?.get?.(String(nodeId));
+        const type = String(node?.type || "");
+        const portId = typeof this.mapNativeGraphDstPortId === "function"
+          ? this.mapNativeGraphDstPortId(port, type)
+          : 0;
+        if (hash && portId != null) {
+          this.nativeGraph.soemdsp_graph_poke_input(this.nativeGraphHandle, hash, portId | 0, 1);
+        }
+      } catch (_e) {
+        /* keep JS-path trigger even if native poke fails */
+      }
+    }
 };
 
 NodeLiveAudioProcessor.prototype.setSpeed = function setSpeed(speed) {

@@ -104,6 +104,11 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
     && nodeGraphTraceDisplayInstantTraceBlurField(key)) {
     return 0.03;
   }
+  // Image Burn Blur: exp map — micro soften (~0.004) needs fine steps near 0.
+  if (typeof nodeGraphTraceDisplayImageBurnBlurField === "function"
+    && nodeGraphTraceDisplayImageBurnBlurField(key)) {
+    return 0.025;
+  }
   // 0…1 unit fields (Bright, Ghost Bright, Residual, …): always 0.1.
   if (typeof nodeGraphTraceDisplayUnitDragField === "function"
     && nodeGraphTraceDisplayUnitDragField(key)) {
@@ -119,7 +124,8 @@ function nodeGraphTraceDisplayIntegerPixelDragField(key) {
 }
 
 function nodeGraphTraceDisplaySizeControlField(key) {
-  return ["dot1Size", "secondarySize", "capSize"].includes(key);
+  // imageSize: Image Burn zoom (domain 0…4) — same exp feel as stamp Size.
+  return ["dot1Size", "secondarySize", "capSize", "imageSize"].includes(key);
 }
 
 /** Instant Trace Blur (not phosphor stamp blur). */
@@ -132,6 +138,17 @@ function nodeGraphTraceDisplayInstantTraceBlurField(key) {
     : "";
   return typeof nodeGraphDisplaySettingsIsVectorTraceFormType === "function"
     && nodeGraphDisplaySettingsIsVectorTraceFormType(type);
+}
+
+/** Image Burn Blur — exp control-space (fine near 0 for anti-pixelation). */
+function nodeGraphTraceDisplayImageBurnBlurField(key) {
+  if (key !== "blur") {
+    return false;
+  }
+  const type = typeof nodeGraphTraceDisplaySettingsFormType === "function"
+    ? nodeGraphTraceDisplaySettingsFormType()
+    : "";
+  return type === "imageBurnFace";
 }
 
 /** History / sweep dials — exponential control mapping (units depend on key). */
@@ -150,9 +167,15 @@ function nodeGraphTraceDisplayHistoryControlField(key) {
  * Linear drag — same pixel→value gain for all (no exp curve mismatch).
  */
 function nodeGraphTraceDisplayUnitDragField(key) {
+  // Image Burn Blur uses exp control-space (not linear unit drag).
+  if (typeof nodeGraphTraceDisplayImageBurnBlurField === "function"
+    && nodeGraphTraceDisplayImageBurnBlurField(key)) {
+    return false;
+  }
   return [
     "dot1Brightness",
     "secondaryBrightness",
+    "brightness",
     "fade",
     "ghostBrightness",
     "residual",
@@ -175,6 +198,8 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "buttonWidth",
     "buttonHeight",
     "textSize",
+    // Value Line: must be unit-drag (not magnitude quantum×/8 — that felt ~3× too hot).
+    "lineLength",
     "capLength",
     "capPadding",
     "capSize",
@@ -188,6 +213,14 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "onBrightness",
     "stampDensity",
     "pixelDensity",
+    // Image Burn residual (standalone — not phosphor Ghost/Trail).
+    "image",
+    "send",
+    "ink",
+    "hang",
+    "blur",
+    "burn",
+    "contrast",
   ].includes(key) || /Brightness$/i.test(String(key || ""));
 }
 
@@ -195,6 +228,15 @@ function nodeGraphTraceDisplayUnitDragField(key) {
 function nodeGraphTraceDisplayUnitDragRange(key) {
   if (key === "innerShadowOffsetX" || key === "innerShadowOffsetY") {
     return { min: -1, max: 1 };
+  }
+  // Image Burn Contrast: 0 = grey, 1 = unchanged, 2 = soft-clip contrast.
+  if (key === "contrast") {
+    const type = typeof nodeGraphTraceDisplaySettingsFormType === "function"
+      ? nodeGraphTraceDisplaySettingsFormType()
+      : "";
+    if (type === "imageBurnFace") {
+      return { min: 0, max: 2 };
+    }
   }
   // Value LED/LCD padding: negative grows digits toward plate walls.
   if (key === "facePadding") {
@@ -230,10 +272,11 @@ const nodeGraphTraceDisplayBlurDragPixels = 640;
 
 function nodeGraphTraceDisplaySensitiveControlField(key) {
   // Brightness / residual are linear unit drags — not size-style exp maps.
-  // Exp remains for stamp size, Instant Trace blur, pixel density, history.
+  // Exp remains for stamp size, Instant Trace blur, Image Burn blur, pixel density, history.
   return nodeGraphTraceDisplaySizeControlField(key) ||
     nodeGraphTraceDisplayHistoryControlField(key) ||
     nodeGraphTraceDisplayInstantTraceBlurField(key) ||
+    nodeGraphTraceDisplayImageBurnBlurField(key) ||
     key === "pixelDensity";
 }
 
@@ -245,6 +288,10 @@ const nodeGraphTraceDisplayHistoryControlExponent = 3.5;
 function nodeGraphTraceDisplaySensitiveControlMax(key) {
   if (key === "pixelDensity") {
     return 1;
+  }
+  // Image Burn zoom: 0 = off, 1 = fit face, up to 4 = zoom past face.
+  if (key === "imageSize") {
+    return 4;
   }
   // Bright is 0…1 energy app-wide (1 = full tip / full deposit).
   return 1;
@@ -399,6 +446,19 @@ function nodeGraphTraceDisplayClampDotBudget(value) {
 // Each entry owns exactly one field's rule — adding/changing a rule for one
 // display type cannot silently change behavior for another.
 const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
+  // Image Burn face scale (0 = off, 1 = fit face, up to 4 = zoom).
+  imageSize: (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+      return 1;
+    }
+    return clampNodeSliderValue(n, 0, 4);
+  },
+  image: nodeGraphTraceDisplayClampBrightness,
+  send: nodeGraphTraceDisplayClampBrightness,
+  ink: nodeGraphTraceDisplayClampBrightness,
+  hang: nodeGraphTraceDisplayClampUnit,
+  blur: nodeGraphTraceDisplayClampUnit,
   ghost: nodeGraphTraceDisplayClampUnit,
   capLength: nodeGraphTraceDisplayClampUnit,
   capPadding: nodeGraphTraceDisplayClampUnit,
@@ -549,6 +609,30 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampUnit,
     dot1Size: nodeGraphTraceDisplayClampUnit,
     shapeParam: nodeGraphTraceDisplayClampUnit,
+    dot1Brightness: nodeGraphTraceDisplayClampBrightness,
+    backgroundBrightness: nodeGraphTraceDisplayClampUnit,
+  }),
+  imageBurnFace: Object.freeze({
+    imageSize: (value) => {
+      const n = Number(value);
+      if (!Number.isFinite(n)) {
+        return 1;
+      }
+      return clampNodeSliderValue(n, 0, 4);
+    },
+    image: nodeGraphTraceDisplayClampBrightness,
+    send: nodeGraphTraceDisplayClampBrightness,
+    ink: nodeGraphTraceDisplayClampBrightness,
+    hang: nodeGraphTraceDisplayClampUnit,
+    burn: nodeGraphTraceDisplayClampUnit,
+    contrast: (value) => {
+      const n = Number(value);
+      if (!Number.isFinite(n)) {
+        return 1;
+      }
+      return clampNodeSliderValue(n, 0, 2);
+    },
+    blur: nodeGraphTraceDisplayClampUnit,
     dot1Brightness: nodeGraphTraceDisplayClampBrightness,
     backgroundBrightness: nodeGraphTraceDisplayClampUnit,
   }),

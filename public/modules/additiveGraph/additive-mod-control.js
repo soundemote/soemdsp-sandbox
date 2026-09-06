@@ -42,8 +42,8 @@ function additiveModControlCreate(kind, fields = {}) {
         decay: Math.max(0, Number(fields.decay) || 0),
         sustain: Math.max(0, Math.min(1, Number(fields.sustain) || 0)),
         release: Math.max(0, Number(fields.release) || 0),
-        attackShape: Math.max(1e-9, Number(fields.attackShape) || 0.3),
-        releaseShape: Math.max(1e-9, Number(fields.releaseShape) || 1e-4),
+        attackShape: Math.max(-1, Math.min(1, Number(fields.attackShape) || 0)),
+        releaseShape: Math.max(-1, Math.min(1, Number(fields.releaseShape) || 0)),
         level: Number(fields.level) || 1,
         loop: Number(fields.loop) || 0,
         updateOnTrigger: Number(fields.updateOnTrigger) || 0,
@@ -99,7 +99,7 @@ function additiveModControlCreate(kind, fields = {}) {
           0,
           Number.isFinite(Number(fields.autoReleaseTime))
             ? Number(fields.autoReleaseTime)
-            : 0.08,
+            : 0, // ms (SoEm display units)
         ),
         velocity: Number.isFinite(Number(fields.velocity))
           ? Number(fields.velocity)

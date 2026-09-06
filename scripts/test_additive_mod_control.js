@@ -77,8 +77,8 @@ const N = 128;
     release: 0.05,
     level: 1,
     delay: 0,
-    attackShape: 0.3,
-    releaseShape: 0.0001,
+    attackShape: 0,
+    releaseShape: 0,
   });
   const strip = sandbox.additiveModControlBakeStrip(c, N);
   assert(strip[0] < strip[N - 1] || strip[N - 1] > 0.4, "adsr rises or reaches sustain");

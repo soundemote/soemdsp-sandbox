@@ -108,6 +108,13 @@ extern "C" void soemdsp_attenuverter_process_block(int handle, int frameCount);
 extern "C" int soemdsp_attenuverter_block_input_ptr(int handle);
 extern "C" int soemdsp_attenuverter_block_output_ptr(int handle);
 
+extern "C" int soemdsp_amp_curve_create();
+extern "C" void soemdsp_amp_curve_destroy(int handle);
+extern "C" void soemdsp_amp_curve_set_params(int handle, double mode);
+extern "C" void soemdsp_amp_curve_process_block(int handle, int frameCount);
+extern "C" int soemdsp_amp_curve_block_input_ptr(int handle);
+extern "C" int soemdsp_amp_curve_block_output_ptr(int handle);
+
 extern "C" int soemdsp_range_create();
 extern "C" void soemdsp_range_destroy(int handle);
 extern "C" void soemdsp_range_set_params(
@@ -158,11 +165,17 @@ extern "C" void soemdsp_robin_supersaw_destroy(int handle);
 extern "C" void soemdsp_robin_supersaw_reset(int handle);
 extern "C" void soemdsp_robin_supersaw_process_block(
   int handle, double frequencyHz, double sampleRate, double detuneCents,
-  int voices, double level, int frameCount
+  double voicesExact, double level, double phaseSpread, double stereoMode,
+  double detuneAlgorithm, double portaTimeMin, double portaTimeMax,
+  double portamentoStyle, double resetGate, int frameCount
 );
 extern "C" int soemdsp_robin_supersaw_block_output_left_ptr(int handle);
 extern "C" int soemdsp_robin_supersaw_block_output_right_ptr(int handle);
 extern "C" int soemdsp_robin_supersaw_block_output_mono_ptr(int handle);
+extern "C" int soemdsp_robin_supersaw_voice_count(int handle);
+extern "C" double soemdsp_robin_supersaw_voice_x(int handle, int index);
+extern "C" double soemdsp_robin_supersaw_voice_pan(int handle, int index);
+extern "C" double soemdsp_robin_supersaw_voice_amp(int handle, int index);
 
 extern "C" int soemdsp_slew_limiter_create();
 extern "C" void soemdsp_slew_limiter_destroy(int handle);
@@ -247,6 +260,10 @@ extern "C" double soemdsp_clock_pulse(int handle);
 
 extern "C" int soemdsp_trigger_divider_create();
 extern "C" void soemdsp_trigger_divider_destroy(int handle);
+extern "C" double soemdsp_trigger_divider_sample_clock(
+  int handle, double clock, double reset, double threshold, double division,
+  double duty, double level, double sampleRate
+);
 extern "C" double soemdsp_trigger_divider_sample(
   int handle, double trigger, double reset, double threshold, double division,
   double pulseTime, double level, double sampleRate
@@ -336,7 +353,14 @@ extern "C" double soemdsp_step_sequencer_gate(int handle);
 extern "C" int soemdsp_transport_create();
 extern "C" void soemdsp_transport_destroy(int handle);
 extern "C" double soemdsp_transport_sample(
-  int handle, double amplitude, double divisions, double tempoBpm, double sampleRate
+  int handle,
+  double amplitude,
+  double timeNumerator,
+  double timeDenominator,
+  double timingMode,
+  double tempoBpm,
+  double pulseWidth,
+  double sampleRate
 );
 extern "C" double soemdsp_transport_unipolar(int handle);
 extern "C" double soemdsp_transport_frequency(int handle);
@@ -486,15 +510,95 @@ extern "C" void soemdsp_hypersaw_sample(
   int handle,
   double frequencyHz,
   double sampleRate,
-  double phaseOffset,
-  int numVoices,
-  double spread,
-  double randomAmount,
-  double driftAmount,
-  double level
+  double phaseGlobal,
+  double numVoicesExact,
+  double distributePhase,
+  double randomizePhase,
+  double vibratoDistribution,
+  double vibratoAmp,
+  double vibratoSpeedHz,
+  double driftStyle,
+  double driftAmp,
+  double driftPitchSt,
+  double driftJitterHz,
+  double driftCompensation,
+  double centerSide,
+  double waveform,
+  double morph,
+  double level,
+  double seedParam
 );
 extern "C" double soemdsp_hypersaw_left(int handle);
 extern "C" double soemdsp_hypersaw_right(int handle);
+extern "C" double soemdsp_hypersaw_voice_phase(int handle, int voiceIndex);
+extern "C" int soemdsp_hypersaw_voice_count(int handle);
+extern "C" double soemdsp_hypersaw_voice_last_frac(int handle);
+
+extern "C" int soemdsp_hypersaw2_create();
+extern "C" void soemdsp_hypersaw2_destroy(int handle);
+extern "C" void soemdsp_hypersaw2_reset(int handle);
+extern "C" void soemdsp_hypersaw2_sample(
+  int handle,
+  double frequencyHz,
+  double sampleRate,
+  double phaseGlobal,
+  double numVoicesExact,
+  double distributePhase,
+  double randomizePhase,
+  double vibratoAmp,
+  double vibratoSpeedHz,
+  double vibratoFreqVary,
+  double vibratoPhaseVary,
+  double phaseMultiplier,
+  double jitterDistance,
+  double jitterSpeed,
+  double jitterPitchSt,
+  double centerSide,
+  double waveform,
+  double morph,
+  double level,
+  double seedParam
+);
+extern "C" double soemdsp_hypersaw2_left(int handle);
+extern "C" double soemdsp_hypersaw2_right(int handle);
+extern "C" double soemdsp_hypersaw2_voice_phase(int handle, int voiceIndex);
+extern "C" int soemdsp_hypersaw2_voice_count(int handle);
+extern "C" double soemdsp_hypersaw2_voice_last_frac(int handle);
+extern "C" int soemdsp_hypersaw2_max_voices();
+extern "C" int soemdsp_hypersaw2_version();
+
+extern "C" int soemdsp_vibrato_generator_create();
+extern "C" void soemdsp_vibrato_generator_destroy(int handle);
+extern "C" void soemdsp_vibrato_generator_reset(int handle, double phaseOffset);
+extern "C" double soemdsp_vibrato_generator_sample(
+  int handle,
+  double frequencyHz,
+  double sampleRate,
+  double phaseOffset,
+  double amplitude,
+  double morph,
+  double randomFreqMult,
+  double randomAmpMult,
+  double seedParam
+);
+extern "C" double soemdsp_vibrato_generator_out(int handle);
+
+extern "C" int soemdsp_wow_and_flutter_create();
+extern "C" void soemdsp_wow_and_flutter_destroy(int handle);
+extern "C" void soemdsp_wow_and_flutter_reset(int handle, double phaseOffset);
+extern "C" double soemdsp_wow_and_flutter_sample(
+  int handle,
+  double wowSpeedHz,
+  double sampleRate,
+  double wowPhaseOffset,
+  double wowAmp,
+  double flutterFrequency,
+  double flutterJitter,
+  double flutterAmp,
+  double seedParam,
+  double level
+);
+extern "C" double soemdsp_wow_and_flutter_out(int handle);
 
 extern "C" int soemdsp_sinc_create();
 extern "C" void soemdsp_sinc_destroy(int handle);
@@ -603,8 +707,9 @@ extern "C" double soemdsp_eq_filter_sample(
 extern "C" int soemdsp_active_filter_create();
 extern "C" void soemdsp_active_filter_destroy(int handle);
 extern "C" double soemdsp_active_filter_sample(
-  int handle, double input, double frequencyHz, double resonance, int mode,
-  int feedbackCircuit, int gainCompensation, double sampleRate
+  int handle, double input, double lowFrequencyHz, double highFrequencyHz,
+  int hpSlope, int lpSlope, double resonance, int feedbackCircuit,
+  int gainCompensation, double sampleRate
 );
 
 extern "C" int soemdsp_passive_filter_create();
@@ -704,7 +809,7 @@ extern "C" void soemdsp_basic_shape_destroy(int handle);
 extern "C" double soemdsp_basic_shape_sample(
   int handle, double frequencyHz, double sampleRate, double waveform,
   double motion, double phaseOffset, double morph, double amplitude,
-  double increment, double reset
+  double polarity, double increment, double reset
 );
 extern "C" double soemdsp_basic_shape_out(int handle);
 extern "C" double soemdsp_basic_shape_sine(int handle);
@@ -725,11 +830,12 @@ extern "C" double soemdsp_linear_envelope_sample(
 extern "C" int soemdsp_pluck_envelope_create();
 extern "C" void soemdsp_pluck_envelope_destroy(int handle);
 extern "C" double soemdsp_pluck_envelope_sample(
-  int handle, double trigger, double release, double delayTime,
-  double attackFeedback, double decay, double decayModStart, double decayModEnd,
-  double endingDecay, double decayModCurve, double decayModFrequency,
-  double autoReleaseTime, double releaseFeedback, double velocity,
-  double velocitySensitivity, double level, double sampleRate
+  int handle, double trigger, double releaseGate,
+  double velocitySensitivity, double attack,
+  double decaySlopeTop, double decaySlopeMid, double decaySlopeBottom,
+  double sustain, double releaseAmt, double autoReleaseTime,
+  double envelopeCurve, double envelopeDamping,
+  double velocity, double level, double sampleRate
 );
 
 extern "C" int soemdsp_flower_child_envelope_follower_create();
@@ -737,6 +843,13 @@ extern "C" void soemdsp_flower_child_envelope_follower_destroy(int handle);
 extern "C" double soemdsp_flower_child_envelope_follower_sample(
   int handle, double input, double attack, double hold, double decay,
   double sampleRate
+);
+
+extern "C" int soemdsp_vactrol_envelope_create();
+extern "C" void soemdsp_vactrol_envelope_destroy(int handle);
+extern "C" double soemdsp_vactrol_envelope_sample(
+  int handle, double light, double attack, double release, double curve,
+  double sensitivity, double sampleRate
 );
 
 extern "C" int soemdsp_delay_effect_create();
@@ -1171,7 +1284,8 @@ extern "C" void soemdsp_arp_destroy(int handle);
 extern "C" double soemdsp_arp_sample(
   int handle, double heldKeys, double hasHeldKeys,
   double trigger, double hasTrigger, double reset,
-  double rateHz, double mode, double steps, double seed, double sampleRate
+  double rateHz, double mode, double steps, double seed,
+  double octaveOffset, double sampleRate
 );
 extern "C" double soemdsp_arp_gate(int handle);
 extern "C" double soemdsp_arp_trigger(int handle);
@@ -1213,6 +1327,7 @@ extern "C" void soemdsp_speaker_protector2_sample(
 namespace {
 
 using soemdsp_maths::dsp_exp;
+using soemdsp_maths::dsp_ln;
 using soemdsp_maths::dsp_cos;
 using soemdsp_maths::dsp_sin_cos_turns;
 using soemdsp_maths::dsp_floor;
@@ -1310,7 +1425,7 @@ static const int kTypeExpAdsr = 70;
 static const int kTypeLinearEnvelope = 71;
 static const int kTypePluckEnvelope = 72;
 static const int kTypeFlowerChildEnvelopeFollower = 73;
-// removed: vactrol (was kTypeVactrolEnvelope = 74)
+// 74 tombstoned (old vactrol)
 static const int kTypeDelayEffect = 75;
 // wallDelay skipped — native is placeholder (version only).
 static const int kTypeSoemReverb = 76;
@@ -1394,6 +1509,12 @@ static const int kTypeArp = 150;
 static const int kTypeHilbert = 151;
 static const int kTypeBinaryClock = 152;
 static const int kTypeSinCos = 153;
+static const int kTypeVibratoGenerator = 154;
+static const int kTypeWowAndFlutter = 155;
+static const int kTypeVactrol = 156; // roll-your-own optical lag (not tombstone 74)
+static const int kTypeAmpCurve = 157; // CV → Amplitude response (Lin/Exp VCA curve)
+static const int kTypeHypersaw2 = 158;
+static const int kTypeTransistor = 159; // t / t1…t10 — stages = last path index
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1635,6 +1756,15 @@ struct Conn {
   bool used;
 };
 
+// One-shot live-port poke (double-click jack / wire-break impulse).
+static const int kMaxPortPokes = 64;
+struct PortPoke {
+  unsigned int dstHash;
+  int dstPort;
+  double amp;
+  bool used;
+};
+
 struct Circuit {
   bool active;
   bool compiled;
@@ -1649,6 +1779,7 @@ struct Circuit {
   Control* toSmooth[kMaxToSmooth];
   Node nodes[kMaxNodes];
   Conn conns[kMaxConnections];
+  PortPoke portPokes[kMaxPortPokes];
   double outL[kMaxBlockFrames];
   double outR[kMaxBlockFrames];
   double mixMono[kMaxBlockFrames];
@@ -1702,6 +1833,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_ping_pong_delay_destroy(handle);
   } else if (kind == kTypeAttenuverter) {
     soemdsp_attenuverter_destroy(handle);
+  } else if (kind == kTypeAmpCurve) {
+    soemdsp_amp_curve_destroy(handle);
   } else if (kind == kTypeRange) {
     soemdsp_range_destroy(handle);
   } else if (kind == kTypeNoiseGenerator) {
@@ -1764,6 +1897,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_dsf_oscillator_destroy(handle);
   } else if (kind == kTypeHypersaw) {
     soemdsp_hypersaw_destroy(handle);
+  } else if (kind == kTypeHypersaw2) {
+    soemdsp_hypersaw2_destroy(handle);
   } else if (kind == kTypeSinc) {
     soemdsp_sinc_destroy(handle);
   } else if (kind == kTypeBradley2a) {
@@ -1882,6 +2017,12 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_random_walk_destroy(handle);
   } else if (kind == kTypeCheapWalk) {
     soemdsp_cheap_walk_destroy(handle);
+  } else if (kind == kTypeVibratoGenerator) {
+    soemdsp_vibrato_generator_destroy(handle);
+  } else if (kind == kTypeWowAndFlutter) {
+    soemdsp_wow_and_flutter_destroy(handle);
+  } else if (kind == kTypeVactrol) {
+    soemdsp_vactrol_envelope_destroy(handle);
   } else if (kind == kTypePulseExplosion) {
     soemdsp_pulse_explosion_destroy(handle);
   } else if (kind == kTypeSpiral) {
@@ -2041,7 +2182,12 @@ static void init_node_defaults(Node& n, int typeId) {
   n.nativeHandleR = 0;
   n.nativeKind = 0;
   init_control(n.volumeDb, (typeId == kTypeMixStereo) ? 0.0 : -3.0, false);
-  init_control(n.pan, 0.0, false);
+  init_control(
+    n.pan,
+    (typeId == kTypeHypersaw || typeId == kTypeHypersaw2) ? 0.5 // centerSide
+      : 0.0,
+    false
+  );
   // lookaheadLimiter: mode = look-ahead on/off; timingMode = gainCompensation.
   init_control(
     n.frequency,
@@ -2071,7 +2217,7 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeArchimedes
           || typeId == kTypeAdditiveOsc || typeId == kTypeSurgeOscillator
           || typeId == kTypeSoftwaveOsc || typeId == kTypeDsfOscillator
-          || typeId == kTypeHypersaw || typeId == kTypeSinc
+          || typeId == kTypeHypersaw || typeId == kTypeHypersaw2 || typeId == kTypeSinc
           || typeId == kTypeAdditiveOut) ? 100.0
       : (typeId == kTypeAdditiveBubble) ? 1.0 // cutoff 0..1 (settled default)
       : (typeId == kTypeAdditiveLinearFilter || typeId == kTypeAdditiveAnalogFilter
@@ -2088,7 +2234,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSnowflake) ? 55.0
       : (typeId == kTypeAntisaw) ? 110.0
       : (typeId == kTypeHarmonicSeries) ? 100.0
-      : (typeId == kTypePluckEnvelope) ? 1.5 // decayModFrequency
+      : (typeId == kTypePluckEnvelope) ? 15.0 // EnvelopeDamping Hz
       : (typeId == kTypePll) ? 10.0 // LPF cutoff
       : (typeId == kTypeSoemReverb) ? 1000.0 // bandFrequency
       : (typeId == kTypeLorenzAttractor || typeId == kTypeChuaAttractor) ? 1.0 // speed
@@ -2096,6 +2242,8 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeRayBouncer) ? 8.0 // rate/frequency
       : (typeId == kTypeFractalBrownianNoise) ? 0.5
       : (typeId == kTypeCheapWalk) ? 8.0 // rate Hz
+      : (typeId == kTypeVibratoGenerator) ? 5.0 // vibrato speed Hz
+      : (typeId == kTypeWowAndFlutter) ? 1.0 // wow speed Hz (header default ~1/sr * sr)
       : (typeId == kTypeRandomWalk) ? 2.0
       : (typeId == kTypeSpiral || typeId == kTypeNyquistShannon) ? 440.0
       : (typeId == kTypeFractalSpiral || typeId == kTypeLogSpiral
@@ -2116,6 +2264,8 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.waveform,
     (typeId == kTypeAdditiveOsc || typeId == kTypeDsfOscillator) ? 1.0
+      : (typeId == kTypeHypersaw || typeId == kTypeHypersaw2) ? 1.0 // Saw (Trisaw=0 … Trapezoid=6)
+      : (typeId == kTypeActiveFilter) ? 0.0 // Dual Ladder HP slope Bypass
       : (typeId == kTypeSoemReverb) ? 1.0 // doModulateEcho On
       : (typeId == kTypeAdditiveGenerator) ? 0.0 // Saw
       : (typeId == kTypeAdditiveBlaster) ? 1.0 // curveKind Exponential (PoC)
@@ -2128,7 +2278,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.amplitude,
     (typeId == kTypeAttenuverter) ? 0.5
       : (typeId == kTypePhoneTone) ? 0.5
-      : (typeId == kTypeAdditiveOsc || typeId == kTypeHypersaw
+      : (typeId == kTypeAdditiveOsc || typeId == kTypeHypersaw || typeId == kTypeHypersaw2
           || typeId == kTypeAdditiveOut) ? 0.35
       : (typeId == kTypeAdditiveNoisyFreq) ? 0.5 // add
       : (typeId == kTypeAdditiveNoisyPhase || typeId == kTypeAdditiveNoisyPan
@@ -2143,11 +2293,13 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.shape,
     (typeId == kTypeAdditivePan) ? 1.0 // AutoPan spread (turns across bank)
+      : (typeId == kTypePluckEnvelope) ? -0.5 // EnvelopeCurve
+      : (typeId == kTypeRobinSupersaw) ? 1.0 // Random Phase (live offset scale)
       : (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter || typeId == kTypeAntisaw
       || typeId == kTypeBradley2a || typeId == kTypeEllipsoid || typeId == kTypeSnowflake
       || typeId == kTypeFlowerChildFilter || typeId == kTypeYellowjacketFilter
       || typeId == kTypeHumanFilter || typeId == kTypeResonatorFilter
-      || typeId == kTypeCombResonator || typeId == kTypePluckEnvelope
+      || typeId == kTypeCombResonator
       || typeId == kTypeAdditiveBubble || typeId == kTypeAdditiveGenerator
       || typeId == kTypeAdditiveFrequencySkew
       || typeId == kTypeSineWavetable || typeId == kTypeSinCos)
@@ -2159,11 +2311,15 @@ static void init_node_defaults(Node& n, int typeId) {
         ? 12.0 // slope dB/oct
       : (typeId == kTypeChaoticPhaseLockingFilter) ? 1.0 // chaos default
       : (typeId == kTypeDsfOscillator) ? 1.0 // harmonics
-      : (typeId == kTypeHypersaw) ? 1.0 // spread
+      : (typeId == kTypeHypersaw || typeId == kTypeHypersaw2) ? 1.0 // DistributePhase
+      : (typeId == kTypeActiveFilter) ? 4.0 // Dual Ladder LP slope 24 dB
+      : (typeId == kTypeVibratoGenerator) ? 0.0 // morph
+      : (typeId == kTypeWowAndFlutter) ? 1.0 // wowAmp
+      : (typeId == kTypeVactrol) ? 1.0 // curve gamma
       : (typeId == kTypeSoftwaveOsc || typeId == kTypeSuperloveFilter
           || typeId == kTypeBasicShape) ? 0.5 // morph/chaos
       : (typeId == kTypeSmoothGraph) ? 1.0 // tension
-      : (typeId == kTypeExpAdsr) ? 0.3 // attackShape
+      : (typeId == kTypeExpAdsr) ? 0.0 // attackShape (bipolar; 0=linear)
       : (typeId == kTypeAttackDecay) ? 1.0 // curve γ
       : (typeId == kTypeLorenzAttractor) ? 10.0 // sigma
       : (typeId == kTypeLogisticMap) ? 3.9 // r
@@ -2199,6 +2355,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.resonance,
     (typeId == kTypeAdditiveBlaster) ? -0.2 // curve bend (PoC)
+      : (typeId == kTypeHypersaw || typeId == kTypeHypersaw2) ? 0.0 // VibratoAmp
       : (typeId == kTypeChebyshev || typeId == kTypeElliptic) ? 1.0 // ripple dB
       : (typeId == kTypeEqFilter || typeId == kTypeAllpass) ? 0.707 // Q
       : (typeId == kTypeBandpass) ? 1.0 // Q
@@ -2232,7 +2389,6 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeEqFilter) ? 1.0 // HP12
       : (typeId == kTypeBandpass) ? 4.0 // forced BP12 Peak
       : (typeId == kTypeAllpass) ? 6.0 // forced AP12
-      : (typeId == kTypeActiveFilter) ? 3.0 // LP24
       : (typeId == kTypeTb303Filter) ? 4.0 // LP_24
       : (typeId == kTypeLookaheadLimiter || typeId == kTypePumpLimiter) ? 1.0 // look-ahead On
       : (typeId == kTypeSineWavetable) ? 2.0 // sincos
@@ -2246,8 +2402,10 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeGravityWalker) ? 1.0 // octaves
       : (typeId == kTypeSmoothGraph || typeId == kTypeStepGraph) ? 0.0 // Input mode
       : (typeId == kTypeArp) ? 0.0 // up
+      : (typeId == kTypeAmpCurve) ? 1.0 // Exp (classic VCA CV)
       : (typeId == kTypeHilbert) ? 0.0 // +90°
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
+      : (typeId == kTypeHypersaw) ? 0.0 // DriftStyle Random Steps
       : (typeId == kTypePiSpigotNoise) ? 0.0 // color White
       : (typeId == kTypeAudioPlayer) ? 4.0 // Play
       : (typeId == kTypeAdditiveOut) ? 0.0 // optimize Inaudible off
@@ -2256,7 +2414,7 @@ static void init_node_defaults(Node& n, int typeId) {
     true
   );
   // Ladder stages default 4; robinSupersaw = voices; triggerDivider = division;
-  // triggerCounter/stepSequencer = counts; transport = divisions (can be ≤0);
+  // triggerCounter/stepSequencer = counts;
   // antisaw = reflections; archimedes = profile dtShift;
   // additiveOsc = harmonics; hypersaw = voices; sinc = lobes;
   // snowflake = iterations.
@@ -2283,7 +2441,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAntisaw) ? 64.0
       : (typeId == kTypeArchimedes) ? 12.0
       : (typeId == kTypeAdditiveOsc || typeId == kTypeAdditiveGenerator) ? 32.0
-      : (typeId == kTypeHypersaw) ? 8.0
+      : (typeId == kTypeHypersaw) ? 32.0 // Oscillators
+      : (typeId == kTypeHypersaw2) ? 7.0 // Oscillators
       : (typeId == kTypeSinc) ? 4.0
       : (typeId == kTypeSnowflake) ? 3.0 // iterations
       : (typeId >= kTypeCrossover2 && typeId <= kTypeCrossover6) ? 4.0 // LR order
@@ -2293,13 +2452,18 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePll) ? 1.0 // PC type RS Flip
       : (typeId == kTypeAdditiveDiffusor) ? 0.0 // quantize off
       : 4.0,
-    // Generator Harmonics must stay continuous for Decimal trailing amp.
-    (typeId != kTypeAdditiveGenerator)
+    // Generator Harmonics + Hypersaw/RobinSupersaw voices stay continuous for Decimal trailing amp.
+    (typeId != kTypeAdditiveGenerator && typeId != kTypeHypersaw && typeId != kTypeHypersaw2
+      && typeId != kTypeRobinSupersaw)
   );
   init_control(
     n.center,
-    (typeId == kTypeHypersaw) ? 0.1 // drift
-      : (typeId == kTypeExpAdsr) ? 0.0001 // releaseShape
+    (typeId == kTypeHypersaw) ? 22.6 // driftAmp (phase-drift range)
+      : (typeId == kTypeHypersaw2) ? 0.1 // jitterDistance (Drift Amp)
+      : (typeId == kTypePluckEnvelope) ? 0.5 // VelocitySensitivity
+      : (typeId == kTypeVactrol) ? 0.0 // lightOffset
+      : (typeId == kTypeWowAndFlutter) ? 1.0 // flutterAmp
+      : (typeId == kTypeExpAdsr) ? 0.0 // releaseShape (bipolar; 0=linear)
       : (typeId == kTypeSoemReverb) ? 2.0 // bandStages
       : (typeId == kTypeLorenzAttractor) ? 1.0 // scale
       : (typeId == kTypeLogisticMap) ? 0.5 // seed
@@ -2313,12 +2477,14 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAdditiveBlaster) ? 0.44 // bias (PoC)
       : (typeId == kTypeStepGraph) ? 0.0 // curveOffset
       : (typeId == kTypeAdditivePan) ? 0.35 // AutoPan shimmer amount
+      : (typeId == kTypeRobinSupersaw) ? 2.0 // detuneAlgorithm Emotional
       : (typeId == kTypeCrossover3) ? 3000.0
       : (typeId == kTypeCrossover4) ? 1000.0
       : (typeId == kTypeCrossover5) ? 500.0
       : (typeId == kTypeCrossover6) ? 300.0
       : 0.0,
-    false
+    // Robin detuneAlgorithm is discrete 0…5
+    typeId == kTypeRobinSupersaw
   );
   // Soft-clipper width default 2; noise = deviation; supersaw = detune;
   // triggerCounter = increment; archimedes = dither bits;
@@ -2327,7 +2493,8 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.width,
     (typeId == kTypeNoiseGenerator) ? 0.5
-      : (typeId == kTypeRobinSupersaw) ? 30.0
+      : (typeId == kTypeTransport) ? 0.5 // pulseWidth gate duty
+      : (typeId == kTypeRobinSupersaw) ? 30.0 // detuneCents (no hard 100¢ cap)
       : (typeId == kTypeTriggerCounter) ? 1.0
       : (typeId == kTypePumpLimiter) ? 8.0 // ratio
       : (typeId == kTypeMetallicRatio) ? 1.0 // index n
@@ -2335,7 +2502,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeArchimedes) ? 3.0
       : (typeId == kTypeSurgeOscillator) ? 50.0 // syncFrequency Hz
       : (typeId == kTypeDsfOscillator) ? 0.5 // PWM
-      : (typeId == kTypeHypersaw) ? 0.15 // random
+      : (typeId == kTypeHypersaw || typeId == kTypeHypersaw2) ? 0.10 // randomizePhase
+      : (typeId == kTypeWowAndFlutter) ? 0.01 // flutterJitter (header default)
       : (typeId == kTypeAdditiveOsc) ? 0.0 // harmonicPhaseMultiply
       : (typeId == kTypeAdditiveQuantizeFreq) ? 0.0 // random
       : (typeId == kTypeAdditivePan) ? 0.75 // AutoPan Width (odd/even fan)
@@ -2347,6 +2515,7 @@ static void init_node_defaults(Node& n, int typeId) {
         ? 1.0 // bandwidth octaves
       : (typeId == kTypeCombResonator) ? 1.0 // depth
       : (typeId == kTypePluckEnvelope) ? 1.0 // velocity
+      : (typeId == kTypeVactrol) ? 1.0 // sensitivity
       : (typeId == kTypeSoemReverb) ? 2.0 // lpfStages
       : (typeId == kTypeLorenzAttractor) ? 2.6666666666666665 // beta
       : (typeId == kTypeHenonMap) ? 0.3 // b
@@ -2371,32 +2540,35 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDsfOscillator) ? 0.5 // SquSaw blend
       : (typeId == kTypeBradley2a) ? 0.0 // interfLevel
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.55 // sustain
+      : (typeId == kTypeVactrol) ? 0.0 // darkCurrent
       : (typeId == kTypeLorenzAttractor) ? 0.4 // zDepth
       : (typeId == kTypeHenonMap) ? 0.1 // seedY
       : (typeId == kTypeChuaAttractor) ? -0.714 // m1
       : (typeId == kTypeRayBouncer) ? 0.0 // rotate deg
       : (typeId == kTypePulseExplosion) ? 0.3 // timeSpread
       : (typeId == kTypeAdditivePan) ? 1.0 // AutoPan orbit skew
+      : (typeId == kTypeHypersaw) ? 0.0 // Vibrato Distribution
+      : (typeId == kTypeHypersaw2) ? 1.0 // phaseMultiplier (vibOffset spirit)
       : 0.43,
     false
   );
   init_control(
     n.diffusionSize,
     (typeId == kTypeBradley2a) ? 0.0 // harm2
-      : (typeId == kTypePluckEnvelope) ? 0.08 // decayModStart
+      : (typeId == kTypePluckEnvelope) ? 0.9 // DecaySlopeTop
       : 0.35,
     false
   );
   init_control(
     n.diffusionAmount,
     (typeId == kTypeBradley2a) ? 0.0 // harm3
-      : (typeId == kTypePluckEnvelope) ? 0.55 // decayModEnd
+      : (typeId == kTypePluckEnvelope) ? 4.8 // DecaySlopeBottom
       : 0.70,
     false
   );
   init_control(
     n.delaySize,
-    (typeId == kTypePluckEnvelope) ? 0.8 // endingDecay
+    (typeId == kTypePluckEnvelope) ? 1.2 // Sustain
       : (typeId == kTypeSoemReverb) ? 0.35 // echoTime
       : 0.02,
     false
@@ -2404,7 +2576,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.recycle,
     (typeId == kTypeBradley2a) ? 0.0 // impulseLevel
-      : (typeId == kTypePluckEnvelope) ? 0.35 // releaseFeedback
+      : (typeId == kTypePluckEnvelope) ? 0.86 // Release
       : (typeId == kTypeSoemReverb) ? 0.5
       : 0.70,
     false
@@ -2415,6 +2587,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDelayEffect) ? 0.02 // modAmount
       : (typeId == kTypeSoemReverb) ? 0.002 // lfoAmp
       : (typeId == kTypePingPongDelay) ? 25.0 // lfoAmp ms (audible like Delay modAmount)
+      : (typeId == kTypeHypersaw) ? 246.0 // driftJitter Hz
+      : (typeId == kTypeHypersaw2) ? 0.0 // vibratoFreqVary
       : 0.07,
     false
   );
@@ -2422,6 +2596,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.lfoBaseSpeed,
     (typeId == kTypeBradley2a) ? 40.0 // ampRate
       : (typeId == kTypeSoemReverb) ? 0.5 // lfoFrequency
+      : (typeId == kTypeHypersaw2) ? 0.0 // vibratoSpeed Hz
       : 0.83,
     false
   );
@@ -2430,6 +2605,8 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypePingPongDelay) ? 0.25
       : (typeId == kTypeSoemReverb) ? 1.0
       : (typeId == kTypeDelayEffect) ? 0.0
+      : (typeId == kTypeHypersaw) ? 0.0 // DriftCompensation
+      : (typeId == kTypeHypersaw2) ? 0.0 // vibratoPhaseVary
       : 0.001,
     false
   );
@@ -2443,6 +2620,8 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeGravityWalker) ? 1.0 // Major scale choice
       : (typeId == kTypeArp) ? 1.0 // RNG seed
       : (typeId == kTypeFractalBrownianNoise || typeId == kTypeRandomWalk || typeId == kTypeCheapWalk) ? 1.0
+      : (typeId == kTypeHypersaw || typeId == kTypeHypersaw2
+          || typeId == kTypeVibratoGenerator || typeId == kTypeWowAndFlutter) ? 1.0
       : (typeId == kTypeAdditiveQuantizeFreq || typeId == kTypeAdditiveQuantizePhase
           || typeId == kTypeAdditiveNoisyFreq || typeId == kTypeAdditiveNoisyPhase
           || typeId == kTypeAdditiveNoisyPan || typeId == kTypeAdditiveNoisyAmp) ? 1.0
@@ -2455,10 +2634,11 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeBradley2a) ? 1.0 // hitRate
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.22 // decay
       : (typeId == kTypeAttackDecay) ? 0.25 // decay
-      : (typeId == kTypePluckEnvelope) ? 0.35 // decay
+      : (typeId == kTypePluckEnvelope) ? 0.7 // DecaySlopeMid
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // decay
       : (typeId == kTypeDelayEffect) ? 0.25
       : (typeId == kTypeSoemReverb) ? 1.0 // duckLimit
+      : (typeId == kTypeHypersaw || typeId == kTypeHypersaw2) ? 0.5 // morph/PWM center
       : 0.35,
     false
   );
@@ -2481,9 +2661,11 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope
           || typeId == kTypePluckEnvelope) ? 0.0 // delay
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // attack
+      : (typeId == kTypeVactrol) ? 0.0 // attack
       : (typeId == kTypeDelayEffect) ? 0.18 // time s
       : (typeId == kTypeAudioPlayer) ? 0.0 // start phase
       : (typeId == kTypeSpeakerProtector2) ? 0.008 // dropSeconds
+      : (typeId == kTypeRobinSupersaw) ? 0.0 // portaTimeMin s
       : 1.0,
     false
   );
@@ -2497,10 +2679,12 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLookaheadLimiter || typeId == kTypePumpLimiter) ? 0.0 // look-ahead samples
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.08 // attack
       : (typeId == kTypeAttackDecay) ? 0.01 // attack
-      : (typeId == kTypePluckEnvelope) ? 0.002 // attackFeedback
+      : (typeId == kTypePluckEnvelope) ? 0.0 // Attack
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // hold
+      : (typeId == kTypeVactrol) ? 0.1 // release
       : (typeId == kTypeAudioPlayer) ? 1.0 // end phase
       : (typeId == kTypeSpeakerProtector2) ? 0.333 // holdSeconds
+      : (typeId == kTypeRobinSupersaw) ? 0.0 // portaTimeMax s (0 = off)
       : 4.0,
     false
   );
@@ -2517,7 +2701,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLookaheadLimiter) ? 0.2 // attack ms
       : (typeId == kTypePumpLimiter) ? 5.0 // attack ms
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.45 // release s
-      : (typeId == kTypePluckEnvelope) ? 0.08 // autoReleaseTime
+      : (typeId == kTypePluckEnvelope) ? 0.0 // AutoReleaseTime
       : (typeId == kTypeSoemReverb) ? 0.04 // duckRelease
       : (typeId == kTypeSpeakerProtector2) ? 0.75 // riseSeconds
       : 0.0,
@@ -2529,6 +2713,10 @@ static void init_node_defaults(Node& n, int typeId) {
     n.lfoRate,
     (typeId == kTypeBradley2a) ? 60.0 // jitterRate
       : (typeId == kTypeDelayEffect) ? 0.1 // modRate
+      : (typeId == kTypeHypersaw) ? 0.0 // VibratoSpeed Hz (SoEm default)
+      : (typeId == kTypeHypersaw2) ? 1.0 // jitterSpeed (Drift Jitter Hz, 0…50)
+      : (typeId == kTypeVibratoGenerator) ? 5.0
+      : (typeId == kTypeWowAndFlutter) ? 1.0 // flutterFrequency (header default)
       : 0.35,
     false
   );
@@ -2539,6 +2727,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeBradley2a) ? 2600.0 // interfFreq
       : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 1000.0 // highCut
       : (typeId == kTypeInertialFilter) ? 20.0 // release Hz
+      : (typeId == kTypeHypersaw) ? 64.256 // DriftPitch (semitones)
+      : (typeId == kTypeHypersaw2) ? 0.0 // jitterPitch offset (0 = baked 64.256)
       : (typeId == kTypeCrossover5) ? 8000.0
       : (typeId == kTypeCrossover6) ? 3000.0
       : 8000.0,
@@ -2552,7 +2742,14 @@ static void init_node_defaults(Node& n, int typeId) {
     false
   );
   init_control(n.tempoBpm, 120.0, false);
-  init_control(n.offset, (typeId == kTypePll) ? 5.0 : 0.0, false); // degreePhrase rest8
+  init_control(
+    n.offset,
+    (typeId == kTypePll) ? 5.0
+      : (typeId == kTypeRobinSupersaw) ? 0.126 // portamentoStyle (SoEm default)
+      : (typeId == kTypeArp) ? 0.0 // octaveOffset
+      : 0.0,
+    (typeId == kTypeArp) // snap whole-octave steps
+  ); // degreePhrase rest8 / robin portamentoStyle / arp octaveOffset
   init_control(
     n.inLow,
     (typeId == kTypePulseExplosion) ? 0.3 // lowAmplitude
@@ -2911,7 +3108,11 @@ static void control_step(Control& c, Circuit& g) {
     return;
   }
   control_ensure_coeff(c, g);
-  if (c.coeff >= 1.0 - 1e-15) {
+  // coeff>=1 means "instant" only for one-pole-style b0 in [0,1].
+  // Linear stores per-sample delta = (target-out)/timeSamples, which is often
+  // >1 for large upward jumps (e.g. frequency 100→10k) — that must still ramp,
+  // otherwise alt-click increases snap while decreases (negative coeff) smooth.
+  if (c.type != kSmoothTypeLinear && c.coeff >= 1.0 - 1e-15) {
     c.out = c.target;
     c.stage1 = c.target;
     c.stage2 = c.target;
@@ -3059,6 +3260,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   }
   if (typeId == kTypePingPongDelay) return soemdsp_ping_pong_delay_create();
   if (typeId == kTypeAttenuverter) return soemdsp_attenuverter_create();
+  if (typeId == kTypeAmpCurve) return soemdsp_amp_curve_create();
   if (typeId == kTypeRange) return soemdsp_range_create();
   if (typeId == kTypeNoiseGenerator) return soemdsp_noise_generator_create();
   if (typeId == kTypeRobinSinusoid) return soemdsp_robin_sinusoid_create();
@@ -3093,6 +3295,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeSoftwaveOsc) return soemdsp_softwave_create();
   if (typeId == kTypeDsfOscillator) return soemdsp_dsf_oscillator_create();
   if (typeId == kTypeHypersaw) return soemdsp_hypersaw_create();
+  if (typeId == kTypeHypersaw2) return soemdsp_hypersaw2_create();
   if (typeId == kTypeSinc) return soemdsp_sinc_create();
   if (typeId == kTypeBradley2a) return soemdsp_bradley_2a_create();
   // kTypeEllipsoid: free-fn, no instance
@@ -3180,6 +3383,9 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypePiSpigotNoise) return soemdsp_pi_spigot_noise_create();
   if (typeId == kTypeRandomWalk) return soemdsp_random_walk_create();
   if (typeId == kTypeCheapWalk) return soemdsp_cheap_walk_create();
+  if (typeId == kTypeVibratoGenerator) return soemdsp_vibrato_generator_create();
+  if (typeId == kTypeWowAndFlutter) return soemdsp_wow_and_flutter_create();
+  if (typeId == kTypeVactrol) return soemdsp_vactrol_envelope_create();
   if (typeId == kTypePulseExplosion) return soemdsp_pulse_explosion_create();
   if (typeId == kTypeSpiral) return soemdsp_jerobeam_spiral_create();
   if (typeId == kTypeFractalSpiral) return soemdsp_fractal_spiral_create();
@@ -3242,6 +3448,9 @@ static void clear_graph_contents(Circuit& g) {
   }
   for (int i = 0; i < kMaxConnections; i++) {
     g.conns[i].used = false;
+  }
+  for (int i = 0; i < kMaxPortPokes; i++) {
+    g.portPokes[i].used = false;
   }
   zero_buf(g.outL, kMaxBlockFrames);
   zero_buf(g.outR, kMaxBlockFrames);
@@ -3332,9 +3541,23 @@ static void mix_node_inputs(Circuit& g, const Node& node, int frames) {
       dstAcc[f] += src.buf[sp][f];
     }
   }
+  // One-shot pokes into Mono/Left/Right (Gate, In, …).
+  for (int i = 0; i < kMaxPortPokes; i++) {
+    PortPoke& poke = g.portPokes[i];
+    if (!poke.used) continue;
+    if (poke.dstHash != node.idHash) continue;
+    const int dp = clamp_dst_port(poke.dstPort);
+    if (is_live_dst_port(dp) || is_graph_port(dp)) continue;
+    double* dstAcc = g.mixMono;
+    if (dp == kPortLeft) dstAcc = g.mixLeft;
+    else if (dp == kPortRight) dstAcc = g.mixRight;
+    if (frames > 0) dstAcc[0] += poke.amp;
+    poke.used = false;
+  }
 }
 
-// Mix Live destination port into dest[]; returns true if any cable present.
+// Mix Live destination port into dest[]; returns true if any cable present
+// (or a one-shot port poke from double-click / wire-break).
 static bool mix_live_port(Circuit& g, const Node& node, int livePort, int frames, double* dest) {
   zero_buf(dest, frames);
   bool any = false;
@@ -3349,6 +3572,16 @@ static bool mix_live_port(Circuit& g, const Node& node, int livePort, int frames
     for (int f = 0; f < frames; f++) {
       dest[f] += src.buf[sp][f];
     }
+    any = true;
+  }
+  // Consume matching one-shot pokes (first sample only = unit impulse).
+  for (int i = 0; i < kMaxPortPokes; i++) {
+    PortPoke& poke = g.portPokes[i];
+    if (!poke.used) continue;
+    if (poke.dstHash != node.idHash) continue;
+    if (clamp_dst_port(poke.dstPort) != livePort) continue;
+    if (frames > 0) dest[0] += poke.amp;
+    poke.used = false;
     any = true;
   }
   return any;
@@ -3853,6 +4086,24 @@ static void process_attenuverter(Circuit& g, Node& node, int frames) {
   copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
 }
 
+// Amp Curve: fold Mono+L+R → Lin/Exp VCA-style response for Amplitude params.
+// mode=Lin/Exp only.
+static void process_amp_curve(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  soemdsp_amp_curve_set_params(node.nativeHandle, control_effective(node.mode));
+  double* inPtr = ptr_from_export(soemdsp_amp_curve_block_input_ptr(node.nativeHandle));
+  double* outPtr = ptr_from_export(soemdsp_amp_curve_block_output_ptr(node.nativeHandle));
+  if (!inPtr || !outPtr) return;
+  for (int f = 0; f < frames; f++) {
+    inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+  }
+  soemdsp_amp_curve_process_block(node.nativeHandle, frames);
+  copy_tap_to_buf(node.buf[kPortMono], outPtr, frames);
+  copy_tap_to_buf(node.buf[kPortLeft], outPtr, frames);
+  copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
+}
+
 static void process_range(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -3883,6 +4134,57 @@ static void process_inv(Circuit& g, Node& node, int frames) {
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
+  }
+}
+
+static bool port_has_audio_conn(Circuit& g, const Node& node, int dstPort) {
+  for (int ci = 0; ci < g.connCount; ci++) {
+    if (!g.conns[ci].used || g.conns[ci].dstHash != node.idHash) continue;
+    if (clamp_dst_port(g.conns[ci].dstPort) == dstPort) return true;
+  }
+  return false;
+}
+
+// t / t1…t10: transistor-switched paths (JS t-series math).
+// stages = lastIndex (0 = lone t). In→Mono, Analog→Morph, Digital→Trigger.
+// Outs "0"…"10" → buf channels 0…10.
+static void process_transistor(Circuit& g, Node& node, int frames) {
+  int lastIndex = (int)(control_effective(node.stages) + (control_effective(node.stages) >= 0.0 ? 0.5 : -0.5));
+  if (lastIndex < 0) lastIndex = 0;
+  if (lastIndex > 10) lastIndex = 10;
+  const int count = lastIndex + 1;
+
+  mix_node_inputs(g, node, frames);
+  const bool hasIn = port_has_audio_conn(g, node, kPortMono);
+  const bool hasAnalog = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
+  const bool hasDigital = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+
+  for (int f = 0; f < frames; f++) {
+    const double unit = hasAnalog ? g.mixMorph[f] : 0.0;
+    double u = unit;
+    if (u < 0.0) u = 0.0;
+    if (u > 1.0) u = 1.0;
+    const double addr = u * (double)lastIndex;
+    const int idx = (int)(g.mixTrigger[f] + (g.mixTrigger[f] >= 0.0 ? 0.5 : -0.5));
+    const double inRange = (idx >= 0 && idx <= lastIndex) ? 1.0 : 0.0;
+    const double lone = 1.0 + (u - 1.0) * (lastIndex == 0 ? 1.0 : 0.0);
+    const double carrier = hasIn
+      ? (g.mixMono[f] + g.mixLeft[f] + g.mixRight[f])
+      : ((hasAnalog || hasDigital) ? 1.0 : 0.0);
+
+    for (int i = 0; i < count; i++) {
+      const double digitalGain = (i == idx ? 1.0 : 0.0) * inRange * (hasDigital ? 1.0 : 0.0);
+      double ad = addr - (double)i;
+      if (ad < 0.0) ad = -ad;
+      ad = 1.0 - ad;
+      if (ad < 0.0) ad = 0.0;
+      const double analogGain = ad * lone * (hasAnalog ? 1.0 : 0.0);
+      const double gain = digitalGain > analogGain ? digitalGain : analogGain;
+      node.buf[i][f] = carrier * gain;
+    }
+    for (int i = count; i < kChannels; i++) {
+      node.buf[i][f] = 0.0;
+    }
   }
 }
 
@@ -3966,17 +4268,20 @@ static void process_mix(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Clock source: Reset live port; Digital→Mono, Analog→Left, Pulse/T→Right.
+// Clock source: Reset + optional ƒ; Digital→Mono, Analog→Left, Pulse/T→Right.
+// Wired ƒ cancels Rate (absolute Hz), same as oscillators.
 static void process_clock(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double rate = control_effective(node.frequency);
+  const double rateKnob = control_effective(node.frequency);
   const double phaseOff = control_effective(node.phaseParam);
   const double duty = control_effective(node.shape);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
     const double reset = hasReset ? g.mixReset[f] : 0.0;
+    const double rate = liveF ? g.mixF[f] : rateKnob;
     const double digital = soemdsp_clock_sample(
       node.nativeHandle, reset, phaseOff, rate, duty, level, sr
     );
@@ -4004,6 +4309,34 @@ static void process_trigger_divider(Circuit& g, Node& node, int frames) {
       threshold,
       division,
       pulseTime,
+      level,
+      sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Clock divider (type 29, timingMode≥0.5): Clock→Trigger port + Reset;
+// duty×division×measured Clock period → pulse (same kernel as triggerDivider).
+static void process_clock_divider(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double threshold = control_effective(node.center);
+  const double division = control_effective(node.stages);
+  const double duty = control_effective(node.shape);
+  const double level = control_effective(node.amplitude);
+  for (int f = 0; f < frames; f++) {
+    const double out = soemdsp_trigger_divider_sample_clock(
+      node.nativeHandle,
+      hasClock ? g.mixTrigger[f] : 0.0,
+      hasReset ? g.mixReset[f] : 0.0,
+      threshold,
+      division,
+      duty,
       level,
       sr
     );
@@ -4707,10 +5040,27 @@ static void process_additive_phase_entry(Circuit& g, Node& node, int frames) {
 // shape→quantization, phaseParam→depth, resonance→curve, waveform→curveKind,
 // width→offset, timingMode→phaseMode, oversample→invert, center→bias,
 // amplitude→jump. (Layout/Seed removed — face is always index columns.)
+// Snapshot previous phaseTo before upstream copy so Depth/Curve/Bias glide
+// across the block (same quantum phaseLerp as Bubble).
 static void process_additive_blaster(Circuit& g, Node& node, int frames) {
   (void)frames;
-  if (!yellow_graph_copy_in(g, node)) return;
-  if (node.bypassed) return;
+  const int srcIdx = find_graph_src_index(g, node.idHash);
+  if (srcIdx < 0) {
+    soemdsp_yellow_graph::graph_clear(node.yellowGraph);
+    return;
+  }
+  const int prevH = node.yellowGraph.harmonics;
+  const bool hadPhase = node.yellowGraph.hasPhaseLerp != 0;
+  float prevPhase[soemdsp_yellow_graph::kMaxHarmonics];
+  const int copyH = (prevH > 0 && prevH <= soemdsp_yellow_graph::kMaxHarmonics) ? prevH : 0;
+  if (hadPhase && copyH > 0) {
+    for (int i = 0; i < copyH; i += 1) prevPhase[i] = node.yellowGraph.phaseTo[i];
+  }
+  soemdsp_yellow_graph::graph_copy(node.yellowGraph, g.nodes[srcIdx].yellowGraph);
+  if (node.bypassed) {
+    node.yellowGraph.hasPhaseLerp = 0;
+    return;
+  }
   soemdsp_yellow_graph::apply_blaster(
     node.yellowGraph,
     (float)control_effective(node.shape),
@@ -4725,7 +5075,9 @@ static void process_additive_blaster(Circuit& g, Node& node, int frames) {
     (float)control_effective(node.timingMode),
     (float)control_effective(node.oversample),
     (float)control_effective(node.center),
-    (float)control_effective(node.amplitude)
+    (float)control_effective(node.amplitude),
+    (hadPhase && copyH > 0) ? prevPhase : nullptr,
+    (hadPhase && copyH > 0) ? copyH : 0
   );
 }
 
@@ -5095,8 +5447,12 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Hypersaw stereo bank. stages=voices, shape=spread, width=random, center=drift.
-// Left/Right native; Mono = (L+R)/2. Reset → hypersaw_reset.
+// Hypersaw Phase Modulation (SoEmHypersaw):
+// stages=voices, waveform=PolyBLEP shape, shape=distributePhase, width=randomizePhase,
+// mix=vibratoDistribution (0…1 random vib phase amount), resonance=vibratoAmp,
+// lfoRate=vibratoSpeed, mode=driftStyle, center=driftAmp, lpfFrequency=driftPitch,
+// lfoAmplitude=driftJitter, lfoVariation=driftCompensation,
+// pan=centerSide, feedback=morph/PWM, phaseParam=phase, seed=seed, amplitude=level.
 static void process_hypersaw(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
@@ -5105,13 +5461,25 @@ static void process_hypersaw(Circuit& g, Node& node, int frames) {
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double referenceVoltage = 48.0 / 120.0;
   const double phaseOff = control_effective(node.phaseParam);
-  const double spread = control_effective(node.shape);
-  const double randomAmt = control_effective(node.width);
-  const double driftAmt = control_effective(node.center);
+  const double waveform = control_effective(node.waveform);
+  const double distribute = control_effective(node.shape);
+  const double randomize = control_effective(node.width);
+  const double vibratoDistribution = control_effective(node.mix);
+  const double vibratoAmp = control_effective(node.resonance);
+  const double vibratoSpeed = control_effective(node.lfoRate);
+  const double driftStyle = control_effective(node.mode);
+  const double driftAmp = control_effective(node.center);
+  const double driftPitch = control_effective(node.lpfFrequency);
+  const double driftJitter = control_effective(node.lfoAmplitude);
+  const double driftCompensation = control_effective(node.lfoVariation);
+  const double centerSide = control_effective(node.pan);
+  const double morph = control_effective(node.feedback);
   const double level = control_effective(node.amplitude);
-  int voices = (int)(control_effective(node.stages) + (control_effective(node.stages) >= 0.0 ? 0.5 : -0.5));
-  if (voices < 1) voices = 1;
-  if (voices > 32) voices = 32;
+  double voicesExact = control_effective(node.stages);
+  if (!(voicesExact * 0.0 == 0.0)) voicesExact = 1.0;
+  if (voicesExact < 1.0) voicesExact = 1.0;
+  if (voicesExact > 64.0) voicesExact = 64.0;
+  const double seed = control_effective(node.seed);
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
@@ -5132,10 +5500,111 @@ static void process_hypersaw(Circuit& g, Node& node, int frames) {
     }
     freq = clamp_hz_nyquist(freq, sr);
     soemdsp_hypersaw_sample(
-      node.nativeHandle, freq, sr, phaseOff, voices, spread, randomAmt, driftAmt, level
+      node.nativeHandle,
+      freq,
+      sr,
+      phaseOff,
+      voicesExact,
+      distribute,
+      randomize,
+      vibratoDistribution,
+      vibratoAmp,
+      vibratoSpeed,
+      driftStyle,
+      driftAmp,
+      driftPitch,
+      driftJitter,
+      driftCompensation,
+      centerSide,
+      waveform,
+      morph,
+      level,
+      seed
     );
     const double L = soemdsp_hypersaw_left(node.nativeHandle);
     const double R = soemdsp_hypersaw_right(node.nativeHandle);
+    node.buf[kPortLeft][f] = L;
+    node.buf[kPortRight][f] = R;
+    node.buf[kPortMono][f] = 0.5 * (L + R);
+  }
+}
+
+// Hypersaw2 Phase Modulation (HypersawUnit::run):
+// stages=voices, waveform=PolyBLEP, shape=distributePhase, width=randomizePhase,
+// resonance=vibratoAmp, lfoBaseSpeed=vibratoSpeed, mix=phaseMultiplier,
+// lfoAmplitude=vibratoFreqVary, lfoVariation=vibratoPhaseVary,
+// center=jitterDistance, lfoRate=jitterSpeed, lpfFrequency=jitterPitch,
+// pan=centerSide, feedback=morph/PWM, phaseParam=phase, seed=seed, amplitude=level.
+static void process_hypersaw2(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double referenceVoltage = 48.0 / 120.0;
+  const double phaseOff = control_effective(node.phaseParam);
+  const double waveform = control_effective(node.waveform);
+  const double distribute = control_effective(node.shape);
+  const double randomize = control_effective(node.width);
+  const double vibratoAmp = control_effective(node.resonance);
+  const double vibratoSpeed = control_effective(node.lfoBaseSpeed);
+  const double vibratoFreqVary = control_effective(node.lfoAmplitude);
+  const double vibratoPhaseVary = control_effective(node.lfoVariation);
+  const double phaseMultiplier = control_effective(node.mix);
+  const double jitterDistance = control_effective(node.center);
+  const double jitterSpeed = control_effective(node.lfoRate);
+  const double jitterPitch = control_effective(node.lpfFrequency);
+  const double centerSide = control_effective(node.pan);
+  const double morph = control_effective(node.feedback);
+  const double level = control_effective(node.amplitude);
+  double voicesExact = control_effective(node.stages);
+  if (!(voicesExact * 0.0 == 0.0)) voicesExact = 1.0;
+  if (voicesExact < 1.0) voicesExact = 1.0;
+  if (voicesExact > 64.0) voicesExact = 64.0;
+  const double seed = control_effective(node.seed);
+  if (!liveReset) node.lastReset = 0.0;
+
+  for (int f = 0; f < frames; f++) {
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        soemdsp_hypersaw2_reset(node.nativeHandle);
+      }
+      node.lastReset = rv;
+    }
+    double freq;
+    if (liveF) {
+      freq = g.mixF[f];
+    } else if (livePitch) {
+      freq = pitched_hz(control_effective(node.frequency), g.mixPitch[f], referenceVoltage);
+    } else {
+      freq = control_effective(node.frequency);
+    }
+    freq = clamp_hz_nyquist(freq, sr);
+    soemdsp_hypersaw2_sample(
+      node.nativeHandle,
+      freq,
+      sr,
+      phaseOff,
+      voicesExact,
+      distribute,
+      randomize,
+      vibratoAmp,
+      vibratoSpeed,
+      vibratoFreqVary,
+      vibratoPhaseVary,
+      phaseMultiplier,
+      jitterDistance,
+      jitterSpeed,
+      jitterPitch,
+      centerSide,
+      waveform,
+      morph,
+      level,
+      seed
+    );
+    const double L = soemdsp_hypersaw2_left(node.nativeHandle);
+    const double R = soemdsp_hypersaw2_right(node.nativeHandle);
     node.buf[kPortLeft][f] = L;
     node.buf[kPortRight][f] = R;
     node.buf[kPortMono][f] = 0.5 * (L + R);
@@ -5688,8 +6157,9 @@ static void process_binary_clock(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Active ladder: stages=feedbackCircuit, timingMode=gainCompensation.
-// Cutoff: live ƒ, else HP→hpfFrequency, LP/BP→lpfFrequency (fallback frequency).
+// Dual Ladder: waveform=hpSlope, shape=lpSlope (0 Bypass … 4=24 dB),
+// stages=feedbackCircuit, timingMode=gainCompensation,
+// hpfFrequency=lowCut, lpfFrequency=highCut. Live ƒ centers both cuts.
 static void process_active_filter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -5697,10 +6167,12 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool controlSmoothing = node_control_smoothing(node)
     || node.hpfFrequency.active || node.lpfFrequency.active;
-  const double modeV = control_effective(node.mode);
-  int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
-  if (mode < 0) mode = 0;
-  if (mode > 9) mode = 9;
+  int hpSlope = (int)(control_effective(node.waveform) + (control_effective(node.waveform) >= 0.0 ? 0.5 : -0.5));
+  int lpSlope = (int)(control_effective(node.shape) + (control_effective(node.shape) >= 0.0 ? 0.5 : -0.5));
+  if (hpSlope < 0) hpSlope = 0;
+  if (hpSlope > 4) hpSlope = 4;
+  if (lpSlope < 0) lpSlope = 0;
+  if (lpSlope > 4) lpSlope = 4;
   int circuit = (int)(control_effective(node.stages) + (control_effective(node.stages) >= 0.0 ? 0.5 : -0.5));
   if (circuit < 0) circuit = 0;
   if (circuit > 3) circuit = 3;
@@ -5710,23 +6182,42 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    double freq;
+    double lo = control_effective(node.hpfFrequency);
+    double hi = control_effective(node.lpfFrequency);
+    if (!(lo == lo)) lo = 200.0;
+    if (!(hi == hi)) hi = control_effective(node.frequency);
+    if (!(hi == hi)) hi = 1000.0;
     if (liveF) {
-      freq = g.mixF[f];
-    } else if (mode >= 4 && mode <= 7) {
-      freq = control_effective(node.hpfFrequency);
-    } else {
-      freq = control_effective(node.lpfFrequency);
-      if (!(freq == freq)) freq = control_effective(node.frequency);
+      const double center = g.mixF[f];
+      if (center > 0.0 && lo > 0.0 && hi > 0.0) {
+        // Move geometric mean to ƒ while keeping the interval ratio.
+        const double geo = dsp_exp(0.5 * dsp_ln(lo * hi));
+        if (geo > 0.0) {
+          const double scale = center / geo;
+          lo *= scale;
+          hi *= scale;
+        }
+      } else if (center > 0.0) {
+        if (hpSlope > 0 && lpSlope == 0) {
+          lo = center;
+        } else if (lpSlope > 0 && hpSlope == 0) {
+          hi = center;
+        } else {
+          lo = center * 0.5;
+          hi = center * 2.0;
+        }
+      }
     }
-    freq = clamp_hz_nyquist(freq, sr);
-    if (freq < 0.0) freq = 0.0;
+    lo = clamp_hz_nyquist(lo, sr);
+    hi = clamp_hz_nyquist(hi, sr);
+    if (lo < 0.0) lo = 0.0;
+    if (hi < 0.0) hi = 0.0;
     const double reso = control_effective(node.resonance);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
       const double out = soemdsp_active_filter_sample(
-        node.nativeHandle, in, freq, reso, mode, circuit, gainComp, sr
+        node.nativeHandle, in, lo, hi, hpSlope, lpSlope, reso, circuit, gainComp, sr
       );
       node.buf[kPortMono][f] = out;
       if (!hasLeftIn) node.buf[kPortLeft][f] = out;
@@ -5734,12 +6225,12 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
     }
     if (hasLeftIn && node.nativeHandleL > 0) {
       node.buf[kPortLeft][f] = soemdsp_active_filter_sample(
-        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], freq, reso, mode, circuit, gainComp, sr
+        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], lo, hi, hpSlope, lpSlope, reso, circuit, gainComp, sr
       );
     }
     if (hasRightIn && node.nativeHandleR > 0) {
       node.buf[kPortRight][f] = soemdsp_active_filter_sample(
-        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], freq, reso, mode, circuit, gainComp, sr
+        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], lo, hi, hpSlope, lpSlope, reso, circuit, gainComp, sr
       );
     }
   }
@@ -6148,8 +6639,9 @@ static void process_attack_decay(Circuit& g, Node& node, int frames) {
   }
 }
 
-// BasicShape naive LFO: mode=motion, shape=morph, waveform selects Wave out.
-// Taps: Sine/Tri/Saw/Square/Ramp + Trisaw(8) + Center Square(9).
+// BasicShape naive LFO: mode=motion, shape=morph, center=polarity (0 bi / 1 uni).
+// Waveform order: Sine Tri Saw Ramp Trisaw Square CenterSquare.
+// Taps: Sine/Tri/Saw/Ramp/Square + Trisaw(8) + Center Square(9).
 static void process_basic_shape(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
@@ -6163,6 +6655,7 @@ static void process_basic_shape(Circuit& g, Node& node, int frames) {
   const double amp = control_effective(node.amplitude);
   const double waveV = control_effective(node.waveform);
   const double motion = control_effective(node.mode);
+  const double polarity = control_effective(node.center);
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
@@ -6181,7 +6674,7 @@ static void process_basic_shape(Circuit& g, Node& node, int frames) {
     const double inc = liveInc ? g.mixIncrement[f] : 0.0;
     const double reset = liveReset ? g.mixReset[f] : 0.0;
     const double y = soemdsp_basic_shape_sample(
-      node.nativeHandle, freq, sr, waveV, motion, phaseOff, morph, amp, inc, reset
+      node.nativeHandle, freq, sr, waveV, motion, phaseOff, morph, amp, polarity, inc, reset
     );
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
@@ -6225,10 +6718,12 @@ static void process_linear_envelope(Circuit& g, Node& node, int frames) {
 
 // Pluck: Trigger→kPortTrigger, Release→Mono(+L/R).
 // timeNumerator=delayTime, timeDenominator=attackFeedback, feedback=decay,
-// diffusionSize/Amount=decayModStart/End, delaySize=endingDecay,
-// shape=decayModCurve, frequency=decayModFrequency, offsetMs=autoReleaseTime,
-// recycle=releaseFeedback, width=velocity, center=velocitySensitivity,
-// level=level.
+// SoEmPluck map:
+// center=velocitySensitivity, timeDenominator=attack,
+// diffusionSize=decaySlopeTop, feedback=decaySlopeMid,
+// diffusionAmount=decaySlopeBottom, delaySize=sustain,
+// recycle=release, offsetMs=autoReleaseTime, shape=envelopeCurve,
+// frequency=envelopeDamping, width=velocity, level=amplitude.
 static void process_pluck_envelope(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -6238,23 +6733,22 @@ static void process_pluck_envelope(Circuit& g, Node& node, int frames) {
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
     const double trigger = hasTrig ? g.mixTrigger[f] : 0.0;
-    const double release = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double releaseGate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_pluck_envelope_sample(
       node.nativeHandle,
       trigger,
-      release,
-      control_effective(node.timeNumerator),
+      releaseGate,
+      control_effective(node.center),
       control_effective(node.timeDenominator),
-      control_effective(node.feedback),
       control_effective(node.diffusionSize),
+      control_effective(node.feedback),
       control_effective(node.diffusionAmount),
       control_effective(node.delaySize),
+      control_effective(node.recycle),
+      control_effective(node.offsetMs),
       control_effective(node.shape),
       control_effective(node.frequency),
-      control_effective(node.offsetMs),
-      control_effective(node.recycle),
       control_effective(node.width),
-      control_effective(node.center),
       control_effective(node.level),
       sr
     );
@@ -6280,6 +6774,32 @@ static void process_flower_child_envelope_follower(Circuit& g, Node& node, int f
       control_effective(node.timeNumerator),
       control_effective(node.timeDenominator),
       control_effective(node.feedback),
+      sr
+    );
+    const double out = env * control_effective(node.amplitude);
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Vactrol (roll-your-own): timeNumerator=attack, timeDenominator=release,
+// shape=curve, width=sensitivity; amplitude scales Out. Light folds via Mono+L+R.
+static void process_vactrol(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool controlSmoothing = node_control_smoothing(node);
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double light = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double env = soemdsp_vactrol_envelope_sample(
+      node.nativeHandle,
+      light,
+      control_effective(node.timeNumerator),
+      control_effective(node.timeDenominator),
+      control_effective(node.shape),
+      control_effective(node.width),
       sr
     );
     const double out = env * control_effective(node.amplitude);
@@ -6582,8 +7102,8 @@ static void process_chord_memory(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Chord sequencer: Clock→Trigger, Reset→Reset. mode=progression, amplitude=level.
-// Scale→Mono, Root→Left, Gate→Right, Step→Saw.
+// Chord sequencer: Trigger→Trigger (legacy Clock alias), Reset→Reset.
+// mode=progression, amplitude=level. Scale→Mono, Root→Left, Gate→Right, Step→Saw.
 static void process_chord_sequencer(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
@@ -6788,7 +7308,8 @@ static void process_degree_phrase(Circuit& g, Node& node, int frames) {
 }
 
 // Arp: Held Keys→Mono, Trigger→Trigger, Reset→Reset, f→F (thru / future use).
-// frequency=Internal Clock Hz, mode=mode, stages=steps, seed=seed.
+// frequency=Internal Clock Hz, mode=mode, stages=steps, seed=seed,
+// offset=octaveOffset (−4…+4).
 // 0.1V/Oct→Mono, Gate→Left, Trigger→Right, Step→Saw, f Hz→Ramp.
 static void process_arp(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
@@ -6811,6 +7332,7 @@ static void process_arp(Circuit& g, Node& node, int frames) {
       control_effective(node.mode),
       control_effective(node.stages),
       control_effective(node.seed),
+      control_effective(node.offset),
       sr
     );
     node.buf[kPortMono][f] = pitch;
@@ -7024,6 +7546,78 @@ static void process_cheap_walk(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = left;
     node.buf[kPortRight][f] = right;
     node.buf[kPortMono][f] = (left + right) * 0.5;
+  }
+}
+
+// Vibrato Generator (VibratoGenerator.hpp): cheap sine wavetable LFO.
+// frequency=speed, phaseParam=offset, amplitude=depth, shape=morph,
+// width=randomFreqMult, center=randomAmpMult, seed=seed.
+static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
+  if (!liveReset) node.lastReset = 0.0;
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        soemdsp_vibrato_generator_reset(node.nativeHandle, control_effective(node.phaseParam));
+      }
+      node.lastReset = rv;
+    }
+    const double y = soemdsp_vibrato_generator_sample(
+      node.nativeHandle,
+      control_effective(node.frequency),
+      sr,
+      control_effective(node.phaseParam),
+      control_effective(node.amplitude),
+      control_effective(node.shape),
+      control_effective(node.width),
+      control_effective(node.center),
+      control_effective(node.seed)
+    );
+    node.buf[kPortMono][f] = y;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+  }
+}
+
+// Wow And Flutter (WowAndFlutter.hpp):
+// frequency=wowSpeed, phaseParam=wowPhase, shape=wowAmp,
+// lfoRate=flutterFrequency, width=flutterJitter, center=flutterAmp,
+// seed=seed, amplitude=level.
+static void process_wow_and_flutter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
+  if (!liveReset) node.lastReset = 0.0;
+  for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        soemdsp_wow_and_flutter_reset(node.nativeHandle, control_effective(node.phaseParam));
+      }
+      node.lastReset = rv;
+    }
+    const double y = soemdsp_wow_and_flutter_sample(
+      node.nativeHandle,
+      control_effective(node.frequency),
+      sr,
+      control_effective(node.phaseParam),
+      control_effective(node.shape),
+      control_effective(node.lfoRate),
+      control_effective(node.width),
+      control_effective(node.center),
+      control_effective(node.seed),
+      control_effective(node.amplitude)
+    );
+    node.buf[kPortMono][f] = y;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
   }
 }
 
@@ -7394,18 +7988,29 @@ static void process_phosphillator(Circuit& g, Node& node, int frames) {
 }
 
 // Master Clock / transport: tempo square.
-// -1..1→Mono, 0..1→Left, Trigger→Right, f (Hz)→Saw.
+// Gate -1+1→Mono, Gate 0-1→Left, Trigger→Right, f (Hz)→Saw.
 // Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
+// width = pulseWidth (gate duty). Rate = Numer/Denom × whole note × Sync.
 static void process_transport(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const double amplitude = control_effective(node.amplitude);
-  const double divisions = control_effective(node.stages);
+  const double timeNumerator = control_effective(node.timeNumerator);
+  const double timeDenominator = control_effective(node.timeDenominator);
+  const double timingMode = control_effective(node.timingMode);
   const double tempoBpm = control_effective(node.tempoBpm);
+  const double pulseWidth = control_effective(node.width);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
     const double bipolar = soemdsp_transport_sample(
-      node.nativeHandle, amplitude, divisions, tempoBpm, sr
+      node.nativeHandle,
+      amplitude,
+      timeNumerator,
+      timeDenominator,
+      timingMode,
+      tempoBpm,
+      pulseWidth,
+      sr
     );
     const double unipolar = soemdsp_transport_unipolar(node.nativeHandle);
     const double freqHz = soemdsp_transport_frequency(node.nativeHandle);
@@ -8062,41 +8667,26 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double amp = control_effective(node.amplitude);
-  const double detune = control_effective(node.width); // detune cents
-  int voices = (int)(control_effective(node.stages) + (control_effective(node.stages) >= 0.0 ? 0.5 : -0.5));
-  if (voices < 1) voices = 1;
-  if (voices > 9) voices = 9;
+  const double detune = control_effective(node.width); // detune cents (no hard 100¢ cap)
+  const double voicesExact = control_effective(node.stages); // fractional voices
+  const double phaseSpread = control_effective(node.shape); // Random Phase live offset scale
+  const double stereoMode = control_effective(node.mode); // 0 Dual Channel, 1 Alternating
+  const double detuneAlgorithm = control_effective(node.center); // 0..6 Linear…Exponential (2=Emotional)
+  const double portaTimeMin = control_effective(node.timeNumerator); // seconds
+  const double portaTimeMax = control_effective(node.timeDenominator); // seconds
+  const double portamentoStyle = control_effective(node.offset); // 0..1 lin→exp
   const double referenceVoltage = 48.0 / 120.0;
+  const double resetGate = hasReset ? g.mixReset[0] : 0.0;
 
-  if (!liveF && !livePitch) {
-    const double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
-    soemdsp_robin_supersaw_process_block(
-      node.nativeHandle, freq, srD, detune, voices, amp, frames
-    );
-    double* outL = ptr_from_export(soemdsp_robin_supersaw_block_output_left_ptr(node.nativeHandle));
-    double* outR = ptr_from_export(soemdsp_robin_supersaw_block_output_right_ptr(node.nativeHandle));
-    double* outM = ptr_from_export(soemdsp_robin_supersaw_block_output_mono_ptr(node.nativeHandle));
-    if (!outL || !outR) return;
-    copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
-    copy_tap_to_buf(node.buf[kPortRight], outR, frames);
-    if (outM) copy_tap_to_buf(node.buf[kPortMono], outM, frames);
-    else {
-      for (int f = 0; f < frames; f++) {
-        node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
-      }
-    }
-    return;
-  }
-
-  // Live ƒ / pitch: fall back to process_block with per-block freq from first
-  // live sample (block-rate). Full sample-accurate path can come later.
   double freq = control_effective(node.frequency);
   if (liveF) freq = g.mixF[0];
   else if (livePitch) freq = pitched_hz(control_effective(node.frequency), g.mixPitch[0], referenceVoltage);
   freq = clamp_hz_nyquist(freq, srD);
   soemdsp_robin_supersaw_process_block(
-    node.nativeHandle, freq, srD, detune, voices, amp, frames
+    node.nativeHandle, freq, srD, detune, voicesExact, amp, phaseSpread, stereoMode,
+    detuneAlgorithm, portaTimeMin, portaTimeMax, portamentoStyle, resetGate, frames
   );
   double* outL = ptr_from_export(soemdsp_robin_supersaw_block_output_left_ptr(node.nativeHandle));
   double* outR = ptr_from_export(soemdsp_robin_supersaw_block_output_right_ptr(node.nativeHandle));
@@ -8271,6 +8861,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeSoftwaveOsc
     || node.typeId == kTypeDsfOscillator
     || node.typeId == kTypeHypersaw
+    || node.typeId == kTypeHypersaw2
     || node.typeId == kTypeSinc
     || node.typeId == kTypeBradley2a
     || node.typeId == kTypeEllipsoid
@@ -8377,6 +8968,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeReverbEffect
     || typeId == kTypePingPongDelay
     || typeId == kTypeAttenuverter
+    || typeId == kTypeAmpCurve
     || typeId == kTypeRange
     || typeId == kTypeNoiseGenerator
     || typeId == kTypeRobinSinusoid
@@ -8409,6 +9001,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeSoftwaveOsc
     || typeId == kTypeDsfOscillator
     || typeId == kTypeHypersaw
+    || typeId == kTypeHypersaw2
     || typeId == kTypeSinc
     || typeId == kTypeBradley2a
     || typeId == kTypeSnowflake
@@ -8470,6 +9063,9 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypePiSpigotNoise
     || typeId == kTypeRandomWalk
     || typeId == kTypeCheapWalk
+    || typeId == kTypeVibratoGenerator
+    || typeId == kTypeWowAndFlutter
+    || typeId == kTypeVactrol
     || typeId == kTypePulseExplosion
     || typeId == kTypeSpiral
     || typeId == kTypeFractalSpiral
@@ -8528,6 +9124,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
       soemdsp_dsf_oscillator_reset(n.nativeHandle);
     } else if (typeId == kTypeHypersaw) {
       soemdsp_hypersaw_reset(n.nativeHandle);
+    } else if (typeId == kTypeHypersaw2) {
+      soemdsp_hypersaw2_reset(n.nativeHandle);
     } else if (typeId == kTypePhosphillator) {
       n.lastReset = -1.0; // seed default circle path on first process
     }
@@ -8557,6 +9155,28 @@ extern "C" int soemdsp_graph_connect(
   c.dstPort = clamp_dst_port(dstPort);
   g->connCount += 1;
   return 0;
+}
+
+// Queue a one-sample impulse into a destination live port (dblclick / wire-break).
+// Consumed on the next process_block mix_live_port for that node/port.
+extern "C" int soemdsp_graph_poke_input(
+  int handle,
+  unsigned int dstHash,
+  int dstPort,
+  float amp
+) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  const double a = (amp == amp) ? (double)amp : 1.0;
+  for (int i = 0; i < kMaxPortPokes; i++) {
+    if (g->portPokes[i].used) continue;
+    g->portPokes[i].dstHash = dstHash;
+    g->portPokes[i].dstPort = dstPort;
+    g->portPokes[i].amp = a;
+    g->portPokes[i].used = true;
+    return 0;
+  }
+  return -2; // poke queue full
 }
 
 extern "C" int soemdsp_graph_set_bypassed(int handle, unsigned int nodeHash, int bypassed) {
@@ -8964,7 +9584,12 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       continue;
     }
     if (node.typeId == kTypeTriggerDivider) {
-      process_trigger_divider(*g, node, frames);
+      // timingMode≥0.5 → clockDivider (duty/period); else triggerDivider.
+      if (control_effective(node.timingMode) >= 0.5) {
+        process_clock_divider(*g, node, frames);
+      } else {
+        process_trigger_divider(*g, node, frames);
+      }
       continue;
     }
     if (node.typeId == kTypeDelayedTrigger) {
@@ -9057,6 +9682,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     }
     if (node.typeId == kTypeHypersaw) {
       process_hypersaw(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeHypersaw2) {
+      process_hypersaw2(*g, node, frames);
       continue;
     }
     if (node.typeId == kTypeSinc) {
@@ -9307,6 +9936,18 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_cheap_walk(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeVibratoGenerator) {
+      process_vibrato_generator(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeWowAndFlutter) {
+      process_wow_and_flutter(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeVactrol) {
+      process_vactrol(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypePulseExplosion) {
       process_pulse_explosion(*g, node, frames);
       continue;
@@ -9375,12 +10016,20 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       process_attenuverter(*g, node, frames);
       continue;
     }
+    if (node.typeId == kTypeAmpCurve) {
+      process_amp_curve(*g, node, frames);
+      continue;
+    }
     if (node.typeId == kTypeRange) {
       process_range(*g, node, frames);
       continue;
     }
     if (node.typeId == kTypeInv) {
       process_inv(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeTransistor) {
+      process_transistor(*g, node, frames);
       continue;
     }
     if (node.typeId == kTypeU2b) {
@@ -9556,6 +10205,6 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  // 109: sinCos(153) + Method poly/wavetable switch on SinCos + SinCos4
-  return 109;
+  // 127: clockDivider on type 29 (timingMode≥0.5; duty×measured Clock period)
+  return 127;
 }

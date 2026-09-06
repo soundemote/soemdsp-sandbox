@@ -227,22 +227,43 @@ async function renderNodeGraphAudio() {
 
   syncNodeGraphRenderSecondsFromInput({ normalize: true });
   syncNodeGraphRenderRangeFromInputs();
-  const renderStart = nodeGraphMvp.renderStartSeconds ?? 0;
-  const renderEnd = nodeGraphMvp.renderEndSeconds ?? nodeGraphMvp.seconds ?? 2;
-  const renderDuration = Math.max(0.05, renderEnd - renderStart);
+  // Start/End are absolute simulation times. Always run the graph from t=0
+  // through End, then keep only [Start, End) so envelopes / clocks / drift
+  // match live. Start=0 → no skip.
+  const renderStart = Math.max(0, Number(nodeGraphMvp.renderStartSeconds) || 0);
+  const renderEndRaw = Number(nodeGraphMvp.renderEndSeconds);
+  const renderEnd = Math.max(
+    renderStart + 0.05,
+    Number.isFinite(renderEndRaw) && renderEndRaw > 0
+      ? renderEndRaw
+      : (Number(nodeGraphMvp.seconds) || 2),
+  );
+  const keepDuration = Math.max(0.05, renderEnd - renderStart);
   const audio = nodeGraphAudioDerivation(nodeGraphMvp.patch);
   const outputSampleRate = audio.outputSampleRate;
   const engineSampleRate = audio.clampedEngineSampleRate;
   const patchFingerprint = nodeGraphPatchFingerprint();
-  const requestedOutputFrames = Math.floor(outputSampleRate * renderDuration);
-  const requestedEngineFrames = Math.max(1, Math.round(engineSampleRate * renderDuration));
+  // Full bounce length (0 → End). Kept window length (Start → End).
+  const fullEngineFrames = Math.max(1, Math.round(engineSampleRate * renderEnd));
+  const keepEngineFrames = Math.max(1, Math.round(engineSampleRate * keepDuration));
+  const startEngineFrame = Math.max(
+    0,
+    Math.min(
+      Math.round(engineSampleRate * renderStart),
+      Math.max(0, fullEngineFrames - keepEngineFrames),
+    ),
+  );
+  const requestedOutputFrames = Math.max(1, Math.floor(outputSampleRate * keepDuration));
+  const requestedEngineFrames = keepEngineFrames;
   const plan = nodeGraphBuildLivePlan();
-  const engineFrames = requestedEngineFrames;
+  const engineFrames = keepEngineFrames;
   const outputFrames = requestedOutputFrames;
   const engineLeftSamples = new Float32Array(engineFrames);
   const engineRightSamples = new Float32Array(engineFrames);
   const stateReadCount = nodeGraphStateReadCount(plan);
-  renderStatus.textContent = "rendering";
+  renderStatus.textContent = renderStart > 0
+    ? `rendering 0…${renderEnd.toFixed(2)}s (keep ${renderStart.toFixed(2)}…${renderEnd.toFixed(2)}s)`
+    : "rendering";
   renderStatus.className = "pill";
   // APP_POLICY §0b / §2 / §5: Render Sample uses the same native graph as Live.
   // Never evaluateNodeGraphPlanFrame / JS live-evaluators.
@@ -254,7 +275,7 @@ async function renderNodeGraphAudio() {
     if (!Offline || typeof createNodeGraphLiveWorkletNode !== "function") {
       throw new Error("native Render requires OfflineAudioContext + AudioWorklet");
     }
-    const offlineCtx = new Offline(2, engineFrames, engineSampleRate);
+    const offlineCtx = new Offline(2, fullEngineFrames, engineSampleRate);
     const workletNode = await createNodeGraphLiveWorkletNode(offlineCtx, plan);
     workletNode.connect(offlineCtx.destination);
     const planSerial = (Number(nodeGraphMvp?.live?.planSerial) || 0) + 1;
@@ -272,6 +293,8 @@ async function renderNodeGraphAudio() {
       sessionId: Number(nodeGraphMvp?.live?.sessionId) || 1,
       timing: nodeGraphMvp?.patch?.timing || null,
     });
+    // Queue play early — worklet boots at speed 0 and would bounce silence.
+    workletNode.port.postMessage({ type: "setSpeed", speed: 1 });
     // Wait until native graph compiled (or timeout).
     await new Promise((resolve, reject) => {
       const timeoutMs = 15000;
@@ -301,6 +324,9 @@ async function renderNodeGraphAudio() {
         }
       }, 50);
     });
+    // Worklet boots paused (speedMultiplier=0) and would render silence.
+    // Play the simulation for the offline bounce (same as Live Play).
+    workletNode.port.postMessage({ type: "setSpeed", speed: 1 });
     // Brief settle so first quantum is not silent.
     await new Promise((r) => window.setTimeout(r, 50));
     const renderedBuf = await offlineCtx.startRendering();
@@ -309,9 +335,11 @@ async function renderNodeGraphAudio() {
       ? renderedBuf.getChannelData(1)
       : ch0;
     const earProtector = createNodeGraphEarProtector(engineSampleRate);
-    for (let frame = 0; frame < engineFrames; frame += 1) {
-      const rawL = Number(ch0[frame]) || 0;
-      const rawR = Number(ch1[frame]) || 0;
+    const available = Math.min(ch0.length, ch1.length);
+    for (let i = 0; i < engineFrames; i += 1) {
+      const src = startEngineFrame + i;
+      const rawL = src < available ? (Number(ch0[src]) || 0) : 0;
+      const rawR = src < available ? (Number(ch1[src]) || 0) : 0;
       if (nodeGraphOutputSampleClipped(rawL)) clipCount += 1;
       if (nodeGraphOutputSampleClipped(rawR)) clipCount += 1;
       if (
@@ -322,8 +350,8 @@ async function renderNodeGraphAudio() {
       }
       const protectedFrame = earProtector.protect(rawL, rawR);
       if (protectedFrame.muted) protectionMuteCount += 1;
-      engineLeftSamples[frame] = nodeGraphClampOutputSample(protectedFrame.left);
-      engineRightSamples[frame] = nodeGraphClampOutputSample(protectedFrame.right);
+      engineLeftSamples[i] = nodeGraphClampOutputSample(protectedFrame.left);
+      engineRightSamples[i] = nodeGraphClampOutputSample(protectedFrame.right);
     }
     try { workletNode.disconnect(); } catch (_e) { /* */ }
   } catch (error) {
@@ -381,6 +409,10 @@ async function renderNodeGraphAudio() {
     nodeCount: plan.nodes.length,
     oversamplingRatio: audio.oversamplingRatio,
     peak,
+    renderStartSeconds: renderStart,
+    renderEndSeconds: renderEnd,
+    fullEngineFrames,
+    startEngineFrame,
     requestedEngineFrames,
     requestedFrames: requestedOutputFrames,
     leftSamples,

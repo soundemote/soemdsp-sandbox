@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=pingpong-lfo-persist-14";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=robin-porta-style-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3100,6 +3100,8 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Pure stdlib first so per-module worklet chunks can call nodeGraphWrap01 /
   // nodeGraphTrisaw / nodeGraphPitchedFrequency / nodeGraphAdvancePhase01.
   "./public/node-graph-semath.js?v=planck-1",
+  // Output-bus ear protector (must be in the worklet blob — main-thread only = passthrough clip).
+  "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=worklet-protect-1",
   "./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1",
   "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=toggle-range-1",
   "./public/modules/portal/portal-lanes.js?v=portal-rename-4x2-1",
@@ -3109,8 +3111,8 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=t-series-1",
-  "./public/node-graph-efficient-product.js?v=mp-eff-1",
-  "./public/node-live-audio-worklet-core.js?v=rip-legacy-1",
+  "./public/node-graph-efficient-product.js?v=transistor-back-1",
+  "./public/node-live-audio-worklet-core.js?v=transistor-back-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
   "./public/node-live-audio-worklet-smoother.js?v=smooth-3p-1",
@@ -3118,24 +3120,25 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-destroy.js?v=block-scope-1",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
-  "./public/node-live-audio-worklet-dsp-state.js?v=interrupt-1",
+  "./public/node-live-audio-worklet-dsp-state.js?v=protect-worklet-1",
   "./public/node-live-audio-worklet-events.js?v=midi-freq-host-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=face-full-quantum-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
-  "./public/node-live-audio-worklet-native-exports.js?v=quad-process-sample-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=pingpong-vs-delay-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=fix-normalizeCodeblock-1",
-  "./public/node-live-audio-worklet-clear-plan.js?v=graph-engine-6",
+  "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=basicshape-polarity-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=hypersaw2-smooth-1",
+  "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
   "./public/node-live-audio-worklet-handle-message.js?v=wasm-plan-race-1",
-  "./public/node-live-audio-worklet-scope-snapshot.js?v=interrupt-1",
+  "./public/node-live-audio-worklet-scope-snapshot.js?v=hypersaw2-smooth-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
   "./public/modules/_shared/controller-efficient-sidecar.js?v=no-js-env-mod-1",
-  "./public/node-live-audio-worklet-process.js?v=mp-eff-1",
+  "./public/modules/vactrol/vactrol-worklet-evaluator.js?v=vactrol-arp-1",
+  "./public/node-live-audio-worklet-process.js?v=protect-worklet-1",
 ];
 
 // Legacy JS DSP evaluators + evaluateFrame — RETIRED. Never load on any product.

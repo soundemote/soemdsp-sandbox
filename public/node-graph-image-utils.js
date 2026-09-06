@@ -6,7 +6,8 @@ const nodeGraphRgbaImageCache = new Map();
 
 function normalizeNodeGraphImageDataUrl(value) {
   const text = String(value || "");
-  if (!/^data:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml)(?:;base64)?,/i.test(text)) {
+  // Allow charset / base64 params before the comma (SVG often uses charset=utf-8).
+  if (!/^data:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml)(?:;[^,]*)?,/i.test(text)) {
     return "";
   }
   return text.length <= nodeGraphImageAssetMaxBytes ? text : "";

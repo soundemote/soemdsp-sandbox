@@ -12,11 +12,8 @@
 // way it would a real number).
 //
 // A port lives on exactly one plane, declared once in the module
-// definition. This file is the single mechanism both existing data-plane
-// consumers use: Oscilloscope Bank's Phases/Amplitudes/Pans inputs (see
-// node-graph-module-scopes.js) and Hypersaw's Phases/Amplitudes/Pans
-// outputs, generalized from the one-off nodeGraphModuleScopeState.hypersawVoice*
-// maps that predated this file.
+// definition. Also used for module-local face data (e.g. Hypersaw burn
+// stems publish Phases/Amplitudes/Pans on the bus without exposing jacks).
 
 const nodeGraphDataBus = new Map();
 

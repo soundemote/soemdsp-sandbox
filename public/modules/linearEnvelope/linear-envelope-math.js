@@ -115,3 +115,56 @@ function nodeGraphLinearEnvelopeSample(state, gate, params, sampleRate, runtime 
   }
   return out;
 }
+
+/**
+ * Face preview: basic linear DADSR polyline (pre-level knob).
+ * Delay → Attack → Decay → Sustain hold → Release.
+ */
+function nodeGraphLinearEnvelopePreviewCurve(params = {}, points = 160) {
+  const delay = Math.max(0, Number(params.delay) || 0);
+  const attack = Math.max(0, Number(params.attack) || 0);
+  const decay = Math.max(0, Number(params.decay) || 0);
+  const sustain = Math.max(0, Math.min(1, Number(params.sustain) || 0));
+  const release = Math.max(0, Number(params.release) || 0);
+  const sustainHold = Math.max(0.05, Math.min(0.4, (attack + decay + release) * 0.15 || 0.08));
+  const gateHigh = delay + Math.max(attack + decay + sustainHold, 0.02);
+  const total = Math.max(gateHigh + Math.max(release, 0.02), 0.08);
+  const corners = [
+    { t: 0, y: 0 },
+    { t: delay / total, y: 0 },
+    { t: (delay + attack) / total, y: 1 },
+    { t: (delay + attack + decay) / total, y: sustain },
+    { t: gateHigh / total, y: sustain },
+    { t: Math.min(1, (gateHigh + release) / total), y: 0 },
+    { t: 1, y: 0 },
+  ];
+  // Dedupe near-identical times so zero-length stages do not spike the path.
+  const keyframes = [];
+  for (const p of corners) {
+    const pt = { t: Math.max(0, Math.min(1, p.t)), y: Math.max(0, Math.min(1, p.y)) };
+    const prev = keyframes[keyframes.length - 1];
+    if (prev && Math.abs(prev.t - pt.t) < 1e-9) {
+      prev.y = pt.y;
+      continue;
+    }
+    keyframes.push(pt);
+  }
+  const n = Math.max(32, Math.round(Number(points) || 160));
+  const out = [];
+  let k = 0;
+  for (let i = 0; i < n; i += 1) {
+    const t = i / Math.max(1, n - 1);
+    while (k + 1 < keyframes.length && keyframes[k + 1].t < t) k += 1;
+    const a = keyframes[k];
+    const b = keyframes[Math.min(keyframes.length - 1, k + 1)];
+    const span = Math.max(1e-12, b.t - a.t);
+    const u = Math.max(0, Math.min(1, (t - a.t) / span));
+    out.push({ t, y: a.y + (b.y - a.y) * u });
+  }
+  return {
+    points: out,
+    total,
+    gateHigh,
+    labels: { left: "A", mid: "S", right: "R" },
+  };
+}

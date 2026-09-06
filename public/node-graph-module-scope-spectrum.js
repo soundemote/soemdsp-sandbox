@@ -145,6 +145,15 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
   } else if (renderer === "harmonicSeriesFace" || slot?.type === "harmonicSeries") {
     buffer = { length: 1 };
   } else if (
+    renderer === "imageBurnFace"
+    || renderer === "rgbPictureFace"
+    || slot?.type === "imageBurn"
+    || slot?.type === "rgbPicture"
+  ) {
+    // Always enter the typed draw path (Picture / Image Burn paint their own
+    // face). Prefer real In capture for energy when present.
+    buffer = capturedBuffer && capturedBuffer.length ? capturedBuffer : { length: 1 };
+  } else if (
     renderer === "vectorRgbFace"
     || renderer === "rasterRgbFace"
     || renderer === "gradientVectorscopeFace"

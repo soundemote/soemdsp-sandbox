@@ -99,7 +99,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "humanFilter",
   "chaoticPhaseLockingFilter",
   "metallicRatio",
-  "oscilloscopeBank",
   "shootingStarTail",
   "wallDelay",
   "groupInput",
@@ -131,7 +130,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "ePiano",
   "percussion",
   "phosphillator",
-  "hypersaw",
   "bloomGlow",
   "gradientVectorscope",
   "lufs",
@@ -143,7 +141,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "bitConverter",
   "bode",
   "buttonEvents",
-  "clockDivider",
   "codeblock",
   "cookbookFilter",
   "curveOsc",
@@ -182,6 +179,8 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "basicShape",
   "chordPad",
   "noteGlide",
+  "hypersaw",
+  "hypersaw2",
   "noteTranspose",
   "degreeTuring",
   "degreePhrase",
@@ -194,6 +193,8 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "hilbert",
   "binaryClock",
   "sinCos",
+  "clockDivider",
+  "oscilloscopeBank",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
@@ -207,10 +208,9 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   image: "Patch image asset for textures. Parked until file storage ships.",
   pixelGrid: "Lo-fi pixel-grid looks. Parked until RGB face pass.",
   asciiscope: "XY character-grid phosphor. Parked; cannot spawn yet.",
-  oscilloscopeBank: "Multi-voice phase/amp bank. Parked until Hypersaw face is done.",
+
   evolveField: "Field evolve visual. Parked until RGB/shader pass.",
   phosphillator: "Draw a path, play it as X/Y. Parked until the draw engine is ready.",
-  hypersaw: "Phase-spread saw bank. Parked until the voice-bank face is ready.",
   wavetable2d: "Multi-frame 2D table morph. Parked until wavetable playback exists.",
   wavetable3d: "Dual-axis table morph. Parked until wavetable playback exists.",
   formantFilter: "Vocal formant bank. Parked until the scientific-filter pass.",
@@ -261,8 +261,8 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "drum",         emoji: "🥁", label: "Drum",         symbol: "▥",   title: "Drum",      pitch: "Rhythm machines, drum voices, pattern engines, and percussion control surfaces." },
   { id: "dynamics",     emoji: "⚡", label: "Dynamics",     symbol: "⚡",   title: "Dynamics",  pitch: "Power routing, level control, offsets, and response shaping for keeping a circuit alive under pressure." },
   { id: "envelope",     emoji: "📐", label: "Envelope",     symbol: "⌒",   title: "Envelope",  pitch: "Attack, decay, sustain, release, and gate-shaped motion. Make sound and visuals breathe on command." },
-  { id: "scientificFilter", emoji: "💧", label: "Scientific Filter", symbol: "🔬", title: "Scientific Filter", pitch: "Textbook responses. Hz, order, clean controls — Passive, Active, Tilt, and other predictable spectral tools." },
-  { id: "analogFilter",     emoji: "🔥", label: "Analog Filter",     symbol: "≈",  title: "Analog Filter",     pitch: "Named character circuits. Timbre first — 303, Flower Child, SuperLove, and other engines with personality." },
+  { id: "scientificFilter", emoji: "💧", label: "Scientific Filter", symbol: "🔬", title: "Scientific Filter", pitch: "Textbook responses. Hz, order, clean controls — Tilt, Butterworth, and other predictable spectral tools." },
+  { id: "analogFilter",     emoji: "🔥", label: "Analog Filter",     symbol: "≈",  title: "Analog Filter",     pitch: "Circuit-style filters — Dual Ladder, Ladder, Passive, 303, Flower Child, SuperLove, and other engines with personality." },
   { id: "musical",      emoji: "🎼", label: "Musical",      symbol: "𝄞",  title: "Musical",  pitch: "Pitch, scale, and harmony tools: quantizers, chord pickers, progressions, and other note-theory building blocks." },
   { id: "space",        emoji: "⛪", label: "Space",        symbol: "FX",  title: "Space",     pitch: "Delay, reverb, distortion, and performance processors for shaping finished sound." },
   // Id stays clock (saved settings / catalog). Shelf label is Time.
@@ -599,9 +599,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   vectorDot: {
     category: "oscilloscope",
-    label: "Vector Dot",
+    label: "LED Dot",
     description: "Per-frame energy disc. Mean of this frame's samples lights the dot (duty 50% = half bright).",
-    notes: ["vector dot", "energy", "brightness", "smoothstep", "clock lamp"],
+    notes: ["led dot", "vector dot", "energy", "brightness", "smoothstep", "clock lamp"],
   },
   simulationTime: {
     category: "clock",
@@ -613,7 +613,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "clock",
     description: "BPM-locked square clocks so everything stays in time with the project tempo.",
     label: "Master Clock",
-    notes: ["master clock", "transport", "project BPM", "beat divisions", "engine-start phase"],
+    notes: ["master clock", "transport", "project BPM", "Numer/Denom", "Normal/Dotted/Triplet", "engine-start phase"],
   },
   clockDivider: {
     category: "clock",
@@ -853,15 +853,34 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   robinSupersaw: {
     category: "oscillator",
-    description: "Detuned multi-saw wall with pitch dither—huge pads and trance supersaws.",
+    description: "Pitch-dithered supersaw (frequency detune, not phase mod). Fractional voices, Reset, Random Phase, Portamento Min/Max/Style, detune-face lines (±0.5 oct).",
     label: "RobinSupersaw",
-    notes: ["oscillator", "supersaw", "pitch dithering", "anti-aliasing", "native"],
+    notes: ["oscillator", "supersaw", "pitch dithering", "frequency detune", "portamento", "native", "phosphor display"],
   },
   hypersaw: {
     category: "oscillator",
-    description: "Massive phase-spread saw bank for dense stereo supersaw beds and visual phase columns.",
+    description: "Retired — use Hypersaw (former Hypersaw2).",
+    label: "Hypersaw (retired)",
+    hidden: true,
+    notes: ["retired", "replaced-by-hypersaw2"],
+  },
+  hypersaw2: {
+    category: "oscillator",
+    description: "PolyBLEP hypersaw — distribute/randomize, HypersawUnit vibrato, Random Steps jitter (Distance/Speed/Pitch). Decimal oscillators, phase-column face.",
     label: "Hypersaw",
-    notes: ["oscillator", "supersaw", "polyblep", "anti-aliasing", "native", "phosphor display", "under construction"],
+    notes: ["oscillator", "supersaw", "polyblep", "random-steps", "jitter", "vibrato", "native", "phosphor display"],
+  },
+  vibratoGenerator: {
+    category: "modulator",
+    description: "soemdsp VibratoGenerator — cheap sine-wavetable LFO with optional S&H random freq/amp. Shared core with Hypersaw per-saw vibrato.",
+    label: "Vibrato Generator",
+    notes: ["modulator", "vibrato", "lfo", "sine wavetable", "native", "soemdsp"],
+  },
+  wowAndFlutter: {
+    category: "modulator",
+    description: "soemdsp WowAndFlutter — slow sine wow + fixed-steps flutter walk. Tape-style pitch/modulation source.",
+    label: "Wow And Flutter",
+    notes: ["modulator", "wow", "flutter", "tape", "sine wavetable", "random walk", "native", "soemdsp"],
   },
   spiral: {
     category: "oms",
@@ -1055,6 +1074,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "dynamics",
     description: "Nudge a signal off center—steer bipolar CV into a new range.",
     notes: ["addition", "offset", "control lane shift", "native"],
+  },
+  ampCurve: {
+    category: "dynamics",
+    description: "Shape CV for Amplitude params — Lin (clamp 0…1) or Exp classic VCA response (0 mute → 1 unity).",
+    label: "Amp Curve",
+    notes: ["curve", "amplitude", "vca", "cv", "gold", "lin", "exp", "dynamics", "native"],
   },
   attenuverter: {
     category: "dynamics",
@@ -1285,10 +1310,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   // --- Scientific Filter: textbook / predictable spectral tools ---
   passiveFilter: {
-    category: "scientificFilter",
+    category: "analogFilter",
     description: "Real-pole LP/HP/BP with 6–24 dB slope, stagger spread, and optional −3 dB gain compensation.",
     label: "Passive Filter",
-    notes: ["lowpass", "highpass", "bandpass", "1-pole", "cascade", "stagger", "6 dB/oct", "24 dB/oct", "tame", "rumble", "scientific"],
+    notes: ["lowpass", "highpass", "bandpass", "1-pole", "cascade", "stagger", "6 dB/oct", "24 dB/oct", "tame", "rumble", "analog"],
   },
   tiltFilter: {
     category: "scientificFilter",
@@ -1335,27 +1360,29 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["mode selection", "biquad stages", "magnitude plot", "RBJ", "cascade", "scientific"],
   },
   activeFilter: {
-    category: "scientificFilter",
-    description: "Scientific multipole ladder with optional drive—precise slopes plus bite.",
-    label: "Active Filter",
+    category: "analogFilter",
+    description: "Dual RS-MET ladder: HP + LP slopes (Bypass/6/12/18/24). Both on = bandpass cascade.",
+    label: "Dual Ladder Filter",
     notes: [
+      "dual ladder",
       "active",
       "multipole",
       "Hz cutoff",
       "resonance 0-1",
+      "analog",
       "feedback circuit",
       "gain compensation",
       "LP HP BP",
       "Robin Schmidt",
       "RS-MET",
-      "scientific",
+      "analog",
     ],
   },
   ladderFilter: {
-    category: "scientificFilter",
-    description: "Lab ladder Mode×Stages surface—same multipole family, different UI.",
+    category: "analogFilter",
+    description: "Lab ladder Mode×Stages surface—same multipole family as Dual Ladder, different UI.",
     label: "Ladder Filter",
-    notes: ["lab", "stages", "flat", "multipole", "scientific", "RS-MET"],
+    notes: ["lab", "stages", "flat", "multipole", "analog", "RS-MET"],
   },
   butterworth: {
     category: "scientificFilter",
@@ -1705,10 +1732,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   // Rate limiters live with Dynamics (CV response shaping — not spectral filters).
   slewLimiter: {
-    category: "dynamics",
+    category: "envelope",
     description: "Mono gold In→Out hard up/down rate limit with Lin / Log / Exp / Smooth curves for steps and CV glides.",
     label: "Up/Down Slew",
-    notes: ["up time", "down time", "asymmetric glide", "rate limit", "slew", "portamento", "dynamics", "log", "exp", "smooth", "mono", "gold", "quick connect"],
+    notes: ["up time", "down time", "asymmetric glide", "rate limit", "slew", "portamento", "envelope", "log", "exp", "smooth", "mono", "gold", "quick connect"],
   },
   midSideEncode: {
     category: "dynamics",
@@ -1801,7 +1828,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     ],
   },
   inertialFilter: {
-    category: "dynamics",
+    category: "envelope",
     description: "Exponential attack/release approach in Hz—smooth catch-up without hard slew corners.",
     label: "Inertial Filter",
     notes: [
@@ -1813,6 +1840,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "exponential",
       "one pole",
       "asymmetric",
+      "envelope",
       "slew",
       "smooth",
       "dynamics",
@@ -1948,15 +1976,18 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   expAdsr: {
     category: "envelope",
-    description: "Full DADSR curve envelope for long articulations and looped contours.",
+    description: "Full DADSR curve envelope with bipolar Attack/Fall curves (0=linear, +=exp, −=log).",
     label: "Curve Envelope",
-    notes: ["gate input", "target-ratio curves", "loopable envelope", "curve shape", "native", "DADSR", "prefer Attack Decay for simple AD"],
+    notes: ["gate input", "bipolar curves", "loopable envelope", "curve shape", "native", "DADSR", "log", "exp"],
   },
   attackDecay: {
     category: "envelope",
-    description: "Simple A/D envelope (loop/LFO options)—default easy amp/mod shape.",
+    description: "Retired — use Vactrol for simple optical A/R. Kept only so old patches still load.",
+    hidden: true,
     label: "Attack Decay",
     notes: [
+      "legacy",
+      "hidden",
       "attack",
       "decay",
       "curve",
@@ -1986,9 +2017,27 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   pluckEnvelope: {
     category: "envelope",
-    description: "Fast pluck contour for picks, pings, and percussive decays.",
+    description: "SoEm pluck contour: decay slopes, sustain, auto-release, envelope curve/damping.",
     label: "Pluck Envelope",
-    notes: ["trigger input", "decay energy", "auto release", "native"],
+    notes: [
+      "VelocitySensitivity",
+      "Attack",
+      "DecaySlopeTop",
+      "DecaySlopeMid",
+      "DecaySlopeBottom",
+      "Sustain",
+      "Release",
+      "AutoReleaseTime",
+      "EnvelopeCurve",
+      "EnvelopeDamping",
+      "native",
+    ],
+  },
+  vactrol: {
+    category: "envelope",
+    description: "Roll-your-own optical lag: Light → attack/release one-pole → gamma. Settles to 0 when dark.",
+    label: "Vactrol",
+    notes: ["light input", "custom vactrol", "attack", "release", "curve", "sensitivity", "native"],
   },
   sandboxVisuals: {
     category: "rgb",
@@ -2078,15 +2127,16 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   dotOscilloscope: {
     hidden: true,
     category: "oscilloscope",
-    description: "Retired. Use Vector Dot.",
+    description: "Retired. Use LED Dot.",
     label: "Phosphor Dot",
     notes: ["retired"],
   },
   oscilloscopeBank: {
     category: "oscilloscope",
-    description: "Phase/amplitude bank view for multi-voice sources like Hypersaw.",
-    label: "Oscilloscope Bank",
-    notes: ["work in progress", "voice bank scope", "phase vs amplitude", "under construction"],
+    description: "Retired — multi-voice phase/amp bank (never shipped).",
+    label: "Oscilloscope Bank (retired)",
+    hidden: true,
+    notes: ["retired"],
   },
   videoscope: {
     category: "rgb",
@@ -2127,8 +2177,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   valueOscilloscope: {
     category: "oscilloscope",
     description: "Latest sample as one horizontal line—ultra-simple level glance.",
-    label: "0D Value",
-    notes: ["value display", "horizontal line", "latest value"],
+    label: "Value Line",
+    notes: ["value line", "value display", "horizontal line", "latest value"],
   },
   numberReadout: {
     category: "multimeter",
@@ -2637,6 +2687,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/attenuverter/attenuverter-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/attenuverter/attenuverter-math.js",
   },
+  ampCurve: {
+    source: "native_modules/amp_curve/amp_curve.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/amp_curve/amp_curve.cpp",
+  },
   range: {
     source: "native_modules/range/range.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/range/range.cpp",
@@ -2896,6 +2950,18 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/hypersaw/hypersaw-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/hypersaw/hypersaw-worklet-evaluator.js",
   },
+  hypersaw2: {
+    source: "public/modules/hypersaw2/hypersaw2-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/hypersaw2/hypersaw2-live-evaluator.js",
+  },
+  vibratoGenerator: {
+    source: "public/modules/vibratoGenerator/vibrato-generator-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/vibratoGenerator/vibrato-generator-worklet-evaluator.js",
+  },
+  wowAndFlutter: {
+    source: "public/modules/wowAndFlutter/wow-and-flutter-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/wowAndFlutter/wow-and-flutter-worklet-evaluator.js",
+  },
   inertialFilter: {
     source: "public/modules/inertialFilter/inertial-filter-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/inertialFilter/inertial-filter-math.js",
@@ -3079,6 +3145,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   pluckEnvelope: {
     source: "public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js",
+  },
+  vactrol: {
+    source: "public/modules/vactrol/vactrol-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/vactrol/vactrol-worklet-evaluator.js",
   },
   plugin: {
     source: "public/modules/plugin/plugin-controls-live-evaluator.js",

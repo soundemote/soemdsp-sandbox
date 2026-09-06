@@ -300,9 +300,9 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  // Ctrl/Cmd+S → native save dialog for the current patch (Desktop when
-  // showSaveFilePicker supports startIn). Code Screen owns Ctrl+S when focus
-  // is inside it (draft apply / metadata).
+  // Ctrl/Cmd+S → native save dialog for the current patch (remembers last
+  // File System Access folder when available). Code Screen owns Ctrl+S when
+  // focus is inside it (draft apply / metadata).
   if (
     (event.ctrlKey || event.metaKey)
     && !event.shiftKey

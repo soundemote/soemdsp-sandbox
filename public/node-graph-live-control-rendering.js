@@ -723,21 +723,36 @@ function nodeGraphTransportHandleAction(action) {
 
 function bindNodeGraphTransportButtons() {
   bindNodeGraphLiveVolumeControls();
-  // Toolbar + Command Center mirrors share data-transport-action.
+  // Mark under-construction actions; clicks use document delegation below so
+  // binding still works when this file loads after window "load" (boot-defer).
   for (const button of document.querySelectorAll("[data-transport-action]")) {
-    if (button.dataset.transportBound === "true") {
-      continue;
-    }
-    button.dataset.transportBound = "true";
     const action = button.getAttribute("data-transport-action");
     if (action === "record" || action === "forward") {
       button.disabled = true;
       button.classList.add("under-construction");
     }
-    button.addEventListener("click", (event) => {
+  }
+  if (document.documentElement.dataset.transportDelegateBound !== "true") {
+    document.documentElement.dataset.transportDelegateBound = "true";
+    document.addEventListener("click", (event) => {
+      const button = event.target?.closest?.("[data-transport-action]");
+      if (!button || !(button instanceof HTMLElement)) {
+        return;
+      }
+      // Rendered-sample player uses .node-transport-play without data-transport-action
+      // for engine control; skip any nested/foreign transport widgets if added later.
+      if (button.id === "nodeRenderedPlayerPlay") {
+        return;
+      }
+      const action = button.getAttribute("data-transport-action");
+      if (!action) {
+        return;
+      }
       if (button.disabled || action === "record" || action === "forward") {
         event.preventDefault();
+        return;
       }
+      event.preventDefault();
       nodeGraphTransportHandleAction(action);
     });
   }
@@ -750,6 +765,21 @@ function bindNodeGraphTransportButtons() {
   }
 }
 
-window.addEventListener("load", () => {
-  setTimeout(bindNodeGraphTransportButtons, 200);
-});
+// Boot-defer scripts run after the user hits START — window "load" already fired,
+// so a load-only bind never attached click handlers (Space still worked via keydown).
+(function bindNodeGraphTransportButtonsOnScriptEval() {
+  const run = () => {
+    try {
+      bindNodeGraphTransportButtons();
+    } catch (error) {
+      console.warn("[transport] bind failed", error);
+    }
+  };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run, { once: true });
+  } else {
+    run();
+  }
+  // Late DOM mirrors (Command Center) — re-run shortly after eval.
+  setTimeout(run, 200);
+})();

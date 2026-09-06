@@ -503,6 +503,21 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  // Image Burn: custom body (image row) + phosphor field set below.
+  imageBurnFace: Object.freeze({
+    fields: Object.freeze([
+      "imageSize",
+      "image",
+      "send",
+      "hang",
+      "burn",
+      "blur",
+      "backgroundBrightness",
+    ]),
+    colors: Object.freeze(["backgroundColor"]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
   // RGB Soft Fractal: outer plate mode + gradient (field is module params + rAF).
   rgbFractalFace: Object.freeze({
     fields: Object.freeze([]),
@@ -977,6 +992,42 @@ function nodeGraphTraceDisplaySettingsRoot() {
 // Field labels / input modes for schema-exclusive body builders.
 // Phosphor labels: Bright, Size, Blur, Ghost, Trail, Burn, Scale, Pixel density, Dot Budget.
 const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
+  imageSize: Object.freeze({
+    label: "Image Size",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayImageSize",
+    title: "Zoom 0…4 (exp). Fine near 0; 1 = fit face; >1 = zoom past edges.",
+  }),
+  image: Object.freeze({
+    label: "Image",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayImageBright",
+    title: "Gain on buffered In for the flashing dry image (brightness = energy × Image).",
+  }),
+  send: Object.freeze({
+    label: "Send",
+    inputmode: "decimal",
+    id: "nodeTraceDisplaySend",
+    title: "How much of that lit brightness is sent into the burn circuit.",
+  }),
+  ink: Object.freeze({
+    label: "Ink",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayInk",
+    title: "Legacy alias for Send.",
+  }),
+  hang: Object.freeze({
+    label: "Hang",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayHang",
+    title: "Image Burn base residual hang. 0 = die fast; 1 ≈ freeze.",
+  }),
+  blur: Object.freeze({
+    label: "Blur",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayBlur",
+    title: "Image Burn soft spread so lingering highlights bloom instead of pixelating.",
+  }),
   ghost: Object.freeze({
     label: "Ghost",
     inputmode: "decimal",
@@ -989,11 +1040,17 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayTrail",
     title: "Hot residual length. 0 = die fast. ~0.88 = classic hang. 1 \u2248 freeze the bright path. Not Bright.",
   }),
+  bleed: Object.freeze({
+    label: "Bleed",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayBleed",
+    title: "Soft neighborhood seep on energy phosphor faces.",
+  }),
   burn: Object.freeze({
     label: "Burn",
     inputmode: "decimal",
     id: "nodeTraceDisplayBurn",
-    title: "Sticky residual floor 0…1. 0 = none; 0.5 = once energy ≥ 0.5 it never drops below; 1 = freeze all residual.",
+    title: "Image Burn: how drastically bright pixels linger vs dark (0 = even fade, 1 = highlights stick / darks die). Other faces: sticky residual floor.",
   }),
   burnAmount: Object.freeze({
     label: "Burn \u2A2F",
@@ -1786,12 +1843,13 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   xyPad: "Phosphor",
   phosphorLight: "2D Phosphor",
   dot: "Phosphor Dot",
-  vectorDot: "Vector Dot",
-  pulseDot: "Vector Dot",
+  vectorDot: "LED Dot",
+  pulseDot: "LED Dot",
   lcdDot: "LCD Dot",
   spectrogramBurn: "Spectrogram",
   rgbShapeFace: "Shape",
   rgbPictureFace: "Picture",
+  imageBurnFace: "Image Burn",
   rgbFractalFace: "Soft Fractal",
   evolveFieldFace: "Evolve Field",
   fbmFieldFace: "Fractal Brownian Field",

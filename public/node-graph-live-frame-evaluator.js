@@ -16,7 +16,11 @@ function nodeGraphSafeFilterNumber(value, runtime, nodeId, state, source) {
 // files (e.g. native_modules/logistic_map/logistic_map-live-evaluator.js),
 // each self-registering on load. Checked ahead of the big if/else-if chain
 // below so a migrated module type never requires editing this file again.
-const nodeGraphLiveModuleEvaluators = {};
+// Must be a globalThis / var binding — top-level `const` is not visible as
+// `globalThis.nodeGraphLiveModuleEvaluators` and breaks self-registering
+// evaluators that assign into this map after boot-defer activation.
+var nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators
+  || (globalThis.nodeGraphLiveModuleEvaluators = {});
 
 function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
   // soemdsp SmootherManager::run — dirty chases only, once per sample.

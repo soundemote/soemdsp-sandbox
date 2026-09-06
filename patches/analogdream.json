@@ -1520,7 +1520,7 @@
       },
       {
         "sourceNode": "transport-1",
-        "sourcePort": "0..1",
+        "sourcePort": "Gate 0-1",
         "tracePoints": [],
         "destinationNode": "gravityWalker-1",
         "destinationPort": "Clock"

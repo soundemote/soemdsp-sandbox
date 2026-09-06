@@ -2,21 +2,32 @@
 // center-square. No anti-aliasing. PWM (`shape`) drives Square, Trisaw, and
 // Center Square (and Wave when one of those is selected).
 
+globalThis.nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators || {};
+var nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators;
+
 function nodeGraphBasicShapeWrap01(phase01) {
   const p = Number(phase01) || 0;
   return p - Math.floor(p);
 }
 
-/** Naive center-square (soemdsp PolyBLEP::pulseCenter without BLEP). */
+/**
+ * Center Square: bipolar pulse centered at mid-cycle.
+ * Morph = width 0…1. Edges grow left and right from the center (not dual
+ * top/bottom steps). Width 0 → always low (−1); 1 → always high (+1).
+ */
 function nodeGraphBasicShapeCenterSquare(cycle, morph) {
-  const m = Number.isFinite(morph) ? Math.max(0, Math.min(1, morph)) : 0.5;
-  let t1 = nodeGraphBasicShapeWrap01(cycle + 0.875 + 0.25 * (m - 0.5));
-  let t2 = nodeGraphBasicShapeWrap01(cycle + 0.375 + 0.25 * (m - 0.5));
-  let y = (t1 < 0.5 ? 1 : -1);
-  t1 = nodeGraphBasicShapeWrap01(t1 + 0.5 * (1 - m));
-  t2 = nodeGraphBasicShapeWrap01(t2 + 0.5 * (1 - m));
-  y += (t1 < 0.5 ? 1 : -1);
-  return 0.5 * y;
+  const width = Number.isFinite(morph) ? Math.max(0, Math.min(1, morph)) : 0.5;
+  if (width <= 0) {
+    return -1;
+  }
+  if (width >= 1) {
+    return 1;
+  }
+  const c = nodeGraphBasicShapeWrap01(cycle);
+  const half = width * 0.5;
+  const lo = 0.5 - half;
+  const hi = 0.5 + half;
+  return (c >= lo && c < hi) ? 1 : -1;
 }
 
 /** Bipolar trisaw (soemdsp::oscillator::bipolar::trisaw). */
@@ -40,15 +51,21 @@ function nodeGraphBasicShapeNaiveWaves(phase01, pulseWidth) {
   return { sine, tri, saw, ramp, square, trisaw, centerSquare };
 }
 
+// Order: 0 Sine, 1 Tri, 2 Saw, 3 Ramp, 4 Trisaw, 5 Square, 6 CenterSquare
 function nodeGraphBasicShapeSelect(waves, waveform) {
   const i = Math.max(0, Math.min(6, Math.round(Number(waveform) || 0)));
   if (i === 1) return waves.tri;
   if (i === 2) return waves.saw;
-  if (i === 3) return waves.square;
-  if (i === 4) return waves.ramp;
-  if (i === 5) return waves.trisaw;
+  if (i === 3) return waves.ramp;
+  if (i === 4) return waves.trisaw;
+  if (i === 5) return waves.square;
   if (i === 6) return waves.centerSquare;
   return waves.sine;
+}
+
+function nodeGraphBasicShapePolarity(x, polarity) {
+  const uni = Math.round(Number(polarity) || 0) >= 1;
+  return uni ? (Number(x) + 1) * 0.5 : Number(x);
 }
 
 function nodeGraphBasicShapePitchAndPhase({
@@ -150,19 +167,21 @@ nodeGraphLiveModuleEvaluators.basicShape = ({
   }
   samplePhase -= Math.floor(samplePhase);
   const waves = nodeGraphBasicShapeNaiveWaves(samplePhase, pulseWidth);
-  const selected = nodeGraphBasicShapeSelect(waves, waveform) * level;
+  const polarity = ctx.read("polarity", 0);
+  const pol = (x) => nodeGraphBasicShapePolarity(x, polarity);
+  const selected = pol(nodeGraphBasicShapeSelect(waves, waveform) * level);
   let nextPhase = ctx.phase + ctx.phaseIncrement;
   nextPhase -= Math.floor(nextPhase);
   runtime.phases.set(nodeId, nextPhase);
   return {
     Out: selected,
-    Saw: waves.saw * level,
-    Ramp: waves.ramp * level,
-    Sine: waves.sine * level,
-    Square: waves.square * level,
-    "Center Square": waves.centerSquare * level,
-    Tri: waves.tri * level,
-    Trisaw: waves.trisaw * level,
+    Sine: pol(waves.sine * level),
+    Tri: pol(waves.tri * level),
+    Saw: pol(waves.saw * level),
+    Ramp: pol(waves.ramp * level),
+    Trisaw: pol(waves.trisaw * level),
+    Square: pol(waves.square * level),
+    "Center Square": pol(waves.centerSquare * level),
     Wave: selected,
     "Wave Out": selected,
     __Phase: samplePhase,

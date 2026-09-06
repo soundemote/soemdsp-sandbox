@@ -1,6 +1,6 @@
 // Envelope face: Canvas 2D path of the expected contour
 // (filterCurve / pulseCurve family — not phosphor, not WebGL).
-// Used by Attack Decay and Curve Envelope (expAdsr).
+// Used by Curve Envelope (expAdsr), Linear Envelope, and legacy Attack Decay.
 
 function createNodeGraphEnvelopeCurveDisplay(nodeId, type) {
   const section = document.createElement("section");
@@ -49,8 +49,8 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
       decay: Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "decay", 0.22)),
       sustain: nodeGraphEnvelopeCurveLiveParam(node, "sustain", 0.55),
       release: Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "release", 0.45)),
-      attackShape: Math.max(1e-9, nodeGraphEnvelopeCurveLiveParam(node, "attackShape", 0.3)),
-      releaseShape: Math.max(1e-9, nodeGraphEnvelopeCurveLiveParam(node, "releaseShape", 0.0001)),
+      attackShape: nodeGraphEnvelopeCurveLiveParam(node, "attackShape", 0),
+      releaseShape: nodeGraphEnvelopeCurveLiveParam(node, "releaseShape", 0),
     }, 2000, pts);
     const level = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "level", 1));
     return {
@@ -67,14 +67,43 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
         decay: nodeGraphEnvelopeCurveLiveParam(node, "decay", 0.22),
         sustain: nodeGraphEnvelopeCurveLiveParam(node, "sustain", 0.55),
         release: nodeGraphEnvelopeCurveLiveParam(node, "release", 0.45),
-        attackShape: nodeGraphEnvelopeCurveLiveParam(node, "attackShape", 0.3),
-        releaseShape: nodeGraphEnvelopeCurveLiveParam(node, "releaseShape", 0.0001),
+        attackShape: nodeGraphEnvelopeCurveLiveParam(node, "attackShape", 0),
+        releaseShape: nodeGraphEnvelopeCurveLiveParam(node, "releaseShape", 0),
         level,
       },
     };
   }
 
-  // Attack Decay (default)
+  if (type === "linearEnvelope" && typeof nodeGraphLinearEnvelopePreviewCurve === "function") {
+    const preview = nodeGraphLinearEnvelopePreviewCurve({
+      delay: Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "delay", 0)),
+      attack: Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "attack", 0.08)),
+      decay: Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "decay", 0.22)),
+      sustain: nodeGraphEnvelopeCurveLiveParam(node, "sustain", 0.55),
+      release: Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "release", 0.45)),
+    }, pts);
+    const level = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "level", 1));
+    return {
+      points: preview.points,
+      total: preview.total,
+      guideT: preview.gateHigh / Math.max(1e-9, preview.total),
+      ampView: Math.min(1, level),
+      leftLabel: "A",
+      rightLabel: "R",
+      signature: {
+        type,
+        delay: nodeGraphEnvelopeCurveLiveParam(node, "delay", 0),
+        attack: nodeGraphEnvelopeCurveLiveParam(node, "attack", 0.08),
+        decay: nodeGraphEnvelopeCurveLiveParam(node, "decay", 0.22),
+        sustain: nodeGraphEnvelopeCurveLiveParam(node, "sustain", 0.55),
+        release: nodeGraphEnvelopeCurveLiveParam(node, "release", 0.45),
+        level,
+        loop: nodeGraphEnvelopeCurveLiveParam(node, "loop", 0),
+      },
+    };
+  }
+
+  // Legacy Attack Decay (hidden from catalog; still draws if present in a patch)
   const attack = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "attack", 0.01));
   const decay = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "decay", 0.25));
   const curve = Math.max(0.001, nodeGraphEnvelopeCurveLiveParam(node, "curve", 1));
@@ -109,7 +138,7 @@ function drawNodeGraphEnvelopeCurveDisplayInner(section) {
   if (!node || !canvas || typeof nodeGraphSizeDisplayCanvas !== "function") {
     return;
   }
-  const type = section.dataset.nodeType || node.type || "attackDecay";
+  const type = section.dataset.nodeType || node.type || "expAdsr";
   const cssW = Math.max(1, Number(section.clientWidth || section.offsetWidth) || 1);
   const cssH = Math.max(1, Number(section.clientHeight || section.offsetHeight) || 1);
   const built = nodeGraphEnvelopeCurveBuildPreview(node, type, cssW);

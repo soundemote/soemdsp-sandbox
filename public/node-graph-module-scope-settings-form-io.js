@@ -131,6 +131,15 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       syncNodeGraphRgbPictureDisplaySettingsControls(host);
     }
   }
+  // Image Burn: load / clear image + phosphor fields in custom body.
+  if (type === "imageBurnFace") {
+    if (typeof bindNodeGraphImageBurnDisplaySettingsEvents === "function") {
+      bindNodeGraphImageBurnDisplaySettingsEvents(host);
+    }
+    if (typeof syncNodeGraphImageBurnDisplaySettingsControls === "function") {
+      syncNodeGraphImageBurnDisplaySettingsControls(host);
+    }
+  }
   // Knob: image layers + rotate flags (span/readout are form fields).
   if (type === "knobFace") {
     if (typeof bindNodeGraphKnobFaceDisplaySettingsEvents === "function") {
@@ -432,6 +441,11 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       ? normalizeNodeGraphRgbPictureSettings()
       : { background: "#000000", dataUrl: "", fileName: "" };
   }
+  if (type === "imageBurnFace") {
+    return typeof normalizeNodeGraphImageBurnSettings === "function"
+      ? normalizeNodeGraphImageBurnSettings()
+      : { background: "#000000", dataUrl: "", fileName: "", imageSize: 1 };
+  }
   if (type === "rgbFractalFace") {
     return typeof normalizeNodeGraphRgbFractalSettings === "function"
       ? normalizeNodeGraphRgbFractalSettings()
@@ -608,6 +622,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
       ? normalizeNodeGraphRgbPictureSettings(settings)
       : (settings || {});
   }
+  if (type === "imageBurnFace") {
+    return typeof normalizeNodeGraphImageBurnSettings === "function"
+      ? normalizeNodeGraphImageBurnSettings(settings)
+      : (settings || {});
+  }
   if (type === "rgbFractalFace") {
     return typeof normalizeNodeGraphRgbFractalSettings === "function"
       ? normalizeNodeGraphRgbFractalSettings(settings)
@@ -760,6 +779,11 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
     return typeof nodeGraphRgbPictureSettingsForNode === "function"
       ? nodeGraphRgbPictureSettingsForNode(node)
       : normalizeNodeGraphRgbPictureSettings?.(node?.rgbPicture || node?.traceDisplaySettings);
+  }
+  if (settingsSchema === "imageBurnFace") {
+    return typeof nodeGraphImageBurnSettingsForNode === "function"
+      ? nodeGraphImageBurnSettingsForNode(node)
+      : normalizeNodeGraphImageBurnSettings?.(node?.imageBurn || node?.traceDisplaySettings);
   }
   if (settingsSchema === "rgbFractalFace") {
     return typeof nodeGraphRgbFractalSettingsForNode === "function"

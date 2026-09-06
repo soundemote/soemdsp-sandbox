@@ -1,4 +1,4 @@
-// Active Filter — worklet (native RS-MET multipole; JS offline in math.js).
+// Dual Ladder Filter — worklet (native RS-MET multipole; JS offline in math.js).
 
 NodeLiveAudioProcessor.prototype.createActiveFilterState = function createActiveFilterState() {
   return { y: [0, 0, 0, 0, 0], nativeHandle: 0 };
@@ -20,15 +20,25 @@ NodeLiveAudioProcessor.prototype.activeFilterSample = function activeFilterSampl
         state.nativeHandle = this.nativeActiveFilter.soemdsp_active_filter_create();
       }
       if (state.nativeHandle) {
-        const rawHz = this.safeFilterNumber(params.frequency, state);
-        const frequencyHz = Number.isFinite(rawHz) ? Math.max(0, rawHz) : 0;
+        const resolved = typeof nodeGraphActiveFilterResolveParams === "function"
+          ? nodeGraphActiveFilterResolveParams(params)
+          : params;
+        if (resolved?.bypass) {
+          return this.safeFilterNumber(input, state) ?? 0;
+        }
+        const lo = this.safeFilterNumber(resolved.lowFrequency ?? params.lowFrequency, state);
+        const hi = this.safeFilterNumber(resolved.highFrequency ?? params.highFrequency, state);
+        const hpSlope = Math.max(0, Math.min(4, Math.round(Number(resolved.hpSlope ?? params.hpSlope) || 0)));
+        const lpSlope = Math.max(0, Math.min(4, Math.round(Number(resolved.lpSlope ?? params.lpSlope) || 0)));
         return this.safeFilterNumber(
           this.nativeActiveFilter.soemdsp_active_filter_sample(
             state.nativeHandle,
             this.safeFilterNumber(input, state),
-            frequencyHz,
+            Number.isFinite(lo) ? Math.max(0, lo) : 0,
+            Number.isFinite(hi) ? Math.max(0, hi) : 0,
+            hpSlope,
+            lpSlope,
             this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1),
-            Math.max(0, Math.min(9, Math.round(nodeGraphFiniteNumber(params.mode, 3)))),
             Math.max(0, Math.min(3, Math.round(Number(params.feedbackCircuit) || 0))),
             Math.round(Number(params.gainCompensation)) !== 0 ? 1 : 0,
             Math.max(1, Number(rate) || sampleRate || 44100),
@@ -43,7 +53,7 @@ NodeLiveAudioProcessor.prototype.activeFilterSample = function activeFilterSampl
         type: "nativeModuleStatus",
         name: "active_filter",
         status: "disabled",
-        message: String(error?.message || error || "native Active Filter failed"),
+        message: String(error?.message || error || "native Dual Ladder Filter failed"),
       });
     }
   }
@@ -62,23 +72,15 @@ NodeLiveAudioProcessor.prototype.activeFilterProcess = function activeFilterProc
   params,
   rate = sampleRate,
 ) {
-  const resolved = typeof nodeGraphActiveFilterResolveInto === "function"
-    ? nodeGraphActiveFilterResolveInto(state._resolved || (state._resolved = {}), params)
-    : { bandpass: false, frequency: params?.frequency, mode: params?.mode };
-  if (resolved.bandpass) {
-    if (!state.hp) state.hp = this.createActiveFilterState();
-    if (!state.lp) state.lp = this.createActiveFilterState();
-    const hpParams = typeof nodeGraphActiveFilterFillLadderParams === "function"
-      ? nodeGraphActiveFilterFillLadderParams(state.hp._p || (state.hp._p = {}), resolved, "hp")
-      : { ...params, frequency: resolved.hpHz, mode: resolved.hpMode };
-    const lpParams = typeof nodeGraphActiveFilterFillLadderParams === "function"
-      ? nodeGraphActiveFilterFillLadderParams(state.lp._p || (state.lp._p = {}), resolved, "lp")
-      : { ...params, frequency: resolved.lpHz, mode: resolved.lpMode };
-    const mid = this.activeFilterSample(state.hp, input, hpParams, rate);
-    return this.activeFilterSample(state.lp, mid, lpParams, rate);
+  // Native Dual Ladder owns HP→LP cascade; one sample() call is enough.
+  if (this.nativeActiveFilterReady) {
+    return this.activeFilterSample(state, input, params, rate);
   }
-  const single = typeof nodeGraphActiveFilterFillLadderParams === "function"
-    ? nodeGraphActiveFilterFillLadderParams(state._p || (state._p = {}), resolved, "single")
-    : params;
-  return this.activeFilterSample(state, input, single, rate);
+  if (typeof nodeGraphActiveFilterProcess === "function") {
+    return this.safeFilterNumber(
+      nodeGraphActiveFilterProcess(state, input, params, rate),
+      state,
+    );
+  }
+  return this.activeFilterSample(state, input, params, rate);
 };

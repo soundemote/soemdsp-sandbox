@@ -356,16 +356,22 @@ function dragNodeGraphTraceDisplayField(event) {
     ? drag.startValue
     : nodeGraphDisplaySettingsDefaultValue(drag.key);
   // Bright / Ghost Bright / Residual: same linear sensitivity (~220 px = full 0…1).
-  const unitPx = typeof nodeGraphTraceDisplayUnitDragPixels === "number"
-    ? nodeGraphTraceDisplayUnitDragPixels
-    : 220;
+  // Value Line length spans the whole face, so give it a longer throw.
+  const unitPx = drag.key === "lineLength"
+    ? 480
+    : (typeof nodeGraphTraceDisplayUnitDragPixels === "number"
+      ? nodeGraphTraceDisplayUnitDragPixels
+      : 220);
   // Stamp Size (dot1/secondary): control-space drag with dedicated gain (exp map).
   const sizeDrag = typeof nodeGraphTraceDisplaySizeControlField === "function"
     && nodeGraphTraceDisplaySizeControlField(drag.key)
     && !drag.unitDrag;
-  const blurDrag = typeof nodeGraphTraceDisplayInstantTraceBlurField === "function"
-    && nodeGraphTraceDisplayInstantTraceBlurField(drag.key)
-    && !drag.unitDrag;
+  const blurDrag = (
+    (typeof nodeGraphTraceDisplayInstantTraceBlurField === "function"
+      && nodeGraphTraceDisplayInstantTraceBlurField(drag.key))
+    || (typeof nodeGraphTraceDisplayImageBurnBlurField === "function"
+      && nodeGraphTraceDisplayImageBurnBlurField(drag.key))
+  ) && !drag.unitDrag;
   const sizePx = typeof nodeGraphTraceDisplaySizeDragPixels === "number"
     ? nodeGraphTraceDisplaySizeDragPixels
     : 520;
@@ -485,9 +491,21 @@ function stepNodeGraphTraceDisplaySetting(event) {
       adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum),
     );
   } else if (
-    typeof nodeGraphTraceDisplayInstantTraceBlurField === "function"
-    && nodeGraphTraceDisplayInstantTraceBlurField(key)
+    (typeof nodeGraphTraceDisplayInstantTraceBlurField === "function"
+      && nodeGraphTraceDisplayInstantTraceBlurField(key))
+    || (typeof nodeGraphTraceDisplayImageBurnBlurField === "function"
+      && nodeGraphTraceDisplayImageBurnBlurField(key))
   ) {
+    const quantum = nodeGraphTraceDisplayStepperQuantum(input, baseValue, direction);
+    nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(
+      key,
+      adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum),
+    );
+  } else if (
+    typeof nodeGraphTraceDisplaySizeControlField === "function"
+    && nodeGraphTraceDisplaySizeControlField(key)
+  ) {
+    // Stamp Size / Image Size: exp control-space (fine near 0, like zoom).
     const quantum = nodeGraphTraceDisplayStepperQuantum(input, baseValue, direction);
     nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(
       key,

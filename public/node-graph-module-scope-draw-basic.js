@@ -580,24 +580,18 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
 
 
 /**
- * 0D Value — classic sharp Trace-style beam on the shared workspace WebGL
- * canvas (redraw every frame). No local face buffer, no pixelDensity grid —
- * that path looked blocky under zoom because the face bitmap stays fixed size.
- * Teal/blue ink with alpha via beam intensity (not RGB premultiply).
+ * Value Line — TraceStroke on a face-local canvas (same space as the module
+ * face). Must NOT use the shared viewport WebGL beam: that path tracks pan/zoom
+ * while paused and the line drifts off the scope.
  */
 function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
-  const rect = item?.scopeRect;
   const slot = item?.slot;
-  if (!rect || !slot || !renderer?.gl) {
+  if (!slot) {
     return;
   }
-  renderNodeGraphModuleScopeAnalyzer(slot, item.buffer);
-  // Drop any leftover face-local bitmap from the short-lived canvas path.
-  if (typeof clearNodeGraphModuleScopeLocalFallback === "function") {
-    clearNodeGraphModuleScopeLocalFallback(slot);
-  }
-
-  const node = nodeGraphModuleScopeNodeForSlot(slot);
+  const node = typeof nodeGraphModuleScopeNodeForSlot === "function"
+    ? nodeGraphModuleScopeNodeForSlot(slot)
+    : null;
   const settings = typeof nodeGraphTraceDisplaySettingsForNode === "function"
     ? nodeGraphTraceDisplaySettingsForNode(node)
     : null;
@@ -607,155 +601,180 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
       ? normalizeNodeGraphValueOscilloscopeSettings()
       : {});
 
+  const canvas = typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
+    ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
+    : null;
   const screenElement = item?.screenElement || slot?.scopeElement;
+  if (!canvas || typeof syncNodeGraphModuleScopeLocalFallbackCanvas !== "function") {
+    return;
+  }
+  {
+    const densityRaw = Number(safeSettings.pixelDensity);
+    const density = Number.isFinite(densityRaw) ? densityRaw : 1;
+    if (!syncNodeGraphModuleScopeLocalFallbackCanvas(
+      canvas,
+      screenElement,
+      pixelRatio,
+      density,
+    )) {
+      return;
+    }
+  }
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return;
+  }
+
+  if (typeof renderNodeGraphModuleScopeAnalyzer === "function") {
+    renderNodeGraphModuleScopeAnalyzer(slot, item.buffer);
+  }
+
   const bg = typeof nodeGraphFacePlateBackground === "function"
     ? nodeGraphFacePlateBackground(safeSettings)
     : "#000004";
   if (typeof nodeGraphFacePlateApplyCss === "function" && screenElement) {
     nodeGraphFacePlateApplyCss(screenElement, bg);
   }
+  canvas.style.mixBlendMode = "normal";
 
-  const amp = typeof nodeGraphDisplaySettingsAmplitudeScale === "function"
-    ? nodeGraphDisplaySettingsAmplitudeScale(safeSettings)
-    : 1;
-  const value = clampNodeSliderValue(
-    (typeof nodeGraphOscilloscopeLatestSample === "function"
-      ? nodeGraphOscilloscopeLatestSample(item?.buffer, 0)
-      : 0) * amp,
-    -1,
-    1,
-  );
-  const lineLength = clampNodeSliderValue(Number(safeSettings.lineLength) || 1, 0, 1);
-  const brightness = clampNodeSliderValue(
-    Number(safeSettings.brightness ?? safeSettings.dot1Brightness) || 0.72,
-    0,
-    1,
-  );
-  if (!(brightness > 0.001) || safeSettings.dot1Enabled === false) {
-    if (typeof recordNodeGraphModuleScopeRenderMetrics === "function") {
-      recordNodeGraphModuleScopeRenderMetrics(1, 0);
-    }
-    return;
+  const width = canvas.width;
+  const height = canvas.height;
+  const faceMinSide = Math.max(1, Math.min(width, height));
+  const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
+    && nodeGraphModuleScopePhosphorFrozen();
+
+  if (typeof nodeGraphFacePlateFillCanvas === "function") {
+    nodeGraphFacePlateFillCanvas(context, canvas, bg);
+  } else {
+    context.fillStyle = bg;
+    context.fillRect(0, 0, width, height);
   }
 
-  // Workspace layout coords (same space as original 0D beam).
-  const square = typeof nodeGraphModuleScopeCenteredSquareRect === "function"
-    ? nodeGraphModuleScopeCenteredSquareRect(rect)
-    : rect;
-  const displayLeft = Number(rect.left) || 0;
-  const displayWidth = Math.max(1, Number(rect.width) || 1);
-  const centerX = displayLeft + displayWidth * 0.5;
-  const halfLine = displayWidth * 0.5 * lineLength;
-  const x1 = centerX - halfLine;
-  const x2 = centerX + halfLine;
-  const faceH = Number(square.height) || Number(rect.height) || 1;
-  const y = (Number(square.top) || Number(rect.top) || 0)
-    + faceH * 0.5
-    - value * faceH * 0.44;
-
-  // Classic sharp teal/blue; settings color still allowed (0…1 RGB for beam).
-  let color = [0.45, 0.92, 1];
-  const colorHex = safeSettings.color || safeSettings.dot1Color || "";
-  if (colorHex && typeof nodeGraphScopeHexColorToRgb === "function") {
-    const rgb = nodeGraphScopeHexColorToRgb(colorHex);
-    if (Array.isArray(rgb) && rgb.length >= 3) {
-      // Hex helper may return 0…1 or 0…255.
-      color = rgb[0] > 1.01
-        ? [rgb[0] / 255, rgb[1] / 255, rgb[2] / 255]
-        : [rgb[0], rgb[1], rgb[2]];
-    }
+  let ink = canvas._valueLineInk;
+  if (!ink || ink.width !== width || ink.height !== height) {
+    ink = document.createElement("canvas");
+    ink.width = width;
+    ink.height = height;
+    canvas._valueLineInk = ink;
   }
 
-  // Size 0…1 of the face square min side: 0 = gone, 1 = full square.
-  // Beam path multiplies thicknessPx by pixelRatio for device pixels.
-  const faceMinSide = Math.max(
-    1,
-    Math.min(
-      Number(square.width) || displayWidth,
-      Number(square.height) || faceH,
-    ),
-  );
-  const size01ToPx = (size01) => {
-    const t = clampNodeSliderValue(Number(size01) || 0, 0, 1);
-    if (typeof TraceStroke !== "undefined" && typeof TraceStroke.diameterPx === "function") {
-      return TraceStroke.diameterPx(faceMinSide, t);
+  if (!frozen) {
+    const inkCtx = ink.getContext("2d");
+    if (!inkCtx) {
+      return;
     }
-    return faceMinSide * t;
-  };
-  const size01 = clampNodeSliderValue(Number(safeSettings.dot1Size) || 0, 0, 1);
-  const thicknessPx = size01ToPx(size01);
-  if (!(thicknessPx > 0)) {
-    return;
-  }
-  const intensity = Math.max(0.05, Math.min(1.25, brightness * 0.95 + 0.05));
-  // lineThickness = Blur 0…1 (smoothstep edge). Hard 0 stair-steps; a light
-  // floor keeps ~1px of AA so thin lines/caps don't look aliased.
-  const blur01 = clampNodeSliderValue(
-    Number(safeSettings.lineThickness) || 0,
-    0,
-    1,
-  );
-  const beamBlur = Math.max(0.12, blur01);
+    inkCtx.setTransform(1, 0, 0, 1, 0, 0);
+    inkCtx.clearRect(0, 0, width, height);
 
-  drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y, x2, y, {
-    blur: beamBlur,
-    color,
-    intensity,
-    thicknessPx,
-  });
-
-  if (safeSettings.capEnabled !== false) {
-    const capLen01 = clampNodeSliderValue(Number(safeSettings.capLength) || 0.16, 0, 1);
-    if (capLen01 > 0.001) {
-      const capHalf = faceH * capLen01 * 0.5;
-      const capSize01 = clampNodeSliderValue(
-        Number(safeSettings.capSize ?? safeSettings.dot1Size) || size01,
-        0,
-        1,
-      );
-      const capThickness = size01ToPx(capSize01);
-      // Beam hard core radius = uSize * NODE_GRAPH_BEAM_SIZE_TO_RADIUS (not ½ diameter).
-      // Horizontal line round ends sit lineCoreR past x1/x2; vertical caps extend
-      // capCoreR from their center. Place centers so outer edges match those tips,
-      // then optional capPadding (0…1 of half-line) pulls both caps toward middle.
-      const sizeToR = typeof NODE_GRAPH_BEAM_SIZE_TO_RADIUS === "number"
-        ? NODE_GRAPH_BEAM_SIZE_TO_RADIUS
-        : 0.34;
-      const lineCoreR = Math.max(0, thicknessPx) * sizeToR;
-      const capCoreR = Math.max(0, capThickness) * sizeToR;
-      const edgeAlign = capCoreR - lineCoreR;
-      const capPad01 = clampNodeSliderValue(Number(safeSettings.capPadding) || 0, 0, 1);
-      const padPx = halfLine * capPad01;
-      const midX = (x1 + x2) * 0.5;
-      let leftCapX = x1 + edgeAlign + padPx;
-      let rightCapX = x2 - edgeAlign - padPx;
-      if (leftCapX > midX) {
-        leftCapX = midX;
+    const amp = typeof nodeGraphDisplaySettingsAmplitudeScale === "function"
+      ? nodeGraphDisplaySettingsAmplitudeScale(safeSettings)
+      : 1;
+    const value = clampNodeSliderValue(
+      (typeof nodeGraphOscilloscopeLatestSample === "function"
+        ? nodeGraphOscilloscopeLatestSample(item?.buffer, 0)
+        : 0) * amp,
+      -1,
+      1,
+    );
+    // 0 is a real setting — never use `x || default` (that snaps 0 back to default).
+    const finiteUnit = (raw, fallback) => {
+      const n = Number(raw);
+      return clampNodeSliderValue(Number.isFinite(n) ? n : fallback, 0, 1);
+    };
+    const lineLength = finiteUnit(safeSettings.lineLength, 1);
+    const brightness = finiteUnit(
+      safeSettings.brightness ?? safeSettings.dot1Brightness,
+      0.72,
+    );
+    if (!(brightness > 0.001) || safeSettings.dot1Enabled === false) {
+      if (typeof recordNodeGraphModuleScopeRenderMetrics === "function") {
+        recordNodeGraphModuleScopeRenderMetrics(1, 0);
       }
-      if (rightCapX < midX) {
-        rightCapX = midX;
-      }
-      drawNodeGraphOscilloscopeBeam(
-        renderer,
-        item,
-        pixelRatio,
-        leftCapX,
-        y - capHalf,
-        leftCapX,
-        y + capHalf,
-        { blur: beamBlur, color, intensity, thicknessPx: capThickness },
-      );
-      drawNodeGraphOscilloscopeBeam(
-        renderer,
-        item,
-        pixelRatio,
-        rightCapX,
-        y - capHalf,
-        rightCapX,
-        y + capHalf,
-        { blur: beamBlur, color, intensity, thicknessPx: capThickness },
-      );
+      return;
     }
+
+    const halfLine = width * 0.5 * lineLength;
+    const x1 = width * 0.5 - halfLine;
+    const x2 = width * 0.5 + halfLine;
+    const y = height * 0.5 - value * height * 0.44;
+
+    let rgb = [115, 235, 255];
+    const colorHex = safeSettings.color || safeSettings.dot1Color || "";
+    if (colorHex && typeof nodeGraphScopeHexColorToRgb === "function") {
+      const parsed = nodeGraphScopeHexColorToRgb(colorHex);
+      if (Array.isArray(parsed) && parsed.length >= 3) {
+        rgb = parsed[0] <= 1.01
+          ? [
+            Math.round(parsed[0] * 255),
+            Math.round(parsed[1] * 255),
+            Math.round(parsed[2] * 255),
+          ]
+          : [
+            Math.round(parsed[0]),
+            Math.round(parsed[1]),
+            Math.round(parsed[2]),
+          ];
+      }
+    }
+
+    const size01 = finiteUnit(safeSettings.dot1Size, 0);
+    if (!(size01 > 0)) {
+      return;
+    }
+    const blur01 = Math.max(0.12, finiteUnit(safeSettings.lineThickness, 0));
+    const strokeOpts = {
+      blur: blur01,
+      brightness,
+      color: `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`,
+      faceMinSide,
+      rgb,
+      size: size01,
+    };
+
+    if (typeof TraceStroke !== "undefined" && typeof TraceStroke.draw === "function") {
+      TraceStroke.draw(inkCtx, [{ x: x1, y }, { x: x2, y }], strokeOpts);
+
+      if (safeSettings.capEnabled !== false) {
+        const capLen01 = finiteUnit(safeSettings.capLength, 0.16);
+        if (capLen01 > 0.001) {
+          const capHalf = height * capLen01 * 0.5;
+          const capSize01 = finiteUnit(
+            safeSettings.capSize ?? safeSettings.dot1Size,
+            size01,
+          );
+          const lineCoreR = typeof TraceStroke.radiusPx === "function"
+            ? TraceStroke.radiusPx(faceMinSide, size01)
+            : faceMinSide * size01 * 0.5;
+          const capCoreR = typeof TraceStroke.radiusPx === "function"
+            ? TraceStroke.radiusPx(faceMinSide, capSize01)
+            : faceMinSide * capSize01 * 0.5;
+          const edgeAlign = capCoreR - lineCoreR;
+          const capPad01 = finiteUnit(safeSettings.capPadding, 0);
+          const padPx = halfLine * capPad01;
+          const midX = (x1 + x2) * 0.5;
+          let leftCapX = x1 + edgeAlign + padPx;
+          let rightCapX = x2 - edgeAlign - padPx;
+          if (leftCapX > midX) leftCapX = midX;
+          if (rightCapX < midX) rightCapX = midX;
+          const capOpts = { ...strokeOpts, size: capSize01 };
+          TraceStroke.draw(
+            inkCtx,
+            [{ x: leftCapX, y: y - capHalf }, { x: leftCapX, y: y + capHalf }],
+            capOpts,
+          );
+          TraceStroke.draw(
+            inkCtx,
+            [{ x: rightCapX, y: y - capHalf }, { x: rightCapX, y: y + capHalf }],
+            capOpts,
+          );
+        }
+      }
+    }
+  }
+
+  context.drawImage(ink, 0, 0);
+  if (typeof recordNodeGraphModuleScopeRenderMetrics === "function") {
+    recordNodeGraphModuleScopeRenderMetrics(1, 1);
   }
 }
 

@@ -44,6 +44,7 @@ Only these live-audio types exist in the efficient build:
 | `reverbEffect` | Sabrina reverb |
 | `pingPongDelay` | Delay |
 | `attenuverter` | Scale / invert / offset |
+| `ampCurve` | Lin/Exp CV shaper for Amplitude params (classic VCA response) |
 | `range` | Linear range map |
 | `inv` | Invert (`−in`) |
 | `u2b` | Unipolar → bipolar |
@@ -63,6 +64,7 @@ Only these live-audio types exist in the efficient build:
 | `rotate3dTo2d` | X/Y/Z rotate → X/Y project |
 | `clock` | Free-running clock (Digital / Analog / Pulse) |
 | `triggerDivider` | Divide trigger edges |
+| `clockDivider` | Divide Clock edges (duty × measured period) |
 | `delayedTrigger` | Delay then pulse on trigger |
 | `randomClock` | Random-interval Trigger + Gate |
 | `triggerCounter` | Count triggers → Pulse + Count |
@@ -171,10 +173,10 @@ Canonical circuit:
 ```text
 polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
 (+ robinSinusoid / robinSupersaw / noiseGenerator;
-   attenuverter / range / inv / u2b / b2u / bias / gain / slewLimiter / comparator /
+   attenuverter / ampCurve / range / inv / u2b / b2u / bias / gain / slewLimiter / comparator /
    sampleDelay / sampleHold / minMax / mix / mixStereo / clipperLimiter /
    midSideEncode / vectorscopeTransform / rotate3dTo2d /
-   clock / binaryClock / triggerDivider / delayedTrigger / randomClock / triggerCounter /
+   clock / binaryClock / triggerDivider / clockDivider / delayedTrigger / randomClock / triggerCounter /
    metallicRatio / lutCell / lookaheadLimiter / limiter / stepSequencer / transport /
    aliasSine / blit / sineWavetable / sinCos / antisaw / archimedes /
    additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc /

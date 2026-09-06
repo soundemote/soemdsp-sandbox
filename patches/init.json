@@ -397,6 +397,47 @@
         "sweepCycles": 4,
         "sweepSeconds": 0.25
       }
+    },
+    {
+      "gx": -2,
+      "gy": -14,
+      "id": "textBox-1",
+      "paramMeta": {},
+      "params": {},
+      "type": "textBox",
+      "alias": "The Journey Starts Here",
+      "widthGu": 14,
+      "heightGu": 5,
+      "layout": {
+        "backgroundColor": "#020407",
+        "font": "cascadia-mono",
+        "horizontalAlign": "center",
+        "kind": "textBox",
+        "text": "Journey to the Hypersaw\n|\\ /\\ /|",
+        "textColor": "#f3f1ec",
+        "textSizePercent": 253,
+        "textWeight": 400,
+        "lineHeight": 1.2,
+        "textMode": "multiline",
+        "verticalAlignSchema": 2,
+        "verticalAlignPercent": 56
+      },
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": false
+      }
     }
   ],
   "requiredAssets": [],
@@ -410,7 +451,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 48,
-    "zoom": 1,
+    "zoom": 1.332469947190689,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,
@@ -421,7 +462,7 @@
     "moduleSlidersVisible": true,
     "sliderAmountVisible": false,
     "sliderPositionVisible": true,
-    "tooltipEmbedded": true,
+    "tooltipEmbedded": false,
     "locked": false,
     "hideUnusedPorts": false
   },

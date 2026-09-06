@@ -8,10 +8,15 @@ nodeGraphLiveModuleEvaluators.clock = ({
   frames,
   frameValues,
   mixInput,
+  hasInput,
   sampleRate,
 }) => {
   const state = runtime.clockStates.get(nodeId) || createNodeGraphClockState();
   runtime.clockStates.set(nodeId, state);
+  const rateKnob = readNodeGraphLiveEffectiveParam(runtime, node, "rate", 2, frame, frames, frameValues);
+  const rateHz = typeof nodeGraphFrequencyHzFromKnobOrF === "function"
+    ? nodeGraphFrequencyHzFromKnobOrF(rateKnob, hasInput, mixInput, nodeId)
+    : rateKnob;
   const out = nodeGraphClockCore(
     state,
     nodeGraphSafeFilterNumber(mixInput(nodeId, "Reset"), runtime, nodeId, null, "clock reset"),
@@ -22,13 +27,7 @@ nodeGraphLiveModuleEvaluators.clock = ({
       null,
       "clock phase",
     ),
-    nodeGraphSafeFilterNumber(
-      readNodeGraphLiveEffectiveParam(runtime, node, "rate", 2, frame, frames, frameValues),
-      runtime,
-      nodeId,
-      null,
-      "clock rate",
-    ),
+    nodeGraphSafeFilterNumber(rateHz, runtime, nodeId, null, "clock rate"),
     nodeGraphSafeFilterNumber(
       readNodeGraphLiveEffectiveParam(runtime, node, "duty", 0.5, frame, frames, frameValues),
       runtime,

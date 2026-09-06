@@ -3,7 +3,7 @@
   "modules": [
     {
       "name": "active_filter",
-      "label": "Active Filter",
+      "label": "Dual Ladder Filter",
       "targetType": "activeFilter",
       "kind": "filter",
       "source": "native_modules/active_filter/active_filter.cpp",
@@ -35,6 +35,18 @@
       "libUrl": "",
       "wasm": "native_modules/alias_sine/alias_sine.wasm",
       "wasmUrl": "native_modules/alias_sine/alias_sine.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "amp_curve",
+      "label": "Amp Curve",
+      "targetType": "ampCurve",
+      "kind": "dynamics",
+      "source": "native_modules/amp_curve/amp_curve.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/amp_curve/amp_curve.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/amp_curve/amp_curve.wasm",
+      "wasmUrl": "native_modules/amp_curve/amp_curve.wasm",
       "wasmAvailable": true
     },
     {
@@ -623,6 +635,18 @@
       "libUrl": "",
       "wasm": "native_modules/hypersaw/hypersaw.wasm",
       "wasmUrl": "native_modules/hypersaw/hypersaw.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "hypersaw2",
+      "label": "Hypersaw2",
+      "targetType": "hypersaw2",
+      "kind": "oscillator",
+      "source": "native_modules/hypersaw2/hypersaw2.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/hypersaw2/hypersaw2.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/hypersaw2/hypersaw2.wasm",
+      "wasmUrl": "native_modules/hypersaw2/hypersaw2.wasm",
       "wasmAvailable": true
     },
     {
@@ -1526,6 +1550,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "vactrol_envelope",
+      "label": "Vactrol",
+      "targetType": "vactrol",
+      "kind": "envelope",
+      "source": "native_modules/vactrol_envelope/vactrol_envelope.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/vactrol_envelope/vactrol_envelope.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/vactrol_envelope/vactrol_envelope.wasm",
+      "wasmUrl": "native_modules/vactrol_envelope/vactrol_envelope.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "vectorscope_transform",
       "label": "Vectorscope Rotation",
       "targetType": "vectorscopeTransform",
@@ -1535,6 +1571,18 @@
       "libUrl": "",
       "wasm": "native_modules/vectorscope_transform/vectorscope_transform.wasm",
       "wasmUrl": "native_modules/vectorscope_transform/vectorscope_transform.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "vibrato_generator",
+      "label": "Vibrato Generator",
+      "targetType": "vibratoGenerator",
+      "kind": "modulator",
+      "source": "native_modules/vibrato_generator/vibrato_generator.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/vibrato_generator/vibrato_generator.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/vibrato_generator/vibrato_generator.wasm",
+      "wasmUrl": "native_modules/vibrato_generator/vibrato_generator.wasm",
       "wasmAvailable": true
     },
     {
@@ -1571,6 +1619,18 @@
       "libUrl": "",
       "wasm": "native_modules/wall_delay/wall_delay.wasm",
       "wasmUrl": "native_modules/wall_delay/wall_delay.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "wow_and_flutter",
+      "label": "Wow And Flutter",
+      "targetType": "wowAndFlutter",
+      "kind": "modulator",
+      "source": "native_modules/wow_and_flutter/wow_and_flutter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/wow_and_flutter/wow_and_flutter.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/wow_and_flutter/wow_and_flutter.wasm",
+      "wasmUrl": "native_modules/wow_and_flutter/wow_and_flutter.wasm",
       "wasmAvailable": true
     },
     {

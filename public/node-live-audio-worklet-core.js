@@ -376,6 +376,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.dsfOscillatorStates = new Map();
     this.robinSupersawStates = new Map();
     this.hypersawStates = new Map();
+    this.hypersaw2States = new Map();
     this.videoscopeStates = new Map();
     this.spectrogramStates = new Map();
     this.noiseGeneratorStates = new Map();
@@ -388,6 +389,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.patchCommandStates = new Map();
     this.phases = new Map();
     this.pluckEnvelopeStates = new Map();
+    this.vactrolEnvelopeStates = new Map();
+    this.nativeVactrolEnvelope = null;
+    this.nativeVactrolEnvelopeReady = false;
     this.planSerial = 0;
     this.randomClockStates = new Map();
     this.reverbEffectStates = new Map();

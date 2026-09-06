@@ -17,13 +17,13 @@ function assertClose(name, got, want, eps) {
 }
 
 // Unity 0 dB, dual-mono In=0.5 → L/R 0.5, Average Out 0.5
-let f = sandbox.nodeGraphGainFrameDb(0.5, 0, 0, { masterDb: 0, leftDb: 0, rightDb: 0, monoSum: 0, offset: 0 });
+let f = sandbox.nodeGraphGainFrameDb(0.5, 0, 0, { masterDb: 0, leftDb: 0, rightDb: 0, monoSum: 1, offset: 0 });
 assertClose("unity L", f.Left, 0.5);
 assertClose("unity R", f.Right, 0.5);
 assertClose("unity Out avg", f.Out, 0.5);
 
 // +6.02 dB ≈ ×2
-f = sandbox.nodeGraphGainFrameDb(0.25, 0, 0, { masterDb: 20 * Math.log10(2), leftDb: 0, rightDb: 0, monoSum: 0, offset: 0 });
+f = sandbox.nodeGraphGainFrameDb(0.25, 0, 0, { masterDb: 20 * Math.log10(2), leftDb: 0, rightDb: 0, monoSum: 1, offset: 0 });
 assertClose("plus6 L", f.Left, 0.5, 1e-6);
 
 // −inf floor mutes
@@ -31,19 +31,22 @@ f = sandbox.nodeGraphGainFrameDb(1, 0, 0, { masterDb: -140, leftDb: 0, rightDb: 
 assertClose("mute", f.Out, 0);
 
 // Offset after gain
-f = sandbox.nodeGraphGainFrameDb(1, 0, 0, { masterDb: 0, leftDb: 0, rightDb: 0, monoSum: 0, offset: 0.25 });
+f = sandbox.nodeGraphGainFrameDb(1, 0, 0, { masterDb: 0, leftDb: 0, rightDb: 0, monoSum: 1, offset: 0.25 });
 assertClose("offset L", f.Left, 1.25);
 assertClose("offset Out", f.Out, 1.25);
 
 // Separate L/R
-f = sandbox.nodeGraphGainFrameDb(0, 1, 1, { masterDb: 0, leftDb: 6.020599913, rightDb: -140, monoSum: 0, offset: 0 });
+f = sandbox.nodeGraphGainFrameDb(0, 1, 1, { masterDb: 0, leftDb: 6.020599913, rightDb: -140, monoSum: 1, offset: 0 });
 assertClose("left boost", f.Left, 2, 1e-5);
 assertClose("right mute", f.Right, 0);
 assertClose("avg of 2 and 0", f.Out, 1, 1e-5);
 
-// Sum vs average
-f = sandbox.nodeGraphGainFrameDb(0, 0.5, 0.5, { masterDb: 0, leftDb: 0, rightDb: 0, monoSum: 2, offset: 0 });
+// Sum vs average (order: Sum=0, Average=1, Power=2, Equal-power=3, …)
+f = sandbox.nodeGraphGainFrameDb(0, 0.5, 0.5, { masterDb: 0, leftDb: 0, rightDb: 0, monoSum: 0, offset: 0 });
 assertClose("sum", f.Out, 1);
+
+f = sandbox.nodeGraphGainFrameDb(0, 0.5, 0.5, { masterDb: 0, leftDb: 0, rightDb: 0, monoSum: 1, offset: 0 });
+assertClose("average", f.Out, 0.5);
 
 f = sandbox.nodeGraphGainFrameDb(0, 0.5, 0.5, { masterDb: 0, leftDb: 0, rightDb: 0, monoSum: 3, offset: 0 });
 assertClose("equal-power", f.Out, 1 * Math.SQRT1_2, 1e-9);
@@ -58,7 +61,7 @@ f = sandbox.nodeGraphGainFrameDb(0, 0.3, 0.9, { masterDb: 0, leftDb: 0, rightDb:
 assertClose("right only", f.Out, 0.9);
 
 // Power of equal signals equals average
-f = sandbox.nodeGraphGainFrameDb(0, 0.4, 0.4, { masterDb: 0, leftDb: 0, rightDb: 0, monoSum: 1, offset: 0 });
+f = sandbox.nodeGraphGainFrameDb(0, 0.4, 0.4, { masterDb: 0, leftDb: 0, rightDb: 0, monoSum: 2, offset: 0 });
 assertClose("power dual-mono", f.Out, 0.4);
 
 // Legacy linear amount=2 → +6 dB

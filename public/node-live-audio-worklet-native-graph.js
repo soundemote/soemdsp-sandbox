@@ -34,6 +34,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   rotate3dTo2d: 27,
   clock: 28,
   triggerDivider: 29,
+  clockDivider: 29, // same kernel; timingMode selects clock vs trigger path
   delayedTrigger: 30,
   randomClock: 31,
   triggerCounter: 32,
@@ -104,6 +105,10 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   blit: 39,
   sineWavetable: 40,
   sinCos: 153,
+  vibratoGenerator: 154,
+  wowAndFlutter: 155,
+  vactrol: 156,
+  ampCurve: 157,
   antisaw: 41,
   archimedes: 42,
   additiveOsc: 43,
@@ -111,6 +116,18 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   softwaveOsc: 45,
   dsfOscillator: 46,
   hypersaw: 47,
+  hypersaw2: 158,
+  t: 159,
+  t1: 159,
+  t2: 159,
+  t3: 159,
+  t4: 159,
+  t5: 159,
+  t6: 159,
+  t7: 159,
+  t8: 159,
+  t9: 159,
+  t10: 159,
   sinc: 48,
   bradley2a: 49,
   ellipsoid: 50,
@@ -140,7 +157,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   pluckEnvelope: 72,
   pluckEnvelopeMod: 72,
   flowerChildEnvelopeFollower: 73,
-  // removed: vactrol (was 74)
+  // 74 tombstoned (old vactrol)
   delayEffect: 75,
   // wallDelay skipped — native placeholder only
   soemReverb: 76,
@@ -290,6 +307,13 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (t === "harmonicSeries" && (p === "f0" || p === "ƒ0")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
+  // t / t1…t10 transistor outs "0"…"10".
+  if (t === "t" || /^t([1-9]|10)$/.test(t)) {
+    if (/^\d+$/.test(p)) {
+      const n = Number(p);
+      if (n >= 0 && n <= 10) return n;
+    }
+  }
   if (
     p === "left" || p === "l" || p === "mix l" || p === "mix left" || p === "wet l"
     || p === "wet left" || p === "left mix" || p === "left out"
@@ -426,10 +450,24 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "phase") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
     if (p === "trigger") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
   }
-  // transport outs
+  // transport outs (Gate -1+1 / Gate 0-1; legacy Gate Bi/Uni and 0..1 / -1..1)
   if (t === "transport") {
-    if (p === "-1..1" || p === "-1…1") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
-    if (p === "0..1" || p === "0…1") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (
+      p === "gate -1+1"
+      || p === "gate bi"
+      || p === "-1..1"
+      || p === "-1…1"
+    ) {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    }
+    if (
+      p === "gate 0-1"
+      || p === "gate uni"
+      || p === "0..1"
+      || p === "0…1"
+    ) {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    }
     if (p === "trigger") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
     if (p === "f") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
   }
@@ -684,6 +722,19 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   }
   if (p === "leap" && type === "gravityWalker") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MORPH;
+  }
+  // Amp Curve gold CV inlet.
+  if (p === "env" && String(type || "").trim() === "ampCurve") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  }
+  // t / t1…t10: In→Mono, Analog→Morph, Digital→Trigger.
+  {
+    const tt = String(type || "").trim();
+    if (tt === "t" || /^t([1-9]|10)$/.test(tt)) {
+      if (p === "in") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+      if (p === "analog" || p === "a") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MORPH;
+      if (p === "digital" || p === "d") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
+    }
   }
   // Envelope audio-rate control jacks (fold via Mono+L+R mix).
   if (p === "gate" || p === "light" || p === "release") {
@@ -1089,7 +1140,9 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   seed: true,
   filter: true, // Yellow spectral LP/BP/HP
   noise: true, // Yellow Noisy* mode
-  curve: true, // FrequencySkew curve family
+  // FrequencySkew / curveOsc "curve" = discrete family. NOT additiveBlaster /
+  // attackDecay "curve" (continuous DOMAIN) — those must receive smooth settings.
+  curve: true,
   quantizeFreq: true,
   quantize: true,
   quantizePhase: true,
@@ -1106,6 +1159,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   order: true,
   feedbackCircuit: true,
   gainCompensation: true,
+  hpSlope: true,
+  lpSlope: true,
   hold: true,
   topology: true,
   invert: true,
@@ -1246,7 +1301,18 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
         this.pushNativeGraphParamDomain(native, hash, paramId, min, max, flags);
       }
     }
-    if (P.NATIVE_GRAPH_DISCRETE_PARAMS[key]) return;
+    // Discrete enum keys skip Control chase. Shared names like "curve" are
+    // continuous on some modules (Blaster Log Curve, AttackDecay γ) — those
+    // must still get smooth time/mode/type so quantum targets follow smoothing.
+    // Use node.type here — `type` from the caller loop is not in this closure.
+    const discreteKey = Boolean(P.NATIVE_GRAPH_DISCRETE_PARAMS[key]);
+    const nodeType = String(node?.type || "");
+    const continuousCurveOverride = key === "curve"
+      && (nodeType === "additiveBlaster" || nodeType === "attackDecay");
+    // Hypersaw Oscillators is continuous (Decimal ceil + trailing frac amp).
+    const continuousVoicesOverride = key === "voices"
+      && (nodeType === "hypersaw" || nodeType === "hypersaw2");
+    if (discreteKey && !continuousCurveOverride && !continuousVoicesOverride) return;
     const timeKey = `${key}__smoothTime`;
     const modeKey = `${key}__smoothMode`;
     const typeKey = `${key}__smoothType`;
@@ -1352,6 +1418,17 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     if (type === "attenuverter") {
       push("amplitude", P.NATIVE_GRAPH_PARAM_ATT_AMPLITUDE, cont("amplitude", 0.5));
       push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 0));
+      continue;
+    }
+    if (type === "ampCurve") {
+      // mode=Lin/Exp only
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
+      continue;
+    }
+    if (type === "t" || /^t([1-9]|10)$/.test(type)) {
+      // stages = last path index (t→0, t1→1, … t10→10).
+      const last = type === "t" ? 0 : Number(type.slice(1));
+      push("stages", P.NATIVE_GRAPH_PARAM_STAGES, Number.isFinite(last) ? last : 0);
       continue;
     }
     if (type === "bias") {
@@ -1480,14 +1557,72 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "hypersaw") {
-      // stages=voices, shape=spread, width=random, center=drift.
+      // SoEmHypersaw Phase Modulation map (see process_hypersaw).
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
-      push("voices", P.NATIVE_GRAPH_PARAM_STAGES, disc("voices", 8));
-      push("spread", P.NATIVE_GRAPH_PARAM_SHAPE, cont("spread", 1));
-      push("random", P.NATIVE_GRAPH_PARAM_WIDTH, cont("random", 0.15));
-      push("drift", P.NATIVE_GRAPH_PARAM_CENTER, cont("drift", 0.1));
+      push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 32));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
+      push("distributePhase", P.NATIVE_GRAPH_PARAM_SHAPE, cont("distributePhase", 1));
+      push("randomizePhase", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomizePhase", 0.10));
+      push("driftStyle", P.NATIVE_GRAPH_PARAM_MODE, disc("driftStyle", 0));
+      push("driftAmp", P.NATIVE_GRAPH_PARAM_CENTER, cont("driftAmp", 22.6));
+      push("driftPitch", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("driftPitch", 64.256));
+      push("driftJitter", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("driftJitter", 246));
+      push("driftCompensation", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("driftCompensation", 0));
+      push("centerSide", P.NATIVE_GRAPH_PARAM_PAN, cont("centerSide", 0.5));
+      push("morph", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("morph", 0.5));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      // Vibrato block last before amplitude (UI order).
+      push("vibratoDistribution", P.NATIVE_GRAPH_PARAM_MIX, cont("vibratoDistribution", 0));
+      push("vibratoAmp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoAmp", 0));
+      push("vibratoSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("vibratoSpeed", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0.35));
+      continue;
+    }
+    if (type === "hypersaw2") {
+      // Hypersaw2: HypersawUnit phase math + Random Steps jitter.
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 7));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
+      push("distributePhase", P.NATIVE_GRAPH_PARAM_SHAPE, cont("distributePhase", 1));
+      push("randomizePhase", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomizePhase", 0.10));
+      push("vibratoAmp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoAmp", 0));
+      push("vibratoSpeed", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("vibratoSpeed", 0));
+      push("vibratoFreqVary", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("vibratoFreqVary", 0));
+      push("vibratoPhaseVary", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("vibratoPhaseVary", 0));
+      push("phaseMultiplier", P.NATIVE_GRAPH_PARAM_MIX, cont("phaseMultiplier", 1));
+      push("jitterDistance", P.NATIVE_GRAPH_PARAM_CENTER, cont("jitterDistance", 0.1));
+      push("jitterSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterSpeed", 1));
+      push("jitterPitch", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("jitterPitch", 0));
+      push("centerSide", P.NATIVE_GRAPH_PARAM_PAN, cont("centerSide", 0.5));
+      push("morph", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("morph", 0.5));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0.35));
+      continue;
+    }
+    if (type === "vibratoGenerator") {
+      // frequency=speed, phase=offset, shape=morph, width=randomFreq, center=randomAmp.
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 5));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0));
+      push("randomFreq", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomFreq", 0));
+      push("randomAmp", P.NATIVE_GRAPH_PARAM_CENTER, cont("randomAmp", 0));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "wowAndFlutter") {
+      // frequency=wowSpeed, phase=wowPhase, shape=wowAmp,
+      // lfoRate=flutterFrequency, width=flutterJitter, center=flutterAmp.
+      push("wowSpeed", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("wowSpeed", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("wowAmp", P.NATIVE_GRAPH_PARAM_SHAPE, cont("wowAmp", 1));
+      push("flutterFrequency", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("flutterFrequency", 1));
+      push("flutterJitter", P.NATIVE_GRAPH_PARAM_WIDTH, cont("flutterJitter", 0.01));
+      push("flutterAmp", P.NATIVE_GRAPH_PARAM_CENTER, cont("flutterAmp", 1));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "sinc") {
@@ -1594,12 +1729,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "basicShape") {
-      // mode=motion, shape=morph.
+      // mode=motion, shape=morph, center=polarity (0 bipolar / 1 unipolar).
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1));
       push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
       push("motion", P.NATIVE_GRAPH_PARAM_MODE, disc("motion", 1));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0.5));
+      push("polarity", P.NATIVE_GRAPH_PARAM_CENTER, disc("polarity", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -1661,11 +1797,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "arp") {
-      // rate→FREQUENCY (Internal Clock), mode→MODE, steps→STAGES, seed→SEED.
+      // rate→FREQUENCY (Internal Clock), mode→MODE, steps→STAGES, seed→SEED,
+      // octaveOffset→ATT_OFFSET (−4…+4 whole octaves on pitch/ƒ).
       push("rate", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("rate", 8));
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
       push("steps", P.NATIVE_GRAPH_PARAM_STAGES, disc("steps", 8));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("octaveOffset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, disc("octaveOffset", 0));
       continue;
     }
     if (type === "hilbert") {
@@ -1765,8 +1903,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "activeFilter") {
-      // stages=feedbackCircuit, timingMode=gainCompensation; LP/BP→lpf, HP→hpf.
-      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 3));
+      // Dual Ladder: waveform=hpSlope, shape=lpSlope (0 Bypass … 4=24),
+      // stages=feedbackCircuit, timingMode=gainCompensation; hpf/lpf = cuts.
+      push("hpSlope", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("hpSlope", 0));
+      push("lpSlope", P.NATIVE_GRAPH_PARAM_SHAPE, disc("lpSlope", 4));
       push("highFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("highFrequency", 1000));
       push("lowFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("lowFrequency", 200));
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
@@ -1872,8 +2012,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.22));
       push("sustain", P.NATIVE_GRAPH_PARAM_MIX, cont("sustain", 0.55));
       push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.45));
-      push("attackShape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("attackShape", 0.3));
-      push("releaseShape", P.NATIVE_GRAPH_PARAM_CENTER, cont("releaseShape", 0.0001));
+      push("attackShape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("attackShape", 0));
+      push("releaseShape", P.NATIVE_GRAPH_PARAM_CENTER, cont("releaseShape", 0));
       push("loop", P.NATIVE_GRAPH_PARAM_MODE, disc("loop", 0));
       push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
       continue;
@@ -1889,19 +2029,28 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "pluckEnvelope" || type === "pluckEnvelopeMod") {
-      push("delayTime", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delayTime", 0));
-      push("attackFeedback", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attackFeedback", 0.002));
-      push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.35));
-      push("decayModStart", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("decayModStart", 0.08));
-      push("decayModEnd", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("decayModEnd", 0.55));
-      push("endingDecay", P.NATIVE_GRAPH_PARAM_DELAY_SIZE, cont("endingDecay", 0.8));
-      push("decayModCurve", P.NATIVE_GRAPH_PARAM_SHAPE, cont("decayModCurve", 0));
-      push("decayModFrequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("decayModFrequency", 1.5));
-      push("autoReleaseTime", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("autoReleaseTime", 0.08));
-      push("releaseFeedback", P.NATIVE_GRAPH_PARAM_RECYCLE, cont("releaseFeedback", 0.35));
+      // SoEmPluck names → Control slots (see process_pluck_envelope).
+      push("velocitySensitivity", P.NATIVE_GRAPH_PARAM_CENTER, cont("velocitySensitivity", 0.5));
+      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0));
+      push("decaySlopeTop", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("decaySlopeTop", 0.9));
+      push("decaySlopeMid", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decaySlopeMid", 0.7));
+      push("decaySlopeBottom", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("decaySlopeBottom", 4.8));
+      push("sustain", P.NATIVE_GRAPH_PARAM_DELAY_SIZE, cont("sustain", 1.2));
+      push("release", P.NATIVE_GRAPH_PARAM_RECYCLE, cont("release", 0.86));
+      push("autoReleaseTime", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("autoReleaseTime", 0));
+      push("envelopeCurve", P.NATIVE_GRAPH_PARAM_SHAPE, cont("envelopeCurve", -0.5));
+      push("envelopeDamping", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("envelopeDamping", 15));
       push("velocity", P.NATIVE_GRAPH_PARAM_WIDTH, cont("velocity", 1));
-      push("velocitySensitivity", P.NATIVE_GRAPH_PARAM_CENTER, cont("velocitySensitivity", 0));
       push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
+      continue;
+    }
+    if (type === "vactrol") {
+      // timeNumerator=attack, timeDenominator=release, shape=curve, width=sensitivity.
+      push("attack", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("attack", 0));
+      push("release", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("release", 0.1));
+      push("curve", P.NATIVE_GRAPH_PARAM_SHAPE, cont("curve", 1));
+      push("sensitivity", P.NATIVE_GRAPH_PARAM_WIDTH, cont("sensitivity", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "flowerChildEnvelopeFollower") {
@@ -2268,10 +2417,17 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "robinSupersaw") {
-      // width = detuneCents, stages = voices
+      // width=detuneCents, stages=voices, shape=Random Phase, mode=stereoMode,
+      // center=detuneAlgorithm; timeNum/Den=porta min/max; offset=portamentoStyle
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("detuneCents", P.NATIVE_GRAPH_PARAM_WIDTH, cont("detuneCents", 30));
-      push("voices", P.NATIVE_GRAPH_PARAM_STAGES, disc("voices", 7));
+      push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 7));
+      push("stereoMode", P.NATIVE_GRAPH_PARAM_MODE, disc("stereoMode", 0));
+      push("detuneAlgorithm", P.NATIVE_GRAPH_PARAM_CENTER, disc("detuneAlgorithm", 2));
+      push("phaseSpread", P.NATIVE_GRAPH_PARAM_SHAPE, cont("phaseSpread", 1)); // Random Phase
+      push("portaTimeMin", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("portaTimeMin", 0));
+      push("portaTimeMax", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("portaTimeMax", 0));
+      push("portamentoStyle", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("portamentoStyle", 0.126));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -2359,6 +2515,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("division", P.NATIVE_GRAPH_PARAM_STAGES, disc("division", 2));
       push("pulseTime", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("pulseTime", 0.01));
       push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
+      push("timingMode", P.NATIVE_GRAPH_PARAM_TIMING_MODE, 0);
+      continue;
+    }
+    if (type === "clockDivider") {
+      // Clock→kPortTrigger; duty→shape; timingMode=1 selects process_clock_divider.
+      push("threshold", P.NATIVE_GRAPH_PARAM_CENTER, cont("threshold", 0));
+      push("division", P.NATIVE_GRAPH_PARAM_STAGES, disc("division", 2));
+      push("duty", P.NATIVE_GRAPH_PARAM_SHAPE, cont("duty", 0.5));
+      push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
+      push("timingMode", P.NATIVE_GRAPH_PARAM_TIMING_MODE, 1);
       continue;
     }
     if (type === "delayedTrigger") {
@@ -2589,9 +2755,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "transport") {
-      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
-      push("divisions", P.NATIVE_GRAPH_PARAM_STAGES, disc("divisions", 0));
       push("bpm", P.NATIVE_GRAPH_PARAM_TEMPO_BPM, cont("bpm", 120));
+      push("pulseWidth", P.NATIVE_GRAPH_PARAM_WIDTH, cont("pulseWidth", 0.5));
+      push("timeNumerator", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("timeNumerator", 1));
+      push("timeDenominator", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("timeDenominator", 4));
+      push("timingMode", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("timingMode", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "range") {
@@ -2709,6 +2878,202 @@ NodeLiveAudioProcessor.prototype.syncNativeYellowCutoffStrips =
       } catch (_e) { /* ignore */ }
     }
     this._yellowCutoffStripActive = seen;
+  };
+
+// Efficient blob has no JS DSP evaluators — keep minimal state factories here.
+NodeLiveAudioProcessor.prototype.createHypersawState = function createHypersawState() {
+  return { nativeHandle: 0, lastReset: 0 };
+};
+
+NodeLiveAudioProcessor.prototype.createVibratoGeneratorState = function createVibratoGeneratorState() {
+  return { nativeHandle: 0, lastReset: 0 };
+};
+
+NodeLiveAudioProcessor.prototype.destroyVibratoGeneratorNativeState =
+  function destroyVibratoGeneratorNativeState(state) {
+    if (state?.nativeHandle && this.nativeVibratoGenerator?.soemdsp_vibrato_generator_destroy) {
+      this.nativeVibratoGenerator.soemdsp_vibrato_generator_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  };
+
+NodeLiveAudioProcessor.prototype.createWowAndFlutterState = function createWowAndFlutterState() {
+  return { nativeHandle: 0, lastReset: 0 };
+};
+
+NodeLiveAudioProcessor.prototype.destroyWowAndFlutterNativeState =
+  function destroyWowAndFlutterNativeState(state) {
+    if (state?.nativeHandle && this.nativeWowAndFlutter?.soemdsp_wow_and_flutter_destroy) {
+      this.nativeWowAndFlutter.soemdsp_wow_and_flutter_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  };
+
+/**
+ * Pull RobinSupersaw detune-face lines (X=±0.5oct map, pan RGB) into
+ * robinSupersawStates for the scope → data-bus Phases relay (reuses hypersawBurn).
+ */
+NodeLiveAudioProcessor.prototype.syncNativeRobinSupersawPublish =
+  function syncNativeRobinSupersawPublish() {
+    if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+      return;
+    }
+    const native = this.nativeGraph;
+    const countFn = native?.soemdsp_robin_supersaw_voice_count
+      || this.nativeRobinSupersaw?.soemdsp_robin_supersaw_voice_count;
+    const xFn = native?.soemdsp_robin_supersaw_voice_x
+      || this.nativeRobinSupersaw?.soemdsp_robin_supersaw_voice_x;
+    const panFn = native?.soemdsp_robin_supersaw_voice_pan
+      || this.nativeRobinSupersaw?.soemdsp_robin_supersaw_voice_pan;
+    const ampFn = native?.soemdsp_robin_supersaw_voice_amp
+      || this.nativeRobinSupersaw?.soemdsp_robin_supersaw_voice_amp;
+    const handleFn = native?.soemdsp_graph_node_native_handle;
+    if (!countFn || !xFn || !handleFn) return;
+    if (!this.robinSupersawStates) this.robinSupersawStates = new Map();
+
+    for (const [id, node] of this.nodes || []) {
+      if (String(node?.type || "") !== "robinSupersaw") continue;
+      const state = this.robinSupersawStates.get(id) || { nativeHandle: 0 };
+      this.robinSupersawStates.set(id, state);
+      const hash = this.fnv1aHash32(id);
+      let handle = 0;
+      try {
+        handle = handleFn(this.nativeGraphHandle, hash) | 0;
+      } catch (_e) {
+        handle = 0;
+      }
+      if (!(handle > 0)) continue;
+      let n = 0;
+      try {
+        n = countFn(handle) | 0;
+      } catch (_e) {
+        n = 0;
+      }
+      if (n < 1) {
+        state.lastVoicePhases = [];
+        state.lastVoiceAmplitudes = [];
+        state.lastVoicePans = [];
+        continue;
+      }
+      if (n > 256) n = 256;
+      const voicePhases = new Array(n);
+      const voiceAmplitudes = new Array(n);
+      const voicePans = new Array(n);
+      for (let i = 0; i < n; i++) {
+        try {
+          const x = Number(xFn(handle, i));
+          // 0 is a valid face X (wrap edge). Do not coalesce with || 0.5.
+          voicePhases[i] = Number.isFinite(x) ? x : 0.5;
+        } catch (_e) {
+          voicePhases[i] = 0.5;
+        }
+        try {
+          const pan = panFn ? Number(panFn(handle, i)) : 0;
+          voicePans[i] = Number.isFinite(pan) ? pan : 0;
+        } catch (_e) {
+          voicePans[i] = 0;
+        }
+        try {
+          const amp = ampFn ? Number(ampFn(handle, i)) : 1;
+          voiceAmplitudes[i] = Number.isFinite(amp) ? amp : 1;
+        } catch (_e) {
+          voiceAmplitudes[i] = 1;
+        }
+      }
+      state.lastVoicePhases = voicePhases;
+      state.lastVoiceAmplitudes = voiceAmplitudes;
+      state.lastVoicePans = voicePans;
+    }
+  };
+
+/**
+ * Pull Hypersaw / Hypersaw2 voice phaseOffset lines from the graph-hosted
+ * native instance into *States for the scope snapshot → data-bus Phases relay.
+ * Efficient product skips the JS evaluator, so lastVoicePhases would otherwise
+ * stay empty and hypersawBurn would draw nothing.
+ */
+NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
+  function syncNativeHypersawPublish() {
+    if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+      return;
+    }
+    const native = this.nativeGraph;
+    const handleFn = native?.soemdsp_graph_node_native_handle;
+    if (!handleFn) return;
+
+    const publishFamily = (typeName, statesMap, createState, phaseFn, countFn, fracFn) => {
+      if (!phaseFn || !statesMap) return;
+      for (const [id, node] of this.nodes || []) {
+        if (String(node?.type || "") !== typeName) continue;
+        const state = statesMap.get(id) || createState?.() || { nativeHandle: 0 };
+        statesMap.set(id, state);
+        const hash = this.fnv1aHash32(id);
+        let handle = 0;
+        try {
+          handle = handleFn(this.nativeGraphHandle, hash) | 0;
+        } catch (_e) {
+          handle = 0;
+        }
+        if (!(handle > 0)) continue;
+        let n = 0;
+        try {
+          n = countFn ? (countFn(handle) | 0) : 0;
+        } catch (_e) {
+          n = 0;
+        }
+        if (n < 1) {
+          const raw = Number(node?.params?.voices);
+          n = Number.isFinite(raw) && raw > 0 ? Math.min(64, Math.ceil(raw - 1e-9)) : 0;
+        }
+        if (n < 1) {
+          state.lastVoicePhases = [];
+          state.lastVoiceAmplitudes = [];
+          state.lastVoicePans = [];
+          continue;
+        }
+        if (n > 64) n = 64;
+        let lastFrac = 0;
+        try {
+          lastFrac = fracFn ? Number(fracFn(handle)) || 0 : 0;
+        } catch (_e) {
+          lastFrac = 0;
+        }
+        const voicePhases = new Array(n);
+        const voiceAmplitudes = new Array(n);
+        const voicePans = new Array(n);
+        for (let i = 0; i < n; i++) {
+          try {
+            voicePhases[i] = Number(phaseFn(handle, i)) || 0;
+          } catch (_e) {
+            voicePhases[i] = 0;
+          }
+          const isCenter = i === 0;
+          voiceAmplitudes[i] = (lastFrac > 0 && i === n - 1) ? lastFrac : 1;
+          voicePans[i] = isCenter ? 0 : (((i - 1) % 2 === 0) ? -1 : 1);
+        }
+        state.lastVoicePhases = voicePhases;
+        state.lastVoiceAmplitudes = voiceAmplitudes;
+        state.lastVoicePans = voicePans;
+      }
+    };
+
+    publishFamily(
+      "hypersaw",
+      this.hypersawStates,
+      this.createHypersawState?.bind(this),
+      native?.soemdsp_hypersaw_voice_phase || this.nativeHypersaw?.soemdsp_hypersaw_voice_phase,
+      native?.soemdsp_hypersaw_voice_count || this.nativeHypersaw?.soemdsp_hypersaw_voice_count,
+      native?.soemdsp_hypersaw_voice_last_frac || this.nativeHypersaw?.soemdsp_hypersaw_voice_last_frac,
+    );
+    if (!this.hypersaw2States) this.hypersaw2States = new Map();
+    publishFamily(
+      "hypersaw2",
+      this.hypersaw2States,
+      this.createHypersaw2State?.bind(this) || (() => ({ nativeHandle: 0 })),
+      native?.soemdsp_hypersaw2_voice_phase || this.nativeHypersaw2?.soemdsp_hypersaw2_voice_phase,
+      native?.soemdsp_hypersaw2_voice_count || this.nativeHypersaw2?.soemdsp_hypersaw2_voice_count,
+      native?.soemdsp_hypersaw2_voice_last_frac || this.nativeHypersaw2?.soemdsp_hypersaw2_voice_last_frac,
+    );
   };
 
 /**
@@ -3403,7 +3768,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "harmonicSeries") return ["f", "Out", "Mono", "ƒ"];
     if (type === "lutCell") return ["Out"];
     if (type === "stepSequencer") return ["Out"];
-    if (type === "transport") return ["-1..1"];
+    if (type === "transport") return ["Gate -1+1", "Gate Bi"];
+    if (type === "ampCurve") return ["Curve", "Out", "Mono"];
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
@@ -3439,7 +3805,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "triggerCounter") return ["Count"];
     if (type === "lutCell") return ["Q"];
     if (type === "stepSequencer") return ["Gate"];
-    if (type === "transport") return ["0..1"];
+    if (type === "transport") return ["Gate 0-1", "Gate Uni"];
     if (type === "reverbEffect" || type === "soemReverb" || type === "delayEffect") {
       return ["Left", "Mix Left", "Mix L", "Wet L", "Wet Left"];
     }

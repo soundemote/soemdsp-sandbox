@@ -1,7 +1,5 @@
 // Offline / Render Sample host for hypersaw — same native core as the worklet.
 // APP_POLICY §2/§5: no JS PolyBLEP twin. Silence until hypersaw.wasm is ready.
-// Phosphor voice-bank display data is left empty offline for now (native
-// voice_phase can fill that later).
 
 const nodeGraphHypersawWasm = { promise: null, exports: null, failed: false };
 
@@ -35,9 +33,6 @@ function destroyNodeGraphHypersawNativeState(state) {
   }
 }
 
-// options: { frequencyHz, sampleRate, phaseOffset, numVoices, spread,
-//   randomAmount, driftAmount, level }
-// returns: { Left, Right, voicePhases, voiceAmplitudes, voicePans }
 function nodeGraphHypersawSample(state, options = {}) {
   nodeGraphHypersawLoadWasm();
   const wasm = nodeGraphHypersawWasm.exports;
@@ -52,35 +47,65 @@ function nodeGraphHypersawSample(state, options = {}) {
   }
   const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
   const frequencyHz = Number(options.frequencyHz) || 0;
-  const phaseOffset = Number(options.phaseOffset) || 0;
-  const numVoices = Math.round(Number(options.numVoices) || 1);
-  const spread = Number(options.spread) || 0;
-  const randomAmount = Number(options.randomAmount) || 0;
-  const driftAmount = Number(options.driftAmount) || 0;
+  const phaseGlobal = Number(options.phaseOffset) || 0;
+  let numVoicesExact = Number(options.numVoices);
+  if (!Number.isFinite(numVoicesExact) || numVoicesExact < 1) numVoicesExact = 1;
+  if (numVoicesExact > 64) numVoicesExact = 64;
+  const distributePhase = Number(options.distributePhase ?? options.spread);
+  const randomizePhase = Number(options.randomizePhase ?? options.randomAmount) || 0;
+  const vibratoDistribution = Number(
+    options.vibratoDistribution ?? options.vibratoOffset,
+  ) || 0;
+  const vibratoAmp = Number(options.vibratoAmp) || 0;
+  const vibratoSpeedHz = Number(options.vibratoSpeedHz ?? options.vibratoSpeed) || 0;
+  const driftStyle = Number(options.driftStyle);
+  const driftAmp = Number(options.driftAmp ?? options.driftAmount);
+  const driftPitch = Number(options.driftPitch);
+  const driftJitterHz = Number(options.driftJitterHz ?? options.driftJitter);
+  const driftCompensation = Number(options.driftCompensation) || 0;
+  const centerSide = Number(options.centerSide);
+  const waveform = Number(options.waveform);
+  const morph = Number(options.morph);
   const level = Number(options.level) || 0;
+  const seed = Number(options.seed);
   wasm.soemdsp_hypersaw_sample(
     state.nativeHandle,
     frequencyHz,
     sampleRate,
-    phaseOffset,
-    numVoices,
-    spread,
-    randomAmount,
-    driftAmount,
+    phaseGlobal,
+    numVoicesExact,
+    Number.isFinite(distributePhase) ? distributePhase : 1,
+    randomizePhase,
+    vibratoDistribution,
+    vibratoAmp,
+    vibratoSpeedHz,
+    Number.isFinite(driftStyle) ? driftStyle : 0,
+    Number.isFinite(driftAmp) ? driftAmp : 22.6,
+    Number.isFinite(driftPitch) ? driftPitch : 64.256,
+    Number.isFinite(driftJitterHz) ? driftJitterHz : 246,
+    driftCompensation,
+    Number.isFinite(centerSide) ? centerSide : 0.5,
+    Number.isFinite(waveform) ? waveform : 1,
+    Number.isFinite(morph) ? morph : 0.5,
     level,
+    Number.isFinite(seed) ? seed : 1,
   );
-  const n = Math.max(0, Math.min(32, numVoices));
+  const n = wasm.soemdsp_hypersaw_voice_count
+    ? Math.max(0, Math.min(64, wasm.soemdsp_hypersaw_voice_count(state.nativeHandle) | 0))
+    : Math.max(0, Math.min(64, Math.ceil(numVoicesExact - 1e-9)));
+  const lastFrac = wasm.soemdsp_hypersaw_voice_last_frac
+    ? Number(wasm.soemdsp_hypersaw_voice_last_frac(state.nativeHandle)) || 0
+    : 0;
   const voicePhases = new Array(n);
   const voiceAmplitudes = new Array(n);
   const voicePans = new Array(n);
-  // Optional: native phase taps for later phosphor WISIWIH; amplitudes/pans
-  // not exported yet — leave zeros so UI does not invent a JS twin.
   for (let i = 0; i < n; i++) {
     voicePhases[i] = wasm.soemdsp_hypersaw_voice_phase
       ? Number(wasm.soemdsp_hypersaw_voice_phase(state.nativeHandle, i)) || 0
       : 0;
-    voiceAmplitudes[i] = 0;
-    voicePans[i] = 0;
+    const isCenter = i === 0;
+    voiceAmplitudes[i] = (lastFrac > 0 && i === n - 1) ? lastFrac : 1;
+    voicePans[i] = isCenter ? 0 : (((i - 1) % 2 === 0) ? -1 : 1);
   }
   return {
     Left: Number(wasm.soemdsp_hypersaw_left(state.nativeHandle)) || 0,

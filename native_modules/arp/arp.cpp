@@ -195,21 +195,30 @@ extern "C" void soemdsp_arp_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
-static void capture_note(State& s, int playIndex, int steps) {
-  const int midi = s.notes[playIndex];
+static int clamp_octave_offset(double octaves) {
+  int o = (int)(safe(octaves) + (safe(octaves) >= 0.0 ? 0.5 : -0.5));
+  if (o < -4) o = -4;
+  if (o > 4) o = 4;
+  return o;
+}
+
+static void capture_note(State& s, int playIndex, int steps, int octaveOffset) {
+  int midi = s.notes[playIndex] + octaveOffset * 12;
+  if (midi < 0) midi = 0;
+  if (midi > 127) midi = 127;
   s.lastPitch = (double)midi / 120.0;
   // A4=440, MIDI 69.
   s.lastFreqHz = 440.0 * dsp_exp2(((double)midi - 69.0) / 12.0);
   s.lastStep = (steps > 0) ? (double)s.clocksSinceRestart : (double)playIndex;
 }
 
-static void do_step(State& s, int mode, int steps, unsigned int seed) {
+static void do_step(State& s, int mode, int steps, unsigned int seed, int octaveOffset) {
   if (s.noteCount <= 0) return;
   if (steps > 0 && s.clocksSinceRestart >= steps) {
     restart_pattern(s, mode, seed);
   }
   const int playIndex = s.index;
-  capture_note(s, playIndex, steps);
+  capture_note(s, playIndex, steps, octaveOffset);
   s.clocksSinceRestart += 1;
   advance(s, mode);
 }
@@ -225,6 +234,7 @@ extern "C" double soemdsp_arp_sample(
   double modeIn,
   double stepsIn,
   double seedIn,
+  double octaveOffsetIn,
   double sampleRate
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
@@ -233,6 +243,7 @@ extern "C" double soemdsp_arp_sample(
   const int mode = clamp_mode(modeIn);
   const int steps = clamp_steps(stepsIn);
   const unsigned int seed = seed_u32(seedIn);
+  const int octaveOffset = clamp_octave_offset(octaveOffsetIn);
   const double sr = sampleRate < 1.0 ? 44100.0 : sampleRate;
   const double rate = safe(rateHz);
   const bool trigConnected = safe(hasTrigger) > 0.5;
@@ -254,7 +265,7 @@ extern "C" double soemdsp_arp_sample(
     if (trigConnected) {
       const bool trigHigh = safe(trigger) > 0.0;
       if (trigHigh && !s.clockWasHigh) {
-        do_step(s, mode, steps, seed);
+        do_step(s, mode, steps, seed, octaveOffset);
         trigOut = 1.0;
       }
       s.clockWasHigh = trigHigh;
@@ -263,7 +274,7 @@ extern "C" double soemdsp_arp_sample(
       s.phase += rate / sr;
       if (s.phase >= 1.0) {
         s.phase -= dsp_floor(s.phase);
-        do_step(s, mode, steps, seed);
+        do_step(s, mode, steps, seed, octaveOffset);
         trigOut = 1.0;
       }
       s.clockWasHigh = false;
@@ -282,7 +293,7 @@ extern "C" double soemdsp_arp_sample(
 
   // Before first step, preview notes[index].
   if (trigOut < 0.5 && s.clocksSinceRestart == 0) {
-    capture_note(s, s.index, steps);
+    capture_note(s, s.index, steps, octaveOffset);
   }
   s.lastGate = 1.0;
   s.lastTrigger = trigOut;
@@ -310,5 +321,5 @@ extern "C" double soemdsp_arp_frequency(int handle) {
 }
 
 extern "C" int soemdsp_arp_version() {
-  return 2;
+  return 3; // + octaveOffset (−4…+4) on pitch/ƒ outs
 }

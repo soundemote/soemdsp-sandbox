@@ -697,7 +697,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         this.robinSupersawStates.set(nodeId, state);
         const hasPitchInput = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"));
         const hasFreqInput = this.readFInputHz(mixInput, nodeId) != null;
-        const useBlock = !hasPitchInput && !hasFreqInput;
+        const hasResetInput = this.inputConnections.has(this.inputKey(nodeId, "Reset"));
+        const useBlock = !hasPitchInput && !hasFreqInput && !hasResetInput;
         if (frame === 0 || !state.cachedParams || !useBlock) {
           const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
           const baseFrequency = Math.max(0, read("frequency", 100));
@@ -725,14 +726,28 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
             detuneCents: read("detuneCents", 30),
             voices: read("voices", 7),
             level: read("amplitude", 1),
+            phaseSpread: read("phaseSpread", 1),
+            stereoMode: read("stereoMode", 0),
+            detuneAlgorithm: read("detuneAlgorithm", 2),
+            portaTimeMin: read("portaTimeMin", 0),
+            portaTimeMax: read("portaTimeMax", 0),
+            portamentoStyle: read("portamentoStyle", 0.126),
           };
         }
+        const reset = hasResetInput ? (Number(mixInput(nodeId, "Reset")) || 0) : 0;
         return this.robinSupersawSample(state, {
           frequencyHz: state.cachedParams.frequencyHz,
           sampleRate: safeRate,
           detuneCents: state.cachedParams.detuneCents,
           voices: state.cachedParams.voices,
           level: state.cachedParams.level,
+          phaseSpread: state.cachedParams.phaseSpread,
+          stereoMode: state.cachedParams.stereoMode,
+          detuneAlgorithm: state.cachedParams.detuneAlgorithm,
+          portaTimeMin: state.cachedParams.portaTimeMin,
+          portaTimeMax: state.cachedParams.portaTimeMax,
+          portamentoStyle: state.cachedParams.portamentoStyle,
+          reset,
           useBlock,
         });
       },
@@ -768,11 +783,72 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           frequencyHz: effectiveFrequency,
           sampleRate: safeRate,
           phaseOffset: read("phase", 0),
-          numVoices: read("voices", 8),
-          spread: read("spread", 1),
-          randomAmount: read("random", 0.15),
-          driftAmount: read("drift", 0.1),
+          numVoices: read("voices", 32),
+          distributePhase: read("distributePhase", 1),
+          randomizePhase: read("randomizePhase", 0),
+          vibratoDistribution: read("vibratoDistribution", read("vibratoOffset", 0)),
+          vibratoAmp: read("vibratoAmp", 0),
+          vibratoSpeedHz: read("vibratoSpeed", 0),
+          driftStyle: read("driftStyle", 0),
+          driftAmp: read("driftAmp", 22.6),
+          driftPitch: read("driftPitch", 64.256),
+          driftJitterHz: read("driftJitter", 246),
+          driftCompensation: read("driftCompensation", 0),
+          centerSide: read("centerSide", 0.5),
+          morph: read("morph", 1),
           level: read("amplitude", 0.35),
+          seed: read("seed", 1),
+        });
+      },
+      vibratoGenerator: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.vibratoGeneratorStates) this.vibratoGeneratorStates = new Map();
+        const state = this.vibratoGeneratorStates.get(nodeId) || this.createVibratoGeneratorState();
+        this.vibratoGeneratorStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        if (this.inputConnections.has(this.inputKey(nodeId, "Reset"))) {
+          const rv = this.safeFilterNumber(mixInput(nodeId, "Reset"));
+          if (rv > 0 && !(state.lastReset > 0) && this.nativeVibratoGenerator?.soemdsp_vibrato_generator_reset && state.nativeHandle) {
+            this.nativeVibratoGenerator.soemdsp_vibrato_generator_reset(state.nativeHandle, read("phase", 0));
+          }
+          state.lastReset = rv;
+        } else {
+          state.lastReset = 0;
+        }
+        return this.vibratoGeneratorSample(state, {
+          frequencyHz: read("frequency", 5),
+          sampleRate: safeRate,
+          phaseOffset: read("phase", 0),
+          amplitude: read("amplitude", 1),
+          morph: read("morph", 0),
+          randomFreq: read("randomFreq", 0),
+          randomAmp: read("randomAmp", 0),
+          seed: read("seed", 1),
+        });
+      },
+      wowAndFlutter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.wowAndFlutterStates) this.wowAndFlutterStates = new Map();
+        const state = this.wowAndFlutterStates.get(nodeId) || this.createWowAndFlutterState();
+        this.wowAndFlutterStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        if (this.inputConnections.has(this.inputKey(nodeId, "Reset"))) {
+          const rv = this.safeFilterNumber(mixInput(nodeId, "Reset"));
+          if (rv > 0 && !(state.lastReset > 0) && this.nativeWowAndFlutter?.soemdsp_wow_and_flutter_reset && state.nativeHandle) {
+            this.nativeWowAndFlutter.soemdsp_wow_and_flutter_reset(state.nativeHandle, read("phase", 0));
+          }
+          state.lastReset = rv;
+        } else {
+          state.lastReset = 0;
+        }
+        return this.wowAndFlutterSample(state, {
+          wowSpeed: read("wowSpeed", 1),
+          sampleRate: safeRate,
+          phaseOffset: read("phase", 0),
+          wowAmp: read("wowAmp", 1),
+          flutterFrequency: read("flutterFrequency", 1),
+          flutterJitter: read("flutterJitter", 0.01),
+          flutterAmp: read("flutterAmp", 1),
+          seed: read("seed", 1),
+          amplitude: read("amplitude", 1),
         });
       },
       chordSequencer: (node, nodeId, frame, frames, frameValues, mixInput) => {

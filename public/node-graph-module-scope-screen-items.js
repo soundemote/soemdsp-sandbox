@@ -262,6 +262,17 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
               slot,
             }, pixelRatio);
           }
+        } else if (
+          nodeGraphModuleDisplayRendererForSlot(slot) === "imageBurnFace"
+          || slot?.type === "imageBurn"
+        ) {
+          if (typeof drawNodeGraphImageBurnFaceItem === "function") {
+            drawNodeGraphImageBurnFaceItem(null, {
+              buffer: null,
+              screenElement: slot.scopeElement,
+              slot,
+            }, pixelRatio);
+          }
         }
         // Still punch the room dimmer so the face is not a black hole.
         if (slot?.scopeElement && typeof nodeGraphModuleScopeMarkScreenLit === "function") {

@@ -1865,6 +1865,7 @@ function finishCloseNodeMetadataPopover() {
 }
 
 function closeNodeMetadataPopover() {
+  // Fields auto-apply. Dirty advanced script still asks before close.
   if (nodeGraphMvp.metadataScriptDirty && nodeMetadataScriptPanelVisible()) {
     setNodeMetadataClosePromptVisible(true);
     metadataScriptStatus("save changes before closing?", false);
@@ -1900,11 +1901,8 @@ function setNodeMetadataAdvancedScriptVisible(visible) {
   }
 }
 
-function setNodeMetadataFieldsDirty(dirty) {
-  const saveButton = document.getElementById("metadataSaveFieldsButton");
-  if (saveButton) {
-    saveButton.classList.toggle("dirty", Boolean(dirty));
-  }
+function setNodeMetadataFieldsDirty(_dirty) {
+  // Fields auto-apply; no Fields Save button in the metaparameter editor.
 }
 
 function toggleNodeMetadataAdvancedScript() {
@@ -2251,11 +2249,6 @@ function bindNodeGraphMetadataPopoverEvents() {
   if (setCurrentDefaultButton && setCurrentDefaultButton.dataset.metadataSetCurrentDefaultBound !== "true") {
     setCurrentDefaultButton.dataset.metadataSetCurrentDefaultBound = "true";
     setCurrentDefaultButton.addEventListener("click", confirmAndSetNodeMetadataCurrentValueAsDefault);
-  }
-  const saveFields = document.getElementById("metadataSaveFieldsButton");
-  if (saveFields && saveFields.dataset.metadataSaveFieldsBound !== "true") {
-    saveFields.dataset.metadataSaveFieldsBound = "true";
-    saveFields.addEventListener("click", applyNodeMetadataEditor);
   }
   const restoreFields = document.getElementById("metadataRestoreFieldsButton");
   if (restoreFields && restoreFields.dataset.metadataRestoreFieldsBound !== "true") {

@@ -104,25 +104,36 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
   document.querySelectorAll(".node-midi-keyboard-module .node-midi-keyboard-surface").forEach((surface) => {
     const available = nodeGraphMidiKeyboardLayoutHostWidth(surface);
     const desired = totalWhite * s.whiteKeyWidth;
-    const scale = desired > 0 && available > 0 ? Math.min(1, available / desired) : 1;
+    const docked = Boolean(surface.closest(".node-standalone-midi-keyboard-dock"));
+    const inModuleFace = Boolean(surface.closest(".dsp-node.keyboard-layout"));
+    // Module face: stretch keys to fill full host width (scale up or down).
+    // Dock / other: only shrink to fit — never grow past preferred key width.
+    const scale = desired > 0 && available > 0
+      ? (inModuleFace ? (available / desired) : Math.min(1, available / desired))
+      : 1;
     const whiteW = Math.max(1, s.whiteKeyWidth * scale);
-    const blackW = Math.max(1, Math.min(s.blackKeyWidth, whiteW));
-    const pianoW = Math.max(0, totalWhite * whiteW);
-    surface.style.width = `${pianoW}px`;
-    surface.style.maxWidth = "100%";
+    const blackW = Math.max(1, Math.min(s.blackKeyWidth * scale, whiteW * 0.92));
+    const pianoW = inModuleFace && available > 0
+      ? available
+      : Math.max(0, totalWhite * whiteW);
+    if (inModuleFace) {
+      surface.style.width = "100%";
+      surface.style.maxWidth = "100%";
+    } else {
+      surface.style.width = `${pianoW}px`;
+      surface.style.maxWidth = "100%";
+    }
     surface.dataset.keyLabels = s.keyLabels;
     surface.style.setProperty("--midi-white-key-width", `${whiteW}px`);
     surface.style.setProperty("--midi-black-key-width", `${blackW}px`);
-    const docked = Boolean(surface.closest(".node-standalone-midi-keyboard-dock"));
-    if (docked) {
+    if (docked || inModuleFace) {
+      // Dock + Keyboard module: piano fills remaining face height (controls above).
       surface.style.removeProperty("--midi-keyboard-piano-height");
       surface.style.height = "100%";
       surface.style.minHeight = "0";
       surface.style.maxHeight = "100%";
-      // Keep natural piano width (whiteCount × key width) and center in the
-      // controller row — stretching to 100% packed keys hard left.
     } else {
-      // Fit the requested piano height into whatever the module face allows.
+      // Other hosts: honor layout keyboardHeight setting.
       const host = surface.closest(".dsp-node, .node-midi-keyboard-module");
       const hostH = Math.max(0, host?.clientHeight || 0);
       const fittedH = hostH > 0 ? Math.min(s.keyboardHeight, hostH) : s.keyboardHeight;
@@ -134,7 +145,7 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
     const whiteRow = surface.querySelector(".node-midi-keyboard-white-row");
     if (whiteRow) {
       whiteRow.style.gridTemplateColumns = totalWhite > 0
-        ? `repeat(${totalWhite}, ${whiteW}px)`
+        ? (inModuleFace ? `repeat(${totalWhite}, minmax(0, 1fr))` : `repeat(${totalWhite}, ${whiteW}px)`)
         : "";
     }
     installNodeGraphMidiKeyboardLayoutResizeObserver();
@@ -165,11 +176,16 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
     });
     const module = surface.closest(".node-midi-keyboard-module");
     if (module) {
-      module.style.setProperty("--midi-keyboard-piano-width", `${pianoW}px`);
-      if (!docked) {
-        module.style.setProperty("--midi-keyboard-piano-height", `${s.keyboardHeight}px`);
-      } else {
+      if (inModuleFace) {
+        module.style.setProperty("--midi-keyboard-piano-width", "100%");
         module.style.removeProperty("--midi-keyboard-piano-height");
+      } else {
+        module.style.setProperty("--midi-keyboard-piano-width", `${pianoW}px`);
+        if (docked) {
+          module.style.removeProperty("--midi-keyboard-piano-height");
+        } else {
+          module.style.setProperty("--midi-keyboard-piano-height", `${s.keyboardHeight}px`);
+        }
       }
     }
     const dock = surface.closest(".node-standalone-midi-keyboard-dock");

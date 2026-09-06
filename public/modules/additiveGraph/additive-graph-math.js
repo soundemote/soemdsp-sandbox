@@ -1380,6 +1380,9 @@ function additiveGraphApplyDiffusor(
  * Blaster — shared phase per index bin.
  * phaseMode 0 Stagger (Bubble-like curve staircase + jump), 1 Random.
  * Always bins by harmonic index (stable under fund sweep).
+ * Quantum phaseLerp (like Bubble): Depth / Log Curve / Bias glide across
+ * the block instead of hard-stamping phases (zipper/clicks).
+ * lerpFrom = previous quantum's To phase plane; returns { graph, lerpFrom }.
  */
 function additiveGraphApplyBlaster(
   graph,
@@ -1396,12 +1399,16 @@ function additiveGraphApplyBlaster(
   invert = 0,
   bias = 0,
   jump = 0,
+  lerpFrom = null,
 ) {
-  if (!graph || !graph.phase) return graph;
+  if (!graph || !graph.phase) return { graph, lerpFrom: null };
   const H = graph.harmonics | 0;
-  if (H <= 0) return graph;
+  if (H <= 0) return { graph, lerpFrom: null };
   let bins = Math.round(Number(quantization) || 0);
-  if (!(bins >= 1)) return graph;
+  if (!(bins >= 1)) {
+    graph.phaseLerp = null;
+    return { graph, lerpFrom: null };
+  }
   if (bins > H) bins = H;
   void layout;
   void fundHz;
@@ -1416,6 +1423,7 @@ function additiveGraphApplyBlaster(
   const biasAmt = Number(bias) || 0;
   const jumpAmt = Number(jump) || 0;
   const binPhase = new Float32Array(bins);
+  const havePrev = lerpFrom && lerpFrom.length === H;
 
   if (mode === 1) {
     let rng = (Math.floor(Number(seed)) || 1) >>> 0;
@@ -1440,13 +1448,21 @@ function additiveGraphApplyBlaster(
     }
   }
 
+  const toPhase = new Float32Array(H);
+  const fromPhase = new Float32Array(H);
   for (let i = 0; i < H; i += 1) {
     let bin = Math.floor((i * bins) / H);
     if (bin >= bins) bin = bins - 1;
-    graph.phase[i] = binPhase[bin] || 0;
+    const to = binPhase[bin] || 0;
+    toPhase[i] = to;
+    fromPhase[i] = havePrev ? (Number(lerpFrom[i]) || to) : to;
+    graph.phase[i] = to;
   }
-  graph.phaseLerp = null;
-  return graph;
+  graph.phaseLerp = { from: fromPhase, to: toPhase };
+  return {
+    graph,
+    lerpFrom: new Float32Array(toPhase),
+  };
 }
 
 /**

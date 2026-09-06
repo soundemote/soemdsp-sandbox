@@ -30,19 +30,17 @@ struct State {
 
 static State gPool[kMaxInstances];
 
-// Exact port of basicShapeCenterSquare (JS mutates t2 but adds with t1).
+// Center Square: bipolar pulse centered at mid-cycle. Morph = width 0…1;
+// edges grow left and right from center (not dual top/bottom steps).
 static double center_square_exact(double cycle, double morph) {
-  double m = (morph * 0.0 == 0.0) ? morph : 0.5;
-  if (m < 0.0) m = 0.0;
-  if (m > 1.0) m = 1.0;
-  double t1 = wrap01(cycle + 0.875 + 0.25 * (m - 0.5));
-  double t2 = wrap01(cycle + 0.375 + 0.25 * (m - 0.5));
-  double y = (t1 < 0.5 ? 1.0 : -1.0);
-  t1 = wrap01(t1 + 0.5 * (1.0 - m));
-  t2 = wrap01(t2 + 0.5 * (1.0 - m));
-  y += (t1 < 0.5 ? 1.0 : -1.0);
-  (void)t2;
-  return 0.5 * y;
+  double width = (morph * 0.0 == 0.0) ? morph : 0.5;
+  if (width < 0.0) width = 0.0;
+  if (width > 1.0) width = 1.0;
+  if (width <= 0.0) return -1.0;
+  if (width >= 1.0) return 1.0;
+  const double c = wrap01(cycle);
+  const double half = width * 0.5;
+  return (c >= (0.5 - half) && c < (0.5 + half)) ? 1.0 : -1.0;
 }
 
 static double trisaw(double cycle, double warp) {
@@ -53,17 +51,22 @@ static double trisaw(double cycle, double warp) {
   return 2.0 * ((1.0 - cycle) / (1.0 - w)) - 1.0;
 }
 
+// UI order: 0 Sine, 1 Tri, 2 Saw, 3 Ramp, 4 Trisaw, 5 Square, 6 CenterSquare
 static double select_wave(
   double sine, double tri, double saw, double square, double ramp,
   double trisawV, double centerSq, int waveform
 ) {
   if (waveform == 1) return tri;
   if (waveform == 2) return saw;
-  if (waveform == 3) return square;
-  if (waveform == 4) return ramp;
-  if (waveform == 5) return trisawV;
+  if (waveform == 3) return ramp;
+  if (waveform == 4) return trisawV;
+  if (waveform == 5) return square;
   if (waveform == 6) return centerSq;
   return sine;
+}
+
+static inline double apply_polarity(double x, int unipolar) {
+  return unipolar ? (x + 1.0) * 0.5 : x;
 }
 
 }  // namespace
@@ -104,6 +107,7 @@ extern "C" double soemdsp_basic_shape_sample(
   double phaseOffset,
   double morph,
   double amplitude,
+  double polarity,
   double increment,
   double reset
 ) {
@@ -118,6 +122,7 @@ extern "C" double soemdsp_basic_shape_sample(
   const double amp = (amplitude * 0.0 == 0.0) ? amplitude : 1.0;
   const double incIn = safe(increment);
   const double rv = safe(reset);
+  const int uni = ((int)(safe(polarity) + (safe(polarity) >= 0.0 ? 0.5 : -0.5)) >= 1) ? 1 : 0;
 
   int waveI = (int)(safe(waveform) + (safe(waveform) >= 0.0 ? 0.5 : -0.5));
   if (waveI < 0) waveI = 0;
@@ -157,17 +162,18 @@ extern "C" double soemdsp_basic_shape_sample(
   const double trisawV = trisaw(cycle, width);
   const double centerSq = center_square_exact(cycle, width);
 
-  const double selected = select_wave(
-    sine, tri, saw, square, ramp, trisawV, centerSq, waveI
-  ) * amp;
+  const double selected = apply_polarity(
+    select_wave(sine, tri, saw, square, ramp, trisawV, centerSq, waveI) * amp,
+    uni
+  );
 
-  s.sine = sine * amp;
-  s.tri = tri * amp;
-  s.saw = saw * amp;
-  s.ramp = ramp * amp;
-  s.square = square * amp;
-  s.trisaw = trisawV * amp;
-  s.centerSquare = centerSq * amp;
+  s.sine = apply_polarity(sine * amp, uni);
+  s.tri = apply_polarity(tri * amp, uni);
+  s.saw = apply_polarity(saw * amp, uni);
+  s.ramp = apply_polarity(ramp * amp, uni);
+  s.square = apply_polarity(square * amp, uni);
+  s.trisaw = apply_polarity(trisawV * amp, uni);
+  s.centerSquare = apply_polarity(centerSq * amp, uni);
   s.out = selected;
 
   double nextPhase = s.phase + phaseIncrement;
@@ -212,5 +218,5 @@ extern "C" double soemdsp_basic_shape_center_square(int handle) {
 }
 
 extern "C" int soemdsp_basic_shape_version() {
-  return 1;
+  return 2;
 }

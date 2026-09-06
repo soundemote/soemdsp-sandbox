@@ -7,9 +7,9 @@
 
 const NODE_GRAPH_GAIN_DB_FLOOR = -140;
 const NODE_GRAPH_GAIN_MONO_SUM = Object.freeze({
-  AVERAGE: 0,
-  POWER: 1,
-  SUM: 2,
+  SUM: 0,
+  AVERAGE: 1,
+  POWER: 2,
   EQUAL_POWER: 3,
   PEAK: 4,
   LEFT: 5,
@@ -105,7 +105,7 @@ function nodeGraphGainFrame(mono, left, right, amount, offset = 0) {
     masterDb: nodeGraphGainLegacyAmountToDb(amount),
     leftDb: 0,
     rightDb: 0,
-    monoSum: NODE_GRAPH_GAIN_MONO_SUM.AVERAGE,
+    monoSum: NODE_GRAPH_GAIN_MONO_SUM.SUM,
     offset,
   });
 }

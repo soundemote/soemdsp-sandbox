@@ -69,6 +69,11 @@ function bindNodeGraphSceneMenuEvents() {
       attenuateSelectedNodeGraphWires("attenuvert");
     }
   });
+  bindNodeGraphSceneElementEvent("nodeSceneWireAmpCurve", "click", () => {
+    if (typeof ampCurveSelectedNodeGraphWires === "function") {
+      ampCurveSelectedNodeGraphWires();
+    }
+  });
   bindNodeGraphSceneElementEvent("nodeSceneWireRangeUnipolar", "click", () => {
     if (typeof rangeSelectedNodeGraphWires === "function") {
       rangeSelectedNodeGraphWires("unipolar");

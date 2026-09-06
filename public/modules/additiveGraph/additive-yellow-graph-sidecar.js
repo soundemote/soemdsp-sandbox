@@ -328,7 +328,9 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
           const fund = typeof this.resolveYellowFundHz === "function"
             ? this.resolveYellowFundHz(eid)
             : 100;
-          additiveGraphApplyBlaster(
+          if (!this.additiveBlasterStates) this.additiveBlasterStates = new Map();
+          const bState = this.additiveBlasterStates.get(eid) || {};
+          const applied = additiveGraphApplyBlaster(
             out,
             eff(node, "quantization", 179),
             0,
@@ -343,7 +345,11 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
             num(p.invert, 0),
             eff(node, "bias", 0.44),
             eff(node, "jump", 1.0757),
+            bState.lerpFrom || null,
           );
+          this.additiveBlasterStates.set(eid, {
+            lerpFrom: applied?.lerpFrom || null,
+          });
         }
       } else if (type === "additiveDiffusor") {
         if (typeof additiveGraphApplyDiffusor === "function") {

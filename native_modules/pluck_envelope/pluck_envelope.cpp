@@ -2,6 +2,10 @@
 // soemdsp-native-label: Pluck Envelope
 // soemdsp-native-target: pluckEnvelope
 // soemdsp-native-kind: envelope
+//
+// soemdsp::modulator::PluckEnvelope + SoEmPluck parameter map:
+//   VelocitySensitivity, Attack, DecaySlopeTop/Mid/Bottom,
+//   Sustain, Release, AutoReleaseTime, EnvelopeCurve, EnvelopeDamping
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -18,25 +22,25 @@ static const char kMetadataJson[] =
     "\"inputs\":[\"Trigger\",\"Release\"],"
     "\"outputs\":[\"Out\"],"
     "\"parameters\":["
-      "{\"key\":\"delayTime\",\"label\":\"Delay\",\"kind\":\"time\",\"defaultValue\":0,\"min\":0,\"mid\":0,\"max\":1,\"step\":\"any\",\"unit\":\"s\"},"
-      "{\"key\":\"attackFeedback\",\"label\":\"Attack\",\"kind\":\"time\",\"defaultValue\":0.002,\"min\":0,\"mid\":0.002,\"max\":1,\"step\":\"any\",\"unit\":\"s\"},"
-      "{\"key\":\"decay\",\"label\":\"Decay\",\"defaultValue\":0.35,\"min\":0.1,\"mid\":0.35,\"max\":1,\"step\":\"any\"},"
-      "{\"key\":\"decayModStart\",\"label\":\"Attack Energy\",\"defaultValue\":0.08,\"min\":0.001,\"mid\":0.08,\"max\":1.8,\"step\":\"any\"},"
-      "{\"key\":\"decayModEnd\",\"label\":\"Decay Energy\",\"defaultValue\":0.55,\"min\":0.01,\"mid\":0.55,\"max\":3,\"step\":\"any\"},"
-      "{\"key\":\"endingDecay\",\"label\":\"Ending Decay\",\"defaultValue\":0.8,\"min\":0,\"mid\":0.8,\"max\":1.4,\"step\":\"any\"},"
-      "{\"key\":\"decayModCurve\",\"label\":\"Decay Curve\",\"defaultValue\":0,\"min\":-1,\"mid\":0,\"max\":1,\"step\":\"any\"},"
-      "{\"key\":\"decayModFrequency\",\"label\":\"Decay Motion\",\"kind\":\"frequency\",\"defaultValue\":1.5,\"min\":0,\"mid\":1.5,\"max\":100,\"step\":\"any\",\"unit\":\"Hz\"},"
-      "{\"key\":\"autoReleaseTime\",\"label\":\"Auto Release\",\"kind\":\"time\",\"defaultValue\":0.08,\"min\":0,\"mid\":0.08,\"max\":10,\"step\":\"any\",\"unit\":\"s\"},"
-      "{\"key\":\"releaseFeedback\",\"label\":\"Release\",\"defaultValue\":0.35,\"min\":0,\"mid\":0.35,\"max\":1,\"step\":\"any\"},"
+      "{\"key\":\"velocitySensitivity\",\"label\":\"Velocity Sensitivity\",\"defaultValue\":0.5,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
+      "{\"key\":\"attack\",\"label\":\"Attack\",\"defaultValue\":0,\"min\":0,\"mid\":0.1,\"max\":2,\"step\":\"any\"},"
+      "{\"key\":\"decaySlopeTop\",\"label\":\"Decay Slope Top\",\"defaultValue\":0.9,\"min\":0.001,\"mid\":0.9,\"max\":1.8,\"step\":\"any\"},"
+      "{\"key\":\"decaySlopeMid\",\"label\":\"Decay Slope Mid\",\"defaultValue\":0.7,\"min\":0.1,\"mid\":0.7,\"max\":1,\"step\":\"any\"},"
+      "{\"key\":\"decaySlopeBottom\",\"label\":\"Decay Slope Bottom\",\"defaultValue\":4.8,\"min\":0.01,\"mid\":1,\"max\":6,\"step\":\"any\"},"
+      "{\"key\":\"sustain\",\"label\":\"Sustain\",\"defaultValue\":1.2,\"min\":0,\"mid\":0.7,\"max\":1.4,\"step\":\"any\"},"
+      "{\"key\":\"release\",\"label\":\"Release\",\"defaultValue\":0.86,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
+      "{\"key\":\"autoReleaseTime\",\"label\":\"Auto Release Time\",\"defaultValue\":0,\"min\":0,\"mid\":100,\"max\":500,\"step\":\"any\",\"unit\":\"ms\"},"
+      "{\"key\":\"envelopeCurve\",\"label\":\"Envelope Curve\",\"defaultValue\":-0.5,\"min\":-1,\"mid\":0,\"max\":1,\"step\":\"any\"},"
+      "{\"key\":\"envelopeDamping\",\"label\":\"Envelope Damping\",\"kind\":\"frequency\",\"defaultValue\":15,\"min\":0,\"mid\":15,\"max\":100,\"step\":\"any\",\"unit\":\"Hz\"},"
       "{\"key\":\"velocity\",\"label\":\"Velocity\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
-      "{\"key\":\"velocitySensitivity\",\"label\":\"Velocity Sensitivity\",\"defaultValue\":0,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
-      "{\"key\":\"level\",\"label\":\"Level\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"}"
+      "{\"key\":\"level\",\"label\":\"Amplitude\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"}"
     "]"
   "}";
 
 static const int kMaxInstances = 64;
+static const double kMinValue = 1.0e-8;
+static const double kMaxFeedback = 1.0 - 1.0e-6;
 
-// stage: 0=off, 1=delay, 2=attack, 3=decay, 4=release
 enum PluckStage { STAGE_OFF = 0, STAGE_DELAY = 1, STAGE_ATTACK = 2, STAGE_DECAY = 3, STAGE_RELEASE = 4 };
 
 struct PluckEnvelopeState {
@@ -49,76 +53,98 @@ struct PluckEnvelopeState {
   double releaseIncrement;
   double secondsPassed;
   double peak;
-  int    stage;
-  bool   active;
+  int stage;
+  bool active;
 };
 
 static PluckEnvelopeState gPool[kMaxInstances];
 
-// dsp_exp/dsp_ln now live in sandbox_native_maths.h -- this file was the
-// original (and only) source of the general-purpose versions, ported there
-// verbatim.
-
 static inline double dsp_log10(double x) {
-  const double INV_LN10 = 0.4342944819032518;
-  return dsp_ln(x) * INV_LN10;
+  return dsp_ln(x) * 0.4342944819032518;
 }
 
+// soemdsp::curve::Exponential (skew in [-0.99, 0.99]).
 static double exponential_curve(double value, double skew) {
   double safeValue = clamp(value, 0.0, 1.0);
   double safeSkew = clamp(skew, -0.99, 0.99);
   if (safeSkew == 0.0) return safeValue;
-  double c = 0.5 * (safeSkew + 1.0);
-  double a = 2.0 * dsp_log10((1.0 - c) / c);
-  double denom = 1.0 - dsp_exp(a);
+  const double c = 0.5 * (safeSkew + 1.0);
+  const double a = 2.0 * dsp_log10((1.0 - c) / c);
+  const double denom = 1.0 - dsp_exp(a);
   return denom == 0.0 ? safeValue : (1.0 - dsp_exp(safeValue * a)) / denom;
+}
+
+// soemdsp::math::valFromVelocityAndSensitivity
+static inline double velocity_peak(double velocity, double sensitivity) {
+  const double vel = clamp(velocity, 0.0, 1.0);
+  const double sens = clamp(sensitivity, 0.0, 1.0);
+  return (1.0 - sens) + vel * sens;
 }
 
 static void pluck_prepare_for_decay(PluckEnvelopeState& s, double rate, double peak) {
   s.phasor = 0.0;
   s.autoReleasePhasor = 0.0;
   s.currentValue = peak;
-  s.decayIncrement = (s.currentValue - 1.0) / maxd(1.0, rate) / 50.0;
+  // (current - 1) * period / 50
+  s.decayIncrement = (s.currentValue - 1.0) * (1.0 / maxd(1.0, rate)) / 50.0;
 }
 
 static void pluck_trigger_attack(
-  PluckEnvelopeState& s, double delayTime, double attackFeedback,
-  double velocity, double velocitySensitivity, double rate
+  PluckEnvelopeState& s,
+  double attack,
+  double velocity,
+  double velocitySensitivity,
+  double rate
 ) {
   const double period = 1.0 / maxd(1.0, rate);
-  const double vel = clamp(velocity, 0.0, 1.0);
-  const double sens = clamp(velocitySensitivity, 0.0, 1.0);
-  const double peak = (1.0 - sens) + vel * sens;
+  const double peak = velocity_peak(velocity, velocitySensitivity);
   s.secondsPassed = 0.0;
-  s.stage = STAGE_DELAY;
-  if (delayTime < period) {
-    if (attackFeedback <= 1e-8) {
-      s.stage = STAGE_DECAY;
-      pluck_prepare_for_decay(s, rate, peak);
-    } else {
-      s.stage = STAGE_ATTACK;
-    }
-  }
   s.peak = peak;
+  // SoEmPluck does not expose Delay — always start from attack (or decay if attack≈0).
+  if (attack <= kMinValue) {
+    s.stage = STAGE_DECAY;
+    pluck_prepare_for_decay(s, rate, peak);
+  } else {
+    s.stage = STAGE_ATTACK;
+    s.currentValue = 0.0;
+  }
+  (void)period;
 }
 
 static void pluck_trigger_release(PluckEnvelopeState& s, double rate) {
   if (s.stage != STAGE_RELEASE) {
     s.stage = STAGE_RELEASE;
-    s.releaseIncrement = s.currentValue / maxd(1.0, rate) / 50.0;
+    s.releaseIncrement = s.currentValue * (1.0 / maxd(1.0, rate)) / 50.0;
   }
 }
 
+// finalDecayMod = decayMid + map(curve(phasor), top, bottom) while phasor<1, else sustain
 static double pluck_decay_feedback(
-  PluckEnvelopeState& s, double decay, double decayModStart, double decayModEnd,
-  double decayModCurve, double endingDecay
+  PluckEnvelopeState& s,
+  double decaySlopeMid,
+  double decaySlopeTop,
+  double decaySlopeBottom,
+  double envelopeCurve,
+  double sustain
 ) {
-  double finalDecayMod = endingDecay;
+  double finalDecayMod = sustain;
   if (s.phasor < 1.0) {
-    double shaped = exponential_curve(s.phasor, decayModCurve == 0.0 ? -1e-8 : decayModCurve);
-    finalDecayMod = decay + decayModStart + shaped * (decayModEnd - decayModStart);
+    double dmc = envelopeCurve;
+    if (dmc > 0.99) dmc = 0.99;
+    if (dmc < -0.99) dmc = -0.99;
+    if (dmc == 0.0) dmc = -1.0e-8;
+    const double shaped = exponential_curve(s.phasor, dmc);
+    finalDecayMod = decaySlopeMid + decaySlopeTop + shaped * (decaySlopeBottom - decaySlopeTop);
   }
-  return mind(1.0 - 1e-6, dsp_exp(-finalDecayMod * 10.0));
+  return mind(kMaxFeedback, dsp_exp(-finalDecayMod * 10.0));
+}
+
+static void pluck_reset(PluckEnvelopeState& s) {
+  s.currentValue = 0.0;
+  s.secondsPassed = 0.0;
+  s.phasor = 0.0;
+  s.autoReleasePhasor = 0.0;
+  s.stage = STAGE_OFF;
 }
 
 }  // namespace
@@ -127,16 +153,12 @@ extern "C" int soemdsp_pluck_envelope_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       PluckEnvelopeState& s = gPool[i];
-      s.autoReleasePhasor = 0.0;
-      s.currentValue = 0.0;
+      pluck_reset(s);
       s.decayIncrement = 0.0;
       s.lastRelease = 0.0;
       s.lastTrigger = 0.0;
-      s.phasor = 0.0;
       s.releaseIncrement = 0.0;
-      s.secondsPassed = 0.0;
       s.peak = 0.0;
-      s.stage = STAGE_OFF;
       s.active = true;
       return i + 1;
     }
@@ -150,21 +172,20 @@ extern "C" void soemdsp_pluck_envelope_destroy(int handle) {
 }
 
 extern "C" double soemdsp_pluck_envelope_sample(
-  int    handle,
+  int handle,
   double trigger,
-  double release,
-  double delayTime,
-  double attackFeedback,
-  double decay,
-  double decayModStart,
-  double decayModEnd,
-  double endingDecay,
-  double decayModCurve,
-  double decayModFrequency,
-  double autoReleaseTime,
-  double releaseFeedback,
-  double velocity,
+  double releaseGate,
   double velocitySensitivity,
+  double attack,
+  double decaySlopeTop,
+  double decaySlopeMid,
+  double decaySlopeBottom,
+  double sustain,
+  double releaseAmt,
+  double autoReleaseTime,
+  double envelopeCurve,
+  double envelopeDamping,
+  double velocity,
   double level,
   double sampleRate
 ) {
@@ -174,23 +195,26 @@ extern "C" double soemdsp_pluck_envelope_sample(
   const double rate = sampleRate < 1.0 ? 1.0 : sampleRate;
   const double period = 1.0 / rate;
   const double safeTrigger = safe(trigger);
-  const double safeRelease = safe(release);
-  const double safeDelayTime = maxd(0.0, safe(delayTime));
-  const double safeAttackFeedback = maxd(0.0, safe(attackFeedback));
-  const double safeDecay = clamp(safe(decay), 0.1, 1.0);
-  const double safeDecayModStart = clamp(safe(decayModStart), 0.001, 1.8);
-  const double safeDecayModEnd = clamp(safe(decayModEnd), 0.01, 3.0);
-  const double safeEndingDecay = clamp(safe(endingDecay), 0.0, 1.4);
-  const double safeDecayModCurve = clamp(safe(decayModCurve), -1.0, 1.0);
-  const double safeDecayModFrequency = clamp(safe(decayModFrequency), 0.0, 100.0);
-  const double safeAutoReleaseTime = maxd(0.0, safe(autoReleaseTime));
-  const double safeReleaseFeedback = clamp(safe(releaseFeedback), 0.0, 1.0);
-  const double safeVelocity = clamp(safe(velocity), 0.0, 1.0);
-  const double safeVelocitySensitivity = clamp(safe(velocitySensitivity), 0.0, 1.0);
-  const double safeLevel = clamp(safe(level), 0.0, 1.0);
+  const double safeRelease = safe(releaseGate);
+
+  const double sens = clamp(safe(velocitySensitivity), 0.0, 1.0);
+  const double att = maxd(0.0, safe(attack));
+  const double slopeTop = clamp(safe(decaySlopeTop), 0.001, 1.8);
+  const double slopeMid = clamp(safe(decaySlopeMid), 0.1, 1.0);
+  const double slopeBot = clamp(safe(decaySlopeBottom), 0.01, 6.0);
+  const double sus = clamp(safe(sustain), 0.0, 1.4);
+  const double rel = clamp(safe(releaseAmt), 0.0, 1.0);
+  // UI is milliseconds (SoEm display); DSP wire is seconds.
+  double autoRelMs = maxd(0.0, safe(autoReleaseTime));
+  if (autoRelMs > 500.0) autoRelMs = 500.0;
+  const double autoRelSec = autoRelMs * (1.0 / 1000.0);
+  const double curve = clamp(safe(envelopeCurve), -1.0, 1.0);
+  const double dampHz = clamp(safe(envelopeDamping), 0.0, 100.0);
+  const double vel = clamp(safe(velocity), 0.0, 1.0);
+  const double lvl = clamp(safe(level), 0.0, 1.0);
 
   if (s.lastTrigger <= 0.0 && safeTrigger > 0.0) {
-    pluck_trigger_attack(s, safeDelayTime, safeAttackFeedback, safeVelocity, safeVelocitySensitivity, rate);
+    pluck_trigger_attack(s, att, vel, sens, rate);
   }
   if (s.lastRelease <= 0.0 && safeRelease > 0.0) {
     pluck_trigger_release(s, rate);
@@ -198,64 +222,58 @@ extern "C" double soemdsp_pluck_envelope_sample(
   s.lastTrigger = safeTrigger;
   s.lastRelease = safeRelease;
 
-  const double attackFeedbackAmp = 1.0 / (maxd(safeAttackFeedback, 1e-8) * rate);
-  const double releaseFeedbackAmp = mind(1.0 - 1e-6, dsp_exp(-safeReleaseFeedback * 10.0));
-  const double autoReleaseIncrement = safeAutoReleaseTime <= 1e-8
-    ? 0.0
-    : 1.0 / (maxd(safeAutoReleaseTime, 1e-8) * rate);
-  const double phasorIncrement = safeDecayModFrequency / rate;
+  // timeToIncrement(attack) = 1/(attack*sr)
+  const double fbAttackAmp = 1.0 / (maxd(att, kMinValue) * rate);
+  const double fbReleaseAmp = mind(kMaxFeedback, dsp_exp(-rel * 10.0));
+  const bool doAutoRelease = autoRelSec > kMinValue;
+  const double autoReleaseIncrement = doAutoRelease
+    ? 1.0 / (maxd(autoRelSec, kMinValue) * rate)
+    : 0.0;
+  const double phasorIncrement = dampHz / rate;
 
   switch (s.stage) {
-    case STAGE_DELAY:
-      s.secondsPassed += period;
-      if (s.secondsPassed >= safeDelayTime) {
-        s.stage = STAGE_ATTACK;
-      }
-      break;
     case STAGE_ATTACK:
-      s.currentValue += period + s.currentValue * attackFeedbackAmp;
+      s.currentValue += period + s.currentValue * fbAttackAmp;
       if (s.currentValue >= s.peak) {
         s.stage = STAGE_DECAY;
         pluck_prepare_for_decay(s, rate, s.peak);
       }
       break;
     case STAGE_DECAY: {
-      double feedback = pluck_decay_feedback(s, safeDecay, safeDecayModStart, safeDecayModEnd, safeDecayModCurve, safeEndingDecay);
+      const double feedback = pluck_decay_feedback(
+        s, slopeMid, slopeTop, slopeBot, curve, sus
+      );
       s.currentValue -= s.decayIncrement + s.currentValue * s.currentValue * feedback;
       s.phasor += phasorIncrement;
       s.autoReleasePhasor += autoReleaseIncrement;
-      if (autoReleaseIncrement > 0.0 && s.autoReleasePhasor >= 1.0) {
+      if (doAutoRelease && s.autoReleasePhasor >= 1.0) {
         pluck_trigger_release(s, rate);
       }
       if (s.currentValue < 0.0) {
-        s.currentValue = 0.0;
-        s.secondsPassed = 0.0;
-        s.phasor = 0.0;
-        s.autoReleasePhasor = 0.0;
-        s.stage = STAGE_OFF;
+        pluck_reset(s);
       }
       break;
     }
     case STAGE_RELEASE:
-      s.currentValue -= s.releaseIncrement + s.currentValue * s.currentValue * releaseFeedbackAmp;
+      s.currentValue -= s.releaseIncrement + s.currentValue * s.currentValue * fbReleaseAmp;
       if (s.currentValue <= 0.0) {
-        s.currentValue = 0.0;
-        s.secondsPassed = 0.0;
-        s.phasor = 0.0;
-        s.autoReleasePhasor = 0.0;
-        s.stage = STAGE_OFF;
+        pluck_reset(s);
       }
+      break;
+    case STAGE_DELAY:
+      // Unused (SoEmPluck has no Delay param); fall through to off.
+      s.stage = STAGE_ATTACK;
       break;
     case STAGE_OFF:
     default:
       break;
   }
 
-  return safe(s.currentValue * safeLevel);
+  return safe(s.currentValue * lvl);
 }
 
 extern "C" int soemdsp_pluck_envelope_version() {
-  return 1;
+  return 3; // AutoReleaseTime in ms (0…500), like SoEm display
 }
 
 extern "C" const char* soemdsp_pluck_envelope_metadata_json() {

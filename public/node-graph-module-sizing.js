@@ -625,8 +625,6 @@ function nodeGraphModuleIoRowCount(type) {
   const definition = nodeGraphModuleDefinitions[type];
   // Match LayoutA jack columns: signal + data ports. Parameter keys are
   // slider-row mod ports, not extra I/O rows — do not count them here.
-  // Hypersaw draws Phases/Amplitudes/Pans beside Left/Right; counting only
-  // `outputs` reserved 3 rows and clipped Amplitude into the lip.
   const inputs = (definition?.inputs?.length || 0) + (definition?.dataInputs?.length || 0);
   const outputs = (definition?.outputs?.length || 0) + (definition?.dataOutputs?.length || 0);
   return Math.max(inputs, outputs, 1);
@@ -634,9 +632,9 @@ function nodeGraphModuleIoRowCount(type) {
 
 function nodeGraphModuleTypeHasIoPorts(type) {
   const definition = nodeGraphModuleDefinitions[type];
-  // Include data-plane ports (Yellow Graph, Hypersaw Phases, …) — otherwise
-  // modules with only dataInputs/dataOutputs get no IO band and the jack strip
-  // shares a grid row with params (face left / params right).
+  // Include data-plane ports (Yellow Graph Graph, …) — otherwise modules with
+  // only dataInputs/dataOutputs get no IO band and the jack strip shares a
+  // grid row with params (face left / params right).
   return Boolean(
     (definition?.inputs?.length || 0)
     || (definition?.outputs?.length || 0)
@@ -1382,6 +1380,16 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "interfaceControls", heightGu: 3, visible: true },
+      { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
+    ];
+  }
+  if (nodeGraphModuleDefinitions[type]?.layout === "keyboard") {
+    // Same stack as dock keyboard: header | face (controls + piano) | I/O.
+    // Face height is freehand display gu so the piano can stretch vertically.
+    return [
+      { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
+      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];

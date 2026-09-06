@@ -1,6 +1,5 @@
-// Moved from node-graph-live-frame-evaluator.js: this module's own
-// offline/render-time algorithm, now living next to the rest of its
-// per-module code instead of the shared file.
+// Pluck Envelope — SoEmPluck / soemdsp::PluckEnvelope offline path.
+// Efficient Live uses native soemdsp_pluck_envelope_* (see worklet evaluator).
 
 const nodeGraphPluckEnvelopeMinValue = 1e-8;
 const nodeGraphPluckEnvelopeMaxFeedback = 1 - 1e-6;
@@ -17,7 +16,6 @@ function nodeGraphExponentialCurve(value, skew) {
   return denom === 0 ? safeValue : (1 - Math.exp(safeValue * a)) / denom;
 }
 
-
 function nodeGraphPluckPrepareForDecay(state, rate, peak) {
   state.phasor = 0;
   state.autoReleasePhasor = 0;
@@ -26,21 +24,18 @@ function nodeGraphPluckPrepareForDecay(state, rate, peak) {
 }
 
 function nodeGraphPluckTriggerAttack(state, params, rate) {
-  const period = 1 / Math.max(1, rate);
   const velocity = clampNodeSliderValue(params.velocity, 0, 1);
   const sensitivity = clampNodeSliderValue(params.velocitySensitivity, 0, 1);
   const peak = (1 - sensitivity) + velocity * sensitivity;
   state.secondsPassed = 0;
-  state.state = "delay";
-  if (params.delayTime < period) {
-    if (params.attackFeedback <= nodeGraphPluckEnvelopeMinValue) {
-      state.state = "decay";
-      nodeGraphPluckPrepareForDecay(state, rate, peak);
-    } else {
-      state.state = "attack";
-    }
-  }
   state.peak = peak;
+  if (params.attack <= nodeGraphPluckEnvelopeMinValue) {
+    state.state = "decay";
+    nodeGraphPluckPrepareForDecay(state, rate, peak);
+  } else {
+    state.state = "attack";
+    state.currentValue = 0;
+  }
 }
 
 function nodeGraphPluckTriggerRelease(state, rate) {
@@ -51,14 +46,15 @@ function nodeGraphPluckTriggerRelease(state, rate) {
 }
 
 function nodeGraphPluckDecayFeedback(state, params) {
-  let finalDecayMod = params.endingDecay;
+  let finalDecayMod = params.sustain;
   if (state.phasor < 1) {
-    const shaped = nodeGraphExponentialCurve(state.phasor, params.decayModCurve || -1e-8);
-    finalDecayMod = params.decay + params.decayModStart + shaped * (params.decayModEnd - params.decayModStart);
+    const shaped = nodeGraphExponentialCurve(state.phasor, params.envelopeCurve || -1e-8);
+    finalDecayMod = params.decaySlopeMid
+      + params.decaySlopeTop
+      + shaped * (params.decaySlopeBottom - params.decaySlopeTop);
   }
   return Math.min(nodeGraphPluckEnvelopeMaxFeedback, Math.exp(-finalDecayMod * 10));
 }
-
 
 function createNodeGraphPluckEnvelopeState() {
   return {
@@ -74,30 +70,33 @@ function createNodeGraphPluckEnvelopeState() {
   };
 }
 
+function nodeGraphPluckReadParam(params, primary, legacy, fallback, min = -Infinity, max = Infinity, runtime = null, nodeId = "") {
+  const raw = params[primary] ?? params[legacy] ?? fallback;
+  return clampNodeSliderValue(
+    nodeGraphSafeFilterNumber(raw, runtime, nodeId, null, `pluck ${primary}`),
+    min,
+    max,
+  );
+}
+
 function nodeGraphPluckEnvelopeSample(state, trigger, release, params, sampleRate, runtime = null, nodeId = "") {
   const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
   const period = 1 / rate;
   const safeTrigger = nodeGraphSafeFilterNumber(trigger, runtime, nodeId, null, "pluck trigger");
   const safeRelease = nodeGraphSafeFilterNumber(release, runtime, nodeId, null, "pluck release");
-  const read = (key, fallback, min = -Infinity, max = Infinity) => clampNodeSliderValue(
-    nodeGraphSafeFilterNumber(params[key] ?? fallback, runtime, nodeId, null, `pluck ${key}`),
-    min,
-    max,
-  );
   const values = {
-    attackFeedback: read("attackFeedback", 0.002, 0),
-    autoReleaseTime: read("autoReleaseTime", 0.08, 0),
-    decay: read("decay", 0.35, 0.1, 1),
-    decayModCurve: read("decayModCurve", 0, -1, 1),
-    decayModEnd: read("decayModEnd", 0.55, 0.01, 3),
-    decayModFrequency: read("decayModFrequency", 1.5, 0, 100),
-    decayModStart: read("decayModStart", 0.08, 0.001, 1.8),
-    delayTime: read("delayTime", 0, 0),
-    endingDecay: read("endingDecay", 0.8, 0, 1.4),
-    level: read("level", 1, 0, 1),
-    releaseFeedback: read("releaseFeedback", 0.35, 0, 1),
-    velocity: read("velocity", 1, 0, 1),
-    velocitySensitivity: read("velocitySensitivity", 0, 0, 1),
+    attack: nodeGraphPluckReadParam(params, "attack", "attackFeedback", 0, 0, Infinity, runtime, nodeId),
+    autoReleaseTime: nodeGraphPluckReadParam(params, "autoReleaseTime", "autoReleaseTime", 0, 0, Infinity, runtime, nodeId),
+    decaySlopeBottom: nodeGraphPluckReadParam(params, "decaySlopeBottom", "decayModEnd", 4.8, 0.01, 6, runtime, nodeId),
+    decaySlopeMid: nodeGraphPluckReadParam(params, "decaySlopeMid", "decay", 0.7, 0.1, 1, runtime, nodeId),
+    decaySlopeTop: nodeGraphPluckReadParam(params, "decaySlopeTop", "decayModStart", 0.9, 0.001, 1.8, runtime, nodeId),
+    envelopeCurve: nodeGraphPluckReadParam(params, "envelopeCurve", "decayModCurve", -0.5, -1, 1, runtime, nodeId),
+    envelopeDamping: nodeGraphPluckReadParam(params, "envelopeDamping", "decayModFrequency", 15, 0, 100, runtime, nodeId),
+    level: nodeGraphPluckReadParam(params, "level", "level", 1, 0, 1, runtime, nodeId),
+    release: nodeGraphPluckReadParam(params, "release", "releaseFeedback", 0.86, 0, 1, runtime, nodeId),
+    sustain: nodeGraphPluckReadParam(params, "sustain", "endingDecay", 1.2, 0, 1.4, runtime, nodeId),
+    velocity: nodeGraphPluckReadParam(params, "velocity", "velocity", 1, 0, 1, runtime, nodeId),
+    velocitySensitivity: nodeGraphPluckReadParam(params, "velocitySensitivity", "velocitySensitivity", 0.5, 0, 1, runtime, nodeId),
   };
 
   if (state.lastTrigger <= 0 && safeTrigger > 0) {
@@ -109,20 +108,16 @@ function nodeGraphPluckEnvelopeSample(state, trigger, release, params, sampleRat
   state.lastTrigger = safeTrigger;
   state.lastRelease = safeRelease;
 
-  const attackFeedbackAmp = 1 / (Math.max(values.attackFeedback, nodeGraphPluckEnvelopeMinValue) * rate);
-  const releaseFeedbackAmp = Math.min(nodeGraphPluckEnvelopeMaxFeedback, Math.exp(-values.releaseFeedback * 10));
-  const autoReleaseIncrement = values.autoReleaseTime <= nodeGraphPluckEnvelopeMinValue
+  const attackFeedbackAmp = 1 / (Math.max(values.attack, nodeGraphPluckEnvelopeMinValue) * rate);
+  const releaseFeedbackAmp = Math.min(nodeGraphPluckEnvelopeMaxFeedback, Math.exp(-values.release * 10));
+  // Param is ms (SoEm display); convert to seconds for the phasor.
+  const autoRelSec = Math.max(0, Math.min(500, values.autoReleaseTime)) / 1000;
+  const autoReleaseIncrement = autoRelSec <= nodeGraphPluckEnvelopeMinValue
     ? 0
-    : 1 / (Math.max(values.autoReleaseTime, nodeGraphPluckEnvelopeMinValue) * rate);
-  const phasorIncrement = values.decayModFrequency / rate;
+    : 1 / (Math.max(autoRelSec, nodeGraphPluckEnvelopeMinValue) * rate);
+  const phasorIncrement = values.envelopeDamping / rate;
 
   switch (state.state) {
-    case "delay":
-      state.secondsPassed += period;
-      if (state.secondsPassed >= values.delayTime) {
-        state.state = "attack";
-      }
-      break;
     case "attack":
       state.currentValue += period + state.currentValue * attackFeedbackAmp;
       if (state.currentValue >= state.peak) {
@@ -131,7 +126,8 @@ function nodeGraphPluckEnvelopeSample(state, trigger, release, params, sampleRat
       }
       break;
     case "decay":
-      state.currentValue -= state.decayIncrement + state.currentValue * state.currentValue * nodeGraphPluckDecayFeedback(state, values);
+      state.currentValue -= state.decayIncrement
+        + state.currentValue * state.currentValue * nodeGraphPluckDecayFeedback(state, values);
       state.phasor += phasorIncrement;
       state.autoReleasePhasor += autoReleaseIncrement;
       if (autoReleaseIncrement > 0 && state.autoReleasePhasor >= 1) {
@@ -146,7 +142,8 @@ function nodeGraphPluckEnvelopeSample(state, trigger, release, params, sampleRat
       }
       break;
     case "release":
-      state.currentValue -= state.releaseIncrement + state.currentValue * state.currentValue * releaseFeedbackAmp;
+      state.currentValue -= state.releaseIncrement
+        + state.currentValue * state.currentValue * releaseFeedbackAmp;
       if (state.currentValue <= 0) {
         state.currentValue = 0;
         state.secondsPassed = 0;
@@ -162,12 +159,6 @@ function nodeGraphPluckEnvelopeSample(state, trigger, release, params, sampleRat
   return nodeGraphSafeFilterNumber(state.currentValue * values.level, runtime, nodeId, null, "pluck output");
 }
 
-
-// Registers the offline/render-time dispatch handler for pluckEnvelope into
-// nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
-// Main-thread / full-product only. Efficient Live must NOT load this file in the
-// AudioWorklet blob (registry absent → historically killed registerProcessor).
-// PluckEnvelopeMod strips on efficient bake via native soemdsp_pluck_envelope_*.
 if (typeof nodeGraphLiveModuleEvaluators !== "undefined" && nodeGraphLiveModuleEvaluators) {
   const nodeGraphPluckEnvelopeLiveEvaluate = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, sampleRate }) => {
     const state = runtime.pluckEnvelopeStates.get(nodeId) || createNodeGraphPluckEnvelopeState();
@@ -178,19 +169,18 @@ if (typeof nodeGraphLiveModuleEvaluators !== "undefined" && nodeGraphLiveModuleE
       mixInput(nodeId, "Trigger"),
       mixInput(nodeId, "Release"),
       {
-        attackFeedback: read("attackFeedback", 0.002),
-        autoReleaseTime: read("autoReleaseTime", 0.08),
-        decay: read("decay", 0.35),
-        decayModCurve: read("decayModCurve", 0),
-        decayModEnd: read("decayModEnd", 0.55),
-        decayModFrequency: read("decayModFrequency", 1.5),
-        decayModStart: read("decayModStart", 0.08),
-        delayTime: read("delayTime", 0),
-        endingDecay: read("endingDecay", 0.8),
+        attack: read("attack", read("attackFeedback", 0)),
+        autoReleaseTime: read("autoReleaseTime", 0),
+        decaySlopeBottom: read("decaySlopeBottom", read("decayModEnd", 4.8)),
+        decaySlopeMid: read("decaySlopeMid", read("decay", 0.7)),
+        decaySlopeTop: read("decaySlopeTop", read("decayModStart", 0.9)),
+        envelopeCurve: read("envelopeCurve", read("decayModCurve", -0.5)),
+        envelopeDamping: read("envelopeDamping", read("decayModFrequency", 15)),
         level: read("level", 1),
-        releaseFeedback: read("releaseFeedback", 0.35),
+        release: read("release", read("releaseFeedback", 0.86)),
+        sustain: read("sustain", read("endingDecay", 1.2)),
         velocity: read("velocity", 1),
-        velocitySensitivity: read("velocitySensitivity", 0),
+        velocitySensitivity: read("velocitySensitivity", 0.5),
       },
       sampleRate,
       runtime,
@@ -198,8 +188,6 @@ if (typeof nodeGraphLiveModuleEvaluators !== "undefined" && nodeGraphLiveModuleE
     );
   };
   nodeGraphLiveModuleEvaluators.pluckEnvelope = nodeGraphPluckEnvelopeLiveEvaluate;
-  // Twin mod publisher (same DSP; sample-accurate strip on efficient path).
   nodeGraphLiveModuleEvaluators.pluckEnvelopeMod = nodeGraphPluckEnvelopeLiveEvaluate;
-  // Load-time migrator rewrites old type ids; keep alias if anything bypasses migrate.
   nodeGraphLiveModuleEvaluators.additivePluckEnvelope = nodeGraphPluckEnvelopeLiveEvaluate;
 }

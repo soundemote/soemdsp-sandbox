@@ -495,7 +495,7 @@ function nodeGraphPortIsBlockRateSignal(typeOrNode, port, io = null) {
   return false;
 }
 
-/** Additive CMYK Parameter chrome (mod jacks → cyan). */
+/** Additive CMYK Parameter chrome (mod jacks + slider-outs → cyan). */
 function nodeGraphModuleUsesCmykParameterChrome(type) {
   const key = String(type || "");
   return key === "additiveGenerator"
@@ -503,6 +503,10 @@ function nodeGraphModuleUsesCmykParameterChrome(type) {
     || key === "additiveAnalogFilter"
     || key === "additiveLadderFilter"
     || key === "additiveBubble"
+    || key === "additiveBlaster"
+    || key === "additiveDiffusor"
+    || key === "additivePan"
+    || key === "additivePhaseEntry"
     || key === "additiveFrequencySkew"
     || key === "additiveQuantizeFreq"
     || key === "additiveQuantizePhase"

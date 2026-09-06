@@ -579,11 +579,13 @@ function nodeGraphFilePickerState() {
 }
 
 function rememberNodeGraphFilePickerMeta(patch = {}) {
+  const current = nodeGraphFilePickerState();
+  const startInRaw = patch.startIn != null ? String(patch.startIn).toLowerCase() : current.startIn;
   const next = {
-    ...nodeGraphFilePickerState(),
+    ...current,
     ...(patch.lastSettingsName ? { lastSettingsName: String(patch.lastSettingsName).slice(0, 180) } : {}),
     ...(patch.lastPatchName ? { lastPatchName: String(patch.lastPatchName).slice(0, 180) } : {}),
-    startIn: "desktop",
+    startIn: nodeGraphFilePickerWellKnown.includes(startInRaw) ? startInRaw : current.startIn,
   };
   if (nodeGraphMvp) {
     nodeGraphMvp.filePicker = next;
@@ -642,20 +644,51 @@ async function nodeGraphFilePickerPutHandle(handle) {
 async function nodeGraphFilePickerStartIn({ allowHandle = true } = {}) {
   if (allowHandle) {
     const handle = await nodeGraphFilePickerGetHandle();
-    if (handle && typeof handle.queryPermission === "function") {
+    if (handle) {
       try {
-        const permission = await handle.queryPermission({ mode: "readwrite" });
-        if (permission === "granted") {
-          return handle;
+        // Prefer a directory handle so the save/open dialog opens in that folder.
+        let startHandle = handle;
+        if (handle.kind === "file" && typeof handle.getParent === "function") {
+          try {
+            const parent = await handle.getParent();
+            if (parent) startHandle = parent;
+          } catch {
+            // Can't resolve parent without permission — don't prompt here.
+            startHandle = null;
+          }
+        }
+        // Never requestPermission() here: that shows Chrome's
+        // "Allow this site to edit <file>" before the Save dialog. Save/Open
+        // should only present the picker so the user chooses location + name.
+        if (startHandle && typeof startHandle.queryPermission === "function") {
+          const permission = await startHandle.queryPermission({ mode: "readwrite" });
+          if (permission === "granted") {
+            return startHandle;
+          }
+        } else if (startHandle && typeof startHandle.queryPermission !== "function") {
+          return startHandle;
         }
       } catch {
-        // Fall through to Desktop.
+        // Fall through to well-known startIn.
       }
-    } else if (handle) {
-      return handle;
     }
   }
   return nodeGraphFilePickerState().startIn || "desktop";
+}
+
+/** Persist the folder (not the file) so later Save opens there without an edit prompt. */
+async function nodeGraphFilePickerRememberLocation(handle) {
+  if (!handle) return;
+  let toStore = handle;
+  if (handle.kind === "file" && typeof handle.getParent === "function") {
+    try {
+      const parent = await handle.getParent();
+      if (parent) toStore = parent;
+    } catch {
+      // Keep file handle only if parent is unavailable.
+    }
+  }
+  await nodeGraphFilePickerPutHandle(toStore);
 }
 
 function nodeGraphDownloadTextFile(text, filename) {
@@ -676,23 +709,20 @@ async function nodeGraphSaveTextFileWithNativeDialog({
   suggestedName,
   description = "JSON",
   accept = { "application/json": [".json"] },
-  folderOnly = false,
 } = {}) {
   const name = String(suggestedName || "soemdsp.json");
   if (typeof window.showSaveFilePicker === "function") {
     try {
       const handle = await window.showSaveFilePicker({
         suggestedName: name,
-        startIn: await nodeGraphFilePickerStartIn({ allowHandle: !folderOnly }),
+        startIn: await nodeGraphFilePickerStartIn({ allowHandle: true }),
         types: [{ description, accept }],
         excludeAcceptAllOption: false,
       });
       const writable = await handle.createWritable();
       await writable.write(text);
       await writable.close();
-      if (!folderOnly) {
-        await nodeGraphFilePickerPutHandle(handle);
-      }
+      await nodeGraphFilePickerRememberLocation(handle);
       return { ok: true, name: handle.name || name, cancelled: false };
     } catch (error) {
       if (error && (error.name === "AbortError" || error.name === "NotAllowedError")) {
@@ -720,7 +750,7 @@ async function nodeGraphOpenTextFileWithNativeDialog({
       });
       const file = await handle.getFile();
       const text = await file.text();
-      await nodeGraphFilePickerPutHandle(handle);
+      await nodeGraphFilePickerRememberLocation(handle);
       return { ok: true, name: handle.name || file.name, text, cancelled: false };
     } catch (error) {
       if (error && (error.name === "AbortError" || error.name === "NotAllowedError")) {
@@ -772,8 +802,8 @@ function nodeGraphDownloadPatchTextFile(text, filename) {
 
 /**
  * Native save dialog for the current patch (Save Patch / Ctrl+S).
- * Always opens the folder picker (never writes a remembered session file).
- * The OS overwrite prompt is allowed if the user picks an existing name.
+ * Remembers the last File System Access location (IndexedDB handle) so the
+ * next save opens in that folder. Fallback download cannot remember a path.
  */
 async function saveNodeGraphPatchWithNativeDialog() {
   const payload = nodeGraphPatchExportPayload();
@@ -788,7 +818,6 @@ async function saveNodeGraphPatchWithNativeDialog() {
         suggestedName: filename,
         description: "soemdsp patch JSON",
         accept: { "application/json": [".json"] },
-        folderOnly: true,
       });
       if (result.cancelled) {
         if (typeof setNodeGraphScriptStatus === "function") {

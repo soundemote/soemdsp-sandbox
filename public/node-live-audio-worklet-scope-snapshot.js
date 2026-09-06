@@ -101,6 +101,14 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
     // Amplitudes/Pans today, more later) piggybacks on this same
     // periodic "scope" message instead of the per-sample signal graph --
     // see public/node-graph-data-bus.js for the receiving/read side.
+    // Efficient product never runs the JS hypersaw evaluator — pull phases
+    // from the graph-hosted native instance first.
+    if (typeof this.syncNativeHypersawPublish === "function") {
+      try { this.syncNativeHypersawPublish(); } catch (_e) { /* keep prior publish */ }
+    }
+    if (typeof this.syncNativeRobinSupersawPublish === "function") {
+      try { this.syncNativeRobinSupersawPublish(); } catch (_e) { /* keep prior publish */ }
+    }
     const dataPorts = [];
     for (const [nodeId, state] of this.hypersawStates) {
       if (Array.isArray(state?.lastVoicePhases) && state.lastVoicePhases.length) {
@@ -111,6 +119,32 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
       }
       if (Array.isArray(state?.lastVoicePans) && state.lastVoicePans.length) {
         dataPorts.push([nodeId, "Pans", state.lastVoicePans]);
+      }
+    }
+    if (this.hypersaw2States) {
+      for (const [nodeId, state] of this.hypersaw2States) {
+        if (Array.isArray(state?.lastVoicePhases) && state.lastVoicePhases.length) {
+          dataPorts.push([nodeId, "Phases", state.lastVoicePhases]);
+        }
+        if (Array.isArray(state?.lastVoiceAmplitudes) && state.lastVoiceAmplitudes.length) {
+          dataPorts.push([nodeId, "Amplitudes", state.lastVoiceAmplitudes]);
+        }
+        if (Array.isArray(state?.lastVoicePans) && state.lastVoicePans.length) {
+          dataPorts.push([nodeId, "Pans", state.lastVoicePans]);
+        }
+      }
+    }
+    if (this.robinSupersawStates) {
+      for (const [nodeId, state] of this.robinSupersawStates) {
+        if (Array.isArray(state?.lastVoicePhases) && state.lastVoicePhases.length) {
+          dataPorts.push([nodeId, "Phases", state.lastVoicePhases]);
+        }
+        if (Array.isArray(state?.lastVoiceAmplitudes) && state.lastVoiceAmplitudes.length) {
+          dataPorts.push([nodeId, "Amplitudes", state.lastVoiceAmplitudes]);
+        }
+        if (Array.isArray(state?.lastVoicePans) && state.lastVoicePans.length) {
+          dataPorts.push([nodeId, "Pans", state.lastVoicePans]);
+        }
       }
     }
     for (const [nodeId, state] of this.videoscopeStates) {

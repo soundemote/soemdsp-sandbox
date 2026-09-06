@@ -19,7 +19,8 @@ const TAGS = [
   ["additiveOsc", "harmonics", "cpu"],
   ["gpuAdditiveOsc", "harmonics", "gpu"],
   ["robinSupersaw", "voices", "cpu"],
-  ["hypersaw", "voices", "cpu"],
+  ["hypersaw", "voices", "cpu"], // Oscillators 1..64
+  ["hypersaw2", "voices", "cpu"],
   ["snowflake", "iterations", "cpu"],
   ["mushroom", "numMushrooms", "cpu"],
   ["pulseExplosion", "numberOfPulses", "cpu"],

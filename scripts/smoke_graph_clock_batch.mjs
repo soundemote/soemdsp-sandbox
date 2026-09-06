@@ -123,6 +123,47 @@ function view(ptr, n) {
   console.log(`triggerDivider ok clockPulses=${clockPulses} divHigh=${divPulses}`);
 }
 
+// clock → clockDivider /2 (timingMode=1): duty×measured period pulse
+{
+  const g = create() | 0;
+  setSr(g, 48000);
+  const hClk = 0x6211 >>> 0;
+  const hDiv = 0x6212 >>> 0;
+  const hOut = 0x6213 >>> 0;
+  if ((add(g, hClk, TYPE_CLOCK) | 0) !== 0) throw new Error("cdiv clock");
+  if ((add(g, hDiv, TYPE_DIV) | 0) !== 0) throw new Error("cdiv add");
+  if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("cdiv out");
+  // Clock Pulse (Right) → Clock dest (Trigger port) on divider
+  if ((connect(g, hClk, PORT_RIGHT, hDiv, 20) | 0) !== 0) throw new Error("cdiv trig");
+  if ((connect(g, hDiv, PORT_MONO, hOut, PORT_MONO) | 0) !== 0) throw new Error("cdiv outc");
+  setParam(g, hClk, PARAM_FREQ, 50);
+  setParam(g, hClk, PARAM_AMP, 1);
+  setParam(g, hDiv, PARAM_STAGES, 2);
+  setParam(g, hDiv, PARAM_SHAPE, 0.5); // duty
+  setParam(g, hDiv, PARAM_AMP, 1);
+  setParam(g, hDiv, PARAM_CENTER, 0);
+  setParam(g, hDiv, 54, 1); // PARAM_TIMING_MODE → clockDivider path
+  if ((compile(g) | 0) !== 0) throw new Error("cdiv compile");
+  snap(g);
+  let clockPulses = 0;
+  let divPulses = 0;
+  for (let q = 0; q < 120; q++) {
+    process(g, 128);
+    const pul = view(portPtr(g, hClk, PORT_RIGHT) | 0, 128);
+    const out = view(portPtr(g, hDiv, PORT_MONO) | 0, 128);
+    for (let i = 0; i < 128; i++) {
+      if (pul[i] > 0.5) clockPulses += 1;
+      if (out[i] > 0.5) divPulses += 1;
+    }
+  }
+  if (!(clockPulses > 5)) throw new Error(`cdiv clockPulses=${clockPulses}`);
+  // duty 0.5 × division 2 × ~20 ms period → ~20 ms pulses every 2 edges
+  if (!(divPulses > 50)) {
+    throw new Error(`cdiv out high=${divPulses} clockPulses=${clockPulses}`);
+  }
+  console.log(`clockDivider ok clockPulses=${clockPulses} divHigh=${divPulses}`);
+}
+
 // delayedTrigger: fire from clock pulse with short delay
 {
   const g = create() | 0;

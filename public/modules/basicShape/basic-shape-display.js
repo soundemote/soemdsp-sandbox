@@ -102,8 +102,10 @@ function nodeGraphBasicShapeSample(phase01, waveform, pulseWidth, amplitude) {
     } else if (i === 5) {
       const w = Math.max(1e-4, Math.min(1 - 1e-4, width));
       y = cycle < w ? (2 * (cycle / w) - 1) : (2 * ((1 - cycle) / (1 - w)) - 1);
-    } else if (i === 6 && typeof nodeGraphBasicShapeCenterSquare === "function") {
-      y = nodeGraphBasicShapeCenterSquare(cycle, width);
+    } else if (i === 6) {
+      y = typeof nodeGraphBasicShapeCenterSquare === "function"
+        ? nodeGraphBasicShapeCenterSquare(cycle, width)
+        : ((cycle >= (0.5 - width * 0.5) && cycle < (0.5 + width * 0.5)) ? 1 : -1);
     } else {
       y = Math.sin(cycle * Math.PI * 2);
     }
@@ -159,6 +161,8 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
   const waveform = nodeGraphBasicShapeLiveParam(node, "waveform", 0);
   const pulseWidth = nodeGraphBasicShapeLiveParam(node, "morph", 0.5);
   const amplitude = nodeGraphBasicShapeLiveParam(node, "amplitude", 1);
+  const phaseParam = Number(nodeGraphBasicShapeLiveParam(node, "phase", 0)) || 0;
+  const polarity = nodeGraphBasicShapeLiveParam(node, "polarity", 0);
   const strokeW = look.lineThickness;
   const dotW = look.dotThickness;
   const lineBlur = look.lineBlur;
@@ -177,6 +181,8 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
     String(Math.round(Number(waveform) || 0)),
     String(Number(pulseWidth).toFixed(4)),
     String(Number(amplitude).toFixed(4)),
+    String((phaseParam - Math.floor(phaseParam)).toFixed(4)),
+    String(Math.round(Number(polarity) || 0)),
     look.strokePaint,
     look.backgroundPaint,
     String(strokeW),
@@ -236,9 +242,10 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
     return;
   }
 
+  // ForceDraw = "paint this frame" (blit cache + playhead). Do NOT tie it to
+  // waveDirty — that clearRect'd the plate on every slider tick and flashed UI.
   const waveDirty = section._basicShapeWaveSig !== signature
-    || !section._basicShapeWaveCanvas
-    || section._basicShapeForceDraw;
+    || !section._basicShapeWaveCanvas;
   section._basicShapeSignature = signature;
   section._basicShapeForceDraw = false;
   section._basicShapeLaidOut = true;
@@ -265,12 +272,28 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
   const mapY = (value) => midY - Math.max(-1, Math.min(1, value)) * halfH;
   const samples = Math.max(32, Math.min(256, Math.ceil(innerW)));
 
+  const wrap01 = (p) => {
+    const n = Number(p) || 0;
+    return n - Math.floor(n);
+  };
+  const phaseOff = wrap01(phaseParam);
+  const sampleAt = (cycle01) => {
+    let y = nodeGraphBasicShapeSample(cycle01, waveform, pulseWidth, amplitude);
+    if (typeof nodeGraphBasicShapePolarity === "function") {
+      y = nodeGraphBasicShapePolarity(y, polarity);
+    } else if (Math.round(Number(polarity) || 0) >= 1) {
+      y = (Number(y) + 1) * 0.5;
+    }
+    return y;
+  };
+
   if (waveDirty) {
     context.beginPath();
     for (let i = 0; i <= samples; i += 1) {
-      const phase = i / samples;
-      const x = mapX(phase);
-      const y = mapY(nodeGraphBasicShapeSample(phase, waveform, pulseWidth, amplitude));
+      // Phase knob slides the drawn shape (same offset as DSP samplePhase).
+      const xNorm = i / samples;
+      const x = mapX(xNorm);
+      const y = mapY(sampleAt(wrap01(xNorm + phaseOff)));
       if (i === 0) {
         context.moveTo(x, y);
       } else {
@@ -309,13 +332,16 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
     }
   }
 
-  let phase = nodeGraphBasicShapeReadPhase(nodeId, node, section);
-  if (!Number.isFinite(phase)) {
-    phase = 0;
+  // Playhead: readPhase is samplePhase (running + phase knob). X is running
+  // phase on the slid shape; Y matches the audio sample.
+  let play = nodeGraphBasicShapeReadPhase(nodeId, node, section);
+  if (!Number.isFinite(play)) {
+    play = phaseOff;
   }
-  phase -= Math.floor(phase);
-  const px = mapX(phase);
-  const py = mapY(nodeGraphBasicShapeSample(phase, waveform, pulseWidth, amplitude));
+  play = wrap01(play);
+  const playX = wrap01(play - phaseOff);
+  const px = mapX(playX);
+  const py = mapY(sampleAt(play));
   if (Number.isFinite(px) && Number.isFinite(py)) {
     context.beginPath();
     context.fillStyle = look.dotPaint || look.dotColor || "#ffffff";

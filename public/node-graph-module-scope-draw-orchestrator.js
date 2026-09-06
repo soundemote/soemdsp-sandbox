@@ -82,6 +82,7 @@ const nodeGraphModuleScopeCustomRenderers = {
   // Shape paints its own canvas on rAF (rgb-shape-ui.js). Orchestrator no-op
   // avoids double-draw; keep the key so typed dispatch does not fall through.
   rgbShapeFace: () => {},
+  // imageBurnFace / rgbPictureFace self-register from their display.js files.
   textBoxFace: () => {},
   // oscilloscopeBankBurn self-registers from
   // public/modules/oscilloscopeBank/oscilloscope-bank-display.js
@@ -89,6 +90,7 @@ const nodeGraphModuleScopeCustomRenderers = {
   // public/modules/videoscope/videoscope-display.js
   // limiterGainFace self-registers from
   // public/modules/lookaheadLimiter/lookahead-limiter-display.js
+  // transportBpm self-registers from transport-display.js (kept listed for discoverability)
 };
 
 function drawNodeGraphModuleScopeTypedItem(renderer, item, pixelRatio) {

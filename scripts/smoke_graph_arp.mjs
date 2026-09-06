@@ -68,13 +68,13 @@ function peakOf(ptr, n) {
   return peak;
 }
 
-// sample(h, held, hasHeld, trig, hasTrig, reset, rate, mode, steps, seed, sr)
+// sample(h, held, hasHeld, trig, hasTrig, reset, rate, mode, steps, seed, octaveOffset, sr)
 function tickExternal(h, mask, rising) {
   if (!rising) {
-    return arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, SR);
+    return arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 0, SR);
   }
-  arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, SR);
-  return arpSample(h, mask, 1, 1, 1, 0, 0, 0, 8, 1, SR);
+  arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 0, SR);
+  return arpSample(h, mask, 1, 1, 1, 0, 0, 0, 8, 1, 0, SR);
 }
 
 // --- Direct kernel: C0+E0+G0 up via external Trigger ---
@@ -100,12 +100,33 @@ function tickExternal(h, mask, rising) {
   console.log(`arp kernel ok pitches=${pitches.join(",")}`);
 }
 
+// Octave Offset +1 raises MIDI by 12
+{
+  const h = arpCreate() | 0;
+  const mask = (1 << 0) | (1 << 4) | (1 << 7);
+  const tick = (rising) => {
+    if (!rising) return arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 1, SR);
+    arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 1, SR);
+    return arpSample(h, mask, 1, 1, 1, 0, 0, 0, 8, 1, 1, SR);
+  };
+  const pitches = [];
+  for (let i = 0; i < 3; i++) pitches.push(Math.round(tick(true) * 120));
+  const expect = [36, 40, 43];
+  for (let i = 0; i < expect.length; i++) {
+    if (pitches[i] !== expect[i]) {
+      throw new Error(`arp octave+1 pitches ${pitches.join(",")} != ${expect.join(",")}`);
+    }
+  }
+  arpDestroy(h);
+  console.log(`arp octaveOffset+1 ok pitches=${pitches.join(",")}`);
+}
+
 // Phase-bit high half
 {
   const h = arpCreate() | 0;
   const high = 1;
-  arpSample(h, PHASE + high, 1, 0, 1, 0, 0, 0, 0, 1, SR);
-  const pitch = arpSample(h, 0, 1, 1, 1, 0, 0, 0, 0, 1, SR);
+  arpSample(h, PHASE + high, 1, 0, 1, 0, 0, 0, 0, 1, 0, SR);
+  const pitch = arpSample(h, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, SR);
   const midi = Math.round(pitch * 120);
   if (midi !== 73) throw new Error(`arp high-half midi=${midi} want 73`);
   arpDestroy(h);
@@ -120,7 +141,7 @@ function tickExternal(h, mask, rising) {
   let lastMidi = -1;
   let changes = 0;
   for (let i = 0; i < SR; i++) {
-    const pitch = arpSample(h, mask, 1, 0, 0, 0, 32, 0, 8, 1, SR);
+    const pitch = arpSample(h, mask, 1, 0, 0, 0, 32, 0, 8, 1, 0, SR);
     if (arpTrigger(h) > 0.5) sawTrig = true;
     const midi = Math.round(pitch * 120);
     if (lastMidi >= 0 && midi !== lastMidi) changes += 1;

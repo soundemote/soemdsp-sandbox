@@ -40,6 +40,7 @@
   });
   nodeGraphLiveModuleEvaluators.vectorDot = thruFrom("In", "vectorDot in");
   nodeGraphLiveModuleEvaluators.lcdDot = thruFrom("In", "lcdDot in");
+  nodeGraphLiveModuleEvaluators.imageBurn = thruFrom("In", "imageBurn in");
   nodeGraphLiveModuleEvaluators.valueOscilloscope = thruFrom("In", "valueOscilloscope in");
   nodeGraphLiveModuleEvaluators.lineBurnOscilloscope = thruFrom("In", "lineBurnOscilloscope in");
   nodeGraphLiveModuleEvaluators.matrixDisplay = thruFrom("In", "matrixDisplay in");

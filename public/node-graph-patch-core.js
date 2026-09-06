@@ -313,6 +313,36 @@ function validateNodeGraphPatch(patch) {
       // Smooth Graph Curve: collapse old 6-choice layout (Linear/Smooth/Bezier/
       // Quadratic/Cubic/Catmull) where Smooth/Bezier/Catmull were one path.
       // Detect old layout via saved max≥5 or orphan indices 4–5.
+      // Gain Mono Sum: old order Average,Power,Sum,… → Sum,Average,Power,…
+      if ((type === "gain" || type === "gainBias") && parameter.key === "monoSum") {
+        if (Number(rawParams._monoSumOrder) !== 2) {
+          // Only remap when a saved value exists (legacy patches). Fresh defaults
+          // already use the new order (0 = Sum).
+          if (Object.hasOwn(rawParams, "monoSum")) {
+            const n = Math.round(Number(value));
+            // old → new: 0Avg→1, 1Pow→2, 2Sum→0, 3…6 unchanged
+            const map = [1, 2, 0, 3, 4, 5, 6];
+            if (Number.isFinite(n) && n >= 0 && n < map.length) {
+              value = map[n];
+            }
+          }
+          rawParams._monoSumOrder = 2;
+        }
+      }
+      // Curve Envelope shapes: legacy target-ratio [1e-4,100] → bipolar [-1,1].
+      if (
+        (type === "expAdsr" || type === "curveEnvelopeMod")
+        && (parameter.key === "attackShape" || parameter.key === "releaseShape")
+      ) {
+        const sourceMax = Number(rawParamMeta[parameter.key]?.max);
+        const n = Number(value);
+        const looksLegacyMax = Number.isFinite(sourceMax) && sourceMax > 1;
+        const looksLegacyValue = Number.isFinite(n) && (n > 1 || (n > 0 && n <= 0.0001000001));
+        if ((looksLegacyMax || looksLegacyValue) && Number.isFinite(n) && n > 0) {
+          const r = Math.max(1e-4, Math.min(100, n));
+          value = (Math.log(100) - Math.log(r)) / (Math.log(100) - Math.log(1e-4));
+        }
+      }
       // Inertial Filter: Attack/Release used to be 0…1 mix/sample. Now Hz.
       if (
         type === "inertialFilter"

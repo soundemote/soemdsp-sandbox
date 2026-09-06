@@ -227,6 +227,17 @@ function openNodeModuleDisplaySettings(event) {
   event.preventDefault();
   event.stopPropagation();
   const nodeId = event.currentTarget?.dataset?.node;
+  const patchNode = nodeId ? nodeGraphPatchNode(nodeId) : null;
+  const type = String(patchNode?.type || "");
+  // Hypersaw family phase-stem faces have no phosphor Display Settings —
+  // TV button / right-click both open Module Settings instead.
+  if (type === "hypersaw" || type === "hypersaw2" || type === "robinSupersaw") {
+    const nodeEl = event.currentTarget?.closest?.(".dsp-node") || null;
+    if (typeof openNodeGraphModuleSettingsFromContextEvent === "function"
+      && openNodeGraphModuleSettingsFromContextEvent(event, nodeEl)) {
+      return;
+    }
+  }
   if (nodeId && typeof openNodeKeypadDisplaySettings === "function") {
     const nodeEl = event.currentTarget?.closest?.(".dsp-node");
     if (openNodeKeypadDisplaySettings(event, nodeEl)) {

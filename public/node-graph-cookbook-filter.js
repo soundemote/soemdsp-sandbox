@@ -221,7 +221,11 @@ function nodeGraphCookbookSweepHz(hz, semitones) {
 }
 
 function nodeGraphActiveFilterSlopeMagnitudeAt(kind, cutoff, frequency, slope, sampleRate) {
-  const stages = (Number.isFinite(Number(slope)) ? Math.max(0, Math.min(3, Math.round(Number(slope)))) : 1) + 1;
+  // Slope: 0 Bypass, 1=6 … 4=24 dB → stage count = slope (when > 0).
+  const stages = Number.isFinite(Number(slope))
+    ? Math.max(0, Math.min(4, Math.round(Number(slope))))
+    : 1;
+  if (stages <= 0) return 1;
   const one = kind === "hp"
     ? nodeGraphOnePoleHighpassMagnitudeAt(cutoff, frequency, sampleRate)
     : nodeGraphOnePoleLowpassMagnitudeAt(cutoff, frequency, sampleRate);
@@ -460,21 +464,21 @@ function nodeGraphFilterCurveView(node) {
     };
   }
   if (node.type === "activeFilter") {
-    const mode = Math.round(nodeGraphFilterCurveLiveParam(node, "mode", 3));
     const params = {
       highFrequency: nodeGraphFilterCurveLiveParam(node, "highFrequency", 1000),
-      hpSlope: nodeGraphFilterCurveLiveParam(node, "hpSlope", 1),
+      hpSlope: nodeGraphFilterCurveLiveParam(node, "hpSlope", 0),
       lowFrequency: nodeGraphFilterCurveLiveParam(node, "lowFrequency", 200),
-      lpSlope: nodeGraphFilterCurveLiveParam(node, "lpSlope", 1),
-      mode,
+      lpSlope: nodeGraphFilterCurveLiveParam(node, "lpSlope", 4),
+      mode: nodeGraphFilterCurveLiveParam(node, "mode", 3),
       sweep: nodeGraphFilterCurveLiveParam(node, "sweep", 0),
     };
     const resolved = typeof nodeGraphActiveFilterResolveParams === "function"
       ? nodeGraphActiveFilterResolveParams(params)
-      : { bandpass: mode >= 8, ...params };
+      : { bandpass: false, ...params };
     return {
       type: node.type,
       bandpass: !!resolved.bandpass,
+      bypass: !!resolved.bypass,
       frequency: resolved.frequency,
       highFrequency: resolved.highFrequency,
       hpSlope: resolved.hpSlope,
@@ -594,14 +598,17 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
     return mag;
   }
   if (node.type === "activeFilter") {
-    if (v.bandpass) {
-      return nodeGraphActiveFilterSlopeMagnitudeAt("hp", v.lowFrequency, frequency, v.hpSlope, sampleRate)
-        * nodeGraphActiveFilterSlopeMagnitudeAt("lp", v.highFrequency, frequency, v.lpSlope, sampleRate);
+    if (v.bypass) return 1;
+    const hp = Number(v.hpSlope) || 0;
+    const lp = Number(v.lpSlope) || 0;
+    let mag = 1;
+    if (hp > 0) {
+      mag *= nodeGraphActiveFilterSlopeMagnitudeAt("hp", v.lowFrequency, frequency, hp, sampleRate);
     }
-    const mode = Math.round(Number(v.mode) || 0);
-    const kind = mode >= 4 ? "hp" : "lp";
-    const slope = mode >= 4 ? mode - 4 : mode;
-    return nodeGraphActiveFilterSlopeMagnitudeAt(kind, v.frequency, frequency, slope, sampleRate);
+    if (lp > 0) {
+      mag *= nodeGraphActiveFilterSlopeMagnitudeAt("lp", v.highFrequency, frequency, lp, sampleRate);
+    }
+    return mag;
   }
   if (node.type === "ladderFilter") {
     return nodeGraphLadderFilterMagnitudeAt({
@@ -671,12 +678,12 @@ function nodeGraphFilterCurveCutoffFrequencies(node, view = null) {
       .filter((value) => Number.isFinite(value) && value >= 0);
   }
   if (node.type === "activeFilter") {
-    if (v.bandpass) {
-      return [v.lowFrequency, v.highFrequency]
-        .map((value) => nodeGraphFilterCurveFiniteHz(value, 0))
-        .filter((value) => Number.isFinite(value) && value >= 0);
-    }
-    return [nodeGraphFilterCurveFiniteHz(v.frequency, 0)]
+    if (v.bypass) return [];
+    const marks = [];
+    if ((Number(v.hpSlope) || 0) > 0) marks.push(v.lowFrequency);
+    if ((Number(v.lpSlope) || 0) > 0) marks.push(v.highFrequency);
+    return marks
+      .map((value) => nodeGraphFilterCurveFiniteHz(value, 0))
       .filter((value) => Number.isFinite(value) && value >= 0);
   }
   if (node.type === "papoulisFilter" || node.type === "tb303Filter") {
@@ -738,12 +745,13 @@ function nodeGraphFilterCurveLabel(node) {
     return modes?.[Math.round(Number(node.params?.mode) || 1)] || "EQ";
   }
   if (node.type === "activeFilter") {
-    const mode = Math.round(Number(node.params?.mode) || 3);
-    if (mode >= 8) {
-      return "BP";
-    }
-    const modes = typeof nodeGraphActiveFilterModes !== "undefined" ? nodeGraphActiveFilterModes : null;
-    return modes?.[mode] || "Active";
+    const hp = Math.round(Number(node.params?.hpSlope) || 0);
+    const lp = Math.round(Number(node.params?.lpSlope) || 0);
+    const label = (n) => (n <= 0 ? "Off" : `${n * 6}`);
+    if (hp <= 0 && lp <= 0) return "Thru";
+    if (hp > 0 && lp > 0) return `BP HP${label(hp)}/LP${label(lp)}`;
+    if (hp > 0) return `HP${label(hp)}`;
+    return `LP${label(lp)}`;
   }
   return nodeGraphCookbookFilterModes[Math.round(Number(node.params?.mode) || 0)] || "Filter";
 }
@@ -1121,10 +1129,17 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
 
 function drawNodeGraphFilterCurveDisplays() {
   document.querySelectorAll(".node-filter-curve-display").forEach((section) => {
-    // RoundShape reuses the filter-curve plate class but has its own drawer.
+    // RoundShape / BasicShape reuse the filter-curve plate class but own drawers.
+    // Calling the generic filter-curve painter on them flashes a second UI.
     if (section.classList.contains("node-round-shape-display")) {
       if (typeof drawNodeGraphRoundShapeDisplay === "function") {
         drawNodeGraphRoundShapeDisplay(section);
+      }
+      return;
+    }
+    if (section.classList.contains("node-basic-shape-display")) {
+      if (typeof drawNodeGraphBasicShapeDisplay === "function") {
+        drawNodeGraphBasicShapeDisplay(section);
       }
       return;
     }

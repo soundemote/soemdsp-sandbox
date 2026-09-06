@@ -404,6 +404,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const dsfOscillatorStates = new Map();
   const robinSupersawStates = new Map();
   const hypersawStates = new Map();
+  const hypersaw2States = new Map();
   const chordSequencerStates = new Map();
   const lutCellStates = new Map();
   const lorenzAttractorStates = new Map();
@@ -412,6 +413,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const oscillatorStoppedSamples = new Map();
   const patchCommandStates = new Map();
   const pluckEnvelopeStates = new Map();
+  const vactrolEnvelopeStates = new Map();
   const randomClockStates = new Map();
   const randomWalkStates = new Map();
   const piSpigotNoiseStates = new Map();
@@ -541,6 +543,9 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     }
     if (node.type === "hypersaw") {
       hypersawStates.set(node.id, createNodeGraphHypersawState());
+    }
+    if (node.type === "hypersaw2") {
+      hypersaw2States.set(node.id, createNodeGraphHypersaw2State());
     }
     if (node.type === "chordSequencer") {
       chordSequencerStates.set(node.id, createNodeGraphChordSequencerState());
@@ -776,6 +781,14 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     if (node.type === "pluckEnvelope") {
       pluckEnvelopeStates.set(node.id, createNodeGraphPluckEnvelopeState());
     }
+    if (node.type === "vactrol") {
+      vactrolEnvelopeStates.set(
+        node.id,
+        typeof createNodeGraphVactrolEnvelopeState === "function"
+          ? createNodeGraphVactrolEnvelopeState()
+          : { out: 0, raw: 0 },
+      );
+    }
     if (node.type === "stepSequencer") {
       stepSequencerStates.set(node.id, createNodeGraphStepSequencerState());
     }
@@ -888,6 +901,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     dsfOscillatorStates,
     robinSupersawStates,
     hypersawStates,
+    hypersaw2States,
     chordSequencerStates,
     lutCellStates,
     lorenzAttractorStates,
@@ -923,6 +937,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     noiseSeeds,
     noiseGeneratorStates,
     pluckEnvelopeStates,
+    vactrolEnvelopeStates,
     randomClockStates,
     reverbEffectStates,
     soemReverbStates,
@@ -1190,6 +1205,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.hypersawStates) {
     runtime.hypersawStates = new Map();
   }
+  if (!runtime.hypersaw2States) {
+    runtime.hypersaw2States = new Map();
+  }
   if (!runtime.chordSequencerStates) {
     runtime.chordSequencerStates = new Map();
   }
@@ -1276,6 +1294,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.pluckEnvelopeStates) {
     runtime.pluckEnvelopeStates = new Map();
+  }
+  if (!runtime.vactrolEnvelopeStates) {
+    runtime.vactrolEnvelopeStates = new Map();
   }
   if (!runtime.patchCommandStates) {
     runtime.patchCommandStates = new Map();
@@ -1410,6 +1431,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "hypersaw" && !runtime.hypersawStates.has(node.id)) {
       runtime.hypersawStates.set(node.id, createNodeGraphHypersawState());
+    }
+    if (node.type === "hypersaw2" && !runtime.hypersaw2States.has(node.id)) {
+      runtime.hypersaw2States.set(node.id, createNodeGraphHypersaw2State());
     }
     if (node.type === "chordSequencer" && !runtime.chordSequencerStates.has(node.id)) {
       runtime.chordSequencerStates.set(node.id, createNodeGraphChordSequencerState());
@@ -1684,6 +1708,14 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     if (node.type === "pluckEnvelope" && !runtime.pluckEnvelopeStates.has(node.id)) {
       runtime.pluckEnvelopeStates.set(node.id, createNodeGraphPluckEnvelopeState());
     }
+    if (node.type === "vactrol" && !runtime.vactrolEnvelopeStates.has(node.id)) {
+      runtime.vactrolEnvelopeStates.set(
+        node.id,
+        typeof createNodeGraphVactrolEnvelopeState === "function"
+          ? createNodeGraphVactrolEnvelopeState()
+          : { out: 0, raw: 0 },
+      );
+    }
     if (node.type === "triggerDivider" && !runtime.triggerDividerStates.has(node.id)) {
       runtime.triggerDividerStates.set(node.id, createNodeGraphTriggerDividerState());
     }
@@ -1901,6 +1933,11 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.hypersawStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.hypersawStates.delete(id);
+    }
+  }
+  for (const id of [...runtime.hypersaw2States.keys()]) {
+    if (!nodeIds.has(id)) {
+      runtime.hypersaw2States.delete(id);
     }
   }
   for (const id of [...runtime.chordSequencerStates.keys()]) {
@@ -2236,6 +2273,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.pluckEnvelopeStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.pluckEnvelopeStates.delete(id);
+    }
+  }
+  if (runtime.vactrolEnvelopeStates) {
+    for (const id of [...runtime.vactrolEnvelopeStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.vactrolEnvelopeStates.delete(id);
+      }
     }
   }
   for (const id of [...runtime.stepSequencerStates.keys()]) {

@@ -976,6 +976,11 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
     ),
+    // Mirror for the form field key (Value Line UI edits dot1Brightness).
+    dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
+      source.dot1Brightness ?? source.brightness,
+      defaults.brightness,
+    ),
     burn: residual.burn,
     burnAmount: residual.burnAmount,
     residualSchema: residual.residualSchema,
@@ -986,6 +991,7 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
     capSize: normalizeNodeGraphTraceDisplayNumber(source.capSize, defaults.capSize, 0, 1),
     ghost: residual.ghost,
     color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
+    dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.color),
     trail: residual.trail,
     dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),

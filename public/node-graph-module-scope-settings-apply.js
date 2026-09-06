@@ -182,6 +182,32 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     };
     return node.traceDisplaySettings;
   }
+  if (displayType === "imageBurnFace") {
+    // Keep previously loaded dataUrl unless the form explicitly cleared it.
+    const prevUrl = String(node.imageBurn?.dataUrl || node.traceDisplaySettings?.dataUrl || "");
+    const incoming = settings && typeof settings === "object" ? { ...settings } : {};
+    if (!incoming.dataUrl && prevUrl) {
+      incoming.dataUrl = prevUrl;
+      incoming.fileName = incoming.fileName
+        || node.imageBurn?.fileName
+        || node.traceDisplaySettings?.fileName
+        || "image";
+    }
+    const normalized = typeof normalizeNodeGraphImageBurnSettings === "function"
+      ? normalizeNodeGraphImageBurnSettings(incoming)
+      : incoming;
+    const bag = typeof nodeGraphImageBurnToPatch === "function"
+      ? nodeGraphImageBurnToPatch(normalized)
+      : normalized;
+    node.imageBurn = bag;
+    node.traceDisplaySettings = {
+      ...(node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+        ? node.traceDisplaySettings
+        : {}),
+      ...bag,
+    };
+    return node.traceDisplaySettings;
+  }
   if (displayType === "rgbFractalFace") {
     node.traceDisplaySettings = typeof normalizeNodeGraphRgbFractalSettings === "function"
       ? normalizeNodeGraphRgbFractalSettings(settings)

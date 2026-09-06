@@ -151,6 +151,10 @@ function bindNodeGraphRenderedSampleDownloadDrag() {
 
 function bindNodeGraphRenderLiveControlEvents() {
   document.getElementById("nodeRenderButton")?.addEventListener("click", renderNodeGraphAudio);
+  // Transport clicks (boot-defer may miss window "load").
+  if (typeof bindNodeGraphTransportButtons === "function") {
+    bindNodeGraphTransportButtons();
+  }
   bindNodeGraphRenderedSampleDownloadDrag();
   // Debug-only copy/export/mock controls — optional in release (stubs or omitted).
   if (typeof copyNodeGraphRuntimeSketch === "function") {

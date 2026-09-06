@@ -424,6 +424,8 @@ inline void apply_phase_entry(GraphPayload& g, float mode) {
 // phaseMode 0 = Stagger (Bubble-like curve staircase + jumps).
 // phaseMode 1 = Random (seeded LCG per bin — old shimmer).
 // layout is unused by DSP (face-only on host).
+// Quantum phaseLerp (like Bubble): Depth / Log Curve / Bias / Jump / Offset
+// glide across the block instead of hard-stamping phases (zipper/clicks).
 inline void apply_blaster(
   GraphPayload& g,
   float quantization,
@@ -438,14 +440,25 @@ inline void apply_blaster(
   float phaseMode = 0.0f, // 0 Stagger / 1 Random
   float invert = 0.0f,
   float bias = 0.0f,
-  float jump = 0.0f
+  float jump = 0.0f,
+  const float* prevToPhase = nullptr,
+  int prevH = 0
 ) {
   const int H = g.harmonics;
-  if (H <= 0 || H > kMaxHarmonics) return;
+  if (H <= 0 || H > kMaxHarmonics) {
+    g.hasPhaseLerp = 0;
+    return;
+  }
   const float q = (quantization * 0.0f == 0.0f) ? quantization : 0.0f;
-  if (!(q >= 0.5f)) return;
+  if (!(q >= 0.5f)) {
+    g.hasPhaseLerp = 0;
+    return;
+  }
   int bins = (int)(q + (q >= 0.0f ? 0.5f : -0.5f));
-  if (bins < 1) return;
+  if (bins < 1) {
+    g.hasPhaseLerp = 0;
+    return;
+  }
   if (bins > H) bins = H;
 
   int mode = (int)(phaseMode + (phaseMode >= 0.0f ? 0.5f : -0.5f));
@@ -460,6 +473,7 @@ inline void apply_blaster(
   const float offsetAmt = (offset * 0.0f == 0.0f) ? offset : 0.0f;
   const float biasAmt = (bias * 0.0f == 0.0f) ? bias : 0.0f;
   const float jumpAmt = (jump * 0.0f == 0.0f) ? jump : 0.0f;
+  const bool havePrev = prevToPhase && prevH == H;
 
   float binPhase[kMaxHarmonics];
   if (mode == 1) {
@@ -485,9 +499,12 @@ inline void apply_blaster(
   for (int i = 0; i < H; i += 1) {
     int bin = (int)(((long long)i * (long long)bins) / (long long)H);
     if (bin >= bins) bin = bins - 1;
-    g.phase[i] = binPhase[bin];
+    const float toPhase = binPhase[bin];
+    g.phaseTo[i] = toPhase;
+    g.phaseFrom[i] = havePrev ? prevToPhase[i] : toPhase;
+    g.phase[i] = toPhase; // stamped end-of-quantum (faces / downstream)
   }
-  g.hasPhaseLerp = 0;
+  g.hasPhaseLerp = 1;
 }
 
 // One-quantum amp crossfade when Generator slot count changes.

@@ -647,6 +647,24 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+      if (name === "vactrol_envelope" || targetType === "vactrol") {
+        if (this.vactrolEnvelopeStates) {
+          for (const state of this.vactrolEnvelopeStates.values()) {
+            this.destroyVactrolEnvelopeNativeState?.(state);
+          }
+        }
+        this.nativeVactrolEnvelope = exports;
+        this.nativeVactrolEnvelopeReady = Boolean(
+          this.nativeVactrolEnvelope?.soemdsp_vactrol_envelope_create &&
+          this.nativeVactrolEnvelope?.soemdsp_vactrol_envelope_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "vactrol_envelope",
+          status: this.nativeVactrolEnvelopeReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "trigger_divider" || targetType === "triggerDivider" || targetType === "clockDivider") {
         for (const state of this.triggerDividerStates.values()) {
           this.destroyTriggerDividerNativeState(state);
@@ -1217,6 +1235,63 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
           type: "nativeModuleStatus",
           name: "hypersaw",
           status: this.nativeHypersawReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "hypersaw2" || targetType === "hypersaw2") {
+        if (this.hypersaw2States) {
+          for (const state of this.hypersaw2States.values()) {
+            if (state?.nativeHandle && exports?.soemdsp_hypersaw2_destroy) {
+              exports.soemdsp_hypersaw2_destroy(state.nativeHandle);
+              state.nativeHandle = 0;
+            }
+          }
+        }
+        this.nativeHypersaw2 = exports;
+        this.nativeHypersaw2Ready = Boolean(
+          this.nativeHypersaw2?.soemdsp_hypersaw2_create &&
+          this.nativeHypersaw2?.soemdsp_hypersaw2_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "hypersaw2",
+          status: this.nativeHypersaw2Ready ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "vibrato_generator" || targetType === "vibratoGenerator") {
+        if (this.vibratoGeneratorStates) {
+          for (const state of this.vibratoGeneratorStates.values()) {
+            this.destroyVibratoGeneratorNativeState?.(state);
+          }
+        }
+        this.nativeVibratoGenerator = exports;
+        this.nativeVibratoGeneratorReady = Boolean(
+          this.nativeVibratoGenerator?.soemdsp_vibrato_generator_create &&
+          this.nativeVibratoGenerator?.soemdsp_vibrato_generator_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "vibrato_generator",
+          status: this.nativeVibratoGeneratorReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "wow_and_flutter" || targetType === "wowAndFlutter") {
+        if (this.wowAndFlutterStates) {
+          for (const state of this.wowAndFlutterStates.values()) {
+            this.destroyWowAndFlutterNativeState?.(state);
+          }
+        }
+        this.nativeWowAndFlutter = exports;
+        this.nativeWowAndFlutterReady = Boolean(
+          this.nativeWowAndFlutter?.soemdsp_wow_and_flutter_create &&
+          this.nativeWowAndFlutter?.soemdsp_wow_and_flutter_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "wow_and_flutter",
+          status: this.nativeWowAndFlutterReady ? "ready" : "missing exports",
         });
         return;
       }

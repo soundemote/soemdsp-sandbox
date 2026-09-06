@@ -2087,6 +2087,12 @@ function configureNodeSceneContextMenu(mode) {
       attenuvertButton.title = nodeGraphTooltipText("actions.wireAttenuvert")
         || "Insert a bipolar attenuverter (−1…+1 amplitude and offset) on each selected wire.";
     }
+    const ampCurveButton = document.getElementById("nodeSceneWireAmpCurve");
+    if (ampCurveButton) {
+      ampCurveButton.disabled = !canAttenuateWires;
+      ampCurveButton.title = nodeGraphTooltipText("actions.wireAmpCurve")
+        || "Insert Amp Curve (Lin/Exp VCA-style response for Amplitude params) on each selected wire.";
+    }
     const rangeUnipolarButton = document.getElementById("nodeSceneWireRangeUnipolar");
     if (rangeUnipolarButton) {
       rangeUnipolarButton.disabled = !canAttenuateWires;
@@ -2178,6 +2184,10 @@ function configureNodeSceneContextMenu(mode) {
     const idleAttenuvert = document.getElementById("nodeSceneWireAttenuvert");
     if (idleAttenuvert) {
       idleAttenuvert.disabled = true;
+    }
+    const idleAmpCurve = document.getElementById("nodeSceneWireAmpCurve");
+    if (idleAmpCurve) {
+      idleAmpCurve.disabled = true;
     }
     const idleRangeUnipolar = document.getElementById("nodeSceneWireRangeUnipolar");
     if (idleRangeUnipolar) {
@@ -2436,7 +2446,8 @@ function openNodeScopeContextMenu(event) {
     ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-value-lcd-face, .node-ray-bouncer-face, .node-asciiscope-face, .node-matrix-face, .node-round-shape-display, .node-basic-shape-display",
   );
   const nodeId = contextScope?.dataset?.node || "";
-  if (!nodeId || !nodeGraphPatchNode(nodeId)) {
+  const patchNode = nodeId ? nodeGraphPatchNode(nodeId) : null;
+  if (!nodeId || !patchNode) {
     return false;
   }
 
@@ -2447,6 +2458,14 @@ function openNodeScopeContextMenu(event) {
   nodeGraphMvp.sceneContextTargetNode = null;
   nodeGraphMvp.sceneContextTargetWire = null;
   nodeGraphMvp.scopeContextTargetNode = nodeId;
+
+  // Hypersaw family phase-stem faces: Module Settings only (no phosphor Display Settings).
+  const type = String(patchNode.type || "");
+  if (type === "hypersaw" || type === "hypersaw2" || type === "robinSupersaw") {
+    const nodeEl = contextScope?.closest?.(".dsp-node") || null;
+    return openNodeGraphModuleSettingsFromContextEvent(event, nodeEl);
+  }
+
   // LED uses Vector Dot Display Settings.
   if (typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
     return true;

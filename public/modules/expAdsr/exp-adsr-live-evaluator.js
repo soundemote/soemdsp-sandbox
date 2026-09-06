@@ -7,13 +7,13 @@ nodeGraphLiveModuleEvaluators.expAdsr = ({ runtime, node, nodeId, frame, frames,
   const gate = mixInput(nodeId, "Gate");
   const live = {
     attack: read("attack", 0.08),
-    attackShape: read("attackShape", 0.3),
+    attackShape: read("attackShape", 0),
     decay: read("decay", 0.22),
     delay: read("delay", 0),
     level: read("level", 1),
     loop: read("loop", 0),
     release: read("release", 0.45),
-    releaseShape: read("releaseShape", 0.0001),
+    releaseShape: read("releaseShape", 0),
     sustain: read("sustain", 0.55),
     updateOnTrigger: read("updateOnTrigger", 0),
   };

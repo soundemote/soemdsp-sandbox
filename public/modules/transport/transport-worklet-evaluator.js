@@ -17,7 +17,11 @@ NodeLiveAudioProcessor.prototype.transportTriggerSample = function transportTrig
 // Transport — native preferred; pure math fallback (transport-math.js).
 NodeLiveAudioProcessor.prototype.transportSample = function transportSample(state, params, rateHz = sampleRate) {
     const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
-    const tempoBpm = Math.max(1, Number(this.timing?.tempoBpm) || 120);
+    const paramBpm = Number(params?.bpm);
+    const tempoBpm = Math.max(
+      1,
+      (Number.isFinite(paramBpm) && paramBpm > 0 ? paramBpm : Number(this.timing?.tempoBpm)) || 120,
+    );
     if (this.nativeTransportReady && this.nativeTransport?.soemdsp_transport_create) {
       try {
         if (!state.nativeHandle) {
@@ -28,8 +32,11 @@ NodeLiveAudioProcessor.prototype.transportSample = function transportSample(stat
             this.nativeTransport.soemdsp_transport_sample(
               state.nativeHandle,
               this.safeFilterNumber(params.amplitude, state),
-              this.safeFilterNumber(params.divisions, state),
+              this.safeFilterNumber(params.timeNumerator ?? 1, state),
+              this.safeFilterNumber(params.timeDenominator ?? 4, state),
+              this.safeFilterNumber(params.timingMode ?? 0, state),
               tempoBpm,
+              this.safeFilterNumber(params.pulseWidth ?? 0.5, state),
               safeRate,
             ),
             state,
@@ -48,7 +55,7 @@ NodeLiveAudioProcessor.prototype.transportSample = function transportSample(stat
             unipolar > 0,
             this.safeFilterNumber(params.amplitude, state),
           );
-          return { "-1..1": bipolar, "0..1": unipolar, Trigger: trigger, f: freqHz };
+          return { "Gate -1+1": bipolar, "Gate 0-1": unipolar, Trigger: trigger, f: freqHz };
         }
       } catch (error) {
         this.nativeTransportReady = false;
@@ -71,12 +78,12 @@ NodeLiveAudioProcessor.prototype.transportSample = function transportSample(stat
       );
       state.elapsedSamples = (state.elapsedSamples || 0) + 1;
       return {
-        "-1..1": this.safeFilterNumber(out["-1..1"], state),
-        "0..1": this.safeFilterNumber(out["0..1"], state),
+        "Gate -1+1": this.safeFilterNumber(out["Gate -1+1"], state),
+        "Gate 0-1": this.safeFilterNumber(out["Gate 0-1"], state),
         Trigger: this.safeFilterNumber(out.Trigger, state),
         f: this.safeFilterNumber(out.f, state),
       };
     }
-    return { "-1..1": 0, "0..1": 0, Trigger: 0, f: 0 };
+    return { "Gate -1+1": 0, "Gate 0-1": 0, Trigger: 0, f: 0 };
   };
 

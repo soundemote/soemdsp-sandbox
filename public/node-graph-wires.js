@@ -1173,7 +1173,26 @@
       return true;
     }
 
-    function handlePortClickFromElement(portElement, clientX, clientY) {
+    /** Self-plug attempt on an input: fire a unit impulse + spark. */
+    function pokeInputPortImpulse(endpoint, hitboxElement) {
+      if (!endpoint || endpoint.io !== "input") {
+        return false;
+      }
+      const from = helpers.endpointPoint(endpoint, hitboxElement);
+      if (from) {
+        deps.burstZap(from);
+        // Tiny self-wire flash so the poke reads like a break spark.
+        const to = { x: from.x + 10, y: from.y - 8 };
+        animateDestroyedWire(from, to);
+      }
+      deps.triggerWireBreak?.("port-impulse");
+      if (typeof triggerNodeGraphInputWireBreakPulse === "function") {
+        triggerNodeGraphInputWireBreakPulse(endpoint.node, endpoint.port);
+      }
+      return true;
+    }
+
+    function handlePortClickFromElement(portElement, clientX, clientY, _clickDetail = 1) {
       const hitboxElement = portElement.closest?.(".node-io-row") || portElement;
       const endpoint = helpers.endpointFromElement(hitboxElement);
       if (!endpoint) {
@@ -1225,11 +1244,13 @@
           // entry there is legitimate multi-select pruning, not a
           // self-connection attempt.
           if (mode.selected.size === 1) {
-            const { from } = mode.selected.get(key);
-            deps.burstZap(from);
-            deps.triggerWireBreak?.("port-click-self");
-            if (endpoint.io === "input" && typeof triggerNodeGraphInputWireBreakPulse === "function") {
-              triggerNodeGraphInputWireBreakPulse(endpoint.node, endpoint.port);
+            // Re-click same jack = attempted self-plug → poke input (or zap out).
+            if (endpoint.io === "input") {
+              pokeInputPortImpulse(endpoint, hitboxElement);
+            } else {
+              const { from } = mode.selected.get(key);
+              deps.burstZap(from);
+              deps.triggerWireBreak?.("port-click-self");
             }
             clearPortConnectionMode();
             deps.drawWires();
@@ -1268,7 +1289,8 @@
       if (!port) {
         return;
       }
-      if (handlePortClickFromElement(port, event.clientX, event.clientY)) {
+      const detail = Number(event.detail) || 1;
+      if (handlePortClickFromElement(port, event.clientX, event.clientY, detail)) {
         event.preventDefault();
         event.stopPropagation();
       }
@@ -1517,6 +1539,8 @@
       helpers,
       handlePatchPointHover,
       handlePortClick,
+      // Intentionally no dblclick poke — impulse is self-plug only (re-click).
+      handlePortDblClick: () => {},
       handlePortPointerDown,
       handleWireDragEnd,
       handleWireDragMove,

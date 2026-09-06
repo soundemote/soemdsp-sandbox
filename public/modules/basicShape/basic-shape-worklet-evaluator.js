@@ -5,15 +5,18 @@ NodeLiveAudioProcessor.prototype.basicShapeWrap01 = function basicShapeWrap01(ph
   return p - Math.floor(p);
 };
 
+// Center Square: pulse centered at 0.5; Morph grows edges left/right.
 NodeLiveAudioProcessor.prototype.basicShapeCenterSquare = function basicShapeCenterSquare(cycle, morph) {
-  const m = Number.isFinite(morph) ? Math.max(0, Math.min(1, morph)) : 0.5;
-  let t1 = this.basicShapeWrap01(cycle + 0.875 + 0.25 * (m - 0.5));
-  let t2 = this.basicShapeWrap01(cycle + 0.375 + 0.25 * (m - 0.5));
-  let y = (t1 < 0.5 ? 1 : -1);
-  t1 = this.basicShapeWrap01(t1 + 0.5 * (1 - m));
-  t2 = this.basicShapeWrap01(t2 + 0.5 * (1 - m));
-  y += (t1 < 0.5 ? 1 : -1);
-  return 0.5 * y;
+  const width = Number.isFinite(morph) ? Math.max(0, Math.min(1, morph)) : 0.5;
+  if (width <= 0) {
+    return -1;
+  }
+  if (width >= 1) {
+    return 1;
+  }
+  const c = this.basicShapeWrap01(cycle);
+  const half = width * 0.5;
+  return (c >= (0.5 - half) && c < (0.5 + half)) ? 1 : -1;
 };
 
 NodeLiveAudioProcessor.prototype.basicShapeTrisaw = function basicShapeTrisaw(cycle, warp) {
@@ -36,15 +39,21 @@ NodeLiveAudioProcessor.prototype.basicShapeNaiveWaves = function basicShapeNaive
   return { sine, tri, saw, ramp, square, trisaw, centerSquare };
 };
 
+// Order: 0 Sine, 1 Tri, 2 Saw, 3 Ramp, 4 Trisaw, 5 Square, 6 CenterSquare
 NodeLiveAudioProcessor.prototype.basicShapeSelect = function basicShapeSelect(waves, waveform) {
   const i = Math.max(0, Math.min(6, Math.round(Number(waveform) || 0)));
   if (i === 1) return waves.tri;
   if (i === 2) return waves.saw;
-  if (i === 3) return waves.square;
-  if (i === 4) return waves.ramp;
-  if (i === 5) return waves.trisaw;
+  if (i === 3) return waves.ramp;
+  if (i === 4) return waves.trisaw;
+  if (i === 5) return waves.square;
   if (i === 6) return waves.centerSquare;
   return waves.sine;
+};
+
+NodeLiveAudioProcessor.prototype.basicShapePolarity = function basicShapePolarity(x, polarity) {
+  const uni = Math.round(Number(polarity) || 0) >= 1;
+  return uni ? (Number(x) + 1) * 0.5 : Number(x);
 };
 
 NodeLiveAudioProcessor.prototype.basicShapeWorkletEvaluate = function basicShapeWorkletEvaluate(
@@ -60,6 +69,7 @@ NodeLiveAudioProcessor.prototype.basicShapeWorkletEvaluate = function basicShape
   const frequency = this.readEffectiveParameter(node, "frequency", 1, frame, frames, frameValues);
   const waveform = this.readEffectiveParameter(node, "waveform", 0, frame, frames, frameValues);
   const pulseWidth = this.readEffectiveParameter(node, "morph", 0.5, frame, frames, frameValues);
+  const polarity = this.readEffectiveParameter(node, "polarity", 0, frame, frames, frameValues);
   const amp = this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues);
   const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
   const referenceVoltage = referenceMidiNote / 120;
@@ -99,19 +109,20 @@ NodeLiveAudioProcessor.prototype.basicShapeWorkletEvaluate = function basicShape
   }
   samplePhase -= Math.floor(samplePhase);
   const waves = this.basicShapeNaiveWaves(samplePhase, pulseWidth);
-  const selected = this.basicShapeSelect(waves, waveform) * amp;
+  const pol = (x) => this.basicShapePolarity(x, polarity);
+  const selected = pol(this.basicShapeSelect(waves, waveform) * amp);
   let nextPhase = phase + phaseIncrement;
   nextPhase -= Math.floor(nextPhase);
   this.phases.set(nodeId, nextPhase);
   return {
     Out: selected,
-    Saw: waves.saw * amp,
-    Ramp: waves.ramp * amp,
-    Sine: waves.sine * amp,
-    Square: waves.square * amp,
-    "Center Square": waves.centerSquare * amp,
-    Tri: waves.tri * amp,
-    Trisaw: waves.trisaw * amp,
+    Sine: pol(waves.sine * amp),
+    Tri: pol(waves.tri * amp),
+    Saw: pol(waves.saw * amp),
+    Ramp: pol(waves.ramp * amp),
+    Trisaw: pol(waves.trisaw * amp),
+    Square: pol(waves.square * amp),
+    "Center Square": pol(waves.centerSquare * amp),
     Wave: selected,
     "Wave Out": selected,
     __Phase: samplePhase,

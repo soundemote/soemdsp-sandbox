@@ -16,7 +16,7 @@ registerNodeGraphChromelessModule("led", {
     displayType: "vectorDot",
     displayRenderer: "vectorDot",
     displayModes: [
-      { key: "vectorDot", label: "Vector Dot", renderer: "vectorDot", source: { value: "In" } },
+      { key: "vectorDot", label: "LED Dot", renderer: "vectorDot", source: { value: "In" } },
     ],
     displayHeightGu: 2,
     inputs: ["In"],

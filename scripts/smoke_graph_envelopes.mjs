@@ -67,8 +67,8 @@ const ENVELOPES = [
       setParam(g, h, PARAM_FEEDBACK, 0.05);
       setParam(g, h, PARAM_MIX, 0.6);
       setParam(g, h, PARAM_OFFSET_MS, 0.08);
-      setParam(g, h, PARAM_SHAPE, 0.3);
-      setParam(g, h, PARAM_CENTER, 0.0001);
+      setParam(g, h, PARAM_SHAPE, 0);
+      setParam(g, h, PARAM_CENTER, 0);
       setParam(g, h, PARAM_MODE, 1); // loop
       setParam(g, h, PARAM_LEVEL, 1);
     },

@@ -36,7 +36,6 @@ const nodeGraphModuleScopeUnipolarTypes = new Set([
   "clockDivider",
   "delayedTrigger",
   "expAdsr",
-  "attackDecay",
   "modeResonator",
   "combResonator",
   "waveguide",

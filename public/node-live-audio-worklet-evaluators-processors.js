@@ -11,19 +11,18 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       mixInput(nodeId, "Trigger"),
       mixInput(nodeId, "Release"),
       {
-        attackFeedback: read("attackFeedback", 0.002),
-        autoReleaseTime: read("autoReleaseTime", 0.08),
-        decay: read("decay", 0.35),
-        decayModCurve: read("decayModCurve", 0),
-        decayModEnd: read("decayModEnd", 0.55),
-        decayModFrequency: read("decayModFrequency", 1.5),
-        decayModStart: read("decayModStart", 0.08),
-        delayTime: read("delayTime", 0),
-        endingDecay: read("endingDecay", 0.8),
+        attack: read("attack", read("attackFeedback", 0)),
+        autoReleaseTime: read("autoReleaseTime", 0),
+        decaySlopeBottom: read("decaySlopeBottom", read("decayModEnd", 4.8)),
+        decaySlopeMid: read("decaySlopeMid", read("decay", 0.7)),
+        decaySlopeTop: read("decaySlopeTop", read("decayModStart", 0.9)),
+        envelopeCurve: read("envelopeCurve", read("decayModCurve", -0.5)),
+        envelopeDamping: read("envelopeDamping", read("decayModFrequency", 15)),
         level: read("level", 1),
-        releaseFeedback: read("releaseFeedback", 0.35),
+        release: read("release", read("releaseFeedback", 0.86)),
+        sustain: read("sustain", read("endingDecay", 1.2)),
         velocity: read("velocity", 1),
-        velocitySensitivity: read("velocitySensitivity", 0),
+        velocitySensitivity: read("velocitySensitivity", 0.5),
       },
       safeRate,
     );
@@ -203,9 +202,9 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
             feedbackCircuit: 3,
             gainCompensation: 1,
             highFrequency: 1000,
-            hpSlope: 1,
+            hpSlope: 0,
             lowFrequency: 200,
-            lpSlope: 1,
+            lpSlope: 4,
             resonance: 0.2,
             sweep: 0,
           },
@@ -213,25 +212,18 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           frames,
           frameValues,
         );
-        const activeMode = params.mode;
         const activeFreqJack = typeof nodeGraphResolveAbsHzJack === "function"
           ? nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId)
           : (typeof hasInput === "function" && hasInput(nodeId, "f") ? mixInput(nodeId, "f") : null);
-        const activeFreqWired = activeFreqJack != null;
-        const activeBandpass = typeof nodeGraphActiveFilterIsBandpass === "function"
-          ? nodeGraphActiveFilterIsBandpass(activeMode)
-          : Math.round(Number(activeMode) || 0) >= 8;
-        const activeHp = !activeBandpass && Math.round(Number(activeMode) || 0) >= 4;
-        const activeLp = !activeBandpass && !activeHp;
         const activeParams = {
           feedbackCircuit: params.feedbackCircuit,
-          centerFrequency: activeFreqWired && activeBandpass ? activeFreqJack : undefined,
+          centerFrequency: activeFreqJack != null ? activeFreqJack : undefined,
           gainCompensation: params.gainCompensation,
-          highFrequency: activeFreqWired && activeLp ? activeFreqJack : params.highFrequency,
+          highFrequency: params.highFrequency,
           hpSlope: params.hpSlope,
-          lowFrequency: activeFreqWired && activeHp ? activeFreqJack : params.lowFrequency,
+          lowFrequency: params.lowFrequency,
           lpSlope: params.lpSlope,
-          mode: activeMode,
+          mode: params.mode,
           resonance: params.resonance,
           sweep: params.sweep,
         };
@@ -1194,6 +1186,25 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       pluckEnvelope: pluckEnvelopeEvaluate,
       // Same DSP as pluckEnvelope; sample-accurate strip on efficient path.
       pluckEnvelopeMod: pluckEnvelopeEvaluate,
+      vactrol: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.vactrolEnvelopeStates) this.vactrolEnvelopeStates = new Map();
+        const state = this.vactrolEnvelopeStates.get(nodeId) || this.createVactrolEnvelopeState();
+        this.vactrolEnvelopeStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const env = this.vactrolEnvelopeSample(
+          state,
+          mixInput(nodeId, "Light"),
+          {
+            attack: read("attack", 0.01),
+            curve: read("curve", 1),
+            release: read("release", 0.1),
+            sensitivity: read("sensitivity", 1),
+          },
+          safeRate,
+        );
+        const level = read("amplitude", 1);
+        return env * (Number.isFinite(level) ? level : 1);
+      },
       flowerChildEnvelopeFollower: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.flowerChildEnvelopeFollowerStates.get(nodeId) ||
           this.createFlowerChildEnvelopeFollowerState();
@@ -1218,11 +1229,15 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       clock: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.clockStates.get(nodeId) || this.createClockState();
         this.clockStates.set(nodeId, state);
+        const rateKnob = this.readEffectiveParameter(node, "rate", 2, frame, frames, frameValues);
+        const rateHz = typeof this.frequencyHzFromKnobOrF === "function"
+          ? this.frequencyHzFromKnobOrF(rateKnob, mixInput, nodeId)
+          : rateKnob;
         return this.clockSample(
           state,
           mixInput(nodeId, "Reset"),
           this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues),
-          this.readEffectiveParameter(node, "rate", 2, frame, frames, frameValues),
+          rateHz,
           this.readEffectiveParameter(node, "duty", 0.5, frame, frames, frameValues),
           this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues),
           safeRate,
@@ -1236,7 +1251,11 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           state,
           {
             amplitude: read("amplitude", 1),
-            divisions: read("divisions", 0),
+            timeNumerator: read("timeNumerator", 1),
+            timeDenominator: read("timeDenominator", 4),
+            timingMode: read("timingMode", 0),
+            pulseWidth: read("pulseWidth", 0.5),
+            bpm: read("bpm", Number(this.timing?.tempoBpm) || 120),
           },
           safeRate,
         );

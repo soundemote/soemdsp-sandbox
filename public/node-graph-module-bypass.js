@@ -89,6 +89,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   linearEnvelope: "silence",
   pluckEnvelope: "silence",
   flowerChildEnvelopeFollower: "silence",
+  vactrol: "silence",
   // Generators / sequencers → mute
   osc: "silence",
   polyBlep: "silence",
@@ -132,6 +133,8 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   dsfOscillator: "silence",
   robinSupersaw: "silence",
   hypersaw: "silence",
+  vibratoGenerator: "silence",
+  wowAndFlutter: "silence",
   softpopOscillator: "silence",
   wavetable2d: "silence",
   wavetable3d: "silence",

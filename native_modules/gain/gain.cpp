@@ -21,19 +21,20 @@ static const char kMetadataJson[] =
     "\"outputs\":[\"Out\",\"Left\",\"Right\"]"
   "}";
 
+// UI order: Sum, Average, Power, Equal-power, Peak, Left, Right
 static double mono_sum(double left, double right, int mode) {
-  if (mode == 1) {
+  if (mode == 0) return left + right;
+  if (mode == 2) {
     const double energy = (left * left + right * right) * 0.5;
     const double sign = left + right;
     const double mag = energy > 0.0 ? dsp_exp(0.5 * dsp_ln(energy)) : 0.0;
     return (sign < 0.0 ? -1.0 : 1.0) * mag;
   }
-  if (mode == 2) return left + right;
   if (mode == 3) return (left + right) * 0.7071067811865476;
   if (mode == 4) return dsp_fabs(left) >= dsp_fabs(right) ? left : right;
   if (mode == 5) return left;
   if (mode == 6) return right;
-  return (left + right) * 0.5;
+  return (left + right) * 0.5; // Average (1) and unknown
 }
 
 static void compute(
@@ -81,6 +82,6 @@ extern "C" double soemdsp_gain_sample(
   return out;
 }
 
-extern "C" int soemdsp_gain_version() { return 1; }
+extern "C" int soemdsp_gain_version() { return 2; }
 extern "C" const char* soemdsp_gain_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_gain_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

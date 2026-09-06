@@ -36,14 +36,16 @@ const PORT_LEFT = 1;
 const PORT_RIGHT = 2;
 const PORT_F = 3; // Saw = f Hz
 const PARAM_AMP = 12;
-const PARAM_STAGES = 22;
+const PARAM_TIME_NUMERATOR = 52;
+const PARAM_TIME_DENOMINATOR = 53;
+const PARAM_TIMING_MODE = 54;
 const PARAM_TEMPO = 61;
 
 function view(ptr, n) {
   return new Float64Array(mem.buffer, ptr, n);
 }
 
-// 120 BPM, divisions 0 → f = 2 Hz; bipolar/unipolar toggle; Trigger edges
+// 120 BPM, Numer/Denom 1/4 Normal → f = 2 Hz; bipolar/unipolar toggle; Trigger edges
 {
   const g = create() | 0;
   setSr(g, 48000);
@@ -53,7 +55,9 @@ function view(ptr, n) {
   if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("transport out");
   if ((connect(g, hT, PORT_MONO, hOut, PORT_MONO) | 0) !== 0) throw new Error("transport conn");
   setParam(g, hT, PARAM_AMP, 1);
-  setParam(g, hT, PARAM_STAGES, 0); // divisions 0 → factor 1
+  setParam(g, hT, PARAM_TIME_NUMERATOR, 1);
+  setParam(g, hT, PARAM_TIME_DENOMINATOR, 4);
+  setParam(g, hT, PARAM_TIMING_MODE, 0);
   setParam(g, hT, PARAM_TEMPO, 120);
   if ((compile(g) | 0) !== 0) throw new Error("transport compile");
   snap(g);
@@ -78,7 +82,7 @@ function view(ptr, n) {
       if (bi[i] < -0.5) biNeg += 1;
     }
   }
-  if (Math.abs(fVal - 2) > 1e-6) throw new Error(`transport f=${fVal} expected 2 Hz @ 120 BPM`);
+  if (Math.abs(fVal - 2) > 1e-6) throw new Error(`transport f=${fVal} expected 2 Hz @ 120 BPM 1/4`);
   if (!(trigHits >= 2)) throw new Error(`transport Trigger hits=${trigHits}`);
   if (!(uniHigh > 100 && biPos > 100 && biNeg > 100)) {
     throw new Error(`transport wave uni=${uniHigh} bi+=${biPos} bi-=${biNeg}`);
@@ -86,7 +90,7 @@ function view(ptr, n) {
   console.log(`transport ok f=${fVal} trig=${trigHits} uniHigh=${uniHigh}`);
 }
 
-// divisions=1 → factor 2 → f = 4 Hz at 120 BPM
+// Numer/Denom 1/8 Normal → f = 4 Hz at 120 BPM (eighth notes)
 {
   const g = create() | 0;
   setSr(g, 48000);
@@ -96,13 +100,15 @@ function view(ptr, n) {
   if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("div out");
   if ((connect(g, hT, PORT_F, hOut, PORT_MONO) | 0) !== 0) throw new Error("div f→out");
   setParam(g, hT, PARAM_TEMPO, 120);
-  setParam(g, hT, PARAM_STAGES, 1);
+  setParam(g, hT, PARAM_TIME_NUMERATOR, 1);
+  setParam(g, hT, PARAM_TIME_DENOMINATOR, 8);
+  setParam(g, hT, PARAM_TIMING_MODE, 0);
   if ((compile(g) | 0) !== 0) throw new Error("div compile");
   snap(g);
   process(g, 128);
   const fVal = view(portPtr(g, hT, PORT_F) | 0, 128)[0];
-  if (Math.abs(fVal - 4) > 1e-6) throw new Error(`transport divisions f=${fVal} expected 4`);
-  console.log(`transport divisions ok f=${fVal}`);
+  if (Math.abs(fVal - 4) > 1e-6) throw new Error(`transport 1/8 f=${fVal} expected 4`);
+  console.log(`transport 1/8 ok f=${fVal}`);
 }
 
 if ((version() | 0) < 35) throw new Error(`graph version ${version()} expected >= 35`);

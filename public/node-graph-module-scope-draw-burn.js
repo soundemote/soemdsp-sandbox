@@ -972,7 +972,8 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
 
 
 function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
-  // Vertical voice stems on the canonical mono energy phosphor drawer.
+  // Vertical stems: x = phase (incl. Frequency→Phase), color = pan
+  // (red left / green center / blue right), alpha = amplitude 1:1.
   const nodeId = item?.slot?.nodeId;
   if (!nodeId) {
     return;
@@ -983,41 +984,87 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
   if (!sync.synced || !canvas) {
     return;
   }
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return;
+  }
   const phases = typeof nodeGraphDataBus !== "undefined"
     ? nodeGraphDataBus.get(nodeGraphDataBusKey(String(nodeId), "Phases"))
     : null;
-  const pathPoints = [];
-  if (Array.isArray(phases) && phases.length && typeof PhosphorDrawer !== "undefined") {
-    const spacing = Math.max(1.5, canvas.height / 48);
-    for (const phase of phases) {
-      const p = Number(phase);
-      if (!Number.isFinite(p)) continue;
-      const x = clampNodeSliderValue(p, 0, 1) * canvas.width;
-      PhosphorDrawer.appendSegment(pathPoints, x, 0, x, canvas.height, spacing);
-    }
-  }
-  const minSide = Math.max(1, Math.min(canvas.width, canvas.height));
+  const pans = typeof nodeGraphDataBus !== "undefined"
+    ? nodeGraphDataBus.get(nodeGraphDataBusKey(String(nodeId), "Pans"))
+    : null;
+  const amps = typeof nodeGraphDataBus !== "undefined"
+    ? nodeGraphDataBus.get(nodeGraphDataBusKey(String(nodeId), "Amplitudes"))
+    : null;
+
   const look = typeof nodeGraphScopePhosphorLookDefaults !== "undefined"
     ? nodeGraphScopePhosphorLookDefaults
     : null;
-  const settings = {
-    trail: look?.trail ?? 0,
-    ghost: look?.ghost ?? 0.45,
-    dot1Brightness: look?.brightness ?? 0.08,
-    dot1Color: "#3de0ff",
-    dot1Enabled: true,
-    // Keep phase columns thin enough to resolve many voices on small faces.
-    dot1Size: Math.min(
-      look?.size ?? 0.02,
-      Math.max(0.012, Math.min(0.06, 5 / minSide)),
-    ),
-    lineThickness: look?.blur ?? 0.35,
-    pixelDensity: look?.pixelDensity ?? 1,
-    dotBudget: look?.dotBudget ?? 1024,
-  };
-  drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settings, {
-    endFrame: Number(item?.buffer?.nodeGraphScopeAbsoluteFrame),
-  });
+  const trail = clampNodeSliderValue(Number(look?.trail ?? 0.35), 0, 1);
+  const ghost = clampNodeSliderValue(Number(look?.ghost ?? 0.45), 0, 1);
+  const bgHex = typeof nodeGraphFacePlateBackground === "function"
+    ? nodeGraphFacePlateBackground({ background: look?.background ?? "#000004" })
+    : (look?.background ?? "#000004");
+  if (typeof nodeGraphFacePlateApplyCss === "function") {
+    nodeGraphFacePlateApplyCss(screenElement, bgHex);
+  }
+
+  // Phosphor residual: fade toward plate (same keep model as energy burn).
+  const keep = Math.max(0, Math.min(0.995, trail * 0.97 + ghost * 0.02));
+  const fade = 1 - keep;
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "source-over";
+  context.globalAlpha = 1;
+  if (fade > 0.0005) {
+    context.fillStyle = bgHex;
+    context.globalAlpha = fade;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.globalAlpha = 1;
+  } else if (!Array.isArray(phases) || !phases.length) {
+    context.fillStyle = bgHex;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  if (!Array.isArray(phases) || !phases.length) {
+    context.restore();
+    return;
+  }
+
+  // Crisp 1px stems: fillRect on integer columns (no stroke AA / no half-pixel
+  // blur that looked like a second parallel line).
+  context.imageSmoothingEnabled = false;
+  context.globalCompositeOperation = "lighter";
+
+  const count = phases.length;
+  const maxX = Math.max(0, canvas.width - 1);
+  for (let i = 0; i < count; i += 1) {
+    const p = Number(phases[i]);
+    if (!Number.isFinite(p)) continue;
+    const xi = Math.max(
+      0,
+      Math.min(maxX, Math.round(clampNodeSliderValue(p, 0, 1) * canvas.width)),
+    );
+    const pan = Array.isArray(pans) && i < pans.length ? Number(pans[i]) : 0;
+    const ampRaw = Array.isArray(amps) && i < amps.length ? Number(amps[i]) : 1;
+    // Amplitude → alpha 1:1 (full scale = opaque).
+    const alpha = clampNodeSliderValue(Math.abs(Number.isFinite(ampRaw) ? ampRaw : 0), 0, 1);
+    if (!(alpha > 0)) continue;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (pan < -0.25) {
+      r = 255; // left
+    } else if (pan > 0.25) {
+      b = 255; // right
+    } else {
+      g = 255; // center
+    }
+    context.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+    context.fillRect(xi, 0, 1, canvas.height);
+  }
+  context.restore();
 }
 
 

@@ -315,6 +315,24 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (node?.type === "hypersaw" && !this.hypersawStates.has(id)) {
         this.hypersawStates.set(id, this.createHypersawState());
       }
+      if (node?.type === "hypersaw2") {
+        if (!this.hypersaw2States) this.hypersaw2States = new Map();
+        if (!this.hypersaw2States.has(id)) {
+          this.hypersaw2States.set(id, { nativeHandle: 0 });
+        }
+      }
+      if (node?.type === "vibratoGenerator") {
+        if (!this.vibratoGeneratorStates) this.vibratoGeneratorStates = new Map();
+        if (!this.vibratoGeneratorStates.has(id)) {
+          this.vibratoGeneratorStates.set(id, this.createVibratoGeneratorState());
+        }
+      }
+      if (node?.type === "wowAndFlutter") {
+        if (!this.wowAndFlutterStates) this.wowAndFlutterStates = new Map();
+        if (!this.wowAndFlutterStates.has(id)) {
+          this.wowAndFlutterStates.set(id, this.createWowAndFlutterState());
+        }
+      }
       if (node?.type === "videoscope" && !this.videoscopeStates.has(id)) {
         this.videoscopeStates.set(id, this.createVideoscopeState());
       }
@@ -837,6 +855,18 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (!ids.has(id)) {
         this.destroyHypersawNativeState(this.hypersawStates.get(id));
         this.hypersawStates.delete(id);
+      }
+    }
+    if (this.hypersaw2States) {
+      for (const id of [...this.hypersaw2States.keys()]) {
+        if (!ids.has(id)) {
+          const st = this.hypersaw2States.get(id);
+          if (st?.nativeHandle && this.nativeHypersaw2?.soemdsp_hypersaw2_destroy) {
+            this.nativeHypersaw2.soemdsp_hypersaw2_destroy(st.nativeHandle);
+            st.nativeHandle = 0;
+          }
+          this.hypersaw2States.delete(id);
+        }
       }
     }
     for (const id of [...this.videoscopeStates.keys()]) {

@@ -6,7 +6,7 @@ nodeGraphLiveModuleEvaluators.chordSequencer = ({ runtime, node, nodeId, frame, 
   runtime.chordSequencerStates.set(nodeId, state);
   const read = (key, fallback) => readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
   return nodeGraphChordSequencerSample(state, {
-    clock: mixInput(nodeId, "Clock"),
+    clock: mixInput(nodeId, "Trigger"),
     level: read("level", 1),
     progression: read("progression", 0),
     reset: mixInput(nodeId, "Reset"),

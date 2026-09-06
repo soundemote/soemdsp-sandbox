@@ -733,7 +733,10 @@ function createNodeGraphMidiModuleBody(node = null) {
 // nodeGraphMvp — not the Portal MIDI listen module (createNodeGraphMidiModuleBody).
 function createNodeGraphKeyboardControllerBody(node = null) {
   const section = document.createElement("section");
-  section.className = "node-midi-keyboard-panel node-midi-keyboard-module";
+  // Module face + dock share this widget. Face band lets the piano fill
+  // remaining height (controls above), matching the K Controllers dock.
+  section.className = "node-midi-keyboard-panel node-midi-keyboard-module node-module-face";
+  section.dataset.moduleBand = "face";
   if (node) {
     section.dataset.node = node;
   }

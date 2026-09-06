@@ -155,6 +155,34 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Size";
     title = "Dot diameter as a fraction of the face min side.";
   }
+  if (formType === "imageBurnFace" && key === "imageSize") {
+    label = "Image Size";
+    title = "Zoom 0…4 (exp). Fine near 0; 1 = fit face; >1 = zoom past edges.";
+  }
+  if (formType === "imageBurnFace" && key === "image") {
+    label = "Image";
+    title = "Gain on In energy for the flashing dry image (brightness = energy × Image).";
+  }
+  if (formType === "imageBurnFace" && key === "send") {
+    label = "Send";
+    title = "How much of that lit brightness is stamped into the burn circuit.";
+  }
+  if (formType === "imageBurnFace" && key === "hang") {
+    label = "Hang";
+    title = "Residual persistence. 0 = wipe fast; 1 = freeze.";
+  }
+  if (formType === "imageBurnFace" && key === "burn") {
+    label = "Burn";
+    title = "Highlights outlast darks. 0 = whole image fades together; 1 = darks die, peaks stick.";
+  }
+  if (formType === "imageBurnFace" && key === "contrast") {
+    label = "Contrast";
+    title = "Stamp tone 0…2. 0 = mid-grey; 1 = unchanged; 2 = soft-clip contrast.";
+  }
+  if (formType === "imageBurnFace" && key === "blur") {
+    label = "Blur";
+    title = "Bloom recirculation. Exp dial — fine near 0; high = soft glow.";
+  }
   if ((formType === "vectorDot" || formType === "pulseDot" || formType === "lcdDot") && key === "shapeParam") {
     const live = document.getElementById("nodeTraceDisplaySettingsPopover")
       ?.querySelector?.(`[data-trace-display-choice="shape"]`)?.value;
@@ -1618,6 +1646,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   }
   if (type === "rgbPictureFace" && typeof buildNodeGraphRgbPictureDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphRgbPictureDisplaySettingsBodyHtml();
+  }
+  if (type === "imageBurnFace" && typeof buildNodeGraphImageBurnDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphImageBurnDisplaySettingsBodyHtml();
   }
   // Matrix Waterfall / Matrix Display custom bodies.
   if (

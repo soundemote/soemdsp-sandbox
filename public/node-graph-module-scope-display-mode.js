@@ -188,7 +188,8 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "spectrogramBurn",
     "videoscopeBurn",
     "oscilloscopeBankBurn",
-    "hypersawBurn",
+    // hypersawBurn (Hypersaw / Hypersaw2 / RobinSupersaw): no phosphor Display
+    // Settings — right-click opens Module Settings instead.
     "matrixFace",
     "matrixWaterfallFace",
     "matrixDisplayFace",
@@ -196,6 +197,9 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "rgbFractalFace",
     "evolveFieldFace",
     "fbmFieldFace",
+    // Picture load + Image Burn phosphor stamp.
+    "rgbPictureFace",
+    "imageBurnFace",
     // Macro Controls face: bg / arc colors / names (global bank).
     "macroControlsFace",
     "keyboardControllerFace",

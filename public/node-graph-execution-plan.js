@@ -530,6 +530,11 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       if (!inputCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} input`);
       }
+    } else if (type === "vactrol") {
+      const lightCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Light")) || []).length;
+      if (!lightCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
+        issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} light`);
+      }
     } else if (type === "delayedTrigger") {
       const triggerCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Trigger")) || []).length;
       if (!triggerCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
