@@ -9195,7 +9195,9 @@ extern "C" int soemdsp_graph_snap_controls(int handle) {
   return 0;
 }
 
-extern "C" int soemdsp_graph_set_param(int handle, unsigned int nodeHash, int paramId, float value) {
+// double — Held Keys / Scale bitmasks must survive host→Bias feeders (float32
+// only keeps exact ints through 2^24; middle-C is bit 36).
+extern "C" int soemdsp_graph_set_param(int handle, unsigned int nodeHash, int paramId, double value) {
   Circuit* g = get(handle);
   if (!g) return -1;
   const int idx = find_node(*g, nodeHash);
@@ -9203,7 +9205,7 @@ extern "C" int soemdsp_graph_set_param(int handle, unsigned int nodeHash, int pa
   if (!(value == value)) return 0;
   Control* c = control_for_param(g->nodes[idx], paramId);
   if (!c) return 0;
-  control_set_target(*g, *c, (double)value);
+  control_set_target(*g, *c, value);
   return 0;
 }
 
