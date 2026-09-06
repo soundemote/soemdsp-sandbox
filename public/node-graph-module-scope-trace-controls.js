@@ -360,6 +360,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "dot1Size",
       "trail",
+      "ghost",
       "scale",
       "pixelDensity",
     ]),

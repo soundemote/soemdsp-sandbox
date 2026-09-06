@@ -213,6 +213,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-phosphor-energy-gl.js",
     "./public/lib/trace/trace-stroke.js",
     "./public/lib/trace/trace-woscope.js",
+    "./public/lib/trace/trace-rgb-points.js",
     "./public/lib/trace/trace-waveform.js",
     "./public/lib/trace/trace-history-draw.js",
     "./public/lib/trace/trace-tape.js",
@@ -516,6 +517,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/lib/sample-interpolate.js",
     "./public/modules/audioPlayer/audio-player-math.js",
     "./public/modules/basicShape/basic-shape-display.js",
+    "./public/modules/sineWavetable/sine-wavetable-display.js",
     "./public/modules/ellipsoid/ellipsoid-settings.js",
     "./public/modules/ellipsoid/ellipsoid-display.js",
     "./public/modules/additiveGraph/additive-graph-math.js",
@@ -4716,6 +4718,13 @@ def require_node_graph_mvp_contract() -> None:
         and 'rasterRgb: "Pixel Grid"' in script_sources["./public/node-graph-module-definitions.js"]
         and 'gradientVectorscope: "Gradient Vectorscope"' in script_sources["./public/node-graph-module-definitions.js"]
         and "drawNodeGraphVectorRgbFaceItem" in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
+        and "TraceRgbPoints.stamp" in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
+        and "nodeGraphScopeDestFadeTowardPlate" in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
+        and "TraceHistoryDraw" not in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
+        and "function stamp(" in script_sources["./public/lib/trace/trace-rgb-points.js"]
+        and "this.efficientProduct" in (
+            PUBLIC / "modules" / "sineWavetable" / "sine-wavetable-worklet-evaluator.js"
+        ).read_text(encoding="utf-8")
         and "drawNodeGraphRasterRgbFaceItem" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
         and "function nodeGraphRasterRgbProcessSample" in script_sources["./public/modules/rasterRgb/raster-rgb-math.js"]
         and "function nodeGraphRasterRgbGradeChannel01" in script_sources["./public/modules/rasterRgb/raster-rgb-math.js"]

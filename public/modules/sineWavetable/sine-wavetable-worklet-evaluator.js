@@ -225,6 +225,12 @@ NodeLiveAudioProcessor.prototype.sineWavetableAdvancePair = function sineWavetab
     }
   }
   if (!pair) {
+    // Efficient product: never run JS oscillator kernels on the audio quantum.
+    // Native graph owns SinCos / SinCos4; this evaluator is a backstop only.
+    if (this.efficientProduct) {
+      this.phases.set(nodeId, 0);
+      return { sin: 0, cos: 0 };
+    }
     pair = useAdditiveLut
       ? nodeLiveSineCosAdditiveLutSample(freePhase + phaseOffset, effectiveFrequency, amplitude, safeRate)
       : nodeLiveSineCosWavetableSample(freePhase + phaseOffset, effectiveFrequency, amplitude, safeRate);
