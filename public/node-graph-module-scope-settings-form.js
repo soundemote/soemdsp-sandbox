@@ -155,14 +155,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Size";
     title = "Dot diameter as a fraction of the face min side.";
   }
-  if (formType === "imageBurnFace" && key === "hang") {
-    label = "Hang";
-    title = "Residual persistence. 0 = wipe fast; 1 = freeze. Independent of Feedback.";
-  }
-  if (formType === "imageBurnFace" && key === "contrast") {
-    label = "Image blacks";
-    title = "Fine-tune source blacks (dry + burn). 0 = unchanged; 2 = crush mid/lows to black (highs protected).";
-  }
+
   if ((formType === "vectorDot" || formType === "pulseDot" || formType === "lcdDot") && key === "shapeParam") {
     const live = document.getElementById("nodeTraceDisplaySettingsPopover")
       ?.querySelector?.(`[data-trace-display-choice="shape"]`)?.value;

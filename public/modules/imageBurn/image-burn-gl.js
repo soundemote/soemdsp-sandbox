@@ -1,4 +1,4 @@
-// Image Burn — dedicated WebGL residual (NOT phosphor Ghost/Trail).
+// Image Ghost — dedicated WebGL residual (NOT phosphor Ghost/Trail).
 //
 // One residual buffer. Four knobs, one job each:
 //   Hang     — how long the residual lasts (base keep; 1 = freeze)
@@ -105,8 +105,10 @@
       float luma = max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.0);
       float hang = clamp(uHangKeep, 0.0, 1.0);
       float burn = clamp(uBurn, 0.0, 1.0);
-      float darkKeep = hang * (1.0 - burn);
-      float brightKeep = mix(hang, min(0.9995, hang + (1.0 - hang)), burn);
+      // Hang is the floor for every pixel. Burn only extends highlight linger —
+      // never multiplies darks below Hang (that made Hang 0.9 + Burn 0.2 flash-and-die).
+      float darkKeep = hang;
+      float brightKeep = mix(hang, 0.9995, burn);
       float keep = mix(darkKeep, brightKeep, clamp(luma, 0.0, 1.0));
       gl_FragColor = vec4(max(c * keep, 0.0), 1.0);
     }
@@ -143,7 +145,7 @@
     }
   `;
 
-  // Deposit: residual + image×Send.
+  // Deposit: Feedback >0 adds (accumulate); ≤0 max-blends (ceiling at stamp, no stack).
   // Contrast is first on the source: 0→unchanged, 2→crush mid/lows (protect highs).
   const DEPOSIT_FRAG = `
     precision highp float;
@@ -153,6 +155,7 @@
     uniform vec4 uRect;
     uniform float uGain;
     uniform float uContrast;
+    uniform float uAccumulate;
     vec3 applyContrast(vec3 c, float contrast) {
       // Full 0…2 dial: 0 = unchanged, 2 = max mid/low → black (highs protected).
       float amt = clamp(contrast, 0.0, 2.0) * 0.5;
@@ -170,25 +173,32 @@
     }
     void main() {
       vec3 prev = max(texture2D(uResidual, vUv).rgb, 0.0);
-      vec3 add = vec3(0.0);
+      vec3 stamp = vec3(0.0);
       vec2 local = (vUv - uRect.xy) / max(uRect.zw, vec2(1e-5));
       if (local.x >= 0.0 && local.x <= 1.0 && local.y >= 0.0 && local.y <= 1.0) {
         vec4 tex = texture2D(uImage, local);
         vec3 c = applyContrast(tex.rgb * tex.a, uContrast);
-        add = c * max(uGain, 0.0);
+        stamp = c * max(uGain, 0.0);
       }
-      gl_FragColor = vec4(prev + add, 1.0);
+      // Additive climbs forever; max fills hang up to one stamp and stops.
+      vec3 outC = uAccumulate > 0.5 ? (prev + stamp) : max(prev, stamp);
+      gl_FragColor = vec4(outC, 1.0);
     }
   `;
 
-  // Present residual only (dry is 2D). Soft film for HDR headroom.
+  // Present residual. Linear at ≤1 so Hang matches flash brightness;
+  // soft-film only compresses HDR accumulate above 1.
   const PRESENT_FRAG = `
     precision highp float;
     varying vec2 vUv;
     uniform sampler2D uResidual;
     void main() {
       vec3 raw = max(texture2D(uResidual, vUv).rgb, 0.0);
-      vec3 outC = raw / (1.0 + raw * 0.35);
+      vec3 outC = vec3(
+        raw.r <= 1.0 ? raw.r : 1.0 + (raw.r - 1.0) / (1.0 + (raw.r - 1.0) * 0.35),
+        raw.g <= 1.0 ? raw.g : 1.0 + (raw.g - 1.0) / (1.0 + (raw.g - 1.0) * 0.35),
+        raw.b <= 1.0 ? raw.b : 1.0 + (raw.b - 1.0) / (1.0 + (raw.b - 1.0) * 0.35)
+      );
       float a = clamp(max(max(outC.r, outC.g), outC.b), 0.0, 1.0);
       gl_FragColor = vec4(clamp(outC, 0.0, 1.0), a);
     }
@@ -390,6 +400,7 @@
         uRect: gl.getUniformLocation(depositProgram, "uRect"),
         uGain: gl.getUniformLocation(depositProgram, "uGain"),
         uContrast: gl.getUniformLocation(depositProgram, "uContrast"),
+        uAccumulate: gl.getUniformLocation(depositProgram, "uAccumulate"),
       },
       present: {
         program: presentProgram,
@@ -645,6 +656,7 @@
     const contrastAmt = Number.isFinite(contrast) ? contrast : 0;
     const blur = clamp01(options.blur);
     const deposit = Math.max(0, Number(options.deposit) || 0);
+    const accumulate = Boolean(options.accumulate);
     const img = options.image;
     const { gl, device } = renderer;
 
@@ -684,7 +696,7 @@
       });
     }
 
-    // 3) Deposit (Contrast shapes stamp tone; Send/energy already in gain)
+    // 3) Deposit (Feedback >0 adds; ≤0 max-blends so brightness cannot stack)
     if (deposit > 0 && img && uploadImage(renderer, img, options.dataUrl || img.src)) {
       const rect = imageRectUv(renderer, options.imageSize);
       drawPass(renderer, device.deposit, (g, p) => {
@@ -698,6 +710,7 @@
         g.uniform4f(p.uRect, rect[0], rect[1], rect[2], rect[3]);
         g.uniform1f(p.uGain, deposit);
         g.uniform1f(p.uContrast, contrastAmt);
+        g.uniform1f(p.uAccumulate, accumulate ? 1.0 : 0.0);
       });
     }
 

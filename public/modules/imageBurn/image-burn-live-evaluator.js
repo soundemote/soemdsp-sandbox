@@ -1,4 +1,4 @@
-// Image Burn: In → Thru passthrough (face reads buffered In for energy).
+// Image Ghost: In → Thru passthrough (face reads buffered In for energy).
 globalThis.nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators || {};
 var nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators;
 

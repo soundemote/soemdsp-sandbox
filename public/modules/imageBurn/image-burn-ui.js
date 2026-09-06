@@ -1,4 +1,4 @@
-// Image Burn face: LayoutB cell + canvas; paint in image-burn-display.js.
+// Image Ghost face: LayoutB cell + canvas; paint in image-burn-display.js.
 
 function createNodeGraphImageBurnBody(node, type) {
   const face = document.createElement("div");
@@ -7,7 +7,7 @@ function createNodeGraphImageBurnBody(node, type) {
   face.dataset.nodeType = type;
   face.dataset.lightSource = "screen";
   face.dataset.lightStrength = "1";
-  face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} image burn`);
+  face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} image ghost`);
 
   const canvas = document.createElement("canvas");
   canvas.className = "node-image-burn-canvas";

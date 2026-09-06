@@ -1,12 +1,12 @@
-// Image Burn — dedicated residual (NOT phosphor Ghost/Trail).
+// Image Ghost — dedicated residual (NOT phosphor Ghost/Trail).
 //
 // GL residual (image-burn-gl.js); Canvas2D fallback if GL unavailable.
 //
-// Module params: Size, Brightness, Feedback (−1…+1), Burn, Blur
-// Display: image asset, Image blacks, Hang, background, Clear residual
+// Module params: Size, Bright, Blacks, Feedback (−1…+1), Hang, Burn, Blur
+// Display: image asset, background, Clear residual
 //
 // lit = peak(|In|) × Brightness (dry flash).
-// Feedback 0 = hang only (no deposit). >0 accumulate. <0 dimmer stamp.
+// Feedback 0 = max-blend lit into hang (no stack). >0 accumulate. <0 dimmer max-blend.
 
 const nodeGraphImageBurnSettingsDefaults = Object.freeze({
   background: "#000000",
@@ -14,9 +14,6 @@ const nodeGraphImageBurnSettingsDefaults = Object.freeze({
   backgroundColor: "#000000",
   dataUrl: "",
   fileName: "",
-  hang: 0.55,
-  /** Image blacks: 0 = unchanged, 2 = max mid/low → black (highs protected). */
-  contrast: 0,
 });
 
 /** Soft UV/layout guard only — param metadata owns the dial range. */
@@ -73,8 +70,6 @@ function normalizeNodeGraphImageBurnSettings(settings = {}) {
   // dataUrl only — do not treat legacy "image" gain as an asset URL.
   const dataUrl = normalizeNodeGraphImageBurnDataUrl(source.dataUrl || "");
   const fileName = String(source.fileName || source.name || "").trim().slice(0, 160);
-  const hangRaw = source.hang ?? source.trail ?? source.persist;
-  const contrastRaw = source.contrast ?? source.split ?? source.threshold;
   return {
     background,
     backgroundColor: background,
@@ -84,8 +79,6 @@ function normalizeNodeGraphImageBurnSettings(settings = {}) {
     ),
     dataUrl,
     fileName: dataUrl ? (fileName || "image") : "",
-    hang: clampNodeGraphImageBurnUnit(hangRaw, defaults.hang),
-    contrast: clampNodeGraphImageBurnContrast(contrastRaw, defaults.contrast),
   };
 }
 
@@ -108,8 +101,6 @@ function nodeGraphImageBurnToPatch(settings) {
     background: n.background,
     backgroundBrightness: n.backgroundBrightness,
     backgroundColor: n.backgroundColor,
-    hang: n.hang,
-    contrast: n.contrast,
     dataUrl: n.dataUrl || "",
     fileName: n.fileName || "",
   };
@@ -135,9 +126,10 @@ function nodeGraphImageBurnMigrateParamsFromDisplay(node) {
   if (!node.params || typeof node.params !== "object") {
     node.params = {};
   }
-  // Patch normalize fills new param defaults before draw — stamp so we only
-  // prefer legacy display Send/Image/Size/Burn/Blur once.
-  if (Number(node.params._imageBurnParamMig) === 1) {
+  // Patch normalize fills new param defaults before draw — stamp versions:
+  // 1 = Size/Bright/Feedback/Burn/Blur from display; 2 = +Blacks/Hang.
+  const mig = Number(node.params._imageBurnParamMig) || 0;
+  if (mig >= 2) {
     return;
   }
   const bag = {
@@ -146,46 +138,64 @@ function nodeGraphImageBurnMigrateParamsFromDisplay(node) {
       : {}),
     ...(node.imageBurn && typeof node.imageBurn === "object" ? node.imageBurn : {}),
   };
-  const sizeRaw = Number(bag.imageSize);
-  if (Number.isFinite(sizeRaw)) {
-    node.params.size = sizeRaw;
+  if (mig < 1) {
+    const sizeRaw = Number(bag.imageSize);
+    if (Number.isFinite(sizeRaw)) {
+      node.params.size = sizeRaw;
+    }
+    const brightRaw = Number(bag.image ?? bag.dry ?? bag.imageBright);
+    if (Number.isFinite(brightRaw)) {
+      node.params.brightness = brightRaw;
+    }
+    const sendRaw = Number(bag.send ?? bag.ink ?? bag.dot1Brightness);
+    if (Number.isFinite(sendRaw)) {
+      // Legacy send was 0…1 unipolar → positive Feedback.
+      node.params.feedback = Math.max(0, Math.min(1, sendRaw));
+    }
+    const burnRaw = Number(bag.burn ?? bag.ghost);
+    if (Number.isFinite(burnRaw)) {
+      node.params.burn = burnRaw;
+    }
+    const blurRaw = Number(bag.blur ?? bag.bleed);
+    if (Number.isFinite(blurRaw)) {
+      node.params.blur = blurRaw;
+    }
   }
-  const brightRaw = Number(bag.image ?? bag.dry ?? bag.imageBright);
-  if (Number.isFinite(brightRaw)) {
-    node.params.brightness = brightRaw;
+  // Blacks / Hang: from display bag, or prior defaults already on the bag.
+  const blacksRaw = Number(bag.contrast ?? bag.split ?? bag.threshold ?? node.params.blacks);
+  if (Number.isFinite(blacksRaw) && (bag.contrast != null || bag.split != null || bag.threshold != null)) {
+    node.params.blacks = blacksRaw;
   }
-  const sendRaw = Number(bag.send ?? bag.ink ?? bag.dot1Brightness);
-  if (Number.isFinite(sendRaw)) {
-    // Legacy send was 0…1 unipolar → positive Feedback.
-    node.params.feedback = Math.max(0, Math.min(1, sendRaw));
+  const hangRaw = Number(bag.hang ?? bag.trail ?? bag.persist);
+  if (Number.isFinite(hangRaw)) {
+    node.params.hang = hangRaw;
   }
-  const burnRaw = Number(bag.burn ?? bag.ghost);
-  if (Number.isFinite(burnRaw)) {
-    node.params.burn = burnRaw;
-  }
-  const blurRaw = Number(bag.blur ?? bag.bleed);
-  if (Number.isFinite(blurRaw)) {
-    node.params.blur = blurRaw;
-  }
-  node.params._imageBurnParamMig = 1;
+  node.params._imageBurnParamMig = 2;
 }
 
 /**
- * Feedback → deposit gain + stamp dim.
- * 0 = no print; >0 accumulate; <0 dimmer stamp into hang.
+ * Feedback → deposit gain + blend mode.
+ * Hang always receives the lit image; Feedback only chooses how.
+ *   0  = max-blend at full lit (grab pixels, no stack / no brighten)
+ *  >0  = additive accumulate (brighter over time)
+ *  <0  = max-blend a dimmer stamp (dimmer hang fill, still no stack)
  */
 function nodeGraphImageBurnFeedbackDeposit(lit, feedback) {
-  const fb = Number(feedback);
+  const fb = Number.isFinite(Number(feedback)) ? Number(feedback) : 0;
   const light = Math.max(0, Number(lit) || 0);
-  if (!Number.isFinite(fb) || fb === 0 || light <= 0) {
-    return { deposit: 0, dim: 1 };
+  if (light <= 0) {
+    return { deposit: 0, dim: 1, accumulate: false };
   }
   if (fb > 0) {
-    return { deposit: light * fb, dim: 1 };
+    return { deposit: light * Math.min(1, fb), dim: 1, accumulate: true };
   }
-  const mag = Math.min(1, Math.abs(fb));
-  const dim = 1 - mag * (1 - NODE_GRAPH_IMAGE_BURN_FEEDBACK_DIM_MIN);
-  return { deposit: light * mag * dim, dim };
+  if (fb < 0) {
+    const mag = Math.min(1, Math.abs(fb));
+    const dim = 1 - mag * (1 - NODE_GRAPH_IMAGE_BURN_FEEDBACK_DIM_MIN);
+    return { deposit: light * dim, dim, accumulate: false };
+  }
+  // fb === 0: hang grabs full lit via max-blend — Feedback is not a gate.
+  return { deposit: light, dim: 1, accumulate: false };
 }
 
 function nodeGraphImageBurnCanvasForSlot(slot) {
@@ -434,6 +444,7 @@ function nodeGraphImageBurnDrawGl(face, ctx, w, h, opts) {
     contrast: opts.contrast,
     blur: opts.blur,
     deposit: opts.deposit,
+    accumulate: opts.accumulate,
     image: opts.img,
     imageSize: opts.imageSize,
     dataUrl: opts.dataUrl,
@@ -488,7 +499,7 @@ function nodeGraphImageBurnApplyContrastRgb(r, g, b, contrast02) {
   };
 }
 
-/** Burn fade: Hang persistence + Burn highlight bias (Contrast is stamp-only). */
+/** Burn fade: Hang is the floor; Burn only extends highlight linger. */
 function nodeGraphImageBurnFadeByLuma(canvas, hangKeep, burn01) {
   if (!canvas) {
     return;
@@ -506,8 +517,8 @@ function nodeGraphImageBurnFadeByLuma(canvas, hangKeep, burn01) {
     nodeGraphImageBurnFadeBuf(ctx, canvas.width, canvas.height, hang);
     return;
   }
-  const darkKeep = hang * (1 - burn);
-  const brightKeep = Math.min(0.9995, hang + (1 - hang) * burn);
+  const darkKeep = hang;
+  const brightKeep = hang + (0.9995 - hang) * burn;
   const px = frame.data;
   for (let i = 0; i < px.length; i += 4) {
     const r = px[i];
@@ -598,11 +609,40 @@ function nodeGraphImageBurnBlurBuf(src, scratch, blur01) {
   }
 }
 
+/** Per-pixel max blend (Feedback ≤0): fill hang up to stamp, never stack past it. */
+function nodeGraphImageBurnMaxBlendStamp(destCtx, stampCanvas) {
+  if (!destCtx || !stampCanvas) {
+    return;
+  }
+  const w = destCtx.canvas.width;
+  const h = destCtx.canvas.height;
+  let dest;
+  let stamp;
+  try {
+    dest = destCtx.getImageData(0, 0, w, h);
+    stamp = stampCanvas.getContext("2d")?.getImageData(0, 0, w, h);
+  } catch (_e) {
+    return;
+  }
+  if (!stamp) {
+    return;
+  }
+  const d = dest.data;
+  const s = stamp.data;
+  for (let i = 0; i < d.length; i += 4) {
+    d[i] = Math.max(d[i], s[i]);
+    d[i + 1] = Math.max(d[i + 1], s[i + 1]);
+    d[i + 2] = Math.max(d[i + 2], s[i + 2]);
+  }
+  destCtx.putImageData(dest, 0, 0);
+}
+
 /**
  * Stamp into a burn buffer via scratch.
  * Contrast luma-gates both paths (preserves hue). Soft-compress color peaks only.
+ * accumulate=true → lighter/screen add; false → max-blend ceiling.
  */
-function nodeGraphImageBurnStampCompressed(face, destCtx, scratch, img, imageSize, alpha, mode, burn01, contrast01) {
+function nodeGraphImageBurnStampCompressed(face, destCtx, scratch, img, imageSize, alpha, mode, burn01, contrast01, accumulate = true) {
   if (!destCtx || !scratch || !img) {
     return false;
   }
@@ -621,8 +661,11 @@ function nodeGraphImageBurnStampCompressed(face, destCtx, scratch, img, imageSiz
   if (mode === "color") {
     nodeGraphImageBurnSoftCompressStamp(scratch);
   }
+  if (!accumulate) {
+    nodeGraphImageBurnMaxBlendStamp(destCtx, scratch);
+    return true;
+  }
   destCtx.save();
-  // source-over + alpha deposit — lighter was stacking to white.
   destCtx.globalCompositeOperation = mode === "ember" ? "screen" : "lighter";
   destCtx.globalAlpha = 1;
   destCtx.drawImage(scratch, 0, 0);
@@ -782,11 +825,15 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     1,
   );
   const brightness = Math.max(0, nodeGraphImageBurnReadParam(nodeId, "brightness", 1));
+  const blacks = clampNodeGraphImageBurnContrast(
+    nodeGraphImageBurnReadParam(nodeId, "blacks", 0),
+    0,
+  );
   const feedback = nodeGraphImageBurnReadParam(nodeId, "feedback", 0);
+  const hang = Math.max(0, Math.min(1, nodeGraphImageBurnReadParam(nodeId, "hang", 0.55)));
   const burn = Math.max(0, nodeGraphImageBurnReadParam(nodeId, "burn", 0.75));
   const blur = Math.max(0, nodeGraphImageBurnReadParam(nodeId, "blur", 0.45));
-  const hang = clampNodeGraphImageBurnUnit(settings.hang, 0);
-  const contrast = clampNodeGraphImageBurnContrast(settings.contrast, 0);
+  const contrast = blacks;
   const buffer = item?.buffer;
   const w = canvas.width;
   const h = canvas.height;
@@ -843,8 +890,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     nodeGraphImageBurnClearResidual(face);
   }
 
-  // One-shot after load so something appears before In is wired.
-  // Only seeds deposit when Feedback ≠ 0 (default 0 = hang-only, no auto-stack).
+  // One-shot after load so hang gets pixels before In is wired.
   if (imageReady && !face._imageBurnSeenReady) {
     face._imageBurnSeenReady = true;
     face._imageBurnSeedFrames = 12;
@@ -857,11 +903,15 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     face._imageBurnSeedFrames = seedLeft - 1;
   }
   const lit = Math.max(energy01 * brightness, seedLeft > 0 ? brightness * 0.85 : 0);
-  let deposit = nodeGraphImageBurnFeedbackDeposit(lit, feedback).deposit;
-  if (seedLeft > 0 && feedback !== 0 && Number.isFinite(feedback)) {
+  let fbInfo = nodeGraphImageBurnFeedbackDeposit(lit, feedback);
+  if (seedLeft > 0) {
     const seeded = nodeGraphImageBurnFeedbackDeposit(brightness * 0.85, feedback);
-    deposit = Math.max(deposit, seeded.deposit);
+    if (seeded.deposit > fbInfo.deposit) {
+      fbInfo = seeded;
+    }
   }
+  const deposit = fbInfo.deposit;
+  const accumulate = Boolean(fbInfo.accumulate);
 
   const paused = typeof nodeGraphModuleScopePaused === "function"
     && nodeGraphModuleScopePaused();
@@ -873,6 +923,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     contrast,
     blur,
     deposit: imageReady ? deposit : 0,
+    accumulate,
     lit: imageReady ? lit : 0,
     img: imageReady ? img : null,
     imageSize: size,
@@ -880,8 +931,13 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     paused,
   });
 
+  // Dry screen only while accumulating (Feedback > 0). At Feedback ≤ 0 the
+  // residual max-blend IS the lit image — screening dry on top made the flash
+  // look brighter than Hang, then dimmer the instant energy dropped.
+  const drawDry = accumulate && imageReady && lit > 1e-4;
+
   if (usedGl) {
-    if (imageReady && lit > 1e-4) {
+    if (drawDry) {
       nodeGraphImageBurnDrawDry(
         ctx,
         img,
@@ -898,7 +954,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
 
     if (colorCtx && emberCtx && !paused) {
       const colorKeep = hang >= 1 ? 1 : (1 - Math.pow(1 - hang, 3));
-      nodeGraphImageBurnFadeByLuma(buf.color, colorKeep, Math.min(1, burn) * 0.45);
+      nodeGraphImageBurnFadeByLuma(buf.color, colorKeep, Math.min(1, burn));
       nodeGraphImageBurnFadeByLuma(buf.ember, colorKeep, Math.min(1, burn));
 
       nodeGraphImageBurnBlurBuf(buf.color, buf.scratch, Math.min(1, blur) * 0.85);
@@ -915,6 +971,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
           "color",
           burn,
           contrast,
+          accumulate,
         );
         nodeGraphImageBurnStampCompressed(
           face,
@@ -926,6 +983,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
           "ember",
           burn,
           contrast,
+          accumulate,
         );
       }
     }
@@ -939,7 +997,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     ctx.globalAlpha = 0.35 + Math.min(1, burn) * 0.5;
     ctx.drawImage(buf.ember, 0, 0, w, h);
 
-    if (imageReady && lit > 1e-4) {
+    if (drawDry) {
       nodeGraphImageBurnDrawDry(
         ctx,
         img,
@@ -1000,7 +1058,7 @@ function commitNodeGraphImageBurn(nodeId, nextSettings, options = {}) {
   if (typeof commitNodeGraphPatch === "function") {
     commitNodeGraphPatch(patch, {
       record: options.record !== false,
-      status: options.status || (normalized.dataUrl ? "image burn loaded" : "image burn cleared"),
+      status: options.status || (normalized.dataUrl ? "image ghost loaded" : "image ghost cleared"),
     });
   }
   nodeGraphImageBurnScheduleRepaint(id);
@@ -1035,7 +1093,7 @@ function clearNodeGraphImageBurnImage(nodeId) {
     ...prev,
     dataUrl: "",
     fileName: "",
-  }, { status: "image burn cleared" });
+  }, { status: "image ghost cleared" });
   if (typeof syncNodeGraphImageBurnDisplaySettingsControls === "function") {
     syncNodeGraphImageBurnDisplaySettingsControls();
   }
@@ -1060,7 +1118,7 @@ function pickNodeGraphImageBurnImage() {
       fileName: asset.fileName || "image",
     }, { status: `${asset.fileName || "image"} loaded` });
     if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp(`Image Burn: loaded ${asset.fileName || "image"}.`);
+      setNodeInteractionHelp(`Image Ghost: loaded ${asset.fileName || "image"}.`);
     }
     if (typeof syncNodeGraphImageBurnDisplaySettingsControls === "function") {
       syncNodeGraphImageBurnDisplaySettingsControls();
@@ -1069,9 +1127,6 @@ function pickNodeGraphImageBurnImage() {
 }
 
 function buildNodeGraphImageBurnDisplaySettingsBodyHtml() {
-  const stepper = typeof nodeGraphDisplaySettingsBuildStepperRowHtml === "function"
-    ? nodeGraphDisplaySettingsBuildStepperRowHtml
-    : null;
   const hueRow = typeof nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml === "function"
     ? nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml
     : null;
@@ -1082,11 +1137,9 @@ function buildNodeGraphImageBurnDisplaySettingsBodyHtml() {
         ${(typeof nodeGraphBuildImageAssetRowHtml === "function"
           ? nodeGraphBuildImageAssetRowHtml({ key: "burn", label: "Image" })
           : "")}
-        ${stepper ? stepper("contrast", "imageBurnFace") : ""}
       </div>
       <div class="metadata-field-section">
-        <div class="metadata-section-title">HANG</div>
-        ${stepper ? stepper("hang", "imageBurnFace") : ""}
+        <div class="metadata-section-title">PLATE</div>
         ${hueRow
           ? hueRow({
             title: "Background",

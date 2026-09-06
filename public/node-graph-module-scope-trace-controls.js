@@ -503,11 +503,9 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
-  // Image Burn: asset + Image blacks + Hang + plate. Live look knobs are module params.
+  // Image Ghost: asset + plate + Clear. Live look knobs are module params.
   imageBurnFace: Object.freeze({
     fields: Object.freeze([
-      "contrast",
-      "hang",
       "backgroundBrightness",
     ]),
     colors: Object.freeze(["backgroundColor"]),
@@ -1016,13 +1014,13 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Hang",
     inputmode: "decimal",
     id: "nodeTraceDisplayHang",
-    title: "Image Burn base residual hang. 0 = die fast; 1 ≈ freeze.",
+    title: "Image Ghost base residual hang. 0 = die fast; 1 ≈ freeze.",
   }),
   blur: Object.freeze({
     label: "Blur",
     inputmode: "decimal",
     id: "nodeTraceDisplayBlur",
-    title: "Image Burn soft spread so lingering highlights bloom instead of pixelating.",
+    title: "Image Ghost soft spread so lingering highlights bloom instead of pixelating.",
   }),
   ghost: Object.freeze({
     label: "Ghost",
@@ -1046,7 +1044,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Burn",
     inputmode: "decimal",
     id: "nodeTraceDisplayBurn",
-    title: "Image Burn: how drastically bright pixels linger vs dark (0 = even fade, 1 = highlights stick / darks die). Other faces: sticky residual floor.",
+    title: "Image Ghost: how drastically bright pixels linger vs dark (0 = even fade, 1 = highlights stick / darks die). Other faces: sticky residual floor.",
   }),
   burnAmount: Object.freeze({
     label: "Burn \u2A2F",
@@ -1845,7 +1843,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   spectrogramBurn: "Spectrogram",
   rgbShapeFace: "Shape",
   rgbPictureFace: "Picture",
-  imageBurnFace: "Image Burn",
+  imageBurnFace: "Image Ghost",
   rgbFractalFace: "Soft Fractal",
   evolveFieldFace: "Evolve Field",
   fbmFieldFace: "Fractal Brownian Field",

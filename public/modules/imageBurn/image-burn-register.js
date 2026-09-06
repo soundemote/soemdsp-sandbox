@@ -1,6 +1,6 @@
-// Image Burn — energy-driven residual image stamp (In brightness × Feedback deposit).
+// Image Ghost — energy-driven residual image stamp (In brightness × Feedback deposit).
 registerNodeGraphChromelessModule("imageBurn", {
-  label: "Image Burn",
+  label: "Image Ghost",
   solidModule: true,
   customDisplayArea: true,
   definition: {
@@ -40,13 +40,26 @@ registerNodeGraphChromelessModule("imageBurn", {
       {
         defaultValue: "1",
         key: "brightness",
-        label: "Brightness",
+        label: "Bright",
         max: "1",
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
         step: "any",
         tooltip: "Dry image gain on In energy (0…1). Independent of Feedback.",
+      },
+      {
+        defaultValue: "0",
+        key: "blacks",
+        label: "Blacks",
+        max: "2",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip:
+          "Crush mid/lows toward black (highs protected). "
+          + "0 = unchanged; 2 = max crush. Applied to dry + hang stamp.",
       },
       {
         bipolar: true,
@@ -59,10 +72,21 @@ registerNodeGraphChromelessModule("imageBurn", {
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "How much of the lit image prints into Hang. "
-          + "0 = hang only (no new print / no stack). "
-          + ">0 = accumulate brighter. "
-          + "<0 = print a dimmer stamp into Hang.",
+          "How hang receives the lit image (Hang always gets pixels). "
+          + "0 = max-blend full lit (no stack / no brighten). "
+          + ">0 = additive accumulate (brighter over time). "
+          + "<0 = max-blend a dimmer stamp (still no stack).",
+      },
+      {
+        defaultValue: "0.55",
+        key: "hang",
+        label: "Hang",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Residual persistence. 0 = wipe fast; 1 = freeze. Independent of Feedback.",
       },
       {
         defaultValue: "0.75",
@@ -73,7 +97,10 @@ registerNodeGraphChromelessModule("imageBurn", {
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Highlights outlast darks in the residual. 0 = whole image fades together; 1 = darks die, peaks stick.",
+        tooltip:
+          "Highlights linger longer than Hang alone. "
+          + "0 = whole residual fades at Hang; 1 = peaks nearly freeze. "
+          + "Hang is always the floor — Burn never kills darks faster than Hang.",
       },
       {
         defaultValue: "0.45",
@@ -93,21 +120,23 @@ registerNodeGraphChromelessModule("imageBurn", {
     visualSink: true,
   },
   catalog: {
-    category: "oscilloscope",
+    category: "rgb",
     description:
-      "Load an image and print it into a dedicated Hang/Burn residual. "
-      + "In × Brightness lights the dry image. Feedback (−1…+1) controls deposit: "
-      + "0 = hang without stacking, >0 accumulates, <0 prints a dimmer stamp. "
-      + "Image Blacks and Hang live in Display Settings.",
+      "Load an image and print it into a dedicated Hang/Burn residual (Image Ghost). "
+      + "Params: Size, Bright, Blacks, Feedback, Hang, Burn, Blur. "
+      + "Feedback 0 max-blends lit into hang, >0 accumulates, <0 dimmer max-blend. "
+      + "Display Settings: image asset, background, Clear residual.",
     notes: [
+      "image ghost",
       "image burn",
       "residual",
       "picture",
+      "rgb",
       "feedback",
       "hang",
+      "blacks",
       "burn",
       "blur",
-      "oscilloscope",
       "LayoutB",
     ],
   },

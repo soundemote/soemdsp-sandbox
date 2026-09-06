@@ -616,14 +616,6 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     backgroundBrightness: nodeGraphTraceDisplayClampUnit,
   }),
   imageBurnFace: Object.freeze({
-    hang: nodeGraphTraceDisplayClampUnit,
-    contrast: (value) => {
-      const n = Number(value);
-      if (!Number.isFinite(n)) {
-        return 0;
-      }
-      return clampNodeSliderValue(n, 0, 2);
-    },
     backgroundBrightness: nodeGraphTraceDisplayClampUnit,
   }),
   pulseDot: Object.freeze({
