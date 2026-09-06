@@ -14610,7 +14610,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
  * VECTOR Trace faces: continuous polylines into a face buffer.
  * - normal blend (opaque strokes)
  * - density < 1: always pixelated (chunky lo-fi buffer)
- * - density ≥ 1: default smooth; .pixelated-canvas-zoom (workspace zoom ≥ 2.5)
+ * - density ≥ 1: default smooth; .pixelated-canvas-zoom (workspace zoom > 1)
  *   switches to crisp nearest-neighbor so zoom-in stays sharp, not mushy
  */
 .node-module-scope-local-fallback-canvas.node-module-scope-vector-trace {
@@ -14777,7 +14777,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 }
 
 /*
- * Workspace zoom ≥ 2.5 → nearest-neighbor upscale of face bitmaps.
+ * Workspace zoom > 1 → nearest-neighbor upscale of face bitmaps.
  * Faces paint at layout × dpr (resource-agnostic zoom): app zoom shows defined
  * pixels instead of re-rendering denser detail. Soft Fractal is included —
  * fixed GPU buffer, CSS pixelate on zoom. Asciiscope Sharp keeps auto inline.
@@ -14809,9 +14809,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 }
 
 /*
- * Spectrogram: default CSS smooth scale under workspace zoom (permanent buffer
- * is layout×dpr — fixed). Only pixelate at high zoom like other faces, so
- * zoom in/out doesn’t look staircased/choppy between 1× and 2.5×.
+ * Spectrogram: default CSS smooth scale at zoom 1 (permanent buffer is
+ * layout×dpr). Pixelate whenever workspace zoom > 1, like other faces.
  */
 .node-module-scope-local-fallback-canvas.node-spectrogram-canvas {
   image-rendering: auto;

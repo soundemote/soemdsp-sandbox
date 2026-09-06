@@ -62,7 +62,6 @@
    * @param {number} [options.halfHeight]
    * @param {number} [options.gain]
    * @param {number} [options.offset]
-   * @param {boolean} [options.skipDiscontinuities]
    * @param {number} [options.discontinuityThreshold]
    * @returns {Array<{x:number,y:number}|null>}
    */
@@ -85,7 +84,7 @@
     const halfHeight = Number.isFinite(Number(options.halfHeight))
       ? Number(options.halfHeight)
       : height * 0.42;
-    const skipDisc = options.skipDiscontinuities === true;
+    // Always break discontinuity edges (no toggle) — do not draw the jump.
     const discThreshold = Number.isFinite(Number(options.discontinuityThreshold))
       ? Number(options.discontinuityThreshold)
       : 0.85;
@@ -126,7 +125,7 @@
       let prev = first;
       for (let i = first; i <= last; i += 1) {
         const value = Number(buffer[i]) || 0;
-        const broke = skipDisc && i > prev
+        const broke = i > prev
           && Math.abs(value - (Number(buffer[prev]) || 0)) > discThreshold;
         push(mapX(i), mapY(value), broke);
         prev = i;
@@ -180,7 +179,7 @@
         minI = rangeStart;
         maxI = rangeStart;
       }
-      const broke = skipDisc && Math.abs(minV - prevValue) > discThreshold;
+      const broke = Math.abs(minV - prevValue) > discThreshold;
       if (minI === maxI) {
         push(mapX(minI), mapY(minV), broke);
         prevValue = minV;

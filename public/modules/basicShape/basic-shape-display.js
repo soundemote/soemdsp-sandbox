@@ -289,16 +289,25 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
 
   if (waveDirty) {
     context.beginPath();
+    const discThreshold = typeof nodeGraphModuleScopeDiscontinuityThreshold === "number"
+      ? nodeGraphModuleScopeDiscontinuityThreshold
+      : 0.85;
+    let prevY = null;
     for (let i = 0; i <= samples; i += 1) {
       // Phase knob slides the drawn shape (same offset as DSP samplePhase).
       const xNorm = i / samples;
       const x = mapX(xNorm);
-      const y = mapY(sampleAt(wrap01(xNorm + phaseOff)));
-      if (i === 0) {
+      const sample = sampleAt(wrap01(xNorm + phaseOff));
+      const y = mapY(sample);
+      // Do not draw discontinuity edges (square/saw jumps) — break the stroke.
+      if (i === 0 || prevY == null) {
+        context.moveTo(x, y);
+      } else if (Math.abs(sample - prevY) > discThreshold) {
         context.moveTo(x, y);
       } else {
         context.lineTo(x, y);
       }
+      prevY = sample;
     }
     if (typeof nodeGraphStrokePathWithLineBlur === "function") {
       nodeGraphStrokePathWithLineBlur(context, {

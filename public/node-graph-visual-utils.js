@@ -267,6 +267,12 @@ function nodeGraphSizeDisplayCanvas(section, canvas, options = {}) {
   if (canvas.height !== height) {
     canvas.height = height;
   }
+  // Density < 1 → always nearest-neighbor (don't wait for workspace zoom class).
+  if (density < 0.999) {
+    canvas.style.imageRendering = "pixelated";
+  } else if (canvas.style.imageRendering === "pixelated") {
+    canvas.style.imageRendering = "";
+  }
   const context = canvas.getContext("2d");
   const pixelRatio = devicePixelRatio * Math.max(density, 1e-6);
   return context

@@ -1296,7 +1296,7 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   const usedChoices = new Set();
   const usedToggles = new Set();
   if (toggleKeys.includes("skipDiscontinuities")) {
-    rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("skipDiscontinuities"));
+    // Always break discontinuity edges in the drawer — no UI toggle.
     usedToggles.add("skipDiscontinuities");
   }
   if (stereoInk && choiceKeys.includes("syncChannel")) {
@@ -1555,7 +1555,7 @@ function buildNodeGraphPhosphorDisplaySettingsBodyHtml(type, node, allowKey) {
     previewPlaced = true;
   };
   if (toggleKeys.includes("skipDiscontinuities")) {
-    rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("skipDiscontinuities"));
+    // Always break discontinuity edges in the drawer — no UI toggle.
     usedToggles.add("skipDiscontinuities");
   }
   if (toggleKeys.includes("sourceSync")) {

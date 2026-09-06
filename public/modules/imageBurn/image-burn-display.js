@@ -8,7 +8,7 @@
 //   Contrast         — stamp tone (0 grey … 1 flat … 2 soft-clip contrast)
 //   Blur             — bloom recirculation
 //
-// In energy is peak-buffered so short pulses stamp consistently.
+// Buffered In: this frame's peak energy lights the image; that stamp goes to burn.
 
 const nodeGraphImageBurnSettingsDefaults = Object.freeze({
   background: "#000000",
@@ -317,19 +317,13 @@ function nodeGraphImageBurnResidualSide(faceW, faceH) {
 }
 
 /**
- * In energy for Image Burn.
- * Peak of new samples since last paint (not mean — short pulses stay full height).
- * Dry and deposit both use that peak this frame — no hold/slew, no falling-edge
- * latch (a paint window that still contains the peak would never "fall").
+ * Buffered In for this display frame: peak |sample| among new scope samples
+ * since the last paint. That energy lights the image; the same lit image is
+ * what Send stamps into the burn. No pulse detection, no extra hold windows.
  */
 function nodeGraphImageBurnBufferedEnergy(face, buffer) {
   const empty = { peak: 0, dry: 0, deposit: 0 };
   if (!face || !buffer || !buffer.length) {
-    if (face) {
-      face._imageBurnEnergyHold = 0;
-      face._imageBurnPulseOpen = false;
-      face._imageBurnPulsePeak = 0;
-    }
     return empty;
   }
 
@@ -355,6 +349,7 @@ function nodeGraphImageBurnBufferedEnergy(face, buffer) {
   }
   face._imageBurnEnergyAbs = abs || prevAbs;
 
+  // Peak (not mean) so a tiny flash in the frame still prints at full height.
   let peak = 0;
   const start = Math.max(0, buffer.length - n);
   for (let i = start; i < buffer.length; i += 1) {
@@ -368,7 +363,6 @@ function nodeGraphImageBurnBufferedEnergy(face, buffer) {
     }
   }
   peak = Math.max(0, Math.min(1, peak));
-  face._imageBurnEnergyHold = peak;
 
   return { peak, dry: peak, deposit: peak };
 }
@@ -735,8 +729,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
   const contrast = clampNodeGraphImageBurnContrast(settings.contrast, 1);
   const blur = clampNodeGraphImageBurnUnit(settings.blur, 0);
 
-  // Peak-buffered In: short pulses deposit the same peak each flash (not a
-  // mean that depends on how the pulse aligns to the paint window).
+  // This frame's buffered In peak → light the image → Send into burn.
   const energy = nodeGraphImageBurnBufferedEnergy(face, buffer);
   const energy01 = energy.dry;
 
@@ -760,9 +753,6 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
   if (!settings.dataUrl) {
     face._imageBurnSeenReady = false;
     face._imageBurnEnergyAbs = 0;
-    face._imageBurnEnergyHold = 0;
-    face._imageBurnPulseOpen = false;
-    face._imageBurnPulsePeak = 0;
     nodeGraphImageBurnClearResidual(face);
   }
 
@@ -778,11 +768,10 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
   if (seedLeft > 0) {
     face._imageBurnSeedFrames = seedLeft - 1;
   }
-  // Dry follows In peak × Image (no slew). Seed only if nothing is driving yet.
+  // lit = frame energy × Image; deposit = that same lit image × Send.
   const lit = Math.max(energy01 * imageGain, seedLeft > 0 ? imageGain * 0.85 : 0);
-  // Burn stamp: latched pulse × Image × Send. Send at 0 → no residual print.
   const deposit = send > 0
-    ? Math.max(energy.deposit * imageGain * send, seedLeft > 0 ? imageGain * send * 0.85 : 0)
+    ? Math.max(lit * send, seedLeft > 0 ? imageGain * send * 0.85 : 0)
     : 0;
 
   const paused = typeof nodeGraphModuleScopePaused === "function"

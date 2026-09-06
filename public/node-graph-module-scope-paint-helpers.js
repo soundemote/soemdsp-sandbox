@@ -320,9 +320,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
   const autoSync = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
     ? nodeGraphDisplaySettingsToggleIsOn(settings?.sourceSync ?? settings?.sync)
     : Boolean(settings?.sourceSync);
-  const skipDisc = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
-    ? nodeGraphDisplaySettingsToggleIsOn(settings?.skipDiscontinuities)
-    : settings?.skipDiscontinuities === true;
+  const skipDisc = true;
   const discThreshold = typeof nodeGraphModuleScopeDiscontinuityThreshold === "number"
     ? nodeGraphModuleScopeDiscontinuityThreshold
     : 0.85;
@@ -1163,9 +1161,6 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
   }
   const midY = box.y + box.height * 0.5;
   if (typeof TraceWaveform !== "undefined" && typeof TraceWaveform.buildPoints === "function") {
-    const skipSamples = typeof nodeGraphModuleScopeDiscontinuitySkipSamplesForSlot === "function"
-      ? nodeGraphModuleScopeDiscontinuitySkipSamplesForSlot(slot, buffer)
-      : 0;
     const built = TraceWaveform.buildPoints({
       buffer,
       start: view.start,
@@ -1181,7 +1176,6 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
       halfHeight,
       gain: view.gain,
       offset: view.offset,
-      skipDiscontinuities: skipSamples > 0,
       discontinuityThreshold: typeof nodeGraphModuleScopeDiscontinuityThreshold === "number"
         ? nodeGraphModuleScopeDiscontinuityThreshold
         : 0.85,
@@ -2398,10 +2392,9 @@ function breakNodeGraphScope2dPath(points) {
   }
 }
 
-function nodeGraphScope2dSkipDiscontinuitiesEnabled(settings) {
-  return typeof nodeGraphDisplaySettingsToggleIsOn === "function"
-    ? nodeGraphDisplaySettingsToggleIsOn(settings?.skipDiscontinuities)
-    : settings?.skipDiscontinuities === true;
+function nodeGraphScope2dSkipDiscontinuitiesEnabled(_settings) {
+  // Always break discontinuity edges — do not draw the jump. No UI toggle.
+  return true;
 }
 
 function nodeGraphScope2dAdjacentSampleIsDiscontinuity(buffer, indexA, indexB, threshold) {

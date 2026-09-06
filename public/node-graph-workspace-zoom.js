@@ -12,7 +12,9 @@ function applyNodeGraphZoom(options = {}) {
   } else {
     workspace.style.setProperty("--node-graph-zoom", String(nodeGraphZoom()));
     workspace.dataset.zoom = nodeGraphZoom().toFixed(2);
-    workspace.classList.toggle("pixelated-canvas-zoom", nodeGraphZoom() >= 2.5);
+    // Any zoom-in must stay nearest-neighbor — the old 2.5 cliff left
+    // density-reduced faces bilinear-smoothed (soft) below that threshold.
+    workspace.classList.toggle("pixelated-canvas-zoom", nodeGraphZoom() > 1);
   }
   if (
     typeof renderNodeGraphMarqueeSelection === "function"
