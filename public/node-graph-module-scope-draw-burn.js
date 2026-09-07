@@ -1362,71 +1362,77 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   if (typeof nodeGraphScopeDestFadeTowardPlate === "function") {
     nodeGraphScopeDestFadeTowardPlate(context, canvas, bg, settings.trail, settings.ghost);
   }
-  const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
-  const sampleRate = typeof nodeGraphScopeSampleRate === "function"
-    ? nodeGraphScopeSampleRate(buffer)
-    : (Number(buffer?.nodeGraphScopeSampleRate) || 44100);
-  const abs = Math.max(0, Math.floor(Number(buffer?.nodeGraphScopeTotalSampleCount) || 0));
-  const prevAbs = Number(canvas._s2dAbs || 0);
-  let newCount;
-  if (prevAbs > 0 && abs > prevAbs) {
-    newCount = Math.min(count, Math.max(1, abs - prevAbs));
-  } else {
-    newCount = Math.min(count, Math.max(1, Math.ceil(0.05 * Math.max(1, sampleRate))));
-  }
-  const startIndex = Math.max(0, count - newCount);
-  if (abs) {
-    canvas._s2dAbs = abs;
-  }
-  const points = buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings, startIndex);
-  if (canvas._s2dLastPoint && points.length) {
-    points.unshift(canvas._s2dLastPoint);
-  }
-  let lastPoint = canvas._s2dLastPoint || null;
-  for (let i = points.length - 1; i >= 0; i -= 1) {
-    const p = points[i];
-    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
-      lastPoint = p;
-      break;
+  try {
+    const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
+    const sampleRate = typeof nodeGraphScopeSampleRate === "function"
+      ? nodeGraphScopeSampleRate(buffer)
+      : (Number(buffer?.nodeGraphScopeSampleRate) || 44100);
+    const abs = Math.max(0, Math.floor(Number(buffer?.nodeGraphScopeTotalSampleCount) || 0));
+    const prevAbs = Number(canvas._s2dAbs || 0);
+    let newCount;
+    if (prevAbs > 0 && abs > prevAbs) {
+      newCount = Math.min(count, Math.max(1, abs - prevAbs));
+    } else {
+      newCount = Math.min(count, Math.max(1, Math.ceil(0.05 * Math.max(1, sampleRate))));
     }
-  }
-  canvas._s2dLastPoint = lastPoint;
-  // Need two consecutive finite verts or the stroke is invisible.
-  let strokeable = false;
-  let run = 0;
-  for (let i = 0; i < points.length; i += 1) {
-    const p = points[i];
-    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
-      run += 1;
-      if (run >= 2) {
-        strokeable = true;
+    const startIndex = Math.max(0, count - newCount);
+    if (abs) {
+      canvas._s2dAbs = abs;
+    }
+    const points = buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings, startIndex);
+    if (canvas._s2dLastPoint && points.length) {
+      points.unshift(canvas._s2dLastPoint);
+    }
+    let lastPoint = canvas._s2dLastPoint || null;
+    for (let i = points.length - 1; i >= 0; i -= 1) {
+      const p = points[i];
+      if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+        lastPoint = p;
         break;
       }
-    } else {
-      run = 0;
     }
-  }
-  const lastPoints = canvas._scope2dTraceLastPoints;
-  const inkPoints = strokeable
-    ? points
-    : (Array.isArray(lastPoints) && lastPoints.length >= 2 ? lastPoints : null);
-  const dotSpace = Math.min(canvas.width, canvas.height);
-  if (!inkPoints) {
-    let single = lastPoint;
-    if (!single) {
+    canvas._s2dLastPoint = lastPoint;
+    // Need two consecutive finite verts or the stroke is invisible.
+    let strokeable = false;
+    let run = 0;
+    for (let i = 0; i < points.length; i += 1) {
+      const p = points[i];
+      if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+        run += 1;
+        if (run >= 2) {
+          strokeable = true;
+          break;
+        }
+      } else {
+        run = 0;
+      }
+    }
+    const lastPoints = canvas._scope2dTraceLastPoints;
+    const inkPoints = strokeable
+      ? points
+      : (Array.isArray(lastPoints) && lastPoints.length >= 2 ? lastPoints : null);
+    const dotSpace = Math.min(canvas.width, canvas.height);
+    if (!inkPoints) {
+      let single = lastPoint;
+      if (!single) {
+        snapshotNodeGraphScope2dTraceHold(canvas, item?.slot?.nodeId);
+        return;
+      }
+      drawNodeGraphScope2dTraceLayer(context, [single, { x: single.x, y: single.y }], dotSpace, settings);
+      canvas._scope2dTraceLastPoints = [single, { x: single.x, y: single.y }];
       snapshotNodeGraphScope2dTraceHold(canvas, item?.slot?.nodeId);
       return;
     }
-    drawNodeGraphScope2dTraceLayer(context, [single, { x: single.x, y: single.y }], dotSpace, settings);
-    canvas._scope2dTraceLastPoints = [single, { x: single.x, y: single.y }];
+    drawNodeGraphScope2dTraceLayer(context, inkPoints, dotSpace, settings);
+    if (strokeable) {
+      canvas._scope2dTraceLastPoints = points;
+    }
     snapshotNodeGraphScope2dTraceHold(canvas, item?.slot?.nodeId);
-    return;
+  } finally {
+    if (typeof nodeGraphScopeDestFadeGhostAfterStamps === "function") {
+      nodeGraphScopeDestFadeGhostAfterStamps(context, canvas);
+    }
   }
-  drawNodeGraphScope2dTraceLayer(context, inkPoints, dotSpace, settings);
-  if (strokeable) {
-    canvas._scope2dTraceLastPoints = points;
-  }
-  snapshotNodeGraphScope2dTraceHold(canvas, item?.slot?.nodeId);
 }
 
 

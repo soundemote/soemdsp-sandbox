@@ -77,23 +77,24 @@
 
   /**
    * Ghost-layer erase/frame (independent of Trail). Continuous from 0.
-   * Mid (~0.35) ≈ 0.008 sweet hang @60fps; 1 ≈ 0.0025 long dim scorch.
+   * Faster than the old feedback-inflated fog — mid ≈ 0.02 erase @60fps.
    */
   function destGhostEraseAmount(ghost) {
     const g = clamp01(ghost, 0);
-    return 0.0025 + 0.0475 * Math.pow(1 - g, 3.5);
+    return 0.005 + 0.07 * Math.pow(1 - g, 2.8);
   }
 
   /** How much of the hot image scorches into the Ghost layer each frame. */
   function destGhostDeposit(ghost) {
     const g = clamp01(ghost, 0);
-    return g * 0.12 + g * g * 0.18;
+    // Modest pickup — full-frame re-deposit of hot trails; keep below fog.
+    return g * 0.05 + g * g * 0.08;
   }
 
   /** Dim floor ceiling (readable scorch, never full peak). */
   function ghostCap(ghost) {
     const g = clamp01(ghost, 0);
-    return g * 0.12 + g * g * 0.38;
+    return g * 0.1 + g * g * 0.22;
   }
 
   /** Present gain when blitting the Ghost scorch onto the hot face. */

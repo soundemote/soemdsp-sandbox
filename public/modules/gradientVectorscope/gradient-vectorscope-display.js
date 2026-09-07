@@ -153,73 +153,79 @@ function drawNodeGraphGradientVectorscopeFaceItem(_renderer, item, pixelRatio) {
     ctx.restore();
   }
 
-  const source = typeof nodeGraphRgbPickPortBuffer === "function"
-    ? nodeGraphRgbPickPortBuffer(slot, "X")
-    : null;
-  const sampleRate = Math.max(
-    1,
-    Number(source?.nodeGraphScopeSampleRate)
-      || Number(nodeGraphModuleScopeState?.sampleRate)
-      || Number(nodeGraphMvp?.sampleRate)
-      || 44100,
-  );
-  const abs = Math.max(0, Math.floor(Number(source?.nodeGraphScopeTotalSampleCount) || 0));
-  const prev = Number(canvas._gvsAbs || 0);
-  const deltaSec = prev > 0 && abs > prev
-    ? (abs - prev) / sampleRate
-    : 0;
-  const catchUp = prev > 0
-    ? Math.min(settings.historySeconds, Math.max(0.004, deltaSec))
-    : Math.min(settings.historySeconds, 0.05);
-  const captured = typeof nodeGraphRgbAlignedCapture === "function"
-    ? nodeGraphRgbAlignedCapture(slot, ["X", "Y"], catchUp)
-    : null;
-  if (abs) {
-    canvas._gvsAbs = abs;
-  }
-  if (!captured?.length) {
-    return;
-  }
-  const w = canvas.width;
-  const h = canvas.height;
-  const side = Math.min(w, h);
-  const ox = (w - side) * 0.5;
-  const oy = (h - side) * 0.5;
-  const scale = settings.scale;
-  const period = Math.max(1, Math.round(settings.historySeconds * sampleRate));
-  const absStart = Math.max(0, abs - captured.length);
-  const points = [];
-  if (canvas._gvsLastPoint) {
-    points.push(canvas._gvsLastPoint);
-  }
-  let lastPoint = canvas._gvsLastPoint || null;
-  for (let i = 0; i < captured.length; i += 1) {
-    const rotated = nodeGraphGradientVectorscopeRotate(captured.X[i], captured.Y[i], settings.rotate90);
-    const px = ox + (0.5 + 0.5 * Math.max(-1, Math.min(1, rotated.x * scale))) * side;
-    const py = oy + (0.5 + 0.5 * Math.max(-1, Math.min(1, -rotated.y * scale))) * side;
-    if (!Number.isFinite(px) || !Number.isFinite(py)) {
-      points.push(null);
-      lastPoint = null;
-      continue;
+  try {
+    const source = typeof nodeGraphRgbPickPortBuffer === "function"
+      ? nodeGraphRgbPickPortBuffer(slot, "X")
+      : null;
+    const sampleRate = Math.max(
+      1,
+      Number(source?.nodeGraphScopeSampleRate)
+        || Number(nodeGraphModuleScopeState?.sampleRate)
+        || Number(nodeGraphMvp?.sampleRate)
+        || 44100,
+    );
+    const abs = Math.max(0, Math.floor(Number(source?.nodeGraphScopeTotalSampleCount) || 0));
+    const prev = Number(canvas._gvsAbs || 0);
+    const deltaSec = prev > 0 && abs > prev
+      ? (abs - prev) / sampleRate
+      : 0;
+    const catchUp = prev > 0
+      ? Math.min(settings.historySeconds, Math.max(0.004, deltaSec))
+      : Math.min(settings.historySeconds, 0.05);
+    const captured = typeof nodeGraphRgbAlignedCapture === "function"
+      ? nodeGraphRgbAlignedCapture(slot, ["X", "Y"], catchUp)
+      : null;
+    if (abs) {
+      canvas._gvsAbs = abs;
     }
-    const t = ((absStart + i) % period) / period;
-    const point = { x: px, y: py, t };
-    points.push(point);
-    lastPoint = point;
+    if (!captured?.length) {
+      return;
+    }
+    const w = canvas.width;
+    const h = canvas.height;
+    const side = Math.min(w, h);
+    const ox = (w - side) * 0.5;
+    const oy = (h - side) * 0.5;
+    const scale = settings.scale;
+    const period = Math.max(1, Math.round(settings.historySeconds * sampleRate));
+    const absStart = Math.max(0, abs - captured.length);
+    const points = [];
+    if (canvas._gvsLastPoint) {
+      points.push(canvas._gvsLastPoint);
+    }
+    let lastPoint = canvas._gvsLastPoint || null;
+    for (let i = 0; i < captured.length; i += 1) {
+      const rotated = nodeGraphGradientVectorscopeRotate(captured.X[i], captured.Y[i], settings.rotate90);
+      const px = ox + (0.5 + 0.5 * Math.max(-1, Math.min(1, rotated.x * scale))) * side;
+      const py = oy + (0.5 + 0.5 * Math.max(-1, Math.min(1, -rotated.y * scale))) * side;
+      if (!Number.isFinite(px) || !Number.isFinite(py)) {
+        points.push(null);
+        lastPoint = null;
+        continue;
+      }
+      const t = ((absStart + i) % period) / period;
+      const point = { x: px, y: py, t };
+      points.push(point);
+      lastPoint = point;
+    }
+    canvas._gvsLastPoint = lastPoint;
+    if (typeof TraceWoscope === "undefined" || typeof TraceWoscope.draw !== "function") {
+      return;
+    }
+    const sample = typeof nodeGraphSampleGradientStopsRgb === "function"
+      ? (t) => nodeGraphSampleGradientStopsRgb(settings.gradientStops, t, "#d8f4ff")
+      : null;
+    TraceWoscope.draw(ctx, points, {
+      size: settings.dot1Size,
+      faceMinSide: side,
+      gradientStops: settings.gradientStops,
+      sampleRgb: sample,
+    });
+  } finally {
+    if (typeof nodeGraphScopeDestFadeGhostAfterStamps === "function") {
+      nodeGraphScopeDestFadeGhostAfterStamps(ctx, canvas);
+    }
   }
-  canvas._gvsLastPoint = lastPoint;
-  if (typeof TraceWoscope === "undefined" || typeof TraceWoscope.draw !== "function") {
-    return;
-  }
-  const sample = typeof nodeGraphSampleGradientStopsRgb === "function"
-    ? (t) => nodeGraphSampleGradientStopsRgb(settings.gradientStops, t, "#d8f4ff")
-    : null;
-  TraceWoscope.draw(ctx, points, {
-    size: settings.dot1Size,
-    faceMinSide: side,
-    gradientStops: settings.gradientStops,
-    sampleRgb: sample,
-  });
 }
 
 if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {

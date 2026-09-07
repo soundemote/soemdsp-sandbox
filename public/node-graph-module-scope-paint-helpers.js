@@ -882,10 +882,32 @@ function nodeGraphScope2dTraceCanvasSquare(canvas) {
 }
 
 /**
- * DestFade plate persist — Trail and Ghost are separate:
- *   Trail → hot wipe rate on the visible canvas
- *   Ghost → dim scorch layer with its own hang (not a Trail remix)
+ * DestFade plate persist — Trail and Ghost are separate and must not feed back.
+ *
+ * Hot path lives in `_scopeDestHot` (Trail wipe only). Ghost scorch lives in
+ * `_scopeDestGhost` (own erase). Visible canvas is reset to hot-only here so
+ * stamps draw clean; call `nodeGraphScopeDestFadeGhostAfterStamps` after ink
+ * to deposit hot→ghost and present ghost without baking it into next deposit.
  */
+function nodeGraphScopeDestFadeEnsureLayer(canvas, key, w, h, plateCss) {
+  let layer = canvas[key];
+  if (!layer || layer.width !== w || layer.height !== h) {
+    layer = document.createElement("canvas");
+    layer.width = w;
+    layer.height = h;
+    canvas[key] = layer;
+    const boot = layer.getContext("2d");
+    if (boot) {
+      boot.setTransform(1, 0, 0, 1, 0, 0);
+      boot.globalAlpha = 1;
+      boot.globalCompositeOperation = "source-over";
+      boot.fillStyle = plateCss;
+      boot.fillRect(0, 0, w, h);
+    }
+  }
+  return layer;
+}
+
 function nodeGraphScopeDestFadeTowardPlate(context, canvas, plateCss, trail, ghost) {
   if (!context || !canvas) {
     return;
@@ -901,36 +923,37 @@ function nodeGraphScopeDestFadeTowardPlate(context, canvas, plateCss, trail, gho
     ? Residual.destFadeAmount(trail, 0)
     : Math.max(0.002, Math.min(0.55, 1 - Math.max(0, Number(trail) || 0) * 0.97));
 
+  canvas._scopeDestGhostAmount = g;
+  canvas._scopeDestGhostPlate = plateCss;
+
+  const hot = nodeGraphScopeDestFadeEnsureLayer(canvas, "_scopeDestHot", w, h, plateCss);
+  const hotCtx = hot.getContext("2d");
+  if (!hotCtx) {
+    return;
+  }
+
+  // Trail wipe on hot only (never includes ghost scorch).
+  if (trailErase > 0) {
+    hotCtx.save();
+    hotCtx.setTransform(1, 0, 0, 1, 0, 0);
+    hotCtx.globalCompositeOperation = "source-over";
+    hotCtx.globalAlpha = trailErase;
+    hotCtx.fillStyle = plateCss;
+    hotCtx.fillRect(0, 0, w, h);
+    hotCtx.restore();
+  }
+
   if (g > 0) {
-    let gcan = canvas._scopeDestGhost;
-    if (!gcan || gcan.width !== w || gcan.height !== h) {
-      gcan = document.createElement("canvas");
-      gcan.width = w;
-      gcan.height = h;
-      canvas._scopeDestGhost = gcan;
-      const boot = gcan.getContext("2d");
-      if (boot) {
-        boot.globalAlpha = 1;
-        boot.fillStyle = plateCss;
-        boot.fillRect(0, 0, w, h);
-      }
-    }
+    const gcan = nodeGraphScopeDestFadeEnsureLayer(canvas, "_scopeDestGhost", w, h, plateCss);
     const gctx = gcan.getContext("2d");
     if (gctx) {
-      const deposit = Residual?.destGhostDeposit
-        ? Residual.destGhostDeposit(g)
-        : g * 0.2;
-      if (deposit > 0.0005) {
-        gctx.save();
-        gctx.globalCompositeOperation = "lighter";
-        gctx.globalAlpha = deposit;
-        gctx.drawImage(canvas, 0, 0);
-        gctx.restore();
-      }
+      // Fade scorch only — do NOT deposit from visible canvas here (that was the
+      // feedback loop: visible already had last frame's ghost blit baked in).
       const gErase = Residual?.destGhostEraseAmount
         ? Residual.destGhostEraseAmount(g)
-        : Math.max(0.002, 0.05 * (1 - g));
+        : Math.max(0.004, 0.08 * (1 - g));
       gctx.save();
+      gctx.setTransform(1, 0, 0, 1, 0, 0);
       gctx.globalCompositeOperation = "source-over";
       gctx.globalAlpha = Math.max(0.002, Math.min(0.55, gErase));
       gctx.fillStyle = plateCss;
@@ -941,6 +964,7 @@ function nodeGraphScopeDestFadeTowardPlate(context, canvas, plateCss, trail, gho
     const gctx = canvas._scopeDestGhost.getContext("2d");
     if (gctx) {
       gctx.save();
+      gctx.setTransform(1, 0, 0, 1, 0, 0);
       gctx.globalCompositeOperation = "source-over";
       gctx.globalAlpha = 1;
       gctx.fillStyle = plateCss;
@@ -949,29 +973,82 @@ function nodeGraphScopeDestFadeTowardPlate(context, canvas, plateCss, trail, gho
     }
   }
 
-  // Hot path — Trail only (0 = freeze).
-  if (trailErase > 0) {
-    context.save();
-    context.globalCompositeOperation = "source-over";
-    context.globalAlpha = trailErase;
-    context.fillStyle = plateCss;
-    context.fillRect(0, 0, w, h);
-    context.restore();
+  // Visible = hot-only so new stamps + next deposit stay ghost-free.
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "copy";
+  context.globalAlpha = 1;
+  context.drawImage(hot, 0, 0);
+  context.restore();
+}
+
+/**
+ * After stamps: deposit hot ink into Ghost scorch, then present hot+ghost.
+ * Safe no-op when Ghost is 0 (visible already shows hot).
+ */
+function nodeGraphScopeDestFadeGhostAfterStamps(context, canvas) {
+  if (!context || !canvas) {
+    return;
+  }
+  const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+  const w = canvas.width | 0;
+  const h = canvas.height | 0;
+  const g = Math.max(0, Math.min(1, Number(canvas._scopeDestGhostAmount) || 0));
+  const plateCss = canvas._scopeDestGhostPlate || "#000000";
+  const hot = canvas._scopeDestHot;
+  if (!hot || hot.width !== w || hot.height !== h) {
+    return;
+  }
+  const hotCtx = hot.getContext("2d");
+  if (!hotCtx) {
+    return;
   }
 
-  // Dim scorch on top of faded hot (stamps draw after this).
-  if (g > 0 && canvas._scopeDestGhost) {
-    const present = Residual?.destGhostPresent
-      ? Residual.destGhostPresent(g)
-      : g * 0.25;
-    if (present > 0.0005) {
-      context.save();
-      context.globalCompositeOperation = "lighter";
-      context.globalAlpha = present;
-      context.drawImage(canvas._scopeDestGhost, 0, 0);
-      context.restore();
-    }
+  // Sync hot from visible (has new stamps; still ghost-free).
+  hotCtx.save();
+  hotCtx.setTransform(1, 0, 0, 1, 0, 0);
+  hotCtx.globalCompositeOperation = "copy";
+  hotCtx.globalAlpha = 1;
+  hotCtx.drawImage(canvas, 0, 0);
+  hotCtx.restore();
+
+  if (!(g > 0)) {
+    return;
   }
+
+  const gcan = nodeGraphScopeDestFadeEnsureLayer(canvas, "_scopeDestGhost", w, h, plateCss);
+  const gctx = gcan.getContext("2d");
+  if (!gctx) {
+    return;
+  }
+
+  const deposit = Residual?.destGhostDeposit
+    ? Residual.destGhostDeposit(g)
+    : g * 0.08;
+  if (deposit > 0.0005) {
+    gctx.save();
+    gctx.setTransform(1, 0, 0, 1, 0, 0);
+    gctx.globalCompositeOperation = "lighter";
+    gctx.globalAlpha = deposit;
+    gctx.drawImage(hot, 0, 0);
+    gctx.restore();
+  }
+
+  // Present: hot plate, then dim ghost on top (display only — hotBuf stays clean).
+  const present = Residual?.destGhostPresent
+    ? Residual.destGhostPresent(g)
+    : g * 0.2;
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "copy";
+  context.globalAlpha = 1;
+  context.drawImage(hot, 0, 0);
+  if (present > 0.0005) {
+    context.globalCompositeOperation = "lighter";
+    context.globalAlpha = present;
+    context.drawImage(gcan, 0, 0);
+  }
+  context.restore();
 }
 
 // nodeGraphScope2dBurnCanvasSquare → node-graph-module-scope-draw-burn.js

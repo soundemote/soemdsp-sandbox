@@ -169,7 +169,7 @@ function drawNodeGraphVectorRgbFaceItem(_renderer, item, pixelRatio) {
     return;
   }
 
-  // Trail = hot wipe; Ghost = separate dim scorch layer (own hang).
+  // Trail = hot wipe; Ghost = separate dim scorch (deposit/present after stamps).
   if (typeof nodeGraphScopeDestFadeTowardPlate === "function") {
     nodeGraphScopeDestFadeTowardPlate(ctx, canvas, bg, settings.trail, settings.ghost);
   } else {
@@ -181,85 +181,91 @@ function drawNodeGraphVectorRgbFaceItem(_renderer, item, pixelRatio) {
     ctx.restore();
   }
 
-  const source = nodeGraphRgbPickPortBuffer(slot, "X");
-  const sampleRate = Math.max(
-    1,
-    Number(source?.nodeGraphScopeSampleRate)
-      || Number(nodeGraphModuleScopeState?.sampleRate)
-      || Number(nodeGraphMvp?.sampleRate)
-      || 44100,
-  );
-  const abs = Math.max(0, Math.floor(Number(source?.nodeGraphScopeTotalSampleCount) || 0));
-  const prev = Number(canvas._vectorRgbAbs || 0);
-  const deltaSec = prev > 0 && abs > prev ? (abs - prev) / sampleRate : 0;
-  const catchUp = prev > 0
-    ? Math.min(0.25, Math.max(0.004, deltaSec))
-    : 0.05;
-  const captured = nodeGraphRgbAlignedCapture(
-    slot,
-    ["X", "Y", "R", "G", "B", "Blank"],
-    catchUp,
-  );
-  if (abs) {
-    canvas._vectorRgbAbs = abs;
-  }
-  if (!captured?.length) {
-    return;
-  }
+  try {
+    const source = nodeGraphRgbPickPortBuffer(slot, "X");
+    const sampleRate = Math.max(
+      1,
+      Number(source?.nodeGraphScopeSampleRate)
+        || Number(nodeGraphModuleScopeState?.sampleRate)
+        || Number(nodeGraphMvp?.sampleRate)
+        || 44100,
+    );
+    const abs = Math.max(0, Math.floor(Number(source?.nodeGraphScopeTotalSampleCount) || 0));
+    const prev = Number(canvas._vectorRgbAbs || 0);
+    const deltaSec = prev > 0 && abs > prev ? (abs - prev) / sampleRate : 0;
+    const catchUp = prev > 0
+      ? Math.min(0.25, Math.max(0.004, deltaSec))
+      : 0.05;
+    const captured = nodeGraphRgbAlignedCapture(
+      slot,
+      ["X", "Y", "R", "G", "B", "Blank"],
+      catchUp,
+    );
+    if (abs) {
+      canvas._vectorRgbAbs = abs;
+    }
+    if (!captured?.length) {
+      return;
+    }
 
-  const w = canvas.width;
-  const h = canvas.height;
-  const side = Math.min(w, h);
-  const ox = (w - side) * 0.5;
-  const oy = (h - side) * 0.5;
-  const scale = settings.scale;
-  const gain = settings.dot1Brightness;
-  const radius = Math.max(0.6, side * settings.dot1Size * 0.5);
-  const connectionsTo = typeof nodeGraphModuleScopeConnectionsTo === "function"
-    ? nodeGraphModuleScopeConnectionsTo
-    : () => [];
-  const blankWired = connectionsTo(slot.nodeId, "Blank").length > 0;
-  const rgbWired = ["R", "G", "B"].some((port) => connectionsTo(slot.nodeId, port).length > 0);
+    const w = canvas.width;
+    const h = canvas.height;
+    const side = Math.min(w, h);
+    const ox = (w - side) * 0.5;
+    const oy = (h - side) * 0.5;
+    const scale = settings.scale;
+    const gain = settings.dot1Brightness;
+    const radius = Math.max(0.6, side * settings.dot1Size * 0.5);
+    const connectionsTo = typeof nodeGraphModuleScopeConnectionsTo === "function"
+      ? nodeGraphModuleScopeConnectionsTo
+      : () => [];
+    const blankWired = connectionsTo(slot.nodeId, "Blank").length > 0;
+    const rgbWired = ["R", "G", "B"].some((port) => connectionsTo(slot.nodeId, port).length > 0);
 
-  const floatsPer = typeof TraceRgbPoints !== "undefined" ? TraceRgbPoints.FLOATS : 5;
-  let packed = canvas._vectorRgbPacked;
-  const need = captured.length * floatsPer;
-  if (!(packed instanceof Float32Array) || packed.length < need) {
-    packed = new Float32Array(Math.max(need, 4096 * floatsPer));
-    canvas._vectorRgbPacked = packed;
-  }
-  let count = 0;
-  for (let i = 0; i < captured.length; i += 1) {
-    if (blankWired && Number(captured.Blank[i]) >= 0.5) {
-      continue;
+    const floatsPer = typeof TraceRgbPoints !== "undefined" ? TraceRgbPoints.FLOATS : 5;
+    let packed = canvas._vectorRgbPacked;
+    const need = captured.length * floatsPer;
+    if (!(packed instanceof Float32Array) || packed.length < need) {
+      packed = new Float32Array(Math.max(need, 4096 * floatsPer));
+      canvas._vectorRgbPacked = packed;
     }
-    const x = nodeGraphVectorRgbUnitToPx(captured.X[i], ox, side, scale);
-    const y = nodeGraphVectorRgbUnitToPx(-captured.Y[i], oy, side, scale);
-    if (x == null || y == null) {
-      continue;
+    let count = 0;
+    for (let i = 0; i < captured.length; i += 1) {
+      if (blankWired && Number(captured.Blank[i]) >= 0.5) {
+        continue;
+      }
+      const x = nodeGraphVectorRgbUnitToPx(captured.X[i], ox, side, scale);
+      const y = nodeGraphVectorRgbUnitToPx(-captured.Y[i], oy, side, scale);
+      if (x == null || y == null) {
+        continue;
+      }
+      const r = (rgbWired ? Math.max(0, Math.min(1, Number(captured.R[i]) || 0)) : 1) * gain;
+      const g = (rgbWired ? Math.max(0, Math.min(1, Number(captured.G[i]) || 0)) : 1) * gain;
+      const b = (rgbWired ? Math.max(0, Math.min(1, Number(captured.B[i]) || 0)) : 1) * gain;
+      if (r + g + b <= 1e-6) {
+        continue;
+      }
+      const o = count * floatsPer;
+      packed[o] = x;
+      packed[o + 1] = y;
+      packed[o + 2] = r;
+      packed[o + 3] = g;
+      packed[o + 4] = b;
+      count += 1;
     }
-    const r = (rgbWired ? Math.max(0, Math.min(1, Number(captured.R[i]) || 0)) : 1) * gain;
-    const g = (rgbWired ? Math.max(0, Math.min(1, Number(captured.G[i]) || 0)) : 1) * gain;
-    const b = (rgbWired ? Math.max(0, Math.min(1, Number(captured.B[i]) || 0)) : 1) * gain;
-    if (r + g + b <= 1e-6) {
-      continue;
+    if (count <= 0) {
+      return;
     }
-    const o = count * floatsPer;
-    packed[o] = x;
-    packed[o + 1] = y;
-    packed[o + 2] = r;
-    packed[o + 3] = g;
-    packed[o + 4] = b;
-    count += 1;
-  }
-  if (count <= 0) {
-    return;
-  }
-  const stamped = typeof TraceRgbPoints !== "undefined"
-    && typeof TraceRgbPoints.stamp === "function"
-    && TraceRgbPoints.stamp(ctx, packed, count, { sizePx: radius * 2 });
-  if (!stamped) {
-    nodeGraphVectorRgbStampArcs(ctx, packed, count, radius);
+    const stamped = typeof TraceRgbPoints !== "undefined"
+      && typeof TraceRgbPoints.stamp === "function"
+      && TraceRgbPoints.stamp(ctx, packed, count, { sizePx: radius * 2 });
+    if (!stamped) {
+      nodeGraphVectorRgbStampArcs(ctx, packed, count, radius);
+    }
+  } finally {
+    if (typeof nodeGraphScopeDestFadeGhostAfterStamps === "function") {
+      nodeGraphScopeDestFadeGhostAfterStamps(ctx, canvas);
+    }
   }
 }
 

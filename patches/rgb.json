@@ -1299,12 +1299,12 @@
       "traceDisplaySettings": {
         "background": "#000000",
         "burn": 0.82,
-        "dot1Brightness": 0.2272,
+        "dot1Brightness": 0.0636,
         "dot1Size": 0.0276,
-        "ghost": 0.4818,
+        "ghost": 0.3455,
         "pixelDensity": 1,
         "scale": 1,
-        "trail": 0
+        "trail": 0.4363
       }
     },
     {
@@ -1500,9 +1500,9 @@
         }
       },
       "params": {
-        "frequency": 1102.1719936824438,
+        "frequency": 133.30173624865515,
         "octaves": 3,
-        "persistence": 0.17576153376096104,
+        "persistence": 0.8465195856069939,
         "scale": 1,
         "seed": 1,
         "amplitude": 1
