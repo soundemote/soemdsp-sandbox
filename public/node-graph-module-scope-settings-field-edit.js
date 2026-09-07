@@ -32,11 +32,19 @@ function setNodeGraphTraceDisplayFieldEditing(input, editing) {
   }
 }
 
+/**
+ * True only while the user is typing into a field (dblclick edit).
+ * Idle steppers are readonly for drag; do NOT treat bare readOnly===false as
+ * editing — fresh-mounted inputs default to writable and that used to skip
+ * seeding, then each outside click "committed" the next empty field one-by-one.
+ */
+function nodeGraphTraceDisplayFieldIsEditing(input) {
+  return Boolean(input?.classList?.contains("trace-display-field-editing"));
+}
+
 function nodeGraphTraceDisplayEditingField() {
   const root = nodeGraphTraceDisplaySettingsRoot();
-  return root?.querySelector?.("[data-trace-display-field].trace-display-field-editing")
-    || root?.querySelector?.("[data-trace-display-field]:not([readonly])")
-    || null;
+  return root?.querySelector?.("[data-trace-display-field].trace-display-field-editing") || null;
 }
 
 function beginNodeGraphTraceDisplayFieldEdit(event) {

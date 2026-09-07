@@ -1023,8 +1023,9 @@ function readNodeGraphTraceDisplaySettingsForm() {
     const input = root?.querySelector?.(`[data-trace-display-field="${key}"]`);
     if (input) {
       // Don't mutate the box mid-type-in (keeps "4." / "0." while editing).
-      const editing = input.classList.contains("trace-display-field-editing")
-        || input.readOnly === false;
+      const editing = typeof nodeGraphTraceDisplayFieldIsEditing === "function"
+        ? nodeGraphTraceDisplayFieldIsEditing(input)
+        : input.classList.contains("trace-display-field-editing");
       const sanitizedValue = typeof sanitizeNodeGraphNumericText === "function"
         ? sanitizeNodeGraphNumericText(input.value)
         : String(input.value ?? "").trim();
@@ -1395,8 +1396,11 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
     const input = root?.querySelector?.(`[data-trace-display-field="${key}"]`);
     if (input) {
       // Don't clobber an in-progress type-in (Cycles / History / Scale, …).
-      const editing = input.classList.contains("trace-display-field-editing")
-        || input.readOnly === false;
+      // Editing = class only — idle fields are readonly; bare readOnly===false
+      // used to skip every freshly mounted stepper (empty until each outside click).
+      const editing = typeof nodeGraphTraceDisplayFieldIsEditing === "function"
+        ? nodeGraphTraceDisplayFieldIsEditing(input)
+        : input.classList.contains("trace-display-field-editing");
       if (editing) {
         continue;
       }

@@ -852,8 +852,10 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
         }
         break;
       case "traceDisplaySettings": {
-        // Selected display face(s) → open settings (multi-select aware).
-        // Otherwise blank page: "Right-click on a display".
+        // Prefer an explicit / interactive target, then anything already pinned
+        // on the open form or remembered in workspace state. Blank only when
+        // there is genuinely nothing to edit — never wipe a just-seeded form
+        // because selection briefly looks empty during force-restore.
         const fromActions = typeof nodeGraphModuleActionTargetNodeId === "function"
           ? nodeGraphModuleActionTargetNodeId()
           : "";
@@ -862,12 +864,18 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
           : (typeof nodeGraphSingleSelectedNodeId === "function"
             ? nodeGraphSingleSelectedNodeId()
             : "");
+        const fromPinned = String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
+        const fromWorkspace = String(
+          nodeGraphMvp?.workspaceWindowStates?.traceDisplaySettings?.targetNode || "",
+        ).trim();
         const nodeId = String(
           options.nodeId
           || fromActions
           || fromSelection
           || nodeGraphMvp.sceneContextTargetNode
           || nodeGraphMvp.lastModuleActionTargetNode
+          || fromPinned
+          || fromWorkspace
           || "",
         ).trim();
         const node = nodeId && typeof nodeGraphPatchNode === "function"
@@ -878,6 +886,11 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
           && nodeGraphNodeCanOpenDisplaySettings(node);
         if (canOpen && typeof openNodeGraphTraceDisplaySettings === "function") {
           openNodeGraphTraceDisplaySettings(nodeId, options.event || {});
+        } else if (
+          typeof nodeGraphTraceDisplaySettingsFormIsSeeded === "function"
+          && nodeGraphTraceDisplaySettingsFormIsSeeded()
+        ) {
+          break;
         } else if (typeof openBlankNodeGraphTraceDisplaySettings === "function") {
           openBlankNodeGraphTraceDisplaySettings(options.event || {});
         }

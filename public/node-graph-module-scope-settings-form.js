@@ -250,7 +250,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
       ${labelHtml}
       <span class="metadata-stepper-control">
         <button type="button" data-trace-display-step-target="${key}" data-trace-display-step-direction="-1">-</button>
-        <input type="text" inputmode="${meta.inputmode || "decimal"}" data-trace-display-field="${key}"${idAttr}${titleAttr}${ariaAttr}>
+        <input type="text" inputmode="${meta.inputmode || "decimal"}" data-trace-display-field="${key}"${idAttr}${titleAttr}${ariaAttr} readonly>
         <button type="button" data-trace-display-step-target="${key}" data-trace-display-step-direction="1">+</button>
       </span>
     </label>`;
@@ -1054,9 +1054,10 @@ function syncNodeGraphLineBurnSweepLabel(root, settings = {}) {
     field.setAttribute("data-trace-display-field", key);
     field.title = title;
     field.setAttribute("aria-label", `${label} amount`);
-    // Same as History: Sync retargets the live key; don't clobber type-in.
-    const editing = field.classList.contains("trace-display-field-editing")
-      || field.readOnly === false;
+    // Sync retargets the live key; don't clobber intentional type-in.
+    const editing = typeof nodeGraphTraceDisplayFieldIsEditing === "function"
+      ? nodeGraphTraceDisplayFieldIsEditing(field)
+      : field.classList.contains("trace-display-field-editing");
     const stepBtns = row?.querySelectorAll?.("[data-trace-display-step-target]");
     if (stepBtns) {
       for (const btn of stepBtns) {
@@ -1119,9 +1120,10 @@ function syncNodeGraphWaterfallHistoryLabel(root, settings = {}) {
     field.setAttribute("data-trace-display-field", key);
     field.title = title;
     field.setAttribute("aria-label", `${label} amount`);
-    // Drag requires readOnly when idle. Never yank readOnly/value while typing.
-    const editing = field.classList.contains("trace-display-field-editing")
-      || field.readOnly === false;
+    // Drag requires readOnly when idle. Never yank value while typing.
+    const editing = typeof nodeGraphTraceDisplayFieldIsEditing === "function"
+      ? nodeGraphTraceDisplayFieldIsEditing(field)
+      : field.classList.contains("trace-display-field-editing");
     const stepBtns = row?.querySelectorAll?.("[data-trace-display-step-target]");
     if (stepBtns) {
       for (const btn of stepBtns) {

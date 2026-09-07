@@ -1073,7 +1073,9 @@ function updateNodeGraphTraceDisplaySettingsLive(event) {
   // (e.g. "4." → Number 4 → rewrite "4" before ".5" could be typed).
   if (
     field
-    && (field.classList.contains("trace-display-field-editing") || field.readOnly === false)
+    && (typeof nodeGraphTraceDisplayFieldIsEditing === "function"
+      ? nodeGraphTraceDisplayFieldIsEditing(field)
+      : field.classList.contains("trace-display-field-editing"))
   ) {
     if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
       markNodeGraphTraceDisplaySettingsDirty(
