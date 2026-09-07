@@ -747,6 +747,13 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  // Size (dot1Size) is 0…1 of the centered face square — F-fullscreen scales with it.
+  sinCos4Face: Object.freeze({
+    fields: Object.freeze(["dot1Size", "pixelDensity"]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
   limiterGainFace: Object.freeze({
     fields: Object.freeze(["historySeconds", "lineThickness", "hue", "lineBrightness"]),
     colors: Object.freeze(["backgroundColor"]),
@@ -1016,13 +1023,13 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhost",
-    title: "Dim scorched-floor hang. 0 = off. Mid = analog afterglow (capped, never full white). 1 = strongest ghost floor. Not Bright.",
+    title: "Dim scorch layer with its own hang (not Trail). 0 = off. Mid ≈ sweet afterglow. 1 = longest dim floor. Not Bright.",
   }),
   trail: Object.freeze({
     label: "Trail",
     inputmode: "decimal",
     id: "nodeTraceDisplayTrail",
-    title: "Hot residual length. 0 = die fast. ~0.88 = classic hang. 1 \u2248 freeze the bright path. Not Bright.",
+    title: "Hot stamp wipe rate only. 0 = die fast. ~0.88 = classic hang. 1 \u2248 freeze bright path. Ghost is separate. Not Bright.",
   }),
   bleed: Object.freeze({
     label: "Bleed",
@@ -1848,6 +1855,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   knobFace: "Knob",
   keypadFace: "Keypad",
   roundShapeFace: "RoundShape",
+  sinCos4Face: "SinCos4",
   textBoxFace: "Text Box",
   pluginSliderFace: "Slider",
   macroControlsFace: "Macro Controls",

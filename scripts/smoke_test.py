@@ -4721,7 +4721,13 @@ def require_node_graph_mvp_contract() -> None:
         and "TraceRgbPoints.stamp" in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
         and "nodeGraphScopeDestFadeTowardPlate" in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
         and "TraceHistoryDraw" not in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
+        and "destFadeAmount" in script_sources["./public/lib/phosphor/phosphor-residual.js"]
+        and "destGhostEraseAmount" in script_sources["./public/lib/phosphor/phosphor-residual.js"]
+        and "_scopeDestGhost" in script_sources["./public/node-graph-module-scope-paint-helpers.js"]
         and "function stamp(" in script_sources["./public/lib/trace/trace-rgb-points.js"]
+        and "drawNodeGraphSinCos4DisplayInner" in script_sources["./public/modules/sineWavetable/sine-wavetable-display.js"]
+        and "drawNodeGraphSinCos4FillDot" in script_sources["./public/modules/sineWavetable/sine-wavetable-display.js"]
+        and "SinCos4FaceGl" not in script_sources["./public/modules/sineWavetable/sine-wavetable-display.js"]
         and "this.efficientProduct" in (
             PUBLIC / "modules" / "sineWavetable" / "sine-wavetable-worklet-evaluator.js"
         ).read_text(encoding="utf-8")

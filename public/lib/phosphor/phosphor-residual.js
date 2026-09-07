@@ -47,7 +47,9 @@
   }
 
   /**
-   * keepSlow for Ghost floor. Mid ghost already multi-10s hang @60fps.
+   * keepSlow for Ghost floor (energy-GL dual path). Mid ghost already
+   * multi-second hang @60fps — correct for energy residual, too sticky when
+   * reused as a DestFade plate wipe (see destFadeAmount).
    */
   function ghostKeep(ghost, baseKeep) {
     const g = clamp01(ghost, 0);
@@ -60,10 +62,43 @@
     return Math.min(0.99975, Math.max(k, slow));
   }
 
+  /**
+   * Trail-only plate wipe for DestFade hot path. Ghost is a separate dim
+   * scorch layer (destGhostEraseAmount / deposit / present) — mixing Ghost
+   * into this erase made Ghost feel identical to Trail.
+   */
+  function destFadeAmount(trail, _ghost = 0) {
+    const trailErase = trailFadeAmount(trail);
+    if (!(trailErase > 0)) {
+      return 0; // Trail ≈ freeze
+    }
+    return Math.max(0.002, Math.min(0.55, trailErase));
+  }
+
+  /**
+   * Ghost-layer erase/frame (independent of Trail). Continuous from 0.
+   * Mid (~0.35) ≈ 0.008 sweet hang @60fps; 1 ≈ 0.0025 long dim scorch.
+   */
+  function destGhostEraseAmount(ghost) {
+    const g = clamp01(ghost, 0);
+    return 0.0025 + 0.0475 * Math.pow(1 - g, 3.5);
+  }
+
+  /** How much of the hot image scorches into the Ghost layer each frame. */
+  function destGhostDeposit(ghost) {
+    const g = clamp01(ghost, 0);
+    return g * 0.12 + g * g * 0.18;
+  }
+
   /** Dim floor ceiling (readable scorch, never full peak). */
   function ghostCap(ghost) {
     const g = clamp01(ghost, 0);
     return g * 0.12 + g * g * 0.38;
+  }
+
+  /** Present gain when blitting the Ghost scorch onto the hot face. */
+  function destGhostPresent(ghost) {
+    return ghostCap(ghost);
   }
 
   /**
@@ -161,6 +196,10 @@
     trailFadeAmount,
     trailKeep,
     ghostKeep,
+    destFadeAmount,
+    destGhostEraseAmount,
+    destGhostDeposit,
+    destGhostPresent,
     ghostCap,
     applyResidual,
     residualKeeps,

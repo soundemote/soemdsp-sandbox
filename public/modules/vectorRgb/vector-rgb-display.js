@@ -4,10 +4,11 @@
 
 const nodeGraphVectorRgbSettingsDefaults = Object.freeze({
   background: "#000000",
-  burn: 0.82,
+  burn: 0,
   dot1Brightness: 1,
   dot1Size: 0.08,
-  ghost: typeof PhosphorResidual !== "undefined" ? PhosphorResidual.DEFAULT_GHOST : 0.35,
+  // Mid Ghost ≈ DestFade erase 0.008 (sweet hang); see PhosphorResidual.destFadeAmount.
+  ghost: 0.35,
   pixelDensity: 1,
   scale: 1,
   trail: 0.86,
@@ -168,7 +169,7 @@ function drawNodeGraphVectorRgbFaceItem(_renderer, item, pixelRatio) {
     return;
   }
 
-  // Residual-style hang: stronger keep at high Trail / Ghost (slow dim floor).
+  // Trail = hot wipe; Ghost = separate dim scorch layer (own hang).
   if (typeof nodeGraphScopeDestFadeTowardPlate === "function") {
     nodeGraphScopeDestFadeTowardPlate(ctx, canvas, bg, settings.trail, settings.ghost);
   } else {

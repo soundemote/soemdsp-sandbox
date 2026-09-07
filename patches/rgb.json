@@ -110,34 +110,6 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "b2u-1",
-      "destinationPort": "In",
-      "sourceNode": "sineWavetable-4",
-      "sourcePort": "A",
-      "tracePoints": []
-    },
-    {
-      "destinationNode": "output",
-      "destinationPort": "Left",
-      "sourceNode": "sineWavetable-3",
-      "sourcePort": "A",
-      "tracePoints": []
-    },
-    {
-      "destinationNode": "output",
-      "destinationPort": "Mono",
-      "sourceNode": "sineWavetable-3",
-      "sourcePort": "B",
-      "tracePoints": []
-    },
-    {
-      "destinationNode": "output",
-      "destinationPort": "Right",
-      "sourceNode": "sineWavetable-3",
-      "sourcePort": "C",
-      "tracePoints": []
-    },
-    {
       "destinationNode": "output",
       "destinationPort": "Left",
       "sourceNode": "fractalBrownianNoise-1",
@@ -153,9 +125,23 @@
     },
     {
       "destinationNode": "output",
-      "destinationPort": "Mono",
-      "sourceNode": "fractalBrownianNoise-1",
-      "sourcePort": "Out Z",
+      "destinationPort": "Left",
+      "sourceNode": "sineWavetable-3",
+      "sourcePort": "A",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "output",
+      "destinationPort": "Right",
+      "sourceNode": "sineWavetable-3",
+      "sourcePort": "C",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "attenuverter-1",
+      "destinationPort": "In",
+      "sourceNode": "sineWavetable-4",
+      "sourcePort": "A",
       "tracePoints": []
     }
   ],
@@ -184,7 +170,7 @@
     {
       "destinationNode": "sineWavetable-3",
       "destinationParam": "phase",
-      "sourceNode": "b2u-1",
+      "sourceNode": "attenuverter-1",
       "sourcePort": "Out",
       "tracePoints": []
     }
@@ -192,7 +178,7 @@
   "monitors": [],
   "nodes": [
     {
-      "gx": 12,
+      "gx": 11,
       "gy": -7,
       "id": "output",
       "paramMeta": {
@@ -260,7 +246,7 @@
         }
       },
       "params": {
-        "volume": -15.545884832298725,
+        "volume": -6,
         "pan": 0
       },
       "type": "output",
@@ -317,8 +303,8 @@
       }
     },
     {
-      "gx": 0,
-      "gy": -2,
+      "gx": -2,
+      "gy": -5,
       "id": "rasterRgb-1",
       "paramMeta": {
         "width": {
@@ -339,9 +325,9 @@
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "global",
-          "smoothingSeconds": 1469,
+          "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
-          "step": 0,
+          "step": 1,
           "tooltip": "Pixels per line. 0 = no raster. 1 = one pixel. Slider 0…512 is a guide only — type larger values if you want.",
           "modClamp": false,
           "hardClamp": false,
@@ -370,9 +356,9 @@
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "global",
-          "smoothingSeconds": 13230,
+          "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
-          "step": 0,
+          "step": 1,
           "tooltip": "Number of lines. 0 = no raster. 1 = one pixel. W×H samples fill one rolling frame. Slider max is a guide only.",
           "modClamp": false,
           "hardClamp": false,
@@ -571,14 +557,14 @@
         }
       },
       "params": {
-        "width": 81.3745007566016,
-        "height": 20.23115811710202,
+        "width": 73,
+        "height": 21,
         "contrast": 1,
         "brightness": 1,
         "hue": 0,
-        "blur": 0.12237859325604523,
-        "glow": 0.0759591268485798,
-        "invert": 0.0016879805966351067
+        "blur": 0.2220017373492755,
+        "glow": 0,
+        "invert": 0
       },
       "type": "rasterRgb",
       "alias": "RGB Pixel Grid",
@@ -593,7 +579,7 @@
       }
     },
     {
-      "gx": -8,
+      "gx": -9,
       "gy": -14,
       "id": "sineWavetable-2",
       "paramMeta": {
@@ -806,26 +792,10 @@
         "zoomSeconds": 0.25,
         "fade": 0,
         "xyzLayout": "stack"
-      },
-      "ui": {
-        "buttonsHidden": false,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": true,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": false
       }
     },
     {
-      "gx": -1,
+      "gx": -2,
       "gy": -14,
       "id": "traceRgb-1",
       "paramMeta": {},
@@ -886,8 +856,8 @@
       }
     },
     {
-      "gx": -8,
-      "gy": -3,
+      "gx": -9,
+      "gy": 0,
       "id": "sineWavetable-3",
       "paramMeta": {
         "mode": {
@@ -979,8 +949,8 @@
           "sliderCurve": "linear",
           "showSign": false,
           "removeTrailingZeros": false,
-          "smoothingMode": "off",
-          "smoothingSeconds": 1469,
+          "smoothingMode": "global",
+          "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0.01,
           "tooltip": "",
@@ -997,21 +967,21 @@
           "alias": "",
           "choices": [],
           "curveAmount": 0,
-          "def": 809,
+          "def": 100,
           "displayChoices": false,
           "divideChoicesVisibly": false,
           "kind": "frequency",
           "bipolar": false,
-          "max": 900,
-          "maxDigits": 8,
-          "mid": 800,
-          "min": 10,
+          "max": 20000,
+          "maxDigits": 5,
+          "mid": 440,
+          "min": 0,
           "nonlinearSlider": true,
           "sliderCurve": "skew",
           "showSign": false,
           "removeTrailingZeros": false,
-          "smoothingMode": "off",
-          "smoothingSeconds": 1469,
+          "smoothingMode": "global",
+          "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
           "tooltip": "Hz. Parameter MOD is domain-add (base + CV). Set base 0 and wire Pitch Detector / Knob Bias for absolute Hz. Enable Bipolar in param settings for thru-zero FM (negative Hz = reverse phase).",
@@ -1060,7 +1030,7 @@
         "mode": 4,
         "method": 1,
         "phase": 0,
-        "freq": 751.0381720084334,
+        "freq": 1037,
         "amp": 1
       },
       "type": "sineWavetable",
@@ -1102,7 +1072,7 @@
       }
     },
     {
-      "gx": -23,
+      "gx": -24,
       "gy": -2,
       "id": "sineWavetable-4",
       "paramMeta": {
@@ -1273,13 +1243,14 @@
         }
       },
       "params": {
-        "mode": 1,
+        "mode": 4,
         "method": 1,
         "phase": 0,
-        "freq": 13.808,
+        "freq": 0.15,
         "amp": 1
       },
       "type": "sineWavetable",
+      "widthGu": 7,
       "traceDisplaySettings": {
         "backgroundHue": 0,
         "backgroundBrightness": 0,
@@ -1317,7 +1288,7 @@
       }
     },
     {
-      "gx": -16,
+      "gx": -17,
       "gy": -14,
       "id": "vectorRgb-1",
       "paramMeta": {},
@@ -1328,15 +1299,16 @@
       "traceDisplaySettings": {
         "background": "#000000",
         "burn": 0.82,
-        "dot1Brightness": 0.8228,
-        "dot1Size": 0.0231,
+        "dot1Brightness": 0.2272,
+        "dot1Size": 0.0276,
+        "ghost": 0.4818,
         "pixelDensity": 1,
         "scale": 1,
-        "trail": 1
+        "trail": 0
       }
     },
     {
-      "gx": -23,
+      "gx": -24,
       "gy": -14,
       "id": "fractalBrownianNoise-1",
       "paramMeta": {
@@ -1528,10 +1500,10 @@
         }
       },
       "params": {
-        "frequency": 1655.3021914270212,
+        "frequency": 1102.1719936824438,
         "octaves": 3,
-        "persistence": 0.36665932272655594,
-        "scale": 0.41957103697078,
+        "persistence": 0.17576153376096104,
+        "scale": 1,
         "seed": 1,
         "amplitude": 1
       },
@@ -1581,14 +1553,80 @@
       }
     },
     {
-      "gx": -14,
-      "gy": 4,
-      "id": "b2u-1",
-      "paramMeta": {},
-      "params": {},
-      "type": "b2u",
-      "alias": "B2U",
-      "widthGu": 3,
+      "gx": -17,
+      "gy": -1,
+      "id": "attenuverter-1",
+      "paramMeta": {
+        "amplitude": {
+          "alias": "",
+          "choices": [],
+          "curveAmount": 0.55,
+          "def": 0.5,
+          "displayChoices": false,
+          "divideChoicesVisibly": false,
+          "kind": "decimal",
+          "bipolar": false,
+          "max": 10,
+          "maxDigits": 3,
+          "mid": 0.5,
+          "min": 0,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "global",
+          "smoothingSeconds": 1469,
+          "smoothingType": "linear",
+          "step": 0,
+          "tooltip": "Scale and invert. 0 = mute, +1 = unity, −1 = invert. Bipolar rational is finer around 0.",
+          "modClamp": false,
+          "hardClamp": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": true,
+          "outputDomain": false
+        },
+        "offset": {
+          "alias": "",
+          "choices": [],
+          "curveAmount": 0,
+          "def": 0,
+          "displayChoices": false,
+          "divideChoicesVisibly": false,
+          "kind": "decimal",
+          "bipolar": true,
+          "max": 1,
+          "maxDigits": 3,
+          "mid": 0,
+          "min": -1,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": true,
+          "removeTrailingZeros": false,
+          "smoothingMode": "global",
+          "smoothingSeconds": 0.0333,
+          "smoothingType": "linear",
+          "step": 0,
+          "tooltip": "DC offset after scale.",
+          "modClamp": false,
+          "hardClamp": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": false,
+          "linearSmoothing": true,
+          "outputDomain": false
+        }
+      },
+      "params": {
+        "amplitude": 4,
+        "offset": 0
+      },
+      "type": "attenuverter",
+      "alias": "A → phase",
+      "widthGu": 8,
       "traceDisplaySettings": {
         "backgroundHue": 0,
         "backgroundBrightness": 0,
@@ -1857,7 +1895,7 @@
   "view": {
     "heightGu": 13,
     "widthGu": 16,
-    "zoom": 0.797193877551021,
+    "zoom": 1.000000000000001,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,
@@ -1870,8 +1908,7 @@
     "sliderPositionVisible": true,
     "tooltipEmbedded": false,
     "locked": false,
-    "hideUnusedPorts": false,
-    "moduleScopeFramesPerSecond": 60
+    "hideUnusedPorts": false
   },
   "visual": {
     "background": {

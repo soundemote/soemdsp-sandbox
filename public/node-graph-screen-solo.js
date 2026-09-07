@@ -282,9 +282,11 @@ function nodeGraphScreenSoloWakeFace(face) {
   if (face.classList.contains("node-sincos4-display")) {
     face._sinCos4ForceDraw = true;
     face._sinCos4LaidOut = false;
+    // Force buffer remeasure — F stage size must rebuild 0…1 → px mapping.
     if (typeof drawNodeGraphSinCos4Display === "function") {
       drawNodeGraphSinCos4Display(face);
     }
+    face._startFaceLoop?.();
   }
   if (face.classList.contains("node-image-burn-face")
     || face.querySelector?.(".node-image-burn-canvas")) {

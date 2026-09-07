@@ -4512,6 +4512,10 @@ static void sin_cos4_from_pair(
 
 // Shared SinCos / SinCos4 advance. method (shape): 0=poly, 1=additive LUT.
 // Returns sin/cos pair; caller maps to face ports.
+// Phase is a free-run offset (cycles→radians), same model as polyBlep/BLIT:
+// re-apply Control phase every sample while the smoother chases. Freezing it
+// ZOH for the quantum made Phase scrub zipper/scratch despite smoothing —
+// smoother_run only advances after process, so audio heard one jump per block.
 static void sin_cos_pair_advance(
   Circuit& g, Node& node, int frames, bool applyMode4
 ) {
@@ -4521,9 +4525,8 @@ static void sin_cos_pair_advance(
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool controlSmoothing = node_control_smoothing(node);
   const double referenceVoltage = 48.0 / 120.0;
-  const double phaseOff = control_effective(node.phaseParam) * kTwoPi;
-  const double amp = control_effective(node.amplitude);
   const double methodV = control_effective(node.shape);
   const int method = (methodV >= 0.5) ? 1 : 0;
   soemdsp_sine_wavetable_set_method(node.nativeHandle, method);
@@ -4538,6 +4541,10 @@ static void sin_cos_pair_advance(
 
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
+    if (controlSmoothing) smoother_step_node(g, node);
+    const double phaseOff = control_effective(node.phaseParam) * kTwoPi;
+    double amp = control_effective(node.amplitude);
+    if (!(amp == amp)) amp = 0.0;
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {

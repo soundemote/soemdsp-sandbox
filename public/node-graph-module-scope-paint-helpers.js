@@ -881,22 +881,97 @@ function nodeGraphScope2dTraceCanvasSquare(canvas) {
   return nodeGraphScope2dBurnCanvasSquare(canvas);
 }
 
-/** Fade dest pixels toward the plate (Ghost/Trail dest persist). */
+/**
+ * DestFade plate persist — Trail and Ghost are separate:
+ *   Trail → hot wipe rate on the visible canvas
+ *   Ghost → dim scorch layer with its own hang (not a Trail remix)
+ */
 function nodeGraphScopeDestFadeTowardPlate(context, canvas, plateCss, trail, ghost) {
   if (!context || !canvas) {
     return;
   }
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
-  const keeps = Residual?.residualKeeps
-    ? Residual.residualKeeps(trail, ghost)
-    : { keepSlow: Math.max(0, Number(trail) || 0) * 0.97 };
-  const fade = Math.max(0.002, Math.min(0.55, 1 - Number(keeps.keepSlow)));
-  context.save();
-  context.globalCompositeOperation = "source-over";
-  context.globalAlpha = fade;
-  context.fillStyle = plateCss;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.restore();
+  const w = canvas.width | 0;
+  const h = canvas.height | 0;
+  if (w < 1 || h < 1) {
+    return;
+  }
+  const g = Math.max(0, Math.min(1, Number(ghost) || 0));
+  const trailErase = Residual?.destFadeAmount
+    ? Residual.destFadeAmount(trail, 0)
+    : Math.max(0.002, Math.min(0.55, 1 - Math.max(0, Number(trail) || 0) * 0.97));
+
+  if (g > 0) {
+    let gcan = canvas._scopeDestGhost;
+    if (!gcan || gcan.width !== w || gcan.height !== h) {
+      gcan = document.createElement("canvas");
+      gcan.width = w;
+      gcan.height = h;
+      canvas._scopeDestGhost = gcan;
+      const boot = gcan.getContext("2d");
+      if (boot) {
+        boot.globalAlpha = 1;
+        boot.fillStyle = plateCss;
+        boot.fillRect(0, 0, w, h);
+      }
+    }
+    const gctx = gcan.getContext("2d");
+    if (gctx) {
+      const deposit = Residual?.destGhostDeposit
+        ? Residual.destGhostDeposit(g)
+        : g * 0.2;
+      if (deposit > 0.0005) {
+        gctx.save();
+        gctx.globalCompositeOperation = "lighter";
+        gctx.globalAlpha = deposit;
+        gctx.drawImage(canvas, 0, 0);
+        gctx.restore();
+      }
+      const gErase = Residual?.destGhostEraseAmount
+        ? Residual.destGhostEraseAmount(g)
+        : Math.max(0.002, 0.05 * (1 - g));
+      gctx.save();
+      gctx.globalCompositeOperation = "source-over";
+      gctx.globalAlpha = Math.max(0.002, Math.min(0.55, gErase));
+      gctx.fillStyle = plateCss;
+      gctx.fillRect(0, 0, w, h);
+      gctx.restore();
+    }
+  } else if (canvas._scopeDestGhost) {
+    const gctx = canvas._scopeDestGhost.getContext("2d");
+    if (gctx) {
+      gctx.save();
+      gctx.globalCompositeOperation = "source-over";
+      gctx.globalAlpha = 1;
+      gctx.fillStyle = plateCss;
+      gctx.fillRect(0, 0, w, h);
+      gctx.restore();
+    }
+  }
+
+  // Hot path — Trail only (0 = freeze).
+  if (trailErase > 0) {
+    context.save();
+    context.globalCompositeOperation = "source-over";
+    context.globalAlpha = trailErase;
+    context.fillStyle = plateCss;
+    context.fillRect(0, 0, w, h);
+    context.restore();
+  }
+
+  // Dim scorch on top of faded hot (stamps draw after this).
+  if (g > 0 && canvas._scopeDestGhost) {
+    const present = Residual?.destGhostPresent
+      ? Residual.destGhostPresent(g)
+      : g * 0.25;
+    if (present > 0.0005) {
+      context.save();
+      context.globalCompositeOperation = "lighter";
+      context.globalAlpha = present;
+      context.drawImage(canvas._scopeDestGhost, 0, 0);
+      context.restore();
+    }
+  }
 }
 
 // nodeGraphScope2dBurnCanvasSquare → node-graph-module-scope-draw-burn.js

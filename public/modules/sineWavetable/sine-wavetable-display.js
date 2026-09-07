@@ -1,5 +1,7 @@
-// SinCos4 face — unit circle with mode-dependent phase lines (1…4).
-// Lines rotate with live oscillator phase; A/B/C match jack RGB chrome.
+// SinCos4 face — unit circle + mode phase rays (1…4).
+// Geometry is authored in 0…1 face space (centered square), then scaled to the
+// canvas so F-fullscreen / resize keep proportions. Position markers are round
+// dots (never square caps / stretched buffer pixels).
 
 function createNodeGraphSinCos4Display(nodeId, type = "sineWavetable") {
   const id = nodeId && typeof nodeId === "object"
@@ -11,18 +13,24 @@ function createNodeGraphSinCos4Display(nodeId, type = "sineWavetable") {
   section.dataset.nodeType = String(type || "sineWavetable");
   section.dataset.parameterVisual = "true";
   section.dataset.lightSource = "screen";
-  section.dataset.lightStrength = "0.66";
+  section.dataset.lightStrength = "0.85";
   const canvas = document.createElement("canvas");
   canvas.className = "node-filter-curve-canvas node-sincos4-canvas";
   canvas.dataset.lightSource = "screen";
-  canvas.dataset.lightStrength = "0.66";
+  canvas.dataset.lightStrength = "0.85";
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
   section.append(canvas);
+  section._sinCos4Canvas = canvas;
   nodeGraphInstallDrawingFacePump(section, {
     clockKey: (el) => `sinCos4:${el.dataset?.node || ""}`,
     forceKey: "_sinCos4ForceDraw",
     rafKey: "_sinCos4PlayheadRaf",
     paint: drawNodeGraphSinCos4Display,
-    onResize: (el) => { el._sinCos4LaidOut = false; },
+    onResize: (el) => {
+      el._sinCos4LaidOut = false;
+      el._sinCos4ForceDraw = true;
+    },
     paintOnCreate: false,
   });
   requestAnimationFrame(() => {
@@ -53,14 +61,31 @@ function nodeGraphSinCos4PhaseOffsets(mode) {
   return [0, 0.25, 0.5, 0.75];
 }
 
-function nodeGraphSinCos4LineColors(count) {
-  const rgb = [
-    "rgba(255, 90, 90, 0.95)",
-    "rgba(90, 220, 120, 0.95)",
-    "rgba(90, 160, 255, 0.95)",
-    "rgba(240, 210, 120, 0.95)",
-  ];
-  return rgb.slice(0, Math.max(0, count));
+const NODE_GRAPH_SINCOS4_COLORS = Object.freeze([
+  "rgb(255, 90, 90)",
+  "rgb(90, 220, 120)",
+  "rgb(90, 160, 255)",
+  "rgb(240, 210, 120)",
+]);
+
+/** Face look in 0…1 of the centered square (F-safe). */
+function nodeGraphSinCos4FaceNorm(node) {
+  const td = node?.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+    ? node.traceDisplaySettings
+    : {};
+  const clamp01 = (v, fb) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fb;
+  };
+  // dot1Size 0…1 → tip radius in unit square (default ~2.2% of side).
+  const tip = 0.01 + clamp01(td.dot1Size, 0.08) * 0.04;
+  return {
+    radius: 0.38,
+    stroke: 0.012,
+    tip,
+    hub: tip * 0.7,
+    pixelDensity: clamp01(td.pixelDensity, 1) || 1,
+  };
 }
 
 function nodeGraphSinCos4Wrap01(v) {
@@ -74,19 +99,7 @@ function nodeGraphSinCos4ReadPhase(nodeId, node, section) {
     if (Number.isFinite(live)) {
       return nodeGraphSinCos4Wrap01(live);
     }
-    // Derive from A/B when quadrature is present.
-    const mode = Math.round(nodeGraphSinCos4LiveParam(node, "mode", 2));
-    const a = Number(nodeGraphModuleScopeLatestOutputValue(nodeId, "A", Number.NaN));
-    const b = Number(nodeGraphModuleScopeLatestOutputValue(nodeId, "B", Number.NaN));
-    if ((mode === 2 || mode === 5) && Number.isFinite(a) && Number.isFinite(b)) {
-      return nodeGraphSinCos4Wrap01(Math.atan2(a, b) / (Math.PI * 2));
-    }
-    if (mode === 4 && Number.isFinite(a) && Number.isFinite(b)) {
-      const cos = (b + 0.5 * a) / (Math.sqrt(3) * 0.5);
-      return nodeGraphSinCos4Wrap01(Math.atan2(a, cos) / (Math.PI * 2));
-    }
   }
-  // Local clock fallback (matches BasicShape when __Phase is cold).
   const now = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
   const freq = Number(nodeGraphSinCos4LiveParam(node, "freq", 100)) || 0;
   const offset = Number(nodeGraphSinCos4LiveParam(node, "phase", 0)) || 0;
@@ -119,96 +132,116 @@ function drawNodeGraphSinCos4Display(section) {
   }
 }
 
+function drawNodeGraphSinCos4FillDot(ctx, x, y, r, fillStyle) {
+  if (!(r > 0)) {
+    return;
+  }
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.fillStyle = fillStyle;
+  ctx.fill();
+}
+
 function drawNodeGraphSinCos4DisplayInner(section) {
-  const nodeId = section?.dataset?.node
-    || section?.closest?.(".dsp-node")?.dataset?.node
+  if (!section || section.isConnected === false) {
+    return;
+  }
+  const nodeId = section.dataset?.node
+    || section.closest?.(".dsp-node")?.dataset?.node
     || "";
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  const canvas = section?.querySelector?.(".node-sincos4-canvas")
-    || section?.querySelector?.("canvas");
+  const canvas = section._sinCos4Canvas
+    || section.querySelector?.(".node-sincos4-canvas")
+    || section.querySelector?.("canvas");
   if (!node || !canvas) {
     return;
   }
+  section._sinCos4Canvas = canvas;
 
-  let rawW = Number(section.clientWidth || section.offsetWidth) || 0;
-  let rawH = Number(section.clientHeight || section.offsetHeight) || 0;
-  if (rawW < 8 || rawH < 8) {
-    const stage = section.closest?.("#nodeScreenSoloStage");
-    if (stage) {
-      rawW = Math.max(rawW, stage.clientWidth || 0);
-      rawH = Math.max(rawH, stage.clientHeight || 0);
+  const look = nodeGraphSinCos4FaceNorm(node);
+  let ctx;
+  let pixelRatio = 1;
+  let cssW = 0;
+  let cssH = 0;
+  if (typeof nodeGraphSizeDisplayCanvas === "function") {
+    const metrics = nodeGraphSizeDisplayCanvas(section, canvas, { pixelDensity: look.pixelDensity });
+    if (!metrics?.context) {
+      return;
+    }
+    ctx = metrics.context;
+    pixelRatio = Math.max(1e-6, Number(metrics.pixelRatio) || 1);
+    cssW = Math.max(1, (metrics.width || canvas.width) / pixelRatio);
+    cssH = Math.max(1, (metrics.height || canvas.height) / pixelRatio);
+  } else {
+    let rawW = Number(section.clientWidth || section.offsetWidth) || 0;
+    let rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+    if (rawW < 8 || rawH < 8) {
+      return;
+    }
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    pixelRatio = dpr * Math.max(look.pixelDensity, 1e-6);
+    cssW = rawW;
+    cssH = rawH;
+    canvas.width = Math.max(1, Math.round(cssW * pixelRatio));
+    canvas.height = Math.max(1, Math.round(cssH * pixelRatio));
+    ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
     }
   }
-  const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-  const w = Math.max(1, Math.round(rawW * dpr));
-  const h = Math.max(1, Math.round(rawH * dpr));
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w;
-    canvas.height = h;
-    section._sinCos4LaidOut = false;
-  }
-  canvas.style.width = "100%";
-  canvas.style.height = "100%";
-
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
 
   const mode = Math.max(0, Math.min(5, Math.round(nodeGraphSinCos4LiveParam(node, "mode", 2))));
   const offsets = nodeGraphSinCos4PhaseOffsets(mode);
-  const colors = nodeGraphSinCos4LineColors(offsets.length);
   const phase = nodeGraphSinCos4ReadPhase(nodeId, node, section);
 
-  const bg = "#05060a";
-  if (typeof nodeGraphFacePlateFillCanvas === "function") {
-    nodeGraphFacePlateFillCanvas(ctx, canvas, bg);
-  } else {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, w, h);
-  }
+  // CSS-pixel plate, then a centered unit square (0…1) so F scales cleanly.
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.fillStyle = "#05060a";
+  ctx.fillRect(0, 0, cssW, cssH);
 
-  const cx = w * 0.5;
-  const cy = h * 0.5;
-  // Face geometry ignores Amplitude — amp still drives the audio outs only.
-  const radius = Math.max(8, Math.min(w, h) * 0.38);
-  const stroke = Math.max(1, Math.min(w, h) * 0.012);
+  const side = Math.min(cssW, cssH);
+  const ox = (cssW - side) * 0.5;
+  const oy = (cssH - side) * 0.5;
+  ctx.translate(ox, oy);
+  ctx.scale(side, side);
 
-  // Unit circle only (no crosshair).
+  const cx = 0.5;
+  const cy = 0.5;
+  const radius = look.radius;
+  const stroke = look.stroke;
+  const tipR = look.tip;
+  const hubR = look.hub;
+
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
   ctx.strokeStyle = "rgba(160, 190, 210, 0.35)";
   ctx.lineWidth = stroke;
+  ctx.lineCap = "butt";
+  ctx.lineJoin = "round";
   ctx.stroke();
 
-  // Phase lines (A/B/C/D)
+  // Rays: butt caps (no square tips) — position shown by round dots only.
   for (let i = 0; i < offsets.length; i += 1) {
     const ang = (phase + offsets[i]) * Math.PI * 2;
-    // cos→X, sin→Y (math), canvas Y flips
     const x = cx + Math.cos(ang) * radius;
     const y = cy - Math.sin(ang) * radius;
+    const color = NODE_GRAPH_SINCOS4_COLORS[i] || NODE_GRAPH_SINCOS4_COLORS[3];
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(x, y);
-    ctx.strokeStyle = colors[i] || "rgba(240, 210, 120, 0.95)";
+    ctx.strokeStyle = color;
     ctx.lineWidth = stroke * (i === 0 ? 1.35 : 1);
-    ctx.lineCap = "round";
+    ctx.lineCap = "butt";
     ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(x, y, stroke * 1.6, 0, Math.PI * 2);
-    ctx.fillStyle = colors[i] || "rgba(240, 210, 120, 0.95)";
-    ctx.fill();
+    drawNodeGraphSinCos4FillDot(ctx, x, y, tipR * (i === 0 ? 1.15 : 1), color);
   }
 
-  // Center hub
-  ctx.beginPath();
-  ctx.arc(cx, cy, stroke * 1.2, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(220, 230, 240, 0.85)";
-  ctx.fill();
+  drawNodeGraphSinCos4FillDot(ctx, cx, cy, hubR, "rgba(220, 230, 240, 0.9)");
 
-  if (section.dataset) {
-    section.dataset.lightStrength = "0.85";
-  }
   section._sinCos4LaidOut = true;
+  section._sinCos4ForceDraw = false;
 }
 
 if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {
