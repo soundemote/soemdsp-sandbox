@@ -340,7 +340,7 @@
 
   function buildStampVertices(pathPoints, radius, blur, maxDots, options = {}) {
     const corners = [0, 1, 2, 1, 3, 2];
-    const cap = Math.max(1, Math.min(8192, Math.floor(Number(maxDots) || 2048)));
+    const cap = Math.max(1, Math.min(16384, Math.floor(Number(maxDots) || 2048)));
     const out = [];
     let stamps = 0;
     const push = (x, y) => {
@@ -576,7 +576,8 @@
       pathPoints,
       radius,
       blur,
-      Math.max(8, Math.min(8192, Math.round(Number(options.maxDots) || 4096))),
+      // Waterfall catch-up + tall Scale envelopes need headroom past 8k.
+      Math.max(8, Math.min(16384, Math.round(Number(options.maxDots) || 4096))),
       {
         ...options,
         stampCarry: tape.stampCarry,

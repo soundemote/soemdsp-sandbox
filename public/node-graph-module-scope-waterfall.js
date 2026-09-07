@@ -10,9 +10,26 @@ function nodeGraphWaterfallNowMs() {
     : Date.now();
 }
 
+/** Freerun window seconds — prefer History (Hz); fall back to legacy seconds. */
 function nodeGraphWaterfallHistorySeconds(settings) {
+  const hz = Number(settings?.historyHz);
+  if (Number.isFinite(hz)) {
+    if (hz <= 0) {
+      return 0;
+    }
+    return 1 / hz;
+  }
   const n = Number(settings?.historySeconds ?? settings?.zoomSeconds);
   return Number.isFinite(n) && n >= 0 ? n : 2;
+}
+
+/** Sync-on cycles in view (not historySeconds — that bug made Cycles feel broken). */
+function nodeGraphWaterfallHistoryCycles(settings) {
+  const n = Number(settings?.historyCycles);
+  if (Number.isFinite(n) && n > 0) {
+    return Math.max(0.05, Math.min(100, n));
+  }
+  return 4;
 }
 
 function nodeGraphWaterfallIsNowLine(settings) {
@@ -461,6 +478,27 @@ function nodeGraphWaterfallShiftPath(points, x0) {
   return points.map((p) => (p && Number.isFinite(p.x) ? { x: p.x + ox, y: p.y } : p));
 }
 
+/** Polyline length in px (null breaks reset). Used for stamp budget vs Scale. */
+function nodeGraphWaterfallPathLength(points) {
+  if (!Array.isArray(points) || !points.length) {
+    return 0;
+  }
+  let len = 0;
+  let prev = null;
+  for (let i = 0; i < points.length; i += 1) {
+    const p = points[i];
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+      prev = null;
+      continue;
+    }
+    if (prev) {
+      len += Math.hypot(p.x - prev.x, p.y - prev.y);
+    }
+    prev = p;
+  }
+  return len;
+}
+
 function nodeGraphWaterfallChannelList(spec, settings) {
   const size = settings.dot1Size ?? 0.035;
   const enabled = settings.dot1Enabled !== false;
@@ -822,6 +860,16 @@ function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampl
     // Mono (1 ch) always stamps true color even if stereoBlend says combine/Meet.
     const inkColor = meet ? "#ffffff" : ch.color;
     const rgb = nodeGraphWaterfallColor01(inkColor);
+    // High Scale → tall min/max envelopes per column. Stamp budget must cover
+    // path length or freerun leaves black plate gaps between dabs.
+    const pathLen = nodeGraphWaterfallPathLength(points);
+    const spacing = Math.max(0.25, rad * 0.65 / Math.max(1 / 4000, density * 2));
+    const needDots = Math.ceil(pathLen / spacing) + points.length + 64;
+    const budget = Math.max(
+      4096,
+      Math.min(16384, Number(settings.dotBudget) || 1024),
+      needDots,
+    );
     TraceTape.stamp(tape, {
       pathPoints: points,
       radius: rad,
@@ -830,6 +878,7 @@ function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampl
       color: inkColor,
       rgb,
       stampDensity: density,
+      maxDots: budget,
     });
     tapes.push(tape);
     meta.push({ color: ch.color, blur: ch.blur || 0, bright: ch.bright ?? 1 });
@@ -1070,11 +1119,15 @@ function nodeGraphWaterfallPaint(spec) {
   const history = nodeGraphWaterfallHistorySeconds(settings);
   const hz = nodeGraphWaterfallVisualHz(live);
 
-  // Sync On: History = cycles in view (smooth). Stretch that window across the
-  // full face width (zoom only — do not pack more cycles as frequency rises).
+  // Sync On: Cycles dial (historyCycles) — never pass historySeconds here.
   if (syncOn) {
     const syncBuffer = nodeGraphWaterfallSyncSource(writeSpec) || live;
-    const measure = nodeGraphWaterfallMeasureSync(syncBuffer, st, history, hz);
+    const measure = nodeGraphWaterfallMeasureSync(
+      syncBuffer,
+      st,
+      nodeGraphWaterfallHistoryCycles(settings),
+      hz,
+    );
     if (measure.periodSamples > 1 && measure.visibleSamples > 0) {
       const visible = Math.min(live.length, Math.max(8, Math.round(measure.visibleSamples)));
       let sampleStart = Number(measure.edge);

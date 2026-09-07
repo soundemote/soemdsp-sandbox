@@ -24,8 +24,14 @@ const nodeGraphGradientVectorscopeSettingsDefaults = Object.freeze({
 function normalizeNodeGraphGradientVectorscopeSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const d = nodeGraphGradientVectorscopeSettingsDefaults;
+  // Number("") is 0 (finite) — treat blank as missing so empty form apply
+  // cannot zero Size/Ghost/Trail/Scale/History on open.
   const num = (key, fallback) => {
-    const n = Number(source[key]);
+    const raw = source[key];
+    if (raw === "" || raw == null) {
+      return fallback;
+    }
+    const n = Number(raw);
     return Number.isFinite(n) ? n : fallback;
   };
   const plate = typeof nodeGraphDisplaySettingsNormalizePlateLook === "function"

@@ -66,7 +66,8 @@ NodeLiveAudioProcessor.prototype.compileScopeCapture = function compileScopeCapt
     for (let i = 0; i < captureNodeIds.length; i += 1) {
       const nodeId = captureNodeIds[i];
       const captureType = String(this.nodes.get(nodeId)?.type || "");
-      // Output Instant Trace uses visual-sink L/R rings (same as 1D Stereo Trace).
+      // Output Instant Trace uses visual-sink L/R rings (post-Volume bus), not
+      // aggregate nodeOutputs — see writeOutputVisualSinkSample.
       if (captureType === "output") {
         continue;
       }
@@ -152,6 +153,25 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
       if (!(visualStride > 0) || (this.scopeCounter % visualStride) !== 0) {
         continue;
       }
+      const rateMeta = {
+        sampleStride: visualStride,
+        sourceSampleRate: engineRate,
+        writeSampleRate: engineRate / visualStride,
+      };
+      // Output Instant Trace must show post-Volume/Pan bus (what Volume does),
+      // not the pre-gain wires into Mono/Left/Right.
+      const sinkType = String(sink.type || this.nodes.get(sink.nodeId)?.type || "");
+      if (sinkType === "output") {
+        const bus = this.nodeOutputs?.get?.(sink.nodeId) || null;
+        const left = Number(bus?.Left);
+        const right = Number(bus?.Right);
+        const mono = Number(bus?.Mono);
+        const l = Number.isFinite(left) ? left : 0;
+        const r = Number.isFinite(right) ? right : l;
+        const m = Number.isFinite(mono) ? mono : (l + r) * 0.5;
+        this.writeOutputVisualSinkSample?.(sink, m, l, r, rateMeta);
+        continue;
+      }
       let value = 0;
       const inputs = sink.inputs;
       for (let i = 0; i < inputs.length; i += 1) {
@@ -175,11 +195,7 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
             input.port,
             inputValue,
             sink.bufferSampleLimit,
-            {
-              sampleStride: visualStride,
-              sourceSampleRate: engineRate,
-              writeSampleRate: engineRate / visualStride,
-            },
+            rateMeta,
           );
         }
         if (input.portId && !input.buffered) {
@@ -189,6 +205,72 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
       if (inputs.length && !sink.skipAggregate) {
         this.appendScopeBufferSample(sink.nodeId, value);
       }
+    }
+};
+
+/** Write Output Instant Trace rings from post-Volume L/R (and Mono). */
+NodeLiveAudioProcessor.prototype.writeOutputVisualSinkSample = function writeOutputVisualSinkSample(
+  sink,
+  mono,
+  left,
+  right,
+  rateMeta = null,
+) {
+    if (!sink?.nodeId) {
+      return;
+    }
+    const m = Number.isFinite(Number(mono)) ? Number(mono) : 0;
+    const l = Number.isFinite(Number(left)) ? Number(left) : m;
+    const r = Number.isFinite(Number(right)) ? Number(right) : l;
+    const byPort = { Mono: m, Left: l, Right: r, Out: (l + r) * 0.5 };
+    const inputs = sink.inputs || [];
+    let wroteBuffered = false;
+    for (let i = 0; i < inputs.length; i += 1) {
+      const input = inputs[i];
+      const port = String(input?.port || "").trim();
+      if (!port) {
+        continue;
+      }
+      const sample = Object.prototype.hasOwnProperty.call(byPort, port)
+        ? byPort[port]
+        : m;
+      if (input.buffered) {
+        this.writeVisualInputBufferSample(
+          sink.nodeId,
+          port,
+          sample,
+          sink.bufferSampleLimit,
+          rateMeta,
+        );
+        wroteBuffered = true;
+      }
+      if (input.portId && !input.buffered) {
+        this.appendScopeBufferSample(input.portId, sample);
+      }
+    }
+    // Always keep id:Left / id:Right rings even if the compiled input list is thin.
+    if (!wroteBuffered) {
+      this.writeVisualInputBufferSample?.(
+        sink.nodeId,
+        "Left",
+        l,
+        sink.bufferSampleLimit,
+        rateMeta,
+      );
+      this.writeVisualInputBufferSample?.(
+        sink.nodeId,
+        "Right",
+        r,
+        sink.bufferSampleLimit,
+        rateMeta,
+      );
+      this.writeVisualInputBufferSample?.(
+        sink.nodeId,
+        "Mono",
+        m,
+        sink.bufferSampleLimit,
+        rateMeta,
+      );
     }
 };
 

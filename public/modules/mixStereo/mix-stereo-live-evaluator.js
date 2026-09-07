@@ -12,7 +12,6 @@ nodeGraphLiveModuleEvaluators.mixStereo = ({ runtime, node, nodeId, frame, frame
   );
   return nodeGraphMixStereoFrame(
     {
-      Mono: mixInput(nodeId, "Mono"),
       L1: mixInput(nodeId, "L1"),
       R1: mixInput(nodeId, "R1"),
       L2: mixInput(nodeId, "L2"),

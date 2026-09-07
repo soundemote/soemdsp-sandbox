@@ -160,11 +160,56 @@ function drawNodeGraphSinCos4DisplayInner(section) {
   section._sinCos4Canvas = canvas;
 
   const look = nodeGraphSinCos4FaceNorm(node);
+  // Prefer the live layout box; in F solo fill, fall back to the stage cell so
+  // we never paint into a leftover short filter-curve band.
+  let rawW = Number(section.clientWidth || section.offsetWidth) || 0;
+  let rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+  if (
+    (rawW < 8 || rawH < 8 || section.classList.contains("node-screen-solo-face"))
+    && typeof document !== "undefined"
+  ) {
+    const stage = section.closest?.("#nodeScreenSoloStage");
+    if (stage) {
+      const cols = Math.max(1, Number(stage.style.getPropertyValue("--node-screen-solo-cols")) || 1);
+      const rows = Math.max(1, Number(stage.style.getPropertyValue("--node-screen-solo-rows")) || 1);
+      const cellW = Math.floor((stage.clientWidth || window.innerWidth || 0) / cols);
+      const cellH = Math.floor((stage.clientHeight || window.innerHeight || 0) / rows);
+      if (section.getAttribute("data-solo-fit") === "contain") {
+        const iw = parseFloat(section.style.getPropertyValue("--node-screen-solo-item-w")) || 0;
+        const ih = parseFloat(section.style.getPropertyValue("--node-screen-solo-item-h")) || 0;
+        if (iw > 0 && ih > 0) {
+          rawW = Math.max(rawW, iw);
+          rawH = Math.max(rawH, ih);
+        } else {
+          rawW = Math.max(rawW, Math.min(cellW, cellH));
+          rawH = Math.max(rawH, Math.min(cellW, cellH));
+        }
+      } else {
+        rawW = Math.max(rawW, cellW);
+        rawH = Math.max(rawH, cellH);
+      }
+    }
+  }
+  if (rawW < 8 || rawH < 8) {
+    return;
+  }
   let ctx;
   let pixelRatio = 1;
-  let cssW = 0;
-  let cssH = 0;
-  if (typeof nodeGraphSizeDisplayCanvas === "function") {
+  let cssW = rawW;
+  let cssH = rawH;
+  const soloFace = section.classList.contains("node-screen-solo-face");
+  // In F solo, size from the cell/square we resolved above — not the short
+  // filter-curve band that nodeGraphSizeDisplayCanvas would still see mid-layout.
+  if (soloFace || typeof nodeGraphSizeDisplayCanvas !== "function") {
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    pixelRatio = dpr * Math.max(look.pixelDensity, 1e-6);
+    canvas.width = Math.max(1, Math.round(cssW * pixelRatio));
+    canvas.height = Math.max(1, Math.round(cssH * pixelRatio));
+    ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+  } else {
     const metrics = nodeGraphSizeDisplayCanvas(section, canvas, { pixelDensity: look.pixelDensity });
     if (!metrics?.context) {
       return;
@@ -173,22 +218,6 @@ function drawNodeGraphSinCos4DisplayInner(section) {
     pixelRatio = Math.max(1e-6, Number(metrics.pixelRatio) || 1);
     cssW = Math.max(1, (metrics.width || canvas.width) / pixelRatio);
     cssH = Math.max(1, (metrics.height || canvas.height) / pixelRatio);
-  } else {
-    let rawW = Number(section.clientWidth || section.offsetWidth) || 0;
-    let rawH = Number(section.clientHeight || section.offsetHeight) || 0;
-    if (rawW < 8 || rawH < 8) {
-      return;
-    }
-    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    pixelRatio = dpr * Math.max(look.pixelDensity, 1e-6);
-    cssW = rawW;
-    cssH = rawH;
-    canvas.width = Math.max(1, Math.round(cssW * pixelRatio));
-    canvas.height = Math.max(1, Math.round(cssH * pixelRatio));
-    ctx = canvas.getContext("2d");
-    if (!ctx) {
-      return;
-    }
   }
 
   const mode = Math.max(0, Math.min(5, Math.round(nodeGraphSinCos4LiveParam(node, "mode", 2))));

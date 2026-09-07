@@ -32,7 +32,6 @@ static void pan_gains(double pan, double* left, double* right) {
 
 static void compute(
   double l1, double r1, double l2, double r2, double l3, double r3, double l4, double r4,
-  double mono,
   double vol1, double pan1, double vol2, double pan2, double vol3, double pan3, double vol4, double pan4,
   double amplitude,
   double* left, double* right
@@ -51,9 +50,6 @@ static void compute(
     L += safe(ls[i]) * vol * pl;
     R += safe(rs[i]) * vol * pr;
   }
-  const double monoIn = safe(mono) * master;
-  L += monoIn;
-  R += monoIn;
   *left = L;
   *right = R;
 }
@@ -67,18 +63,19 @@ extern "C" double soemdsp_mix_stereo_sample(
   double vol1, double pan1, double vol2, double pan2, double vol3, double pan3, double vol4, double pan4,
   double amplitude
 ) {
+  (void)mono; // legacy ABI slot — Mono in/out removed from MixStereo
   double left = 0.0, right = 0.0;
   compute(
-    l1, r1, l2, r2, l3, r3, l4, r4, mono,
+    l1, r1, l2, r2, l3, r3, l4, r4,
     vol1, pan1, vol2, pan2, vol3, pan3, vol4, pan4, amplitude,
     &left, &right
   );
   const int ch = (int)(safe(channel) + 0.5);
   if (ch == 1) return left;
   if (ch == 2) return right;
-  return (left + right) * 0.5;
+  return 0.0; // no Mono out
 }
 
-extern "C" int soemdsp_mix_stereo_version() { return 1; }
+extern "C" int soemdsp_mix_stereo_version() { return 2; }
 extern "C" const char* soemdsp_mix_stereo_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_mix_stereo_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

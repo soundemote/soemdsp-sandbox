@@ -344,6 +344,14 @@ function nodeGraphScreenSoloFacePrefersFill(face) {
   );
 }
 
+/** Circle / unit-square faces: contain should fit a square in the cell, not the short module band. */
+function nodeGraphScreenSoloFacePrefersSquareContain(face) {
+  return Boolean(
+    face?.classList?.contains("node-sincos4-display")
+    || face?.classList?.contains("node-round-shape-display"),
+  );
+}
+
 function nodeGraphScreenSoloInitialFit(items) {
   if (items.length === 1 && nodeGraphScreenSoloFacePrefersFill(items[0]?.face)) {
     return "fill";
@@ -653,6 +661,16 @@ function beginNodeGraphScreenSoloGrid(nodeIds) {
     }
     entry.host?.classList.add("node-screen-solo-host");
     entry.face.classList.add("node-screen-solo-face");
+    let sourceWidth = Math.max(1, sourceBox.width || entry.face.clientWidth || 1);
+    let sourceHeight = Math.max(1, sourceBox.height || entry.face.clientHeight || 1);
+    // SinCos4 (and round orbit faces) author a centered unit square. Preserve a
+    // square contain aspect so F fit uses the full cell instead of the short
+    // filter-curve band (which looked top-aligned with empty space below).
+    if (nodeGraphScreenSoloFacePrefersSquareContain(entry.face)) {
+      const side = Math.max(sourceWidth, sourceHeight);
+      sourceWidth = side;
+      sourceHeight = side;
+    }
     items.push({
       nodeId: entry.id,
       face: entry.face,
@@ -661,8 +679,8 @@ function beginNodeGraphScreenSoloGrid(nodeIds) {
       placeholder,
       nextSibling,
       savedLayout,
-      sourceWidth: Math.max(1, sourceBox.width || entry.face.clientWidth || 1),
-      sourceHeight: Math.max(1, sourceBox.height || entry.face.clientHeight || 1),
+      sourceWidth,
+      sourceHeight,
     });
   }
   if (!items.length) {

@@ -1234,6 +1234,10 @@ function renderNodeGraphKeyboardDebugToggle() {
     onMark: nodeGraphVisibilityOnMarks.debug,
   });
   renderNodeGraphVisibilityMenuButton();
+  // Re-evaluate face badge/ring active classes (debug off must clear them).
+  if (typeof syncNodeGraphConstraintOverlayToggles === "function") {
+    syncNodeGraphConstraintOverlayToggles({ persist: false });
+  }
   document.querySelectorAll(".node-phosphor-waveform-display[data-music-player-enhanced='1']").forEach((section) => {
     const nodeId = section.dataset.node;
     if (nodeId && typeof nodeGraphAudioPlayerPlaylistRefreshRamDebug === "function") {
@@ -3938,6 +3942,10 @@ function toggleNodeGraphModuleInterfaceControlsVisibility() {
 function renderNodeGraphConstraintGuide() {
   const visible = nodeGraphMvp?.constraintGuideVisible === true;
   document.body.classList.toggle("constraint-guide-visible", visible);
+  // D can restore chip marks without full Debug — refresh active classes.
+  if (typeof syncNodeGraphConstraintOverlayToggles === "function") {
+    syncNodeGraphConstraintOverlayToggles({ persist: false });
+  }
 }
 
 function persistNodeGraphDebugChromePreference() {

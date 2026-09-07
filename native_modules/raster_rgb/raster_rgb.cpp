@@ -130,6 +130,16 @@ extern "C" void soemdsp_raster_rgb_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
+// Bipolar audio (−1…+1) → video 0…1; already-unipolar stays clamped.
+static double as_video01(double x) {
+  if (!(x * 0.0 == 0.0)) return 0.0;
+  if (x < 0.0 || x > 1.0) {
+    const double c = x < -1.0 ? -1.0 : (x > 1.0 ? 1.0 : x);
+    return 0.5 + 0.5 * c;
+  }
+  return clamp01(x);
+}
+
 extern "C" double soemdsp_raster_rgb_sample(
   int handle,
   double r,
@@ -143,9 +153,10 @@ extern "C" double soemdsp_raster_rgb_sample(
   if (handle < 1 || handle > kMaxInstances || !gPool[handle - 1].active) {
     return 0.0;
   }
-  double R = clamp01(r);
-  double G = clamp01(g);
-  double B = clamp01(b);
+  const bool bipolar = r < 0.0 || g < 0.0 || b < 0.0 || r > 1.0 || g > 1.0 || b > 1.0;
+  double R = bipolar ? as_video01(r) : clamp01(r);
+  double G = bipolar ? as_video01(g) : clamp01(g);
+  double B = bipolar ? as_video01(b) : clamp01(b);
   const double inv = clamp01(invert);
   R = applyBrightness01(contrast01(R, contrast), brightness);
   G = applyBrightness01(contrast01(G, contrast), brightness);
@@ -188,7 +199,7 @@ extern "C" double soemdsp_raster_rgb_rgba(int handle) {
 }
 
 extern "C" int soemdsp_raster_rgb_version() {
-  return 2;
+  return 3;
 }
 
 extern "C" const char* soemdsp_raster_rgb_metadata_json() {

@@ -390,12 +390,12 @@ function nodeGraphDisplaySettingsBuildPackingToggleRowHtml(keys) {
       className: "node-trace-display-packing-latch",
     };
   });
-  // Clear is always last: restart pixel burn-in when Trail is frozen.
+  // Clear is always last: restart burn-in / Pixel Grid plate.
   // Multi-select: wipes every display currently targeted by this panel.
   buttons.push({
     label: "Clear",
     title:
-      "Wipe phosphor residual on the selected face(s) (restart burn-in). "
+      "Wipe the selected face(s) — phosphor residual or Pixel Grid plate. "
       + "When several modules share this Display Settings panel, clears all of them.",
     id: "nodeTraceDisplayClearPhosphor",
     action: "clearPhosphor",
@@ -1054,20 +1054,24 @@ function syncNodeGraphLineBurnSweepLabel(root, settings = {}) {
     field.setAttribute("data-trace-display-field", key);
     field.title = title;
     field.setAttribute("aria-label", `${label} amount`);
-    // Same as History: Sync retargets the live key off the activeFields list.
-    field.readOnly = true;
-    field.classList.toggle("trace-display-field-editing", false);
+    // Same as History: Sync retargets the live key; don't clobber type-in.
+    const editing = field.classList.contains("trace-display-field-editing")
+      || field.readOnly === false;
     const stepBtns = row?.querySelectorAll?.("[data-trace-display-step-target]");
     if (stepBtns) {
       for (const btn of stepBtns) {
         btn.setAttribute("data-trace-display-step-target", key);
       }
     }
-    const value = settings?.[key];
-    if (value != null && typeof formatNodeGraphTraceDisplayFieldValue === "function") {
-      field.value = formatNodeGraphTraceDisplayFieldValue(key, value);
-    } else if (value != null) {
-      field.value = String(value);
+    if (!editing) {
+      field.readOnly = true;
+      field.classList.toggle("trace-display-field-editing", false);
+      const value = settings?.[key];
+      if (value != null && typeof formatNodeGraphTraceDisplayFieldValue === "function") {
+        field.value = formatNodeGraphTraceDisplayFieldValue(key, value);
+      } else if (value != null) {
+        field.value = String(value);
+      }
     }
   }
 }
@@ -1115,21 +1119,24 @@ function syncNodeGraphWaterfallHistoryLabel(root, settings = {}) {
     field.setAttribute("data-trace-display-field", key);
     field.title = title;
     field.setAttribute("aria-label", `${label} amount`);
-    // Drag requires readOnly; writeForm only seeds keys listed in activeFields
-    // (historyHz), so Sync-on Cycles must re-arm readOnly here or the dial sticks.
-    field.readOnly = true;
-    field.classList.toggle("trace-display-field-editing", false);
+    // Drag requires readOnly when idle. Never yank readOnly/value while typing.
+    const editing = field.classList.contains("trace-display-field-editing")
+      || field.readOnly === false;
     const stepBtns = row?.querySelectorAll?.("[data-trace-display-step-target]");
     if (stepBtns) {
       for (const btn of stepBtns) {
         btn.setAttribute("data-trace-display-step-target", key);
       }
     }
-    const value = settings?.[key];
-    if (value != null && typeof formatNodeGraphTraceDisplayFieldValue === "function") {
-      field.value = formatNodeGraphTraceDisplayFieldValue(key, value);
-    } else if (value != null) {
-      field.value = String(value);
+    if (!editing) {
+      field.readOnly = true;
+      field.classList.toggle("trace-display-field-editing", false);
+      const value = settings?.[key];
+      if (value != null && typeof formatNodeGraphTraceDisplayFieldValue === "function") {
+        field.value = formatNodeGraphTraceDisplayFieldValue(key, value);
+      } else if (value != null) {
+        field.value = String(value);
+      }
     }
   }
 }
@@ -2096,6 +2103,15 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   // Knob image layers + rotate flags live only in Display Settings.
   if (type === "knobFace" && typeof buildNodeGraphKnobFaceLayersDisplaySettingsHtml === "function") {
     parts.push(buildNodeGraphKnobFaceLayersDisplaySettingsHtml());
+  }
+
+  // Pixel Grid: Clear packing row (wipe rolling W×H plate + re-arm ingest).
+  if (type === "rasterRgbFace") {
+    parts.push(
+      `<div class="metadata-field-section node-trace-display-packing-section">${
+        nodeGraphDisplaySettingsBuildPackingToggleRowHtml([])
+      }</div>`,
+    );
   }
 
   return parts.join("\n");

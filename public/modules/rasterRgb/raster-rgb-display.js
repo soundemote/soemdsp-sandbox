@@ -7,7 +7,7 @@
 // original canvas Gaussian: filter:blur() on the present, then an
 // additive wider Gaussian for glow.
 
-const NODE_GRAPH_RASTER_RGB_PAINT_REV = "title-keep-1";
+const NODE_GRAPH_RASTER_RGB_PAINT_REV = "scan-speed-frac-1";
 
 // Rolling framebuffer lives by node id — not on the face canvas.
 // Hide/show title rebuilds the module DOM; the raster must survive that.
@@ -116,6 +116,15 @@ function nodeGraphRasterRgbGridSize(node) {
     bufferWidth: nodeGraphRasterRgbBufferDim(width),
     bufferHeight: nodeGraphRasterRgbBufferDim(height),
   };
+}
+
+/** Pixels advanced per ingested audio sample (1 = sample clock; fractional OK). */
+function nodeGraphRasterRgbScanSpeed(node) {
+  const raw = Number(node?.params?.scanSpeed);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return 8;
+  }
+  return Math.max(0.05, Math.min(64, raw));
 }
 
 function nodeGraphRasterRgbUnit01(value, fallback) {
@@ -312,6 +321,24 @@ function nodeGraphRasterRgbCircuitRunning() {
   return Boolean(live?.outputEnabled && live?.node);
 }
 
+function nodeGraphRasterRgbRingAbsEnd(ring) {
+  if (!ring) {
+    return Number.NaN;
+  }
+  if (typeof nodeGraphScopeBufferAbsoluteFrame === "function") {
+    const n = nodeGraphScopeBufferAbsoluteFrame(ring);
+    if (n > 0) {
+      return n;
+    }
+  }
+  const abs = Number(ring.nodeGraphScopeAbsoluteFrame);
+  if (Number.isFinite(abs) && abs > 0) {
+    return abs;
+  }
+  const total = Number(ring.nodeGraphScopeTotalSampleCount);
+  return Number.isFinite(total) && total > 0 ? total : Number.NaN;
+}
+
 function nodeGraphRasterRgbClearState(state) {
   if (!state?.pixels) {
     return;
@@ -325,6 +352,45 @@ function nodeGraphRasterRgbClearState(state) {
   }
   state.write = 0;
   state.writePos = 0;
+  state.lastAbs = Number.NaN;
+  state.scanCredit = 0;
+}
+
+/** Display Settings Clear — wipe the rolling plate and re-arm ingest phase. */
+function clearNodeGraphRasterRgbForNode(nodeId) {
+  const key = String(nodeId || "");
+  if (!key) {
+    return false;
+  }
+  const state = nodeGraphRasterRgbBuffers.get(key);
+  if (state) {
+    nodeGraphRasterRgbClearState(state);
+  }
+  nodeGraphRasterRgbDropState(key);
+  if (typeof document !== "undefined") {
+    const faces = document.querySelectorAll(
+      `.dsp-node[data-node="${key}"] .node-module-scope-window, .node-module-scope-window[data-node="${key}"]`,
+    );
+    for (const face of faces) {
+      const canvas = face.querySelector?.(":scope > .node-raster-rgb-canvas");
+      if (canvas) {
+        canvas._rasterRgb = null;
+        canvas._rasterRgbBlit = false;
+        canvas._rasterRgbGradeKey = "";
+        canvas._rasterRgbHoldKey = "";
+        const ctx = canvas.getContext?.("2d");
+        if (ctx && canvas.width > 0 && canvas.height > 0) {
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.globalCompositeOperation = "source-over";
+          ctx.globalAlpha = 1;
+          ctx.filter = "none";
+          ctx.fillStyle = "#000000";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+    }
+  }
+  return true;
 }
 
 function nodeGraphRasterRgbUnlightFace(face) {
@@ -447,34 +513,61 @@ function nodeGraphRasterRgbBufferFromKey(nodeId, port) {
   return null;
 }
 
+function nodeGraphRasterRgbRingLooksAudioRate(ring) {
+  if (!ring?.length) {
+    return false;
+  }
+  const stride = Number(ring.nodeGraphScopeSampleStride);
+  if (Number.isFinite(stride) && stride > 1.5) {
+    return false;
+  }
+  const hz = Number(ring.nodeGraphScopeSampleRate);
+  // LCD / Simulation-FPS rings sit near 30–120 Hz; audio rings are kHz+.
+  if (Number.isFinite(hz) && hz > 0 && hz < 1000) {
+    return false;
+  }
+  return true;
+}
+
 function nodeGraphRasterRgbPickChannel(slot, port) {
   const nodeId = slot?.nodeId;
-  // 1) Follow the inlet wire to the upstream face-capture rings (e.g. SinCos4 A/B/C).
-  //    Prefer these when the source face is on and publishing.
+  // 1) Own visual-sink inlet ring first — worklet writes wired audio here at
+  //    engine rate. Upstream face rings (e.g. SinCos4) are often LCD-rate and
+  //    made the plate crawl (~60 px/s) when preferred.
+  const inlet = nodeGraphRasterRgbBufferFromKey(nodeId, port);
+  if (inlet?.length && nodeGraphRasterRgbRingLooksAudioRate(inlet)) {
+    return inlet;
+  }
+  // 2) Upstream face-capture rings only when they look like audio (or inlet empty).
   const conns = typeof nodeGraphModuleScopeConnectionsTo === "function"
     ? nodeGraphModuleScopeConnectionsTo(nodeId, port)
     : [];
+  let upstreamFallback = null;
   for (const connection of conns || []) {
     const ring = nodeGraphRasterRgbBufferFromKey(connection.sourceNode, connection.sourcePort);
-    if (ring?.length) {
+    if (!ring?.length) {
+      continue;
+    }
+    if (nodeGraphRasterRgbRingLooksAudioRate(ring)) {
       return ring;
+    }
+    if (!upstreamFallback) {
+      upstreamFallback = ring;
     }
   }
   if (typeof nodeGraphModuleScopeConnectedSourceBuffer === "function") {
     const connected = nodeGraphModuleScopeConnectedSourceBuffer(nodeId, port);
-    if (connected?.length) {
+    if (connected?.length && nodeGraphRasterRgbRingLooksAudioRate(connected)) {
       return connected;
     }
+    if (!upstreamFallback && connected?.length) {
+      upstreamFallback = connected;
+    }
   }
-  // 2) This module's visual-sink inlet ring (worklet wrote connected audio here
-  //    via bufferedInputs). Required when the upstream face is hidden — that
-  //    drops the source from scopeCapture, so step 1 is empty even though the
-  //    wire still carries signal (Pixel Grid frozen until SinCos4 display on).
-  const inlet = nodeGraphRasterRgbBufferFromKey(nodeId, port);
   if (inlet?.length) {
     return inlet;
   }
-  return null;
+  return upstreamFallback;
 }
 
 function nodeGraphRasterRgbTakeChannels(slot) {
@@ -649,37 +742,76 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
     const redLen = red?.length || 0;
     const greenLen = green?.length || 0;
     const blueLen = blue?.length || 0;
-    // Newest chunk this Simulation-FPS tick. Cap near one logical frame so we
-    // don't replay the whole ring; ceil(frameSamples) lets fractional W×H fit.
-    const take = Math.min(
-      captured.length,
-      Math.max(cellCount, Math.ceil(frameSamples)),
-    );
+    const primary = redLen ? red : (greenLen ? green : blue);
+    const absEnd = nodeGraphRasterRgbRingAbsEnd(primary);
+    const oneFrame = Math.max(1, Math.ceil(frameSamples));
+    let lastAbs = Number(state.lastAbs);
+    // Cold start / after Clear: skip ring backlog so project open does not
+    // dump half a second of history (misaligned until Width/Height retune).
+    if (!Number.isFinite(lastAbs) || lastAbs < 0) {
+      lastAbs = Number.isFinite(absEnd)
+        ? Math.max(0, Math.floor(absEnd) - oneFrame)
+        : 0;
+      state.writePos = 0;
+    }
+    let undrawn = Number.isFinite(absEnd)
+      ? Math.max(0, Math.floor(absEnd) - Math.floor(lastAbs))
+      : 0;
+    if (!(undrawn > 0) && !Number.isFinite(absEnd)) {
+      const recent = Math.max(
+        0,
+        Math.floor(Number(primary?.nodeGraphScopeRecentSampleCount) || 0),
+      );
+      undrawn = recent > 0 ? recent : Math.min(captured.length, oneFrame);
+    }
+    // Keep up with audio: take every undrawn sample (ring already holds ~0.5–1 s).
+    // Cap only when a long stall would dump many full frames in one paint.
+    const take = Math.min(undrawn, oneFrame * 8, captured.length);
     const redStart = Math.max(0, redLen - take);
     const greenStart = Math.max(0, greenLen - take);
     const blueStart = Math.max(0, blueLen - take);
     const redBi = nodeGraphRasterRgbRingLooksBipolar(red, redStart, take);
     const greenBi = nodeGraphRasterRgbRingLooksBipolar(green, greenStart, take);
     const blueBi = nodeGraphRasterRgbRingLooksBipolar(blue, blueStart, take);
+    // Scan Speed: pixels per audio sample (fractional OK). Accrue leftovers so
+    // 1.5 averages three pixels every two samples, 0.5 writes every other sample.
+    const scanSpeed = nodeGraphRasterRgbScanSpeed(node);
+    let scanCredit = Number(state.scanCredit);
+    if (!Number.isFinite(scanCredit) || scanCredit < 0) {
+      scanCredit = 0;
+    }
     let writePos = Number(state.writePos) || 0;
     for (let i = 0; i < take; i += 1) {
-      // Fractional Width/Height = samples per line / lines per frame.
-      // x = pos % logicalW, y = floor(pos / logicalW) % logicalH (storage ceil).
-      const x = Math.min(state.width - 1, Math.floor(nodeGraphRasterRgbPosMod(writePos, logicalW)));
-      const line = Math.floor(writePos / logicalW);
-      const y = Math.min(state.height - 1, Math.floor(nodeGraphRasterRgbPosMod(line, logicalH)));
-      const o = (y * state.width + x) * 4;
-      state.pixels[o] = nodeGraphRasterRgbByte(redLen ? red[redStart + i] : 0, redBi);
-      state.pixels[o + 1] = nodeGraphRasterRgbByte(greenLen ? green[greenStart + i] : 0, greenBi);
-      state.pixels[o + 2] = nodeGraphRasterRgbByte(blueLen ? blue[blueStart + i] : 0, blueBi);
-      state.pixels[o + 3] = 255;
-      writePos += 1;
+      const rByte = nodeGraphRasterRgbByte(redLen ? red[redStart + i] : 0, redBi);
+      const gByte = nodeGraphRasterRgbByte(greenLen ? green[greenStart + i] : 0, greenBi);
+      const bByte = nodeGraphRasterRgbByte(blueLen ? blue[blueStart + i] : 0, blueBi);
+      scanCredit += scanSpeed;
+      let stamps = Math.floor(scanCredit);
+      scanCredit -= stamps;
+      // Never stall forever on tiny speeds — at least attempt when credit wraps.
+      for (let s = 0; s < stamps; s += 1) {
+        // Fractional Width/Height = samples per line / lines per frame.
+        // x = pos % logicalW, y = floor(pos / logicalW) % logicalH (storage ceil).
+        const x = Math.min(state.width - 1, Math.floor(nodeGraphRasterRgbPosMod(writePos, logicalW)));
+        const line = Math.floor(writePos / logicalW);
+        const y = Math.min(state.height - 1, Math.floor(nodeGraphRasterRgbPosMod(line, logicalH)));
+        const o = (y * state.width + x) * 4;
+        state.pixels[o] = rByte;
+        state.pixels[o + 1] = gByte;
+        state.pixels[o + 2] = bByte;
+        state.pixels[o + 3] = 255;
+        writePos += 1;
+      }
     }
+    state.scanCredit = scanCredit;
     // Keep writePos bounded without disturbing phase within a frame.
     if (writePos >= frameSamples * 4096) {
       writePos = nodeGraphRasterRgbPosMod(writePos, frameSamples);
     }
     state.writePos = writePos;
+    state.lastAbs = Number.isFinite(absEnd)
+      ? Math.floor(absEnd)
+      : Math.floor(lastAbs) + take;
   }
   const gradeKey = `${grade.invert}|${grade.contrast}|${grade.brightness}|${grade.hue}|${grade.blur}|${grade.glow}|${grid.width}x${grid.height}|${bufW}x${bufH}|${wired ? captured.length : 0}`;
   const graded = nodeGraphRasterRgbApplyGrade(state, grade);

@@ -539,7 +539,12 @@ function normalizeNodeGraphTraceDisplayColor(value, fallback = nodeGraphTraceDis
 
 
 function normalizeNodeGraphTraceDisplayNumber(value, fallback, min, max, integer = false) {
-  const number = Number(value);
+  // Number("") / Number(".") are finite 0 — treat blank/incomplete as missing so
+  // empty Display Settings inputs cannot wipe Bright/Size/Ghost/Trail on open.
+  const raw = value == null ? "" : String(value).trim();
+  const incomplete = raw === "" || raw === "." || raw === "-" || raw === "+"
+    || raw === "-." || raw === "+.";
+  const number = incomplete ? NaN : Number(raw);
   const safeFallback = Number.isFinite(Number(fallback)) ? Number(fallback) : 0;
   const safeMin = Number.isFinite(Number(min)) ? Number(min) : -Infinity;
   const safeMax = Number.isFinite(Number(max)) ? Number(max) : Infinity;
@@ -555,7 +560,10 @@ function normalizeNodeGraphTraceDisplayNumber(value, fallback, min, max, integer
  * migrate once so 2 → 1, 1 → 0.5, etc. Values already ≤1 pass through.
  */
 function normalizeNodeGraphTraceDisplayBrightness(value, fallback = 1) {
-  let n = Number(value);
+  const raw = value == null ? "" : String(value).trim();
+  const incomplete = raw === "" || raw === "." || raw === "-" || raw === "+"
+    || raw === "-." || raw === "+.";
+  let n = incomplete ? NaN : Number(raw);
   if (!Number.isFinite(n)) {
     // Prefer 0 over 1 for bad input so drag/form glitches do not snap to full.
     const fb = Number(fallback);

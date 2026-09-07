@@ -596,7 +596,6 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
 }
 
 function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
-  const settings = readNodeGraphTraceDisplaySettingsForm();
   const commit = Boolean(options.record || options.commit);
   const forceAll = Boolean(options.forceAll);
   const dirtyKeys = nodeGraphMvp.traceDisplaySettingsDirtyKeys;
@@ -606,6 +605,16 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   if (!isDirty && !nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
     return null;
   }
+  // Never read an unseeded / remounting form into the patch (empty → 0 wipe).
+  if (
+    typeof nodeGraphTraceDisplaySettingsFormIsSeeded === "function"
+    && !nodeGraphTraceDisplaySettingsFormIsSeeded()
+    && !nodeGraphTraceDisplaySettingsEditingTraceDefaults()
+  ) {
+    clearNodeGraphTraceDisplaySettingsDirty();
+    return null;
+  }
+  const settings = readNodeGraphTraceDisplaySettingsForm();
 
   if (nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
     nodeGraphMvp.traceSettings = normalizeNodeGraphTraceDisplaySettings(settings);
@@ -760,18 +769,61 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   return settings;
 }
 
-function commitOpenNodeGraphTraceDisplaySettings() {
+/**
+ * True when the Display Settings DOM is a live, seeded editor for the current
+ * target — safe to readForm/apply. False while blank, remounting, or mismatched.
+ */
+function nodeGraphTraceDisplaySettingsFormIsSeeded() {
   const popover = document.getElementById("nodeTraceDisplaySettingsPopover");
   if (!popover || popover.hidden || nodeGraphMvp.sharedInspectorActive !== "traceDisplaySettings") {
-    return null;
+    return false;
   }
-  // No user edits since last seed → do not push primary colors onto multi-targets.
+  if (popover.dataset?.inspectorBlank === "true") {
+    return false;
+  }
+  const formType = String(popover.dataset?.displaySettingsType || "");
+  const body = popover.querySelector("[data-display-settings-body]");
+  if (!formType || !body || body.childElementCount <= 0) {
+    return false;
+  }
+  const targetId = String(
+    nodeGraphMvp.traceDisplaySettingsTargetNode
+    || popover.dataset?.displaySettingsTargetNode
+    || "",
+  ).trim();
+  const bodyTarget = String(popover.dataset?.displaySettingsTargetNode || "").trim();
+  // Body must still be bound to the MVP target (remount clears this first).
+  if (!targetId || !bodyTarget || bodyTarget !== targetId) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Flush user edits from the open Display Settings form into the patch.
+ * Call on close / target switch — never as part of opening/seeding a face.
+ * If the form is not seeded, discard dirty instead of inventing zeros.
+ */
+function commitOpenNodeGraphTraceDisplaySettings() {
   if (!nodeGraphTraceDisplaySettingsIsDirty()) {
     return null;
   }
-  const applied = applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true, commit: true });
+  if (!nodeGraphTraceDisplaySettingsFormIsSeeded()) {
+    clearNodeGraphTraceDisplaySettingsDirty();
+    return null;
+  }
+  const applied = applyNodeGraphTraceDisplaySettingsForm({
+    persist: "immediate",
+    record: true,
+    commit: true,
+  });
   clearNodeGraphTraceDisplaySettingsDirty();
   return applied;
+}
+
+/** Drop uncommitted form edits without writing the patch (open / remount). */
+function discardOpenNodeGraphTraceDisplaySettingsEdits() {
+  clearNodeGraphTraceDisplaySettingsDirty();
 }
 
 /**
@@ -1014,6 +1066,23 @@ function nodeGraphTraceDisplaySettingsDirtyKeysFromEvent(event) {
 }
 
 function updateNodeGraphTraceDisplaySettingsLive(event) {
+  const field = typeof nodeGraphTraceDisplayFieldFromTarget === "function"
+    ? nodeGraphTraceDisplayFieldFromTarget(event?.target)
+    : null;
+  // While typing (dblclick edit), do not round-trip normalize — that ate decimals
+  // (e.g. "4." → Number 4 → rewrite "4" before ".5" could be typed).
+  if (
+    field
+    && (field.classList.contains("trace-display-field-editing") || field.readOnly === false)
+  ) {
+    if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+      markNodeGraphTraceDisplaySettingsDirty(
+        field.dataset?.traceDisplayField
+        || field.getAttribute("data-trace-display-field"),
+      );
+    }
+    return;
+  }
   markNodeGraphTraceDisplaySettingsDirty(nodeGraphTraceDisplaySettingsDirtyKeysFromEvent(event));
   applyNodeGraphTraceDisplaySettingsForm({ persist: "none", record: false });
 }

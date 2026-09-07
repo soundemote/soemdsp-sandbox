@@ -4023,6 +4023,36 @@ body.keyboard-debug-hidden:not(.constraint-guide-visible) .node-constraint-color
   display: none;
 }
 
+/* Debug off (and D guide off): no CPU/RAM/GPU face badges or rings either.
+   Toggles can stay checked in prefs, but marks must not linger on scopes. */
+body.keyboard-debug-hidden:not(.constraint-guide-visible) .node-constraint-badges,
+body.keyboard-debug-hidden:not(.constraint-guide-visible) .node-constraint-badge {
+  display: none !important;
+}
+body.keyboard-debug-hidden:not(.constraint-guide-visible)
+  .node-parameter-row[data-node-constraint]::before,
+body.keyboard-debug-hidden:not(.constraint-guide-visible)
+  .node-module-scope-window[data-node-constraint]::before,
+body.keyboard-debug-hidden:not(.constraint-guide-visible)
+  .node-module-face[data-node-constraint]::before {
+  opacity: 0 !important;
+}
+
+/* F fullscreen: never overlay constraint chrome on the soloed faces. */
+body.node-screen-solo-active .node-help-stack,
+body.node-screen-solo-active .node-constraint-color-guide {
+  display: none !important;
+}
+body.node-screen-solo-active .node-constraint-badges,
+body.node-screen-solo-active .node-constraint-badge {
+  display: none !important;
+}
+body.node-screen-solo-active .node-parameter-row[data-node-constraint]::before,
+body.node-screen-solo-active .node-module-scope-window[data-node-constraint]::before,
+body.node-screen-solo-active .node-module-face[data-node-constraint]::before {
+  opacity: 0 !important;
+}
+
 /* Hide Debug: drop the whole under-key signal strip. Live freq/pitch/x/y
    already live in the heading readouts; keeping Frequency under the white
    keys only stole piano height and invited clipping. */
@@ -12506,6 +12536,15 @@ body.node-screen-solo-fit-fill .node-screen-solo-face {
   height: 100% !important;
   max-width: none !important;
   max-height: none !important;
+}
+
+/* SinCos4 / filter-curve faces keep a short module-band height in the patch;
+   in F solo they must drop that calc and fill the cell so the circle can scale. */
+body.node-screen-solo-active .node-screen-solo-face.node-sincos4-display,
+body.node-screen-solo-active .node-screen-solo-face.node-filter-curve-display.node-sincos4-display {
+  height: var(--node-screen-solo-item-h, 100%) !important;
+  min-height: 0 !important;
+  display: block !important;
 }
 
 body.node-screen-solo-active .node-screen-solo-face,

@@ -501,6 +501,15 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
       }
     }
 
+    // Pixel Grid rolling framebuffer (Display Settings Clear).
+    if (typeof clearNodeGraphRasterRgbForNode === "function") {
+      try {
+        clearNodeGraphRasterRgbForNode(id);
+      } catch (_error) {
+        // Best-effort.
+      }
+    }
+
     // Instant Trace skips redraw when the sample signature is unchanged. Clear
     // blacks the face without new samples — without busting this cache, unpause
     // after Clear-while-paused early-outs as "unchanged" until Stop+Play.

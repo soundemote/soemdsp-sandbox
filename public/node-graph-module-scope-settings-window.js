@@ -905,7 +905,16 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
     }
     return true;
   }
-  commitOpenNodeGraphTraceDisplaySettings();
+  // Flush real edits for the previous target only while that form is still
+  // seeded. Opening/seeding must never apply (that wiped values on right-click).
+  if (typeof commitOpenNodeGraphTraceDisplaySettings === "function") {
+    commitOpenNodeGraphTraceDisplaySettings();
+  }
+  if (typeof discardOpenNodeGraphTraceDisplaySettingsEdits === "function") {
+    discardOpenNodeGraphTraceDisplaySettingsEdits();
+  } else if (typeof clearNodeGraphTraceDisplaySettingsDirty === "function") {
+    clearNodeGraphTraceDisplaySettingsDirty();
+  }
   const metadataRect = typeof prepareNodeMetadataPopoverForInspectorReplacement === "function"
     ? prepareNodeMetadataPopoverForInspectorReplacement()
     : null;
@@ -918,6 +927,7 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   const replacementRect = metadataRect || moduleActionsRect;
   const popover = nodeGraphTraceDisplaySettingsElement();
   bindNodeGraphTraceDisplaySettingsEvents(popover);
+  // Bind target + schema before remount so seed checks stay coherent.
   nodeGraphMvp.traceDisplaySettingsTargetNode = node.id;
   nodeGraphMvp.traceDisplaySettingsFollowedSelectionKey = nodeGraphTraceDisplaySettingsSelectionFollowKey();
   setNodeGraphTraceDisplaySettingsMultiTargets(multiTargetIds);
@@ -928,8 +938,12 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
     nodeGraphTraceDisplaySettingsMultiTargetLabel(multiTargetIds),
   );
   setNodeGraphTraceDisplaySettingsFormType(node);
+  // Seed from the node bag only — never from a previous form read.
   writeNodeGraphTraceDisplaySettingsForm(nodeGraphTraceDisplayCurrentSettingsForFormType());
   setNodeGraphTraceDisplaySettingsBlankState(false);
+  if (typeof discardOpenNodeGraphTraceDisplaySettingsEdits === "function") {
+    discardOpenNodeGraphTraceDisplaySettingsEdits();
+  }
   const sharedInspectorState = typeof normalizeNodeGraphSharedInspectorWindowState === "function"
     ? normalizeNodeGraphSharedInspectorWindowState(nodeGraphMvp.sharedInspectorWindowState, nodeGraphMvp.workspaceWindowStates)
     : (nodeGraphMvp.sharedInspectorWindowState || {});

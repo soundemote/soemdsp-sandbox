@@ -117,6 +117,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   dsfOscillator: 46,
   hypersaw: 47,
   hypersaw2: 158,
+  rasterRgb: 160,
   t: 159,
   t1: 159,
   t2: 159,
@@ -254,7 +255,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_BLEED3 = 109;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_BLEED4 = 110;
 
 // Ports: 0 Mono/Out, 1 Left/Mix L, 2 Right/Mix R, 3 Saw/Dry L, 4 Ramp/Dry R, 5–7 taps.
-// 8–11: crossover5/6 extra band taps. Live SIGNAL IN: 16 ƒ, 17 0.1V/Oct, 18 Inc, 19 Reset.
+// 8–11: crossover5/6 extra band taps. Live SIGNAL IN: 16 ƒ, 17 0.1V/Oct, 18 Inc,
+// 19 Reset, 24 Phase CV (cycles unit-band add — sample-accurate PM).
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO = 0;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT = 1;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT = 2;
@@ -276,6 +278,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER = 20;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MIX_STEREO_R4 = 21;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MORPH = 22; // block-rate ZOH (turquoise)
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_GRAPH = 23; // Yellow Graph data-plane (not sample audio)
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PHASE_CV = 24; // phase offset CV (cycles)
 
 NodeLiveAudioProcessor.prototype.fnv1aHash32 = function fnv1aHash32(text) {
   let hash = 2166136261 >>> 0;
@@ -525,6 +528,13 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (p === "z" && t === "rotate3dTo2d") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
   }
+  // Pixel Grid graded outs: R/G/B + rgba luma.
+  if (t === "rasterRgb") {
+    if (p === "r") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "g") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "b") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+    if (p === "rgba" || p === "📺") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+  }
   if (t === "pll") {
     if (p === "vco out" || p === "vco") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     if (p === "pc out" || p === "pc") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
@@ -689,6 +699,14 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
     if (p === "speed") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PITCH_CV;
     if (p === "phase") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_INCREMENT;
   }
+  // Phase offset CV (cycles) — only modules whose process reads kPortPhaseCv.
+  // Additive / Yellow / GPU / DSF / BLIT unchanged (cyan set_param_mod).
+  if (p === "phase" || p === "phaseoffset" || p === "phase offset") {
+    const t = String(type || "").trim();
+    if (t === "sineWavetable" || t === "sinCos" || t === "polyBlep") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PHASE_CV;
+    }
+  }
   if (p === "trigger" || p === "trig" || (p === "latch" && type === "chordMemory")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
   }
@@ -785,6 +803,12 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
     if (p === "x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     if (p === "y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     if (p === "z") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
+  // Pixel Grid: R/G/B inlets (not generic Out aliases).
+  if (t === "rasterRgb") {
+    if (p === "r") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "g") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "b") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
   }
   return this.mapNativeGraphSrcPortId(port, type);
 };
@@ -991,6 +1015,132 @@ NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphE
     && n?.soemdsp_graph_node_native_handle
     && n?.soemdsp_graph_max_block_frames
   );
+};
+
+/**
+ * Observer / monitor outs are dry thru (Vector RGB X→X, Spectrogram Thru→In).
+ * Efficient Live does not instantiate observers as DSP nodes, so cables from
+ * their outs must resolve to the real upstream source at compile + scope tap.
+ */
+NodeLiveAudioProcessor.prototype.nativeGraphObserverThruInPort = function nativeGraphObserverThruInPort(
+  type,
+  outPort,
+) {
+  const t = String(type || "").trim();
+  const o = String(outPort || "").trim();
+  if (!t || !o) return null;
+  // Unimplemented TV / video taps — no audio thru.
+  if (o === "rgba" || o === "📺") return null;
+  // Analyzer Thru jack (spectrogram, customDisplay, …).
+  if (o === "Thru" || o === "←") {
+    if (t === "customDisplay") return "In1";
+    if (t === "traceDisplay") return "In";
+    return "In";
+  }
+  if (typeof nodeGraphModuleIsEfficientProductObserverType === "function"
+    && nodeGraphModuleIsEfficientProductObserverType(t)) {
+    // Same-name thru: Vector RGB X/Y/R/G/B, Gradient Vectorscope X/Y, …
+    return o;
+  }
+  // Non-observer pass maps (when present on the plan node).
+  return null;
+};
+
+NodeLiveAudioProcessor.prototype.nativeGraphThruInPortForNode = function nativeGraphThruInPortForNode(
+  node,
+  outPort,
+) {
+  const o = String(outPort || "").trim();
+  if (!node || !o) return null;
+  const map = node.bypassSpec?.map;
+  if (Array.isArray(map)) {
+    for (let i = 0; i < map.length; i += 1) {
+      const row = map[i];
+      if (String(row?.out || "") === o && row?.in) {
+        return String(row.in);
+      }
+    }
+  }
+  return this.nativeGraphObserverThruInPort(node.type, o);
+};
+
+/** Index plan cables by destination node+port for thru walks. */
+NodeLiveAudioProcessor.prototype.ensurePlanConnectionsByDst = function ensurePlanConnectionsByDst() {
+  if (this._planConnectionsByDst && this._planConnectionsByDstSerial === this._planConnections) {
+    return this._planConnectionsByDst;
+  }
+  const index = new Map();
+  const connections = Array.isArray(this._planConnections) ? this._planConnections : [];
+  for (let i = 0; i < connections.length; i += 1) {
+    const c = connections[i];
+    const dst = String(c?.destinationNode || "");
+    const dstPort = String(c?.destinationPort || "");
+    if (!dst) continue;
+    const key = `${dst}\0${dstPort}`;
+    let list = index.get(key);
+    if (!list) {
+      list = [];
+      index.set(key, list);
+    }
+    list.push(c);
+  }
+  this._planConnectionsByDst = index;
+  this._planConnectionsByDstSerial = this._planConnections;
+  return index;
+};
+
+/**
+ * Walk observer thru nodes until native / host sources.
+ * @returns {Array<{ sourceNode: string, sourcePort: string }>}
+ */
+NodeLiveAudioProcessor.prototype.resolveNativeGraphThruSources = function resolveNativeGraphThruSources(
+  sourceNode,
+  sourcePort,
+  nativeIdSet = null,
+  depth = 0,
+) {
+  const src = String(sourceNode || "");
+  const port = String(sourcePort || "");
+  if (!src) return [];
+  if (depth > 8) return [];
+  if (nativeIdSet && nativeIdSet.has(src)) {
+    return [{ sourceNode: src, sourcePort: port }];
+  }
+  const node = this.nodes.get(src);
+  const type = String(node?.type || "");
+  const audioTypes = NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS;
+  if (Object.prototype.hasOwnProperty.call(audioTypes, type)) {
+    return [{ sourceNode: src, sourcePort: port }];
+  }
+  const inPort = this.nativeGraphThruInPortForNode(node, port);
+  if (!inPort) {
+    // Not a thru out (e.g. rgba) — leave as host/CV-style source.
+    return [{ sourceNode: src, sourcePort: port }];
+  }
+  const index = this.ensurePlanConnectionsByDst();
+  const ups = index.get(`${src}\0${inPort}`) || [];
+  if (!ups.length) {
+    return [];
+  }
+  const out = [];
+  const seen = new Set();
+  for (let i = 0; i < ups.length; i += 1) {
+    const up = ups[i];
+    const resolved = this.resolveNativeGraphThruSources(
+      up?.sourceNode,
+      up?.sourcePort,
+      nativeIdSet,
+      depth + 1,
+    );
+    for (let r = 0; r < resolved.length; r += 1) {
+      const item = resolved[r];
+      const key = `${item.sourceNode}\0${item.sourcePort}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+  }
+  return out;
 };
 
 /** Topology fingerprint — bypass-only changes must NOT rebuild natives. */
@@ -1432,6 +1582,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     if (type === "ampCurve") {
       // mode=Lin/Exp only
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
+      continue;
+    }
+    if (type === "rasterRgb") {
+      // Grade only — blur/glow are screen-only (not pushed).
+      push("contrast", P.NATIVE_GRAPH_PARAM_LANE_VOL1, cont("contrast", 1));
+      push("brightness", P.NATIVE_GRAPH_PARAM_LANE_BIAS1, cont("brightness", 1));
+      push("invert", P.NATIVE_GRAPH_PARAM_CENTER, cont("invert", 0));
+      push("hue", P.NATIVE_GRAPH_PARAM_PHASE, cont("hue", 0));
       continue;
     }
     if (type === "t" || /^t([1-9]|10)$/.test(type)) {
@@ -3621,38 +3779,38 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     const hashById = new Map(nodes.map((n) => [n.id, n.hash]));
     const typeById = new Map(nodes.map((n) => [n.id, n.type]));
     const connections = Array.isArray(this._planConnections) ? this._planConnections : [];
+    this._planConnectionsByDst = null;
+    this.ensurePlanConnectionsByDst();
     // Non-native sources (MIDI Keyboard, macros, …) cannot sit in the native
     // graph. Bridge each host→native cable with a Bias feeder whose offset is
     // written from nodeOutputs every quantum (see syncNativeHostCvFeeders).
+    // Observer thru (Vector RGB X/Y/R/G/B, Spectrogram Thru, …): resolve past
+    // the monitor to the real upstream so outs are dry passthrough, not silence.
     const hostFeeders = [];
     const hostFeederHashByKey = new Map();
     const biasTypeId = audioTypes.bias;
     const attOffsetParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
     const monoPort = NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
-    for (const c of connections) {
-      const src = String(c?.sourceNode || "");
-      const dst = String(c?.destinationNode || "");
-      if (!dst || !idSet.has(dst)) continue;
-      if (idSet.has(src)) {
+    const connectOne = (srcId, srcPort, dstId, dstPort) => {
+      if (idSet.has(srcId)) {
         const rc = native.soemdsp_graph_connect(
           this.nativeGraphHandle,
-          hashById.get(src),
-          this.mapNativeGraphSrcPortId(c?.sourcePort, typeById.get(src)),
-          hashById.get(dst),
-          this.mapNativeGraphDstPortId(c?.destinationPort, typeById.get(dst)),
+          hashById.get(srcId),
+          this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId)),
+          hashById.get(dstId),
+          this.mapNativeGraphDstPortId(dstPort, typeById.get(dstId)),
         ) | 0;
         if (rc !== 0) {
-          this.postNativeGraphStatus("error", `connect failed (${rc}) ${src}->${dst}`);
+          this.postNativeGraphStatus("error", `connect failed (${rc}) ${srcId}->${dstId}`);
           return false;
         }
-        continue;
+        return true;
       }
-      if (!src || !biasTypeId) continue;
-      const srcPort = String(c?.sourcePort || "");
-      const feedKey = `${src}\0${srcPort}`;
+      if (!srcId || !biasTypeId) return true;
+      const feedKey = `${srcId}\0${String(srcPort || "")}`;
       let feedHash = hostFeederHashByKey.get(feedKey);
       if (!feedHash) {
-        const feedId = `__hostCv:${src}:${srcPort}`;
+        const feedId = `__hostCv:${srcId}:${String(srcPort || "")}`;
         feedHash = this.fnv1aHash32(feedId);
         const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, biasTypeId) | 0;
         if (arc !== 0) {
@@ -3662,8 +3820,8 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         hostFeederHashByKey.set(feedKey, feedHash);
         hostFeeders.push({
           hash: feedHash,
-          sourceNode: src,
-          sourcePort: srcPort,
+          sourceNode: srcId,
+          sourcePort: String(srcPort || ""),
         });
         // Snap — Frequency / CV must not chase Bias smoother.
         this.pushNativeGraphSmoothType(native, feedHash, attOffsetParam, 3);
@@ -3674,14 +3832,75 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         this.nativeGraphHandle,
         feedHash,
         monoPort,
-        hashById.get(dst),
-        this.mapNativeGraphDstPortId(c?.destinationPort, typeById.get(dst)),
+        hashById.get(dstId),
+        this.mapNativeGraphDstPortId(dstPort, typeById.get(dstId)),
       ) | 0;
       if (crcHost !== 0) {
-        this.postNativeGraphStatus("error", `host feeder connect failed (${crcHost}) ${src}.${srcPort}->${dst}`);
+        this.postNativeGraphStatus(
+          "error",
+          `host feeder connect failed (${crcHost}) ${srcId}.${srcPort}->${dstId}`,
+        );
         return false;
       }
+      return true;
+    };
+    for (const c of connections) {
+      const src = String(c?.sourceNode || "");
+      const dst = String(c?.destinationNode || "");
+      if (!dst || !idSet.has(dst)) continue;
+      const srcPort = String(c?.sourcePort || "");
+      const dstPort = String(c?.destinationPort || "");
+      const resolved = idSet.has(src)
+        ? [{ sourceNode: src, sourcePort: srcPort }]
+        : this.resolveNativeGraphThruSources(src, srcPort, idSet, 0);
+      if (!resolved.length) {
+        // Thru with nothing upstream — leave destination unwired (silence).
+        continue;
+      }
+      for (let r = 0; r < resolved.length; r += 1) {
+        const item = resolved[r];
+        if (!connectOne(item.sourceNode, item.sourcePort, dst, dstPort)) {
+          return false;
+        }
+      }
     }
+
+    // Phase param MOD → live Phase CV only where process samples kPortPhaseCv.
+    // Additive / Yellow / GPU / DSF / BLIT keep cyan set_param_mod.
+    const phaseCvTypes = new Set([
+      "sineWavetable",
+      "sinCos",
+      "polyBlep",
+    ]);
+    const phaseModLive = new Set();
+    const modsMap = this.modulationConnections;
+    if (modsMap && typeof modsMap.forEach === "function") {
+      modsMap.forEach((mods, modKey) => {
+        const keyStr = String(modKey || "");
+        const dot = keyStr.lastIndexOf(".");
+        if (dot < 0) return;
+        const dstId = keyStr.slice(0, dot);
+        const paramKey = keyStr.slice(dot + 1);
+        const pk = paramKey.toLowerCase();
+        if (pk !== "phase" && pk !== "phaseoffset") return;
+        if (!idSet.has(dstId)) return;
+        const dstType = String(typeById.get(dstId) || "");
+        if (!phaseCvTypes.has(dstType)) return;
+        if (!Array.isArray(mods)) return;
+        for (let i = 0; i < mods.length; i += 1) {
+          const m = mods[i];
+          if (!m) continue;
+          const srcId = String(m.sourceNode || "");
+          const srcPort = String(m.sourcePort || "");
+          if (!srcId || !idSet.has(srcId)) continue; // controllers stay on set_param_mod
+          if (!connectOne(srcId, srcPort, dstId, "phase")) {
+            return false;
+          }
+          phaseModLive.add(`${dstId}\0${paramKey}\0${srcId}\0${srcPort}`);
+        }
+      });
+    }
+    this._nativePhaseModLiveKeys = phaseModLive;
     this._nativeHostCvFeeders = hostFeeders;
 
     const crc = native.soemdsp_graph_compile(this.nativeGraphHandle) | 0;
@@ -3738,6 +3957,8 @@ NodeLiveAudioProcessor.prototype.bindNativeGraphBlockViews = function bindNative
 NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPortNames(type, portId) {
   const P = NodeLiveAudioProcessor;
   if (portId === P.NATIVE_GRAPH_PORT_MONO) {
+    if (type === "mixStereo") return []; // stereo-only — no Mono I/O
+    if (type === "rasterRgb") return ["R"];
     if (type === "polyBlep" || type === "blit") return ["Wave", "Out", "Wave Out", "Noise"];
     if (type === "surgeOscillator") return ["Wave", "Out"];
     if (type === "phoneTone") return ["Tone", "Out", "Mono"];
@@ -3786,6 +4007,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
+    if (type === "rasterRgb") return ["G"];
     if (type === "fractalBrownianNoise") {
       return ["Out Y", "Y", "Left"];
     }
@@ -3834,6 +4056,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Left"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RIGHT) {
+    if (type === "rasterRgb") return ["B"];
     if (type === "fractalBrownianNoise") {
       return ["Out Z", "Z", "Right"];
     }
@@ -3873,6 +4096,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Right"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_SAW) {
+    if (type === "rasterRgb") return ["rgba", "📺"];
     if (type === "fractalBrownianNoise") return ["Out X Raw"];
     if (type === "phoneTone") return ["ƒ1", "f1", "Df1"];
     if (type === "sineWavetable") return ["D"];
@@ -4159,7 +4383,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
     }
   }
 
-  const readSrcSample = (sourceNode, sourcePort, frame) => {
+  const readLeafSample = (sourceNode, sourcePort, frame) => {
     const srcType = String(this.nodes.get(sourceNode)?.type || "");
     if (srcType === "output" && protectedLeft) {
       const portId = this.mapNativeGraphSrcPortId(sourcePort, srcType);
@@ -4210,6 +4434,29 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       frames,
     )) || 0;
   };
+  // Vector RGB / other observers: outs are dry thru — walk past them to DSP.
+  const readSrcSample = (sourceNode, sourcePort, frame) => {
+    const srcType = String(this.nodes.get(sourceNode)?.type || "");
+    const isObserver = typeof nodeGraphModuleIsEfficientProductObserverType === "function"
+      && nodeGraphModuleIsEfficientProductObserverType(srcType);
+    if (!isObserver || Object.prototype.hasOwnProperty.call(P.NATIVE_GRAPH_TYPE_IDS, srcType)) {
+      return readLeafSample(sourceNode, sourcePort, frame);
+    }
+    const resolved = this.resolveNativeGraphThruSources(sourceNode, sourcePort, null, 0);
+    if (!resolved.length) {
+      return 0;
+    }
+    let sum = 0;
+    for (let i = 0; i < resolved.length; i += 1) {
+      const item = resolved[i];
+      if (item.sourceNode === sourceNode && String(item.sourcePort || "") === String(sourcePort || "")) {
+        sum += readLeafSample(item.sourceNode, item.sourcePort, frame);
+      } else {
+        sum += readSrcSample(item.sourceNode, item.sourcePort, frame);
+      }
+    }
+    return sum;
+  };
 
   // Visual sinks (scope/monitor): append block samples from native / protected buffers.
   const sinks = this.compiledVisualSinks;
@@ -4220,6 +4467,24 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
     const sink = sinks[s];
     const inputs = sink?.inputs;
     if (!Array.isArray(inputs) || !inputs.length) continue;
+    const rateMeta = {
+      sampleStride: stride,
+      sourceSampleRate: engineRate,
+      writeSampleRate: engineRate / stride,
+    };
+    const sinkType = String(sink.type || this.nodes.get(sink.nodeId)?.type || "");
+    // Output Instant Trace: post-Volume/Pan ear-protected speakers — not the
+    // pre-gain wires into Mono/Left/Right (Volume would otherwise be invisible).
+    if (sinkType === "output" && protectedLeft) {
+      for (let frame = 0; frame < frames; frame += stride) {
+        const idx = frameOffset + frame;
+        const l = Number(protectedLeft[idx]) || 0;
+        const r = Number(protectedRight?.[idx] ?? l) || 0;
+        const m = (l + r) * 0.5;
+        this.writeOutputVisualSinkSample?.(sink, m, l, r, rateMeta);
+      }
+      continue;
+    }
     for (let frame = 0; frame < frames; frame += stride) {
       let aggregate = 0;
       for (let i = 0; i < inputs.length; i += 1) {
@@ -4239,11 +4504,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
             input.port,
             inputValue,
             sink.bufferSampleLimit,
-            {
-              sampleStride: stride,
-              sourceSampleRate: engineRate,
-              writeSampleRate: engineRate / stride,
-            },
+            rateMeta,
           );
         }
         if (input.portId && !input.buffered) {

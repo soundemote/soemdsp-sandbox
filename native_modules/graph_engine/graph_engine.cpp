@@ -115,6 +115,19 @@ extern "C" void soemdsp_amp_curve_process_block(int handle, int frameCount);
 extern "C" int soemdsp_amp_curve_block_input_ptr(int handle);
 extern "C" int soemdsp_amp_curve_block_output_ptr(int handle);
 
+// Pixel Grid grade (contrast/brightness/invert/hue) — audio R/G/B outs.
+extern "C" int soemdsp_raster_rgb_create();
+extern "C" void soemdsp_raster_rgb_destroy(int handle);
+extern "C" double soemdsp_raster_rgb_sample(
+  int handle,
+  double r, double g, double b,
+  double invert, double contrast, double brightness, double hue
+);
+extern "C" double soemdsp_raster_rgb_r(int handle);
+extern "C" double soemdsp_raster_rgb_g(int handle);
+extern "C" double soemdsp_raster_rgb_b(int handle);
+extern "C" double soemdsp_raster_rgb_rgba(int handle);
+
 extern "C" int soemdsp_range_create();
 extern "C" void soemdsp_range_destroy(int handle);
 extern "C" void soemdsp_range_set_params(
@@ -1521,6 +1534,7 @@ static const int kTypeVactrol = 156; // roll-your-own optical lag (not tombstone
 static const int kTypeAmpCurve = 157; // CV → Amplitude response (Lin/Exp VCA curve)
 static const int kTypeHypersaw2 = 158;
 static const int kTypeTransistor = 159; // t / t1…t10 — stages = last path index
+static const int kTypeRasterRgb = 160; // Pixel Grid — graded R/G/B (+ rgba luma)
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1556,6 +1570,7 @@ static const int kPortTrigger = 20;    // sampleHold Trigger (not an audio bus)
 static const int kPortMixStereoR4 = 21;
 static const int kPortMorph = 22; // block-rate ZOH morph CV (turquoise)
 static const int kPortGraph = 23; // Yellow Graph data-plane (not sample audio)
+static const int kPortPhaseCv = 24; // phase offset CV (cycles, unit-band add; sample-accurate)
 // Numbered multi-in aliases (minMax / mix): In1..In4 → buses 0..3.
 static const int kPortIn1 = 0;
 static const int kPortIn2 = 1;
@@ -1798,6 +1813,7 @@ struct Circuit {
   double mixReset[kMaxBlockFrames];
   double mixTrigger[kMaxBlockFrames];
   double mixMorph[kMaxBlockFrames];
+  double mixPhaseCv[kMaxBlockFrames];
 };
 
 // Morph ZOH: one sample per quantum. additiveCv = knob + Morph[0] (softwave-style);
@@ -1842,6 +1858,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_attenuverter_destroy(handle);
   } else if (kind == kTypeAmpCurve) {
     soemdsp_amp_curve_destroy(handle);
+  } else if (kind == kTypeRasterRgb) {
+    soemdsp_raster_rgb_destroy(handle);
   } else if (kind == kTypeRange) {
     soemdsp_range_destroy(handle);
   } else if (kind == kTypeNoiseGenerator) {
@@ -2130,6 +2148,50 @@ static void init_control(Control& c, double value, bool snap) {
   c.modFlags = 0;
 }
 
+// Wraparound Controls (Phase etc.): modFlags bit0 + valid domain.
+// Smoother chases along the shortest arc; control_effective still wraps for DSP.
+static inline bool control_wrap_domain(
+  const Control& c, double* minOut, double* rangeOut
+) {
+  if ((c.modFlags & 1u) == 0) return false;
+  const double minV = c.domainMin;
+  const double maxV = c.domainMax;
+  const double range = maxV - minV;
+  if (!(minV == minV) || !(maxV == maxV) || !(range > 0.0)) return false;
+  if (minOut) *minOut = minV;
+  if (rangeOut) *rangeOut = range;
+  return true;
+}
+
+// Map wrappedTarget into an unwrapped value nearest to `out` (shortest path).
+static inline double control_shortest_unwrap(
+  double out, double wrappedTarget, double range
+) {
+  double d = wrappedTarget - out;
+  d = d - range * dsp_floor(d / range + 0.5);
+  return out + d;
+}
+
+static inline double control_wrap_value(double v, double minV, double range) {
+  double w = v - minV;
+  w = w - range * dsp_floor(w / range);
+  if (w < 0.0) w += range;
+  return minV + w;
+}
+
+// Fold unwrapped chase state back into the domain once settled (float hygiene).
+static inline void control_fold_wrap_state(Control& c) {
+  double minV = 0.0;
+  double range = 0.0;
+  if (!control_wrap_domain(c, &minV, &range)) return;
+  if (dsp_fabs(c.out - c.target) > kPlanck) return;
+  const double w = control_wrap_value(c.target, minV, range);
+  c.target = w;
+  c.out = w;
+  c.stage1 = w;
+  c.stage2 = w;
+}
+
 // Match nodeGraphParamFoldModSources onto base=out (unit-band + domain-add).
 static inline double control_effective(const Control& c) {
   const double base = c.out;
@@ -2179,6 +2241,41 @@ static inline double control_effective(const Control& c) {
     result = (double)(int)(result >= 0.0 ? result + 0.5 : result - 0.5);
   }
   return result;
+}
+
+// Phase offset in cycles: Control (knob + cyan set_param_mod) + optional live
+// Phase CV (kPortPhaseCv) as unit-band add. Same contract as a Phase SIGNAL IN
+// jack / param MOD from an audio-rate source — sample-accurate, not ZOH.
+static inline double phase_offset_cycles(
+  const Control& phaseParam, double liveCvCycles
+) {
+  double p = control_effective(phaseParam);
+  if (liveCvCycles != 0.0) {
+    const double minV = phaseParam.domainMin;
+    const double maxV = phaseParam.domainMax;
+    const double range = maxV - minV;
+    const bool haveRange = (minV == minV) && (maxV == maxV) && range > 0.0;
+    const bool wrap = (phaseParam.modFlags & 1u) != 0;
+    if (haveRange) {
+      double b = p;
+      if (wrap) {
+        double w = b - minV;
+        w = w - range * dsp_floor(w / range);
+        if (w < 0.0) w += range;
+        b = minV + w;
+      }
+      double u = (b - minV) / range + liveCvCycles;
+      if (wrap) {
+        u = u - dsp_floor(u);
+        if (u < 0.0) u += 1.0;
+      }
+      p = minV + u * range;
+    } else {
+      p += liveCvCycles;
+    }
+  }
+  if (!(p == p)) p = 0.0;
+  return p;
 }
 
 static void init_node_defaults(Node& n, int typeId) {
@@ -2794,11 +2891,12 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.gainRightDb, 0.0, false);
   init_control(n.gainMonoSum, 0.0, true); // discrete mono-sum law
   // mix: linear volumes default 1; mixStereo: dB volumes default 0; pans/bias 0; bleeds 0
+  // rasterRgb: laneVol[0]=contrast (1), laneBias[0]=brightness (1)
   // lookaheadLimiter: laneBias[0]=release ms, laneBias[1]=dipGain
   // pumpLimiter: laneBias[0]=release ms, laneBias[1]=threshold dB
   // stepSequencer: laneVol[0..3]=step1..4, laneBias[0..3]=step5..8
   // degreePhrase: same lanes for Deg 1..8; rests on in*/out*/bleed*/offset
-  const double laneVolDefault = (typeId == kTypeMix) ? 1.0 : 0.0;
+  const double laneVolDefault = (typeId == kTypeMix || typeId == kTypeRasterRgb) ? 1.0 : 0.0;
   static const double kStepDefaults[8] = {
     0.0, 0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25
   };
@@ -2809,6 +2907,7 @@ static void init_node_defaults(Node& n, int typeId) {
     double volDef = laneVolDefault;
     if (typeId == kTypeStepSequencer) volDef = kStepDefaults[i];
     else if (typeId == kTypeDegreePhrase) volDef = kDegreePhraseSteps[i];
+    else if (typeId == kTypeRasterRgb && i > 0) volDef = 0.0;
     init_control(n.laneVol[i], volDef, false);
     double biasDef = 0.0;
     if (typeId == kTypeLookaheadLimiter) {
@@ -2821,6 +2920,8 @@ static void init_node_defaults(Node& n, int typeId) {
       biasDef = kStepDefaults[i + 4];
     } else if (typeId == kTypeDegreePhrase) {
       biasDef = kDegreePhraseSteps[i + 4];
+    } else if (typeId == kTypeRasterRgb && i == 0) {
+      biasDef = 1.0; // brightness unity
     }
     init_control(n.laneBias[i], biasDef, false);
   }
@@ -3038,29 +3139,44 @@ static void smoother_add(Circuit& g, Control& c) {
 }
 
 static void control_set_target(Circuit& g, Control& c, double value) {
-  c.target = value;
+  // Host sends domain-wrapped values (Phase 0…1). For wraparound Controls,
+  // chase the shortest arc so 0.99→0.01 does not sweep through 0.5.
+  double chase = value;
+  double minV = 0.0;
+  double range = 0.0;
+  const bool wrap = control_wrap_domain(c, &minV, &range);
+  if (wrap) {
+    chase = control_shortest_unwrap(c.out, value, range);
+  }
+  c.target = chase;
   c.dirty = true; // linear increment depends on (target - out)
   if (c.snap || c.type == kSmoothTypeNone) {
-    c.out = value;
-    c.stage1 = value;
-    c.stage2 = value;
-    if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, value);
+    const double snapped = wrap ? control_wrap_value(value, minV, range) : value;
+    c.target = snapped;
+    c.out = snapped;
+    c.stage1 = snapped;
+    c.stage2 = snapped;
+    if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, snapped);
     return;
   }
   if (c.type == kSmoothTypePapoulis) {
     control_ensure_papoulis(c);
     if (resolve_control_time_samples(c, g) <= 0.0) {
-      c.out = value;
-      c.stage1 = value;
-      c.stage2 = value;
-      if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, value);
+      const double snapped = wrap ? control_wrap_value(value, minV, range) : value;
+      c.target = snapped;
+      c.out = snapped;
+      c.stage1 = snapped;
+      c.stage2 = snapped;
+      if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, snapped);
       return;
     }
     if (dsp_fabs(c.out - c.target) <= kPlanck) {
-      c.out = value;
-      c.stage1 = value;
-      c.stage2 = value;
-      if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, value);
+      const double snapped = wrap ? control_wrap_value(value, minV, range) : value;
+      c.target = snapped;
+      c.out = snapped;
+      c.stage1 = snapped;
+      c.stage2 = snapped;
+      if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, snapped);
       return;
     }
     smoother_add(g, c);
@@ -3068,15 +3184,19 @@ static void control_set_target(Circuit& g, Control& c, double value) {
   }
   control_ensure_coeff(c, g);
   if (c.type != kSmoothTypeLinear && (c.coeff >= 1.0 - 1e-15 || resolve_control_time_samples(c, g) <= 0.0)) {
-    c.out = value;
-    c.stage1 = value;
-    c.stage2 = value;
+    const double snapped = wrap ? control_wrap_value(value, minV, range) : value;
+    c.target = snapped;
+    c.out = snapped;
+    c.stage1 = snapped;
+    c.stage2 = snapped;
     return;
   }
   if (dsp_fabs(c.out - c.target) <= kPlanck) {
-    c.out = value;
-    c.stage1 = value;
-    c.stage2 = value;
+    const double snapped = wrap ? control_wrap_value(value, minV, range) : value;
+    c.target = snapped;
+    c.out = snapped;
+    c.stage1 = snapped;
+    c.stage2 = snapped;
     return;
   }
   smoother_add(g, c);
@@ -3096,6 +3216,7 @@ static void control_step(Control& c, Circuit& g) {
     c.stage1 = c.target;
     c.stage2 = c.target;
     if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, c.target);
+    control_fold_wrap_state(c);
     return;
   }
   if (c.type == kSmoothTypePapoulis) {
@@ -3107,6 +3228,7 @@ static void control_step(Control& c, Circuit& g) {
       c.stage1 = c.target;
       c.stage2 = c.target;
       if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, c.target);
+      control_fold_wrap_state(c);
       return;
     }
     // Same cutoff mapping as JS param smoother: frequencyHz = 1/seconds = sr/t.
@@ -3114,6 +3236,7 @@ static void control_step(Control& c, Circuit& g) {
     c.out = soemdsp_papoulis_filter_sample(c.papHandle, c.target, cutoffHz, sr);
     c.stage1 = c.out;
     c.stage2 = c.out;
+    control_fold_wrap_state(c);
     return;
   }
   control_ensure_coeff(c, g);
@@ -3125,6 +3248,7 @@ static void control_step(Control& c, Circuit& g) {
     c.out = c.target;
     c.stage1 = c.target;
     c.stage2 = c.target;
+    control_fold_wrap_state(c);
     return;
   }
   if (c.type == kSmoothTypeLinear) {
@@ -3136,12 +3260,14 @@ static void control_step(Control& c, Circuit& g) {
       c.stage1 = c.target;
       c.stage2 = c.target;
     }
+    control_fold_wrap_state(c);
     return;
   }
   if (c.type == kSmoothTypeTwoPole) {
     // Cascaded one-poles (same b0), matching JS twoPole.
     c.stage1 += c.coeff * (c.target - c.stage1);
     c.out += c.coeff * (c.stage1 - c.out);
+    control_fold_wrap_state(c);
     return;
   }
   if (c.type == kSmoothTypeThreePole) {
@@ -3149,10 +3275,12 @@ static void control_step(Control& c, Circuit& g) {
     c.stage1 += c.coeff * (c.target - c.stage1);
     c.stage2 += c.coeff * (c.stage1 - c.stage2);
     c.out += c.coeff * (c.stage2 - c.out);
+    control_fold_wrap_state(c);
     return;
   }
   // onePole (default)
   c.out += c.coeff * (c.target - c.out);
+  control_fold_wrap_state(c);
 }
 
 static void smoother_run(Circuit& g, int n) {
@@ -3270,6 +3398,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypePingPongDelay) return soemdsp_ping_pong_delay_create();
   if (typeId == kTypeAttenuverter) return soemdsp_attenuverter_create();
   if (typeId == kTypeAmpCurve) return soemdsp_amp_curve_create();
+  if (typeId == kTypeRasterRgb) return soemdsp_raster_rgb_create();
   if (typeId == kTypeRange) return soemdsp_range_create();
   if (typeId == kTypeNoiseGenerator) return soemdsp_noise_generator_create();
   if (typeId == kTypeRobinSinusoid) return soemdsp_robin_sinusoid_create();
@@ -3485,7 +3614,8 @@ static bool is_live_dst_port(int port) {
     || port == kPortReset
     || port == kPortTrigger
     || port == kPortMixStereoR4
-    || port == kPortMorph;
+    || port == kPortMorph
+    || port == kPortPhaseCv;
 }
 
 static bool is_graph_port(int port) {
@@ -3643,8 +3773,10 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool livePhase = mix_live_port(g, node, kPortPhaseCv, frames, g.mixPhaseCv);
   const bool controlSmoothing = node_control_smoothing(node);
-  const bool audioRatePitch = liveF || livePitch || liveInc || liveReset || controlSmoothing;
+  const bool audioRatePitch =
+    liveF || livePitch || liveInc || liveReset || livePhase || controlSmoothing;
   const int mask = polyblep_tap_mask(g, node);
 
   // Midi note 48 → 0.4 reference voltage (matches worklet default).
@@ -3653,7 +3785,9 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   // ZOH shape path: Morph param (+ MOD via control_effective) / waveform / amplitude.
   // No Morph SIGNAL IN — that jack was redundant with the Morph parameter.
   if (controlSmoothing) smoother_step_node(g, node);
-  const double phaseParam = control_effective(node.phaseParam);
+  const double phaseParam = phase_offset_cycles(
+    node.phaseParam, livePhase ? g.mixPhaseCv[0] : 0.0
+  );
   double level = control_effective(node.amplitude);
   if (!(level == level)) level = 0.0;
   const double morph = morph_zoh_hold(g, node, false, false);
@@ -3703,7 +3837,9 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   }
   for (int f = 0; f < frames; f++) {
     if (f > 0 && controlSmoothing) smoother_step_node(g, node);
-    const double phaseParamNow = control_effective(node.phaseParam);
+    const double phaseParamNow = phase_offset_cycles(
+      node.phaseParam, livePhase ? g.mixPhaseCv[f] : 0.0
+    );
 
     if (liveReset) {
       const double rv = g.mixReset[f];
@@ -4525,6 +4661,7 @@ static void sin_cos_pair_advance(
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool livePhase = mix_live_port(g, node, kPortPhaseCv, frames, g.mixPhaseCv);
   const bool controlSmoothing = node_control_smoothing(node);
   const double referenceVoltage = 48.0 / 120.0;
   const double methodV = control_effective(node.shape);
@@ -4542,7 +4679,8 @@ static void sin_cos_pair_advance(
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     if (controlSmoothing) smoother_step_node(g, node);
-    const double phaseOff = control_effective(node.phaseParam) * kTwoPi;
+    const double liveCv = livePhase ? g.mixPhaseCv[f] : 0.0;
+    const double phaseOff = phase_offset_cycles(node.phaseParam, liveCv) * kTwoPi;
     double amp = control_effective(node.amplitude);
     if (!(amp == amp)) amp = 0.0;
     if (liveReset) {
@@ -8485,14 +8623,12 @@ static void process_crossover(Circuit& g, Node& node, int frames) {
   }
 }
 
-// mixStereo: true stereo summer (native already L/R). Mono + 4 pairs; R4 on aux port 21.
+// mixStereo: four stereo pairs → Left/Right. R4 on aux port 21. No Mono I/O.
 static void process_mix_stereo(Circuit& g, Node& node, int frames) {
-  double mono[kMaxBlockFrames];
   double l1[kMaxBlockFrames], r1[kMaxBlockFrames];
   double l2[kMaxBlockFrames], r2[kMaxBlockFrames];
   double l3[kMaxBlockFrames], r3[kMaxBlockFrames];
   double l4[kMaxBlockFrames], r4[kMaxBlockFrames];
-  mix_live_port(g, node, kPortMono, frames, mono);
   mix_live_port(g, node, kPortLeft, frames, l1);
   mix_live_port(g, node, kPortRight, frames, r1);
   mix_live_port(g, node, 3, frames, l2);
@@ -8511,19 +8647,15 @@ static void process_mix_stereo(Circuit& g, Node& node, int frames) {
   const double pan4 = control_effective(node.laneBias[3]);
   const double amp = control_effective(node.volumeDb); // Amplitude (All) in dB
   for (int f = 0; f < frames; f++) {
-    node.buf[kPortMono][f] = soemdsp_mix_stereo_sample(
-      0.0,
-      l1[f], r1[f], l2[f], r2[f], l3[f], r3[f], l4[f], r4[f], mono[f],
-      vol1, pan1, vol2, pan2, vol3, pan3, vol4, pan4, amp
-    );
+    node.buf[kPortMono][f] = 0.0;
     node.buf[kPortLeft][f] = soemdsp_mix_stereo_sample(
       1.0,
-      l1[f], r1[f], l2[f], r2[f], l3[f], r3[f], l4[f], r4[f], mono[f],
+      l1[f], r1[f], l2[f], r2[f], l3[f], r3[f], l4[f], r4[f], 0.0,
       vol1, pan1, vol2, pan2, vol3, pan3, vol4, pan4, amp
     );
     node.buf[kPortRight][f] = soemdsp_mix_stereo_sample(
       2.0,
-      l1[f], r1[f], l2[f], r2[f], l3[f], r3[f], l4[f], r4[f], mono[f],
+      l1[f], r1[f], l2[f], r2[f], l3[f], r3[f], l4[f], r4[f], 0.0,
       vol1, pan1, vol2, pan2, vol3, pan3, vol4, pan4, amp
     );
   }
@@ -8754,6 +8886,33 @@ static void process_noise_generator(Circuit& g, Node& node, int frames) {
   copy_tap_to_buf(node.buf[kPortRight], outR, frames);
   for (int f = 0; f < frames; f++) {
     node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
+  }
+}
+
+// Pixel Grid: grade R/G/B → outs (blur/glow are screen-only, not here).
+// Ports: R→Mono, G→Left, B→Right in; outs R/G/B + rgba luma on Saw.
+static void process_raster_rgb(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  double rIn[kMaxBlockFrames];
+  double gIn[kMaxBlockFrames];
+  double bIn[kMaxBlockFrames];
+  mix_live_port(g, node, kPortMono, frames, rIn);
+  mix_live_port(g, node, kPortLeft, frames, gIn);
+  mix_live_port(g, node, kPortRight, frames, bIn);
+  const double contrast = control_effective(node.laneVol[0]);
+  const double brightness = control_effective(node.laneBias[0]);
+  const double invert = control_effective(node.center);
+  const double hue = control_effective(node.phaseParam);
+  for (int f = 0; f < frames; f++) {
+    soemdsp_raster_rgb_sample(
+      node.nativeHandle,
+      rIn[f], gIn[f], bIn[f],
+      invert, contrast, brightness, hue
+    );
+    node.buf[kPortMono][f] = soemdsp_raster_rgb_r(node.nativeHandle);
+    node.buf[kPortLeft][f] = soemdsp_raster_rgb_g(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_raster_rgb_b(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_raster_rgb_rgba(node.nativeHandle);
   }
 }
 
@@ -8998,6 +9157,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypePingPongDelay
     || typeId == kTypeAttenuverter
     || typeId == kTypeAmpCurve
+    || typeId == kTypeRasterRgb
     || typeId == kTypeRange
     || typeId == kTypeNoiseGenerator
     || typeId == kTypeRobinSinusoid
@@ -10049,6 +10209,10 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     }
     if (node.typeId == kTypeAmpCurve) {
       process_amp_curve(*g, node, frames);
+      continue;
+    }
+    if (node.typeId == kTypeRasterRgb) {
+      process_raster_rgb(*g, node, frames);
       continue;
     }
     if (node.typeId == kTypeRange) {

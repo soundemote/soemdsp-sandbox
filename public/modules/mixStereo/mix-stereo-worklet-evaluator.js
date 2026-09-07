@@ -10,7 +10,7 @@ NodeLiveAudioProcessor.prototype.mixStereoFrame = function mixStereoFrame(inputs
         Number(src.L2) || 0, Number(src.R2) || 0,
         Number(src.L3) || 0, Number(src.R3) || 0,
         Number(src.L4) || 0, Number(src.R4) || 0,
-        Number(src.Mono) || 0,
+        0, // legacy mono-in slot (unused)
         Number(p.volume1) || 0, Number(p.pan1) || 0,
         Number(p.volume2) || 0, Number(p.pan2) || 0,
         Number(p.volume3) || 0, Number(p.pan3) || 0,
@@ -18,7 +18,6 @@ NodeLiveAudioProcessor.prototype.mixStereoFrame = function mixStereoFrame(inputs
         Number(p.amplitude) || 0,
       ];
       return {
-        Mono: this.safeFilterNumber(this.nativeMixStereo.soemdsp_mix_stereo_sample(0, ...args), null) ?? 0,
         Left: this.safeFilterNumber(this.nativeMixStereo.soemdsp_mix_stereo_sample(1, ...args), null) ?? 0,
         Right: this.safeFilterNumber(this.nativeMixStereo.soemdsp_mix_stereo_sample(2, ...args), null) ?? 0,
       };

@@ -1669,7 +1669,6 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
         return this.mixStereoFrame(
           {
-            Mono: mixInput(nodeId, "Mono"),
             L1: mixInput(nodeId, "L1"),
             R1: mixInput(nodeId, "R1"),
             L2: mixInput(nodeId, "L2"),

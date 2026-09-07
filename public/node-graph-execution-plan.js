@@ -821,7 +821,13 @@ function nodeGraphVisualDisplayNeedsWaveformRing(node) {
     displayType === "dot" ||
     displayType === "vectorDot" ||
     displayType === "pulseDot" ||
-    displayType === "lcdDot"
+    displayType === "lcdDot" ||
+    // Pixel Grid: one engine sample = one pixel (not Simulation-FPS latest).
+    displayType === "rasterRgbFace" ||
+    displayType === "vectorRgbFace" ||
+    displayType === "gradientVectorscopeFace" ||
+    displayType === "traceRgb" ||
+    displayType === "traceXyz"
   );
 }
 

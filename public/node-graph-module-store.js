@@ -1058,9 +1058,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   mixStereo: {
     category: "dynamics",
-    description: "Four stereo pairs plus Mono into Mono/Left/Right, each pair with Volume and Pan, plus master Amplitude.",
+    description: "Four stereo pairs into Left/Right, each pair with Volume and Pan, plus master Amplitude.",
     label: "MixStereo",
-    notes: ["mixer", "stereo", "mono", "pan", "volume", "4-channel", "utility", "native"],
+    notes: ["mixer", "stereo", "pan", "volume", "4-channel", "utility", "native"],
   },
   // Legacy id for Mix.
   gainBiasMix: {
@@ -2254,9 +2254,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   rasterRgb: {
     category: "rgb",
-    description: "Analog RGB color-corrector and rolling framebuffer. Invert, contrast, brightness, and hue land on R/G/B/📺 outs.",
+    description: "Analog RGB color-corrector and rolling framebuffer. Scan Speed sets pixels per sample; invert/contrast/brightness/hue land on R/G/B/📺 outs.",
     label: "Pixel Grid",
-    notes: ["pixel grid", "raster", "framebuffer", "rgb", "hue", "color correct", "tv"],
+    notes: ["pixel grid", "raster", "framebuffer", "scan", "rgb", "hue", "color correct", "tv"],
   },
   gradientVectorscope: {
     category: "oscilloscope",

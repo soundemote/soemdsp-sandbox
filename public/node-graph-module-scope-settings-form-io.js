@@ -1011,14 +1011,41 @@ function readNodeGraphTraceDisplaySettingsForm() {
   const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", formType);
   const activeToggles = nodeGraphTraceDisplayActiveControlSet("toggles", formType);
   const activeChoices = nodeGraphTraceDisplayActiveControlSet("choices", formType);
-  for (const key of activeFields) {
+  // Sync retargets History/Sweep to *Cycles in the live DOM while schema still
+  // lists *Hz — always include whichever key is actually on the dial.
+  const fieldKeysToRead = new Set(activeFields);
+  for (const liveKey of ["historyHz", "historyCycles", "sweepHz", "sweepCycles"]) {
+    if (root?.querySelector?.(`[data-trace-display-field="${liveKey}"]`)) {
+      fieldKeysToRead.add(liveKey);
+    }
+  }
+  for (const key of fieldKeysToRead) {
     const input = root?.querySelector?.(`[data-trace-display-field="${key}"]`);
     if (input) {
+      // Don't mutate the box mid-type-in (keeps "4." / "0." while editing).
+      const editing = input.classList.contains("trace-display-field-editing")
+        || input.readOnly === false;
       const sanitizedValue = typeof sanitizeNodeGraphNumericText === "function"
         ? sanitizeNodeGraphNumericText(input.value)
         : String(input.value ?? "").trim();
-      if (sanitizedValue && sanitizedValue !== input.value) {
+      if (!editing && sanitizedValue && sanitizedValue !== input.value) {
         input.value = sanitizedValue;
+      }
+      // Empty / incomplete numerics must NOT become Number("") === 0 and wipe the
+      // node (right-click remount → apply before seed showed all zeros; Undo worked).
+      if (
+        sanitizedValue === ""
+        || sanitizedValue === "."
+        || sanitizedValue === "-"
+        || sanitizedValue === "+"
+        || sanitizedValue === "-."
+        || sanitizedValue === "+."
+      ) {
+        continue;
+      }
+      const parsed = Number(sanitizedValue);
+      if (!Number.isFinite(parsed)) {
+        continue;
       }
       next[key] = sanitizedValue;
       if (key === "dot1Brightness") {
@@ -1367,6 +1394,12 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   for (const key of fieldKeysToWrite) {
     const input = root?.querySelector?.(`[data-trace-display-field="${key}"]`);
     if (input) {
+      // Don't clobber an in-progress type-in (Cycles / History / Scale, …).
+      const editing = input.classList.contains("trace-display-field-editing")
+        || input.readOnly === false;
+      if (editing) {
+        continue;
+      }
       input.value = formatNodeGraphTraceDisplaySetting(nodeGraphDisplaySettingsFormValue(normalized, key));
       input.readOnly = true;
       input.classList.toggle("trace-display-field-editing", false);
@@ -1962,33 +1995,39 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
           const defaultHsl = defaultHex
             ? nodeGraphTraceDisplayHexToHsl(defaultHex)
             : null;
-          widget = mount(host, {
-            // Hue-only never shows a title (giant scaled "Hue" was a waste strip).
-            label: hueOnly ? "" : label,
-            ...mountHsl,
-            // 0 = red (Left). Must pass explicitly — falsy 0 is still a hue.
-            defaultHue: Number.isFinite(Number(defaultHsl?.h)) ? defaultHsl.h : undefined,
-            channels: hueOnly ? "hue" : "full",
-            onChange: (color) => {
-              if (nodeGraphTraceDisplayColorWidgetState.syncing) {
-                return;
-              }
-              const nextHex = hueOnly
-                ? nodeGraphTraceDisplayPureHueHex(color, hex)
-                : nodeGraphTraceDisplayNormalizeHexColor(color?.hex, hex);
-              const colorInput = nodeGraphTraceDisplaySettingsRoot()?.querySelector?.(
-                `[data-trace-display-color="${field}"]`,
-              );
-              if (colorInput) {
-                colorInput.value = nextHex;
-              }
-              // Live paint while dragging strips.
-              if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
-                markNodeGraphTraceDisplaySettingsDirty(field);
-              }
-              applyNodeGraphTraceDisplaySettingsForm({ persist: "none", record: false });
-            },
-          });
+          // Suppress mount-time onChange so seeding never dirties / applies.
+          nodeGraphTraceDisplayColorWidgetState.syncing = true;
+          try {
+            widget = mount(host, {
+              // Hue-only never shows a title (giant scaled "Hue" was a waste strip).
+              label: hueOnly ? "" : label,
+              ...mountHsl,
+              // 0 = red (Left). Must pass explicitly — falsy 0 is still a hue.
+              defaultHue: Number.isFinite(Number(defaultHsl?.h)) ? defaultHsl.h : undefined,
+              channels: hueOnly ? "hue" : "full",
+              onChange: (color) => {
+                if (nodeGraphTraceDisplayColorWidgetState.syncing) {
+                  return;
+                }
+                const nextHex = hueOnly
+                  ? nodeGraphTraceDisplayPureHueHex(color, hex)
+                  : nodeGraphTraceDisplayNormalizeHexColor(color?.hex, hex);
+                const colorInput = nodeGraphTraceDisplaySettingsRoot()?.querySelector?.(
+                  `[data-trace-display-color="${field}"]`,
+                );
+                if (colorInput) {
+                  colorInput.value = nextHex;
+                }
+                // Live paint while dragging strips.
+                if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+                  markNodeGraphTraceDisplaySettingsDirty(field);
+                }
+                applyNodeGraphTraceDisplaySettingsForm({ persist: "none", record: false });
+              },
+            });
+          } finally {
+            nodeGraphTraceDisplayColorWidgetState.syncing = false;
+          }
           nodeGraphTraceDisplayColorWidgetState.widgets.set(field, widget);
           requestAnimationFrame(() => {
             try {

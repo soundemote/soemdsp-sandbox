@@ -1047,11 +1047,12 @@ const nodeGraphModuleDefinitions = (
       },
     ],
     defaultDisplayMode: "face",
-    // Same left-column jacks as PolyBLEP / BLIT (Phase + Amp are knobs only).
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    // Phase jack ADDS to the Phase knob (sample-accurate PM), same as DSF.
+    inputs: ["Reset", "0.1V/Oct", "Increment", "Phase", "f"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Increment: "Inc.",
+      Phase: "Phase",
       f: "ƒ",
     },
     outputs: ["A", "B", "C", "D"],
@@ -1097,7 +1098,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true
+        wraparound: true,
+        tooltip:
+          "Phase offset (cycles). Knob + Phase jack + Phase MOD from audio-rate sources all add sample-accurately.",
       },
       {
         bipolar: false,
@@ -1128,10 +1131,11 @@ const nodeGraphModuleDefinitions = (
   sinCos: {
     planRole: "source",
     displayType: "trace",
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputs: ["Reset", "0.1V/Oct", "Increment", "Phase", "f"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Increment: "Inc.",
+      Phase: "Phase",
       f: "ƒ",
     },
     outputs: ["sin", "cos"],
@@ -1166,7 +1170,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true
+        wraparound: true,
+        tooltip:
+          "Phase offset (cycles). Knob + Phase jack + Phase MOD from audio-rate sources all add sample-accurately.",
       },
       {
         bipolar: false,
@@ -6322,12 +6328,13 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     displayType: "trace",
     stereoTracePorts: { left: "Left", right: "Right" },
-    inputAliases: { In: "Mono" },
-    inputLabels: { Mono: "Mono" },
-    inputs: ["Mono", "L1", "R1", "L2", "R2", "L3", "R3", "L4", "R4"],
-    outputAliases: { Out: "Mono", M: "Mono" },
-    outputLabels: { Mono: "Mono" },
-    outputs: ["Mono", "Left", "Right"],
+    inputs: ["L1", "R1", "L2", "R2", "L3", "R3", "L4", "R4"],
+    inputLabels: {
+      L1: "L1", R1: "R1", L2: "L2", R2: "R2",
+      L3: "L3", R3: "R3", L4: "L4", R4: "R4",
+    },
+    outputs: ["Left", "Right"],
+    outputLabels: { Left: "Left", Right: "Right" },
     parameters: [
       {
         defaultValue: "0",
@@ -13898,6 +13905,8 @@ const nodeGraphModuleDefinitions = (
     inputs: ["X", "Y", "R", "G", "B", "Blank"],
     inputLabels: { X: "X", Y: "Y", R: "R", G: "G", B: "B", Blank: "Blk" },
     layout: "traceDisplay",
+    // Dry same-name thru (X→X … B→B) so the face can sit in-line. Efficient
+    // Live resolves these past the observer at native compile time.
     outputs: ["X", "Y", "R", "G", "B"],
     outputLabels: { X: "X", Y: "Y", R: "R", G: "G", B: "B" },
     parameters: [],
@@ -13943,7 +13952,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "custom",
         step: "any",
-        tooltip: "Samples per line (fractional OK). Write head wraps every Width samples — tune to lock high-rate RGB to the raster. Storage uses ceil(Width). Slider is finer near 0 (Parameter Settings → Sensitivity).",
+        tooltip: "Samples per line (fractional OK). With Scan Speed 1, full-frame rate ≈ sampleRate / (Width×Height). Tune Width to lock RGB to the raster. Storage uses ceil(Width).",
       },
       {
         curveAmount: "0.55",
@@ -13958,7 +13967,22 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "custom",
         step: "any",
-        tooltip: "Lines per frame (fractional OK). Pairs with Width for raster period. Storage uses ceil(Height). Slider is finer near 0 (Parameter Settings → Sensitivity).",
+        tooltip: "Lines per frame (fractional OK). Pairs with Width for the raster period. Storage uses ceil(Height).",
+      },
+      {
+        curveAmount: "0.55",
+        defaultValue: "8",
+        key: "scanSpeed",
+        label: "Scan Speed",
+        max: "64",
+        maxDigits: 3,
+        mid: "8",
+        min: "0.05",
+        modClamp: false,
+        nonlinearSlider: true,
+        sliderCurve: "custom",
+        step: "any",
+        tooltip: "Pixels advanced per audio sample (fractional OK). 1 = sample clock. 0.5 = one pixel every two samples (slower). 1.5 / 8 / … stamp each sample across more pixels (faster). Default 8 ≈ sampleRate×8/(Width×Height) full frames/sec.",
       },
       {
         bipolar: true,
@@ -13970,7 +13994,7 @@ const nodeGraphModuleDefinitions = (
         min: "-4",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Bipolar S-curve on R/G/B. 1 = unity. 0 = mid grey. Above 1 opens midtones. Negative is the same curve, photographically inverted (−1 = invert, −4 = inverted high contrast).",
+        tooltip: "Bipolar S-curve on face and R/G/B/📺 outs. 1 = unity. 0 = mid grey. Above 1 opens midtones. Negative photographically inverts (−1 = invert).",
       },
       {
         bipolar: true,
@@ -13982,7 +14006,7 @@ const nodeGraphModuleDefinitions = (
         min: "-4",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Bipolar gain after contrast. 1 = unity. 0 = black. Above 1 lifts. Negative is the same gain, then photographic invert (−1 = invert).",
+        tooltip: "Bipolar gain after contrast on face and R/G/B/📺 outs. 1 = unity. 0 = black. Negative photographically inverts (−1 = invert).",
       },
       {
         defaultValue: "0",
@@ -13996,7 +14020,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "cycle",
         wraparound: true,
-        tooltip: "Rotate processed RGB hue. 0 = unchanged. ±1 = full cycle. Applied after contrast/brightness/invert on the face and analog R/G/B/📺 outs.",
+        tooltip: "Rotate graded RGB hue on the face and on R/G/B/📺 outs. 0 = unchanged. ±1 = full cycle. After contrast/brightness/invert.",
       },
       {
         defaultValue: "0",
@@ -14007,7 +14031,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Gaussian blur of the presented raster (canvas filter). 0 = hard pixels. Higher softens the picture.",
+        tooltip: "Screen-only Gaussian soft of the presented raster (not in the R/G/B outs). 0 = hard pixels.",
       },
       {
         defaultValue: "0",
@@ -14018,7 +14042,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Additive wider Gaussian bloom of the same raster. Works with or without Blur.",
+        tooltip: "Screen-only additive bloom of the presented raster (not in the R/G/B outs).",
       },
       {
         defaultValue: "0",
@@ -14029,7 +14053,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Dedicated 0…1 photographic invert mix (last). Contrast −1 or Brightness −1 already fully invert; this crossfades without moving those knobs.",
+        tooltip: "0…1 photographic invert on the face and on R/G/B/📺 outs (flips the graded signal). Contrast −1 / Brightness −1 also invert.",
       },
     ],
     visualInputs: [
@@ -14222,8 +14246,9 @@ const nodeGraphModuleDefinitions = (
     planRole: "sink",
     displayType: "trace",
     uniqueInPatch: true,
-    // Capture Mono/Left/Right for stereo Trace (scope rings). Without this the
-    // worklet only stored a scalar 0 for the speaker sink and the face stayed blank.
+    // Capture Mono/Left/Right for stereo Trace (scope rings). Instant Trace is
+    // fed from the post-Volume/Pan bus so the face shows Volume's effect (not
+    // the pre-gain wires). Without visualSink the face stayed blank.
     visualSink: true,
     visualInputs: [
       { key: "outputMono", label: "Mono", port: "Mono" },

@@ -192,9 +192,13 @@ function applyNodeGraphConstraintToggles(toggles, options = {}) {
 function syncNodeGraphConstraintOverlayToggles(options = {}) {
   const workspace = document.getElementById("nodeGraphWorkspace");
   const next = { cpu: false, ram: false, gpu: false };
+  // Face badges/rings only when Debug is on, or D has brought the chip guide back.
+  const marksAllowed = !(document.body.classList.contains("keyboard-debug-hidden")
+    && !document.body.classList.contains("constraint-guide-visible"));
   for (const constraint of ["cpu", "ram", "gpu"]) {
-    const active = Boolean(document.querySelector(`[data-constraint-toggle="${constraint}"]`)?.checked);
-    next[constraint] = active;
+    const checked = Boolean(document.querySelector(`[data-constraint-toggle="${constraint}"]`)?.checked);
+    next[constraint] = checked;
+    const active = marksAllowed && checked;
     document.body.classList.toggle(`node-constraint-${constraint}-active`, active);
     workspace?.classList.toggle(`node-constraint-${constraint}-active`, active);
   }

@@ -293,7 +293,13 @@ function formatNodeSliderCompactNumber(value) {
 }
 
 function sanitizeNodeGraphNumericText(value) {
-  const source = String(value ?? "").trim().replace(/,/g, "");
+  let source = String(value ?? "").trim();
+  // Locale decimal comma → dot when no period is present (so "1,5" stays 1.5).
+  if (source.includes(",") && !source.includes(".")) {
+    source = source.replace(",", ".");
+  } else {
+    source = source.replace(/,/g, "");
+  }
   let output = "";
   let hasDot = false;
   let hasExponent = false;
