@@ -287,7 +287,40 @@ function validateNodeGraphPatch(patch) {
             ? (typeof nodeGraphPhaseDisperseAmountToStages === "function"
               ? nodeGraphPhaseDisperseAmountToStages(rawParams.amount)
               : 1 + Math.max(0, Math.min(1, Number(rawParams.amount) || 0)) * 63)
-            : parameter.defaultValue));
+            : ((parameter.key === "upShape" || parameter.key === "downShape")
+              && type === "slewLimiter"
+              && Object.hasOwn(rawParams, "shape")
+              ? rawParams.shape
+              : parameter.defaultValue)));
+      // Range: exact old defaults Out −10…+10 peg Morph MOD (|v|>1 = domain-add).
+      // Rewrite only that pair (and matching In −1…+1) to unit CV 0…1.
+      // Intentional Hz maps (Out High 1000, etc.) are left alone.
+      if (type === "range") {
+        const oLo = Number(rawParams.outLow);
+        const oHi = Number(rawParams.outHigh);
+        if (oLo === -10 && oHi === 10) {
+          if (parameter.key === "outLow") value = 0;
+          if (parameter.key === "outHigh") value = 1;
+          const iLo = Number(rawParams.inLow);
+          const iHi = Number(rawParams.inHigh);
+          if (iLo === -1 && iHi === 1) {
+            if (parameter.key === "inLow") value = 0;
+            if (parameter.key === "inHigh") value = 1;
+          }
+        }
+      }
+      // Pluck Envelope: Dampen (0=long…1=short) → Decay (0=short…1=long), inverted.
+      if (
+        type === "pluckEnvelope3"
+        && parameter.key === "decay"
+        && !Object.hasOwn(rawParams, "decay")
+        && Object.hasOwn(rawParams, "dampen")
+      ) {
+        const n = Number(rawParams.dampen);
+        if (Number.isFinite(n)) {
+          value = Math.max(0, Math.min(1, 1 - n));
+        }
+      }
       // Old Active Filter had a single Frequency knob. Missing Low/High inherit it.
       if (
         type === "activeFilter"

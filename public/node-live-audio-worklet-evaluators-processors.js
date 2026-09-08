@@ -933,11 +933,32 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           state = this.createSlewLimiterState();
           this.slewLimiterStates.set(nodeId, state);
         }
+        // Legacy single `shape` seeds both when up/down keys are absent.
+        const legacyShape = this.readEffectiveParameter(node, "shape", 0, frame, frames, frameValues);
         const { params } = this.resolveModuleControlParams(
-          node, state, { upTime: 0.05, downTime: 0.05, shape: 0, bias: 0 }, frame, frames, frameValues,
+          node,
+          state,
+          {
+            upTime: 0.05,
+            downTime: 0.05,
+            upShape: legacyShape,
+            downShape: legacyShape,
+            bias: 0,
+          },
+          frame,
+          frames,
+          frameValues,
         );
         const slewIn = mixInput(nodeId, "In") + mixInput(nodeId) + params.bias;
-        const out = this.slewLimiterSample(state, slewIn, params.upTime, params.downTime, safeRate, params.shape);
+        const out = this.slewLimiterSample(
+          state,
+          slewIn,
+          params.upTime,
+          params.downTime,
+          safeRate,
+          params.upShape,
+          params.downShape,
+        );
         return { Out: out, Mono: out };
       },
       // Stereo → Mid/Side (0.5 matrix). Math: mid-side-encode-math.js.

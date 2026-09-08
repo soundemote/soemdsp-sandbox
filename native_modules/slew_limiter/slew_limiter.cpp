@@ -5,9 +5,9 @@
 //
 // Mono rate limiter: one handle = one channel. Stereo patches use separate
 // handles (or graph folds M/L/R). Up/Down times are seconds to reach the
-// current target (amplitude-independent — not “per unit of 1”). Shape:
-// 0 Lin / 1 Log / 2 Exp / 3 Smooth. Bias added before slew. First sample
-// snaps to target.
+// current target (amplitude-independent — not “per unit of 1”). Separate
+// Up/Down Shape: 0 Lin / 1 Log / 2 Exp / 3 Smooth. Bias added before slew.
+// First sample snaps to target.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -79,7 +79,8 @@ static double chanSample(
   double upTime,
   double downTime,
   double sampleRate,
-  int shape
+  int upShape,
+  int downShape
 ) {
   const double rate = maxd(1.0, safe(sampleRate));
   const double target = safe(input);
@@ -107,6 +108,7 @@ static double chanSample(
     return target;
   }
 
+  const int shape = rising ? upShape : downShape;
   const bool targetMoved = dsp_fabs(target - s.target) > 1e-9;
   if (!s.slewActive || rising != s.rising || targetMoved) {
     s.from = s.out;
@@ -168,14 +170,15 @@ extern "C" double soemdsp_slew_limiter_sample(
   double sampleRate
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return chanSample(gPool[handle - 1], input, upTime, downTime, sampleRate, kShapeLin);
+  return chanSample(gPool[handle - 1], input, upTime, downTime, sampleRate, kShapeLin, kShapeLin);
 }
 
 extern "C" void soemdsp_slew_limiter_process_block(
   int handle,
   double upTime,
   double downTime,
-  double shape,
+  double upShape,
+  double downShape,
   double bias,
   double sampleRate,
   int frameCount
@@ -183,10 +186,11 @@ extern "C" void soemdsp_slew_limiter_process_block(
   if (handle < 1 || handle > kMaxInstances) return;
   SlewLimiterState& s = gPool[handle - 1];
   const int n = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
-  const int mode = normShape(shape);
+  const int upMode = normShape(upShape);
+  const int downMode = normShape(downShape);
   const double off = safe(bias);
   for (int f = 0; f < n; f++) {
-    s.blockOut[f] = chanSample(s, s.blockIn[f] + off, upTime, downTime, sampleRate, mode);
+    s.blockOut[f] = chanSample(s, s.blockIn[f] + off, upTime, downTime, sampleRate, upMode, downMode);
   }
 }
 
@@ -205,5 +209,5 @@ extern "C" int soemdsp_slew_limiter_max_block_frames() {
 }
 
 extern "C" int soemdsp_slew_limiter_version() {
-  return 3; // mono process_block + shape/bias (not forced stereo)
+  return 4; // mono process_block + separate up/down shape + bias
 }

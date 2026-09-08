@@ -457,6 +457,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     envelopeCurve: "filter-curve-layout",
     roundShape: "filter-curve-layout",
     basicShape: "filter-curve-layout",
+    softwaveOsc: "filter-curve-layout",
     sinCos4: "filter-curve-layout",
     graph: "graph-node-layout",
     image: "image-node-layout",
@@ -1010,6 +1011,20 @@ function createNodeGraphModuleElement(type, node) {
       : !patchNodeUi.oscilloscopeHidden)
       && typeof createNodeGraphBasicShapeDisplay === "function") {
       article.append(createNodeGraphBasicShapeDisplay(node, type));
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
+  } else if (definition.layout === "softwaveOsc") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphSoftwaveOscDisplay === "function") {
+      article.append(createNodeGraphSoftwaveOscDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(
       article,

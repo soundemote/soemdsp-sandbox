@@ -3066,7 +3066,7 @@ function nodeGraphMidiKeyboardPointerXY(event, surface) {
   return { x, y, key };
 }
 
-function nodeGraphMidiKeyboardSignalFromPointer(event, surface) {
+function nodeGraphMidiKeyboardSignalFromPointer(event, surface, options = {}) {
   const { x, y, key } = nodeGraphMidiKeyboardPointerXY(event, surface);
   const targetMidi = key ? Number(key.dataset.midi) : NaN;
   const fallbackKeyIndex = Math.min(
@@ -3075,15 +3075,21 @@ function nodeGraphMidiKeyboardSignalFromPointer(event, surface) {
   );
   const rawMidi = Number.isFinite(targetMidi) ? targetMidi : nodeGraphMidiKeyboardStartMidi + fallbackKeyIndex;
   const gate = event.buttons > 0 || event.type === "pointerdown" ? 1 : 0;
+  // Pointer velocity = vertical strike position (top of key = hard).
+  // Refresh on note-on / key-change trigger; hold last velocity while scrubbing.
+  const refreshVelocity = options.refreshVelocity === true
+    || event.type === "pointerdown"
+    || options.gatePulse === true;
+  const velocity = refreshVelocity
+    ? y
+    : nodeGraphMidiKeyboardClamp01(nodeGraphMvp.midiKeyboardSignal?.velocity ?? y);
   return nodeGraphMidiKeyboardSignalFromRaw(rawMidi, {
     source: "pointer",
     gate,
-    gatePulse: gate ? 1 : 0,
+    gatePulse: options.gatePulse === true || (gate && event.type === "pointerdown") ? 1 : 0,
     x,
     y,
-    // Pointer does not invent MIDI velocity; keep last velocity if any.
-    // Velocity only refreshes on mouse-down / MIDI note-on (not move).
-    velocity: nodeGraphMvp.midiKeyboardSignal?.velocity ?? 0,
+    velocity,
   });
 }
 
@@ -3509,12 +3515,17 @@ function updateNodeGraphMidiKeyboardSignal(event) {
   // Move: Press keeps pitch fixed (X/Y only). Slide retunes while dragged.
   if (event.type === "pointermove") {
     if (mode === "slide" && event.buttons > 0 && !held) {
-      const next = nodeGraphMidiKeyboardSignalFromPointer(event, surface);
-      next.gate = 1;
       const prevMidi = nodeGraphMidiKeyboardRawMidiFromSignal(nodeGraphMvp.midiKeyboardSignal);
-      const nextMidi = nodeGraphMidiKeyboardRawMidiFromSignal(next);
+      const probe = nodeGraphMidiKeyboardSignalFromPointer(event, surface);
+      const nextMidi = nodeGraphMidiKeyboardRawMidiFromSignal(probe);
       // Trigger only when the key under the pointer changes — not every move sample.
-      next.gatePulse = Number.isFinite(prevMidi) && prevMidi !== nextMidi ? 1 : 0;
+      const keyChanged = Number.isFinite(prevMidi) && prevMidi !== nextMidi;
+      const next = nodeGraphMidiKeyboardSignalFromPointer(event, surface, {
+        gatePulse: keyChanged,
+        refreshVelocity: keyChanged,
+      });
+      next.gate = 1;
+      next.gatePulse = keyChanged ? 1 : 0;
       renderNodeGraphMidiKeyboardSignal(next);
       return;
     }

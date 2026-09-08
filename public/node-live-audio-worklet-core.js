@@ -99,6 +99,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.inputWireBreakTriggers = new Map();
     this.pitchModWheelSignal = { mod: 0, pitch: 0 };
     this.midiKeyboardGatePulseSamples = 0;
+    this.midiKeyboardGatePulseVelocity = 0;
     this.midiKeyboardSignal = null;
     this.midiKeyboardHeldKeysLowBitmask = 0;
     this.midiKeyboardHeldKeysHighBitmask = 0;

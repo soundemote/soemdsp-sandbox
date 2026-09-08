@@ -160,7 +160,15 @@ extern "C" void soemdsp_softwave_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
+extern "C" void soemdsp_softwave_reset(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  SoftwaveState& s = gPool[handle - 1];
+  if (!s.active) return;
+  s.phase = 0.0;
+}
+
 // phaseOffset, morph, antialias in [0,1]; waveform 0..9; level gain.
+// Frequency 0 = stopped phasor (not silence): Phase / Morph / Waveform still apply.
 extern "C" double soemdsp_softwave_sample(
   int handle,
   double frequencyHz,
@@ -173,10 +181,13 @@ extern "C" double soemdsp_softwave_sample(
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   SoftwaveState& s = gPool[handle - 1];
-  const double f = frequencyHz > 0.0 && (frequencyHz * 0.0 == 0.0) ? frequencyHz : 0.0;
+  // Finite Hz only; allow 0 and negative (thru-zero direction). No silence special case.
+  const double f = (frequencyHz * 0.0 == 0.0) ? frequencyHz : 0.0;
   const double rate = sampleRate > 1.0 ? sampleRate : 44100.0;
-  const double gain = (level * 0.0 == 0.0) ? level : 1.0;
-  if (f <= 0.0) return 0.0;
+  // Amplitude domain is 0…1 — clamp after MOD so Amp=1 + Knob cannot go above 1.
+  double gain = (level * 0.0 == 0.0) ? level : 1.0;
+  if (gain < 0.0) gain = 0.0;
+  if (gain > 1.0) gain = 1.0;
   const double increment = f / rate;
   s.phase = wrap01(s.phase + increment);
   const double po = wrap01(phaseOffset);
@@ -188,19 +199,21 @@ extern "C" double soemdsp_softwave_sample(
   int shape = (int)dsp_floor(waveform + 0.5);
   if (shape < 0) shape = 0;
   if (shape > 9) shape = 9;
+  // Softness helpers use |f| (floor at 1 Hz inside sine_amp / pitch maps).
+  const double fAbs = f < 0.0 ? -f : f;
   const double sample = run_shape(
     finalPhase,
     shape,
-    sine_amp(f, rate),
+    sine_amp(fAbs, rate),
     morph_factor(morph),
-    f
+    fAbs
   );
   if (!(sample * 0.0 == 0.0)) return 0.0;
   return sample * gain;
 }
 
 extern "C" int soemdsp_softwave_version() {
-  return 1;
+  return 4; // level clamped 0…1 after MOD (Amp=1 + Knob cannot exceed 1)
 }
 
 extern "C" const char* soemdsp_softwave_metadata_json() {

@@ -270,7 +270,6 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
       Tri: vector.tri,
       Sine: vector.sine,
       "Wave Out": vector.out,
-      Noise: vector.out,
     };
   } else if (node?.type === "polyBlep" || node?.type === "blit") {
     // Native not ready yet — silence (not a JS bandlimited twin).
@@ -284,7 +283,6 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
       Tri: silent.tri,
       Sine: silent.sine,
       "Wave Out": silent.out,
-      Noise: silent.out,
     };
   } else {
     // osc (LFO): same basic_oscillator.wasm the worklet uses.
@@ -301,7 +299,6 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
       Tri: sample(`${nodeId}:tri`, 3),
       Sine: sample(`${nodeId}:sine`, 4),
       "Wave Out": selected,
-      Noise: selected,
     };
   }
 

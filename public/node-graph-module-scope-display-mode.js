@@ -214,6 +214,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "portalFace",
     "roundShapeFace",
     "basicShapeFace",
+    "softwaveOscFace",
     "sinCos4Face",
     "harmonicCount",
     "harmonicLines",

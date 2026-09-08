@@ -2406,15 +2406,18 @@ function openNodeRoundShapeContextMenu(event) {
     return false;
   }
   const face = target.closest?.(
-    ".node-round-shape-display, .node-round-shape-canvas, .node-basic-shape-display, .node-basic-shape-canvas",
+    ".node-round-shape-display, .node-round-shape-canvas, .node-basic-shape-display, .node-basic-shape-canvas, .node-softwave-osc-display, .node-softwave-osc-canvas",
   );
   if (!face) {
     return false;
   }
   const display = face.classList?.contains("node-round-shape-display")
     || face.classList?.contains("node-basic-shape-display")
+    || face.classList?.contains("node-softwave-osc-display")
     ? face
-    : (face.closest?.(".node-round-shape-display") || face.closest?.(".node-basic-shape-display"));
+    : (face.closest?.(".node-round-shape-display")
+      || face.closest?.(".node-basic-shape-display")
+      || face.closest?.(".node-softwave-osc-display"));
   const nodeId = String(
     display?.dataset?.node
     || face.dataset?.node
@@ -2443,7 +2446,7 @@ function openNodeRoundShapeContextMenu(event) {
 
 function openNodeScopeContextMenu(event) {
   const contextScope = event.target.closest?.(
-    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-value-lcd-face, .node-ray-bouncer-face, .node-asciiscope-face, .node-matrix-face, .node-round-shape-display, .node-basic-shape-display",
+    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-value-lcd-face, .node-ray-bouncer-face, .node-asciiscope-face, .node-matrix-face, .node-round-shape-display, .node-basic-shape-display, .node-softwave-osc-display",
   );
   const nodeId = contextScope?.dataset?.node || "";
   const patchNode = nodeId ? nodeGraphPatchNode(nodeId) : null;

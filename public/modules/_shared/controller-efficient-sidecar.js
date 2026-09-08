@@ -34,7 +34,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
   // Publish MIDI Keyboard once per quantum (not a native graph type).
   // Frequency / Gate / 0.1V/Oct must exist in nodeOutputs before host→native
   // live-port folds (ƒ, pitch CV) run in syncNativeGraphParams.
-  let keyboardGatePulseLatched = this.midiKeyboardGatePulseSamples > 0 ? 1 : 0;
+  const pulseActive = this.midiKeyboardGatePulseSamples > 0;
   for (const [id, node] of this.nodes) {
     const nodeType = String(node?.type || "");
     if (nodeType !== "keyboardController" && nodeType !== "keyboard") continue;
@@ -75,14 +75,24 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const y = resetActive ? 0 : (hasIn("Y")
       ? Math.max(0, Math.min(1, mixIn(nid, "Y") || 0))
       : Math.max(0, Math.min(1, num(signal.y, 0))));
-    const gate = resetActive ? 0 : (hasIn("Gate")
-      ? (mixIn(nid, "Gate") > 0 ? 1 : 0)
-      : (num(signal.gate, 0) > 0 ? 1 : 0));
-    const hold = hasIn("Hold") && mixIn(nid, "Hold") > 0 ? 1 : 0;
+    const hold = hasIn("Hold") && mixIn(nid, "Hold") > 0;
     const velocity01 = hasIn("Velocity")
       ? Math.max(0, Math.min(1, mixIn(nid, "Velocity") || 0))
       : Math.max(0, Math.min(1, num(signal.velocity, 0)));
     const velocityNumber = Math.round(velocity01 * 127);
+    // Gate/Trigger amplitudes follow velocity (not binary 0/1).
+    let gateAmp = 0;
+    if (!resetActive) {
+      if (hasIn("Gate")) {
+        gateAmp = Math.max(0, Math.min(1, mixIn(nid, "Gate") || 0));
+      } else if (num(signal.gate, 0) > 0 || hold) {
+        gateAmp = velocity01;
+      }
+    }
+    const pulseVel = Number.isFinite(Number(this.midiKeyboardGatePulseVelocity))
+      ? Math.max(0, Math.min(1, Number(this.midiKeyboardGatePulseVelocity)))
+      : velocity01;
+    const triggerAmp = hasIn("Gate") ? gateAmp : (pulseActive ? pulseVel : 0);
     let heldKeysTransmitValue = this.midiKeyboardHeldKeysLowBitmask || 0;
     if (this.midiKeyboardHeldKeysHighBitmask) {
       this.midiKeyboardHeldKeysPhase = this.midiKeyboardHeldKeysPhase ? 0 : 1;
@@ -92,12 +102,12 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     }
     const tenth = Math.max(0, Math.min(1, midi / 120));
     this.nodeOutputs.set(nid, {
-      Trigger: hasIn("Gate") ? gate : keyboardGatePulseLatched,
+      Trigger: triggerAmp,
       "0.1V/Oct": tenth,
       "0.1v/Oct": tenth,
       "Note#/127": Math.max(0, Math.min(1, midi / 127)),
       Frequency: frequency,
-      Gate: Math.max(gate, hold),
+      Gate: gateAmp,
       "Inc.": increment,
       Increment: increment,
       KeyboardKey: key,
@@ -110,7 +120,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       "Held Keys": heldKeysTransmitValue,
     });
   }
-  if (keyboardGatePulseLatched) {
+  if (pulseActive) {
     this.midiKeyboardGatePulseSamples = Math.max(0, (this.midiKeyboardGatePulseSamples || 0) - 1);
   }
 

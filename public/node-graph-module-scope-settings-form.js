@@ -128,14 +128,14 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Value size";
     title = "Readout size 0…1. Independent of knob size.";
   }
-  if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "lineThickness") {
+  if ((formType === "roundShapeFace" || formType === "basicShapeFace" || formType === "softwaveOscFace") && key === "lineThickness") {
     label = "Line thickness";
-    title = formType === "basicShapeFace"
-      ? "Wave stroke width in CSS pixels (0.25–16)."
-      : "Orbit stroke width in CSS pixels (0.25–16).";
+    title = formType === "roundShapeFace"
+      ? "Orbit stroke width in CSS pixels (0.25–16)."
+      : "Wave stroke width in CSS pixels (0.25–16).";
   }
-  if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "dotThickness") {
-    label = "Dot thickness";
+  if ((formType === "roundShapeFace" || formType === "basicShapeFace" || formType === "softwaveOscFace") && key === "dotThickness") {
+    label = "Dot size";
     title = "Phase-dot diameter in CSS pixels (0.25–32).";
   }
   if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "lineBlur") {
@@ -497,13 +497,13 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}
     aria = "Keypad text color";
   } else if (formType === "keypadFace" && key === "strokeColor") {
     aria = "Keypad stroke color";
-  } else if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "backgroundColor") {
+  } else if ((formType === "roundShapeFace" || formType === "basicShapeFace" || formType === "softwaveOscFace") && key === "backgroundColor") {
     aria = "RoundShape background color";
     base = { ...base, defaultValue: "#020609" };
-  } else if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "strokeColor") {
+  } else if ((formType === "roundShapeFace" || formType === "basicShapeFace" || formType === "softwaveOscFace") && key === "strokeColor") {
     aria = "RoundShape foreground / stroke color";
     base = { ...base, defaultValue: "#78dcc8" };
-  } else if ((formType === "roundShapeFace" || formType === "basicShapeFace") && key === "dotColor") {
+  } else if ((formType === "roundShapeFace" || formType === "basicShapeFace" || formType === "softwaveOscFace") && key === "dotColor") {
     aria = "RoundShape cursor dot color";
     base = { ...base, defaultValue: "#ffffff" };
   } else if (formType === "limiterGainFace" && key === "backgroundColor") {
@@ -1756,7 +1756,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     if (type === "numberReadout" && section === "dot1") {
       continue;
     }
-    if ((type === "roundShapeFace" || type === "basicShapeFace") && section === "dot1") {
+    if ((type === "roundShapeFace" || type === "basicShapeFace" || type === "softwaveOscFace") && section === "dot1") {
       continue;
     }
 
@@ -1778,13 +1778,21 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         "pixelDensity",
       ].filter((key) => activeFields.has(key) && allowKey("fields", key));
     }
+    if (type === "softwaveOscFace" && section === "trace") {
+      fieldKeys = [
+        "lineThickness",
+        "lineBrightness",
+        "backgroundBrightness",
+        "dotThickness",
+      ].filter((key) => activeFields.has(key) && allowKey("fields", key));
+    }
     if (isVectorTraceForm && typeof nodeGraphDisplaySettingsOrderTraceInkFields === "function") {
       fieldKeys = nodeGraphDisplaySettingsOrderTraceInkFields(fieldKeys);
     }
     let colorKeys = (sectionControls.colors || []).filter(
       (key) => activeColors.has(key) && allowKey("colors", key),
     );
-    if ((type === "roundShapeFace" || type === "basicShapeFace") || type === "vectorDot" || type === "pulseDot" || type === "lcdDot") {
+    if ((type === "roundShapeFace" || type === "basicShapeFace" || type === "softwaveOscFace") || type === "vectorDot" || type === "pulseDot" || type === "lcdDot") {
       colorKeys = [];
     }
     if (type === "trace" && isStereoTraceNode) {
@@ -2025,7 +2033,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         rows.push(nodeGraphStampPreviewHtml(false, type));
         continue;
       }
-      if ((type === "roundShapeFace" || type === "basicShapeFace") && key === "lineBrightness") {
+      if ((type === "roundShapeFace" || type === "basicShapeFace" || type === "softwaveOscFace") && key === "lineBrightness") {
         rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
           title: "Line",
           stepField: "lineBrightness",
@@ -2047,7 +2055,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         }));
         continue;
       }
-      if ((type === "roundShapeFace" || type === "basicShapeFace") && key === "backgroundBrightness") {
+      if ((type === "roundShapeFace" || type === "basicShapeFace" || type === "softwaveOscFace") && key === "backgroundBrightness") {
         rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
           title: "Background",
           stepField: "backgroundBrightness",

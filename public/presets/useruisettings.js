@@ -272,7 +272,6 @@
         "electroSnare",
         "electroHat",
         "flexGrid",
-        "chaosfly",
         "drummer",
         "ePiano",
         "percussion",

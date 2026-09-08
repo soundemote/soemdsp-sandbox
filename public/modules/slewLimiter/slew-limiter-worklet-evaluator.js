@@ -14,12 +14,25 @@ NodeLiveAudioProcessor.prototype.createStereoSlewLimiterState = function createS
     };
   };
 
-NodeLiveAudioProcessor.prototype.slewLimiterSample = function slewLimiterSample(state, input, upTime, downTime, rate = sampleRate, shape = 0) {
-    const mode = typeof nodeGraphSlewLimiterNormalizeShape === "function"
-      ? nodeGraphSlewLimiterNormalizeShape(shape)
-      : (Math.round(Number(shape)) || 0);
-    // Native wasm is linear-only. Shaped ramps stay on the JS math path.
-    if (this.nativeSlewLimiterReady && mode === 0) {
+NodeLiveAudioProcessor.prototype.slewLimiterSample = function slewLimiterSample(
+    state,
+    input,
+    upTime,
+    downTime,
+    rate = sampleRate,
+    upShape = 0,
+    downShape,
+  ) {
+    const upMode = typeof nodeGraphSlewLimiterNormalizeShape === "function"
+      ? nodeGraphSlewLimiterNormalizeShape(upShape)
+      : (Math.round(Number(upShape)) || 0);
+    const downMode = downShape === undefined || downShape === null
+      ? upMode
+      : (typeof nodeGraphSlewLimiterNormalizeShape === "function"
+        ? nodeGraphSlewLimiterNormalizeShape(downShape)
+        : (Math.round(Number(downShape)) || 0));
+    // Native per-sample export is linear-only. Shaped ramps stay on the JS math path.
+    if (this.nativeSlewLimiterReady && upMode === 0 && downMode === 0) {
       try {
         if (!state.nativeHandle) {
           state.nativeHandle = this.nativeSlewLimiter.soemdsp_slew_limiter_create();
@@ -57,7 +70,8 @@ NodeLiveAudioProcessor.prototype.slewLimiterSample = function slewLimiterSample(
           upTime,
           downTime,
           rate,
-          mode,
+          upMode,
+          downMode,
         ),
         state,
       );

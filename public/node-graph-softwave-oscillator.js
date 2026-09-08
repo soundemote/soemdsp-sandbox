@@ -48,7 +48,7 @@ function nodeGraphSoftwaveLoadWasm() {
 }
 
 function createNodeGraphSoftwaveOscillatorState() {
-  return { nativeHandle: 0 };
+  return { nativeHandle: 0, lastReset: 0 };
 }
 
 function destroyNodeGraphSoftwaveNativeState(state) {
@@ -57,6 +57,13 @@ function destroyNodeGraphSoftwaveNativeState(state) {
     wasm.soemdsp_softwave_destroy(state.nativeHandle);
     state.nativeHandle = 0;
   }
+}
+
+function nodeGraphSoftwaveOscillatorReset(state) {
+  nodeGraphSoftwaveLoadWasm();
+  const wasm = nodeGraphSoftwaveWasm.exports;
+  if (!state?.nativeHandle || !wasm?.soemdsp_softwave_reset) return;
+  wasm.soemdsp_softwave_reset(state.nativeHandle);
 }
 
 /** @returns {{ Out: number }} */

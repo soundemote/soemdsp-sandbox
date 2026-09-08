@@ -327,15 +327,17 @@ NodeLiveAudioProcessor.prototype.setMidiKeyboardSignal = function setMidiKeyboar
     const keyIndex = this.clampValue(Number(source.keyIndex) || 0, 0, 24);
     const keyQuantized = this.clampValue(Number(source.keyQuantized) || keyIndex / 24, 0, 1);
     const frequency = Math.max(0, Number(source.frequency) || 440 * (2 ** ((midi - 69) / 12)));
+    const velocity = this.clampValue(Number(source.velocity) || 0, 0, 1);
     if (Number(source.gatePulse) > 0) {
       this.midiKeyboardGatePulseSamples = 1;
+      this.midiKeyboardGatePulseVelocity = velocity;
     }
     this.midiKeyboardSignal = {
       gate: Number(source.gate) > 0 ? 1 : 0,
       gatePulse: Number(source.gatePulse) > 0 ? 1 : 0,
       x: this.clampValue(Number(source.x) || keyQuantized, 0, 1),
       y: this.clampValue(Number(source.y) || 0, 0, 1),
-      velocity: this.clampValue(Number(source.velocity) || 0, 0, 1),
+      velocity,
       keyIndex,
       keyQuantized,
       rawMidi,

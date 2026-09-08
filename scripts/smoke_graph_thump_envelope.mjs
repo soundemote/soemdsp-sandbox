@@ -54,7 +54,7 @@ function view(ptr, n) {
 const PARAM_SHAPE = 13;
 
 const ver = thumpVer() | 0;
-if (ver < 16) throw new Error(`thump version ${ver} < 16`);
+if (ver < 17) throw new Error(`thump version ${ver} < 17`);
 console.log(`thump version ${ver}`);
 
 function smoke(label, destPort, transportAmp = 1) {

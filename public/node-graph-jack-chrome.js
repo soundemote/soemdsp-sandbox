@@ -394,13 +394,19 @@ function nodeGraphJackChannel(type, port, io = "output") {
       const fromAlias = nodeGraphJackStereoChannel(alias);
       // Legacy Out/In/Mono aliases must not recolor a renamed jack
       // (use outputChannels/inputChannels when a main out should be green).
+      // Left/Right→In/Out (Range) must stay gold — not stereo red/blue.
       if (fromAlias === "green" || fromAlias === "red" || fromAlias === "blue") {
         const aliasKey = String(alias || "").trim().toLowerCase();
-        if (
-          aliasKey === "out" || aliasKey === "output"
+        const portKey = String(key || "").trim().toLowerCase();
+        const aliasIsGeneric = aliasKey === "out" || aliasKey === "output"
           || aliasKey === "in" || aliasKey === "input"
-          || aliasKey === "mono" || aliasKey === "m"
-        ) {
+          || aliasKey === "mono" || aliasKey === "m";
+        const aliasIsStereo = aliasKey === "left" || aliasKey === "right"
+          || aliasKey === "l" || aliasKey === "r"
+          || /^l\d+$/.test(aliasKey) || /^r\d+$/.test(aliasKey);
+        const portIsGeneric = portKey === "out" || portKey === "output"
+          || portKey === "in" || portKey === "input";
+        if (aliasIsGeneric || (aliasIsStereo && portIsGeneric)) {
           continue;
         }
       }

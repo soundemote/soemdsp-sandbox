@@ -70,9 +70,10 @@ function nodeGraphSlewLimiterInvertShape(u, shape) {
 /**
  * Rate-limit toward target. upTime/downTime = seconds to finish the glide
  * (not “seconds per unit of 1”).
- * @param {number} [shape] 0 Lin / 1 Log / 2 Exp / 3 Smooth
+ * @param {number} [upShape] rising curve 0 Lin / 1 Log / 2 Exp / 3 Smooth
+ * @param {number} [downShape] falling curve (same codes); omit → use upShape
  */
-function nodeGraphSlewLimiterSample(state, input, upTime, downTime, sampleRate, shape) {
+function nodeGraphSlewLimiterSample(state, input, upTime, downTime, sampleRate, upShape, downShape) {
   const rate = Math.max(1, Number(sampleRate) || 44100);
   const target = Number(input) || 0;
   if (!state.initialized) {
@@ -98,7 +99,11 @@ function nodeGraphSlewLimiterSample(state, input, upTime, downTime, sampleRate, 
     return target;
   }
 
-  const mode = nodeGraphSlewLimiterNormalizeShape(shape);
+  const upMode = nodeGraphSlewLimiterNormalizeShape(upShape);
+  const downMode = downShape === undefined || downShape === null
+    ? upMode
+    : nodeGraphSlewLimiterNormalizeShape(downShape);
+  const mode = rising ? upMode : downMode;
   const targetMoved = Math.abs(target - (Number(state.target) || 0)) > 1e-9;
   if (!state.active || rising !== state.rising || targetMoved) {
     state.from = state.out;

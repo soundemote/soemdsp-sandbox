@@ -69,11 +69,23 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     return { channel };
   }
-  if (displayType === "roundShapeFace" || displayType === "basicShapeFace") {
-    node.traceDisplaySettings = typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
-      ? normalizeNodeGraphRoundShapeFaceSettings(settings)
-      : (settings || {});
-    if (displayType === "basicShapeFace"
+  if (
+    displayType === "roundShapeFace"
+    || displayType === "basicShapeFace"
+    || displayType === "softwaveOscFace"
+  ) {
+    if (displayType === "softwaveOscFace"
+      && typeof normalizeNodeGraphSoftwaveOscFaceSettings === "function") {
+      node.traceDisplaySettings = normalizeNodeGraphSoftwaveOscFaceSettings(settings);
+    } else {
+      node.traceDisplaySettings = typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
+        ? normalizeNodeGraphRoundShapeFaceSettings(settings)
+        : (settings || {});
+    }
+    if (displayType === "softwaveOscFace"
+      && typeof applyNodeGraphSoftwaveOscDisplaySettingsToFace === "function") {
+      applyNodeGraphSoftwaveOscDisplaySettingsToFace(node);
+    } else if (displayType === "basicShapeFace"
       && typeof applyNodeGraphBasicShapeDisplaySettingsToFace === "function") {
       applyNodeGraphBasicShapeDisplaySettingsToFace(node);
     } else if (typeof applyNodeGraphRoundShapeDisplaySettingsToFace === "function") {
@@ -563,6 +575,7 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
     || settingsSchema === "numberReadout" || settingsSchema === "knobFace"
     || settingsSchema === "phosphorLight" || settingsSchema === "roundShapeFace"
     || settingsSchema === "basicShapeFace"
+    || settingsSchema === "softwaveOscFace"
     || settingsSchema === "limiterGainFace"
     || settingsSchema === "toggleButtonFace" || settingsSchema === "momentaryButtonFace") {
     return node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"

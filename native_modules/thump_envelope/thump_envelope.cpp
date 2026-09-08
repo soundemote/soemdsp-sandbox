@@ -5,10 +5,12 @@
 //
 // Exact bake of patches/pluck envelope 2.json feedback circuit:
 //   Curve ADSR with sustain base permanently 1.0
-//   Env × kFbAmplitude (hardcoded 0.980691) → Range(0…1 → 0…−0.149629) →
+//   Env × kFbAmplitude → Range(0…1 → 0…−0.149629) →
 //     × Decay Snap → decay MOD
 //     × Decay Body → sustain MOD  (Body has full control of sustain)
-// Amplitude knob is final output only — it does not enter the feedback path.
+// Gate height latched on rise = velocity (same role Amplitude used to have on
+// the env before Range): softer Gate → lower env → less-high pluck + less fb.
+// Amplitude knob is a final output trim only — not the feedback path.
 // Feedback is always live (128-sample delay ≈ graph cycle).
 // UpdateOnTrigger latches knob depths / times on Gate rise — not the
 // feedback-computed decay/sustain (those must stay live for Body/Snap).
@@ -58,6 +60,8 @@ struct State {
   double fbDelay[kFbDelaySamples];
   int fbIdx;
   double lastGate;
+  // Gate height at rise → scales feedback (velocity). Always latched on rise.
+  double gateVel;
   // Latched when UpdateOnTrigger On (knob depths / times only).
   double latchSnapDepth;
   double latchBodyDepth;
@@ -124,6 +128,7 @@ extern "C" int soemdsp_thump_envelope_create() {
       for (int n = 0; n < kFbDelaySamples; n++) s.fbDelay[n] = 0.0;
       s.fbIdx = 0;
       s.lastGate = 0.0;
+      s.gateVel = 1.0;
       s.latchSnapDepth = 1.0;
       s.latchBodyDepth = 10.0;
       s.latchAttack = 0.0;
@@ -174,9 +179,14 @@ extern "C" double soemdsp_thump_envelope_sample(
   if (!(fall * 0.0 == 0.0)) fall = kDefaultFallCurve;
   double atk = maxd(0.0, safe(attack));
   double rel = maxd(0.0, safe(release));
-  // Amplitude = final output only. Feedback uses kFbAmplitude (hardcoded).
+  // Amplitude = final output trim. Gate height is velocity (old Amplitude→fb role).
   double outAmp = (amplitude * 0.0 == 0.0) ? amplitude : 1.0;
   double looping = safe(loop);
+
+  // Velocity: Gate height at rise scales env (and therefore feedback).
+  if (rising) {
+    s.gateVel = clamp(safeGate, 0.0, 1.0);
+  }
 
   // UpdateOnTrigger: freeze knob depths/times on rise. Feedback stays live.
   if (latchMode) {
@@ -202,7 +212,7 @@ extern "C" double soemdsp_thump_envelope_sample(
   }
   s.lastGate = safeGate;
 
-  // Live env → ×kFbAmplitude → Range → Snap/Body. Sustain base is always 1.0.
+  // Live env → ×kFbAmplitude → Range → Snap/Body. Sustain base always 1.0.
   const double delayed = s.fbDelay[s.fbIdx];
   const double rangeOut = delayed * kRangeOutHigh;
   const double effDecay = fold_param(
@@ -212,7 +222,8 @@ extern "C" double soemdsp_thump_envelope_sample(
     kBaseSustain, rangeOut * bodyDepth, kSustainMin, kSustainMax
   );
 
-  // ADSR at unity; fb amp is applied only into the delay (not the out knob).
+  // ADSR level = gate velocity (soft Gate → less-high pluck). Stages still
+  // binary on Gate > 0. Feedback sees the same scaled env Amplitude used to.
   const double env = soemdsp_exp_adsr_sample(
     s.adsr,
     gate,
@@ -224,13 +235,13 @@ extern "C" double soemdsp_thump_envelope_sample(
     rel,
     fall,
     looping,
-    1.0,
+    s.gateVel,
     0.0,
     sampleRate
   );
   const double envSafe = (env * 0.0 == 0.0) ? env : 0.0;
 
-  // Hardcoded amplitude into feedback, then Range(0…1 → 0…−0.149629).
+  // Hardcoded fb amp × velocity-scaled env, then Range(0…1 → 0…−0.149629).
   s.fbDelay[s.fbIdx] = clamp(envSafe * kFbAmplitude, 0.0, 1.0);
   s.fbIdx++;
   if (s.fbIdx >= kFbDelaySamples) s.fbIdx = 0;
@@ -238,6 +249,6 @@ extern "C" double soemdsp_thump_envelope_sample(
   return envSafe * outAmp;
 }
 
-extern "C" int soemdsp_thump_envelope_version() { return 16; }
+extern "C" int soemdsp_thump_envelope_version() { return 18; }
 extern "C" const char* soemdsp_thump_envelope_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_thump_envelope_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

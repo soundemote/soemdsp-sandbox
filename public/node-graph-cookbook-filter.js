@@ -1146,6 +1146,12 @@ function drawNodeGraphFilterCurveDisplays() {
       }
       return;
     }
+    if (section.classList.contains("node-softwave-osc-display")) {
+      if (typeof drawNodeGraphSoftwaveOscDisplay === "function") {
+        drawNodeGraphSoftwaveOscDisplay(section);
+      }
+      return;
+    }
     if (section.classList.contains("node-expo-pluck-display")) {
       if (typeof drawNodeGraphExpoPluckEnvelopeDisplay === "function") {
         drawNodeGraphExpoPluckEnvelopeDisplay(section);
@@ -1209,6 +1215,7 @@ function scheduleNodeGraphFilterCurveDraw() {
         || section.classList.contains("node-phone-tone-display")
         || section.classList.contains("node-harmonic-series-display")
         || section.classList.contains("node-basic-shape-display")
+        || section.classList.contains("node-softwave-osc-display")
         || section.classList.contains("node-sincos4-display")
       ) {
         continue;

@@ -179,7 +179,11 @@ var sandbox = {
     antisaw: { outputs: ["Out"], outputChannels: { Out: "green" } },
     sinc: { outputs: ["Out"], outputChannels: { Out: "green" } },
     dsfOscillator: { outputs: ["Out"], outputChannels: { Out: "green" } },
-    softwaveOsc: { outputs: ["Out"], outputChannels: { Out: "green" } },
+    softwaveOsc: {
+      inputs: ["Reset", "0.1V/Oct", "f"],
+      outputs: ["Out"],
+      outputChannels: { Out: "green" },
+    },
     surgeOscillator: {
       outputs: ["Wave", "Saw", "Square", "Tri", "Sine", "Synced", "Internal Sync"],
       outputChannels: { Wave: "green" },
@@ -302,6 +306,22 @@ assert(ch("antisaw", "Out", "output") === "green", "Antisaw Out is green");
 assert(ch("sinc", "Out", "output") === "green", "Sinc Out is green");
 assert(ch("dsfOscillator", "Out", "output") === "green", "DSF Out is green");
 assert(ch("softwaveOsc", "Out", "output") === "green", "Softwave Out is green");
+assert(
+  sandbox.nodeGraphModuleDefinitions.softwaveOsc.inputs.indexOf("Morph") < 0,
+  "Softwave has no Morph SIGNAL IN (use Morph parameter / MOD)",
+);
+assert(
+  sandbox.nodeGraphModuleDefinitions.softwaveOsc.inputs.indexOf("Phase") < 0,
+  "Softwave has no Phase SIGNAL IN (use Phase parameter / MOD)",
+);
+assert(
+  sandbox.nodeGraphModuleDefinitions.softwaveOsc.inputs.indexOf("Amplitude") < 0,
+  "Softwave has no Amplitude SIGNAL IN (use Amplitude parameter / MOD)",
+);
+assert(
+  sandbox.nodeGraphModuleDefinitions.softwaveOsc.inputs.indexOf("Reset") >= 0,
+  "Softwave has Reset SIGNAL IN",
+);
 assert(ch("surgeOscillator", "Wave", "output") === "green", "Surge Wave is green");
 assert(ch("surgeOscillator", "Saw", "output") === "", "Surge Saw stays uncolored");
 assert(sandbox.nodeGraphJackChannelCssColor("yellow") === "#ffe600", "yellow wire CSS");

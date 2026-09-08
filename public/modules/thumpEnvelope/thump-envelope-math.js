@@ -1,6 +1,8 @@
 // Thump Envelope — JS twin of native thump_envelope.cpp.
 // Sustain base is always 1.0; Decay Body MOD fully owns sustain.
-// Feedback amp is hardcoded (0.980691); Amplitude knob is final output only.
+// Gate height at rise = velocity (old Amplitude→feedback role): softer Gate
+// → lower env → less-high pluck + less into Range. Feedback amp hardcoded.
+// Amplitude knob is final output trim only.
 // Feedback always live; UpdateOnTrigger latches knob depths/times only.
 
 const THUMP_BASE_DECAY = 1.5052382613562978;
@@ -22,6 +24,7 @@ function createNodeGraphThumpEnvelopeState() {
     fbDelay: new Float64Array(THUMP_FB_DELAY),
     fbIdx: 0,
     lastGate: 0,
+    gateVel: 1,
     latchSnapDepth: 1,
     latchBodyDepth: 10,
     latchAttack: 0,
@@ -84,11 +87,15 @@ function nodeGraphThumpEnvelopeSample(state, gate, params, sampleRate) {
   fall = Math.max(-1, Math.min(1, fall));
   let atk = Math.max(0, Number(params?.attack) || 0);
   let rel = Math.max(0, Number(params?.release) || 12.824772066678985);
-  // Amplitude = final output only. Feedback uses THUMP_FB_AMPLITUDE.
+  // Amplitude = final output trim. Gate height is velocity (old Amplitude→fb).
   let outAmp = Number.isFinite(Number(params?.amplitude))
     ? Number(params.amplitude)
     : THUMP_FB_AMPLITUDE;
   let looping = Number(params?.loop) || 0;
+
+  if (rising) {
+    state.gateVel = Math.max(0, Math.min(1, safeGate));
+  }
 
   if (latchMode) {
     if (rising || !state.hasLatch) {
@@ -129,6 +136,7 @@ function nodeGraphThumpEnvelopeSample(state, gate, params, sampleRate) {
     1,
   );
 
+  const vel = Number.isFinite(state.gateVel) ? state.gateVel : 1;
   let env = 0;
   if (state.adsr && typeof nodeGraphExpAdsrSample === "function") {
     env = nodeGraphExpAdsrSample(
@@ -143,7 +151,8 @@ function nodeGraphThumpEnvelopeSample(state, gate, params, sampleRate) {
         release: rel,
         releaseShape: fall,
         loop: looping,
-        level: 1, // unity; fb amp applied below
+        // Gate velocity = env level (soft Gate → less-high pluck + less fb).
+        level: vel,
         updateOnTrigger: 0, // feedback always live-retargets
       },
       sampleRate,
@@ -151,7 +160,7 @@ function nodeGraphThumpEnvelopeSample(state, gate, params, sampleRate) {
   }
   const envSafe = Number.isFinite(env) ? env : 0;
 
-  // Hardcoded amplitude into feedback, then Range(0…1 → 0…−0.149629).
+  // Hardcoded fb amp × velocity-scaled env, then Range(0…1 → 0…−0.149629).
   state.fbDelay[state.fbIdx] = Math.max(
     0,
     Math.min(1, envSafe * THUMP_FB_AMPLITUDE),
@@ -170,9 +179,13 @@ function nodeGraphThumpEnvelopePreviewCurve(params = {}, points = 160) {
   const sr = 2000;
   const state = createNodeGraphThumpEnvelopeState();
   const n = Math.max(48, Math.round(Number(points) || 160));
-  const totalSec = Math.max(0.35, attack + 0.45 + Math.min(release, 1.2));
+  // Face window: short Gate through attack settle, then enough Release to show fall.
+  // Cap the simulated Release so a 12s patch default still draws a visible tail.
+  const gateHoldSec = attack > 0 ? Math.max(0.05, attack + 0.08) : 0.05;
+  const releaseDraw = Math.min(Math.max(0.2, release), 1.35);
+  const totalSec = Math.max(0.4, gateHoldSec + releaseDraw);
   const totalSamples = Math.max(n, Math.ceil(totalSec * sr));
-  const gateHigh = Math.floor((attack + 0.25) * sr);
+  const gateHigh = Math.max(1, Math.floor(gateHoldSec * sr));
   const step = Math.max(1, Math.floor(totalSamples / n));
   const out = [];
   for (let i = 0; i < totalSamples; i += 1) {
@@ -181,22 +194,28 @@ function nodeGraphThumpEnvelopePreviewCurve(params = {}, points = 160) {
       i < gateHigh ? 1 : 0,
       {
         attack,
-        release,
+        release: releaseDraw,
         decaySnap,
         decayBody,
         fallCurve,
         loop: 0,
         updateOnTrigger: 0,
-        amplitude,
+        // Shape only — face scales with ampView.
+        amplitude: 1,
       },
       sr,
     );
-    if (i % step === 0 || i === totalSamples - 1) out.push(y);
+    if (i % step === 0 || i === totalSamples - 1) {
+      out.push({
+        t: i / Math.max(1, totalSamples - 1),
+        y: Math.max(0, Math.min(1, Number(y) || 0)),
+      });
+    }
   }
   return {
     points: out,
     total: totalSec,
-    guideT: attack / totalSec,
-    ampView: amplitude,
+    guideT: Math.min(0.95, gateHoldSec / Math.max(1e-9, totalSec)),
+    ampView: Math.min(1, amplitude),
   };
 }

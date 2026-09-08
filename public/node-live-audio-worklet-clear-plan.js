@@ -27,6 +27,7 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
     this.windowReopenEvent = { pulseSamples: 0, gateSamples: 0, totalSamples: 0 };
     this.pitchModWheelSignal = { mod: 0, pitch: 0 };
     this.midiKeyboardGatePulseSamples = 0;
+    this.midiKeyboardGatePulseVelocity = 0;
     this.midiKeyboardSignal = null;
     this.midiKeyboardHeldKeysLowBitmask = 0;
     this.midiKeyboardHeldKeysHighBitmask = 0;

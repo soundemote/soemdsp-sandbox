@@ -987,8 +987,8 @@
     },
     {
       "name": "mix_stereo",
-      "label": "MixStereo",
-      "targetType": "mixStereo",
+      "label": "MixStereo4",
+      "targetType": "mixStereo4",
       "kind": "dynamics",
       "source": "native_modules/mix_stereo/mix_stereo.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/mix_stereo/mix_stereo.cpp",
@@ -1167,7 +1167,7 @@
     },
     {
       "name": "pluck_envelope_3",
-      "label": "Pluck Envelope",
+      "label": "Ping Envelope",
       "targetType": "pluckEnvelope3",
       "kind": "envelope",
       "source": "native_modules/pluck_envelope_3/pluck_envelope_3.cpp",

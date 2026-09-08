@@ -15,14 +15,12 @@ constexpr int kMaxInstances = 64;
 // parameter); slots 1-5 are the always-on Saw/Ramp/Square/Tri/Sine taps.
 // Waveform indices 0-5 stay stable for saved patches; 6-8 are PWM-family.
 constexpr int kSlotCount = 6;
-constexpr int kWaveformMax = 8;
+constexpr int kWaveformMax = 7;
 constexpr double k1z3 = 1.0 / 3.0;
 
 struct SlotState {
   double lastPhaseIncrement;
   double triangleIntegrator;
-  unsigned int noiseSeed;
-  bool hasNoiseSeed;
 };
 
 constexpr int kMaxBlockFrames = 128;
@@ -135,21 +133,22 @@ double polyBlepPulse(double t, double incrementAbs, double morph) {
   return y;
 }
 
-// Centered PWM square (soemdsp PolyBLEP::pulseCenter).
-double polyBlepPulseCenter(double t, double incrementAbs, double morph) {
-  const double u = morphWidth01(morph);
-  double t1 = wrap01(t + 0.875 + 0.25 * (u - 0.5));
-  double t2 = wrap01(t + 0.375 + 0.25 * (u - 0.5));
-
-  double y = t1 < 0.5 ? 1.0 : -1.0;
-  y += blepSoem(t1, incrementAbs) - blepSoem(t2, incrementAbs);
-
-  t1 = wrap01(t1 + 0.5 * (1.0 - u));
-  t2 = wrap01(t2 + 0.5 * (1.0 - u));
-
-  y += t1 < 0.5 ? 1.0 : -1.0;
-  y += blepSoem(t1, incrementAbs) - blepSoem(t2, incrementAbs);
-  return 0.5 * y;
+// Center Square: bipolar ±1 pulse centered at mid-cycle (Basic Shape).
+// Morph = width 0…1; edges grow left/right from 0.5.
+// Not soemdsp Pulse Center (two summed squares → stepped ±1/0 levels).
+double polyBlepCenterSquare(double t, double incrementAbs, double morph) {
+  double w = (morph == morph) ? morph : 0.5;
+  if (w < 0.0) w = 0.0;
+  if (w > 1.0) w = 1.0;
+  if (w <= 0.0) return -1.0;
+  if (w >= 1.0) return 1.0;
+  // High for width w centered on 0.5; BLEP both edges.
+  const double shift = 0.5 * (1.0 - w);
+  const double t0 = wrap01(t - shift);
+  const double t1 = wrap01(t0 + 1.0 - w);
+  double y = (t0 < w) ? 1.0 : -1.0;
+  y += blepSoem(t0, incrementAbs) - blepSoem(t1, incrementAbs);
+  return y;
 }
 
 // Bandlimited trisaw (soemdsp PolyBLEP::trisaw). Morph = pw.
@@ -171,14 +170,6 @@ double polyBlepTrisaw(double t, double incrementAbs, double morph) {
   return y;
 }
 
-unsigned int nextNoiseSeed(unsigned int seed) {
-  return (unsigned int)((1664525u * seed) + 1013904223u);
-}
-
-double seedToBipolar(unsigned int seed) {
-  return ((double)seed / 4294967295.0) * 2.0 - 1.0;
-}
-
 double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, int waveform, double morph) {
   const double phaseDelta = phaseIncrement;
   const double absDelta = phaseDelta < 0.0 ? -phaseDelta : phaseDelta;
@@ -192,7 +183,7 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
   double sample = 0.0;
   // Order matches UI choices:
   // 0 Trisaw, 1 Saw, 2 Ramp, 3 Square, 4 Triangle, 5 Sine,
-  // 6 Center Square, 7 Pulse, 8 Noise
+  // 6 Center Square, 7 Pulse
   switch (waveform) {
     case 0:
       sample = polyBlepTrisaw(phaseCycle, absInc, m);
@@ -223,25 +214,11 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
       sample = sinApprox(phase);
       break;
     case 6:
-      sample = polyBlepPulseCenter(phaseCycle, absInc, m);
+      sample = polyBlepCenterSquare(phaseCycle, absInc, morph);
       break;
     case 7:
       sample = polyBlepPulse(phaseCycle, absInc, m);
       break;
-    case 8: {
-      if (phaseStopped) {
-        if (!slot.hasNoiseSeed) {
-          slot.noiseSeed = nextNoiseSeed(0x12345678u);
-          slot.hasNoiseSeed = true;
-        }
-        sample = seedToBipolar(slot.noiseSeed);
-      } else {
-        slot.noiseSeed = nextNoiseSeed(slot.hasNoiseSeed ? slot.noiseSeed : 0x12345678u);
-        slot.hasNoiseSeed = true;
-        sample = seedToBipolar(slot.noiseSeed);
-      }
-      break;
-    }
     default:
       sample = polyBlepTrisaw(phaseCycle, absInc, m);
       break;
@@ -276,8 +253,6 @@ extern "C" void soemdsp_polyblep_reset(int handle) {
   for (int i = 0; i < kSlotCount; i++) {
     s.slots[i].triangleIntegrator = 0.0;
     s.slots[i].lastPhaseIncrement = 0.0;
-    s.slots[i].hasNoiseSeed = false;
-    s.slots[i].noiseSeed = 0;
   }
   s.out = 0.0;
   s.saw = 0.0;
@@ -437,5 +412,5 @@ extern "C" double soemdsp_polyblep_sine(int handle) {
 }
 
 extern "C" int soemdsp_polyblep_version() {
-  return 5; // process_block + masked taps
+  return 7; // Drop Noise waveform; Center Square = centered pulse
 }

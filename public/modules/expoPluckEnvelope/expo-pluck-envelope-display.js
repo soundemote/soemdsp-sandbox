@@ -167,15 +167,6 @@ function drawNodeGraphExpoPluckEnvelopeDisplayInner(section) {
     context.clearRect(0, 0, drawW, drawH);
     context.fillStyle = "rgba(2, 6, 9, 0.88)";
     context.fillRect(0, 0, drawW, drawH);
-    context.strokeStyle = "rgba(127, 199, 217, 0.18)";
-    context.lineWidth = 1;
-    for (let line = 0; line <= 4; line += 1) {
-      const y = (line / 4) * drawH;
-      context.beginPath();
-      context.moveTo(0, y);
-      context.lineTo(drawW, y);
-      context.stroke();
-    }
 
     const preview = typeof expoPluckEnvelopePreviewCurve === "function"
       ? expoPluckEnvelopePreviewCurve({

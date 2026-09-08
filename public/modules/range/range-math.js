@@ -11,7 +11,7 @@ function nodeGraphRangeSample(input, inLow, inHigh, outLow, outHigh) {
   const a = Number.isFinite(lo) ? lo : -1;
   const b = Number.isFinite(hi) ? hi : 1;
   const c = Number.isFinite(oLo) ? oLo : 0;
-  const d = Number.isFinite(oHi) ? oHi : 1000;
+  const d = Number.isFinite(oHi) ? oHi : 1;
   const den = b - a;
   if (!(den * 0.0 === 0.0) || (den > -1e-30 && den < 1e-30)) {
     return c;

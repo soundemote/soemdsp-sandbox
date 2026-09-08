@@ -34,15 +34,24 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
         const y = resetActive ? 0 : (hasInput(nodeId, "Y")
           ? this.clampValue(Number(mixInput(nodeId, "Y")) || 0, 0, 1)
           : this.clampValue(Number(signal.y) || 0, 0, 1));
-        const gate = resetActive ? 0 : (hasInput(nodeId, "Gate")
-          ? (Number(mixInput(nodeId, "Gate")) > 0 ? 1 : 0)
-          : (Number(signal.gate) > 0 ? 1 : 0));
-        const hold = hasInput(nodeId, "Hold") && Number(mixInput(nodeId, "Hold")) > 0 ? 1 : 0;
+        const hold = hasInput(nodeId, "Hold") && Number(mixInput(nodeId, "Hold")) > 0;
         const velocity01 = hasInput(nodeId, "Velocity")
           ? this.clampValue(Number(mixInput(nodeId, "Velocity")) || 0, 0, 1)
           : this.clampValue(Number(signal.velocity) || 0, 0, 1);
         const velocityNumber = Math.round(velocity01 * 127);
-        const gatePulse = this.midiKeyboardGatePulseSamples > 0 ? 1 : 0;
+        // Gate/Trigger amplitudes follow velocity (not binary 0/1).
+        let gateAmp = 0;
+        if (!resetActive) {
+          if (hasInput(nodeId, "Gate")) {
+            gateAmp = this.clampValue(Number(mixInput(nodeId, "Gate")) || 0, 0, 1);
+          } else if (Number(signal.gate) > 0 || hold) {
+            gateAmp = velocity01;
+          }
+        }
+        const pulseVel = Number.isFinite(Number(this.midiKeyboardGatePulseVelocity))
+          ? this.clampValue(Number(this.midiKeyboardGatePulseVelocity), 0, 1)
+          : velocity01;
+        const gatePulse = this.midiKeyboardGatePulseSamples > 0 ? pulseVel : 0;
         this.midiKeyboardGatePulseSamples = Math.max(0, this.midiKeyboardGatePulseSamples - 1);
         // Held Keys phase-bit multiplexing -- see the design note on
         // nodeGraphMidiKeyboardHeldKeysTransmitValue in
@@ -60,12 +69,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
           }
         }
         return {
-          Trigger: hasInput(nodeId, "Gate") ? gate : gatePulse,
+          Trigger: hasInput(nodeId, "Gate") ? gateAmp : gatePulse,
           "0.1V/Oct": this.clampValue(midi / 120, 0, 1),
           "0.1v/Oct": this.clampValue(midi / 120, 0, 1),
           "Note#/127": this.clampValue(midi / 127, 0, 1),
           Frequency: outputFrequency,
-          Gate: Math.max(gate, hold),
+          Gate: gateAmp,
           "Inc.": increment,
           Increment: increment,
           KeyboardKey: key,

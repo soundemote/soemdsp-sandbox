@@ -38,24 +38,35 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({
   const y = resetActive ? 0 : (hasInput(nodeId, "Y")
     ? Math.max(0, Math.min(1, Number(mixInput(nodeId, "Y")) || 0))
     : Math.max(0, Math.min(1, Number(signal?.y) || 0)));
-  const gate = resetActive ? 0 : (hasInput(nodeId, "Gate")
-    ? (Number(mixInput(nodeId, "Gate")) > 0 ? 1 : 0)
-    : (Number(signal?.gate) > 0 ? 1 : 0));
-  const hold = hasInput(nodeId, "Hold") && Number(mixInput(nodeId, "Hold")) > 0 ? 1 : 0;
+  const hold = hasInput(nodeId, "Hold") && Number(mixInput(nodeId, "Hold")) > 0;
   const velocity01 = hasInput(nodeId, "Velocity")
     ? Math.max(0, Math.min(1, Number(mixInput(nodeId, "Velocity")) || 0))
     : Math.max(0, Math.min(1, Number(signal?.velocity) || 0));
   const velocityNumber = Math.round(velocity01 * 127);
+  // Gate/Trigger amplitudes follow velocity (Thump etc. read Gate height as vel).
+  let gateAmp = 0;
+  if (!resetActive) {
+    if (hasInput(nodeId, "Gate")) {
+      gateAmp = Math.max(0, Math.min(1, Number(mixInput(nodeId, "Gate")) || 0));
+    } else if (Number(signal?.gate) > 0 || hold) {
+      gateAmp = velocity01;
+    }
+  }
+  const triggerAmp = resetActive
+    ? 0
+    : (hasInput(nodeId, "Gate")
+      ? gateAmp
+      : (Number(signal?.gatePulse) > 0 ? velocity01 : 0));
   const frequency = Math.max(0, 440 * (2 ** ((midi - 69) / 12)));
   const keyboardRate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
   const increment = Math.max(0, frequency / keyboardRate);
   return {
-    Trigger: hasInput(nodeId, "Gate") ? gate : (Number(signal?.gatePulse) > 0 ? 1 : 0),
+    Trigger: triggerAmp,
     "0.1V/Oct": Math.max(0, Math.min(1, midi / 120)),
     "0.1v/Oct": Math.max(0, Math.min(1, midi / 120)),
     "Note#/127": Math.max(0, Math.min(1, midi / 127)),
     Frequency: frequency,
-    Gate: Math.max(gate, hold),
+    Gate: gateAmp,
     "Inc.": increment,
     Increment: increment,
     KeyboardKey: key,

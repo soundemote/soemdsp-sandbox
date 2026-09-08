@@ -476,6 +476,11 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         const state = this.softwaveOscStates.get(nodeId) || this.createSoftwaveOscillatorState();
         this.softwaveOscStates.set(nodeId, state);
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const hasReset = this.inputConnections.has(this.inputKey(nodeId, "Reset"));
+        const resetValue = hasReset ? this.safeFilterNumber(mixInput(nodeId, "Reset"), 0) : 0;
+        const resetEdge = (state.lastReset || 0) <= 0 && resetValue > 0;
+        state.lastReset = resetValue;
+        if (resetEdge) this.softwaveOscillatorReset(state);
         const baseFrequency = Math.max(0, read("frequency", 100));
         const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
         const referenceVoltage = referenceMidiNote / 120;
@@ -495,27 +500,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           : (typeof nodeGraphPitchedFrequency === "function"
               ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
               : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
-        const morphKnob = read("morph", 0.5);
-        const morphCv = this.inputConnections.has(this.inputKey(nodeId, "Morph"))
-          ? this.safeFilterNumber(mixInput(nodeId, "Morph"), 0)
-          : 0;
-        const morphRaw = typeof nodeGraphParamSignalInAdditive === "function"
-          ? nodeGraphParamSignalInAdditive(morphKnob, morphCv)
-          : morphKnob + morphCv;
-        const morph = this.clampValue(morphRaw, 0, 1);
-        const phaseKnob = read("phase", 0);
-        const phaseCv = this.inputConnections.has(this.inputKey(nodeId, "Phase"))
-          ? this.safeFilterNumber(mixInput(nodeId, "Phase"), 0)
-          : 0;
-        const phase = typeof nodeGraphParamSignalInPhaseAdd === "function"
-          ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
-          : this.wrapValue(phaseKnob + phaseCv, 0, 1);
-        const levelKnob = read("amplitude", 1);
-        const hasAmp = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"));
-        const ampCv = hasAmp ? this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1) : 1;
-        const level = typeof nodeGraphParamSignalInAmplitude === "function"
-          ? nodeGraphParamSignalInAmplitude(levelKnob, ampCv, hasAmp)
-          : (hasAmp ? levelKnob * ampCv : levelKnob);
+        // Morph / Phase / Amp: parameter (+ MOD) only — no SIGNAL IN jacks.
+        const morph = this.clampValue(read("morph", 0.5), 0, 1);
+        const phase = this.wrapValue(read("phase", 0), 0, 1);
+        const level = this.clampValue(read("amplitude", 1), 0, 1);
         return this.softwaveOscillatorSample(state, {
           frequencyHz: effectiveFrequency,
           sampleRate: safeRate,

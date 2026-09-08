@@ -828,9 +828,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   softwaveOsc: {
     category: "oscillator",
-    description: "Soft-shaped multi-wave voice when you want warm morphing waves, not a distortion box.",
+    description: "Soft-shaped multi-wave voice when you want warm morphing waves, not a distortion box. Face draws one cycle from Waveform / Morph / Phase.",
     label: "Softwave Oscillator",
-    notes: ["softwave", "tube", "tanh", "morph", "analog waves", "walter"],
+    notes: ["softwave", "tube", "tanh", "morph", "analog waves", "walter", "face"],
   },
   curveOsc: {
     category: "oscillator",
@@ -1285,15 +1285,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   keyboardController: {
     category: "portal",
-    description: "Hardware MIDI in (Portal): pick a device and listen channel. Gate, note, velocity, and pitch CV.",
+    description: "Hardware MIDI in (Portal): pick a device and listen channel. Gate/Trigger amplitudes follow velocity; note and pitch CV.",
     label: "MIDI",
-    notes: ["midi input", "midi channel", "note", "gate", "velocity", "portal"],
+    notes: ["midi input", "midi channel", "note", "gate", "trigger", "velocity", "portal"],
   },
   keyboard: {
     category: "controller",
-    description: "On-screen piano shared with the K Controllers dock — held gold keys, press blue, gate/note/Held Keys CV.",
+    description: "On-screen piano shared with the K Controllers dock — held gold keys, press blue, velocity-scaled Gate/Trigger, note/Held Keys CV.",
     label: "Keyboard",
-    notes: ["keyboard", "piano", "held keys", "controller", "performance", "gate", "note"],
+    notes: ["keyboard", "piano", "held keys", "controller", "performance", "gate", "trigger", "velocity", "note"],
   },
   macroControls: {
     category: "controller",
@@ -1756,9 +1756,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   // Rate limiters live with Dynamics (CV response shaping — not spectral filters).
   slewLimiter: {
     category: "envelope",
-    description: "Mono gold In→Out hard up/down rate limit with Lin / Log / Exp / Smooth curves for steps and CV glides.",
+    description: "Mono gold In→Out hard up/down rate limit with separate Up/Down Shape (Lin / Log / Exp / Smooth) for steps and CV glides.",
     label: "Up/Down Slew",
-    notes: ["up time", "down time", "asymmetric glide", "rate limit", "slew", "portamento", "envelope", "log", "exp", "smooth", "mono", "gold", "quick connect"],
+    notes: ["up shape", "down shape", "up slew", "down slew", "asymmetric glide", "rate limit", "slew", "portamento", "envelope", "log", "exp", "smooth", "mono", "gold", "quick connect"],
   },
   midSideEncode: {
     category: "dynamics",
@@ -2083,39 +2083,47 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "pluck",
     ],
   },
-  // Retired — use Pluck Envelope (pluckEnvelope3). Kept so old patches still load.
+  // Retired — use Ping Envelope (pluckEnvelope3). Kept so old patches still load.
   pluckEnvelope: {
     category: "envelope",
-    description: "Retired — use Pluck Envelope. Kept only so old patches still load.",
+    description: "Retired — use Ping Envelope. Kept only so old patches still load.",
     hidden: true,
     label: "Pluck Envelope (legacy)",
     notes: ["legacy", "hidden", "SoEm", "native"],
   },
   expoPluckEnvelope: {
     category: "envelope",
-    description: "Retired — use Pluck Envelope. Kept only so old patches still load.",
+    description: "Retired — use Ping Envelope. Kept only so old patches still load.",
     hidden: true,
     label: "Expo Pluck Envelope",
     notes: ["legacy", "hidden", "native"],
   },
   expoPluckEnvelope2: {
     category: "envelope",
-    description: "Retired — use Pluck Envelope. Kept only so old patches still load.",
+    description: "Retired — use Ping Envelope. Kept only so old patches still load.",
     hidden: true,
     label: "Expo Pluck Envelope 2",
     notes: ["legacy", "hidden", "SoEmPluck", "native"],
   },
   pluckEnvelope3: {
     category: "envelope",
-    description: "Pluck env: Attack time, Dampen→Exp feedback fall (0…10 Hz). Recalc On Trig latches knobs on rising Trigger.",
-    label: "Pluck Envelope",
+    description: "Ping env (pluck envelope 1): asymmetric one-pole toward Trigger, Exp→fall 0…10 Hz. Decay 0=short…1=long. Recalc On Trig latches knobs on rise.",
+    label: "Ping Envelope",
     notes: [
       "Trigger",
-      "Attack time",
-      "Dampen",
+      "Attack",
+      "Decay",
       "Recalc On Trig",
+      "Ping",
       "native",
     ],
+  },
+  pingEnvelope: {
+    category: "envelope",
+    description: "Alias of Ping Envelope (pluckEnvelope3).",
+    hidden: true,
+    label: "Ping Envelope",
+    notes: ["alias", "hidden"],
   },
   vactrol: {
     category: "envelope",

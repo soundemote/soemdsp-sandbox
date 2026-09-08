@@ -3,9 +3,12 @@
 // Used by Curve ADSR / Curve AR / Linear ADSR / Linear AR / Pluck Envelope faces.
 
 function createNodeGraphEnvelopeCurveDisplay(nodeId, type) {
+  const id = nodeId && typeof nodeId === "object"
+    ? String(nodeId.dataset?.node || nodeId.id || "")
+    : String(nodeId || "");
   const section = document.createElement("section");
   section.className = "node-filter-curve-display node-envelope-curve-display";
-  section.dataset.node = nodeId;
+  section.dataset.node = id;
   section.dataset.nodeType = type;
   section.dataset.parameterVisual = "true";
   section.syncFromParameters = () => {
@@ -177,10 +180,16 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
 
   if (type === "pluckEnvelope3" && typeof nodeGraphPluckEnvelope3PreviewCurve === "function") {
     const attack = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "attack", 0));
-    const dampen = Math.max(0, Math.min(1, nodeGraphEnvelopeCurveLiveParam(node, "dampen", 0.5)));
+    let decay = Number(nodeGraphEnvelopeCurveLiveParam(node, "decay", NaN));
+    if (!Number.isFinite(decay)) {
+      const legacyDamp = Number(nodeGraphEnvelopeCurveLiveParam(node, "dampen", 0.5));
+      decay = Math.max(0, Math.min(1, 1 - (Number.isFinite(legacyDamp) ? legacyDamp : 0.5)));
+    } else {
+      decay = Math.max(0, Math.min(1, decay));
+    }
     const amplitude = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "amplitude", 1));
     const recalculateOnTrigger = nodeGraphEnvelopeCurveLiveParam(node, "recalculateOnTrigger", 1);
-    const preview = nodeGraphPluckEnvelope3PreviewCurve({ attack, dampen, amplitude }, pts);
+    const preview = nodeGraphPluckEnvelope3PreviewCurve({ attack, decay, amplitude }, pts);
     return {
       points: preview.points,
       total: preview.total,
@@ -188,7 +197,7 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
       ampView: preview.ampView,
       leftLabel: "A",
       rightLabel: "D",
-      signature: { type, attack, dampen, amplitude, recalculateOnTrigger },
+      signature: { type, attack, decay, amplitude, recalculateOnTrigger },
     };
   }
 
@@ -254,15 +263,6 @@ function drawNodeGraphEnvelopeCurveDisplayInner(section) {
   context.clearRect(0, 0, width, height);
   context.fillStyle = "rgba(2, 6, 9, 0.88)";
   context.fillRect(0, 0, width, height);
-  context.strokeStyle = "rgba(127, 199, 217, 0.18)";
-  context.lineWidth = 1;
-  for (let line = 0; line <= 4; line += 1) {
-    const y = (line / 4) * height;
-    context.beginPath();
-    context.moveTo(0, y);
-    context.lineTo(width, y);
-    context.stroke();
-  }
 
   if (built.guideT > 0 && built.guideT < 1) {
     const gx = built.guideT * width;

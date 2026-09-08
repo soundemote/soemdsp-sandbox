@@ -6,7 +6,10 @@ nodeGraphLiveModuleEvaluators.slewLimiter = ({ runtime, node, nodeId, frame, fra
   runtime.slewLimiterStates.set(nodeId, state);
   const slewUpTime = readNodeGraphLiveEffectiveParam(runtime, node, "upTime", 0.05, frame, frames, frameValues);
   const slewDownTime = readNodeGraphLiveEffectiveParam(runtime, node, "downTime", 0.05, frame, frames, frameValues);
-  const slewShape = readNodeGraphLiveEffectiveParam(runtime, node, "shape", 0, frame, frames, frameValues);
+  // Legacy single `shape` copies to both when up/down keys are absent.
+  const legacyShape = readNodeGraphLiveEffectiveParam(runtime, node, "shape", 0, frame, frames, frameValues);
+  const slewUpShape = readNodeGraphLiveEffectiveParam(runtime, node, "upShape", legacyShape, frame, frames, frameValues);
+  const slewDownShape = readNodeGraphLiveEffectiveParam(runtime, node, "downShape", legacyShape, frame, frames, frameValues);
   const slewBias = readNodeGraphLiveEffectiveParam(runtime, node, "bias", 0, frame, frames, frameValues);
   const slewIn = nodeGraphSafeFilterNumber(
     mixInput(nodeId, "In") + mixInput(nodeId) + slewBias,
@@ -16,7 +19,7 @@ nodeGraphLiveModuleEvaluators.slewLimiter = ({ runtime, node, nodeId, frame, fra
     "slew input",
   );
   const out = nodeGraphSafeFilterNumber(
-    nodeGraphSlewLimiterSample(state, slewIn, slewUpTime, slewDownTime, sampleRate, slewShape),
+    nodeGraphSlewLimiterSample(state, slewIn, slewUpTime, slewDownTime, sampleRate, slewUpShape, slewDownShape),
     runtime,
     nodeId,
     state,

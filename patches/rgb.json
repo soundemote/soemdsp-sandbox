@@ -1259,7 +1259,7 @@
           "divideChoicesVisibly": false,
           "kind": "decimal",
           "bipolar": false,
-          "max": 1,
+          "max": 10,
           "maxDigits": 3,
           "mid": 0.5,
           "min": 0,
@@ -1268,7 +1268,7 @@
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "global",
-          "smoothingSeconds": 0.0333,
+          "smoothingSeconds": 1469,
           "smoothingType": "linear",
           "step": 0,
           "tooltip": "",
@@ -1287,7 +1287,7 @@
         "method": 1,
         "phase": 0,
         "freq": 10.045798632497482,
-        "amp": 0.9931632376823035
+        "amp": 0.3333333333333333
       },
       "type": "sineWavetable",
       "widthGu": 8,
@@ -2190,7 +2190,7 @@
   "view": {
     "heightGu": 13,
     "widthGu": 16,
-    "zoom": 0.7971938775510222,
+    "zoom": 1.0000000000000029,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,

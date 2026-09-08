@@ -329,6 +329,26 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "portalFace") {
     return { channel: 0 };
   }
+  if (type === "softwaveOscFace") {
+    return typeof normalizeNodeGraphSoftwaveOscFaceSettings === "function"
+      ? normalizeNodeGraphSoftwaveOscFaceSettings()
+      : {
+        lineHue: 165,
+        lineBrightness: 0.5,
+        lineThickness: 3,
+        lineBlur: 0,
+        dotHue: 165,
+        dotBrightness: 1,
+        dotThickness: 5,
+        backgroundHue: 200,
+        backgroundBrightness: 0.03,
+        pixelDensity: 1,
+        showDot: false,
+        strokeColor: "#00ffd0",
+        dotColor: "#00ffd0",
+        backgroundColor: "#00aaff",
+      };
+  }
   if (type === "roundShapeFace" || type === "basicShapeFace") {
     return typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
       ? normalizeNodeGraphRoundShapeFaceSettings()
@@ -550,6 +570,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
         : Math.max(0, Math.round(Number(settings?.channel) || 0)),
     };
   }
+  if (type === "softwaveOscFace") {
+    return typeof normalizeNodeGraphSoftwaveOscFaceSettings === "function"
+      ? normalizeNodeGraphSoftwaveOscFaceSettings(settings)
+      : (settings || {});
+  }
   if (type === "roundShapeFace" || type === "basicShapeFace") {
     return typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
       ? normalizeNodeGraphRoundShapeFaceSettings(settings)
@@ -710,6 +735,13 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
     return typeof nodeGraphPortalDisplaySettingsForNode === "function"
       ? nodeGraphPortalDisplaySettingsForNode(node)
       : { channel: 0 };
+  }
+  if (settingsSchema === "softwaveOscFace") {
+    return typeof nodeGraphSoftwaveOscFaceSettingsForNode === "function"
+      ? nodeGraphSoftwaveOscFaceSettingsForNode(node)
+      : (typeof normalizeNodeGraphSoftwaveOscFaceSettings === "function"
+        ? normalizeNodeGraphSoftwaveOscFaceSettings(node?.traceDisplaySettings)
+        : (node?.traceDisplaySettings || {}));
   }
   if (settingsSchema === "roundShapeFace" || settingsSchema === "basicShapeFace") {
     return typeof nodeGraphRoundShapeFaceSettingsForNode === "function"

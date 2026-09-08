@@ -1,13 +1,14 @@
 // soemdsp-native-module: pluck_envelope_3
-// soemdsp-native-label: Pluck Envelope
+// soemdsp-native-label: Ping Envelope
 // soemdsp-native-target: pluckEnvelope3
 // soemdsp-native-kind: envelope
 //
-// Clean pluck env:
-//   asymmetric one-pole toward Trigger
-//   Attack = time (s); 0 = instant
-//   fall from Exp(env + dampen−0.5) → 0…10 Hz feedback
-//   Recalc On Trig: latch Attack/Dampen/Amplitude on rising edge (default On)
+// Bake of patches/pluck envelope 1.json:
+//   Inertial Filter (asymmetric one-pole toward Trigger)
+//   Attack = rise time (s); 0 = instant (patch used ~20 kHz)
+//   Out → Exp → release Hz feedback (0…10 Hz)
+//   Decay 0…1 (Thump-style: 0 = short, 1 = long) → Exp offset
+//   Recalc On Trig: latch Attack/Decay/Amplitude on rising Trigger (default On)
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -25,7 +26,7 @@ struct State {
   double fb;
   double lastTrig;
   double shotAttack;
-  double shotDampen;
+  double shotDecay;
   double shotAmp;
   bool hasShot;
   bool primed;
@@ -37,7 +38,7 @@ static State gPool[kMaxInstances];
 static const char kMetadataJson[] =
   "{"
     "\"module\":\"pluck_envelope_3\","
-    "\"label\":\"Pluck Envelope\","
+    "\"label\":\"Ping Envelope\","
     "\"targetType\":\"pluckEnvelope3\","
     "\"kind\":\"envelope\""
   "}";
@@ -74,7 +75,7 @@ extern "C" int soemdsp_pluck_envelope_3_create() {
       s.fb = 0.0;
       s.lastTrig = 0.0;
       s.shotAttack = 0.0;
-      s.shotDampen = 0.5;
+      s.shotDecay = 0.5;
       s.shotAmp = 1.0;
       s.hasShot = false;
       s.primed = false;
@@ -94,7 +95,7 @@ extern "C" double soemdsp_pluck_envelope_3_sample(
   int handle,
   double input,
   double attackSec,
-  double dampen,
+  double decay,
   double amplitude,
   double recalculateOnTrigger,
   double sampleRate
@@ -105,44 +106,47 @@ extern "C" double soemdsp_pluck_envelope_3_sample(
   const double target = safe(input);
   const double sr = sampleRate < 1.0 ? 44100.0 : sampleRate;
   const double liveAtk = maxd(0.0, safe(attackSec));
-  double liveDamp = safe(dampen);
-  if (!(liveDamp * 0.0 == 0.0)) liveDamp = 0.5;
-  liveDamp = clamp(liveDamp, 0.0, 1.0);
+  double liveDecay = safe(decay);
+  if (!(liveDecay * 0.0 == 0.0)) liveDecay = 0.5;
+  liveDecay = clamp(liveDecay, 0.0, 1.0);
   const double liveAmp = (amplitude * 0.0 == 0.0) ? amplitude : 1.0;
   const bool latch = safe(recalculateOnTrigger) >= 0.5;
 
-  const bool trigHigh = target > 0.5;
-  const bool trigRise = !(s.lastTrig > 0.5) && trigHigh;
+  // Any >0 counts as Trigger high (Transport amp can be << 0.5).
+  const bool trigHigh = target > 0.0;
+  const bool trigRise = !(s.lastTrig > 0.0) && trigHigh;
   s.lastTrig = trigHigh ? 1.0 : 0.0;
 
-  // On: latch Attack/Dampen/Amplitude only on rising Trigger.
+  // On: latch Attack/Decay/Amplitude only on rising Trigger.
   // Off: live knobs always drive the shot.
   if (!latch || trigRise || !s.hasShot) {
     s.shotAttack = liveAtk;
-    s.shotDampen = liveDamp;
+    s.shotDecay = liveDecay;
     s.shotAmp = liveAmp;
     s.hasShot = true;
   }
 
+  // Match inertial filter: first sample settles to input, then one-pole.
   if (!s.primed) {
     s.primed = true;
     s.env = target;
     s.fb = 0.0;
+  } else {
+    const double ka = k_attack(s.shotAttack, sr);
+    const double kr = k_hz(s.fb * kReleaseHzMax, sr);
+    const double cur = safe(s.env);
+    const double delta = target - cur;
+    s.env = cur + delta * (delta >= 0.0 ? ka : kr);
+    if (!(s.env * 0.0 == 0.0)) s.env = 0.0;
   }
 
-  const double ka = k_attack(s.shotAttack, sr);
-  const double kr = k_hz(s.fb * kReleaseHzMax, sr);
-  const double cur = safe(s.env);
-  const double delta = target - cur;
-  s.env = cur + delta * (delta >= 0.0 ? ka : kr);
-  if (!(s.env * 0.0 == 0.0)) s.env = 0.0;
-
-  s.fb = exp_curve(s.env + (s.shotDampen - 0.5));
+  // Decay UI up = longer = less fall feedback (patch Exp → release).
+  s.fb = exp_curve(s.env + (0.5 - s.shotDecay));
 
   const double y = s.env * s.shotAmp;
   return (y * 0.0 == 0.0) ? y : 0.0;
 }
 
-extern "C" int soemdsp_pluck_envelope_3_version() { return 3; }
+extern "C" int soemdsp_pluck_envelope_3_version() { return 6; }
 extern "C" const char* soemdsp_pluck_envelope_3_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_pluck_envelope_3_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

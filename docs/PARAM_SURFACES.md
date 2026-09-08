@@ -19,7 +19,7 @@ Hard clamp/wrap of stored or post-MOD effective values only when:
 - **`wraparound: true`** — always wrap into min/max
 - **`constraint: "cpu" | "gpu" | "ram"`** — resource-limited params (e.g. harmonics)
 - **`hardClamp: true`** — explicit opt-in
-- **`modClamp: true`** — after MOD only (default is **false**)
+- **`modClamp: true`** — after MOD clip to DOMAIN min…max (**default true**; set `false` to allow past-domain MOD)
 
 Typing Amplitude `8000` or Frequency outside the slider mid-band must stick.
 

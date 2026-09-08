@@ -193,7 +193,7 @@ extern "C" double soemdsp_robin_supersaw_voice_amp(int handle, int index);
 extern "C" int soemdsp_slew_limiter_create();
 extern "C" void soemdsp_slew_limiter_destroy(int handle);
 extern "C" void soemdsp_slew_limiter_process_block(
-  int handle, double upTime, double downTime, double shape, double bias,
+  int handle, double upTime, double downTime, double upShape, double downShape, double bias,
   double sampleRate, int frameCount
 );
 extern "C" int soemdsp_slew_limiter_block_input_ptr(int handle);
@@ -490,6 +490,7 @@ extern "C" double soemdsp_surge_oscillator_internal_sync(int handle);
 
 extern "C" int soemdsp_softwave_create();
 extern "C" void soemdsp_softwave_destroy(int handle);
+extern "C" void soemdsp_softwave_reset(int handle);
 extern "C" double soemdsp_softwave_sample(
   int handle,
   double frequencyHz,
@@ -849,7 +850,7 @@ extern "C" int soemdsp_thump_envelope_version();
 extern "C" int soemdsp_pluck_envelope_3_create();
 extern "C" void soemdsp_pluck_envelope_3_destroy(int handle);
 extern "C" double soemdsp_pluck_envelope_3_sample(
-  int handle, double input, double attackSec, double dampen,
+  int handle, double input, double attackSec, double decay,
   double amplitude, double recalculateOnTrigger, double sampleRate
 );
 extern "C" int soemdsp_pluck_envelope_3_version();
@@ -1947,6 +1948,7 @@ struct Circuit {
 
 // Morph ZOH: one sample per quantum. additiveCv = knob + Morph[0] (softwave-style);
 // otherwise Morph[0] replaces the Control (additiveOsc proving-ground style).
+// Callers that use ParamModEdge morph MUST stamp_live_param_mods first.
 static double morph_zoh_hold(Circuit& g, Node& node, bool liveMorph, bool additiveCv) {
   double m = control_effective(node.shape);
   if (!(m == m)) m = 0.5;
@@ -1955,6 +1957,23 @@ static double morph_zoh_hold(Circuit& g, Node& node, bool liveMorph, bool additi
     if (!(cv == cv)) cv = 0.0;
     m = additiveCv ? (m + cv) : cv;
   }
+  if (m < 0.0) m = 0.0;
+  if (m > 1.0) m = 1.0;
+  return m;
+}
+
+static bool node_has_live_param_mods(const Circuit& g, const Node& node) {
+  const unsigned int dst = node.idHash;
+  for (int i = 0; i < g.paramModEdgeCount; i++) {
+    const ParamModEdge& e = g.paramModEdges[i];
+    if (e.used && e.dstHash == dst) return true;
+  }
+  return false;
+}
+
+static double shape_param_01(const Node& node) {
+  double m = control_effective(node.shape);
+  if (!(m == m)) m = 0.5;
   if (m < 0.0) m = 0.0;
   if (m > 1.0) m = 1.0;
   return m;
@@ -2404,17 +2423,18 @@ static inline double control_effective(const Control& c) {
     result = minV + u * range + domainAdd;
   }
   if (!(result == result)) result = 0.0;
-  if (haveRange && (wrap || modClamp)) {
-    if (wrap) {
-      double w = result - minV;
-      w = w - range * dsp_floor(w / range);
-      if (w < 0.0) w += range;
-      result = minV + w;
-    } else if (result < minV) {
-      result = minV;
-    } else if (result > maxV) {
-      result = maxV;
-    }
+  // App-wide: after MOD, clip to DOMAIN when known (Knob 0…1, Amp 0…1, …).
+  // Wraparound still wraps. Explicit unbounded: host clears modClamp bit AND
+  // sets bit3 (kModFlagUnbounded = 8) — rare; default is clamp.
+  const bool unbounded = (c.modFlags & 8u) != 0;
+  if (haveRange && wrap) {
+    double w = result - minV;
+    w = w - range * dsp_floor(w / range);
+    if (w < 0.0) w += range;
+    result = minV + w;
+  } else if (haveRange && (modClamp || !unbounded)) {
+    if (result < minV) result = minV;
+    if (result > maxV) result = maxV;
   }
   if (c.snap) {
     result = (double)(int)(result >= 0.0 ? result + 0.5 : result - 0.5);
@@ -2674,8 +2694,9 @@ static void init_node_defaults(Node& n, int typeId) {
       || typeId == kTypeAdditiveBubble // invertBubble Off
       || typeId == kTypeAttackDecay // inputMode Gate
       || typeId == kTypeLinearAttackRelease // inputMode Gate
-      || typeId == kTypeCurveAttackRelease) // inputMode Gate
-      ? 0.0 // LP / Clean / BP6 / Feedback / filter / curve / noise / Gate
+      || typeId == kTypeCurveAttackRelease // inputMode Gate
+      || typeId == kTypeSlewLimiter) // downShape Lin
+      ? 0.0 // LP / Clean / BP6 / Feedback / filter / curve / noise / Gate / Lin
       : (typeId == kTypeThumpEnvelope) ? 0.0 // loop Off (On retriggers attack from sustain)
       : (typeId == kTypeInertialFilter) ? 1.0 // smoothAttack On
       : (typeId == kTypePluckEnvelope3) ? 1.0 // recalculateOnTrigger On
@@ -2792,7 +2813,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpoPluckEnvelope) ? 0.0 // damping
       : (typeId == kTypeExpoPluckEnvelope2) ? 1.0 // velocity
       : (typeId == kTypeThumpEnvelope) ? 0.0 // decaySnap 0…1 (0=patch short)
-      : (typeId == kTypePluckEnvelope3) ? 0.5 // dampen
+      : (typeId == kTypePluckEnvelope3) ? 0.5 // decay (0=short … 1=long)
       : (typeId == kTypeTransport) ? 0.5 // pulseWidth gate duty
       : (typeId == kTypeRobinSupersaw) ? 30.0 // detuneCents (no hard 100¢ cap)
       : (typeId == kTypeTriggerCounter) ? 1.0
@@ -3075,7 +3096,8 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypePulseExplosion) ? 0.3 // lowAmplitude
       : (typeId == kTypeAdditiveFrequencySkew) ? 1.0 // lowStretch
       : (typeId == kTypeDegreePhrase) ? 0.0 // rest1
-      : (typeId == kTypeRange) ? -1.0 : (typeId == kTypeClipperLimiter) ? -12.0 : 0.0,
+      : (typeId == kTypeRange) ? 0.0 // unipolar In (knob/env); was −1
+      : (typeId == kTypeClipperLimiter) ? -12.0 : 0.0,
     (typeId == kTypeDegreePhrase)
   );
   init_control(
@@ -3088,13 +3110,13 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.outLow,
-    (typeId == kTypeRange) ? -10.0
+    (typeId == kTypeRange) ? 0.0 // unit CV (Morph-safe); was −10 and pegged 0…1 MOD
       : 0.0,
     (typeId == kTypeDegreePhrase)
   ); // rest3 / Range outLow
   init_control(
     n.outHigh,
-    (typeId == kTypeRange) ? 10.0
+    (typeId == kTypeRange) ? 1.0 // unit CV default; set higher for Hz maps
       : (typeId == kTypeDegreePhrase) ? 1.0 // rest4
       : 1.0,
     (typeId == kTypeDegreePhrase)
@@ -4107,22 +4129,26 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool livePhase = mix_live_port(g, node, kPortPhaseCv, frames, g.mixPhaseCv);
   const bool controlSmoothing = node_control_smoothing(node);
+  // Range/Knob→Morph ParamModEdge must take the sample path (stamp before read).
+  const bool liveParamMods = node_has_live_param_mods(g, node);
   const bool audioRatePitch =
-    liveF || livePitch || liveInc || liveReset || livePhase || controlSmoothing;
+    liveF || livePitch || liveInc || liveReset || livePhase || controlSmoothing
+    || liveParamMods;
   const int mask = polyblep_tap_mask(g, node);
 
   // Midi note 48 → 0.4 reference voltage (matches worklet default).
   const double referenceVoltage = 48.0 / 120.0;
 
-  // ZOH shape path: Morph param (+ MOD via control_effective) / waveform / amplitude.
-  // No Morph SIGNAL IN — that jack was redundant with the Morph parameter.
+  // Morph / Amp / Wave: stamp frame 0 so ParamModEdge (Range→Morph) is audible
+  // even on the block path. No Morph SIGNAL IN — Morph is the parameter (+ MOD).
+  stamp_live_param_mods(g, node, 0);
   if (controlSmoothing) smoother_step_node(g, node);
   const double phaseParam = phase_offset_cycles(
     node.phaseParam, livePhase ? g.mixPhaseCv[0] : 0.0
   );
   double level = control_effective(node.amplitude);
   if (!(level == level)) level = 0.0;
-  const double morph = morph_zoh_hold(g, node, false, false);
+  double morph = shape_param_01(node);
   const double waveV = control_effective(node.waveform);
   int waveform = (int)(waveV + (waveV >= 0.0 ? 0.5 : -0.5));
   if (waveform < 0) waveform = 0;
@@ -4157,11 +4183,8 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
     return;
   }
 
-  // Live ƒ / 0.1V / Inc / Reset: per-sample phaseInc (ƒ is absolute Hz when wired).
-  // Morph / waveform / amplitude stay ZOH for the block (smoothers may still step).
-  // PhaseOffset = free-running phase + Control phase (cycles→radians). Re-apply
-  // offset every sample while the smoother chases — locking render phase to the
-  // block-start offset made Hz=0 Phase scrubbing appear broken.
+  // Live ƒ / 0.1V / Inc / Reset / ParamModEdge: per-sample path.
+  // Re-read Morph/Amp after stamp so Range→Morph is sample-accurate.
   double freePhase = node.phase;
   if (!liveReset) {
     // Cable gone → clear latch so the next connect can rising-edge.
@@ -4170,6 +4193,9 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   for (int f = 0; f < frames; f++) {
         stamp_live_param_mods(g, node, f);
     if (f > 0 && controlSmoothing) smoother_step_node(g, node);
+    morph = shape_param_01(node);
+    level = control_effective(node.amplitude);
+    if (!(level == level)) level = 0.0;
     const double phaseParamNow = phase_offset_cycles(
       node.phaseParam, livePhase ? g.mixPhaseCv[f] : 0.0
     );
@@ -5857,25 +5883,42 @@ static void process_surge_oscillator(Circuit& g, Node& node, int frames) {
 }
 
 // Softwave: shape=morph, center=antialias, amplitude=level, phaseParam=phase.
-// Morph CV is turquoise ZOH (additive to knob, matches softwave JS SIGNAL IN).
+// No Morph/Phase/Amp SIGNAL IN — those are parameters (+ sample-accurate MOD).
 static void process_softwave_osc(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool controlSmoothing = node_control_smoothing(node);
   const double referenceVoltage = 48.0 / 120.0;
-  const double morph = morph_zoh_hold(g, node, liveMorph, true);
-  const double phaseOff = control_effective(node.phaseParam);
-  const double level = control_effective(node.amplitude);
-  const double antialias = control_effective(node.center);
-  const double waveV = control_effective(node.waveform);
+  if (!liveReset) node.lastReset = 0.0;
+  if (controlSmoothing) smoother_step_node(g, node);
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
+    if (f > 0 && controlSmoothing) smoother_step_node(g, node);
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        soemdsp_softwave_reset(node.nativeHandle);
+      }
+      node.lastReset = rv;
+    }
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
+    double morph = control_effective(node.shape);
+    if (!(morph == morph)) morph = 0.5;
+    if (morph < 0.0) morph = 0.0;
+    if (morph > 1.0) morph = 1.0;
+    const double phaseOff = control_effective(node.phaseParam);
+    double level = control_effective(node.amplitude);
+    if (!(level == level)) level = 1.0;
+    if (level < 0.0) level = 0.0;
+    if (level > 1.0) level = 1.0;
+    const double antialias = control_effective(node.center);
+    const double waveV = control_effective(node.waveform);
     const double y = soemdsp_softwave_sample(
       node.nativeHandle, freq, sr, waveV, morph, phaseOff, level, antialias
     );
@@ -5886,7 +5929,7 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
 }
 
 // DSF: shape=morph/harmonics, width=pulseWidth, mix=blend, phaseParam=phase.
-// Morph CV is turquoise ZOH (additive to knob).
+// Morph CV jack is turquoise ZOH; Morph param MOD is stamped per sample.
 static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
@@ -5894,11 +5937,12 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const double referenceVoltage = 48.0 / 120.0;
-  const double morph = morph_zoh_hold(g, node, liveMorph, true);
+  stamp_live_param_mods(g, node, 0);
+  double morph = morph_zoh_hold(g, node, liveMorph, true);
   const double pulseWidth = control_effective(node.width);
   const double blend = control_effective(node.mix);
   const double phase = control_effective(node.phaseParam);
-  const double level = control_effective(node.amplitude);
+  double level = control_effective(node.amplitude);
   const double waveV = control_effective(node.waveform);
   int waveform = (int)(waveV + (waveV >= 0.0 ? 0.5 : -0.5));
   if (waveform < 0) waveform = 0;
@@ -5906,6 +5950,8 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
 
   for (int f = 0; f < frames; f++) {
         stamp_live_param_mods(g, node, f);
+    morph = morph_zoh_hold(g, node, liveMorph, true);
+    level = control_effective(node.amplitude);
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -7223,8 +7269,8 @@ static void process_thump_envelope(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Pluck Envelope: timeDenominator=attack s, width=dampen, amplitude,
-// mode=recalculateOnTrigger. Trigger→kPortTrigger; Gate/In may land on Mono+L/R.
+// Ping Envelope (pluckEnvelope3): timeDenominator=attack s, width=decay,
+// amplitude, mode=recalculateOnTrigger. Trigger→kPortTrigger; Gate/In→Mono+L/R.
 static void process_pluck_envelope_3(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -9401,12 +9447,13 @@ static void process_slew_limiter(Circuit& g, Node& node, int frames) {
         stamp_live_param_mods(g, node, f);
     inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
   }
-  // timeNumerator=upTime, timeDenominator=downTime, shape=shape, offset=bias
+  // timeNumerator=upTime, timeDenominator=downTime, shape=upShape, mode=downShape, offset=bias
   soemdsp_slew_limiter_process_block(
     node.nativeHandle,
     control_effective(node.timeNumerator),
     control_effective(node.timeDenominator),
     control_effective(node.shape),
+    control_effective(node.mode),
     control_effective(node.offset),
     (double)sr,
     frames
@@ -10268,6 +10315,16 @@ extern "C" int soemdsp_graph_compile(int handle) {
     if (d < 0 || s < 0 || s == d) continue;
     indeg[d] += 1;
   }
+  // Audio→param MOD must also order src before dst. Softwave (source) would
+  // otherwise run before Thump→Range and stamp Morph from a zeroed buffer —
+  // Clock often worked only because it happened to sort first among free nodes.
+  for (int i = 0; i < g->paramModEdgeCount; i++) {
+    if (!g->paramModEdges[i].used) continue;
+    const int d = find_node(*g, g->paramModEdges[i].dstHash);
+    const int s = find_node(*g, g->paramModEdges[i].srcHash);
+    if (d < 0 || s < 0 || s == d) continue;
+    indeg[d] += 1;
+  }
 
   while (g->orderCount < g->nodeCount) {
     int pick = -1;
@@ -10296,10 +10353,17 @@ extern "C" int soemdsp_graph_compile(int handle) {
     }
     removed[pick] = 1;
     g->order[g->orderCount++] = pick;
+    const unsigned int pickHash = g->nodes[pick].idHash;
     for (int i = 0; i < g->connCount; i++) {
       if (!g->conns[i].used) continue;
-      if (g->conns[i].srcHash != g->nodes[pick].idHash) continue;
+      if (g->conns[i].srcHash != pickHash) continue;
       const int d = find_node(*g, g->conns[i].dstHash);
+      if (d >= 0 && indeg[d] > 0) indeg[d] -= 1;
+    }
+    for (int i = 0; i < g->paramModEdgeCount; i++) {
+      if (!g->paramModEdges[i].used) continue;
+      if (g->paramModEdges[i].srcHash != pickHash) continue;
+      const int d = find_node(*g, g->paramModEdges[i].dstHash);
       if (d >= 0 && indeg[d] > 0) indeg[d] -= 1;
     }
   }
@@ -11135,6 +11199,6 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  // 127: clockDivider on type 29 (timingMode≥0.5; duty×measured Clock period)
-  return 127;
+  // 129: PolyBLEP Morph stamps ParamModEdge; post-MOD domain clamp default on
+  return 129;
 }

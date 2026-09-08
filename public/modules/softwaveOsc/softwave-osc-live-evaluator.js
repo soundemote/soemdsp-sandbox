@@ -1,4 +1,5 @@
 // Softwave Oscillator — offline/render path (DistortionOscillator math, Softwave name).
+// Morph / Phase / Amp are parameters (+ MOD). Reset is rising-edge phase hard-sync.
 
 nodeGraphLiveModuleEvaluators.softwaveOsc = ({
   runtime,
@@ -15,6 +16,15 @@ nodeGraphLiveModuleEvaluators.softwaveOsc = ({
   runtime.softwaveOscStates.set(nodeId, state);
   const read = (key, fallback) =>
     readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
+
+  const resetValue = hasInput(nodeId, "Reset")
+    ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Reset"), runtime, nodeId, 0, "softwave reset")
+    : 0;
+  const resetEdge = (state.lastReset || 0) <= 0 && resetValue > 0;
+  state.lastReset = resetValue;
+  if (resetEdge) {
+    nodeGraphSoftwaveOscillatorReset(state);
+  }
 
   const baseFrequency = Math.max(0, read("frequency", 100));
   const pitchReferenceAudio = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio);
@@ -46,32 +56,9 @@ nodeGraphLiveModuleEvaluators.softwaveOsc = ({
       ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
       : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
 
-  const morphKnob = read("morph", 0.5);
-  const morphCv = hasInput(nodeId, "Morph")
-    ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Morph"), runtime, nodeId, 0, "softwave morph")
-    : 0;
-  // Morph jack is additive domain CV (clamp), not param-row MOD.
-  const morphRaw = typeof nodeGraphParamSignalInAdditive === "function"
-    ? nodeGraphParamSignalInAdditive(morphKnob, morphCv)
-    : morphKnob + morphCv;
-  const morph = clampNodeSliderValue(morphRaw, 0, 1);
-
-  const phaseKnob = read("phase", 0);
-  const phaseCv = hasInput(nodeId, "Phase")
-    ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Phase"), runtime, nodeId, 0, "softwave phase")
-    : 0;
-  const phase = typeof nodeGraphParamSignalInPhaseAdd === "function"
-    ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
-    : wrapNodeSliderValue(phaseKnob + phaseCv, 0, 1);
-
-  const levelKnob = read("amplitude", 1);
-  const hasAmp = hasInput?.(nodeId, "Amplitude") || hasInput(nodeId, "Amplitude");
-  const ampCv = hasAmp
-    ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Amplitude"), runtime, nodeId, 1, "amp")
-    : 1;
-  const level = typeof nodeGraphParamSignalInAmplitude === "function"
-    ? nodeGraphParamSignalInAmplitude(levelKnob, ampCv, hasAmp)
-    : (hasAmp ? levelKnob * ampCv : levelKnob);
+  const morph = clampNodeSliderValue(read("morph", 0.5), 0, 1);
+  const phase = wrapNodeSliderValue(read("phase", 0), 0, 1);
+  const level = clampNodeSliderValue(read("amplitude", 1), 0, 1);
 
   return nodeGraphSoftwaveOscillatorSample(state, {
     frequencyHz: effectiveFrequency,

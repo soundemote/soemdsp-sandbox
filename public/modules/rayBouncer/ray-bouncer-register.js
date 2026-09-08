@@ -48,8 +48,8 @@ registerNodeGraphChromelessModule("rayBouncer", {
     ],
   },
   catalog: {
-    category: "chaos",
+    category: "oms",
     description: "RS-MET Ray Bouncer in solid shell: particle reflecting inside an ellipse. Short Rs reset jack, X/Y phosphor face, full parameter bank below.",
-    notes: ["solid module", "ellipse billiard", "X/Y phosphor", "RS-MET", "native"],
+    notes: ["solid module", "ellipse billiard", "X/Y phosphor", "RS-MET", "native", "oscillator 2d"],
   },
 });

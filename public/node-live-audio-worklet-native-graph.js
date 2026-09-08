@@ -302,10 +302,15 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   amp: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE,
   level: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LEVEL,
   shape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
+  upShape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
+  downShape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
   phase: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PHASE,
   phaseOffset: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PHASE,
   resonance: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_RESONANCE,
   mode: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
+  upTime: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_NUMERATOR,
+  downTime: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR,
+  bias: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET,
   stages: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES,
   center: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
   width: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
@@ -1402,6 +1407,8 @@ NodeLiveAudioProcessor.prototype.postNativeGraphStatus = function postNativeGrap
 NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   waveform: true,
   mode: true,
+  upShape: true,
+  downShape: true,
   stages: true,
   smoothingMode: true,
   segmentShape: true,
@@ -1466,12 +1473,18 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
   for (let i = 0; i < feeders.length; i += 1) {
     const feed = feeders[i];
     if (!feed?.hash) continue;
-    const out = this.nodeOutputs?.get?.(String(feed.sourceNode));
     const sp = String(feed.sourcePort || "");
     let v = 0;
-    if (out && typeof out === "object") {
-      const raw = Number(out[sp] ?? out.Frequency ?? out.Bias ?? out.Out ?? out.value);
+    // Knob Bias/Out and other host CV: prefer shared reader (Bias↔Out aliases).
+    if (typeof this.readEfficientModSourceSample === "function") {
+      const raw = Number(this.readEfficientModSourceSample(feed.sourceNode, sp));
       v = Number.isFinite(raw) ? raw : 0;
+    } else {
+      const out = this.nodeOutputs?.get?.(String(feed.sourceNode));
+      if (out && typeof out === "object") {
+        const raw = Number(out[sp] ?? out.Frequency ?? out.Bias ?? out.Out ?? out.value);
+        v = Number.isFinite(raw) ? raw : 0;
+      }
     }
     this.pushNativeGraphParam(native, feed.hash, paramId, v);
   }
@@ -1538,7 +1551,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       cache[key] = v;
       this.pushNativeGraphParam(native, hash, paramId, v);
     }
-    const meta = node?.paramMeta?.[key] || {};
+    // Merge patch paramMeta with module-definition defaults so Softwave Amp
+    // modClamp/modMultiply survive older saved paramMeta blobs.
+    const defParam = (typeof nodeGraphModuleDefinitions !== "undefined"
+      && nodeGraphModuleDefinitions?.[String(node?.type || "")]?.parameters
+      || []).find?.((p) => p && p.key === key) || null;
+    const meta = { ...(defParam || {}), ...(node?.paramMeta?.[key] || {}) };
     const modKey = `${key}__mod`;
     const domainKey = `${key}__domain`;
     let unitAdd = 0;
@@ -1560,8 +1578,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     const max = Number(meta.max);
     let flags = 0;
     if (meta.wraparound) flags |= 1;
-    if (meta.modClamp === true) flags |= 2;
-    else if (meta.hardClamp === true) flags |= 2;
+    // App-wide default: clamp after MOD to DOMAIN. Explicit false → unbounded (bit3).
+    if (meta.modClamp === false) {
+      flags |= 8; // unbounded MOD past domain
+    } else {
+      flags |= 2; // modClamp (default on)
+    }
+    if (meta.hardClamp === true) flags |= 2;
     else {
       const c = String(meta.constraint || "").trim().toLowerCase();
       if (c === "cpu" || c === "gpu" || c === "ram" || c === "memory") flags |= 2;
@@ -1569,13 +1592,18 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     // bit2: VCA-style amp — MOD is unipolar multiply (Amp Curve → Amp).
     // Only when the param domain is a 0…1 gain (SinCos Amp). Makeup Volume
     // knobs with max>1 (e.g. Chaosfly Volume 0…10) stay additive / plain gain.
+    // Explicit modMultiply:false / vca:false opts out (Softwave Amp = additive clamp).
     const ampKey = String(key || "").toLowerCase();
     const ampDomain01 = Number.isFinite(max) && max > 0 && max <= 1.0001
       && Number.isFinite(min) && min >= -0.0001 && min < max;
+    const vcaOptOut = meta.modMultiply === false || meta.vca === false;
     if (
-      meta.modMultiply === true
-      || meta.vca === true
-      || (ampDomain01 && (ampKey === "amp" || ampKey === "amplitude" || ampKey === "level"))
+      !vcaOptOut
+      && (
+        meta.modMultiply === true
+        || meta.vca === true
+        || (ampDomain01 && (ampKey === "amp" || ampKey === "amplitude" || ampKey === "level"))
+      )
     ) {
       flags |= 4;
     }
@@ -1829,7 +1857,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "softwaveOsc") {
-      // shape=morph, center=antialias.
+      // shape=morph, center=antialias. Morph/Phase/Amp via param MOD (no SIGNAL IN).
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
       push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0.5));
@@ -2412,10 +2440,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "pluckEnvelope3") {
-      // timeDenominator=attack s, width=dampen, amplitude, mode=recalculateOnTrigger.
+      // timeDenominator=attack s, width=decay, amplitude, mode=recalculateOnTrigger.
       push("recalculateOnTrigger", P.NATIVE_GRAPH_PARAM_MODE, disc("recalculateOnTrigger", 1));
       push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0));
-      push("dampen", P.NATIVE_GRAPH_PARAM_WIDTH, cont("dampen", 0.5));
+      push("decay", P.NATIVE_GRAPH_PARAM_WIDTH, cont("decay", 0.5));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -2825,10 +2853,15 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "slewLimiter") {
-      // timeNumerator=upTime, timeDenominator=downTime, shape, offset=bias
+      // timeNumerator=upTime, timeDenominator=downTime, shape=upShape, mode=downShape, offset=bias
+      // Legacy single `shape` seeds both when up/down keys are absent.
+      const legacyShape = Number.isFinite(Number(node?.params?.shape))
+        ? Number(node.params.shape)
+        : 0;
+      push("upShape", P.NATIVE_GRAPH_PARAM_SHAPE, disc("upShape", legacyShape));
+      push("downShape", P.NATIVE_GRAPH_PARAM_MODE, disc("downShape", legacyShape));
       push("upTime", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("upTime", 0.05));
       push("downTime", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("downTime", 0.05));
-      push("shape", P.NATIVE_GRAPH_PARAM_SHAPE, disc("shape", 0));
       push("bias", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("bias", 0));
       continue;
     }
@@ -3165,10 +3198,22 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "range") {
-      push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", -1));
+      // Heal exact old defaults (−10…+10 Out) in the live node so Morph MOD
+      // works without requiring a patch reload. Intentional Hz maps untouched.
+      const bag = node?.params;
+      if (bag && Number(bag.outLow) === -10 && Number(bag.outHigh) === 10) {
+        bag.outLow = 0;
+        bag.outHigh = 1;
+        if (Number(bag.inLow) === -1 && Number(bag.inHigh) === 1) {
+          bag.inLow = 0;
+          bag.inHigh = 1;
+        }
+      }
+      // Fallbacks must match module defaults (0…1 unit CV).
+      push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", 0));
       push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
-      push("outLow", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("outLow", -10));
-      push("outHigh", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("outHigh", 10));
+      push("outLow", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("outLow", 0));
+      push("outHigh", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("outHigh", 1));
       continue;
     }
     // inv / u2b / b2u: no Control params

@@ -118,8 +118,8 @@ function nodeGraphParamApplyDomainBounds(value, metadata = {}) {
 
 /**
  * After MOD, re-apply DOMAIN hard bounds?
- * Default false. Explicit modClamp wins; else same policy as hard domain clamp
- * (wraparound / constraint / hardClamp). Legacy unboundedMax/Min → false.
+ * Default **true** (Knob/Amp ranges stay in min…max). Explicit `modClamp: false`
+ * or legacy unboundedMax/Min opts out. Wraparound always wraps via apply bounds.
  */
 function nodeGraphParamModClamp(metadata = {}) {
   if (Object.hasOwn(metadata, "modClamp")) {
@@ -128,7 +128,7 @@ function nodeGraphParamModClamp(metadata = {}) {
   if (metadata.unboundedMax || metadata.unboundedMin) {
     return false;
   }
-  return nodeGraphParamShouldHardClampDomain(metadata);
+  return true;
 }
 
 /**
@@ -344,9 +344,16 @@ function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
   if (metadata.wraparound) {
     return nodeGraphParamApplyDomainBounds(result, metadata);
   }
-  return nodeGraphParamModClamp(metadata)
-    ? nodeGraphParamApplyDomainBounds(result, metadata)
-    : result;
+  // Post-MOD clip to DOMAIN (default on). Do not use ApplyDomainBounds alone —
+  // that only hard-clamps wrap/constraint/hardClamp, not ordinary modClamp.
+  if (nodeGraphParamModClamp(metadata)) {
+    const lo = Number(metadata.min);
+    const hi = Number(metadata.max);
+    if (Number.isFinite(lo) && Number.isFinite(hi) && hi > lo) {
+      return nodeGraphParamClamp(result, lo, hi);
+    }
+  }
+  return result;
 }
 
 /**

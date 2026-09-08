@@ -240,7 +240,8 @@ const nodeGraphNodeLabels = Object.freeze({
   pluckEnvelope: "Pluck Envelope",
   expoPluckEnvelope: "Expo Pluck Envelope",
   expoPluckEnvelope2: "Expo Pluck Envelope 2",
-  pluckEnvelope3: "Pluck Envelope",
+  pluckEnvelope3: "Ping Envelope",
+  pingEnvelope: "Ping Envelope",
   vactrol: "Vactrol",
   sandboxVisuals: "Screen Visuals",
   screenSpaceShader: "Screen Space Shader",
@@ -320,7 +321,8 @@ const nodeGraphOutputAmplitudeParam = Object.freeze({
   min: "0",
   nonlinearSlider: false,
   step: "any",
-  modClamp: false,
+  // Post-MOD stays in 0…1 (Amp=1 + Knob cannot boost past full scale).
+  modClamp: true,
   tooltip: "Output scale.",
 });
 
@@ -873,11 +875,10 @@ const nodeGraphModuleDefinitions = (
     inputLabels: {"0.1V/Oct": "0.1V",
       Increment: "Inc.",
       f: "ƒ"},
-    // Legacy Wave Out / Out / Noise → Wave (outlet list already implies "out").
+    // Legacy Wave Out / Out → Wave (outlet list already implies "out").
     outputAliases: {
       Out: "Wave",
       "Wave Out": "Wave",
-      Noise: "Wave",
     },
     // Main Wave jack first + green (not RGB/XYZ — those keep natural axis order).
     outputChannels: {
@@ -886,7 +887,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Wave", "Saw", "Ramp", "Square", "Tri", "Sine"],
     parameters: [
       {
-        choices: ["Trisaw", "Saw", "Ramp", "Square", "Triangle", "Sine", "Center Square", "Pulse", "Noise"],
+        choices: ["Trisaw", "Saw", "Ramp", "Square", "Triangle", "Sine", "Center Square", "Pulse"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -894,7 +895,7 @@ const nodeGraphModuleDefinitions = (
         kind: "waveform",
         label: "Waveform",
         linearSmoothing: false,
-        max: "8",
+        max: "7",
         mid: "3",
         min: "0",
         step: "1"
@@ -940,7 +941,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "bipolarRational",
         step: "0",
-        tooltip: "0…1 width/duty. 0.5 = center (triangle / 50% PWM). Trisaw & Pulse / Center Square only. Modulate via the Morph param-row MOD jack."
+        tooltip: "0…1 width/duty. 0.5 = center / 50%. Trisaw, Pulse, and Center Square (pulse grows from mid-cycle — not a stepped square). Morph MOD jack on the param row."
       },
       {
         defaultValue: "1",
@@ -3937,13 +3938,32 @@ const nodeGraphModuleDefinitions = (
   // Port of soemdsp DistortionOscillator — soft-shaped multi-wave (Softwave).
   softwaveOsc: {
     planRole: "source",
-    inputs: ["0.1V/Oct", "Morph", "Phase", "Amplitude", "f"],
-    inputLabels: {"0.1V/Oct": "0.1V",
-      Morph: "Morph",
-      Phase: "Phase",
-      Amplitude: "Amp",
-      f: "ƒ"},
-    // Morph is sample-accurate gold analog (not CMYK cyan Parameter).
+    layout: "softwaveOsc",
+    chrome: "LayoutA",
+    customDisplayArea: true,
+    displayType: "softwaveOscFace",
+    displayHeightGu: 4,
+    spectrumCompanion: false,
+    displayModes: [
+      {
+        key: "face",
+        label: "Face",
+        renderer: "softwaveOscFace",
+        settingsSchema: "softwaveOscFace",
+      },
+    ],
+    defaultDisplayMode: "face",
+    // Static one-cycle face — not a live scope (see softwave-osc-display.js).
+    defaultDisplaySettings: {
+      lineThickness: 3,
+      showDot: false,
+    },
+    // Morph / Phase are parameters (+ MOD), not SIGNAL IN jacks.
+    inputs: ["Reset", "0.1V/Oct", "f"],
+    inputLabels: {
+      "0.1V/Oct": "0.1V",
+      f: "ƒ",
+    },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
@@ -3997,7 +4017,20 @@ const nodeGraphModuleDefinitions = (
         wraparound: true
       },
       { key: "antialias", label: "AA", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
+      // Kept for DSP / MOD / patches; not shown on the module (level is always on).
+      // Additive + clamp (not VCA multiply): Amp=1 + Knob 0…1 stays at 1; Amp=0 is true 0.
+      {
+        key: "amplitude",
+        label: "Amplitude",
+        defaultValue: "1",
+        min: "0",
+        mid: "1",
+        max: "1",
+        step: "0.01",
+        modClamp: true,
+        modMultiply: false,
+        hidden: true,
+      },
     ]
   },
   // Parametric 2D math curves → mono Out via Project; X/Y always available for scopes.
@@ -6807,9 +6840,11 @@ const nodeGraphModuleDefinitions = (
   range: {
     planRole: "processor",
     label: "Range",
-    inputAliases: { Mono: "In", Left: "In", Right: "In" },
+    // Mono aliases only — Left/Right→In/Out was painting In/Out red/blue.
+    // Generic In/Out stay gold (uncolored analog).
+    inputAliases: { Mono: "In" },
     inputs: ["In"],
-    outputAliases: { Mono: "Out", Left: "Out", Right: "Out" },
+    outputAliases: { Mono: "Out" },
     outputs: ["Out"],
     defaultUi: {
       buttonsHidden: true,
@@ -6817,52 +6852,56 @@ const nodeGraphModuleDefinitions = (
     },
     parameters: [
       {
-        defaultValue: "-1",
+        defaultValue: "0",
         key: "inLow",
         label: "In Low",
-        max: "1000",
+        max: "20000",
         mid: "0",
-        min: "-1000",
-        nonlinearSlider: false,
+        min: "-20000",
+        nonlinearSlider: true,
         showSign: true,
         step: "any",
-        tooltip: "Input range low. Maps to Out Low.",
+        // Match Knob / envelope unipolar 0…1. For bipolar audio use −1…+1.
+        tooltip: "Input value that maps to Out Low. Default 0 (knob/envelope). Use −1 for bipolar audio.",
       },
       {
         defaultValue: "1",
         key: "inHigh",
         label: "In High",
-        max: "1000",
-        mid: "0",
-        min: "-1000",
-        nonlinearSlider: false,
+        max: "20000",
+        mid: "1",
+        min: "-20000",
+        nonlinearSlider: true,
         showSign: true,
         step: "any",
-        tooltip: "Input range high. Maps to Out High.",
+        tooltip: "Input value that maps to Out High. Default 1.",
       },
       {
-        defaultValue: "-10",
+        defaultValue: "0",
         key: "outLow",
         label: "Out Low",
-        max: "10000",
+        max: "20000",
         mid: "0",
-        min: "-10000",
-        nonlinearSlider: false,
+        min: "-20000",
+        nonlinearSlider: true,
         showSign: true,
         step: "any",
-        tooltip: "Output value at In Low.",
+        // Default 0…1 keeps |Out|≤1 so Morph MOD stays unit-band. Old −10…+10
+        // defaults were classified as domain-add and pegged Morph at 0 or 1.
+        // For Hz: set Out High to 1000+ (slider spans ±20 kHz).
+        tooltip: "Output at In Low. Default 0 (unit CV / Morph-safe). Pair with Out High for Hz maps.",
       },
       {
-        defaultValue: "10",
+        defaultValue: "1",
         key: "outHigh",
         label: "Out High",
-        max: "10000",
-        mid: "0",
-        min: "-10000",
-        nonlinearSlider: false,
+        max: "20000",
+        mid: "1",
+        min: "-20000",
+        nonlinearSlider: true,
         showSign: true,
         step: "any",
-        tooltip: "Output value at In High.",
+        tooltip: "Output at In High. Default 1 (unit CV / Morph). Use 1000+ for frequency.",
       },
     ]
   },
@@ -12008,8 +12047,8 @@ const nodeGraphModuleDefinitions = (
       },
     ],
   },
-  // Hard rate limit: max |Δ| per sample from up/down times in seconds.
-  // Shape: Lin (constant rate) / Log (fast start) / Exp (slow start) / Smooth (ease both ends).
+  // Hard rate limit: max |Δ| per sample from up/down slews in seconds.
+  // Separate Up/Down Shape: Lin / Log / Exp / Smooth.
   // Mono gold CV utility (In → Out) — not a stereo audio processor.
   slewLimiter: {
     planRole: "processor",
@@ -12023,10 +12062,42 @@ const nodeGraphModuleDefinitions = (
     },
     parameters: [
       {
+        choices: ["Lin", "Log", "Exp", "Smooth"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "upShape",
+        label: "Up Shape",
+        linearSmoothing: false,
+        max: "3",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "Rising glide curve. Lin = constant rate. Log = fast start, eases in. Exp = slow start, finishes quickly. Smooth = slow start and end."
+      },
+      {
+        choices: ["Lin", "Log", "Exp", "Smooth"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "downShape",
+        label: "Down Shape",
+        linearSmoothing: false,
+        max: "3",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "Falling glide curve. Lin = constant rate. Log = fast start, eases in. Exp = slow start, finishes quickly. Smooth = slow start and end."
+      },
+      {
         defaultValue: "0.05",
         key: "upTime",
         kind: "time",
-        label: "Up Time",
+        label: "Up Slew",
         max: "5",
         maxDigits: 5,
         mid: "0.05",
@@ -12039,7 +12110,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "0.05",
         key: "downTime",
         kind: "time",
-        label: "Down Time",
+        label: "Down Slew",
         max: "5",
         maxDigits: 5,
         mid: "0.05",
@@ -12047,22 +12118,6 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "s",
         tooltip: "Seconds to reach a lower target from the current value (any amplitude). 0 = instant."
-      },
-      {
-        choices: ["Lin", "Log", "Exp", "Smooth"],
-        defaultValue: "0",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "shape",
-        label: "Shape",
-        linearSmoothing: false,
-        max: "3",
-        mid: "0",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1",
-        tooltip:
-          "Lin = constant rate. Log = fast start, eases in. Exp = slow start, finishes quickly. Smooth = slow start and end."
       },
       {
         defaultValue: "0",
@@ -13279,7 +13334,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "On (default): latch Attack/Release/Fall/Snap/Body depths/Amplitude on Gate rise. Feedback into Decay/Sustain stays live (sustain base is always 1).",
+        tooltip: "On (default): latch Attack/Release/Fall/Snap/Body depths/Amplitude on Gate rise. Feedback into Decay/Sustain stays live. Gate height at rise is velocity (env level + feedback) — soft Gate = less-high pluck.",
       },
       {
         defaultValue: "0",
@@ -13361,7 +13416,7 @@ const nodeGraphModuleDefinitions = (
         tooltip: "On = retrigger from Sustain while gated (can sound like attack resets).",
       },
       {
-        // Final output only. Feedback path hardcodes 0.980691 before Range.
+        // Final output trim. Gate height = velocity (env level + fb into Range).
         defaultValue: "0.980691228326368",
         key: "amplitude",
         label: "Amplitude",
@@ -13371,7 +13426,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Final output level. Feedback into Snap/Body always uses hardcoded amp 0.980691 → Range(0…1 → 0…−0.149629).",
+        tooltip: "Final output trim. Gate height at rise sets env level (velocity) into Snap/Body feedback (× hardcoded 0.980691 → Range). Soft Gate = less-high pluck.",
       },
     ],
   },
@@ -13829,7 +13884,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "On = latch Attack/Dampen/Amplitude on rising Trigger. Off = knobs always live.",
+        tooltip: "On = latch Attack/Decay/Amplitude on rising Trigger. Off = knobs always live.",
       },
       {
         defaultValue: "0",
@@ -13842,18 +13897,18 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Rise time. 0 = instant snap.",
+        tooltip: "One-pole rise toward Trigger. 0 = instant (like patch Attack ~20 kHz).",
       },
       {
         defaultValue: "0.5",
-        key: "dampen",
-        label: "Dampen",
+        key: "decay",
+        label: "Decay",
         max: "1",
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "0 = long ring, 0.5 = default, 1 = short. Drives Exp feedback into fall rate (no Release knob).",
+        tooltip: "Fall length (Thump-style). 0 = short, 0.5 = default, 1 = long. Exp feedback into fall rate (pluck envelope 1).",
       },
       {
         defaultValue: "1",

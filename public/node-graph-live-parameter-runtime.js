@@ -165,16 +165,21 @@ function nodeGraphApplyParameterModulation(base, modulationSignal, metadata = {}
   if (!Number.isFinite(result)) {
     return 0;
   }
-  let shouldClamp = false;
+  // App-wide default: clip post-MOD to DOMAIN. Explicit modClamp:false opts out.
+  let shouldClamp = true;
   if (Object.hasOwn(metadata, "modClamp")) {
     shouldClamp = Boolean(metadata.modClamp);
-  } else if (metadata.wraparound || metadata.hardClamp === true) {
-    shouldClamp = true;
-  } else {
-    const c = String(metadata.constraint || "").toLowerCase();
-    shouldClamp = c === "cpu" || c === "gpu" || c === "ram" || c === "memory";
   }
-  return shouldClamp ? nodeGraphApplyParameterBounds(result, metadata) : result;
+  if (!shouldClamp) return result;
+  if (metadata.wraparound) {
+    return nodeGraphApplyParameterBounds(result, metadata);
+  }
+  const lo = Number(metadata.min);
+  const hi = Number(metadata.max);
+  if (Number.isFinite(lo) && Number.isFinite(hi) && hi > lo) {
+    return clampNodeSliderValue(result, lo, hi);
+  }
+  return result;
 }
 
 function readNodeGraphRuntimePortOutput(runtime, frameValues, nodeId, port = "Out", frame = 0, frames = 1) {

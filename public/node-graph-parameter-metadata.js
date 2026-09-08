@@ -455,12 +455,19 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
         ? NODE_GRAPH_METADATA_TOOLTIP_MAX_CHARS
         : 2000,
     ),
-    // After MOD: hard re-clamp only when requested (default false).
+    // After MOD: clip to DOMAIN min…max (default true). Opt out with modClamp:false.
     // Resource params use constraint cpu|gpu|ram; wraparound always wraps.
     modClamp: Object.hasOwn(parameter, "modClamp")
       ? Boolean(parameter.modClamp)
-      : false,
+      : true,
     hardClamp: Boolean(parameter.hardClamp),
+    // VCA multiply opt-in/out for native Control flags (Softwave Amp opts out).
+    modMultiply: Object.hasOwn(parameter, "modMultiply")
+      ? Boolean(parameter.modMultiply)
+      : undefined,
+    vca: Object.hasOwn(parameter, "vca")
+      ? Boolean(parameter.vca)
+      : undefined,
     constraint: Array.isArray(parameter.constraint)
       ? parameter.constraint.join(" ")
       : (parameter.constraint ? String(parameter.constraint) : ""),
@@ -698,6 +705,21 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       def = Number.isFinite(fallback.def) ? fallback.def : 0;
     }
   }
+  // Range: knob domain was ±1000 / ±10000; sane defaults are −10…+10.
+  if (
+    type === "range"
+    && (key === "inLow" || key === "inHigh" || key === "outLow" || key === "outHigh")
+    && Number.isFinite(fallback.min)
+    && Number.isFinite(fallback.max)
+    && fallback.min === -10
+    && fallback.max === 10
+    && (min < -10 || max > 10)
+  ) {
+    min = -10;
+    max = 10;
+    mid = Number.isFinite(fallback.mid) ? fallback.mid : 0;
+    if (Number.isFinite(fallback.def)) def = fallback.def;
+  }
   const choices = forceChaosflyTaps
     ? []
     : normalizeNodeGraphMetadataChoices(
@@ -790,6 +812,16 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
     hardClamp: Object.hasOwn(source, "hardClamp")
       ? Boolean(source.hardClamp)
       : Boolean(fallback.hardClamp),
+    modMultiply: (() => {
+      if (Object.hasOwn(source, "modMultiply")) return Boolean(source.modMultiply);
+      if (Object.hasOwn(fallback, "modMultiply")) return Boolean(fallback.modMultiply);
+      return undefined;
+    })(),
+    vca: (() => {
+      if (Object.hasOwn(source, "vca")) return Boolean(source.vca);
+      if (Object.hasOwn(fallback, "vca")) return Boolean(fallback.vca);
+      return undefined;
+    })(),
     constraint: Object.hasOwn(source, "constraint")
       ? String(source.constraint ?? "")
       : String(fallback.constraint || ""),

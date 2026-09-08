@@ -61,7 +61,6 @@ NodeLiveAudioProcessor.prototype.polyBlepTapMaskFromPorts = function polyBlepTap
     neededPorts.has("Out")
     || neededPorts.has("Wave")
     || neededPorts.has("Wave Out")
-    || neededPorts.has("Noise")
   ) {
     mask |= NodeLiveAudioProcessor.POLYBLEP_TAP_OUT;
   }
@@ -337,7 +336,6 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
       Tri: nativeVector.tri,
       Sine: nativeVector.sine,
       "Wave Out": nativeVector.out,
-      Noise: nativeVector.out,
     };
   } else if (node?.type === "blit") {
     const nativeVector = this.blitNativeVectorSample(
@@ -357,7 +355,6 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
       Tri: nativeVector.tri,
       Sine: nativeVector.sine,
       "Wave Out": nativeVector.out,
-      Noise: nativeVector.out,
     };
   } else {
     // osc (LFO) and any unexpected sibling routed here: basic_oscillator native.
@@ -373,7 +370,6 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
       Tri: sample(`${nodeId}:tri`, 3),
       Sine: sample(`${nodeId}:sine`, 4),
       "Wave Out": selected,
-      Noise: selected,
     };
   }
 

@@ -52,10 +52,12 @@ extern "C" int soemdsp_range_create() {
     if (!gPool[i].active) {
       State& s = gPool[i];
       s.active = true;
-      s.inLow = -1.0;
+      // Unipolar 0…1 ↔ 0…1: Knob/envelope → Morph stays in unit-band MOD.
+      // |Out|>1 is domain-add and pegs 0…1 params (old −10…+10 defaults).
+      s.inLow = 0.0;
       s.inHigh = 1.0;
-      s.outLow = -10.0;
-      s.outHigh = 10.0;
+      s.outLow = 0.0;
+      s.outHigh = 1.0;
       return i + 1;
     }
   }

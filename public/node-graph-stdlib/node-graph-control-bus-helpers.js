@@ -245,13 +245,14 @@ function nodeGraphDspExternalStereoFrame(externalInput, frame, level) {
 function nodeGraphDspMidiKeyboardPorts(signal, defaultNote) {
   const sig = signal || {};
   const def = Math.round(nodeGraphDspClamp(defaultNote, 0, 127));
-  const gate = Number(sig.gate) > 0.5 ? 1 : 0;
-  const midi = gate
+  const gateHigh = Number(sig.gate) > 0;
+  const midi = gateHigh
     ? Math.round(nodeGraphDspClamp(Number(sig.rawMidi ?? sig.midi ?? def), 0, 127))
     : def;
-  const velocity = gate ? nodeGraphDspClamp(Number(sig.velocity) || 0.8, 0, 1) : 0;
+  const velocity = gateHigh ? nodeGraphDspClamp(Number(sig.velocity) || 0.8, 0, 1) : 0;
   return {
-    Gate: gate,
+    Gate: velocity,
+    Trigger: Number(sig.gatePulse) > 0 ? velocity : 0,
     MIDI: midi,
     Velocity: velocity,
     "0.1V/Oct": midi / 120,
