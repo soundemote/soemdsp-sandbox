@@ -418,18 +418,57 @@ function nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId) {
   return null;
 }
 
+/** Patch-wide pitch transpose ratio (2^octaves). 1 when unset / 0. */
+function nodeGraphPatchPitchOffsetRatio() {
+  const audio = typeof normalizeNodeGraphPatchAudio === "function"
+    ? normalizeNodeGraphPatchAudio(nodeGraphMvp?.patch?.audio)
+    : null;
+  const oct = Number(audio?.pitchOffsetOctaves);
+  if (!Number.isFinite(oct) || oct === 0) return 1;
+  const ratio = 2 ** Math.max(-10, Math.min(10, oct));
+  return Number.isFinite(ratio) ? ratio : 1;
+}
+
 /**
- * Wired ƒ / Freq cancels the Frequency (cutoff / pivot / …) knob.
- * Returns jack Hz when wired; otherwise knobHz. Finite numbers only.
+ * Wired ƒ / Freq = absolute Hz (cancels Frequency knob + 0.1V/Oct).
+ * Else wired 0.1V/Oct pitches the Frequency knob vs patch pitch reference.
+ * Else returns knobHz. Then × patch Pitch (−10…+10 oct). Same as WASM.
  */
 function nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId) {
+  let hz;
   const jack = nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId);
   if (jack != null) {
     const n = Number(jack);
-    return Number.isFinite(n) ? n : 0;
+    hz = Number.isFinite(n) ? n : 0;
+  } else {
+    const hasPitch = typeof hasInput === "function" && hasInput(nodeId, "0.1V/Oct");
+    if (hasPitch && typeof mixInput === "function") {
+      const referenceVoltage =
+        typeof normalizeNodeGraphPatchAudio === "function" && nodeGraphMvp?.patch?.audio
+          ? normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote / 120
+          : 0.4;
+      const pitchCv = Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0));
+      if (typeof nodeGraphParamResolveOscPitchHz === "function") {
+        hz = nodeGraphParamResolveOscPitchHz({
+          baseHz: knobHz,
+          hasPitchCv: true,
+          pitchCv,
+          referenceVoltage,
+          skipPatchPitchOffset: true,
+        });
+      } else if (typeof nodeGraphPitchedFrequency === "function") {
+        hz = nodeGraphPitchedFrequency(knobHz, pitchCv, referenceVoltage);
+      } else {
+        const base = Number(knobHz);
+        hz = (Number.isFinite(base) ? base : 0) * (2 ** ((pitchCv - referenceVoltage) / 0.1));
+      }
+    } else {
+      const k = Number(knobHz);
+      hz = Number.isFinite(k) ? k : 0;
+    }
   }
-  const k = Number(knobHz);
-  return Number.isFinite(k) ? k : 0;
+  const out = hz * nodeGraphPatchPitchOffsetRatio();
+  return Number.isFinite(out) ? out : 0;
 }
 
 /**
@@ -438,31 +477,38 @@ function nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId) {
  * Through-zero: signed base Hz (negative reverses phase via bipolar Freq).
  */
 function nodeGraphParamResolveOscPitchHz(options = {}) {
+  let hz;
   if (options.hasAbsHz === true) {
     const abs = Number(options.fHz);
-    return Number.isFinite(abs) ? abs : 0;
+    hz = Number.isFinite(abs) ? abs : 0;
+  } else {
+    const jackHz = nodeGraphResolveAbsHzJack(options.hasInput, options.mixInput, options.nodeId);
+    if (jackHz != null) {
+      const abs = Number(jackHz);
+      hz = Number.isFinite(abs) ? abs : 0;
+    } else {
+      const rawBase = Number(options.baseHz);
+      const baseHz = Number.isFinite(rawBase) ? rawBase : 0;
+      const pitchCv = options.pitchCv;
+      const referenceVoltage = Number(options.referenceVoltage);
+      const ref = Number.isFinite(referenceVoltage) ? referenceVoltage : 0;
+      const hasPitch = options.hasPitchCv === true;
+      const cv = hasPitch ? pitchCv : ref;
+      if (typeof nodeGraphPitchedFrequency === "function") {
+        hz = nodeGraphPitchedFrequency(baseHz, cv, ref);
+      } else if (!hasPitch) {
+        hz = baseHz;
+      } else {
+        const c = Number(cv);
+        const pitch = Number.isFinite(c) ? c : 0;
+        hz = baseHz * (2 ** ((pitch - ref) / 0.1));
+      }
+    }
   }
-  const jackHz = nodeGraphResolveAbsHzJack(options.hasInput, options.mixInput, options.nodeId);
-  if (jackHz != null) {
-    const abs = Number(jackHz);
-    return Number.isFinite(abs) ? abs : 0;
+  if (options.skipPatchPitchOffset === true) {
+    return Number.isFinite(hz) ? hz : 0;
   }
-  const rawBase = Number(options.baseHz);
-  const baseHz = Number.isFinite(rawBase) ? rawBase : 0;
-  const pitchCv = options.pitchCv;
-  const referenceVoltage = Number(options.referenceVoltage);
-  const ref = Number.isFinite(referenceVoltage) ? referenceVoltage : 0;
-  const hasPitch = options.hasPitchCv === true;
-  const cv = hasPitch ? pitchCv : ref;
-  if (typeof nodeGraphPitchedFrequency === "function") {
-    return nodeGraphPitchedFrequency(baseHz, cv, ref);
-  }
-  if (!hasPitch) {
-    return baseHz;
-  }
-  const c = Number(cv);
-  const pitch = Number.isFinite(c) ? c : 0;
-  const out = baseHz * (2 ** ((pitch - ref) / 0.1));
+  const out = (Number.isFinite(hz) ? hz : 0) * nodeGraphPatchPitchOffsetRatio();
   return Number.isFinite(out) ? out : 0;
 }
 

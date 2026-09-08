@@ -26,6 +26,10 @@ function normalizeNodeGraphPatchAudio(audio = {}) {
   // in the Patch Settings panel for anyone who wants it instead.
   const pitchReferenceMidiNote = Number(audio?.pitchReferenceMidiNote);
   const pitchReferenceHz = Number(audio?.pitchReferenceHz);
+  // Global pitch transpose in octaves: multiplies every pitched Hz
+  // (oscillators, Chaosfly, filter cutoffs, …) by 2^pitchOffsetOctaves.
+  // One header knob sweeps the whole patch together. Range ±10 octaves.
+  const pitchOffsetOctaves = Number(audio?.pitchOffsetOctaves);
   // Project Speed Limit: absolute max Hz for frequency domains / f-jack /
   // DSP clamps. User-adjustable (header + patch settings). Default 20000.
   // There is no project minimum frequency (0 is allowed on signals).
@@ -49,6 +53,9 @@ function normalizeNodeGraphPatchAudio(audio = {}) {
     pitchReferenceHz: Number.isFinite(pitchReferenceHz) && pitchReferenceHz > 0
       ? Math.max(0.01, Math.min(safeSpeedLimit, pitchReferenceHz))
       : 100,
+    pitchOffsetOctaves: Number.isFinite(pitchOffsetOctaves)
+      ? Math.max(-10, Math.min(10, pitchOffsetOctaves))
+      : 0,
     speedLimitHz: safeSpeedLimit,
   };
 }

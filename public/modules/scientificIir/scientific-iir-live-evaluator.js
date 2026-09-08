@@ -191,8 +191,7 @@ nodeGraphLiveModuleEvaluators.pixelGrid = () => ({});
 // Under construction: Flex Grid — silent multi-out placeholder (Modulator)
 nodeGraphLiveModuleEvaluators.flexGrid = () => ({ Out: 0, X: 0, Y: 0 });
 
-// Under construction: Chaosfly — silent chaos placeholder
-nodeGraphLiveModuleEvaluators.chaosfly = () => ({ Out: 0, X: 0, Y: 0, Z: 0 });
+// Chaosfly lives in public/modules/chaosfly/ (chaosfly-live-evaluator.js).
 
 // Under construction: Gravity — silent few-body / Doppler placeholder
 nodeGraphLiveModuleEvaluators.gravity = () => ({ Out: 0, X: 0, Y: 0, Radial: 0 });

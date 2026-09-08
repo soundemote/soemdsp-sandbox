@@ -93,7 +93,7 @@ function updateNodeGraphPatchAudioFromHeader(input) {
   patch.audio = next;
   commitNodeGraphPatch(patch, {
     markPending: false,
-    status: "pitch reference synced",
+    status: key === "pitchOffsetOctaves" ? "pitch synced" : "pitch reference synced",
   });
 }
 
@@ -619,6 +619,14 @@ function createNodeGraphCommandCenterTimingWidgets() {
       min: 0.01,
       max: 20000,
     }),
+    createNodeGraphHeaderAudioInput("pitchOffsetOctaves", "Pitch", {
+      ...nv,
+      ariaLabel: "Global pitch offset in octaves (−10…+10). Sweeps oscillators, Chaosfly, and filter cutoffs together.",
+      tooltipKey: "timing.pitchOffsetOctaves",
+      min: -10,
+      max: 10,
+      step: "any",
+    }),
     createNodeGraphPlanckReadout(),
   );
   return group;
@@ -632,6 +640,7 @@ function renderNodeGraphCommandCenterTimingControls() {
   if (
     !host.querySelector(".node-command-center-timing-widgets")
     || !host.querySelector(".node-header-planck-readout")
+    || !host.querySelector('.node-header-timing-input[data-audio-field="pitchOffsetOctaves"]')
   ) {
     host.replaceChildren(createNodeGraphCommandCenterTimingWidgets());
   }

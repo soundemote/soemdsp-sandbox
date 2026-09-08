@@ -15,6 +15,9 @@ nodeGraphLiveModuleEvaluators.inertialFilter = ({
   }
   const state = runtime.inertialFilterStates.get(nodeId) || createNodeGraphStereoInertialFilterState();
   runtime.inertialFilterStates.set(nodeId, state);
+  const smoothAttack = readNodeGraphLiveEffectiveParam(
+    runtime, node, "smoothAttack", 1, frame, frames, frameValues,
+  );
   const attackHz = readNodeGraphLiveEffectiveParam(runtime, node, "attack", 20000, frame, frames, frameValues);
   const releaseHz = readNodeGraphLiveEffectiveParam(runtime, node, "release", 20, frame, frames, frameValues);
   const rate = sampleRate;
@@ -36,21 +39,21 @@ nodeGraphLiveModuleEvaluators.inertialFilter = ({
   );
   return {
     Out: nodeGraphSafeFilterNumber(
-      nodeGraphInertialFilterSampleHz(state.mono, monoIn, attackHz, releaseHz, rate),
+      nodeGraphInertialFilterSampleHz(state.mono, monoIn, attackHz, releaseHz, rate, smoothAttack),
       runtime,
       nodeId,
       state.mono,
       "inertial out",
     ),
     Left: nodeGraphSafeFilterNumber(
-      nodeGraphInertialFilterSampleHz(state.left, leftIn, attackHz, releaseHz, rate),
+      nodeGraphInertialFilterSampleHz(state.left, leftIn, attackHz, releaseHz, rate, smoothAttack),
       runtime,
       nodeId,
       state.left,
       "inertial left out",
     ),
     Right: nodeGraphSafeFilterNumber(
-      nodeGraphInertialFilterSampleHz(state.right, rightIn, attackHz, releaseHz, rate),
+      nodeGraphInertialFilterSampleHz(state.right, rightIn, attackHz, releaseHz, rate, smoothAttack),
       runtime,
       nodeId,
       state.right,

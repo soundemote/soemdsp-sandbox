@@ -1,6 +1,7 @@
-// MixStereo — four stereo pairs → Left / Right.
+// MixStereo2 / MixStereo4 — stereo pairs → Left / Right.
 // Per-pair Volume + Pan, then Amplitude (All). Volumes are dB (Gain/Output).
 // Pan uses the same equal-power law as Output (−1 left, 0 unity, +1 right).
+// MixStereo2 callers pass volume3/volume4 = −140 so unused pairs stay silent.
 
 function nodeGraphMixStereoDbToLin(db) {
   if (typeof nodeGraphGainDbToLin === "function") {

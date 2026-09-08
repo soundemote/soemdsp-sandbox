@@ -17,15 +17,11 @@ nodeGraphLiveModuleEvaluators.expAdsr = ({ runtime, node, nodeId, frame, frames,
     sustain: read("sustain", 0.55),
     updateOnTrigger: read("updateOnTrigger", 0),
   };
-  const params = typeof nodeGraphExpAdsrParamsForSample === "function"
-    ? nodeGraphExpAdsrParamsForSample(state, gate, live, live.updateOnTrigger)
-    : live;
-  return nodeGraphExpAdsrSample(
+  return nodeGraphExpAdsrCore(
     state,
     gate,
-    params,
+    live,
     sampleRate,
-    runtime,
-    nodeId,
+    live.updateOnTrigger,
   );
 };

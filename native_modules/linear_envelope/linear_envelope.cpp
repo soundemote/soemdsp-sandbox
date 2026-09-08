@@ -1,5 +1,5 @@
 // soemdsp-native-module: linear_envelope
-// soemdsp-native-label: Linear Envelope
+// soemdsp-native-label: Linear ADSR
 // soemdsp-native-target: linearEnvelope
 // soemdsp-native-kind: envelope
 
@@ -12,7 +12,7 @@ using namespace soemdsp_maths;
 static const char kMetadataJson[] =
   "{"
     "\"module\":\"linear_envelope\","
-    "\"label\":\"Linear Envelope\","
+    "\"label\":\"Linear ADSR\","
     "\"targetType\":\"linearEnvelope\","
     "\"kind\":\"envelope\","
     "\"inputs\":[\"Gate\"],"

@@ -224,6 +224,7 @@ const nodeGraphDefaultPatch = Object.freeze({
     targetSampleRate: 44100,
     pitchReferenceMidiNote: 48,
     pitchReferenceHz: 100,
+    pitchOffsetOctaves: 0,
   },
   bypassedNodes: [],
   cameras: [

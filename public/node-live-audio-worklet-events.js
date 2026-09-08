@@ -81,8 +81,8 @@ NodeLiveAudioProcessor.prototype.readFInputHz = function readFInputHz(mixInput, 
 };
 
 /**
- * Wired ƒ cancels the Frequency / cutoff knob. Worklet twin of
- * nodeGraphFrequencyHzFromKnobOrF.
+ * Wired ƒ = absolute Hz; else 0.1V/Oct pitches the Frequency / cutoff knob.
+ * Worklet twin of nodeGraphFrequencyHzFromKnobOrF.
  */
 NodeLiveAudioProcessor.prototype.frequencyHzFromKnobOrF = function frequencyHzFromKnobOrF(
   knobHz,
@@ -191,6 +191,12 @@ NodeLiveAudioProcessor.prototype.setConnections = function setConnections(plan, 
     }
     if (Number.isFinite(Number(message.pitchReferenceHz))) {
       this.pitchReferenceHz = Number(message.pitchReferenceHz);
+    }
+    if (Number.isFinite(Number(message.pitchOffsetOctaves))) {
+      this.pitchOffsetOctaves = Math.max(-10, Math.min(10, Number(message.pitchOffsetOctaves)));
+      if (typeof this.applyNativeGraphPitchOffset === "function") {
+        this.applyNativeGraphPitchOffset();
+      }
     }
     if (Number.isFinite(Number(message.displayFps))) {
       this.displayFps = Math.max(0, Math.min(240, Math.round(Number(message.displayFps))));

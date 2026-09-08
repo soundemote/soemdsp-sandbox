@@ -1530,7 +1530,7 @@ function nodeGraphPhosphorWaveformEnsureZoomControl(section) {
   control.type = "button";
   control.className = "node-phosphor-waveform-zoom";
   control.textContent = "100%";
-  control.title = "Drag to zoom. Double-click resets.";
+  control.title = "Drag to zoom (right/up · left/down). Double-click resets.";
   control.setAttribute("aria-label", "Waveform zoom percent");
   control.addEventListener("pointerdown", (event) => {
     event.stopPropagation();
@@ -1573,6 +1573,7 @@ function beginNodeGraphPhosphorWaveformZoomDrag(event, section) {
   const startWidth = Math.max(1, state.endFrame - state.startFrame);
   const pointerId = event.pointerId;
   const startX = event.clientX;
+  const startY = event.clientY;
   const control = event.currentTarget;
   control.setPointerCapture?.(pointerId);
   control.classList.add("is-dragging");
@@ -1582,8 +1583,11 @@ function beginNodeGraphPhosphorWaveformZoomDrag(event, section) {
     }
     moveEvent.preventDefault();
     moveEvent.stopPropagation();
-    const deltaX = moveEvent.clientX - startX;
-    const targetWidth = startWidth * Math.exp(deltaX * 0.008);
+    // Same diagonal 1D policy as sliders / Time Window: right+up / left+down.
+    const axes = typeof nodeGraphPointerDragScreenDelta === "function"
+      ? nodeGraphPointerDragScreenDelta(startX, startY, moveEvent.clientX, moveEvent.clientY)
+      : { combined: (moveEvent.clientX - startX) + (startY - moveEvent.clientY) };
+    const targetWidth = startWidth * Math.exp(axes.combined * 0.008);
     const currentWidth = Math.max(1, state.endFrame - state.startFrame);
     const canvasEl = section.querySelector(".node-phosphor-waveform-canvas");
     const rect = canvasEl?.getBoundingClientRect?.();
@@ -1610,7 +1614,8 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
 
   let dragPointerId = null;
   let lastClientX = 0;
-  // "pan" = view window, "phase" = relative phaseOffset scrub (Shift+drag).
+  let lastClientY = 0;
+  // "pan" = view window (horizontal), "phase" = relative phaseOffset scrub (Shift+drag).
   let dragMode = "pan";
   canvas.addEventListener("pointerdown", (event) => {
     if (typeof nodeGraphAudioPlayerFaceIsWave === "function"
@@ -1623,6 +1628,7 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
     }
     dragPointerId = event.pointerId;
     lastClientX = event.clientX;
+    lastClientY = event.clientY;
     dragMode = event.shiftKey ? "phase" : "pan";
     canvas.setPointerCapture?.(dragPointerId);
     canvas.classList.add("dragging");
@@ -1633,12 +1639,16 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
     if (dragPointerId === null || event.pointerId !== dragPointerId) {
       return;
     }
-    const deltaX = event.clientX - lastClientX;
-    lastClientX = event.clientX;
     const nodeId = section.dataset.node;
     const canvasW = canvas.clientWidth || canvas.width;
     if (dragMode === "phase") {
-      // Relative scrub: drag across the face moves phase by the visible
+      // Same diagonal 1D policy as sliders: right+up / left+down.
+      const axes = typeof nodeGraphPointerDragScreenDelta === "function"
+        ? nodeGraphPointerDragScreenDelta(lastClientX, lastClientY, event.clientX, event.clientY)
+        : { combined: (event.clientX - lastClientX) + (lastClientY - event.clientY) };
+      lastClientX = event.clientX;
+      lastClientY = event.clientY;
+      // Relative scrub: travel across the face moves phase by the visible
       // window as a fraction of the whole file (zoom in = finer control).
       const entry = nodeGraphPhosphorWaveformSampleEntry(nodeId);
       const state = entry
@@ -1648,9 +1658,13 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
         ? Math.max(1, state.endFrame - state.startFrame)
         : 1;
       const total = Math.max(1, state?.totalFrames || entry?.frames || 1);
-      const deltaCycles = canvasW > 0 ? (deltaX / canvasW) * (viewSpan / total) : 0;
+      const deltaCycles = canvasW > 0 ? (axes.combined / canvasW) * (viewSpan / total) : 0;
       nodeGraphPhosphorWaveformNudgePhaseOffset(nodeId, deltaCycles);
     } else {
+      const deltaX = event.clientX - lastClientX;
+      lastClientX = event.clientX;
+      lastClientY = event.clientY;
+      // Pan stays horizontal — it's a spatial window slide, not a 1D value.
       nodeGraphPhosphorWaveformPanBy(section, deltaX, canvasW);
     }
     event.stopPropagation();

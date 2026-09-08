@@ -227,18 +227,17 @@ NodeLiveAudioProcessor.prototype.readEfficientParamModSources = function readEff
   const metadata = node?.paramMeta?.[key] || {};
   const sources = [];
   const dstId = String(node?.id || "");
-  const livePhase = this._nativePhaseModLiveKeys;
+  const liveMods = this._nativeLiveParamModKeys || this._nativePhaseModLiveKeys;
   const pk = String(key || "");
   for (let i = 0; i < mods.length; i += 1) {
     const m = mods[i];
     if (!m) continue;
-    // Native audio → Phase MOD is wired as live Phase CV (sample-accurate).
+    // Native audio → param MOD is a sample-accurate ParamModEdge.
     // Skip here so set_param_mod does not also apply it as cyan ZOH.
     if (
-      livePhase
-      && livePhase.size
-      && (pk === "phase" || pk === "phaseOffset")
-      && livePhase.has(`${dstId}\0${pk}\0${String(m.sourceNode || "")}\0${String(m.sourcePort || "")}`)
+      liveMods
+      && liveMods.size
+      && liveMods.has(`${dstId}\0${pk}\0${String(m.sourceNode || "")}\0${String(m.sourcePort || "")}`)
     ) {
       continue;
     }

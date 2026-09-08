@@ -129,5 +129,5 @@ extern "C" double soemdsp_transport_frequency(int handle) {
 }
 
 extern "C" int soemdsp_transport_version() {
-  return 4; // Numer/Denom/Sync replaces divisions
+  return 7; // single Trigger out (1-sample)
 }

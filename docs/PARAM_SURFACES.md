@@ -44,8 +44,24 @@ Illegal:
 Order is always **`effective = applyMod(smooth(knob), MOD)`** — never smooth the
 already-modulated value. Full/live JS does that in `readEffectiveParameter` /
 `readNodeGraphLiveEffectiveParam`. Efficient native: knob → `set_param` →
-`Control.target` → smoother → `Control.out`; MOD → `set_param_mod`; DSP reads
-`control_effective(out, MOD)`.
+`Control.target` → smoother → `Control.out`; DSP reads `control_effective`.
+
+**MOD sources (efficient native) — sample-accurate by default:**
+
+| Source | Path |
+|--------|------|
+| **Audio node → param MOD** | `ParamModEdge` (per-sample stamp into `liveMod*`) — **not** ZOH |
+| **Controller / non-graph → param MOD** | Cyan `set_param_mod` (block/quantum rate) |
+| **Discrete / enum params** | Stay ZOH (`NATIVE_GRAPH_DISCRETE_PARAMS`) |
+| **Intentional Additive/Yellow morph ZOH** | Listed types keep cyan (expensive block morph) |
+
+Phase used to be a one-off live CV port; Amp and every other continuous param
+now use the same ParamModEdge path when the MOD cable comes from a graph audio
+node.
+
+**Amp / Level / Amplitude MOD** is **VCA multiply** (unipolar CV × knob), not
+unit-band add — so Amp Curve → Amp MOD can reach silence at CV=0. That matches
+`amp_curve`’s contract (`out = signal × Amp`).
 
 Per-source classify (`nodeGraphParamModAccumulators` / `nodeGraphParamFoldModSources`):
 

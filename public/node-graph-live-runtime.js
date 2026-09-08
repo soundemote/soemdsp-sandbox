@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=phase-cv-live-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=thump-sus1-13";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2383,6 +2383,7 @@ function nodeGraphLiveConnectionUpdatePayload(plan = {}, audio = {}) {
     patchFingerprint: plan.patchFingerprint,
     pitchReferenceHz: pitchReference.pitchReferenceHz,
     pitchReferenceMidiNote: pitchReference.pitchReferenceMidiNote,
+    pitchOffsetOctaves: pitchReference.pitchOffsetOctaves,
     planSerial: nodeGraphMvp.live.planSerial,
     sampleRate: nodeGraphMvp.live.context?.sampleRate || nodeGraphMvp.sampleRate,
     scopeCaptureNodeIds: Array.isArray(plan.scopeCaptureNodeIds) ? plan.scopeCaptureNodeIds : [],
@@ -2467,6 +2468,7 @@ async function sendNodeGraphLivePlan() {
             patchFingerprint: plan.patchFingerprint,
             pitchReferenceHz: pitchReference.pitchReferenceHz,
             pitchReferenceMidiNote: pitchReference.pitchReferenceMidiNote,
+            pitchOffsetOctaves: pitchReference.pitchOffsetOctaves,
             planSerial: nodeGraphMvp.live.planSerial,
             sampleRate: nodeGraphMvp.live.context?.sampleRate || nodeGraphMvp.sampleRate,
             sessionId: nodeGraphMvp.live.sessionId,
@@ -3106,12 +3108,12 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=toggle-range-1",
   "./public/modules/portal/portal-lanes.js?v=portal-rename-4x2-1",
   "./public/modules/portal/portal-math.js?v=portal-lanes-1",
-  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=f-cancel-ssot-1",
+  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=patch-pitch-1",
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=t-series-1",
-  "./public/node-graph-efficient-product.js?v=pixelgrid-grade-wasm-1",
+  "./public/node-graph-efficient-product.js?v=thump-1",
   "./public/node-live-audio-worklet-core.js?v=transistor-back-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
@@ -3121,13 +3123,13 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
   "./public/node-live-audio-worklet-dsp-state.js?v=protect-worklet-1",
-  "./public/node-live-audio-worklet-events.js?v=midi-freq-host-1",
+  "./public/node-live-audio-worklet-events.js?v=patch-pitch-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=output-vol-face-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=phase-cv-live-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=hypersaw2-smooth-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=trig-one-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=patch-pitch-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
   "./public/node-live-audio-worklet-handle-message.js?v=wasm-plan-race-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=hypersaw2-smooth-1",

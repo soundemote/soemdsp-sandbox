@@ -54,8 +54,8 @@ extern "C" int soemdsp_range_create() {
       s.active = true;
       s.inLow = -1.0;
       s.inHigh = 1.0;
-      s.outLow = 0.0;
-      s.outHigh = 1000.0;
+      s.outLow = -10.0;
+      s.outHigh = 10.0;
       return i + 1;
     }
   }

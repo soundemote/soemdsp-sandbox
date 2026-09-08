@@ -1756,7 +1756,12 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
-      if (name === "mix_stereo" || targetType === "mixStereo") {
+      if (
+        name === "mix_stereo"
+        || targetType === "mixStereo4"
+        || targetType === "mixStereo2"
+        || targetType === "mixStereo"
+      ) {
         this.nativeMixStereo = exports;
         this.nativeMixStereoReady = Boolean(this.nativeMixStereo?.soemdsp_mix_stereo_sample);
         this.port.postMessage({

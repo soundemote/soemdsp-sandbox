@@ -64,11 +64,27 @@ function nodeGraphInertialFilterSample(state, input, attack, release) {
   return state.out;
 }
 
-function nodeGraphInertialFilterSampleHz(state, input, attackHz, releaseHz, sampleRate) {
+/**
+ * @param {{ initialized: boolean, out: number }} state
+ * @param {number} input
+ * @param {number} attackHz
+ * @param {number} releaseHz
+ * @param {number} sampleRate
+ * @param {number} [smoothAttack] 0 = Off (instant rise), ≥0.5 = On (use Attack Hz)
+ */
+function nodeGraphInertialFilterSampleHz(
+  state,
+  input,
+  attackHz,
+  releaseHz,
+  sampleRate,
+  smoothAttack = 1,
+) {
+  const attackOn = (Number(smoothAttack) || 0) >= 0.5;
   return nodeGraphInertialFilterSample(
     state,
     input,
-    nodeGraphInertialFilterCoeffFromHz(attackHz, sampleRate),
+    attackOn ? nodeGraphInertialFilterCoeffFromHz(attackHz, sampleRate) : 1,
     nodeGraphInertialFilterCoeffFromHz(releaseHz, sampleRate),
   );
 }

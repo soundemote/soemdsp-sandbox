@@ -643,10 +643,67 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       def = Number.isFinite(fallback.def) ? fallback.def : mid;
     }
   }
-  const choices = normalizeNodeGraphMetadataChoices(
-    Object.hasOwn(source, "choices") ? source.choices : fallback.choices,
-    fallback.choices,
-  );
+  // Chaosfly Pitch / LP / HP: octave offsets (−10…+10). Stale patch paramMeta
+  // from the old 0…1 “amount” era must not keep the slider locked to 0…1.
+  let forceChaosflyOctUnit = false;
+  if (
+    type === "chaosfly"
+    && (key === "lowpass" || key === "highpass" || key === "pitch")
+    && Number.isFinite(fallback.min)
+    && Number.isFinite(fallback.max)
+    && fallback.min <= -10
+    && fallback.max >= 10
+    && max <= 1
+    && min >= 0
+  ) {
+    min = fallback.min;
+    max = fallback.max;
+    mid = Number.isFinite(fallback.mid) ? fallback.mid : 0;
+    def = Number.isFinite(fallback.def) ? fallback.def : 0;
+    forceChaosflyOctUnit = true;
+  }
+  // Chaosfly LP Taps: old 0…6 power-of-two index → direct 1…64 pole count.
+  let forceChaosflyTaps = false;
+  if (
+    type === "chaosfly"
+    && key === "taps"
+    && Number.isFinite(fallback.min)
+    && Number.isFinite(fallback.max)
+    && fallback.min <= 1
+    && fallback.max >= 64
+    && max <= 6
+    && min >= 0
+  ) {
+    min = fallback.min;
+    max = fallback.max;
+    mid = Number.isFinite(fallback.mid) ? fallback.mid : 8;
+    def = Number.isFinite(fallback.def) ? fallback.def : 4;
+    forceChaosflyTaps = true;
+  }
+  // Thump Envelope Decay Body: was 0…10 (patch atten); now 0…1 inverted UI.
+  if (
+    type === "thumpEnvelope"
+    && key === "decayBody"
+    && Number.isFinite(fallback.max)
+    && fallback.max <= 1
+    && max > 1
+  ) {
+    min = 0;
+    max = 1;
+    mid = Number.isFinite(fallback.mid) ? fallback.mid : 0.5;
+    // Old atten-style def 10 → new UI 0 (short / patch-equivalent).
+    if (Number.isFinite(def) && def > 1) {
+      def = Math.max(0, Math.min(1, 1 - def / 10));
+    } else if (!Number.isFinite(def) || def > 1) {
+      def = Number.isFinite(fallback.def) ? fallback.def : 0;
+    }
+  }
+  const choices = forceChaosflyTaps
+    ? []
+    : normalizeNodeGraphMetadataChoices(
+      Object.hasOwn(source, "choices") ? source.choices : fallback.choices,
+      fallback.choices,
+    );
   const normalized = {
     alias: normalizeNodeGraphPatchMetadataAlias(
       Object.hasOwn(metadata || {}, "alias") ? metadata.alias : fallback.alias,
@@ -659,16 +716,22 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
     def: clampNodeSliderValue(Number.isFinite(def) ? def : fallback.def, min, max),
     // Independent flags: display = choice labels; divide = visible separators.
     // Never derive one from the other (that coupled the two checkboxes in UI).
-    displayChoices: Object.hasOwn(source, "displayChoices")
-      ? Boolean(source.displayChoices)
-      : Boolean(fallback.displayChoices),
-    divideChoicesVisibly: Object.hasOwn(source, "divideChoicesVisibly")
-      ? Boolean(source.divideChoicesVisibly)
-      : Boolean(fallback.divideChoicesVisibly),
+    displayChoices: forceChaosflyTaps
+      ? false
+      : (Object.hasOwn(source, "displayChoices")
+        ? Boolean(source.displayChoices)
+        : Boolean(fallback.displayChoices)),
+    divideChoicesVisibly: forceChaosflyTaps
+      ? false
+      : (Object.hasOwn(source, "divideChoicesVisibly")
+        ? Boolean(source.divideChoicesVisibly)
+        : Boolean(fallback.divideChoicesVisibly)),
     kind,
-    bipolar: Object.hasOwn(source, "bipolar")
-      ? Boolean(source.bipolar)
-      : Boolean(fallback.bipolar),
+    bipolar: forceChaosflyOctUnit
+      ? true
+      : (Object.hasOwn(source, "bipolar")
+        ? Boolean(source.bipolar)
+        : Boolean(fallback.bipolar)),
     max,
     maxDigits: normalizeNodeGraphMetadataMaxDigits(
       Object.hasOwn(source, "maxDigits") ? source.maxDigits : fallback.maxDigits,
@@ -730,7 +793,9 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
     constraint: Object.hasOwn(source, "constraint")
       ? String(source.constraint ?? "")
       : String(fallback.constraint || ""),
-    unit: String(Object.hasOwn(source, "unit") ? source.unit ?? "" : fallback.unit),
+    unit: forceChaosflyOctUnit
+      ? String(fallback.unit || "oct")
+      : String(Object.hasOwn(source, "unit") ? source.unit ?? "" : fallback.unit),
     wraparound: fallback.wraparound && Object.hasOwn(source, "wraparound")
       ? Boolean(source.wraparound)
       : fallback.wraparound,

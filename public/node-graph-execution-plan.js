@@ -421,7 +421,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   const outputNode = "output";
   const reachableNodes = new Set();
   const bypassedNodes = new Set(graph.bypassedNodes || []);
-  const passthroughTypes = new Set(["asciiscope", "matrixDisplay", "matrixWaterfall", "activeFilter", "allpass", "badvalMonitor", "bandpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaser", "flanger", "chorus", "bode", "phaseDisperse", "stftBlur", "bessel", "bias", "u2b", "b2u", "inv", "butterworth", "chaoticPhaseLockingFilter", "chebyshev", "cookbookFilter", "elliptic", "eqFilter", "flowerChildFilter", "formantFilter", "besselThomson", "massSpringDamper", "gain", "mixStereo", "humanFilter", "inertialFilter", "ladderFilter", "linkwitzRiley", "papoulisFilter", "passiveFilter", "pll", "resonatorFilter", "reverbEffect", "sampleDelay", "sampleHold", "slewLimiter", "softClipper", "clipperLimiter", "speakerProtection", "speakerProtector2", "spectrogram", "speedColorInertia", "superloveFilter", "tb303Filter", "tiltFilter", "wallDelay", "yellowjacketFilter", "midSideEncode", "quadrature", "hilbert", "lookaheadLimiter", "limiter"]);
+  const passthroughTypes = new Set(["asciiscope", "matrixDisplay", "matrixWaterfall", "activeFilter", "allpass", "badvalMonitor", "bandpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaser", "flanger", "chorus", "bode", "phaseDisperse", "stftBlur", "bessel", "bias", "u2b", "b2u", "inv", "butterworth", "chaoticPhaseLockingFilter", "chebyshev", "cookbookFilter", "elliptic", "eqFilter", "flowerChildFilter", "formantFilter", "besselThomson", "massSpringDamper", "gain", "mix4", "mixStereo4", "mixStereo2", "mixStereo", "humanFilter", "inertialFilter", "ladderFilter", "linkwitzRiley", "papoulisFilter", "passiveFilter", "pll", "resonatorFilter", "reverbEffect", "sampleDelay", "sampleHold", "slewLimiter", "softClipper", "clipperLimiter", "speakerProtection", "speakerProtector2", "spectrogram", "speedColorInertia", "superloveFilter", "tb303Filter", "tiltFilter", "wallDelay", "yellowjacketFilter", "midSideEncode", "quadrature", "hilbert", "lookaheadLimiter", "limiter"]);
 
   function markReachable(nodeId) {
     if (reachableNodes.has(nodeId) || !graph.nodeMap.has(nodeId)) {
@@ -527,12 +527,17 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       if (!gateCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} gate`);
       }
-    } else if (type === "linearEnvelope") {
+    } else if (
+      type === "linearEnvelope"
+      || type === "linearAttackRelease"
+      || type === "curveAttackRelease"
+      || type === "thumpEnvelope"
+    ) {
       const gateCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Gate")) || []).length;
       if (!gateCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} gate`);
       }
-    } else if (type === "pluckEnvelope") {
+    } else if (type === "pluckEnvelope" || type === "pluckEnvelope3") {
       const triggerCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Trigger")) || []).length;
       if (!triggerCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} trigger`);

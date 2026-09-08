@@ -195,10 +195,7 @@ NodeLiveAudioProcessor.prototype.flexGridSample = function flexGridSample() {
   return { Out: 0, X: 0, Y: 0 };
 };
 
-// UC Chaosfly (silent chaos placeholder)
-NodeLiveAudioProcessor.prototype.chaosflySample = function chaosflySample() {
-  return { Out: 0, X: 0, Y: 0, Z: 0 };
-};
+// Chaosfly: native graph opcode 161 (see native_modules/chaosfly).
 
 // UC Gravity (silent few-body / Doppler placeholder)
 NodeLiveAudioProcessor.prototype.gravitySample = function gravitySample() {

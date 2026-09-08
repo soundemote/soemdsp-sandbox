@@ -87,7 +87,13 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   expAdsr: "silence",
   attackDecay: "silence",
   linearEnvelope: "silence",
+  linearAttackRelease: "silence",
+  curveAttackRelease: "silence",
+  thumpEnvelope: "silence",
   pluckEnvelope: "silence",
+  expoPluckEnvelope: "silence",
+  expoPluckEnvelope2: "silence",
+  pluckEnvelope3: "silence",
   flowerChildEnvelopeFollower: "silence",
   vactrol: "silence",
   // Generators / sequencers → mute
@@ -139,7 +145,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   wavetable2d: "silence",
   wavetable3d: "silence",
   flexGrid: "silence",
-  chaosfly: "silence",
+  chaosfly: "silence", // free-run source — bypass mutes outs
   gravity: "silence",
   drummer: "silence",
   arp: "silence",
@@ -203,8 +209,12 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   // minMax: In 1 → Max, In 2 → Min
   minMax: "minmax",
   // Parallel buses
+  mix4: "pass",
   mix: "pass",
   gainBiasMix: "pass",
+  mixStereo4: "pass",
+  mixStereo2: "pass",
+  mixStereo: "pass",
   // Pitch utilities
   noteGlide: "pass",
   noteTranspose: "pass",

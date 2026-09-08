@@ -2096,12 +2096,12 @@ function configureNodeSceneContextMenu(mode) {
     const rangeUnipolarButton = document.getElementById("nodeSceneWireRangeUnipolar");
     if (rangeUnipolarButton) {
       rangeUnipolarButton.disabled = !canAttenuateWires;
-      rangeUnipolarButton.title = "Range Unipolar: map 0…1 → 0…1000 on each selected wire.";
+      rangeUnipolarButton.title = "Range Unipolar: map 0…1 → −10…+10 on each selected wire.";
     }
     const rangeBipolarButton = document.getElementById("nodeSceneWireRangeBipolar");
     if (rangeBipolarButton) {
       rangeBipolarButton.disabled = !canAttenuateWires;
-      rangeBipolarButton.title = "Range Bipolar: map −1…+1 → 0…1000 on each selected wire.";
+      rangeBipolarButton.title = "Range Bipolar: map −1…+1 → −10…+10 on each selected wire.";
     }
     const u2bButton = document.getElementById("nodeSceneWireU2b");
     if (u2bButton) {

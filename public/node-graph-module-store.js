@@ -124,7 +124,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "electroSnare",
   "electroHat",
   "flexGrid",
-  "chaosfly",
   "gravity",
   "drummer",
   "ePiano",
@@ -195,6 +194,7 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "sinCos",
   "clockDivider",
   "oscilloscopeBank",
+  "chaosfly",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
@@ -228,7 +228,6 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   drummer: "Pattern/rhythm engine. Parked until Sequence drummer lands.",
 
   flexGrid: "Multi-point CV morph grid. Parked until the modulator surface lands.",
-  chaosfly: "Fly-like X/Y/Z chaos. Parked until that attractor lands.",
   gravity: "Few-body Newtonian orbits on phosphor. First Doppler puzzle piece. Parked — write pairwise + leapfrog ourselves.",
   ePiano: "GM electric piano. Parked until sample/MIDI voices exist.",
   percussion: "GM channel-10 kit. Parked until sample/MIDI voices exist.",
@@ -405,16 +404,16 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["simulated aliasing", "additive resynthesis", "reflections", "native"],
   },
   sineWavetable: {
-    category: "oscillator",
+    category: "modulator",
     description: "Pitchable sine with 1–4 evenly spaced phase taps (sine, cosine, sincos, antiphase, 3-phase, 4-phase). Method: Polynomial or additive half-sine wavetable (CPU).",
     label: "SinCos4",
-    notes: ["implemented", "sincos4", "native", "wavetable-switch"],
+    notes: ["implemented", "sincos4", "native", "wavetable-switch", "modulator"],
   },
   sinCos: {
-    category: "oscillator",
+    category: "modulator",
     description: "Pitchable sine and cosine pair (quadrature). Method: Polynomial or additive half-sine wavetable (CPU).",
     label: "SinCos",
-    notes: ["implemented", "sincos", "native", "wavetable-switch"],
+    notes: ["implemented", "sincos", "native", "wavetable-switch", "modulator"],
   },
   wavetable2d: {
     category: "oscillator",
@@ -479,7 +478,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   curveEnvelopeMod: {
     category: "additive",
-    description: "Block-rate Curve Envelope for Additive CV: Gate → cyan Out (once per quantum). Drive Bubble/Butterworth cutoff mods.",
+    description: "Block-rate Curve ADSR for Additive CV: Gate → cyan Out (once per quantum). Drive Bubble/Butterworth cutoff mods.",
     label: "CurveEnvelopeMod",
     notes: ["additive", "envelope", "adsr", "block-rate", "cyan", "cv"],
   },
@@ -975,9 +974,11 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   chaosfly: {
     category: "chaos",
-    description: "Placeholder Chaosfly attractor—fly-like chaotic X/Y/Z motion (under construction).",
+    description: "Dual sine FM chaos (Elan's Chaos Generator)—coupled oscillators, passive LP/HP cascade, stereo taps.",
     label: "Chaosfly",
-    notes: ["under construction", "chaos", "attractor", "fly", "X/Y/Z", "modulation"],
+    notes: ["chaos", "fm", "dual oscillator", "passive filter", "phosphor", "X/Y"],
+    source: "public/modules/chaosfly/chaosfly-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chaosfly/chaosfly-math.js",
   },
   gravity: {
     category: "chaos",
@@ -1050,24 +1051,46 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Gain Bias",
     notes: ["legacy", "hidden"],
   },
+  mix4: {
+    category: "dynamics",
+    description: "Sum four voices with per-channel level and bleed—utility multivoice summing.",
+    label: "Mix4",
+    notes: ["mixer", "bleed", "4-channel", "utility", "native"],
+  },
+  // Legacy id for Mix4.
   mix: {
     category: "dynamics",
-    description: "Sum several voices with per-channel level and bias—utility multivoice summing.",
-    label: "Mix",
-    notes: ["mixer", "bias", "bleed", "4-channel", "utility", "native"],
+    description: "Retired alias of Mix4—use Mix4.",
+    hidden: true,
+    label: "Mix4",
+    notes: ["legacy", "hidden"],
   },
-  mixStereo: {
+  mixStereo4: {
     category: "dynamics",
     description: "Four stereo pairs into Left/Right, each pair with Volume and Pan, plus master Amplitude.",
-    label: "MixStereo",
+    label: "MixStereo4",
     notes: ["mixer", "stereo", "pan", "volume", "4-channel", "utility", "native"],
   },
-  // Legacy id for Mix.
+  mixStereo2: {
+    category: "dynamics",
+    description: "Two stereo pairs into Left/Right, each pair with Volume and Pan, plus master Amplitude.",
+    label: "MixStereo2",
+    notes: ["mixer", "stereo", "pan", "volume", "2-channel", "utility", "native"],
+  },
+  // Legacy id for MixStereo4.
+  mixStereo: {
+    category: "dynamics",
+    description: "Retired alias of MixStereo4—use MixStereo4.",
+    hidden: true,
+    label: "MixStereo4",
+    notes: ["legacy", "hidden"],
+  },
+  // Legacy id for Mix4.
   gainBiasMix: {
     category: "dynamics",
-    description: "Retired alias of Mix—use Mix.",
+    description: "Retired alias of Mix4—use Mix4.",
     hidden: true,
-    label: "Mix",
+    label: "Mix4",
     notes: ["legacy", "hidden"],
   },
   bias: {
@@ -1089,7 +1112,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   range: {
     category: "utility",
-    description: "Linear map from [In Low, In High] to [Out Low, Out High]. Default −1…+1 → 0…1000.",
+    description: "Linear map from [In Low, In High] to [Out Low, Out High]. Default −1…+1 → −10…+10.",
     label: "Range",
     notes: ["range", "map", "scale", "remap", "utility", "dynamics", "native"],
   },
@@ -1976,8 +1999,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   expAdsr: {
     category: "envelope",
-    description: "Full DADSR curve envelope with bipolar Attack/Fall curves (0=linear, +=exp, −=log).",
-    label: "Curve Envelope",
+    description: "Full DADSR with bipolar Attack/Fall curves (0=linear, +=exp, −=log).",
+    label: "Curve ADSR",
     notes: ["gate input", "bipolar curves", "loopable envelope", "curve shape", "native", "DADSR", "log", "exp"],
   },
   attackDecay: {
@@ -2011,25 +2034,86 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   linearEnvelope: {
     category: "envelope",
-    description: "Predictable linear ramps for fades, gates, and simple motion.",
-    label: "Linear Envelope",
+    description: "Predictable linear DADSR ramps for fades, gates, and simple motion.",
+    label: "Linear ADSR",
     notes: ["gate input", "linear DADSR", "loopable ramp", "native"],
   },
+  linearAttackRelease: {
+    category: "envelope",
+    description: "Simple linear Attack–Release: Gate follow or Trigger one-shot. Attack/Release 0 snaps instantly.",
+    label: "Linear AR",
+    notes: [
+      "gate input",
+      "linear AR",
+      "attack",
+      "release",
+      "trigger",
+      "instant snap",
+      "native",
+    ],
+  },
+  curveAttackRelease: {
+    category: "envelope",
+    description: "Shaped Attack–Release with bipolar curves (same family as Curve ADSR). Gate or Trigger.",
+    label: "Curve AR",
+    notes: [
+      "gate input",
+      "curve AR",
+      "attack",
+      "release",
+      "attack curve",
+      "fall curve",
+      "trigger",
+      "native",
+    ],
+  },
+  thumpEnvelope: {
+    category: "envelope",
+    description: "Thump pluck: linear Attack, fixed fall curve, Decay Snap/Body feedback into decay/sustain. No Delay.",
+    label: "Thump Envelope",
+    notes: [
+      "Trigger",
+      "Gate",
+      "Attack",
+      "Release",
+      "Decay Snap",
+      "Decay Body",
+      "loop",
+      "native",
+      "pluck",
+    ],
+  },
+  // Retired — use Pluck Envelope (pluckEnvelope3). Kept so old patches still load.
   pluckEnvelope: {
     category: "envelope",
-    description: "SoEm pluck contour: decay slopes, sustain, auto-release, envelope curve/damping.",
+    description: "Retired — use Pluck Envelope. Kept only so old patches still load.",
+    hidden: true,
+    label: "Pluck Envelope (legacy)",
+    notes: ["legacy", "hidden", "SoEm", "native"],
+  },
+  expoPluckEnvelope: {
+    category: "envelope",
+    description: "Retired — use Pluck Envelope. Kept only so old patches still load.",
+    hidden: true,
+    label: "Expo Pluck Envelope",
+    notes: ["legacy", "hidden", "native"],
+  },
+  expoPluckEnvelope2: {
+    category: "envelope",
+    description: "Retired — use Pluck Envelope. Kept only so old patches still load.",
+    hidden: true,
+    label: "Expo Pluck Envelope 2",
+    notes: ["legacy", "hidden", "SoEmPluck", "native"],
+  },
+  pluckEnvelope3: {
+    category: "envelope",
+    description: "Pluck env: Attack time, Dampen→Exp feedback fall (0…10 Hz). Recalc On Trig latches knobs on rising Trigger.",
     label: "Pluck Envelope",
     notes: [
-      "VelocitySensitivity",
-      "Attack",
-      "DecaySlopeTop",
-      "DecaySlopeMid",
-      "DecaySlopeBottom",
-      "Sustain",
-      "Release",
-      "AutoReleaseTime",
-      "EnvelopeCurve",
-      "EnvelopeDamping",
+      "Trigger",
+      "Attack time",
+      "Dampen",
+      "Recalc On Trig",
       "native",
     ],
   },
@@ -2899,9 +2983,25 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/gainBias/gain-bias-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/gainBias/gain-bias-math.js",
   },
+  mix4: {
+    source: "public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
+  },
+  mix: {
+    source: "public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
+  },
   gainBiasMix: {
     source: "public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
+  },
+  mixStereo4: {
+    source: "public/modules/mixStereo/mix-stereo-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/mixStereo/mix-stereo-math.js",
+  },
+  mixStereo2: {
+    source: "public/modules/mixStereo/mix-stereo-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/mixStereo/mix-stereo-math.js",
   },
   mixStereo: {
     source: "public/modules/mixStereo/mix-stereo-math.js",
@@ -2993,6 +3093,18 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   linearEnvelope: {
     source: "public/modules/linearEnvelope/linear-envelope-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/linearEnvelope/linear-envelope-math.js",
+  },
+  linearAttackRelease: {
+    source: "public/modules/linearAttackRelease/linear-attack-release-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/linearAttackRelease/linear-attack-release-math.js",
+  },
+  curveAttackRelease: {
+    source: "public/modules/curveAttackRelease/curve-attack-release-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/curveAttackRelease/curve-attack-release-math.js",
+  },
+  thumpEnvelope: {
+    source: "public/modules/thumpEnvelope/thump-envelope-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/thumpEnvelope/thump-envelope-math.js",
   },
   linkwitzRiley: {
     source: "public/modules/scientificIir/scientific-iir-math.js",
@@ -3145,6 +3257,18 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   pluckEnvelope: {
     source: "public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js",
+  },
+  expoPluckEnvelope: {
+    source: "public/modules/expoPluckEnvelope/expo-pluck-envelope-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/expoPluckEnvelope/expo-pluck-envelope-math.js",
+  },
+  expoPluckEnvelope2: {
+    source: "public/modules/expoPluckEnvelope2/expo-pluck-envelope-2-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/expoPluckEnvelope2/expo-pluck-envelope-2-math.js",
+  },
+  pluckEnvelope3: {
+    source: "public/modules/pluckEnvelope3/pluck-envelope-3-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pluckEnvelope3/pluck-envelope-3-math.js",
   },
   vactrol: {
     source: "public/modules/vactrol/vactrol-worklet-evaluator.js",

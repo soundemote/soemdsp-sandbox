@@ -92,6 +92,24 @@ function nodeGraphExpAdsrBeginStage(state, start, end, duration) {
   state.out = start;
 }
 
+/** Preserve progress when duration/target changes mid-stage (UpdateOnTrigger Off). */
+function nodeGraphExpAdsrRetargetStage(state, newEnd, newDuration, period) {
+  let t = 0;
+  if (state.stageDuration > period) {
+    t = Math.min(1, state.stageElapsed / state.stageDuration);
+  } else if (state.stageElapsed > 0) {
+    t = 1;
+  }
+  // Keep stageStart fixed so shaped progress is not re-based every sample.
+  state.stageEnd = newEnd;
+  state.stageDuration = Math.max(0, Number(newDuration) || 0);
+  if (state.stageDuration <= period) {
+    state.stageElapsed = t >= 1 ? period : 0;
+  } else {
+    state.stageElapsed = t * state.stageDuration;
+  }
+}
+
 function nodeGraphExpAdsrTriggerAttack(state, delay, attack, decay, sampleRate) {
   const period = 1 / Math.max(1, sampleRate);
   const from = state.out;
@@ -117,14 +135,24 @@ function nodeGraphExpAdsrTriggerAttack(state, delay, attack, decay, sampleRate) 
   nodeGraphExpAdsrBeginStage(state, state.out, state.out, delay);
 }
 
-function nodeGraphExpAdsrEnterSustainOrRelease(state, sustain, release, gate) {
-  state.out = sustain;
+// Gate high → sustain snap. Gate low / pending → Release from current level
+// (no snap-up — live Body fb sustain recovery must not re-attack).
+function nodeGraphExpAdsrEnterSustainOrRelease(
+  state, sustain, release, gate, outBeforeComplete = state.out,
+) {
   const gateLow = !(Number(gate) > 0);
+  const sus = Math.max(0, Math.min(1, Number(sustain) || 0));
   if (state.releasePending || gateLow) {
     state.releasePending = false;
     state.state = "release";
-    nodeGraphExpAdsrBeginStage(state, state.out, 0, Math.max(0, Number(release) || 0));
+    nodeGraphExpAdsrBeginStage(
+      state,
+      Number(outBeforeComplete) || 0,
+      0,
+      Math.max(0, Number(release) || 0),
+    );
   } else {
+    state.out = sus;
     state.state = "sustain";
   }
 }
@@ -136,19 +164,22 @@ function nodeGraphExpAdsrEnterSustainOrRelease(state, sustain, release, gate) {
  * @param {number} sampleRate
  * @returns {number}
  */
-function nodeGraphExpAdsrCore(state, gate, params, sampleRate) {
+function nodeGraphExpAdsrCore(state, gate, params, sampleRate, updateOnTrigger = 0) {
   const safeGate = Number(gate) || 0;
-  const delay = Math.max(0, Number(params.delay) || 0);
-  const attack = Math.max(0, Number(params.attack) || 0);
-  const decay = Math.max(0, Number(params.decay) || 0);
-  const sustain = Math.max(0, Math.min(1, Number(params.sustain) || 0));
-  const release = Math.max(0, Number(params.release) || 0);
-  const attackShape = nodeGraphExpAdsrNormalizeShape(params.attackShape);
-  const releaseShape = nodeGraphExpAdsrNormalizeShape(params.releaseShape);
-  const level = Number(params.level) || 0;
-  const looping = (Number(params.loop) || 0) >= 0.5;
   const rate = Math.max(1, Number(sampleRate) || 44100);
   const period = 1 / rate;
+  const latch = Number(updateOnTrigger) >= 0.5;
+  const effective = nodeGraphExpAdsrParamsForSample(state, safeGate, params, updateOnTrigger);
+
+  const delay = Math.max(0, Number(effective.delay) || 0);
+  const attack = Math.max(0, Number(effective.attack) || 0);
+  const decay = Math.max(0, Number(effective.decay) || 0);
+  const sustain = Math.max(0, Math.min(1, Number(effective.sustain) || 0));
+  const release = Math.max(0, Number(effective.release) || 0);
+  const attackShape = nodeGraphExpAdsrNormalizeShape(effective.attackShape);
+  const releaseShape = nodeGraphExpAdsrNormalizeShape(effective.releaseShape);
+  const level = Number(effective.level) || 0;
+  const looping = (Number(effective.loop) || 0) >= 0.5;
   state._pendingSustain = sustain;
 
   if (state.lastGate <= 0 && safeGate > 0) {
@@ -166,6 +197,38 @@ function nodeGraphExpAdsrCore(state, gate, params, sampleRate) {
     }
   }
   state.lastGate = safeGate;
+
+  // Live mid-stage retarget when UpdateOnTrigger is Off.
+  // Decay + live sustain MOD: if gate is down and sustain recovers above out,
+  // finishing Decay would leap up (extra attack). Take Release from here instead.
+  if (!latch) {
+    if (state.state === "delay") {
+      nodeGraphExpAdsrRetargetStage(state, state.out, delay, period);
+    } else if (state.state === "attack") {
+      nodeGraphExpAdsrRetargetStage(state, 1, attack, period);
+    } else if (state.state === "decay") {
+      const gateLow = !(safeGate > 0);
+      if ((state.releasePending || gateLow) && sustain > state.out) {
+        state.releasePending = false;
+        state.state = "release";
+        nodeGraphExpAdsrBeginStage(
+          state,
+          state.out,
+          0,
+          Math.max(0, Number(release) || 0),
+        );
+      } else {
+        nodeGraphExpAdsrRetargetStage(
+          state,
+          Math.min(sustain, state.out),
+          decay,
+          period,
+        );
+      }
+    } else if (state.state === "release") {
+      nodeGraphExpAdsrRetargetStage(state, 0, release, period);
+    }
+  }
 
   const advanceShaped = (shape) => {
     // Zero-length stage: emit start for one sample so attack=0 still peaks.
@@ -206,11 +269,18 @@ function nodeGraphExpAdsrCore(state, gate, params, sampleRate) {
         state.out = 1;
       }
       break;
-    case "decay":
+    case "decay": {
+      const outBefore = state.out;
       if (advanceShaped(releaseShape)) {
-        nodeGraphExpAdsrEnterSustainOrRelease(state, sustain, release, safeGate);
+        state.out = outBefore;
+        nodeGraphExpAdsrEnterSustainOrRelease(
+          state, sustain, release, safeGate, outBefore,
+        );
+      } else if (state.out > outBefore) {
+        state.out = outBefore; // monotonic decay (no extra attack)
       }
       break;
+    }
     case "sustain":
       state.out = sustain;
       if (looping) {
@@ -237,7 +307,8 @@ function nodeGraphExpAdsrCore(state, gate, params, sampleRate) {
 
 /** @deprecated use nodeGraphExpAdsrCore — kept name for older callers */
 function nodeGraphExpAdsrSample(state, gate, params, sampleRate, runtime = null, nodeId = "") {
-  const out = nodeGraphExpAdsrCore(state, gate, params, sampleRate);
+  const updateOnTrigger = params?.updateOnTrigger;
+  const out = nodeGraphExpAdsrCore(state, gate, params, sampleRate, updateOnTrigger);
   if (runtime && typeof nodeGraphSafeFilterNumber === "function") {
     return nodeGraphSafeFilterNumber(out, runtime, nodeId, null, "exp adsr output");
   }

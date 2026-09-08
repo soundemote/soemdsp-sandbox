@@ -5,10 +5,10 @@
 // the main thread, so no worklet -> main-thread data relay is needed at all.
 //
 // Phosphor/LCD look: digits use DSEG7 Classic from keshikan/DSEG
-// (https://github.com/keshikan/DSEG, SIL OFL 1.1 — public/fonts/DSEG7-Classic).
+// (https://github.com/keshikan/DSEG, SIL OFL 1.1 - public/fonts/DSEG7-Classic).
 // Classic cut draws faint unlit ghost segments behind lit ones (LCD/LED plate,
 // not plain bold). DSEG has no proper letter glyphs for "BPM", so the unit is
-// monospace below the digits — standard digital-clock layout.
+// monospace below the digits - standard digital-clock layout.
 //
 // Gate lamp: small LED on the face that follows Gate 0-1 (captured buffer when
 // available, otherwise the same Numer/Denom/Sync math as the DSP).
@@ -152,11 +152,11 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
   ctx.fillText(digits, canvas.width * 0.5, digitAreaHeight * 0.5, canvas.width);
 
   const labelFontSize = Math.max(1, Math.min(labelHeight * 0.7, canvas.width * 0.14));
-  ctx.font = `${labelFontSize}px "Consolas", "Courier New", monospace';
+  ctx.font = `${labelFontSize}px "Consolas", "Courier New", monospace`;
   ctx.fillStyle = "rgba(120, 255, 170, 0.55)";
   ctx.fillText("BPM", canvas.width * 0.5, digitAreaHeight + labelHeight * 0.5, canvas.width);
 
-  // Gate lamp — top-right corner LED on the BPM plate.
+  // Gate lamp - top-right corner LED on the BPM plate.
   const lampR = Math.max(2, Math.min(canvas.width, canvas.height) * 0.07);
   const lampX = canvas.width - lampR * 1.6;
   const lampY = lampR * 1.4;
@@ -175,4 +175,6 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
   ctx.restore();
 }
 
-nodeGraphModuleScopeCustomRenderers.transportBpm = drawNodeGraphTransportBpmItem;
+if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {
+  nodeGraphModuleScopeCustomRenderers.transportBpm = drawNodeGraphTransportBpmItem;
+}

@@ -26,7 +26,12 @@ static const char kMetadataJson[] =
     "\"module\":\"inertial_filter\","
     "\"label\":\"Inertial Filter\","
     "\"targetType\":\"inertialFilter\","
-    "\"kind\":\"dynamics\""
+    "\"kind\":\"dynamics\","
+    "\"parameters\":["
+      "{\"key\":\"smoothAttack\",\"label\":\"Smooth Attack\",\"defaultValue\":1,\"min\":0,\"mid\":1,\"max\":1,\"step\":1},"
+      "{\"key\":\"attack\",\"label\":\"Attack\",\"kind\":\"frequency\",\"defaultValue\":20000,\"min\":0,\"mid\":1000,\"max\":20000,\"step\":\"any\",\"unit\":\"Hz\"},"
+      "{\"key\":\"release\",\"label\":\"Release\",\"kind\":\"frequency\",\"defaultValue\":20,\"min\":0,\"mid\":1000,\"max\":20000,\"step\":\"any\",\"unit\":\"Hz\"}"
+    "]"
   "}";
 
 static double coeff_from_hz(double hz, double sampleRate) {
@@ -63,6 +68,7 @@ extern "C" double soemdsp_inertial_filter_sample(
   double input,
   double attackHz,
   double releaseHz,
+  double smoothAttack,
   double sampleRate
 ) {
   const double target = safe(input);
@@ -73,7 +79,8 @@ extern "C" double soemdsp_inertial_filter_sample(
     st.out = target;
     return target;
   }
-  const double a = coeff_from_hz(attackHz, sampleRate);
+  const bool attackOn = safe(smoothAttack) >= 0.5;
+  const double a = attackOn ? coeff_from_hz(attackHz, sampleRate) : 1.0;
   const double r = coeff_from_hz(releaseHz, sampleRate);
   const double cur = safe(st.out);
   const double delta = target - cur;
@@ -82,6 +89,6 @@ extern "C" double soemdsp_inertial_filter_sample(
   return st.out;
 }
 
-extern "C" int soemdsp_inertial_filter_version() { return 1; }
+extern "C" int soemdsp_inertial_filter_version() { return 2; }
 extern "C" const char* soemdsp_inertial_filter_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_inertial_filter_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

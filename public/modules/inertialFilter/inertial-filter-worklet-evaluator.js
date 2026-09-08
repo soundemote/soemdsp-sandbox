@@ -27,6 +27,7 @@ NodeLiveAudioProcessor.prototype.inertialFilterSample = function inertialFilterS
   attackHz,
   releaseHz,
   rate = sampleRate,
+  smoothAttack = 1,
 ) {
   if (this.nativeInertialFilterReady && this.nativeInertialFilter?.soemdsp_inertial_filter_sample) {
     try {
@@ -40,6 +41,7 @@ NodeLiveAudioProcessor.prototype.inertialFilterSample = function inertialFilterS
             this.safeFilterNumber(input, state),
             attackHz,
             releaseHz,
+            smoothAttack,
             rate,
           ),
           state,
@@ -63,6 +65,7 @@ NodeLiveAudioProcessor.prototype.inertialFilterSample = function inertialFilterS
       attackHz,
       releaseHz,
       rate,
+      smoothAttack,
     ),
     state,
   );

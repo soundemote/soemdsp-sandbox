@@ -407,8 +407,8 @@ function rangeSelectedNodeGraphWires(mode = "bipolar") {
   const pairSlots = new Map();
   const newIds = [];
   const params = unipolar
-    ? { inLow: 0, inHigh: 1, outLow: 0, outHigh: 1000 }
-    : { inLow: -1, inHigh: 1, outLow: 0, outHigh: 1000 };
+    ? { inLow: 0, inHigh: 1, outLow: -10, outHigh: 10 }
+    : { inLow: -1, inHigh: 1, outLow: -10, outHigh: 10 };
   for (const entry of snapshots) {
     const wire = entry.wire;
     if (!wire?.sourceNode || !wire?.destinationNode) {

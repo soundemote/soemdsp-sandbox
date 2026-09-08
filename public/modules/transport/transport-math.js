@@ -101,13 +101,19 @@ function nodeGraphTransportCore(params, absoluteFrame, sampleRate, tempoBpm) {
 
   const phase = frequency > 0 ? nodeGraphTransportWrap01((frame / rate) * frequency) : 0;
   const high = phase < pulseWidth;
-  const previousFrame = Math.max(0, frame - 1);
-  const previousPhase = frequency > 0 ? nodeGraphTransportWrap01((previousFrame / rate) * frequency) : 0;
-  const wrapped = frame === 0 || phase < previousPhase;
+  // Trigger = 1-sample spike on cycle wrap.
+  let trigger = 0;
+  if (frequency > 0) {
+    const samplesPerCycle = rate / frequency;
+    const posInCycle = nodeGraphTransportWrap01((frame / rate) * frequency) * samplesPerCycle;
+    if (Math.floor(posInCycle) === 0) {
+      trigger = amplitude;
+    }
+  }
   return {
     "Gate -1+1": high ? amplitude : -amplitude,
     "Gate 0-1": high ? amplitude : 0,
-    Trigger: frequency > 0 && wrapped ? amplitude : 0,
+    Trigger: trigger,
     f: frequency,
   };
 }

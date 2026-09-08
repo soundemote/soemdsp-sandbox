@@ -358,6 +358,35 @@ function validateNodeGraphPatch(patch) {
           value = (Math.log(100) - Math.log(r)) / (Math.log(100) - Math.log(1e-4));
         }
       }
+      // Chaosfly LP/HP/Pitch: old 0…1 amount → −10…+10 octave offset.
+      // Stale values in (0,1] are meaningless as octaves; snap to 0 (at master).
+      if (
+        type === "chaosfly"
+        && (parameter.key === "lowpass" || parameter.key === "highpass" || parameter.key === "pitch")
+      ) {
+        const sourceMax = Number(rawParamMeta[parameter.key]?.max);
+        const sourceMin = Number(rawParamMeta[parameter.key]?.min);
+        const n = Number(value);
+        const legacyAmountRange = Number.isFinite(sourceMax) && sourceMax <= 1
+          && Number.isFinite(sourceMin) && sourceMin >= 0;
+        const legacyAmountValue = Number.isFinite(n) && n > 0 && n <= 1
+          && (!Number.isFinite(sourceMax) || sourceMax <= 1);
+        if (legacyAmountRange || legacyAmountValue) {
+          value = 0;
+        }
+      }
+      // Chaosfly LP Taps: old 0…6 power-of-two index → direct 1…64 pole count.
+      if (type === "chaosfly" && parameter.key === "taps") {
+        const sourceMax = Number(rawParamMeta[parameter.key]?.max);
+        const sourceMin = Number(rawParamMeta[parameter.key]?.min);
+        const n = Number(value);
+        const legacyIndexRange = Number.isFinite(sourceMax) && sourceMax <= 6
+          && Number.isFinite(sourceMin) && sourceMin >= 0;
+        if (legacyIndexRange && Number.isFinite(n)) {
+          const i = Math.max(0, Math.min(6, Math.round(n)));
+          value = 1 << i;
+        }
+      }
       // Inertial Filter: Attack/Release used to be 0…1 mix/sample. Now Hz.
       if (
         type === "inertialFilter"
@@ -390,6 +419,14 @@ function validateNodeGraphPatch(patch) {
           // Fallback if graph-utils not loaded yet (plan/worklet paths).
           const six = [0, 1, 1, 2, 3, 1];
           value = Number.isFinite(n) && n >= 0 && n < six.length ? six[n] : 1;
+        }
+      }
+      // Thump Decay Body: old 0…10 atten → new 0…1 inverted UI (10→0, 0→1).
+      if (type === "thumpEnvelope" && parameter.key === "decayBody") {
+        const n = Number(value);
+        const sourceMax = Number(node.paramMeta?.[parameter.key]?.max);
+        if (Number.isFinite(n) && n > 1 && (!Number.isFinite(sourceMax) || sourceMax > 1)) {
+          value = Math.max(0, Math.min(1, 1 - Math.min(10, n) / 10));
         }
       }
       params[parameter.key] = normalizeNodeGraphPatchParameter(

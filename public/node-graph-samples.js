@@ -675,8 +675,15 @@ function nodeGraphSamplePhaseElementForNode(nodeId) {
 
 function nodeGraphAudioPlayerLiveSpeedForNode(nodeId) {
   const id = String(nodeId || "");
-  const reported = Number(nodeGraphMvp.sampleRuntimeStatus?.get?.(id)?.speed);
-  if (Number.isFinite(reported)) {
+  const status = nodeGraphMvp.sampleRuntimeStatus?.get?.(id);
+  const reported = Number(status?.speed);
+  // Efficient native used to post meter speed=0 every frame when the JS
+  // evaluator was gone — treat bare 0 with no engine reason as "missing"
+  // so the HUD can fall back to the Speed param instead of painting 0.000x.
+  const reason = String(status?.reason || "").trim();
+  const reportedOk = Number.isFinite(reported)
+    && !(reported === 0 && !reason);
+  if (reportedOk) {
     if (!nodeGraphMvp.audioPlayerActualSpeeds) {
       nodeGraphMvp.audioPlayerActualSpeeds = new Map();
     }

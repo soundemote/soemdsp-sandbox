@@ -230,6 +230,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "chaosfly",
+      "label": "Chaosfly",
+      "targetType": "chaosfly",
+      "kind": "chaos",
+      "source": "native_modules/chaosfly/chaosfly.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/chaosfly/chaosfly.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/chaosfly/chaosfly.wasm",
+      "wasmUrl": "native_modules/chaosfly/chaosfly.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "chaotic_phase_locking_filter",
       "label": "Chaotic Phaselocking Filter",
       "targetType": "chaoticPhaseLockingFilter",
@@ -374,6 +386,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "curve_attack_release",
+      "label": "Curve AR",
+      "targetType": "curveAttackRelease",
+      "kind": "envelope",
+      "source": "native_modules/curve_attack_release/curve_attack_release.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/curve_attack_release/curve_attack_release.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/curve_attack_release/curve_attack_release.wasm",
+      "wasmUrl": "native_modules/curve_attack_release/curve_attack_release.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "degree_phrase",
       "label": "Degree Phrase",
       "targetType": "degreePhrase",
@@ -471,7 +495,7 @@
     },
     {
       "name": "exp_adsr",
-      "label": "Curve Envelope",
+      "label": "Curve ADSR",
       "targetType": "expAdsr",
       "kind": "envelope",
       "source": "native_modules/exp_adsr/exp_adsr.cpp",
@@ -479,6 +503,30 @@
       "libUrl": "",
       "wasm": "native_modules/exp_adsr/exp_adsr.wasm",
       "wasmUrl": "native_modules/exp_adsr/exp_adsr.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "expo_pluck_envelope",
+      "label": "Expo Pluck Envelope",
+      "targetType": "expoPluckEnvelope",
+      "kind": "envelope",
+      "source": "native_modules/expo_pluck_envelope/expo_pluck_envelope.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/expo_pluck_envelope/expo_pluck_envelope.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/expo_pluck_envelope/expo_pluck_envelope.wasm",
+      "wasmUrl": "native_modules/expo_pluck_envelope/expo_pluck_envelope.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "expo_pluck_envelope_2",
+      "label": "Expo Pluck Envelope 2",
+      "targetType": "expoPluckEnvelope2",
+      "kind": "envelope",
+      "source": "native_modules/expo_pluck_envelope_2/expo_pluck_envelope_2.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/expo_pluck_envelope_2/expo_pluck_envelope_2.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/expo_pluck_envelope_2/expo_pluck_envelope_2.wasm",
+      "wasmUrl": "native_modules/expo_pluck_envelope_2/expo_pluck_envelope_2.wasm",
       "wasmAvailable": true
     },
     {
@@ -794,8 +842,20 @@
       "wasmAvailable": true
     },
     {
+      "name": "linear_attack_release",
+      "label": "Linear AR",
+      "targetType": "linearAttackRelease",
+      "kind": "envelope",
+      "source": "native_modules/linear_attack_release/linear_attack_release.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/linear_attack_release/linear_attack_release.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/linear_attack_release/linear_attack_release.wasm",
+      "wasmUrl": "native_modules/linear_attack_release/linear_attack_release.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "linear_envelope",
-      "label": "Linear Envelope",
+      "label": "Linear ADSR",
       "targetType": "linearEnvelope",
       "kind": "envelope",
       "source": "native_modules/linear_envelope/linear_envelope.cpp",
@@ -1103,6 +1163,18 @@
       "libUrl": "",
       "wasm": "native_modules/pluck_envelope/pluck_envelope.wasm",
       "wasmUrl": "native_modules/pluck_envelope/pluck_envelope.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "pluck_envelope_3",
+      "label": "Pluck Envelope",
+      "targetType": "pluckEnvelope3",
+      "kind": "envelope",
+      "source": "native_modules/pluck_envelope_3/pluck_envelope_3.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/pluck_envelope_3/pluck_envelope_3.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/pluck_envelope_3/pluck_envelope_3.wasm",
+      "wasmUrl": "native_modules/pluck_envelope_3/pluck_envelope_3.wasm",
       "wasmAvailable": true
     },
     {
@@ -1487,6 +1559,18 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET",
       "wasm": "native_modules/tb303_filter/tb303_filter.wasm",
       "wasmUrl": "native_modules/tb303_filter/tb303_filter.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "thump_envelope",
+      "label": "Thump Envelope",
+      "targetType": "thumpEnvelope",
+      "kind": "envelope",
+      "source": "native_modules/thump_envelope/thump_envelope.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/thump_envelope/thump_envelope.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/thump_envelope/thump_envelope.wasm",
+      "wasmUrl": "native_modules/thump_envelope/thump_envelope.wasm",
       "wasmAvailable": true
     },
     {

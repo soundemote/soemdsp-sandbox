@@ -215,9 +215,18 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const activeFreqJack = typeof nodeGraphResolveAbsHzJack === "function"
           ? nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId)
           : (typeof hasInput === "function" && hasInput(nodeId, "f") ? mixInput(nodeId, "f") : null);
+        let activeCenter;
+        if (activeFreqJack != null) {
+          activeCenter = activeFreqJack;
+        } else if (typeof hasInput === "function" && hasInput(nodeId, "0.1V/Oct")) {
+          const lo = Math.max(0, Number(params.lowFrequency) || 0);
+          const hi = Math.max(0, Number(params.highFrequency) || 0);
+          const base = lo > 0 && hi > 0 ? Math.sqrt(lo * hi) : (hi > 0 ? hi : (lo > 0 ? lo : 1000));
+          activeCenter = this.frequencyHzFromKnobOrF(base, mixInput, nodeId);
+        }
         const activeParams = {
           feedbackCircuit: params.feedbackCircuit,
-          centerFrequency: activeFreqJack != null ? activeFreqJack : undefined,
+          centerFrequency: activeCenter,
           gainCompensation: params.gainCompensation,
           highFrequency: params.highFrequency,
           hpSlope: params.hpSlope,
@@ -1052,15 +1061,16 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const state = this.inertialFilterStates.get(nodeId) || this.createStereoInertialFilterState();
         this.inertialFilterStates.set(nodeId, state);
         const { params } = this.resolveModuleControlParams(
-          node, state, { attack: 20000, release: 20 }, frame, frames, frameValues,
+          node, state, { attack: 20000, release: 20, smoothAttack: 1 }, frame, frames, frameValues,
         );
         const attackHz = params.attack;
         const releaseHz = params.release;
+        const smoothAttack = params.smoothAttack;
         const mono = mixInput(nodeId);
-        const outM = this.inertialFilterSample(state.mono, mono, attackHz, releaseHz, safeRate);
+        const outM = this.inertialFilterSample(state.mono, mono, attackHz, releaseHz, safeRate, smoothAttack);
         return this.stereoProcessPorts(nodeId, hasInput, outM,
-          () => this.inertialFilterSample(state.left, mixInput(nodeId, "Left") + mono, attackHz, releaseHz, safeRate),
-          () => this.inertialFilterSample(state.right, mixInput(nodeId, "Right") + mono, attackHz, releaseHz, safeRate));
+          () => this.inertialFilterSample(state.left, mixInput(nodeId, "Left") + mono, attackHz, releaseHz, safeRate, smoothAttack),
+          () => this.inertialFilterSample(state.right, mixInput(nodeId, "Right") + mono, attackHz, releaseHz, safeRate, smoothAttack));
       },
       tiltFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.tiltFilterStates) {
@@ -1489,8 +1499,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           mixInput(nodeId),
           this.readEffectiveParameter(node, "inLow", -1, frame, frames, frameValues),
           this.readEffectiveParameter(node, "inHigh", 1, frame, frames, frameValues),
-          this.readEffectiveParameter(node, "outLow", 0, frame, frames, frameValues),
-          this.readEffectiveParameter(node, "outHigh", 1000, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "outLow", -10, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "outHigh", 10, frame, frames, frameValues),
         ),
       u2b: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Out: this.u2bSample(mixInput(nodeId)),
@@ -1665,7 +1675,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       valueLcd: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
       }),
-      mixStereo: (node, nodeId, frame, frames, frameValues, mixInput) => {
+      mixStereo4: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
         return this.mixStereoFrame(
           {
@@ -1691,17 +1701,42 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           },
         );
       },
-      mix: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+      mixStereo2: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        return this.mixStereoFrame(
+          {
+            L1: mixInput(nodeId, "L1"),
+            R1: mixInput(nodeId, "R1"),
+            L2: mixInput(nodeId, "L2"),
+            R2: mixInput(nodeId, "R2"),
+          },
+          {
+            volume1: read("volume1", 0),
+            pan1: read("pan1", 0),
+            volume2: read("volume2", 0),
+            pan2: read("pan2", 0),
+            volume3: -140,
+            pan3: 0,
+            volume4: -140,
+            pan4: 0,
+            amplitude: read("amplitude", 0),
+          },
+        );
+      },
+      // Legacy type id for MixStereo4.
+      mixStereo: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.liveModuleEvaluators.mixStereo4(node, nodeId, frame, frames, frameValues, mixInput),
+      mix4: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         if (!this.mixStates) this.mixStates = this.gainBiasMixStates || new Map();
         const state = this.mixStates.get(nodeId) || this.createGainBiasMixState();
         this.mixStates.set(nodeId, state);
         if (this.gainBiasMixStates) this.gainBiasMixStates.set(nodeId, state);
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
         return this.gainBiasMixSample(state, {
-          bias1: read("bias1", 0),
-          bias2: read("bias2", 0),
-          bias3: read("bias3", 0),
-          bias4: read("bias4", 0),
+          bias1: 0,
+          bias2: 0,
+          bias3: 0,
+          bias4: 0,
           bleed2to1: read("bleed2to1", 0),
           bleed3to1: read("bleed3to1", 0),
           bleed4to1: read("bleed4to1", 0),
@@ -1715,9 +1750,11 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           volume4: read("volume4", 1),
         }, nodeId);
       },
-      // Legacy type id for Mix.
+      // Legacy type ids for Mix4.
+      mix: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
+        this.liveModuleEvaluators.mix4(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
       gainBiasMix: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
-        this.liveModuleEvaluators.mix(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
+        this.liveModuleEvaluators.mix4(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
       bitConverter: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const bits = Math.max(1, Math.min(53, Math.round(
           this.readEffectiveParameter(node, "bits", 53, frame, frames, frameValues),

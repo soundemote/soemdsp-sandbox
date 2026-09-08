@@ -35,8 +35,10 @@ $modules = @(
   @{ Name = "graph_engine"; Simd = $false; Exports = @(
     "soemdsp_graph_create", "soemdsp_graph_destroy", "soemdsp_graph_clear",
     "soemdsp_graph_set_sample_rate",
+    "soemdsp_graph_set_pitch_offset",
     "soemdsp_graph_add_node", "soemdsp_graph_connect", "soemdsp_graph_set_param",
     "soemdsp_graph_set_param_mod", "soemdsp_graph_set_param_domain",
+    "soemdsp_graph_clear_param_mod_edges", "soemdsp_graph_add_param_mod_edge",
     "soemdsp_graph_set_smooth_time", "soemdsp_graph_set_smooth_mode",
     "soemdsp_graph_set_smooth_type",
     "soemdsp_graph_set_global_smooth_time",
@@ -94,6 +96,7 @@ $modules = @(
   @{ Name = "henon_map"; Simd = $false; Exports = @("soemdsp_henon_map_create", "soemdsp_henon_map_destroy", "soemdsp_henon_map_sample", "soemdsp_henon_map_x", "soemdsp_henon_map_y", "soemdsp_henon_map_version") }
   @{ Name = "ray_bouncer"; Simd = $false; Exports = @("soemdsp_ray_bouncer_create", "soemdsp_ray_bouncer_destroy", "soemdsp_ray_bouncer_sample", "soemdsp_ray_bouncer_x", "soemdsp_ray_bouncer_y", "soemdsp_ray_bouncer_version") }
   @{ Name = "chua_attractor"; Simd = $false; Exports = @("soemdsp_chua_attractor_create", "soemdsp_chua_attractor_destroy", "soemdsp_chua_attractor_sample", "soemdsp_chua_attractor_x", "soemdsp_chua_attractor_y", "soemdsp_chua_attractor_z", "soemdsp_chua_attractor_version") }
+  @{ Name = "chaosfly"; Simd = $false; Exports = @("soemdsp_chaosfly_create", "soemdsp_chaosfly_destroy", "soemdsp_chaosfly_reset", "soemdsp_chaosfly_sample", "soemdsp_chaosfly_left", "soemdsp_chaosfly_right", "soemdsp_chaosfly_out", "soemdsp_chaosfly_x", "soemdsp_chaosfly_y", "soemdsp_chaosfly_z", "soemdsp_chaosfly_version") }
   @{ Name = "jerobeam_wirdo_spiral"; Simd = $false; Exports = @("soemdsp_jbwirdo_create", "soemdsp_jbwirdo_destroy", "soemdsp_jbwirdo_reset", "soemdsp_jbwirdo_sample", "soemdsp_jbwirdo_x", "soemdsp_jbwirdo_y", "soemdsp_jbwirdo_version") }
   @{ Name = "jerobeam_blubb"; Simd = $false; Exports = @("soemdsp_jbblubb_create", "soemdsp_jbblubb_destroy", "soemdsp_jbblubb_reset", "soemdsp_jbblubb_sample", "soemdsp_jbblubb_x", "soemdsp_jbblubb_y", "soemdsp_jbblubb_version") }
   @{ Name = "jerobeam_mushroom"; Simd = $false; Exports = @("soemdsp_jbmushroom_create", "soemdsp_jbmushroom_destroy", "soemdsp_jbmushroom_reset", "soemdsp_jbmushroom_sample", "soemdsp_jbmushroom_x", "soemdsp_jbmushroom_y", "soemdsp_jbmushroom_version") }
@@ -105,7 +108,13 @@ $modules = @(
   @{ Name = "archimedes"; Simd = $false; Exports = @("soemdsp_archimedes_create", "soemdsp_archimedes_destroy", "soemdsp_archimedes_reset", "soemdsp_archimedes_reset_counters", "soemdsp_archimedes_step", "soemdsp_archimedes_sine", "soemdsp_archimedes_cosine", "soemdsp_archimedes_extract_pi", "soemdsp_archimedes_noise_below", "soemdsp_archimedes_noise_above", "soemdsp_archimedes_total_steps", "soemdsp_archimedes_zero_crossings", "soemdsp_archimedes_set_profile", "soemdsp_archimedes_set_frequency", "soemdsp_archimedes_set_amplitude", "soemdsp_archimedes_set_phase", "soemdsp_archimedes_shift_phase", "soemdsp_archimedes_version") }
   @{ Name = "blit"; Simd = $false; Exports = @("soemdsp_blit_create", "soemdsp_blit_destroy", "soemdsp_blit_reset", "soemdsp_blit_sample", "soemdsp_blit_out", "soemdsp_blit_saw", "soemdsp_blit_square", "soemdsp_blit_tri", "soemdsp_blit_sine", "soemdsp_blit_ramp", "soemdsp_blit_version") }
   @{ Name = "linear_envelope"; Simd = $false; Exports = @("soemdsp_linear_envelope_create", "soemdsp_linear_envelope_destroy", "soemdsp_linear_envelope_sample", "soemdsp_linear_envelope_version", "soemdsp_linear_envelope_metadata_json", "soemdsp_linear_envelope_metadata_json_size") }
+  @{ Name = "linear_attack_release"; Simd = $false; Exports = @("soemdsp_linear_attack_release_create", "soemdsp_linear_attack_release_destroy", "soemdsp_linear_attack_release_sample", "soemdsp_linear_attack_release_version", "soemdsp_linear_attack_release_metadata_json", "soemdsp_linear_attack_release_metadata_json_size") }
+  @{ Name = "curve_attack_release"; Simd = $false; Exports = @("soemdsp_curve_attack_release_create", "soemdsp_curve_attack_release_destroy", "soemdsp_curve_attack_release_sample", "soemdsp_curve_attack_release_version", "soemdsp_curve_attack_release_metadata_json", "soemdsp_curve_attack_release_metadata_json_size") }
+  @{ Name = "thump_envelope"; Simd = $false; Exports = @("soemdsp_thump_envelope_create", "soemdsp_thump_envelope_destroy", "soemdsp_thump_envelope_sample", "soemdsp_thump_envelope_version", "soemdsp_thump_envelope_metadata_json", "soemdsp_thump_envelope_metadata_json_size") }
   @{ Name = "pluck_envelope"; Simd = $false; Exports = @("soemdsp_pluck_envelope_create", "soemdsp_pluck_envelope_destroy", "soemdsp_pluck_envelope_sample", "soemdsp_pluck_envelope_version", "soemdsp_pluck_envelope_metadata_json", "soemdsp_pluck_envelope_metadata_json_size") }
+  @{ Name = "expo_pluck_envelope"; Simd = $false; Exports = @("soemdsp_expo_pluck_envelope_create", "soemdsp_expo_pluck_envelope_destroy", "soemdsp_expo_pluck_envelope_reset", "soemdsp_expo_pluck_envelope_sample", "soemdsp_expo_pluck_envelope_out", "soemdsp_expo_pluck_envelope_version", "soemdsp_expo_pluck_envelope_metadata_json", "soemdsp_expo_pluck_envelope_metadata_json_size") }
+  @{ Name = "expo_pluck_envelope_2"; Simd = $false; Exports = @("soemdsp_expo_pluck_envelope_2_create", "soemdsp_expo_pluck_envelope_2_destroy", "soemdsp_expo_pluck_envelope_2_reset", "soemdsp_expo_pluck_envelope_2_sample", "soemdsp_expo_pluck_envelope_2_out", "soemdsp_expo_pluck_envelope_2_version", "soemdsp_expo_pluck_envelope_2_metadata_json", "soemdsp_expo_pluck_envelope_2_metadata_json_size") }
+  @{ Name = "pluck_envelope_3"; Simd = $false; Exports = @("soemdsp_pluck_envelope_3_create", "soemdsp_pluck_envelope_3_destroy", "soemdsp_pluck_envelope_3_sample", "soemdsp_pluck_envelope_3_version", "soemdsp_pluck_envelope_3_metadata_json", "soemdsp_pluck_envelope_3_metadata_json_size") }
   @{ Name = "vactrol_envelope"; Simd = $false; Exports = @("soemdsp_vactrol_envelope_create", "soemdsp_vactrol_envelope_destroy", "soemdsp_vactrol_envelope_sample", "soemdsp_vactrol_envelope_version", "soemdsp_vactrol_envelope_metadata_json", "soemdsp_vactrol_envelope_metadata_json_size") }
   @{ Name = "exp_adsr"; Simd = $false; Exports = @("soemdsp_exp_adsr_create", "soemdsp_exp_adsr_destroy", "soemdsp_exp_adsr_sample", "soemdsp_exp_adsr_version", "soemdsp_exp_adsr_metadata_json", "soemdsp_exp_adsr_metadata_json_size") }
   @{ Name = "random_walk"; Simd = $false; Exports = @("soemdsp_random_walk_create", "soemdsp_random_walk_destroy", "soemdsp_random_walk_reset_seed", "soemdsp_random_walk_sample", "soemdsp_random_walk_version", "soemdsp_random_walk_metadata_json", "soemdsp_random_walk_metadata_json_size") }
@@ -352,8 +361,8 @@ foreach ($module in $modules) {
   # sat right at that cap and instantiation OOM'd. 768 pages (48MB) covers
   # the largest module (ping_pong_delay, 752 initial pages).
   $clangArgs += "-Wl,--max-memory=50331648"
-  # graph_engine orchestrates other natives (resolved in combined link only).
-  if ($module.Name -eq "graph_engine") {
+  # graph_engine / thump_envelope call other natives (resolved in combined link).
+  if ($module.Name -eq "graph_engine" -or $module.Name -eq "thump_envelope") {
     $clangArgs += "-Wl,--allow-undefined"
   }
   $clangArgs += "-o"

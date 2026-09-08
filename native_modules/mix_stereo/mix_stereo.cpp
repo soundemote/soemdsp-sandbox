@@ -1,8 +1,9 @@
 // soemdsp-native-module: mix_stereo
-// soemdsp-native-label: MixStereo
-// soemdsp-native-target: mixStereo
+// soemdsp-native-label: MixStereo4
+// soemdsp-native-target: mixStereo4
 // soemdsp-native-kind: dynamics
 //
+// Shared by MixStereo4 / MixStereo2 (pairs 3–4 silenced on the face).
 // Matches public/modules/mixStereo/mix-stereo-math.js.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
@@ -14,8 +15,8 @@ using namespace soemdsp_maths;
 static const char kMetadataJson[] =
   "{"
     "\"module\":\"mix_stereo\","
-    "\"label\":\"MixStereo\","
-    "\"targetType\":\"mixStereo\","
+    "\"label\":\"MixStereo4\","
+    "\"targetType\":\"mixStereo4\","
     "\"kind\":\"dynamics\""
   "}";
 
@@ -76,6 +77,6 @@ extern "C" double soemdsp_mix_stereo_sample(
   return 0.0; // no Mono out
 }
 
-extern "C" int soemdsp_mix_stereo_version() { return 2; }
+extern "C" int soemdsp_mix_stereo_version() { return 3; }
 extern "C" const char* soemdsp_mix_stereo_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_mix_stereo_metadata_json_size() { return sizeof(kMetadataJson) - 1; }
