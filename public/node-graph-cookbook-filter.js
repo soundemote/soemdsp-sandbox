@@ -1024,15 +1024,6 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   // Crossover faces: split lines + Hz only (no magnitude curves / band titles).
   // Keeps 1gu display height readable and cheap to paint.
   if (!isCrossover) {
-    context.strokeStyle = "rgba(127, 199, 217, 0.18)";
-    context.lineWidth = 1;
-    for (let line = 0; line <= 4; line += 1) {
-      const y = (line / 4) * height;
-      context.beginPath();
-      context.moveTo(0, y);
-      context.lineTo(width, y);
-      context.stroke();
-    }
     // Cap sample density for filter magnitude paths.
     const maxSamples = 220;
     const step = Math.max(1, Math.ceil(width / maxSamples));
