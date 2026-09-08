@@ -18015,6 +18015,14 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_expo_pluck_envelope_out",
             "soemdsp_expo_pluck_envelope_version",
         ],
+        "expo_pluck_envelope_2": [
+            "soemdsp_expo_pluck_envelope_2_create",
+            "soemdsp_expo_pluck_envelope_2_destroy",
+            "soemdsp_expo_pluck_envelope_2_reset",
+            "soemdsp_expo_pluck_envelope_2_sample",
+            "soemdsp_expo_pluck_envelope_2_out",
+            "soemdsp_expo_pluck_envelope_2_version",
+        ],
         "chaosfly": [
             "soemdsp_chaosfly_create",
             "soemdsp_chaosfly_destroy",
@@ -18042,7 +18050,31 @@ def require_native_module_contract(base_url: str) -> None:
         "archimedes": ["soemdsp_archimedes_create", "soemdsp_archimedes_destroy", "soemdsp_archimedes_step", "soemdsp_archimedes_sine", "soemdsp_archimedes_cosine"],
         "blit": ["soemdsp_blit_create", "soemdsp_blit_destroy", "soemdsp_blit_sample"],
         "linear_envelope": ["soemdsp_linear_envelope_create", "soemdsp_linear_envelope_destroy", "soemdsp_linear_envelope_sample"],
+        "linear_attack_release": [
+            "soemdsp_linear_attack_release_create",
+            "soemdsp_linear_attack_release_destroy",
+            "soemdsp_linear_attack_release_sample",
+            "soemdsp_linear_attack_release_version",
+        ],
+        "curve_attack_release": [
+            "soemdsp_curve_attack_release_create",
+            "soemdsp_curve_attack_release_destroy",
+            "soemdsp_curve_attack_release_sample",
+            "soemdsp_curve_attack_release_version",
+        ],
         "pluck_envelope": ["soemdsp_pluck_envelope_create", "soemdsp_pluck_envelope_destroy", "soemdsp_pluck_envelope_sample"],
+        "pluck_envelope_3": [
+            "soemdsp_pluck_envelope_3_create",
+            "soemdsp_pluck_envelope_3_destroy",
+            "soemdsp_pluck_envelope_3_sample",
+            "soemdsp_pluck_envelope_3_version",
+        ],
+        "thump_envelope": [
+            "soemdsp_thump_envelope_create",
+            "soemdsp_thump_envelope_destroy",
+            "soemdsp_thump_envelope_sample",
+            "soemdsp_thump_envelope_version",
+        ],
         "exp_adsr": ["soemdsp_exp_adsr_create", "soemdsp_exp_adsr_destroy", "soemdsp_exp_adsr_sample"],
         "random_walk": ["soemdsp_random_walk_create", "soemdsp_random_walk_destroy", "soemdsp_random_walk_reset_seed", "soemdsp_random_walk_sample"],
         "pi_spigot_noise": [
