@@ -1,4 +1,4 @@
-// Thump Envelope — JS twin of native thump_envelope.cpp.
+// Thump Envelope — face PreviewCurve helpers (native thump_envelope.cpp owns audio).
 // Sustain base is always 1.0; Decay Body MOD fully owns sustain.
 // Gate height at rise = velocity (old Amplitude→feedback role): softer Gate
 // → lower env → less-high pluck + less into Range. Feedback amp hardcoded.

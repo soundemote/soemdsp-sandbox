@@ -1,4 +1,4 @@
-// Ping Envelope — twin of native pluck_envelope_3.cpp (patches/pluck envelope 1.json).
+// Ping Envelope — face PreviewCurve helpers (native pluck_envelope_3.cpp owns audio).
 // Asymmetric one-pole toward Trigger; Exp feedback → fall rate. Decay 0=short … 1=long.
 
 const PLUCK3_RELEASE_HZ = 10;

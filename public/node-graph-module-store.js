@@ -3263,8 +3263,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pll/pll-worklet-evaluator.js",
   },
   pluckEnvelope: {
-    source: "public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js",
+    source: "public/modules/pluckEnvelope/pluck-envelope-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pluckEnvelope/pluck-envelope-math.js",
   },
   expoPluckEnvelope: {
     source: "public/modules/expoPluckEnvelope/expo-pluck-envelope-math.js",
@@ -3279,8 +3279,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pluckEnvelope3/pluck-envelope-3-math.js",
   },
   vactrol: {
-    source: "public/modules/vactrol/vactrol-worklet-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/vactrol/vactrol-worklet-evaluator.js",
+    source: "native_modules/vactrol_envelope/vactrol_envelope.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/vactrol_envelope/vactrol_envelope.cpp",
   },
   plugin: {
     source: "public/modules/plugin/plugin-controls-live-evaluator.js",
@@ -3395,8 +3395,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sinepulse/sinepulse-math.js",
   },
   slewLimiter: {
-    source: "public/modules/slewLimiter/slew-limiter-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/slewLimiter/slew-limiter-math.js",
+    source: "native_modules/slew_limiter/slew_limiter.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/slew_limiter/slew_limiter.cpp",
   },
   snowflake: {
     source: "public/modules/snowflake/snowflake-math.js",
@@ -3419,8 +3419,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/softpopOscillator/softpop-oscillator-math.js",
   },
   softwaveOsc: {
-    source: "public/modules/softwaveOsc/softwave-osc-worklet-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/softwaveOsc/softwave-osc-worklet-evaluator.js",
+    source: "public/modules/softwaveOsc/softwave-osc-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/softwaveOsc/softwave-osc-math.js",
   },
   speakerProtection: {
     source: "public/modules/speakerProtection/speaker-protection-worklet-evaluator.js",

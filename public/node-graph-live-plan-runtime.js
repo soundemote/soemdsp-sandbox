@@ -732,7 +732,13 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
       patchCommandStates.set(node.id, createNodeGraphPatchCommandState());
     }
     if (node.type === "slewLimiter") {
-      slewLimiterStates.set(node.id, createNodeGraphSlewLimiterState());
+      // Native graph owns slew DSP; JS state bag only if a face helper exists.
+      slewLimiterStates.set(
+        node.id,
+        typeof createNodeGraphSlewLimiterState === "function"
+          ? createNodeGraphSlewLimiterState()
+          : { out: 0, initialized: false },
+      );
     }
     if (node.type === "expAdsr") {
       expAdsrStates.set(node.id, createNodeGraphExpAdsrState());
@@ -826,7 +832,12 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
       flowerChildEnvelopeFollowerStates.set(node.id, createNodeGraphFlowerChildEnvelopeFollowerState());
     }
     if (node.type === "pluckEnvelope") {
-      pluckEnvelopeStates.set(node.id, createNodeGraphPluckEnvelopeState());
+      pluckEnvelopeStates.set(
+        node.id,
+        typeof createNodeGraphPluckEnvelopeState === "function"
+          ? createNodeGraphPluckEnvelopeState()
+          : { env: 0, lastTrig: 0 },
+      );
     }
     if (node.type === "expoPluckEnvelope") {
       expoPluckEnvelopeStates.set(
@@ -1739,7 +1750,12 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       runtime.patchCommandStates.set(node.id, createNodeGraphPatchCommandState());
     }
     if (node.type === "slewLimiter" && !runtime.slewLimiterStates.has(node.id)) {
-      runtime.slewLimiterStates.set(node.id, createNodeGraphSlewLimiterState());
+      runtime.slewLimiterStates.set(
+        node.id,
+        typeof createNodeGraphSlewLimiterState === "function"
+          ? createNodeGraphSlewLimiterState()
+          : { out: 0, initialized: false },
+      );
     }
     if (node.type === "expAdsr" && !runtime.expAdsrStates.has(node.id)) {
       runtime.expAdsrStates.set(node.id, createNodeGraphExpAdsrState());
@@ -1837,7 +1853,12 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       runtime.flowerChildEnvelopeFollowerStates.set(node.id, createNodeGraphFlowerChildEnvelopeFollowerState());
     }
     if (node.type === "pluckEnvelope" && !runtime.pluckEnvelopeStates.has(node.id)) {
-      runtime.pluckEnvelopeStates.set(node.id, createNodeGraphPluckEnvelopeState());
+      runtime.pluckEnvelopeStates.set(
+        node.id,
+        typeof createNodeGraphPluckEnvelopeState === "function"
+          ? createNodeGraphPluckEnvelopeState()
+          : { env: 0, lastTrig: 0 },
+      );
     }
     if (node.type === "expoPluckEnvelope" && !runtime.expoPluckEnvelopeStates.has(node.id)) {
       runtime.expoPluckEnvelopeStates.set(

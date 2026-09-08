@@ -363,9 +363,9 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Severity: hear
 - Source: hunt-2026-08-12 (also `docs/POLICY_COMPLIANCE_AUDIT.md`)
 - Files: `node-graph-render-output.js`, worklet native graph, index.html
-- What: APP_POLICY §5: one core. **2026-09-03:** Render uses OfflineAudioContext + native graph; legacy worklet JS DSP blob emptied; live-evaluator script tags stripped from index; ScriptProcessor JS fallback banned. Remaining: delete orphan `*-live-evaluator.js` / `*-worklet-evaluator.js` files from disk.
+- What: APP_POLICY §5: one core. **2026-09-03:** Render uses OfflineAudioContext + native graph; legacy worklet JS DSP blob emptied; ScriptProcessor JS fallback banned. **2026-09-07:** Envelope/Softwave/Slew orphan `*-live-evaluator.js` / `*-worklet-evaluator.js` (+ slew math) removed; face `PreviewCurve` / Softwave `f(phase)` math kept. Remaining: other non-envelope orphan evaluators still on disk.
 - Repro: Render Sample a native filter/osc; compare to live.
-- Fix shape: Done for product path; disk cleanup follow-up.
+- Fix shape: Done for product path; continue disk cleanup for leftover non-envelope orphans.
 
 ### B-030 — dsp_floor via long long UB for huge |x|
 - Status: open

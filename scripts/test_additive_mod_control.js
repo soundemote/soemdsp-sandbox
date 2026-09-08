@@ -28,7 +28,7 @@ vm.runInContext(
   sandbox,
 );
 vm.runInContext(
-  fs.readFileSync(path.join(root, "public/modules/pluckEnvelope/pluck-envelope-live-evaluator.js"), "utf8"),
+  fs.readFileSync(path.join(root, "public/modules/pluckEnvelope/pluck-envelope-math.js"), "utf8"),
   sandbox,
 );
 vm.runInContext(

@@ -1,5 +1,5 @@
-// Pluck Envelope — SoEmPluck / soemdsp::PluckEnvelope offline path.
-// Efficient Live uses native soemdsp_pluck_envelope_* (see worklet evaluator).
+// Pluck Envelope — Sample helpers for Additive Mod strips (native audio owns Live).
+// APP_POLICY: strip/preview only — not a Live/Render audio twin.
 
 const nodeGraphPluckEnvelopeMinValue = 1e-8;
 const nodeGraphPluckEnvelopeMaxFeedback = 1 - 1e-6;
@@ -157,37 +157,4 @@ function nodeGraphPluckEnvelopeSample(state, trigger, release, params, sampleRat
       break;
   }
   return nodeGraphSafeFilterNumber(state.currentValue * values.level, runtime, nodeId, null, "pluck output");
-}
-
-if (typeof nodeGraphLiveModuleEvaluators !== "undefined" && nodeGraphLiveModuleEvaluators) {
-  const nodeGraphPluckEnvelopeLiveEvaluate = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, sampleRate }) => {
-    const state = runtime.pluckEnvelopeStates.get(nodeId) || createNodeGraphPluckEnvelopeState();
-    runtime.pluckEnvelopeStates.set(nodeId, state);
-    const read = (key, fallback) => readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
-    return nodeGraphPluckEnvelopeSample(
-      state,
-      mixInput(nodeId, "Trigger"),
-      mixInput(nodeId, "Release"),
-      {
-        attack: read("attack", read("attackFeedback", 0)),
-        autoReleaseTime: read("autoReleaseTime", 0),
-        decaySlopeBottom: read("decaySlopeBottom", read("decayModEnd", 4.8)),
-        decaySlopeMid: read("decaySlopeMid", read("decay", 0.7)),
-        decaySlopeTop: read("decaySlopeTop", read("decayModStart", 0.9)),
-        envelopeCurve: read("envelopeCurve", read("decayModCurve", -0.5)),
-        envelopeDamping: read("envelopeDamping", read("decayModFrequency", 15)),
-        level: read("level", 1),
-        release: read("release", read("releaseFeedback", 0.86)),
-        sustain: read("sustain", read("endingDecay", 1.2)),
-        velocity: read("velocity", 1),
-        velocitySensitivity: read("velocitySensitivity", 0.5),
-      },
-      sampleRate,
-      runtime,
-      nodeId,
-    );
-  };
-  nodeGraphLiveModuleEvaluators.pluckEnvelope = nodeGraphPluckEnvelopeLiveEvaluate;
-  nodeGraphLiveModuleEvaluators.pluckEnvelopeMod = nodeGraphPluckEnvelopeLiveEvaluate;
-  nodeGraphLiveModuleEvaluators.additivePluckEnvelope = nodeGraphPluckEnvelopeLiveEvaluate;
 }

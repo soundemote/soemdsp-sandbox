@@ -3139,7 +3139,6 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
   "./public/modules/_shared/controller-efficient-sidecar.js?v=phase-cv-live-1",
-  "./public/modules/vactrol/vactrol-worklet-evaluator.js?v=vactrol-arp-1",
   "./public/node-live-audio-worklet-process.js?v=protect-worklet-1",
 ];
 
