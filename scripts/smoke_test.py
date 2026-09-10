@@ -427,12 +427,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-robin-supersaw.js",
     "./public/node-graph-live-frame-evaluator.js",
     "./public/node-graph-hypersaw.js",
-    "./public/modules/hypersaw/hypersaw-live-evaluator.js",
     "./public/node-graph-hypersaw2.js",
-    "./public/modules/hypersaw2/hypersaw2-live-evaluator.js",
-    "./public/modules/vibratoGenerator/vibrato-generator-live-evaluator.js",
-    "./public/modules/wowAndFlutter/wow-and-flutter-live-evaluator.js",
-    "./public/modules/basicShape/basic-shape-live-evaluator.js",
     "./public/node-graph-chord-sequencer.js",
     "./public/node-graph-lut-cell.js",
     "./public/modules/metallicRatio/metallic-ratio-math.js",
@@ -4129,11 +4124,8 @@ def require_bug_button_interaction_contract() -> None:
     sizing_source = script_sources["./public/node-graph-module-sizing.js"]
     patch_source = script_sources["./public/node-graph-patch-core.js"]
     module_actions_source = script_sources["./public/node-graph-module-actions.js"]
-    # Efficient product no longer packs JS DSP/controller evaluators into the
-    # worklet blob (Legacy list empty). Source-contract the module file instead.
-    worklet_evaluator_path = PUBLIC / "modules" / "bugButton" / "bug-button-worklet-evaluator.js"
-    require(worklet_evaluator_path.is_file(), "Bug Button worklet evaluator file missing")
-    worklet_source = worklet_evaluator_path.read_text(encoding="utf-8")
+    # JS worklet-evaluator retired; Live/Render use native graph. Keep live-evaluator
+    # for offline/UI contracts and worklet core/events for interaction messages.
 
     for snippet in [
         'defaultWidthGu: 4',
@@ -4190,14 +4182,13 @@ def require_bug_button_interaction_contract() -> None:
         and "function setNodeGraphBugButtonInteraction(nodeId, update = {})" in external_events_source,
         "Bug Button UI events should use one explicit live/worklet bridge",
     )
-    for source, label in [
-        (evaluator_source, "browser evaluator"),
-        (worklet_source, "AudioWorklet evaluator"),
-    ]:
-        for output in ["Mouse Down", "Mouse Up", "Dn/Up", "Mouse Hover", "X", "Y"]:
-            require(f'"{output}"' in source or f"{output}:" in source, f"Bug Button {label} missing {output}")
-        for snippet in ["__VisualSize:", "__VisualX:", "__VisualY:", "__VisualOpacity:"]:
-            require(snippet in source, f"Bug Button {label} missing captured visual value {snippet}")
+    for output in ["Mouse Down", "Mouse Up", "Dn/Up", "Mouse Hover", "X", "Y"]:
+        require(
+            f'"{output}"' in evaluator_source or f"{output}:" in evaluator_source,
+            f"Bug Button browser evaluator missing {output}",
+        )
+    for snippet in ["__VisualSize:", "__VisualX:", "__VisualY:", "__VisualOpacity:"]:
+        require(snippet in evaluator_source, f"Bug Button browser evaluator missing captured visual value {snippet}")
     require(
         'mixInput(nodeId, "Size")' in evaluator_source
         and 'mixInput(nodeId, "X")' in evaluator_source
@@ -4222,7 +4213,6 @@ def require_bug_button_interaction_contract() -> None:
     )
     bug_button_worklet_surface = "\n".join(
         [
-            worklet_source,
             (PUBLIC / "node-live-audio-worklet-handle-message.js").read_text(encoding="utf-8")
             if (PUBLIC / "node-live-audio-worklet-handle-message.js").is_file()
             else "",
@@ -4236,7 +4226,8 @@ def require_bug_button_interaction_contract() -> None:
     )
     require(
         'message.type === "bugButtonInteraction"' in bug_button_worklet_surface
-        and "this.bugButtonStates = new Map()" in bug_button_worklet_surface,
+        and "this.bugButtonStates = new Map()" in bug_button_worklet_surface
+        and "setBugButtonInteraction" in bug_button_worklet_surface,
         "Bug Button AudioWorklet state/message support missing",
     )
 
@@ -4262,6 +4253,45 @@ def require_module_frame_port_gap_contract() -> None:
         and "outline: none" in styles
         and "node-module-frame-path" in styles,
         "module CSS should use SVG frame without box outline over ports",
+    )
+
+
+def require_render_sample_native_only() -> None:
+    """Render Sample / Live must stay native-graph only (no JS DSP evaluators)."""
+    render_source = (PUBLIC / "node-graph-render-output.js").read_text(encoding="utf-8")
+    live_runtime = (PUBLIC / "node-graph-live-runtime.js").read_text(encoding="utf-8")
+    process_source = (PUBLIC / "node-live-audio-worklet-process.js").read_text(encoding="utf-8")
+    require(
+        "Never evaluateNodeGraphPlanFrame" in render_source
+        and "OfflineAudioContext" in render_source,
+        "Render Sample must stay native-only (OfflineAudioContext, no JS plan-frame eval)",
+    )
+    legacy_marker = "const nodeGraphLiveWorkletSourceFilesLegacy = ["
+    legacy_start = live_runtime.find(legacy_marker)
+    require(legacy_start >= 0, "live-runtime Legacy worklet source list missing")
+    legacy_end = live_runtime.find("];", legacy_start)
+    require(legacy_end >= 0, "live-runtime Legacy worklet source list not closed")
+    legacy_block = live_runtime[legacy_start:legacy_end]
+    legacy_preface = live_runtime[max(0, legacy_start - 240):legacy_start]
+    require(
+        re.search(r'["\'].*\.js', legacy_block) is None
+        and (
+            "RETIRED" in legacy_preface
+            or "Never load" in legacy_preface
+            or "never load" in legacy_preface.lower()
+        ),
+        "live-runtime Legacy list must stay empty (no JS DSP evaluators)",
+    )
+    require(
+        "No evaluateFrame / JS DSP fallback when efficientProduct is on" in process_source
+        and "if (this.efficientProduct)" in process_source,
+        "worklet process must not call evaluateFrame when efficientProduct is on",
+    )
+    orphans = sorted((PUBLIC / "modules").rglob("*-worklet-evaluator.js"))
+    require(
+        not orphans,
+        "no *-worklet-evaluator.js files should remain under public/modules: "
+        + ", ".join(str(path.relative_to(PUBLIC)) for path in orphans[:12]),
     )
 
 
@@ -4451,48 +4481,28 @@ def require_node_graph_mvp_contract() -> None:
         and "monitorSink: true" in helmholtz_definition_source,
         "Helmholtz Pitch should expose analyzer outputs only (Frequency/Fidelity/Gate) and should not masquerade as an audio effect or visual sink",
     )
+    helmholtz_native_source = (ROOT / "native_modules" / "helmholtz" / "helmholtz.cpp").read_text(encoding="utf-8")
+    helmholtz_exports_source = (PUBLIC / "node-live-audio-worklet-native-exports.js").read_text(encoding="utf-8")
     require(
-        "// soemdsp-native-kind: analysis" in (ROOT / "native_modules" / "helmholtz" / "helmholtz.cpp").read_text(encoding="utf-8"),
+        "// soemdsp-native-kind: analysis" in helmholtz_native_source,
         "native Helmholtz metadata should declare analysis kind",
     )
-    helmholtz_worklet_path = PUBLIC / "modules" / "helmholtzPitch" / "helmholtz-pitch-worklet-evaluator.js"
-    helmholtz_worklet_source = (
-        helmholtz_worklet_path.read_text(encoding="utf-8")
-        if helmholtz_worklet_path.is_file()
-        else worklet_source
-    )
-    helmholtz_dispatch_path = PUBLIC / "node-live-audio-worklet-evaluators-processors.js"
-    helmholtz_dispatch_source = (
-        helmholtz_dispatch_path.read_text(encoding="utf-8")
-        if helmholtz_dispatch_path.is_file()
-        else ""
-    )
-    helmholtz_live_path = PUBLIC / "modules" / "helmholtzPitch" / "helmholtz-pitch-live-evaluator.js"
-    helmholtz_live_source = (
-        helmholtz_live_path.read_text(encoding="utf-8")
-        if helmholtz_live_path.is_file()
-        else ""
-    )
+    # JS helmholtz worklet/live evaluators retired; clamp + native wire stay.
     require(
-        "helmholtzSample(state, input, params, inputConnected = true" in helmholtz_worklet_source
-        and "if (!inputConnected) {" in helmholtz_worklet_source
-        and "Frequency: 0" in helmholtz_worklet_source
-        and "Fidelity: 0" in helmholtz_worklet_source
-        and "reportHelmholtzStatus(status, message = \"\")" in helmholtz_worklet_source
-        and "native Helmholtz handle creation failed; analyzer outputs zero" in helmholtz_worklet_source
-        and "native Helmholtz failed; analyzer outputs zero:" in helmholtz_worklet_source
+        "constexpr int kMaxWindow = 4096;" in helmholtz_native_source
+        and "constexpr int kMinWindow = 128;" in helmholtz_native_source
+        and "windowSize < kMinWindow" in helmholtz_native_source
+        and "windowSize > kMaxWindow" in helmholtz_native_source
+        and 'key: "windowSize"' in helmholtz_definition_source
+        and 'defaultValue: "1024"' in helmholtz_definition_source
+        and 'min: "128"' in helmholtz_definition_source
+        and 'max: "4096"' in helmholtz_definition_source
         and "this.nativeHelmholtzReady = false;" in worklet_source
-        and "Math.max(128, Math.min(4096" in helmholtz_worklet_source
-        and (
-            'windowSize: read("windowSize", 1024)' in helmholtz_dispatch_source
-            or 'windowSize: read("windowSize", 1024)' in helmholtz_live_source
-            or 'windowSize: read("windowSize", 1024)' in node_graph_source
-        )
-        and (
-            "Math.max(128, Math.min(4096" in helmholtz_live_source
-            or "Math.max(128, Math.min(4096" in node_graph_source
-        ),
-        "Helmholtz Pitch should output analyzer zeros on disconnected input and clamp analysis to the safe window range (128–4096)",
+        and 'targetType === "helmholtzPitch"' in helmholtz_exports_source
+        and "soemdsp_helmholtz_create" in helmholtz_exports_source
+        and "soemdsp_helmholtz_process" in helmholtz_exports_source
+        and "soemdsp_helmholtz_frequency" in helmholtz_exports_source,
+        "Helmholtz Pitch should clamp analysis windows to 128–4096 and wire native exports",
     )
     noise_detector_definition_start = node_graph_module_definitions_source.index("  noiseDetector: {")
     noise_detector_definition_end = node_graph_module_definitions_source.index("  rms: {", noise_detector_definition_start)
@@ -4508,8 +4518,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'defaultValue: "0.9"' in noise_detector_definition_source
         and 'mid: "0.9"' in noise_detector_definition_source
         and "function nodeGraphNoiseDetectorNsdfPeak" in noise_detector_math_source
-        and "nodeGraphLiveModuleEvaluators.noiseDetector" in script_sources["./public/modules/noiseDetector/noise-detector-live-evaluator.js"]
-        and "noiseDetector:" in (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8"),
+        and "nodeGraphLiveModuleEvaluators.noiseDetector" in script_sources["./public/modules/noiseDetector/noise-detector-live-evaluator.js"],
         "Noise Detector should be a stereo thru analyzer with NSDF fidelity + threshold gate",
     )
     rms_definition_start = node_graph_module_definitions_source.index("  rms: {")
@@ -4522,7 +4531,6 @@ def require_node_graph_mvp_contract() -> None:
     ]
     rms_math_source = (PUBLIC / "modules" / "rms" / "rms-math.js").read_text(encoding="utf-8")
     rms_live_source = script_sources["./public/modules/rms/rms-live-evaluator.js"]
-    rms_worklet_processors = (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8")
     require(
         'rms: "RMS Mono"' in node_graph_module_definitions_source
         and 'rmsStereo: "RMS Stereo"' in node_graph_module_definitions_source
@@ -4568,7 +4576,6 @@ def require_node_graph_mvp_contract() -> None:
         and "0.5 * (lIn + rIn)" in rms_math_source
         and "nodeGraphLiveModuleEvaluators.rms" in rms_live_source
         and "nodeGraphLiveModuleEvaluators.rmsStereo" in rms_live_source
-        and "rmsStereo:" in rms_worklet_processors
         and "RMS A" in (PUBLIC / "node-graph-module-scope-capture.js").read_text(encoding="utf-8")
         and "nodeGraphRmsDbGuideLabel" in (PUBLIC / "node-graph-module-scope-paint-helpers.js").read_text(encoding="utf-8")
         and "nodeGraphDeepCloneModuleField" in script_sources["./public/node-graph-module-actions.js"]
@@ -4722,7 +4729,6 @@ def require_node_graph_mvp_contract() -> None:
         and "digitalInputs: [\"Digital\"]" in script_sources["./public/node-graph-module-definitions.js"]
         and "function nodeGraphTSeriesSample" in script_sources["./public/modules/tSeries/t-series-math.js"]
         and "NODE_GRAPH_T_SERIES_TYPES" in script_sources["./public/modules/tSeries/t-series-live-evaluator.js"]
-        and "tSeriesEvaluate" in (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8")
         and "gate2" not in script_sources["./public/node-graph-module-definitions.js"]
         and "numberGate" not in script_sources["./public/node-graph-module-definitions.js"]
         and "gate12" not in script_sources["./public/node-graph-default-patch.js"],
@@ -4759,9 +4765,8 @@ def require_node_graph_mvp_contract() -> None:
         and "drawNodeGraphSinCos4DisplayInner" in script_sources["./public/modules/sineWavetable/sine-wavetable-display.js"]
         and "drawNodeGraphSinCos4FillDot" in script_sources["./public/modules/sineWavetable/sine-wavetable-display.js"]
         and "SinCos4FaceGl" not in script_sources["./public/modules/sineWavetable/sine-wavetable-display.js"]
-        and "this.efficientProduct" in (
-            PUBLIC / "modules" / "sineWavetable" / "sine-wavetable-worklet-evaluator.js"
-        ).read_text(encoding="utf-8")
+        and "sineWavetable:" in (PUBLIC / "node-live-audio-worklet-native-graph.js").read_text(encoding="utf-8")
+        and "this.efficientProduct" in (PUBLIC / "node-live-audio-worklet-process.js").read_text(encoding="utf-8")
         and "drawNodeGraphRasterRgbFaceItem" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
         and "function nodeGraphRasterRgbProcessSample" in script_sources["./public/modules/rasterRgb/raster-rgb-math.js"]
         and "function nodeGraphRasterRgbGradeChannel01" in script_sources["./public/modules/rasterRgb/raster-rgb-math.js"]
@@ -5183,7 +5188,6 @@ def require_node_graph_mvp_contract() -> None:
                 "graphClipboard: null",
                 "graphSelectedNodeIndices: new Map()",
                 "smoothGraph: 0",
-                "runtime.absoluteFrameCursor",
             ],
         ),
     ]:
@@ -17873,12 +17877,8 @@ def require_native_module_contract(base_url: str) -> None:
         _read_if(PUBLIC / "node-live-audio-worklet-native-exports.js"),
         _read_if(PUBLIC / "node-live-audio-worklet-native-load.js"),
         _read_if(PUBLIC / "node-live-audio-worklet-handle-message.js"),
-        _read_if(PUBLIC / "node-live-audio-worklet-evaluators-processors.js"),
-        _read_if(PUBLIC / "modules" / "ellipsoid" / "ellipsoid-worklet-evaluator.js"),
-        _read_if(PUBLIC / "modules" / "ladderFilter" / "ladder-filter-worklet-evaluator.js"),
-        _read_if(PUBLIC / "modules" / "softClipper" / "soft-clipper-worklet-evaluator.js"),
-        _read_if(PUBLIC / "modules" / "gain" / "gain-worklet-evaluator.js"),
-        _read_if(PUBLIC / "modules" / "lookaheadLimiter" / "lookahead-limiter-worklet-evaluator.js"),
+        _read_if(PUBLIC / "node-live-audio-worklet-native-graph.js"),
+        _read_if(PUBLIC / "node-live-audio-worklet-process.js"),
     ]
     worklet_source = "\n".join(_worklet_contract_parts)
     native_build_source = (ROOT / "scripts" / "build_native_modules.ps1").read_text(encoding="utf-8")
@@ -17963,17 +17963,20 @@ def require_native_module_contract(base_url: str) -> None:
         and "0.5 * (outL + outR)" in fc_host_chunk,
         "Flower Child Filter must always run dual L/R native instances so chaos noise is stereo",
     )
-    # Stereo dual-engine dispatch lives in processors.js (and graph_engine above).
-    flower_child_worklet = (PUBLIC / "node-live-audio-worklet-evaluators-processors.js").read_text(encoding="utf-8")
-    fc = flower_child_worklet.find("flowerChildFilter:")
-    fc_chunk = flower_child_worklet[fc:fc + 2000] if fc >= 0 else ""
+    # Stereo dual-engine dispatch lives in graph_engine (JS processors retired).
+    flower_child_at = flower_child_host.find("static void process_flower_child_filter(Circuit")
+    flower_child_chunk = (
+        flower_child_host[max(0, flower_child_at - 200):flower_child_at + 2500]
+        if flower_child_at >= 0
+        else ""
+    )
     require(
-        fc >= 0
-        and "Always two independent engines" in fc_chunk
-        and "0.5 * (left + right)" in fc_chunk
-        and "state.left" in fc_chunk
-        and "state.right" in fc_chunk,
-        "Flower Child worklet path must always run independent L/R engines",
+        flower_child_at >= 0
+        and "Always dual-instance stereo" in flower_child_chunk
+        and "0.5 * (outL + outR)" in flower_child_chunk
+        and "nativeHandleL" in flower_child_chunk
+        and "nativeHandleR" in flower_child_chunk,
+        "Flower Child graph_engine path must always run independent L/R engines",
     )
 
     expected_native_exports = {
@@ -18673,12 +18676,18 @@ def require_native_module_contract(base_url: str) -> None:
         ],
         "basic_oscillator native apply must not steal polyBlep/blit targetTypes",
     )
-    require("nativeEllipsoidVectorSample(" in worklet_source, "native ellipsoid worklet path missing")
+    graph_engine_source = (ROOT / "native_modules" / "graph_engine" / "graph_engine.cpp").read_text(encoding="utf-8")
+    require(
+        'name === "ellipsoid" || targetType === "ellipsoid"' in worklet_source
+        and "this.nativeEllipsoidReady" in worklet_source
+        and "static void process_ellipsoid(Circuit& g, Node& node, int frames)" in graph_engine_source
+        and "soemdsp_ellipsoid_sine_to_square_aa(" in graph_engine_source,
+        "native ellipsoid path missing (exports + graph_engine process_ellipsoid)",
+    )
     require(
         'name === "soft_clipper" || targetType === "softClipper"' in worklet_source
         and "this.nativeSoftClipper?.soemdsp_soft_clipper_sample" in worklet_source
-        and "this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 0)" in worklet_source
-        and "softClipperGainDb" in worklet_source
+        and "this.nativeSoftClipperReady" in worklet_source
         and "softClipperSample(input, center = 0, width = 2)" not in worklet_source,
         "native Soft Clipper should be worklet-backed with old JS worklet DSP removed",
     )
@@ -18688,7 +18697,6 @@ def require_native_module_contract(base_url: str) -> None:
         and 'name === "lookahead_limiter" || targetType === "lookaheadLimiter"' in worklet_source
         and "this.nativeLookaheadLimiter?.soemdsp_lookahead_limiter_sample" in worklet_source
         and "function nodeGraphPumpingLimiterFrame" in (PUBLIC / "modules" / "lookaheadLimiter" / "lookahead-limiter-math.js").read_text(encoding="utf-8")
-        and "nodeGraphLiveModuleEvaluators.limiter" in (PUBLIC / "modules" / "lookaheadLimiter" / "lookahead-limiter-live-evaluator.js").read_text(encoding="utf-8")
         and 'limiter: "Pump Limiter"' in (PUBLIC / "node-graph-module-definitions.js").read_text(encoding="utf-8")
         and 'lookaheadLimiter: "Brickwall Limiter"' in (PUBLIC / "node-graph-module-definitions.js").read_text(encoding="utf-8")
         and 'label: "Brickwall Limiter"' in (PUBLIC / "node-graph-module-store.js").read_text(encoding="utf-8"),
@@ -18703,9 +18711,9 @@ def require_native_module_contract(base_url: str) -> None:
         'name === "ladder_filter" || targetType === "ladderFilter"' in worklet_source
         and "this.nativeLadderFilter?.soemdsp_ladder_filter_create" in worklet_source
         and "this.nativeLadderFilter?.soemdsp_ladder_filter_sample" in worklet_source
-        and "native Ladder Filter failed" in worklet_source
-        and "soemdsp_ladder_filter_sample(" in worklet_source,
-        "native Ladder Filter should be worklet-backed and guarded against native failures",
+        and "this.nativeLadderFilterReady" in worklet_source
+        and "soemdsp_ladder_filter_sample(" in graph_engine_source,
+        "native Ladder Filter should be worklet-backed via exports + graph_engine",
     )
 
     response = request(f"{base_url}/api/native-modules")
@@ -18825,6 +18833,7 @@ def run_valid_manifest_smoke(port: int, manifest: Path) -> None:
         run_step("manifest error surface contract", require_manifest_error_surface_contract)
         run_step("follow/free seek contract", require_follow_free_seek_contract)
         run_step("node graph MVP contract", require_node_graph_mvp_contract)
+        run_step("render sample native-only contract", require_render_sample_native_only)
         run_step("chromeless module registry contract", require_chromeless_module_registry_contract)
         run_step("bug button interaction contract", require_bug_button_interaction_contract)
         run_step("module frame port-gap contract", require_module_frame_port_gap_contract)

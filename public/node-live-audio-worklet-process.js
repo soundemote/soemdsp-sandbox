@@ -237,97 +237,19 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       return true;
     }
 
-    // Legacy ?product=full sample loop (evaluateFrame). Unreachable when efficientProduct.
-    {
-      for (let frame = 0; frame < frames; frame += 1) {
-        const rawLeft = Number(input[0]?.[frame]);
-        const rawRight = Number(input[1]?.[frame]);
-        const inputLeft = Number.isFinite(rawLeft) ? rawLeft : 0;
-        const inputRight = Number.isFinite(rawRight) ? rawRight : inputLeft;
-        this.inputMeterPeak = Math.max(this.inputMeterPeak, Math.abs(inputLeft), Math.abs(inputRight));
-        this.inputMeterSquareSum += (inputLeft * inputLeft + inputRight * inputRight) * 0.5;
-        this.inputMeterSamples += 1;
-        let leftSum = 0;
-        let rightSum = 0;
-        let decimatedLeft = 0;
-        let decimatedRight = 0;
-        const useRaptEllipticDecimator = oversamplingRatio === 4;
-        for (let subframe = 0; subframe < oversamplingRatio; subframe += 1) {
-          const engineFrame = frame * oversamplingRatio + subframe;
-          const subframeOutput = this.evaluateFrame(engineFrame, engineFrames, inputs, effectiveRate, frame);
-          if (useRaptEllipticDecimator) {
-            decimatedLeft = this.processRaptEllipticDecimatorSample(
-              subframeOutput.left,
-              this.raptEllipticDecimatorLeft,
-            );
-            decimatedRight = this.processRaptEllipticDecimatorSample(
-              subframeOutput.right,
-              this.raptEllipticDecimatorRight,
-            );
-          } else {
-            leftSum += subframeOutput.left;
-            rightSum += subframeOutput.right;
-          }
-          // Scope capture every sample is expensive; when audio is late, keep DSP
-          // and only refresh rings every 8th sample so the quantum can recover.
-          if (!audioStressed || (engineFrame & 7) === 0) {
-            this.captureModuleScopeFrame(this.currentFrameValues, engineFrame, engineFrames);
-          }
-          this.scopeCounter += 1;
-          const displayFps = Number(this.displayFps);
-          if (displayFps > 0) {
-            this.scopeSnapshotCounter = (nodeGraphFiniteNumber(this.scopeSnapshotCounter)) + 1;
-            if (this.scopeSnapshotCounter >= Math.max(1, Math.floor(effectiveRate / displayFps))) {
-              this.scopeSnapshotCounter = 0;
-              if (!audioStressed) {
-                this.postModuleScopeSnapshot();
-              }
-            }
-          }
-          this.visualControlCounter += 1;
-          if (this.visualControlCounter >= Math.max(1, Math.floor(effectiveRate / 30))) {
-            this.visualControlCounter = 0;
-            if (!audioStressed) {
-              this.postVisualControls();
-            }
-          }
-        }
-        const frameOutput = this._frameOutput || (this._frameOutput = { left: 0, right: 0 });
-        frameOutput.left = useRaptEllipticDecimator ? decimatedLeft : leftSum / oversamplingRatio;
-        frameOutput.right = useRaptEllipticDecimator ? decimatedRight : rightSum / oversamplingRatio;
-        if (this.outputSampleClipped(frameOutput.left)) {
-          this.meterClipCount += 1;
-        }
-        if (this.outputSampleClipped(frameOutput.right)) {
-          this.meterClipCount += 1;
-        }
-        if (
-          this.outputSampleTripsEarProtection(frameOutput.left) ||
-          this.outputSampleTripsEarProtection(frameOutput.right)
-        ) {
-          this.speakerProtectionPeak = Math.max(
-            nodeGraphFiniteNumber(this.speakerProtectionPeak),
-            Number.isFinite(Number(frameOutput.left)) ? Math.abs(Number(frameOutput.left)) : Infinity,
-            Number.isFinite(Number(frameOutput.right)) ? Math.abs(Number(frameOutput.right)) : Infinity,
-          );
-          this.speakerProtectionNodeId = "output";
-        }
-        const protectedFrame = this.earProtector.protect(frameOutput.left, frameOutput.right);
-        if (protectedFrame.engaged || protectedFrame.muted) {
-          this.meterProtectionMuteCount += 1;
-        }
-        this.protectionEngaged = Boolean(protectedFrame.engaged);
-        this.protectionGain = Number(protectedFrame.gain);
-        const left = Number.isFinite(Number(protectedFrame.left)) ? Number(protectedFrame.left) : 0;
-        const right = Number.isFinite(Number(protectedFrame.right)) ? Number(protectedFrame.right) : 0;
-        this.meterPeak = Math.max(this.meterPeak, Math.abs(left), Math.abs(right));
-        this.meterSquareSum += (left * left + right * right) * 0.5;
-        this.meterSamples += 1;
-        this.gpuAdditiveStatusCounter += 1;
-        for (let channelIndex = 0; channelIndex < output.length; channelIndex += 1) {
-          output[channelIndex][frame] = channelIndex === 0 ? left : right;
-        }
-      }
+    // APP_POLICY: JS evaluateFrame path removed. Silence if somehow reached.
+    for (const channel of output) {
+      if (channel) channel.fill(0);
+    }
+    if (!this._jsEvaluateFramePathWarned) {
+      this._jsEvaluateFramePathWarned = true;
+      try {
+        this.port.postMessage({
+          type: "status",
+          status: "error",
+          message: "JS evaluateFrame audio path removed — native graph only",
+        });
+      } catch (_e) { /* ignore */ }
     }
 
     this.finishSmoothing();

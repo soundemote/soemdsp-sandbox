@@ -1454,141 +1454,14 @@ function sendNodeGraphLiveSpeedLimit() {
 }
 
 function renderNodeGraphLiveScriptBlock(event) {
-  const output = event.outputBuffer;
-  const frames = output.length;
-  const runtime = nodeGraphMvp.live.runtime;
-  if (!runtime) {
-    for (let channel = 0; channel < output.numberOfChannels; channel += 1) {
-      output.getChannelData(channel).fill(0);
-    }
-    return;
-  }
-  const sampleRate = event.playbackTime !== undefined
-    ? output.sampleRate
-    : nodeGraphMvp.live.context?.sampleRate || nodeGraphMvp.sampleRate;
-  runtime.externalInput = {
-    left: event.inputBuffer?.numberOfChannels > 0
-      ? event.inputBuffer.getChannelData(0)
-      : null,
-    right: event.inputBuffer?.numberOfChannels > 1
-      ? event.inputBuffer.getChannelData(1)
-      : null,
-  };
-  const blockStartFrame = Number.isFinite(runtime.absoluteFrameCursor)
-    ? runtime.absoluteFrameCursor
-    : 0;
-  let lastProtect = { engaged: false, gain: 1 };
-  for (let frame = 0; frame < frames; frame += 1) {
-    runtime.absoluteFrame = blockStartFrame + frame;
-    const inputLeft = nodeGraphFiniteNumber(runtime.externalInput.left?.[frame]);
-    const inputRight = nodeGraphFiniteNumber(runtime.externalInput.right?.[frame], inputLeft);
-    nodeGraphMvp.live.inputMeterPeak = Math.max(
-      nodeGraphMvp.live.inputMeterPeak,
-      Math.abs(inputLeft),
-      Math.abs(inputRight),
-    );
-    nodeGraphMvp.live.inputMeterSquareSum += (inputLeft * inputLeft + inputRight * inputRight) * 0.5;
-    nodeGraphMvp.live.inputMeterSamples += 1;
-    const frameOutput = evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames);
-    captureNodeGraphLiveModuleScopeFrame(runtime, sampleRate);
-    if (nodeGraphOutputSampleClipped(frameOutput.left)) {
-      runtime.meterClipCount += 1;
-    }
-    if (nodeGraphOutputSampleClipped(frameOutput.right)) {
-      runtime.meterClipCount += 1;
-    }
-    if (
-      nodeGraphOutputSampleTripsEarProtection(frameOutput.left) ||
-      nodeGraphOutputSampleTripsEarProtection(frameOutput.right)
-    ) {
-      runtime.speakerProtectionPeak = Math.max(
-        nodeGraphFiniteNumber(runtime.speakerProtectionPeak),
-        Number.isFinite(Number(frameOutput.left)) ? Math.abs(Number(frameOutput.left)) : Infinity,
-        Number.isFinite(Number(frameOutput.right)) ? Math.abs(Number(frameOutput.right)) : Infinity,
-      );
-    }
-    const protectedFrame = runtime.earProtector?.protect(frameOutput.left, frameOutput.right) || {
-      left: frameOutput.left,
-      muted: false,
-      engaged: false,
-      gain: 1,
-      right: frameOutput.right,
-    };
-    if (protectedFrame.engaged || protectedFrame.muted) {
-      runtime.meterProtectionMuteCount = (runtime.meterProtectionMuteCount || 0) + 1;
-    }
-    lastProtect = protectedFrame;
-    const left = nodeGraphClampOutputSample(protectedFrame.left);
-    const right = nodeGraphClampOutputSample(protectedFrame.right);
-    const value = Math.max(Math.abs(left), Math.abs(right));
-    runtime.meterPeak = Math.max(runtime.meterPeak, Math.abs(value));
-    runtime.meterSquareSum += (left * left + right * right) * 0.5;
-    runtime.meterSamples += 1;
-    for (let channel = 0; channel < output.numberOfChannels; channel += 1) {
-      output.getChannelData(channel)[frame] = channel === 0 ? left : right;
-    }
-  }
-  runtime.absoluteFrameCursor = blockStartFrame + frames;
-  if (typeof nodeGraphSetEarProtectionEngaged === "function") {
-    nodeGraphSetEarProtectionEngaged(Boolean(lastProtect.engaged), {
-      source: "live",
-      protectionGain: lastProtect.gain,
-    });
-  }
-  runtime.externalInput = null;
-  nodeGraphSetVisualControls(runtime.visualControls || { screenShake: 0 });
-  if (nodeGraphMvp.live.lastEvidence) {
-    nodeGraphMvp.live.lastEvidence.visualControls = {
-      ...(nodeGraphMvp.live.lastEvidence.visualControls || {}),
-      blue: nodeGraphFiniteNumber(runtime.visualControls?.blue),
-      chromaAlpha: nodeGraphFiniteNumber(runtime.visualControls?.chromaAlpha),
-      chromaDrift: nodeGraphFiniteNumber(runtime.visualControls?.chromaDrift),
-      chromaHue: nodeGraphFiniteNumber(runtime.visualControls?.chromaHue),
-      chromaLightness: nodeGraphFiniteNumber(runtime.visualControls?.chromaLightness),
-      chromaSaturation: nodeGraphFiniteNumber(runtime.visualControls?.chromaSaturation),
-      chromaSpread: nodeGraphFiniteNumber(runtime.visualControls?.chromaSpread),
-      green: nodeGraphFiniteNumber(runtime.visualControls?.green),
-      red: nodeGraphFiniteNumber(runtime.visualControls?.red),
-      scopePaused: nodeGraphFiniteNumber(runtime.visualControls?.scopePaused),
-      scopeTracesOff: nodeGraphFiniteNumber(runtime.visualControls?.scopeTracesOff),
-      screenDim: nodeGraphFiniteNumber(runtime.visualControls?.screenDim),
-      screenShake: nodeGraphFiniteNumber(runtime.visualControls?.screenShake),
-      visualBloom: nodeGraphFiniteNumber(runtime.visualControls?.visualBloom),
-      visualBrightness: nodeGraphFiniteNumber(runtime.visualControls?.visualBrightness),
-      visualGlow: nodeGraphFiniteNumber(runtime.visualControls?.visualGlow),
-      x: nodeGraphFiniteNumber(runtime.visualControls?.x),
-      y: nodeGraphFiniteNumber(runtime.visualControls?.y),
-    };
-  }
-  finishNodeGraphParameterSmoothing(runtime.smoothers, runtime);
-  runtime.meterCounter += frames;
-  if (runtime.meterCounter >= sampleRate / 10) {
-    setNodeGraphLiveInputMeter(
-      nodeGraphMvp.live.inputMeterPeak,
-      Math.sqrt(nodeGraphMvp.live.inputMeterSquareSum / Math.max(1, nodeGraphMvp.live.inputMeterSamples)),
-    );
-    setNodeGraphLiveMeter(
-      runtime.meterPeak,
-      Math.sqrt(runtime.meterSquareSum / Math.max(1, runtime.meterSamples)),
-      runtime.meterClipCount,
-      runtime.meterProtectionMuteCount || 0,
-      runtime.badNumberCount || 0,
-      0,
-      0,
-      0,
-    );
-    runtime.meterCounter = 0;
-    nodeGraphMvp.live.inputMeterPeak = 0;
-    nodeGraphMvp.live.inputMeterSamples = 0;
-    nodeGraphMvp.live.inputMeterSquareSum = 0;
-    runtime.meterClipCount = 0;
-    runtime.meterProtectionMuteCount = 0;
-    runtime.badNumberCount = 0;
-    runtime.meterPeak = 0;
-    runtime.meterSamples = 0;
-    runtime.meterSquareSum = 0;
+  // APP_POLICY: JS per-sample audio path retired (native worklet only).
+  const output = event?.outputBuffer;
+  if (!output) return;
+  for (let channel = 0; channel < output.numberOfChannels; channel += 1) {
+    output.getChannelData(channel).fill(0);
   }
 }
+
 
 function nodeGraphStopGpuAdditiveProducer() {
   nodeGraphClearGpuAdditivePrime();
@@ -3244,13 +3117,9 @@ function nodeGraphLiveAwaitStartup(promise, message = "live audio startup timed 
   ]);
 }
 
-function createNodeGraphLiveScriptProcessorNode(context, plan) {
-  const scriptNode = context.createScriptProcessor(nodeGraphAudioBlockSize, 2, 2);
-  scriptNode.onaudioprocess = renderNodeGraphLiveScriptBlock;
-  nodeGraphMvp.live.runtime = createNodeGraphLiveRuntime(plan, nodeGraphMvp.live.runtime);
-  nodeGraphMvp.live.runtime.earProtector = createNodeGraphEarProtector(context.sampleRate);
-  nodeGraphMvp.live.scriptNode = scriptNode;
-  return scriptNode;
+function createNodeGraphLiveScriptProcessorNode(_context, _plan) {
+  // APP_POLICY §0b / §2: JS ScriptProcessor audio path is retired. Native worklet only.
+  throw new Error("ScriptProcessor JS audio path removed — AudioWorklet + native graph required");
 }
 
 function stopNodeGraphLiveInputSource() {

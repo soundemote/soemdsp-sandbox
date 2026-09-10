@@ -79,7 +79,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-026 | see | wip | Pause → stop → play leaves value faces dark |
 | B-027 | hear | fixed | Header Speed 2.0 slows the patch |
 | B-028 | hear | open | Chebyshev / Elliptic / high-order BP are RBJ stand-ins |
-| B-029 | hear | wip | Offline/Render JS twins ≠ live native (~60 types) |
+| B-029 | hear | fixed | Offline/Render JS twins ≠ live native (~60 types) |
 | B-030 | hear | fixed | dsp_floor via long long UB for huge \|x\| |
 | B-031 | see | fixed | Text Box settings: each character tanks framerate |
 | B-032 | see | verify | Text Box resize / text clips into window |
@@ -362,13 +362,12 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Fix shape: Real analog prototype → bilinear, **or** rename tooltips to “RBJ cascade (Cheby/elliptic-ish Q)”.
 
 ### B-029 — Offline/Render JS twins ≠ live native (~60 types)
-- Status: wip
+- Status: fixed
 - Severity: hear
 - Source: hunt-2026-08-12 (also `docs/POLICY_COMPLIANCE_AUDIT.md`)
-- Files: `node-graph-render-output.js`, worklet native graph, index.html
-- What: APP_POLICY §5: one core. **2026-09-03:** Render uses OfflineAudioContext + native graph; legacy worklet JS DSP blob emptied; ScriptProcessor JS fallback banned. **2026-09-07:** Envelope/Softwave/Slew orphan `*-live-evaluator.js` / `*-worklet-evaluator.js` (+ slew math) removed; face `PreviewCurve` / Softwave `f(phase)` math kept. Remaining: other non-envelope orphan evaluators still on disk.
-- Repro: Render Sample a native filter/osc; compare to live.
-- Fix shape: Done for product path; continue disk cleanup for leftover non-envelope orphans.
+- Files: `node-graph-render-output.js`, worklet native graph, index.html, orphan evaluators
+- What: APP_POLICY §5: one core. Render/Live product path already native. Disk still had ~150 worklet-evaluators + ~170 live-evaluators + evaluateFrame stack.
+- Fix (2026-09-10): Deleted all `*-worklet-evaluator.js`; deleted orphan JS audio `*-live-evaluator.js` (kept thru/controller/metamodule stubs only); removed evaluate-frame / evaluators* worklet DSP sources; ScriptProcessor creator throws; `evaluateNodeGraphPlanFrame` stub returns silence; Render Sample smoke `require_render_sample_native_only`. Downloadable bounce = OfflineAudioContext + same native graph — no JS twin required.
 
 ### B-030 — dsp_floor via long long UB for huge |x|
 - Status: open
