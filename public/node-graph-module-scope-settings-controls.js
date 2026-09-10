@@ -650,7 +650,11 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
   hypersawBurn: Object.freeze({
-    lineThickness: nodeGraphTraceDisplayClampStampBlur,
+    // Stem width as 0…1 of face width (1 = full screen). Allow true 0.
+    lineThickness: (value) => {
+      const n = Number(value);
+      return clampNodeSliderValue(Number.isFinite(n) ? n : 0.01, 0, 1);
+    },
   }),
   xyPad: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,

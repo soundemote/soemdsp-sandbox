@@ -89,15 +89,20 @@ function scopePaintFaceShouldAnimate(faceOrNode) {
   if (!scopePaintIsDrawingLive()) {
     return false;
   }
+  const nodeId = faceOrNode?.dataset?.node
+    || (typeof faceOrNode === "string" ? faceOrNode : "")
+    || "";
+  const mirrorSubscribed = nodeId
+    && typeof nodeGraphMetamoduleChildIsMirrorSubscribed === "function"
+    && nodeGraphMetamoduleChildIsMirrorSubscribed(nodeId);
+  // Mirrored children stay awake even when the article is hidden / culled on Root.
   if (
-    typeof nodeGraphModuleIsViewportAsleep === "function"
+    !mirrorSubscribed
+    && typeof nodeGraphModuleIsViewportAsleep === "function"
     && nodeGraphModuleIsViewportAsleep(faceOrNode)
   ) {
     return false;
   }
-  const nodeId = faceOrNode?.dataset?.node
-    || (typeof faceOrNode === "string" ? faceOrNode : "")
-    || "";
   if (
     nodeId
     && typeof nodeGraphScreenSoloIsActive === "function"

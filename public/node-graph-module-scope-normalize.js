@@ -1918,6 +1918,44 @@ function nodeGraphScope2dSettingsForNode(node) {
   return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings, typeDefaults);
 }
 
+/**
+ * Hypersaw face: stem width as 0…1 of face width (1 = full screen).
+ * Sensitive near 0 (hairlines). Not a phosphor / scope2d page.
+ */
+const nodeGraphHypersawBurnSettingsDefaults = Object.freeze({
+  lineThickness: 0.01,
+  lineThicknessFace01: true,
+});
+
+function normalizeNodeGraphHypersawBurnSettings(settings = {}, defaultsOverride = null) {
+  const defaults = defaultsOverride && typeof defaultsOverride === "object"
+    ? { ...nodeGraphHypersawBurnSettingsDefaults, ...defaultsOverride }
+    : nodeGraphHypersawBurnSettingsDefaults;
+  const source = settings && typeof settings === "object" ? settings : {};
+  let thickness = Number(source.lineThickness ?? source.dot1Blur);
+  if (!Number.isFinite(thickness)) {
+    thickness = defaults.lineThickness;
+  } else if (source.lineThicknessFace01) {
+    // Already face-fraction 0…1.
+    thickness = clampNodeSliderValue(thickness, 0, 1);
+  } else {
+    // Legacy CSS px (prior normalize clamped ~0.25…16) → face fraction.
+    // Map through /16 so old default 1px ≈ 0.06, old max 16 → 1 (full width).
+    thickness = clampNodeSliderValue(thickness / 16, 0, 1);
+  }
+  return {
+    lineThickness: thickness,
+    lineThicknessFace01: true,
+  };
+}
+
+function nodeGraphHypersawBurnSettingsForNode(node) {
+  if (!node) {
+    return normalizeNodeGraphHypersawBurnSettings();
+  }
+  return normalizeNodeGraphHypersawBurnSettings(node.traceDisplaySettings);
+}
+
 
 function nodeGraphScope2dTraceSettingsForNode(node) {
   if (!node) {

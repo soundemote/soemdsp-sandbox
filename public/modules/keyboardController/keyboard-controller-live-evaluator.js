@@ -1,87 +1,257 @@
-// Shared live evaluator for Portal MIDI (keyboardController) and the Keyboard
-// controller-face module. Both read the same global midiKeyboardSignal / Held
-// Keys bitmasks (K Controllers dock + Keyboard module are one SSOT).
+// Keyboard (local piano + INs) vs MIDI portal (hardware only) live evaluators.
+globalThis.nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators || {};
+var nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators;
+
+const NODE_GRAPH_HELD_KEYS_PHASE = 2 ** 49;
+const NODE_GRAPH_HELD_KEYS_LOW_BITS = 49;
+
+function nodeGraphHeldKeysDemux(value) {
+  const v = Number(value) || 0;
+  if (v >= NODE_GRAPH_HELD_KEYS_PHASE) {
+    return { low: 0, high: v - NODE_GRAPH_HELD_KEYS_PHASE };
+  }
+  return { low: v, high: 0 };
+}
+
+function nodeGraphHeldKeysBitmaskOr(a, b) {
+  let out = 0;
+  const left = Number(a) || 0;
+  const right = Number(b) || 0;
+  for (let i = 0; i < NODE_GRAPH_HELD_KEYS_LOW_BITS; i += 1) {
+    const bit = 2 ** i;
+    if ((Math.floor(left / bit) % 2) || (Math.floor(right / bit) % 2)) {
+      out += bit;
+    }
+  }
+  return out;
+}
+
+function nodeGraphHeldKeysOrTransmit(values, phase) {
+  let low = 0;
+  let high = 0;
+  for (const value of values || []) {
+    const parts = nodeGraphHeldKeysDemux(value);
+    low = nodeGraphHeldKeysBitmaskOr(low, parts.low);
+    high = nodeGraphHeldKeysBitmaskOr(high, parts.high);
+  }
+  if (typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function") {
+    return nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase);
+  }
+  return high ? (phase ? NODE_GRAPH_HELD_KEYS_PHASE + high : low) : low;
+}
+
+/** Collect raw source values for a port (no sum). */
+function nodeGraphKeyboardCollectInputValues(nodeId, port, ctx = {}) {
+  const { runtime, frameValues, frame, frames, mixInput, hasInput } = ctx;
+  if (typeof hasInput === "function" && !hasInput(nodeId, port)) {
+    return [];
+  }
+  const key = `${nodeId}.${port}`;
+  const conns = runtime?.inputConnections?.get?.(key);
+  if (Array.isArray(conns) && conns.length && typeof readNodeGraphRuntimePortOutput === "function") {
+    return conns.map((connection) => Number(readNodeGraphRuntimePortOutput(
+      runtime,
+      frameValues,
+      connection.sourceNode,
+      connection.sourcePort,
+      frame,
+      frames,
+    )) || 0);
+  }
+  // Sidecar / fallback: one summed value.
+  if (typeof mixInput === "function") {
+    return [Number(mixInput(nodeId, port)) || 0];
+  }
+  return [];
+}
+
+function nodeGraphKeyboardMixMax(nodeId, port, ctx) {
+  const values = nodeGraphKeyboardCollectInputValues(nodeId, port, ctx);
+  if (!values.length) return 0;
+  return Math.max(0, ...values.map((v) => Math.max(0, Number(v) || 0)));
+}
+
+function nodeGraphKeyboardMixOrBits(nodeId, port, ctx, phase) {
+  const values = nodeGraphKeyboardCollectInputValues(nodeId, port, ctx);
+  if (!values.length) return 0;
+  return nodeGraphHeldKeysOrTransmit(values, phase);
+}
+
+function nodeGraphKeyboardSignalFromMvp(preferLocal) {
+  if (preferLocal) {
+    return nodeGraphMvp?.keyboardModuleSignal
+      || (typeof nodeGraphMidiKeyboardFallbackSignal === "function"
+        ? nodeGraphMidiKeyboardFallbackSignal()
+        : null);
+  }
+  return nodeGraphMvp?.midiKeyboardSignal
+    || (typeof nodeGraphMidiKeyboardFallbackSignal === "function"
+      ? nodeGraphMidiKeyboardFallbackSignal()
+      : null);
+}
+
+function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null) {
+  const prev = previous && typeof previous === "object" ? previous : null;
+  const sourceMidi = Number(signal?.midi);
+  const prevMidi = Number(prev?.midi);
+  const midi = Math.max(0, Math.min(127, Math.round(
+    Number.isFinite(sourceMidi)
+      ? sourceMidi
+      : (Number.isFinite(prevMidi) ? prevMidi : 60),
+  )));
+  const key = Math.max(0, Math.min(24, Math.round(
+    Number.isFinite(Number(signal?.keyIndex))
+      ? Number(signal.keyIndex)
+      : (Number(prev?.key) || 0),
+  )));
+  const q = Math.max(0, Math.min(1,
+    Number.isFinite(Number(signal?.keyQuantized))
+      ? Number(signal.keyQuantized)
+      : (Number.isFinite(Number(prev?.q)) ? Number(prev.q) : key / 24),
+  ));
+  const velocity01 = Math.max(0, Math.min(1,
+    Number.isFinite(Number(signal?.velocity))
+      ? Number(signal.velocity)
+      : (Number(prev?.velocity01) || 0),
+  ));
+  const gateOn = Number(signal?.gate) > 0;
+  const gateAmp = gateOn ? velocity01 : 0;
+  const triggerAmp = Number(signal?.gatePulse) > 0 ? velocity01 : 0;
+  const sourceFreq = Number(signal?.frequency);
+  const prevFreq = Number(prev?.frequency);
+  const frequency = Math.max(0,
+    Number.isFinite(sourceFreq) && sourceFreq > 0
+      ? sourceFreq
+      : (Number.isFinite(prevFreq) && prevFreq > 0
+        ? prevFreq
+        : (440 * (2 ** ((midi - 69) / 12)))),
+  );
+  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const increment = Math.max(0, frequency / rate);
+  const x = Math.max(0, Math.min(1,
+    Number.isFinite(Number(signal?.x)) ? Number(signal.x) : (Number(prev?.x) || q),
+  ));
+  const y = Math.max(0, Math.min(1,
+    Number.isFinite(Number(signal?.y)) ? Number(signal.y) : (Number(prev?.y) || 0),
+  ));
+  return {
+    midi,
+    key,
+    q,
+    velocity01,
+    gateAmp,
+    triggerAmp,
+    frequency,
+    increment,
+    x,
+    y,
+  };
+}
+
+function nodeGraphKeyboardLocalHeldTransmit(phase) {
+  const low = Number(nodeGraphMvp?.midiKeyboardHeldKeysLowBitmask) || 0;
+  const high = Number(nodeGraphMvp?.midiKeyboardHeldKeysHighBitmask) || 0;
+  if (typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function") {
+    return nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase);
+  }
+  return high ? (phase ? NODE_GRAPH_HELD_KEYS_PHASE + high : low) : low;
+}
+
+/** Keyboard module: local piano + OR/max INs. Does not read hardware MIDI. */
+nodeGraphLiveModuleEvaluators.keyboard = ({
+  runtime, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate,
+}) => {
+  const phase = frame % 2;
+  const ctx = { runtime, frameValues, frame, frames, mixInput, hasInput };
+  const signal = nodeGraphKeyboardSignalFromMvp(true);
+  if (!runtime.keyboardCvHold) runtime.keyboardCvHold = new Map();
+  const cv = nodeGraphKeyboardBuildCvFromSignal(
+    signal,
+    sampleRate,
+    runtime.keyboardCvHold.get(nodeId),
+  );
+  runtime.keyboardCvHold.set(nodeId, cv);
+
+  const gateIn = nodeGraphKeyboardMixMax(nodeId, "Gate", ctx);
+  const triggerIn = nodeGraphKeyboardMixMax(nodeId, "Trigger", ctx);
+  const gateOut = Math.max(cv.gateAmp, gateIn);
+  const triggerOut = Math.max(cv.triggerAmp, triggerIn);
+
+  const heldLocal = nodeGraphKeyboardLocalHeldTransmit(phase);
+  const heldIn = nodeGraphKeyboardMixOrBits(nodeId, "Held Keys", ctx, phase);
+  const heldOut = nodeGraphHeldKeysOrTransmit([heldLocal, heldIn], phase);
+
+  const polyIn = nodeGraphKeyboardMixOrBits(nodeId, "Polyphony", ctx, phase);
+  // Local press mask: single key while gated.
+  let polyLocal = 0;
+  if (cv.gateAmp > 0 && typeof nodeGraphMidiKeyboardHeldKeysWithBit === "function") {
+    const bits = nodeGraphMidiKeyboardHeldKeysWithBit(0, 0, cv.key, true);
+    polyLocal = typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function"
+      ? nodeGraphMidiKeyboardHeldKeysTransmitValue(bits.low, bits.high, phase)
+      : bits.low;
+  }
+  const polyOut = nodeGraphHeldKeysOrTransmit([polyLocal, polyIn], phase);
+
+  // Stash for face paint (main thread).
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.keyboardFaceHeldTransmit = heldOut;
+    nodeGraphMvp.keyboardFacePolyTransmit = polyOut;
+  }
+
+  return {
+    Polyphony: polyOut,
+    "Held Keys": heldOut,
+    Gate: gateOut,
+    Trigger: triggerOut,
+    KeyboardKey: cv.key,
+    KeyboardNorm: cv.q,
+    "Note#/127": Math.max(0, Math.min(1, cv.midi / 127)),
+    "Velo#/127": cv.velocity01,
+    "Velocity#/127": cv.velocity01,
+    "0.1V/Oct": Math.max(0, Math.min(1, cv.midi / 120)),
+    "0.1v/Oct": Math.max(0, Math.min(1, cv.midi / 120)),
+    "Inc.": cv.increment,
+    Increment: cv.increment,
+    f: cv.frequency,
+    Frequency: cv.frequency,
+    X: cv.x,
+    Y: cv.y,
+  };
+};
+
+/** MIDI portal: hardware device signal only (no KeyboardKey/Norm, no Keyboard INs). */
 nodeGraphLiveModuleEvaluators.keyboardController = ({
   runtime, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate,
 }) => {
   void runtime;
+  void nodeId;
   void frames;
   void frameValues;
-  const signal = nodeGraphMvp?.midiKeyboardSignal || (
-    typeof nodeGraphMidiKeyboardFallbackSignal === "function"
-      ? nodeGraphMidiKeyboardFallbackSignal()
-      : null
+  void mixInput;
+  void hasInput;
+  const signal = nodeGraphKeyboardSignalFromMvp(false);
+  if (!runtime.keyboardCvHold) runtime.keyboardCvHold = new Map();
+  const cv = nodeGraphKeyboardBuildCvFromSignal(
+    signal,
+    sampleRate,
+    runtime.keyboardCvHold.get(nodeId),
   );
-  const resetActive = hasInput(nodeId, "Reset") && Number(mixInput(nodeId, "Reset")) > 0;
-  const manualRawMidi = Number.isFinite(Number(signal?.rawMidi))
-    ? Number(signal.rawMidi)
-    : Number(signal?.midi) || 60;
-  const manualOctave = Number(signal?.octave) || 0;
-  const octave = hasInput(nodeId, "Octave")
-    ? Math.max(-6, Math.min(6, Math.round(Number(mixInput(nodeId, "Octave")) || 0)))
-    : manualOctave;
-  const rawMidi = resetActive
-    ? 60
-    : (hasInput(nodeId, "MIDI Note") ? Number(mixInput(nodeId, "MIDI Note")) || 0 : manualRawMidi);
-  const midi = Math.max(0, Math.min(127, Math.round(rawMidi + octave * 12)));
-  const automatedPitch = resetActive || hasInput(nodeId, "MIDI Note") || hasInput(nodeId, "Octave");
-  const key = automatedPitch
-    ? Math.max(0, Math.min(24, Math.round(rawMidi) - 48))
-    : Math.max(0, Math.min(24, Math.round(Number(signal?.keyIndex) || 0)));
-  const q = automatedPitch
-    ? key / 24
-    : Math.max(0, Math.min(1, Number(signal?.keyQuantized) || key / 24));
-  const x = resetActive ? 0.5 : (hasInput(nodeId, "X")
-    ? Math.max(0, Math.min(1, Number(mixInput(nodeId, "X")) || 0))
-    : Math.max(0, Math.min(1, Number(signal?.x) || q)));
-  // Y is mouse/pointer vertical position only — not MIDI velocity.
-  const y = resetActive ? 0 : (hasInput(nodeId, "Y")
-    ? Math.max(0, Math.min(1, Number(mixInput(nodeId, "Y")) || 0))
-    : Math.max(0, Math.min(1, Number(signal?.y) || 0)));
-  const hold = hasInput(nodeId, "Hold") && Number(mixInput(nodeId, "Hold")) > 0;
-  const velocity01 = hasInput(nodeId, "Velocity")
-    ? Math.max(0, Math.min(1, Number(mixInput(nodeId, "Velocity")) || 0))
-    : Math.max(0, Math.min(1, Number(signal?.velocity) || 0));
-  const velocityNumber = Math.round(velocity01 * 127);
-  // Gate/Trigger amplitudes follow velocity (Thump etc. read Gate height as vel).
-  let gateAmp = 0;
-  if (!resetActive) {
-    if (hasInput(nodeId, "Gate")) {
-      gateAmp = Math.max(0, Math.min(1, Number(mixInput(nodeId, "Gate")) || 0));
-    } else if (Number(signal?.gate) > 0 || hold) {
-      gateAmp = velocity01;
-    }
-  }
-  const triggerAmp = resetActive
-    ? 0
-    : (hasInput(nodeId, "Gate")
-      ? gateAmp
-      : (Number(signal?.gatePulse) > 0 ? velocity01 : 0));
-  const frequency = Math.max(0, 440 * (2 ** ((midi - 69) / 12)));
-  const keyboardRate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
-  const increment = Math.max(0, frequency / keyboardRate);
+  runtime.keyboardCvHold.set(nodeId, cv);
+  const phase = frame % 2;
+  const heldOut = nodeGraphKeyboardLocalHeldTransmit(phase);
   return {
-    Trigger: triggerAmp,
-    "0.1V/Oct": Math.max(0, Math.min(1, midi / 120)),
-    "0.1v/Oct": Math.max(0, Math.min(1, midi / 120)),
-    "Note#/127": Math.max(0, Math.min(1, midi / 127)),
-    Frequency: frequency,
-    Gate: gateAmp,
-    "Inc.": increment,
-    Increment: increment,
-    KeyboardKey: key,
-    "Note#": midi,
-    KeyboardNorm: q,
-    "Velocity#": velocityNumber,
-    "Velocity#/127": velocity01,
-    X: x,
-    Y: y,
-    "Held Keys": nodeGraphMidiKeyboardHeldKeysTransmitValue(
-      nodeGraphMvp?.midiKeyboardHeldKeysLowBitmask,
-      nodeGraphMvp?.midiKeyboardHeldKeysHighBitmask,
-      frame % 2,
-    ),
+    Gate: cv.gateAmp,
+    Trigger: cv.triggerAmp,
+    "Note#/127": Math.max(0, Math.min(1, cv.midi / 127)),
+    "Velocity#/127": cv.velocity01,
+    "0.1V/Oct": Math.max(0, Math.min(1, cv.midi / 120)),
+    "0.1v/Oct": Math.max(0, Math.min(1, cv.midi / 120)),
+    "Inc.": cv.increment,
+    Increment: cv.increment,
+    Frequency: cv.frequency,
+    f: cv.frequency,
+    X: cv.x,
+    Y: cv.y,
+    "Held Keys": heldOut,
   };
 };
-
-nodeGraphLiveModuleEvaluators.keyboard = nodeGraphLiveModuleEvaluators.keyboardController;

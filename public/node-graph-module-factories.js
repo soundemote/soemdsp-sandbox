@@ -85,6 +85,17 @@ function nodeGraphPatchNodePortDisplayLabel(node, type, port, io) {
   if (alias) {
     return nodeGraphStereoJackDisplayLabel(alias, type, port);
   }
+  // Metamodule shell: dynamic boundary names are the label (Left / ƒ / Poly).
+  // Keep full Left/Right words — LayoutB stereo compaction would shrink to L/R.
+  if (
+    typeof nodeGraphIsMetamoduleType === "function"
+    && nodeGraphIsMetamoduleType(type || patchNode?.type)
+  ) {
+    const raw = String(port || "").trim();
+    return typeof nodeGraphFrequencyValuePortDisplayLabel === "function"
+      ? nodeGraphFrequencyValuePortDisplayLabel(raw)
+      : raw;
+  }
   return nodeGraphPortDisplayLabel(type, port, io);
 }
 
@@ -142,9 +153,8 @@ function createNodeGraphIoColumn(node, type, ports, io) {
       }
     }
     if (nodeGraphPortIsDigitalSignal(type, port, io)) {
-      // White digital cable: Scale bitmasks, ƒ Hz-value jacks (in and out),
-      // and anything listed in digitalInputs/digitalOutputs. 0.1V/Oct stays
-      // analog. See nodeGraphPortIsDigitalSignal.
+      // White digital cable: Scale bitmasks, ƒ Hz-value jacks, Gate/Trigger
+      // (app-wide), and digitalInputs/digitalOutputs. 0.1V/Oct stays analog.
       row.dataset.digitalSignal = io;
     }
     const portLabel = nodeGraphPatchNodePortDisplayLabel(node, type, port, io);
@@ -783,8 +793,39 @@ function createNodeGraphKeyboardControllerBody(node = null) {
     item.append(value);
     liveReadouts.append(item);
   }
+  const velRow = document.createElement("div");
+  velRow.className = "node-midi-keyboard-vel-range";
+  velRow.setAttribute("aria-label", "Pointer velocity range");
+  const velMinLabel = document.createElement("label");
+  velMinLabel.className = "node-midi-keyboard-vel-field";
+  const velMinCaption = document.createElement("span");
+  velMinCaption.textContent = "Vel Min";
+  const velMinInput = document.createElement("input");
+  velMinInput.type = "number";
+  velMinInput.min = "0";
+  velMinInput.max = "127";
+  velMinInput.step = "1";
+  velMinInput.dataset.midiKeyboardVelMin = "true";
+  velMinInput.setAttribute("aria-label", "Velocity minimum 0 to 127");
+  velMinInput.value = "127";
+  velMinLabel.append(velMinCaption, velMinInput);
+  const velMaxLabel = document.createElement("label");
+  velMaxLabel.className = "node-midi-keyboard-vel-field";
+  const velMaxCaption = document.createElement("span");
+  velMaxCaption.textContent = "Vel Max";
+  const velMaxInput = document.createElement("input");
+  velMaxInput.type = "number";
+  velMaxInput.min = "0";
+  velMaxInput.max = "127";
+  velMaxInput.step = "1";
+  velMaxInput.dataset.midiKeyboardVelMax = "true";
+  velMaxInput.setAttribute("aria-label", "Velocity maximum 0 to 127");
+  velMaxInput.value = "127";
+  velMaxLabel.append(velMaxCaption, velMaxInput);
+  velRow.append(velMinLabel, velMaxLabel);
+
   controls.append(modeLabel, octave, keyCount, liveReadouts);
-  heading.append(controls);
+  heading.append(controls, velRow);
 
   const performance = document.createElement("div");
   performance.className = "node-midi-keyboard-performance";
@@ -811,12 +852,9 @@ function createNodeGraphKeyboardControllerBody(node = null) {
   const signals = [
     ["gate", "Gate", "0"],
     ["gatePulse", "Trigger", "0"],
-    ["key", "KeyboardKey", "-"],
-    ["quantized", "KeyboardNorm", "-"],
     ["octave", "Octave", "+0"],
-    ["midi", "Note#", "-"],
     ["double", "Note#/127", "-"],
-    ["velocity", "Velocity#", "-"],
+    ["velocity01", "Velocity#/127", "-"],
     ["tenthVoltPerOctave", "0.1V/Oct", "-"],
     ["frequency", "Frequency", "-"],
     ["increment", "Inc.", "-"],
@@ -828,9 +866,6 @@ function createNodeGraphKeyboardControllerBody(node = null) {
     value.dataset.keyboardSignal = key;
     value.textContent = valueText;
     item.append(value);
-    if (key === "key") {
-      item.append(document.createTextNode(" / 24"));
-    }
     signalBar.append(item);
   }
   const bitmaskBar = document.createElement("div");
@@ -892,7 +927,12 @@ function createNodeGraphParameter(node, type, parameter) {
   input.min = String(metadata?.min ?? parameter.min);
   input.max = String(metadata?.max ?? parameter.max);
   input.step = metadata?.step > 0 ? String(metadata.step) : "any";
-  input.value = String(metadata?.def ?? parameter.defaultValue);
+  // Prefer live patch value (critical for Metamodule mx_* mirrors).
+  const patchValue = patchNode?.params?.[parameter.key];
+  const seedValue = (patchValue != null && Number.isFinite(Number(patchValue)))
+    ? patchValue
+    : (metadata?.def ?? parameter.defaultValue);
+  input.value = String(seedValue);
   input.dataset.step = metadata?.step > 0 ? String(metadata.step) : "any";
   input.dataset.mid = String(metadata?.mid ?? parameter.mid);
   input.dataset.default = String(metadata?.def ?? parameter.defaultValue);
@@ -925,8 +965,8 @@ function createNodeGraphParameter(node, type, parameter) {
   if (metadata?.hardClamp || parameter.hardClamp) {
     input.dataset.hardClamp = "true";
   }
-  input.dataset.domainValue = String(metadata?.def ?? parameter.defaultValue);
-  applyNodeGraphInputUnboundedValue(input, input.value);
+  input.dataset.domainValue = String(seedValue);
+  applyNodeGraphInputUnboundedValue(input, seedValue);
   input.setAttribute("aria-label", `${nodeGraphNodeLabels[type]} ${parameter.label}`);
   label.append(input);
   row.append(label);

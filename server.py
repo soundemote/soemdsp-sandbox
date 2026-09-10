@@ -590,6 +590,9 @@ class SandboxServer(BaseHTTPRequestHandler):
         wasm_path = source_path.with_suffix(".wasm")
         relative_source = source_path.relative_to(ROOT).as_posix()
         relative_wasm = wasm_path.relative_to(ROOT).as_posix()
+        # localSourceUrl is same-origin so the Code button works for natives
+        # that exist locally but are not on GitHub master yet.
+        local_source = f"/{relative_source}"
         return {
             "name": name,
             "label": label,
@@ -597,6 +600,7 @@ class SandboxServer(BaseHTTPRequestHandler):
             "kind": headers.get("kind") or "",
             "source": relative_source,
             "sourceUrl": f"https://github.com/soundemote/soemdsp-sandbox/blob/master/{relative_source}",
+            "localSourceUrl": local_source,
             "libUrl": headers.get("lib") or "",
             "wasm": relative_wasm,
             "wasmUrl": relative_wasm,

@@ -174,6 +174,18 @@ function showNodeGraphModule(node, point = null, options = {}) {
     }
     return "";
   }
+  // Meta In/Out only exist inside a Metamodule view (always hidden on Root).
+  if (
+    typeof nodeGraphIsMetamoduleBoundaryType === "function"
+    && nodeGraphIsMetamoduleBoundaryType(type)
+    && typeof nodeGraphMetamoduleIsRootView === "function"
+    && nodeGraphMetamoduleIsRootView()
+  ) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Open a Metamodule (double-click) to place Meta In / Meta Out.");
+    }
+    return "";
+  }
   if (typeof nodeGraphEfficientProductEnabled === "function"
     && nodeGraphEfficientProductEnabled()) {
     const shopOk = typeof nodeGraphModuleIsEfficientProductShopType === "function"
@@ -228,22 +240,20 @@ function showNodeGraphModule(node, point = null, options = {}) {
   counts[type] = (counts[type] || 0) + 1;
   const id = `${type}-${counts[type]}`;
   const gridPoint = point ? nodeGraphPixelToGrid(point) : defaultNodeGraphModuleGridPoint(type);
-  // Group Input/Output default to "Input N"/"Output N" at creation so a
-  // fresh portal is never left blank until renamed. Duplicate/copy keeps
-  // the source alias instead of calling showNodeGraphModule.
-  const defaultAlias = type === "groupInput" ? `Input ${counts[type]}`
-    : type === "groupOutput" ? `Output ${counts[type]}`
-    : undefined;
+  const newNode = createNodeGraphPatchNode(type, {
+    id,
+    gx: gridPoint.gx,
+    gy: gridPoint.gy,
+  });
+  // Inside a Metamodule: claim ownership (and boundary for Meta In/Out).
+  if (typeof nodeGraphMetamoduleClaimPlacedNode === "function") {
+    nodeGraphMetamoduleClaimPlacedNode(newNode, live);
+  }
   const patch = {
     ...live,
     nodes: [
       ...(live.nodes || []),
-      createNodeGraphPatchNode(type, {
-        id,
-        gx: gridPoint.gx,
-        gy: gridPoint.gy,
-        ...(defaultAlias ? { alias: defaultAlias } : {}),
-      }),
+      newNode,
     ],
   };
   const commitAdd = () => {
@@ -867,6 +877,27 @@ function nodeGraphCopiedModuleSizeOptions(sourceNode) {
 function copyNodeGraphModule(sourceNode) {
   if (typeof nodeGraphModuleTypeIsUniqueInPatch === "function"
     && nodeGraphModuleTypeIsUniqueInPatch(sourceNode?.type)) {
+    return;
+  }
+  // Shell/boundary copy would share children/portals (same ids) — not supported yet.
+  if (
+    typeof nodeGraphIsMetamoduleType === "function"
+    && nodeGraphIsMetamoduleType(sourceNode?.type)
+  ) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp(
+        "Duplicate Metamodule is not supported yet (would share children). Group a new selection instead.",
+      );
+    }
+    return;
+  }
+  if (
+    typeof nodeGraphIsMetamoduleBoundaryType === "function"
+    && nodeGraphIsMetamoduleBoundaryType(sourceNode?.type)
+  ) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Duplicate Meta In/Out is not supported. Place a new one inside the Metamodule.");
+    }
     return;
   }
   if (typeof nodeGraphEfficientProductEnabled === "function"
@@ -1544,11 +1575,34 @@ function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = n
   if (!changed) {
     return;
   }
+  // Meta In/Out alias → Root shell jack label.
+  const ownerMetaIds = new Set();
+  for (const id of ids) {
+    const targetNode = patch.nodes.find((node) => node.id === id);
+    if (
+      targetNode
+      && typeof nodeGraphIsMetamoduleBoundaryType === "function"
+      && nodeGraphIsMetamoduleBoundaryType(targetNode.type)
+      && targetNode.ownerMetamoduleId
+    ) {
+      ownerMetaIds.add(String(targetNode.ownerMetamoduleId));
+    }
+  }
+  for (const metaId of ownerMetaIds) {
+    if (typeof nodeGraphMetamoduleSyncBoundaryShellPorts === "function") {
+      nodeGraphMetamoduleSyncBoundaryShellPorts(metaId, patch);
+    }
+  }
   commitNodeGraphPatch(patch, {
     status: changed > 1
       ? (alias ? "module titles changed" : "module titles cleared")
       : (alias ? "module title changed" : "module title cleared"),
   });
+  for (const metaId of ownerMetaIds) {
+    if (typeof nodeGraphMetamoduleRemountShell === "function") {
+      nodeGraphMetamoduleRemountShell(metaId);
+    }
+  }
 }
 
 function setNodeGraphKnobTextFromContext({ record = true } = {}) {
@@ -1611,10 +1665,21 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
   } else {
     delete targetNode.alias;
   }
+  const ownerMetaId = (
+    typeof nodeGraphIsMetamoduleBoundaryType === "function"
+    && nodeGraphIsMetamoduleBoundaryType(targetNode.type)
+    && targetNode.ownerMetamoduleId
+  ) ? String(targetNode.ownerMetamoduleId) : "";
+  if (ownerMetaId && typeof nodeGraphMetamoduleSyncBoundaryShellPorts === "function") {
+    nodeGraphMetamoduleSyncBoundaryShellPorts(ownerMetaId, patch);
+  }
   commitNodeGraphPatch(patch, {
     record,
     status: alias ? "module alias changed" : "module alias cleared",
   });
+  if (ownerMetaId && typeof nodeGraphMetamoduleRemountShell === "function") {
+    nodeGraphMetamoduleRemountShell(ownerMetaId);
+  }
   // Restore after full rebuild (change/blur path). Use hadFocus — activeElement
   // is often already body by the time we get here.
   if (hadFocus && input?.isConnected) {
@@ -2999,11 +3064,39 @@ function nodeGraphOpenUrlInNewTab(url) {
 function openNodeGraphNativeModuleCodeFromContext() {
   const targetNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
   const entry = nodeGraphNativeModuleCodeEntryForNode(targetNode);
-  if (!entry?.sourceUrl) {
+  if (!entry) {
+    const label = targetNode
+      ? (typeof nodeGraphNodeDisplayName === "function"
+        ? nodeGraphNodeDisplayName(targetNode.id)
+        : targetNode.type)
+      : "module";
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp(`No code found: ${label}.`);
+    }
     return;
   }
-  nodeGraphOpenUrlInNewTab(entry.sourceUrl);
-  setNodeInteractionHelp(`Opened ${entry.source || entry.sourceUrl}.`);
+  // Prefer local sandbox paths — GitHub master often lacks branch-only natives
+  // (Ping Envelope, Hypersaw2, …) and 404s as "no code found".
+  const localHref = typeof nodeGraphLocalSourceHrefForEntry === "function"
+    ? nodeGraphLocalSourceHrefForEntry(entry)
+    : "";
+  if (localHref) {
+    nodeGraphOpenUrlInNewTab(localHref);
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp(`Opened local ${entry.source || localHref}.`);
+    }
+    return;
+  }
+  if (entry.sourceUrl) {
+    nodeGraphOpenUrlInNewTab(entry.sourceUrl);
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp(`Opened ${entry.source || entry.sourceUrl}.`);
+    }
+    return;
+  }
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp("No code found for this module.");
+  }
 }
 
 function openNodeGraphNativeModuleLibFromContext() {

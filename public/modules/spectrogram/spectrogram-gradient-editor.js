@@ -1321,11 +1321,6 @@
       defaultStops: "phosphor",
       hint: "Select a stop · presets · live audition on the bank face",
     }),
-    hypersawBurn: Object.freeze({
-      channels: "color",
-      defaultStops: "phosphor",
-      hint: "Select a stop · presets · live audition on the hypersaw face",
-    }),
     // Same color×luma scheme as 2D phosphor: multi-stop color LUT maps
     // underlying light amount (energy / segment intensity) → color.
     numberReadout: Object.freeze({

@@ -100,6 +100,14 @@ var sandbox = {
       outputs: ["X", "Y"],
       parameters: [],
     },
+    metamodule: {
+      chrome: "MetamoduleLayout",
+      customDisplayArea: true,
+      displayHeightGu: 2,
+      inputs: ["Poly", "Amplitude"],
+      outputs: [],
+      parameters: [{ key: "voices" }, { key: "playmode" }],
+    },
     textBox: {
       chrome: "LayoutA",
       layout: "textBox",
@@ -166,6 +174,7 @@ var cases = [
   { type: "matrixWaterfall", layout: "A", face: true, sliders: true, io: true },
   { type: "smoothGraph", layout: "B", face: true, sliders: true, io: false },
   { type: "vectorscopeTransform", layout: "C", face: false, sliders: false, io: true },
+  { type: "metamodule", layout: "M", face: true, sliders: true, io: true },
 ];
 
 cases.forEach(function (c) {
@@ -186,6 +195,24 @@ cases.forEach(function (c) {
     assert(bOff.indexOf("shell") >= 0, c.type + " hide display keeps jack shell");
     var bNoSliders = contentIds(c.type, { oscilloscopeHidden: true, slidersHidden: true });
     assert(bNoSliders.indexOf("params") < 0, c.type + " hide display+sliders drops params");
+    return;
+  }
+  if (c.layout === "M") {
+    assert(shown[0] === "header", c.type + " MetamoduleLayout starts with header " + shown);
+    assert(shown.indexOf("io") >= 0, c.type + " MetamoduleLayout has top io " + shown);
+    assert(shown.indexOf("face") >= 0, c.type + " MetamoduleLayout has face " + shown);
+    assert(shown.indexOf("io") < shown.indexOf("face"), c.type + " io before face " + shown);
+    assert(shown.indexOf("shell") < 0, c.type + " MetamoduleLayout has no LayoutB shell");
+    var all = ids(bands(c.type, {}));
+    assert(all.indexOf("lip") >= 0, c.type + " MetamoduleLayout always has lip clearance " + all);
+    var mOff = contentIds(c.type, { oscilloscopeHidden: true });
+    assert(mOff.indexOf("face") < 0, c.type + " hide display drops face track");
+    assert(mOff.indexOf("io") >= 0, c.type + " hide display keeps top io");
+    var grid = sandbox.nodeGraphMetamoduleLayoutGridHeightUnits(c.type, {});
+    var content = sandbox.nodeGraphMetamoduleLayoutContentHeightGu(c.type, {});
+    assert(grid >= Math.ceil(content), c.type + " outer >= ceil(content)");
+    var slackPx = (grid - content) * 28;
+    assert(slackPx >= 2 - 1e-6, c.type + " clearance slack >= 2px got " + slackPx);
     return;
   }
 

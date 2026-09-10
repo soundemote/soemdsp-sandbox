@@ -45,6 +45,7 @@ def native_module_entry_from_source(source_path: Path) -> dict[str, object] | No
         "kind": headers.get("kind") or "",
         "source": relative_source,
         "sourceUrl": f"https://github.com/soundemote/soemdsp-sandbox/blob/master/{relative_source}",
+        "localSourceUrl": f"/{relative_source}",
         "libUrl": headers.get("lib") or "",
         "wasm": relative_wasm,
         "wasmUrl": relative_wasm,

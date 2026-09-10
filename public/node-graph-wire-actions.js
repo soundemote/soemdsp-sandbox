@@ -407,8 +407,9 @@ function rangeSelectedNodeGraphWires(mode = "bipolar") {
   const pairSlots = new Map();
   const newIds = [];
   const params = unipolar
-    ? { inLow: 0, inHigh: 1, outLow: -10, outHigh: 10 }
-    : { inLow: -1, inHigh: 1, outLow: -10, outHigh: 10 };
+    // Unit CV 0…1 — Morph-safe. Old −10…+10 pegged |v|>1 domain-add MOD.
+    ? { inLow: 0, inHigh: 1, outLow: 0, outHigh: 1 }
+    : { inLow: 0, inHigh: 1, outLow: 0, outHigh: 1 };
   for (const entry of snapshots) {
     const wire = entry.wire;
     if (!wire?.sourceNode || !wire?.destinationNode) {
@@ -1470,6 +1471,20 @@ function nodeGraphAutoPairPortConnections(patch, sourceNode, sourcePort, destina
 }
 
 function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinationPort, options = {}) {
+  // Metamodule shell jacks on Root are visual proxies — DSP wires go to Meta In/Out.
+  if (typeof nodeGraphMetamoduleRewriteShellConnection === "function") {
+    const rewritten = nodeGraphMetamoduleRewriteShellConnection(
+      sourceNode,
+      sourcePort,
+      destinationNode,
+      destinationPort,
+    );
+    sourceNode = rewritten.sourceNode;
+    sourcePort = rewritten.sourcePort;
+    destinationNode = rewritten.destinationNode;
+    destinationPort = rewritten.destinationPort;
+  }
+
   if (
     !nodeGraphInputKey(destinationNode, destinationPort) ||
     !nodeGraphMvp.activeNodes.has(sourceNode) ||
@@ -1551,7 +1566,43 @@ function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinat
       nextWireData,
     );
   }
-  commitNodeGraphPatch(patch, { status: autoConnected ? `wire connected +${autoConnected}` : "wire connected", wireEdit: true });
+  // Meta Out.Out → owned child inlet ⇒ treat as Meta In (shell inlet, e.g. ƒ).
+  const flippedOwners = new Set();
+  const flippedPortalIds = new Set();
+  if (typeof nodeGraphMetamoduleFlipMiswiredOutletToInlet === "function") {
+    const flipped = nodeGraphMetamoduleFlipMiswiredOutletToInlet(sourceNode, patch);
+    if (flipped) {
+      flippedOwners.add(flipped);
+      flippedPortalIds.add(String(sourceNode));
+    }
+  }
+  commitNodeGraphPatch(patch, {
+    status: flippedOwners.size
+      ? "wire connected (Meta Out → Meta In)"
+      : (autoConnected ? `wire connected +${autoConnected}` : "wire connected"),
+    wireEdit: true,
+    ...(flippedOwners.size ? { topologyEdit: true } : {}),
+  });
+  // wireEdit skips full DOM — remount flipped portals + Root shell jacks.
+  for (const portalId of flippedPortalIds) {
+    const portal = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(portalId) : null;
+    if (portal && typeof applyNodeGraphModuleElementFromPatch === "function") {
+      applyNodeGraphModuleElementFromPatch(portal);
+    }
+  }
+  if (typeof nodeGraphIsMetamoduleBoundaryType === "function"
+    && typeof nodeGraphMetamoduleRefreshShellFromBoundary === "function") {
+    const ownerIds = new Set(flippedOwners);
+    for (const nodeId of [sourceNode, destinationNode]) {
+      const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+      if (nodeGraphIsMetamoduleBoundaryType(node?.type) && node.ownerMetamoduleId) {
+        ownerIds.add(String(node.ownerMetamoduleId));
+      }
+    }
+    for (const metaId of ownerIds) {
+      nodeGraphMetamoduleRefreshShellFromBoundary(metaId);
+    }
+  }
   if (typeof triggerNodeGraphWireConnectEvent === "function") {
     triggerNodeGraphWireConnectEvent("signal");
   }
@@ -1574,18 +1625,36 @@ function connectNodeGraphModulation(sourceNode, sourcePort, destinationNode, des
     return false;
   }
 
+  // Metamodule exposed param mod jack → rewrite to the owned child param.
+  let destNode = String(destinationNode || "");
+  let destParam = String(destinationParam || "");
+  const destPatchNode = typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(destNode)
+    : null;
+  if (
+    destPatchNode?.type === "metamodule"
+    && destParam.startsWith("mx_")
+    && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
+  ) {
+    const target = nodeGraphMetamoduleResolveExposeTarget(destPatchNode, destParam);
+    if (target?.childId && target?.paramKey) {
+      destNode = target.childId;
+      destParam = target.paramKey;
+    }
+  }
+
   const duplicateIndex = nodeGraphMvp.patch.modulations.findIndex(
     (modulation) =>
       modulation.sourceNode === sourceNode &&
       modulation.sourcePort === sourcePort &&
-      modulation.destinationNode === destinationNode &&
-      modulation.destinationParam === destinationParam,
+      modulation.destinationNode === destNode &&
+      modulation.destinationParam === destParam,
   );
   if (duplicateIndex >= 0 && !options.replaceDuplicate) {
     return false;
   }
 
-  const effectiveOptions = nodeGraphConnectionOptionsWithSelfTrace(sourceNode, destinationNode, options);
+  const effectiveOptions = nodeGraphConnectionOptionsWithSelfTrace(sourceNode, destNode, options);
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const nextWireData = nodeGraphWireOptionalPatchFields(effectiveOptions);
   if (duplicateIndex >= 0) {
@@ -1599,8 +1668,8 @@ function connectNodeGraphModulation(sourceNode, sourcePort, destinationNode, des
   patch.modulations.push({
     sourceNode,
     sourcePort,
-    destinationNode,
-    destinationParam,
+    destinationNode: destNode,
+    destinationParam: destParam,
     ...nextWireData,
   });
   commitNodeGraphPatch(patch, { status: "modulation connected", wireEdit: true });

@@ -127,6 +127,16 @@ function nodeGraphPatchNodeParameterDefinitions(node) {
       ? { ...parameter, defaultLabel: parameter.label, label: alias }
       : { ...parameter, defaultLabel: parameter.label };
   });
+  // Metamodule shell: append child params marked "Show metaparameter".
+  if (
+    patchNode?.type === "metamodule"
+    && typeof nodeGraphMetamoduleExposedParameterDefinitions === "function"
+  ) {
+    const exposed = nodeGraphMetamoduleExposedParameterDefinitions(patchNode);
+    if (exposed.length) {
+      return parameters.concat(exposed);
+    }
+  }
   return parameters;
 }
 const nodeGraphCodeblockDefaultCode = "Out1 = In1;";
@@ -255,6 +265,13 @@ function nodeGraphPatchNodeInputPorts(node) {
   if (patchNode?.type === "screenSpaceShader") {
     return normalizeNodeGraphScreenSpaceShader(patchNode.screenSpaceShader).inputs;
   }
+  // Metamodule shell: Poly + boundary-derived Root jacks (portals stay for DSP).
+  if (
+    patchNode?.type === "metamodule"
+    && typeof nodeGraphMetamoduleShellPorts === "function"
+  ) {
+    return nodeGraphMetamoduleShellPorts(patchNode).inputs;
+  }
   const definition = typeof nodeGraphModuleDefinition === "function"
     ? nodeGraphModuleDefinition(patchNode?.type)
     : nodeGraphModuleDefinitions[patchNode?.type];
@@ -272,6 +289,12 @@ function nodeGraphPatchNodeOutputPorts(node) {
   }
   if (patchNode?.type === "customDisplay") {
     return [];
+  }
+  if (
+    patchNode?.type === "metamodule"
+    && typeof nodeGraphMetamoduleShellPorts === "function"
+  ) {
+    return nodeGraphMetamoduleShellPorts(patchNode).outputs;
   }
   return nodeGraphModuleOutputPorts(patchNode?.type);
 }
@@ -599,9 +622,30 @@ function nodeGraphModuleUsesYellowGraphDomainParamOut(type) {
 }
 
 function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
-  const parameter = nodeGraphModuleDefinitions[type]?.parameters?.find(
+  let parameter = nodeGraphModuleDefinitions[type]?.parameters?.find(
     (candidate) => candidate.key === key,
   );
+  // Metamodule exposed mx_* rows: normalize against the child parameter def.
+  if (
+    !parameter
+    && type === "metamodule"
+    && String(key || "").startsWith("mx_")
+    && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
+  ) {
+    const patch = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.patch : null;
+    const metas = (patch?.nodes || []).filter((n) => n?.type === "metamodule");
+    for (const meta of metas) {
+      const target = nodeGraphMetamoduleResolveExposeTarget(meta, key, patch);
+      if (!target?.child) continue;
+      parameter = nodeGraphModuleDefinitions[target.child.type]?.parameters?.find(
+        (candidate) => candidate.key === target.paramKey,
+      );
+      if (parameter && (!metadata || typeof metadata !== "object" || !Object.keys(metadata).length)) {
+        metadata = target.child.paramMeta?.[target.paramKey] || metadata;
+      }
+      break;
+    }
+  }
   const fallback = parameter
     ? nodeGraphParameterDefinitionMetadata(parameter)
     : null;

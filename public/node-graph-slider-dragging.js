@@ -34,6 +34,23 @@ function syncNodeGraphPatchMetadataFromSlider(slider, options = {}) {
       patchNode.paramMeta[key],
     ),
   };
+  if (
+    patchNode.type === "metamodule"
+    && String(key || "").startsWith("mx_")
+    && typeof nodeGraphMetamoduleSyncExposedParamFromShell === "function"
+  ) {
+    nodeGraphMetamoduleSyncExposedParamFromShell(
+      patchNode,
+      key,
+      patchNode.params[key],
+      nodeGraphMvp.patch,
+    );
+  } else if (
+    patchNode.ownerMetamoduleId
+    && typeof nodeGraphMetamoduleSyncShellFromChild === "function"
+  ) {
+    nodeGraphMetamoduleSyncShellFromChild(patchNode, key, nodeGraphMvp.patch);
+  }
   const graphPhaseChanged = (
     key === "phase" &&
     nodeGraphModuleIsGraphType(patchNode.type) &&
@@ -106,6 +123,24 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
       patchNode.paramMeta[key],
     ),
   };
+  // Metamodule "Show metaparameter": shell slider writes through to the child.
+  if (
+    patchNode.type === "metamodule"
+    && String(key || "").startsWith("mx_")
+    && typeof nodeGraphMetamoduleSyncExposedParamFromShell === "function"
+  ) {
+    nodeGraphMetamoduleSyncExposedParamFromShell(
+      patchNode,
+      key,
+      patchNode.params[key],
+      nodeGraphMvp.patch,
+    );
+  } else if (
+    patchNode.ownerMetamoduleId
+    && typeof nodeGraphMetamoduleSyncShellFromChild === "function"
+  ) {
+    nodeGraphMetamoduleSyncShellFromChild(patchNode, key, nodeGraphMvp.patch);
+  }
   // Pitch Quantizer: preset Scale slider writes the face keyboard mask so
   // audio + keyboard stay in sync. Custom (choice 6) leaves scaleMask alone.
   if (patchNode.type === "pitchQuantizer" && key === "scale") {

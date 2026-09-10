@@ -3,9 +3,27 @@ function nodeGraphBypassGlyph(bypassed) {
 }
 
 function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
-  const parameter = nodeGraphModuleDefinitions[type]?.parameters?.find(
+  let parameter = nodeGraphModuleDefinitions[type]?.parameters?.find(
     (candidate) => candidate.key === key,
   );
+  // Metamodule exposed child params (mx_*__*) — accept numeric store; clamp via metadata.
+  if (!parameter && type === "metamodule" && String(key || "").startsWith("mx_")) {
+    const number = Number(value);
+    const fallback = Number(metadata?.def);
+    const candidate = Number.isFinite(number)
+      ? number
+      : (Number.isFinite(fallback) ? fallback : 0);
+    if (typeof nodeGraphParamApplyDomainBounds === "function" && metadata) {
+      return nodeGraphParamApplyDomainBounds(candidate, {
+        min: metadata.min,
+        max: metadata.max,
+        wraparound: metadata.wraparound,
+        constraint: metadata.constraint,
+        hardClamp: metadata.hardClamp,
+      });
+    }
+    return candidate;
+  }
   if (!parameter) {
     return null;
   }
@@ -642,6 +660,28 @@ function validateNodeGraphPatch(patch) {
     ) {
       normalizedNode.ui = ui;
     }
+    // Metamodule ownership + shell payload must survive normalize/save/load.
+    const ownerMeta = String(node.ownerMetamoduleId || "").trim();
+    if (ownerMeta) {
+      normalizedNode.ownerMetamoduleId = ownerMeta;
+    }
+    if (node.metamodule && typeof node.metamodule === "object") {
+      const boundary = Array.isArray(node.metamodule.boundary)
+        ? node.metamodule.boundary.map((entry) => (
+          entry && typeof entry === "object" ? { ...entry } : entry
+        )).filter(Boolean)
+        : [];
+      const displays = Array.isArray(node.metamodule.displays)
+        ? node.metamodule.displays.map((entry) => (
+          entry && typeof entry === "object" ? { ...entry } : entry
+        )).filter(Boolean)
+        : [];
+      const paramVisibility = node.metamodule.paramVisibility
+        && typeof node.metamodule.paramVisibility === "object"
+        ? { ...node.metamodule.paramVisibility }
+        : {};
+      normalizedNode.metamodule = { boundary, displays, paramVisibility };
+    }
     return normalizedNode;
   });
   const uiItems = normalizeNodeGraphPatchUiItems(patch.uiItems, { nodeIds: ids });
@@ -827,24 +867,39 @@ function validateNodeGraphPatch(patch) {
     throw new Error(`view.heightGu must be 0 or at least ${nodeGraphWorkspaceViewLimits.minHeightGu}`);
   }
 
+  // Metamodule hygiene: flip Meta Out used as child inlets; drop unowned orphans.
+  const metaHygiene = {
+    nodes,
+    connections,
+    modulations,
+    graphConnections,
+    bypassedNodes,
+  };
+  if (typeof nodeGraphMetamoduleRepairMiswiredOutlets === "function") {
+    nodeGraphMetamoduleRepairMiswiredOutlets(metaHygiene);
+  }
+  if (typeof nodeGraphMetamodulePruneOrphanPortals === "function") {
+    nodeGraphMetamodulePruneOrphanPortals(metaHygiene);
+  }
+
   const normalized = {
     activeCameraId: cameraState.activeCameraId,
     audio: normalizeNodeGraphPatchAudio(patch.audio),
-    bypassedNodes,
+    bypassedNodes: metaHygiene.bypassedNodes,
     cameras: cameraState.cameras,
     codeScreen: normalizeNodeGraphCodeScreen(patch.codeScreen),
-    connections,
+    connections: metaHygiene.connections,
     format: { ...nodeGraphPatchFormat },
-    graphConnections,
+    graphConnections: metaHygiene.graphConnections,
     grid,
     info: normalizeNodeGraphPatchInfo(patch.info),
     modularOnlyControlsVisible: Boolean(patch.modularOnlyControlsVisible),
-    modulations,
+    modulations: metaHygiene.modulations,
     monitors: normalizeNodeGraphPatchMonitors(patch.monitors, {
       ...patch,
-      nodes,
+      nodes: metaHygiene.nodes,
     }),
-    nodes,
+    nodes: metaHygiene.nodes,
     requiredAssets: typeof nodeGraphRequiredAssetsForPatch === "function"
       ? nodeGraphRequiredAssetsForPatch({
         ...patch,
@@ -1094,7 +1149,12 @@ function loadNodeGraphPatchFromObject(patch) {
 }
 
 function nodeGraphModuleShouldBeVisible(node) {
-  void node;
+  // Metamodule view: Root hides owned children; inside a meta show only its children.
+  if (typeof nodeGraphMetamoduleNodeVisibleInCurrentView === "function") {
+    if (!nodeGraphMetamoduleNodeVisibleInCurrentView(node)) {
+      return false;
+    }
+  }
   // Input modules stay on the graph even when the bottom Input button is Off.
   // Live capture is still gated by inputActive (runtime bypass / host stream).
   return true;
@@ -1112,9 +1172,22 @@ function nodeGraphModuleStructuralUiSignature(patchNode) {
   const patchNodeUi = typeof nodeGraphEffectivePatchNodeUi === "function"
     ? nodeGraphEffectivePatchNodeUi(patchNode?.ui, patchNode?.type)
     : (patchNode?.ui || {});
+  // Metamodule exposed params must force remount when Show metaparameter flips.
+  let exposeSig = "";
+  if (
+    patchNode?.type === "metamodule"
+    && patchNode.metamodule?.paramVisibility
+    && typeof patchNode.metamodule.paramVisibility === "object"
+  ) {
+    exposeSig = Object.keys(patchNode.metamodule.paramVisibility)
+      .filter((k) => patchNode.metamodule.paramVisibility[k] === true)
+      .sort()
+      .join(",");
+  }
   return [
     patchNodeUi.oscilloscopeHidden ? "scope-hidden" : "scope-visible",
     patchNodeUi.titleHidden ? "title-hidden" : "title-visible",
+    exposeSig ? `expose:${exposeSig}` : "expose:",
   ].join("|");
 }
 
@@ -1228,18 +1301,50 @@ function syncNodeGraphModuleChromeElement(element, patchNode) {
 }
 
 function syncNodeGraphModuleParamElement(element, patchNode) {
-  for (const parameter of nodeGraphModuleDefinitions[patchNode.type]?.parameters || []) {
+  // Patch-aware list (includes Metamodule mx_* exposed child params).
+  const parameters = typeof nodeGraphPatchNodeParameterDefinitions === "function"
+    ? nodeGraphPatchNodeParameterDefinitions(patchNode)
+    : (nodeGraphModuleDefinitions[patchNode.type]?.parameters || []);
+  for (const parameter of parameters) {
     const input = element.querySelector(`input[data-param="${CSS.escape(parameter.key)}"]`);
     if (!input) {
       continue;
     }
+    let metaEntry = patchNode.paramMeta?.[parameter.key];
+    // Exposed shell rows: prefer child paramMeta for ranges / alias chrome.
+    if (
+      (!metaEntry || typeof metaEntry !== "object")
+      && patchNode.type === "metamodule"
+      && String(parameter.key || "").startsWith("mx_")
+      && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
+    ) {
+      const target = nodeGraphMetamoduleResolveExposeTarget(patchNode, parameter.key);
+      if (target?.child) {
+        metaEntry = target.child.paramMeta?.[target.paramKey]
+          || (typeof nodeGraphParameterDefinitionMetadata === "function"
+            ? nodeGraphParameterDefinitionMetadata(parameter)
+            : null);
+      }
+    }
     setNodeSliderMetadata(
       input,
-      patchNode.paramMeta?.[parameter.key] ||
-      nodeGraphParameterDefinitionMetadata(parameter),
+      metaEntry || nodeGraphParameterDefinitionMetadata(parameter),
     );
-    const value = patchNode.params?.[parameter.key] ??
-      nodeGraphParameterFallback(patchNode.type, parameter.key);
+    let value = patchNode.params?.[parameter.key];
+    if (
+      (value == null || !Number.isFinite(Number(value)))
+      && patchNode.type === "metamodule"
+      && String(parameter.key || "").startsWith("mx_")
+      && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
+    ) {
+      const target = nodeGraphMetamoduleResolveExposeTarget(patchNode, parameter.key);
+      if (target?.child) {
+        value = target.child.params?.[target.paramKey];
+      }
+    }
+    if (value == null || !Number.isFinite(Number(value))) {
+      value = nodeGraphParameterFallback(patchNode.type, parameter.key);
+    }
     if (typeof applyNodeGraphInputUnboundedValue === "function") {
       applyNodeGraphInputUnboundedValue(input, value);
     } else {
@@ -1381,6 +1486,9 @@ function applyNodeGraphChromeNodesToDom(nodeIds = []) {
 }
 
 function applyNodeGraphPatchToDom(options = {}) {
+  if (typeof nodeGraphRepairMetamoduleOwnership === "function") {
+    nodeGraphRepairMetamoduleOwnership(nodeGraphMvp?.patch);
+  }
   if (typeof nodeGraphScreenSoloIsActive === "function" && nodeGraphScreenSoloIsActive()) {
     const soloIds = typeof nodeGraphScreenSoloNodeIds === "function"
       ? nodeGraphScreenSoloNodeIds()
@@ -1417,6 +1525,13 @@ function applyNodeGraphPatchToDom(options = {}) {
   }
 
   for (const patchNode of nodeGraphMvp.patch.nodes) {
+    // Seed Metamodule exposed param mirrors from children before DOM sync.
+    if (
+      patchNode?.type === "metamodule"
+      && typeof nodeGraphMetamoduleSeedExposedParamsFromChildren === "function"
+    ) {
+      nodeGraphMetamoduleSeedExposedParamsFromChildren(patchNode);
+    }
     const existing = nodeGraphNodeElement(patchNode.id);
     const syncThis = skipExistingSync
       ? !existing
@@ -1765,32 +1880,121 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
 
   if (removableNodeIds.size) {
     const live = nodeGraphMvp.patch;
-    const patch = {
-      ...live,
-      nodes: live.nodes.filter((node) => !removableNodeIds.has(node.id)),
-      bypassedNodes: (live.bypassedNodes || []).filter((nodeId) => !removableNodeIds.has(nodeId)),
-      connections: (live.connections || []).filter(
-        (connection) =>
-          !removableNodeIds.has(connection.sourceNode) &&
-          !removableNodeIds.has(connection.destinationNode),
-      ),
-      modulations: (live.modulations || []).filter(
-        (modulation) =>
-          !removableNodeIds.has(modulation.sourceNode) &&
-          !removableNodeIds.has(modulation.destinationNode),
-      ),
-      graphConnections: (live.graphConnections || []).filter(
-        (connection) =>
-          !removableNodeIds.has(connection.sourceNode) &&
-          !removableNodeIds.has(connection.destinationNode),
-      ),
-    };
+    // Metamodule delete = ungroup (preserve children, stitch portals out).
+    const metaIdsToUngroup = [...removableNodeIds].filter((nodeId) => {
+      const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+      return typeof nodeGraphIsMetamoduleType === "function" && nodeGraphIsMetamoduleType(node?.type);
+    });
+    // Meta In/Out: prune from parent boundary (allowed inside the meta view).
+    const boundaryIdsToRemove = [...removableNodeIds].filter((nodeId) => {
+      const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+      return typeof nodeGraphIsMetamoduleBoundaryType === "function"
+        && nodeGraphIsMetamoduleBoundaryType(node?.type);
+    });
+    for (const nodeId of boundaryIdsToRemove) {
+      removableNodeIds.delete(nodeId);
+    }
+
+    let patch;
+    let ungrouped = false;
+    const shellOwnersToRefresh = new Set();
+    if (metaIdsToUngroup.length && typeof ungroupNodeGraphMetamodulesInPatch === "function") {
+      patch = typeof cloneNodeGraphPatch === "function"
+        ? cloneNodeGraphPatch(live)
+        : {
+          ...live,
+          nodes: [...(live.nodes || [])],
+          bypassedNodes: [...(live.bypassedNodes || [])],
+          connections: [...(live.connections || [])],
+          modulations: [...(live.modulations || [])],
+          graphConnections: [...(live.graphConnections || [])],
+        };
+      ungrouped = ungroupNodeGraphMetamodulesInPatch(metaIdsToUngroup, patch);
+      for (const metaId of metaIdsToUngroup) {
+        removableNodeIds.delete(metaId);
+      }
+      // Drop any selected nodes that ungroup already removed (portals / shell).
+      const stillPresent = new Set((patch.nodes || []).map((node) => node?.id));
+      for (const nodeId of [...removableNodeIds]) {
+        if (!stillPresent.has(nodeId)) removableNodeIds.delete(nodeId);
+      }
+      for (let i = boundaryIdsToRemove.length - 1; i >= 0; i -= 1) {
+        if (!stillPresent.has(boundaryIdsToRemove[i])) {
+          boundaryIdsToRemove.splice(i, 1);
+        }
+      }
+    } else {
+      patch = {
+        ...live,
+        nodes: [...(live.nodes || [])],
+        bypassedNodes: [...(live.bypassedNodes || [])],
+        connections: [...(live.connections || [])],
+        modulations: [...(live.modulations || [])],
+        graphConnections: [...(live.graphConnections || [])],
+      };
+    }
+
+    if (boundaryIdsToRemove.length && typeof nodeGraphMetamoduleRemoveBoundaryPortalInPlace === "function") {
+      for (const portalId of boundaryIdsToRemove) {
+        const ownerId = nodeGraphMetamoduleRemoveBoundaryPortalInPlace(portalId, patch);
+        if (ownerId) shellOwnersToRefresh.add(ownerId);
+      }
+    }
+
+    if (removableNodeIds.size) {
+      patch = {
+        ...patch,
+        nodes: (patch.nodes || []).filter((node) => !removableNodeIds.has(node.id)),
+        bypassedNodes: (patch.bypassedNodes || []).filter((nodeId) => !removableNodeIds.has(nodeId)),
+        connections: (patch.connections || []).filter(
+          (connection) =>
+            !removableNodeIds.has(connection.sourceNode) &&
+            !removableNodeIds.has(connection.destinationNode),
+        ),
+        modulations: (patch.modulations || []).filter(
+          (modulation) =>
+            !removableNodeIds.has(modulation.sourceNode) &&
+            !removableNodeIds.has(modulation.destinationNode),
+        ),
+        graphConnections: (patch.graphConnections || []).filter(
+          (connection) =>
+            !removableNodeIds.has(connection.sourceNode) &&
+            !removableNodeIds.has(connection.destinationNode),
+        ),
+      };
+    }
+
+    const removedBoundary = shellOwnersToRefresh.size > 0;
+    if (!ungrouped && !removableNodeIds.size && !removedBoundary) {
+      return;
+    }
+
     setNodeGraphSelection(null);
+    let status = "modules deleted";
+    if (ungrouped && !removableNodeIds.size && !removedBoundary) {
+      status = metaIdsToUngroup.length === 1 ? "metamodule ungrouped" : "metamodules ungrouped";
+    } else if (ungrouped && (removableNodeIds.size || removedBoundary)) {
+      status = "metamodule ungrouped; modules deleted";
+    } else if (removedBoundary && !removableNodeIds.size) {
+      status = shellOwnersToRefresh.size === 1 && boundaryIdsToRemove.length === 1
+        ? "meta portal deleted"
+        : "meta portals deleted";
+    } else if (removableNodeIds.size === 1) {
+      status = "module deleted";
+    }
     commitNodeGraphPatch(patch, {
       topologyEdit: true,
       deferUiPanels: true,
-      status: removableNodeIds.size === 1 ? "module deleted" : "modules deleted",
+      status,
     });
+    if (ungrouped && typeof nodeGraphSyncMetamoduleVisibilityToDom === "function") {
+      nodeGraphSyncMetamoduleVisibilityToDom();
+    }
+    if (typeof nodeGraphMetamoduleRefreshShellFromBoundary === "function") {
+      for (const metaId of shellOwnersToRefresh) {
+        nodeGraphMetamoduleRefreshShellFromBoundary(metaId);
+      }
+    }
     renderNodeGraphLiveControls();
     return;
   }

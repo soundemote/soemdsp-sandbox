@@ -1032,25 +1032,40 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
     return;
   }
 
-  // Crisp 1px stems: fillRect on integer columns (no stroke AA / no half-pixel
-  // blur that looked like a second parallel line).
+  // Crisp stems: fillRect on integer pixel columns only (no sub-pixel / AA).
+  // Phase picks a discrete start column; thickness stays a fixed whole-pixel
+  // width across phase changes (a 2px stem stays exactly 2px — no fringing).
   context.imageSmoothingEnabled = false;
   context.globalCompositeOperation = "lighter";
 
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const faceSettings = typeof nodeGraphHypersawBurnSettingsForNode === "function"
+    ? nodeGraphHypersawBurnSettingsForNode(patchNode)
+    : (typeof normalizeNodeGraphHypersawBurnSettings === "function"
+      ? normalizeNodeGraphHypersawBurnSettings(patchNode?.traceDisplaySettings)
+      : { lineThickness: 0.01 });
+  // 0…1 of face width (1 = full screen). Round to nearest whole-pixel thickness.
+  const thickness01 = clampNodeSliderValue(Number(faceSettings?.lineThickness) || 0, 0, 1);
+  const thicknessPx = thickness01 <= 0
+    ? 0
+    : Math.max(1, Math.min(canvas.width, Math.round(thickness01 * canvas.width)));
+  // Discrete slots: phase ∈ [0,1] → start column in [0, width - thickness].
+  const maxStart = Math.max(0, canvas.width - thicknessPx);
+
   const count = phases.length;
-  const maxX = Math.max(0, canvas.width - 1);
   for (let i = 0; i < count; i += 1) {
     const p = Number(phases[i]);
     if (!Number.isFinite(p)) continue;
-    const xi = Math.max(
-      0,
-      Math.min(maxX, Math.round(clampNodeSliderValue(p, 0, 1) * canvas.width)),
-    );
+    const phase01 = clampNodeSliderValue(p, 0, 1);
+    // floor((maxStart+1) * phase) then clamp — uniform bins, always integer x0.
+    const x0 = maxStart <= 0
+      ? 0
+      : Math.min(maxStart, Math.floor(phase01 * (maxStart + 1)));
     const pan = Array.isArray(pans) && i < pans.length ? Number(pans[i]) : 0;
     const ampRaw = Array.isArray(amps) && i < amps.length ? Number(amps[i]) : 1;
     // Amplitude → alpha 1:1 (full scale = opaque).
     const alpha = clampNodeSliderValue(Math.abs(Number.isFinite(ampRaw) ? ampRaw : 0), 0, 1);
-    if (!(alpha > 0)) continue;
+    if (!(alpha > 0) || !(thicknessPx > 0)) continue;
     let r = 0;
     let g = 0;
     let b = 0;
@@ -1062,7 +1077,8 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
       g = 255; // center
     }
     context.fillStyle = `rgba(${r},${g},${b},${alpha})`;
-    context.fillRect(xi, 0, 1, canvas.height);
+    // Always exactly thicknessPx columns (never shrink mid-travel).
+    context.fillRect(x0 | 0, 0, thicknessPx | 0, canvas.height);
   }
   context.restore();
 }

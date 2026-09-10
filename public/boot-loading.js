@@ -398,6 +398,16 @@ function recoverNodeGraphAfterBoot() {
   for (const delay of [120, 450, 1100, 2200]) {
     window.setTimeout(() => reframe("retry"), delay);
   }
+
+  // First-run orientation — cold visitors otherwise click randomly and leave the tab burning.
+  window.setTimeout(() => {
+    if (typeof setNodeInteractionHelp !== "function") return;
+    setNodeInteractionHelp(
+      "Start here: Space = play/pause · click empty graph / shop to add modules · "
+      + "wire outputs into Output · Esc restores bars / leaves Metamodule. "
+      + "Leaving this tab pauses audio automatically.",
+    );
+  }, 600);
 }
 
 window.addEventListener("nodeSandboxStartupProgress", (event) => {

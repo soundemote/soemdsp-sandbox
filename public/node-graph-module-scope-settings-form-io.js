@@ -441,12 +441,13 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "phosphorLight") {
     return normalizeNodeGraphScope2dSettings(scope2dDefaults, scope2dDefaults);
   }
-  if (
-    type === "videoscopeBurn"
-    || type === "oscilloscopeBankBurn"
-    || type === "hypersawBurn"
-  ) {
+  if (type === "videoscopeBurn" || type === "oscilloscopeBankBurn") {
     return normalizeNodeGraphScope2dSettings(nodeGraphScope2dSettingsDefaults);
+  }
+  if (type === "hypersawBurn") {
+    return typeof normalizeNodeGraphHypersawBurnSettings === "function"
+      ? normalizeNodeGraphHypersawBurnSettings()
+      : { lineThickness: 0.01, lineThicknessFace01: true };
   }
   if (type === "spectrogramBurn") {
     return normalizeNodeGraphSpectrogramSettings(nodeGraphSpectrogramSettingsDefaults);
@@ -629,13 +630,14 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   if (type === "phosphorLight") {
     return normalizeNodeGraphScope2dSettings(settings);
   }
-  // Videoscope / bank / hypersaw: energy phosphor (scope2d settings model).
-  if (
-    type === "videoscopeBurn"
-    || type === "oscilloscopeBankBurn"
-    || type === "hypersawBurn"
-  ) {
+  // Videoscope / bank: energy phosphor (scope2d settings model).
+  if (type === "videoscopeBurn" || type === "oscilloscopeBankBurn") {
     return normalizeNodeGraphScope2dSettings(settings);
+  }
+  if (type === "hypersawBurn") {
+    return typeof normalizeNodeGraphHypersawBurnSettings === "function"
+      ? normalizeNodeGraphHypersawBurnSettings(settings)
+      : (settings || { lineThickness: 0.01, lineThicknessFace01: true });
   }
   if (type === "rgbShapeFace") {
     return typeof normalizeNodeGraphRgbShapeSettings === "function"
@@ -854,12 +856,15 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
     }
     return normalizeNodeGraphSpectrogramSettings(merged, node);
   }
-  if (
-    settingsSchema === "videoscopeBurn"
-    || settingsSchema === "oscilloscopeBankBurn"
-    || settingsSchema === "hypersawBurn"
-  ) {
+  if (settingsSchema === "videoscopeBurn" || settingsSchema === "oscilloscopeBankBurn") {
     return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings);
+  }
+  if (settingsSchema === "hypersawBurn") {
+    return typeof nodeGraphHypersawBurnSettingsForNode === "function"
+      ? nodeGraphHypersawBurnSettingsForNode(node)
+      : (typeof normalizeNodeGraphHypersawBurnSettings === "function"
+        ? normalizeNodeGraphHypersawBurnSettings(node?.traceDisplaySettings)
+        : (node?.traceDisplaySettings || { lineThickness: 0.01, lineThicknessFace01: true }));
   }
   if (settingsSchema === "trace" || settingsSchema === "traceXyz" || settingsSchema === "traceRgb") {
     return nodeGraphTraceDisplaySettingsForNode(node);

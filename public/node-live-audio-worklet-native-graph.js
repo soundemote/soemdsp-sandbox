@@ -333,11 +333,33 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   taps: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES,
   hpPosition: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OVERSAMPLE,
   outputMode: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
-  morph: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MIX,
+  // Softwave / polyBlep / DSF / … Morph Control is SHAPE. Hypersaw/Spiral override
+  // in mapNativeGraphParamId — never MIX (that was Softwave Morph→dead audio).
+  morph: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   size: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   speed: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FREQUENCY,
   rate: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FREQUENCY,
 });
+
+/**
+ * Param key → native Control id for ParamModEdge compile.
+ * Softwave Morph is SHAPE; Hypersaw Morph is FEEDBACK; Spiral Morph is PHASE.
+ */
+NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraphParamId(
+  type,
+  key,
+) {
+  const P = NodeLiveAudioProcessor;
+  const k = String(key || "");
+  const t = String(type || "");
+  if (k === "morph") {
+    if (t === "hypersaw" || t === "hypersaw2") return P.NATIVE_GRAPH_PARAM_FEEDBACK;
+    if (t === "spiral") return P.NATIVE_GRAPH_PARAM_PHASE;
+    return P.NATIVE_GRAPH_PARAM_SHAPE;
+  }
+  const id = (P.NATIVE_GRAPH_PARAM_KEY_IDS || {})[k];
+  return Number.isFinite(id) ? id : undefined;
+};
 
 NodeLiveAudioProcessor.prototype.fnv1aHash32 = function fnv1aHash32(text) {
   let hash = 2166136261 >>> 0;
@@ -1170,7 +1192,22 @@ NodeLiveAudioProcessor.prototype.nativeGraphThruInPortForNode = function nativeG
 ) {
   const o = String(outPort || "").trim();
   if (!node || !o) return null;
-  const map = node.bypassSpec?.map;
+  const type = String(node.type || "").trim();
+  // Metamodule boundary portals are always unity thrus on Efficient Live.
+  // bypassSpec is only stamped when a node is bypassed, so without this the
+  // native graph treats Meta In/Out as host/CV sources and invents Bias 0
+  // feeders (kills Hypersaw f / breaks Meta Out → Output audio).
+  // Do NOT register these as portalOutlet (130) — that would speaker-mix.
+  // (Worklet blob has no module definitions, so BypassPortMap alone is empty.)
+  if ((type === "metamoduleIn" || type === "metamoduleOut")
+    && (o === "Out" || o === "Mono")) {
+    return "In";
+  }
+  let map = node.bypassSpec?.map;
+  if (!Array.isArray(map) && typeof nodeGraphModuleBypassPortMap === "function" && type) {
+    // Non-bypassed pass-mode chrome still needs Out→In walks when defs exist.
+    map = nodeGraphModuleBypassPortMap(type);
+  }
   if (Array.isArray(map)) {
     for (let i = 0; i < map.length; i += 1) {
       const row = map[i];
@@ -1179,7 +1216,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphThruInPortForNode = function nativeG
       }
     }
   }
-  return this.nativeGraphObserverThruInPort(node.type, o);
+  return this.nativeGraphObserverThruInPort(type, o);
 };
 
 /** Index plan cables by destination node+port for thru walks. */
@@ -1282,7 +1319,23 @@ NodeLiveAudioProcessor.prototype.nativeGraphTopologyKey = function nativeGraphTo
     );
   }
   connParts.sort();
-  return `${nodeParts.join("|")}#${connParts.join("|")}`;
+  // Param MOD edges must invalidate compile too — otherwise Range→Morph added
+  // after first compile never becomes a ParamModEdge (audio stays dead).
+  const modParts = [];
+  if (this.modulationConnections && typeof this.modulationConnections.forEach === "function") {
+    this.modulationConnections.forEach((mods, key) => {
+      if (!Array.isArray(mods)) return;
+      for (let i = 0; i < mods.length; i += 1) {
+        const m = mods[i];
+        if (!m) continue;
+        modParts.push(
+          `${String(key || "")}\0${String(m.sourceNode || "")}\0${String(m.sourcePort || "")}`,
+        );
+      }
+    });
+  }
+  modParts.sort();
+  return `${nodeParts.join("|")}#${connParts.join("|")}#${modParts.join("|")}`;
 };
 
 NodeLiveAudioProcessor.prototype.syncNativeGraphBypass = function syncNativeGraphBypass() {
@@ -1460,33 +1513,80 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
  * Push non-native source values (MIDI Frequency, …) into Bias host feeders
  * that bridge host→native cables created at compile time.
  */
+NodeLiveAudioProcessor.prototype.mixNativeShellPortCv = function mixNativeShellPortCv(nodeId, port) {
+  const id = String(nodeId || "");
+  const p = String(port || "");
+  if (!id || !p) return 0;
+  const key = typeof this.inputKey === "function" ? this.inputKey(id, p) : `${id}.${p}`;
+  const conns = this.inputConnections?.get?.(key);
+  if (!conns || !conns.length) return 0;
+  let sum = 0;
+  for (let i = 0; i < conns.length; i += 1) {
+    const c = conns[i];
+    if (typeof this.readEfficientModSourceSample === "function") {
+      const raw = Number(this.readEfficientModSourceSample(c.sourceNode, c.sourcePort));
+      sum += Number.isFinite(raw) ? raw : 0;
+    } else {
+      const out = this.nodeOutputs?.get?.(String(c.sourceNode));
+      if (out && typeof out === "object") {
+        const raw = Number(out[c.sourcePort] ?? out.Out ?? out.Bias ?? out.value);
+        sum += Number.isFinite(raw) ? raw : 0;
+      }
+    }
+  }
+  return sum;
+};
+
 NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHostCvFeeders() {
   if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
     return;
   }
   const feeders = this._nativeHostCvFeeders;
-  if (!Array.isArray(feeders) || !feeders.length) {
-    return;
-  }
   const native = this.nativeGraph;
-  const paramId = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
-  for (let i = 0; i < feeders.length; i += 1) {
-    const feed = feeders[i];
-    if (!feed?.hash) continue;
-    const sp = String(feed.sourcePort || "");
-    let v = 0;
-    // Knob Bias/Out and other host CV: prefer shared reader (Bias↔Out aliases).
-    if (typeof this.readEfficientModSourceSample === "function") {
-      const raw = Number(this.readEfficientModSourceSample(feed.sourceNode, sp));
-      v = Number.isFinite(raw) ? raw : 0;
-    } else {
-      const out = this.nodeOutputs?.get?.(String(feed.sourceNode));
-      if (out && typeof out === "object") {
-        const raw = Number(out[sp] ?? out.Frequency ?? out.Bias ?? out.Out ?? out.value);
+  if (Array.isArray(feeders) && feeders.length) {
+    const paramId = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
+    for (let i = 0; i < feeders.length; i += 1) {
+      const feed = feeders[i];
+      if (!feed?.hash) continue;
+      const sp = String(feed.sourcePort || "");
+      let v = 0;
+      // Knob Bias/Out and other host CV: prefer shared reader (Bias↔Out aliases).
+      if (typeof this.readEfficientModSourceSample === "function") {
+        const raw = Number(this.readEfficientModSourceSample(feed.sourceNode, sp));
         v = Number.isFinite(raw) ? raw : 0;
+      } else {
+        const out = this.nodeOutputs?.get?.(String(feed.sourceNode));
+        if (out && typeof out === "object") {
+          const raw = Number(out[sp] ?? out.Frequency ?? out.Bias ?? out.Out ?? out.value);
+          v = Number.isFinite(raw) ? raw : 0;
+        }
       }
+      this.pushNativeGraphParam(native, feed.hash, paramId, v);
     }
-    this.pushNativeGraphParam(native, feed.hash, paramId, v);
+  }
+  // Metamodule Amplitude inlet → attenuverter VCAs on Meta Out exits.
+  // Unwired Amplitude = unity (1). Wired = sum of cables into shell Amplitude.
+  const metaAmps = this._nativeMetaAmpVcas;
+  if (Array.isArray(metaAmps) && metaAmps.length) {
+    for (let i = 0; i < metaAmps.length; i += 1) {
+      const vca = metaAmps[i];
+      if (!vca?.hash || !vca.metaId) continue;
+      const ampKey = typeof this.inputKey === "function"
+        ? this.inputKey(vca.metaId, "Amplitude")
+        : `${vca.metaId}.Amplitude`;
+      const hasAmp = this.inputConnections?.has?.(ampKey);
+      let level = 1;
+      if (hasAmp) {
+        level = this.mixNativeShellPortCv(vca.metaId, "Amplitude");
+        if (!Number.isFinite(level)) level = 0;
+      }
+      this.pushNativeGraphParam(
+        native,
+        vca.hash,
+        vca.paramId || NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_AMPLITUDE,
+        level,
+      );
+    }
   }
 };
 
@@ -3488,6 +3588,21 @@ NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
         } catch (_e) {
           lastFrac = 0;
         }
+        // Face stem brightness follows native Center/Side crossfade.
+        let centerSide = 0.5;
+        try {
+          const rawCs = Number(node?.params?.centerSide);
+          if (Number.isFinite(rawCs)) centerSide = rawCs;
+          if (typeof this.readEffectiveParameter === "function") {
+            const liveCs = Number(this.readEffectiveParameter(node, "centerSide", centerSide));
+            if (Number.isFinite(liveCs)) centerSide = liveCs;
+          }
+        } catch (_e) {
+          centerSide = 0.5;
+        }
+        const cs = Math.max(0, Math.min(1, centerSide));
+        const ampCenter = Math.min(2 - cs * 2, 1);
+        const ampSide = Math.min(cs * 2, 1);
         const voicePhases = new Array(n);
         const voiceAmplitudes = new Array(n);
         const voicePans = new Array(n);
@@ -3498,7 +3613,8 @@ NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
             voicePhases[i] = 0;
           }
           const isCenter = i === 0;
-          voiceAmplitudes[i] = (lastFrac > 0 && i === n - 1) ? lastFrac : 1;
+          const base = (lastFrac > 0 && i === n - 1) ? lastFrac : 1;
+          voiceAmplitudes[i] = base * (isCenter ? ampCenter : ampSide);
           voicePans[i] = isCenter ? 0 : (((i - 1) % 2 === 0) ? -1 : 1);
         }
         state.lastVoicePhases = voicePhases;
@@ -4224,6 +4340,44 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       }
       return true;
     };
+    // Metamodule Amplitude inlet → VCA on Meta Out → outside edges only.
+    const attTypeId = audioTypes.attenuverter;
+    const attAmpParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_AMPLITUDE;
+    const metaAmpVcas = [];
+    const metaAmpVcaByPortal = new Map();
+    const ensureMetaAmpVca = (portalId, ownerMetaId) => {
+      const pid = String(portalId || "");
+      if (!pid || !attTypeId) return 0;
+      let vcaHash = metaAmpVcaByPortal.get(pid);
+      if (vcaHash) return vcaHash;
+      const vcaId = `__metaAmp:${pid}`;
+      vcaHash = this.fnv1aHash32(vcaId);
+      const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, vcaHash, attTypeId) | 0;
+      if (arc !== 0) {
+        this.postNativeGraphStatus("error", `meta Amp VCA add_node failed (${arc}) ${vcaId}`);
+        return 0;
+      }
+      // Offset 0; Amplitude driven every quantum from shell Amplitude inlet.
+      this.pushNativeGraphParam(native, vcaHash, NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET, 0);
+      this.pushNativeGraphSmoothType(native, vcaHash, attAmpParam, 3);
+      this.pushNativeGraphSmoothMode(native, vcaHash, attAmpParam, 3);
+      this.pushNativeGraphSmoothTime(native, vcaHash, attAmpParam, 0);
+      // Default unity until first feeder sync.
+      this.pushNativeGraphParam(native, vcaHash, attAmpParam, 1);
+      metaAmpVcaByPortal.set(pid, vcaHash);
+      metaAmpVcas.push({
+        hash: vcaHash,
+        portalId: pid,
+        metaId: String(ownerMetaId || ""),
+        paramId: attAmpParam,
+      });
+      // Register as native for connectOne.
+      idSet.add(vcaId);
+      hashById.set(vcaId, vcaHash);
+      typeById.set(vcaId, "attenuverter");
+      return vcaHash;
+    };
+
     for (const c of connections) {
       const src = String(c?.sourceNode || "");
       const dst = String(c?.destinationNode || "");
@@ -4237,6 +4391,38 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         // Thru with nothing upstream — leave destination unwired (silence).
         continue;
       }
+
+      // Meta Out → outside: insert Amplitude VCA. Internal meta wiring stays unity.
+      const srcPlanNode = this.nodes.get(src);
+      let routeViaMetaAmp = false;
+      let metaAmpPortalId = "";
+      let metaAmpOwnerId = "";
+      if (srcPlanNode?.type === "metamoduleOut") {
+        metaAmpOwnerId = String(srcPlanNode.ownerMetamoduleId || "");
+        const dstPlanNode = this.nodes.get(dst);
+        const dstOwner = String(dstPlanNode?.ownerMetamoduleId || "");
+        if (metaAmpOwnerId && dstOwner !== metaAmpOwnerId) {
+          routeViaMetaAmp = true;
+          metaAmpPortalId = src;
+        }
+      }
+
+      if (routeViaMetaAmp && attTypeId) {
+        const vcaHash = ensureMetaAmpVca(metaAmpPortalId, metaAmpOwnerId);
+        if (!vcaHash) return false;
+        const vcaId = `__metaAmp:${metaAmpPortalId}`;
+        for (let r = 0; r < resolved.length; r += 1) {
+          const item = resolved[r];
+          if (!connectOne(item.sourceNode, item.sourcePort, vcaId, "In")) {
+            return false;
+          }
+        }
+        if (!connectOne(vcaId, "Out", dst, dstPort)) {
+          return false;
+        }
+        continue;
+      }
+
       for (let r = 0; r < resolved.length; r += 1) {
         const item = resolved[r];
         if (!connectOne(item.sourceNode, item.sourcePort, dst, dstPort)) {
@@ -4244,6 +4430,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         }
       }
     }
+    this._nativeMetaAmpVcas = metaAmpVcas;
 
     // Audio → param MOD = sample-accurate ParamModEdge (not cyan ZOH).
     // Exceptions stay on set_param_mod: controllers (not in graph), discrete
@@ -4293,7 +4480,10 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         if (discrete[paramKey]) return; // enum / snap — ZOH is correct
         const dstType = String(typeById.get(dstId) || "");
         if (zohOnlyTypes.has(dstType)) return;
-        const paramId = keyIds[paramKey];
+        // Type-aware id (Softwave Morph=SHAPE, not global MIX).
+        const paramId = typeof this.mapNativeGraphParamId === "function"
+          ? this.mapNativeGraphParamId(dstType, paramKey)
+          : keyIds[paramKey];
         if (!Number.isFinite(paramId)) return;
         if (!Array.isArray(mods)) return;
         for (let i = 0; i < mods.length; i += 1) {

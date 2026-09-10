@@ -3188,6 +3188,38 @@ body.is-resizing-controller-dock {
   min-width: 0;
 }
 
+.node-midi-keyboard-vel-range {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+.node-midi-keyboard-vel-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font: 700 0.72rem/1 "Cascadia Mono", Consolas, monospace;
+  text-transform: uppercase;
+}
+
+.node-midi-keyboard-vel-field input[type="number"] {
+  width: 4.2em;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.15em 0.3em;
+  border: 1px solid color-mix(in srgb, var(--muted) 45%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, #000 55%, transparent);
+  color: var(--text);
+  font: 700 0.85rem/1.2 "Cascadia Mono", Consolas, monospace;
+  text-transform: none;
+}
+
 .node-midi-keyboard-live-readouts {
   display: inline-flex;
   flex-wrap: wrap;
@@ -13148,32 +13180,43 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
  * No display face, no param stack. Port rows 1fr so small modules still have
  * tall hit bands for L/R / X/Y.
  */
+/* TitleBarAndPorts (canonical) + chrome-layout-c (deprecated alias for LayoutC). */
+.dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section,
 .dsp-node.chrome-layout-c > .dsp-node-io-section {
   min-height: 0;
   height: 100%;
+  max-height: 100%;
   align-self: stretch;
+  box-sizing: border-box;
   /* Two equal columns for in / out; full height for hit targets. */
   grid-template-columns: minmax(0, 1fr) minmax(0, 0) minmax(0, 1fr);
   align-items: stretch;
+  /* Keep jack tips inside the module plate (was painting over the bottom). */
+  overflow: hidden;
 }
 
+.dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section .node-io-column,
 .dsp-node.chrome-layout-c > .dsp-node-io-section .node-io-column {
   height: 100%;
   min-height: 0;
+  max-height: 100%;
   align-content: stretch;
   /* Equal-height jack bands — easy hits even at 3×3 gu. */
-  grid-auto-rows: 1fr;
+  grid-auto-rows: minmax(var(--node-signal-port-height), 1fr);
   gap: 0;
+  overflow: hidden;
 }
 
+.dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section .node-io-row,
 .dsp-node.chrome-layout-c > .dsp-node-io-section .node-io-row {
   min-height: var(--node-signal-port-height);
   height: 100%;
-  max-height: none;
-  /* visible so port clip-path bleed (tip/wall AA) is not re-clipped */
-  overflow: visible;
+  max-height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
+.dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-body,
 .dsp-node.chrome-layout-c > .dsp-node-body {
   display: none !important;
 }
@@ -14201,9 +14244,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   overflow: hidden;
 }
 
-/* LayoutB face is always the center track. Jack columns (labeled or
-   jack-only) keep columns 1 and 3 — never sit under an opaque face. */
-.node-solid-module-custom-ui {
+/* LayoutB shell face = center track (in | face | out). Scope to shell so
+   article-level faces (MetamoduleLayout) are not shoved into column 2. */
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell) > .node-solid-module-custom-ui {
   grid-column: 2;
   grid-row: 1;
   box-sizing: border-box;
@@ -14448,10 +14491,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   display: none;
 }
 
-/* Group Input / Group Output -- same chromeless 1gu-tile tier as LED
-   (.dsp-node.led-layout above), just wired to a single input or output
-   port instead of a light. Ports sit on the conventional edge (inputs
-   left, outputs right), matching every other module's port placement. */
+/* Portal inlet/outlet compact tiles. */
 .dsp-node.portal-inlet-layout > .dsp-node-header,
 .dsp-node.portal-outlet-layout > .dsp-node-header,
 .dsp-node.portal-inlet-layout > .dsp-node-body,
@@ -14466,9 +14506,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .dsp-node[data-node-type="portalInletRight"],
 .dsp-node[data-node-type="portalOutletMono"],
 .dsp-node[data-node-type="portalOutletLeft"],
-.dsp-node[data-node-type="portalOutletRight"],
-.dsp-node.group-input-layout,
-.dsp-node.group-output-layout {
+.dsp-node[data-node-type="portalOutletRight"] {
   display: block;
   width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
   min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
@@ -14485,29 +14523,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
     radial-gradient(circle at 50% 50%, rgba(127, 199, 217, 0.16), transparent 62%),
     rgba(3, 7, 10, 0.84);
   box-shadow: none;
-}
-
-.node-group-input-face,
-.node-group-output-face {
-  position: relative;
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-}
-
-.node-group-input-face .node-port.output {
-  position: absolute;
-  right: calc(var(--node-port-diameter) * -0.5);
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.node-group-output-face .node-port.input {
-  position: absolute;
-  left: calc(var(--node-port-diameter) * -0.5);
-  top: 50%;
-  transform: translateY(-50%);
 }
 
 .dsp-node-header {
@@ -16421,6 +16436,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   justify-self: start;
 }
 
+.dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section.io-outputs-only,
+.dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section.io-inputs-only,
 .dsp-node.chrome-layout-c > .dsp-node-io-section.io-outputs-only,
 .dsp-node.chrome-layout-c > .dsp-node-io-section.io-inputs-only {
   grid-template-columns: minmax(0, 1fr);
@@ -16924,8 +16941,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .dsp-node:not(.movement-locked) .node-solid-module-custom-ui,
 .dsp-node:not(.movement-locked) .node-module-chrome-layout-b-shell,
 .dsp-node:not(.movement-locked) .node-led-face,
-.dsp-node:not(.movement-locked) .node-group-input-face,
-.dsp-node:not(.movement-locked) .node-group-output-face,
+.dsp-node:not(.movement-locked) .node-metamodule-boundary-face,
 .dsp-node:not(.movement-locked) .node-knob-widget-body,
 .dsp-node:not(.movement-locked) .dsp-node-io-section,
 .dsp-node:not(.movement-locked) .node-io-row,
@@ -24941,3 +24957,109 @@ code {
   white-space: nowrap;
   max-width: 100%;
 }
+
+/* Metamodule boundary thrus (compact tile: ports painted in createBody). */
+.node-metamodule-boundary-face {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35em;
+  min-height: 1.5em;
+  padding: 0.15em 0.25em;
+  box-sizing: border-box;
+}
+
+/*
+ * MetamoduleLayout: header | shared LayoutA IO (.dsp-node-io-section) | face | params | lip
+ * Jack/label paint is app-wide (no private IO dialect). Band order only differs:
+ * IO sits ABOVE the face. Tracks from applyNodeGraphModuleLayout.
+ */
+.dsp-node.chrome-layout-metamodule {
+  display: grid;
+  /* Single column only — never inherit LayoutB's implicit face column. */
+  grid-template-columns: minmax(0, 1fr) !important;
+  overflow: visible;
+  max-height: calc(
+    (var(--node-grid-height) * var(--node-grid-height-units, 4))
+    - var(--node-module-grid-inset-y-total)
+  );
+}
+.dsp-node.chrome-layout-metamodule > * {
+  grid-column: 1 !important;
+}
+.dsp-node.chrome-layout-metamodule > .dsp-node-header {
+  min-height: 0;
+  max-height: var(--node-header-height);
+  overflow: hidden;
+}
+.dsp-node.chrome-layout-metamodule > .dsp-node-io-section {
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.dsp-node.chrome-layout-metamodule > .node-module-face {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
+  justify-self: stretch;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.dsp-node.chrome-layout-metamodule > .dsp-node-body {
+  align-self: start;
+  min-height: 0;
+  overflow: visible;
+}
+
+/* Metamodule face — additive display mirrors. */
+.node-metamodule-face {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: #000;
+}
+.node-metamodule-face-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.55;
+  font-size: 0.85em;
+  text-align: center;
+  pointer-events: none;
+  z-index: 1;
+}
+.node-metamodule-face-empty[hidden] {
+  display: none !important;
+}
+.node-metamodule-mirror-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.node-metamodule-display-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+  flex: 1;
+}
+.dsp-node[data-node-type="metamodule"] .node-io-row.input[data-port="Poly"] .node-port.input {
+  border-radius: 2px;
+}
+

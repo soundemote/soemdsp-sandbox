@@ -1,18 +1,22 @@
 // Module chrome — one place every module uses for port placement.
 //
-//   LayoutA  — ports under the face (display + optional params)
-//   LayoutB  — ports beside the face (display + optional params)
-//   LayoutC  — title + I/O only (no display, no param sliders) — compact thrus
+//   LayoutA           — ports under the face (display + optional params)
+//   LayoutB           — ports beside the face (display + optional params)
+//   MetamoduleLayout   — ports in a top strip; dedicated full-width face below
+//                       (I/O labels never shrink the display)
+//   TitleBarAndPorts  — title + I/O only (no display, no param sliders)
+//                       formerly LayoutC; LayoutC remains a deprecated alias
 //
-// Face content (graph, scope, knobs, …) is still definition.layout for A/B.
-// LayoutC has no face: definition still may list ports only.
+// Face content (graph, scope, knobs, …) is still definition.layout for A/B/Meta.
+// TitleBarAndPorts has no face: definition still may list ports only.
 //
 // Height policy (SSOT: node-graph-module-sizing.js):
 //   - FACE 1…60gu → --node-module-display-height-units / LayoutB shell track.
 //   - OUTER grid cells → --node-grid-height-units (Module Settings Height).
 //   - Min outer for face modules is when face = 1gu.
 //   - LayoutB shell = face; side jacks share face height (never inflate shell).
-//   - LayoutC: freehand heightGu, no face (title + I/O only).
+//   - MetamoduleLayout: IO band + face are separate tracks (IO cannot crush face).
+//   - TitleBarAndPorts: freehand heightGu, no face (title + I/O only).
 //
 // Authority: definition.chrome (default LayoutA).
 // Call nodeGraphModuleChromeLayoutForType() / nodeGraphModuleChrome().
@@ -21,12 +25,18 @@
 const NodeGraphModuleChromeLayout = Object.freeze({
   LayoutA: "LayoutA",
   LayoutB: "LayoutB",
-  LayoutC: "LayoutC",
+  MetamoduleLayout: "MetamoduleLayout",
+  TitleBarAndPorts: "TitleBarAndPorts",
+  /** @deprecated use TitleBarAndPorts — same canonical value */
+  LayoutC: "TitleBarAndPorts",
 });
 
 const nodeGraphModuleChromeLayoutA = NodeGraphModuleChromeLayout.LayoutA;
 const nodeGraphModuleChromeLayoutB = NodeGraphModuleChromeLayout.LayoutB;
-const nodeGraphModuleChromeLayoutC = NodeGraphModuleChromeLayout.LayoutC;
+const nodeGraphModuleChromeLayoutMetamodule = NodeGraphModuleChromeLayout.MetamoduleLayout;
+const nodeGraphModuleChromeLayoutTitleBarAndPorts = NodeGraphModuleChromeLayout.TitleBarAndPorts;
+/** @deprecated use nodeGraphModuleChromeLayoutTitleBarAndPorts */
+const nodeGraphModuleChromeLayoutC = nodeGraphModuleChromeLayoutTitleBarAndPorts;
 
 /** @deprecated use NodeGraphModuleChromeLayout */
 const nodeGraphModuleChromeLayouts = NodeGraphModuleChromeLayout;
@@ -34,7 +44,8 @@ const nodeGraphModuleChromeLayouts = NodeGraphModuleChromeLayout;
 const nodeGraphModuleChromeLayoutCssByLayout = Object.freeze({
   [NodeGraphModuleChromeLayout.LayoutA]: "chrome-layout-a",
   [NodeGraphModuleChromeLayout.LayoutB]: "chrome-layout-b",
-  [NodeGraphModuleChromeLayout.LayoutC]: "chrome-layout-c",
+  [NodeGraphModuleChromeLayout.MetamoduleLayout]: "chrome-layout-metamodule",
+  [NodeGraphModuleChromeLayout.TitleBarAndPorts]: "chrome-layout-title-bar-and-ports",
 });
 
 function nodeGraphModuleChromeLayoutIs(value, layout) {
@@ -49,8 +60,17 @@ function nodeGraphModuleChromeLayoutIsB(value) {
   return value === NodeGraphModuleChromeLayout.LayoutB;
 }
 
+function nodeGraphModuleChromeLayoutIsTitleBarAndPorts(value) {
+  return value === NodeGraphModuleChromeLayout.TitleBarAndPorts;
+}
+
+function nodeGraphModuleChromeLayoutIsMetamodule(value) {
+  return value === NodeGraphModuleChromeLayout.MetamoduleLayout;
+}
+
+/** @deprecated use nodeGraphModuleChromeLayoutIsTitleBarAndPorts */
 function nodeGraphModuleChromeLayoutIsC(value) {
-  return value === NodeGraphModuleChromeLayout.LayoutC;
+  return nodeGraphModuleChromeLayoutIsTitleBarAndPorts(value);
 }
 
 function nodeGraphModuleChromeLayoutCssClass(layout) {
@@ -58,12 +78,13 @@ function nodeGraphModuleChromeLayoutCssClass(layout) {
     || nodeGraphModuleChromeLayoutCssByLayout[NodeGraphModuleChromeLayout.LayoutA];
 }
 
-/** @returns {"LayoutA"|"LayoutB"|"LayoutC"|null} */
+/** @returns {"LayoutA"|"LayoutB"|"MetamoduleLayout"|"TitleBarAndPorts"|null} */
 function normalizeNodeGraphModuleChromeLayout(value) {
   if (
     value === NodeGraphModuleChromeLayout.LayoutA
     || value === NodeGraphModuleChromeLayout.LayoutB
-    || value === NodeGraphModuleChromeLayout.LayoutC
+    || value === NodeGraphModuleChromeLayout.MetamoduleLayout
+    || value === NodeGraphModuleChromeLayout.TitleBarAndPorts
   ) {
     return value;
   }
@@ -74,25 +95,37 @@ function normalizeNodeGraphModuleChromeLayout(value) {
   if (
     raw === NodeGraphModuleChromeLayout.LayoutA
     || raw === NodeGraphModuleChromeLayout.LayoutB
-    || raw === NodeGraphModuleChromeLayout.LayoutC
+    || raw === NodeGraphModuleChromeLayout.MetamoduleLayout
+    || raw === NodeGraphModuleChromeLayout.TitleBarAndPorts
   ) {
     return raw;
   }
-  const key = raw.toLowerCase();
+  // Deprecated alias — LayoutC always meant title + ports only.
+  if (raw === "LayoutC") {
+    return NodeGraphModuleChromeLayout.TitleBarAndPorts;
+  }
+  const key = raw.toLowerCase().replace(/[\s_-]+/g, "");
   if (key === "layouta" || key === "a") {
     return NodeGraphModuleChromeLayout.LayoutA;
   }
   if (key === "layoutb" || key === "b") {
     return NodeGraphModuleChromeLayout.LayoutB;
   }
-  if (key === "layoutc" || key === "c") {
-    return NodeGraphModuleChromeLayout.LayoutC;
+  if (key === "metamodulelayout" || key === "metamodule") {
+    return NodeGraphModuleChromeLayout.MetamoduleLayout;
+  }
+  if (
+    key === "titlebarandports"
+    || key === "layoutc"
+    || key === "c"
+  ) {
+    return NodeGraphModuleChromeLayout.TitleBarAndPorts;
   }
   return null;
 }
 
 /**
- * Resolve LayoutA / LayoutB / LayoutC for a module type.
+ * Resolve LayoutA / LayoutB / TitleBarAndPorts for a module type.
  * Only definition.chrome — every sealed definition must set chrome (see
  * finalizeNodeGraphModuleDefinitionsChrome). Missing → LayoutA.
  */
@@ -109,13 +142,14 @@ function nodeGraphModuleChromeLayoutForType(type) {
 }
 
 /**
- * Seal every module definition with an explicit chrome: LayoutA | LayoutB | LayoutC.
+ * Seal every module definition with an explicit chrome:
+ * LayoutA | LayoutB | MetamoduleLayout | TitleBarAndPorts.
  * Call once when building nodeGraphModuleDefinitions so no type relies on an
  * implicit default at read time (inventory / debugging stays honest).
  *
  * Face content (scope, graph, filter curve, chromeless body, …) is still
- * definition.layout / customDisplayArea for A/B — chrome places ports under
- * (A), beside (B), or title+I/O only (C).
+ * definition.layout / customDisplayArea for A/B/Meta — chrome places ports
+ * under (A), beside (B), top strip + face (Metamodule), or title+I/O only.
  *
  * @param {Record<string, object>} entries
  * @returns {Readonly<Record<string, object>>}
@@ -140,8 +174,17 @@ function nodeGraphModuleUsesLayoutB(type) {
   return nodeGraphModuleChromeLayoutIsB(nodeGraphModuleChromeLayoutForType(type));
 }
 
+function nodeGraphModuleUsesMetamoduleLayout(type) {
+  return nodeGraphModuleChromeLayoutIsMetamodule(nodeGraphModuleChromeLayoutForType(type));
+}
+
+function nodeGraphModuleUsesTitleBarAndPorts(type) {
+  return nodeGraphModuleChromeLayoutIsTitleBarAndPorts(nodeGraphModuleChromeLayoutForType(type));
+}
+
+/** @deprecated use nodeGraphModuleUsesTitleBarAndPorts */
 function nodeGraphModuleUsesLayoutC(type) {
-  return nodeGraphModuleChromeLayoutIsC(nodeGraphModuleChromeLayoutForType(type));
+  return nodeGraphModuleUsesTitleBarAndPorts(type);
 }
 
 /**
@@ -174,9 +217,10 @@ function nodeGraphModuleIsHeaderlessLayoutB(type) {
 
 /**
  * @returns {{
- *   layout: "LayoutA"|"LayoutB"|"LayoutC",
+ *   layout: "LayoutA"|"LayoutB"|"MetamoduleLayout"|"TitleBarAndPorts",
  *   portsBeside: boolean,
  *   portsUnder: boolean,
+ *   portsAboveFace: boolean,
  *   headerless: boolean,
  *   titleIoOnly: boolean,
  *   cssLayoutClass: string,
@@ -185,13 +229,17 @@ function nodeGraphModuleIsHeaderlessLayoutB(type) {
 function nodeGraphModuleChrome(type) {
   const layout = nodeGraphModuleChromeLayoutForType(type);
   const portsBeside = nodeGraphModuleChromeLayoutIsB(layout);
-  const titleIoOnly = nodeGraphModuleChromeLayoutIsC(layout);
+  const portsAboveFace = nodeGraphModuleChromeLayoutIsMetamodule(layout);
+  const titleIoOnly = nodeGraphModuleChromeLayoutIsTitleBarAndPorts(layout);
   return Object.freeze({
     layout,
     portsBeside,
-    // LayoutC still stacks I/O under the title (not beside a face).
-    portsUnder: !portsBeside,
-    headerless: nodeGraphModuleIsHeaderlessLayoutB(type),
+    portsAboveFace,
+    // TitleBarAndPorts stacks I/O under the title (not beside a face).
+    // MetamoduleLayout puts I/O above the face (not under).
+    portsUnder: !portsBeside && !portsAboveFace,
+    // MetamoduleLayout still mounts an optional title bar (headerless path).
+    headerless: portsAboveFace || nodeGraphModuleIsHeaderlessLayoutB(type),
     titleIoOnly,
     cssLayoutClass: nodeGraphModuleChromeLayoutCssClass(layout),
   });

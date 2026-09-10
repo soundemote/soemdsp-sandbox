@@ -3,11 +3,9 @@
 // shape (see customDisplay below) but have their own storage property,
 // compile helpers, and execution model. Rather than a parallel copy of
 // list/editor/draft/apply rendering code per type (which would immediately
-// start drifting between them -- see the groupOutput reachability bug and
-// Wall Delay's "generic check against declared ports instead of a
-// hardcoded list" fix, both from this same session, both exactly this
-// failure mode), every rendering/draft/apply function below is
-// parameterized by this descriptor, keyed by node.type, instead.
+// start drifting between them -- see Wall Delay's "generic check against
+// declared ports instead of a hardcoded list" fix), every rendering/draft/apply
+// function below is parameterized by this descriptor, keyed by node.type, instead.
 const nodeGraphCodeScreenCodeBoxKinds = Object.freeze({
   codeblock: {
     nodeType: "codeblock",
@@ -1025,7 +1023,7 @@ function nodeGraphCodeScreenLibraryDemoScript() {
     "  console.test(\"lead plan has modules\", leadPlan.circuit.modules.length >= 4),",
     "  console.test(\"recipe list includes envelope\", availableRecipes.some((item) => item.name === \"envelope\")),",
     "  console.test(\"recipe markdown names envelope\", recipeDocs.includes(\"## envelope\")),",
-    "  console.test(\"envelope plan has endpoints\", envelopePlan.circuit.modules.some((item) => item.type === \"groupInput\") && envelopePlan.circuit.modules.some((item) => item.type === \"groupOutput\")),",
+    "  console.test(\"envelope plan has modules\", envelopePlan.circuit.modules.length > 0),",
     "  console.test(\"plan validation ok\", leadPlanValidation.ok),",
     "  console.test(\"envelope plan validation ok\", envelopePlanValidation.ok),",
     "  console.test(\"plan markdown names lead\", leadPlanMarkdown.includes(\"C3 bright lead\")),",

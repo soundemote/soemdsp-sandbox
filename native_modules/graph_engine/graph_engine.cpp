@@ -3077,7 +3077,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 200.0 // lowCut
       : (typeId == kTypeChaosfly) ? -2.0 // Highpass oct offset (gentler default)
       : (typeId == kTypeCrossover6) ? 10000.0
-      : (typeId == kTypeHypersaw2) ? 8.0 // distanceSlew ms (old hardcoded)
+      : (typeId == kTypeHypersaw2) ? 8.0 // phaseSlew ms (param key distanceSlew)
       : 20.0,
     false
   );
@@ -6754,11 +6754,15 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Passive 1-pole: hpfFrequency=lowCut, lpfFrequency=highCut (native slope=6 only).
+// Passive: hpfFrequency=HPF, lpfFrequency=LPF. Live ƒ centers the active cut(s).
+// Mode 0 LP / 1 BP / 2 HP (matches JS + native sample()).
 static void process_passive_filter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const double referenceVoltage = 48.0 / 120.0;
   const bool controlSmoothing = node_control_smoothing(node)
     || node.hpfFrequency.active || node.lpfFrequency.active;
   const double modeV = control_effective(node.mode);
@@ -6771,8 +6775,50 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
   for (int f = 0; f < frames; f++) {
         stamp_live_param_mods(g, node, f);
     if (controlSmoothing) smoother_step_node(g, node);
-    const double lo = control_effective(node.hpfFrequency);
-    const double hi = control_effective(node.lpfFrequency);
+    double lo = control_effective(node.hpfFrequency);
+    double hi = control_effective(node.lpfFrequency);
+    if (!(lo == lo)) lo = 200.0;
+    if (!(hi == hi)) hi = 1000.0;
+    double center = 0.0;
+    bool haveCenter = false;
+    if (liveF) {
+      center = g.mixF[f];
+      haveCenter = true;
+    } else if (livePitch) {
+      double base = 1000.0;
+      if (mode == 0) base = hi > 0.0 ? hi : 1000.0;
+      else if (mode == 2) base = lo > 0.0 ? lo : 200.0;
+      else if (lo > 0.0 && hi > 0.0) base = dsp_exp(0.5 * dsp_ln(lo * hi));
+      else if (hi > 0.0) base = hi;
+      else if (lo > 0.0) base = lo;
+      center = pitched_hz(base, g.mixPitch[f], referenceVoltage);
+      haveCenter = true;
+    }
+    if (haveCenter) center = apply_global_pitch(g, center);
+    if (haveCenter && center > 0.0) {
+      if (mode == 0) {
+        hi = center;
+      } else if (mode == 2) {
+        lo = center;
+      } else if (lo > 0.0 && hi > 0.0) {
+        const double geo = dsp_exp(0.5 * dsp_ln(lo * hi));
+        if (geo > 0.0) {
+          const double scale = center / geo;
+          lo *= scale;
+          hi *= scale;
+        }
+      } else {
+        lo = center * 0.5;
+        hi = center * 2.0;
+      }
+    } else {
+      lo = apply_global_pitch(g, lo);
+      hi = apply_global_pitch(g, hi);
+    }
+    lo = clamp_hz_nyquist(lo, sr);
+    hi = clamp_hz_nyquist(hi, sr);
+    if (lo < 0.0) lo = 0.0;
+    if (hi < 0.0) hi = 0.0;
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];

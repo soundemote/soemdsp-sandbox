@@ -257,6 +257,13 @@ function flushNodeGraphViewportHeavyChrome(options = {}) {
     // Pause module lights / wires mid-gesture. Grid position already updated.
     return;
   }
+  // Camera/layout settle is a geometry owner — republish attaches before wires.
+  if (typeof nodeGraphModuleGeometryInvalidateAll === "function") {
+    nodeGraphModuleGeometryInvalidateAll();
+  }
+  if (typeof nodeGraphModuleGeometryPublishVisible === "function") {
+    nodeGraphModuleGeometryPublishVisible();
+  }
   if (typeof drawNodeGraphWires === "function") {
     drawNodeGraphWires({
       lite: false,
@@ -579,7 +586,12 @@ function nodeGraphViewportCullApply(element, intersecting) {
     && typeof nodeGraphSelectedNodeIds === "function"
     && nodeGraphSelectedNodeIds().has(nodeId),
   );
-  const awake = intersecting || selected;
+  const mirrored = Boolean(
+    nodeId
+    && typeof nodeGraphMetamoduleChildIsMirrorSubscribed === "function"
+    && nodeGraphMetamoduleChildIsMirrorSubscribed(nodeId),
+  );
+  const awake = intersecting || selected || mirrored;
   const wasAsleep = element.classList.contains("viewport-asleep");
   element.classList.toggle("viewport-asleep", !awake);
   if (wasAsleep === !awake) {

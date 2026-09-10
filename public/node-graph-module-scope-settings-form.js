@@ -39,7 +39,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   }
   if (key === "lineThickness" && formType === "hypersawBurn") {
     label = "Line thickness";
-    title = "Phase-stem beam soft/hard 0…1 (Hypersaw / RobinSupersaw face).";
+    title = "Phase-stem width as a fraction of face width: 0 = none, 1 = full screen. Sensitive near 0.";
   } else if (key === "lineThickness" && (
     formType === "trace"
     || formType === "traceRgb"

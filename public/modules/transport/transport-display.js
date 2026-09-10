@@ -142,19 +142,26 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
     : '"Consolas", "Courier New", monospace';
   const labelHeight = canvas.height * 0.22;
   const digitAreaHeight = canvas.height - labelHeight;
-  const charCount = Math.max(1, digits.length);
-  const digitFontSize = Math.max(1, Math.min(digitAreaHeight * 0.82, (canvas.width / charCount) * 1.55));
-
+  // Fit digits inside the plate, then draw at an explicit centered x so 1–3
+  // digit tempos (and DSEG side bearings) stay optically centered every frame.
+  const digitPadX = Math.max(2, canvas.width * 0.06);
+  const maxDigitWidth = Math.max(1, canvas.width - digitPadX * 2);
+  let digitFontSize = Math.max(1, digitAreaHeight * 0.82);
   ctx.font = `${digitFontSize}px ${digitFontFamily}`;
+  let digitWidth = Number(ctx.measureText(digits).width) || 0;
+  if (digitWidth > maxDigitWidth && digitWidth > 0) {
+    digitFontSize = Math.max(1, digitFontSize * (maxDigitWidth / digitWidth));
+    ctx.font = `${digitFontSize}px ${digitFontFamily}`;
+  }
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(120, 255, 170, 0.92)";
-  ctx.fillText(digits, canvas.width * 0.5, digitAreaHeight * 0.5, canvas.width);
+  ctx.fillText(digits, canvas.width * 0.5, digitAreaHeight * 0.5);
 
   const labelFontSize = Math.max(1, Math.min(labelHeight * 0.7, canvas.width * 0.14));
   ctx.font = `${labelFontSize}px "Consolas", "Courier New", monospace`;
   ctx.fillStyle = "rgba(120, 255, 170, 0.55)";
-  ctx.fillText("BPM", canvas.width * 0.5, digitAreaHeight + labelHeight * 0.5, canvas.width);
+  ctx.fillText("BPM", canvas.width * 0.5, digitAreaHeight + labelHeight * 0.5);
 
   // Gate lamp - top-right corner LED on the BPM plate.
   const lampR = Math.max(2, Math.min(canvas.width, canvas.height) * 0.07);

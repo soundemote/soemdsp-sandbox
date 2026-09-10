@@ -33,7 +33,11 @@ Chrome only changes **where I/O lives relative to the face**:
 | --- | --- | --- | --- |
 | **LayoutA** | Under the face | Own row | Under I/O |
 | **LayoutB** | Beside the face (one **shell** band) | Shared with jacks | Under the shell |
-| **LayoutC** | Under the title | None | None |
+| **TitleBarAndPorts** (ex-**LayoutC**) | Under the title | None | None |
+
+`LayoutC` remains a deprecated alias for `TitleBarAndPorts`. Use the new name in
+registers (Meta In/Out, portals). Do **not** fake this with `compactTile` + ports
+on a custom face — that fights Hide In/Out and title-only height.
 
 Visibility flags (per-module and global) turn bands **off**. Off means the band
 must not occupy a grid track. Collapsing a track to `0px` while another child

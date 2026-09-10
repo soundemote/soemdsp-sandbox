@@ -13,7 +13,7 @@
 // Shared locked master phase (SoEm slaveIncrement). Relative positions come
 // only from phaseOffset. Rising Reset re-zeros master + re-rolls seeds.
 // Distance compensation (|f|/100 Hz) keeps jitter/vibrato temporal depth even
-// across pitch; Distance Slew (ms) controls how fast that gain tracks Frequency.
+// across pitch; Phase Slew (ms) slews that gain and Phase Multiplier changes.
 //
 // Waveforms (soemdsp PolyBLEP): Trisaw, Saw, Pulse Center, Ramp, Pulse,
 // RectifiedSin, Trapezoid. Morph = PWM/width for Trisaw / Pulse / Pulse Center.
@@ -215,7 +215,7 @@ static inline void jitter_reset(JitterState& j) {
 }
 
 // Exact Hypersaw drift_walk_run Random Steps path, then × Distance × distComp.
-// distComp is |f|/ref (possibly slewed by Distance Slew) — not the carrier.
+// distComp is |f|/ref (possibly slewed by Phase Slew) — not the carrier.
 static inline double hypersaw_random_steps(
   JitterState& j,
   double distance,       // Drift Amp
@@ -284,6 +284,9 @@ struct Hypersaw2State {
   double masterPhase;
   // Slewed |f|/ref for PM depth only — carrier freq is never smoothed.
   double distCompSmooth;
+  // Slewed Phase Multiplier (vibOffset) — knob jumps go through Phase Slew.
+  double phaseMultSmooth;
+  bool phaseMultSmoothInit;
   unsigned int masterRng;
   int lastVoiceCount;
   double lastVoiceFrac;
@@ -314,6 +317,8 @@ void reseedAll(Hypersaw2State& s, int instanceIndex, unsigned int masterSeed) {
   s.masterRng = masterSeed ? masterSeed : 0xC2B2AE3Du;
   s.masterPhase = 0.0;
   s.distCompSmooth = 1.0; // unity at kDistanceRefHz until first sample
+  s.phaseMultSmooth = 1.0;
+  s.phaseMultSmoothInit = false;
   s.lastVoiceCount = 0;
   s.lastSeed = static_cast<double>(masterSeed);
   for (int v = 0; v < kMaxVoices; v++) {
@@ -428,7 +433,7 @@ extern "C" void soemdsp_hypersaw2_sample(
   double vibPhaseV = (vibratoPhaseVary == vibratoPhaseVary) ? vibratoPhaseVary : 0.0;
   if (vibPhaseV < 0.0) vibPhaseV = 0.0;
   if (vibPhaseV > 1.0) vibPhaseV = 1.0;
-  const double phaseMult = (phaseMultiplier == phaseMultiplier) ? phaseMultiplier : 1.0;
+  const double phaseMultTarget = (phaseMultiplier == phaseMultiplier) ? phaseMultiplier : 1.0;
   const double jDistance = (jitterDistance == jitterDistance) ? jitterDistance : 0.0;
   const double jSpeed = (jitterSpeed == jitterSpeed && jitterSpeed > 0.0) ? jitterSpeed : 0.0;
   const double jPitch = (jitterPitchSt == jitterPitchSt) ? jitterPitchSt : 0.0;
@@ -463,22 +468,34 @@ extern "C" void soemdsp_hypersaw2_sample(
   const double phaseIncrement = freq / sr;
   const double blepDt = phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement;
 
-  // Distance law Δφ ∝ |f|: slew the PM-depth gain so Frequency sweeps don't
-  // zipper phase offsets. Carrier advance still uses raw freq above.
-  // Distance Slew = one-pole time constant in ms (0 = instant).
+  // Phase Slew = one-pole time constant in ms (0 = instant).
+  // Tracks |f|/ref PM-depth gain and Phase Multiplier knob changes so neither
+  // zippers PolyBLEP offsets. Carrier advance still uses raw freq above.
   double oscAbs = freq < 0.0 ? -freq : freq;
   const double distCompTarget = (oscAbs > 1.0e-12) ? (oscAbs / kDistanceRefHz) : 0.0;
-  // Range comes from param meta (min/max); only guard NaN and 0 = instant.
   const double slewMs = (distanceSlewMs == distanceSlewMs) ? distanceSlewMs : 8.0;
-  if (!(slewMs > 1.0e-9)) {
+  const bool slewInstant = !(slewMs > 1.0e-9);
+  double slewA = 0.0;
+  if (!slewInstant) {
+    slewA = dsp_exp(-1.0 / ((slewMs * 0.001) * sr));
+  }
+  if (slewInstant) {
     s.distCompSmooth = distCompTarget;
   } else {
-    const double distCompA = dsp_exp(-1.0 / ((slewMs * 0.001) * sr));
-    s.distCompSmooth = (1.0 - distCompA) * distCompTarget + distCompA * s.distCompSmooth;
+    s.distCompSmooth = (1.0 - slewA) * distCompTarget + slewA * s.distCompSmooth;
   }
   if (!(s.distCompSmooth * 0.0 == 0.0)) s.distCompSmooth = distCompTarget;
   const double distComp = s.distCompSmooth;
   const double vibAmpDist = vibAmp * distComp;
+
+  if (!s.phaseMultSmoothInit || slewInstant) {
+    s.phaseMultSmooth = phaseMultTarget;
+    s.phaseMultSmoothInit = true;
+  } else {
+    s.phaseMultSmooth = (1.0 - slewA) * phaseMultTarget + slewA * s.phaseMultSmooth;
+  }
+  if (!(s.phaseMultSmooth * 0.0 == 0.0)) s.phaseMultSmooth = phaseMultTarget;
+  const double phaseMult = s.phaseMultSmooth;
 
   double leftSum = 0.0;
   double rightSum = 0.0;

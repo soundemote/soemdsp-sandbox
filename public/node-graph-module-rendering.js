@@ -98,14 +98,8 @@ function attachNodeGraphNodeEvents(node) {
   node.querySelector(".node-header-title-row")?.addEventListener("contextmenu", openNodeModuleActionMenu);
   // LED face is also .node-solid-module-custom-ui — drag is bound once via
   // attachNodeGraphSolidModuleShellEvents (do not double-bind pointerdown).
-  // Group Input/Output are chromeless (no .node-header-title-row to grab
-  // or double-click, see public/modules/groupInput|groupOutput/*-ui.js) --
-  // wire their own face to the exact same drag/settings behavior the
-  // header row gives every other module. Safe against the single .node-port
-  // each face contains: handlePortPointerDown (node-graph-wires.js)
-  // stopPropagation()s before this could also fire.
-  node.querySelector(".node-group-input-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
-  node.querySelector(".node-group-output-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
+  // Meta In/Out compact faces (no header row) — same drag as other chromeless tiles.
+  node.querySelector(".node-metamodule-boundary-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   attachNodeGraphSolidModuleShellEvents(node);
   node.querySelectorAll(".dsp-node-io-section")
     .forEach((section) => section.addEventListener("pointerdown", beginNodeGraphNodeDrag));
@@ -543,6 +537,23 @@ function createNodeGraphLayoutBShell(node, type, customBody, registration, input
   return shell;
 }
 
+/**
+ * MetamoduleLayout face band (article sibling under shared LayoutA IO chrome).
+ * No private IO dialect — jack paint comes from .dsp-node-io-section.
+ */
+function prepareNodeGraphMetamoduleLayoutFace(customBody) {
+  if (!customBody) {
+    return customBody;
+  }
+  // Do not add node-solid-module-custom-ui here — that class is LayoutB shell
+  // middle-column chrome and forces grid-column:2 on the article.
+  customBody.classList.add("node-module-face");
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(customBody, "face");
+  }
+  return customBody;
+}
+
 /** LayoutB: no param rows / sliders-hidden → shell fills; no empty bottom lip. */
 function syncNodeGraphLayoutBNoParamsClass(element, type, ui = null) {
   if (!element?.classList) {
@@ -658,15 +669,29 @@ function createNodeGraphModuleElement(type, node) {
       cssLayoutClass: "chrome-layout-a",
     };
   article.dataset.chromeLayout = chrome.layout;
-  const isLayoutC = Boolean(chrome.titleIoOnly)
+  const isTitleBarAndPorts = Boolean(chrome.titleIoOnly)
+    || chrome.layout === "TitleBarAndPorts"
     || chrome.layout === "LayoutC"
+    || chrome.layout === (NodeGraphModuleChromeLayout?.TitleBarAndPorts)
     || chrome.layout === (NodeGraphModuleChromeLayout?.LayoutC);
-  article.classList.toggle("chrome-layout-a", Boolean(!isLayoutC && (chrome.portsUnder ?? !chrome.portsBeside)));
-  article.classList.toggle("chrome-layout-b", Boolean(chrome.portsBeside));
-  article.classList.toggle("chrome-layout-c", isLayoutC);
-  // Headerless LayoutB (XY Pad contract): shell + params + 1gu bottom clearance.
-  // Legacy class name solid-module-layout kept for existing CSS.
-  article.classList.toggle("solid-module-layout", Boolean(chrome.headerless));
+  const isLayoutC = isTitleBarAndPorts; // deprecated alias for local branches
+  const isMetamoduleLayout = Boolean(chrome.portsAboveFace)
+    || chrome.layout === "MetamoduleLayout"
+    || chrome.layout === (NodeGraphModuleChromeLayout?.MetamoduleLayout);
+  article.classList.toggle(
+    "chrome-layout-a",
+    Boolean(!isTitleBarAndPorts && !isMetamoduleLayout && (chrome.portsUnder ?? !chrome.portsBeside)),
+  );
+  article.classList.toggle("chrome-layout-b", Boolean(chrome.portsBeside && !isMetamoduleLayout));
+  article.classList.toggle("chrome-layout-metamodule", isMetamoduleLayout);
+  article.classList.toggle("chrome-layout-title-bar-and-ports", isTitleBarAndPorts);
+  article.classList.toggle("chrome-layout-c", isTitleBarAndPorts); // deprecated CSS alias
+  // Headerless LayoutB: shell + params + 1gu bottom clearance.
+  // MetamoduleLayout uses chrome-layout-metamodule (not LayoutB solid shell).
+  article.classList.toggle(
+    "solid-module-layout",
+    Boolean(chrome.headerless && !isMetamoduleLayout),
+  );
   article.dataset.portSignature = typeof nodeGraphModulePortSignature === "function"
     ? nodeGraphModulePortSignature(patchNode)
     : `${inputPorts.join(",")}=>${outputPorts.join(",")}`;
@@ -714,6 +739,25 @@ function createNodeGraphModuleElement(type, node) {
     ? nodeGraphChromelessModuleRegistrations.get(layout)
     : null;
   if (chromelessRegistration) {
+    // TitleBarAndPorts: title + standard IO section only — never a face / compactTile ports.
+    if (isTitleBarAndPorts) {
+      if (!patchNodeUi.titleHidden) {
+        article.append(createNodeGraphModuleHeader(type, node, definition));
+      }
+      appendNodeGraphModuleIoSection(
+        article,
+        createNodeGraphLayoutAIoSection(
+          node,
+          type,
+          inputPorts,
+          outputPorts,
+          nodeGraphModuleLayoutAIoOptions(type, inputPorts, outputPorts),
+        ),
+        node,
+        inputPorts,
+        outputPorts,
+      );
+    } else {
     // Title bar on headerless LayoutB chromeless modules (default on).
     if (chrome.headerless && !patchNodeUi.titleHidden) {
       article.append(createNodeGraphModuleHeader(type, node, definition));
@@ -739,8 +783,25 @@ function createNodeGraphModuleElement(type, node) {
       chromelessBody.hidden = true;
       chromelessBody.setAttribute("aria-hidden", "true");
     }
-    // LayoutB → ports beside face. LayoutA → face then ports under (labeled I/O strip).
-    if (chrome.portsBeside) {
+    // MetamoduleLayout → shared LayoutA IO chrome ABOVE a dedicated face band.
+    // Do not invent a third jack/label dialect (flush + app-wide label type).
+    // LayoutB → beside. LayoutA → face then ports under.
+    if (chrome.portsAboveFace) {
+      appendNodeGraphModuleIoSection(
+        article,
+        createNodeGraphLayoutAIoSection(
+          node,
+          type,
+          inputPorts,
+          outputPorts,
+          nodeGraphModuleLayoutAIoOptions(type, inputPorts, outputPorts),
+        ),
+        node,
+        inputPorts,
+        outputPorts,
+      );
+      article.append(prepareNodeGraphMetamoduleLayoutFace(chromelessBody));
+    } else if (chrome.portsBeside) {
       article.append(
         createNodeGraphLayoutBShell(node, type, chromelessBody, chromelessRegistration, inputPorts, outputPorts),
       );
@@ -766,6 +827,7 @@ function createNodeGraphModuleElement(type, node) {
     }
     if (mountFace) {
       chromelessRegistration.afterMount?.(article, chromelessBody, node, type);
+    }
     }
   } else if (chrome.headerless) {
     // Headerless LayoutB (e.g. knob): title + face + side ports.
@@ -1358,8 +1420,8 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
-  } else if (isLayoutC) {
-    // LayoutC: title (above) + I/O only. No face, no param rows.
+  } else if (isTitleBarAndPorts) {
+    // TitleBarAndPorts (ex-LayoutC): title + I/O only. No face, no param rows.
     // UC: jacks + labels sit above the construction plate.
     appendNodeGraphModuleIoSection(
       article,
@@ -1461,10 +1523,17 @@ function createNodeGraphModuleElement(type, node) {
   // Chromeless LayoutB always had params under the shell; LayoutA chromeless
   // (e.g. Soft Fractal multi-out) also needs the param rows.
   // LayoutC never mounts param sliders (title + I/O only).
+  // Prefer patch-aware defs (Metamodule exposed child params) over static list.
+  const mountParameters = typeof nodeGraphPatchNodeParameterDefinitions === "function"
+    ? nodeGraphPatchNodeParameterDefinitions(patchNode)
+    : (definition.parameters || []);
   if (
     !isLayoutC
-    && definition.parameters?.length
-    && (!nodeGraphChromelessModuleLayouts.has(layout) || chrome.portsBeside || chrome.portsUnder)
+    && mountParameters.length
+    && (!nodeGraphChromelessModuleLayouts.has(layout)
+      || chrome.portsBeside
+      || chrome.portsAboveFace
+      || chrome.portsUnder)
   ) {
     const body = document.createElement("div");
     body.className = "dsp-node-body";
@@ -1476,7 +1545,7 @@ function createNodeGraphModuleElement(type, node) {
       body.append(graphInputSection);
     }
 
-    for (const parameter of definition.parameters) {
+    for (const parameter of mountParameters) {
       body.append(createNodeGraphParameter(node, type, parameter));
     }
     article.append(body);

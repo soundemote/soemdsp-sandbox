@@ -21,6 +21,37 @@ function nodeGraphPassiveFilterStaggerRatio(stagger) {
   return Math.min(8, k);
 }
 
+/**
+ * Apply absolute-Hz center (ƒ jack / pitched base) to HPF/LPF knobs.
+ * Mode 0 LP → LPF = center. Mode 2 HP → HPF = center. Mode 1 BP → geo-mean scale.
+ */
+function nodeGraphPassiveFilterApplyCenter(mode, lowFrequency, highFrequency, centerFrequency) {
+  let low = Math.max(0, Number(lowFrequency) || 0);
+  let high = Math.max(0, Number(highFrequency) || 0);
+  const centerHz = Number(centerFrequency);
+  if (!Number.isFinite(centerHz)) {
+    return { lowFrequency: low, highFrequency: high };
+  }
+  if (centerHz <= 0) {
+    return { lowFrequency: 0, highFrequency: 0 };
+  }
+  const safeMode = Math.round(Number(mode)) || 0;
+  if (safeMode === 0) {
+    return { lowFrequency: low, highFrequency: centerHz };
+  }
+  if (safeMode === 2) {
+    return { lowFrequency: centerHz, highFrequency: high };
+  }
+  if (low > 0 && high > 0) {
+    const geo = Math.sqrt(low * high);
+    if (geo > 0) {
+      const scale = centerHz / geo;
+      return { lowFrequency: low * scale, highFrequency: high * scale };
+    }
+  }
+  return { lowFrequency: centerHz * 0.5, highFrequency: centerHz * 2 };
+}
+
 function nodeGraphPassiveFilterSafeNumber(value, runtime, nodeId, state, source) {
   if (typeof nodeGraphSafeFilterNumber === "function") {
     return nodeGraphSafeFilterNumber(value, runtime, nodeId, state, source);

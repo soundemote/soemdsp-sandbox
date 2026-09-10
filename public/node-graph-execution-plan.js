@@ -421,7 +421,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   const outputNode = "output";
   const reachableNodes = new Set();
   const bypassedNodes = new Set(graph.bypassedNodes || []);
-  const passthroughTypes = new Set(["asciiscope", "matrixDisplay", "matrixWaterfall", "activeFilter", "allpass", "badvalMonitor", "bandpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaser", "flanger", "chorus", "bode", "phaseDisperse", "stftBlur", "bessel", "bias", "u2b", "b2u", "inv", "butterworth", "chaoticPhaseLockingFilter", "chebyshev", "cookbookFilter", "elliptic", "eqFilter", "flowerChildFilter", "formantFilter", "besselThomson", "massSpringDamper", "gain", "mix4", "mixStereo4", "mixStereo2", "mixStereo", "humanFilter", "inertialFilter", "ladderFilter", "linkwitzRiley", "papoulisFilter", "passiveFilter", "pll", "resonatorFilter", "reverbEffect", "sampleDelay", "sampleHold", "slewLimiter", "softClipper", "clipperLimiter", "speakerProtection", "speakerProtector2", "spectrogram", "speedColorInertia", "superloveFilter", "tb303Filter", "tiltFilter", "wallDelay", "yellowjacketFilter", "midSideEncode", "quadrature", "hilbert", "lookaheadLimiter", "limiter"]);
+  const passthroughTypes = new Set(["asciiscope", "matrixDisplay", "matrixWaterfall", "activeFilter", "allpass", "badvalMonitor", "bandpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaser", "flanger", "chorus", "bode", "phaseDisperse", "stftBlur", "bessel", "bias", "u2b", "b2u", "inv", "butterworth", "chaoticPhaseLockingFilter", "chebyshev", "cookbookFilter", "elliptic", "eqFilter", "flowerChildFilter", "formantFilter", "besselThomson", "massSpringDamper", "gain", "mix4", "mixStereo4", "mixStereo2", "mixStereo", "humanFilter", "inertialFilter", "ladderFilter", "linkwitzRiley", "papoulisFilter", "passiveFilter", "pll", "resonatorFilter", "reverbEffect", "sampleDelay", "sampleHold", "slewLimiter", "softClipper", "clipperLimiter", "speakerProtection", "speakerProtector2", "spectrogram", "speedColorInertia", "superloveFilter", "tb303Filter", "tiltFilter", "wallDelay", "yellowjacketFilter", "midSideEncode", "quadrature", "hilbert", "lookaheadLimiter", "limiter", "metamoduleIn", "metamoduleOut"]);
 
   function markReachable(nodeId) {
     if (reachableNodes.has(nodeId) || !graph.nodeMap.has(nodeId)) {
@@ -446,16 +446,6 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
     ) {
       markReachable(node.id);
     }
-  }
-  // groupOutput only needs forced reachability when the compile has no
-  // speaker/plugin output sink (!hasOutputNode). Forcing it on a normal
-  // top-level patch would drag dangling Group Output upstream into strict
-  // validation and could mute audio over in-progress wires.
-  const groupOutputNodes = hasOutputNode
-    ? []
-    : graph.nodes.filter((node) => node.type === "groupOutput");
-  for (const node of groupOutputNodes) {
-    markReachable(node.id);
   }
   for (const node of graph.nodes) {
     if (nodeGraphVisualSinkActiveInPlan(node, { bypassedNodes })) {
@@ -503,13 +493,11 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   const hasOutputSpeakerInput = nodeGraphOutputInputPorts.some(
     (port) => (graph.inputConnections.get(nodeGraphInputKey(outputNode, port)) || []).length > 0,
   );
-  if (!groupOutputNodes.length) {
-    nodeGraphValidateRuntimeRoute(issues, {
-      hasActiveVisualSink,
-      hasOutputNode,
-      hasOutputSpeakerInput,
-    });
-  }
+  nodeGraphValidateRuntimeRoute(issues, {
+    hasActiveVisualSink,
+    hasOutputNode,
+    hasOutputSpeakerInput,
+  });
 
   for (const nodeId of reachableNodes) {
     const type = graph.nodeMap.get(nodeId)?.type;

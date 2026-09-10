@@ -249,8 +249,6 @@
         "oscilloscopeBank",
         "shootingStarTail",
         "wallDelay",
-        "groupInput",
-        "groupOutput",
         "evolveField",
         "asciiscope",
         "formantFilter",

@@ -299,6 +299,20 @@ function syncNodeGraphModuleScopeFaceCanvasTape(canvas, screenElement, pixelRati
     : false;
   const holdWaterfall = Boolean(canvas._waterfall?.started || canvas._traceScroll?.started);
   const holdVectorTrace = Boolean(canvas.classList?.contains("node-module-scope-vector-trace"));
+  // Metamodule mirror: keep last real buffer while the child article is hidden
+  // (display:none → 0×0 layout) so Root shell blit does not collapse the source.
+  const hostNode = screenElement?.closest?.(".dsp-node");
+  const mirrorHold = Boolean(
+    hostNode?.hidden
+    && canvas.width >= 2
+    && canvas.height >= 2
+    && typeof nodeGraphMetamoduleChildIsMirrorSubscribed === "function"
+    && nodeGraphMetamoduleChildIsMirrorSubscribed(hostNode.dataset?.node),
+  );
+  if (mirrorHold && (width < 4 || height < 4 || width * height < canvas.width * canvas.height * 0.25)) {
+    width = canvas.width;
+    height = canvas.height;
+  }
   if ((frozen || holdWaterfall || holdVectorTrace) && canvas.width >= 2 && canvas.height >= 2) {
     const dw = Math.abs(width - canvas.width);
     const dh = Math.abs(height - canvas.height);
@@ -354,8 +368,20 @@ function syncNodeGraphModuleScopeFaceCanvasBurn(canvas, screenElement, pixelRati
   const density = typeof nodeGraphFacePlateDensity === "function"
     ? nodeGraphFacePlateDensity({ pixelDensity }, 1)
     : Math.max(0, Math.min(1, Number(pixelDensity) || 0));
-  const width = Math.max(1, Math.round(size.width * density));
-  const height = Math.max(1, Math.round(size.height * density));
+  let width = Math.max(1, Math.round(size.width * density));
+  let height = Math.max(1, Math.round(size.height * density));
+  const hostNode = screenElement?.closest?.(".dsp-node");
+  const mirrorHold = Boolean(
+    hostNode?.hidden
+    && canvas.width >= 2
+    && canvas.height >= 2
+    && typeof nodeGraphMetamoduleChildIsMirrorSubscribed === "function"
+    && nodeGraphMetamoduleChildIsMirrorSubscribed(hostNode.dataset?.node),
+  );
+  if (mirrorHold && (width < 4 || height < 4 || width * height < canvas.width * canvas.height * 0.25)) {
+    width = canvas.width;
+    height = canvas.height;
+  }
   const resized = canvas.width !== width || canvas.height !== height;
   if (resized) {
     canvas.width = width;

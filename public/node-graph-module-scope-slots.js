@@ -58,13 +58,30 @@ function unregisterNodeGraphModuleScopeSlot(nodeId) {
   }
 }
 
+function nodeGraphModuleScopeSlotIsMirrorSubscribed(slot) {
+  const id = String(slot?.nodeId || "");
+  if (!id) return false;
+  return typeof nodeGraphMetamoduleChildIsMirrorSubscribed === "function"
+    && nodeGraphMetamoduleChildIsMirrorSubscribed(id);
+}
+
 function nodeGraphModuleScopeSlots() {
   return [...nodeGraphModuleScopeState.slots.values()]
-    .filter((slot) => slot.element?.isConnected && !slot.element.hidden && slot.scopeElement);
+    .filter((slot) => {
+      if (!slot.element?.isConnected || !slot.scopeElement) return false;
+      // Hidden owned children still paint when mirrored onto a Metamodule shell.
+      if (slot.element.hidden && !nodeGraphModuleScopeSlotIsMirrorSubscribed(slot)) {
+        return false;
+      }
+      return true;
+    });
 }
 
 function nodeGraphModuleScopeSlotDisplayVisible(slot) {
-  if (!slot?.element?.isConnected || slot.element.hidden || !slot.scopeElement) {
+  if (!slot?.element?.isConnected || !slot.scopeElement) {
+    return false;
+  }
+  if (slot.element.hidden && !nodeGraphModuleScopeSlotIsMirrorSubscribed(slot)) {
     return false;
   }
   const patchNode = typeof nodeGraphPatchNode === "function"

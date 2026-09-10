@@ -317,38 +317,133 @@ NodeLiveAudioProcessor.prototype.setParams = function setParams(nodes, message =
     });
 };
 
-NodeLiveAudioProcessor.prototype.setMidiKeyboardSignal = function setMidiKeyboardSignal(signal) {
+NodeLiveAudioProcessor.prototype._normalizeKeyboardSignalPayload = function _normalizeKeyboardSignalPayload(
+  signal,
+  { pulse = false, previous = null } = {},
+) {
     const source = signal && typeof signal === "object" ? signal : {};
-    const midi = this.clampValue(Math.round(Number(source.midi) || 60), 0, 127);
-    const rawMidi = Number.isFinite(Number(source.rawMidi))
-      ? this.clampValue(Math.round(Number(source.rawMidi)), 0, 127)
-      : midi;
-    const octave = this.clampValue(Math.round(Number(source.octave) || 0), -6, 6);
-    const keyIndex = this.clampValue(Number(source.keyIndex) || 0, 0, 24);
-    const keyQuantized = this.clampValue(Number(source.keyQuantized) || keyIndex / 24, 0, 1);
-    const frequency = Math.max(0, Number(source.frequency) || 440 * (2 ** ((midi - 69) / 12)));
-    const velocity = this.clampValue(Number(source.velocity) || 0, 0, 1);
-    if (Number(source.gatePulse) > 0) {
+    const prev = previous && typeof previous === "object" ? previous : {};
+    // Hold last triggered midi/freq when gate drops or payload omits pitch.
+    // Do not snap to middle-C (60) / A440 after a real note has been played.
+    const sourceMidi = Number(source.midi);
+    const prevMidi = Number(prev.midi);
+    const midi = this.clampValue(
+      Math.round(
+        Number.isFinite(sourceMidi)
+          ? sourceMidi
+          : (Number.isFinite(prevMidi) ? prevMidi : 60),
+      ),
+      0,
+      127,
+    );
+    const rawMidiSource = Number(source.rawMidi);
+    const rawMidi = Number.isFinite(rawMidiSource)
+      ? this.clampValue(Math.round(rawMidiSource), 0, 127)
+      : (Number.isFinite(Number(prev.rawMidi))
+        ? this.clampValue(Math.round(Number(prev.rawMidi)), 0, 127)
+        : midi);
+    const octave = this.clampValue(
+      Math.round(Number.isFinite(Number(source.octave)) ? Number(source.octave) : (Number(prev.octave) || 0)),
+      -6,
+      6,
+    );
+    const keyIndex = this.clampValue(
+      Number.isFinite(Number(source.keyIndex))
+        ? Number(source.keyIndex)
+        : (Number(prev.keyIndex) || 0),
+      0,
+      24,
+    );
+    const keyQuantized = this.clampValue(
+      Number.isFinite(Number(source.keyQuantized))
+        ? Number(source.keyQuantized)
+        : (Number.isFinite(Number(prev.keyQuantized)) ? Number(prev.keyQuantized) : keyIndex / 24),
+      0,
+      1,
+    );
+    const sourceFreq = Number(source.frequency);
+    const prevFreq = Number(prev.frequency);
+    const frequency = Math.max(
+      0,
+      Number.isFinite(sourceFreq) && sourceFreq > 0
+        ? sourceFreq
+        : (Number.isFinite(prevFreq) && prevFreq > 0
+          ? prevFreq
+          : 440 * (2 ** ((midi - 69) / 12))),
+    );
+    const velocity = this.clampValue(
+      Number.isFinite(Number(source.velocity))
+        ? Number(source.velocity)
+        : (Number(prev.velocity) || 0),
+      0,
+      1,
+    );
+    if (pulse && Number(source.gatePulse) > 0) {
       this.midiKeyboardGatePulseSamples = 1;
       this.midiKeyboardGatePulseVelocity = velocity;
     }
-    this.midiKeyboardSignal = {
+    return {
       gate: Number(source.gate) > 0 ? 1 : 0,
       gatePulse: Number(source.gatePulse) > 0 ? 1 : 0,
-      x: this.clampValue(Number(source.x) || keyQuantized, 0, 1),
-      y: this.clampValue(Number(source.y) || 0, 0, 1),
+      x: this.clampValue(
+        Number.isFinite(Number(source.x)) ? Number(source.x) : (Number(prev.x) || keyQuantized),
+        0,
+        1,
+      ),
+      y: this.clampValue(
+        Number.isFinite(Number(source.y)) ? Number(source.y) : (Number(prev.y) || 0),
+        0,
+        1,
+      ),
       velocity,
       keyIndex,
       keyQuantized,
       rawMidi,
       octave,
       midi,
-      pitchValue: this.clampValue(Number(source.pitchValue) || midi, 0, 127),
-      midiNormalized: this.clampValue(Number(source.midiNormalized) || midi / 127, 0, 1),
-      tenthVoltPerOctave: this.clampValue(Number(source.tenthVoltPerOctave) || midi / 120, 0, 1),
-      increment: Math.max(0, Number(source.increment) || frequency / Math.max(1, this.engineSampleRate || sampleRate)),
+      pitchValue: this.clampValue(
+        Number.isFinite(Number(source.pitchValue)) ? Number(source.pitchValue) : midi,
+        0,
+        127,
+      ),
+      midiNormalized: this.clampValue(
+        Number.isFinite(Number(source.midiNormalized))
+          ? Number(source.midiNormalized)
+          : midi / 127,
+        0,
+        1,
+      ),
+      tenthVoltPerOctave: this.clampValue(
+        Number.isFinite(Number(source.tenthVoltPerOctave))
+          ? Number(source.tenthVoltPerOctave)
+          : midi / 120,
+        0,
+        1,
+      ),
+      increment: Math.max(
+        0,
+        Number.isFinite(Number(source.increment)) && Number(source.increment) > 0
+          ? Number(source.increment)
+          : frequency / Math.max(1, this.engineSampleRate || sampleRate),
+      ),
       frequency,
     };
+};
+
+NodeLiveAudioProcessor.prototype.setMidiKeyboardSignal = function setMidiKeyboardSignal(signal) {
+    // Hardware MIDI device signal (MIDI module only).
+    this.midiKeyboardSignal = this._normalizeKeyboardSignalPayload(signal, {
+      pulse: true,
+      previous: this.midiKeyboardSignal,
+    });
+};
+
+NodeLiveAudioProcessor.prototype.setKeyboardModuleSignal = function setKeyboardModuleSignal(signal) {
+    // Local Keyboard face / dock pointer (Keyboard module only).
+    this.keyboardModuleSignal = this._normalizeKeyboardSignalPayload(signal, {
+      pulse: true,
+      previous: this.keyboardModuleSignal,
+    });
 };
 
 NodeLiveAudioProcessor.prototype.setMacroControls = function setMacroControls(values) {

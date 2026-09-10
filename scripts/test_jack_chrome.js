@@ -184,6 +184,11 @@ var sandbox = {
       outputs: ["Out"],
       outputChannels: { Out: "green" },
     },
+    // Generic In/Out utility — must stay gold (no L/R/Mono aliases).
+    range: {
+      inputs: ["In"],
+      outputs: ["Out"],
+    },
     surgeOscillator: {
       outputs: ["Wave", "Saw", "Square", "Tri", "Sine", "Synced", "Internal Sync"],
       outputChannels: { Wave: "green" },
@@ -305,6 +310,10 @@ assert(ch("robinSinusoid", "Out", "output") === "green", "RobinSinusoid Out is g
 assert(ch("antisaw", "Out", "output") === "green", "Antisaw Out is green");
 assert(ch("sinc", "Out", "output") === "green", "Sinc Out is green");
 assert(ch("dsfOscillator", "Out", "output") === "green", "DSF Out is green");
+assert(ch("range", "In", "input") === "", "Range In stays gold (uncolored)");
+assert(ch("range", "Out", "output") === "", "Range Out stays gold (uncolored)");
+assert(!sandbox.nodeGraphModuleDefinitions.range.inputAliases, "Range has no inputAliases");
+assert(!sandbox.nodeGraphModuleDefinitions.range.outputAliases, "Range has no outputAliases");
 assert(ch("softwaveOsc", "Out", "output") === "green", "Softwave Out is green");
 assert(
   sandbox.nodeGraphModuleDefinitions.softwaveOsc.inputs.indexOf("Morph") < 0,

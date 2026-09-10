@@ -235,6 +235,21 @@ function handleNodeGraphKeydown(event) {
     endNodeGraphScreenSolo();
     return;
   }
+  // Inside Metamodule: Escape returns to Root (before typing / chrome handlers).
+  if (
+    event.key === "Escape"
+    && typeof nodeGraphMetamoduleViewId === "function"
+    && nodeGraphMetamoduleViewId()
+    && typeof exitNodeGraphMetamoduleViewToRoot === "function"
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    exitNodeGraphMetamoduleViewToRoot();
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Root view.");
+    }
+    return;
+  }
   // Title + area Text Box share this gate. Check before window-nudge / H-V-M.
   if (
     !event.ctrlKey
@@ -254,6 +269,17 @@ function handleNodeGraphKeydown(event) {
   }
   if (event.key === "Escape" && document.getElementById("nodeWiringPanel")?.classList.contains("modular-only-view")) {
     setNodeGraphViewMode("modular");
+    return;
+  }
+  // Root Escape: reset V chrome cycle so top + bottom bars are shown again.
+  if (
+    event.key === "Escape"
+    && typeof nodeGraphAppChromeBarsMode === "function"
+    && typeof setNodeGraphAppChromeBarsMode === "function"
+    && nodeGraphAppChromeBarsMode() !== "all"
+  ) {
+    event.preventDefault();
+    setNodeGraphAppChromeBarsMode("all");
     return;
   }
   // While typing in a text/search field (module search, name boxes, code
@@ -423,6 +449,14 @@ function handleNodeGraphKeydown(event) {
   }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "f") {
     event.preventDefault();
+    // Inside a Metamodule: F pins selected child faces onto the shell display
+    // stack (additive). Root keeps fullscreen screen-solo.
+    if (typeof nodeGraphMetamoduleToggleDisplaysForSelection === "function"
+      && typeof nodeGraphMetamoduleViewId === "function"
+      && nodeGraphMetamoduleViewId()) {
+      nodeGraphMetamoduleToggleDisplaysForSelection();
+      return;
+    }
     if (typeof toggleNodeGraphSelectedScreensFullscreen === "function") {
       toggleNodeGraphSelectedScreensFullscreen();
     }

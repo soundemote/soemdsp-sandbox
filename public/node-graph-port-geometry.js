@@ -16,7 +16,17 @@ function nodeGraphPortSelector(node, port, io) {
 }
 
 function nodeGraphModulationPortSelector(node, parameter) {
-  return `.node-param-port.modulation-input[data-node="${CSS.escape(node)}"][data-param="${CSS.escape(parameter)}"]`;
+  // Root: modulations rewritten onto owned children still paint on shell mx_* jacks.
+  let nodeId = String(node || "");
+  let paramKey = String(parameter || "");
+  if (typeof nodeGraphMetamoduleExposedModulationWireVisualEndpoint === "function") {
+    const proxy = nodeGraphMetamoduleExposedModulationWireVisualEndpoint(nodeId, paramKey);
+    if (proxy?.nodeId && proxy?.param) {
+      nodeId = proxy.nodeId;
+      paramKey = proxy.param;
+    }
+  }
+  return `.node-param-port.modulation-input[data-node="${CSS.escape(nodeId)}"][data-param="${CSS.escape(paramKey)}"]`;
 }
 
 function nodeGraphGraphInputPortSelector(node, graphInput) {
@@ -35,6 +45,13 @@ function nodeGraphPortElementForWireEndpoint(node, port, io) {
   const surface = nodeGraphZoomSurface();
   if (!surface) {
     return null;
+  }
+  // Root view: Meta In/Out portals are hidden — terminate on the parent shell jack.
+  if (typeof nodeGraphMetamoduleWireVisualEndpoint === "function") {
+    const proxy = nodeGraphMetamoduleWireVisualEndpoint(node, port, io);
+    if (proxy) {
+      return nodeGraphPortElementForWireEndpoint(proxy.nodeId, proxy.port, proxy.io);
+    }
   }
   // Always resolve the real jack element. Hide In/Out collapses the section
   // for real (no proxy strip); wire geometry then uses edge fallbacks.
@@ -177,6 +194,25 @@ function nodeGraphPortCenter(node, port, io) {
   if (cache?.has(cacheKey)) {
     return cache.get(cacheKey);
   }
+  // Prefer published module geometry SSOT (layout owners write; Play does not).
+  if (typeof nodeGraphModuleGeometryAttach === "function") {
+    let nodeId = String(node || "");
+    let portName = String(port || "");
+    let ioName = String(io || "");
+    if (typeof nodeGraphMetamoduleWireVisualEndpoint === "function") {
+      const proxy = nodeGraphMetamoduleWireVisualEndpoint(nodeId, portName, ioName);
+      if (proxy?.nodeId) {
+        nodeId = proxy.nodeId;
+        portName = proxy.port;
+        ioName = proxy.io;
+      }
+    }
+    const published = nodeGraphModuleGeometryAttach(nodeId, portName, ioName);
+    if (published) {
+      cache?.set(cacheKey, published);
+      return published;
+    }
+  }
   const element = nodeGraphPortElementForWireEndpoint(node, port, io);
   const laidOut = nodeGraphElementCenter(element, io);
   if (laidOut) {
@@ -197,6 +233,22 @@ function nodeGraphPortCenter(node, port, io) {
 }
 
 function nodeGraphModulationPortCenter(node, parameter) {
+  // Prefer published mx_* / param jack attaches.
+  if (typeof nodeGraphModuleGeometryAttach === "function") {
+    let nodeId = String(node || "");
+    let paramKey = String(parameter || "");
+    if (typeof nodeGraphMetamoduleExposedModulationWireVisualEndpoint === "function") {
+      const proxy = nodeGraphMetamoduleExposedModulationWireVisualEndpoint(nodeId, paramKey);
+      if (proxy?.nodeId && proxy?.param) {
+        nodeId = proxy.nodeId;
+        paramKey = proxy.param;
+      }
+    }
+    const published = nodeGraphModuleGeometryAttach(nodeId, paramKey, "modulation");
+    if (published) {
+      return published;
+    }
+  }
   const surface = nodeGraphZoomSurface();
   const element = surface?.querySelector(nodeGraphModulationPortSelector(node, parameter));
   return nodeGraphElementCenter(element, "modulation");
@@ -351,13 +403,44 @@ function nodeGraphFrequencyValuePortDisplayLabel(port) {
   return key;
 }
 
+/** True for Gate / Trigger (and common aliases) — white digital cables app-wide. */
+function nodeGraphPortIsGateOrTrigger(port) {
+  const raw = String(port || "").trim();
+  if (!raw) return false;
+  if (raw === "Gate" || raw === "Trigger") return true;
+  const lower = raw.toLowerCase();
+  return lower === "gate"
+    || lower === "trigger"
+    || lower === "trig"
+    || lower === "gatepulse"
+    || lower === "gate pulse";
+}
+
+/** True for Reset (and common aliases) — white digital cables app-wide. */
+function nodeGraphPortIsReset(port) {
+  const raw = String(port || "").trim();
+  if (!raw) return false;
+  if (raw === "Reset") return true;
+  const lower = raw.toLowerCase();
+  return lower === "reset"
+    || lower === "rst"
+    || lower === "phase reset"
+    || lower === "phaserest";
+}
+
 // App-wide policy: white wire == digital cable.
 //   • bitmasks (Scale, Held Keys, …)
 //   • ƒ real-value jacks (Hz reports: Frequency, Df1/Df2, ƒ1/ƒ2) on inlets and outlets
+//   • Gate / Trigger / Reset (all modules — inlets and outlets)
 //   • anything listed in digitalInputs / digitalOutputs
 // 0.1V/Oct pitch CV stays analog (not white) — it is a smoothly-varying voltage.
 function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
-  if (port === "Scale" || nodeGraphPortIsFrequencyValue(port)) {
+  if (
+    port === "Scale"
+    || nodeGraphPortIsFrequencyValue(port)
+    || nodeGraphPortIsGateOrTrigger(port)
+    || nodeGraphPortIsReset(port)
+  ) {
     return true;
   }
   const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
@@ -367,10 +450,26 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
   if (!definition) {
     return false;
   }
+  // Resolve aliases so Trig→Trigger etc. still count as digital.
+  let canonical = String(port || "").trim();
+  if (io === "input" && typeof nodeGraphCanonicalInputPort === "function") {
+    canonical = nodeGraphCanonicalInputPort(type, canonical) || canonical;
+  } else if (io === "output" && typeof nodeGraphCanonicalOutputPort === "function") {
+    canonical = nodeGraphCanonicalOutputPort(type, canonical) || canonical;
+  }
+  if (nodeGraphPortIsGateOrTrigger(canonical) || nodeGraphPortIsReset(canonical)) {
+    return true;
+  }
   if (io !== "output" && definition.digitalInputs?.includes(port)) {
     return true;
   }
   if (io !== "input" && definition.digitalOutputs?.includes(port)) {
+    return true;
+  }
+  if (io !== "output" && definition.digitalInputs?.includes(canonical)) {
+    return true;
+  }
+  if (io !== "input" && definition.digitalOutputs?.includes(canonical)) {
     return true;
   }
   return false;
@@ -522,6 +621,13 @@ function nodeGraphModuleUsesCmykParameterChrome(type) {
 }
 
 function nodeGraphPortWireColor(node, port, io) {
+  // Match Root shell-proxy geometry so Left/Right caps use shell jack colors.
+  if (typeof nodeGraphMetamoduleWireVisualEndpoint === "function") {
+    const proxy = nodeGraphMetamoduleWireVisualEndpoint(node, port, io);
+    if (proxy) {
+      return nodeGraphPortWireColor(proxy.nodeId, proxy.port, proxy.io);
+    }
+  }
   const canonicalPort = nodeGraphCanonicalPortForNode(node, port, io);
   const type = nodeGraphPatchNodeType(node);
   // Digital signal ports get a solid white wire instead of the usual role

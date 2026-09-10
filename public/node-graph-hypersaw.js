@@ -96,6 +96,10 @@ function nodeGraphHypersawSample(state, options = {}) {
   const lastFrac = wasm.soemdsp_hypersaw_voice_last_frac
     ? Number(wasm.soemdsp_hypersaw_voice_last_frac(state.nativeHandle)) || 0
     : 0;
+  // Same crossfade as native getCenterSideAmplitudeValue (0=center, 1=sides).
+  const cs = Math.max(0, Math.min(1, Number.isFinite(centerSide) ? centerSide : 0.5));
+  const ampCenter = Math.min(2 - cs * 2, 1);
+  const ampSide = Math.min(cs * 2, 1);
   const voicePhases = new Array(n);
   const voiceAmplitudes = new Array(n);
   const voicePans = new Array(n);
@@ -104,7 +108,8 @@ function nodeGraphHypersawSample(state, options = {}) {
       ? Number(wasm.soemdsp_hypersaw_voice_phase(state.nativeHandle, i)) || 0
       : 0;
     const isCenter = i === 0;
-    voiceAmplitudes[i] = (lastFrac > 0 && i === n - 1) ? lastFrac : 1;
+    const base = (lastFrac > 0 && i === n - 1) ? lastFrac : 1;
+    voiceAmplitudes[i] = base * (isCenter ? ampCenter : ampSide);
     voicePans[i] = isCenter ? 0 : (((i - 1) % 2 === 0) ? -1 : 1);
   }
   return {

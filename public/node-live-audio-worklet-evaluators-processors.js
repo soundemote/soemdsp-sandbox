@@ -49,8 +49,32 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         );
         const passiveMode = p.mode;
         const passiveSweep = p.sweep;
-        const passiveLowFrequency = this.sweepFrequencyHz(p.lowFrequency, passiveSweep);
-        const passiveHighFrequency = this.sweepFrequencyHz(p.highFrequency, passiveSweep);
+        const passiveFreqJack = typeof nodeGraphResolveAbsHzJack === "function"
+          ? nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId)
+          : (typeof hasInput === "function" && hasInput(nodeId, "f") ? mixInput(nodeId, "f") : null);
+        let passiveCenter;
+        if (passiveFreqJack != null) {
+          const n = Number(passiveFreqJack);
+          passiveCenter = Number.isFinite(n) ? n : 0;
+        } else if (typeof hasInput === "function" && hasInput(nodeId, "0.1V/Oct")) {
+          const lo = Math.max(0, Number(p.lowFrequency) || 0);
+          const hi = Math.max(0, Number(p.highFrequency) || 0);
+          const safeMode = Math.round(Number(passiveMode)) || 0;
+          let base;
+          if (safeMode === 0) base = hi > 0 ? hi : 1000;
+          else if (safeMode === 2) base = lo > 0 ? lo : 200;
+          else base = lo > 0 && hi > 0 ? Math.sqrt(lo * hi) : (hi > 0 ? hi : (lo > 0 ? lo : 1000));
+          passiveCenter = this.frequencyHzFromKnobOrF(base, mixInput, nodeId);
+        }
+        let passiveLowRaw = p.lowFrequency;
+        let passiveHighRaw = p.highFrequency;
+        if (typeof nodeGraphPassiveFilterApplyCenter === "function" && Number.isFinite(passiveCenter)) {
+          const centered = nodeGraphPassiveFilterApplyCenter(passiveMode, passiveLowRaw, passiveHighRaw, passiveCenter);
+          passiveLowRaw = centered.lowFrequency;
+          passiveHighRaw = centered.highFrequency;
+        }
+        const passiveLowFrequency = this.sweepFrequencyHz(passiveLowRaw, passiveSweep);
+        const passiveHighFrequency = this.sweepFrequencyHz(passiveHighRaw, passiveSweep);
         const passiveSlope = p.slope;
         const passiveStagger = p.stagger;
         const passiveGainComp = p.gainCompensation;

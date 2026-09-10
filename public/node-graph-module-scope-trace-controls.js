@@ -104,8 +104,11 @@ function nodeGraphDisplaySettingsClipboardFamily(formType) {
   if (key === "scope2dTrace" || key === "gradientVectorscopeFace" || key === "traceXyz") {
     return "trace2d";
   }
-  if (key === "lineBurn" || key === "hypersawBurn" || key === "oscilloscopeBankBurn") {
+  if (key === "lineBurn" || key === "oscilloscopeBankBurn") {
     return "phosphor1d";
+  }
+  if (key === "hypersawBurn") {
+    return "";
   }
   if (typeof nodeGraphDisplaySettingsIsPhosphorFormType === "function"
     && nodeGraphDisplaySettingsIsPhosphorFormType(key)
@@ -133,8 +136,8 @@ function nodeGraphDisplaySettingsClipboardFamilyLabel(family) {
 
 function nodeGraphDisplaySettingsIsPhosphorFormType(type) {
   const key = String(type || "").trim();
-  // Spectrogram is *Burn by name only — not the stamp/residual phosphor stack.
-  if (key === "spectrogramBurn") {
+  // Spectrogram / Hypersaw are *Burn by name only — not the stamp/residual phosphor stack.
+  if (key === "spectrogramBurn" || key === "hypersawBurn") {
     return false;
   }
   return key === "scope2d"
@@ -144,7 +147,6 @@ function nodeGraphDisplaySettingsIsPhosphorFormType(type) {
     || key === "xyPad"
     || key === "videoscopeBurn"
     || key === "oscilloscopeBankBurn"
-    || key === "hypersawBurn"
     || key.endsWith("Burn");
 }
 

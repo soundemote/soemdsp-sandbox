@@ -250,6 +250,9 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPE_SET = new Set(
 const NODE_GRAPH_EFFICIENT_PRODUCT_CHROME_TYPES = Object.freeze([
   "animatedTextBox",
   "textBox",
+  "metamodule",
+  "metamoduleIn",
+  "metamoduleOut",
   // Slim repeatable Portal I/O (native thru / inlet silence until mic bus).
   "portalInlet",
   "portalInletMono",

@@ -1491,8 +1491,41 @@ function writeNodeMetadataEditorValues(metadata) {
     trailEl.checked = Boolean(metadata.removeTrailingZeros);
   }
   document.getElementById("metadataWraparoundValue").checked = metadata.wraparound;
+  syncNodeMetadataShowMetaparameterToggle();
   syncNodeMetadataMidVisibility();
   syncNodeMetadataChoiceToggleAvailability();
+}
+
+/** Show-metaparameter toggle: only for params of modules owned by a Metamodule. */
+function syncNodeMetadataShowMetaparameterToggle() {
+  const label = document.getElementById("metadataShowMetaparameterLabel");
+  const input = document.getElementById("metadataShowMetaparameterValue");
+  if (!label || !input) return;
+  const slider = document.getElementById(nodeGraphMvp?.metadataEditorTarget);
+  const nodeId = slider?.closest?.(".dsp-node")?.dataset?.node;
+  const paramKey = slider?.dataset?.param;
+  const patchNode = nodeId && typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(nodeId)
+    : null;
+  const ownerId = String(patchNode?.ownerMetamoduleId || "").trim();
+  const owner = ownerId && typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(ownerId)
+    : null;
+  const canExpose = Boolean(
+    owner
+    && typeof nodeGraphIsMetamoduleType === "function"
+    && nodeGraphIsMetamoduleType(owner.type)
+    && paramKey
+    && patchNode?.type !== "metamodule"
+  );
+  label.hidden = !canExpose;
+  input.disabled = !canExpose;
+  if (!canExpose) {
+    input.checked = false;
+    return;
+  }
+  input.checked = typeof nodeGraphMetamoduleIsParamExposed === "function"
+    && nodeGraphMetamoduleIsParamExposed(owner, nodeId, paramKey);
 }
 
 /**
@@ -2521,11 +2554,46 @@ function applyNodeMetadataEditor(options = {}) {
   if (nodeElement && patchNode && typeof refreshNodeGraphModuleParameterVisibility === "function") {
     refreshNodeGraphModuleParameterVisibility(nodeElement, patchNode);
   }
+  // Persist Show metaparameter → parent metamodule.paramVisibility + remount shell.
+  applyNodeMetadataShowMetaparameterFromEditor(slider, patchNode);
   populateNodeMetadataParameterPicker(slider);
   syncNodeMetadataParameterVisibilityButtons(nextMetadata.visible !== false);
+  syncNodeMetadataShowMetaparameterToggle();
   markNodeGraphRenderPending();
   if (!options.keepDirty) {
     setNodeMetadataFieldsDirty(false);
+  }
+}
+
+function applyNodeMetadataShowMetaparameterFromEditor(slider, patchNode) {
+  const input = document.getElementById("metadataShowMetaparameterValue");
+  const label = document.getElementById("metadataShowMetaparameterLabel");
+  if (!input || label?.hidden || !patchNode) return;
+  const ownerId = String(patchNode.ownerMetamoduleId || "").trim();
+  if (!ownerId || typeof nodeGraphMetamoduleSetParamExposed !== "function") return;
+  const paramKey = String(slider?.dataset?.param || "").trim();
+  if (!paramKey) return;
+  const patch = typeof cloneNodeGraphPatch === "function"
+    ? cloneNodeGraphPatch(nodeGraphMvp.patch)
+    : nodeGraphMvp.patch;
+  const meta = patch.nodes?.find((n) => n?.id === ownerId);
+  const child = patch.nodes?.find((n) => n?.id === patchNode.id);
+  if (!meta || !child) return;
+  const want = Boolean(input.checked);
+  const before = typeof nodeGraphMetamoduleIsParamExposed === "function"
+    && nodeGraphMetamoduleIsParamExposed(meta, child.id, paramKey);
+  if (want === before) return;
+  nodeGraphMetamoduleSetParamExposed(meta, child.id, paramKey, want);
+  if (typeof commitNodeGraphPatch === "function") {
+    commitNodeGraphPatch(patch, {
+      status: want ? "metaparameter shown on Metamodule" : "metaparameter hidden on Metamodule",
+      topologyEdit: true,
+    });
+  } else {
+    nodeGraphMvp.patch = patch;
+  }
+  if (typeof nodeGraphMetamoduleRemountShellParameters === "function") {
+    nodeGraphMetamoduleRemountShellParameters(ownerId);
   }
 }
 

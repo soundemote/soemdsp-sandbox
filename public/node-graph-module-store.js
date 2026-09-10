@@ -101,8 +101,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "metallicRatio",
   "shootingStarTail",
   "wallDelay",
-  "groupInput",
-  "groupOutput",
   "evolveField",
   "asciiscope",
   "formantFilter",
@@ -234,8 +232,6 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   theremin: "Proximity pitch/volume. Parked on Object until that controller lands.",
   additiveImage: "Image→partials. Parked until image analysis ships.",
   audioInput: "Live mic/line in. Parked until host capture is wired.",
-  groupInput: "Group inlet portal. Parked until nested patches ship.",
-  groupOutput: "Group outlet portal. Parked until nested patches ship.",
   shootingStarTail: "Shooting-star trail events. Parked until that game trigger lands.",
   lufs: "Integrated / short-term / momentary loudness (LUFS). Parked on Multimeter until loudness metering lands.",
   osc: "Open Sound Control (UDP ↔ CV). Parked on Controller until network send/receive lands.",
@@ -1291,9 +1287,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   keyboard: {
     category: "controller",
-    description: "On-screen piano shared with the K Controllers dock — held gold keys, press blue, velocity-scaled Gate/Trigger, note/Held Keys CV.",
+    description: "Local piano (dock + face). Wire Polyphony/Held Keys/Gate/Trigger in to mix; does not auto-follow hardware MIDI — use the MIDI module for that.",
     label: "Keyboard",
-    notes: ["keyboard", "piano", "held keys", "controller", "performance", "gate", "trigger", "velocity", "note"],
+    notes: ["keyboard", "piano", "held keys", "polyphony", "controller", "performance", "gate", "trigger", "velocity", "note"],
   },
   macroControls: {
     category: "controller",
@@ -2582,12 +2578,16 @@ function normalizeNodeGraphNativeModuleEntry(entry = {}) {
   if (!name || !targetType) {
     return null;
   }
+  const source = String(entry.source || "");
+  const localSourceUrl = String(entry.localSourceUrl || "").trim()
+    || (source.startsWith("native_modules/") ? `/${source.replace(/\\/g, "/")}` : "");
   return Object.freeze({
     kind: String(entry.kind || ""),
     label: String(entry.label || name),
     libUrl: String(entry.libUrl || ""),
+    localSourceUrl,
     name,
-    source: String(entry.source || ""),
+    source,
     sourceUrl: String(entry.sourceUrl || ""),
     targetType,
     wasm: String(entry.wasm || ""),
@@ -3019,10 +3019,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/graph/graph-live-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/graph/graph-live-evaluator.js",
   },
-  groupInput: {
-    source: "public/modules/groupInput/group-input-live-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/groupInput/group-input-live-evaluator.js",
-  },
   ...(typeof nodeGraphPortalAllTypes === "function"
     ? Object.fromEntries(nodeGraphPortalAllTypes().map((type) => [type, {
       source: "public/modules/portal/portal-live-evaluator.js",
@@ -3038,10 +3034,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
         sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/portal/portal-live-evaluator.js",
       },
     }),
-  groupOutput: {
-    source: "public/modules/groupOutput/group-output-live-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/groupOutput/group-output-live-evaluator.js",
-  },
   helmholtzPitch: {
     source: "public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js",
@@ -3533,12 +3525,52 @@ function nodeGraphJsSourceEntryForType(type) {
 }
 
 function nodeGraphCodeEntryForType(type) {
-  return nodeGraphNativeModulesForType(type).find((entry) => entry?.sourceUrl) ||
-    nodeGraphJsSourceEntryForType(type);
+  const resolved = typeof nodeGraphResolveModuleTypeAlias === "function"
+    ? nodeGraphResolveModuleTypeAlias(type)
+    : String(type || "");
+  // Prefer an entry that has a resolvable source path or GitHub URL.
+  const native = nodeGraphNativeModulesForType(resolved).find(
+    (entry) => entry?.source || entry?.sourceUrl || entry?.localSourceUrl,
+  );
+  if (native) {
+    return native;
+  }
+  return nodeGraphJsSourceEntryForType(resolved);
 }
 
 function nodeGraphLibEntryForType(type) {
-  return nodeGraphNativeModulesForType(type).find((entry) => entry?.libUrl) || null;
+  const resolved = typeof nodeGraphResolveModuleTypeAlias === "function"
+    ? nodeGraphResolveModuleTypeAlias(type)
+    : String(type || "");
+  return nodeGraphNativeModulesForType(resolved).find((entry) => entry?.libUrl) || null;
+}
+
+/** Same-origin href for a module source file (sandbox server / static host). */
+function nodeGraphLocalSourceHrefForEntry(entry) {
+  if (!entry || typeof entry !== "object") {
+    return "";
+  }
+  const explicit = String(entry.localSourceUrl || "").trim();
+  if (explicit) {
+    return explicit.startsWith("/") ? explicit : `/${explicit.replace(/^\/+/, "")}`;
+  }
+  let source = String(entry.source || "").replace(/\\/g, "/").replace(/^\/+/, "").trim();
+  if (!source) {
+    const fromGithub = String(entry.sourceUrl || "").match(/\/blob\/[^/]+\/(.+?)(?:\?|#|$)/);
+    if (fromGithub) {
+      source = fromGithub[1];
+    }
+  }
+  if (!source) {
+    return "";
+  }
+  if (source.startsWith("native_modules/")) {
+    return `/${source}`;
+  }
+  if (source.startsWith("public/")) {
+    return `/public/${source.slice("public/".length)}`;
+  }
+  return `/${source}`;
 }
 
 function nodeGraphModuleStoreEntries() {
@@ -4040,7 +4072,7 @@ function renderNodeGraphCommandCenterModuleSearch() {
 function nodeGraphModuleStoreDemoPatchAvailable(type) {
   return Boolean(
     Object.hasOwn(nodeGraphModuleDefinitions, type) &&
-    !["audioInput", "groupInput", "groupOutput", "output"].includes(type)
+    !["audioInput", "output"].includes(type)
   );
 }
 

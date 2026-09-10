@@ -112,7 +112,25 @@ function nodeGraphScreenSoloAllowsNode(nodeId) {
     return true;
   }
   const id = String(nodeId || "");
-  return nodeGraphScreenSoloNodeIds().includes(id);
+  if (!id) {
+    return false;
+  }
+  if (nodeGraphScreenSoloNodeIds().includes(id)) {
+    return true;
+  }
+  // Metamodule face is a blit target: keep mirrored child painters alive when
+  // their owning shell is solo'd (otherwise Root F shows a black/empty mirror).
+  if (
+    typeof nodeGraphMetamoduleChildIsMirrorSubscribed === "function"
+    && nodeGraphMetamoduleChildIsMirrorSubscribed(id)
+  ) {
+    const child = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+    const ownerId = String(child?.ownerMetamoduleId || "").trim();
+    if (ownerId && nodeGraphScreenSoloNodeIds().includes(ownerId)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function nodeGraphScreenSoloAllowsClock(clockKey) {
@@ -165,6 +183,10 @@ function nodeGraphScreenSoloWrapCandidate(el) {
 function nodeGraphScreenSoloFaceScore(face) {
   if (!(face instanceof Element)) {
     return -1;
+  }
+  // Never prefer the oscilloscope-hidden stub over a real face.
+  if (face.classList.contains("node-module-display-placeholder")) {
+    return -1000;
   }
   let score = 0;
   if (face.hidden) score -= 50;
@@ -619,6 +641,9 @@ function nodeGraphScreenSoloCollectFaces(nodeIds) {
     if (!found || seen.has(found.id)) {
       continue;
     }
+    if (found.face?.classList?.contains("node-module-display-placeholder")) {
+      continue;
+    }
     // Solo must show the face even if the module currently hides scopes / faces.
     found.host?.classList.remove("oscilloscope-hidden");
     found.face.hidden = false;
@@ -632,6 +657,27 @@ function nodeGraphScreenSoloCollectFaces(nodeIds) {
     collected.push(found);
   }
   return collected;
+}
+
+/** Mirror-source child hosts that must keep painting while a Metamodule is solo'd. */
+function nodeGraphScreenSoloMirrorSourceNodeIds(soloNodeIds) {
+  const out = new Set();
+  const ids = Array.isArray(soloNodeIds) ? soloNodeIds : [];
+  for (const rawId of ids) {
+    const metaId = String(rawId || "");
+    const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(metaId) : null;
+    if (!meta || typeof nodeGraphIsMetamoduleType !== "function" || !nodeGraphIsMetamoduleType(meta.type)) {
+      continue;
+    }
+    const enabled = typeof nodeGraphMetamoduleEnabledDisplayEntries === "function"
+      ? nodeGraphMetamoduleEnabledDisplayEntries(meta)
+      : [];
+    for (const entry of enabled) {
+      const childId = String(entry?.childId || "");
+      if (childId) out.add(childId);
+    }
+  }
+  return out;
 }
 
 function beginNodeGraphScreenSoloGrid(nodeIds) {
@@ -702,12 +748,37 @@ function beginNodeGraphScreenSoloGrid(nodeIds) {
   }
   applyNodeGraphScreenSoloFit(nodeGraphScreenSoloInitialFit(items));
   const keep = new Set(items.map((item) => item.nodeId));
+  const mirrorSources = nodeGraphScreenSoloMirrorSourceNodeIds([...keep]);
+  for (const childId of mirrorSources) {
+    keep.add(childId);
+  }
   for (const node of document.querySelectorAll(".dsp-node")) {
     if (keep.has(node.dataset?.node)) {
       continue;
     }
     if (typeof nodeGraphViewportCullSleepPainters === "function") {
       nodeGraphViewportCullSleepPainters(node);
+    }
+  }
+  // Wake mirror sources + arm shell blit loops for solo'd Metamodules.
+  for (const childId of mirrorSources) {
+    const host = typeof nodeGraphNodeElement === "function"
+      ? nodeGraphNodeElement(childId)
+      : document.querySelector(`.dsp-node[data-node="${CSS.escape(childId)}"]`);
+    if (host && typeof nodeGraphViewportCullWakePainters === "function") {
+      nodeGraphViewportCullWakePainters(host);
+    }
+  }
+  for (const metaId of items.map((item) => item.nodeId)) {
+    const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(metaId) : null;
+    if (!meta || typeof nodeGraphIsMetamoduleType !== "function" || !nodeGraphIsMetamoduleType(meta.type)) {
+      continue;
+    }
+    if (typeof nodeGraphMetamodulePaintMirror === "function") {
+      nodeGraphMetamodulePaintMirror(metaId);
+    }
+    if (typeof nodeGraphMetamoduleArmMirrorLoop === "function") {
+      nodeGraphMetamoduleArmMirrorLoop(metaId);
     }
   }
   window.requestAnimationFrame(() => {

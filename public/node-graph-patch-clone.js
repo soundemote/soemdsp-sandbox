@@ -280,11 +280,17 @@ function cloneNodeGraphTypedDisplaySettings(node) {
       return { traceDisplaySettings: normalizeNodeGraphLineBurnSettings(bag) };
     case "value":
       return { traceDisplaySettings: normalizeNodeGraphValueOscilloscopeSettings(bag) };
+    case "hypersawBurn": {
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphHypersawBurnSettings === "function"
+          ? normalizeNodeGraphHypersawBurnSettings(bag)
+          : { lineThickness: Number(bag?.lineThickness) || 1 },
+      };
+    }
     case "scope2d":
     case "phosphorLight":
     case "videoscopeBurn":
-    case "oscilloscopeBankBurn":
-    case "hypersawBurn": {
+    case "oscilloscopeBankBurn": {
       const raw = bag || {};
       const mapped = {
         ...raw,
@@ -591,6 +597,31 @@ function cloneNodeGraphPatch(patch) {
           ? { portMeta: normalizeNodeGraphPatchPortMeta(node.portMeta) }
           : {}),
         params: { ...(node.params || {}) },
+        ...(String(node.ownerMetamoduleId || "").trim()
+          ? { ownerMetamoduleId: String(node.ownerMetamoduleId).trim() }
+          : {}),
+        ...(node.metamodule && typeof node.metamodule === "object"
+          ? {
+            metamodule: typeof cloneNodeGraphMetamodulePayload === "function"
+              ? cloneNodeGraphMetamodulePayload(node.metamodule)
+              : {
+                boundary: Array.isArray(node.metamodule.boundary)
+                  ? node.metamodule.boundary.map((entry) => (
+                    entry && typeof entry === "object" ? { ...entry } : entry
+                  ))
+                  : [],
+                displays: Array.isArray(node.metamodule.displays)
+                  ? node.metamodule.displays.map((entry) => (
+                    entry && typeof entry === "object" ? { ...entry } : entry
+                  ))
+                  : [],
+                paramVisibility: node.metamodule.paramVisibility
+                  && typeof node.metamodule.paramVisibility === "object"
+                  ? { ...node.metamodule.paramVisibility }
+                  : {},
+              },
+          }
+          : {}),
         ...(ui.buttonsHidden || ui.buttonsForceShow || ui.ioHidden || ui.hideUnused || ui.interfaceControlsHidden || ui.interfaceControlsForceShow || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.oscilloscopeForceShow || ui.slidersHidden || ui.slidersForceShow || ui.displayHeightOffsetGu ? { ui } : {}),
       };
     }),

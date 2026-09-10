@@ -370,7 +370,7 @@ const nodeGraphActiveFilterDefinition = {
       defaultValue: "200",
       key: "lowFrequency",
       kind: "frequency",
-      label: "Low Cut",
+      label: "HPF",
       max: "20000",
       maxDigits: 5,
       mid: "200",
@@ -383,7 +383,7 @@ const nodeGraphActiveFilterDefinition = {
       defaultValue: "1000",
       key: "highFrequency",
       kind: "frequency",
-      label: "High Cut",
+      label: "LPF",
       max: "20000",
       maxDigits: 5,
       mid: "1000",
@@ -403,7 +403,7 @@ const nodeGraphActiveFilterDefinition = {
       showSign: true,
       step: "any",
       unit: "st",
-      tooltip: "Shift Low Cut and/or High Cut in semitones. Dual path keeps the interval.",
+      tooltip: "Shift HPF and/or LPF in semitones. Dual path keeps the interval.",
     },
     {
       defaultValue: "0.2",
@@ -4797,19 +4797,6 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Shared fundamental for every oscillator. Thru-zero: enable Bipolar on Frequency.",
       },
       {
-        key: "phase",
-        label: "Phase",
-        kind: "phase",
-        defaultValue: "0",
-        min: "0",
-        mid: "0.5",
-        max: "1",
-        step: "0.01",
-        unit: "cycle",
-        wraparound: true,
-        tooltip: "Global phase add on every voice (cycles). Also slides the face phase lines.",
-      },
-      {
         key: "centerSide",
         label: "Center/Side",
         defaultValue: "0.5",
@@ -4819,29 +4806,6 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "0.01",
         tooltip: "0 = center voices only, 1 = side voices only. Face: red=left, green=center, blue=right.",
-      },
-      {
-        key: "distributePhase",
-        label: "Distribute Phase",
-        defaultValue: "1",
-        hidden: true,
-        min: "0",
-        mid: "0.5",
-        max: "1",
-        step: "any",
-        tooltip: "Evenly spreads saws across phase. 1.0 = fully even 0…1.",
-      },
-      {
-        key: "randomizePhase",
-        label: "Randomize Phase",
-        defaultValue: "0.10",
-        hidden: true,
-        min: "0",
-        mid: "0.5",
-        max: "1",
-        step: "any",
-        modClamp: false,
-        tooltip: "Additional bipolar random phase offset per saw (scaled by amount).",
       },
       {
         key: "jitterDistance",
@@ -4885,7 +4849,7 @@ const nodeGraphModuleDefinitions = (
       },
       {
         key: "distanceSlew",
-        label: "Distance Slew",
+        label: "Phase Slew",
         kind: "time",
         defaultValue: "8",
         min: "0",
@@ -4894,9 +4858,8 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "ms",
         tooltip:
-          "How fast Jitter Distance / Vibrato Amp depth tracks Frequency (|f|/100 Hz compensation). "
-          + "0 = instant (pitch changes leave frozen jitter unmoved). "
-          + "8 ms = previous default. Higher = slower chase when you twist Frequency.",
+          "How fast phase depth tracks Frequency (|f|/100 Hz) and how fast Phase Multiplier "
+          + "knob changes settle. 0 = instant. 8 ms = previous default. Higher = slower chase.",
       },
       {
         key: "vibratoAmp",
@@ -4910,7 +4873,7 @@ const nodeGraphModuleDefinitions = (
         tooltip:
           "HypersawUnit vibAmp — phaseOffset = phase × (vibOsc×Amp + PhaseMultiplier) + jitter. "
           + "With Multiplier 1: scale swings around 1. Amp is distance-compensated (|f|/100 Hz) "
-          + "like Jitter Distance; Distance Slew sets how fast that tracks pitch. "
+          + "like Jitter Distance; Phase Slew sets how fast that tracks pitch. "
           + "Center oscillator has no vibOsc feed in SoEm.",
       },
       {
@@ -4950,6 +4913,42 @@ const nodeGraphModuleDefinitions = (
           + "0 = all in phase; 1 = full random 0…1 offset (Hypersaw Vibrato Distribution spirit).",
       },
       {
+        key: "phase",
+        label: "Phase",
+        kind: "phase",
+        defaultValue: "0",
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "0.01",
+        unit: "cycle",
+        wraparound: true,
+        tooltip: "Global phase add on every voice (cycles). Also slides the face phase lines.",
+      },
+      {
+        key: "distributePhase",
+        label: "Distribute Phase",
+        defaultValue: "1",
+        hidden: true,
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "any",
+        tooltip: "Evenly spreads saws across phase. 1.0 = fully even 0…1.",
+      },
+      {
+        key: "randomizePhase",
+        label: "Randomize Phase",
+        defaultValue: "0.10",
+        hidden: true,
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "any",
+        modClamp: false,
+        tooltip: "Additional bipolar random phase offset per saw (scaled by amount).",
+      },
+      {
         key: "phaseMultiplier",
         label: "Phase Multiplier",
         defaultValue: "1",
@@ -4960,7 +4959,8 @@ const nodeGraphModuleDefinitions = (
         hidden: true,
         tooltip:
           "HypersawUnit vibOffset — static term in phase×(LFO×Amp + Offset). "
-          + "Default 1 = distribute/random at unity when Vibrato Amp is 0. Hidden by default.",
+          + "Default 1 = distribute/random at unity when Vibrato Amp is 0. "
+          + "Changes go through Phase Slew so PolyBLEP offsets don’t zipper.",
       },
       {
         key: "amplitude",
@@ -6840,11 +6840,9 @@ const nodeGraphModuleDefinitions = (
   range: {
     planRole: "processor",
     label: "Range",
-    // Mono aliases only — Left/Right→In/Out was painting In/Out red/blue.
-    // Generic In/Out stay gold (uncolored analog).
-    inputAliases: { Mono: "In" },
+    // Generic In/Out only — gold uncolored analog. No Left/Right/Mono aliases:
+    // those paint red/blue/green via jack-chrome even when the face says In/Out.
     inputs: ["In"],
-    outputAliases: { Mono: "Out" },
     outputs: ["Out"],
     defaultUi: {
       buttonsHidden: true,
@@ -7346,9 +7344,9 @@ const nodeGraphModuleDefinitions = (
   },
   passiveFilter: {
     planRole: "processor",
-    inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputAliases: { Mono: "In", Freq: "f", Frequency: "f", F: "f", "ƒ": "f", "0.1V": "0.1V/Oct", "0.1v": "0.1V/Oct" },
+    inputLabels: { In: "Mono", "0.1V/Oct": "0.1V", f: "ƒ" },
+    inputs: ["In", "Left", "Right", "0.1V/Oct", "f"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -7366,7 +7364,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Real-pole stacks. LP / HP use High Cut / Low Cut. BP is HP then LP. Old LP6/BP6/HP6 values stay 0/1/2."
+        tooltip: "Real-pole stacks. LP / HP use LPF / HPF. BP is HP then LP. ƒ sets the active cutoff (BP moves both)."
       },
       {
         choices: ["6", "12", "18", "24"],
@@ -7384,32 +7382,6 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Cascaded real 1-poles. 6 dB = one pole; 24 dB = four. No resonance."
       },
       {
-        defaultValue: "200",
-        key: "lowFrequency",
-        kind: "frequency",
-        label: "Low Cut",
-        max: "20000",
-        maxDigits: 5,
-        mid: "200",
-        min: "0",
-        step: "any",
-        unit: "Hz",
-        tooltip: "Highpass cutoff (HP and BP). Sweep moves this with High Cut in musical steps."
-      },
-      {
-        defaultValue: "1000",
-        key: "highFrequency",
-        kind: "frequency",
-        label: "High Cut",
-        max: "20000",
-        maxDigits: 5,
-        mid: "1000",
-        min: "0",
-        step: "any",
-        unit: "Hz",
-        tooltip: "Lowpass cutoff (LP and BP). Sweep moves this with Low Cut in musical steps."
-      },
-      {
         defaultValue: "1",
         key: "stagger",
         label: "Stagger",
@@ -7419,6 +7391,32 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip: "Pole spread ratio k. 1 = same freq; ~1.5 gentle spread; above ~2.2 a stair-step. No effect at 6 dB."
+      },
+      {
+        defaultValue: "200",
+        key: "lowFrequency",
+        kind: "frequency",
+        label: "HPF",
+        max: "20000",
+        maxDigits: 5,
+        mid: "200",
+        min: "0",
+        step: "any",
+        unit: "Hz",
+        tooltip: "Highpass cutoff (HP and BP). Sweep / ƒ / 0.1V move cuts together. When ƒ is wired in HP, that Hz is the cutoff."
+      },
+      {
+        defaultValue: "1000",
+        key: "highFrequency",
+        kind: "frequency",
+        label: "LPF",
+        max: "20000",
+        maxDigits: 5,
+        mid: "1000",
+        min: "0",
+        step: "any",
+        unit: "Hz",
+        tooltip: "Lowpass cutoff (LP and BP). Sweep / ƒ / 0.1V move cuts together. When ƒ is wired in LP, that Hz is the cutoff."
       },
       {
         defaultValue: "0",
@@ -7431,7 +7429,7 @@ const nodeGraphModuleDefinitions = (
         showSign: true,
         step: "any",
         unit: "st",
-        tooltip: "Shift used cutoffs in semitones. BP keeps the Low/High interval (ratio) constant."
+        tooltip: "Shift used cutoffs in semitones. BP keeps the HPF/LPF interval (ratio) constant."
       },
       {
         choices: ["Off", "On"],
@@ -12619,91 +12617,100 @@ const nodeGraphModuleDefinitions = (
       },
     ],
   },
+  // Portal MIDI — hardware device listen only. Does not drive Keyboard face/outs.
   keyboardController: {
     planRole: "source",
     digitalOutputs: ["Held Keys"],
-    // Inputs hidden for now (face + MIDI/device drive pitch/gate). Evaluator
-    // still accepts the old jack names if a patch somehow feeds them.
     inputs: [],
     layout: "keyboardController",
     outputAliases: {
-      NoteNumber: "Note#",
-      MIDI: "Note#",
-      Pitch: "Note#",
-      // Legacy lowercase-v pitch CV label (matches PolyBLEP / osc 0.1V/Oct).
+      NoteNumber: "Note#/127",
+      MIDI: "Note#/127",
+      Pitch: "Note#/127",
+      "Note#": "Note#/127",
+      "Velocity#": "Velocity#/127",
+      "Velo#/127": "Velocity#/127",
       "0.1v/Oct": "0.1V/Oct",
+      Frequency: "Frequency",
+      Freq: "Frequency",
+      f: "Frequency",
       Increment: "Inc.",
       Inc: "Inc.",
     },
     outputLabels: {
-      KeyboardKey: "KeyboardKey",
-      KeyboardNorm: "KeyboardNorm",
-      "Note#": "Note#",
       "Note#/127": "Note#/127",
+      "Velocity#/127": "Velocity#/127",
       "0.1V/Oct": "0.1V/Oct",
       "Inc.": "Inc.",
-      "Velocity#": "Velocity#",
-      "Velocity#/127": "Velocity#/127",
+      Frequency: "ƒ",
     },
     outputs: [
+      "Held Keys",
       "Gate",
       "Trigger",
-      "KeyboardKey",
-      "KeyboardNorm",
-      "Note#",
       "Note#/127",
+      "Velocity#/127",
       "0.1V/Oct",
       "Inc.",
       "Frequency",
-      "Velocity#",
-      "Velocity#/127",
       "X",
       "Y",
-      "Held Keys",
     ],
     parameters: []
   },
-  // Controller face: same piano widget / global state as the K Controllers
-  // dock keyboard (held gold + press blue). Not the Portal MIDI listen module.
+  // Local piano face + explicit INs (wire MIDI→Keyboard when you want device data).
   keyboard: {
     planRole: "source",
-    digitalOutputs: ["Held Keys"],
-    inputs: [],
+    digitalInputs: ["Polyphony", "Held Keys"],
+    digitalOutputs: ["Polyphony", "Held Keys"],
+    inputs: ["Polyphony", "Held Keys", "Gate", "Trigger"],
     layout: "keyboard",
     displayHeightGu: 8,
     outputAliases: {
-      NoteNumber: "Note#",
-      MIDI: "Note#",
-      Pitch: "Note#",
+      NoteNumber: "Note#/127",
+      MIDI: "Note#/127",
+      Pitch: "Note#/127",
+      "Note#": "Note#/127",
+      "Velocity#": "Velo#/127",
+      "Velocity#/127": "Velo#/127",
       "0.1v/Oct": "0.1V/Oct",
+      Frequency: "f",
+      Freq: "f",
+      ƒ: "f",
       Increment: "Inc.",
       Inc: "Inc.",
     },
     outputLabels: {
+      Polyphony: "Polyphony",
+      "Held Keys": "Held Keys",
       KeyboardKey: "KeyboardKey",
       KeyboardNorm: "KeyboardNorm",
-      "Note#": "Note#",
       "Note#/127": "Note#/127",
+      "Velo#/127": "Velo#/127",
       "0.1V/Oct": "0.1V/Oct",
       "Inc.": "Inc.",
-      "Velocity#": "Velocity#",
-      "Velocity#/127": "Velocity#/127",
+      f: "ƒ",
+    },
+    inputLabels: {
+      Polyphony: "Polyphony",
+      "Held Keys": "Held Keys",
+      Gate: "Gate",
+      Trigger: "Trigger",
     },
     outputs: [
+      "Polyphony",
+      "Held Keys",
       "Gate",
       "Trigger",
       "KeyboardKey",
       "KeyboardNorm",
-      "Note#",
       "Note#/127",
+      "Velo#/127",
       "0.1V/Oct",
       "Inc.",
-      "Frequency",
-      "Velocity#",
-      "Velocity#/127",
+      "f",
       "X",
       "Y",
-      "Held Keys",
     ],
     parameters: []
   },

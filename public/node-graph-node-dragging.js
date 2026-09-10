@@ -141,7 +141,7 @@ function beginNodeGraphNodeDrag(event) {
     return;
   }
   const handle = headerButton || event.currentTarget.closest(
-    ".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-group-input-face, .node-group-output-face, .node-portal-face, .node-solid-module-shell, .node-solid-module-custom-ui, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row, .node-sample-phase-readout, .node-module-lip, .dsp-node.module-collapsed",
+    ".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-metamodule-boundary-face, .node-portal-face, .node-solid-module-shell, .node-solid-module-custom-ui, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row, .node-sample-phase-readout, .node-module-lip, .dsp-node.module-collapsed",
   );
   if (!handle) {
     return;

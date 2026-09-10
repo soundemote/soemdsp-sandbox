@@ -31,93 +31,202 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     return sum;
   };
 
-  // Publish MIDI Keyboard once per quantum (not a native graph type).
-  // Frequency / Gate / 0.1V/Oct must exist in nodeOutputs before host→native
-  // live-port folds (ƒ, pitch CV) run in syncNativeGraphParams.
+  // Keyboard (local) vs MIDI (hardware) — separate signals; Keyboard mixes INs.
+  const PHASE = 2 ** 49;
+  const demuxBits = (value) => {
+    const v = num(value, 0);
+    return v >= PHASE ? { low: 0, high: v - PHASE } : { low: v, high: 0 };
+  };
+  const orMask = (a, b) => {
+    let out = 0;
+    const left = num(a, 0);
+    const right = num(b, 0);
+    for (let i = 0; i < 49; i += 1) {
+      const bit = 2 ** i;
+      if ((Math.floor(left / bit) % 2) || (Math.floor(right / bit) % 2)) out += bit;
+    }
+    return out;
+  };
+  const transmitBits = (low, high, phaseOn) => {
+    const hi = num(high, 0);
+    if (!hi) return num(low, 0);
+    return phaseOn ? PHASE + hi : num(low, 0);
+  };
+  const orTransmit = (values, phaseOn) => {
+    let low = 0;
+    let high = 0;
+    for (let i = 0; i < values.length; i += 1) {
+      const parts = demuxBits(values[i]);
+      low = orMask(low, parts.low);
+      high = orMask(high, parts.high);
+    }
+    return transmitBits(low, high, phaseOn);
+  };
+  const collectIn = (nodeId, port) => {
+    const key = typeof this.inputKey === "function"
+      ? this.inputKey(nodeId, port)
+      : `${nodeId}.${port}`;
+    const conns = this.inputConnections?.get?.(key);
+    if (!conns || !conns.length) return [];
+    const vals = [];
+    for (let i = 0; i < conns.length; i += 1) {
+      const c = conns[i];
+      if (!c) continue;
+      const out = this.nodeOutputs.get(String(c.sourceNode));
+      if (!out) continue;
+      const sp = String(c.sourcePort || "");
+      vals.push(num(out[sp] ?? out.Bias ?? out.Out ?? out.value, 0));
+    }
+    return vals;
+  };
+  const mixMax = (nodeId, port) => {
+    const vals = collectIn(nodeId, port);
+    if (!vals.length) return 0;
+    return Math.max(0, ...vals);
+  };
+
   const pulseActive = this.midiKeyboardGatePulseSamples > 0;
+  this.midiKeyboardHeldKeysPhase = this.midiKeyboardHeldKeysPhase ? 0 : 1;
+  const phaseOn = this.midiKeyboardHeldKeysPhase;
+  let heldLocal = this.midiKeyboardHeldKeysLowBitmask || 0;
+  if (this.midiKeyboardHeldKeysHighBitmask) {
+    heldLocal = transmitBits(
+      this.midiKeyboardHeldKeysLowBitmask,
+      this.midiKeyboardHeldKeysHighBitmask,
+      phaseOn,
+    );
+  }
+
+  if (!this._keyboardCvHold) this._keyboardCvHold = new Map();
+  const buildCv = (signal, usePulse, holdKey) => {
+    const prev = this._keyboardCvHold.get(holdKey) || {};
+    const sourceMidi = Number(signal.midi);
+    const midi = Math.max(0, Math.min(127, Math.round(
+      Number.isFinite(sourceMidi) ? sourceMidi : num(prev.midi, 60),
+    )));
+    const key = Math.max(0, Math.min(24, Math.round(
+      Number.isFinite(Number(signal.keyIndex)) ? Number(signal.keyIndex) : num(prev.key, 0),
+    )));
+    const q = Math.max(0, Math.min(1,
+      Number.isFinite(Number(signal.keyQuantized))
+        ? Number(signal.keyQuantized)
+        : num(prev.q, key / 24),
+    ));
+    const velocity01 = Math.max(0, Math.min(1,
+      Number.isFinite(Number(signal.velocity))
+        ? Number(signal.velocity)
+        : num(prev.velocity01, 0),
+    ));
+    const gateAmp = num(signal.gate, 0) > 0 ? velocity01 : 0;
+    const pulseVel = Number.isFinite(Number(this.midiKeyboardGatePulseVelocity))
+      ? Math.max(0, Math.min(1, Number(this.midiKeyboardGatePulseVelocity)))
+      : velocity01;
+    const triggerAmp = usePulse && pulseActive ? pulseVel : (num(signal.gatePulse, 0) > 0 ? velocity01 : 0);
+    const sourceFreq = Number(signal.frequency);
+    const frequency = Math.max(0,
+      Number.isFinite(sourceFreq) && sourceFreq > 0
+        ? sourceFreq
+        : num(prev.frequency, 440 * (2 ** ((midi - 69) / 12))),
+    );
+    const safeRate = Math.max(1, Number(this.engineSampleRate) || Number(sampleRate) || 44100);
+    const increment = Math.max(0, frequency / safeRate);
+    const cv = {
+      midi,
+      key,
+      q,
+      velocity01,
+      gateAmp,
+      triggerAmp,
+      frequency,
+      increment,
+      x: Math.max(0, Math.min(1, Number.isFinite(Number(signal.x)) ? Number(signal.x) : num(prev.x, q))),
+      y: Math.max(0, Math.min(1, Number.isFinite(Number(signal.y)) ? Number(signal.y) : num(prev.y, 0))),
+      tenth: Math.max(0, Math.min(1, midi / 120)),
+    };
+    this._keyboardCvHold.set(holdKey, cv);
+    return cv;
+  };
+
+  // Pass 1: MIDI from hardware signal; Keyboard base from local signal.
   for (const [id, node] of this.nodes) {
     const nodeType = String(node?.type || "");
     if (nodeType !== "keyboardController" && nodeType !== "keyboard") continue;
     const nid = String(id);
-    const signal = this.midiKeyboardSignal || {};
-    const hasIn = (port) => {
-      const key = typeof this.inputKey === "function"
-        ? this.inputKey(nid, port)
-        : `${nid}.${port}`;
-      const conns = this.inputConnections?.get?.(key);
-      return Array.isArray(conns) && conns.length > 0;
-    };
-    const resetActive = hasIn("Reset") && mixIn(nid, "Reset") > 0;
-    const manualRawMidi = Number.isFinite(Number(signal.rawMidi))
-      ? Number(signal.rawMidi)
-      : num(signal.midi, 60);
-    const manualOctave = num(signal.octave, 0);
-    const octave = hasIn("Octave")
-      ? Math.max(-6, Math.min(6, Math.round(mixIn(nid, "Octave") || 0)))
-      : manualOctave;
-    const rawMidi = resetActive
-      ? 60
-      : (hasIn("MIDI Note") ? (mixIn(nid, "MIDI Note") || 0) : manualRawMidi);
-    const midi = Math.max(0, Math.min(127, Math.round(rawMidi + octave * 12)));
-    const automatedPitch = resetActive || hasIn("MIDI Note") || hasIn("Octave");
-    const key = automatedPitch
-      ? Math.max(0, Math.min(24, Math.round(rawMidi) - 48))
-      : Math.max(0, Math.min(24, Math.round(num(signal.keyIndex, 12))));
-    const frequency = Math.max(0, 440 * (2 ** ((midi - 69) / 12)));
-    const safeRate = Math.max(1, Number(this.engineSampleRate) || Number(sampleRate) || 44100);
-    const increment = Math.max(0, frequency / safeRate);
-    const q = automatedPitch
-      ? key / 24
-      : Math.max(0, Math.min(1, num(signal.keyQuantized, key / 24)));
-    const x = resetActive ? 0.5 : (hasIn("X")
-      ? Math.max(0, Math.min(1, mixIn(nid, "X") || 0))
-      : Math.max(0, Math.min(1, num(signal.x, q))));
-    const y = resetActive ? 0 : (hasIn("Y")
-      ? Math.max(0, Math.min(1, mixIn(nid, "Y") || 0))
-      : Math.max(0, Math.min(1, num(signal.y, 0))));
-    const hold = hasIn("Hold") && mixIn(nid, "Hold") > 0;
-    const velocity01 = hasIn("Velocity")
-      ? Math.max(0, Math.min(1, mixIn(nid, "Velocity") || 0))
-      : Math.max(0, Math.min(1, num(signal.velocity, 0)));
-    const velocityNumber = Math.round(velocity01 * 127);
-    // Gate/Trigger amplitudes follow velocity (not binary 0/1).
-    let gateAmp = 0;
-    if (!resetActive) {
-      if (hasIn("Gate")) {
-        gateAmp = Math.max(0, Math.min(1, mixIn(nid, "Gate") || 0));
-      } else if (num(signal.gate, 0) > 0 || hold) {
-        gateAmp = velocity01;
+    const isKeyboard = nodeType === "keyboard";
+    const signal = isKeyboard
+      ? (this.keyboardModuleSignal || {})
+      : (this.midiKeyboardSignal || {});
+    const cv = buildCv(signal, !isKeyboard || pulseActive, isKeyboard ? "keyboard" : "midi");
+    if (isKeyboard) {
+      const gateOut = Math.max(cv.gateAmp, mixMax(nid, "Gate"));
+      const triggerOut = Math.max(cv.triggerAmp, mixMax(nid, "Trigger"));
+      const heldIn = collectIn(nid, "Held Keys");
+      const heldOut = orTransmit([heldLocal, ...heldIn], phaseOn);
+      const polyIn = collectIn(nid, "Polyphony");
+      let polyLocal = 0;
+      if (cv.gateAmp > 0) {
+        const bit = 2 ** Math.max(0, Math.min(48, cv.key));
+        polyLocal = bit;
       }
+      const polyOut = orTransmit([polyLocal, ...polyIn], phaseOn);
+      this.nodeOutputs.set(nid, {
+        Polyphony: polyOut,
+        "Held Keys": heldOut,
+        Gate: gateOut,
+        Trigger: triggerOut,
+        KeyboardKey: cv.key,
+        KeyboardNorm: cv.q,
+        "Note#/127": Math.max(0, Math.min(1, cv.midi / 127)),
+        "Velo#/127": cv.velocity01,
+        "Velocity#/127": cv.velocity01,
+        "0.1V/Oct": cv.tenth,
+        "0.1v/Oct": cv.tenth,
+        "Inc.": cv.increment,
+        Increment: cv.increment,
+        f: cv.frequency,
+        Frequency: cv.frequency,
+        X: cv.x,
+        Y: cv.y,
+      });
+    } else {
+      this.nodeOutputs.set(nid, {
+        Gate: cv.gateAmp,
+        Trigger: cv.triggerAmp,
+        "Note#/127": Math.max(0, Math.min(1, cv.midi / 127)),
+        "Velocity#/127": cv.velocity01,
+        "0.1V/Oct": cv.tenth,
+        "0.1v/Oct": cv.tenth,
+        "Inc.": cv.increment,
+        Increment: cv.increment,
+        Frequency: cv.frequency,
+        f: cv.frequency,
+        X: cv.x,
+        Y: cv.y,
+        "Held Keys": heldLocal,
+      });
     }
-    const pulseVel = Number.isFinite(Number(this.midiKeyboardGatePulseVelocity))
-      ? Math.max(0, Math.min(1, Number(this.midiKeyboardGatePulseVelocity)))
-      : velocity01;
-    const triggerAmp = hasIn("Gate") ? gateAmp : (pulseActive ? pulseVel : 0);
-    let heldKeysTransmitValue = this.midiKeyboardHeldKeysLowBitmask || 0;
-    if (this.midiKeyboardHeldKeysHighBitmask) {
-      this.midiKeyboardHeldKeysPhase = this.midiKeyboardHeldKeysPhase ? 0 : 1;
-      if (this.midiKeyboardHeldKeysPhase) {
-        heldKeysTransmitValue = (2 ** 49) + this.midiKeyboardHeldKeysHighBitmask;
-      }
+  }
+  // Pass 2: Keyboard INs can read MIDI (and other) outs published above.
+  for (const [id, node] of this.nodes) {
+    if (String(node?.type || "") !== "keyboard") continue;
+    const nid = String(id);
+    const prev = this.nodeOutputs.get(nid) || {};
+    const signal = this.keyboardModuleSignal || {};
+    const cv = buildCv(signal, false, "keyboard");
+    const gateOut = Math.max(cv.gateAmp, mixMax(nid, "Gate"));
+    const triggerOut = Math.max(cv.triggerAmp, mixMax(nid, "Trigger"));
+    const heldOut = orTransmit([heldLocal, ...collectIn(nid, "Held Keys")], phaseOn);
+    let polyLocal = 0;
+    if (cv.gateAmp > 0) {
+      polyLocal = 2 ** Math.max(0, Math.min(48, cv.key));
     }
-    const tenth = Math.max(0, Math.min(1, midi / 120));
+    const polyOut = orTransmit([polyLocal, ...collectIn(nid, "Polyphony")], phaseOn);
     this.nodeOutputs.set(nid, {
-      Trigger: triggerAmp,
-      "0.1V/Oct": tenth,
-      "0.1v/Oct": tenth,
-      "Note#/127": Math.max(0, Math.min(1, midi / 127)),
-      Frequency: frequency,
-      Gate: gateAmp,
-      "Inc.": increment,
-      Increment: increment,
-      KeyboardKey: key,
-      "Note#": midi,
-      KeyboardNorm: q,
-      "Velocity#": velocityNumber,
-      "Velocity#/127": velocity01,
-      X: x,
-      Y: y,
-      "Held Keys": heldKeysTransmitValue,
+      ...prev,
+      Polyphony: polyOut,
+      "Held Keys": heldOut,
+      Gate: gateOut,
+      Trigger: triggerOut,
     });
   }
   if (pulseActive) {

@@ -615,6 +615,16 @@ function nodeGraphDeleteTitle(selection = nodeGraphMvp.selected) {
   if ([...selectedNodeIds].every((id) => id === "output")) {
     return nodeGraphTooltipText("actions.deleteUnavailableOutput");
   }
+  // Delete Metamodule shell → ungroup (preserve children).
+  if (
+    typeof nodeGraphIsMetamoduleType === "function"
+    && [...selectedNodeIds].every((id) => {
+      const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+      return nodeGraphIsMetamoduleType(node?.type);
+    })
+  ) {
+    return selectedNodeIds.size === 1 ? "Ungroup Metamodule" : "Ungroup Metamodules";
+  }
   return selectedNodeIds.size === 1
     ? nodeGraphTooltipText("actions.deleteModuleShort")
     : nodeGraphTooltipText("actions.deleteModulesShort");

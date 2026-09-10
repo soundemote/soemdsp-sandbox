@@ -4,7 +4,10 @@ function nodeGraphModuleBodyRowCount(type) {
 }
 
 function nodeGraphModuleVisibleBodyRowCount(type, node = null) {
-  const parameters = nodeGraphModuleDefinitions[type]?.parameters || [];
+  // Patch-aware list so Metamodule exposed child params count toward height.
+  const parameters = (node && typeof nodeGraphPatchNodeParameterDefinitions === "function")
+    ? nodeGraphPatchNodeParameterDefinitions(node)
+    : (nodeGraphModuleDefinitions[type]?.parameters || []);
   const paramMeta = node?.paramMeta && typeof node.paramMeta === "object"
     ? node.paramMeta
     : null;
@@ -103,29 +106,48 @@ function nodeGraphModuleHeightLimitsForType(_type) {
 }
 
 /**
- * LayoutC: title + I/O only. Content height = header + port-row strip
- * (max(in,out) rows), snapped up to whole gu. No face, no params.
- * Never use a hand-set defaultHeightGu — content is the SSOT.
+ * TitleBarAndPorts (ex-LayoutC): title + I/O only.
+ * Content height = header + port-row strip (max(in,out) rows), snapped up to
+ * whole gu. No face, no params. Never use a hand-set defaultHeightGu —
+ * content is the SSOT. When ioHidden, height collapses to header only.
  */
-function nodeGraphLayoutCMinContentHeightGu(type, ui = {}) {
+function nodeGraphTitleBarAndPortsMinContentHeightGu(type, ui = {}) {
+  const effective = typeof nodeGraphEffectivePatchNodeUi === "function"
+    ? nodeGraphEffectivePatchNodeUi(ui, type)
+    : (ui || {});
   const headerGu = typeof nodeGraphModuleHeaderHeightUnits === "function"
-    ? nodeGraphModuleHeaderHeightUnits(ui, type)
+    ? nodeGraphModuleHeaderHeightUnits(effective, type)
     : nodeGraphModuleLayout.headerTitleRowHeightGu;
-  const ioGu = nodeGraphModuleTypeHasIoPorts(type)
-    ? nodeGraphModuleIoSectionHeightGu(type)
-    : 0;
+  const ioOff = Boolean(effective?.ioHidden)
+    || (typeof nodeGraphModuleTypeHasIoPorts === "function"
+      && !nodeGraphModuleTypeHasIoPorts(type));
+  const ioGu = ioOff
+    ? 0
+    : (typeof nodeGraphModuleIoSectionHeightGu === "function"
+      ? nodeGraphModuleIoSectionHeightGu(type)
+      : 0);
   return Math.max(nodeGraphModuleGuPolicy.minGu, Math.ceil(headerGu + ioGu));
 }
 
+/** @deprecated use nodeGraphTitleBarAndPortsMinContentHeightGu */
+function nodeGraphLayoutCMinContentHeightGu(type, ui = {}) {
+  return nodeGraphTitleBarAndPortsMinContentHeightGu(type, ui);
+}
+
 /**
- * LayoutC outer height. Spawn (null heightGu) = content min.
+ * TitleBarAndPorts outer height. Spawn (null heightGu) = content min.
  * Manual heightGu may grow above content, never shrink below it.
  */
-function nodeGraphLayoutCGridHeightUnits(type, ui = {}, heightGu = null) {
+function nodeGraphTitleBarAndPortsGridHeightUnits(type, ui = {}, heightGu = null) {
   const limits = nodeGraphModuleGuPolicy;
-  const contentMin = nodeGraphLayoutCMinContentHeightGu(type, ui);
+  const contentMin = nodeGraphTitleBarAndPortsMinContentHeightGu(type, ui);
   const raw = Number.isFinite(Number(heightGu)) ? Math.round(Number(heightGu)) : contentMin;
   return Math.max(limits.minGu, Math.min(limits.maxGu, Math.max(contentMin, raw)));
+}
+
+/** @deprecated use nodeGraphTitleBarAndPortsGridHeightUnits */
+function nodeGraphLayoutCGridHeightUnits(type, ui = {}, heightGu = null) {
+  return nodeGraphTitleBarAndPortsGridHeightUnits(type, ui, heightGu);
 }
 
 /** Shared face/display-height limits for every type (min 1gu). Do not raise per-layout. */
@@ -621,7 +643,18 @@ function nodeGraphModuleSliderBodyHeightGu(type, ui = null, node = null) {
   );
 }
 
-function nodeGraphModuleIoRowCount(type) {
+function nodeGraphModuleIoRowCount(type, node = null) {
+  // Metamodule shell jacks are dynamic (Poly/Amp + boundary) — count live ports.
+  if (
+    String(type || "") === "metamodule"
+    && node
+    && typeof nodeGraphMetamoduleShellPorts === "function"
+  ) {
+    const shell = nodeGraphMetamoduleShellPorts(node);
+    const inputs = Array.isArray(shell?.inputs) ? shell.inputs.length : 0;
+    const outputs = Array.isArray(shell?.outputs) ? shell.outputs.length : 0;
+    return Math.max(inputs, outputs, 1);
+  }
   const definition = nodeGraphModuleDefinitions[type];
   // Match LayoutA jack columns: signal + data ports. Parameter keys are
   // slider-row mod ports, not extra I/O rows — do not count them here.
@@ -643,12 +676,12 @@ function nodeGraphModuleTypeHasIoPorts(type) {
   );
 }
 
-function nodeGraphModuleIoSectionHeightGu(type) {
+function nodeGraphModuleIoSectionHeightGu(type, node = null) {
   // LayoutB modules keep ports in the shell — no under-face IO strip height.
   if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
     return 0;
   }
-  const rows = nodeGraphModuleIoRowCount(type);
+  const rows = nodeGraphModuleIoRowCount(type, node);
   const rowHeight = rows * nodeGraphModuleLayout.ioRowHeightGu;
   const gapHeight = Math.max(0, rows - 1) * nodeGraphModuleLayout.ioRowGapGu;
   return Math.max(
@@ -705,9 +738,9 @@ const nodeGraphSolidModuleShellHeightGu = nodeGraphLayoutBShellHeightGu;
  * Write face / shell / IO CSS height units onto a module element.
  * Single write path for create + patch sync + visibility refresh.
  *
- *   --node-module-display-height-units  face (LayoutA scope row / LayoutB face)
+ *   --node-module-display-height-units  face (LayoutA / Metamodule / LayoutB face)
  *   --node-module-shell-height-units    LayoutB shell track (= face when face on)
- *   --node-module-io-height-units       LayoutA under-face IO strip (0 on LayoutB)
+ *   --node-module-io-height-units       LayoutA under-face / Metamodule top IO (0 on LayoutB)
  *   --node-grid-height-units            OUTER module (set by callers separately)
  */
 function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
@@ -729,27 +762,27 @@ function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
     const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
     faceGu = Math.max(1, Math.round(Number(outerGu) || 0) - Math.ceil(Number(headerGu) || 0));
   }
-  // Face units drive LayoutA --node-module-scope-height.
+  // Face units drive LayoutA --node-module-scope-height / Metamodule face track.
   element.style.setProperty("--node-module-display-height-units", String(faceGu));
   const isLayoutB = typeof nodeGraphModuleUsesLayoutB === "function"
     && nodeGraphModuleUsesLayoutB(type);
+  const isMetamoduleLayout = typeof nodeGraphModuleUsesMetamoduleLayout === "function"
+    && nodeGraphModuleUsesMetamoduleLayout(type);
   const shellGu = isLayoutB
     ? nodeGraphLayoutBShellHeightGu(type, ui)
     : faceGu;
   element.style.setProperty("--node-module-shell-height-units", String(shellGu));
-  // LayoutA only: reserve under-face I/O strip so dense outlets never crush params.
-  // LayoutB ports are in the shell — always 0.
+  // LayoutA + MetamoduleLayout: shared IO section height. LayoutB ports are in the shell — 0.
   const effectiveUi = typeof nodeGraphEffectivePatchNodeUi === "function"
     ? nodeGraphEffectivePatchNodeUi(ui, type)
     : (ui || {});
   const ioHidden = Boolean(effectiveUi.ioHidden)
     || !nodeGraphModuleTypeHasIoPorts(type)
     || isLayoutB;
-  const ioGu = ioHidden
-    ? 0
-    : (typeof nodeGraphModuleIoSectionHeightGu === "function"
-      ? nodeGraphModuleIoSectionHeightGu(type)
-      : 0);
+  let ioGu = 0;
+  if (!ioHidden && typeof nodeGraphModuleIoSectionHeightGu === "function") {
+    ioGu = nodeGraphModuleIoSectionHeightGu(type, patchNode);
+  }
   element.style.setProperty("--node-module-io-height-units", String(ioGu));
   // Tracks + child placement are owned by applyNodeGraphModuleLayout.
   // Hidden face ⇒ no face track (do not leave a 0px hole for auto-placement).
@@ -812,6 +845,57 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
     return headerGu > 0
       ? [{ id: "header", heightGu: headerGu, visible: true, grow: false }]
       : [];
+  }
+  // MetamoduleLayout: header | IO (top strip) | face (dedicated gu) | params | lip.
+  // IO and face are separate tracks so port label length cannot crush the screen.
+  if (typeof nodeGraphModuleUsesMetamoduleLayout === "function"
+    && nodeGraphModuleUsesMetamoduleLayout(type)) {
+    const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
+    const effectiveUi = typeof nodeGraphEffectivePatchNodeUi === "function"
+      ? nodeGraphEffectivePatchNodeUi(ui, type)
+      : (ui || {});
+    const ioHidden = Boolean(effectiveUi.ioHidden)
+      || !nodeGraphModuleTypeHasIoPorts(type);
+    // Shared LayoutA IO chrome above the face — height SSOT drives face start.
+    const ioGu = ioHidden ? 0 : nodeGraphModuleIoSectionHeightGu(type, node);
+    const displayVisible = typeof nodeGraphModuleDisplayVisibleForUi === "function"
+      ? nodeGraphModuleDisplayVisibleForUi(type, ui)
+      : true;
+    const faceGu = displayVisible
+      ? Math.max(1, nodeGraphModuleDisplayHeightUnits(type, ui) || 1)
+      : 0;
+    const paramsGu = nodeGraphModuleSliderBodyHeightGu(type, ui, node);
+    // Same plate inset floor LayoutA uses so the grow lip cannot collapse to 2px.
+    const lipFloorGu = nodeGraphModuleLayout.moduleGridInsetGu * 1.5;
+    const bands = [];
+    if (headerGu > 0) {
+      bands.push({ id: "header", heightGu: headerGu, visible: true, grow: false });
+    }
+    if (ioGu > 0) {
+      bands.push({
+        id: "io",
+        heightGu: ioGu,
+        visible: true,
+        grow: false,
+        // Floor = LayoutA --node-module-io-track-min; grow to content so the
+        // face band always starts below the real IO (never clips into display).
+        reserveGu: true,
+      });
+    }
+    if (faceGu > 0) {
+      bands.push({
+        id: "face",
+        heightGu: faceGu,
+        visible: true,
+        // Face does not absorb leftover — lip owns the ≥2px clearance.
+        grow: false,
+      });
+    }
+    if (paramsGu > 0) {
+      bands.push({ id: "params", heightGu: paramsGu, visible: true, grow: false });
+    }
+    bands.push({ id: "lip", heightGu: lipFloorGu, visible: true, grow: true });
+    return bands;
   }
   // LayoutB article is header + shell(face+side ports) + params — never an
   // under-face I/O track. LED / Value LED / XY Pad all share this recipe.
@@ -903,6 +987,10 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
       face.grow = true;
     }
   }
+  // TitleBarAndPorts: I/O may absorb leftover height when the user grows the
+  // module, but must never shrink below content (that clipped jacks over the
+  // bottom plate). No separate lip — lip+grow IO fought for the same pixels
+  // when outer height == header+io content min.
   if (isLayoutC) {
     const io = bands.find((band) => band.id === "io");
     if (io?.visible) {
@@ -920,6 +1008,7 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
   // the bottom radius (that clipped the last row).
   const wantsLip = layout !== "led"
     && layout !== "textBox"
+    && !isLayoutC
     && !(isLayoutB && !paramsVisible)
     && !displayOwnsPlate;
   if (wantsLip) {
@@ -953,11 +1042,19 @@ function nodeGraphModuleBandTrackCss(band) {
     return "auto";
   }
   if (band.id === "io") {
-    // Hug jack rows + UIDEV pads. A reserved min taller than the crescents
-    // left a phantom band between I/O and sliders (align-content:start).
-    return band.grow
-      ? "minmax(0, 1fr)"
-      : "auto";
+    if (band.grow) {
+      return band.heightGu > 0
+        ? `minmax(calc(var(--node-grid-height) * ${band.heightGu}), 1fr)`
+        : "minmax(0, 1fr)";
+    }
+    // MetamoduleLayout (and any reserved IO): same SSOT as LayoutA
+    // --node-module-io-track-min (gu units + section padding). minmax(…, auto)
+    // lets content grow so the next band (face) starts below real IO height.
+    if (band.reserveGu) {
+      return "minmax(var(--node-module-io-track-min), auto)";
+    }
+    // LayoutA: hug jack rows + UIDEV pads.
+    return "auto";
   }
   if (band.id === "params") {
     return band.grow
@@ -979,6 +1076,11 @@ function nodeGraphModuleBandTrackCss(band) {
       return `minmax(calc(var(--node-grid-height) * ${band.heightGu}), 1fr)`;
     }
     return "var(--node-module-bottom-gap-track, minmax(2px, 1fr))";
+  }
+  // TitleBarAndPorts / any growing IO strip: floor at content height so
+  // minmax(0, 1fr) cannot crush jacks (ports were painting over the bottom).
+  if (band.id === "io" && band.grow && band.heightGu > 0) {
+    return `minmax(calc(var(--node-grid-height) * ${band.heightGu}), 1fr)`;
   }
   if (band.grow) {
     return "minmax(0, 1fr)";
@@ -1007,8 +1109,11 @@ function inferNodeGraphModuleBandId(child) {
   if (cls.contains("dsp-node-header")) {
     return "header";
   }
-  if (cls.contains("dsp-node-io-section")) {
+  if (cls.contains("dsp-node-io-section") || cls.contains("node-metamodule-layout-io")) {
     return "io";
+  }
+  if (cls.contains("node-metamodule-layout-face") || cls.contains("node-metamodule-face")) {
+    return "face";
   }
   if (
     cls.contains("node-module-scope-window")
@@ -1047,6 +1152,9 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
   if (!article) {
     return;
   }
+  const patchNodeForGeometry = Array.isArray(patchNodeOrBands)
+    ? null
+    : patchNodeOrBands;
   const bands = Array.isArray(patchNodeOrBands)
     ? patchNodeOrBands
     : nodeGraphModuleLayoutBands(
@@ -1138,6 +1246,10 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
     && article.querySelector?.(".node-filter-curve-display")
   ) {
     scheduleNodeGraphFilterCurveDraw();
+  }
+  // Layout owner → publish jack attaches once (wires read SSOT; Play does not).
+  if (typeof nodeGraphModuleGeometryPublishAfterLayout === "function") {
+    nodeGraphModuleGeometryPublishAfterLayout(article, patchNodeForGeometry);
   }
 }
 
@@ -1278,7 +1390,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
     ? nodeGraphModuleHiddenIoSectionHeightGu(type)
     : Math.max(
       nodeGraphModuleLayout.ioSectionMinHeightGu || 0.5,
-      nodeGraphModuleIoSectionHeightGu(type) || 0,
+      nodeGraphModuleIoSectionHeightGu(type, node) || 0,
     );
   // LayoutC: title + I/O only (no face, no params).
   if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
@@ -1505,6 +1617,38 @@ function nodeGraphModuleGridHeightUnits(type) {
 }
 
 /**
+ * MetamoduleLayout content stack (before clearance):
+ *   header + IO strip + face + param body + plate inset
+ * IO and face are separate — labels never inflate/crush the display gu.
+ * Plate inset always reserved (LayoutA parity) so lip has ≥2px room.
+ */
+function nodeGraphMetamoduleLayoutContentHeightGu(type, ui = {}, node = null) {
+  const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
+  const effectiveUi = typeof nodeGraphEffectivePatchNodeUi === "function"
+    ? nodeGraphEffectivePatchNodeUi(ui, type)
+    : (ui || {});
+  const ioHidden = Boolean(effectiveUi.ioHidden)
+    || !nodeGraphModuleTypeHasIoPorts(type);
+  const ioGu = ioHidden ? 0 : nodeGraphModuleIoSectionHeightGu(type, node);
+  const displayVisible = typeof nodeGraphModuleDisplayVisibleForUi === "function"
+    ? nodeGraphModuleDisplayVisibleForUi(type, ui)
+    : true;
+  const faceGu = displayVisible
+    ? Math.max(1, nodeGraphModuleDisplayHeightUnits(type, ui) || 1)
+    : 0;
+  const sliderGu = nodeGraphModuleSliderBodyHeightGu(type, ui, node);
+  const insetGu = nodeGraphModuleLayout.moduleGridInsetGu * 1.5;
+  return headerGu + ioGu + faceGu + Math.max(0, sliderGu) + insetGu;
+}
+
+function nodeGraphMetamoduleLayoutGridHeightUnits(type, ui = {}, node = null) {
+  // Always LayoutA-style clearance: ceil(content); +1gu if leftover < 2px.
+  return nodeGraphModuleHeightWithBottomClearance(
+    nodeGraphMetamoduleLayoutContentHeightGu(type, ui, node),
+  );
+}
+
+/**
  * LayoutB content stack (no clearance) — THE LayoutB height formula:
  *   header + shell(face) + param body [+ plate inset when params exist]
  *
@@ -1556,6 +1700,10 @@ function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}, node = null) {
   }
   if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
     return nodeGraphLayoutCGridHeightUnits(type, ui, null);
+  }
+  if (typeof nodeGraphModuleUsesMetamoduleLayout === "function"
+    && nodeGraphModuleUsesMetamoduleLayout(type)) {
+    return nodeGraphMetamoduleLayoutGridHeightUnits(type, ui, node);
   }
   if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
     if (

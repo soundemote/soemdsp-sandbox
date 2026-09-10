@@ -38,7 +38,6 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
         const velocity01 = hasInput(nodeId, "Velocity")
           ? this.clampValue(Number(mixInput(nodeId, "Velocity")) || 0, 0, 1)
           : this.clampValue(Number(signal.velocity) || 0, 0, 1);
-        const velocityNumber = Math.round(velocity01 * 127);
         // Gate/Trigger amplitudes follow velocity (not binary 0/1).
         let gateAmp = 0;
         if (!resetActive) {
@@ -68,7 +67,9 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
             heldKeysTransmitValue = (2 ** 49) + this.midiKeyboardHeldKeysHighBitmask;
           }
         }
-        return {
+        // Integer Note# / Velocity# and KeyboardKey/Norm removed from MIDI outs;
+        // Keyboard face still gets Key/Norm via the shared keyboard evaluator path.
+        const out = {
           Trigger: hasInput(nodeId, "Gate") ? gateAmp : gatePulse,
           "0.1V/Oct": this.clampValue(midi / 120, 0, 1),
           "0.1v/Oct": this.clampValue(midi / 120, 0, 1),
@@ -77,15 +78,17 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
           Gate: gateAmp,
           "Inc.": increment,
           Increment: increment,
-          KeyboardKey: key,
-          "Note#": midi,
-          KeyboardNorm: q,
-          "Velocity#": velocityNumber,
           "Velocity#/127": velocity01,
           X: x,
           Y: y,
           "Held Keys": heldKeysTransmitValue,
         };
+        const nodeType = this.nodes?.get?.(nodeId)?.type;
+        if (nodeType === "keyboard") {
+          out.KeyboardKey = key;
+          out.KeyboardNorm = q;
+        }
+        return out;
       },
       buttonEvents: () => ({
         Click: this.externalButtonEventPulse("click"),
@@ -420,18 +423,19 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
           Right: this.speakerProtectionSample(mixInput(nodeId, "Right") + speakerProtectionMono, nodeId),
         };
       },
-      groupOutput: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+      metamoduleIn: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Out: mixInput(nodeId, "In"),
       }),
+      metamoduleOut: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Out: mixInput(nodeId, "In"),
+      }),
+      metamodule: () => ({}),
       output: (node, nodeId, frame, frames, frameValues, mixInput) =>
         nodeGraphDspStereoMix(
           mixInput(nodeId, "Mono"),
           mixInput(nodeId, "Left"),
           mixInput(nodeId, "Right"),
         ),
-      groupInput: (node, nodeId) => ({
-        Out: Number(this.externalGroupInputs?.get(nodeId)) || 0,
-      }),
       portalInlet: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame) =>
         this.evaluatePortalInlet(node, nodeId, mixInput, inputFrame ?? frame),
       portalOutlet: (node, nodeId, frame, frames, frameValues, mixInput) =>

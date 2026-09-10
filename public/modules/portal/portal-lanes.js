@@ -154,8 +154,8 @@ function nodeGraphPortalLaneDefinition(kind, spec) {
     aliases.R = "Right";
   }
   return {
-    // LayoutC: title + I/O. Height comes from content calc (no hand defaultHeightGu).
-    chrome: "LayoutC",
+    // TitleBarAndPorts (ex-LayoutC): title + I/O. Height from content calc.
+    chrome: "TitleBarAndPorts",
     planRole: isInlet ? "source" : "sink",
     planFreeRun: true,
     defaultWidthGu: 4,

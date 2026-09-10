@@ -147,8 +147,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/rayBouncer/ray-bouncer-register.js",
     "./public/modules/stepGrid/step-grid-register.js",
     "./public/modules/keypad/keypad-register.js",
-    "./public/modules/groupInput/group-input-register.js",
-    "./public/modules/groupOutput/group-output-register.js",
+    "./public/modules/metamodule/metamodule-register.js",
     "./public/modules/portal/portal-lanes.js",
     "./public/modules/portal/portal-inlet-register.js",
     "./public/modules/portal/portal-outlet-register.js",
@@ -210,6 +209,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/lib/phosphor/phosphor-residual.js",
     "./public/lib/phosphor/phosphor-energy-gl.js",
     "./public/lib/phosphor/phosphor-drawer.js",
+    "./public/lib/visual/display-layer-compositor.js",
     "./public/node-graph-phosphor-energy-gl.js",
     "./public/lib/trace/trace-stroke.js",
     "./public/lib/trace/trace-woscope.js",
@@ -305,9 +305,11 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/keypad/keypad-math.js",
     "./public/modules/keypad/keypad-settings.js",
     "./public/modules/keypad/keypad-ui.js",
-    "./public/modules/groupInput/group-input-ui.js",
+    "./public/modules/metamodule/metamodule-core.js",
+    "./public/modules/metamodule/metamodule-display-mirror.js",
+    "./public/modules/metamodule/metamodule-ui.js",
+    "./public/modules/metamodule/metamodule-live-evaluator.js",
     "./public/modules/patch/patch-ui.js",
-    "./public/modules/groupOutput/group-output-ui.js",
     "./public/modules/portal/portal-math.js",
     "./public/modules/portal/portal-settings.js",
     "./public/modules/portal/portal-ui.js",
@@ -322,6 +324,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-slider-dragging.js",
     "./public/node-graph-node-accessors.js",
     "./public/node-graph-selection.js",
+    "./public/node-graph-module-geometry.js",
     "./public/node-graph-port-geometry.js",
     "./public/node-graph-jack-chrome.js",
     "./public/node-graph-slider-readout.js",
@@ -509,6 +512,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/triggerDivider/trigger-divider-math.js",
     "./public/modules/stepSequencer/step-sequencer-math.js",
     "./public/modules/keyboardController/keyboard-layout-settings.js",
+    "./public/modules/keyboardController/keyboard-controller-live-evaluator.js",
     "./public/modules/macroControls/macro-controls-settings.js",
     "./public/modules/gain/gain-math.js",
     "./public/modules/mixStereo/mix-stereo-math.js",
@@ -3889,10 +3893,11 @@ def require_chromeless_module_registry_contract() -> None:
     register_paths = sorted(PUBLIC.glob("modules/*/*-register.js"))
     discovered_types: set[str] = set()
 
-    def chromeless_register_type(register_path, source: str) -> str:
-        match = register_call_pattern.search(source)
-        if match:
-            return match.group(1)
+    def chromeless_register_types(register_path, source: str) -> list[str]:
+        # One *-register.js may register several types (e.g. metamodule In/Out/shell).
+        matches = register_call_pattern.findall(source)
+        if matches:
+            return matches
         portal = portal_family_pattern.search(source)
         if portal:
             require(
@@ -3900,23 +3905,25 @@ def require_chromeless_module_registry_contract() -> None:
                 and "registerNodeGraphChromelessModule(nodeGraphPortalTypeName(kind, spec)" in script_sources["./public/modules/portal/portal-lanes.js"],
                 f"{register_path} uses portal lane family but portal-lanes.js does not register chromeless types",
             )
-            return "portalInlet" if portal.group(1) == "inlet" else "portalOutlet"
+            return ["portalInlet" if portal.group(1) == "inlet" else "portalOutlet"]
         raise AssertionError(f"{register_path} does not call registerNodeGraphChromelessModule")
 
     for register_path in register_paths:
         source = register_path.read_text(encoding="utf-8")
-        discovered_types.add(chromeless_register_type(register_path, source))
+        for module_type in chromeless_register_types(register_path, source):
+            discovered_types.add(module_type)
 
     expected_types = {
         "bugButton",
         "evolveField",
         "fbmField",
-        "groupInput",
-        "groupOutput",
         "imageBurn",
         "keypad",
         "lcdDot",
         "led",
+        "metamodule",
+        "metamoduleIn",
+        "metamoduleOut",
         "numberReadout",
         "patch",
         "portalInlet",
@@ -3938,12 +3945,25 @@ def require_chromeless_module_registry_contract() -> None:
     # Each registered type needs a matching UI registration in the same
     # module folder — unless the face is fully shared (e.g. Value LCD reuses
     # the number-readout draw path and has no dedicated *-ui.js).
-    chromeless_ui_optional = {"valueLcd", "portalInlet", "portalOutlet", "simulationTime", "lcdDot"}
+    # Meta In/Out are TitleBarAndPorts (no custom face UI).
+    chromeless_ui_optional = {
+        "valueLcd",
+        "portalInlet",
+        "portalOutlet",
+        "simulationTime",
+        "lcdDot",
+        "metamoduleIn",
+        "metamoduleOut",
+    }
     for register_path in register_paths:
         module_dir = register_path.parent
-        module_type = chromeless_register_type(register_path, register_path.read_text(encoding="utf-8"))
+        module_types = chromeless_register_types(
+            register_path,
+            register_path.read_text(encoding="utf-8"),
+        )
         ui_paths = list(module_dir.glob("*-ui.js"))
-        if module_type in chromeless_ui_optional:
+        needs_ui = [t for t in module_types if t not in chromeless_ui_optional]
+        if not needs_ui:
             continue
         require(len(ui_paths) == 1, f"{module_dir} should have exactly one *-ui.js file")
         ui_source = ui_paths[0].read_text(encoding="utf-8")
@@ -5685,7 +5705,6 @@ def require_node_graph_mvp_contract() -> None:
                 "console.test(\\\"lead plan has modules\\\", leadPlan.circuit.modules.length >= 4)",
                 "console.test(\\\"recipe list includes envelope\\\", availableRecipes.some((item) => item.name === \\\"envelope\\\"))",
                 "console.test(\\\"recipe markdown names envelope\\\", recipeDocs.includes(\\\"## envelope\\\"))",
-                "console.test(\\\"envelope plan has endpoints\\\", envelopePlan.circuit.modules.some((item) => item.type === \\\"groupInput\\\") && envelopePlan.circuit.modules.some((item) => item.type === \\\"groupOutput\\\"))",
                 "console.test(\\\"plan validation ok\\\", leadPlanValidation.ok)",
                 "console.test(\\\"envelope plan validation ok\\\", envelopePlanValidation.ok)",
                 "console.test(\\\"plan markdown names lead\\\", leadPlanMarkdown.includes(\\\"C3 bright lead\\\"))",
@@ -9628,8 +9647,6 @@ def require_node_graph_mvp_contract() -> None:
         "\"keyboardController\"",
         "\"macroControls\"",
         "\"pitchModWheel\"",
-        "\"groupInput\"",
-        "\"groupOutput\"",
         "\"samplePlayer\"",
         "\"sampleLooper\"",
         "\"speakerProtection\"",
@@ -9697,8 +9714,6 @@ def require_node_graph_mvp_contract() -> None:
         'type: "windowReopenEvent"',
         'type: "shootingStarExplosionEvent"',
         "function nodeGraphBuildLivePlanForPatch(patch)",
-        "nodeGraphLiveModuleEvaluators.groupInput = (",
-        "nodeGraphLiveModuleEvaluators.groupOutput = (",
         "function normalizeNodeGraphModuleStoreDepartment(department = \"\")",
         "function setNodeGraphModuleStoreDepartment(department = \"\")",
         "nodeGraphMvp.moduleStoreDepartment = normalizeNodeGraphModuleStoreDepartment(department)",
@@ -10292,8 +10307,6 @@ def require_node_graph_mvp_contract() -> None:
         "nodeGraphLiveModuleEvaluators.noiseGenerator = (",
         "nodeGraphLiveModuleEvaluators.randomWalk = (",
         "nodeGraphLiveModuleEvaluators.fractalBrownianNoise = (",
-        "nodeGraphLiveModuleEvaluators.groupInput = (",
-        "nodeGraphLiveModuleEvaluators.groupOutput = (",
         "nodeGraphLiveModuleEvaluators.badvalMonitor = (",
         "BADVAL Monitor input",
         "function nodeGraphSpeakerProtectionSample(value, runtime, nodeId)",
@@ -10395,7 +10408,7 @@ def require_node_graph_mvp_contract() -> None:
         "node.querySelectorAll(\".dsp-node-io-section\")",
         "node.querySelectorAll(\".node-parameter-row\")",
         "node.querySelector(\".node-bypass-button\")?.addEventListener(\"click\", toggleNodeGraphModuleBypass)",
-        '".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-group-input-face, .node-group-output-face, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row, .node-sample-phase-readout"',
+        '".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row, .node-sample-phase-readout"',
         "node.querySelector(\".node-action-button\")?.addEventListener(\"click\", openNodeModuleActionMenu)",
         "handle.setPointerCapture(event.pointerId)",
         "handle.classList.add(\"dragging\")",
@@ -17545,8 +17558,6 @@ def require_node_graph_mvp_contract() -> None:
         'node?.type === "noiseGenerator"',
         'node?.type === "randomWalk"',
         'node?.type === "fractalBrownianNoise"',
-        "groupInput: (node, nodeId) => ({",
-        "groupOutput: (node, nodeId, frame, frames, frameValues, mixInput) => ({",
         "badvalMonitor: (node, nodeId, frame, frames, frameValues, mixInput) => this.monitorBadValueSample(",
         "this.monitorBadValueSample(mixInput(nodeId), nodeId)",
         "speakerProtectionSample(value, nodeId)",

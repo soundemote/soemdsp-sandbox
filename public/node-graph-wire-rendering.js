@@ -98,14 +98,38 @@ function nodeGraphPortElementIsRenderableForWire(element) {
     : Boolean(element && element.getBoundingClientRect().width > 0);
 }
 
+function nodeGraphWireEndpointNodeIsRenderable(nodeId) {
+  if (!nodeId || !(nodeGraphMvp?.activeNodes instanceof Set)) {
+    return false;
+  }
+  const id = String(nodeId || "");
+  const active = nodeGraphMvp.activeNodes.has(id);
+  if (typeof nodeGraphPatchNodeIsVisible === "function" && nodeGraphPatchNodeIsVisible(id)) {
+    return active;
+  }
+  // Hidden Meta In/Out on Root still anchor cables on the parent shell.
+  if (
+    active
+    && typeof nodeGraphMetamodulePortalIsWireProxyVisible === "function"
+    && nodeGraphMetamodulePortalIsWireProxyVisible(id)
+  ) {
+    return true;
+  }
+  // Hidden owned children with Show-metaparameter: mod cables terminate on shell mx_*.
+  // Child may be inactive on Root; the shell jack is the visible anchor.
+  if (typeof nodeGraphMetamoduleExposedChildIsWireProxyVisible === "function"
+    && nodeGraphMetamoduleExposedChildIsWireProxyVisible(id)) {
+    return true;
+  }
+  return false;
+}
+
 function nodeGraphWireEndpointsAreRenderable(wire) {
   const surface = nodeGraphZoomSurface();
   return Boolean(
-    surface &&
-    nodeGraphMvp.activeNodes.has(wire.sourceNode) &&
-    nodeGraphMvp.activeNodes.has(wire.destinationNode) &&
-    nodeGraphPatchNodeIsVisible(wire.sourceNode) &&
-    nodeGraphPatchNodeIsVisible(wire.destinationNode),
+    surface
+    && nodeGraphWireEndpointNodeIsRenderable(wire.sourceNode)
+    && nodeGraphWireEndpointNodeIsRenderable(wire.destinationNode),
   );
 }
 
@@ -241,6 +265,23 @@ function nodeGraphWirePathClass(...classes) {
 function markNodeGraphWireEndpointsConnected(wire, destinationIo = "input") {
   nodeGraphNodeElement(wire.sourceNode)?.classList.add("connected");
   nodeGraphNodeElement(wire.destinationNode)?.classList.add("connected");
+  // Root portal→shell proxy: also light the visible Metamodule shell.
+  if (typeof nodeGraphMetamoduleWireVisualEndpoint === "function") {
+    const srcProxy = nodeGraphMetamoduleWireVisualEndpoint(
+      wire.sourceNode,
+      wire.sourcePort,
+      "output",
+    );
+    if (srcProxy) nodeGraphNodeElement(srcProxy.nodeId)?.classList.add("connected");
+    if (destinationIo === "input") {
+      const dstProxy = nodeGraphMetamoduleWireVisualEndpoint(
+        wire.destinationNode,
+        wire.destinationPort,
+        "input",
+      );
+      if (dstProxy) nodeGraphNodeElement(dstProxy.nodeId)?.classList.add("connected");
+    }
+  }
   markNodeGraphPortConnected(wire.sourceNode, wire.sourcePort, "output");
   if (destinationIo === "graph") {
     markNodeGraphGraphInputPortConnected(wire.destinationNode, wire.destinationGraphInput);
@@ -248,6 +289,16 @@ function markNodeGraphWireEndpointsConnected(wire, destinationIo = "input") {
   }
   if (destinationIo === "modulation") {
     markNodeGraphModulationPortConnected(wire.destinationNode, wire.destinationParam);
+    // Root expose proxy: also light the visible Metamodule shell + mx_* jack.
+    if (typeof nodeGraphMetamoduleExposedModulationWireVisualEndpoint === "function") {
+      const modProxy = nodeGraphMetamoduleExposedModulationWireVisualEndpoint(
+        wire.destinationNode,
+        wire.destinationParam,
+      );
+      if (modProxy?.nodeId) {
+        nodeGraphNodeElement(modProxy.nodeId)?.classList.add("connected");
+      }
+    }
     return;
   }
   markNodeGraphPortConnected(wire.destinationNode, wire.destinationPort, "input");
@@ -543,6 +594,15 @@ function drawNodeGraphWires(options = {}) {
   // Heatmap is cheap CSS; still update so glow tracks pan/zoom.
   if (options.skipHeatmap !== true && typeof updateNodeGraphGridHeatmap === "function") {
     updateNodeGraphGridHeatmap();
+  }
+  // Ensure published geometry exists (layout owners write; bootstrap if empty).
+  if (
+    typeof nodeGraphModuleGeometryPublishVisible === "function"
+    && typeof nodeGraphModuleGeometryById !== "undefined"
+    && nodeGraphModuleGeometryById instanceof Map
+    && nodeGraphModuleGeometryById.size === 0
+  ) {
+    nodeGraphModuleGeometryPublishVisible();
   }
   // Batch jack geometry for this redraw (shared Map + one surface rect).
   if (typeof nodeGraphPortCenterCacheBegin === "function") {
