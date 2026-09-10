@@ -146,7 +146,8 @@ function nodeGraphModuleScopeFaceBackingSize(screenElement, requestedPixelRatio 
       typeof nodeGraphZoom === "function"
         ? nodeGraphZoom()
         : (nodeGraphMvp && nodeGraphMvp.zoom),
-    , 1),
+      1,
+    ),
   );
   // Layout (pre-transform) CSS pixels — stable under workspace zoom.
   // Prefer client/offset; if layout has not resolved yet (0×0 common before

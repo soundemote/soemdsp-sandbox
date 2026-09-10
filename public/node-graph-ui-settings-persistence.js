@@ -1422,7 +1422,7 @@ function normalizeNodeGraphUserSession(payload = {}) {
           ?? view.moduleScopeFramesPerSecond
           ?? nodeGraphMvp.moduleScopeFramesPerSecond
           ?? 60,
-      , 60)))),
+      )))),
     traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
       ? normalizeNodeGraphTraceDisplaySettings(
         payload.traceSettings ?? view.traceSettings ?? nodeGraphMvp.traceSettings,

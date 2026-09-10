@@ -1367,7 +1367,8 @@ function nodeGraphNumberReadoutWorkspaceZoom() {
       typeof nodeGraphZoom === "function"
         ? nodeGraphZoom()
         : (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp && nodeGraphMvp.zoom),
-    , 1),
+      1,
+    ),
   );
 }
 

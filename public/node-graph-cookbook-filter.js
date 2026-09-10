@@ -914,13 +914,17 @@ function nodeGraphFilterCurveMeasureBox(section) {
         (host.style && host.style.getPropertyValue("--node-module-display-height-units"))
         || (typeof getComputedStyle === "function"
           ? getComputedStyle(host).getPropertyValue("--node-module-display-height-units")
-          : "", 5),
-      , 5);
+          : "")
+        || 5,
+        5,
+      );
       const gridH = nodeGraphFiniteNumber(
         (typeof getComputedStyle === "function"
           ? parseFloat(getComputedStyle(host).getPropertyValue("--node-grid-height"))
-          : 0, 28),
-      , 28);
+          : 0)
+        || 28,
+        28,
+      );
       rawH = Math.max(rawH, Math.round(gridH * Math.max(2, gu)));
     }
   }
