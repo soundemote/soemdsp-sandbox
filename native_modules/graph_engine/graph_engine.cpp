@@ -1884,8 +1884,11 @@ struct Node {
   float yellowCutoffStrip[kMaxBlockFrames];
   int yellowCutoffStripFrames;
   double buf[kChannels][kMaxBlockFrames];
-  // z^-1 feedback history (one sample per channel). Self-mod / cycle edges read this.
+  // z^-1: last sample (self-mod within a sample loop).
   double hist[kChannels];
+  // Previous quantum's full block — cycle/feedback edges read histBuf[ch][f]
+  // so MOD/audio stays sample-varying (never hold one scalar for the whole quantum).
+  double histBuf[kChannels][kMaxBlockFrames];
   unsigned char processedThisBlock;
 };
 
@@ -3320,23 +3323,28 @@ static void clear_live_param_mods_on_node(Node& n) {
 }
 
 
-// Readable sample for an edge: forward edges use producer buf; self / not-yet-
-// processed producers use z^-1 hist (1 sample). Never invent quantum delay.
+// Readable sample for an edge:
+// - Forward (src already processed this quantum): src.buf[f]
+// - Self-mod: src.hist (previous sample, updated each write)
+// - Cycle / not-yet-processed src: src.histBuf[f] (previous quantum, per-frame)
+// Never return one scalar for every f in a quantum — that is block-rate FM zipper.
 static inline double edge_read_sample(
   Circuit& g, unsigned int srcHash, int srcPort, int frame, unsigned int dstHash
 ) {
   const int si = find_node(g, srcHash);
   if (si < 0) return 0.0;
   Node& src = g.nodes[si];
-  // Local clamp — this helper is above clamp_src_port in the file.
   int sp = srcPort;
   if (sp < 0 || sp >= kChannels) sp = 0;
-  const bool feedback = (srcHash == dstHash) || (src.processedThisBlock == 0);
-  if (feedback) {
+  if (frame < 0 || frame >= kMaxBlockFrames) frame = 0;
+  if (srcHash == dstHash) {
     double v = src.hist[sp];
     return (v == v) ? v : 0.0;
   }
-  if (frame < 0 || frame >= kMaxBlockFrames) return 0.0;
+  if (src.processedThisBlock == 0) {
+    double v = src.histBuf[sp][frame];
+    return (v == v) ? v : 0.0;
+  }
   double v = src.buf[sp][frame];
   return (v == v) ? v : 0.0;
 }
@@ -3345,13 +3353,24 @@ static inline void node_update_hist_from_frame(Node& node, int frame) {
   if (frame < 0 || frame >= kMaxBlockFrames) return;
   for (int c = 0; c < kChannels; c++) {
     double v = node.buf[c][frame];
-    node.hist[c] = (v == v) ? v : 0.0;
+    if (!(v == v)) v = 0.0;
+    node.hist[c] = v;
+    node.histBuf[c][frame] = v;
   }
 }
 
 static inline void node_update_hist_last(Node& node, int frames) {
   if (frames < 1) return;
-  node_update_hist_from_frame(node, frames - 1);
+  // Publish full previous-quantum tape for cycle edges; hist = last sample.
+  const int n = frames < kMaxBlockFrames ? frames : kMaxBlockFrames;
+  for (int c = 0; c < kChannels; c++) {
+    for (int f = 0; f < n; f++) {
+      double v = node.buf[c][f];
+      if (!(v == v)) v = 0.0;
+      node.histBuf[c][f] = v;
+    }
+    node.hist[c] = node.histBuf[c][n - 1];
+  }
 }
 
 // Stamp sample-accurate audio→param MOD onto Controls for this node/frame.
@@ -9921,7 +9940,12 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
   n.used = true;
   n.idHash = nodeIdHash;
   init_node_defaults(n, typeId);
-  for (int c = 0; c < kChannels; c++) zero_buf(n.buf[c], kMaxBlockFrames);
+  for (int c = 0; c < kChannels; c++) {
+    zero_buf(n.buf[c], kMaxBlockFrames);
+    zero_buf(n.histBuf[c], kMaxBlockFrames);
+    n.hist[c] = 0.0;
+  }
+  n.processedThisBlock = 0;
 
   const bool needsNative =
     typeId == kTypePolyBlep
