@@ -38,6 +38,16 @@ graphify update . --force   # no LLM; AST re-extract
 
 ## Completed (selected)
 
+### C++ AUDIO ENGINE CLEANING (2026-09-10, `execute-plan/papoulis-filter-finish`)
+- Control chase SSOT: `control_frame` (all continuous Controls per sample; not per-knob)
+- Sample-path gate: `node_needs_sample_accurate_controls` (Control sink / live IN / chase)
+- Unified edges Port|Control + 1-sample / histBuf feedback (self-mod + cycle FM)
+- Sine SSOT wavetable; PolyBLEP sine click fixed; JS DSP twins retired
+- Contracts: `check_graph_engine_contracts.py` + ParamMod/self-mod/cycle smokes in native build
+- Tip commits: `e03ee57c` … `b6412277`
+
+
+
 - [x] **CLAP host extracted** — https://github.com/soundemote/soemdsp-sandbox-claphost
 - [x] **Code cleanup pass plan** — `docs/CODE_CLEANUP_PASS_PLAN.md`
 - [x] **Core reduction** Phase A/B (floating window registry, Code Screen satellite)
