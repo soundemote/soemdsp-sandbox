@@ -542,7 +542,25 @@ function nodeGraphModuleScopeSlotUsesWiredInputs(slot) {
 }
 
 function nodeGraphModuleDisplaySourceForSlot(slot) {
-  return nodeGraphModuleSelectedDisplayMode(nodeGraphModuleScopeNodeForSlot(slot))?.source || null;
+  const node = nodeGraphModuleScopeNodeForSlot(slot);
+  const modeSource = nodeGraphModuleSelectedDisplayMode(node)?.source || null;
+  if (!node) {
+    return modeSource;
+  }
+  const outputs = typeof nodeGraphPatchNodeOutputPorts === "function"
+    ? nodeGraphPatchNodeOutputPorts(node)
+    : [];
+  // PolyBLEP / BLIT / Surge: face follows the live outlet (Wave preferred).
+  if (
+    typeof nodeGraphOscillatorSelectedOutputPort === "function"
+    && (outputs.includes("Wave") || outputs.includes("Wave Out"))
+  ) {
+    const port = nodeGraphOscillatorSelectedOutputPort(node);
+    if (port) {
+      return { ...(modeSource && typeof modeSource === "object" ? modeSource : {}), value: port };
+    }
+  }
+  return modeSource;
 }
 
 function nodeGraphWirelessVideoCatalogNode(node) {

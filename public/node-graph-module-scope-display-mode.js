@@ -38,7 +38,8 @@ function nodeGraphModuleOutputPortsForType(type) {
 
 function nodeGraphModuleDefaultScalarDisplayPort(type) {
   const outputs = nodeGraphModuleOutputPortsForType(type);
-  // Prefer the selected-waveform main jack (Wave) before fixed shape taps.
+  // Default face jack for osc defs: Wave first. Live cable priority is resolved
+  // in nodeGraphOscillatorSelectedOutputPort / nodeGraphModuleDisplaySourceForSlot.
   return outputs.find((port) => port === "Wave") ||
     outputs.find((port) => port === "Out") ||
     outputs.find((port) => port === "Wave Out") ||

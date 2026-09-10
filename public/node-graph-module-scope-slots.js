@@ -179,15 +179,52 @@ function nodeGraphDefaultModuleScopeMonitors(patch = nodeGraphMvp?.patch) {
     .filter(Boolean);
 }
 
+/** Outgoing jack names from this node (patch cables only). */
+function nodeGraphModuleOutgoingOutputPorts(nodeId) {
+  const id = String(nodeId || "");
+  const connected = new Set();
+  if (!id) {
+    return connected;
+  }
+  const connections = Array.isArray(nodeGraphMvp?.patch?.connections)
+    ? nodeGraphMvp.patch.connections
+    : [];
+  for (let i = 0; i < connections.length; i += 1) {
+    const connection = connections[i];
+    if (String(connection?.sourceNode || "") !== id) {
+      continue;
+    }
+    const port = String(connection?.sourcePort || "").trim();
+    if (port) {
+      connected.add(port);
+    }
+  }
+  return connected;
+}
+
+/**
+ * Oscillator face source port: prefer Wave when that outlet is cabled (or when
+ * nothing is cabled — native tap mask defaults to Wave). Otherwise the first
+ * connected shape tap (Saw/Ramp/Square/Tri/Sine) so unused taps stay unevaluated.
+ */
 function nodeGraphOscillatorSelectedOutputPort(node) {
   const outputs = nodeGraphPatchNodeOutputPorts(node);
-  if (outputs.includes("Wave")) {
-    return "Wave";
+  const connected = nodeGraphModuleOutgoingOutputPorts(node?.id);
+  const wavePort = outputs.includes("Wave")
+    ? "Wave"
+    : (outputs.includes("Wave Out") ? "Wave Out" : "");
+  if (wavePort) {
+    if (connected.size === 0 || connected.has(wavePort) || connected.has("Out")) {
+      return wavePort;
+    }
   }
-  if (outputs.includes("Wave Out")) {
-    return "Wave Out";
+  for (let i = 0; i < outputs.length; i += 1) {
+    const port = outputs[i];
+    if (connected.has(port)) {
+      return port;
+    }
   }
-  return outputs[0] || "Out";
+  return wavePort || outputs[0] || "Out";
 }
 
 // nodeGraphModuleScopeCaptureMonitors → node-graph-module-scope-capture.js

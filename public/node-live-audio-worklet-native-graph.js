@@ -4977,19 +4977,29 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       // Limiter faces need Gain (Saw) / Env (Ramp) — Mono alone looks like
       // biased program audio, not the detector envelope.
       // Chaosfly X/Y live on Saw/Ramp (always stereo image, not mono-collapsed).
+      // PolyBLEP/BLIT: publish shape taps so a Sine-only (etc.) cable can feed
+      // the face. Unused taps stay silent in DSP via polyblep_tap_mask.
       const ports = type === "basicShape" || type === "sineWavetable" || type === "sinCos"
         ? facePorts.concat(P.NATIVE_GRAPH_PORT_PHASE01)
-        : (type === "fractalBrownianNoise" || type === "chaosfly"
+        : (type === "polyBlep" || type === "blit"
           ? facePorts.concat(
             P.NATIVE_GRAPH_PORT_SAW,
             P.NATIVE_GRAPH_PORT_RAMP,
             P.NATIVE_GRAPH_PORT_SQUARE,
+            P.NATIVE_GRAPH_PORT_TRI,
+            P.NATIVE_GRAPH_PORT_SINE,
           )
-          : (type === "limiter"
-            ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW, P.NATIVE_GRAPH_PORT_RAMP)
-            : (type === "lookaheadLimiter"
-              ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW)
-              : facePorts)));
+          : (type === "fractalBrownianNoise" || type === "chaosfly"
+            ? facePorts.concat(
+              P.NATIVE_GRAPH_PORT_SAW,
+              P.NATIVE_GRAPH_PORT_RAMP,
+              P.NATIVE_GRAPH_PORT_SQUARE,
+            )
+            : (type === "limiter"
+              ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW, P.NATIVE_GRAPH_PORT_RAMP)
+              : (type === "lookaheadLimiter"
+                ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW)
+                : facePorts))));
       const bindings = [];
       for (let pi = 0; pi < ports.length; pi += 1) {
         const portId = ports[pi];
