@@ -1359,7 +1359,11 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphBypass = function syncNativeGrap
   }
 };
 
-/** Recompile only when nodes/wires change; bypass is a light flag sync. */
+/**
+ * Recompile only when nodes/wires change; bypass is a light flag sync.
+ * Prefer surgical add/remove so deleting an unrelated module does not wipe
+ * Ping Envelope / filter / delay state (soemdsp_graph_clear was a full reset).
+ */
 NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlan = function syncNativeGraphFromPlan() {
   if (!this.efficientProduct) return false;
   const key = this.nativeGraphTopologyKey();
@@ -1370,7 +1374,18 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlan = function syncNativeGr
     }
     return true;
   }
-  const ok = this.compileNativeGraphFromPlan();
+  // Cold start or missing surgical APIs → full compile.
+  const native = this.nativeGraph;
+  const canSurgical = Boolean(
+    this.nativeGraphHandle
+    && this.nativeGraphCompiled
+    && typeof native?.soemdsp_graph_remove_node === "function"
+    && typeof native?.soemdsp_graph_clear_connections === "function"
+    && typeof native?.soemdsp_graph_compile === "function"
+  );
+  const ok = canSurgical
+    ? this.syncNativeGraphFromPlanSurgical()
+    : this.compileNativeGraphFromPlan();
   if (ok) {
     this._nativeGraphTopologyKey = key;
     this.syncNativeGraphBypass();
@@ -1379,6 +1394,227 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlan = function syncNativeGr
   }
   return ok;
 };
+
+/**
+ * Incremental topology sync: remove deleted natives, add new ones, rebuild
+ * wires only. Surviving nodes keep env/phase/filter memory.
+ */
+NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
+  function syncNativeGraphFromPlanSurgical() {
+    if (!this.efficientProduct || !this.nativeGraphHandle) return false;
+    if (!this.nativeGraphExportsReady()) {
+      this.postNativeGraphStatus("missing", "graph_engine exports not loaded");
+      return false;
+    }
+    const native = this.nativeGraph;
+    const audioTypes = NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS;
+    const desired = new Map();
+    for (const [id, node] of this.nodes) {
+      const type = String(node?.type || "");
+      const typeId = this.mapNativeGraphTypeId(type);
+      if (!typeId || !Object.prototype.hasOwnProperty.call(audioTypes, type)) continue;
+      desired.set(id, { type, typeId, hash: this.fnv1aHash32(id), params: node.params || {} });
+    }
+    const prev = this._nativeGraphNodeIds instanceof Set
+      ? this._nativeGraphNodeIds
+      : new Set();
+
+    try {
+      for (const id of prev) {
+        if (desired.has(id)) continue;
+        const rc = native.soemdsp_graph_remove_node(this.nativeGraphHandle, this.fnv1aHash32(id)) | 0;
+        if (rc !== 0 && rc !== -3) {
+          this.postNativeGraphStatus("warning", `remove_node ${id} rc=${rc}`);
+        }
+      }
+
+      const addedIds = [];
+      for (const [id, info] of desired) {
+        if (prev.has(id)) continue;
+        const rc = native.soemdsp_graph_add_node(this.nativeGraphHandle, info.hash, info.typeId) | 0;
+        if (rc !== 0) {
+          this.postNativeGraphStatus(
+            "warning",
+            rc === -5
+              ? `native instance pool exhausted for ${id} (${info.type}) — skipped`
+              : `add_node failed (${rc}) for ${id} (${info.type}) — skipped`,
+          );
+          desired.delete(id);
+          continue;
+        }
+        addedIds.push(id);
+      }
+
+      if (!desired.size) {
+        this.nativeGraphCompiled = false;
+        this._nativeGraphNodeIds = new Set();
+        this.postNativeGraphStatus("idle", "nodes=0 after surgical sync");
+        return false;
+      }
+
+      // Drop prior host Bias feeders (not in the patch node list) before rewiring.
+      if (Array.isArray(this._nativeHostCvFeeders)) {
+        for (let i = 0; i < this._nativeHostCvFeeders.length; i += 1) {
+          const feed = this._nativeHostCvFeeders[i];
+          const feedHash = feed?.hash || feed?.feedHash;
+          if (!feedHash) continue;
+          try {
+            native.soemdsp_graph_remove_node(this.nativeGraphHandle, feedHash | 0);
+          } catch (_e) { /* ignore */ }
+        }
+      }
+
+      // Rebuild edges without destroying surviving DSP instances.
+      native.soemdsp_graph_clear_connections(this.nativeGraphHandle);
+
+      const idSet = new Set(desired.keys());
+      const hashById = new Map([...desired].map(([id, info]) => [id, info.hash]));
+      const typeById = new Map([...desired].map(([id, info]) => [id, info.type]));
+      this._planConnectionsByDst = null;
+      this.ensurePlanConnectionsByDst();
+
+      const hostFeeders = [];
+      const hostFeederHashByKey = new Map();
+      const biasTypeId = audioTypes.bias;
+      const attOffsetParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
+      const monoPort = NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+      const connectOne = (srcId, srcPort, dstId, dstPort) => {
+        if (idSet.has(srcId)) {
+          const rc = native.soemdsp_graph_connect(
+            this.nativeGraphHandle,
+            hashById.get(srcId),
+            this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId)),
+            hashById.get(dstId),
+            this.mapNativeGraphDstPortId(dstPort, typeById.get(dstId)),
+          ) | 0;
+          return rc === 0;
+        }
+        if (!srcId || !biasTypeId) return true;
+        const feedKey = `${srcId}\0${String(srcPort || "")}`;
+        let feedHash = hostFeederHashByKey.get(feedKey);
+        if (!feedHash) {
+          const feedId = `__hostCv:${srcId}:${String(srcPort || "")}`;
+          feedHash = this.fnv1aHash32(feedId);
+          const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, biasTypeId) | 0;
+          if (arc !== 0) return false;
+          hostFeederHashByKey.set(feedKey, feedHash);
+          hostFeeders.push({
+            feedHash,
+            sourceNode: srcId,
+            sourcePort: String(srcPort || ""),
+          });
+        }
+        const rc = native.soemdsp_graph_connect(
+          this.nativeGraphHandle,
+          feedHash,
+          monoPort,
+          hashById.get(dstId),
+          this.mapNativeGraphDstPortId(dstPort, typeById.get(dstId)),
+        ) | 0;
+        return rc === 0;
+      };
+
+      const connections = Array.isArray(this._planConnections) ? this._planConnections : [];
+      for (const c of connections) {
+        const src = String(c?.sourceNode || "");
+        const dst = String(c?.destinationNode || "");
+        if (!dst || !idSet.has(dst)) continue;
+        connectOne(src, c?.sourcePort, dst, c?.destinationPort);
+      }
+
+      // Param MOD edges — same key format as compileNativeGraphFromPlan (dstId.paramKey).
+      const liveParamModKeys = new Set();
+      const discrete = NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS || {};
+      const zohOnlyTypes = new Set([
+        "additiveGenerator",
+        "additiveNoisyAmp",
+        "additivePan",
+        "additivePhaseEntry",
+        "additiveQuantizeFreq",
+        "additiveQuantizePhase",
+        "additiveLinearFilter",
+        "additiveAnalogFilter",
+        "additiveLadderFilter",
+      ]);
+      const modsMap = this.modulationConnections;
+      if (
+        modsMap
+        && typeof modsMap.forEach === "function"
+        && typeof native.soemdsp_graph_add_param_mod_edge === "function"
+      ) {
+        modsMap.forEach((mods, modKey) => {
+          const keyStr = String(modKey || "");
+          const dot = keyStr.lastIndexOf(".");
+          if (dot < 0) return;
+          const dstId = keyStr.slice(0, dot);
+          const paramKey = keyStr.slice(dot + 1);
+          if (!idSet.has(dstId)) return;
+          if (discrete[paramKey]) return;
+          const dstType = String(typeById.get(dstId) || "");
+          if (zohOnlyTypes.has(dstType)) return;
+          const paramId = typeof this.mapNativeGraphParamId === "function"
+            ? this.mapNativeGraphParamId(dstType, paramKey)
+            : (NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS || {})[paramKey];
+          if (!Number.isFinite(paramId)) return;
+          if (!Array.isArray(mods)) return;
+          for (let i = 0; i < mods.length; i += 1) {
+            const m = mods[i];
+            if (!m) continue;
+            const srcId = String(m.sourceNode || "");
+            const srcPort = String(m.sourcePort || "");
+            if (!srcId || !idSet.has(srcId)) continue;
+            const srcPortId = this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId));
+            if (!Number.isFinite(srcPortId) || srcPortId < 0) continue;
+            try {
+              const rc = native.soemdsp_graph_add_param_mod_edge(
+                this.nativeGraphHandle,
+                hashById.get(srcId),
+                srcPortId | 0,
+                hashById.get(dstId),
+                paramId | 0,
+              ) | 0;
+              if (rc !== 0) continue;
+            } catch (_e) {
+              continue;
+            }
+            liveParamModKeys.add(`${dstId}\0${paramKey}\0${srcId}\0${srcPort}`);
+          }
+        });
+      }
+      this._nativeLiveParamModKeys = liveParamModKeys;
+      this._nativePhaseModLiveKeys = liveParamModKeys;
+
+      const crc = native.soemdsp_graph_compile(this.nativeGraphHandle) | 0;
+      if (crc !== 0) {
+        this.postNativeGraphStatus("error", `surgical compile failed (${crc})`);
+        return false;
+      }
+
+      this.nativeGraphCompiled = true;
+      this._nativeGraphNodeIds = new Set(desired.keys());
+      this._nativeHostCvFeeders = hostFeeders;
+      // Keep param cache warm for survivors; only force push for newly added.
+      if (addedIds.length && this._nativeGraphParamCache && typeof this._nativeGraphParamCache === "object") {
+        for (const id of addedIds) {
+          try {
+            delete this._nativeGraphParamCache[id];
+          } catch (_e) { /* ignore */ }
+        }
+      }
+      this._nativeGraphParamCacheCold = false;
+      if (typeof this.syncNativeGraphParams === "function") {
+        this.syncNativeGraphParams();
+      }
+      this.postNativeGraphStatus(
+        "ok",
+        `surgical nodes=${desired.size} removed=${[...prev].filter((id) => !desired.has(id)).length} added=${addedIds.length}`,
+      );
+      return true;
+    } catch (error) {
+      this.postNativeGraphStatus("error", String(error?.message || error || "surgical sync failed"));
+      return false;
+    }
+  };
 
 /**
  * Efficient compile owns allowlist natives. Release leftover per-module
@@ -1430,6 +1666,8 @@ NodeLiveAudioProcessor.prototype.destroyNativeGraphHandle = function destroyNati
   this.nativeGraphBlockViews = null;
   this.nativeGraphPortViewCache = null;
   this._nativeGraphParamCache = null;
+  this._nativeGraphNodeIds = new Set();
+  this._nativeHostCvFeeders = [];
   // Next syncNativeGraphParams must re-push every Control after a destroy/clear.
   this._nativeGraphParamCacheCold = true;
 };
@@ -4524,6 +4762,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
 
     this.nativeGraphCompiled = true;
     this._nativeGraphTopologyKey = this.nativeGraphTopologyKey();
+    this._nativeGraphNodeIds = new Set(nodes.map((n) => n.id));
     // New native handles — force PCM / curve re-upload.
     this._nativeAudioPlayerPcmCache = new Map();
     this._nativeGraphCurveCache = new Map();
@@ -4539,6 +4778,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
   } catch (error) {
     this.nativeGraphCompiled = false;
     this._nativeGraphTopologyKey = "";
+    this._nativeGraphNodeIds = new Set();
     this.postNativeGraphStatus("error", String(error?.message || error || "compile threw"));
     return false;
   }

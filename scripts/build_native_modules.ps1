@@ -34,6 +34,7 @@ $modules = @(
   ) }
   @{ Name = "graph_engine"; Simd = $false; Exports = @(
     "soemdsp_graph_create", "soemdsp_graph_destroy", "soemdsp_graph_clear",
+    "soemdsp_graph_remove_node", "soemdsp_graph_clear_connections",
     "soemdsp_graph_set_sample_rate",
     "soemdsp_graph_set_pitch_offset",
     "soemdsp_graph_add_node", "soemdsp_graph_connect", "soemdsp_graph_set_param",
@@ -510,6 +511,10 @@ if ($node) {
   & $node.Source "$root\scripts\smoke_cycle_freq_mod_not_block_zoh.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: cycle freq mod block-ZOH smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_remove_node_preserves_state.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: remove_node preserves state smoke FAILED"
   }
 } else {
   Write-Warning "node not found -- combined wasm smoke test SKIPPED. Install Node.js to enable it."

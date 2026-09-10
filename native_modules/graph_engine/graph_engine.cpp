@@ -9946,6 +9946,75 @@ extern "C" void soemdsp_graph_clear(int handle) {
   clear_graph_contents(*g);
 }
 
+// Surgical node removal — keeps other nodes' DSP state (env, phase, filters).
+extern "C" int soemdsp_graph_remove_node(int handle, unsigned int nodeIdHash) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  if (nodeIdHash == 0) return -2;
+  const int idx = find_node(*g, nodeIdHash);
+  if (idx < 0) return -3;
+  Node& n = g->nodes[idx];
+  release_node_papoulis_controls(n);
+  destroy_node_native(n);
+  n.used = false;
+  n.idHash = 0;
+  n.nativeHandle = 0;
+  n.nativeHandleL = 0;
+  n.nativeHandleR = 0;
+
+  int wc = 0;
+  for (int i = 0; i < g->connCount; i++) {
+    if (!g->conns[i].used) continue;
+    if (g->conns[i].srcHash == nodeIdHash || g->conns[i].dstHash == nodeIdHash) continue;
+    g->conns[wc++] = g->conns[i];
+  }
+  g->connCount = wc;
+
+  int wm = 0;
+  for (int i = 0; i < g->paramModEdgeCount; i++) {
+    if (!g->paramModEdges[i].used) continue;
+    if (g->paramModEdges[i].srcHash == nodeIdHash || g->paramModEdges[i].dstHash == nodeIdHash) {
+      continue;
+    }
+    g->paramModEdges[wm++] = g->paramModEdges[i];
+  }
+  g->paramModEdgeCount = wm;
+
+  int we = 0;
+  for (int i = 0; i < g->edgeCount; i++) {
+    if (!g->edges[i].used) continue;
+    if (g->edges[i].srcHash == nodeIdHash || g->edges[i].dstHash == nodeIdHash) continue;
+    g->edges[we++] = g->edges[i];
+  }
+  g->edgeCount = we;
+
+  // Compact node slot so order/compile stay dense.
+  if (idx < g->nodeCount - 1) {
+    g->nodes[idx] = g->nodes[g->nodeCount - 1];
+  }
+  g->nodes[g->nodeCount - 1].used = false;
+  g->nodes[g->nodeCount - 1].idHash = 0;
+  g->nodeCount -= 1;
+  g->compiled = false;
+  g->orderCount = 0;
+  g->outputNodeIndex = -1;
+  return 0;
+}
+
+// Drop Port + Control edges only — keep node DSP state.
+extern "C" int soemdsp_graph_clear_connections(int handle) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  g->compiled = false;
+  g->connCount = 0;
+  g->edgeCount = 0;
+  g->paramModEdgeCount = 0;
+  for (int i = 0; i < kMaxConnections; i++) g->conns[i].used = false;
+  for (int i = 0; i < kMaxParamModEdges; i++) g->paramModEdges[i].used = false;
+  g->orderCount = 0;
+  return 0;
+}
+
 extern "C" void soemdsp_graph_set_pitch_offset(int handle, double octaves) {
   Circuit* g = get(handle);
   if (!g) return;
@@ -10464,9 +10533,11 @@ extern "C" int soemdsp_graph_compile(int handle) {
 
   int indeg[kMaxNodes];
   unsigned char removed[kMaxNodes];
+  int usedCount = 0;
   for (int i = 0; i < g->nodeCount; i++) {
     indeg[i] = 0;
-    removed[i] = 0;
+    removed[i] = g->nodes[i].used ? 0 : 1;
+    if (g->nodes[i].used) usedCount += 1;
   }
   for (int i = 0; i < g->connCount; i++) {
     if (!g->conns[i].used) continue;
@@ -10486,11 +10557,11 @@ extern "C" int soemdsp_graph_compile(int handle) {
     indeg[d] += 1;
   }
 
-  while (g->orderCount < g->nodeCount) {
+  while (g->orderCount < usedCount) {
     int pick = -1;
     int pickOut = -1;
     for (int i = 0; i < g->nodeCount; i++) {
-      if (removed[i] || indeg[i] > 0) continue;
+      if (removed[i] || indeg[i] > 0 || !g->nodes[i].used) continue;
       if (g->nodes[i].typeId == kTypeOutput) {
         if (pickOut < 0) pickOut = i;
       } else if (pick < 0) {
@@ -10501,7 +10572,7 @@ extern "C" int soemdsp_graph_compile(int handle) {
     if (pick < 0) {
       for (int pass = 0; pass < 2; pass++) {
         for (int i = 0; i < g->nodeCount; i++) {
-          if (removed[i]) continue;
+          if (removed[i] || !g->nodes[i].used) continue;
           const bool isOut = g->nodes[i].typeId == kTypeOutput;
           if (pass == 0 && isOut) continue;
           if (pass == 1 && !isOut) continue;
@@ -11690,6 +11761,6 @@ extern "C" int soemdsp_graph_max_block_frames() {
 }
 
 extern "C" int soemdsp_graph_version() {
-  // 129: PolyBLEP Morph stamps ParamModEdge; post-MOD domain clamp default on
-  return 129;
+  // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
+  return 130;
 }
