@@ -1944,6 +1944,8 @@ struct Circuit {
   double mixTrigger[kMaxBlockFrames];
   double mixMorph[kMaxBlockFrames];
   double mixPhaseCv[kMaxBlockFrames];
+  // Set by control_frame each sample; -1 outside sample loops.
+  int audioFrame;
 };
 
 // Morph ZOH: one sample per quantum. additiveCv = knob + Morph[0] (softwave-style);
@@ -3589,27 +3591,59 @@ static inline void control_ensure_stepped(Circuit& g, Control& c, int f) {
 }
 
 // Sample-accurate heard param: chase then effective (MOD after smooth).
+// Prefer control_frame() in sample loops — that chases *all* node Controls so
+// helpers using control_effective (phase_offset_cycles, shape_param_01, …)
+// cannot silently go block-rate again.
 static inline double control_audio(Circuit& g, Control& c, int f) {
   control_ensure_stepped(g, c, f);
   return control_effective(c);
 }
 
-// Fast-path predicate: any continuous Control on this node is chasing.
-static bool node_has_active_chase(const Node& node) {
-  const Control* slots[] = {
-    &node.volumeDb, &node.pan, &node.frequency, &node.amplitude, &node.shape,
-    &node.phaseParam, &node.resonance, &node.center, &node.width, &node.mix,
-    &node.gainDb, &node.gainLeftDb, &node.gainRightDb, &node.gainMonoSum, &node.offset,
-    &node.lpfFrequency, &node.hpfFrequency, &node.feedback, &node.level,
-    &node.timeNumerator, &node.timeDenominator,
+// Every continuous Control slot on a Node (SSOT list for chase + predicates).
+static inline void node_for_each_control(Node& node, void (*fn)(Control&, void*), void* ctx) {
+  Control* slots[] = {
+    &node.volumeDb, &node.pan, &node.frequency, &node.waveform, &node.amplitude,
+    &node.shape, &node.phaseParam, &node.resonance, &node.mode, &node.stages,
+    &node.center, &node.width, &node.oversample, &node.mix, &node.diffusionSize,
+    &node.diffusionAmount, &node.delaySize, &node.recycle, &node.lfoAmplitude,
+    &node.lfoBaseSpeed, &node.lfoVariation, &node.seed, &node.feedback, &node.level,
+    &node.timeNumerator, &node.timeDenominator, &node.timingMode, &node.offsetMs,
+    &node.tapOffsetMs, &node.lfoStyle, &node.lfoRate, &node.saturate, &node.lpfFrequency,
+    &node.hpfFrequency, &node.tempoBpm, &node.offset, &node.inLow, &node.inHigh,
+    &node.outLow, &node.outHigh, &node.gainDb, &node.gainLeftDb, &node.gainRightDb,
+    &node.gainMonoSum,
     &node.laneVol[0], &node.laneVol[1], &node.laneVol[2], &node.laneVol[3],
     &node.laneBias[0], &node.laneBias[1], &node.laneBias[2], &node.laneBias[3],
     &node.bleed2, &node.bleed3, &node.bleed4
   };
   for (unsigned i = 0; i < sizeof(slots) / sizeof(slots[0]); i++) {
-    if (slots[i]->active && !slots[i]->snap) return true;
+    if (slots[i]) fn(*slots[i], ctx);
   }
-  return false;
+}
+
+static void control_frame_step_one(Control& c, void* ctx) {
+  Circuit* g = (Circuit*)ctx;
+  control_ensure_stepped(*g, c, g->audioFrame);
+}
+
+// SSOT per audio sample on the owning node: stamp live MOD, then chase every
+// active continuous Control. Not opt-in per knob — Phase/Volume/Morph/Freq
+// all advance here. Sample loops must call this once per f before reading.
+static inline void control_frame(Circuit& g, Node& node, int f) {
+  stamp_live_param_mods(g, node, f);
+  g.audioFrame = f;
+  node_for_each_control(node, control_frame_step_one, &g);
+}
+
+static void node_mark_active_chase(Control& c, void* ctx) {
+  if (c.active && !c.snap) *static_cast<bool*>(ctx) = true;
+}
+
+// Fast-path predicate: any continuous Control on this node is chasing.
+static bool node_has_active_chase(const Node& node) {
+  bool any = false;
+  node_for_each_control(const_cast<Node&>(node), node_mark_active_chase, &any);
+  return any;
 }
 
 static void smoother_run(Circuit& g, int n) {
@@ -4194,7 +4228,7 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
     node.lastReset = 0.0;
   }
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     morph = shape_param_01(node);
     level = control_audio(g, node.amplitude, f);
     if (!(level == level)) level = 0.0;
@@ -4282,7 +4316,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
       out0 = ptr_from_export(soemdsp_ladder_filter_block_output_ptr(node.nativeHandle));
       if (!inPtr || !out0) return;
       for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
         inPtr[f] = g.mixMono[f];
         if (!hasLeftIn && !hasRightIn) inPtr[f] += g.mixLeft[f] + g.mixRight[f];
       }
@@ -4315,7 +4349,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
     }
     if (amp != 1.0) {
       for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
         node.buf[kPortMono][f] *= amp;
         node.buf[kPortLeft][f] *= amp;
         node.buf[kPortRight][f] *= amp;
@@ -4326,7 +4360,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
 
   // Live ƒ / 0.1V/Oct and/or Control chase: per-sample cutoff / resonance.
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 1.0;
     reso = control_audio(g, node.resonance, f);
@@ -4401,7 +4435,7 @@ static void process_clipper_limiter(Circuit& g, Node& node, int frames) {
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
@@ -4452,7 +4486,7 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
     out0 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 0));
     if (!in0 || !out0) return;
     for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+        control_frame(g, node, f);
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) {
         in += g.mixLeft[f] + g.mixRight[f];
@@ -4468,7 +4502,7 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
     double* out1 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 1));
     if (in1 && out1) {
       for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
         in1[f] = (g.mixLeft[f] + g.mixMono[f]) * drive;
       }
       soemdsp_soft_clipper_process_block(node.nativeHandle, 1, frames);
@@ -4483,7 +4517,7 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
     double* out2 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 2));
     if (in2 && out2) {
       for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
         in2[f] = (g.mixRight[f] + g.mixMono[f]) * drive;
       }
       soemdsp_soft_clipper_process_block(node.nativeHandle, 2, frames);
@@ -4519,7 +4553,7 @@ static void process_reverb(Circuit& g, Node& node, int frames) {
 
   // Mono In folds into both sides; dedicated L/R add on top (JS mixInput).
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double mono = g.mixMono[f];
     inL[f] = mono + g.mixLeft[f];
     inR[f] = mono + g.mixRight[f];
@@ -4530,7 +4564,7 @@ static void process_reverb(Circuit& g, Node& node, int frames) {
   copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
   copy_tap_to_buf(node.buf[kPortRight], outR, frames);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     node.buf[kPortDryL][f] = inL[f];
     node.buf[kPortDryR][f] = inR[f];
     node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
@@ -4546,7 +4580,7 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
   // delay = tempoBase + Offset_ms + LFO_Amp_ms * lfoBipolar.
   // Keep stereo: Mono folds into both; Left/Right stay separate (no L+R sum).
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double dryL = g.mixMono[f] + g.mixLeft[f];
     const double dryR = g.mixMono[f] + g.mixRight[f];
     const double offsetMs = control_audio(g, node.offsetMs, f);
@@ -4591,7 +4625,7 @@ static void process_attenuverter(Circuit& g, Node& node, int frames) {
   double* outPtr = ptr_from_export(soemdsp_attenuverter_block_output_ptr(node.nativeHandle));
   if (!inPtr || !outPtr) return;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
   }
   soemdsp_attenuverter_process_block(node.nativeHandle, frames);
@@ -4610,7 +4644,7 @@ static void process_amp_curve(Circuit& g, Node& node, int frames) {
   double* outPtr = ptr_from_export(soemdsp_amp_curve_block_output_ptr(node.nativeHandle));
   if (!inPtr || !outPtr) return;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
   }
   soemdsp_amp_curve_process_block(node.nativeHandle, frames);
@@ -4633,7 +4667,7 @@ static void process_range(Circuit& g, Node& node, int frames) {
   double* outPtr = ptr_from_export(soemdsp_range_block_output_ptr(node.nativeHandle));
   if (!inPtr || !outPtr) return;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
   }
   soemdsp_range_process_block(node.nativeHandle, frames);
@@ -4646,7 +4680,7 @@ static void process_range(Circuit& g, Node& node, int frames) {
 static void process_inv(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double out = -(g.mixMono[f] + g.mixLeft[f] + g.mixRight[f]);
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
@@ -4677,7 +4711,7 @@ static void process_transistor(Circuit& g, Node& node, int frames) {
   const bool hasDigital = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double unit = hasAnalog ? g.mixMorph[f] : 0.0;
     double u = unit;
     if (u < 0.0) u = 0.0;
@@ -4709,7 +4743,7 @@ static void process_transistor(Circuit& g, Node& node, int frames) {
 static void process_u2b(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = 2.0 * in - 1.0;
     node.buf[kPortMono][f] = out;
@@ -4721,7 +4755,7 @@ static void process_u2b(Circuit& g, Node& node, int frames) {
 static void process_b2u(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = (in + 1.0) * 0.5;
     node.buf[kPortMono][f] = out;
@@ -4743,7 +4777,7 @@ static void process_min_max(Circuit& g, Node& node, int frames) {
   const bool c4 = mix_live_port(g, node, kPortIn4, frames, in4);
   const int mask = (c1 ? 1 : 0) | (c2 ? 2 : 0) | (c3 ? 4 : 0) | (c4 ? 8 : 0);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double mx = soemdsp_min_max_sample(
       node.nativeHandle, in1[f], in2[f], in3[f], in4[f], mask
     );
@@ -4763,7 +4797,7 @@ static void process_mix(Circuit& g, Node& node, int frames) {
   mix_live_port(g, node, kPortIn3, frames, in3);
   mix_live_port(g, node, kPortIn4, frames, in4);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double v1 = control_audio(g, node.laneVol[0], f);
     const double v2 = control_audio(g, node.laneVol[1], f);
     const double v3 = control_audio(g, node.laneVol[2], f);
@@ -4802,7 +4836,7 @@ static void process_clock(Circuit& g, Node& node, int frames) {
   const double duty = control_effective(node.shape);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double reset = hasReset ? g.mixReset[f] : 0.0;
     const double rate = liveF ? g.mixF[f] : rateKnob;
     const double digital = soemdsp_clock_sample(
@@ -4825,7 +4859,7 @@ static void process_trigger_divider(Circuit& g, Node& node, int frames) {
   const double pulseTime = control_effective(node.timeNumerator);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double out = soemdsp_trigger_divider_sample(
       node.nativeHandle,
       hasTrig ? g.mixTrigger[f] : 0.0,
@@ -4854,7 +4888,7 @@ static void process_clock_divider(Circuit& g, Node& node, int frames) {
   const double duty = control_effective(node.shape);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double out = soemdsp_trigger_divider_sample_clock(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
@@ -4878,7 +4912,7 @@ static void process_alias_sine(Circuit& g, Node& node, int frames) {
   const double normFreq = control_effective(node.frequency);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double y = soemdsp_alias_sine_sample(node.nativeHandle, normFreq, level, sr);
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
@@ -4898,7 +4932,7 @@ static void process_phone_tone(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = 48.0 / 120.0;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 0.0;
     const double pitchOff = control_audio(g, node.shape, f);
@@ -4950,7 +4984,7 @@ static void process_blit(Circuit& g, Node& node, int frames) {
   double freePhase = node.phase;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double level = control_audio(g, node.amplitude, f);
     if (!(level == level)) level = 0.0;
     const double phaseParamNow = control_audio(g, node.phaseParam, f);
@@ -5052,7 +5086,7 @@ static void sin_cos_pair_advance(
 
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double liveCv = livePhase ? g.mixPhaseCv[f] : 0.0;
     const double phaseOff = phase_offset_cycles(node.phaseParam, liveCv) * kTwoPi;
     double amp = control_audio(g, node.amplitude, f);
@@ -5109,7 +5143,7 @@ static void process_antisaw(Circuit& g, Node& node, int frames) {
   const double tilt = control_effective(node.shape);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double fundamental = liveF ? g.mixF[f] : control_audio(g, node.frequency, f);
     const double y = soemdsp_antisaw_sample(
       node.nativeHandle, fundamental, reflections, tilt, level, sr
@@ -5144,7 +5178,7 @@ static void process_archimedes(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -5201,7 +5235,7 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
   const double heldDamp = control_effective(node.lpfFrequency);
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -5850,7 +5884,7 @@ static void process_surge_oscillator(Circuit& g, Node& node, int frames) {
   if (waveform > 3) waveform = 3;
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -5890,7 +5924,7 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -5942,7 +5976,7 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
   if (waveform > 4) waveform = 4;
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     morph = morph_zoh_hold(g, node, liveMorph, true);
     level = control_audio(g, node.amplitude, f);
     double freq = resolve_osc_hz(
@@ -5994,7 +6028,7 @@ static void process_hypersaw(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -6073,7 +6107,7 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -6127,7 +6161,7 @@ static void process_sinc(Circuit& g, Node& node, int frames) {
   const double bandLimit = control_effective(node.mode);
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6164,7 +6198,7 @@ static void process_bradley2a(Circuit& g, Node& node, int frames) {
   const double level = control_effective(node.amplitude);
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6219,7 +6253,7 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
   double phase = node.phase; // cycles 0..1
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -6286,7 +6320,7 @@ static void process_snowflake(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double resetGate = 0.0;
     if (liveReset) {
       const double rv = g.mixReset[f];
@@ -6326,7 +6360,7 @@ static void process_speaker_protection(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
@@ -6356,7 +6390,7 @@ static void process_speaker_protector2(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   // drop/hold/rise reused on timeNumerator / timeDenominator / offsetMs.
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double l = g.mixLeft[f] + g.mixMono[f];
     const double r = g.mixRight[f] + g.mixMono[f];
     double outL = 0.0, outR = 0.0, outM = 0.0;
@@ -6389,7 +6423,7 @@ static void process_papoulis_filter(Circuit& g, Node& node, int frames) {
   const double referenceVoltage = 48.0 / 120.0;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6431,7 +6465,7 @@ static void process_scientific_iir(
   const double ripple = control_effective(node.resonance);
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6457,7 +6491,7 @@ static void process_eq_filter(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6504,7 +6538,7 @@ static void process_eq_filter_fixed_mode(
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6556,7 +6590,7 @@ static void process_phase_disperse(Circuit& g, Node& node, int frames) {
   const double referenceVoltage = 48.0 / 120.0;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6576,7 +6610,7 @@ static void process_quadrature(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double amp = control_audio(g, node.amplitude, f);
     double i = 0.0, q = 0.0, midI = 0.0, sideQ = 0.0;
     soemdsp_quadrature_process_sample(
@@ -6599,7 +6633,7 @@ static void process_hilbert(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double modeV = control_effective(node.mode);
     int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
     if (mode < 0) mode = 0;
@@ -6621,7 +6655,7 @@ static void process_binary_clock(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double out = soemdsp_binary_clock_sample(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
@@ -6666,7 +6700,7 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double lo = control_audio(g, node.hpfFrequency, f);
     double hi = control_audio(g, node.lpfFrequency, f);
     if (!(lo == lo)) lo = 200.0;
@@ -6756,7 +6790,7 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double lo = control_audio(g, node.hpfFrequency, f);
     double hi = control_audio(g, node.lpfFrequency, f);
     if (!(lo == lo)) lo = 200.0;
@@ -6842,7 +6876,7 @@ static void process_tb303_filter(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6892,7 +6926,7 @@ static void process_norm_chaos_filter(
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double freq = control_audio(g, node.frequency, f);
     if (!(freq == freq)) freq = 0.5;
     if (freq < 0.0) freq = 0.0;
@@ -6959,7 +6993,7 @@ static void process_flower_child_filter(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double freq = control_audio(g, node.frequency, f);
     if (!(freq == freq)) freq = 0.5;
     if (freq < 0.0) freq = 0.0;
@@ -7028,7 +7062,7 @@ static void process_chaotic_phase_locking_filter(Circuit& g, Node& node, int fra
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double freq = control_audio(g, node.frequency, f);
     if (!(freq == freq)) freq = 0.5;
     if (freq < 0.0) freq = 0.0;
@@ -7067,7 +7101,7 @@ static void process_mode_resonator(Circuit& g, Node& node, int frames) {
     || node.timeNumerator.active || node.amplitude.active;
   const int hold = (int)(control_effective(node.timingMode) + (control_effective(node.timingMode) >= 0.0 ? 0.5 : -0.5));
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -7102,7 +7136,7 @@ static void process_comb_resonator(Circuit& g, Node& node, int frames) {
   if (invert < 0) invert = 0;
   if (invert > 1) invert = 1;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -7123,7 +7157,7 @@ static void process_inertial_filter(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node) || node.lpfFrequency.active;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_inertial_filter_sample(
       node.nativeHandle,
@@ -7147,7 +7181,7 @@ static void process_exp_adsr(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_exp_adsr_sample(
       node.nativeHandle,
@@ -7179,7 +7213,7 @@ static void process_attack_decay(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_attack_decay_sample(
       node.nativeHandle,
@@ -7206,7 +7240,7 @@ static void process_linear_attack_release(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_linear_attack_release_sample(
       node.nativeHandle,
@@ -7232,7 +7266,7 @@ static void process_curve_attack_release(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_curve_attack_release_sample(
       node.nativeHandle,
@@ -7262,7 +7296,7 @@ static void process_thump_envelope(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
     const double mono = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double gate = trig + mono;
@@ -7294,7 +7328,7 @@ static void process_pluck_envelope_3(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
     const double mono = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double input = trig + mono;
@@ -7333,7 +7367,7 @@ static void process_basic_shape(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -7363,7 +7397,7 @@ static void process_linear_envelope(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_linear_envelope_sample(
       node.nativeHandle,
@@ -7398,7 +7432,7 @@ static void process_pluck_envelope(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double trigger = hasTrig ? g.mixTrigger[f] : 0.0;
     const double releaseGate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_pluck_envelope_sample(
@@ -7437,7 +7471,7 @@ static void process_expo_pluck_envelope(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double trigger = hasTrig ? g.mixTrigger[f] : 0.0;
     const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_expo_pluck_envelope_sample(
@@ -7471,7 +7505,7 @@ static void process_expo_pluck_envelope_2(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double trigger = hasTrig ? g.mixTrigger[f] : 0.0;
     // Release jack folds via Mono+L+R (same as pluckEnvelope).
     const double releaseGate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
@@ -7507,7 +7541,7 @@ static void process_flower_child_envelope_follower(Circuit& g, Node& node, int f
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double env = soemdsp_flower_child_envelope_follower_sample(
       node.nativeHandle,
@@ -7532,7 +7566,7 @@ static void process_vactrol(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double light = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double env = soemdsp_vactrol_envelope_sample(
       node.nativeHandle,
@@ -7560,7 +7594,7 @@ static void process_delay_effect(Circuit& g, Node& node, int frames) {
   const unsigned int seed = node.idHash;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     soemdsp_delay_effect_sample(
       node.nativeHandle,
@@ -7624,7 +7658,7 @@ static void process_soem_reverb(Circuit& g, Node& node, int frames) {
     control_effective(node.offsetMs)
   );
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double mono = g.mixMono[f];
     const double inL = mono + g.mixLeft[f];
     const double inR = mono + g.mixRight[f];
@@ -7663,7 +7697,7 @@ static void process_pll(Circuit& g, Node& node, int frames) {
     control_effective(node.frequency)
   );
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     soemdsp_pll_process(
       node.nativeHandle,
       g.mixMono[f],
@@ -7686,7 +7720,7 @@ static void process_lorenz_attractor(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     soemdsp_lorenz_attractor_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
@@ -7714,7 +7748,7 @@ static void process_logistic_map(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double out = soemdsp_logistic_map_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
@@ -7738,7 +7772,7 @@ static void process_henon_map(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     soemdsp_henon_map_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
@@ -7766,7 +7800,7 @@ static void process_chua_attractor(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     soemdsp_chua_attractor_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
@@ -7801,7 +7835,7 @@ static void process_chaosfly(Circuit& g, Node& node, int frames) {
   const double referenceVoltage = 48.0 / 120.0;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -7854,7 +7888,7 @@ static void process_ray_bouncer(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     soemdsp_ray_bouncer_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
@@ -7891,7 +7925,7 @@ static void process_chord_memory(Circuit& g, Node& node, int frames) {
   const bool hasAdvance = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool hasPitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double note1 = soemdsp_chord_memory_sample(
       node.nativeHandle,
       hasLatch ? g.mixTrigger[f] : 0.0,
@@ -7916,7 +7950,7 @@ static void process_chord_sequencer(Circuit& g, Node& node, int frames) {
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double progression = control_effective(node.mode);
     const double clock = hasClock ? g.mixTrigger[f] : 0.0;
     soemdsp_chord_sequencer_sample(
@@ -7943,7 +7977,7 @@ static void process_pitch_quantizer(Circuit& g, Node& node, int frames) {
   const bool hasScale = mix_live_port(g, node, kPortMono, frames, g.mixMono);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double pitch = hasPitch ? g.mixPitch[f] : 0.0;
     int mask;
     if (hasScale) {
@@ -7966,7 +8000,7 @@ static void process_turing_machine(Circuit& g, Node& node, int frames) {
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double cv = soemdsp_turing_machine_sample(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
@@ -7988,7 +8022,7 @@ static void process_chord_pad(Circuit& g, Node& node, int frames) {
   const bool hasSelect = mix_live_port(g, node, kPortMono, frames, g.mixMono);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double scale = soemdsp_chord_pad_sample(
       node.nativeHandle,
       hasSelect ? g.mixMono[f] : 0.0,
@@ -8011,7 +8045,7 @@ static void process_note_glide(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double out = soemdsp_note_glide_sample(
       node.nativeHandle,
       hasPitch ? g.mixPitch[f] : 0.0,
@@ -8030,7 +8064,7 @@ static void process_note_transpose(Circuit& g, Node& node, int frames) {
   const bool hasPitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double out = soemdsp_note_transpose_sample(
       node.nativeHandle,
       hasPitch ? g.mixPitch[f] : 0.0,
@@ -8054,7 +8088,7 @@ static void process_degree_turing(Circuit& g, Node& node, int frames) {
   const bool hasRoot = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double pitch = soemdsp_degree_turing_sample(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
@@ -8088,7 +8122,7 @@ static void process_degree_phrase(Circuit& g, Node& node, int frames) {
   const bool hasRoot = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double pitch = soemdsp_degree_phrase_sample(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
@@ -8126,7 +8160,7 @@ static void process_arp(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double pitch = soemdsp_arp_sample(
       node.nativeHandle,
       hasHeld ? g.mixMono[f] : 0.0,
@@ -8160,7 +8194,7 @@ static void process_gravity_walker(Circuit& g, Node& node, int frames) {
   const bool hasLeap = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double pitch = soemdsp_gravity_walker_sample(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
@@ -8239,7 +8273,7 @@ static void process_smooth_graph(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   // smoothingMode→STAGES, tension→SHAPE
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double inSample = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const bool hasIn = true; // mix may be silent; map still applies when mode=Input
     const double x = graph_curve_sample_x(g, node, f, hasIn, inSample);
@@ -8259,7 +8293,7 @@ static void process_step_graph(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   // segmentShape→WAVEFORM, curveOffset→CENTER
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double inSample = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double x = graph_curve_sample_x(g, node, f, true, inSample);
     const double y = soemdsp_step_graph_sample(
@@ -8281,7 +8315,7 @@ static void process_fractal_brownian_noise(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const bool high = hasReset && g.mixReset[f] > 0.0;
     if (high && !wasHigh) soemdsp_fbm_reset(node.nativeHandle);
     wasHigh = high;
@@ -8324,7 +8358,7 @@ static void process_pi_spigot_noise(Circuit& g, Node& node, int frames) {
     node.lastReset = key;
   }
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     soemdsp_pi_spigot_noise_sample(
       node.nativeHandle, control_effective(node.mode), control_audio(g, node.shape, f), control_audio(g, node.amplitude, f)
     );
@@ -8346,7 +8380,7 @@ static void process_cheap_walk(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active;
   // rate → frequency Control; seed → seed Control
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double left = 0.0;
     double right = 0.0;
     soemdsp_cheap_walk_sample_stereo(
@@ -8369,7 +8403,7 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -8405,7 +8439,7 @@ static void process_wow_and_flutter(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -8447,7 +8481,7 @@ static void process_random_walk(Circuit& g, Node& node, int frames) {
     node.lastReset = seed;
   }
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double left = soemdsp_random_walk_sample(
       node.nativeHandle,
       control_effective(node.mode),
@@ -8480,7 +8514,7 @@ static void process_pulse_explosion(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double out = soemdsp_pulse_explosion_sample(
       node.nativeHandle,
       hasTrig ? g.mixTrigger[f] : 0.0,
@@ -8519,7 +8553,7 @@ static void process_jerobeam_spiral(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     soemdsp_jerobeam_spiral_sample(
       node.nativeHandle,
       control_audio(g, node.frequency, f), control_audio(g, node.shape, f), control_audio(g, node.width, f), control_audio(g, node.resonance, f),
@@ -8539,7 +8573,7 @@ static void process_fractal_spiral(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     soemdsp_fractal_spiral_sample(
       node.nativeHandle,
       control_audio(g, node.frequency, f), control_audio(g, node.phaseParam, f), control_audio(g, node.width, f), control_audio(g, node.shape, f),
@@ -8557,7 +8591,7 @@ static void process_log_spiral(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     soemdsp_log_spiral_sample(
       node.nativeHandle,
       control_audio(g, node.frequency, f), control_audio(g, node.phaseParam, f), control_audio(g, node.width, f), control_audio(g, node.shape, f),
@@ -8577,7 +8611,7 @@ static void process_blubb(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbblubb_reset(node.nativeHandle);
     }
@@ -8598,7 +8632,7 @@ static void process_boing(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbboing_reset(node.nativeHandle);
     }
@@ -8622,7 +8656,7 @@ static void process_kepler_bouwkamp(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbkepler_reset(node.nativeHandle);
     }
@@ -8643,7 +8677,7 @@ static void process_mushroom(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbmushroom_reset(node.nativeHandle);
     }
@@ -8668,7 +8702,7 @@ static void process_nyquist_shannon(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbnyquist_reset(node.nativeHandle);
     }
@@ -8691,7 +8725,7 @@ static void process_radar(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbradar_reset(node.nativeHandle);
     }
@@ -8716,7 +8750,7 @@ static void process_torus(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbtorus_reset(node.nativeHandle);
     }
@@ -8740,7 +8774,7 @@ static void process_wirdo_spiral(Circuit& g, Node& node, int frames) {
   const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbwirdo_reset(node.nativeHandle);
     }
@@ -8782,7 +8816,7 @@ static void process_phosphillator(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double x = soemdsp_phosphillator_sample(
       node.nativeHandle,
       hasPitch ? g.mixPitch[f] : 0.0,
@@ -8812,7 +8846,7 @@ static void process_transport(Circuit& g, Node& node, int frames) {
   const double pulseWidth = control_effective(node.width);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double bipolar = soemdsp_transport_sample(
       node.nativeHandle,
       amplitude,
@@ -8854,7 +8888,7 @@ static void process_step_sequencer(Circuit& g, Node& node, int frames) {
   const double v6 = control_effective(node.laneBias[2]);
   const double v7 = control_effective(node.laneBias[3]);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double out = soemdsp_step_sequencer_sample(
       node.nativeHandle,
       hasTrig ? g.mixTrigger[f] : 0.0,
@@ -8888,7 +8922,7 @@ static void process_pump_limiter(Circuit& g, Node& node, int frames) {
   const double lookaheadEnabled = control_effective(node.mode);
   const double amplitude = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double l = g.mixMono[f] + g.mixLeft[f];
     const double r = g.mixMono[f] + g.mixRight[f];
     const double sc = hasSc ? g.mixMorph[f] : 0.0;
@@ -8932,7 +8966,7 @@ static void process_audio_player(Circuit& g, Node& node, int frames) {
     || node.seed.active || node.frequency.active || node.amplitude.active
     || node.timeNumerator.active || node.timeDenominator.active;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     if (takeSamplePath) {
       Control* chase[] = {
         &node.phaseParam, &node.shape, &node.seed, &node.frequency, &node.amplitude,
@@ -8986,7 +9020,7 @@ static void process_lookahead_limiter(Circuit& g, Node& node, int frames) {
   const double gainCompensation = control_effective(node.timingMode);
   const double dipGain = control_effective(node.laneBias[1]);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double l = g.mixMono[f] + g.mixLeft[f];
     const double r = g.mixMono[f] + g.mixRight[f];
     const double monoOut = soemdsp_lookahead_limiter_sample(
@@ -9015,7 +9049,7 @@ static void process_metallic_ratio(Circuit& g, Node& node, int frames) {
   const double index = control_effective(node.width);
   const double ratio = soemdsp_metallic_ratio_sample(index);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     node.buf[kPortMono][f] = ratio;
     node.buf[kPortLeft][f] = ratio;
     node.buf[kPortRight][f] = ratio;
@@ -9032,7 +9066,7 @@ static void process_harmonic_series(Circuit& g, Node& node, int frames) {
   if (!liveF) {
     const double hz = soemdsp_harmonic_series_sample(knobHz, harmonic, offset);
     for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+        control_frame(g, node, f);
       node.buf[kPortMono][f] = hz;
       node.buf[kPortLeft][f] = knobHz;
       node.buf[kPortRight][f] = hz;
@@ -9040,7 +9074,7 @@ static void process_harmonic_series(Circuit& g, Node& node, int frames) {
     return;
   }
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double base = g.mixF[f];
     const double hz = soemdsp_harmonic_series_sample(base, harmonic, offset);
     node.buf[kPortMono][f] = hz;
@@ -9060,7 +9094,7 @@ static void process_lut_cell(Circuit& g, Node& node, int frames) {
   const bool hasClk = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double truth = control_effective(node.seed);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double clk = hasClk ? g.mixTrigger[f] : 0.0;
     const int comb = soemdsp_lut_cell_sample(
       node.nativeHandle, a[f], b[f], c[f], d[f], clk, truth
@@ -9086,7 +9120,7 @@ static void process_random_clock(Circuit& g, Node& node, int frames) {
   const double level = control_effective(node.amplitude);
   const int seedKey = (int)(control_effective(node.seed) + (control_effective(node.seed) >= 0.0 ? 0.5 : -0.5));
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double trig = soemdsp_random_clock_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
@@ -9118,7 +9152,7 @@ static void process_trigger_counter(Circuit& g, Node& node, int frames) {
   const double pulseTime = control_effective(node.timeNumerator);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double pulse = soemdsp_trigger_counter_sample(
       node.nativeHandle,
       hasTrig ? g.mixTrigger[f] : 0.0,
@@ -9147,7 +9181,7 @@ static void process_delayed_trigger(Circuit& g, Node& node, int frames) {
   const double pulseTime = control_effective(node.timeDenominator);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double out = soemdsp_delayed_trigger_sample(
       node.nativeHandle,
       hasTrig ? g.mixTrigger[f] : 0.0,
@@ -9173,7 +9207,7 @@ static void process_mid_side_encode(Circuit& g, Node& node, int frames) {
   const double midGain = control_effective(node.gainDb);
   const double sideGain = control_effective(node.gainLeftDb);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     node.buf[kPortMono][f] = soemdsp_mid_side_encode_sample(
       0.0, left[f], right[f], midGain, sideGain
     );
@@ -9191,7 +9225,7 @@ static void process_vectorscope_transform(Circuit& g, Node& node, int frames) {
   mix_live_port(g, node, kPortRight, frames, right);
   const double rotateDeg = control_effective(node.laneBias[0]);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     node.buf[kPortMono][f] = soemdsp_vectorscope_transform_sample(
       0.0, left[f], right[f], rotateDeg
     );
@@ -9213,7 +9247,7 @@ static void process_rotate_3d_to_2d(Circuit& g, Node& node, int frames) {
   const double ry = control_effective(node.laneBias[1]);
   const double rz = control_effective(node.laneBias[2]);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     node.buf[kPortMono][f] = soemdsp_rotate_3d_to_2d_sample(
       0.0, xIn[f], yIn[f], zIn[f], rx, ry, rz
     );
@@ -9246,7 +9280,7 @@ static void process_crossover(Circuit& g, Node& node, int frames) {
   const int bands = crossover_band_count_for_type(node.typeId);
   const double amp = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double f0 = liveF ? g.mixF[f] : control_audio(g, node.frequency, f);
     double f1 = control_audio(g, node.center, f);
     double f2 = control_audio(g, node.width, f);
@@ -9294,7 +9328,7 @@ static void process_mix_stereo(Circuit& g, Node& node, int frames) {
   mix_live_port(g, node, 7, frames, l4);
   mix_live_port(g, node, kPortMixStereoR4, frames, r4);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double vol1 = control_audio(g, node.laneVol[0], f);
     const double vol2 = control_audio(g, node.laneVol[1], f);
     const double vol3 = control_audio(g, node.laneVol[2], f);
@@ -9339,7 +9373,7 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
     break;
   }
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
     const double out = soemdsp_sample_hold_sample(
@@ -9369,7 +9403,7 @@ static void process_sample_delay(Circuit& g, Node& node, int frames) {
     || (node.timeNumerator.active && !node.timeNumerator.snap)
     || (node.timeDenominator.active && !node.timeDenominator.snap);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double timeSec = control_audio(g, node.timeNumerator, f);
     const double samples = control_audio(g, node.timeDenominator, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
@@ -9389,7 +9423,7 @@ static void process_comparator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     soemdsp_comparator_sample(node.nativeHandle, in);
     node.buf[kPortCmpThru][f] = soemdsp_comparator_thru(node.nativeHandle);
@@ -9410,7 +9444,7 @@ static void process_slew_limiter(Circuit& g, Node& node, int frames) {
   double* inPtr = ptr_from_export(soemdsp_slew_limiter_block_input_ptr(node.nativeHandle));
   if (!inPtr) return;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
   }
   // timeNumerator=upTime, timeDenominator=downTime, shape=upShape, mode=downShape, offset=bias
@@ -9435,7 +9469,7 @@ static void process_slew_limiter(Circuit& g, Node& node, int frames) {
 static void process_bias(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double bias = control_audio(g, node.offset, f);
     const double out = (g.mixMono[f] + g.mixLeft[f] + g.mixRight[f]) + bias;
     node.buf[kPortMono][f] = out;
@@ -9466,7 +9500,7 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
   }
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     double resetGate = 0.0;
     if (liveReset) {
       const double rv = g.mixReset[f];
@@ -9520,7 +9554,7 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
   if (outM) copy_tap_to_buf(node.buf[kPortMono], outM, frames);
   else {
     for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+        control_frame(g, node, f);
       node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
     }
   }
@@ -9548,7 +9582,7 @@ static void process_noise_generator(Circuit& g, Node& node, int frames) {
   copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
   copy_tap_to_buf(node.buf[kPortRight], outR, frames);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
   }
 }
@@ -9568,7 +9602,7 @@ static void process_raster_rgb(Circuit& g, Node& node, int frames) {
   const double invert = control_effective(node.center);
   const double hue = control_effective(node.phaseParam);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     soemdsp_raster_rgb_sample(
       node.nativeHandle,
       rIn[f], gIn[f], bIn[f],
@@ -9585,7 +9619,7 @@ static void process_raster_rgb(Circuit& g, Node& node, int frames) {
 static void process_gain(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double masterDb = control_audio(g, node.gainDb, f);
     const double leftDb = control_audio(g, node.gainLeftDb, f);
     const double rightDb = control_audio(g, node.gainRightDb, f);
@@ -9609,7 +9643,7 @@ static void process_gain(Circuit& g, Node& node, int frames) {
 static void process_output(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     float gL = 1.0f, gR = 1.0f;
     pan_gains((float)control_audio(g, node.pan, f), &gL, &gR);
     const float vol = db_to_lin((float)control_audio(g, node.volumeDb, f));
@@ -9631,7 +9665,7 @@ static void process_portal_outlet(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   (void)monoOutWired;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double m = hasMonoIn ? g.mixMono[f] : 0.0;
     const double lIn = hasLeftIn ? g.mixLeft[f] : 0.0;
     const double rIn = hasRightIn ? g.mixRight[f] : 0.0;
@@ -9664,7 +9698,7 @@ static void process_portal_inlet(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   (void)monoOutWired;
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double m = hasMonoIn ? g.mixMono[f] : 0.0;
     const double lIn = hasLeftIn ? g.mixLeft[f] : 0.0;
     const double rIn = hasRightIn ? g.mixRight[f] : 0.0;
@@ -9732,7 +9766,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
   }
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-    stamp_live_param_mods(g, node, f);
+    control_frame(g, node, f);
     const double mono = g.mixMono[f];
     const double left = mono + g.mixLeft[f];
     const double right = mono + g.mixRight[f];
@@ -10347,6 +10381,7 @@ extern "C" int soemdsp_graph_compile(int handle) {
 
 extern "C" int soemdsp_graph_process_block(int handle, int n) {
   Circuit* g = get(handle);
+  g->audioFrame = -1;
   if (!g || !g->compiled) return -1;
   int frames = n;
   if (frames < 1) return -2;
